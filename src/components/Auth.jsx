@@ -44,6 +44,12 @@ export default function Auth({ onLogin }) {
           }
         });
         if (error) throw error;
+        
+        if (!data.session) {
+          setErrorMsg('Konto skapat! Men du måste stänga av "Confirm email" i Supabase (Authentication -> Providers -> Email) för att automatisk inloggning ska fungera. Eller klicka på länken i mailet du just fick.');
+          setLoading(false);
+          return;
+        }
         // User is created and auto-logged in, onAuthStateChange handles it
       }
     } catch (err) {
