@@ -42,6 +42,11 @@ import Taxes from './components/Taxes';
 import LandingPage from './components/LandingPage';
 import Auth from './components/Auth';
 import { supabase } from './supabaseClient';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import PrivacyPolicy from './components/PrivacyPolicy';
+import TermsPolicy from './components/TermsPolicy';
+import GDPRPolicy from './components/GDPRPolicy';
+import CookiesPolicy from './components/CookiesPolicy';
 
 // ──────────────────────────────────────────────
 // Default company data factory
@@ -150,7 +155,7 @@ function App() {
     setSidebarOpen(false);
   };
 
-// ── Helpers ──
+  // ── Helpers ──
   const updateCompanyField = useCallback((field, value) => {
     setData(prev => ({
       ...prev,
@@ -269,11 +274,19 @@ function App() {
   const handleCreateCompany = () => {
     const name = newCompanyName.trim();
     if (!name) return;
-    const newCompanyData = createEmptyCompanyData({ name, orgNr: newCompanyOrg.trim() });
+
+    const newCompanyData = createEmptyCompanyData({
+      name,
+      orgNr: newCompanyOrg.trim(),
+    });
+
     setData(prev => ({
       ...prev,
       activeCompanyId: newCompanyData.company.id,
-      companies: { ...prev.companies, [newCompanyData.company.id]: newCompanyData },
+      companies: {
+        ...prev.companies,
+        [newCompanyData.company.id]: newCompanyData,
+      },
     }));
     setNewCompanyName('');
     setNewCompanyOrg('');
@@ -294,6 +307,7 @@ function App() {
   const expenses = currentCompany.expenses;
   const contacts = currentCompany.contacts;
 
+  // ── Helpers ──
   const setAccounts = (fn) => {
     const newVal = typeof fn === 'function' ? fn(accounts) : fn;
     updateCompanyField('accounts', newVal);
@@ -674,15 +688,19 @@ function App() {
   };
 
   return (
-    <>
-    {!isLoggedIn ? (
-      showLanding 
-        ? <LandingPage onEnterApp={() => setShowLanding(false)} />
-        : <Auth onLogin={handleLogin} />
-    ) : (
-    <div className="app-container">
+    <Routes>
+      <Route
+        path="/"
+        element={
+          <>
+            {!isLoggedIn ? (
+              showLanding 
+                ? <LandingPage onEnterApp={() => setShowLanding(false)} />
+                : <Auth onLogin={handleLogin} />
+            ) : (
+            <div className="app-container">
 
-      {/* ── Sidebar overlay (mobil) ── */}
+              {/* ── Sidebar overlay (mobil) ── */}
 
       {sidebarOpen && (
         <div
@@ -846,6 +864,14 @@ function App() {
     </div>
     )}
     </>
+          }
+        />
+        <Route path="/privacy" element={<PrivacyPolicy />} />
+        <Route path="/terms" element={<TermsPolicy />} />
+        <Route path="/gdpr" element={<GDPRPolicy />} />
+        <Route path="/cookies" element={<CookiesPolicy />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
   );
 }
 

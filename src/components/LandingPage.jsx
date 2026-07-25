@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import {
   FileText, BarChart3, Users, Clock, Shield, Zap, CheckCircle,
   ArrowRight, ChevronRight, Star, TrendingUp, Receipt, BookOpen,
@@ -487,12 +488,17 @@ export default function LandingPage({ onEnterApp }) {
             <div>
               <h4 style={{ fontSize: '15px', fontWeight: 700, color: 'white', marginBottom: '20px' }}>Juridiskt</h4>
               <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {['Användarvillkor', 'Integritetspolicy', 'GDPR', 'Cookies'].map(link => (
-                  <li key={link}>
-                    <a href="#" style={{ fontSize: '14px', color: '#64748b', textDecoration: 'none', transition: 'color 0.2s' }}
+                {[
+                  { title: 'Användarvillkor', to: '/terms' },
+                  { title: 'Integritetspolicy', to: '/privacy' },
+                  { title: 'GDPR', to: '/gdpr' },
+                  { title: 'Cookies', to: '/cookies' },
+                ].map(link => (
+                  <li key={link.title}>
+                    <Link to={link.to} style={{ fontSize: '14px', color: '#64748b', textDecoration: 'none', transition: 'color 0.2s' }}
                       onMouseEnter={e => e.currentTarget.style.color = '#5ba85a'}
                       onMouseLeave={e => e.currentTarget.style.color = '#64748b'}
-                    >{link}</a>
+                    >{link.title}</Link>
                   </li>
                 ))}
               </ul>
