@@ -129,6 +129,9 @@ function App() {
   const [showLanding, setShowLanding] = useState(true);
   const [user, setUser] = useState(null);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
+  const [newCompanyModal, setNewCompanyModal] = useState(false);
+  const [newCompanyName, setNewCompanyName] = useState('');
+  const [newCompanyOrg, setNewCompanyOrg] = useState('');
 
   // Global intent state
   const [globalAction, setGlobalAction] = useState(null);
@@ -146,6 +149,20 @@ function App() {
     setActiveTab(tabId);
     setSidebarOpen(false);
   };
+
+// ── Helpers ──
+  const updateCompanyField = useCallback((field, value) => {
+    setData(prev => ({
+      ...prev,
+      companies: {
+        ...prev.companies,
+        [prev.activeCompanyId]: {
+          ...prev.companies[prev.activeCompanyId],
+          [field]: value,
+        },
+      },
+    }));
+  }, []);
 
   // Auth effect
   useEffect(() => {
@@ -249,6 +266,21 @@ function App() {
     // Auth component now handles Supabase calls. We just rely on onAuthStateChange.
   };
 
+  const handleCreateCompany = () => {
+    const name = newCompanyName.trim();
+    if (!name) return;
+    const newCompanyData = createEmptyCompanyData({ name, orgNr: newCompanyOrg.trim() });
+    setData(prev => ({
+      ...prev,
+      activeCompanyId: newCompanyData.company.id,
+      companies: { ...prev.companies, [newCompanyData.company.id]: newCompanyData },
+    }));
+    setNewCompanyName('');
+    setNewCompanyOrg('');
+    setNewCompanyModal(false);
+    setActiveTab('dashboard');
+  };
+
   if (isLoadingAuth) {
     return <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', color: '#64748b', fontSize: '18px', fontFamily: 'sans-serif' }}>Laddar... (Kontrollera att Supabase-nycklar är inlagda)</div>;
   }
@@ -261,20 +293,6 @@ function App() {
   const invoices = currentCompany.invoices;
   const expenses = currentCompany.expenses;
   const contacts = currentCompany.contacts;
-
-  // ── Helpers ──
-  const updateCompanyField = useCallback((field, value) => {
-    setData(prev => ({
-      ...prev,
-      companies: {
-        ...prev.companies,
-        [prev.activeCompanyId]: {
-          ...prev.companies[prev.activeCompanyId],
-          [field]: value,
-        },
-      },
-    }));
-  }, []);
 
   const setAccounts = (fn) => {
     const newVal = typeof fn === 'function' ? fn(accounts) : fn;
