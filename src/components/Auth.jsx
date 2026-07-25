@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
 import { BookOpen, LogIn, UserPlus, Building2, Mail, Lock, ArrowRight, ShieldCheck } from 'lucide-react';
+import { supabase } from '../supabaseClient';
 
 export default function Auth({ onLogin }) {
   const [isLogin, setIsLogin] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
   
   // Login form state
   const [loginEmail, setLoginEmail] = useState('');
@@ -14,14 +17,39 @@ export default function Auth({ onLogin }) {
   const [regCompany, setRegCompany] = useState('');
   const [regOrgNr, setRegOrgNr] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (isLogin) {
-      if (!loginEmail || !loginPassword) return;
-      onLogin({ email: loginEmail, name: 'Befintligt Företag AB', orgNr: '556000-0000' }, false);
-    } else {
-      if (!regEmail || !regPassword || !regCompany || !regOrgNr) return;
-      onLogin({ email: regEmail, name: regCompany, orgNr: regOrgNr }, true);
+    setErrorMsg('');
+    setLoading(true);
+
+    try {
+      if (isLogin) {
+        if (!loginEmail || !loginPassword) throw new Error('Fyll i alla fält');
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: loginEmail,
+          password: loginPassword,
+        });
+        if (error) throw error;
+        // The onAuthStateChange in App.jsx will handle the login transition
+      } else {
+        if (!regEmail || !regPassword || !regCompany || !regOrgNr) throw new Error('Fyll i alla fält');
+        const { data, error } = await supabase.auth.signUp({
+          email: regEmail,
+          password: regPassword,
+          options: {
+            data: {
+              company_name: regCompany,
+              org_nr: regOrgNr,
+            }
+          }
+        });
+        if (error) throw error;
+        // User is created and auto-logged in, onAuthStateChange handles it
+      }
+    } catch (err) {
+      setErrorMsg(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -136,11 +164,17 @@ export default function Auth({ onLogin }) {
             </>
           )}
 
-          <button type="submit" style={{ width: '100%', padding: '14px', background: 'linear-gradient(135deg, #5ba85a, #4a9e49)', border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: 700, color: 'white', cursor: 'pointer', marginTop: '8px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', boxShadow: '0 8px 20px -5px rgba(91,168,90,0.4)', transition: 'all 0.2s', fontFamily: 'inherit' }}
-            onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
-            onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+          {errorMsg && (
+            <div style={{ padding: '12px', background: '#fee2e2', color: '#b91c1c', borderRadius: '8px', fontSize: '13px', marginBottom: '16px', fontWeight: 600 }}>
+              {errorMsg}
+            </div>
+          )}
+
+          <button type="submit" disabled={loading} style={{ width: '100%', padding: '14px', background: 'linear-gradient(135deg, #5ba85a, #4a9e49)', border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: 700, color: 'white', cursor: loading ? 'wait' : 'pointer', marginTop: '8px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', boxShadow: '0 8px 20px -5px rgba(91,168,90,0.4)', transition: 'all 0.2s', fontFamily: 'inherit', opacity: loading ? 0.7 : 1 }}
+            onMouseEnter={e => { if(!loading) e.currentTarget.style.transform = 'translateY(-1px)' }}
+            onMouseLeave={e => { if(!loading) e.currentTarget.style.transform = 'none' }}
           >
-            {isLogin ? 'Logga in' : 'Skapa företagskonto'} <ArrowRight size={16} />
+            {loading ? 'Laddar...' : (isLogin ? 'Logga in' : 'Skapa företagskonto')} <ArrowRight size={16} />
           </button>
         </form>
 

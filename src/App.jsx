@@ -41,6 +41,7 @@ import Payroll from './components/Payroll';
 import Taxes from './components/Taxes';
 import LandingPage from './components/LandingPage';
 import Auth from './components/Auth';
+import { supabase } from './supabaseClient';
 
 // ──────────────────────────────────────────────
 // Default company data factory
@@ -126,6 +127,8 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showLanding, setShowLanding] = useState(true);
+  const [user, setUser] = useState(null);
+  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
 
   // Global intent state
   const [globalAction, setGlobalAction] = useState(null);
@@ -144,10 +147,89 @@ function App() {
     setSidebarOpen(false);
   };
 
+  // Auth effect
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        fetchUserData(session.user);
+      } else {
+        setIsLoadingAuth(false);
+      }
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        fetchUserData(session.user);
+      } else {
+        setIsLoggedIn(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const fetchUserData = async (authUser) => {
+    try {
+      const { data: dbData, error } = await supabase
+        .from('user_data')
+        .select('state')
+        .eq('user_id', authUser.id)
+        .single();
+      
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching data:', error);
+      }
+
+      if (dbData && dbData.state) {
+        setData(dbData.state);
+        setIsLoggedIn(true);
+      } else {
+        // First login, create data based on metadata
+        const metadata = authUser.user_metadata || {};
+        const newData = createDefaultCompanyData({
+          name: metadata.company_name || 'Mitt Företag AB',
+          orgNr: metadata.org_nr || '556000-0000'
+        });
+        const initialStore = {
+          activeCompanyId: newData.company.id,
+          companies: { [newData.company.id]: newData },
+        };
+        setData(initialStore);
+        
+        // Save to Supabase
+        await supabase.from('user_data').insert({
+          user_id: authUser.id,
+          state: initialStore
+        });
+        
+        setIsLoggedIn(true);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoadingAuth(false);
+    }
+  };
+
   // Persist
   useEffect(() => {
     saveData(data);
-  }, [data]);
+    
+    // Sync to Supabase debounced
+    if (user && isLoggedIn) {
+      const timeoutId = setTimeout(() => {
+        supabase.from('user_data').upsert({
+          user_id: user.id,
+          state: data
+        }).then(({ error }) => {
+          if (error) console.error('Sync error:', error);
+        });
+      }, 2000);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [data, user, isLoggedIn]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -159,15 +241,12 @@ function App() {
   }, []);
 
   const handleLogin = (companyInfo, isNew) => {
-    if (isNew) {
-      const newData = createDefaultCompanyData(companyInfo);
-      setData({
-        activeCompanyId: newData.company.id,
-        companies: { [newData.company.id]: newData },
-      });
-    }
-    setIsLoggedIn(true);
+    // Auth component now handles Supabase calls. We just rely on onAuthStateChange.
   };
+
+  if (isLoadingAuth) {
+    return <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Laddar...</div>;
+  }
 
   // Current company data
   const currentCompany = data.companies[data.activeCompanyId];
@@ -623,6 +702,16 @@ function App() {
             ))}
           </div>
         </nav>
+
+        <div className="sidebar-footer">
+          <button className="nav-item" style={{ width: '100%', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px' }} onClick={async () => {
+            await supabase.auth.signOut();
+            setIsLoggedIn(false);
+          }}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7 }}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+            <span style={{ fontSize: '13.5px', letterSpacing: '-0.01em', color: '#475569' }}>Logga ut</span>
+          </button>
+        </div>
 
       </aside>
 
