@@ -43,6 +43,7 @@ import LandingPage from './components/LandingPage';
 import Auth from './components/Auth';
 import { supabase } from './supabaseClient';
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import PrivacyPolicy from './components/PrivacyPolicy';
 import TermsPolicy from './components/TermsPolicy';
 import GDPRPolicy from './components/GDPRPolicy';
@@ -688,16 +689,17 @@ function App() {
   };
 
   return (
-    <Routes>
-      <Route
-        path="/"
-        element={
-          <>
-            {!isLoggedIn ? (
-              showLanding 
-                ? <LandingPage onEnterApp={() => setShowLanding(false)} />
-                : <Auth onLogin={handleLogin} />
-            ) : (
+    <>
+      <Routes>
+        <Route
+          path="/"
+          element={
+            <>
+              {!isLoggedIn ? (
+                showLanding 
+                  ? <LandingPage onEnterApp={() => setShowLanding(false)} />
+                  : <Auth onLogin={handleLogin} />
+              ) : (
             <div className="app-container">
 
               {/* ── Sidebar overlay (mobil) ── */}
@@ -872,6 +874,8 @@ function App() {
         <Route path="/cookies" element={<CookiesPolicy />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <SpeedInsights />
+    </>
   );
 }
 
