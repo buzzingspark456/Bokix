@@ -47,6 +47,7 @@ import PrivacyPolicy from './components/PrivacyPolicy';
 import TermsPolicy from './components/TermsPolicy';
 import GDPRPolicy from './components/GDPRPolicy';
 import CookiesPolicy from './components/CookiesPolicy';
+import { Analytics } from '@vercel/analytics/react';
 
 // ──────────────────────────────────────────────
 // Default company data factory
@@ -688,16 +689,17 @@ function App() {
   };
 
   return (
-    <Routes>
-      <Route
-        path="/"
-        element={
-          <>
-            {!isLoggedIn ? (
-              showLanding 
-                ? <LandingPage onEnterApp={() => setShowLanding(false)} />
-                : <Auth onLogin={handleLogin} />
-            ) : (
+    <>
+      <Routes>
+        <Route
+          path="/"
+          element={
+            <>
+              {!isLoggedIn ? (
+                showLanding 
+                  ? <LandingPage onEnterApp={() => setShowLanding(false)} />
+                  : <Auth onLogin={handleLogin} />
+              ) : (
             <div className="app-container">
 
               {/* ── Sidebar overlay (mobil) ── */}
@@ -872,6 +874,8 @@ function App() {
         <Route path="/cookies" element={<CookiesPolicy />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <Analytics />
+    </>
   );
 }
 
