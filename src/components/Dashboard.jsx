@@ -221,32 +221,35 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
             Räkenskapsår {currentYear} · {company?.name || 'Bokix'}
           </p>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
-          {[['Ny offert', 'invoices'], ['Ny kund', 'contacts'], ['Ny utgift', 'expenses']].map(([label, tab]) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', fontSize: '13px', padding: '0', transition: 'color 0.15s', fontFamily: 'inherit' }}
-              onMouseEnter={e => e.currentTarget.style.color = LIME}
-              onMouseLeave={e => e.currentTarget.style.color = '#6b7280'}
-            >{label}</button>
-          ))}
-          <div style={{ width: '1px', height: '16px', background: '#e5e7eb' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {[['Ny offert', 'invoices'], ['Ny kund', 'contacts'], ['Ny utgift', 'expenses']].map(([label, tab], index) => (
+              <React.Fragment key={tab}>
+                <button
+                  onClick={() => setActiveTab(tab)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', fontSize: '13px', fontWeight: 500, padding: '0', transition: 'color 0.15s', fontFamily: 'inherit' }}
+                  onMouseEnter={e => e.currentTarget.style.color = LIME}
+                  onMouseLeave={e => e.currentTarget.style.color = '#6b7280'}
+                >{label}</button>
+                {index < 2 && <span style={{ color: '#d1d5db', fontSize: '13px', userSelect: 'none' }}>·</span>}
+              </React.Fragment>
+            ))}
+          </div>
           <button
             onClick={handleExport}
-            style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '7px 13px', background: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '13px', fontWeight: 500, cursor: 'pointer', color: '#374151', transition: 'all 0.15s', fontFamily: 'inherit' }}
+            style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '8px 14px', background: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: '#374151', transition: 'all 0.15s', fontFamily: 'inherit', marginLeft: '4px' }}
             onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
             onMouseLeave={e => e.currentTarget.style.background = 'white'}
           >
-            <Download size={13} /> Exportera
+            <Download size={14} /> Exportera
           </button>
           <button
             onClick={() => setActiveTab('invoices')}
-            style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '7px 14px', background: LIME, border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: 'white', transition: 'all 0.15s', fontFamily: 'inherit' }}
+            style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '8px 16px', background: LIME, border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: 'white', transition: 'all 0.15s', fontFamily: 'inherit' }}
             onMouseEnter={e => e.currentTarget.style.background = '#4a944a'}
             onMouseLeave={e => e.currentTarget.style.background = LIME}
           >
-            <FileText size={13} /> Ny faktura
+            <FileText size={14} /> Ny faktura
           </button>
         </div>
       </div>
