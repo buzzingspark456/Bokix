@@ -565,15 +565,23 @@ export default function Invoices({
 
               {/* Grön header-sektion */}
               <div style={{ background: `linear-gradient(135deg, ${SIDEBAR_DARK}, #2d5a3f)`, padding: '36px 44px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '20px' }}>
-                {/* Företagsinformation */}
-                <div>
-                  <div style={{ fontSize: '22px', fontWeight: 700, color: 'white', letterSpacing: '-0.03em', marginBottom: '10px' }}>
-                    {company?.name || 'Företagsnamn'}
-                  </div>
-                  <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.65)', lineHeight: 1.8 }}>
-                    {company?.address && <div>{company.address}</div>}
-                    {company?.email && <div>{company.email}</div>}
-                    {company?.phone && <div>{company.phone}</div>}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '18px', minWidth: 0 }}>
+                  {company?.logoUrl ? (
+                    <img src={company.logoUrl} alt={`${company.name} logotyp`} style={{ width: '80px', height: '80px', objectFit: 'contain', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.18)', background: 'white' }} />
+                  ) : (
+                    <div style={{ width: '80px', height: '80px', borderRadius: '16px', background: 'rgba(255,255,255,0.12)', display: 'grid', placeItems: 'center', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.18)', fontSize: '12px', textAlign: 'center' }}>
+                      Logotyp
+                    </div>
+                  )}
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: '22px', fontWeight: 700, color: 'white', letterSpacing: '-0.03em', marginBottom: '10px' }}>
+                      {company?.name || 'Företagsnamn'}
+                    </div>
+                    <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.65)', lineHeight: 1.8 }}>
+                      {company?.address && <div>{company.address}</div>}
+                      {company?.email && <div>{company.email}</div>}
+                      {company?.phone && <div>{company.phone}</div>}
+                    </div>
                   </div>
                 </div>
 

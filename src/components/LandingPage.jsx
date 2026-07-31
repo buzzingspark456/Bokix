@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import {
   FileText, BarChart3, Users, Clock, Shield, Zap, CheckCircle,
   ArrowRight, ChevronRight, Star, TrendingUp, Receipt, BookOpen,
@@ -59,7 +60,7 @@ const PRICING = [
 ];
 
 const TESTIMONIALS = [
-  { name: 'Maria Lindgren', company: 'ML Konsult AB', text: 'Bokföring.io har sparat mig minst 4 timmar i veckan. Fakturering och moms är ett nöje nu.', stars: 5, initials: 'ML' },
+  { name: 'Maria Lindgren', company: 'ML Konsult AB', text: 'Bokix har sparat mig minst 4 timmar i veckan. Fakturering och moms är ett nöje nu.', stars: 5, initials: 'ML' },
   { name: 'Johan Persson', company: 'Persson & Partners', text: 'Äntligen ett bokföringsprogram som faktiskt är enkelt. Rekommenderar det till alla mina kunder!', stars: 5, initials: 'JP' },
   { name: 'Sara Ahmed', company: 'Ahmed Design Studio', text: 'Lönehanteringen är fantastisk. Jag hanterar 8 anställda och det tar bara några minuter per månad.', stars: 5, initials: 'SA' },
 ];
@@ -120,7 +121,7 @@ export default function LandingPage({ onEnterApp }) {
             <div style={{ width: 36, height: 36, borderRadius: '10px', background: 'linear-gradient(135deg, #5ba85a, #3a8fc1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <BookOpen size={18} color="white" />
             </div>
-            <span style={{ fontSize: '18px', fontWeight: 800, letterSpacing: '-0.03em', color: '#111827' }}>Bokföring<span style={{ color: '#5ba85a' }}>.io</span></span>
+            <span style={{ fontSize: '18px', fontWeight: 800, letterSpacing: '-0.03em', color: '#111827' }}>Bokix</span>
           </div>
 
           {/* Desktop nav */}
@@ -202,7 +203,7 @@ export default function LandingPage({ onEnterApp }) {
                 <div style={{ width: '130px', background: '#f8fafc', borderRight: '1px solid #e2e8f0', padding: '16px 10px', flexShrink: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '20px', padding: '0 4px' }}>
                     <div style={{ width: 22, height: 22, borderRadius: '6px', background: 'linear-gradient(135deg, #5ba85a, #3a8fc1)' }} />
-                    <span style={{ fontSize: '11px', fontWeight: 800, color: '#111827' }}>Bokföring.io</span>
+                    <span style={{ fontSize: '11px', fontWeight: 800, color: '#111827' }}>Bokix</span>
                   </div>
                   {[
                     { label: 'Översikt', active: false },
@@ -446,7 +447,7 @@ export default function LandingPage({ onEnterApp }) {
                 <div style={{ width: 36, height: 36, borderRadius: '10px', background: 'linear-gradient(135deg, #5ba85a, #3a8fc1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <BookOpen size={18} color="white" />
                 </div>
-                <span style={{ fontSize: '20px', fontWeight: 800, color: 'white', letterSpacing: '-0.02em' }}>Bokföring<span style={{ color: '#5ba85a' }}>.io</span></span>
+                <span style={{ fontSize: '20px', fontWeight: 800, color: 'white', letterSpacing: '-0.02em' }}>Bokix</span>
               </div>
               <p style={{ fontSize: '14px', lineHeight: 1.6, color: '#64748b', maxWidth: '300px' }}>
                 Det moderna bokföringsprogrammet byggt för svenska småföretagare. Gör det svåra enkelt och spara tid.
@@ -487,12 +488,17 @@ export default function LandingPage({ onEnterApp }) {
             <div>
               <h4 style={{ fontSize: '15px', fontWeight: 700, color: 'white', marginBottom: '20px' }}>Juridiskt</h4>
               <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {['Användarvillkor', 'Integritetspolicy', 'GDPR', 'Cookies'].map(link => (
-                  <li key={link}>
-                    <a href="#" style={{ fontSize: '14px', color: '#64748b', textDecoration: 'none', transition: 'color 0.2s' }}
+                {[
+                  { title: 'Användarvillkor', to: '/terms' },
+                  { title: 'Integritetspolicy', to: '/privacy' },
+                  { title: 'GDPR', to: '/gdpr' },
+                  { title: 'Cookies', to: '/cookies' },
+                ].map(link => (
+                  <li key={link.title}>
+                    <Link to={link.to} style={{ fontSize: '14px', color: '#64748b', textDecoration: 'none', transition: 'color 0.2s' }}
                       onMouseEnter={e => e.currentTarget.style.color = '#5ba85a'}
                       onMouseLeave={e => e.currentTarget.style.color = '#64748b'}
-                    >{link}</a>
+                    >{link.title}</Link>
                   </li>
                 ))}
               </ul>
@@ -501,7 +507,7 @@ export default function LandingPage({ onEnterApp }) {
           
           <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
             <div style={{ fontSize: '13px', color: '#475569' }}>
-              © 2026 Bokföring.io. Utvecklat med ❤️ i Stockholm, Sverige.
+              © 2026 Bokix. Utvecklat med ❤️ i Stockholm, Sverige.
             </div>
             <div style={{ display: 'flex', gap: '16px' }}>
               <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

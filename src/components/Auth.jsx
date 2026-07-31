@@ -79,32 +79,26 @@ export default function Auth({ onLogin }) {
           <div style={{ width: 44, height: 44, borderRadius: '12px', background: 'linear-gradient(135deg, #5ba85a, #3a8fc1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <BookOpen size={22} color="white" />
           </div>
-          <span style={{ fontSize: '22px', fontWeight: 800, letterSpacing: '-0.03em', color: '#111827' }}>Bokföring<span style={{ color: '#5ba85a' }}>.io</span></span>
+          <div>
+            <h1 style={{ fontSize: '22px', fontWeight: 800, letterSpacing: '-0.03em', color: '#111827', margin: 0 }}>Bokix</h1>
+            <p style={{ fontSize: '18px', color: '#475569', lineHeight: 1.6, margin: '10px 0 0' }}>
+              Bokföring ska vara {isLogin ? 'enkelt.' : 'kul (nästan).'}
+            </p>
+          </div>
         </div>
 
-        <div style={{ position: 'relative', zIndex: 10, maxWidth: '440px' }}>
-          <h1 style={{ fontSize: '36px', fontWeight: 900, lineHeight: 1.1, color: '#0f172a', marginBottom: '20px', letterSpacing: '-0.04em' }}>
-            Bokföring ska vara {isLogin ? 'enkelt.' : 'kul (nästan).'}
-          </h1>
-          <p style={{ fontSize: '18px', color: '#475569', lineHeight: 1.6, marginBottom: '40px' }}>
-            {isLogin 
-              ? 'Logga in för att få en tydlig överblick över hur ditt företag mår, skicka fakturor och hantera utgifter.'
-              : 'Skapa ditt konto på under en minut och upptäck hur enkelt det är att driva företag med rätt verktyg.'}
-          </p>
-
-          <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginTop: '32px' }}>
             {['100% Säkert', 'BankID', 'Krypterat'].map(badge => (
               <div key={badge} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 600, color: '#64748b' }}>
                 <ShieldCheck size={16} color="#5ba85a" /> {badge}
               </div>
             ))}
           </div>
-        </div>
 
-        <div style={{ marginTop: 'auto', fontSize: '12px', color: '#94a3b8', position: 'relative' }}>
-          © 2026 Bokföring.io. Alla rättigheter förbehållna.
+          <div style={{ marginTop: 'auto', fontSize: '12px', color: '#94a3b8', position: 'relative' }}>
+            © 2026 Bokix. Alla rättigheter förbehållna.
+          </div>
         </div>
-      </div>
 
       {/* Right side: Form */}
       <div style={{ width: '480px', background: 'white', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '60px', boxShadow: '-20px 0 40px rgba(0,0,0,0.05)', flexShrink: 0, zIndex: 20 }}>

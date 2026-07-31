@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Save, Download, Upload, AlertTriangle, Building2, CreditCard,
   Check, Star, Zap, Shield, Users, FileText, ChevronRight,
@@ -6,11 +6,12 @@ import {
 } from 'lucide-react';
 
 const NAV_SECTIONS = [
+  { id: 'profile', label: 'Min profil', icon: User },
   { id: 'company', label: 'Företag', icon: Building2 },
   { id: 'payment', label: 'Betalning & Faktura', icon: CreditCard },
   { id: 'users', label: 'Användare & Åtkomst', icon: Users },
   { id: 'subscription', label: 'Prenumeration', icon: Star },
-  { id: 'data', label: 'Data & Säkerhet', icon: Database },
+  { id: 'data', label: 'Data & Inställningar', icon: Database },
 ];
 
 /* ── Section Header ── */
@@ -60,8 +61,15 @@ const inputStyle = {
   transition: 'all 0.15s', fontFamily: 'inherit', boxSizing: 'border-box',
 };
 
-export default function Settings({ company, setCompanyInfo, accounts, verifications, invoices, expenses, contacts, onImport, onReset }) {
+export default function Settings({ activeTab, company, setCompanyInfo, accounts, verifications, invoices, expenses, contacts, onImport, onReset }) {
   const [activeSection, setActiveSection] = useState('company');
+
+  useEffect(() => {
+    if (activeTab === 'profile') setActiveSection('profile');
+    else if (activeTab === 'company') setActiveSection('company');
+    else if (activeTab === 'users') setActiveSection('users');
+    else if (activeTab === 'settings') setActiveSection('data');
+  }, [activeTab]);
   const [formData, setFormData] = useState({ ...company });
   const [importText, setImportText] = useState('');
   const [showImport, setShowImport] = useState(false);
@@ -72,6 +80,10 @@ export default function Settings({ company, setCompanyInfo, accounts, verificati
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
+
+  React.useEffect(() => {
+    setFormData({ ...company });
+  }, [company]);
 
   const handleSave = (e) => {
     e.preventDefault();
@@ -146,6 +158,37 @@ export default function Settings({ company, setCompanyInfo, accounts, verificati
         {/* ── Content Panel ── */}
         <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '14px', padding: '28px 32px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
 
+          {/* ── MIN PROFIL ── */}
+          {activeSection === 'profile' && (
+            <div>
+              <SectionHeader icon={User} title="Min profil" subtitle="Dina personliga kontouppgifter och inställningar." />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
+                <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'linear-gradient(135deg, #3a8fc1, #5ba85a)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 700, fontSize: '24px' }}>
+                  {(company?.name || 'A')[0]}
+                </div>
+                <div>
+                  <button style={{ padding: '6px 12px', background: 'white', border: '1px solid #e5e7eb', borderRadius: '6px', fontSize: '12px', fontWeight: 500, cursor: 'pointer' }}>Byt profilbild</button>
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 20px' }}>
+                <Field label="Förnamn">
+                  <input type="text" defaultValue="Admin" style={inputStyle} />
+                </Field>
+                <Field label="Efternamn">
+                  <input type="text" defaultValue="Användare" style={inputStyle} />
+                </Field>
+              </div>
+              <Field label="E-postadress">
+                <input type="email" defaultValue={company?.email || ''} style={inputStyle} />
+              </Field>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '8px', borderTop: '1px solid #f3f4f6', marginTop: '8px' }}>
+                <button onClick={() => alert('Profil sparad!')} style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '9px 22px', background: '#3a8fc1', color: 'white', border: 'none', borderRadius: '9px', fontSize: '13.5px', fontWeight: 600, cursor: 'pointer' }}>
+                  <Save size={14} /> Spara profil
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* ── FÖRETAG ── */}
           {activeSection === 'company' && (
             <form onSubmit={handleSave}>
@@ -162,9 +205,14 @@ export default function Settings({ company, setCompanyInfo, accounts, verificati
                 <textarea value={formData.address || ''} rows={2} {...inputProps('address')} style={{ ...getInputStyle('address'), resize: 'none' }} />
               </Field>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 20px' }}>
+                <Field label="Logotyp (URL)">
+                  <input type="url" value={formData.logoUrl || ''} placeholder="https://.../logo.svg" {...inputProps('logoUrl')} />
+                </Field>
                 <Field label="E-post">
                   <input type="email" value={formData.email || ''} {...inputProps('email')} />
                 </Field>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 20px' }}>
                 <Field label="Telefon">
                   <input type="tel" value={formData.phone || ''} {...inputProps('phone')} />
                 </Field>

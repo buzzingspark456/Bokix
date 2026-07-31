@@ -2,11 +2,7 @@ import React, { useState } from 'react';
 import { Clock, Plus, Trash2, Edit2, Calendar, ArrowUpRight, Check, X, Briefcase, User } from 'lucide-react';
 
 export default function TimeTracking() {
-  const [entries, setEntries] = useState([
-    { id: 1, type: 'kund', name: 'Bokföringskunden AB', date: '2026-07-13', task: 'Avstämning', hours: 2.5, hourlyRate: 800, startCost: 0, total: 2000 },
-    { id: 2, type: 'kund', name: 'Designstudio', date: '2026-07-13', task: 'Rådgivning', hours: 1, hourlyRate: 950, startCost: 500, total: 1450 },
-    { id: 3, type: 'anstalld', name: 'Anna Andersson', date: '2026-07-12', task: 'Löpande bokföring', hours: 4, hourlyRate: 200, startCost: 0, total: 800 },
-  ]);
+  const [entries, setEntries] = useState([]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [type, setType] = useState('kund'); // 'kund' | 'anstalld'

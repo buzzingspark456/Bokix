@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import jsPDF from 'jspdf/dist/jspdf.es.min.js';
 import { FileCheck, Landmark, CalendarCheck, ExternalLink, Clock, PieChart, FileText, CheckCircle, AlertCircle, Calendar, ArrowDownRight, ArrowUpRight, CheckCircle2, FileDown, X } from 'lucide-react';
 import Moms from './Moms';
 
@@ -69,9 +70,91 @@ export default function Taxes({ verifications, balances }) {
     ...buttonStyle, background: 'white', border: '1px solid #e5e7eb', color: '#374151'
   };
 
+  const computeMomsValues = () => {
+    const outputMoms = Math.max(0, Math.round(Math.abs(balances['2611'] || 0)));
+    const inputMoms = Math.max(0, Math.round(Math.abs(balances['2641'] || 0)));
+    const netMoms = outputMoms - inputMoms;
+    return { outputMoms, inputMoms, netMoms };
+  };
+
+  const computeAgiValues = () => {
+    let grossSalary = 0;
+    let salaryTax = 0;
+
+    const salaryAccounts = ['7010', '7011', '7040', '7200', '7210', '7250', '7260'];
+    verifications?.forEach(v => {
+      v.rows.forEach(r => {
+        if (salaryAccounts.includes(r.account)) {
+          grossSalary += Math.abs(r.debet || r.kredit || 0);
+        }
+      });
+    });
+
+    const socialFee = Math.round(grossSalary * 0.3142);
+    salaryTax = Math.round(grossSalary * 0.30);
+    const totalEmployerCost = grossSalary + socialFee;
+
+    return { grossSalary, salaryTax, socialFee, totalEmployerCost };
+  };
+
   const handleDownloadPDF = () => {
-    // In a real app, use jsPDF or html2canvas
-    alert('Laddar ner PDF...');
+    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+    const margin = 40;
+    let y = 50;
+    const lineHeight = 18;
+
+    const addTitle = (title) => {
+      doc.setFontSize(20);
+      doc.text(title, margin, y);
+      y += lineHeight * 2;
+    };
+
+    const addSection = (heading, rows) => {
+      doc.setFontSize(12);
+      doc.setFont(undefined, 'bold');
+      doc.text(heading, margin, y);
+      y += lineHeight;
+      doc.setFont(undefined, 'normal');
+      rows.forEach(([label, value]) => {
+        doc.text(label, margin, y);
+        doc.text(value, 320, y, { align: 'right' });
+        y += lineHeight;
+      });
+      y += lineHeight * 0.5;
+    };
+
+    if (previewPdf === 'moms') {
+      const { outputMoms, inputMoms, netMoms } = computeMomsValues();
+      addTitle('Momsdeklaration');
+      addSection('Period', [['Period', 'Kvartal 2 2026']]);
+      addSection('Momsuppgifter', [
+        ['Utgående moms (25%)', `${outputMoms.toLocaleString('sv-SE')} SEK`],
+        ['Ingående moms', `${inputMoms.toLocaleString('sv-SE')} SEK`],
+        ['Netto moms att betala', `${netMoms.toLocaleString('sv-SE')} SEK`],
+      ]);
+      doc.setFontSize(10);
+      doc.text('Denna momsdeklaration är avsedd för manuell uppladdning till Skatteverkets portal.', margin, y + 10);
+      doc.save('momsdeklaration.pdf');
+      return;
+    }
+
+    if (previewPdf === 'arbetsgivar') {
+      const { grossSalary, salaryTax, socialFee, totalEmployerCost } = computeAgiValues();
+      addTitle('Arbetsgivardeklaration (AGI)');
+      addSection('Period', [['Period', 'Juli 2026']]);
+      addSection('Löneunderlag', [
+        ['Bruttolöner', `${grossSalary.toLocaleString('sv-SE')} SEK`],
+        ['Avdragen skatt', `${salaryTax.toLocaleString('sv-SE')} SEK`],
+        ['Arbetsgivaravgifter', `${socialFee.toLocaleString('sv-SE')} SEK`],
+        ['Total arbetsgivarutgift', `${totalEmployerCost.toLocaleString('sv-SE')} SEK`],
+      ]);
+      doc.setFontSize(10);
+      doc.text('Denna AGI-PDF sammanställer löner och arbetsgivaravgifter för manuell inlämning till Skatteverket.', margin, y + 10);
+      doc.save('agi-deklaration.pdf');
+      return;
+    }
+
+    doc.text('Ingen PDF vald', margin, y);
   };
 
   return (

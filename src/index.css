@@ -218,73 +218,76 @@ body {
 }
 
 .logo-container {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 24px 20px 20px;
-}
-
-/* Allra-inspirerad logo */
-.logo-icon {
-  width: 34px;
-  height: 34px;
-  background: linear-gradient(135deg, var(--lime-500), var(--blue-500));
-  color: white;
-  border-radius: 9px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 800;
-  font-size: 16px;
-  flex-shrink: 0;
-  letter-spacing: -0.05em;
-  box-shadow: 0 0 0 3px rgba(91,168,90,0.25);
-}
-
-.logo-text {
-  font-weight: 800;
-  font-size: 19px;
-  letter-spacing: -0.04em;
-  background: linear-gradient(90deg, #ffffff, #d4e8f5);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  display: block;
+  padding: 0;
 }
 
 /* Company selector */
 .company-selector {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
-  margin: 0 12px 16px;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: var(--radius-md);
+  gap: 9px;
+  padding: 9px 12px;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 10px;
   cursor: pointer;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
   color: white;
-  width: calc(100% - 24px);
+  width: 100%;
   text-align: left;
   transition: all var(--transition);
   font-family: var(--font-sans);
-  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
 
 .company-selector:hover {
   background: rgba(255,255,255,0.12);
-  border-color: rgba(255,255,255,0.15);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  border-color: rgba(255,255,255,0.18);
 }
 
-.company-selector-name {
+.company-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #5ba85a, #3a8fc1);
+  color: white;
+  font-weight: 700;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  letter-spacing: -0.02em;
+}
+
+.company-info {
   flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.company-name {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: white;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.3;
+}
+
+.company-org {
+  font-size: 10.5px;
+  color: rgba(255,255,255,0.45);
+  line-height: 1.3;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+/* Company dropdown */
 .company-dropdown {
   position: absolute;
   top: calc(100% + 4px);
@@ -334,28 +337,29 @@ body {
 /* Nav */
 .nav-links {
   flex: 1;
-  padding: 4px 0;
+  padding: 2px 0 8px;
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
 }
 
 .nav-section-label {
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: rgba(255,255,255,0.35);
-  padding: 16px 18px 5px;
+  letter-spacing: 0.13em;
+  color: rgba(255,255,255,0.28);
+  padding: 14px 16px 4px;
 }
 
 .nav-item {
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 7px 18px;
+  gap: 8px;
+  padding: 6px 14px 6px 16px;
   font-size: 13px;
-  font-weight: 450;
-  color: rgba(255,255,255,0.6);
+  font-weight: 400;
+  color: rgba(255,255,255,0.62);
   background: none;
   border: none;
   cursor: pointer;
@@ -365,16 +369,17 @@ body {
   border-radius: 0;
   position: relative;
   font-family: var(--font-sans);
+  min-height: 32px;
 }
 
 .nav-item:hover {
-  color: rgba(255,255,255,0.95);
-  background: rgba(255,255,255,0.07);
+  color: rgba(255,255,255,0.92);
+  background: rgba(255,255,255,0.06);
 }
 
 .nav-item.active {
   color: white;
-  background: rgba(91,168,90,0.22);
+  background: rgba(91,168,90,0.20);
   font-weight: 600;
 }
 
@@ -382,21 +387,48 @@ body {
   content: '';
   position: absolute;
   left: 0;
-  top: 5px;
-  bottom: 5px;
+  top: 4px;
+  bottom: 4px;
   width: 3px;
   background: var(--lime-400);
   border-radius: 0 3px 3px 0;
 }
 
-.sidebar-footer {
-  padding: 14px 18px;
-  border-top: 1px solid rgba(255,255,255,0.08);
-  font-size: 11px;
-  color: rgba(255,255,255,0.35);
-  display: flex;
+/* Nav badge (e.g. count on Att granska) */
+.nav-badge {
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.18);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.nav-item.active .nav-badge {
+  background: var(--lime-500);
+}
+
+.sidebar-footer {
+  padding: 10px 8px;
+  border-top: 1px solid rgba(255,255,255,0.07);
+}
+
+.logout-btn {
+  color: rgba(255,255,255,0.5) !important;
+  font-size: 12.5px !important;
+  padding: 7px 16px !important;
+  border-radius: 0 !important;
+}
+
+.logout-btn:hover {
+  color: rgba(255,255,255,0.85) !important;
 }
 
 
@@ -432,8 +464,88 @@ body {
 }
 
 .main-content-inner {
-  padding: 28px 32px 56px;
+  padding: 24px 32px 56px;
   animation: fadeIn 0.2s ease both;
+}
+
+
+/* ══ DESKTOP TOP BAR ══ */
+
+.desktop-top-bar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 0 20px;
+  background: white;
+  border-bottom: 1px solid var(--border);
+  height: 52px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  gap: 10px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+
+.desktop-topbar-left {
+  display: flex;
+  align-items: center;
+  margin-right: auto;
+}
+
+.desktop-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.topbar-new-btn {
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  padding: 7px 14px !important;
+  border-radius: 8px !important;
+  gap: 5px !important;
+}
+
+.topbar-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--gray-500);
+  transition: all var(--transition);
+}
+
+.topbar-icon-btn:hover {
+  background: var(--gray-100);
+  color: var(--gray-700);
+}
+
+.topbar-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #5ba85a, #3a8fc1);
+  color: white;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  letter-spacing: -0.02em;
+  border: 2px solid transparent;
+  transition: border-color var(--transition);
+}
+
+.topbar-avatar:hover {
+  border-color: var(--lime-400);
 }
 
 
@@ -1948,6 +2060,11 @@ textarea.form-control {
   .global-top-bar {
     display: flex;
     padding: 0 14px;
+  }
+
+  /* Göm desktop topbar på mobil */
+  .desktop-top-bar {
+    display: none;
   }
 
   /* Visa mobil-nav */

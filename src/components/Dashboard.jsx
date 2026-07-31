@@ -102,7 +102,7 @@ function KpiCard({ label, value, sub, icon: Icon, color, bg, positive, onClick }
   );
 }
 
-export default function Dashboard({ verifications, balances, accounts, invoices, expenses, contacts, setActiveTab, company }) {
+export default function Dashboard({ verifications, balances, accounts, invoices, expenses, contacts, setActiveTab, company, profileIncomplete, onResumeOnboarding }) {
   const [chartMode, setChartMode] = useState('revenue-expense');
 
   const fmt = (val) =>
@@ -212,52 +212,65 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
     <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
 
       {/* ─── HEADER ─── */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '32px', flexWrap: 'wrap', gap: '16px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '28px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
-          <h1 style={{ fontSize: '24px', fontWeight: 700, letterSpacing: '-0.04em', color: '#111827', marginBottom: '5px' }}>
-            {greeting}{firstName ? `, ${firstName}` : ''} 👋
+          <h1 style={{ fontSize: '22px', fontWeight: 700, letterSpacing: '-0.03em', color: '#111827', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {greeting}, {firstName || company?.name?.split(' ')[0] || 'Användare'} 👋
           </h1>
-          <p style={{ color: '#9ca3af', fontSize: '13.5px', fontWeight: 400 }}>
-            Räkenskapsår {currentYear} · {company?.name || 'Ditt företag'}
+          <p style={{ color: '#9ca3af', fontSize: '13px', fontWeight: 400 }}>
+            Räkenskapsår {currentYear} · {company?.name || 'Bokix'}
           </p>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+          {[['Ny offert', 'invoices'], ['Ny kund', 'contacts'], ['Ny utgift', 'expenses']].map(([label, tab]) => (
             <button
-              onClick={handleExport}
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', background: 'white', border: '1px solid #e5e7eb', borderRadius: '9px', fontSize: '13px', fontWeight: 500, cursor: 'pointer', color: '#374151', transition: 'all 0.15s', fontFamily: 'inherit' }}
-              onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
-              onMouseLeave={e => e.currentTarget.style.background = 'white'}
-            >
-              <Download size={13} /> Exportera
-            </button>
-            <button
-              onClick={() => setActiveTab('invoices')}
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: LIME, border: 'none', borderRadius: '9px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: 'white', transition: 'all 0.15s', fontFamily: 'inherit' }}
-              onMouseEnter={e => e.currentTarget.style.background = '#4a944a'}
-              onMouseLeave={e => e.currentTarget.style.background = LIME}
-            >
-              <FileText size={13} /> Ny faktura
-            </button>
-          </div>
-          <div style={{ display: 'flex', gap: '12px', fontSize: '12px' }}>
-            {[['Ny offert', 'invoices'], ['Ny kund', 'contacts'], ['Ny utgift', 'expenses']].map(([label, tab]) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: '12px', padding: '2px 0', transition: 'color 0.15s', fontFamily: 'inherit' }}
-                onMouseEnter={e => e.currentTarget.style.color = LIME}
-                onMouseLeave={e => e.currentTarget.style.color = '#9ca3af'}
-              >{label}</button>
-            ))}
-          </div>
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', fontSize: '13px', padding: '0', transition: 'color 0.15s', fontFamily: 'inherit' }}
+              onMouseEnter={e => e.currentTarget.style.color = LIME}
+              onMouseLeave={e => e.currentTarget.style.color = '#6b7280'}
+            >{label}</button>
+          ))}
+          <div style={{ width: '1px', height: '16px', background: '#e5e7eb' }} />
+          <button
+            onClick={handleExport}
+            style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '7px 13px', background: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '13px', fontWeight: 500, cursor: 'pointer', color: '#374151', transition: 'all 0.15s', fontFamily: 'inherit' }}
+            onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
+            onMouseLeave={e => e.currentTarget.style.background = 'white'}
+          >
+            <Download size={13} /> Exportera
+          </button>
+          <button
+            onClick={() => setActiveTab('invoices')}
+            style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '7px 14px', background: LIME, border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: 'white', transition: 'all 0.15s', fontFamily: 'inherit' }}
+            onMouseEnter={e => e.currentTarget.style.background = '#4a944a'}
+            onMouseLeave={e => e.currentTarget.style.background = LIME}
+          >
+            <FileText size={13} /> Ny faktura
+          </button>
         </div>
       </div>
 
       {/* ─── ONBOARDING ─── */}
+      {profileIncomplete && !isNew && (
+        <div style={{ background: 'linear-gradient(135deg, #eef9ff 0%, #f3fdf5 100%)', border: `1px solid #c7e7d9`, borderRadius: '16px', padding: '24px 28px', marginBottom: '32px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+            <div>
+              <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#111827', marginBottom: '8px' }}>Komplettera din företagsprofil</h2>
+              <p style={{ fontSize: '13px', color: '#475569', marginBottom: '12px' }}>Du kan uppdatera viktig företagsinformation när som helst för att få rätt rapporter och dokument.</p>
+              <button onClick={onResumeOnboarding} style={{ padding: '10px 16px', background: '#3a8fc1', color: 'white', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 700 }}>Fortsätt onboarding</button>
+            </div>
+            <div style={{ display: 'grid', gap: '10px', minWidth: '220px', background: 'white', borderRadius: '14px', padding: '16px', border: '1px solid #e5f3ed' }}>
+              <div style={{ fontSize: '12px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>Profilstatus</div>
+              <div style={{ color: '#0f172a', fontSize: '14px', fontWeight: 700 }}>Företagsprofil inte slutförd</div>
+              <div style={{ fontSize: '13px', color: '#64748b' }}>Det här hjälper dig att komma igång snabbare och hålla ordning på moms, adress och kontaktuppgifter.</div>
+            </div>
+          </div>
+        </div>
+      )}
       {isNew && (
         <div style={{ background: `linear-gradient(135deg, ${LIME_L} 0%, ${BLUE_L} 100%)`, border: `1px solid #b8e2b8`, borderRadius: '16px', padding: '24px 28px', marginBottom: '32px' }}>
-          <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#111827', marginBottom: '4px' }}>Kom igång med Bokföring.io</h2>
+          <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#111827', marginBottom: '4px' }}>Kom igång med Bokix</h2>
           <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '20px' }}>Slutför dessa steg för att komma igång.</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {[
@@ -349,29 +362,41 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
 
       {/* ─── CHART ─── */}
       {!isNew && (
-        <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '16px', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+        <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '14px', padding: '22px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
           {/* Chart header */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
             <div>
-              <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#111827', letterSpacing: '-0.01em', marginBottom: '3px' }}>
+              <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#111827', letterSpacing: '-0.01em', marginBottom: '2px' }}>
                 {CHART_MODES.find(m => m.id === chartMode)?.label}
               </h2>
-              <p style={{ fontSize: '12.5px', color: '#9ca3af' }}>
+              <p style={{ fontSize: '12px', color: '#9ca3af' }}>
                 Innevarande räkenskapsår {currentYear} jämfört med {parseInt(currentYear) - 1}
               </p>
+              {chartMode === 'revenue-expense' && (
+                <div style={{ display: 'flex', gap: '16px', marginTop: '8px' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: '#374151' }}>
+                    <span style={{ width: 10, height: 10, borderRadius: '50%', background: LIME, display: 'inline-block' }} />
+                    Intäkter {fmt(raOmsattning)}
+                  </span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: '#374151' }}>
+                    <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#ef4444', display: 'inline-block' }} />
+                    Utgifter {fmt(raKostnader)}
+                  </span>
+                </div>
+              )}
             </div>
-            <div style={{ display: 'flex', gap: '6px', background: '#f9fafb', padding: '4px', borderRadius: '10px', border: '1px solid #f3f4f6', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '4px', background: '#f9fafb', padding: '3px', borderRadius: '9px', border: '1px solid #f3f4f6', flexWrap: 'wrap' }}>
               {CHART_MODES.map(m => (
                 <button key={m.id} onClick={() => setChartMode(m.id)} style={{
                   display: 'flex', alignItems: 'center', gap: '5px',
-                  padding: '6px 13px', borderRadius: '7px', border: 'none', cursor: 'pointer',
-                  fontSize: '12.5px', fontWeight: chartMode === m.id ? 600 : 400,
+                  padding: '5px 11px', borderRadius: '6px', border: 'none', cursor: 'pointer',
+                  fontSize: '12px', fontWeight: chartMode === m.id ? 600 : 400,
                   background: chartMode === m.id ? 'white' : 'transparent',
                   color: chartMode === m.id ? '#111827' : '#6b7280',
                   boxShadow: chartMode === m.id ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
                   transition: 'all 0.15s', fontFamily: 'inherit',
                 }}>
-                  <m.icon size={12} />
+                  <m.icon size={11} />
                   {m.label}
                 </button>
               ))}
