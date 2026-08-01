@@ -113,6 +113,28 @@ export default function LandingPage({ onEnterApp }) {
         .delay-3 { animation-delay: 0.3s; }
         @keyframes pulse-ring { 0% { transform: scale(0.9); opacity: 0.8; } 100% { transform: scale(1.4); opacity: 0; } }
         .pulse-ring::after { content: ''; position: absolute; inset: 0; border-radius: 50%; border: 2px solid #5ba85a; animation: pulse-ring 2s ease-out infinite; }
+        .hero-section { border-radius: 0 0 120px 120px; }
+        .hero-layout { position: relative; z-index: 1; }
+        .hero-copy { max-width: 540px; }
+        .hero-eyebrow { box-shadow: 0 10px 30px rgba(91,168,90,0.12); }
+        .hero-title { text-wrap: balance; }
+        .hero-description { max-width: 520px !important; }
+        .hero-product-preview { border: 1px solid rgba(255,255,255,0.7); box-shadow: 0 40px 80px -20px rgba(58,143,193,0.25), 0 0 0 10px rgba(255,255,255,0.25); }
+        .hero-product-column { padding: 20px; }
+        .hero-proof { border-top: 1px solid rgba(100,116,139,0.16); padding-top: 18px; }
+        .mobile-menu-toggle { display: none; }
+        .mobile-menu-panel { display: none; }
+        @media (max-width: 800px) {
+          .hero-section { min-height: auto !important; border-radius: 0 0 56px 56px; }
+          .hero-layout { grid-template-columns: 1fr !important; gap: 48px !important; padding: 90px 20px 76px !important; }
+          .hero-copy { max-width: none; }
+          .hero-title { font-size: clamp(40px, 12vw, 58px) !important; }
+          .hero-description { font-size: 16px !important; }
+          .hero-product-column { padding: 12px 4px; }
+          .hero-product-preview { box-shadow: 0 28px 50px -18px rgba(58,143,193,0.25); }
+          .mobile-menu-toggle { display: block; }
+          .mobile-menu-panel { display: block; }
+        }
       `}</style>
 
       {/* ── NAVBAR ── */}
@@ -153,36 +175,44 @@ export default function LandingPage({ onEnterApp }) {
               Prova gratis
             </button>
             {/* Mobile menu toggle */}
-            <button onClick={() => setMobileMenuOpen(v => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'none', padding: '4px' }}>
+            <button className="mobile-menu-toggle" onClick={() => setMobileMenuOpen(v => !v)} aria-label="Öppna meny" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}>
               {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
             </button>
           </div>
         </div>
+        {mobileMenuOpen && (
+          <div className="mobile-menu-panel" style={{ background: 'white', borderTop: '1px solid #e5e7eb', padding: '16px 24px 22px', boxShadow: '0 16px 30px rgba(15,23,42,0.08)' }}>
+            {[['Funktioner', 'features'], ['Priser', 'pricing'], ['Omdömen', 'testimonials']].map(([label, id]) => (
+              <button key={id} onClick={() => scrollTo(id)} style={{ display: 'block', width: '100%', padding: '12px 0', textAlign: 'left', background: 'none', border: 'none', color: '#374151', fontSize: '15px', fontWeight: 600, cursor: 'pointer' }}>{label}</button>
+            ))}
+            <button onClick={onEnterApp} style={{ width: '100%', marginTop: '8px', padding: '12px', border: 'none', borderRadius: '10px', background: 'linear-gradient(135deg, #5ba85a, #4a9e49)', color: 'white', fontWeight: 700, cursor: 'pointer' }}>Prova gratis</button>
+          </div>
+        )}
       </nav>
 
       {/* ── HERO ── */}
-      <section style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', background: 'linear-gradient(160deg, #f8fffe 0%, #f0f7ff 50%, #f5fff5 100%)', position: 'relative', overflow: 'hidden', paddingTop: '68px' }}>
+      <section className="hero-section" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', background: 'linear-gradient(160deg, #f8fffe 0%, #f0f7ff 50%, #f5fff5 100%)', position: 'relative', overflow: 'hidden', paddingTop: '68px' }}>
         {/* Background blobs */}
         <div style={{ position: 'absolute', top: '-100px', right: '-100px', width: '500px', height: '500px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(91,168,90,0.12) 0%, transparent 70%)', pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', bottom: '-80px', left: '-80px', width: '400px', height: '400px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(58,143,193,0.1) 0%, transparent 70%)', pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', top: '30%', left: '10%', width: '200px', height: '200px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(91,168,90,0.06) 0%, transparent 70%)', pointerEvents: 'none' }} />
 
-        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '80px 24px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '80px', alignItems: 'center', width: '100%' }}>
+        <div className="hero-layout" style={{ maxWidth: '1200px', margin: '0 auto', padding: '80px 24px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '80px', alignItems: 'center', width: '100%' }}>
           {/* Left: Text */}
-          <div>
-            <div className="animate-fadeinup" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '6px 14px', background: '#f1f8f1', border: '1px solid #bce4bc', borderRadius: '100px', fontSize: '12px', fontWeight: 600, color: '#5ba85a', marginBottom: '24px' }}>
+          <div className="hero-copy">
+            <div className="hero-eyebrow animate-fadeinup" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '6px 14px', background: '#f1f8f1', border: '1px solid #bce4bc', borderRadius: '100px', fontSize: '12px', fontWeight: 600, color: '#5ba85a', marginBottom: '24px' }}>
               <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#5ba85a' }} />
               Nytt: PDF-deklarationer direkt till Skatteverket
             </div>
 
-            <h1 className="animate-fadeinup delay-1" style={{ fontSize: 'clamp(36px, 5vw, 58px)', fontWeight: 900, lineHeight: 1.08, letterSpacing: '-0.04em', color: '#0f172a', marginBottom: '24px' }}>
+            <h1 className="hero-title animate-fadeinup delay-1" style={{ fontSize: 'clamp(36px, 5vw, 58px)', fontWeight: 900, lineHeight: 1.08, letterSpacing: '-0.04em', color: '#0f172a', marginBottom: '24px' }}>
               Bokföring som<br />
               <span style={{ background: 'linear-gradient(135deg, #5ba85a, #3a8fc1)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
                 faktiskt är enkel
               </span>
             </h1>
 
-            <p className="animate-fadeinup delay-2" style={{ fontSize: '18px', color: '#475569', lineHeight: 1.7, marginBottom: '36px', maxWidth: '480px', fontWeight: 400 }}>
+            <p className="hero-description animate-fadeinup delay-2" style={{ fontSize: '18px', color: '#475569', lineHeight: 1.7, marginBottom: '36px', maxWidth: '480px', fontWeight: 400 }}>
               Fakturor, löner, moms och bokslut i ett enda snyggt verktyg. Byggt för svenska småföretagare som hellre fokuserar på sin verksamhet än sin bokföring.
             </p>
 
@@ -195,7 +225,7 @@ export default function LandingPage({ onEnterApp }) {
               </button>
             </div>
 
-            <div className="animate-fadeinup delay-3" style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
+            <div className="hero-proof animate-fadeinup delay-3" style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
               {[['✓ Inget kreditkort', null], ['✓ Gratis i 30 dagar', null], ['✓ Avsluta när som helst', null]].map(([text]) => (
                 <span key={text} style={{ fontSize: '13px', color: '#64748b', fontWeight: 500 }}>{text}</span>
               ))}
@@ -203,9 +233,9 @@ export default function LandingPage({ onEnterApp }) {
           </div>
 
           {/* Right: App mockup */}
-          <div className="animate-float" style={{ position: 'relative' }}>
+          <div className="hero-product-column animate-float" style={{ position: 'relative' }}>
             {/* Main app card */}
-            <div style={{ background: 'white', borderRadius: '20px', boxShadow: '0 40px 80px -20px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.05)', overflow: 'hidden', position: 'relative' }}>
+            <div className="hero-product-preview" style={{ background: 'white', borderRadius: '20px', boxShadow: '0 40px 80px -20px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.05)', overflow: 'hidden', position: 'relative' }}>
               {/* Fake sidebar + content */}
               <div style={{ display: 'flex', height: '380px' }}>
                 {/* Sidebar */}
