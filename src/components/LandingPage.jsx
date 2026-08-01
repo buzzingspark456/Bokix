@@ -176,7 +176,7 @@ export default function LandingPage({ onEnterApp }) {
         <div className="header-shell" style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', alignItems: 'center', height: '68px', gap: '32px' }}>
           {/* Logo */}
           <div className="brand-lockup" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
-            <div className="brand-mark" aria-label="Bokix logo" style={{ width: 92, height: 42, borderRadius: '8px', background: '#17352d', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+            <div className="brand-mark" aria-label="Bokix logo" style={{ width: 92, height: 42, borderRadius: '8px', background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
               <img src={BOKIX_LOGO_URL} alt="Bokix" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
             </div>
           </div>
