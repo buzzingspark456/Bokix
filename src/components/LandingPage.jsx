@@ -179,11 +179,11 @@ export default function LandingPage({ onEnterApp }) {
       }}>
         <div className="header-shell" style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', alignItems: 'center', height: '76px', gap: '32px' }}>
           {/* Logo */}
-          <div className="brand-lockup" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+          <Link to="/" aria-label="Till Bokix startsida" className="brand-lockup" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0, textDecoration: 'none' }}>
             <div className="brand-mark" aria-label="Bokix logo" style={{ width: 150, height: 58, borderRadius: '8px', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'visible' }}>
               <img className="logo-image" src={BOKIX_LOGO_URL} alt="Bokix" />
             </div>
-          </div>
+          </Link>
 
           {/* Desktop nav */}
           <div className="desktop-nav" style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '28px' }}>
