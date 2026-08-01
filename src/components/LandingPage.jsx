@@ -131,7 +131,8 @@ export default function LandingPage({ onEnterApp }) {
         .mobile-menu-panel { display: none; }
         .header-shell { max-width: 1240px !important; height: 76px !important; padding: 0 18px; border-radius: 18px; }
         .brand-lockup { gap: 11px !important; }
-        .brand-mark { position: relative; width: 92px !important; height: 42px !important; border-radius: 8px !important; box-shadow: 0 8px 18px rgba(58,143,193,0.16); }
+        .brand-mark { position: relative; width: 150px !important; height: 58px !important; border-radius: 8px !important; background: transparent !important; }
+        .logo-image { width: 100%; height: 100%; object-fit: contain; mix-blend-mode: screen; }
         .brand-wordmark { font-size: 20px !important; letter-spacing: -0.04em !important; }
         .desktop-nav { justify-content: center; }
         .desktop-nav button { position: relative; font-size: 13.5px !important; font-weight: 600 !important; }
@@ -157,7 +158,7 @@ export default function LandingPage({ onEnterApp }) {
           .mobile-menu-panel { display: block; }
         }
         @media (max-width: 600px) {
-          .brand-mark { width: 84px !important; height: 38px !important; }
+          .brand-mark { width: 125px !important; height: 48px !important; }
           .header-login { display: none; }
           .header-signup { padding: 9px 12px !important; font-size: 12px !important; }
           .header-shell { padding: 0 12px; gap: 12px !important; }
@@ -177,7 +178,7 @@ export default function LandingPage({ onEnterApp }) {
           {/* Logo */}
           <div className="brand-lockup" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
             <div className="brand-mark" aria-label="Bokix logo" style={{ width: 92, height: 42, borderRadius: '8px', background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-              <img src={BOKIX_LOGO_URL} alt="Bokix" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+              <img className="logo-image" src={BOKIX_LOGO_URL} alt="Bokix" />
             </div>
           </div>
 
@@ -626,7 +627,7 @@ export default function LandingPage({ onEnterApp }) {
             <div style={{ gridColumn: 'span 2' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
                 <div style={{ width: 112, height: 48, borderRadius: '8px', background: '#17352d', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                  <img src={BOKIX_LOGO_URL} alt="Bokix" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                  <img className="logo-image" src={BOKIX_LOGO_URL} alt="Bokix" />
                 </div>
               </div>
               <p style={{ fontSize: '14px', lineHeight: 1.6, color: '#64748b', maxWidth: '300px' }}>
