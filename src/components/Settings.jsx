@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Save, Download, Upload, AlertTriangle, Building2, CreditCard,
   Check, Star, Zap, Shield, Users, FileText, ChevronRight,
-  User, Globe, Lock, Bell, Palette, Database
+  User, Globe, Lock, Bell, Palette, Database, FileSpreadsheet
 } from 'lucide-react';
 import { generateSIE4 } from '../utils/sieExport';
 
@@ -62,7 +62,7 @@ const inputStyle = {
   transition: 'all 0.15s', fontFamily: 'inherit', boxSizing: 'border-box',
 };
 
-export default function Settings({ activeTab, company, setCompanyInfo, accounts, verifications, invoices, expenses, contacts, onImport, onReset }) {
+export default function Settings({ activeTab, company, setCompanyInfo, accounts, verifications, invoices, expenses, contacts, onImport, onReset, stripeAccountId, onConnectStripe }) {
   const [activeSection, setActiveSection] = useState('company');
 
   useEffect(() => {
@@ -100,6 +100,16 @@ export default function Settings({ activeTab, company, setCompanyInfo, accounts,
     const a = document.createElement('a');
     a.href = url;
     a.download = `alwixo_${company.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  };
+
+  const handleSIE4Export = () => {
+    const sieData = generateSIE4(company, accounts, verifications);
+    const blob = new Blob([sieData], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `alwixo_export_${new Date().toISOString().split('T')[0]}.se`;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
   };
 
@@ -273,6 +283,24 @@ export default function Settings({ activeTab, company, setCompanyInfo, accounts,
                   <input type="text" value={formData.bic || ''} placeholder="SWEDSESS" {...inputProps('bic')} />
                 </Field>
               </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '16px', alignItems: 'end', marginBottom: '20px' }}>
+                <div>
+                  <Field label="Stripe Connect" hint="Hantering av kundbetalningar och utbetalningar via Stripe.">
+                    <p style={{ margin: 0, color: '#475569', lineHeight: '1.7' }}>
+                      {stripeAccountId
+                        ? 'Stripe-kontot är anslutet. Du kan skapa betalningslänkar för fakturor och ta emot kortbetalningar direkt till ditt konto.'
+                        : 'Anslut Stripe för att aktivera betalningar med Stripe Checkout och plattformsavgifter.'}
+                    </p>
+                  </Field>
+                </div>
+                <div>
+                  <button type="button" onClick={onConnectStripe} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '12px 18px', border: 'none', borderRadius: '10px', background: '#2563eb', color: 'white', cursor: 'pointer', fontWeight: 700, fontSize: '13px' }}>
+                    {stripeAccountId ? 'Uppdatera Stripe-onboarding' : 'Anslut Stripe'}
+                  </button>
+                </div>
+              </div>
+
               <Field label="Fakturafotnot" hint="Valfri text som visas längst ner på fakturan.">
                 <textarea value={formData.invoiceFooter || ''} rows={2} {...inputProps('invoiceFooter')} placeholder="T.ex. Betalningsvillkor: 30 dagar netto. Dröjsmålsränta: 8%." style={{ ...getInputStyle('invoiceFooter'), resize: 'none' }} />
               </Field>
@@ -378,7 +406,7 @@ export default function Settings({ activeTab, company, setCompanyInfo, accounts,
 
               {/* Export */}
               <div style={{ padding: '20px', background: '#f9fafb', borderRadius: '12px', border: '1px solid #e5e7eb', marginBottom: '16px' }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', marginBottom: '16px' }}>
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
                       <Download size={15} style={{ color: '#3a8fc1' }} />
@@ -387,7 +415,19 @@ export default function Settings({ activeTab, company, setCompanyInfo, accounts,
                     <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>Ladda ner all din data som en JSON-fil. Kan importeras tillbaka om du behöver återställa.</p>
                   </div>
                   <button onClick={handleExport} style={{ padding: '8px 16px', background: 'white', border: '1px solid #e5e7eb', borderRadius: '9px', fontSize: '13px', fontWeight: 500, cursor: 'pointer', color: '#374151', whiteSpace: 'nowrap', fontFamily: 'inherit', flexShrink: 0 }}>
-                    Ladda ner
+                    Ladda ner JSON
+                  </button>
+                </div>
+                <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '16px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                      <FileSpreadsheet size={15} style={{ color: '#3a8fc1' }} />
+                      <span style={{ fontWeight: 600, fontSize: '14px', color: '#111827' }}>Exportera till SIE-4</span>
+                    </div>
+                    <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>Ladda ner din bokföring i svensk standard (SIE-4) för att skicka till din revisor.</p>
+                  </div>
+                  <button onClick={handleSIE4Export} style={{ padding: '8px 16px', background: '#eef6fb', border: '1px solid #bfdbfe', borderRadius: '9px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: '#1d4ed8', whiteSpace: 'nowrap', fontFamily: 'inherit', flexShrink: 0 }}>
+                    Ladda ner .se
                   </button>
                 </div>
               </div>

@@ -102,7 +102,7 @@ function KpiCard({ label, value, sub, icon: Icon, color, bg, positive, onClick }
   );
 }
 
-export default function Dashboard({ verifications, balances, accounts, invoices, expenses, contacts, setActiveTab, company, profileIncomplete, onResumeOnboarding }) {
+export default function Dashboard({ verifications, balances, accounts, invoices, expenses, contacts, setActiveTab, company, profileIncomplete, onResumeOnboarding, stripeAccountId, onConnectStripe }) {
   const [chartMode, setChartMode] = useState('revenue-expense');
 
   const fmt = (val) =>
@@ -322,6 +322,30 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
           icon={CreditCard} color={BLUE} bg={BLUE_L} positive={likviditet > 0}
           onClick={() => setActiveTab('verifications')}
         />
+      </div>
+
+      <div style={{ marginBottom: '24px', display: 'grid', gridTemplateColumns: stripeAccountId ? '1fr 1fr' : '1fr', gap: '14px' }}>
+        {!stripeAccountId && (
+          <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '14px', padding: '22px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '14px' }}>
+              <div style={{ width: 36, height: 36, borderRadius: '12px', background: '#eff6ff', color: '#2563eb', display: 'grid', placeItems: 'center' }}><CreditCard size={18} /></div>
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>Stripe Connect</div>
+                <div style={{ fontSize: '13px', color: '#64748b', lineHeight: '1.7' }}>Anslut Stripe för att ta emot kortbetalningar direkt till ditt företagskonto och använda Bokix som plattform.</div>
+              </div>
+            </div>
+            <button onClick={onConnectStripe} style={{ padding: '11px 18px', borderRadius: '10px', border: 'none', background: '#2563eb', color: 'white', fontWeight: 700, cursor: 'pointer' }}>Anslut Stripe</button>
+          </div>
+        )}
+        {stripeAccountId && (
+          <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '14px', padding: '22px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '14px' }}>
+            <div>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>Stripe Connect är anslutet</div>
+              <div style={{ fontSize: '13px', color: '#64748b', lineHeight: '1.7' }}>Ditt konto är kopplat och kan ta emot betalningar via Stripe Checkout. Uppdatera onboarding om du vill fortsätta verifieringen.</div>
+            </div>
+            <button onClick={onConnectStripe} style={{ padding: '11px 18px', borderRadius: '10px', border: 'none', background: '#2563eb', color: 'white', fontWeight: 700, cursor: 'pointer' }}>Öppna Stripe</button>
+          </div>
+        )}
       </div>
 
       {/* ─── ATT GÖRA (full bredd när aktivitet är borttagen) ─── */}

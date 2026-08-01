@@ -10,6 +10,7 @@ import {
   Settings as SettingsIcon,
   Building2,
   ChevronDown,
+  ChevronRight,
   Plus,
   Check,
   X,
@@ -17,6 +18,7 @@ import {
   Clock,
   DollarSign,
   FileCheck,
+  Search,
   Menu,
   MoreHorizontal,
   TrendingUp,
@@ -31,14 +33,19 @@ import {
   Briefcase,
   Timer,
   FileSpreadsheet,
+  Landmark,
+  LogOut,
+  Moon,
+  AlertTriangle,
 } from 'lucide-react';
 import { DEFAULT_ACCOUNTS, VAT_ACCOUNTS, REVENUE_ACCOUNTS } from './components/AccountsData';
+import { createConnectedStripeAccount, createStripeAccountLink, createStripeCheckoutSession } from './stripeApi';
 
-// ── Bokix Logo Component (matches brand image) ──
+// ── Bokix Logo Component (light sidebar) ──
 function BokixLogo() {
   return (
-    <div style={{ padding: '20px 18px 16px', display: 'flex', alignItems: 'center' }}>
-      <svg viewBox="0 0 140 48" width="120" height="41" xmlns="http://www.w3.org/2000/svg">
+    <div style={{ padding: '18px 14px 12px', display: 'flex', flexDirection: 'column' }}>
+      <svg viewBox="0 0 140 48" width="110" height="38" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <linearGradient id="bokixGrad" x1="0%" y1="0%" x2="100%" y2="0%">
             <stop offset="0%" stopColor="#0ea5e9" />
@@ -56,6 +63,7 @@ function BokixLogo() {
           letterSpacing="-1.5"
         >Bokix</text>
       </svg>
+      <span style={{ fontSize: '11px', color: '#94a3b8', marginTop: '-4px', paddingLeft: '4px', letterSpacing: '0.01em' }}>Bokföring, enkelt. Du växer.</span>
     </div>
   );
 }
@@ -99,6 +107,7 @@ function createEmptyCompanyData(companyInfo) {
       plusgiro: '',
       iban: '',
       bic: '',
+      stripeAccountId: '',
       defaultVat: 25,
       fiscalYear: `${new Date().getFullYear()}-01-01`,
       vatPeriod: 'quarterly',
@@ -166,6 +175,12 @@ function App() {
   // Global intent state
   const [globalAction, setGlobalAction] = useState(null);
   const [isGlobalPlusOpen, setIsGlobalPlusOpen] = useState(false);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [openMenus, setOpenMenus] = useState({ sales: true, purchases: true, accounting: true, reports: true });
+
+  const toggleMenu = (menuId) => {
+    setOpenMenus(prev => ({ ...prev, [menuId]: !prev[menuId] }));
+  };
 
   const handleGlobalAction = (action, tab) => {
     setActiveTab(tab);
@@ -222,17 +237,24 @@ function App() {
 
   // Auth effect
   useEffect(() => {
+    // Failsafe: never hang forever on loading screen
+    const loadingTimeout = setTimeout(() => {
+      setIsLoadingAuth(false);
+    }, 5000);
+
     supabase.auth.getSession()
       .then(({ data: { session } }) => {
         setUser(session?.user ?? null);
         if (session?.user) {
           fetchUserData(session.user);
         } else {
+          clearTimeout(loadingTimeout);
           setIsLoadingAuth(false);
         }
       })
       .catch(err => {
         console.error('Session error:', err);
+        clearTimeout(loadingTimeout);
         setIsLoadingAuth(false);
       });
 
@@ -246,7 +268,10 @@ function App() {
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      clearTimeout(loadingTimeout);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const fetchUserData = async (authUser) => {
@@ -326,9 +351,9 @@ function App() {
 
   useEffect(() => {
     if (!isLoggedIn || isLoadingAuth) return;
-
-    setShowOnboarding(!hasCompletedOnboarding && !hasSkippedOnboarding);
-  }, [isLoggedIn, isLoadingAuth, hasCompletedOnboarding, hasSkippedOnboarding]);
+    // Onboarding is handled during account creation - always skip it here
+    setShowOnboarding(false);
+  }, [isLoggedIn, isLoadingAuth]);
 
   // Persist
   useEffect(() => {
@@ -347,6 +372,7 @@ function App() {
   useEffect(() => {
     const handler = () => {
       setIsGlobalPlusOpen(false);
+      setIsProfileMenuOpen(false);
     };
     document.addEventListener('click', handler);
     return () => document.removeEventListener('click', handler);
@@ -502,6 +528,111 @@ function App() {
   };
 
   const balances = getAccountBalances();
+  const platformFeePercent = Number.parseFloat(import.meta.env.VITE_STRIPE_PLATFORM_FEE_PERCENT || '5');
+
+  const handleCreateStripeAccount = async () => {
+    if (!user) {
+      alert('Logga in för att ansluta Stripe.');
+      return;
+    }
+
+    try {
+      const { account } = await createConnectedStripeAccount({
+        company_id: data.activeCompanyId,
+        user_id: user.id,
+        business_name: company.name,
+      });
+
+      setCompanyInfo({ ...company, stripeAccountId: account.id });
+      alert('Stripe-konto skapat. Nu öppnas Stripe-onboarding.');
+
+      const { accountLink } = await createStripeAccountLink({ account_id: account.id });
+      if (accountLink?.url) {
+        window.location.href = accountLink.url;
+      } else {
+        alert('Stripe-onboardinglänk kunde inte skapas.');
+      }
+    } catch (error) {
+      console.error(error);
+      alert(`Stripekonto kunde inte skapas: ${error.message || error}`);
+    }
+  };
+
+  const handleOpenStripeOnboarding = async () => {
+    if (!company.stripeAccountId) {
+      return handleCreateStripeAccount();
+    }
+
+    try {
+      const { accountLink } = await createStripeAccountLink({ account_id: company.stripeAccountId });
+      if (accountLink?.url) {
+        window.location.href = accountLink.url;
+      } else {
+        alert('Stripe-onboardinglänk kunde inte skapas.');
+      }
+    } catch (error) {
+      console.error(error);
+      alert(`Kunde inte öppna Stripe-onboarding: ${error.message || error}`);
+    }
+  };
+
+  const handleCreateInvoicePaymentLink = async (invoiceId) => {
+    const invoice = invoices.find(i => i.id === invoiceId);
+    if (!invoice) {
+      alert('Fakturan kunde inte hittas.');
+      return;
+    }
+    if (!company.stripeAccountId) {
+      alert('Anslut Stripe för att kunna skapa betalningslänkar.');
+      return;
+    }
+
+    const customer = contacts.find(c => c.id === invoice.customerId);
+    const customerEmail = customer?.email || company.email;
+    if (!customerEmail) {
+      alert('Kundens e-postadress saknas. Lägg till e-post i kundkortet.');
+      return;
+    }
+
+    const line_items = invoice.rows
+      .filter(r => r.description && r.unitPrice > 0)
+      .map(r => ({
+        price_data: {
+          currency: 'sek',
+          product_data: { name: r.description },
+          unit_amount: Math.round((r.unitPrice || 0) * 100),
+        },
+        quantity: Math.max(1, Math.round(r.qty || 1)),
+      }));
+
+    if (line_items.length === 0) {
+      alert('Fakturan saknar giltiga rader.');
+      return;
+    }
+
+    const totalGross = line_items.reduce((sum, item) => sum + item.price_data.unit_amount * item.quantity, 0);
+    const applicationFeeAmount = Math.round(totalGross * (platformFeePercent / 100));
+
+    try {
+      const { session } = await createStripeCheckoutSession({
+        stripe_account_id: company.stripeAccountId,
+        customer_email: customerEmail,
+        application_fee_amount: applicationFeeAmount,
+        line_items,
+      });
+
+      setInvoices(prev => prev.map(i => i.id === invoiceId ? { ...i, status: 'sent' } : i));
+
+      if (session?.url) {
+        window.location.href = session.url;
+      } else {
+        alert('Betalningslänk skapad, men ingen länk mottogs.');
+      }
+    } catch (error) {
+      console.error(error);
+      alert(`Kunde inte skapa betalningslänk: ${error.message || error}`);
+    }
+  };
 
   // Add verification
   const handleAddVerification = (newVer) => {
@@ -701,46 +832,65 @@ function App() {
     }
   };
 
-  // ── Navigation config (sectioned) ──
+  // Count for review badge (must be before navSections)
+  const reviewCount = invoices.filter(i => i.status === 'draft').length;
+
+  // ── Navigation config (flat) ──
   const navSections = [
     {
       label: 'ARBETSYTA',
       items: [
-        { id: 'dashboard',      label: 'Hem',                icon: LayoutDashboard },
-        { id: 'contacts',       label: 'Kunder',             icon: Users },
-        { id: 'projects',       label: 'Projekt',            icon: Briefcase },
-        { id: 'time',           label: 'Rapportera timmar',  icon: Timer },
-        { id: 'quotes',         label: 'Offerter',           icon: FileSpreadsheet },
-        { id: 'invoices',       label: 'Fakturor',           icon: FileText },
-        { id: 'payroll',        label: 'Anställda & löner',  icon: UsersRound },
+        { id: 'dashboard', label: 'Hem',               icon: LayoutDashboard },
+        { id: 'contacts',  label: 'Kunder',            icon: Users },
+        { id: 'projects',  label: 'Projekt',           icon: Briefcase },
+        { id: 'time',      label: 'Rapportera timmar', icon: Timer },
+        { id: 'quotes',    label: 'Offerter',          icon: FileSpreadsheet },
+        { id: 'invoices',  label: 'Fakturor',          icon: FileText },
+        { id: 'payroll',   label: 'Anställda & löner', icon: UsersRound },
       ],
     },
     {
       label: 'BOKFÖRING & EKONOMI',
       items: [
-        { id: 'revenue',        label: 'Intäkter',           icon: TrendingUp },
-        { id: 'expenses',       label: 'Kostnader',          icon: TrendingDown },
-        { id: 'transfers',      label: 'Överföringar',       icon: ArrowLeftRight },
-        { id: 'review',         label: 'Att granska',        icon: CheckSquare,  badge: 2 },
-        { id: 'verifications',  label: 'Verifikationer',     icon: BookOpen },
-        { id: 'accounts',       label: 'Kontoplan',          icon: FolderTree },
-        { id: 'taxes',          label: 'Skatt & Bokslut',    icon: Shield },
-        { id: 'reports',        label: 'Rapporter',          icon: BarChart3 },
+        { id: 'revenue',       label: 'Intäkter',       icon: TrendingUp },
+        { id: 'expense_overview', label: 'Kostnader',   icon: TrendingDown },
+        { id: 'transfers',     label: 'Överföringar',   icon: ArrowLeftRight },
+        { id: 'review',        label: 'Att granska',    icon: CheckSquare, badge: reviewCount },
+        { id: 'verifications', label: 'Verifikationer', icon: BookOpen },
+        { id: 'accounts',      label: 'Kontoplan',      icon: FolderTree },
+        { id: 'taxes_yearend', label: 'Skatt & Bokslut',icon: Shield },
+        { id: 'reports',       label: 'Rapporter',      icon: BarChart3 },
       ],
     },
     {
-      label: 'ADMINISTRATION',
+      label: 'INSTÄLLNINGAR',
       items: [
-        { id: 'profile',        label: 'Min profil',         icon: User },
-        { id: 'company',        label: 'Företag',            icon: Building2 },
-        { id: 'settings',       label: 'Inställningar',      icon: SettingsIcon },
-        { id: 'users',          label: 'Användare',          icon: UsersRound },
+        { id: 'profile',  label: 'Min profil',    icon: User },
+        { id: 'company',  label: 'Företag',        icon: Building2 },
+        { id: 'settings', label: 'Inställningar',  icon: SettingsIcon },
+        { id: 'users',    label: 'Användare',      icon: UsersRound },
       ],
     },
   ];
 
   // Flat list for tab resolution (maps all IDs to real tabs)
-  const tabAliases = { revenue: 'reports', transfers: 'verifications', review: 'verifications', projects: 'dashboard', quotes: 'invoices', profile: 'settings', company: 'settings', users: 'settings' };
+  const tabAliases = { 
+    revenue:          'invoices',       // Intäkter → fakturor-vyn
+    expense_overview: 'expenses',       // Kostnader (standalone)
+    transfers:        'verifications',
+    review:           'verifications',
+    projects:         'dashboard',
+    quotes:           'invoices',
+    supplier_invoices:'expenses',
+    profile:          'settings', 
+    company:          'settings', 
+    users:            'settings',
+    bank:             'dashboard',      // Bank – placeholder
+    taxes_vat:        'taxes',
+    taxes_yearend:    'taxes',
+    payroll:          'payroll',
+    time:             'time',
+  };
   const resolveTab = (id) => tabAliases[id] || id;
   const navItems = navSections.flatMap(s => s.items);
 
@@ -758,8 +908,6 @@ function App() {
   // Active tab label for topbar
   const activeNavLabel = navItems.find(n => n.id === activeTab)?.label || 'Hem';
 
-  // Count for review badge (drafts + pending)
-  const reviewCount = invoices.filter(i => i.status === 'draft').length;
 
   // ── Render content ──
   const renderContent = () => {
@@ -780,6 +928,8 @@ function App() {
             company={company}
             profileIncomplete={!hasCompletedOnboarding}
             onResumeOnboarding={() => setShowOnboarding(true)}
+            stripeAccountId={company.stripeAccountId}
+            onConnectStripe={handleOpenStripeOnboarding}
           />
         );
       case 'time':
@@ -796,6 +946,8 @@ function App() {
             contacts={contacts}
             onAdd={handleAddInvoice}
             onMarkPaid={handleMarkInvoicePaid}
+            onCreatePaymentLink={handleCreateInvoicePaymentLink}
+            stripeAccountId={company.stripeAccountId}
             setInvoices={setInvoices}
             onConvertQuote={handleConvertQuoteToInvoice}
             company={company}
@@ -861,6 +1013,8 @@ function App() {
             contacts={contacts}
             onImport={handleImportData}
             onReset={handleResetData}
+            stripeAccountId={company.stripeAccountId}
+            onConnectStripe={handleOpenStripeOnboarding}
           />
         );
       default:
@@ -878,13 +1032,6 @@ function App() {
               showLanding 
                 ? <LandingPage onEnterApp={() => setShowLanding(false)} />
                 : <Auth onLogin={handleLogin} />
-            ) : showOnboarding ? (
-              <OnboardingFlow
-                onComplete={handleOnboardingComplete}
-                onSkip={handleSkipOnboarding}
-                initialCompanyName={company?.name}
-                initialCompanyData={currentCompany}
-              />
             ) : (
             <div className="app-container">
 
@@ -920,35 +1067,81 @@ function App() {
 
         <nav className="nav-links">
           {navSections.map((section) => (
-            <div key={section.label}>
+            <div key={section.label} className="nav-section">
               <div className="nav-section-label">{section.label}</div>
               {section.items.map(item => {
-                const isActive = activeTab === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    className={`nav-item ${isActive ? 'active' : ''}`}
-                    onClick={() => handleNavTabChange(item.id)}
-                  >
-                    <item.icon size={16} style={{ opacity: isActive ? 1 : 0.65, flexShrink: 0 }} />
-                    <span style={{ flex: 1, fontSize: '13px', letterSpacing: '-0.01em' }}>{item.label}</span>
-                    {item.badge != null && item.badge > 0 && (
-                      <span className="nav-badge">{reviewCount > 0 && item.id === 'review' ? reviewCount : item.badge}</span>
-                    )}
-                  </button>
-                );
+                if (item.subItems) {
+                  const isOpen = openMenus[item.id];
+                  return (
+                    <div key={item.id} className="nav-item-group">
+                      <button
+                        className="nav-item nav-item-parent"
+                        onClick={() => toggleMenu(item.id)}
+                      >
+                        <item.icon size={16} style={{ opacity: 0.7, flexShrink: 0 }} />
+                        <span style={{ flex: 1, fontSize: '13px', letterSpacing: '-0.01em' }}>{item.label}</span>
+                        <ChevronDown 
+                          size={14} 
+                          style={{ 
+                            opacity: 0.5, 
+                            transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                            transition: 'transform 0.2s'
+                          }} 
+                        />
+                      </button>
+                      {isOpen && (
+                        <div className="nav-subitems">
+                          {item.subItems.map(sub => {
+                            const isSubActive = activeTab === sub.id;
+                            return (
+                              <button
+                                key={sub.id}
+                                className={`nav-item sub-item ${isSubActive ? 'active' : ''}`}
+                                onClick={() => handleNavTabChange(sub.id)}
+                              >
+                                <span style={{ flex: 1 }}>{sub.label}</span>
+                                {sub.badge != null && sub.badge > 0 && (
+                                  <span className="nav-badge">{reviewCount > 0 && sub.id === 'review' ? reviewCount : sub.badge}</span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                } else {
+                  const isActive = activeTab === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      className={`nav-item ${isActive ? 'active' : ''}`}
+                      onClick={() => handleNavTabChange(item.id)}
+                    >
+                      <item.icon size={16} style={{ opacity: isActive ? 1 : 0.65, flexShrink: 0 }} />
+                      <span style={{ flex: 1, fontSize: '13px', letterSpacing: '-0.01em' }}>{item.label}</span>
+                      {item.badge != null && item.badge > 0 && (
+                        <span className="nav-badge">{reviewCount > 0 && item.id === 'review' ? reviewCount : item.badge}</span>
+                      )}
+                    </button>
+                  );
+                }
               })}
             </div>
           ))}
         </nav>
 
         <div className="sidebar-footer">
-          <button className="nav-item logout-btn" onClick={async () => {
+          <button className="nav-item bottom-btn" onClick={() => handleNavTabChange('dashboard')}>
+            <HelpCircle size={16} style={{ opacity: 0.6, flexShrink: 0 }} />
+            <span style={{ fontSize: '13px', letterSpacing: '-0.01em' }}>Hjälp</span>
+          </button>
+          <button className="nav-item bottom-btn logout-btn" onClick={async () => {
             await supabase.auth.signOut();
             setIsLoggedIn(false);
             setShowOnboarding(false);
           }}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, flexShrink: 0 }}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+            <LogOut size={16} style={{ opacity: 0.6, flexShrink: 0 }} />
             <span style={{ fontSize: '13px', letterSpacing: '-0.01em' }}>Logga ut</span>
           </button>
         </div>
@@ -960,7 +1153,7 @@ function App() {
 
         {/* Desktop Top Bar */}
         <div className="desktop-top-bar">
-          <div className="desktop-topbar-left">
+          <div className="desktop-topbar-left" style={{ flex: 1, marginRight: '32px' }}>
             {/* Hamburger (mobil) */}
             <button
               className="hamburger-btn"
@@ -969,33 +1162,81 @@ function App() {
             >
               <Menu size={22} />
             </button>
+            <div className="topbar-search">
+              <Search size={16} className="topbar-search-icon" />
+              <input type="text" placeholder="Sök verifikation, faktura, konto eller kund..." className="topbar-search-input" />
+            </div>
           </div>
 
           <div className="desktop-topbar-right">
-            <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
-              <button
-                className="btn btn-primary topbar-new-btn"
-                onClick={() => setIsGlobalPlusOpen(!isGlobalPlusOpen)}
-              >
-                <Plus size={14} />
-                Ny verifikation
+            <button
+              className="btn btn-outline"
+              style={{ fontSize: '13px', padding: '6px 14px', borderRadius: '8px', marginRight: '8px' }}
+              onClick={() => handleGlobalAction('new_verification', 'verifications')}
+            >
+              <Plus size={14} /> Ny verifikation
+            </button>
+            
+            <button className="topbar-icon-btn" title="Hjälp & support">
+              <HelpCircle size={18} />
+            </button>
+            <button className="topbar-icon-btn" title="Mörkt läge">
+              <Moon size={18} />
+            </button>
+            <div style={{ position: 'relative' }}>
+              <button className="topbar-icon-btn" title="Notiser">
+                <Bell size={18} />
               </button>
-              {isGlobalPlusOpen && (
-                <div className="global-plus-dropdown">
-                  <button onClick={() => handleGlobalAction('new_invoice', 'invoices')}>📄 Ny faktura</button>
-                  <button onClick={() => handleGlobalAction('new_quote', 'invoices')}>📋 Ny offert</button>
-                  <button onClick={() => handleGlobalAction('new_expense', 'expenses')}>🧾 Ny utgift</button>
-                  <button onClick={() => handleGlobalAction('new_contact', 'contacts')}>👤 Ny kund/lev</button>
+              <span style={{ position: 'absolute', top: 4, right: 4, width: 14, height: 14, backgroundColor: '#ef4444', color: 'white', borderRadius: '50%', fontSize: '9px', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>1</span>
+            </div>
+
+            <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
+              <div 
+                className="topbar-profile-trigger"
+                onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', padding: '4px', borderRadius: '8px' }}
+              >
+                <div className="topbar-avatar" title={user?.email || 'Profil'}>
+                  {(company?.name || user?.email || 'A').charAt(0).toUpperCase()}
+                </div>
+                <ChevronDown size={14} style={{ color: '#64748b' }} />
+              </div>
+              
+              {isProfileMenuOpen && (
+                <div className="profile-dropdown">
+                  <div className="profile-header">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+                      <div style={{ width: 38, height: 38, borderRadius: '50%', background: 'linear-gradient(135deg, #5ba85a, #3a8fc1)', color: 'white', fontSize: '14px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        {(company?.name || user?.email || 'A').charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <div className="profile-name">{company?.name || 'Mitt Företag'}</div>
+                        <div className="profile-role">{user?.email || 'användare@bokix.se'}</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="dropdown-divider"></div>
+                  <button onClick={() => { setActiveTab('profile'); setIsProfileMenuOpen(false); }}><User size={14} /> Profil</button>
+                  <button onClick={() => { setActiveTab('settings'); setIsProfileMenuOpen(false); }}><SettingsIcon size={14} /> Inställningar</button>
+                  <button onClick={() => { setIsProfileMenuOpen(false); }}><Moon size={14} /> Byt tema</button>
+                  <div className="dropdown-divider"></div>
+                  <button onClick={() => { setActiveTab('accounts'); setIsProfileMenuOpen(false); }}><FolderTree size={14} /> Kontoplaner</button>
+                  <button onClick={() => { setIsProfileMenuOpen(false); }}><FileCheck size={14} /> Viktiga datum</button>
+                  <button onClick={() => { setActiveTab('taxes_yearend'); setIsProfileMenuOpen(false); }}><Shield size={14} /> Bokslut & årsredovisning</button>
+                  <button onClick={() => { setActiveTab('taxes_vat'); setIsProfileMenuOpen(false); }}><Calculator size={14} /> Momsredovisning</button>
+                  <div className="dropdown-divider"></div>
+                  <button onClick={() => { setIsProfileMenuOpen(false); }}><AlertTriangle size={14} /> Rapportera fel</button>
+                  <button onClick={() => { setIsProfileMenuOpen(false); }}><HelpCircle size={14} /> Hjälp & support</button>
+                  <div className="dropdown-divider"></div>
+                  <button onClick={() => { setIsProfileMenuOpen(false); }}><UsersRound size={14} /> Lägg till företag</button>
+                  <div className="dropdown-divider"></div>
+                  <button onClick={async () => {
+                    await supabase.auth.signOut();
+                    setIsLoggedIn(false);
+                    setShowOnboarding(false);
+                  }} className="text-danger"><LogOut size={14} /> Logga ut</button>
                 </div>
               )}
-            </div>
-            <button className="topbar-icon-btn" title="Hjälp"><HelpCircle size={18} /></button>
-            <button className="topbar-icon-btn" title="Tid"><Clock size={18} /></button>
-            <button className="topbar-icon-btn" title="Notiser" style={{ position: 'relative' }}>
-              <Bell size={18} />
-            </button>
-            <div className="topbar-avatar" title={user?.email || 'Profil'}>
-              {(company?.name || user?.email || 'A').charAt(0).toUpperCase()}
             </div>
           </div>
         </div>

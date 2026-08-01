@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import jsPDF from 'jspdf/dist/jspdf.es.min.js';
-import { FileCheck, Landmark, CalendarCheck, ExternalLink, Clock, PieChart, FileText, CheckCircle, AlertCircle, Calendar, ArrowDownRight, ArrowUpRight, CheckCircle2, FileDown, X, Download } from 'lucide-react';
+import { FileCheck, Landmark, CalendarCheck, ExternalLink, Clock, PieChart, FileText, CheckCircle, AlertCircle, Calendar, ArrowDownRight, ArrowUpRight, CheckCircle2, FileDown, X, Download, FolderSync } from 'lucide-react';
 import Moms from './Moms';
 import { generateSRU } from '../utils/sruExport';
 
@@ -254,11 +254,6 @@ export default function Taxes({ company, verifications, balances }) {
               </div>
 
               <div style={{ border: '1px solid #e5e7eb', borderRadius: '12px', padding: '20px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                <div style={{ width: 48, height: 48, borderRadius: '12px', background: '#fef3c7', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px' }}>
-                  <Download size={24} />
-                </div>
-                <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#111827', marginBottom: '4px' }}>Inlämning SRU (Skatteverket)</h3>
-                <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '20px' }}>Ladda ner INFO.SRU och BLANKETTER.SRU för direktuppladdning till Skatteverkets e-tjänst.</p>
                 <button onClick={handleDownloadSRU} style={{ ...buttonStyle, background: '#d97706', color: 'white' }}>
                   Ladda ner SRU-filer
                 </button>
