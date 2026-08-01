@@ -3,8 +3,9 @@ import { Link } from 'react-router-dom';
 import {
   FileText, BarChart3, Users, Clock, Shield, Zap, CheckCircle,
   ArrowRight, ChevronRight, Star, TrendingUp, Receipt, BookOpen,
-  Calculator, ChevronDown, Menu, X
+  Calculator, ChevronDown, Menu, X, MapPin
 } from 'lucide-react';
+import { getCookieConsent, saveCookieConsent } from '../utils/cookieConsent';
 
 const NAV_LINKS = ['Funktioner', 'Priser', 'Om oss'];
 
@@ -69,6 +70,9 @@ export default function LandingPage({ onEnterApp }) {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [faqOpen, setFaqOpen] = useState(null);
+  const [cookieConsent, setCookieConsent] = useState(() => getCookieConsent());
+  const [showCookieSettings, setShowCookieSettings] = useState(false);
+  const [analyticsCookies, setAnalyticsCookies] = useState(false);
 
   useEffect(() => {
     const handler = () => setScrolled(window.scrollY > 20);
@@ -80,6 +84,11 @@ export default function LandingPage({ onEnterApp }) {
     const el = document.getElementById(id);
     if (el) el.scrollIntoView({ behavior: 'smooth' });
     setMobileMenuOpen(false);
+  };
+
+  const handleCookieSave = (analytics) => {
+    setCookieConsent(saveCookieConsent({ analytics }));
+    setShowCookieSettings(false);
   };
 
   return (
@@ -418,6 +427,48 @@ export default function LandingPage({ onEnterApp }) {
         </div>
       </section>
 
+      {/* ── TRUST & COMPANY DETAILS ── */}
+      <section style={{ padding: '80px 24px', background: '#f8fafc' }}>
+        <div style={{ maxWidth: '1100px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '20px' }}>
+          <div id="security" style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '16px', padding: '24px', scrollMarginTop: '84px' }}>
+            <Shield size={22} color="#0891b2" />
+            <h3 style={{ margin: '16px 0 8px', fontSize: '18px', color: '#111827' }}>Säkerhet först</h3>
+            <p style={{ color: '#64748b', lineHeight: 1.6, fontSize: '14px' }}>Dina uppgifter skyddas med inloggning, säker lagring och exportmöjligheter så att du alltid har kontroll över din bokföring.</p>
+          </div>
+          <div id="integrations" style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '16px', padding: '24px', scrollMarginTop: '84px' }}>
+            <Zap size={22} color="#5ba85a" />
+            <h3 style={{ margin: '16px 0 8px', fontSize: '18px', color: '#111827' }}>Bankintegrationer</h3>
+            <p style={{ color: '#64748b', lineHeight: 1.6, fontSize: '14px' }}>Bokix byggs för smidiga bankflöden. Anslutningar lanseras löpande och visas tydligt innan de aktiveras.</p>
+          </div>
+          <div id="updates" style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '16px', padding: '24px', scrollMarginTop: '84px' }}>
+            <TrendingUp size={22} color="#3a8fc1" />
+            <h3 style={{ margin: '16px 0 8px', fontSize: '18px', color: '#111827' }}>Uppdateringar</h3>
+            <p style={{ color: '#64748b', lineHeight: 1.6, fontSize: '14px' }}>Vi förbättrar Bokix med tydligare rapporter, smartare arbetsflöden och funktioner anpassade för svenska företag.</p>
+          </div>
+          <div id="about" style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '16px', padding: '24px', scrollMarginTop: '84px' }}>
+            <BookOpen size={22} color="#7c3aed" />
+            <h3 style={{ margin: '16px 0 8px', fontSize: '18px', color: '#111827' }}>Om Bokix</h3>
+            <p style={{ color: '#64748b', lineHeight: 1.6, fontSize: '14px' }}>Bokix utvecklas i Stockholm med ett enkelt mål: att göra svensk bokföring begriplig och mindre tidskrävande.</p>
+          </div>
+          <div id="careers" style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '16px', padding: '24px', scrollMarginTop: '84px' }}>
+            <Users size={22} color="#d97706" />
+            <h3 style={{ margin: '16px 0 8px', fontSize: '18px', color: '#111827' }}>Karriär</h3>
+            <p style={{ color: '#64748b', lineHeight: 1.6, fontSize: '14px' }}>Vill du vara med och förenkla företagandet? Skicka en presentation till <a href="mailto:jobb@bokix.se" style={{ color: '#3a8fc1', fontWeight: 600 }}>jobb@bokix.se</a>.</p>
+          </div>
+          <div id="press" style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '16px', padding: '24px', scrollMarginTop: '84px' }}>
+            <FileText size={22} color="#ea580c" />
+            <h3 style={{ margin: '16px 0 8px', fontSize: '18px', color: '#111827' }}>Press</h3>
+            <p style={{ color: '#64748b', lineHeight: 1.6, fontSize: '14px' }}>För pressfrågor, produktinformation och logotypmaterial, kontakta <a href="mailto:press@bokix.se" style={{ color: '#3a8fc1', fontWeight: 600 }}>press@bokix.se</a>.</p>
+          </div>
+          <div id="contact" style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '16px', padding: '24px', scrollMarginTop: '84px' }}>
+            <MapPin size={22} color="#dc2626" />
+            <h3 style={{ margin: '16px 0 8px', fontSize: '18px', color: '#111827' }}>Kontakt</h3>
+            <p style={{ color: '#64748b', lineHeight: 1.6, fontSize: '14px', marginBottom: '14px' }}>Bokix, Stockholm, Sverige</p>
+            <a href="https://www.google.com/maps/search/?api=1&query=Stockholm%2C%20Sweden" target="_blank" rel="noreferrer" style={{ color: '#3a8fc1', fontWeight: 600, textDecoration: 'none' }}>Öppna i karta</a>
+          </div>
+        </div>
+      </section>
+
       {/* ── CTA SECTION ── */}
       <section style={{ padding: '100px 24px', background: 'linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%)', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '600px', height: '600px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(91,168,90,0.12) 0%, transparent 60%)', pointerEvents: 'none' }} />
@@ -458,12 +509,12 @@ export default function LandingPage({ onEnterApp }) {
             <div>
               <h4 style={{ fontSize: '15px', fontWeight: 700, color: 'white', marginBottom: '20px' }}>Produkt</h4>
               <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {['Funktioner', 'Priser', 'Säkerhet', 'Bankintegrationer', 'Uppdateringar'].map(link => (
-                  <li key={link}>
-                    <a href="#" style={{ fontSize: '14px', color: '#64748b', textDecoration: 'none', transition: 'color 0.2s' }}
+                {[['Funktioner', 'features'], ['Priser', 'pricing'], ['Säkerhet', 'security'], ['Bankintegrationer', 'integrations'], ['Uppdateringar', 'updates']].map(([label, id]) => (
+                  <li key={label}>
+                    <a href={`#${id}`} onClick={e => { e.preventDefault(); scrollTo(id); }} style={{ fontSize: '14px', color: '#64748b', textDecoration: 'none', transition: 'color 0.2s' }}
                       onMouseEnter={e => e.currentTarget.style.color = '#5ba85a'}
                       onMouseLeave={e => e.currentTarget.style.color = '#64748b'}
-                    >{link}</a>
+                    >{label}</a>
                   </li>
                 ))}
               </ul>
@@ -473,12 +524,12 @@ export default function LandingPage({ onEnterApp }) {
             <div>
               <h4 style={{ fontSize: '15px', fontWeight: 700, color: 'white', marginBottom: '20px' }}>Företag</h4>
               <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {['Om oss', 'Karriär', 'Press', 'Kontakt'].map(link => (
-                  <li key={link}>
-                    <a href="#" style={{ fontSize: '14px', color: '#64748b', textDecoration: 'none', transition: 'color 0.2s' }}
+                {[['Om oss', 'about'], ['Karriär', 'careers'], ['Press', 'press'], ['Kontakt', 'contact']].map(([label, id]) => (
+                  <li key={label}>
+                    <a href={`#${id}`} onClick={e => { e.preventDefault(); scrollTo(id); }} style={{ fontSize: '14px', color: '#64748b', textDecoration: 'none', transition: 'color 0.2s' }}
                       onMouseEnter={e => e.currentTarget.style.color = '#5ba85a'}
                       onMouseLeave={e => e.currentTarget.style.color = '#64748b'}
-                    >{link}</a>
+                    >{label}</a>
                   </li>
                 ))}
               </ul>
@@ -520,6 +571,26 @@ export default function LandingPage({ onEnterApp }) {
           </div>
         </div>
       </footer>
+
+      {!cookieConsent && (
+        <div style={{ position: 'fixed', left: '20px', right: '20px', bottom: '20px', zIndex: 1100, maxWidth: '760px', margin: '0 auto', padding: '20px', background: 'white', border: '1px solid #e2e8f0', borderRadius: '16px', boxShadow: '0 20px 50px rgba(15,23,42,0.2)' }}>
+          <h2 style={{ fontSize: '17px', color: '#111827', marginBottom: '8px' }}>Din integritet är viktig</h2>
+          <p style={{ fontSize: '13px', lineHeight: 1.6, color: '#64748b', marginBottom: '14px' }}>
+            Bokix använder nödvändiga cookies för att tjänsten ska fungera. Med ditt val kan du även tillåta anonyma analyscookies som hjälper oss att förbättra webbplatsen.
+          </p>
+          {showCookieSettings && (
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#374151', marginBottom: '14px' }}>
+              <input type="checkbox" checked={analyticsCookies} onChange={e => setAnalyticsCookies(e.target.checked)} />
+              Tillåt analyscookies
+            </label>
+          )}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', flexWrap: 'wrap' }}>
+            <button onClick={() => handleCookieSave(false)} style={{ padding: '9px 14px', border: '1px solid #e5e7eb', borderRadius: '9px', background: 'white', color: '#374151', fontWeight: 600, cursor: 'pointer' }}>Endast nödvändiga</button>
+            <button onClick={() => showCookieSettings ? handleCookieSave(analyticsCookies) : setShowCookieSettings(true)} style={{ padding: '9px 14px', border: '1px solid #3a8fc1', borderRadius: '9px', background: 'white', color: '#3a8fc1', fontWeight: 600, cursor: 'pointer' }}>{showCookieSettings ? 'Spara val' : 'Inställningar'}</button>
+            <button onClick={() => handleCookieSave(true)} style={{ padding: '9px 14px', border: 'none', borderRadius: '9px', background: '#5ba85a', color: 'white', fontWeight: 700, cursor: 'pointer' }}>Acceptera alla</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
