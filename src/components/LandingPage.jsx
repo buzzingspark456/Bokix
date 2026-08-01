@@ -127,6 +127,23 @@ export default function LandingPage({ onEnterApp }) {
         .hero-proof { border-top: 1px solid rgba(100,116,139,0.16); padding-top: 18px; }
         .mobile-menu-toggle { display: none; }
         .mobile-menu-panel { display: none; }
+        .header-shell { max-width: 1240px !important; height: 76px !important; padding: 0 18px; border-radius: 18px; }
+        .brand-lockup { gap: 11px !important; }
+        .brand-mark { position: relative; width: 40px !important; height: 40px !important; border-radius: 12px !important; box-shadow: 0 8px 18px rgba(58,143,193,0.2); }
+        .brand-mark::after { content: ''; position: absolute; right: 4px; bottom: 4px; width: 6px; height: 6px; border-radius: 50%; background: #ffffff; opacity: 0.9; }
+        .brand-wordmark { font-size: 20px !important; letter-spacing: -0.04em !important; }
+        .desktop-nav { justify-content: center; }
+        .desktop-nav button { position: relative; font-size: 13.5px !important; font-weight: 600 !important; }
+        .desktop-nav button::after { content: ''; position: absolute; left: 0; right: 100%; bottom: -8px; height: 2px; border-radius: 999px; background: #5ba85a; transition: right 0.2s ease; }
+        .desktop-nav button:hover::after { right: 0; }
+        .header-actions { gap: 8px !important; }
+        .header-login { padding: 9px 15px !important; }
+        .header-signup { padding: 10px 17px !important; border-radius: 10px !important; }
+        @media (max-width: 1050px) {
+          .desktop-nav { display: none !important; }
+          .mobile-menu-toggle { display: block; }
+          .mobile-menu-panel { display: block; }
+        }
         @media (max-width: 800px) {
           .hero-section { min-height: auto !important; border-radius: 0 0 56px 56px; }
           .hero-layout { grid-template-columns: 1fr !important; gap: 48px !important; padding: 90px 20px 76px !important; }
@@ -149,17 +166,17 @@ export default function LandingPage({ onEnterApp }) {
         padding: '0 24px', transition: 'all 0.3s',
         boxShadow: scrolled ? '0 1px 20px rgba(0,0,0,0.06)' : 'none'
       }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', alignItems: 'center', height: '68px', gap: '32px' }}>
+        <div className="header-shell" style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', alignItems: 'center', height: '68px', gap: '32px' }}>
           {/* Logo */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
-            <div style={{ width: 36, height: 36, borderRadius: '10px', background: 'linear-gradient(135deg, #5ba85a, #3a8fc1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <BookOpen size={18} color="white" />
+          <div className="brand-lockup" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+            <div className="brand-mark" aria-label="Bokix logo" style={{ width: 36, height: 36, borderRadius: '10px', background: 'linear-gradient(135deg, #5ba85a, #3a8fc1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <BookOpen size={19} color="white" strokeWidth={2.4} />
             </div>
-            <span style={{ fontSize: '18px', fontWeight: 800, letterSpacing: '-0.03em', color: '#111827' }}>Bokix</span>
+            <span className="brand-wordmark" style={{ fontSize: '18px', fontWeight: 800, letterSpacing: '-0.03em', color: '#111827' }}>Bokix</span>
           </div>
 
           {/* Desktop nav */}
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '28px', display: 'flex' }}>
+          <div className="desktop-nav" style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '28px' }}>
             {[['Funktioner', 'features'], ['Priser', 'pricing'], ['Bokföring', 'accounting'], ['Fakturering', 'invoicing'], ['FAQ', 'faq']].map(([label, id]) => (
               <button key={id} onClick={() => scrollTo(id)} style={{ background: 'none', border: 'none', fontSize: '14px', fontWeight: 500, color: '#374151', cursor: 'pointer', fontFamily: 'inherit', padding: '4px 0', transition: 'color 0.15s' }}
                 onMouseEnter={e => e.currentTarget.style.color = '#5ba85a'}
@@ -170,11 +187,11 @@ export default function LandingPage({ onEnterApp }) {
             ))}
           </div>
 
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-            <button className="lp-btn-secondary" onClick={onEnterApp} style={{ padding: '8px 16px', background: 'transparent', border: '1px solid #e5e7eb', borderRadius: '9px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: '#374151', fontFamily: 'inherit' }}>
+          <div className="header-actions" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <button className="lp-btn-secondary header-login" onClick={onEnterApp} style={{ padding: '8px 16px', background: 'transparent', border: '1px solid #e5e7eb', borderRadius: '9px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: '#374151', fontFamily: 'inherit' }}>
               Logga in
             </button>
-            <button className="lp-btn-primary" onClick={onEnterApp} style={{ padding: '8px 18px', background: 'linear-gradient(135deg, #5ba85a, #4a9e49)', border: 'none', borderRadius: '9px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', color: 'white', fontFamily: 'inherit', boxShadow: '0 4px 15px -3px rgba(91,168,90,0.3)' }}>
+            <button className="lp-btn-primary header-signup" onClick={onEnterApp} style={{ padding: '8px 18px', background: 'linear-gradient(135deg, #5ba85a, #4a9e49)', border: 'none', borderRadius: '9px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', color: 'white', fontFamily: 'inherit', boxShadow: '0 4px 15px -3px rgba(91,168,90,0.3)' }}>
               Skapa konto
             </button>
             {/* Mobile menu toggle */}
