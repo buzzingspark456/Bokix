@@ -132,9 +132,9 @@ export default function LandingPage({ onEnterApp }) {
         .header-shell { max-width: 1240px !important; height: 76px !important; padding: 0 18px; border-radius: 18px; }
         .brand-lockup { gap: 11px !important; }
         .brand-mark { position: relative; width: 150px !important; height: 58px !important; border-radius: 8px !important; background: transparent !important; }
-        .logo-image { width: 100%; height: 100%; object-fit: contain; mix-blend-mode: screen; }
+        .logo-image { width: 100%; height: 100%; object-fit: contain; mix-blend-mode: normal; display: block; }
         .footer-logo-mark { width: 180px; height: 70px; background: transparent; overflow: visible; }
-        .footer-logo-image { mix-blend-mode: screen; }
+        .footer-logo-image { mix-blend-mode: normal; }
         @media (max-width: 600px) { .footer-logo-mark { width: 150px; height: 58px; } }
         .brand-wordmark { font-size: 20px !important; letter-spacing: -0.04em !important; }
         .desktop-nav { justify-content: center; }
