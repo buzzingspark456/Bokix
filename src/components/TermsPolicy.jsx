@@ -12,9 +12,16 @@ export default function TermsPolicy() {
         <p style={{ marginBottom: '16px', lineHeight: 1.8, color: '#475569' }}>
           Tjänsten får användas för laglig bokföring och administration av företagets ekonomi. Du ansvarar för att uppgifter som matas in är korrekta och uppfyller gällande regelverk.
         </p>
+        <h2 style={{ marginTop: '32px', marginBottom: '12px', fontSize: '18px', fontWeight: 700 }}>Bokföringsansvar</h2>
+        <p style={{ marginBottom: '16px', lineHeight: 1.8, color: '#475569' }}>
+          Du som företagare ansvarar för att bokföringen är fullständig, rättvisande och bevaras enligt bokföringslagen. Det yttersta ansvaret för riktiga verifikationer, rättelser, deklarationer och rapportering till myndigheter ligger alltid hos dig. Bokix är ett tekniskt hjälpmedel och ersätter inte en redovisningskonsult eller revisor.
+        </p>
         <h2 style={{ marginTop: '32px', marginBottom: '12px', fontSize: '18px', fontWeight: 700 }}>Ansvarsbegränsning</h2>
         <p style={{ marginBottom: '16px', lineHeight: 1.8, color: '#475569' }}>
-          Bokix ansvarar inte för ekonomiska skador som uppstår på grund av felaktig användning eller utebliven säkerhetskopiering av dina data.
+          Bokix ansvarar inte för ekonomiska skador, utebliven vinst, följdskador, förseningsavgifter, ränta eller andra kostnader som uppstår på grund av felaktig användning, felaktiga inmatningar, felaktiga underlag, myndighetsbeslut, avbrott eller utebliven säkerhetskopiering av dina data.
+        </p>
+        <p style={{ marginBottom: '16px', lineHeight: 1.8, color: '#475569' }}>
+          Du ska kontrollera rapporter och exporter innan de lämnas till Skatteverket eller annan mottagare och själv säkerställa att lagar, föreskrifter och aktuella myndighetskrav är uppfyllda.
         </p>
         <h2 style={{ marginTop: '32px', marginBottom: '12px', fontSize: '18px', fontWeight: 700 }}>Ändringar</h2>
         <p style={{ marginBottom: '16px', lineHeight: 1.8, color: '#475569' }}>

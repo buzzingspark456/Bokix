@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   FileText, BarChart3, Users, Clock, Shield, Zap, CheckCircle,
-  ArrowRight, ChevronRight, Star, TrendingUp, Receipt, BookOpen,
-  Calculator, ChevronDown, Menu, X
+  ArrowRight, Star, TrendingUp, Receipt, BookOpen,
+  ChevronDown, Menu, X, MapPin
 } from 'lucide-react';
+import { getCookieConsent, saveCookieConsent } from '../utils/cookieConsent';
 
-const NAV_LINKS = ['Funktioner', 'Priser', 'Om oss'];
+const BOKIX_LOGO_URL = 'https://cdn.builder.io/api/v1/image/assets%2F965040efbcfe49b9b50fd660edbb6b93%2F9ecd5f71e5154278b4959739f811cbab?format=webp&width=800&height=1200';
 
 const FEATURES = [
   {
@@ -69,6 +70,9 @@ export default function LandingPage({ onEnterApp }) {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [faqOpen, setFaqOpen] = useState(null);
+  const [cookieConsent, setCookieConsent] = useState(() => getCookieConsent());
+  const [showCookieSettings, setShowCookieSettings] = useState(false);
+  const [analyticsCookies, setAnalyticsCookies] = useState(false);
 
   useEffect(() => {
     const handler = () => setScrolled(window.scrollY > 20);
@@ -80,6 +84,11 @@ export default function LandingPage({ onEnterApp }) {
     const el = document.getElementById(id);
     if (el) el.scrollIntoView({ behavior: 'smooth' });
     setMobileMenuOpen(false);
+  };
+
+  const handleCookieSave = (analytics) => {
+    setCookieConsent(saveCookieConsent({ analytics }));
+    setShowCookieSettings(false);
   };
 
   return (
@@ -95,6 +104,11 @@ export default function LandingPage({ onEnterApp }) {
         .feature-card:hover { transform: translateY(-3px); box-shadow: 0 12px 30px -8px rgba(0,0,0,0.1) !important; }
         .price-card { transition: all 0.2s; }
         .price-card:hover { transform: translateY(-4px); }
+        .step-card { transition: transform 0.25s, box-shadow 0.25s; }
+        .step-card:hover { transform: translateY(-4px); box-shadow: 0 18px 36px -18px rgba(15,23,42,0.28) !important; }
+        @media (max-width: 800px) { .workflow-grid { grid-template-columns: 1fr !important; } }
+        .service-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        @media (max-width: 800px) { .service-overview { grid-template-columns: 1fr !important; } }
         @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
         .animate-float { animation: float 4s ease-in-out infinite; }
@@ -104,29 +118,76 @@ export default function LandingPage({ onEnterApp }) {
         .delay-3 { animation-delay: 0.3s; }
         @keyframes pulse-ring { 0% { transform: scale(0.9); opacity: 0.8; } 100% { transform: scale(1.4); opacity: 0; } }
         .pulse-ring::after { content: ''; position: absolute; inset: 0; border-radius: 50%; border: 2px solid #5ba85a; animation: pulse-ring 2s ease-out infinite; }
+        .hero-section { border-radius: 0; }
+        .hero-layout { position: relative; z-index: 1; }
+        .hero-copy { max-width: 540px; }
+        .hero-eyebrow { box-shadow: 0 10px 30px rgba(91,168,90,0.12); }
+        .hero-title { text-wrap: balance; }
+        .hero-description { max-width: 520px !important; }
+        .hero-product-preview { border: 1px solid rgba(255,255,255,0.7); box-shadow: 0 40px 80px -20px rgba(58,143,193,0.25), 0 0 0 10px rgba(255,255,255,0.25); }
+        .hero-product-column { padding: 20px; }
+        .hero-proof { border-top: 1px solid rgba(100,116,139,0.16); padding-top: 18px; }
+        .mobile-menu-toggle { display: none; }
+        .mobile-menu-panel { display: none; }
+        .header-shell { max-width: 1240px !important; height: 76px !important; padding: 0 18px; border-radius: 18px; }
+        .brand-lockup { gap: 11px !important; }
+        .brand-mark { position: relative; width: 150px !important; height: 58px !important; border-radius: 8px !important; background: transparent !important; }
+        .logo-image { width: 100%; height: 100%; object-fit: contain; mix-blend-mode: normal; display: block; }
+        .footer-logo-mark { width: 180px; height: 70px; background: transparent; overflow: visible; }
+        .footer-logo-image { mix-blend-mode: normal; }
+        @media (max-width: 600px) { .footer-logo-mark { width: 150px; height: 58px; } }
+        .brand-wordmark { font-size: 20px !important; letter-spacing: -0.04em !important; }
+        .desktop-nav { justify-content: center; }
+        .desktop-nav button { position: relative; font-size: 13.5px !important; font-weight: 600 !important; }
+        .desktop-nav button::after { content: ''; position: absolute; left: 0; right: 100%; bottom: -8px; height: 2px; border-radius: 999px; background: #5ba85a; transition: right 0.2s ease; }
+        .desktop-nav button:hover::after { right: 0; }
+        .header-actions { gap: 8px !important; }
+        .header-login { padding: 9px 15px !important; }
+        .header-signup { padding: 10px 17px !important; border-radius: 10px !important; }
+        @media (max-width: 1050px) {
+          .desktop-nav { display: none !important; }
+          .mobile-menu-toggle { display: block; }
+          .mobile-menu-panel { display: block; }
+        }
+        @media (max-width: 800px) {
+          .hero-section { min-height: auto !important; border-radius: 0; }
+          .hero-layout { grid-template-columns: 1fr !important; gap: 48px !important; padding: 90px 20px 76px !important; }
+          .hero-copy { max-width: none; }
+          .hero-title { font-size: clamp(42px, 12vw, 66px) !important; }
+          .hero-description { font-size: 17px !important; }
+          .hero-product-column { padding: 12px 4px; }
+          .hero-product-preview { box-shadow: 0 28px 50px -18px rgba(58,143,193,0.25); }
+          .mobile-menu-toggle { display: block; }
+          .mobile-menu-panel { display: block; }
+        }
+        @media (max-width: 600px) {
+          .brand-mark { width: 125px !important; height: 48px !important; }
+          .header-login { display: none; }
+          .header-signup { padding: 9px 12px !important; font-size: 12px !important; }
+          .header-shell { padding: 0 12px; gap: 12px !important; }
+        }
       `}</style>
 
       {/* ── NAVBAR ── */}
       <nav style={{
         position: 'fixed', top: 0, left: 0, right: 0, zIndex: 1000,
-        background: scrolled ? 'rgba(255,255,255,0.95)' : 'transparent',
-        backdropFilter: scrolled ? 'blur(12px)' : 'none',
-        borderBottom: scrolled ? '1px solid rgba(0,0,0,0.06)' : 'none',
+        background: 'rgba(255,255,255,0.97)',
+        backdropFilter: 'blur(12px)',
+        borderBottom: '1px solid rgba(0,0,0,0.06)',
         padding: '0 24px', transition: 'all 0.3s',
-        boxShadow: scrolled ? '0 1px 20px rgba(0,0,0,0.06)' : 'none'
+        boxShadow: '0 1px 20px rgba(0,0,0,0.06)'
       }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', alignItems: 'center', height: '68px', gap: '32px' }}>
+        <div className="header-shell" style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', alignItems: 'center', height: '76px', gap: '32px' }}>
           {/* Logo */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
-            <div style={{ width: 36, height: 36, borderRadius: '10px', background: 'linear-gradient(135deg, #5ba85a, #3a8fc1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <BookOpen size={18} color="white" />
+          <Link to="/" aria-label="Till Bokix startsida" className="brand-lockup" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0, textDecoration: 'none' }}>
+            <div className="brand-mark" aria-label="Bokix logo" style={{ width: 150, height: 58, borderRadius: '8px', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'visible' }}>
+              <img className="logo-image" src={BOKIX_LOGO_URL} alt="Bokix" />
             </div>
-            <span style={{ fontSize: '18px', fontWeight: 800, letterSpacing: '-0.03em', color: '#111827' }}>Bokix</span>
-          </div>
+          </Link>
 
           {/* Desktop nav */}
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '28px', display: 'flex' }}>
-            {[['Funktioner', 'features'], ['Priser', 'pricing'], ['Omdömen', 'testimonials']].map(([label, id]) => (
+          <div className="desktop-nav" style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '28px' }}>
+            {[['Funktioner', 'features'], ['Priser', 'pricing'], ['Bokföring', 'accounting'], ['Fakturering', 'invoicing'], ['FAQ', 'faq']].map(([label, id]) => (
               <button key={id} onClick={() => scrollTo(id)} style={{ background: 'none', border: 'none', fontSize: '14px', fontWeight: 500, color: '#374151', cursor: 'pointer', fontFamily: 'inherit', padding: '4px 0', transition: 'color 0.15s' }}
                 onMouseEnter={e => e.currentTarget.style.color = '#5ba85a'}
                 onMouseLeave={e => e.currentTarget.style.color = '#374151'}
@@ -136,67 +197,67 @@ export default function LandingPage({ onEnterApp }) {
             ))}
           </div>
 
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-            <button className="lp-btn-secondary" onClick={onEnterApp} style={{ padding: '8px 16px', background: 'transparent', border: '1px solid #e5e7eb', borderRadius: '9px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: '#374151', fontFamily: 'inherit' }}>
+          <div className="header-actions" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <button className="lp-btn-secondary header-login" onClick={onEnterApp} style={{ padding: '8px 16px', background: 'transparent', border: '1px solid #e5e7eb', borderRadius: '9px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: '#374151', fontFamily: 'inherit' }}>
               Logga in
             </button>
-            <button className="lp-btn-primary" onClick={onEnterApp} style={{ padding: '8px 18px', background: 'linear-gradient(135deg, #5ba85a, #4a9e49)', border: 'none', borderRadius: '9px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', color: 'white', fontFamily: 'inherit', boxShadow: '0 4px 15px -3px rgba(91,168,90,0.3)' }}>
-              Prova gratis
+            <button className="lp-btn-primary header-signup" onClick={onEnterApp} style={{ padding: '8px 18px', background: 'linear-gradient(135deg, #5ba85a, #4a9e49)', border: 'none', borderRadius: '9px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', color: 'white', fontFamily: 'inherit', boxShadow: '0 4px 15px -3px rgba(91,168,90,0.3)' }}>
+              Skapa konto
             </button>
             {/* Mobile menu toggle */}
-            <button onClick={() => setMobileMenuOpen(v => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'none', padding: '4px' }}>
+            <button className="mobile-menu-toggle" onClick={() => setMobileMenuOpen(v => !v)} aria-label="Öppna meny" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}>
               {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
             </button>
           </div>
         </div>
+        {mobileMenuOpen && (
+          <div className="mobile-menu-panel" style={{ background: 'white', borderTop: '1px solid #e5e7eb', padding: '16px 24px 22px', boxShadow: '0 16px 30px rgba(15,23,42,0.08)' }}>
+            {[['Funktioner', 'features'], ['Priser', 'pricing'], ['Bokföring', 'accounting'], ['Fakturering', 'invoicing'], ['FAQ', 'faq']].map(([label, id]) => (
+              <button key={id} onClick={() => scrollTo(id)} style={{ display: 'block', width: '100%', padding: '12px 0', textAlign: 'left', background: 'none', border: 'none', color: '#374151', fontSize: '15px', fontWeight: 600, cursor: 'pointer' }}>{label}</button>
+            ))}
+            <button onClick={onEnterApp} style={{ width: '100%', marginTop: '8px', padding: '12px', border: 'none', borderRadius: '10px', background: 'linear-gradient(135deg, #5ba85a, #4a9e49)', color: 'white', fontWeight: 700, cursor: 'pointer' }}>Skapa konto</button>
+          </div>
+        )}
       </nav>
 
       {/* ── HERO ── */}
-      <section style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', background: 'linear-gradient(160deg, #f8fffe 0%, #f0f7ff 50%, #f5fff5 100%)', position: 'relative', overflow: 'hidden', paddingTop: '68px' }}>
-        {/* Background blobs */}
-        <div style={{ position: 'absolute', top: '-100px', right: '-100px', width: '500px', height: '500px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(91,168,90,0.12) 0%, transparent 70%)', pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', bottom: '-80px', left: '-80px', width: '400px', height: '400px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(58,143,193,0.1) 0%, transparent 70%)', pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', top: '30%', left: '10%', width: '200px', height: '200px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(91,168,90,0.06) 0%, transparent 70%)', pointerEvents: 'none' }} />
+      <section className="hero-section" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', background: 'white', position: 'relative', overflow: 'hidden', paddingTop: '68px' }}>
 
-        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '80px 24px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '80px', alignItems: 'center', width: '100%' }}>
+        <div className="hero-layout" style={{ maxWidth: '1200px', margin: '0 auto', padding: '80px 24px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '80px', alignItems: 'center', width: '100%' }}>
           {/* Left: Text */}
-          <div>
-            <div className="animate-fadeinup" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '6px 14px', background: '#f1f8f1', border: '1px solid #bce4bc', borderRadius: '100px', fontSize: '12px', fontWeight: 600, color: '#5ba85a', marginBottom: '24px' }}>
-              <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#5ba85a' }} />
-              Nytt: PDF-deklarationer direkt till Skatteverket
-            </div>
-
-            <h1 className="animate-fadeinup delay-1" style={{ fontSize: 'clamp(36px, 5vw, 58px)', fontWeight: 900, lineHeight: 1.08, letterSpacing: '-0.04em', color: '#0f172a', marginBottom: '24px' }}>
-              Bokföring som<br />
+          <div className="hero-copy">
+            <h1 className="hero-title animate-fadeinup delay-1" style={{ fontSize: 'clamp(44px, 6.2vw, 76px)', fontWeight: 900, lineHeight: 1.04, letterSpacing: '-0.055em', color: '#0f172a', marginBottom: '26px' }}>
+              Offerera, fakturera<br />
               <span style={{ background: 'linear-gradient(135deg, #5ba85a, #3a8fc1)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
-                faktiskt är enkel
-              </span>
+                bokför och få betalt
+              </span><br />
+              enkelt & automatiserat
             </h1>
 
-            <p className="animate-fadeinup delay-2" style={{ fontSize: '18px', color: '#475569', lineHeight: 1.7, marginBottom: '36px', maxWidth: '480px', fontWeight: 400 }}>
-              Fakturor, löner, moms och bokslut i ett enda snyggt verktyg. Byggt för svenska småföretagare som hellre fokuserar på sin verksamhet än sin bokföring.
+            <p className="hero-description animate-fadeinup delay-2" style={{ fontSize: '20px', color: '#475569', lineHeight: 1.65, marginBottom: '36px', maxWidth: '560px', fontWeight: 400 }}>
+              Automatisera din bokföring och fakturering i en plattform som bara fungerar. Spara tid, slipp fel och få full koll på ekonomin – allt på ett ställe.
             </p>
 
             <div className="animate-fadeinup delay-3" style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '40px' }}>
               <button className="lp-btn-primary" onClick={onEnterApp} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '14px 28px', background: 'linear-gradient(135deg, #5ba85a, #4a9e49)', border: 'none', borderRadius: '12px', fontSize: '15px', fontWeight: 700, cursor: 'pointer', color: 'white', fontFamily: 'inherit', boxShadow: '0 6px 20px -4px rgba(91,168,90,0.4)' }}>
-                Prova gratis i 30 dagar <ArrowRight size={16} />
-              </button>
-              <button className="lp-btn-secondary" onClick={() => scrollTo('features')} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '14px 24px', background: 'white', border: '1.5px solid #e2e8f0', borderRadius: '12px', fontSize: '15px', fontWeight: 600, cursor: 'pointer', color: '#374151', fontFamily: 'inherit' }}>
-                Se funktioner <ChevronRight size={16} />
+                Skapa konto – testa gratis <ArrowRight size={16} />
               </button>
             </div>
 
-            <div className="animate-fadeinup delay-3" style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
-              {[['✓ Inget kreditkort', null], ['✓ Gratis i 30 dagar', null], ['✓ Avsluta när som helst', null]].map(([text]) => (
-                <span key={text} style={{ fontSize: '13px', color: '#64748b', fontWeight: 500 }}>{text}</span>
-              ))}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '18px', flexWrap: 'wrap' }}>
+              <span style={{ color: '#f59e0b', letterSpacing: '2px', fontSize: '16px' }}>★★★★★</span>
+              <strong style={{ color: '#111827', fontSize: '14px' }}>4.8</strong>
+              <span style={{ color: '#64748b', fontSize: '13px' }}>av 5 · snittbetyg från Bokix-användare</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '22px', color: '#94a3b8', fontSize: '11px', fontWeight: 700, letterSpacing: '0.06em' }}>
+              <span>VISA</span><span>MASTERCARD</span><span>SWISH</span><span>KLARNA</span>
             </div>
           </div>
 
           {/* Right: App mockup */}
-          <div className="animate-float" style={{ position: 'relative' }}>
+          <div className="hero-product-column animate-float" style={{ position: 'relative' }}>
             {/* Main app card */}
-            <div style={{ background: 'white', borderRadius: '20px', boxShadow: '0 40px 80px -20px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.05)', overflow: 'hidden', position: 'relative' }}>
+            <div className="hero-product-preview" style={{ background: 'white', borderRadius: '20px', boxShadow: '0 40px 80px -20px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.05)', overflow: 'hidden', position: 'relative' }}>
               {/* Fake sidebar + content */}
               <div style={{ display: 'flex', height: '380px' }}>
                 {/* Sidebar */}
@@ -270,20 +331,51 @@ export default function LandingPage({ onEnterApp }) {
         </div>
       </section>
 
-      {/* ── SOCIAL PROOF TICKER ── */}
-      <section style={{ background: '#0f172a', padding: '20px 24px' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', gap: '48px', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap' }}>
-          {[
-            ['2 400+', 'aktiva företag'],
-            ['98%', 'nöjda kunder'],
-            ['450 000+', 'fakturor skickade'],
-            ['99.9%', 'drifttid'],
-          ].map(([num, label]) => (
-            <div key={label} style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '24px', fontWeight: 800, color: '#5ba85a', letterSpacing: '-0.03em' }}>{num}</div>
-              <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>{label}</div>
+      {/* ── HOW IT WORKS ── */}
+      <section id="how-it-works" style={{ padding: '96px 24px', background: '#f8fafc', scrollMarginTop: '84px' }}>
+        <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '24px', flexWrap: 'wrap', marginBottom: '40px' }}>
+            <div>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '5px 12px', background: '#f1f8f1', border: '1px solid #bce4bc', borderRadius: '100px', fontSize: '12px', fontWeight: 600, color: '#5ba85a', marginBottom: '14px' }}><CheckCircle size={12} /> Så fungerar det</div>
+              <h2 style={{ fontSize: 'clamp(28px, 4vw, 44px)', fontWeight: 900, letterSpacing: '-0.04em', color: '#0f172a', marginBottom: '10px' }}>Från underlag till koll</h2>
+              <p style={{ fontSize: '16px', color: '#64748b', maxWidth: '520px', lineHeight: 1.6 }}>Bokix samlar det dagliga arbetet i ett enkelt flöde, så att du kan lägga tiden på företaget istället för administrationen.</p>
             </div>
-          ))}
+            <button onClick={onEnterApp} className="lp-btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '11px 18px', border: 'none', borderRadius: '10px', background: 'linear-gradient(135deg, #5ba85a, #4a9e49)', color: 'white', fontWeight: 700, cursor: 'pointer' }}>Kom igång <ArrowRight size={15} /></button>
+          </div>
+          <div className="workflow-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '18px' }}>
+            {[
+              ['01', 'Samla allt', 'Fakturor, kvitton och tidrapporter hamnar på ett ställe.'],
+              ['02', 'Bokför enklare', 'Automatiska beräkningar och tydliga mallar hjälper dig rätt.'],
+              ['03', 'Få överblick', 'Rapporter, moms och resultat finns alltid nära till hands.'],
+            ].map(([number, title, text]) => (
+              <article key={number} className="step-card" style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '18px', padding: '24px', boxShadow: '0 2px 8px rgba(15,23,42,0.04)' }}>
+                <div style={{ width: 42, height: 42, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '13px', background: 'linear-gradient(135deg, #5ba85a, #3a8fc1)', color: 'white', fontWeight: 800, fontSize: '13px', marginBottom: '22px' }}>{number}</div>
+                <h3 style={{ fontSize: '18px', fontWeight: 750, color: '#111827', marginBottom: '8px' }}>{title}</h3>
+                <p style={{ fontSize: '14px', lineHeight: 1.6, color: '#64748b' }}>{text}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section style={{ padding: '72px 24px', background: 'white' }}>
+        <div className="service-overview" style={{ maxWidth: '1100px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '20px' }}>
+          <article id="accounting" style={{ padding: '30px', borderRadius: '20px', background: 'linear-gradient(145deg, #f1f8f1, #ffffff)', border: '1px solid #bce4bc', scrollMarginTop: '84px' }}>
+            <div style={{ color: '#5ba85a', fontWeight: 700, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '12px' }}>Bokföring</div>
+            <h2 style={{ fontSize: '28px', color: '#0f172a', letterSpacing: '-0.03em', marginBottom: '12px' }}>Bokföring som sköter sig själv</h2>
+            <p style={{ color: '#64748b', lineHeight: 1.7, fontSize: '15px', marginBottom: '18px' }}>Koppla banken, ladda upp kvitton eller registrera en affärshändelse. Bokix hjälper dig med BAS-kategorisering, momslogik och tydliga verifikationer.</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', color: '#374151', fontSize: '14px' }}>
+              <span>✓ Full BAS-kontoplan och momslogik</span><span>✓ Resultat, balans och moms i realtid</span><span>✓ Full transparens i varje bokföringsrad</span>
+            </div>
+          </article>
+          <article id="invoicing" style={{ padding: '30px', borderRadius: '20px', background: 'linear-gradient(145deg, #eef6fb, #ffffff)', border: '1px solid #b9dcf2', scrollMarginTop: '84px' }}>
+            <div style={{ color: '#3a8fc1', fontWeight: 700, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '12px' }}>Fakturering</div>
+            <h2 style={{ fontSize: '28px', color: '#0f172a', letterSpacing: '-0.03em', marginBottom: '12px' }}>Fakturera som ett proffs</h2>
+            <p style={{ color: '#64748b', lineHeight: 1.7, fontSize: '15px', marginBottom: '18px' }}>Skapa offerter och snygga fakturor med din branding, följ status i realtid och få betalt utan onödig administration.</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', color: '#374151', fontSize: '14px' }}>
+              <span>✓ Din logga och dina färger på fakturan</span><span>✓ Smidig hantering av kunder och projekt</span><span>✓ Automatisk uppföljning av betalstatus</span>
+            </div>
+          </article>
         </div>
       </section>
 
@@ -384,6 +476,32 @@ export default function LandingPage({ onEnterApp }) {
         </div>
       </section>
 
+      {/* ── FAQ ── */}
+      <section id="faq" style={{ padding: '96px 24px', background: '#f8fafc', scrollMarginTop: '84px' }}>
+        <div style={{ maxWidth: '820px', margin: '0 auto' }}>
+          <div style={{ textAlign: 'center', marginBottom: '42px' }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '5px 12px', background: '#eef6fb', border: '1px solid #b9dcf2', borderRadius: '100px', fontSize: '12px', fontWeight: 600, color: '#3a8fc1', marginBottom: '14px' }}>Vanliga frågor</div>
+            <h2 style={{ fontSize: 'clamp(28px, 4vw, 44px)', fontWeight: 900, letterSpacing: '-0.04em', color: '#0f172a', marginBottom: '12px' }}>Allt du behöver veta</h2>
+            <p style={{ fontSize: '16px', color: '#64748b' }}>Här hittar du svar på de vanligaste frågorna om Bokix.</p>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {[
+              ['Vad är Bokix?', 'Bokix är ett modernt ekonomisystem för småföretagare med bokföring, fakturering, rapporter och stöd för moms och bokslut.'],
+              ['Behöver jag kunna bokföring?', 'Nej. Du registrerar vad som hänt och Bokix hjälper dig att förstå hur det påverkar bokföringen.'],
+              ['Kan jag prova gratis?', 'Ja. Du kan skapa konto och testa Bokix gratis utan bindningstid eller kortuppgifter.'],
+              ['Kan jag exportera min bokföring?', 'Ja. Du kan exportera data och SIE-4-underlag för revisor eller redovisningskonsult.'],
+            ].map(([question, answer], index) => (
+              <div key={question} style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '14px', overflow: 'hidden' }}>
+                <button onClick={() => setFaqOpen(faqOpen === index ? null : index)} aria-expanded={faqOpen === index} style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', padding: '18px 20px', border: 'none', background: 'white', color: '#111827', textAlign: 'left', fontSize: '15px', fontWeight: 700, cursor: 'pointer' }}>
+                  {question}<ChevronDown size={17} style={{ transform: faqOpen === index ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }} />
+                </button>
+                {faqOpen === index && <p style={{ padding: '0 20px 18px', color: '#64748b', fontSize: '14px', lineHeight: 1.7 }}>{answer}</p>}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ── TESTIMONIALS ── */}
       <section id="testimonials" style={{ padding: '100px 24px', background: 'white' }}>
         <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
@@ -418,6 +536,48 @@ export default function LandingPage({ onEnterApp }) {
         </div>
       </section>
 
+      {/* ── TRUST & COMPANY DETAILS ── */}
+      <section style={{ padding: '80px 24px', background: '#f8fafc' }}>
+        <div style={{ maxWidth: '1100px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '20px' }}>
+          <div id="security" style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '16px', padding: '24px', scrollMarginTop: '84px' }}>
+            <Shield size={22} color="#0891b2" />
+            <h3 style={{ margin: '16px 0 8px', fontSize: '18px', color: '#111827' }}>Säkerhet först</h3>
+            <p style={{ color: '#64748b', lineHeight: 1.6, fontSize: '14px' }}>Dina uppgifter skyddas med inloggning, säker lagring och exportmöjligheter så att du alltid har kontroll över din bokföring.</p>
+          </div>
+          <div id="integrations" style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '16px', padding: '24px', scrollMarginTop: '84px' }}>
+            <Zap size={22} color="#5ba85a" />
+            <h3 style={{ margin: '16px 0 8px', fontSize: '18px', color: '#111827' }}>Bankintegrationer</h3>
+            <p style={{ color: '#64748b', lineHeight: 1.6, fontSize: '14px' }}>Bokix byggs för smidiga bankflöden. Anslutningar lanseras löpande och visas tydligt innan de aktiveras.</p>
+          </div>
+          <div id="updates" style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '16px', padding: '24px', scrollMarginTop: '84px' }}>
+            <TrendingUp size={22} color="#3a8fc1" />
+            <h3 style={{ margin: '16px 0 8px', fontSize: '18px', color: '#111827' }}>Uppdateringar</h3>
+            <p style={{ color: '#64748b', lineHeight: 1.6, fontSize: '14px' }}>Vi förbättrar Bokix med tydligare rapporter, smartare arbetsflöden och funktioner anpassade för svenska företag.</p>
+          </div>
+          <div id="about" style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '16px', padding: '24px', scrollMarginTop: '84px' }}>
+            <BookOpen size={22} color="#7c3aed" />
+            <h3 style={{ margin: '16px 0 8px', fontSize: '18px', color: '#111827' }}>Om Bokix</h3>
+            <p style={{ color: '#64748b', lineHeight: 1.6, fontSize: '14px' }}>Bokix utvecklas i Stockholm med ett enkelt mål: att göra svensk bokföring begriplig och mindre tidskrävande.</p>
+          </div>
+          <div id="careers" style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '16px', padding: '24px', scrollMarginTop: '84px' }}>
+            <Users size={22} color="#d97706" />
+            <h3 style={{ margin: '16px 0 8px', fontSize: '18px', color: '#111827' }}>Karriär</h3>
+            <p style={{ color: '#64748b', lineHeight: 1.6, fontSize: '14px' }}>Vill du vara med och förenkla företagandet? Skicka en presentation till <a href="mailto:jobb@bokix.se" style={{ color: '#3a8fc1', fontWeight: 600 }}>jobb@bokix.se</a>.</p>
+          </div>
+          <div id="press" style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '16px', padding: '24px', scrollMarginTop: '84px' }}>
+            <FileText size={22} color="#ea580c" />
+            <h3 style={{ margin: '16px 0 8px', fontSize: '18px', color: '#111827' }}>Press</h3>
+            <p style={{ color: '#64748b', lineHeight: 1.6, fontSize: '14px' }}>För pressfrågor, produktinformation och logotypmaterial, kontakta <a href="mailto:press@bokix.se" style={{ color: '#3a8fc1', fontWeight: 600 }}>press@bokix.se</a>.</p>
+          </div>
+          <div id="contact" style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '16px', padding: '24px', scrollMarginTop: '84px' }}>
+            <MapPin size={22} color="#dc2626" />
+            <h3 style={{ margin: '16px 0 8px', fontSize: '18px', color: '#111827' }}>Kontakt</h3>
+            <p style={{ color: '#64748b', lineHeight: 1.6, fontSize: '14px', marginBottom: '14px' }}>Bokix, Stockholm, Sverige</p>
+            <a href="https://www.google.com/maps/search/?api=1&query=Stockholm%2C%20Sweden" target="_blank" rel="noreferrer" style={{ color: '#3a8fc1', fontWeight: 600, textDecoration: 'none' }}>Öppna i karta</a>
+          </div>
+        </div>
+      </section>
+
       {/* ── CTA SECTION ── */}
       <section style={{ padding: '100px 24px', background: 'linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%)', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '600px', height: '600px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(91,168,90,0.12) 0%, transparent 60%)', pointerEvents: 'none' }} />
@@ -444,10 +604,9 @@ export default function LandingPage({ onEnterApp }) {
             {/* Column 1: Brand & Intro */}
             <div style={{ gridColumn: 'span 2' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
-                <div style={{ width: 36, height: 36, borderRadius: '10px', background: 'linear-gradient(135deg, #5ba85a, #3a8fc1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <BookOpen size={18} color="white" />
+                <div className="footer-logo-mark" aria-label="Bokix logo" style={{ width: 210, height: 82 }}>
+                  <img className="logo-image footer-logo-image" src={BOKIX_LOGO_URL} alt="Bokix" />
                 </div>
-                <span style={{ fontSize: '20px', fontWeight: 800, color: 'white', letterSpacing: '-0.02em' }}>Bokix</span>
               </div>
               <p style={{ fontSize: '14px', lineHeight: 1.6, color: '#64748b', maxWidth: '300px' }}>
                 Det moderna bokföringsprogrammet byggt för svenska småföretagare. Gör det svåra enkelt och spara tid.
@@ -458,12 +617,12 @@ export default function LandingPage({ onEnterApp }) {
             <div>
               <h4 style={{ fontSize: '15px', fontWeight: 700, color: 'white', marginBottom: '20px' }}>Produkt</h4>
               <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {['Funktioner', 'Priser', 'Säkerhet', 'Bankintegrationer', 'Uppdateringar'].map(link => (
-                  <li key={link}>
-                    <a href="#" style={{ fontSize: '14px', color: '#64748b', textDecoration: 'none', transition: 'color 0.2s' }}
+                {[['Funktioner', 'features'], ['Priser', 'pricing'], ['Säkerhet', 'security'], ['Bankintegrationer', 'integrations'], ['Uppdateringar', 'updates']].map(([label, id]) => (
+                  <li key={label}>
+                    <a href={`#${id}`} onClick={e => { e.preventDefault(); scrollTo(id); }} style={{ fontSize: '14px', color: '#64748b', textDecoration: 'none', transition: 'color 0.2s' }}
                       onMouseEnter={e => e.currentTarget.style.color = '#5ba85a'}
                       onMouseLeave={e => e.currentTarget.style.color = '#64748b'}
-                    >{link}</a>
+                    >{label}</a>
                   </li>
                 ))}
               </ul>
@@ -473,12 +632,12 @@ export default function LandingPage({ onEnterApp }) {
             <div>
               <h4 style={{ fontSize: '15px', fontWeight: 700, color: 'white', marginBottom: '20px' }}>Företag</h4>
               <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {['Om oss', 'Karriär', 'Press', 'Kontakt'].map(link => (
-                  <li key={link}>
-                    <a href="#" style={{ fontSize: '14px', color: '#64748b', textDecoration: 'none', transition: 'color 0.2s' }}
+                {[['Om oss', 'about'], ['Karriär', 'careers'], ['Press', 'press'], ['Kontakt', 'contact']].map(([label, id]) => (
+                  <li key={label}>
+                    <a href={`#${id}`} onClick={e => { e.preventDefault(); scrollTo(id); }} style={{ fontSize: '14px', color: '#64748b', textDecoration: 'none', transition: 'color 0.2s' }}
                       onMouseEnter={e => e.currentTarget.style.color = '#5ba85a'}
                       onMouseLeave={e => e.currentTarget.style.color = '#64748b'}
-                    >{link}</a>
+                    >{label}</a>
                   </li>
                 ))}
               </ul>
@@ -520,6 +679,26 @@ export default function LandingPage({ onEnterApp }) {
           </div>
         </div>
       </footer>
+
+      {!cookieConsent && (
+        <div style={{ position: 'fixed', left: '20px', right: '20px', bottom: '20px', zIndex: 1100, maxWidth: '760px', margin: '0 auto', padding: '20px', background: 'white', border: '1px solid #e2e8f0', borderRadius: '16px', boxShadow: '0 20px 50px rgba(15,23,42,0.2)' }}>
+          <h2 style={{ fontSize: '17px', color: '#111827', marginBottom: '8px' }}>Din integritet är viktig</h2>
+          <p style={{ fontSize: '13px', lineHeight: 1.6, color: '#64748b', marginBottom: '14px' }}>
+            Bokix använder nödvändiga cookies för att tjänsten ska fungera. Med ditt val kan du även tillåta anonyma analyscookies som hjälper oss att förbättra webbplatsen.
+          </p>
+          {showCookieSettings && (
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#374151', marginBottom: '14px' }}>
+              <input type="checkbox" checked={analyticsCookies} onChange={e => setAnalyticsCookies(e.target.checked)} />
+              Tillåt analyscookies
+            </label>
+          )}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', flexWrap: 'wrap' }}>
+            <button onClick={() => handleCookieSave(false)} style={{ padding: '9px 14px', border: '1px solid #e5e7eb', borderRadius: '9px', background: 'white', color: '#374151', fontWeight: 600, cursor: 'pointer' }}>Endast nödvändiga</button>
+            <button onClick={() => showCookieSettings ? handleCookieSave(analyticsCookies) : setShowCookieSettings(true)} style={{ padding: '9px 14px', border: '1px solid #3a8fc1', borderRadius: '9px', background: 'white', color: '#3a8fc1', fontWeight: 600, cursor: 'pointer' }}>{showCookieSettings ? 'Spara val' : 'Inställningar'}</button>
+            <button onClick={() => handleCookieSave(true)} style={{ padding: '9px 14px', border: 'none', borderRadius: '9px', background: '#5ba85a', color: 'white', fontWeight: 700, cursor: 'pointer' }}>Acceptera alla</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

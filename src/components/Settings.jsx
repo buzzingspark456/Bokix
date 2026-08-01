@@ -4,6 +4,7 @@ import {
   Check, Star, Zap, Shield, Users, FileText, ChevronRight,
   User, Globe, Lock, Bell, Palette, Database
 } from 'lucide-react';
+import { generateSIE4 } from '../utils/sieExport';
 
 const NAV_SECTIONS = [
   { id: 'profile', label: 'Min profil', icon: User },
@@ -100,6 +101,19 @@ export default function Settings({ activeTab, company, setCompanyInfo, accounts,
     a.href = url;
     a.download = `alwixo_${company.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.json`;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  };
+
+  const handleSIEExport = () => {
+    const sieData = generateSIE4({ company, accounts, verifications });
+    const blob = new Blob([sieData], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${(company.name || 'bokix').replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.se`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   const handleImportSubmit = () => {
@@ -361,6 +375,22 @@ export default function Settings({ activeTab, company, setCompanyInfo, accounts,
                   </div>
                   <button onClick={handleExport} style={{ padding: '8px 16px', background: 'white', border: '1px solid #e5e7eb', borderRadius: '9px', fontSize: '13px', fontWeight: 500, cursor: 'pointer', color: '#374151', whiteSpace: 'nowrap', fontFamily: 'inherit', flexShrink: 0 }}>
                     Ladda ner
+                  </button>
+                </div>
+              </div>
+
+              {/* SIE-4 Export */}
+              <div style={{ padding: '20px', background: '#f9fafb', borderRadius: '12px', border: '1px solid #e5e7eb', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                      <FileText size={15} style={{ color: '#3a8fc1' }} />
+                      <span style={{ fontWeight: 600, fontSize: '14px', color: '#111827' }}>Exportera SIE-4</span>
+                    </div>
+                    <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>Ladda ner bokföringen i standardformat för revisor eller redovisningskonsult.</p>
+                  </div>
+                  <button onClick={handleSIEExport} style={{ padding: '8px 16px', background: 'white', border: '1px solid #e5e7eb', borderRadius: '9px', fontSize: '13px', fontWeight: 500, cursor: 'pointer', color: '#374151', whiteSpace: 'nowrap', fontFamily: 'inherit', flexShrink: 0 }}>
+                    Exportera
                   </button>
                 </div>
               </div>
