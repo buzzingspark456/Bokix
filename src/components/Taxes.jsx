@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import jsPDF from 'jspdf/dist/jspdf.es.min.js';
-import { FileCheck, Landmark, CalendarCheck, ExternalLink, Clock, PieChart, FileText, CheckCircle, AlertCircle, Calendar, ArrowDownRight, ArrowUpRight, CheckCircle2, FileDown, X } from 'lucide-react';
+import { FileCheck, Landmark, CalendarCheck, ExternalLink, Clock, PieChart, FileText, CheckCircle, AlertCircle, Calendar, ArrowDownRight, ArrowUpRight, CheckCircle2, FileDown, Download, X } from 'lucide-react';
 import Moms from './Moms';
 
 const TABS = [
@@ -35,7 +35,7 @@ const typeColors = {
   arsredovisning: { bg: '#fef2f2', color: '#dc2626', label: 'Bolagsverket', border: '#fecaca' },
 };
 
-export default function Taxes({ verifications, balances }) {
+export default function Taxes({ verifications, balances, company }) {
   const [activeTab, setActiveTab] = useState('moms');
   const [previewPdf, setPreviewPdf] = useState(null); // 'moms' | 'arbetsgivar'
 
@@ -95,6 +95,43 @@ export default function Taxes({ verifications, balances }) {
     const totalEmployerCost = grossSalary + socialFee;
 
     return { grossSalary, salaryTax, socialFee, totalEmployerCost };
+  };
+
+  const handleDownloadSRU = (fileType) => {
+    const currentYear = new Date().getFullYear();
+    const orgNr = (company?.orgNr || '').replace(/\D/g, '') || '5561234567';
+    const commonLines = [
+      '#PROGRAM Bokix 1.0',
+      '#FORMAT PC8',
+      `#GEN ${new Date().toISOString().slice(0, 10).replaceAll('-', '')}`,
+      `#ORGNR ${orgNr}`,
+      `#AR ${currentYear}`,
+    ];
+    const lines = fileType === 'info'
+      ? [
+          ...commonLines,
+          `#NAMN ${company?.name || 'Bokix'}`,
+          '#KOMMUN 0180',
+          '#LANSNR 01',
+          '#KOMMUNNR 80',
+          '#DATUM',
+        ]
+      : [
+          ...commonLines,
+          `#BLANKETT MOMS-${currentYear}P4 ${currentYear}P 0`,
+          `#IDENTITET ${orgNr} ${new Date().toISOString().slice(0, 10).replaceAll('-', '')}`,
+          `#UPPGIFT 05 ${Math.round(Math.max(0, balances['2611'] || 0))}`,
+          `#UPPGIFT 48 ${Math.round(Math.max(0, balances['2641'] || 0))}`,
+        ];
+    const blob = new Blob([`${lines.join('\n')}\n`], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = fileType === 'info' ? 'INFO.SRU' : 'BLANKETTER.SRU';
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    URL.revokeObjectURL(url);
   };
 
   const handleDownloadPDF = () => {
@@ -228,6 +265,18 @@ export default function Taxes({ verifications, balances }) {
                 <button onClick={() => setPreviewPdf('arbetsgivar')} style={buttonStyle}>
                   Skapa AGI-PDF
                 </button>
+              </div>
+            </div>
+
+            <div style={{ marginTop: '20px', padding: '16px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                <Download size={15} style={{ color: '#3a8fc1' }} />
+                <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#111827', margin: 0 }}>SRU-export</h3>
+              </div>
+              <p style={{ color: '#6b7280', fontSize: '13px', margin: '0 0 12px' }}>Ladda ner INFO.SRU och BLANKETTER.SRU som underlag för Skatteverkets filuppladdning.</p>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <button onClick={() => handleDownloadSRU('info')} style={secondaryButtonStyle}><Download size={14} /> INFO.SRU</button>
+                <button onClick={() => handleDownloadSRU('blanketter')} style={secondaryButtonStyle}><Download size={14} /> BLANKETTER.SRU</button>
               </div>
             </div>
           </div>

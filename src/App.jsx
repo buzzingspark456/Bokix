@@ -787,7 +787,7 @@ function App() {
       case 'payroll':
         return <Payroll key={company?.id || data.activeCompanyId} />;
       case 'taxes':
-        return <Taxes key={company?.id || data.activeCompanyId} verifications={verifications} balances={balances} />;
+        return <Taxes key={company?.id || data.activeCompanyId} verifications={verifications} balances={balances} company={company} />;
       case 'invoices':
         return (
           <Invoices

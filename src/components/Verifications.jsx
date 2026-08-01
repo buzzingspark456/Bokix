@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  Plus, X, Check, Search, ChevronDown, ChevronUp, BookOpen, Trash2, AlertCircle
+  Plus, X, Check, Search, ChevronDown, ChevronUp, BookOpen, RotateCcw, AlertCircle
 } from 'lucide-react';
 
 export default function Verifications({ verifications, setVerifications, accounts, onAdd }) {
@@ -138,10 +138,25 @@ export default function Verifications({ verifications, setVerifications, account
     );
   }).sort((a, b) => b.date.localeCompare(a.date));
 
-  const handleDeleteVerification = (id) => {
-    if (window.confirm("Är du säker på att du vill radera denna verifikation?")) {
-      setVerifications(prev => prev.filter(v => v.id !== id));
-    }
+  const handleCorrectVerification = (verification) => {
+    if (!window.confirm(`Skapa en rättelseverifikation för ${verification.number}? Originalet sparas och kan inte raderas.`)) return;
+
+    setVerifications(prev => [
+      ...prev,
+      {
+        id: Date.now(),
+        number: `V${prev.length + 1}`,
+        date: new Date().toISOString().split('T')[0],
+        description: `Rättelse av verifikation ${verification.number}`,
+        source: 'correction',
+        correctionOf: verification.id,
+        rows: verification.rows.map(row => ({
+          account: row.account,
+          debet: row.kredit || 0,
+          kredit: row.debet || 0,
+        })),
+      },
+    ]);
   };
 
   const buttonStyle = {
@@ -233,8 +248,8 @@ export default function Verifications({ verifications, setVerifications, account
                       </td>
                       <td style={{ padding: '14px 20px', textAlign: 'right', fontWeight: 600, color: '#111827', letterSpacing: '-0.02em' }}>{formatSEK(totalVal)}</td>
                       <td style={{ padding: '14px 20px', textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
-                        <button onClick={() => handleDeleteVerification(ver.id)} title="Ta bort verifikation" style={{ padding: '6px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px' }} onMouseEnter={e => e.currentTarget.style.background = '#fef2f2'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                          <Trash2 size={16} />
+                        <button onClick={() => handleCorrectVerification(ver)} title="Skapa rättelseverifikation" style={{ padding: '6px 10px', background: 'transparent', border: '1px solid #e5e7eb', cursor: 'pointer', color: '#2563eb', display: 'inline-flex', alignItems: 'center', gap: '5px', borderRadius: '6px', fontSize: '12px', fontWeight: 600 }} onMouseEnter={e => e.currentTarget.style.background = '#eff6ff'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                          <RotateCcw size={14} /> Rätta
                         </button>
                       </td>
                     </tr>
