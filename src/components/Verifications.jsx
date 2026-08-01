@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  Plus, X, Check, Search, ChevronDown, ChevronUp, BookOpen, RotateCcw, AlertCircle
+  Plus, X, Check, Search, ChevronDown, ChevronUp, BookOpen, RotateCcw, Trash2, AlertCircle
 } from 'lucide-react';
 
 export default function Verifications({ verifications, setVerifications, accounts, onAdd }) {

@@ -3,11 +3,9 @@ import { Link } from 'react-router-dom';
 import {
   FileText, BarChart3, Users, Clock, Shield, Zap, CheckCircle,
   ArrowRight, ChevronRight, Star, TrendingUp, Receipt, BookOpen,
-  Calculator, ChevronDown, Menu, X, MapPin
+  ChevronDown, Menu, X, MapPin
 } from 'lucide-react';
 import { getCookieConsent, saveCookieConsent } from '../utils/cookieConsent';
-
-const NAV_LINKS = ['Funktioner', 'Priser', 'Om oss'];
 
 const FEATURES = [
   {
@@ -107,6 +105,8 @@ export default function LandingPage({ onEnterApp }) {
         .step-card { transition: transform 0.25s, box-shadow 0.25s; }
         .step-card:hover { transform: translateY(-4px); box-shadow: 0 18px 36px -18px rgba(15,23,42,0.28) !important; }
         @media (max-width: 800px) { .workflow-grid { grid-template-columns: 1fr !important; } }
+        .service-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        @media (max-width: 800px) { .service-overview { grid-template-columns: 1fr !important; } }
         @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
         .animate-float { animation: float 4s ease-in-out infinite; }
@@ -160,7 +160,7 @@ export default function LandingPage({ onEnterApp }) {
 
           {/* Desktop nav */}
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '28px', display: 'flex' }}>
-            {[['Så fungerar det', 'how-it-works'], ['Funktioner', 'features'], ['Priser', 'pricing'], ['Omdömen', 'testimonials']].map(([label, id]) => (
+            {[['Funktioner', 'features'], ['Priser', 'pricing'], ['Bokföring', 'accounting'], ['Fakturering', 'invoicing'], ['FAQ', 'faq']].map(([label, id]) => (
               <button key={id} onClick={() => scrollTo(id)} style={{ background: 'none', border: 'none', fontSize: '14px', fontWeight: 500, color: '#374151', cursor: 'pointer', fontFamily: 'inherit', padding: '4px 0', transition: 'color 0.15s' }}
                 onMouseEnter={e => e.currentTarget.style.color = '#5ba85a'}
                 onMouseLeave={e => e.currentTarget.style.color = '#374151'}
@@ -175,7 +175,7 @@ export default function LandingPage({ onEnterApp }) {
               Logga in
             </button>
             <button className="lp-btn-primary" onClick={onEnterApp} style={{ padding: '8px 18px', background: 'linear-gradient(135deg, #5ba85a, #4a9e49)', border: 'none', borderRadius: '9px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', color: 'white', fontFamily: 'inherit', boxShadow: '0 4px 15px -3px rgba(91,168,90,0.3)' }}>
-              Prova gratis
+              Skapa konto
             </button>
             {/* Mobile menu toggle */}
             <button className="mobile-menu-toggle" onClick={() => setMobileMenuOpen(v => !v)} aria-label="Öppna meny" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}>
@@ -185,10 +185,10 @@ export default function LandingPage({ onEnterApp }) {
         </div>
         {mobileMenuOpen && (
           <div className="mobile-menu-panel" style={{ background: 'white', borderTop: '1px solid #e5e7eb', padding: '16px 24px 22px', boxShadow: '0 16px 30px rgba(15,23,42,0.08)' }}>
-            {[['Så fungerar det', 'how-it-works'], ['Funktioner', 'features'], ['Priser', 'pricing'], ['Omdömen', 'testimonials']].map(([label, id]) => (
+            {[['Funktioner', 'features'], ['Priser', 'pricing'], ['Bokföring', 'accounting'], ['Fakturering', 'invoicing'], ['FAQ', 'faq']].map(([label, id]) => (
               <button key={id} onClick={() => scrollTo(id)} style={{ display: 'block', width: '100%', padding: '12px 0', textAlign: 'left', background: 'none', border: 'none', color: '#374151', fontSize: '15px', fontWeight: 600, cursor: 'pointer' }}>{label}</button>
             ))}
-            <button onClick={onEnterApp} style={{ width: '100%', marginTop: '8px', padding: '12px', border: 'none', borderRadius: '10px', background: 'linear-gradient(135deg, #5ba85a, #4a9e49)', color: 'white', fontWeight: 700, cursor: 'pointer' }}>Prova gratis</button>
+            <button onClick={onEnterApp} style={{ width: '100%', marginTop: '8px', padding: '12px', border: 'none', borderRadius: '10px', background: 'linear-gradient(135deg, #5ba85a, #4a9e49)', color: 'white', fontWeight: 700, cursor: 'pointer' }}>Skapa konto</button>
           </div>
         )}
       </nav>
@@ -205,26 +205,27 @@ export default function LandingPage({ onEnterApp }) {
           <div className="hero-copy">
             <div className="hero-eyebrow animate-fadeinup" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '6px 14px', background: '#f1f8f1', border: '1px solid #bce4bc', borderRadius: '100px', fontSize: '12px', fontWeight: 600, color: '#5ba85a', marginBottom: '24px' }}>
               <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#5ba85a' }} />
-              Nytt: PDF-deklarationer direkt till Skatteverket
+              Bokföringsprogram för småföretag
             </div>
 
             <h1 className="hero-title animate-fadeinup delay-1" style={{ fontSize: 'clamp(36px, 5vw, 58px)', fontWeight: 900, lineHeight: 1.08, letterSpacing: '-0.04em', color: '#0f172a', marginBottom: '24px' }}>
-              Bokföring som<br />
+              Offerera, fakturera<br />
               <span style={{ background: 'linear-gradient(135deg, #5ba85a, #3a8fc1)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
-                faktiskt är enkel
-              </span>
+                bokför och få betalt
+              </span><br />
+              enkelt & automatiserat
             </h1>
 
             <p className="hero-description animate-fadeinup delay-2" style={{ fontSize: '18px', color: '#475569', lineHeight: 1.7, marginBottom: '36px', maxWidth: '480px', fontWeight: 400 }}>
-              Fakturor, löner, moms och bokslut i ett enda snyggt verktyg. Byggt för svenska småföretagare som hellre fokuserar på sin verksamhet än sin bokföring.
+              Automatisera din bokföring och fakturering i en plattform som bara fungerar. Spara tid, slipp fel och få full koll på ekonomin – allt på ett ställe.
             </p>
 
             <div className="animate-fadeinup delay-3" style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '40px' }}>
               <button className="lp-btn-primary" onClick={onEnterApp} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '14px 28px', background: 'linear-gradient(135deg, #5ba85a, #4a9e49)', border: 'none', borderRadius: '12px', fontSize: '15px', fontWeight: 700, cursor: 'pointer', color: 'white', fontFamily: 'inherit', boxShadow: '0 6px 20px -4px rgba(91,168,90,0.4)' }}>
-                Prova gratis i 30 dagar <ArrowRight size={16} />
+                Skapa konto – testa gratis <ArrowRight size={16} />
               </button>
-              <button className="lp-btn-secondary" onClick={() => scrollTo('features')} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '14px 24px', background: 'white', border: '1.5px solid #e2e8f0', borderRadius: '12px', fontSize: '15px', fontWeight: 600, cursor: 'pointer', color: '#374151', fontFamily: 'inherit' }}>
-                Se funktioner <ChevronRight size={16} />
+              <button className="lp-btn-secondary" onClick={() => scrollTo('how-it-works')} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '14px 24px', background: 'white', border: '1.5px solid #e2e8f0', borderRadius: '12px', fontSize: '15px', fontWeight: 600, cursor: 'pointer', color: '#374151', fontFamily: 'inherit' }}>
+                Testa direkt i demo <ChevronRight size={16} />
               </button>
             </div>
 
@@ -232,6 +233,14 @@ export default function LandingPage({ onEnterApp }) {
               {[['✓ Inget kreditkort', null], ['✓ Gratis i 30 dagar', null], ['✓ Avsluta när som helst', null]].map(([text]) => (
                 <span key={text} style={{ fontSize: '13px', color: '#64748b', fontWeight: 500 }}>{text}</span>
               ))}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '18px', flexWrap: 'wrap' }}>
+              <span style={{ color: '#f59e0b', letterSpacing: '2px', fontSize: '16px' }}>★★★★★</span>
+              <strong style={{ color: '#111827', fontSize: '14px' }}>4.8</strong>
+              <span style={{ color: '#64748b', fontSize: '13px' }}>av 5 · snittbetyg från Bokix-användare</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '22px', color: '#94a3b8', fontSize: '11px', fontWeight: 700, letterSpacing: '0.06em' }}>
+              <span>VISA</span><span>MASTERCARD</span><span>SWISH</span><span>KLARNA</span>
             </div>
           </div>
 
@@ -356,6 +365,27 @@ export default function LandingPage({ onEnterApp }) {
         </div>
       </section>
 
+      <section style={{ padding: '72px 24px', background: 'white' }}>
+        <div className="service-overview" style={{ maxWidth: '1100px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '20px' }}>
+          <article id="accounting" style={{ padding: '30px', borderRadius: '20px', background: 'linear-gradient(145deg, #f1f8f1, #ffffff)', border: '1px solid #bce4bc', scrollMarginTop: '84px' }}>
+            <div style={{ color: '#5ba85a', fontWeight: 700, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '12px' }}>Bokföring</div>
+            <h2 style={{ fontSize: '28px', color: '#0f172a', letterSpacing: '-0.03em', marginBottom: '12px' }}>Bokföring som sköter sig själv</h2>
+            <p style={{ color: '#64748b', lineHeight: 1.7, fontSize: '15px', marginBottom: '18px' }}>Koppla banken, ladda upp kvitton eller registrera en affärshändelse. Bokix hjälper dig med BAS-kategorisering, momslogik och tydliga verifikationer.</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', color: '#374151', fontSize: '14px' }}>
+              <span>✓ Full BAS-kontoplan och momslogik</span><span>✓ Resultat, balans och moms i realtid</span><span>✓ Full transparens i varje bokföringsrad</span>
+            </div>
+          </article>
+          <article id="invoicing" style={{ padding: '30px', borderRadius: '20px', background: 'linear-gradient(145deg, #eef6fb, #ffffff)', border: '1px solid #b9dcf2', scrollMarginTop: '84px' }}>
+            <div style={{ color: '#3a8fc1', fontWeight: 700, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '12px' }}>Fakturering</div>
+            <h2 style={{ fontSize: '28px', color: '#0f172a', letterSpacing: '-0.03em', marginBottom: '12px' }}>Fakturera som ett proffs</h2>
+            <p style={{ color: '#64748b', lineHeight: 1.7, fontSize: '15px', marginBottom: '18px' }}>Skapa offerter och snygga fakturor med din branding, följ status i realtid och få betalt utan onödig administration.</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', color: '#374151', fontSize: '14px' }}>
+              <span>✓ Din logga och dina färger på fakturan</span><span>✓ Smidig hantering av kunder och projekt</span><span>✓ Automatisk uppföljning av betalstatus</span>
+            </div>
+          </article>
+        </div>
+      </section>
+
       {/* ── FEATURES ── */}
       <section id="features" style={{ padding: '100px 24px', background: 'white' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
@@ -447,6 +477,32 @@ export default function LandingPage({ onEnterApp }) {
                 }}>
                   {plan.cta}
                 </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── FAQ ── */}
+      <section id="faq" style={{ padding: '96px 24px', background: '#f8fafc', scrollMarginTop: '84px' }}>
+        <div style={{ maxWidth: '820px', margin: '0 auto' }}>
+          <div style={{ textAlign: 'center', marginBottom: '42px' }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '5px 12px', background: '#eef6fb', border: '1px solid #b9dcf2', borderRadius: '100px', fontSize: '12px', fontWeight: 600, color: '#3a8fc1', marginBottom: '14px' }}>Vanliga frågor</div>
+            <h2 style={{ fontSize: 'clamp(28px, 4vw, 44px)', fontWeight: 900, letterSpacing: '-0.04em', color: '#0f172a', marginBottom: '12px' }}>Allt du behöver veta</h2>
+            <p style={{ fontSize: '16px', color: '#64748b' }}>Här hittar du svar på de vanligaste frågorna om Bokix.</p>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {[
+              ['Vad är Bokix?', 'Bokix är ett modernt ekonomisystem för småföretagare med bokföring, fakturering, rapporter och stöd för moms och bokslut.'],
+              ['Behöver jag kunna bokföring?', 'Nej. Du registrerar vad som hänt och Bokix hjälper dig att förstå hur det påverkar bokföringen.'],
+              ['Kan jag prova gratis?', 'Ja. Du kan skapa konto och testa Bokix gratis utan bindningstid eller kortuppgifter.'],
+              ['Kan jag exportera min bokföring?', 'Ja. Du kan exportera data och SIE-4-underlag för revisor eller redovisningskonsult.'],
+            ].map(([question, answer], index) => (
+              <div key={question} style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '14px', overflow: 'hidden' }}>
+                <button onClick={() => setFaqOpen(faqOpen === index ? null : index)} aria-expanded={faqOpen === index} style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', padding: '18px 20px', border: 'none', background: 'white', color: '#111827', textAlign: 'left', fontSize: '15px', fontWeight: 700, cursor: 'pointer' }}>
+                  {question}<ChevronDown size={17} style={{ transform: faqOpen === index ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }} />
+                </button>
+                {faqOpen === index && <p style={{ padding: '0 20px 18px', color: '#64748b', fontSize: '14px', lineHeight: 1.7 }}>{answer}</p>}
               </div>
             ))}
           </div>
