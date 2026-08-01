@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import { getCookieConsent, saveCookieConsent } from '../utils/cookieConsent';
 
+const BOKIX_LOGO_URL = 'https://cdn.builder.io/api/v1/image/assets%2F965040efbcfe49b9b50fd660edbb6b93%2F8e4622777a554535b4705d5c917db6eb?format=webp&width=800&height=1200';
+
 const FEATURES = [
   {
     icon: FileText, color: '#3a8fc1', bg: '#eef6fb', border: '#b9dcf2',
@@ -116,7 +118,7 @@ export default function LandingPage({ onEnterApp }) {
         .delay-3 { animation-delay: 0.3s; }
         @keyframes pulse-ring { 0% { transform: scale(0.9); opacity: 0.8; } 100% { transform: scale(1.4); opacity: 0; } }
         .pulse-ring::after { content: ''; position: absolute; inset: 0; border-radius: 50%; border: 2px solid #5ba85a; animation: pulse-ring 2s ease-out infinite; }
-        .hero-section { border-radius: 0 0 120px 120px; }
+        .hero-section { border-radius: 0; }
         .hero-layout { position: relative; z-index: 1; }
         .hero-copy { max-width: 540px; }
         .hero-eyebrow { box-shadow: 0 10px 30px rgba(91,168,90,0.12); }
@@ -129,8 +131,7 @@ export default function LandingPage({ onEnterApp }) {
         .mobile-menu-panel { display: none; }
         .header-shell { max-width: 1240px !important; height: 76px !important; padding: 0 18px; border-radius: 18px; }
         .brand-lockup { gap: 11px !important; }
-        .brand-mark { position: relative; width: 40px !important; height: 40px !important; border-radius: 12px !important; box-shadow: 0 8px 18px rgba(58,143,193,0.2); }
-        .brand-mark::after { content: ''; position: absolute; right: 4px; bottom: 4px; width: 6px; height: 6px; border-radius: 50%; background: #ffffff; opacity: 0.9; }
+        .brand-mark { position: relative; width: 92px !important; height: 42px !important; border-radius: 8px !important; box-shadow: 0 8px 18px rgba(58,143,193,0.16); }
         .brand-wordmark { font-size: 20px !important; letter-spacing: -0.04em !important; }
         .desktop-nav { justify-content: center; }
         .desktop-nav button { position: relative; font-size: 13.5px !important; font-weight: 600 !important; }
@@ -145,7 +146,7 @@ export default function LandingPage({ onEnterApp }) {
           .mobile-menu-panel { display: block; }
         }
         @media (max-width: 800px) {
-          .hero-section { min-height: auto !important; border-radius: 0 0 56px 56px; }
+          .hero-section { min-height: auto !important; border-radius: 0; }
           .hero-layout { grid-template-columns: 1fr !important; gap: 48px !important; padding: 90px 20px 76px !important; }
           .hero-copy { max-width: none; }
           .hero-title { font-size: clamp(40px, 12vw, 58px) !important; }
@@ -154,6 +155,12 @@ export default function LandingPage({ onEnterApp }) {
           .hero-product-preview { box-shadow: 0 28px 50px -18px rgba(58,143,193,0.25); }
           .mobile-menu-toggle { display: block; }
           .mobile-menu-panel { display: block; }
+        }
+        @media (max-width: 600px) {
+          .brand-mark { width: 84px !important; height: 38px !important; }
+          .header-login { display: none; }
+          .header-signup { padding: 9px 12px !important; font-size: 12px !important; }
+          .header-shell { padding: 0 12px; gap: 12px !important; }
         }
       `}</style>
 
@@ -169,10 +176,9 @@ export default function LandingPage({ onEnterApp }) {
         <div className="header-shell" style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', alignItems: 'center', height: '68px', gap: '32px' }}>
           {/* Logo */}
           <div className="brand-lockup" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
-            <div className="brand-mark" aria-label="Bokix logo" style={{ width: 36, height: 36, borderRadius: '10px', background: 'linear-gradient(135deg, #5ba85a, #3a8fc1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <BookOpen size={19} color="white" strokeWidth={2.4} />
+            <div className="brand-mark" aria-label="Bokix logo" style={{ width: 92, height: 42, borderRadius: '8px', background: '#17352d', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+              <img src={BOKIX_LOGO_URL} alt="Bokix" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
             </div>
-            <span className="brand-wordmark" style={{ fontSize: '18px', fontWeight: 800, letterSpacing: '-0.03em', color: '#111827' }}>Bokix</span>
           </div>
 
           {/* Desktop nav */}
@@ -211,11 +217,7 @@ export default function LandingPage({ onEnterApp }) {
       </nav>
 
       {/* ── HERO ── */}
-      <section className="hero-section" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', background: 'linear-gradient(160deg, #f8fffe 0%, #f0f7ff 50%, #f5fff5 100%)', position: 'relative', overflow: 'hidden', paddingTop: '68px' }}>
-        {/* Background blobs */}
-        <div style={{ position: 'absolute', top: '-100px', right: '-100px', width: '500px', height: '500px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(91,168,90,0.12) 0%, transparent 70%)', pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', bottom: '-80px', left: '-80px', width: '400px', height: '400px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(58,143,193,0.1) 0%, transparent 70%)', pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', top: '30%', left: '10%', width: '200px', height: '200px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(91,168,90,0.06) 0%, transparent 70%)', pointerEvents: 'none' }} />
+      <section className="hero-section" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', background: 'white', position: 'relative', overflow: 'hidden', paddingTop: '68px' }}>
 
         <div className="hero-layout" style={{ maxWidth: '1200px', margin: '0 auto', padding: '80px 24px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '80px', alignItems: 'center', width: '100%' }}>
           {/* Left: Text */}
@@ -628,10 +630,9 @@ export default function LandingPage({ onEnterApp }) {
             {/* Column 1: Brand & Intro */}
             <div style={{ gridColumn: 'span 2' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
-                <div style={{ width: 36, height: 36, borderRadius: '10px', background: 'linear-gradient(135deg, #5ba85a, #3a8fc1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <BookOpen size={18} color="white" />
+                <div style={{ width: 112, height: 48, borderRadius: '8px', background: '#17352d', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                  <img src={BOKIX_LOGO_URL} alt="Bokix" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                 </div>
-                <span style={{ fontSize: '20px', fontWeight: 800, color: 'white', letterSpacing: '-0.02em' }}>Bokix</span>
               </div>
               <p style={{ fontSize: '14px', lineHeight: 1.6, color: '#64748b', maxWidth: '300px' }}>
                 Det moderna bokföringsprogrammet byggt för svenska småföretagare. Gör det svåra enkelt och spara tid.
