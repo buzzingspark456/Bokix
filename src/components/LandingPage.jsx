@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   FileText, BarChart3, Users, Clock, Shield, Zap, CheckCircle,
-  ArrowRight, ChevronRight, Star, TrendingUp, Receipt, BookOpen,
+  ArrowRight, Star, TrendingUp, Receipt, BookOpen,
   ChevronDown, Menu, X, MapPin
 } from 'lucide-react';
 import { getCookieConsent, saveCookieConsent } from '../utils/cookieConsent';
@@ -239,16 +239,8 @@ export default function LandingPage({ onEnterApp }) {
               <button className="lp-btn-primary" onClick={onEnterApp} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '14px 28px', background: 'linear-gradient(135deg, #5ba85a, #4a9e49)', border: 'none', borderRadius: '12px', fontSize: '15px', fontWeight: 700, cursor: 'pointer', color: 'white', fontFamily: 'inherit', boxShadow: '0 6px 20px -4px rgba(91,168,90,0.4)' }}>
                 Skapa konto – testa gratis <ArrowRight size={16} />
               </button>
-              <button className="lp-btn-secondary" onClick={() => scrollTo('how-it-works')} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '14px 24px', background: 'white', border: '1.5px solid #e2e8f0', borderRadius: '12px', fontSize: '15px', fontWeight: 600, cursor: 'pointer', color: '#374151', fontFamily: 'inherit' }}>
-                Testa direkt i demo <ChevronRight size={16} />
-              </button>
             </div>
 
-            <div className="hero-proof animate-fadeinup delay-3" style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
-              {[['✓ Inget kreditkort', null], ['✓ Gratis i 30 dagar', null], ['✓ Avsluta när som helst', null]].map(([text]) => (
-                <span key={text} style={{ fontSize: '13px', color: '#64748b', fontWeight: 500 }}>{text}</span>
-              ))}
-            </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '18px', flexWrap: 'wrap' }}>
               <span style={{ color: '#f59e0b', letterSpacing: '2px', fontSize: '16px' }}>★★★★★</span>
               <strong style={{ color: '#111827', fontSize: '14px' }}>4.8</strong>
@@ -333,23 +325,6 @@ export default function LandingPage({ onEnterApp }) {
               </div>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* ── SOCIAL PROOF TICKER ── */}
-      <section style={{ background: '#0f172a', padding: '20px 24px' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', gap: '48px', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap' }}>
-          {[
-            ['2 400+', 'aktiva företag'],
-            ['98%', 'nöjda kunder'],
-            ['450 000+', 'fakturor skickade'],
-            ['99.9%', 'drifttid'],
-          ].map(([num, label]) => (
-            <div key={label} style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '24px', fontWeight: 800, color: '#5ba85a', letterSpacing: '-0.03em' }}>{num}</div>
-              <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>{label}</div>
-            </div>
-          ))}
         </div>
       </section>
 
