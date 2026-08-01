@@ -104,6 +104,9 @@ export default function LandingPage({ onEnterApp }) {
         .feature-card:hover { transform: translateY(-3px); box-shadow: 0 12px 30px -8px rgba(0,0,0,0.1) !important; }
         .price-card { transition: all 0.2s; }
         .price-card:hover { transform: translateY(-4px); }
+        .step-card { transition: transform 0.25s, box-shadow 0.25s; }
+        .step-card:hover { transform: translateY(-4px); box-shadow: 0 18px 36px -18px rgba(15,23,42,0.28) !important; }
+        @media (max-width: 800px) { .workflow-grid { grid-template-columns: 1fr !important; } }
         @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
         .animate-float { animation: float 4s ease-in-out infinite; }
@@ -157,7 +160,7 @@ export default function LandingPage({ onEnterApp }) {
 
           {/* Desktop nav */}
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '28px', display: 'flex' }}>
-            {[['Funktioner', 'features'], ['Priser', 'pricing'], ['Omdömen', 'testimonials']].map(([label, id]) => (
+            {[['Så fungerar det', 'how-it-works'], ['Funktioner', 'features'], ['Priser', 'pricing'], ['Omdömen', 'testimonials']].map(([label, id]) => (
               <button key={id} onClick={() => scrollTo(id)} style={{ background: 'none', border: 'none', fontSize: '14px', fontWeight: 500, color: '#374151', cursor: 'pointer', fontFamily: 'inherit', padding: '4px 0', transition: 'color 0.15s' }}
                 onMouseEnter={e => e.currentTarget.style.color = '#5ba85a'}
                 onMouseLeave={e => e.currentTarget.style.color = '#374151'}
@@ -182,7 +185,7 @@ export default function LandingPage({ onEnterApp }) {
         </div>
         {mobileMenuOpen && (
           <div className="mobile-menu-panel" style={{ background: 'white', borderTop: '1px solid #e5e7eb', padding: '16px 24px 22px', boxShadow: '0 16px 30px rgba(15,23,42,0.08)' }}>
-            {[['Funktioner', 'features'], ['Priser', 'pricing'], ['Omdömen', 'testimonials']].map(([label, id]) => (
+            {[['Så fungerar det', 'how-it-works'], ['Funktioner', 'features'], ['Priser', 'pricing'], ['Omdömen', 'testimonials']].map(([label, id]) => (
               <button key={id} onClick={() => scrollTo(id)} style={{ display: 'block', width: '100%', padding: '12px 0', textAlign: 'left', background: 'none', border: 'none', color: '#374151', fontSize: '15px', fontWeight: 600, cursor: 'pointer' }}>{label}</button>
             ))}
             <button onClick={onEnterApp} style={{ width: '100%', marginTop: '8px', padding: '12px', border: 'none', borderRadius: '10px', background: 'linear-gradient(135deg, #5ba85a, #4a9e49)', color: 'white', fontWeight: 700, cursor: 'pointer' }}>Prova gratis</button>
@@ -323,6 +326,33 @@ export default function LandingPage({ onEnterApp }) {
               <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>{label}</div>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* ── HOW IT WORKS ── */}
+      <section id="how-it-works" style={{ padding: '96px 24px', background: '#f8fafc', scrollMarginTop: '84px' }}>
+        <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '24px', flexWrap: 'wrap', marginBottom: '40px' }}>
+            <div>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '5px 12px', background: '#f1f8f1', border: '1px solid #bce4bc', borderRadius: '100px', fontSize: '12px', fontWeight: 600, color: '#5ba85a', marginBottom: '14px' }}><CheckCircle size={12} /> Så fungerar det</div>
+              <h2 style={{ fontSize: 'clamp(28px, 4vw, 44px)', fontWeight: 900, letterSpacing: '-0.04em', color: '#0f172a', marginBottom: '10px' }}>Från underlag till koll</h2>
+              <p style={{ fontSize: '16px', color: '#64748b', maxWidth: '520px', lineHeight: 1.6 }}>Bokix samlar det dagliga arbetet i ett enkelt flöde, så att du kan lägga tiden på företaget istället för administrationen.</p>
+            </div>
+            <button onClick={onEnterApp} className="lp-btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '11px 18px', border: 'none', borderRadius: '10px', background: 'linear-gradient(135deg, #5ba85a, #4a9e49)', color: 'white', fontWeight: 700, cursor: 'pointer' }}>Kom igång <ArrowRight size={15} /></button>
+          </div>
+          <div className="workflow-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '18px' }}>
+            {[
+              ['01', 'Samla allt', 'Fakturor, kvitton och tidrapporter hamnar på ett ställe.'],
+              ['02', 'Bokför enklare', 'Automatiska beräkningar och tydliga mallar hjälper dig rätt.'],
+              ['03', 'Få överblick', 'Rapporter, moms och resultat finns alltid nära till hands.'],
+            ].map(([number, title, text]) => (
+              <article key={number} className="step-card" style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '18px', padding: '24px', boxShadow: '0 2px 8px rgba(15,23,42,0.04)' }}>
+                <div style={{ width: 42, height: 42, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '13px', background: 'linear-gradient(135deg, #5ba85a, #3a8fc1)', color: 'white', fontWeight: 800, fontSize: '13px', marginBottom: '22px' }}>{number}</div>
+                <h3 style={{ fontSize: '18px', fontWeight: 750, color: '#111827', marginBottom: '8px' }}>{title}</h3>
+                <p style={{ fontSize: '14px', lineHeight: 1.6, color: '#64748b' }}>{text}</p>
+              </article>
+            ))}
+          </div>
         </div>
       </section>
 
