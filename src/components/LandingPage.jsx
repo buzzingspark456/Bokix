@@ -153,8 +153,8 @@ export default function LandingPage({ onEnterApp }) {
           .hero-section { min-height: auto !important; border-radius: 0; }
           .hero-layout { grid-template-columns: 1fr !important; gap: 48px !important; padding: 90px 20px 76px !important; }
           .hero-copy { max-width: none; }
-          .hero-title { font-size: clamp(40px, 12vw, 58px) !important; }
-          .hero-description { font-size: 16px !important; }
+          .hero-title { font-size: clamp(42px, 12vw, 66px) !important; }
+          .hero-description { font-size: 17px !important; }
           .hero-product-column { padding: 12px 4px; }
           .hero-product-preview { box-shadow: 0 28px 50px -18px rgba(58,143,193,0.25); }
           .mobile-menu-toggle { display: block; }
@@ -226,7 +226,7 @@ export default function LandingPage({ onEnterApp }) {
         <div className="hero-layout" style={{ maxWidth: '1200px', margin: '0 auto', padding: '80px 24px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '80px', alignItems: 'center', width: '100%' }}>
           {/* Left: Text */}
           <div className="hero-copy">
-            <h1 className="hero-title animate-fadeinup delay-1" style={{ fontSize: 'clamp(36px, 5vw, 58px)', fontWeight: 900, lineHeight: 1.08, letterSpacing: '-0.04em', color: '#0f172a', marginBottom: '24px' }}>
+            <h1 className="hero-title animate-fadeinup delay-1" style={{ fontSize: 'clamp(44px, 6.2vw, 76px)', fontWeight: 900, lineHeight: 1.04, letterSpacing: '-0.055em', color: '#0f172a', marginBottom: '26px' }}>
               Offerera, fakturera<br />
               <span style={{ background: 'linear-gradient(135deg, #5ba85a, #3a8fc1)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
                 bokför och få betalt
@@ -234,7 +234,7 @@ export default function LandingPage({ onEnterApp }) {
               enkelt & automatiserat
             </h1>
 
-            <p className="hero-description animate-fadeinup delay-2" style={{ fontSize: '18px', color: '#475569', lineHeight: 1.7, marginBottom: '36px', maxWidth: '480px', fontWeight: 400 }}>
+            <p className="hero-description animate-fadeinup delay-2" style={{ fontSize: '20px', color: '#475569', lineHeight: 1.65, marginBottom: '36px', maxWidth: '560px', fontWeight: 400 }}>
               Automatisera din bokföring och fakturering i en plattform som bara fungerar. Spara tid, slipp fel och få full koll på ekonomin – allt på ett ställe.
             </p>
 
