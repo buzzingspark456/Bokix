@@ -171,16 +171,16 @@ export default function LandingPage({ onEnterApp }) {
       {/* ── NAVBAR ── */}
       <nav style={{
         position: 'fixed', top: 0, left: 0, right: 0, zIndex: 1000,
-        background: scrolled ? 'rgba(255,255,255,0.95)' : 'transparent',
-        backdropFilter: scrolled ? 'blur(12px)' : 'none',
-        borderBottom: scrolled ? '1px solid rgba(0,0,0,0.06)' : 'none',
+        background: 'rgba(255,255,255,0.97)',
+        backdropFilter: 'blur(12px)',
+        borderBottom: '1px solid rgba(0,0,0,0.06)',
         padding: '0 24px', transition: 'all 0.3s',
-        boxShadow: scrolled ? '0 1px 20px rgba(0,0,0,0.06)' : 'none'
+        boxShadow: '0 1px 20px rgba(0,0,0,0.06)'
       }}>
-        <div className="header-shell" style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', alignItems: 'center', height: '68px', gap: '32px' }}>
+        <div className="header-shell" style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', alignItems: 'center', height: '76px', gap: '32px' }}>
           {/* Logo */}
           <div className="brand-lockup" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
-            <div className="brand-mark" aria-label="Bokix logo" style={{ width: 92, height: 42, borderRadius: '8px', background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+            <div className="brand-mark" aria-label="Bokix logo" style={{ width: 150, height: 58, borderRadius: '8px', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'visible' }}>
               <img className="logo-image" src={BOKIX_LOGO_URL} alt="Bokix" />
             </div>
           </div>
@@ -604,7 +604,7 @@ export default function LandingPage({ onEnterApp }) {
             {/* Column 1: Brand & Intro */}
             <div style={{ gridColumn: 'span 2' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
-                <div className="footer-logo-mark" aria-label="Bokix logo">
+                <div className="footer-logo-mark" aria-label="Bokix logo" style={{ width: 210, height: 82 }}>
                   <img className="logo-image footer-logo-image" src={BOKIX_LOGO_URL} alt="Bokix" />
                 </div>
               </div>
