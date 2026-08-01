@@ -4,28 +4,20 @@ import dotenv from 'dotenv'
 
 dotenv.config()
 
-let stripeKey = process.env.STRIPE_SECRET_KEY
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY || process.env.VITE_STRIPE_SECRET_KEY || null
 
-if (!stripeKey && process.env.VITE_STRIPE_SECRET_KEY) {
-  console.warn('STRIPE_SECRET_KEY is missing; falling back to VITE_STRIPE_SECRET_KEY for local development.')
-  stripeKey = process.env.VITE_STRIPE_SECRET_KEY
-}
+let stripe = null
 
-if (!stripeKey) {
-  console.error('STRIPE_SECRET_KEY is not set. Add STRIPE_SECRET_KEY=sk_live_... or STRIPE_SECRET_KEY=sk_test_... to your .env file.')
-  process.exit(1)
-}
-
-if (stripeKey.startsWith('pk_')) {
+if (!stripeSecretKey) {
+  console.warn('Stripe secret key not configured yet. Stripe routes will return a 503 until STRIPE_SECRET_KEY or VITE_STRIPE_SECRET_KEY is provided.')
+} else if (stripeSecretKey.startsWith('pk_')) {
   console.error('Invalid Stripe key: STRIPE_SECRET_KEY must be a secret key beginning with sk_, not pk_.')
-  process.exit(1)
+} else {
+  stripe = new Stripe(stripeSecretKey, {
+    apiVersion: '2024-08-15',
+  })
+  console.log('Loaded Stripe secret key for local server.')
 }
-
-console.log('Loaded Stripe secret key for local server.')
-
-const stripe = new Stripe(stripeKey, {
-  apiVersion: '2024-08-15',
-})
 
 const app = express()
 app.use(express.json())
@@ -36,7 +28,17 @@ function handleError(res, error, status = 500) {
   res.status(status).json({ error: message })
 }
 
+function requireStripe(res) {
+  if (!stripe) {
+    res.status(503).json({ error: 'Stripe is not configured. Set STRIPE_SECRET_KEY or VITE_STRIPE_SECRET_KEY before trying again.' })
+    return false
+  }
+  return true
+}
+
 app.post('/api/stripe/create-account', async (req, res) => {
+  if (!requireStripe(res)) return
+
   try {
     const body = req.body || {}
     const account = await stripe.accounts.create({
@@ -71,6 +73,8 @@ app.post('/api/stripe/create-account', async (req, res) => {
 })
 
 app.post('/api/stripe/create-account-link', async (req, res) => {
+  if (!requireStripe(res)) return
+
   try {
     const body = req.body || {}
     const accountLink = await stripe.accountLinks.create({
@@ -87,6 +91,8 @@ app.post('/api/stripe/create-account-link', async (req, res) => {
 })
 
 app.post('/api/stripe/create-checkout-session', async (req, res) => {
+  if (!requireStripe(res)) return
+
   try {
     const body = req.body || {}
     const session = await stripe.checkout.sessions.create({
@@ -111,6 +117,8 @@ app.post('/api/stripe/create-checkout-session', async (req, res) => {
 })
 
 app.post('/api/stripe/retrieve-account', async (req, res) => {
+  if (!requireStripe(res)) return
+
   try {
     const body = req.body || {}
     const account = await stripe.accounts.retrieve(body.account_id)

@@ -7,12 +7,19 @@ async function requestStripeApi(path, body) {
     body: JSON.stringify(body),
   });
 
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Stripe API error (${response.status}): ${text}`);
+  let payload = {};
+  try {
+    payload = await response.json();
+  } catch {
+    payload = {};
   }
 
-  return response.json();
+  if (!response.ok) {
+    const message = payload?.error || `Stripe API error (${response.status})`;
+    throw new Error(message);
+  }
+
+  return payload;
 }
 
 export async function createConnectedStripeAccount(payload) {

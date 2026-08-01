@@ -1,8 +1,12 @@
 import Stripe from 'stripe';
+import { parseJsonBody } from './parseBody.js';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: '2024-08-15',
-});
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY || process.env.VITE_STRIPE_SECRET_KEY || null;
+const stripe = stripeSecretKey && !stripeSecretKey.startsWith('pk_')
+  ? new Stripe(stripeSecretKey, {
+      apiVersion: '2024-08-15',
+    })
+  : null;
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -10,8 +14,13 @@ export default async function handler(req, res) {
     return;
   }
 
+  if (!stripe) {
+    res.status(503).json({ error: 'Stripe is not configured. Set STRIPE_SECRET_KEY or VITE_STRIPE_SECRET_KEY before trying again.' });
+    return;
+  }
+
   try {
-    const body = await req.json();
+    const body = await parseJsonBody(req);
     const account = await stripe.accounts.retrieve(body.account_id);
     res.status(200).json({ account });
   } catch (error) {
