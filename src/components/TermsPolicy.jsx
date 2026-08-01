@@ -8,18 +8,22 @@ export default function TermsPolicy() {
         <p style={{ marginBottom: '16px', lineHeight: 1.8, color: '#475569' }}>
           Dessa villkor styr din användning av Bokix. Genom att använda tjänsten godkänner du dessa villkor och vår integritetspolicy.
         </p>
-        <h2 style={{ marginTop: '32px', marginBottom: '12px', fontSize: '18px', fontWeight: 700 }}>Användning</h2>
+        
+        <h2 style={{ marginTop: '32px', marginBottom: '12px', fontSize: '18px', fontWeight: 700 }}>Användning och Lagstiftning (Bokföringslagen)</h2>
         <p style={{ marginBottom: '16px', lineHeight: 1.8, color: '#475569' }}>
-          Tjänsten får användas för laglig bokföring och administration av företagets ekonomi. Du ansvarar för att uppgifter som matas in är korrekta och uppfyller gällande regelverk.
+          Tjänsten är ett verktyg för att underlätta din bokföring. Enligt <strong>Bokföringslagen</strong> (Bfn.se) är det alltid du som företagare som bär det yttersta och fulla ansvaret för att din bokföring, dina skatteinbetalningar och dina deklarationer är korrekta och inlämnas i tid till Skatteverket och andra myndigheter.
         </p>
-        <h2 style={{ marginTop: '32px', marginBottom: '12px', fontSize: '18px', fontWeight: 700 }}>Ansvarsbegränsning</h2>
+        
+        <h2 style={{ marginTop: '32px', marginBottom: '12px', fontSize: '18px', fontWeight: 700 }}>Friskrivning från följdfel och ekonomiskt ansvar</h2>
         <p style={{ marginBottom: '16px', lineHeight: 1.8, color: '#475569' }}>
-          Bokix ansvarar inte för ekonomiska skador som uppstår på grund av felaktig användning eller utebliven säkerhetskopiering av dina data.
+          Bokix frånsäger sig uttryckligen allt ekonomiskt ansvar för felaktiga skatteinbetalningar, missade deklarationer, förseningsavgifter, skattetillägg eller andra direkt eller indirekt ekonomiska skador som kunden drabbas av, oavsett om dessa beror på handhavandefel, mjukvarubuggar, avbrott i tjänsten eller förlorad data. Genom att använda Bokix accepterar du att du ensam ansvarar för att granska och godkänna all redovisningsdata innan den används för skattedeklarationer eller årsredovisningar.
         </p>
+        
         <h2 style={{ marginTop: '32px', marginBottom: '12px', fontSize: '18px', fontWeight: 700 }}>Ändringar</h2>
         <p style={{ marginBottom: '16px', lineHeight: 1.8, color: '#475569' }}>
           Vi kan uppdatera villkoren vid behov. Viktiga ändringar meddelas via tjänsten och träder i kraft när de publiceras.
         </p>
+        
         <div style={{ marginTop: '40px', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
           <Link to="/" style={{ color: '#0f172a', fontWeight: 700, textDecoration: 'none' }}>&larr; Tillbaka till startsidan</Link>
         </div>

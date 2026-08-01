@@ -4,6 +4,7 @@ import {
   Check, Star, Zap, Shield, Users, FileText, ChevronRight,
   User, Globe, Lock, Bell, Palette, Database
 } from 'lucide-react';
+import { generateSIE4 } from '../utils/sieExport';
 
 const NAV_SECTIONS = [
   { id: 'profile', label: 'Min profil', icon: User },
@@ -99,6 +100,16 @@ export default function Settings({ activeTab, company, setCompanyInfo, accounts,
     const a = document.createElement('a');
     a.href = url;
     a.download = `alwixo_${company.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  };
+
+  const handleExportSIE = () => {
+    const sieData = generateSIE4(company, accounts, verifications);
+    const blob = new Blob([sieData], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `export_${company?.name?.replace(/\s+/g, '_') || 'Bokix'}_${new Date().toISOString().split('T')[0]}.se`;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
   };
 
@@ -348,6 +359,22 @@ export default function Settings({ activeTab, company, setCompanyInfo, accounts,
           {activeSection === 'data' && (
             <div>
               <SectionHeader icon={Database} title="Data & Säkerhet" subtitle="Exportera, importera eller återställ ditt konto." />
+
+              {/* SIE Export */}
+              <div style={{ padding: '20px', background: '#f9fafb', borderRadius: '12px', border: '1px solid #e5e7eb', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                      <Download size={15} style={{ color: '#5ba85a' }} />
+                      <span style={{ fontWeight: 600, fontSize: '14px', color: '#111827' }}>Exportera till revisor (SIE4)</span>
+                    </div>
+                    <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>Ladda ner din bokföring i det standardiserade formatet SIE-4, vilket din revisor kan importera.</p>
+                  </div>
+                  <button onClick={handleExportSIE} style={{ padding: '8px 16px', background: 'white', border: '1px solid #e5e7eb', borderRadius: '9px', fontSize: '13px', fontWeight: 500, cursor: 'pointer', color: '#374151', whiteSpace: 'nowrap', fontFamily: 'inherit', flexShrink: 0 }}>
+                    Ladda ner SIE4
+                  </button>
+                </div>
+              </div>
 
               {/* Export */}
               <div style={{ padding: '20px', background: '#f9fafb', borderRadius: '12px', border: '1px solid #e5e7eb', marginBottom: '16px' }}>

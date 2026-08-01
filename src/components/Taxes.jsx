@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import jsPDF from 'jspdf/dist/jspdf.es.min.js';
-import { FileCheck, Landmark, CalendarCheck, ExternalLink, Clock, PieChart, FileText, CheckCircle, AlertCircle, Calendar, ArrowDownRight, ArrowUpRight, CheckCircle2, FileDown, X } from 'lucide-react';
+import { FileCheck, Landmark, CalendarCheck, ExternalLink, Clock, PieChart, FileText, CheckCircle, AlertCircle, Calendar, ArrowDownRight, ArrowUpRight, CheckCircle2, FileDown, X, Download } from 'lucide-react';
 import Moms from './Moms';
+import { generateSRU } from '../utils/sruExport';
 
 const TABS = [
   { id: 'moms', label: 'Moms', icon: FileCheck },
@@ -35,7 +36,7 @@ const typeColors = {
   arsredovisning: { bg: '#fef2f2', color: '#dc2626', label: 'Bolagsverket', border: '#fecaca' },
 };
 
-export default function Taxes({ verifications, balances }) {
+export default function Taxes({ company, verifications, balances }) {
   const [activeTab, setActiveTab] = useState('moms');
   const [previewPdf, setPreviewPdf] = useState(null); // 'moms' | 'arbetsgivar'
 
@@ -157,6 +158,28 @@ export default function Taxes({ verifications, balances }) {
     doc.text('Ingen PDF vald', margin, y);
   };
 
+  const handleDownloadSRU = () => {
+    const { infoSru, blankettSru } = generateSRU(company, raOmsattning, raKostnader, raResultat);
+    
+    // INFO.SRU
+    const blobInfo = new Blob([infoSru], { type: 'text/plain;charset=utf-8' });
+    const urlInfo = URL.createObjectURL(blobInfo);
+    const aInfo = document.createElement('a');
+    aInfo.href = urlInfo;
+    aInfo.download = 'INFO.SRU';
+    document.body.appendChild(aInfo); aInfo.click(); document.body.removeChild(aInfo);
+
+    // BLANKETTER.SRU
+    setTimeout(() => {
+      const blobBlankett = new Blob([blankettSru], { type: 'text/plain;charset=utf-8' });
+      const urlBlankett = URL.createObjectURL(blobBlankett);
+      const aBlankett = document.createElement('a');
+      aBlankett.href = urlBlankett;
+      aBlankett.download = 'BLANKETTER.SRU';
+      document.body.appendChild(aBlankett); aBlankett.click(); document.body.removeChild(aBlankett);
+    }, 500); // Liten timeout så att båda filerna laddas ner smidigt
+  };
+
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
       {/* ── HEADER ── */}
@@ -227,6 +250,17 @@ export default function Taxes({ verifications, balances }) {
                 <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '20px' }}>Exportera löner och arbetsgivaravgifter för inlämning till Skatteverket.</p>
                 <button onClick={() => setPreviewPdf('arbetsgivar')} style={buttonStyle}>
                   Skapa AGI-PDF
+                </button>
+              </div>
+
+              <div style={{ border: '1px solid #e5e7eb', borderRadius: '12px', padding: '20px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                <div style={{ width: 48, height: 48, borderRadius: '12px', background: '#fef3c7', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px' }}>
+                  <Download size={24} />
+                </div>
+                <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#111827', marginBottom: '4px' }}>Inlämning SRU (Skatteverket)</h3>
+                <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '20px' }}>Ladda ner INFO.SRU och BLANKETTER.SRU för direktuppladdning till Skatteverkets e-tjänst.</p>
+                <button onClick={handleDownloadSRU} style={{ ...buttonStyle, background: '#d97706', color: 'white' }}>
+                  Ladda ner SRU-filer
                 </button>
               </div>
             </div>

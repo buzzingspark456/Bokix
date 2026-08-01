@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  Plus, X, Check, Search, ChevronDown, ChevronUp, BookOpen, Trash2, AlertCircle
+  Plus, X, Check, Search, ChevronDown, ChevronUp, BookOpen, Trash2, AlertCircle, RotateCcw
 } from 'lucide-react';
 
 export default function Verifications({ verifications, setVerifications, accounts, onAdd }) {
@@ -138,9 +138,18 @@ export default function Verifications({ verifications, setVerifications, account
     );
   }).sort((a, b) => b.date.localeCompare(a.date));
 
-  const handleDeleteVerification = (id) => {
-    if (window.confirm("Är du säker på att du vill radera denna verifikation?")) {
-      setVerifications(prev => prev.filter(v => v.id !== id));
+  const handleVoidVerification = (ver) => {
+    if (window.confirm("Är du säker på att du vill makulera denna verifikation? En rättelseverifikation (vändning) kommer att skapas.")) {
+      const reversedRows = ver.rows.map(r => ({
+        account: r.account,
+        debet: r.kredit > 0 ? r.kredit : 0,
+        kredit: r.debet > 0 ? r.debet : 0
+      }));
+      onAdd({
+        date: new Date().toISOString().split('T')[0],
+        description: `Rättelse av verifikation ${ver.number}`,
+        rows: reversedRows
+      });
     }
   };
 
@@ -233,8 +242,8 @@ export default function Verifications({ verifications, setVerifications, account
                       </td>
                       <td style={{ padding: '14px 20px', textAlign: 'right', fontWeight: 600, color: '#111827', letterSpacing: '-0.02em' }}>{formatSEK(totalVal)}</td>
                       <td style={{ padding: '14px 20px', textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
-                        <button onClick={() => handleDeleteVerification(ver.id)} title="Ta bort verifikation" style={{ padding: '6px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px' }} onMouseEnter={e => e.currentTarget.style.background = '#fef2f2'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                          <Trash2 size={16} />
+                        <button onClick={() => handleVoidVerification(ver)} title="Makulera (Skapa rättelse)" style={{ padding: '6px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px' }} onMouseEnter={e => e.currentTarget.style.background = '#fef2f2'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                          <RotateCcw size={16} />
                         </button>
                       </td>
                     </tr>
