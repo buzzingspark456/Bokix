@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { getCookieConsent, saveCookieConsent } from '../utils/cookieConsent';
 
-const BOKIX_LOGO_URL = 'https://cdn.builder.io/api/v1/image/assets%2F965040efbcfe49b9b50fd660edbb6b93%2F8e4622777a554535b4705d5c917db6eb?format=webp&width=800&height=1200';
+const BOKIX_LOGO_URL = 'https://cdn.builder.io/api/v1/image/assets%2F965040efbcfe49b9b50fd660edbb6b93%2F9ecd5f71e5154278b4959739f811cbab?format=webp&width=800&height=1200';
 
 const FEATURES = [
   {
@@ -222,11 +222,6 @@ export default function LandingPage({ onEnterApp }) {
         <div className="hero-layout" style={{ maxWidth: '1200px', margin: '0 auto', padding: '80px 24px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '80px', alignItems: 'center', width: '100%' }}>
           {/* Left: Text */}
           <div className="hero-copy">
-            <div className="hero-eyebrow animate-fadeinup" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '6px 14px', background: '#f1f8f1', border: '1px solid #bce4bc', borderRadius: '100px', fontSize: '12px', fontWeight: 600, color: '#5ba85a', marginBottom: '24px' }}>
-              <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#5ba85a' }} />
-              Bokföringsprogram för småföretag
-            </div>
-
             <h1 className="hero-title animate-fadeinup delay-1" style={{ fontSize: 'clamp(36px, 5vw, 58px)', fontWeight: 900, lineHeight: 1.08, letterSpacing: '-0.04em', color: '#0f172a', marginBottom: '24px' }}>
               Offerera, fakturera<br />
               <span style={{ background: 'linear-gradient(135deg, #5ba85a, #3a8fc1)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
