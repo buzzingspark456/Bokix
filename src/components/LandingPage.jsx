@@ -133,6 +133,9 @@ export default function LandingPage({ onEnterApp }) {
         .brand-lockup { gap: 11px !important; }
         .brand-mark { position: relative; width: 150px !important; height: 58px !important; border-radius: 8px !important; background: transparent !important; }
         .logo-image { width: 100%; height: 100%; object-fit: contain; mix-blend-mode: screen; }
+        .footer-logo-mark { width: 180px; height: 70px; background: transparent; overflow: visible; }
+        .footer-logo-image { mix-blend-mode: screen; }
+        @media (max-width: 600px) { .footer-logo-mark { width: 150px; height: 58px; } }
         .brand-wordmark { font-size: 20px !important; letter-spacing: -0.04em !important; }
         .desktop-nav { justify-content: center; }
         .desktop-nav button { position: relative; font-size: 13.5px !important; font-weight: 600 !important; }
@@ -601,8 +604,8 @@ export default function LandingPage({ onEnterApp }) {
             {/* Column 1: Brand & Intro */}
             <div style={{ gridColumn: 'span 2' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
-                <div style={{ width: 112, height: 48, borderRadius: '8px', background: '#17352d', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                  <img className="logo-image" src={BOKIX_LOGO_URL} alt="Bokix" />
+                <div className="footer-logo-mark" aria-label="Bokix logo">
+                  <img className="logo-image footer-logo-image" src={BOKIX_LOGO_URL} alt="Bokix" />
                 </div>
               </div>
               <p style={{ fontSize: '14px', lineHeight: 1.6, color: '#64748b', maxWidth: '300px' }}>
