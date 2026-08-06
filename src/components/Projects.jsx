@@ -1,13 +1,31 @@
 import React, { useState } from 'react';
 import {
   Briefcase, Plus, Search, ChevronDown, ChevronUp, Trash2, Check,
-  Clock, FileText, TrendingUp, CheckSquare, Users
+  Clock, FileText, TrendingUp, CheckSquare, Users, Timer
 } from 'lucide-react';
+import TimeTracking from './TimeTracking';
+
+function TabBar({ tabs, active, onChange }) {
+  return (
+    <div style={{ display: 'flex', gap: '2px', borderBottom: '1px solid #e5e7eb', marginBottom: '24px' }}>
+      {tabs.map(t => (
+        <button key={t.id} onClick={() => onChange(t.id)} style={{
+          padding: '10px 18px', background: 'none', border: 'none',
+          borderBottom: active === t.id ? '2px solid #1a3028' : '2px solid transparent',
+          fontSize: '13px', fontWeight: active === t.id ? 700 : 500,
+          color: active === t.id ? '#111827' : '#6b7280',
+          cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s', marginBottom: '-1px'
+        }}>{t.label}</button>
+      ))}
+    </div>
+  );
+}
 
 export default function Projects({ globalAction, clearGlobalAction }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedId, setExpandedId] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [pageTab, setPageTab] = useState('projects');
 
   // New Project Form
   const [name, setName] = useState('');
@@ -111,15 +129,28 @@ export default function Projects({ globalAction, clearGlobalAction }) {
 
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+      {/* Page header */}
+      <div style={{ marginBottom: '4px' }}>
+        <h1 style={{ fontSize: '24px', fontWeight: 700, letterSpacing: '-0.04em', color: '#111827', marginBottom: '4px' }}>Projekt</h1>
+        <p style={{ color: '#9ca3af', fontSize: '13.5px' }}>Projektuppföljning och tidrapportering</p>
+      </div>
+
+      <TabBar
+        tabs={[{ id: 'projects', label: 'Projekt' }, { id: 'time', label: 'Tidrapportering' }]}
+        active={pageTab}
+        onChange={setPageTab}
+      />
+
+      {pageTab === 'time' && (
+        <TimeTracking globalAction={pageTab === 'time' ? globalAction : null} clearGlobalAction={clearGlobalAction} />
+      )}
+
+      {pageTab === 'projects' && (<>
       {/* ── HEADER ── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
-          <h1 style={{ fontSize: '24px', fontWeight: 700, letterSpacing: '-0.04em', color: '#111827', marginBottom: '5px' }}>
-            Projekt
-          </h1>
-          <p style={{ color: '#9ca3af', fontSize: '13.5px', fontWeight: 400 }}>
-            Följ upp lönsamhet, tid och kostnader per projekt
-          </p>
+          <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#111827', marginBottom: '2px' }}>Projekt</h2>
+          <p style={{ color: '#9ca3af', fontSize: '13px' }}>Följ upp lönsamhet, tid och kostnader per projekt</p>
         </div>
         <button onClick={() => setIsModalOpen(true)} style={buttonStyle}>
           <Plus size={14} /> Nytt projekt
@@ -347,6 +378,7 @@ export default function Projects({ globalAction, clearGlobalAction }) {
           </div>
         </div>
       )}
+      </>)}
     </div>
   );
 }

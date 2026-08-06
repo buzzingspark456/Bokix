@@ -1,11 +1,156 @@
 import React, { useState } from 'react';
 import {
-  Plus, X, Check, Search, Receipt, ArrowUpRight, ArrowDownRight, CreditCard
+  Plus, X, Check, Search, Receipt, ArrowUpRight, ArrowDownRight, CreditCard,
+  FileText, Trash2, Send, Download, Building2
 } from 'lucide-react';
 
 const VAT_RATES = [25, 12, 6, 0];
 
-export default function Expenses({ expenses, accounts, contacts, onAdd }) {
+// ── Tab bar ──
+function TabBar({ tabs, active, onChange }) {
+  return (
+    <div style={{ display: 'flex', gap: '2px', borderBottom: '1px solid #e5e7eb', marginBottom: '24px' }}>
+      {tabs.map(t => (
+        <button key={t.id} onClick={() => onChange(t.id)} style={{
+          padding: '10px 18px', background: 'none', border: 'none', borderBottom: active === t.id ? '2px solid #2563eb' : '2px solid transparent',
+          fontSize: '13px', fontWeight: active === t.id ? 700 : 500, color: active === t.id ? '#111827' : '#6b7280',
+          cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s', marginBottom: '-1px'
+        }}>{t.label}</button>
+      ))}
+    </div>
+  );
+}
+
+// ── Supplier Invoices sub-panel ──
+function SupplierInvoicesPanel({ contacts }) {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [supplierInvoices, setSupplierInvoices] = useState([
+    { id: 'si1', supplier: 'Tele2 AB', invoiceNr: '2026-0812', date: '2026-07-15', dueDate: '2026-08-14', amount: 1250, status: 'unpaid' },
+    { id: 'si2', supplier: 'Kontorskompaniet', invoiceNr: 'KK-4471', date: '2026-07-20', dueDate: '2026-08-19', amount: 3740, status: 'paid' },
+  ]);
+  const [form, setForm] = useState({ supplier: '', invoiceNr: '', date: new Date().toISOString().split('T')[0], dueDate: '', amount: '', description: '' });
+
+  const formatSEK = v => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(v || 0);
+  const inputStyle = { width: '100%', padding: '9px 12px', border: '1px solid #e5e7eb', borderRadius: '9px', fontSize: '14px', color: '#111827', background: 'white', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' };
+  const btnStyle = { display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: '#2563eb', border: 'none', borderRadius: '9px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: 'white' };
+  const outlineStyle = { ...btnStyle, background: 'white', border: '1px solid #e5e7eb', color: '#374151' };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    setSupplierInvoices(prev => [{ id: `si_${Date.now()}`, ...form, amount: parseFloat(form.amount) || 0, status: 'unpaid' }, ...prev]);
+    setForm({ supplier: '', invoiceNr: '', date: new Date().toISOString().split('T')[0], dueDate: '', amount: '', description: '' });
+    setIsModalOpen(false);
+  };
+
+  const handleMarkPaid = (id) => setSupplierInvoices(prev => prev.map(si => si.id === id ? { ...si, status: 'paid' } : si));
+
+  const suppliers = (contacts || []).filter(c => c.type === 'supplier');
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+        <div>
+          <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#111827', marginBottom: '2px' }}>Leverantörsfakturor</h2>
+          <p style={{ color: '#9ca3af', fontSize: '13px' }}>Hantera inkommande fakturor från leverantörer</p>
+        </div>
+        <button style={btnStyle} onClick={() => setIsModalOpen(true)}><Plus size={13} /> Ny leverantörsfaktura</button>
+      </div>
+      <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '14px', overflow: 'hidden' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13.5px' }}>
+          <thead>
+            <tr style={{ borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
+              <th style={{ padding: '12px 20px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Leverantör</th>
+              <th style={{ padding: '12px 20px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Fakturanr</th>
+              <th style={{ padding: '12px 20px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Datum</th>
+              <th style={{ padding: '12px 20px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Förfaller</th>
+              <th style={{ padding: '12px 20px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Status</th>
+              <th style={{ padding: '12px 20px', textAlign: 'right', fontWeight: 600, color: '#374151' }}>Belopp</th>
+              <th style={{ padding: '12px 20px', textAlign: 'right', fontWeight: 600, color: '#374151' }}>Åtgärder</th>
+            </tr>
+          </thead>
+          <tbody>
+            {supplierInvoices.map((si, idx) => (
+              <tr key={si.id} style={{ borderBottom: idx < supplierInvoices.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
+                <td style={{ padding: '12px 20px', fontWeight: 600, color: '#111827' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Building2 size={15} color="#9ca3af" />{si.supplier}</div>
+                </td>
+                <td style={{ padding: '12px 20px', color: '#4b5563', fontFamily: 'ui-monospace,monospace', fontSize: '12px' }}>{si.invoiceNr}</td>
+                <td style={{ padding: '12px 20px', color: '#6b7280' }}>{si.date}</td>
+                <td style={{ padding: '12px 20px', color: si.status === 'unpaid' && si.dueDate < new Date().toISOString().split('T')[0] ? '#dc2626' : '#6b7280' }}>{si.dueDate || '—'}</td>
+                <td style={{ padding: '12px 20px' }}>
+                  <span style={{ padding: '3px 10px', background: si.status === 'paid' ? '#dcfce7' : '#fef3c7', color: si.status === 'paid' ? '#166534' : '#92400e', borderRadius: '20px', fontSize: '11px', fontWeight: 600 }}>
+                    {si.status === 'paid' ? 'Betald' : 'Obetald'}
+                  </span>
+                </td>
+                <td style={{ padding: '12px 20px', textAlign: 'right', fontWeight: 600, color: '#111827' }}>{formatSEK(si.amount)}</td>
+                <td style={{ padding: '12px 20px', textAlign: 'right' }}>
+                  <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
+                    {si.status === 'unpaid' && <button onClick={() => handleMarkPaid(si.id)} title="Markera betald" style={{ padding: '5px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#16a34a' }}><Check size={15} /></button>}
+                    <button title="Ta bort" onClick={() => setSupplierInvoices(prev => prev.filter(s => s.id !== si.id))} style={{ padding: '5px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444' }}><Trash2 size={15} /></button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {supplierInvoices.length === 0 && (
+              <tr><td colSpan="7" style={{ padding: '48px 20px', textAlign: 'center', color: '#9ca3af' }}>
+                <FileText size={24} style={{ margin: '0 auto 12px', display: 'block' }} />
+                <div style={{ fontWeight: 600 }}>Inga leverantörsfakturor</div>
+              </td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {isModalOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(17,24,39,0.4)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: '20px' }} onClick={() => setIsModalOpen(false)}>
+          <div style={{ background: 'white', borderRadius: '16px', width: '100%', maxWidth: '480px' }} onClick={e => e.stopPropagation()}>
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h2 style={{ fontSize: '17px', fontWeight: 700 }}>Ny leverantörsfaktura</h2>
+              <button onClick={() => setIsModalOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={20} color="#9ca3af" /></button>
+            </div>
+            <form onSubmit={handleSubmit} style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>Leverantör *</label>
+                  <input type="text" style={inputStyle} value={form.supplier} onChange={e => setForm(f=>({...f,supplier:e.target.value}))} placeholder="Leverantörens namn" required />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>Fakturanummer</label>
+                  <input type="text" style={inputStyle} value={form.invoiceNr} onChange={e => setForm(f=>({...f,invoiceNr:e.target.value}))} placeholder="INV-001" />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>Fakturadatum</label>
+                  <input type="date" style={inputStyle} value={form.date} onChange={e => setForm(f=>({...f,date:e.target.value}))} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>Förfallodatum</label>
+                  <input type="date" style={inputStyle} value={form.dueDate} onChange={e => setForm(f=>({...f,dueDate:e.target.value}))} />
+                </div>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>Belopp inkl. moms *</label>
+                <input type="number" style={inputStyle} value={form.amount} onChange={e => setForm(f=>({...f,amount:e.target.value}))} placeholder="0" required />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>Beskrivning</label>
+                <input type="text" style={inputStyle} value={form.description} onChange={e => setForm(f=>({...f,description:e.target.value}))} placeholder="Vad avser fakturan?" />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', paddingTop: '12px', borderTop: '1px solid #e5e7eb' }}>
+                <button type="button" onClick={() => setIsModalOpen(false)} style={outlineStyle}>Avbryt</button>
+                <button type="submit" style={btnStyle}><Check size={13} /> Spara</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function Expenses({ expenses, accounts, contacts, onAdd, globalAction, clearGlobalAction }) {
+  const [pageTab, setPageTab] = useState('expenses');
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -109,12 +254,29 @@ export default function Expenses({ expenses, accounts, contacts, onAdd }) {
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
       {/* ── HEADER ── */}
+      <div style={{ marginBottom: '4px' }}>
+        <h1 style={{ fontSize: '24px', fontWeight: 700, letterSpacing: '-0.04em', color: '#111827', marginBottom: '4px' }}>
+          Kvitto &amp; utgifter
+        </h1>
+        <p style={{ color: '#9ca3af', fontSize: '13.5px' }}>Kvitton, utlägg och leverantörsfakturor</p>
+      </div>
+
+      <TabBar
+        tabs={[{ id: 'expenses', label: 'Kvitton & utgifter' }, { id: 'supplier', label: 'Leverantörsfakturor' }]}
+        active={pageTab}
+        onChange={setPageTab}
+      />
+
+      {pageTab === 'supplier' && <SupplierInvoicesPanel contacts={contacts} />}
+
+      {pageTab === 'expenses' && (<>
+      {/* ── HEADER ── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
-          <h1 style={{ fontSize: '24px', fontWeight: 700, letterSpacing: '-0.04em', color: '#111827', marginBottom: '5px' }}>
-            Utgifter & Kvitton
-          </h1>
-          <p style={{ color: '#9ca3af', fontSize: '13.5px', fontWeight: 400 }}>
+          <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#111827', marginBottom: '2px' }}>
+            Kvitton &amp; utgifter
+          </h2>
+          <p style={{ color: '#9ca3af', fontSize: '13px' }}>
             Registrera dina utlägg och inköp. Bokförs automatiskt.
           </p>
         </div>
@@ -326,6 +488,7 @@ export default function Expenses({ expenses, accounts, contacts, onAdd }) {
           </div>
         </div>
       )}
+      </>)}
     </div>
   );
 }

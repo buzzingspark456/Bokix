@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import {
   LayoutDashboard,
   FileText,
@@ -71,13 +71,12 @@ import Dashboard from './components/Dashboard';
 import Invoices from './components/Invoices';
 import Expenses from './components/Expenses';
 import Contacts from './components/Contacts';
-import Verifications from './components/Verifications';
-import Accounts from './components/Accounts';
+import Bokforing from './components/Bokforing';
 import Reports from './components/Reports';
 import Settings from './components/Settings';
-import TimeTracking from './components/TimeTracking';
 import Payroll from './components/Payroll';
 import Taxes from './components/Taxes';
+import Projects from './components/Projects';
 import LandingPage from './components/LandingPage';
 import Auth from './components/Auth';
 import OnboardingFlow from './components/OnboardingFlow';
@@ -835,64 +834,23 @@ function App() {
   // Count for review badge (must be before navSections)
   const reviewCount = invoices.filter(i => i.status === 'draft').length;
 
-  // ── Navigation config (flat) ──
-  const navSections = [
-    {
-      label: 'ARBETSYTA',
-      items: [
-        { id: 'dashboard', label: 'Hem',               icon: LayoutDashboard },
-        { id: 'contacts',  label: 'Kunder',            icon: Users },
-        { id: 'projects',  label: 'Projekt',           icon: Briefcase },
-        { id: 'time',      label: 'Rapportera timmar', icon: Timer },
-        { id: 'quotes',    label: 'Offerter',          icon: FileSpreadsheet },
-        { id: 'invoices',  label: 'Fakturor',          icon: FileText },
-        { id: 'payroll',   label: 'Anställda & löner', icon: UsersRound },
-      ],
-    },
-    {
-      label: 'BOKFÖRING & EKONOMI',
-      items: [
-        { id: 'revenue',       label: 'Intäkter',       icon: TrendingUp },
-        { id: 'expense_overview', label: 'Kostnader',   icon: TrendingDown },
-        { id: 'transfers',     label: 'Överföringar',   icon: ArrowLeftRight },
-        { id: 'review',        label: 'Att granska',    icon: CheckSquare, badge: reviewCount },
-        { id: 'verifications', label: 'Verifikationer', icon: BookOpen },
-        { id: 'accounts',      label: 'Kontoplan',      icon: FolderTree },
-        { id: 'taxes_yearend', label: 'Skatt & Bokslut',icon: Shield },
-        { id: 'reports',       label: 'Rapporter',      icon: BarChart3 },
-      ],
-    },
-    {
-      label: 'INSTÄLLNINGAR',
-      items: [
-        { id: 'profile',  label: 'Min profil',    icon: User },
-        { id: 'company',  label: 'Företag',        icon: Building2 },
-        { id: 'settings', label: 'Inställningar',  icon: SettingsIcon },
-        { id: 'users',    label: 'Användare',      icon: UsersRound },
-      ],
-    },
+  // ── Navigation config: 9 flat items, no group headers ──
+  const navItems = [
+    { id: 'dashboard',   label: 'Startsida',        icon: LayoutDashboard },
+    { id: 'invoices',    label: 'Fakturering',       icon: FileText,   hint: 'inkl. offerter' },
+    { id: 'contacts',    label: 'Kunder',            icon: Users },
+    { id: 'expenses',    label: 'Kvitto & utgifter', icon: Receipt,    hint: 'inkl. leverantörsfakturor' },
+    { id: 'accounting',  label: 'Bokföring',         icon: BookOpen,   hint: 'inkl. verifikationer, kontoplan', badge: reviewCount },
+    { id: 'payroll',     label: 'Anställda och lön', icon: UsersRound },
+    { id: 'projects',    label: 'Projekt',           icon: Briefcase,  hint: 'inkl. tidrapportering' },
+    { id: 'taxes',       label: 'Skatt & bokslut',   icon: Shield },
+    { id: 'reports',     label: 'Rapport & analys',  icon: BarChart3 },
+    // separator before settings
+    { id: 'settings',   label: 'Inställningar',     icon: SettingsIcon, hint: 'inkl. företag', separator: true },
   ];
 
-  // Flat list for tab resolution (maps all IDs to real tabs)
-  const tabAliases = { 
-    revenue:          'invoices',       // Intäkter → fakturor-vyn
-    expense_overview: 'expenses',       // Kostnader (standalone)
-    transfers:        'verifications',
-    review:           'verifications',
-    projects:         'dashboard',
-    quotes:           'invoices',
-    supplier_invoices:'expenses',
-    profile:          'settings', 
-    company:          'settings', 
-    users:            'settings',
-    bank:             'dashboard',      // Bank – placeholder
-    taxes_vat:        'taxes',
-    taxes_yearend:    'taxes',
-    payroll:          'payroll',
-    time:             'time',
-  };
-  const resolveTab = (id) => tabAliases[id] || id;
-  const navItems = navSections.flatMap(s => s.items);
+  // No aliases needed — all IDs map directly to renderContent cases
+  const resolveTab = (id) => id;
 
   // Mobile bottom nav (5 viktigaste)
   const mobileNavItems = [
@@ -1065,87 +1023,59 @@ function App() {
           </div>
         </div>
 
-        <nav className="nav-links">
-          {navSections.map((section) => (
-            <div key={section.label} className="nav-section">
-              <div className="nav-section-label">{section.label}</div>
-              {section.items.map(item => {
-                if (item.subItems) {
-                  const isOpen = openMenus[item.id];
-                  return (
-                    <div key={item.id} className="nav-item-group">
-                      <button
-                        className="nav-item nav-item-parent"
-                        onClick={() => toggleMenu(item.id)}
-                      >
-                        <item.icon size={16} style={{ opacity: 0.7, flexShrink: 0 }} />
-                        <span style={{ flex: 1, fontSize: '13px', letterSpacing: '-0.01em' }}>{item.label}</span>
-                        <ChevronDown 
-                          size={14} 
-                          style={{ 
-                            opacity: 0.5, 
-                            transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-                            transition: 'transform 0.2s'
-                          }} 
-                        />
-                      </button>
-                      {isOpen && (
-                        <div className="nav-subitems">
-                          {item.subItems.map(sub => {
-                            const isSubActive = activeTab === sub.id;
-                            return (
-                              <button
-                                key={sub.id}
-                                className={`nav-item sub-item ${isSubActive ? 'active' : ''}`}
-                                onClick={() => handleNavTabChange(sub.id)}
-                              >
-                                <span style={{ flex: 1 }}>{sub.label}</span>
-                                {sub.badge != null && sub.badge > 0 && (
-                                  <span className="nav-badge">{reviewCount > 0 && sub.id === 'review' ? reviewCount : sub.badge}</span>
-                                )}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
+        <nav className="nav-links" style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
+          {navItems.map((item) => {
+            if (item.separator) {
+              return (
+                <React.Fragment key={item.id}>
+                  <div style={{ height: '1px', background: '#e2e8f0', margin: '6px 12px' }} />
+                  <button
+                    className={`nav-item ${activeTab === item.id ? 'active' : ''}`}
+                    onClick={() => handleNavTabChange(item.id)}
+                    style={{ width: '100%' }}
+                  >
+                    <item.icon size={16} style={{ opacity: activeTab === item.id ? 1 : 0.6, flexShrink: 0 }} />
+                    <div style={{ flex: 1, textAlign: 'left' }}>
+                      <div style={{ fontSize: '13px' }}>{item.label}</div>
+                      {item.hint && <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '1px' }}>{item.hint}</div>}
                     </div>
-                  );
-                } else {
-                  const isActive = activeTab === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      className={`nav-item ${isActive ? 'active' : ''}`}
-                      onClick={() => handleNavTabChange(item.id)}
-                    >
-                      <item.icon size={16} style={{ opacity: isActive ? 1 : 0.65, flexShrink: 0 }} />
-                      <span style={{ flex: 1, fontSize: '13px', letterSpacing: '-0.01em' }}>{item.label}</span>
-                      {item.badge != null && item.badge > 0 && (
-                        <span className="nav-badge">{reviewCount > 0 && item.id === 'review' ? reviewCount : item.badge}</span>
-                      )}
-                    </button>
-                  );
-                }
-              })}
-            </div>
-          ))}
+                    {item.badge > 0 && <span className="nav-badge">{item.badge}</span>}
+                  </button>
+                </React.Fragment>
+              );
+            }
+            const isActive = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                className={`nav-item ${isActive ? 'active' : ''}`}
+                onClick={() => handleNavTabChange(item.id)}
+                style={{ width: '100%' }}
+              >
+                <item.icon size={16} style={{ opacity: isActive ? 1 : 0.6, flexShrink: 0 }} />
+                <div style={{ flex: 1, textAlign: 'left' }}>
+                  <div style={{ fontSize: '13px' }}>{item.label}</div>
+                  {item.hint && <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '1px' }}>{item.hint}</div>}
+                </div>
+                {item.badge > 0 && <span className="nav-badge">{item.badge}</span>}
+              </button>
+            );
+          })}
         </nav>
-
-        <div className="sidebar-footer">
-          <button className="nav-item bottom-btn" onClick={() => handleNavTabChange('dashboard')}>
-            <HelpCircle size={16} style={{ opacity: 0.6, flexShrink: 0 }} />
-            <span style={{ fontSize: '13px', letterSpacing: '-0.01em' }}>Hjälp</span>
-          </button>
-          <button className="nav-item bottom-btn logout-btn" onClick={async () => {
-            await supabase.auth.signOut();
-            setIsLoggedIn(false);
-            setShowOnboarding(false);
-          }}>
-            <LogOut size={16} style={{ opacity: 0.6, flexShrink: 0 }} />
-            <span style={{ fontSize: '13px', letterSpacing: '-0.01em' }}>Logga ut</span>
+        <div className="sidebar-footer" style={{ borderTop: '1px solid #e2e8f0', padding: '6px 0' }}>
+          <button
+            className="nav-item bottom-btn logout-btn"
+            onClick={async () => {
+              await supabase.auth.signOut();
+              setIsLoggedIn(false);
+              setShowOnboarding(false);
+            }}
+            style={{ width: '100%', color: '#ef4444' }}
+          >
+            <LogOut size={16} style={{ flexShrink: 0 }} />
+            <span style={{ fontSize: '13px' }}>Logga ut</span>
           </button>
         </div>
-
       </aside>
 
       {/* ── Main Content ── */}
@@ -1348,3 +1278,6 @@ function App() {
 }
 
 export default App;
+
+
+

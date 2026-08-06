@@ -124,7 +124,7 @@ export default function Payroll() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '28px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
           <h1 style={{ fontSize: '24px', fontWeight: 700, letterSpacing: '-0.04em', color: '#111827', marginBottom: '4px' }}>
-            Löner
+            Anställda och lön
           </h1>
           <p style={{ color: '#9ca3af', fontSize: '13.5px' }}>Hantera anställda, lönekörningar och arbetsgivaravgifter</p>
         </div>
