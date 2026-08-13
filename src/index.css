@@ -1,4 +1,7 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300..900;1,14..32,300..900&display=swap');
+/* Den tidigare varianten (ital,opsz,wght-axlar) gav en 404 på ett av
+   vikt-woff2-fila hos Google Fonts — bytt till samma enklare
+   vikt-endast-fråga som redan används i LandingPage.jsx, som fungerar. */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 /* ═══════════════════════════════════════════════════════════
    ALLRA DESIGN SYSTEM — Bokföringsapp

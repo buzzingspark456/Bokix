@@ -641,7 +641,15 @@ function App() {
   };
 
   if (isLoadingAuth) {
-    return <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', color: '#64748b', fontSize: '18px', fontFamily: 'sans-serif' }}>Laddar... (Kontrollera att Supabase-nycklar är inlagda)</div>;
+    // Tidigare stod en felsökningstext ("Kontrollera att Supabase-nycklar
+    // är inlagda") här permanent, synlig för alla vid varje sidladdning —
+    // en intern debug-notering som aldrig skulle vara användarvänd.
+    return (
+      <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', background: '#f8fafc', fontFamily: 'sans-serif' }}>
+        <div style={{ width: 36, height: 36, border: '3px solid #e5e7eb', borderTopColor: '#3d7a2e', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+        <div style={{ color: '#64748b', fontSize: '15px' }}>Laddar Bokix…</div>
+      </div>
+    );
   }
 
   // Current company data
@@ -1774,7 +1782,7 @@ function App() {
             </button>
             <div className="topbar-search">
               <Search size={16} className="topbar-search-icon" />
-              <input type="text" placeholder="Sök verifikation, faktura, konto eller kund..." className="topbar-search-input" />
+              <input type="text" id="global-search" name="global-search" placeholder="Sök verifikation, faktura, konto eller kund..." aria-label="Sök verifikation, faktura, konto eller kund" className="topbar-search-input" />
             </div>
           </div>
 
