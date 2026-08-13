@@ -212,7 +212,13 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
   };
 
   return (
-    <div style={{ maxWidth: '100%', margin: '0 auto' }}>
+    // Bugkritiskt: rotdiven hade varken minHeight eller egen bakgrund, bara
+    // maxWidth. Den stod visserligen som flex:1 (via .main-content-inner > *),
+    // men eftersom den var transparent syntes den gråa sidbakgrunden som ett
+    // tomt fält under sista kortet på korta sidor (t.ex. en ny, nästan tom
+    // startsida) istället för att sidan kändes heltäckande. Samma mönster
+    // som redan fixat i SupplierInvoices.jsx.
+    <div style={{ maxWidth: '100%', margin: '0 auto', width: '100%', minHeight: '100%', boxSizing: 'border-box', background: 'var(--bg-page)' }}>
 
       {/* ─── HEADER ─── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '28px', flexWrap: 'wrap', gap: '16px' }}>

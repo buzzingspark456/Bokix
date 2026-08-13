@@ -4,28 +4,7 @@ import {
   ArrowRight, ArrowLeft, ShieldCheck, Check, User, Hash
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
-
-// Detect company type from Swedish org number
-function detectOrgType(orgNr) {
-  const cleaned = orgNr.replace(/\D/g, '');
-  if (!cleaned || cleaned.length < 6) return null;
-  const prefix = parseInt(cleaned.substring(0, 2), 10);
-  // Enskild firma: personal number format (19xx / 20xx)
-  if (prefix >= 19 && prefix <= 20 && cleaned.length >= 10) return 'Enskild firma';
-  // Third digit indicates legal form
-  const thirdDigit = parseInt(cleaned[2], 10);
-  if (thirdDigit === 5) return 'Aktiebolag (AB)';
-  if (thirdDigit === 7) return 'Ekonomisk förening';
-  if (thirdDigit === 8) return 'Ideell förening / stiftelse';
-  if (thirdDigit === 9) return 'Handelsbolag / Kommanditbolag';
-  return 'Företag';
-}
-
-function formatOrgNr(val) {
-  const digits = val.replace(/\D/g, '').slice(0, 10);
-  if (digits.length <= 6) return digits;
-  return `${digits.slice(0, 6)}-${digits.slice(6)}`;
-}
+import { detectOrgType, formatOrgNr } from '../utils/orgType';
 
 const inputStyle = {
   width: '100%', padding: '12px 14px', border: '1px solid #e2e8f0', borderRadius: '10px',
