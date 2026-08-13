@@ -239,7 +239,11 @@ function InvoiceForm({ contacts, onSave, onClose, initial, company, invoiceList,
     }}>
 
       {/* ── Top Navigation Bar ───────────────────────────────── */}
-      <div style={{ background: '#f5f5f5', borderBottom: '1px solid #ccc', padding: '4px 12px', display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+      {/* Mer luft i höjd (padding) + en tydlig grupp-gräns (marginLeft på
+          höger knappgrupp) mellan "vad det här är" (tillbaka + identifierare)
+          och "vad man kan göra med det" (bläddring + spara-knapparna),
+          istället för att allt satt på en enda tät rad. */}
+      <div style={{ background: '#f5f5f5', borderBottom: '1px solid #ccc', padding: '14px 20px', display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
         <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#333', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', marginRight: '8px' }}>
           ← Tillbaka
         </button>
@@ -271,18 +275,20 @@ function InvoiceForm({ contacts, onSave, onClose, initial, company, invoiceList,
           ))}
         </div>
 
-        <button
-          onClick={() => handleSave('sent')}
-          style={{ padding: '5px 14px', background: '#e65100', border: 'none', borderRadius: '4px', color: 'white', fontWeight: 700, fontSize: '12px', cursor: 'pointer' }}
-        >
-          ✓ Skapa faktura
-        </button>
-        <button
-          onClick={onClose}
-          style={{ padding: '5px 14px', background: '#2e7d32', border: 'none', borderRadius: '4px', color: 'white', fontWeight: 700, fontSize: '12px', cursor: 'pointer' }}
-        >
-          Visa lista
-        </button>
+        <div style={{ display: 'flex', gap: '8px', marginLeft: '10px', paddingLeft: '10px', borderLeft: '1px solid #ddd' }}>
+          <button
+            onClick={() => handleSave('sent')}
+            style={{ padding: '5px 14px', background: '#3d7a2e', border: 'none', borderRadius: '4px', color: 'white', fontWeight: 700, fontSize: '12px', cursor: 'pointer' }}
+          >
+            ✓ Skapa faktura
+          </button>
+          <button
+            onClick={onClose}
+            style={{ padding: '5px 14px', background: '#2e7d32', border: 'none', borderRadius: '4px', color: 'white', fontWeight: 700, fontSize: '12px', cursor: 'pointer' }}
+          >
+            Visa lista
+          </button>
+        </div>
       </div>
 
       {/* ── Action Toolbar ────────────────────────────────────── */}
@@ -425,15 +431,19 @@ function InvoiceForm({ contacts, onSave, onClose, initial, company, invoiceList,
       )}
 
       {/* ── Main Body ─────────────────────────────────────────── */}
-      {/* Bugkritiskt: innehållskolumnen hade ingen egen bakgrund, så när
-          fälten (var och en sitt eget vita fält, staplade uppåt) tog slut
-          innan kolumnen gjorde det, syntes bara tomt utrymme under istället
-          för att formuläret kändes som en sammanhängande yta hela vägen ner. */}
-      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', background: 'white' }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
+      {/* Formuläret är nu ett avgränsat kort (vit yta, kant, rundade hörn,
+          max-bredd, centrerat) istället för att de vita fältsektionerna
+          fritt fyllde hela innehållskolumnen — det var det som gjorde att
+          resten av sidan under sista raden lästes som ett tomt, ostylat
+          område. Kortet slutar där innehållet slutar; den grå sidbakgrunden
+          syns runt om, precis som mönstret redan är på resten av appens
+          formulärsidor (jämför "Nytt projekt", "Ny anställd" m.fl.). */}
+      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', background: '#f0f2f5' }}>
+        <div style={{ flex: 1, minWidth: 0, padding: '24px', boxSizing: 'border-box', display: 'flex', justifyContent: 'center' }}>
+        <div style={{ width: '100%', maxWidth: '1040px', alignSelf: 'flex-start', background: 'white', border: '1px solid #e0e0e0', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
 
           {/* Top fields row — bara de fält som alltid behövs */}
-          <div style={{ background: 'white', borderBottom: '1px solid #ddd', padding: '10px 16px', display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '12px', alignItems: 'end' }}>
+          <div style={{ background: 'white', borderBottom: '1px solid #ddd', padding: '16px 20px', display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '18px', alignItems: 'end' }}>
             <div>
               <label style={lbl}>Kund</label>
               <select value={customerId} onChange={e => setCustomerId(e.target.value)} disabled={isLocked} style={{ ...inp, background: isLocked ? '#f3f4f6' : 'white' }}>
@@ -455,7 +465,7 @@ function InvoiceForm({ contacts, onSave, onClose, initial, company, invoiceList,
                 {['Faktura', 'Kontantfaktura'].map(t => (
                   <button key={t} disabled={isLocked} onClick={() => setInvoiceType(t)} style={{
                     flex: 1, padding: '4px 6px', border: 'none', fontSize: '12px', cursor: isLocked ? 'not-allowed' : 'pointer',
-                    background: invoiceType === t ? '#1565c0' : 'white',
+                    background: invoiceType === t ? '#3d7a2e' : 'white',
                     color: invoiceType === t ? 'white' : '#333', fontWeight: invoiceType === t ? 700 : 400
                   }}>{t}</button>
                 ))}
@@ -464,7 +474,7 @@ function InvoiceForm({ contacts, onSave, onClose, initial, company, invoiceList,
           </div>
 
           {/* Fakturauppgifter — bara de vanligaste fälten synliga direkt */}
-          <div style={{ background: 'white', borderBottom: '1px solid #ddd', padding: '10px 16px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+          <div style={{ background: 'white', borderBottom: '1px solid #ddd', padding: '16px 20px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '18px' }}>
             <div>
               <label style={lbl}>Betalningsvillkor</label>
               <select value={terms} onChange={e => setTerms(e.target.value)} style={inp}>
@@ -597,9 +607,11 @@ function InvoiceForm({ contacts, onSave, onClose, initial, company, invoiceList,
             </div>
           </Section>
 
-          {/* Article Rows Table — 5 kolumner synliga, avancerade fält bakom kugghjulet */}
-          <div style={{ background: 'white', borderBottom: '1px solid #ddd' }}>
-            <div style={{ overflowX: 'auto' }}>
+          {/* Article Rows Table — 5 kolumner synliga, avancerade fält bakom kugghjulet.
+              Egen ram + rundade hörn så tabellen läses som en tydligt
+              avgränsad yta, istället för att bara flyta in i fälten runt om. */}
+          <div style={{ background: 'white', borderBottom: '1px solid #ddd', padding: '4px 20px 16px' }}>
+            <div style={{ overflowX: 'auto', border: '1px solid #ddd', borderRadius: '8px' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                 <thead>
                   <tr>
@@ -707,7 +719,7 @@ function InvoiceForm({ contacts, onSave, onClose, initial, company, invoiceList,
           </div>
 
           {/* Footer fields + totals */}
-          <div style={{ background: 'white', borderBottom: '1px solid #ddd', padding: '10px 16px', display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr 1fr', gap: '10px', alignItems: 'start' }}>
+          <div style={{ background: 'white', borderBottom: '1px solid #ddd', padding: '16px 20px', display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 2fr', gap: '18px', alignItems: 'start' }}>
             <div>
               <label style={lbl}>Fakturatext</label>
               <textarea value={invoiceText} onChange={e => setInvoiceText(e.target.value)} style={{ ...inp, minHeight: '60px', resize: 'vertical' }} placeholder="Hej! Tack för ditt köp hos oss." />
@@ -728,26 +740,31 @@ function InvoiceForm({ contacts, onSave, onClose, initial, company, invoiceList,
               <label style={lbl}>Netto</label>
               <div style={{ padding: '4px 0', fontWeight: 600, fontSize: '13px' }}>{fmt(totals.net)}</div>
             </div>
-            <div>
-              <label style={lbl}>Ex.Moms</label>
-              <div style={{ padding: '4px 0', fontWeight: 600, fontSize: '13px' }}>{fmt(totals.net)}</div>
-              <label style={lbl}>Övervältring</label>
-              <div style={{ fontSize: '13px', color: '#666' }}>0,00</div>
-              <label style={lbl}>Moms</label>
-              <div style={{ fontSize: '13px', color: '#e65100', fontWeight: 700 }}>{fmt(totals.vat)}</div>
-            </div>
-            <div>
-              <label style={lbl}>Total excl. moms</label>
-              <div style={{ fontSize: '13px', fontWeight: 600 }}>{fmt(totals.net)}</div>
-              <label style={lbl}>Moms</label>
-              <div style={{ fontSize: '13px', fontWeight: 600 }}>{fmt(totals.vat)}</div>
-              <label style={{ ...lbl, marginTop: '6px' }}>Att betala</label>
-              <div style={{ fontSize: '16px', fontWeight: 800, color: '#e65100' }}>{fmt(totals.total)} {currency}</div>
+            {/* Sammanställningen är resultatet av allt ovanför — en egen
+                lätt bakgrund gör det tydligt att det är en beräkning, inte
+                bara ytterligare två lösa fält i sidans hörn. */}
+            <div style={{ background: '#f9fafb', border: '1px solid #eee', borderRadius: '8px', padding: '10px 14px', display: 'flex', gap: '20px' }}>
+              <div style={{ flex: 1 }}>
+                <label style={lbl}>Ex.Moms</label>
+                <div style={{ padding: '4px 0', fontWeight: 600, fontSize: '13px' }}>{fmt(totals.net)}</div>
+                <label style={lbl}>Övervältring</label>
+                <div style={{ fontSize: '13px', color: '#666' }}>0,00</div>
+                <label style={lbl}>Moms</label>
+                <div style={{ fontSize: '13px', color: '#3d7a2e', fontWeight: 700 }}>{fmt(totals.vat)}</div>
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={lbl}>Total excl. moms</label>
+                <div style={{ fontSize: '13px', fontWeight: 600 }}>{fmt(totals.net)}</div>
+                <label style={lbl}>Moms</label>
+                <div style={{ fontSize: '13px', fontWeight: 600 }}>{fmt(totals.vat)}</div>
+                <label style={{ ...lbl, marginTop: '6px' }}>Att betala</label>
+                <div style={{ fontSize: '16px', fontWeight: 800, color: '#3d7a2e' }}>{fmt(totals.total)} {currency}</div>
+              </div>
             </div>
           </div>
 
           {/* Distribution row */}
-          <div style={{ background: 'white', padding: '10px 16px', display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'end' }}>
+          <div style={{ background: 'white', padding: '16px 20px', display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'end' }}>
             <div>
               <label style={lbl}>Utskriftsformat</label>
               <select style={{ ...inp, width: '140px' }}>
@@ -770,10 +787,11 @@ function InvoiceForm({ contacts, onSave, onClose, initial, company, invoiceList,
             <button onClick={() => handleSave('draft')} style={{ padding: '7px 18px', background: 'white', border: '1px solid #bbb', borderRadius: '4px', fontWeight: 600, fontSize: '13px', cursor: 'pointer', color: '#333' }}>
               Spara
             </button>
-            <button onClick={() => handleSave('sent')} style={{ padding: '7px 18px', background: '#e65100', border: 'none', borderRadius: '4px', fontWeight: 700, fontSize: '13px', cursor: 'pointer', color: 'white' }}>
+            <button onClick={() => handleSave('sent')} style={{ padding: '7px 18px', background: '#3d7a2e', border: 'none', borderRadius: '4px', fontWeight: 700, fontSize: '13px', cursor: 'pointer', color: 'white' }}>
               ✓ Bokför
             </button>
           </div>
+        </div>
         </div>
 
         {/* ── Preview Panel — samma InvoiceDocument-komponent som PDF-exporten fångar,
