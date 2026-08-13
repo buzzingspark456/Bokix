@@ -3,7 +3,7 @@ import {
   Briefcase, Plus, Search, ChevronDown, ChevronLeft, ChevronRight,
   Clock, TrendingUp, FileText, X,
 } from 'lucide-react';
-import { ProjectSearch } from './shared/SearchInputs';
+import { ProjectSearch, EntitySearch } from './shared/SearchInputs';
 import { BRAND } from '../utils/brandColors';
 
 const formatSEK = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
@@ -221,6 +221,15 @@ function TimeTrackingTab({ projects, timeEntries, setTimeEntries, setProjects })
         </div>
       </div>
 
+      {/* Vänlig hjälptext när veckan är helt tom — rutnätet är fortsatt
+          själva inbjudan (dashade "+ Lägg till"-ytor), det här är bara en
+          liten knuff så sidan inte känns död innan man loggat något. */}
+      {weekEntries.length === 0 && (
+        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '12px' }}>
+          Klicka på en dag för att registrera din första tidrapport.
+        </div>
+      )}
+
       {/* Veckorutnät */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '8px' }}>
         {weekDates.map((date, idx) => {
@@ -247,9 +256,9 @@ function TimeTrackingTab({ projects, timeEntries, setTimeEntries, setProjects })
 
               <div
                 onClick={() => setOpenDay(openDay === dateStr ? null : dateStr)}
-                style={{ border: '1px dashed var(--gray-300)', borderRadius: '8px', padding: '8px', textAlign: 'center', fontSize: '11px', color: 'var(--text-secondary)', cursor: 'pointer', transition: 'color 0.15s, border-color 0.15s' }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = BRAND.green; e.currentTarget.style.color = BRAND.green; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--gray-300)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
+                style={{ border: '1px dashed var(--gray-300)', borderRadius: '8px', padding: '8px', textAlign: 'center', fontSize: '11px', color: 'var(--text-secondary)', cursor: 'pointer', transition: 'color 0.15s, border-color 0.15s, background-color 0.15s' }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = BRAND.green; e.currentTarget.style.color = BRAND.green; e.currentTarget.style.background = BRAND.greenLight; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--gray-300)'; e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.background = 'transparent'; }}
               >
                 + Lägg till
               </div>
@@ -283,7 +292,7 @@ function TimeTrackingTab({ projects, timeEntries, setTimeEntries, setProjects })
   );
 }
 
-export default function Projects({ projects = [], setProjects, contacts = [], timeEntries = [], setTimeEntries, globalAction, clearGlobalAction }) {
+export default function Projects({ projects = [], setProjects, contacts = [], setContacts, timeEntries = [], setTimeEntries, globalAction, clearGlobalAction }) {
   const [activeTab, setActiveTab] = useState('projects');
 
   useEffect(() => {
@@ -305,12 +314,35 @@ export default function Projects({ projects = [], setProjects, contacts = [], ti
   const [expandedProjectId, setExpandedProjectId] = useState(null);
   const [detailTab, setDetailTab] = useState('time');
   const [showNewProjectForm, setShowNewProjectForm] = useState(false);
-  const [projectForm, setProjectForm] = useState({ name: '', customerId: '', budgetHours: '', hourlyRate: '', startDate: '' });
+  const [showMoreProjectOptions, setShowMoreProjectOptions] = useState(false);
+  const [isSavingProject, setIsSavingProject] = useState(false);
+  const blankProjectForm = { name: '', customerId: '', budgetHours: '', hourlyRate: '', startDate: '', endDate: '', status: 'active', autoInvoiceFromTime: false };
+  const [projectForm, setProjectForm] = useState(blankProjectForm);
+
+  const openNewProjectForm = () => {
+    setProjectForm(blankProjectForm);
+    setShowMoreProjectOptions(false);
+    setIsSavingProject(false);
+    setShowNewProjectForm(true);
+  };
+
+  // Snabbskapande av kund direkt från "Kund"-fältet i projektformuläret —
+  // samma mönster ska återanvändas för leverantörsfältet i
+  // leverantörsfaktura-formuläret. Bara namnet krävs; resten (org.nr m.m.)
+  // fylls i senare under Kunder om det behövs.
+  const handleCreateCustomerInline = (name) => {
+    const newContact = {
+      id: `contact_${Date.now()}`, type: 'customer', customerType: 'se_company',
+      name, orgNr: '', balance: 0, lastInvoiceDate: null, totalInvoicedThisYear: 0,
+    };
+    setContacts(prev => [...prev, newContact]);
+    setProjectForm(f => ({ ...f, customerId: newContact.id }));
+  };
 
   useEffect(() => {
     if (globalAction?.type === 'new_project') {
       handleSetTab('projects');
-      setShowNewProjectForm(true);
+      openNewProjectForm();
       clearGlobalAction?.();
     }
   }, [globalAction, clearGlobalAction]);
@@ -324,18 +356,25 @@ export default function Projects({ projects = [], setProjects, contacts = [], ti
     return p.name.toLowerCase().includes(s) || custName.toLowerCase().includes(s);
   });
 
+  const budgetedValue = (Number(projectForm.budgetHours) || 0) * (Number(projectForm.hourlyRate) || 0);
+
   const handleSaveProject = (e) => {
     e.preventDefault();
-    if (!projectForm.name || !projectForm.customerId) return;
+    if (!projectForm.name || !projectForm.customerId || isSavingProject) return;
+    // Disablas direkt vid klick så ett dubbelklick inte skapar två projekt —
+    // formuläret stängs och avmonteras när det är klart, men skulle
+    // sparandet någon gång bli asynkront (t.ex. mot ett API) står knappen
+    // redan i "disabled" tills dess.
+    setIsSavingProject(true);
     const newProject = {
       id: `proj_${Date.now()}`, ...projectForm,
       budgetHours: Number(projectForm.budgetHours) || 0,
       hourlyRate: Number(projectForm.hourlyRate) || 0,
-      status: 'active', timeSpent: 0, revenue: 0, cost: 0,
+      timeSpent: 0, revenue: 0, cost: 0,
     };
     setProjects(prev => [newProject, ...prev]);
     setShowNewProjectForm(false);
-    setProjectForm({ name: '', customerId: '', budgetHours: '', hourlyRate: '', startDate: '' });
+    setProjectForm(blankProjectForm);
   };
 
   const inputSt = { width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '14px', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' };
@@ -345,6 +384,9 @@ export default function Projects({ projects = [], setProjects, contacts = [], ti
   // sidopanel ovanpå resten av vyn — samma mönster som Anställda-formuläret
   // under Anställda och lön.
   if (showNewProjectForm) {
+    const sectionSt = { ...cardBase, width: '100%', boxSizing: 'border-box', padding: '20px' };
+    const sectionTitleSt = { fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 14px', textTransform: 'uppercase', letterSpacing: '0.03em' };
+
     return (
       <div style={{ padding: '32px 40px', animation: 'fadeIn 0.25s ease', minHeight: '100%', boxSizing: 'border-box' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
@@ -352,37 +394,119 @@ export default function Projects({ projects = [], setProjects, contacts = [], ti
           <span style={{ color: 'var(--border)' }}>|</span>
           <h2 style={{ fontSize: '18px', fontWeight: 600, margin: 0, color: 'var(--text-main)' }}>Nytt projekt</h2>
         </div>
-        <form onSubmit={handleSaveProject} style={{ ...cardBase, width: '100%', boxSizing: 'border-box', padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 1fr 1fr 1fr', gap: '16px' }}>
-            <div>
-              <label style={labelSt}>Projektnamn *</label>
-              <input type="text" value={projectForm.name} onChange={e => setProjectForm({ ...projectForm, name: e.target.value })} style={inputSt} required autoFocus />
-            </div>
-            <div>
-              <label style={labelSt}>Kund *</label>
-              <select value={projectForm.customerId} onChange={e => setProjectForm({ ...projectForm, customerId: e.target.value })} style={{ ...inputSt, background: 'white' }} required>
-                <option value="">Välj kund...</option>
-                {contacts.filter(c => c.type === 'customer' || !c.type).map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label style={labelSt}>Budgeterad tid (h)</label>
-              <input type="number" min="0" value={projectForm.budgetHours} onChange={e => setProjectForm({ ...projectForm, budgetHours: e.target.value })} style={inputSt} />
-            </div>
-            <div>
-              <label style={labelSt}>Timpris (kr)</label>
-              <input type="number" min="0" value={projectForm.hourlyRate} onChange={e => setProjectForm({ ...projectForm, hourlyRate: e.target.value })} style={inputSt} />
-            </div>
-            <div>
-              <label style={labelSt}>Startdatum</label>
-              <input type="date" value={projectForm.startDate} onChange={e => setProjectForm({ ...projectForm, startDate: e.target.value })} style={inputSt} />
+        <form onSubmit={handleSaveProject} style={{ width: '100%', maxWidth: '760px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+          {/* Grunduppgifter */}
+          <div style={sectionSt}>
+            <h3 style={sectionTitleSt}>Grunduppgifter</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr', gap: '16px' }}>
+              <div>
+                <label style={labelSt}>Projektnamn *</label>
+                <input type="text" value={projectForm.name} onChange={e => setProjectForm({ ...projectForm, name: e.target.value })} style={inputSt} required autoFocus />
+              </div>
+              <div>
+                <label style={labelSt}>Kund *</label>
+                <EntitySearch
+                  value={projectForm.customerId}
+                  onChange={id => setProjectForm({ ...projectForm, customerId: id })}
+                  items={contacts.filter(c => c.type === 'customer' || !c.type)}
+                  placeholder="Sök eller skapa kund..."
+                  onCreateNew={handleCreateCustomerInline}
+                  createLabel="Skapa ny kund"
+                />
+              </div>
             </div>
           </div>
+
+          {/* Budget */}
+          <div style={sectionSt}>
+            <h3 style={sectionTitleSt}>Budget</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+              <div>
+                <label style={labelSt}>Budgeterad tid (h)</label>
+                <input type="number" min="0" value={projectForm.budgetHours} onChange={e => setProjectForm({ ...projectForm, budgetHours: e.target.value })} style={inputSt} />
+              </div>
+              <div>
+                <label style={labelSt}>Timpris (kr)</label>
+                <input type="number" min="0" value={projectForm.hourlyRate} onChange={e => setProjectForm({ ...projectForm, hourlyRate: e.target.value })} style={inputSt} />
+              </div>
+              <div>
+                <label style={labelSt}>Budgeterat värde</label>
+                <div style={{ ...inputSt, background: 'var(--gray-50)', display: 'flex', alignItems: 'center', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                  {formatSEK(budgetedValue)}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Status */}
+          <div style={sectionSt}>
+            <h3 style={sectionTitleSt}>Status</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <div>
+                <label style={labelSt}>Status</label>
+                <select value={projectForm.status} onChange={e => setProjectForm({ ...projectForm, status: e.target.value })} style={{ ...inputSt, background: 'white' }}>
+                  <option value="active">Pågående</option>
+                  <option value="finished">Avslutat</option>
+                </select>
+              </div>
+              <div>
+                <label style={labelSt}>Startdatum</label>
+                <input type="date" value={projectForm.startDate} onChange={e => setProjectForm({ ...projectForm, startDate: e.target.value })} style={inputSt} />
+              </div>
+            </div>
+          </div>
+
+          {/* Fler alternativ — döljer det som inte behövs för de flesta projekt
+              tills man faktiskt vill ha det, samma princip som resten av formulären. */}
+          <button
+            type="button"
+            onClick={() => setShowMoreProjectOptions(v => !v)}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'none', border: 'none', padding: '4px 0', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '13px', fontWeight: 600, alignSelf: 'flex-start' }}
+          >
+            <ChevronDown size={14} style={{ transform: showMoreProjectOptions ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
+            Fler alternativ
+          </button>
+
+          {showMoreProjectOptions && (
+            <div style={sectionSt}>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={labelSt}>Slutdatum</label>
+                <input type="date" value={projectForm.endDate} onChange={e => setProjectForm({ ...projectForm, endDate: e.target.value })} style={{ ...inputSt, maxWidth: '240px' }} />
+                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>Lämna tomt för ett löpande projekt utan definierat slut.</div>
+              </div>
+
+              <h3 style={{ ...sectionTitleSt, marginTop: '8px' }}>Fakturering</h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={projectForm.autoInvoiceFromTime}
+                  onClick={() => setProjectForm(f => ({ ...f, autoInvoiceFromTime: !f.autoInvoiceFromTime }))}
+                  style={{
+                    width: '38px', height: '22px', borderRadius: '999px', border: 'none', cursor: 'pointer', flexShrink: 0,
+                    background: projectForm.autoInvoiceFromTime ? BRAND.green : 'var(--gray-300)', position: 'relative', transition: 'background 0.15s',
+                  }}
+                >
+                  <span style={{
+                    position: 'absolute', top: '2px', left: projectForm.autoInvoiceFromTime ? '18px' : '2px',
+                    width: '18px', height: '18px', borderRadius: '999px', background: 'white', transition: 'left 0.15s',
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
+                  }} />
+                </button>
+                <div>
+                  <div style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-main)' }}>Fakturera automatiskt utifrån tidrapporter</div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Kopplar projektets tidrapporter direkt till fakturaunderlag — relevant om du fakturerar per nedlagd timme.</div>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '8px' }}>
             <button type="button" onClick={() => setShowNewProjectForm(false)} style={{ padding: '9px 18px', background: 'var(--gray-100)', border: 'none', borderRadius: '8px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer' }}>Avbryt</button>
-            <button type="submit" style={{ padding: '9px 18px', background: BRAND.green, border: 'none', borderRadius: '8px', fontWeight: 600, color: 'white', cursor: 'pointer' }}>Spara projekt</button>
+            <button type="submit" disabled={isSavingProject} style={{ padding: '9px 18px', background: BRAND.green, border: 'none', borderRadius: '8px', fontWeight: 600, color: 'white', cursor: isSavingProject ? 'default' : 'pointer', opacity: isSavingProject ? 0.6 : 1 }}>
+              {isSavingProject ? 'Sparar…' : 'Spara projekt'}
+            </button>
           </div>
         </form>
       </div>
@@ -397,7 +521,7 @@ export default function Projects({ projects = [], setProjects, contacts = [], ti
           <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 500, color: 'var(--text-main)' }}>Projekt</h1>
           <p style={{ margin: '2px 0 0', fontSize: '13.5px', color: 'var(--text-secondary)' }}>Följs upp lönsamhet, tid och kostnader per projekt</p>
         </div>
-        <button onClick={() => setShowNewProjectForm(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: BRAND.green, color: 'white', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 500, cursor: 'pointer', flexShrink: 0 }}>
+        <button onClick={() => openNewProjectForm()} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: BRAND.green, color: 'white', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 500, cursor: 'pointer', flexShrink: 0 }}>
           <Plus size={15} /> Nytt projekt
         </button>
       </div>
@@ -428,7 +552,7 @@ export default function Projects({ projects = [], setProjects, contacts = [], ti
           )}
 
           {projects.length === 0 ? (
-            <EmptyProjectsState onCreate={() => setShowNewProjectForm(true)} />
+            <EmptyProjectsState onCreate={() => openNewProjectForm()} />
           ) : filteredProjects.length === 0 ? (
             <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)', background: 'white', borderRadius: '12px', border: '1px solid var(--border)' }}>Inga projekt hittades vid sökning.</div>
           ) : (

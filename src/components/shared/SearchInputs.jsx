@@ -4,8 +4,12 @@ import React, { useState, useEffect, useRef } from 'react';
  * Generisk sökbar combobox mot en lista av { id, name, ... }.
  * Delas mellan Verifikationer (motpart/projekt) och Kontakter/Leverantörer
  * (standardkonto) så att det bara finns en implementation att underhålla.
+ *
+ * `onCreateNew(name)` är valfri — anges den visas en "Skapa ny: …"-rad sist
+ * i förslagslistan så länge det som skrivits inte redan matchar en post
+ * exakt, så man kan skapa en ny motpart utan att lämna formuläret.
  */
-export function EntitySearch({ value, onChange, items, placeholder, renderMeta }) {
+export function EntitySearch({ value, onChange, items, placeholder, renderMeta, onCreateNew, createLabel = 'Skapa ny' }) {
   const selected = items?.find(c => c.id === value);
   const [q, setQ] = useState(selected?.name || '');
   const [open, setOpen] = useState(false);
@@ -23,6 +27,15 @@ export function EntitySearch({ value, onChange, items, placeholder, renderMeta }
     ? (items || []).filter(c => c.name.toLowerCase().includes(q.toLowerCase())).slice(0, 10)
     : (items || []).slice(0, 10);
 
+  const trimmedQ = q.trim();
+  const hasExactMatch = matches.some(c => c.name.toLowerCase() === trimmedQ.toLowerCase());
+  const showCreateRow = onCreateNew && trimmedQ.length >= 1 && !hasExactMatch;
+
+  const handleCreate = () => {
+    onCreateNew(trimmedQ);
+    setOpen(false);
+  };
+
   return (
     <div ref={ref} style={{ position: 'relative', width: '100%' }}>
       <input
@@ -32,7 +45,7 @@ export function EntitySearch({ value, onChange, items, placeholder, renderMeta }
         placeholder={placeholder}
         style={{ width: '100%', padding: '9px 12px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '13px', fontFamily: 'inherit', boxSizing: 'border-box', outline: 'none' }}
       />
-      {open && matches.length > 0 && (
+      {open && (matches.length > 0 || showCreateRow) && (
         <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 100, background: 'white', border: '1px solid #ccc', borderRadius: '4px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', minWidth: '260px', maxHeight: '220px', overflowY: 'auto' }}>
           {matches.map(c => (
             <div
@@ -46,14 +59,24 @@ export function EntitySearch({ value, onChange, items, placeholder, renderMeta }
               {renderMeta && <span style={{ color: '#9ca3af', fontSize: '11px', textTransform: 'uppercase' }}>{renderMeta(c)}</span>}
             </div>
           ))}
+          {showCreateRow && (
+            <div
+              onMouseDown={handleCreate}
+              style={{ padding: '7px 10px', cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', color: '#3d7a2e', fontWeight: 600 }}
+              onMouseEnter={e => e.currentTarget.style.background = '#f0f9f0'}
+              onMouseLeave={e => e.currentTarget.style.background = ''}
+            >
+              <span>+</span><span>{createLabel}: "{trimmedQ}"</span>
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-export function PartySearch({ value, onChange, contacts }) {
-  return <EntitySearch value={value} onChange={onChange} items={contacts} placeholder="Sök kund eller leverantör..." renderMeta={c => c.type === 'supplier' ? 'Leverantör' : 'Kund'} />;
+export function PartySearch({ value, onChange, contacts, onCreateNew, createLabel }) {
+  return <EntitySearch value={value} onChange={onChange} items={contacts} placeholder="Sök kund eller leverantör..." renderMeta={c => c.type === 'supplier' ? 'Leverantör' : 'Kund'} onCreateNew={onCreateNew} createLabel={createLabel} />;
 }
 
 export function ProjectSearch({ value, onChange, projects }) {

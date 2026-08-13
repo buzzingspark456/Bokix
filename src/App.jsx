@@ -1497,6 +1497,7 @@ function App() {
             projects={projects}
             setProjects={setProjects}
             contacts={contacts}
+            setContacts={setContacts}
             timeEntries={timeEntries}
             setTimeEntries={setTimeEntries}
             globalAction={globalAction}
