@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   User, Building2, CreditCard, Users, Shield, Sliders, Check, Download, Upload,
-  AlertTriangle, Trash2, Mail, Plug,
+  AlertTriangle, Trash2, Mail, Plug, Laptop,
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { BRAND } from '../utils/brandColors';
+import InvoiceDocument, { INVOICE_TEMPLATES, DEFAULT_INVOICE_TEMPLATE } from './InvoiceDocument';
 
 // ── Delade stilar ──
 // Bugkritiskt (Sida 15): varje sektion är ett fullbrett, ljust kort — inte
@@ -19,6 +20,14 @@ const inputBase = {
 const btnPrimary = { padding: '9px 18px', background: BRAND.green, color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer' };
 const btnSecondary = { padding: '9px 18px', background: 'white', color: '#374151', border: '1px solid #d1d5db', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer' };
 const btnGhost = { padding: '9px 14px', background: 'transparent', color: '#6b7280', border: 'none', fontWeight: 600, fontSize: '13px', cursor: 'pointer' };
+// Säkerhetsförsvagande handling (t.ex. stänga av tvåstegsverifiering) — dämpad
+// varningston (amberBg/amberText), inte samma neutrala grå som vanliga
+// sekundärknappar och inte heller Bokix grönt (det är en primär, positiv
+// handling-färg, fel signal för något som gör kontot mindre skyddat).
+const btnWarning = { padding: '9px 18px', background: BRAND.amberBg, color: BRAND.amberText, border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer' };
+// Sällan använd säkerhetsåtgärd (utloggning av andra enheter) — tydligt röd
+// men ghost/outline, inte en vardaglig spara-knapp.
+const btnDangerGhost = { padding: '9px 18px', background: 'white', color: '#b91c1c', border: '1px solid #fecaca', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer' };
 
 function Badge({ tone = 'warning', children }) {
   const map = {
@@ -167,6 +176,52 @@ function ImageUploadField({ label, value, onChange, uploadPath, hint }) {
   );
 }
 
+// ── Fakturamall (Sida 24) ──
+// Exempeldata bara för förhandsvisningen/mallkorten här i Inställningar —
+// samma InvoiceDocument-komponent som fångas för den riktiga PDF-exporten
+// (se Invoices.jsx), aldrig en förenklad egen mockup.
+const SAMPLE_ROWS = [
+  { id: 'sample-1', description: 'Konsulttjänst', qty: 10, unitPrice: 1200, vatRate: 25, discount: 0 },
+  { id: 'sample-2', description: 'Programvarulicens', qty: 1, unitPrice: 3500, vatRate: 25, discount: 0 },
+];
+const SAMPLE_NET = SAMPLE_ROWS.reduce((s, r) => s + r.qty * r.unitPrice, 0);
+const SAMPLE_TOTALS = { net: SAMPLE_NET, vat: SAMPLE_NET * 0.25, total: SAMPLE_NET * 1.25 };
+const SAMPLE_CUSTOMER = { name: 'Exempel Kund AB', address: 'Storgatan 1, 111 22 Stockholm', email: 'kontakt@exempelkund.se' };
+const SAMPLE_INVOICE = { invoiceNumber: '1042', date: new Date().toISOString().split('T')[0], dueDate: new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0] };
+
+function TemplateThumb({ tplId, previewProps, height = 210, scale = 0.34 }) {
+  return (
+    <div style={{ height, overflow: 'hidden', background: '#e4e4e7', position: 'relative' }}>
+      <div style={{ width: '794px', transform: `scale(${scale})`, transformOrigin: 'top left', pointerEvents: 'none' }}>
+        <InvoiceDocument template={tplId} {...previewProps} />
+      </div>
+    </div>
+  );
+}
+
+function TemplateCard({ tpl, selected, onSelect, previewProps }) {
+  return (
+    <div
+      onClick={onSelect} role="button" tabIndex={0} onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && onSelect()}
+      style={{
+        position: 'relative', border: `2px solid ${selected ? BRAND.green : '#e4e4e7'}`, borderRadius: '12px',
+        overflow: 'hidden', cursor: 'pointer', background: 'white',
+      }}
+    >
+      <TemplateThumb tplId={tpl.id} previewProps={previewProps} />
+      <div style={{ padding: '10px 12px', borderTop: '1px solid #e4e4e7' }}>
+        <div style={{ fontWeight: 700, fontSize: '13px', color: '#111' }}>{tpl.label}</div>
+        <div style={{ fontSize: '11.5px', color: '#6b7280', marginTop: '2px' }}>{tpl.description}</div>
+      </div>
+      {selected && (
+        <div style={{ position: 'absolute', top: 8, right: 8, width: 22, height: 22, borderRadius: '50%', background: BRAND.green, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.25)' }}>
+          <Check size={13} color="white" strokeWidth={3} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Lösenordssektion ──
 // Nuvarande lösenord verifieras genom att faktiskt logga in med det (Supabase
 // kräver det inte för updateUser, men en aktiv session i webbläsaren ska inte
@@ -209,7 +264,7 @@ function PasswordSection({ user }) {
     <div style={card}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '14px', flexWrap: 'wrap', gap: '6px' }}>
         <h3 style={{ fontSize: '14.5px', fontWeight: 700, margin: 0, color: '#111' }}>Lösenord</h3>
-        <span style={{ fontSize: '12px', color: '#9ca3af' }}>
+        <span style={{ fontSize: '11.5px', color: '#9ca3af' }}>
           {changedAt ? `Senast ändrat ${relativeTimeSv(changedAt)}` : 'Inte spårat ännu — byt lösenord här för att börja spåra det'}
         </span>
       </div>
@@ -306,7 +361,7 @@ function TwoFactorSection() {
         </div>
         {factors !== null && !enrolling && (
           verifiedFactor
-            ? <button onClick={disable} disabled={busy} style={btnSecondary}>Inaktivera</button>
+            ? <button onClick={disable} disabled={busy} style={btnWarning}>Inaktivera</button>
             : <button onClick={startEnroll} disabled={busy} style={btnPrimary}>Aktivera</button>
         )}
       </div>
@@ -355,17 +410,104 @@ function ActiveSessionsSection({ user }) {
       <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 14px', maxWidth: '560px' }}>
         Bokix kan i dagsläget inte visa en lista över dina enskilda inloggade enheter. Du kan däremot logga ut alla andra sessioner än den du sitter på just nu — t.ex. om du glömt logga ut på en delad dator eller en gammal telefon.
       </p>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', background: 'white', border: '1px solid #e4e4e7', borderRadius: '8px', marginBottom: '12px' }}>
-        <div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', background: 'white', border: '1px solid #e4e4e7', borderRadius: '10px', marginBottom: '14px' }}>
+        <div style={{ width: 38, height: 38, borderRadius: '50%', background: BRAND.greenLight, color: BRAND.greenDark, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <Laptop size={17} />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 600, fontSize: '13.5px', color: '#111' }}>{device}</div>
           <div style={{ fontSize: '12px', color: '#9ca3af' }}>{user?.email}</div>
         </div>
         <Badge tone="positive">Denna enhet</Badge>
       </div>
-      <button onClick={signOutOthers} disabled={busy} style={{ ...btnSecondary, opacity: busy ? 0.6 : 1 }}>{busy ? 'Loggar ut...' : 'Logga ut från alla andra enheter'}</button>
+      <button
+        onClick={signOutOthers} disabled={busy}
+        onMouseEnter={e => { if (!busy) e.currentTarget.style.background = '#fef2f2'; }}
+        onMouseLeave={e => { e.currentTarget.style.background = 'white'; }}
+        style={{ ...btnDangerGhost, opacity: busy ? 0.6 : 1, transition: 'background-color 0.12s' }}
+      >{busy ? 'Loggar ut...' : 'Logga ut från alla andra enheter'}</button>
       {done && <div style={{ color: BRAND.greenDark, fontSize: '13px', marginTop: '8px', fontWeight: 600 }}>Klart — alla andra sessioner är utloggade.</div>}
       {error && <div style={{ color: '#dc2626', fontSize: '13px', marginTop: '8px' }}>{error}</div>}
     </div>
+  );
+}
+
+// ── Fakturamall-väljare (Sida 24) ──
+// Valt mall-id sparas som `company.invoiceTemplateId` (företagsnivå, samma
+// jsonb-företagsobjekt som redan rond-trippar till Supabase för logotyp/
+// bankuppgifter etc — ingen separat tabell behövs). Redan sparade fakturor
+// fryser sitt utseende vid sparningstillfället (se invoiceTemplateSnapshot
+// i Invoices.jsx) — ett mallbyte här påverkar bara FRAMTIDA fakturor.
+function InvoiceTemplateSection({ company, setCompanyInfo, user }) {
+  const selectedId = company?.invoiceTemplateId || DEFAULT_INVOICE_TEMPLATE;
+  const activeTpl = INVOICE_TEMPLATES[selectedId] || INVOICE_TEMPLATES[DEFAULT_INVOICE_TEMPLATE];
+  const accentColor = company?.invoiceAccentColor || activeTpl.defaultAccent;
+
+  const previewProps = {
+    invoice: SAMPLE_INVOICE, customer: SAMPLE_CUSTOMER, company, rows: SAMPLE_ROWS, totals: SAMPLE_TOTALS,
+    currency: 'SEK', logoUrl: company?.logoUrl, footerText: company?.invoiceFooterText, accentColor,
+  };
+
+  return (
+    <>
+      <div style={card}>
+        <h3 style={{ fontSize: '14.5px', fontWeight: 700, margin: '0 0 4px', color: '#111' }}>Fakturamall</h3>
+        <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 16px', maxWidth: '672px' }}>
+          Välj utseendet på dina utgående kund- och leverantörsfakturor. Redan skickade fakturor behåller sitt utseende — bara nya fakturor använder mallen du väljer här.
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', maxWidth: '672px' }}>
+          {Object.values(INVOICE_TEMPLATES).map(tpl => (
+            <TemplateCard
+              key={tpl.id}
+              tpl={tpl}
+              selected={selectedId === tpl.id}
+              onSelect={() => setCompanyInfo({ ...company, invoiceTemplateId: tpl.id })}
+              previewProps={{ ...previewProps, accentColor: company?.invoiceAccentColor || tpl.defaultAccent }}
+            />
+          ))}
+        </div>
+      </div>
+
+      <div style={card}>
+        <h3 style={{ fontSize: '14.5px', fontWeight: 700, margin: '0 0 14px', color: '#111' }}>Anpassa mallen</h3>
+        <div style={{ display: 'flex', gap: '28px', flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: '260px', maxWidth: '380px' }}>
+            <div style={{ marginBottom: '18px' }}>
+              <ImageUploadField label="Logotyp" value={company?.logoUrl || ''} onChange={(v) => setCompanyInfo({ ...company, logoUrl: v })} uploadPath={`${user?.id}/logo-${company?.id}`} hint="JPG eller PNG, max 3 MB." />
+            </div>
+
+            <div style={{ marginBottom: '18px' }}>
+              <label style={labelStyle}>Accentfärg</label>
+              <p style={{ fontSize: '12px', color: '#9ca3af', margin: '0 0 8px' }}>Din egen varumärkesfärg på fakturan — fritt val, inte begränsat till Bokix grönt.</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <input
+                  type="color" value={accentColor}
+                  onChange={e => setCompanyInfo({ ...company, invoiceAccentColor: e.target.value })}
+                  style={{ width: '44px', height: '36px', padding: '2px', border: '1px solid #d1d5db', borderRadius: '6px', cursor: 'pointer', background: 'white' }}
+                />
+                <span style={{ fontSize: '13px', color: '#374151', fontFamily: 'monospace' }}>{accentColor}</span>
+                <button
+                  type="button" onClick={() => setCompanyInfo({ ...company, invoiceAccentColor: BRAND.green })}
+                  title="Använd Bokix grönt som accentfärg"
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: 'white', border: '1px solid #d1d5db', borderRadius: '999px', fontSize: '12px', fontWeight: 600, color: '#374151', cursor: 'pointer' }}
+                >
+                  <span style={{ width: 12, height: 12, borderRadius: '50%', background: BRAND.green, display: 'inline-block' }} /> Bokix grönt
+                </button>
+              </div>
+            </div>
+
+            <AutoField label="Tilläggsinformation / fottext" value={company?.invoiceFooterText || ''} onChange={(v) => setCompanyInfo({ ...company, invoiceFooterText: v })} hint="Visas längst ner på fakturan, t.ex. betalningsvillkor eller en hälsning." />
+          </div>
+
+          <div style={{ flex: 1, minWidth: '280px' }}>
+            <div style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Live-förhandsvisning</div>
+            <div style={{ border: '1px solid #e4e4e7', borderRadius: '8px', overflow: 'hidden', background: '#e4e4e7' }}>
+              <TemplateThumb tplId={selectedId} previewProps={previewProps} height={420} scale={0.56} />
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -626,6 +768,8 @@ export default function Settings({
                   {invoiceNumberError && <div style={{ color: '#991b1b', fontSize: '12.5px', marginTop: '8px', fontWeight: 600 }}>{invoiceNumberError}</div>}
                 </div>
               </div>
+
+              <InvoiceTemplateSection company={company} setCompanyInfo={setCompanyInfo} user={user} />
             </div>
           )}
 

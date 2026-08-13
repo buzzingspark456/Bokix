@@ -7,7 +7,7 @@ import {
   MessageSquare, Tag, Lock, Settings2, Download, AlertTriangle, Inbox
 } from 'lucide-react';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
-import InvoiceDocument from './InvoiceDocument';
+import InvoiceDocument, { DEFAULT_INVOICE_TEMPLATE } from './InvoiceDocument';
 import { exportInvoicePdf } from '../utils/exportInvoicePdf';
 import { BRAND } from '../utils/brandColors';
 
@@ -180,12 +180,25 @@ function InvoiceForm({ contacts, onSave, onClose, initial, company, invoiceList,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showPaymentBox]);
 
+  // Bugkritiskt (Sida 24): mallval/accentfärg/logotyp/fottext fryses på
+  // fakturan första gången den sparas (utkast eller skickad) — annars skulle
+  // ett senare mallbyte i Inställningar retroaktivt ändra utseendet på redan
+  // skickade fakturor. Finns redan en snapshot (fakturan är sparad sedan
+  // tidigare) återanvänds den oförändrad; annars fångas företagets NUVARANDE
+  // inställningar en gång.
+  const invoiceTemplateSnapshot = initial?.invoiceTemplateSnapshot || {
+    templateId: company?.invoiceTemplateId || DEFAULT_INVOICE_TEMPLATE,
+    accentColor: company?.invoiceAccentColor || '',
+    logoUrl: company?.logoUrl || '',
+    footerText: company?.invoiceFooterText || '',
+  };
+
   const handleSave = (status = 'draft') => {
     // internalNote skickas alltid med här (inte bara via popoverns egen
     // "Spara"-knapp) så en kommentar man skrivit på en NY, ännu osparad
     // faktura faktiskt följer med — annars gick den förlorad eftersom
     // Kommentar-knappen tidigare var helt avstängd innan första sparningen.
-    onSave({ customerId, date: invoiceDate, dueDate, rows, status, type: 'invoice', invoiceNumber: nextNum, ourRef, theirRef, ourOrderNr, internalNote: commentDraft });
+    onSave({ customerId, date: invoiceDate, dueDate, rows, status, type: 'invoice', invoiceNumber: nextNum, ourRef, theirRef, ourOrderNr, internalNote: commentDraft, invoiceTemplateSnapshot });
   };
 
   const handleDownloadPdf = async () => {
@@ -805,7 +818,10 @@ function InvoiceForm({ contacts, onSave, onClose, initial, company, invoiceList,
                 totals={totals}
                 currency={currency}
                 invoiceText={invoiceText}
-                logoUrl={company?.logoUrl}
+                template={invoiceTemplateSnapshot.templateId}
+                accentColor={invoiceTemplateSnapshot.accentColor}
+                logoUrl={invoiceTemplateSnapshot.logoUrl}
+                footerText={invoiceTemplateSnapshot.footerText}
               />
             </div>
           </div>

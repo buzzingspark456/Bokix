@@ -859,17 +859,20 @@ body {
   bottom: 0;
   left: 0;
   right: 0;
-  height: var(--mobile-nav-height);
+  min-height: var(--mobile-nav-height);
   background: white;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid #e5e7eb;
   z-index: 150;
-  box-shadow: 0 -4px 16px rgba(0,0,0,0.06);
+  /* Subtil skugga uppåt — lyfter naven från innehållet istället för en platt linje. */
+  box-shadow: 0 -2px 8px rgba(0,0,0,0.04);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 .mobile-bottom-nav-inner {
   display: flex;
   align-items: stretch;
-  height: 100%;
+  justify-content: space-around;
+  padding: 8px 4px;
 }
 
 .mobile-nav-btn {
@@ -878,28 +881,119 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 4px;
+  min-height: 44px;
   background: none;
   border: none;
   cursor: pointer;
   font-family: var(--font-sans);
   font-size: 10px;
   font-weight: 500;
-  color: var(--gray-500);
-  transition: all var(--transition);
-  padding: 4px 2px;
+  color: #9ca3af;
+  padding: 6px 2px;
+}
+
+.mobile-nav-btn .mobile-nav-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: transparent;
+  transition: background-color var(--transition), color var(--transition);
+  color: #9ca3af;
 }
 
 .mobile-nav-btn.active {
-  color: var(--lime-600);
+  color: #27500a;
 }
 
-.mobile-nav-btn svg {
-  transition: transform var(--transition);
+.mobile-nav-btn.active .mobile-nav-icon {
+  background: #eaf3de;
+  color: #3d7a2e;
 }
 
-.mobile-nav-btn.active svg {
-  transform: scale(1.1);
+/* ── "Mer"-bottensheet — glider upp från botten istället för en egen sida. ── */
+.mobile-sheet-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(15,23,42,0.4);
+  z-index: 200;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.mobile-sheet-overlay.open {
+  display: block;
+  opacity: 1;
+}
+
+.mobile-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: white;
+  border-radius: 20px 20px 0 0;
+  z-index: 201;
+  box-shadow: 0 -8px 30px rgba(0,0,0,0.18);
+  transform: translateY(100%);
+  transition: transform 0.25s cubic-bezier(0.32, 0.72, 0, 1);
+  padding: 10px 10px calc(12px + env(safe-area-inset-bottom, 0px));
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.mobile-sheet.open {
+  transform: translateY(0);
+}
+
+.mobile-sheet-handle {
+  width: 36px;
+  height: 4px;
+  border-radius: 999px;
+  background: #e5e7eb;
+  margin: 4px auto 14px;
+}
+
+.mobile-sheet-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 12px 10px;
+  background: none;
+  border: none;
+  border-radius: 10px;
+  font-family: var(--font-sans);
+  font-size: 14.5px;
+  font-weight: 500;
+  color: #1f2937;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mobile-sheet-item:active {
+  background: #f4f4f5;
+}
+
+.mobile-sheet-item.active {
+  color: #27500a;
+  background: #eaf3de;
+}
+
+.mobile-sheet-item .mobile-sheet-item-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6b7280;
+}
+
+.mobile-sheet-item.active .mobile-sheet-item-icon {
+  color: #3d7a2e;
 }
 
 
@@ -2270,7 +2364,7 @@ textarea.form-control {
   .main-wrapper {
     margin-left: 0;
     max-width: 100vw;
-    padding-bottom: var(--mobile-nav-height);
+    padding-bottom: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom, 0px));
   }
 
   .main-content-inner {

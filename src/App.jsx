@@ -37,7 +37,6 @@ import {
   LogOut,
   Moon,
   AlertTriangle,
-  Inbox,
 } from 'lucide-react';
 import { DEFAULT_ACCOUNTS, VAT_ACCOUNTS, REVENUE_ACCOUNTS } from './components/AccountsData';
 import { createStripeCheckoutSession } from './stripeApi';
@@ -216,6 +215,11 @@ const tabAliases = {
   settings:         'settings',
 };
 const resolveTab = (id) => tabAliases[id] || id;
+// "Leverantörsfakturor" är sen flikmärgningen (se Expenses.jsx) inte längre
+// en egen sidopunkt — men Faktureringens genväg navigerar ändå dit med det
+// gamla id:t så att rätt underflik öppnas (se initialTab i App.jsx:s render-
+// switch). Här, för meny-highlight/rubrik, ska den räknas som "expenses".
+const resolveNavGroup = (id) => resolveTab(id === 'supplier_invoices' ? 'expenses' : id);
 
 // ──────────────────────────────────────────────
 // APP COMPONENT
@@ -240,6 +244,7 @@ function App() {
   }, []);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showLanding, setShowLanding] = useState(true);
   const [user, setUser] = useState(null);
@@ -532,9 +537,11 @@ function App() {
       error: 'Något gick fel vid Stripe-anslutningen. Försök igen, eller kontakta support om felet kvarstår.',
       not_configured: 'Stripe-anslutning är inte konfigurerad ännu. Kontakta support.',
     };
-    alert(messages[status] || messages.error);
+    const debugDetail = params.get('debug'); // temporärt diagnos-fält, se api/stripe/callback.js
+    alert((messages[status] || messages.error) + (debugDetail ? `\n\n(${debugDetail})` : ''));
 
     params.delete('stripe_connect');
+    params.delete('debug');
     const newSearch = params.toString();
     window.history.replaceState({}, '', window.location.pathname + (newSearch ? `?${newSearch}` : '') + window.location.hash);
   }, []);
@@ -1110,6 +1117,14 @@ function App() {
     };
     setExpenses(prev => [...prev, inv]);
 
+    // Snabbregistreringen (Kvitto och utgifter > Leverantörsfakturor-fliken)
+    // samlar bara in leverantör/belopp/datum, inget konto — fakturan sparas
+    // direkt men bokförs inte förrän kontot väljs via "Granska" i listan
+    // (handleFixExpenseAccount, längre ner), exakt samma mönster som ett
+    // kvitto utan kontering. Utan detta skulle en tom kontoraden bokas som
+    // en obalanserad verifikation (kredit utan matchande debet).
+    if (!inv.rows?.length && !inv.costAccount) return;
+
     const rows = inv.rows?.length ? inv.rows : [{ account: inv.costAccount, netAmount: inv.netAmount, vatAmount: inv.vatAmount }];
     const verRows = rows
       .filter(r => r.account && r.netAmount)
@@ -1310,8 +1325,7 @@ function App() {
         { id: 'dashboard', label: 'Startsida',           icon: LayoutDashboard },
         { id: 'invoices',  label: 'Fakturering',         icon: FileText },
         { id: 'contacts',  label: 'Kunder',              icon: Users },
-        { id: 'expenses',  label: 'Kvitto och utgifter', icon: Receipt },
-        { id: 'supplier_invoices', label: 'Leverantörsfakturor', icon: Inbox },
+        { id: 'expenses',  label: 'Utgifter',            icon: Receipt },
         { id: 'projects',  label: 'Projekt',             icon: Briefcase },
       ],
     },
@@ -1336,19 +1350,29 @@ function App() {
 
   const navItems = navSections.flatMap(s => s.items);
 
-  // Mobile bottom nav (5 viktigaste)
+  // Mobile bottom nav (4 vanligaste + "Mer") — Sida 26. "Mer" öppnar en
+  // bottensheet med resten av huvudpunkterna istället för att själv peka på
+  // en specifik sida, så dess ikon nedan hanteras separat (se mobileSheetItems).
   const mobileNavItems = [
     { id: 'dashboard', label: 'Hem',      icon: LayoutDashboard },
     { id: 'invoices',  label: 'Fakturor', icon: FileText },
     { id: 'expenses',  label: 'Utgifter', icon: Receipt },
     { id: 'contacts',  label: 'Kunder',   icon: Users },
-    { id: 'settings',  label: 'Mer',      icon: MoreHorizontal },
   ];
+  const mobileSheetItems = [
+    { id: 'projects',      label: 'Projekt',             icon: Briefcase },
+    { id: 'verifications', label: 'Bokföring',           icon: BookOpen },
+    { id: 'payroll',       label: 'Anställda och lön',   icon: UsersRound },
+    { id: 'taxes',         label: 'Skatt och bokslut',   icon: Shield },
+    { id: 'reports',       label: 'Rapport och analys',  icon: BarChart3 },
+    { id: 'settings',      label: 'Inställningar',       icon: SettingsIcon },
+  ];
+  const isMobileSheetItemActive = mobileSheetItems.some(item => resolveNavGroup(activeTab) === resolveTab(item.id));
 
   const companyList = Object.values(data.companies).map(c => c.company);
 
   // Active tab label for topbar
-  const activeNavLabel = navItems.find(n => resolveTab(n.id) === resolveTab(activeTab))?.label || 'Hem';
+  const activeNavLabel = navItems.find(n => resolveTab(n.id) === resolveNavGroup(activeTab))?.label || 'Hem';
 
 
   // ── Render content ──
@@ -1381,6 +1405,7 @@ function App() {
         return (
           <Payroll
             key={company?.id || data.activeCompanyId}
+            company={company}
             employees={employees}
             onSaveEmployee={handleSaveEmployee}
             accounts={accounts}
@@ -1479,8 +1504,8 @@ function App() {
             user={user}
             onAdd={handleAddExpense}
             onFixExpenseAccount={handleFixExpenseAccount}
-            pageTitle="Kvitto och utgifter"
-            pageSubtitle="Alla registrerade kvitton"
+            pageTitle="Utgifter"
+            pageSubtitle="Alla registrerade utgifter"
           />
         );
       case 'supplier_invoices':
@@ -1491,8 +1516,6 @@ function App() {
             accounts={accounts}
             contacts={contacts}
             setContacts={setContacts}
-            projects={projects}
-            user={user}
             onAddSupplierInvoice={handleAddSupplierInvoice}
             onMarkSupplierInvoicePaid={handleMarkSupplierInvoicePaid}
             onFixExpenseAccount={handleFixExpenseAccount}
@@ -1693,9 +1716,9 @@ function App() {
               // Grupp 1 — det dagliga arbetet
               items: [
                 { id: 'dashboard', label: 'Startsida' },
-                { id: 'invoices', label: 'Fakturering' },
                 { id: 'contacts', label: 'Kunder' },
-                { id: 'expenses', label: 'Kvitto och utgifter' },
+                { id: 'invoices', label: 'Fakturering' },
+                { id: 'expenses', label: 'Utgifter' },
                 { id: 'projects', label: 'Projekt' },
               ],
             },
@@ -1705,8 +1728,8 @@ function App() {
                 { id: 'review', label: 'Granskning', badge: reviewCount },
                 { id: 'verifications', label: 'Bokföring' },
                 { id: 'payroll', label: 'Anställda och lön' },
-                { id: 'taxes', label: 'Skatt och bokslut' },
                 { id: 'reports', label: 'Rapport och analys' },
+                { id: 'taxes', label: 'Skatt och bokslut' },
               ],
             },
             {
@@ -1719,7 +1742,7 @@ function App() {
             <React.Fragment key={gi}>
               {gi > 0 && <div style={{ height: '1px', background: 'rgba(255,255,255,0.15)', margin: '8px 20px', flexShrink: 0 }}></div>}
               {group.items.map((item) => {
-                const isActive = resolveTab(activeTab) === resolveTab(item.id);
+                const isActive = resolveNavGroup(activeTab) === resolveTab(item.id);
                 return (
                   <button
                     key={item.id}
@@ -1914,21 +1937,56 @@ function App() {
         </div>
       </main>
 
-      {/* ── Mobile Bottom Navigation ── */}
+      {/* ── Mobile Bottom Navigation (Sida 26) ── */}
       <nav className="mobile-bottom-nav" aria-label="Mobilnavigation">
         <div className="mobile-bottom-nav-inner">
-          {mobileNavItems.map(item => (
-            <button
-              key={item.id}
-              className={`mobile-nav-btn ${resolveTab(activeTab) === resolveTab(item.id) ? 'active' : ''}`}
-              onClick={() => handleNavTabChange(item.id)}
-            >
-              <item.icon size={20} />
-              <span>{item.label}</span>
-            </button>
-          ))}
+          {mobileNavItems.map(item => {
+            const isActive = resolveNavGroup(activeTab) === resolveTab(item.id);
+            return (
+              <button
+                key={item.id}
+                className={`mobile-nav-btn ${isActive ? 'active' : ''}`}
+                onClick={() => handleNavTabChange(item.id)}
+              >
+                <span className="mobile-nav-icon"><item.icon size={20} /></span>
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
+          {/* "Mer" — öppnar en bottensheet, navigerar inte till en egen sida direkt.
+              Bugkritiskt: dess aktiva tillstånd följer samma activeTab/route-state
+              som resten av naven (isMobileSheetItemActive), inte en egen parallell
+              state — så den lyser grönt även när man kommit till t.ex. Rapporter
+              via en länk inifrån en annan sida, inte bara via sheeten själv. */}
+          <button
+            className={`mobile-nav-btn ${isMobileSheetItemActive ? 'active' : ''}`}
+            onClick={() => setMobileMoreOpen(true)}
+            aria-haspopup="true"
+            aria-expanded={mobileMoreOpen}
+          >
+            <span className="mobile-nav-icon"><MoreHorizontal size={20} /></span>
+            <span>Mer</span>
+          </button>
         </div>
       </nav>
+
+      <div className={`mobile-sheet-overlay ${mobileMoreOpen ? 'open' : ''}`} onClick={() => setMobileMoreOpen(false)} />
+      <div className={`mobile-sheet ${mobileMoreOpen ? 'open' : ''}`} role="dialog" aria-modal="true" aria-label="Fler sidor">
+        <div className="mobile-sheet-handle" />
+        {mobileSheetItems.map(item => {
+          const isActive = resolveNavGroup(activeTab) === resolveTab(item.id);
+          return (
+            <button
+              key={item.id}
+              className={`mobile-sheet-item ${isActive ? 'active' : ''}`}
+              onClick={() => { handleNavTabChange(item.id); setMobileMoreOpen(false); }}
+            >
+              <span className="mobile-sheet-item-icon"><item.icon size={18} /></span>
+              {item.label}
+            </button>
+          );
+        })}
+      </div>
 
       {/* ── New Company Modal ── */}
       {newCompanyModal && (

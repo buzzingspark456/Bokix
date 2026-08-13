@@ -14,8 +14,13 @@ const stripe = stripeSecretKey && !stripeSecretKey.startsWith('pk_') ? new Strip
 
 const appUrl = process.env.STRIPE_ONBOARDING_RETURN_URL || 'http://localhost:5173';
 
-function redirectWithStatus(res, status) {
-  res.writeHead(302, { Location: `${appUrl}/?stripe_connect=${status}` });
+// TEMPORÄRT: &debug=<kort felmeddelande> på felvägen, för att diagnostisera
+// ett verkligt fel utan tillgång till Vercels loggar. Tas bort igen så fort
+// felet är hittat — inget känsligt (token/nycklar) hamnar här, bara
+// err.message, och bara på error-statusen.
+function redirectWithStatus(res, status, detail) {
+  const debugParam = detail ? `&debug=${encodeURIComponent(String(detail).slice(0, 200))}` : '';
+  res.writeHead(302, { Location: `${appUrl}/?stripe_connect=${status}${debugParam}` });
   res.end();
 }
 
@@ -91,6 +96,6 @@ export default async function handler(req, res) {
     redirectWithStatus(res, 'connected');
   } catch (err) {
     console.error('Stripe OAuth callback error:', err);
-    redirectWithStatus(res, 'error');
+    redirectWithStatus(res, 'error', err.message);
   }
 }

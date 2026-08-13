@@ -250,7 +250,7 @@ export default function Expenses({
 
       {/* ── Sidhuvud ─────────────────────────── */}
       <div style={{ background: 'white', borderBottom: '1px solid var(--border)', padding: '16px 20px 0', flexShrink: 0 }}>
-        <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 500, color: 'var(--text-main)' }}>{pageTitle || 'Kvitto och utgifter'}</h1>
+        <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 500, color: 'var(--text-main)' }}>{pageTitle || 'Utgifter'}</h1>
         {pageSubtitle && <p style={{ margin: '2px 0 16px', fontSize: '13.5px', color: 'var(--text-secondary)' }}>{pageSubtitle}</p>}
       </div>
 
