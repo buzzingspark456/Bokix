@@ -431,16 +431,14 @@ function InvoiceForm({ contacts, onSave, onClose, initial, company, invoiceList,
       )}
 
       {/* ── Main Body ─────────────────────────────────────────── */}
-      {/* Formuläret är nu ett avgränsat kort (vit yta, kant, rundade hörn,
-          max-bredd, centrerat) istället för att de vita fältsektionerna
-          fritt fyllde hela innehållskolumnen — det var det som gjorde att
-          resten av sidan under sista raden lästes som ett tomt, ostylat
-          område. Kortet slutar där innehållet slutar; den grå sidbakgrunden
-          syns runt om, precis som mönstret redan är på resten av appens
-          formulärsidor (jämför "Nytt projekt", "Ny anställd" m.fl.). */}
-      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', background: '#f0f2f5' }}>
-        <div style={{ flex: 1, minWidth: 0, padding: '24px', boxSizing: 'border-box', display: 'flex', justifyContent: 'center' }}>
-        <div style={{ width: '100%', maxWidth: '1040px', alignSelf: 'flex-start', background: 'white', border: '1px solid #e0e0e0', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+      {/* Formuläret täcker hela sidan (fyller hela höjden och bredden av
+          innehållsytan) istället för att vara ett smalt kort med synlig grå
+          bakgrund runt om — samma "hela vägen ner"-princip som redan gäller
+          för sidans övriga vita ytor, bara konsekvent applicerad på
+          formulärkolumnen som helhet, inte bara var och en av dess sektioner
+          för sig. */}
+      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', background: 'white' }}>
+        <div style={{ flex: 1, minWidth: 0, minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
 
           {/* Top fields row — bara de fält som alltid behövs */}
           <div style={{ background: 'white', borderBottom: '1px solid #ddd', padding: '16px 20px', display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '18px', alignItems: 'end' }}>
@@ -791,7 +789,6 @@ function InvoiceForm({ contacts, onSave, onClose, initial, company, invoiceList,
               ✓ Bokför
             </button>
           </div>
-        </div>
         </div>
 
         {/* ── Preview Panel — samma InvoiceDocument-komponent som PDF-exporten fångar,
