@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  CheckCircle2, Clock, Circle, Lock, Calculator, ChevronRight, ExternalLink, Info,
+  CheckCircle2, Clock, Circle, Lock, Calculator, ChevronRight, ExternalLink, Info, Download, Users, Loader2,
 } from 'lucide-react';
 import VatDeclaration from './VatDeclaration';
 import { getDebet, getKredit } from '../utils/verificationAmounts';
 import { detectOrgType } from '../utils/orgType';
+import { summarizeAnnualPayrollByEmployee, neededTaxTableKeysForYear, downloadKuPdf } from '../utils/kuExport';
+import { preloadSkattetabell } from '../utils/skattetabell';
 
 const fmt = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
 
@@ -16,6 +18,38 @@ export default function Taxes({
   const currentYear = new Date().getFullYear().toString();
   const orgType = detectOrgType(company?.orgNr);
   const isSoleProp = orgType === 'Enskild firma';
+
+  // Kontrolluppgifter (KU) — förvalt till föregående inkomstår, eftersom
+  // det är vad man normalt lämnar in (deadline 31 januari), men innevarande
+  // år går också att välja.
+  const [kuYear, setKuYear] = useState(String(Number(currentYear) - 1));
+  const [kuTablesReady, setKuTablesReady] = useState(false);
+  const [kuEmployeeTotals, setKuEmployeeTotals] = useState([]);
+
+  // Bugkritiskt: skattetabellerna för året måste vara inlästa (samma
+  // preload-mönster som PayrollRunDetail.jsx) INNAN summeringen räknas —
+  // annars faller varje anställds skatteavdrag tyst tillbaka till 0 kr,
+  // se kuExport.js. Beräkningen görs därför i en effekt, inte direkt vid
+  // render.
+  useEffect(() => {
+    let cancelled = false;
+    setKuTablesReady(false);
+    const keys = neededTaxTableKeysForYear(payrollRuns, kuYear);
+    Promise.all(keys.map(key => {
+      const [year, tabellnr] = key.split(':');
+      return preloadSkattetabell(year, tabellnr);
+    }))
+      .then(() => {
+        if (cancelled) return;
+        setKuEmployeeTotals(summarizeAnnualPayrollByEmployee(payrollRuns, kuYear));
+        setKuTablesReady(true);
+      })
+      .catch(err => {
+        console.error('Kunde inte läsa in skattetabeller för KU-sammanställningen:', err);
+        if (!cancelled) { setKuEmployeeTotals([]); setKuTablesReady(true); }
+      });
+    return () => { cancelled = true; };
+  }, [payrollRuns, kuYear]);
 
   const checklist = company?.yearEndChecklist?.[currentYear] || {};
   const lockedYears = company?.lockedFiscalYears || {};
@@ -301,6 +335,76 @@ export default function Taxes({
                     ))}
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Kontrolluppgifter (KU) */}
+          <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e4e4e7', overflow: 'hidden' }}>
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid #e4e4e7', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+              <div>
+                <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: '#111' }}>Kontrolluppgifter (KU)</h2>
+                <p style={{ margin: '8px 0 0', fontSize: '14px', color: '#64748b', maxWidth: '540px' }}>
+                  Årssammanställning per anställd — kontant bruttolön och avdragen skatt, summerat över bokförda lönekörningar. Lämnas in på skatteverket.se med BankID, senast 31 januari.
+                </p>
+              </div>
+              <select value={kuYear} onChange={e => setKuYear(e.target.value)} style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '13px', background: 'white' }}>
+                {[Number(currentYear) - 1, Number(currentYear)].map(y => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ padding: '20px 24px' }}>
+              {!kuTablesReady ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#9ca3af', fontSize: '13.5px', padding: '8px 0' }}>
+                  <Loader2 size={16} className="spin" style={{ animation: 'spin 0.8s linear infinite' }} /> Läser in skattetabeller…
+                </div>
+              ) : kuEmployeeTotals.length === 0 ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#9ca3af', fontSize: '13.5px', padding: '8px 0' }}>
+                  <Users size={16} /> Inga bokförda lönekörningar för {kuYear} ännu.
+                </div>
+              ) : (
+                <div style={{ overflowX: 'auto', marginBottom: '18px' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13.5px' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid #e4e4e7' }}>
+                        <th style={{ textAlign: 'left', padding: '8px 10px', color: '#6b7280', fontWeight: 600 }}>Namn</th>
+                        <th style={{ textAlign: 'left', padding: '8px 10px', color: '#6b7280', fontWeight: 600 }}>Personnummer</th>
+                        <th style={{ textAlign: 'right', padding: '8px 10px', color: '#6b7280', fontWeight: 600 }}>Kontant bruttolön</th>
+                        <th style={{ textAlign: 'right', padding: '8px 10px', color: '#6b7280', fontWeight: 600 }}>Avdragen skatt</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {kuEmployeeTotals.map(emp => (
+                        <tr key={emp.employeeId} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                          <td style={{ padding: '8px 10px', fontWeight: 600, color: '#111' }}>{emp.firstName} {emp.lastName}</td>
+                          <td style={{ padding: '8px 10px', color: '#6b7280' }}>{emp.ssn || '—'}</td>
+                          <td style={{ padding: '8px 10px', textAlign: 'right' }}>{fmt(emp.gross)}</td>
+                          <td style={{ padding: '8px 10px', textAlign: 'right' }}>{fmt(emp.tax)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                <button
+                  disabled={!kuTablesReady || kuEmployeeTotals.length === 0}
+                  onClick={() => downloadKuPdf({ company, year: kuYear, employeeTotals: kuEmployeeTotals }, `kontrolluppgifter-${kuYear}.pdf`)}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: (!kuTablesReady || kuEmployeeTotals.length === 0) ? '#94a3b8' : '#1a3028', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '13px', cursor: (!kuTablesReady || kuEmployeeTotals.length === 0) ? 'not-allowed' : 'pointer' }}
+                >
+                  <Download size={14} /> Ladda ner sammanställning (PDF)
+                </button>
+                <a
+                  href="https://www.skatteverket.se/foretag"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: 'white', border: '1px solid #d1d5db', borderRadius: '8px', fontWeight: 600, fontSize: '13px', color: '#374151', textDecoration: 'none' }}
+                >
+                  Öppna skatteverket.se <ExternalLink size={13} />
+                </a>
               </div>
             </div>
           </div>

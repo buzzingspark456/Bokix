@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { AlertCircle, AlertTriangle, CheckCircle2, ChevronRight, Download, Lock, FileText } from 'lucide-react';
+import { AlertCircle, AlertTriangle, CheckCircle2, ChevronRight, Download, Lock, FileText, ExternalLink } from 'lucide-react';
 import {
   computeVatPeriod, roundedVatPeriod, validateVatPeriod, compareToPreviousPeriod,
   quarterToRange, previousQuarterRange,
@@ -353,9 +353,17 @@ export default function VatDeclaration({
                 <li>Fyll i rutorna med beloppen från PDF:en ovan (i hela kronor).</li>
                 <li>Granska och signera.</li>
               </ol>
-              <p style={{ fontSize: '12.5px', color: '#6b7280', marginTop: '12px', marginBottom: 0 }}>
+              <p style={{ fontSize: '12.5px', color: '#6b7280', margin: '12px 0 16px' }}>
                 Vill du hellre fylla i rutorna för hand laddar du ner PDF:en och skriver av beloppen (i hela kronor).
               </p>
+              <a
+                href="https://www.skatteverket.se/foretag"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: 'white', border: '1px solid #d1d5db', borderRadius: '8px', fontWeight: 600, fontSize: '13px', color: '#374151', textDecoration: 'none' }}
+              >
+                Öppna skatteverket.se <ExternalLink size={13} />
+              </a>
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: '20px' }}>

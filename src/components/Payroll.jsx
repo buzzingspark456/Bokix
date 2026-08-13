@@ -8,7 +8,7 @@ const inputSt = { width: '100%', padding: '9px 12px', border: '1px solid #d1d5db
 const labelSt = { display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' };
 
 export default function Payroll({
-  employees = [], onSaveEmployee, accounts = [], projects = [],
+  company, employees = [], onSaveEmployee, accounts = [], projects = [],
   payrollRuns = [], onCreateRun, onUpdateRunRow, onAdvanceRunStep, onBookRun,
 }) {
   const [activeTab, setActiveTab] = useState('employees');
@@ -54,6 +54,7 @@ export default function Payroll({
           run={selectedRun}
           previousRun={previousRun}
           accounts={accounts}
+          company={company}
           onBack={() => setSelectedRunId(null)}
           onAdvanceStep={onAdvanceRunStep}
           onBookRun={onBookRun}

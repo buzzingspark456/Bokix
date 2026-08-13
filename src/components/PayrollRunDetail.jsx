@@ -1,11 +1,12 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import {
-  Check, ChevronDown, ChevronUp, AlertTriangle, Download, ChevronLeft, Loader2,
+  Check, ChevronDown, ChevronUp, AlertTriangle, Download, ChevronLeft, Loader2, ExternalLink,
 } from 'lucide-react';
 import CalculationRow from './shared/CalculationRow';
 import { computeEmployeePayroll, summarizePayrollRun } from '../utils/payrollCalculation';
 import { PAYROLL_RUN_STEPS, PAYROLL_ACCOUNTS } from '../utils/payrollConfig';
 import { generatePayslipPdf } from '../utils/payslipExport';
+import { downloadAgiPdf } from '../utils/agiExport';
 import { preloadSkattetabell } from '../utils/skattetabell';
 
 const fmt = (v) => new Intl.NumberFormat('sv-SE').format(Math.round(v || 0));
@@ -182,7 +183,7 @@ function VerificationBlock({ title, rows, accounts }) {
   );
 }
 
-export default function PayrollRunDetail({ run, previousRun, accounts, onBack, onAdvanceStep, onBookRun, onUpdateRow }) {
+export default function PayrollRunDetail({ run, previousRun, accounts, company, onBack, onAdvanceStep, onBookRun, onUpdateRow }) {
   const [agiConfirmed, setAgiConfirmed] = useState(run.completedSteps.includes('agi'));
   const [showBankGuide, setShowBankGuide] = useState(false);
   const [tablesReady, setTablesReady] = useState(false);
@@ -368,13 +369,31 @@ export default function PayrollRunDetail({ run, previousRun, accounts, onBack, o
         <div style={{ marginTop: '28px', background: 'white', border: '1px solid #e4e4e7', borderRadius: '12px', padding: '20px' }}>
           <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#111', margin: '0 0 8px' }}>AGI och skatt</h3>
           <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 14px', lineHeight: 1.5 }}>
-            Sammanställning att använda för arbetsgivardeklarationen (AGI) hos Skatteverket. Automatisk filexport/inlämning är inte byggd än — deklarationen lämnas manuellt på skatteverket.se tills vidare.
+            Sammanställning (huvuduppgift + individuppgift per anställd) för arbetsgivardeklarationen (AGI). Skatteverket kräver arbetsgivarens egen BankID-signatur vid inlämning, så Bokix skickar inte in den automatiskt — men underlaget nedan är klart att skriva av.
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '13.5px', marginBottom: '16px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#6b7280' }}>Total bruttolön</span><span style={{ fontWeight: 700 }}>{fmt(totals.gross)} kr</span></div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#6b7280' }}>Avdragen skatt</span><span style={{ fontWeight: 700 }}>{fmt(totals.tax)} kr</span></div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#6b7280' }}>Arbetsgivaravgifter</span><span style={{ fontWeight: 700 }}>{fmt(totals.employerFee)} kr</span></div>
           </div>
+
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '18px' }}>
+            <button
+              onClick={() => downloadAgiPdf({ company, period: run.period, computedRows, totals }, `agi-${run.period}.pdf`)}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: '#1a3028', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}
+            >
+              <Download size={14} /> Ladda ner AGI-sammanställning (PDF)
+            </button>
+            <a
+              href="https://www.skatteverket.se/foretag"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: 'white', border: '1px solid #d1d5db', borderRadius: '8px', fontWeight: 600, fontSize: '13px', color: '#374151', textDecoration: 'none' }}
+            >
+              Öppna skatteverket.se <ExternalLink size={13} />
+            </a>
+          </div>
+
           <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13.5px', color: '#374151', cursor: 'pointer' }}>
             <input type="checkbox" checked={agiConfirmed} onChange={e => { setAgiConfirmed(e.target.checked); if (e.target.checked) onAdvanceStep(run.id, 'agi'); }} disabled={run.completedSteps.includes('agi')} />
             Jag har lämnat in arbetsgivardeklarationen (AGI) hos Skatteverket för denna period
