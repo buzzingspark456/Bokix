@@ -93,7 +93,7 @@ export default function TimeTracking({ globalAction, clearGlobalAction, handleGl
   });
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+    <div style={{ maxWidth: '100%', margin: '0 auto' }}>
       {/* ── HEADER ── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
@@ -185,7 +185,7 @@ export default function TimeTracking({ globalAction, clearGlobalAction, handleGl
                   <td style={{ padding: '14px 20px', textAlign: 'right' }}>
                     <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
                       {entry.type === 'kund' && (
-                        <button onClick={() => { if(handleGlobalAction) handleGlobalAction('new_invoice', 'invoices'); }} title="Skapa faktura" style={{ padding: '6px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#2563eb', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px' }}>
+                        <button onClick={() => { if(handleGlobalAction) handleGlobalAction('new_invoice', 'invoices'); }} title="Skapa faktura" style={{ padding: '6px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#3d7a2e', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px' }}>
                           <FileText size={16} />
                         </button>
                       )}

@@ -1,8 +1,42 @@
 import express from 'express'
 import Stripe from 'stripe'
 import dotenv from 'dotenv'
+import fs from 'fs'
+import path from 'path'
+import { fileURLToPath } from 'url'
 
 dotenv.config()
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+const dataDir = path.join(__dirname, 'data')
+const dataFilePath = path.join(dataDir, 'app-data.json')
+
+function ensureStoreFile() {
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true })
+  }
+
+  if (!fs.existsSync(dataFilePath)) {
+    fs.writeFileSync(dataFilePath, JSON.stringify({ companies: {} }, null, 2))
+  }
+}
+
+function loadStore() {
+  ensureStoreFile()
+  try {
+    return JSON.parse(fs.readFileSync(dataFilePath, 'utf8'))
+  } catch {
+    return { companies: {} }
+  }
+}
+
+function saveStore(store) {
+  ensureStoreFile()
+  fs.writeFileSync(dataFilePath, JSON.stringify(store, null, 2))
+}
+
+const store = loadStore()
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY || process.env.VITE_STRIPE_SECRET_KEY || null
 
@@ -14,13 +48,43 @@ if (!stripeSecretKey) {
   console.error('Invalid Stripe key: STRIPE_SECRET_KEY must be a secret key beginning with sk_, not pk_.')
 } else {
   stripe = new Stripe(stripeSecretKey, {
-    apiVersion: '2024-08-15',
+    // apiVersion removed to use Stripe account default
   })
   console.log('Loaded Stripe secret key for local server.')
 }
 
 const app = express()
 app.use(express.json())
+
+app.get('/api/health', (_req, res) => {
+  res.json({ status: 'ok' })
+})
+
+app.get('/api/companies/:companyId/data', (req, res) => {
+  const companyData = store.companies?.[req.params.companyId]
+  if (!companyData) {
+    return res.status(404).json({ error: 'Company data not found' })
+  }
+
+  res.json(companyData)
+})
+
+app.put('/api/companies/:companyId/data', (req, res) => {
+  const companyId = req.params.companyId
+  const payload = req.body
+
+  if (!payload || typeof payload !== 'object') {
+    return res.status(400).json({ error: 'Expected a company data object' })
+  }
+
+  if (!store.companies) {
+    store.companies = {}
+  }
+
+  store.companies[companyId] = payload
+  saveStore(store)
+  res.json({ ok: true, companyId })
+})
 
 function handleError(res, error, status = 500) {
   console.error('Stripe API error:', error)

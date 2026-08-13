@@ -6,31 +6,56 @@ Bokix är en webbaserad tjänst för enkel och säker bokföring för svenska f�
 
 Projektet använder React, Vite, Supabase för autentisering och datalagring, samt Vercel för produktion.
 
+## Supabase setup
+
+Detta fel betyder att tabellen `public.user_data` saknas i din Supabase-databas.
+
+Kör `supabase-setup.sql` i din Supabase SQL Editor eller via CLI för att skapa tabellen och aktivera RLS.
+
+### SQL Editor
+1. Öppna Supabase-projektet.
+2. Gå till SQL Editor.
+3. Klistra in innehållet i `supabase-setup.sql`.
+4. Kör skriptet.
+
+### Supabase CLI
+Om du har Supabase CLI installerat kan du köra:
+
+```bash
+supabase db query supabase-setup.sql
+```
+
+När skriptet har kört ska tabellen `user_data` finnas och appen ska kunna läsa/skapa användardata utan 404.
+
+Om du ser `PGRST205` i felsöket, betyder det fortfarande att tabellen saknas eller att Supabase cache inte uppdaterats.
+
 ## Stripe Connect
 
 Det finns en Stripe Connect-integration med serverless endpoints under `api/stripe/`.
 
-Konfiguration:
+Konfiguration i Vercel/produktionen:
 
 - `STRIPE_SECRET_KEY` (ska vara din hemliga Stripe-nyckel, börjar med `sk_`)
-- `STRIPE_ONBOARDING_RETURN_URL`
-- `STRIPE_ONBOARDING_REFRESH_URL`
-- `STRIPE_PLATFORM_URL`
-- `STRIPE_PLATFORM_FEE_PERCENT`
-- `STRIPE_SUCCESS_URL`
-- `STRIPE_CANCEL_URL`
-- `STRIPE_WEBHOOK_SECRET`
+- `STRIPE_ONBOARDING_RETURN_URL` (t.ex. `https://din-app.vercel.app`)
+- `STRIPE_ONBOARDING_REFRESH_URL` (t.ex. `https://din-app.vercel.app`)
+- `STRIPE_SUCCESS_URL` (t.ex. `https://din-app.vercel.app/success`)
+- `STRIPE_CANCEL_URL` (t.ex. `https://din-app.vercel.app/cancel`)
+- `STRIPE_WEBHOOK_SECRET` (Stripe webhook secret)
+- `VITE_STRIPE_PLATFORM_FEE_PERCENT` (en frontendkonfig för plattformsavgift, t.ex. `5`)
 
-Observera: `pk_`-nyckeln är publicerbar och fungerar inte på servern. Använd `sk_`-nyckeln i `.env`.
+Observera: `pk_`-nyckeln är publicerbar och fungerar inte på servern. Använd `sk_`-nyckeln i Vercel/`.env`.
 
-Exempel:
+Lokal utveckling i `.env`:
 
 ```env
+VITE_SUPABASE_URL=https://egfsovtwjzmlvggzpizb.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 STRIPE_SECRET_KEY=sk_test_xxxxxxxxxxxxxxxxxxxxxxxx
 STRIPE_ONBOARDING_RETURN_URL=http://localhost:5173
 STRIPE_ONBOARDING_REFRESH_URL=http://localhost:5173
 STRIPE_SUCCESS_URL=http://localhost:5173
 STRIPE_CANCEL_URL=http://localhost:5173
+VITE_STRIPE_PLATFORM_FEE_PERCENT=5
 ```
 
 Efter att ha lagt till dessa variabler i `.env` kör du:

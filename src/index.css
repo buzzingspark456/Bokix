@@ -68,10 +68,15 @@
   --primary-light:  var(--lime-50);
   --primary-border: var(--lime-200);
 
-  --accent:         var(--blue-500);
-  --accent-hover:   var(--blue-600);
-  --accent-light:   var(--blue-50);
-  --accent-border:  var(--blue-200);
+  /* --accent pekade tidigare på blått (--blue-500) — fel enligt Bokix
+     varumärkesprofil, som alltid ska vara grön. Pekar nu på samma gröna
+     toner som src/utils/brandColors.js (BRAND.green), så det finns en
+     enda plats att ändra en nyans på oavsett om koden styrs via denna
+     CSS-variabel eller via inline style. */
+  --accent:         #3d7a2e;
+  --accent-hover:   #336524;
+  --accent-light:   #eaf3de;
+  --accent-border:  var(--lime-200);
 
   --success:        var(--lime-500);
   --success-light:  var(--lime-50);
@@ -88,7 +93,7 @@
   /* ── Surfaces ── */
   --bg-page:    #f4f7f5;
   --bg-card:    var(--white);
-  --bg-sidebar: #1a3028;
+  --bg-sidebar: #3d7a2e;
   --bg-muted:   #f4f4f5;
 
   /* ── Sidebar Active (Orange like MrPotato) ── */
@@ -125,7 +130,7 @@
   --transition: 160ms var(--ease);
 
   /* ── Layout ── */
-  --sidebar-width: 240px;
+  --sidebar-width: 230px;
   --topbar-height: 56px;
   --mobile-nav-height: 60px;
 }
@@ -180,6 +185,16 @@ body {
   to   { opacity: 1; transform: translateX(0); }
 }
 
+@keyframes slideInFromRight {
+  from { opacity: 0; transform: translateX(24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
 
 /* ══════════════════════════════════════════════
    APP LAYOUT
@@ -200,7 +215,8 @@ body {
   width: var(--sidebar-width);
   height: 100vh;
   background: var(--bg-sidebar);
-  border-right: 1px solid var(--gray-100);
+  border: none;
+  border-radius: 0;
   display: flex;
   flex-direction: column;
   z-index: 200;
@@ -255,9 +271,9 @@ body {
 .company-avatar {
   width: 30px;
   height: 30px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, #5ba85a, #3a8fc1);
-  color: white;
+  border-radius: 7px;
+  background: #eafbe0;
+  color: #1a3028;
   font-weight: 700;
   font-size: 13px;
   display: flex;
@@ -342,65 +358,52 @@ body {
 
 /* Nav */
 .nav-links {
-  flex: 1;
-  padding: 4px 10px;
+  padding: 0;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  gap: 4px;
+  gap: 0;
 }
 
 .nav-section {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 0;
 }
 
 .nav-section-label {
-  font-size: 10.5px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: rgba(255,255,255,0.35);
-  padding: 14px 10px 4px;
+  display: none;
 }
 
 .nav-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 7px 10px;
-  font-size: 13.5px;
+  gap: 12px;
+  padding: 16px 20px;
+  font-size: 15px;
   font-weight: 500;
-  color: rgba(255,255,255,0.65);
+  color: white;
   background: none;
   border: none;
   cursor: pointer;
   text-align: left;
   width: 100%;
   transition: all 0.15s ease;
-  border-radius: 0 8px 8px 0; /* flat left edge for border */
   position: relative;
   font-family: var(--font-sans);
-  border-left: 3px solid transparent; /* default invisible border */
-  margin-left: -10px; /* pull into padding to touch left edge */
-  padding-left: 17px; /* adjust padding for the pulled margin */
 }
 
 .nav-item:hover {
-  color: white;
   background: rgba(255,255,255,0.08);
 }
 
 .nav-item.active {
-  color: white;
-  background: rgba(255,255,255,0.07);
-  font-weight: 600;
-  border-left-color: #84cc16;
+  background: rgba(255,255,255,0.1);
+  font-weight: 700;
 }
 
 .nav-item.active svg {
-  color: #84cc16;
+  color: white;
 }
 
 .nav-item-parent {
@@ -458,11 +461,10 @@ body {
 }
 
 .sidebar-footer {
-  padding: 10px;
-  border-top: 1px solid rgba(255,255,255,0.08);
+  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 0;
 }
 
 .bottom-btn {
@@ -499,18 +501,42 @@ body {
 
 /* ══ MAIN CONTENT ══ */
 
+/* height (inte bara min-height) + overflow:hidden här är avsiktligt: det
+   gör .main-wrapper till en fast, viewport-hög låda där .desktop-top-bar
+   ligger stilla högst upp och bara .main-content-inner scrollar internt —
+   annars har flex-barn inget definitivt höjdtak att fördela `flex:1` mot,
+   och en sida som är kortare än fönstret slutar bara vid sin egen
+   innehållshöjd istället för att fylla resten. */
 .main-wrapper {
   margin-left: var(--sidebar-width);
   flex: 1;
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
   max-width: calc(100vw - var(--sidebar-width));
 }
 
+/* Bugkritiskt: utan flex/höjd här stannar varje sidas rot-div (som själv
+   ofta är `flex:1` eller `minHeight:'100%'`, i väntan på att FÖRÄLDERN ger
+   den en verklig höjd att fylla) vid sin naturliga innehållshöjd — resten
+   av viewporten under blev bara vit tomyta istället för att sidans egen
+   bakgrund/kort fyllde ut hela höjden. Detta är den gemensamma grundorsaken
+   bakom "för mycket tomrum"-buggarna på flera sidor, inte något som går att
+   fixa sida för sida. */
 .main-content-inner {
   padding: 24px 32px 56px;
   animation: fadeIn 0.2s ease both;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.main-content-inner > * {
+  flex: 1;
+  min-height: 0;
 }
 
 
@@ -1171,6 +1197,14 @@ select.form-control {
 textarea.form-control {
   resize: vertical;
   min-height: 60px;
+}
+
+/* Fakturans "Intern kommentar"-fält: texten sätts explicit mörk inline
+   (aldrig ärvd), men ::placeholder kan bara styras via CSS — hålls
+   tydligt ljusare än den riktiga texten så de aldrig kan förväxlas. */
+.invoice-comment-textarea::placeholder {
+  color: #9ca3af;
+  opacity: 1;
 }
 
 .form-row {

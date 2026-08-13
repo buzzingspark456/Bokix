@@ -1,0 +1,286 @@
+import React, { useState } from 'react';
+import { AlertTriangle } from 'lucide-react';
+import { EntitySearch, ProjectSearch } from './shared/SearchInputs';
+import { SWEDISH_MUNICIPALITIES } from '../utils/kommuner';
+import { validatePersonnummer, formatPersonnummerInput } from '../utils/personnummer';
+import { EMPLOYMENT_TYPES, SALARY_FORMS, TAX_FORMS, TAX_TABLE_COLUMNS, VACATION_RULES, MIN_VACATION_DAYS } from '../utils/payrollConfig';
+
+const sectionStyle = { background: 'white', borderRadius: '12px', border: '1px solid #e4e4e7', padding: '20px', marginBottom: '16px' };
+const sectionTitleStyle = { fontSize: '13px', fontWeight: 700, color: '#111', margin: '0 0 16px', textTransform: 'uppercase', letterSpacing: '0.03em' };
+const labelStyle = { display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' };
+const helpTextStyle = { fontSize: '12px', color: '#6b7280', marginTop: '6px', lineHeight: 1.5 };
+const errorTextStyle = { fontSize: '12px', color: '#dc2626', marginTop: '6px' };
+const inputBase = {
+  width: '100%', padding: '9px 12px', border: '1px solid #d1d5db',
+  borderRadius: '8px', fontSize: '14px', color: '#111',
+  outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit',
+};
+function inputStyle(hasError) { return { ...inputBase, borderColor: hasError ? '#ef4444' : '#d1d5db' }; }
+const grid2 = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' };
+const grid3 = { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' };
+
+function Section({ title, children }) {
+  return <div style={sectionStyle}>{title && <h3 style={sectionTitleStyle}>{title}</h3>}{children}</div>;
+}
+
+function emptyEmployee() {
+  return {
+    firstName: '', lastName: '', ssn: '', email: '', phone: '',
+    address: '', postalCode: '', city: '',
+    employmentType: 'anstalld', startDate: '', endDate: '',
+    employmentRate: 100, hoursPerWeek: 40, daysPerWeek: 5,
+    salaryForm: 'manadslon', monthlySalary: '', hourlyRate: '',
+    taxForm: 'a_skatt', secondaryIncome: false,
+    municipality: '', taxTableMode: 'manual', taxTable: { tabellnr: '', kolumn: 1, year: new Date().getFullYear() },
+    vacationRule: 'procentregeln', vacationDays: 25,
+    costCenter: '', projectId: '',
+    clearingNumber: '', accountNumber: '',
+    active: true,
+  };
+}
+
+export default function EmployeeForm({ initial, projects = [], onSave, onCancel }) {
+  const [form, setForm] = useState(initial ? { ...emptyEmployee(), ...initial, taxTable: { ...emptyEmployee().taxTable, ...(initial.taxTable || {}) } } : emptyEmployee());
+  const [errors, setErrors] = useState({});
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const setTaxTable = (patch) => setForm(f => ({ ...f, taxTable: { ...f.taxTable, ...patch } }));
+
+  const validate = () => {
+    const errs = {};
+    if (!form.firstName.trim()) errs.firstName = 'Förnamn krävs.';
+    if (!form.lastName.trim()) errs.lastName = 'Efternamn krävs.';
+    const pnr = validatePersonnummer(form.ssn);
+    if (!pnr.valid) errs.ssn = pnr.error;
+    if (!form.startDate) errs.startDate = 'Anställningsdatum krävs.';
+    if (!form.municipality) errs.municipality = 'Folkbokföringskommun krävs.';
+    if (form.taxTableMode === 'manual' && !form.taxTable.tabellnr) errs.taxTable = 'Ange tabellnummer.';
+    if (Number(form.vacationDays) < MIN_VACATION_DAYS) errs.vacationDays = `Minst ${MIN_VACATION_DAYS} semesterdagar krävs enligt semesterlagen.`;
+    setErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!validate()) return;
+    onSave({ ...form, ssn: formatPersonnummerInput(form.ssn) });
+  };
+
+  const hasBankInfo = Boolean(form.clearingNumber && form.accountNumber);
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <Section title="Personuppgifter">
+        <div style={grid3}>
+          <div>
+            <label style={labelStyle}>Förnamn *</label>
+            <input value={form.firstName} onChange={e => set('firstName', e.target.value)} style={inputStyle(errors.firstName)} />
+            {errors.firstName && <div style={errorTextStyle}>{errors.firstName}</div>}
+          </div>
+          <div>
+            <label style={labelStyle}>Efternamn *</label>
+            <input value={form.lastName} onChange={e => set('lastName', e.target.value)} style={inputStyle(errors.lastName)} />
+            {errors.lastName && <div style={errorTextStyle}>{errors.lastName}</div>}
+          </div>
+          <div>
+            <label style={labelStyle}>Personnummer *</label>
+            <input value={form.ssn} onChange={e => set('ssn', formatPersonnummerInput(e.target.value))} placeholder="ÅÅÅÅMMDD-XXXX" style={inputStyle(errors.ssn)} />
+            {errors.ssn && <div style={errorTextStyle}>{errors.ssn}</div>}
+          </div>
+          <div>
+            <label style={labelStyle}>E-post</label>
+            <input type="email" value={form.email} onChange={e => set('email', e.target.value)} style={inputBase} />
+          </div>
+          <div>
+            <label style={labelStyle}>Telefon</label>
+            <input value={form.phone} onChange={e => set('phone', e.target.value)} style={inputBase} />
+          </div>
+          <div>
+            <label style={labelStyle}>Postnummer</label>
+            <input value={form.postalCode} onChange={e => set('postalCode', e.target.value)} style={inputBase} />
+          </div>
+          <div style={{ gridColumn: '1 / 3' }}>
+            <label style={labelStyle}>Gatuadress</label>
+            <input value={form.address} onChange={e => set('address', e.target.value)} style={inputBase} />
+          </div>
+          <div>
+            <label style={labelStyle}>Ort</label>
+            <input value={form.city} onChange={e => set('city', e.target.value)} style={inputBase} />
+          </div>
+        </div>
+      </Section>
+
+      <Section title="Anställning och lön">
+        <div style={grid3}>
+          <div>
+            <label style={labelStyle}>Typ</label>
+            <select value={form.employmentType} onChange={e => set('employmentType', e.target.value)} style={{ ...inputBase, background: 'white' }}>
+              {EMPLOYMENT_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={labelStyle}>Anställningsdatum *</label>
+            <input type="date" value={form.startDate} onChange={e => set('startDate', e.target.value)} style={inputStyle(errors.startDate)} />
+            {errors.startDate && <div style={errorTextStyle}>{errors.startDate}</div>}
+          </div>
+          <div>
+            <label style={labelStyle}>Slutdatum</label>
+            <input type="date" value={form.endDate} onChange={e => set('endDate', e.target.value)} style={inputBase} placeholder="Lämna tomt vid pågående anställning" />
+          </div>
+          <div>
+            <label style={labelStyle}>Sysselsättningsgrad (%)</label>
+            <input type="number" min="0" max="100" value={form.employmentRate} onChange={e => set('employmentRate', Number(e.target.value))} style={inputBase} />
+          </div>
+          <div>
+            <label style={labelStyle}>Timmar per vecka</label>
+            <input type="number" min="0" value={form.hoursPerWeek} onChange={e => set('hoursPerWeek', Number(e.target.value))} style={inputBase} />
+          </div>
+          <div>
+            <label style={labelStyle}>Arbetsdagar per vecka</label>
+            <input type="number" min="0" max="7" value={form.daysPerWeek} onChange={e => set('daysPerWeek', Number(e.target.value))} style={inputBase} />
+          </div>
+          <div>
+            <label style={labelStyle}>Löneform</label>
+            <select value={form.salaryForm} onChange={e => set('salaryForm', e.target.value)} style={{ ...inputBase, background: 'white' }}>
+              {SALARY_FORMS.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
+            </select>
+          </div>
+          {form.salaryForm === 'manadslon' ? (
+            <div>
+              <label style={labelStyle}>Månadslön (brutto)</label>
+              <input type="number" min="0" value={form.monthlySalary} onChange={e => set('monthlySalary', e.target.value)} style={inputBase} />
+            </div>
+          ) : (
+            <div style={{ gridColumn: '2 / 4' }}>
+              <label style={labelStyle}>Timlön</label>
+              <input type="number" min="0" value={form.hourlyRate} onChange={e => set('hourlyRate', e.target.value)} style={inputBase} />
+              <p style={helpTextStyle}>Arbetade timmar registreras per lönekörning, kopplat till tidrapportering under Projekt.</p>
+            </div>
+          )}
+        </div>
+      </Section>
+
+      <Section title="Skatt">
+        <div style={grid2}>
+          <div>
+            <label style={labelStyle}>Skatteform</label>
+            <select value={form.taxForm} onChange={e => set('taxForm', e.target.value)} style={{ ...inputBase, background: 'white' }}>
+              {TAX_FORMS.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
+            </select>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingTop: '26px' }}>
+            <input type="checkbox" id="secondaryIncome" checked={form.secondaryIncome} onChange={e => set('secondaryIncome', e.target.checked)} />
+            <label htmlFor="secondaryIncome" style={{ fontSize: '13.5px', color: '#374151', cursor: 'pointer' }}>Sidoinkomst (30 % skatteavdrag)</label>
+          </div>
+        </div>
+        {form.taxForm === 'ej_verifierad' && (
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '10px 12px', marginTop: '4px', fontSize: '12.5px', color: '#92400e' }}>
+            <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
+            <span>Skatteformen bör verifieras innan första lönekörningen.</span>
+          </div>
+        )}
+
+        <div style={{ marginTop: '16px' }}>
+          <label style={labelStyle}>Folkbokföringskommun *</label>
+          <EntitySearch
+            value={form.municipality}
+            onChange={v => set('municipality', v)}
+            items={SWEDISH_MUNICIPALITIES.map(m => ({ id: m, name: m }))}
+            placeholder="Sök kommun..."
+          />
+          {errors.municipality && <div style={errorTextStyle}>{errors.municipality}</div>}
+        </div>
+
+        <div style={{ marginTop: '16px' }}>
+          <label style={labelStyle}>Skattetabell *</label>
+          <div style={{ display: 'flex', gap: '16px', marginBottom: '10px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#374151', cursor: 'pointer' }}>
+              <input type="radio" name="taxTableMode" checked={form.taxTableMode === 'auto'} onChange={() => set('taxTableMode', 'auto')} />
+              Välj kommun ovan
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#374151', cursor: 'pointer' }}>
+              <input type="radio" name="taxTableMode" checked={form.taxTableMode === 'manual'} onChange={() => set('taxTableMode', 'manual')} />
+              Ange tabell manuellt
+            </label>
+          </div>
+          {form.taxTableMode === 'auto' ? (
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '10px 12px', fontSize: '12.5px', color: '#92400e' }}>
+              <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
+              <span>Automatisk härledning kräver Skatteverkets kommunala skattesatslista, som inte är importerad ännu. Ange tabellnummer manuellt tills vidare.</span>
+            </div>
+          ) : (
+            <>
+              <input
+                type="text" inputMode="numeric" value={form.taxTable.tabellnr}
+                onChange={e => setTaxTable({ tabellnr: e.target.value.replace(/\D/g, '') })}
+                placeholder="T.ex. 32" style={{ ...inputStyle(errors.taxTable), maxWidth: '160px' }}
+              />
+              {errors.taxTable && <div style={errorTextStyle}>{errors.taxTable}</div>}
+            </>
+          )}
+        </div>
+
+        <div style={{ marginTop: '16px' }}>
+          <label style={labelStyle}>Kolumn</label>
+          <select value={form.taxTable.kolumn} onChange={e => setTaxTable({ kolumn: Number(e.target.value) })} style={{ ...inputBase, background: 'white' }}>
+            {TAX_TABLE_COLUMNS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+          </select>
+        </div>
+      </Section>
+
+      <Section title="Semester">
+        <div style={grid2}>
+          <div>
+            <label style={labelStyle}>Semesterregel</label>
+            <select value={form.vacationRule} onChange={e => set('vacationRule', e.target.value)} style={{ ...inputBase, background: 'white' }}>
+              {VACATION_RULES.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={labelStyle}>Semesterdagar per år</label>
+            <input type="number" value={form.vacationDays} onChange={e => set('vacationDays', Number(e.target.value))} style={inputStyle(errors.vacationDays)} />
+            <p style={helpTextStyle}>Lagstadgat minimum: {MIN_VACATION_DAYS} dagar</p>
+            {errors.vacationDays && <div style={errorTextStyle}>{errors.vacationDays}</div>}
+          </div>
+        </div>
+      </Section>
+
+      <Section title="Kostnadsställe / Projekt">
+        <div style={grid2}>
+          <div>
+            <label style={labelStyle}>Kostnadsställe</label>
+            <input value={form.costCenter} onChange={e => set('costCenter', e.target.value)} style={inputBase} />
+          </div>
+          <div>
+            <label style={labelStyle}>Projekt</label>
+            <ProjectSearch value={form.projectId} onChange={v => set('projectId', v)} projects={projects} />
+          </div>
+        </div>
+        <p style={helpTextStyle}>Föreslås på lönekostnadsrader vid bokföring av lönekörningar.</p>
+      </Section>
+
+      <Section title="Bankkonto">
+        <div style={grid2}>
+          <div>
+            <label style={labelStyle}>Clearingnummer</label>
+            <input value={form.clearingNumber} onChange={e => set('clearingNumber', e.target.value)} style={inputBase} />
+            <p style={helpTextStyle}>Krävs innan lönekörning.</p>
+          </div>
+          <div>
+            <label style={labelStyle}>Kontonummer</label>
+            <input value={form.accountNumber} onChange={e => set('accountNumber', e.target.value)} style={inputBase} />
+          </div>
+        </div>
+        {!hasBankInfo && (
+          <p style={{ ...helpTextStyle, color: '#b45309' }}>
+            Kan sparas utan bankkontouppgifter för förberedelse, men blockeras från lönekörning tills clearing- och kontonummer är ifyllda.
+          </p>
+        )}
+      </Section>
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+        <button type="button" onClick={onCancel} style={{ padding: '9px 18px', background: 'white', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', fontWeight: 600, color: '#374151', cursor: 'pointer' }}>Avbryt</button>
+        <button type="submit" style={{ padding: '9px 18px', background: '#1a3028', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600, color: 'white', cursor: 'pointer' }}>Spara anställd</button>
+      </div>
+    </form>
+  );
+}

@@ -21,6 +21,7 @@ export const INITIAL_CONTACTS = [
   {
     id: "cust_1",
     type: "customer",
+    customerNumber: "1001",
     name: "TechStar AB",
     orgNr: "556789-0123",
     vatNr: "SE556789012301",
@@ -31,6 +32,7 @@ export const INITIAL_CONTACTS = [
   {
     id: "cust_2",
     type: "customer",
+    customerNumber: "1002",
     name: "GreenLeaf Sweden AB",
     orgNr: "559876-5432",
     vatNr: "SE559876543201",
@@ -41,6 +43,7 @@ export const INITIAL_CONTACTS = [
   {
     id: "cust_3",
     type: "customer",
+    customerNumber: "1003",
     name: "Anna Bergström Enskild Firma",
     orgNr: "830101-1234",
     vatNr: "",
@@ -86,7 +89,10 @@ export const INITIAL_INVOICES = [
     invoiceNumber: "1001",
     customerId: "cust_1",
     date: "2026-01-10",
+    deliveryDate: "2026-01-10",
     dueDate: "2026-02-09",
+    ocr: "3046123456",
+    currency: "SEK",
     status: "paid",
     paidDate: "2026-02-05",
     rows: [
@@ -98,7 +104,10 @@ export const INITIAL_INVOICES = [
     invoiceNumber: "1002",
     customerId: "cust_2",
     date: "2026-02-15",
+    deliveryDate: "2026-02-20",
     dueDate: "2026-03-17",
+    ocr: "3046123457",
+    currency: "SEK",
     status: "paid",
     paidDate: "2026-03-10",
     rows: [
@@ -111,7 +120,10 @@ export const INITIAL_INVOICES = [
     invoiceNumber: "1003",
     customerId: "cust_1",
     date: "2026-03-20",
+    deliveryDate: "2026-03-20",
     dueDate: "2026-04-19",
+    ocr: "3046123458",
+    currency: "SEK",
     status: "paid",
     paidDate: "2026-04-15",
     rows: [
@@ -123,7 +135,10 @@ export const INITIAL_INVOICES = [
     invoiceNumber: "1004",
     customerId: "cust_3",
     date: "2026-04-05",
+    deliveryDate: "2026-04-06",
     dueDate: "2026-05-05",
+    ocr: "3046123459",
+    currency: "SEK",
     status: "paid",
     paidDate: "2026-05-02",
     rows: [
@@ -135,7 +150,10 @@ export const INITIAL_INVOICES = [
     invoiceNumber: "1005",
     customerId: "cust_2",
     date: "2026-05-12",
+    deliveryDate: "2026-05-15",
     dueDate: "2026-06-11",
+    ocr: "3046123460",
+    currency: "SEK",
     status: "paid",
     paidDate: "2026-06-08",
     rows: [
@@ -148,7 +166,10 @@ export const INITIAL_INVOICES = [
     invoiceNumber: "1006",
     customerId: "cust_1",
     date: "2026-06-01",
+    deliveryDate: "2026-06-01",
     dueDate: "2026-07-01",
+    ocr: "3046123461",
+    currency: "SEK",
     status: "sent",
     paidDate: null,
     rows: [
@@ -160,7 +181,10 @@ export const INITIAL_INVOICES = [
     invoiceNumber: "1007",
     customerId: "cust_3",
     date: "2026-06-20",
+    deliveryDate: "2026-06-20",
     dueDate: "2026-07-20",
+    ocr: "3046123462",
+    currency: "SEK",
     status: "draft",
     paidDate: null,
     rows: [

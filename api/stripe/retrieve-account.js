@@ -4,7 +4,7 @@ import { parseJsonBody } from './parseBody.js';
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY || process.env.VITE_STRIPE_SECRET_KEY || null;
 const stripe = stripeSecretKey && !stripeSecretKey.startsWith('pk_')
   ? new Stripe(stripeSecretKey, {
-      apiVersion: '2024-08-15',
+      // apiVersion removed to use Stripe account default
     })
   : null;
 

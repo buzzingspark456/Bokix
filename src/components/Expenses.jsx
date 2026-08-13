@@ -1,494 +1,427 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
-  Plus, X, Check, Search, Receipt, ArrowUpRight, ArrowDownRight, CreditCard,
-  FileText, Trash2, Send, Download, Building2
+  UploadCloud, FileText, CheckCircle2, AlertCircle, Receipt, X,
 } from 'lucide-react';
+import { AccountSearch } from './shared/SearchInputs';
+import { supabase } from '../supabaseClient';
+import { BRAND } from '../utils/brandColors';
 
-const VAT_RATES = [25, 12, 6, 0];
-
-// ── Tab bar ──
-function TabBar({ tabs, active, onChange }) {
+// ── Lightbox för kvittobilder — kärnfunktionen i att faktiskt kunna se ett
+// uppladdat kvitto i full storlek, inte bara ett filnamn eller en generisk ikon. ──
+function ReceiptLightbox({ url, onClose }) {
+  useEffect(() => {
+    const handleEsc = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [onClose]);
   return (
-    <div style={{ display: 'flex', gap: '2px', borderBottom: '1px solid #e5e7eb', marginBottom: '24px' }}>
-      {tabs.map(t => (
-        <button key={t.id} onClick={() => onChange(t.id)} style={{
-          padding: '10px 18px', background: 'none', border: 'none', borderBottom: active === t.id ? '2px solid #2563eb' : '2px solid transparent',
-          fontSize: '13px', fontWeight: active === t.id ? 700 : 500, color: active === t.id ? '#111827' : '#6b7280',
-          cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s', marginBottom: '-1px'
-        }}>{t.label}</button>
-      ))}
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px', cursor: 'zoom-out' }}>
+      <img src={url} alt="Kvitto" style={{ maxWidth: '100%', maxHeight: '100%', borderRadius: '8px', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }} onClick={e => e.stopPropagation()} />
+      <button onClick={onClose} style={{ position: 'fixed', top: 20, right: 24, background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white', borderRadius: '999px', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+        <X size={18} />
+      </button>
     </div>
   );
 }
 
-// ── Supplier Invoices sub-panel ──
-function SupplierInvoicesPanel({ contacts }) {
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [supplierInvoices, setSupplierInvoices] = useState([
-    { id: 'si1', supplier: 'Tele2 AB', invoiceNr: '2026-0812', date: '2026-07-15', dueDate: '2026-08-14', amount: 1250, status: 'unpaid' },
-    { id: 'si2', supplier: 'Kontorskompaniet', invoiceNr: 'KK-4471', date: '2026-07-20', dueDate: '2026-08-19', amount: 3740, status: 'paid' },
-  ]);
-  const [form, setForm] = useState({ supplier: '', invoiceNr: '', date: new Date().toISOString().split('T')[0], dueDate: '', amount: '', description: '' });
+// ── Formatting ──
+const formatSEK = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
+const formatDate = (d) => {
+  if (!d) return '—';
+  try { return new Intl.DateTimeFormat('sv-SE').format(new Date(d)); } catch { return d; }
+};
 
-  const formatSEK = v => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(v || 0);
-  const inputStyle = { width: '100%', padding: '9px 12px', border: '1px solid #e5e7eb', borderRadius: '9px', fontSize: '14px', color: '#111827', background: 'white', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' };
-  const btnStyle = { display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: '#2563eb', border: 'none', borderRadius: '9px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: 'white' };
-  const outlineStyle = { ...btnStyle, background: 'white', border: '1px solid #e5e7eb', color: '#374151' };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    setSupplierInvoices(prev => [{ id: `si_${Date.now()}`, ...form, amount: parseFloat(form.amount) || 0, status: 'unpaid' }, ...prev]);
-    setForm({ supplier: '', invoiceNr: '', date: new Date().toISOString().split('T')[0], dueDate: '', amount: '', description: '' });
-    setIsModalOpen(false);
-  };
-
-  const handleMarkPaid = (id) => setSupplierInvoices(prev => prev.map(si => si.id === id ? { ...si, status: 'paid' } : si));
-
-  const suppliers = (contacts || []).filter(c => c.type === 'supplier');
-
+// SEK-belopp skrivs ofta med komma som decimaltecken i Sverige. type="number"
+// avvisar eller kastar bort kommatecken beroende på webbläsare/locale, så
+// beloppsfält är textfält med inputMode="decimal" och egen parsning istället.
+const AMOUNT_RE = /^\d*[.,]?\d{0,2}$/;
+function AmountInput({ value, onChange, style, placeholder, autoFocus }) {
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
-        <div>
-          <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#111827', marginBottom: '2px' }}>Leverantörsfakturor</h2>
-          <p style={{ color: '#9ca3af', fontSize: '13px' }}>Hantera inkommande fakturor från leverantörer</p>
-        </div>
-        <button style={btnStyle} onClick={() => setIsModalOpen(true)}><Plus size={13} /> Ny leverantörsfaktura</button>
-      </div>
-      <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '14px', overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13.5px' }}>
-          <thead>
-            <tr style={{ borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
-              <th style={{ padding: '12px 20px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Leverantör</th>
-              <th style={{ padding: '12px 20px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Fakturanr</th>
-              <th style={{ padding: '12px 20px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Datum</th>
-              <th style={{ padding: '12px 20px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Förfaller</th>
-              <th style={{ padding: '12px 20px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Status</th>
-              <th style={{ padding: '12px 20px', textAlign: 'right', fontWeight: 600, color: '#374151' }}>Belopp</th>
-              <th style={{ padding: '12px 20px', textAlign: 'right', fontWeight: 600, color: '#374151' }}>Åtgärder</th>
-            </tr>
-          </thead>
-          <tbody>
-            {supplierInvoices.map((si, idx) => (
-              <tr key={si.id} style={{ borderBottom: idx < supplierInvoices.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
-                <td style={{ padding: '12px 20px', fontWeight: 600, color: '#111827' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Building2 size={15} color="#9ca3af" />{si.supplier}</div>
-                </td>
-                <td style={{ padding: '12px 20px', color: '#4b5563', fontFamily: 'ui-monospace,monospace', fontSize: '12px' }}>{si.invoiceNr}</td>
-                <td style={{ padding: '12px 20px', color: '#6b7280' }}>{si.date}</td>
-                <td style={{ padding: '12px 20px', color: si.status === 'unpaid' && si.dueDate < new Date().toISOString().split('T')[0] ? '#dc2626' : '#6b7280' }}>{si.dueDate || '—'}</td>
-                <td style={{ padding: '12px 20px' }}>
-                  <span style={{ padding: '3px 10px', background: si.status === 'paid' ? '#dcfce7' : '#fef3c7', color: si.status === 'paid' ? '#166534' : '#92400e', borderRadius: '20px', fontSize: '11px', fontWeight: 600 }}>
-                    {si.status === 'paid' ? 'Betald' : 'Obetald'}
-                  </span>
-                </td>
-                <td style={{ padding: '12px 20px', textAlign: 'right', fontWeight: 600, color: '#111827' }}>{formatSEK(si.amount)}</td>
-                <td style={{ padding: '12px 20px', textAlign: 'right' }}>
-                  <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
-                    {si.status === 'unpaid' && <button onClick={() => handleMarkPaid(si.id)} title="Markera betald" style={{ padding: '5px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#16a34a' }}><Check size={15} /></button>}
-                    <button title="Ta bort" onClick={() => setSupplierInvoices(prev => prev.filter(s => s.id !== si.id))} style={{ padding: '5px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444' }}><Trash2 size={15} /></button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {supplierInvoices.length === 0 && (
-              <tr><td colSpan="7" style={{ padding: '48px 20px', textAlign: 'center', color: '#9ca3af' }}>
-                <FileText size={24} style={{ margin: '0 auto 12px', display: 'block' }} />
-                <div style={{ fontWeight: 600 }}>Inga leverantörsfakturor</div>
-              </td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+    <input
+      type="text"
+      inputMode="decimal"
+      autoFocus={autoFocus}
+      value={value}
+      onChange={e => {
+        const v = e.target.value;
+        if (v === '' || AMOUNT_RE.test(v)) onChange(v);
+      }}
+      placeholder={placeholder || '0,00'}
+      style={style}
+    />
+  );
+}
+function parseAmount(str) {
+  if (str === '' || str == null) return NaN;
+  return parseFloat(String(str).replace(',', '.'));
+}
 
-      {isModalOpen && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(17,24,39,0.4)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: '20px' }} onClick={() => setIsModalOpen(false)}>
-          <div style={{ background: 'white', borderRadius: '16px', width: '100%', maxWidth: '480px' }} onClick={e => e.stopPropagation()}>
-            <div style={{ padding: '20px 24px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h2 style={{ fontSize: '17px', fontWeight: 700 }}>Ny leverantörsfaktura</h2>
-              <button onClick={() => setIsModalOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={20} color="#9ca3af" /></button>
-            </div>
-            <form onSubmit={handleSubmit} style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>Leverantör *</label>
-                  <input type="text" style={inputStyle} value={form.supplier} onChange={e => setForm(f=>({...f,supplier:e.target.value}))} placeholder="Leverantörens namn" required />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>Fakturanummer</label>
-                  <input type="text" style={inputStyle} value={form.invoiceNr} onChange={e => setForm(f=>({...f,invoiceNr:e.target.value}))} placeholder="INV-001" />
-                </div>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>Fakturadatum</label>
-                  <input type="date" style={inputStyle} value={form.date} onChange={e => setForm(f=>({...f,date:e.target.value}))} />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>Förfallodatum</label>
-                  <input type="date" style={inputStyle} value={form.dueDate} onChange={e => setForm(f=>({...f,dueDate:e.target.value}))} />
-                </div>
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>Belopp inkl. moms *</label>
-                <input type="number" style={inputStyle} value={form.amount} onChange={e => setForm(f=>({...f,amount:e.target.value}))} placeholder="0" required />
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>Beskrivning</label>
-                <input type="text" style={inputStyle} value={form.description} onChange={e => setForm(f=>({...f,description:e.target.value}))} placeholder="Vad avser fakturan?" />
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', paddingTop: '12px', borderTop: '1px solid #e5e7eb' }}>
-                <button type="button" onClick={() => setIsModalOpen(false)} style={outlineStyle}>Avbryt</button>
-                <button type="submit" style={btnStyle}><Check size={13} /> Spara</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+const MAX_FILE_MB = 10;
+const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+
+/** Laddar upp en kvittofil till samma Supabase Storage-bucket som profilbild/
+ * logotyp använder (se supabase-setup.sql). Utan detta fanns ingen faktisk
+ * bild kvar efter att ett kvitto sparats — bara bokföringsfälten — vilket
+ * gjorde "se kvitton"-kravet omöjligt att uppfylla oavsett hur listan ritas. */
+async function uploadReceiptFile(userId, file) {
+  const ext = (file.name.split('.').pop() || 'bin').toLowerCase();
+  const key = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const path = `${userId}/receipts/${key}.${ext}`;
+  const { error } = await supabase.storage.from('bokix-uploads').upload(path, file, { upsert: true, cacheControl: '3600' });
+  if (error) throw error;
+  const { data } = supabase.storage.from('bokix-uploads').getPublicUrl(path);
+  return data.publicUrl;
+}
+
+const inputSt = {
+  width: '100%', padding: '9px 12px', border: '1px solid #d1d5db', borderRadius: '8px',
+  fontSize: '14px', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit'
+};
+function inputStErr(hasError) { return { ...inputSt, borderColor: hasError ? '#ef4444' : '#d1d5db' }; }
+const labelSt = { display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' };
+const errSt = { fontSize: '12px', color: '#dc2626', marginTop: '4px' };
+
+function EmptyReceiptsState() {
+  return (
+    <div style={{ padding: '40px 24px', textAlign: 'center', background: 'white', borderRadius: '12px', border: '1px solid var(--border)' }}>
+      <div style={{ width: 52, height: 52, borderRadius: '999px', background: 'var(--gray-100)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px', color: 'var(--text-muted)' }}>
+        <Receipt size={22} />
+      </div>
+      <p style={{ color: 'var(--text-secondary)', fontSize: '14px', margin: 0 }}>Inga kvitton uppladdade ännu. Ladda upp ditt första kvitto ovan för att börja.</p>
     </div>
   );
 }
 
-export default function Expenses({ expenses, accounts, contacts, onAdd, globalAction, clearGlobalAction }) {
-  const [pageTab, setPageTab] = useState('expenses');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [isModalOpen, setIsModalOpen] = useState(false);
-
-  // Form
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [description, setDescription] = useState('');
-  const [grossAmount, setGrossAmount] = useState('');
-  const [vatRate, setVatRate] = useState(25);
-  const [costAccount, setCostAccount] = useState('6900');
-  const [supplierId, setSupplierId] = useState('');
-  const [receiptFile, setReceiptFile] = useState(null);
+export default function Expenses({
+  expenses = [], accounts = [], user,
+  onAdd, onFixExpenseAccount,
+  pageTitle, pageSubtitle,
+}) {
+  // -- Receipts State --
   const [isDragging, setIsDragging] = useState(false);
+  const [uploadingFiles, setUploadingFiles] = useState([]);
+  const [pendingReceipts, setPendingReceipts] = useState([]); // { id, file, previewUrl, form:{...}, errors, saving }
+  const [lightboxUrl, setLightboxUrl] = useState(null);
+  const intervalsRef = useRef({});
 
-  const costAccounts = accounts.filter(a => a.type === 'kostnad');
-  const suppliers = contacts.filter(c => c.type === 'supplier');
+  useEffect(() => () => {
+    // Städa upp alla pågående upload-timers och object URLs om komponenten avmonteras
+    Object.values(intervalsRef.current).forEach(clearInterval);
+    pendingReceipts.forEach(p => p.previewUrl && URL.revokeObjectURL(p.previewUrl));
+  }, []); // eslint-disable-line
 
-  const formatSEK = (val) =>
-    new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val);
+  const receiptsList = [...expenses.filter(e => e.type === 'receipt')].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  const receiptsTotal = receiptsList.reduce((s, r) => s + (r.amount || 0), 0);
 
-  const getSupplierName = (id) => {
-    if (!id) return '—';
-    const s = contacts.find(c => c.id === id);
-    return s ? s.name : '—';
-  };
-
-  const getCostAccountName = (code) => {
-    const a = accounts.find(acc => acc.code === code);
-    return a ? a.name : code;
-  };
-
-  // Calculated
-  const gross = parseFloat(grossAmount) || 0;
-  const vatFactor = vatRate / (100 + vatRate);
-  const vatAmount = gross * vatFactor;
-  const netAmount = gross - vatAmount;
-
-  const filtered = expenses.filter(exp => {
-    if (!searchTerm) return true;
-    const s = searchTerm.toLowerCase();
-    return exp.description.toLowerCase().includes(s) || exp.date.includes(s) || exp.costAccount.includes(s);
-  }).sort((a, b) => b.date.localeCompare(a.date));
-
-  const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
-  const totalVat = expenses.reduce((s, e) => s + (e.vatAmount || 0), 0);
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (gross <= 0 || !description) return;
-
-    onAdd({
-      date,
-      description,
-      amount: Math.round(gross),
-      netAmount: Math.round(netAmount),
-      vatAmount: Math.round(vatAmount),
-      vatRate,
-      costAccount,
-      supplierId: supplierId || null,
-      receiptName: receiptFile ? receiptFile.name : null,
-    });
-
-    setDescription(''); setGrossAmount(''); setVatRate(25); setCostAccount('6900'); setSupplierId(''); setReceiptFile(null); setIsModalOpen(false);
-  };
-
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e) => {
-    e.preventDefault();
-    setIsDragging(false);
-  };
-
+  // ── Drag & drop / filhantering ──
+  const handleDragOver = (e) => { e.preventDefault(); setIsDragging(true); };
+  const handleDragLeave = (e) => { e.preventDefault(); setIsDragging(false); };
   const handleDrop = (e) => {
     e.preventDefault();
     setIsDragging(false);
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      setReceiptFile(e.dataTransfer.files[0]);
+    if (e.dataTransfer.files?.length) handleFiles(Array.from(e.dataTransfer.files));
+  };
+  const handleFileInput = (e) => {
+    if (e.target.files?.length) handleFiles(Array.from(e.target.files));
+    e.target.value = '';
+  };
+
+  const [fileErrors, setFileErrors] = useState([]);
+
+  const handleFiles = (files) => {
+    const errors = [];
+    const valid = [];
+    files.forEach(f => {
+      if (!ACCEPTED_TYPES.includes(f.type)) {
+        errors.push(`${f.name}: filformatet stöds inte (endast JPG, PNG, WEBP och PDF).`);
+      } else if (f.size > MAX_FILE_MB * 1024 * 1024) {
+        errors.push(`${f.name}: filen är för stor (max ${MAX_FILE_MB} MB).`);
+      } else {
+        valid.push(f);
+      }
+    });
+    setFileErrors(errors);
+    if (valid.length === 0) return;
+
+    const newUploads = valid.map(f => ({ file: f, progress: 0, id: `${Date.now()}_${Math.random()}` }));
+    setUploadingFiles(prev => [...prev, ...newUploads]);
+
+    newUploads.forEach(u => {
+      let p = 0;
+      const interval = setInterval(() => {
+        p += 25;
+        setUploadingFiles(curr => curr.map(x => x.id === u.id ? { ...x, progress: Math.min(p, 100) } : x));
+        if (p >= 100) {
+          clearInterval(interval);
+          delete intervalsRef.current[u.id];
+          setUploadingFiles(curr => curr.filter(x => x.id !== u.id));
+          setPendingReceipts(curr => [...curr, {
+            id: u.id,
+            file: u.file,
+            previewUrl: u.file.type.startsWith('image/') ? URL.createObjectURL(u.file) : null,
+            form: { date: new Date().toISOString().split('T')[0], supplier: '', amount: '', vatRate: 25, costAccount: '' },
+            errors: {},
+            saving: false,
+          }]);
+        }
+      }, 150);
+      intervalsRef.current[u.id] = interval;
+    });
+  };
+
+  const updatePendingForm = (id, patch) => {
+    setPendingReceipts(curr => curr.map(p => p.id === id ? { ...p, form: { ...p.form, ...patch } } : p));
+  };
+  const discardPending = (id) => {
+    setPendingReceipts(curr => {
+      const item = curr.find(p => p.id === id);
+      if (item?.previewUrl) URL.revokeObjectURL(item.previewUrl);
+      return curr.filter(p => p.id !== id);
+    });
+  };
+
+  const findDuplicateReceipt = (date, amount, supplier) => {
+    return receiptsList.find(r => r.date === date && Math.abs((r.amount || 0) - amount) < 0.01 && (r.supplier || '').trim().toLowerCase() === (supplier || '').trim().toLowerCase());
+  };
+
+  const handleSaveReceipt = async (pending) => {
+    const { form } = pending;
+    const errors = {};
+    const amount = parseAmount(form.amount);
+    if (!form.date) errors.date = 'Datum krävs.';
+    if (!form.supplier.trim()) errors.supplier = 'Inköpsställe krävs.';
+    if (isNaN(amount) || amount <= 0) errors.amount = 'Ange ett giltigt belopp.';
+    if (!form.costAccount) errors.costAccount = 'Välj ett konto.';
+    if (Object.keys(errors).length > 0) {
+      setPendingReceipts(curr => curr.map(p => p.id === pending.id ? { ...p, errors } : p));
+      return;
     }
-  };
 
-  const handleFileChange = (e) => {
-    if (e.target.files && e.target.files.length > 0) {
-      setReceiptFile(e.target.files[0]);
+    const dup = findDuplicateReceipt(form.date, amount, form.supplier);
+    if (dup) {
+      const ok = window.confirm(`Det finns redan ett kvitto från "${dup.supplier}" på ${formatSEK(dup.amount)} samma datum. Vill du spara ändå?`);
+      if (!ok) return;
     }
+
+    const vatRate = Number(form.vatRate) || 0;
+    const netAmount = vatRate > 0 ? Math.round((amount / (1 + vatRate / 100)) * 100) / 100 : amount;
+    const vatAmount = Math.round((amount - netAmount) * 100) / 100;
+
+    setPendingReceipts(curr => curr.map(p => p.id === pending.id ? { ...p, saving: true, errors: {} } : p));
+
+    // Kvittobilden laddas upp till Supabase Storage innan posten bokförs, så
+    // att listan faktiskt kan visa en riktig thumbnail efteråt — inte bara
+    // bokföringsfälten. Om uppladdningen misslyckas (t.ex. bucketen saknas
+    // ännu) bokförs utgiften ändå, men användaren informeras ärligt om att
+    // bilden saknas istället för att den tyst försvinner.
+    let receiptUrl = null, receiptType = null, uploadWarning = null;
+    if (user?.id) {
+      try {
+        receiptUrl = await uploadReceiptFile(user.id, pending.file);
+        receiptType = pending.file.type;
+      } catch (err) {
+        uploadWarning = /bucket not found/i.test(err.message || '')
+          ? 'Bildlagring är inte konfigurerad i Supabase-projektet ännu (se supabase-setup.sql) — kvittot bokfördes, men utan bild.'
+          : `Kunde inte spara kvittobilden (${err.message}) — kvittot bokfördes, men utan bild.`;
+      }
+    }
+
+    onAdd?.({
+      type: 'receipt', date: form.date, description: form.supplier, supplier: form.supplier,
+      amount, netAmount, vatAmount, vatRate, costAccount: form.costAccount, autoBooked: true,
+      receiptUrl, receiptType,
+    });
+    if (uploadWarning) window.alert(uploadWarning);
+    discardPending(pending.id);
   };
 
-  const buttonStyle = {
-    display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', 
-    background: '#2563eb', border: 'none', borderRadius: '9px', fontSize: '13px', 
-    fontWeight: 600, cursor: 'pointer', color: 'white', transition: 'all 0.15s'
-  };
-
-  const inputStyle = {
-    width: '100%', padding: '9px 12px', border: '1px solid #e5e7eb', borderRadius: '9px',
-    fontSize: '14px', color: '#111827', background: 'white', outline: 'none',
-    transition: 'all 0.15s', fontFamily: 'inherit', boxSizing: 'border-box'
+  // ── Rätta konto manuellt på en post som saknar kontering ──
+  const [fixingId, setFixingId] = useState(null);
+  const [fixAccount, setFixAccount] = useState('');
+  const applyFix = (id) => {
+    if (!fixAccount) return;
+    onFixExpenseAccount?.(id, fixAccount);
+    setFixingId(null);
+    setFixAccount('');
   };
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-      {/* ── HEADER ── */}
-      <div style={{ marginBottom: '4px' }}>
-        <h1 style={{ fontSize: '24px', fontWeight: 700, letterSpacing: '-0.04em', color: '#111827', marginBottom: '4px' }}>
-          Kvitto &amp; utgifter
-        </h1>
-        <p style={{ color: '#9ca3af', fontSize: '13.5px' }}>Kvitton, utlägg och leverantörsfakturor</p>
+    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: '#f0f2f5' }}>
+
+      {/* ── Sidhuvud ─────────────────────────── */}
+      <div style={{ background: 'white', borderBottom: '1px solid var(--border)', padding: '16px 20px 0', flexShrink: 0 }}>
+        <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 500, color: 'var(--text-main)' }}>{pageTitle || 'Kvitto och utgifter'}</h1>
+        {pageSubtitle && <p style={{ margin: '2px 0 16px', fontSize: '13.5px', color: 'var(--text-secondary)' }}>{pageSubtitle}</p>}
       </div>
 
-      <TabBar
-        tabs={[{ id: 'expenses', label: 'Kvitton & utgifter' }, { id: 'supplier', label: 'Leverantörsfakturor' }]}
-        active={pageTab}
-        onChange={setPageTab}
-      />
-
-      {pageTab === 'supplier' && <SupplierInvoicesPanel contacts={contacts} />}
-
-      {pageTab === 'expenses' && (<>
-      {/* ── HEADER ── */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
-        <div>
-          <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#111827', marginBottom: '2px' }}>
-            Kvitton &amp; utgifter
-          </h2>
-          <p style={{ color: '#9ca3af', fontSize: '13px' }}>
-            Registrera dina utlägg och inköp. Bokförs automatiskt.
-          </p>
-        </div>
-        <button onClick={() => setIsModalOpen(true)} style={buttonStyle}
-          onMouseEnter={e => e.currentTarget.style.background = '#1d4ed8'}
-          onMouseLeave={e => e.currentTarget.style.background = '#2563eb'}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
+        {/* Uppladdningszon */}
+        <div
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          onClick={() => document.getElementById('receipt-upload').click()}
+          style={{
+            border: `1.5px dashed ${isDragging ? BRAND.green : 'var(--gray-300)'}`,
+            background: isDragging ? 'rgba(234,243,222,0.4)' : 'white',
+            borderRadius: '12px', padding: '36px 20px', textAlign: 'center',
+            cursor: 'pointer', transition: 'border-color 0.15s, background 0.15s', marginBottom: '24px',
+          }}
         >
-          <Plus size={14} /> Ny utgift
-        </button>
-      </div>
-
-      {/* ── KPI CARDS ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px', marginBottom: '24px' }}>
-        <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '14px', padding: '20px', display: 'flex', alignItems: 'center', gap: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-          <div style={{ width: 44, height: 44, borderRadius: '10px', background: '#fffbeb', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Receipt size={20} />
+          <input type="file" id="receipt-upload" style={{ display: 'none' }} multiple accept="image/jpeg,image/png,image/webp,application/pdf" onChange={handleFileInput} />
+          <div style={{ width: 44, height: 44, borderRadius: '999px', background: BRAND.greenLight, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+            <UploadCloud size={20} color={BRAND.greenDark} />
           </div>
-          <div>
-            <div style={{ fontSize: '12px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Totala utgifter</div>
-            <div style={{ fontSize: '24px', fontWeight: 700, color: '#111827', letterSpacing: '-0.04em' }}>{formatSEK(totalExpenses)}</div>
-          </div>
+          <h3 style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-main)', margin: '0 0 4px' }}>
+            Dra hit ett kvitto eller klicka för att ladda upp
+          </h3>
+          <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>Stödjer JPG, PNG och PDF (max {MAX_FILE_MB} MB)</p>
         </div>
-        <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '14px', padding: '20px', display: 'flex', alignItems: 'center', gap: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-          <div style={{ width: 44, height: 44, borderRadius: '10px', background: '#ecfeff', color: '#0891b2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <ArrowUpRight size={20} />
-          </div>
-          <div>
-            <div style={{ fontSize: '12px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Moms att dra av</div>
-            <div style={{ fontSize: '24px', fontWeight: 700, color: '#111827', letterSpacing: '-0.04em' }}>{formatSEK(totalVat)}</div>
-          </div>
-        </div>
-      </div>
 
-      {/* ── SEARCH ── */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
-        <div style={{ position: 'relative', width: '280px' }}>
-          <Search size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
-          <input
-            type="text"
-            placeholder="Sök kvitto eller beskrivning..."
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            style={{ ...inputStyle, paddingLeft: '34px', paddingRight: '12px', paddingBottom: '7px', paddingTop: '7px' }}
-          />
-        </div>
-      </div>
-
-      {/* ── TABLE ── */}
-      <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '14px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13.5px' }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
-                <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '110px' }}>Datum</th>
-                <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151' }}>Beskrivning</th>
-                <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151' }}>Leverantör</th>
-                <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151' }}>Konto</th>
-                <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', textAlign: 'right' }}>Netto</th>
-                <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', textAlign: 'right' }}>Moms</th>
-                <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', textAlign: 'right' }}>Totalt</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((exp, idx) => (
-                <tr key={exp.id} style={{ borderBottom: idx < filtered.length - 1 ? '1px solid #f3f4f6' : 'none', transition: 'background 0.1s' }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                >
-                  <td style={{ padding: '14px 20px', color: '#6b7280' }}>{exp.date}</td>
-                  <td style={{ padding: '14px 20px', fontWeight: 500, color: '#111827' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <div style={{ width: 26, height: 26, borderRadius: '6px', background: '#f3f4f6', color: '#6b7280', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Receipt size={13} /></div>
-                      {exp.description}
-                    </div>
-                  </td>
-                  <td style={{ padding: '14px 20px', color: '#4b5563', fontSize: '13px' }}>{getSupplierName(exp.supplierId)}</td>
-                  <td style={{ padding: '14px 20px', fontSize: '13px' }}>
-                    <span style={{ color: '#2563eb', fontWeight: 600, marginRight: '6px' }}>{exp.costAccount}</span>
-                    <span style={{ color: '#6b7280' }}>{getCostAccountName(exp.costAccount)}</span>
-                  </td>
-                  <td style={{ padding: '14px 20px', textAlign: 'right', color: '#374151' }}>{formatSEK(exp.netAmount)}</td>
-                  <td style={{ padding: '14px 20px', textAlign: 'right', color: '#9ca3af' }}>{exp.vatAmount > 0 ? formatSEK(exp.vatAmount) : '—'}</td>
-                  <td style={{ padding: '14px 20px', textAlign: 'right', fontWeight: 600, color: '#111827', letterSpacing: '-0.02em' }}>{formatSEK(exp.amount)}</td>
-                </tr>
-              ))}
-              {filtered.length === 0 && (
-                <tr>
-                  <td colSpan="7" style={{ padding: '60px 20px', textAlign: 'center' }}>
-                    <div style={{ width: 48, height: 48, borderRadius: '12px', background: '#fef3c7', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-                      <Receipt size={24} />
-                    </div>
-                    <div style={{ fontSize: '15px', fontWeight: 600, color: '#111827', marginBottom: '4px' }}>
-                      Inga utgifter
-                    </div>
-                    <div style={{ fontSize: '13px', color: '#6b7280' }}>
-                      Registrera ditt första kvitto eller inköp
-                    </div>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* ── MODAL ── */}
-      {isModalOpen && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(17, 24, 39, 0.4)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '20px' }} onClick={() => setIsModalOpen(false)}>
-          <div style={{ background: 'white', borderRadius: '16px', width: '100%', maxWidth: '560px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }} onClick={e => e.stopPropagation()}>
-            <div style={{ padding: '20px 24px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#111827' }}>Registrera utgift</h2>
-              <button onClick={() => setIsModalOpen(false)} style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px' }}><X size={20} /></button>
-            </div>
-
-            <form onSubmit={handleSubmit} style={{ padding: '24px' }}>
-              
-              {/* Receipt Upload Area */}
-              <label 
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-                style={{ 
-                  display: 'block', marginBottom: '24px', padding: '32px 20px', 
-                  border: `2px dashed ${isDragging ? '#2563eb' : (receiptFile ? '#16a34a' : '#d1d5db')}`, 
-                  borderRadius: '12px', textAlign: 'center', 
-                  background: isDragging ? '#eff6ff' : (receiptFile ? '#f0fdf4' : '#f9fafb'), 
-                  cursor: 'pointer', transition: 'all 0.2s' 
-                }}
-              >
-                <input type="file" style={{ display: 'none' }} onChange={handleFileChange} accept=".pdf,.png,.jpg,.jpeg" />
-                <div style={{ width: 48, height: 48, borderRadius: '50%', background: receiptFile ? '#dcfce7' : '#eff6ff', color: receiptFile ? '#16a34a' : '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
-                  {receiptFile ? <Check size={24} /> : <Receipt size={24} />}
-                </div>
-                <div style={{ fontWeight: 600, fontSize: '14px', color: '#111827', marginBottom: '4px' }}>
-                  {receiptFile ? receiptFile.name : 'Dra och släpp kvitto här'}
-                </div>
-                <div style={{ fontSize: '13px', color: '#6b7280' }}>
-                  {receiptFile ? 'Klicka för att byta fil' : 'eller klicka för att bläddra (PDF, PNG, JPG)'}
-                </div>
-              </label>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>Datum</label>
-                  <input type="date" style={inputStyle} value={date} onChange={e => setDate(e.target.value)} required />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>Leverantör</label>
-                  <select style={inputStyle} value={supplierId} onChange={e => setSupplierId(e.target.value)}>
-                    <option value="">Ingen/Okänd</option>
-                    {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </select>
-                </div>
+        {fileErrors.length > 0 && (
+          <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px' }}>
+            {fileErrors.map((msg, i) => (
+              <div key={i} style={{ fontSize: '13px', color: '#b91c1c', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <AlertCircle size={14} /> {msg}
               </div>
+            ))}
+          </div>
+        )}
 
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>Beskrivning *</label>
-                <input type="text" style={inputStyle} placeholder="T.ex. Kontorsmaterial, Hyra..." value={description} onChange={e => setDescription(e.target.value)} required />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 100px 1fr', gap: '16px', marginBottom: '24px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>Belopp inkl. moms *</label>
-                  <input type="number" style={inputStyle} placeholder="0" min="0" step="0.01" value={grossAmount} onChange={e => setGrossAmount(e.target.value)} required />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>Moms</label>
-                  <select style={inputStyle} value={vatRate} onChange={e => setVatRate(parseInt(e.target.value))}>
-                    {VAT_RATES.map(r => <option key={r} value={r}>{r}%</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>Kostnadskonto</label>
-                  <select style={inputStyle} value={costAccount} onChange={e => setCostAccount(e.target.value)}>
-                    {costAccounts.map(a => <option key={a.code} value={a.code}>{a.code} - {a.name}</option>)}
-                  </select>
-                </div>
-              </div>
-
-              {gross > 0 && (
-                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px', marginBottom: '24px' }}>
-                  <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>Autogenererad Bokföring</div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span><span style={{ color: '#2563eb', fontWeight: 600, marginRight: '6px' }}>{costAccount}</span> {getCostAccountName(costAccount)}</span>
-                      <span style={{ color: '#16a34a', fontWeight: 600 }}>D: {formatSEK(netAmount)}</span>
-                    </div>
-                    {vatAmount > 0 && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span><span style={{ color: '#2563eb', fontWeight: 600, marginRight: '6px' }}>2641</span> Ingående moms</span>
-                        <span style={{ color: '#16a34a', fontWeight: 600 }}>D: {formatSEK(vatAmount)}</span>
-                      </div>
-                    )}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '8px', borderTop: '1px dashed #cbd5e1' }}>
-                      <span><span style={{ color: '#2563eb', fontWeight: 600, marginRight: '6px' }}>1930</span> Bank</span>
-                      <span style={{ color: '#dc2626', fontWeight: 600 }}>K: {formatSEK(gross)}</span>
-                    </div>
+        {/* Uploading states */}
+        {uploadingFiles.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>
+            {uploadingFiles.map(f => (
+              <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: '16px', background: 'white', padding: '16px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                <FileText size={24} color="var(--text-muted)" />
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '13px', fontWeight: 500 }}>
+                    <span>{f.file.name}</span>
+                    <span>{f.progress}%</span>
+                  </div>
+                  <div style={{ height: '6px', background: 'var(--gray-200)', borderRadius: '999px', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${f.progress}%`, background: BRAND.green, transition: 'width 0.15s' }} />
                   </div>
                 </div>
-              )}
+              </div>
+            ))}
+          </div>
+        )}
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', paddingTop: '20px', borderTop: '1px solid #e5e7eb' }}>
-                <button type="button" onClick={() => setIsModalOpen(false)} style={{ padding: '9px 18px', background: 'white', border: '1px solid #e5e7eb', borderRadius: '9px', fontSize: '13.5px', fontWeight: 500, cursor: 'pointer' }}>Avbryt</button>
-                <button type="submit" disabled={gross <= 0 || !description} style={{ ...buttonStyle, opacity: (gross <= 0 || !description) ? 0.5 : 1 }}>
-                  <Check size={14} /> Bokför utgift
+        {/* Manuell inmatning per uppladdat kvitto — ingen riktig OCR-tjänst är
+            kopplad, så vi låtsas aldrig att fälten är automatiskt uttolkade. */}
+        {pendingReceipts.map(pending => (
+          <div key={pending.id} style={{ background: 'white', border: '1px solid var(--border)', borderRadius: '12px', padding: '20px', marginBottom: '16px', display: 'flex', gap: '20px' }}>
+            <div style={{ width: 96, height: 96, background: 'var(--gray-100)', borderRadius: '8px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+              {pending.previewUrl
+                ? <img src={pending.previewUrl} alt={pending.file.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                : <FileText size={32} color="var(--text-muted)" />}
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: '#374151' }}>{pending.file.name}</span>
+                <span style={{ fontSize: '11px', color: '#9ca3af' }}>— fyll i uppgifterna nedan (ingen automatisk avläsning ännu)</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                <div>
+                  <label style={labelSt}>Datum</label>
+                  <input type="date" value={pending.form.date} onChange={e => updatePendingForm(pending.id, { date: e.target.value })} style={inputStErr(pending.errors.date)} />
+                  {pending.errors.date && <div style={errSt}>{pending.errors.date}</div>}
+                </div>
+                <div>
+                  <label style={labelSt}>Inköpsställe / Leverantör</label>
+                  <input type="text" value={pending.form.supplier} onChange={e => updatePendingForm(pending.id, { supplier: e.target.value })} style={inputStErr(pending.errors.supplier)} />
+                  {pending.errors.supplier && <div style={errSt}>{pending.errors.supplier}</div>}
+                </div>
+                <div>
+                  <label style={labelSt}>Belopp ink moms (kr)</label>
+                  <AmountInput value={pending.form.amount} onChange={v => updatePendingForm(pending.id, { amount: v })} style={inputStErr(pending.errors.amount)} />
+                  {pending.errors.amount && <div style={errSt}>{pending.errors.amount}</div>}
+                </div>
+                <div>
+                  <label style={labelSt}>Momssats</label>
+                  <select value={pending.form.vatRate} onChange={e => updatePendingForm(pending.id, { vatRate: Number(e.target.value) })} style={{ ...inputSt, background: 'white' }}>
+                    {[25, 12, 6, 0].map(v => <option key={v} value={v}>{v}%</option>)}
+                  </select>
+                </div>
+                <div style={{ gridColumn: '1 / 3' }}>
+                  <label style={labelSt}>Konto</label>
+                  <AccountSearch value={pending.form.costAccount} onChange={code => updatePendingForm(pending.id, { costAccount: code })} accounts={accounts} placeholder="Sök konto, t.ex. 6110 Kontorsmaterial..." />
+                  {pending.errors.costAccount && <div style={errSt}>{pending.errors.costAccount}</div>}
+                </div>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '16px' }}>
+                <button type="button" disabled={pending.saving} onClick={() => discardPending(pending.id)} style={{ padding: '8px 16px', background: '#f3f4f6', border: 'none', borderRadius: '8px', fontWeight: 600, color: '#374151', cursor: pending.saving ? 'not-allowed' : 'pointer', fontSize: '13px', opacity: pending.saving ? 0.5 : 1 }}>Ta bort</button>
+                <button type="button" disabled={pending.saving} onClick={() => handleSaveReceipt(pending)} style={{ padding: '8px 16px', background: BRAND.green, border: 'none', borderRadius: '8px', fontWeight: 600, color: 'white', cursor: pending.saving ? 'not-allowed' : 'pointer', fontSize: '13px', opacity: pending.saving ? 0.7 : 1 }}>
+                  {pending.saving ? 'Sparar...' : 'Spara och bokför'}
                 </button>
               </div>
-            </form>
+            </div>
           </div>
+        ))}
+
+        {/* Tidigare utgifter */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '12px' }}>
+          <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>Tidigare utgifter</h3>
+          {receiptsList.length > 0 && (
+            <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+              {receiptsList.length} {receiptsList.length === 1 ? 'utgift' : 'utgifter'} · {formatSEK(receiptsTotal)} totalt
+            </span>
+          )}
         </div>
-      )}
-      </>)}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {receiptsList.length === 0 ? (
+            <EmptyReceiptsState />
+          ) : receiptsList.map(r => {
+            const isBooked = Boolean(r.costAccount);
+            const categoryName = accounts.find(a => a.code === r.costAccount)?.name;
+            const isImage = r.receiptType?.startsWith('image/') && r.receiptUrl;
+            const isPdf = r.receiptType === 'application/pdf';
+            return (
+              <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: '14px', background: 'white', border: '1px solid var(--border)', borderRadius: '10px', padding: '10px 14px' }}>
+                <div
+                  onClick={() => isImage && setLightboxUrl(r.receiptUrl)}
+                  title={isImage ? 'Visa kvitto i full storlek' : undefined}
+                  style={{ width: 40, height: 40, borderRadius: '8px', background: 'var(--gray-100)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden', cursor: isImage ? 'zoom-in' : 'default' }}
+                >
+                  {isImage ? (
+                    <img src={r.receiptUrl} alt="Kvitto" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : isPdf ? (
+                    <FileText size={18} color="var(--text-muted)" />
+                  ) : (
+                    <Receipt size={18} color="var(--text-muted)" />
+                  )}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: '13.5px', fontWeight: 500, color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.supplier || r.description}</div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{formatDate(r.date)}{categoryName ? ` · ${categoryName}` : ''}</div>
+                </div>
+                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                  <div style={{ fontSize: '13.5px', fontWeight: 500, color: 'var(--text-main)' }}>{formatSEK(r.amount)}</div>
+                  {isBooked ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end', fontSize: '11.5px', color: BRAND.greenDark, fontWeight: 600, marginTop: '2px' }}>
+                      <CheckCircle2 size={12} /> Bokförd
+                    </div>
+                  ) : fixingId === r.id ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
+                      <div style={{ width: 180 }}>
+                        <AccountSearch value={fixAccount} onChange={setFixAccount} accounts={accounts} placeholder="Välj konto..." />
+                      </div>
+                      <button onClick={() => applyFix(r.id)} style={{ padding: '5px 10px', background: BRAND.green, color: 'white', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>Spara</button>
+                    </div>
+                  ) : (
+                    <button onClick={() => { setFixingId(r.id); setFixAccount(''); }} title="Kunde inte bokföras automatiskt — konto saknas" style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end', background: 'none', border: 'none', color: BRAND.amberText, fontSize: '11.5px', fontWeight: 600, cursor: 'pointer', padding: 0, marginLeft: 'auto', marginTop: '2px' }}>
+                      <AlertCircle size={12} /> Granska
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {lightboxUrl && <ReceiptLightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />}
     </div>
   );
 }

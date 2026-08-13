@@ -1,333 +1,295 @@
-import React, { useState } from 'react';
-import { BarChart3, PieChart, Download, FileText, FileDown, X } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { TrendingUp, TrendingDown, HelpCircle, Wallet, PieChart, Scale } from 'lucide-react';
+import {
+  getPeriodBounds, sumFlowByType, groupCostsByAccount, buildCashflowSeries,
+  buildResultSeries, computeBalanceSheet, hasAnyBookedData, isCashAccount, isBooked,
+} from '../utils/reportCalculations';
 
-export default function Reports({ balances, accounts }) {
-  const [reportType, setReportType] = useState('resultat'); 
-  const [showPdfPreview, setShowPdfPreview] = useState(false);
+const formatSEK = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
+const fmtDate = (d) => new Intl.DateTimeFormat('sv-SE', { day: 'numeric', month: 'short' }).format(d instanceof Date ? d : new Date(d));
 
-  const formatSEK = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val);
+function formatDelta(current, previous, invert = false) {
+  if (previous === 0 && current === 0) return null;
+  if (previous === 0) {
+    return { text: 'Ingen bokföring under samma period förra året', good: null };
+  }
+  const pct = ((current - previous) / Math.abs(previous)) * 100;
+  const rising = pct >= 0;
+  const good = invert ? !rising : rising;
+  return { text: `${rising ? '+' : ''}${pct.toFixed(0)}% mot föregående år`, good };
+}
 
-  const assetAccounts = accounts.filter(a => a.type === 'tillgang');
-  const equityLiabilityAccounts = accounts.filter(a => a.type === 'skuld_kapital');
-  const incomeAccounts = accounts.filter(a => a.type === 'intakt');
-  const expenseAccounts = accounts.filter(a => a.type === 'kostnad');
-
-  const totalRevenues = incomeAccounts.reduce((sum, a) => sum + (-(balances[a.code] || 0)), 0);
-  const totalExpenses = expenseAccounts.reduce((sum, a) => sum + (balances[a.code] || 0), 0);
-  const netProfit = totalRevenues - totalExpenses;
-
-  const totalAssets = assetAccounts.reduce((sum, a) => sum + (balances[a.code] || 0), 0);
-  const totalLiabilitiesEquity = equityLiabilityAccounts.reduce((sum, a) => sum + (-(balances[a.code] || 0)), 0);
-  const totalBalancedEquityLiabilities = totalLiabilitiesEquity + netProfit;
-
-  const buttonStyle = {
-    display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', 
-    background: 'white', border: '1px solid #e5e7eb', borderRadius: '9px', fontSize: '13px', 
-    fontWeight: 600, cursor: 'pointer', color: '#374151', transition: 'all 0.15s'
-  };
-
-  const rowStyle0 = { display: 'flex', justifyContent: 'space-between', padding: '12px 16px', fontWeight: 700, fontSize: '12px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', background: '#f8fafc', borderRadius: '8px' };
-  const rowStyle1 = { display: 'flex', justifyContent: 'space-between', padding: '16px', fontWeight: 700, fontSize: '14px', color: '#111827', borderTop: '2px solid #e2e8f0', marginTop: '8px' };
-  const rowStyle2 = { display: 'flex', justifyContent: 'space-between', padding: '12px 16px', fontSize: '13.5px', color: '#334155', borderBottom: '1px solid #f1f5f9' };
-  const rowStyleTotal = { display: 'flex', justifyContent: 'space-between', padding: '20px 16px', fontWeight: 800, fontSize: '16px', color: '#111827', borderTop: '3px solid #111827', marginTop: '16px', background: '#f8fafc', borderRadius: '0 0 12px 12px' };
-
+function KpiCard({ label, value, help, delta, accent }) {
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-      {/* ── HEADER ── */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
-        <div>
-          <h1 style={{ fontSize: '24px', fontWeight: 700, letterSpacing: '-0.04em', color: '#111827', marginBottom: '5px' }}>
-            Rapporter
-          </h1>
-          <p style={{ color: '#9ca3af', fontSize: '13.5px', fontWeight: 400 }}>
-            Resultat- och balansräkning, momsrapport
-          </p>
-        </div>
-        <button onClick={() => setShowPdfPreview(true)} style={buttonStyle}
-          onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
-          onMouseLeave={e => e.currentTarget.style.background = 'white'}
-        >
-          <Download size={14} /> Exportera PDF
-        </button>
-      </div>
-
-      {/* ── FILTERS ── */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', flexWrap: 'wrap' }}>
-        {[
-          { id: 'resultat', label: 'Resultaträkning', icon: BarChart3 },
-          { id: 'balans', label: 'Balansräkning', icon: PieChart },
-          { id: 'moms', label: 'Momsrapport', icon: FileText }
-        ].map(f => (
-          <button key={f.id} onClick={() => setReportType(f.id)} style={{
-            display: 'flex', alignItems: 'center', gap: '6px',
-            padding: '8px 16px', borderRadius: '20px', fontSize: '13px', fontWeight: reportType === f.id ? 600 : 500, cursor: 'pointer',
-            background: reportType === f.id ? '#111827' : 'white',
-            color: reportType === f.id ? 'white' : '#6b7280',
-            border: `1px solid ${reportType === f.id ? '#111827' : '#e5e7eb'}`,
-            transition: 'all 0.15s', fontFamily: 'inherit'
-          }}>
-            <f.icon size={14} /> {f.label}
-          </button>
-        ))}
-      </div>
-
-      {/* ── REPORT CONTENT ── */}
-      <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '16px', padding: '40px', maxWidth: '800px', margin: '0 auto', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03)' }}>
-        
-        {reportType === 'resultat' && (
-          <div>
-            <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-              <h2 style={{ fontSize: '24px', fontWeight: 800, letterSpacing: '-0.03em', color: '#111827', margin: '0 0 8px 0' }}>Resultaträkning</h2>
-              <p style={{ margin: 0, fontSize: '14px', color: '#6b7280' }}>Ackumulerat för räkenskapsåret 2026</p>
-            </div>
-
-            <div style={{ marginBottom: '32px' }}>
-              <div style={rowStyle0}>Rörelsens intäkter</div>
-              {incomeAccounts.map(acc => {
-                const val = -(balances[acc.code] || 0);
-                if (val === 0) return null;
-                return (
-                  <div key={acc.code} style={rowStyle2}>
-                    <span><strong style={{ color: '#2563eb', marginRight: '8px' }}>{acc.code}</strong> {acc.name}</span>
-                    <span>{formatSEK(val)}</span>
-                  </div>
-                );
-              })}
-              <div style={rowStyle1}>
-                <span>Summa rörelseintäkter</span>
-                <span style={{ color: '#16a34a' }}>{formatSEK(totalRevenues)}</span>
-              </div>
-            </div>
-
-            <div style={{ marginBottom: '32px' }}>
-              <div style={rowStyle0}>Rörelsens kostnader</div>
-              {expenseAccounts.map(acc => {
-                const val = balances[acc.code] || 0;
-                if (val === 0) return null;
-                return (
-                  <div key={acc.code} style={rowStyle2}>
-                    <span><strong style={{ color: '#2563eb', marginRight: '8px' }}>{acc.code}</strong> {acc.name}</span>
-                    <span>-{formatSEK(val)}</span>
-                  </div>
-                );
-              })}
-              <div style={rowStyle1}>
-                <span>Summa rörelsekostnader</span>
-                <span style={{ color: '#dc2626' }}>-{formatSEK(totalExpenses)}</span>
-              </div>
-            </div>
-
-            <div style={{ ...rowStyleTotal, background: netProfit >= 0 ? '#f0fdf4' : '#fef2f2', borderColor: netProfit >= 0 ? '#16a34a' : '#dc2626' }}>
-              <span>Beräknat resultat</span>
-              <span style={{ color: netProfit >= 0 ? '#16a34a' : '#dc2626' }}>{formatSEK(netProfit)}</span>
-            </div>
-          </div>
-        )}
-
-        {reportType === 'balans' && (
-          <div>
-            <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-              <h2 style={{ fontSize: '24px', fontWeight: 800, letterSpacing: '-0.03em', color: '#111827', margin: '0 0 8px 0' }}>Balansräkning</h2>
-              <p style={{ margin: 0, fontSize: '14px', color: '#6b7280' }}>Aktuella saldon för tillgångar och skulder</p>
-            </div>
-
-            <div style={{ marginBottom: '32px' }}>
-              <div style={rowStyle0}>Tillgångar</div>
-              {assetAccounts.map(acc => {
-                const val = balances[acc.code] || 0;
-                if (val === 0) return null;
-                return (
-                  <div key={acc.code} style={rowStyle2}>
-                    <span><strong style={{ color: '#2563eb', marginRight: '8px' }}>{acc.code}</strong> {acc.name}</span>
-                    <span>{formatSEK(val)}</span>
-                  </div>
-                );
-              })}
-              <div style={rowStyle1}>
-                <span>Summa tillgångar</span>
-                <span style={{ color: '#16a34a' }}>{formatSEK(totalAssets)}</span>
-              </div>
-            </div>
-
-            <div style={{ marginBottom: '32px' }}>
-              <div style={rowStyle0}>Eget kapital och skulder</div>
-              {equityLiabilityAccounts.map(acc => {
-                const val = -(balances[acc.code] || 0);
-                if (val === 0) return null;
-                return (
-                  <div key={acc.code} style={rowStyle2}>
-                    <span><strong style={{ color: '#2563eb', marginRight: '8px' }}>{acc.code}</strong> {acc.name}</span>
-                    <span>{formatSEK(val)}</span>
-                  </div>
-                );
-              })}
-              <div style={{ ...rowStyle2, fontStyle: 'italic', color: '#2563eb', fontWeight: 500 }}>
-                <span>Beräknat resultat för perioden</span>
-                <span>{formatSEK(netProfit)}</span>
-              </div>
-              <div style={rowStyle1}>
-                <span>Summa eget kapital & skulder</span>
-                <span>{formatSEK(totalBalancedEquityLiabilities)}</span>
-              </div>
-            </div>
-
-            <div style={{ padding: '16px', borderRadius: '12px', textAlign: 'center', fontWeight: 600, fontSize: '14px', background: Math.abs(totalAssets - totalBalancedEquityLiabilities) < 0.01 ? '#f0fdf4' : '#fef2f2', color: Math.abs(totalAssets - totalBalancedEquityLiabilities) < 0.01 ? '#16a34a' : '#dc2626', border: `1px solid ${Math.abs(totalAssets - totalBalancedEquityLiabilities) < 0.01 ? '#bbf7d0' : '#fecaca'}` }}>
-              {Math.abs(totalAssets - totalBalancedEquityLiabilities) < 0.01 
-                ? '✔ Balansräkningen balanserar! (Tillgångar = Skulder + Eget Kapital)' 
-                : `⚠ Varning: Balansräkningen balanserar inte. Differens: ${formatSEK(Math.abs(totalAssets - totalBalancedEquityLiabilities))}`}
-            </div>
-          </div>
-        )}
-
-        {reportType === 'moms' && (
-          <div>
-            <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-              <h2 style={{ fontSize: '24px', fontWeight: 800, letterSpacing: '-0.03em', color: '#111827', margin: '0 0 8px 0' }}>Momsredovisning</h2>
-              <p style={{ margin: 0, fontSize: '14px', color: '#6b7280' }}>Beräknad utgående och ingående moms</p>
-            </div>
-
-            <div style={{ marginBottom: '32px' }}>
-              <div style={rowStyle0}>Utgående moms (Försäljning)</div>
-              <div style={rowStyle2}>
-                <span><strong style={{ color: '#2563eb', marginRight: '8px' }}>2611</strong> Utgående moms försäljning 25%</span>
-                <span>{formatSEK(-(balances['2611'] || 0))}</span>
-              </div>
-              <div style={rowStyle2}>
-                <span><strong style={{ color: '#2563eb', marginRight: '8px' }}>2621</strong> Utgående moms försäljning 12%</span>
-                <span>{formatSEK(-(balances['2621'] || 0))}</span>
-              </div>
-              <div style={rowStyle2}>
-                <span><strong style={{ color: '#2563eb', marginRight: '8px' }}>2631</strong> Utgående moms försäljning 6%</span>
-                <span>{formatSEK(-(balances['2631'] || 0))}</span>
-              </div>
-              <div style={rowStyle1}>
-                <span>Summa utgående moms (Ruta 10)</span>
-                <span style={{ color: '#dc2626' }}>{formatSEK((-(balances['2611'] || 0)) + (-(balances['2621'] || 0)) + (-(balances['2631'] || 0)))}</span>
-              </div>
-            </div>
-
-            <div style={{ marginBottom: '32px' }}>
-              <div style={rowStyle0}>Ingående moms (Inköp)</div>
-              <div style={rowStyle2}>
-                <span><strong style={{ color: '#2563eb', marginRight: '8px' }}>2641</strong> Debiterad ingående moms</span>
-                <span>{formatSEK(balances['2641'] || 0)}</span>
-              </div>
-              <div style={rowStyle1}>
-                <span>Summa ingående moms (Ruta 48)</span>
-                <span style={{ color: '#16a34a' }}>{formatSEK(balances['2641'] || 0)}</span>
-              </div>
-            </div>
-
-            {(() => {
-              const utg = (-(balances['2611'] || 0)) + (-(balances['2621'] || 0)) + (-(balances['2631'] || 0));
-              const ing = (balances['2641'] || 0);
-              const attBetala = utg - ing;
-
-              return (
-                <div style={{ ...rowStyleTotal, background: '#f8fafc', borderColor: '#111827' }}>
-                  <span>Moms att {attBetala >= 0 ? 'betala in' : 'få tillbaka'} (Ruta 49)</span>
-                  <span style={{ color: attBetala >= 0 ? '#dc2626' : '#16a34a' }}>{formatSEK(Math.abs(attBetala))}</span>
-                </div>
-              );
-            })()}
-          </div>
+    <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e4e4e7', padding: '18px 20px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+        <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</span>
+        {help && (
+          <span title={help} style={{ display: 'inline-flex', cursor: 'help', color: '#b0b7c3' }}>
+            <HelpCircle size={13} />
+          </span>
         )}
       </div>
-
-      {/* ── PDF PREVIEW MODAL ── */}
-      {showPdfPreview && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(17, 24, 39, 0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }} onClick={() => setShowPdfPreview(false)}>
-          <div style={{ background: '#f3f4f6', borderRadius: '16px', width: '100%', maxWidth: '900px', height: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }} onClick={e => e.stopPropagation()}>
-            <div style={{ padding: '16px 24px', background: 'white', borderBottom: '1px solid #e5e7eb', borderRadius: '16px 16px 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{ width: 36, height: 36, borderRadius: '8px', background: '#eef6fb', color: '#3a8fc1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <FileText size={18} />
-                </div>
-                <div>
-                  <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#111827', margin: 0 }}>
-                    {reportType === 'resultat' ? 'Resultaträkning' : reportType === 'balans' ? 'Balansräkning' : 'Momsrapport'}
-                  </h2>
-                  <p style={{ fontSize: '12px', color: '#6b7280', margin: 0 }}>Förhandsgranskning (A4)</p>
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <button onClick={() => alert('Laddar ner PDF...')} style={{ ...buttonStyle, background: '#5ba85a', color: 'white' }} onMouseEnter={e => e.currentTarget.style.background = '#4a8d49'} onMouseLeave={e => e.currentTarget.style.background = '#5ba85a'}>
-                  <FileDown size={14} /> Ladda ner PDF
-                </button>
-                <button onClick={() => setShowPdfPreview(false)} style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer', padding: '8px' }}>
-                  <X size={20} />
-                </button>
-              </div>
-            </div>
-
-            <div style={{ flex: 1, overflowY: 'auto', padding: '32px', display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }}>
-              <div style={{ 
-                width: '210mm', minHeight: '297mm', background: 'white', 
-                boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05)', 
-                padding: '20mm', boxSizing: 'border-box', position: 'relative'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #000', paddingBottom: '10px', marginBottom: '20px' }}>
-                  <div style={{ fontSize: '24px', fontWeight: 'bold' }}>NORDSTRÖM KONSULT AB</div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '18px', fontWeight: 'bold', textTransform: 'uppercase' }}>
-                      {reportType === 'resultat' ? 'Resultaträkning' : reportType === 'balans' ? 'Balansräkning' : 'Momsrapport'}
-                    </div>
-                    <div style={{ fontSize: '12px' }}>Org. nr: 556123-4567</div>
-                  </div>
-                </div>
-
-                <div style={{ fontSize: '14px', lineHeight: 1.6 }}>
-                  {reportType === 'resultat' && (
-                    <>
-                      <h4 style={{ borderBottom: '1px solid #ccc', margin: '20px 0 10px 0' }}>Intäkter</h4>
-                      {incomeAccounts.map(acc => {
-                        const val = -(balances[acc.code] || 0);
-                        return val !== 0 && <div key={acc.code} style={{ display: 'flex', justifyContent: 'space-between' }}><span>{acc.code} {acc.name}</span><span>{formatSEK(val)}</span></div>
-                      })}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', margin: '10px 0 20px 0' }}><span>Summa Intäkter</span><span>{formatSEK(totalRevenues)}</span></div>
-
-                      <h4 style={{ borderBottom: '1px solid #ccc', margin: '20px 0 10px 0' }}>Kostnader</h4>
-                      {expenseAccounts.map(acc => {
-                        const val = balances[acc.code] || 0;
-                        return val !== 0 && <div key={acc.code} style={{ display: 'flex', justifyContent: 'space-between' }}><span>{acc.code} {acc.name}</span><span>-{formatSEK(val)}</span></div>
-                      })}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', margin: '10px 0 20px 0' }}><span>Summa Kostnader</span><span>-{formatSEK(totalExpenses)}</span></div>
-
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '16px', borderTop: '2px solid #000', paddingTop: '10px' }}><span>Resultat</span><span>{formatSEK(netProfit)}</span></div>
-                    </>
-                  )}
-
-                  {reportType === 'balans' && (
-                    <>
-                      <h4 style={{ borderBottom: '1px solid #ccc', margin: '20px 0 10px 0' }}>Tillgångar</h4>
-                      {assetAccounts.map(acc => {
-                        const val = balances[acc.code] || 0;
-                        return val !== 0 && <div key={acc.code} style={{ display: 'flex', justifyContent: 'space-between' }}><span>{acc.code} {acc.name}</span><span>{formatSEK(val)}</span></div>
-                      })}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', margin: '10px 0 20px 0' }}><span>Summa Tillgångar</span><span>{formatSEK(totalAssets)}</span></div>
-
-                      <h4 style={{ borderBottom: '1px solid #ccc', margin: '20px 0 10px 0' }}>Skulder & Eget kapital</h4>
-                      {equityLiabilityAccounts.map(acc => {
-                        const val = -(balances[acc.code] || 0);
-                        return val !== 0 && <div key={acc.code} style={{ display: 'flex', justifyContent: 'space-between' }}><span>{acc.code} {acc.name}</span><span>{formatSEK(val)}</span></div>
-                      })}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'normal', fontStyle: 'italic', margin: '5px 0' }}><span>Beräknat resultat</span><span>{formatSEK(netProfit)}</span></div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '16px', borderTop: '2px solid #000', paddingTop: '10px', marginTop: '10px' }}><span>Summa Skulder & Eget kapital</span><span>{formatSEK(totalBalancedEquityLiabilities)}</span></div>
-                    </>
-                  )}
-
-                  {reportType === 'moms' && (
-                    <div style={{ textAlign: 'center', marginTop: '50px', fontStyle: 'italic', color: '#6b7280' }}>
-                      (Momssammanställning genereras baserat på period)
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
+      <div style={{ fontSize: '24px', fontWeight: 800, color: accent || '#0f172a', marginBottom: delta ? '6px' : 0 }}>{value}</div>
+      {delta && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: 600, color: delta.good === null ? '#9ca3af' : delta.good ? '#15803d' : '#dc2626' }}>
+          {delta.good !== null && (delta.good ? <TrendingUp size={12} /> : <TrendingDown size={12} />)}
+          {delta.text}
         </div>
       )}
+    </div>
+  );
+}
 
+function EmptyState({ text }) {
+  return (
+    <div style={{ padding: '48px 24px', textAlign: 'center', color: '#9ca3af', fontSize: '13.5px', lineHeight: 1.6 }}>
+      {text}
+    </div>
+  );
+}
+
+/** Resultatdiagram: två linjer (intäkter/kostnader) per månad i perioden. */
+function ResultTrendChart({ series }) {
+  const w = 600, h = 160, pad = 8;
+  const maxVal = Math.max(1, ...series.flatMap(s => [s.intakt, s.kostnad]));
+  const stepX = series.length > 1 ? (w - pad * 2) / (series.length - 1) : 0;
+  const toXY = (i, val) => {
+    const x = pad + i * stepX;
+    const y = h - pad - (val / maxVal) * (h - pad * 2);
+    return `${x},${y}`;
+  };
+  const revenueLine = series.map((s, i) => toXY(i, s.intakt)).join(' ');
+  const costLine = series.map((s, i) => toXY(i, s.kostnad)).join(' ');
+
+  return (
+    <div>
+      <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ width: '100%', height: '160px' }}>
+        <polyline points={revenueLine} fill="none" stroke="#15803d" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+        <polyline points={costLine} fill="none" stroke="#dc2626" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>
+        {series.map((s, i) => <span key={i}>{s.label}</span>)}
+      </div>
+      <div style={{ display: 'flex', gap: '18px', marginTop: '12px', fontSize: '12.5px', fontWeight: 600 }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#15803d' }}><span style={{ width: '10px', height: '10px', borderRadius: '3px', background: '#15803d', display: 'inline-block' }} /> Intäkter</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#dc2626' }}><span style={{ width: '10px', height: '10px', borderRadius: '3px', background: '#dc2626', display: 'inline-block' }} /> Kostnader</span>
+      </div>
+    </div>
+  );
+}
+
+/** Likviditetsdiagram: ackumulerat bank-/kassasaldo, kan gå under noll. */
+function CashflowChart({ points }) {
+  const w = 600, h = 160, pad = 8;
+  const values = points.map(p => p.balance);
+  const maxVal = Math.max(0, ...values);
+  const minVal = Math.min(0, ...values);
+  const range = Math.max(1, maxVal - minVal);
+  const stepX = points.length > 1 ? (w - pad * 2) / (points.length - 1) : 0;
+  const toY = (val) => h - pad - ((val - minVal) / range) * (h - pad * 2);
+  const line = points.map((p, i) => `${pad + i * stepX},${toY(p.balance)}`).join(' ');
+  const fillArea = `${pad},${toY(0)} ${line} ${pad + (points.length - 1) * stepX},${toY(0)}`;
+  const zeroY = toY(0);
+
+  return (
+    <div>
+      <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ width: '100%', height: '160px' }}>
+        {minVal < 0 && <line x1={pad} y1={zeroY} x2={w - pad} y2={zeroY} stroke="#e4e4e7" strokeWidth="1" strokeDasharray="3,3" />}
+        <polyline points={fillArea} fill="rgba(26,48,40,0.08)" stroke="none" />
+        <polyline points={line} fill="none" stroke="#1a3028" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>
+        {points.map((p, i) => <span key={i}>{fmtDate(p.date)}</span>)}
+      </div>
+    </div>
+  );
+}
+
+function CostBreakdownBars({ rows, total }) {
+  const maxAmount = Math.max(1, ...rows.map(r => r.amount));
+  return (
+    <div>
+      {rows.slice(0, 10).map(r => (
+        <div key={r.code} style={{ marginBottom: '12px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '4px' }}>
+            <span style={{ color: '#374151', fontWeight: 600 }}>{r.name}</span>
+            <span style={{ color: '#111', fontWeight: 700 }}>{formatSEK(r.amount)} <span style={{ color: '#9ca3af', fontWeight: 500 }}>({total ? Math.round(r.amount / total * 100) : 0}%)</span></span>
+          </div>
+          <div style={{ height: '8px', borderRadius: '4px', background: '#f1f5f9', overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: `${(r.amount / maxAmount) * 100}%`, background: '#1a3028', borderRadius: '4px' }} />
+          </div>
+        </div>
+      ))}
+      {rows.length > 10 && <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '4px' }}>+ {rows.length - 10} till, mindre poster</div>}
+    </div>
+  );
+}
+
+function BalanceSheetTable({ title, rows, total }) {
+  return (
+    <div style={{ flex: 1, minWidth: '260px' }}>
+      <div style={{ fontSize: '13px', fontWeight: 700, color: '#374151', marginBottom: '10px' }}>{title}</div>
+      <div style={{ background: 'white', border: '1px solid #e4e4e7', borderRadius: '10px', overflow: 'hidden' }}>
+        {rows.length === 0 ? (
+          <div style={{ padding: '20px', textAlign: 'center', color: '#9ca3af', fontSize: '13px' }}>Inga bokförda saldon</div>
+        ) : rows.map(r => (
+          <div key={r.code} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', borderBottom: '1px solid #f1f5f9', fontSize: '13.5px' }}>
+            <span style={{ color: '#374151' }}>{r.name}</span>
+            <span style={{ fontWeight: 600, color: '#111' }}>{formatSEK(r.amount)}</span>
+          </div>
+        ))}
+        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 14px', background: '#f8fafc', fontWeight: 800, fontSize: '14px' }}>
+          <span>Summa</span><span>{formatSEK(total)}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function Reports({ accounts = [], verifications = [], company = {} }) {
+  const [activeTab, setActiveTab] = useState('result');
+  const [period, setPeriod] = useState('year');
+  const [customStart, setCustomStart] = useState('');
+  const [customEnd, setCustomEnd] = useState('');
+
+  const bounds = useMemo(() => getPeriodBounds(period, {
+    fiscalYearStart: company?.fiscalYear, customStart, customEnd,
+  }), [period, customStart, customEnd, company?.fiscalYear]);
+
+  const companyHasAnyData = hasAnyBookedData(verifications);
+  const customRangeIncomplete = period === 'custom' && !(customStart && customEnd);
+
+  const omsattning = useMemo(() => sumFlowByType(verifications, accounts, 'intakt', bounds.start, bounds.end), [verifications, accounts, bounds]);
+  const kostnader = useMemo(() => sumFlowByType(verifications, accounts, 'kostnad', bounds.start, bounds.end), [verifications, accounts, bounds]);
+  const resultat = omsattning - kostnader;
+  const marginal = omsattning !== 0 ? (resultat / omsattning) * 100 : null;
+
+  const prevOmsattning = useMemo(() => sumFlowByType(verifications, accounts, 'intakt', bounds.prevStart, bounds.prevEnd), [verifications, accounts, bounds]);
+  const prevKostnader = useMemo(() => sumFlowByType(verifications, accounts, 'kostnad', bounds.prevStart, bounds.prevEnd), [verifications, accounts, bounds]);
+  const prevResultat = prevOmsattning - prevKostnader;
+
+  const resultSeries = useMemo(() => buildResultSeries(verifications, accounts, bounds.start, bounds.end), [verifications, accounts, bounds]);
+  const hasResultActivity = resultSeries.some(m => m.intakt !== 0 || m.kostnad !== 0);
+
+  const cashflowPoints = useMemo(() => buildCashflowSeries(verifications, accounts, bounds.start, bounds.end), [verifications, accounts, bounds]);
+  const hasCashActivity = useMemo(() => verifications.some(ver => isBooked(ver) && (ver.rows || []).some(r => isCashAccount(accounts.find(a => a.code === r.account)))), [verifications, accounts]);
+  const currentCash = cashflowPoints.length ? cashflowPoints[cashflowPoints.length - 1].balance : 0;
+
+  const costBreakdown = useMemo(() => groupCostsByAccount(verifications, accounts, bounds.start, bounds.end), [verifications, accounts, bounds]);
+
+  const balanceSheet = useMemo(() => computeBalanceSheet(verifications, accounts, bounds.end), [verifications, accounts, bounds]);
+
+  const inputSt = { padding: '9px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', outline: 'none', fontFamily: 'inherit', background: 'white' };
+
+  const tabs = [
+    { id: 'result', label: 'Resultat', icon: TrendingUp },
+    { id: 'cashflow', label: 'Kassaflöde', icon: Wallet },
+    { id: 'costs', label: 'Kostnadsfördelning', icon: PieChart },
+    { id: 'balance', label: 'Balansräkning', icon: Scale },
+  ];
+
+  return (
+    <div style={{ padding: '32px 40px', animation: 'fadeIn 0.25s ease', minHeight: '100%', maxWidth: '100%' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+        <h1 style={{ fontSize: '26px', fontWeight: 800, color: '#0f172a', margin: 0 }}>Rapport och analys</h1>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <select value={period} onChange={e => setPeriod(e.target.value)} style={inputSt}>
+            <option value="month">Denna månad</option>
+            <option value="quarter">Detta kvartal</option>
+            <option value="year">Detta räkenskapsår</option>
+            <option value="custom">Anpassat...</option>
+          </select>
+          {period === 'custom' && (
+            <>
+              <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} style={inputSt} />
+              <span style={{ color: '#9ca3af' }}>–</span>
+              <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} style={inputSt} />
+            </>
+          )}
+        </div>
+      </div>
+
+      {!companyHasAnyData ? (
+        <div style={{ background: 'white', border: '1px solid #e4e4e7', borderRadius: '12px' }}>
+          <EmptyState text={
+            <>
+              <div style={{ fontSize: '15px', fontWeight: 700, color: '#374151', marginBottom: '6px' }}>Ingen bokförd data ännu</div>
+              Så snart du bokför fakturor, kvitton eller verifikationer visas din omsättning, dina kostnader och ditt resultat här — räknat direkt från det du faktiskt har bokfört.
+            </>
+          } />
+        </div>
+      ) : customRangeIncomplete ? (
+        <div style={{ background: 'white', border: '1px solid #e4e4e7', borderRadius: '12px' }}>
+          <EmptyState text="Välj både start- och slutdatum för att visa den anpassade perioden." />
+        </div>
+      ) : (
+        <>
+          {/* KPI-rad — svarar direkt på "går det bra just nu?" utan att man behöver klicka vidare */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px', marginBottom: '24px' }}>
+            <KpiCard label="Omsättning" value={formatSEK(omsattning)} delta={formatDelta(omsattning, prevOmsattning)} help="Summan av allt du fakturerat/sålt för under perioden, exklusive moms." />
+            <KpiCard label="Kostnader" value={formatSEK(kostnader)} delta={formatDelta(kostnader, prevKostnader, true)} help="Summan av alla bokförda kostnader under perioden, exklusive moms." />
+            <KpiCard label="Resultat" value={formatSEK(resultat)} delta={formatDelta(resultat, prevResultat)} accent={resultat >= 0 ? '#15803d' : '#dc2626'} help="Omsättning minus kostnader — det som blir kvar (eller det du gått back med)." />
+            <KpiCard label="Marginal" value={marginal === null ? '—' : `${marginal.toFixed(1)}%`} help="Hur stor andel av varje intjänad krona som blir resultat. Högre är bättre." />
+          </div>
+
+          <div style={{ display: 'flex', gap: '6px', borderBottom: '2px solid #e4e4e7', marginBottom: '20px' }}>
+            {tabs.map(t => (
+              <button
+                key={t.id}
+                onClick={() => setActiveTab(t.id)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 16px', border: 'none', cursor: 'pointer', fontSize: '14px',
+                  fontWeight: activeTab === t.id ? 700 : 500,
+                  color: activeTab === t.id ? '#1a3028' : '#6b7280',
+                  background: 'none',
+                  borderBottom: activeTab === t.id ? '2px solid #1a3028' : '2px solid transparent',
+                  marginBottom: '-2px',
+                }}
+              >
+                <t.icon size={14} /> {t.label}
+              </button>
+            ))}
+          </div>
+
+          {activeTab === 'result' && (
+            <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e4e4e7', padding: '24px' }}>
+              <div style={{ fontSize: '14px', fontWeight: 700, color: '#374151', marginBottom: '4px' }}>Intäkter och kostnader per månad</div>
+              <p style={{ fontSize: '12.5px', color: '#9ca3af', margin: '0 0 16px' }}>Går det bra för företaget just nu — och hur ser trenden ut?</p>
+              {hasResultActivity ? <ResultTrendChart series={resultSeries} /> : <EmptyState text="Ingen bokförd data ännu för denna period." />}
+            </div>
+          )}
+
+          {activeTab === 'cashflow' && (
+            <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e4e4e7', padding: '24px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '4px' }}>
+                <div style={{ fontSize: '14px', fontWeight: 700, color: '#374151' }}>Pengar på bank och i kassa</div>
+                <div style={{ fontSize: '18px', fontWeight: 800, color: currentCash >= 0 ? '#111' : '#dc2626' }}>{formatSEK(currentCash)}</div>
+              </div>
+              <p style={{ fontSize: '12.5px', color: '#9ca3af', margin: '0 0 16px' }}>Har jag pengar på kontot? Ackumulerat saldo över tid, konto 1900–1999.</p>
+              {hasCashActivity ? <CashflowChart points={cashflowPoints} /> : <EmptyState text="Inga bank- eller kassatransaktioner bokförda ännu." />}
+            </div>
+          )}
+
+          {activeTab === 'costs' && (
+            <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e4e4e7', padding: '24px' }}>
+              <div style={{ fontSize: '14px', fontWeight: 700, color: '#374151', marginBottom: '4px' }}>Vart tar pengarna vägen?</div>
+              <p style={{ fontSize: '12.5px', color: '#9ca3af', margin: '0 0 16px' }}>Bokförda kostnader under perioden, störst först.</p>
+              {costBreakdown.rows.length > 0 ? <CostBreakdownBars rows={costBreakdown.rows} total={costBreakdown.total} /> : <EmptyState text="Ingen bokförd data ännu för denna period." />}
+            </div>
+          )}
+
+          {activeTab === 'balance' && (
+            <div>
+              <p style={{ fontSize: '12.5px', color: '#9ca3af', margin: '0 0 16px' }}>Ögonblicksbild av vad företaget äger och är skyldigt, per {fmtDate(bounds.end)}.</p>
+              <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+                <BalanceSheetTable title="Tillgångar" rows={balanceSheet.assets} total={balanceSheet.totalAssets} />
+                <BalanceSheetTable title="Eget kapital och skulder" rows={balanceSheet.equityAndLiabilities} total={balanceSheet.totalEquityAndLiabilities} />
+              </div>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

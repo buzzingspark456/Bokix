@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   LayoutDashboard,
   FileText,
@@ -37,9 +37,11 @@ import {
   LogOut,
   Moon,
   AlertTriangle,
+  Inbox,
 } from 'lucide-react';
 import { DEFAULT_ACCOUNTS, VAT_ACCOUNTS, REVENUE_ACCOUNTS } from './components/AccountsData';
 import { createConnectedStripeAccount, createStripeAccountLink, createStripeCheckoutSession } from './stripeApi';
+import { getDebet, getKredit } from './utils/verificationAmounts';
 
 // ── Bokix Logo Component (light sidebar) ──
 function BokixLogo() {
@@ -63,20 +65,23 @@ function BokixLogo() {
           letterSpacing="-1.5"
         >Bokix</text>
       </svg>
-      <span style={{ fontSize: '11px', color: '#94a3b8', marginTop: '-4px', paddingLeft: '4px', letterSpacing: '0.01em' }}>Bokföring, enkelt. Du växer.</span>
+      <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.7)', marginTop: '-4px', paddingLeft: '4px', letterSpacing: '0.01em' }}>Bokföring, enkelt. Du växer.</span>
     </div>
   );
 }
 import Dashboard from './components/Dashboard';
 import Invoices from './components/Invoices';
 import Expenses from './components/Expenses';
+import SupplierInvoices from './components/SupplierInvoices';
 import Contacts from './components/Contacts';
-import Bokforing from './components/Bokforing';
+import Verifications from './components/Verifications';
+import Accounts from './components/Accounts';
 import Reports from './components/Reports';
 import Settings from './components/Settings';
+import Projects from './components/Projects';
+import TimeTracking from './components/TimeTracking';
 import Payroll from './components/Payroll';
 import Taxes from './components/Taxes';
-import Projects from './components/Projects';
 import LandingPage from './components/LandingPage';
 import Auth from './components/Auth';
 import OnboardingFlow from './components/OnboardingFlow';
@@ -86,7 +91,9 @@ import PrivacyPolicy from './components/PrivacyPolicy';
 import TermsPolicy from './components/TermsPolicy';
 import GDPRPolicy from './components/GDPRPolicy';
 import CookiesPolicy from './components/CookiesPolicy';
-
+import ReviewQueue from './components/ReviewQueue';
+import CompanySettings from './components/CompanySettings';
+import HelpDrawer from './components/HelpDrawer';
 // ──────────────────────────────────────────────
 // Default company data factory
 // ──────────────────────────────────────────────
@@ -117,6 +124,14 @@ function createEmptyCompanyData(companyInfo) {
     invoices: [],
     expenses: [],
     contacts: [],
+    projects: [],
+    timeEntries: [],
+    recurringTemplates: [],
+    verificationTemplates: [],
+    vatPeriods: {},
+    reviewHistory: [],
+    employees: [],
+    payrollRuns: [],
   };
 }
 
@@ -152,12 +167,76 @@ function saveData(data) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
 
+function isSupabaseUnavailableError(error) {
+  if (!error) return false;
+
+  const code = String(error?.code || '').toUpperCase();
+  const message = String(error?.message || '').toLowerCase();
+
+  return (
+    code === 'PGRST205' ||
+    code === '42P01' ||
+    message.includes('could not find the table') ||
+    message.includes('does not exist') ||
+    message.includes('relation') ||
+    message.includes('schema cache')
+  );
+}
+
+// ──────────────────────────────────────────────
+// TAB ROUTING & ALIASES
+// ──────────────────────────────────────────────
+const tabAliases = { 
+  profile:          'settings', 
+  users:            'settings',
+  bank:             'dashboard',
+  taxes_vat:        'taxes',
+  taxes_yearend:    'taxes',
+  time:             'projects',
+  accounts:         'verifications',
+  revenue:          'invoices',
+  expense_overview: 'expenses',
+  receipts:         'expenses',
+  supplierInvoices: 'expenses',
+  quotes:           'invoices',
+  transfers:        'verifications',
+  dashboard:        'dashboard',
+  contacts:         'contacts',
+  invoices:         'invoices',
+  expenses:         'expenses',
+  projects:         'projects',
+  review:           'review',
+  verifications:    'verifications',
+  payroll:          'payroll',
+  taxes:            'taxes',
+  reports:          'reports',
+  company:          'company',
+  settings:         'settings',
+};
+const resolveTab = (id) => tabAliases[id] || id;
+
 // ──────────────────────────────────────────────
 // APP COMPONENT
 // ──────────────────────────────────────────────
 function App() {
   const [data, setData] = useState(loadData);
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash.replace('#', '');
+      if (hash) return resolveTab(hash);
+    }
+    return 'dashboard';
+  });
+  
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace('#', '');
+      if (hash) setActiveTab(resolveTab(hash));
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showLanding, setShowLanding] = useState(true);
@@ -169,20 +248,27 @@ function App() {
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(() => localStorage.getItem('bokix_onboarding_completed') === 'true');
   const [hasSkippedOnboarding, setHasSkippedOnboarding] = useState(() => localStorage.getItem('bokix_onboarding_skipped') === 'true');
   const [dbSupportsProfileColumns, setDbSupportsProfileColumns] = useState(false);
+  const [supabaseEnabled, setSupabaseEnabled] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
 
   // Global intent state
   const [globalAction, setGlobalAction] = useState(null);
   const [isGlobalPlusOpen, setIsGlobalPlusOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [isCompanySwitcherOpen, setIsCompanySwitcherOpen] = useState(false);
   const [openMenus, setOpenMenus] = useState({ sales: true, purchases: true, accounting: true, reports: true });
+  const [isHelpDrawerOpen, setIsHelpDrawerOpen] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [highlightVerificationId, setHighlightVerificationId] = useState(null);
 
   const toggleMenu = (menuId) => {
     setOpenMenus(prev => ({ ...prev, [menuId]: !prev[menuId] }));
   };
 
   const handleGlobalAction = (action, tab) => {
-    setActiveTab(tab);
+    const rTab = resolveTab(tab);
+    setActiveTab(rTab);
+    if (typeof window !== 'undefined') window.location.hash = rTab;
     setGlobalAction(action);
     setIsGlobalPlusOpen(false);
     setSidebarOpen(false);
@@ -190,7 +276,9 @@ function App() {
 
   // Close sidebar when tab changes on mobile
   const handleNavTabChange = (tabId) => {
-    setActiveTab(tabId);
+    const rTab = resolveTab(tabId);
+    setActiveTab(rTab);
+    if (typeof window !== 'undefined') window.location.hash = rTab;
     setSidebarOpen(false);
   };
 
@@ -208,8 +296,18 @@ function App() {
     }));
   }, []);
 
+  const syncCompanyDataToBackend = useCallback(async (companyId, payload) => {
+    // Mock removed to avoid 404
+    return null;
+  }, [])
+
+  const loadCompanyDataFromBackend = useCallback(async (companyId) => {
+    // Mock removed to avoid 404
+    return null;
+  }, [])
+
   const saveUserDataToSupabase = async (stateData, extras = {}) => {
-    if (!user) return;
+    if (!user || !supabaseEnabled) return;
 
     const payload = {
       user_id: user.id,
@@ -220,14 +318,22 @@ function App() {
       Object.assign(payload, extras);
     }
 
-    const { error } = await supabase.from('user_data').upsert(payload);
+    const { error } = await supabase.from('user_data').upsert(payload, { onConflict: 'user_id' });
     if (error) {
+      if (isSupabaseUnavailableError(error)) {
+        setSupabaseEnabled(false);
+        return;
+      }
+
       const missingColumn = String(error.message || '').toLowerCase().includes('column');
       if (missingColumn && !dbSupportsProfileColumns) {
-        await supabase.from('user_data').upsert({
+        const fallback = await supabase.from('user_data').upsert({
           user_id: user.id,
           state: stateData,
-        });
+        }, { onConflict: 'user_id' });
+        if (fallback.error && isSupabaseUnavailableError(fallback.error)) {
+          setSupabaseEnabled(false);
+        }
       } else {
         console.error('Supabase save error:', error);
       }
@@ -275,22 +381,54 @@ function App() {
 
   const fetchUserData = async (authUser) => {
     try {
+      if (!supabaseEnabled) {
+        const cached = loadData();
+        setData(cached);
+        setHasCompletedOnboarding(localStorage.getItem('bokix_onboarding_completed') === 'true');
+        setHasSkippedOnboarding(localStorage.getItem('bokix_onboarding_skipped') === 'true');
+        setIsLoggedIn(true);
+        setIsLoadingAuth(false);
+        return;
+      }
+
       const { data: dbData, error } = await supabase
         .from('user_data')
         .select('state,onboarding_completed,onboarding_skipped,company_name,company_orgnr,contact_details,company_settings')
         .eq('user_id', authUser.id)
-        .single();
+        .maybeSingle();
 
       let resultData = dbData;
       if (error) {
+        if (isSupabaseUnavailableError(error)) {
+          setSupabaseEnabled(false);
+          const cached = loadData();
+          setData(cached);
+          setHasCompletedOnboarding(localStorage.getItem('bokix_onboarding_completed') === 'true');
+          setHasSkippedOnboarding(localStorage.getItem('bokix_onboarding_skipped') === 'true');
+          setIsLoggedIn(true);
+          setIsLoadingAuth(false);
+          return;
+        }
+
         const fallback = await supabase
           .from('user_data')
           .select('state')
           .eq('user_id', authUser.id)
-          .single();
+          .maybeSingle();
 
-        if (fallback.error && fallback.error.code !== 'PGRST116') {
+        if (fallback.error && fallback.error.code !== 'PGRST116' && !isSupabaseUnavailableError(fallback.error)) {
           console.error('Error fetching data:', fallback.error);
+        }
+
+        if (isSupabaseUnavailableError(fallback.error)) {
+          setSupabaseEnabled(false);
+          const cached = loadData();
+          setData(cached);
+          setHasCompletedOnboarding(localStorage.getItem('bokix_onboarding_completed') === 'true');
+          setHasSkippedOnboarding(localStorage.getItem('bokix_onboarding_skipped') === 'true');
+          setIsLoggedIn(true);
+          setIsLoadingAuth(false);
+          return;
         }
 
         resultData = fallback.data;
@@ -299,13 +437,16 @@ function App() {
       }
 
       if (resultData && resultData.state) {
-        setData(resultData.state);
+        const backendState = await loadCompanyDataFromBackend(resultData.state.activeCompanyId);
+        const resolvedState = backendState || resultData.state;
+        setData(resolvedState);
         const completed = Boolean(resultData.onboarding_completed);
         const skipped = Boolean(resultData.onboarding_skipped);
         setHasCompletedOnboarding(completed);
         setHasSkippedOnboarding(skipped);
         localStorage.setItem('bokix_onboarding_completed', String(completed));
         localStorage.setItem('bokix_onboarding_skipped', String(skipped));
+        await syncCompanyDataToBackend(resolvedState.activeCompanyId, resolvedState);
         setIsLoggedIn(true);
       } else {
         // First login, create blank company data based on metadata
@@ -320,7 +461,9 @@ function App() {
         };
         setData(initialStore);
 
-            await saveUserDataToSupabase(initialStore, {
+        await syncCompanyDataToBackend(initialStore.activeCompanyId, initialStore);
+
+        await saveUserDataToSupabase(initialStore, {
           onboarding_completed: false,
           onboarding_skipped: false,
           company_name: newData.company.name,
@@ -357,21 +500,33 @@ function App() {
   // Persist
   useEffect(() => {
     saveData(data);
-    
-    // Sync to Supabase debounced
-    if (user && isLoggedIn) {
-      const timeoutId = setTimeout(() => {
-        saveUserDataToSupabase(data);
-      }, 2000);
-      return () => clearTimeout(timeoutId);
+
+    const timeoutIds = [];
+
+    if (data?.activeCompanyId) {
+      timeoutIds.push(setTimeout(() => {
+        syncCompanyDataToBackend(data.activeCompanyId, data);
+      }, 600));
     }
-  }, [data, user, isLoggedIn]);
+
+    // Sync to Supabase debounced — this is the actual persistence path;
+    // it must always run for a logged-in user, independent of the
+    // (currently no-op) per-company sync above.
+    if (user && isLoggedIn) {
+      timeoutIds.push(setTimeout(() => {
+        saveUserDataToSupabase(data);
+      }, 2000));
+    }
+
+    return () => timeoutIds.forEach(clearTimeout);
+  }, [data, user, isLoggedIn, syncCompanyDataToBackend]);
 
   // Close dropdown on outside click
   useEffect(() => {
     const handler = () => {
       setIsGlobalPlusOpen(false);
       setIsProfileMenuOpen(false);
+      setIsCompanySwitcherOpen(false);
     };
     document.addEventListener('click', handler);
     return () => document.removeEventListener('click', handler);
@@ -379,6 +534,13 @@ function App() {
 
   const handleLogin = (companyInfo, isNew) => {
     // Auth component now handles Supabase calls. We just rely on onAuthStateChange.
+  };
+
+  const handleSwitchCompany = (companyId) => {
+    if (!data.companies[companyId] || companyId === data.activeCompanyId) return;
+    setData(prev => ({ ...prev, activeCompanyId: companyId }));
+    setActiveTab('dashboard');
+    if (typeof window !== 'undefined') window.location.hash = 'dashboard';
   };
 
   const handleCreateCompany = () => {
@@ -477,6 +639,14 @@ function App() {
   const invoices = currentCompany.invoices;
   const expenses = currentCompany.expenses;
   const contacts = currentCompany.contacts;
+  const projects = currentCompany.projects || [];
+  const verificationTemplates = currentCompany.verificationTemplates || [];
+  const vatPeriods = currentCompany.vatPeriods || {};
+  const reviewHistory = currentCompany.reviewHistory || [];
+  const employees = currentCompany.employees || [];
+  const payrollRuns = currentCompany.payrollRuns || [];
+  const timeEntries = currentCompany.timeEntries || [];
+  const recurringTemplates = currentCompany.recurringTemplates || [];
 
   // ── Helpers ──
   const setAccounts = (fn) => {
@@ -504,6 +674,72 @@ function App() {
     updateCompanyField('contacts', newVal);
   };
 
+  const setProjects = (fn) => {
+    const newVal = typeof fn === 'function' ? fn(projects) : fn;
+    updateCompanyField('projects', newVal);
+  };
+
+  const setEmployees = (fn) => {
+    const newVal = typeof fn === 'function' ? fn(employees) : fn;
+    updateCompanyField('employees', newVal);
+  };
+
+  const setPayrollRuns = (fn) => {
+    const newVal = typeof fn === 'function' ? fn(payrollRuns) : fn;
+    updateCompanyField('payrollRuns', newVal);
+  };
+
+  const setTimeEntries = (fn) => {
+    const newVal = typeof fn === 'function' ? fn(timeEntries) : fn;
+    updateCompanyField('timeEntries', newVal);
+  };
+
+  const setRecurringTemplates = (fn) => {
+    const newVal = typeof fn === 'function' ? fn(recurringTemplates) : fn;
+    updateCompanyField('recurringTemplates', newVal);
+  };
+
+  const handleSaveVerificationTemplate = ({ name, description, projectId, costCenter, rows }) => {
+    updateCompanyField('verificationTemplates', [
+      ...verificationTemplates,
+      { id: `tpl_${Date.now()}`, name, description, projectId, costCenter, rows },
+    ]);
+  };
+
+  // Bokför en moms-period mot 2650 (Sida 11, Steg 3). Spärrad mot
+  // dubbelbokföring — om perioden redan finns i vatPeriods görs ingenting.
+  const handleBookVatPeriod = ({ periodKey, periodStart, periodEnd, quarter, year, rounded }) => {
+    if (vatPeriods[periodKey]) return; // redan bokförd — förhindrar dubbelklick/dubbelbokföring
+    const verRows = [];
+    [25, 12, 6].forEach(rate => {
+      const amount = rounded.outputVatByRate[rate];
+      if (amount) verRows.push({ account: { 25: '2611', 12: '2612', 6: '2613' }[rate], debet: Math.round(amount), kredit: 0 });
+    });
+    if (rounded.inputVat) verRows.push({ account: '2641', debet: 0, kredit: Math.round(rounded.inputVat) });
+    if (rounded.netToPay > 0) verRows.push({ account: '2650', debet: 0, kredit: Math.round(rounded.netToPay) });
+    else if (rounded.netToPay < 0) verRows.push({ account: '2650', debet: Math.round(-rounded.netToPay), kredit: 0 });
+
+    const verId = `ver_vat_${periodKey}_${Date.now()}`;
+    handleAddVerification({
+      date: new Date().toISOString().split('T')[0],
+      description: `Momsdeklaration ${periodKey}`,
+      source: 'vat_declaration',
+      sourceId: verId,
+      rows: verRows,
+    });
+
+    updateCompanyField('vatPeriods', {
+      ...vatPeriods,
+      [periodKey]: { periodStart, periodEnd, quarter, year, bookedAt: new Date().toISOString(), netToPay: rounded.netToPay },
+    });
+  };
+
+  // Hoppa direkt till en verifikation från momsdeklarationens felposter (Steg 1)
+  const handleNavigateToVerification = (id) => {
+    handleNavTabChange('verifications');
+    setHighlightVerificationId(id);
+  };
+
   const setCompanyInfo = (fn) => {
     const newVal = typeof fn === 'function' ? fn(company) : fn;
     updateCompanyField('company', newVal);
@@ -514,8 +750,11 @@ function App() {
     const balances = {};
     accounts.forEach(acc => { balances[acc.code] = 0; });
     verifications.forEach(ver => {
+      // Utkast är inte bokförda ännu — de ska inte påverka riktiga saldon,
+      // Dashboard-nyckeltal eller rapporter förrän de faktiskt bokförs.
+      if ((ver.status || 'booked') === 'draft') return;
       ver.rows.forEach(row => {
-        const val = (row.debet || 0) - (row.kredit || 0);
+        const val = getDebet(row) - getKredit(row);
         if (balances[row.account] !== undefined) {
           balances[row.account] += val;
         } else {
@@ -636,8 +875,11 @@ function App() {
   // Add verification
   const handleAddVerification = (newVer) => {
     setVerifications(prev => {
-      const nextNum = `V${prev.length + 1}`;
-      return [...prev, { ...newVer, id: Date.now(), number: nextNum }];
+      // Respektera ett nummer som redan beräknats (t.ex. med rätt serie från
+      // "Ny verifikation"-formuläret) — bygg bara ett eget som fallback för
+      // auto-bokförda verifikationer från fakturor/utgifter, som inte skickar med ett.
+      const number = newVer.number || `V${prev.length + 1}`;
+      return [...prev, { ...newVer, id: Date.now(), number }];
     });
   };
 
@@ -755,33 +997,68 @@ function App() {
     });
   };
 
-  // Mark invoice paid
-  const handleMarkInvoicePaid = (invoiceId) => {
-    const inv = invoices.find(i => i.id === invoiceId);
-    if (!inv) return;
+  const invoiceGross = (inv) => inv.rows.reduce((sum, r) => {
+    const lineNet = r.qty * r.unitPrice;
+    return sum + lineNet + lineNet * (r.vatRate / 100);
+  }, 0);
 
-    let totalGross = 0;
-    inv.rows.forEach(r => {
-      const lineNet = r.qty * r.unitPrice;
-      totalGross += lineNet + lineNet * (r.vatRate / 100);
-    });
+  // Registrera betalning — stödjer delbetalning. Beloppet som faktiskt
+  // betalas denna gång bokförs för sig (1930/1510), och fakturan markeras
+  // som fullt betald först när det ackumulerade betalda beloppet når hela
+  // fakturabeloppet. Kan aldrig ta emot mer än vad som återstår.
+  const handleRegisterInvoicePayment = (invoiceId, amount, date) => {
+    const inv = invoices.find(i => i.id === invoiceId);
+    if (!inv || !amount || amount <= 0) return;
+
+    const totalGross = invoiceGross(inv);
+    const alreadyPaid = inv.paidAmount || 0;
+    const remaining = Math.max(0, totalGross - alreadyPaid);
+    const paymentAmount = Math.min(amount, remaining);
+    if (paymentAmount <= 0) return;
+
+    const newPaid = alreadyPaid + paymentAmount;
+    const isFullyPaid = newPaid >= totalGross - 0.5; // avrundningsmarginal (öre)
+    const paidDate = date || new Date().toISOString().split('T')[0];
 
     setInvoices(prev => prev.map(i =>
       i.id === invoiceId
-        ? { ...i, status: 'paid', paidDate: new Date().toISOString().split('T')[0] }
+        ? { ...i, paidAmount: newPaid, status: isFullyPaid ? 'paid' : i.status, paidDate: isFullyPaid ? paidDate : i.paidDate }
         : i
     ));
 
     handleAddVerification({
-      date: new Date().toISOString().split('T')[0],
-      description: `Betalning faktura ${inv.invoiceNumber}`,
+      date: paidDate,
+      description: alreadyPaid > 0 || !isFullyPaid
+        ? `Delbetalning faktura ${inv.invoiceNumber}`
+        : `Betalning faktura ${inv.invoiceNumber}`,
       source: 'invoice_payment',
       sourceId: invoiceId,
       rows: [
-        { account: '1930', debet: Math.round(totalGross), kredit: 0 },
-        { account: '1510', debet: 0, kredit: Math.round(totalGross) },
+        { account: '1930', debet: Math.round(paymentAmount), kredit: 0 },
+        { account: '1510', debet: 0, kredit: Math.round(paymentAmount) },
       ],
     });
+  };
+
+  // Bekvämlighetsgenväg som betalar hela kvarvarande beloppet idag — det
+  // snabbknappen i listan och bulk-"Markera som betalda" använder.
+  const handleMarkInvoicePaid = (invoiceId) => {
+    const inv = invoices.find(i => i.id === invoiceId);
+    if (!inv) return;
+    const remaining = Math.max(0, invoiceGross(inv) - (inv.paidAmount || 0));
+    if (remaining <= 0) return;
+    handleRegisterInvoicePayment(invoiceId, remaining, new Date().toISOString().split('T')[0]);
+  };
+
+  // "Markera som obetald" ångrar en registrerad betalning — status och
+  // betalt belopp återställs, och betalningsverifikationerna tas faktiskt
+  // bort (inte bara döljs), eftersom det är precis vad en ångrad
+  // betalningsregistrering innebär. Kräver bekräftelse i UI:t innan den anropas.
+  const handleUnmarkInvoicePaid = (invoiceId) => {
+    setInvoices(prev => prev.map(i =>
+      i.id === invoiceId ? { ...i, status: 'sent', paidDate: undefined, paidAmount: 0 } : i
+    ));
+    setVerifications(prev => prev.filter(v => !(v.source === 'invoice_payment' && v.sourceId === invoiceId)));
   };
 
   // Add expense with auto-booking
@@ -806,6 +1083,185 @@ function App() {
     });
   };
 
+  // Registrera en leverantörsfaktura. Stödjer flera konteringsrader (inte
+  // bara ett konto), betalning från egen ficka (bokförs mot 2018 istället
+  // för 2440 — en skuld till ägaren, inte till leverantören) och avrundning
+  // till hel krona (mellanskillnaden bokförs mot 3740, aldrig bara avrundas
+  // bort tyst).
+  //
+  // Omvänd skattskyldighet: fakturan bokförs utan moms (precis som
+  // leverantörens egen faktura saknar moms i det läget). Den självdeklarerade
+  // momsen som egentligen ska redovisas bokförs INTE automatiskt ännu — det
+  // kräver konton/rutor vi inte har verifierat, så vi gissar hellre inte än
+  // bokför fel. Formuläret varnar om detta innan man sparar.
+  const handleAddSupplierInvoice = (invoice) => {
+    const status = invoice.status === 'paid' ? 'paid' : 'unpaid';
+    const inv = {
+      ...invoice, id: `exp_${Date.now()}`, type: 'supplier_invoice', status,
+      paidDate: status === 'paid' ? new Date().toISOString().split('T')[0] : undefined,
+    };
+    setExpenses(prev => [...prev, inv]);
+
+    const rows = inv.rows?.length ? inv.rows : [{ account: inv.costAccount, netAmount: inv.netAmount, vatAmount: inv.vatAmount }];
+    const verRows = rows
+      .filter(r => r.account && r.netAmount)
+      .map(r => ({ account: r.account, debet: Math.round(r.netAmount), kredit: 0, costCenter: inv.costCenter || undefined, projectId: inv.projectId || undefined }));
+
+    const totalVat = inv.reverseCharge ? 0 : rows.reduce((s, r) => s + (r.vatAmount || 0), 0);
+    if (totalVat > 0) {
+      verRows.push({ account: '2641', debet: Math.round(totalVat), kredit: 0 });
+    }
+
+    const payableAccount = inv.paidByOwnerPrivately ? '2018' : '2440';
+    const netTotal = rows.reduce((s, r) => s + (r.netAmount || 0), 0);
+    const payableAmount = Math.round(netTotal + totalVat);
+    verRows.push({ account: payableAccount, debet: 0, kredit: payableAmount });
+
+    if (inv.roundToKrona && Math.round(inv.roundingDiff * 100) !== 0) {
+      // Positiv diff (avrundat uppåt) krediteras 3740, negativ (nedåt) debiteras.
+      const diff = Math.round(inv.roundingDiff);
+      if (diff !== 0) verRows.push({ account: '3740', debet: diff < 0 ? -diff : 0, kredit: diff > 0 ? diff : 0 });
+    }
+
+    handleAddVerification({
+      date: inv.date,
+      description: inv.description || `Leverantörsfaktura ${inv.invoiceNumber}`,
+      source: 'supplier_invoice',
+      sourceId: inv.id,
+      rows: verRows,
+    });
+
+    // Har ägaren redan betalat privat är leverantören redan löst (skulden
+    // ligger istället mot ägaren via 2018 ovan) — ingen separat betalnings-
+    // verifikation ska bokas mot bankkontot för det.
+    if (status === 'paid' && !inv.paidByOwnerPrivately) {
+      handleAddVerification({
+        date: inv.paidDate,
+        description: `Betalning leverantörsfaktura ${inv.invoiceNumber}`,
+        source: 'supplier_invoice_payment',
+        sourceId: inv.id,
+        rows: [
+          { account: '2440', debet: payableAmount, kredit: 0 },
+          { account: '1930', debet: 0, kredit: payableAmount },
+        ],
+      });
+    }
+  };
+
+  // Markera en leverantörsfaktura som betald: flyttar skulden (2440) till bank (1930).
+  const handleMarkSupplierInvoicePaid = (expenseId) => {
+    const inv = expenses.find(e => e.id === expenseId);
+    if (!inv) return;
+    setExpenses(prev => prev.map(e => e.id === expenseId ? { ...e, status: 'paid', paidDate: new Date().toISOString().split('T')[0] } : e));
+
+    handleAddVerification({
+      date: new Date().toISOString().split('T')[0],
+      description: `Betalning leverantörsfaktura ${inv.invoiceNumber}`,
+      source: 'supplier_invoice_payment',
+      sourceId: inv.id,
+      rows: [
+        { account: '2440', debet: Math.round(inv.amount), kredit: 0 },
+        { account: '1930', debet: 0, kredit: Math.round(inv.amount) },
+      ],
+    });
+  };
+
+  // Sätter konto på en utgift som saknar kontering — antingen via det gamla
+  // "Fixa manuellt"-läget i Kvitto och utgifter, eller via Granskningssidans
+  // Godkänn/Avvisa (som båda i slutändan bara väljer rätt konto).
+  //
+  // Bugkritiskt: idempotent. Om posten redan har fått ett konto (t.ex. för
+  // att den redan hanterades i en annan flik, eller ett dubbelklick hann
+  // igenom innan UI:t uppdaterades) görs ingenting — annars skulle en andra
+  // körning bokföra ytterligare en rättelseverifikation för samma utgift.
+  const handleFixExpenseAccount = (expenseId, accountCode, meta = {}) => {
+    const exp = expenses.find(e => e.id === expenseId);
+    if (!exp || exp.costAccount) return;
+    setExpenses(prev => prev.map(e => e.id === expenseId ? { ...e, costAccount: accountCode } : e));
+
+    const verRows = [{ account: accountCode, debet: Math.round(exp.netAmount || exp.amount), kredit: 0 }];
+    if (exp.vatAmount > 0) verRows.push({ account: '2641', debet: Math.round(exp.vatAmount), kredit: 0 });
+    verRows.push({ account: exp.type === 'supplier_invoice' ? '2440' : '1930', debet: 0, kredit: Math.round(exp.amount) });
+
+    handleAddVerification({
+      date: new Date().toISOString().split('T')[0],
+      description: `Rättad kontering: ${exp.description}`,
+      source: 'expense_fix',
+      sourceId: exp.id,
+      rows: verRows,
+    });
+
+    const accountName = accounts.find(a => a.code === accountCode)?.name || accountCode;
+    updateCompanyField('reviewHistory', [
+      {
+        id: `rh_${Date.now()}`,
+        expenseId,
+        title: exp.type === 'supplier_invoice' ? `Leverantörsfaktura — ${exp.supplier || exp.description || 'Okänd'}` : `Kvitto — ${exp.supplier || exp.description || 'Okänd'}`,
+        amount: exp.amount,
+        account: accountCode,
+        accountName,
+        method: meta.method || 'manual', // 'suggested' | 'bulk' | 'manual'
+        resolvedBy: user?.email || 'Okänd användare',
+        resolvedAt: new Date().toISOString(),
+      },
+      ...reviewHistory,
+    ]);
+  };
+
+  // ── Lön (Sida 12 & 13) ──────────────────────────────────────────────────
+  const handleSaveEmployee = (employeeId, data) => {
+    if (employeeId) {
+      setEmployees(prev => prev.map(e => e.id === employeeId ? { ...e, ...data } : e));
+    } else {
+      setEmployees(prev => [...prev, { ...data, id: `emp_${Date.now()}` }]);
+    }
+  };
+
+  // Skapar en ny lönekörning. Fryser en ögonblicksbild av varje anställds
+  // lönerelevanta fält vid skapandet — en historisk körning ska alltid visa
+  // exakt det som gällde då, även om den anställdas profil ändras senare
+  // (samma princip som för fakturor).
+  const handleCreateRun = ({ period, payDate, employees: employeesForRun }) => {
+    const runId = `run_${Date.now()}`;
+    const rows = employeesForRun.map(e => ({
+      employeeId: e.id,
+      period,
+      hoursWorked: 0,
+      additions: 0, absenceDeduction: 0, grossDeduction: 0, benefits: 0, netDeduction: 0,
+      employeeSnapshot: { ...e },
+    }));
+    setPayrollRuns(prev => [...prev, { id: runId, period, payDate, completedSteps: [], rows, createdAt: new Date().toISOString() }]);
+    return runId;
+  };
+
+  const handleUpdateRunRow = (runId, employeeId, patch) => {
+    setPayrollRuns(prev => prev.map(r => r.id !== runId ? r : {
+      ...r,
+      rows: r.rows.map(row => row.employeeId === employeeId ? { ...row, ...patch } : row),
+    }));
+  };
+
+  const handleAdvanceRunStep = (runId, stepId) => {
+    setPayrollRuns(prev => prev.map(r => {
+      if (r.id !== runId || r.completedSteps.includes(stepId)) return r; // idempotent
+      return { ...r, completedSteps: [...r.completedSteps, stepId] };
+    }));
+  };
+
+  // Bokför en lönekörning som tre summerade verifikationer (inte en per
+  // anställd). Spärrad mot dubbelbokföring precis som momsdeklarationen.
+  const handleBookRun = (runId, verBlocks) => {
+    const run = payrollRuns.find(r => r.id === runId);
+    if (!run || run.completedSteps.includes('booked')) return;
+
+    const period = run.period;
+    handleAddVerification({ date: run.payDate || new Date().toISOString().split('T')[0], description: `Lön ${period}: Lön`, source: 'payroll', sourceId: `${runId}_lon`, rows: verBlocks.block1 });
+    handleAddVerification({ date: run.payDate || new Date().toISOString().split('T')[0], description: `Lön ${period}: Arbetsgivaravgifter`, source: 'payroll', sourceId: `${runId}_agifter`, rows: verBlocks.block2 });
+    handleAddVerification({ date: run.payDate || new Date().toISOString().split('T')[0], description: `Lön ${period}: Semesteravsättning`, source: 'payroll', sourceId: `${runId}_semester`, rows: verBlocks.block3 });
+
+    setPayrollRuns(prev => prev.map(r => r.id === runId ? { ...r, completedSteps: [...r.completedSteps, 'booked'] } : r));
+  };
+
   // End of logic
 
   // Import/export (for settings)
@@ -815,6 +1271,7 @@ function App() {
     if (importedData.invoices) updateCompanyField('invoices', importedData.invoices);
     if (importedData.expenses) updateCompanyField('expenses', importedData.expenses);
     if (importedData.contacts) updateCompanyField('contacts', importedData.contacts);
+    if (importedData.projects) updateCompanyField('projects', importedData.projects);
     if (importedData.company) updateCompanyField('company', { ...company, ...importedData.company });
   };
 
@@ -832,25 +1289,44 @@ function App() {
   };
 
   // Count for review badge (must be before navSections)
-  const reviewCount = invoices.filter(i => i.status === 'draft').length;
+  // Granskningskön (Sida "Granskning") = kvitton/leverantörsfakturor utan
+  // kontering — samma underlag som ReviewQueue.jsx faktiskt visar.
+  const reviewCount = expenses.filter(e => !e.costAccount).length;
+  const notificationCount = reviewCount + expenses.filter(e => ['draft', 'pending'].includes(e.status)).length;
 
-  // ── Navigation config: 9 flat items, no group headers ──
-  const navItems = [
-    { id: 'dashboard',   label: 'Startsida',        icon: LayoutDashboard },
-    { id: 'invoices',    label: 'Fakturering',       icon: FileText,   hint: 'inkl. offerter' },
-    { id: 'contacts',    label: 'Kunder',            icon: Users },
-    { id: 'expenses',    label: 'Kvitto & utgifter', icon: Receipt,    hint: 'inkl. leverantörsfakturor' },
-    { id: 'accounting',  label: 'Bokföring',         icon: BookOpen,   hint: 'inkl. verifikationer, kontoplan', badge: reviewCount },
-    { id: 'payroll',     label: 'Anställda och lön', icon: UsersRound },
-    { id: 'projects',    label: 'Projekt',           icon: Briefcase,  hint: 'inkl. tidrapportering' },
-    { id: 'taxes',       label: 'Skatt & bokslut',   icon: Shield },
-    { id: 'reports',     label: 'Rapport & analys',  icon: BarChart3 },
-    // separator before settings
-    { id: 'settings',   label: 'Inställningar',     icon: SettingsIcon, hint: 'inkl. företag', separator: true },
+  // ── Navigation config (flat) ──
+  const navSections = [
+    {
+      label: 'Arbetsyta',
+      items: [
+        { id: 'dashboard', label: 'Startsida',           icon: LayoutDashboard },
+        { id: 'invoices',  label: 'Fakturering',         icon: FileText },
+        { id: 'contacts',  label: 'Kunder',              icon: Users },
+        { id: 'expenses',  label: 'Kvitto och utgifter', icon: Receipt },
+        { id: 'supplier_invoices', label: 'Leverantörsfakturor', icon: Inbox },
+        { id: 'projects',  label: 'Projekt',             icon: Briefcase },
+      ],
+    },
+    {
+      label: 'Bokföring och ekonomi',
+      items: [
+        { id: 'review',    label: 'Granskning',          icon: CheckSquare, badge: reviewCount },
+        { id: 'verifications', label: 'Bokföring',       icon: BookOpen },
+        { id: 'payroll',   label: 'Anställda och lön',   icon: UsersRound },
+        { id: 'taxes',     label: 'Skatt och bokslut',   icon: Shield },
+        { id: 'reports',   label: 'Rapporter',           icon: BarChart3 },
+      ],
+    },
+    {
+      label: 'Fristående',
+      items: [
+        { id: 'company',   label: 'Företag',             icon: Building2 },
+        { id: 'settings',  label: 'Inställningar',       icon: SettingsIcon },
+      ],
+    },
   ];
 
-  // No aliases needed — all IDs map directly to renderContent cases
-  const resolveTab = (id) => id;
+  const navItems = navSections.flatMap(s => s.items);
 
   // Mobile bottom nav (5 viktigaste)
   const mobileNavItems = [
@@ -864,7 +1340,7 @@ function App() {
   const companyList = Object.values(data.companies).map(c => c.company);
 
   // Active tab label for topbar
-  const activeNavLabel = navItems.find(n => n.id === activeTab)?.label || 'Hem';
+  const activeNavLabel = navItems.find(n => resolveTab(n.id) === resolveTab(activeTab))?.label || 'Hem';
 
 
   // ── Render content ──
@@ -893,14 +1369,40 @@ function App() {
       case 'time':
         return <TimeTracking key={company?.id || data.activeCompanyId} />;
       case 'payroll':
-        return <Payroll key={company?.id || data.activeCompanyId} />;
+        return (
+          <Payroll
+            key={company?.id || data.activeCompanyId}
+            employees={employees}
+            onSaveEmployee={handleSaveEmployee}
+            accounts={accounts}
+            projects={projects}
+            payrollRuns={payrollRuns}
+            onCreateRun={handleCreateRun}
+            onUpdateRunRow={handleUpdateRunRow}
+            onAdvanceRunStep={handleAdvanceRunStep}
+            onBookRun={handleBookRun}
+          />
+        );
       case 'taxes':
-        return <Taxes key={company?.id || data.activeCompanyId} company={company} verifications={verifications} balances={balances} />;
-      case 'invoices':
+        return (
+          <Taxes
+            key={company?.id || data.activeCompanyId}
+            company={company}
+            verifications={verifications}
+            invoices={invoices}
+            expenses={expenses}
+            accounts={accounts}
+            balances={balances}
+            vatPeriods={vatPeriods}
+            onBookVatPeriod={handleBookVatPeriod}
+            onNavigateToVerification={handleNavigateToVerification}
+          />
+        );
+      case 'revenue':
         return (
           <Invoices
             key={company?.id || data.activeCompanyId}
-            invoices={invoices}
+            invoices={invoices.filter(i => i.type !== 'quote')}
             contacts={contacts}
             onAdd={handleAddInvoice}
             onMarkPaid={handleMarkInvoicePaid}
@@ -911,6 +1413,49 @@ function App() {
             company={company}
             globalAction={globalAction}
             clearGlobalAction={() => setGlobalAction(null)}
+            onNavigate={handleNavTabChange}
+            pageTitle="Intäkter"
+            pageSubtitle="Hantera intäkter, fakturor och betalningar"
+          />
+        );
+      case 'invoices':
+        return (
+          <Invoices
+            key={company?.id || data.activeCompanyId}
+            invoices={invoices}
+            contacts={contacts}
+            verifications={verifications}
+            expenses={expenses}
+            onAdd={handleAddInvoice}
+            onMarkPaid={handleMarkInvoicePaid}
+            onRegisterPayment={handleRegisterInvoicePayment}
+            onUnmarkPaid={handleUnmarkInvoicePaid}
+            onMarkSupplierInvoicePaid={handleMarkSupplierInvoicePaid}
+            handleGlobalAction={handleGlobalAction}
+            onCreatePaymentLink={handleCreateInvoicePaymentLink}
+            stripeAccountId={company.stripeAccountId}
+            setInvoices={setInvoices}
+            company={company}
+            globalAction={globalAction}
+            clearGlobalAction={() => setGlobalAction(null)}
+            onNavigate={handleNavTabChange}
+          />
+        );
+      case 'expense_overview':
+        return (
+          <Expenses
+            expenses={expenses}
+            accounts={accounts}
+            contacts={contacts}
+            setContacts={setContacts}
+            onAdd={handleAddExpense}
+            onAddSupplierInvoice={handleAddSupplierInvoice}
+            onMarkSupplierInvoicePaid={handleMarkSupplierInvoicePaid}
+            onFixExpenseAccount={handleFixExpenseAccount}
+            globalAction={globalAction}
+            clearGlobalAction={() => setGlobalAction(null)}
+            pageTitle="Kostnader"
+            pageSubtitle="Registrera och följ företagets kostnader"
           />
         );
       case 'expenses':
@@ -918,8 +1463,42 @@ function App() {
           <Expenses
             expenses={expenses}
             accounts={accounts}
-            contacts={contacts}
+            user={user}
             onAdd={handleAddExpense}
+            onFixExpenseAccount={handleFixExpenseAccount}
+            pageTitle="Kvitto och utgifter"
+            pageSubtitle="Alla registrerade kvitton"
+          />
+        );
+      case 'supplier_invoices':
+        return (
+          <SupplierInvoices
+            key={company?.id || data.activeCompanyId}
+            expenses={expenses}
+            accounts={accounts}
+            contacts={contacts}
+            setContacts={setContacts}
+            projects={projects}
+            user={user}
+            onAddSupplierInvoice={handleAddSupplierInvoice}
+            onMarkSupplierInvoicePaid={handleMarkSupplierInvoicePaid}
+            onFixExpenseAccount={handleFixExpenseAccount}
+            globalAction={globalAction}
+            clearGlobalAction={() => setGlobalAction(null)}
+            onNavigate={handleNavTabChange}
+          />
+        );
+      case 'quotes':
+        return <Quotes key={company?.id || data.activeCompanyId} invoices={invoices} setInvoices={setInvoices} contacts={contacts} globalAction={globalAction} clearGlobalAction={() => setGlobalAction(null)} handleGlobalAction={handleGlobalAction} />;
+      case 'projects':
+        return (
+          <Projects
+            key={company?.id || data.activeCompanyId}
+            projects={projects}
+            setProjects={setProjects}
+            contacts={contacts}
+            timeEntries={timeEntries}
+            setTimeEntries={setTimeEntries}
             globalAction={globalAction}
             clearGlobalAction={() => setGlobalAction(null)}
           />
@@ -929,17 +1508,56 @@ function App() {
           <Contacts
             contacts={contacts}
             setContacts={setContacts}
+            accounts={accounts}
             globalAction={globalAction}
             clearGlobalAction={() => setGlobalAction(null)}
           />
         );
+      case 'transfers':
+        return (
+          <Verifications
+            verifications={verifications}
+            accounts={accounts}
+            balances={balances}
+            contacts={contacts}
+            projects={projects}
+            templates={verificationTemplates}
+            onSaveTemplate={handleSaveVerificationTemplate}
+            onAdd={handleAddVerification}
+            setVerifications={setVerifications}
+            pageTitle="Överföringar"
+            pageSubtitle="Hantera kontoöverföringar och transaktioner"
+            vatPeriods={vatPeriods}
+            highlightVerificationId={highlightVerificationId}
+            onClearHighlight={() => setHighlightVerificationId(null)}
+          />
+        );
+      case 'review':
+        return (
+          <ReviewQueue
+            expenses={expenses}
+            accounts={accounts}
+            reviewHistory={reviewHistory}
+            onResolve={handleFixExpenseAccount}
+          />
+        );
+
       case 'verifications':
         return (
           <Verifications
             verifications={verifications}
             accounts={accounts}
+            balances={balances}
+            contacts={contacts}
+            projects={projects}
+            templates={verificationTemplates}
+            onSaveTemplate={handleSaveVerificationTemplate}
             onAdd={handleAddVerification}
             setVerifications={setVerifications}
+            setAccounts={setAccounts}
+            vatPeriods={vatPeriods}
+            highlightVerificationId={highlightVerificationId}
+            onClearHighlight={() => setHighlightVerificationId(null)}
           />
         );
       case 'accounts':
@@ -953,15 +1571,21 @@ function App() {
       case 'reports':
         return (
           <Reports
-            balances={balances}
             accounts={accounts}
             verifications={verifications}
+            company={company}
+          />
+        );
+      case 'company':
+        return (
+          <CompanySettings 
+            company={company} 
+            updateCompany={setCompanyInfo} 
           />
         );
       case 'settings':
         return (
           <Settings
-            activeTab={activeTab}
             company={company}
             setCompanyInfo={setCompanyInfo}
             accounts={accounts}
@@ -969,10 +1593,12 @@ function App() {
             invoices={invoices}
             expenses={expenses}
             contacts={contacts}
+            projects={projects}
             onImport={handleImportData}
             onReset={handleResetData}
             stripeAccountId={company.stripeAccountId}
             onConnectStripe={handleOpenStripeOnboarding}
+            user={user}
           />
         );
       default:
@@ -1003,77 +1629,145 @@ function App() {
       )}
 
       {/* ── Sidebar ── */}
-      <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
+      <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`} style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
         {/* Logo */}
         <div className="logo-container">
           <BokixLogo />
         </div>
 
-        {/* Company Selector */}
-        <div style={{ position: 'relative', padding: '0 12px 12px' }} onClick={e => e.stopPropagation()}>
-          <div className="company-selector">
-            <div className="company-avatar">
-              {company.name ? company.name.charAt(0).toUpperCase() : 'F'}
+        {/* Företagsväxlare */}
+        <div style={{ padding: '0 12px 12px', position: 'relative', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+          <button
+            className="company-selector"
+            onClick={() => setIsCompanySwitcherOpen(o => !o)}
+            aria-expanded={isCompanySwitcherOpen}
+          >
+            <span className="company-avatar">{(company?.name || 'F').charAt(0).toUpperCase()}</span>
+            <span className="company-info">
+              <span className="company-name">{company?.name || 'Mitt Företag'}</span>
+              <span className="company-org">{company?.orgNr || 'Inget org.nr'}</span>
+            </span>
+            <ChevronDown size={14} style={{ color: 'rgba(255,255,255,0.5)', flexShrink: 0, transform: isCompanySwitcherOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
+          </button>
+
+          {isCompanySwitcherOpen && (
+            <div className="company-dropdown">
+              {companyList.map(c => (
+                <button
+                  key={c.id}
+                  className={`company-dropdown-item ${c.id === data.activeCompanyId ? 'active' : ''}`}
+                  onClick={() => { handleSwitchCompany(c.id); setIsCompanySwitcherOpen(false); }}
+                >
+                  {c.id === data.activeCompanyId ? <Check size={13} /> : <span style={{ width: 13 }} />}
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
+                </button>
+              ))}
+              <div className="company-dropdown-divider"></div>
+              <button className="company-dropdown-item" onClick={() => { setNewCompanyModal(true); setIsCompanySwitcherOpen(false); }}>
+                <Plus size={13} /> Lägg till företag
+              </button>
             </div>
-            <div className="company-info">
-              <span className="company-name">{company.name || 'Mitt Företag'}</span>
-              <span className="company-org">{company.orgNr || 'Org.nr saknas'}</span>
-            </div>
-            <ChevronDown size={14} style={{ opacity: 0.5, flexShrink: 0 }} />
-          </div>
+          )}
         </div>
 
-        <nav className="nav-links" style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
-          {navItems.map((item) => {
-            if (item.separator) {
-              return (
-                <React.Fragment key={item.id}>
-                  <div style={{ height: '1px', background: '#e2e8f0', margin: '6px 12px' }} />
+        {/* Huvudnavigering — tre grupper, ingen linje mellan rader inom en grupp,
+            bara en tunn låg-kontrast linje mellan grupperna. */}
+        <nav className="nav-links" style={{ display: 'flex', flexDirection: 'column', gap: 0, padding: 0, flexShrink: 0 }}>
+          {[
+            {
+              // Grupp 1 — det dagliga arbetet
+              items: [
+                { id: 'dashboard', label: 'Startsida' },
+                { id: 'invoices', label: 'Fakturering' },
+                { id: 'contacts', label: 'Kunder' },
+                { id: 'expenses', label: 'Kvitto och utgifter' },
+                { id: 'projects', label: 'Projekt' },
+              ],
+            },
+            {
+              // Grupp 2 — bokföring och administration
+              items: [
+                { id: 'review', label: 'Granskning', badge: reviewCount },
+                { id: 'verifications', label: 'Bokföring' },
+                { id: 'payroll', label: 'Anställda och lön' },
+                { id: 'taxes', label: 'Skatt och bokslut' },
+                { id: 'reports', label: 'Rapport och analys' },
+              ],
+            },
+            {
+              // Grupp 3 — inställningar, ensam i sin egen grupp
+              items: [
+                { id: 'settings', label: 'Inställningar' },
+              ],
+            },
+          ].map((group, gi) => (
+            <React.Fragment key={gi}>
+              {gi > 0 && <div style={{ height: '1px', background: 'rgba(255,255,255,0.15)', margin: '8px 20px', flexShrink: 0 }}></div>}
+              {group.items.map((item) => {
+                const isActive = resolveTab(activeTab) === resolveTab(item.id);
+                return (
                   <button
-                    className={`nav-item ${activeTab === item.id ? 'active' : ''}`}
+                    key={item.id}
+                    className={`nav-item ${isActive ? 'active' : ''}`}
                     onClick={() => handleNavTabChange(item.id)}
-                    style={{ width: '100%' }}
+                    style={{
+                      padding: '13px 24px',
+                      width: '100%',
+                      textAlign: 'left',
+                      background: isActive ? 'rgba(255,255,255,0.14)' : 'none',
+                      border: 'none',
+                      color: isActive ? '#ffffff' : 'rgba(255,255,255,0.88)',
+                      fontSize: '15px',
+                      fontWeight: isActive ? 700 : 500,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '8px',
+                      flexShrink: 0,
+                    }}
                   >
-                    <item.icon size={16} style={{ opacity: activeTab === item.id ? 1 : 0.6, flexShrink: 0 }} />
-                    <div style={{ flex: 1, textAlign: 'left' }}>
-                      <div style={{ fontSize: '13px' }}>{item.label}</div>
-                      {item.hint && <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '1px' }}>{item.hint}</div>}
-                    </div>
-                    {item.badge > 0 && <span className="nav-badge">{item.badge}</span>}
+                    <span>{item.label}</span>
+                    {item.badge > 0 && (
+                      <span style={{
+                        minWidth: '20px', height: '20px', padding: '0 6px', borderRadius: '999px',
+                        background: '#22c55e', color: 'white', fontSize: '12px', fontWeight: 700,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                      }}>
+                        {item.badge}
+                      </span>
+                    )}
                   </button>
-                </React.Fragment>
-              );
-            }
-            const isActive = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                className={`nav-item ${isActive ? 'active' : ''}`}
-                onClick={() => handleNavTabChange(item.id)}
-                style={{ width: '100%' }}
-              >
-                <item.icon size={16} style={{ opacity: isActive ? 1 : 0.6, flexShrink: 0 }} />
-                <div style={{ flex: 1, textAlign: 'left' }}>
-                  <div style={{ fontSize: '13px' }}>{item.label}</div>
-                  {item.hint && <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '1px' }}>{item.hint}</div>}
-                </div>
-                {item.badge > 0 && <span className="nav-badge">{item.badge}</span>}
-              </button>
-            );
-          })}
+                );
+              })}
+            </React.Fragment>
+          ))}
         </nav>
-        <div className="sidebar-footer" style={{ borderTop: '1px solid #e2e8f0', padding: '6px 0' }}>
+
+        {/* Flexibelt tomt utrymme — trycker botten-sektionen längst ner oavsett skärmhöjd */}
+        <div style={{ flex: 1 }}></div>
+
+        {/* Fastsatt botten-sektion: Hjälp och support, sedan Logga ut */}
+        <div style={{ flexShrink: 0, borderTop: '1px solid rgba(255,255,255,0.15)' }}>
           <button
-            className="nav-item bottom-btn logout-btn"
-            onClick={async () => {
-              await supabase.auth.signOut();
-              setIsLoggedIn(false);
-              setShowOnboarding(false);
+            className="nav-item"
+            onClick={() => setIsHelpDrawerOpen(true)}
+            style={{
+              padding: '13px 24px', width: '100%', textAlign: 'left', background: 'none',
+              border: 'none', color: 'rgba(255,255,255,0.7)', fontSize: '15px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px'
             }}
-            style={{ width: '100%', color: '#ef4444' }}
           >
-            <LogOut size={16} style={{ flexShrink: 0 }} />
-            <span style={{ fontSize: '13px' }}>Logga ut</span>
+            <HelpCircle size={17} /> Hjälp och support
+          </button>
+          <button
+            className="nav-item logout-btn"
+            onClick={() => setShowLogoutConfirm(true)}
+            style={{
+              padding: '13px 24px', width: '100%', textAlign: 'left', background: 'none',
+              border: 'none', color: '#fca5a5', fontSize: '15px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px'
+            }}
+          >
+            <LogOut size={17} /> Logga ut
           </button>
         </div>
       </aside>
@@ -1117,7 +1811,11 @@ function App() {
               <button className="topbar-icon-btn" title="Notiser">
                 <Bell size={18} />
               </button>
-              <span style={{ position: 'absolute', top: 4, right: 4, width: 14, height: 14, backgroundColor: '#ef4444', color: 'white', borderRadius: '50%', fontSize: '9px', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>1</span>
+              {notificationCount > 0 && (
+                <span style={{ position: 'absolute', top: 4, right: 4, minWidth: 16, height: 16, padding: '0 4px', backgroundColor: '#ef4444', color: 'white', borderRadius: '999px', fontSize: '9px', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {notificationCount}
+                </span>
+              )}
             </div>
 
             <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
@@ -1146,17 +1844,17 @@ function App() {
                     </div>
                   </div>
                   <div className="dropdown-divider"></div>
-                  <button onClick={() => { setActiveTab('profile'); setIsProfileMenuOpen(false); }}><User size={14} /> Profil</button>
-                  <button onClick={() => { setActiveTab('settings'); setIsProfileMenuOpen(false); }}><SettingsIcon size={14} /> Inställningar</button>
+                  <button onClick={() => { handleNavTabChange('profile'); setIsProfileMenuOpen(false); }}><User size={14} /> Profil</button>
+                  <button onClick={() => { handleNavTabChange('settings'); setIsProfileMenuOpen(false); }}><SettingsIcon size={14} /> Inställningar</button>
                   <button onClick={() => { setIsProfileMenuOpen(false); }}><Moon size={14} /> Byt tema</button>
                   <div className="dropdown-divider"></div>
-                  <button onClick={() => { setActiveTab('accounts'); setIsProfileMenuOpen(false); }}><FolderTree size={14} /> Kontoplaner</button>
+                  <button onClick={() => { handleNavTabChange('accounts'); setIsProfileMenuOpen(false); }}><FolderTree size={14} /> Kontoplaner</button>
                   <button onClick={() => { setIsProfileMenuOpen(false); }}><FileCheck size={14} /> Viktiga datum</button>
-                  <button onClick={() => { setActiveTab('taxes_yearend'); setIsProfileMenuOpen(false); }}><Shield size={14} /> Bokslut & årsredovisning</button>
-                  <button onClick={() => { setActiveTab('taxes_vat'); setIsProfileMenuOpen(false); }}><Calculator size={14} /> Momsredovisning</button>
+                  <button onClick={() => { handleNavTabChange('taxes_yearend'); setIsProfileMenuOpen(false); }}><Shield size={14} /> Bokslut & årsredovisning</button>
+                  <button onClick={() => { handleNavTabChange('taxes_vat'); setIsProfileMenuOpen(false); }}><Calculator size={14} /> Momsredovisning</button>
                   <div className="dropdown-divider"></div>
                   <button onClick={() => { setIsProfileMenuOpen(false); }}><AlertTriangle size={14} /> Rapportera fel</button>
-                  <button onClick={() => { setIsProfileMenuOpen(false); }}><HelpCircle size={14} /> Hjälp & support</button>
+                  <button onClick={() => { setIsHelpDrawerOpen(true); setIsProfileMenuOpen(false); }}><HelpCircle size={14} /> Hjälp & support</button>
                   <div className="dropdown-divider"></div>
                   <button onClick={() => { setIsProfileMenuOpen(false); }}><UsersRound size={14} /> Lägg till företag</button>
                   <div className="dropdown-divider"></div>
@@ -1208,7 +1906,7 @@ function App() {
             <button
               key={item.id}
               className={`mobile-nav-btn ${resolveTab(activeTab) === resolveTab(item.id) ? 'active' : ''}`}
-              onClick={() => setActiveTab(item.id)}
+              onClick={() => handleNavTabChange(item.id)}
             >
               <item.icon size={20} />
               <span>{item.label}</span>
@@ -1263,6 +1961,41 @@ function App() {
           </div>
         </div>
       )}
+
+
+      {/* ── Help Drawer ── */}
+      <HelpDrawer isOpen={isHelpDrawerOpen} onClose={() => setIsHelpDrawerOpen(false)} />
+
+      {/* ── Logout Confirmation Modal ── */}
+      {showLogoutConfirm && (
+        <div className="modal-overlay" onClick={() => setShowLogoutConfirm(false)}>
+          <div className="modal-content" style={{ maxWidth: '400px' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">Logga ut</h2>
+              <button className="modal-close" onClick={() => setShowLogoutConfirm(false)}>
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-6">
+              <p className="text-slate-600 mb-6">Är du säker på att du vill logga ut?</p>
+              <div className="flex justify-end gap-3">
+                <button className="btn btn-secondary" onClick={() => setShowLogoutConfirm(false)}>
+                  Avbryt
+                </button>
+                <button className="btn btn-danger" style={{ backgroundColor: '#ef4444', color: 'white' }} onClick={async () => {
+                  setShowLogoutConfirm(false);
+                  await supabase.auth.signOut();
+                  setIsLoggedIn(false);
+                  setShowOnboarding(false);
+                }}>
+                  Logga ut
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
     )}
     </>
@@ -1278,6 +2011,3 @@ function App() {
 }
 
 export default App;
-
-
-

@@ -1,8 +1,16 @@
 import Stripe from 'stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: '2024-08-15',
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || process.env.VITE_STRIPE_SECRET_KEY || '', {
+  // apiVersion removed to use Stripe account default
 });
+
+function getWebhookSecrets() {
+  return [
+    process.env.STRIPE_WEBHOOK_SECRET,
+    process.env.STRIPE_WEBHOOK_SECRET_TUNNEL,
+    process.env.STRIPE_WEBHOOK_SECRET_SNAPSHOT,
+  ].filter(Boolean);
+}
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -13,27 +21,55 @@ export default async function handler(req, res) {
   const signature = req.headers['stripe-signature'];
   const rawBody = await req.text();
 
-  try {
-    const event = stripe.webhooks.constructEvent(rawBody, signature, process.env.STRIPE_WEBHOOK_SECRET);
-
-    console.log('Stripe webhook event:', event.type);
-    switch (event.type) {
-      case 'account.updated':
-        // TODO: Persist onboarding status to your own database here.
-        break;
-      case 'checkout.session.completed':
-        // TODO: Mark invoice as paid using session metadata.
-        break;
-      case 'payout.paid':
-        // TODO: Update payout history for the connected account.
-        break;
-      default:
-        break;
-    }
-
-    res.status(200).json({ received: true });
-  } catch (err) {
-    console.error('Stripe webhook error:', err.message);
-    res.status(400).json({ error: `Webhook Error: ${err.message}` });
+  if (!signature) {
+    res.status(400).json({ error: 'Missing stripe-signature header' });
+    return;
   }
+
+  if (!rawBody) {
+    res.status(400).json({ error: 'Missing request body' });
+    return;
+  }
+
+  const secrets = getWebhookSecrets();
+  if (secrets.length === 0) {
+    res.status(500).json({ error: 'Stripe webhook secret is not configured' });
+    return;
+  }
+
+  let event;
+  let lastError;
+
+  for (const secret of secrets) {
+    try {
+      event = stripe.webhooks.constructEvent(rawBody, signature, secret);
+      break;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  if (!event) {
+    console.error('Stripe webhook verification failed:', lastError?.message || lastError);
+    res.status(400).json({ error: 'Webhook signature verification failed' });
+    return;
+  }
+
+  console.log('Stripe webhook event:', event.type);
+
+  switch (event.type) {
+    case 'account.updated':
+      // TODO: Persist onboarding status to your own database here.
+      break;
+    case 'checkout.session.completed':
+      // TODO: Mark invoice as paid using session metadata.
+      break;
+    case 'payout.paid':
+      // TODO: Update payout history for the connected account.
+      break;
+    default:
+      break;
+  }
+
+  res.status(200).json({ received: true, type: event.type });
 }

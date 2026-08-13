@@ -27,8 +27,11 @@ export const DEFAULT_ACCOUNTS = [
   { code: "2612", name: "Utgående moms, 12%", type: "skuld_kapital" },
   { code: "2613", name: "Utgående moms, 6%", type: "skuld_kapital" },
   { code: "2641", name: "Ingående moms", type: "skuld_kapital" },
+  { code: "2650", name: "Redovisningskonto för moms", type: "skuld_kapital" },
   { code: "2710", name: "Personalskatt", type: "skuld_kapital" },
   { code: "2731", name: "Arbetsgivaravgifter", type: "skuld_kapital" },
+  { code: "2920", name: "Upplupna semesterlöner", type: "skuld_kapital" },
+  { code: "2940", name: "Upplupna lagstadgade sociala avgifter", type: "skuld_kapital" },
 
   // ═══════════════════════════════════════════
   // KLASS 3 – INTÄKTER
@@ -38,6 +41,7 @@ export const DEFAULT_ACCOUNTS = [
   { code: "3003", name: "Försäljning, 6% moms", type: "intakt" },
   { code: "3004", name: "Försäljning, momsfritt", type: "intakt" },
   { code: "3590", name: "Övriga sidointäkter", type: "intakt" },
+  { code: "3740", name: "Öres- och kronutjämning", type: "intakt" },
 
   // ═══════════════════════════════════════════
   // KLASS 4–7 – KOSTNADER
@@ -53,7 +57,10 @@ export const DEFAULT_ACCOUNTS = [
   { code: "6570", name: "Bankkostnader", type: "kostnad" },
   { code: "6900", name: "Övriga externa kostnader", type: "kostnad" },
   { code: "7010", name: "Löner till anställda", type: "kostnad" },
+  { code: "7210", name: "Löner till tjänstemän", type: "kostnad" },
+  { code: "7290", name: "Förändring av semesterlöneskuld", type: "kostnad" },
   { code: "7510", name: "Arbetsgivaravgifter", type: "kostnad" },
+  { code: "7519", name: "Sociala avgifter för semester- och löneskulder", type: "kostnad" },
   { code: "7699", name: "Övriga personalkostnader", type: "kostnad" },
 ];
 

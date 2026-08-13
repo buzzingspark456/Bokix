@@ -1,3 +1,5 @@
+import { getDebet, getKredit } from './verificationAmounts';
+
 export function generateSIE4(company, accounts, verifications) {
   const currentDate = new Date().toISOString().split('T')[0].replace(/-/g, '');
   const orgNr = company?.orgNumber ? company.orgNumber.replace(/\D/g, '') : '';
@@ -28,6 +30,7 @@ export function generateSIE4(company, accounts, verifications) {
   // Verifikationer
   // #VER A {nummer} {datum YYYYMMDD} "{beskrivning}"
   verifications.forEach(ver => {
+    if ((ver.status || 'booked') === 'draft') return; // utkast är inte bokförda och exporteras inte
     const verDate = ver.date.replace(/-/g, '');
     const vNum = ver.number.replace(/\D/g, ''); // Extract numeric part of ver number
     
@@ -38,7 +41,7 @@ export function generateSIE4(company, accounts, verifications) {
     ver.rows.forEach(row => {
       // #TRANS {konto} {} {belopp}
       // Belopp i SIE4: debet är positivt, kredit är negativt
-      const amount = (row.debet || 0) - (row.kredit || 0);
+      const amount = getDebet(row) - getKredit(row);
       if (amount !== 0) {
         // Formatera med max 2 decimaler
         sieString += `    #TRANS ${row.account} {} ${amount.toFixed(2)}\r\n`;

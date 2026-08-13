@@ -9,6 +9,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Legend, ReferenceLine, Cell
 } from 'recharts';
+import { getDebet, getKredit } from '../utils/verificationAmounts';
 
 // Allra färgpalett
 const LIME   = '#5ba85a';
@@ -119,10 +120,11 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
   // ── KPIs från verifikationer ──
   let raOmsattning = 0, raKostnader = 0;
   verifications.forEach(v => {
+    if ((v.status || 'booked') === 'draft') return; // utkast påverkar inte nyckeltalen än
     if (!v.date.startsWith(currentYear)) return;
     v.rows.forEach(r => {
-      if (r.account.startsWith('3')) raOmsattning += (r.kredit - r.debet);
-      else if (['4','5','6','7'].some(p => r.account.startsWith(p))) raKostnader += (r.debet - r.kredit);
+      if (r.account.startsWith('3')) raOmsattning += (getKredit(r) - getDebet(r));
+      else if (['4','5','6','7'].some(p => r.account.startsWith(p))) raKostnader += (getDebet(r) - getKredit(r));
     });
   });
   const raResultat = raOmsattning - raKostnader;
@@ -152,12 +154,13 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
     const names = ['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
     const data = names.map(name => ({ name, Intäkter: 0, Utgifter: 0, Resultat: 0, Likviditet: 0, 'Föregående år': 0 }));
     verifications.forEach(v => {
+      if ((v.status || 'booked') === 'draft') return;
       const year = v.date.substring(0, 4);
       const mIdx = parseInt(v.date.substring(5, 7)) - 1;
       if (mIdx < 0 || mIdx >= 12) return;
       v.rows.forEach(r => {
-        const rev  = r.account.startsWith('3') ? (r.kredit - r.debet) : 0;
-        const cost = ['4','5','6','7'].some(p => r.account.startsWith(p)) ? (r.debet - r.kredit) : 0;
+        const rev  = r.account.startsWith('3') ? (getKredit(r) - getDebet(r)) : 0;
+        const cost = ['4','5','6','7'].some(p => r.account.startsWith(p)) ? (getDebet(r) - getKredit(r)) : 0;
         if (year === currentYear) {
           data[mIdx].Intäkter += rev;
           data[mIdx].Utgifter += cost;
@@ -209,7 +212,7 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
   };
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+    <div style={{ maxWidth: '100%', margin: '0 auto' }}>
 
       {/* ─── HEADER ─── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '28px', flexWrap: 'wrap', gap: '16px' }}>
@@ -235,20 +238,10 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
               </React.Fragment>
             ))}
           </div>
-          <button
-            onClick={handleExport}
-            style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '8px 14px', background: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: '#374151', transition: 'all 0.15s', fontFamily: 'inherit', marginLeft: '4px' }}
-            onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
-            onMouseLeave={e => e.currentTarget.style.background = 'white'}
-          >
+          <button onClick={handleExport} className="btn btn-secondary" style={{ marginLeft: '4px' }}>
             <Download size={14} /> Exportera
           </button>
-          <button
-            onClick={() => setActiveTab('invoices')}
-            style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '8px 16px', background: LIME, border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: 'white', transition: 'all 0.15s', fontFamily: 'inherit' }}
-            onMouseEnter={e => e.currentTarget.style.background = '#4a944a'}
-            onMouseLeave={e => e.currentTarget.style.background = LIME}
-          >
+          <button onClick={() => setActiveTab('invoices')} className="btn btn-primary">
             <FileText size={14} /> Ny faktura
           </button>
         </div>
@@ -261,7 +254,7 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
             <div>
               <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#111827', marginBottom: '8px' }}>Komplettera din företagsprofil</h2>
               <p style={{ fontSize: '13px', color: '#475569', marginBottom: '12px' }}>Du kan uppdatera viktig företagsinformation när som helst för att få rätt rapporter och dokument.</p>
-              <button onClick={onResumeOnboarding} style={{ padding: '10px 16px', background: '#3a8fc1', color: 'white', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 700 }}>Fortsätt onboarding</button>
+              <button onClick={onResumeOnboarding} style={{ padding: '10px 16px', background: '#3a8fc1', color: 'white', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 700 }}>Fortsätt registreringen</button>
             </div>
             <div style={{ display: 'grid', gap: '10px', minWidth: '220px', background: 'white', borderRadius: '14px', padding: '16px', border: '1px solid #e5f3ed' }}>
               <div style={{ fontSize: '12px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>Profilstatus</div>
@@ -324,7 +317,7 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
         />
       </div>
 
-      <div style={{ marginBottom: '24px', display: 'grid', gridTemplateColumns: stripeAccountId ? '1fr 1fr' : '1fr', gap: '14px' }}>
+      <div style={{ marginBottom: '24px', display: 'grid', gridTemplateColumns: '1fr', gap: '14px' }}>
         {!stripeAccountId && (
           <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '14px', padding: '22px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '14px' }}>
@@ -334,7 +327,7 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
                 <div style={{ fontSize: '13px', color: '#64748b', lineHeight: '1.7' }}>Anslut Stripe för att ta emot kortbetalningar direkt till ditt företagskonto och använda Bokix som plattform.</div>
               </div>
             </div>
-            <button onClick={onConnectStripe} style={{ padding: '11px 18px', borderRadius: '10px', border: 'none', background: '#2563eb', color: 'white', fontWeight: 700, cursor: 'pointer' }}>Anslut Stripe</button>
+            <button onClick={onConnectStripe} style={{ padding: '11px 18px', borderRadius: '10px', border: 'none', background: '#3d7a2e', color: 'white', fontWeight: 700, cursor: 'pointer' }}>Anslut Stripe</button>
           </div>
         )}
         {stripeAccountId && (
@@ -343,7 +336,7 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
               <div style={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>Stripe Connect är anslutet</div>
               <div style={{ fontSize: '13px', color: '#64748b', lineHeight: '1.7' }}>Ditt konto är kopplat och kan ta emot betalningar via Stripe Checkout. Uppdatera onboarding om du vill fortsätta verifieringen.</div>
             </div>
-            <button onClick={onConnectStripe} style={{ padding: '11px 18px', borderRadius: '10px', border: 'none', background: '#2563eb', color: 'white', fontWeight: 700, cursor: 'pointer' }}>Öppna Stripe</button>
+            <button onClick={onConnectStripe} style={{ padding: '11px 18px', borderRadius: '10px', border: 'none', background: '#3d7a2e', color: 'white', fontWeight: 700, cursor: 'pointer' }}>Öppna Stripe</button>
           </div>
         )}
       </div>
