@@ -283,17 +283,28 @@ function App() {
   };
 
   // ── Helpers ──
+  // Bugkritiskt: `value` kan vara en funktion (fn(prevFieldValue) => next), och
+  // den MÅSTE evalueras här inne mot prev.companies[...][field] — inte mot
+  // en const som lästs från render-scope innan anropet. Annars, om samma
+  // fält uppdateras flera gånger synkront i samma händelse (t.ex. tre
+  // handleAddVerification-anrop efter varandra vid lönebokföring), läser
+  // varje anrop samma gamla värde och den sista skriver över de andra —
+  // två av tre bokförda verifikationer försvann tyst på det sättet.
   const updateCompanyField = useCallback((field, value) => {
-    setData(prev => ({
-      ...prev,
-      companies: {
-        ...prev.companies,
-        [prev.activeCompanyId]: {
-          ...prev.companies[prev.activeCompanyId],
-          [field]: value,
+    setData(prev => {
+      const company = prev.companies[prev.activeCompanyId];
+      const nextFieldValue = typeof value === 'function' ? value(company[field]) : value;
+      return {
+        ...prev,
+        companies: {
+          ...prev.companies,
+          [prev.activeCompanyId]: {
+            ...company,
+            [field]: nextFieldValue,
+          },
         },
-      },
-    }));
+      };
+    });
   }, []);
 
   const syncCompanyDataToBackend = useCallback(async (companyId, payload) => {
@@ -649,55 +660,21 @@ function App() {
   const recurringTemplates = currentCompany.recurringTemplates || [];
 
   // ── Helpers ──
-  const setAccounts = (fn) => {
-    const newVal = typeof fn === 'function' ? fn(accounts) : fn;
-    updateCompanyField('accounts', newVal);
-  };
-
-  const setVerifications = (fn) => {
-    const newVal = typeof fn === 'function' ? fn(verifications) : fn;
-    updateCompanyField('verifications', newVal);
-  };
-
-  const setInvoices = (fn) => {
-    const newVal = typeof fn === 'function' ? fn(invoices) : fn;
-    updateCompanyField('invoices', newVal);
-  };
-
-  const setExpenses = (fn) => {
-    const newVal = typeof fn === 'function' ? fn(expenses) : fn;
-    updateCompanyField('expenses', newVal);
-  };
-
-  const setContacts = (fn) => {
-    const newVal = typeof fn === 'function' ? fn(contacts) : fn;
-    updateCompanyField('contacts', newVal);
-  };
-
-  const setProjects = (fn) => {
-    const newVal = typeof fn === 'function' ? fn(projects) : fn;
-    updateCompanyField('projects', newVal);
-  };
-
-  const setEmployees = (fn) => {
-    const newVal = typeof fn === 'function' ? fn(employees) : fn;
-    updateCompanyField('employees', newVal);
-  };
-
-  const setPayrollRuns = (fn) => {
-    const newVal = typeof fn === 'function' ? fn(payrollRuns) : fn;
-    updateCompanyField('payrollRuns', newVal);
-  };
-
-  const setTimeEntries = (fn) => {
-    const newVal = typeof fn === 'function' ? fn(timeEntries) : fn;
-    updateCompanyField('timeEntries', newVal);
-  };
-
-  const setRecurringTemplates = (fn) => {
-    const newVal = typeof fn === 'function' ? fn(recurringTemplates) : fn;
-    updateCompanyField('recurringTemplates', newVal);
-  };
+  // Bugkritiskt: skicka `fn` rakt igenom till updateCompanyField istället för
+  // att evaluera den här mot en const läst från render-scope (t.ex.
+  // `verifications`) — annars ser flera synkrona anrop av samma setter i
+  // samma händelse alla samma gamla värde, och bara det sista anropets
+  // resultat sparas (se kommentar vid updateCompanyField för hela historien).
+  const setAccounts = (fn) => updateCompanyField('accounts', fn);
+  const setVerifications = (fn) => updateCompanyField('verifications', fn);
+  const setInvoices = (fn) => updateCompanyField('invoices', fn);
+  const setExpenses = (fn) => updateCompanyField('expenses', fn);
+  const setContacts = (fn) => updateCompanyField('contacts', fn);
+  const setProjects = (fn) => updateCompanyField('projects', fn);
+  const setEmployees = (fn) => updateCompanyField('employees', fn);
+  const setPayrollRuns = (fn) => updateCompanyField('payrollRuns', fn);
+  const setTimeEntries = (fn) => updateCompanyField('timeEntries', fn);
+  const setRecurringTemplates = (fn) => updateCompanyField('recurringTemplates', fn);
 
   const handleSaveVerificationTemplate = ({ name, description, projectId, costCenter, rows }) => {
     updateCompanyField('verificationTemplates', [
@@ -740,10 +717,7 @@ function App() {
     setHighlightVerificationId(id);
   };
 
-  const setCompanyInfo = (fn) => {
-    const newVal = typeof fn === 'function' ? fn(company) : fn;
-    updateCompanyField('company', newVal);
-  };
+  const setCompanyInfo = (fn) => updateCompanyField('company', fn);
 
   // Calculate account balances
   const getAccountBalances = () => {
@@ -879,7 +853,12 @@ function App() {
       // "Ny verifikation"-formuläret) — bygg bara ett eget som fallback för
       // auto-bokförda verifikationer från fakturor/utgifter, som inte skickar med ett.
       const number = newVer.number || `V${prev.length + 1}`;
-      return [...prev, { ...newVer, id: Date.now(), number }];
+      // `Date.now()` ensam krockar när flera verifikationer skapas synkront
+      // efter varandra (t.ex. lönekörningens tre block) — de hamnar lätt
+      // inom samma millisekund. `prev.length` som suffix räcker för att
+      // hålla id:t unikt inom samma synkrona batch.
+      const id = `${Date.now()}_${prev.length}`;
+      return [...prev, { ...newVer, id, number }];
     });
   };
 
@@ -1393,9 +1372,13 @@ function App() {
             expenses={expenses}
             accounts={accounts}
             balances={balances}
+            payrollRuns={payrollRuns}
             vatPeriods={vatPeriods}
             onBookVatPeriod={handleBookVatPeriod}
             onNavigateToVerification={handleNavigateToVerification}
+            onAddVerification={handleAddVerification}
+            setCompanyInfo={setCompanyInfo}
+            onNavigateToTab={handleNavTabChange}
           />
         );
       case 'revenue':
