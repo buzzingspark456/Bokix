@@ -62,6 +62,51 @@ FOR DELETE
 USING (auth.uid() = user_id);
 
 -- ═══════════════════════════════════════════════════════════
+-- Stripe Connect OAuth: server-side skrivning av stripeAccountId
+-- ═══════════════════════════════════════════════════════════
+-- Stripes OAuth-callback körs helt utan inloggad användarsession (Stripe
+-- skickar bara en anonym redirect till Bokix, ingen JWT följer med), så
+-- RLS-policyerna ovan (som kräver auth.uid() = user_id) kan inte
+-- uppfyllas där. Anropas därför via service-role-nyckeln, som kringgår
+-- RLS helt — därför är funktionen så snäv som möjligt (skriver bara ett
+-- enda jsonb-fält) istället för att exponera en generell skriv-RPC.
+--
+-- SECURITY DEFINER + explicit REVOKE/GRANT: bara service_role (som
+-- server-koden autentiserar med) får köra den här — anon/authenticated
+-- ska aldrig kunna sätta ett godtyckligt Stripe-konto-ID på ett företag.
+--
+-- jsonb_set med "true" som fjärde argument (create_missing) så anropet
+-- fungerar även om `companies.<id>.company` av någon anledning saknar
+-- ett stripeAccountId-fält sedan tidigare, utan att först behöva läsa
+-- och tolka hela blobben i applikationskod (samma sorts race som redan
+-- fanns i klientens gamla updateCompanyField, fast här undviks den redan
+-- från start genom att aldrig göra ett läs-ändra-skriv över huvud taget).
+CREATE OR REPLACE FUNCTION public.set_company_stripe_account(
+  p_user_id uuid,
+  p_company_id text,
+  p_stripe_account_id text
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  UPDATE public.user_data
+  SET state = jsonb_set(
+    coalesce(state, '{}'::jsonb),
+    ARRAY['companies', p_company_id, 'company', 'stripeAccountId'],
+    to_jsonb(p_stripe_account_id),
+    true
+  )
+  WHERE user_id = p_user_id;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.set_company_stripe_account(uuid, text, text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.set_company_stripe_account(uuid, text, text) TO service_role;
+
+-- ═══════════════════════════════════════════════════════════
 -- Storage: profilbilder och företagslogotyper (Inställningar)
 -- ═══════════════════════════════════════════════════════════
 -- En bucket för de bilder användare laddar upp under Inställningar

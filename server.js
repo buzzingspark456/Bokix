@@ -4,6 +4,9 @@ import dotenv from 'dotenv'
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { createClient } from '@supabase/supabase-js'
+import { createSignedState, verifySignedState } from './api/stripe/oauthState.js'
+import { parseCookies, STRIPE_OAUTH_COOKIE, stripeOauthStateCookie, clearStripeOauthStateCookie } from './api/stripe/cookies.js'
 
 dotenv.config()
 
@@ -195,6 +198,128 @@ app.post('/api/stripe/retrieve-account', async (req, res) => {
 app.post('/api/stripe/webhook', express.json(), async (req, res) => {
   console.log('Received Stripe webhook event')
   res.status(200).json({ received: true })
+})
+
+// ── Klassiskt Stripe Connect OAuth ("Standard"-konton) ──────────────────
+// Speglar api/stripe/oauth-start.js / callback.js / disconnect.js för
+// lokal utveckling via denna Express-server istället för Vercels
+// filbaserade serverless-routing. Samma delade helpers (oauthState.js,
+// cookies.js) används på båda ställena så CSRF-logiken aldrig kan divergera.
+const appUrl = process.env.STRIPE_ONBOARDING_RETURN_URL || 'http://localhost:5173'
+
+async function persistStripeAccountId({ userId, companyId, stripeAccountId }) {
+  const supabaseUrl = process.env.VITE_SUPABASE_URL
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error('SUPABASE_SERVICE_ROLE_KEY saknas — kan inte spara kontokopplingen server-side.')
+  }
+  const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey)
+  const { error } = await supabaseAdmin.rpc('set_company_stripe_account', {
+    p_user_id: userId,
+    p_company_id: companyId,
+    p_stripe_account_id: stripeAccountId,
+  })
+  if (error) throw error
+}
+
+// Startas via helsides-navigering (window.location.href), inte fetch — ett
+// JSON-felsvar skulle bara visas som rå text. Felvägar redirectar därför
+// tillbaka till appen med samma ?stripe_connect=-flagga som callbacken
+// använder, så felet alltid visas som samma odramatiska meddelande.
+app.get('/api/stripe/oauth-start', (req, res) => {
+  const redirectToApp = (status) => res.redirect(302, `${appUrl}/?stripe_connect=${status}`)
+
+  const clientId = process.env.STRIPE_CONNECT_CLIENT_ID
+  if (!clientId || !process.env.STRIPE_OAUTH_STATE_SECRET) {
+    console.error('Stripe OAuth start: STRIPE_CONNECT_CLIENT_ID eller STRIPE_OAUTH_STATE_SECRET saknas.')
+    return redirectToApp('not_configured')
+  }
+
+  const { user_id: userId, company_id: companyId } = req.query || {}
+  if (!userId || !companyId) {
+    return redirectToApp('error')
+  }
+
+  let state
+  try {
+    state = createSignedState({ user_id: userId, company_id: companyId })
+  } catch (err) {
+    console.error('Stripe OAuth start error:', err)
+    return redirectToApp('error')
+  }
+
+  const redirectUri = process.env.STRIPE_OAUTH_REDIRECT_URI || `http://localhost:${process.env.PORT || 5000}/api/stripe/callback`
+  const authorizeUrl = new URL('https://connect.stripe.com/oauth/authorize')
+  authorizeUrl.searchParams.set('response_type', 'code')
+  authorizeUrl.searchParams.set('client_id', clientId)
+  authorizeUrl.searchParams.set('scope', 'read_write')
+  authorizeUrl.searchParams.set('state', state)
+  authorizeUrl.searchParams.set('redirect_uri', redirectUri)
+
+  res.setHeader('Set-Cookie', stripeOauthStateCookie(state))
+  res.redirect(302, authorizeUrl.toString())
+})
+
+app.get('/api/stripe/callback', async (req, res) => {
+  const { code, state, error: stripeError } = req.query || {}
+  res.setHeader('Set-Cookie', clearStripeOauthStateCookie())
+
+  const redirectWithStatus = (status) => res.redirect(302, `${appUrl}/?stripe_connect=${status}`)
+
+  if (stripeError) return redirectWithStatus('cancelled')
+
+  const cookies = parseCookies(req.headers.cookie)
+  const cookieState = cookies[STRIPE_OAUTH_COOKIE]
+  if (!state || !cookieState || state !== cookieState) {
+    console.error('Stripe OAuth callback: state matchar inte cookien (möjligt CSRF-försök).')
+    return redirectWithStatus('error')
+  }
+
+  const payload = verifySignedState(state)
+  if (!payload?.user_id || !payload?.company_id) {
+    console.error('Stripe OAuth callback: ogiltig eller för gammal state-signatur.')
+    return redirectWithStatus('error')
+  }
+
+  if (!code) return redirectWithStatus('cancelled')
+  if (!requireStripe(res)) return
+
+  try {
+    const tokenResponse = await stripe.oauth.token({ grant_type: 'authorization_code', code })
+    const connectedAccountId = tokenResponse.stripe_user_id
+    if (!connectedAccountId) throw new Error('Stripe svarade utan stripe_user_id.')
+
+    await persistStripeAccountId({ userId: payload.user_id, companyId: payload.company_id, stripeAccountId: connectedAccountId })
+    redirectWithStatus('connected')
+  } catch (err) {
+    console.error('Stripe OAuth callback error:', err)
+    redirectWithStatus('error')
+  }
+})
+
+app.post('/api/stripe/disconnect', async (req, res) => {
+  if (!requireStripe(res)) return
+
+  try {
+    const { user_id: userId, company_id: companyId, stripe_account_id: stripeAccountId } = req.body || {}
+    if (!userId || !companyId || !stripeAccountId) {
+      return res.status(400).json({ error: 'user_id, company_id och stripe_account_id krävs.' })
+    }
+
+    const clientId = process.env.STRIPE_CONNECT_CLIENT_ID
+    if (clientId) {
+      try {
+        await stripe.oauth.deauthorize({ client_id: clientId, stripe_user_id: stripeAccountId })
+      } catch (err) {
+        console.warn('Stripe deauthorize warning:', err.message)
+      }
+    }
+
+    await persistStripeAccountId({ userId, companyId, stripeAccountId: null })
+    res.status(200).json({ ok: true })
+  } catch (error) {
+    handleError(res, error)
+  }
 })
 
 const port = Number(process.env.PORT || 5000)

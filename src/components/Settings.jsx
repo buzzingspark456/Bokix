@@ -371,7 +371,7 @@ function ActiveSessionsSection({ user }) {
 
 export default function Settings({
   company = {}, setCompanyInfo, accounts = [], verifications = [], invoices = [], expenses = [],
-  contacts = [], projects = [], onImport, onReset, stripeAccountId, onConnectStripe, user,
+  contacts = [], projects = [], onImport, onReset, stripeAccountId, onConnectStripe, onDisconnectStripe, user,
 }) {
   const [activeTab, setActiveTab] = useState('profile');
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
@@ -589,7 +589,9 @@ export default function Settings({
                       ? 'Stripe är anslutet — kunder kan betala dina fakturor med kort direkt online.'
                       : 'Anslut Stripe för att låta kunder betala fakturor med kort direkt online.'}
                   </p>
-                  <button onClick={onConnectStripe} style={btnPrimary}>{stripeAccountId ? 'Hantera Stripe' : 'Anslut Stripe'}</button>
+                  {stripeAccountId
+                    ? <button onClick={onDisconnectStripe} style={btnGhost}>Koppla från</button>
+                    : <button onClick={onConnectStripe} style={btnPrimary}>Anslut Stripe</button>}
                 </div>
               </div>
 

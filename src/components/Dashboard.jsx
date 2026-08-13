@@ -100,7 +100,7 @@ function KpiCard({ label, value, sub, icon: Icon, color, bg, positive, onClick }
   );
 }
 
-export default function Dashboard({ verifications, balances, accounts, invoices, expenses, contacts, setActiveTab, company, profileIncomplete, onResumeOnboarding, stripeAccountId, onConnectStripe }) {
+export default function Dashboard({ verifications, balances, accounts, invoices, expenses, contacts, setActiveTab, company, profileIncomplete, onResumeOnboarding, stripeAccountId, onConnectStripe, onDisconnectStripe }) {
   const [chartMode, setChartMode] = useState('revenue-expense');
 
   const fmt = (val) =>
@@ -339,11 +339,14 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
         )}
         {stripeAccountId && (
           <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '14px', padding: '22px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '14px' }}>
-            <div>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>Stripe Connect är anslutet</div>
-              <div style={{ fontSize: '13px', color: '#64748b', lineHeight: '1.7' }}>Ditt konto är kopplat och kan ta emot betalningar via Stripe Checkout. Uppdatera onboarding om du vill fortsätta verifieringen.</div>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+              <div style={{ width: 36, height: 36, borderRadius: '12px', background: LIME_L, color: LIME, display: 'grid', placeItems: 'center', flexShrink: 0 }}><CheckCircle size={18} /></div>
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>Ansluten som {stripeAccountId}</div>
+                <div style={{ fontSize: '13px', color: '#64748b', lineHeight: '1.7' }}>Bokix kan ta emot kortbetalningar direkt till ditt anslutna Stripe-konto.</div>
+              </div>
             </div>
-            <button onClick={onConnectStripe} style={{ padding: '11px 18px', borderRadius: '10px', border: 'none', background: '#3d7a2e', color: 'white', fontWeight: 700, cursor: 'pointer' }}>Öppna Stripe</button>
+            <button onClick={onDisconnectStripe} style={{ padding: '8px 4px', background: 'none', border: 'none', color: '#64748b', fontWeight: 600, fontSize: '13px', cursor: 'pointer', textDecoration: 'underline', flexShrink: 0 }}>Koppla från</button>
           </div>
         )}
       </div>

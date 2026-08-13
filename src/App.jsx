@@ -40,7 +40,7 @@ import {
   Inbox,
 } from 'lucide-react';
 import { DEFAULT_ACCOUNTS, VAT_ACCOUNTS, REVENUE_ACCOUNTS } from './components/AccountsData';
-import { createConnectedStripeAccount, createStripeAccountLink, createStripeCheckoutSession } from './stripeApi';
+import { createStripeCheckoutSession } from './stripeApi';
 import { getDebet, getKredit } from './utils/verificationAmounts';
 
 // ── Bokix Logo Component (light sidebar) ──
@@ -510,6 +510,35 @@ function App() {
     setShowOnboarding(false);
   }, [isLoggedIn, isLoadingAuth]);
 
+  // Läs av statusflaggan Stripe-callbacken skickar tillbaka
+  // (?stripe_connect=connected|cancelled|error|not_configured) och visa ett
+  // meddelande — sedan bort med parametern ur URL:en så en omladdning inte
+  // visar den igen. Ingen känslig data i URL:en, bara statusordet.
+  //
+  // Bugkritiskt: måste stå INNAN `if (isLoadingAuth) return ...` nedan —
+  // en hook efter en villkorlig early return anropas bara på vissa
+  // renderingar, vilket bryter Reacts regel att samma hooks måste anropas
+  // i samma ordning varje gång ("Rendered more hooks than during the
+  // previous render").
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get('stripe_connect');
+    if (!status) return;
+
+    const messages = {
+      connected: 'Stripe är nu anslutet till Bokix.',
+      cancelled: 'Anslutningen avbröts, du kan försöka igen när du vill.',
+      error: 'Något gick fel vid Stripe-anslutningen. Försök igen, eller kontakta support om felet kvarstår.',
+      not_configured: 'Stripe-anslutning är inte konfigurerad ännu. Kontakta support.',
+    };
+    alert(messages[status] || messages.error);
+
+    params.delete('stripe_connect');
+    const newSearch = params.toString();
+    window.history.replaceState({}, '', window.location.pathname + (newSearch ? `?${newSearch}` : '') + window.location.hash);
+  }, []);
+
   // Persist
   useEffect(() => {
     saveData(data);
@@ -752,49 +781,39 @@ function App() {
   const balances = getAccountBalances();
   const platformFeePercent = Number.parseFloat(import.meta.env.VITE_STRIPE_PLATFORM_FEE_PERCENT || '5');
 
-  const handleCreateStripeAccount = async () => {
+  // Klassiskt Stripe Connect OAuth ("Standard"-konton) — knappen navigerar
+  // rakt till backend-endpointen istället för att göra ett fetch-anrop,
+  // eftersom hela poängen är att lämna Bokix och landa på Stripes egen
+  // hostade sida. Backend sköter state-generering, cookie och själva
+  // redirecten (se api/stripe/oauth-start.js). Om kontot redan är
+  // anslutet gör vi ingenting här — Dashboard-kortet visar då "Koppla
+  // från" istället för den här knappen, se handleDisconnectStripe.
+  const handleOpenStripeOnboarding = () => {
     if (!user) {
       alert('Logga in för att ansluta Stripe.');
       return;
     }
-
-    try {
-      const { account } = await createConnectedStripeAccount({
-        company_id: data.activeCompanyId,
-        user_id: user.id,
-        business_name: company.name,
-      });
-
-      setCompanyInfo({ ...company, stripeAccountId: account.id });
-      alert('Stripe-konto skapat. Nu öppnas Stripe-onboarding.');
-
-      const { accountLink } = await createStripeAccountLink({ account_id: account.id });
-      if (accountLink?.url) {
-        window.location.href = accountLink.url;
-      } else {
-        alert('Stripe-onboardinglänk kunde inte skapas.');
-      }
-    } catch (error) {
-      console.error(error);
-      alert(`Stripekonto kunde inte skapas: ${error.message || error}`);
-    }
+    if (company.stripeAccountId) return; // redan anslutet — inget att göra
+    const params = new URLSearchParams({ user_id: user.id, company_id: data.activeCompanyId });
+    window.location.href = `/api/stripe/oauth-start?${params.toString()}`;
   };
 
-  const handleOpenStripeOnboarding = async () => {
-    if (!company.stripeAccountId) {
-      return handleCreateStripeAccount();
-    }
+  const handleDisconnectStripe = async () => {
+    if (!company.stripeAccountId) return;
+    if (!window.confirm('Koppla från Stripe? Bokix kan då inte längre ta emot kortbetalningar till det här kontot.')) return;
 
     try {
-      const { accountLink } = await createStripeAccountLink({ account_id: company.stripeAccountId });
-      if (accountLink?.url) {
-        window.location.href = accountLink.url;
-      } else {
-        alert('Stripe-onboardinglänk kunde inte skapas.');
-      }
+      const response = await fetch('/api/stripe/disconnect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: user.id, company_id: data.activeCompanyId, stripe_account_id: company.stripeAccountId }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload?.error || `Frånkoppling misslyckades (${response.status})`);
+      setCompanyInfo({ ...company, stripeAccountId: '' });
     } catch (error) {
       console.error(error);
-      alert(`Kunde inte öppna Stripe-onboarding: ${error.message || error}`);
+      alert(`Kunde inte koppla från Stripe: ${error.message || error}`);
     }
   };
 
@@ -1353,6 +1372,7 @@ function App() {
             onResumeOnboarding={() => setShowOnboarding(true)}
             stripeAccountId={company.stripeAccountId}
             onConnectStripe={handleOpenStripeOnboarding}
+            onDisconnectStripe={handleDisconnectStripe}
           />
         );
       case 'time':
@@ -1592,6 +1612,7 @@ function App() {
             onReset={handleResetData}
             stripeAccountId={company.stripeAccountId}
             onConnectStripe={handleOpenStripeOnboarding}
+            onDisconnectStripe={handleDisconnectStripe}
             user={user}
           />
         );
