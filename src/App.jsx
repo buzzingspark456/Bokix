@@ -46,8 +46,11 @@ import { getDebet, getKredit } from './utils/verificationAmounts';
 // ── Bokix Logo Component (light sidebar) ──
 function BokixLogo() {
   return (
-    <div style={{ padding: '18px 14px 12px', display: 'flex', flexDirection: 'column' }}>
-      <svg viewBox="0 0 140 48" width="110" height="38" xmlns="http://www.w3.org/2000/svg">
+    <div style={{ padding: '22px 14px 18px', display: 'flex', flexDirection: 'column' }}>
+      {/* Ingen tagline längre — den hör hemma på marknadssidan, inte i det
+          dagliga arbetsverktyget. Loggan får nu eget utrymme och är
+          märkbart större eftersom den inte längre delar ytan med en rad text. */}
+      <svg viewBox="0 0 140 48" width="152" height="52" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <linearGradient id="bokixGrad" x1="0%" y1="0%" x2="100%" y2="0%">
             <stop offset="0%" stopColor="#0ea5e9" />
@@ -65,7 +68,6 @@ function BokixLogo() {
           letterSpacing="-1.5"
         >Bokix</text>
       </svg>
-      <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.7)', marginTop: '-4px', paddingLeft: '4px', letterSpacing: '0.01em' }}>Bokföring, enkelt. Du växer.</span>
     </div>
   );
 }

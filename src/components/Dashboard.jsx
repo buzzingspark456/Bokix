@@ -80,9 +80,6 @@ function KpiCard({ label, value, sub, icon: Icon, color, bg, positive, onClick }
       e.currentTarget.style.borderColor = '#e5e7eb';
     }}
     >
-      {/* Dekorativ bakgrundsfärg */}
-      <div style={{ position: 'absolute', top: 0, right: 0, width: '64px', height: '64px', borderRadius: '0 14px 0 64px', background: bg, opacity: 0.7 }} />
-
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ background: bg, color, width: 36, height: 36, borderRadius: '9px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
           <Icon size={16} />
@@ -271,7 +268,11 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
         </div>
       )}
       {isNew && (
-        <div style={{ background: `linear-gradient(135deg, ${LIME_L} 0%, ${BLUE_L} 100%)`, border: `1px solid #b8e2b8`, borderRadius: '16px', padding: '24px 28px', marginBottom: '32px' }}>
+        // Tidigare gick gradienten mot BLUE_L, vilket dels bröt mot
+        // "aldrig blått"-regeln, dels gjorde rutan så blek att den lästes
+        // som en vanlig vit yta med en tunn grön kant istället för en
+        // medveten del av det gröna bildspråket. Två gröna toner istället.
+        <div style={{ background: `linear-gradient(135deg, #eaf3de 0%, ${LIME_L} 100%)`, border: `1px solid #b8e2b8`, borderRadius: '16px', padding: '24px 28px', marginBottom: '32px' }}>
           <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#111827', marginBottom: '4px' }}>Kom igång med Bokix</h2>
           <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '20px' }}>Slutför dessa steg för att komma igång.</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -327,7 +328,7 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
         {!stripeAccountId && (
           <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '14px', padding: '22px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '14px' }}>
-              <div style={{ width: 36, height: 36, borderRadius: '12px', background: '#eff6ff', color: '#2563eb', display: 'grid', placeItems: 'center' }}><CreditCard size={18} /></div>
+              <div style={{ width: 36, height: 36, borderRadius: '12px', background: LIME_L, color: LIME, display: 'grid', placeItems: 'center' }}><CreditCard size={18} /></div>
               <div>
                 <div style={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>Stripe Connect</div>
                 <div style={{ fontSize: '13px', color: '#64748b', lineHeight: '1.7' }}>Anslut Stripe för att ta emot kortbetalningar direkt till ditt företagskonto och använda Bokix som plattform.</div>
