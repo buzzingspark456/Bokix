@@ -872,6 +872,11 @@ body {
   display: flex;
   align-items: stretch;
   justify-content: space-around;
+  /* Bugkritiskt: utan width:100% krymper denna flex-child till sitt
+     innehålls naturliga bredd istället för att fylla naven, så alla
+     5 knapparna klumpar ihop sig i vänsterkanten med tomt utrymme till
+     höger — flex:1 på knapparna nedan gjorde ingen skillnad utan detta. */
+  width: 100%;
   padding: 8px 4px;
 }
 
@@ -889,29 +894,37 @@ body {
   font-family: var(--font-sans);
   font-size: 10px;
   font-weight: 500;
-  color: #9ca3af;
+  color: var(--gray-500);
   padding: 6px 2px;
+  transition: color var(--transition);
 }
 
 .mobile-nav-btn .mobile-nav-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   border-radius: 999px;
   background: transparent;
-  transition: background-color var(--transition), color var(--transition);
-  color: #9ca3af;
+  transition: background var(--transition), color var(--transition), transform var(--transition);
+  color: var(--gray-500);
+}
+
+.mobile-nav-btn:active .mobile-nav-icon {
+  transform: scale(0.9);
 }
 
 .mobile-nav-btn.active {
-  color: #27500a;
+  color: var(--accent);
+  font-weight: 700;
 }
 
 .mobile-nav-btn.active .mobile-nav-icon {
-  background: #eaf3de;
-  color: #3d7a2e;
+  background: linear-gradient(135deg, var(--lime-400), var(--accent));
+  color: #ffffff;
+  box-shadow: 0 6px 14px -6px rgba(61, 122, 46, 0.55);
+  transform: translateY(-1px);
 }
 
 /* ── "Mer"-bottensheet — glider upp från botten istället för en egen sida. ── */
