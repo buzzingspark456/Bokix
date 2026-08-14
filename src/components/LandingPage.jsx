@@ -2,7 +2,8 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import {
   FileText, BarChart3, Users, Shield, Zap, CheckCircle,
-  ArrowRight, ChevronRight, Receipt, Inbox,
+  ArrowRight, ChevronRight, Receipt, Inbox, TrendingUp,
+  ArrowUpRight, ArrowDownRight,
   Building2, Briefcase, Landmark, HeartHandshake, UserCheck,
 } from 'lucide-react';
 import { BRAND } from '../utils/brandColors';
@@ -36,7 +37,7 @@ const FEATURE_COLUMNS = [
   },
   {
     icon: Users, title: 'Personal',
-    desc: 'Lönekörningar med automatiskt skatteavdrag enligt Skatteverkets skattetabeller, lönebesked och en sammanställning per anställd.',
+    desc: 'Lönekörningar med automatiskt skatteavdrag enligt Skatteverkets skattetabeller, lönebesked, och en riktig betalfil (ISO 20022) till banken — klar att ladda upp, inga manuella summeringar.',
   },
 ];
 
@@ -139,6 +140,101 @@ export default function LandingPage({ onEnterApp }) {
             ))}
           </div>
         </Reveal>
+      </section>
+
+      {/* ── PRODUKTVISNING — en verklig, korrekt återgivning av Startsidan
+          (samma struktur/färger som Dashboard.jsx: hero-tal på RÅ Resultat,
+          cremeton på grafkortet, "Senast bokfört"-lista), byggd i kod precis
+          som hero-panelen ovan — INTE en skärmdumpsbild. Det betyder att den
+          aldrig kan bli en inaktuell bild av en gammal, buggig version:
+          siffrorna nedan är tydligt märkta "Exempeldata" (samma princip som
+          SAMPLE_ROWS/SAMPLE_CUSTOMER i Settings.jsx används för
+          fakturamall-förhandsvisningen) snarare än en påstådd riktig kunds
+          verkliga bokföring. ── */}
+      <section style={{ padding: '90px 24px', background: 'white', borderBottom: '1px solid #f1f5f9' }}>
+        <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+          <Reveal style={{ textAlign: 'center', marginBottom: '48px' }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '5px 12px', background: BRAND.greenLight, border: `1px solid ${BRAND.green}33`, borderRadius: '100px', fontSize: '12px', fontWeight: 600, color: BRAND.greenDark, marginBottom: '16px' }}>
+              <BarChart3 size={12} /> Så ser det ut
+            </div>
+            <h2 style={{ fontSize: 'clamp(24px, 3.5vw, 36px)', fontWeight: 900, letterSpacing: '-0.03em', color: '#0f172a', marginBottom: '14px' }}>
+              Din ekonomi, på ett ställe
+            </h2>
+            <p style={{ fontSize: '16px', color: '#64748b', maxWidth: '560px', margin: '0 auto', lineHeight: 1.6 }}>
+              Samma Startsida som möter dig i appen — här med exempeldata som visar hur den ser ut när bokföringen är igång.
+            </p>
+          </Reveal>
+
+          <Reveal scale style={{ position: 'relative' }}>
+            <div style={{ background: 'white', borderRadius: '20px', boxShadow: '0 40px 80px -20px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.05)', overflow: 'hidden', padding: '28px 30px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
+                <div>
+                  <div style={{ fontFamily: 'var(--font-voice)', fontWeight: 700, fontSize: '19px', color: '#111827' }}>God morgon, Nordström 👋</div>
+                  <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '2px' }}>Nordström Konsult AB · Räkenskapsår 2026</div>
+                </div>
+                <span style={{ fontSize: '10.5px', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', background: '#f3f4f6', padding: '4px 10px', borderRadius: '999px' }}>Exempeldata</span>
+              </div>
+
+              {/* KPI-rad — samma tre nyckeltal, samma hero-tal-princip (RÅ
+                  Resultat märkbart större) som riktiga Dashboard.jsx. */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '16px' }}>
+                {[
+                  { label: 'RÅ RESULTAT', value: '182 400 kr', sub: 'Vinst 2026', icon: TrendingUp, color: BRAND.greenDark, bg: BRAND.greenLight, hero: true },
+                  { label: 'RÅ OMSÄTTNING', value: '742 900 kr', sub: '2026', icon: ArrowUpRight, color: BRAND.greenDark, bg: BRAND.greenLight },
+                  { label: 'RÅ KOSTNADER', value: '560 500 kr', sub: '2026', icon: ArrowDownRight, color: BRAND.redText, bg: BRAND.redBg },
+                ].map(k => (
+                  <div key={k.label} style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '14px' }}>
+                    <div style={{ width: 28, height: 28, borderRadius: '8px', background: k.bg, color: k.color, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '10px' }}>
+                      <k.icon size={14} />
+                    </div>
+                    <div style={{ fontSize: '9.5px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>{k.label}</div>
+                    <div style={{ fontSize: k.hero ? 'clamp(15px, 4vw, 22px)' : 'clamp(12px, 3vw, 15px)', fontWeight: 700, color: '#111827', letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>{k.value}</div>
+                    <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '2px' }}>{k.sub}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Grafkort — cremeton, precis som riktiga Dashboard.jsx sedan
+                  Sida 32. Staplarna är statiska CSS-block (ingen chart-lib
+                  behövs för en marknadsföringssida), men höjderna är
+                  proportionerliga mot exempeltalen ovan, inte godtyckliga. */}
+              <div style={{ background: 'var(--bg-cream)', border: '1px solid var(--bg-cream-border)', borderRadius: '12px', padding: '16px 18px', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '12px' }}>
+                  <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#111827' }}>Intäkter vs Utgifter</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10.5px', color: BRAND.greenDark }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: '#639922', display: 'inline-block' }} />Intäkter</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10.5px', color: BRAND.redText }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: '#E24B4A', display: 'inline-block' }} />Utgifter</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'flex-end', gap: '10px', height: '64px' }}>
+                  {[38, 55, 70, 42, 60, 90, 30, 68].map((h, i) => (
+                    <div key={i} style={{ flex: 1, display: 'flex', alignItems: 'flex-end', gap: '3px', height: '100%' }}>
+                      <div style={{ flex: 1, height: `${h}%`, background: '#639922', borderRadius: '3px 3px 0 0' }} />
+                      <div style={{ flex: 1, height: `${Math.max(14, h * 0.45)}%`, background: '#E24B4A', borderRadius: '3px 3px 0 0' }} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Senast bokfört — samma listkomponent-stil som riktiga
+                  Dashboard.jsx, med tre exempelrader. */}
+              <div style={{ border: '1px solid #e5e7eb', borderRadius: '12px', overflow: 'hidden' }}>
+                <div style={{ padding: '10px 16px', borderBottom: '1px solid #f3f4f6', fontSize: '12px', fontWeight: 700, color: '#111827' }}>Senast bokfört</div>
+                {[
+                  { desc: 'Faktura 1007', meta: '2026-06-20 · Faktura', amount: '7 500 kr' },
+                  { desc: 'Lokalhyra juni', meta: '2026-06-25 · Utgift', amount: '6 250 kr' },
+                  { desc: 'Betalning faktura 1005', meta: '2026-06-08 · Betalning', amount: '31 250 kr' },
+                ].map(row => (
+                  <div key={row.desc} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 16px', borderTop: '1px solid #f7f8f7', gap: '10px' }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: '11.5px', fontWeight: 600, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.desc}</div>
+                      <div style={{ fontSize: '10px', color: '#9ca3af' }}>{row.meta}</div>
+                    </div>
+                    <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#111827', flexShrink: 0 }}>{row.amount}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Reveal>
+        </div>
       </section>
 
       {/* ── ENDA FLÖDET: LEVERANTÖRSFAKTUROR ── */}
