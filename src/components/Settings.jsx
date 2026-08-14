@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   User, Building2, CreditCard, Users, Shield, Sliders, Check, Download, Upload,
-  AlertTriangle, Trash2, Mail, Plug, Laptop,
+  AlertTriangle, Trash2, Mail, Plug, Laptop, FileText, Lock, KeyRound, Image as ImageIcon,
+  Palette, Landmark, Hash, Calendar, Phone,
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { BRAND } from '../utils/brandColors';
@@ -10,14 +11,17 @@ import InvoiceDocument, { INVOICE_TEMPLATES, DEFAULT_INVOICE_TEMPLATE } from './
 // ── Delade stilar ──
 // Bugkritiskt (Sida 15): varje sektion är ett fullbrett, ljust kort — inte
 // smala vita kort med stor luft runt om.
-const card = { background: '#f9fafb', borderRadius: '12px', padding: '20px', marginBottom: '16px', width: '100%', boxSizing: 'border-box' };
+const card = {
+  background: 'white', borderRadius: '14px', padding: '22px', marginBottom: '16px', width: '100%', boxSizing: 'border-box',
+  border: '1px solid #ececef', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
+};
 const grid2 = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' };
 const labelStyle = { display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' };
 const inputBase = {
   width: '100%', padding: '9px 12px', border: '1px solid #d1d5db', borderRadius: '8px',
   fontSize: '14px', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', transition: 'border-color 0.15s',
 };
-const btnPrimary = { padding: '9px 18px', background: BRAND.green, color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer' };
+const btnPrimary = { padding: '9px 18px', background: BRAND.green, color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer', boxShadow: '0 2px 6px rgba(61, 122, 46, 0.25)' };
 const btnSecondary = { padding: '9px 18px', background: 'white', color: '#374151', border: '1px solid #d1d5db', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer' };
 const btnGhost = { padding: '9px 14px', background: 'transparent', color: '#6b7280', border: 'none', fontWeight: 600, fontSize: '13px', cursor: 'pointer' };
 // Säkerhetsförsvagande handling (t.ex. stänga av tvåstegsverifiering) — dämpad
@@ -28,6 +32,27 @@ const btnWarning = { padding: '9px 18px', background: BRAND.amberBg, color: BRAN
 // Sällan använd säkerhetsåtgärd (utloggning av andra enheter) — tydligt röd
 // men ghost/outline, inte en vardaglig spara-knapp.
 const btnDangerGhost = { padding: '9px 18px', background: 'white', color: '#b91c1c', border: '1px solid #fecaca', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer' };
+
+// Färgad ikon-i-cirkel framför ett kortnamn — gör varje sektion visuellt
+// identifierbar på en snabb blick istället för en lång lista av likadana
+// svarta rubriker, och ger sidan starkare färg utan att den blir stökig.
+const SECTION_TONES = {
+  green: { bg: BRAND.greenLight, color: BRAND.greenDark },
+  amber: { bg: BRAND.amberBg, color: BRAND.amberText },
+  red: { bg: BRAND.redBg, color: BRAND.redText },
+  gray: { bg: BRAND.grayBg, color: '#3f3f46' },
+};
+function SectionHeading({ icon: Icon, tone = 'green', children }) {
+  const t = SECTION_TONES[tone] || SECTION_TONES.green;
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <div style={{ width: 34, height: 34, borderRadius: '10px', background: t.bg, color: t.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <Icon size={17} strokeWidth={2.3} />
+      </div>
+      <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0, color: '#111' }}>{children}</h3>
+    </div>
+  );
+}
 
 function Badge({ tone = 'warning', children }) {
   const map = {
@@ -181,34 +206,46 @@ function ImageUploadField({ label, value, onChange, uploadPath, hint }) {
 // samma InvoiceDocument-komponent som fångas för den riktiga PDF-exporten
 // (se Invoices.jsx), aldrig en förenklad egen mockup.
 const SAMPLE_ROWS = [
-  { id: 'sample-1', description: 'Konsulttjänst', qty: 10, unitPrice: 1200, vatRate: 25, discount: 0 },
-  { id: 'sample-2', description: 'Programvarulicens', qty: 1, unitPrice: 3500, vatRate: 25, discount: 0 },
+  { id: 'sample-1', description: 'Konsultation, webbutveckling', qty: 14, unitPrice: 950, vatRate: 25, discount: 0 },
+  { id: 'sample-2', description: 'Programvarulicens, årsavgift', qty: 1, unitPrice: 3200, vatRate: 25, discount: 0 },
+  { id: 'sample-3', description: 'Resekostnader', qty: 1, unitPrice: 640, vatRate: 25, discount: 0 },
 ];
 const SAMPLE_NET = SAMPLE_ROWS.reduce((s, r) => s + r.qty * r.unitPrice, 0);
 const SAMPLE_TOTALS = { net: SAMPLE_NET, vat: SAMPLE_NET * 0.25, total: SAMPLE_NET * 1.25 };
-const SAMPLE_CUSTOMER = { name: 'Exempel Kund AB', address: 'Storgatan 1, 111 22 Stockholm', email: 'kontakt@exempelkund.se' };
+const SAMPLE_CUSTOMER = { name: 'Storängens Handel AB', address: 'Sveavägen 48, 113 59 Stockholm', email: 'faktura@storangenshandel.se' };
 const SAMPLE_INVOICE = { invoiceNumber: '1042', date: new Date().toISOString().split('T')[0], dueDate: new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0] };
 
-function TemplateThumb({ tplId, previewProps, height = 210, scale = 0.34 }) {
+// A4 vid 96dpi (samma antagande som .a4-paper i index.css: 210mm/297mm).
+// Höjden på tumnageln räknas ALLTID fram från scale — annars klipper en
+// för liten fast höjd bort tabellen/totalsumman och bara headern syns
+// (det var buggen: kortet var 210px högt men fakturan skalades till 381px).
+const A4_PAGE_WIDTH = 794;
+const A4_PAGE_HEIGHT = 1123;
+
+function TemplateThumb({ tplId, previewProps, scale = 0.34 }) {
+  const w = Math.round(A4_PAGE_WIDTH * scale);
+  const h = Math.round(A4_PAGE_HEIGHT * scale);
   return (
-    <div style={{ height, overflow: 'hidden', background: '#e4e4e7', position: 'relative' }}>
-      <div style={{ width: '794px', transform: `scale(${scale})`, transformOrigin: 'top left', pointerEvents: 'none' }}>
+    <div style={{ width: w, height: h, margin: '0 auto', overflow: 'hidden', background: '#e4e4e7', position: 'relative' }}>
+      <div style={{ width: `${A4_PAGE_WIDTH}px`, transform: `scale(${scale})`, transformOrigin: 'top left', pointerEvents: 'none' }}>
         <InvoiceDocument template={tplId} {...previewProps} />
       </div>
     </div>
   );
 }
 
-function TemplateCard({ tpl, selected, onSelect, previewProps }) {
+function TemplateCard({ tpl, selected, onSelect, previewProps, scale }) {
   return (
     <div
       onClick={onSelect} role="button" tabIndex={0} onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && onSelect()}
+      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 20px rgba(15, 23, 42, 0.1)'; }}
+      onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}
       style={{
         position: 'relative', border: `2px solid ${selected ? BRAND.green : '#e4e4e7'}`, borderRadius: '12px',
-        overflow: 'hidden', cursor: 'pointer', background: 'white',
+        overflow: 'hidden', cursor: 'pointer', background: 'white', transition: 'transform 0.15s ease, box-shadow 0.15s ease',
       }}
     >
-      <TemplateThumb tplId={tpl.id} previewProps={previewProps} />
+      <TemplateThumb tplId={tpl.id} previewProps={previewProps} scale={scale} />
       <div style={{ padding: '10px 12px', borderTop: '1px solid #e4e4e7' }}>
         <div style={{ fontWeight: 700, fontSize: '13px', color: '#111' }}>{tpl.label}</div>
         <div style={{ fontSize: '11.5px', color: '#6b7280', marginTop: '2px' }}>{tpl.description}</div>
@@ -262,8 +299,8 @@ function PasswordSection({ user }) {
 
   return (
     <div style={card}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '14px', flexWrap: 'wrap', gap: '6px' }}>
-        <h3 style={{ fontSize: '14.5px', fontWeight: 700, margin: 0, color: '#111' }}>Lösenord</h3>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '6px' }}>
+        <SectionHeading icon={Lock} tone="gray">Lösenord</SectionHeading>
         <span style={{ fontSize: '11.5px', color: '#9ca3af' }}>
           {changedAt ? `Senast ändrat ${relativeTimeSv(changedAt)}` : 'Inte spårat ännu — byt lösenord här för att börja spåra det'}
         </span>
@@ -353,8 +390,8 @@ function TwoFactorSection() {
     <div style={card}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', flexWrap: 'wrap' }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-            <span style={{ fontWeight: 700, color: '#111', fontSize: '14.5px' }}>Tvåstegsverifiering</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+            <SectionHeading icon={KeyRound} tone={verifiedFactor ? 'green' : 'amber'}>Tvåstegsverifiering</SectionHeading>
             {factors !== null && <Badge tone={verifiedFactor ? 'positive' : 'warning'}>{verifiedFactor ? 'På' : 'Av'}</Badge>}
           </div>
           <div style={{ fontSize: '13px', color: '#6b7280', maxWidth: '480px' }}>Kräver en engångskod från en autentiseringsapp (t.ex. Google Authenticator eller Authy) utöver lösenordet vid inloggning.</div>
@@ -406,11 +443,11 @@ function ActiveSessionsSection({ user }) {
 
   return (
     <div style={card}>
-      <div style={{ fontWeight: 700, color: '#111', fontSize: '14.5px', marginBottom: '4px' }}>Aktiva sessioner</div>
+      <div style={{ marginBottom: '8px' }}><SectionHeading icon={Laptop} tone="gray">Aktiva sessioner</SectionHeading></div>
       <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 14px', maxWidth: '560px' }}>
         Bokix kan i dagsläget inte visa en lista över dina enskilda inloggade enheter. Du kan däremot logga ut alla andra sessioner än den du sitter på just nu — t.ex. om du glömt logga ut på en delad dator eller en gammal telefon.
       </p>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', background: 'white', border: '1px solid #e4e4e7', borderRadius: '10px', marginBottom: '14px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', background: '#f9fafb', border: '1px solid #e4e4e7', borderRadius: '10px', marginBottom: '14px' }}>
         <div style={{ width: 38, height: 38, borderRadius: '50%', background: BRAND.greenLight, color: BRAND.greenDark, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
           <Laptop size={17} />
         </div>
@@ -451,11 +488,11 @@ function InvoiceTemplateSection({ company, setCompanyInfo, user }) {
   return (
     <>
       <div style={card}>
-        <h3 style={{ fontSize: '14.5px', fontWeight: 700, margin: '0 0 4px', color: '#111' }}>Fakturamall</h3>
+        <div style={{ marginBottom: '6px' }}><SectionHeading icon={Palette} tone="green">Välj mall</SectionHeading></div>
         <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 16px', maxWidth: '672px' }}>
           Välj utseendet på dina utgående kund- och leverantörsfakturor. Redan skickade fakturor behåller sitt utseende — bara nya fakturor använder mallen du väljer här.
         </p>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', maxWidth: '672px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', maxWidth: '720px' }}>
           {Object.values(INVOICE_TEMPLATES).map(tpl => (
             <TemplateCard
               key={tpl.id}
@@ -463,13 +500,14 @@ function InvoiceTemplateSection({ company, setCompanyInfo, user }) {
               selected={selectedId === tpl.id}
               onSelect={() => setCompanyInfo({ ...company, invoiceTemplateId: tpl.id })}
               previewProps={{ ...previewProps, accentColor: company?.invoiceAccentColor || tpl.defaultAccent }}
+              scale={0.44}
             />
           ))}
         </div>
       </div>
 
       <div style={card}>
-        <h3 style={{ fontSize: '14.5px', fontWeight: 700, margin: '0 0 14px', color: '#111' }}>Anpassa mallen</h3>
+        <div style={{ marginBottom: '16px' }}><SectionHeading icon={ImageIcon} tone="green">Anpassa mallen</SectionHeading></div>
         <div style={{ display: 'flex', gap: '28px', flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: '260px', maxWidth: '380px' }}>
             <div style={{ marginBottom: '18px' }}>
@@ -499,10 +537,10 @@ function InvoiceTemplateSection({ company, setCompanyInfo, user }) {
             <AutoField label="Tilläggsinformation / fottext" value={company?.invoiceFooterText || ''} onChange={(v) => setCompanyInfo({ ...company, invoiceFooterText: v })} hint="Visas längst ner på fakturan, t.ex. betalningsvillkor eller en hälsning." />
           </div>
 
-          <div style={{ flex: 1, minWidth: '280px' }}>
+          <div style={{ flex: 1, minWidth: '300px', maxWidth: '500px' }}>
             <div style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Live-förhandsvisning</div>
-            <div style={{ border: '1px solid #e4e4e7', borderRadius: '8px', overflow: 'hidden', background: '#e4e4e7' }}>
-              <TemplateThumb tplId={selectedId} previewProps={previewProps} height={420} scale={0.56} />
+            <div style={{ border: '1px solid #e4e4e7', borderRadius: '10px', overflow: 'hidden', background: '#e4e4e7', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)' }}>
+              <TemplateThumb tplId={selectedId} previewProps={previewProps} scale={0.6} />
             </div>
           </div>
         </div>
@@ -525,7 +563,7 @@ export default function Settings({
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const hash = window.location.hash.replace('#', '');
-      if (['profile', 'company', 'billing', 'users', 'subscription', 'data'].includes(hash)) {
+      if (['profile', 'company', 'billing', 'invoice', 'users', 'subscription', 'data'].includes(hash)) {
         setActiveTab(hash);
       }
     }
@@ -536,13 +574,23 @@ export default function Settings({
     if (typeof window !== 'undefined') window.history.replaceState(null, '', `#${tab}`);
   };
 
-  const navItems = [
-    { id: 'profile', label: 'Min profil', icon: User },
-    { id: 'company', label: 'Företag', icon: Building2 },
-    { id: 'billing', label: 'Betalning och Faktura', icon: CreditCard },
-    { id: 'users', label: 'Användare och Åtkomst', icon: Users },
-    { id: 'subscription', label: 'Prenumeration', icon: Shield },
-    { id: 'data', label: 'Data och Inställningar', icon: Sliders },
+  // Grupperad undermeny — rent visuellt (påverkar inte activeTab-logiken,
+  // bara hur knapparna radas upp), så sidan känns organiserad istället för
+  // en odifferentierad lista på sju rader.
+  const navGroups = [
+    { label: 'Konto', items: [
+      { id: 'profile', label: 'Min profil', icon: User },
+    ] },
+    { label: 'Företag', items: [
+      { id: 'company', label: 'Företag', icon: Building2 },
+      { id: 'billing', label: 'Betalning', icon: CreditCard },
+      { id: 'invoice', label: 'Fakturamall', icon: FileText },
+    ] },
+    { label: 'System', items: [
+      { id: 'users', label: 'Användare och Åtkomst', icon: Users },
+      { id: 'subscription', label: 'Prenumeration', icon: Shield },
+      { id: 'data', label: 'Data och Inställningar', icon: Sliders },
+    ] },
   ];
 
   const firstName = user?.user_metadata?.first_name || '';
@@ -606,31 +654,55 @@ export default function Settings({
   const deleteMatches = deleteConfirmText.trim().length > 0 && deleteConfirmText.trim() === (company?.name || '').trim();
 
   return (
-    <div style={{ padding: '32px 40px 40px', minHeight: '100%', boxSizing: 'border-box' }}>
-      <h1 style={{ fontSize: '26px', fontWeight: 800, color: '#0f172a', margin: '0 0 28px' }}>Inställningar</h1>
+    <div style={{ padding: '32px 40px 48px', minHeight: '100%', boxSizing: 'border-box', background: 'var(--bg-page, #f4f7f5)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '28px' }}>
+        <div style={{
+          width: 46, height: 46, borderRadius: '13px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: `linear-gradient(135deg, ${BRAND.green}, ${BRAND.greenHover})`, color: 'white', boxShadow: '0 6px 16px rgba(61, 122, 46, 0.3)',
+        }}>
+          <Sliders size={22} strokeWidth={2.2} />
+        </div>
+        <div>
+          <h1 style={{ fontSize: '27px', fontWeight: 800, color: '#0f172a', margin: '0 0 2px', letterSpacing: '-0.01em' }}>Inställningar</h1>
+          <p style={{ fontSize: '14px', color: '#6b7280', margin: 0 }}>Hantera din profil, ditt företag och hur Bokix ser ut och beter sig.</p>
+        </div>
+      </div>
 
       <div style={{ display: 'flex', gap: 0, alignItems: 'flex-start' }}>
-        {/* Undermeny — fast bredd, aldrig centrerad */}
-        <div style={{ width: '224px', flexShrink: 0, borderRight: '1px solid #e4e4e7', paddingRight: '20px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-          {navItems.map(item => {
-            const active = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => handleSetTab(item.id)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', width: '100%',
-                  border: 'none', background: active ? BRAND.greenLight : 'transparent',
-                  color: active ? BRAND.greenDark : '#64748b',
-                  fontWeight: active ? 700 : 500,
-                  borderRadius: '8px', cursor: 'pointer', textAlign: 'left', fontSize: '14px',
-                }}
-              >
-                <item.icon size={18} />
-                {item.label}
-              </button>
-            );
-          })}
+        {/* Undermeny — fast bredd, aldrig centrerad, grupperad i tre block */}
+        <div style={{ width: '232px', flexShrink: 0, paddingRight: '20px', display: 'flex', flexDirection: 'column', gap: '18px', position: 'sticky', top: '24px' }}>
+          {navGroups.map(group => (
+            <div key={group.label}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#a1a1aa', textTransform: 'uppercase', letterSpacing: '0.06em', padding: '0 14px', marginBottom: '6px' }}>
+                {group.label}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                {group.items.map(item => {
+                  const active = activeTab === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => handleSetTab(item.id)}
+                      onMouseEnter={e => { if (!active) e.currentTarget.style.background = '#eef2f6'; }}
+                      onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent'; }}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', width: '100%',
+                        border: 'none', background: active ? BRAND.green : 'transparent',
+                        color: active ? 'white' : '#3f3f46',
+                        fontWeight: active ? 700 : 500,
+                        borderRadius: '10px', cursor: 'pointer', textAlign: 'left', fontSize: '14px',
+                        boxShadow: active ? '0 4px 12px rgba(61, 122, 46, 0.28)' : 'none',
+                        transition: 'background-color 0.12s, box-shadow 0.12s',
+                      }}
+                    >
+                      <item.icon size={17} strokeWidth={active ? 2.4 : 2} />
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
 
         {/* Innehåll — fyller resterande bredd */}
@@ -675,6 +747,7 @@ export default function Settings({
             <div style={{ animation: 'fadeIn 0.2s ease' }}>
               <h2 style={{ fontSize: '20px', fontWeight: 700, margin: '0 0 20px', color: '#111' }}>Företag</h2>
               <div style={card}>
+                <div style={{ marginBottom: '16px' }}><SectionHeading icon={Building2} tone="green">Grunduppgifter</SectionHeading></div>
                 <div style={{ maxWidth: '672px' }}>
                   <AutoField label="Företagsnamn" value={company?.name || ''} onChange={(v) => setCompanyInfo({ ...company, name: v })} required />
                 </div>
@@ -685,14 +758,35 @@ export default function Settings({
                 <div style={{ maxWidth: '672px' }}>
                   <AutoField label="Adress" value={company?.address || ''} onChange={(v) => setCompanyInfo({ ...company, address: v })} />
                 </div>
+                {/* F-skattsedel skrivs ut på varenda faktura/offert (se InvoiceDocument)
+                    men gick tidigare inte att ändra någonstans — den föll tillbaka på
+                    en hårdkodad text ("Innehar F-skattsedel") som INTE nödvändigtvis
+                    stämmer för alla företagsformer. Görs redigerbar här istället för
+                    att tyst påstå något om företaget som kanske inte är sant. */}
+                <div style={{ maxWidth: '672px' }}>
+                  <AutoField
+                    label="F-skattsedel (text på faktura)" value={company?.fSkatt || 'Innehar F-skattsedel'}
+                    onChange={(v) => setCompanyInfo({ ...company, fSkatt: v })}
+                    hint="Skrivs ut på fakturor/offerter under företagsuppgifterna. Ändra eller töm om det inte stämmer för ditt företag."
+                  />
+                </div>
               </div>
+
               <div style={card}>
-                <h3 style={{ fontSize: '14.5px', fontWeight: 700, margin: '0 0 14px', color: '#111' }}>Logotyp</h3>
+                <div style={{ marginBottom: '16px' }}><SectionHeading icon={Phone} tone="green">Kontaktuppgifter</SectionHeading></div>
+                <div style={{ ...grid2, maxWidth: '672px' }}>
+                  <AutoField label="E-post" type="email" value={company?.email || ''} onChange={(v) => setCompanyInfo({ ...company, email: v })} hint="Visas som kontaktväg längst ner på fakturor." />
+                  <AutoField label="Telefon" type="tel" value={company?.phone || ''} onChange={(v) => setCompanyInfo({ ...company, phone: v })} />
+                </div>
+              </div>
+
+              <div style={card}>
+                <div style={{ marginBottom: '16px' }}><SectionHeading icon={ImageIcon} tone="green">Logotyp</SectionHeading></div>
                 <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
                   <div style={{ flex: 1, minWidth: '260px', maxWidth: '440px' }}>
                     <ImageUploadField label="Logotyp" value={company?.logoUrl || ''} onChange={(v) => setCompanyInfo({ ...company, logoUrl: v })} uploadPath={`${user?.id}/logo-${company?.id}`} hint="Används överst på dina utgående fakturor. Max 3 MB." />
                   </div>
-                  <div style={{ width: '200px', padding: '16px', border: '1px solid #e4e4e7', borderRadius: '8px', background: 'white' }}>
+                  <div style={{ width: '200px', padding: '16px', border: '1px solid #e4e4e7', borderRadius: '8px', background: '#f9fafb' }}>
                     <div style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '8px', textTransform: 'uppercase' }}>Förhandsvisning faktura</div>
                     {company?.logoUrl ? (
                       <img src={company.logoUrl} alt="Logotyp" style={{ maxHeight: '40px', maxWidth: '100%', marginBottom: '16px', display: 'block' }} />
@@ -704,16 +798,40 @@ export default function Settings({
                   </div>
                 </div>
               </div>
+
+              {/* Räkenskapsår + momsperiod styr verkliga beräkningar (Taxes,
+                  VatDeclaration, Reports, Verifications) — fanns tidigare BARA
+                  på en separat, svårhittad "Företag"-sida utanför Inställningar
+                  (CompanySettings.jsx), inte här där man faktiskt letar. */}
+              <div style={card}>
+                <div style={{ marginBottom: '4px' }}><SectionHeading icon={Calendar} tone="green">Räkenskapsår och moms</SectionHeading></div>
+                <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 16px', maxWidth: '672px' }}>Styr periodiseringen i Rapporter, Momsdeklaration och Skatter.</p>
+                <div style={{ ...grid2, maxWidth: '672px' }}>
+                  <AutoField label="Räkenskapsår startar" type="date" value={company?.fiscalYear || ''} onChange={(v) => setCompanyInfo({ ...company, fiscalYear: v })} />
+                  <div style={{ marginBottom: '16px' }}>
+                    <label style={labelStyle}>Momsperiod</label>
+                    <select
+                      value={company?.vatPeriod || 'quarterly'}
+                      onChange={e => setCompanyInfo({ ...company, vatPeriod: e.target.value })}
+                      style={{ ...inputBase, background: 'white' }}
+                    >
+                      <option value="monthly">Månadsvis</option>
+                      <option value="quarterly">Kvartalsvis</option>
+                      <option value="yearly">Helårlig</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
-          {/* 3. Betalning och Faktura */}
+          {/* 3. Betalning */}
           {activeTab === 'billing' && (
             <div style={{ animation: 'fadeIn 0.2s ease' }}>
-              <h2 style={{ fontSize: '20px', fontWeight: 700, margin: '0 0 20px', color: '#111' }}>Betalning och Faktura</h2>
+              <h2 style={{ fontSize: '20px', fontWeight: 700, margin: '0 0 20px', color: '#111' }}>Betalning</h2>
 
               <div style={card}>
-                <h3 style={{ fontSize: '14.5px', fontWeight: 700, margin: '0 0 14px', color: '#111' }}>Bankuppgifter för inbetalning</h3>
+                <div style={{ marginBottom: '4px' }}><SectionHeading icon={Landmark} tone="green">Bankuppgifter för inbetalning</SectionHeading></div>
                 <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 16px', maxWidth: '672px' }}>Dessa uppgifter visas på dina utgående fakturor så kunder vet var de ska betala.</p>
                 <div style={{ ...grid2, maxWidth: '672px' }}>
                   <AutoField label="Bankgiro" value={company?.bankgiro || ''} onChange={(v) => setCompanyInfo({ ...company, bankgiro: v })} />
@@ -724,7 +842,7 @@ export default function Settings({
               </div>
 
               <div style={card}>
-                <h3 style={{ fontSize: '14.5px', fontWeight: 700, margin: '0 0 14px', color: '#111' }}>Ta emot kortbetalningar</h3>
+                <div style={{ marginBottom: '14px' }}><SectionHeading icon={CreditCard} tone={stripeAccountId ? 'green' : 'amber'}>Ta emot kortbetalningar</SectionHeading></div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
                   <p style={{ fontSize: '13px', color: '#6b7280', margin: 0, maxWidth: '480px' }}>
                     {stripeAccountId
@@ -738,7 +856,7 @@ export default function Settings({
               </div>
 
               <div style={card}>
-                <h3 style={{ fontSize: '14.5px', fontWeight: 700, margin: '0 0 14px', color: '#111' }}>Standardinställningar för nya fakturor</h3>
+                <div style={{ marginBottom: '14px' }}><SectionHeading icon={Hash} tone="green">Standardinställningar för nya fakturor</SectionHeading></div>
                 <div style={{ maxWidth: '672px' }}>
                   <AutoField label="Betalningsvillkor (dagar)" type="number" value={company?.paymentTermsDays ?? '30'} onChange={(v) => setCompanyInfo({ ...company, paymentTermsDays: Number(v) || 30 })} />
                   <AutoField label="Standardtext på faktura" value={company?.invoiceFooterText || 'Tack för er affär! Dröjsmålsränta debiteras enligt räntelagen.'} onChange={(v) => setCompanyInfo({ ...company, invoiceFooterText: v })} />
@@ -768,12 +886,18 @@ export default function Settings({
                   {invoiceNumberError && <div style={{ color: '#991b1b', fontSize: '12.5px', marginTop: '8px', fontWeight: 600 }}>{invoiceNumberError}</div>}
                 </div>
               </div>
+            </div>
+          )}
 
+          {/* 4. Fakturamall */}
+          {activeTab === 'invoice' && (
+            <div style={{ animation: 'fadeIn 0.2s ease' }}>
+              <h2 style={{ fontSize: '20px', fontWeight: 700, margin: '0 0 20px', color: '#111' }}>Fakturamall</h2>
               <InvoiceTemplateSection company={company} setCompanyInfo={setCompanyInfo} user={user} />
             </div>
           )}
 
-          {/* 4. Användare och Åtkomst */}
+          {/* 5. Användare och Åtkomst */}
           {activeTab === 'users' && (
             <div style={{ animation: 'fadeIn 0.2s ease' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
@@ -805,7 +929,7 @@ export default function Settings({
             </div>
           )}
 
-          {/* 5. Prenumeration */}
+          {/* 6. Prenumeration */}
           {activeTab === 'subscription' && (
             <div style={{ animation: 'fadeIn 0.2s ease' }}>
               <h2 style={{ fontSize: '20px', fontWeight: 700, margin: '0 0 20px', color: '#111' }}>Prenumeration</h2>
@@ -825,13 +949,13 @@ export default function Settings({
             </div>
           )}
 
-          {/* 6. Data och Inställningar */}
+          {/* 7. Data och Inställningar */}
           {activeTab === 'data' && (
             <div style={{ animation: 'fadeIn 0.2s ease' }}>
               <h2 style={{ fontSize: '20px', fontWeight: 700, margin: '0 0 20px', color: '#111' }}>Data och Inställningar</h2>
 
               <div style={card}>
-                <h3 style={{ fontSize: '14.5px', fontWeight: 700, margin: '0 0 14px', color: '#111' }}>Exportera och importera data</h3>
+                <div style={{ marginBottom: '14px' }}><SectionHeading icon={Download} tone="green">Exportera och importera data</SectionHeading></div>
                 <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 16px', maxWidth: '672px' }}>
                   Ladda ner all bokföringsdata för det här företaget (konton, verifikationer, fakturor, kvitton/utgifter, kunder/leverantörer). Vi låser aldrig in din data.
                 </p>
@@ -848,11 +972,8 @@ export default function Settings({
               </div>
 
               <div style={card}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-                  <Plug size={16} style={{ color: '#6b7280' }} />
-                  <h3 style={{ fontSize: '14.5px', fontWeight: 700, margin: 0, color: '#111' }}>Integrationer</h3>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', background: 'white', border: '1px solid #e4e4e7', borderRadius: '8px' }}>
+                <div style={{ marginBottom: '14px' }}><SectionHeading icon={Plug} tone="gray">Integrationer</SectionHeading></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', background: '#f9fafb', border: '1px solid #e4e4e7', borderRadius: '8px' }}>
                   <div>
                     <div style={{ fontWeight: 600, fontSize: '13.5px', color: '#111' }}>Stripe</div>
                     <div style={{ fontSize: '12px', color: '#9ca3af' }}>{stripeAccountId ? 'Anslutet — hanteras under Betalning och Faktura' : 'Inte anslutet'}</div>
@@ -862,7 +983,7 @@ export default function Settings({
               </div>
 
               <div style={{ ...card, background: '#fef2f2', border: '1px solid #fecaca' }}>
-                <h3 style={{ fontSize: '14.5px', fontWeight: 700, margin: '0 0 8px', color: '#b91c1c' }}>Radera företagets bokföringsdata</h3>
+                <div style={{ marginBottom: '10px' }}><SectionHeading icon={Trash2} tone="red">Radera företagets bokföringsdata</SectionHeading></div>
                 <p style={{ fontSize: '13px', color: '#991b1b', margin: '0 0 12px', maxWidth: '600px' }}>
                   Detta raderar all bokföring, alla fakturor, kunder och verifikationer för <strong>{company?.name || 'det här företaget'}</strong> permanent. Det kan inte ångras. Din Bokix-inloggning ({user?.email}) påverkas inte och du loggas inte ut.
                 </p>

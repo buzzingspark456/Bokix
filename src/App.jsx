@@ -72,6 +72,7 @@ function BokixLogo() {
 }
 import Dashboard from './components/Dashboard';
 import Invoices from './components/Invoices';
+import Quotes from './components/Quotes';
 import Expenses from './components/Expenses';
 import SupplierInvoices from './components/SupplierInvoices';
 import Contacts from './components/Contacts';
@@ -84,13 +85,16 @@ import TimeTracking from './components/TimeTracking';
 import Payroll from './components/Payroll';
 import Taxes from './components/Taxes';
 import LandingPage from './components/LandingPage';
+import FeaturesPage from './components/marketing/FeaturesPage';
+import PricingPage from './components/marketing/PricingPage';
+import AboutPage from './components/marketing/AboutPage';
+import ContactPage from './components/marketing/ContactPage';
 import Auth from './components/Auth';
 import OnboardingFlow from './components/OnboardingFlow';
 import { supabase } from './supabaseClient';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import PrivacyPolicy from './components/PrivacyPolicy';
 import TermsPolicy from './components/TermsPolicy';
-import GDPRPolicy from './components/GDPRPolicy';
 import CookiesPolicy from './components/CookiesPolicy';
 import ReviewQueue from './components/ReviewQueue';
 import CompanySettings from './components/CompanySettings';
@@ -127,6 +131,7 @@ function createEmptyCompanyData(companyInfo) {
     contacts: [],
     projects: [],
     timeEntries: [],
+    billableTimeEntries: [],
     recurringTemplates: [],
     verificationTemplates: [],
     vatPeriods: {},
@@ -247,6 +252,33 @@ function App() {
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showLanding, setShowLanding] = useState(true);
+
+  // "Kom igång"/"Logga in" klickat på en av de fristående marknadssidorna
+  // (Funktioner/Priser/Om oss/Kontakt, se MarketingLayout) navigerar hit
+  // till "/" med en state-flagga istället för att kunna anropa den lokala
+  // showLanding-togglen direkt (den lever bara här). Läses av en gång och
+  // rensas direkt så en omladdning/bakåtknapp inte råkar trigga om den.
+  const location = useLocation();
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (location.state?.enterApp) {
+      setShowLanding(false);
+      navigate('.', { replace: true, state: {} });
+    }
+  }, [location.state]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Bugkritiskt: react-router byter INTE scrollposition automatiskt vid
+  // navigering — utan detta kunde man t.ex. scrolla långt ner på /priser,
+  // klicka till startsidan, och landa mitt i startsidan istället för högst
+  // upp där hjälten faktiskt visas. Bara marknadssidorna (inte den
+  // inloggade appens egna flikbyten, som redan hanterar sin egen scroll).
+  useEffect(() => {
+    const marketingPaths = ['/', '/funktioner', '/priser', '/om-oss', '/kontakt', '/privacy', '/terms', '/cookies'];
+    if (marketingPaths.includes(location.pathname)) {
+      window.scrollTo(0, 0);
+    }
+  }, [location.pathname]);
+
   const [user, setUser] = useState(null);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [newCompanyModal, setNewCompanyModal] = useState(false);
@@ -381,13 +413,25 @@ function App() {
         setIsLoadingAuth(false);
       });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    // Bugkritiskt: `onAuthStateChange` triggar inte bara på en riktig
+    // inloggning — den kör lika gärna vid TOKEN_REFRESHED (Supabase byter
+    // ut access-token automatiskt i bakgrunden, bland annat så fort fliken
+    // återfår fokus) och USER_UPDATED (t.ex. när Inställningar sparar
+    // förnamn/avatar). Innan denna guard anropade koden `fetchUserData` på
+    // ALLA dessa händelser — vilket läste in det SENAST SPARADE
+    // molntillståndet och skrev över `data` rakt av. Om det hände inom den
+    // 2-sekunders debounce-fönstret för sparning (se persist-effekten
+    // nedan) hann den nya kunden/fakturan aldrig sparas OCH försvann ur
+    // vyn i samma veva — ett tyst dataförlust-scenario som lätt kunde
+    // träffas bara genom att växla flik och komma tillbaka mitt i jobbet.
+    // `fetchUserData` ska bara köras vid en FAKTISK ny inloggning.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchUserData(session.user);
-      } else {
+      if (!session?.user) {
         setIsLoggedIn(false);
         setShowOnboarding(false);
+      } else if (event === 'SIGNED_IN') {
+        fetchUserData(session.user);
       }
     });
 
@@ -703,6 +747,14 @@ function App() {
   const employees = currentCompany.employees || [];
   const payrollRuns = currentCompany.payrollRuns || [];
   const timeEntries = currentCompany.timeEntries || [];
+  // Separat från `timeEntries` (Projekt-fliken, "hur mycket tid gick åt på
+  // projekt X") — det här är Tidrapporterings-sidans egna poster (kund att
+  // fakturera ELLER anställd att lönebasera), en annan fråga än
+  // projektlönsamhet. Att blanda dem i samma array skulle antingen läcka
+  // faktureringsposter in i projektveckorutnätet (märkta "Okänt projekt")
+  // eller kräva att Projekt-fliken filtrerar bort dem — enklare och
+  // säkrare att hålla isär dem.
+  const billableTimeEntries = currentCompany.billableTimeEntries || [];
   const recurringTemplates = currentCompany.recurringTemplates || [];
 
   // ── Helpers ──
@@ -720,6 +772,7 @@ function App() {
   const setEmployees = (fn) => updateCompanyField('employees', fn);
   const setPayrollRuns = (fn) => updateCompanyField('payrollRuns', fn);
   const setTimeEntries = (fn) => updateCompanyField('timeEntries', fn);
+  const setBillableTimeEntries = (fn) => updateCompanyField('billableTimeEntries', fn);
   const setRecurringTemplates = (fn) => updateCompanyField('recurringTemplates', fn);
 
   const handleSaveVerificationTemplate = ({ name, description, projectId, costCenter, rows }) => {
@@ -882,9 +935,23 @@ function App() {
     }
   };
 
-  // Add verification
+  // Add (or continue-update) a verification.
   const handleAddVerification = (newVer) => {
     setVerifications(prev => {
+      // Bugkritiskt: "Fortsätt redigera utkastet" i Verifications.jsx skickar
+      // med sitt EGET id (bara en verifikation som redan hade ett tilldelat
+      // nummer gör det, se kommentaren i handleSave där). Utan den här
+      // grenen skapades alltid en NY post — det gamla utkastet blev kvar
+      // orört i listan, så varje "fortsätt och spara" dubblerade
+      // verifikationen istället för att uppdatera den.
+      if (newVer.id) {
+        const idx = prev.findIndex(v => v.id === newVer.id);
+        if (idx !== -1) {
+          const updated = [...prev];
+          updated[idx] = { ...prev[idx], ...newVer };
+          return updated;
+        }
+      }
       // Respektera ett nummer som redan beräknats (t.ex. med rätt serie från
       // "Ny verifikation"-formuläret) — bygg bara ett eget som fallback för
       // auto-bokförda verifikationer från fakturor/utgifter, som inte skickar med ett.
@@ -1264,6 +1331,32 @@ function App() {
     }));
   };
 
+  // Fryser om employeeSnapshot från den anställdas NUVARANDE profil — bara
+  // tillåtet på ett fortfarande obekräftat utkast ('calculated' inte
+  // uppnått), så en redan beräknad/bokförd körnings historik aldrig ändras
+  // i efterhand (samma frysningsprincip som skapandet, se handleCreateRun).
+  // Behövs eftersom en felaktig/saknad skattetabell på den anställda annars
+  // fryses in permanent i utkastet och aldrig kan rättas till utan att
+  // skapa om hela körningen.
+  // `currentEmployees` tas emot som parameter (samma mönster som
+  // handleCreateRun ovan, som får sin anställdlista från anroparen) istället
+  // för att läsa den fångade `employees`-variabeln från render-scope —
+  // annars skulle ett anställd-sparande och en uppdatering av samma
+  // körnings ögonblicksbild i samma synkrona händelsekedja kunna se
+  // olika (den senare inaktuell) versioner av samma company-state.
+  const handleRefreshRunSnapshots = (runId, currentEmployees) => {
+    setPayrollRuns(prev => prev.map(r => {
+      if (r.id !== runId || r.completedSteps.includes('calculated')) return r;
+      return {
+        ...r,
+        rows: r.rows.map(row => {
+          const current = (currentEmployees || employees).find(e => e.id === row.employeeId);
+          return current ? { ...row, employeeSnapshot: { ...current } } : row;
+        }),
+      };
+    }));
+  };
+
   const handleAdvanceRunStep = (runId, stepId) => {
     setPayrollRuns(prev => prev.map(r => {
       if (r.id !== runId || r.completedSteps.includes(stepId)) return r; // idempotent
@@ -1394,13 +1487,24 @@ function App() {
             company={company}
             profileIncomplete={!hasCompletedOnboarding}
             onResumeOnboarding={() => setShowOnboarding(true)}
-            stripeAccountId={company.stripeAccountId}
-            onConnectStripe={handleOpenStripeOnboarding}
-            onDisconnectStripe={handleDisconnectStripe}
+            vatPeriods={vatPeriods}
+            payrollRuns={payrollRuns}
           />
         );
       case 'time':
-        return <TimeTracking key={company?.id || data.activeCompanyId} />;
+        return (
+          <TimeTracking
+            key={company?.id || data.activeCompanyId}
+            timeEntries={billableTimeEntries}
+            setTimeEntries={setBillableTimeEntries}
+            contacts={contacts}
+            employees={employees}
+            user={user}
+            globalAction={globalAction}
+            clearGlobalAction={() => setGlobalAction(null)}
+            handleGlobalAction={handleGlobalAction}
+          />
+        );
       case 'payroll':
         return (
           <Payroll
@@ -1415,6 +1519,7 @@ function App() {
             onUpdateRunRow={handleUpdateRunRow}
             onAdvanceRunStep={handleAdvanceRunStep}
             onBookRun={handleBookRun}
+            onRefreshRunSnapshots={handleRefreshRunSnapshots}
           />
         );
       case 'taxes':
@@ -1436,27 +1541,14 @@ function App() {
             onNavigateToTab={handleNavTabChange}
           />
         );
-      case 'revenue':
-        return (
-          <Invoices
-            key={company?.id || data.activeCompanyId}
-            invoices={invoices.filter(i => i.type !== 'quote')}
-            contacts={contacts}
-            onAdd={handleAddInvoice}
-            onMarkPaid={handleMarkInvoicePaid}
-            onCreatePaymentLink={handleCreateInvoicePaymentLink}
-            stripeAccountId={company.stripeAccountId}
-            setInvoices={setInvoices}
-            onConvertQuote={handleConvertQuoteToInvoice}
-            company={company}
-            globalAction={globalAction}
-            clearGlobalAction={() => setGlobalAction(null)}
-            onNavigate={handleNavTabChange}
-            pageTitle="Intäkter"
-            pageSubtitle="Hantera intäkter, fakturor och betalningar"
-          />
-        );
       case 'invoices':
+        // Bugkritiskt: `resolveTab('revenue')` returnerar redan 'invoices'
+        // (se tabAliases ovan), så en tidigare `case 'revenue':`-gren här var
+        // permanent odödbar kod — den kunde aldrig träffas, men hade av
+        // misstag en ANNAN, fattigare uppsättning props (bl.a. saknades
+        // onUnmarkPaid/onRegisterPayment/verifications) än den här grenen.
+        // Om någon råkat kopiera fel gren i framtiden hade det tyst gjort
+        // "Markera som obetald" m.fl. verkningslösa. Bara EN gren nu.
         return (
           <Invoices
             key={company?.id || data.activeCompanyId}
@@ -1484,8 +1576,10 @@ function App() {
           <Expenses
             expenses={expenses}
             accounts={accounts}
+            verifications={verifications}
             contacts={contacts}
             setContacts={setContacts}
+            user={user}
             onAdd={handleAddExpense}
             onAddSupplierInvoice={handleAddSupplierInvoice}
             onMarkSupplierInvoicePaid={handleMarkSupplierInvoicePaid}
@@ -1501,6 +1595,7 @@ function App() {
           <Expenses
             expenses={expenses}
             accounts={accounts}
+            verifications={verifications}
             user={user}
             onAdd={handleAddExpense}
             onFixExpenseAccount={handleFixExpenseAccount}
@@ -1525,7 +1620,7 @@ function App() {
           />
         );
       case 'quotes':
-        return <Quotes key={company?.id || data.activeCompanyId} invoices={invoices} setInvoices={setInvoices} contacts={contacts} globalAction={globalAction} clearGlobalAction={() => setGlobalAction(null)} handleGlobalAction={handleGlobalAction} />;
+        return <Quotes key={company?.id || data.activeCompanyId} invoices={invoices} setInvoices={setInvoices} contacts={contacts} company={company} globalAction={globalAction} clearGlobalAction={() => setGlobalAction(null)} handleGlobalAction={handleGlobalAction} />;
       case 'projects':
         return (
           <Projects
@@ -1553,6 +1648,7 @@ function App() {
       case 'transfers':
         return (
           <Verifications
+            user={user}
             verifications={verifications}
             accounts={accounts}
             balances={balances}
@@ -1582,6 +1678,7 @@ function App() {
       case 'verifications':
         return (
           <Verifications
+            user={user}
             verifications={verifications}
             accounts={accounts}
             balances={balances}
@@ -2074,9 +2171,19 @@ function App() {
     </>
           }
         />
+        {/* Sitemap (Sida 29) — varje marknadssida en egen riktig route/URL,
+            inte ett skroll-ankare på startsidan. Loggan i MarketingLayout
+            går alltid till "/" oavsett vilken av dessa man står på. */}
+        <Route path="/funktioner" element={<FeaturesPage />} />
+        <Route path="/priser" element={<PricingPage />} />
+        <Route path="/om-oss" element={<AboutPage />} />
+        <Route path="/kontakt" element={<ContactPage />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/terms" element={<TermsPolicy />} />
-        <Route path="/gdpr" element={<GDPRPolicy />} />
+        {/* GDPR-innehållet är nu fullt inbakat i den utökade Integritetspolicyn
+            (avsnitt 6, "Dina rättigheter") — en egen tunnare GDPR-sida skulle
+            bara bli en sämre, lätt-att-glömma-uppdatera dubblett. */}
+        <Route path="/gdpr" element={<Navigate to="/privacy" replace />} />
         <Route path="/cookies" element={<CookiesPolicy />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

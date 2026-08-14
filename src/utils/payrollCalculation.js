@@ -110,6 +110,10 @@ export function computeEmployeePayroll(employee, row) {
     vacationProvision: round(vacationProvision), vacationFee: round(vacationFee),
     totalCost: round(totalCost), feeCategory, vacationRule, steps,
     hasBankInfo: Boolean(employee.clearingNumber && employee.accountNumber),
+    // IBAN/BIC är vad den faktiska betalfilen (ISO 20022 pain.001) kräver —
+    // clearing-/kontonummer räcker inte där (se salaryPaymentFile.js).
+    iban: employee.iban || '', bic: employee.bic || '',
+    hasIbanInfo: Boolean(employee.iban && employee.bic),
     hoursWorked: employee.salaryForm === 'timlon' ? (Number(row.hoursWorked) || 0) : null,
   };
 }

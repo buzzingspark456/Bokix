@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
-import { Plus, Search, ChevronRight, Users } from 'lucide-react';
+import { Plus, Search, ChevronRight, Users, UserCog, CalendarClock } from 'lucide-react';
 import EmployeeForm from './EmployeeForm';
 import PayrollRunDetail from './PayrollRunDetail';
 
 const formatSEK = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
 const inputSt = { width: '100%', padding: '9px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', outline: 'none', boxSizing: 'border-box' };
 const labelSt = { display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' };
+const panelCard = { background: 'white', borderRadius: '14px', border: '1px solid #ececef', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)', overflow: 'hidden' };
 
 export default function Payroll({
   company, employees = [], onSaveEmployee, accounts = [], projects = [],
-  payrollRuns = [], onCreateRun, onUpdateRunRow, onAdvanceRunStep, onBookRun,
+  payrollRuns = [], onCreateRun, onUpdateRunRow, onAdvanceRunStep, onBookRun, onRefreshRunSnapshots,
 }) {
   const [activeTab, setActiveTab] = useState('employees');
   const [search, setSearch] = useState('');
@@ -59,32 +60,39 @@ export default function Payroll({
           onAdvanceStep={onAdvanceRunStep}
           onBookRun={onBookRun}
           onUpdateRow={(employeeId, patch) => onUpdateRunRow(selectedRun.id, employeeId, patch)}
+          onRefreshSnapshots={() => onRefreshRunSnapshots?.(selectedRun.id, employees)}
         />
       </div>
     );
   }
 
   return (
-    <div style={{ padding: '32px 40px', animation: 'fadeIn 0.25s ease', minHeight: '100%' }}>
-      <div style={{ marginBottom: '24px' }}>
-        <h1 style={{ fontSize: '26px', fontWeight: 800, color: '#0f172a', margin: '0 0 24px' }}>Anställda och lön</h1>
-        <div style={{ display: 'flex', gap: '0', borderBottom: '2px solid #e4e4e7' }}>
-          {[{ id: 'employees', label: 'Anställda' }, { id: 'runs', label: 'Lönekörningar' }].map(t => (
-            <button
-              key={t.id}
-              onClick={() => { setActiveTab(t.id); setViewState('list'); setSelectedEmployee(null); }}
-              style={{
-                padding: '12px 20px', border: 'none', cursor: 'pointer', fontSize: '15px',
-                fontWeight: activeTab === t.id ? 700 : 500,
-                color: activeTab === t.id ? '#1a3028' : '#6b7280',
-                background: 'none',
-                borderBottom: activeTab === t.id ? '2px solid #1a3028' : '2px solid transparent',
-                marginBottom: '-2px',
-              }}
-            >
-              {t.label}
-            </button>
-          ))}
+    <div style={{ padding: '32px 40px 48px', animation: 'fadeIn 0.25s ease', minHeight: '100%', boxSizing: 'border-box' }}>
+      <div style={{ marginBottom: '26px' }}>
+        <h1 style={{ fontSize: '27px', fontWeight: 800, color: '#0f172a', margin: '0 0 4px', letterSpacing: '-0.01em' }}>Anställda och lön</h1>
+        <p style={{ fontSize: '14px', color: '#6b7280', margin: '0 0 22px' }}>Hantera dina anställda och kör löner, från bruttolön till bokförd verifikation.</p>
+        <div style={{ display: 'inline-flex', gap: '4px', background: '#f1f5f9', padding: '4px', borderRadius: '11px' }}>
+          {[{ id: 'employees', label: 'Anställda', icon: UserCog }, { id: 'runs', label: 'Lönekörningar', icon: CalendarClock }].map(t => {
+            const active = activeTab === t.id;
+            return (
+              <button
+                key={t.id}
+                onClick={() => { setActiveTab(t.id); setViewState('list'); setSelectedEmployee(null); }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '7px', padding: '9px 18px', border: 'none', cursor: 'pointer', fontSize: '14px',
+                  fontWeight: active ? 700 : 500,
+                  color: active ? '#1a3028' : '#64748b',
+                  background: active ? 'white' : 'transparent',
+                  borderRadius: '8px',
+                  boxShadow: active ? '0 1px 3px rgba(15, 23, 42, 0.1)' : 'none',
+                  transition: 'all 0.15s',
+                }}
+              >
+                <t.icon size={15} />
+                {t.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -95,12 +103,12 @@ export default function Payroll({
               <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
               <input type="text" placeholder="Sök anställd..." value={search} onChange={e => setSearch(e.target.value)} style={{ ...inputSt, paddingLeft: '36px', width: '260px', background: 'white' }} />
             </div>
-            <button onClick={() => { setSelectedEmployee(null); setViewState('new'); }} style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '9px 18px', background: '#1a3028', color: 'white', border: 'none', borderRadius: '9px', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}>
+            <button onClick={() => { setSelectedEmployee(null); setViewState('new'); }} style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '9px 18px', background: '#1a3028', color: 'white', border: 'none', borderRadius: '9px', fontSize: '14px', fontWeight: 600, cursor: 'pointer', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.15)' }}>
               <Plus size={16} /> Ny anställd
             </button>
           </div>
 
-          <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e4e4e7', overflow: 'hidden' }}>
+          <div style={panelCard}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: '#f8fafc' }}>
@@ -162,7 +170,7 @@ export default function Payroll({
                 else setShowNewRun(true);
               }}
               title={employees.length === 0 ? 'Lägg till en anställd först' : undefined}
-              style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '9px 18px', background: '#1a3028', color: 'white', border: 'none', borderRadius: '9px', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}
+              style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '9px 18px', background: '#1a3028', color: 'white', border: 'none', borderRadius: '9px', fontSize: '14px', fontWeight: 600, cursor: 'pointer', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.15)' }}
             >
               <Plus size={16} /> Ny lönekörning
             </button>
@@ -175,7 +183,7 @@ export default function Payroll({
           )}
 
           {showNewRun && (
-            <div style={{ background: 'white', border: '1px solid #e4e4e7', borderRadius: '12px', padding: '20px', marginBottom: '20px' }}>
+            <div style={{ ...panelCard, padding: '20px', marginBottom: '20px' }}>
               <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 700 }}>Ny lönekörning</h3>
               <div style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
                 <div>
@@ -199,7 +207,7 @@ export default function Payroll({
             </div>
           )}
 
-          <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e4e4e7', overflow: 'hidden' }}>
+          <div style={panelCard}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: '#f8fafc' }}>

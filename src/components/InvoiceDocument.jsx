@@ -13,11 +13,14 @@ const formatDate = (d) => {
 // inte själv valt en accentfärg — headerns/tabellens färg på en kunds egen
 // faktura är kundens varumärke, inte Bokix grönt (det är en medveten
 // avvikelse från "Bokix ska alltid vara grönt", se Sida 24).
+// Mörkare, mättade juveltoner istället för de tidigare ganska tunna/kalla
+// standardfärgerna (blek blå, stopljusröd, orange) — fyra distinkta,
+// mörkare och gladare nyanser som fortfarande går att skilja åt parvis.
 export const INVOICE_TEMPLATES = {
-  classic: { id: 'classic', label: 'Klassisk', description: 'Vit bakgrund, blå rubrik, rund logotyp uppe till höger.', defaultAccent: '#2563eb' },
-  bold:    { id: 'bold',    label: 'Kraftfull', description: 'Helfärgad header i din accentfärg, vitt i övrigt.', defaultAccent: '#b91c1c' },
-  minimal: { id: 'minimal', label: 'Minimal',   description: 'Vänsterställd rubrik, ingen färgad header-yta.', defaultAccent: '#2563eb' },
-  grid:    { id: 'grid',    label: 'Rutnät',    description: 'Konturerad tabellstruktur, traditionellt formulär.', defaultAccent: '#c2410c' },
+  classic: { id: 'classic', label: 'Klassisk', description: 'Vit bakgrund, djupblå rubrik, rund logotyp uppe till höger.', defaultAccent: '#3730a3' },
+  bold:    { id: 'bold',    label: 'Kraftfull', description: 'Helfärgad header i din accentfärg, vitt i övrigt.', defaultAccent: '#9d174d' },
+  minimal: { id: 'minimal', label: 'Minimal',   description: 'Vänsterställd rubrik, ingen färgad header-yta.', defaultAccent: '#0f766e' },
+  grid:    { id: 'grid',    label: 'Rutnät',    description: 'Konturerad tabellstruktur, traditionellt formulär.', defaultAccent: '#b45309' },
 };
 export const DEFAULT_INVOICE_TEMPLATE = 'bold';
 
@@ -31,7 +34,7 @@ export const DEFAULT_INVOICE_TEMPLATE = 'bold';
 const InvoiceDocument = forwardRef(function InvoiceDocument(
   {
     invoice, customer, company, rows = [], totals, currency = 'SEK', invoiceText, docLabel = 'FAKTURA',
-    logoUrl, footerText, template = DEFAULT_INVOICE_TEMPLATE, accentColor,
+    docType = 'invoice', logoUrl, footerText, template = DEFAULT_INVOICE_TEMPLATE, accentColor,
   },
   ref
 ) {
@@ -48,12 +51,27 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
     ? { background: 'white', color: '#111', borderBottom: `2px solid ${accent}` }
     : { background: accent, color: 'white', ...(isGrid ? cellBorder : undefined) };
 
-  const meta = [
-    ['Fakturanr', invoice?.invoiceNumber || '—'],
-    ['OCR', invoice?.invoiceNumber ? String(invoice.invoiceNumber).padStart(7, '0') : '—'],
-    ['Fakturadatum', formatDate(invoice?.date)],
-    ['Förfallodatum', formatDate(invoice?.dueDate)],
-  ];
+  // En offert har varken OCR (kopplat till en verklig betalning) eller ett
+  // "förfallodatum" — den är giltig till ett visst datum, inte förfallen.
+  // Att visa fakturaspecifika fält på en offert vore att fejka en detalj som
+  // inte finns, så mallens metafält skiljer sig per docType istället för att
+  // återanvända fakturans ordval rakt av.
+  // "Att betala" antar att beloppet faktiskt förfaller till betalning —
+  // sant för en faktura, men en offert är bara ett prisförslag ännu.
+  const totalLabel = docType === 'quote' ? 'Offertbelopp' : 'Att betala';
+
+  const meta = docType === 'quote'
+    ? [
+        ['Offertnr', invoice?.invoiceNumber || '—'],
+        ['Offertdatum', formatDate(invoice?.date)],
+        ['Giltig till', formatDate(invoice?.dueDate)],
+      ]
+    : [
+        ['Fakturanr', invoice?.invoiceNumber || '—'],
+        ['OCR', invoice?.invoiceNumber ? String(invoice.invoiceNumber).padStart(7, '0') : '—'],
+        ['Fakturadatum', formatDate(invoice?.date)],
+        ['Förfallodatum', formatDate(invoice?.dueDate)],
+      ];
 
   return (
     <div ref={ref} className="a4-paper" style={isGrid ? { border: '2px solid #18181b' } : undefined}>
@@ -124,7 +142,7 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
             </div>
           </div>
           <div style={{ border: '1.5px dashed #cbd5e1', borderRadius: 10, padding: '14px 20px', minWidth: 190, flexShrink: 0 }}>
-            <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9ca3af', marginBottom: 4 }}>Att betala</div>
+            <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9ca3af', marginBottom: 4 }}>{totalLabel}</div>
             <div style={{ fontSize: 20, fontWeight: 800, color: accent, marginBottom: 12 }}>{fmt(totals?.total)} {currency}</div>
             {[['Förfallodatum', formatDate(invoice?.dueDate)], ['Referensnr', invoice?.invoiceNumber || '—']].map(([l, v]) => (
               <div key={l} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, color: '#52525b', marginBottom: 2 }}>
@@ -203,7 +221,7 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
           <div className="a4-total-row"><span>Netto</span><span>{fmt(totals?.net)} kr</span></div>
           <div className="a4-total-row"><span>Moms</span><span>{fmt(totals?.vat)} kr</span></div>
           <div className="a4-grand-total" style={{ borderTop: `2px solid ${accent}` }}>
-            <span>Att betala</span><span style={{ color: accent }}>{fmt(totals?.total)} {currency}</span>
+            <span>{totalLabel}</span><span style={{ color: accent }}>{fmt(totals?.total)} {currency}</span>
           </div>
         </div>
       </div>

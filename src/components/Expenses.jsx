@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  UploadCloud, FileText, CheckCircle2, AlertCircle, Receipt, X,
+  UploadCloud, FileText, CheckCircle2, AlertCircle, Receipt, X, Clock,
 } from 'lucide-react';
 import { AccountSearch } from './shared/SearchInputs';
 import { supabase } from '../supabaseClient';
@@ -15,9 +15,9 @@ function ReceiptLightbox({ url, onClose }) {
     return () => window.removeEventListener('keydown', handleEsc);
   }, [onClose]);
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px', cursor: 'zoom-out' }}>
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', cursor: 'zoom-out' }}>
       <img src={url} alt="Kvitto" style={{ maxWidth: '100%', maxHeight: '100%', borderRadius: '8px', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }} onClick={e => e.stopPropagation()} />
-      <button onClick={onClose} style={{ position: 'fixed', top: 20, right: 24, background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white', borderRadius: '999px', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+      <button onClick={onClose} style={{ position: 'fixed', top: 16, right: 16, background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white', borderRadius: '999px', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
         <X size={18} />
       </button>
     </div>
@@ -81,19 +81,47 @@ function inputStErr(hasError) { return { ...inputSt, borderColor: hasError ? '#e
 const labelSt = { display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' };
 const errSt = { fontSize: '12px', color: '#dc2626', marginTop: '4px' };
 
-function EmptyReceiptsState() {
+// ── Status (Sida 27) — härledd, aldrig ett fält man kan sätta fritt ──
+// "Ej hanterad": ingen kontering vald ännu (samma som befintlig Granska-
+// status). "Pågående": kontering finns men den bokförda verifikationen är
+// fortfarande ett utkast (status 'draft' — samma fält Verifikationer-sidans
+// egna "Spara som utkast" redan använder). "Bokförd": kopplad verifikation
+// är bokförd. Kvitton bokförs idag alltid direkt när ett konto väljs, så
+// "Pågående" existerar redan som ett verkligt tillstånd i systemet men
+// visar helt riktigt 0 kvitton just nu — det är inte en påhittad status,
+// bara en som inget kvitto råkar vara i för tillfället.
+function getReceiptStatus(receipt, verifications) {
+  if (!receipt.costAccount) return 'unhandled';
+  const ver = verifications.find(v => (v.source === 'expense' || v.source === 'expense_fix') && v.sourceId === receipt.id);
+  if (ver && (ver.status || 'booked') === 'draft') return 'pending';
+  return 'booked';
+}
+
+const STATUS_META = {
+  unhandled: { label: 'Ej hanterade', bg: BRAND.amberBg, color: BRAND.amberText },
+  pending: { label: 'Pågående', bg: BRAND.grayBg, color: BRAND.grayText },
+  booked: { label: 'Bokförda', bg: BRAND.greenLight, color: BRAND.greenDark },
+};
+
+/** Bästa tillgängliga visningsnamn för den som laddade upp kvittot. */
+function displayUploaderName(uploadedBy) {
+  if (!uploadedBy) return null;
+  return uploadedBy.name?.trim() || uploadedBy.email || null;
+}
+
+function EmptyReceiptsState({ text }) {
   return (
     <div style={{ padding: '40px 24px', textAlign: 'center', background: 'white', borderRadius: '12px', border: '1px solid var(--border)' }}>
       <div style={{ width: 52, height: 52, borderRadius: '999px', background: 'var(--gray-100)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px', color: 'var(--text-muted)' }}>
         <Receipt size={22} />
       </div>
-      <p style={{ color: 'var(--text-secondary)', fontSize: '14px', margin: 0 }}>Inga kvitton uppladdade ännu. Ladda upp ditt första kvitto ovan för att börja.</p>
+      <p style={{ color: 'var(--text-secondary)', fontSize: '14px', margin: 0 }}>{text || 'Inga kvitton uppladdade ännu. Ladda upp ditt första kvitto ovan för att börja.'}</p>
     </div>
   );
 }
 
 export default function Expenses({
-  expenses = [], accounts = [], user,
+  expenses = [], accounts = [], verifications = [], user,
   onAdd, onFixExpenseAccount,
   pageTitle, pageSubtitle,
 }) {
@@ -104,13 +132,27 @@ export default function Expenses({
   const [lightboxUrl, setLightboxUrl] = useState(null);
   const intervalsRef = useRef({});
 
+  // -- Flikar + statusfilter (Sida 27) --
+  const [viewTab, setViewTab] = useState('all'); // 'all' | 'mine'
+  const [statusFilter, setStatusFilter] = useState(null); // null | 'unhandled' | 'pending' | 'booked'
+
   useEffect(() => () => {
     // Städa upp alla pågående upload-timers och object URLs om komponenten avmonteras
     Object.values(intervalsRef.current).forEach(clearInterval);
     pendingReceipts.forEach(p => p.previewUrl && URL.revokeObjectURL(p.previewUrl));
   }, []); // eslint-disable-line
 
-  const receiptsList = [...expenses.filter(e => e.type === 'receipt')].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  const allReceipts = [...expenses.filter(e => e.type === 'receipt')].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+  // Flikval och statusfilter kombineras, nollställer aldrig varandra —
+  // "Mina kvitton" + "Ej hanterade" ska t.ex. gå att visa samtidigt.
+  const tabFiltered = viewTab === 'mine' ? allReceipts.filter(r => r.uploadedBy?.id === user?.id) : allReceipts;
+  const statusCounts = {
+    unhandled: tabFiltered.filter(r => getReceiptStatus(r, verifications) === 'unhandled').length,
+    pending: tabFiltered.filter(r => getReceiptStatus(r, verifications) === 'pending').length,
+    booked: tabFiltered.filter(r => getReceiptStatus(r, verifications) === 'booked').length,
+  };
+  const receiptsList = statusFilter ? tabFiltered.filter(r => getReceiptStatus(r, verifications) === statusFilter) : tabFiltered;
   const receiptsTotal = receiptsList.reduce((s, r) => s + (r.amount || 0), 0);
 
   // ── Drag & drop / filhantering ──
@@ -181,7 +223,10 @@ export default function Expenses({
   };
 
   const findDuplicateReceipt = (date, amount, supplier) => {
-    return receiptsList.find(r => r.date === date && Math.abs((r.amount || 0) - amount) < 0.01 && (r.supplier || '').trim().toLowerCase() === (supplier || '').trim().toLowerCase());
+    // Alltid mot ALLA kvitton, oavsett vilken flik/statusfilter som råkar
+    // vara aktivt just nu — annars kan en duplett missas bara för att man
+    // tittar på "Mina kvitton" eller ett statusfilter.
+    return allReceipts.find(r => r.date === date && Math.abs((r.amount || 0) - amount) < 0.01 && (r.supplier || '').trim().toLowerCase() === (supplier || '').trim().toLowerCase());
   };
 
   const handleSaveReceipt = async (pending) => {
@@ -230,6 +275,13 @@ export default function Expenses({
       type: 'receipt', date: form.date, description: form.supplier, supplier: form.supplier,
       amount, netAmount, vatAmount, vatRate, costAccount: form.costAccount, autoBooked: true,
       receiptUrl, receiptType,
+      // Sida 27: krävs för att kunna skilja "Alla kvitton" från "Mina
+      // kvitton" och visa vem som laddat upp vad i ett flerpersonskonto.
+      uploadedBy: user?.id ? {
+        id: user.id,
+        name: [user?.user_metadata?.first_name, user?.user_metadata?.last_name].filter(Boolean).join(' '),
+        email: user?.email || '',
+      } : null,
     });
     if (uploadWarning) window.alert(uploadWarning);
     discardPending(pending.id);
@@ -311,48 +363,54 @@ export default function Expenses({
         {/* Manuell inmatning per uppladdat kvitto — ingen riktig OCR-tjänst är
             kopplad, så vi låtsas aldrig att fälten är automatiskt uttolkade. */}
         {pendingReceipts.map(pending => (
-          <div key={pending.id} style={{ background: 'white', border: '1px solid var(--border)', borderRadius: '12px', padding: '20px', marginBottom: '16px', display: 'flex', gap: '20px' }}>
-            <div style={{ width: 96, height: 96, background: 'var(--gray-100)', borderRadius: '8px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+          <div key={pending.id} style={{ background: 'white', border: '1px solid var(--border)', borderRadius: '14px', padding: '20px', marginBottom: '16px', display: 'flex', flexWrap: 'wrap', gap: '20px', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)' }}>
+            <div style={{ width: 96, height: 96, background: 'var(--gray-100)', borderRadius: '10px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
               {pending.previewUrl
                 ? <img src={pending.previewUrl} alt={pending.file.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 : <FileText size={32} color="var(--text-muted)" />}
             </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+            {/* flex:1 + minWidth 260px istället för fast bredd: på smala
+                skärmar tar formuläret hela raden under förhandsvisningen
+                istället för att klämmas ihop bredvid den. */}
+            <div style={{ flex: '1 1 260px', minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px', flexWrap: 'wrap' }}>
                 <span style={{ fontSize: '13px', fontWeight: 600, color: '#374151' }}>{pending.file.name}</span>
                 <span style={{ fontSize: '11px', color: '#9ca3af' }}>— fyll i uppgifterna nedan (ingen automatisk avläsning ännu)</span>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-                <div>
+              {/* Flex+wrap istället för ett fast 2-kolumners grid: varje fält
+                  har en minsta bredd men får krympa till en enda kolumn på
+                  mobil utan en separat @media-regel. */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px' }}>
+                <div style={{ flex: '1 1 160px' }}>
                   <label style={labelSt}>Datum</label>
                   <input type="date" value={pending.form.date} onChange={e => updatePendingForm(pending.id, { date: e.target.value })} style={inputStErr(pending.errors.date)} />
                   {pending.errors.date && <div style={errSt}>{pending.errors.date}</div>}
                 </div>
-                <div>
+                <div style={{ flex: '1 1 200px' }}>
                   <label style={labelSt}>Inköpsställe / Leverantör</label>
                   <input type="text" value={pending.form.supplier} onChange={e => updatePendingForm(pending.id, { supplier: e.target.value })} style={inputStErr(pending.errors.supplier)} />
                   {pending.errors.supplier && <div style={errSt}>{pending.errors.supplier}</div>}
                 </div>
-                <div>
+                <div style={{ flex: '1 1 160px' }}>
                   <label style={labelSt}>Belopp ink moms (kr)</label>
                   <AmountInput value={pending.form.amount} onChange={v => updatePendingForm(pending.id, { amount: v })} style={inputStErr(pending.errors.amount)} />
                   {pending.errors.amount && <div style={errSt}>{pending.errors.amount}</div>}
                 </div>
-                <div>
+                <div style={{ flex: '1 1 120px' }}>
                   <label style={labelSt}>Momssats</label>
                   <select value={pending.form.vatRate} onChange={e => updatePendingForm(pending.id, { vatRate: Number(e.target.value) })} style={{ ...inputSt, background: 'white' }}>
                     {[25, 12, 6, 0].map(v => <option key={v} value={v}>{v}%</option>)}
                   </select>
                 </div>
-                <div style={{ gridColumn: '1 / 3' }}>
+                <div style={{ flex: '1 1 100%' }}>
                   <label style={labelSt}>Konto</label>
                   <AccountSearch value={pending.form.costAccount} onChange={code => updatePendingForm(pending.id, { costAccount: code })} accounts={accounts} placeholder="Sök konto, t.ex. 6110 Kontorsmaterial..." />
                   {pending.errors.costAccount && <div style={errSt}>{pending.errors.costAccount}</div>}
                 </div>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '16px', flexWrap: 'wrap' }}>
                 <button type="button" disabled={pending.saving} onClick={() => discardPending(pending.id)} style={{ padding: '8px 16px', background: '#f3f4f6', border: 'none', borderRadius: '8px', fontWeight: 600, color: '#374151', cursor: pending.saving ? 'not-allowed' : 'pointer', fontSize: '13px', opacity: pending.saving ? 0.5 : 1 }}>Ta bort</button>
-                <button type="button" disabled={pending.saving} onClick={() => handleSaveReceipt(pending)} style={{ padding: '8px 16px', background: BRAND.green, border: 'none', borderRadius: '8px', fontWeight: 600, color: 'white', cursor: pending.saving ? 'not-allowed' : 'pointer', fontSize: '13px', opacity: pending.saving ? 0.7 : 1 }}>
+                <button type="button" disabled={pending.saving} onClick={() => handleSaveReceipt(pending)} style={{ padding: '8px 16px', background: BRAND.green, border: 'none', borderRadius: '8px', fontWeight: 600, color: 'white', cursor: pending.saving ? 'not-allowed' : 'pointer', fontSize: '13px', opacity: pending.saving ? 0.7 : 1, boxShadow: '0 2px 6px rgba(61, 122, 46, 0.25)' }}>
                   {pending.saving ? 'Sparar...' : 'Spara och bokför'}
                 </button>
               </div>
@@ -361,7 +419,7 @@ export default function Expenses({
         ))}
 
         {/* Tidigare utgifter */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '12px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
           <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>Tidigare utgifter</h3>
           {receiptsList.length > 0 && (
             <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
@@ -369,38 +427,94 @@ export default function Expenses({
             </span>
           )}
         </div>
+
+        {/* Flikar: Alla kvitton / Mina kvitton (Sida 27) */}
+        <div style={{ display: 'flex', gap: '20px', marginBottom: '10px' }}>
+          {[{ id: 'all', label: 'Alla kvitton' }, { id: 'mine', label: 'Mina kvitton' }].map(t => (
+            <button
+              key={t.id}
+              onClick={() => setViewTab(t.id)}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer', padding: '0 0 8px',
+                fontSize: '13.5px', fontWeight: viewTab === t.id ? 600 : 500,
+                color: viewTab === t.id ? BRAND.green : 'var(--text-secondary)',
+                borderBottom: `2px solid ${viewTab === t.id ? BRAND.green : 'transparent'}`,
+                fontFamily: 'inherit',
+              }}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Statusfilter — klicka igen på en aktiv pill för att rensa den. */}
+        <div style={{ display: 'flex', gap: '6px', marginBottom: '14px', flexWrap: 'wrap' }}>
+          {Object.entries(STATUS_META).map(([key, meta]) => {
+            const count = statusCounts[key] || 0;
+            if (count === 0) return null;
+            const isActive = statusFilter === key;
+            return (
+              <button
+                key={key}
+                onClick={() => setStatusFilter(f => f === key ? null : key)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 10px',
+                  background: meta.bg, border: `1.5px solid ${isActive ? meta.color : 'transparent'}`,
+                  borderRadius: '999px', fontSize: '12px', fontWeight: 600,
+                  color: meta.color, cursor: 'pointer', fontFamily: 'inherit',
+                }}
+              >
+                {meta.label}
+                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 16, height: 16, padding: '0 4px', borderRadius: '999px', fontSize: '10px', fontWeight: 700, background: 'rgba(255,255,255,0.55)', color: meta.color }}>{count}</span>
+              </button>
+            );
+          })}
+        </div>
+
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {receiptsList.length === 0 ? (
-            <EmptyReceiptsState />
+            <EmptyReceiptsState text={allReceipts.length > 0 ? 'Inga kvitton matchar det här filtret.' : undefined} />
           ) : receiptsList.map(r => {
-            const isBooked = Boolean(r.costAccount);
+            const status = getReceiptStatus(r, verifications);
             const categoryName = accounts.find(a => a.code === r.costAccount)?.name;
+            const uploaderName = viewTab === 'all' ? displayUploaderName(r.uploadedBy) : null;
             const isImage = r.receiptType?.startsWith('image/') && r.receiptUrl;
-            const isPdf = r.receiptType === 'application/pdf';
+            const isPdf = r.receiptType === 'application/pdf' && r.receiptUrl;
+            const canOpenReceipt = isImage || isPdf;
+            // PDF-kvitton hade tidigare ingen klickyta alls — bara en ikon.
+            // Att "kunna se kvittobilder" gäller lika mycket ett PDF-kvitto
+            // som ett foto, så båda öppnas nu (bild i lightbox, PDF i en ny
+            // flik — webbläsaren renderar PDF:er bättre själv än vi kan här).
+            const openReceipt = () => { if (isImage) setLightboxUrl(r.receiptUrl); else if (isPdf) window.open(r.receiptUrl, '_blank', 'noopener'); };
             return (
-              <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: '14px', background: 'white', border: '1px solid var(--border)', borderRadius: '10px', padding: '10px 14px' }}>
+              <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: '14px', background: 'white', border: '1px solid var(--border)', borderRadius: '12px', padding: '10px 14px', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.03)' }}>
                 <div
-                  onClick={() => isImage && setLightboxUrl(r.receiptUrl)}
-                  title={isImage ? 'Visa kvitto i full storlek' : undefined}
-                  style={{ width: 40, height: 40, borderRadius: '8px', background: 'var(--gray-100)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden', cursor: isImage ? 'zoom-in' : 'default' }}
+                  onClick={openReceipt}
+                  title={isImage ? 'Visa kvitto i full storlek' : isPdf ? 'Öppna PDF-kvitto' : undefined}
+                  style={{ width: 52, height: 52, borderRadius: '10px', background: 'var(--gray-100)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden', cursor: canOpenReceipt ? 'pointer' : 'default' }}
                 >
                   {isImage ? (
                     <img src={r.receiptUrl} alt="Kvitto" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : isPdf ? (
-                    <FileText size={18} color="var(--text-muted)" />
+                    <FileText size={20} color={BRAND.greenDark} />
                   ) : (
-                    <Receipt size={18} color="var(--text-muted)" />
+                    <Receipt size={20} color="var(--text-muted)" />
                   )}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: '13.5px', fontWeight: 500, color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.supplier || r.description}</div>
                   <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{formatDate(r.date)}{categoryName ? ` · ${categoryName}` : ''}</div>
+                  {uploaderName && <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '1px' }}>Uppladdat av {uploaderName}</div>}
                 </div>
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
                   <div style={{ fontSize: '13.5px', fontWeight: 500, color: 'var(--text-main)' }}>{formatSEK(r.amount)}</div>
-                  {isBooked ? (
+                  {status === 'booked' ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end', fontSize: '11.5px', color: BRAND.greenDark, fontWeight: 600, marginTop: '2px' }}>
                       <CheckCircle2 size={12} /> Bokförd
+                    </div>
+                  ) : status === 'pending' ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end', fontSize: '11.5px', color: BRAND.grayText, fontWeight: 600, marginTop: '2px' }}>
+                      <Clock size={12} /> Pågående
                     </div>
                   ) : fixingId === r.id ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>

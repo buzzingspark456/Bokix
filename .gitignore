@@ -24,3 +24,12 @@ dist-ssr
 *.sln
 *.sw?
 .vercel
+
+# Lokala hjälpkataloger — inte del av källkoden:
+# - Bokix/ är en separat nested clone av samma repo (egen .git), inte
+#   avsedd att versionshanteras inuti det här repot.
+# - data/ innehåller en riktig, personlig exporterad app-data-dump (org.nr
+#   m.m.) — ska aldrig committas, se säkerhetsprincipen "aldrig verklig
+#   kunddata i versionshistorik".
+/Bokix/
+/data/

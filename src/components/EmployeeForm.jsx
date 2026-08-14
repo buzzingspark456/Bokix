@@ -4,6 +4,7 @@ import { EntitySearch, ProjectSearch } from './shared/SearchInputs';
 import { SWEDISH_MUNICIPALITIES } from '../utils/kommuner';
 import { validatePersonnummer, formatPersonnummerInput } from '../utils/personnummer';
 import { EMPLOYMENT_TYPES, SALARY_FORMS, TAX_FORMS, TAX_TABLE_COLUMNS, VACATION_RULES, MIN_VACATION_DAYS } from '../utils/payrollConfig';
+import { isValidIban } from '../utils/salaryPaymentFile';
 
 const sectionStyle = { background: 'white', borderRadius: '12px', border: '1px solid #e4e4e7', padding: '20px', marginBottom: '16px' };
 const sectionTitleStyle = { fontSize: '13px', fontWeight: 700, color: '#111', margin: '0 0 16px', textTransform: 'uppercase', letterSpacing: '0.03em' };
@@ -34,7 +35,7 @@ function emptyEmployee() {
     municipality: '', taxTableMode: 'manual', taxTable: { tabellnr: '', kolumn: 1, year: new Date().getFullYear() },
     vacationRule: 'procentregeln', vacationDays: 25,
     costCenter: '', projectId: '',
-    clearingNumber: '', accountNumber: '',
+    clearingNumber: '', accountNumber: '', iban: '', bic: '',
     active: true,
   };
 }
@@ -53,8 +54,19 @@ export default function EmployeeForm({ initial, projects = [], onSave, onCancel 
     if (!pnr.valid) errs.ssn = pnr.error;
     if (!form.startDate) errs.startDate = 'Anställningsdatum krävs.';
     if (!form.municipality) errs.municipality = 'Folkbokföringskommun krävs.';
-    if (form.taxTableMode === 'manual' && !form.taxTable.tabellnr) errs.taxTable = 'Ange tabellnummer.';
+    // Bugkritiskt: tabellnummer krävs ALLTID, oavsett läge — "Välj kommun
+    // ovan" (automatisk härledning) är inte implementerat än (kräver
+    // Skatteverkets kommunala skattesatslista) och fick tidigare sparas
+    // helt utan tabellnummer, vilket gjorde att skatteavdraget tyst
+    // beräknades som 0 kr först vid en lönekörning — långt efter att
+    // misstaget var lätt att upptäcka.
+    if (!form.taxTable.tabellnr) errs.taxTable = 'Ange tabellnummer.';
     if (Number(form.vacationDays) < MIN_VACATION_DAYS) errs.vacationDays = `Minst ${MIN_VACATION_DAYS} semesterdagar krävs enligt semesterlagen.`;
+    // IBAN är valfritt att fylla i (samma "kan sparas utan bankuppgifter"-
+    // princip som clearing-/kontonummer nedan), men om den FYLLS I ska
+    // kontrollsiffrorna faktiskt stämma — annars upptäcks felskrivningen
+    // först när betalfilen redan ska genereras, långt senare.
+    if (form.iban && !isValidIban(form.iban)) errs.iban = 'IBAN ser inte korrekt ut (fel format eller kontrollsiffror).';
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -191,32 +203,16 @@ export default function EmployeeForm({ initial, projects = [], onSave, onCancel 
         </div>
 
         <div style={{ marginTop: '16px' }}>
-          <label style={labelStyle}>Skattetabell *</label>
-          <div style={{ display: 'flex', gap: '16px', marginBottom: '10px' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#374151', cursor: 'pointer' }}>
-              <input type="radio" name="taxTableMode" checked={form.taxTableMode === 'auto'} onChange={() => set('taxTableMode', 'auto')} />
-              Välj kommun ovan
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#374151', cursor: 'pointer' }}>
-              <input type="radio" name="taxTableMode" checked={form.taxTableMode === 'manual'} onChange={() => set('taxTableMode', 'manual')} />
-              Ange tabell manuellt
-            </label>
-          </div>
-          {form.taxTableMode === 'auto' ? (
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '10px 12px', fontSize: '12.5px', color: '#92400e' }}>
-              <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
-              <span>Automatisk härledning kräver Skatteverkets kommunala skattesatslista, som inte är importerad ännu. Ange tabellnummer manuellt tills vidare.</span>
-            </div>
-          ) : (
-            <>
-              <input
-                type="text" inputMode="numeric" value={form.taxTable.tabellnr}
-                onChange={e => setTaxTable({ tabellnr: e.target.value.replace(/\D/g, '') })}
-                placeholder="T.ex. 32" style={{ ...inputStyle(errors.taxTable), maxWidth: '160px' }}
-              />
-              {errors.taxTable && <div style={errorTextStyle}>{errors.taxTable}</div>}
-            </>
-          )}
+          <label style={labelStyle}>Skattetabell (tabellnummer) *</label>
+          <p style={{ fontSize: '12.5px', color: '#6b7280', margin: '0 0 8px' }}>
+            Hittas på den anställdas skattsedel/Skatteverkets tabellsök. Automatisk härledning från kommun är inte byggd ännu (kräver Skatteverkets kommunala skattesatslista) — tabellnumret måste anges här för att skatteavdraget ska kunna beräknas.
+          </p>
+          <input
+            type="text" inputMode="numeric" value={form.taxTable.tabellnr}
+            onChange={e => setTaxTable({ tabellnr: e.target.value.replace(/\D/g, '') })}
+            placeholder="T.ex. 32" style={{ ...inputStyle(errors.taxTable), maxWidth: '160px' }}
+          />
+          {errors.taxTable && <div style={errorTextStyle}>{errors.taxTable}</div>}
         </div>
 
         <div style={{ marginTop: '16px' }}>
@@ -263,7 +259,6 @@ export default function EmployeeForm({ initial, projects = [], onSave, onCancel 
           <div>
             <label style={labelStyle}>Clearingnummer</label>
             <input value={form.clearingNumber} onChange={e => set('clearingNumber', e.target.value)} style={inputBase} />
-            <p style={helpTextStyle}>Krävs innan lönekörning.</p>
           </div>
           <div>
             <label style={labelStyle}>Kontonummer</label>
@@ -275,6 +270,25 @@ export default function EmployeeForm({ initial, projects = [], onSave, onCancel 
             Kan sparas utan bankkontouppgifter för förberedelse, men blockeras från lönekörning tills clearing- och kontonummer är ifyllda.
           </p>
         )}
+
+        {/* IBAN/BIC är det som faktiskt skrivs in i betalfilen (ISO 20022
+            pain.001) — clearing-/kontonummer ovan räcker inte där, det
+            finns ingen bankoberoende regel för att räkna om det till IBAN.
+            Utan dessa exkluderas den anställda tyst från betalfilen (och
+            det syns tydligt i lönekörningen), men det stoppar inte
+            körningen som helhet. */}
+        <div style={{ ...grid2, marginTop: '16px' }}>
+          <div>
+            <label style={labelStyle}>IBAN</label>
+            <input value={form.iban} onChange={e => set('iban', e.target.value.toUpperCase())} style={inputStyle(errors.iban)} placeholder="SE35 5000 0000 0549 1000 0003" />
+            {errors.iban && <div style={errorTextStyle}>{errors.iban}</div>}
+          </div>
+          <div>
+            <label style={labelStyle}>BIC/SWIFT</label>
+            <input value={form.bic} onChange={e => set('bic', e.target.value.toUpperCase())} style={inputBase} placeholder="SWEDSESS" />
+          </div>
+        </div>
+        <p style={helpTextStyle}>Krävs för att den anställda ska tas med i den nedladdningsbara betalfilen till banken vid lönekörning.</p>
       </Section>
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>

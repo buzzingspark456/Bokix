@@ -7,6 +7,7 @@ import {
 import { getDebet, getKredit } from '../utils/verificationAmounts';
 import { PartySearch, ProjectSearch, AccountSearch } from './shared/SearchInputs';
 import { findLockedVatPeriod } from '../utils/vatCalculation';
+import { uploadFileToStorage } from '../utils/fileUpload';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 const fmt = (v) => new Intl.NumberFormat('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0);
@@ -69,7 +70,7 @@ function rowSideWarning(row) {
 const MAX_ATTACHMENT_MB = 10;
 const ACCEPTED_ATTACHMENT_TYPES = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
 
-function VerificationForm({ accounts, contacts, projects = [], balances, templates, onSaveTemplate, onSave, onClose, nextNumber, getNextNumber, initial, vatPeriods }) {
+function VerificationForm({ accounts, contacts, projects = [], balances, templates, onSaveTemplate, onSave, onClose, nextNumber, getNextNumber, initial, vatPeriods, user }) {
   const [date, setDate] = useState(initial?.date || new Date().toISOString().split('T')[0]);
   const [desc, setDesc] = useState(initial?.description || '');
   const [projectId, setProjectId] = useState(initial?.projectId || '');
@@ -94,8 +95,21 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
         ]
   );
 
-  const [attachment, setAttachment] = useState(null);
-  const [attachmentUrl, setAttachmentUrl] = useState(null);
+  const [attachment, setAttachment] = useState(null); // nyvald, ännu ej uppladdad fil
+  const [attachmentUrl, setAttachmentUrl] = useState(null); // lokal förhandsvisnings-URL för `attachment`
+  // Bugkritiskt: ett underlag laddades tidigare bara upp som en object-URL i
+  // webbläsarminnet (URL.createObjectURL) — den försvinner så fort sidan
+  // laddas om, och skickades ALDRIG med i onSave-payloaden. Filen såg ut att
+  // sparas (förhandsvisningen fungerade) men var i praktiken alltid borta
+  // igen efteråt. `existingAttachment` håller en REDAN uppladdad (Supabase
+  // Storage) fils riktiga URL — antingen återställd från en sparad
+  // verifikation (`initial`) eller satt efter en lyckad uppladdning i
+  // handleSave nedan.
+  const [existingAttachment, setExistingAttachment] = useState(
+    initial?.attachmentUrl ? { url: initial.attachmentUrl, name: initial.attachmentName || 'Underlag', type: initial.attachmentType || '' } : null
+  );
+  const [attachmentBusy, setAttachmentBusy] = useState(false);
+  const [attachmentError, setAttachmentError] = useState('');
   const [showAttachmentLightbox, setShowAttachmentLightbox] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [fileError, setFileError] = useState('');
@@ -111,7 +125,14 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
     setAttachmentUrl(url);
     return () => URL.revokeObjectURL(url);
   }, [attachment]);
-  const attachmentIsImage = attachment?.type?.startsWith('image/');
+  const attachmentIsImage = attachment
+    ? attachment.type?.startsWith('image/')
+    : existingAttachment?.type?.startsWith('image/');
+  // Vad som faktiskt visas i förhandsvisningen: en nyvald fil vinner över
+  // ett redan uppladdat underlag (man håller på att byta ut det).
+  const displayAttachmentName = attachment?.name || existingAttachment?.name;
+  const displayAttachmentUrl = attachment ? attachmentUrl : existingAttachment?.url;
+  const hasAttachment = Boolean(attachment || existingAttachment);
 
   // "PDF eller bild (max 10 MB)" är inte bara text i gränssnittet — den
   // regeln kontrolleras faktiskt här, med ett tydligt felmeddelande.
@@ -181,7 +202,7 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
   // Ett bokfört utkast måste balansera precis som en färdig verifikation —
   // men ett utkast som fortfarande är under arbete får sparas obalanserat,
   // annars går det inte att spara och fortsätta senare.
-  const handleSave = (status = 'booked') => {
+  const handleSave = async (status = 'booked') => {
     if (status === 'booked' && !isBalanced) return;
     // Ett bokfört utkast kräver riktiga konteringsrader; ett utkast under
     // arbete får spara vilka påbörjade rader som helst, bara inte tomma.
@@ -190,10 +211,45 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
       : rows.filter(r => r.account && (parseFloat(r.debet) > 0 || parseFloat(r.kredit) > 0));
     if (status === 'booked' && validRows.length < 2) return;
     if (status === 'draft' && validRows.length === 0 && !desc.trim()) return;
+
+    // Underlaget laddas upp till Supabase Storage HÄR, inte bara hållas kvar
+    // som en lokal object-URL — annars ser det ut att vara sparat men är
+    // borta igen så fort sidan laddas om (se kommentaren vid `existingAttachment`).
+    let attachmentUrlToSave = existingAttachment?.url || null;
+    let attachmentNameToSave = existingAttachment?.name || null;
+    let attachmentTypeToSave = existingAttachment?.type || null;
+    if (attachment) {
+      if (!user?.id) {
+        setAttachmentError('Kunde inte ladda upp underlaget — inte inloggad.');
+        return;
+      }
+      setAttachmentBusy(true); setAttachmentError('');
+      try {
+        attachmentUrlToSave = await uploadFileToStorage(user.id, attachment, 'verifications');
+        attachmentNameToSave = attachment.name;
+        attachmentTypeToSave = attachment.type;
+      } catch (err) {
+        setAttachmentBusy(false);
+        const notConfigured = /bucket not found/i.test(err.message || '');
+        setAttachmentError(notConfigured
+          ? 'Bildlagring är inte konfigurerad i Supabase-projektet ännu (kör storage-delen av supabase-setup.sql).'
+          : `Kunde inte ladda upp underlaget (${err.message || 'okänt fel'}).`);
+        return;
+      }
+      setAttachmentBusy(false);
+    }
+
     onSave({
+      // `id` skickas ENDAST med för en verifikation som redan har ett
+      // tilldelat nummer (dvs ett fortsatt utkast) — då ska sparningen
+      // uppdatera SAMMA post, inte skapa en dubblett. En rättelse eller en
+      // helt ny verifikation har `initial.number` tömd (se ovan) och får
+      // därför inget id här, så den alltid skapas som en ny post.
+      id: initial?.number ? initial.id : undefined,
       date, description: desc, projectId, counterpartyId, rows: validRows, amount: totalDebit,
       series, costCenter, internalNote, status,
-      originalLocation: attachment ? '' : originalLocation,
+      attachmentUrl: attachmentUrlToSave, attachmentName: attachmentNameToSave, attachmentType: attachmentTypeToSave,
+      originalLocation: attachmentUrlToSave ? '' : originalLocation,
       // Upprättandedatum är alltid en systemgenererad tidsstämpel — användaren
       // kan aldrig sätta eller ändra den, annars går spårbarheten att manipulera.
       createdAt: initial?.createdAt || new Date().toISOString(),
@@ -213,7 +269,11 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
     <div style={{ background: 'white', borderRadius: '14px', border: '1px solid #eceef1', padding: '28px', marginBottom: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '22px' }}>
         <h2 style={{ margin: 0, fontSize: '19px', fontWeight: 700, color: '#111', letterSpacing: '-0.01em' }}>
-          {initial ? `Verifikation ${initial.number}` : 'Ny verifikation'}
+          {/* En rättelseverifikation (`initial` fylld men `number` medvetet
+              tömd, se "Rätta"-knappen nedan) ska visas och beskrivas som en
+              NY verifikation — den ärver bara text/rader, aldrig originalets
+              nummer eller "redigera befintlig"-språket. */}
+          {initial?.number ? `Verifikation ${initial.number}` : 'Ny verifikation'}
         </h2>
         <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af' }}><X size={20} /></button>
       </div>
@@ -468,28 +528,28 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
             onClick={() => fileInputRef.current?.click()}
           >
             <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={e => acceptFile(e.target.files[0])} accept=".pdf,.png,.jpg,.jpeg,.webp" />
-            {attachment ? (
+            {hasAttachment ? (
               attachmentIsImage ? (
                 <>
                   <img
-                    src={attachmentUrl}
-                    alt={attachment.name}
+                    src={displayAttachmentUrl}
+                    alt={displayAttachmentName}
                     onClick={e => { e.stopPropagation(); setShowAttachmentLightbox(true); }}
                     style={{ maxWidth: '100%', maxHeight: '140px', borderRadius: '8px', objectFit: 'contain', marginBottom: '8px', cursor: 'zoom-in', boxShadow: '0 1px 4px rgba(0,0,0,0.12)' }}
                   />
-                  <span style={{ fontSize: '12.5px', fontWeight: 600, color: '#111', wordBreak: 'break-all' }}>{attachment.name}</span>
+                  <span style={{ fontSize: '12.5px', fontWeight: 600, color: '#111', wordBreak: 'break-all' }}>{displayAttachmentName}</span>
                   <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
                     <button onClick={e => { e.stopPropagation(); setShowAttachmentLightbox(true); }} style={{ background: 'none', border: '1px solid #e4e4e7', borderRadius: '999px', padding: '4px 14px', fontSize: '12px', cursor: 'pointer', color: '#374151' }}>Visa i fullstorlek</button>
-                    <button onClick={(e) => { e.stopPropagation(); setAttachment(null); }} style={{ background: 'none', border: '1px solid #e4e4e7', borderRadius: '999px', padding: '4px 14px', fontSize: '12px', cursor: 'pointer', color: '#64748b' }}>Ta bort</button>
+                    <button onClick={(e) => { e.stopPropagation(); setAttachment(null); setExistingAttachment(null); }} style={{ background: 'none', border: '1px solid #e4e4e7', borderRadius: '999px', padding: '4px 14px', fontSize: '12px', cursor: 'pointer', color: '#64748b' }}>Ta bort</button>
                   </div>
                 </>
               ) : (
                 <>
                   <FileText size={28} color="#111827" style={{ marginBottom: '10px' }} />
-                  <span style={{ fontSize: '13px', fontWeight: 600, color: '#111', wordBreak: 'break-all' }}>{attachment.name}</span>
+                  <span style={{ fontSize: '13px', fontWeight: 600, color: '#111', wordBreak: 'break-all' }}>{displayAttachmentName}</span>
                   <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
-                    <a href={attachmentUrl} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} style={{ background: 'none', border: '1px solid #e4e4e7', borderRadius: '999px', padding: '4px 14px', fontSize: '12px', color: '#374151', textDecoration: 'none' }}>Visa PDF</a>
-                    <button onClick={(e) => { e.stopPropagation(); setAttachment(null); }} style={{ background: 'none', border: '1px solid #e4e4e7', borderRadius: '999px', padding: '4px 14px', fontSize: '12px', cursor: 'pointer', color: '#64748b' }}>Ta bort</button>
+                    <a href={displayAttachmentUrl} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} style={{ background: 'none', border: '1px solid #e4e4e7', borderRadius: '999px', padding: '4px 14px', fontSize: '12px', color: '#374151', textDecoration: 'none' }}>Visa PDF</a>
+                    <button onClick={(e) => { e.stopPropagation(); setAttachment(null); setExistingAttachment(null); }} style={{ background: 'none', border: '1px solid #e4e4e7', borderRadius: '999px', padding: '4px 14px', fontSize: '12px', cursor: 'pointer', color: '#64748b' }}>Ta bort</button>
                   </div>
                 </>
               )
@@ -506,7 +566,15 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
               <AlertCircle size={13} style={{ flexShrink: 0 }} /> {fileError}
             </div>
           )}
-          {!attachment && (
+          {attachmentBusy && (
+            <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '8px' }}>Laddar upp underlag…</div>
+          )}
+          {attachmentError && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '12px', color: '#b91c1c' }}>
+              <AlertCircle size={13} style={{ flexShrink: 0 }} /> {attachmentError}
+            </div>
+          )}
+          {!hasAttachment && (
             <div style={{ marginTop: '12px' }} onClick={e => e.stopPropagation()}>
               <label style={labelStyle}>Var förvaras originalet?</label>
               <input
@@ -534,20 +602,20 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
             onClick={() => {
               if (!window.confirm('Rensa formuläret? Ifylld information försvinner.')) return;
               setDesc(''); setProjectId(''); setCostCenter(''); setInternalNote('');
-              setCounterpartyId(''); setOriginalLocation(''); setAttachment(null);
+              setCounterpartyId(''); setOriginalLocation(''); setAttachment(null); setExistingAttachment(null);
               setRows([{ account: '', accountName: '', debet: '', kredit: '', desc: '' }]);
             }}
             style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '9px 14px', background: 'none', border: 'none', borderRadius: '8px', fontSize: '13.5px', fontWeight: 600, color: '#6b7280', cursor: 'pointer', marginRight: 'auto' }}
           ><RefreshCw size={13} /> Rensa</button>
-          <button onClick={() => handleSave('draft')} style={{ padding: '10px 18px', background: 'white', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '13.5px', fontWeight: 600, color: '#374151', cursor: 'pointer' }}>
-            Spara som utkast
+          <button onClick={() => handleSave('draft')} disabled={attachmentBusy} style={{ padding: '10px 18px', background: 'white', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '13.5px', fontWeight: 600, color: '#374151', cursor: attachmentBusy ? 'not-allowed' : 'pointer', opacity: attachmentBusy ? 0.6 : 1 }}>
+            {attachmentBusy ? 'Laddar upp…' : 'Spara som utkast'}
           </button>
           <button onClick={() => canReview && setShowReview(true)} disabled={!canReview} style={{
             padding: '10px 22px', background: canReview ? '#18181b' : '#e4e4e7',
             border: 'none', borderRadius: '8px', color: canReview ? 'white' : '#9ca3af', fontWeight: 600,
             fontSize: '13.5px', cursor: canReview ? 'pointer' : 'not-allowed'
           }}>
-            {initial ? 'Granska & spara' : 'Granska & skapa'}
+            {initial?.number ? 'Granska & spara' : 'Granska & skapa'}
           </button>
         </div>
         {validationMessages.length > 0 && (
@@ -562,9 +630,9 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
       })()}
 
       {/* ── Underlag i fullstorlek ──────────────────────────────── */}
-      {showAttachmentLightbox && attachmentUrl && (
+      {showAttachmentLightbox && displayAttachmentUrl && (
         <div onClick={() => setShowAttachmentLightbox(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 600, padding: 32 }}>
-          <img src={attachmentUrl} alt={attachment?.name} style={{ maxWidth: '92vw', maxHeight: '92vh', objectFit: 'contain', borderRadius: '6px', boxShadow: '0 20px 60px rgba(0,0,0,0.4)' }} />
+          <img src={displayAttachmentUrl} alt={displayAttachmentName} style={{ maxWidth: '92vw', maxHeight: '92vh', objectFit: 'contain', borderRadius: '6px', boxShadow: '0 20px 60px rgba(0,0,0,0.4)' }} />
           <button onClick={() => setShowAttachmentLightbox(false)} style={{ position: 'fixed', top: 20, right: 24, background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: '999px', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', cursor: 'pointer' }}>
             <X size={20} />
           </button>
@@ -591,7 +659,7 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
               <button onClick={() => setShowReview(false)} style={{ padding: '9px 16px', background: 'white', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '13.5px', fontWeight: 600, color: '#374151', cursor: 'pointer' }}>Tillbaka och ändra</button>
               <button onClick={() => { handleSave('booked'); setShowReview(false); }} style={{ padding: '9px 20px', background: '#16a34a', border: 'none', borderRadius: '8px', color: 'white', fontWeight: 700, fontSize: '13.5px', cursor: 'pointer' }}>
-                {initial ? 'Spara ändringar' : 'Bokför'}
+                {initial?.number ? 'Spara ändringar' : 'Bokför'}
               </button>
             </div>
           </div>
@@ -602,7 +670,7 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
 }
 
 // ─── Main Bokföring Component ──────────────────────────────────────────────────
-export default function Bokforing({ verifications = [], accounts = [], balances = {}, contacts = [], projects = [], templates = [], onSaveTemplate, onAdd, setVerifications, setAccounts, highlightVerificationId, onClearHighlight, vatPeriods }) {
+export default function Bokforing({ verifications = [], accounts = [], balances = {}, contacts = [], projects = [], templates = [], onSaveTemplate, onAdd, setVerifications, setAccounts, highlightVerificationId, onClearHighlight, vatPeriods, user }) {
   const [activeTab, setActiveTab] = useState('verifications');
   const [expandedId, setExpandedId] = useState(null);
   const [showForm, setShowForm] = useState(false);
@@ -660,7 +728,13 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
   const filteredVers = verifications.filter(v => {
     if (search) {
       const s = search.toLowerCase();
-      if (!v.number?.toLowerCase().includes(s) && !v.description?.toLowerCase().includes(s)) return false;
+      // Sökfältets placeholder lovar "Sök verifikation, text, belopp..." —
+      // beloppet måste faktiskt vara med i matchningen, inte bara nummer/text.
+      const amountStr = (v.rows?.reduce((sum, r) => sum + getDebet(r), 0) || v.amount || 0).toString();
+      const matchesNumber = v.number?.toLowerCase().includes(s);
+      const matchesDesc = v.description?.toLowerCase().includes(s);
+      const matchesAmount = amountStr.includes(s.replace(',', '.'));
+      if (!matchesNumber && !matchesDesc && !matchesAmount) return false;
     }
     if (dateFrom && v.date < dateFrom) return false;
     if (dateTo && v.date > dateTo) return false;
@@ -694,7 +768,11 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
   const handleAddAccount = () => {
     if (!newAccCode || !newAccName) return;
     if (accounts.find(a => a.code === newAccCode)) { alert(`Konto ${newAccCode} finns redan.`); return; }
-    setAccounts(prev => [...prev, { code: newAccCode, name: newAccName }].sort((a, b) => a.code.localeCompare(b.code)));
+    // `numeric: true` gör att kontokoder jämförs som TAL, inte tecken för
+    // tecken — annars sorteras t.ex. "1000" före "999" (lexikografisk
+    // jämförelse), fel så fort en tillagd kod har en annan längd än de
+    // befintliga 4-siffriga BAS-koderna.
+    setAccounts(prev => [...prev, { code: newAccCode, name: newAccName }].sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true })));
     setNewAccCode(''); setNewAccName(''); setShowNewAccountForm(false);
   };
 
@@ -757,6 +835,13 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
           {showForm && (
             <div style={{ padding: '24px 20px 0 20px' }}>
               <VerificationForm
+                // Samma resonemang som InvoiceForm i Invoices.jsx: utan en
+                // key som ändras med VILKEN verifikation som redigeras/
+                // rättas, återanvänder React samma instans och dess interna
+                // useState (rader, underlag, m.m.) nollställs aldrig om man
+                // klickar "Fortsätt"/"Rätta" på en annan rad medan
+                // formuläret redan är öppet.
+                key={editingVer?.id ?? 'new'}
                 accounts={accounts}
                 contacts={contacts}
                 projects={projects}
@@ -769,6 +854,7 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
                 onSave={handleSaveVerification}
                 onClose={() => { setShowForm(false); setEditingVer(null); }}
                 vatPeriods={vatPeriods}
+                user={user}
               />
             </div>
           )}

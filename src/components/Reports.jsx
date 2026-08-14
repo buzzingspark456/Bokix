@@ -1,5 +1,13 @@
 import React, { useMemo, useState } from 'react';
 import { TrendingUp, TrendingDown, HelpCircle, Wallet, PieChart, Scale } from 'lucide-react';
+import { BRAND } from '../utils/brandColors';
+
+// Intäkter/utgifter-jämförelser (linje/stapelfyllnad) ska genomgående vara
+// grönt/rött, inte blått/orange — grönt = pengar in, rött = pengar ut.
+// Ljusare ton för själva linjen/stapeln (grafiskt element, kräver bara
+// 3:1-kontrast), mörkare BRAND-ton för intilliggande text (kräver 4.5:1).
+const REVENUE = '#639922';
+const EXPENSE = '#E24B4A';
 import {
   getPeriodBounds, sumFlowByType, groupCostsByAccount, buildCashflowSeries,
   buildResultSeries, computeBalanceSheet, hasAnyBookedData, isCashAccount, isBooked,
@@ -65,15 +73,15 @@ function ResultTrendChart({ series }) {
   return (
     <div>
       <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ width: '100%', height: '160px' }}>
-        <polyline points={revenueLine} fill="none" stroke="#15803d" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-        <polyline points={costLine} fill="none" stroke="#dc2626" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+        <polyline points={revenueLine} fill="none" stroke={REVENUE} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+        <polyline points={costLine} fill="none" stroke={EXPENSE} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>
         {series.map((s, i) => <span key={i}>{s.label}</span>)}
       </div>
       <div style={{ display: 'flex', gap: '18px', marginTop: '12px', fontSize: '12.5px', fontWeight: 600 }}>
-        <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#15803d' }}><span style={{ width: '10px', height: '10px', borderRadius: '3px', background: '#15803d', display: 'inline-block' }} /> Intäkter</span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#dc2626' }}><span style={{ width: '10px', height: '10px', borderRadius: '3px', background: '#dc2626', display: 'inline-block' }} /> Kostnader</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: BRAND.greenDark }}><span style={{ width: '10px', height: '10px', borderRadius: '3px', background: REVENUE, display: 'inline-block' }} /> Intäkter</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: BRAND.redText }}><span style={{ width: '10px', height: '10px', borderRadius: '3px', background: EXPENSE, display: 'inline-block' }} /> Kostnader</span>
       </div>
     </div>
   );

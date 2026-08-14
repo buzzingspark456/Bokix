@@ -7,29 +7,15 @@ import {
   MessageSquare, Tag, Lock, Settings2, Download, AlertTriangle, Inbox
 } from 'lucide-react';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
-import InvoiceDocument, { DEFAULT_INVOICE_TEMPLATE } from './InvoiceDocument';
+import InvoiceDocument, { DEFAULT_INVOICE_TEMPLATE, INVOICE_TEMPLATES } from './InvoiceDocument';
 import { exportInvoicePdf } from '../utils/exportInvoicePdf';
 import { BRAND } from '../utils/brandColors';
+import { getNextInvoiceNumber } from '../utils/invoiceNumbering';
 
 const newRowId = () => (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `row_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 const withRowIds = (rows) => rows.map(r => ({ id: r.id || newRowId(), ...r }));
 
 const grossOf = (inv) => inv.rows?.reduce((a, r) => a + r.qty * r.unitPrice * (1 + r.vatRate / 100), 0) || inv.amount || 0;
-
-/**
- * Nästa fakturanummer i serien. `company.nextInvoiceNumber` (satt under
- * Inställningar → Betalning och faktura) fungerar bara som ett GOLV — det
- * kan höja startnumret (t.ex. vid byte från ett annat system), men aldrig
- * sänka det under vad som redan är använt. Det gör inställningen kollisions-
- * säker på datanivå, inte bara via ett fält som validerar i UI:t och sedan
- * kan kringgås.
- */
-function getNextInvoiceNumber(invoiceList, company) {
-  const nums = invoiceList.map(i => Number(i.invoiceNumber)).filter(n => !isNaN(n));
-  const auto = nums.length > 0 ? Math.max(...nums) + 1 : 1001;
-  const floor = Number(company?.nextInvoiceNumber) || 0;
-  return String(Math.max(auto, floor));
-}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const fmt = (val) =>
@@ -104,19 +90,22 @@ const lbl = { display: 'block', fontSize: '11px', color: '#666', marginBottom: '
 const cell = (w) => ({ display: 'inline-block', width: w, verticalAlign: 'top', paddingRight: '8px', boxSizing: 'border-box' });
 
 // ─── Invoice Full Form (Fortnox-inspired) ──────────────────────────────────────
-function InvoiceForm({ contacts, onSave, onClose, initial, company, invoiceList, onCreateCreditNote, onMarkPaid, onRegisterPayment, onUnmarkPaid, onUpdateNote, verifications = [], nav }) {
+function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, invoiceList, onCreateCreditNote, onMarkPaid, onRegisterPayment, onUnmarkPaid, onUpdateNote, verifications = [], nav }) {
   // En bokförd faktura (allt utom utkast) får inte längre ändra belopp/rader/kund —
   // korrigeringar sker via kreditfaktura. Datum och kommentar går fortfarande att ändra.
   const isLocked = Boolean(initial) && (initial.status || 'draft') !== 'draft';
 
-  const [customerId, setCustomerId] = useState(initial?.customerId || '');
+  // `prefill` (från t.ex. Tidrapportering → "Skapa faktura") sätter bara
+  // startvärden för en NY faktura — aldrig när `initial` redan pekar på en
+  // sparad faktura som redigeras.
+  const [customerId, setCustomerId] = useState(initial?.customerId || prefill?.customerId || '');
   const [invoiceDate, setInvoiceDate] = useState(initial?.date || new Date().toISOString().split('T')[0]);
   const [dueDate, setDueDate] = useState(() => {
     if (initial?.dueDate) return initial.dueDate;
     const d = new Date(); d.setDate(d.getDate() + 30);
     return d.toISOString().split('T')[0];
   });
-  const [rows, setRows] = useState(() => withRowIds(initial?.rows || [
+  const [rows, setRows] = useState(() => withRowIds(initial?.rows || prefill?.rows || [
     { description: '', qty: 1, unitPrice: 0, vatRate: 25, discount: 0, account: '3001' }
   ]));
   const [expandedRows, setExpandedRows] = useState(new Set());
@@ -186,12 +175,17 @@ function InvoiceForm({ contacts, onSave, onClose, initial, company, invoiceList,
   // skickade fakturor. Finns redan en snapshot (fakturan är sparad sedan
   // tidigare) återanvänds den oförändrad; annars fångas företagets NUVARANDE
   // inställningar en gång.
-  const invoiceTemplateSnapshot = initial?.invoiceTemplateSnapshot || {
+  // State (inte en const) så mallval/accentfärg går att ändra direkt i
+  // förhandsgranskningen innan fakturan skickas (se mallväljaren i
+  // preview-panelen nedan) — fryses ändå precis som förut i samma ögonblick
+  // fakturan lämnar utkast-status, den ändras bara inte tyst i bakgrunden
+  // om företagets Inställningar råkar ändras medan detta utkast är öppet.
+  const [invoiceTemplateSnapshot, setInvoiceTemplateSnapshot] = useState(() => initial?.invoiceTemplateSnapshot || {
     templateId: company?.invoiceTemplateId || DEFAULT_INVOICE_TEMPLATE,
     accentColor: company?.invoiceAccentColor || '',
     logoUrl: company?.logoUrl || '',
     footerText: company?.invoiceFooterText || '',
-  };
+  });
 
   const handleSave = (status = 'draft') => {
     // internalNote skickas alltid med här (inte bara via popoverns egen
@@ -803,30 +797,86 @@ function InvoiceForm({ contacts, onSave, onClose, initial, company, invoiceList,
             </button>
           </div>
         </div>
-
-        {/* ── Preview Panel — samma InvoiceDocument-komponent som PDF-exporten fångar,
-               så förhandsgranskningen aldrig kan divergera från vad som laddas ner. ── */}
-        {showPreview && (
-          <div style={{ width: '420px', borderLeft: '1px solid #ccc', background: '#fafafa', overflowY: 'auto', flexShrink: 0, padding: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <div style={{ width: '100%', maxWidth: '380px', transform: 'scale(0.92)', transformOrigin: 'top center' }}>
-              <InvoiceDocument
-                ref={previewRef}
-                invoice={{ invoiceNumber: nextNum, date: invoiceDate, dueDate, terms }}
-                customer={customer}
-                company={company}
-                rows={rows}
-                totals={totals}
-                currency={currency}
-                invoiceText={invoiceText}
-                template={invoiceTemplateSnapshot.templateId}
-                accentColor={invoiceTemplateSnapshot.accentColor}
-                logoUrl={invoiceTemplateSnapshot.logoUrl}
-                footerText={invoiceTemplateSnapshot.footerText}
-              />
-            </div>
-          </div>
-        )}
       </div>
+
+      {/* ── Förhandsgranskning — öppnas nu som en fullskärmsmodal med samma
+             InvoiceDocument-komponent (och samma .a4-paper-storlek, 210mm)
+             som PDF-exporten fångar, istället för en 460px sidopanel skalad
+             till 92% — där syntes aldrig "hela" fakturan, bara en hopklämd
+             tumnagel av den. Mall/accentfärg-väljaren flyttar med hit upp
+             i modalens header, ändras fortfarande direkt på DENNA faktura. ── */}
+      {showPreview && (
+        <div className="modal-overlay" onClick={() => setShowPreview(false)}>
+          <div className="modal-content a4-document-preview" onClick={e => e.stopPropagation()}>
+            {/* Mobil: kontrollraden (mall/accentfärg/PDF) skrollar horisontellt
+                istället för att radbryta till en hög, trång stapel — och
+                headern är sticky så stäng-knappen alltid går att nå utan att
+                behöva skrolla tillbaka upp genom en hel A4-sida på en liten
+                skärm. */}
+            <style>{`
+              .invoice-preview-controls { flex-wrap: wrap; }
+              @media (max-width: 640px) {
+                .invoice-preview-controls { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
+                .invoice-preview-controls > * { flex-shrink: 0; }
+              }
+            `}</style>
+            <div className="modal-header" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '10px', position: 'sticky', top: 0, zIndex: 5, background: 'white' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                <h2 className="modal-title" style={{ fontSize: '14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Förhandsgranskning · Faktura {nextNum}</h2>
+                <button className="modal-close" onClick={() => setShowPreview(false)} style={{ flexShrink: 0 }}><X size={18} /></button>
+              </div>
+              <div className="invoice-preview-controls" style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                  {Object.values(INVOICE_TEMPLATES).map(tpl => {
+                    const active = invoiceTemplateSnapshot.templateId === tpl.id;
+                    return (
+                      <button
+                        key={tpl.id} type="button" disabled={isLocked} title={tpl.description}
+                        onClick={() => setInvoiceTemplateSnapshot(s => ({ ...s, templateId: tpl.id }))}
+                        style={{
+                          padding: '5px 10px', borderRadius: '999px', fontSize: '11.5px', fontWeight: 600, whiteSpace: 'nowrap',
+                          border: `1.5px solid ${active ? '#1a3028' : '#d1d5db'}`,
+                          background: active ? '#1a3028' : 'white', color: active ? 'white' : '#374151',
+                          cursor: isLocked ? 'not-allowed' : 'pointer', opacity: isLocked ? 0.6 : 1,
+                        }}
+                      >{tpl.label}</button>
+                    );
+                  })}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                  <span style={{ fontSize: '11px', color: '#6b7280', whiteSpace: 'nowrap' }}>Accentfärg</span>
+                  <input
+                    type="color" disabled={isLocked}
+                    value={invoiceTemplateSnapshot.accentColor || INVOICE_TEMPLATES[invoiceTemplateSnapshot.templateId]?.defaultAccent || '#000000'}
+                    onChange={e => setInvoiceTemplateSnapshot(s => ({ ...s, accentColor: e.target.value }))}
+                    style={{ width: '32px', height: '24px', padding: '1px', border: '1px solid #d1d5db', borderRadius: '4px', cursor: isLocked ? 'not-allowed' : 'pointer', background: 'white', flexShrink: 0 }}
+                  />
+                  {isLocked && <span style={{ fontSize: '11px', color: '#9ca3af', whiteSpace: 'nowrap' }}>Låst — redan skickad</span>}
+                </div>
+                <div style={{ flex: 1, minWidth: '8px' }} />
+                <button onClick={handleDownloadPdf} disabled={pdfBusy} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '7px 12px', background: 'white', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '12px', fontWeight: 600, color: '#374151', cursor: pdfBusy ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                  <Download size={13} /> {pdfBusy ? 'Skapar PDF…' : 'Ladda ner PDF'}
+                </button>
+              </div>
+            </div>
+            {pdfError && <div style={{ fontSize: '12px', color: '#c00', marginBottom: '10px' }}>{pdfError}</div>}
+            <InvoiceDocument
+              ref={previewRef}
+              invoice={{ invoiceNumber: nextNum, date: invoiceDate, dueDate, terms }}
+              customer={customer}
+              company={company}
+              rows={rows}
+              totals={totals}
+              currency={currency}
+              invoiceText={invoiceText}
+              template={invoiceTemplateSnapshot.templateId}
+              accentColor={invoiceTemplateSnapshot.accentColor}
+              logoUrl={invoiceTemplateSnapshot.logoUrl}
+              footerText={invoiceTemplateSnapshot.footerText}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -839,23 +889,46 @@ const SORTABLE_COLUMNS = {
   amount: (inv) => grossOf(inv),
 };
 
-// Ett genuint tomt läge (inte en enda liten rad i en annars tom sida) —
-// fyller den tillgängliga höjden istället för att lämna en stor grå yta
-// under en enda liten textrad.
+// Sida 31: tomt läge med en riktig, storskalig linjeillustration av ett
+// dokument (i brandgrönt, mot en cremefärgad yta) istället för en liten
+// ikon-i-cirkel — det gemensamma illustrationsspråket för "inga X än"-lägen.
+// Fortfarande ett genuint tomt läge (inte en enda liten rad i en annars tom
+// sida) — fyller den tillgängliga höjden istället för att lämna en stor grå
+// yta under en enda liten textrad.
+function InvoiceDocIllustration() {
+  return (
+    <svg width="120" height="120" viewBox="0 0 120 120" fill="none" aria-hidden="true">
+      <rect x="30" y="16" width="60" height="88" rx="8" stroke={BRAND.green} strokeWidth="2.5" />
+      <path d="M68 16v18a4 4 0 0 0 4 4h18" stroke={BRAND.green} strokeWidth="2.5" strokeLinejoin="round" fill="none" opacity="0.5" />
+      <line x1="42" y1="52" x2="78" y2="52" stroke={BRAND.green} strokeWidth="2.5" strokeLinecap="round" opacity="0.55" />
+      <line x1="42" y1="64" x2="78" y2="64" stroke={BRAND.green} strokeWidth="2.5" strokeLinecap="round" opacity="0.55" />
+      <line x1="42" y1="76" x2="62" y2="76" stroke={BRAND.green} strokeWidth="2.5" strokeLinecap="round" opacity="0.55" />
+      <circle cx="86" cy="86" r="16" fill={BRAND.greenLight} stroke={BRAND.green} strokeWidth="2.5" />
+      <path d="M80 86l4 4 8-8" stroke={BRAND.greenDark} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    </svg>
+  );
+}
+
 function InvoiceEmptyState({ isFilteredEmpty, onCreate }) {
   const { title, body } = isFilteredEmpty
     ? { title: 'Inga fakturor matchar din sökning', body: 'Prova att rensa sökningen eller filtren ovan.' }
     : { title: 'Inga fakturor än', body: 'Skapa din första faktura för att komma igång med fakturering.' };
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px', padding: '40px', background: 'white', textAlign: 'center' }}>
-      <div style={{ width: 56, height: 56, borderRadius: '999px', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', marginBottom: '4px' }}>
-        <FileText size={26} />
-      </div>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px', padding: '40px', background: isFilteredEmpty ? 'white' : 'var(--bg-cream)', textAlign: 'center' }}>
+      {isFilteredEmpty ? (
+        <div style={{ width: 56, height: 56, borderRadius: '999px', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', marginBottom: '4px' }}>
+          <FileText size={26} />
+        </div>
+      ) : (
+        <div style={{ marginBottom: '4px' }}>
+          <InvoiceDocIllustration />
+        </div>
+      )}
       <div style={{ fontSize: '15px', fontWeight: 700, color: '#374151' }}>{title}</div>
       <p style={{ fontSize: '13px', color: '#9ca3af', maxWidth: '340px', margin: 0 }}>{body}</p>
       {!isFilteredEmpty && (
-        <button onClick={onCreate} style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 18px', background: '#2e7d32', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}>
+        <button onClick={onCreate} className="btn btn-primary" style={{ marginTop: '8px' }}>
           <Plus size={15} /> Skapa faktura
         </button>
       )}
@@ -1024,6 +1097,7 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
   const [sortDir, setSortDir] = useState('desc');
   const [showForm, setShowForm] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState(null);
+  const [invoicePrefill, setInvoicePrefill] = useState(null); // t.ex. från Tidrapportering → "Skapa faktura"
   const [selected, setSelected] = useState(new Set());
   // Fakturorna visas i tydligt rubrikerade sektioner per status (Förfallen/
   // Obetald/Ej bokförd/Betald) istället för en enda blandad lista — piller-
@@ -1031,7 +1105,11 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
   const sectionRefs = useRef({});
 
   useEffect(() => {
-    if (globalAction?.type === 'new_invoice') { setShowForm(true); setEditingInvoice(null); clearGlobalAction?.(); }
+    if (globalAction?.type === 'new_invoice') {
+      setShowForm(true); setEditingInvoice(null);
+      setInvoicePrefill(globalAction.payload || null);
+      clearGlobalAction?.();
+    }
   }, [globalAction, clearGlobalAction]);
 
   // Sök-/intervallfilter-ändringar ska nollställa markeringar — annars kan
@@ -1097,14 +1175,32 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
     setSortKey(key);
   };
 
+  // Bugkritiskt: stänger man formuläret utan att SAMTIDIGT (samma händelse,
+  // samma React-batch) ta bort ?invoiceId= ur URL:en, hinner effekten
+  // nedan ("Delade länkar") läsa den gamla — fortfarande satta — sökparametern
+  // innan den andra effekten (som annars skulle rensa den) har körts, och
+  // öppnar tyst upp SAMMA faktura igen direkt efter att man stängt den.
+  // Genom att rensa parametern här, i samma synkrona händelse som stänger
+  // formuläret, batchas båda uppdateringarna ihop av React — effekten som
+  // läser `searchParams` ser då redan den rensade URL:en, inte den gamla.
+  const closeForm = () => {
+    setShowForm(false);
+    setEditingInvoice(null);
+    setInvoicePrefill(null);
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      next.delete('invoiceId');
+      return next;
+    }, { replace: true });
+  };
+
   const handleSaveInvoice = (data) => {
     if (editingInvoice) {
       setInvoices(prev => prev.map(i => i.id === editingInvoice.id ? { ...i, ...data } : i));
     } else {
       onAdd({ ...data, invoiceNumber: getNextInvoiceNumber(invoiceList, company) });
     }
-    setShowForm(false);
-    setEditingInvoice(null);
+    closeForm();
   };
 
   // Skapa en kreditfaktura mot en redan bokförd faktura, istället för att
@@ -1122,8 +1218,7 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
       invoiceNumber: nextNum,
       creditFor: original.invoiceNumber,
     });
-    setShowForm(false);
-    setEditingInvoice(null);
+    closeForm();
   };
 
   // Skapar en ny utkastfaktura med samma kund och rader, dagens datum — en
@@ -1139,8 +1234,7 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
       status: 'draft', type: 'invoice',
       invoiceNumber: getNextInvoiceNumber(invoiceList, company),
     });
-    setShowForm(false);
-    setEditingInvoice(null);
+    closeForm();
   };
 
   const handleUpdateInvoiceNote = (id, internalNote) => {
@@ -1174,7 +1268,7 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
       <tr key={inv.id} style={{ background: isSelected ? '#e3f2fd' : rowBg, borderBottom: '1px solid #e0e0e0', cursor: 'pointer' }}
         onMouseEnter={e => { if (!isSelected) e.currentTarget.style.filter = 'brightness(0.97)'; }}
         onMouseLeave={e => { e.currentTarget.style.filter = ''; }}
-        onClick={() => { setEditingInvoice(inv); setShowForm(true); }}>
+        onClick={() => { setEditingInvoice(inv); setInvoicePrefill(null); setShowForm(true); }}>
         <td style={{ padding: '6px 10px', textAlign: 'center' }} onClick={e => { e.stopPropagation(); toggleSelect(inv.id); }}>
           <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(inv.id)} style={{ cursor: 'pointer' }} />
         </td>
@@ -1237,7 +1331,7 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
     const id = searchParams.get('invoiceId');
     if (id && !showForm) {
       const found = invoices.find(i => i.id === id);
-      if (found) { setEditingInvoice(found); setShowForm(true); }
+      if (found) { setEditingInvoice(found); setInvoicePrefill(null); setShowForm(true); }
     }
   }, [searchParams, invoices, showForm]);
 
@@ -1265,9 +1359,18 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
     };
     return (
       <InvoiceForm
+        // Bugkritiskt: utan en key som ändras när VILKEN faktura som redigeras
+        // ändras, återanvänder React samma InvoiceForm-instans — dess interna
+        // useState (customerId/rows/datum m.m.) sätts bara EN gång vid första
+        // mount och nollställs aldrig om man t.ex. klickar nav-pilen till nästa
+        // faktura medan formuläret är öppet. Då sparas den förra fakturans
+        // rader/kund tyst över den nya som är öppen (editingInvoice.id är rätt,
+        // men fältvärdena är kvar från föregående faktura).
+        key={editingInvoice?.id || (invoicePrefill ? `prefill-${invoicePrefill.sourceKey || 'x'}` : 'new')}
         contacts={contacts}
         company={company}
         initial={editingInvoice}
+        prefill={invoicePrefill}
         onSave={handleSaveInvoice}
         onCreateCreditNote={handleCreateCreditNote}
         onMarkPaid={onMarkPaid}
@@ -1277,7 +1380,7 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
         verifications={verifications}
         invoiceList={invoiceList}
         nav={nav}
-        onClose={() => { setShowForm(false); setEditingInvoice(null); }}
+        onClose={closeForm}
       />
     );
   }
@@ -1330,7 +1433,7 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
           <button onClick={() => setShowExtendedSearch(v => !v)} style={{ padding: '5px 8px', background: showExtendedSearch ? '#e3f2fd' : 'none', border: '1px solid #ccc', borderRadius: '4px', fontSize: '12px', color: '#1565c0', cursor: 'pointer', fontFamily: 'inherit' }}>Utökad sökning</button>
           <button onClick={() => { setSearchInput(''); setDateFrom(''); setDateTo(''); setAmountMin(''); setAmountMax(''); }} style={{ padding: '5px 8px', background: 'none', border: '1px solid #ccc', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Rensa sökning"><RefreshCw size={13} color="#555" /></button>
           <div style={{ flex: 1 }} />
-          <button onClick={() => { setShowForm(true); setEditingInvoice(null); }} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 14px', background: '#2e7d32', border: 'none', borderRadius: '5px', fontSize: '13px', fontWeight: 700, color: 'white', cursor: 'pointer' }}>
+          <button onClick={() => { setShowForm(true); setEditingInvoice(null); setInvoicePrefill(null); }} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 14px', background: '#2e7d32', border: 'none', borderRadius: '5px', fontSize: '13px', fontWeight: 700, color: 'white', cursor: 'pointer' }}>
             <Plus size={14} /> Skapa faktura
           </button>
         </div>
@@ -1393,7 +1496,7 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
           blandad lista. Tomma sektioner visas inte alls. Status är klickbar
           där det finns en riktig åtgärd att göra (markera betald). */}
       {sorted.length === 0 ? (
-        <InvoiceEmptyState isFilteredEmpty={invoiceList.length > 0} onCreate={() => { setShowForm(true); setEditingInvoice(null); }} />
+        <InvoiceEmptyState isFilteredEmpty={invoiceList.length > 0} onCreate={() => { setShowForm(true); setEditingInvoice(null); setInvoicePrefill(null); }} />
       ) : (
       <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>
         {statusOptions.filter(opt => opt.value !== 'all').map(opt => {

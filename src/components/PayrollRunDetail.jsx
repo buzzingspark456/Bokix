@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import {
-  Check, ChevronDown, ChevronUp, AlertTriangle, Download, ChevronLeft, Loader2, ExternalLink,
+  Check, ChevronDown, ChevronUp, AlertTriangle, Download, ChevronLeft, Loader2, ExternalLink, RefreshCw,
 } from 'lucide-react';
 import CalculationRow from './shared/CalculationRow';
 import { computeEmployeePayroll, summarizePayrollRun } from '../utils/payrollCalculation';
@@ -8,9 +8,11 @@ import { PAYROLL_RUN_STEPS, PAYROLL_ACCOUNTS } from '../utils/payrollConfig';
 import { generatePayslipPdf } from '../utils/payslipExport';
 import { downloadAgiPdf } from '../utils/agiExport';
 import { preloadSkattetabell } from '../utils/skattetabell';
+import { downloadSalaryPaymentFile, getDebtorAccountError } from '../utils/salaryPaymentFile';
 
 const fmt = (v) => new Intl.NumberFormat('sv-SE').format(Math.round(v || 0));
 const fmtSigned = (v) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${new Intl.NumberFormat('sv-SE').format(Math.round(Math.abs(v || 0)))} kr`;
+const panelCard = { background: 'white', borderRadius: '14px', border: '1px solid #ececef', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)' };
 
 function StatusBadge({ status }) {
   const map = {
@@ -61,7 +63,7 @@ function SummaryCards({ totals }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '12px' }}>
       {cards.map(c => (
-        <div key={c.label} style={{ background: 'white', border: '1px solid #e4e4e7', borderRadius: '12px', padding: '16px' }}>
+        <div key={c.label} style={{ ...panelCard, padding: '16px' }}>
           <div style={{ fontSize: '11px', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '6px' }}>{c.label}</div>
           <div style={{ fontSize: '20px', fontWeight: 800, color: c.color }}>{fmt(c.value)} kr</div>
         </div>
@@ -77,8 +79,13 @@ function EmployeeRow({ row, computed, previousComputed, accounts, onUpdateRow, l
   const isHourly = row.employeeSnapshot.salaryForm === 'timlon';
 
   return (
-    <div style={{ background: 'white', border: '1px solid #e4e4e7', borderRadius: '12px', marginBottom: '10px', overflow: 'hidden' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', cursor: 'pointer' }} onClick={() => setExpanded(e => !e)}>
+    <div style={{ ...panelCard, marginBottom: '10px', overflow: 'hidden', transition: 'box-shadow 0.15s' }}>
+      <div
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', cursor: 'pointer' }}
+        onClick={() => setExpanded(e => !e)}
+        onMouseEnter={e => { e.currentTarget.parentElement.style.boxShadow = '0 4px 14px rgba(15, 23, 42, 0.08)'; }}
+        onMouseLeave={e => { e.currentTarget.parentElement.style.boxShadow = panelCard.boxShadow; }}
+      >
         <div>
           <div style={{ fontWeight: 700, fontSize: '14.5px', color: '#111', display: 'flex', alignItems: 'center', gap: '8px' }}>
             {row.employeeSnapshot.firstName} {row.employeeSnapshot.lastName}
@@ -183,11 +190,14 @@ function VerificationBlock({ title, rows, accounts }) {
   );
 }
 
-export default function PayrollRunDetail({ run, previousRun, accounts, company, onBack, onAdvanceStep, onBookRun, onUpdateRow }) {
+export default function PayrollRunDetail({ run, previousRun, accounts, company, onBack, onAdvanceStep, onBookRun, onUpdateRow, onRefreshSnapshots }) {
   const [agiConfirmed, setAgiConfirmed] = useState(run.completedSteps.includes('agi'));
   const [showBankGuide, setShowBankGuide] = useState(false);
   const [tablesReady, setTablesReady] = useState(false);
   const [tablesError, setTablesError] = useState(null);
+  const [payFileBusy, setPayFileBusy] = useState(false);
+  const [payFileError, setPayFileError] = useState('');
+  const [payFileResult, setPayFileResult] = useState(null); // { eligible, excluded } från senaste nedladdningen
 
   // Skattetabellerna som behövs för körningens anställda hämtas en gång
   // (cachas därefter, se skattetabell.js) — inte per anställd/beräkning.
@@ -226,7 +236,31 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
   const displayStatus = run.completedSteps.includes('booked') ? 'booked' : (run.completedSteps.includes('calculated') ? 'calculated' : 'draft');
 
   const missingBankInfo = computedRows.filter(r => !r.computed.hasBankInfo);
+  // Separat från missingBankInfo ovan: betalfilen kräver specifikt IBAN+BIC
+  // (clearing-/kontonummer räcker inte där, se salaryPaymentFile.js).
+  const missingIbanInfo = computedRows.filter(r => !r.computed.hasIbanInfo);
+  const debtorAccountError = getDebtorAccountError(company);
   const canBook = run.completedSteps.includes('paid');
+
+  const handleDownloadPayFile = () => {
+    setPayFileBusy(true); setPayFileError(''); setPayFileResult(null);
+    try {
+      const result = downloadSalaryPaymentFile({ company, run, computedRows });
+      setPayFileResult({ eligible: result.eligible.length, excluded: result.excluded });
+    } catch (err) {
+      setPayFileError(err.message || 'Kunde inte skapa betalfilen.');
+    } finally {
+      setPayFileBusy(false);
+    }
+  };
+
+  // Bugkritiskt: en anställd utan tabellnummer i sin frysta ögonblicksbild
+  // gör att skatteavdraget tyst blir 0 kr (se payrollCalculation.js) — det
+  // ska aldrig vara osynligt VARFÖR. Bara åtgärdbart i utkast (innan
+  // 'calculated'), eftersom en redan beräknad/bokförd körning aldrig ska
+  // ändras i efterhand.
+  const missingTaxTable = run.rows.filter(r => !r.employeeSnapshot?.secondaryIncome && !r.employeeSnapshot?.taxTable?.tabellnr);
+  const isDraftRun = !run.completedSteps.includes('calculated');
 
   const period = run.period;
   const verBlocks = useMemo(() => {
@@ -284,6 +318,32 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
 
       <StepButtons completedSteps={run.completedSteps} onAdvance={handleAdvance} canBook={canBook} />
 
+      {missingTaxTable.length > 0 && (
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '12px 14px', marginBottom: '20px', fontSize: '13px', color: '#991b1b' }}>
+          <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 1 }} />
+          <div style={{ flex: 1 }}>
+            <div>
+              {missingTaxTable.length === 1 ? 'En anställd saknar' : `${missingTaxTable.length} anställda saknar`} skattetabell ({missingTaxTable.map(r => `${r.employeeSnapshot?.firstName || ''} ${r.employeeSnapshot?.lastName || ''}`.trim()).join(', ')}) — skatteavdraget visas som 0 kr tills detta åtgärdas.
+            </div>
+            {isDraftRun ? (
+              <div style={{ marginTop: '8px' }}>
+                1. Fyll i tabellnummer på den anställda under Anställda. 2. Klicka sedan:{' '}
+                <button
+                  onClick={onRefreshSnapshots}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '5px 12px', background: '#991b1b', color: 'white', border: 'none', borderRadius: '6px', fontSize: '12.5px', fontWeight: 700, cursor: 'pointer' }}
+                >
+                  <RefreshCw size={12} /> Uppdatera anställdas uppgifter i utkastet
+                </button>
+              </div>
+            ) : (
+              <div style={{ marginTop: '4px', fontWeight: 600 }}>
+                Körningen är redan beräknad/bokförd — dess ögonblicksbild kan inte längre ändras. Rätta den anställdas skattetabell för framtida körningar.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {missingBankInfo.length > 0 && (
         <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '12px 14px', marginBottom: '20px', fontSize: '13px', color: '#991b1b' }}>
           <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 1 }} />
@@ -299,7 +359,7 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
       )}
 
       <SummaryCards totals={totals} />
-      <div style={{ background: '#111827', color: 'white', borderRadius: '12px', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px' }}>
+      <div style={{ background: '#111827', color: 'white', borderRadius: '14px', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px', boxShadow: '0 4px 14px rgba(17, 24, 39, 0.18)' }}>
         <span style={{ fontWeight: 600, fontSize: '14px' }}>Total kostnad</span>
         <span style={{ fontWeight: 800, fontSize: '22px' }}>{fmt(totals.totalCost)} kr</span>
       </div>
@@ -325,7 +385,7 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
       )}
 
       {run.completedSteps.includes('approved') && (
-        <div style={{ marginTop: '28px', background: 'white', border: '1px solid #e4e4e7', borderRadius: '12px', padding: '20px' }}>
+        <div style={{ ...panelCard, marginTop: '28px', padding: '20px' }}>
           <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#111', margin: '0 0 16px' }}>Betalfil till bank</h3>
           <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>Format</label>
           <select disabled style={{ width: '100%', maxWidth: '360px', padding: '9px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', background: '#f8fafc', marginBottom: '6px' }}>
@@ -336,17 +396,47 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
           </p>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '12px 14px', marginBottom: '16px', fontSize: '12.5px', color: '#92400e', lineHeight: 1.5 }}>
             <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 1 }} />
-            <span>pain.001 skickas normalt via filkommunikationsavtal eller bankgirokoppling, inte genom att laddas upp i internetbanken. Kontrollera att din bank tar emot filen den vägen i god tid före utbetalningsdagen.</span>
+            <span>pain.001 skickas normalt via filkommunikationsavtal eller bankgirokoppling, inte genom att laddas upp i internetbanken. Kontrollera att din bank tar emot filen den vägen i god tid före utbetalningsdagen — filen skickas aldrig automatiskt någonstans, du laddar upp den själv.</span>
           </div>
 
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: '#f8fafc', border: '1px solid #e4e4e7', borderRadius: '8px', padding: '12px 14px', marginBottom: '14px', fontSize: '12.5px', color: '#475569', lineHeight: 1.5 }}>
-            <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 1, color: '#94a3b8' }} />
-            <span>Betalfilsgenerering är inte aktiverad än — den kräver IBAN/BIC per anställd och företag, vilket vi bara har svenskt clearing-/kontonummer för i dagsläget. Att skicka en fil med saknade eller gissade IBAN/BIC-fält riskerar att banken avvisar den, eller värre, felaktig utbetalning. Betala lönerna manuellt via banken tills detta är på plats.</span>
-          </div>
+          {debtorAccountError && (
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '12px 14px', marginBottom: '14px', fontSize: '12.5px', color: '#991b1b', lineHeight: 1.5 }}>
+              <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 1 }} />
+              <span>{debtorAccountError}</span>
+            </div>
+          )}
+
+          {missingIbanInfo.length > 0 && (
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: '#f8fafc', border: '1px solid #e4e4e7', borderRadius: '8px', padding: '12px 14px', marginBottom: '14px', fontSize: '12.5px', color: '#475569', lineHeight: 1.5 }}>
+              <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 1, color: '#94a3b8' }} />
+              <span>
+                {missingIbanInfo.length} {missingIbanInfo.length === 1 ? 'anställd saknar' : 'anställda saknar'} IBAN/BIC ({missingIbanInfo.map(r => `${r.row.employeeSnapshot?.firstName || ''} ${r.row.employeeSnapshot?.lastName || ''}`.trim()).join(', ')}) och exkluderas från betalfilen om du laddar ner den nu. Komplettera under Anställda.
+              </span>
+            </div>
+          )}
+
+          {payFileError && (
+            <div style={{ fontSize: '12.5px', color: '#dc2626', marginBottom: '12px' }}>{payFileError}</div>
+          )}
+          {payFileResult && (
+            <div style={{ fontSize: '12.5px', color: '#15803d', marginBottom: '12px', fontWeight: 600 }}>
+              Betalfil nedladdad — {payFileResult.eligible} {payFileResult.eligible === 1 ? 'anställd' : 'anställda'} inkluderade
+              {payFileResult.excluded.length > 0 ? `, ${payFileResult.excluded.length} exkluderade (saknar IBAN/BIC).` : '.'}
+            </div>
+          )}
 
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-            <button disabled style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 18px', background: '#e5e7eb', color: '#9ca3af', border: 'none', borderRadius: '8px', fontSize: '13.5px', fontWeight: 700, cursor: 'not-allowed' }}>
-              <Download size={15} /> Ladda ner betalfil
+            <button
+              onClick={handleDownloadPayFile}
+              disabled={payFileBusy || Boolean(debtorAccountError) || missingIbanInfo.length === computedRows.length}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 18px', borderRadius: '8px', fontSize: '13.5px', fontWeight: 700, border: 'none',
+                background: (payFileBusy || debtorAccountError || missingIbanInfo.length === computedRows.length) ? '#e5e7eb' : '#1a3028',
+                color: (payFileBusy || debtorAccountError || missingIbanInfo.length === computedRows.length) ? '#9ca3af' : 'white',
+                cursor: (payFileBusy || debtorAccountError || missingIbanInfo.length === computedRows.length) ? 'not-allowed' : 'pointer',
+              }}
+            >
+              <Download size={15} /> {payFileBusy ? 'Skapar fil…' : 'Ladda ner betalfil'}
             </button>
             <button type="button" onClick={() => setShowBankGuide(s => !s)} style={{ background: 'none', border: 'none', color: '#1a3028', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
               Så importerar du filen i din bank {showBankGuide ? <ChevronUp size={13} style={{ verticalAlign: 'middle' }} /> : <ChevronDown size={13} style={{ verticalAlign: 'middle' }} />}
@@ -366,7 +456,7 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
       )}
 
       {run.completedSteps.includes('payslips') && (
-        <div style={{ marginTop: '28px', background: 'white', border: '1px solid #e4e4e7', borderRadius: '12px', padding: '20px' }}>
+        <div style={{ ...panelCard, marginTop: '28px', padding: '20px' }}>
           <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#111', margin: '0 0 8px' }}>AGI och skatt</h3>
           <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 14px', lineHeight: 1.5 }}>
             Sammanställning (huvuduppgift + individuppgift per anställd) för arbetsgivardeklarationen (AGI). Skatteverket kräver arbetsgivarens egen BankID-signatur vid inlämning, så Bokix skickar inte in den automatiskt — men underlaget nedan är klart att skriva av.

@@ -43,7 +43,7 @@ function ReviewCard({ item, accounts, onApprove, onReject, exiting }) {
 
   const kindLabel = KIND_LABEL[item.type] || 'post';
   const title = `${item.type === 'supplier_invoice' ? 'Leverantörsfaktura' : 'Kvitto'} utan kontering — ${item.supplier || item.description || 'Okänt inköpsställe'} ${formatSEK(item.amount)}`;
-  const suggestedAccountObj = accounts.find(a => a.code === item.suggestedAccount);
+  const suggestedAccountObj = accounts.find(a => a.code === item.account);
 
   return (
     <div style={{
@@ -57,7 +57,7 @@ function ReviewCard({ item, accounts, onApprove, onReject, exiting }) {
         <div style={{ color: '#6b7280', fontSize: '13px' }}>{formatDate(item.date)} · {kindLabel}</div>
       </div>
 
-      {item.suggestedAccount ? (
+      {item.account ? (
         <div style={{
           display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '6px 12px', borderRadius: '999px',
           marginBottom: '14px', fontSize: '12.5px', fontWeight: 600,
@@ -67,7 +67,7 @@ function ReviewCard({ item, accounts, onApprove, onReject, exiting }) {
         }}>
           {item.confident ? <ShieldCheck size={14} /> : <AlertCircle size={14} />}
           {item.confident ? 'Säkert förslag: ' : 'Osäkert förslag: '}
-          Kontera som {item.suggestedAccount} {suggestedAccountObj?.name || ''}
+          Kontera som {item.account} {suggestedAccountObj?.name || ''}
         </div>
       ) : (
         <div style={{ fontSize: '12.5px', color: '#9ca3af', marginBottom: '14px' }}>Ingen tidigare matchning hittades — ange konto manuellt.</div>
@@ -160,13 +160,13 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
     }, 220);
   };
 
-  const handleApprove = (item) => finishResolve(item, item.suggestedAccount, 'suggested');
+  const handleApprove = (item) => finishResolve(item, item.account, 'suggested');
   const handleReject = (item, account) => finishResolve(item, account, 'manual');
 
   const bulkSummary = useMemo(() => {
     const groups = {};
     eligibleForBulk.forEach(i => {
-      const accName = accounts.find(a => a.code === i.suggestedAccount)?.name || i.suggestedAccount;
+      const accName = accounts.find(a => a.code === i.account)?.name || i.account;
       const key = `${i.type}|${accName}`;
       groups[key] = (groups[key] || 0) + 1;
     });
@@ -179,7 +179,7 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
   }, [eligibleForBulk, accounts]);
 
   const handleBulkApprove = () => {
-    eligibleForBulk.forEach(item => finishResolve(item, item.suggestedAccount, 'bulk'));
+    eligibleForBulk.forEach(item => finishResolve(item, item.account, 'bulk'));
     setShowBulkConfirm(false);
   };
 

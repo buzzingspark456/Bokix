@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import {
-  FileText, CreditCard, Receipt, TrendingUp, TrendingDown,
+  FileText, Receipt, TrendingUp, TrendingDown,
   ChevronRight, Download, ArrowUpRight, ArrowDownRight,
-  CheckCircle, Minus, BarChart2, Activity
+  CheckCircle, CheckCircle2, Minus, BarChart2, Activity,
+  UserPlus, Users, Clock, AlertCircle, Wallet
 } from 'lucide-react';
 import {
   AreaChart, Area, BarChart, Bar,
@@ -10,18 +11,115 @@ import {
   ResponsiveContainer, Legend, ReferenceLine, Cell
 } from 'recharts';
 import { getDebet, getKredit } from '../utils/verificationAmounts';
+import { quarterToRange } from '../utils/vatCalculation';
+import { getGreeting } from '../utils/greeting';
+import { BRAND } from '../utils/brandColors';
 
-// Allra färgpalett
-const LIME   = '#5ba85a';
-const BLUE   = '#3a8fc1';
-const LIME_L = '#f2f9f2';
-const BLUE_L = '#eef5fb';
+/* ── Färger (Sida 30): grönt för intäkter/positivt kassaflöde, rött för
+   utgifter/kostnader — konsekvent i hela appen, inte längre blått/orange.
+   Två nyanser per färg: en ljusare "grafisk" ton för linjer/stapelfyllnad
+   (kräver bara 3:1-kontrast enligt WCAG AA för grafiska element) och en
+   mörkare ton från BRAND för text på ljus bakgrund (kräver 4.5:1). Verifierat:
+   #E24B4A mot vitt ≈ 3.9:1 — gott och väl godkänt för grafiska element,
+   men medvetet ALDRIG använt som brödtextfärg — se REVENUE/EXPENSE nedan
+   kontra BRAND.greenDark/BRAND.redText. ── */
+const REVENUE = '#639922';
+const EXPENSE = '#E24B4A';
+const LIME_L  = BRAND.greenLight;
+const RED_L   = BRAND.redBg;
+
+// Mörk yta för Likviditet-kortet — samma mörkgröna ton som redan används i
+// sidebarens företagsväljar-dropdown (.company-dropdown i index.css), inte
+// en ny färg. Ett medvetet undantag från cremetonen: detta ÄR sidans
+// tydligaste "hero"-yta (Sida 31 punkt 2), så den får stå ut mer än så.
+const LIQ_DARK = '#1e3a2c';
 
 const CHART_MODES = [
   { id: 'revenue-expense', label: 'Intäkter vs Utgifter', icon: BarChart2 },
   { id: 'result',          label: 'Resultat',              icon: Minus },
   { id: 'liquidity',       label: 'Likviditet',            icon: Activity },
 ];
+
+const QUICK_ACTIONS = [
+  { label: 'Ny faktura',      icon: FileText, tab: 'invoices' },
+  { label: 'Ladda upp kvitto', icon: Receipt,  tab: 'expenses' },
+  { label: 'Ny kontakt',      icon: UserPlus, tab: 'contacts' },
+  { label: 'Rapportera tid',  icon: Clock,    tab: 'projects' },
+];
+
+// Röd/gul/grön — exakt BRAND-tokens, samma som redan används för statusar
+// i övriga listor i appen (Bokförd/Granska/Förfallen).
+const SEV = {
+  danger:  { bg: BRAND.redBg,    text: BRAND.redText,   rank: 0 },
+  warning: { bg: BRAND.amberBg,  text: BRAND.amberText, rank: 1 },
+  success: { bg: BRAND.greenLight, text: BRAND.greenDark, rank: 2 },
+};
+
+// Etikett för "Senast bokfört" — vilken typ av affärshändelse en
+// verifikation kommer ifrån, för den korta "datum · typ"-metaraden.
+const BOOK_TYPE_LABEL = {
+  invoice:                  'Faktura',
+  invoice_payment:          'Betalning',
+  expense:                  'Utgift',
+  expense_fix:              'Utgift',
+  supplier_invoice:         'Leverantörsfaktura',
+  supplier_invoice_payment: 'Betalning',
+  payroll:                  'Lön',
+  vat_declaration:          'Moms',
+  manual:                   'Manuell',
+};
+
+function pad2(n) { return String(n).padStart(2, '0'); }
+function formatISODate(d) { return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; }
+
+/* ── Momsdeklarationens förfallodag enligt Skatteverkets allmänna regel för
+   kvartalsvis redovisning (12:e i andra månaden efter periodens slut),
+   framflyttat till nästa vardag om det landar på en helg. Tar INTE hänsyn
+   till röda dagar (annandag jul m.fl.) som Skatteverket ibland flyttar fram
+   separat — bara den generella regeln, som ett riktvärde. Visas bara för
+   kvartalsvis redovisning eftersom det är det enda flödet som faktiskt är
+   implementerat i momsmodulen (se VatDeclaration.jsx). ── */
+function nextVatDeadline(company, vatPeriods) {
+  if ((company?.vatPeriod || 'quarterly') !== 'quarterly') return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  let y = today.getFullYear();
+  let q = Math.floor(today.getMonth() / 3) + 1;
+  let guard = 0;
+  while (vatPeriods[`${y}-Q${q}`] && guard < 8) {
+    q += 1;
+    if (q > 4) { q = 1; y += 1; }
+    guard += 1;
+  }
+  const [, periodEnd] = quarterToRange(y, q);
+  const d = new Date(periodEnd + 'T00:00:00');
+  d.setMonth(d.getMonth() + 2);
+  d.setDate(12);
+  const dow = d.getDay();
+  if (dow === 6) d.setDate(d.getDate() + 2);
+  else if (dow === 0) d.setDate(d.getDate() + 1);
+  const daysLeft = Math.round((d - today) / 86400000);
+  return { daysLeft, quarter: q, year: y, dueDate: d };
+}
+
+/* ── Sparklinje (staplar) — samma princip som Sparkline ovan, men som
+   diskreta staplar istället för en kurva, för KPI-korten och det mörka
+   Likviditet-kortet (matchar referensbilden). Alltid byggd från samma
+   riktiga dagsserier som Sparkline, bara ett annat visuellt uttryck. ── */
+function SparkBars({ data, color, height = 22 }) {
+  if (!data || data.length < 2) return null;
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-end', gap: '3px', height }}>
+      {data.map((v, i) => {
+        const h = Math.max(3, ((v - min) / range) * (height - 4) + 4);
+        return <div key={i} style={{ flex: 1, height: `${h}px`, borderRadius: '2px', background: color }} />;
+      })}
+    </div>
+  );
+}
 
 /* ── Custom Tooltip ── */
 function ChartTooltip({ active, payload, label, fmt }) {
@@ -50,12 +148,16 @@ function ChartTooltip({ active, payload, label, fmt }) {
   );
 }
 
-/* ── KPI Card ── */
-function KpiCard({ label, value, sub, icon: Icon, color, bg, positive, onClick }) {
+/* ── KPI Card — med en liten stapel-sparklinje som visar riktning.
+   `hero`: Sida 31 punkt 3 — sidans viktigaste enskilda tal (RÅ Resultat,
+   den mest sammanfattande siffran) får en märkbart större typsnittsstorlek
+   än de andra korten, så ögat har en tydlig startpunkt istället för
+   identiskt vägda rutor. ── */
+function KpiCard({ label, value, sub, icon: Icon, color, bg, positive, onClick, spark, sparkColor, hero }) {
   return (
     <button onClick={onClick} style={{
       background: 'white',
-      border: '1px solid #e5e7eb',
+      border: hero ? `1px solid ${sparkColor || color}33` : '1px solid #e5e7eb',
       borderRadius: '14px',
       padding: '20px',
       textAlign: 'left',
@@ -72,7 +174,7 @@ function KpiCard({ label, value, sub, icon: Icon, color, bg, positive, onClick }
     onMouseEnter={e => {
       e.currentTarget.style.transform = 'translateY(-3px)';
       e.currentTarget.style.boxShadow = '0 10px 28px rgba(0,0,0,0.09)';
-      e.currentTarget.style.borderColor = color;
+      e.currentTarget.style.borderColor = sparkColor || color;
     }}
     onMouseLeave={e => {
       e.currentTarget.style.transform = '';
@@ -85,7 +187,7 @@ function KpiCard({ label, value, sub, icon: Icon, color, bg, positive, onClick }
           <Icon size={16} />
         </div>
         {positive != null && (
-          <div style={{ color: positive ? LIME : '#dc2626', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '2px' }}>
+          <div style={{ color: positive ? BRAND.greenDark : BRAND.redText, fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '2px' }}>
             {positive ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
           </div>
         )}
@@ -93,18 +195,55 @@ function KpiCard({ label, value, sub, icon: Icon, color, bg, positive, onClick }
 
       <div>
         <div style={{ fontSize: '11px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px' }}>{label}</div>
-        <div style={{ fontSize: '22px', fontWeight: 700, color: '#111827', letterSpacing: '-0.04em', lineHeight: 1.1 }}>{value}</div>
+        <div style={{ fontSize: hero ? '32px' : '22px', fontWeight: 700, color: '#111827', letterSpacing: '-0.04em', lineHeight: 1.1 }}>{value}</div>
         {sub && <div style={{ fontSize: '11.5px', color: '#9ca3af', marginTop: '4px' }}>{sub}</div>}
       </div>
+
+      {spark && <SparkBars data={spark.slice(-14)} color={sparkColor || color} />}
     </button>
   );
 }
 
-export default function Dashboard({ verifications, balances, accounts, invoices, expenses, contacts, setActiveTab, company, profileIncomplete, onResumeOnboarding, stripeAccountId, onConnectStripe, onDisconnectStripe }) {
+/* ── "Idag"-raden — konkreta, klickbara händelser. Röd > gul > grön styr
+   ordningen, aldrig kronologi. Tom kö visas aldrig som tomrum — en lugn
+   grön rad förklarar att inget kräver uppmärksamhet. ── */
+function TodayRow({ item, onClick }) {
+  const c = SEV[item.sev] || SEV.warning;
+  const Icon = item.icon;
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: 'flex', alignItems: 'center', gap: '10px', width: '100%',
+        padding: '10px 10px', background: c.bg, border: 'none',
+        borderRadius: '10px', cursor: item.tab ? 'pointer' : 'default',
+        textAlign: 'left', transition: 'opacity 0.15s', fontFamily: 'inherit',
+      }}
+      onMouseEnter={e => item.tab && (e.currentTarget.style.opacity = '0.82')}
+      onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+    >
+      <div style={{ width: 24, height: 24, borderRadius: '7px', background: 'rgba(255,255,255,0.55)', color: c.text, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <Icon size={13} />
+      </div>
+      <span style={{ flex: 1, fontSize: '12.5px', fontWeight: 600, color: c.text, lineHeight: 1.3 }}>{item.text}</span>
+      {item.tab && <ChevronRight size={13} style={{ color: c.text, opacity: 0.6, flexShrink: 0 }} />}
+    </button>
+  );
+}
+
+export default function Dashboard({ verifications, balances, accounts, invoices, expenses, contacts, setActiveTab, company, profileIncomplete, onResumeOnboarding, vatPeriods = {}, payrollRuns = [] }) {
   const [chartMode, setChartMode] = useState('revenue-expense');
 
-  const fmt = (val) =>
-    new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
+  // Bugvakt (Sida 32): `maximumFractionDigits: 0` avrundar t.ex. -0.4 till
+  // -0, och Intl.NumberFormat skriver då ut "-0 kr" istället för "0 kr" —
+  // ett äkta minustecken framför en siffra som i praktiken är noll. Ett
+  // konto utan bokförda transaktioner ska alltid visa exakt "0 kr", aldrig
+  // "-0 kr" eller ett nästan-noll-belopp som antyder en dold avrundningsbugg
+  // i beräkningskedjan ovan.
+  const fmt = (val) => {
+    const rounded = Math.round(val || 0);
+    return new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(rounded === 0 ? 0 : rounded);
+  };
   const fmtShort = (val) => {
     const v = val || 0;
     if (Math.abs(v) >= 1000000) return `${(v / 1000000).toFixed(1)}Mkr`;
@@ -127,17 +266,97 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
   const raResultat = raOmsattning - raKostnader;
   const likviditet = (balances['1930'] || 0) + (balances['1920'] || 0) + (balances['1910'] || 0);
 
+  // ── Fakturabelopp inkl. moms — samma formel som App.jsx:s invoiceGross,
+  // upprepad lokalt eftersom den inte exporteras därifrån. ──
+  const invoiceGross = (inv) => (inv.rows || []).reduce((sum, r) => {
+    const lineNet = r.qty * r.unitPrice;
+    return sum + lineNet + lineNet * (r.vatRate / 100);
+  }, 0);
+
   // ── Att göra ──
   const overdueInvoices = invoices.filter(i => i.status === 'sent' && new Date(i.dueDate) < new Date());
   const draftInvoices   = invoices.filter(i => i.status === 'draft');
-  const vatLiability    = Math.max(0, -(balances['2611'] || 0) + (balances['2641'] || 0));
-  const unpaidInvoices  = invoices.filter(i => (i.type || 'invoice') === 'invoice' && (i.status === 'sent' || i.status === 'draft'));
+  const unhandledReceipts = expenses.filter(e => !e.costAccount);
+  const pendingPayrollRuns = payrollRuns.filter(r => r.completedSteps?.includes('calculated') && !r.completedSteps?.includes('booked'));
 
+  const overdueAmount = overdueInvoices.reduce((sum, i) => sum + Math.max(0, invoiceGross(i) - (i.paidAmount || 0)), 0);
+  const mostOverdueDays = overdueInvoices.reduce((max, i) => {
+    const days = Math.round((new Date() - new Date(i.dueDate)) / 86400000);
+    return Math.max(max, days);
+  }, 0);
+
+  const vatDeadline = useMemo(() => nextVatDeadline(company, vatPeriods), [company, vatPeriods]);
+
+  // ── Moms-kortet — utgående/ingående moms bokförd inom den kommande
+  // (ännu inte inlämnade) perioden, samma period som vatDeadline pekar på.
+  // Räknas fram riktigt från bokförda verifikationsrader, aldrig uppskattat —
+  // samma princip som resten av sidan. ──
+  const vatPeriodSummary = useMemo(() => {
+    if (!vatDeadline) return null;
+    const [start, end] = quarterToRange(vatDeadline.year, vatDeadline.quarter);
+    let utgaende = 0, ingaende = 0;
+    verifications.forEach(v => {
+      if ((v.status || 'booked') === 'draft') return;
+      if (v.date < start || v.date > end) return;
+      v.rows.forEach(r => {
+        if (['2611', '2612', '2613'].includes(r.account)) utgaende += (getKredit(r) - getDebet(r));
+        else if (r.account === '2641') ingaende += (getDebet(r) - getKredit(r));
+      });
+    });
+    return {
+      quarter: vatDeadline.quarter,
+      year: vatDeadline.year,
+      utgaende, ingaende,
+      attBetala: utgaende - ingaende,
+      dueDateLabel: formatISODate(vatDeadline.dueDate),
+    };
+  }, [vatDeadline, verifications]);
+
+  // Röd: förfallet (passerat förfallodatum). Gul: kommande deadline inom en
+  // snar tidsram (~7 dagar). Grön: mindre brådskande, men värt att veta om.
   const todos = [];
-  if (overdueInvoices.length > 0) todos.push({ sev: 'danger',  text: `${overdueInvoices.length} faktura${overdueInvoices.length > 1 ? 'r' : ''} har förfallit`, tab: 'invoices' });
-  if (draftInvoices.length > 0)   todos.push({ sev: 'warning', text: `${draftInvoices.length} fakturautkast väntar`,                                                    tab: 'invoices' });
-  if (vatLiability > 5000)        todos.push({ sev: 'warning', text: `Momsdeklaration: ${fmt(vatLiability)}`,                                                            tab: 'taxes'   });
-  if (todos.length === 0)         todos.push({ sev: 'success', text: 'Allt i ordning – inga åtgärder krävs',                                                             tab: null      });
+  if (overdueInvoices.length > 0) {
+    const whenText = overdueInvoices.length === 1
+      ? (mostOverdueDays <= 1 ? 'förföll igår' : `förföll för ${mostOverdueDays} dagar sedan`)
+      : 'har förfallit';
+    todos.push({
+      sev: 'danger', icon: AlertCircle, tab: 'invoices',
+      text: overdueInvoices.length === 1
+        ? `1 faktura ${whenText} — ${fmt(overdueAmount)}`
+        : `${overdueInvoices.length} fakturor ${whenText} — ${fmt(overdueAmount)} totalt`,
+    });
+  }
+  if (vatDeadline) {
+    if (vatDeadline.daysLeft < 0) {
+      todos.push({ sev: 'danger', icon: AlertCircle, text: `Momsdeklaration för kvartal ${vatDeadline.quarter} är försenad`, tab: 'taxes' });
+    } else if (vatDeadline.daysLeft <= 7) {
+      const when = vatDeadline.daysLeft === 0 ? 'idag' : vatDeadline.daysLeft === 1 ? 'imorgon' : `om ${vatDeadline.daysLeft} dagar`;
+      todos.push({ sev: 'warning', icon: Clock, text: `Momsdeklaration ska lämnas ${when}`, tab: 'taxes' });
+    }
+  }
+  if (pendingPayrollRuns.length > 0) {
+    todos.push({
+      sev: 'warning', icon: Users, tab: 'payroll',
+      text: pendingPayrollRuns.length === 1
+        ? `Lönekörning ${pendingPayrollRuns[0].period || ''} väntar på godkännande`
+        : `${pendingPayrollRuns.length} lönekörningar väntar på godkännande`,
+    });
+  }
+  if (unhandledReceipts.length > 0) {
+    todos.push({ sev: 'success', icon: Receipt, tab: 'expenses', text: `${unhandledReceipts.length} kvitto${unhandledReceipts.length > 1 ? 'n' : ''} väntar på granskning` });
+  }
+  if (draftInvoices.length > 0) {
+    todos.push({ sev: 'success', icon: FileText, tab: 'invoices', text: `${draftInvoices.length} fakturautkast väntar` });
+  }
+  if (todos.length === 0) {
+    todos.push({ sev: 'success', icon: CheckCircle2, text: 'Inget kräver din uppmärksamhet idag', tab: null });
+  }
+  todos.sort((a, b) => SEV[a.sev].rank - SEV[b.sev].rank);
+
+  const hasUrgent = todos[0].sev !== 'success' || todos.length > 1 || todos[0].tab !== null;
+  const oneLiner = (todos.length === 1 && todos[0].tab === null)
+    ? 'Allt ser bra ut — inget brådskande just nu'
+    : `${todos.length} sak${todos.length > 1 ? 'er' : ''} väntar på dig idag`;
 
   // ── Onboarding ──
   const hasCustomers  = contacts.some(c => c.type === 'customer');
@@ -145,6 +364,88 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
   const hasExpenses   = expenses.length > 0;
   const hasSuppliers  = contacts.some(c => c.type === 'supplier');
   const isNew         = !hasCustomers && !hasInvoices && !hasExpenses;
+
+  // ── Senast bokfört — de senast bokförda (aldrig utkast) verifikationerna,
+  // sorterade på riktigt datum. Beskrivningen är exakt den som redan
+  // sparades när händelsen bokfördes. Beloppet är summan av debetsidan,
+  // som (eftersom varje verifikation är balanserad) alltid motsvarar
+  // radens bruttobelopp oavsett källa — faktura, utgift eller lön. ──
+  const recentBooked = useMemo(() => {
+    return verifications
+      .filter(v => (v.status || 'booked') !== 'draft')
+      .slice()
+      .sort((a, b) => b.date.localeCompare(a.date) || String(b.id).localeCompare(String(a.id)))
+      .slice(0, 4)
+      .map(v => ({
+        id: v.id,
+        description: v.description || v.number,
+        date: v.date,
+        type: BOOK_TYPE_LABEL[v.source] || 'Verifikation',
+        amount: v.rows.reduce((s, r) => s + getDebet(r), 0),
+      }));
+  }, [verifications]);
+
+  // ── 30-dagars sparklines — rekonstruerade från riktiga verifikationsrader,
+  // aldrig slumpade. Om det bokförda historiken är kortare än 30 dagar (t.ex.
+  // ett nystartat bolag) visas bara de dagar som faktiskt finns — ingen
+  // uppdiktad platt förhistoria. Resultat/Omsättning/Kostnader summeras
+  // löpande per dag; Likviditet räknas bakåt från dagens saldo (balances)
+  // med varje dags faktiska in-/utbetalning på kassa-/bankkontona. ──
+  const sparkSeries = useMemo(() => {
+    const DAYS = 30;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const fullStart = new Date(today);
+    fullStart.setDate(fullStart.getDate() - (DAYS - 1));
+    const fullStartKey = fullStart.toISOString().split('T')[0];
+
+    const bookedDates = verifications
+      .filter(v => (v.status || 'booked') !== 'draft')
+      .map(v => v.date)
+      .filter(Boolean);
+    const earliest = bookedDates.length ? bookedDates.reduce((min, d) => (d < min ? d : min)) : fullStartKey;
+    const startKey = earliest > fullStartKey ? earliest : fullStartKey;
+
+    const dayKeys = [];
+    for (let d = new Date(startKey + 'T00:00:00'); d <= today; d.setDate(d.getDate() + 1)) {
+      dayKeys.push(d.toISOString().split('T')[0]);
+    }
+    const endKey = dayKeys[dayKeys.length - 1];
+
+    const revenueByDay = Object.fromEntries(dayKeys.map(k => [k, 0]));
+    const costByDay = Object.fromEntries(dayKeys.map(k => [k, 0]));
+    const liqDeltaByDay = Object.fromEntries(dayKeys.map(k => [k, 0]));
+
+    verifications.forEach(v => {
+      if ((v.status || 'booked') === 'draft') return;
+      if (v.date < startKey || v.date > endKey) return;
+      v.rows.forEach(r => {
+        if (r.account.startsWith('3')) revenueByDay[v.date] += (getKredit(r) - getDebet(r));
+        else if (['4','5','6','7'].some(p => r.account.startsWith(p))) costByDay[v.date] += (getDebet(r) - getKredit(r));
+        if (['1910','1920','1930'].includes(r.account)) liqDeltaByDay[v.date] += (getDebet(r) - getKredit(r));
+      });
+    });
+
+    let cumResult = 0;
+    const revenueSeries = [], costSeries = [], resultSeries = [];
+    dayKeys.forEach(k => {
+      revenueSeries.push(revenueByDay[k]);
+      costSeries.push(costByDay[k]);
+      cumResult += (revenueByDay[k] - costByDay[k]);
+      resultSeries.push(cumResult);
+    });
+
+    // Likviditet: bakåträkning från dagens saldo.
+    const liqSeriesRev = [];
+    let running = likviditet;
+    for (let i = dayKeys.length - 1; i >= 0; i--) {
+      liqSeriesRev.push(running);
+      running -= liqDeltaByDay[dayKeys[i]];
+    }
+    const liqSeries = liqSeriesRev.reverse();
+
+    return { revenueSeries, costSeries, resultSeries, liqSeries };
+  }, [verifications, likviditet]);
 
   // ── Chartdata ──
   const chartData = useMemo(() => {
@@ -196,17 +497,9 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
     URL.revokeObjectURL(url);
   };
 
-  // ── Hälsning ──
-  const hour      = new Date().getHours();
-  const greeting  = hour < 12 ? 'God morgon' : hour < 18 ? 'God eftermiddag' : 'God kväll';
+  // ── Hälsning — tidsgränser i delad util, inte inline ──
+  const { greeting } = getGreeting();
   const firstName = company?.name?.split(' ')[0] || '';
-
-  const todoColors = {
-    danger:  { dot: '#ef4444', border: '#fca5a5', bg: '#fff1f1' },
-    warning: { dot: '#f59e0b', border: '#fcd34d', bg: '#fffbeb' },
-    success: { dot: LIME,      border: '#b8e2b8', bg: LIME_L    },
-    info:    { dot: BLUE,      border: '#a8d1eb', bg: BLUE_L    },
-  };
 
   return (
     // Bugkritiskt: rotdiven hade varken minHeight eller egen bakgrund, bara
@@ -216,32 +509,34 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
     // startsida) istället för att sidan kändes heltäckande. Samma mönster
     // som redan fixat i SupplierInvoices.jsx.
     <div style={{ maxWidth: '100%', margin: '0 auto', width: '100%', minHeight: '100%', boxSizing: 'border-box', background: 'var(--bg-page)' }}>
+      <style>{`
+        @media (max-width: 900px) {
+          .dash-bottom-grid { grid-template-columns: repeat(2,1fr) !important; }
+        }
+        @media (max-width: 640px) {
+          .dash-kpi-grid { grid-template-columns: 1fr !important; }
+          .dash-bottom-grid { grid-template-columns: 1fr !important; }
+          .dash-quick-actions { grid-template-columns: repeat(2,1fr) !important; }
+        }
+      `}</style>
 
       {/* ─── HEADER ─── */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '28px', flexWrap: 'wrap', gap: '16px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
-          <h1 style={{ fontSize: '22px', fontWeight: 700, letterSpacing: '-0.03em', color: '#111827', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <h1 style={{ fontFamily: 'var(--font-voice)', fontWeight: 700, fontSize: '25px', letterSpacing: '-0.01em', color: '#111827', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             {greeting}, {firstName || company?.name?.split(' ')[0] || 'Användare'} 👋
           </h1>
-          <p style={{ color: '#9ca3af', fontSize: '13px', fontWeight: 400 }}>
+          <p style={{ color: '#9ca3af', fontSize: '13px', fontWeight: 400, marginBottom: '2px' }}>
             Räkenskapsår {currentYear} · {company?.name || 'Bokix'}
           </p>
+          {!isNew && (
+            <p style={{ fontSize: '13.5px', fontWeight: 600, color: hasUrgent ? '#374151' : BRAND.greenDark, marginTop: '6px' }}>
+              {oneLiner}
+            </p>
+          )}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {[['Ny offert', 'invoices'], ['Ny kund', 'contacts'], ['Ny utgift', 'expenses']].map(([label, tab], index) => (
-              <React.Fragment key={tab}>
-                <button
-                  onClick={() => setActiveTab(tab)}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', fontSize: '13px', fontWeight: 500, padding: '0', transition: 'color 0.15s', fontFamily: 'inherit' }}
-                  onMouseEnter={e => e.currentTarget.style.color = LIME}
-                  onMouseLeave={e => e.currentTarget.style.color = '#6b7280'}
-                >{label}</button>
-                {index < 2 && <span style={{ color: '#d1d5db', fontSize: '13px', userSelect: 'none' }}>·</span>}
-              </React.Fragment>
-            ))}
-          </div>
-          <button onClick={handleExport} className="btn btn-secondary" style={{ marginLeft: '4px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <button onClick={handleExport} className="btn btn-secondary">
             <Download size={14} /> Exportera
           </button>
           <button onClick={() => setActiveTab('invoices')} className="btn btn-primary">
@@ -250,149 +545,42 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
         </div>
       </div>
 
-      {/* ─── ONBOARDING ─── */}
-      {profileIncomplete && !isNew && (
-        <div style={{ background: 'linear-gradient(135deg, #eef9ff 0%, #f3fdf5 100%)', border: `1px solid #c7e7d9`, borderRadius: '16px', padding: '24px 28px', marginBottom: '32px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
-            <div>
-              <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#111827', marginBottom: '8px' }}>Komplettera din företagsprofil</h2>
-              <p style={{ fontSize: '13px', color: '#475569', marginBottom: '12px' }}>Du kan uppdatera viktig företagsinformation när som helst för att få rätt rapporter och dokument.</p>
-              <button onClick={onResumeOnboarding} style={{ padding: '10px 16px', background: '#3a8fc1', color: 'white', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 700 }}>Fortsätt registreringen</button>
-            </div>
-            <div style={{ display: 'grid', gap: '10px', minWidth: '220px', background: 'white', borderRadius: '14px', padding: '16px', border: '1px solid #e5f3ed' }}>
-              <div style={{ fontSize: '12px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>Profilstatus</div>
-              <div style={{ color: '#0f172a', fontSize: '14px', fontWeight: 700 }}>Företagsprofil inte slutförd</div>
-              <div style={{ fontSize: '13px', color: '#64748b' }}>Det här hjälper dig att komma igång snabbare och hålla ordning på moms, adress och kontaktuppgifter.</div>
-            </div>
-          </div>
-        </div>
-      )}
-      {isNew && (
-        // Tidigare gick gradienten mot BLUE_L, vilket dels bröt mot
-        // "aldrig blått"-regeln, dels gjorde rutan så blek att den lästes
-        // som en vanlig vit yta med en tunn grön kant istället för en
-        // medveten del av det gröna bildspråket. Två gröna toner istället.
-        <div style={{ background: `linear-gradient(135deg, #eaf3de 0%, ${LIME_L} 100%)`, border: `1px solid #b8e2b8`, borderRadius: '16px', padding: '24px 28px', marginBottom: '32px' }}>
-          <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#111827', marginBottom: '4px' }}>Kom igång med Bokix</h2>
-          <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '20px' }}>Slutför dessa steg för att komma igång.</p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {[
-              { done: hasCustomers, label: 'Skapa din första kund',      tab: 'contacts' },
-              { done: hasInvoices,  label: 'Skapa din första faktura',   tab: 'invoices' },
-              { done: hasExpenses,  label: 'Lägg till din första utgift', tab: 'expenses' },
-              { done: hasSuppliers, label: 'Lägg till en leverantör',    tab: 'contacts' },
-            ].map((step, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', background: 'white', borderRadius: '10px', border: `1px solid ${step.done ? '#b8e2b8' : '#e5e7eb'}` }}>
-                {step.done
-                  ? <CheckCircle size={18} style={{ color: LIME, flexShrink: 0 }} />
-                  : <div style={{ width: 18, height: 18, borderRadius: '50%', border: '2px solid #d1d5db', flexShrink: 0 }} />}
-                <span style={{ flex: 1, fontSize: '14px', color: step.done ? '#9ca3af' : '#111827', textDecoration: step.done ? 'line-through' : 'none' }}>{step.label}</span>
-                {!step.done && (
-                  <button onClick={() => setActiveTab(step.tab)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: LIME, fontSize: '12px', fontWeight: 600, fontFamily: 'inherit' }}>Börja →</button>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ─── KPI CARDS ─── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '14px', marginBottom: '28px' }}>
+      {/* ─── KPI CARDS — RÅ Resultat/Omsättning/Kostnader. Likviditet har
+          flyttat ner till det mörka hero-kortet i bottengriden, så den här
+          raden bara innehåller resultaträkningens tre nyckeltal. ─── */}
+      <div className="dash-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '14px', marginBottom: '20px' }}>
         <KpiCard
+          hero
           label="RÅ Resultat" value={fmt(raResultat)}
           sub={raResultat >= 0 ? `Vinst ${currentYear}` : `Förlust ${currentYear}`}
           icon={raResultat >= 0 ? TrendingUp : TrendingDown}
-          color={raResultat >= 0 ? LIME : '#dc2626'}
-          bg={raResultat >= 0 ? LIME_L : '#fef2f2'}
+          color={raResultat >= 0 ? BRAND.greenDark : BRAND.redText}
+          bg={raResultat >= 0 ? LIME_L : RED_L}
           positive={raResultat >= 0}
           onClick={() => setActiveTab('reports')}
+          spark={sparkSeries.resultSeries}
+          sparkColor={raResultat >= 0 ? REVENUE : EXPENSE}
         />
         <KpiCard
           label="RÅ Omsättning" value={fmt(raOmsattning)} sub={currentYear}
-          icon={ArrowUpRight} color={BLUE} bg={BLUE_L} positive={true}
+          icon={ArrowUpRight} color={BRAND.greenDark} bg={LIME_L} positive={true}
           onClick={() => setActiveTab('reports')}
+          spark={sparkSeries.revenueSeries}
+          sparkColor={REVENUE}
         />
         <KpiCard
           label="RÅ Kostnader" value={fmt(raKostnader)} sub={currentYear}
-          icon={ArrowDownRight} color="#d97706" bg="#fffbeb" positive={false}
+          icon={ArrowDownRight} color={BRAND.redText} bg={RED_L} positive={false}
           onClick={() => setActiveTab('expenses')}
-        />
-        <KpiCard
-          label="Likviditet" value={fmt(likviditet)} sub="Kassa & Bank"
-          icon={CreditCard} color={BLUE} bg={BLUE_L} positive={likviditet > 0}
-          onClick={() => setActiveTab('verifications')}
+          spark={sparkSeries.costSeries}
+          sparkColor={EXPENSE}
         />
       </div>
 
-      <div style={{ marginBottom: '24px', display: 'grid', gridTemplateColumns: '1fr', gap: '14px' }}>
-        {!stripeAccountId && (
-          <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '14px', padding: '22px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '14px' }}>
-              <div style={{ width: 36, height: 36, borderRadius: '12px', background: LIME_L, color: LIME, display: 'grid', placeItems: 'center' }}><CreditCard size={18} /></div>
-              <div>
-                <div style={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>Stripe Connect</div>
-                <div style={{ fontSize: '13px', color: '#64748b', lineHeight: '1.7' }}>Anslut Stripe för att ta emot kortbetalningar direkt till ditt företagskonto och använda Bokix som plattform.</div>
-              </div>
-            </div>
-            <button onClick={onConnectStripe} style={{ padding: '11px 18px', borderRadius: '10px', border: 'none', background: '#3d7a2e', color: 'white', fontWeight: 700, cursor: 'pointer' }}>Anslut Stripe</button>
-          </div>
-        )}
-        {stripeAccountId && (
-          <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '14px', padding: '22px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '14px' }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-              <div style={{ width: 36, height: 36, borderRadius: '12px', background: LIME_L, color: LIME, display: 'grid', placeItems: 'center', flexShrink: 0 }}><CheckCircle size={18} /></div>
-              <div>
-                <div style={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>Ansluten som {stripeAccountId}</div>
-                <div style={{ fontSize: '13px', color: '#64748b', lineHeight: '1.7' }}>Bokix kan ta emot kortbetalningar direkt till ditt anslutna Stripe-konto.</div>
-              </div>
-            </div>
-            <button onClick={onDisconnectStripe} style={{ padding: '8px 4px', background: 'none', border: 'none', color: '#64748b', fontWeight: 600, fontSize: '13px', cursor: 'pointer', textDecoration: 'underline', flexShrink: 0 }}>Koppla från</button>
-          </div>
-        )}
-      </div>
-
-      {/* ─── ATT GÖRA (full bredd när aktivitet är borttagen) ─── */}
+      {/* ─── GRAF — full bredd, svag cremeton (Sida 31/32) istället för rent
+          vitt för att skilja den från de vita KPI-korten ovanför. ─── */}
       {!isNew && (
-        <div style={{ marginBottom: '28px' }}>
-          <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '14px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-            <div style={{ padding: '16px 20px', borderBottom: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '14px', fontWeight: 700, color: '#111827', letterSpacing: '-0.01em' }}>Att göra idag</span>
-              {unpaidInvoices.length > 0 && (
-                <span style={{ background: '#fef9c3', color: '#92400e', fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '20px', border: '1px solid #fde68a' }}>
-                  {unpaidInvoices.length} obetald{unpaidInvoices.length === 1 ? '' : 'a'}
-                </span>
-              )}
-            </div>
-            <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {todos.map((t, i) => {
-                const c = todoColors[t.sev] || todoColors.info;
-                return (
-                  <button
-                    key={i}
-                    onClick={() => t.tab && setActiveTab(t.tab)}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: '10px', width: '100%',
-                      padding: '11px 12px', background: c.bg, border: `1px solid ${c.border}`,
-                      borderRadius: '9px', cursor: t.tab ? 'pointer' : 'default',
-                      textAlign: 'left', transition: 'all 0.15s', fontFamily: 'inherit',
-                    }}
-                    onMouseEnter={e => t.tab && (e.currentTarget.style.opacity = '0.82')}
-                    onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
-                  >
-                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: c.dot, flexShrink: 0 }} />
-                    <span style={{ flex: 1, fontSize: '13px', fontWeight: 500, color: '#374151' }}>{t.text}</span>
-                    {t.tab && <ChevronRight size={13} style={{ color: '#9ca3af', flexShrink: 0 }} />}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ─── CHART ─── */}
-      {!isNew && (
-        <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '14px', padding: '22px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+        <div style={{ background: 'var(--bg-cream)', border: '1px solid var(--bg-cream-border)', borderRadius: '14px', padding: '22px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)', marginBottom: '18px', minWidth: 0 }}>
           {/* Chart header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
             <div>
@@ -402,15 +590,33 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
               <p style={{ fontSize: '12px', color: '#9ca3af' }}>
                 Innevarande räkenskapsår {currentYear} jämfört med {parseInt(currentYear) - 1}
               </p>
+              {/* Legenden uppdateras dynamiskt beroende på vald flik — aldrig
+                  statisk text som bara passar första vyn. */}
               {chartMode === 'revenue-expense' && (
                 <div style={{ display: 'flex', gap: '16px', marginTop: '8px' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: '#374151' }}>
-                    <span style={{ width: 10, height: 10, borderRadius: '50%', background: LIME, display: 'inline-block' }} />
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: BRAND.greenDark }}>
+                    <span style={{ width: 10, height: 10, borderRadius: '50%', background: REVENUE, display: 'inline-block' }} />
                     Intäkter {fmt(raOmsattning)}
                   </span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: '#374151' }}>
-                    <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#ef4444', display: 'inline-block' }} />
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: BRAND.redText }}>
+                    <span style={{ width: 10, height: 10, borderRadius: '50%', background: EXPENSE, display: 'inline-block' }} />
                     Utgifter {fmt(raKostnader)}
+                  </span>
+                </div>
+              )}
+              {chartMode === 'result' && (
+                <div style={{ display: 'flex', gap: '16px', marginTop: '8px' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: raResultat >= 0 ? BRAND.greenDark : BRAND.redText }}>
+                    <span style={{ width: 10, height: 10, borderRadius: '50%', background: raResultat >= 0 ? REVENUE : EXPENSE, display: 'inline-block' }} />
+                    Resultat {fmt(raResultat)}
+                  </span>
+                </div>
+              )}
+              {chartMode === 'liquidity' && (
+                <div style={{ display: 'flex', gap: '16px', marginTop: '8px' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: BRAND.greenDark }}>
+                    <span style={{ width: 10, height: 10, borderRadius: '50%', background: REVENUE, display: 'inline-block' }} />
+                    Likviditet {fmt(likviditet)}
                   </span>
                 </div>
               )}
@@ -421,8 +627,8 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
                   display: 'flex', alignItems: 'center', gap: '5px',
                   padding: '5px 11px', borderRadius: '6px', border: 'none', cursor: 'pointer',
                   fontSize: '12px', fontWeight: chartMode === m.id ? 600 : 400,
-                  background: chartMode === m.id ? 'white' : 'transparent',
-                  color: chartMode === m.id ? '#111827' : '#6b7280',
+                  background: chartMode === m.id ? BRAND.green : 'transparent',
+                  color: chartMode === m.id ? 'white' : '#6b7280',
                   boxShadow: chartMode === m.id ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
                   transition: 'all 0.15s', fontFamily: 'inherit',
                 }}>
@@ -442,8 +648,8 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
                 <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#9ca3af' }} tickFormatter={fmtShort} width={44} />
                 <Tooltip content={<ChartTooltip fmt={fmt} />} cursor={{ fill: 'rgba(0,0,0,0.02)' }} />
                 <Legend iconType="circle" iconSize={7} wrapperStyle={{ fontSize: 12, paddingTop: 16 }} />
-                <Bar dataKey="Intäkter" fill={LIME}    radius={[4,4,0,0]} barSize={16} />
-                <Bar dataKey="Utgifter" fill="#ef4444" radius={[4,4,0,0]} barSize={16} />
+                <Bar dataKey="Intäkter" fill={REVENUE} radius={[4,4,0,0]} barSize={16} />
+                <Bar dataKey="Utgifter" fill={EXPENSE} radius={[4,4,0,0]} barSize={16} />
               </BarChart>
             </ResponsiveContainer>
           )}
@@ -458,7 +664,7 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
                 <ReferenceLine y={0} stroke="#e5e7eb" strokeWidth={1.5} />
                 <Bar dataKey="Resultat" radius={[4,4,0,0]} barSize={20}>
                   {chartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.Resultat >= 0 ? LIME : '#ef4444'} />
+                    <Cell key={`cell-${index}`} fill={entry.Resultat >= 0 ? REVENUE : EXPENSE} />
                   ))}
                 </Bar>
               </BarChart>
@@ -470,12 +676,12 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
               <AreaChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="gradLiq" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset={liqOff} stopColor={LIME} stopOpacity={0.3} />
-                    <stop offset={liqOff} stopColor="#ef4444" stopOpacity={0.3} />
+                    <stop offset={liqOff} stopColor={REVENUE} stopOpacity={0.3} />
+                    <stop offset={liqOff} stopColor={EXPENSE} stopOpacity={0.3} />
                   </linearGradient>
                   <linearGradient id="gradLiqStroke" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset={liqOff} stopColor={LIME} stopOpacity={1} />
-                    <stop offset={liqOff} stopColor="#ef4444" stopOpacity={1} />
+                    <stop offset={liqOff} stopColor={REVENUE} stopOpacity={1} />
+                    <stop offset={liqOff} stopColor={EXPENSE} stopOpacity={1} />
                   </linearGradient>
                   <linearGradient id="gradPrev" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%"   stopColor="#94a3b8" stopOpacity={0.12} />
@@ -492,6 +698,188 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
               </AreaChart>
             </ResponsiveContainer>
           )}
+        </div>
+      )}
+
+      {/* ─── SENAST BOKFÖRT — riktiga, bokförda händelser (aldrig utkast),
+          sorterade på riktigt datum. Beskrivningen är exakt den som redan
+          sparades när händelsen bokfördes, inte en omskriven version. Ersätter
+          den gamla "Senaste aktivitet"-sidopanelen (borttagen enligt Sida 32)
+          med en bredare, tydligare lista i egen sektion. ─── */}
+      {!isNew && (
+        <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '14px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', marginBottom: '18px', overflow: 'hidden' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid #f3f4f6' }}>
+            <span style={{ fontSize: '14px', fontWeight: 700, color: '#111827', letterSpacing: '-0.01em' }}>Senast bokfört</span>
+            <button onClick={() => setActiveTab('verifications')} className="ds-link-btn sm">Alla verifikationer</button>
+          </div>
+          {recentBooked.length === 0 ? (
+            <div style={{ padding: '28px 20px', textAlign: 'center', fontSize: '12.5px', color: '#9ca3af' }}>Inga bokförda verifikationer än</div>
+          ) : (
+            <div>
+              {recentBooked.map(item => (
+                <div key={item.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '13px 20px', borderBottom: '1px solid #f7f8f7' }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: '13.5px', fontWeight: 600, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.description}</div>
+                    <div style={{ fontSize: '11.5px', color: '#9ca3af', marginTop: '2px' }}>{item.date} · {item.type}</div>
+                  </div>
+                  <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#111827', flexShrink: 0 }}>{fmt(item.amount)}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ─── BOTTENGRID — Att göra idag · Moms · Snabbåtgärder · Likviditet.
+          Fyra jämnstora rutor, var och en med sin egen tydliga roll, istället
+          för att allt tävlar om samma vikt (Sida 31 punkt 2). ─── */}
+      {!isNew && (
+        <div className="dash-bottom-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '14px', marginBottom: '18px', alignItems: 'stretch' }}>
+
+          {/* Att göra idag — samma innehåll som tidigare, nu i cremeton och
+              i bottengriden istället för en egen fullbredd-sektion högst upp. */}
+          <div style={{ position: 'relative', background: 'var(--bg-cream)', border: '1px solid var(--bg-cream-border)', borderRadius: '14px', padding: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <div aria-hidden="true" style={{ position: 'absolute', top: '-40px', right: '-40px', width: '120px', height: '120px', borderRadius: '50%', background: 'rgba(61,122,46,0.05)' }} />
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: '#6b7280' }}>Att göra idag</span>
+              <span style={{
+                fontSize: '11px', fontWeight: 700, padding: '3px 9px', borderRadius: '999px',
+                background: hasUrgent ? 'rgba(255,255,255,0.7)' : BRAND.greenLight,
+                color: hasUrgent ? '#6b7280' : BRAND.greenDark,
+              }}>
+                {hasUrgent ? `${todos.length} ${todos.length === 1 ? 'post' : 'poster'}` : 'Allt klart'}
+              </span>
+            </div>
+            <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {todos.map((t, i) => (
+                <TodayRow key={i} item={t} onClick={() => t.tab && setActiveTab(t.tab)} />
+              ))}
+            </div>
+          </div>
+
+          {/* Moms — nästa (ännu ej inlämnade) momsperiod, räknat från riktiga
+              bokförda utgående/ingående moms-rader inom perioden. */}
+          <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '14px', padding: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {vatPeriodSummary ? (
+              <>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
+                  <span style={{ fontSize: '13px', fontWeight: 600, color: '#6b7280' }}>Moms Q{vatPeriodSummary.quarter} {vatPeriodSummary.year}</span>
+                  <span style={{ fontSize: '10.5px', color: '#9ca3af', whiteSpace: 'nowrap' }}>Förfaller {vatPeriodSummary.dueDateLabel}</span>
+                </div>
+                <div>
+                  <div style={{ fontSize: '22px', fontWeight: 700, color: '#111827', letterSpacing: '-0.03em', lineHeight: 1.1 }}>{fmt(Math.abs(vatPeriodSummary.attBetala))}</div>
+                  <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>{vatPeriodSummary.attBetala >= 0 ? 'att betala' : 'att få tillbaka'}</div>
+                </div>
+                <div style={{ height: 6, borderRadius: 999, background: BRAND.amberBg, overflow: 'hidden' }}>
+                  <div style={{
+                    height: '100%', borderRadius: 999, background: BRAND.green,
+                    width: `${vatPeriodSummary.utgaende > 0 ? Math.min(100, Math.max(0, (vatPeriodSummary.ingaende / vatPeriodSummary.utgaende) * 100)) : 0}%`,
+                  }} />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  <span style={{ fontSize: '11px', color: '#9ca3af' }}>Utgående {fmt(vatPeriodSummary.utgaende)}</span>
+                  <span style={{ fontSize: '11px', color: '#9ca3af' }}>Ingående {fmt(vatPeriodSummary.ingaende)}</span>
+                </div>
+                <button onClick={() => setActiveTab('taxes')} className="btn btn-secondary btn-sm" style={{ marginTop: 'auto', width: '100%', justifyContent: 'center' }}>Se momsrapport</button>
+              </>
+            ) : (
+              <>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: '#6b7280' }}>Moms</span>
+                <p style={{ fontSize: '12px', color: '#9ca3af', margin: 0 }}>Ingen kommande momsdeklaration att visa.</p>
+                <button onClick={() => setActiveTab('taxes')} className="btn btn-secondary btn-sm" style={{ marginTop: 'auto', width: '100%', justifyContent: 'center' }}>Till Skatt &amp; Moms</button>
+              </>
+            )}
+          </div>
+
+          {/* Snabbåtgärder — samma fyra genvägar som tidigare låg som en
+              tunn länkrad under headern, nu samlade i en egen ruta. */}
+          <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '14px', padding: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column' }}>
+            <span style={{ fontSize: '13px', fontWeight: 600, color: '#6b7280', marginBottom: '12px' }}>Snabbåtgärder</span>
+            <div className="dash-quick-actions" style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: '8px', flex: 1 }}>
+              {QUICK_ACTIONS.map(a => (
+                <button
+                  key={a.label}
+                  onClick={() => setActiveTab(a.tab)}
+                  style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                    padding: '10px 6px', background: 'var(--bg-cream)', border: '1px solid var(--bg-cream-border)', borderRadius: '10px',
+                    cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'inherit',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = BRAND.green; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--bg-cream-border)'; e.currentTarget.style.transform = ''; }}
+                >
+                  <div style={{ width: 28, height: 28, borderRadius: '8px', background: LIME_L, color: BRAND.greenDark, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <a.icon size={14} />
+                  </div>
+                  <span style={{ fontSize: '11px', fontWeight: 600, color: '#374151', textAlign: 'center', lineHeight: 1.2 }}>{a.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Likviditet — sidans mörka hero-kort (Sida 31 punkt 2): flyttat
+              hit från KPI-raden, med en tydlig stapel-sparklinje av den
+              faktiska 30-dagarsserien. */}
+          <button
+            onClick={() => setActiveTab('verifications')}
+            style={{
+              background: LIQ_DARK, border: 'none', borderRadius: '14px', padding: '16px',
+              display: 'flex', flexDirection: 'column', gap: '10px', textAlign: 'left', cursor: 'pointer',
+              transition: 'transform 0.2s cubic-bezier(.4,0,.2,1)', fontFamily: 'inherit',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = ''; }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Wallet size={13} style={{ color: 'rgba(255,255,255,0.55)' }} />
+              <span style={{ fontSize: '11px', fontWeight: 700, color: 'rgba(255,255,255,0.55)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Likviditet</span>
+            </div>
+            <div>
+              <div style={{ fontSize: '24px', fontWeight: 700, color: 'white', letterSpacing: '-0.03em', lineHeight: 1.1 }}>{fmt(likviditet)}</div>
+              <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginTop: '3px' }}>Kassa &amp; bank · konto 1930</div>
+            </div>
+            <div style={{ marginTop: 'auto' }}>
+              <SparkBars data={sparkSeries.liqSeries.slice(-20)} color="rgba(132,204,22,0.85)" height={26} />
+            </div>
+          </button>
+        </div>
+      )}
+
+      {/* ─── ONBOARDING — nedtonat, sist på sidan, subtil border istället för
+          framhävd bakgrundsfärg. Onboarding-hjälp, inte det dagliga fokuset. ─── */}
+      {profileIncomplete && !isNew && (
+        <div style={{ background: 'white', border: '1px solid #eef0f2', borderRadius: '12px', padding: '14px 18px', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', flexWrap: 'wrap' }}>
+          <div style={{ fontSize: '12.5px', color: '#6b7280' }}>
+            <strong style={{ color: '#374151', fontWeight: 700 }}>Företagsprofilen är inte klar. </strong>
+            Komplettera den för att få rätt rapporter och dokument.
+          </div>
+          <button onClick={onResumeOnboarding} style={{ padding: '7px 14px', background: 'white', color: '#374151', border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '12.5px', flexShrink: 0 }}>Fortsätt registreringen</button>
+        </div>
+      )}
+      {isNew && (
+        // Sida 31: tomt-läge/hero-yta för ett helt nytt konto — cremeton
+        // istället för vitt, samma princip som Idag-modulen ovan.
+        <div style={{ background: 'var(--bg-cream)', border: '1px solid var(--bg-cream-border)', borderRadius: '14px', padding: '20px 22px', marginTop: '4px' }}>
+          <h2 style={{ fontSize: '13px', fontWeight: 700, color: '#374151', marginBottom: '2px' }}>Kom igång med Bokix</h2>
+          <p style={{ fontSize: '12px', color: '#9ca3af', marginBottom: '14px' }}>Slutför dessa steg — den här rutan försvinner när du är igång.</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {[
+              { done: hasCustomers, label: 'Skapa din första kund',      tab: 'contacts' },
+              { done: hasInvoices,  label: 'Skapa din första faktura',   tab: 'invoices' },
+              { done: hasExpenses,  label: 'Lägg till din första utgift', tab: 'expenses' },
+              { done: hasSuppliers, label: 'Lägg till en leverantör',    tab: 'contacts' },
+            ].map((step, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', background: 'white', borderRadius: '9px', border: `1px solid ${step.done ? '#dcefdc' : '#eef0f2'}` }}>
+                {step.done
+                  ? <CheckCircle size={15} style={{ color: BRAND.greenDark, flexShrink: 0 }} />
+                  : <div style={{ width: 15, height: 15, borderRadius: '50%', border: '2px solid #d1d5db', flexShrink: 0 }} />}
+                <span style={{ flex: 1, fontSize: '13px', color: step.done ? '#b0b6be' : '#4b5563', textDecoration: step.done ? 'line-through' : 'none' }}>{step.label}</span>
+                {!step.done && (
+                  <button onClick={() => setActiveTab(step.tab)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: BRAND.green, fontSize: '11.5px', fontWeight: 600, fontFamily: 'inherit' }}>Börja →</button>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
