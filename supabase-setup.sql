@@ -124,13 +124,19 @@ GRANT EXECUTE ON FUNCTION public.set_company_stripe_account(uuid, text, text) TO
 -- bucket "bokix-uploads" med mapp-prefix istället för två separata
 -- buckets — den bucketen kan fortfarande finnas kvar i projektet men
 -- koden (Settings.jsx) pekar inte längre mot den.
-INSERT INTO storage.buckets (id, name, public, file_size_limit)
-VALUES ('profile', 'profile', true, 3145728)
-ON CONFLICT (id) DO NOTHING;
+--
+-- allowed_mime_types + file_size_limit sätts direkt på bucketen, inte
+-- bara kollat i React-komponenten (ImageUploadField) — annars är
+-- "JPG eller PNG, max 3 MB" bara UI-text som vem som helst med en giltig
+-- inloggning kan gå förbi genom att anropa Storage-API:et direkt, samma
+-- sätt som all annan skarp validering i den här filen.
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES ('profile', 'profile', true, 3145728, ARRAY['image/jpeg', 'image/png'])
+ON CONFLICT (id) DO UPDATE SET file_size_limit = 3145728, allowed_mime_types = ARRAY['image/jpeg', 'image/png'];
 
-INSERT INTO storage.buckets (id, name, public, file_size_limit)
-VALUES ('companylogo', 'companylogo', true, 3145728)
-ON CONFLICT (id) DO NOTHING;
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES ('companylogo', 'companylogo', true, 3145728, ARRAY['image/jpeg', 'image/png'])
+ON CONFLICT (id) DO UPDATE SET file_size_limit = 3145728, allowed_mime_types = ARRAY['image/jpeg', 'image/png'];
 
 -- DROP + CREATE (inte bara CREATE) på varje policy — annars kraschar en
 -- andra körning av den här filen på "policy already exists" på den

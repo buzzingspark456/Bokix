@@ -164,10 +164,17 @@ function ImageUploadField({ label, value, onChange, uploadPath, bucket, hint }) 
   const [error, setError] = useState('');
   const inputRef = useRef(null);
 
+  // JPG/PNG + 3MB är inte bara UI-text — samma gräns är satt direkt på
+  // Storage-bucketen (allowed_mime_types/file_size_limit), så den gäller
+  // even om någon går förbi den här komponenten och anropar Storage-API:et
+  // direkt. Kollen här är bara för en snabb, tydlig felindikering INNAN
+  // en onödig uppladdning påbörjas — den riktiga spärren sitter på servern.
+  const ALLOWED_TYPES = ['image/jpeg', 'image/png'];
+
   const handleFile = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith('image/')) { setError('Filen måste vara en bild.'); return; }
+    if (!ALLOWED_TYPES.includes(file.type)) { setError('Filen måste vara JPG eller PNG.'); return; }
     if (file.size > 3 * 1024 * 1024) { setError('Bilden får vara max 3 MB.'); return; }
     setBusy(true); setError('');
     try {
@@ -178,8 +185,12 @@ function ImageUploadField({ label, value, onChange, uploadPath, bucket, hint }) 
       const { data } = supabase.storage.from(bucket).getPublicUrl(path);
       onChange(`${data.publicUrl}?v=${Date.now()}`); // cache-bust så en ny bild syns direkt, inte den gamla från webbläsarcachen
     } catch (err) {
-      const notConfigured = /bucket not found/i.test(err.message || '');
-      setError(notConfigured ? `Bildlagring är inte konfigurerad ännu (bucket "${bucket}" saknas — kör storage-delen av supabase-setup.sql).` : (err.message || 'Uppladdningen misslyckades.'));
+      const msg = err.message || '';
+      let friendly = msg || 'Uppladdningen misslyckades.';
+      if (/bucket not found/i.test(msg)) friendly = `Bildlagring är inte konfigurerad ännu (bucket "${bucket}" saknas — kör storage-delen av supabase-setup.sql).`;
+      else if (/mime type/i.test(msg)) friendly = 'Filen måste vara JPG eller PNG.';
+      else if (/exceeded the maximum allowed size/i.test(msg)) friendly = 'Bilden får vara max 3 MB.';
+      setError(friendly);
     } finally {
       setBusy(false);
       if (inputRef.current) inputRef.current.value = '';
@@ -192,7 +203,7 @@ function ImageUploadField({ label, value, onChange, uploadPath, bucket, hint }) 
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
         <label style={{ ...btnSecondary, display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? 0.6 : 1 }}>
           <Upload size={14} /> {busy ? 'Laddar upp...' : value ? 'Byt bild' : 'Ladda upp bild'}
-          <input ref={inputRef} type="file" accept="image/*" onChange={handleFile} disabled={busy} style={{ display: 'none' }} />
+          <input ref={inputRef} type="file" accept="image/jpeg,image/png" onChange={handleFile} disabled={busy} style={{ display: 'none' }} />
         </label>
         {value && <button type="button" onClick={() => onChange('')} disabled={busy} style={btnGhost}>Ta bort</button>}
       </div>
