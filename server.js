@@ -5,8 +5,8 @@ import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { createClient } from '@supabase/supabase-js'
-import { createSignedState, verifySignedState } from './api/stripe/oauthState.js'
-import { parseCookies, STRIPE_OAUTH_COOKIE, stripeOauthStateCookie, clearStripeOauthStateCookie } from './api/stripe/cookies.js'
+import { createSignedState, verifySignedState } from './api/stripe/_oauthState.js'
+import { parseCookies, STRIPE_OAUTH_COOKIE, stripeOauthStateCookie, clearStripeOauthStateCookie } from './api/stripe/_cookies.js'
 
 dotenv.config()
 

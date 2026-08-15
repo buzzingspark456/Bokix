@@ -6,8 +6,8 @@
 // som Startsidan läser av och visar ett meddelande för.
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
-import { verifySignedState } from './oauthState.js';
-import { parseCookies, STRIPE_OAUTH_COOKIE, clearStripeOauthStateCookie } from './cookies.js';
+import { verifySignedState } from './_oauthState.js';
+import { parseCookies, STRIPE_OAUTH_COOKIE, clearStripeOauthStateCookie } from './_cookies.js';
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY || process.env.VITE_STRIPE_SECRET_KEY || null;
 const stripe = stripeSecretKey && !stripeSecretKey.startsWith('pk_') ? new Stripe(stripeSecretKey, {}) : null;

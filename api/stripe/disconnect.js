@@ -5,7 +5,7 @@
 // tokenverifiering).
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
-import { parseJsonBody } from './parseBody.js';
+import { parseJsonBody } from './_parseBody.js';
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY || process.env.VITE_STRIPE_SECRET_KEY || null;
 const stripe = stripeSecretKey && !stripeSecretKey.startsWith('pk_') ? new Stripe(stripeSecretKey, {}) : null;

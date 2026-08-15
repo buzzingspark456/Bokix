@@ -1,4 +1,4 @@
-import { parseJsonBody } from '../../stripe/parseBody.js';
+import { parseJsonBody } from '../../stripe/_parseBody.js';
 
 // Speglar POST /api/email/domains/create i server.js. Kräver den
 // privilegierade RESEND_ADMIN_API_KEY (full_access) — sending_access-

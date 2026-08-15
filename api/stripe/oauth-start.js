@@ -4,8 +4,8 @@
 // auktoriseringssida (connect.stripe.com/oauth/authorize) — exakt den typ
 // av sida referensbilden visade, fast med Bokix som plattform istället för
 // en konkurrent. Bokix bygger inte om den sidan; det är Stripes ansvar.
-import { createSignedState } from './oauthState.js';
-import { stripeOauthStateCookie } from './cookies.js';
+import { createSignedState } from './_oauthState.js';
+import { stripeOauthStateCookie } from './_cookies.js';
 
 // Startas via en helsides-navigering (window.location.href), inte fetch —
 // ett JSON-felsvar skulle då bara visas som rå text på en tom sida. Alla

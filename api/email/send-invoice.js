@@ -1,4 +1,4 @@
-import { parseJsonBody } from '../stripe/parseBody.js';
+import { parseJsonBody } from '../stripe/_parseBody.js';
 
 // Speglar POST /api/email/send-invoice i server.js (lokal dev via
 // `npm run dev`) — Vercel kör aldrig server.js i produktion, bara filer
