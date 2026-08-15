@@ -10,6 +10,11 @@ import { parseJsonBody } from '../stripe/_parseBody.js';
 // skickar mejlet, RESEND_ADMIN_API_KEY (full_access) används bara för att
 // LÄSA en domäns live-status härifrån (sending_access-nycklar kan inte
 // hantera/läsa domäner alls).
+//
+// Namnet är historiskt — bryr sig aldrig om vilket dokument som skickas,
+// bara to/subject/html/bilaga, så både Invoices.jsx och Quotes.jsx
+// (fakturor OCH offerter) använder samma rutt istället för en egen
+// identisk "send-quote"-function (Vercels 12-funktionsgräns, Hobby-plan).
 const resendApiKey = process.env.RESEND_API_KEY || null;
 const resendAdminApiKey = process.env.RESEND_ADMIN_API_KEY || null;
 const emailFrom = process.env.EMAIL_FROM || 'Bokix <onboarding@resend.dev>';

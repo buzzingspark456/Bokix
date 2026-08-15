@@ -1,8 +1,12 @@
 import React, { useState, useRef } from 'react';
-import { FileSpreadsheet, Plus, Search, FileText, Check, X, Download, Trash2 } from 'lucide-react';
+import { FileSpreadsheet, Plus, Search, FileText, Check, X, Download, Trash2, Send } from 'lucide-react';
 import InvoiceDocument, { DEFAULT_INVOICE_TEMPLATE } from './InvoiceDocument';
-import { exportInvoicePdf } from '../utils/exportInvoicePdf';
+import { exportInvoicePdf, getInvoicePdfBase64 } from '../utils/exportInvoicePdf';
+import { sendInvoiceEmail } from '../emailApi';
 import { getNextInvoiceNumber } from '../utils/invoiceNumbering';
+
+const fmtSEK = (val) => new Intl.NumberFormat('sv-SE', { maximumFractionDigits: 2, minimumFractionDigits: 2 }).format(val || 0);
+const fmtDateSv = (d) => { if (!d) return '—'; try { return new Intl.DateTimeFormat('sv-SE').format(new Date(d)); } catch { return d; } };
 
 const emptyRow = () => ({ description: '', price: '', qty: 1, vat: 25 });
 
@@ -34,6 +38,9 @@ export default function Quotes({ invoices = [], setInvoices, contacts = [], comp
   const [form, setForm] = useState(emptyForm());
   const [pdfBusy, setPdfBusy] = useState(false);
   const [pdfError, setPdfError] = useState('');
+  const [emailBusy, setEmailBusy] = useState(false);
+  const [emailError, setEmailError] = useState('');
+  const [emailSent, setEmailSent] = useState(false);
   const previewRef = useRef(null);
 
   React.useEffect(() => {
@@ -172,6 +179,48 @@ export default function Quotes({ invoices = [], setInvoices, contacts = [], comp
       setPdfError('Kunde inte skapa PDF. Försök igen.');
     } finally {
       setPdfBusy(false);
+    }
+  };
+
+  // Skickar offerten (PDF-bilaga) till kundens e-post via samma backend-rutt
+  // som fakturor (Invoices.jsx) — den bryr sig aldrig om vilket slags
+  // dokument den skickar, bara to/subject/html/bilaga/avsändarcompany, så
+  // en egen "send-quote"-serverless-funktion vore bara en identisk kopia
+  // (och riskerar Vercels 12-funktionsgräns i onödan).
+  const handleSendEmail = async () => {
+    if (!previewCustomer?.email) { setEmailError('Kunden saknar e-postadress.'); return; }
+    setEmailBusy(true); setEmailError(''); setEmailSent(false);
+    try {
+      const attachmentBase64 = await getInvoicePdfBase64(previewRef.current);
+
+      const html = `
+        <p>Hej${previewCustomer.contactPerson ? ' ' + previewCustomer.contactPerson : ''},</p>
+        <p>Bifogat finner du offert <strong>${previewNumber}</strong> på <strong>${fmtSEK(previewTotals.total)} kr</strong>, giltig till ${fmtDateSv(form.dueDate)}.</p>
+        <p>Hör av dig om du har några frågor.</p>
+        <p>Med vänlig hälsning<br/>${company?.name || ''}</p>
+      `;
+
+      await sendInvoiceEmail({
+        to: previewCustomer.email,
+        subject: `Offert ${previewNumber} från ${company?.name || 'oss'}`,
+        html,
+        replyTo: company?.email || undefined,
+        attachmentBase64,
+        attachmentFilename: `offert-${previewNumber}.pdf`,
+        company: { name: company?.name, emailDomain: company?.emailDomain, resendDomainId: company?.resendDomainId },
+      });
+
+      setEmailSent(true);
+      // Ett utkast som faktiskt skickas till kunden är per definition inte
+      // längre ett utkast — samma princip som fakturor (Invoices.jsx).
+      if (editingId) {
+        setInvoices(prev => prev.map(i => i.id === editingId ? { ...i, status: 'sent' } : i));
+      }
+    } catch (err) {
+      console.error(err);
+      setEmailError(err.message || 'Kunde inte skicka e-post.');
+    } finally {
+      setEmailBusy(false);
     }
   };
 
@@ -423,9 +472,19 @@ export default function Quotes({ invoices = [], setInvoices, contacts = [], comp
                   <button type="button" onClick={handleAddRow} style={{ ...outlineBtnStyle, padding: '6px 12px', fontSize: '12px', marginTop: '8px' }}>+ Lägg till rad</button>
                 </div>
 
-                {pdfError && <div style={{ fontSize: '12.5px', color: '#dc2626', marginBottom: '12px' }}>{pdfError}</div>}
+                {pdfError && <div style={{ fontSize: '12.5px', color: '#dc2626', marginBottom: '4px' }}>{pdfError}</div>}
+                {emailError && <div style={{ fontSize: '12.5px', color: '#dc2626', marginBottom: '4px' }}>{emailError}</div>}
+                {emailSent && !emailError && <div style={{ fontSize: '12.5px', color: '#15803d', fontWeight: 600, marginBottom: '4px' }}>Offert skickad ✓</div>}
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', paddingTop: '16px', borderTop: '1px solid #e5e7eb', flexWrap: 'wrap' }}>
+                  <button
+                    type="button" onClick={handleSendEmail}
+                    disabled={emailBusy || !editingId || !previewCustomer?.email}
+                    title={!editingId ? 'Spara offerten först' : (!previewCustomer?.email ? 'Kunden saknar e-postadress' : `Skicka offert ${previewNumber} till ${previewCustomer.email}`)}
+                    style={{ ...outlineBtnStyle, opacity: (emailBusy || !editingId || !previewCustomer?.email) ? 0.5 : 1, cursor: (emailBusy || !editingId || !previewCustomer?.email) ? 'not-allowed' : 'pointer' }}
+                  >
+                    <Send size={14} /> {emailBusy ? 'Skickar…' : 'Skicka via e-post'}
+                  </button>
                   <button type="button" onClick={handleDownloadPdf} disabled={pdfBusy} style={{ ...outlineBtnStyle, opacity: pdfBusy ? 0.6 : 1, cursor: pdfBusy ? 'not-allowed' : 'pointer' }}>
                     <Download size={14} /> {pdfBusy ? 'Skapar PDF…' : 'Ladda ner PDF'}
                   </button>

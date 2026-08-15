@@ -315,6 +315,12 @@ app.post('/api/stripe/webhook', express.json(), async (req, res) => {
 // PDF-bilaga (t.ex. själva fakturan) kodad som base64 utan "data:"-prefix.
 // `company` (valfri: { name, emailDomain, resendDomainId }) avgör
 // avsändaradressen — se resolveSenderAddress ovan.
+//
+// Namnet är historiskt — rutten bryr sig aldrig om VILKET dokument som
+// skickas, bara to/subject/html/bilaga, så både Invoices.jsx och
+// Quotes.jsx (fakturor OCH offerter) använder den här samma rutten.
+// En egen "send-quote"-rutt vore identisk kod och en onödig extra
+// Vercel-function (se commit om 12-funktionsgränsen).
 app.post('/api/email/send-invoice', async (req, res) => {
   if (!requireResend(res)) return
 
