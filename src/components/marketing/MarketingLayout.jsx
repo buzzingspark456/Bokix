@@ -195,6 +195,7 @@ export function MarketingHeader({ onEnterApp }) {
       <nav style={{
         position: 'fixed', top: 0, left: 0, right: 0, zIndex: 1000,
         background: scrolled ? 'rgba(255,255,255,0.95)' : 'transparent',
+        WebkitBackdropFilter: scrolled ? 'blur(12px)' : 'none',
         backdropFilter: scrolled ? 'blur(12px)' : 'none',
         borderBottom: scrolled ? '1px solid rgba(0,0,0,0.06)' : 'none',
         padding: '0 24px', transition: 'all 0.3s',

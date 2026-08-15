@@ -170,6 +170,11 @@ body {
   background: var(--bg-page);
   color: var(--text-main);
   min-height: 100vh;
+  /* dvh (dynamic viewport height) räknar med Safaris hopfällbara adressfält
+     på iOS — 100vh räknar INTE med det, vilket annars ger ett tomt
+     mellanrum eller avklippt innehåll när fältet visas/döljs vid scroll.
+     Faller tillbaka till vh ovan i webbläsare som saknar dvh-stöd. */
+  min-height: 100dvh;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -224,6 +229,7 @@ body {
 .app-container {
   display: flex;
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 
@@ -235,6 +241,7 @@ body {
   left: 0;
   width: var(--sidebar-width);
   height: 100vh;
+  height: 100dvh;
   background: linear-gradient(160deg, var(--bg-sidebar) 0%, var(--bg-sidebar-end) 100%);
   border: none;
   border-radius: 0;
@@ -535,6 +542,7 @@ body {
   margin-left: var(--sidebar-width);
   flex: 1;
   height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1437,6 +1445,7 @@ textarea.form-control {
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,0.4);
+  -webkit-backdrop-filter: blur(3px);
   backdrop-filter: blur(3px);
   display: flex;
   align-items: flex-start;
@@ -2120,6 +2129,7 @@ textarea.form-control {
 
 .document-modal-overlay {
   background: rgba(17, 24, 39, 0.75);
+  -webkit-backdrop-filter: blur(5px);
   backdrop-filter: blur(5px);
 }
 

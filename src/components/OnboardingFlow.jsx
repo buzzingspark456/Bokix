@@ -166,7 +166,7 @@ export default function OnboardingFlow({ onComplete, onSkip, initialCompanyName,
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', background: 'linear-gradient(135deg, #f6fbff 0%, #f2f9f2 100%)' }}>
-      <div style={{ width: '100%', maxWidth: '900px', background: 'rgba(255,255,255,0.96)', border: '1px solid rgba(15,23,42,0.08)', borderRadius: '28px', boxShadow: '0 35px 90px -40px rgba(15,23,42,0.25)', overflow: 'hidden', backdropFilter: 'blur(18px)' }}>
+      <div style={{ width: '100%', maxWidth: '900px', background: 'rgba(255,255,255,0.96)', border: '1px solid rgba(15,23,42,0.08)', borderRadius: '28px', boxShadow: '0 35px 90px -40px rgba(15,23,42,0.25)', overflow: 'hidden', WebkitBackdropFilter: 'blur(18px)', backdropFilter: 'blur(18px)' }}>
         <div style={{ padding: '28px 32px 0' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
