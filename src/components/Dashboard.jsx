@@ -2,11 +2,11 @@ import React, { useMemo, useState } from 'react';
 import {
   FileText, Receipt, TrendingUp, TrendingDown,
   ChevronRight, Download, ArrowUpRight, ArrowDownRight,
-  CheckCircle, CheckCircle2, Minus, BarChart2, Activity,
-  UserPlus, Users, Clock, AlertCircle, Wallet
+  CheckCircle, CheckCircle2, Minus, BarChart2,
+  UserPlus, Users, Clock, AlertCircle, Zap
 } from 'lucide-react';
 import {
-  AreaChart, Area, BarChart, Bar,
+  BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Legend, ReferenceLine, Cell
 } from 'recharts';
@@ -28,23 +28,27 @@ const EXPENSE = '#E24B4A';
 const LIME_L  = BRAND.greenLight;
 const RED_L   = BRAND.redBg;
 
-// Mörk yta för Likviditet-kortet — samma mörkgröna ton som redan används i
-// sidebarens företagsväljar-dropdown (.company-dropdown i index.css), inte
-// en ny färg. Ett medvetet undantag från cremetonen: detta ÄR sidans
-// tydligaste "hero"-yta (Sida 31 punkt 2), så den får stå ut mer än så.
-const LIQ_DARK = '#1e3a2c';
+// Djärvare, mer "glad" variant av de tre resultaträkningskorten (Sida 33) —
+// fyllda gradientytor istället för vitt kort + liten ikon-chip. Fortfarande
+// samma två semantiska hörn som resten av appen (grönt = positivt, rosa/rött
+// = kostnad), bara mer mättat. Vit text på dessa mörka gradienter ligger
+// gott och väl över 4.5:1 i båda ändarna, så kontraster hålls.
+const KPI_GRAD_POSITIVE = ['#2f8a3a', '#54b854'];
+const KPI_GRAD_NEGATIVE = ['#e0527a', '#c8305a'];
 
 const CHART_MODES = [
   { id: 'revenue-expense', label: 'Intäkter vs Utgifter', icon: BarChart2 },
   { id: 'result',          label: 'Resultat',              icon: Minus },
-  { id: 'liquidity',       label: 'Likviditet',            icon: Activity },
 ];
 
+// Snabbåtgärder — varje genväg får en egen tydlig färg istället för samma
+// enfärgade gröna chip för alla fyra, så raden känns levande och man kan
+// skilja knapparna åt med ett enda ögonkast.
 const QUICK_ACTIONS = [
-  { label: 'Ny faktura',      icon: FileText, tab: 'invoices' },
-  { label: 'Ladda upp kvitto', icon: Receipt,  tab: 'expenses' },
-  { label: 'Ny kontakt',      icon: UserPlus, tab: 'contacts' },
-  { label: 'Rapportera tid',  icon: Clock,    tab: 'projects' },
+  { label: 'Ny faktura',       icon: FileText, tab: 'invoices', fg: '#1f7a34', bg: '#dcf4e3' },
+  { label: 'Ladda upp kvitto', icon: Receipt,  tab: 'expenses', fg: '#1f6fa8', bg: '#dcedf7' },
+  { label: 'Ny kontakt',       icon: UserPlus, tab: 'contacts', fg: '#a83a70', bg: '#fbe3ee' },
+  { label: 'Rapportera tid',   icon: Clock,    tab: 'projects', fg: '#a3730a', bg: '#fbecc9' },
 ];
 
 // Röd/gul/grön — exakt BRAND-tokens, samma som redan används för statusar
@@ -102,10 +106,9 @@ function nextVatDeadline(company, vatPeriods) {
   return { daysLeft, quarter: q, year: y, dueDate: d };
 }
 
-/* ── Sparklinje (staplar) — samma princip som Sparkline ovan, men som
-   diskreta staplar istället för en kurva, för KPI-korten och det mörka
-   Likviditet-kortet (matchar referensbilden). Alltid byggd från samma
-   riktiga dagsserier som Sparkline, bara ett annat visuellt uttryck. ── */
+/* ── Sparklinje (staplar) — diskreta staplar istället för en kurva, till
+   KPI-kortens riktningsindikator. Alltid byggd från samma riktiga
+   dagsserier som resten av sidan, aldrig slumpad. ── */
 function SparkBars({ data, color, height = 22 }) {
   if (!data || data.length < 2) return null;
   const min = Math.min(...data);
@@ -153,11 +156,12 @@ function ChartTooltip({ active, payload, label, fmt }) {
    den mest sammanfattande siffran) får en märkbart större typsnittsstorlek
    än de andra korten, så ögat har en tydlig startpunkt istället för
    identiskt vägda rutor. ── */
-function KpiCard({ label, value, sub, icon: Icon, color, bg, positive, onClick, spark, sparkColor, hero }) {
+function KpiCard({ label, value, sub, icon: Icon, color, bg, positive, onClick, spark, sparkColor, hero, gradient }) {
+  const bold = !!gradient;
   return (
     <button onClick={onClick} style={{
-      background: 'white',
-      border: hero ? `1px solid ${sparkColor || color}33` : '1px solid #e5e7eb',
+      background: bold ? `linear-gradient(135deg, ${gradient[0]}, ${gradient[1]})` : 'white',
+      border: bold ? 'none' : (hero ? `1px solid ${sparkColor || color}33` : '1px solid #e5e7eb'),
       borderRadius: '14px',
       padding: '20px',
       textAlign: 'left',
@@ -166,40 +170,40 @@ function KpiCard({ label, value, sub, icon: Icon, color, bg, positive, onClick, 
       display: 'flex',
       flexDirection: 'column',
       gap: '12px',
-      boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+      boxShadow: bold ? `0 12px 26px -12px ${gradient[1]}99` : '0 1px 3px rgba(0,0,0,0.04)',
       position: 'relative',
       overflow: 'hidden',
       width: '100%',
     }}
     onMouseEnter={e => {
       e.currentTarget.style.transform = 'translateY(-3px)';
-      e.currentTarget.style.boxShadow = '0 10px 28px rgba(0,0,0,0.09)';
-      e.currentTarget.style.borderColor = sparkColor || color;
+      e.currentTarget.style.boxShadow = bold ? `0 16px 32px -12px ${gradient[1]}bb` : '0 10px 28px rgba(0,0,0,0.09)';
+      if (!bold) e.currentTarget.style.borderColor = sparkColor || color;
     }}
     onMouseLeave={e => {
       e.currentTarget.style.transform = '';
-      e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04)';
-      e.currentTarget.style.borderColor = '#e5e7eb';
+      e.currentTarget.style.boxShadow = bold ? `0 12px 26px -12px ${gradient[1]}99` : '0 1px 3px rgba(0,0,0,0.04)';
+      if (!bold) e.currentTarget.style.borderColor = '#e5e7eb';
     }}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ background: bg, color, width: 36, height: 36, borderRadius: '9px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <div style={{ background: bold ? 'rgba(255,255,255,0.24)' : bg, color: bold ? '#fff' : color, width: 36, height: 36, borderRadius: '9px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
           <Icon size={16} />
         </div>
         {positive != null && (
-          <div style={{ color: positive ? BRAND.greenDark : BRAND.redText, fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '2px' }}>
+          <div style={{ color: bold ? 'rgba(255,255,255,0.9)' : (positive ? BRAND.greenDark : BRAND.redText), fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '2px' }}>
             {positive ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
           </div>
         )}
       </div>
 
       <div>
-        <div style={{ fontSize: '11px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px' }}>{label}</div>
-        <div style={{ fontSize: hero ? '32px' : '22px', fontWeight: 700, color: '#111827', letterSpacing: '-0.04em', lineHeight: 1.1 }}>{value}</div>
-        {sub && <div style={{ fontSize: '11.5px', color: '#9ca3af', marginTop: '4px' }}>{sub}</div>}
+        <div style={{ fontSize: '11px', fontWeight: 600, color: bold ? 'rgba(255,255,255,0.82)' : '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px' }}>{label}</div>
+        <div style={{ fontSize: hero ? '32px' : '22px', fontWeight: 700, color: bold ? '#fff' : '#111827', letterSpacing: '-0.04em', lineHeight: 1.1 }}>{value}</div>
+        {sub && <div style={{ fontSize: '11.5px', color: bold ? 'rgba(255,255,255,0.78)' : '#9ca3af', marginTop: '4px' }}>{sub}</div>}
       </div>
 
-      {spark && <SparkBars data={spark.slice(-14)} color={sparkColor || color} />}
+      {spark && <SparkBars data={spark.slice(-14)} color={bold ? 'rgba(255,255,255,0.9)' : (sparkColor || color)} />}
     </button>
   );
 }
@@ -264,7 +268,6 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
     });
   });
   const raResultat = raOmsattning - raKostnader;
-  const likviditet = (balances['1930'] || 0) + (balances['1920'] || 0) + (balances['1910'] || 0);
 
   // ── Fakturabelopp inkl. moms — samma formel som App.jsx:s invoiceGross,
   // upprepad lokalt eftersom den inte exporteras därifrån. ──
@@ -389,8 +392,7 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
   // aldrig slumpade. Om det bokförda historiken är kortare än 30 dagar (t.ex.
   // ett nystartat bolag) visas bara de dagar som faktiskt finns — ingen
   // uppdiktad platt förhistoria. Resultat/Omsättning/Kostnader summeras
-  // löpande per dag; Likviditet räknas bakåt från dagens saldo (balances)
-  // med varje dags faktiska in-/utbetalning på kassa-/bankkontona. ──
+  // löpande per dag. ──
   const sparkSeries = useMemo(() => {
     const DAYS = 30;
     const today = new Date();
@@ -414,7 +416,6 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
 
     const revenueByDay = Object.fromEntries(dayKeys.map(k => [k, 0]));
     const costByDay = Object.fromEntries(dayKeys.map(k => [k, 0]));
-    const liqDeltaByDay = Object.fromEntries(dayKeys.map(k => [k, 0]));
 
     verifications.forEach(v => {
       if ((v.status || 'booked') === 'draft') return;
@@ -422,7 +423,6 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
       v.rows.forEach(r => {
         if (r.account.startsWith('3')) revenueByDay[v.date] += (getKredit(r) - getDebet(r));
         else if (['4','5','6','7'].some(p => r.account.startsWith(p))) costByDay[v.date] += (getDebet(r) - getKredit(r));
-        if (['1910','1920','1930'].includes(r.account)) liqDeltaByDay[v.date] += (getDebet(r) - getKredit(r));
       });
     });
 
@@ -435,22 +435,13 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
       resultSeries.push(cumResult);
     });
 
-    // Likviditet: bakåträkning från dagens saldo.
-    const liqSeriesRev = [];
-    let running = likviditet;
-    for (let i = dayKeys.length - 1; i >= 0; i--) {
-      liqSeriesRev.push(running);
-      running -= liqDeltaByDay[dayKeys[i]];
-    }
-    const liqSeries = liqSeriesRev.reverse();
-
-    return { revenueSeries, costSeries, resultSeries, liqSeries };
-  }, [verifications, likviditet]);
+    return { revenueSeries, costSeries, resultSeries };
+  }, [verifications]);
 
   // ── Chartdata ──
   const chartData = useMemo(() => {
     const names = ['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
-    const data = names.map(name => ({ name, Intäkter: 0, Utgifter: 0, Resultat: 0, Likviditet: 0, 'Föregående år': 0 }));
+    const data = names.map(name => ({ name, Intäkter: 0, Utgifter: 0, Resultat: 0, 'Föregående år': 0 }));
     verifications.forEach(v => {
       if ((v.status || 'booked') === 'draft') return;
       const year = v.date.substring(0, 4);
@@ -467,24 +458,11 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
         }
       });
     });
-    let running = 0;
     data.forEach(d => {
-      d.Resultat  = d.Intäkter - d.Utgifter;
-      running    += d.Resultat;
-      d.Likviditet = running;
+      d.Resultat = d.Intäkter - d.Utgifter;
     });
     return data;
   }, [verifications, currentYear]);
-
-  // Calculate gradient offset for Likviditet area chart
-  const likviditetGradientOffset = () => {
-    const dataMax = Math.max(...chartData.map(i => i.Likviditet));
-    const dataMin = Math.min(...chartData.map(i => i.Likviditet));
-    if (dataMax <= 0) return 0;
-    if (dataMin >= 0) return 1;
-    return dataMax / (dataMax - dataMin);
-  };
-  const liqOff = likviditetGradientOffset();
 
   // ── Export ──
   const handleExport = () => {
@@ -511,12 +489,12 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
     <div style={{ maxWidth: '100%', margin: '0 auto', width: '100%', minHeight: '100%', boxSizing: 'border-box', background: 'var(--bg-page)' }}>
       <style>{`
         @media (max-width: 900px) {
-          .dash-bottom-grid { grid-template-columns: repeat(2,1fr) !important; }
+          .dash-lower-grid { grid-template-columns: 1fr !important; }
         }
         @media (max-width: 640px) {
           .dash-kpi-grid { grid-template-columns: 1fr !important; }
-          .dash-bottom-grid { grid-template-columns: 1fr !important; }
           .dash-quick-actions { grid-template-columns: repeat(2,1fr) !important; }
+          .dash-todo-grid { grid-template-columns: 1fr !important; }
         }
       `}</style>
 
@@ -545,13 +523,71 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
         </div>
       </div>
 
-      {/* ─── KPI CARDS — RÅ Resultat/Omsättning/Kostnader. Likviditet har
-          flyttat ner till det mörka hero-kortet i bottengriden, så den här
-          raden bara innehåller resultaträkningens tre nyckeltal. ─── */}
+      {/* ─── SNABBÅTGÄRDER — det man faktiskt kom hit för att GÖRA, högst
+          upp och tydligt, istället för begravt längst ner på sidan under
+          alla siffror. Fyra tydligt olikfärgade kort, inte fyra identiska
+          gröna chips, så raden känns levande och går att skanna snabbt. ─── */}
+      {!isNew && (
+        <div style={{ marginBottom: '18px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
+            <Zap size={14} style={{ color: BRAND.greenDark }} />
+            <span style={{ fontSize: '13px', fontWeight: 700, color: '#374151' }}>Snabbåtgärder</span>
+          </div>
+          <div className="dash-quick-actions" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '12px' }}>
+            {QUICK_ACTIONS.map(a => (
+              <button
+                key={a.label}
+                onClick={() => setActiveTab(a.tab)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '10px',
+                  padding: '14px 16px', background: 'white', border: '1px solid #e5e7eb', borderRadius: '13px',
+                  cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'inherit', textAlign: 'left',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 20px rgba(0,0,0,0.08)'; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04)'; }}
+              >
+                <div style={{ width: 36, height: 36, borderRadius: '10px', background: a.bg, color: a.fg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <a.icon size={16} />
+                </div>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: '#374151', lineHeight: 1.2 }}>{a.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ─── ATT GÖRA IDAG — sidans mest konkreta, klickbara lista, nu i full
+          bredd direkt under Snabbåtgärder istället för instängd i en trång
+          bottenruta. Röd/gul/grön styr ordning, aldrig kronologi. ─── */}
+      {!isNew && (
+        <div style={{ position: 'relative', background: 'var(--bg-cream)', border: '1px solid var(--bg-cream-border)', borderRadius: '14px', padding: '16px 18px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)', overflow: 'hidden', marginBottom: '20px' }}>
+          <div aria-hidden="true" style={{ position: 'absolute', top: '-50px', right: '-50px', width: '150px', height: '150px', borderRadius: '50%', background: 'rgba(61,122,46,0.05)' }} />
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+            <span style={{ fontSize: '13px', fontWeight: 700, color: '#374151' }}>Att göra idag</span>
+            <span style={{
+              fontSize: '11px', fontWeight: 700, padding: '3px 9px', borderRadius: '999px',
+              background: hasUrgent ? 'rgba(255,255,255,0.7)' : BRAND.greenLight,
+              color: hasUrgent ? '#6b7280' : BRAND.greenDark,
+            }}>
+              {hasUrgent ? `${todos.length} ${todos.length === 1 ? 'post' : 'poster'}` : 'Allt klart'}
+            </span>
+          </div>
+          <div className="dash-todo-grid" style={{ position: 'relative', display: 'grid', gridTemplateColumns: todos.length > 1 ? 'repeat(2,1fr)' : '1fr', gap: '6px' }}>
+            {todos.map((t, i) => (
+              <TodayRow key={i} item={t} onClick={() => t.tab && setActiveTab(t.tab)} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ─── NYCKELTAL — Resultat/Intäkter/Kostnader, med vardagliga
+          etiketter (inte bokföringsjargong som "RÅ Omsättning") så siffrorna
+          är begripliga utan förkunskaper. ─── */}
       <div className="dash-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '14px', marginBottom: '20px' }}>
         <KpiCard
           hero
-          label="RÅ Resultat" value={fmt(raResultat)}
+          label="Resultat" value={fmt(raResultat)}
           sub={raResultat >= 0 ? `Vinst ${currentYear}` : `Förlust ${currentYear}`}
           icon={raResultat >= 0 ? TrendingUp : TrendingDown}
           color={raResultat >= 0 ? BRAND.greenDark : BRAND.redText}
@@ -560,20 +596,23 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
           onClick={() => setActiveTab('reports')}
           spark={sparkSeries.resultSeries}
           sparkColor={raResultat >= 0 ? REVENUE : EXPENSE}
+          gradient={raResultat >= 0 ? KPI_GRAD_POSITIVE : KPI_GRAD_NEGATIVE}
         />
         <KpiCard
-          label="RÅ Omsättning" value={fmt(raOmsattning)} sub={currentYear}
+          label="Intäkter" value={fmt(raOmsattning)} sub={`Hittills ${currentYear}`}
           icon={ArrowUpRight} color={BRAND.greenDark} bg={LIME_L} positive={true}
           onClick={() => setActiveTab('reports')}
           spark={sparkSeries.revenueSeries}
           sparkColor={REVENUE}
+          gradient={KPI_GRAD_POSITIVE}
         />
         <KpiCard
-          label="RÅ Kostnader" value={fmt(raKostnader)} sub={currentYear}
+          label="Kostnader" value={fmt(raKostnader)} sub={`Hittills ${currentYear}`}
           icon={ArrowDownRight} color={BRAND.redText} bg={RED_L} positive={false}
           onClick={() => setActiveTab('expenses')}
           spark={sparkSeries.costSeries}
           sparkColor={EXPENSE}
+          gradient={KPI_GRAD_NEGATIVE}
         />
       </div>
 
@@ -609,14 +648,6 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
                   <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: raResultat >= 0 ? BRAND.greenDark : BRAND.redText }}>
                     <span style={{ width: 10, height: 10, borderRadius: '50%', background: raResultat >= 0 ? REVENUE : EXPENSE, display: 'inline-block' }} />
                     Resultat {fmt(raResultat)}
-                  </span>
-                </div>
-              )}
-              {chartMode === 'liquidity' && (
-                <div style={{ display: 'flex', gap: '16px', marginTop: '8px' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: BRAND.greenDark }}>
-                    <span style={{ width: 10, height: 10, borderRadius: '50%', background: REVENUE, display: 'inline-block' }} />
-                    Likviditet {fmt(likviditet)}
                   </span>
                 </div>
               )}
@@ -671,90 +702,38 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
             </ResponsiveContainer>
           )}
 
-          {chartMode === 'liquidity' && (
-            <ResponsiveContainer width="100%" height={260}>
-              <AreaChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="gradLiq" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset={liqOff} stopColor={REVENUE} stopOpacity={0.3} />
-                    <stop offset={liqOff} stopColor={EXPENSE} stopOpacity={0.3} />
-                  </linearGradient>
-                  <linearGradient id="gradLiqStroke" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset={liqOff} stopColor={REVENUE} stopOpacity={1} />
-                    <stop offset={liqOff} stopColor={EXPENSE} stopOpacity={1} />
-                  </linearGradient>
-                  <linearGradient id="gradPrev" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%"   stopColor="#94a3b8" stopOpacity={0.12} />
-                    <stop offset="100%" stopColor="#94a3b8" stopOpacity={0}    />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#9ca3af' }} dy={6} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#9ca3af' }} tickFormatter={fmtShort} width={44} />
-                <Tooltip content={<ChartTooltip fmt={fmt} />} cursor={{ stroke: '#b8e2b8', strokeWidth: 1.5 }} />
-                <Legend iconType="circle" iconSize={7} wrapperStyle={{ fontSize: 12, paddingTop: 16 }} />
-                <Area type="monotone" dataKey="Likviditet"      name={`Likviditet ${currentYear}`}          stroke="url(#gradLiqStroke)"     strokeWidth={2.5} fill="url(#gradLiq)"  dot={false} />
-                <Area type="monotone" dataKey="Föregående år"   name={`Omsättning ${parseInt(currentYear)-1}`} stroke="#94a3b8" strokeWidth={2}   strokeDasharray="6 4" fill="url(#gradPrev)" dot={false} />
-              </AreaChart>
-            </ResponsiveContainer>
-          )}
         </div>
       )}
 
-      {/* ─── SENAST BOKFÖRT — riktiga, bokförda händelser (aldrig utkast),
-          sorterade på riktigt datum. Beskrivningen är exakt den som redan
-          sparades när händelsen bokfördes, inte en omskriven version. Ersätter
-          den gamla "Senaste aktivitet"-sidopanelen (borttagen enligt Sida 32)
-          med en bredare, tydligare lista i egen sektion. ─── */}
+      {/* ─── SENAST BOKFÖRT + MOMS — sidans två "läge just nu"-rutor, parade
+          i en 2/1-rad längst ner istället för att tävla om samma vikt som
+          Snabbåtgärder/Att göra idag/Nyckeltalen ovanför (Sida 34). ─── */}
       {!isNew && (
-        <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '14px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', marginBottom: '18px', overflow: 'hidden' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid #f3f4f6' }}>
-            <span style={{ fontSize: '14px', fontWeight: 700, color: '#111827', letterSpacing: '-0.01em' }}>Senast bokfört</span>
-            <button onClick={() => setActiveTab('verifications')} className="ds-link-btn sm">Alla verifikationer</button>
-          </div>
-          {recentBooked.length === 0 ? (
-            <div style={{ padding: '28px 20px', textAlign: 'center', fontSize: '12.5px', color: '#9ca3af' }}>Inga bokförda verifikationer än</div>
-          ) : (
-            <div>
-              {recentBooked.map(item => (
-                <div key={item.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '13px 20px', borderBottom: '1px solid #f7f8f7' }}>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: '13.5px', fontWeight: 600, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.description}</div>
-                    <div style={{ fontSize: '11.5px', color: '#9ca3af', marginTop: '2px' }}>{item.date} · {item.type}</div>
+        <div className="dash-lower-grid" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '14px', marginBottom: '18px', alignItems: 'stretch' }}>
+
+          {/* Senast bokfört — riktiga, bokförda händelser (aldrig utkast),
+              sorterade på riktigt datum. Beskrivningen är exakt den som redan
+              sparades när händelsen bokfördes, inte en omskriven version. */}
+          <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '14px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid #f3f4f6' }}>
+              <span style={{ fontSize: '14px', fontWeight: 700, color: '#111827', letterSpacing: '-0.01em' }}>Senast bokfört</span>
+              <button onClick={() => setActiveTab('verifications')} className="ds-link-btn sm">Alla verifikationer</button>
+            </div>
+            {recentBooked.length === 0 ? (
+              <div style={{ padding: '28px 20px', textAlign: 'center', fontSize: '12.5px', color: '#9ca3af' }}>Inga bokförda verifikationer än</div>
+            ) : (
+              <div>
+                {recentBooked.map(item => (
+                  <div key={item.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '13px 20px', borderBottom: '1px solid #f7f8f7' }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: '13.5px', fontWeight: 600, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.description}</div>
+                      <div style={{ fontSize: '11.5px', color: '#9ca3af', marginTop: '2px' }}>{item.date} · {item.type}</div>
+                    </div>
+                    <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#111827', flexShrink: 0 }}>{fmt(item.amount)}</div>
                   </div>
-                  <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#111827', flexShrink: 0 }}>{fmt(item.amount)}</div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ─── BOTTENGRID — Att göra idag · Moms · Snabbåtgärder · Likviditet.
-          Fyra jämnstora rutor, var och en med sin egen tydliga roll, istället
-          för att allt tävlar om samma vikt (Sida 31 punkt 2). ─── */}
-      {!isNew && (
-        <div className="dash-bottom-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '14px', marginBottom: '18px', alignItems: 'stretch' }}>
-
-          {/* Att göra idag — samma innehåll som tidigare, nu i cremeton och
-              i bottengriden istället för en egen fullbredd-sektion högst upp. */}
-          <div style={{ position: 'relative', background: 'var(--bg-cream)', border: '1px solid var(--bg-cream-border)', borderRadius: '14px', padding: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            <div aria-hidden="true" style={{ position: 'absolute', top: '-40px', right: '-40px', width: '120px', height: '120px', borderRadius: '50%', background: 'rgba(61,122,46,0.05)' }} />
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-              <span style={{ fontSize: '13px', fontWeight: 600, color: '#6b7280' }}>Att göra idag</span>
-              <span style={{
-                fontSize: '11px', fontWeight: 700, padding: '3px 9px', borderRadius: '999px',
-                background: hasUrgent ? 'rgba(255,255,255,0.7)' : BRAND.greenLight,
-                color: hasUrgent ? '#6b7280' : BRAND.greenDark,
-              }}>
-                {hasUrgent ? `${todos.length} ${todos.length === 1 ? 'post' : 'poster'}` : 'Allt klart'}
-              </span>
-            </div>
-            <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              {todos.map((t, i) => (
-                <TodayRow key={i} item={t} onClick={() => t.tab && setActiveTab(t.tab)} />
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Moms — nästa (ännu ej inlämnade) momsperiod, räknat från riktiga
@@ -790,58 +769,6 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
               </>
             )}
           </div>
-
-          {/* Snabbåtgärder — samma fyra genvägar som tidigare låg som en
-              tunn länkrad under headern, nu samlade i en egen ruta. */}
-          <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '14px', padding: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontSize: '13px', fontWeight: 600, color: '#6b7280', marginBottom: '12px' }}>Snabbåtgärder</span>
-            <div className="dash-quick-actions" style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: '8px', flex: 1 }}>
-              {QUICK_ACTIONS.map(a => (
-                <button
-                  key={a.label}
-                  onClick={() => setActiveTab(a.tab)}
-                  style={{
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                    padding: '10px 6px', background: 'var(--bg-cream)', border: '1px solid var(--bg-cream-border)', borderRadius: '10px',
-                    cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'inherit',
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = BRAND.green; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--bg-cream-border)'; e.currentTarget.style.transform = ''; }}
-                >
-                  <div style={{ width: 28, height: 28, borderRadius: '8px', background: LIME_L, color: BRAND.greenDark, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <a.icon size={14} />
-                  </div>
-                  <span style={{ fontSize: '11px', fontWeight: 600, color: '#374151', textAlign: 'center', lineHeight: 1.2 }}>{a.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Likviditet — sidans mörka hero-kort (Sida 31 punkt 2): flyttat
-              hit från KPI-raden, med en tydlig stapel-sparklinje av den
-              faktiska 30-dagarsserien. */}
-          <button
-            onClick={() => setActiveTab('verifications')}
-            style={{
-              background: LIQ_DARK, border: 'none', borderRadius: '14px', padding: '16px',
-              display: 'flex', flexDirection: 'column', gap: '10px', textAlign: 'left', cursor: 'pointer',
-              transition: 'transform 0.2s cubic-bezier(.4,0,.2,1)', fontFamily: 'inherit',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; }}
-            onMouseLeave={e => { e.currentTarget.style.transform = ''; }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Wallet size={13} style={{ color: 'rgba(255,255,255,0.55)' }} />
-              <span style={{ fontSize: '11px', fontWeight: 700, color: 'rgba(255,255,255,0.55)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Likviditet</span>
-            </div>
-            <div>
-              <div style={{ fontSize: '24px', fontWeight: 700, color: 'white', letterSpacing: '-0.03em', lineHeight: 1.1 }}>{fmt(likviditet)}</div>
-              <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginTop: '3px' }}>Kassa &amp; bank · konto 1930</div>
-            </div>
-            <div style={{ marginTop: 'auto' }}>
-              <SparkBars data={sparkSeries.liqSeries.slice(-20)} color="rgba(132,204,22,0.85)" height={26} />
-            </div>
-          </button>
         </div>
       )}
 

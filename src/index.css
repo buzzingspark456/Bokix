@@ -102,6 +102,9 @@
   --bg-page:    #f4f7f5;
   --bg-card:    var(--white);
   --bg-sidebar: #3d7a2e;
+  /* Sidopanelens gradient-slutpunkt (djärvare tema, Sida 33) — grön glider
+     mot en varm turkos istället för att vara en platt färgyta. */
+  --bg-sidebar-end: #1f8a72;
   --bg-muted:   #f4f4f5;
 
   /* ── Varm sekundärton (Sida 31) ──
@@ -113,10 +116,11 @@
   --bg-cream:        #faf8f3;
   --bg-cream-border: #efe9db;
 
-  /* ── Sidebar Active (Orange like MrPotato) ── */
-  --sidebar-active-bg:   rgba(255,255,255,0.14);
+  /* ── Sidebar Active — guldgul mot den gröna/turkosa gradienten, så den
+     aktiva menypunkten läses direkt istället för att smälta in. ── */
+  --sidebar-active-bg:   rgba(255,255,255,0.2);
   --sidebar-active-text: #ffffff;
-  --sidebar-active-icon: #84cc16;
+  --sidebar-active-icon: #ffd23f;
 
   /* ── Text ── */
   --text-main:      var(--gray-900);
@@ -231,7 +235,7 @@ body {
   left: 0;
   width: var(--sidebar-width);
   height: 100vh;
-  background: var(--bg-sidebar);
+  background: linear-gradient(160deg, var(--bg-sidebar) 0%, var(--bg-sidebar-end) 100%);
   border: none;
   border-radius: 0;
   display: flex;
@@ -415,12 +419,15 @@ body {
 }
 
 .nav-item.active {
-  background: rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.18);
   font-weight: 700;
+  /* Guldgul kant istället för bara en ton mörkare bakgrund — annars
+     försvinner "aktiv" i den nya gröna→turkosa gradienten. */
+  box-shadow: inset 3px 0 0 #ffd23f;
 }
 
 .nav-item.active svg {
-  color: white;
+  color: #ffd23f;
 }
 
 .nav-item-parent {
@@ -923,11 +930,11 @@ body {
   outline: none;
   cursor: pointer;
   font-family: var(--font-sans);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
-  color: #9ca3af;
+  color: #6b7280;
   padding: 6px 2px;
-  transition: transform 0.12s ease;
+  transition: transform 0.12s ease, color 0.18s ease;
 }
 
 /* Tryckanimation — ger taktil respons istället för att knappen bara
@@ -946,11 +953,12 @@ body {
   background: transparent;
   transform: scale(1);
   transition: background-color 0.18s ease, color 0.18s ease, transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
-  color: #9ca3af;
+  color: #6b7280;
 }
 
 .mobile-nav-btn.active {
   color: #27500a;
+  font-weight: 700;
 }
 
 .mobile-nav-btn.active .mobile-nav-icon {

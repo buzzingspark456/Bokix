@@ -3,12 +3,13 @@ import { useSearchParams } from 'react-router-dom';
 import {
   Plus, X, Send, Check, FileText, FileSpreadsheet,
   Search, ChevronRight, ChevronLeft, ChevronDown, ChevronUp,
-  MoreVertical, RefreshCw, Printer, Eye, CreditCard,
+  MoreVertical, RefreshCw, Printer, Eye, CreditCard, Link2,
   MessageSquare, Tag, Lock, Settings2, Download, AlertTriangle, Inbox
 } from 'lucide-react';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import InvoiceDocument, { DEFAULT_INVOICE_TEMPLATE, INVOICE_TEMPLATES } from './InvoiceDocument';
-import { exportInvoicePdf } from '../utils/exportInvoicePdf';
+import { exportInvoicePdf, getInvoicePdfBase64 } from '../utils/exportInvoicePdf';
+import { sendInvoiceEmail } from '../emailApi';
 import { BRAND } from '../utils/brandColors';
 import { getNextInvoiceNumber } from '../utils/invoiceNumbering';
 
@@ -125,6 +126,10 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
   const [pdfBusy, setPdfBusy] = useState(false);
   const [pdfError, setPdfError] = useState('');
 
+  const [emailBusy, setEmailBusy] = useState(false);
+  const [emailError, setEmailError] = useState('');
+  const [emailSent, setEmailSent] = useState(false);
+
   const [showCommentBox, setShowCommentBox] = useState(false);
   const [commentDraft, setCommentDraft] = useState(initial?.internalNote || '');
   const [showPaymentBox, setShowPaymentBox] = useState(false);
@@ -207,6 +212,50 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
       setPdfError('Kunde inte skapa PDF. Försök igen.');
     } finally {
       setPdfBusy(false);
+    }
+  };
+
+  // Skickar fakturan (som riktig PDF-bilaga) till kundens e-post via
+  // backendens Resend-integration — till skillnad från betalningspåminnelsens
+  // mailto:-länk går det här faktiskt iväg utan att användaren själv behöver
+  // öppna och trycka skicka i sitt eget mailprogram.
+  const handleSendEmail = async () => {
+    if (!customer?.email) { setEmailError('Kunden saknar e-postadress.'); return; }
+    setEmailBusy(true); setEmailError(''); setEmailSent(false);
+    try {
+      if (!showPreview) setShowPreview(true);
+      await new Promise(r => setTimeout(r, 50));
+      const attachmentBase64 = await getInvoicePdfBase64(previewRef.current);
+
+      const html = `
+        <p>Hej${customer.contactPerson ? ' ' + customer.contactPerson : ''},</p>
+        <p>Bifogat finner du faktura <strong>${nextNum}</strong> på <strong>${fmt(totals.total)} kr</strong>, med förfallodatum ${formatDate(dueDate)}.</p>
+        <p>Hör av dig om du har några frågor.</p>
+        <p>Med vänlig hälsning<br/>${company?.name || ''}</p>
+      `;
+
+      await sendInvoiceEmail({
+        to: customer.email,
+        subject: `Faktura ${nextNum} från ${company?.name || 'oss'}`,
+        html,
+        replyTo: company?.email || undefined,
+        attachmentBase64,
+        attachmentFilename: `faktura-${nextNum}.pdf`,
+        // Avgör avsändaradressen server-side (Sida 33) — skickas med varje
+        // gång istället för att cacha ett val här, eftersom backend ändå
+        // alltid gör en egen live-koll av domänstatusen mot Resend.
+        company: { name: company?.name, emailDomain: company?.emailDomain, resendDomainId: company?.resendDomainId },
+      });
+
+      setEmailSent(true);
+      // Precis som "✓ Skapa faktura"-knappen — ett utkast som faktiskt
+      // skickas till kunden är per definition inte längre ett utkast.
+      if ((initial?.status || 'draft') === 'draft') handleSave('sent');
+    } catch (err) {
+      console.error(err);
+      setEmailError(err.message || 'Kunde inte skicka e-post.');
+    } finally {
+      setEmailBusy(false);
     }
   };
 
@@ -319,8 +368,18 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
         )}
         {topBarBtn('Kommentar', <MessageSquare size={13} />, () => setShowCommentBox(v => !v), { color: showCommentBox ? '#1565c0' : (commentDraft ? '#92400e' : '#333') })}
         <div style={{ flex: 1 }} />
+        {emailError && <span style={{ fontSize: '11px', color: '#c00', alignSelf: 'center', marginRight: 8 }}>{emailError}</span>}
+        {emailSent && !emailError && <span style={{ fontSize: '11px', color: '#15803d', alignSelf: 'center', marginRight: 8 }}>Skickad ✓</span>}
+        {topBarBtn(
+          emailBusy ? 'Skickar…' : 'Skicka via e-post',
+          <Send size={13} />,
+          handleSendEmail,
+          { borderLeft: '1px solid #ddd', paddingLeft: '14px' },
+          emailBusy || !initial || !customer?.email,
+          !initial ? 'Spara fakturan först' : (!customer?.email ? 'Kunden saknar e-postadress' : `Skicka faktura ${nextNum} till ${customer.email}`)
+        )}
         {pdfError && <span style={{ fontSize: '11px', color: '#c00', alignSelf: 'center', marginRight: 8 }}>{pdfError}</span>}
-        {topBarBtn(pdfBusy ? 'Skapar PDF…' : 'Ladda ner PDF', <Download size={13} />, handleDownloadPdf, { borderLeft: '1px solid #ddd', paddingLeft: '14px' }, pdfBusy)}
+        {topBarBtn(pdfBusy ? 'Skapar PDF…' : 'Ladda ner PDF', <Download size={13} />, handleDownloadPdf, {}, pdfBusy)}
         {topBarBtn('Förhandsgranska', <Eye size={13} />, () => setShowPreview(v => !v), { color: showPreview ? '#1565c0' : '#333' })}
       </div>
 
@@ -1071,7 +1130,7 @@ function SupplierInvoicesPanel({ expenses, contacts, onMarkPaid, onOpenFull, onC
   );
 }
 
-export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegisterPayment, onUnmarkPaid, setInvoices, company, globalAction, clearGlobalAction, onNavigate, verifications = [], expenses = [], onMarkSupplierInvoicePaid, handleGlobalAction }) {
+export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegisterPayment, onUnmarkPaid, setInvoices, company, globalAction, clearGlobalAction, onNavigate, verifications = [], expenses = [], onMarkSupplierInvoicePaid, handleGlobalAction, onCreatePaymentLink }) {
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Två klart avgränsade sektioner, inte en klämd sida-vid-sida-vy — varje
@@ -1300,25 +1359,54 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
           )}
         </td>
         <td style={{ padding: '8px 10px', whiteSpace: 'nowrap' }} onClick={e => e.stopPropagation()}>
-          {status !== 'paid' && isOverdue(inv) && (
-            customer?.email ? (
-              <a
-                href={buildReminderMailto(inv, customer)}
-                onClick={e => e.stopPropagation()}
-                title={`Skicka betalningspåminnelse till ${customer.email}`}
-                style={{ color: '#b45309', display: 'inline-flex', padding: '2px' }}
-              >
-                <Send size={14} />
-              </a>
-            ) : (
-              <span
-                title="Lägg till kundens e-post under Kunder för att kunna skicka en påminnelse"
-                style={{ color: '#d1d5db', display: 'inline-flex', padding: '2px', cursor: 'not-allowed' }}
-              >
-                <Send size={14} />
-              </span>
-            )
-          )}
+          <div style={{ display: 'inline-flex', gap: '6px', alignItems: 'center' }}>
+            {status !== 'paid' && isOverdue(inv) && (
+              customer?.email ? (
+                <a
+                  href={buildReminderMailto(inv, customer)}
+                  onClick={e => e.stopPropagation()}
+                  title={`Skicka betalningspåminnelse till ${customer.email}`}
+                  style={{ color: '#b45309', display: 'inline-flex', padding: '2px' }}
+                >
+                  <Send size={14} />
+                </a>
+              ) : (
+                <span
+                  title="Lägg till kundens e-post under Kunder för att kunna skicka en påminnelse"
+                  style={{ color: '#d1d5db', display: 'inline-flex', padding: '2px', cursor: 'not-allowed' }}
+                >
+                  <Send size={14} />
+                </span>
+              )
+            )}
+            {status !== 'paid' && onCreatePaymentLink && (
+              company?.stripeAccountId ? (
+                customer?.email ? (
+                  <button
+                    onClick={e => { e.stopPropagation(); onCreatePaymentLink(inv.id); }}
+                    title="Skapa Stripe-betalningslänk och öppna kortbetalning"
+                    style={{ color: '#5b21b6', background: 'none', border: 'none', display: 'inline-flex', padding: '2px', cursor: 'pointer' }}
+                  >
+                    <Link2 size={14} />
+                  </button>
+                ) : (
+                  <span
+                    title="Lägg till kundens e-post under Kunder för att kunna skapa en betalningslänk"
+                    style={{ color: '#d1d5db', display: 'inline-flex', padding: '2px', cursor: 'not-allowed' }}
+                  >
+                    <Link2 size={14} />
+                  </span>
+                )
+              ) : (
+                <span
+                  title="Anslut Stripe under Inställningar för att låta kunder betala med kort"
+                  style={{ color: '#d1d5db', display: 'inline-flex', padding: '2px', cursor: 'not-allowed' }}
+                >
+                  <Link2 size={14} />
+                </span>
+              )
+            )}
+          </div>
         </td>
       </tr>
     );

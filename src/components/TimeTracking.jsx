@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
 import { Clock, Plus, Trash2, Check, X, Briefcase, User, FileText } from 'lucide-react';
-import { PartySearch, EntitySearch } from './shared/SearchInputs';
+import { PartySearch, EntitySearch, ProjectSearch } from './shared/SearchInputs';
 
 const emptyForm = () => ({
   type: 'kund', // 'kund' (fakturerbart) | 'anstalld' (löneunderlag)
   date: new Date().toISOString().split('T')[0],
-  customerId: '', employeeId: '',
+  customerId: '', employeeId: '', projectId: '',
   task: '', hours: '', hourlyRate: '', startCost: '',
 });
 
 export default function TimeTracking({
-  timeEntries = [], setTimeEntries, contacts = [], employees = [], user,
+  timeEntries = [], setTimeEntries, contacts = [], employees = [], projects = [], user,
   globalAction, clearGlobalAction, handleGlobalAction,
 }) {
   const customers = contacts.filter(c => c.type === 'customer' || !c.type);
@@ -52,6 +52,7 @@ export default function TimeTracking({
       date: form.date,
       customerId: form.type === 'kund' ? form.customerId : null,
       employeeId: form.type === 'anstalld' ? form.employeeId : null,
+      projectId: form.type === 'kund' ? (form.projectId || null) : null,
       task: form.task,
       hours: parseFloat(form.hours),
       hourlyRate: parseFloat(form.hourlyRate) || 0,
@@ -122,6 +123,31 @@ export default function TimeTracking({
     return employeeItems.find(e => e.id === entry.employeeId)?.name || 'Okänd anställd';
   };
 
+  // "P-101"-koder — stabila så länge projektlistan inte ändrar ordning,
+  // baserade på projektets index i hela listan (inte bara de som har loggad tid).
+  const projectCode = (projectId) => `P-${101 + projects.findIndex(p => p.id === projectId)}`;
+
+  // ── Projektkort: grupperar loggad kundtid per projekt och ställer den
+  // fakturerbara summan mot projektets budget (timmar × timpris). ──
+  const projectGroups = React.useMemo(() => {
+    const byProject = new Map();
+    filteredEntries.forEach(entry => {
+      if (!entry.projectId) return;
+      if (!byProject.has(entry.projectId)) byProject.set(entry.projectId, []);
+      byProject.get(entry.projectId).push(entry);
+    });
+    return Array.from(byProject.entries()).map(([projectId, entries]) => {
+      const proj = projects.find(p => p.id === projectId);
+      if (!proj) return null;
+      const spent = entries.reduce((s, e) => s + e.total, 0);
+      const hours = entries.reduce((s, e) => s + e.hours, 0);
+      const budget = (Number(proj.budgetHours) || 0) * (Number(proj.hourlyRate) || 0);
+      const pct = budget ? Math.min(100, Math.round((spent / budget) * 100)) : 0;
+      const custName = customers.find(c => c.id === proj.customerId)?.name || 'Okänd kund';
+      return { proj, spent, hours, budget, pct, custName };
+    }).filter(Boolean);
+  }, [filteredEntries, projects, customers]);
+
   return (
     <div style={{ maxWidth: '100%', margin: '0 auto' }}>
       {/* ── HEADER ── */}
@@ -181,6 +207,62 @@ export default function TimeTracking({
           </div>
         </div>
       </div>
+
+      {/* ── PROJEKTKORT ── */}
+      {projectGroups.length > 0 && (
+        <div style={{ marginBottom: '28px' }}>
+          <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#111827', marginBottom: '14px' }}>Projekt</h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
+            {projectGroups.map(({ proj, spent, hours, budget, pct, custName }) => {
+              const isFinished = proj.status === 'finished';
+              let barColor = '#16a34a';
+              if (pct >= 100) barColor = '#ef4444';
+              else if (pct >= 80) barColor = '#f59e0b';
+              return (
+                <div key={proj.id} style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '14px', padding: '18px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 600, color: '#9ca3af', letterSpacing: '0.02em' }}>{projectCode(proj.id)}</span>
+                    <span style={{
+                      padding: '3px 10px', borderRadius: '999px', fontSize: '11px', fontWeight: 600,
+                      background: isFinished ? '#f0fdf4' : '#eff6ff',
+                      color: isFinished ? '#16a34a' : '#1d4ed8',
+                      border: `1px solid ${isFinished ? '#bbf7d0' : '#bfdbfe'}`,
+                    }}>
+                      {isFinished ? 'Avslutat' : 'Pågående'}
+                    </span>
+                  </div>
+
+                  <div style={{ fontSize: '15px', fontWeight: 700, color: '#111827', marginBottom: '2px' }}>{proj.name}</div>
+                  <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '14px' }}>{custName}</div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', color: '#6b7280', marginBottom: '6px' }}>
+                    <span>Nedlagt {formatSEK(spent)}</span>
+                    {budget > 0 && <span>{pct}% av budget</span>}
+                  </div>
+                  <div style={{ height: '6px', background: '#f3f4f6', borderRadius: '3px', overflow: 'hidden', marginBottom: '16px' }}>
+                    <div style={{ height: '100%', width: `${budget > 0 ? pct : 0}%`, background: barColor, borderRadius: '3px' }} />
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', paddingTop: '14px', borderTop: '1px solid #f3f4f6' }}>
+                    <div>
+                      <div style={{ fontSize: '10.5px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '3px' }}>Budget</div>
+                      <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#111827' }}>{budget > 0 ? formatSEK(budget) : '—'}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '10.5px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '3px' }}>Timmar</div>
+                      <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#111827' }}>{hours}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '10.5px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '3px' }}>Fakturerat</div>
+                      <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#111827' }}>{formatSEK(spent)}</div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* ── TABLE ── */}
       <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '14px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
@@ -285,6 +367,21 @@ export default function TimeTracking({
                   )}
                 </div>
               </div>
+
+              {form.type === 'kund' && projects.length > 0 && (
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>Projekt (valfritt)</label>
+                  <ProjectSearch
+                    value={form.projectId}
+                    onChange={id => {
+                      const proj = projects.find(p => p.id === id);
+                      setForm(f => ({ ...f, projectId: id, customerId: proj ? proj.customerId : f.customerId }));
+                    }}
+                    projects={projects}
+                  />
+                  <div style={{ fontSize: '11.5px', color: '#9ca3af', marginTop: '5px' }}>Kopplar tiden till projektets budget och sätter kund automatiskt.</div>
+                </div>
+              )}
 
               <div style={{ marginBottom: '16px' }}>
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>Beskrivning / Uppgift</label>

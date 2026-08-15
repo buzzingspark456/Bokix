@@ -56,8 +56,116 @@ if (!stripeSecretKey) {
   console.log('Loaded Stripe secret key for local server.')
 }
 
+// ── Resend (transaktionell e-post) — Sida 33: en nyckel, olika avsändare
+// per kund ──────────────────────────────────────────────────────────────
+// Två nycklar med olika behörighet, inte en enda full_access-nyckel överallt:
+//   RESEND_API_KEY       (sending_access) — det absoluta flertalet anrop,
+//                          alla riktiga fakturautskick. Läcker den kan en
+//                          angripare bara skicka mejl, inte skapa/radera
+//                          domäner eller röra kontot.
+//   RESEND_ADMIN_API_KEY (full_access)    — bara de sällan anropade
+//                          domänhanterings-rutterna nedan (skapa/kontrollera
+//                          en kunds egen avsändardomän). sending_access-
+//                          nycklar kan inte hantera domäner alls (verifierat
+//                          mot Resends dokumentation), så den här är
+//                          obligatorisk för Steg 2, men dess litet anropade
+//                          yta är precis vad som gör den privilegienivån
+//                          försvarbar.
+const resendApiKey = process.env.RESEND_API_KEY || null
+const resendAdminApiKey = process.env.RESEND_ADMIN_API_KEY || null
+// Systemets reservavsändare — används när ett företag inte har en egen
+// verifierad domän än, eller om ett utskick med deras domän oväntat
+// misslyckas (se resolveSenderAddress/sendViaResend nedan).
+const emailFrom = process.env.EMAIL_FROM || 'Bokix <onboarding@resend.dev>'
+
+if (!resendApiKey) {
+  console.warn('Resend API key not configured yet. Email routes will return a 503 until RESEND_API_KEY is provided.')
+} else {
+  console.log('Loaded Resend API key for local server.')
+}
+if (!resendAdminApiKey) {
+  console.warn('Resend admin API key not configured yet. Domain management routes will return a 503 until RESEND_ADMIN_API_KEY is provided.')
+} else {
+  console.log('Loaded Resend admin API key for local server.')
+}
+
+function requireResend(res) {
+  if (!resendApiKey) {
+    res.status(503).json({ error: 'E-post är inte konfigurerat. Sätt RESEND_API_KEY (och valfritt EMAIL_FROM) i miljövariablerna för att kunna skicka fakturor via e-post.' })
+    return false
+  }
+  return true
+}
+
+function requireResendAdmin(res) {
+  if (!resendAdminApiKey) {
+    res.status(503).json({ error: 'Domänhantering är inte konfigurerat. Sätt RESEND_ADMIN_API_KEY (en Resend-nyckel med Full access) i miljövariablerna.' })
+    return false
+  }
+  return true
+}
+
+/** Namnet före @ i en avsändaradress — samma för alla, oavsett domän. */
+const SENDER_LOCAL_PART = 'faktura'
+
+function fallbackSenderAddress(companyName) {
+  // Om EMAIL_FROM redan är på formen "Namn <adress>" byts bara namndelen ut
+  // mot företagets — annars återanvänds hela EMAIL_FROM oförändrad.
+  const match = /^(.*)<(.+)>$/.exec(emailFrom)
+  if (match && companyName) {
+    return `${companyName} via Bokix <${match[2].trim()}>`
+  }
+  return emailFrom
+}
+
+/** Bugkritiskt (Sida 33): frågar ALLTID Resend live om en domäns status
+ * innan ett utskick — aldrig en cachad flagga (t.ex. `emailDomainStatus`
+ * som bara är en display-hint för Inställningar-sidan) som hunnit bli
+ * inaktuell sedan senaste kontrollen. Faller tyst tillbaka till
+ * systemadressen om domänen saknas, inte är verifierad, eller om själva
+ * statuskontrollen mot Resend misslyckas — ett utskick ska aldrig stoppas
+ * av att avsändaradressen inte gick att avgöra. */
+async function resolveSenderAddress(company) {
+  const fallback = fallbackSenderAddress(company?.name)
+  if (!company?.resendDomainId || !company?.emailDomain || !resendAdminApiKey) {
+    return { from: fallback, usingCustomDomain: false }
+  }
+  try {
+    const domainRes = await fetch(`https://api.resend.com/domains/${company.resendDomainId}`, {
+      headers: { Authorization: `Bearer ${resendAdminApiKey}` },
+    })
+    if (!domainRes.ok) return { from: fallback, usingCustomDomain: false }
+    const domainData = await domainRes.json()
+    if (domainData?.status === 'verified') {
+      return { from: `${company.name} <${SENDER_LOCAL_PART}@${company.emailDomain}>`, usingCustomDomain: true }
+    }
+  } catch (error) {
+    console.error('Resend domain status check failed, falling back:', error)
+  }
+  return { from: fallback, usingCustomDomain: false }
+}
+
+/** Ett enda ställe som faktiskt pratar med Resends /emails-endpoint, så
+ * både förstaförsöket och fallback-återförsöket i send-invoice nedan
+ * garanterat skickar identisk payload förutom `from`. */
+async function sendViaResend(payload) {
+  const resendRes = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${resendApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+  const data = await resendRes.json().catch(() => ({}))
+  return { ok: resendRes.ok, status: resendRes.status, data }
+}
+
 const app = express()
-app.use(express.json())
+// 15mb (inte standard-100kb) eftersom fakturamejl bifogar en PDF som
+// base64-sträng i JSON-kroppen — annars avvisas anrop med en bifogad
+// faktura-PDF över ~70kb (base64 är ~33% större än originalfilen).
+app.use(express.json({ limit: '15mb' }))
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' })
@@ -198,6 +306,129 @@ app.post('/api/stripe/retrieve-account', async (req, res) => {
 app.post('/api/stripe/webhook', express.json(), async (req, res) => {
   console.log('Received Stripe webhook event')
   res.status(200).json({ received: true })
+})
+
+// ── E-post (Resend) ──────────────────────────────────────────────────────
+// Skickar riktiga mejl till kunder — till skillnad från mailto:-länkarna på
+// klienten (som bara öppnar avsändarens eget mailprogram), går de här
+// faktiskt ut från servern via Resend. `attachmentBase64` är valfri: en
+// PDF-bilaga (t.ex. själva fakturan) kodad som base64 utan "data:"-prefix.
+// `company` (valfri: { name, emailDomain, resendDomainId }) avgör
+// avsändaradressen — se resolveSenderAddress ovan.
+app.post('/api/email/send-invoice', async (req, res) => {
+  if (!requireResend(res)) return
+
+  try {
+    const body = req.body || {}
+    const { to, subject, html, replyTo, attachmentBase64, attachmentFilename, company } = body
+
+    if (!to || !subject || !html) {
+      res.status(400).json({ error: 'to, subject och html krävs.' })
+      return
+    }
+
+    const { from } = await resolveSenderAddress(company)
+
+    const basePayload = {
+      to: [to],
+      subject,
+      html,
+      ...(replyTo ? { reply_to: replyTo } : {}),
+      ...(attachmentBase64 ? { attachments: [{ filename: attachmentFilename || 'faktura.pdf', content: attachmentBase64 }] } : {}),
+    }
+
+    let result = await sendViaResend({ ...basePayload, from })
+
+    // Bugkritiskt (Sida 33): om utskicket med kundens egen domän misslyckas
+    // — inte bara om den var overifierad, utan om själva sändningen faller,
+    // t.ex. en domän som blivit overifierad efter statuskontrollen ovan
+    // hann köra — försöker vi automatiskt igen med systemadressen istället
+    // för att låta hela utskicket falla.
+    if (!result.ok && from !== fallbackSenderAddress(company?.name)) {
+      console.warn('Send with custom domain failed, retrying with fallback sender:', result.data)
+      result = await sendViaResend({ ...basePayload, from: fallbackSenderAddress(company?.name) })
+    }
+
+    if (!result.ok) {
+      console.error('Resend API error:', result.data)
+      res.status(result.status).json({ error: result.data?.message || 'Resend kunde inte skicka e-posten.' })
+      return
+    }
+
+    res.status(200).json({ id: result.data.id })
+  } catch (error) {
+    console.error('Email send error:', error)
+    res.status(500).json({ error: error?.message || 'Kunde inte skicka e-post.' })
+  }
+})
+
+// ── E-postdomän per kund (Sida 33, Steg 2) ───────────────────────────────
+// Skapar en domän hos Resend och returnerar DNS-posterna (SPF/DKIM) som
+// kunden ska lägga till hos sin egen domänleverantör. Kräver den privilegierade
+// RESEND_ADMIN_API_KEY (full_access) — sending_access-nycklar kan inte
+// hantera domäner alls.
+app.post('/api/email/domains/create', async (req, res) => {
+  if (!requireResendAdmin(res)) return
+
+  try {
+    const { domain } = req.body || {}
+    if (!domain || typeof domain !== 'string') {
+      res.status(400).json({ error: 'domain krävs.' })
+      return
+    }
+
+    const resendRes = await fetch('https://api.resend.com/domains', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${resendAdminApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ name: domain }),
+    })
+    const data = await resendRes.json().catch(() => ({}))
+
+    if (!resendRes.ok) {
+      console.error('Resend domain create error:', data)
+      res.status(resendRes.status).json({ error: data?.message || 'Kunde inte skapa domänen hos Resend.' })
+      return
+    }
+
+    res.status(200).json({ id: data.id, status: data.status, records: data.records || [] })
+  } catch (error) {
+    console.error('Domain create error:', error)
+    res.status(500).json({ error: error?.message || 'Kunde inte skapa domänen.' })
+  }
+})
+
+// Pollas från Inställningar-sidan (Ej verifierad → Verifierad) OCH är samma
+// live-kontroll resolveSenderAddress gör vid varje utskick — aldrig en
+// cachad flagga, se kommentaren vid resolveSenderAddress ovan.
+app.get('/api/email/domains/status', async (req, res) => {
+  if (!requireResendAdmin(res)) return
+
+  try {
+    const { id } = req.query || {}
+    if (!id) {
+      res.status(400).json({ error: 'id krävs.' })
+      return
+    }
+
+    const resendRes = await fetch(`https://api.resend.com/domains/${id}`, {
+      headers: { Authorization: `Bearer ${resendAdminApiKey}` },
+    })
+    const data = await resendRes.json().catch(() => ({}))
+
+    if (!resendRes.ok) {
+      console.error('Resend domain status error:', data)
+      res.status(resendRes.status).json({ error: data?.message || 'Kunde inte hämta domänstatus.' })
+      return
+    }
+
+    res.status(200).json({ status: data.status, records: data.records || [] })
+  } catch (error) {
+    console.error('Domain status error:', error)
+    res.status(500).json({ error: error?.message || 'Kunde inte hämta domänstatus.' })
+  }
 })
 
 // ── Klassiskt Stripe Connect OAuth ("Standard"-konton) ──────────────────

@@ -40,6 +40,7 @@ import {
 } from 'lucide-react';
 import { DEFAULT_ACCOUNTS, VAT_ACCOUNTS, REVENUE_ACCOUNTS } from './components/AccountsData';
 import { createStripeCheckoutSession } from './stripeApi';
+import { createEmailDomain, getEmailDomainStatus } from './emailApi';
 import { getDebet, getKredit } from './utils/verificationAmounts';
 
 // ── Bokix Logo Component (light sidebar) ──
@@ -119,6 +120,15 @@ function createEmptyCompanyData(companyInfo) {
       iban: '',
       bic: '',
       stripeAccountId: '',
+      // ── E-postavsändare (Sida 33) ── Företagets egen domän för utgående
+      // fakturor/kvitton/notiser via Resend. `emailDomainStatus` är BARA en
+      // display-cache för Inställningar-sidan — själva utskicket litar
+      // aldrig på den (se resolveSenderAddress i api/email/*), den frågar
+      // alltid Resend live innan varje utskick.
+      emailDomain: '',
+      resendDomainId: '',
+      emailDomainStatus: '', // '' | 'pending' | 'verified' | 'failed'
+      emailDomainRecords: [],
       defaultVat: 25,
       fiscalYear: `${new Date().getFullYear()}-01-01`,
       vatPeriod: 'quarterly',
@@ -877,6 +887,41 @@ function App() {
     }
   };
 
+  // ── E-postavsändare (Sida 33, Steg 2) ──────────────────────────────────
+  // Kastar vidare vid fel istället för att larma här — Settings.jsx äger
+  // sin egen busy/fel-state runt dessa anrop så den kan visa felet inline
+  // bredvid domänfältet, inte som en global alert().
+  const handleConnectEmailDomain = async (domain) => {
+    const result = await createEmailDomain(domain);
+    setCompanyInfo({
+      ...company,
+      emailDomain: domain,
+      resendDomainId: result.id,
+      emailDomainStatus: result.status || 'pending',
+      emailDomainRecords: result.records || [],
+    });
+    return result;
+  };
+
+  // Samma live-koll som servern gör vid varje utskick (se resolveSenderAddress
+  // i server.js/api/email/*) — `emailDomainStatus` som sparas här är bara en
+  // display-cache för sidan, aldrig det utskicket självt litar på.
+  const handleCheckEmailDomainStatus = async () => {
+    if (!company.resendDomainId) return null;
+    const result = await getEmailDomainStatus(company.resendDomainId);
+    setCompanyInfo({
+      ...company,
+      emailDomainStatus: result.status || company.emailDomainStatus,
+      emailDomainRecords: result.records?.length ? result.records : company.emailDomainRecords,
+    });
+    return result;
+  };
+
+  const handleDisconnectEmailDomain = () => {
+    if (!window.confirm('Koppla från den här avsändardomänen? Fakturor skickas via Bokix reservadress igen tills en ny domän kopplas och verifieras.')) return;
+    setCompanyInfo({ ...company, emailDomain: '', resendDomainId: '', emailDomainStatus: '', emailDomainRecords: [] });
+  };
+
   const handleCreateInvoicePaymentLink = async (invoiceId) => {
     const invoice = invoices.find(i => i.id === invoiceId);
     if (!invoice) {
@@ -1499,6 +1544,7 @@ function App() {
             setTimeEntries={setBillableTimeEntries}
             contacts={contacts}
             employees={employees}
+            projects={projects}
             user={user}
             globalAction={globalAction}
             clearGlobalAction={() => setGlobalAction(null)}
@@ -1733,6 +1779,9 @@ function App() {
             stripeAccountId={company.stripeAccountId}
             onConnectStripe={handleOpenStripeOnboarding}
             onDisconnectStripe={handleDisconnectStripe}
+            onConnectEmailDomain={handleConnectEmailDomain}
+            onCheckEmailDomainStatus={handleCheckEmailDomainStatus}
+            onDisconnectEmailDomain={handleDisconnectEmailDomain}
             user={user}
           />
         );

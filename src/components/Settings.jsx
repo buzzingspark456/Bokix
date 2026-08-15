@@ -551,12 +551,16 @@ function InvoiceTemplateSection({ company, setCompanyInfo, user }) {
 
 export default function Settings({
   company = {}, setCompanyInfo, accounts = [], verifications = [], invoices = [], expenses = [],
-  contacts = [], projects = [], onImport, onReset, stripeAccountId, onConnectStripe, onDisconnectStripe, user,
+  contacts = [], projects = [], onImport, onReset, stripeAccountId, onConnectStripe, onDisconnectStripe,
+  onConnectEmailDomain, onCheckEmailDomainStatus, onDisconnectEmailDomain, user,
 }) {
   const [activeTab, setActiveTab] = useState('profile');
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [importBusy, setImportBusy] = useState(false);
   const [importMsg, setImportMsg] = useState('');
+  const [emailDomainInput, setEmailDomainInput] = useState('');
+  const [emailDomainBusy, setEmailDomainBusy] = useState(false);
+  const [emailDomainError, setEmailDomainError] = useState('');
   const [nextInvoiceNumberInput, setNextInvoiceNumberInput] = useState('');
   const [invoiceNumberError, setInvoiceNumberError] = useState('');
 
@@ -614,6 +618,32 @@ export default function Settings({
     }
     setInvoiceNumberError('');
     setCompanyInfo({ ...company, nextInvoiceNumber: n });
+  };
+
+  // ── E-postavsändare (Sida 33, Steg 2) ──────────────────────────────────
+  const handleConnectDomainClick = async () => {
+    const domain = emailDomainInput.trim().toLowerCase();
+    if (!domain) { setEmailDomainError('Ange en domän, t.ex. nordstromkonsult.se.'); return; }
+    setEmailDomainBusy(true); setEmailDomainError('');
+    try {
+      await onConnectEmailDomain(domain);
+      setEmailDomainInput('');
+    } catch (error) {
+      setEmailDomainError(error.message || 'Kunde inte koppla domänen.');
+    } finally {
+      setEmailDomainBusy(false);
+    }
+  };
+
+  const handleCheckDomainStatusClick = async () => {
+    setEmailDomainBusy(true); setEmailDomainError('');
+    try {
+      await onCheckEmailDomainStatus();
+    } catch (error) {
+      setEmailDomainError(error.message || 'Kunde inte hämta domänstatus.');
+    } finally {
+      setEmailDomainBusy(false);
+    }
   };
 
   const handleExport = () => {
@@ -853,6 +883,90 @@ export default function Settings({
                     ? <button onClick={onDisconnectStripe} style={btnGhost}>Koppla från</button>
                     : <button onClick={onConnectStripe} style={btnPrimary}>Anslut Stripe</button>}
                 </div>
+              </div>
+
+              {/* E-postavsändare (Sida 33) — egen domän för utgående fakturor/kvitton/
+                  notiser, istället för en generisk Bokix-adress. Så länge domänen inte
+                  är verifierad skickas allt via Bokix reservadress (se Inställningar-
+                  texten nedan) — aldrig tyst, alltid synligt vilket läge man är i. */}
+              <div style={card}>
+                <div style={{ marginBottom: '14px' }}>
+                  <SectionHeading icon={Mail} tone={company?.emailDomainStatus === 'verified' ? 'green' : (company?.emailDomain ? 'amber' : 'gray')}>
+                    E-postavsändare
+                  </SectionHeading>
+                </div>
+
+                {!company?.emailDomain ? (
+                  <>
+                    <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 14px', maxWidth: '520px' }}>
+                      Skicka fakturor och kvitton från din egen domän (t.ex. <code>faktura@{company?.name ? company.name.toLowerCase().replace(/[^a-z0-9]+/g, '') : 'dittforetag'}.se</code>) istället för en delad Bokix-adress. Utan detta skickas mejl via Bokix reservadress.
+                    </p>
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <input
+                        type="text" value={emailDomainInput} onChange={e => { setEmailDomainInput(e.target.value); setEmailDomainError(''); }}
+                        placeholder="dittforetag.se" style={{ ...inputBase, width: '240px' }}
+                        onFocus={e => e.target.style.borderColor = BRAND.green}
+                        onBlur={e => e.target.style.borderColor = '#d1d5db'}
+                      />
+                      <button onClick={handleConnectDomainClick} disabled={emailDomainBusy} style={{ ...btnPrimary, opacity: emailDomainBusy ? 0.6 : 1, cursor: emailDomainBusy ? 'not-allowed' : 'pointer' }}>
+                        {emailDomainBusy ? 'Kopplar...' : 'Anslut domän'}
+                      </button>
+                    </div>
+                    {emailDomainError && <div style={{ color: '#b91c1c', fontSize: '12.5px', marginTop: '8px', fontWeight: 600 }}>{emailDomainError}</div>}
+                  </>
+                ) : (
+                  <>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '14px', flexWrap: 'wrap', marginBottom: '14px' }}>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: '14px', color: '#111' }}>{company.emailDomain}</div>
+                        <div style={{ fontSize: '12.5px', color: '#6b7280', marginTop: '2px' }}>
+                          {company.emailDomainStatus === 'verified'
+                            ? `Fakturor skickas från faktura@${company.emailDomain}`
+                            : `Reservläge just nu — fakturor skickas via Bokix egen adress tills domänen är verifierad`}
+                        </div>
+                      </div>
+                      <Badge tone={company.emailDomainStatus === 'verified' ? 'positive' : 'warning'}>
+                        {company.emailDomainStatus === 'verified' ? 'Verifierad' : 'Ej verifierad'}
+                      </Badge>
+                    </div>
+
+                    {company.emailDomainStatus !== 'verified' && company?.emailDomainRecords?.length > 0 && (
+                      <div style={{ marginBottom: '14px', maxWidth: '672px' }}>
+                        <p style={{ fontSize: '12.5px', color: '#6b7280', margin: '0 0 10px' }}>
+                          Lägg till dessa DNS-poster hos din domänleverantör, samma sätt som för bokix.se:
+                        </p>
+                        <div style={{ overflowX: 'auto', border: '1px solid #e4e4e7', borderRadius: '8px' }}>
+                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12.5px' }}>
+                            <thead>
+                              <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e4e4e7' }}>
+                                <th style={{ padding: '8px 10px', textAlign: 'left', color: '#6b7280', fontWeight: 600 }}>Typ</th>
+                                <th style={{ padding: '8px 10px', textAlign: 'left', color: '#6b7280', fontWeight: 600 }}>Namn</th>
+                                <th style={{ padding: '8px 10px', textAlign: 'left', color: '#6b7280', fontWeight: 600 }}>Värde</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {company.emailDomainRecords.map((r, i) => (
+                                <tr key={i} style={{ borderBottom: i < company.emailDomainRecords.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
+                                  <td style={{ padding: '8px 10px', fontWeight: 700, color: '#111' }}>{r.type || r.record}</td>
+                                  <td style={{ padding: '8px 10px', color: '#374151', fontFamily: 'monospace' }}>{r.name}</td>
+                                  <td style={{ padding: '8px 10px', color: '#374151', fontFamily: 'monospace', wordBreak: 'break-all' }}>{r.value}{r.priority != null ? ` (prio ${r.priority})` : ''}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                      <button onClick={handleCheckDomainStatusClick} disabled={emailDomainBusy} style={{ ...btnSecondary, opacity: emailDomainBusy ? 0.6 : 1, cursor: emailDomainBusy ? 'not-allowed' : 'pointer' }}>
+                        {emailDomainBusy ? 'Kontrollerar...' : 'Kontrollera status'}
+                      </button>
+                      <button onClick={onDisconnectEmailDomain} style={btnGhost}>Koppla från</button>
+                    </div>
+                    {emailDomainError && <div style={{ color: '#b91c1c', fontSize: '12.5px', marginTop: '8px', fontWeight: 600 }}>{emailDomainError}</div>}
+                  </>
+                )}
               </div>
 
               <div style={card}>
