@@ -154,11 +154,12 @@ function AutoField({ label, type = 'text', value, onChange, hint, required, plac
 }
 
 // ── Bilduppladdning (profilbild / logotyp) ──
-// Riktig uppladdning till Supabase Storage (bucket "bokix-uploads", se
-// supabase-setup.sql) — inte en bildlänk att klistra in. Bucketen måste
-// skapas i Supabase-projektet en gång (SQL-filen gör det); tills dess
-// visas ett tydligt, ärligt felmeddelande istället för att låtsas lyckas.
-function ImageUploadField({ label, value, onChange, uploadPath, hint }) {
+// Riktig uppladdning till Supabase Storage — inte en bildlänk att klistra
+// in. Två separata buckets (se supabase-setup.sql): "profile" för
+// profilbilder, "companylogo" för företagslogotyper. Buckets måste skapas i
+// Supabase-projektet en gång; tills dess visas ett tydligt, ärligt
+// felmeddelande istället för att låtsas lyckas.
+function ImageUploadField({ label, value, onChange, uploadPath, bucket, hint }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const inputRef = useRef(null);
@@ -172,13 +173,13 @@ function ImageUploadField({ label, value, onChange, uploadPath, hint }) {
     try {
       const ext = (file.name.split('.').pop() || 'png').toLowerCase();
       const path = `${uploadPath}.${ext}`;
-      const { error: upErr } = await supabase.storage.from('bokix-uploads').upload(path, file, { upsert: true, cacheControl: '3600' });
+      const { error: upErr } = await supabase.storage.from(bucket).upload(path, file, { upsert: true, cacheControl: '3600' });
       if (upErr) throw upErr;
-      const { data } = supabase.storage.from('bokix-uploads').getPublicUrl(path);
+      const { data } = supabase.storage.from(bucket).getPublicUrl(path);
       onChange(`${data.publicUrl}?v=${Date.now()}`); // cache-bust så en ny bild syns direkt, inte den gamla från webbläsarcachen
     } catch (err) {
       const notConfigured = /bucket not found/i.test(err.message || '');
-      setError(notConfigured ? 'Bildlagring är inte konfigurerad i Supabase-projektet ännu (kör storage-delen av supabase-setup.sql).' : (err.message || 'Uppladdningen misslyckades.'));
+      setError(notConfigured ? `Bildlagring är inte konfigurerad ännu (bucket "${bucket}" saknas — kör storage-delen av supabase-setup.sql).` : (err.message || 'Uppladdningen misslyckades.'));
     } finally {
       setBusy(false);
       if (inputRef.current) inputRef.current.value = '';
@@ -511,7 +512,7 @@ function InvoiceTemplateSection({ company, setCompanyInfo, user }) {
         <div style={{ display: 'flex', gap: '28px', flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: '260px', maxWidth: '380px' }}>
             <div style={{ marginBottom: '18px' }}>
-              <ImageUploadField label="Logotyp" value={company?.logoUrl || ''} onChange={(v) => setCompanyInfo({ ...company, logoUrl: v })} uploadPath={`${user?.id}/logo-${company?.id}`} hint="JPG eller PNG, max 3 MB." />
+              <ImageUploadField label="Logotyp" value={company?.logoUrl || ''} onChange={(v) => setCompanyInfo({ ...company, logoUrl: v })} uploadPath={`${user?.id}/logo-${company?.id}`} bucket="companylogo" hint="JPG eller PNG, max 3 MB." />
             </div>
 
             <div style={{ marginBottom: '18px' }}>
@@ -753,7 +754,7 @@ export default function Settings({
                     </div>
                   )}
                   <div style={{ flex: 1, maxWidth: '380px' }}>
-                    <ImageUploadField label="Profilbild" value={avatarUrl} onChange={(v) => updateUserMeta({ avatar_url: v })} uploadPath={`${user?.id}/avatar`} hint="JPG, PNG eller liknande, max 3 MB." />
+                    <ImageUploadField label="Profilbild" value={avatarUrl} onChange={(v) => updateUserMeta({ avatar_url: v })} uploadPath={`${user?.id}/avatar`} bucket="profile" hint="JPG, PNG eller liknande, max 3 MB." />
                   </div>
                 </div>
 
@@ -814,7 +815,7 @@ export default function Settings({
                 <div style={{ marginBottom: '16px' }}><SectionHeading icon={ImageIcon} tone="green">Logotyp</SectionHeading></div>
                 <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
                   <div style={{ flex: 1, minWidth: '260px', maxWidth: '440px' }}>
-                    <ImageUploadField label="Logotyp" value={company?.logoUrl || ''} onChange={(v) => setCompanyInfo({ ...company, logoUrl: v })} uploadPath={`${user?.id}/logo-${company?.id}`} hint="Används överst på dina utgående fakturor. Max 3 MB." />
+                    <ImageUploadField label="Logotyp" value={company?.logoUrl || ''} onChange={(v) => setCompanyInfo({ ...company, logoUrl: v })} uploadPath={`${user?.id}/logo-${company?.id}`} bucket="companylogo" hint="Används överst på dina utgående fakturor. Max 3 MB." />
                   </div>
                   <div style={{ width: '200px', padding: '16px', border: '1px solid #e4e4e7', borderRadius: '8px', background: '#f9fafb' }}>
                     <div style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '8px', textTransform: 'uppercase' }}>Förhandsvisning faktura</div>

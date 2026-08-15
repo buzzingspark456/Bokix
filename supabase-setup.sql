@@ -109,30 +109,80 @@ GRANT EXECUTE ON FUNCTION public.set_company_stripe_account(uuid, text, text) TO
 -- ═══════════════════════════════════════════════════════════
 -- Storage: profilbilder och företagslogotyper (Inställningar)
 -- ═══════════════════════════════════════════════════════════
--- En bucket för de bilder användare laddar upp under Inställningar
--- (profilbild i "Min profil", logotyp i "Företag"). Publik läsning så att
--- bilderna kan visas direkt i <img>-taggar och på fakturor utan signerade
--- URL:er — precis som avatar_url/logoUrl redan lagras som vanliga
--- textfält i övrigt. Skrivning/radering är begränsad till ägaren: varje
--- fils sökväg måste börja med den inloggade användarens auth.uid() som
--- första mapp-segment (t.ex. "<uid>/avatar.png"), så en användare kan
--- aldrig skriva över en annan användares filer.
-INSERT INTO storage.buckets (id, name, public)
-VALUES ('bokix-uploads', 'bokix-uploads', true)
+-- Två separata buckets — "profile" (profilbild i "Min profil") och
+-- "companylogo" (logotyp i "Företag") — istället för en delad bucket med
+-- mapp-prefix, ett medvetet val för tydligare separation mellan de två
+-- bildtyperna. Publik läsning så att bilderna kan visas direkt i
+-- <img>-taggar och på fakturor utan signerade URL:er — precis som
+-- avatar_url/logoUrl redan lagras som vanliga textfält i övrigt.
+-- Skrivning/radering är begränsad till ägaren: varje fils sökväg måste
+-- börja med den inloggade användarens auth.uid() som första mapp-segment
+-- (t.ex. "<uid>/avatar.png"), så en användare aldrig kan skriva över en
+-- annan användares filer.
+--
+-- OBS: en tidigare version av det här projektet använde en enda delad
+-- bucket "bokix-uploads" med mapp-prefix istället för två separata
+-- buckets — den bucketen kan fortfarande finnas kvar i projektet men
+-- koden (Settings.jsx) pekar inte längre mot den.
+INSERT INTO storage.buckets (id, name, public, file_size_limit)
+VALUES ('profile', 'profile', true, 3145728)
 ON CONFLICT (id) DO NOTHING;
 
-CREATE POLICY "Publik läsning av bokix-uploads"
+INSERT INTO storage.buckets (id, name, public, file_size_limit)
+VALUES ('companylogo', 'companylogo', true, 3145728)
+ON CONFLICT (id) DO NOTHING;
+
+-- DROP + CREATE (inte bara CREATE) på varje policy — annars kraschar en
+-- andra körning av den här filen på "policy already exists" på den
+-- FÖRSTA policyn, vilket beroende på hur den kördes (t.ex. hela filen
+-- inklistrad som en enda batch i SQL Editor) kan rulla tillbaka HELA
+-- resten av batchen och tyst lämna övriga policyer nedan aldrig
+-- skapade — det var den faktiska, verifierade orsaken till att
+-- uppladdning gav "new row violates row-level security policy" trots en
+-- korrekt inloggad användare som skrev till sin egen mapp, i den
+-- tidigare enda-bucket-varianten av den här filen.
+DROP POLICY IF EXISTS "Publik läsning av profile" ON storage.objects;
+CREATE POLICY "Publik läsning av profile"
 ON storage.objects FOR SELECT
-USING (bucket_id = 'bokix-uploads');
+USING (bucket_id = 'profile');
 
-CREATE POLICY "Egen uppladdning i bokix-uploads"
-ON storage.objects FOR INSERT
-WITH CHECK (bucket_id = 'bokix-uploads' AND (storage.foldername(name))[1] = auth.uid()::text);
+DROP POLICY IF EXISTS "Egen uppladdning i profile" ON storage.objects;
+CREATE POLICY "Egen uppladdning i profile"
+ON storage.objects FOR INSERT TO authenticated
+WITH CHECK (bucket_id = 'profile' AND (storage.foldername(name))[1] = (SELECT auth.uid()::text));
 
-CREATE POLICY "Egen uppdatering i bokix-uploads"
-ON storage.objects FOR UPDATE
-USING (bucket_id = 'bokix-uploads' AND (storage.foldername(name))[1] = auth.uid()::text);
+-- WITH CHECK upprepar samma villkor som USING här — inte strikt
+-- nödvändigt (Postgres återanvänder USING som WITH CHECK automatiskt när
+-- den senare utelämnas för en UPDATE-policy), men uttryckt explicit
+-- istället för att förlita sig på det implicita förvalet.
+DROP POLICY IF EXISTS "Egen uppdatering i profile" ON storage.objects;
+CREATE POLICY "Egen uppdatering i profile"
+ON storage.objects FOR UPDATE TO authenticated
+USING (bucket_id = 'profile' AND (storage.foldername(name))[1] = (SELECT auth.uid()::text))
+WITH CHECK (bucket_id = 'profile' AND (storage.foldername(name))[1] = (SELECT auth.uid()::text));
 
-CREATE POLICY "Egen radering i bokix-uploads"
-ON storage.objects FOR DELETE
-USING (bucket_id = 'bokix-uploads' AND (storage.foldername(name))[1] = auth.uid()::text);
+DROP POLICY IF EXISTS "Egen radering i profile" ON storage.objects;
+CREATE POLICY "Egen radering i profile"
+ON storage.objects FOR DELETE TO authenticated
+USING (bucket_id = 'profile' AND (storage.foldername(name))[1] = (SELECT auth.uid()::text));
+
+DROP POLICY IF EXISTS "Publik läsning av companylogo" ON storage.objects;
+CREATE POLICY "Publik läsning av companylogo"
+ON storage.objects FOR SELECT
+USING (bucket_id = 'companylogo');
+
+DROP POLICY IF EXISTS "Egen uppladdning i companylogo" ON storage.objects;
+CREATE POLICY "Egen uppladdning i companylogo"
+ON storage.objects FOR INSERT TO authenticated
+WITH CHECK (bucket_id = 'companylogo' AND (storage.foldername(name))[1] = (SELECT auth.uid()::text));
+
+DROP POLICY IF EXISTS "Egen uppdatering i companylogo" ON storage.objects;
+CREATE POLICY "Egen uppdatering i companylogo"
+ON storage.objects FOR UPDATE TO authenticated
+USING (bucket_id = 'companylogo' AND (storage.foldername(name))[1] = (SELECT auth.uid()::text))
+WITH CHECK (bucket_id = 'companylogo' AND (storage.foldername(name))[1] = (SELECT auth.uid()::text));
+
+DROP POLICY IF EXISTS "Egen radering i companylogo" ON storage.objects;
+CREATE POLICY "Egen radering i companylogo"
+ON storage.objects FOR DELETE TO authenticated
+USING (bucket_id = 'companylogo' AND (storage.foldername(name))[1] = (SELECT auth.uid()::text));
