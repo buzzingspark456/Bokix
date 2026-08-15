@@ -922,23 +922,23 @@ function App() {
     setCompanyInfo({ ...company, emailDomain: '', resendDomainId: '', emailDomainStatus: '', emailDomainRecords: [] });
   };
 
-  const handleCreateInvoicePaymentLink = async (invoiceId) => {
+  // Bygger Checkout-radrar och skapar en Stripe-betalningssession, returnerar
+  // bara URL:en — kastar (istället för att larma med alert) så anroparen
+  // själv avgör hur ett fel ska visas. Delad av två helt olika flöden:
+  // dels "skapa betalningslänk"-ikonen i fakturalistan (som sedan navigerar
+  // dit, se handleCreateInvoicePaymentLink), dels e-postutskicket
+  // (Invoices.jsx handleSendEmail), som lägger länken i mejlet till kunden
+  // istället för att lämna appen — att navigera avsändarens egen webbläsare
+  // till Stripes kassasida vore fel där, det är ju inte avsändaren som ska
+  // betala.
+  const getInvoicePaymentLinkUrl = async (invoiceId) => {
     const invoice = invoices.find(i => i.id === invoiceId);
-    if (!invoice) {
-      alert('Fakturan kunde inte hittas.');
-      return;
-    }
-    if (!company.stripeAccountId) {
-      alert('Anslut Stripe för att kunna skapa betalningslänkar.');
-      return;
-    }
+    if (!invoice) throw new Error('Fakturan kunde inte hittas.');
+    if (!company.stripeAccountId) throw new Error('Stripe är inte anslutet.');
 
     const customer = contacts.find(c => c.id === invoice.customerId);
     const customerEmail = customer?.email || company.email;
-    if (!customerEmail) {
-      alert('Kundens e-postadress saknas. Lägg till e-post i kundkortet.');
-      return;
-    }
+    if (!customerEmail) throw new Error('Kundens e-postadress saknas.');
 
     const line_items = invoice.rows
       .filter(r => r.description && r.unitPrice > 0)
@@ -951,29 +951,27 @@ function App() {
         quantity: Math.max(1, Math.round(r.qty || 1)),
       }));
 
-    if (line_items.length === 0) {
-      alert('Fakturan saknar giltiga rader.');
-      return;
-    }
+    if (line_items.length === 0) throw new Error('Fakturan saknar giltiga rader.');
 
     const totalGross = line_items.reduce((sum, item) => sum + item.price_data.unit_amount * item.quantity, 0);
     const applicationFeeAmount = Math.round(totalGross * (platformFeePercent / 100));
 
+    const { session } = await createStripeCheckoutSession({
+      stripe_account_id: company.stripeAccountId,
+      customer_email: customerEmail,
+      application_fee_amount: applicationFeeAmount,
+      line_items,
+    });
+
+    if (!session?.url) throw new Error('Betalningslänk skapad, men ingen länk mottogs.');
+    return session.url;
+  };
+
+  const handleCreateInvoicePaymentLink = async (invoiceId) => {
     try {
-      const { session } = await createStripeCheckoutSession({
-        stripe_account_id: company.stripeAccountId,
-        customer_email: customerEmail,
-        application_fee_amount: applicationFeeAmount,
-        line_items,
-      });
-
+      const url = await getInvoicePaymentLinkUrl(invoiceId);
       setInvoices(prev => prev.map(i => i.id === invoiceId ? { ...i, status: 'sent' } : i));
-
-      if (session?.url) {
-        window.location.href = session.url;
-      } else {
-        alert('Betalningslänk skapad, men ingen länk mottogs.');
-      }
+      window.location.href = url;
     } catch (error) {
       console.error(error);
       alert(`Kunde inte skapa betalningslänk: ${error.message || error}`);
@@ -1609,6 +1607,7 @@ function App() {
             onMarkSupplierInvoicePaid={handleMarkSupplierInvoicePaid}
             handleGlobalAction={handleGlobalAction}
             onCreatePaymentLink={handleCreateInvoicePaymentLink}
+            onGetPaymentLinkUrl={getInvoicePaymentLinkUrl}
             stripeAccountId={company.stripeAccountId}
             setInvoices={setInvoices}
             company={company}

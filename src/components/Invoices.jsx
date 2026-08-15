@@ -91,7 +91,7 @@ const lbl = { display: 'block', fontSize: '11px', color: '#666', marginBottom: '
 const cell = (w) => ({ display: 'inline-block', width: w, verticalAlign: 'top', paddingRight: '8px', boxSizing: 'border-box' });
 
 // ─── Invoice Full Form (Fortnox-inspired) ──────────────────────────────────────
-function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, invoiceList, onCreateCreditNote, onMarkPaid, onRegisterPayment, onUnmarkPaid, onUpdateNote, verifications = [], nav }) {
+function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, invoiceList, onCreateCreditNote, onMarkPaid, onRegisterPayment, onUnmarkPaid, onUpdateNote, verifications = [], nav, onGetPaymentLinkUrl }) {
   // En bokförd faktura (allt utom utkast) får inte längre ändra belopp/rader/kund —
   // korrigeringar sker via kreditfaktura. Datum och kommentar går fortfarande att ändra.
   const isLocked = Boolean(initial) && (initial.status || 'draft') !== 'draft';
@@ -239,9 +239,27 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
       await new Promise(r => setTimeout(r, 50));
       const attachmentBase64 = await getInvoicePdfBase64(previewRef.current);
 
+      // Om Stripe är anslutet, lägg in en riktig betalningslänk i mejlet så
+      // kunden kan betala direkt — best effort: misslyckas länken (t.ex.
+      // ogiltiga rader) skickas fakturan ändå, bara utan knappen, istället
+      // för att hela utskicket stoppas av ett Stripe-fel.
+      let paymentLinkUrl = null;
+      if (company?.stripeAccountId && onGetPaymentLinkUrl && initial?.id) {
+        try {
+          paymentLinkUrl = await onGetPaymentLinkUrl(initial.id);
+        } catch (linkErr) {
+          console.warn('Kunde inte skapa betalningslänk till mejlet, skickar utan:', linkErr);
+        }
+      }
+
       const html = `
         <p>Hej${customer?.contactPerson ? ' ' + customer.contactPerson : ''},</p>
         <p>Bifogat finner du faktura <strong>${nextNum}</strong> på <strong>${fmt(totals.total)} kr</strong>, med förfallodatum ${formatDate(dueDate)}.</p>
+        ${paymentLinkUrl ? `
+        <p style="margin: 20px 0;">
+          <a href="${paymentLinkUrl}" style="display:inline-block;padding:12px 26px;background:#3d7a2e;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600;">Betala nu</a>
+        </p>
+        ` : ''}
         <p>Hör av dig om du har några frågor.</p>
         <p>Med vänlig hälsning<br/>${company?.name || ''}</p>
       `;
@@ -1152,7 +1170,7 @@ function SupplierInvoicesPanel({ expenses, contacts, onMarkPaid, onOpenFull, onC
   );
 }
 
-export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegisterPayment, onUnmarkPaid, setInvoices, company, globalAction, clearGlobalAction, onNavigate, verifications = [], expenses = [], onMarkSupplierInvoicePaid, handleGlobalAction, onCreatePaymentLink }) {
+export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegisterPayment, onUnmarkPaid, setInvoices, company, globalAction, clearGlobalAction, onNavigate, verifications = [], expenses = [], onMarkSupplierInvoicePaid, handleGlobalAction, onCreatePaymentLink, onGetPaymentLinkUrl }) {
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Två klart avgränsade sektioner, inte en klämd sida-vid-sida-vy — varje
@@ -1490,6 +1508,7 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
         verifications={verifications}
         invoiceList={invoiceList}
         nav={nav}
+        onGetPaymentLinkUrl={onGetPaymentLinkUrl}
         onClose={closeForm}
       />
     );
