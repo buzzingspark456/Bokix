@@ -4,7 +4,7 @@ import {
   Plus, X, Send, Check, FileText, FileSpreadsheet,
   Search, ChevronRight, ChevronLeft, ChevronDown, ChevronUp,
   MoreVertical, RefreshCw, Printer, Eye, CreditCard, Link2,
-  MessageSquare, Tag, Lock, Settings2, Download, AlertTriangle, Inbox
+  MessageSquare, Tag, Lock, Settings2, Download, AlertTriangle, Inbox, Trash2
 } from 'lucide-react';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import InvoiceDocument, { DEFAULT_INVOICE_TEMPLATE, INVOICE_TEMPLATES } from './InvoiceDocument';
@@ -1354,6 +1354,17 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
     });
   };
 
+  // Bara utkast (aldrig bokförda) kan tas bort — samma princip som
+  // isLocked i InvoiceForm: en faktura som är skickad/bokförd har en
+  // riktig verifikation och ett fakturanummer som redan kan vara känt
+  // hos kunden, den korrigeras med en kreditfaktura, den raderas inte.
+  // Ett utkast har ingen sådan koppling än, så det går att bara ta bort.
+  const handleDeleteInvoice = (inv, e) => {
+    e?.stopPropagation();
+    if (!window.confirm(`Ta bort utkastet ${inv.invoiceNumber}? Det går inte att ångra.`)) return;
+    setInvoices(prev => prev.filter(i => i.id !== inv.id));
+  };
+
   // En tabellrad — bruten ut till en egen funktion eftersom den nu renderas
   // en gång per statussektion istället för i en enda blandad tabell.
   const renderInvoiceRow = (inv) => {
@@ -1445,6 +1456,15 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
                   <Link2 size={14} />
                 </span>
               )
+            )}
+            {status === 'draft' && (
+              <button
+                onClick={e => handleDeleteInvoice(inv, e)}
+                title={`Ta bort utkastet ${inv.invoiceNumber}`}
+                style={{ color: '#b91c1c', background: 'none', border: 'none', display: 'inline-flex', padding: '2px', cursor: 'pointer' }}
+              >
+                <Trash2 size={14} />
+              </button>
             )}
           </div>
         </td>
