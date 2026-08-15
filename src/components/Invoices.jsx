@@ -123,6 +123,19 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
   const [showMoreOptions, setShowMoreOptions] = useState(false);
 
   const previewRef = useRef(null);
+  // Egen, alltid monterad kopia av InvoiceDocument, gömd off-screen med
+  // fast bredd (794px ≈ .a4-paper:s riktiga 210mm) — PDF-export/mejl fångar
+  // ALLTID denna istället för den synliga förhandsgranskningen. Den synliga
+  // modalen kan vara smalare än 210mm (litet fönster, eller mitt i sin
+  // öppningsanimation när "Skicka via e-post" trycks direkt) — html2canvas
+  // fångar då den FAKTISKT smalare layouten, som sedan skalas upp till en
+  // riktig A4-bredd av jsPDF och blir orimligt hög i förhållande till sitt
+  // innehåll (satte hela fakturan proportionellt "sträckt", texten hamnade
+  // fel, sidbrytningen skar av mitt i en rad och lämnade en tom sista sida).
+  // Bugkritiskt: en fast bredd oberoende av webbläsarfönstret eliminerar
+  // detta helt, istället för att jaga exakt timing på när modalen hunnit
+  // lägga ut sig korrekt.
+  const captureRef = useRef(null);
   const [pdfBusy, setPdfBusy] = useState(false);
   const [pdfError, setPdfError] = useState('');
 
@@ -213,10 +226,7 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
   const handleDownloadPdf = async () => {
     setPdfBusy(true); setPdfError('');
     try {
-      if (!showPreview) setShowPreview(true);
-      // Vänta en tick så förhandsgranskningen hinner monteras innan vi fångar den.
-      await new Promise(r => setTimeout(r, 50));
-      await exportInvoicePdf(previewRef.current, `faktura-${nextNum}.pdf`);
+      await exportInvoicePdf(captureRef.current, `faktura-${nextNum}.pdf`);
     } catch (err) {
       console.error(err);
       setPdfError('Kunde inte skapa PDF. Försök igen.');
@@ -235,9 +245,7 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
     if (!/^\S+@\S+\.\S+$/.test(to)) { setEmailError('Det där ser inte ut som en giltig e-postadress.'); return; }
     setEmailBusy(true); setEmailError(''); setEmailSent(false);
     try {
-      if (!showPreview) setShowPreview(true);
-      await new Promise(r => setTimeout(r, 50));
-      const attachmentBase64 = await getInvoicePdfBase64(previewRef.current);
+      const attachmentBase64 = await getInvoicePdfBase64(captureRef.current);
 
       // Om Stripe är anslutet, lägg in en riktig betalningslänk i mejlet så
       // kunden kan betala direkt — best effort: misslyckas länken (t.ex.
@@ -976,6 +984,25 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
           </div>
         </div>
       )}
+
+      {/* Osynlig, alltid monterad — se kommentaren vid captureRef ovan för
+          varför PDF/mejl fångar DENNA istället för förhandsgranskningen. */}
+      <div style={{ position: 'fixed', top: 0, left: '-9999px', width: '794px', pointerEvents: 'none' }} aria-hidden="true">
+        <InvoiceDocument
+          ref={captureRef}
+          invoice={{ invoiceNumber: nextNum, date: invoiceDate, dueDate, terms }}
+          customer={customer}
+          company={company}
+          rows={rows}
+          totals={totals}
+          currency={currency}
+          invoiceText={invoiceText}
+          template={invoiceTemplateSnapshot.templateId}
+          accentColor={invoiceTemplateSnapshot.accentColor}
+          logoUrl={invoiceTemplateSnapshot.logoUrl}
+          footerText={invoiceTemplateSnapshot.footerText}
+        />
+      </div>
     </div>
   );
 }

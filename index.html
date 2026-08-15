@@ -6,6 +6,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Bokix - Ett modernt, enkelt och kraftfullt bokföringsprogram för småföretagare och enskilda firmor." />
     <title>Bokix - Smart & Enkel Bokföring online</title>
+    <!-- Google Fonts som en riktig <link> med crossorigin, INTE ett @import
+         i index.css — ett cross-origin @import gör att html2canvas (faktura-
+         PDF/mejl-export) kastar en SecurityError när den försöker läsa
+         stylesheetens cssRules, vilket i praktiken slog ut ALL styling från
+         resten av index.css (samma fil) i den exporterade PDF:en/mejlbilagan,
+         inte bara typsnittet. Googles /css2-endpoint skickar
+         Access-Control-Allow-Origin, så en <link crossorigin> går att läsa
+         utan att kasta. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" crossorigin="anonymous" />
   </head>
   <body>
     <div id="root"></div>

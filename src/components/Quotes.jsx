@@ -45,6 +45,13 @@ export default function Quotes({ invoices = [], setInvoices, contacts = [], comp
   // redigerbar — precis som i Invoices.jsx, se kommentaren där.
   const [emailToInput, setEmailToInput] = useState('');
   const previewRef = useRef(null);
+  // Egen, alltid monterad kopia utan skalningstransform, gömd off-screen
+  // med fast bredd — se motsvarande kommentar i Invoices.jsx. Den synliga
+  // förhandsgranskningen här har en `transform: scale(0.88)` på en
+  // förälder, vilket html2canvas kan hantera fel (kända buggar med
+  // skalade förfäder), plus att modalens faktiska bredd kan skilja sig
+  // från .a4-paper:s tänkta 210mm. Fångar alltid DENNA istället.
+  const captureRef = useRef(null);
 
   React.useEffect(() => {
     if (globalAction?.type === 'new_quote') {
@@ -180,7 +187,7 @@ export default function Quotes({ invoices = [], setInvoices, contacts = [], comp
   const handleDownloadPdf = async () => {
     setPdfBusy(true); setPdfError('');
     try {
-      await exportInvoicePdf(previewRef.current, `offert-${previewNumber}.pdf`);
+      await exportInvoicePdf(captureRef.current, `offert-${previewNumber}.pdf`);
     } catch (err) {
       console.error(err);
       setPdfError('Kunde inte skapa PDF. Försök igen.');
@@ -200,7 +207,7 @@ export default function Quotes({ invoices = [], setInvoices, contacts = [], comp
     if (!/^\S+@\S+\.\S+$/.test(to)) { setEmailError('Det där ser inte ut som en giltig e-postadress.'); return; }
     setEmailBusy(true); setEmailError(''); setEmailSent(false);
     try {
-      const attachmentBase64 = await getInvoicePdfBase64(previewRef.current);
+      const attachmentBase64 = await getInvoicePdfBase64(captureRef.current);
 
       const html = `
         <p>Hej${previewCustomer?.contactPerson ? ' ' + previewCustomer.contactPerson : ''},</p>
@@ -529,6 +536,27 @@ export default function Quotes({ invoices = [], setInvoices, contacts = [], comp
                     footerText={templateSnapshot.footerText}
                   />
                 </div>
+              </div>
+
+              {/* Osynlig, alltid monterad, oskalad — se kommentaren vid
+                  captureRef ovan. PDF/mejl fångar DENNA, aldrig den skalade
+                  360px-förhandsvisningen ovan. */}
+              <div style={{ position: 'fixed', top: 0, left: '-9999px', width: '794px', pointerEvents: 'none' }} aria-hidden="true">
+                <InvoiceDocument
+                  ref={captureRef}
+                  invoice={{ invoiceNumber: previewNumber, date: form.date, dueDate: form.dueDate }}
+                  customer={previewCustomer}
+                  company={company}
+                  rows={previewRows}
+                  totals={previewTotals}
+                  currency="SEK"
+                  docLabel="OFFERT"
+                  docType="quote"
+                  template={templateSnapshot.templateId}
+                  accentColor={templateSnapshot.accentColor}
+                  logoUrl={templateSnapshot.logoUrl}
+                  footerText={templateSnapshot.footerText}
+                />
               </div>
             </form>
           </div>

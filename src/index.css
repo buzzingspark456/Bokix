@@ -1,7 +1,7 @@
-/* Den tidigare varianten (ital,opsz,wght-axlar) gav en 404 på ett av
-   vikt-woff2-fila hos Google Fonts — bytt till samma enklare
-   vikt-endast-fråga som redan används i LandingPage.jsx, som fungerar. */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+/* Inter laddas som en <link crossorigin> i index.html, inte som ett
+   @import här — ett cross-origin @import fick html2canvas (faktura-PDF/
+   mejl-export) att tappa ALL styling i den exporterade filen, se
+   kommentaren i index.html. */
 
 /* ═══════════════════════════════════════════════════════════
    ALLRA DESIGN SYSTEM — Bokföringsapp
