@@ -1274,15 +1274,22 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
     setSortKey(key);
   };
 
-  // Bugkritiskt: stänger man formuläret utan att SAMTIDIGT (samma händelse,
-  // samma React-batch) ta bort ?invoiceId= ur URL:en, hinner effekten
-  // nedan ("Delade länkar") läsa den gamla — fortfarande satta — sökparametern
-  // innan den andra effekten (som annars skulle rensa den) har körts, och
-  // öppnar tyst upp SAMMA faktura igen direkt efter att man stängt den.
-  // Genom att rensa parametern här, i samma synkrona händelse som stänger
-  // formuläret, batchas båda uppdateringarna ihop av React — effekten som
-  // läser `searchParams` ser då redan den rensade URL:en, inte den gamla.
+  // Bugkritiskt: "Tillbaka"/"Visa lista" kunde se ut att inte göra något
+  // alls — stänger man formuläret utan att effekten nedan ("Delade länkar")
+  // hinner se den redan rensade ?invoiceId= innan den kör, öppnar den tyst
+  // upp SAMMA faktura igen direkt efter att man stängt den. Att rensa
+  // parametern i samma händelse som stänger formuläret (som gjordes här
+  // tidigare) räcker INTE i sig — setSearchParams gör en riktig
+  // routernavigering, och det finns inga garantier för att den hinner slå
+  // igenom innan effekten nedan läser `searchParams` på nästa körning.
+  // suppressReopenRef är en explicit spärr istället för att lita på exakt
+  // batchning mellan lokal React-state och react-router: precis efter en
+  // avsiktlig stängning hoppar effekten över EN körning, oavsett om URL:en
+  // hunnit uppdateras än eller inte.
+  const suppressReopenRef = useRef(false);
+
   const closeForm = () => {
+    suppressReopenRef.current = true;
     setShowForm(false);
     setEditingInvoice(null);
     setInvoicePrefill(null);
@@ -1365,6 +1372,26 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
     setInvoices(prev => prev.filter(i => i.id !== inv.id));
   };
 
+  // Radernas åtgärdsikoner (påminnelse/betalningslänk/ta bort) — en delad
+  // stil istället för tre nästan identiska inline-objekt. Även AVSTÄNGT
+  // läge får riktig kontrast (var tidigare #d1d5db, praktiskt taget
+  // osynligt mot vitt — det var precis det som gjorde kolumnen såg trasig/
+  // tom ut istället för "här finns en knapp, den är bara inte tillgänglig
+  // just nu"). Rund hover-bakgrund i knappens egen färg ger en tydlig,
+  // levande klickyta istället för en bar ikon flytande i luften.
+  const rowIconBtnStyle = (color, disabled) => ({
+    width: 26, height: 26, borderRadius: '50%',
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    color: disabled ? '#9ca3af' : color,
+    background: 'transparent',
+    border: 'none', cursor: disabled ? 'not-allowed' : 'pointer',
+    transition: 'background-color 0.12s ease',
+  });
+  const rowIconHover = (bg) => ({
+    onMouseEnter: e => { e.currentTarget.style.background = bg; },
+    onMouseLeave: e => { e.currentTarget.style.background = 'transparent'; },
+  });
+
   // En tabellrad — bruten ut till en egen funktion eftersom den nu renderas
   // en gång per statussektion istället för i en enda blandad tabell.
   const renderInvoiceRow = (inv) => {
@@ -1410,21 +1437,22 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
           )}
         </td>
         <td style={{ padding: '8px 10px', whiteSpace: 'nowrap' }} onClick={e => e.stopPropagation()}>
-          <div style={{ display: 'inline-flex', gap: '6px', alignItems: 'center' }}>
+          <div style={{ display: 'inline-flex', gap: '2px', alignItems: 'center' }}>
             {status !== 'paid' && isOverdue(inv) && (
               customer?.email ? (
                 <a
                   href={buildReminderMailto(inv, customer)}
                   onClick={e => e.stopPropagation()}
                   title={`Skicka betalningspåminnelse till ${customer.email}`}
-                  style={{ color: '#b45309', display: 'inline-flex', padding: '2px' }}
+                  style={rowIconBtnStyle('#b45309', false)}
+                  {...rowIconHover('#fef3c7')}
                 >
                   <Send size={14} />
                 </a>
               ) : (
                 <span
                   title="Lägg till kundens e-post under Kunder för att kunna skicka en påminnelse"
-                  style={{ color: '#d1d5db', display: 'inline-flex', padding: '2px', cursor: 'not-allowed' }}
+                  style={rowIconBtnStyle('#b45309', true)}
                 >
                   <Send size={14} />
                 </span>
@@ -1436,14 +1464,15 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
                   <button
                     onClick={e => { e.stopPropagation(); onCreatePaymentLink(inv.id); }}
                     title="Skapa Stripe-betalningslänk och öppna kortbetalning"
-                    style={{ color: '#5b21b6', background: 'none', border: 'none', display: 'inline-flex', padding: '2px', cursor: 'pointer' }}
+                    style={rowIconBtnStyle('#5b21b6', false)}
+                    {...rowIconHover('#ede9fe')}
                   >
                     <Link2 size={14} />
                   </button>
                 ) : (
                   <span
                     title="Lägg till kundens e-post under Kunder för att kunna skapa en betalningslänk"
-                    style={{ color: '#d1d5db', display: 'inline-flex', padding: '2px', cursor: 'not-allowed' }}
+                    style={rowIconBtnStyle('#5b21b6', true)}
                   >
                     <Link2 size={14} />
                   </span>
@@ -1451,7 +1480,7 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
               ) : (
                 <span
                   title="Anslut Stripe under Inställningar för att låta kunder betala med kort"
-                  style={{ color: '#d1d5db', display: 'inline-flex', padding: '2px', cursor: 'not-allowed' }}
+                  style={rowIconBtnStyle('#5b21b6', true)}
                 >
                   <Link2 size={14} />
                 </span>
@@ -1461,7 +1490,8 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
               <button
                 onClick={e => handleDeleteInvoice(inv, e)}
                 title={`Ta bort utkastet ${inv.invoiceNumber}`}
-                style={{ color: '#b91c1c', background: 'none', border: 'none', display: 'inline-flex', padding: '2px', cursor: 'pointer' }}
+                style={rowIconBtnStyle('#b91c1c', false)}
+                {...rowIconHover('#fee2e2')}
               >
                 <Trash2 size={14} />
               </button>
@@ -1476,6 +1506,7 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
   // delad länk alltid öppnar rätt faktura, och byte av faktura/stängning
   // håller URL:en i synk.
   useEffect(() => {
+    if (suppressReopenRef.current) { suppressReopenRef.current = false; return; }
     const id = searchParams.get('invoiceId');
     if (id && !showForm) {
       const found = invoices.find(i => i.id === id);
