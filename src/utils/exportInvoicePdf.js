@@ -8,19 +8,22 @@ import html2canvas from 'html2canvas';
  * i mejl) så PDF:en aldrig kan avvika mellan de två — bara vad som görs med
  * resultatet skiljer.
  */
-// scale:1.5 + JPEG (istället för tidigare scale:2 + PNG) — en rå PNG-
-// rasterisering av en hel A4-sida vid dubbel upplösning blev tillräckligt
-// stor (flera MB, base64 lägger på ~33% till) för att ensam sprängga
-// Vercels HÅRDA 4.5MB-gräns per request-kropp redan på en enrads-faktura,
-// och den gränsen går inte att höja med kod (till skillnad från Express-
-// gränsen i server.js) — den måste alltså undvikas genom att filen faktiskt
-// blir mindre. JPEG @ 0.85 är fortfarande gott och väl läsbart för text/
-// linjer och krymper storleken med en faktor på ~5–10x jämfört med PNG.
+// scale:1 + JPEG @ 0.7 — sänkt igen efter att fångst-noden fixades till en
+// GARANTERAT korrekt 794px-bredd (se captureRef i Invoices.jsx/Quotes.jsx):
+// den fixen gjorde själva källbilden mycket större än tidigare (den fångade
+// innan av misstag en hopskalad/smalare nod i vissa lägen), så samma
+// scale:1.5 som förut gav nu en betydligt större fil än väntat — 413:an
+// kom tillbaka. 794px bredd är redan ~96dpi vid en riktig 210mm-sida, så
+// scale:1 behöver ingen extra uppskalning för att vara skarp/läsbar. JPEG
+// @ 0.7 är fortfarande gott och väl läsbart för text/linjer (ingen bild-
+// tung faktura), med bred marginal ner mot Vercels HÅRDA 4.5MB-gräns per
+// request-kropp — den går inte att höja med kod, måste undvikas genom att
+// filen faktiskt blir mindre.
 async function renderInvoicePdf(node) {
   if (!node) throw new Error('Inget fakturaunderlag att exportera.');
 
-  const canvas = await html2canvas(node, { scale: 1.5, useCORS: true, backgroundColor: '#ffffff' });
-  const imgData = canvas.toDataURL('image/jpeg', 0.85);
+  const canvas = await html2canvas(node, { scale: 1, useCORS: true, backgroundColor: '#ffffff' });
+  const imgData = canvas.toDataURL('image/jpeg', 0.7);
 
   const pdf = new jsPDF({ unit: 'mm', format: 'a4' });
   const pageWidth = pdf.internal.pageSize.getWidth();
