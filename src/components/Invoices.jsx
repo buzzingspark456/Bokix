@@ -129,6 +129,11 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
   const [emailBusy, setEmailBusy] = useState(false);
   const [emailError, setEmailError] = useState('');
   const [emailSent, setEmailSent] = useState(false);
+  // Förifylld från kundkortet om det finns en sparad adress, men alltid
+  // redigerbar — man ska kunna skicka till en mottagare utan att först
+  // behöva gå och spara en e-post på kunden (t.ex. en engångsmottagare,
+  // eller kundkortet saknar helt enkelt en adress ännu).
+  const [emailToInput, setEmailToInput] = useState('');
 
   const [showCommentBox, setShowCommentBox] = useState(false);
   const [commentDraft, setCommentDraft] = useState(initial?.internalNote || '');
@@ -138,6 +143,11 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
 
   const customers = contacts.filter(c => c.type === 'customer' || !c.type);
   const customer = customers.find(c => c.id === customerId);
+
+  // Fyller i mottagarfältet från kundkortet varje gång kunden byts — men rör
+  // det inte igen efter det, så en manuell ändring/tillägg av mottagare inte
+  // tyst skrivs över om något annat på formuläret triggar en omrendering.
+  useEffect(() => { setEmailToInput(customer?.email || ''); }, [customerId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Verifikationsnumret hämtas från den riktiga bokförda verifikationen
   // (skapas automatiskt när fakturan sparas) — inte det hårdkodade "$v"-
@@ -220,7 +230,9 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
   // mailto:-länk går det här faktiskt iväg utan att användaren själv behöver
   // öppna och trycka skicka i sitt eget mailprogram.
   const handleSendEmail = async () => {
-    if (!customer?.email) { setEmailError('Kunden saknar e-postadress.'); return; }
+    const to = emailToInput.trim();
+    if (!to) { setEmailError('Ange en mottagaradress.'); return; }
+    if (!/^\S+@\S+\.\S+$/.test(to)) { setEmailError('Det där ser inte ut som en giltig e-postadress.'); return; }
     setEmailBusy(true); setEmailError(''); setEmailSent(false);
     try {
       if (!showPreview) setShowPreview(true);
@@ -228,14 +240,14 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
       const attachmentBase64 = await getInvoicePdfBase64(previewRef.current);
 
       const html = `
-        <p>Hej${customer.contactPerson ? ' ' + customer.contactPerson : ''},</p>
+        <p>Hej${customer?.contactPerson ? ' ' + customer.contactPerson : ''},</p>
         <p>Bifogat finner du faktura <strong>${nextNum}</strong> på <strong>${fmt(totals.total)} kr</strong>, med förfallodatum ${formatDate(dueDate)}.</p>
         <p>Hör av dig om du har några frågor.</p>
         <p>Med vänlig hälsning<br/>${company?.name || ''}</p>
       `;
 
       await sendInvoiceEmail({
-        to: customer.email,
+        to,
         subject: `Faktura ${nextNum} från ${company?.name || 'oss'}`,
         html,
         replyTo: company?.email || undefined,
@@ -370,13 +382,23 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
         <div style={{ flex: 1 }} />
         {emailError && <span style={{ fontSize: '11px', color: '#c00', alignSelf: 'center', marginRight: 8 }}>{emailError}</span>}
         {emailSent && !emailError && <span style={{ fontSize: '11px', color: '#15803d', alignSelf: 'center', marginRight: 8 }}>Skickad ✓</span>}
+        <input
+          type="email" value={emailToInput} onChange={e => { setEmailToInput(e.target.value); setEmailError(''); }}
+          placeholder="mottagarens@epost.se" title="Mottagarens e-postadress — förifylld från kundkortet om det finns en, men går att ändra eller fylla i här"
+          disabled={!initial}
+          style={{
+            padding: '5px 9px', borderRadius: '5px', border: '1px solid #ccc', fontSize: '12px', width: '190px',
+            alignSelf: 'center', borderLeft: '1px solid #ddd', marginLeft: '4px',
+            background: !initial ? '#f5f5f5' : 'white', color: !initial ? '#999' : '#333',
+          }}
+        />
         {topBarBtn(
           emailBusy ? 'Skickar…' : 'Skicka via e-post',
           <Send size={13} />,
           handleSendEmail,
-          { borderLeft: '1px solid #ddd', paddingLeft: '14px' },
-          emailBusy || !initial || !customer?.email,
-          !initial ? 'Spara fakturan först' : (!customer?.email ? 'Kunden saknar e-postadress' : `Skicka faktura ${nextNum} till ${customer.email}`)
+          {},
+          emailBusy || !initial || !emailToInput.trim(),
+          !initial ? 'Spara fakturan först' : (!emailToInput.trim() ? 'Ange en mottagaradress' : `Skicka faktura ${nextNum} till ${emailToInput.trim()}`)
         )}
         {pdfError && <span style={{ fontSize: '11px', color: '#c00', alignSelf: 'center', marginRight: 8 }}>{pdfError}</span>}
         {topBarBtn(pdfBusy ? 'Skapar PDF…' : 'Ladda ner PDF', <Download size={13} />, handleDownloadPdf, {}, pdfBusy)}

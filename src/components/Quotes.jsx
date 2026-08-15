@@ -41,6 +41,9 @@ export default function Quotes({ invoices = [], setInvoices, contacts = [], comp
   const [emailBusy, setEmailBusy] = useState(false);
   const [emailError, setEmailError] = useState('');
   const [emailSent, setEmailSent] = useState(false);
+  // Förifylld från kundkortet om det finns en sparad adress, men alltid
+  // redigerbar — precis som i Invoices.jsx, se kommentaren där.
+  const [emailToInput, setEmailToInput] = useState('');
   const previewRef = useRef(null);
 
   React.useEffect(() => {
@@ -170,6 +173,10 @@ export default function Quotes({ invoices = [], setInvoices, contacts = [], comp
     return { net: acc.net + net, vat: acc.vat + net * (r.vatRate / 100), total: acc.total + net * (1 + r.vatRate / 100) };
   }, { net: 0, vat: 0, total: 0 });
 
+  // Fyller i mottagarfältet från kundkortet varje gång kunden byts (eller
+  // en annan offert öppnas) — men rör det inte igen efter det.
+  React.useEffect(() => { setEmailToInput(previewCustomer?.email || ''); }, [form.customerId, editingId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleDownloadPdf = async () => {
     setPdfBusy(true); setPdfError('');
     try {
@@ -188,20 +195,22 @@ export default function Quotes({ invoices = [], setInvoices, contacts = [], comp
   // en egen "send-quote"-serverless-funktion vore bara en identisk kopia
   // (och riskerar Vercels 12-funktionsgräns i onödan).
   const handleSendEmail = async () => {
-    if (!previewCustomer?.email) { setEmailError('Kunden saknar e-postadress.'); return; }
+    const to = emailToInput.trim();
+    if (!to) { setEmailError('Ange en mottagaradress.'); return; }
+    if (!/^\S+@\S+\.\S+$/.test(to)) { setEmailError('Det där ser inte ut som en giltig e-postadress.'); return; }
     setEmailBusy(true); setEmailError(''); setEmailSent(false);
     try {
       const attachmentBase64 = await getInvoicePdfBase64(previewRef.current);
 
       const html = `
-        <p>Hej${previewCustomer.contactPerson ? ' ' + previewCustomer.contactPerson : ''},</p>
+        <p>Hej${previewCustomer?.contactPerson ? ' ' + previewCustomer.contactPerson : ''},</p>
         <p>Bifogat finner du offert <strong>${previewNumber}</strong> på <strong>${fmtSEK(previewTotals.total)} kr</strong>, giltig till ${fmtDateSv(form.dueDate)}.</p>
         <p>Hör av dig om du har några frågor.</p>
         <p>Med vänlig hälsning<br/>${company?.name || ''}</p>
       `;
 
       await sendInvoiceEmail({
-        to: previewCustomer.email,
+        to,
         subject: `Offert ${previewNumber} från ${company?.name || 'oss'}`,
         html,
         replyTo: company?.email || undefined,
@@ -476,12 +485,18 @@ export default function Quotes({ invoices = [], setInvoices, contacts = [], comp
                 {emailError && <div style={{ fontSize: '12.5px', color: '#dc2626', marginBottom: '4px' }}>{emailError}</div>}
                 {emailSent && !emailError && <div style={{ fontSize: '12.5px', color: '#15803d', fontWeight: 600, marginBottom: '4px' }}>Offert skickad ✓</div>}
 
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', paddingTop: '16px', borderTop: '1px solid #e5e7eb', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', paddingTop: '16px', borderTop: '1px solid #e5e7eb', flexWrap: 'wrap', alignItems: 'center' }}>
+                  <input
+                    type="email" value={emailToInput} onChange={e => { setEmailToInput(e.target.value); setEmailError(''); }}
+                    placeholder="mottagarens@epost.se" title="Mottagarens e-postadress — förifylld från kundkortet om det finns en, men går att ändra eller fylla i här"
+                    disabled={!editingId}
+                    style={{ ...inputStyle, width: '190px', background: !editingId ? '#f5f5f5' : 'white', color: !editingId ? '#999' : '#111827' }}
+                  />
                   <button
                     type="button" onClick={handleSendEmail}
-                    disabled={emailBusy || !editingId || !previewCustomer?.email}
-                    title={!editingId ? 'Spara offerten först' : (!previewCustomer?.email ? 'Kunden saknar e-postadress' : `Skicka offert ${previewNumber} till ${previewCustomer.email}`)}
-                    style={{ ...outlineBtnStyle, opacity: (emailBusy || !editingId || !previewCustomer?.email) ? 0.5 : 1, cursor: (emailBusy || !editingId || !previewCustomer?.email) ? 'not-allowed' : 'pointer' }}
+                    disabled={emailBusy || !editingId || !emailToInput.trim()}
+                    title={!editingId ? 'Spara offerten först' : (!emailToInput.trim() ? 'Ange en mottagaradress' : `Skicka offert ${previewNumber} till ${emailToInput.trim()}`)}
+                    style={{ ...outlineBtnStyle, opacity: (emailBusy || !editingId || !emailToInput.trim()) ? 0.5 : 1, cursor: (emailBusy || !editingId || !emailToInput.trim()) ? 'not-allowed' : 'pointer' }}
                   >
                     <Send size={14} /> {emailBusy ? 'Skickar…' : 'Skicka via e-post'}
                   </button>

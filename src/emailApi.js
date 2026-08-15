@@ -25,7 +25,19 @@ async function requestEmailApi(path, body) {
   return payload;
 }
 
+// Vercels serverless functions har en HÅRD gräns på 4.5MB per request-kropp
+// som inte går att höja med kod (till skillnad från Express-gränsen i
+// server.js för lokal utveckling) — ett för stort utskick skulle annars
+// bara misslyckas med ett kryptiskt "413" efter att redan ha laddat upp
+// hela bilagan. Kollar här istället INNAN anropet och ger ett begripligt
+// felmeddelande direkt. 4 300 000 tecken bas64 ≈ ~4.3MB, lämnar utrymme
+// kvar för resten av JSON-kroppen (html, ämnesrad, m.m.) under 4.5MB-taket.
+const MAX_ATTACHMENT_BASE64_LENGTH = 4_300_000;
+
 export async function sendInvoiceEmail(payload) {
+  if (payload?.attachmentBase64?.length > MAX_ATTACHMENT_BASE64_LENGTH) {
+    throw new Error('Bilagan är för stor för att skickas via e-post (max ~3 MB). Prova att ladda ner PDF:en istället.');
+  }
   return requestEmailApi('send-invoice', payload);
 }
 

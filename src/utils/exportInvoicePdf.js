@@ -8,11 +8,19 @@ import html2canvas from 'html2canvas';
  * i mejl) så PDF:en aldrig kan avvika mellan de två — bara vad som görs med
  * resultatet skiljer.
  */
+// scale:1.5 + JPEG (istället för tidigare scale:2 + PNG) — en rå PNG-
+// rasterisering av en hel A4-sida vid dubbel upplösning blev tillräckligt
+// stor (flera MB, base64 lägger på ~33% till) för att ensam sprängga
+// Vercels HÅRDA 4.5MB-gräns per request-kropp redan på en enrads-faktura,
+// och den gränsen går inte att höja med kod (till skillnad från Express-
+// gränsen i server.js) — den måste alltså undvikas genom att filen faktiskt
+// blir mindre. JPEG @ 0.85 är fortfarande gott och väl läsbart för text/
+// linjer och krymper storleken med en faktor på ~5–10x jämfört med PNG.
 async function renderInvoicePdf(node) {
   if (!node) throw new Error('Inget fakturaunderlag att exportera.');
 
-  const canvas = await html2canvas(node, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
-  const imgData = canvas.toDataURL('image/png');
+  const canvas = await html2canvas(node, { scale: 1.5, useCORS: true, backgroundColor: '#ffffff' });
+  const imgData = canvas.toDataURL('image/jpeg', 0.85);
 
   const pdf = new jsPDF({ unit: 'mm', format: 'a4' });
   const pageWidth = pdf.internal.pageSize.getWidth();
@@ -22,13 +30,13 @@ async function renderInvoicePdf(node) {
 
   let heightLeft = imgHeight;
   let position = 0;
-  pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+  pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
   heightLeft -= pageHeight;
 
   while (heightLeft > 0) {
     position = heightLeft - imgHeight;
     pdf.addPage();
-    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+    pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
     heightLeft -= pageHeight;
   }
 
