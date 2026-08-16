@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import {
   FileText, BarChart3, Users, Shield, Zap,
-  ArrowRight, ChevronRight, Inbox,
+  ArrowRight, ChevronRight, Inbox, HelpCircle,
   Building2, Briefcase, Landmark, HeartHandshake, UserCheck,
 } from 'lucide-react';
 import { BRAND } from '../utils/brandColors';
@@ -136,7 +136,7 @@ export default function LandingPage({ onEnterApp }) {
               {/* Samma meny som den riktiga inloggade appens sidomeny
                   (App.jsx navSections) — samma tre grupper, samma ordning,
                   samma avdelare — inte en egen påhittad urvalslista. */}
-              <div className="lp-hide-mobile" style={{ width: '190px', flexShrink: 0, background: BRAND.green, padding: '20px 12px' }}>
+              <div className="lp-hide-mobile" style={{ width: '190px', flexShrink: 0, background: BRAND.green, padding: '20px 12px', display: 'flex', flexDirection: 'column' }}>
                 <div style={{ marginBottom: '22px', padding: '0 4px' }}>
                   <BokixWordmark height={20} />
                 </div>
@@ -153,6 +153,16 @@ export default function LandingPage({ onEnterApp }) {
                     ))}
                   </div>
                 ))}
+
+                {/* Samma fastsatta botten-sektion som riktiga sidomenyn
+                    (App.jsx) — bara Hjälp och support, ingen Logga ut här
+                    (irrelevant för en besökare som inte är inloggad). */}
+                <div style={{ flex: 1 }} />
+                <div style={{ borderTop: '1px solid rgba(255,255,255,0.15)', paddingTop: '10px', marginTop: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 10px', fontSize: '12px', fontWeight: 500, color: 'rgba(255,255,255,0.7)' }}>
+                    <HelpCircle size={14} /> Hjälp och support
+                  </div>
+                </div>
               </div>
 
               <div style={{ flex: 1, minWidth: 0, padding: '16px', pointerEvents: 'none' }}>
