@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import {
   FileText, BarChart3, Users, Shield, Zap,
-  ArrowRight, ChevronRight, Inbox, HelpCircle,
+  ArrowRight, ChevronRight, Inbox, HelpCircle, Menu, LogOut,
   Building2, Briefcase, Landmark, HeartHandshake, UserCheck,
 } from 'lucide-react';
 import { BRAND } from '../utils/brandColors';
@@ -89,17 +89,25 @@ export default function LandingPage({ onEnterApp }) {
 
       {/* ── BOLAGSFORMER ── */}
       <section style={{ padding: '64px 24px', background: 'white', borderBottom: '1px solid #f1f5f9' }}>
-        <Reveal style={{ maxWidth: '900px', margin: '0 auto', textAlign: 'center' }}>
+        <Reveal style={{ maxWidth: '1080px', margin: '0 auto', textAlign: 'center' }}>
           <h2 style={{ fontSize: 'clamp(22px, 3vw, 28px)', fontWeight: 800, letterSpacing: '-0.02em', color: '#0f172a', marginBottom: '28px' }}>
             Oavsett vad Bolagsverket kallar dig
           </h2>
           <div className="lp-bolagsform-row">
             {COMPANY_TYPES.map((t, i) => (
-              <Reveal key={t.label} delay={i * 60} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 18px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '100px' }}>
+              <Reveal key={t.label} delay={i * 60} style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '10px 15px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '100px', whiteSpace: 'nowrap' }}>
                 <t.icon size={15} color={BRAND.green} />
                 <span style={{ fontSize: '13.5px', fontWeight: 600, color: '#374151' }}>{t.label}</span>
               </Reveal>
             ))}
+          </div>
+
+          {/* Kopplar ihop bolagsformslistan med samma automatik som redan
+              beskrivs i steg 1 nedan ("Igång på tre steg") — synligt på två
+              ställen istället för bara i onboardingtexten. */}
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', marginTop: '20px', fontSize: '13px', fontWeight: 600, color: BRAND.greenDark }}>
+            <Zap size={14} />
+            Känns av automatiskt utifrån ditt organisationsnummer, du behöver inte välja själv
           </div>
         </Reveal>
       </section>
@@ -130,8 +138,17 @@ export default function LandingPage({ onEnterApp }) {
           </Reveal>
 
           <Reveal scale style={{ position: 'relative' }}>
-            <div style={{ background: 'white', borderRadius: '20px', boxShadow: '0 8px 24px rgba(0,0,0,0.10), 0 0 0 1px rgba(0,0,0,0.05)', overflow: 'hidden', display: 'flex' }}>
+            <div className="lp-demo-card" style={{ background: 'white', borderRadius: '20px', boxShadow: '0 8px 24px rgba(0,0,0,0.10), 0 0 0 1px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
               <span style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 1, fontSize: '10.5px', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', background: 'white', padding: '4px 10px', borderRadius: '999px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>Exempeldata</span>
+
+              {/* Mobil topbar — bara synlig under 640px (se .lp-demo-mobile-topbar
+                  i MarketingLayout.jsx), samma mönster som riktiga appens
+                  .global-top-bar (hamburgerikon + sidtitel) istället för att
+                  hela menyn bara försvinner utan ersättning på mobil. */}
+              <div className="lp-demo-mobile-topbar" style={{ alignItems: 'center', gap: '12px', padding: '0 16px', height: '52px', background: 'white', borderBottom: '1px solid #e5e7eb', flexShrink: 0 }}>
+                <Menu size={19} color="#64748b" />
+                <span style={{ fontSize: '14px', fontWeight: 600, color: '#111827' }}>Dashboard</span>
+              </div>
 
               {/* Samma meny som den riktiga inloggade appens sidomeny
                   (App.jsx navSections) — samma tre grupper, samma ordning,
@@ -140,6 +157,7 @@ export default function LandingPage({ onEnterApp }) {
                 <div style={{ marginBottom: '22px', padding: '0 4px' }}>
                   <BokixWordmark height={20} />
                 </div>
+
                 {[
                   ['Startsida', 'Kunder', 'Fakturering', 'Utgifter', 'Projekt'],
                   ['Granskning', 'Bokföring', 'Anställda och lön', 'Rapport och analys', 'Skatt och bokslut'],
@@ -154,13 +172,22 @@ export default function LandingPage({ onEnterApp }) {
                   </div>
                 ))}
 
-                {/* Samma fastsatta botten-sektion som riktiga sidomenyn
-                    (App.jsx) — bara Hjälp och support, ingen Logga ut här
-                    (irrelevant för en besökare som inte är inloggad). */}
+                {/* Flexibelt tomt utrymme, precis som riktiga sidomenyn
+                    (App.jsx, samma "flex:1 innan botten-sektionen"-mönster,
+                    inte en jämnt utspridd meny) — trycker Hjälp/Logga ut
+                    längst ner oavsett hur hög panelen är. */}
                 <div style={{ flex: 1 }} />
+
+                {/* Samma fastsatta botten-sektion som riktiga sidomenyn,
+                    inklusive Logga ut i samma korallfärg (#fca5a5) — bara
+                    visuell, panelen är pointerEvents:none, så det klickar
+                    ingenstans. */}
                 <div style={{ borderTop: '1px solid rgba(255,255,255,0.15)', paddingTop: '10px', marginTop: '10px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 10px', fontSize: '12px', fontWeight: 500, color: 'rgba(255,255,255,0.7)' }}>
                     <HelpCircle size={14} /> Hjälp och support
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 10px', fontSize: '12px', fontWeight: 500, color: '#fca5a5' }}>
+                    <LogOut size={14} /> Logga ut
                   </div>
                 </div>
               </div>
@@ -297,18 +324,27 @@ export default function LandingPage({ onEnterApp }) {
             </h2>
             <p style={{ fontSize: '15.5px', color: '#64748b' }}>Ingen krånglig uppsättning, bara det som faktiskt behövs.</p>
           </Reveal>
-          {/* Numrerad lista i rad istället för tre likadana cirkel-kort — samma
-              information, mindre av det generiska "3-stegskort"-mönstret. */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
-            {ONBOARDING_STEPS.map((step, i) => (
-              <Reveal key={step.n} delay={i * 100} style={{ display: 'flex', gap: '20px', alignItems: 'flex-start', padding: '20px 0', borderTop: i > 0 ? '1px solid #f1f5f9' : 'none' }}>
-                <div style={{ fontSize: '28px', fontWeight: 900, color: BRAND.green, letterSpacing: '-0.02em', width: '48px', flexShrink: 0 }}>{step.n}</div>
-                <div>
-                  <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#111827', marginBottom: '6px' }}>{step.title}</h3>
-                  <p style={{ fontSize: '13.5px', color: '#6b7280', lineHeight: 1.6, margin: 0 }}>{step.desc}</p>
-                </div>
-              </Reveal>
-            ))}
+          {/* Numrerad tidslinje — rundade sifferbadges förbundna med en tunn
+              linje, istället för tre likadana kort ELLER en platt textlista.
+              Solid bakgrund/kant, ingen gradient eller glow (Sida 36). */}
+          <div style={{ display: 'flex', flexDirection: 'column', maxWidth: '640px', margin: '0 auto' }}>
+            {ONBOARDING_STEPS.map((step, i) => {
+              const isLast = i === ONBOARDING_STEPS.length - 1;
+              return (
+                <Reveal key={step.n} delay={i * 100} style={{ display: 'flex', gap: '22px', alignItems: 'stretch' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+                    <div style={{ width: 42, height: 42, borderRadius: '50%', background: BRAND.greenLight, border: `2px solid ${BRAND.green}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', fontWeight: 800, color: BRAND.greenDark, flexShrink: 0 }}>
+                      {step.n}
+                    </div>
+                    {!isLast && <div style={{ width: '2px', flex: 1, background: '#e2e8f0', margin: '6px 0' }} />}
+                  </div>
+                  <div style={{ paddingBottom: isLast ? 0 : '32px', paddingTop: '6px' }}>
+                    <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#111827', marginBottom: '6px' }}>{step.title}</h3>
+                    <p style={{ fontSize: '13.5px', color: '#6b7280', lineHeight: 1.6, margin: 0 }}>{step.desc}</p>
+                  </div>
+                </Reveal>
+              );
+            })}
           </div>
         </div>
       </section>

@@ -1579,7 +1579,7 @@ function App() {
     {
       label: 'Arbetsyta',
       items: [
-        { id: 'dashboard', label: 'Startsida',           icon: LayoutDashboard },
+        { id: 'dashboard', label: 'Dashboard',           icon: LayoutDashboard },
         { id: 'invoices',  label: 'Fakturering',         icon: FileText },
         { id: 'contacts',  label: 'Kunder',              icon: Users },
         { id: 'expenses',  label: 'Utgifter',            icon: Receipt },

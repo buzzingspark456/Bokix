@@ -3,6 +3,7 @@ import {
   BookOpen, LogIn, UserPlus, Building2, Mail, Lock,
   ArrowRight, ArrowLeft, ShieldCheck, Check, User, Hash,
   Zap, ScanLine, RefreshCw, Bell,
+  FileText, BarChart3, Receipt, Users, Shield, Briefcase,
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { detectOrgType, formatOrgNr } from '../utils/orgType';
@@ -20,6 +21,19 @@ const labelStyle = {
 };
 
 const REGISTER_STEPS = ['Personlig info', 'Bekräfta e-post', 'Företag'];
+
+// ── Översikt över appens faktiska huvudsektioner (samma sex som den
+// riktiga inloggade sidomenyn i App.jsx), visad på sista registrerings-
+// steget — en snabb "karta" över vad som väntar innan man ens loggat in
+// första gången, inte en påhittad funktionslista. ──
+const APP_SECTIONS_OVERVIEW = [
+  { icon: FileText, label: 'Fakturering' },
+  { icon: BarChart3, label: 'Bokföring' },
+  { icon: Receipt, label: 'Utgifter' },
+  { icon: Briefcase, label: 'Projekt' },
+  { icon: Users, label: 'Anställda och lön' },
+  { icon: Shield, label: 'Skatt och bokslut' },
+];
 
 export default function Auth({ onLogin }) {
   const [isLogin, setIsLogin] = useState(true);
@@ -342,6 +356,23 @@ export default function Auth({ onLogin }) {
                         <Check size={12} /> Identifierad som: {orgType}
                       </div>
                     )}
+                  </div>
+
+                  {/* Översikt — vad som väntar direkt efter att kontot är
+                      skapat, så det sista steget inte känns som ett svart
+                      hål innan man loggat in första gången. */}
+                  <div>
+                    <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '9px' }}>
+                      Det här väntar direkt
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '7px' }}>
+                      {APP_SECTIONS_OVERVIEW.map(s => (
+                        <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '8px 10px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '9px' }}>
+                          <s.icon size={13} color={BRAND.greenDark} style={{ flexShrink: 0 }} />
+                          <span style={{ fontSize: '12px', fontWeight: 600, color: '#374151' }}>{s.label}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </>
               )}

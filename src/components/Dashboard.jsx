@@ -106,24 +106,6 @@ function nextVatDeadline(company, vatPeriods) {
   return { daysLeft, quarter: q, year: y, dueDate: d };
 }
 
-/* ── Sparklinje (staplar) — diskreta staplar istället för en kurva, till
-   KPI-kortens riktningsindikator. Alltid byggd från samma riktiga
-   dagsserier som resten av sidan, aldrig slumpad. ── */
-function SparkBars({ data, color, height = 22 }) {
-  if (!data || data.length < 2) return null;
-  const min = Math.min(...data);
-  const max = Math.max(...data);
-  const range = max - min || 1;
-  return (
-    <div style={{ display: 'flex', alignItems: 'flex-end', gap: '3px', height }}>
-      {data.map((v, i) => {
-        const h = Math.max(3, ((v - min) / range) * (height - 4) + 4);
-        return <div key={i} style={{ flex: 1, height: `${h}px`, borderRadius: '2px', background: color }} />;
-      })}
-    </div>
-  );
-}
-
 /* ── Custom Tooltip ── */
 function ChartTooltip({ active, payload, label, fmt }) {
   if (!active || !payload?.length) return null;
@@ -156,7 +138,7 @@ function ChartTooltip({ active, payload, label, fmt }) {
    den mest sammanfattande siffran) får en märkbart större typsnittsstorlek
    än de andra korten, så ögat har en tydlig startpunkt istället för
    identiskt vägda rutor. ── */
-function KpiCard({ label, value, sub, icon: Icon, color, bg, positive, onClick, spark, sparkColor, hero, gradient }) {
+function KpiCard({ label, value, sub, icon: Icon, color, bg, positive, onClick, hero, gradient }) {
   const bold = !!gradient;
   return (
     <button onClick={onClick} style={{
@@ -202,8 +184,6 @@ function KpiCard({ label, value, sub, icon: Icon, color, bg, positive, onClick, 
         <div style={{ fontSize: hero ? '32px' : '22px', fontWeight: 700, color: bold ? '#fff' : '#111827', letterSpacing: '-0.04em', lineHeight: 1.1 }}>{value}</div>
         {sub && <div style={{ fontSize: '11.5px', color: bold ? 'rgba(255,255,255,0.78)' : '#9ca3af', marginTop: '4px' }}>{sub}</div>}
       </div>
-
-      {spark && <SparkBars data={spark.slice(-14)} color={bold ? 'rgba(255,255,255,0.9)' : (sparkColor || color)} />}
     </button>
   );
 }
@@ -393,56 +373,6 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
       }));
   }, [verifications]);
 
-  // ── 30-dagars sparklines — rekonstruerade från riktiga verifikationsrader,
-  // aldrig slumpade. Om det bokförda historiken är kortare än 30 dagar (t.ex.
-  // ett nystartat bolag) visas bara de dagar som faktiskt finns — ingen
-  // uppdiktad platt förhistoria. Resultat/Omsättning/Kostnader summeras
-  // löpande per dag. ──
-  const sparkSeries = useMemo(() => {
-    const DAYS = 30;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const fullStart = new Date(today);
-    fullStart.setDate(fullStart.getDate() - (DAYS - 1));
-    const fullStartKey = fullStart.toISOString().split('T')[0];
-
-    const bookedDates = verifications
-      .filter(v => (v.status || 'booked') !== 'draft')
-      .map(v => v.date)
-      .filter(Boolean);
-    const earliest = bookedDates.length ? bookedDates.reduce((min, d) => (d < min ? d : min)) : fullStartKey;
-    const startKey = earliest > fullStartKey ? earliest : fullStartKey;
-
-    const dayKeys = [];
-    for (let d = new Date(startKey + 'T00:00:00'); d <= today; d.setDate(d.getDate() + 1)) {
-      dayKeys.push(d.toISOString().split('T')[0]);
-    }
-    const endKey = dayKeys[dayKeys.length - 1];
-
-    const revenueByDay = Object.fromEntries(dayKeys.map(k => [k, 0]));
-    const costByDay = Object.fromEntries(dayKeys.map(k => [k, 0]));
-
-    verifications.forEach(v => {
-      if ((v.status || 'booked') === 'draft') return;
-      if (v.date < startKey || v.date > endKey) return;
-      v.rows.forEach(r => {
-        if (r.account.startsWith('3')) revenueByDay[v.date] += (getKredit(r) - getDebet(r));
-        else if (['4','5','6','7'].some(p => r.account.startsWith(p))) costByDay[v.date] += (getDebet(r) - getKredit(r));
-      });
-    });
-
-    let cumResult = 0;
-    const revenueSeries = [], costSeries = [], resultSeries = [];
-    dayKeys.forEach(k => {
-      revenueSeries.push(revenueByDay[k]);
-      costSeries.push(costByDay[k]);
-      cumResult += (revenueByDay[k] - costByDay[k]);
-      resultSeries.push(cumResult);
-    });
-
-    return { revenueSeries, costSeries, resultSeries };
-  }, [verifications]);
-
   // ── Chartdata ──
   const chartData = useMemo(() => {
     const names = ['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
@@ -601,24 +531,18 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
           bg={raResultat >= 0 ? LIME_L : RED_L}
           positive={raResultat >= 0}
           onClick={() => setActiveTab('reports')}
-          spark={sparkSeries.resultSeries}
-          sparkColor={raResultat >= 0 ? REVENUE : EXPENSE}
           gradient={raResultat >= 0 ? KPI_GRAD_POSITIVE : KPI_GRAD_NEGATIVE}
         />
         <KpiCard
           label="Intäkter" value={fmt(raOmsattning)} sub={`Hittills ${currentYear}`}
           icon={ArrowUpRight} color={BRAND.greenDark} bg={LIME_L} positive={true}
           onClick={() => setActiveTab('reports')}
-          spark={sparkSeries.revenueSeries}
-          sparkColor={REVENUE}
           gradient={KPI_GRAD_POSITIVE}
         />
         <KpiCard
           label="Kostnader" value={fmt(raKostnader)} sub={`Hittills ${currentYear}`}
           icon={ArrowDownRight} color={BRAND.redText} bg={RED_L} positive={false}
           onClick={() => setActiveTab('expenses')}
-          spark={sparkSeries.costSeries}
-          sparkColor={EXPENSE}
           gradient={KPI_GRAD_NEGATIVE}
         />
       </div>

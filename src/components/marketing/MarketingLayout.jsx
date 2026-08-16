@@ -80,7 +80,10 @@ function MarketingStyles() {
       .lp-mobile-menu { display: none; }
       .lp-cta-group { display: flex; gap: 12px; flex-wrap: wrap; }
       .lp-features-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
-      .lp-bolagsform-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
+      .lp-bolagsform-row { display: flex; flex-wrap: nowrap; justify-content: center; gap: 10px; }
+      @media (max-width: 900px) {
+        .lp-bolagsform-row { flex-wrap: wrap; }
+      }
       .lp-footer-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 40px; }
       .lp-footer-grid > *, .lp-features-grid > * { min-width: 0; }
       .lp-footer-bottom { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
@@ -89,11 +92,20 @@ function MarketingStyles() {
         .lp-nav-desktop { display: none; }
         .lp-hamburger-btn { display: flex; }
       }
+      .lp-demo-card { display: flex; }
+      .lp-demo-mobile-topbar { display: none; }
       @media (max-width: 640px) {
         .lp-cta-group { flex-direction: column; }
         .lp-cta-group > button, .lp-cta-group > a { width: 100%; }
         .lp-features-grid { grid-template-columns: 1fr; }
         .lp-hide-mobile { display: none !important; }
+        /* Produktvisningens demo-kort — istället för att bara försvinna på
+           mobil (ingen meny alls) visas samma mobila topbar-mönster som
+           riktiga appen faktiskt använder på små skärmar (hamburgerikon +
+           sidtitel, se .global-top-bar/.topbar-page-title i index.css),
+           så demon ger en ärlig bild av hur Bokix ser ut på mobilen också. */
+        .lp-demo-card { flex-direction: column; }
+        .lp-demo-mobile-topbar { display: flex; }
       }
       @media (min-width: 641px) and (max-width: 1024px) {
         .lp-features-grid { grid-template-columns: repeat(2, 1fr); }
