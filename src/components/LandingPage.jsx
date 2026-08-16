@@ -174,19 +174,38 @@ export default function LandingPage({ onEnterApp }) {
           </Reveal>
 
           <Reveal scale style={{ position: 'relative' }}>
-            <div style={{ background: 'white', borderRadius: '20px', boxShadow: '0 8px 24px rgba(0,0,0,0.10), 0 0 0 1px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
+            <div style={{ background: 'white', borderRadius: '20px', boxShadow: '0 8px 24px rgba(0,0,0,0.10), 0 0 0 1px rgba(0,0,0,0.05)', overflow: 'hidden', display: 'flex' }}>
               <span style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 1, fontSize: '10.5px', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', background: 'white', padding: '4px 10px', borderRadius: '999px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>Exempeldata</span>
-              <div style={{ padding: '16px', pointerEvents: 'none' }}>
+
+              {/* Samma menyåtergivning som hero-mockupen ovan, så demon ser ut
+                  som en riktig appvy (meny + innehåll) och inte bara ett
+                  fristående innehållsblock utan sammanhang. */}
+              <div className="lp-hide-mobile" style={{ width: '170px', flexShrink: 0, background: BRAND.green, padding: '20px 12px' }}>
+                <div style={{ marginBottom: '22px', padding: '0 4px' }}>
+                  <BokixWordmark height={20} />
+                </div>
+                {['Startsida', 'Fakturering', 'Kunder', 'Utgifter', 'Projekt', 'Bokföring', 'Rapporter'].map((label, i) => (
+                  <div key={label} style={{ padding: '8px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: i === 0 ? 700 : 500, color: i === 0 ? BRAND.greenDark : 'rgba(255,255,255,0.85)', background: i === 0 ? BRAND.greenLight : 'transparent', marginBottom: '3px' }}>
+                    {label}
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ flex: 1, minWidth: 0, padding: '16px', pointerEvents: 'none' }}>
                 {/* pointerEvents:none — visningen är till för att se hur
                     appen ser ut, inte för att faktiskt navigera runt i en
                     fejkad interaktiv demo. "Prova gratis"-knapparna på
-                    resten av sidan är den riktiga call-to-action:en. */}
+                    resten av sidan är den riktiga call-to-action:en.
+                    hideHeaderActions: Exportera skulle annars faktiskt ladda
+                    ner exempeldatan, och Ny faktura vore en förvirrande extra
+                    CTA mitt i en passiv produktvisning. */}
                 <Dashboard
                   {...DEMO_DASHBOARD_PROPS}
                   balances={[]}
                   accounts={[]}
                   setActiveTab={onEnterApp}
                   onResumeOnboarding={onEnterApp}
+                  hideHeaderActions
                 />
               </div>
             </div>

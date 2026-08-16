@@ -98,6 +98,7 @@ function MarketingStyles() {
         .lp-cta-group { flex-direction: column; }
         .lp-cta-group > button, .lp-cta-group > a { width: 100%; }
         .lp-features-grid { grid-template-columns: 1fr; }
+        .lp-hide-mobile { display: none !important; }
       }
       @media (min-width: 641px) and (max-width: 1024px) {
         .lp-features-grid { grid-template-columns: repeat(2, 1fr); }

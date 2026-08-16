@@ -235,7 +235,12 @@ function TodayRow({ item, onClick }) {
   );
 }
 
-export default function Dashboard({ verifications, balances, accounts, invoices, expenses, contacts, setActiveTab, company, profileIncomplete, onResumeOnboarding, vatPeriods = {}, payrollRuns = [] }) {
+// `hideHeaderActions`: döljer bara Exportera/Ny faktura-knapparna i
+// headern — används av Landningssidans "Så ser det ut"-demo (LandingPage.jsx),
+// där Exportera annars faktiskt skulle ladda ner exempeldatan som en JSON-fil
+// och Ny faktura vore en förvirrande extra call-to-action mitt i en passiv
+// produktvisning. Påverkar inget för den riktiga, inloggade appen (default false).
+export default function Dashboard({ verifications, balances, accounts, invoices, expenses, contacts, setActiveTab, company, profileIncomplete, onResumeOnboarding, vatPeriods = {}, payrollRuns = [], hideHeaderActions = false }) {
   const [chartMode, setChartMode] = useState('revenue-expense');
 
   // Bugvakt (Sida 32): `maximumFractionDigits: 0` avrundar t.ex. -0.4 till
@@ -513,14 +518,16 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
             </p>
           )}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <button onClick={handleExport} className="btn btn-secondary">
-            <Download size={14} /> Exportera
-          </button>
-          <button onClick={() => setActiveTab('invoices')} className="btn btn-primary">
-            <FileText size={14} /> Ny faktura
-          </button>
-        </div>
+        {!hideHeaderActions && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button onClick={handleExport} className="btn btn-secondary">
+              <Download size={14} /> Exportera
+            </button>
+            <button onClick={() => setActiveTab('invoices')} className="btn btn-primary">
+              <FileText size={14} /> Ny faktura
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ─── SNABBÅTGÄRDER — det man faktiskt kom hit för att GÖRA, högst
