@@ -42,6 +42,7 @@ import { DEFAULT_ACCOUNTS, VAT_ACCOUNTS, REVENUE_ACCOUNTS } from './components/A
 import { createStripeCheckoutSession } from './stripeApi';
 import { createEmailDomain, getEmailDomainStatus } from './emailApi';
 import { getDebet, getKredit } from './utils/verificationAmounts';
+import { BRAND } from './utils/brandColors';
 
 // ── Bokix Logo Component (light sidebar) ──
 function BokixLogo() {
@@ -92,6 +93,7 @@ import AboutPage from './components/marketing/AboutPage';
 import ContactPage from './components/marketing/ContactPage';
 import Auth from './components/Auth';
 import OnboardingFlow from './components/OnboardingFlow';
+import CookieBanner from './components/CookieBanner';
 import { supabase } from './supabaseClient';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import PrivacyPolicy from './components/PrivacyPolicy';
@@ -1187,9 +1189,20 @@ function App() {
   };
 
   // Add expense with auto-booking
+  //
+  // Bugkritiskt (Sida 34): kvitton skapas numera direkt vid uppladdning i
+  // Expenses.jsx, INNAN användaren fyllt i något i detaljvyn — costAccount
+  // är då tomt. Utan den här spärren skulle varje uppladdning bokföra en
+  // ogiltig verifikation direkt (tom kontokod, 0 kr) innan kontot ens
+  // valts. Ett kvitto utan konto ska bara hamna i listan som "Ej hanterat"
+  // (samma tillstånd handleFixExpenseAccount/handleSaveReceiptDetails
+  // nedan redan förutsätter), exakt samma mönster som
+  // handleAddSupplierInvoice redan använder för en leverantörsfaktura utan
+  // kontering.
   const handleAddExpense = (expense) => {
     const exp = { ...expense, id: `exp_${Date.now()}` };
     setExpenses(prev => [...prev, exp]);
+    if (!exp.costAccount) return;
 
     const verRows = [
       { account: exp.costAccount, debet: Math.round(exp.netAmount), kredit: 0 },
@@ -1282,10 +1295,17 @@ function App() {
   };
 
   // Markera en leverantörsfaktura som betald: flyttar skulden (2440) till bank (1930).
-  const handleMarkSupplierInvoicePaid = (expenseId) => {
+  //
+  // Sida 35: paymentMethod sparas per transaktion (inte en global
+  // inställning) så historiken visar korrekt hur betalningen faktiskt
+  // gjordes. Defaultar till 'bank' — det enda som faktiskt går att
+  // slutföra idag (se PaySupplierInvoiceModal i SupplierInvoices.jsx för
+  // varför "kort" fortfarande är "Kommer snart" och aldrig skickar hit
+  // 'card').
+  const handleMarkSupplierInvoicePaid = (expenseId, paymentMethod = 'bank') => {
     const inv = expenses.find(e => e.id === expenseId);
     if (!inv) return;
-    setExpenses(prev => prev.map(e => e.id === expenseId ? { ...e, status: 'paid', paidDate: new Date().toISOString().split('T')[0] } : e));
+    setExpenses(prev => prev.map(e => e.id === expenseId ? { ...e, status: 'paid', paidDate: new Date().toISOString().split('T')[0], paymentMethod } : e));
 
     handleAddVerification({
       date: new Date().toISOString().split('T')[0],
@@ -1339,6 +1359,97 @@ function App() {
       },
       ...reviewHistory,
     ]);
+  };
+
+  // Sparar detaljvyns formulär (Sida 34) på ett kvitto som redan skapades
+  // i listan vid uppladdningstillfället (se Expenses.jsx: filen laddas upp
+  // och läggs till direkt med tomma placeholder-fält, innan användaren
+  // hunnit fylla i något). Till skillnad från handleFixExpenseAccount ovan
+  // — som bara sätter kontot på en post vars övriga fält redan var
+  // kompletta — måste den här uppdatera SAMTLIGA fält (datum, leverantör,
+  // belopp, momssats, konto, projekt, anteckning) eftersom kvittot kan
+  // sparas med i princip allt fortfarande tomt.
+  //
+  // Bugkritiskt: idempotent på bokföringen precis som handleFixExpenseAccount
+  // — om kvittot redan har en verifikation (source 'expense'/'expense_fix')
+  // uppdateras bara fälten, ingen ny verifikation skapas. Att rätta belopp/
+  // konto på ett redan bokfört kvitto i efterhand (och därmed behöva
+  // korrigera den befintliga verifikationen) är utanför scope här.
+  const handleSaveReceiptDetails = (expenseId, formValues) => {
+    const exp = expenses.find(e => e.id === expenseId);
+    if (!exp) return;
+    const alreadyBooked = verifications.some(v => (v.source === 'expense' || v.source === 'expense_fix') && v.sourceId === expenseId);
+
+    const amount = formValues.amount;
+    const vatRate = formValues.vatRate;
+    const netAmount = vatRate > 0 ? Math.round((amount / (1 + vatRate / 100)) * 100) / 100 : amount;
+    const vatAmount = Math.round((amount - netAmount) * 100) / 100;
+
+    const updated = {
+      ...exp,
+      date: formValues.date,
+      supplier: formValues.supplier,
+      description: formValues.supplier,
+      amount, netAmount, vatAmount, vatRate,
+      costAccount: formValues.costAccount,
+      projectId: formValues.projectId || undefined,
+      notes: formValues.notes || undefined,
+    };
+    setExpenses(prev => prev.map(e => e.id === expenseId ? updated : e));
+
+    if (alreadyBooked) return;
+
+    const verRows = [{ account: updated.costAccount, debet: Math.round(updated.netAmount), kredit: 0, projectId: updated.projectId }];
+    if (updated.vatAmount > 0) verRows.push({ account: '2641', debet: Math.round(updated.vatAmount), kredit: 0 });
+    verRows.push({ account: '1930', debet: 0, kredit: Math.round(updated.amount) });
+
+    handleAddVerification({
+      date: updated.date,
+      description: updated.description,
+      source: 'expense',
+      sourceId: updated.id,
+      rows: verRows,
+    });
+  };
+
+  // Tar bort ett kvitto som laddats upp men aldrig bokförts (t.ex. en
+  // felaktig uppladdning användaren ångrar innan de fyllt i detaljvyn).
+  // Bugkritiskt: vägrar radera ett redan bokfört kvitto — det skulle lämna
+  // en obalanserad/föräldralös verifikation kvar. Att ta bort ett bokfört
+  // kvitto kräver att man först ångrar bokföringen (utanför scope här,
+  // samma sorts skydd som redan finns för fakturor/löner).
+  const handleDeleteExpense = (expenseId) => {
+    const alreadyBooked = verifications.some(v => (v.source === 'expense' || v.source === 'expense_fix') && v.sourceId === expenseId);
+    if (alreadyBooked) return;
+    setExpenses(prev => prev.filter(e => e.id !== expenseId));
+  };
+
+  // Rättar ett redan bokfört kvitto genom att skapa en NY, länkad
+  // motverifikation istället för att radera eller ändra originalet —
+  // Bokföringslagen tillåter inte att en bokförd verifikation raderas/
+  // ändras i efterhand. Samma princip som fakturors "Skapa en
+  // kreditfaktura" (Invoices.jsx, redan implementerad) och samma
+  // debet/kredit-bytesmönster som Verifikationer-sidans manuella
+  // "Rätta"-knapp (Verifications.jsx) redan använder, fast här automatiskt
+  // och länkat till kvittot istället för ett manuellt öppnat formulär.
+  //
+  // Idempotent: no-op om kvittot inte är bokfört (inget att rätta) eller
+  // redan har rättats en gång — annars skulle ett dubbelklick skapa två
+  // motverifikationer och nolla ut kontot dubbelt.
+  const handleReverseExpense = (expenseId) => {
+    const originalVer = verifications.find(v => (v.source === 'expense' || v.source === 'expense_fix') && v.sourceId === expenseId);
+    if (!originalVer) return;
+    const alreadyReversed = verifications.some(v => v.source === 'expense_reversal' && v.sourceId === expenseId);
+    if (alreadyReversed) return;
+
+    const reversedRows = (originalVer.rows || []).map(r => ({ ...r, debet: r.kredit || 0, kredit: r.debet || 0 }));
+    handleAddVerification({
+      date: new Date().toISOString().split('T')[0],
+      description: `Rättelse: ${originalVer.description}`,
+      source: 'expense_reversal',
+      sourceId: expenseId,
+      rows: reversedRows,
+    });
   };
 
   // ── Lön (Sida 12 & 13) ──────────────────────────────────────────────────
@@ -1419,6 +1530,18 @@ function App() {
     handleAddVerification({ date: run.payDate || new Date().toISOString().split('T')[0], description: `Lön ${period}: Semesteravsättning`, source: 'payroll', sourceId: `${runId}_semester`, rows: verBlocks.block3 });
 
     setPayrollRuns(prev => prev.map(r => r.id === runId ? { ...r, completedSteps: [...r.completedSteps, 'booked'] } : r));
+  };
+
+  // Sida 35: markerar en lönekörning som betald OCH sparar vilken metod
+  // som faktiskt användes (per körning, inte en global inställning) —
+  // till skillnad från handleAdvanceRunStep, som bara lägger till en flagga
+  // utan att spara någon ytterligare information. Idempotent, samma mönster
+  // som handleAdvanceRunStep redan använder.
+  const handleMarkRunPaid = (runId, paymentMethod = 'bank') => {
+    setPayrollRuns(prev => prev.map(r => {
+      if (r.id !== runId || r.completedSteps.includes('paid')) return r;
+      return { ...r, completedSteps: [...r.completedSteps, 'paid'], paymentMethod };
+    }));
   };
 
   // End of logic
@@ -1563,6 +1686,7 @@ function App() {
             onUpdateRunRow={handleUpdateRunRow}
             onAdvanceRunStep={handleAdvanceRunStep}
             onBookRun={handleBookRun}
+            onMarkRunPaid={handleMarkRunPaid}
             onRefreshRunSnapshots={handleRefreshRunSnapshots}
           />
         );
@@ -1624,11 +1748,15 @@ function App() {
             verifications={verifications}
             contacts={contacts}
             setContacts={setContacts}
+            projects={projects}
             user={user}
             onAdd={handleAddExpense}
             onAddSupplierInvoice={handleAddSupplierInvoice}
             onMarkSupplierInvoicePaid={handleMarkSupplierInvoicePaid}
             onFixExpenseAccount={handleFixExpenseAccount}
+            onSaveReceiptDetails={handleSaveReceiptDetails}
+            onDeleteExpense={handleDeleteExpense}
+            onReverseExpense={handleReverseExpense}
             globalAction={globalAction}
             clearGlobalAction={() => setGlobalAction(null)}
             pageTitle="Kostnader"
@@ -1641,9 +1769,13 @@ function App() {
             expenses={expenses}
             accounts={accounts}
             verifications={verifications}
+            projects={projects}
             user={user}
             onAdd={handleAddExpense}
             onFixExpenseAccount={handleFixExpenseAccount}
+            onSaveReceiptDetails={handleSaveReceiptDetails}
+            onDeleteExpense={handleDeleteExpense}
+            onReverseExpense={handleReverseExpense}
             pageTitle="Utgifter"
             pageSubtitle="Alla registrerade utgifter"
           />
@@ -1790,6 +1922,7 @@ function App() {
   };
 
   return (
+    <>
     <Routes>
       <Route
         path="/"
@@ -2017,7 +2150,7 @@ function App() {
                 <div className="profile-dropdown">
                   <div className="profile-header">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-                      <div style={{ width: 38, height: 38, borderRadius: '50%', background: 'linear-gradient(135deg, #5ba85a, #3a8fc1)', color: 'white', fontSize: '14px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <div style={{ width: 38, height: 38, borderRadius: '50%', background: BRAND.green, color: 'white', fontSize: '14px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                         {(company?.name || user?.email || 'A').charAt(0).toUpperCase()}
                       </div>
                       <div>
@@ -2235,6 +2368,10 @@ function App() {
         <Route path="/cookies" element={<CookiesPolicy />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+    {/* Monterad utanför <Routes> så den syns på alla sidor (marknadsföring
+        OCH inloggad app), Sida 37. */}
+    <CookieBanner />
+    </>
   );
 }
 

@@ -1,3 +1,4 @@
+import { applySecurityHeaders } from '../_security.js';
 // Steg 2: Stripe redirectar hit efter att användaren godkänt (eller
 // avbrutit) på Stripes sida. Allt känsligt — kodväxlingen mot en
 // åtkomsttoken och själva kontokopplingen — sker här, server-side.
@@ -9,7 +10,7 @@ import { createClient } from '@supabase/supabase-js';
 import { verifySignedState } from './_oauthState.js';
 import { parseCookies, STRIPE_OAUTH_COOKIE, clearStripeOauthStateCookie } from './_cookies.js';
 
-const stripeSecretKey = process.env.STRIPE_SECRET_KEY || process.env.VITE_STRIPE_SECRET_KEY || null;
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY || null;
 const stripe = stripeSecretKey && !stripeSecretKey.startsWith('pk_') ? new Stripe(stripeSecretKey, {}) : null;
 
 const appUrl = process.env.STRIPE_ONBOARDING_RETURN_URL || 'http://localhost:5173';
@@ -45,6 +46,7 @@ async function persistStripeAccountId({ userId, companyId, stripeAccountId }) {
 }
 
 export default async function handler(req, res) {
+  applySecurityHeaders(res);
   const { code, state, error: stripeError } = req.query || {};
   // Cookien ska bara kunna användas en gång, oavsett utfall.
   res.setHeader('Set-Cookie', clearStripeOauthStateCookie());

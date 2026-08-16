@@ -1,4 +1,6 @@
 import express from 'express'
+import helmet from 'helmet'
+import rateLimit from 'express-rate-limit'
 import Stripe from 'stripe'
 import dotenv from 'dotenv'
 import fs from 'fs'
@@ -41,12 +43,18 @@ function saveStore(store) {
 
 const store = loadStore()
 
-const stripeSecretKey = process.env.STRIPE_SECRET_KEY || process.env.VITE_STRIPE_SECRET_KEY || null
+// Sida 37: den tidigare VITE_-prefixade fallbacken (VITE_STRIPE_SECRET_KEY)
+// är borttagen — allt som börjar med VITE_ bundlas statiskt in i klient-JS
+// av Vite, så att namnge en hemlig nyckel så var ett latent läckage-hål
+// (aldrig faktiskt utnyttjat, ingen frontend-kod läste den, men risken
+// fanns om någon råkade göra det i framtiden). STRIPE_SECRET_KEY (utan
+// VITE_-prefix) är den enda källan nu.
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY || null
 
 let stripe = null
 
 if (!stripeSecretKey) {
-  console.warn('Stripe secret key not configured yet. Stripe routes will return a 503 until STRIPE_SECRET_KEY or VITE_STRIPE_SECRET_KEY is provided.')
+  console.warn('Stripe secret key not configured yet. Stripe routes will return a 503 until STRIPE_SECRET_KEY is provided.')
 } else if (stripeSecretKey.startsWith('pk_')) {
   console.error('Invalid Stripe key: STRIPE_SECRET_KEY must be a secret key beginning with sk_, not pk_.')
 } else {
@@ -162,6 +170,26 @@ async function sendViaResend(payload) {
 }
 
 const app = express()
+
+// Sida 37: grundläggande säkerhetshärdning — bara den lokala dev-servern
+// (npm run dev, port 5000). I produktion är det api/*.js-filerna som
+// hanterar /api/*-trafik på Vercel (se api/_security.js för motsvarande
+// header-härdning där), server.js körs aldrig skarpt. CSP/andra headers
+// stör inget här eftersom servern bara svarar med JSON, aldrig HTML.
+app.use(helmet())
+
+// Generellt tak för alla /api/*-anrop, striktare specifikt på Stripe/
+// mejl-rutterna (de rör pengar respektive kan missbrukas för spam).
+// In-memory — nollställs vid omstart, vilket räcker för lokal utveckling
+// men INTE är en ersättning för riktig rate-limiting i produktion (kräver
+// en delad datastore som Upstash Redis, eller Vercels egen
+// Firewall-produkt — se plan-filen för varför det inte byggs här).
+const generalLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 300, standardHeaders: true, legacyHeaders: false })
+const sensitiveLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30, standardHeaders: true, legacyHeaders: false })
+app.use('/api/', generalLimiter)
+app.use('/api/stripe/', sensitiveLimiter)
+app.use('/api/email/', sensitiveLimiter)
+
 // 15mb (inte standard-100kb) eftersom fakturamejl bifogar en PDF som
 // base64-sträng i JSON-kroppen — annars avvisas anrop med en bifogad
 // faktura-PDF över ~70kb (base64 är ~33% större än originalfilen).

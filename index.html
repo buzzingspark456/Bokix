@@ -17,6 +17,27 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" crossorigin="anonymous" />
+
+    <!-- Google Analytics via Consent Mode v2 (Sida 37). Bugkritiskt: consent
+         'default' med samtliga kategorier 'denied' MÅSTE köras innan 'config'
+         — annars sätter gtag.js _ga/_gid-cookies och skickar mätdata redan
+         vid sidladdning, innan besökaren hunnit svara i cookiebannern
+         (src/components/CookieBanner.jsx), vilket bryter mot GDPR/ePrivacy.
+         Bannern anropar gtag('consent','update',...) via
+         src/utils/consent.js när besökaren faktiskt väljer. -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-9KXP9XW3MW"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('consent', 'default', {
+        'analytics_storage': 'denied',
+        'ad_storage': 'denied',
+        'ad_user_data': 'denied',
+        'ad_personalization': 'denied'
+      });
+      gtag('js', new Date());
+      gtag('config', 'G-9KXP9XW3MW');
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -160,7 +160,7 @@ function KpiCard({ label, value, sub, icon: Icon, color, bg, positive, onClick, 
   const bold = !!gradient;
   return (
     <button onClick={onClick} style={{
-      background: bold ? `linear-gradient(135deg, ${gradient[0]}, ${gradient[1]})` : 'white',
+      background: bold ? gradient[0] : 'white',
       border: bold ? 'none' : (hero ? `1px solid ${sparkColor || color}33` : '1px solid #e5e7eb'),
       borderRadius: '14px',
       padding: '20px',
@@ -170,19 +170,19 @@ function KpiCard({ label, value, sub, icon: Icon, color, bg, positive, onClick, 
       display: 'flex',
       flexDirection: 'column',
       gap: '12px',
-      boxShadow: bold ? `0 12px 26px -12px ${gradient[1]}99` : '0 1px 3px rgba(0,0,0,0.04)',
+      boxShadow: bold ? '0 2px 8px rgba(0,0,0,0.12)' : '0 1px 3px rgba(0,0,0,0.04)',
       position: 'relative',
       overflow: 'hidden',
       width: '100%',
     }}
     onMouseEnter={e => {
       e.currentTarget.style.transform = 'translateY(-3px)';
-      e.currentTarget.style.boxShadow = bold ? `0 16px 32px -12px ${gradient[1]}bb` : '0 10px 28px rgba(0,0,0,0.09)';
+      e.currentTarget.style.boxShadow = bold ? '0 6px 16px rgba(0,0,0,0.16)' : '0 10px 28px rgba(0,0,0,0.09)';
       if (!bold) e.currentTarget.style.borderColor = sparkColor || color;
     }}
     onMouseLeave={e => {
       e.currentTarget.style.transform = '';
-      e.currentTarget.style.boxShadow = bold ? `0 12px 26px -12px ${gradient[1]}99` : '0 1px 3px rgba(0,0,0,0.04)';
+      e.currentTarget.style.boxShadow = bold ? '0 2px 8px rgba(0,0,0,0.12)' : '0 1px 3px rgba(0,0,0,0.04)';
       if (!bold) e.currentTarget.style.borderColor = '#e5e7eb';
     }}
     >

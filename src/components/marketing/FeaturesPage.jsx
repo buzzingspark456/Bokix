@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  FileText, BarChart3, Users, Shield, ArrowRight, CheckCircle2,
+  FileText, BarChart3, Users, Shield, ArrowRight,
 } from 'lucide-react';
 import { BRAND } from '../../utils/brandColors';
 import MarketingLayout, { Reveal } from './MarketingLayout';
@@ -16,7 +16,7 @@ const SECTIONS = [
     points: [
       'Verifikationer bokförs automatiskt utifrån kvitton, fakturor och lönekörningar',
       'Full kontoplan (BAS) med sökbara konton',
-      'Granskning samlar allt som saknar kontering på ett ställe — aldrig gömt i en lista',
+      'Granskning samlar allt som saknar kontering på ett ställe, aldrig gömt i en lista',
       'Låsning av räkenskapsår vid bokslut',
     ],
   },
@@ -32,7 +32,7 @@ const SECTIONS = [
   },
   {
     icon: Shield, title: 'Skatt och bokslut',
-    desc: 'Det som faktiskt ska in rätt hos Skatteverket, förberett åt dig — aldrig skickat automatiskt utan din signatur.',
+    desc: 'Det som faktiskt ska in rätt hos Skatteverket, förberett åt dig men aldrig skickat automatiskt utan din signatur.',
     points: [
       'Momsdeklaration som PDF, redo att fylla i på skatteverket.se',
       'AGI-sammanställning per lönekörning',
@@ -57,13 +57,13 @@ export default function FeaturesPage() {
   const enterApp = () => navigate('/', { state: { enterApp: true } });
   return (
     <MarketingLayout>
-      <section style={{ padding: '150px 24px 80px', background: `linear-gradient(160deg, #f8fffe 0%, ${BRAND.greenLight}44 60%, white 100%)` }}>
+      <section style={{ padding: '150px 24px 80px', background: BRAND.greenLight }}>
         <Reveal style={{ maxWidth: '720px', margin: '0 auto', textAlign: 'center' }}>
           <h1 style={{ fontSize: 'clamp(32px, 5vw, 52px)', fontWeight: 900, letterSpacing: '-0.03em', color: '#0f172a', marginBottom: '18px', lineHeight: 1.1 }}>
             Allt du behöver, ingenting du inte behöver
           </h1>
           <p style={{ fontSize: '17px', color: '#475569', lineHeight: 1.7 }}>
-            Bokix är byggt kring fyra saker ett svenskt företag faktiskt gör varje månad — inte trettio funktioner ingen använder.
+            Bokix är byggt kring fyra saker ett svenskt företag faktiskt gör varje månad, inte trettio funktioner ingen använder.
           </p>
         </Reveal>
       </section>
@@ -82,12 +82,9 @@ export default function FeaturesPage() {
               <div>
                 <h2 style={{ fontSize: '21px', fontWeight: 800, color: '#111827', margin: '0 0 6px', letterSpacing: '-0.01em' }}>{s.title}</h2>
                 <p style={{ fontSize: '14.5px', color: '#64748b', margin: '0 0 18px', lineHeight: 1.6 }}>{s.desc}</p>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '10px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '9px 24px' }}>
                   {s.points.map(p => (
-                    <div key={p} style={{ display: 'flex', alignItems: 'flex-start', gap: '9px' }}>
-                      <CheckCircle2 size={15} color={BRAND.green} style={{ flexShrink: 0, marginTop: '2px' }} />
-                      <span style={{ fontSize: '13.5px', color: '#374151', lineHeight: 1.55 }}>{p}</span>
-                    </div>
+                    <div key={p} style={{ fontSize: '13.5px', color: '#374151', lineHeight: 1.55 }}>{p}</div>
                   ))}
                 </div>
               </div>
@@ -101,7 +98,7 @@ export default function FeaturesPage() {
           <h2 style={{ fontSize: 'clamp(24px, 3.5vw, 34px)', fontWeight: 900, letterSpacing: '-0.03em', color: '#0f172a', marginBottom: '14px' }}>
             Ett pris, allt ovan ingår
           </h2>
-          <p style={{ fontSize: '15.5px', color: '#64748b', marginBottom: '28px' }}>Inga tillägg per funktion — se vad det kostar.</p>
+          <p style={{ fontSize: '15.5px', color: '#64748b', marginBottom: '28px' }}>Inga tillägg per funktion. Se vad det kostar.</p>
           <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
             <button onClick={enterApp} style={{ padding: '14px 28px', background: BRAND.green, border: 'none', borderRadius: '12px', color: 'white', fontWeight: 700, fontSize: '15px', cursor: 'pointer' }}>Prova gratis</button>
             <Link to="/priser" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '14px 24px', background: 'white', border: '1.5px solid #e2e8f0', borderRadius: '12px', color: '#374151', fontWeight: 600, fontSize: '15px', textDecoration: 'none' }}>

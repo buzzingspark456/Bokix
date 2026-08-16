@@ -1,5 +1,6 @@
 ﻿import React, { useMemo, useState } from 'react';
-import { ArrowRight, Building2, Sparkles, UserRound, Workflow } from 'lucide-react';
+import { ArrowRight, Building2, UserRound, Workflow } from 'lucide-react';
+import { BRAND } from '../utils/brandColors';
 
 const steps = [
   { title: 'Välkommen', description: 'Skapa din företagsprofil och börja bokföra med Bokix.' },
@@ -165,13 +166,13 @@ export default function OnboardingFlow({ onComplete, onSkip, initialCompanyName,
   };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', background: 'linear-gradient(135deg, #f6fbff 0%, #f2f9f2 100%)' }}>
-      <div style={{ width: '100%', maxWidth: '900px', background: 'rgba(255,255,255,0.96)', border: '1px solid rgba(15,23,42,0.08)', borderRadius: '28px', boxShadow: '0 35px 90px -40px rgba(15,23,42,0.25)', overflow: 'hidden', WebkitBackdropFilter: 'blur(18px)', backdropFilter: 'blur(18px)' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', background: BRAND.greenLight }}>
+      <div style={{ width: '100%', maxWidth: '900px', background: 'white', border: '1px solid rgba(15,23,42,0.08)', borderRadius: '28px', boxShadow: '0 4px 20px rgba(15,23,42,0.10)', overflow: 'hidden' }}>
         <div style={{ padding: '28px 32px 0' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{ width: 44, height: 44, borderRadius: '14px', background: 'linear-gradient(135deg, #5ba85a, #3a8fc1)', display: 'grid', placeItems: 'center', color: 'white' }}>
-                <Sparkles size={18} />
+              <div style={{ width: 44, height: 44, borderRadius: '14px', background: BRAND.green, display: 'grid', placeItems: 'center', color: 'white' }}>
+                <Building2 size={18} />
               </div>
               <div>
                 <div style={{ fontWeight: 800, color: '#0f172a' }}>Bokix onboarding</div>
@@ -182,12 +183,12 @@ export default function OnboardingFlow({ onComplete, onSkip, initialCompanyName,
           </div>
 
           <div style={{ height: '8px', borderRadius: '999px', background: '#eef2f7', overflow: 'hidden', marginBottom: '24px' }}>
-            <div style={{ width: `${progress}%`, height: '100%', background: 'linear-gradient(135deg, #5ba85a, #3a8fc1)', transition: 'width 0.25s ease' }} />
+            <div style={{ width: `${progress}%`, height: '100%', background: BRAND.green, transition: 'width 0.25s ease' }} />
           </div>
         </div>
 
         <div style={{ padding: '0 32px 32px', display: 'grid', gridTemplateColumns: '1fr 0.95fr', gap: '24px' }}>
-          <div style={{ padding: '24px', borderRadius: '24px', background: 'linear-gradient(135deg, #f8fbff, #f4fbf4)', border: '1px solid rgba(15,23,42,0.06)' }}>
+          <div style={{ padding: '24px', borderRadius: '24px', background: BRAND.greenLight, border: '1px solid rgba(15,23,42,0.06)' }}>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '999px', fontSize: '12px', fontWeight: 700, color: '#4a944a', background: 'rgba(91,168,90,0.12)', marginBottom: '16px' }}>
               <Workflow size={14} /> {steps[step].title}
             </div>
@@ -205,7 +206,7 @@ export default function OnboardingFlow({ onComplete, onSkip, initialCompanyName,
               <button
                 onClick={handleNext}
                 disabled={!currentStepValid()}
-                style={{ border: 0, borderRadius: '999px', padding: '11px 16px', background: 'linear-gradient(135deg, #5ba85a, #3a8fc1)', color: 'white', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+                style={{ border: 0, borderRadius: '999px', padding: '11px 16px', background: BRAND.green, color: 'white', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
               >
                 {step === steps.length - 1 ? 'Gå till dashboard' : 'Fortsätt'} <ArrowRight size={15} />
               </button>
@@ -223,7 +224,7 @@ export default function OnboardingFlow({ onComplete, onSkip, initialCompanyName,
               {[
                 { icon: UserRound, title: 'Företagsprofil', detail: 'Ej längre manuell inmatning i flera system.' },
                 { icon: Building2, title: 'Full överblick', detail: 'Bokföring, fakturering och moms på samma plats.' },
-                { icon: Sparkles, title: 'Premiummål', detail: 'Snabb start med rätt inställningar för Bokix.' },
+                { icon: Workflow, title: 'Premiummål', detail: 'Snabb start med rätt inställningar för Bokix.' },
               ].map((item) => {
                 const Icon = item.icon;
                 return (

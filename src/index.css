@@ -242,7 +242,7 @@ body {
   width: var(--sidebar-width);
   height: 100vh;
   height: 100dvh;
-  background: linear-gradient(160deg, var(--bg-sidebar) 0%, var(--bg-sidebar-end) 100%);
+  background: var(--bg-sidebar);
   border: none;
   border-radius: 0;
   display: flex;
@@ -646,7 +646,7 @@ body {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #5ba85a, #3a8fc1);
+  background: #3d7a2e;
   color: white;
   font-size: 13px;
   font-weight: 700;
@@ -2168,9 +2168,12 @@ textarea.form-control {
   position: relative;
 }
 
-/* Allra-grön accent stripe på fakturan */
+/* Ingen bakgrund statiskt här — InvoiceDocument.jsx sätter alltid
+   background: accent inline (mallens/företagets egen accentfärg). Samma
+   "död CSS bakom en inline-override är en html2canvas-fälla"-skäl som
+   redan dokumenterat vid .a4-grand-total/.a4-table th ovan, plus: en
+   gradient hör inte hemma här alls (aldrig en solid färg som specen kräver). */
 .a4-header-stripe {
-  background: linear-gradient(135deg, #1a3028, #2d5a3f);
   margin: -18mm -18mm 32px;
   padding: 28px 40px;
   display: flex;
@@ -2267,10 +2270,12 @@ textarea.form-control {
   font-size: 13px;
 }
 
-.a4-table thead tr {
-  background: #1a3028;
-}
-
+/* Ingen bakgrund/färg statiskt här — InvoiceDocument.jsx sätter alltid
+   både bakgrund och textfärg inline per <th> (tableHeaderStyle, olika för
+   isMinimal än övriga mallar), av samma skäl och med samma html2canvas-risk
+   som beskrivs vid .a4-grand-total ovan: en alltid-överskriven parallell
+   CSS-regel på samma egenskap är en tickande bomb i den PDF-exporterade
+   rasterbilden även om den aldrig syns i en vanlig webbläsare. */
 .a4-table th {
   padding: 10px 12px;
   text-align: left;
@@ -2278,7 +2283,6 @@ textarea.form-control {
   font-size: 10.5px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: rgba(255,255,255,0.85);
 }
 
 .a4-table tbody tr {
@@ -2318,19 +2322,30 @@ textarea.form-control {
   color: #52525b;
 }
 
+/* Ingen border-top eller span-färg statiskt här längre — InvoiceDocument.jsx
+   sätter alltid båda inline (2px solid ${accent} / color: accent), eftersom
+   accentfärgen skiljer sig per mall och per företag. En parallell, alltid
+   överskriven CSS-regel för samma egenskaper lät bra i vanliga webbläsare
+   (inline vinner alltid där), men html2canvas — som rastrerar hela
+   dokumentet till PDF/mejlbilaga — har kända buggar med att exakt återge
+   cascade-prioritet mellan en stylesheet-regel och en inline-override på
+   samma egenskap. Resultatet syntes bara i den EXPORTERADE PDF:en, aldrig
+   i den levande förhandsvisningen: en gul/mörkgrön "spöklinje" från den här
+   döda regeln som html2canvas ibland blandade in bakom/bredvid den riktiga
+   accentfärgade linjen, vilket uppfattades som en förskjuten/dubblerad
+   linje under totalbeloppet. Att ta bort den motstridiga regeln helt
+   (istället för att lita på override-ordning) tar bort själva
+   möjligheten för html2canvas att göra fel, oavsett hur bra eller dåligt
+   det biblioteket råkar hantera cascade-prioritet just nu.
+*/
 .a4-grand-total {
   display: flex;
   justify-content: space-between;
-  border-top: 2px solid #1a3028;
   padding-top: 12px;
   margin-top: 8px;
   font-size: 17px;
   font-weight: 700;
   color: #1a1a1a;
-}
-
-.a4-grand-total span:last-child {
-  color: var(--lime-600);
 }
 
 /* Footer */

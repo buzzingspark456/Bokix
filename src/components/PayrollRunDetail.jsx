@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import {
-  Check, ChevronDown, ChevronUp, AlertTriangle, Download, ChevronLeft, Loader2, ExternalLink, RefreshCw,
+  Check, ChevronDown, ChevronUp, AlertTriangle, Download, ChevronLeft, Loader2, ExternalLink, RefreshCw, Landmark, CreditCard,
 } from 'lucide-react';
 import CalculationRow from './shared/CalculationRow';
 import { computeEmployeePayroll, summarizePayrollRun } from '../utils/payrollCalculation';
@@ -190,7 +190,7 @@ function VerificationBlock({ title, rows, accounts }) {
   );
 }
 
-export default function PayrollRunDetail({ run, previousRun, accounts, company, onBack, onAdvanceStep, onBookRun, onUpdateRow, onRefreshSnapshots }) {
+export default function PayrollRunDetail({ run, previousRun, accounts, company, onBack, onAdvanceStep, onBookRun, onMarkPaid, onUpdateRow, onRefreshSnapshots }) {
   const [agiConfirmed, setAgiConfirmed] = useState(run.completedSteps.includes('agi'));
   const [showBankGuide, setShowBankGuide] = useState(false);
   const [tablesReady, setTablesReady] = useState(false);
@@ -286,8 +286,13 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
   const handleAdvance = (stepId) => {
     if (stepId === 'booked') {
       onBookRun(run.id, verBlocks);
-    } else if (stepId === 'agi') {
-      onAdvanceStep(run.id, stepId);
+    } else if (stepId === 'paid') {
+      // Sida 35: "Betala"-steget sparar numera VILKEN metod som faktiskt
+      // användes, inte bara en klar/ej klar-flagga. Bank är den enda
+      // metoden som går att slutföra idag (se Betalningsmetod-panelen
+      // nedan för varför Kort är "Kommer snart"), så knappen här antar
+      // bank — samma en-klicks-beteende som innan, fast nu spårbart.
+      onMarkPaid(run.id, 'bank');
     } else {
       onAdvanceStep(run.id, stepId);
     }
@@ -314,6 +319,11 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
         <StatusBadge status={displayStatus} />
         <span style={{ fontSize: '13px', color: '#6b7280' }}>Utbetalningsdatum: {run.payDate || '—'}</span>
         <span style={{ fontSize: '13px', color: '#6b7280' }}>{run.rows.length} {run.rows.length === 1 ? 'anställd' : 'anställda'}</span>
+        {run.paymentMethod && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: '#f1f5f9', color: '#475569' }}>
+            {run.paymentMethod === 'bank' ? <Landmark size={12} /> : <CreditCard size={12} />} Betald via {run.paymentMethod === 'bank' ? 'bank' : 'kort'}
+          </span>
+        )}
       </div>
 
       <StepButtons completedSteps={run.completedSteps} onAdvance={handleAdvance} canBook={canBook} />
@@ -385,8 +395,17 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
       )}
 
       {run.completedSteps.includes('approved') && (
-        <div style={{ ...panelCard, marginTop: '28px', padding: '20px' }}>
-          <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#111', margin: '0 0 16px' }}>Betalfil till bank</h3>
+        <div style={{ marginTop: '28px' }}>
+          {/* Sida 35: betalningsmetod-val — Bank fungerar (befintlig
+              pain.001-betalfil, oförändrad innanför sitt kort nedan), Kort
+              är ärligt "Kommer snart" eftersom det skulle kräva en helt
+              annan Stripe-produkt (utbetalningar) än den som redan finns. */}
+          <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#111', margin: '0 0 12px' }}>Betalningsmetod</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.6fr) minmax(0, 1fr)', gap: '16px', alignItems: 'start' }}>
+          <div style={{ ...panelCard, padding: '20px' }}>
+          <h4 style={{ fontSize: '14px', fontWeight: 700, color: '#111', margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Landmark size={16} color="#1a3028" /> Bank — Betalfil
+          </h4>
           <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>Format</label>
           <select disabled style={{ width: '100%', maxWidth: '360px', padding: '9px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', background: '#f8fafc', marginBottom: '6px' }}>
             <option>ISO 20022 pain.001 (XML)</option>
@@ -451,6 +470,20 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
           <div style={{ marginTop: '18px', paddingTop: '14px', borderTop: '1px solid #f1f5f9', fontSize: '12px', color: '#9ca3af', display: 'flex', alignItems: 'center', gap: '8px' }}>
             Automatisk direktbetalning via open banking (utan filimport) är planerad.
             <span style={{ padding: '2px 8px', borderRadius: '999px', background: '#f1f5f9', color: '#94a3b8', fontSize: '10.5px', fontWeight: 700 }}>Kommer snart</span>
+          </div>
+          </div>
+
+          <div style={{ ...panelCard, padding: '20px', opacity: 0.6 }}>
+            <h4 style={{ fontSize: '14px', fontWeight: 700, color: '#374151', margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <CreditCard size={16} color="#9ca3af" /> Kort (Stripe)
+            </h4>
+            <p style={{ fontSize: '12.5px', color: '#9ca3af', lineHeight: 1.6, margin: '0 0 18px' }}>
+              Lämpligt för enstaka mindre utbetalningar, men kräver en annan Stripe-produkt (utbetalningar till anställda) än den som redan tar emot kortbetalningar från era kunder — inte byggt ännu.
+            </p>
+            <button disabled style={{ width: '100%', padding: '9px 12px', background: '#f1f5f9', color: '#9ca3af', border: 'none', borderRadius: '8px', fontWeight: 700, fontSize: '13px', cursor: 'not-allowed' }}>
+              Kommer snart
+            </button>
+          </div>
           </div>
         </div>
       )}

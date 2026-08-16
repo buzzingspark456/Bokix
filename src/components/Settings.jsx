@@ -700,7 +700,7 @@ export default function Settings({
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '28px' }}>
         <div style={{
           width: 46, height: 46, borderRadius: '13px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: `linear-gradient(135deg, ${BRAND.green}, ${BRAND.greenHover})`, color: 'white', boxShadow: '0 6px 16px rgba(61, 122, 46, 0.3)',
+          background: BRAND.green, color: 'white', boxShadow: '0 2px 6px rgba(61, 122, 46, 0.25)',
         }}>
           <Sliders size={22} strokeWidth={2.2} />
         </div>

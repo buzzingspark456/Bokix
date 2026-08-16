@@ -192,3 +192,64 @@ DROP POLICY IF EXISTS "Egen radering i companylogo" ON storage.objects;
 CREATE POLICY "Egen radering i companylogo"
 ON storage.objects FOR DELETE TO authenticated
 USING (bucket_id = 'companylogo' AND (storage.foldername(name))[1] = (SELECT auth.uid()::text));
+
+-- ═══════════════════════════════════════════════════════════
+-- Storage: kvitton och övriga bilagor (Utgifter, Verifikationer)
+-- ═══════════════════════════════════════════════════════════
+-- Koden (Expenses.jsx för kvitton, Verifications.jsx via fileUpload.js för
+-- verifikationsunderlag) har hela tiden pekat mot en bucket "bokix-uploads",
+-- men den skapades aldrig av det här scriptet efter migreringen till
+-- separata profile/companylogo-buckets ovan — bucketen saknades alltså på
+-- alla projekt som bara kört den här filen, vilket gjorde att kvittobilden
+-- aldrig sparades (uppladdningen misslyckas med "bucket not found", se
+-- felhanteringen i Expenses.jsx) trots att utgiften ändå bokfördes. En delad
+-- bucket med mapp-prefix per användare/funktion ("<uid>/receipts/...",
+-- "<uid>/files/...") istället för ytterligare separata buckets, eftersom
+-- den redan delas mellan två oberoende funktioner i koden. file_size_limit
+-- matchar MAX_FILE_MB i Expenses.jsx (10 MB); allowed_mime_types matchar
+-- ACCEPTED_TYPES där (bild eller PDF).
+--
+-- Till skillnad från profile/companylogo ovan finns INGEN öppen
+-- SELECT-policy här. Kvitton är riktiga köpuppgifter, inte
+-- publika profilbilder — bucketen är fortfarande public:true så att
+-- <img src={getPublicUrl}> fungerar rakt av (den rutten kollar bara
+-- bucket.public, inte RLS), men utan en egen SELECT-policy kan ingen
+-- lista/bläddra i storage.objects och på så vis få fram andra
+-- användares filsökvägar. Bara den som redan har URL:en (dvs. den som
+-- äger raden i user_data där den sparades) kan alltså se bilden.
+-- SELECT-policyn nedan är därför inskränkt till egen mapp, precis som
+-- INSERT/UPDATE/DELETE, för den dagen appen faktiskt behöver lista eller
+-- ladda ner egna filer via Storage-API:et.
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES ('bokix-uploads', 'bokix-uploads', true, 10485760, ARRAY['image/jpeg', 'image/png', 'image/webp', 'application/pdf'])
+ON CONFLICT (id) DO UPDATE SET file_size_limit = 10485760, allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+
+-- Tre DROP:ar för samma sak här — "Publik läsning" var namnet i den allra
+-- första versionen av den här sektionen, "Egen läsning av bokix-uploads"
+-- dök upp separat i det levande projektet (skapad av något annat än det
+-- här scriptet, med annan ordföljd: "av" inte "i"), och "Egen läsning i
+-- bokix-uploads" är namnet scriptet själv använder. Utan alla tre kan
+-- en omkörning lämna en kvarglömd dubblettpolicy med annat namn men
+-- samma effekt kvar i databasen.
+DROP POLICY IF EXISTS "Publik läsning av bokix-uploads" ON storage.objects;
+DROP POLICY IF EXISTS "Egen läsning av bokix-uploads" ON storage.objects;
+DROP POLICY IF EXISTS "Egen läsning i bokix-uploads" ON storage.objects;
+CREATE POLICY "Egen läsning i bokix-uploads"
+ON storage.objects FOR SELECT TO authenticated
+USING (bucket_id = 'bokix-uploads' AND (storage.foldername(name))[1] = (SELECT auth.uid()::text));
+
+DROP POLICY IF EXISTS "Egen uppladdning i bokix-uploads" ON storage.objects;
+CREATE POLICY "Egen uppladdning i bokix-uploads"
+ON storage.objects FOR INSERT TO authenticated
+WITH CHECK (bucket_id = 'bokix-uploads' AND (storage.foldername(name))[1] = (SELECT auth.uid()::text));
+
+DROP POLICY IF EXISTS "Egen uppdatering i bokix-uploads" ON storage.objects;
+CREATE POLICY "Egen uppdatering i bokix-uploads"
+ON storage.objects FOR UPDATE TO authenticated
+USING (bucket_id = 'bokix-uploads' AND (storage.foldername(name))[1] = (SELECT auth.uid()::text))
+WITH CHECK (bucket_id = 'bokix-uploads' AND (storage.foldername(name))[1] = (SELECT auth.uid()::text));
+
+DROP POLICY IF EXISTS "Egen radering i bokix-uploads" ON storage.objects;
+CREATE POLICY "Egen radering i bokix-uploads"
+ON storage.objects FOR DELETE TO authenticated
+USING (bucket_id = 'bokix-uploads' AND (storage.foldername(name))[1] = (SELECT auth.uid()::text));

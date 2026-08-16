@@ -1,3 +1,4 @@
+import { applySecurityHeaders } from '../_security.js';
 // Steg 1 av det klassiska Stripe Connect OAuth-flödet ("Standard"-konton):
 // genererar en signerad state, sparar samma värde i en httpOnly-cookie,
 // och skickar användaren vidare till Stripes egna, Stripe-hostade
@@ -19,6 +20,7 @@ function redirectToApp(res, status) {
 }
 
 export default async function handler(req, res) {
+  applySecurityHeaders(res);
   if (req.method !== 'GET') {
     res.status(405).json({ error: 'Method not allowed' });
     return;

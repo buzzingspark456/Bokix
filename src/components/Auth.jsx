@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   BookOpen, LogIn, UserPlus, Building2, Mail, Lock,
   ArrowRight, ArrowLeft, ShieldCheck, Check, User, Hash,
-  Zap, ScanLine, RefreshCw, Bell, Sparkles
+  Zap, ScanLine, RefreshCw, Bell,
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { detectOrgType, formatOrgNr } from '../utils/orgType';
@@ -118,18 +118,12 @@ export default function Auth({ onLogin }) {
   };
 
   return (
-    <div id="auth-root" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: `linear-gradient(160deg, #f8fffe 0%, ${BRAND.greenLight}55 50%, #f8fffe 100%)`, fontFamily: "'Inter', sans-serif", padding: '32px 20px' }}>
+    <div id="auth-root" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: BRAND.greenLight, fontFamily: "'Inter', sans-serif", padding: '32px 20px' }}>
       <style>{`
         #auth-root, #auth-root *, #auth-root *::before, #auth-root *::after { box-sizing: border-box; }
         #auth-root button { -webkit-appearance: none; appearance: none; -webkit-tap-highlight-color: transparent; }
         .auth-card { display: flex; width: 100%; max-width: 960px; }
         .auth-brand { display: flex; }
-        @keyframes authOrbDrift1 { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-24px, 22px) scale(1.12); } }
-        @keyframes authOrbDrift2 { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(20px, -18px) scale(1.08); } }
-        @keyframes authLogoGlow { 0%, 100% { box-shadow: 0 0 0 0 rgba(150,255,140,0.45), 0 0 24px 4px rgba(150,255,140,0.35); } 50% { box-shadow: 0 0 0 6px rgba(150,255,140,0), 0 0 38px 10px rgba(150,255,140,0.55); } }
-        .auth-orb-1 { animation: authOrbDrift1 9s ease-in-out infinite; }
-        .auth-orb-2 { animation: authOrbDrift2 11s ease-in-out infinite; }
-        .auth-logo-glow { animation: authLogoGlow 3.2s ease-in-out infinite; }
         .auth-feature-row { transition: transform 0.2s ease; }
         .auth-feature-row:hover { transform: translateX(3px); }
         @media (max-width: 760px) {
@@ -143,18 +137,14 @@ export default function Auth({ onLogin }) {
       {/* Bunden i ett enda rundat kort med begränsad maxbredd istället för att
           varumärkespanelen sträcker sig flex:1 över hela viewporten — det var
           det som gjorde sidan kännas tom och överdimensionerad på en bred skärm. */}
-      <div className="auth-card" style={{ background: 'white', borderRadius: '24px', overflow: 'hidden', boxShadow: '0 30px 80px -20px rgba(15,23,42,0.18)' }}>
+      <div className="auth-card" style={{ background: 'white', borderRadius: '24px', overflow: 'hidden', boxShadow: '0 4px 20px rgba(15,23,42,0.10)' }}>
 
-        {/* Vänster: varumärke — mörk panel med driftande gradient-orbar och en
-            glödande logga istället för en statisk platt yta, plus en
+        {/* Vänster: varumärke — solid mörkgrön panel plus en
             automations-fokuserad funktionslista (inte bara "vad appen har"
             utan "vad den gör åt dig automatiskt"). */}
-        <div className="auth-brand" style={{ width: '360px', flexShrink: 0, flexDirection: 'column', padding: '44px 36px', position: 'relative', overflow: 'hidden', background: `linear-gradient(160deg, ${BRAND.green} 0%, #142a1f 100%)` }}>
-          <div className="auth-orb-1" style={{ position: 'absolute', top: '-90px', right: '-70px', width: '260px', height: '260px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(150,255,140,0.16) 0%, transparent 70%)', pointerEvents: 'none' }} />
-          <div className="auth-orb-2" style={{ position: 'absolute', bottom: '-100px', left: '-60px', width: '220px', height: '220px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 70%)', pointerEvents: 'none' }} />
-
+        <div className="auth-brand" style={{ width: '360px', flexShrink: 0, flexDirection: 'column', padding: '44px 36px', position: 'relative', overflow: 'hidden', background: BRAND.greenDark }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px', position: 'relative' }}>
-            <div className="auth-logo-glow" style={{ width: 52, height: 52, borderRadius: '14px', background: 'rgba(255,255,255,0.16)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <div style={{ width: 52, height: 52, borderRadius: '14px', background: 'rgba(255,255,255,0.16)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <BookOpen size={26} color="white" />
             </div>
             <div>
@@ -184,8 +174,7 @@ export default function Auth({ onLogin }) {
             ))}
           </div>
 
-          <div style={{ marginTop: 'auto', paddingTop: '28px', display: 'flex', alignItems: 'center', gap: '8px', color: '#c8f7bd' }}>
-            <Sparkles size={14} />
+          <div style={{ marginTop: 'auto', paddingTop: '28px', color: '#c8f7bd' }}>
             <span style={{ fontSize: '11.5px', fontWeight: 700 }}>Mindre admin, mer tid för verksamheten.</span>
           </div>
 
@@ -234,7 +223,7 @@ export default function Auth({ onLogin }) {
                 </div>
               </div>
               {errorMsg && <div style={{ padding: '12px', background: '#fee2e2', color: '#b91c1c', borderRadius: '8px', fontSize: '13px', fontWeight: 600 }}>{errorMsg}</div>}
-              <button type="submit" disabled={loading} style={{ width: '100%', padding: '14px', background: BRAND.green, border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: 700, color: 'white', cursor: loading ? 'wait' : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', boxShadow: '0 8px 20px -5px rgba(61,122,46,0.4)', fontFamily: 'inherit', opacity: loading ? 0.7 : 1 }}>
+              <button type="submit" disabled={loading} style={{ width: '100%', padding: '14px', background: BRAND.green, border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: 700, color: 'white', cursor: loading ? 'wait' : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', boxShadow: '0 2px 6px rgba(61,122,46,0.25)', fontFamily: 'inherit', opacity: loading ? 0.7 : 1 }}>
                 {loading ? 'Loggar in...' : 'Logga in'} <ArrowRight size={16} />
               </button>
             </form>
@@ -367,7 +356,7 @@ export default function Auth({ onLogin }) {
                     <ArrowLeft size={14} /> Tillbaka
                   </button>
                 )}
-                <button type="submit" disabled={loading} style={{ flex: 1, padding: '14px', background: BRAND.green, border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: 700, color: 'white', cursor: loading ? 'wait' : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', boxShadow: '0 8px 20px -5px rgba(61,122,46,0.4)', fontFamily: 'inherit', opacity: loading ? 0.7 : 1 }}>
+                <button type="submit" disabled={loading} style={{ flex: 1, padding: '14px', background: BRAND.green, border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: 700, color: 'white', cursor: loading ? 'wait' : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', boxShadow: '0 2px 6px rgba(61,122,46,0.25)', fontFamily: 'inherit', opacity: loading ? 0.7 : 1 }}>
                   {loading ? 'Skapar konto...' : regStep === REGISTER_STEPS.length - 1 ? 'Skapa konto' : 'Fortsätt'} <ArrowRight size={16} />
                 </button>
               </div>

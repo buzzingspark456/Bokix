@@ -584,7 +584,7 @@ export default function Contacts({ contacts, setContacts, accounts = [], globalA
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                               <div style={{
                                 width: 34, height: 34, borderRadius: '8px',
-                                background: 'linear-gradient(135deg, #1a3028, #3a8fc1)',
+                                background: '#1a3028',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 color: 'white', fontWeight: 700, fontSize: '14px', flexShrink: 0
                               }}>

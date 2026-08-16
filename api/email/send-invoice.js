@@ -1,3 +1,4 @@
+import { applySecurityHeaders } from '../_security.js';
 import { parseJsonBody } from '../stripe/_parseBody.js';
 
 // Speglar POST /api/email/send-invoice i server.js (lokal dev via
@@ -66,6 +67,7 @@ async function sendViaResend(payload) {
 }
 
 export default async function handler(req, res) {
+  applySecurityHeaders(res);
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
     return;

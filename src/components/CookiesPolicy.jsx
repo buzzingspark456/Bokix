@@ -1,5 +1,15 @@
 import { Link } from 'react-router-dom';
 
+// ── Sida 37 ─────────────────────────────────────────────────────────────
+// JURIDISKT UTKAST, INTE GRANSKAT. Texten på den här sidan (liksom
+// PrivacyPolicy.jsx och TermsPolicy.jsx) är ett första utkast, inte ett
+// färdiggranskat juridiskt dokument. Innan den här sidan går live i
+// produktion måste: (1) en jurist faktiskt läsa igenom och godkänna
+// innehållet, (2) företagets organisationsnummer och adress verifieras
+// mot den faktiska, aktuella informationen (ingen platshållartext finns i
+// den här filen idag, men kontrollera ändå att inget hunnit bli inaktuellt
+// mellan detta utkast och lanseringen).
+
 const h2 = { marginTop: '36px', marginBottom: '12px', fontSize: '19px', fontWeight: 800, color: '#0f172a' };
 const p = { marginBottom: '14px', lineHeight: 1.8, color: '#475569', fontSize: '15px' };
 const table = { width: '100%', borderCollapse: 'collapse', margin: '12px 0 20px', fontSize: '13.5px' };
@@ -17,11 +27,11 @@ export default function CookiesPolicy() {
         <p style={{ fontSize: '13px', color: '#94a3b8', marginBottom: '28px' }}>Senast uppdaterad: {new Date().toLocaleDateString('sv-SE', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
 
         <div style={goodBox}>
-          <p style={goodP}>Bokix använder inga analys-, marknadsförings- eller reklamcookies. Allt nedan är strikt nödvändigt för att logga in och för att tjänsten ska fungera.</p>
+          <p style={goodP}>Bokix använder inga marknadsförings- eller reklamcookies. Vi använder Google Analytics för grundläggande besöksstatistik, men bara om du aktivt godkänt det i cookiebannern — den sätts aldrig innan du sagt ja.</p>
         </div>
 
         <p style={p}>
-          Den här sidan listar exakt vilka cookies och liknande lagringstekniker (t.ex. <code style={code}>localStorage</code>) Bokix faktiskt sätter i din webbläsare — inte en generisk mall. Eftersom allt nedan är strikt nödvändigt för inloggning och grundfunktion krävs inget samtyckesbanner enligt gällande regler, men vi vill ändå att du ska kunna se exakt vad som lagras.
+          Den här sidan listar exakt vilka cookies och liknande lagringstekniker (t.ex. <code style={code}>localStorage</code>) Bokix faktiskt sätter i din webbläsare, inte en generisk mall. De nödvändiga cookies nedan kräver inget samtycke enligt gällande regler (de behövs för att logga in och för att tjänsten ska fungera), men analyscookies gör det, och visas bara efter att du klickat "Acceptera alla" i cookiebannern som visas vid ditt första besök.
         </p>
 
         <h2 style={h2}>Strikt nödvändiga — inloggning och session</h2>
@@ -66,14 +76,36 @@ export default function CookiesPolicy() {
           </tbody>
         </table>
 
-        <h2 style={h2}>Vad vi INTE använder</h2>
+        <h2 style={h2}>Analys — kräver ditt samtycke</h2>
         <p style={p}>
-          Ingen Google Analytics, ingen Facebook-pixel, inga marknadsföringscookies, ingen tredjepartsspårning. Om vi någonsin skulle lägga till något sådant uppdaterar vi den här sidan och ber om ditt samtycke innan det aktiveras — inte efter.
+          Vi använder Google Analytics för att förstå hur besökare hittar och använder Bokix marknadsföringssidor. Vi kör det via Googles "Consent Mode": mätscriptet laddas alltid, men det sätts uttryckligen till "nekad" (denied) tills du valt "Acceptera alla" i cookiebannern. Väljer du "Endast nödvändiga" stannar analys-cookies nekade, permanent, tills du själv ändrar dig via "Cookieinställningar" i sidfoten.
+        </p>
+        <table style={table}>
+          <thead>
+            <tr><th style={th}>Namn</th><th style={th}>Typ</th><th style={th}>Ändamål</th><th style={th}>Livslängd</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style={td}><code style={code}>_ga</code> / <code style={code}>_gid</code></td>
+              <td style={td}>Cookie (Google Analytics)</td>
+              <td style={td}>Skiljer besökare åt för anonymiserad besöksstatistik. Sätts bara efter att du klickat "Acceptera alla".</td>
+              <td style={td}>_ga: 2 år, _gid: 24 timmar</td>
+            </tr>
+            <tr>
+              <td style={td}><code style={code}>bokix_cookie_consent</code></td>
+              <td style={td}>Cookie</td>
+              <td style={td}>Kommer ihåg ditt val i cookiebannern (accepterat eller nekat), så bannern inte visas på varje besök.</td>
+              <td style={td}>12 månader</td>
+            </tr>
+          </tbody>
+        </table>
+        <p style={p}>
+          Inga marknadsförings- eller reklamcookies används, oavsett vad du väljer i bannern. Vill du ändra ditt tidigare val, klicka "Cookieinställningar" längst ner på vilken sida som helst.
         </p>
 
         <h2 style={h2}>Hur du kan hantera cookies</h2>
         <p style={p}>
-          Du kan blockera eller radera cookies och localStorage i din webbläsares inställningar när som helst. Eftersom allt ovan är nödvändigt för grundfunktionen innebär det att du blir utloggad, och att onboarding-guiden kan visas igen — men ingen data i din faktiska bokföring påverkas (den ligger sparad hos oss, inte bara lokalt).
+          Du kan blockera eller radera cookies och localStorage i din webbläsares inställningar när som helst. De nödvändiga cookies ovan krävs för grundfunktionen, så att blockera dem innebär att du blir utloggad och att onboarding-guiden kan visas igen, men ingen data i din faktiska bokföring påverkas (den ligger sparad hos oss, inte bara lokalt).
         </p>
 
         <div style={{ marginTop: '40px', paddingTop: '24px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>

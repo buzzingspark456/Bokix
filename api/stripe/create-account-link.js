@@ -1,7 +1,8 @@
+import { applySecurityHeaders } from '../_security.js';
 import Stripe from 'stripe';
 import { parseJsonBody } from './_parseBody.js';
 
-const stripeSecretKey = process.env.STRIPE_SECRET_KEY || process.env.VITE_STRIPE_SECRET_KEY || null;
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY || null;
 const stripe = stripeSecretKey && !stripeSecretKey.startsWith('pk_')
   ? new Stripe(stripeSecretKey, {
       // apiVersion removed to use Stripe account default
@@ -9,13 +10,14 @@ const stripe = stripeSecretKey && !stripeSecretKey.startsWith('pk_')
   : null;
 
 export default async function handler(req, res) {
+  applySecurityHeaders(res);
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
     return;
   }
 
   if (!stripe) {
-    res.status(503).json({ error: 'Stripe is not configured. Set STRIPE_SECRET_KEY or VITE_STRIPE_SECRET_KEY before trying again.' });
+    res.status(503).json({ error: 'Stripe is not configured. Set STRIPE_SECRET_KEY before trying again.' });
     return;
   }
 

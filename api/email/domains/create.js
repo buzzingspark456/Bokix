@@ -1,3 +1,4 @@
+import { applySecurityHeaders } from '../../_security.js';
 import { parseJsonBody } from '../../stripe/_parseBody.js';
 
 // Speglar POST /api/email/domains/create i server.js. Kräver den
@@ -6,6 +7,7 @@ import { parseJsonBody } from '../../stripe/_parseBody.js';
 const resendAdminApiKey = process.env.RESEND_ADMIN_API_KEY || null;
 
 export default async function handler(req, res) {
+  applySecurityHeaders(res);
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
     return;

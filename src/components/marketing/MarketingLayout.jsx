@@ -58,15 +58,9 @@ function MarketingStyles() {
       .lp-card-hover { transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease; }
       .lp-card-hover:hover { transform: translateY(-3px); }
 
-      @keyframes lpLogoGlow { 0%,100% { filter: drop-shadow(0 0 7px rgba(20,184,166,0.4)) drop-shadow(0 0 2px rgba(14,165,233,0.3)); } 50% { filter: drop-shadow(0 0 18px rgba(20,184,166,0.7)) drop-shadow(0 0 6px rgba(132,204,22,0.4)); } }
-      .lp-logo-glow { display: inline-flex; animation: lpLogoGlow 3.4s ease-in-out infinite; transition: transform 0.25s ease; }
+      .lp-logo-glow { display: inline-flex; transition: transform 0.25s ease; }
       .lp-logo-glow:hover { transform: scale(1.04); }
-
-      @keyframes lpFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
       @keyframes lpFadeInUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
-      @keyframes lpPulseRing { 0% { transform: scale(0.95); opacity: 0.7; } 100% { transform: scale(1.6); opacity: 0; } }
-      @keyframes lpGradientShift { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
-      .lp-animate-float { animation: lpFloat 5s ease-in-out infinite; }
       .lp-fadeinup { animation: lpFadeInUp 0.6s cubic-bezier(0.16,1,0.3,1) both; }
       .lp-delay-1 { animation-delay: 0.1s; }
       .lp-delay-2 { animation-delay: 0.2s; }
@@ -194,9 +188,7 @@ export function MarketingHeader({ onEnterApp }) {
     <>
       <nav style={{
         position: 'fixed', top: 0, left: 0, right: 0, zIndex: 1000,
-        background: scrolled ? 'rgba(255,255,255,0.95)' : 'transparent',
-        WebkitBackdropFilter: scrolled ? 'blur(12px)' : 'none',
-        backdropFilter: scrolled ? 'blur(12px)' : 'none',
+        background: scrolled ? 'white' : 'transparent',
         borderBottom: scrolled ? '1px solid rgba(0,0,0,0.06)' : 'none',
         padding: '0 24px', transition: 'all 0.3s',
         boxShadow: scrolled ? '0 1px 20px rgba(0,0,0,0.06)' : 'none',
@@ -311,6 +303,17 @@ export function MarketingFooter() {
                 {link.title}
               </Link>
             ))}
+            {/* Öppnar CookieBanner.jsx igen (monterad globalt i App.jsx) via
+                ett DOM-event — den här knappen och bannern delar annars
+                ingen komponentförälder att skicka state genom. */}
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new Event('bokix-open-cookie-prefs'))}
+              className="lp-footer-link"
+              style={{ fontSize: '13.5px', color: 'rgba(255,255,255,0.6)', textDecoration: 'none', transition: 'color 0.2s', background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit' }}
+            >
+              Cookieinställningar
+            </button>
           </div>
         </div>
       </div>

@@ -1,3 +1,4 @@
+import { applySecurityHeaders } from '../_security.js';
 // "Koppla från" — deauktoriserar det anslutna Stripe-kontot och rensar
 // kopplingen server-side. Anropas av en redan inloggad användare (samma
 // förtroendemodell som övriga api/stripe/*-endpoints i det här projektet,
@@ -7,10 +8,11 @@ import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
 import { parseJsonBody } from './_parseBody.js';
 
-const stripeSecretKey = process.env.STRIPE_SECRET_KEY || process.env.VITE_STRIPE_SECRET_KEY || null;
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY || null;
 const stripe = stripeSecretKey && !stripeSecretKey.startsWith('pk_') ? new Stripe(stripeSecretKey, {}) : null;
 
 export default async function handler(req, res) {
+  applySecurityHeaders(res);
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
     return;

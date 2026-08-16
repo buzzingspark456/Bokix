@@ -1,5 +1,11 @@
 import { Link } from 'react-router-dom';
 
+// ── Sida 37 ─────────────────────────────────────────────────────────────
+// JURIDISKT UTKAST, INTE GRANSKAT. Ett första utkast, inte ett
+// färdiggranskat juridiskt dokument. Innan sidan går live i produktion
+// måste en jurist läsa igenom och godkänna innehållet, och företagets
+// organisationsnummer/adress verifieras mot aktuell information.
+
 const h2 = { marginTop: '36px', marginBottom: '12px', fontSize: '19px', fontWeight: 800, color: '#0f172a' };
 const h3 = { marginTop: '22px', marginBottom: '8px', fontSize: '15px', fontWeight: 700, color: '#0f172a' };
 const p = { marginBottom: '14px', lineHeight: 1.8, color: '#475569', fontSize: '15px' };

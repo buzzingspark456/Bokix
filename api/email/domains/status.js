@@ -1,3 +1,4 @@
+import { applySecurityHeaders } from '../../_security.js';
 // Speglar GET /api/email/domains/status i server.js. Pollas från
 // Inställningar-sidan, och är samma live-kontroll send-invoice.js gör vid
 // varje utskick — aldrig en cachad flagga (se Sida 33, bugkritisk-noten).
@@ -5,6 +6,7 @@
 const resendAdminApiKey = process.env.RESEND_ADMIN_API_KEY || null;
 
 export default async function handler(req, res) {
+  applySecurityHeaders(res);
   if (req.method !== 'GET') {
     res.status(405).json({ error: 'Method not allowed' });
     return;

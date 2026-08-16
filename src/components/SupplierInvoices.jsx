@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  Plus, Search, Check, X, AlertCircle,
+  Plus, Search, Check, X, AlertCircle, Landmark, CreditCard,
 } from 'lucide-react';
 import { AccountSearch } from './shared/SearchInputs';
 import { BRAND } from '../utils/brandColors';
@@ -85,7 +85,7 @@ function SupplierCombo({ value, onChange, contacts, setContacts }) {
   );
 }
 
-const emptyForm = () => ({ supplierId: '', invoiceNumber: '', date: new Date().toISOString().split('T')[0], dueDate: '', amount: '', description: '' });
+const emptyForm = () => ({ supplierId: '', invoiceNumber: '', date: new Date().toISOString().split('T')[0], dueDate: '', amount: '', description: '', ocrNumber: '' });
 
 // ── Centrerad modal: kort, fokuserad registrering av leverantörsfaktura ──
 // Ingen flerrads-kontering/momssplit här — det är en snabb registrering av
@@ -126,6 +126,7 @@ function SupplierInvoiceQuickModal({ contacts, setContacts, onSave, onCancel }) 
       dueDate: form.dueDate,
       amount: parseAmount(form.amount),
       description: form.description.trim() || `Leverantörsfaktura ${form.invoiceNumber.trim()}`,
+      ocrNumber: form.ocrNumber.trim() || undefined,
     });
   };
 
@@ -169,11 +170,112 @@ function SupplierInvoiceQuickModal({ contacts, setContacts, onSave, onCancel }) 
             <label style={labelSt}>Beskrivning</label>
             <input value={form.description} onChange={e => set({ description: e.target.value })} placeholder="Vad avser fakturan?" style={inputSt} />
           </div>
+          <div>
+            {/* Valfritt — används bara som betalningsreferens i Betala nu-
+                vyn om det fylls i (Sida 35). Faller annars tillbaka på
+                fakturanumret, aldrig ett påhittat OCR-nummer. */}
+            <label style={labelSt}>OCR/betalningsreferens (valfritt)</label>
+            <input value={form.ocrNumber} onChange={e => set({ ocrNumber: e.target.value })} placeholder="Från leverantörens faktura, om angivet" style={inputSt} />
+          </div>
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '22px' }}>
           <button type="button" onClick={onCancel} style={{ padding: '9px 16px', background: 'var(--gray-100)', border: 'none', borderRadius: '8px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer' }}>Avbryt</button>
           <button type="button" onClick={submit} style={{ padding: '9px 18px', background: BRAND.green, border: 'none', borderRadius: '8px', fontWeight: 600, color: 'white', cursor: 'pointer' }}>Registrera faktura</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Betala nu (Sida 35) — val mellan bank (fungerar) och kort (Kommer
+// snart). Kort via Stripe skulle kräva en helt annan Stripe-produkt
+// (Transfers/Issuing/Treasury, för att BETALA UT pengar) än den Checkout-
+// integration som redan finns för att TA EMOT kortbetalningar från kunder
+// — den är inte byggd, så alternativet visas ärligt inaktiverat istället
+// för att låtsas fungera eller gissa vilket Stripe-konto som skulle betala.
+function PaySupplierInvoiceModal({ invoice, contacts, onNavigate, onConfirm, onCancel }) {
+  const supplier = contacts.find(c => c.id === invoice.supplierId);
+  const reference = invoice.ocrNumber || invoice.invoiceNumber;
+
+  useEffect(() => {
+    const handleEsc = (e) => { if (e.key === 'Escape') onCancel(); };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [onCancel]);
+
+  // Samma prioritering som SupplierForm i Contacts.jsx redan använder:
+  // svenska leverantörer har Bankgiro/Plusgiro, utländska IBAN/SWIFT.
+  const bankDetails = !supplier ? [] : (supplier.bankgiro || supplier.plusgiro)
+    ? [supplier.bankgiro && ['Bankgiro', supplier.bankgiro], supplier.plusgiro && ['Plusgiro', supplier.plusgiro]].filter(Boolean)
+    : supplier.iban
+      ? [['IBAN', supplier.iban], supplier.swift && ['SWIFT/BIC', supplier.swift]].filter(Boolean)
+      : [];
+  const hasBankDetails = bankDetails.length > 0;
+
+  return (
+    <div onClick={onCancel} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: 'white', borderRadius: '14px', padding: '24px', width: '620px', maxWidth: '100%', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 24px 64px rgba(0,0,0,0.28)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+          <h2 style={{ fontSize: '17px', fontWeight: 600, margin: 0, color: 'var(--text-main)' }}>Betala faktura #{invoice.invoiceNumber}</h2>
+          <button onClick={onCancel} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '4px' }}><X size={18} /></button>
+        </div>
+        <p style={{ margin: '0 0 20px', fontSize: '13px', color: 'var(--text-secondary)' }}>{supplier?.name || invoice.supplier || 'Okänd leverantör'} · {formatSEK(invoice.amount)}</p>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          {/* Bank — fungerar */}
+          <div style={{ border: '1px solid var(--border)', borderRadius: '10px', padding: '18px', display: 'flex', flexDirection: 'column' }}>
+            <Landmark size={20} color={BRAND.greenDark} />
+            <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)', margin: '10px 0 12px' }}>Bank</div>
+            {!hasBankDetails ? (
+              <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.5, flex: 1 }}>
+                Inga betalningsuppgifter sparade för den här leverantören.{' '}
+                <button
+                  type="button"
+                  onClick={() => { onCancel(); onNavigate?.('contacts'); }}
+                  style={{ background: 'none', border: 'none', color: BRAND.green, fontWeight: 600, cursor: 'pointer', padding: 0, textDecoration: 'underline', fontSize: 'inherit', fontFamily: 'inherit' }}
+                >
+                  Lägg till under Kontakter
+                </button>
+              </p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '16px', fontSize: '13px', flex: 1 }}>
+                {bankDetails.map(([label, value]) => (
+                  <div key={label} style={{ display: 'flex', justifyContent: 'space-between', gap: '10px' }}>
+                    <span style={{ color: 'var(--text-secondary)' }}>{label}</span>
+                    <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{value}</span>
+                  </div>
+                ))}
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px' }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>Referens</span>
+                  <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{reference}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px' }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>Belopp</span>
+                  <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{formatSEK(invoice.amount)}</span>
+                </div>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => onConfirm('bank')}
+              style={{ width: '100%', padding: '9px 12px', background: BRAND.green, border: 'none', borderRadius: '8px', fontWeight: 600, color: 'white', fontSize: '13px', cursor: 'pointer', marginTop: '4px' }}
+            >
+              Markera som betald (bank)
+            </button>
+          </div>
+
+          {/* Kort (Stripe) — Kommer snart, se kommentar ovanför komponenten */}
+          <div style={{ border: '1px solid var(--border)', borderRadius: '10px', padding: '18px', opacity: 0.6, display: 'flex', flexDirection: 'column' }}>
+            <CreditCard size={20} color="#9ca3af" />
+            <div style={{ fontWeight: 700, fontSize: '14px', color: '#374151', margin: '10px 0 8px' }}>Kort (Stripe)</div>
+            <p style={{ fontSize: '12px', color: '#9ca3af', lineHeight: 1.5, margin: '0 0 16px', flex: 1 }}>
+              Kräver en annan Stripe-produkt (utbetalningar till leverantörer) än den som redan tar emot kortbetalningar från era kunder — inte byggt ännu.
+            </p>
+            <button disabled style={{ width: '100%', padding: '9px 12px', background: '#f1f5f9', color: '#9ca3af', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '13px', cursor: 'not-allowed' }}>
+              Kommer snart
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -191,6 +293,7 @@ export default function SupplierInvoices({
   const [openedViaGlobalAction, setOpenedViaGlobalAction] = useState(false);
   const [search, setSearch] = useState('');
   const [optimisticPaid, setOptimisticPaid] = useState({});
+  const [payingInvoiceId, setPayingInvoiceId] = useState(null);
   const [fixingId, setFixingId] = useState(null);
   const [fixAccount, setFixAccount] = useState('');
   const [, setSearchParams] = useSearchParams();
@@ -211,10 +314,14 @@ export default function SupplierInvoices({
     return supplierName.toLowerCase().includes(s) || String(inv.invoiceNumber || '').toLowerCase().includes(s);
   });
 
-  const handleMarkPaid = (id) => {
+  // paymentMethod defaultar till 'bank' — det enda vägen som faktiskt
+  // fungerar idag (Sida 35, se PaySupplierInvoiceModal ovan för varför
+  // "kort" inte är ett riktigt alternativ än).
+  const handleMarkPaid = (id, paymentMethod = 'bank') => {
     setOptimisticPaid(prev => ({ ...prev, [id]: true }));
-    try { onMarkSupplierInvoicePaid?.(id); }
+    try { onMarkSupplierInvoicePaid?.(id, paymentMethod); }
     catch { setOptimisticPaid(prev => { const n = { ...prev }; delete n[id]; return n; }); }
+    setPayingInvoiceId(null);
   };
 
   const applyFix = (id) => {
@@ -293,7 +400,14 @@ export default function SupplierInvoices({
                   <td style={{ padding: '14px 16px' }}>
                     {needsReview
                       ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: BRAND.amberBg, color: BRAND.amberText }}><AlertCircle size={12} /> Granska</span>
-                      : <StatusBadge status={effectivelyPaid ? 'paid' : (isOverdue ? 'overdue' : 'unpaid')} />}
+                      : (
+                        <>
+                          <StatusBadge status={effectivelyPaid ? 'paid' : (isOverdue ? 'overdue' : 'unpaid')} />
+                          {effectivelyPaid && inv.paymentMethod && (
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px' }}>via {inv.paymentMethod === 'bank' ? 'bank' : 'kort'}</div>
+                          )}
+                        </>
+                      )}
                   </td>
                   <td style={{ padding: '14px 16px', textAlign: 'right' }}>
                     {needsReview ? (
@@ -310,8 +424,8 @@ export default function SupplierInvoices({
                         </button>
                       )
                     ) : !effectivelyPaid && (
-                      <button onClick={() => handleMarkPaid(inv.id)} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '5px 10px', background: BRAND.greenLight, color: BRAND.greenDark, border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', marginLeft: 'auto' }}>
-                        <Check size={12} /> Markera betald
+                      <button onClick={() => setPayingInvoiceId(inv.id)} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '5px 10px', background: BRAND.greenLight, color: BRAND.greenDark, border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', marginLeft: 'auto' }}>
+                        <Check size={12} /> Betala nu
                       </button>
                     )}
                   </td>
@@ -324,6 +438,16 @@ export default function SupplierInvoices({
 
       {showForm && (
         <SupplierInvoiceQuickModal contacts={contacts} setContacts={setContacts} onSave={handleSave} onCancel={closeModal} />
+      )}
+
+      {payingInvoiceId && (
+        <PaySupplierInvoiceModal
+          invoice={list.find(inv => inv.id === payingInvoiceId)}
+          contacts={contacts}
+          onNavigate={onNavigate}
+          onConfirm={(method) => handleMarkPaid(payingInvoiceId, method)}
+          onCancel={() => setPayingInvoiceId(null)}
+        />
       )}
     </div>
   );
