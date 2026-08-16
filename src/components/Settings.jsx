@@ -566,6 +566,13 @@ export default function Settings({
   contacts = [], projects = [], onImport, onReset, stripeAccountId, onConnectStripe, onDisconnectStripe,
   onConnectEmailDomain, onCheckEmailDomainStatus, onDisconnectEmailDomain, user,
   companyList = [], activeCompanyId, onSwitchCompany, onAddCompany,
+  // Landningssidans demo (DemoWorkspace.jsx) monterar den HÄR, riktiga
+  // Inställningar-sidan (istället för en handbyggd efterlikning) så en
+  // besökare kan se den på riktigt, men utan inloggning finns ingen
+  // session att spara mot — readOnly stänger av det enda stället i den
+  // här filen som annars skulle göra ett Supabase-anrop direkt vid mount
+  // (TwoFactorSection nedan), inte bara vid klick.
+  readOnly = false,
 }) {
   const [activeTab, setActiveTab] = useState('profile');
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
@@ -780,7 +787,16 @@ export default function Settings({
               </div>
 
               <PasswordSection user={user} />
-              <TwoFactorSection />
+              {/* readOnly (demo): TwoFactorSection hämtar riktiga MFA-faktorer
+                  från Supabase direkt vid mount (ingen klickbar åtgärd att
+                  spärra) — hoppas över helt istället för att göra ett
+                  Supabase-anrop från en icke-inloggad besökare. */}
+              {readOnly ? (
+                <div style={card}>
+                  <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#111827', margin: '0 0 4px' }}>Tvåstegsverifiering</h3>
+                  <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>Kräver ett riktigt konto att visa och aktivera.</p>
+                </div>
+              ) : <TwoFactorSection />}
               <ActiveSessionsSection user={user} />
             </div>
           )}

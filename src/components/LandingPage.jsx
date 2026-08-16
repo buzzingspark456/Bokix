@@ -134,7 +134,7 @@ export default function LandingPage({ onEnterApp }) {
           </Reveal>
 
           <Reveal scale style={{ position: 'relative' }}>
-            <DemoWorkspace onEnterApp={onEnterApp} />
+            <DemoWorkspace />
           </Reveal>
         </div>
       </section>
