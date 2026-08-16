@@ -527,10 +527,11 @@ export default function DemoWorkspace({ onEnterApp }) {
       </div>
 
       {/* Innehåll — samma riktiga komponent som fliken visar i appen. Kapad
-          höjd + egen scroll så kortet håller en stadig storlek istället för
-          att skutta runt när man byter mellan olika tunga flikar (t.ex.
-          Bokföring vs. en tom Rapport). */}
-      <div style={{ flex: 1, minWidth: 0, padding: '16px', maxHeight: 'min(680px, 78vh)', overflowY: 'auto', overflowX: 'hidden' }}>
+          höjd + egen scroll på skrivbordet (så kortet håller en stadig
+          storlek mellan flikar) — men INTE på mobil, se .lp-demo-content i
+          MarketingLayout.jsx: en fast höjd där blev en liten kikhålsruta på
+          en telefon, snarare än det man faktiskt kom hit för att se. */}
+      <div className="lp-demo-content">
         {renderContent()}
       </div>
     </div>

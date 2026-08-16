@@ -94,6 +94,10 @@ function MarketingStyles() {
       }
       .lp-demo-card { display: flex; }
       .lp-demo-mobile-topbar { display: none; }
+      /* Skrivbordet: fast höjd + egen scroll så kortet inte skuttar runt i
+         storlek när man byter flik. Se mobilöverskriften nedan för varför
+         det INTE gäller på mobil. */
+      .lp-demo-content { flex: 1; min-width: 0; padding: 16px; max-height: min(680px, 78vh); overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
       @media (max-width: 640px) {
         .lp-cta-group { flex-direction: column; }
         .lp-cta-group > button, .lp-cta-group > a { width: 100%; }
@@ -106,6 +110,15 @@ function MarketingStyles() {
            så demon ger en ärlig bild av hur Bokix ser ut på mobilen också. */
         .lp-demo-card { flex-direction: column; }
         .lp-demo-mobile-topbar { display: flex; }
+        /* Bugkritiskt: en fast maxHeight + intern scroll (bra på ett brett
+           skrivbordskort) blev på mobil en liten kikhål-ruta som gömde det
+           mesta av innehållet bakom en trög nästlad scroll — exakt det som
+           gjorde demon kännas "trasig, ser knappt något". På mobil får
+           kortet istället växa naturligt och HELA sidan skrollar, som
+           vilken annan sektion på landningssidan som helst. Horisontellt
+           overflow blir skrollbart (inte dolt) som en säkerhetsventil om
+           någon inbäddad komponent ändå råkar bli bredare än skärmen. */
+        .lp-demo-content { max-height: none; overflow-y: visible; overflow-x: auto; }
       }
       @media (min-width: 641px) and (max-width: 1024px) {
         .lp-features-grid { grid-template-columns: repeat(2, 1fr); }
