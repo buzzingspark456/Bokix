@@ -133,16 +133,24 @@ export default function LandingPage({ onEnterApp }) {
             <div style={{ background: 'white', borderRadius: '20px', boxShadow: '0 8px 24px rgba(0,0,0,0.10), 0 0 0 1px rgba(0,0,0,0.05)', overflow: 'hidden', display: 'flex' }}>
               <span style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 1, fontSize: '10.5px', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', background: 'white', padding: '4px 10px', borderRadius: '999px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>Exempeldata</span>
 
-              {/* Samma menyåtergivning som hero-mockupen ovan, så demon ser ut
-                  som en riktig appvy (meny + innehåll) och inte bara ett
-                  fristående innehållsblock utan sammanhang. */}
-              <div className="lp-hide-mobile" style={{ width: '170px', flexShrink: 0, background: BRAND.green, padding: '20px 12px' }}>
+              {/* Samma meny som den riktiga inloggade appens sidomeny
+                  (App.jsx navSections) — samma tre grupper, samma ordning,
+                  samma avdelare — inte en egen påhittad urvalslista. */}
+              <div className="lp-hide-mobile" style={{ width: '190px', flexShrink: 0, background: BRAND.green, padding: '20px 12px' }}>
                 <div style={{ marginBottom: '22px', padding: '0 4px' }}>
                   <BokixWordmark height={20} />
                 </div>
-                {['Startsida', 'Fakturering', 'Kunder', 'Utgifter', 'Projekt', 'Bokföring', 'Rapporter'].map((label, i) => (
-                  <div key={label} style={{ padding: '8px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: i === 0 ? 700 : 500, color: i === 0 ? BRAND.greenDark : 'rgba(255,255,255,0.85)', background: i === 0 ? BRAND.greenLight : 'transparent', marginBottom: '3px' }}>
-                    {label}
+                {[
+                  ['Startsida', 'Kunder', 'Fakturering', 'Utgifter', 'Projekt'],
+                  ['Granskning', 'Bokföring', 'Anställda och lön', 'Rapport och analys', 'Skatt och bokslut'],
+                  ['Inställningar'],
+                ].map((group, gi) => (
+                  <div key={gi} style={{ marginBottom: gi < 2 ? '10px' : 0, paddingBottom: gi < 2 ? '10px' : 0, borderBottom: gi < 2 ? '1px solid rgba(255,255,255,0.15)' : 'none' }}>
+                    {group.map(label => (
+                      <div key={label} style={{ padding: '7px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: label === 'Startsida' ? 700 : 500, color: label === 'Startsida' ? BRAND.greenDark : 'rgba(255,255,255,0.85)', background: label === 'Startsida' ? BRAND.greenLight : 'transparent', marginBottom: '2px' }}>
+                        {label}
+                      </div>
+                    ))}
                   </div>
                 ))}
               </div>
