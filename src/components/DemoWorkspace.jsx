@@ -57,6 +57,11 @@ export default function DemoWorkspace() {
   const [activeDemoTab, setActiveDemoTab] = useState('dashboard');
   const [globalAction, setGlobalAction] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  // Bara för Inställningar → Fakturamall: val av mall/accentfärg/fottext
+  // ska faktiskt gå att klicka igenom och se förhandsvisningen uppdateras
+  // live, till skillnad från alla andra skrivåtgärder i demon. Rent lokalt
+  // state, rör aldrig Startsidans exempeldata eller någon backend.
+  const [settingsCompany, setSettingsCompany] = useState(seed.company);
 
   const balances = useMemo(() => {
     const b = {};
@@ -188,21 +193,23 @@ export default function DemoWorkspace() {
       case 'reports':
         return <Reports accounts={seed.accounts} verifications={[]} company={seed.company} />;
       case 'settings':
-        // pointerEvents:none — Inställningar ska gå att SE (företagsuppgifter,
-        // kontoplan, Stripe/e-post-sektioner), inte gå att interagera med.
-        // readOnly stänger dessutom av dess enda mount-tids Supabase-anrop
-        // (tvåstegsverifiering), se Settings.jsx.
+        // Går att klicka runt i på riktigt — bläddra mellan Företag/
+        // Betalning/Fakturamall/Användare och åtkomst/Prenumeration/Data,
+        // och faktiskt byta fakturamall/accentfärg/logotyp och se
+        // förhandsvisningen uppdateras (setCompanyInfo är lokalt state,
+        // se settingsCompany ovan). Allt som skulle spara på riktigt eller
+        // ladda upp/logga in mot Supabase (lösenord, 2FA, aktiva sessioner,
+        // Stripe, e-postdomän, profilbild) är blockerat — `readOnly` stänger
+        // av de ställena i Settings.jsx som annars gör ett riktigt anrop.
         return (
-          <div style={{ pointerEvents: 'none' }}>
-            <Settings
-              readOnly company={seed.company} setCompanyInfo={noop} accounts={seed.accounts}
-              verifications={[]} invoices={[]} expenses={[]} contacts={[]} projects={[]}
-              onImport={noop} onReset={noop} stripeAccountId={undefined}
-              onConnectStripe={noop} onDisconnectStripe={noop}
-              onConnectEmailDomain={blocked} onCheckEmailDomainStatus={blocked} onDisconnectEmailDomain={noop}
-              user={demoUser} companyList={[]} activeCompanyId={undefined} onSwitchCompany={noop} onAddCompany={noop}
-            />
-          </div>
+          <Settings
+            readOnly company={settingsCompany} setCompanyInfo={setSettingsCompany} accounts={seed.accounts}
+            verifications={[]} invoices={[]} expenses={[]} contacts={[]} projects={[]}
+            onImport={blocked} onReset={blocked} stripeAccountId={undefined}
+            onConnectStripe={blocked} onDisconnectStripe={blocked}
+            onConnectEmailDomain={blocked} onCheckEmailDomainStatus={blocked} onDisconnectEmailDomain={blocked}
+            user={demoUser} companyList={[]} activeCompanyId={undefined} onSwitchCompany={blocked} onAddCompany={blocked}
+          />
         );
       default:
         return null;

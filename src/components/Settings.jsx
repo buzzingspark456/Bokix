@@ -8,6 +8,11 @@ import { supabase } from '../supabaseClient';
 import { BRAND } from '../utils/brandColors';
 import InvoiceDocument, { INVOICE_TEMPLATES, DEFAULT_INVOICE_TEMPLATE } from './InvoiceDocument';
 
+// Visas istället för att faktiskt anropa Supabase när `readOnly` (Sida
+// landningssidans demo, se DemoWorkspace.jsx) — samma text överallt i den
+// här filen, en enda plats att ändra den på.
+const DEMO_BLOCKED_MSG = 'Det här är bara en demo — skapa ett gratis konto för att göra det här på riktigt.';
+
 // ── Delade stilar ──
 // Bugkritiskt (Sida 15): varje sektion är ett fullbrett, ljust kort — inte
 // smala vita kort med stor luft runt om.
@@ -159,7 +164,7 @@ function AutoField({ label, type = 'text', value, onChange, hint, required, plac
 // profilbilder, "companylogo" för företagslogotyper. Buckets måste skapas i
 // Supabase-projektet en gång; tills dess visas ett tydligt, ärligt
 // felmeddelande istället för att låtsas lyckas.
-function ImageUploadField({ label, value, onChange, uploadPath, bucket, hint }) {
+function ImageUploadField({ label, value, onChange, uploadPath, bucket, hint, readOnly = false }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const inputRef = useRef(null);
@@ -174,6 +179,7 @@ function ImageUploadField({ label, value, onChange, uploadPath, bucket, hint }) 
   const handleFile = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (readOnly) { window.alert(DEMO_BLOCKED_MSG); if (inputRef.current) inputRef.current.value = ''; return; }
     if (!ALLOWED_TYPES.includes(file.type)) { setError('Filen måste vara JPG eller PNG.'); return; }
     if (file.size > 3 * 1024 * 1024) { setError('Bilden får vara max 3 MB.'); return; }
     setBusy(true); setError('');
@@ -276,7 +282,7 @@ function TemplateCard({ tpl, selected, onSelect, previewProps, scale }) {
 // kräver det inte för updateUser, men en aktiv session i webbläsaren ska inte
 // räcka för att byta lösenord — annars skyddar fältet "Nuvarande lösenord"
 // ingenting alls).
-function PasswordSection({ user }) {
+function PasswordSection({ user, readOnly = false }) {
   const [currentPw, setCurrentPw] = useState('');
   const [newPw, setNewPw] = useState('');
   const [confirmPw, setConfirmPw] = useState('');
@@ -289,6 +295,7 @@ function PasswordSection({ user }) {
   const submit = async (e) => {
     e.preventDefault();
     setError(''); setSuccess(false);
+    if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; }
     if (newPw.length < 8) { setError('Nytt lösenord måste vara minst 8 tecken.'); return; }
     if (newPw !== confirmPw) { setError('Lösenorden matchar inte varandra.'); return; }
     setBusy(true);
@@ -439,13 +446,14 @@ function TwoFactorSection() {
 // loggar ut alla ANDRA sessioner (auth.signOut({ scope: 'others' })). Det
 // löser samma underliggande behov ("logga ut en glömd/delad enhet") utan att
 // fabricera säkerhetsrelaterad data.
-function ActiveSessionsSection({ user }) {
+function ActiveSessionsSection({ user, readOnly = false }) {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState('');
   const device = useMemo(() => detectDevice(), []);
 
   const signOutOthers = async () => {
+    if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; }
     setBusy(true); setError(''); setDone(false);
     const { error } = await supabase.auth.signOut({ scope: 'others' });
     setBusy(false);
@@ -487,7 +495,7 @@ function ActiveSessionsSection({ user }) {
 // bankuppgifter etc — ingen separat tabell behövs). Redan sparade fakturor
 // fryser sitt utseende vid sparningstillfället (se invoiceTemplateSnapshot
 // i Invoices.jsx) — ett mallbyte här påverkar bara FRAMTIDA fakturor.
-function InvoiceTemplateSection({ company, setCompanyInfo, user }) {
+function InvoiceTemplateSection({ company, setCompanyInfo, user, readOnly = false }) {
   const selectedId = company?.invoiceTemplateId || DEFAULT_INVOICE_TEMPLATE;
   const activeTpl = INVOICE_TEMPLATES[selectedId] || INVOICE_TEMPLATES[DEFAULT_INVOICE_TEMPLATE];
   const accentColor = company?.invoiceAccentColor || activeTpl.defaultAccent;
@@ -523,7 +531,7 @@ function InvoiceTemplateSection({ company, setCompanyInfo, user }) {
         <div style={{ display: 'flex', gap: '28px', flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: '260px', maxWidth: '380px' }}>
             <div style={{ marginBottom: '18px' }}>
-              <ImageUploadField label="Logotyp" value={company?.logoUrl || ''} onChange={(v) => setCompanyInfo({ ...company, logoUrl: v })} uploadPath={`${user?.id}/logo-${company?.id}`} bucket="companylogo" hint="JPG eller PNG, max 3 MB." />
+              <ImageUploadField label="Logotyp" value={company?.logoUrl || ''} onChange={(v) => setCompanyInfo({ ...company, logoUrl: v })} uploadPath={`${user?.id}/logo-${company?.id}`} bucket="companylogo" hint="JPG eller PNG, max 3 MB." readOnly={readOnly} />
             </div>
 
             <div style={{ marginBottom: '18px' }}>
@@ -622,7 +630,10 @@ export default function Settings({
   const avatarUrl = user?.user_metadata?.avatar_url || '';
   const initials = ((firstName[0] || user?.email?.[0] || '?') + (lastName[0] || '')).toUpperCase();
 
-  const updateUserMeta = (patch) => supabase.auth.updateUser({ data: patch });
+  const updateUserMeta = (patch) => {
+    if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; }
+    supabase.auth.updateUser({ data: patch });
+  };
 
   const maxUsedInvoiceNumber = useMemo(() => Math.max(0, ...invoices.map(i => Number(i.invoiceNumber) || 0)), [invoices]);
 
@@ -773,7 +784,7 @@ export default function Settings({
                     </div>
                   )}
                   <div style={{ flex: 1, maxWidth: '380px' }}>
-                    <ImageUploadField label="Profilbild" value={avatarUrl} onChange={(v) => updateUserMeta({ avatar_url: v })} uploadPath={`${user?.id}/avatar`} bucket="profile" hint="JPG, PNG eller liknande, max 3 MB." />
+                    <ImageUploadField label="Profilbild" value={avatarUrl} onChange={(v) => updateUserMeta({ avatar_url: v })} uploadPath={`${user?.id}/avatar`} bucket="profile" hint="JPG, PNG eller liknande, max 3 MB." readOnly={readOnly} />
                   </div>
                 </div>
 
@@ -781,12 +792,12 @@ export default function Settings({
                   <AutoField label="Förnamn" value={firstName} onChange={(v) => updateUserMeta({ first_name: v })} />
                   <AutoField label="Efternamn" value={lastName} onChange={(v) => updateUserMeta({ last_name: v })} />
                   <div style={{ gridColumn: '1 / 3' }}>
-                    <AutoField label="E-post (inloggning)" type="email" value={user?.email || ''} onChange={(v) => supabase.auth.updateUser({ email: v })} hint="Kräver att du bekräftar via e-post innan ändringen gäller." required />
+                    <AutoField label="E-post (inloggning)" type="email" value={user?.email || ''} onChange={(v) => { if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; } supabase.auth.updateUser({ email: v }); }} hint="Kräver att du bekräftar via e-post innan ändringen gäller." required />
                   </div>
                 </div>
               </div>
 
-              <PasswordSection user={user} />
+              <PasswordSection user={user} readOnly={readOnly} />
               {/* readOnly (demo): TwoFactorSection hämtar riktiga MFA-faktorer
                   från Supabase direkt vid mount (ingen klickbar åtgärd att
                   spärra) — hoppas över helt istället för att göra ett
@@ -797,7 +808,7 @@ export default function Settings({
                   <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>Kräver ett riktigt konto att visa och aktivera.</p>
                 </div>
               ) : <TwoFactorSection />}
-              <ActiveSessionsSection user={user} />
+              <ActiveSessionsSection user={user} readOnly={readOnly} />
             </div>
           )}
 
@@ -879,7 +890,7 @@ export default function Settings({
                 <div style={{ marginBottom: '16px' }}><SectionHeading icon={ImageIcon} tone="green">Logotyp</SectionHeading></div>
                 <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
                   <div style={{ flex: 1, minWidth: '260px', maxWidth: '440px' }}>
-                    <ImageUploadField label="Logotyp" value={company?.logoUrl || ''} onChange={(v) => setCompanyInfo({ ...company, logoUrl: v })} uploadPath={`${user?.id}/logo-${company?.id}`} bucket="companylogo" hint="Används överst på dina utgående fakturor. Max 3 MB." />
+                    <ImageUploadField label="Logotyp" value={company?.logoUrl || ''} onChange={(v) => setCompanyInfo({ ...company, logoUrl: v })} uploadPath={`${user?.id}/logo-${company?.id}`} bucket="companylogo" hint="Används överst på dina utgående fakturor. Max 3 MB." readOnly={readOnly} />
                   </div>
                   <div style={{ width: '200px', padding: '16px', border: '1px solid #e4e4e7', borderRadius: '8px', background: '#f9fafb' }}>
                     <div style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '8px', textTransform: 'uppercase' }}>Förhandsvisning faktura</div>
@@ -1072,7 +1083,7 @@ export default function Settings({
           {activeTab === 'invoice' && (
             <div style={{ animation: 'fadeIn 0.2s ease' }}>
               <h2 style={{ fontSize: '20px', fontWeight: 700, margin: '0 0 20px', color: '#111' }}>Fakturamall</h2>
-              <InvoiceTemplateSection company={company} setCompanyInfo={setCompanyInfo} user={user} />
+              <InvoiceTemplateSection company={company} setCompanyInfo={setCompanyInfo} user={user} readOnly={readOnly} />
             </div>
           )}
 
