@@ -254,8 +254,8 @@ export function createDemoSeed() {
 
   return {
     company: {
-      id: 'demo_company', name: 'Nordström Konsult AB', orgNr: '556677-8899', vatNr: 'SE556677889901',
-      address: 'Storgatan 12', postalCode: '111 51', city: 'Stockholm', email: 'info@nordstromkonsult.se',
+      id: 'demo_company', name: 'Exempel AB', orgNr: '556677-8899', vatNr: 'SE556677889901',
+      address: 'Storgatan 12', postalCode: '111 51', city: 'Stockholm', email: 'info@exempel.se',
       phone: '08-123 456 78', logoUrl: '', fSkatt: 'Innehar F-skattsedel',
       // Strukturellt giltig (mod-97-kontrollerad) men uppdiktad IBAN/BIC —
       // gör att lönekörningens "Ladda ner betalfil" (ISO 20022) faktiskt
