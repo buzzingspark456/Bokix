@@ -12,7 +12,6 @@ import {
   ChevronDown,
   ChevronRight,
   Plus,
-  Check,
   X,
   Calculator,
   Clock,
@@ -306,7 +305,6 @@ function App() {
   const [globalAction, setGlobalAction] = useState(null);
   const [isGlobalPlusOpen, setIsGlobalPlusOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
-  const [isCompanySwitcherOpen, setIsCompanySwitcherOpen] = useState(false);
   const [openMenus, setOpenMenus] = useState({ sales: true, purchases: true, accounting: true, reports: true });
   const [isHelpDrawerOpen, setIsHelpDrawerOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -1914,6 +1912,10 @@ function App() {
             onCheckEmailDomainStatus={handleCheckEmailDomainStatus}
             onDisconnectEmailDomain={handleDisconnectEmailDomain}
             user={user}
+            companyList={companyList}
+            activeCompanyId={data.activeCompanyId}
+            onSwitchCompany={handleSwitchCompany}
+            onAddCompany={() => setNewCompanyModal(true)}
           />
         );
       default:
@@ -1951,40 +1953,11 @@ function App() {
           <BokixLogo />
         </div>
 
-        {/* Företagsväxlare */}
-        <div style={{ padding: '0 12px 12px', position: 'relative', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
-          <button
-            className="company-selector"
-            onClick={() => setIsCompanySwitcherOpen(o => !o)}
-            aria-expanded={isCompanySwitcherOpen}
-          >
-            <span className="company-avatar">{(company?.name || 'F').charAt(0).toUpperCase()}</span>
-            <span className="company-info">
-              <span className="company-name">{company?.name || 'Mitt Företag'}</span>
-              <span className="company-org">{company?.orgNr || 'Inget org.nr'}</span>
-            </span>
-            <ChevronDown size={14} style={{ color: 'rgba(255,255,255,0.5)', flexShrink: 0, transform: isCompanySwitcherOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
-          </button>
-
-          {isCompanySwitcherOpen && (
-            <div className="company-dropdown">
-              {companyList.map(c => (
-                <button
-                  key={c.id}
-                  className={`company-dropdown-item ${c.id === data.activeCompanyId ? 'active' : ''}`}
-                  onClick={() => { handleSwitchCompany(c.id); setIsCompanySwitcherOpen(false); }}
-                >
-                  {c.id === data.activeCompanyId ? <Check size={13} /> : <span style={{ width: 13 }} />}
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
-                </button>
-              ))}
-              <div className="company-dropdown-divider"></div>
-              <button className="company-dropdown-item" onClick={() => { setNewCompanyModal(true); setIsCompanySwitcherOpen(false); }}>
-                <Plus size={13} /> Lägg till företag
-              </button>
-            </div>
-          )}
-        </div>
+        {/* Företagsväxlaren flyttad till Inställningar → Företag (Sida 38) —
+            fanns tidigare här som en dropdown i sidomenyn. Byt-företag/
+            lägg-till-företag är kvar (handleSwitchCompany, setNewCompanyModal),
+            bara UI:t flyttat, se <Settings companyList/activeCompanyId/
+            onSwitchCompany/onAddCompany> ovan. */}
 
         {/* Huvudnavigering — tre grupper, ingen linje mellan rader inom en grupp,
             bara en tunn låg-kontrast linje mellan grupperna. */}

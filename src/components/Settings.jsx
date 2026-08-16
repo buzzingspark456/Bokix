@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   User, Building2, CreditCard, Users, Shield, Sliders, Check, Download, Upload,
   AlertTriangle, Trash2, Mail, Plug, Laptop, FileText, Lock, KeyRound, Image as ImageIcon,
-  Palette, Landmark, Hash, Calendar, Phone,
+  Palette, Landmark, Hash, Calendar, Phone, Plus,
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { BRAND } from '../utils/brandColors';
@@ -565,6 +565,7 @@ export default function Settings({
   company = {}, setCompanyInfo, accounts = [], verifications = [], invoices = [], expenses = [],
   contacts = [], projects = [], onImport, onReset, stripeAccountId, onConnectStripe, onDisconnectStripe,
   onConnectEmailDomain, onCheckEmailDomainStatus, onDisconnectEmailDomain, user,
+  companyList = [], activeCompanyId, onSwitchCompany, onAddCompany,
 }) {
   const [activeTab, setActiveTab] = useState('profile');
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
@@ -788,6 +789,42 @@ export default function Settings({
           {activeTab === 'company' && (
             <div style={{ animation: 'fadeIn 0.2s ease' }}>
               <h2 style={{ fontSize: '20px', fontWeight: 700, margin: '0 0 20px', color: '#111' }}>Företag</h2>
+
+              {/* Sida 38: flyttad hit från sidomenyns tidigare dropdown —
+                  samma byt-företag/lägg-till-företag-funktion, bara UI:t
+                  flyttat till en plats man faktiskt letar efter den. */}
+              {companyList.length > 0 && (
+                <div style={card}>
+                  <div style={{ marginBottom: '16px' }}><SectionHeading icon={Landmark} tone="green">Dina företag</SectionHeading></div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxWidth: '480px', marginBottom: '12px' }}>
+                    {companyList.map(c => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => onSwitchCompany?.(c.id)}
+                        disabled={c.id === activeCompanyId}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderRadius: '8px',
+                          border: `1.5px solid ${c.id === activeCompanyId ? BRAND.green : '#e5e7eb'}`,
+                          background: c.id === activeCompanyId ? BRAND.greenLight : 'white',
+                          cursor: c.id === activeCompanyId ? 'default' : 'pointer', textAlign: 'left', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box',
+                        }}
+                      >
+                        {c.id === activeCompanyId ? <Check size={15} color={BRAND.greenDark} /> : <span style={{ width: 15, flexShrink: 0 }} />}
+                        <span style={{ fontSize: '14px', fontWeight: 600, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name || 'Namnlöst företag'}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onAddCompany?.()}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 14px', background: 'none', border: '1.5px dashed #d1d5db', borderRadius: '8px', color: '#374151', fontWeight: 600, fontSize: '13.5px', cursor: 'pointer', fontFamily: 'inherit' }}
+                  >
+                    <Plus size={14} /> Lägg till företag
+                  </button>
+                </div>
+              )}
+
               <div style={card}>
                 <div style={{ marginBottom: '16px' }}><SectionHeading icon={Building2} tone="green">Grunduppgifter</SectionHeading></div>
                 <div style={{ maxWidth: '672px' }}>

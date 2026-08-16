@@ -78,8 +78,6 @@ function MarketingStyles() {
       .lp-nav-desktop { display: flex; }
       .lp-hamburger-btn { display: none; }
       .lp-mobile-menu { display: none; }
-      .lp-hero-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; }
-      .lp-hero-grid > * { min-width: 0; }
       .lp-cta-group { display: flex; gap: 12px; flex-wrap: wrap; }
       .lp-features-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
       .lp-bolagsform-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
@@ -90,9 +88,6 @@ function MarketingStyles() {
       @media (max-width: 860px) {
         .lp-nav-desktop { display: none; }
         .lp-hamburger-btn { display: flex; }
-      }
-      @media (max-width: 900px) {
-        .lp-hero-grid { grid-template-columns: 1fr; gap: 44px; }
       }
       @media (max-width: 640px) {
         .lp-cta-group { flex-direction: column; }

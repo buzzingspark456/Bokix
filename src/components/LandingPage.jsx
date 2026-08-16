@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import {
   FileText, BarChart3, Users, Shield, Zap,
-  ArrowRight, ChevronRight, Receipt, Inbox,
+  ArrowRight, ChevronRight, Inbox,
   Building2, Briefcase, Landmark, HeartHandshake, UserCheck,
 } from 'lucide-react';
 import { BRAND } from '../utils/brandColors';
@@ -57,76 +57,32 @@ export default function LandingPage({ onEnterApp }) {
   return (
     <MarketingLayout onEnterApp={onEnterApp}>
       {/* ── HERO ── */}
-      <section style={{ display: 'flex', alignItems: 'center', background: BRAND.greenLight, position: 'relative', overflow: 'hidden', paddingTop: '128px', paddingBottom: '64px' }}>
-        <div className="lp-hero-grid" style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 24px', alignItems: 'center', width: '100%' }}>
-          <div>
-            <h1 className="lp-fadeinup" style={{ fontSize: 'clamp(32px, 5.5vw, 58px)', fontWeight: 900, lineHeight: 1.08, letterSpacing: '-0.03em', color: '#0f172a', marginBottom: '24px' }}>
-              För att bokföring<br />ska vara<span style={{ color: BRAND.green }}> enkelt</span>
-            </h1>
+      <section style={{ display: 'flex', alignItems: 'center', background: BRAND.greenLight, position: 'relative', overflow: 'hidden', paddingTop: '128px', paddingBottom: '80px' }}>
+        {/* Enkolumns hero — ingen app-mockup längre (se "Så ser det ut"
+            -sektionen nedan för den riktiga produktvisningen, med den
+            faktiska Dashboard-komponenten istället för en handbyggd yta här). */}
+        <div style={{ maxWidth: '720px', margin: '0 auto', padding: '0 24px', textAlign: 'center' }}>
+          <h1 className="lp-fadeinup" style={{ fontSize: 'clamp(32px, 5.5vw, 58px)', fontWeight: 900, lineHeight: 1.08, letterSpacing: '-0.03em', color: '#0f172a', marginBottom: '24px' }}>
+            För att bokföring<br />ska vara<span style={{ color: BRAND.green }}> enkelt</span>
+          </h1>
 
-            <p className="lp-fadeinup lp-delay-1" style={{ fontSize: '18px', color: '#475569', lineHeight: 1.7, marginBottom: '36px', maxWidth: '480px', fontWeight: 400 }}>
-              Fakturor, löner, moms och bokslut i ett enda verktyg. Byggt för svenska småföretagare som hellre fokuserar på sin verksamhet än sin bokföring.
-            </p>
+          <p className="lp-fadeinup lp-delay-1" style={{ fontSize: '18px', color: '#475569', lineHeight: 1.7, marginBottom: '36px', maxWidth: '480px', fontWeight: 400, margin: '0 auto 36px' }}>
+            Fakturor, löner, moms och bokslut i ett enda verktyg. Byggt för svenska småföretagare som hellre fokuserar på sin verksamhet än sin bokföring.
+          </p>
 
-            <div className="lp-fadeinup lp-delay-2 lp-cta-group">
-              <button className="lp-btn-primary" onClick={onEnterApp} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '15px 28px', background: BRAND.green, border: 'none', borderRadius: '12px', fontSize: '15px', fontWeight: 700, cursor: 'pointer', color: 'white', fontFamily: 'inherit', boxShadow: '0 2px 8px rgba(61,122,46,0.3)', minHeight: '44px' }}>
-                Prova gratis <ArrowRight size={16} />
-              </button>
-              <button className="lp-btn-secondary" onClick={scrollToFeatures} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '15px 24px', background: 'white', border: '1.5px solid #e2e8f0', borderRadius: '12px', fontSize: '15px', fontWeight: 600, cursor: 'pointer', color: '#374151', fontFamily: 'inherit', minHeight: '44px' }}>
-                Se demo <ChevronRight size={16} />
-              </button>
-            </div>
+          <div className="lp-fadeinup lp-delay-2 lp-cta-group" style={{ display: 'flex', justifyContent: 'center', gap: '12px' }}>
+            <button className="lp-btn-primary" onClick={onEnterApp} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '15px 28px', background: BRAND.green, border: 'none', borderRadius: '12px', fontSize: '15px', fontWeight: 700, cursor: 'pointer', color: 'white', fontFamily: 'inherit', boxShadow: '0 2px 8px rgba(61,122,46,0.3)', minHeight: '44px' }}>
+              Prova gratis <ArrowRight size={16} />
+            </button>
+            <button className="lp-btn-secondary" onClick={scrollToFeatures} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '15px 24px', background: 'white', border: '1.5px solid #e2e8f0', borderRadius: '12px', fontSize: '15px', fontWeight: 600, cursor: 'pointer', color: '#374151', fontFamily: 'inherit', minHeight: '44px' }}>
+              Se demo <ChevronRight size={16} />
+            </button>
           </div>
 
-          {/* Höger: en verklig, tom nystartad Bokix-skärm — inte påhittade siffror.
-              Visar nu både sidomenyn OCH en header-rad (sökfält + avatar) ovanför
-              innehållet, så mockupen matchar appens faktiska layout istället för
-              att hoppa rakt in i innehållsytan utan någon topbar alls. */}
-          <div style={{ position: 'relative' }}>
-            <div style={{ background: 'white', borderRadius: '20px', boxShadow: '0 8px 24px rgba(0,0,0,0.10), 0 0 0 1px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
-              <div style={{ display: 'flex', height: '400px' }}>
-                <div style={{ width: '150px', background: BRAND.green, padding: '16px 10px', flexShrink: 0 }}>
-                  <div style={{ marginBottom: '18px', padding: '0 4px' }}>
-                    <BokixWordmark height={20} />
-                  </div>
-                  {['Startsida', 'Fakturering', 'Kunder', 'Utgifter', 'Projekt', 'Bokföring', 'Rapporter'].map((label, i) => (
-                    <div key={label} style={{ padding: '7px 8px', borderRadius: '8px', fontSize: '11px', fontWeight: i === 0 ? 700 : 500, color: i === 0 ? BRAND.greenDark : 'rgba(255,255,255,0.85)', background: i === 0 ? BRAND.greenLight : 'transparent', marginBottom: '2px' }}>
-                      {label}
-                    </div>
-                  ))}
-                </div>
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                  {/* Header — sökfält + avatar, samma rad som appens riktiga topbar. */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 20px', borderBottom: '1px solid #f1f5f9', flexShrink: 0 }}>
-                    <div style={{ fontSize: '11px', color: '#cbd5e1', background: '#fafafa', border: '1px solid #e5e7eb', borderRadius: '7px', padding: '5px 10px', width: '140px' }}>Sök...</div>
-                    <div style={{ width: 24, height: 24, borderRadius: '50%', background: BRAND.green, color: 'white', fontSize: '10px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>N</div>
-                  </div>
-                  <div style={{ flex: 1, padding: '22px', background: '#fafafa', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#111827', marginBottom: '4px' }}>Välkommen till Bokix</div>
-                    <div style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '18px' }}>Ditt nya företag, redo att komma igång</div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '14px' }}>
-                      {['Att fakturera', 'Bokfört saldo'].map(label => (
-                        <div key={label} style={{ background: 'white', borderRadius: '10px', padding: '14px', border: '1px solid #e5e7eb' }}>
-                          <div style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '6px' }}>{label.toUpperCase()}</div>
-                          <div style={{ fontSize: '18px', fontWeight: 800, color: '#111827' }}>0 kr</div>
-                        </div>
-                      ))}
-                    </div>
-                    <div style={{ flex: 1, background: 'white', borderRadius: '10px', border: '1px dashed #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '6px' }}>
-                      <Receipt size={22} color="#cbd5e1" />
-                      <span style={{ fontSize: '11px', color: '#9ca3af' }}>Inga fakturor ännu</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Flytande prisbadge — samma siffra som prissektionen och
-                /priser-sidan (99 kr/mån), aldrig en egen avvikande uppgift. */}
-            <div className="lp-reveal lp-in" style={{ position: 'absolute', top: '-16px', right: '-16px', background: 'white', borderRadius: '14px', padding: '10px 16px', boxShadow: '0 4px 14px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'baseline', gap: '4px', animationDelay: '0.5s' }}>
-              <span style={{ fontSize: '17px', fontWeight: 900, color: BRAND.greenDark, letterSpacing: '-0.02em' }}>99 kr</span>
-              <span style={{ fontSize: '11px', fontWeight: 600, color: '#9ca3af' }}>/mån</span>
-            </div>
+          {/* Prisrad — samma siffra som prissektionen och /priser-sidan
+              (99 kr/mån), aldrig en egen avvikande uppgift. */}
+          <div className="lp-fadeinup lp-delay-2" style={{ marginTop: '20px', fontSize: '13.5px', color: '#64748b', fontWeight: 600 }}>
+            Från <span style={{ color: BRAND.greenDark, fontWeight: 800 }}>99 kr/mån</span> · 30 dagar gratis
           </div>
         </div>
       </section>
