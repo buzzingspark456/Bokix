@@ -20,16 +20,16 @@ import Settings from './Settings';
 
 // ── Interaktiv demo — samma RIKTIGA komponenter som inloggade användare ser.
 //
-// Bara STARTSIDAN visar det fulla exempeldatasetet (src/utils/
-// landingDemoData.js) — det är den enda flik som ska "sälja" hur det ser ut
-// när bokföringen faktiskt är igång. Alla ÖVRIGA flikar går att klicka på
-// och navigera i (samma riktiga UI/formulär), men matas med tomma listor
-// och skrivåtgärder är no-op:ade (`blocked`, visar en kort förklaring) —
-// en besökare ska kunna SE varje sida, aldrig av misstag tro att den sparat
-// något i en demo utan konto. Inställningar går ett steg längre: den riktiga
-// Settings.jsx monteras med `readOnly` (stänger av dess enda mount-tids
-// Supabase-anrop, se Settings.jsx) och en pointerEvents:none-yta — helt
-// visuell, ingen interaktion alls.
+// Alla flikar (Startsida, Kunder, Fakturering, Utgifter, Projekt, Granskning,
+// Bokföring, Anställda och lön, Skatt och bokslut, Rapport och analys) visar
+// samma konsekventa exempeldataset (src/utils/landingDemoData.js) — en
+// besökare ska kunna se hur riktig, ifylld bokföring ser ut på varje sida,
+// inte bara Startsidan. Skrivåtgärder (spara/lägg till/betala/bokför osv)
+// går till en delad `blocked()`-funktion som visar en kort förklaring
+// istället för att krascha (saknad handler) eller tyst låtsas lyckas —
+// ingenting som skrivs i demon ska av misstag kunna tolkas som sparat.
+// Inställningar går att klicka runt i på samma sätt (readOnly-prop stänger
+// dessutom av dess enda mount-tids Supabase-anrop, se Settings.jsx).
 const demoUser = { id: 'demo-user', email: 'du@bokix.se', user_metadata: { first_name: 'Du', last_name: '' } };
 
 const SIDEBAR_GROUPS = [
@@ -76,10 +76,6 @@ export default function DemoWorkspace() {
     return b;
   }, [seed.accounts, seed.verifications]);
 
-  // Alla flikar utom Startsida delar samma tomma nollställda saldo — inget
-  // bokfört att räkna fram där.
-  const emptyBalances = useMemo(() => Object.fromEntries(seed.accounts.map(a => [a.code, 0])), [seed.accounts]);
-
   const clearGlobalAction = () => setGlobalAction(null);
   // Navigation (och en formulär-prefill via globalAction) är inte
   // "att spara data" — det får fortsätta fungera på riktigt även på de
@@ -123,11 +119,11 @@ export default function DemoWorkspace() {
           />
         );
       case 'contacts':
-        return <Contacts contacts={[]} setContacts={noop} accounts={seed.accounts} globalAction={globalAction} clearGlobalAction={clearGlobalAction} />;
+        return <Contacts contacts={seed.contacts} setContacts={noop} accounts={seed.accounts} globalAction={globalAction} clearGlobalAction={clearGlobalAction} />;
       case 'invoices':
         return (
           <Invoices
-            invoices={[]} contacts={[]} verifications={[]} expenses={[]}
+            invoices={seed.invoices} contacts={seed.contacts} verifications={seed.verifications} expenses={seed.expenses}
             onAdd={blocked} onMarkPaid={blocked} onRegisterPayment={blocked}
             onUnmarkPaid={blocked} onMarkSupplierInvoicePaid={blocked}
             handleGlobalAction={handleGlobalAction} onCreatePaymentLink={blocked} onGetPaymentLinkUrl={blocked}
@@ -138,7 +134,7 @@ export default function DemoWorkspace() {
       case 'supplier_invoices':
         return (
           <SupplierInvoices
-            expenses={[]} accounts={seed.accounts} contacts={[]} setContacts={noop}
+            expenses={seed.expenses} accounts={seed.accounts} contacts={seed.contacts} setContacts={noop}
             onAddSupplierInvoice={blocked} onMarkSupplierInvoicePaid={blocked}
             onFixExpenseAccount={blocked} globalAction={globalAction} clearGlobalAction={clearGlobalAction}
             onNavigate={openTab}
@@ -147,7 +143,7 @@ export default function DemoWorkspace() {
       case 'expenses':
         return (
           <Expenses
-            expenses={[]} accounts={seed.accounts} verifications={[]} projects={[]}
+            expenses={seed.expenses} accounts={seed.accounts} verifications={seed.verifications} projects={seed.projects}
             user={demoUser} onAdd={blocked} onFixExpenseAccount={blocked}
             onSaveReceiptDetails={blocked} onDeleteExpense={blocked} onReverseExpense={blocked}
             pageTitle="Utgifter" pageSubtitle="Alla registrerade utgifter" uploadFn={demoUploadFn}
@@ -156,27 +152,27 @@ export default function DemoWorkspace() {
       case 'projects':
         return (
           <Projects
-            projects={[]} setProjects={noop} contacts={[]} setContacts={noop}
-            timeEntries={[]} setTimeEntries={noop} globalAction={globalAction} clearGlobalAction={clearGlobalAction}
+            projects={seed.projects} setProjects={noop} contacts={seed.contacts} setContacts={noop}
+            timeEntries={seed.timeEntries} setTimeEntries={noop} globalAction={globalAction} clearGlobalAction={clearGlobalAction}
           />
         );
       case 'review':
-        return <ReviewQueue expenses={[]} accounts={seed.accounts} reviewHistory={[]} onResolve={blocked} />;
+        return <ReviewQueue expenses={seed.expenses} accounts={seed.accounts} reviewHistory={seed.reviewHistory} onResolve={blocked} />;
       case 'verifications':
         return (
           <Verifications
-            user={demoUser} verifications={[]} accounts={seed.accounts} balances={emptyBalances}
-            contacts={[]} projects={[]} templates={[]}
+            user={demoUser} verifications={seed.verifications} accounts={seed.accounts} balances={balances}
+            contacts={seed.contacts} projects={seed.projects} templates={seed.verificationTemplates}
             onSaveTemplate={blocked} onAdd={blocked}
-            setVerifications={noop} setAccounts={noop} vatPeriods={{}}
+            setVerifications={noop} setAccounts={noop} vatPeriods={seed.vatPeriods}
             highlightVerificationId={null} onClearHighlight={noop} uploadFn={demoUploadFn}
           />
         );
       case 'payroll':
         return (
           <Payroll
-            company={seed.company} employees={[]} onSaveEmployee={blocked}
-            accounts={seed.accounts} projects={[]} payrollRuns={[]}
+            company={seed.company} employees={seed.employees} onSaveEmployee={blocked}
+            accounts={seed.accounts} projects={seed.projects} payrollRuns={seed.payrollRuns}
             onCreateRun={blocked} onUpdateRunRow={noop} onAdvanceRunStep={blocked}
             onBookRun={blocked} onMarkRunPaid={blocked} onRefreshRunSnapshots={noop}
           />
@@ -184,14 +180,14 @@ export default function DemoWorkspace() {
       case 'taxes':
         return (
           <Taxes
-            company={seed.company} verifications={[]} invoices={[]} expenses={[]}
-            accounts={seed.accounts} payrollRuns={[]} vatPeriods={{}}
+            company={seed.company} verifications={seed.verifications} invoices={seed.invoices} expenses={seed.expenses}
+            accounts={seed.accounts} payrollRuns={seed.payrollRuns} vatPeriods={seed.vatPeriods}
             onBookVatPeriod={blocked} onNavigateToVerification={() => openTab('verifications')}
             onAddVerification={blocked} setCompanyInfo={noop} onNavigateToTab={openTab}
           />
         );
       case 'reports':
-        return <Reports accounts={seed.accounts} verifications={[]} company={seed.company} />;
+        return <Reports accounts={seed.accounts} verifications={seed.verifications} company={seed.company} />;
       case 'settings':
         // Går att klicka runt i på riktigt — bläddra mellan Företag/
         // Betalning/Fakturamall/Användare och åtkomst/Prenumeration/Data,
