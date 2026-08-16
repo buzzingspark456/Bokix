@@ -289,6 +289,13 @@ export default function Expenses({
   expenses = [], accounts = [], verifications = [], projects = [], user,
   onAdd, onFixExpenseAccount, onSaveReceiptDetails, onDeleteExpense, onReverseExpense,
   pageTitle, pageSubtitle,
+  // Utbytbar uppladdningsfunktion — defaultar till den riktiga Storage-
+  // uppladdningen för den inloggade appen (oförändrat beteende). Landnings-
+  // sidans interaktiva demo (DemoWorkspace.jsx) skickar in en lokal
+  // ersättning (t.ex. URL.createObjectURL) istället, så ett kvitto går att
+  // dra in och se fungera utan att någon fil faktiskt når Supabase Storage
+  // från en icke-inloggad besökare.
+  uploadFn = uploadFileToStorage,
 }) {
   // -- Receipts State --
   const [isDragging, setIsDragging] = useState(false);
@@ -362,7 +369,7 @@ export default function Expenses({
       setUploadingFiles(curr => curr.filter(x => x.id !== id));
     };
 
-    uploadFileToStorage(user.id, file, 'receipts')
+    uploadFn(user.id, file, 'receipts')
       .then(receiptUrl => {
         finish();
         onAdd?.({

@@ -2,13 +2,12 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import {
   FileText, BarChart3, Users, Shield, Zap,
-  ArrowRight, ChevronRight, Inbox, HelpCircle, Menu, LogOut,
+  ArrowRight, ChevronRight, Inbox,
   Building2, Briefcase, Landmark, HeartHandshake, UserCheck,
 } from 'lucide-react';
 import { BRAND } from '../utils/brandColors';
-import MarketingLayout, { BokixWordmark, Reveal } from './marketing/MarketingLayout';
-import Dashboard from './Dashboard';
-import { DEMO_DASHBOARD_PROPS } from '../utils/landingDemoData';
+import MarketingLayout, { Reveal } from './marketing/MarketingLayout';
+import DemoWorkspace from './DemoWorkspace';
 
 // ── Faktiska bolagsformer Bokix kan identifiera/bokföra för (se
 // src/utils/orgType.js) — inte en påhittad lista. ──
@@ -112,17 +111,14 @@ export default function LandingPage({ onEnterApp }) {
         </Reveal>
       </section>
 
-      {/* ── PRODUKTVISNING — den RIKTIGA Dashboard.jsx-komponenten (samma
-          komponent inloggade användare ser), monterad direkt med ett
-          konsekvent exempeldataset (src/utils/landingDemoData.js) istället
-          för en handbyggd efterlikning i egen JSX. Kan aldrig tyst bli
-          inaktuell mot en framtida Dashboard-ändring, eftersom det bokstavligen
-          är samma komponent. Dashboard.jsx är rent presentationell (inga
-          Supabase-anrop, ingen useEffect) så det är säkert att montera den
-          här utan inloggning — bekräftat innan detta byggdes. Klick på
-          KPI-korten/snabbåtgärderna (som normalt byter flik i appen) leder
-          istället till samma "Prova gratis"-flöde som knapparna på sidan i
-          övrigt, via setActiveTab/onResumeOnboarding nedan. ── */}
+      {/* ── PRODUKTVISNING — DemoWorkspace.jsx monterar de RIKTIGA
+          komponenterna (Dashboard, Fakturering, Kunder, Utgifter, Projekt,
+          Granskning, Bokföring, Lön, Skatt och bokslut, Rapporter — samma
+          komponenter inloggade användare ser) med ett lokalt exempeldataset,
+          inte en passiv screenshot-liknande förhandsvisning. Går att klicka
+          runt och faktiskt testa funktionerna (skapa en faktura, betala ett
+          kvitto, bokföra en lönekörning …) — allt lever bara i komponentens
+          eget state, ingen backend, återställs vid omladdning. ── */}
       <section style={{ padding: '90px 24px', background: 'white', borderBottom: '1px solid #f1f5f9' }}>
         <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
           <Reveal style={{ textAlign: 'center', marginBottom: '48px' }}>
@@ -133,83 +129,12 @@ export default function LandingPage({ onEnterApp }) {
               Din ekonomi, på ett ställe
             </h2>
             <p style={{ fontSize: '16px', color: '#64748b', maxWidth: '560px', margin: '0 auto', lineHeight: 1.6 }}>
-              Samma Startsida som möter dig i appen, här med exempeldata som visar hur den ser ut när bokföringen är igång.
+              Samma app som möter dig efter att du skapat konto, här med exempeldata. Klicka runt i menyn — alla funktioner går att testa på riktigt.
             </p>
           </Reveal>
 
           <Reveal scale style={{ position: 'relative' }}>
-            <div className="lp-demo-card" style={{ background: 'white', borderRadius: '20px', boxShadow: '0 8px 24px rgba(0,0,0,0.10), 0 0 0 1px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
-              <span style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 1, fontSize: '10.5px', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', background: 'white', padding: '4px 10px', borderRadius: '999px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>Exempeldata</span>
-
-              {/* Mobil topbar — bara synlig under 640px (se .lp-demo-mobile-topbar
-                  i MarketingLayout.jsx), samma mönster som riktiga appens
-                  .global-top-bar (hamburgerikon + sidtitel) istället för att
-                  hela menyn bara försvinner utan ersättning på mobil. */}
-              <div className="lp-demo-mobile-topbar" style={{ alignItems: 'center', gap: '12px', padding: '0 16px', height: '52px', background: 'white', borderBottom: '1px solid #e5e7eb', flexShrink: 0 }}>
-                <Menu size={19} color="#64748b" />
-                <span style={{ fontSize: '14px', fontWeight: 600, color: '#111827' }}>Dashboard</span>
-              </div>
-
-              {/* Samma meny som den riktiga inloggade appens sidomeny
-                  (App.jsx navSections) — samma tre grupper, samma ordning,
-                  samma avdelare — inte en egen påhittad urvalslista. */}
-              <div className="lp-hide-mobile" style={{ width: '190px', flexShrink: 0, background: BRAND.green, padding: '20px 12px', display: 'flex', flexDirection: 'column' }}>
-                <div style={{ marginBottom: '22px', padding: '0 4px' }}>
-                  <BokixWordmark height={20} />
-                </div>
-
-                {[
-                  ['Startsida', 'Kunder', 'Fakturering', 'Utgifter', 'Projekt'],
-                  ['Granskning', 'Bokföring', 'Anställda och lön', 'Rapport och analys', 'Skatt och bokslut'],
-                  ['Inställningar'],
-                ].map((group, gi) => (
-                  <div key={gi} style={{ marginBottom: gi < 2 ? '10px' : 0, paddingBottom: gi < 2 ? '10px' : 0, borderBottom: gi < 2 ? '1px solid rgba(255,255,255,0.15)' : 'none' }}>
-                    {group.map(label => (
-                      <div key={label} style={{ padding: '7px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: label === 'Startsida' ? 700 : 500, color: label === 'Startsida' ? BRAND.greenDark : 'rgba(255,255,255,0.85)', background: label === 'Startsida' ? BRAND.greenLight : 'transparent', marginBottom: '2px' }}>
-                        {label}
-                      </div>
-                    ))}
-                  </div>
-                ))}
-
-                {/* Flexibelt tomt utrymme, precis som riktiga sidomenyn
-                    (App.jsx, samma "flex:1 innan botten-sektionen"-mönster,
-                    inte en jämnt utspridd meny) — trycker Hjälp/Logga ut
-                    längst ner oavsett hur hög panelen är. */}
-                <div style={{ flex: 1 }} />
-
-                {/* Samma fastsatta botten-sektion som riktiga sidomenyn,
-                    inklusive Logga ut i samma korallfärg (#fca5a5) — bara
-                    visuell, panelen är pointerEvents:none, så det klickar
-                    ingenstans. */}
-                <div style={{ borderTop: '1px solid rgba(255,255,255,0.15)', paddingTop: '10px', marginTop: '10px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 10px', fontSize: '12px', fontWeight: 500, color: 'rgba(255,255,255,0.7)' }}>
-                    <HelpCircle size={14} /> Hjälp och support
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 10px', fontSize: '12px', fontWeight: 500, color: '#fca5a5' }}>
-                    <LogOut size={14} /> Logga ut
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ flex: 1, minWidth: 0, padding: '16px', pointerEvents: 'none' }}>
-                {/* pointerEvents:none — visningen är till för att se hur
-                    appen ser ut, inte för att faktiskt navigera runt i en
-                    fejkad interaktiv demo. "Prova gratis"-knapparna på
-                    resten av sidan är den riktiga call-to-action:en.
-                    hideHeaderActions: Exportera skulle annars faktiskt ladda
-                    ner exempeldatan, och Ny faktura vore en förvirrande extra
-                    CTA mitt i en passiv produktvisning. */}
-                <Dashboard
-                  {...DEMO_DASHBOARD_PROPS}
-                  balances={[]}
-                  accounts={[]}
-                  setActiveTab={onEnterApp}
-                  onResumeOnboarding={onEnterApp}
-                  hideHeaderActions
-                />
-              </div>
-            </div>
+            <DemoWorkspace onEnterApp={onEnterApp} />
           </Reveal>
         </div>
       </section>

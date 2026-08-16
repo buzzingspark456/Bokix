@@ -70,7 +70,7 @@ function rowSideWarning(row) {
 const MAX_ATTACHMENT_MB = 10;
 const ACCEPTED_ATTACHMENT_TYPES = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
 
-function VerificationForm({ accounts, contacts, projects = [], balances, templates, onSaveTemplate, onSave, onClose, nextNumber, getNextNumber, initial, vatPeriods, user }) {
+function VerificationForm({ accounts, contacts, projects = [], balances, templates, onSaveTemplate, onSave, onClose, nextNumber, getNextNumber, initial, vatPeriods, user, uploadFn = uploadFileToStorage }) {
   const [date, setDate] = useState(initial?.date || new Date().toISOString().split('T')[0]);
   const [desc, setDesc] = useState(initial?.description || '');
   const [projectId, setProjectId] = useState(initial?.projectId || '');
@@ -225,7 +225,7 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
       }
       setAttachmentBusy(true); setAttachmentError('');
       try {
-        attachmentUrlToSave = await uploadFileToStorage(user.id, attachment, 'verifications');
+        attachmentUrlToSave = await uploadFn(user.id, attachment, 'verifications');
         attachmentNameToSave = attachment.name;
         attachmentTypeToSave = attachment.type;
       } catch (err) {
@@ -670,7 +670,7 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
 }
 
 // ─── Main Bokföring Component ──────────────────────────────────────────────────
-export default function Bokforing({ verifications = [], accounts = [], balances = {}, contacts = [], projects = [], templates = [], onSaveTemplate, onAdd, setVerifications, setAccounts, highlightVerificationId, onClearHighlight, vatPeriods, user }) {
+export default function Bokforing({ verifications = [], accounts = [], balances = {}, contacts = [], projects = [], templates = [], onSaveTemplate, onAdd, setVerifications, setAccounts, highlightVerificationId, onClearHighlight, vatPeriods, user, uploadFn = uploadFileToStorage }) {
   const [activeTab, setActiveTab] = useState('verifications');
   const [expandedId, setExpandedId] = useState(null);
   const [showForm, setShowForm] = useState(false);
@@ -855,6 +855,7 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
                 onClose={() => { setShowForm(false); setEditingVer(null); }}
                 vatPeriods={vatPeriods}
                 user={user}
+                uploadFn={uploadFn}
               />
             </div>
           )}
