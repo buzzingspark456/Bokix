@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   User, Building2, CreditCard, Users, Shield, Sliders, Check, Download, Upload,
   AlertTriangle, Trash2, Mail, Plug, Laptop, FileText, Lock, KeyRound, Image as ImageIcon,
-  Palette, Landmark, Hash, Calendar, Phone, Plus,
+  Palette, Landmark, Hash, Calendar, Phone, Plus, X, ZoomIn, ZoomOut, Maximize2,
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { BRAND } from '../utils/brandColors';
@@ -547,6 +547,17 @@ function InvoiceTemplateSection({ company, setCompanyInfo, user, readOnly = fals
   const activeTpl = INVOICE_TEMPLATES[selectedId] || INVOICE_TEMPLATES[DEFAULT_INVOICE_TEMPLATE];
   const accentColor = company?.invoiceAccentColor || activeTpl.defaultAccent;
 
+  // Kundönskemål: en riktig, läsbar förhandsgranskning av fakturan direkt
+  // från mallvalet — inte bara den lilla, nedskalade "Live-förhandsvisning"-
+  // tumnageln (254-476px bred beroende på breakpoint, olæslig på en
+  // telefon). Samma fullskärms-.a4-document-preview-mönster och
+  // +/--zoomkontroller som redan finns i fakturaredigeraren (Invoices.jsx)
+  // — samma InvoiceDocument-komponent, bara med exempeldata (SAMPLE_ROWS
+  // m.fl.) istället för en riktig fakturas rader.
+  const [showFullPreview, setShowFullPreview] = useState(false);
+  const [previewZoom, setPreviewZoom] = useState(1);
+  useEffect(() => { if (showFullPreview) setPreviewZoom(1); }, [showFullPreview]);
+
   const previewProps = {
     invoice: SAMPLE_INVOICE, customer: SAMPLE_CUSTOMER, company, rows: SAMPLE_ROWS, totals: SAMPLE_TOTALS,
     currency: 'SEK', logoUrl: company?.logoUrl, footerText: company?.invoiceFooterText, accentColor,
@@ -608,13 +619,66 @@ function InvoiceTemplateSection({ company, setCompanyInfo, user, readOnly = fals
               flexWrap på en 375px-skärm och tvingade förhandsvisningen
               lika brett-överskuret som gallerikorten ovan gjorde. */}
           <div style={{ flex: 1, minWidth: isMobile ? 0 : '300px', maxWidth: '500px', width: isMobile ? '100%' : undefined }}>
-            <div style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Live-förhandsvisning</div>
-            <div style={{ border: '1px solid #e4e4e7', borderRadius: '10px', overflow: 'hidden', background: '#e4e4e7', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <div style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Live-förhandsvisning</div>
+              <button
+                type="button" onClick={() => setShowFullPreview(true)}
+                style={{ display: 'flex', alignItems: 'center', gap: '5px', background: 'none', border: 'none', cursor: 'pointer', color: BRAND.greenDark, fontSize: '11.5px', fontWeight: 700, padding: '2px' }}
+              >
+                <Maximize2 size={12} /> Förhandsgranska
+              </button>
+            </div>
+            {/* Tumnageln öppnar samma fullskärmsvy — en genväg för den som
+                trycker direkt på bilden istället för att leta efter knappen. */}
+            <div
+              role="button" tabIndex={0} onClick={() => setShowFullPreview(true)}
+              onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && setShowFullPreview(true)}
+              style={{ border: '1px solid #e4e4e7', borderRadius: '10px', overflow: 'hidden', background: '#e4e4e7', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)', cursor: 'pointer' }}
+            >
               <TemplateThumb tplId={selectedId} previewProps={previewProps} scale={isMobile ? MOBILE_TEMPLATE_THUMB_SCALE : 0.6} />
             </div>
           </div>
         </div>
       </div>
+
+      {/* ── Fullskärms-förhandsgranskning — samma .a4-document-preview-
+          mönster (och samma +/--zoom) som fakturaredigerarens egen
+          "Förhandsgranska" i Invoices.jsx, så mallen faktiskt går att
+          LÄSA istället för att skymta i en 254-476px tumnagel. ── */}
+      {showFullPreview && (
+        <div className="modal-overlay" onClick={() => setShowFullPreview(false)}>
+          <div className="modal-content a4-document-preview" onClick={e => e.stopPropagation()}>
+            <div className="modal-header" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '10px', position: 'sticky', top: 0, zIndex: 5, background: 'white' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                <h2 className="modal-title" style={{ margin: 0, fontSize: '14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Förhandsgranskning · {activeTpl.label}</h2>
+                <button className="modal-close" onClick={() => setShowFullPreview(false)} style={{ flexShrink: 0 }}><X size={18} /></button>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '11px', color: '#9ca3af' }}>Exempeldata — så här ser mallen ut, inte en riktig faktura.</span>
+                <div style={{ flex: 1, minWidth: '8px' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0, border: '1px solid #d1d5db', borderRadius: '6px', padding: '2px' }}>
+                  <button
+                    type="button" onClick={() => setPreviewZoom(z => Math.max(0.5, Math.round((z - 0.1) * 10) / 10))}
+                    disabled={previewZoom <= 0.5} title="Zooma ut"
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '26px', height: '26px', background: 'none', border: 'none', borderRadius: '4px', color: previewZoom <= 0.5 ? '#d1d5db' : '#374151', cursor: previewZoom <= 0.5 ? 'not-allowed' : 'pointer' }}
+                  ><ZoomOut size={14} /></button>
+                  <span style={{ fontSize: '11px', color: '#6b7280', width: '38px', textAlign: 'center', flexShrink: 0 }}>{Math.round(previewZoom * 100)}%</span>
+                  <button
+                    type="button" onClick={() => setPreviewZoom(z => Math.min(2, Math.round((z + 0.1) * 10) / 10))}
+                    disabled={previewZoom >= 2} title="Zooma in"
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '26px', height: '26px', background: 'none', border: 'none', borderRadius: '4px', color: previewZoom >= 2 ? '#d1d5db' : '#374151', cursor: previewZoom >= 2 ? 'not-allowed' : 'pointer' }}
+                  ><ZoomIn size={14} /></button>
+                </div>
+              </div>
+            </div>
+            <div style={{ overflow: 'auto', touchAction: 'pinch-zoom' }}>
+              <div style={{ zoom: previewZoom, transition: 'zoom 0.15s ease' }}>
+                <InvoiceDocument template={selectedId} {...previewProps} />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
