@@ -236,8 +236,12 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
           <div key={l} className="a4-footer-item"><strong>{l}</strong>{v}</div>
         ))}
       </div>
+      {/* Normalt flöde, inte position:absolute mot sidbotten — samma skäl
+          som .a4-footer i index.css (en botten-ankrad text hade landat
+          ovanpå/tätt inpå fakturaraderna ovan nu när .a4-paper inte
+          längre tvingas till en full 297mm-höjd oavsett innehåll). */}
       {footerText && (
-        <div style={{ position: 'absolute', bottom: '4mm', left: '18mm', right: '18mm', fontSize: 9, color: '#9ca3af', textAlign: 'center' }}>{footerText}</div>
+        <div style={{ marginTop: '12px', fontSize: 9, color: '#9ca3af', textAlign: 'center' }}>{footerText}</div>
       )}
     </div>
   );

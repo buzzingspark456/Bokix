@@ -2206,7 +2206,14 @@ textarea.form-control {
   background: white;
   width: 100%;
   max-width: 210mm;
-  min-height: 297mm;
+  /* INTE 297mm längre (kundfeedback): en fast full-A4-höjd lämnade en stor
+     vit yta under en kort faktura, både i den här levande förhandsvisningen
+     OCH i den exporterade PDF:en (exportInvoicePdf.js kortar redan av
+     FÅNGST-noden till innehållshöjden före html2canvas — den fasta höjden
+     här gjorde bara att förhandsvisningen och PDF:en visade OLIKA höjder
+     av samma dokument). Se även .a4-footer nedan, som tidigare antog en
+     alltid-full sida för sin positionering. */
+  min-height: auto;
   margin: 0 auto;
   padding: 18mm 18mm 22mm;
   box-shadow: 0 20px 60px rgba(0,0,0,0.2);
@@ -2396,12 +2403,19 @@ textarea.form-control {
   color: #1a1a1a;
 }
 
-/* Footer */
+/* Footer — I NORMALT FLÖDE, inte absolut positionerad mot sidans botten.
+   Var tidigare `position: absolute; bottom: 18mm` för att alltid landa
+   nära botten av en garanterat 297mm-hög sida. Nu när .a4-paper inte
+   längre tvingar den höjden (se kommentar där) skulle en botten-ankrad
+   footer istället landa precis ovanpå — eller mitt i — totalsummerutan
+   för en kort faktura, eftersom "botten av sidan" nu är nästan samma
+   punkt som "slutet av innehållet". margin-top ger den istället samma
+   fasta luft som .a4-totals-container:s margin-bottom oavsett hur hög
+   sidan blir. (Mobil hade redan `position: static` som en breakpoint-
+   specifik lapp för samma grundproblem — se @media 768px nedan, som nu
+   bara behöver sköta kolumnantalet, inte positioneringen.) */
 .a4-footer {
-  position: absolute;
-  bottom: 18mm;
-  left: 18mm;
-  right: 18mm;
+  margin-top: 40px;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 12px;
@@ -2738,13 +2752,11 @@ textarea.form-control {
     text-align: left;
   }
 
+  /* position/bottom/left/right behövs inte längre — basregeln ovan är
+     redan i normalt flöde. Bara kolumntätheten kvar att justera här. */
   .a4-footer {
-    position: static;
     grid-template-columns: repeat(2, 1fr);
     margin-top: 24px;
-    bottom: auto;
-    left: auto;
-    right: auto;
   }
 
   /* Form rows */
