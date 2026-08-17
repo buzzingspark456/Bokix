@@ -1062,7 +1062,7 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
 
                   {/* Account rows */}
                   {isOpen && (
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                    <table className="responsive-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                       <thead>
                         <tr style={{ background: '#fafafa' }}>
                           <th style={{ padding: '5px 20px 5px 36px', textAlign: 'left', color: '#888', fontWeight: 700, fontSize: '11px', borderBottom: '1px solid #eee' }}>KONTO</th>
@@ -1079,12 +1079,12 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
                           const usedInVers = verifications.filter(v => v.rows?.some(r => r.account === a.code)).length;
                           return (
                             <tr key={a.code} style={{ borderBottom: '1px solid #f5f5f5', background: ai % 2 === 0 ? 'white' : '#fafafa' }}>
-                              <td style={{ padding: '7px 10px 7px 36px', fontWeight: 700, color: '#1a3028' }}>{a.code}</td>
-                              <td style={{ padding: '7px 10px', color: '#333' }}>{a.name}</td>
-                              <td style={{ padding: '7px 20px 7px 10px', textAlign: 'right', fontWeight: bal !== 0 ? 700 : 400, color: bal > 0 ? '#2e7d32' : bal < 0 ? '#c62828' : '#bbb' }}>
+                              <td data-label="Konto" style={{ padding: '7px 10px 7px 36px', fontWeight: 700, color: '#1a3028' }}>{a.code}</td>
+                              <td data-label="Kontonamn" style={{ padding: '7px 10px', color: '#333' }}>{a.name}</td>
+                              <td data-label="Saldo" style={{ padding: '7px 20px 7px 10px', textAlign: 'right', fontWeight: bal !== 0 ? 700 : 400, color: bal > 0 ? '#2e7d32' : bal < 0 ? '#c62828' : '#bbb' }}>
                                 {bal !== 0 ? fmt(bal) : '—'}
                               </td>
-                              <td style={{ padding: '7px 10px', textAlign: 'center' }}>
+                              <td data-label="" className="td-actions" style={{ padding: '7px 10px', textAlign: 'center' }}>
                                 <button
                                   onClick={() => handleDeactivateAccount(a.code)}
                                   title={usedInVers > 0 ? `Används i ${usedInVers} verifikationer — kan inte tas bort` : 'Ta bort konto'}

@@ -60,12 +60,12 @@ export default function CompanySettings({ company = {}, updateCompany }) {
         <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#111', margin: '0 0 20px' }}>Grunduppgifter</h2>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <Field label="Företagsnamn" name="name" placeholder="T.ex. Acme AB" required />
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          <div className="form-row-2" style={{ display: 'grid', gap: '16px' }}>
             <Field label="Organisationsnummer" name="orgNr" placeholder="XXXXXX-XXXX" />
             <Field label="Momsregistreringsnummer" name="vatNr" placeholder="SE556XXXXXXXXXX01" />
           </div>
           <Field label="Adress" name="address" placeholder="Gatuadress, Postnummer Stad" />
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          <div className="form-row-2" style={{ display: 'grid', gap: '16px' }}>
             <Field label="E-post" name="email" type="email" placeholder="info@foretag.se" />
             <Field label="Telefon" name="phone" type="tel" placeholder="08-000 00 00" />
           </div>
@@ -76,11 +76,11 @@ export default function CompanySettings({ company = {}, updateCompany }) {
       <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e4e4e7', padding: '24px', marginBottom: '20px' }}>
         <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#111', margin: '0 0 20px' }}>Bankuppgifter</h2>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          <div className="form-row-2" style={{ display: 'grid', gap: '16px' }}>
             <Field label="Bankgiro" name="bankgiro" placeholder="XXXX-XXXX" />
             <Field label="Plusgiro" name="plusgiro" placeholder="XXXXXX-X" />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          <div className="form-row-2" style={{ display: 'grid', gap: '16px' }}>
             <Field label="IBAN" name="iban" placeholder="SE00 0000 0000 0000 0000 0000" />
             <Field label="BIC/SWIFT" name="bic" placeholder="HANDSESS" />
           </div>
@@ -90,7 +90,7 @@ export default function CompanySettings({ company = {}, updateCompany }) {
       {/* Section: Fiscal year */}
       <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e4e4e7', padding: '24px' }}>
         <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#111', margin: '0 0 20px' }}>Räkenskapsår & moms</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+        <div className="form-row-2" style={{ display: 'grid', gap: '16px' }}>
           <Field label="Räkenskapsår startar" name="fiscalYear" type="date" hint="Startdatum för räkenskapsåret" />
           <div>
             <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>

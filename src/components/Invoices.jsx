@@ -1433,17 +1433,17 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
         onMouseEnter={e => { if (!isSelected) e.currentTarget.style.filter = 'brightness(0.97)'; }}
         onMouseLeave={e => { e.currentTarget.style.filter = ''; }}
         onClick={() => { setEditingInvoice(inv); setInvoicePrefill(null); setShowForm(true); }}>
-        <td style={{ padding: '6px 10px', textAlign: 'center' }} onClick={e => { e.stopPropagation(); toggleSelect(inv.id); }}>
+        <td data-label="" className="td-select" style={{ padding: '6px 10px', textAlign: 'center' }} onClick={e => { e.stopPropagation(); toggleSelect(inv.id); }}>
           <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(inv.id)} style={{ cursor: 'pointer' }} />
         </td>
-        <td style={{ padding: '8px 10px', fontWeight: 700, color: '#111' }}>
+        <td data-label="Fakturanr" style={{ padding: '8px 10px', fontWeight: 700, color: '#111' }}>
           {inv.invoiceNumber}
         </td>
-        <td style={{ padding: '8px 10px', color: '#222', fontWeight: 500 }}>{getCustomerName(inv.customerId)}</td>
-        <td style={{ padding: '8px 10px', color: '#555' }}>{formatDate(inv.date)}</td>
-        <td style={{ padding: '8px 10px', color: isOverdue(inv) ? '#c00' : '#555', fontWeight: isOverdue(inv) ? 700 : 400 }}>{formatDate(inv.dueDate)}</td>
-        <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 600, color: '#222' }}>{fmt(gross)}</td>
-        <td style={{ padding: '8px 10px' }} onClick={e => e.stopPropagation()}>
+        <td data-label="Kund" style={{ padding: '8px 10px', color: '#222', fontWeight: 500 }}>{getCustomerName(inv.customerId)}</td>
+        <td data-label="Fakturadatum" style={{ padding: '8px 10px', color: '#555' }}>{formatDate(inv.date)}</td>
+        <td data-label="Förfallodatum" style={{ padding: '8px 10px', color: isOverdue(inv) ? '#c00' : '#555', fontWeight: isOverdue(inv) ? 700 : 400 }}>{formatDate(inv.dueDate)}</td>
+        <td data-label="Belopp" style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 600, color: '#222' }}>{fmt(gross)}</td>
+        <td data-label="Status" style={{ padding: '8px 10px' }} onClick={e => e.stopPropagation()}>
           {status === 'paid' ? (
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: BRAND.greenLight, color: BRAND.greenDark }}>
               <Check size={12} /> Betald{inv.paidDate ? ` ${formatDate(inv.paidDate)}` : ''}
@@ -1463,7 +1463,7 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
             </button>
           )}
         </td>
-        <td style={{ padding: '8px 10px', whiteSpace: 'nowrap' }} onClick={e => e.stopPropagation()}>
+        <td data-label="" className="td-actions" style={{ padding: '8px 10px', whiteSpace: 'nowrap' }} onClick={e => e.stopPropagation()}>
           <div style={{ display: 'inline-flex', gap: '2px', alignItems: 'center' }}>
             {status !== 'paid' && isOverdue(inv) && (
               customer?.email ? (
@@ -1720,7 +1720,7 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
                 </span>
                 <span style={{ fontSize: '12px', color: '#888' }}>{fmt(sectionSum)} SEK</span>
               </div>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+              <table className="responsive-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                 <thead>
                   <tr>
                     <th style={{ ...thSt, width: 32, textAlign: 'center' }}>

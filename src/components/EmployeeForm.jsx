@@ -17,7 +17,9 @@ const inputBase = {
   outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit',
 };
 function inputStyle(hasError) { return { ...inputBase, borderColor: hasError ? '#ef4444' : '#d1d5db' }; }
-const grid2 = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' };
+// gridTemplateColumns lever i CSS-klassen .form-row-2 (index.css) istället
+// för här, se kommentaren i Contacts.jsx för varför.
+const grid2 = { display: 'grid', gap: '16px' };
 const grid3 = { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' };
 
 function Section({ title, children }) {
@@ -172,7 +174,7 @@ export default function EmployeeForm({ initial, projects = [], onSave, onCancel 
       </Section>
 
       <Section title="Skatt">
-        <div style={grid2}>
+        <div className="form-row-2" style={grid2}>
           <div>
             <label style={labelStyle}>Skatteform</label>
             <select value={form.taxForm} onChange={e => set('taxForm', e.target.value)} style={{ ...inputBase, background: 'white' }}>
@@ -224,7 +226,7 @@ export default function EmployeeForm({ initial, projects = [], onSave, onCancel 
       </Section>
 
       <Section title="Semester">
-        <div style={grid2}>
+        <div className="form-row-2" style={grid2}>
           <div>
             <label style={labelStyle}>Semesterregel</label>
             <select value={form.vacationRule} onChange={e => set('vacationRule', e.target.value)} style={{ ...inputBase, background: 'white' }}>
@@ -241,7 +243,7 @@ export default function EmployeeForm({ initial, projects = [], onSave, onCancel 
       </Section>
 
       <Section title="Kostnadsställe / Projekt">
-        <div style={grid2}>
+        <div className="form-row-2" style={grid2}>
           <div>
             <label style={labelStyle}>Kostnadsställe</label>
             <input value={form.costCenter} onChange={e => set('costCenter', e.target.value)} style={inputBase} />
@@ -255,7 +257,7 @@ export default function EmployeeForm({ initial, projects = [], onSave, onCancel 
       </Section>
 
       <Section title="Bankkonto">
-        <div style={grid2}>
+        <div className="form-row-2" style={grid2}>
           <div>
             <label style={labelStyle}>Clearingnummer</label>
             <input value={form.clearingNumber} onChange={e => set('clearingNumber', e.target.value)} style={inputBase} />
@@ -277,7 +279,7 @@ export default function EmployeeForm({ initial, projects = [], onSave, onCancel 
             Utan dessa exkluderas den anställda tyst från betalfilen (och
             det syns tydligt i lönekörningen), men det stoppar inte
             körningen som helhet. */}
-        <div style={{ ...grid2, marginTop: '16px' }}>
+        <div className="form-row-2" style={{ ...grid2, marginTop: '16px' }}>
           <div>
             <label style={labelStyle}>IBAN</label>
             <input value={form.iban} onChange={e => set('iban', e.target.value.toUpperCase())} style={inputStyle(errors.iban)} placeholder="SE35 5000 0000 0549 1000 0003" />

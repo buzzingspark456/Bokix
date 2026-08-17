@@ -494,7 +494,7 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
           <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 14px', lineHeight: 1.5 }}>
             Sammanställning (huvuduppgift + individuppgift per anställd) för arbetsgivardeklarationen (AGI). Skatteverket kräver arbetsgivarens egen BankID-signatur vid inlämning, så Bokix skickar inte in den automatiskt — men underlaget nedan är klart att skriva av.
           </p>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '13.5px', marginBottom: '16px' }}>
+          <div className="form-row-2" style={{ display: 'grid', gap: '10px', fontSize: '13.5px', marginBottom: '16px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#6b7280' }}>Total bruttolön</span><span style={{ fontWeight: 700 }}>{fmt(totals.gross)} kr</span></div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#6b7280' }}>Avdragen skatt</span><span style={{ fontWeight: 700 }}>{fmt(totals.tax)} kr</span></div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#6b7280' }}>Arbetsgivaravgifter</span><span style={{ fontWeight: 700 }}>{fmt(totals.employerFee)} kr</span></div>

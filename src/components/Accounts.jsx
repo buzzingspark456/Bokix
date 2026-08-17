@@ -112,7 +112,7 @@ export default function Accounts({ accounts, balances, setAccounts }) {
       {/* ── TABLE ── */}
       <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '14px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13.5px' }}>
+          <table className="responsive-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13.5px' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
                 <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151' }}>Kontokod</th>
@@ -130,14 +130,14 @@ export default function Accounts({ accounts, balances, setAccounts }) {
                     onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                   >
-                    <td style={{ padding: '14px 20px', fontWeight: 700, color: '#3a8fc1' }}>{acc.code}</td>
-                    <td style={{ padding: '14px 20px', fontWeight: 500, color: '#111827' }}>{acc.name}</td>
-                    <td style={{ padding: '14px 20px' }}>
+                    <td data-label="Kontokod" style={{ padding: '14px 20px', fontWeight: 700, color: '#3a8fc1' }}>{acc.code}</td>
+                    <td data-label="Kontonamn" style={{ padding: '14px 20px', fontWeight: 500, color: '#111827' }}>{acc.name}</td>
+                    <td data-label="Kontotyp" style={{ padding: '14px 20px' }}>
                       <span style={{ padding: '4px 10px', background: acolor.bg, color: acolor.text, border: `1px solid ${acolor.border}`, borderRadius: '20px', fontSize: '11px', fontWeight: 600, letterSpacing: '0.02em' }}>
                         {getSwedishTypeName(acc.type)}
                       </span>
                     </td>
-                    <td style={{ padding: '14px 20px', textAlign: 'right', fontWeight: 600, color: bal === 0 ? '#9ca3af' : '#111827', letterSpacing: '-0.02em' }}>
+                    <td data-label="Aktuellt saldo" style={{ padding: '14px 20px', textAlign: 'right', fontWeight: 600, color: bal === 0 ? '#9ca3af' : '#111827', letterSpacing: '-0.02em' }}>
                       {formatSEK(bal)}
                     </td>
                   </tr>

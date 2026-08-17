@@ -272,7 +272,7 @@ export default function Auth({ onLogin }) {
               {/* STEP 0 – Personal info */}
               {regStep === 0 && (
                 <>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div className="form-row-2" style={{ display: 'grid', gap: '12px' }}>
                     <div>
                       <label style={labelStyle}>Förnamn *</label>
                       <div style={{ position: 'relative' }}>

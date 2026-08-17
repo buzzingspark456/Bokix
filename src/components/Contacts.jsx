@@ -18,7 +18,11 @@ const inputBase = {
   transition: 'border-color 0.15s'
 };
 function inputStyle(hasError) { return { ...inputBase, borderColor: hasError ? '#ef4444' : '#d1d5db' }; }
-const grid2 = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' };
+// gridTemplateColumns lever i CSS-klassen .form-row-2 (index.css) istället
+// för här, så den mobila 1-kolumns-överskrivningen (@media max-width 768px)
+// faktiskt kan träffa — en inline style-egenskap kan aldrig nås av en
+// media query. Se klassnamnet på varje <div className="form-row-2" style={grid2}> nedan.
+const grid2 = { display: 'grid', gap: '16px' };
 
 function Section({ title, children }) {
   return (
@@ -105,7 +109,7 @@ function CustomerForm({ initial, onSave, onCancel }) {
       </Section>
 
       <Section title="Grunduppgifter">
-        <div style={grid2}>
+        <div className="form-row-2" style={grid2}>
           <div>
             <label style={labelStyle}>Namn *</label>
             <input type="text" value={form.name} onChange={e => set('name', e.target.value)} style={inputStyle(errors.name)} placeholder="Exempelföretag AB" />
@@ -120,7 +124,7 @@ function CustomerForm({ initial, onSave, onCancel }) {
       </Section>
 
       <Section title="Kontakt">
-        <div style={grid2}>
+        <div className="form-row-2" style={grid2}>
           <div>
             <label style={labelStyle}>Kontaktperson</label>
             <input type="text" value={form.contactPerson} onChange={e => set('contactPerson', e.target.value)} style={inputBase} />
@@ -138,7 +142,7 @@ function CustomerForm({ initial, onSave, onCancel }) {
       </Section>
 
       <Section title="Extra mottagare av fakturor">
-        <div style={grid2}>
+        <div className="form-row-2" style={grid2}>
           <div>
             <label style={labelStyle}>Kopia (CC)</label>
             <input type="text" value={form.ccEmails} onChange={e => set('ccEmails', e.target.value)} style={inputStyle(errors.ccEmails)} placeholder="kalle@företag.se, anna@företag.se" />
@@ -154,7 +158,7 @@ function CustomerForm({ initial, onSave, onCancel }) {
       </Section>
 
       <Section title="Adress">
-        <div style={grid2}>
+        <div className="form-row-2" style={grid2}>
           <div style={{ gridColumn: '1 / 3' }}>
             <label style={labelStyle}>Gatuadress</label>
             <input type="text" value={form.address} onChange={e => set('address', e.target.value)} style={inputBase} />
@@ -177,7 +181,7 @@ function CustomerForm({ initial, onSave, onCancel }) {
       </Section>
 
       <Section title="Företagsuppgifter">
-        <div style={grid2}>
+        <div className="form-row-2" style={grid2}>
           <div>
             <label style={labelStyle}>Organisationsnummer{orgNrRequired ? ' *' : ''}</label>
             <input type="text" value={form.orgNr} onChange={e => set('orgNr', e.target.value)} style={inputStyle(errors.orgNr)} required={orgNrRequired} placeholder="XXXXXX-XXXX" />
@@ -281,7 +285,7 @@ function SupplierForm({ initial, onSave, onCancel, accounts }) {
       </Section>
 
       <Section title="Grunduppgifter">
-        <div style={grid2}>
+        <div className="form-row-2" style={grid2}>
           <div style={{ gridColumn: '1 / 3' }}>
             <label style={labelStyle}>Namn *</label>
             <input type="text" value={form.name} onChange={e => set('name', e.target.value)} style={inputStyle(errors.name)} placeholder="Exempelföretag AB" />
@@ -291,7 +295,7 @@ function SupplierForm({ initial, onSave, onCancel, accounts }) {
       </Section>
 
       <Section title="Kontakt">
-        <div style={grid2}>
+        <div className="form-row-2" style={grid2}>
           <div>
             <label style={labelStyle}>Kontaktperson</label>
             <input type="text" value={form.contactPerson} onChange={e => set('contactPerson', e.target.value)} style={inputBase} />
@@ -309,7 +313,7 @@ function SupplierForm({ initial, onSave, onCancel, accounts }) {
       </Section>
 
       <Section title="Företagsuppgifter">
-        <div style={grid2}>
+        <div className="form-row-2" style={grid2}>
           <div>
             <label style={labelStyle}>Organisationsnummer *</label>
             <input type="text" value={form.orgNr} onChange={e => set('orgNr', e.target.value)} style={inputStyle(errors.orgNr)} required />
@@ -325,7 +329,7 @@ function SupplierForm({ initial, onSave, onCancel, accounts }) {
       </Section>
 
       <Section title="Adress">
-        <div style={grid2}>
+        <div className="form-row-2" style={grid2}>
           <div style={{ gridColumn: '1 / 3' }}>
             <label style={labelStyle}>Gatuadress</label>
             <input type="text" value={form.address} onChange={e => set('address', e.target.value)} style={inputBase} />
@@ -350,7 +354,7 @@ function SupplierForm({ initial, onSave, onCancel, accounts }) {
       <Section title="Betalningsuppgifter">
         {isSwedish ? (
           <>
-            <div style={grid2}>
+            <div className="form-row-2" style={grid2}>
               <div>
                 <label style={labelStyle}>Bankgiro</label>
                 <input type="text" value={form.bankgiro} onChange={e => set('bankgiro', e.target.value)} style={inputBase} placeholder="123-4567" />
@@ -365,7 +369,7 @@ function SupplierForm({ initial, onSave, onCancel, accounts }) {
               Fler betalningsalternativ
             </button>
             {form.showMorePayment && (
-              <div style={{ ...grid2, marginTop: '12px' }}>
+              <div className="form-row-2" style={{ ...grid2, marginTop: '12px' }}>
                 <div>
                   <label style={labelStyle}>Clearingnummer</label>
                   <input type="text" value={form.clearingNumber} onChange={e => set('clearingNumber', e.target.value)} style={inputBase} />
@@ -379,7 +383,7 @@ function SupplierForm({ initial, onSave, onCancel, accounts }) {
           </>
         ) : (
           <>
-            <div style={grid2}>
+            <div className="form-row-2" style={grid2}>
               <div>
                 <label style={labelStyle}>IBAN</label>
                 <input type="text" value={form.iban} onChange={e => set('iban', e.target.value)} style={inputStyle(errors.iban)} placeholder="DE89 3704 0044 0532 0130 00" />

@@ -439,7 +439,7 @@ export default function Quotes({ invoices = [], setInvoices, contacts = [], comp
 
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexWrap: 'wrap', gap: '0' }}>
               <div style={{ flex: '1 1 480px', minWidth: '380px', padding: '24px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
+                <div className="form-row-2" style={{ display: 'grid', gap: '16px', marginBottom: '20px' }}>
                   <div>
                     <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>Kund</label>
                     {contacts.length > 0 ? (

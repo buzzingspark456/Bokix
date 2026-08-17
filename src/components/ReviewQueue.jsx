@@ -120,7 +120,7 @@ function ReviewCard({ item, accounts, onApprove, onReject, exiting }) {
       )}
 
       {expanded && (
-        <div style={{ marginTop: '14px', paddingTop: '14px', borderTop: '1px solid #f1f5f9', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '13px' }}>
+        <div className="form-row-2" style={{ marginTop: '14px', paddingTop: '14px', borderTop: '1px solid #f1f5f9', display: 'grid', gap: '10px', fontSize: '13px' }}>
           <div><span style={{ color: '#9ca3af' }}>Typ:</span> {kindLabel}</div>
           <div><span style={{ color: '#9ca3af' }}>Datum:</span> {formatDate(item.date)}</div>
           <div><span style={{ color: '#9ca3af' }}>Belopp:</span> {formatSEK(item.amount)}</div>

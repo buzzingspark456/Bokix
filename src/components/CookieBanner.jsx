@@ -79,7 +79,7 @@ export default function CookieBanner() {
         </div>
 
         {/* Kategorirad — två riktiga kategorier, inte fyra påhittade */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderTop: '1px solid #f1f5f9', marginTop: '18px' }}>
+        <div className="form-row-2" style={{ display: 'grid', borderTop: '1px solid #f1f5f9', marginTop: '18px' }}>
           <div style={{ padding: '16px 24px', borderRight: '1px solid #f1f5f9', textAlign: 'center' }}>
             <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#111827', marginBottom: '10px' }}>Nödvändiga</div>
             <div title="Alltid aktiva — krävs för att logga in och för att tjänsten ska fungera" style={{ width: 40, height: 22, borderRadius: '999px', background: BRAND.green, margin: '0 auto', position: 'relative', opacity: 0.5, cursor: 'not-allowed' }}>

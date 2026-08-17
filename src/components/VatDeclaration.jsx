@@ -315,7 +315,7 @@ export default function VatDeclaration({
               </div>
             )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
+            <div className="form-row-2" style={{ display: 'grid', gap: '16px', marginBottom: '20px' }}>
               <div style={{ border: '1px solid #e4e4e7', borderRadius: '10px', padding: '20px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '10px', opacity: 0.6 }}>
                 <FileText size={22} color="#9ca3af" />
                 <div style={{ fontWeight: 700, fontSize: '14px', color: '#374151' }}>Ladda ner XML-fil</div>

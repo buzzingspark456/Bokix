@@ -744,7 +744,7 @@ export default function Settings({
   const deleteMatches = deleteConfirmText.trim().length > 0 && deleteConfirmText.trim() === (company?.name || '').trim();
 
   return (
-    <div style={{ padding: '32px 40px 48px', minHeight: '100%', boxSizing: 'border-box', background: 'var(--bg-page, #f4f7f5)' }}>
+    <div className="settings-page" style={{ padding: '32px 40px 48px', minHeight: '100%', boxSizing: 'border-box', background: 'var(--bg-page, #f4f7f5)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '28px' }}>
         <div style={{
           width: 46, height: 46, borderRadius: '13px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -758,9 +758,31 @@ export default function Settings({
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 0, alignItems: 'flex-start' }}>
-        {/* Undermeny — fast bredd, aldrig centrerad, grupperad i tre block */}
-        <div style={{ width: '232px', flexShrink: 0, paddingRight: '20px', display: 'flex', flexDirection: 'column', gap: '18px', position: 'sticky', top: '24px' }}>
+      {/* Mobil: dropdown-väljare istället för den fasta sidomenyn nedan —
+          en sju rader lång, 232px bred kolumn skulle annars äta upp
+          merparten av en 375px-skärm och klämma innehållet till en
+          oläsbar remsa (se .settings-nav-desktop/.settings-nav-mobile i
+          index.css för hur de två växlas med display:none per breakpoint,
+          samma mönster som .global-top-bar/.desktop-top-bar). */}
+      <select
+        className="settings-nav-mobile"
+        value={activeTab}
+        onChange={e => handleSetTab(e.target.value)}
+        aria-label="Inställningssektion"
+      >
+        {navGroups.map(group => (
+          <optgroup key={group.label} label={group.label}>
+            {group.items.map(item => (
+              <option key={item.id} value={item.id}>{item.label}</option>
+            ))}
+          </optgroup>
+        ))}
+      </select>
+
+      <div className="settings-layout" style={{ display: 'flex', gap: 0, alignItems: 'flex-start' }}>
+        {/* Undermeny — fast bredd, aldrig centrerad, grupperad i tre block.
+            Bara på desktop/tablet — se .settings-nav-desktop i index.css. */}
+        <div className="settings-nav-desktop" style={{ width: '232px', flexShrink: 0, paddingRight: '20px', display: 'flex', flexDirection: 'column', gap: '18px', position: 'sticky', top: '24px' }}>
           {navGroups.map(group => (
             <div key={group.label}>
               <div style={{ fontSize: '11px', fontWeight: 700, color: '#a1a1aa', textTransform: 'uppercase', letterSpacing: '0.06em', padding: '0 14px', marginBottom: '6px' }}>
@@ -795,8 +817,9 @@ export default function Settings({
           ))}
         </div>
 
-        {/* Innehåll — fyller resterande bredd */}
-        <div style={{ flex: 1, minWidth: 0, paddingLeft: '28px' }}>
+        {/* Innehåll — fyller resterande bredd (hela bredden på mobil, se
+            .settings-content i index.css) */}
+        <div className="settings-content" style={{ flex: 1, minWidth: 0, paddingLeft: '28px' }}>
 
           {/* 1. Min profil */}
           {activeTab === 'profile' && (

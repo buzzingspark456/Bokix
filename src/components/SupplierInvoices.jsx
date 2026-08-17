@@ -149,7 +149,7 @@ function SupplierInvoiceQuickModal({ contacts, setContacts, onSave, onCancel }) 
             <input value={form.invoiceNumber} onChange={e => set({ invoiceNumber: e.target.value })} placeholder="Fakturanr från leverantören" style={inputStErr(errors.invoiceNumber)} />
             {errors.invoiceNumber && <div style={errSt}>{errors.invoiceNumber}</div>}
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+          <div className="form-row-2" style={{ display: 'grid', gap: '14px' }}>
             <div>
               <label style={labelSt}>Fakturadatum *</label>
               <input type="date" value={form.date} onChange={e => set({ date: e.target.value })} style={inputStErr(errors.date)} />
@@ -222,7 +222,7 @@ function PaySupplierInvoiceModal({ invoice, contacts, onNavigate, onConfirm, onC
         </div>
         <p style={{ margin: '0 0 20px', fontSize: '13px', color: 'var(--text-secondary)' }}>{supplier?.name || invoice.supplier || 'Okänd leverantör'} · {formatSEK(invoice.amount)}</p>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+        <div className="form-row-2" style={{ display: 'grid', gap: '16px' }}>
           {/* Bank — fungerar */}
           <div style={{ border: '1px solid var(--border)', borderRadius: '10px', padding: '18px', display: 'flex', flexDirection: 'column' }}>
             <Landmark size={20} color={BRAND.greenDark} />

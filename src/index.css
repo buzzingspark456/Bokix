@@ -892,6 +892,20 @@ body {
 
 
 /* ══════════════════════════════════════════════
+   INSTÄLLNINGAR — sektionsväljare
+   Sida 38, punkt 5: den fasta 232px-sidomenyn (.settings-nav-desktop) är
+   bra på desktop/tablet men äter en fjärdedel+ av en 375px-mobilskärm och
+   klämmer .settings-content till en oläsbar remsa. .settings-nav-mobile
+   (en native <select> med samma tre grupper som optgroups) tar över på
+   mobil istället — samma display:none-växling som .global-top-bar/
+   .desktop-top-bar ovan.
+══════════════════════════════════════════════ */
+
+.settings-nav-mobile {
+  display: none;
+}
+
+/* ══════════════════════════════════════════════
    MOBILE BOTTOM NAVIGATION
 ══════════════════════════════════════════════ */
 
@@ -2528,10 +2542,72 @@ textarea.form-control {
     margin-top: auto;
   }
 
-  /* Tabeller scrollbara */
+  /* Tabeller scrollbara — kvarvarande stopgap för tabeller som ännu inte
+     migrerats till .responsive-table nedan. */
   .table-container {
     margin: 0 -16px;
     padding: 0 16px;
+  }
+
+  /* Sida 38, punkt 1: tabell → kortlista på mobil istället för sidledes
+     skroll. `<thead>` göms, varje `<tr>` blir ett fristående kort, och
+     varje `<td>` läggs ut som ett etikett/värde-par (etiketten kommer från
+     `data-label` på cellen, satt i JSX — samma verkliga celler/knappar/
+     länkar som på desktop, bara omlagda med CSS, så ingen interaktivitet
+     dupliceras i en separat kort-komponent). Lägg `className="responsive-
+     table"` på `<table>` och `data-label="Kolumnnamn"` (eller `""` för
+     rent visuella kolumner som en checkbox eller åtgärdsikoner) på varje
+     `<td>` för att få en tabell att omfattas. */
+  .responsive-table,
+  .responsive-table tbody {
+    display: block;
+    width: 100%;
+  }
+
+  .responsive-table thead {
+    display: none;
+  }
+
+  .responsive-table tr {
+    display: block;
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 10px;
+    overflow: hidden;
+  }
+
+  .responsive-table td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: auto;
+    min-height: 40px; /* nära punkt 8:s 44px tillsammans med paddingen */
+    padding: 8px 12px;
+    border-bottom: 1px solid #f1f5f9;
+    text-align: right;
+  }
+
+  .responsive-table tr td:last-child {
+    border-bottom: none;
+  }
+
+  .responsive-table td::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #9ca3af;
+  }
+
+  /* Rent visuella kolumner (data-label="") — ingen tom etikett-yta att
+     hålla isär från innehållet. */
+  .responsive-table td.td-select,
+  .responsive-table td.td-actions {
+    justify-content: flex-end;
   }
 
   /* A4 preview */
@@ -2583,6 +2659,40 @@ textarea.form-control {
 
   .page-title {
     font-size: 18px;
+  }
+
+  /* Inställningar (Sida 38, punkt 5): sidomenyn blir en dropdown högst
+     upp, innehållet fyller hela bredden under. */
+  .settings-page {
+    padding: 20px 16px 32px !important;
+  }
+
+  .settings-nav-desktop {
+    display: none !important; /* inline style={{display:'flex'}} on this element otherwise wins */
+  }
+
+  .settings-nav-mobile {
+    display: block;
+    width: 100%;
+    min-height: 46px; /* punkt 8: touch-mål ≥ 44px */
+    padding: 10px 14px;
+    margin-bottom: 20px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #3f3f46;
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-sizing: border-box;
+  }
+
+  .settings-layout {
+    flex-direction: column;
+  }
+
+  .settings-content {
+    padding-left: 0 !important;
+    width: 100%;
   }
 }
 

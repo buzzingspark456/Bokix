@@ -442,7 +442,7 @@ export default function Projects({ projects = [], setProjects, contacts = [], se
           {/* Status */}
           <div style={sectionSt}>
             <h3 style={sectionTitleSt}>Status</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <div className="form-row-2" style={{ display: 'grid', gap: '16px' }}>
               <div>
                 <label style={labelSt}>Status</label>
                 <select value={projectForm.status} onChange={e => setProjectForm({ ...projectForm, status: e.target.value })} style={{ ...inputSt, background: 'white' }}>

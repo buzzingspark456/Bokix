@@ -77,7 +77,7 @@ export default function OnboardingFlow({ onComplete, onSkip, initialCompanyName,
                 style={{ width: '100%', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 14px', fontSize: '14px' }}
               />
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+            <div className="form-row-2" style={{ display: 'grid', gap: '14px' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>E-post</label>
                 <input
