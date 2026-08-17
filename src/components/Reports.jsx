@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import {
   TrendingUp, TrendingDown, HelpCircle, Wallet, PieChart as PieChartIcon, Scale, Receipt,
-  Download, ChevronRight, FileText, FileSpreadsheet,
+  Download, ChevronRight, FileText, FileSpreadsheet, ArrowUpRight, ArrowDownRight, Percent, Inbox,
 } from 'lucide-react';
 import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
@@ -29,6 +29,7 @@ const EXPENSE = '#E24B4A';
 // visa samma nyans för samma begrepp.
 const COST_LIGHT = '#e0527a';
 const COST_DARK = '#c8305a';
+const COST_BG = '#fbe7ed'; // ljus rosa/coral-tint för ikon-chip-bakgrunder, samma familj som COST_DARK/COST_LIGHT
 const COST_CATEGORY_COLORS = [COST_DARK, COST_LIGHT, '#ec7ca0', '#f4b8d0'];
 
 // Fortnox-jämförelsen (kundfeedback): tunnar ut en etikettrad till ~6
@@ -60,21 +61,37 @@ function formatDelta(current, previous, invert = false) {
   return { text: `${rising ? '+' : ''}${pct.toFixed(0)}% mot samma period föregående år`, good };
 }
 
-function KpiCard({ label, value, help, delta, accent }) {
+// Samma ikon-chip + hover-lyft-mönster som Startsidans KpiCard
+// (Dashboard.jsx) — inte en egen, avvikande kortstil här. Konsekvent
+// premiumkänsla mellan de två sidorna istället för att Rapport och
+// analys ser platt/billigare ut i jämförelse.
+function KpiCard({ label, value, help, delta, accent, icon: Icon, iconBg }) {
   return (
-    <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e4e4e7', padding: '18px 20px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-        <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</span>
+    <div
+      style={{
+        background: 'white', borderRadius: '14px', border: '1px solid #e5e7eb', padding: '18px 20px',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.04)', transition: 'all 0.2s cubic-bezier(.4,0,.2,1)',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 10px 28px rgba(0,0,0,0.09)'; e.currentTarget.style.borderColor = accent || '#c7d2c1'; }}
+      onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04)'; e.currentTarget.style.borderColor = '#e5e7eb'; }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+        {Icon && (
+          <div style={{ width: 34, height: 34, borderRadius: '9px', background: iconBg || '#f1f5f9', color: accent || '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Icon size={16} />
+          </div>
+        )}
         {help && (
           <span title={help} style={{ display: 'inline-flex', cursor: 'help', color: '#b0b7c3' }}>
             <HelpCircle size={13} />
           </span>
         )}
       </div>
-      <div style={{ fontSize: '24px', fontWeight: 800, color: accent || '#0f172a', marginBottom: delta ? '6px' : 0 }}>{value}</div>
+      <div style={{ fontSize: '12.5px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '5px' }}>{label}</div>
+      <div style={{ fontSize: '23px', fontWeight: 800, color: accent || '#0f172a', letterSpacing: '-0.03em', lineHeight: 1.1, marginBottom: delta ? '6px' : 0, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
       {delta && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: 600, color: delta.good === null ? '#9ca3af' : delta.good ? '#15803d' : '#dc2626' }}>
-          {delta.good !== null && (delta.good ? <TrendingUp size={12} /> : <TrendingDown size={12} />)}
+          {delta.good !== null && (delta.good ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />)}
           {delta.text}
         </div>
       )}
@@ -89,7 +106,7 @@ function TabHeadline({ label, value, accent, delta }) {
   return (
     <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px', flexWrap: 'wrap', marginBottom: '4px' }}>
       <span style={{ fontSize: '13px', fontWeight: 700, color: '#374151' }}>{label}</span>
-      <span style={{ fontSize: '32px', fontWeight: 800, color: accent || '#0f172a', lineHeight: 1 }}>{value}</span>
+      <span style={{ fontSize: '32px', fontWeight: 800, color: accent || '#0f172a', lineHeight: 1, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>{value}</span>
       {delta && (
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '12.5px', fontWeight: 600, color: delta.good === null ? '#9ca3af' : delta.good ? '#15803d' : '#dc2626' }}>
           {delta.good !== null && (delta.good ? <TrendingUp size={12} /> : <TrendingDown size={12} />)}
@@ -103,7 +120,35 @@ function TabHeadline({ label, value, accent, delta }) {
 function EmptyState({ text }) {
   return (
     <div style={{ padding: '48px 24px', textAlign: 'center', color: '#9ca3af', fontSize: '13.5px', lineHeight: 1.6 }}>
+      <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px', color: '#cbd5e1' }}>
+        <Inbox size={20} />
+      </div>
       {text}
+    </div>
+  );
+}
+
+// Samma tooltip-stil som Startsidans diagram (Dashboard.jsx ChartTooltip)
+// istället för Recharts standardruta — rundad, skuggad, färgprick + namn
+// på egen rad. Ett diagram som ser exakt likadant ut på båda sidorna
+// känns som EN produkt, inte två olika komponentbibliotek som råkar
+// hamna bredvid varandra.
+function ChartTooltip({ active, payload, label }) {
+  if (!active || !payload?.length) return null;
+  const rows = payload.filter(p => p.value != null && p.name !== undefined);
+  if (!rows.length) return null;
+  return (
+    <div style={{ background: 'rgba(255,255,255,0.97)', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '10px 14px', boxShadow: '0 8px 24px rgba(0,0,0,0.09)', fontSize: '12.5px', minWidth: '160px' }}>
+      {label && <div style={{ fontWeight: 700, color: '#111827', marginBottom: '8px', fontSize: '13px' }}>{label}</div>}
+      {rows.map((p, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '2px 0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.color, display: 'inline-block', flexShrink: 0 }} />
+            <span style={{ color: '#6b7280' }}>{p.name}</span>
+          </div>
+          <strong style={{ color: '#111827', fontVariantNumeric: 'tabular-nums' }}>{formatSEK(p.value)}</strong>
+        </div>
+      ))}
     </div>
   );
 }
@@ -143,7 +188,7 @@ function ResultBarChart({ data, isMobile }) {
         <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#9ca3af' }} />
         <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#9ca3af' }} tickFormatter={v => formatSEK(v).replace(/\s?kr$/, '')} width={54} />
         <ReferenceLine y={0} stroke="#e5e7eb" strokeWidth={1.5} />
-        <Tooltip formatter={(v) => formatSEK(v)} labelStyle={{ fontWeight: 700 }} />
+        <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(0,0,0,0.02)' }} />
         <Bar dataKey="resultat" radius={[4, 4, 0, 0]} barSize={18} name="Resultat">
           {tickData.map((d, i) => <Cell key={i} fill={d.resultat >= 0 ? REVENUE : EXPENSE} />)}
         </Bar>
@@ -168,7 +213,7 @@ function CashflowLineChart({ data, isMobile }) {
         <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#9ca3af' }} />
         <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#9ca3af' }} tickFormatter={v => formatSEK(v).replace(/\s?kr$/, '')} width={54} />
         <ReferenceLine y={0} stroke="#e5e7eb" strokeWidth={1.5} />
-        <Tooltip formatter={(v) => formatSEK(v)} labelStyle={{ fontWeight: 700 }} />
+        <Tooltip content={<ChartTooltip />} cursor={{ stroke: '#e5e7eb', strokeWidth: 1 }} />
         <Line dataKey="balance" stroke="#1a3028" strokeWidth={2.5} dot={false} name="Saldo" />
         <Line dataKey="prevBalance" stroke="#9ca3af" strokeWidth={2} strokeDasharray="4 3" dot={false} name="Föregående period" />
       </LineChart>
@@ -184,7 +229,10 @@ function CostBreakdownDonut({ categories, total }) {
   const data = categories.map((c, i) => ({ ...c, color: COST_CATEGORY_COLORS[i % COST_CATEGORY_COLORS.length] }));
   return (
     <div style={{ display: 'flex', gap: '28px', flexWrap: 'wrap', alignItems: 'center' }}>
-      <div style={{ width: '220px', height: '220px', flexShrink: 0 }}>
+      {/* position:relative + en absolut centrerad totalsumma i ringens
+          hål — ett tomt hål mitt i diagrammet är bortkastad yta för det
+          enda talet man ändå letar efter först ("hur mycket totalt?"). */}
+      <div style={{ width: '220px', height: '220px', flexShrink: 0, position: 'relative' }}>
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             {/* paddingAngle bara med fler än en skiva — Recharts egen padding-
@@ -194,16 +242,24 @@ function CostBreakdownDonut({ categories, total }) {
             <Pie data={data} dataKey="amount" nameKey="name" innerRadius={62} outerRadius={100} paddingAngle={data.length > 1 ? 2 : 0} stroke="none">
               {data.map((d, i) => <Cell key={i} fill={d.color} />)}
             </Pie>
-            <Tooltip formatter={(v) => formatSEK(v)} />
+            <Tooltip content={<ChartTooltip />} />
           </PieChart>
         </ResponsiveContainer>
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+          <span style={{ fontSize: '10.5px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Totalt</span>
+          <span style={{ fontSize: '17px', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>{formatSEK(total)}</span>
+        </div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: 1, minWidth: '200px' }}>
         {data.map(d => (
-          <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13.5px' }}>
+          <div
+            key={d.name}
+            style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13.5px', padding: '4px 6px', borderRadius: '6px', transition: 'background-color 0.12s ease' }}
+            onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'} onMouseLeave={e => e.currentTarget.style.background = 'none'}
+          >
             <span style={{ width: '11px', height: '11px', borderRadius: '3px', background: d.color, flexShrink: 0 }} />
             <span style={{ color: '#374151', fontWeight: 600, flex: 1 }}>{d.name}</span>
-            <span style={{ color: '#111', fontWeight: 700 }}>{formatSEK(d.amount)}</span>
+            <span style={{ color: '#111', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{formatSEK(d.amount)}</span>
             <span style={{ color: '#9ca3af', fontWeight: 500, width: '38px', textAlign: 'right' }}>{total ? Math.round(d.amount / total * 100) : 0}%</span>
           </div>
         ))}
@@ -220,13 +276,17 @@ function BalanceSheetTable({ title, rows, total }) {
         {rows.length === 0 ? (
           <div style={{ padding: '20px', textAlign: 'center', color: '#9ca3af', fontSize: '13px' }}>Inga bokförda saldon</div>
         ) : rows.map(r => (
-          <div key={r.code} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', borderBottom: '1px solid #f1f5f9', fontSize: '13.5px' }}>
+          <div
+            key={r.code}
+            style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', borderBottom: '1px solid #f1f5f9', fontSize: '13.5px', transition: 'background-color 0.12s ease' }}
+            onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'} onMouseLeave={e => e.currentTarget.style.background = 'none'}
+          >
             <span style={{ color: '#374151' }}>{r.name}</span>
-            <span style={{ fontWeight: 600, color: '#111' }}>{formatSEK(r.amount)}</span>
+            <span style={{ fontWeight: 600, color: '#111', fontVariantNumeric: 'tabular-nums' }}>{formatSEK(r.amount)}</span>
           </div>
         ))}
         <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 14px', background: '#f8fafc', fontWeight: 800, fontSize: '14px' }}>
-          <span>Summa</span><span>{formatSEK(total)}</span>
+          <span>Summa</span><span style={{ fontVariantNumeric: 'tabular-nums' }}>{formatSEK(total)}</span>
         </div>
       </div>
     </div>
@@ -358,18 +418,22 @@ export default function Reports({ accounts = [], verifications = [], company = {
           <div style={{ position: 'relative' }}>
             <button
               onClick={() => setExportOpen(v => !v)}
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 14px', background: 'white', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '13.5px', fontWeight: 600, color: '#374151', cursor: 'pointer' }}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 14px', background: 'white', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '13.5px', fontWeight: 600, color: '#374151', cursor: 'pointer', transition: 'border-color 0.15s ease, box-shadow 0.15s ease' }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = '#3d7a2e'; e.currentTarget.style.boxShadow = '0 1px 4px rgba(61,122,46,0.15)'; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = '#d1d5db'; e.currentTarget.style.boxShadow = 'none'; }}
             >
               <Download size={14} /> Exportera
             </button>
             {exportOpen && (
               <>
                 <div onClick={() => setExportOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 10 }} />
-                <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, background: 'white', border: '1px solid #e4e4e7', borderRadius: '10px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', overflow: 'hidden', zIndex: 11, minWidth: '190px' }}>
-                  <button onClick={() => exportCurrentTab('pdf')} style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '13.5px', color: '#374151', textAlign: 'left' }}>
+                <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, background: 'white', border: '1px solid #e4e4e7', borderRadius: '10px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', overflow: 'hidden', zIndex: 11, minWidth: '190px', transformOrigin: 'top right', animation: 'scaleIn 0.12s ease both' }}>
+                  <button onClick={() => exportCurrentTab('pdf')} style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '13.5px', color: '#374151', textAlign: 'left', transition: 'background-color 0.12s ease' }}
+                    onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'} onMouseLeave={e => e.currentTarget.style.background = 'none'}>
                     <FileText size={14} /> Ladda ner som PDF
                   </button>
-                  <button onClick={() => exportCurrentTab('excel')} style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '13.5px', color: '#374151', textAlign: 'left', borderTop: '1px solid #f1f5f9' }}>
+                  <button onClick={() => exportCurrentTab('excel')} style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '13.5px', color: '#374151', textAlign: 'left', borderTop: '1px solid #f1f5f9', transition: 'background-color 0.12s ease' }}
+                    onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'} onMouseLeave={e => e.currentTarget.style.background = 'none'}>
                     <FileSpreadsheet size={14} /> Ladda ner som Excel (CSV)
                   </button>
                 </div>
@@ -395,10 +459,10 @@ export default function Reports({ accounts = [], verifications = [], company = {
       ) : (
         <>
           <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px', marginBottom: '24px' }}>
-            <KpiCard label="Omsättning" value={formatSEK(omsattning)} delta={formatDelta(omsattning, prevOmsattning)} help="Summan av allt du fakturerat/sålt för under perioden, exklusive moms." />
-            <KpiCard label="Kostnader" value={formatSEK(kostnader)} delta={formatDelta(kostnader, prevKostnader, true)} accent={COST_DARK} help="Summan av alla bokförda kostnader under perioden, exklusive moms." />
-            <KpiCard label="Resultat" value={formatSEK(resultat)} delta={formatDelta(resultat, prevResultat)} accent={resultat >= 0 ? '#15803d' : '#dc2626'} help="Omsättning minus kostnader — det som blir kvar (eller det du gått back med)." />
-            <KpiCard label="Marginal" value={marginal === null ? '—' : `${marginal.toFixed(1)}%`} help="Hur stor andel av varje intjänad krona som blir resultat. Högre är bättre." />
+            <KpiCard label="Omsättning" value={formatSEK(omsattning)} delta={formatDelta(omsattning, prevOmsattning)} icon={TrendingUp} accent={BRAND.greenDark} iconBg={BRAND.greenLight} help="Summan av allt du fakturerat/sålt för under perioden, exklusive moms." />
+            <KpiCard label="Kostnader" value={formatSEK(kostnader)} delta={formatDelta(kostnader, prevKostnader, true)} icon={ArrowDownRight} accent={COST_DARK} iconBg={COST_BG} help="Summan av alla bokförda kostnader under perioden, exklusive moms." />
+            <KpiCard label="Resultat" value={formatSEK(resultat)} delta={formatDelta(resultat, prevResultat)} icon={resultat >= 0 ? TrendingUp : TrendingDown} accent={resultat >= 0 ? '#15803d' : '#dc2626'} iconBg={resultat >= 0 ? BRAND.greenLight : BRAND.redBg} help="Omsättning minus kostnader — det som blir kvar (eller det du gått back med)." />
+            <KpiCard label="Marginal" value={marginal === null ? '—' : `${marginal.toFixed(1)}%`} icon={Percent} accent="#0f172a" iconBg="#f1f5f9" help="Hur stor andel av varje intjänad krona som blir resultat. Högre är bättre." />
           </div>
 
           <div className="tabs-scroll-x no-print" style={{ display: 'flex', gap: '6px', borderBottom: '2px solid #e4e4e7', marginBottom: '20px', overflowX: 'auto' }}>
@@ -408,13 +472,16 @@ export default function Reports({ accounts = [], verifications = [], company = {
                 onClick={() => setActiveTab(t.id)}
                 style={{
                   display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 16px', border: 'none', cursor: 'pointer', fontSize: '14px',
-                  whiteSpace: 'nowrap', flexShrink: 0,
+                  whiteSpace: 'nowrap', flexShrink: 0, borderRadius: '8px 8px 0 0',
                   fontWeight: activeTab === t.id ? 700 : 500,
                   color: activeTab === t.id ? '#1a3028' : '#6b7280',
-                  background: 'none',
+                  background: activeTab === t.id ? 'rgba(61,122,46,0.06)' : 'none',
                   borderBottom: activeTab === t.id ? '2px solid #1a3028' : '2px solid transparent',
                   marginBottom: '-2px',
+                  transition: 'background-color 0.15s ease, color 0.15s ease',
                 }}
+                onMouseEnter={e => { if (activeTab !== t.id) e.currentTarget.style.background = 'rgba(0,0,0,0.03)'; }}
+                onMouseLeave={e => { if (activeTab !== t.id) e.currentTarget.style.background = 'none'; }}
               >
                 <t.icon size={14} /> {t.label}
               </button>
@@ -422,7 +489,7 @@ export default function Reports({ accounts = [], verifications = [], company = {
           </div>
 
           {activeTab === 'result' && (
-            <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e4e4e7', padding: '24px' }}>
+            <div style={{ background: 'var(--bg-cream, #faf9f5)', border: '1px solid var(--bg-cream-border, #ede9de)', borderRadius: '14px', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
               <TabHeadline label="Resultat för perioden" value={formatSEK(resultat)} accent={resultat >= 0 ? '#15803d' : '#dc2626'} delta={formatDelta(resultat, prevResultat)} />
               <p style={{ fontSize: '12.5px', color: '#9ca3af', margin: '0 0 16px' }}>Så har ditt resultat utvecklats över tid — grönt för lönsamma perioder, rött för de som gick back.</p>
               {hasResultActivity ? (
@@ -438,7 +505,7 @@ export default function Reports({ accounts = [], verifications = [], company = {
           )}
 
           {activeTab === 'cashflow' && (
-            <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e4e4e7', padding: '24px' }}>
+            <div style={{ background: 'var(--bg-cream, #faf9f5)', border: '1px solid var(--bg-cream-border, #ede9de)', borderRadius: '14px', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
               <TabHeadline label="Pengar på bank och i kassa" value={formatSEK(currentCash)} accent={currentCash >= 0 ? '#0f172a' : '#dc2626'} />
               <p style={{ fontSize: '12.5px', color: '#9ca3af', margin: '0 0 16px' }}>Har jag pengar på kontot? Ackumulerat saldo genom perioden, konto 1900–1999.</p>
               {hasCashActivity ? (
@@ -454,7 +521,7 @@ export default function Reports({ accounts = [], verifications = [], company = {
           )}
 
           {activeTab === 'costs' && (
-            <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e4e4e7', padding: '24px' }}>
+            <div style={{ background: 'var(--bg-cream, #faf9f5)', border: '1px solid var(--bg-cream-border, #ede9de)', borderRadius: '14px', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
               <TabHeadline label="Vart tar pengarna vägen?" value={formatSEK(costCategories.total)} accent={COST_DARK} delta={formatDelta(costCategories.total, prevCostCategories.total, true)} />
               <p style={{ fontSize: '12.5px', color: '#9ca3af', margin: '0 0 16px' }}>Bokförda kostnader under perioden, grupperat per kategori.</p>
               {costCategories.categories.length > 0 ? (
@@ -469,7 +536,7 @@ export default function Reports({ accounts = [], verifications = [], company = {
           )}
 
           {activeTab === 'balance' && (
-            <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e4e4e7', padding: '24px' }}>
+            <div style={{ background: 'var(--bg-cream, #faf9f5)', border: '1px solid var(--bg-cream-border, #ede9de)', borderRadius: '14px', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
               <div style={{ fontSize: '14px', fontWeight: 700, color: '#374151', marginBottom: '4px' }}>Balansräkning</div>
               <p style={{ fontSize: '12.5px', color: '#9ca3af', margin: '0 0 16px' }}>Ögonblicksbild av vad företaget äger och är skyldigt, per {fmtDate(bounds.end)}.</p>
               {balanceIsEmpty ? (
@@ -484,7 +551,7 @@ export default function Reports({ accounts = [], verifications = [], company = {
           )}
 
           {activeTab === 'vat' && (
-            <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e4e4e7', padding: '24px' }}>
+            <div style={{ background: 'var(--bg-cream, #faf9f5)', border: '1px solid var(--bg-cream-border, #ede9de)', borderRadius: '14px', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
               <div style={{ fontSize: '14px', fontWeight: 700, color: '#374151', marginBottom: '4px' }}>Momsöversikt</div>
               <p style={{ fontSize: '12.5px', color: '#9ca3af', margin: '0 0 16px' }}>
                 Snabb överblick för perioden — inte en ersättning för den fullständiga momsdeklarationen.
@@ -494,17 +561,21 @@ export default function Reports({ accounts = [], verifications = [], company = {
               ) : (
                 <>
                   <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px', marginBottom: '20px' }}>
-                    <KpiCard label="Utgående moms" value={formatSEK(vatPeriod.outputVatTotal)} help="Moms du tagit ut av dina kunder på det du sålt — den ska du normalt betala in till Skatteverket." />
-                    <KpiCard label="Ingående moms" value={formatSEK(vatPeriod.inputVat)} help="Moms du själv betalat på inköp — den får du normalt dra av mot den utgående momsen." />
+                    <KpiCard label="Utgående moms" value={formatSEK(vatPeriod.outputVatTotal)} icon={ArrowUpRight} accent="#0f172a" iconBg="#f1f5f9" help="Moms du tagit ut av dina kunder på det du sålt — den ska du normalt betala in till Skatteverket." />
+                    <KpiCard label="Ingående moms" value={formatSEK(vatPeriod.inputVat)} icon={ArrowDownRight} accent="#0f172a" iconBg="#f1f5f9" help="Moms du själv betalat på inköp — den får du normalt dra av mot den utgående momsen." />
                     <KpiCard
                       label="Netto att betala" value={formatSEK(Math.abs(vatPeriod.netToPay))}
+                      icon={Receipt}
                       accent={vatPeriod.netToPay >= 0 ? '#dc2626' : '#15803d'}
+                      iconBg={vatPeriod.netToPay >= 0 ? BRAND.redBg : BRAND.greenLight}
                       help={vatPeriod.netToPay >= 0 ? 'Utgående moms minus ingående moms — det du ska betala in till Skatteverket.' : 'Din ingående moms är högre än den utgående — du har en momsfordran (Skatteverket är skyldig dig pengar).'}
                     />
                   </div>
                   <button
                     onClick={() => onNavigate?.('taxes')}
-                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 18px', background: BRAND.green, color: 'white', border: 'none', borderRadius: '8px', fontSize: '13.5px', fontWeight: 700, cursor: 'pointer' }}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 18px', background: BRAND.green, color: 'white', border: 'none', borderRadius: '8px', fontSize: '13.5px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 1px 2px rgba(0,0,0,0.08)', transition: 'transform 0.15s ease, box-shadow 0.15s ease' }}
+                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 10px rgba(61,122,46,0.3)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,0.08)'; }}
                   >
                     Gå till momsdeklaration <ChevronRight size={14} />
                   </button>
