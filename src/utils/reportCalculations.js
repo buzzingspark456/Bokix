@@ -138,6 +138,40 @@ export function groupCostsByAccount(verifications, accounts, start, end) {
   return { rows, total };
 }
 
+// Sida 14c: kostnadsfördelningens ringdiagram grupperar i fyra breda
+// hinkar (Personal/Lokal/Marknadsföring/Övrigt) istället för per konto —
+// lättare att läsa som ett diagram än 15+ enskilda kontoskivor. Gränserna
+// följer BAS 2023:s kontoklassindelning (klass 5 = lokal, 59xx = reklam/PR
+// inom klass 5, klass 7 = personal); allt annat i kostnadsklasserna 4–8
+// hamnar i "Övrigt" snarare än att gissa en finare indelning utan stöd
+// i kontoplanen.
+function categoryForAccount(code) {
+  const n = Number(code);
+  if (!Number.isFinite(n)) return 'Övrigt';
+  if (n >= 7000 && n < 7700) return 'Personal';
+  if (n >= 5900 && n < 6000) return 'Marknadsföring';
+  if (n >= 5000 && n < 5200) return 'Lokal';
+  return 'Övrigt';
+}
+
+/** Kostnadsfördelning i fyra kategorier (för ringdiagrammet) istället för
+ * per konto — samma underliggande radsummering som groupCostsByAccount,
+ * bara buckets:ad annorlunda. */
+export function groupCostsByCategory(verifications, accounts, start, end) {
+  const { rows } = groupCostsByAccount(verifications, accounts, start, end);
+  const sums = new Map();
+  for (const r of rows) {
+    const cat = categoryForAccount(r.code);
+    sums.set(cat, (sums.get(cat) || 0) + r.amount);
+  }
+  const order = ['Personal', 'Lokal', 'Marknadsföring', 'Övrigt'];
+  const total = rows.reduce((s, r) => s + r.amount, 0);
+  const categories = order
+    .map(name => ({ name, amount: sums.get(name) || 0 }))
+    .filter(c => c.amount > 0);
+  return { categories, total };
+}
+
 /** Faktiskt bank-/kassasaldo vid en given tidpunkt, ackumulerat
  * kronologiskt från samtliga bokförda verifikationer fram till och med
  * det datumet — inte ett separat, potentiellt inaktuellt sparat fält. */

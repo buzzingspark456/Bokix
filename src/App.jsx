@@ -1898,6 +1898,7 @@ function App() {
             accounts={accounts}
             verifications={verifications}
             company={company}
+            onNavigate={handleNavTabChange}
           />
         );
       case 'company':

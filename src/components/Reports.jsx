@@ -1,35 +1,53 @@
 import React, { useMemo, useState } from 'react';
-import { TrendingUp, TrendingDown, HelpCircle, Wallet, PieChart, Scale } from 'lucide-react';
+import {
+  TrendingUp, TrendingDown, HelpCircle, Wallet, PieChart as PieChartIcon, Scale, Receipt,
+  Download, ChevronRight, FileText, FileSpreadsheet,
+} from 'lucide-react';
+import {
+  BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer,
+} from 'recharts';
 import { BRAND } from '../utils/brandColors';
 import { useIsMobileViewport } from '../hooks/useIsMobileViewport';
+import { computeVatPeriod } from '../utils/vatCalculation';
+import {
+  getPeriodBounds, sumFlowByType, groupCostsByAccount, groupCostsByCategory, buildCashflowSeries,
+  buildResultSeries, computeBalanceSheet, hasAnyBookedData, isCashAccount, isBooked,
+} from '../utils/reportCalculations';
+
+// Sida 14c: intäkter/utgifter-jämförelser (raka stapeldiagram som ställer
+// intäkt direkt mot utgift, t.ex. Resultat-flikens diverging-diagram) är
+// grönt/rött — grönt = pengar in, rött = pengar ut. Ljusare ton för det
+// grafiska elementet (3:1-kontrast räcker), mörkare BRAND-ton för text
+// intill (kräver 4.5:1).
+const REVENUE = '#639922';
+const EXPENSE = '#E24B4A';
+// Kostnader SOM EGET MÅTT (KPI-kortet, kostnadsfördelningens ringdiagram)
+// är INTE samma röd som ovan — verifierat direkt mot Startsidans "RÅ
+// kostnader"-kort (Dashboard.jsx, KPI_GRAD_NEGATIVE): en rosa/coral-
+// magenta-gradient, #e0527a → #c8305a, inte ren röd. De två sidorna ska
+// visa samma nyans för samma begrepp.
+const COST_LIGHT = '#e0527a';
+const COST_DARK = '#c8305a';
+const COST_CATEGORY_COLORS = [COST_DARK, COST_LIGHT, '#ec7ca0', '#f4b8d0'];
 
 // Fortnox-jämförelsen (kundfeedback): tunnar ut en etikettrad till ~6
 // synliga poster på mobil istället för alla (kan vara upp till 12
-// månader eller ännu fler kassaflödes-datapunkter) — samma idé som
-// Dashboard-diagrammets `interval`, men de här graferna är egna SVG:er
-// utan ett Recharts-liknande interval-koncept, så etiketterna tunnas ut
-// för hand. Tomma platshållare (inte borttagna element) så antalet
-// flex-barn — och därmed space-between-positionerna under linjen —
-// förblir oförändrat.
+// månader eller ännu fler kassaflödes-datapunkter).
 function thinLabels(labels, isMobile) {
   if (!isMobile || labels.length <= 6) return labels;
   const interval = Math.ceil(labels.length / 6);
   return labels.map((l, i) => (i % interval === 0 ? l : ''));
 }
 
-// Intäkter/utgifter-jämförelser (linje/stapelfyllnad) ska genomgående vara
-// grönt/rött, inte blått/orange — grönt = pengar in, rött = pengar ut.
-// Ljusare ton för själva linjen/stapeln (grafiskt element, kräver bara
-// 3:1-kontrast), mörkare BRAND-ton för intilliggande text (kräver 4.5:1).
-const REVENUE = '#639922';
-const EXPENSE = '#E24B4A';
-import {
-  getPeriodBounds, sumFlowByType, groupCostsByAccount, buildCashflowSeries,
-  buildResultSeries, computeBalanceSheet, hasAnyBookedData, isCashAccount, isBooked,
-} from '../utils/reportCalculations';
-
 const formatSEK = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
 const fmtDate = (d) => new Intl.DateTimeFormat('sv-SE', { day: 'numeric', month: 'short' }).format(d instanceof Date ? d : new Date(d));
+const fmtMonthYear = (d) => new Intl.DateTimeFormat('sv-SE', { month: 'long', year: 'numeric' }).format(d);
+// .toISOString() konverterar till UTC — fel datum i en tidzon före/efter
+// UTC vid midnatt lokal tid (t.ex. svensk sommartid, UTC+2). bounds.start/
+// end är redan lokala Date-objekt (från getPeriodBounds), så komponenterna
+// läses ut direkt istället för att gå via en UTC-konvertering.
+const toISO = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 function formatDelta(current, previous, invert = false) {
   if (previous === 0 && current === 0) return null;
@@ -39,7 +57,7 @@ function formatDelta(current, previous, invert = false) {
   const pct = ((current - previous) / Math.abs(previous)) * 100;
   const rising = pct >= 0;
   const good = invert ? !rising : rising;
-  return { text: `${rising ? '+' : ''}${pct.toFixed(0)}% mot föregående år`, good };
+  return { text: `${rising ? '+' : ''}${pct.toFixed(0)}% mot samma period föregående år`, good };
 }
 
 function KpiCard({ label, value, help, delta, accent }) {
@@ -64,6 +82,24 @@ function KpiCard({ label, value, help, delta, accent }) {
   );
 }
 
+// Sida 14c: den viktigaste siffran på varje flik ska vara märkbart större
+// än delposter/axeletiketter (Sida 31-regeln, "text-3xl") — en delad
+// rubrikkomponent istället för att varje flik sätter sin egen fontstorlek.
+function TabHeadline({ label, value, accent, delta }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px', flexWrap: 'wrap', marginBottom: '4px' }}>
+      <span style={{ fontSize: '13px', fontWeight: 700, color: '#374151' }}>{label}</span>
+      <span style={{ fontSize: '32px', fontWeight: 800, color: accent || '#0f172a', lineHeight: 1 }}>{value}</span>
+      {delta && (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '12.5px', fontWeight: 600, color: delta.good === null ? '#9ca3af' : delta.good ? '#15803d' : '#dc2626' }}>
+          {delta.good !== null && (delta.good ? <TrendingUp size={12} /> : <TrendingDown size={12} />)}
+          {delta.text}
+        </span>
+      )}
+    </div>
+  );
+}
+
 function EmptyState({ text }) {
   return (
     <div style={{ padding: '48px 24px', textAlign: 'center', color: '#9ca3af', fontSize: '13.5px', lineHeight: 1.6 }}>
@@ -72,79 +108,106 @@ function EmptyState({ text }) {
   );
 }
 
-/** Resultatdiagram: två linjer (intäkter/kostnader) per månad i perioden. */
-function ResultTrendChart({ series, isMobile }) {
-  const w = 600, h = 160, pad = 8;
-  const maxVal = Math.max(1, ...series.flatMap(s => [s.intakt, s.kostnad]));
-  const stepX = series.length > 1 ? (w - pad * 2) / (series.length - 1) : 0;
-  const toXY = (i, val) => {
-    const x = pad + i * stepX;
-    const y = h - pad - (val / maxVal) * (h - pad * 2);
-    return `${x},${y}`;
-  };
-  const revenueLine = series.map((s, i) => toXY(i, s.intakt)).join(' ');
-  const costLine = series.map((s, i) => toXY(i, s.kostnad)).join(' ');
-
+// Explicit legend som namnger BÅDA jämförelseperioderna med text, aldrig
+// bara färgprickar (Sida 14c, uttryckligt krav).
+function ComparisonLegend({ currentLabel, previousLabel, currentColorSwatch, previousColorSwatch }) {
   return (
-    <div>
-      <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ width: '100%', height: '160px' }}>
-        <polyline points={revenueLine} fill="none" stroke={REVENUE} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-        <polyline points={costLine} fill="none" stroke={EXPENSE} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>
-        {thinLabels(series.map(s => s.label), isMobile).map((label, i) => <span key={i}>{label}</span>)}
-      </div>
-      <div style={{ display: 'flex', gap: '18px', marginTop: '12px', fontSize: '12.5px', fontWeight: 600 }}>
-        <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: BRAND.greenDark }}><span style={{ width: '10px', height: '10px', borderRadius: '3px', background: REVENUE, display: 'inline-block' }} /> Intäkter</span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: BRAND.redText }}><span style={{ width: '10px', height: '10px', borderRadius: '3px', background: EXPENSE, display: 'inline-block' }} /> Kostnader</span>
-      </div>
+    <div style={{ display: 'flex', gap: '18px', marginTop: '12px', fontSize: '12.5px', fontWeight: 600, flexWrap: 'wrap' }}>
+      <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#374151' }}>{currentColorSwatch} {currentLabel}</span>
+      <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#9ca3af' }}>{previousColorSwatch} {previousLabel}</span>
     </div>
   );
 }
 
-/** Likviditetsdiagram: ackumulerat bank-/kassasaldo, kan gå under noll. */
-function CashflowChart({ points, isMobile }) {
-  const w = 600, h = 160, pad = 8;
-  const values = points.map(p => p.balance);
-  const maxVal = Math.max(0, ...values);
-  const minVal = Math.min(0, ...values);
-  const range = Math.max(1, maxVal - minVal);
-  const stepX = points.length > 1 ? (w - pad * 2) / (points.length - 1) : 0;
-  const toY = (val) => h - pad - ((val - minVal) / range) * (h - pad * 2);
-  const line = points.map((p, i) => `${pad + i * stepX},${toY(p.balance)}`).join(' ');
-  const fillArea = `${pad},${toY(0)} ${line} ${pad + (points.length - 1) * stepX},${toY(0)}`;
-  const zeroY = toY(0);
+const swatch = (color, dashed = false) => (
+  <span style={{
+    width: '14px', height: dashed ? '2px' : '10px', borderRadius: dashed ? 0 : '3px', background: dashed ? 'none' : color,
+    borderTop: dashed ? `2px dashed ${color}` : undefined, display: 'inline-block', flexShrink: 0,
+  }} />
+);
+
+/** Resultatdiagram (Sida 14c): diverging stapeldiagram — grön stapel för
+ * positiva månader, röd för negativa (samma mönster som Startsidans
+ * Resultat-vy) — plus en streckad linje för föregående periods
+ * motsvarande resultat. */
+function ResultBarChart({ data, isMobile }) {
+  const tickData = useMemo(() => {
+    const labels = thinLabels(data.map(d => d.label), isMobile);
+    return data.map((d, i) => ({ ...d, label: labels[i] }));
+  }, [data, isMobile]);
 
   return (
-    <div>
-      <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ width: '100%', height: '160px' }}>
-        {minVal < 0 && <line x1={pad} y1={zeroY} x2={w - pad} y2={zeroY} stroke="#e4e4e7" strokeWidth="1" strokeDasharray="3,3" />}
-        <polyline points={fillArea} fill="rgba(26,48,40,0.08)" stroke="none" />
-        <polyline points={line} fill="none" stroke="#1a3028" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>
-        {thinLabels(points.map(p => fmtDate(p.date)), isMobile).map((label, i) => <span key={i}>{label}</span>)}
-      </div>
-    </div>
+    <ResponsiveContainer width="100%" height={220}>
+      <BarChart data={tickData} margin={{ top: 4, right: 8, left: -12, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+        <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#9ca3af' }} />
+        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#9ca3af' }} tickFormatter={v => formatSEK(v).replace(/\s?kr$/, '')} width={54} />
+        <ReferenceLine y={0} stroke="#e5e7eb" strokeWidth={1.5} />
+        <Tooltip formatter={(v) => formatSEK(v)} labelStyle={{ fontWeight: 700 }} />
+        <Bar dataKey="resultat" radius={[4, 4, 0, 0]} barSize={18} name="Resultat">
+          {tickData.map((d, i) => <Cell key={i} fill={d.resultat >= 0 ? REVENUE : EXPENSE} />)}
+        </Bar>
+        <Line dataKey="prevResultat" stroke="#9ca3af" strokeWidth={2} strokeDasharray="4 3" dot={false} name="Föregående period" />
+      </BarChart>
+    </ResponsiveContainer>
   );
 }
 
-function CostBreakdownBars({ rows, total }) {
-  const maxAmount = Math.max(1, ...rows.map(r => r.amount));
+/** Likviditetsdiagram: ackumulerat bank-/kassasaldo genom perioden, plus
+ * en streckad jämförelselinje för föregående period. */
+function CashflowLineChart({ data, isMobile }) {
+  const tickData = useMemo(() => {
+    const labels = thinLabels(data.map(d => d.label), isMobile);
+    return data.map((d, i) => ({ ...d, label: labels[i] }));
+  }, [data, isMobile]);
+
   return (
-    <div>
-      {rows.slice(0, 10).map(r => (
-        <div key={r.code} style={{ marginBottom: '12px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '4px' }}>
-            <span style={{ color: '#374151', fontWeight: 600 }}>{r.name}</span>
-            <span style={{ color: '#111', fontWeight: 700 }}>{formatSEK(r.amount)} <span style={{ color: '#9ca3af', fontWeight: 500 }}>({total ? Math.round(r.amount / total * 100) : 0}%)</span></span>
+    <ResponsiveContainer width="100%" height={220}>
+      <LineChart data={tickData} margin={{ top: 4, right: 8, left: -12, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+        <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#9ca3af' }} />
+        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#9ca3af' }} tickFormatter={v => formatSEK(v).replace(/\s?kr$/, '')} width={54} />
+        <ReferenceLine y={0} stroke="#e5e7eb" strokeWidth={1.5} />
+        <Tooltip formatter={(v) => formatSEK(v)} labelStyle={{ fontWeight: 700 }} />
+        <Line dataKey="balance" stroke="#1a3028" strokeWidth={2.5} dot={false} name="Saldo" />
+        <Line dataKey="prevBalance" stroke="#9ca3af" strokeWidth={2} strokeDasharray="4 3" dot={false} name="Föregående period" />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
+/** Kostnadsfördelningens ringdiagram — en färg per kategori (rosa/coral-
+ * familjen, Sida 14c), procentandel i en egen HTML-legend (inte
+ * Recharts inbyggda) så den går att lägga ut precis som andra listor
+ * i appen. */
+function CostBreakdownDonut({ categories, total }) {
+  const data = categories.map((c, i) => ({ ...c, color: COST_CATEGORY_COLORS[i % COST_CATEGORY_COLORS.length] }));
+  return (
+    <div style={{ display: 'flex', gap: '28px', flexWrap: 'wrap', alignItems: 'center' }}>
+      <div style={{ width: '220px', height: '220px', flexShrink: 0 }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            {/* paddingAngle bara med fler än en skiva — Recharts egen padding-
+                beräkning antar mellanrum MELLAN sektorer, och med bara en
+                (t.ex. allt i "Övrigt" för ett litet företag) renderar den
+                en trasig, ihoptryckt båge istället för en hel ring. */}
+            <Pie data={data} dataKey="amount" nameKey="name" innerRadius={62} outerRadius={100} paddingAngle={data.length > 1 ? 2 : 0} stroke="none">
+              {data.map((d, i) => <Cell key={i} fill={d.color} />)}
+            </Pie>
+            <Tooltip formatter={(v) => formatSEK(v)} />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: 1, minWidth: '200px' }}>
+        {data.map(d => (
+          <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13.5px' }}>
+            <span style={{ width: '11px', height: '11px', borderRadius: '3px', background: d.color, flexShrink: 0 }} />
+            <span style={{ color: '#374151', fontWeight: 600, flex: 1 }}>{d.name}</span>
+            <span style={{ color: '#111', fontWeight: 700 }}>{formatSEK(d.amount)}</span>
+            <span style={{ color: '#9ca3af', fontWeight: 500, width: '38px', textAlign: 'right' }}>{total ? Math.round(d.amount / total * 100) : 0}%</span>
           </div>
-          <div style={{ height: '8px', borderRadius: '4px', background: '#f1f5f9', overflow: 'hidden' }}>
-            <div style={{ height: '100%', width: `${(r.amount / maxAmount) * 100}%`, background: '#1a3028', borderRadius: '4px' }} />
-          </div>
-        </div>
-      ))}
-      {rows.length > 10 && <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '4px' }}>+ {rows.length - 10} till, mindre poster</div>}
+        ))}
+      </div>
     </div>
   );
 }
@@ -170,12 +233,24 @@ function BalanceSheetTable({ title, rows, total }) {
   );
 }
 
-export default function Reports({ accounts = [], verifications = [], company = {} }) {
+function downloadCSV(filename, headers, rows) {
+  const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const csv = [headers, ...rows].map(row => row.map(esc).join(';')).join('\r\n');
+  // BOM så Excel läser å/ä/ö rätt istället för att gissa fel teckenkodning.
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+export default function Reports({ accounts = [], verifications = [], company = {}, onNavigate }) {
   const isMobile = useIsMobileViewport();
   const [activeTab, setActiveTab] = useState('result');
   const [period, setPeriod] = useState('year');
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
+  const [exportOpen, setExportOpen] = useState(false);
 
   const bounds = useMemo(() => getPeriodBounds(period, {
     fiscalYearStart: company?.fiscalYear, customStart, customEnd,
@@ -194,30 +269,77 @@ export default function Reports({ accounts = [], verifications = [], company = {
   const prevResultat = prevOmsattning - prevKostnader;
 
   const resultSeries = useMemo(() => buildResultSeries(verifications, accounts, bounds.start, bounds.end), [verifications, accounts, bounds]);
+  const prevResultSeries = useMemo(() => buildResultSeries(verifications, accounts, bounds.prevStart, bounds.prevEnd), [verifications, accounts, bounds]);
   const hasResultActivity = resultSeries.some(m => m.intakt !== 0 || m.kostnad !== 0);
+  const resultChartData = useMemo(() => resultSeries.map((m, i) => ({
+    label: m.label,
+    resultat: m.intakt - m.kostnad,
+    prevResultat: prevResultSeries[i] ? (prevResultSeries[i].intakt - prevResultSeries[i].kostnad) : null,
+  })), [resultSeries, prevResultSeries]);
 
   const cashflowPoints = useMemo(() => buildCashflowSeries(verifications, accounts, bounds.start, bounds.end), [verifications, accounts, bounds]);
+  const prevCashflowPoints = useMemo(() => buildCashflowSeries(verifications, accounts, bounds.prevStart, bounds.prevEnd), [verifications, accounts, bounds]);
   const hasCashActivity = useMemo(() => verifications.some(ver => isBooked(ver) && (ver.rows || []).some(r => isCashAccount(accounts.find(a => a.code === r.account)))), [verifications, accounts]);
   const currentCash = cashflowPoints.length ? cashflowPoints[cashflowPoints.length - 1].balance : 0;
+  const cashChartData = useMemo(() => cashflowPoints.map((p, i) => ({
+    label: fmtDate(p.date),
+    balance: p.balance,
+    prevBalance: prevCashflowPoints[i] ? prevCashflowPoints[i].balance : null,
+  })), [cashflowPoints, prevCashflowPoints]);
 
   const costBreakdown = useMemo(() => groupCostsByAccount(verifications, accounts, bounds.start, bounds.end), [verifications, accounts, bounds]);
+  const costCategories = useMemo(() => groupCostsByCategory(verifications, accounts, bounds.start, bounds.end), [verifications, accounts, bounds]);
+  const prevCostCategories = useMemo(() => groupCostsByCategory(verifications, accounts, bounds.prevStart, bounds.prevEnd), [verifications, accounts, bounds]);
 
   const balanceSheet = useMemo(() => computeBalanceSheet(verifications, accounts, bounds.end), [verifications, accounts, bounds]);
+  const balanceIsEmpty = balanceSheet.assets.length === 0 && balanceSheet.equityAndLiabilities.length === 0;
+
+  const vatPeriod = useMemo(() => computeVatPeriod({
+    verifications, periodStart: toISO(bounds.start), periodEnd: toISO(bounds.end),
+  }), [verifications, bounds]);
+  const vatHasActivity = vatPeriod.outputVatTotal !== 0 || vatPeriod.inputVat !== 0;
+
+  const currentPeriodLabel = `${bounds.label} (${fmtMonthYear(bounds.start)}–${fmtMonthYear(bounds.end)})`;
+  const previousPeriodLabel = `Föregående år (${fmtMonthYear(bounds.prevStart)}–${fmtMonthYear(bounds.prevEnd)})`;
 
   const inputSt = { padding: '9px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', outline: 'none', fontFamily: 'inherit', background: 'white' };
 
   const tabs = [
     { id: 'result', label: 'Resultat', icon: TrendingUp },
     { id: 'cashflow', label: 'Kassaflöde', icon: Wallet },
-    { id: 'costs', label: 'Kostnadsfördelning', icon: PieChart },
+    { id: 'costs', label: 'Kostnadsfördelning', icon: PieChartIcon },
     { id: 'balance', label: 'Balansräkning', icon: Scale },
+    { id: 'vat', label: 'Moms', icon: Receipt },
   ];
+
+  const exportCurrentTab = (format) => {
+    setExportOpen(false);
+    if (format === 'pdf') { window.print(); return; }
+    // CSV — samma rådata som visas i den aktiva fliken, inte hela sidan
+    // på en gång, så filen matchar det användaren faktiskt tittar på.
+    if (activeTab === 'result') {
+      downloadCSV('resultat.csv', ['Månad', 'Resultat', 'Föregående period'], resultChartData.map(d => [d.label, d.resultat, d.prevResultat ?? '']));
+    } else if (activeTab === 'cashflow') {
+      downloadCSV('kassaflode.csv', ['Datum', 'Saldo', 'Föregående period'], cashChartData.map(d => [d.label, d.balance, d.prevBalance ?? '']));
+    } else if (activeTab === 'costs') {
+      downloadCSV('kostnadsfordelning.csv', ['Kategori', 'Belopp'], costCategories.categories.map(c => [c.name, c.amount]));
+    } else if (activeTab === 'balance') {
+      downloadCSV('balansrakning.csv', ['Sektion', 'Konto', 'Belopp'], [
+        ...balanceSheet.assets.map(r => ['Tillgångar', r.name, r.amount]),
+        ...balanceSheet.equityAndLiabilities.map(r => ['Eget kapital och skulder', r.name, r.amount]),
+      ]);
+    } else if (activeTab === 'vat') {
+      downloadCSV('moms.csv', ['Post', 'Belopp'], [
+        ['Utgående moms', vatPeriod.outputVatTotal], ['Ingående moms', vatPeriod.inputVat], ['Netto att betala', vatPeriod.netToPay],
+      ]);
+    }
+  };
 
   return (
     <div style={{ padding: '32px 40px', animation: 'fadeIn 0.25s ease', minHeight: '100%', maxWidth: '100%' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+      <div className="page-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
         <h1 style={{ fontSize: '26px', fontWeight: 800, color: '#0f172a', margin: 0 }}>Rapport och analys</h1>
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+        <div className="no-print" style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
           <select value={period} onChange={e => setPeriod(e.target.value)} style={inputSt}>
             <option value="month">Denna månad</option>
             <option value="quarter">Detta kvartal</option>
@@ -231,6 +353,29 @@ export default function Reports({ accounts = [], verifications = [], company = {
               <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} style={inputSt} />
             </>
           )}
+          {/* Exportera — konsekvent med etablerat mönster på övriga listsidor
+              (Sida 1/19): en knapp, ett litet menyval för PDF/Excel. */}
+          <div style={{ position: 'relative' }}>
+            <button
+              onClick={() => setExportOpen(v => !v)}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 14px', background: 'white', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '13.5px', fontWeight: 600, color: '#374151', cursor: 'pointer' }}
+            >
+              <Download size={14} /> Exportera
+            </button>
+            {exportOpen && (
+              <>
+                <div onClick={() => setExportOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 10 }} />
+                <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, background: 'white', border: '1px solid #e4e4e7', borderRadius: '10px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', overflow: 'hidden', zIndex: 11, minWidth: '190px' }}>
+                  <button onClick={() => exportCurrentTab('pdf')} style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '13.5px', color: '#374151', textAlign: 'left' }}>
+                    <FileText size={14} /> Ladda ner som PDF
+                  </button>
+                  <button onClick={() => exportCurrentTab('excel')} style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '13.5px', color: '#374151', textAlign: 'left', borderTop: '1px solid #f1f5f9' }}>
+                    <FileSpreadsheet size={14} /> Ladda ner som Excel (CSV)
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -249,21 +394,14 @@ export default function Reports({ accounts = [], verifications = [], company = {
         </div>
       ) : (
         <>
-          {/* KPI-rad — svarar direkt på "går det bra just nu?" utan att man behöver klicka vidare.
-              form-row-stack (Fortnox-terugkoppling): 4 kolumner fick hela
-              sidan bredare an 375px och tvingade allt under (flikraden,
-              graferna) att antingen klippas eller skrolla sidledes. */}
           <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px', marginBottom: '24px' }}>
             <KpiCard label="Omsättning" value={formatSEK(omsattning)} delta={formatDelta(omsattning, prevOmsattning)} help="Summan av allt du fakturerat/sålt för under perioden, exklusive moms." />
-            <KpiCard label="Kostnader" value={formatSEK(kostnader)} delta={formatDelta(kostnader, prevKostnader, true)} help="Summan av alla bokförda kostnader under perioden, exklusive moms." />
+            <KpiCard label="Kostnader" value={formatSEK(kostnader)} delta={formatDelta(kostnader, prevKostnader, true)} accent={COST_DARK} help="Summan av alla bokförda kostnader under perioden, exklusive moms." />
             <KpiCard label="Resultat" value={formatSEK(resultat)} delta={formatDelta(resultat, prevResultat)} accent={resultat >= 0 ? '#15803d' : '#dc2626'} help="Omsättning minus kostnader — det som blir kvar (eller det du gått back med)." />
             <KpiCard label="Marginal" value={marginal === null ? '—' : `${marginal.toFixed(1)}%`} help="Hur stor andel av varje intjänad krona som blir resultat. Högre är bättre." />
           </div>
 
-          {/* Fyra flikar med ikon+text ryms inte pa 375px — sidledes skroll
-              (samma monster som fakturans forhandsgranskningskontroller)
-              istallet for att klippa "Balansrakning" halvvags. */}
-          <div className="tabs-scroll-x" style={{ display: 'flex', gap: '6px', borderBottom: '2px solid #e4e4e7', marginBottom: '20px', overflowX: 'auto' }}>
+          <div className="tabs-scroll-x no-print" style={{ display: 'flex', gap: '6px', borderBottom: '2px solid #e4e4e7', marginBottom: '20px', overflowX: 'auto' }}>
             {tabs.map(t => (
               <button
                 key={t.id}
@@ -285,38 +423,93 @@ export default function Reports({ accounts = [], verifications = [], company = {
 
           {activeTab === 'result' && (
             <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e4e4e7', padding: '24px' }}>
-              <div style={{ fontSize: '14px', fontWeight: 700, color: '#374151', marginBottom: '4px' }}>Intäkter och kostnader per månad</div>
-              <p style={{ fontSize: '12.5px', color: '#9ca3af', margin: '0 0 16px' }}>Går det bra för företaget just nu — och hur ser trenden ut?</p>
-              {hasResultActivity ? <ResultTrendChart series={resultSeries} isMobile={isMobile} /> : <EmptyState text="Ingen bokförd data ännu för denna period." />}
+              <TabHeadline label="Resultat för perioden" value={formatSEK(resultat)} accent={resultat >= 0 ? '#15803d' : '#dc2626'} delta={formatDelta(resultat, prevResultat)} />
+              <p style={{ fontSize: '12.5px', color: '#9ca3af', margin: '0 0 16px' }}>Så har ditt resultat utvecklats över tid — grönt för lönsamma perioder, rött för de som gick back.</p>
+              {hasResultActivity ? (
+                <>
+                  <ResultBarChart data={resultChartData} isMobile={isMobile} />
+                  <ComparisonLegend
+                    currentLabel={currentPeriodLabel} previousLabel={previousPeriodLabel}
+                    currentColorSwatch={swatch(REVENUE)} previousColorSwatch={swatch('#9ca3af', true)}
+                  />
+                </>
+              ) : <EmptyState text="Ingen bokförd data ännu för denna period." />}
             </div>
           )}
 
           {activeTab === 'cashflow' && (
             <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e4e4e7', padding: '24px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '4px' }}>
-                <div style={{ fontSize: '14px', fontWeight: 700, color: '#374151' }}>Pengar på bank och i kassa</div>
-                <div style={{ fontSize: '18px', fontWeight: 800, color: currentCash >= 0 ? '#111' : '#dc2626' }}>{formatSEK(currentCash)}</div>
-              </div>
-              <p style={{ fontSize: '12.5px', color: '#9ca3af', margin: '0 0 16px' }}>Har jag pengar på kontot? Ackumulerat saldo över tid, konto 1900–1999.</p>
-              {hasCashActivity ? <CashflowChart points={cashflowPoints} isMobile={isMobile} /> : <EmptyState text="Inga bank- eller kassatransaktioner bokförda ännu." />}
+              <TabHeadline label="Pengar på bank och i kassa" value={formatSEK(currentCash)} accent={currentCash >= 0 ? '#0f172a' : '#dc2626'} />
+              <p style={{ fontSize: '12.5px', color: '#9ca3af', margin: '0 0 16px' }}>Har jag pengar på kontot? Ackumulerat saldo genom perioden, konto 1900–1999.</p>
+              {hasCashActivity ? (
+                <>
+                  <CashflowLineChart data={cashChartData} isMobile={isMobile} />
+                  <ComparisonLegend
+                    currentLabel={currentPeriodLabel} previousLabel={previousPeriodLabel}
+                    currentColorSwatch={swatch('#1a3028')} previousColorSwatch={swatch('#9ca3af', true)}
+                  />
+                </>
+              ) : <EmptyState text="Ingen kassaflödesdata för denna period." />}
             </div>
           )}
 
           {activeTab === 'costs' && (
             <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e4e4e7', padding: '24px' }}>
-              <div style={{ fontSize: '14px', fontWeight: 700, color: '#374151', marginBottom: '4px' }}>Vart tar pengarna vägen?</div>
-              <p style={{ fontSize: '12.5px', color: '#9ca3af', margin: '0 0 16px' }}>Bokförda kostnader under perioden, störst först.</p>
-              {costBreakdown.rows.length > 0 ? <CostBreakdownBars rows={costBreakdown.rows} total={costBreakdown.total} /> : <EmptyState text="Ingen bokförd data ännu för denna period." />}
+              <TabHeadline label="Vart tar pengarna vägen?" value={formatSEK(costCategories.total)} accent={COST_DARK} delta={formatDelta(costCategories.total, prevCostCategories.total, true)} />
+              <p style={{ fontSize: '12.5px', color: '#9ca3af', margin: '0 0 16px' }}>Bokförda kostnader under perioden, grupperat per kategori.</p>
+              {costCategories.categories.length > 0 ? (
+                <CostBreakdownDonut categories={costCategories.categories} total={costCategories.total} />
+              ) : <EmptyState text="Ingen kostnadsdata för denna period." />}
+              {costBreakdown.rows.length > 10 && (
+                <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '16px', borderTop: '1px solid #f1f5f9', paddingTop: '12px' }}>
+                  {costBreakdown.rows.length} enskilda konton bokförda — se Bokföring → Kontoplan för alla, det här diagrammet visar dem grupperade.
+                </div>
+              )}
             </div>
           )}
 
           {activeTab === 'balance' && (
-            <div>
+            <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e4e4e7', padding: '24px' }}>
+              <div style={{ fontSize: '14px', fontWeight: 700, color: '#374151', marginBottom: '4px' }}>Balansräkning</div>
               <p style={{ fontSize: '12.5px', color: '#9ca3af', margin: '0 0 16px' }}>Ögonblicksbild av vad företaget äger och är skyldigt, per {fmtDate(bounds.end)}.</p>
-              <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
-                <BalanceSheetTable title="Tillgångar" rows={balanceSheet.assets} total={balanceSheet.totalAssets} />
-                <BalanceSheetTable title="Eget kapital och skulder" rows={balanceSheet.equityAndLiabilities} total={balanceSheet.totalEquityAndLiabilities} />
-              </div>
+              {balanceIsEmpty ? (
+                <EmptyState text="Inga bokförda tillgångs- eller skuldsaldon ännu." />
+              ) : (
+                <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+                  <BalanceSheetTable title="Tillgångar" rows={balanceSheet.assets} total={balanceSheet.totalAssets} />
+                  <BalanceSheetTable title="Eget kapital och skulder" rows={balanceSheet.equityAndLiabilities} total={balanceSheet.totalEquityAndLiabilities} />
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'vat' && (
+            <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e4e4e7', padding: '24px' }}>
+              <div style={{ fontSize: '14px', fontWeight: 700, color: '#374151', marginBottom: '4px' }}>Momsöversikt</div>
+              <p style={{ fontSize: '12.5px', color: '#9ca3af', margin: '0 0 16px' }}>
+                Snabb överblick för perioden — inte en ersättning för den fullständiga momsdeklarationen.
+              </p>
+              {!vatHasActivity ? (
+                <EmptyState text="Ingen momspliktig aktivitet bokförd för denna period." />
+              ) : (
+                <>
+                  <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px', marginBottom: '20px' }}>
+                    <KpiCard label="Utgående moms" value={formatSEK(vatPeriod.outputVatTotal)} help="Moms du tagit ut av dina kunder på det du sålt — den ska du normalt betala in till Skatteverket." />
+                    <KpiCard label="Ingående moms" value={formatSEK(vatPeriod.inputVat)} help="Moms du själv betalat på inköp — den får du normalt dra av mot den utgående momsen." />
+                    <KpiCard
+                      label="Netto att betala" value={formatSEK(Math.abs(vatPeriod.netToPay))}
+                      accent={vatPeriod.netToPay >= 0 ? '#dc2626' : '#15803d'}
+                      help={vatPeriod.netToPay >= 0 ? 'Utgående moms minus ingående moms — det du ska betala in till Skatteverket.' : 'Din ingående moms är högre än den utgående — du har en momsfordran (Skatteverket är skyldig dig pengar).'}
+                    />
+                  </div>
+                  <button
+                    onClick={() => onNavigate?.('taxes')}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 18px', background: BRAND.green, color: 'white', border: 'none', borderRadius: '8px', fontSize: '13.5px', fontWeight: 700, cursor: 'pointer' }}
+                  >
+                    Gå till momsdeklaration <ChevronRight size={14} />
+                  </button>
+                </>
+              )}
             </div>
           )}
         </>

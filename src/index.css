@@ -2895,3 +2895,38 @@ textarea.form-control {
     grid-template-columns: 1fr;
   }
 }
+
+/* ══════════════════════════════════════════════
+   UTSKRIFT (Sida 14c: "Exportera som PDF" på
+   Rapport och analys använder webbläsarens egen
+   Skriv ut → Spara som PDF istället för en egen
+   PDF-genereringspipeline — döljer appskalet
+   (sidomeny/topbar/bottennav) och alla .no-print-
+   märkta kontroller (periodväljare, flikrad,
+   exportknappen själv) så bara rapportinnehållet
+   hamnar på papper/i PDF:en.
+══════════════════════════════════════════════ */
+@media print {
+  .sidebar,
+  .mobile-bottom-nav,
+  .desktop-top-bar,
+  .global-top-bar,
+  .no-print {
+    display: none !important;
+  }
+
+  .main-wrapper {
+    margin-left: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .main-content-inner {
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+
+  body {
+    background: white !important;
+  }
+}
