@@ -26,7 +26,24 @@ import html2canvas from 'html2canvas';
 // hela problemet. Med utrymmet min-height-trimningen frigör räcker det gott
 // med en hög JPEG-kvalitet (0.92, nästan omärkbar kompression) istället för
 // den tidigare hårt nedskruvade 0.7:an.
-async function renderInvoicePdf(node) {
+// Sida A4-bredd (210mm) — behålls alltid, så PDF:en fortfarande fyller en
+// vanlig skrivare/pappersbredd. Höjden däremot är INTE längre alltid det
+// fasta 297mm-A4-måttet: en kort, enradig faktura skulle annars täcka
+// bara toppen av arket och lämna en stor vit yta under (kundfeedback —
+// "ser kompakt/tom ut jämfört med förhandsgranskningen", eftersom
+// förhandsgranskningens skärmdump av naturliga skäl bara visar det
+// synliga innehållet, inte en hel A4-sidas tomrum).
+const A4_WIDTH_MM = 210;
+const A4_HEIGHT_MM = 297;
+// Golv för en degenererad nästan-tom nod (aldrig ett realistiskt fall,
+// men jsPDF godtar inte en absurt liten/nollstor sida).
+const MIN_PAGE_HEIGHT_MM = 40;
+
+// Exporterad (inte bara privat) så sidstorleks-/orienteringslogiken ovan
+// går att testa direkt mot jsPDF:s riktiga pageSize (se exportInvoicePdf.test.js)
+// utan en webbläsare — html2canvas är det enda som behöver en riktig DOM,
+// och mockas bort i testet.
+export async function renderInvoicePdf(node) {
   if (!node) throw new Error('Inget fakturaunderlag att exportera.');
 
   const originalMinHeight = node.style.minHeight;
@@ -39,23 +56,44 @@ async function renderInvoicePdf(node) {
     node.style.minHeight = originalMinHeight;
   }
   const imgData = canvas.toDataURL('image/jpeg', 0.92);
+  const imgHeightMM = (canvas.height * A4_WIDTH_MM) / canvas.width;
 
+  if (imgHeightMM <= A4_HEIGHT_MM) {
+    // Vanliga fallet: innehållet ryms på en sida. Sidan görs lika hög som
+    // innehållet istället för fast 297mm — ingen vit yta kvar under.
+    //
+    // Bugkritiskt: jsPDF SORTERAR om ett `format: [a, b]`-par efter
+    // orientation — "portrait" tvingar alltid det STÖRRE talet till höjd,
+    // oavsett vilken ordning de anges i. En kort faktura (t.ex. 120mm hög)
+    // är smalare än den är bred (120 < 210), så utan att uttryckligen
+    // begära "landscape" hade jsPDF tyst VÄXLAT bredd/höjd och gett en
+    // 120mm bred × 210mm hög sida — fel håll, inte samma bugg som
+    // ursprungsproblemet men lika fel resultat. Verifierat direkt mot
+    // jsPDF (inte bara läst): new jsPDF({format:[210,123], orientation:
+    // 'portrait'}) → pageSize 123×210 (växlat!); samma med 'landscape'
+    // → korrekt 210×123.
+    const pageHeightMM = Math.max(imgHeightMM, MIN_PAGE_HEIGHT_MM);
+    const orientation = pageHeightMM >= A4_WIDTH_MM ? 'portrait' : 'landscape';
+    const pdf = new jsPDF({ unit: 'mm', format: [A4_WIDTH_MM, pageHeightMM], orientation });
+    pdf.addImage(imgData, 'JPEG', 0, 0, A4_WIDTH_MM, imgHeightMM);
+    return pdf;
+  }
+
+  // Innehållet är längre än en A4-sida (många fakturarader) — då är fast
+  // 297mm-paginering rätt istället för fel: en riktig flersidig faktura
+  // ska fortfarande skrivas ut på vanliga hela A4-ark, inte ett enda
+  // orimligt högt anpassat pappersformat.
   const pdf = new jsPDF({ unit: 'mm', format: 'a4' });
-  const pageWidth = pdf.internal.pageSize.getWidth();
-  const pageHeight = pdf.internal.pageSize.getHeight();
-  const imgWidth = pageWidth;
-  const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-  let heightLeft = imgHeight;
+  let heightLeft = imgHeightMM;
   let position = 0;
-  pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-  heightLeft -= pageHeight;
+  pdf.addImage(imgData, 'JPEG', 0, position, A4_WIDTH_MM, imgHeightMM);
+  heightLeft -= A4_HEIGHT_MM;
 
   while (heightLeft > 0) {
-    position = heightLeft - imgHeight;
+    position = heightLeft - imgHeightMM;
     pdf.addPage();
-    pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-    heightLeft -= pageHeight;
+    pdf.addImage(imgData, 'JPEG', 0, position, A4_WIDTH_MM, imgHeightMM);
+    heightLeft -= A4_HEIGHT_MM;
   }
 
   return pdf;
