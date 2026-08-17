@@ -1,6 +1,21 @@
 import React, { useMemo, useState } from 'react';
 import { TrendingUp, TrendingDown, HelpCircle, Wallet, PieChart, Scale } from 'lucide-react';
 import { BRAND } from '../utils/brandColors';
+import { useIsMobileViewport } from '../hooks/useIsMobileViewport';
+
+// Fortnox-jämförelsen (kundfeedback): tunnar ut en etikettrad till ~6
+// synliga poster på mobil istället för alla (kan vara upp till 12
+// månader eller ännu fler kassaflödes-datapunkter) — samma idé som
+// Dashboard-diagrammets `interval`, men de här graferna är egna SVG:er
+// utan ett Recharts-liknande interval-koncept, så etiketterna tunnas ut
+// för hand. Tomma platshållare (inte borttagna element) så antalet
+// flex-barn — och därmed space-between-positionerna under linjen —
+// förblir oförändrat.
+function thinLabels(labels, isMobile) {
+  if (!isMobile || labels.length <= 6) return labels;
+  const interval = Math.ceil(labels.length / 6);
+  return labels.map((l, i) => (i % interval === 0 ? l : ''));
+}
 
 // Intäkter/utgifter-jämförelser (linje/stapelfyllnad) ska genomgående vara
 // grönt/rött, inte blått/orange — grönt = pengar in, rött = pengar ut.
@@ -58,7 +73,7 @@ function EmptyState({ text }) {
 }
 
 /** Resultatdiagram: två linjer (intäkter/kostnader) per månad i perioden. */
-function ResultTrendChart({ series }) {
+function ResultTrendChart({ series, isMobile }) {
   const w = 600, h = 160, pad = 8;
   const maxVal = Math.max(1, ...series.flatMap(s => [s.intakt, s.kostnad]));
   const stepX = series.length > 1 ? (w - pad * 2) / (series.length - 1) : 0;
@@ -77,7 +92,7 @@ function ResultTrendChart({ series }) {
         <polyline points={costLine} fill="none" stroke={EXPENSE} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>
-        {series.map((s, i) => <span key={i}>{s.label}</span>)}
+        {thinLabels(series.map(s => s.label), isMobile).map((label, i) => <span key={i}>{label}</span>)}
       </div>
       <div style={{ display: 'flex', gap: '18px', marginTop: '12px', fontSize: '12.5px', fontWeight: 600 }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: BRAND.greenDark }}><span style={{ width: '10px', height: '10px', borderRadius: '3px', background: REVENUE, display: 'inline-block' }} /> Intäkter</span>
@@ -88,7 +103,7 @@ function ResultTrendChart({ series }) {
 }
 
 /** Likviditetsdiagram: ackumulerat bank-/kassasaldo, kan gå under noll. */
-function CashflowChart({ points }) {
+function CashflowChart({ points, isMobile }) {
   const w = 600, h = 160, pad = 8;
   const values = points.map(p => p.balance);
   const maxVal = Math.max(0, ...values);
@@ -108,7 +123,7 @@ function CashflowChart({ points }) {
         <polyline points={line} fill="none" stroke="#1a3028" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>
-        {points.map((p, i) => <span key={i}>{fmtDate(p.date)}</span>)}
+        {thinLabels(points.map(p => fmtDate(p.date)), isMobile).map((label, i) => <span key={i}>{label}</span>)}
       </div>
     </div>
   );
@@ -156,6 +171,7 @@ function BalanceSheetTable({ title, rows, total }) {
 }
 
 export default function Reports({ accounts = [], verifications = [], company = {} }) {
+  const isMobile = useIsMobileViewport();
   const [activeTab, setActiveTab] = useState('result');
   const [period, setPeriod] = useState('year');
   const [customStart, setCustomStart] = useState('');
@@ -233,21 +249,28 @@ export default function Reports({ accounts = [], verifications = [], company = {
         </div>
       ) : (
         <>
-          {/* KPI-rad — svarar direkt på "går det bra just nu?" utan att man behöver klicka vidare */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px', marginBottom: '24px' }}>
+          {/* KPI-rad — svarar direkt på "går det bra just nu?" utan att man behöver klicka vidare.
+              form-row-stack (Fortnox-terugkoppling): 4 kolumner fick hela
+              sidan bredare an 375px och tvingade allt under (flikraden,
+              graferna) att antingen klippas eller skrolla sidledes. */}
+          <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px', marginBottom: '24px' }}>
             <KpiCard label="Omsättning" value={formatSEK(omsattning)} delta={formatDelta(omsattning, prevOmsattning)} help="Summan av allt du fakturerat/sålt för under perioden, exklusive moms." />
             <KpiCard label="Kostnader" value={formatSEK(kostnader)} delta={formatDelta(kostnader, prevKostnader, true)} help="Summan av alla bokförda kostnader under perioden, exklusive moms." />
             <KpiCard label="Resultat" value={formatSEK(resultat)} delta={formatDelta(resultat, prevResultat)} accent={resultat >= 0 ? '#15803d' : '#dc2626'} help="Omsättning minus kostnader — det som blir kvar (eller det du gått back med)." />
             <KpiCard label="Marginal" value={marginal === null ? '—' : `${marginal.toFixed(1)}%`} help="Hur stor andel av varje intjänad krona som blir resultat. Högre är bättre." />
           </div>
 
-          <div style={{ display: 'flex', gap: '6px', borderBottom: '2px solid #e4e4e7', marginBottom: '20px' }}>
+          {/* Fyra flikar med ikon+text ryms inte pa 375px — sidledes skroll
+              (samma monster som fakturans forhandsgranskningskontroller)
+              istallet for att klippa "Balansrakning" halvvags. */}
+          <div className="tabs-scroll-x" style={{ display: 'flex', gap: '6px', borderBottom: '2px solid #e4e4e7', marginBottom: '20px', overflowX: 'auto' }}>
             {tabs.map(t => (
               <button
                 key={t.id}
                 onClick={() => setActiveTab(t.id)}
                 style={{
                   display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 16px', border: 'none', cursor: 'pointer', fontSize: '14px',
+                  whiteSpace: 'nowrap', flexShrink: 0,
                   fontWeight: activeTab === t.id ? 700 : 500,
                   color: activeTab === t.id ? '#1a3028' : '#6b7280',
                   background: 'none',
@@ -264,7 +287,7 @@ export default function Reports({ accounts = [], verifications = [], company = {
             <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e4e4e7', padding: '24px' }}>
               <div style={{ fontSize: '14px', fontWeight: 700, color: '#374151', marginBottom: '4px' }}>Intäkter och kostnader per månad</div>
               <p style={{ fontSize: '12.5px', color: '#9ca3af', margin: '0 0 16px' }}>Går det bra för företaget just nu — och hur ser trenden ut?</p>
-              {hasResultActivity ? <ResultTrendChart series={resultSeries} /> : <EmptyState text="Ingen bokförd data ännu för denna period." />}
+              {hasResultActivity ? <ResultTrendChart series={resultSeries} isMobile={isMobile} /> : <EmptyState text="Ingen bokförd data ännu för denna period." />}
             </div>
           )}
 
@@ -275,7 +298,7 @@ export default function Reports({ accounts = [], verifications = [], company = {
                 <div style={{ fontSize: '18px', fontWeight: 800, color: currentCash >= 0 ? '#111' : '#dc2626' }}>{formatSEK(currentCash)}</div>
               </div>
               <p style={{ fontSize: '12.5px', color: '#9ca3af', margin: '0 0 16px' }}>Har jag pengar på kontot? Ackumulerat saldo över tid, konto 1900–1999.</p>
-              {hasCashActivity ? <CashflowChart points={cashflowPoints} /> : <EmptyState text="Inga bank- eller kassatransaktioner bokförda ännu." />}
+              {hasCashActivity ? <CashflowChart points={cashflowPoints} isMobile={isMobile} /> : <EmptyState text="Inga bank- eller kassatransaktioner bokförda ännu." />}
             </div>
           )}
 

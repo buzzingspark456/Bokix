@@ -2653,6 +2653,50 @@ textarea.form-control {
     justify-content: flex-end;
   }
 
+  /* En utfällbar detaljrad (t.ex. verifikationens kontorader) är en HEL
+     underliggande panel, inte ett etikett/värde-par — kortlägets
+     display:flex/justify-content/min-height/::before skulle klämma
+     ihop den. Backar till vanligt block för just den här cellen. */
+  .responsive-table td.td-detail {
+    display: block;
+    min-height: 0;
+    padding: 0;
+    text-align: left;
+  }
+
+  .responsive-table td.td-detail::before {
+    content: none;
+  }
+
+  /* Rapporter: flikraden (Resultat/Kassaflöde/Kostnadsfördelning/
+     Balansräkning) skrollar sidledes med momentum på iOS istället för
+     ett hackigt drag. */
+  .tabs-scroll-x {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .tabs-scroll-x::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Fortnox-terugkoppling: Skatt och bokslut-checklistans rader (titel+
+     hint + status-pill sida vid sida) hade bara ~150px kvar åt texten
+     efter status-pillret — tekniskt korrekt flex:1-fördelning (se
+     Taxes.jsx), men fortfarande för smalt för läsbar radbrytning.
+     Staplar istället: text på egen rad med FULL bredd, status/åtgärda
+     på en egen rad under, högerjusterad. */
+  .checklist-row-stack {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+  }
+  .checklist-row-stack > * {
+    width: 100%;
+  }
+  .checklist-row-stack > *:last-child {
+    justify-content: flex-end !important;
+  }
+
   /* A4 preview */
   .a4-paper {
     padding: 12mm 10mm 60mm;
@@ -2722,6 +2766,35 @@ textarea.form-control {
   .page-header-row input[type="text"],
   .page-header-row input[type="search"] {
     width: 100% !important;
+  }
+
+  /* Fortnox-jämförelsen (kundfeedback): lång förklaringstext under en
+     sidrubrik (t.ex. Skatt och bokslut) radbryter till 3+ rader på en
+     375px-skärm och läggs sig FAST högst upp i .page-shell nedan — en
+     fjärdedel av skärmen permanent upptagen av text man bara läser en
+     gång. Döljs på mobil, titeln räcker som orientering. */
+  .page-desc-long {
+    display: none;
+  }
+
+  /* Samma feedback: .page-shell hade en FAST header + en oberoende inre
+     skrollyta (.page-shell-scroll) — bra för korta headers (Fakturor/
+     Kontakter, som INTE fick den här klassen), men en hög header som
+     Skatt och bokslut kändes som att den "följde med" när man skrollade
+     i innehållet under. Under 768px blir hela .page-shell ett vanligt
+     block istället för en höjdbegränsad flex-kolumn, så
+     .main-content-inner:s egen scroll (index.css, redan overflow-y:auto)
+     tar över och drar med headern som vilken webbsida som helst. */
+  .page-shell {
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+  }
+
+  .page-shell-scroll {
+    flex: none !important;
+    overflow-y: visible !important;
+    height: auto !important;
   }
 
   /* Invoice line rows */

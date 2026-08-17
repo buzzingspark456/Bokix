@@ -884,7 +884,12 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
 
           {/* Table */}
           <div style={{ flex: 1, overflowY: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+            {/* .responsive-table (Sida 38, punkt 1, komplettering): den här
+                var den enda av bokforingens listor som fortfarande missade
+                kortlisten pa mobil — .td-detail (index.css) tar bort
+                kortlagets label/varde-flexbox for den utfallbara detalj-
+                raden, som ar en hel underliggande tabell, inte ett falt. */}
+            <table className="responsive-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
               <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
                 <tr>
                   <th style={thSt}>VERIFIKATION</th>
@@ -916,23 +921,23 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
                         onMouseEnter={e => { if (!isExpanded) e.currentTarget.style.background = '#f5fdf5'; }}
                         onMouseLeave={e => { e.currentTarget.style.background = isExpanded ? '#f0f9f0' : (i % 2 === 0 ? 'white' : '#fafafa'); }}
                       >
-                        <td style={{ padding: '10px 10px', fontWeight: 700, color: '#1a3028' }}>
+                        <td data-label="Verifikation" style={{ padding: '10px 10px', fontWeight: 700, color: '#1a3028' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                             {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                             {v.number}
                           </div>
                         </td>
-                        <td style={{ padding: '10px 10px', color: '#555' }}>{v.date}</td>
-                        <td style={{ padding: '10px 10px', color: '#333' }}>{v.description}</td>
-                        <td style={{ padding: '10px 10px', textAlign: 'right', fontWeight: 600, color: '#222' }}>{fmt(amount)}</td>
-                        <td style={{ padding: '10px 10px', textAlign: 'center' }}>
+                        <td data-label="Datum" style={{ padding: '10px 10px', color: '#555' }}>{v.date}</td>
+                        <td data-label="Beskrivning" style={{ padding: '10px 10px', color: '#333' }}>{v.description}</td>
+                        <td data-label="Belopp" style={{ padding: '10px 10px', textAlign: 'right', fontWeight: 600, color: '#222' }}>{fmt(amount)}</td>
+                        <td data-label="Status" style={{ padding: '10px 10px', textAlign: 'center' }}>
                           {isDraft ? (
                             <span style={{ padding: '2px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, background: '#fef3c7', color: '#92400e' }}>Utkast</span>
                           ) : (
                             <span style={{ padding: '2px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, background: '#e8f5e9', color: '#2e7d32' }}>Bokförd</span>
                           )}
                         </td>
-                        <td style={{ padding: '10px 10px' }} onClick={e => e.stopPropagation()}>
+                        <td data-label="" className="td-actions" style={{ padding: '10px 10px' }} onClick={e => e.stopPropagation()}>
                           {isDraft ? (
                             <button
                               onClick={() => { setEditingVer(v); setShowForm(true); }}
@@ -958,17 +963,24 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
                       </tr>
                       {isExpanded && v.rows && (
                         <tr>
-                          <td colSpan={6} style={{ padding: '0 0 0 32px', background: '#f8fdf8', borderBottom: '2px solid #c8e6c9' }}>
+                          <td colSpan={6} className="td-detail" style={{ padding: '0 0 0 32px', background: '#f8fdf8', borderBottom: '2px solid #c8e6c9' }}>
                             <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', padding: '10px 8px 0', fontSize: '11.5px', color: '#666' }}>
                               <span>Motpart: <strong style={{ color: '#333' }}>{contacts.find(c => c.id === v.counterpartyId)?.name || '—'}</strong></span>
                               <span>Upprättad: <strong style={{ color: '#333' }}>{v.createdAt ? new Intl.DateTimeFormat('sv-SE', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(v.createdAt)) : '—'}</strong></span>
                               {v.originalLocation && <span>Original förvaras: <strong style={{ color: '#333' }}>{v.originalLocation}</strong></span>}
                             </div>
+                            {/* overflow-x:auto (mobil): 4 kolumner i 311px
+                                (efter 32px vänsterindrag) — sidledes skroll
+                                på just denna underliggande detaljtabell
+                                istället för punkt-1:s kortlist-omgörning,
+                                som vore overkill för en sällan uppfälld
+                                panel. */}
+                            <div style={{ overflowX: 'auto' }}>
                             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', margin: '8px 0' }}>
                               <thead>
                                 <tr>
                                   {['Konto', 'Kontonamn', 'Debet', 'Kredit'].map(h => (
-                                    <th key={h} style={{ padding: '4px 8px', textAlign: h === 'Debet' || h === 'Kredit' ? 'right' : 'left', color: '#888', fontWeight: 700, fontSize: '11px', borderBottom: '1px solid #e0e0e0' }}>{h}</th>
+                                    <th key={h} style={{ padding: '4px 8px', textAlign: h === 'Debet' || h === 'Kredit' ? 'right' : 'left', color: '#888', fontWeight: 700, fontSize: '11px', borderBottom: '1px solid #e0e0e0', whiteSpace: 'nowrap' }}>{h}</th>
                                   ))}
                                 </tr>
                               </thead>
@@ -977,27 +989,28 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
                                   const rd = getDebet(r), rk = getKredit(r);
                                   return (
                                   <tr key={ri} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                                    <td style={{ padding: '5px 8px', fontWeight: 700, color: '#1a3028' }}>{r.account}</td>
-                                    <td style={{ padding: '5px 8px', color: '#555' }}>
+                                    <td style={{ padding: '5px 8px', fontWeight: 700, color: '#1a3028', whiteSpace: 'nowrap' }}>{r.account}</td>
+                                    <td style={{ padding: '5px 8px', color: '#555', whiteSpace: 'nowrap' }}>
                                       {accounts.find(a => a.code === r.account)?.name || r.accountName || '—'}
                                       {r.desc && <div style={{ fontSize: '11px', color: '#9ca3af' }}>{r.desc}</div>}
                                     </td>
-                                    <td style={{ padding: '5px 8px', textAlign: 'right', color: rd > 0 ? '#2e7d32' : '#ccc', fontWeight: rd > 0 ? 600 : 400 }}>
+                                    <td style={{ padding: '5px 8px', textAlign: 'right', color: rd > 0 ? '#2e7d32' : '#ccc', fontWeight: rd > 0 ? 600 : 400, whiteSpace: 'nowrap' }}>
                                       {rd > 0 ? fmt(rd) : '—'}
                                     </td>
-                                    <td style={{ padding: '5px 8px', textAlign: 'right', color: rk > 0 ? '#c62828' : '#ccc', fontWeight: rk > 0 ? 600 : 400 }}>
+                                    <td style={{ padding: '5px 8px', textAlign: 'right', color: rk > 0 ? '#c62828' : '#ccc', fontWeight: rk > 0 ? 600 : 400, whiteSpace: 'nowrap' }}>
                                       {rk > 0 ? fmt(rk) : '—'}
                                     </td>
                                   </tr>
                                   );
                                 })}
                                 <tr style={{ background: '#f0f9f0', borderTop: '1px solid #c8e6c9' }}>
-                                  <td colSpan={2} style={{ padding: '5px 8px', fontWeight: 700, fontSize: '12px', color: '#2e7d32' }}>Summa</td>
-                                  <td style={{ padding: '5px 8px', textAlign: 'right', fontWeight: 700 }}>{fmt(v.rows.reduce((s, r) => s + getDebet(r), 0))}</td>
-                                  <td style={{ padding: '5px 8px', textAlign: 'right', fontWeight: 700 }}>{fmt(v.rows.reduce((s, r) => s + getKredit(r), 0))}</td>
+                                  <td colSpan={2} style={{ padding: '5px 8px', fontWeight: 700, fontSize: '12px', color: '#2e7d32', whiteSpace: 'nowrap' }}>Summa</td>
+                                  <td style={{ padding: '5px 8px', textAlign: 'right', fontWeight: 700, whiteSpace: 'nowrap' }}>{fmt(v.rows.reduce((s, r) => s + getDebet(r), 0))}</td>
+                                  <td style={{ padding: '5px 8px', textAlign: 'right', fontWeight: 700, whiteSpace: 'nowrap' }}>{fmt(v.rows.reduce((s, r) => s + getKredit(r), 0))}</td>
                                 </tr>
                               </tbody>
                             </table>
+                            </div>
                           </td>
                         </tr>
                       )}

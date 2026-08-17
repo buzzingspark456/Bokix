@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   FileText, Receipt, TrendingUp, TrendingDown,
   ChevronRight, Download, ArrowUpRight, ArrowDownRight,
@@ -14,6 +14,7 @@ import { getDebet, getKredit } from '../utils/verificationAmounts';
 import { quarterToRange } from '../utils/vatCalculation';
 import { getGreeting } from '../utils/greeting';
 import { BRAND } from '../utils/brandColors';
+import { useIsMobileViewport } from '../hooks/useIsMobileViewport';
 
 /* ── Färger (Sida 30): grönt för intäkter/positivt kassaflöde, rött för
    utgifter/kostnader — konsekvent i hela appen, inte längre blått/orange.
@@ -213,21 +214,6 @@ function TodayRow({ item, onClick }) {
       {item.tab && <ChevronRight size={13} style={{ color: c.text, opacity: 0.6, flexShrink: 0 }} />}
     </button>
   );
-}
-
-// Sida 38, punkt 7: färre X-axeletiketter på mobil (var tredje månad
-// istället för alla tolv) — samma 768px-brytpunkt som resten av den
-// mobila genomgången, spårad med en riktig resize-lyssnare eftersom
-// Recharts XAxis:s `interval`-prop måste vara ett tal satt vid render,
-// inte något CSS kan styra i efterhand.
-function useIsMobileViewport() {
-  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth <= 768);
-  useEffect(() => {
-    const onResize = () => setIsMobile(window.innerWidth <= 768);
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, []);
-  return isMobile;
 }
 
 // `hideHeaderActions`: döljer bara Exportera/Ny faktura-knapparna i

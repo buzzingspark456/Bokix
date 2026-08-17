@@ -86,7 +86,10 @@ function EmployeeRow({ row, computed, previousComputed, accounts, onUpdateRow, l
         onMouseEnter={e => { e.currentTarget.parentElement.style.boxShadow = '0 4px 14px rgba(15, 23, 42, 0.08)'; }}
         onMouseLeave={e => { e.currentTarget.parentElement.style.boxShadow = panelCard.boxShadow; }}
       >
-        <div>
+        {/* flex:1 + minWidth:0 (mobil): utan detta orsakade den langa
+            "Skatt X kr · Netto Y kr..."-sammanfattningsraden nedan sidledes
+            overflow istallet for att helt enkelt radbryta inom raden. */}
+        <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 700, fontSize: '14.5px', color: '#111', display: 'flex', alignItems: 'center', gap: '8px' }}>
             {row.employeeSnapshot.firstName} {row.employeeSnapshot.lastName}
             {diff !== null && Math.abs(diff) > 1 && (

@@ -190,17 +190,29 @@ export default function Taxes({
   const getStatusColor = (status) => (status === 'Klar' ? '#15803d' : status === 'Pågår' ? '#b45309' : '#64748b');
 
   return (
-    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: '#f0f2f5' }}>
+    // page-shell/page-shell-scroll (mobil): sidan hade tidigare en FAST
+    // header + en oberoende inre skrollyta (samma monster som fungerar
+    // bra pa korta headers som Fakturor/Kontakter) — men den har sidans
+    // header ar sa hog (titel + tre rader forklaringstext) att den permanent
+    // ater upp en fjardedel av en telefonskarm. Under 768px skrollar hela
+    // sidan (header inklusive) tillsammans som en vanlig webbsida istallet,
+    // via .main-content-inner:s redan befintliga scroll (index.css).
+    <div className="page-shell" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: '#f0f2f5' }}>
       {/* ── Header ── */}
       <div style={{ background: 'white', borderBottom: '1px solid #ddd', padding: '24px 32px', flexShrink: 0 }}>
         <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 800, color: '#0f172a' }}>Skatt och bokslut</h1>
-        <p style={{ margin: '8px 0 0', fontSize: '14px', color: '#64748b', maxWidth: '600px', lineHeight: '1.5' }}>
+        {/* page-desc-long (Fortnox-terugkoppling): den här radar sig till
+            tre rader pa en 375px-skarm och lag da fast permanent hogst upp
+            — halften av en telefonskarm aten upp av forklarande text, inte
+            av nagot man faktiskt kom hit for att gora. Dold pa mobil,
+            samma monster i Payroll.jsx. */}
+        <p className="page-desc-long" style={{ margin: '8px 0 0', fontSize: '14px', color: '#64748b', maxWidth: '600px', lineHeight: '1.5' }}>
           Sammanställning för momsredovisning, checklista för årsbokslut och kommande viktiga datum för skatter och avgifter.
         </p>
       </div>
 
       {/* ── Content Area ── */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '32px' }}>
+      <div className="page-shell-scroll" style={{ flex: 1, overflowY: 'auto', padding: '32px' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
 
           {/* Momsdeklaration */}
@@ -237,6 +249,7 @@ export default function Taxes({
                 return (
                   <div
                     key={step.id}
+                    className="checklist-row-stack"
                     onClick={clickable ? () => toggleManualStep(step.key) : undefined}
                     style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -246,7 +259,16 @@ export default function Taxes({
                       cursor: clickable ? 'pointer' : 'default',
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+                    {/* Bugkritiskt (mobil): utan flex:1 här startade den här
+                        gruppens bredd fran sitt eget max-content (titel +
+                        hint helt outbrutna), och när den sen tvingades
+                        krympa av .flexShrink:0-statuspillret till höger
+                        kollapsade textblocket ner mot sin min-content-bredd
+                        — ett ord per rad. flex:1 (flex-basis:0%, inte auto)
+                        ger den istallet en förutsägbar andel av radens
+                        FAKTISKA bredd direkt, ingen våldsam efterhands-
+                        krympning. */}
+                    <div style={{ display: 'flex', flex: 1, alignItems: 'center', gap: '12px', minWidth: 0 }}>
                       <div style={{
                         width: '28px', height: '28px', borderRadius: '50%',
                         background: '#f1f5f9', color: '#64748b', fontSize: '13px', fontWeight: 700,
@@ -254,7 +276,7 @@ export default function Taxes({
                       }}>
                         {step.id}
                       </div>
-                      <div style={{ minWidth: 0 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{
                           fontSize: '14px', fontWeight: 500,
                           color: step.status === 'Klar' ? '#94a3b8' : '#111',

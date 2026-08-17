@@ -71,7 +71,7 @@ export default function Payroll({
     <div style={{ padding: '32px 40px 48px', animation: 'fadeIn 0.25s ease', minHeight: '100%', boxSizing: 'border-box' }}>
       <div style={{ marginBottom: '26px' }}>
         <h1 style={{ fontSize: '27px', fontWeight: 800, color: '#0f172a', margin: '0 0 4px', letterSpacing: '-0.01em' }}>Anställda och lön</h1>
-        <p style={{ fontSize: '14px', color: '#6b7280', margin: '0 0 22px' }}>Hantera dina anställda och kör löner, från bruttolön till bokförd verifikation.</p>
+        <p className="page-desc-long" style={{ fontSize: '14px', color: '#6b7280', margin: '0 0 22px' }}>Hantera dina anställda och kör löner, från bruttolön till bokförd verifikation.</p>
         <div style={{ display: 'inline-flex', gap: '4px', background: '#f1f5f9', padding: '4px', borderRadius: '11px' }}>
           {[{ id: 'employees', label: 'Anställda', icon: UserCog }, { id: 'runs', label: 'Lönekörningar', icon: CalendarClock }].map(t => {
             const active = activeTab === t.id;
@@ -112,7 +112,8 @@ export default function Payroll({
           </div>
 
           <div style={panelCard}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            {/* .responsive-table (Sida 38, punkt 1, komplettering) */}
+            <table className="responsive-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: '#f8fafc' }}>
                   {['Namn', 'Typ', 'Anställningsdatum', 'Lön', 'Status', ''].map(h => (
@@ -129,16 +130,16 @@ export default function Payroll({
                   const isActive = !e.endDate || e.endDate >= new Date().toISOString().slice(0, 10);
                   return (
                     <tr key={e.id} onClick={() => { setSelectedEmployee(e); setViewState('edit'); }} style={{ borderBottom: i < filteredEmployees.length - 1 ? '1px solid #f1f5f9' : 'none', cursor: 'pointer' }} onMouseEnter={ev => ev.currentTarget.style.background = '#f8fafc'} onMouseLeave={ev => ev.currentTarget.style.background = 'white'}>
-                      <td style={{ padding: '14px 16px', fontWeight: 600, color: '#111', fontSize: '14px' }}>{e.firstName} {e.lastName}</td>
-                      <td style={{ padding: '14px 16px', color: '#374151', fontSize: '14px' }}>{e.employmentType === 'foretagsledare' ? 'Företagsledare' : e.employmentType === 'styrelseledamot' ? 'Styrelseledamot' : 'Anställd'}</td>
-                      <td style={{ padding: '14px 16px', color: '#6b7280', fontSize: '13px' }}>{e.startDate}</td>
-                      <td style={{ padding: '14px 16px', fontWeight: 600, color: '#111' }}>{e.salaryForm === 'timlon' ? `${e.hourlyRate || 0} kr/tim` : formatSEK(e.monthlySalary)}</td>
-                      <td style={{ padding: '14px 16px' }}>
+                      <td data-label="Namn" style={{ padding: '14px 16px', fontWeight: 600, color: '#111', fontSize: '14px' }}>{e.firstName} {e.lastName}</td>
+                      <td data-label="Typ" style={{ padding: '14px 16px', color: '#374151', fontSize: '14px' }}>{e.employmentType === 'foretagsledare' ? 'Företagsledare' : e.employmentType === 'styrelseledamot' ? 'Styrelseledamot' : 'Anställd'}</td>
+                      <td data-label="Anställningsdatum" style={{ padding: '14px 16px', color: '#6b7280', fontSize: '13px' }}>{e.startDate}</td>
+                      <td data-label="Lön" style={{ padding: '14px 16px', fontWeight: 600, color: '#111' }}>{e.salaryForm === 'timlon' ? `${e.hourlyRate || 0} kr/tim` : formatSEK(e.monthlySalary)}</td>
+                      <td data-label="Status" style={{ padding: '14px 16px' }}>
                         <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: isActive ? '#dcfce7' : '#f1f5f9', color: isActive ? '#15803d' : '#64748b' }}>
                           {isActive ? 'Aktiv' : 'Avslutad'}
                         </span>
                       </td>
-                      <td style={{ padding: '14px 16px', textAlign: 'right' }}><ChevronRight size={16} color="#9ca3af" /></td>
+                      <td data-label="" className="td-actions" style={{ padding: '14px 16px', textAlign: 'right' }}><ChevronRight size={16} color="#9ca3af" /></td>
                     </tr>
                   );
                 })}
@@ -211,7 +212,7 @@ export default function Payroll({
           )}
 
           <div style={panelCard}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <table className="responsive-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: '#f8fafc' }}>
                   {['Period', 'Anställda', 'Status', ''].map(h => (
@@ -230,12 +231,12 @@ export default function Payroll({
                   const statusColor = status === 'Bokförd' ? { bg: '#dcfce7', color: '#15803d' } : status === 'Beräknad' ? { bg: '#e0f2fe', color: '#0369a1' } : { bg: '#f1f5f9', color: '#64748b' };
                   return (
                     <tr key={r.id} onClick={() => setSelectedRunId(r.id)} style={{ borderBottom: i < sortedRuns.length - 1 ? '1px solid #f1f5f9' : 'none', cursor: 'pointer' }} onMouseEnter={ev => ev.currentTarget.style.background = '#f8fafc'} onMouseLeave={ev => ev.currentTarget.style.background = 'white'}>
-                      <td style={{ padding: '14px 16px', fontWeight: 700, color: '#111', fontSize: '14px' }}>Lönekörning {r.period}</td>
-                      <td style={{ padding: '14px 16px', color: '#374151', fontSize: '14px' }}>{r.rows.length}</td>
-                      <td style={{ padding: '14px 16px' }}>
+                      <td data-label="Period" style={{ padding: '14px 16px', fontWeight: 700, color: '#111', fontSize: '14px' }}>Lönekörning {r.period}</td>
+                      <td data-label="Anställda" style={{ padding: '14px 16px', color: '#374151', fontSize: '14px' }}>{r.rows.length}</td>
+                      <td data-label="Status" style={{ padding: '14px 16px' }}>
                         <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: statusColor.bg, color: statusColor.color }}>{status}</span>
                       </td>
-                      <td style={{ padding: '14px 16px', textAlign: 'right' }}><ChevronRight size={16} color="#9ca3af" /></td>
+                      <td data-label="" className="td-actions" style={{ padding: '14px 16px', textAlign: 'right' }}><ChevronRight size={16} color="#9ca3af" /></td>
                     </tr>
                   );
                 })}
