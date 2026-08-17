@@ -794,7 +794,8 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
 
       {/* ── Top section: title + tabs ─────────────────────────── */}
       <div style={{ background: 'white', borderBottom: '1px solid #ddd', padding: '0 20px', flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0 0' }}>
+        {/* .page-header-row (Sida 38, punkt 6) */}
+        <div className="page-header-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0 0' }}>
           <div>
             <h1 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: '#0f172a' }}>Bokföring</h1>
             <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#888' }}>Verifikationer, kontoplan och bokföringsposter</p>

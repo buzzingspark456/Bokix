@@ -399,7 +399,7 @@ export default function Projects({ projects = [], setProjects, contacts = [], se
           {/* Grunduppgifter */}
           <div style={sectionSt}>
             <h3 style={sectionTitleSt}>Grunduppgifter</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr', gap: '16px' }}>
+            <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr', gap: '16px' }}>
               <div>
                 <label style={labelSt}>Projektnamn *</label>
                 <input type="text" value={projectForm.name} onChange={e => setProjectForm({ ...projectForm, name: e.target.value })} style={inputSt} required autoFocus />
@@ -421,7 +421,7 @@ export default function Projects({ projects = [], setProjects, contacts = [], se
           {/* Budget */}
           <div style={sectionSt}>
             <h3 style={sectionTitleSt}>Budget</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+            <div className="form-row-3" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
               <div>
                 <label style={labelSt}>Budgeterad tid (h)</label>
                 <input type="number" min="0" value={projectForm.budgetHours} onChange={e => setProjectForm({ ...projectForm, budgetHours: e.target.value })} style={inputSt} />
@@ -515,8 +515,8 @@ export default function Projects({ projects = [], setProjects, contacts = [], se
 
   return (
     <div style={{ padding: '32px 40px', animation: 'fadeIn 0.25s ease', minHeight: '100%', boxSizing: 'border-box' }}>
-      {/* Sidhuvud */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
+      {/* Sidhuvud — .page-header-row (Sida 38, punkt 6) */}
+      <div className="page-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
         <div>
           <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 500, color: 'var(--text-main)' }}>Projekt</h1>
           <p style={{ margin: '2px 0 0', fontSize: '13.5px', color: 'var(--text-secondary)' }}>Följs upp lönsamhet, tid och kostnader per projekt</p>

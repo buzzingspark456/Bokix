@@ -20,7 +20,7 @@ function inputStyle(hasError) { return { ...inputBase, borderColor: hasError ? '
 // gridTemplateColumns lever i CSS-klassen .form-row-2 (index.css) istället
 // för här, se kommentaren i Contacts.jsx för varför.
 const grid2 = { display: 'grid', gap: '16px' };
-const grid3 = { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' };
+const grid3 = { display: 'grid', gap: '16px' }; // .form-row-3, samma skäl som grid2 ovan
 
 function Section({ title, children }) {
   return <div style={sectionStyle}>{title && <h3 style={sectionTitleStyle}>{title}</h3>}{children}</div>;
@@ -84,7 +84,7 @@ export default function EmployeeForm({ initial, projects = [], onSave, onCancel 
   return (
     <form onSubmit={handleSubmit}>
       <Section title="Personuppgifter">
-        <div style={grid3}>
+        <div className="form-row-3" style={grid3}>
           <div>
             <label style={labelStyle}>Förnamn *</label>
             <input value={form.firstName} onChange={e => set('firstName', e.target.value)} style={inputStyle(errors.firstName)} />
@@ -124,7 +124,7 @@ export default function EmployeeForm({ initial, projects = [], onSave, onCancel 
       </Section>
 
       <Section title="Anställning och lön">
-        <div style={grid3}>
+        <div className="form-row-3" style={grid3}>
           <div>
             <label style={labelStyle}>Typ</label>
             <select value={form.employmentType} onChange={e => set('employmentType', e.target.value)} style={{ ...inputBase, background: 'white' }}>

@@ -49,7 +49,12 @@ const card = {
   background: 'white', borderRadius: '14px', padding: '22px', marginBottom: '16px', width: '100%', boxSizing: 'border-box',
   border: '1px solid #ececef', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
 };
-const grid2 = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' };
+// Sida 38, punkt 2: kolumnbredden lever i CSS-klassen .form-row-2
+// (index.css) istället för här, så mobilens 1-kolumns-överskrivning
+// (@media max-width 768px) kan träffa den — se samma kommentar i
+// Contacts.jsx/EmployeeForm.jsx. Varje användning nedan får
+// className="form-row-2" också.
+const grid2 = { display: 'grid', gap: '14px' };
 const labelStyle = { display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' };
 const inputBase = {
   width: '100%', padding: '9px 12px', border: '1px solid #d1d5db', borderRadius: '8px',
@@ -358,7 +363,7 @@ function PasswordSection({ user, readOnly = false }) {
           <label style={labelStyle}>Nuvarande lösenord</label>
           <input type="password" value={currentPw} onChange={e => setCurrentPw(e.target.value)} style={{ ...inputBase, maxWidth: '340px' }} autoComplete="current-password" required />
         </div>
-        <div style={{ ...grid2, maxWidth: '672px' }}>
+        <div className="form-row-2" style={{ ...grid2, maxWidth: '672px' }}>
           <div>
             <label style={labelStyle}>Nytt lösenord</label>
             <input type="password" value={newPw} onChange={e => setNewPw(e.target.value)} style={inputBase} autoComplete="new-password" minLength={8} required />
@@ -541,7 +546,7 @@ function InvoiceTemplateSection({ company, setCompanyInfo, user, readOnly = fals
         <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 16px', maxWidth: '672px' }}>
           Välj utseendet på dina utgående kund- och leverantörsfakturor. Redan skickade fakturor behåller sitt utseende — bara nya fakturor använder mallen du väljer här.
         </p>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', maxWidth: '720px' }}>
+        <div className="form-row-2" style={{ display: 'grid', gap: '16px', maxWidth: '720px' }}>
           {Object.values(INVOICE_TEMPLATES).map(tpl => (
             <TemplateCard
               key={tpl.id}
@@ -840,7 +845,7 @@ export default function Settings({
                   </div>
                 </div>
 
-                <div style={{ ...grid2, maxWidth: '672px' }}>
+                <div className="form-row-2" style={{ ...grid2, maxWidth: '672px' }}>
                   <AutoField label="Förnamn" value={firstName} onChange={(v) => updateUserMeta({ first_name: v })} />
                   <AutoField label="Efternamn" value={lastName} onChange={(v) => updateUserMeta({ last_name: v })} />
                   <div style={{ gridColumn: '1 / 3' }}>
@@ -909,7 +914,7 @@ export default function Settings({
                 <div style={{ maxWidth: '672px' }}>
                   <AutoField label="Företagsnamn" value={company?.name || ''} onChange={(v) => setCompanyInfo({ ...company, name: v })} required />
                 </div>
-                <div style={{ ...grid2, maxWidth: '672px' }}>
+                <div className="form-row-2" style={{ ...grid2, maxWidth: '672px' }}>
                   <AutoField label="Organisationsnummer" value={company?.orgNr || ''} onChange={(v) => setCompanyInfo({ ...company, orgNr: v })} />
                   <AutoField label="Momsregistreringsnummer" value={company?.vatNr || ''} onChange={(v) => setCompanyInfo({ ...company, vatNr: v })} />
                 </div>
@@ -932,7 +937,7 @@ export default function Settings({
 
               <div style={card}>
                 <div style={{ marginBottom: '16px' }}><SectionHeading icon={Phone} tone="green">Kontaktuppgifter</SectionHeading></div>
-                <div style={{ ...grid2, maxWidth: '672px' }}>
+                <div className="form-row-2" style={{ ...grid2, maxWidth: '672px' }}>
                   <AutoField label="E-post" type="email" value={company?.email || ''} onChange={(v) => setCompanyInfo({ ...company, email: v })} hint="Visas som kontaktväg längst ner på fakturor." />
                   <AutoField label="Telefon" type="tel" value={company?.phone || ''} onChange={(v) => setCompanyInfo({ ...company, phone: v })} />
                 </div>
@@ -964,7 +969,7 @@ export default function Settings({
               <div style={card}>
                 <div style={{ marginBottom: '4px' }}><SectionHeading icon={Calendar} tone="green">Räkenskapsår och moms</SectionHeading></div>
                 <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 16px', maxWidth: '672px' }}>Styr periodiseringen i Rapporter, Momsdeklaration och Skatter.</p>
-                <div style={{ ...grid2, maxWidth: '672px' }}>
+                <div className="form-row-2" style={{ ...grid2, maxWidth: '672px' }}>
                   <AutoField label="Räkenskapsår startar" type="date" value={company?.fiscalYear || ''} onChange={(v) => setCompanyInfo({ ...company, fiscalYear: v })} />
                   <div style={{ marginBottom: '16px' }}>
                     <label style={labelStyle}>Momsperiod</label>
@@ -991,7 +996,7 @@ export default function Settings({
               <div style={card}>
                 <div style={{ marginBottom: '4px' }}><SectionHeading icon={Landmark} tone="green">Bankuppgifter för inbetalning</SectionHeading></div>
                 <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 16px', maxWidth: '672px' }}>Dessa uppgifter visas på dina utgående fakturor så kunder vet var de ska betala.</p>
-                <div style={{ ...grid2, maxWidth: '672px' }}>
+                <div className="form-row-2" style={{ ...grid2, maxWidth: '672px' }}>
                   <AutoField label="Bankgiro" value={company?.bankgiro || ''} onChange={(v) => setCompanyInfo({ ...company, bankgiro: v })} />
                   <AutoField label="Plusgiro" value={company?.plusgiro || ''} onChange={(v) => setCompanyInfo({ ...company, plusgiro: v })} />
                   <AutoField label="IBAN" value={company?.iban || ''} onChange={(v) => setCompanyInfo({ ...company, iban: v })} />

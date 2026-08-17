@@ -471,7 +471,7 @@ export default function Quotes({ invoices = [], setInvoices, contacts = [], comp
                 <div style={{ marginBottom: '20px' }}>
                   <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>Offertrader</h3>
                   {form.rows.map((row, i) => (
-                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr auto', gap: '10px', marginBottom: '10px', alignItems: 'center' }}>
+                    <div key={i} className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr auto', gap: '10px', marginBottom: '10px', alignItems: 'center' }}>
                       <input type="text" placeholder="Beskrivning" style={inputStyle} value={row.description}
                         onChange={e => { const r = [...form.rows]; r[i].description = e.target.value; setForm(f => ({ ...f, rows: r })); }} required />
                       <input type="number" placeholder="Á-pris" style={inputStyle} value={row.price}

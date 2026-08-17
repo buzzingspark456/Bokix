@@ -1033,13 +1033,19 @@ body {
   margin: 4px auto 14px;
 }
 
+/* Sida 38, punkt 9: samma listtäthet/touch-mål som huvudpunkterna i
+   .mobile-nav-btn nedan, inte en hoppackad eftertanke — större padding,
+   en tydlig 4px lucka mellan raderna (annars glider de ihop utan
+   .mobile-sheet-item.active:s bakgrundsfärg som gräns) och en ikon-chip
+   som matchar bottennavens 32px-cirklar istället för en naken ikon. */
 .mobile-sheet-item {
   display: flex;
   align-items: center;
   gap: 12px;
   width: 100%;
-  min-height: 44px;
-  padding: 12px 10px;
+  min-height: 48px;
+  padding: 13px 12px;
+  margin-bottom: 4px;
   -webkit-appearance: none;
   appearance: none;
   -webkit-tap-highlight-color: transparent;
@@ -1048,12 +1054,16 @@ body {
   outline: none;
   border-radius: 10px;
   font-family: var(--font-sans);
-  font-size: 14.5px;
+  font-size: 15px;
   font-weight: 500;
   color: #1f2937;
   text-align: left;
   cursor: pointer;
   transition: transform 0.1s ease, background-color 0.12s ease;
+}
+
+.mobile-sheet-item:last-child {
+  margin-bottom: 0;
 }
 
 .mobile-sheet-item:active {
@@ -1070,10 +1080,17 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  background: transparent;
   color: #6b7280;
+  transition: background-color 0.18s ease, color 0.18s ease;
 }
 
 .mobile-sheet-item.active .mobile-sheet-item-icon {
+  background: #eaf3de;
   color: #3d7a2e;
 }
 
@@ -2542,6 +2559,17 @@ textarea.form-control {
     margin-top: auto;
   }
 
+  /* Sida 38, punkt 3/8: stäng-knappen i modalens header är den enda
+     "tillbaka"-vägen på mobil (ingen sidan-knapp att ta tillbaka till,
+     modalen ÄR sidan just nu) — 44px touch-yta, inte de ~28px den
+     hade med bara padding:5px runt en 18px-ikon. */
+  .modal-close {
+    min-width: 44px;
+    min-height: 44px;
+    justify-content: center;
+    align-items: center;
+  }
+
   /* Tabeller scrollbara — kvarvarande stopgap för tabeller som ännu inte
      migrerats till .responsive-table nedan. */
   .table-container {
@@ -2583,10 +2611,25 @@ textarea.form-control {
     justify-content: space-between;
     gap: 12px;
     width: auto;
-    min-height: 40px; /* nära punkt 8:s 44px tillsammans med paddingen */
+    min-height: 44px; /* Sida 38, punkt 8 (resten): 44px gäller hela appen,
+       inte bara Inställningars mobilnav — varje rad i fakturalistan,
+       kvittolistan, kontoplanen och verifikationslistan går via denna
+       klass, så en enda höjdändring här täcker alla fyra. */
     padding: 8px 12px;
     border-bottom: 1px solid #f1f5f9;
     text-align: right;
+    /* Sida 38, punkt 10: siffror/brödtext i listor får aldrig krympa under
+       13px. INTE !important — en td som redan fått en EGEN, större inline
+       font-size (t.ex. leverantörsnamnet i SupplierInvoices på 14px) ska
+       inte klämmas ner till golvet, bara en td som annars bara ÄRVER en
+       mindre storlek från <table>:s egen inline style (t.ex.
+       verifikationslistans kontosaldon, ärvda 12px) — och en direkt regel
+       på elementet självt slår alltid en ärvd egenskap utan att behöva
+       !important. En td som skulle sätta sin EGEN mindre storlek inline
+       (ingen i de fyra listorna gör det just nu) skulle fortfarande vinna
+       över den här raden — se kommentaren i PRODUCTION_READINESS-stil:
+       detta är en riktad, inte en total, garanti. */
+    font-size: 13px;
   }
 
   .responsive-table tr td:last-child {
@@ -2643,6 +2686,42 @@ textarea.form-control {
   .form-row-2,
   .form-row-3 {
     grid-template-columns: 1fr;
+  }
+
+  /* Sida 38, punkt 2: samma stapling som .form-row-2/-3, men för
+     formulärrader vars desktop-kolumner INTE är jämnstora (t.ex.
+     "2fr 1fr 1fr 1fr" i fakturaformuläret) — där går det inte att
+     återanvända en enda delad klass med kolumnbredden inbyggd, så den
+     riktiga bredden stannar kvar inline för desktop och den här klassen
+     bara nollar den på mobil. !important krävs eftersom den annars
+     tävlar mot inline style={{gridTemplateColumns: ...}} på samma
+     element, inte mot en ärvd/svagare regel som .form-row-2:s bas gör. */
+  .form-row-stack {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Sida 38, punkt 6: sidhuvuden med titel + knapp (eller titel + sök +
+     knapp) som inte redan har flexWrap — staplas i en kolumn istället för
+     att tvinga in allt på en rad och antingen klippas eller klämmas ihop.
+     Barnen (titelblock, sökfält, knappar) fyller då hela bredden var för
+     sig, så en 260px-bred sökruta inte längre själv orsakar
+     sidledesskroll på en 375px-skärm. */
+  .page-header-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px;
+  }
+
+  .page-header-row > * {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* Sökfält i sidhuvudet har ofta en fast inline width (t.ex. 260px) för
+     desktop-layouten — samma !important-mot-inline-skäl som .form-row-stack. */
+  .page-header-row input[type="text"],
+  .page-header-row input[type="search"] {
+    width: 100% !important;
   }
 
   /* Invoice line rows */

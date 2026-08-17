@@ -517,7 +517,8 @@ export default function Contacts({ contacts, setContacts, accounts = [], globalA
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: '#f0f2f5' }}>
       {/* ── Header & Tabs ── */}
       <div style={{ background: 'white', borderBottom: '1px solid #ddd', padding: '0 20px', flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0 0' }}>
+        {/* Sida 38, punkt 6 */}
+        <div className="page-header-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0 0' }}>
           <div>
             <h1 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: '#0f172a' }}>{title}</h1>
             <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#888' }}>
@@ -550,7 +551,8 @@ export default function Contacts({ contacts, setContacts, accounts = [], globalA
           <>
             {filtered.length > 0 || searchTerm ? (
               <>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
+                {/* .page-header-row (Sida 38, punkt 6) */}
+                <div className="page-header-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
                   <div style={{ position: 'relative' }}>
                     <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
                     <input type="text" placeholder={`Sök ${activeTab === 'customer' ? 'kund' : 'leverantör'}...`} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{ padding: '9px 12px 9px 36px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', outline: 'none', width: '260px', background: 'white' }} />
@@ -558,7 +560,9 @@ export default function Contacts({ contacts, setContacts, accounts = [], globalA
                 </div>
 
                 <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e4e4e7', overflow: 'hidden' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  {/* .responsive-table (Sida 38, punkt 1, komplettering — se
+                      samma kommentar i SupplierInvoices.jsx) */}
+                  <table className="responsive-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                       <tr style={{ background: '#f8fafc' }}>
                         {['Namn', 'Org.nummer', 'Kontaktperson', activeTab === 'customer' ? 'Senaste faktura' : 'Senaste inköp', activeTab === 'customer' ? 'Fakturerat i år' : 'Inköpt i år', 'Status'].map(h => (
@@ -584,7 +588,7 @@ export default function Contacts({ contacts, setContacts, accounts = [], globalA
                           onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
                           onMouseLeave={e => e.currentTarget.style.background = ''}
                         >
-                          <td style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>
+                          <td data-label="Namn" style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                               <div style={{
                                 width: 34, height: 34, borderRadius: '8px',
@@ -597,15 +601,15 @@ export default function Contacts({ contacts, setContacts, accounts = [], globalA
                               <span style={{ fontWeight: 600, color: '#111', fontSize: '14px' }}>{c.name}</span>
                             </div>
                           </td>
-                          <td style={{ padding: '14px 16px', color: '#6b7280', fontSize: '13px', whiteSpace: 'nowrap' }}>{c.orgNr || '—'}</td>
-                          <td style={{ padding: '14px 16px', color: '#6b7280', fontSize: '13px', whiteSpace: 'nowrap' }}>{c.contactPerson || c.email || '—'}</td>
-                          <td style={{ padding: '14px 16px', color: '#6b7280', fontSize: '13px', whiteSpace: 'nowrap' }}>{c.lastInvoiceDate || '—'}</td>
-                          <td style={{ padding: '14px 16px', color: '#111', fontSize: '13px', fontWeight: 500, whiteSpace: 'nowrap' }}>
+                          <td data-label="Org.nummer" style={{ padding: '14px 16px', color: '#6b7280', fontSize: '13px', whiteSpace: 'nowrap' }}>{c.orgNr || '—'}</td>
+                          <td data-label="Kontaktperson" style={{ padding: '14px 16px', color: '#6b7280', fontSize: '13px', whiteSpace: 'nowrap' }}>{c.contactPerson || c.email || '—'}</td>
+                          <td data-label={activeTab === 'customer' ? 'Senaste faktura' : 'Senaste inköp'} style={{ padding: '14px 16px', color: '#6b7280', fontSize: '13px', whiteSpace: 'nowrap' }}>{c.lastInvoiceDate || '—'}</td>
+                          <td data-label={activeTab === 'customer' ? 'Fakturerat i år' : 'Inköpt i år'} style={{ padding: '14px 16px', color: '#111', fontSize: '13px', fontWeight: 500, whiteSpace: 'nowrap' }}>
                             {c.totalInvoicedThisYear
                               ? new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(c.totalInvoicedThisYear)
                               : '0 kr'}
                           </td>
-                          <td style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>
+                          <td data-label="Status" style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>
                             <span style={{
                               display: 'inline-flex', alignItems: 'center', gap: '5px',
                               padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600,

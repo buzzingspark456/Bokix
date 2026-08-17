@@ -151,7 +151,7 @@ export default function ContactPage() {
               </div>
             ) : (
               <form onSubmit={handleSubmit}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '18px' }}>
+                <div className="form-row-2" style={{ display: 'grid', gap: '16px', marginBottom: '18px' }}>
                   <div>
                     <label style={labelStyle} htmlFor="contact-name">Namn</label>
                     <input

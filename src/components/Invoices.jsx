@@ -4,7 +4,8 @@ import {
   Plus, X, Send, Check, FileText, FileSpreadsheet,
   Search, ChevronRight, ChevronLeft, ChevronDown, ChevronUp,
   MoreVertical, RefreshCw, Printer, Eye, CreditCard, Link2,
-  MessageSquare, Tag, Lock, Settings2, Download, AlertTriangle, Inbox, Trash2
+  MessageSquare, Tag, Lock, Settings2, Download, AlertTriangle, Inbox, Trash2,
+  ZoomIn, ZoomOut
 } from 'lucide-react';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import InvoiceDocument, { DEFAULT_INVOICE_TEMPLATE, INVOICE_TEMPLATES } from './InvoiceDocument';
@@ -121,6 +122,13 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
   const [invoiceText, setInvoiceText] = useState('');
   const [showPreview, setShowPreview] = useState(false);
   const [showMoreOptions, setShowMoreOptions] = useState(false);
+  // Sida 38, punkt 4: explicit +/- zoom som fallback till det äkta
+  // tvåfingers-pinchzoom-gest som webbläsaren redan tillåter rakt av (ingen
+  // user-scalable=no/maximum-scale i index.html som spärrar den) — en A4-
+  // sida i sin riktiga storlek (210mm ≈ 794px) är annars för smal text att
+  // läsa på en telefon utan att zooma på något sätt.
+  const [previewZoom, setPreviewZoom] = useState(1);
+  useEffect(() => { if (showPreview) setPreviewZoom(1); }, [showPreview]);
 
   const previewRef = useRef(null);
   // Egen, alltid monterad kopia av InvoiceDocument, gömd off-screen med
@@ -554,8 +562,11 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
       <div style={{ flex: 1, overflowY: 'auto', display: 'flex', background: 'white' }}>
         <div style={{ flex: 1, minWidth: 0, minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
 
-          {/* Top fields row — bara de fält som alltid behövs */}
-          <div style={{ background: 'white', borderBottom: '1px solid #ddd', padding: '16px 20px', display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '18px', alignItems: 'end' }}>
+          {/* Top fields row — bara de fält som alltid behövs. form-row-stack
+              (Sida 38, punkt 2): kolumnbredden är ojämn (2fr 1fr 1fr 1fr) så
+              den kan inte återanvända .form-row-2/-3, men ska ändå bli en
+              kolumn på mobil. */}
+          <div className="form-row-stack" style={{ background: 'white', borderBottom: '1px solid #ddd', padding: '16px 20px', display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '18px', alignItems: 'end' }}>
             <div>
               <label style={lbl}>Kund</label>
               <select value={customerId} onChange={e => setCustomerId(e.target.value)} disabled={isLocked} style={{ ...inp, background: isLocked ? '#f3f4f6' : 'white' }}>
@@ -586,7 +597,7 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
           </div>
 
           {/* Fakturauppgifter — bara de vanligaste fälten synliga direkt */}
-          <div style={{ background: 'white', borderBottom: '1px solid #ddd', padding: '16px 20px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '18px' }}>
+          <div className="form-row-stack" style={{ background: 'white', borderBottom: '1px solid #ddd', padding: '16px 20px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '18px' }}>
             <div>
               <label style={lbl}>Betalningsvillkor</label>
               <select value={terms} onChange={e => setTerms(e.target.value)} style={inp}>
@@ -615,7 +626,7 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
               {showMoreOptions ? <ChevronDown size={13} /> : <ChevronRight size={13} />} Fler alternativ
             </button>
             {showMoreOptions && (
-              <div style={{ padding: '12px 16px', background: 'white', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
+              <div className="form-row-stack" style={{ padding: '12px 16px', background: 'white', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
                 <div>
                   <label style={lbl}>Husavdrag</label>
                   <select style={inp}><option>Inget</option><option>ROT</option><option>RUT</option></select>
@@ -671,7 +682,7 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
           {/* Kunduppgifter */}
           {customer && (
             <Section title="▾ Kunduppgifter" defaultOpen={false}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
+              <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
                 <div>
                   <label style={lbl}>Namn</label>
                   <input defaultValue={customer.name} style={inp} />
@@ -711,7 +722,7 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
 
           {/* Leveransuppgifter */}
           <Section title="▾ Leveransuppgifter" defaultOpen={false}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
+            <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
               <div><label style={lbl}>Leveransadress</label><input style={inp} /></div>
               <div><label style={lbl}>Leveransort</label><input style={inp} /></div>
               <div><label style={lbl}>Leveransdatum</label><input type="date" style={inp} /></div>
@@ -789,7 +800,7 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
                         {advancedOpen && (
                           <tr style={{ background: '#f5faff' }}>
                             <td colSpan={7} style={{ padding: '8px 12px', borderBottom: '1px solid #e0e0e0' }}>
-                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+                              <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
                                 <div>
                                   <label style={lbl}>Artikelnr</label>
                                   <input disabled={isLocked} style={inp} placeholder="Artnr" />
@@ -831,7 +842,7 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
           </div>
 
           {/* Footer fields + totals */}
-          <div style={{ background: 'white', borderBottom: '1px solid #ddd', padding: '16px 20px', display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 2fr', gap: '18px', alignItems: 'start' }}>
+          <div className="form-row-stack" style={{ background: 'white', borderBottom: '1px solid #ddd', padding: '16px 20px', display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 2fr', gap: '18px', alignItems: 'start' }}>
             <div>
               <label style={lbl}>Fakturatext</label>
               <textarea value={invoiceText} onChange={e => setInvoiceText(e.target.value)} style={{ ...inp, minHeight: '60px', resize: 'vertical' }} placeholder="Hej! Tack för ditt köp hos oss." />
@@ -960,6 +971,22 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
                   />
                   {isLocked && <span style={{ fontSize: '11px', color: '#9ca3af', whiteSpace: 'nowrap' }}>Låst — redan skickad</span>}
                 </div>
+                {/* Sida 38, punkt 4: +/- zoom som fallback till pinch — samma
+                    kontrollrad som mall/accentfärg, så den redan skrollar
+                    horisontellt istället för att radbryta på smala skärmar. */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0, border: '1px solid #d1d5db', borderRadius: '6px', padding: '2px' }}>
+                  <button
+                    type="button" onClick={() => setPreviewZoom(z => Math.max(0.5, Math.round((z - 0.1) * 10) / 10))}
+                    disabled={previewZoom <= 0.5} title="Zooma ut"
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '26px', height: '26px', background: 'none', border: 'none', borderRadius: '4px', color: previewZoom <= 0.5 ? '#d1d5db' : '#374151', cursor: previewZoom <= 0.5 ? 'not-allowed' : 'pointer' }}
+                  ><ZoomOut size={14} /></button>
+                  <span style={{ fontSize: '11px', color: '#6b7280', width: '38px', textAlign: 'center', flexShrink: 0 }}>{Math.round(previewZoom * 100)}%</span>
+                  <button
+                    type="button" onClick={() => setPreviewZoom(z => Math.min(2, Math.round((z + 0.1) * 10) / 10))}
+                    disabled={previewZoom >= 2} title="Zooma in"
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '26px', height: '26px', background: 'none', border: 'none', borderRadius: '4px', color: previewZoom >= 2 ? '#d1d5db' : '#374151', cursor: previewZoom >= 2 ? 'not-allowed' : 'pointer' }}
+                  ><ZoomIn size={14} /></button>
+                </div>
                 <div style={{ flex: 1, minWidth: '8px' }} />
                 <button onClick={handleDownloadPdf} disabled={pdfBusy} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '7px 12px', background: 'white', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '12px', fontWeight: 600, color: '#374151', cursor: pdfBusy ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
                   <Download size={13} /> {pdfBusy ? 'Skapar PDF…' : 'Ladda ner PDF'}
@@ -967,20 +994,36 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
               </div>
             </div>
             {pdfError && <div style={{ fontSize: '12px', color: '#c00', marginBottom: '10px' }}>{pdfError}</div>}
-            <InvoiceDocument
-              ref={previewRef}
-              invoice={{ invoiceNumber: nextNum, date: invoiceDate, dueDate, terms }}
-              customer={customer}
-              company={company}
-              rows={rows}
-              totals={totals}
-              currency={currency}
-              invoiceText={invoiceText}
-              template={invoiceTemplateSnapshot.templateId}
-              accentColor={invoiceTemplateSnapshot.accentColor}
-              logoUrl={invoiceTemplateSnapshot.logoUrl}
-              footerText={invoiceTemplateSnapshot.footerText}
-            />
+            {/* touch-action: pinch-zoom — bekräftar explicit att en
+                tvåfingersgest inom den här skrollande ytan får zooma
+                sidan (index.html:s viewport-meta sätter redan inte
+                user-scalable=no/maximum-scale, så webbläsarens riktiga
+                pinch-zoom fungerar oavsett — den här raden är en garanti
+                mot att overflow/scroll-hanteringen tyst tar bort det om
+                ytan ändras här igen senare). */}
+            <div style={{ overflow: 'auto', touchAction: 'pinch-zoom' }}>
+              {/* `zoom` (inte transform:scale) eftersom zoom faktiskt ändrar
+                  layoutboxens storlek — scale hade lämnat kvar tomt
+                  utrymme runt en förminskad sida istället för att krympa
+                  ytan den upptar. Brett stöd i alla moderna motorer sedan
+                  några år tillbaka (inklusive Firefox). */}
+              <div style={{ zoom: previewZoom, transition: 'zoom 0.15s ease' }}>
+                <InvoiceDocument
+                  ref={previewRef}
+                  invoice={{ invoiceNumber: nextNum, date: invoiceDate, dueDate, terms }}
+                  customer={customer}
+                  company={company}
+                  rows={rows}
+                  totals={totals}
+                  currency={currency}
+                  invoiceText={invoiceText}
+                  template={invoiceTemplateSnapshot.templateId}
+                  accentColor={invoiceTemplateSnapshot.accentColor}
+                  logoUrl={invoiceTemplateSnapshot.logoUrl}
+                  footerText={invoiceTemplateSnapshot.footerText}
+                />
+              </div>
+            </div>
           </div>
         </div>
       )}

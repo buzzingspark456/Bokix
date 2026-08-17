@@ -99,7 +99,9 @@ export default function Payroll({
 
       {activeTab === 'employees' && viewState === 'list' && (
         <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
+          {/* .page-header-row (Sida 38, punkt 6): 260px sökfält + knapp
+              staplas på mobil istället för att tvinga sidledesskroll. */}
+          <div className="page-header-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
             <div style={{ position: 'relative' }}>
               <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
               <input type="text" placeholder="Sök anställd..." value={search} onChange={e => setSearch(e.target.value)} style={{ ...inputSt, paddingLeft: '36px', width: '260px', background: 'white' }} />

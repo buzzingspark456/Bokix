@@ -388,7 +388,7 @@ export default function TimeTracking({
                 <input type="text" style={inputStyle} placeholder="T.ex. Löpande bokföring" value={form.task} onChange={e => setForm(f => ({ ...f, task: e.target.value }))} required />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: '24px' }}>
+              <div className="form-row-3" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: '24px' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>Timmar</label>
                   <input type="number" style={inputStyle} placeholder="0" min="0" step="0.5" value={form.hours} onChange={e => setForm(f => ({ ...f, hours: e.target.value }))} required />

@@ -131,11 +131,16 @@ function SupplierInvoiceQuickModal({ contacts, setContacts, onSave, onCancel }) 
   };
 
   return (
-    <div onClick={onCancel} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: 'white', borderRadius: '14px', padding: '24px', width: '460px', maxWidth: '100%', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 24px 64px rgba(0,0,0,0.28)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
-          <h2 style={{ fontSize: '17px', fontWeight: 600, margin: 0, color: 'var(--text-main)' }}>Ny leverantörsfaktura</h2>
-          <button onClick={onCancel} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '4px' }}><X size={18} /></button>
+    // Sida 38, punkt 3: .modal-overlay/.modal-content istället för en egen
+    // fast-centrerad ruta — samma klasser som fakturans förhandsgranskning
+    // redan använder, så modalen automatiskt blir en fullbredd bottensheet
+    // på mobil (index.css @media 768px) utan att den här komponenten
+    // behöver känna till brytpunkten själv.
+    <div className="modal-overlay" onClick={onCancel}>
+      <div className="modal-content" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2 className="modal-title" style={{ margin: 0 }}>Ny leverantörsfaktura</h2>
+          <button className="modal-close" onClick={onCancel}><X size={18} /></button>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -179,7 +184,7 @@ function SupplierInvoiceQuickModal({ contacts, setContacts, onSave, onCancel }) 
           </div>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '22px' }}>
+        <div className="modal-footer">
           <button type="button" onClick={onCancel} style={{ padding: '9px 16px', background: 'var(--gray-100)', border: 'none', borderRadius: '8px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer' }}>Avbryt</button>
           <button type="button" onClick={submit} style={{ padding: '9px 18px', background: BRAND.green, border: 'none', borderRadius: '8px', fontWeight: 600, color: 'white', cursor: 'pointer' }}>Registrera faktura</button>
         </div>
@@ -214,11 +219,16 @@ function PaySupplierInvoiceModal({ invoice, contacts, onNavigate, onConfirm, onC
   const hasBankDetails = bankDetails.length > 0;
 
   return (
-    <div onClick={onCancel} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: 'white', borderRadius: '14px', padding: '24px', width: '620px', maxWidth: '100%', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 24px 64px rgba(0,0,0,0.28)' }}>
+    // Sida 38, punkt 3: samma .modal-overlay/.modal-content-mönster som
+    // SupplierInvoiceQuickModal ovan — se kommentaren där.
+    <div className="modal-overlay" onClick={onCancel}>
+      <div className="modal-content" onClick={e => e.stopPropagation()}>
+        {/* Ingen .modal-header här — den klassens inbyggda kantlinje/padding
+            skulle klämma in en oönskad avdelare mellan titeln och
+            underraden direkt under, som är tänkta att höra ihop visuellt. */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-          <h2 style={{ fontSize: '17px', fontWeight: 600, margin: 0, color: 'var(--text-main)' }}>Betala faktura #{invoice.invoiceNumber}</h2>
-          <button onClick={onCancel} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '4px' }}><X size={18} /></button>
+          <h2 className="modal-title" style={{ margin: 0 }}>Betala faktura #{invoice.invoiceNumber}</h2>
+          <button className="modal-close" onClick={onCancel}><X size={18} /></button>
         </div>
         <p style={{ margin: '0 0 20px', fontSize: '13px', color: 'var(--text-secondary)' }}>{supplier?.name || invoice.supplier || 'Okänd leverantör'} · {formatSEK(invoice.amount)}</p>
 
@@ -358,7 +368,10 @@ export default function SupplierInvoices({
         </div>
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', margin: '20px 0 16px' }}>
+      {/* Sida 38, punkt 6: .page-header-row staplar sökfältet (260px fast
+          bredd) och knappen i en kolumn på mobil istället för att tvinga
+          in dem på en rad som blir bredare än en telefonskärm. */}
+      <div className="page-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', margin: '20px 0 16px' }}>
         <div style={{ position: 'relative' }}>
           <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
           <input type="text" placeholder="Sök leverantörsfaktura..." value={search} onChange={e => setSearch(e.target.value)} style={{ ...inputSt, paddingLeft: '36px', width: '260px', background: 'white' }} />
@@ -369,7 +382,10 @@ export default function SupplierInvoices({
       </div>
 
       <div style={{ background: 'white', borderRadius: '12px', border: '1px solid var(--border)', overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        {/* Sida 38, punkt 1 (komplettering): den här tabellen missades i den
+            tidigare kortlist-omgången — samma responsive-table-mönster som
+            Fakturor/Kontoplan/Bokföring nu använder. */}
+        <table className="responsive-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: '#f8fafc' }}>
               {['Leverantör', 'Fakturanummer', 'Fakturadatum', 'Förfallodatum', 'Belopp', 'Status', ''].map(h => (
@@ -390,14 +406,14 @@ export default function SupplierInvoices({
               const isOverdue = !effectivelyPaid && inv.dueDate && new Date(inv.dueDate) < new Date();
               return (
                 <tr key={inv.id} style={{ borderBottom: i < filtered.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
-                  <td style={{ padding: '14px 16px', fontWeight: 600, color: '#111', fontSize: '14px' }}>
+                  <td data-label="Leverantör" style={{ padding: '14px 16px', fontWeight: 600, color: '#111', fontSize: '14px' }}>
                     {contacts.find(c => c.id === inv.supplierId)?.name || inv.supplier || 'Okänd leverantör'}
                   </td>
-                  <td style={{ padding: '14px 16px', color: '#374151', fontSize: '13px' }}>#{inv.invoiceNumber}</td>
-                  <td style={{ padding: '14px 16px', color: '#6b7280', fontSize: '13px' }}>{formatDate(inv.date)}</td>
-                  <td style={{ padding: '14px 16px', color: isOverdue ? '#ef4444' : '#6b7280', fontSize: '13px', fontWeight: isOverdue ? 600 : 400 }}>{formatDate(inv.dueDate)}</td>
-                  <td style={{ padding: '14px 16px', fontWeight: 600, color: '#111' }}>{formatSEK(inv.amount)}</td>
-                  <td style={{ padding: '14px 16px' }}>
+                  <td data-label="Fakturanummer" style={{ padding: '14px 16px', color: '#374151', fontSize: '13px' }}>#{inv.invoiceNumber}</td>
+                  <td data-label="Fakturadatum" style={{ padding: '14px 16px', color: '#6b7280', fontSize: '13px' }}>{formatDate(inv.date)}</td>
+                  <td data-label="Förfallodatum" style={{ padding: '14px 16px', color: isOverdue ? '#ef4444' : '#6b7280', fontSize: '13px', fontWeight: isOverdue ? 600 : 400 }}>{formatDate(inv.dueDate)}</td>
+                  <td data-label="Belopp" style={{ padding: '14px 16px', fontWeight: 600, color: '#111' }}>{formatSEK(inv.amount)}</td>
+                  <td data-label="Status" style={{ padding: '14px 16px' }}>
                     {needsReview
                       ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: BRAND.amberBg, color: BRAND.amberText }}><AlertCircle size={12} /> Granska</span>
                       : (
@@ -409,7 +425,7 @@ export default function SupplierInvoices({
                         </>
                       )}
                   </td>
-                  <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+                  <td data-label="" className="td-actions" style={{ padding: '14px 16px', textAlign: 'right' }}>
                     {needsReview ? (
                       fixingId === inv.id ? (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>

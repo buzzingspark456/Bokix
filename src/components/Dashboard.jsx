@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   FileText, Receipt, TrendingUp, TrendingDown,
   ChevronRight, Download, ArrowUpRight, ArrowDownRight,
@@ -215,6 +215,21 @@ function TodayRow({ item, onClick }) {
   );
 }
 
+// Sida 38, punkt 7: färre X-axeletiketter på mobil (var tredje månad
+// istället för alla tolv) — samma 768px-brytpunkt som resten av den
+// mobila genomgången, spårad med en riktig resize-lyssnare eftersom
+// Recharts XAxis:s `interval`-prop måste vara ett tal satt vid render,
+// inte något CSS kan styra i efterhand.
+function useIsMobileViewport() {
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth <= 768);
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+  return isMobile;
+}
+
 // `hideHeaderActions`: döljer bara Exportera/Ny faktura-knapparna i
 // headern — används av Landningssidans "Så ser det ut"-demo (LandingPage.jsx),
 // där Exportera annars faktiskt skulle ladda ner exempeldatan som en JSON-fil
@@ -222,6 +237,7 @@ function TodayRow({ item, onClick }) {
 // produktvisning. Påverkar inget för den riktiga, inloggade appen (default false).
 export default function Dashboard({ verifications, balances, accounts, invoices, expenses, contacts, setActiveTab, company, profileIncomplete, onResumeOnboarding, vatPeriods = {}, payrollRuns = [], hideHeaderActions = false }) {
   const [chartMode, setChartMode] = useState('revenue-expense');
+  const isMobileViewport = useIsMobileViewport();
 
   // Bugvakt (Sida 32): `maximumFractionDigits: 0` avrundar t.ex. -0.4 till
   // -0, och Intl.NumberFormat skriver då ut "-0 kr" istället för "0 kr" —
@@ -606,10 +622,16 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
             <ResponsiveContainer width="100%" height={260}>
               <BarChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }} barGap={3}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#9ca3af' }} dy={6} />
+                {/* interval=2: visa en etikett, hoppa över 2, visa nästa — var
+                    tredje månad på mobil istället för alla tolv som annars
+                    överlappar varandra på en 375px-bred yta. */}
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#9ca3af' }} dy={6} interval={isMobileViewport ? 2 : 0} />
                 <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#9ca3af' }} tickFormatter={fmtShort} width={44} />
                 <Tooltip content={<ChartTooltip fmt={fmt} />} cursor={{ fill: 'rgba(0,0,0,0.02)' }} />
-                <Legend iconType="circle" iconSize={7} wrapperStyle={{ fontSize: 12, paddingTop: 16 }} />
+                {/* verticalAlign="bottom" (uttryckligt, inte bara standard-
+                    värdet) — flyttar/håller legenden under diagrammet på
+                    mobil istället för att riskera att den kläms in bredvid. */}
+                <Legend iconType="circle" iconSize={7} verticalAlign="bottom" wrapperStyle={{ fontSize: 12, paddingTop: 16 }} />
                 <Bar dataKey="Intäkter" fill={REVENUE} radius={[4,4,0,0]} barSize={16} />
                 <Bar dataKey="Utgifter" fill={EXPENSE} radius={[4,4,0,0]} barSize={16} />
               </BarChart>
@@ -620,7 +642,7 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
             <ResponsiveContainer width="100%" height={260}>
               <BarChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#9ca3af' }} dy={6} />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#9ca3af' }} dy={6} interval={isMobileViewport ? 2 : 0} />
                 <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#9ca3af' }} tickFormatter={fmtShort} width={44} />
                 <Tooltip content={<ChartTooltip fmt={fmt} />} cursor={{ fill: 'rgba(0,0,0,0.02)' }} />
                 <ReferenceLine y={0} stroke="#e5e7eb" strokeWidth={1.5} />
