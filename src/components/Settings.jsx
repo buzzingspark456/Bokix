@@ -7,6 +7,7 @@ import {
 import { supabase } from '../supabaseClient';
 import { BRAND } from '../utils/brandColors';
 import InvoiceDocument, { INVOICE_TEMPLATES, DEFAULT_INVOICE_TEMPLATE } from './InvoiceDocument';
+import { useIsMobileViewport } from '../hooks/useIsMobileViewport';
 
 // Visas istället för att faktiskt anropa Supabase när `readOnly` (Sida
 // landningssidans demo, se DemoWorkspace.jsx) — samma text överallt i den
@@ -529,7 +530,19 @@ function ActiveSessionsSection({ user, readOnly = false }) {
 // bankuppgifter etc — ingen separat tabell behövs). Redan sparade fakturor
 // fryser sitt utseende vid sparningstillfället (se invoiceTemplateSnapshot
 // i Invoices.jsx) — ett mallbyte här påverkar bara FRAMTIDA fakturor.
+// Kundfeedback: TemplateThumb har en FAST pixelbredd (A4_PAGE_WIDTH * scale,
+// t.ex. 476px vid scale 0.6) eftersom InvoiceDocument själv behöver en
+// riktig fast bredd för sitt A4-utseende innan CSS-transformen skalar ner
+// den — det är inte en procentbredd som kan krympa av sig själv. Båda
+// förhandsvisnings-containrarna (gallerikorten och "Anpassa mallen"s stora
+// live-förhandsvisning) uppmättes till samma ~265px inuti .settings-page
+// (16px sidopadding, mobil) + .card (22px padding) på en 375px-skärm —
+// scale 0.32 (→254px) ger en säker marginal utan att räkna om det för
+// hand vid varje breakpoint-ändring.
+const MOBILE_TEMPLATE_THUMB_SCALE = 0.32;
+
 function InvoiceTemplateSection({ company, setCompanyInfo, user, readOnly = false }) {
+  const isMobile = useIsMobileViewport();
   const selectedId = company?.invoiceTemplateId || DEFAULT_INVOICE_TEMPLATE;
   const activeTpl = INVOICE_TEMPLATES[selectedId] || INVOICE_TEMPLATES[DEFAULT_INVOICE_TEMPLATE];
   const accentColor = company?.invoiceAccentColor || activeTpl.defaultAccent;
@@ -554,7 +567,7 @@ function InvoiceTemplateSection({ company, setCompanyInfo, user, readOnly = fals
               selected={selectedId === tpl.id}
               onSelect={() => setCompanyInfo({ ...company, invoiceTemplateId: tpl.id })}
               previewProps={{ ...previewProps, accentColor: company?.invoiceAccentColor || tpl.defaultAccent }}
-              scale={0.44}
+              scale={isMobile ? MOBILE_TEMPLATE_THUMB_SCALE : 0.44}
             />
           ))}
         </div>
@@ -591,10 +604,13 @@ function InvoiceTemplateSection({ company, setCompanyInfo, user, readOnly = fals
             <AutoField label="Tilläggsinformation / fottext" value={company?.invoiceFooterText || ''} onChange={(v) => setCompanyInfo({ ...company, invoiceFooterText: v })} hint="Visas längst ner på fakturan, t.ex. betalningsvillkor eller en hälsning." />
           </div>
 
-          <div style={{ flex: 1, minWidth: '300px', maxWidth: '500px' }}>
+          {/* minWidth 300px (mobil: 0) — annars vann minWidth-golvet över
+              flexWrap på en 375px-skärm och tvingade förhandsvisningen
+              lika brett-överskuret som gallerikorten ovan gjorde. */}
+          <div style={{ flex: 1, minWidth: isMobile ? 0 : '300px', maxWidth: '500px', width: isMobile ? '100%' : undefined }}>
             <div style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Live-förhandsvisning</div>
             <div style={{ border: '1px solid #e4e4e7', borderRadius: '10px', overflow: 'hidden', background: '#e4e4e7', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)' }}>
-              <TemplateThumb tplId={selectedId} previewProps={previewProps} scale={0.6} />
+              <TemplateThumb tplId={selectedId} previewProps={previewProps} scale={isMobile ? MOBILE_TEMPLATE_THUMB_SCALE : 0.6} />
             </div>
           </div>
         </div>
