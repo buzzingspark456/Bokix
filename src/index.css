@@ -931,12 +931,22 @@ body {
    knapparna (space-around delar bara ut ÖVRIGT utrymme, det gav inte
    luft mellan själva knapparna när de fem tillsammans redan fyllde
    nästan hela bredden) och en märkbart större ikon-cirkel. */
+/* width:100% är avgörande, inte kosmetiskt: .mobile-bottom-nav (föräldern)
+   blir själv display:flex på mobil (se @media 768px nedan) — utan ett
+   uttryckligt width här är .mobile-bottom-nav-inner då bara ett vanligt
+   FLEX-BARN i den föräldern, och ett flex-barn utan flex/width krymper
+   till sin egen INNEHÅLLSBREDD istället för att sträcka sig över hela
+   raden som en vanlig block-<div> annars gör. Resultatet (kundfeedback):
+   alla fem knapparna klumpar ihop sig till vänster med dött utrymme till
+   höger, istället för att fylla och centrera sig över hela skärmen. */
 .mobile-bottom-nav-inner {
   display: flex;
   align-items: stretch;
   justify-content: space-around;
   gap: 6px;
   padding: 10px 8px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .mobile-nav-btn {
@@ -2504,9 +2514,13 @@ textarea.form-control {
     display: none;
   }
 
-  /* Visa mobil-nav */
+  /* Visa mobil-nav — justify-content:center här är ett andra skyddsnät
+     utöver .mobile-bottom-nav-inner:s width:100% ovan: även om den ändå
+     inte skulle fylla hela bredden av någon anledning, centreras den
+     istället för att fastna mot vänsterkanten. */
   .mobile-bottom-nav {
     display: flex;
+    justify-content: center;
   }
 
   /* KPI 2-kolumner */
