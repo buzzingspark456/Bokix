@@ -153,7 +153,7 @@
   /* ── Layout ── */
   --sidebar-width: 230px;
   --topbar-height: 56px;
-  --mobile-nav-height: 60px;
+  --mobile-nav-height: 72px; /* Fortnox-terugkoppling: storre ikoner + mer padding kraver mer hojd */
 }
 
 
@@ -924,12 +924,19 @@ body {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+/* Fortnox-jämförelsen (kundfeedback, upprepad flera gånger): "det ska
+   vara distans... de ska vara stora... i telefonen ser det äckligt ut"
+   — knapparna satt för hopklämda och ikonerna för små jämfört med
+   referensbilden. Mer padding i containern, ett riktigt gap mellan
+   knapparna (space-around delar bara ut ÖVRIGT utrymme, det gav inte
+   luft mellan själva knapparna när de fem tillsammans redan fyllde
+   nästan hela bredden) och en märkbart större ikon-cirkel. */
 .mobile-bottom-nav-inner {
   display: flex;
   align-items: stretch;
   justify-content: space-around;
-  gap: 2px;
-  padding: 8px 6px;
+  gap: 6px;
+  padding: 10px 8px;
 }
 
 .mobile-nav-btn {
@@ -938,8 +945,8 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  min-height: 44px;
+  gap: 6px;
+  min-height: 50px;
   /* -webkit-appearance/tap-highlight: utan dessa lägger iOS/Android sin egen
      grå knapp-bakgrund bakom VARJE knapp (inte bara den aktiva) — det var
      det som gjorde bottennaven såg "kantig" och oformaterad ut på en riktig
@@ -952,7 +959,7 @@ body {
   outline: none;
   cursor: pointer;
   font-family: var(--font-sans);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   color: #6b7280;
   padding: 6px 2px;
@@ -969,8 +976,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 40px;
+  height: 40px;
   border-radius: 999px;
   background: transparent;
   transform: scale(1);

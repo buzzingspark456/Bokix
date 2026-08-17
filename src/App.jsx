@@ -19,7 +19,6 @@ import {
   FileCheck,
   Search,
   Menu,
-  MoreHorizontal,
   TrendingUp,
   TrendingDown,
   ArrowLeftRight,
@@ -2215,12 +2214,12 @@ function App() {
                 className={`mobile-nav-btn ${isActive ? 'active' : ''}`}
                 onClick={() => handleNavTabChange(item.id)}
               >
-                <span className="mobile-nav-icon"><item.icon size={20} /></span>
+                <span className="mobile-nav-icon"><item.icon size={23} /></span>
                 <span>{item.label}</span>
               </button>
             );
           })}
-          {/* "Mer" — öppnar en bottensheet, navigerar inte till en egen sida direkt.
+          {/* "Meny" — öppnar en bottensheet, navigerar inte till en egen sida direkt.
               Bugkritiskt: dess aktiva tillstånd följer samma activeTab/route-state
               som resten av naven (isMobileSheetItemActive), inte en egen parallell
               state — så den lyser grönt även när man kommit till t.ex. Rapporter
@@ -2231,8 +2230,11 @@ function App() {
             aria-haspopup="true"
             aria-expanded={mobileMoreOpen}
           >
-            <span className="mobile-nav-icon"><MoreHorizontal size={20} /></span>
-            <span>Mer</span>
+            {/* Fortnox-jämförelsen: "Meny" (inte "Mer") med samma
+                hamburgerikon som appens övriga menyknappar, istället för
+                tre prickar — matchar det fjärde navvalet i referensbilden. */}
+            <span className="mobile-nav-icon"><Menu size={23} /></span>
+            <span>Meny</span>
           </button>
         </div>
       </nav>
