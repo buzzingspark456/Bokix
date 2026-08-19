@@ -101,6 +101,7 @@ import ReviewQueue from './components/ReviewQueue';
 import CompanySettings from './components/CompanySettings';
 import HelpDrawer from './components/HelpDrawer';
 import Toast from './components/shared/Toast';
+import PaymentRequiredGate from './components/PaymentRequiredGate';
 // ──────────────────────────────────────────────
 // Default company data factory
 // ──────────────────────────────────────────────
@@ -263,6 +264,19 @@ function App() {
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showLanding, setShowLanding] = useState(true);
+  // null = ingen bedömning gjord än / inte blockerad. 'blocked' = inloggad
+  // Supabase-användare UTAN giltig public.subscriptions-rad (trialing/
+  // active/past_due) — se PaymentRequiredGate.jsx. Satt i fetchUserData,
+  // FÖRE isLoggedIn(true), så appen aldrig hinner visas ens ett ögonblick.
+  const [subscriptionGate, setSubscriptionGate] = useState(null);
+  // Fångas EN gång vid första renderingen — innan den andra useEffect-hooken
+  // längre ner (?subscription_checkout=success-toasten) hinner städa bort
+  // parametern ur URL:en. fetchUserData körs asynkront (efter getSession()-
+  // anropet), så om den istället läste window.location.search direkt skulle
+  // den nästan alltid komma efter att toast-hooken redan rensat den.
+  const [initialSubscriptionCheckoutParam] = useState(
+    () => new URLSearchParams(window.location.search).get('subscription_checkout')
+  );
 
   // "Kom igång"/"Logga in" klickat på en av de fristående marknadssidorna
   // (Funktioner/Priser/Om oss/Kontakt, se MarketingLayout) navigerar hit
@@ -459,6 +473,7 @@ function App() {
       if (!session?.user) {
         setIsLoggedIn(false);
         setShowOnboarding(false);
+        setSubscriptionGate(null);
       } else if (event === 'SIGNED_IN') {
         fetchUserData(session.user);
       }
@@ -481,6 +496,43 @@ function App() {
         setIsLoadingAuth(false);
         return;
       }
+
+      // ── Betalspärr: en inloggad Supabase-användare får bara in i appen med
+      // en giltig prenumeration (trialing/active/past_due — past_due är
+      // Stripes egen automatiska betalningsomförsök, inte samma sak som
+      // uppsagd). Kollas FÖRE all annan datainhämtning nedan, så ett
+      // blockerat konto aldrig hinner se sina egna företagsdata ens kort. ──
+      const ALLOWED_SUBSCRIPTION_STATUSES = ['trialing', 'active', 'past_due'];
+      const fetchSubscriptionStatus = async () => {
+        const { data } = await supabase
+          .from('subscriptions')
+          .select('status')
+          .eq('user_id', authUser.id)
+          .maybeSingle();
+        return data;
+      };
+
+      let subRow = await fetchSubscriptionStatus();
+
+      // Precis kommen tillbaka från en lyckad Stripe Checkout
+      // (?subscription_checkout=success, se Auth.jsx/create-subscription-
+      // checkout.js) — webhooken (customer.subscription.created) kan hinna
+      // efter med några sekunder. Väntar in den istället för att blockera
+      // någon som precis betalade, max ~9 sekunder innan vi ger upp.
+      const justSubscribed = initialSubscriptionCheckoutParam === 'success';
+      if (justSubscribed && (!subRow || !ALLOWED_SUBSCRIPTION_STATUSES.includes(subRow.status))) {
+        for (let attempt = 0; attempt < 6 && (!subRow || !ALLOWED_SUBSCRIPTION_STATUSES.includes(subRow.status)); attempt++) {
+          await new Promise(resolve => setTimeout(resolve, 1500));
+          subRow = await fetchSubscriptionStatus();
+        }
+      }
+
+      if (!subRow || !ALLOWED_SUBSCRIPTION_STATUSES.includes(subRow.status)) {
+        setSubscriptionGate('blocked');
+        setIsLoadingAuth(false);
+        return;
+      }
+      setSubscriptionGate(null);
 
       const { data: dbData, error } = await supabase
         .from('user_data')
@@ -2039,8 +2091,10 @@ function App() {
         path="/"
         element={
           <>
-            {!isLoggedIn ? (
-              showLanding 
+            {subscriptionGate === 'blocked' ? (
+              <PaymentRequiredGate user={user} />
+            ) : !isLoggedIn ? (
+              showLanding
                 ? <LandingPage onEnterApp={() => setShowLanding(false)} />
                 : <Auth onLogin={handleLogin} onBackToLanding={() => setShowLanding(true)} />
             ) : (
