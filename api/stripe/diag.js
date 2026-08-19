@@ -76,6 +76,35 @@ export default async function handler(req, res) {
         const { data: subRow, error: subErr } = await admin.from('subscriptions').select('*').eq('user_id', match.id).maybeSingle();
         out.subscriptions_row = subRow || null;
         if (subErr) out.subscriptions_row_error = subErr.message;
+
+        const doBackfill = req.query?.backfill === '1' || req.url.includes('backfill=1');
+        if (doBackfill && out.stripe_subscriptions?.length > 0) {
+          // Flera testregistreringar kan ha skapat flera trialing-
+          // prenumerationer på samma konto (samma user_id i metadata) — bara
+          // EN ska vara aktiv, annars riskerar kontot dubbel debitering när
+          // provperioden går ut. Behåller den senast skapade, avbryter resten.
+          const sorted = [...out.stripe_subscriptions].sort((a, b) => (b.trial_end || 0) - (a.trial_end || 0));
+          const primary = sorted[0];
+          const duplicates = sorted.slice(1).filter(s => s.status === 'trialing' || s.status === 'active');
+
+          out.backfill = { primary: primary.id, canceled_duplicates: [] };
+          for (const dup of duplicates) {
+            await stripe.subscriptions.cancel(dup.id);
+            out.backfill.canceled_duplicates.push(dup.id);
+          }
+
+          const { error: upsertErr } = await admin.from('subscriptions').upsert({
+            user_id: match.id,
+            stripe_customer_id: primary.customer,
+            stripe_subscription_id: primary.id,
+            status: primary.status,
+            trial_ends_at: primary.trial_end ? new Date(primary.trial_end * 1000).toISOString() : null,
+            current_period_end: primary.current_period_end ? new Date(primary.current_period_end * 1000).toISOString() : null,
+            cancel_at_period_end: false,
+          }, { onConflict: 'user_id' });
+          if (upsertErr) out.backfill.error = upsertErr.message;
+          else out.backfill.status = 'ok';
+        }
       }
     }
 
