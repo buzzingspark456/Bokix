@@ -81,6 +81,18 @@ export default async function handler(req, res) {
       return;
     }
 
+    if (action === 'inspect_events') {
+      const subId = req.query?.subscription_id || new URL(req.url, 'http://x').searchParams.get('subscription_id');
+      const events = await stripe.events.list({ type: 'customer.subscription.created', limit: 10 });
+      const matching = events.data.filter(e => e.data?.object?.id === subId);
+      res.status(200).json({
+        total_recent_events: events.data.length,
+        matching: matching.map(e => ({ id: e.id, type: e.type, created: e.created, pending_webhooks: e.pending_webhooks, api_version: e.api_version })),
+        most_recent_5: events.data.slice(0, 5).map(e => ({ id: e.id, created: e.created, subscription_id: e.data?.object?.id, pending_webhooks: e.pending_webhooks })),
+      });
+      return;
+    }
+
     if (action === 'cleanup') {
       const subId = req.query?.subscription_id || new URL(req.url, 'http://x').searchParams.get('subscription_id');
       const testUserId = req.query?.user_id || new URL(req.url, 'http://x').searchParams.get('user_id');
