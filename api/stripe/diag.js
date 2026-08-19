@@ -27,6 +27,22 @@ export default async function handler(req, res) {
 
     // 1) Vilka händelser lyssnar Stripes webhook-endpoint(er) faktiskt på?
     const endpoints = await stripe.webhookEndpoints.list({ limit: 10 });
+
+    if (req.query?.fix_webhook === '1' || req.url.includes('fix_webhook=1')) {
+      for (const e of endpoints.data) {
+        const needed = ['customer.subscription.created', 'customer.subscription.updated', 'customer.subscription.deleted', 'checkout.session.completed'];
+        const missing = needed.filter(ev => !e.enabled_events.includes(ev));
+        if (missing.length > 0) {
+          const updated = await stripe.webhookEndpoints.update(e.id, {
+            enabled_events: [...e.enabled_events, ...missing],
+          });
+          out.webhook_fix = { id: e.id, added: missing, now: updated.enabled_events };
+        } else {
+          out.webhook_fix = { id: e.id, added: [], note: 'already had all needed events' };
+        }
+      }
+    }
+
     out.webhook_endpoints = endpoints.data.map(e => ({
       id: e.id, url: e.url, status: e.status, enabled_events: e.enabled_events,
     }));
