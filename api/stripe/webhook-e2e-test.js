@@ -109,6 +109,18 @@ export default async function handler(req, res) {
       return;
     }
 
+    if (action === 'fix_events_from') {
+      // ROTORSAKEN: v2 Event Destinations (docs.stripe.com/api/v2/core/
+      // event-destinations) hade events_from:["@accounts"] — bara
+      // händelser från ANSLUTNA konton, ALDRIG från Bokix eget huvudkonto
+      // där prenumerationerna faktiskt skapas. "@self" lägger till det.
+      const updated = await stripe.v2.core.eventDestinations.update('we_1TzjVNCoBG56XrC8K5vxclZF', {
+        events_from: ['@self', '@accounts'],
+      });
+      res.status(200).json({ id: updated.id, events_from: updated.events_from, status: updated.status });
+      return;
+    }
+
     if (action === 'cleanup') {
       const subId = req.query?.subscription_id || new URL(req.url, 'http://x').searchParams.get('subscription_id');
       const testUserId = req.query?.user_id || new URL(req.url, 'http://x').searchParams.get('user_id');
