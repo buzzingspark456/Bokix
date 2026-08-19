@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Mail, LifeBuoy, CreditCard, ShieldCheck, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { BRAND } from '../../utils/brandColors';
 import MarketingLayout, { Reveal } from './MarketingLayout';
+import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW, ACCENT_CYCLE } from './marketingTokens';
 
 // Ämnesval i formuläret — samma tre ärendetyper som tidigare bara var
 // mailto-genvägar, nu förifyllda dropdown-värden istället. "Övrigt" täcker
@@ -37,9 +38,9 @@ const inputStyle = {
   padding: '12px 14px',
   fontSize: '14.5px',
   fontFamily: 'inherit',
-  color: '#0f172a',
+  color: INK,
   background: 'white',
-  border: '1.5px solid #e5e7eb',
+  border: `1.5px solid ${CARD_BORDER}`,
   borderRadius: '10px',
   outline: 'none',
   transition: 'border-color 0.15s, box-shadow 0.15s',
@@ -49,7 +50,7 @@ const labelStyle = {
   display: 'block',
   fontSize: '13px',
   fontWeight: 700,
-  color: '#334155',
+  color: INK_SOFT,
   marginBottom: '7px',
 };
 
@@ -114,15 +115,15 @@ export default function ContactPage() {
         .contact-spin { animation: contactSpin 0.8s linear infinite; }
       `}</style>
 
-      <section style={{ padding: '150px 24px 60px', background: BRAND.greenLight, position: 'relative', overflow: 'hidden' }}>
+      <section style={{ padding: '150px 24px 60px', background: IVORY, position: 'relative', overflow: 'hidden' }}>
         <Reveal style={{ maxWidth: '620px', margin: '0 auto', textAlign: 'center', position: 'relative' }}>
           <div style={{ width: 60, height: 60, borderRadius: '17px', background: BRAND.greenDark, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
             <Mail size={26} color="white" />
           </div>
-          <h1 style={{ fontSize: 'clamp(30px, 4.5vw, 46px)', fontWeight: 900, letterSpacing: '-0.03em', color: '#0f172a', marginBottom: '16px', lineHeight: 1.1 }}>
+          <h1 style={{ fontFamily: SERIF, fontSize: 'clamp(30px, 4.5vw, 44px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '16px', lineHeight: 1.16 }}>
             Kontakta oss
           </h1>
-          <p style={{ fontSize: '16.5px', color: '#475569', lineHeight: 1.75 }}>
+          <p style={{ fontSize: '16.5px', color: MUTED, lineHeight: 1.75 }}>
             Inget säljteam, inget callcenter. Skriv till oss här nedan, en riktig person läser och svarar direkt på din e-post.
           </p>
         </Reveal>
@@ -130,21 +131,21 @@ export default function ContactPage() {
 
       <section style={{ padding: '40px 24px 110px', background: 'white' }}>
         <Reveal scale style={{ maxWidth: '640px', margin: '0 auto' }}>
-          <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '22px', padding: 'clamp(24px, 5vw, 40px)', boxShadow: '0 4px 24px -8px rgba(15,23,42,0.06)' }}>
+          <div style={{ background: 'white', border: `1px solid ${CARD_BORDER}`, borderRadius: '22px', padding: 'clamp(24px, 5vw, 40px)', boxShadow: CARD_SHADOW }}>
             {status === 'sent' ? (
               <div style={{ textAlign: 'center', padding: '30px 10px' }}>
                 <div style={{ width: 56, height: 56, borderRadius: '50%', background: BRAND.greenLight, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' }}>
                   <CheckCircle2 size={28} color={BRAND.greenDark} />
                 </div>
-                <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a', marginBottom: '8px' }}>Meddelandet är skickat</h2>
-                <p style={{ fontSize: '14.5px', color: '#64748b', lineHeight: 1.6, marginBottom: '22px' }}>
+                <h2 style={{ fontFamily: SERIF, fontSize: '20px', fontWeight: 700, color: INK, marginBottom: '8px' }}>Meddelandet är skickat</h2>
+                <p style={{ fontSize: '14.5px', color: MUTED, lineHeight: 1.6, marginBottom: '22px' }}>
                   Tack! Vi hör av oss till dig på din e-postadress så snart vi kan.
                 </p>
                 <button
                   type="button"
                   onClick={() => setStatus('idle')}
                   className="lp-btn-secondary"
-                  style={{ padding: '10px 20px', background: 'white', border: '1.5px solid #e5e7eb', borderRadius: '10px', fontWeight: 700, fontSize: '13.5px', color: '#334155', cursor: 'pointer' }}
+                  style={{ padding: '10px 20px', background: 'white', border: `1.5px solid ${CARD_BORDER}`, borderRadius: '10px', fontWeight: 700, fontSize: '13.5px', color: INK_SOFT, cursor: 'pointer' }}
                 >
                   Skicka ett till meddelande
                 </button>
@@ -171,8 +172,9 @@ export default function ContactPage() {
                 <div style={{ marginBottom: '18px' }}>
                   <label style={labelStyle}>Ämne</label>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '8px' }}>
-                    {TOPICS.map((t) => {
+                    {TOPICS.map((t, i) => {
                       const active = form.topic === t.value;
+                      const accent = ACCENT_CYCLE[i % 3];
                       return (
                         <button
                           key={t.value} type="button" onClick={() => update('topic', t.value)}
@@ -180,10 +182,10 @@ export default function ContactPage() {
                           title={t.desc}
                           style={{
                             display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px',
-                            border: `1.5px solid ${active ? BRAND.green : '#e5e7eb'}`,
-                            background: active ? BRAND.greenLight : 'white',
+                            border: `1.5px solid ${active ? accent.fg : CARD_BORDER}`,
+                            background: active ? accent.soft : 'white',
                             borderRadius: '10px', fontSize: '13px', fontWeight: 600,
-                            color: active ? BRAND.greenDark : '#475569', textAlign: 'left',
+                            color: active ? accent.fg : INK_SOFT, textAlign: 'left',
                           }}
                         >
                           <t.icon size={15} style={{ flexShrink: 0 }} />

@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CheckCircle, ArrowRight, ChevronDown, ShieldCheck, Zap } from 'lucide-react';
+import { CheckCircle, ArrowRight, ChevronDown, ShieldCheck, Zap, Check } from 'lucide-react';
 import { BRAND } from '../../utils/brandColors';
 import MarketingLayout, { Reveal } from './MarketingLayout';
+import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW, ACCENT_CYCLE } from './marketingTokens';
 
 const INCLUDED = [
   'Obegränsat med kund- och leverantörsfakturor',
@@ -17,7 +18,7 @@ const INCLUDED = [
 
 // Ärliga, konkreta frågor — inga påhittade "99% nöjda kunder"-svar.
 const FAQ = [
-  { q: 'Behöver jag ange kortuppgifter för att prova?', a: 'Nej. Du provar Bokix i 30 dagar helt gratis, utan kort och utan bindningstid.' },
+  { q: 'Behöver jag ange kortuppgifter för att prova?', a: 'Ja, du lägger in dina betaluppgifter hos Stripe redan vid registreringen — men du debiteras ingenting under de första 30 dagarna. Avslutar du innan dess kostar det dig aldrig något.' },
   { q: 'Kan jag avsluta när som helst?', a: 'Ja. Det finns ingen uppsägningstid eller bindningstid, du avslutar när du vill.' },
   { q: 'Vilka bolagsformer stöds?', a: 'Bokix känner igen enskild firma, aktiebolag, handelsbolag/kommanditbolag och ekonomisk förening utifrån organisationsnumret, och bokför enligt rätt regler för respektive form.' },
   { q: 'Ingår support i priset?', a: 'Ja, support ingår. Du når oss på support@bokix.se.' },
@@ -26,16 +27,16 @@ const FAQ = [
 function FaqItem({ q, a }) {
   const [open, setOpen] = useState(false);
   return (
-    <div style={{ borderBottom: '1px solid #e5e7eb' }}>
+    <div style={{ borderBottom: `1px solid ${CARD_BORDER}` }}>
       <button
         onClick={() => setOpen(o => !o)}
         style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', padding: '20px 4px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}
       >
-        <span style={{ fontSize: '15px', fontWeight: 700, color: '#111827' }}>{q}</span>
-        <ChevronDown size={18} color="#6b7280" style={{ flexShrink: 0, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+        <span style={{ fontSize: '15px', fontWeight: 700, color: INK }}>{q}</span>
+        <ChevronDown size={18} color={MUTED} style={{ flexShrink: 0, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
       </button>
       <div style={{ maxHeight: open ? '200px' : '0px', overflow: 'hidden', transition: 'max-height 0.3s ease' }}>
-        <p style={{ fontSize: '14px', color: '#64748b', lineHeight: 1.65, padding: '0 4px 20px', margin: 0 }}>{a}</p>
+        <p style={{ fontSize: '14px', color: MUTED, lineHeight: 1.65, padding: '0 4px 20px', margin: 0 }}>{a}</p>
       </div>
     </div>
   );
@@ -58,15 +59,15 @@ export default function PricingPage() {
         .pricing-feature-row:hover { transform: translateX(3px); }
       `}</style>
 
-      <section style={{ padding: '150px 24px 70px', background: BRAND.greenLight, position: 'relative', overflow: 'hidden' }}>
+      <section style={{ padding: '150px 24px 70px', background: IVORY, position: 'relative', overflow: 'hidden' }}>
         <Reveal style={{ maxWidth: '640px', margin: '0 auto', textAlign: 'center', position: 'relative' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '7px 16px', borderRadius: '999px', background: 'white', border: `1px solid ${BRAND.green}33`, fontSize: '12.5px', fontWeight: 700, color: BRAND.greenDark, marginBottom: '20px' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '7px 16px', borderRadius: '999px', background: 'white', border: `1px solid ${CARD_BORDER}`, fontSize: '12.5px', fontWeight: 700, color: BRAND.greenDark, marginBottom: '20px' }}>
             Inga dolda avgifter
           </div>
-          <h1 style={{ fontSize: 'clamp(32px, 5vw, 54px)', fontWeight: 900, letterSpacing: '-0.03em', color: '#0f172a', marginBottom: '16px', lineHeight: 1.1 }}>
+          <h1 style={{ fontFamily: SERIF, fontSize: 'clamp(32px, 5vw, 52px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '16px', lineHeight: 1.14 }}>
             Ett pris. Allt ingår.
           </h1>
-          <p style={{ fontSize: '17px', color: '#475569', lineHeight: 1.7 }}>
+          <p style={{ fontSize: '17px', color: MUTED, lineHeight: 1.7 }}>
             Ingen "bas + tillägg per funktion"-modell att räkna ut. Ett pris, en faktura, allt du behöver.
           </p>
         </Reveal>
@@ -74,48 +75,59 @@ export default function PricingPage() {
 
       <section style={{ padding: '0 24px 60px', background: 'white' }}>
         <Reveal scale style={{ maxWidth: '460px', margin: '0 auto' }}>
-          <div style={{ background: 'white', border: `1.5px solid ${BRAND.green}`, borderRadius: '26px', overflow: 'hidden', boxShadow: '0 4px 20px rgba(61,122,46,0.15)' }}>
+          <div style={{ background: 'white', border: `1px solid ${CARD_BORDER}`, borderRadius: '26px', overflow: 'hidden', boxShadow: CARD_SHADOW }}>
 
             {/* Mörk topp-sektion för priset — bryter kortet i två zoner istället
                 för en enda platt vit yta, så det känns som en riktig produkt
                 snarare än en generisk prislista. */}
             <div style={{ background: BRAND.greenDark, padding: '38px 36px 34px', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
               <div style={{ position: 'relative' }}>
-                <span style={{ fontSize: '56px', fontWeight: 900, letterSpacing: '-0.03em', color: 'white' }}>99 kr</span>
+                <span style={{ fontFamily: SERIF, fontSize: '52px', fontWeight: 700, letterSpacing: '-0.01em', color: 'white' }}>99 kr</span>
                 <span style={{ fontSize: '16px', color: 'rgba(255,255,255,0.6)' }}> /mån</span>
                 <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.65)', marginTop: '6px' }}>Exkl. moms · avsluta när som helst</div>
               </div>
             </div>
 
             <div style={{ padding: '32px 36px 36px' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '11px', marginBottom: '28px', borderTop: '1px solid #f1f5f9', paddingTop: '22px' }}>
-                {INCLUDED.map(f => (
-                  <div key={f} className="pricing-feature-row" style={{ fontSize: '14px', color: '#374151', fontWeight: 500, lineHeight: 1.5 }}>{f}</div>
-                ))}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '13px', marginBottom: '28px', borderTop: `1px solid ${CARD_BORDER}`, paddingTop: '22px' }}>
+                {INCLUDED.map((f, i) => {
+                  const accent = ACCENT_CYCLE[i % 3];
+                  return (
+                    <div key={f} className="pricing-feature-row" style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                      <div style={{ width: 18, height: 18, borderRadius: '50%', background: accent.soft, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '1px' }}>
+                        <Check size={10} color={accent.fg} strokeWidth={3} />
+                      </div>
+                      <span style={{ fontSize: '14px', color: INK_SOFT, fontWeight: 500, lineHeight: 1.5 }}>{f}</span>
+                    </div>
+                  );
+                })}
               </div>
               <button className="lp-btn-primary" onClick={enterApp} style={{ width: '100%', padding: '16px', borderRadius: '12px', border: 'none', background: BRAND.green, fontSize: '15.5px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', color: 'white', boxShadow: '0 2px 8px rgba(61,122,46,0.3)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                 Kom igång gratis <ArrowRight size={16} />
               </button>
-              <div style={{ textAlign: 'center', fontSize: '12.5px', color: '#9ca3af', marginTop: '14px' }}>Gratis i 30 dagar · inget kreditkort krävs</div>
+              <div style={{ textAlign: 'center', fontSize: '12.5px', color: '#9c9689', marginTop: '14px' }}>Gratis i 30 dagar · avsluta när som helst</div>
             </div>
           </div>
         </Reveal>
 
         <Reveal delay={80} style={{ maxWidth: '460px', margin: '28px auto 0', display: 'flex', justifyContent: 'center', gap: '22px', flexWrap: 'wrap' }}>
-          {TRUST_BITS.map(t => (
-            <div key={t.text} style={{ display: 'flex', alignItems: 'center', gap: '7px', fontSize: '12.5px', fontWeight: 600, color: '#64748b' }}>
-              <t.icon size={14} color={BRAND.green} /> {t.text}
-            </div>
-          ))}
+          {TRUST_BITS.map((t, i) => {
+            const accent = ACCENT_CYCLE[i % 3];
+            return (
+              <div key={t.text} style={{ display: 'flex', alignItems: 'center', gap: '7px', fontSize: '12.5px', fontWeight: 600, color: INK_SOFT }}>
+                <t.icon size={14} color={accent.fg} /> {t.text}
+              </div>
+            );
+          })}
         </Reveal>
       </section>
 
-      <section style={{ padding: '70px 24px 100px', background: '#f8fafc' }}>
+      <section style={{ padding: '70px 24px 100px', background: IVORY }}>
         <div style={{ maxWidth: '680px', margin: '0 auto' }}>
           <Reveal style={{ textAlign: 'center', marginBottom: '36px' }}>
-            <h2 style={{ fontSize: 'clamp(22px, 3vw, 30px)', fontWeight: 900, letterSpacing: '-0.02em', color: '#0f172a' }}>Vanliga frågor</h2>
+            <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(22px, 3vw, 28px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK }}>Vanliga frågor</h2>
           </Reveal>
-          <Reveal delay={100} className="lp-card-hover" style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '16px', padding: '8px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+          <Reveal delay={100} className="lp-card-hover" style={{ background: 'white', border: `1px solid ${CARD_BORDER}`, borderRadius: '16px', padding: '8px 24px', boxShadow: '0 1px 3px rgba(28,36,32,0.05)' }}>
             {FAQ.map(item => <FaqItem key={item.q} {...item} />)}
           </Reveal>
         </div>

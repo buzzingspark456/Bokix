@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Menu, X, ArrowRight, ChevronRight } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { BRAND } from '../../utils/brandColors';
+import { ACCENT_CYCLE } from './marketingTokens';
 
 // ── Bokix ordmärke — exakt samma gradient som sidopanelens logga i själva
 // appen (App.jsx BokixLogo), så en besökare känner igen samma identitet på
@@ -46,17 +47,84 @@ function MarketingStyles() {
       .lp-btn-secondary:hover { background: #f9fafb !important; }
       .lp-feature-card { transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
       .lp-feature-card:hover { transform: translateY(-4px); box-shadow: 0 16px 32px -12px rgba(0,0,0,0.14) !important; border-color: transparent !important; }
+      /* ── Varje nav-länk (Funktioner/Priser/Om oss/Kontakt) bär sin egen
+         accentfärg via --nav-accent (satt inline per länk, se MARKETING_PAGES
+         nedan) — samma grönt/blått/rött-triad som resten av sajten,
+         istället för att alla fyra hovrar till samma enfärgade grönt. ── */
       .lp-nav-link { position: relative; }
-      .lp-nav-link:hover, .lp-nav-link.active { color: ${BRAND.green} !important; }
+      .lp-nav-link:hover, .lp-nav-link.active { color: var(--nav-accent, ${BRAND.green}) !important; }
       .lp-nav-link::after {
         content: ''; position: absolute; left: 0; right: 0; bottom: 4px; height: 2px;
-        background: ${BRAND.green}; transform: scaleX(0); transform-origin: center;
+        background: var(--nav-accent, ${BRAND.green}); transform: scaleX(0); transform-origin: center;
         transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
       }
       .lp-nav-link:hover::after, .lp-nav-link.active::after { transform: scaleX(1); }
       .lp-footer-link:hover { color: white !important; }
       .lp-card-hover { transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease; }
       .lp-card-hover:hover { transform: translateY(-3px); }
+
+      /* ── Färgstark uppdatering — Bokix egna logga-/dashboard-gradienter
+         (blå→turkos→lime i loggan, grönt/rosarött i Startsidans KPI-kort)
+         istället för en enfärgad grön accent. FAQ-dragspel + kort-hover
+         är det enda som behöver riktig CSS här, resten sätts som inline-
+         style-gradients i respektive sida (samma konvention som redan
+         gäller). */
+      .lp-faq-item { border-bottom: 1px solid #e5e7eb; }
+      .lp-faq-question {
+        width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px;
+        background: none; border: none; text-align: left; cursor: pointer; font-family: inherit;
+        padding: 22px 4px; color: #111827;
+      }
+      .lp-faq-chevron { transition: transform 0.25s cubic-bezier(0.16,1,0.3,1); flex-shrink: 0; color: #9ca3af; }
+      .lp-faq-chevron.lp-faq-open { transform: rotate(180deg); }
+      .lp-faq-answer { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.35s cubic-bezier(0.16,1,0.3,1); }
+      .lp-faq-answer.lp-faq-open { grid-template-rows: 1fr; }
+      .lp-faq-answer > div { overflow: hidden; }
+
+      .lp-lux-card { transition: transform 0.35s cubic-bezier(0.16,1,0.3,1), box-shadow 0.35s ease, border-color 0.35s ease; }
+      .lp-lux-card:hover { transform: translateY(-6px) scale(1.01); box-shadow: 0 24px 48px -20px rgba(15,23,42,0.2) !important; }
+
+      /* Levande hero-bakgrund — tre färgade klot (loggans blå/turkos/lime +
+         ett rosarött) som sakta driver och pulserar, aldrig helt stilla.
+         prefers-reduced-motion respekteras — se media-queryn längst ner. */
+      @keyframes lpBlobDrift {
+        0%   { transform: translate(0, 0) scale(1); }
+        33%  { transform: translate(3%, -4%) scale(1.06); }
+        66%  { transform: translate(-3%, 3%) scale(0.97); }
+        100% { transform: translate(0, 0) scale(1); }
+      }
+      .lp-blob { animation: lpBlobDrift 14s ease-in-out infinite; will-change: transform; }
+      .lp-blob-slow { animation-duration: 20s; }
+      .lp-blob-slower { animation-duration: 26s; }
+
+      @keyframes lpFloat {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-10px); }
+      }
+      .lp-float { animation: lpFloat 5s ease-in-out infinite; }
+
+      @keyframes lpPulseRing {
+        0% { box-shadow: 0 0 0 0 rgba(61,122,46,0.35); }
+        70% { box-shadow: 0 0 0 14px rgba(61,122,46,0); }
+        100% { box-shadow: 0 0 0 0 rgba(61,122,46,0); }
+      }
+      .lp-pulse { animation: lpPulseRing 2.4s cubic-bezier(0.4,0,0.6,1) infinite; }
+
+      @keyframes lpGradientMove {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+      }
+      .lp-gradient-text {
+        background-size: 200% auto;
+        animation: lpGradientMove 6s ease-in-out infinite;
+        -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+      }
+      .lp-anim-gradient-bg { background-size: 200% 200% !important; animation: lpGradientMove 10s ease-in-out infinite; }
+
+      @media (prefers-reduced-motion: reduce) {
+        .lp-blob, .lp-float, .lp-pulse, .lp-gradient-text, .lp-anim-gradient-bg { animation: none !important; }
+      }
 
       .lp-logo-glow { display: inline-flex; transition: transform 0.25s ease; }
       .lp-logo-glow:hover { transform: scale(1.04); }
@@ -80,6 +148,7 @@ function MarketingStyles() {
       .lp-mobile-menu { display: none; }
       .lp-cta-group { display: flex; gap: 12px; flex-wrap: wrap; }
       .lp-features-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+      .lp-stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
       .lp-bolagsform-row { display: flex; flex-wrap: nowrap; justify-content: center; gap: 10px; }
       @media (max-width: 900px) {
         .lp-bolagsform-row { flex-wrap: wrap; }
@@ -102,6 +171,7 @@ function MarketingStyles() {
         .lp-cta-group { flex-direction: column; }
         .lp-cta-group > button, .lp-cta-group > a { width: 100%; }
         .lp-features-grid { grid-template-columns: 1fr; }
+        .lp-stat-grid { grid-template-columns: 1fr; }
         .lp-hide-mobile { display: none !important; }
         /* Produktvisningens demo-kort — istället för att bara försvinna på
            mobil (ingen meny alls) visas samma mobila topbar-mönster som
@@ -214,21 +284,29 @@ export function MarketingHeader({ onEnterApp }) {
         padding: '0 24px', transition: 'all 0.3s',
         boxShadow: scrolled ? '0 1px 20px rgba(0,0,0,0.06)' : 'none',
       }}>
+        {/* ── Tunn flerfärgad linje under navraden — samma grönt/blått/rött-
+            triad som nyckeltalskorten (marketingTokens.js ACCENT), så
+            färgerna syns redan i headern, inte bara längre ner. ── */}
+        <div aria-hidden style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '2px', opacity: 0.55, background: `linear-gradient(90deg, ${ACCENT_CYCLE[0].fg}, ${ACCENT_CYCLE[1].fg} 45%, ${ACCENT_CYCLE[2].fg} 75%, ${BRAND.green})` }} />
         <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', alignItems: 'center', height: '68px', gap: '32px' }}>
           <Link to="/" className="lp-logo-glow" style={{ alignItems: 'center', flexShrink: 0 }} aria-label="Till startsidan">
             <BokixWordmark height={38} />
           </Link>
 
           <div className="lp-nav-desktop" style={{ flex: 1, alignItems: 'center', gap: '28px' }}>
-            {MARKETING_PAGES.map(page => (
-              <Link
-                key={page.to} to={page.to}
-                className={`lp-nav-link ${location.pathname === page.to ? 'active' : ''}`}
-                style={{ fontSize: '14px', fontWeight: 500, color: location.pathname === page.to ? BRAND.green : '#374151', textDecoration: 'none', padding: '10px 0', minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}
-              >
-                {page.label}
-              </Link>
-            ))}
+            {MARKETING_PAGES.map((page, i) => {
+              const accent = ACCENT_CYCLE[i % 3];
+              const isActive = location.pathname === page.to;
+              return (
+                <Link
+                  key={page.to} to={page.to}
+                  className={`lp-nav-link ${isActive ? 'active' : ''}`}
+                  style={{ '--nav-accent': accent.fg, fontSize: '14px', fontWeight: 500, color: isActive ? accent.fg : '#374151', textDecoration: 'none', padding: '10px 0', minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}
+                >
+                  {page.label}
+                </Link>
+              );
+            })}
           </div>
 
           <div className="lp-nav-desktop" style={{ gap: '10px', alignItems: 'center' }}>
@@ -254,14 +332,18 @@ export function MarketingHeader({ onEnterApp }) {
           </button>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          {MARKETING_PAGES.map(page => (
-            <Link
-              key={page.to} to={page.to} onClick={() => setMobileMenuOpen(false)}
-              style={{ background: 'none', border: 'none', borderBottom: '1px solid #f1f5f9', textAlign: 'left', fontSize: '17px', fontWeight: 600, color: location.pathname === page.to ? BRAND.green : '#111827', textDecoration: 'none', fontFamily: 'inherit', padding: '16px 4px' }}
-            >
-              {page.label}
-            </Link>
-          ))}
+          {MARKETING_PAGES.map((page, i) => {
+            const accent = ACCENT_CYCLE[i % 3];
+            const isActive = location.pathname === page.to;
+            return (
+              <Link
+                key={page.to} to={page.to} onClick={() => setMobileMenuOpen(false)}
+                style={{ background: 'none', border: 'none', borderBottom: '1px solid #f1f5f9', textAlign: 'left', fontSize: '17px', fontWeight: 600, color: isActive ? accent.fg : '#111827', textDecoration: 'none', fontFamily: 'inherit', padding: '16px 4px' }}
+              >
+                {page.label}
+              </Link>
+            );
+          })}
         </div>
         <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', paddingTop: '24px' }}>
           <button onClick={handleEnterApp} style={{ padding: '14px', background: 'transparent', border: '1px solid #e5e7eb', borderRadius: '10px', fontSize: '15px', fontWeight: 600, cursor: 'pointer', color: '#374151', fontFamily: 'inherit' }}>
