@@ -44,7 +44,15 @@ export default function PaymentRequiredGate({ user, onSignedOut }) {
       if (!session?.url) throw new Error('Ingen betalningslänk mottogs från Stripe.');
       window.location.href = session.url;
     } catch (err) {
-      setErrorMsg(err.message || 'Något gick fel. Försök igen om en stund.');
+      // requestStripeApi (stripeApi.js) har redan försökt tre gånger — det
+      // här är ett kvarstående, troligen infrastrukturellt fel (Vercels
+      // edge/bot-skydd), inte något användaren kan rätta till genom att
+      // skriva rätt. Ett tekniskt "Stripe API error (404)" hjälper ingen,
+      // så en generisk statuskod-formad text bytes ut mot vanligt språk.
+      const friendly = /^Stripe API error \(\d+\)$/.test(err.message)
+        ? 'Kunde inte nå betalningstjänsten just nu. Vänta en liten stund och försök igen.'
+        : (err.message || 'Något gick fel. Försök igen om en stund.');
+      setErrorMsg(friendly);
       setLoading(false);
     }
   };

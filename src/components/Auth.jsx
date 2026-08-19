@@ -144,6 +144,10 @@ export default function Auth({ onLogin, onBackToLanding }) {
       if (regPassword.length < 8) { setErrorMsg('Lösenordet måste vara minst 8 tecken'); return; }
       if (regPassword !== regPassword2) { setErrorMsg('Lösenorden matchar inte'); return; }
       setLoading(true);
+      // Egen flagga (inte bara "kom vi förbi signUp") — annars skulle ett
+      // fel i själva Stripe-anropet felaktigt visa "kontot skapades" när
+      // det egentligen var signUp() som aldrig lyckades.
+      let accountCreated = false;
       try {
         const { data, error } = await supabase.auth.signUp({
           email: regEmail,
@@ -158,6 +162,7 @@ export default function Auth({ onLogin, onBackToLanding }) {
           }
         });
         if (error) throw error;
+        accountCreated = true;
 
         // Kontot finns nu (oavsett om data.session är satt — det kräver
         // bekräftad e-post beroende på Supabase-projektets inställningar,
@@ -175,11 +180,18 @@ export default function Auth({ onLogin, onBackToLanding }) {
         return; // Lämnar sidan — inget mer att göra här.
       } catch (err) {
         setRedirectingToPayment(false);
-        // Kontot kan redan vara skapat även om det här steget kraschar (t.ex.
-        // Stripe inte konfigurerat) — säger det tydligt istället för att bara
-        // visa Stripe-felet, så det inte ser ut som att registreringen
-        // misslyckades helt.
-        setErrorMsg(`Kontot skapades, men vi kunde inte skicka dig vidare till betalning (${err.message}). Kontakta support@bokix.se så hjälper vi dig igång.`);
+        // requestStripeApi (stripeApi.js) har redan försökt tre gånger
+        // innan den ger upp — ett kvarstående "Stripe API error (xxx)" är
+        // troligen infrastrukturellt (Vercels edge/bot-skydd), inte något
+        // fel i det användaren skrev in.
+        const stripeIssue = /^Stripe API error \(\d+\)$/.test(err.message)
+          ? 'kunde inte nå betalningstjänsten just nu'
+          : err.message;
+        setErrorMsg(
+          accountCreated
+            ? `Kontot skapades, men vi kunde inte skicka dig vidare till betalning (${stripeIssue}). Kontakta support@bokix.se så hjälper vi dig igång.`
+            : err.message
+        );
       } finally {
         setLoading(false);
       }
