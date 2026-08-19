@@ -30,6 +30,7 @@ export default async function handler(req, res) {
     return;
   }
 
+  let step = 'list';
   try {
     // Idempotent: kör man den av misstag igen (eller Stripe levererar
     // samma anrop två gånger) skapas aldrig en andra kupong/kod.
@@ -39,20 +40,29 @@ export default async function handler(req, res) {
       return;
     }
 
+    step = 'create_coupon';
     const coupon = await stripe.coupons.create({
       percent_off: 100,
       duration: 'forever',
       name: 'Bokix 100% — kampanjkod',
     });
 
+    step = 'create_promotion_code';
     const promotionCode = await stripe.promotionCodes.create({
-      code: PROMO_CODE,
       coupon: coupon.id,
+      code: PROMO_CODE,
     });
 
     res.status(200).json({ status: 'created', coupon_id: coupon.id, promotion_code: promotionCode.id });
   } catch (error) {
-    console.error('setup-promo-bokix100 error:', error);
-    res.status(500).json({ error: error.message || 'Failed to create promo code' });
+    console.error('setup-promo-bokix100 error at step', step, ':', error);
+    res.status(500).json({
+      step,
+      error: error.message || 'Failed to create promo code',
+      param: error.param,
+      type: error.type,
+      code: error.code,
+      raw: error.raw?.message,
+    });
   }
 }
