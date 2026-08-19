@@ -133,6 +133,18 @@ export default async function handler(req, res) {
       return;
     }
 
+    if (action === 'whoami') {
+      const account = await stripe.accounts.retrieve();
+      res.status(200).json({
+        account_id: account.id,
+        business_name: account.business_profile?.name || account.settings?.dashboard?.display_name,
+        email: account.email,
+        country: account.country,
+        type: account.type,
+      });
+      return;
+    }
+
     if (action === 'cleanup') {
       const subId = req.query?.subscription_id || new URL(req.url, 'http://x').searchParams.get('subscription_id');
       const testUserId = req.query?.user_id || new URL(req.url, 'http://x').searchParams.get('user_id');
