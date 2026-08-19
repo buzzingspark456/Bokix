@@ -48,9 +48,12 @@ export default async function handler(req, res) {
     });
 
     step = 'create_promotion_code';
+    // Stripes API kräver numera "promotion" som ett nästlat objekt istället
+    // för en platt "coupon"-parameter (docs.stripe.com/api/promotion_codes/
+    // create) — annars svarar API:et "Received unknown parameter: coupon".
     const promotionCode = await stripe.promotionCodes.create({
-      coupon: coupon.id,
       code: PROMO_CODE,
+      promotion: { type: 'coupon', coupon: coupon.id },
     });
 
     res.status(200).json({ status: 'created', coupon_id: coupon.id, promotion_code: promotionCode.id });
