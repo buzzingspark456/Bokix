@@ -36,7 +36,7 @@ const labelStyle = {
   marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.04em',
 };
 
-const REGISTER_STEPS = ['Personlig info', 'Bekräfta e-post', 'Företag'];
+const REGISTER_STEPS = ['Personlig info', 'Bekräfta e-post', 'Företag', 'Lösenord'];
 
 // ── Översikt över appens faktiska huvudsektioner (samma sex som den
 // riktiga inloggade sidomenyn i App.jsx), visad på sista registrerings-
@@ -55,7 +55,7 @@ export default function Auth({ onLogin, onBackToLanding }) {
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [regStep, setRegStep] = useState(0); // 0=personal, 1=email-confirm, 2=company
+  const [regStep, setRegStep] = useState(0); // 0=personal, 1=email-confirm, 2=company, 3=password
   // Kontot är skapat och vi väntar på Stripe Checkout-URL:en innan sidan
   // navigerar bort — egen flagga (inte bara `loading`) så steg 2 kan visa en
   // tydlig "skickar dig vidare"-vy istället för företagsformuläret igen.
@@ -107,8 +107,6 @@ export default function Auth({ onLogin, onBackToLanding }) {
     if (regStep === 0) {
       if (!regFirstName.trim()) { setErrorMsg('Ange ditt förnamn'); return; }
       if (!regEmail.trim()) { setErrorMsg('Ange din e-postadress'); return; }
-      if (regPassword.length < 8) { setErrorMsg('Lösenordet måste vara minst 8 tecken'); return; }
-      if (regPassword !== regPassword2) { setErrorMsg('Lösenorden matchar inte'); return; }
       setRegStep(1);
       return;
     }
@@ -125,6 +123,13 @@ export default function Auth({ onLogin, onBackToLanding }) {
         setErrorMsg('Ange ett giltigt organisationsnummer (10 siffror)');
         return;
       }
+      setRegStep(3);
+      return;
+    }
+
+    if (regStep === 3) {
+      if (regPassword.length < 8) { setErrorMsg('Lösenordet måste vara minst 8 tecken'); return; }
+      if (regPassword !== regPassword2) { setErrorMsg('Lösenorden matchar inte'); return; }
       setLoading(true);
       try {
         const { data, error } = await supabase.auth.signUp({
@@ -320,11 +325,13 @@ export default function Auth({ onLogin, onBackToLanding }) {
                 {regStep === 0 && 'Personlig info'}
                 {regStep === 1 && 'Bekräfta e-post'}
                 {regStep === 2 && 'Ditt företag'}
+                {regStep === 3 && 'Skapa lösenord'}
               </h2>
               <p style={{ fontSize: '13.5px', color: '#64748b' }}>
                 {regStep === 0 && 'Fyll i dina uppgifter för att skapa ett konto.'}
                 {regStep === 1 && `Vi skickar ett bekräftelsemail till ${regEmail}.`}
                 {regStep === 2 && 'Ange ditt företag – det här är obligatoriskt.'}
+                {regStep === 3 && 'Sista steget — sedan skickas du vidare till betalning.'}
               </p>
             </div>
 
@@ -353,20 +360,6 @@ export default function Auth({ onLogin, onBackToLanding }) {
                       <input type="email" style={{ ...inputStyle, paddingLeft: '38px' }} placeholder="anna@foretag.se" value={regEmail} onChange={e => setRegEmail(e.target.value)} required />
                     </div>
                   </div>
-                  <div>
-                    <label style={labelStyle}>Lösenord *</label>
-                    <div style={{ position: 'relative' }}>
-                      <Lock size={16} color="#94a3b8" style={{ position: 'absolute', top: 14, left: 12, pointerEvents: 'none' }} />
-                      <input type="password" style={{ ...inputStyle, paddingLeft: '38px' }} placeholder="Minst 8 tecken" value={regPassword} onChange={e => setRegPassword(e.target.value)} required minLength={8} />
-                    </div>
-                  </div>
-                  <div>
-                    <label style={labelStyle}>Bekräfta lösenord *</label>
-                    <div style={{ position: 'relative' }}>
-                      <Lock size={16} color="#94a3b8" style={{ position: 'absolute', top: 14, left: 12, pointerEvents: 'none' }} />
-                      <input type="password" style={{ ...inputStyle, paddingLeft: '38px', borderColor: regPassword2 && regPassword2 !== regPassword ? '#f43f5e' : undefined }} placeholder="Upprepa lösenord" value={regPassword2} onChange={e => setRegPassword2(e.target.value)} required />
-                    </div>
-                  </div>
                 </>
               )}
 
@@ -383,24 +376,13 @@ export default function Auth({ onLogin, onBackToLanding }) {
                     efter att kontot skapats. Klicka på länken i mailet för att aktivera ditt konto.
                   </div>
                   <div style={{ marginTop: '16px', padding: '10px 14px', background: BRAND.greenLight, borderRadius: '8px', fontSize: '12.5px', color: BRAND.greenDark, fontWeight: 600 }}>
-                    💡 Du kan fortfarande använda appen direkt – bekräftelsen aktiverar alla funktioner.
+                    Ingen brådska — klicka på länken när du vill. Nästa steg här är företagsuppgifter, sedan lösenord och betalning.
                   </div>
                 </div>
               )}
 
               {/* STEP 2 – Company */}
-              {regStep === 2 && redirectingToPayment && (
-                <div style={{ padding: '24px', background: '#f0fdf4', borderRadius: '14px', border: '1px solid #bbf7d0', textAlign: 'center' }}>
-                  <div style={{ width: 56, height: 56, borderRadius: '50%', background: BRAND.green, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-                    <RefreshCw size={24} color="white" className="auth-spin" />
-                  </div>
-                  <div style={{ fontWeight: 700, fontSize: '16px', color: '#111827', marginBottom: '8px' }}>Kontot är skapat</div>
-                  <div style={{ fontSize: '13.5px', color: '#475569', lineHeight: 1.6 }}>
-                    Skickar dig vidare till Stripe för betalningsuppgifter...
-                  </div>
-                </div>
-              )}
-              {regStep === 2 && !redirectingToPayment && (
+              {regStep === 2 && (
                 <>
                   <div>
                     <label style={labelStyle}>Företagsnamn *</label>
@@ -430,12 +412,12 @@ export default function Auth({ onLogin, onBackToLanding }) {
                     )}
                   </div>
 
-                  {/* Översikt — vad som väntar direkt efter att kontot är
-                      skapat, så det sista steget inte känns som ett svart
-                      hål innan man loggat in första gången. */}
+                  {/* Översikt — vad som väntar efter lösenord och betalning,
+                      så resan inte känns som ett svart hål innan man loggat
+                      in första gången. */}
                   <div>
                     <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '9px' }}>
-                      Det här väntar direkt
+                      Det här väntar sen
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '7px' }}>
                       {APP_SECTIONS_OVERVIEW.map(s => (
@@ -446,11 +428,41 @@ export default function Auth({ onLogin, onBackToLanding }) {
                       ))}
                     </div>
                   </div>
+                </>
+              )}
 
-                  {/* Ärligt om vad som händer efter "Skapa konto" — nästa
-                      steg är Stripes egen betalningssida, inte direkt in i
-                      appen. Sagt tydligt HÄR, inte bara i en FAQ längre bort
-                      på landningssidan. */}
+              {/* STEP 3 – Password, sedan konto + betalning */}
+              {regStep === 3 && redirectingToPayment && (
+                <div style={{ padding: '24px', background: '#f0fdf4', borderRadius: '14px', border: '1px solid #bbf7d0', textAlign: 'center' }}>
+                  <div style={{ width: 56, height: 56, borderRadius: '50%', background: BRAND.green, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                    <RefreshCw size={24} color="white" className="auth-spin" />
+                  </div>
+                  <div style={{ fontWeight: 700, fontSize: '16px', color: '#111827', marginBottom: '8px' }}>Kontot är skapat</div>
+                  <div style={{ fontSize: '13.5px', color: '#475569', lineHeight: 1.6 }}>
+                    Skickar dig vidare till Stripe för betalningsuppgifter...
+                  </div>
+                </div>
+              )}
+              {regStep === 3 && !redirectingToPayment && (
+                <>
+                  <div>
+                    <label style={labelStyle}>Lösenord *</label>
+                    <div style={{ position: 'relative' }}>
+                      <Lock size={16} color="#94a3b8" style={{ position: 'absolute', top: 14, left: 12, pointerEvents: 'none' }} />
+                      <input type="password" style={{ ...inputStyle, paddingLeft: '38px' }} placeholder="Minst 8 tecken" value={regPassword} onChange={e => setRegPassword(e.target.value)} required minLength={8} />
+                    </div>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Bekräfta lösenord *</label>
+                    <div style={{ position: 'relative' }}>
+                      <Lock size={16} color="#94a3b8" style={{ position: 'absolute', top: 14, left: 12, pointerEvents: 'none' }} />
+                      <input type="password" style={{ ...inputStyle, paddingLeft: '38px', borderColor: regPassword2 && regPassword2 !== regPassword ? '#f43f5e' : undefined }} placeholder="Upprepa lösenord" value={regPassword2} onChange={e => setRegPassword2(e.target.value)} required />
+                    </div>
+                  </div>
+
+                  {/* Ärligt om vad som händer efter "Skapa konto och lägg
+                      till betalning" — nästa steg är Stripes egen
+                      betalningssida, inte direkt in i appen. */}
                   <div style={{ display: 'flex', gap: '9px', alignItems: 'flex-start', padding: '10px 12px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '9px' }}>
                     <ShieldCheck size={15} color={BRAND.greenDark} style={{ flexShrink: 0, marginTop: 1 }} />
                     <span style={{ fontSize: '12px', color: '#475569', lineHeight: 1.5 }}>
