@@ -1,0 +1,25 @@
+name: CI
+
+# PRODUCTION_READINESS.md, "Nästa steg" #2: kör npm test + npm run lint på
+# varje push/PR istället för att förlita sig på att någon kör det lokalt.
+# Bygger också (vite build) — fångar t.ex. trasiga imports som varken
+# testerna eller oxlint nödvändigtvis ser (testerna täcker bara src/utils,
+# inte att hela appen faktiskt går att bunta ihop).
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build

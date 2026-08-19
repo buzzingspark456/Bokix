@@ -39,8 +39,18 @@ function toDate(d) {
   if (d instanceof Date) return d;
   return new Date(`${d}T00:00:00`);
 }
+// Bugkritiskt: INTE d.toISOString().slice(0, 10) — toISOString() konverterar
+// till UTC, och alla datum i den här filen är lokal midnatt (t.ex.
+// startOfMonth). I en positiv UTC-offset (Sverige, UTC+1/+2) blir det då
+// FÖREGÅENDE dag — 1 jan lokal midnatt blir "2025-12-31" i UTC. Verifierat:
+// likviditetsgrafens datumetiketter visade fel dag för varje svensk
+// användare innan den här fixen. getFullYear/getMonth/getDate läser lokal
+// tid, ingen UTC-konvertering inblandad.
 function fmtISO(d) {
-  return d.toISOString().slice(0, 10);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 function addYears(d, n) {
   const copy = new Date(d);

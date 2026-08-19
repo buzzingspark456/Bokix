@@ -9,6 +9,8 @@ import { fileURLToPath } from 'url'
 import { createClient } from '@supabase/supabase-js'
 import { createSignedState, verifySignedState } from './api/stripe/_oauthState.js'
 import { parseCookies, STRIPE_OAUTH_COOKIE, stripeOauthStateCookie, clearStripeOauthStateCookie } from './api/stripe/_cookies.js'
+import { recordStripePaymentEvent } from './api/stripe/_paymentEvents.js'
+import { upsertSubscription } from './api/stripe/_subscriptions.js'
 
 dotenv.config()
 
@@ -190,6 +192,106 @@ app.use('/api/', generalLimiter)
 app.use('/api/stripe/', sensitiveLimiter)
 app.use('/api/email/', sensitiveLimiter)
 
+// Bugkritiskt: MÅSTE registreras INNAN den globala express.json() nedan.
+// Stripes signaturverifiering (constructEvent) kräver kroppen exakt som
+// bytes-strömmen kom in — en gång tolkad till ett JS-objekt av json()-
+// middlewaren och strängen är för alltid förlorad (annan whitespace/
+// nyckelordning vid en eventuell JSON.stringify tillbaka), så verifieringen
+// skulle alltid misslyckas. Express kör middleware/rutter i registrerings-
+// ordning, så en exakt path+metod-matchande rutt HÄR (med sin egen
+// express.raw()) hinner svara innan den senare globala json()-middlewaren
+// någonsin rör kroppen — övriga rutter påverkas inte, Express hoppar bara
+// vidare till nästa matchande handler för dem. Speglar api/stripe/webhook.js
+// (produktionsvarianten på Vercel), som har samma logik men läser den råa
+// kroppen via req.text() istället.
+app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  const signature = req.headers['stripe-signature']
+  const rawBody = req.body // Buffer, tack vare express.raw() ovan
+
+  if (!signature || !rawBody || !rawBody.length) {
+    res.status(400).json({ error: 'Missing stripe-signature header or body' })
+    return
+  }
+
+  const secrets = [
+    process.env.STRIPE_WEBHOOK_SECRET,
+    process.env.STRIPE_WEBHOOK_SECRET_TUNNEL,
+    process.env.STRIPE_WEBHOOK_SECRET_SNAPSHOT,
+    // Se motsvarande kommentar i api/stripe/webhook.js: produktionens
+    // faktiska Vercel-miljövariabler heter inte STRIPE_WEBHOOK_SECRET*, se
+    // `vercel env ls` — de här två är vad som faktiskt finns.
+    process.env.Bokix_Stripe_Connect_Snapshot,
+    process.env.empowering_splendor_thin,
+  ].filter(Boolean)
+  if (secrets.length === 0 || !stripe) {
+    res.status(500).json({ error: 'Stripe webhook secret is not configured' })
+    return
+  }
+
+  let event
+  let lastError
+  for (const secret of secrets) {
+    try {
+      event = stripe.webhooks.constructEvent(rawBody, signature, secret)
+      break
+    } catch (error) {
+      lastError = error
+    }
+  }
+  if (!event) {
+    console.error('Stripe webhook verification failed:', lastError?.message || lastError)
+    res.status(400).json({ error: 'Webhook signature verification failed' })
+    return
+  }
+
+  console.log('Stripe webhook event:', event.type)
+
+  try {
+    if (event.type === 'checkout.session.completed') {
+      const session = event.data.object
+      // Se motsvarande kommentar i api/stripe/webhook.js: 'unpaid' är
+      // möjligt här för asynkrona betalmetoder, bokför bara bekräftat
+      // mottagna pengar.
+      if (session.payment_status === 'paid') {
+        const { user_id: userId, company_id: companyId, invoice_id: invoiceId } = session.metadata || {}
+        if (userId && companyId && invoiceId) {
+          await recordStripePaymentEvent({
+            stripeEventId: event.id,
+            userId,
+            companyId,
+            invoiceId,
+            amountTotal: session.amount_total != null ? session.amount_total / 100 : null,
+            currency: session.currency,
+            paidAt: new Date(event.created * 1000).toISOString(),
+          })
+        } else {
+          console.warn('checkout.session.completed utan user_id/company_id/invoice_id i metadata, hoppar över:', session.id)
+        }
+      }
+    } else if (event.type === 'customer.subscription.created' || event.type === 'customer.subscription.updated' || event.type === 'customer.subscription.deleted') {
+      // Se motsvarande kommentar i api/stripe/webhook.js: Bokix egen
+      // prenumeration (registreringsflödet), helt separat från
+      // checkout.session.completed ovan.
+      const sub = event.data.object
+      await upsertSubscription({
+        userId: sub.metadata?.user_id,
+        stripeCustomerId: typeof sub.customer === 'string' ? sub.customer : sub.customer?.id,
+        stripeSubscriptionId: sub.id,
+        status: sub.status,
+        trialEndsAt: sub.trial_end ? new Date(sub.trial_end * 1000).toISOString() : null,
+        currentPeriodEnd: sub.current_period_end ? new Date(sub.current_period_end * 1000).toISOString() : null,
+        cancelAtPeriodEnd: !!sub.cancel_at_period_end,
+      })
+    }
+  } catch (error) {
+    console.error('Stripe webhook processing error:', error)
+    res.status(500).json({ error: 'Webhook processing failed' })
+    return
+  }
+
+  res.status(200).json({ received: true, type: event.type })
+})
+
 // 15mb (inte standard-100kb) eftersom fakturamejl bifogar en PDF som
 // base64-sträng i JSON-kroppen — annars avvisas anrop med en bifogad
 // faktura-PDF över ~70kb (base64 är ~33% större än originalfilen).
@@ -239,60 +341,6 @@ function requireStripe(res) {
   return true
 }
 
-app.post('/api/stripe/create-account', async (req, res) => {
-  if (!requireStripe(res)) return
-
-  try {
-    const body = req.body || {}
-    const account = await stripe.accounts.create({
-      type: 'express',
-      country: 'SE',
-      business_type: 'company',
-      capabilities: {
-        card_payments: { requested: true },
-        transfers: { requested: true },
-      },
-      settings: {
-        payouts: {
-          schedule: {
-            interval: 'manual',
-          },
-        },
-      },
-      business_profile: {
-        name: body.business_name || 'Bokix customer',
-        product_description: 'Faktura- och betalningshantering via Bokix',
-      },
-      metadata: {
-        company_id: body.company_id,
-        user_id: body.user_id,
-      },
-    })
-
-    res.status(200).json({ account })
-  } catch (error) {
-    handleError(res, error)
-  }
-})
-
-app.post('/api/stripe/create-account-link', async (req, res) => {
-  if (!requireStripe(res)) return
-
-  try {
-    const body = req.body || {}
-    const accountLink = await stripe.accountLinks.create({
-      account: body.account_id,
-      refresh_url: process.env.STRIPE_ONBOARDING_REFRESH_URL || 'http://localhost:5173',
-      return_url: process.env.STRIPE_ONBOARDING_RETURN_URL || 'http://localhost:5173',
-      type: 'account_onboarding',
-    })
-
-    res.status(200).json({ accountLink })
-  } catch (error) {
-    handleError(res, error)
-  }
-})
-
 app.post('/api/stripe/create-checkout-session', async (req, res) => {
   if (!requireStripe(res)) return
 
@@ -300,9 +348,22 @@ app.post('/api/stripe/create-checkout-session', async (req, res) => {
     const body = req.body || {}
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
-      payment_method_types: ['card'],
+      // Se motsvarande kommentar i api/stripe/create-checkout-session.js
+      // (samma logik speglad här för lokal utveckling): payment_method_types
+      // utelämnas alltid så Checkout visar allt Dashboard-påslaget som är
+      // relevant (kort, Pay by Bank, Klarna, Swish, ...). Enda undantaget:
+      // Klarna exkluderas explicit för företagskunder (stödjer inte B2B) —
+      // övriga metoder som Pay by Bank har ingen sådan spärr.
+      ...(body.customer_type === 'se_individual' ? {} : { excluded_payment_method_types: ['klarna'] }),
       line_items: body.line_items || [],
       customer_email: body.customer_email,
+      // Se motsvarande kommentar i api/stripe/create-checkout-session.js:
+      // kopplingen webhooken behöver för att veta vilken faktura som betalats.
+      metadata: {
+        user_id: body.user_id || '',
+        company_id: body.company_id || '',
+        invoice_id: body.invoice_id || '',
+      },
       payment_intent_data: {
         application_fee_amount: body.application_fee_amount || 0,
         transfer_data: {
@@ -319,21 +380,52 @@ app.post('/api/stripe/create-checkout-session', async (req, res) => {
   }
 })
 
-app.post('/api/stripe/retrieve-account', async (req, res) => {
+// Bokix egen plan — "Ett pris. Allt ingår." — helt separat från
+// create-checkout-session ovan (kunders fakturabetalningar via ett anslutet
+// konto). Se motsvarande kommentar i api/stripe/create-subscription-
+// checkout.js (samma logik speglad här för lokal utveckling).
+const SUBSCRIPTION_PRICE_SEK_ORE = 9900 // 99,00 kr/mån
+const SUBSCRIPTION_TRIAL_DAYS = 30
+
+app.post('/api/stripe/create-subscription-checkout', async (req, res) => {
   if (!requireStripe(res)) return
 
   try {
     const body = req.body || {}
-    const account = await stripe.accounts.retrieve(body.account_id)
-    res.status(200).json({ account })
+    if (!body.user_id) {
+      return res.status(400).json({ error: 'user_id krävs.' })
+    }
+
+    const baseUrl = process.env.STRIPE_SUCCESS_URL || 'http://localhost:5173'
+    const cancelBaseUrl = process.env.STRIPE_CANCEL_URL || 'http://localhost:5173'
+
+    const session = await stripe.checkout.sessions.create({
+      mode: 'subscription',
+      customer_email: body.customer_email || undefined,
+      line_items: [
+        {
+          price_data: {
+            currency: 'sek',
+            product_data: { name: 'Bokix' },
+            unit_amount: SUBSCRIPTION_PRICE_SEK_ORE,
+            recurring: { interval: 'month' },
+          },
+          quantity: 1,
+        },
+      ],
+      subscription_data: {
+        trial_period_days: SUBSCRIPTION_TRIAL_DAYS,
+        metadata: { user_id: body.user_id },
+      },
+      metadata: { user_id: body.user_id },
+      success_url: `${baseUrl}?subscription_checkout=success`,
+      cancel_url: `${cancelBaseUrl}?subscription_checkout=cancelled`,
+    })
+
+    res.status(200).json({ session })
   } catch (error) {
     handleError(res, error)
   }
-})
-
-app.post('/api/stripe/webhook', express.json(), async (req, res) => {
-  console.log('Received Stripe webhook event')
-  res.status(200).json({ received: true })
 })
 
 // ── E-post (Resend) ──────────────────────────────────────────────────────

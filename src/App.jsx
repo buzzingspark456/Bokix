@@ -31,7 +31,6 @@ import {
   Briefcase,
   Timer,
   FileSpreadsheet,
-  Landmark,
   LogOut,
   Moon,
   AlertTriangle,
@@ -101,6 +100,7 @@ import CookiesPolicy from './components/CookiesPolicy';
 import ReviewQueue from './components/ReviewQueue';
 import CompanySettings from './components/CompanySettings';
 import HelpDrawer from './components/HelpDrawer';
+import Toast from './components/shared/Toast';
 // ──────────────────────────────────────────────
 // Default company data factory
 // ──────────────────────────────────────────────
@@ -308,6 +308,9 @@ function App() {
   const [openMenus, setOpenMenus] = useState({ sales: true, purchases: true, accounting: true, reports: true });
   const [isHelpDrawerOpen, setIsHelpDrawerOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  // { message, variant } | null — se Toast.jsx samt stripe_connect-
+  // useEffect nedan, som satte en blockerande alert() innan.
+  const [toast, setToast] = useState(null);
   const [highlightVerificationId, setHighlightVerificationId] = useState(null);
 
   const toggleMenu = (menuId) => {
@@ -607,11 +610,40 @@ function App() {
       error: 'Något gick fel vid Stripe-anslutningen. Försök igen, eller kontakta support om felet kvarstår.',
       not_configured: 'Stripe-anslutning är inte konfigurerad ännu. Kontakta support.',
     };
+    const variants = { connected: 'success', cancelled: 'info', error: 'error', not_configured: 'info' };
     const debugDetail = params.get('debug'); // temporärt diagnos-fält, se api/stripe/callback.js
-    alert((messages[status] || messages.error) + (debugDetail ? `\n\n(${debugDetail})` : ''));
+    setToast({
+      message: (messages[status] || messages.error) + (debugDetail ? ` (${debugDetail})` : ''),
+      variant: variants[status] || 'error',
+    });
 
     params.delete('stripe_connect');
     params.delete('debug');
+    const newSearch = params.toString();
+    window.history.replaceState({}, '', window.location.pathname + (newSearch ? `?${newSearch}` : '') + window.location.hash);
+  }, []);
+
+  // Samma mönster som stripe_connect-useEffect ovan, för registreringens
+  // Stripe-betalningssteg (Auth.jsx → create-subscription-checkout.js).
+  // "success" betyder bara att kortet lades till och provperioden startade
+  // i Stripe Checkout — inget vi behöver invänta här, webhooken
+  // (customer.subscription.created) sätter den faktiska statusen separat.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get('subscription_checkout');
+    if (!status) return;
+
+    const messages = {
+      success: 'Klart! 30 dagar gratis, sedan 99 kr/mån. Logga in för att komma igång.',
+      cancelled: 'Betalningen avbröts — kontot är skapat, men provperioden startar först när betalningsuppgifter är tillagda. Logga in och försök igen.',
+    };
+    setToast({
+      message: messages[status] || messages.cancelled,
+      variant: status === 'success' ? 'success' : 'info',
+    });
+
+    params.delete('subscription_checkout');
     const newSearch = params.toString();
     window.history.replaceState({}, '', window.location.pathname + (newSearch ? `?${newSearch}` : '') + window.location.hash);
   }, []);
@@ -639,6 +671,55 @@ function App() {
 
     return () => timeoutIds.forEach(clearTimeout);
   }, [data, user, isLoggedIn, syncCompanyDataToBackend]);
+
+  // ── Avstämning av Stripe-betalningshändelser ────────────────────────────
+  // Se den långa kommentaren ovanför stripe_payment_events i
+  // supabase-setup.sql för varför det här steget finns: webhooken (webhook.js/
+  // server.js) skriver ALDRIG "betald" direkt in i den delade state-blobben
+  // (klientens egen debounce-save skulle kunna skriva över det igen), utan
+  // bara en hållbar loggrad. Klienten hämtar sina egna oapplicerade
+  // händelser här och applicerar dem genom det VANLIGA betalningsflödet
+  // (handleRegisterInvoicePayment) — så det blir en del av klientens eget
+  // state INNAN nästa debounce-save, precis som en manuell "Markera betald".
+  //
+  // Bara det just nu aktiva företagets fakturor kan matchas (invoices-arrayen
+  // i minnet tillhör bara data.activeCompanyId) — händelser för andra företag
+  // lämnas oapplicerade och stäms av nästa gång DET företaget är aktivt.
+  // Medvetet enkel avvägning: körs en gång per inloggning/företagsbyte, inte
+  // en realtids-prenumeration (ingen sådan finns i appen ännu).
+  //
+  // Bugkritiskt: måste stå INNAN `if (isLoadingAuth) return ...` längre ner
+  // (samma regel som stripe_connect-useEffect ovan) — annars anropas hooken
+  // bara på vissa renderingar och bryter Reacts hooks-ordning.
+  useEffect(() => {
+    if (!user || !supabaseEnabled || !data.activeCompanyId) return;
+    let cancelled = false;
+
+    (async () => {
+      const { data: events, error } = await supabase
+        .from('stripe_payment_events')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('company_id', data.activeCompanyId)
+        .is('applied_at', null);
+
+      if (error || cancelled || !events?.length) return;
+
+      for (const event of events) {
+        const invoiceExists = invoices.some(i => i.id === event.invoice_id);
+        // Fakturan kan redan ha markerats betald manuellt innan webhooken
+        // hann fram (handleRegisterInvoicePayment är själv ett no-op om
+        // inget återstår) — kvitteras ändå som applicerad, den ska inte
+        // dyka upp och försöka appliceras om och om igen.
+        if (invoiceExists && event.amount_total) {
+          handleRegisterInvoicePayment(event.invoice_id, event.amount_total, event.paid_at?.split('T')[0]);
+        }
+        await supabase.from('stripe_payment_events').update({ applied_at: new Date().toISOString() }).eq('id', event.id);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [user, supabaseEnabled, data.activeCompanyId]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -976,6 +1057,18 @@ function App() {
       customer_email: customerEmail,
       application_fee_amount: applicationFeeAmount,
       line_items,
+      // Klarna (och andra köp-nu-betala-senare-metoder) stödjer inte B2B enligt
+      // Stripes/Klarnas egna regler — skickar med kundtypen så backend kan
+      // avgöra om Klarna m.fl. får erbjudas, eller om det måste vara kort
+      // (se create-checkout-session.js). "se_individual" är den enda
+      // privatperson-varianten i customerType, se Contacts.jsx.
+      customer_type: customer?.customerType,
+      // Sätts som Stripe-sessionens metadata (create-checkout-session.js) —
+      // enda kopplingen webhooken (webhook.js/server.js) har mellan en
+      // bekräftad Stripe-betalning och VILKEN Bokix-faktura den gäller.
+      user_id: user?.id,
+      company_id: data.activeCompanyId,
+      invoice_id: invoiceId,
     });
 
     if (!session?.url) throw new Error('Betalningslänk skapad, men ingen länk mottogs.');
@@ -1949,7 +2042,7 @@ function App() {
             {!isLoggedIn ? (
               showLanding 
                 ? <LandingPage onEnterApp={() => setShowLanding(false)} />
-                : <Auth onLogin={handleLogin} />
+                : <Auth onLogin={handleLogin} onBackToLanding={() => setShowLanding(true)} />
             ) : (
             <div className="app-container">
 
@@ -2308,6 +2401,10 @@ function App() {
 
       {/* ── Help Drawer ── */}
       <HelpDrawer isOpen={isHelpDrawerOpen} onClose={() => setIsHelpDrawerOpen(false)} />
+
+      {/* ── Toast — ersätter blockerande alert() för t.ex. "Stripe är nu
+          ansluten", se stripe_connect-useEffect ── */}
+      <Toast message={toast?.message} variant={toast?.variant} onClose={() => setToast(null)} />
 
       {/* ── Logout Confirmation Modal ── */}
       {showLogoutConfirm && (

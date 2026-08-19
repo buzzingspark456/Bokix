@@ -106,6 +106,108 @@ $$;
 REVOKE ALL ON FUNCTION public.set_company_stripe_account(uuid, text, text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.set_company_stripe_account(uuid, text, text) TO service_role;
 
+-- Bank-integrationen (Enable Banking) är borttagen ur appen igen — om den
+-- här filen redan kördes mot din databas medan den fanns, städar detta bort
+-- kvarlämningen (no-op annars, IF EXISTS gör det säkert att köra oavsett).
+DROP FUNCTION IF EXISTS public.set_company_bank_connection(uuid, text, text, text, text);
+
+-- ═══════════════════════════════════════════════════════════
+-- Stripe-betalningshändelser: pålitlig logg + klient-avstämning
+-- ═══════════════════════════════════════════════════════════
+-- Bugkritiskt (varför den här tabellen finns alls): app.jsx sparar HELA
+-- state-blobben i user_data.state med en enkel upsert (saveUserDataToSupabase)
+-- — sist skrivna vinner, ingen delvis/atomär uppdatering. Om Stripes webhook
+-- (api/stripe/webhook.js, server.js) skrev "betald" direkt in i den blobben
+-- skulle klientens NÄSTA debounce-save (2000 ms efter vilken ändring som
+-- helst, med sitt egna, äldre state i minnet) kunna skriva över det igen —
+-- och då finns INGEN kvarvarande post om att en riktig betalning faktiskt
+-- kommit in. För bokföring är "tyst tappad betalningshändelse" mycket värre
+-- än "en stund innan fakturan visas som betald i UI:t".
+--
+-- Lösningen: webhooken skriver bara en HÅLLBAR, aldrig-skriv-över-bar logg-
+-- rad här (service-role, en rad per Stripe-event-id — idempotent mot Stripes
+-- "minst en gång"-leverans). Klienten (App.jsx) läser sedan av sina egna
+-- oapplicerade händelser vid inloggning/sidladdning och applicerar dem genom
+-- den VANLIGA klient-sidans betalningsflödet (handleRegisterInvoicePayment)
+-- — som då blir en del av klientens eget state INNAN nästa debounce-save,
+-- så den aldrig kan skrivas över. applied_at sätts av klienten själv efteråt
+-- (vanlig RLS-skyddad UPDATE, inget service-role krävs för det steget).
+CREATE TABLE IF NOT EXISTS public.stripe_payment_events (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  stripe_event_id text NOT NULL UNIQUE,
+  user_id uuid NOT NULL,
+  company_id text NOT NULL,
+  invoice_id text NOT NULL,
+  amount_total numeric,
+  currency text,
+  paid_at timestamptz NOT NULL,
+  applied_at timestamptz,
+  created_at timestamptz DEFAULT now()
+);
+
+ALTER TABLE public.stripe_payment_events ENABLE ROW LEVEL SECURITY;
+
+-- Bara service_role (webhooken) skriver nya rader — se INSERT-avsaknaden
+-- för authenticated/anon nedan, ingen policy = ingen åtkomst.
+CREATE POLICY "Select own payment events"
+ON public.stripe_payment_events
+FOR SELECT
+USING (auth.uid() = user_id);
+
+-- Enda skrivåtkomsten en inloggad användare har: kvittera sin egen
+-- redan-tillämpade händelse (sätta applied_at). Kan inte skapa nya rader
+-- (RLS INSERT saknas helt för authenticated/anon) eller ändra andra fält
+-- eftersom WITH CHECK kräver att user_id fortfarande är densamma.
+CREATE POLICY "Apply own payment events"
+ON public.stripe_payment_events
+FOR UPDATE
+USING (auth.uid() = user_id)
+WITH CHECK (auth.uid() = user_id);
+
+-- ═══════════════════════════════════════════════════════════
+-- Prenumerationer: Bokix egen plan (99 kr/mån, 30 dagars gratis provperiod)
+-- ═══════════════════════════════════════════════════════════
+-- Samma resonemang som stripe_payment_events ovan — "är den här användaren
+-- betalande" är exakt den sortens data som ALDRIG får tappas bort av
+-- app.jsx:s debounce-save (state-blobben, sist skrivna vinner). En egen
+-- tabell, en rad per användare, skriven enbart av webhooken (service-role)
+-- utifrån Stripes egna prenumerationshändelser — aldrig av klienten.
+--
+-- En rad per user_id (UNIQUE), inte per company_id: priset är ett enda
+-- konto-pris ("Ett pris. Allt ingår.", se PricingPage.jsx), inte per
+-- företag som en användare har kopplat i user_data.state.companies.
+CREATE TABLE IF NOT EXISTS public.subscriptions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL UNIQUE,
+  stripe_customer_id text,
+  stripe_subscription_id text UNIQUE,
+  -- Stripes egna Subscription-statusar rakt av: trialing, active, past_due,
+  -- canceled, unpaid, incomplete, incomplete_expired — ingen egen tolkning
+  -- eller omkodning i databasen, bara i UI vid behov.
+  status text NOT NULL,
+  trial_ends_at timestamptz,
+  current_period_end timestamptz,
+  cancel_at_period_end boolean NOT NULL DEFAULT false,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+DROP TRIGGER IF EXISTS set_updated_at ON public.subscriptions;
+CREATE TRIGGER set_updated_at
+BEFORE UPDATE ON public.subscriptions
+FOR EACH ROW
+EXECUTE FUNCTION public.set_updated_at();
+
+ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
+
+-- Läsning: bara sin egen rad. Ingen INSERT/UPDATE/DELETE-policy för
+-- authenticated/anon alls — precis som stripe_payment_events kan bara
+-- webhooken (service-role, kringgår RLS) skriva hit.
+CREATE POLICY "Select own subscription"
+ON public.subscriptions
+FOR SELECT
+USING (auth.uid() = user_id);
+
 -- ═══════════════════════════════════════════════════════════
 -- Storage: profilbilder och företagslogotyper (Inställningar)
 -- ═══════════════════════════════════════════════════════════

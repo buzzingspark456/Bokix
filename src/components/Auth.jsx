@@ -1,13 +1,29 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
-  BookOpen, LogIn, UserPlus, Building2, Mail, Lock,
+  LogIn, UserPlus, Building2, Mail, Lock,
   ArrowRight, ArrowLeft, ShieldCheck, Check, User, Hash,
-  Zap, ScanLine, RefreshCw, Bell,
+  Zap, ScanLine, RefreshCw,
   FileText, BarChart3, Receipt, Users, Shield, Briefcase,
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { detectOrgType, formatOrgNr } from '../utils/orgType';
 import { BRAND } from '../utils/brandColors';
+import { BokixWordmark } from './marketing/MarketingLayout';
+import { createStripeSubscriptionCheckout } from '../stripeApi';
+
+// ── Samma gradienter som landningssidan (LandingPage.jsx) och Startsidans
+// KPI-kort (Dashboard.jsx) — se den filens kommentar för ursprunget. Egen
+// lokal kopia här, samma etablerade mönster som Dashboard redan följer
+// (varje ställe som behöver en engångspalett definierar den lokalt, BRAND
+// är den enda DELADE källan). Auth-sidan ska kännas som samma produkt som
+// den nya landningssidan, inte en kvarglömd enfärgad panel. ──
+const AUTH_GRAD = {
+  green: ['#2f8a3a', '#54b854'],
+  blueTeal: ['#0ea5e9', '#14b8a6'],
+  tealLime: ['#14b8a6', '#84cc16'],
+};
+const authGrad = (c, deg = 135) => `linear-gradient(${deg}deg, ${c[0]}, ${c[1]})`;
 
 const inputStyle = {
   width: '100%', padding: '12px 14px', border: '1px solid #e2e8f0', borderRadius: '10px',
@@ -35,11 +51,15 @@ const APP_SECTIONS_OVERVIEW = [
   { icon: Shield, label: 'Skatt och bokslut' },
 ];
 
-export default function Auth({ onLogin }) {
+export default function Auth({ onLogin, onBackToLanding }) {
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [regStep, setRegStep] = useState(0); // 0=personal, 1=email-confirm, 2=company
+  // Kontot är skapat och vi väntar på Stripe Checkout-URL:en innan sidan
+  // navigerar bort — egen flagga (inte bara `loading`) så steg 2 kan visa en
+  // tydlig "skickar dig vidare"-vy istället för företagsformuläret igen.
+  const [redirectingToPayment, setRedirectingToPayment] = useState(false);
 
   // Login
   const [loginEmail, setLoginEmail] = useState('');
@@ -120,11 +140,28 @@ export default function Auth({ onLogin }) {
           }
         });
         if (error) throw error;
-        if (!data.session) {
-          setErrorMsg('Konto skapat! Kontrollera din e-post och klicka på bekräftelselänken, logga sedan in.');
-        }
+
+        // Kontot finns nu (oavsett om data.session är satt — det kräver
+        // bekräftad e-post beroende på Supabase-projektets inställningar,
+        // men data.user.id finns redan). Skickas direkt vidare till Stripe
+        // för betalningsuppgifter: 30 dagars gratis provperiod, sedan 99
+        // kr/mån (create-subscription-checkout.js) — email-bekräftelsen
+        // sköts parallellt via länken i mejlet, blockerar inte det här.
+        setRedirectingToPayment(true);
+        const { session } = await createStripeSubscriptionCheckout({
+          user_id: data.user.id,
+          customer_email: regEmail,
+        });
+        if (!session?.url) throw new Error('Ingen betalningslänk mottogs från Stripe.');
+        window.location.href = session.url;
+        return; // Lämnar sidan — inget mer att göra här.
       } catch (err) {
-        setErrorMsg(err.message);
+        setRedirectingToPayment(false);
+        // Kontot kan redan vara skapat även om det här steget kraschar (t.ex.
+        // Stripe inte konfigurerat) — säger det tydligt istället för att bara
+        // visa Stripe-felet, så det inte ser ut som att registreringen
+        // misslyckades helt.
+        setErrorMsg(`Kontot skapades, men vi kunde inte skicka dig vidare till betalning (${err.message}). Kontakta support@bokix.se så hjälper vi dig igång.`);
       } finally {
         setLoading(false);
       }
@@ -140,6 +177,18 @@ export default function Auth({ onLogin }) {
         .auth-brand { display: flex; }
         .auth-feature-row { transition: transform 0.2s ease; }
         .auth-feature-row:hover { transform: translateX(3px); }
+        .auth-logo-link { display: inline-flex; text-decoration: none; transition: opacity 0.2s ease; }
+        .auth-logo-link:hover { opacity: 0.85; }
+        @keyframes authBlobDrift {
+          0%   { transform: translate(0, 0) scale(1); }
+          33%  { transform: translate(4%, -5%) scale(1.08); }
+          66%  { transform: translate(-4%, 4%) scale(0.95); }
+          100% { transform: translate(0, 0) scale(1); }
+        }
+        .auth-blob { animation: authBlobDrift 16s ease-in-out infinite; will-change: transform; }
+        @keyframes authSpin { to { transform: rotate(360deg); } }
+        .auth-spin { animation: authSpin 1s linear infinite; }
+        @media (prefers-reduced-motion: reduce) { .auth-blob, .auth-spin { animation: none !important; } }
         @media (max-width: 760px) {
           .auth-card { flex-direction: column; }
           .auth-brand { padding: 28px 24px !important; }
@@ -153,32 +202,48 @@ export default function Auth({ onLogin }) {
           det som gjorde sidan kännas tom och överdimensionerad på en bred skärm. */}
       <div className="auth-card" style={{ background: 'white', borderRadius: '24px', overflow: 'hidden', boxShadow: '0 4px 20px rgba(15,23,42,0.10)' }}>
 
-        {/* Vänster: varumärke — solid mörkgrön panel plus en
-            automations-fokuserad funktionslista (inte bara "vad appen har"
-            utan "vad den gör åt dig automatiskt"). */}
-        <div className="auth-brand" style={{ width: '360px', flexShrink: 0, flexDirection: 'column', padding: '44px 36px', position: 'relative', overflow: 'hidden', background: BRAND.greenDark }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', position: 'relative' }}>
-            <div style={{ width: 52, height: 52, borderRadius: '14px', background: 'rgba(255,255,255,0.16)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <BookOpen size={26} color="white" />
-            </div>
-            <div>
-              <h1 style={{ fontSize: '23px', fontWeight: 800, letterSpacing: '-0.02em', color: 'white', margin: 0 }}>Bokix</h1>
-              <p style={{ fontSize: '12.5px', color: 'rgba(255,255,255,0.65)', margin: '2px 0 0' }}>Bokföring på autopilot.</p>
-            </div>
+        {/* Vänster: varumärke — samma flerfärgade gradient + drivande klot
+            som landningssidans CTA-sektion (LandingPage.jsx), istället för
+            en enfärgad panel som inte kändes som samma produkt. Kortare
+            funktionslista (tre rader, inte fyra) och ingen separat
+            avslutande tagline-rad — mindre text, samma poäng. Riktiga
+            loggan (BokixWordmark, samma som marknadssidornas header) länkar
+            till startsidan, inte bara statisk "Bokix"-text. */}
+        <div className="auth-brand" style={{ width: '360px', flexShrink: 0, flexDirection: 'column', padding: '44px 36px', position: 'relative', overflow: 'hidden', backgroundImage: `linear-gradient(160deg, #0c1f14, ${BRAND.greenHover}, #0e3a2a)` }}>
+          <div aria-hidden className="auth-blob" style={{ position: 'absolute', top: '-120px', right: '-100px', width: '300px', height: '300px', borderRadius: '50%', background: authGrad(AUTH_GRAD.blueTeal), opacity: 0.3, filter: 'blur(60px)', pointerEvents: 'none' }} />
+          <div aria-hidden className="auth-blob" style={{ position: 'absolute', bottom: '-140px', left: '-80px', width: '280px', height: '280px', borderRadius: '50%', background: authGrad(AUTH_GRAD.tealLime), opacity: 0.22, filter: 'blur(60px)', pointerEvents: 'none', animationDelay: '3s' }} />
+
+          <div style={{ position: 'relative' }}>
+            {/* Bugkritiskt: LandingPage/Auth växlar via lokalt state
+                (App.jsx: showLanding), inte skilda routes — en vanlig
+                <Link to="/"> är ett no-op när man redan står på "/", vilket
+                gjorde loggan verkningslös här. onBackToLanding (App.jsx)
+                nollställer det state:t direkt; e.preventDefault() stoppar
+                Link:ens egen (verkningslösa) navigeringsförsök så de två
+                aldrig krockar. */}
+            <Link
+              to="/"
+              className="auth-logo-link"
+              aria-label="Till startsidan"
+              onClick={(e) => { if (onBackToLanding) { e.preventDefault(); onBackToLanding(); } }}
+            >
+              <BokixWordmark height={34} />
+            </Link>
+            <p style={{ fontSize: '12.5px', color: 'rgba(255,255,255,0.65)', margin: '10px 0 0' }}>Bokföring på autopilot.</p>
           </div>
 
-          {/* Funktionslista — automation i fokus, med skilda ikoner istället
-              för samma bock tre gånger, så det inte känns som en generisk mall. */}
-          <div className="auth-brand-features" style={{ marginTop: '38px', display: 'flex', flexDirection: 'column', gap: '16px', position: 'relative' }}>
+          {/* Funktionslista — tre rader (inte fyra), varje ikon-chip en egen
+              gradient istället för samma halvtransparenta vita chip tre
+              gånger. */}
+          <div className="auth-brand-features" style={{ marginTop: '34px', display: 'flex', flexDirection: 'column', gap: '16px', position: 'relative' }}>
             {[
-              { icon: Zap, title: 'Automatisk bokföring', desc: 'Fakturor och kvitton bokförs automatiskt — inget manuellt kontering.' },
-              { icon: ScanLine, title: 'Smart kvittoscanning', desc: 'Fota kvittot, resten (belopp, moms, konto) läses av automatiskt.' },
-              { icon: RefreshCw, title: 'Moms & AGI utan krångel', desc: 'Sammanställningar räknas fram löpande, redo när det är dags.' },
-              { icon: Bell, title: 'Automatiska påminnelser', desc: 'Förfallna fakturor och uppgifter flaggas innan de blir ett problem.' },
+              { icon: Zap, title: 'Automatisk bokföring', desc: 'Kvitton och fakturor bokförs automatiskt.', g: AUTH_GRAD.green },
+              { icon: ScanLine, title: 'Smart kvittoscanning', desc: 'Belopp, moms och konto läses av direkt.', g: AUTH_GRAD.blueTeal },
+              { icon: RefreshCw, title: 'Moms & AGI utan krångel', desc: 'Sammanställs löpande, redo i tid.', g: AUTH_GRAD.tealLime },
             ].map(f => (
               <div key={f.title} className="auth-feature-row" style={{ display: 'flex', gap: '11px', alignItems: 'flex-start' }}>
-                <div style={{ width: 28, height: 28, borderRadius: '8px', background: 'rgba(255,255,255,0.14)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
-                  <f.icon size={14} color="#c8f7bd" />
+                <div style={{ width: 28, height: 28, borderRadius: '8px', background: authGrad(f.g), display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1, boxShadow: `0 4px 10px -3px ${f.g[1]}99` }}>
+                  <f.icon size={14} color="white" />
                 </div>
                 <div>
                   <div style={{ fontWeight: 700, color: 'white', fontSize: '13.5px' }}>{f.title}</div>
@@ -188,13 +253,9 @@ export default function Auth({ onLogin }) {
             ))}
           </div>
 
-          <div style={{ marginTop: 'auto', paddingTop: '28px', color: '#c8f7bd' }}>
-            <span style={{ fontSize: '11.5px', fontWeight: 700 }}>Mindre admin, mer tid för verksamheten.</span>
-          </div>
-
-          <div className="auth-brand-badges" style={{ marginTop: '14px', display: 'flex', gap: '14px', flexWrap: 'wrap' }}>
+          <div className="auth-brand-badges" style={{ marginTop: 'auto', paddingTop: '32px', display: 'flex', gap: '14px', flexWrap: 'wrap', position: 'relative' }}>
             {['100% Säkert', 'GDPR', 'Krypterat'].map(badge => (
-              <div key={badge} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px', fontWeight: 600, color: 'rgba(255,255,255,0.55)' }}>
+              <div key={badge} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px', fontWeight: 600, color: 'rgba(255,255,255,0.6)' }}>
                 <ShieldCheck size={12} /> {badge}
               </div>
             ))}
@@ -328,7 +389,18 @@ export default function Auth({ onLogin }) {
               )}
 
               {/* STEP 2 – Company */}
-              {regStep === 2 && (
+              {regStep === 2 && redirectingToPayment && (
+                <div style={{ padding: '24px', background: '#f0fdf4', borderRadius: '14px', border: '1px solid #bbf7d0', textAlign: 'center' }}>
+                  <div style={{ width: 56, height: 56, borderRadius: '50%', background: BRAND.green, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                    <RefreshCw size={24} color="white" className="auth-spin" />
+                  </div>
+                  <div style={{ fontWeight: 700, fontSize: '16px', color: '#111827', marginBottom: '8px' }}>Kontot är skapat</div>
+                  <div style={{ fontSize: '13.5px', color: '#475569', lineHeight: 1.6 }}>
+                    Skickar dig vidare till Stripe för betalningsuppgifter...
+                  </div>
+                </div>
+              )}
+              {regStep === 2 && !redirectingToPayment && (
                 <>
                   <div>
                     <label style={labelStyle}>Företagsnamn *</label>
@@ -374,6 +446,17 @@ export default function Auth({ onLogin }) {
                       ))}
                     </div>
                   </div>
+
+                  {/* Ärligt om vad som händer efter "Skapa konto" — nästa
+                      steg är Stripes egen betalningssida, inte direkt in i
+                      appen. Sagt tydligt HÄR, inte bara i en FAQ längre bort
+                      på landningssidan. */}
+                  <div style={{ display: 'flex', gap: '9px', alignItems: 'flex-start', padding: '10px 12px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '9px' }}>
+                    <ShieldCheck size={15} color={BRAND.greenDark} style={{ flexShrink: 0, marginTop: 1 }} />
+                    <span style={{ fontSize: '12px', color: '#475569', lineHeight: 1.5 }}>
+                      Näst skickas du till Stripe för att lägga in betalningsuppgifter. 30 dagar gratis, sedan 99 kr/mån — avsluta innan dess så kostar det ingenting.
+                    </span>
+                  </div>
                 </>
               )}
 
@@ -381,16 +464,20 @@ export default function Auth({ onLogin }) {
                 <div style={{ padding: '12px', background: '#fee2e2', color: '#b91c1c', borderRadius: '8px', fontSize: '13px', fontWeight: 600 }}>{errorMsg}</div>
               )}
 
-              <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
-                {regStep > 0 && (
-                  <button type="button" onClick={() => { setRegStep(s => s - 1); setErrorMsg(''); }} style={{ padding: '12px 20px', border: '1px solid #e2e8f0', borderRadius: '10px', fontSize: '14px', fontWeight: 600, color: '#475569', cursor: 'pointer', background: 'white', display: 'flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
-                    <ArrowLeft size={14} /> Tillbaka
+              {!redirectingToPayment && (
+                <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
+                  {regStep > 0 && (
+                    <button type="button" onClick={() => { setRegStep(s => s - 1); setErrorMsg(''); }} style={{ padding: '12px 20px', border: '1px solid #e2e8f0', borderRadius: '10px', fontSize: '14px', fontWeight: 600, color: '#475569', cursor: 'pointer', background: 'white', display: 'flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
+                      <ArrowLeft size={14} /> Tillbaka
+                    </button>
+                  )}
+                  <button type="submit" disabled={loading} style={{ flex: 1, padding: '14px', background: BRAND.green, border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: 700, color: 'white', cursor: loading ? 'wait' : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', boxShadow: '0 2px 6px rgba(61,122,46,0.25)', fontFamily: 'inherit', opacity: loading ? 0.7 : 1 }}>
+                    {loading
+                      ? (regStep === REGISTER_STEPS.length - 1 ? 'Skapar konto...' : 'Fortsätt...')
+                      : regStep === REGISTER_STEPS.length - 1 ? 'Skapa konto och lägg till betalning' : 'Fortsätt'} <ArrowRight size={16} />
                   </button>
-                )}
-                <button type="submit" disabled={loading} style={{ flex: 1, padding: '14px', background: BRAND.green, border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: 700, color: 'white', cursor: loading ? 'wait' : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', boxShadow: '0 2px 6px rgba(61,122,46,0.25)', fontFamily: 'inherit', opacity: loading ? 0.7 : 1 }}>
-                  {loading ? 'Skapar konto...' : regStep === REGISTER_STEPS.length - 1 ? 'Skapa konto' : 'Fortsätt'} <ArrowRight size={16} />
-                </button>
-              </div>
+                </div>
+              )}
             </form>
           </>
         )}

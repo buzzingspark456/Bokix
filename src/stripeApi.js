@@ -22,14 +22,13 @@ async function requestStripeApi(path, body) {
   return payload;
 }
 
-export async function createConnectedStripeAccount(payload) {
-  return requestStripeApi('create-account', payload);
-}
-
-export async function createStripeAccountLink(payload) {
-  return requestStripeApi('create-account-link', payload);
-}
-
 export async function createStripeCheckoutSession(payload) {
   return requestStripeApi('create-checkout-session', payload);
+}
+
+// Bokix egen plan (99 kr/mån, 30 dagars gratis provperiod) — helt separat
+// från createStripeCheckoutSession ovan, som gäller kunders fakturabetalningar
+// via ett anslutet Stripe-konto. Se api/stripe/create-subscription-checkout.js.
+export async function createStripeSubscriptionCheckout(payload) {
+  return requestStripeApi('create-subscription-checkout', payload);
 }
