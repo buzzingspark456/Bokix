@@ -69,6 +69,18 @@ export default async function handler(req, res) {
       return;
     }
 
+    if (action === 'inspect_endpoint') {
+      const endpoints = await stripe.webhookEndpoints.list({ limit: 100 });
+      res.status(200).json({
+        count: endpoints.data.length,
+        endpoints: endpoints.data.map(e => ({
+          id: e.id, url: e.url, status: e.status, api_version: e.api_version,
+          enabled_events: e.enabled_events, livemode: e.livemode, created: e.created,
+        })),
+      });
+      return;
+    }
+
     if (action === 'cleanup') {
       const subId = req.query?.subscription_id || new URL(req.url, 'http://x').searchParams.get('subscription_id');
       const testUserId = req.query?.user_id || new URL(req.url, 'http://x').searchParams.get('user_id');
