@@ -39,9 +39,18 @@ export default async function handler(req, res) {
       const promo = await stripe.promotionCodes.list({ code: 'BOKIX100', limit: 1 });
       const couponId = promo.data[0]?.coupon?.id;
 
+      // subscriptions.create() items[].price_data tar bara ett flat
+      // "product" (befintligt Product-ID) - till skillnad från Checkout
+      // Sessions line_items[].price_data som accepterar inline product_data
+      // (det är vad create-subscription-checkout.js faktiskt använder i
+      // produktion, redan bekräftat fungera). Skapar en riktig Price här
+      // bara för det här engångstestet.
+      const product = await stripe.products.create({ name: 'Bokix (webhook-test)' });
+      const price = await stripe.prices.create({ product: product.id, currency: 'sek', unit_amount: 9900, recurring: { interval: 'month' } });
+
       const subscription = await stripe.subscriptions.create({
         customer: customer.id,
-        items: [{ price_data: { currency: 'sek', product_data: { name: 'Bokix (webhook-test)' }, unit_amount: 9900, recurring: { interval: 'month' } } }],
+        items: [{ price: price.id }],
         trial_period_days: 30,
         // Stripes nyare API: "discounts" (array), inte en platt "coupon"-
         // parameter (samma sorts ändring som promotion_codes.create).
