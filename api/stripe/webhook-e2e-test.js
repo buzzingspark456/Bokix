@@ -93,6 +93,22 @@ export default async function handler(req, res) {
       return;
     }
 
+    if (action === 'inspect_v2') {
+      const out = {};
+      try {
+        const v2 = await stripe.v2.core.eventDestinations.list();
+        out.v2_event_destinations = v2.data.map(d => ({
+          id: d.id, name: d.name, status: d.status, type: d.type,
+          event_payload: d.event_payload, events_from: d.events_from,
+          include_events: d.include_events, include_categories: d.include_categories,
+        }));
+      } catch (e) {
+        out.v2_error = e.message;
+      }
+      res.status(200).json(out);
+      return;
+    }
+
     if (action === 'cleanup') {
       const subId = req.query?.subscription_id || new URL(req.url, 'http://x').searchParams.get('subscription_id');
       const testUserId = req.query?.user_id || new URL(req.url, 'http://x').searchParams.get('user_id');
