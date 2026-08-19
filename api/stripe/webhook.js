@@ -22,6 +22,12 @@ function getWebhookSecrets() {
     // matchar, så att ha extra kandidater här är riskfritt.
     process.env.Bokix_Stripe_Connect_Snapshot,
     process.env.empowering_splendor_thin,
+    // De två ovan lyssnar bara på events_from:["@accounts"] (Stripe v2
+    // Event Destinations) — ALDRIG händelser från Bokix eget konto, där
+    // våra egna prenumerationer skapas. events_from går inte att ändra i
+    // efterhand (bara vid create), så en NY destination ("@self") skapades
+    // istället, med denna egna signeringshemlighet.
+    process.env.STRIPE_WEBHOOK_SECRET_SELF,
   ].filter(Boolean);
 }
 

@@ -223,6 +223,10 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
     // `vercel env ls` — de här två är vad som faktiskt finns.
     process.env.Bokix_Stripe_Connect_Snapshot,
     process.env.empowering_splendor_thin,
+    // Se motsvarande kommentar i api/stripe/webhook.js: de två ovan lyssnar
+    // bara på events_from:["@accounts"], aldrig Bokix eget konto — en NY
+    // destination ("@self") med denna egna signeringshemlighet krävdes.
+    process.env.STRIPE_WEBHOOK_SECRET_SELF,
   ].filter(Boolean)
   if (secrets.length === 0 || !stripe) {
     res.status(500).json({ error: 'Stripe webhook secret is not configured' })
