@@ -25,6 +25,19 @@ const AUTH_GRAD = {
 };
 const authGrad = (c, deg = 135) => `linear-gradient(${deg}deg, ${c[0]}, ${c[1]})`;
 
+// ── Litet Stripe-märke — se motsvarande kommentar i PaymentRequiredGate.jsx
+// (samma lokala-kopia-mönster som AUTH_GRAD ovan). ──
+function StripeBadge() {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+      <span aria-hidden style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 15, height: 15, borderRadius: 4, background: '#635BFF', color: 'white', fontSize: '10px', fontWeight: 800, fontFamily: 'Georgia, serif', lineHeight: 1 }}>
+        S
+      </span>
+      <span style={{ fontWeight: 700, color: '#425466' }}>Stripe</span>
+    </span>
+  );
+}
+
 const inputStyle = {
   width: '100%', padding: '12px 14px', border: '1px solid #e2e8f0', borderRadius: '10px',
   fontSize: '14.5px', color: '#111827', background: '#f8fafc', outline: 'none',
@@ -466,7 +479,7 @@ export default function Auth({ onLogin, onBackToLanding }) {
                   <div style={{ display: 'flex', gap: '9px', alignItems: 'flex-start', padding: '10px 12px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '9px' }}>
                     <ShieldCheck size={15} color={BRAND.greenDark} style={{ flexShrink: 0, marginTop: 1 }} />
                     <span style={{ fontSize: '12px', color: '#475569', lineHeight: 1.5 }}>
-                      Näst skickas du till Stripe för att lägga in betalningsuppgifter. 30 dagar gratis, sedan 99 kr/mån — avsluta innan dess så kostar det ingenting.
+                      Näst skickas du till <StripeBadge /> för att lägga in betalningsuppgifter. 30 dagar gratis, sedan 99 kr/mån — avsluta innan dess så kostar det ingenting.
                     </span>
                   </div>
                 </>

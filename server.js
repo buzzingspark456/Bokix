@@ -11,6 +11,7 @@ import { createSignedState, verifySignedState } from './api/stripe/_oauthState.j
 import { parseCookies, STRIPE_OAUTH_COOKIE, stripeOauthStateCookie, clearStripeOauthStateCookie } from './api/stripe/_cookies.js'
 import { recordStripePaymentEvent } from './api/stripe/_paymentEvents.js'
 import { upsertSubscription } from './api/stripe/_subscriptions.js'
+import { normalizeAbsoluteUrl, appendQueryParam } from './api/stripe/_urls.js'
 
 dotenv.config()
 
@@ -370,8 +371,8 @@ app.post('/api/stripe/create-checkout-session', async (req, res) => {
           destination: body.stripe_account_id,
         },
       },
-      success_url: process.env.STRIPE_SUCCESS_URL || 'http://localhost:5173',
-      cancel_url: process.env.STRIPE_CANCEL_URL || 'http://localhost:5173',
+      success_url: normalizeAbsoluteUrl(process.env.STRIPE_SUCCESS_URL, 'http://localhost:5173'),
+      cancel_url: normalizeAbsoluteUrl(process.env.STRIPE_CANCEL_URL, 'http://localhost:5173'),
     })
 
     res.status(200).json({ session })
@@ -396,8 +397,8 @@ app.post('/api/stripe/create-subscription-checkout', async (req, res) => {
       return res.status(400).json({ error: 'user_id krävs.' })
     }
 
-    const baseUrl = process.env.STRIPE_SUCCESS_URL || 'http://localhost:5173'
-    const cancelBaseUrl = process.env.STRIPE_CANCEL_URL || 'http://localhost:5173'
+    const baseUrl = normalizeAbsoluteUrl(process.env.STRIPE_SUCCESS_URL, 'http://localhost:5173')
+    const cancelBaseUrl = normalizeAbsoluteUrl(process.env.STRIPE_CANCEL_URL, 'http://localhost:5173')
 
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
@@ -418,8 +419,8 @@ app.post('/api/stripe/create-subscription-checkout', async (req, res) => {
         metadata: { user_id: body.user_id },
       },
       metadata: { user_id: body.user_id },
-      success_url: `${baseUrl}?subscription_checkout=success`,
-      cancel_url: `${cancelBaseUrl}?subscription_checkout=cancelled`,
+      success_url: appendQueryParam(baseUrl, 'subscription_checkout', 'success'),
+      cancel_url: appendQueryParam(cancelBaseUrl, 'subscription_checkout', 'cancelled'),
     })
 
     res.status(200).json({ session })

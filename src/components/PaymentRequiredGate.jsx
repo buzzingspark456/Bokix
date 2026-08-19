@@ -1,9 +1,26 @@
 import React, { useState } from 'react';
-import { CreditCard, LogOut, AlertCircle } from 'lucide-react';
+import { CreditCard, LogOut, AlertCircle, Lock } from 'lucide-react';
 import { BRAND } from '../utils/brandColors';
 import { BokixWordmark } from './marketing/MarketingLayout';
 import { createStripeSubscriptionCheckout } from '../stripeApi';
 import { supabase } from '../supabaseClient';
+
+// ── Litet Stripe-märke — inte loggans exakta glyf (för riskabelt att
+// pixel-återskapa träffsäkert som SVG-path), utan samma konvention som
+// Stripes egna "Powered by Stripe"-märken: deras faktiska varumärkeslila
+// (#635BFF) på en enkel rundad platta + ordmärket som text. Talar om VEM
+// som hanterar kortuppgifterna, inte Bokix — viktigt förtroendesignal
+// precis innan man skickas iväg dit. ──
+function StripeBadge() {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+      <span aria-hidden style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 16, height: 16, borderRadius: 4, background: '#635BFF', color: 'white', fontSize: '11px', fontWeight: 800, fontFamily: 'Georgia, serif', lineHeight: 1 }}>
+        S
+      </span>
+      <span style={{ fontWeight: 700, color: '#425466' }}>Stripe</span>
+    </span>
+  );
+}
 
 // ── Visas istället för appen (App.jsx: subscriptionGate === 'blocked') när
 // en inloggad Supabase-användare INTE har en giltig rad i public.
@@ -68,6 +85,10 @@ export default function PaymentRequiredGate({ user, onSignedOut }) {
         >
           {loading ? 'Skickar dig till Stripe...' : 'Fortsätt till betalning'}
         </button>
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '12.5px', color: '#94a3b8', marginBottom: '20px' }}>
+          <Lock size={12} /> Säker betalning via <StripeBadge />
+        </div>
 
         <button
           onClick={handleSignOut}

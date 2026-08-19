@@ -1,6 +1,7 @@
 import { applySecurityHeaders } from '../_security.js';
 import Stripe from 'stripe';
 import { parseJsonBody } from './_parseBody.js';
+import { normalizeAbsoluteUrl } from './_urls.js';
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY || null;
 const stripe = stripeSecretKey && !stripeSecretKey.startsWith('pk_')
@@ -57,8 +58,8 @@ export default async function handler(req, res) {
         company_id: body.company_id || '',
         invoice_id: body.invoice_id || '',
       },
-      success_url: process.env.STRIPE_SUCCESS_URL || 'http://localhost:5173',
-      cancel_url: process.env.STRIPE_CANCEL_URL || 'http://localhost:5173',
+      success_url: normalizeAbsoluteUrl(process.env.STRIPE_SUCCESS_URL, 'http://localhost:5173'),
+      cancel_url: normalizeAbsoluteUrl(process.env.STRIPE_CANCEL_URL, 'http://localhost:5173'),
     });
     res.status(200).json({ session });
   } catch (error) {

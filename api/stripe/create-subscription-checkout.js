@@ -1,6 +1,7 @@
 import { applySecurityHeaders } from '../_security.js';
 import Stripe from 'stripe';
 import { parseJsonBody } from './_parseBody.js';
+import { normalizeAbsoluteUrl, appendQueryParam } from './_urls.js';
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY || null;
 const stripe = stripeSecretKey && !stripeSecretKey.startsWith('pk_')
@@ -38,8 +39,8 @@ export default async function handler(req, res) {
       return;
     }
 
-    const baseUrl = process.env.STRIPE_SUCCESS_URL || 'http://localhost:5173';
-    const cancelBaseUrl = process.env.STRIPE_CANCEL_URL || 'http://localhost:5173';
+    const baseUrl = normalizeAbsoluteUrl(process.env.STRIPE_SUCCESS_URL, 'http://localhost:5173');
+    const cancelBaseUrl = normalizeAbsoluteUrl(process.env.STRIPE_CANCEL_URL, 'http://localhost:5173');
 
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
@@ -64,8 +65,8 @@ export default async function handler(req, res) {
         metadata: { user_id: body.user_id },
       },
       metadata: { user_id: body.user_id },
-      success_url: `${baseUrl}?subscription_checkout=success`,
-      cancel_url: `${cancelBaseUrl}?subscription_checkout=cancelled`,
+      success_url: appendQueryParam(baseUrl, 'subscription_checkout', 'success'),
+      cancel_url: appendQueryParam(cancelBaseUrl, 'subscription_checkout', 'cancelled'),
     });
     res.status(200).json({ session });
   } catch (error) {
