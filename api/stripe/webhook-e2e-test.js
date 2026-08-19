@@ -110,14 +110,26 @@ export default async function handler(req, res) {
     }
 
     if (action === 'fix_events_from') {
-      // ROTORSAKEN: v2 Event Destinations (docs.stripe.com/api/v2/core/
-      // event-destinations) hade events_from:["@accounts"] — bara
-      // händelser från ANSLUTNA konton, ALDRIG från Bokix eget huvudkonto
-      // där prenumerationerna faktiskt skapas. "@self" lägger till det.
-      const updated = await stripe.v2.core.eventDestinations.update('we_1TzjVNCoBG56XrC8K5vxclZF', {
-        events_from: ['@self', '@accounts'],
+      // events_from går inte att ändra på en befintlig destination (bara
+      // vid create) — skapar en NY, separat destination mot samma
+      // webhook-URL istället, med "@self" som källa (Bokix eget konto,
+      // där prenumerationerna faktiskt skapas — till skillnad från den
+      // befintliga som bara får "@accounts", anslutna konton).
+      const created = await stripe.v2.core.eventDestinations.create({
+        name: 'Bokix egna kontohändelser (@self)',
+        type: 'webhook_endpoint',
+        webhook_endpoint: { url: 'https://bokix.vercel.app/api/stripe/webhook' },
+        event_payload: 'snapshot',
+        events_from: ['@self'],
+        enabled_events: ['customer.subscription.created', 'customer.subscription.updated', 'customer.subscription.deleted', 'checkout.session.completed'],
+        include: ['webhook_endpoint.signing_secret', 'webhook_endpoint.url'],
       });
-      res.status(200).json({ id: updated.id, events_from: updated.events_from, status: updated.status });
+      res.status(200).json({
+        id: created.id,
+        events_from: created.events_from,
+        status: created.status,
+        signing_secret: created.webhook_endpoint?.signing_secret,
+      });
       return;
     }
 
