@@ -403,6 +403,8 @@ app.post('/api/stripe/create-subscription-checkout', async (req, res) => {
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       customer_email: body.customer_email || undefined,
+      // Se motsvarande kommentar i api/stripe/create-subscription-checkout.js
+      allow_promotion_codes: true,
       line_items: [
         {
           price_data: {

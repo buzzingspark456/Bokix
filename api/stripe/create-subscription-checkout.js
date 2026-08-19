@@ -45,6 +45,10 @@ export default async function handler(req, res) {
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       customer_email: body.customer_email || undefined,
+      // Visar Stripe Checkouts inbyggda "Lägg till kampanjkod"-länk under
+      // e-postfältet — koderna själva skapas/hanteras i Stripe Dashboard
+      // (Produktkatalog > Kuponger/Kampanjkoder), inget att bygga här.
+      allow_promotion_codes: true,
       line_items: [
         {
           price_data: {
