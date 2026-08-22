@@ -1,12 +1,20 @@
 import { applySecurityHeaders } from '../_security.js';
 // "Koppla från" — deauktoriserar det anslutna Stripe-kontot och rensar
-// kopplingen server-side. Anropas av en redan inloggad användare (samma
-// förtroendemodell som övriga api/stripe/*-endpoints i det här projektet,
-// som redan litar på company_id/user_id från frontend utan extra
-// tokenverifiering).
+// kopplingen server-side.
+//
+// Säkerhetsfix (se säkerhetsgranskningen): litade tidigare på company_id/
+// user_id/stripe_account_id rakt från requesten utan att verifiera vem som
+// faktiskt anropade — vem som helst som kände till (eller gissade) ett
+// stripe_account_id kunde koppla från en helt annan användares Stripe-
+// konto. Kräver nu en verifierad inloggad session (requireAuthedUser) och
+// bevisar att DEN användaren faktiskt äger företaget (loadOwnedCompany)
+// innan något kopplas från.
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
 import { parseJsonBody } from './_parseBody.js';
+import { requireAuthedUser, loadOwnedCompany } from '../_auth.js';
+import { checkRateLimit } from '../_rateLimit.js';
+import { isRequestFromBot } from '../_botid.js';
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY || null;
 const stripe = stripeSecretKey && !stripeSecretKey.startsWith('pk_') ? new Stripe(stripeSecretKey, {}) : null;
@@ -21,12 +29,35 @@ export default async function handler(req, res) {
     res.status(503).json({ error: 'Stripe är inte konfigurerat.' });
     return;
   }
+  if (!checkRateLimit(req, res, { key: 'stripe-disconnect', max: 10 })) return;
+
+  // Vercel BotID — se filkommentaren i main.jsx.
+  const isBot = await isRequestFromBot();
+  if (isBot) {
+    res.status(403).json({ error: 'Åtkomst nekad.' });
+    return;
+  }
+
+  const user = await requireAuthedUser(req, res);
+  if (!user) return;
 
   try {
     const body = await parseJsonBody(req);
-    const { user_id: userId, company_id: companyId, stripe_account_id: stripeAccountId } = body || {};
-    if (!userId || !companyId || !stripeAccountId) {
-      res.status(400).json({ error: 'user_id, company_id och stripe_account_id krävs.' });
+    const { company_id: companyId } = body || {};
+    if (!companyId) {
+      res.status(400).json({ error: 'company_id krävs.' });
+      return;
+    }
+
+    const companyData = await loadOwnedCompany(user.id, companyId, res);
+    if (!companyData) return;
+
+    // Vilket konto som kopplas från kommer nu från den verifierade,
+    // sparade datan — inte längre från requesten — så ett manipulerat
+    // stripe_account_id i body:n kan inte längre peka på ett annat konto.
+    const stripeAccountId = companyData.company?.stripeAccountId;
+    if (!stripeAccountId) {
+      res.status(400).json({ error: 'Inget Stripe-konto är anslutet för det här företaget.' });
       return;
     }
 
@@ -50,7 +81,7 @@ export default async function handler(req, res) {
     }
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
     const { error: rpcError } = await supabaseAdmin.rpc('set_company_stripe_account', {
-      p_user_id: userId,
+      p_user_id: user.id,
       p_company_id: companyId,
       p_stripe_account_id: null,
     });

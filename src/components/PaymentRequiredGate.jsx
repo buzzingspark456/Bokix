@@ -64,7 +64,7 @@ export default function PaymentRequiredGate({ user, onSignedOut }) {
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: BRAND.greenLight, fontFamily: "'Inter', sans-serif", padding: '32px 20px' }}>
-      <div style={{ width: '100%', maxWidth: '440px', background: 'white', borderRadius: '20px', boxShadow: '0 4px 20px rgba(15,23,42,0.10)', padding: '40px 36px', textAlign: 'center' }}>
+      <div style={{ width: '100%', maxWidth: '440px', background: 'var(--bg-card)', borderRadius: '20px', boxShadow: '0 4px 20px rgba(15,23,42,0.10)', padding: '40px 36px', textAlign: 'center' }}>
         <div style={{ marginBottom: '24px' }}>
           <BokixWordmark height={32} />
         </div>
@@ -73,15 +73,15 @@ export default function PaymentRequiredGate({ user, onSignedOut }) {
           <CreditCard size={26} color={BRAND.greenDark} />
         </div>
 
-        <h1 style={{ fontSize: '22px', fontWeight: 800, color: '#111827', marginBottom: '10px', letterSpacing: '-0.01em' }}>
+        <h1 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '10px', letterSpacing: '-0.01em' }}>
           Slutför din betalning för att fortsätta
         </h1>
-        <p style={{ fontSize: '14.5px', color: '#64748b', lineHeight: 1.65, marginBottom: '28px' }}>
+        <p style={{ fontSize: '14.5px', color: 'var(--text-secondary)', lineHeight: 1.65, marginBottom: '28px' }}>
           Ditt konto ({user?.email}) är skapat, men du har inte lagt in betalningsuppgifter hos Stripe än. 30 dagar gratis, sedan 99 kr/mån — avsluta innan dess så kostar det ingenting.
         </p>
 
         {errorMsg && (
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '12px', background: '#fee2e2', borderRadius: '8px', fontSize: '13px', color: '#b91c1c', fontWeight: 600, marginBottom: '18px', textAlign: 'left' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '12px', background: 'var(--status-red-bg)', borderRadius: '8px', fontSize: '13px', color: 'var(--status-red-text)', fontWeight: 600, marginBottom: '18px', textAlign: 'left' }}>
             <AlertCircle size={16} style={{ flexShrink: 0, marginTop: 1 }} /> {errorMsg}
           </div>
         )}
@@ -94,13 +94,13 @@ export default function PaymentRequiredGate({ user, onSignedOut }) {
           {loading ? 'Skickar dig till Stripe...' : 'Fortsätt till betalning'}
         </button>
 
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '12.5px', color: '#94a3b8', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '12.5px', color: 'var(--text-muted)', marginBottom: '20px' }}>
           <Lock size={12} /> Säker betalning via <StripeBadge />
         </div>
 
         <button
           onClick={handleSignOut}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'none', border: 'none', color: '#94a3b8', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
         >
           <LogOut size={14} /> Logga ut
         </button>

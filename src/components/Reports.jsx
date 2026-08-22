@@ -7,7 +7,7 @@ import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer,
 } from 'recharts';
-import { BRAND } from '../utils/brandColors';
+import { BRAND, KPI_GRADIENTS } from '../utils/brandColors';
 import { useIsMobileViewport } from '../hooks/useIsMobileViewport';
 import { computeVatPeriod } from '../utils/vatCalculation';
 import {
@@ -61,36 +61,43 @@ function formatDelta(current, previous, invert = false) {
   return { text: `${rising ? '+' : ''}${pct.toFixed(0)}% mot samma period föregående år`, good };
 }
 
-// Samma ikon-chip + hover-lyft-mönster som Startsidans KpiCard
-// (Dashboard.jsx) — inte en egen, avvikande kortstil här. Konsekvent
-// premiumkänsla mellan de två sidorna istället för att Rapport och
-// analys ser platt/billigare ut i jämförelse.
-function KpiCard({ label, value, help, delta, accent, icon: Icon, iconBg }) {
+// Samma djärva gradient-kort som Startsidans KpiCard (Dashboard.jsx,
+// KPI_GRADIENTS i brandColors.js) — inte längre en egen, avvikande, plattare
+// kortstil här. Kundönskemål: "samma [stil/färger] på alla sidor" — Rapport
+// och analys' egna sammanfattningskort (Omsättning/Kostnader/Resultat/
+// Marginal) ska kännas som SAMMA komponent som Startsidans, inte en
+// tunnare kusin till den. `gradient` är valfri — Moms-flikens tre
+// informationskort (Utgående/Ingående moms, Netto att betala) skickar
+// ingen och behåller det lugnare, platta mörka kortet (neutrala
+// delposter, inte sidans egen "hero"-siffra).
+function KpiCard({ label, value, help, delta, accent, icon: Icon, iconBg, gradient }) {
+  const bold = !!gradient;
   return (
     <div
       style={{
-        background: 'white', borderRadius: '14px', border: '1px solid #e5e7eb', padding: '18px 20px',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.04)', transition: 'all 0.2s cubic-bezier(.4,0,.2,1)',
+        background: bold ? `linear-gradient(135deg, ${gradient[0]}, ${gradient[1]})` : 'var(--bg-card)',
+        borderRadius: '14px', border: bold ? 'none' : '1px solid var(--border)', padding: '18px 20px',
+        boxShadow: bold ? '0 2px 8px rgba(0,0,0,0.12)' : '0 1px 3px rgba(0,0,0,0.04)', transition: 'all 0.2s cubic-bezier(.4,0,.2,1)',
       }}
-      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 10px 28px rgba(0,0,0,0.09)'; e.currentTarget.style.borderColor = accent || '#c7d2c1'; }}
-      onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04)'; e.currentTarget.style.borderColor = '#e5e7eb'; }}
+      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = bold ? '0 6px 16px rgba(0,0,0,0.16)' : '0 10px 28px rgba(0,0,0,0.09)'; if (!bold) e.currentTarget.style.borderColor = accent || '#c7d2c1'; }}
+      onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = bold ? '0 2px 8px rgba(0,0,0,0.12)' : '0 1px 3px rgba(0,0,0,0.04)'; if (!bold) e.currentTarget.style.borderColor = 'var(--border)'; }}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
         {Icon && (
-          <div style={{ width: 34, height: 34, borderRadius: '9px', background: iconBg || '#f1f5f9', color: accent || '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <div style={{ width: 34, height: 34, borderRadius: '9px', background: bold ? 'rgba(255,255,255,0.24)' : (iconBg || 'var(--border-light)'), color: bold ? '#fff' : (accent || 'var(--text-secondary)'), display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <Icon size={16} />
           </div>
         )}
         {help && (
-          <span title={help} style={{ display: 'inline-flex', cursor: 'help', color: '#b0b7c3' }}>
+          <span title={help} style={{ display: 'inline-flex', cursor: 'help', color: bold ? 'rgba(255,255,255,0.75)' : '#b0b7c3' }}>
             <HelpCircle size={13} />
           </span>
         )}
       </div>
-      <div style={{ fontSize: '12.5px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '5px' }}>{label}</div>
-      <div style={{ fontSize: '23px', fontWeight: 800, color: accent || '#0f172a', letterSpacing: '-0.03em', lineHeight: 1.1, marginBottom: delta ? '6px' : 0, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
+      <div style={{ fontSize: '12.5px', fontWeight: 600, color: bold ? 'rgba(255,255,255,0.82)' : 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '5px' }}>{label}</div>
+      <div style={{ fontSize: '23px', fontWeight: 800, color: bold ? '#fff' : (accent || 'var(--text-main)'), letterSpacing: '-0.03em', lineHeight: 1.1, marginBottom: delta ? '6px' : 0, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
       {delta && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: 600, color: delta.good === null ? '#9ca3af' : delta.good ? '#15803d' : '#dc2626' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: 600, color: bold ? 'rgba(255,255,255,0.9)' : (delta.good === null ? 'var(--text-muted)' : delta.good ? 'var(--status-green-text)' : 'var(--status-red-text)') }}>
           {delta.good !== null && (delta.good ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />)}
           {delta.text}
         </div>
@@ -105,10 +112,10 @@ function KpiCard({ label, value, help, delta, accent, icon: Icon, iconBg }) {
 function TabHeadline({ label, value, accent, delta }) {
   return (
     <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px', flexWrap: 'wrap', marginBottom: '4px' }}>
-      <span style={{ fontSize: '13px', fontWeight: 700, color: '#374151' }}>{label}</span>
-      <span style={{ fontSize: '32px', fontWeight: 800, color: accent || '#0f172a', lineHeight: 1, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>{value}</span>
+      <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>{label}</span>
+      <span style={{ fontSize: '32px', fontWeight: 800, color: accent || 'var(--text-main)', lineHeight: 1, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>{value}</span>
       {delta && (
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '12.5px', fontWeight: 600, color: delta.good === null ? '#9ca3af' : delta.good ? '#15803d' : '#dc2626' }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '12.5px', fontWeight: 600, color: delta.good === null ? 'var(--text-muted)' : delta.good ? 'var(--status-green-text)' : 'var(--status-red-text)' }}>
           {delta.good !== null && (delta.good ? <TrendingUp size={12} /> : <TrendingDown size={12} />)}
           {delta.text}
         </span>
@@ -119,8 +126,8 @@ function TabHeadline({ label, value, accent, delta }) {
 
 function EmptyState({ text }) {
   return (
-    <div style={{ padding: '48px 24px', textAlign: 'center', color: '#9ca3af', fontSize: '13.5px', lineHeight: 1.6 }}>
-      <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px', color: '#cbd5e1' }}>
+    <div style={{ padding: '48px 24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13.5px', lineHeight: 1.6 }}>
+      <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--bg-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px', color: 'var(--text-muted)' }}>
         <Inbox size={20} />
       </div>
       {text}
@@ -138,15 +145,15 @@ function ChartTooltip({ active, payload, label }) {
   const rows = payload.filter(p => p.value != null && p.name !== undefined);
   if (!rows.length) return null;
   return (
-    <div style={{ background: 'rgba(255,255,255,0.97)', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '10px 14px', boxShadow: '0 8px 24px rgba(0,0,0,0.09)', fontSize: '12.5px', minWidth: '160px' }}>
-      {label && <div style={{ fontWeight: 700, color: '#111827', marginBottom: '8px', fontSize: '13px' }}>{label}</div>}
+    <div style={{ background: 'rgba(255,255,255,0.97)', border: '1px solid var(--border)', borderRadius: '10px', padding: '10px 14px', boxShadow: '0 8px 24px rgba(0,0,0,0.09)', fontSize: '12.5px', minWidth: '160px' }}>
+      {label && <div style={{ fontWeight: 700, color: 'var(--text-main)', marginBottom: '8px', fontSize: '13px' }}>{label}</div>}
       {rows.map((p, i) => (
         <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '2px 0' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.color, display: 'inline-block', flexShrink: 0 }} />
-            <span style={{ color: '#6b7280' }}>{p.name}</span>
+            <span style={{ color: 'var(--text-secondary)' }}>{p.name}</span>
           </div>
-          <strong style={{ color: '#111827', fontVariantNumeric: 'tabular-nums' }}>{formatSEK(p.value)}</strong>
+          <strong style={{ color: 'var(--text-main)', fontVariantNumeric: 'tabular-nums' }}>{formatSEK(p.value)}</strong>
         </div>
       ))}
     </div>
@@ -158,8 +165,8 @@ function ChartTooltip({ active, payload, label }) {
 function ComparisonLegend({ currentLabel, previousLabel, currentColorSwatch, previousColorSwatch }) {
   return (
     <div style={{ display: 'flex', gap: '18px', marginTop: '12px', fontSize: '12.5px', fontWeight: 600, flexWrap: 'wrap' }}>
-      <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#374151' }}>{currentColorSwatch} {currentLabel}</span>
-      <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#9ca3af' }}>{previousColorSwatch} {previousLabel}</span>
+      <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-main)' }}>{currentColorSwatch} {currentLabel}</span>
+      <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)' }}>{previousColorSwatch} {previousLabel}</span>
     </div>
   );
 }
@@ -184,15 +191,15 @@ function ResultBarChart({ data, isMobile }) {
   return (
     <ResponsiveContainer width="100%" height={220}>
       <BarChart data={tickData} margin={{ top: 4, right: 8, left: -12, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-        <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#9ca3af' }} />
-        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#9ca3af' }} tickFormatter={v => formatSEK(v).replace(/\s?kr$/, '')} width={54} />
-        <ReferenceLine y={0} stroke="#e5e7eb" strokeWidth={1.5} />
+        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-light)" />
+        <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} />
+        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} tickFormatter={v => formatSEK(v).replace(/\s?kr$/, '')} width={54} />
+        <ReferenceLine y={0} stroke="var(--border)" strokeWidth={1.5} />
         <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(0,0,0,0.02)' }} />
         <Bar dataKey="resultat" radius={[4, 4, 0, 0]} barSize={18} name="Resultat">
           {tickData.map((d, i) => <Cell key={i} fill={d.resultat >= 0 ? REVENUE : EXPENSE} />)}
         </Bar>
-        <Line dataKey="prevResultat" stroke="#9ca3af" strokeWidth={2} strokeDasharray="4 3" dot={false} name="Föregående period" />
+        <Line dataKey="prevResultat" stroke="var(--text-muted)" strokeWidth={2} strokeDasharray="4 3" dot={false} name="Föregående period" />
       </BarChart>
     </ResponsiveContainer>
   );
@@ -209,13 +216,13 @@ function CashflowLineChart({ data, isMobile }) {
   return (
     <ResponsiveContainer width="100%" height={220}>
       <LineChart data={tickData} margin={{ top: 4, right: 8, left: -12, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-        <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#9ca3af' }} />
-        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#9ca3af' }} tickFormatter={v => formatSEK(v).replace(/\s?kr$/, '')} width={54} />
-        <ReferenceLine y={0} stroke="#e5e7eb" strokeWidth={1.5} />
-        <Tooltip content={<ChartTooltip />} cursor={{ stroke: '#e5e7eb', strokeWidth: 1 }} />
+        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-light)" />
+        <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} />
+        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} tickFormatter={v => formatSEK(v).replace(/\s?kr$/, '')} width={54} />
+        <ReferenceLine y={0} stroke="var(--border)" strokeWidth={1.5} />
+        <Tooltip content={<ChartTooltip />} cursor={{ stroke: 'var(--border)', strokeWidth: 1 }} />
         <Line dataKey="balance" stroke="#1a3028" strokeWidth={2.5} dot={false} name="Saldo" />
-        <Line dataKey="prevBalance" stroke="#9ca3af" strokeWidth={2} strokeDasharray="4 3" dot={false} name="Föregående period" />
+        <Line dataKey="prevBalance" stroke="var(--text-muted)" strokeWidth={2} strokeDasharray="4 3" dot={false} name="Föregående period" />
       </LineChart>
     </ResponsiveContainer>
   );
@@ -246,8 +253,8 @@ function CostBreakdownDonut({ categories, total }) {
           </PieChart>
         </ResponsiveContainer>
         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-          <span style={{ fontSize: '10.5px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Totalt</span>
-          <span style={{ fontSize: '17px', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>{formatSEK(total)}</span>
+          <span style={{ fontSize: '10.5px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Totalt</span>
+          <span style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>{formatSEK(total)}</span>
         </div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: 1, minWidth: '200px' }}>
@@ -255,12 +262,12 @@ function CostBreakdownDonut({ categories, total }) {
           <div
             key={d.name}
             style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13.5px', padding: '4px 6px', borderRadius: '6px', transition: 'background-color 0.12s ease' }}
-            onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'} onMouseLeave={e => e.currentTarget.style.background = 'none'}
+            onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-muted)'} onMouseLeave={e => e.currentTarget.style.background = 'none'}
           >
             <span style={{ width: '11px', height: '11px', borderRadius: '3px', background: d.color, flexShrink: 0 }} />
-            <span style={{ color: '#374151', fontWeight: 600, flex: 1 }}>{d.name}</span>
-            <span style={{ color: '#111', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{formatSEK(d.amount)}</span>
-            <span style={{ color: '#9ca3af', fontWeight: 500, width: '38px', textAlign: 'right' }}>{total ? Math.round(d.amount / total * 100) : 0}%</span>
+            <span style={{ color: 'var(--text-main)', fontWeight: 600, flex: 1 }}>{d.name}</span>
+            <span style={{ color: 'var(--text-main)', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{formatSEK(d.amount)}</span>
+            <span style={{ color: 'var(--text-muted)', fontWeight: 500, width: '38px', textAlign: 'right' }}>{total ? Math.round(d.amount / total * 100) : 0}%</span>
           </div>
         ))}
       </div>
@@ -271,21 +278,21 @@ function CostBreakdownDonut({ categories, total }) {
 function BalanceSheetTable({ title, rows, total }) {
   return (
     <div style={{ flex: 1, minWidth: '260px' }}>
-      <div style={{ fontSize: '13px', fontWeight: 700, color: '#374151', marginBottom: '10px' }}>{title}</div>
-      <div style={{ background: 'white', border: '1px solid #e4e4e7', borderRadius: '10px', overflow: 'hidden' }}>
+      <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '10px' }}>{title}</div>
+      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '10px', overflow: 'hidden' }}>
         {rows.length === 0 ? (
-          <div style={{ padding: '20px', textAlign: 'center', color: '#9ca3af', fontSize: '13px' }}>Inga bokförda saldon</div>
+          <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>Inga bokförda saldon</div>
         ) : rows.map(r => (
           <div
             key={r.code}
-            style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', borderBottom: '1px solid #f1f5f9', fontSize: '13.5px', transition: 'background-color 0.12s ease' }}
-            onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'} onMouseLeave={e => e.currentTarget.style.background = 'none'}
+            style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', borderBottom: '1px solid var(--border-light)', fontSize: '13.5px', transition: 'background-color 0.12s ease' }}
+            onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-muted)'} onMouseLeave={e => e.currentTarget.style.background = 'none'}
           >
-            <span style={{ color: '#374151' }}>{r.name}</span>
-            <span style={{ fontWeight: 600, color: '#111', fontVariantNumeric: 'tabular-nums' }}>{formatSEK(r.amount)}</span>
+            <span style={{ color: 'var(--text-main)' }}>{r.name}</span>
+            <span style={{ fontWeight: 600, color: 'var(--text-main)', fontVariantNumeric: 'tabular-nums' }}>{formatSEK(r.amount)}</span>
           </div>
         ))}
-        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 14px', background: '#f8fafc', fontWeight: 800, fontSize: '14px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 14px', background: 'var(--bg-muted)', fontWeight: 800, fontSize: '14px' }}>
           <span>Summa</span><span style={{ fontVariantNumeric: 'tabular-nums' }}>{formatSEK(total)}</span>
         </div>
       </div>
@@ -362,7 +369,7 @@ export default function Reports({ accounts = [], verifications = [], company = {
   const currentPeriodLabel = `${bounds.label} (${fmtMonthYear(bounds.start)}–${fmtMonthYear(bounds.end)})`;
   const previousPeriodLabel = `Föregående år (${fmtMonthYear(bounds.prevStart)}–${fmtMonthYear(bounds.prevEnd)})`;
 
-  const inputSt = { padding: '9px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', outline: 'none', fontFamily: 'inherit', background: 'white' };
+  const inputSt = { padding: '9px 12px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '14px', outline: 'none', fontFamily: 'inherit', background: 'var(--bg-card)', color: 'var(--text-main)' };
 
   const tabs = [
     { id: 'result', label: 'Resultat', icon: TrendingUp },
@@ -398,7 +405,7 @@ export default function Reports({ accounts = [], verifications = [], company = {
   return (
     <div style={{ padding: '32px 40px', animation: 'fadeIn 0.25s ease', minHeight: '100%', maxWidth: '100%' }}>
       <div className="page-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
-        <h1 style={{ fontSize: '26px', fontWeight: 800, color: '#0f172a', margin: 0 }}>Rapport och analys</h1>
+        <h1 style={{ fontSize: '26px', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>Rapport och analys</h1>
         <div className="no-print" style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
           <select value={period} onChange={e => setPeriod(e.target.value)} style={inputSt}>
             <option value="month">Denna månad</option>
@@ -409,7 +416,7 @@ export default function Reports({ accounts = [], verifications = [], company = {
           {period === 'custom' && (
             <>
               <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} style={inputSt} />
-              <span style={{ color: '#9ca3af' }}>–</span>
+              <span style={{ color: 'var(--text-muted)' }}>–</span>
               <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} style={inputSt} />
             </>
           )}
@@ -418,22 +425,22 @@ export default function Reports({ accounts = [], verifications = [], company = {
           <div style={{ position: 'relative' }}>
             <button
               onClick={() => setExportOpen(v => !v)}
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 14px', background: 'white', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '13.5px', fontWeight: 600, color: '#374151', cursor: 'pointer', transition: 'border-color 0.15s ease, box-shadow 0.15s ease' }}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 14px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13.5px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer', transition: 'border-color 0.15s ease, box-shadow 0.15s ease' }}
               onMouseEnter={e => { e.currentTarget.style.borderColor = '#3d7a2e'; e.currentTarget.style.boxShadow = '0 1px 4px rgba(61,122,46,0.15)'; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = '#d1d5db'; e.currentTarget.style.boxShadow = 'none'; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
             >
               <Download size={14} /> Exportera
             </button>
             {exportOpen && (
               <>
                 <div onClick={() => setExportOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 10 }} />
-                <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, background: 'white', border: '1px solid #e4e4e7', borderRadius: '10px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', overflow: 'hidden', zIndex: 11, minWidth: '190px', transformOrigin: 'top right', animation: 'scaleIn 0.12s ease both' }}>
-                  <button onClick={() => exportCurrentTab('pdf')} style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '13.5px', color: '#374151', textAlign: 'left', transition: 'background-color 0.12s ease' }}
-                    onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'} onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+                <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '10px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', overflow: 'hidden', zIndex: 11, minWidth: '190px', transformOrigin: 'top right', animation: 'scaleIn 0.12s ease both' }}>
+                  <button onClick={() => exportCurrentTab('pdf')} style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '13.5px', color: 'var(--text-main)', textAlign: 'left', transition: 'background-color 0.12s ease' }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-muted)'} onMouseLeave={e => e.currentTarget.style.background = 'none'}>
                     <FileText size={14} /> Ladda ner som PDF
                   </button>
-                  <button onClick={() => exportCurrentTab('excel')} style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '13.5px', color: '#374151', textAlign: 'left', borderTop: '1px solid #f1f5f9', transition: 'background-color 0.12s ease' }}
-                    onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'} onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+                  <button onClick={() => exportCurrentTab('excel')} style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '13.5px', color: 'var(--text-main)', textAlign: 'left', borderTop: '1px solid var(--border-light)', transition: 'background-color 0.12s ease' }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-muted)'} onMouseLeave={e => e.currentTarget.style.background = 'none'}>
                     <FileSpreadsheet size={14} /> Ladda ner som Excel (CSV)
                   </button>
                 </div>
@@ -444,28 +451,28 @@ export default function Reports({ accounts = [], verifications = [], company = {
       </div>
 
       {!companyHasAnyData ? (
-        <div style={{ background: 'white', border: '1px solid #e4e4e7', borderRadius: '12px' }}>
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px' }}>
           <EmptyState text={
             <>
-              <div style={{ fontSize: '15px', fontWeight: 700, color: '#374151', marginBottom: '6px' }}>Ingen bokförd data ännu</div>
+              <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '6px' }}>Ingen bokförd data ännu</div>
               Så snart du bokför fakturor, kvitton eller verifikationer visas din omsättning, dina kostnader och ditt resultat här — räknat direkt från det du faktiskt har bokfört.
             </>
           } />
         </div>
       ) : customRangeIncomplete ? (
-        <div style={{ background: 'white', border: '1px solid #e4e4e7', borderRadius: '12px' }}>
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px' }}>
           <EmptyState text="Välj både start- och slutdatum för att visa den anpassade perioden." />
         </div>
       ) : (
         <>
           <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px', marginBottom: '24px' }}>
-            <KpiCard label="Omsättning" value={formatSEK(omsattning)} delta={formatDelta(omsattning, prevOmsattning)} icon={TrendingUp} accent={BRAND.greenDark} iconBg={BRAND.greenLight} help="Summan av allt du fakturerat/sålt för under perioden, exklusive moms." />
-            <KpiCard label="Kostnader" value={formatSEK(kostnader)} delta={formatDelta(kostnader, prevKostnader, true)} icon={ArrowDownRight} accent={COST_DARK} iconBg={COST_BG} help="Summan av alla bokförda kostnader under perioden, exklusive moms." />
-            <KpiCard label="Resultat" value={formatSEK(resultat)} delta={formatDelta(resultat, prevResultat)} icon={resultat >= 0 ? TrendingUp : TrendingDown} accent={resultat >= 0 ? '#15803d' : '#dc2626'} iconBg={resultat >= 0 ? BRAND.greenLight : BRAND.redBg} help="Omsättning minus kostnader — det som blir kvar (eller det du gått back med)." />
-            <KpiCard label="Marginal" value={marginal === null ? '—' : `${marginal.toFixed(1)}%`} icon={Percent} accent="#0f172a" iconBg="#f1f5f9" help="Hur stor andel av varje intjänad krona som blir resultat. Högre är bättre." />
+            <KpiCard label="Omsättning" value={formatSEK(omsattning)} delta={formatDelta(omsattning, prevOmsattning)} icon={TrendingUp} gradient={KPI_GRADIENTS.revenue} help="Summan av allt du fakturerat/sålt för under perioden, exklusive moms." />
+            <KpiCard label="Kostnader" value={formatSEK(kostnader)} delta={formatDelta(kostnader, prevKostnader, true)} icon={ArrowDownRight} gradient={KPI_GRADIENTS.negative} help="Summan av alla bokförda kostnader under perioden, exklusive moms." />
+            <KpiCard label="Resultat" value={formatSEK(resultat)} delta={formatDelta(resultat, prevResultat)} icon={resultat >= 0 ? TrendingUp : TrendingDown} gradient={resultat >= 0 ? KPI_GRADIENTS.positive : KPI_GRADIENTS.negative} help="Omsättning minus kostnader — det som blir kvar (eller det du gått back med)." />
+            <KpiCard label="Marginal" value={marginal === null ? '—' : `${marginal.toFixed(1)}%`} icon={Percent} gradient={KPI_GRADIENTS.neutral} help="Hur stor andel av varje intjänad krona som blir resultat. Högre är bättre." />
           </div>
 
-          <div className="tabs-scroll-x no-print" style={{ display: 'flex', gap: '6px', borderBottom: '2px solid #e4e4e7', marginBottom: '20px', overflowX: 'auto' }}>
+          <div className="tabs-scroll-x no-print" style={{ display: 'flex', gap: '6px', borderBottom: '2px solid var(--border)', marginBottom: '20px', overflowX: 'auto' }}>
             {tabs.map(t => (
               <button
                 key={t.id}
@@ -474,9 +481,9 @@ export default function Reports({ accounts = [], verifications = [], company = {
                   display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 16px', border: 'none', cursor: 'pointer', fontSize: '14px',
                   whiteSpace: 'nowrap', flexShrink: 0, borderRadius: '8px 8px 0 0',
                   fontWeight: activeTab === t.id ? 700 : 500,
-                  color: activeTab === t.id ? '#1a3028' : '#6b7280',
+                  color: activeTab === t.id ? 'var(--text-main)' : 'var(--text-secondary)',
                   background: activeTab === t.id ? 'rgba(61,122,46,0.06)' : 'none',
-                  borderBottom: activeTab === t.id ? '2px solid #1a3028' : '2px solid transparent',
+                  borderBottom: activeTab === t.id ? `2px solid ${BRAND.green}` : '2px solid transparent',
                   marginBottom: '-2px',
                   transition: 'background-color 0.15s ease, color 0.15s ease',
                 }}
@@ -490,14 +497,14 @@ export default function Reports({ accounts = [], verifications = [], company = {
 
           {activeTab === 'result' && (
             <div style={{ background: 'var(--bg-cream, #faf9f5)', border: '1px solid var(--bg-cream-border, #ede9de)', borderRadius: '14px', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
-              <TabHeadline label="Resultat för perioden" value={formatSEK(resultat)} accent={resultat >= 0 ? '#15803d' : '#dc2626'} delta={formatDelta(resultat, prevResultat)} />
-              <p style={{ fontSize: '12.5px', color: '#9ca3af', margin: '0 0 16px' }}>Så har ditt resultat utvecklats över tid — grönt för lönsamma perioder, rött för de som gick back.</p>
+              <TabHeadline label="Resultat för perioden" value={formatSEK(resultat)} accent={resultat >= 0 ? 'var(--status-green-text)' : 'var(--status-red-text)'} delta={formatDelta(resultat, prevResultat)} />
+              <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: '0 0 16px' }}>Så har ditt resultat utvecklats över tid — grönt för lönsamma perioder, rött för de som gick back.</p>
               {hasResultActivity ? (
                 <>
                   <ResultBarChart data={resultChartData} isMobile={isMobile} />
                   <ComparisonLegend
                     currentLabel={currentPeriodLabel} previousLabel={previousPeriodLabel}
-                    currentColorSwatch={swatch(REVENUE)} previousColorSwatch={swatch('#9ca3af', true)}
+                    currentColorSwatch={swatch(REVENUE)} previousColorSwatch={swatch('var(--text-muted)', true)}
                   />
                 </>
               ) : <EmptyState text="Ingen bokförd data ännu för denna period." />}
@@ -506,14 +513,14 @@ export default function Reports({ accounts = [], verifications = [], company = {
 
           {activeTab === 'cashflow' && (
             <div style={{ background: 'var(--bg-cream, #faf9f5)', border: '1px solid var(--bg-cream-border, #ede9de)', borderRadius: '14px', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
-              <TabHeadline label="Pengar på bank och i kassa" value={formatSEK(currentCash)} accent={currentCash >= 0 ? '#0f172a' : '#dc2626'} />
-              <p style={{ fontSize: '12.5px', color: '#9ca3af', margin: '0 0 16px' }}>Har jag pengar på kontot? Ackumulerat saldo genom perioden, konto 1900–1999.</p>
+              <TabHeadline label="Pengar på bank och i kassa" value={formatSEK(currentCash)} accent={currentCash >= 0 ? 'var(--text-main)' : 'var(--status-red-text)'} />
+              <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: '0 0 16px' }}>Har jag pengar på kontot? Ackumulerat saldo genom perioden, konto 1900–1999.</p>
               {hasCashActivity ? (
                 <>
                   <CashflowLineChart data={cashChartData} isMobile={isMobile} />
                   <ComparisonLegend
                     currentLabel={currentPeriodLabel} previousLabel={previousPeriodLabel}
-                    currentColorSwatch={swatch('#1a3028')} previousColorSwatch={swatch('#9ca3af', true)}
+                    currentColorSwatch={swatch('#1a3028')} previousColorSwatch={swatch('var(--text-muted)', true)}
                   />
                 </>
               ) : <EmptyState text="Ingen kassaflödesdata för denna period." />}
@@ -523,12 +530,12 @@ export default function Reports({ accounts = [], verifications = [], company = {
           {activeTab === 'costs' && (
             <div style={{ background: 'var(--bg-cream, #faf9f5)', border: '1px solid var(--bg-cream-border, #ede9de)', borderRadius: '14px', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
               <TabHeadline label="Vart tar pengarna vägen?" value={formatSEK(costCategories.total)} accent={COST_DARK} delta={formatDelta(costCategories.total, prevCostCategories.total, true)} />
-              <p style={{ fontSize: '12.5px', color: '#9ca3af', margin: '0 0 16px' }}>Bokförda kostnader under perioden, grupperat per kategori.</p>
+              <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: '0 0 16px' }}>Bokförda kostnader under perioden, grupperat per kategori.</p>
               {costCategories.categories.length > 0 ? (
                 <CostBreakdownDonut categories={costCategories.categories} total={costCategories.total} />
               ) : <EmptyState text="Ingen kostnadsdata för denna period." />}
               {costBreakdown.rows.length > 10 && (
-                <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '16px', borderTop: '1px solid #f1f5f9', paddingTop: '12px' }}>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '16px', borderTop: '1px solid var(--border-light)', paddingTop: '12px' }}>
                   {costBreakdown.rows.length} enskilda konton bokförda — se Bokföring → Kontoplan för alla, det här diagrammet visar dem grupperade.
                 </div>
               )}
@@ -537,8 +544,8 @@ export default function Reports({ accounts = [], verifications = [], company = {
 
           {activeTab === 'balance' && (
             <div style={{ background: 'var(--bg-cream, #faf9f5)', border: '1px solid var(--bg-cream-border, #ede9de)', borderRadius: '14px', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
-              <div style={{ fontSize: '14px', fontWeight: 700, color: '#374151', marginBottom: '4px' }}>Balansräkning</div>
-              <p style={{ fontSize: '12.5px', color: '#9ca3af', margin: '0 0 16px' }}>Ögonblicksbild av vad företaget äger och är skyldigt, per {fmtDate(bounds.end)}.</p>
+              <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '4px' }}>Balansräkning</div>
+              <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: '0 0 16px' }}>Ögonblicksbild av vad företaget äger och är skyldigt, per {fmtDate(bounds.end)}.</p>
               {balanceIsEmpty ? (
                 <EmptyState text="Inga bokförda tillgångs- eller skuldsaldon ännu." />
               ) : (
@@ -552,8 +559,8 @@ export default function Reports({ accounts = [], verifications = [], company = {
 
           {activeTab === 'vat' && (
             <div style={{ background: 'var(--bg-cream, #faf9f5)', border: '1px solid var(--bg-cream-border, #ede9de)', borderRadius: '14px', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
-              <div style={{ fontSize: '14px', fontWeight: 700, color: '#374151', marginBottom: '4px' }}>Momsöversikt</div>
-              <p style={{ fontSize: '12.5px', color: '#9ca3af', margin: '0 0 16px' }}>
+              <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '4px' }}>Momsöversikt</div>
+              <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: '0 0 16px' }}>
                 Snabb överblick för perioden — inte en ersättning för den fullständiga momsdeklarationen.
               </p>
               {!vatHasActivity ? (
@@ -561,12 +568,12 @@ export default function Reports({ accounts = [], verifications = [], company = {
               ) : (
                 <>
                   <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px', marginBottom: '20px' }}>
-                    <KpiCard label="Utgående moms" value={formatSEK(vatPeriod.outputVatTotal)} icon={ArrowUpRight} accent="#0f172a" iconBg="#f1f5f9" help="Moms du tagit ut av dina kunder på det du sålt — den ska du normalt betala in till Skatteverket." />
-                    <KpiCard label="Ingående moms" value={formatSEK(vatPeriod.inputVat)} icon={ArrowDownRight} accent="#0f172a" iconBg="#f1f5f9" help="Moms du själv betalat på inköp — den får du normalt dra av mot den utgående momsen." />
+                    <KpiCard label="Utgående moms" value={formatSEK(vatPeriod.outputVatTotal)} icon={ArrowUpRight} accent="var(--text-main)" iconBg="var(--border-light)" help="Moms du tagit ut av dina kunder på det du sålt — den ska du normalt betala in till Skatteverket." />
+                    <KpiCard label="Ingående moms" value={formatSEK(vatPeriod.inputVat)} icon={ArrowDownRight} accent="var(--text-main)" iconBg="var(--border-light)" help="Moms du själv betalat på inköp — den får du normalt dra av mot den utgående momsen." />
                     <KpiCard
                       label="Netto att betala" value={formatSEK(Math.abs(vatPeriod.netToPay))}
                       icon={Receipt}
-                      accent={vatPeriod.netToPay >= 0 ? '#dc2626' : '#15803d'}
+                      accent={vatPeriod.netToPay >= 0 ? 'var(--status-red-text)' : 'var(--status-green-text)'}
                       iconBg={vatPeriod.netToPay >= 0 ? BRAND.redBg : BRAND.greenLight}
                       help={vatPeriod.netToPay >= 0 ? 'Utgående moms minus ingående moms — det du ska betala in till Skatteverket.' : 'Din ingående moms är högre än den utgående — du har en momsfordran (Skatteverket är skyldig dig pengar).'}
                     />

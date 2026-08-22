@@ -12,6 +12,9 @@ import { parseCookies, STRIPE_OAUTH_COOKIE, stripeOauthStateCookie, clearStripeO
 import { recordStripePaymentEvent } from './api/stripe/_paymentEvents.js'
 import { upsertSubscription } from './api/stripe/_subscriptions.js'
 import { normalizeAbsoluteUrl, appendQueryParam } from './api/stripe/_urls.js'
+import { resolveInvoiceLineItems } from './api/stripe/_invoiceLineItems.js'
+import { requireAuthedUser, loadOwnedCompany } from './api/_auth.js'
+import { isRequestFromBot } from './api/_botid.js'
 
 dotenv.config()
 
@@ -349,30 +352,65 @@ function requireStripe(res) {
 app.post('/api/stripe/create-checkout-session', async (req, res) => {
   if (!requireStripe(res)) return
 
+  // Vercel BotID — se filkommentaren i main.jsx. isRequestFromBot() är
+  // fail-open (aldrig true om kollen själv strular) och returnerar alltid
+  // false lokalt (NODE_ENV !== "production"), se api/_botid.js.
+  if (await isRequestFromBot()) {
+    res.status(403).json({ error: 'Åtkomst nekad.' })
+    return
+  }
+
   try {
     const body = req.body || {}
+    const { user_id: userId, company_id: companyId, invoice_id: invoiceId, customer_email: customerEmail, customer_type: customerType } = body
+    if (!userId || !companyId || !invoiceId) {
+      res.status(400).json({ error: 'user_id, company_id och invoice_id krävs.' })
+      return
+    }
+
+    // Säkerhetsfix (se motsvarande kommentar i api/stripe/create-checkout-
+    // session.js, samma logik speglad här för lokal utveckling):
+    // line_items/application_fee_amount/stripe_account_id togs tidigare emot
+    // rakt från requesten och skickades vidare oförändrade — vem som helst
+    // kunde posta ett eget (manipulerat) belopp direkt mot endpointen. Slås
+    // nu upp och räknas om från den lagrade fakturan istället.
+    const resolved = await resolveInvoiceLineItems({ userId, companyId, invoiceId, platformFeePercent: Number.parseFloat(process.env.STRIPE_PLATFORM_FEE_PERCENT || '5') })
+    if (resolved.error) {
+      res.status(resolved.status || 400).json({ error: resolved.error })
+      return
+    }
+    const { lineItems, currency, applicationFeeAmount, stripeAccountId } = resolved
+
+    // Bank transfer kräver en riktig Stripe-kund på sessionen, inte bara
+    // customer_email, och stödjer bara EUR/GBP/JPY/MXN/USD — aldrig SEK
+    // eller NOK.
+    const BANK_TRANSFER_CURRENCIES = new Set(['eur', 'gbp', 'usd'])
+    let stripeCustomerId
+    if (BANK_TRANSFER_CURRENCIES.has(currency) && customerEmail) {
+      const stripeCustomer = await stripe.customers.create({ email: customerEmail })
+      stripeCustomerId = stripeCustomer.id
+    }
+
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
-      // Se motsvarande kommentar i api/stripe/create-checkout-session.js
-      // (samma logik speglad här för lokal utveckling): payment_method_types
-      // utelämnas alltid så Checkout visar allt Dashboard-påslaget som är
-      // relevant (kort, Pay by Bank, Klarna, Swish, ...). Enda undantaget:
-      // Klarna exkluderas explicit för företagskunder (stödjer inte B2B) —
-      // övriga metoder som Pay by Bank har ingen sådan spärr.
-      ...(body.customer_type === 'se_individual' ? {} : { excluded_payment_method_types: ['klarna'] }),
-      line_items: body.line_items || [],
-      customer_email: body.customer_email,
-      // Se motsvarande kommentar i api/stripe/create-checkout-session.js:
-      // kopplingen webhooken behöver för att veta vilken faktura som betalats.
+      ...(stripeCustomerId ? { customer: stripeCustomerId } : (customerEmail ? { customer_email: customerEmail } : {})),
+      // payment_method_types utelämnas alltid så Checkout visar allt
+      // Dashboard-påslaget som är relevant (kort, Pay by Bank, Klarna,
+      // Swish, ...). Enda undantaget: Klarna exkluderas explicit för
+      // företagskunder (stödjer inte B2B) — övriga metoder som Pay by Bank
+      // har ingen sådan spärr.
+      ...(customerType === 'se_individual' ? {} : { excluded_payment_method_types: ['klarna'] }),
+      line_items: lineItems,
+      // Kopplingen webhooken behöver för att veta vilken faktura som betalats.
       metadata: {
-        user_id: body.user_id || '',
-        company_id: body.company_id || '',
-        invoice_id: body.invoice_id || '',
+        user_id: userId,
+        company_id: companyId,
+        invoice_id: invoiceId,
       },
       payment_intent_data: {
-        application_fee_amount: body.application_fee_amount || 0,
+        application_fee_amount: applicationFeeAmount,
         transfer_data: {
-          destination: body.stripe_account_id,
+          destination: stripeAccountId,
         },
       },
       success_url: normalizeAbsoluteUrl(process.env.STRIPE_SUCCESS_URL, 'http://localhost:5173'),
@@ -394,6 +432,12 @@ const SUBSCRIPTION_TRIAL_DAYS = 30
 
 app.post('/api/stripe/create-subscription-checkout', async (req, res) => {
   if (!requireStripe(res)) return
+
+  // Vercel BotID — se filkommentaren i main.jsx.
+  if (await isRequestFromBot()) {
+    res.status(403).json({ error: 'Åtkomst nekad.' })
+    return
+  }
 
   try {
     const body = req.body || {}
@@ -451,16 +495,32 @@ app.post('/api/stripe/create-subscription-checkout', async (req, res) => {
 app.post('/api/email/send-invoice', async (req, res) => {
   if (!requireResend(res)) return
 
+  // Vercel BotID — se filkommentaren i main.jsx.
+  if (await isRequestFromBot()) {
+    res.status(403).json({ error: 'Åtkomst nekad.' })
+    return
+  }
+
+  // Säkerhetsfix (se motsvarande kommentar i api/email/send-invoice.js,
+  // samma logik speglad här för lokal utveckling): kräver nu en verifierad
+  // inloggad session och bevisar ägarskap av företaget innan något skickas
+  // — annars ett öppet mejl-relä som vem som helst kunde missbruka.
+  const user = await requireAuthedUser(req, res)
+  if (!user) return
+
   try {
     const body = req.body || {}
-    const { to, subject, html, replyTo, attachmentBase64, attachmentFilename, company } = body
+    const { to, subject, html, replyTo, attachmentBase64, attachmentFilename, company_id: companyId } = body
 
-    if (!to || !subject || !html) {
-      res.status(400).json({ error: 'to, subject och html krävs.' })
+    if (!to || !subject || !html || !companyId) {
+      res.status(400).json({ error: 'to, subject, html och company_id krävs.' })
       return
     }
 
-    const { from } = await resolveSenderAddress(company)
+    const companyData = await loadOwnedCompany(user.id, companyId, res)
+    if (!companyData) return
+
+    const { from } = await resolveSenderAddress(companyData.company)
 
     const basePayload = {
       to: [to],
@@ -477,9 +537,9 @@ app.post('/api/email/send-invoice', async (req, res) => {
     // t.ex. en domän som blivit overifierad efter statuskontrollen ovan
     // hann köra — försöker vi automatiskt igen med systemadressen istället
     // för att låta hela utskicket falla.
-    if (!result.ok && from !== fallbackSenderAddress(company?.name)) {
+    if (!result.ok && from !== fallbackSenderAddress(companyData.company?.name)) {
       console.warn('Send with custom domain failed, retrying with fallback sender:', result.data)
-      result = await sendViaResend({ ...basePayload, from: fallbackSenderAddress(company?.name) })
+      result = await sendViaResend({ ...basePayload, from: fallbackSenderAddress(companyData.company?.name) })
     }
 
     if (!result.ok) {
@@ -502,6 +562,16 @@ app.post('/api/email/send-invoice', async (req, res) => {
 // hantera domäner alls.
 app.post('/api/email/domains/create', async (req, res) => {
   if (!requireResendAdmin(res)) return
+
+  // Vercel BotID — se filkommentaren i main.jsx.
+  if (await isRequestFromBot()) {
+    res.status(403).json({ error: 'Åtkomst nekad.' })
+    return
+  }
+
+  // Säkerhetsfix (se motsvarande kommentar i api/email/domains/create.js).
+  const user = await requireAuthedUser(req, res)
+  if (!user) return
 
   try {
     const { domain } = req.body || {}
@@ -539,10 +609,20 @@ app.post('/api/email/domains/create', async (req, res) => {
 app.get('/api/email/domains/status', async (req, res) => {
   if (!requireResendAdmin(res)) return
 
+  // Säkerhetsfix (se motsvarande kommentar i api/email/domains/status.js).
+  const user = await requireAuthedUser(req, res)
+  if (!user) return
+
   try {
-    const { id } = req.query || {}
-    if (!id) {
-      res.status(400).json({ error: 'id krävs.' })
+    const { id, company_id: companyId } = req.query || {}
+    if (!id || !companyId) {
+      res.status(400).json({ error: 'id och company_id krävs.' })
+      return
+    }
+    const companyData = await loadOwnedCompany(user.id, companyId, res)
+    if (!companyData) return
+    if (companyData.company?.resendDomainId !== id) {
+      res.status(403).json({ error: 'Domänen tillhör inte det här företaget.' })
       return
     }
 
@@ -586,30 +666,43 @@ async function persistStripeAccountId({ userId, companyId, stripeAccountId }) {
   if (error) throw error
 }
 
-// Startas via helsides-navigering (window.location.href), inte fetch — ett
-// JSON-felsvar skulle bara visas som rå text. Felvägar redirectar därför
-// tillbaka till appen med samma ?stripe_connect=-flagga som callbacken
-// använder, så felet alltid visas som samma odramatiska meddelande.
-app.get('/api/stripe/oauth-start', (req, res) => {
-  const redirectToApp = (status) => res.redirect(302, `${appUrl}/?stripe_connect=${status}`)
+// Säkerhetsfix (se motsvarande kommentar i api/stripe/oauth-start.js, samma
+// logik speglad här för lokal utveckling): var en ren GET med user_id/
+// company_id i query-strängen — vem som helst kunde avfyra den för
+// VILKEN användare/företag som helst och koppla sitt eget Stripe-konto
+// till någon annans Bokix-företag. Autentiserad POST nu istället,
+// returnerar adressen som JSON — frontend navigerar dit själv.
+app.post('/api/stripe/oauth-start', async (req, res) => {
+  if (await isRequestFromBot()) {
+    res.status(403).json({ error: 'Åtkomst nekad.' })
+    return
+  }
 
   const clientId = process.env.STRIPE_CONNECT_CLIENT_ID
   if (!clientId || !process.env.STRIPE_OAUTH_STATE_SECRET) {
     console.error('Stripe OAuth start: STRIPE_CONNECT_CLIENT_ID eller STRIPE_OAUTH_STATE_SECRET saknas.')
-    return redirectToApp('not_configured')
+    res.status(503).json({ error: 'Stripe Connect är inte konfigurerat.' })
+    return
   }
 
-  const { user_id: userId, company_id: companyId } = req.query || {}
-  if (!userId || !companyId) {
-    return redirectToApp('error')
+  const user = await requireAuthedUser(req, res)
+  if (!user) return
+
+  const { company_id: companyId } = req.body || {}
+  if (!companyId) {
+    res.status(400).json({ error: 'company_id krävs.' })
+    return
   }
+  const companyData = await loadOwnedCompany(user.id, companyId, res)
+  if (!companyData) return
 
   let state
   try {
-    state = createSignedState({ user_id: userId, company_id: companyId })
+    state = createSignedState({ user_id: user.id, company_id: companyId })
   } catch (err) {
     console.error('Stripe OAuth start error:', err)
-    return redirectToApp('error')
+    res.status(500).json({ error: 'Kunde inte starta Stripe-anslutningen.' })
+    return
   }
 
   const redirectUri = process.env.STRIPE_OAUTH_REDIRECT_URI || `http://localhost:${process.env.PORT || 5000}/api/stripe/callback`
@@ -621,7 +714,7 @@ app.get('/api/stripe/oauth-start', (req, res) => {
   authorizeUrl.searchParams.set('redirect_uri', redirectUri)
 
   res.setHeader('Set-Cookie', stripeOauthStateCookie(state))
-  res.redirect(302, authorizeUrl.toString())
+  res.status(200).json({ url: authorizeUrl.toString() })
 })
 
 app.get('/api/stripe/callback', async (req, res) => {
@@ -664,10 +757,30 @@ app.get('/api/stripe/callback', async (req, res) => {
 app.post('/api/stripe/disconnect', async (req, res) => {
   if (!requireStripe(res)) return
 
+  // Vercel BotID — se filkommentaren i main.jsx.
+  if (await isRequestFromBot()) {
+    res.status(403).json({ error: 'Åtkomst nekad.' })
+    return
+  }
+
+  // Säkerhetsfix (se motsvarande kommentar i api/stripe/disconnect.js,
+  // samma logik speglad här för lokal utveckling): kräver nu en verifierad
+  // session och bevisar ägarskap av företaget, istället för att lita på
+  // user_id/company_id/stripe_account_id rakt från requesten.
+  const user = await requireAuthedUser(req, res)
+  if (!user) return
+
   try {
-    const { user_id: userId, company_id: companyId, stripe_account_id: stripeAccountId } = req.body || {}
-    if (!userId || !companyId || !stripeAccountId) {
-      return res.status(400).json({ error: 'user_id, company_id och stripe_account_id krävs.' })
+    const { company_id: companyId } = req.body || {}
+    if (!companyId) {
+      return res.status(400).json({ error: 'company_id krävs.' })
+    }
+
+    const companyData = await loadOwnedCompany(user.id, companyId, res)
+    if (!companyData) return
+    const stripeAccountId = companyData.company?.stripeAccountId
+    if (!stripeAccountId) {
+      return res.status(400).json({ error: 'Inget Stripe-konto är anslutet för det här företaget.' })
     }
 
     const clientId = process.env.STRIPE_CONNECT_CLIENT_ID
@@ -679,7 +792,7 @@ app.post('/api/stripe/disconnect', async (req, res) => {
       }
     }
 
-    await persistStripeAccountId({ userId, companyId, stripeAccountId: null })
+    await persistStripeAccountId({ userId: user.id, companyId, stripeAccountId: null })
     res.status(200).json({ ok: true })
   } catch (error) {
     handleError(res, error)

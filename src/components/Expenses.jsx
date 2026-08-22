@@ -49,12 +49,13 @@ const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', '
 const ACCEPT_ATTR = 'image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf';
 
 const inputSt = {
-  width: '100%', padding: '9px 12px', border: '1px solid #d1d5db', borderRadius: '8px',
-  fontSize: '14px', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit'
+  width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: '8px',
+  fontSize: '14px', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit',
+  background: 'var(--bg-card)', color: 'var(--text-main)'
 };
-function inputStErr(hasError) { return { ...inputSt, borderColor: hasError ? '#ef4444' : '#d1d5db' }; }
-const labelSt = { display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' };
-const errSt = { fontSize: '12px', color: '#dc2626', marginTop: '4px' };
+function inputStErr(hasError) { return { ...inputSt, borderColor: hasError ? '#ef4444' : 'var(--border)' }; }
+const labelSt = { display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' };
+const errSt = { fontSize: '12px', color: 'var(--status-red-text)', marginTop: '4px' };
 
 // ── Status (Sida 27) — härledd, aldrig ett fält man kan sätta fritt ──
 // "Ej hanterad": ingen kontering vald ännu (samma som befintlig Granska-
@@ -94,7 +95,7 @@ function displayUploaderName(uploadedBy) {
 
 function EmptyReceiptsState({ text }) {
   return (
-    <div style={{ padding: '40px 24px', textAlign: 'center', background: 'white', borderRadius: '12px', border: '1px solid var(--border)' }}>
+    <div style={{ padding: '40px 24px', textAlign: 'center', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border)' }}>
       <div style={{ width: 52, height: 52, borderRadius: '999px', background: 'var(--gray-100)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px', color: 'var(--text-muted)' }}>
         <Receipt size={22} />
       </div>
@@ -162,11 +163,11 @@ function ReceiptDetailModal({ receipt, accounts, projects, allReceipts, status, 
   };
 
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)', zIndex: 1150, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: 'white', borderRadius: '16px', width: '100%', maxWidth: 920, maxHeight: '90vh', display: 'flex', flexWrap: 'wrap', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.35)' }}>
+    <div onClick={onClose} className="receipt-modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)', zIndex: 1150, display: 'flex', justifyContent: 'center' }}>
+      <div onClick={e => e.stopPropagation()} className="receipt-modal-box" style={{ background: 'var(--bg-card)', borderRadius: '16px', width: '100%', maxWidth: 920, display: 'flex', flexWrap: 'wrap', boxShadow: '0 20px 60px rgba(0,0,0,0.35)' }}>
 
         {/* Vänster: bilden i full storlek */}
-        <div style={{ flex: '1 1 340px', minWidth: 280, background: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'auto', padding: '16px', maxHeight: '90vh' }}>
+        <div className="receipt-modal-image" style={{ background: 'var(--text-main)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
           {isImage && !imgFailed ? (
             <img src={receipt.receiptUrl} alt="Kvitto" onError={() => setImgFailed(true)} style={{ maxWidth: '100%', maxHeight: '80vh', borderRadius: '6px', boxShadow: '0 4px 20px rgba(0,0,0,0.4)' }} />
           ) : isPdf ? (
@@ -183,7 +184,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, allReceipts, status, 
         </div>
 
         {/* Höger: formulär */}
-        <div style={{ flex: '1 1 380px', minWidth: 300, padding: '24px', overflowY: 'auto', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+        <div className="receipt-modal-form" style={{ flex: '1 1 380px', minWidth: 300, padding: '24px', display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '18px' }}>
             <h2 style={{ margin: 0, fontSize: '17px', fontWeight: 700, color: 'var(--text-main)' }}>Kvittodetaljer</h2>
             <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4 }}><X size={18} /></button>
@@ -217,14 +218,14 @@ function ReceiptDetailModal({ receipt, accounts, projects, allReceipts, status, 
             </div>
             <div style={{ flex: '1 1 120px' }}>
               <label style={labelSt}>Momssats</label>
-              <select disabled={readOnly} value={form.vatRate} onChange={e => setForm(f => ({ ...f, vatRate: Number(e.target.value) }))} style={{ ...inputSt, background: 'white' }}>
+              <select disabled={readOnly} value={form.vatRate} onChange={e => setForm(f => ({ ...f, vatRate: Number(e.target.value) }))} style={{ ...inputSt, background: 'var(--bg-card)' }}>
                 {[25, 12, 6, 0].map(v => <option key={v} value={v}>{v}%</option>)}
               </select>
             </div>
             <div style={{ flex: '1 1 100%' }}>
               <label style={labelSt}>Konto</label>
               {readOnly ? (
-                <div style={{ ...inputSt, background: '#f9fafb', color: '#111' }}>
+                <div style={{ ...inputSt, background: 'var(--bg-muted)', color: 'var(--text-main)' }}>
                   {accountLabel ? `${accountLabel.code} – ${accountLabel.name}` : form.costAccount || '—'}
                 </div>
               ) : (
@@ -237,7 +238,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, allReceipts, status, 
             {projects.length > 0 && (
               <div style={{ flex: '1 1 100%' }}>
                 <label style={labelSt}>Projekt (valfritt)</label>
-                <select value={form.projectId} onChange={e => setForm(f => ({ ...f, projectId: e.target.value }))} style={{ ...inputSt, background: 'white' }}>
+                <select value={form.projectId} onChange={e => setForm(f => ({ ...f, projectId: e.target.value }))} style={{ ...inputSt, background: 'var(--bg-card)' }}>
                   <option value="">Inget projekt</option>
                   {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
@@ -271,7 +272,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, allReceipts, status, 
               </button>
             ) : <span />}
             <div style={{ display: 'flex', gap: '10px' }}>
-              <button type="button" onClick={onClose} style={{ padding: '8px 16px', background: '#f3f4f6', border: 'none', borderRadius: '8px', fontWeight: 600, color: '#374151', cursor: 'pointer', fontSize: '13px' }}>Stäng</button>
+              <button type="button" onClick={onClose} style={{ padding: '8px 16px', background: 'var(--border-light)', border: 'none', borderRadius: '8px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer', fontSize: '13px' }}>Stäng</button>
               {status !== 'reversed' && (
                 <button type="button" onClick={handleSave} style={{ padding: '8px 18px', background: BRAND.green, border: 'none', borderRadius: '8px', fontWeight: 600, color: 'white', cursor: 'pointer', fontSize: '13px', boxShadow: '0 2px 6px rgba(61, 122, 46, 0.25)' }}>
                   {readOnly ? 'Spara ändringar' : 'Spara och bokför'}
@@ -427,10 +428,10 @@ export default function Expenses({
   };
 
   return (
-    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: '#f0f2f5' }}>
+    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
 
       {/* ── Sidhuvud ─────────────────────────── */}
-      <div style={{ background: 'white', borderBottom: '1px solid var(--border)', padding: '16px 20px 0', flexShrink: 0 }}>
+      <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '16px 20px 0', flexShrink: 0 }}>
         <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 500, color: 'var(--text-main)' }}>{pageTitle || 'Utgifter'}</h1>
         {pageSubtitle && <p style={{ margin: '2px 0 4px', fontSize: '13.5px', color: 'var(--text-secondary)' }}>{pageSubtitle}</p>}
         {/* Kort förklaring av vad sidan faktiskt gör — kvittot sparas som en
@@ -451,7 +452,7 @@ export default function Expenses({
           onClick={() => document.getElementById('receipt-upload').click()}
           style={{
             border: `1.5px dashed ${isDragging ? BRAND.green : 'var(--gray-300)'}`,
-            background: isDragging ? 'rgba(234,243,222,0.4)' : 'white',
+            background: isDragging ? 'rgba(234,243,222,0.4)' : 'var(--bg-card)',
             borderRadius: '12px', padding: '36px 20px', textAlign: 'center',
             cursor: 'pointer', transition: 'border-color 0.15s, background 0.15s', marginBottom: '24px',
           }}
@@ -480,9 +481,9 @@ export default function Expenses({
         </div>
 
         {fileErrors.length > 0 && (
-          <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px' }}>
+          <div style={{ background: 'var(--status-red-bg)', border: '1px solid var(--status-red-bg)', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px' }}>
             {fileErrors.map((msg, i) => (
-              <div key={i} style={{ fontSize: '13px', color: '#b91c1c', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div key={i} style={{ fontSize: '13px', color: 'var(--status-red-text)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <AlertCircle size={14} /> {msg}
               </div>
             ))}
@@ -493,7 +494,7 @@ export default function Expenses({
         {uploadingFiles.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>
             {uploadingFiles.map(f => (
-              <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: '16px', background: 'white', padding: '16px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+              <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: '16px', background: 'var(--bg-card)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border)' }}>
                 <FileText size={24} color="var(--text-muted)" />
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '13px', fontWeight: 500 }}>
@@ -556,7 +557,7 @@ export default function Expenses({
                 }}
               >
                 {meta.label}
-                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 16, height: 16, padding: '0 4px', borderRadius: '999px', fontSize: '10px', fontWeight: 700, background: 'rgba(255,255,255,0.55)', color: meta.color }}>{count}</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 16, height: 16, padding: '0 4px', borderRadius: '999px', fontSize: '10px', fontWeight: 700, background: 'var(--status-chip-bg)', color: meta.color }}>{count}</span>
               </button>
             );
           })}
@@ -575,7 +576,7 @@ export default function Expenses({
               <div
                 key={r.id}
                 onClick={() => setDetailReceiptId(r.id)}
-                style={{ display: 'flex', alignItems: 'center', gap: '14px', background: 'white', border: '1px solid var(--border)', borderRadius: '12px', padding: '10px 14px', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.03)', cursor: 'pointer' }}
+                style={{ display: 'flex', alignItems: 'center', gap: '14px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', padding: '10px 14px', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.03)', cursor: 'pointer' }}
               >
                 <div style={{ width: 52, height: 52, borderRadius: '10px', background: 'var(--gray-100)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
                   {isImage ? (

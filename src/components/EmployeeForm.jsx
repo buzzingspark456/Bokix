@@ -6,17 +6,18 @@ import { validatePersonnummer, formatPersonnummerInput } from '../utils/personnu
 import { EMPLOYMENT_TYPES, SALARY_FORMS, TAX_FORMS, TAX_TABLE_COLUMNS, VACATION_RULES, MIN_VACATION_DAYS } from '../utils/payrollConfig';
 import { isValidIban } from '../utils/salaryPaymentFile';
 
-const sectionStyle = { background: 'white', borderRadius: '12px', border: '1px solid #e4e4e7', padding: '20px', marginBottom: '16px' };
-const sectionTitleStyle = { fontSize: '13px', fontWeight: 700, color: '#111', margin: '0 0 16px', textTransform: 'uppercase', letterSpacing: '0.03em' };
-const labelStyle = { display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' };
-const helpTextStyle = { fontSize: '12px', color: '#6b7280', marginTop: '6px', lineHeight: 1.5 };
-const errorTextStyle = { fontSize: '12px', color: '#dc2626', marginTop: '6px' };
+const sectionStyle = { background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border)', padding: '20px', marginBottom: '16px' };
+const sectionTitleStyle = { fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 16px', textTransform: 'uppercase', letterSpacing: '0.03em' };
+const labelStyle = { display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' };
+const helpTextStyle = { fontSize: '12px', color: 'var(--text-secondary)', marginTop: '6px', lineHeight: 1.5 };
+const errorTextStyle = { fontSize: '12px', color: 'var(--status-red-text)', marginTop: '6px' };
 const inputBase = {
-  width: '100%', padding: '9px 12px', border: '1px solid #d1d5db',
-  borderRadius: '8px', fontSize: '14px', color: '#111',
+  width: '100%', padding: '9px 12px', border: '1px solid var(--border)',
+  borderRadius: '8px', fontSize: '14px', color: 'var(--text-main)',
+  background: 'var(--bg-card)',
   outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit',
 };
-function inputStyle(hasError) { return { ...inputBase, borderColor: hasError ? '#ef4444' : '#d1d5db' }; }
+function inputStyle(hasError) { return { ...inputBase, borderColor: hasError ? '#ef4444' : 'var(--border)' }; }
 // gridTemplateColumns lever i CSS-klassen .form-row-2 (index.css) istället
 // för här, se kommentaren i Contacts.jsx för varför.
 const grid2 = { display: 'grid', gap: '16px' };
@@ -127,7 +128,7 @@ export default function EmployeeForm({ initial, projects = [], onSave, onCancel 
         <div className="form-row-3" style={grid3}>
           <div>
             <label style={labelStyle}>Typ</label>
-            <select value={form.employmentType} onChange={e => set('employmentType', e.target.value)} style={{ ...inputBase, background: 'white' }}>
+            <select value={form.employmentType} onChange={e => set('employmentType', e.target.value)} style={{ ...inputBase, background: 'var(--bg-card)' }}>
               {EMPLOYMENT_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
             </select>
           </div>
@@ -154,7 +155,7 @@ export default function EmployeeForm({ initial, projects = [], onSave, onCancel 
           </div>
           <div>
             <label style={labelStyle}>Löneform</label>
-            <select value={form.salaryForm} onChange={e => set('salaryForm', e.target.value)} style={{ ...inputBase, background: 'white' }}>
+            <select value={form.salaryForm} onChange={e => set('salaryForm', e.target.value)} style={{ ...inputBase, background: 'var(--bg-card)' }}>
               {SALARY_FORMS.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
             </select>
           </div>
@@ -177,17 +178,17 @@ export default function EmployeeForm({ initial, projects = [], onSave, onCancel 
         <div className="form-row-2" style={grid2}>
           <div>
             <label style={labelStyle}>Skatteform</label>
-            <select value={form.taxForm} onChange={e => set('taxForm', e.target.value)} style={{ ...inputBase, background: 'white' }}>
+            <select value={form.taxForm} onChange={e => set('taxForm', e.target.value)} style={{ ...inputBase, background: 'var(--bg-card)' }}>
               {TAX_FORMS.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
             </select>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingTop: '26px' }}>
             <input type="checkbox" id="secondaryIncome" checked={form.secondaryIncome} onChange={e => set('secondaryIncome', e.target.checked)} />
-            <label htmlFor="secondaryIncome" style={{ fontSize: '13.5px', color: '#374151', cursor: 'pointer' }}>Sidoinkomst (30 % skatteavdrag)</label>
+            <label htmlFor="secondaryIncome" style={{ fontSize: '13.5px', color: 'var(--text-main)', cursor: 'pointer' }}>Sidoinkomst (30 % skatteavdrag)</label>
           </div>
         </div>
         {form.taxForm === 'ej_verifierad' && (
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '10px 12px', marginTop: '4px', fontSize: '12.5px', color: '#92400e' }}>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-amber-bg)', border: '1px solid var(--status-amber-bg)', borderRadius: '8px', padding: '10px 12px', marginTop: '4px', fontSize: '12.5px', color: 'var(--status-amber-text)' }}>
             <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
             <span>Skatteformen bör verifieras innan första lönekörningen.</span>
           </div>
@@ -206,7 +207,7 @@ export default function EmployeeForm({ initial, projects = [], onSave, onCancel 
 
         <div style={{ marginTop: '16px' }}>
           <label style={labelStyle}>Skattetabell (tabellnummer) *</label>
-          <p style={{ fontSize: '12.5px', color: '#6b7280', margin: '0 0 8px' }}>
+          <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: '0 0 8px' }}>
             Hittas på den anställdas skattsedel/Skatteverkets tabellsök. Automatisk härledning från kommun är inte byggd ännu (kräver Skatteverkets kommunala skattesatslista) — tabellnumret måste anges här för att skatteavdraget ska kunna beräknas.
           </p>
           <input
@@ -219,7 +220,7 @@ export default function EmployeeForm({ initial, projects = [], onSave, onCancel 
 
         <div style={{ marginTop: '16px' }}>
           <label style={labelStyle}>Kolumn</label>
-          <select value={form.taxTable.kolumn} onChange={e => setTaxTable({ kolumn: Number(e.target.value) })} style={{ ...inputBase, background: 'white' }}>
+          <select value={form.taxTable.kolumn} onChange={e => setTaxTable({ kolumn: Number(e.target.value) })} style={{ ...inputBase, background: 'var(--bg-card)' }}>
             {TAX_TABLE_COLUMNS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
           </select>
         </div>
@@ -229,7 +230,7 @@ export default function EmployeeForm({ initial, projects = [], onSave, onCancel 
         <div className="form-row-2" style={grid2}>
           <div>
             <label style={labelStyle}>Semesterregel</label>
-            <select value={form.vacationRule} onChange={e => set('vacationRule', e.target.value)} style={{ ...inputBase, background: 'white' }}>
+            <select value={form.vacationRule} onChange={e => set('vacationRule', e.target.value)} style={{ ...inputBase, background: 'var(--bg-card)' }}>
               {VACATION_RULES.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
             </select>
           </div>
@@ -268,7 +269,7 @@ export default function EmployeeForm({ initial, projects = [], onSave, onCancel 
           </div>
         </div>
         {!hasBankInfo && (
-          <p style={{ ...helpTextStyle, color: '#b45309' }}>
+          <p style={{ ...helpTextStyle, color: 'var(--status-amber-text)' }}>
             Kan sparas utan bankkontouppgifter för förberedelse, men blockeras från lönekörning tills clearing- och kontonummer är ifyllda.
           </p>
         )}
@@ -294,7 +295,7 @@ export default function EmployeeForm({ initial, projects = [], onSave, onCancel 
       </Section>
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-        <button type="button" onClick={onCancel} style={{ padding: '9px 18px', background: 'white', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', fontWeight: 600, color: '#374151', cursor: 'pointer' }}>Avbryt</button>
+        <button type="button" onClick={onCancel} style={{ padding: '9px 18px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer' }}>Avbryt</button>
         <button type="submit" style={{ padding: '9px 18px', background: '#1a3028', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600, color: 'white', cursor: 'pointer' }}>Spara anställd</button>
       </div>
     </form>

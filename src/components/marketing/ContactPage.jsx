@@ -39,7 +39,7 @@ const inputStyle = {
   fontSize: '14.5px',
   fontFamily: 'inherit',
   color: INK,
-  background: 'white',
+  background: 'var(--mkt-card-bg)',
   border: `1.5px solid ${CARD_BORDER}`,
   borderRadius: '10px',
   outline: 'none',
@@ -117,7 +117,7 @@ export default function ContactPage() {
 
       <section style={{ padding: '150px 24px 60px', background: IVORY, position: 'relative', overflow: 'hidden' }}>
         <Reveal style={{ maxWidth: '620px', margin: '0 auto', textAlign: 'center', position: 'relative' }}>
-          <div style={{ width: 60, height: 60, borderRadius: '17px', background: BRAND.greenDark, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
+          <div style={{ width: 60, height: 60, borderRadius: '17px', background: BRAND.green, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
             <Mail size={26} color="white" />
           </div>
           <h1 style={{ fontFamily: SERIF, fontSize: 'clamp(30px, 4.5vw, 44px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '16px', lineHeight: 1.16 }}>
@@ -129,9 +129,9 @@ export default function ContactPage() {
         </Reveal>
       </section>
 
-      <section style={{ padding: '40px 24px 110px', background: 'white' }}>
+      <section style={{ padding: '40px 24px 110px', background: 'var(--mkt-page-bg)' }}>
         <Reveal scale style={{ maxWidth: '640px', margin: '0 auto' }}>
-          <div style={{ background: 'white', border: `1px solid ${CARD_BORDER}`, borderRadius: '22px', padding: 'clamp(24px, 5vw, 40px)', boxShadow: CARD_SHADOW }}>
+          <div style={{ background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '22px', padding: 'clamp(24px, 5vw, 40px)', boxShadow: CARD_SHADOW }}>
             {status === 'sent' ? (
               <div style={{ textAlign: 'center', padding: '30px 10px' }}>
                 <div style={{ width: 56, height: 56, borderRadius: '50%', background: BRAND.greenLight, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' }}>
@@ -145,7 +145,7 @@ export default function ContactPage() {
                   type="button"
                   onClick={() => setStatus('idle')}
                   className="lp-btn-secondary"
-                  style={{ padding: '10px 20px', background: 'white', border: `1.5px solid ${CARD_BORDER}`, borderRadius: '10px', fontWeight: 700, fontSize: '13.5px', color: INK_SOFT, cursor: 'pointer' }}
+                  style={{ padding: '10px 20px', background: 'var(--mkt-card-bg)', border: `1.5px solid ${CARD_BORDER}`, borderRadius: '10px', fontWeight: 700, fontSize: '13.5px', color: INK_SOFT, cursor: 'pointer' }}
                 >
                   Skicka ett till meddelande
                 </button>
@@ -183,7 +183,7 @@ export default function ContactPage() {
                           style={{
                             display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px',
                             border: `1.5px solid ${active ? accent.fg : CARD_BORDER}`,
-                            background: active ? accent.soft : 'white',
+                            background: active ? accent.soft : 'var(--mkt-card-bg)',
                             borderRadius: '10px', fontSize: '13px', fontWeight: 600,
                             color: active ? accent.fg : INK_SOFT, textAlign: 'left',
                           }}

@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CheckCircle, ArrowRight, ChevronDown, ShieldCheck, Zap, Check } from 'lucide-react';
+import { CheckCircle, ArrowRight, ChevronDown, ShieldCheck, Zap, Check, BarChart3 } from 'lucide-react';
 import { BRAND } from '../../utils/brandColors';
 import MarketingLayout, { Reveal } from './MarketingLayout';
 import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW, ACCENT_CYCLE } from './marketingTokens';
+import DemoWorkspace from '../DemoWorkspace';
 
 const INCLUDED = [
   'Obegränsat med kund- och leverantörsfakturor',
@@ -61,7 +62,7 @@ export default function PricingPage() {
 
       <section style={{ padding: '150px 24px 70px', background: IVORY, position: 'relative', overflow: 'hidden' }}>
         <Reveal style={{ maxWidth: '640px', margin: '0 auto', textAlign: 'center', position: 'relative' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '7px 16px', borderRadius: '999px', background: 'white', border: `1px solid ${CARD_BORDER}`, fontSize: '12.5px', fontWeight: 700, color: BRAND.greenDark, marginBottom: '20px' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '7px 16px', borderRadius: '999px', background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, fontSize: '12.5px', fontWeight: 700, color: BRAND.greenDark, marginBottom: '20px' }}>
             Inga dolda avgifter
           </div>
           <h1 style={{ fontFamily: SERIF, fontSize: 'clamp(32px, 5vw, 52px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '16px', lineHeight: 1.14 }}>
@@ -73,14 +74,17 @@ export default function PricingPage() {
         </Reveal>
       </section>
 
-      <section style={{ padding: '0 24px 60px', background: 'white' }}>
+      <section style={{ padding: '0 24px 60px', background: 'var(--mkt-page-bg)' }}>
         <Reveal scale style={{ maxWidth: '460px', margin: '0 auto' }}>
-          <div style={{ background: 'white', border: `1px solid ${CARD_BORDER}`, borderRadius: '26px', overflow: 'hidden', boxShadow: CARD_SHADOW }}>
+          <div style={{ background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '26px', overflow: 'hidden', boxShadow: CARD_SHADOW }}>
 
             {/* Mörk topp-sektion för priset — bryter kortet i två zoner istället
                 för en enda platt vit yta, så det känns som en riktig produkt
-                snarare än en generisk prislista. */}
-            <div style={{ background: BRAND.greenDark, padding: '38px 36px 34px', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
+                snarare än en generisk prislista. Alltid samma solida gröna
+                brandfärg oavsett tema (BRAND.green, inte BRAND.greenDark —
+                den senare är en TEXT-token som blir ljusgrön i mörkt läge,
+                fel som bakgrund här). */}
+            <div style={{ background: BRAND.green, padding: '38px 36px 34px', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
               <div style={{ position: 'relative' }}>
                 <span style={{ fontFamily: SERIF, fontSize: '52px', fontWeight: 700, letterSpacing: '-0.01em', color: 'white' }}>99 kr</span>
                 <span style={{ fontSize: '16px', color: 'rgba(255,255,255,0.6)' }}> /mån</span>
@@ -105,7 +109,7 @@ export default function PricingPage() {
               <button className="lp-btn-primary" onClick={enterApp} style={{ width: '100%', padding: '16px', borderRadius: '12px', border: 'none', background: BRAND.green, fontSize: '15.5px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', color: 'white', boxShadow: '0 2px 8px rgba(61,122,46,0.3)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                 Kom igång gratis <ArrowRight size={16} />
               </button>
-              <div style={{ textAlign: 'center', fontSize: '12.5px', color: '#9c9689', marginTop: '14px' }}>Gratis i 30 dagar · avsluta när som helst</div>
+              <div style={{ textAlign: 'center', fontSize: '12.5px', color: 'var(--mkt-muted)', marginTop: '14px' }}>Gratis i 30 dagar · avsluta när som helst</div>
             </div>
           </div>
         </Reveal>
@@ -122,12 +126,37 @@ export default function PricingPage() {
         </Reveal>
       </section>
 
+      {/* ── PRODUKTVISNING — kundönskemål: samma riktiga, klickbara demo som
+          finns på startsidan (DemoWorkspace.jsx), inte bara en beskrivning
+          av vad som ingår. Identisk kopia av startsidans sektion (rubrik,
+          text och komponent) med flit — samma "SAMMA app"-löfte ska hålla
+          på båda sidorna. ── */}
+      <section style={{ padding: '20px 24px 90px', background: 'var(--mkt-card-bg)', borderTop: `1px solid ${CARD_BORDER}` }}>
+        <div style={{ maxWidth: '1220px', margin: '0 auto' }}>
+          <Reveal style={{ textAlign: 'center', marginBottom: '48px' }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '5px 12px', background: BRAND.greenLight, borderRadius: '100px', fontSize: '12px', fontWeight: 700, color: BRAND.greenDark, marginBottom: '16px' }}>
+              <BarChart3 size={12} /> Så ser det ut
+            </div>
+            <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(24px, 3.5vw, 34px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '14px' }}>
+              Bokföringen sköter sig själv
+            </h2>
+            <p style={{ fontSize: '16px', color: 'var(--mkt-muted)', maxWidth: '560px', margin: '0 auto', lineHeight: 1.6 }}>
+              Samma app som möter dig efter att du skapat konto, här med exempeldata. Verifikationer bokförs automatiskt i bakgrunden — klicka runt i menyn, allt går att testa på riktigt.
+            </p>
+          </Reveal>
+
+          <Reveal scale style={{ position: 'relative' }}>
+            <DemoWorkspace />
+          </Reveal>
+        </div>
+      </section>
+
       <section style={{ padding: '70px 24px 100px', background: IVORY }}>
         <div style={{ maxWidth: '680px', margin: '0 auto' }}>
           <Reveal style={{ textAlign: 'center', marginBottom: '36px' }}>
             <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(22px, 3vw, 28px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK }}>Vanliga frågor</h2>
           </Reveal>
-          <Reveal delay={100} className="lp-card-hover" style={{ background: 'white', border: `1px solid ${CARD_BORDER}`, borderRadius: '16px', padding: '8px 24px', boxShadow: '0 1px 3px rgba(28,36,32,0.05)' }}>
+          <Reveal delay={100} className="lp-card-hover" style={{ background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '16px', padding: '8px 24px', boxShadow: '0 1px 3px rgba(28,36,32,0.05)' }}>
             {FAQ.map(item => <FaqItem key={item.q} {...item} />)}
           </Reveal>
         </div>

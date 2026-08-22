@@ -1,5 +1,8 @@
 import { applySecurityHeaders } from '../_security.js';
 import { parseJsonBody } from '../stripe/_parseBody.js';
+import { requireAuthedUser, loadOwnedCompany } from '../_auth.js';
+import { checkRateLimit } from '../_rateLimit.js';
+import { isRequestFromBot } from '../_botid.js';
 
 // Speglar POST /api/email/send-invoice i server.js (lokal dev via
 // `npm run dev`) — Vercel kör aldrig server.js i produktion, bara filer
@@ -16,6 +19,16 @@ import { parseJsonBody } from '../stripe/_parseBody.js';
 // bara to/subject/html/bilaga, så både Invoices.jsx och Quotes.jsx
 // (fakturor OCH offerter) använder samma rutt istället för en egen
 // identisk "send-quote"-function (Vercels 12-funktionsgräns, Hobby-plan).
+//
+// Säkerhetsfix (se säkerhetsgranskningen): den här endpointen hade
+// tidigare INGEN inloggningskontroll alls — to/subject/html/bilaga togs
+// emot rakt av och skickades via Bokix eget Resend-konto, ett öppet
+// mejl-relä som vem som helst kunde missbruka för spam/nätfiske i Bokix
+// avsändardomän. Kräver nu en verifierad session, och avsändarnamnet
+// (`company`) hämtas nu från den inloggade användarens EGEN sparade
+// företagsdata istället för att lita på ett client-supplied company-
+// objekt — annars kunde man fortfarande skicka "från" ett företagsnamn
+// man inte äger.
 const resendApiKey = process.env.RESEND_API_KEY || null;
 const resendAdminApiKey = process.env.RESEND_ADMIN_API_KEY || null;
 const emailFrom = process.env.EMAIL_FROM || 'Bokix <onboarding@resend.dev>';
@@ -77,17 +90,31 @@ export default async function handler(req, res) {
     res.status(503).json({ error: 'E-post är inte konfigurerat. Sätt RESEND_API_KEY (och valfritt EMAIL_FROM) i Vercels miljövariabler för att kunna skicka fakturor via e-post.' });
     return;
   }
+  if (!checkRateLimit(req, res, { key: 'send-invoice', max: 30 })) return;
+
+  // Vercel BotID — se filkommentaren i main.jsx.
+  const isBot = await isRequestFromBot();
+  if (isBot) {
+    res.status(403).json({ error: 'Åtkomst nekad.' });
+    return;
+  }
+
+  const user = await requireAuthedUser(req, res);
+  if (!user) return;
 
   try {
     const body = await parseJsonBody(req);
-    const { to, subject, html, replyTo, attachmentBase64, attachmentFilename, company } = body || {};
+    const { to, subject, html, replyTo, attachmentBase64, attachmentFilename, company_id: companyId } = body || {};
 
-    if (!to || !subject || !html) {
-      res.status(400).json({ error: 'to, subject och html krävs.' });
+    if (!to || !subject || !html || !companyId) {
+      res.status(400).json({ error: 'to, subject, html och company_id krävs.' });
       return;
     }
 
-    const { from } = await resolveSenderAddress(company);
+    const companyData = await loadOwnedCompany(user.id, companyId, res);
+    if (!companyData) return;
+
+    const { from } = await resolveSenderAddress(companyData.company);
 
     const basePayload = {
       to: [to],
@@ -102,9 +129,9 @@ export default async function handler(req, res) {
     // Bugkritiskt: ett misslyckat utskick med kundens egen domän försöker
     // automatiskt igen med systemadressen istället för att hela utskicket
     // bara faller.
-    if (!result.ok && from !== fallbackSenderAddress(company?.name)) {
+    if (!result.ok && from !== fallbackSenderAddress(companyData.company?.name)) {
       console.warn('Send with custom domain failed, retrying with fallback sender:', result.data);
-      result = await sendViaResend({ ...basePayload, from: fallbackSenderAddress(company?.name) });
+      result = await sendViaResend({ ...basePayload, from: fallbackSenderAddress(companyData.company?.name) });
     }
 
     if (!result.ok) {

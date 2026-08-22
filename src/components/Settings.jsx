@@ -39,7 +39,7 @@ function StripeLogo({ height = 16 }) {
 // samma mönster som t.ex. "Logga in med Google" använder.
 const btnStripeConnect = {
   display: 'inline-flex', alignItems: 'center', gap: '9px', padding: '9px 18px 9px 16px',
-  background: 'white', color: '#0a2540', border: '1px solid #d1d5db', borderRadius: '8px',
+  background: 'var(--bg-card)', color: '#0a2540', border: '1px solid var(--border)', borderRadius: '8px',
   fontWeight: 600, fontSize: '14px', cursor: 'pointer', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.06)',
 };
 
@@ -47,7 +47,7 @@ const btnStripeConnect = {
 // Bugkritiskt (Sida 15): varje sektion är ett fullbrett, ljust kort — inte
 // smala vita kort med stor luft runt om.
 const card = {
-  background: 'white', borderRadius: '14px', padding: '22px', marginBottom: '16px', width: '100%', boxSizing: 'border-box',
+  background: 'var(--bg-card)', borderRadius: '14px', padding: '22px', marginBottom: '16px', width: '100%', boxSizing: 'border-box',
   border: '1px solid #ececef', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
 };
 // Sida 38, punkt 2: kolumnbredden lever i CSS-klassen .form-row-2
@@ -56,14 +56,19 @@ const card = {
 // Contacts.jsx/EmployeeForm.jsx. Varje användning nedan får
 // className="form-row-2" också.
 const grid2 = { display: 'grid', gap: '14px' };
-const labelStyle = { display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' };
+const labelStyle = { display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' };
 const inputBase = {
-  width: '100%', padding: '9px 12px', border: '1px solid #d1d5db', borderRadius: '8px',
+  width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: '8px',
   fontSize: '14px', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', transition: 'border-color 0.15s',
+  // Säkerhetsgranskningen/mörkgrön-önskemålet: ingen background/color satt
+  // här tidigare alls — inputs föll tillbaka på webbläsarens EGEN vita
+  // standardbakgrund oavsett tema, vilket lämnade varje formulärfält vitt
+  // mitt i en annars mörk sida.
+  background: 'var(--bg-card)', color: 'var(--text-main)',
 };
 const btnPrimary = { padding: '9px 18px', background: BRAND.green, color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer', boxShadow: '0 2px 6px rgba(61, 122, 46, 0.25)' };
-const btnSecondary = { padding: '9px 18px', background: 'white', color: '#374151', border: '1px solid #d1d5db', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer' };
-const btnGhost = { padding: '9px 14px', background: 'transparent', color: '#6b7280', border: 'none', fontWeight: 600, fontSize: '13px', cursor: 'pointer' };
+const btnSecondary = { padding: '9px 18px', background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border)', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer' };
+const btnGhost = { padding: '9px 14px', background: 'transparent', color: 'var(--text-secondary)', border: 'none', fontWeight: 600, fontSize: '13px', cursor: 'pointer' };
 // Säkerhetsförsvagande handling (t.ex. stänga av tvåstegsverifiering) — dämpad
 // varningston (amberBg/amberText), inte samma neutrala grå som vanliga
 // sekundärknappar och inte heller Bokix grönt (det är en primär, positiv
@@ -71,7 +76,7 @@ const btnGhost = { padding: '9px 14px', background: 'transparent', color: '#6b72
 const btnWarning = { padding: '9px 18px', background: BRAND.amberBg, color: BRAND.amberText, border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer' };
 // Sällan använd säkerhetsåtgärd (utloggning av andra enheter) — tydligt röd
 // men ghost/outline, inte en vardaglig spara-knapp.
-const btnDangerGhost = { padding: '9px 18px', background: 'white', color: '#b91c1c', border: '1px solid #fecaca', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer' };
+const btnDangerGhost = { padding: '9px 18px', background: 'var(--bg-card)', color: 'var(--status-red-text)', border: '1px solid var(--status-red-bg)', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer' };
 
 // Färgad ikon-i-cirkel framför ett kortnamn — gör varje sektion visuellt
 // identifierbar på en snabb blick istället för en lång lista av likadana
@@ -80,7 +85,7 @@ const SECTION_TONES = {
   green: { bg: BRAND.greenLight, color: BRAND.greenDark },
   amber: { bg: BRAND.amberBg, color: BRAND.amberText },
   red: { bg: BRAND.redBg, color: BRAND.redText },
-  gray: { bg: BRAND.grayBg, color: '#3f3f46' },
+  gray: { bg: BRAND.grayBg, color: 'var(--status-gray-text)' },
 };
 function SectionHeading({ icon: Icon, tone = 'green', children }) {
   const t = SECTION_TONES[tone] || SECTION_TONES.green;
@@ -89,7 +94,7 @@ function SectionHeading({ icon: Icon, tone = 'green', children }) {
       <div style={{ width: 34, height: 34, borderRadius: '10px', background: t.bg, color: t.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
         <Icon size={17} strokeWidth={2.3} />
       </div>
-      <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0, color: '#111' }}>{children}</h3>
+      <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>{children}</h3>
     </div>
   );
 }
@@ -98,7 +103,7 @@ function Badge({ tone = 'warning', children }) {
   const map = {
     positive: { bg: BRAND.greenLight, color: BRAND.greenDark },
     warning: { bg: BRAND.amberBg, color: BRAND.amberText },
-    danger: { bg: '#fee2e2', color: '#991b1b' },
+    danger: { bg: 'var(--status-red-bg)', color: '#991b1b' },
   };
   const t = map[tone] || map.warning;
   return <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 700, background: t.bg, color: t.color }}>{children}</span>;
@@ -174,11 +179,11 @@ function AutoField({ label, type = 'text', value, onChange, hint, required, plac
   return (
     <div style={{ marginBottom: '16px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-        <label style={{ fontSize: '13px', fontWeight: 600, color: '#374151' }}>
+        <label style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>
           {label}{required && <span style={{ color: '#ef4444' }}> *</span>}
         </label>
         <div style={{ fontSize: '12px', minHeight: '18px', display: 'flex', alignItems: 'center' }}>
-          {isSaving && <span style={{ color: '#9ca3af' }}>Sparar...</span>}
+          {isSaving && <span style={{ color: 'var(--text-muted)' }}>Sparar...</span>}
           {isSaved && <span style={{ color: BRAND.greenDark, display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 500 }}><Check size={12} /> Sparat</span>}
         </div>
       </div>
@@ -186,9 +191,9 @@ function AutoField({ label, type = 'text', value, onChange, hint, required, plac
         type={type} value={val} onChange={handleChange} placeholder={placeholder}
         style={inputBase}
         onFocus={e => e.target.style.borderColor = BRAND.green}
-        onBlur={e => e.target.style.borderColor = '#d1d5db'}
+        onBlur={e => e.target.style.borderColor = 'var(--border)'}
       />
-      {hint && <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>{hint}</div>}
+      {hint && <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>{hint}</div>}
     </div>
   );
 }
@@ -219,7 +224,10 @@ function ImageUploadField({ label, value, onChange, uploadPath, bucket, hint, re
     if (file.size > 3 * 1024 * 1024) { setError('Bilden får vara max 3 MB.'); return; }
     setBusy(true); setError('');
     try {
-      const ext = (file.name.split('.').pop() || 'png').toLowerCase();
+      // Säkerhetsfix (säkerhetsgranskningen): sanera filändelsen — se
+      // motsvarande kommentar i src/utils/fileUpload.js.
+      const rawExt = (file.name.split('.').pop() || 'png').toLowerCase();
+      const ext = /^[a-z0-9]{1,8}$/.test(rawExt) ? rawExt : 'png';
       const path = `${uploadPath}.${ext}`;
       const { error: upErr } = await supabase.storage.from(bucket).upload(path, file, { upsert: true, cacheControl: '3600' });
       if (upErr) throw upErr;
@@ -248,8 +256,8 @@ function ImageUploadField({ label, value, onChange, uploadPath, bucket, hint, re
         </label>
         {value && <button type="button" onClick={() => onChange('')} disabled={busy} style={btnGhost}>Ta bort</button>}
       </div>
-      {hint && <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '6px' }}>{hint}</div>}
-      {error && <div style={{ fontSize: '12px', color: '#dc2626', marginTop: '6px' }}>{error}</div>}
+      {hint && <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '6px' }}>{hint}</div>}
+      {error && <div style={{ fontSize: '12px', color: 'var(--status-red-text)', marginTop: '6px' }}>{error}</div>}
     </div>
   );
 }
@@ -275,12 +283,37 @@ const SAMPLE_INVOICE = { invoiceNumber: '1042', date: new Date().toISOString().s
 const A4_PAGE_WIDTH = 794;
 const A4_PAGE_HEIGHT = 1123;
 
-function TemplateThumb({ tplId, previewProps, scale = 0.34 }) {
-  const w = Math.round(A4_PAGE_WIDTH * scale);
-  const h = Math.round(A4_PAGE_HEIGHT * scale);
+// Kundfeedback (två omgångar): en FAST skala uträknad för en enda
+// skärmbredd (se den gamla MOBILE_TEMPLATE_THUMB_SCALE-kommentaren) botade
+// först en överflödande tumnagel — men lämnade den mindre än sin egen
+// container på alla ANDRA bredder ("rutorna ... täcker inte allt"), tom
+// gråmarkerad kant synlig runtom. En ResizeObserver på wrappern mäter den
+// FAKTISKA tillgängliga bredden och räknar om skalan därefter, så
+// tumnageln fyller sin container exakt — kortkort, stort förhandsgranskning-
+// kort, mobil, desktop, surfplatta — utan att någon behöver räkna om ett
+// magiskt scale-tal för varje ny brytpunkt. `scale`-propen finns kvar som
+// en explicit override för anrop som medvetet vill ett fast värde.
+function TemplateThumb({ tplId, previewProps, scale }) {
+  const wrapRef = useRef(null);
+  const [autoScale, setAutoScale] = useState(scale ?? 0.34);
+
+  useEffect(() => {
+    if (scale != null) return;
+    const el = wrapRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(entries => {
+      const width = entries[0]?.contentRect?.width;
+      if (width > 0) setAutoScale(width / A4_PAGE_WIDTH);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [scale]);
+
+  const effectiveScale = scale ?? autoScale;
+  const h = Math.round(A4_PAGE_HEIGHT * effectiveScale);
   return (
-    <div style={{ width: w, height: h, margin: '0 auto', overflow: 'hidden', background: '#e4e4e7', position: 'relative' }}>
-      <div style={{ width: `${A4_PAGE_WIDTH}px`, transform: `scale(${scale})`, transformOrigin: 'top left', pointerEvents: 'none' }}>
+    <div ref={wrapRef} style={{ width: scale != null ? Math.round(A4_PAGE_WIDTH * scale) : '100%', height: h, margin: '0 auto', overflow: 'hidden', background: 'var(--border)', position: 'relative' }}>
+      <div style={{ width: `${A4_PAGE_WIDTH}px`, transform: `scale(${effectiveScale})`, transformOrigin: 'top left', pointerEvents: 'none' }}>
         <InvoiceDocument template={tplId} {...previewProps} />
       </div>
     </div>
@@ -294,14 +327,14 @@ function TemplateCard({ tpl, selected, onSelect, previewProps, scale }) {
       onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 20px rgba(15, 23, 42, 0.1)'; }}
       onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}
       style={{
-        position: 'relative', border: `2px solid ${selected ? BRAND.green : '#e4e4e7'}`, borderRadius: '12px',
-        overflow: 'hidden', cursor: 'pointer', background: 'white', transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+        position: 'relative', border: `2px solid ${selected ? BRAND.green : 'var(--border)'}`, borderRadius: '12px',
+        overflow: 'hidden', cursor: 'pointer', background: 'var(--bg-card)', transition: 'transform 0.15s ease, box-shadow 0.15s ease',
       }}
     >
       <TemplateThumb tplId={tpl.id} previewProps={previewProps} scale={scale} />
-      <div style={{ padding: '10px 12px', borderTop: '1px solid #e4e4e7' }}>
-        <div style={{ fontWeight: 700, fontSize: '13px', color: '#111' }}>{tpl.label}</div>
-        <div style={{ fontSize: '11.5px', color: '#6b7280', marginTop: '2px' }}>{tpl.description}</div>
+      <div style={{ padding: '10px 12px', borderTop: '1px solid var(--border)' }}>
+        <div style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-main)' }}>{tpl.label}</div>
+        <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)', marginTop: '2px' }}>{tpl.description}</div>
       </div>
       {selected && (
         <div style={{ position: 'absolute', top: 8, right: 8, width: 22, height: 22, borderRadius: '50%', background: BRAND.green, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.25)' }}>
@@ -355,7 +388,7 @@ function PasswordSection({ user, readOnly = false }) {
     <div style={card}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '6px' }}>
         <SectionHeading icon={Lock} tone="gray">Lösenord</SectionHeading>
-        <span style={{ fontSize: '11.5px', color: '#9ca3af' }}>
+        <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
           {changedAt ? `Senast ändrat ${relativeTimeSv(changedAt)}` : 'Inte spårat ännu — byt lösenord här för att börja spåra det'}
         </span>
       </div>
@@ -374,7 +407,7 @@ function PasswordSection({ user, readOnly = false }) {
             <input type="password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} style={inputBase} autoComplete="new-password" minLength={8} required />
           </div>
         </div>
-        {error && <div style={{ color: '#dc2626', fontSize: '13px', marginTop: '10px' }}>{error}</div>}
+        {error && <div style={{ color: 'var(--status-red-text)', fontSize: '13px', marginTop: '10px' }}>{error}</div>}
         {success && <div style={{ color: BRAND.greenDark, fontSize: '13px', marginTop: '10px', fontWeight: 600 }}>Lösenordet är uppdaterat.</div>}
         <button type="submit" disabled={busy || !currentPw || !newPw || !confirmPw} style={{ ...btnPrimary, marginTop: '14px', opacity: (busy || !currentPw || !newPw || !confirmPw) ? 0.5 : 1, cursor: (busy || !currentPw || !newPw || !confirmPw) ? 'not-allowed' : 'pointer' }}>
           {busy ? 'Sparar...' : 'Byt lösenord'}
@@ -448,7 +481,7 @@ function TwoFactorSection() {
             <SectionHeading icon={KeyRound} tone={verifiedFactor ? 'green' : 'amber'}>Tvåstegsverifiering</SectionHeading>
             {factors !== null && <Badge tone={verifiedFactor ? 'positive' : 'warning'}>{verifiedFactor ? 'På' : 'Av'}</Badge>}
           </div>
-          <div style={{ fontSize: '13px', color: '#6b7280', maxWidth: '480px' }}>Kräver en engångskod från en autentiseringsapp (t.ex. Google Authenticator eller Authy) utöver lösenordet vid inloggning.</div>
+          <div style={{ fontSize: '13px', color: 'var(--text-secondary)', maxWidth: '480px' }}>Kräver en engångskod från en autentiseringsapp (t.ex. Google Authenticator eller Authy) utöver lösenordet vid inloggning.</div>
         </div>
         {factors !== null && !enrolling && (
           verifiedFactor
@@ -456,12 +489,12 @@ function TwoFactorSection() {
             : <button onClick={startEnroll} disabled={busy} style={btnPrimary}>Aktivera</button>
         )}
       </div>
-      {error && <div style={{ color: '#dc2626', fontSize: '13px', marginTop: '10px' }}>{error}</div>}
+      {error && <div style={{ color: 'var(--status-red-text)', fontSize: '13px', marginTop: '10px' }}>{error}</div>}
       {enrolling && (
-        <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #e4e4e7' }}>
-          <p style={{ fontSize: '13px', color: '#374151', margin: '0 0 12px' }}>Skanna koden med din autentiseringsapp, ange sedan den 6-siffriga koden den visar.</p>
-          <img src={enrolling.qrCode} alt="QR-kod för tvåstegsverifiering" style={{ width: 160, height: 160, border: '1px solid #e4e4e7', borderRadius: '8px', display: 'block', marginBottom: '8px' }} />
-          <div style={{ fontSize: '12px', color: '#9ca3af', marginBottom: '12px' }}>Kan du inte skanna? Ange koden manuellt: <code style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px' }}>{enrolling.secret}</code></div>
+        <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border)' }}>
+          <p style={{ fontSize: '13px', color: 'var(--text-main)', margin: '0 0 12px' }}>Skanna koden med din autentiseringsapp, ange sedan den 6-siffriga koden den visar.</p>
+          <img src={enrolling.qrCode} alt="QR-kod för tvåstegsverifiering" style={{ width: 160, height: 160, border: '1px solid var(--border)', borderRadius: '8px', display: 'block', marginBottom: '8px' }} />
+          <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px' }}>Kan du inte skanna? Ange koden manuellt: <code style={{ background: 'var(--border-light)', padding: '2px 6px', borderRadius: '4px' }}>{enrolling.secret}</code></div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
             <input value={code} onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="123456" style={{ ...inputBase, width: '120px' }} />
             <button onClick={confirmEnroll} disabled={busy || code.length !== 6} style={{ ...btnPrimary, opacity: (busy || code.length !== 6) ? 0.5 : 1 }}>Bekräfta</button>
@@ -499,27 +532,27 @@ function ActiveSessionsSection({ user, readOnly = false }) {
   return (
     <div style={card}>
       <div style={{ marginBottom: '8px' }}><SectionHeading icon={Laptop} tone="gray">Aktiva sessioner</SectionHeading></div>
-      <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 14px', maxWidth: '560px' }}>
+      <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 14px', maxWidth: '560px' }}>
         Bokix kan i dagsläget inte visa en lista över dina enskilda inloggade enheter. Du kan däremot logga ut alla andra sessioner än den du sitter på just nu — t.ex. om du glömt logga ut på en delad dator eller en gammal telefon.
       </p>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', background: '#f9fafb', border: '1px solid #e4e4e7', borderRadius: '10px', marginBottom: '14px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: '10px', marginBottom: '14px' }}>
         <div style={{ width: 38, height: 38, borderRadius: '50%', background: BRAND.greenLight, color: BRAND.greenDark, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
           <Laptop size={17} />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 600, fontSize: '13.5px', color: '#111' }}>{device}</div>
-          <div style={{ fontSize: '12px', color: '#9ca3af' }}>{user?.email}</div>
+          <div style={{ fontWeight: 600, fontSize: '13.5px', color: 'var(--text-main)' }}>{device}</div>
+          <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{user?.email}</div>
         </div>
         <Badge tone="positive">Denna enhet</Badge>
       </div>
       <button
         onClick={signOutOthers} disabled={busy}
-        onMouseEnter={e => { if (!busy) e.currentTarget.style.background = '#fef2f2'; }}
+        onMouseEnter={e => { if (!busy) e.currentTarget.style.background = 'var(--status-red-bg)'; }}
         onMouseLeave={e => { e.currentTarget.style.background = 'white'; }}
         style={{ ...btnDangerGhost, opacity: busy ? 0.6 : 1, transition: 'background-color 0.12s' }}
       >{busy ? 'Loggar ut...' : 'Logga ut från alla andra enheter'}</button>
       {done && <div style={{ color: BRAND.greenDark, fontSize: '13px', marginTop: '8px', fontWeight: 600 }}>Klart — alla andra sessioner är utloggade.</div>}
-      {error && <div style={{ color: '#dc2626', fontSize: '13px', marginTop: '8px' }}>{error}</div>}
+      {error && <div style={{ color: 'var(--status-red-text)', fontSize: '13px', marginTop: '8px' }}>{error}</div>}
     </div>
   );
 }
@@ -530,17 +563,9 @@ function ActiveSessionsSection({ user, readOnly = false }) {
 // bankuppgifter etc — ingen separat tabell behövs). Redan sparade fakturor
 // fryser sitt utseende vid sparningstillfället (se invoiceTemplateSnapshot
 // i Invoices.jsx) — ett mallbyte här påverkar bara FRAMTIDA fakturor.
-// Kundfeedback: TemplateThumb har en FAST pixelbredd (A4_PAGE_WIDTH * scale,
-// t.ex. 476px vid scale 0.6) eftersom InvoiceDocument själv behöver en
-// riktig fast bredd för sitt A4-utseende innan CSS-transformen skalar ner
-// den — det är inte en procentbredd som kan krympa av sig själv. Båda
-// förhandsvisnings-containrarna (gallerikorten och "Anpassa mallen"s stora
-// live-förhandsvisning) uppmättes till samma ~265px inuti .settings-page
-// (16px sidopadding, mobil) + .card (22px padding) på en 375px-skärm —
-// scale 0.32 (→254px) ger en säker marginal utan att räkna om det för
-// hand vid varje breakpoint-ändring.
-const MOBILE_TEMPLATE_THUMB_SCALE = 0.32;
-
+// (Tidigare stod här en FAST, för hand uträknad mobil-skala för
+// TemplateThumb — se dess egen kommentar för varför den byttes mot en
+// ResizeObserver som mäter riktig containerbredd istället.)
 function InvoiceTemplateSection({ company, setCompanyInfo, user, readOnly = false }) {
   const isMobile = useIsMobileViewport();
   const selectedId = company?.invoiceTemplateId || DEFAULT_INVOICE_TEMPLATE;
@@ -556,7 +581,13 @@ function InvoiceTemplateSection({ company, setCompanyInfo, user, readOnly = fals
   // m.fl.) istället för en riktig fakturas rader.
   const [showFullPreview, setShowFullPreview] = useState(false);
   const [previewZoom, setPreviewZoom] = useState(1);
-  useEffect(() => { if (showFullPreview) setPreviewZoom(1); }, [showFullPreview]);
+  // Kundönskemål: "man ska kunna se hela fakturan på mobilen" — .a4-paper
+  // är en riktig 210mm-bred sida (~794px), vilket bara ryms halvvägs på en
+  // telefonskärm vid 100% zoom. 100% är fortfarande rätt default på desktop
+  // (skärmen är bredare än sidan där), men på mobil öppnar vi nu på samma
+  // 0.5x-golv som zoom-ut-knappen ändå stannar vid, så hela sidans BREDD
+  // syns direkt istället för att kräva två-tre tryck på zoom-ut först.
+  useEffect(() => { if (showFullPreview) setPreviewZoom(isMobile ? 0.5 : 1); }, [showFullPreview, isMobile]);
 
   const previewProps = {
     invoice: SAMPLE_INVOICE, customer: SAMPLE_CUSTOMER, company, rows: SAMPLE_ROWS, totals: SAMPLE_TOTALS,
@@ -567,10 +598,16 @@ function InvoiceTemplateSection({ company, setCompanyInfo, user, readOnly = fals
     <>
       <div style={card}>
         <div style={{ marginBottom: '6px' }}><SectionHeading icon={Palette} tone="green">Välj mall</SectionHeading></div>
-        <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 16px', maxWidth: '672px' }}>
+        <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 16px', maxWidth: '672px' }}>
           Välj utseendet på dina utgående kund- och leverantörsfakturor. Redan skickade fakturor behåller sitt utseende — bara nya fakturor använder mallen du väljer här.
         </p>
-        <div className="form-row-2" style={{ display: 'grid', gap: '16px', maxWidth: '720px' }}>
+        {/* Bugkritiskt: satt tidigare fast till exakt 2 kolumner (`.form-row-2`)
+            inom ett `maxWidth: 720px`-tak — på en bred skärm lämnade det ett
+            enormt tomt fält till höger i det annars fullbreda kortet. Ingen
+            maxWidth-spärr längre, och auto-fill låter fler mallkort få plats
+            per rad ju bredare fönstret är, istället för att bara två kort
+            flyter i en smal remsa mitt i kortet. */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
           {Object.values(INVOICE_TEMPLATES).map(tpl => (
             <TemplateCard
               key={tpl.id}
@@ -578,7 +615,6 @@ function InvoiceTemplateSection({ company, setCompanyInfo, user, readOnly = fals
               selected={selectedId === tpl.id}
               onSelect={() => setCompanyInfo({ ...company, invoiceTemplateId: tpl.id })}
               previewProps={{ ...previewProps, accentColor: company?.invoiceAccentColor || tpl.defaultAccent }}
-              scale={isMobile ? MOBILE_TEMPLATE_THUMB_SCALE : 0.44}
             />
           ))}
         </div>
@@ -594,18 +630,18 @@ function InvoiceTemplateSection({ company, setCompanyInfo, user, readOnly = fals
 
             <div style={{ marginBottom: '18px' }}>
               <label style={labelStyle}>Accentfärg</label>
-              <p style={{ fontSize: '12px', color: '#9ca3af', margin: '0 0 8px' }}>Din egen varumärkesfärg på fakturan — fritt val, inte begränsat till Bokix grönt.</p>
+              <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '0 0 8px' }}>Din egen varumärkesfärg på fakturan — fritt val, inte begränsat till Bokix grönt.</p>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <input
                   type="color" value={accentColor}
                   onChange={e => setCompanyInfo({ ...company, invoiceAccentColor: e.target.value })}
-                  style={{ width: '44px', height: '36px', padding: '2px', border: '1px solid #d1d5db', borderRadius: '6px', cursor: 'pointer', background: 'white' }}
+                  style={{ width: '44px', height: '36px', padding: '2px', border: '1px solid var(--border)', borderRadius: '6px', cursor: 'pointer', background: 'var(--bg-card)' }}
                 />
-                <span style={{ fontSize: '13px', color: '#374151', fontFamily: 'monospace' }}>{accentColor}</span>
+                <span style={{ fontSize: '13px', color: 'var(--text-main)', fontFamily: 'monospace' }}>{accentColor}</span>
                 <button
                   type="button" onClick={() => setCompanyInfo({ ...company, invoiceAccentColor: BRAND.green })}
                   title="Använd Bokix grönt som accentfärg"
-                  style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: 'white', border: '1px solid #d1d5db', borderRadius: '999px', fontSize: '12px', fontWeight: 600, color: '#374151', cursor: 'pointer' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '999px', fontSize: '12px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer' }}
                 >
                   <span style={{ width: 12, height: 12, borderRadius: '50%', background: BRAND.green, display: 'inline-block' }} /> Bokix grönt
                 </button>
@@ -620,7 +656,7 @@ function InvoiceTemplateSection({ company, setCompanyInfo, user, readOnly = fals
               lika brett-överskuret som gallerikorten ovan gjorde. */}
           <div style={{ flex: 1, minWidth: isMobile ? 0 : '300px', maxWidth: '500px', width: isMobile ? '100%' : undefined }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <div style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Live-förhandsvisning</div>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Live-förhandsvisning</div>
               <button
                 type="button" onClick={() => setShowFullPreview(true)}
                 style={{ display: 'flex', alignItems: 'center', gap: '5px', background: 'none', border: 'none', cursor: 'pointer', color: BRAND.greenDark, fontSize: '11.5px', fontWeight: 700, padding: '2px' }}
@@ -633,9 +669,9 @@ function InvoiceTemplateSection({ company, setCompanyInfo, user, readOnly = fals
             <div
               role="button" tabIndex={0} onClick={() => setShowFullPreview(true)}
               onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && setShowFullPreview(true)}
-              style={{ border: '1px solid #e4e4e7', borderRadius: '10px', overflow: 'hidden', background: '#e4e4e7', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)', cursor: 'pointer' }}
+              style={{ border: '1px solid var(--border)', borderRadius: '10px', overflow: 'hidden', background: 'var(--border)', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)', cursor: 'pointer' }}
             >
-              <TemplateThumb tplId={selectedId} previewProps={previewProps} scale={isMobile ? MOBILE_TEMPLATE_THUMB_SCALE : 0.6} />
+              <TemplateThumb tplId={selectedId} previewProps={previewProps} />
             </div>
           </div>
         </div>
@@ -646,27 +682,27 @@ function InvoiceTemplateSection({ company, setCompanyInfo, user, readOnly = fals
           "Förhandsgranska" i Invoices.jsx, så mallen faktiskt går att
           LÄSA istället för att skymta i en 254-476px tumnagel. ── */}
       {showFullPreview && (
-        <div className="modal-overlay" onClick={() => setShowFullPreview(false)}>
+        <div className="modal-overlay a4-preview-overlay" onClick={() => setShowFullPreview(false)}>
           <div className="modal-content a4-document-preview" onClick={e => e.stopPropagation()}>
-            <div className="modal-header" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '10px', position: 'sticky', top: 0, zIndex: 5, background: 'white' }}>
+            <div className="modal-header" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '10px', position: 'sticky', top: 0, zIndex: 5, background: 'var(--bg-card)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
                 <h2 className="modal-title" style={{ margin: 0, fontSize: '14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Förhandsgranskning · {activeTpl.label}</h2>
                 <button className="modal-close" onClick={() => setShowFullPreview(false)} style={{ flexShrink: 0 }}><X size={18} /></button>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontSize: '11px', color: '#9ca3af' }}>Exempeldata — så här ser mallen ut, inte en riktig faktura.</span>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Exempeldata — så här ser mallen ut, inte en riktig faktura.</span>
                 <div style={{ flex: 1, minWidth: '8px' }} />
-                <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0, border: '1px solid #d1d5db', borderRadius: '6px', padding: '2px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0, border: '1px solid var(--border)', borderRadius: '6px', padding: '2px' }}>
                   <button
                     type="button" onClick={() => setPreviewZoom(z => Math.max(0.5, Math.round((z - 0.1) * 10) / 10))}
                     disabled={previewZoom <= 0.5} title="Zooma ut"
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '26px', height: '26px', background: 'none', border: 'none', borderRadius: '4px', color: previewZoom <= 0.5 ? '#d1d5db' : '#374151', cursor: previewZoom <= 0.5 ? 'not-allowed' : 'pointer' }}
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '26px', height: '26px', background: 'none', border: 'none', borderRadius: '4px', color: previewZoom <= 0.5 ? 'var(--border)' : 'var(--text-main)', cursor: previewZoom <= 0.5 ? 'not-allowed' : 'pointer' }}
                   ><ZoomOut size={14} /></button>
-                  <span style={{ fontSize: '11px', color: '#6b7280', width: '38px', textAlign: 'center', flexShrink: 0 }}>{Math.round(previewZoom * 100)}%</span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-secondary)', width: '38px', textAlign: 'center', flexShrink: 0 }}>{Math.round(previewZoom * 100)}%</span>
                   <button
                     type="button" onClick={() => setPreviewZoom(z => Math.min(2, Math.round((z + 0.1) * 10) / 10))}
                     disabled={previewZoom >= 2} title="Zooma in"
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '26px', height: '26px', background: 'none', border: 'none', borderRadius: '4px', color: previewZoom >= 2 ? '#d1d5db' : '#374151', cursor: previewZoom >= 2 ? 'not-allowed' : 'pointer' }}
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '26px', height: '26px', background: 'none', border: 'none', borderRadius: '4px', color: previewZoom >= 2 ? 'var(--border)' : 'var(--text-main)', cursor: previewZoom >= 2 ? 'not-allowed' : 'pointer' }}
                   ><ZoomIn size={14} /></button>
                 </div>
               </div>
@@ -684,7 +720,7 @@ function InvoiceTemplateSection({ company, setCompanyInfo, user, readOnly = fals
 }
 
 export default function Settings({
-  company = {}, setCompanyInfo, accounts = [], verifications = [], invoices = [], expenses = [],
+  company = {}, setCompanyInfo, accounts = [], verifications = [], invoices = [], quotes = [], expenses = [],
   contacts = [], projects = [], onImport, onReset, stripeAccountId, onConnectStripe, onDisconnectStripe,
   onConnectEmailDomain, onCheckEmailDomainStatus, onDisconnectEmailDomain, user,
   companyList = [], activeCompanyId, onSwitchCompany, onAddCompany,
@@ -792,7 +828,7 @@ export default function Settings({
   };
 
   const handleExport = () => {
-    const payload = { exportedAt: new Date().toISOString(), company, accounts, verifications, invoices, expenses, contacts, projects };
+    const payload = { exportedAt: new Date().toISOString(), company, accounts, verifications, invoices, quotes, expenses, contacts, projects };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -838,8 +874,8 @@ export default function Settings({
           <Sliders size={22} strokeWidth={2.2} />
         </div>
         <div>
-          <h1 style={{ fontSize: '27px', fontWeight: 800, color: '#0f172a', margin: '0 0 2px', letterSpacing: '-0.01em' }}>Inställningar</h1>
-          <p style={{ fontSize: '14px', color: '#6b7280', margin: 0 }}>Hantera din profil, ditt företag och hur Bokix ser ut och beter sig.</p>
+          <h1 style={{ fontSize: '27px', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 2px', letterSpacing: '-0.01em' }}>Inställningar</h1>
+          <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: 0 }}>Hantera din profil, ditt företag och hur Bokix ser ut och beter sig.</p>
         </div>
       </div>
 
@@ -870,7 +906,7 @@ export default function Settings({
         <div className="settings-nav-desktop" style={{ width: '232px', flexShrink: 0, paddingRight: '20px', display: 'flex', flexDirection: 'column', gap: '18px', position: 'sticky', top: '24px' }}>
           {navGroups.map(group => (
             <div key={group.label}>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: '#a1a1aa', textTransform: 'uppercase', letterSpacing: '0.06em', padding: '0 14px', marginBottom: '6px' }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', padding: '0 14px', marginBottom: '6px' }}>
                 {group.label}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
@@ -880,12 +916,12 @@ export default function Settings({
                     <button
                       key={item.id}
                       onClick={() => handleSetTab(item.id)}
-                      onMouseEnter={e => { if (!active) e.currentTarget.style.background = '#eef2f6'; }}
+                      onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'var(--bg-muted)'; }}
                       onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent'; }}
                       style={{
                         display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', width: '100%',
                         border: 'none', background: active ? BRAND.green : 'transparent',
-                        color: active ? 'white' : '#3f3f46',
+                        color: active ? 'white' : 'var(--text-main)',
                         fontWeight: active ? 700 : 500,
                         borderRadius: '10px', cursor: 'pointer', textAlign: 'left', fontSize: '14px',
                         boxShadow: active ? '0 4px 12px rgba(61, 122, 46, 0.28)' : 'none',
@@ -909,7 +945,7 @@ export default function Settings({
           {/* 1. Min profil */}
           {activeTab === 'profile' && (
             <div style={{ animation: 'fadeIn 0.2s ease' }}>
-              <h2 style={{ fontSize: '20px', fontWeight: 700, margin: '0 0 20px', color: '#111' }}>Min profil</h2>
+              <h2 style={{ fontSize: '20px', fontWeight: 700, margin: '0 0 20px', color: 'var(--text-main)' }}>Min profil</h2>
 
               <div style={card}>
                 <div style={{ display: 'flex', gap: '20px', alignItems: 'center', marginBottom: '20px' }}>
@@ -941,8 +977,8 @@ export default function Settings({
                   Supabase-anrop från en icke-inloggad besökare. */}
               {readOnly ? (
                 <div style={card}>
-                  <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#111827', margin: '0 0 4px' }}>Tvåstegsverifiering</h3>
-                  <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>Kräver ett riktigt konto att visa och aktivera.</p>
+                  <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 4px' }}>Tvåstegsverifiering</h3>
+                  <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>Kräver ett riktigt konto att visa och aktivera.</p>
                 </div>
               ) : <TwoFactorSection />}
               <ActiveSessionsSection user={user} readOnly={readOnly} />
@@ -952,7 +988,7 @@ export default function Settings({
           {/* 2. Företag */}
           {activeTab === 'company' && (
             <div style={{ animation: 'fadeIn 0.2s ease' }}>
-              <h2 style={{ fontSize: '20px', fontWeight: 700, margin: '0 0 20px', color: '#111' }}>Företag</h2>
+              <h2 style={{ fontSize: '20px', fontWeight: 700, margin: '0 0 20px', color: 'var(--text-main)' }}>Företag</h2>
 
               {/* Sida 38: flyttad hit från sidomenyns tidigare dropdown —
                   samma byt-företag/lägg-till-företag-funktion, bara UI:t
@@ -969,20 +1005,20 @@ export default function Settings({
                         disabled={c.id === activeCompanyId}
                         style={{
                           display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderRadius: '8px',
-                          border: `1.5px solid ${c.id === activeCompanyId ? BRAND.green : '#e5e7eb'}`,
-                          background: c.id === activeCompanyId ? BRAND.greenLight : 'white',
+                          border: `1.5px solid ${c.id === activeCompanyId ? BRAND.green : 'var(--border)'}`,
+                          background: c.id === activeCompanyId ? BRAND.greenLight : 'var(--bg-card)',
                           cursor: c.id === activeCompanyId ? 'default' : 'pointer', textAlign: 'left', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box',
                         }}
                       >
                         {c.id === activeCompanyId ? <Check size={15} color={BRAND.greenDark} /> : <span style={{ width: 15, flexShrink: 0 }} />}
-                        <span style={{ fontSize: '14px', fontWeight: 600, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name || 'Namnlöst företag'}</span>
+                        <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name || 'Namnlöst företag'}</span>
                       </button>
                     ))}
                   </div>
                   <button
                     type="button"
                     onClick={() => onAddCompany?.()}
-                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 14px', background: 'none', border: '1.5px dashed #d1d5db', borderRadius: '8px', color: '#374151', fontWeight: 600, fontSize: '13.5px', cursor: 'pointer', fontFamily: 'inherit' }}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 14px', background: 'none', border: '1.5px dashed var(--border)', borderRadius: '8px', color: 'var(--text-main)', fontWeight: 600, fontSize: '13.5px', cursor: 'pointer', fontFamily: 'inherit' }}
                   >
                     <Plus size={14} /> Lägg till företag
                   </button>
@@ -1029,15 +1065,15 @@ export default function Settings({
                   <div style={{ flex: 1, minWidth: '260px', maxWidth: '440px' }}>
                     <ImageUploadField label="Logotyp" value={company?.logoUrl || ''} onChange={(v) => setCompanyInfo({ ...company, logoUrl: v })} uploadPath={`${user?.id}/logo-${company?.id}`} bucket="companylogo" hint="Används överst på dina utgående fakturor. Max 3 MB." readOnly={readOnly} />
                   </div>
-                  <div style={{ width: '200px', padding: '16px', border: '1px solid #e4e4e7', borderRadius: '8px', background: '#f9fafb' }}>
-                    <div style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '8px', textTransform: 'uppercase' }}>Förhandsvisning faktura</div>
+                  <div style={{ width: '200px', padding: '16px', border: '1px solid var(--border)', borderRadius: '8px', background: 'var(--bg-muted)' }}>
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase' }}>Förhandsvisning faktura</div>
                     {company?.logoUrl ? (
                       <img src={company.logoUrl} alt="Logotyp" style={{ maxHeight: '40px', maxWidth: '100%', marginBottom: '16px', display: 'block' }} />
                     ) : (
-                      <div style={{ height: '40px', background: '#f1f5f9', borderRadius: '4px', marginBottom: '16px' }} />
+                      <div style={{ height: '40px', background: 'var(--border-light)', borderRadius: '4px', marginBottom: '16px' }} />
                     )}
-                    <div style={{ height: '8px', width: '60%', background: '#e4e4e7', borderRadius: '2px', marginBottom: '4px' }} />
-                    <div style={{ height: '8px', width: '40%', background: '#e4e4e7', borderRadius: '2px' }} />
+                    <div style={{ height: '8px', width: '60%', background: 'var(--border)', borderRadius: '2px', marginBottom: '4px' }} />
+                    <div style={{ height: '8px', width: '40%', background: 'var(--border)', borderRadius: '2px' }} />
                   </div>
                 </div>
               </div>
@@ -1048,7 +1084,7 @@ export default function Settings({
                   (CompanySettings.jsx), inte här där man faktiskt letar. */}
               <div style={card}>
                 <div style={{ marginBottom: '4px' }}><SectionHeading icon={Calendar} tone="green">Räkenskapsår och moms</SectionHeading></div>
-                <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 16px', maxWidth: '672px' }}>Styr periodiseringen i Rapporter, Momsdeklaration och Skatter.</p>
+                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 16px', maxWidth: '672px' }}>Styr periodiseringen i Rapporter, Momsdeklaration och Skatter.</p>
                 <div className="form-row-2" style={{ ...grid2, maxWidth: '672px' }}>
                   <AutoField label="Räkenskapsår startar" type="date" value={company?.fiscalYear || ''} onChange={(v) => setCompanyInfo({ ...company, fiscalYear: v })} />
                   <div style={{ marginBottom: '16px' }}>
@@ -1056,7 +1092,7 @@ export default function Settings({
                     <select
                       value={company?.vatPeriod || 'quarterly'}
                       onChange={e => setCompanyInfo({ ...company, vatPeriod: e.target.value })}
-                      style={{ ...inputBase, background: 'white' }}
+                      style={{ ...inputBase, background: 'var(--bg-card)' }}
                     >
                       <option value="monthly">Månadsvis</option>
                       <option value="quarterly">Kvartalsvis</option>
@@ -1071,11 +1107,11 @@ export default function Settings({
           {/* 3. Betalning */}
           {activeTab === 'billing' && (
             <div style={{ animation: 'fadeIn 0.2s ease' }}>
-              <h2 style={{ fontSize: '20px', fontWeight: 700, margin: '0 0 20px', color: '#111' }}>Betalning</h2>
+              <h2 style={{ fontSize: '20px', fontWeight: 700, margin: '0 0 20px', color: 'var(--text-main)' }}>Betalning</h2>
 
               <div style={card}>
                 <div style={{ marginBottom: '4px' }}><SectionHeading icon={Landmark} tone="green">Bankuppgifter för inbetalning</SectionHeading></div>
-                <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 16px', maxWidth: '672px' }}>Dessa uppgifter visas på dina utgående fakturor så kunder vet var de ska betala.</p>
+                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 16px', maxWidth: '672px' }}>Dessa uppgifter visas på dina utgående fakturor så kunder vet var de ska betala.</p>
                 <div className="form-row-2" style={{ ...grid2, maxWidth: '672px' }}>
                   <AutoField label="Bankgiro" value={company?.bankgiro || ''} onChange={(v) => setCompanyInfo({ ...company, bankgiro: v })} />
                   <AutoField label="Plusgiro" value={company?.plusgiro || ''} onChange={(v) => setCompanyInfo({ ...company, plusgiro: v })} />
@@ -1087,7 +1123,7 @@ export default function Settings({
               <div style={card}>
                 <div style={{ marginBottom: '14px' }}><SectionHeading icon={CreditCard} tone={stripeAccountId ? 'green' : 'amber'}>Ta emot kortbetalningar</SectionHeading></div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
-                  <p style={{ fontSize: '13px', color: '#6b7280', margin: 0, maxWidth: '480px' }}>
+                  <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0, maxWidth: '480px' }}>
                     {stripeAccountId
                       ? 'Stripe är anslutet — kunder kan betala dina fakturor med kort direkt online.'
                       : 'Anslut Stripe för att låta kunder betala fakturor med kort direkt online.'}
@@ -1115,7 +1151,7 @@ export default function Settings({
 
                 {!company?.emailDomain ? (
                   <>
-                    <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 14px', maxWidth: '520px' }}>
+                    <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 14px', maxWidth: '520px' }}>
                       Skicka fakturor och kvitton från din egen domän (t.ex. <code>faktura@{company?.name ? company.name.toLowerCase().replace(/[^a-z0-9]+/g, '') : 'dittforetag'}.se</code>) istället för en delad Bokix-adress. Utan detta skickas mejl via Bokix reservadress.
                     </p>
                     <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -1123,20 +1159,20 @@ export default function Settings({
                         type="text" value={emailDomainInput} onChange={e => { setEmailDomainInput(e.target.value); setEmailDomainError(''); }}
                         placeholder="dittforetag.se" style={{ ...inputBase, width: '240px' }}
                         onFocus={e => e.target.style.borderColor = BRAND.green}
-                        onBlur={e => e.target.style.borderColor = '#d1d5db'}
+                        onBlur={e => e.target.style.borderColor = 'var(--border)'}
                       />
                       <button onClick={handleConnectDomainClick} disabled={emailDomainBusy} style={{ ...btnPrimary, opacity: emailDomainBusy ? 0.6 : 1, cursor: emailDomainBusy ? 'not-allowed' : 'pointer' }}>
                         {emailDomainBusy ? 'Kopplar...' : 'Anslut domän'}
                       </button>
                     </div>
-                    {emailDomainError && <div style={{ color: '#b91c1c', fontSize: '12.5px', marginTop: '8px', fontWeight: 600 }}>{emailDomainError}</div>}
+                    {emailDomainError && <div style={{ color: 'var(--status-red-text)', fontSize: '12.5px', marginTop: '8px', fontWeight: 600 }}>{emailDomainError}</div>}
                   </>
                 ) : (
                   <>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '14px', flexWrap: 'wrap', marginBottom: '14px' }}>
                       <div>
-                        <div style={{ fontWeight: 700, fontSize: '14px', color: '#111' }}>{company.emailDomain}</div>
-                        <div style={{ fontSize: '12.5px', color: '#6b7280', marginTop: '2px' }}>
+                        <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)' }}>{company.emailDomain}</div>
+                        <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginTop: '2px' }}>
                           {company.emailDomainStatus === 'verified'
                             ? `Fakturor skickas från faktura@${company.emailDomain}`
                             : `Reservläge just nu — fakturor skickas via Bokix egen adress tills domänen är verifierad`}
@@ -1149,24 +1185,24 @@ export default function Settings({
 
                     {company.emailDomainStatus !== 'verified' && company?.emailDomainRecords?.length > 0 && (
                       <div style={{ marginBottom: '14px', maxWidth: '672px' }}>
-                        <p style={{ fontSize: '12.5px', color: '#6b7280', margin: '0 0 10px' }}>
+                        <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: '0 0 10px' }}>
                           Lägg till dessa DNS-poster hos din domänleverantör, samma sätt som för bokix.se:
                         </p>
-                        <div style={{ overflowX: 'auto', border: '1px solid #e4e4e7', borderRadius: '8px' }}>
+                        <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: '8px' }}>
                           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12.5px' }}>
                             <thead>
-                              <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e4e4e7' }}>
-                                <th style={{ padding: '8px 10px', textAlign: 'left', color: '#6b7280', fontWeight: 600 }}>Typ</th>
-                                <th style={{ padding: '8px 10px', textAlign: 'left', color: '#6b7280', fontWeight: 600 }}>Namn</th>
-                                <th style={{ padding: '8px 10px', textAlign: 'left', color: '#6b7280', fontWeight: 600 }}>Värde</th>
+                              <tr style={{ background: 'var(--bg-muted)', borderBottom: '1px solid var(--border)' }}>
+                                <th style={{ padding: '8px 10px', textAlign: 'left', color: 'var(--text-secondary)', fontWeight: 600 }}>Typ</th>
+                                <th style={{ padding: '8px 10px', textAlign: 'left', color: 'var(--text-secondary)', fontWeight: 600 }}>Namn</th>
+                                <th style={{ padding: '8px 10px', textAlign: 'left', color: 'var(--text-secondary)', fontWeight: 600 }}>Värde</th>
                               </tr>
                             </thead>
                             <tbody>
                               {company.emailDomainRecords.map((r, i) => (
-                                <tr key={i} style={{ borderBottom: i < company.emailDomainRecords.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
-                                  <td style={{ padding: '8px 10px', fontWeight: 700, color: '#111' }}>{r.type || r.record}</td>
-                                  <td style={{ padding: '8px 10px', color: '#374151', fontFamily: 'monospace' }}>{r.name}</td>
-                                  <td style={{ padding: '8px 10px', color: '#374151', fontFamily: 'monospace', wordBreak: 'break-all' }}>{r.value}{r.priority != null ? ` (prio ${r.priority})` : ''}</td>
+                                <tr key={i} style={{ borderBottom: i < company.emailDomainRecords.length - 1 ? '1px solid var(--border-light)' : 'none' }}>
+                                  <td style={{ padding: '8px 10px', fontWeight: 700, color: 'var(--text-main)' }}>{r.type || r.record}</td>
+                                  <td style={{ padding: '8px 10px', color: 'var(--text-main)', fontFamily: 'monospace' }}>{r.name}</td>
+                                  <td style={{ padding: '8px 10px', color: 'var(--text-main)', fontFamily: 'monospace', wordBreak: 'break-all' }}>{r.value}{r.priority != null ? ` (prio ${r.priority})` : ''}</td>
                                 </tr>
                               ))}
                             </tbody>
@@ -1181,7 +1217,7 @@ export default function Settings({
                       </button>
                       <button onClick={onDisconnectEmailDomain} style={btnGhost}>Koppla från</button>
                     </div>
-                    {emailDomainError && <div style={{ color: '#b91c1c', fontSize: '12.5px', marginTop: '8px', fontWeight: 600 }}>{emailDomainError}</div>}
+                    {emailDomainError && <div style={{ color: 'var(--status-red-text)', fontSize: '12.5px', marginTop: '8px', fontWeight: 600 }}>{emailDomainError}</div>}
                   </>
                 )}
               </div>
@@ -1193,8 +1229,8 @@ export default function Settings({
                   <AutoField label="Standardtext på faktura" value={company?.invoiceFooterText || 'Tack för er affär! Dröjsmålsränta debiteras enligt räntelagen.'} onChange={(v) => setCompanyInfo({ ...company, invoiceFooterText: v })} />
                 </div>
 
-                <div style={{ marginTop: '20px', padding: '16px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', maxWidth: '672px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#b91c1c', fontWeight: 600, marginBottom: '8px' }}>
+                <div style={{ marginTop: '20px', padding: '16px', background: 'var(--status-red-bg)', border: '1px solid var(--status-red-bg)', borderRadius: '8px', maxWidth: '672px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--status-red-text)', fontWeight: 600, marginBottom: '8px' }}>
                     <AlertTriangle size={16} /> Numreringsserie
                   </div>
                   <div style={{ fontSize: '13px', color: '#991b1b', marginBottom: '12px' }}>
@@ -1206,7 +1242,7 @@ export default function Settings({
                       <input
                         type="number" value={nextInvoiceNumberInput} onChange={e => { setNextInvoiceNumberInput(e.target.value); setInvoiceNumberError(''); }}
                         placeholder={String(maxUsedInvoiceNumber + 1)}
-                        style={{ width: '160px', padding: '8px', borderRadius: '6px', border: '1px solid #fca5a5', background: 'white', color: '#991b1b', boxSizing: 'border-box' }}
+                        style={{ width: '160px', padding: '8px', borderRadius: '6px', border: '1px solid #fca5a5', background: 'var(--bg-card)', color: '#991b1b', boxSizing: 'border-box' }}
                       />
                     </div>
                     <button onClick={saveNextInvoiceNumber} style={{ padding: '8px 16px', background: '#991b1b', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 600, cursor: 'pointer' }}>Spara golv</button>
@@ -1223,7 +1259,7 @@ export default function Settings({
           {/* 4. Fakturamall */}
           {activeTab === 'invoice' && (
             <div style={{ animation: 'fadeIn 0.2s ease' }}>
-              <h2 style={{ fontSize: '20px', fontWeight: 700, margin: '0 0 20px', color: '#111' }}>Fakturamall</h2>
+              <h2 style={{ fontSize: '20px', fontWeight: 700, margin: '0 0 20px', color: 'var(--text-main)' }}>Fakturamall</h2>
               <InvoiceTemplateSection company={company} setCompanyInfo={setCompanyInfo} user={user} readOnly={readOnly} />
             </div>
           )}
@@ -1232,50 +1268,50 @@ export default function Settings({
           {activeTab === 'users' && (
             <div style={{ animation: 'fadeIn 0.2s ease' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
-                <h2 style={{ fontSize: '20px', fontWeight: 700, margin: 0, color: '#111' }}>Användare och Åtkomst</h2>
-                <button disabled title="Inbjudan av fler användare till samma företag är inte byggt ännu" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: '#e5e7eb', color: '#9ca3af', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'not-allowed' }}>
+                <h2 style={{ fontSize: '20px', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>Användare och Åtkomst</h2>
+                <button disabled title="Inbjudan av fler användare till samma företag är inte byggt ännu" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: 'var(--border)', color: 'var(--text-muted)', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'not-allowed' }}>
                   <Mail size={16} /> Bjud in användare
                 </button>
               </div>
               <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
                   <thead>
-                    <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #e4e4e7' }}>
-                      <th style={{ padding: '12px 16px', textAlign: 'left', color: '#64748b', fontWeight: 600 }}>Användare</th>
-                      <th style={{ padding: '12px 16px', textAlign: 'left', color: '#64748b', fontWeight: 600 }}>Roll</th>
+                    <tr style={{ background: 'var(--border-light)', borderBottom: '1px solid var(--border)' }}>
+                      <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-secondary)', fontWeight: 600 }}>Användare</th>
+                      <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-secondary)', fontWeight: 600 }}>Roll</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr>
                       <td style={{ padding: '16px' }}>
-                        <div style={{ fontWeight: 600, color: '#111' }}>{[firstName, lastName].filter(Boolean).join(' ') || 'Ditt konto'}</div>
-                        <div style={{ fontSize: '13px', color: '#6b7280' }}>{user?.email}</div>
+                        <div style={{ fontWeight: 600, color: 'var(--text-main)' }}>{[firstName, lastName].filter(Boolean).join(' ') || 'Ditt konto'}</div>
+                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{user?.email}</div>
                       </td>
                       <td style={{ padding: '16px' }}>Administratör</td>
                     </tr>
                   </tbody>
                 </table>
               </div>
-              <p style={{ fontSize: '12.5px', color: '#9ca3af', marginTop: '10px', maxWidth: '560px' }}>Fler användare per företag (t.ex. en redovisningsbyrå med egen inloggning) är planerat men inte byggt ännu.</p>
+              <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginTop: '10px', maxWidth: '560px' }}>Fler användare per företag (t.ex. en redovisningsbyrå med egen inloggning) är planerat men inte byggt ännu.</p>
             </div>
           )}
 
           {/* 6. Prenumeration */}
           {activeTab === 'subscription' && (
             <div style={{ animation: 'fadeIn 0.2s ease' }}>
-              <h2 style={{ fontSize: '20px', fontWeight: 700, margin: '0 0 20px', color: '#111' }}>Prenumeration</h2>
+              <h2 style={{ fontSize: '20px', fontWeight: 700, margin: '0 0 20px', color: 'var(--text-main)' }}>Prenumeration</h2>
               <div style={card}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
                   <Shield size={20} style={{ color: BRAND.green, flexShrink: 0, marginTop: '2px' }} />
                   <div>
-                    <div style={{ fontWeight: 700, color: '#111', marginBottom: '4px' }}>Ingen aktiv betalprenumeration ännu</div>
-                    <div style={{ fontSize: '13px', color: '#6b7280', maxWidth: '520px' }}>Bokix har i dagsläget ingen betald abonnemangsplan kopplad till kontot — vi visar aldrig en påhittad plan eller ett fakturadatum här. Prislistan uppdateras och wire:as in när faktureringen är på plats.</div>
+                    <div style={{ fontWeight: 700, color: 'var(--text-main)', marginBottom: '4px' }}>Ingen aktiv betalprenumeration ännu</div>
+                    <div style={{ fontSize: '13px', color: 'var(--text-secondary)', maxWidth: '520px' }}>Bokix har i dagsläget ingen betald abonnemangsplan kopplad till kontot — vi visar aldrig en påhittad plan eller ett fakturadatum här. Prislistan uppdateras och wire:as in när faktureringen är på plats.</div>
                   </div>
                 </div>
               </div>
               <div style={card}>
-                <h3 style={{ fontSize: '14.5px', fontWeight: 700, margin: '0 0 10px', color: '#111' }}>Betalhistorik</h3>
-                <div style={{ fontSize: '13px', color: '#9ca3af', padding: '12px 0' }}>Ingen betalhistorik ännu.</div>
+                <h3 style={{ fontSize: '14.5px', fontWeight: 700, margin: '0 0 10px', color: 'var(--text-main)' }}>Betalhistorik</h3>
+                <div style={{ fontSize: '13px', color: 'var(--text-muted)', padding: '12px 0' }}>Ingen betalhistorik ännu.</div>
               </div>
             </div>
           )}
@@ -1283,37 +1319,37 @@ export default function Settings({
           {/* 7. Data och Inställningar */}
           {activeTab === 'data' && (
             <div style={{ animation: 'fadeIn 0.2s ease' }}>
-              <h2 style={{ fontSize: '20px', fontWeight: 700, margin: '0 0 20px', color: '#111' }}>Data och Inställningar</h2>
+              <h2 style={{ fontSize: '20px', fontWeight: 700, margin: '0 0 20px', color: 'var(--text-main)' }}>Data och Inställningar</h2>
 
               <div style={card}>
                 <div style={{ marginBottom: '14px' }}><SectionHeading icon={Download} tone="green">Exportera och importera data</SectionHeading></div>
-                <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 16px', maxWidth: '672px' }}>
+                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 16px', maxWidth: '672px' }}>
                   Ladda ner all bokföringsdata för det här företaget (konton, verifikationer, fakturor, kvitton/utgifter, kunder/leverantörer). Vi låser aldrig in din data.
                 </p>
                 <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-                  <button onClick={handleExport} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 18px', background: '#f1f5f9', color: '#334155', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}>
+                  <button onClick={handleExport} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 18px', background: 'var(--border-light)', color: 'var(--text-secondary)', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}>
                     <Download size={16} /> Ladda ner allt (JSON)
                   </button>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 18px', background: '#f1f5f9', color: '#334155', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600, cursor: importBusy ? 'not-allowed' : 'pointer', opacity: importBusy ? 0.6 : 1 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 18px', background: 'var(--border-light)', color: 'var(--text-secondary)', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600, cursor: importBusy ? 'not-allowed' : 'pointer', opacity: importBusy ? 0.6 : 1 }}>
                     <Upload size={16} /> {importBusy ? 'Importerar...' : 'Importera från fil'}
                     <input type="file" accept="application/json" onChange={handleImportFile} disabled={importBusy} style={{ display: 'none' }} />
                   </label>
-                  {importMsg && <span style={{ fontSize: '13px', color: importMsg.startsWith('Kunde inte') ? '#dc2626' : BRAND.greenDark, fontWeight: 600 }}>{importMsg}</span>}
+                  {importMsg && <span style={{ fontSize: '13px', color: importMsg.startsWith('Kunde inte') ? 'var(--status-red-text)' : BRAND.greenDark, fontWeight: 600 }}>{importMsg}</span>}
                 </div>
               </div>
 
               <div style={card}>
                 <div style={{ marginBottom: '14px' }}><SectionHeading icon={Plug} tone="gray">Integrationer</SectionHeading></div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', background: '#f9fafb', border: '1px solid #e4e4e7', borderRadius: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: '8px' }}>
                   <div>
-                    <div style={{ fontWeight: 600, fontSize: '13.5px', color: '#111' }}>Stripe</div>
-                    <div style={{ fontSize: '12px', color: '#9ca3af' }}>{stripeAccountId ? 'Anslutet — hanteras under Betalning och Faktura' : 'Inte anslutet'}</div>
+                    <div style={{ fontWeight: 600, fontSize: '13.5px', color: 'var(--text-main)' }}>Stripe</div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{stripeAccountId ? 'Anslutet — hanteras under Betalning och Faktura' : 'Inte anslutet'}</div>
                   </div>
                   <Badge tone={stripeAccountId ? 'positive' : 'warning'}>{stripeAccountId ? 'Ansluten' : 'Av'}</Badge>
                 </div>
               </div>
 
-              <div style={{ ...card, background: '#fef2f2', border: '1px solid #fecaca' }}>
+              <div style={{ ...card, background: 'var(--status-red-bg)', border: '1px solid var(--status-red-bg)' }}>
                 <div style={{ marginBottom: '10px' }}><SectionHeading icon={Trash2} tone="red">Radera företagets bokföringsdata</SectionHeading></div>
                 <p style={{ fontSize: '13px', color: '#991b1b', margin: '0 0 12px', maxWidth: '600px' }}>
                   Detta raderar all bokföring, alla fakturor, kunder och verifikationer för <strong>{company?.name || 'det här företaget'}</strong> permanent. Det kan inte ångras. Din Bokix-inloggning ({user?.email}) påverkas inte och du loggas inte ut.

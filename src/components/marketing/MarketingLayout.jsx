@@ -1,8 +1,40 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, Sun, Moon } from 'lucide-react';
 import { BRAND } from '../../utils/brandColors';
 import { ACCENT_CYCLE } from './marketingTokens';
+
+// Kundönskemål: en mörkt-läge-option på marknadssidan. Samma localStorage-
+// nyckel som den inloggade appen (App.jsx) — en besökare som redan valt
+// mörkt läge där ska mötas av samma tema på den publika sajten också,
+// istället för att behöva välja två gånger. Egen liten läsfunktion här
+// (inte en delad hook mot App.jsx) eftersom marknadssidan är en helt
+// fristående yta utan tillgång till App.jsx:s theme-state — men EXPORTERAD
+// så DemoWorkspace.jsx kan anropa den en gång till för sitt eget
+// `theme === 'dark'`-villkor (headerns bakgrund ska bara matcha sidomenyn i
+// mörkt läge, se index.css :root[data-theme="dark"] .desktop-top-bar).
+// Ofarligt att anropa två gånger — båda instanserna läser/skriver samma
+// localStorage-nyckel och samma <html data-theme>, aldrig i otakt.
+export function useMarketingTheme() {
+  const [theme, setTheme] = useState(() => {
+    try {
+      const stored = localStorage.getItem('bokix_theme');
+      if (stored === 'light' || stored === 'dark') return stored;
+    } catch { /* privat läge/blockerad storage — kör vidare med OS-valet */ }
+    return (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+  });
+  useEffect(() => {
+    try { localStorage.setItem('bokix_theme', theme); } catch { /* samma reservläge som ovan */ }
+    // Sätts även på <html> (inte bara #lp-root nedan) — DemoWorkspace.jsx
+    // (den inbäddade "såhär ser appen ut"-produktvisningen på startsidan)
+    // återanvänder appens EGNA var(--bg-card)/var(--text-main) osv från
+    // index.css, som bara skriver om sig via :root[data-theme="dark"] på
+    // det riktiga rot-elementet — utan det här skulle demokortet stå kvar
+    // ljust även när resten av marknadssidan gått mörk.
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
+  return [theme, () => setTheme(t => (t === 'dark' ? 'light' : 'dark'))];
+}
 
 // ── Bokix ordmärke — exakt samma gradient som sidopanelens logga i själva
 // appen (App.jsx BokixLogo), så en besökare känner igen samma identitet på
@@ -42,6 +74,59 @@ function MarketingStyles() {
       @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
       #lp-root, #lp-root *, #lp-root *::before, #lp-root *::after { box-sizing: border-box; }
       html { scroll-behavior: smooth; }
+
+      /* ── Marknadssajtens egna tema-tokens (marketingTokens.js pekar hit) —
+         se kommentaren där för varför det här är en SEPARAT palett från
+         appens index.css. Ljust läge (default) oförändrat mot tidigare
+         literala värden; mörkt läge speglar samma djupgröna identitet som
+         den inloggade appens mörka tema, så de två känns som samma
+         varumärke även om paletterna är fristående. */
+      #lp-root {
+        --mkt-page-bg: #ffffff;
+        --mkt-header-bg: #ffffff;
+        --mkt-card-bg: #ffffff;
+        --mkt-ink: #1c2420;
+        --mkt-ink-soft: #3a453e;
+        --mkt-muted: #6b7568;
+        --mkt-ivory: #faf9f5;
+        --mkt-card-border: #eee8dc;
+        --mkt-card-shadow: 0 24px 44px -30px rgba(28,36,32,0.24), 0 2px 8px rgba(28,36,32,0.05);
+        --mkt-card-shadow-sm: 0 10px 24px -18px rgba(28,36,32,0.2);
+        --mkt-accent-green-fg: oklch(52% 0.17 145);
+        --mkt-accent-green-soft: oklch(93% 0.05 145);
+        --mkt-accent-blue-fg: oklch(56% 0.17 240);
+        --mkt-accent-blue-soft: oklch(93% 0.045 240);
+        --mkt-accent-red-fg: oklch(55% 0.19 25);
+        --mkt-accent-red-soft: oklch(93% 0.05 25);
+        --mkt-border-soft: #e5e7eb;
+        --mkt-nav-text: #374151;
+        --mkt-heading: #111827;
+        --mkt-section-red-tint: oklch(97% 0.02 25);
+      }
+      #lp-root[data-theme="dark"] {
+        --mkt-page-bg: #0f1a13;
+        --mkt-header-bg: #0f1a13;
+        --mkt-card-bg: #17281c;
+        --mkt-ink: #eef3ea;
+        --mkt-ink-soft: #c3d0bd;
+        --mkt-muted: #8fa088;
+        --mkt-ivory: #141f18;
+        --mkt-card-border: #2a3d2c;
+        --mkt-card-shadow: 0 24px 44px -30px rgba(0,0,0,0.6), 0 2px 8px rgba(0,0,0,0.4);
+        --mkt-card-shadow-sm: 0 10px 24px -18px rgba(0,0,0,0.5);
+        --mkt-accent-green-fg: oklch(76% 0.15 145);
+        --mkt-accent-green-soft: oklch(30% 0.06 145);
+        --mkt-accent-blue-fg: oklch(76% 0.13 240);
+        --mkt-accent-blue-soft: oklch(30% 0.05 240);
+        --mkt-accent-red-fg: oklch(73% 0.16 25);
+        --mkt-accent-red-soft: oklch(30% 0.06 25);
+        --mkt-border-soft: #2a3d2c;
+        --mkt-nav-text: #c3d0bd;
+        --mkt-heading: #eef3ea;
+        --mkt-section-red-tint: oklch(20% 0.03 25);
+      }
+      #lp-root[data-theme="dark"] .lp-btn-secondary:hover { background: var(--mkt-ivory) !important; }
+      #lp-root[data-theme="dark"] .lp-mobile-menu.lp-open { background: var(--mkt-page-bg) !important; }
       .lp-btn-primary { transition: all 0.2s !important; }
       .lp-btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 25px -5px rgba(61,122,46,0.4) !important; }
       .lp-btn-secondary:hover { background: #f9fafb !important; }
@@ -69,13 +154,13 @@ function MarketingStyles() {
          är det enda som behöver riktig CSS här, resten sätts som inline-
          style-gradients i respektive sida (samma konvention som redan
          gäller). */
-      .lp-faq-item { border-bottom: 1px solid #e5e7eb; }
+      .lp-faq-item { border-bottom: 1px solid var(--mkt-border-soft); }
       .lp-faq-question {
         width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px;
         background: none; border: none; text-align: left; cursor: pointer; font-family: inherit;
-        padding: 22px 4px; color: #111827;
+        padding: 22px 4px; color: var(--mkt-heading);
       }
-      .lp-faq-chevron { transition: transform 0.25s cubic-bezier(0.16,1,0.3,1); flex-shrink: 0; color: #9ca3af; }
+      .lp-faq-chevron { transition: transform 0.25s cubic-bezier(0.16,1,0.3,1); flex-shrink: 0; color: var(--mkt-muted); }
       .lp-faq-chevron.lp-faq-open { transform: rotate(180deg); }
       .lp-faq-answer { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.35s cubic-bezier(0.16,1,0.3,1); }
       .lp-faq-answer.lp-faq-open { grid-template-rows: 1fr; }
@@ -83,6 +168,12 @@ function MarketingStyles() {
 
       .lp-lux-card { transition: transform 0.35s cubic-bezier(0.16,1,0.3,1), box-shadow 0.35s ease, border-color 0.35s ease; }
       .lp-lux-card:hover { transform: translateY(-6px) scale(1.01); box-shadow: 0 24px 48px -20px rgba(15,23,42,0.2) !important; }
+
+      /* Jämförelsetabellen (LandingPage.jsx) — subtil radmarkering vid
+         hover, samma "det här är interaktivt/levande" känsla som resten av
+         sidan istället för en helt statisk tabell. */
+      .lp-compare-row { transition: background-color 0.15s ease; }
+      .lp-compare-row:hover { background-color: var(--mkt-ivory); }
 
       /* Levande hero-bakgrund — tre färgade klot (loggans blå/turkos/lime +
          ett rosarött) som sakta driver och pulserar, aldrig helt stilla.
@@ -160,13 +251,33 @@ function MarketingStyles() {
       @media (max-width: 860px) {
         .lp-nav-desktop { display: none; }
         .lp-hamburger-btn { display: flex; }
+        /* Loggan (46px, uppskalad för desktop ovan) håller sig kvar på sin
+           tidigare, mer kompakta mobilstorlek istället för att svälla i
+           den smala mobil-headern tillsammans med hamburgerknappen. */
+        nav .lp-logo-glow svg { height: 34px; width: auto; }
       }
-      .lp-demo-card { display: flex; }
+      /* .lp-demo-card: yttre kortet, alltid en kolumn nu — en riktig
+         skrivbords-header (ikoner, se DemoWorkspace.jsx) ovanpå, .lp-demo-body
+         (sidomeny+innehåll) därunder. .lp-demo-body bär den gamla rad/kolumn-
+         växlingen som .lp-demo-card hade själv innan headern fanns. */
+      .lp-demo-card { display: flex; flex-direction: column; }
+      .lp-demo-body { display: flex; flex: 1; min-height: 0; }
       .lp-demo-mobile-topbar { display: none; }
       /* Skrivbordet: fast höjd + egen scroll så kortet inte skuttar runt i
          storlek när man byter flik. Se mobilöverskriften nedan för varför
-         det INTE gäller på mobil. */
-      .lp-demo-content { flex: 1; min-width: 0; padding: 16px; max-height: min(680px, 78vh); overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
+         det INTE gäller på mobil.
+         Bugkritiskt (kundfeedback, med skärmdump): utan egen bakgrund ärvde
+         den här ytan bg-card från .lp-demo-card (samma ton som topbaren
+         ovanför) — MÖRKARE bg-sidebar bredvid och LJUSARE bg-card här
+         skapade en tydlig, hela-höjden-lång fog nedför hela gränsen mot
+         sidomenyn, precis den "space" som cirklades in i skärmdumpen.
+         Riktiga appen har INTE det problemet: där ligger bara den 52px
+         höga .desktop-top-bar-remsan på bg-card, medan själva
+         innehållsytan (.main-content-inner) visar body-elementets bg-page
+         rakt igenom (ingen egen bakgrund satt där heller) — bg-page och
+         bg-sidebar ligger mycket närmare varandra i mörkt läge, så fogen
+         syns knappt. Samma bg-page här återskapar exakt det. */
+      .lp-demo-content { flex: 1; min-width: 0; padding: 20px; max-height: min(780px, 82vh); overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; background: var(--bg-page); }
       @media (max-width: 640px) {
         .lp-cta-group { flex-direction: column; }
         .lp-cta-group > button, .lp-cta-group > a { width: 100%; }
@@ -178,7 +289,7 @@ function MarketingStyles() {
            riktiga appen faktiskt använder på små skärmar (hamburgerikon +
            sidtitel, se .global-top-bar/.topbar-page-title i index.css),
            så demon ger en ärlig bild av hur Bokix ser ut på mobilen också. */
-        .lp-demo-card { flex-direction: column; }
+        .lp-demo-body { flex-direction: column; }
         .lp-demo-mobile-topbar { display: flex; }
         /* Bugkritiskt: en fast maxHeight + intern scroll (bra på ett brett
            skrivbordskort) blev på mobil en liten kikhål-ruta som gömde det
@@ -251,7 +362,7 @@ export function Reveal({ as: Tag = 'div', scale = false, delay = 0, style, class
  * redan har den lokala showLanding-toggeln); undersidor har den inte och
  * navigerar istället till "/" med en state-flagga som App.jsx läser av för
  * att hoppa direkt till inloggning — se MarketingLayout-kommentaren nedan. */
-export function MarketingHeader({ onEnterApp }) {
+export function MarketingHeader({ onEnterApp, theme, onToggleTheme }) {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
@@ -279,8 +390,8 @@ export function MarketingHeader({ onEnterApp }) {
     <>
       <nav style={{
         position: 'fixed', top: 0, left: 0, right: 0, zIndex: 1000,
-        background: scrolled ? 'white' : 'transparent',
-        borderBottom: scrolled ? '1px solid rgba(0,0,0,0.06)' : 'none',
+        background: scrolled ? 'var(--mkt-header-bg)' : 'transparent',
+        borderBottom: scrolled ? '1px solid var(--mkt-border-soft)' : 'none',
         padding: '0 24px', transition: 'all 0.3s',
         boxShadow: scrolled ? '0 1px 20px rgba(0,0,0,0.06)' : 'none',
       }}>
@@ -288,12 +399,28 @@ export function MarketingHeader({ onEnterApp }) {
             triad som nyckeltalskorten (marketingTokens.js ACCENT), så
             färgerna syns redan i headern, inte bara längre ner. ── */}
         <div aria-hidden style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '2px', opacity: 0.55, background: `linear-gradient(90deg, ${ACCENT_CYCLE[0].fg}, ${ACCENT_CYCLE[1].fg} 45%, ${ACCENT_CYCLE[2].fg} 75%, ${BRAND.green})` }} />
-        <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', alignItems: 'center', height: '68px', gap: '32px' }}>
+        {/* Kundfeedback (skärmdump på en bred skärm): max-width:1200px
+            centrerat lämnade stora tomma mörka fält på var sida på breda
+            skrivbordsskärmar — loggan såg inte ut att sitta till vänster
+            alls, bara mitt i en ö av innehåll mitt på skärmen. Ingen
+            maxWidth/margin:auto längre — raden fyller hela bredden (samma
+            24px sidopadding som <nav> redan hade), så loggan/knapparna
+            landar på de FAKTISKA kanterna oavsett skärmbredd. Navlänkarna
+            (justifyContent:center) håller sig ändå kompakta i mitten,
+            sträcks inte ut bara för att raden är bredare. */}
+        <div style={{ display: 'flex', alignItems: 'center', height: '76px', gap: '32px' }}>
+          {/* Kundfeedback: loggan ska vara stor och tydlig på desktop (kvar
+              till vänster, inte flyttad) — höjd upp i två omgångar, 38→46→
+              52 (kunden tyckte fortfarande den kändes för liten, delvis för
+              att den drunknade i det tomma utrymmet från maxWidth-buggen
+              ovan). Navlänkarna centrerade i mellanrummet mellan logga och
+              knappar (justifyContent:center tillagt) istället för att bara
+              klibba fast till vänster om logon i sitt flex:1-utrymme. */}
           <Link to="/" className="lp-logo-glow" style={{ alignItems: 'center', flexShrink: 0 }} aria-label="Till startsidan">
-            <BokixWordmark height={38} />
+            <BokixWordmark height={52} />
           </Link>
 
-          <div className="lp-nav-desktop" style={{ flex: 1, alignItems: 'center', gap: '28px' }}>
+          <div className="lp-nav-desktop" style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: '28px' }}>
             {MARKETING_PAGES.map((page, i) => {
               const accent = ACCENT_CYCLE[i % 3];
               const isActive = location.pathname === page.to;
@@ -301,7 +428,7 @@ export function MarketingHeader({ onEnterApp }) {
                 <Link
                   key={page.to} to={page.to}
                   className={`lp-nav-link ${isActive ? 'active' : ''}`}
-                  style={{ '--nav-accent': accent.fg, fontSize: '14px', fontWeight: 500, color: isActive ? accent.fg : '#374151', textDecoration: 'none', padding: '10px 0', minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}
+                  style={{ '--nav-accent': accent.fg, fontSize: '14px', fontWeight: 500, color: isActive ? accent.fg : 'var(--mkt-nav-text)', textDecoration: 'none', padding: '10px 0', minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}
                 >
                   {page.label}
                 </Link>
@@ -310,7 +437,10 @@ export function MarketingHeader({ onEnterApp }) {
           </div>
 
           <div className="lp-nav-desktop" style={{ gap: '10px', alignItems: 'center' }}>
-            <button className="lp-btn-secondary" onClick={handleEnterApp} style={{ padding: '11px 16px', background: 'transparent', border: '1px solid #e5e7eb', borderRadius: '9px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: '#374151', fontFamily: 'inherit', minHeight: '44px' }}>
+            <button onClick={onToggleTheme} aria-label={theme === 'dark' ? 'Ljust läge' : 'Mörkt läge'} title={theme === 'dark' ? 'Ljust läge' : 'Mörkt läge'} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 38, height: 38, background: 'none', border: '1px solid var(--mkt-border-soft)', borderRadius: '9px', cursor: 'pointer', color: 'var(--mkt-nav-text)' }}>
+              {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
+            <button className="lp-btn-secondary" onClick={handleEnterApp} style={{ padding: '11px 16px', background: 'transparent', border: '1px solid var(--mkt-border-soft)', borderRadius: '9px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: 'var(--mkt-nav-text)', fontFamily: 'inherit', minHeight: '44px' }}>
               Logga in
             </button>
             <button className="lp-btn-primary" onClick={handleEnterApp} style={{ padding: '11px 18px', background: BRAND.green, border: 'none', borderRadius: '9px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', color: 'white', fontFamily: 'inherit', boxShadow: '0 4px 15px -3px rgba(61,122,46,0.35)', minHeight: '44px' }}>
@@ -318,7 +448,10 @@ export function MarketingHeader({ onEnterApp }) {
             </button>
           </div>
 
-          <button className="lp-hamburger-btn" onClick={() => setMobileMenuOpen(true)} aria-label="Öppna meny" style={{ background: 'none', border: 'none', cursor: 'pointer', alignItems: 'center', justifyContent: 'center', width: 44, height: 44, marginLeft: 'auto' }}>
+          <button onClick={onToggleTheme} aria-label={theme === 'dark' ? 'Ljust läge' : 'Mörkt läge'} title={theme === 'dark' ? 'Ljust läge' : 'Mörkt läge'} className="lp-hamburger-btn" style={{ background: 'none', border: 'none', cursor: 'pointer', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, marginLeft: 'auto', color: 'var(--mkt-nav-text)' }}>
+            {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+          </button>
+          <button className="lp-hamburger-btn" onClick={() => setMobileMenuOpen(true)} aria-label="Öppna meny" style={{ background: 'none', border: 'none', cursor: 'pointer', alignItems: 'center', justifyContent: 'center', width: 44, height: 44, color: 'var(--mkt-nav-text)' }}>
             <Menu size={24} />
           </button>
         </div>
@@ -327,7 +460,7 @@ export function MarketingHeader({ onEnterApp }) {
       <div className={`lp-mobile-menu ${mobileMenuOpen ? 'lp-open' : ''}`}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
           <Link to="/" onClick={() => setMobileMenuOpen(false)} className="lp-logo-glow" aria-label="Till startsidan"><BokixWordmark height={32} /></Link>
-          <button onClick={() => setMobileMenuOpen(false)} aria-label="Stäng meny" style={{ background: 'none', border: 'none', cursor: 'pointer', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <button onClick={() => setMobileMenuOpen(false)} aria-label="Stäng meny" style={{ background: 'none', border: 'none', cursor: 'pointer', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--mkt-nav-text)' }}>
             <X size={24} />
           </button>
         </div>
@@ -338,7 +471,7 @@ export function MarketingHeader({ onEnterApp }) {
             return (
               <Link
                 key={page.to} to={page.to} onClick={() => setMobileMenuOpen(false)}
-                style={{ background: 'none', border: 'none', borderBottom: '1px solid #f1f5f9', textAlign: 'left', fontSize: '17px', fontWeight: 600, color: isActive ? accent.fg : '#111827', textDecoration: 'none', fontFamily: 'inherit', padding: '16px 4px' }}
+                style={{ background: 'none', border: 'none', borderBottom: '1px solid var(--mkt-border-soft)', textAlign: 'left', fontSize: '17px', fontWeight: 600, color: isActive ? accent.fg : 'var(--mkt-heading)', textDecoration: 'none', fontFamily: 'inherit', padding: '16px 4px' }}
               >
                 {page.label}
               </Link>
@@ -346,7 +479,7 @@ export function MarketingHeader({ onEnterApp }) {
           })}
         </div>
         <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', paddingTop: '24px' }}>
-          <button onClick={handleEnterApp} style={{ padding: '14px', background: 'transparent', border: '1px solid #e5e7eb', borderRadius: '10px', fontSize: '15px', fontWeight: 600, cursor: 'pointer', color: '#374151', fontFamily: 'inherit' }}>
+          <button onClick={handleEnterApp} style={{ padding: '14px', background: 'transparent', border: '1px solid var(--mkt-border-soft)', borderRadius: '10px', fontSize: '15px', fontWeight: 600, cursor: 'pointer', color: 'var(--mkt-nav-text)', fontFamily: 'inherit' }}>
             Logga in
           </button>
           <button onClick={handleEnterApp} style={{ padding: '14px', background: BRAND.green, border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: 700, cursor: 'pointer', color: 'white', fontFamily: 'inherit' }}>
@@ -438,10 +571,11 @@ export function MarketingFooter() {
  * inloggningsskärmen så "Kom igång"/"Logga in" känns likadant oavsett
  * vilken sida man klickade från. */
 export default function MarketingLayout({ onEnterApp, children }) {
+  const [theme, toggleTheme] = useMarketingTheme();
   return (
-    <div id="lp-root" style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", color: '#111827', background: 'white', overflowX: 'hidden' }}>
+    <div id="lp-root" data-theme={theme} style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", color: 'var(--mkt-heading)', background: 'var(--mkt-page-bg)', overflowX: 'hidden' }}>
       <MarketingStyles />
-      <MarketingHeader onEnterApp={onEnterApp} />
+      <MarketingHeader onEnterApp={onEnterApp} theme={theme} onToggleTheme={toggleTheme} />
       {children}
       <MarketingFooter />
     </div>

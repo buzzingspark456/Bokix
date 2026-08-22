@@ -2,6 +2,8 @@ import { applySecurityHeaders } from '../_security.js';
 import Stripe from 'stripe';
 import { parseJsonBody } from './_parseBody.js';
 import { normalizeAbsoluteUrl, appendQueryParam } from './_urls.js';
+import { checkRateLimit } from '../_rateLimit.js';
+import { isRequestFromBot } from '../_botid.js';
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY || null;
 const stripe = stripeSecretKey && !stripeSecretKey.startsWith('pk_')
@@ -29,6 +31,14 @@ export default async function handler(req, res) {
 
   if (!stripe) {
     res.status(503).json({ error: 'Stripe is not configured. Set STRIPE_SECRET_KEY before trying again.' });
+    return;
+  }
+  if (!checkRateLimit(req, res, { key: 'create-subscription-checkout', max: 10 })) return;
+
+  // Vercel BotID — se filkommentaren i main.jsx.
+  const isBot = await isRequestFromBot();
+  if (isBot) {
+    res.status(403).json({ error: 'Åtkomst nekad.' });
     return;
   }
 

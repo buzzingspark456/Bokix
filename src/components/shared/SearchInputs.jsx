@@ -9,7 +9,7 @@ import React, { useState, useEffect, useRef } from 'react';
  * i förslagslistan så länge det som skrivits inte redan matchar en post
  * exakt, så man kan skapa en ny motpart utan att lämna formuläret.
  */
-export function EntitySearch({ value, onChange, items, placeholder, renderMeta, onCreateNew, createLabel = 'Skapa ny' }) {
+export function EntitySearch({ value, onChange, items, placeholder, renderMeta, onCreateNew, createLabel = 'Skapa ny', inputStyle }) {
   const selected = items?.find(c => c.id === value);
   const [q, setQ] = useState(selected?.name || '');
   const [open, setOpen] = useState(false);
@@ -43,27 +43,27 @@ export function EntitySearch({ value, onChange, items, placeholder, renderMeta, 
         onChange={e => { setQ(e.target.value); setOpen(true); if (!e.target.value) onChange(''); }}
         onFocus={() => setOpen(true)}
         placeholder={placeholder}
-        style={{ width: '100%', padding: '9px 12px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '13px', fontFamily: 'inherit', boxSizing: 'border-box', outline: 'none' }}
+        style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '13px', fontFamily: 'inherit', boxSizing: 'border-box', outline: 'none', background: 'var(--bg-card)', color: 'var(--text-main)', ...inputStyle }}
       />
       {open && (matches.length > 0 || showCreateRow) && (
-        <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 100, background: 'white', border: '1px solid #ccc', borderRadius: '4px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', minWidth: '260px', maxHeight: '220px', overflowY: 'auto' }}>
+        <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 100, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '4px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', minWidth: '260px', maxHeight: '220px', overflowY: 'auto' }}>
           {matches.map(c => (
             <div
               key={c.id}
               onMouseDown={() => { onChange(c.id); setQ(c.name); setOpen(false); }}
-              style={{ padding: '7px 10px', cursor: 'pointer', fontSize: '13px', borderBottom: '1px solid #f0f0f0', display: 'flex', justifyContent: 'space-between', gap: '8px' }}
-              onMouseEnter={e => e.currentTarget.style.background = '#f0f9f0'}
+              style={{ padding: '7px 10px', cursor: 'pointer', fontSize: '13px', borderBottom: '1px solid var(--border-light)', display: 'flex', justifyContent: 'space-between', gap: '8px' }}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-muted)'}
               onMouseLeave={e => e.currentTarget.style.background = ''}
             >
-              <span style={{ color: '#333' }}>{c.name}</span>
-              {renderMeta && <span style={{ color: '#9ca3af', fontSize: '11px', textTransform: 'uppercase' }}>{renderMeta(c)}</span>}
+              <span style={{ color: 'var(--text-main)' }}>{c.name}</span>
+              {renderMeta && <span style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase' }}>{renderMeta(c)}</span>}
             </div>
           ))}
           {showCreateRow && (
             <div
               onMouseDown={handleCreate}
               style={{ padding: '7px 10px', cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', color: '#3d7a2e', fontWeight: 600 }}
-              onMouseEnter={e => e.currentTarget.style.background = '#f0f9f0'}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-muted)'}
               onMouseLeave={e => e.currentTarget.style.background = ''}
             >
               <span>+</span><span>{createLabel}: "{trimmedQ}"</span>
@@ -114,21 +114,21 @@ export function AccountSearch({ value, onChange, accounts, placeholder = 'Konto.
         onFocus={() => setOpen(true)}
         placeholder={placeholder}
         style={compact
-          ? { width: '100%', padding: '4px 6px', border: '1px solid #bbb', borderRadius: '3px', fontSize: '12px', fontFamily: 'inherit', boxSizing: 'border-box' }
-          : { width: '100%', padding: '9px 12px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '13px', fontFamily: 'inherit', boxSizing: 'border-box', outline: 'none' }}
+          ? { width: '100%', padding: '4px 6px', border: '1px solid var(--text-muted)', borderRadius: '3px', fontSize: '12px', fontFamily: 'inherit', boxSizing: 'border-box', background: 'var(--bg-card)', color: 'var(--text-main)' }
+          : { width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '13px', fontFamily: 'inherit', boxSizing: 'border-box', outline: 'none', background: 'var(--bg-card)', color: 'var(--text-main)' }}
       />
       {open && matches.length > 0 && (
-        <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 100, background: 'white', border: '1px solid #ccc', borderRadius: '4px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', minWidth: '260px', maxHeight: '200px', overflowY: 'auto' }}>
+        <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 100, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '4px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', minWidth: '260px', maxHeight: '200px', overflowY: 'auto' }}>
           {matches.map(a => (
             <div
               key={a.code}
               onMouseDown={() => { onChange(a.code, a.name); setQ(`${a.code} – ${a.name}`); setOpen(false); }}
-              style={{ padding: '7px 10px', cursor: 'pointer', fontSize: compact ? '12px' : '13px', borderBottom: '1px solid #f0f0f0', display: 'flex', gap: '8px' }}
-              onMouseEnter={e => e.currentTarget.style.background = '#f0f9f0'}
+              style={{ padding: '7px 10px', cursor: 'pointer', fontSize: compact ? '12px' : '13px', borderBottom: '1px solid var(--border-light)', display: 'flex', gap: '8px' }}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-muted)'}
               onMouseLeave={e => e.currentTarget.style.background = ''}
             >
-              <span style={{ fontWeight: 700, color: '#1a3028', minWidth: 46 }}>{a.code}</span>
-              <span style={{ color: '#333' }}>{a.name}</span>
+              <span style={{ fontWeight: 700, color: 'var(--text-main)', minWidth: 46 }}>{a.code}</span>
+              <span style={{ color: 'var(--text-main)' }}>{a.name}</span>
             </div>
           ))}
         </div>

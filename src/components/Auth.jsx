@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   LogIn, UserPlus, Building2, Mail, Lock,
   ArrowRight, ArrowLeft, ShieldCheck, Check, User, Hash,
-  Zap, ScanLine, RefreshCw,
+  RefreshCw,
   FileText, BarChart3, Receipt, Users, Shield, Briefcase,
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
@@ -11,22 +11,10 @@ import { detectOrgType, formatOrgNr } from '../utils/orgType';
 import { BRAND } from '../utils/brandColors';
 import { BokixWordmark } from './marketing/MarketingLayout';
 import { createStripeSubscriptionCheckout } from '../stripeApi';
-
-// ── Samma gradienter som landningssidan (LandingPage.jsx) och Startsidans
-// KPI-kort (Dashboard.jsx) — se den filens kommentar för ursprunget. Egen
-// lokal kopia här, samma etablerade mönster som Dashboard redan följer
-// (varje ställe som behöver en engångspalett definierar den lokalt, BRAND
-// är den enda DELADE källan). Auth-sidan ska kännas som samma produkt som
-// den nya landningssidan, inte en kvarglömd enfärgad panel. ──
-const AUTH_GRAD = {
-  green: ['#2f8a3a', '#54b854'],
-  blueTeal: ['#0ea5e9', '#14b8a6'],
-  tealLime: ['#14b8a6', '#84cc16'],
-};
-const authGrad = (c, deg = 135) => `linear-gradient(${deg}deg, ${c[0]}, ${c[1]})`;
+import Turnstile from './Turnstile';
 
 // ── Litet Stripe-märke — se motsvarande kommentar i PaymentRequiredGate.jsx
-// (samma lokala-kopia-mönster som AUTH_GRAD ovan). ──
+// (samma lokala-kopia-mönster). ──
 function StripeBadge() {
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
@@ -39,17 +27,41 @@ function StripeBadge() {
 }
 
 const inputStyle = {
-  width: '100%', padding: '12px 14px', border: '1px solid #e2e8f0', borderRadius: '10px',
-  fontSize: '14.5px', color: '#111827', background: '#f8fafc', outline: 'none',
+  width: '100%', padding: '12px 14px', border: '1px solid var(--border)', borderRadius: '10px',
+  fontSize: '14.5px', color: 'var(--text-main)', background: 'var(--bg-muted)', outline: 'none',
   fontFamily: 'inherit', boxSizing: 'border-box', transition: 'all 0.2s',
 };
 
 const labelStyle = {
-  display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569',
+  display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)',
   marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.04em',
 };
 
 const REGISTER_STEPS = ['Personlig info', 'Bekräfta e-post', 'Företag', 'Lösenord'];
+
+// Säkerhetsgranskningen: bara en längdgräns (8 tecken) fanns tidigare,
+// ingen som helst indikation till användaren om hur starkt lösenordet
+// faktiskt är. Modern vägledning (NIST 800-63B) säger längd > påtvingade
+// teckenklasser — så det här BLOCKERAR inget extra utöver 8-tecknersgränsen,
+// bara visar en mätare som uppmuntrar längre/mer varierade lösenord.
+// Det egentliga läckage-skyddet (kolla mot kända läckta lösenord via
+// HaveIBeenPwned) är istället en inställning i Supabase Dashboard →
+// Authentication → Policies → "Leaked password protection" — går inte att
+// koda fram här, måste slås på där (verifierar server-side vid signup,
+// mer robust än något klienten skulle kunna göra ändå).
+function passwordStrength(pw) {
+  if (!pw) return null;
+  let score = 0;
+  if (pw.length >= 8) score++;
+  if (pw.length >= 12) score++;
+  if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) score++;
+  if (/[0-9]/.test(pw)) score++;
+  if (/[^a-zA-Z0-9]/.test(pw)) score++;
+  if (score <= 1) return { label: 'Svagt — lägg till fler tecken', color: '#ef4444', pct: 25 };
+  if (score === 2) return { label: 'Okej', color: '#f59e0b', pct: 50 };
+  if (score <= 3) return { label: 'Bra', color: '#84cc16', pct: 75 };
+  return { label: 'Starkt', color: '#3d7a2e', pct: 100 };
+}
 
 // ── Översikt över appens faktiska huvudsektioner (samma sex som den
 // riktiga inloggade sidomenyn i App.jsx), visad på sista registrerings-
@@ -78,6 +90,12 @@ export default function Auth({ onLogin, onBackToLanding }) {
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
 
+  // Bot-/captcha-spärr (säkerhetsgranskningen) — se Turnstile.jsx för
+  // aktivering. Egna tokens för login/registrering eftersom det är två
+  // separata widget-instanser (olika steg i formuläret).
+  const [loginCaptchaToken, setLoginCaptchaToken] = useState('');
+  const [regCaptchaToken, setRegCaptchaToken] = useState('');
+
   // Step 0 – Personal info
   const [regFirstName, setRegFirstName] = useState('');
   const [regLastName, setRegLastName] = useState('');
@@ -104,7 +122,11 @@ export default function Auth({ onLogin, onBackToLanding }) {
     setLoading(true);
     try {
       if (!loginEmail || !loginPassword) throw new Error('Fyll i alla fält');
-      const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, password: loginPassword });
+      const { error } = await supabase.auth.signInWithPassword({
+        email: loginEmail,
+        password: loginPassword,
+        options: loginCaptchaToken ? { captchaToken: loginCaptchaToken } : undefined,
+      });
       if (error) throw error;
     } catch (err) {
       setErrorMsg(err.message);
@@ -158,7 +180,8 @@ export default function Auth({ onLogin, onBackToLanding }) {
               last_name: regLastName,
               company_name: regCompany,
               org_nr: regOrgNr,
-            }
+            },
+            ...(regCaptchaToken ? { captchaToken: regCaptchaToken } : {}),
           }
         });
         if (error) throw error;
@@ -203,104 +226,74 @@ export default function Auth({ onLogin, onBackToLanding }) {
       <style>{`
         #auth-root, #auth-root *, #auth-root *::before, #auth-root *::after { box-sizing: border-box; }
         #auth-root button { -webkit-appearance: none; appearance: none; -webkit-tap-highlight-color: transparent; }
-        .auth-card { display: flex; width: 100%; max-width: 960px; }
-        .auth-brand { display: flex; }
-        .auth-feature-row { transition: transform 0.2s ease; }
-        .auth-feature-row:hover { transform: translateX(3px); }
+        /* Kundfeedback (samma skärmdump som flik-fixet ovan): webbläsarens
+           egen ifyllningsfärg (Chrome/Edge autofill) målar över inputens
+           background: var(--bg-muted) med sin egen ljusblå/gula ton via
+           en UA-stilregel som vanlig CSS-specificitet inte kommer åt — syns
+           tydligt som en ljus ruta mitt i det mörka kortet i mörkt läge.
+           webkit-box-shadow inset "målar över" den tvingade bakgrunden med
+           samma temafärg som inputen redan har; den orimligt långa
+           transitionen stoppar Chromes gula infärgnings-animation vid
+           autofill. */
+        #auth-root input:-webkit-autofill,
+        #auth-root input:-webkit-autofill:hover,
+        #auth-root input:-webkit-autofill:focus {
+          -webkit-text-fill-color: var(--text-main);
+          -webkit-box-shadow: 0 0 0 1000px var(--bg-muted) inset;
+          box-shadow: 0 0 0 1000px var(--bg-muted) inset;
+          transition: background-color 5000s ease-in-out 0s;
+        }
         .auth-logo-link { display: inline-flex; text-decoration: none; transition: opacity 0.2s ease; }
         .auth-logo-link:hover { opacity: 0.85; }
-        @keyframes authBlobDrift {
-          0%   { transform: translate(0, 0) scale(1); }
-          33%  { transform: translate(4%, -5%) scale(1.08); }
-          66%  { transform: translate(-4%, 4%) scale(0.95); }
-          100% { transform: translate(0, 0) scale(1); }
-        }
-        .auth-blob { animation: authBlobDrift 16s ease-in-out infinite; will-change: transform; }
         @keyframes authSpin { to { transform: rotate(360deg); } }
         .auth-spin { animation: authSpin 1s linear infinite; }
-        @media (prefers-reduced-motion: reduce) { .auth-blob, .auth-spin { animation: none !important; } }
-        @media (max-width: 760px) {
-          .auth-card { flex-direction: column; }
-          .auth-brand { padding: 28px 24px !important; }
-          .auth-brand-features, .auth-brand-badges { display: none !important; }
-          .auth-form-panel { width: 100% !important; padding: 28px 22px !important; }
+        @media (prefers-reduced-motion: reduce) { .auth-spin { animation: none !important; } }
+        @media (max-width: 480px) {
+          .auth-form-panel { padding: 32px 22px !important; }
         }
       `}</style>
 
-      {/* Bunden i ett enda rundat kort med begränsad maxbredd istället för att
-          varumärkespanelen sträcker sig flex:1 över hela viewporten — det var
-          det som gjorde sidan kännas tom och överdimensionerad på en bred skärm. */}
-      <div className="auth-card" style={{ background: 'white', borderRadius: '24px', overflow: 'hidden', boxShadow: '0 4px 20px rgba(15,23,42,0.10)' }}>
-
-        {/* Vänster: varumärke — samma flerfärgade gradient + drivande klot
-            som landningssidans CTA-sektion (LandingPage.jsx), istället för
-            en enfärgad panel som inte kändes som samma produkt. Kortare
-            funktionslista (tre rader, inte fyra) och ingen separat
-            avslutande tagline-rad — mindre text, samma poäng. Riktiga
-            loggan (BokixWordmark, samma som marknadssidornas header) länkar
-            till startsidan, inte bara statisk "Bokix"-text. */}
-        <div className="auth-brand" style={{ width: '360px', flexShrink: 0, flexDirection: 'column', padding: '44px 36px', position: 'relative', overflow: 'hidden', backgroundImage: `linear-gradient(160deg, #0c1f14, ${BRAND.greenHover}, #0e3a2a)` }}>
-          <div aria-hidden className="auth-blob" style={{ position: 'absolute', top: '-120px', right: '-100px', width: '300px', height: '300px', borderRadius: '50%', background: authGrad(AUTH_GRAD.blueTeal), opacity: 0.3, filter: 'blur(60px)', pointerEvents: 'none' }} />
-          <div aria-hidden className="auth-blob" style={{ position: 'absolute', bottom: '-140px', left: '-80px', width: '280px', height: '280px', borderRadius: '50%', background: authGrad(AUTH_GRAD.tealLime), opacity: 0.22, filter: 'blur(60px)', pointerEvents: 'none', animationDelay: '3s' }} />
-
-          <div style={{ position: 'relative' }}>
-            {/* Bugkritiskt: LandingPage/Auth växlar via lokalt state
-                (App.jsx: showLanding), inte skilda routes — en vanlig
-                <Link to="/"> är ett no-op när man redan står på "/", vilket
-                gjorde loggan verkningslös här. onBackToLanding (App.jsx)
-                nollställer det state:t direkt; e.preventDefault() stoppar
-                Link:ens egen (verkningslösa) navigeringsförsök så de två
-                aldrig krockar. */}
+      {/* Kundfeedback: den tidigare tvåkolumns-layouten (varumärkespanel med
+          funktionslista + "100% Säkert/GDPR/Krypterat"-märken bredvid
+          formuläret) var säljande text som inte hör hemma på en inloggnings-
+          sida — det är inte här man övertygar någon om att köpa Bokix, det
+          är här en redan övertygad besökare snabbt ska komma in. Ett enda
+          centrerat kort istället: bara loggan (identitet, inte reklam) och
+          själva formuläret. Smalare maxbredd (440px, inte 960px) eftersom
+          kortet inte längre behöver rymma två kolumner. */}
+      <div style={{ width: '100%', maxWidth: '440px', background: 'var(--bg-card)', borderRadius: '24px', overflow: 'hidden', boxShadow: '0 4px 20px rgba(15,23,42,0.10)' }}>
+        <div className="auth-form-panel" style={{ padding: '44px 40px' }}>
+          {/* Bugkritiskt: LandingPage/Auth växlar via lokalt state
+              (App.jsx: showLanding), inte skilda routes — en vanlig
+              <Link to="/"> är ett no-op när man redan står på "/", vilket
+              gjorde loggan verkningslös här. onBackToLanding (App.jsx)
+              nollställer det state:t direkt; e.preventDefault() stoppar
+              Link:ens egen (verkningslösa) navigeringsförsök så de två
+              aldrig krockar. */}
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '28px' }}>
             <Link
               to="/"
               className="auth-logo-link"
               aria-label="Till startsidan"
               onClick={(e) => { if (onBackToLanding) { e.preventDefault(); onBackToLanding(); } }}
             >
-              <BokixWordmark height={34} />
+              <BokixWordmark height={32} />
             </Link>
-            <p style={{ fontSize: '12.5px', color: 'rgba(255,255,255,0.65)', margin: '10px 0 0' }}>Bokföring på autopilot.</p>
           </div>
 
-          {/* Funktionslista — tre rader (inte fyra), varje ikon-chip en egen
-              gradient istället för samma halvtransparenta vita chip tre
-              gånger. */}
-          <div className="auth-brand-features" style={{ marginTop: '34px', display: 'flex', flexDirection: 'column', gap: '16px', position: 'relative' }}>
-            {[
-              { icon: Zap, title: 'Automatisk bokföring', desc: 'Kvitton och fakturor bokförs automatiskt.', g: AUTH_GRAD.green },
-              { icon: ScanLine, title: 'Smart kvittoscanning', desc: 'Belopp, moms och konto läses av direkt.', g: AUTH_GRAD.blueTeal },
-              { icon: RefreshCw, title: 'Moms & AGI utan krångel', desc: 'Sammanställs löpande, redo i tid.', g: AUTH_GRAD.tealLime },
-            ].map(f => (
-              <div key={f.title} className="auth-feature-row" style={{ display: 'flex', gap: '11px', alignItems: 'flex-start' }}>
-                <div style={{ width: 28, height: 28, borderRadius: '8px', background: authGrad(f.g), display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1, boxShadow: `0 4px 10px -3px ${f.g[1]}99` }}>
-                  <f.icon size={14} color="white" />
-                </div>
-                <div>
-                  <div style={{ fontWeight: 700, color: 'white', fontSize: '13.5px' }}>{f.title}</div>
-                  <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', lineHeight: 1.5 }}>{f.desc}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="auth-brand-badges" style={{ marginTop: 'auto', paddingTop: '32px', display: 'flex', gap: '14px', flexWrap: 'wrap', position: 'relative' }}>
-            {['100% Säkert', 'GDPR', 'Krypterat'].map(badge => (
-              <div key={badge} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px', fontWeight: 600, color: 'rgba(255,255,255,0.6)' }}>
-                <ShieldCheck size={12} /> {badge}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Höger: formulär */}
-        <div className="auth-form-panel" style={{ flex: 1, minWidth: 0, background: 'white', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '44px 48px' }}>
-
-        {/* Mode tabs */}
-        <div style={{ display: 'flex', background: '#f1f5f9', borderRadius: '12px', padding: '4px', marginBottom: '32px' }}>
-          <button onClick={() => switchMode(true)} style={{ flex: 1, padding: '10px 0', border: 'none', borderRadius: '8px', background: isLogin ? 'white' : 'transparent', color: isLogin ? '#111827' : '#64748b', fontWeight: 600, fontSize: '14px', cursor: 'pointer', transition: 'all 0.2s', boxShadow: isLogin ? '0 2px 4px rgba(0,0,0,0.04)' : 'none', fontFamily: 'inherit', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
+        {/* Mode tabs — bugkritiskt (kundfeedback, med skärmdump): den aktiva
+            fliken hade en HÅRDKODAD `background: 'white'` medan texten
+            använde den tema-medvetna `var(--text-main)` — i mörkt läge blir
+            den ljus/vit, så vit text på vit bakgrund gjorde "Logga in"-
+            fliken praktiskt taget osynlig så fort appens tema (satt
+            tidigare, t.ex. innan utloggning) var mörkt. `var(--bg-card)`
+            istället: vit i ljust läge (ingen synlig skillnad där) men
+            korrekt mörk i mörkt läge, matchar texten igen. */}
+        <div style={{ display: 'flex', background: 'var(--border-light)', borderRadius: '12px', padding: '4px', marginBottom: '32px' }}>
+          <button onClick={() => switchMode(true)} style={{ flex: 1, padding: '10px 0', border: 'none', borderRadius: '8px', background: isLogin ? 'var(--bg-card)' : 'transparent', color: isLogin ? 'var(--text-main)' : 'var(--text-secondary)', fontWeight: 600, fontSize: '14px', cursor: 'pointer', transition: 'all 0.2s', boxShadow: isLogin ? '0 2px 4px rgba(0,0,0,0.04)' : 'none', fontFamily: 'inherit', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
             <LogIn size={16} /> Logga in
           </button>
-          <button onClick={() => switchMode(false)} style={{ flex: 1, padding: '10px 0', border: 'none', borderRadius: '8px', background: !isLogin ? 'white' : 'transparent', color: !isLogin ? '#111827' : '#64748b', fontWeight: 600, fontSize: '14px', cursor: 'pointer', transition: 'all 0.2s', boxShadow: !isLogin ? '0 2px 4px rgba(0,0,0,0.04)' : 'none', fontFamily: 'inherit', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
+          <button onClick={() => switchMode(false)} style={{ flex: 1, padding: '10px 0', border: 'none', borderRadius: '8px', background: !isLogin ? 'var(--bg-card)' : 'transparent', color: !isLogin ? 'var(--text-main)' : 'var(--text-secondary)', fontWeight: 600, fontSize: '14px', cursor: 'pointer', transition: 'all 0.2s', boxShadow: !isLogin ? '0 2px 4px rgba(0,0,0,0.04)' : 'none', fontFamily: 'inherit', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
             <UserPlus size={16} /> Nytt konto
           </button>
         </div>
@@ -309,25 +302,26 @@ export default function Auth({ onLogin, onBackToLanding }) {
         {isLogin ? (
           <>
             <div style={{ marginBottom: '28px' }}>
-              <h2 style={{ fontSize: '26px', fontWeight: 800, color: '#111827', marginBottom: '6px', letterSpacing: '-0.02em' }}>Välkommen tillbaka</h2>
-              <p style={{ fontSize: '14px', color: '#64748b' }}>Logga in på ditt konto nedan.</p>
+              <h2 style={{ fontSize: '26px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '6px', letterSpacing: '-0.02em' }}>Välkommen tillbaka</h2>
+              <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Logga in på ditt konto nedan.</p>
             </div>
             <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div>
                 <label style={labelStyle}>E-postadress</label>
                 <div style={{ position: 'relative' }}>
-                  <Mail size={18} color="#94a3b8" style={{ position: 'absolute', top: 13, left: 14, pointerEvents: 'none' }} />
+                  <Mail size={18} color="var(--text-muted)" style={{ position: 'absolute', top: 13, left: 14, pointerEvents: 'none' }} />
                   <input type="email" style={{ ...inputStyle, paddingLeft: '44px' }} placeholder="din@epost.se" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} required />
                 </div>
               </div>
               <div>
                 <label style={labelStyle}>Lösenord</label>
                 <div style={{ position: 'relative' }}>
-                  <Lock size={18} color="#94a3b8" style={{ position: 'absolute', top: 13, left: 14, pointerEvents: 'none' }} />
+                  <Lock size={18} color="var(--text-muted)" style={{ position: 'absolute', top: 13, left: 14, pointerEvents: 'none' }} />
                   <input type="password" style={{ ...inputStyle, paddingLeft: '44px' }} placeholder="••••••••" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} required />
                 </div>
               </div>
-              {errorMsg && <div style={{ padding: '12px', background: '#fee2e2', color: '#b91c1c', borderRadius: '8px', fontSize: '13px', fontWeight: 600 }}>{errorMsg}</div>}
+              <Turnstile onVerify={setLoginCaptchaToken} onExpire={() => setLoginCaptchaToken('')} />
+              {errorMsg && <div style={{ padding: '12px', background: 'var(--status-red-bg)', color: 'var(--status-red-text)', borderRadius: '8px', fontSize: '13px', fontWeight: 600 }}>{errorMsg}</div>}
               <button type="submit" disabled={loading} style={{ width: '100%', padding: '14px', background: BRAND.green, border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: 700, color: 'white', cursor: loading ? 'wait' : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', boxShadow: '0 2px 6px rgba(61,122,46,0.25)', fontFamily: 'inherit', opacity: loading ? 0.7 : 1 }}>
                 {loading ? 'Loggar in...' : 'Logga in'} <ArrowRight size={16} />
               </button>
@@ -341,18 +335,18 @@ export default function Auth({ onLogin, onBackToLanding }) {
               <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
                 {REGISTER_STEPS.map((s, i) => (
                   <div key={s} style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <div style={{ height: '4px', borderRadius: '2px', background: i <= regStep ? BRAND.green : '#e2e8f0', transition: 'background 0.3s' }} />
-                    <span style={{ fontSize: '11px', fontWeight: i === regStep ? 700 : 500, color: i <= regStep ? BRAND.green : '#94a3b8' }}>{s}</span>
+                    <div style={{ height: '4px', borderRadius: '2px', background: i <= regStep ? BRAND.green : 'var(--border)', transition: 'background 0.3s' }} />
+                    <span style={{ fontSize: '11px', fontWeight: i === regStep ? 700 : 500, color: i <= regStep ? BRAND.green : 'var(--text-muted)' }}>{s}</span>
                   </div>
                 ))}
               </div>
-              <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#111827', marginBottom: '4px', letterSpacing: '-0.02em' }}>
+              <h2 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '4px', letterSpacing: '-0.02em' }}>
                 {regStep === 0 && 'Personlig info'}
                 {regStep === 1 && 'Bekräfta e-post'}
                 {regStep === 2 && 'Ditt företag'}
                 {regStep === 3 && 'Skapa lösenord'}
               </h2>
-              <p style={{ fontSize: '13.5px', color: '#64748b' }}>
+              <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)' }}>
                 {regStep === 0 && 'Fyll i dina uppgifter för att skapa ett konto.'}
                 {regStep === 1 && `Vi skickar ett bekräftelsemail till ${regEmail}.`}
                 {regStep === 2 && 'Ange ditt företag – det här är obligatoriskt.'}
@@ -369,7 +363,7 @@ export default function Auth({ onLogin, onBackToLanding }) {
                     <div>
                       <label style={labelStyle}>Förnamn *</label>
                       <div style={{ position: 'relative' }}>
-                        <User size={16} color="#94a3b8" style={{ position: 'absolute', top: 14, left: 12, pointerEvents: 'none' }} />
+                        <User size={16} color="var(--text-muted)" style={{ position: 'absolute', top: 14, left: 12, pointerEvents: 'none' }} />
                         <input type="text" style={{ ...inputStyle, paddingLeft: '38px' }} placeholder="Anna" value={regFirstName} onChange={e => setRegFirstName(e.target.value)} required />
                       </div>
                     </div>
@@ -381,7 +375,7 @@ export default function Auth({ onLogin, onBackToLanding }) {
                   <div>
                     <label style={labelStyle}>E-postadress *</label>
                     <div style={{ position: 'relative' }}>
-                      <Mail size={16} color="#94a3b8" style={{ position: 'absolute', top: 14, left: 12, pointerEvents: 'none' }} />
+                      <Mail size={16} color="var(--text-muted)" style={{ position: 'absolute', top: 14, left: 12, pointerEvents: 'none' }} />
                       <input type="email" style={{ ...inputStyle, paddingLeft: '38px' }} placeholder="anna@foretag.se" value={regEmail} onChange={e => setRegEmail(e.target.value)} required />
                     </div>
                   </div>
@@ -390,12 +384,12 @@ export default function Auth({ onLogin, onBackToLanding }) {
 
               {/* STEP 1 – Confirm email */}
               {regStep === 1 && (
-                <div style={{ padding: '24px', background: '#f0fdf4', borderRadius: '14px', border: '1px solid #bbf7d0', textAlign: 'center' }}>
+                <div style={{ padding: '24px', background: 'var(--status-green-bg)', borderRadius: '14px', border: '1px solid var(--status-green-bg)', textAlign: 'center' }}>
                   <div style={{ width: 56, height: 56, borderRadius: '50%', background: BRAND.green, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
                     <Mail size={24} color="white" />
                   </div>
-                  <div style={{ fontWeight: 700, fontSize: '16px', color: '#111827', marginBottom: '8px' }}>Kontrollera din inkorg</div>
-                  <div style={{ fontSize: '13.5px', color: '#475569', lineHeight: 1.6 }}>
+                  <div style={{ fontWeight: 700, fontSize: '16px', color: 'var(--text-main)', marginBottom: '8px' }}>Kontrollera din inkorg</div>
+                  <div style={{ fontSize: '13.5px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
                     Vi kommer att skicka ett bekräftelsemail till<br />
                     <strong>{regEmail}</strong><br />
                     efter att kontot skapats. Klicka på länken i mailet för att aktivera ditt konto.
@@ -412,14 +406,14 @@ export default function Auth({ onLogin, onBackToLanding }) {
                   <div>
                     <label style={labelStyle}>Företagsnamn *</label>
                     <div style={{ position: 'relative' }}>
-                      <Building2 size={16} color="#94a3b8" style={{ position: 'absolute', top: 14, left: 12, pointerEvents: 'none' }} />
+                      <Building2 size={16} color="var(--text-muted)" style={{ position: 'absolute', top: 14, left: 12, pointerEvents: 'none' }} />
                       <input type="text" style={{ ...inputStyle, paddingLeft: '38px' }} placeholder="Ditt Företag AB" value={regCompany} onChange={e => setRegCompany(e.target.value)} required />
                     </div>
                   </div>
                   <div>
                     <label style={labelStyle}>Organisationsnummer * <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(10 siffror)</span></label>
                     <div style={{ position: 'relative' }}>
-                      <Hash size={16} color="#94a3b8" style={{ position: 'absolute', top: 14, left: 12, pointerEvents: 'none' }} />
+                      <Hash size={16} color="var(--text-muted)" style={{ position: 'absolute', top: 14, left: 12, pointerEvents: 'none' }} />
                       <input
                         type="text"
                         inputMode="numeric"
@@ -441,14 +435,14 @@ export default function Auth({ onLogin, onBackToLanding }) {
                       så resan inte känns som ett svart hål innan man loggat
                       in första gången. */}
                   <div>
-                    <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '9px' }}>
+                    <div style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '9px' }}>
                       Det här väntar sen
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '7px' }}>
                       {APP_SECTIONS_OVERVIEW.map(s => (
-                        <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '8px 10px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '9px' }}>
+                        <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '8px 10px', background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: '9px' }}>
                           <s.icon size={13} color={BRAND.greenDark} style={{ flexShrink: 0 }} />
-                          <span style={{ fontSize: '12px', fontWeight: 600, color: '#374151' }}>{s.label}</span>
+                          <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>{s.label}</span>
                         </div>
                       ))}
                     </div>
@@ -458,12 +452,12 @@ export default function Auth({ onLogin, onBackToLanding }) {
 
               {/* STEP 3 – Password, sedan konto + betalning */}
               {regStep === 3 && redirectingToPayment && (
-                <div style={{ padding: '24px', background: '#f0fdf4', borderRadius: '14px', border: '1px solid #bbf7d0', textAlign: 'center' }}>
+                <div style={{ padding: '24px', background: 'var(--status-green-bg)', borderRadius: '14px', border: '1px solid var(--status-green-bg)', textAlign: 'center' }}>
                   <div style={{ width: 56, height: 56, borderRadius: '50%', background: BRAND.green, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
                     <RefreshCw size={24} color="white" className="auth-spin" />
                   </div>
-                  <div style={{ fontWeight: 700, fontSize: '16px', color: '#111827', marginBottom: '8px' }}>Kontot är skapat</div>
-                  <div style={{ fontSize: '13.5px', color: '#475569', lineHeight: 1.6 }}>
+                  <div style={{ fontWeight: 700, fontSize: '16px', color: 'var(--text-main)', marginBottom: '8px' }}>Kontot är skapat</div>
+                  <div style={{ fontSize: '13.5px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
                     Skickar dig vidare till Stripe för betalningsuppgifter...
                   </div>
                 </div>
@@ -473,14 +467,22 @@ export default function Auth({ onLogin, onBackToLanding }) {
                   <div>
                     <label style={labelStyle}>Lösenord *</label>
                     <div style={{ position: 'relative' }}>
-                      <Lock size={16} color="#94a3b8" style={{ position: 'absolute', top: 14, left: 12, pointerEvents: 'none' }} />
+                      <Lock size={16} color="var(--text-muted)" style={{ position: 'absolute', top: 14, left: 12, pointerEvents: 'none' }} />
                       <input type="password" style={{ ...inputStyle, paddingLeft: '38px' }} placeholder="Minst 8 tecken" value={regPassword} onChange={e => setRegPassword(e.target.value)} required minLength={8} />
                     </div>
+                    {passwordStrength(regPassword) && (
+                      <div style={{ marginTop: '6px' }}>
+                        <div style={{ height: '4px', borderRadius: '2px', background: 'var(--border)', overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${passwordStrength(regPassword).pct}%`, background: passwordStrength(regPassword).color, transition: 'all 0.2s' }} />
+                        </div>
+                        <span style={{ fontSize: '11.5px', fontWeight: 600, color: passwordStrength(regPassword).color }}>{passwordStrength(regPassword).label}</span>
+                      </div>
+                    )}
                   </div>
                   <div>
                     <label style={labelStyle}>Bekräfta lösenord *</label>
                     <div style={{ position: 'relative' }}>
-                      <Lock size={16} color="#94a3b8" style={{ position: 'absolute', top: 14, left: 12, pointerEvents: 'none' }} />
+                      <Lock size={16} color="var(--text-muted)" style={{ position: 'absolute', top: 14, left: 12, pointerEvents: 'none' }} />
                       <input type="password" style={{ ...inputStyle, paddingLeft: '38px', borderColor: regPassword2 && regPassword2 !== regPassword ? '#f43f5e' : undefined }} placeholder="Upprepa lösenord" value={regPassword2} onChange={e => setRegPassword2(e.target.value)} required />
                     </div>
                   </div>
@@ -488,23 +490,24 @@ export default function Auth({ onLogin, onBackToLanding }) {
                   {/* Ärligt om vad som händer efter "Skapa konto och lägg
                       till betalning" — nästa steg är Stripes egen
                       betalningssida, inte direkt in i appen. */}
-                  <div style={{ display: 'flex', gap: '9px', alignItems: 'flex-start', padding: '10px 12px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '9px' }}>
+                  <div style={{ display: 'flex', gap: '9px', alignItems: 'flex-start', padding: '10px 12px', background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: '9px' }}>
                     <ShieldCheck size={15} color={BRAND.greenDark} style={{ flexShrink: 0, marginTop: 1 }} />
-                    <span style={{ fontSize: '12px', color: '#475569', lineHeight: 1.5 }}>
+                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
                       Näst skickas du till <StripeBadge /> för att lägga in betalningsuppgifter. 30 dagar gratis, sedan 99 kr/mån — avsluta innan dess så kostar det ingenting.
                     </span>
                   </div>
+                  <Turnstile onVerify={setRegCaptchaToken} onExpire={() => setRegCaptchaToken('')} />
                 </>
               )}
 
               {errorMsg && (
-                <div style={{ padding: '12px', background: '#fee2e2', color: '#b91c1c', borderRadius: '8px', fontSize: '13px', fontWeight: 600 }}>{errorMsg}</div>
+                <div style={{ padding: '12px', background: 'var(--status-red-bg)', color: 'var(--status-red-text)', borderRadius: '8px', fontSize: '13px', fontWeight: 600 }}>{errorMsg}</div>
               )}
 
               {!redirectingToPayment && (
                 <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
                   {regStep > 0 && (
-                    <button type="button" onClick={() => { setRegStep(s => s - 1); setErrorMsg(''); }} style={{ padding: '12px 20px', border: '1px solid #e2e8f0', borderRadius: '10px', fontSize: '14px', fontWeight: 600, color: '#475569', cursor: 'pointer', background: 'white', display: 'flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
+                    <button type="button" onClick={() => { setRegStep(s => s - 1); setErrorMsg(''); }} style={{ padding: '12px 20px', border: '1px solid var(--border)', borderRadius: '10px', fontSize: '14px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
                       <ArrowLeft size={14} /> Tillbaka
                     </button>
                   )}

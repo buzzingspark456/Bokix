@@ -101,19 +101,19 @@ export default function TimeTracking({
   };
 
   const inputStyle = {
-    width: '100%', padding: '9px 12px', border: '1px solid #e5e7eb', borderRadius: '9px',
-    fontSize: '14px', color: '#111827', background: 'white', outline: 'none',
+    width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: '9px',
+    fontSize: '14px', color: 'var(--text-main)', background: 'var(--bg-card)', outline: 'none',
     transition: 'all 0.15s', fontFamily: 'inherit', boxSizing: 'border-box'
   };
 
   const toggleGroupStyle = {
-    display: 'flex', background: '#f3f4f6', padding: '4px', borderRadius: '10px'
+    display: 'flex', background: 'var(--border-light)', padding: '4px', borderRadius: '10px'
   };
 
   const toggleBtnStyle = (isActive) => ({
     padding: '6px 14px', borderRadius: '8px', border: 'none', fontSize: '12px', fontWeight: 600, cursor: 'pointer',
-    background: isActive ? 'white' : 'transparent',
-    color: isActive ? '#111827' : '#6b7280',
+    background: isActive ? 'var(--bg-card)' : 'transparent',
+    color: isActive ? 'var(--text-main)' : 'var(--text-secondary)',
     boxShadow: isActive ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
     transition: 'all 0.15s'
   });
@@ -153,10 +153,10 @@ export default function TimeTracking({
       {/* ── HEADER ── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
-          <h1 style={{ fontSize: '24px', fontWeight: 700, letterSpacing: '-0.04em', color: '#111827', marginBottom: '5px' }}>
+          <h1 style={{ fontSize: '24px', fontWeight: 700, letterSpacing: '-0.04em', color: 'var(--text-main)', marginBottom: '5px' }}>
             Rapportera timmar
           </h1>
-          <p style={{ color: '#9ca3af', fontSize: '13.5px', fontWeight: 400 }}>
+          <p style={{ color: 'var(--text-muted)', fontSize: '13.5px', fontWeight: 400 }}>
             Spåra tid för fakturering till kunder eller som underlag för löner.
           </p>
         </div>
@@ -177,33 +177,33 @@ export default function TimeTracking({
 
       {/* ── KPI CARDS ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '28px' }}>
-        <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '14px', padding: '20px', display: 'flex', alignItems: 'center', gap: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-          <div style={{ width: 44, height: 44, borderRadius: '10px', background: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px', padding: '20px', display: 'flex', alignItems: 'center', gap: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+          <div style={{ width: 44, height: 44, borderRadius: '10px', background: 'var(--blue-50)', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <Clock size={20} />
           </div>
           <div>
-            <div style={{ fontSize: '12px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Totalt antal timmar</div>
-            <div style={{ fontSize: '24px', fontWeight: 700, color: '#111827', letterSpacing: '-0.04em' }}>{totalHours} h</div>
+            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Totalt antal timmar</div>
+            <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.04em' }}>{totalHours} h</div>
           </div>
         </div>
 
-        <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '14px', padding: '20px', display: 'flex', alignItems: 'center', gap: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-          <div style={{ width: 44, height: 44, borderRadius: '10px', background: '#f0fdf4', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px', padding: '20px', display: 'flex', alignItems: 'center', gap: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+          <div style={{ width: 44, height: 44, borderRadius: '10px', background: 'var(--status-green-bg)', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <Briefcase size={20} />
           </div>
           <div>
-            <div style={{ fontSize: '12px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Fakturerbart värde</div>
-            <div style={{ fontSize: '24px', fontWeight: 700, color: '#111827', letterSpacing: '-0.04em' }}>{formatSEK(totalInvoiced)}</div>
+            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Fakturerbart värde</div>
+            <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.04em' }}>{formatSEK(totalInvoiced)}</div>
           </div>
         </div>
 
-        <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '14px', padding: '20px', display: 'flex', alignItems: 'center', gap: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-          <div style={{ width: 44, height: 44, borderRadius: '10px', background: '#fffbeb', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px', padding: '20px', display: 'flex', alignItems: 'center', gap: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+          <div style={{ width: 44, height: 44, borderRadius: '10px', background: 'var(--status-amber-bg)', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <User size={20} />
           </div>
           <div>
-            <div style={{ fontSize: '12px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Personalkostnad (löneunderlag)</div>
-            <div style={{ fontSize: '24px', fontWeight: 700, color: '#111827', letterSpacing: '-0.04em' }}>{formatSEK(totalSalary)}</div>
+            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Personalkostnad (löneunderlag)</div>
+            <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.04em' }}>{formatSEK(totalSalary)}</div>
           </div>
         </div>
       </div>
@@ -211,7 +211,7 @@ export default function TimeTracking({
       {/* ── PROJEKTKORT ── */}
       {projectGroups.length > 0 && (
         <div style={{ marginBottom: '28px' }}>
-          <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#111827', marginBottom: '14px' }}>Projekt</h2>
+          <h2 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '14px' }}>Projekt</h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
             {projectGroups.map(({ proj, spent, hours, budget, pct, custName }) => {
               const isFinished = proj.status === 'finished';
@@ -219,42 +219,42 @@ export default function TimeTracking({
               if (pct >= 100) barColor = '#ef4444';
               else if (pct >= 80) barColor = '#f59e0b';
               return (
-                <div key={proj.id} style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '14px', padding: '18px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+                <div key={proj.id} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px', padding: '18px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                    <span style={{ fontSize: '11px', fontWeight: 600, color: '#9ca3af', letterSpacing: '0.02em' }}>{projectCode(proj.id)}</span>
+                    <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.02em' }}>{projectCode(proj.id)}</span>
                     <span style={{
                       padding: '3px 10px', borderRadius: '999px', fontSize: '11px', fontWeight: 600,
-                      background: isFinished ? '#f0fdf4' : '#eff6ff',
-                      color: isFinished ? '#16a34a' : '#1d4ed8',
-                      border: `1px solid ${isFinished ? '#bbf7d0' : '#bfdbfe'}`,
+                      background: isFinished ? 'var(--status-green-bg)' : 'var(--status-blue-bg)',
+                      color: isFinished ? 'var(--status-green-text)' : 'var(--status-blue-text)',
+                      border: `1px solid ${isFinished ? 'var(--status-green-bg)' : 'var(--status-blue-bg)'}`,
                     }}>
                       {isFinished ? 'Avslutat' : 'Pågående'}
                     </span>
                   </div>
 
-                  <div style={{ fontSize: '15px', fontWeight: 700, color: '#111827', marginBottom: '2px' }}>{proj.name}</div>
-                  <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '14px' }}>{custName}</div>
+                  <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '2px' }}>{proj.name}</div>
+                  <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '14px' }}>{custName}</div>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', color: '#6b7280', marginBottom: '6px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', color: 'var(--text-secondary)', marginBottom: '6px' }}>
                     <span>Nedlagt {formatSEK(spent)}</span>
                     {budget > 0 && <span>{pct}% av budget</span>}
                   </div>
-                  <div style={{ height: '6px', background: '#f3f4f6', borderRadius: '3px', overflow: 'hidden', marginBottom: '16px' }}>
+                  <div style={{ height: '6px', background: 'var(--border-light)', borderRadius: '3px', overflow: 'hidden', marginBottom: '16px' }}>
                     <div style={{ height: '100%', width: `${budget > 0 ? pct : 0}%`, background: barColor, borderRadius: '3px' }} />
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', paddingTop: '14px', borderTop: '1px solid #f3f4f6' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', paddingTop: '14px', borderTop: '1px solid var(--border-light)' }}>
                     <div>
-                      <div style={{ fontSize: '10.5px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '3px' }}>Budget</div>
-                      <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#111827' }}>{budget > 0 ? formatSEK(budget) : '—'}</div>
+                      <div style={{ fontSize: '10.5px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '3px' }}>Budget</div>
+                      <div style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-main)' }}>{budget > 0 ? formatSEK(budget) : '—'}</div>
                     </div>
                     <div>
-                      <div style={{ fontSize: '10.5px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '3px' }}>Timmar</div>
-                      <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#111827' }}>{hours}</div>
+                      <div style={{ fontSize: '10.5px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '3px' }}>Timmar</div>
+                      <div style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-main)' }}>{hours}</div>
                     </div>
                     <div>
-                      <div style={{ fontSize: '10.5px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '3px' }}>Fakturerat</div>
-                      <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#111827' }}>{formatSEK(spent)}</div>
+                      <div style={{ fontSize: '10.5px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '3px' }}>Fakturerat</div>
+                      <div style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-main)' }}>{formatSEK(spent)}</div>
                     </div>
                   </div>
                 </div>
@@ -265,35 +265,35 @@ export default function TimeTracking({
       )}
 
       {/* ── TABLE ── */}
-      <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '14px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13.5px' }}>
             <thead>
-              <tr style={{ borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
-                <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', width: '110px' }}>Datum</th>
-                <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151' }}>Loggat av</th>
-                <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151' }}>Typ</th>
-                <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151' }}>Kund/Anställd</th>
-                <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151' }}>Uppgift</th>
-                <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', textAlign: 'right' }}>Timmar</th>
-                <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', textAlign: 'right' }}>Totalt värde</th>
-                <th style={{ padding: '14px 20px', fontWeight: 600, color: '#374151', textAlign: 'right' }}>Åtgärder</th>
+              <tr style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg-muted)' }}>
+                <th style={{ padding: '14px 20px', fontWeight: 600, color: 'var(--text-main)', width: '110px' }}>Datum</th>
+                <th style={{ padding: '14px 20px', fontWeight: 600, color: 'var(--text-main)' }}>Loggat av</th>
+                <th style={{ padding: '14px 20px', fontWeight: 600, color: 'var(--text-main)' }}>Typ</th>
+                <th style={{ padding: '14px 20px', fontWeight: 600, color: 'var(--text-main)' }}>Kund/Anställd</th>
+                <th style={{ padding: '14px 20px', fontWeight: 600, color: 'var(--text-main)' }}>Uppgift</th>
+                <th style={{ padding: '14px 20px', fontWeight: 600, color: 'var(--text-main)', textAlign: 'right' }}>Timmar</th>
+                <th style={{ padding: '14px 20px', fontWeight: 600, color: 'var(--text-main)', textAlign: 'right' }}>Totalt värde</th>
+                <th style={{ padding: '14px 20px', fontWeight: 600, color: 'var(--text-main)', textAlign: 'right' }}>Åtgärder</th>
               </tr>
             </thead>
             <tbody>
               {filteredEntries.map((entry, idx) => (
-                <tr key={entry.id} style={{ borderBottom: idx < filteredEntries.length - 1 ? '1px solid #f3f4f6' : 'none', transition: 'background 0.1s' }} onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                  <td style={{ padding: '14px 20px', color: '#6b7280' }}>{entry.date}</td>
-                  <td style={{ padding: '14px 20px', color: '#111827', fontWeight: 500 }}>{entry.loggedByName || 'Du'}</td>
+                <tr key={entry.id} style={{ borderBottom: idx < filteredEntries.length - 1 ? '1px solid var(--border-light)' : 'none', transition: 'background 0.1s' }} onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-muted)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                  <td style={{ padding: '14px 20px', color: 'var(--text-secondary)' }}>{entry.date}</td>
+                  <td style={{ padding: '14px 20px', color: 'var(--text-main)', fontWeight: 500 }}>{entry.loggedByName || 'Du'}</td>
                   <td style={{ padding: '14px 20px' }}>
-                    <span style={{ padding: '4px 10px', background: entry.type === 'kund' ? '#eff6ff' : '#f0fdf4', color: entry.type === 'kund' ? '#1d4ed8' : '#16a34a', border: `1px solid ${entry.type === 'kund' ? '#bfdbfe' : '#bbf7d0'}`, borderRadius: '20px', fontSize: '11px', fontWeight: 600, letterSpacing: '0.02em' }}>
+                    <span style={{ padding: '4px 10px', background: entry.type === 'kund' ? 'var(--status-blue-bg)' : 'var(--status-green-bg)', color: entry.type === 'kund' ? 'var(--status-blue-text)' : 'var(--status-green-text)', border: `1px solid ${entry.type === 'kund' ? 'var(--status-blue-bg)' : 'var(--status-green-bg)'}`, borderRadius: '20px', fontSize: '11px', fontWeight: 600, letterSpacing: '0.02em' }}>
                       {entry.type === 'kund' ? 'Fakturering' : 'Löneunderlag'}
                     </span>
                   </td>
-                  <td style={{ padding: '14px 20px', fontWeight: 600, color: '#111827' }}>{partyName(entry)}</td>
-                  <td style={{ padding: '14px 20px', color: '#4b5563' }}>{entry.task}</td>
-                  <td style={{ padding: '14px 20px', textAlign: 'right', fontFamily: 'ui-monospace, monospace', color: '#374151', fontWeight: 500 }}>{entry.hours} h</td>
-                  <td style={{ padding: '14px 20px', textAlign: 'right', fontWeight: 600, color: '#111827', letterSpacing: '-0.02em' }}>{formatSEK(entry.total)}</td>
+                  <td style={{ padding: '14px 20px', fontWeight: 600, color: 'var(--text-main)' }}>{partyName(entry)}</td>
+                  <td style={{ padding: '14px 20px', color: 'var(--text-secondary)' }}>{entry.task}</td>
+                  <td style={{ padding: '14px 20px', textAlign: 'right', fontFamily: 'ui-monospace, monospace', color: 'var(--text-main)', fontWeight: 500 }}>{entry.hours} h</td>
+                  <td style={{ padding: '14px 20px', textAlign: 'right', fontWeight: 600, color: 'var(--text-main)', letterSpacing: '-0.02em' }}>{formatSEK(entry.total)}</td>
                   <td style={{ padding: '14px 20px', textAlign: 'right' }}>
                     <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
                       {entry.type === 'kund' && (
@@ -311,13 +311,13 @@ export default function TimeTracking({
               {filteredEntries.length === 0 && (
                 <tr>
                   <td colSpan="8" style={{ padding: '60px 20px', textAlign: 'center' }}>
-                    <div style={{ width: 48, height: 48, borderRadius: '12px', background: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                    <div style={{ width: 48, height: 48, borderRadius: '12px', background: 'var(--blue-50)', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
                       <Clock size={24} />
                     </div>
-                    <div style={{ fontSize: '15px', fontWeight: 600, color: '#111827', marginBottom: '4px' }}>
+                    <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '4px' }}>
                       Inga tider loggade
                     </div>
-                    <div style={{ fontSize: '13px', color: '#9ca3af' }}>Klicka på "Logga tid" för att komma igång</div>
+                    <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Klicka på "Logga tid" för att komma igång</div>
                   </td>
                 </tr>
               )}
@@ -329,40 +329,40 @@ export default function TimeTracking({
       {/* ── MODAL ── */}
       {isModalOpen && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(17, 24, 39, 0.4)', WebkitBackdropFilter: 'blur(4px)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '20px' }} onClick={() => setIsModalOpen(false)}>
-          <div style={{ background: 'white', borderRadius: '16px', width: '100%', maxWidth: '500px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
-            <div style={{ padding: '20px 24px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#111827' }}>Logga tid manuellt</h2>
-              <button onClick={() => setIsModalOpen(false)} style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer', padding: '4px' }}><X size={20} /></button>
+          <div style={{ background: 'var(--bg-card)', borderRadius: '16px', width: '100%', maxWidth: '500px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-main)' }}>Logga tid manuellt</h2>
+              <button onClick={() => setIsModalOpen(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}><X size={20} /></button>
             </div>
 
             <form onSubmit={handleSubmit} style={{ padding: '24px' }}>
-              <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', background: '#f3f4f6', padding: '4px', borderRadius: '10px' }}>
-                <button type="button" onClick={() => setForm(f => ({ ...f, type: 'kund' }))} style={{ flex: 1, padding: '8px', borderRadius: '8px', border: 'none', fontSize: '13px', fontWeight: 600, cursor: 'pointer', background: form.type === 'kund' ? 'white' : 'transparent', color: form.type === 'kund' ? '#111827' : '#6b7280', boxShadow: form.type === 'kund' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', transition: 'all 0.15s' }}>
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', background: 'var(--border-light)', padding: '4px', borderRadius: '10px' }}>
+                <button type="button" onClick={() => setForm(f => ({ ...f, type: 'kund' }))} style={{ flex: 1, padding: '8px', borderRadius: '8px', border: 'none', fontSize: '13px', fontWeight: 600, cursor: 'pointer', background: form.type === 'kund' ? 'white' : 'transparent', color: form.type === 'kund' ? 'var(--text-main)' : 'var(--text-secondary)', boxShadow: form.type === 'kund' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', transition: 'all 0.15s' }}>
                   Fakturering (Kund)
                 </button>
-                <button type="button" onClick={() => setForm(f => ({ ...f, type: 'anstalld' }))} style={{ flex: 1, padding: '8px', borderRadius: '8px', border: 'none', fontSize: '13px', fontWeight: 600, cursor: 'pointer', background: form.type === 'anstalld' ? 'white' : 'transparent', color: form.type === 'anstalld' ? '#111827' : '#6b7280', boxShadow: form.type === 'anstalld' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', transition: 'all 0.15s' }}>
+                <button type="button" onClick={() => setForm(f => ({ ...f, type: 'anstalld' }))} style={{ flex: 1, padding: '8px', borderRadius: '8px', border: 'none', fontSize: '13px', fontWeight: 600, cursor: 'pointer', background: form.type === 'anstalld' ? 'white' : 'transparent', color: form.type === 'anstalld' ? 'var(--text-main)' : 'var(--text-secondary)', boxShadow: form.type === 'anstalld' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', transition: 'all 0.15s' }}>
                   Löneunderlag (Anställd)
                 </button>
               </div>
 
               <div className="form-row-2" style={{ display: 'grid', gap: '16px', marginBottom: '16px' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>Datum</label>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>Datum</label>
                   <input type="date" style={inputStyle} value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} required />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>{form.type === 'kund' ? 'Kund' : 'Anställd'}</label>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>{form.type === 'kund' ? 'Kund' : 'Anställd'}</label>
                   {form.type === 'kund' ? (
                     customers.length > 0 ? (
                       <PartySearch value={form.customerId} onChange={id => setForm(f => ({ ...f, customerId: id }))} contacts={customers} />
                     ) : (
-                      <div style={{ fontSize: '12px', color: '#b45309', paddingTop: '9px' }}>Inga kunder registrerade än (Kontakter).</div>
+                      <div style={{ fontSize: '12px', color: 'var(--status-amber-text)', paddingTop: '9px' }}>Inga kunder registrerade än (Kontakter).</div>
                     )
                   ) : (
                     employeeItems.length > 0 ? (
                       <EntitySearch value={form.employeeId} onChange={id => setForm(f => ({ ...f, employeeId: id }))} items={employeeItems} placeholder="Sök anställd..." />
                     ) : (
-                      <div style={{ fontSize: '12px', color: '#b45309', paddingTop: '9px' }}>Inga anställda registrerade än (Anställda och lön).</div>
+                      <div style={{ fontSize: '12px', color: 'var(--status-amber-text)', paddingTop: '9px' }}>Inga anställda registrerade än (Anställda och lön).</div>
                     )
                   )}
                 </div>
@@ -370,7 +370,7 @@ export default function TimeTracking({
 
               {form.type === 'kund' && projects.length > 0 && (
                 <div style={{ marginBottom: '16px' }}>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>Projekt (valfritt)</label>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>Projekt (valfritt)</label>
                   <ProjectSearch
                     value={form.projectId}
                     onChange={id => {
@@ -379,37 +379,37 @@ export default function TimeTracking({
                     }}
                     projects={projects}
                   />
-                  <div style={{ fontSize: '11.5px', color: '#9ca3af', marginTop: '5px' }}>Kopplar tiden till projektets budget och sätter kund automatiskt.</div>
+                  <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '5px' }}>Kopplar tiden till projektets budget och sätter kund automatiskt.</div>
                 </div>
               )}
 
               <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>Beskrivning / Uppgift</label>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>Beskrivning / Uppgift</label>
                 <input type="text" style={inputStyle} placeholder="T.ex. Löpande bokföring" value={form.task} onChange={e => setForm(f => ({ ...f, task: e.target.value }))} required />
               </div>
 
               <div className="form-row-3" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: '24px' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>Timmar</label>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>Timmar</label>
                   <input type="number" style={inputStyle} placeholder="0" min="0" step="0.5" value={form.hours} onChange={e => setForm(f => ({ ...f, hours: e.target.value }))} required />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>Timpris (kr)</label>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>Timpris (kr)</label>
                   <input type="number" style={inputStyle} placeholder="0" min="0" step="1" value={form.hourlyRate} onChange={e => setForm(f => ({ ...f, hourlyRate: e.target.value }))} />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>Startkostnad</label>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>Startkostnad</label>
                   <input type="number" style={inputStyle} placeholder="0" min="0" step="1" value={form.startCost} onChange={e => setForm(f => ({ ...f, startCost: e.target.value }))} />
                 </div>
               </div>
 
-              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px', marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ fontSize: '13px', color: '#64748b', fontWeight: 600 }}>Beräknat totalvärde:</div>
-                <div style={{ fontSize: '20px', fontWeight: 700, color: '#111827', letterSpacing: '-0.02em' }}>{formatSEK(total)}</div>
+              <div style={{ background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: '12px', padding: '16px', marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 600 }}>Beräknat totalvärde:</div>
+                <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.02em' }}>{formatSEK(total)}</div>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', paddingTop: '20px', borderTop: '1px solid #e5e7eb' }}>
-                <button type="button" onClick={() => setIsModalOpen(false)} style={{ padding: '9px 18px', background: 'white', border: '1px solid #e5e7eb', borderRadius: '9px', fontSize: '13.5px', fontWeight: 500, cursor: 'pointer' }}>Avbryt</button>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', paddingTop: '20px', borderTop: '1px solid var(--border)' }}>
+                <button type="button" onClick={() => setIsModalOpen(false)} style={{ padding: '9px 18px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '9px', fontSize: '13.5px', fontWeight: 500, cursor: 'pointer' }}>Avbryt</button>
                 <button type="submit" disabled={!((form.type === 'kund' ? form.customerId : form.employeeId) && form.task && parseFloat(form.hours) > 0)} style={{ ...buttonStyle, opacity: !((form.type === 'kund' ? form.customerId : form.employeeId) && form.task && parseFloat(form.hours) > 0) ? 0.5 : 1 }}>
                   <Check size={14} /> Spara tid
                 </button>

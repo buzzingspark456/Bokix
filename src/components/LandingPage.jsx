@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  BarChart3, Check,
+  BarChart3, Check, X, Minus,
   ArrowRight, ChevronRight, ChevronDown, Inbox,
   Building2, Briefcase, Landmark, HeartHandshake, UserCheck,
   ShieldCheck, FileCheck2, CreditCard, ScrollText,
   TrendingUp, ArrowUpRight, ArrowDownRight,
+  Table2, Calculator, Eye, Clock,
 } from 'lucide-react';
 import { BRAND } from '../utils/brandColors';
-import MarketingLayout, { Reveal, useReveal } from './marketing/MarketingLayout';
+import MarketingLayout, { Reveal, useReveal, BokixWordmark } from './marketing/MarketingLayout';
 import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW_SM, ACCENT, ACCENT_CYCLE } from './marketing/marketingTokens';
 import { IllBokforing, IllFakturering, IllSkatt, IllPersonal } from './marketing/featureIllustrations';
 import DemoWorkspace from './DemoWorkspace';
@@ -76,13 +77,46 @@ const TRUST_POINTS = [
 ];
 
 // ── Jämförelse — Bokix egna arbetssätt mot kalkylark/anlita en byrå, inga
-// namngivna konkurrentprogram, inga påhittade siffror om dem. ──
+// namngivna konkurrentprogram, inga påhittade siffror om dem.
+// Kundfeedback ("very cool and amazing", inte "basic"): varje cell fick en
+// egen ton (good/mid/bad) istället för att bara vara text — samma
+// trafikljus-mönster som gör jämförelsetabeller lätta att skanna på en
+// sekund. Ärligt (inte en halmdocka): kalkylarket vinner faktiskt raden om
+// datan (den ÄR redan din), det är bara resten av jämförelsen där det
+// halkar efter. ──
 const COMPARISON_ROWS = [
-  { label: 'Moms och skattetabeller', sheet: 'Du håller reda på procentsatserna själv', firm: 'Byrån sköter det, med viss fördröjning', bokix: 'Räknas automatiskt, alltid aktuellt' },
-  { label: 'Syns när du bokför fel', sheet: 'Upptäcks först vid bokslut, om alls', firm: 'Upptäcks när byrån går igenom underlaget', bokix: 'Granskning flaggar direkt, inget tyst fel' },
-  { label: 'Tillgänglighet', sheet: 'Alltid, men allt manuellt arbete', firm: 'Kontorstider, e-post fram och tillbaka', bokix: 'Dygnet runt, från vilken enhet som helst' },
-  { label: 'Din data om du vill byta', sheet: 'Redan ditt eget kalkylark', firm: 'Beror på byrån och deras system', bokix: 'SIE4-export, tar den med dig när du vill' },
+  {
+    label: 'Moms och skattetabeller', icon: Calculator,
+    sheet: { text: 'Du håller reda på procentsatserna själv', tone: 'bad' },
+    firm: { text: 'Byrån sköter det, med viss fördröjning', tone: 'mid' },
+    bokix: 'Räknas automatiskt, alltid aktuellt',
+  },
+  {
+    label: 'Syns när du bokför fel', icon: Eye,
+    sheet: { text: 'Upptäcks först vid bokslut, om alls', tone: 'bad' },
+    firm: { text: 'Upptäcks när byrån går igenom underlaget', tone: 'mid' },
+    bokix: 'Granskning flaggar direkt, inget tyst fel',
+  },
+  {
+    label: 'Tillgänglighet', icon: Clock,
+    sheet: { text: 'Alltid, men allt manuellt arbete', tone: 'mid' },
+    firm: { text: 'Kontorstider, e-post fram och tillbaka', tone: 'bad' },
+    bokix: 'Dygnet runt, från vilken enhet som helst',
+  },
+  {
+    label: 'Din data om du vill byta', icon: FileCheck2,
+    sheet: { text: 'Redan ditt eget kalkylark', tone: 'good' },
+    firm: { text: 'Beror på byrån och deras system', tone: 'mid' },
+    bokix: 'SIE4-export, tar den med dig när du vill',
+  },
 ];
+
+// good/mid/bad → ikon + färg, delat mellan alla fyra rader ovan.
+const COMPARISON_TONE = {
+  good: { Icon: Check, fg: 'var(--mkt-accent-green-fg)', soft: 'var(--mkt-accent-green-soft)' },
+  mid: { Icon: Minus, fg: 'var(--mkt-muted)', soft: 'var(--mkt-card-border)' },
+  bad: { Icon: X, fg: 'var(--mkt-accent-red-fg)', soft: 'var(--mkt-accent-red-soft)' },
+};
 
 const FAQ_ITEMS = [
   { q: 'Behöver jag kunna bokföring sedan innan?', a: 'Nej. Verifikationer skapas automatiskt utifrån dina kvitton och fakturor. Det enda som kräver din uppmärksamhet hamnar i Granskning, med tydlig anledning till varför — resten sköts av Bokix.', g: ACCENT.green },
@@ -146,7 +180,7 @@ function CountUp({ target, prefix = '', suffix = '', duration = 1200 }) {
 function StatCard({ label, value, sub, icon: Icon, accent, delay }) {
   return (
     <Reveal delay={delay} className="lp-lux-card" style={{
-      background: 'white', border: '1px solid #eee8dc', borderRadius: '20px', padding: '28px', position: 'relative', overflow: 'hidden',
+      background: 'var(--mkt-card-bg)', border: '1px solid var(--mkt-card-border)', borderRadius: '20px', padding: '28px', position: 'relative', overflow: 'hidden',
       boxShadow: '0 24px 44px -30px rgba(28,36,32,0.24), 0 2px 8px rgba(28,36,32,0.05)',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
@@ -155,10 +189,10 @@ function StatCard({ label, value, sub, icon: Icon, accent, delay }) {
           <Icon size={17} color={accent.fg} />
         </div>
       </div>
-      <div style={{ fontFamily: 'Georgia, "Times New Roman", serif', fontSize: '32px', fontWeight: 700, letterSpacing: '-0.01em', color: '#1c2420', marginBottom: '4px' }}>
+      <div style={{ fontFamily: 'Georgia, "Times New Roman", serif', fontSize: '32px', fontWeight: 700, letterSpacing: '-0.01em', color: 'var(--mkt-ink)', marginBottom: '4px' }}>
         <CountUp target={value} suffix=" kr" />
       </div>
-      <div style={{ fontSize: '12.5px', color: '#6b7568', fontWeight: 500 }}>{sub}</div>
+      <div style={{ fontSize: '12.5px', color: 'var(--mkt-muted)', fontWeight: 500 }}>{sub}</div>
     </Reveal>
   );
 }
@@ -166,8 +200,12 @@ function StatCard({ label, value, sub, icon: Icon, accent, delay }) {
 export default function LandingPage({ onEnterApp }) {
   const [openFaq, setOpenFaq] = useState(0);
 
-  const scrollToFeatures = () => {
-    const el = document.getElementById('funktioner-teaser');
+  // Kundfeedback: "Se demo"-knappen scrollade till funktions-teasern (fyra
+  // illustrerade kort) istället för till den RIKTIGA, klickbara produkt-
+  // visningen (DemoWorkspace) längre ner — "demo" ska gå till demot, inte
+  // till en beskrivning av det.
+  const scrollToDemo = () => {
+    const el = document.getElementById('produktvisning');
     if (el) el.scrollIntoView({ behavior: 'smooth' });
   };
 
@@ -175,13 +213,13 @@ export default function LandingPage({ onEnterApp }) {
     <MarketingLayout onEnterApp={onEnterApp}>
       {/* ── HERO — levande gradientklot i loggans/Startsidans egna färger
           bakom en fetstilt rubrik, inget stillastående platt fält. ── */}
-      <section style={{ display: 'flex', alignItems: 'center', background: '#faf9f5', position: 'relative', overflow: 'hidden', paddingTop: '140px', paddingBottom: '72px' }}>
+      <section style={{ display: 'flex', alignItems: 'center', background: 'var(--mkt-ivory)', position: 'relative', overflow: 'hidden', paddingTop: '140px', paddingBottom: '72px' }}>
         <div aria-hidden className="lp-blob" style={{ position: 'absolute', top: '-160px', left: '-120px', width: '440px', height: '440px', borderRadius: '50%', background: grad(GRAD.blueTeal), opacity: 0.16, filter: 'blur(60px)', pointerEvents: 'none' }} />
         <div aria-hidden className="lp-blob lp-blob-slow" style={{ position: 'absolute', top: '-100px', right: '-140px', width: '480px', height: '480px', borderRadius: '50%', background: grad(GRAD.green), opacity: 0.16, filter: 'blur(70px)', pointerEvents: 'none' }} />
         <div aria-hidden className="lp-blob lp-blob-slower" style={{ position: 'absolute', bottom: '-180px', left: '30%', width: '420px', height: '420px', borderRadius: '50%', background: grad(GRAD.pink), opacity: 0.1, filter: 'blur(70px)', pointerEvents: 'none' }} />
 
         <div style={{ maxWidth: '760px', margin: '0 auto', padding: '0 24px', textAlign: 'center', position: 'relative' }}>
-          <h1 className="lp-fadeinup" style={{ fontFamily: 'Georgia, "Times New Roman", serif', fontSize: 'clamp(34px, 6vw, 60px)', fontWeight: 700, lineHeight: 1.12, letterSpacing: '-0.01em', color: '#1c2420', marginBottom: '24px' }}>
+          <h1 className="lp-fadeinup" style={{ fontFamily: 'Georgia, "Times New Roman", serif', fontSize: 'clamp(34px, 6vw, 60px)', fontWeight: 700, lineHeight: 1.12, letterSpacing: '-0.01em', color: 'var(--mkt-ink)', marginBottom: '24px' }}>
             För att bokföring<br />ska vara{' '}
             <em style={{ fontStyle: 'italic', color: BRAND.greenDark }}>enkelt</em>
           </h1>
@@ -194,13 +232,9 @@ export default function LandingPage({ onEnterApp }) {
             <button className="lp-btn-primary lp-pulse" onClick={onEnterApp} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '16px 30px', background: BRAND.green, border: 'none', borderRadius: '12px', fontSize: '15.5px', fontWeight: 700, cursor: 'pointer', color: 'white', fontFamily: 'inherit', boxShadow: '0 10px 26px -8px rgba(61,122,46,0.5)', minHeight: '44px' }}>
               Prova gratis <ArrowRight size={16} />
             </button>
-            <button className="lp-btn-secondary" onClick={scrollToFeatures} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '16px 26px', background: 'white', border: '1.5px solid #e2e8f0', borderRadius: '12px', fontSize: '15.5px', fontWeight: 600, cursor: 'pointer', color: '#374151', fontFamily: 'inherit', minHeight: '44px' }}>
+            <button className="lp-btn-secondary" onClick={scrollToDemo} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '16px 26px', background: 'var(--mkt-card-bg)', border: '1.5px solid var(--mkt-border-soft)', borderRadius: '12px', fontSize: '15.5px', fontWeight: 600, cursor: 'pointer', color: 'var(--mkt-ink-soft)', fontFamily: 'inherit', minHeight: '44px' }}>
               Se demo <ChevronRight size={16} />
             </button>
-          </div>
-
-          <div className="lp-fadeinup lp-delay-2" style={{ marginTop: '22px', fontSize: '13.5px', color: '#64748b', fontWeight: 600 }}>
-            Från <span style={{ color: BRAND.greenDark, fontWeight: 800 }}>99 kr/mån</span> · 30 dagar gratis · avsluta när som helst
           </div>
         </div>
       </section>
@@ -208,10 +242,10 @@ export default function LandingPage({ onEnterApp }) {
       {/* ── EXEMPEL-KPI:ER — mirrorar Startsidans riktiga gradientkort
           (Resultat/Intäkter/Kostnader), tydligt märkta som exempel. Visar
           samma produktkänsla direkt, innan man ens når demon längre ner. ── */}
-      <section style={{ padding: '56px 24px 88px', background: '#faf9f5' }}>
+      <section style={{ padding: '56px 24px 88px', background: 'var(--mkt-ivory)' }}>
         <div style={{ maxWidth: '920px', margin: '0 auto' }}>
           <Reveal style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '24px' }}>
-            <span style={{ fontSize: '12px', fontWeight: 800, letterSpacing: '0.04em', color: '#9ca3af', textTransform: 'uppercase' }}>Så ser dina nyckeltal ut</span>
+            <span style={{ fontSize: '12px', fontWeight: 800, letterSpacing: '0.04em', color: 'var(--mkt-muted)', textTransform: 'uppercase' }}>Så ser dina nyckeltal ut</span>
             <span style={{ fontSize: '10.5px', fontWeight: 700, color: BRAND.greenDark, background: BRAND.greenLight, padding: '2px 8px', borderRadius: '100px' }}>Exempel</span>
           </Reveal>
           <div className="lp-stat-grid">
@@ -224,26 +258,26 @@ export default function LandingPage({ onEnterApp }) {
 
       {/* ── FUNKTIONSÖVERSIKT — flyttad upp direkt efter nyckeltalen (annan
           ordning än tidigare), varje kort med egen gradient-ikonchip. ── */}
-      <section id="funktioner-teaser" style={{ padding: '96px 24px', background: 'white', borderTop: '1px solid #f1f5f9' }}>
+      <section id="funktioner-teaser" style={{ padding: '96px 24px', background: 'var(--mkt-card-bg)', borderTop: '1px solid var(--mkt-border-soft)' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
           <Reveal style={{ textAlign: 'center', marginBottom: '56px' }}>
-            <h2 style={{ fontFamily: 'Georgia, "Times New Roman", serif', fontSize: 'clamp(26px, 4vw, 38px)', fontWeight: 700, letterSpacing: '-0.01em', color: '#1c2420', marginBottom: '16px' }}>
+            <h2 style={{ fontFamily: 'Georgia, "Times New Roman", serif', fontSize: 'clamp(26px, 4vw, 38px)', fontWeight: 700, letterSpacing: '-0.01em', color: 'var(--mkt-ink)', marginBottom: '16px' }}>
               Automatiskt, från kvitto till bokslut
             </h2>
-            <p style={{ fontSize: '16px', color: '#64748b', maxWidth: '560px', margin: '0 auto', lineHeight: 1.6 }}>
+            <p style={{ fontSize: '16px', color: 'var(--mkt-muted)', maxWidth: '560px', margin: '0 auto', lineHeight: 1.6 }}>
               Du lägger in underlaget. Bokix bokför, räknar moms och skatt, och håller koll på vad som behöver din uppmärksamhet — resten sköts i bakgrunden.
             </p>
           </Reveal>
 
           <div className="lp-features-grid">
             {FEATURE_COLUMNS.map((f, i) => (
-              <Reveal key={f.title} delay={i * 80} className="lp-lux-card" style={{ background: 'white', border: '1px solid #eee8dc', borderRadius: '18px', overflow: 'hidden', boxShadow: '0 14px 30px -20px rgba(28,36,32,0.26)' }}>
+              <Reveal key={f.title} delay={i * 80} className="lp-lux-card" style={{ background: 'var(--mkt-card-bg)', border: '1px solid var(--mkt-card-border)', borderRadius: '18px', overflow: 'hidden', boxShadow: '0 14px 30px -20px rgba(28,36,32,0.26)' }}>
                 <div style={{ background: f.g.soft, height: '148px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px' }}>
                   <f.art accent={f.g} />
                 </div>
                 <div style={{ padding: '22px 24px 26px' }}>
-                  <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#1c2420', marginBottom: '8px' }}>{f.title}</h3>
-                  <p style={{ fontSize: '13.5px', color: '#6b7568', lineHeight: 1.6 }}>{f.desc}</p>
+                  <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--mkt-ink)', marginBottom: '8px' }}>{f.title}</h3>
+                  <p style={{ fontSize: '13.5px', color: 'var(--mkt-muted)', lineHeight: 1.6 }}>{f.desc}</p>
                 </div>
               </Reveal>
             ))}
@@ -267,7 +301,7 @@ export default function LandingPage({ onEnterApp }) {
             {COMPANY_TYPES.map((t, i) => {
               const accent = ACCENT_CYCLE[i % 3];
               return (
-                <Reveal key={t.label} delay={i * 60} className="lp-lux-card" style={{ display: 'flex', alignItems: 'center', gap: '9px', padding: '8px 16px 8px 8px', background: 'white', border: `1px solid ${CARD_BORDER}`, borderRadius: '100px', whiteSpace: 'nowrap' }}>
+                <Reveal key={t.label} delay={i * 60} className="lp-lux-card" style={{ display: 'flex', alignItems: 'center', gap: '9px', padding: '8px 16px 8px 8px', background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '100px', whiteSpace: 'nowrap' }}>
                   <div style={{ width: 26, height: 26, borderRadius: '50%', background: accent.fg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <t.icon size={13} color="white" />
                   </div>
@@ -282,8 +316,15 @@ export default function LandingPage({ onEnterApp }) {
       {/* ── PRODUKTVISNING — DemoWorkspace.jsx monterar de RIKTIGA
           komponenterna med ett lokalt exempeldataset, klickbar på riktigt.
           Rörs inte i den här omgången. ── */}
-      <section style={{ padding: '90px 24px', background: 'white', borderBottom: '1px solid #f1f5f9' }}>
-        <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+      <section id="produktvisning" style={{ padding: '90px 24px', background: 'var(--mkt-card-bg)', borderBottom: '1px solid var(--mkt-border-soft)' }}>
+        {/* Kundönskemål: "gör demon större på datorn" — 1000px kändes smått
+            jämfört med hur brett resten av sidan (och riktiga appen) faktiskt
+            använder. 1220px var första höjningen; kunden vill fortfarande ha
+            den större, så 1440px nu — matchar ett vanligt bärbar-fönster
+            ungefär helt, sidomeny + innehåll får rejält med luft utan att
+            kortet blir orimligt brett på riktigt stora skärmar (padding på
+            sektionen begränsar ändå bredden på smalare fönster). */}
+        <div style={{ maxWidth: '1440px', margin: '0 auto' }}>
           <Reveal style={{ textAlign: 'center', marginBottom: '48px' }}>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '5px 12px', background: BRAND.greenLight, borderRadius: '100px', fontSize: '12px', fontWeight: 700, color: BRAND.greenDark, marginBottom: '16px' }}>
               <BarChart3 size={12} /> Så ser det ut
@@ -291,7 +332,7 @@ export default function LandingPage({ onEnterApp }) {
             <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(24px, 3.5vw, 34px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '14px' }}>
               Bokföringen sköter sig själv
             </h2>
-            <p style={{ fontSize: '16px', color: '#64748b', maxWidth: '560px', margin: '0 auto', lineHeight: 1.6 }}>
+            <p style={{ fontSize: '16px', color: 'var(--mkt-muted)', maxWidth: '560px', margin: '0 auto', lineHeight: 1.6 }}>
               Samma app som möter dig efter att du skapat konto, här med exempeldata. Verifikationer bokförs automatiskt i bakgrunden — klicka runt i menyn, allt går att testa på riktigt.
             </p>
           </Reveal>
@@ -306,7 +347,7 @@ export default function LandingPage({ onEnterApp }) {
           accent här är medvetet: det här flödet HANDLAR om kostnader/
           utgifter, samma betydelse som färgen redan har i Dashboard/
           nyckeltalskorten ovan. ── */}
-      <section style={{ padding: '90px 24px', background: 'oklch(97% 0.02 25)' }}>
+      <section style={{ padding: '90px 24px', background: 'var(--mkt-section-red-tint)' }}>
         <div style={{ maxWidth: '1000px', margin: '0 auto', display: 'grid', gridTemplateColumns: '1fr', gap: '48px' }}>
           <Reveal style={{ textAlign: 'center' }}>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '5px 12px', background: ACCENT.red.soft, borderRadius: '100px', fontSize: '12px', fontWeight: 700, color: ACCENT.red.fg }}>
@@ -326,7 +367,7 @@ export default function LandingPage({ onEnterApp }) {
               { n: '2', title: 'Bokförs eller flaggas', desc: 'Har konteringen redan valts bokförs fakturan direkt. Saknas den läggs den i Granskning tills rätt konto är valt. Aldrig tyst fel.' },
               { n: '3', title: 'Markera som betald', desc: 'Ett klick när fakturan är reglerad. Hela vägen bokförd, aldrig bara en lapp i en hög.' },
             ].map((step, i) => (
-              <Reveal key={step.n} delay={i * 100} className="lp-lux-card" style={{ background: 'white', border: `1px solid ${CARD_BORDER}`, borderRadius: '16px', padding: '24px', boxShadow: CARD_SHADOW_SM }}>
+              <Reveal key={step.n} delay={i * 100} className="lp-lux-card" style={{ background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '16px', padding: '24px', boxShadow: CARD_SHADOW_SM }}>
                 <div style={{ width: 32, height: 32, borderRadius: '9px', background: ACCENT.red.fg, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '14px', marginBottom: '14px' }}>{step.n}</div>
                 <h3 style={{ fontSize: '15.5px', fontWeight: 700, color: INK, marginBottom: '6px' }}>{step.title}</h3>
                 <p style={{ fontSize: '13.5px', color: MUTED, lineHeight: 1.6 }}>{step.desc}</p>
@@ -337,7 +378,7 @@ export default function LandingPage({ onEnterApp }) {
       </section>
 
       {/* ── JÄMFÖRELSE ── */}
-      <section style={{ padding: '96px 24px', background: 'white' }}>
+      <section style={{ padding: '96px 24px', background: 'var(--mkt-card-bg)' }}>
         <div style={{ maxWidth: '980px', margin: '0 auto' }}>
           <Reveal style={{ textAlign: 'center', marginBottom: '48px' }}>
             <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(24px, 3.5vw, 34px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '14px' }}>
@@ -348,22 +389,75 @@ export default function LandingPage({ onEnterApp }) {
             </p>
           </Reveal>
 
-          <Reveal scale style={{ overflowX: 'auto' }}>
-            <div style={{ minWidth: '640px', border: `1px solid ${CARD_BORDER}`, borderRadius: '18px', overflow: 'hidden', background: 'white' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr 1fr 1fr', background: IVORY, borderBottom: `1px solid ${CARD_BORDER}` }}>
-                <div style={{ padding: '18px 22px' }} />
-                <div style={{ padding: '18px 16px', fontSize: '13.5px', fontWeight: 700, color: '#a8a297', textAlign: 'center' }}>Kalkylark</div>
-                <div style={{ padding: '18px 16px', fontSize: '13.5px', fontWeight: 700, color: '#a8a297', textAlign: 'center' }}>Redovisningsbyrå</div>
-                <div style={{ padding: '18px 16px', fontSize: '13.5px', fontWeight: 800, color: 'white', textAlign: 'center', background: BRAND.green }}>Bokix</div>
-              </div>
-              {COMPARISON_ROWS.map((row, i) => (
-                <div key={row.label} style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr 1fr 1fr', borderBottom: i === COMPARISON_ROWS.length - 1 ? 'none' : `1px solid ${CARD_BORDER}` }}>
-                  <div style={{ padding: '18px 22px', fontSize: '13.5px', fontWeight: 700, color: INK, display: 'flex', alignItems: 'center' }}>{row.label}</div>
-                  <div style={{ padding: '18px 14px', fontSize: '12.5px', color: '#a8a297', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1.5 }}>{row.sheet}</div>
-                  <div style={{ padding: '18px 14px', fontSize: '12.5px', color: '#a8a297', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1.5 }}>{row.firm}</div>
-                  <div style={{ padding: '18px 14px', fontSize: '12.5px', fontWeight: 700, color: BRAND.greenDark, textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1.5, background: `${BRAND.green}0c` }}>{row.bokix}</div>
+          {/* Kundfeedback ("very cool and amazing", inte bara en platt
+              texttabell): Bokix-kolumnen är nu en löpande märkesgradient
+              (samma blå→turkos→lime som loggan/favicon) hela vägen ner,
+              med vit text — läses som ETT sammanhängande "vinnarkort" i
+              tabellen, inte bara en tonad cell. En flytande "Bäst"-flagga
+              sticker upp ovanför dess huvud, klassisk "featured plan"-
+              detalj. Kalkylark/Byrå-kolumnerna fick var sin trafikljus-
+              ikon per rad (grön bock/grå streck/röd kryss, COMPARISON_TONE)
+              istället för ren text — hela tabellen går att skanna på en
+              sekund utan att läsa ett ord. Radetiketterna fick också en
+              egen liten ikon för visuell vikt. */}
+          <Reveal scale style={{ overflowX: 'auto', paddingTop: '14px' }}>
+            <div style={{ minWidth: '680px', position: 'relative', border: `1px solid ${CARD_BORDER}`, borderRadius: '20px', overflow: 'hidden', background: 'var(--mkt-card-bg)', boxShadow: '0 24px 48px -28px rgba(28,36,32,0.28)' }}>
+              {/* Kundfeedback: BÄST-flaggan bort helt (inte bara ikonen). */}
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr 1fr 1fr' }}>
+                <div style={{ padding: '22px 22px 16px', background: IVORY, borderBottom: `1px solid ${CARD_BORDER}` }} />
+                <div style={{ padding: '22px 16px 16px', background: IVORY, borderBottom: `1px solid ${CARD_BORDER}`, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '7px' }}>
+                  <Table2 size={17} color="var(--mkt-muted)" />
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--mkt-muted)' }}>Kalkylark</span>
                 </div>
-              ))}
+                <div style={{ padding: '22px 16px 16px', background: IVORY, borderBottom: `1px solid ${CARD_BORDER}`, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '7px' }}>
+                  <Building2 size={17} color="var(--mkt-muted)" />
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--mkt-muted)', textAlign: 'center' }}>Redovisningsbyrå</span>
+                </div>
+                {/* Kundfeedback: riktiga Bokix-loggan (samma komponent som
+                    headerns egen) rakt på bakgrunden, genomskinlig — inget
+                    vitt piller bakom den. Bytte därför cellens egen
+                    bakgrund från den flerfärgade gradienten (nästan
+                    identisk med loggans EGEN blå→turkos→lime-gradient, som
+                    i praktiken gjorde loggan osynlig ovanpå den) till en
+                    solid mörk ton — exakt samma kombination som headern
+                    överst på sidan redan använder, där loggan läses fint. */}
+                <div style={{ padding: '22px 16px 16px', background: '#0c1f14', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <BokixWordmark height={20} />
+                </div>
+              </div>
+
+              {COMPARISON_ROWS.map((row, i) => {
+                const isLast = i === COMPARISON_ROWS.length - 1;
+                const sheetTone = COMPARISON_TONE[row.sheet.tone];
+                const firmTone = COMPARISON_TONE[row.firm.tone];
+                return (
+                  <div key={row.label} className="lp-compare-row" style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr 1fr 1fr' }}>
+                    <div style={{ padding: '18px 22px', display: 'flex', alignItems: 'center', gap: '10px', borderBottom: isLast ? 'none' : `1px solid ${CARD_BORDER}` }}>
+                      <row.icon size={15} color="var(--mkt-muted)" style={{ flexShrink: 0 }} />
+                      <span style={{ fontSize: '13.5px', fontWeight: 700, color: INK }}>{row.label}</span>
+                    </div>
+                    <div style={{ padding: '18px 14px', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', gap: '8px', textAlign: 'left', borderBottom: isLast ? 'none' : `1px solid ${CARD_BORDER}` }}>
+                      <span style={{ width: 18, height: 18, borderRadius: '50%', background: sheetTone.soft, color: sheetTone.fg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '1px' }}>
+                        <sheetTone.Icon size={11} strokeWidth={3} />
+                      </span>
+                      <span style={{ fontSize: '12.5px', color: 'var(--mkt-muted)', lineHeight: 1.5 }}>{row.sheet.text}</span>
+                    </div>
+                    <div style={{ padding: '18px 14px', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', gap: '8px', textAlign: 'left', borderBottom: isLast ? 'none' : `1px solid ${CARD_BORDER}` }}>
+                      <span style={{ width: 18, height: 18, borderRadius: '50%', background: firmTone.soft, color: firmTone.fg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '1px' }}>
+                        <firmTone.Icon size={11} strokeWidth={3} />
+                      </span>
+                      <span style={{ fontSize: '12.5px', color: 'var(--mkt-muted)', lineHeight: 1.5 }}>{row.firm.text}</span>
+                    </div>
+                    <div style={{ padding: '18px 14px', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', gap: '8px', textAlign: 'left', background: 'rgba(20,184,166,0.08)', borderBottom: isLast ? 'none' : '1px solid rgba(20,184,166,0.16)' }}>
+                      <span style={{ width: 18, height: 18, borderRadius: '50%', background: BRAND.greenLight, color: BRAND.greenDark, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '1px' }}>
+                        <Check size={11} strokeWidth={3} />
+                      </span>
+                      <span style={{ fontSize: '12.5px', fontWeight: 700, color: BRAND.greenDark, lineHeight: 1.5 }}>{row.bokix}</span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </Reveal>
         </div>
@@ -377,7 +471,7 @@ export default function LandingPage({ onEnterApp }) {
           {TRUST_POINTS.map((t, i) => {
             const accent = ACCENT_CYCLE[i % 3];
             return (
-              <Reveal key={t.label} delay={i * 70} className="lp-lux-card" style={{ display: 'flex', alignItems: 'center', gap: '11px', padding: '12px 20px 12px 12px', background: 'white', border: `1px solid ${CARD_BORDER}`, borderRadius: '100px', boxShadow: '0 2px 8px rgba(28,36,32,0.05)' }}>
+              <Reveal key={t.label} delay={i * 70} className="lp-lux-card" style={{ display: 'flex', alignItems: 'center', gap: '11px', padding: '12px 20px 12px 12px', background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '100px', boxShadow: '0 2px 8px rgba(28,36,32,0.05)' }}>
                 <div className="lp-float" style={{ width: 32, height: 32, borderRadius: '50%', background: accent.fg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, animationDelay: `${i * 0.4}s` }}>
                   <t.icon size={15} color="white" />
                 </div>
@@ -391,22 +485,22 @@ export default function LandingPage({ onEnterApp }) {
       {/* ── PRISSEKTION — gradientklot bakom kortet, priset räknas upp, och
           varje rad i checklistan får en egen färgad bock istället för
           enfärgad text. ── */}
-      <section style={{ padding: '96px 24px', background: '#faf9f5', position: 'relative', overflow: 'hidden' }}>
+      <section style={{ padding: '96px 24px', background: 'var(--mkt-ivory)', position: 'relative', overflow: 'hidden' }}>
         <div aria-hidden className="lp-blob lp-blob-slow" style={{ position: 'absolute', top: '10%', left: '8%', width: '340px', height: '340px', borderRadius: '50%', background: grad(GRAD.blueTeal), opacity: 0.08, filter: 'blur(70px)', pointerEvents: 'none' }} />
         <div aria-hidden className="lp-blob lp-blob-slower" style={{ position: 'absolute', bottom: '5%', right: '8%', width: '340px', height: '340px', borderRadius: '50%', background: grad(GRAD.green), opacity: 0.08, filter: 'blur(70px)', pointerEvents: 'none' }} />
 
         <Reveal scale style={{ maxWidth: '480px', margin: '0 auto', padding: '0 4px', width: '100%', position: 'relative' }}>
           <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-            <p style={{ fontSize: '17px', color: '#374151', fontWeight: 600, maxWidth: '380px', margin: '0 auto' }}>Inga tillägg, inga dolda avgifter. Avsluta när som helst.</p>
+            <p style={{ fontSize: '17px', color: 'var(--mkt-ink-soft)', fontWeight: 600, maxWidth: '380px', margin: '0 auto' }}>Inga tillägg, inga dolda avgifter. Avsluta när som helst.</p>
           </div>
 
-          <div className="lp-lux-card" style={{ background: 'white', border: '1px solid #eee8dc', borderRadius: '20px', padding: '40px 32px 32px', boxShadow: '0 24px 44px -30px rgba(28,36,32,0.24), 0 2px 8px rgba(28,36,32,0.05)', width: '100%', maxWidth: '380px', margin: '0 auto', boxSizing: 'border-box', position: 'relative', overflow: 'hidden' }}>
+          <div className="lp-lux-card" style={{ background: 'var(--mkt-card-bg)', border: '1px solid var(--mkt-card-border)', borderRadius: '20px', padding: '40px 32px 32px', boxShadow: '0 24px 44px -30px rgba(28,36,32,0.24), 0 2px 8px rgba(28,36,32,0.05)', width: '100%', maxWidth: '380px', margin: '0 auto', boxSizing: 'border-box', position: 'relative', overflow: 'hidden' }}>
             <div aria-hidden style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '4px', background: BRAND.green }} />
             <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-              <span style={{ fontFamily: 'Georgia, "Times New Roman", serif', fontSize: '46px', fontWeight: 700, letterSpacing: '-0.01em', color: '#1c2420' }}><CountUp target={99} suffix=" kr" /></span>
-              <span style={{ fontSize: '14.5px', color: '#6b7568' }}> /mån</span>
+              <span style={{ fontFamily: 'Georgia, "Times New Roman", serif', fontSize: '46px', fontWeight: 700, letterSpacing: '-0.01em', color: 'var(--mkt-ink)' }}><CountUp target={99} suffix=" kr" /></span>
+              <span style={{ fontSize: '14.5px', color: 'var(--mkt-muted)' }}> /mån</span>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '28px', borderTop: '1px solid #eee8dc', paddingTop: '24px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '28px', borderTop: '1px solid var(--mkt-card-border)', paddingTop: '24px' }}>
               {[
                 'Obegränsat med kund- och leverantörsfakturor',
                 'Fyra fakturamallar med egen logotyp och accentfärg',
@@ -417,14 +511,14 @@ export default function LandingPage({ onEnterApp }) {
                   <div style={{ width: 19, height: 19, borderRadius: '50%', background: BRAND.greenLight, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '1px' }}>
                     <Check size={11} color={BRAND.greenDark} strokeWidth={3} />
                   </div>
-                  <span style={{ fontSize: '13.5px', color: '#3a453e', fontWeight: 500, lineHeight: 1.55 }}>{f}</span>
+                  <span style={{ fontSize: '13.5px', color: INK_SOFT, fontWeight: 500, lineHeight: 1.55 }}>{f}</span>
                 </div>
               ))}
             </div>
             <button className="lp-btn-primary lp-pulse" onClick={onEnterApp} style={{ width: '100%', padding: '15px', borderRadius: '12px', border: 'none', background: BRAND.green, fontSize: '15px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', color: 'white', boxShadow: '0 8px 20px -6px rgba(61,122,46,0.4)', minHeight: '44px', marginBottom: '14px' }}>
               Kom igång gratis
             </button>
-            <Link to="/priser" style={{ display: 'block', textAlign: 'center', fontSize: '13px', fontWeight: 600, color: '#6b7280', textDecoration: 'none' }}>
+            <Link to="/priser" style={{ display: 'block', textAlign: 'center', fontSize: '13px', fontWeight: 600, color: MUTED, textDecoration: 'none' }}>
               Se allt som ingår →
             </Link>
           </div>
@@ -433,7 +527,7 @@ export default function LandingPage({ onEnterApp }) {
 
       {/* ── ONBOARDING I TRE STEG — gradient-numrerade badges istället för
           enfärgat grönt. ── */}
-      <section style={{ padding: '90px 24px', background: 'white' }}>
+      <section style={{ padding: '90px 24px', background: 'var(--mkt-card-bg)' }}>
         <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
           <Reveal style={{ textAlign: 'center', marginBottom: '56px' }}>
             <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(26px, 4vw, 36px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '12px' }}>
@@ -474,7 +568,7 @@ export default function LandingPage({ onEnterApp }) {
             <p style={{ fontSize: '15.5px', color: MUTED }}>Det mesta du undrar över innan du sätter igång.</p>
           </Reveal>
 
-          <Reveal style={{ background: 'white', border: `1px solid ${CARD_BORDER}`, borderRadius: '18px', padding: '6px 26px', boxShadow: '0 2px 10px rgba(28,36,32,0.05)' }}>
+          <Reveal style={{ background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '18px', padding: '6px 26px', boxShadow: '0 2px 10px rgba(28,36,32,0.05)' }}>
             {FAQ_ITEMS.map((item, i) => (
               <FaqItem key={item.q} item={item} index={i} isOpen={openFaq === i} onToggle={() => setOpenFaq(openFaq === i ? -1 : i)} />
             ))}
@@ -494,7 +588,14 @@ export default function LandingPage({ onEnterApp }) {
           <p style={{ fontSize: '17px', color: 'rgba(255,255,255,0.7)', marginBottom: '36px', lineHeight: 1.6 }}>
             Kom igång idag, helt gratis i 30 dagar. Inget kreditkort krävs.
           </p>
-          <button className="lp-btn-primary lp-pulse" onClick={onEnterApp} style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', padding: '16px 34px', background: 'white', border: 'none', borderRadius: '14px', fontSize: '16px', fontWeight: 700, cursor: 'pointer', color: BRAND.greenDark, fontFamily: 'inherit', boxShadow: '0 12px 32px -8px rgba(0,0,0,0.35)', minHeight: '44px' }}>
+          {/* Kundfeedback: knappen ska inte ha vit bakgrund — bytt till
+              samma flerfärgade märkesgradient (blå→turkos→lime) som loggan
+              och favicon.svg, istället för vit/BRAND.green. Sticker ut mer
+              mot den mörkgröna gradient-sektionen och gör direkt kopplingen
+              till varumärket, samma "coolt så man vet att det är vi"-tanke
+              som favicon-uppdateringen. Text i vitt eftersom bakgrunden nu
+              är färgad, inte vit. */}
+          <button className="lp-btn-primary lp-pulse" onClick={onEnterApp} style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', padding: '16px 34px', backgroundImage: 'linear-gradient(135deg, #0ea5e9, #14b8a6, #84cc16)', border: 'none', borderRadius: '14px', fontSize: '16px', fontWeight: 700, cursor: 'pointer', color: 'white', fontFamily: 'inherit', boxShadow: '0 12px 32px -8px rgba(0,0,0,0.5)', minHeight: '44px' }}>
             Prova gratis <ArrowRight size={18} />
           </button>
         </Reveal>

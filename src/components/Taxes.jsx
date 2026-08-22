@@ -183,11 +183,11 @@ export default function Taxes({
     switch (status) {
       case 'Klar': return <CheckCircle2 size={18} color="#16a34a" />;
       case 'Pågår': return <Clock size={18} color="#f59e0b" />;
-      default: return <Circle size={18} color="#cbd5e1" />;
+      default: return <Circle size={18} color="var(--text-muted)" />;
     }
   };
-  const getStatusBg = (status) => (status === 'Klar' ? '#dcfce7' : status === 'Pågår' ? '#fef3c7' : '#f8fafc');
-  const getStatusColor = (status) => (status === 'Klar' ? '#15803d' : status === 'Pågår' ? '#b45309' : '#64748b');
+  const getStatusBg = (status) => (status === 'Klar' ? 'var(--status-green-bg)' : status === 'Pågår' ? 'var(--status-amber-bg)' : 'var(--bg-muted)');
+  const getStatusColor = (status) => (status === 'Klar' ? 'var(--status-green-text)' : status === 'Pågår' ? 'var(--status-amber-text)' : 'var(--text-secondary)');
 
   return (
     // page-shell/page-shell-scroll (mobil): sidan hade tidigare en FAST
@@ -197,16 +197,16 @@ export default function Taxes({
     // ater upp en fjardedel av en telefonskarm. Under 768px skrollar hela
     // sidan (header inklusive) tillsammans som en vanlig webbsida istallet,
     // via .main-content-inner:s redan befintliga scroll (index.css).
-    <div className="page-shell" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: '#f0f2f5' }}>
+    <div className="page-shell" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
       {/* ── Header ── */}
-      <div style={{ background: 'white', borderBottom: '1px solid #ddd', padding: '24px 32px', flexShrink: 0 }}>
-        <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 800, color: '#0f172a' }}>Skatt och bokslut</h1>
+      <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '24px 32px', flexShrink: 0 }}>
+        <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 800, color: 'var(--text-main)' }}>Skatt och bokslut</h1>
         {/* page-desc-long (Fortnox-terugkoppling): den här radar sig till
             tre rader pa en 375px-skarm och lag da fast permanent hogst upp
             — halften av en telefonskarm aten upp av forklarande text, inte
             av nagot man faktiskt kom hit for att gora. Dold pa mobil,
             samma monster i Payroll.jsx. */}
-        <p className="page-desc-long" style={{ margin: '8px 0 0', fontSize: '14px', color: '#64748b', maxWidth: '600px', lineHeight: '1.5' }}>
+        <p className="page-desc-long" style={{ margin: '8px 0 0', fontSize: '14px', color: 'var(--text-secondary)', maxWidth: '600px', lineHeight: '1.5' }}>
           Sammanställning för momsredovisning, checklista för årsbokslut och kommande viktiga datum för skatter och avgifter.
         </p>
       </div>
@@ -228,17 +228,17 @@ export default function Taxes({
           />
 
           {/* Årsbokslut */}
-          <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e4e4e7', overflow: 'hidden' }}>
-            <div style={{ padding: '20px 24px', borderBottom: '1px solid #e4e4e7' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: '#111', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border)', overflow: 'hidden' }}>
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '10px' }}>
                 Årsbokslut {currentYear}
                 {isLocked && (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 10px', borderRadius: '999px', background: '#f1f5f9', color: '#334155', fontSize: '12px', fontWeight: 600 }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 10px', borderRadius: '999px', background: 'var(--border-light)', color: 'var(--text-secondary)', fontSize: '12px', fontWeight: 600 }}>
                     <Lock size={12} /> Räkenskapsår låst
                   </span>
                 )}
               </h2>
-              <p style={{ margin: '8px 0 0', fontSize: '14px', color: '#64748b' }}>
+              <p style={{ margin: '8px 0 0', fontSize: '14px', color: 'var(--text-secondary)' }}>
                 Följ stegen nedan för att stänga räkenskapsåret. När alla steg är klara kan du låsa året och generera bokslutet.
               </p>
             </div>
@@ -254,8 +254,8 @@ export default function Taxes({
                     style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                       padding: '16px 24px', gap: '16px',
-                      borderBottom: index < steps.length - 1 ? '1px solid #f1f5f9' : 'none',
-                      background: step.status === 'Klar' ? '#fafafa' : 'white',
+                      borderBottom: index < steps.length - 1 ? '1px solid var(--border-light)' : 'none',
+                      background: step.status === 'Klar' ? 'var(--bg-muted)' : 'var(--bg-card)',
                       cursor: clickable ? 'pointer' : 'default',
                     }}
                   >
@@ -271,7 +271,7 @@ export default function Taxes({
                     <div style={{ display: 'flex', flex: 1, alignItems: 'center', gap: '12px', minWidth: 0 }}>
                       <div style={{
                         width: '28px', height: '28px', borderRadius: '50%',
-                        background: '#f1f5f9', color: '#64748b', fontSize: '13px', fontWeight: 700,
+                        background: 'var(--border-light)', color: 'var(--text-secondary)', fontSize: '13px', fontWeight: 700,
                         display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                       }}>
                         {step.id}
@@ -279,13 +279,13 @@ export default function Taxes({
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{
                           fontSize: '14px', fontWeight: 500,
-                          color: step.status === 'Klar' ? '#94a3b8' : '#111',
+                          color: step.status === 'Klar' ? 'var(--text-muted)' : 'var(--text-main)',
                           textDecoration: step.status === 'Klar' ? 'line-through' : 'none',
                         }}>
                           {step.title}
                         </div>
                         {step.hint && (
-                          <div style={{ fontSize: '12.5px', color: '#94a3b8', marginTop: '2px' }}>{step.hint}</div>
+                          <div style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginTop: '2px' }}>{step.hint}</div>
                         )}
                       </div>
                     </div>
@@ -312,16 +312,16 @@ export default function Taxes({
               })}
             </div>
 
-            <div style={{ padding: '20px 24px', background: '#f8fafc', borderTop: '1px solid #e4e4e7', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b', fontSize: '13px' }}>
-                <Calculator size={16} /> {isLocked ? 'Bokfört resultat' : 'Beräknat resultat'}: <strong style={{ color: yearResult >= 0 ? '#15803d' : '#dc2626' }}>{fmt(yearResult)}</strong>
+            <div style={{ padding: '20px 24px', background: 'var(--bg-muted)', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)', fontSize: '13px' }}>
+                <Calculator size={16} /> {isLocked ? 'Bokfört resultat' : 'Beräknat resultat'}: <strong style={{ color: yearResult >= 0 ? 'var(--status-green-text)' : 'var(--status-red-text)' }}>{fmt(yearResult)}</strong>
               </div>
               <button
                 onClick={handleLockYear}
                 disabled={!canLock}
                 style={{
                   display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 24px',
-                  background: isLocked ? '#16a34a' : canLock ? '#3d7a2e' : '#94a3b8',
+                  background: isLocked ? '#16a34a' : canLock ? '#3d7a2e' : 'var(--text-muted)',
                   border: 'none', borderRadius: '8px', color: 'white', fontSize: '14px', fontWeight: 600,
                   cursor: canLock ? 'pointer' : 'not-allowed',
                 }}
@@ -335,9 +335,9 @@ export default function Taxes({
                 förenklat årsbokslut går bra upp till 3 Mkr i nettoomsättning,
                 och en enskild firma deklarerar resultatet vidare med en
                 NE-bilaga (inte en årsredovisning). */}
-            <div style={{ padding: '16px 24px', borderTop: '1px solid #e4e4e7', background: 'white' }}>
-              <div style={{ display: 'flex', gap: '10px', fontSize: '12.5px', color: '#64748b', lineHeight: 1.6 }}>
-                <Info size={15} style={{ flexShrink: 0, marginTop: 1, color: '#94a3b8' }} />
+            <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', background: 'var(--bg-card)' }}>
+              <div style={{ display: 'flex', gap: '10px', fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                <Info size={15} style={{ flexShrink: 0, marginTop: 1, color: 'var(--text-muted)' }} />
                 <div>
                   {isSoleProp ? (
                     <span>Som enskild firma deklarerar du resultatet vidare med en <strong>NE-bilaga</strong> i din inkomstdeklaration, efter att bokslutet är klart.</span>
@@ -362,15 +362,15 @@ export default function Taxes({
           </div>
 
           {/* Kontrolluppgifter (KU) */}
-          <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e4e4e7', overflow: 'hidden' }}>
-            <div style={{ padding: '20px 24px', borderBottom: '1px solid #e4e4e7', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+          <div style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border)', overflow: 'hidden' }}>
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
               <div>
-                <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: '#111' }}>Kontrolluppgifter (KU)</h2>
-                <p style={{ margin: '8px 0 0', fontSize: '14px', color: '#64748b', maxWidth: '540px' }}>
+                <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>Kontrolluppgifter (KU)</h2>
+                <p style={{ margin: '8px 0 0', fontSize: '14px', color: 'var(--text-secondary)', maxWidth: '540px' }}>
                   Årssammanställning per anställd — kontant bruttolön och avdragen skatt, summerat över bokförda lönekörningar. Lämnas in på skatteverket.se med BankID, senast 31 januari.
                 </p>
               </div>
-              <select value={kuYear} onChange={e => setKuYear(e.target.value)} style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '13px', background: 'white' }}>
+              <select value={kuYear} onChange={e => setKuYear(e.target.value)} style={{ padding: '8px 12px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', background: 'var(--bg-card)', color: 'var(--text-main)' }}>
                 {[Number(currentYear) - 1, Number(currentYear)].map(y => (
                   <option key={y} value={y}>{y}</option>
                 ))}
@@ -379,29 +379,29 @@ export default function Taxes({
 
             <div style={{ padding: '20px 24px' }}>
               {!kuTablesReady ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#9ca3af', fontSize: '13.5px', padding: '8px 0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-muted)', fontSize: '13.5px', padding: '8px 0' }}>
                   <Loader2 size={16} className="spin" style={{ animation: 'spin 0.8s linear infinite' }} /> Läser in skattetabeller…
                 </div>
               ) : kuEmployeeTotals.length === 0 ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#9ca3af', fontSize: '13.5px', padding: '8px 0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-muted)', fontSize: '13.5px', padding: '8px 0' }}>
                   <Users size={16} /> Inga bokförda lönekörningar för {kuYear} ännu.
                 </div>
               ) : (
                 <div style={{ overflowX: 'auto', marginBottom: '18px' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13.5px' }}>
                     <thead>
-                      <tr style={{ borderBottom: '1px solid #e4e4e7' }}>
-                        <th style={{ textAlign: 'left', padding: '8px 10px', color: '#6b7280', fontWeight: 600 }}>Namn</th>
-                        <th style={{ textAlign: 'left', padding: '8px 10px', color: '#6b7280', fontWeight: 600 }}>Personnummer</th>
-                        <th style={{ textAlign: 'right', padding: '8px 10px', color: '#6b7280', fontWeight: 600 }}>Kontant bruttolön</th>
-                        <th style={{ textAlign: 'right', padding: '8px 10px', color: '#6b7280', fontWeight: 600 }}>Avdragen skatt</th>
+                      <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                        <th style={{ textAlign: 'left', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600 }}>Namn</th>
+                        <th style={{ textAlign: 'left', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600 }}>Personnummer</th>
+                        <th style={{ textAlign: 'right', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600 }}>Kontant bruttolön</th>
+                        <th style={{ textAlign: 'right', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600 }}>Avdragen skatt</th>
                       </tr>
                     </thead>
                     <tbody>
                       {kuEmployeeTotals.map(emp => (
-                        <tr key={emp.employeeId} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                          <td style={{ padding: '8px 10px', fontWeight: 600, color: '#111' }}>{emp.firstName} {emp.lastName}</td>
-                          <td style={{ padding: '8px 10px', color: '#6b7280' }}>{emp.ssn || '—'}</td>
+                        <tr key={emp.employeeId} style={{ borderBottom: '1px solid var(--border-light)' }}>
+                          <td style={{ padding: '8px 10px', fontWeight: 600, color: 'var(--text-main)' }}>{emp.firstName} {emp.lastName}</td>
+                          <td style={{ padding: '8px 10px', color: 'var(--text-secondary)' }}>{emp.ssn || '—'}</td>
                           <td style={{ padding: '8px 10px', textAlign: 'right' }}>{fmt(emp.gross)}</td>
                           <td style={{ padding: '8px 10px', textAlign: 'right' }}>{fmt(emp.tax)}</td>
                         </tr>
@@ -415,7 +415,7 @@ export default function Taxes({
                 <button
                   disabled={!kuTablesReady || kuEmployeeTotals.length === 0}
                   onClick={() => downloadKuPdf({ company, year: kuYear, employeeTotals: kuEmployeeTotals }, `kontrolluppgifter-${kuYear}.pdf`)}
-                  style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: (!kuTablesReady || kuEmployeeTotals.length === 0) ? '#94a3b8' : '#1a3028', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '13px', cursor: (!kuTablesReady || kuEmployeeTotals.length === 0) ? 'not-allowed' : 'pointer' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: (!kuTablesReady || kuEmployeeTotals.length === 0) ? 'var(--text-muted)' : '#1a3028', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '13px', cursor: (!kuTablesReady || kuEmployeeTotals.length === 0) ? 'not-allowed' : 'pointer' }}
                 >
                   <Download size={14} /> Ladda ner sammanställning (PDF)
                 </button>
@@ -423,7 +423,7 @@ export default function Taxes({
                   href="https://www.skatteverket.se/foretag"
                   target="_blank"
                   rel="noopener noreferrer"
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: 'white', border: '1px solid #d1d5db', borderRadius: '8px', fontWeight: 600, fontSize: '13px', color: '#374151', textDecoration: 'none' }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontWeight: 600, fontSize: '13px', color: 'var(--text-main)', textDecoration: 'none' }}
                 >
                   Öppna skatteverket.se <ExternalLink size={13} />
                 </a>

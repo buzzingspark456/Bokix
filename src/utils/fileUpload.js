@@ -8,7 +8,14 @@ import { supabase } from '../supabaseClient';
  * underhålla istället för två drivande implementationer.
  */
 export async function uploadFileToStorage(userId, file, folder = 'files') {
-  const ext = (file.name.split('.').pop() || 'bin').toLowerCase();
+  // Säkerhetsfix (säkerhetsgranskningen): `file.name` kommer rakt från
+  // användarens filväljare, helt fri text. En fil UTAN punkt i namnet
+  // (t.ex. "../../evil") gjorde annars hela filnamnet till "ändelsen" och
+  // hamnade rakt i lagringsvägen — `${userId}/${folder}/${key}.../../evil`.
+  // RLS-policyn begränsar ändå till förstasegmentet (egen userId), men
+  // sanerar ändelsen explicit ändå istället för att lita på det.
+  const rawExt = (file.name.split('.').pop() || 'bin').toLowerCase();
+  const ext = /^[a-z0-9]{1,8}$/.test(rawExt) ? rawExt : 'bin';
   const key = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const path = `${userId}/${folder}/${key}.${ext}`;
   const { error } = await supabase.storage.from('bokix-uploads').upload(path, file, { upsert: true, cacheControl: '3600' });

@@ -33,7 +33,7 @@ export default function AboutPage() {
 
       <section style={{ padding: '150px 24px 90px', background: IVORY, position: 'relative', overflow: 'hidden' }}>
         <Reveal style={{ maxWidth: '680px', margin: '0 auto', textAlign: 'center', position: 'relative' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '7px 16px', borderRadius: '999px', background: 'white', border: `1px solid ${CARD_BORDER}`, fontSize: '12.5px', fontWeight: 700, color: BRAND.greenDark, marginBottom: '20px' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '7px 16px', borderRadius: '999px', background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, fontSize: '12.5px', fontWeight: 700, color: BRAND.greenDark, marginBottom: '20px' }}>
             Varför Bokix finns
           </div>
           <h1 style={{ fontFamily: SERIF, fontSize: 'clamp(32px, 5vw, 50px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '18px', lineHeight: 1.14 }}>
@@ -45,17 +45,17 @@ export default function AboutPage() {
         </Reveal>
       </section>
 
-      <section style={{ padding: '20px 24px 100px', background: 'white' }}>
+      <section style={{ padding: '20px 24px 100px', background: 'var(--mkt-page-bg)' }}>
         <div style={{ maxWidth: '980px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '24px' }}>
           {PRINCIPLES.map((p, i) => {
             const accent = ACCENT_CYCLE[i % 3];
             return (
-              <Reveal key={p.title} delay={i * 100} className="lp-card-hover about-principle-card" style={{ background: 'white', border: `1px solid ${CARD_BORDER}`, borderRadius: '18px', padding: '30px', boxShadow: CARD_SHADOW }}>
+              <Reveal key={p.title} delay={i * 100} className="lp-card-hover about-principle-card" style={{ background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '18px', padding: '30px', boxShadow: CARD_SHADOW }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '18px' }}>
                   <div style={{ width: 48, height: 48, borderRadius: '13px', background: accent.soft, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <p.icon size={22} color={accent.fg} />
                   </div>
-                  <span style={{ fontSize: '13px', fontWeight: 800, color: '#d8d2c4' }}>0{i + 1}</span>
+                  <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--mkt-muted)' }}>0{i + 1}</span>
                 </div>
                 <h2 style={{ fontSize: '16.5px', fontWeight: 700, color: INK, margin: '0 0 8px' }}>{p.title}</h2>
                 <p style={{ fontSize: '13.5px', color: MUTED, lineHeight: 1.65, margin: 0 }}>{p.desc}</p>
@@ -67,14 +67,20 @@ export default function AboutPage() {
 
       <section style={{ padding: '80px 24px 100px', background: IVORY }}>
         <Reveal scale style={{ maxWidth: '760px', margin: '0 auto' }}>
-          <div style={{ background: BRAND.greenDark, borderRadius: '24px', padding: '52px 40px', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
+          {/* BRAND.green (inte greenDark — den senare är en TEXT-token som blir
+              ljusgrön i mörkt läge, fel som en hel bakgrundsyta här). */}
+          <div style={{ background: BRAND.green, borderRadius: '24px', padding: '52px 40px', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
             <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(22px, 3.5vw, 30px)', fontWeight: 700, letterSpacing: '-0.01em', color: 'white', marginBottom: '12px', position: 'relative' }}>
               Frågor om Bokix?
             </h2>
             <p style={{ fontSize: '14.5px', color: 'rgba(255,255,255,0.65)', marginBottom: '24px', position: 'relative' }}>
               Vi svarar själva. Inget säljteam, inga formulär du behöver vänta på.
             </p>
-            <Link to="/kontakt" className="lp-btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '13px 24px', borderRadius: '11px', background: 'white', fontSize: '14.5px', fontWeight: 700, color: BRAND.greenDark, textDecoration: 'none', position: 'relative' }}>
+            {/* color: BRAND.green (inte BRAND.greenDark) — samma fix som
+                LandingPage.jsx:s CTA-knapp: greenDark är en TEXT-token som
+                blir ljusgrön i mörkt läge, fel ihopparad med en bakgrund
+                som alltid är vit. */}
+            <Link to="/kontakt" className="lp-btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '13px 24px', borderRadius: '11px', background: 'white', fontSize: '14.5px', fontWeight: 700, color: BRAND.green, textDecoration: 'none', position: 'relative' }}>
               Hör av dig <ArrowRight size={15} />
             </Link>
           </div>

@@ -71,14 +71,14 @@ export default function FeaturesPage() {
         </Reveal>
       </section>
 
-      <section style={{ padding: '20px 24px 100px', background: 'white' }}>
+      <section style={{ padding: '20px 24px 100px', background: 'var(--mkt-page-bg)' }}>
         <div style={{ maxWidth: '980px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '28px' }}>
           {SECTIONS.map((s, i) => {
             const accent = ACCENT[s.accentKey];
             return (
               <Reveal key={s.title} delay={i * 80} className="lp-card-hover" style={{
                 display: 'grid', gridTemplateColumns: '164px 1fr', gap: '28px', alignItems: 'stretch',
-                background: 'white', border: `1px solid ${CARD_BORDER}`, borderRadius: '20px', overflow: 'hidden',
+                background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '20px', overflow: 'hidden',
                 boxShadow: CARD_SHADOW,
               }}>
                 <div style={{ background: accent.soft, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '12px' }}>
@@ -107,7 +107,7 @@ export default function FeaturesPage() {
           <p style={{ fontSize: '15.5px', color: MUTED, marginBottom: '28px' }}>Inga tillägg per funktion. Se vad det kostar.</p>
           <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
             <button onClick={enterApp} style={{ padding: '14px 28px', background: BRAND.green, border: 'none', borderRadius: '12px', color: 'white', fontWeight: 700, fontSize: '15px', cursor: 'pointer' }}>Prova gratis</button>
-            <Link to="/priser" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '14px 24px', background: 'white', border: `1.5px solid ${CARD_BORDER}`, borderRadius: '12px', color: INK_SOFT, fontWeight: 600, fontSize: '15px', textDecoration: 'none' }}>
+            <Link to="/priser" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '14px 24px', background: 'var(--mkt-card-bg)', border: `1.5px solid ${CARD_BORDER}`, borderRadius: '12px', color: INK_SOFT, fontWeight: 600, fontSize: '15px', textDecoration: 'none' }}>
               Se prissättning <ArrowRight size={15} />
             </Link>
           </div>

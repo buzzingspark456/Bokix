@@ -1,9 +1,19 @@
 import { applySecurityHeaders } from '../../_security.js';
 import { parseJsonBody } from '../../stripe/_parseBody.js';
+import { requireAuthedUser } from '../../_auth.js';
+import { checkRateLimit } from '../../_rateLimit.js';
+import { isRequestFromBot } from '../../_botid.js';
 
 // Speglar POST /api/email/domains/create i server.js. Kräver den
 // privilegierade RESEND_ADMIN_API_KEY (full_access) — sending_access-
 // nycklar kan inte skapa eller hantera domäner alls (se Sida 33).
+//
+// Säkerhetsfix (se säkerhetsgranskningen): hade tidigare ingen
+// inloggningskontroll — vem som helst på internet kunde registrera
+// godtyckliga domäner mot Bokix Resend-konto med den priviligierade
+// nyckeln. Kräver nu en verifierad session. Ingen ägarskaps-koll mot ett
+// specifikt company_id behövs här (till skillnad från status.js) eftersom
+// det här skapar en NY domän, inte läser ut en befintlig.
 const resendAdminApiKey = process.env.RESEND_ADMIN_API_KEY || null;
 
 export default async function handler(req, res) {
@@ -17,6 +27,17 @@ export default async function handler(req, res) {
     res.status(503).json({ error: 'Domänhantering är inte konfigurerat. Sätt RESEND_ADMIN_API_KEY (en Resend-nyckel med Full access) i Vercels miljövariabler.' });
     return;
   }
+  if (!checkRateLimit(req, res, { key: 'email-domain-create', max: 10 })) return;
+
+  // Vercel BotID — se filkommentaren i main.jsx.
+  const isBot = await isRequestFromBot();
+  if (isBot) {
+    res.status(403).json({ error: 'Åtkomst nekad.' });
+    return;
+  }
+
+  const user = await requireAuthedUser(req, res);
+  if (!user) return;
 
   try {
     const body = await parseJsonBody(req);

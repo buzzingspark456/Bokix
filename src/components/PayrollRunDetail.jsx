@@ -12,13 +12,13 @@ import { downloadSalaryPaymentFile, getDebtorAccountError } from '../utils/salar
 
 const fmt = (v) => new Intl.NumberFormat('sv-SE').format(Math.round(v || 0));
 const fmtSigned = (v) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${new Intl.NumberFormat('sv-SE').format(Math.round(Math.abs(v || 0)))} kr`;
-const panelCard = { background: 'white', borderRadius: '14px', border: '1px solid #ececef', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)' };
+const panelCard = { background: 'var(--bg-card)', borderRadius: '14px', border: '1px solid #ececef', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)' };
 
 function StatusBadge({ status }) {
   const map = {
-    booked: { label: 'Bokförd', bg: '#dcfce7', color: '#15803d' },
+    booked: { label: 'Bokförd', bg: 'var(--status-green-bg)', color: 'var(--status-green-text)' },
     calculated: { label: 'Beräknad', bg: '#e0f2fe', color: '#0369a1' },
-    draft: { label: 'Utkast', bg: '#f1f5f9', color: '#64748b' },
+    draft: { label: 'Utkast', bg: 'var(--border-light)', color: 'var(--text-secondary)' },
   };
   const s = map[status] || map.draft;
   return <span style={{ padding: '4px 12px', borderRadius: '999px', fontSize: '12.5px', fontWeight: 700, background: s.bg, color: s.color }}>{s.label}</span>;
@@ -41,8 +41,8 @@ function StepButtons({ completedSteps, onAdvance, canBook }) {
               display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 16px', borderRadius: '999px',
               fontSize: '13px', fontWeight: 700, border: 'none',
               cursor: disabled ? 'not-allowed' : 'pointer',
-              background: isDone ? '#ecfdf5' : (isNext ? '#1a3028' : '#f1f5f9'),
-              color: isDone ? '#059669' : (isNext ? 'white' : '#94a3b8'),
+              background: isDone ? '#ecfdf5' : (isNext ? '#1a3028' : 'var(--border-light)'),
+              color: isDone ? '#059669' : (isNext ? 'white' : 'var(--text-muted)'),
             }}
           >
             {isDone && <Check size={14} />} {step.label}
@@ -55,16 +55,16 @@ function StepButtons({ completedSteps, onAdvance, canBook }) {
 
 function SummaryCards({ totals }) {
   const cards = [
-    { label: 'Brutto', value: totals.gross, color: '#111' },
-    { label: 'Skatt', value: totals.tax, color: '#dc2626' },
-    { label: 'Netto', value: totals.net, color: '#15803d' },
-    { label: 'Avgifter', value: totals.employerFee + totals.vacationFee, color: '#111' },
+    { label: 'Brutto', value: totals.gross, color: 'var(--text-main)' },
+    { label: 'Skatt', value: totals.tax, color: 'var(--status-red-text)' },
+    { label: 'Netto', value: totals.net, color: 'var(--status-green-text)' },
+    { label: 'Avgifter', value: totals.employerFee + totals.vacationFee, color: 'var(--text-main)' },
   ];
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '12px' }}>
       {cards.map(c => (
         <div key={c.label} style={{ ...panelCard, padding: '16px' }}>
-          <div style={{ fontSize: '11px', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '6px' }}>{c.label}</div>
+          <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '6px' }}>{c.label}</div>
           <div style={{ fontSize: '20px', fontWeight: 800, color: c.color }}>{fmt(c.value)} kr</div>
         </div>
       ))}
@@ -90,61 +90,61 @@ function EmployeeRow({ row, computed, previousComputed, accounts, onUpdateRow, l
             "Skatt X kr · Netto Y kr..."-sammanfattningsraden nedan sidledes
             overflow istallet for att helt enkelt radbryta inom raden. */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: '14.5px', color: '#111', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ fontWeight: 700, fontSize: '14.5px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
             {row.employeeSnapshot.firstName} {row.employeeSnapshot.lastName}
             {diff !== null && Math.abs(diff) > 1 && (
-              <span title={`${fmtSigned(diff)} jämfört med föregående lönekörning`} style={{ fontSize: '12px', fontWeight: 700, color: diff < 0 ? '#dc2626' : '#15803d', cursor: 'help' }}>
+              <span title={`${fmtSigned(diff)} jämfört med föregående lönekörning`} style={{ fontSize: '12px', fontWeight: 700, color: diff < 0 ? 'var(--status-red-text)' : 'var(--status-green-text)', cursor: 'help' }}>
                 {fmtSigned(diff)}
               </span>
             )}
           </div>
           {isZero ? (
-            <div style={{ fontSize: '12.5px', color: '#b45309', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ fontSize: '12.5px', color: 'var(--status-amber-text)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span>Inga tidrapporter registrerade för denna period</span>
               {isHourly && !locked && (
                 <span onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <input
                     type="number" min="0" placeholder="Timmar" value={row.hoursWorked || ''}
                     onChange={e => onUpdateRow(row.employeeId, { hoursWorked: e.target.value })}
-                    style={{ width: '70px', padding: '3px 6px', border: '1px solid #d1d5db', borderRadius: '5px', fontSize: '12px' }}
+                    style={{ width: '70px', padding: '3px 6px', border: '1px solid var(--border)', borderRadius: '5px', fontSize: '12px' }}
                   />
-                  <span style={{ fontSize: '11px', color: '#9ca3af' }}>timmar denna period</span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>timmar denna period</span>
                 </span>
               )}
             </div>
           ) : (
-            <div style={{ fontSize: '12.5px', color: '#6b7280', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '10px' }}>
               <span>Skatt {fmt(computed.tax)} kr · Netto {fmt(computed.net)} kr · Avgifter {fmt(computed.employerFee)} kr · Semester {fmt(computed.vacationProvision)} kr</span>
               {isHourly && !locked && (
                 <span onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <input
                     type="number" min="0" value={row.hoursWorked || ''}
                     onChange={e => onUpdateRow(row.employeeId, { hoursWorked: e.target.value })}
-                    style={{ width: '60px', padding: '3px 6px', border: '1px solid #d1d5db', borderRadius: '5px', fontSize: '12px' }}
+                    style={{ width: '60px', padding: '3px 6px', border: '1px solid var(--border)', borderRadius: '5px', fontSize: '12px' }}
                   />
-                  <span style={{ fontSize: '11px', color: '#9ca3af' }}>tim</span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>tim</span>
                 </span>
               )}
             </div>
           )}
           {!computed.hasBankInfo && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: '#dc2626', marginTop: '4px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: 'var(--status-red-text)', marginTop: '4px' }}>
               <AlertTriangle size={12} /> Saknar bankkontouppgifter — kan inte inkluderas i betalfilen
             </div>
           )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div style={{ fontWeight: 800, fontSize: '17px', color: '#111' }}>{fmt(computed.gross)} kr</div>
-          {expanded ? <ChevronUp size={16} color="#9ca3af" /> : <ChevronDown size={16} color="#9ca3af" />}
+          <div style={{ fontWeight: 800, fontSize: '17px', color: 'var(--text-main)' }}>{fmt(computed.gross)} kr</div>
+          {expanded ? <ChevronUp size={16} color="var(--text-muted)" /> : <ChevronDown size={16} color="var(--text-muted)" />}
         </div>
       </div>
       {expanded && (
-        <div style={{ padding: '4px 18px 16px', borderTop: '1px solid #f1f5f9' }}>
+        <div style={{ padding: '4px 18px 16px', borderTop: '1px solid var(--border-light)' }}>
           {computed.steps.map((s, i) => <CalculationRow key={i} {...s} />)}
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
             <button
               onClick={(e) => { e.stopPropagation(); generatePayslipPdf({ employee: row.employeeSnapshot, computed, period: row.period }).save(`lonebesked-${row.employeeSnapshot.lastName}-${row.period}.pdf`); }}
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px', background: '#f8fafc', border: '1px solid #e4e4e7', borderRadius: '8px', fontSize: '12.5px', fontWeight: 600, color: '#374151', cursor: 'pointer' }}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px', background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer' }}
             >
               <Download size={13} /> Ladda ner lönebesked (PDF)
             </button>
@@ -159,13 +159,13 @@ function VerificationBlock({ title, rows, accounts }) {
   const total = { debet: rows.reduce((s, r) => s + (r.debet || 0), 0), kredit: rows.reduce((s, r) => s + (r.kredit || 0), 0) };
   return (
     <div style={{ marginBottom: '16px' }}>
-      <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#374151', marginBottom: '8px' }}>{title}</div>
-      <div style={{ border: '1px solid #e4e4e7', borderRadius: '10px', overflow: 'hidden' }}>
+      <div style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '8px' }}>{title}</div>
+      <div style={{ border: '1px solid var(--border)', borderRadius: '10px', overflow: 'hidden' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
           <thead>
-            <tr style={{ background: '#f8fafc' }}>
+            <tr style={{ background: 'var(--bg-muted)' }}>
               {['Konto', 'Beskrivning', 'Debet', 'Kredit'].map(h => (
-                <th key={h} style={{ padding: '8px 14px', textAlign: h === 'Konto' || h === 'Beskrivning' ? 'left' : 'right', fontSize: '11px', color: '#64748b', fontWeight: 700 }}>{h}</th>
+                <th key={h} style={{ padding: '8px 14px', textAlign: h === 'Konto' || h === 'Beskrivning' ? 'left' : 'right', fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 700 }}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -173,15 +173,15 @@ function VerificationBlock({ title, rows, accounts }) {
             {rows.map((r, i) => {
               const accName = accounts.find(a => a.code === r.account)?.name || '';
               return (
-                <tr key={i} style={{ borderTop: '1px solid #f1f5f9' }}>
+                <tr key={i} style={{ borderTop: '1px solid var(--border-light)' }}>
                   <td style={{ padding: '9px 14px' }}>{r.account} {accName}</td>
-                  <td style={{ padding: '9px 14px', color: '#6b7280' }}>{r.description}</td>
+                  <td style={{ padding: '9px 14px', color: 'var(--text-secondary)' }}>{r.description}</td>
                   <td style={{ padding: '9px 14px', textAlign: 'right' }}>{r.debet ? fmt(r.debet) : ''}</td>
                   <td style={{ padding: '9px 14px', textAlign: 'right' }}>{r.kredit ? fmt(r.kredit) : ''}</td>
                 </tr>
               );
             })}
-            <tr style={{ borderTop: '1px solid #e4e4e7', fontWeight: 700 }}>
+            <tr style={{ borderTop: '1px solid var(--border)', fontWeight: 700 }}>
               <td colSpan={2} style={{ padding: '9px 14px' }}>Summa</td>
               <td style={{ padding: '9px 14px', textAlign: 'right' }}>{fmt(total.debet)}</td>
               <td style={{ padding: '9px 14px', textAlign: 'right' }}>{fmt(total.kredit)}</td>
@@ -303,7 +303,7 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
 
   if (!tablesReady) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '40vh', gap: '12px', color: '#6b7280' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '40vh', gap: '12px', color: 'var(--text-secondary)' }}>
         <Loader2 size={24} className="spin" style={{ animation: 'spin 0.8s linear infinite' }} />
         <span style={{ fontSize: '13.5px' }}>Hämtar skattetabeller från Skatteverket…</span>
       </div>
@@ -312,18 +312,18 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
 
   return (
     <div>
-      <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'none', border: 'none', color: '#6b7280', fontWeight: 600, fontSize: '13px', cursor: 'pointer', marginBottom: '16px' }}>
+      <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'none', border: 'none', color: 'var(--text-secondary)', fontWeight: 600, fontSize: '13px', cursor: 'pointer', marginBottom: '16px' }}>
         <ChevronLeft size={16} /> Tillbaka till lönekörningar
       </button>
 
       {/* Statusrad */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', marginBottom: '20px' }}>
-        <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a', margin: 0 }}>Lönekörning {run.period}</h2>
+        <h2 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>Lönekörning {run.period}</h2>
         <StatusBadge status={displayStatus} />
-        <span style={{ fontSize: '13px', color: '#6b7280' }}>Utbetalningsdatum: {run.payDate || '—'}</span>
-        <span style={{ fontSize: '13px', color: '#6b7280' }}>{run.rows.length} {run.rows.length === 1 ? 'anställd' : 'anställda'}</span>
+        <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Utbetalningsdatum: {run.payDate || '—'}</span>
+        <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{run.rows.length} {run.rows.length === 1 ? 'anställd' : 'anställda'}</span>
         {run.paymentMethod && (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: '#f1f5f9', color: '#475569' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: 'var(--border-light)', color: 'var(--text-secondary)' }}>
             {run.paymentMethod === 'bank' ? <Landmark size={12} /> : <CreditCard size={12} />} Betald via {run.paymentMethod === 'bank' ? 'bank' : 'kort'}
           </span>
         )}
@@ -332,7 +332,7 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
       <StepButtons completedSteps={run.completedSteps} onAdvance={handleAdvance} canBook={canBook} />
 
       {missingTaxTable.length > 0 && (
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '12px 14px', marginBottom: '20px', fontSize: '13px', color: '#991b1b' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-red-bg)', border: '1px solid var(--status-red-bg)', borderRadius: '8px', padding: '12px 14px', marginBottom: '20px', fontSize: '13px', color: '#991b1b' }}>
           <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 1 }} />
           <div style={{ flex: 1 }}>
             <div>
@@ -358,26 +358,26 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
       )}
 
       {missingBankInfo.length > 0 && (
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '12px 14px', marginBottom: '20px', fontSize: '13px', color: '#991b1b' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-red-bg)', border: '1px solid var(--status-red-bg)', borderRadius: '8px', padding: '12px 14px', marginBottom: '20px', fontSize: '13px', color: '#991b1b' }}>
           <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 1 }} />
           <span>{missingBankInfo.length} {missingBankInfo.length === 1 ? 'anställd saknar' : 'anställda saknar'} clearing-/kontonummer och kommer inte att inkluderas i betalfilen. Komplettera under Anställda innan Betala-steget.</span>
         </div>
       )}
 
       {tablesError && (
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '12px 14px', marginBottom: '20px', fontSize: '13px', color: '#92400e' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-amber-bg)', border: '1px solid var(--status-amber-bg)', borderRadius: '8px', padding: '12px 14px', marginBottom: '20px', fontSize: '13px', color: 'var(--status-amber-text)' }}>
           <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 1 }} />
           <span>Kunde inte hämta skattetabellen från Skatteverket ({tablesError}). Skatteavdrag kan inte beräknas korrekt förrän detta lyckas — kontrollera internetuppkopplingen och öppna körningen igen.</span>
         </div>
       )}
 
       <SummaryCards totals={totals} />
-      <div style={{ background: '#111827', color: 'white', borderRadius: '14px', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px', boxShadow: '0 4px 14px rgba(17, 24, 39, 0.18)' }}>
+      <div style={{ background: 'var(--text-main)', color: 'white', borderRadius: '14px', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px', boxShadow: '0 4px 14px rgba(17, 24, 39, 0.18)' }}>
         <span style={{ fontWeight: 600, fontSize: '14px' }}>Total kostnad</span>
         <span style={{ fontWeight: 800, fontSize: '22px' }}>{fmt(totals.totalCost)} kr</span>
       </div>
 
-      <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#111', margin: '0 0 12px' }}>Anställda i körningen</h3>
+      <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 12px' }}>Anställda i körningen</h3>
       {computedRows.map(({ row, computed }) => (
         <EmployeeRow
           key={row.employeeId} row={row} computed={computed}
@@ -389,8 +389,8 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
 
       {run.completedSteps.includes('approved') && (
         <div style={{ marginTop: '28px' }}>
-          <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#111', margin: '0 0 4px' }}>Förhandsgranskning — verifikationer</h3>
-          <p style={{ fontSize: '12.5px', color: '#9ca3af', margin: '0 0 16px' }}>Genereras och bokförs som tre separata verifikationer, summerade över samtliga anställda — inte en per anställd.</p>
+          <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 4px' }}>Förhandsgranskning — verifikationer</h3>
+          <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: '0 0 16px' }}>Genereras och bokförs som tre separata verifikationer, summerade över samtliga anställda — inte en per anställd.</p>
           <VerificationBlock title="Block 1 — Lön" rows={verBlocks.block1} accounts={accounts} />
           <VerificationBlock title="Block 2 — Arbetsgivaravgifter" rows={verBlocks.block2} accounts={accounts} />
           <VerificationBlock title="Block 3 — Semesteravsättning" rows={verBlocks.block3} accounts={accounts} />
@@ -403,34 +403,34 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
               pain.001-betalfil, oförändrad innanför sitt kort nedan), Kort
               är ärligt "Kommer snart" eftersom det skulle kräva en helt
               annan Stripe-produkt (utbetalningar) än den som redan finns. */}
-          <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#111', margin: '0 0 12px' }}>Betalningsmetod</h3>
+          <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 12px' }}>Betalningsmetod</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.6fr) minmax(0, 1fr)', gap: '16px', alignItems: 'start' }}>
           <div style={{ ...panelCard, padding: '20px' }}>
-          <h4 style={{ fontSize: '14px', fontWeight: 700, color: '#111', margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <h4 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Landmark size={16} color="#1a3028" /> Bank — Betalfil
           </h4>
-          <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>Format</label>
-          <select disabled style={{ width: '100%', maxWidth: '360px', padding: '9px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', background: '#f8fafc', marginBottom: '6px' }}>
+          <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>Format</label>
+          <select disabled style={{ width: '100%', maxWidth: '360px', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '14px', background: 'var(--bg-muted)', color: 'var(--text-secondary)', marginBottom: '6px' }}>
             <option>ISO 20022 pain.001 (XML)</option>
           </select>
-          <p style={{ fontSize: '12px', color: '#6b7280', marginBottom: '14px', lineHeight: 1.5 }}>
+          <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '14px', lineHeight: 1.5 }}>
             ISO 20022, standarden för betalfiler. Kräver oftast filkommunikationsavtal med banken: flera internetbanker tar inte emot pain.001 via vanlig filuppladdning.
           </p>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '12px 14px', marginBottom: '16px', fontSize: '12.5px', color: '#92400e', lineHeight: 1.5 }}>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-amber-bg)', border: '1px solid var(--status-amber-bg)', borderRadius: '8px', padding: '12px 14px', marginBottom: '16px', fontSize: '12.5px', color: 'var(--status-amber-text)', lineHeight: 1.5 }}>
             <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 1 }} />
             <span>pain.001 skickas normalt via filkommunikationsavtal eller bankgirokoppling, inte genom att laddas upp i internetbanken. Kontrollera att din bank tar emot filen den vägen i god tid före utbetalningsdagen — filen skickas aldrig automatiskt någonstans, du laddar upp den själv.</span>
           </div>
 
           {debtorAccountError && (
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '12px 14px', marginBottom: '14px', fontSize: '12.5px', color: '#991b1b', lineHeight: 1.5 }}>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-red-bg)', border: '1px solid var(--status-red-bg)', borderRadius: '8px', padding: '12px 14px', marginBottom: '14px', fontSize: '12.5px', color: '#991b1b', lineHeight: 1.5 }}>
               <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 1 }} />
               <span>{debtorAccountError}</span>
             </div>
           )}
 
           {missingIbanInfo.length > 0 && (
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: '#f8fafc', border: '1px solid #e4e4e7', borderRadius: '8px', padding: '12px 14px', marginBottom: '14px', fontSize: '12.5px', color: '#475569', lineHeight: 1.5 }}>
-              <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 1, color: '#94a3b8' }} />
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 14px', marginBottom: '14px', fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+              <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 1, color: 'var(--text-muted)' }} />
               <span>
                 {missingIbanInfo.length} {missingIbanInfo.length === 1 ? 'anställd saknar' : 'anställda saknar'} IBAN/BIC ({missingIbanInfo.map(r => `${r.row.employeeSnapshot?.firstName || ''} ${r.row.employeeSnapshot?.lastName || ''}`.trim()).join(', ')}) och exkluderas från betalfilen om du laddar ner den nu. Komplettera under Anställda.
               </span>
@@ -438,10 +438,10 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
           )}
 
           {payFileError && (
-            <div style={{ fontSize: '12.5px', color: '#dc2626', marginBottom: '12px' }}>{payFileError}</div>
+            <div style={{ fontSize: '12.5px', color: 'var(--status-red-text)', marginBottom: '12px' }}>{payFileError}</div>
           )}
           {payFileResult && (
-            <div style={{ fontSize: '12.5px', color: '#15803d', marginBottom: '12px', fontWeight: 600 }}>
+            <div style={{ fontSize: '12.5px', color: 'var(--status-green-text)', marginBottom: '12px', fontWeight: 600 }}>
               Betalfil nedladdad — {payFileResult.eligible} {payFileResult.eligible === 1 ? 'anställd' : 'anställda'} inkluderade
               {payFileResult.excluded.length > 0 ? `, ${payFileResult.excluded.length} exkluderade (saknar IBAN/BIC).` : '.'}
             </div>
@@ -453,37 +453,37 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
               disabled={payFileBusy || Boolean(debtorAccountError) || missingIbanInfo.length === computedRows.length}
               style={{
                 display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 18px', borderRadius: '8px', fontSize: '13.5px', fontWeight: 700, border: 'none',
-                background: (payFileBusy || debtorAccountError || missingIbanInfo.length === computedRows.length) ? '#e5e7eb' : '#1a3028',
-                color: (payFileBusy || debtorAccountError || missingIbanInfo.length === computedRows.length) ? '#9ca3af' : 'white',
+                background: (payFileBusy || debtorAccountError || missingIbanInfo.length === computedRows.length) ? 'var(--border)' : '#1a3028',
+                color: (payFileBusy || debtorAccountError || missingIbanInfo.length === computedRows.length) ? 'var(--text-muted)' : 'white',
                 cursor: (payFileBusy || debtorAccountError || missingIbanInfo.length === computedRows.length) ? 'not-allowed' : 'pointer',
               }}
             >
               <Download size={15} /> {payFileBusy ? 'Skapar fil…' : 'Ladda ner betalfil'}
             </button>
-            <button type="button" onClick={() => setShowBankGuide(s => !s)} style={{ background: 'none', border: 'none', color: '#1a3028', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
+            <button type="button" onClick={() => setShowBankGuide(s => !s)} style={{ background: 'none', border: 'none', color: 'var(--text-main)', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
               Så importerar du filen i din bank {showBankGuide ? <ChevronUp size={13} style={{ verticalAlign: 'middle' }} /> : <ChevronDown size={13} style={{ verticalAlign: 'middle' }} />}
             </button>
           </div>
           {showBankGuide && (
-            <div style={{ marginTop: '12px', padding: '14px', background: '#f8fafc', borderRadius: '8px', fontSize: '13px', color: '#374151', lineHeight: 1.6 }}>
+            <div style={{ marginTop: '12px', padding: '14px', background: 'var(--bg-muted)', borderRadius: '8px', fontSize: '13px', color: 'var(--text-main)', lineHeight: 1.6 }}>
               I de flesta internetbanker: logga in på företagets internetbank, sök upp "Filöverföring" eller "Leverantörsbetalningar" i menyn, välj rätt filformat (pain.001/ISO 20022) och ladda upp filen där. Vissa banker kräver ett separat filkommunikationsavtal som tecknas i förväg — kontakta din bank om alternativet inte syns. Sök efter din banks egen dokumentation för exakta steg, eftersom detta skiljer sig mellan banker.
             </div>
           )}
 
-          <div style={{ marginTop: '18px', paddingTop: '14px', borderTop: '1px solid #f1f5f9', fontSize: '12px', color: '#9ca3af', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ marginTop: '18px', paddingTop: '14px', borderTop: '1px solid var(--border-light)', fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '8px' }}>
             Automatisk direktbetalning via open banking (utan filimport) är planerad.
-            <span style={{ padding: '2px 8px', borderRadius: '999px', background: '#f1f5f9', color: '#94a3b8', fontSize: '10.5px', fontWeight: 700 }}>Kommer snart</span>
+            <span style={{ padding: '2px 8px', borderRadius: '999px', background: 'var(--border-light)', color: 'var(--text-muted)', fontSize: '10.5px', fontWeight: 700 }}>Kommer snart</span>
           </div>
           </div>
 
           <div style={{ ...panelCard, padding: '20px', opacity: 0.6 }}>
-            <h4 style={{ fontSize: '14px', fontWeight: 700, color: '#374151', margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <CreditCard size={16} color="#9ca3af" /> Kort (Stripe)
+            <h4 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <CreditCard size={16} color="var(--text-muted)" /> Kort (Stripe)
             </h4>
-            <p style={{ fontSize: '12.5px', color: '#9ca3af', lineHeight: 1.6, margin: '0 0 18px' }}>
+            <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', lineHeight: 1.6, margin: '0 0 18px' }}>
               Lämpligt för enstaka mindre utbetalningar, men kräver en annan Stripe-produkt (utbetalningar till anställda) än den som redan tar emot kortbetalningar från era kunder — inte byggt ännu.
             </p>
-            <button disabled style={{ width: '100%', padding: '9px 12px', background: '#f1f5f9', color: '#9ca3af', border: 'none', borderRadius: '8px', fontWeight: 700, fontSize: '13px', cursor: 'not-allowed' }}>
+            <button disabled style={{ width: '100%', padding: '9px 12px', background: 'var(--border-light)', color: 'var(--text-muted)', border: 'none', borderRadius: '8px', fontWeight: 700, fontSize: '13px', cursor: 'not-allowed' }}>
               Kommer snart
             </button>
           </div>
@@ -493,14 +493,14 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
 
       {run.completedSteps.includes('payslips') && (
         <div style={{ ...panelCard, marginTop: '28px', padding: '20px' }}>
-          <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#111', margin: '0 0 8px' }}>AGI och skatt</h3>
-          <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 14px', lineHeight: 1.5 }}>
+          <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 8px' }}>AGI och skatt</h3>
+          <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 14px', lineHeight: 1.5 }}>
             Sammanställning (huvuduppgift + individuppgift per anställd) för arbetsgivardeklarationen (AGI). Skatteverket kräver arbetsgivarens egen BankID-signatur vid inlämning, så Bokix skickar inte in den automatiskt — men underlaget nedan är klart att skriva av.
           </p>
           <div className="form-row-2" style={{ display: 'grid', gap: '10px', fontSize: '13.5px', marginBottom: '16px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#6b7280' }}>Total bruttolön</span><span style={{ fontWeight: 700 }}>{fmt(totals.gross)} kr</span></div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#6b7280' }}>Avdragen skatt</span><span style={{ fontWeight: 700 }}>{fmt(totals.tax)} kr</span></div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#6b7280' }}>Arbetsgivaravgifter</span><span style={{ fontWeight: 700 }}>{fmt(totals.employerFee)} kr</span></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>Total bruttolön</span><span style={{ fontWeight: 700 }}>{fmt(totals.gross)} kr</span></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>Avdragen skatt</span><span style={{ fontWeight: 700 }}>{fmt(totals.tax)} kr</span></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>Arbetsgivaravgifter</span><span style={{ fontWeight: 700 }}>{fmt(totals.employerFee)} kr</span></div>
           </div>
 
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '18px' }}>
@@ -514,13 +514,13 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
               href="https://www.skatteverket.se/foretag"
               target="_blank"
               rel="noopener noreferrer"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: 'white', border: '1px solid #d1d5db', borderRadius: '8px', fontWeight: 600, fontSize: '13px', color: '#374151', textDecoration: 'none' }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontWeight: 600, fontSize: '13px', color: 'var(--text-main)', textDecoration: 'none' }}
             >
               Öppna skatteverket.se <ExternalLink size={13} />
             </a>
           </div>
 
-          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13.5px', color: '#374151', cursor: 'pointer' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13.5px', color: 'var(--text-main)', cursor: 'pointer' }}>
             <input type="checkbox" checked={agiConfirmed} onChange={e => { setAgiConfirmed(e.target.checked); if (e.target.checked) onAdvanceStep(run.id, 'agi'); }} disabled={run.completedSteps.includes('agi')} />
             Jag har lämnat in arbetsgivardeklarationen (AGI) hos Skatteverket för denna period
           </label>

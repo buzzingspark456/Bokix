@@ -63,52 +63,52 @@ export default function CookieBanner() {
       aria-label="Cookieinställningar"
       style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(15,23,42,0.45)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: '20px' }}
     >
-      <div style={{ width: '100%', maxWidth: '600px', background: 'white', border: '1px solid #e5e7eb', borderRadius: '16px', boxShadow: '0 20px 60px rgba(15,23,42,0.25)', overflow: 'hidden' }}>
+      <div style={{ width: '100%', maxWidth: '600px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '16px', boxShadow: '0 20px 60px rgba(15,23,42,0.25)', overflow: 'hidden' }}>
 
         {/* Header — vårt eget ordmärke, ingen extern leverantörslogga */}
-        <div style={{ display: 'flex', alignItems: 'center', padding: '18px 24px', borderBottom: '1px solid #f1f5f9' }}>
+        <div style={{ display: 'flex', alignItems: 'center', padding: '18px 24px', borderBottom: '1px solid var(--border-light)' }}>
           <BokixWordmark height={22} />
         </div>
 
         <div style={{ padding: '22px 24px 6px' }}>
-          <div style={{ fontSize: '15.5px', fontWeight: 700, color: '#111827', marginBottom: '8px' }}>Den här webbplatsen använder cookies</div>
-          <p style={{ margin: 0, fontSize: '13px', color: '#6b7280', lineHeight: 1.65 }}>
+          <div style={{ fontSize: '15.5px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '8px' }}>Den här webbplatsen använder cookies</div>
+          <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.65 }}>
             Nödvändiga cookies för inloggning och grundfunktion är alltid aktiva. Vi använder också Google Analytics för grundläggande besöksstatistik, men bara om du väljer "Acceptera alla" — inga marknadsförings- eller reklamcookies används oavsett vad du väljer.{' '}
             <Link to="/cookies" style={{ color: BRAND.green, fontWeight: 600, textDecoration: 'underline' }}>Läs mer i vår cookiepolicy</Link>.
           </p>
         </div>
 
         {/* Kategorirad — två riktiga kategorier, inte fyra påhittade */}
-        <div className="form-row-2" style={{ display: 'grid', borderTop: '1px solid #f1f5f9', marginTop: '18px' }}>
-          <div style={{ padding: '16px 24px', borderRight: '1px solid #f1f5f9', textAlign: 'center' }}>
-            <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#111827', marginBottom: '10px' }}>Nödvändiga</div>
+        <div className="form-row-2" style={{ display: 'grid', borderTop: '1px solid var(--border-light)', marginTop: '18px' }}>
+          <div style={{ padding: '16px 24px', borderRight: '1px solid var(--border-light)', textAlign: 'center' }}>
+            <div style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '10px' }}>Nödvändiga</div>
             <div title="Alltid aktiva — krävs för att logga in och för att tjänsten ska fungera" style={{ width: 40, height: 22, borderRadius: '999px', background: BRAND.green, margin: '0 auto', position: 'relative', opacity: 0.5, cursor: 'not-allowed' }}>
-              <div style={{ position: 'absolute', top: 2, right: 2, width: 18, height: 18, borderRadius: '50%', background: 'white' }} />
+              <div style={{ position: 'absolute', top: 2, right: 2, width: 18, height: 18, borderRadius: '50%', background: 'var(--bg-card)' }} />
             </div>
-            <div style={{ fontSize: '10.5px', color: '#9ca3af', marginTop: '6px' }}>Alltid aktiva</div>
+            <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginTop: '6px' }}>Alltid aktiva</div>
           </div>
           <div style={{ padding: '16px 24px', textAlign: 'center' }}>
-            <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#111827', marginBottom: '10px' }}>Statistik</div>
+            <div style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '10px' }}>Statistik</div>
             <button
               type="button"
               onClick={() => setStatsPreview(v => !v)}
               aria-pressed={statsPreview}
               title="Förhandsvisning — knapparna nedan avgör det faktiska valet"
-              style={{ width: 40, height: 22, borderRadius: '999px', background: statsPreview ? BRAND.green : '#d1d5db', margin: '0 auto', position: 'relative', border: 'none', cursor: 'pointer', padding: 0, display: 'block', transition: 'background 0.15s' }}
+              style={{ width: 40, height: 22, borderRadius: '999px', background: statsPreview ? BRAND.green : 'var(--border)', margin: '0 auto', position: 'relative', border: 'none', cursor: 'pointer', padding: 0, display: 'block', transition: 'background 0.15s' }}
             >
-              <div style={{ position: 'absolute', top: 2, left: statsPreview ? 20 : 2, width: 18, height: 18, borderRadius: '50%', background: 'white', transition: 'left 0.15s' }} />
+              <div style={{ position: 'absolute', top: 2, left: statsPreview ? 20 : 2, width: 18, height: 18, borderRadius: '50%', background: 'var(--bg-card)', transition: 'left 0.15s' }} />
             </button>
-            <div style={{ fontSize: '10.5px', color: '#9ca3af', marginTop: '6px' }}>Google Analytics</div>
+            <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginTop: '6px' }}>Google Analytics</div>
           </div>
         </div>
 
         {/* Utfallet avgörs alltid av knapparna, aldrig av reglagets läge när
             man klickar — se kommentaren högst upp i filen. */}
-        <div style={{ display: 'flex', gap: '10px', padding: '18px 24px', borderTop: '1px solid #f1f5f9', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '10px', padding: '18px 24px', borderTop: '1px solid var(--border-light)', flexWrap: 'wrap' }}>
           <button
             type="button"
             onClick={() => choose(false)}
-            style={{ flex: 1, minWidth: '160px', padding: '11px 16px', background: 'white', border: `1.5px solid ${BRAND.green}`, borderRadius: '9px', fontWeight: 700, color: BRAND.green, cursor: 'pointer', fontSize: '13.5px' }}
+            style={{ flex: 1, minWidth: '160px', padding: '11px 16px', background: 'var(--bg-card)', border: `1.5px solid ${BRAND.green}`, borderRadius: '9px', fontWeight: 700, color: BRAND.green, cursor: 'pointer', fontSize: '13.5px' }}
           >
             Endast nödvändiga
           </button>

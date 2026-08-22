@@ -17,8 +17,8 @@ import {
   Clock,
   DollarSign,
   FileCheck,
-  Search,
   Menu,
+  Sun,
   TrendingUp,
   TrendingDown,
   ArrowLeftRight,
@@ -34,8 +34,10 @@ import {
   LogOut,
   Moon,
   AlertTriangle,
+  ShieldCheck,
 } from 'lucide-react';
 import { DEFAULT_ACCOUNTS, VAT_ACCOUNTS, REVENUE_ACCOUNTS } from './components/AccountsData';
+import { getNextInvoiceNumber } from './utils/invoiceNumbering';
 import { createStripeCheckoutSession } from './stripeApi';
 import { createEmailDomain, getEmailDomainStatus } from './emailApi';
 import { getDebet, getKredit } from './utils/verificationAmounts';
@@ -43,15 +45,44 @@ import { BRAND } from './utils/brandColors';
 import { createDemoSeed } from './utils/landingDemoData'; // TEMP: mobile audit bypass, see useEffect below — removed before this change ships
 
 // ── Bokix Logo Component (light sidebar) ──
-function BokixLogo() {
+// Klickbar — tar till startsidan precis som varumärkeslogotyper brukar göra.
+// Egen <button> (inte bara onClick på diven) så den blir tangentbords-
+// åtkomlig och får en riktig hover/aktiv-känsla, inte bara en klickbar yta
+// utan visuell respons.
+//
+// `compact`: den vanliga sidomenyn är dold bakom hamburgermenyn på mobil
+// (ren CSS-transform, alltid kvar i DOM:en) — så mobilens topbar hade ingen
+// logotyp alls förrän man öppnat menyn. `compact` renderar samma logotyp i
+// en liten variant utan blockpadding, till mobilens topbar (56px hög).
+// `useId()` ger varje instans sin egen gradient-id — annars kolliderar
+// SVG:erna på id="bokixGrad" när båda ligger i DOM:en samtidigt.
+function BokixLogo({ onClick, compact = false }) {
+  const gradId = `bokixGrad-${React.useId()}`;
   return (
-    <div style={{ padding: '22px 14px 18px', display: 'flex', flexDirection: 'column' }}>
+    <button
+      onClick={onClick}
+      title="Till startsidan"
+      style={compact ? {
+        display: 'flex', alignItems: 'center', padding: 0,
+        background: 'none', border: 'none', cursor: 'pointer',
+        transition: 'opacity 0.15s', flexShrink: 0,
+      } : {
+        padding: '22px 14px 18px', display: 'flex', flexDirection: 'column',
+        background: 'none', border: 'none', cursor: 'pointer', width: '100%',
+        textAlign: 'left', transition: 'opacity 0.15s',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.opacity = '0.82'; }}
+      onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
+    >
       {/* Ingen tagline längre — den hör hemma på marknadssidan, inte i det
           dagliga arbetsverktyget. Loggan får nu eget utrymme och är
-          märkbart större eftersom den inte längre delar ytan med en rad text. */}
-      <svg viewBox="0 0 140 48" width="152" height="52" xmlns="http://www.w3.org/2000/svg">
+          märkbart större eftersom den inte längre delar ytan med en rad text.
+          Kundfeedback (upprepad): fortfarande för liten både i sidomenyn och
+          i mobil-topbaren — ytterligare en storleksökning här, samma
+          proportion (viewBox 140:48) bevarad på båda varianterna. */}
+      <svg viewBox="0 0 140 48" width={compact ? 108 : 180} height={compact ? 37 : 62} xmlns="http://www.w3.org/2000/svg">
         <defs>
-          <linearGradient id="bokixGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+          <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
             <stop offset="0%" stopColor="#0ea5e9" />
             <stop offset="50%" stopColor="#14b8a6" />
             <stop offset="100%" stopColor="#84cc16" />
@@ -63,10 +94,181 @@ function BokixLogo() {
           fontFamily="Georgia, 'Times New Roman', serif"
           fontSize="46"
           fontWeight="600"
-          fill="url(#bokixGrad)"
+          fill={`url(#${gradId})`}
           letterSpacing="-1.5"
         >Bokix</text>
       </svg>
+    </button>
+  );
+}
+
+// ── Tvåstegsverifiering vid inloggning (säkerhetsgranskningen) ──
+// Visas mellan "rätt lösenord" och "faktiskt inne i appen" för en
+// användare som aktiverat TOTP i Inställningar (TwoFactorSection,
+// Settings.jsx) — annars var 2FA bara möjligt att registrera, aldrig
+// efterfrågat igen vid nästa inloggning. Samma varumärkesbakgrund som
+// Auth.jsx/OnboardingFlow.jsx.
+//
+// Kundfeedback: "finare och bättre UI/UX" — bytt den enda textrutan (skriv
+// alla sex siffror i en generisk <input>) mot sex separata sifferrutor,
+// samma mönster som SMS-/app-kodverifiering i de flesta appar man redan
+// känner igen — auto-hoppar till nästa ruta när man skriver, hoppar
+// tillbaka vid backspace i en tom ruta, och klistrar man in en hel kod
+// fördelas den automatiskt över alla sex. Skickas automatiskt så fort sjätte
+// siffran är ifylld — inget extra klick på "Verifiera" behövs i normalfallet.
+function MfaChallengeScreen({ onVerify, onCancel }) {
+  const [digits, setDigits] = React.useState(['', '', '', '', '', '']);
+  const [error, setError] = React.useState('');
+  const [loading, setLoading] = React.useState(false);
+  const inputRefs = React.useRef([]);
+
+  React.useEffect(() => { inputRefs.current[0]?.focus(); }, []);
+
+  const verify = React.useCallback(async (code) => {
+    setError('');
+    setLoading(true);
+    try {
+      await onVerify(code);
+    } catch (err) {
+      setError(err.message || 'Fel kod. Försök igen.');
+      setDigits(['', '', '', '', '', '']);
+      inputRefs.current[0]?.focus();
+    } finally {
+      setLoading(false);
+    }
+  }, [onVerify]);
+
+  // Bugkritiskt: `setDigits(prev => { ...sidoeffekter (fokusbyte, verify()-
+  // anrop)...; return next; })` — sidoeffekter INUTI en state-updater-
+  // funktion är inte tillåtet enligt Reacts kontrakt (den funktionen måste
+  // vara ren) och StrictMode (main.jsx) kör därför avsiktligt varje sådan
+  // updater två gånger i dev för att avslöja exakt det här — vilket i
+  // praktiken gjorde att fokusbytet aldrig hann hända innan nästa
+  // knapptryckning kom in (siffra 2, 3, 4... skrevs i tomma intet). `digits`
+  // läses direkt ur closure-state istället (säkert här: varje anrop triggas
+  // av en enskild användarhändelse, aldrig flera snabba uppdateringar i
+  // samma tick) och sidoeffekterna körs EFTER `setDigits(next)`, i vanlig
+  // funktionskropp — aldrig inuti updatern.
+  const setDigitAt = (index, value) => {
+    const next = [...digits];
+    next[index] = value;
+    setDigits(next);
+    if (value && next.every(d => d !== '')) verify(next.join(''));
+  };
+
+  const handleChange = (index, raw) => {
+    const value = raw.replace(/\D/g, '');
+    if (!value) { setDigitAt(index, ''); return; }
+    // Klistras/skrivs flera siffror in i en ruta (t.ex. hela koden inklistrad
+    // i första rutan, eller snabb mobiltangentbords-autofyll) — sprid ut dem
+    // över rutorna från och med denna istället för att bara behålla den
+    // sista siffran.
+    const next = [...digits];
+    let i = index;
+    for (const ch of value) {
+      if (i > 5) break;
+      next[i] = ch;
+      i++;
+    }
+    setDigits(next);
+    const focusIndex = Math.min(i, 5);
+    requestAnimationFrame(() => inputRefs.current[focusIndex]?.focus());
+    if (next.every(d => d !== '')) verify(next.join(''));
+  };
+
+  const handleKeyDown = (index, e) => {
+    if (e.key === 'Backspace' && !digits[index] && index > 0) {
+      inputRefs.current[index - 1]?.focus();
+    } else if (e.key === 'ArrowLeft' && index > 0) {
+      inputRefs.current[index - 1]?.focus();
+    } else if (e.key === 'ArrowRight' && index < 5) {
+      inputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handlePaste = (e) => {
+    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+    if (!pasted) return;
+    e.preventDefault();
+    handleChange(0, pasted);
+  };
+
+  const code = digits.join('');
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (code.length === 6 && !loading) verify(code);
+  };
+
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: BRAND.greenLight, padding: '24px', fontFamily: "'Inter', sans-serif" }}>
+      <form onSubmit={handleSubmit} style={{ width: '100%', maxWidth: '400px', background: 'var(--bg-card)', borderRadius: '22px', padding: '36px 32px', boxShadow: '0 12px 40px -8px rgba(15,23,42,0.18)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', boxSizing: 'border-box' }}>
+        <div style={{
+          width: 56, height: 56, borderRadius: '16px', flexShrink: 0,
+          background: `linear-gradient(160deg, ${BRAND.green}, #0e3a2a)`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: `0 8px 20px -6px ${BRAND.green}99`,
+        }}>
+          <ShieldCheck size={26} color="white" strokeWidth={2.2} />
+        </div>
+
+        <div style={{ textAlign: 'center' }}>
+          <h2 style={{ fontSize: '21px', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 6px', letterSpacing: '-0.02em' }}>Tvåstegsverifiering</h2>
+          <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)', lineHeight: 1.5, margin: 0 }}>Ange den 6-siffriga koden från din autentiseringsapp.</p>
+        </div>
+
+        <div style={{ display: 'flex', gap: '9px' }} onPaste={handlePaste}>
+          {digits.map((d, i) => (
+            <input
+              key={i}
+              ref={el => { inputRefs.current[i] = el; }}
+              type="text"
+              inputMode="numeric"
+              autoComplete={i === 0 ? 'one-time-code' : 'off'}
+              maxLength={1}
+              value={d}
+              disabled={loading}
+              onChange={e => handleChange(i, e.target.value)}
+              onKeyDown={e => handleKeyDown(i, e)}
+              onFocus={e => e.target.select()}
+              aria-label={`Siffra ${i + 1} av 6`}
+              style={{
+                width: '44px', height: '54px', textAlign: 'center', fontSize: '22px', fontWeight: 700,
+                fontFamily: 'monospace', color: 'var(--text-main)', background: 'var(--bg-muted)',
+                border: error ? '1.5px solid var(--status-red-text)' : d ? `1.5px solid ${BRAND.green}` : '1.5px solid var(--border)',
+                borderRadius: '10px', outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.15s',
+              }}
+            />
+          ))}
+        </div>
+
+        {error ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '10px 12px', background: 'var(--status-red-bg)', color: 'var(--status-red-text)', borderRadius: '8px', fontSize: '13px', fontWeight: 600, width: '100%', boxSizing: 'border-box' }}>
+            <AlertTriangle size={14} strokeWidth={2.5} style={{ flexShrink: 0 }} /> {error}
+          </div>
+        ) : (
+          loading && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '7px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+              <div style={{ width: 14, height: 14, border: '2px solid var(--border)', borderTopColor: BRAND.green, borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+              Verifierar...
+            </div>
+          )
+        )}
+
+        {/* Skickas normalt automatiskt så fort sjätte siffran fylls i (se
+            setDigitAt) — knappen är kvar som en tydlig, manuell reserv om
+            t.ex. mobilens autofyll fyller rutorna på ett sätt som inte
+            triggar auto-skicket. */}
+        <button
+          type="submit"
+          disabled={loading || code.length !== 6}
+          style={{ width: '100%', padding: '13px', background: BRAND.green, border: 'none', borderRadius: '10px', color: 'white', fontWeight: 700, fontSize: '15px', cursor: loading || code.length !== 6 ? 'default' : 'pointer', opacity: loading || code.length !== 6 ? 0.5 : 1, fontFamily: 'inherit', transition: 'opacity 0.15s' }}
+        >
+          Verifiera
+        </button>
+        <button type="button" onClick={onCancel} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '13px', cursor: 'pointer', textAlign: 'center', fontFamily: 'inherit' }}>
+          Avbryt och logga ut
+        </button>
+      </form>
     </div>
   );
 }
@@ -139,10 +341,22 @@ function createEmptyCompanyData(companyInfo) {
     accounts: [...DEFAULT_ACCOUNTS],
     verifications: [],
     invoices: [],
+    // Egen lista, inte samma array som `invoices` med ett `type`-fält som
+    // urskiljare — se normalizeCompanyData nedan för varför. Fortnox/Bokio
+    // och alla andra stora håller offerter och fakturor helt åtskilda så
+    // att en offert aldrig kan räknas som bokföringsunderlag av misstag.
+    quotes: [],
     expenses: [],
     contacts: [],
     projects: [],
     timeEntries: [],
+    // Godkännande-status per (person, månad, kund) för Tidrapportering →
+    // Tidrapporter-vyn (Projects.jsx). Skild från `timeEntries` (de
+    // faktiska loggade raderna) — det här är bara VILKET LÄGE varje
+    // persons månadsrapport befinner sig i (Pågående/Inskickad/Attesterad/
+    // Godkänd), skapas först när någon faktiskt ändrar status (se
+    // getReportStatus i Projects.jsx: frånvaro av en post = "Pågående").
+    timeReportStatuses: [],
     billableTimeEntries: [],
     recurringTemplates: [],
     verificationTemplates: [],
@@ -151,6 +365,45 @@ function createEmptyCompanyData(companyInfo) {
     employees: [],
     payrollRuns: [],
   };
+}
+
+// ──────────────────────────────────────────────
+// MIGRERING: offerter/fakturor från EN delad lista till TVÅ separata
+// ──────────────────────────────────────────────
+// Innan detta låg offerter och fakturor i samma `invoices`-array, urskilda
+// bara av ett `type: 'quote'`-fält. Problemet var inte kosmetiskt: Dashboard
+// och Taxes filtrerade aldrig bort quote-poster, så en osparad offert med
+// status 'draft'/'sent' kunde se ut som en obokförd faktura i de vyerna.
+// Sparad data (localStorage eller Supabase) kan fortfarande ha allt i en
+// enda lista — den splittas här en gång, permanent, vid inläsning.
+function splitInvoicesAndQuotes(list) {
+  const quotes = [];
+  const invoices = [];
+  (list || []).forEach(item => {
+    (item.type === 'quote' ? quotes : invoices).push(item);
+  });
+  return { invoices, quotes };
+}
+
+function normalizeCompanyData(companyData) {
+  if (!companyData) return companyData;
+  const { invoices, quotes: strayQuotes } = splitInvoicesAndQuotes(companyData.invoices);
+  const quotes = Array.isArray(companyData.quotes)
+    ? [...companyData.quotes, ...strayQuotes]
+    : strayQuotes;
+  if (invoices.length === (companyData.invoices || []).length && Array.isArray(companyData.quotes)) {
+    return companyData; // redan migrerat, inget att göra
+  }
+  return { ...companyData, invoices, quotes };
+}
+
+function normalizeStore(store) {
+  if (!store || !store.companies) return store;
+  const companies = {};
+  Object.entries(store.companies).forEach(([id, companyData]) => {
+    companies[id] = normalizeCompanyData(companyData);
+  });
+  return { ...store, companies };
 }
 
 // ──────────────────────────────────────────────
@@ -164,7 +417,7 @@ function loadData() {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed.companies && parsed.activeCompanyId) {
-        return parsed;
+        return normalizeStore(parsed);
       }
     }
   } catch {
@@ -216,11 +469,16 @@ const tabAliases = {
   expense_overview: 'expenses',
   receipts:         'expenses',
   supplierInvoices: 'expenses',
-  quotes:           'invoices',
   transfers:        'verifications',
   dashboard:        'dashboard',
   contacts:         'contacts',
   invoices:         'invoices',
+  // Offerter var tidigare en flik INUTI Invoices.jsx (därav aliaset till
+  // 'invoices' som stod här) — men sedan offerter/fakturor blev separata
+  // listor (App.jsx: normalizeStore) är Quotes.jsx en egen sida, och
+  // 'quotes' måste peka på sig själv för att navmenyn nedan ska kunna
+  // länka dit istället för att fastna på fakturasidan.
+  quotes:           'quotes',
   expenses:         'expenses',
   projects:         'projects',
   review:           'review',
@@ -269,6 +527,15 @@ function App() {
   // active/past_due) — se PaymentRequiredGate.jsx. Satt i fetchUserData,
   // FÖRE isLoggedIn(true), så appen aldrig hinner visas ens ett ögonblick.
   const [subscriptionGate, setSubscriptionGate] = useState(null);
+  // Säkerhetsfix (säkerhetsgranskningen): TwoFactorSection (Settings.jsx)
+  // lät användare registrera TOTP, men login-flödet kollade aldrig
+  // "authenticator assurance level" efteråt — en inloggning med rätt
+  // lösenord gick alltså rakt igenom och visade appen ÄVEN för en
+  // användare som aktiverat 2FA, ingenstans efterfrågades koden. Satt i
+  // fetchUserData, FÖRE isLoggedIn(true) (samma mönster som
+  // subscriptionGate ovan), så appens data aldrig hinner hämtas ens om
+  // en angripare har rätt lösenord men inte enhetens TOTP-kod.
+  const [mfaChallenge, setMfaChallenge] = useState(null); // { factorId, challengeId } | null
   // Fångas EN gång vid första renderingen — innan den andra useEffect-hooken
   // längre ner (?subscription_checkout=success-toasten) hinner städa bort
   // parametern ur URL:en. fetchUserData körs asynkront (efter getSession()-
@@ -315,10 +582,28 @@ function App() {
   const [supabaseEnabled, setSupabaseEnabled] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
 
+  // ── Tema (ljust/mörkt) ── Sparat val vinner; annars OS-inställningen
+  // (prefers-color-scheme) första gången, precis som webbläsaren själv
+  // gör för formulärkontroller etc. `data-theme` sätts på <html> i
+  // effekten nedan — index.css läser den attributen för att slå om hela
+  // CSS-variabelpaletten (se ":root[data-theme='dark']" där).
+  const [theme, setTheme] = useState(() => {
+    try {
+      const stored = localStorage.getItem('bokix_theme');
+      if (stored === 'light' || stored === 'dark') return stored;
+    } catch { /* privat läge/blockerad storage — kör vidare med OS-valet */ }
+    return (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+  });
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    try { localStorage.setItem('bokix_theme', theme); } catch { /* samma reservläge som ovan */ }
+  }, [theme]);
+  const toggleTheme = () => setTheme(t => (t === 'dark' ? 'light' : 'dark'));
+
   // Global intent state
   const [globalAction, setGlobalAction] = useState(null);
-  const [isGlobalPlusOpen, setIsGlobalPlusOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [isNotifMenuOpen, setIsNotifMenuOpen] = useState(false);
   const [openMenus, setOpenMenus] = useState({ sales: true, purchases: true, accounting: true, reports: true });
   const [isHelpDrawerOpen, setIsHelpDrawerOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -336,7 +621,6 @@ function App() {
     setActiveTab(rTab);
     if (typeof window !== 'undefined') window.location.hash = rTab;
     setGlobalAction(action);
-    setIsGlobalPlusOpen(false);
     setSidebarOpen(false);
   };
 
@@ -487,6 +771,27 @@ function App() {
 
   const fetchUserData = async (authUser) => {
     try {
+      // MFA-spärr — se kommentaren vid mfaChallenge ovan. Körs FÖRST, före
+      // allt annat (även demo-läget nedan har en riktig Supabase-session
+      // bakom sig när supabaseEnabled är sant, så kollen gäller lika mycket
+      // där). currentLevel === nextLevel för alla utan aktiverad 2FA —
+      // no-op för de allra flesta inloggningarna.
+      if (supabaseEnabled) {
+        const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+        if (aal && aal.nextLevel === 'aal2' && aal.nextLevel !== aal.currentLevel) {
+          const { data: factorsData } = await supabase.auth.mfa.listFactors();
+          const factor = factorsData?.totp?.[0];
+          if (factor) {
+            const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({ factorId: factor.id });
+            if (!challengeError && challenge) {
+              setMfaChallenge({ factorId: factor.id, challengeId: challenge.id });
+              setIsLoadingAuth(false);
+              return; // Väntar på kod — resten av inloggningen pausas här.
+            }
+          }
+        }
+      }
+
       if (!supabaseEnabled) {
         const cached = loadData();
         setData(cached);
@@ -581,7 +886,11 @@ function App() {
 
       if (resultData && resultData.state) {
         const backendState = await loadCompanyDataFromBackend(resultData.state.activeCompanyId);
-        const resolvedState = backendState || resultData.state;
+        // normalizeStore: samma engångsmigrering av offerter/fakturor som
+        // loadData() kör för localStorage-vägen — måste köras här också,
+        // annars stannar ett Supabase-konto kvar på den gamla delade listan
+        // för evigt eftersom den vägen aldrig går via loadData().
+        const resolvedState = normalizeStore(backendState || resultData.state);
         setData(resolvedState);
         const completed = Boolean(resultData.onboarding_completed);
         const skipped = Boolean(resultData.onboarding_skipped);
@@ -632,6 +941,41 @@ function App() {
     } finally {
       setIsLoadingAuth(false);
     }
+  };
+
+  // MFA-verifiering (MfaChallengeScreen ovan). Fel kod kastar ett fel som
+  // skärmen själv visar — hämtar samtidigt en NY challenge, eftersom en
+  // redan felaktig challengeId inte går att återanvända för nästa försök.
+  const handleMfaVerify = async (code) => {
+    if (!mfaChallenge) return;
+    const { error } = await supabase.auth.mfa.verify({
+      factorId: mfaChallenge.factorId,
+      challengeId: mfaChallenge.challengeId,
+      code,
+    });
+    if (error) {
+      const { data: retry } = await supabase.auth.mfa.challenge({ factorId: mfaChallenge.factorId });
+      if (retry) setMfaChallenge({ factorId: mfaChallenge.factorId, challengeId: retry.id });
+      throw new Error('Fel kod. Försök igen.');
+    }
+    // Bugkritiskt (kundfeedback): mellan att `mfaChallenge` nollställs här
+    // och att `fetchUserData` nedan hinner sätta `isLoggedIn(true)` fanns
+    // ett kort men fullt renderat mellanläge — mfaChallenge null OCH
+    // isLoggedIn fortfarande false — som föll rakt in i !isLoggedIn-grenen
+    // (Landing/Auth). Användaren såg alltså landningssidan blinka till
+    // innan dashboarden laddades, trots rätt kod. `isLoadingAuth(true)` här
+    // stänger det gapet med samma "Laddar Bokix…"-spinner som normal
+    // inloggning använder (se `if (isLoadingAuth) return …` längre ner) —
+    // fetchUserData sätter själv isLoadingAuth(false) när den är klar.
+    setMfaChallenge(null);
+    setIsLoadingAuth(true);
+    if (user) fetchUserData(user);
+  };
+
+  const handleMfaCancel = async () => {
+    await supabase.auth.signOut();
+    setMfaChallenge(null);
+    setIsLoggedIn(false);
   };
 
   useEffect(() => {
@@ -776,8 +1120,8 @@ function App() {
   // Close dropdown on outside click
   useEffect(() => {
     const handler = () => {
-      setIsGlobalPlusOpen(false);
       setIsProfileMenuOpen(false);
+      setIsNotifMenuOpen(false);
     };
     document.addEventListener('click', handler);
     return () => document.removeEventListener('click', handler);
@@ -883,9 +1227,9 @@ function App() {
     // är inlagda") här permanent, synlig för alla vid varje sidladdning —
     // en intern debug-notering som aldrig skulle vara användarvänd.
     return (
-      <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', background: '#f8fafc', fontFamily: 'sans-serif' }}>
-        <div style={{ width: 36, height: 36, border: '3px solid #e5e7eb', borderTopColor: '#3d7a2e', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-        <div style={{ color: '#64748b', fontSize: '15px' }}>Laddar Bokix…</div>
+      <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', background: 'var(--bg-muted)', fontFamily: 'sans-serif' }}>
+        <div style={{ width: 36, height: 36, border: '3px solid var(--border)', borderTopColor: '#3d7a2e', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+        <div style={{ color: 'var(--text-secondary)', fontSize: '15px' }}>Laddar Bokix…</div>
       </div>
     );
   }
@@ -896,6 +1240,9 @@ function App() {
   const accounts = currentCompany.accounts;
   const verifications = currentCompany.verifications;
   const invoices = currentCompany.invoices;
+  // `|| []` som skyddsnät: ett företag inloggat sedan innan denna migrering
+  // och som ännu inte hunnit spara/ladda om kan sakna fältet ett ögonblick.
+  const quotes = currentCompany.quotes || [];
   const expenses = currentCompany.expenses;
   const contacts = currentCompany.contacts;
   const projects = currentCompany.projects || [];
@@ -905,6 +1252,7 @@ function App() {
   const employees = currentCompany.employees || [];
   const payrollRuns = currentCompany.payrollRuns || [];
   const timeEntries = currentCompany.timeEntries || [];
+  const timeReportStatuses = currentCompany.timeReportStatuses || [];
   // Separat från `timeEntries` (Projekt-fliken, "hur mycket tid gick åt på
   // projekt X") — det här är Tidrapporterings-sidans egna poster (kund att
   // fakturera ELLER anställd att lönebasera), en annan fråga än
@@ -924,12 +1272,14 @@ function App() {
   const setAccounts = (fn) => updateCompanyField('accounts', fn);
   const setVerifications = (fn) => updateCompanyField('verifications', fn);
   const setInvoices = (fn) => updateCompanyField('invoices', fn);
+  const setQuotes = (fn) => updateCompanyField('quotes', (prev) => (typeof fn === 'function' ? fn(prev || []) : fn));
   const setExpenses = (fn) => updateCompanyField('expenses', fn);
   const setContacts = (fn) => updateCompanyField('contacts', fn);
   const setProjects = (fn) => updateCompanyField('projects', fn);
   const setEmployees = (fn) => updateCompanyField('employees', fn);
   const setPayrollRuns = (fn) => updateCompanyField('payrollRuns', fn);
   const setTimeEntries = (fn) => updateCompanyField('timeEntries', fn);
+  const setTimeReportStatuses = (fn) => updateCompanyField('timeReportStatuses', fn);
   const setBillableTimeEntries = (fn) => updateCompanyField('billableTimeEntries', fn);
   const setRecurringTemplates = (fn) => updateCompanyField('recurringTemplates', fn);
 
@@ -997,23 +1347,40 @@ function App() {
   };
 
   const balances = getAccountBalances();
-  const platformFeePercent = Number.parseFloat(import.meta.env.VITE_STRIPE_PLATFORM_FEE_PERCENT || '5');
 
-  // Klassiskt Stripe Connect OAuth ("Standard"-konton) — knappen navigerar
-  // rakt till backend-endpointen istället för att göra ett fetch-anrop,
-  // eftersom hela poängen är att lämna Bokix och landa på Stripes egen
-  // hostade sida. Backend sköter state-generering, cookie och själva
-  // redirecten (se api/stripe/oauth-start.js). Om kontot redan är
-  // anslutet gör vi ingenting här — Dashboard-kortet visar då "Koppla
-  // från" istället för den här knappen, se handleDisconnectStripe.
-  const handleOpenStripeOnboarding = () => {
+  // Klassiskt Stripe Connect OAuth ("Standard"-konton) — hela poängen är
+  // fortfarande att lämna Bokix och landa på Stripes egen hostade sida,
+  // men själva starten är nu ett autentiserat POST-anrop (säkerhetsfix,
+  // se api/stripe/oauth-start.js) istället för en ren länk-navigering:
+  // en GET med bara user_id/company_id i URL:en gick tidigare att avfyra
+  // för VILKEN användare/företag som helst, utan att verifiera vem som
+  // faktiskt klickade — kunde koppla en angripares Stripe-konto till
+  // någon annans Bokix-företag. Backend sköter state-generering och
+  // cookien precis som förut, bara returnerar adressen som JSON istället
+  // för att själv göra 302:an, så vi kan skicka med sessionens token.
+  const handleOpenStripeOnboarding = async () => {
     if (!user) {
       alert('Logga in för att ansluta Stripe.');
       return;
     }
     if (company.stripeAccountId) return; // redan anslutet — inget att göra
-    const params = new URLSearchParams({ user_id: user.id, company_id: data.activeCompanyId });
-    window.location.href = `/api/stripe/oauth-start?${params.toString()}`;
+    try {
+      const { data: { session } = {} } = await supabase.auth.getSession();
+      const response = await fetch('/api/stripe/oauth-start', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({ company_id: data.activeCompanyId }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload?.url) throw new Error(payload?.error || `Kunde inte starta Stripe-anslutningen (${response.status})`);
+      window.location.href = payload.url;
+    } catch (error) {
+      console.error(error);
+      alert(`Kunde inte ansluta Stripe: ${error.message || error}`);
+    }
   };
 
   const handleDisconnectStripe = async () => {
@@ -1021,10 +1388,18 @@ function App() {
     if (!window.confirm('Koppla från Stripe? Bokix kan då inte längre ta emot kortbetalningar till det här kontot.')) return;
 
     try {
+      // Säkerhetsfix: user_id och stripe_account_id skickas inte längre med
+      // — servern verifierar nu vem som anropar via sessionens access-token
+      // och slår själv upp vilket konto som faktiskt är kopplat till
+      // företaget (se disconnect.js), istället för att lita på body:n.
+      const { data: { session } = {} } = await supabase.auth.getSession();
       const response = await fetch('/api/stripe/disconnect', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: user.id, company_id: data.activeCompanyId, stripe_account_id: company.stripeAccountId }),
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({ company_id: data.activeCompanyId }),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload?.error || `Frånkoppling misslyckades (${response.status})`);
@@ -1056,7 +1431,7 @@ function App() {
   // display-cache för sidan, aldrig det utskicket självt litar på.
   const handleCheckEmailDomainStatus = async () => {
     if (!company.resendDomainId) return null;
-    const result = await getEmailDomainStatus(company.resendDomainId);
+    const result = await getEmailDomainStatus(company.resendDomainId, company.id);
     setCompanyInfo({
       ...company,
       emailDomainStatus: result.status || company.emailDomainStatus,
@@ -1088,27 +1463,15 @@ function App() {
     const customerEmail = customer?.email || company.email;
     if (!customerEmail) throw new Error('Kundens e-postadress saknas.');
 
-    const line_items = invoice.rows
-      .filter(r => r.description && r.unitPrice > 0)
-      .map(r => ({
-        price_data: {
-          currency: 'sek',
-          product_data: { name: r.description },
-          unit_amount: Math.round((r.unitPrice || 0) * 100),
-        },
-        quantity: Math.max(1, Math.round(r.qty || 1)),
-      }));
-
-    if (line_items.length === 0) throw new Error('Fakturan saknar giltiga rader.');
-
-    const totalGross = line_items.reduce((sum, item) => sum + item.price_data.unit_amount * item.quantity, 0);
-    const applicationFeeAmount = Math.round(totalGross * (platformFeePercent / 100));
-
+    // Säkerhetsfix (se säkerhetsgranskningen): raderna/beloppet/avgiften
+    // byggdes tidigare här och skickades med i requesten — backend litade
+    // blint på dem, så ett manipulerat anrop kunde debitera vad som helst
+    // och ändå markera den riktiga fakturan som betald. Backend
+    // (create-checkout-session.js / _invoiceLineItems.js) slår nu istället
+    // upp fakturan själv via invoice_id och räknar om beloppet server-side
+    // — vi skickar bara med IDN, inte längre några belopp.
     const { session } = await createStripeCheckoutSession({
-      stripe_account_id: company.stripeAccountId,
       customer_email: customerEmail,
-      application_fee_amount: applicationFeeAmount,
-      line_items,
       // Klarna (och andra köp-nu-betala-senare-metoder) stödjer inte B2B enligt
       // Stripes/Klarnas egna regler — skickar med kundtypen så backend kan
       // avgöra om Klarna m.fl. får erbjudas, eller om det måste vara kort
@@ -1118,6 +1481,8 @@ function App() {
       // Sätts som Stripe-sessionens metadata (create-checkout-session.js) —
       // enda kopplingen webhooken (webhook.js/server.js) har mellan en
       // bekräftad Stripe-betalning och VILKEN Bokix-faktura den gäller.
+      // Samma tre ID:n är också vad backend använder för att slå upp
+      // fakturan och det anslutna Stripe-kontot server-side.
       user_id: user?.id,
       company_id: data.activeCompanyId,
       invoice_id: invoiceId,
@@ -1218,27 +1583,39 @@ function App() {
     });
   };
 
+  // Konvertering offert → faktura är det ENDA stället en post flyttas mellan
+  // de två listorna, och det är också den punkt där en bokföringsrelevant
+  // händelse faktiskt uppstår — så den bokförs automatiskt precis som en
+  // direkt-skapad faktura gör i handleAddInvoice ovan, istället för att bara
+  // flytta posten tyst utan verifikation (vilket den gamla, aldrig
+  // ihopkopplade versionen av denna funktion också gjorde fel — den skrev
+  // om posten på plats i `invoices` som om offerter redan låg där).
   const handleConvertQuoteToInvoice = (quoteId) => {
-    const quote = invoices.find(i => i.id === quoteId);
-    if (!quote) return;
+    const quote = quotes.find(q => q.id === quoteId);
+    if (!quote) return null;
 
-    const invoiceNumbers = invoices
-      .filter(i => i.type !== 'quote')
-      .map(i => Number.parseInt(i.invoiceNumber, 10))
-      .filter(Number.isFinite);
-    const nextNum = invoiceNumbers.length > 0
-      ? String(Math.max(...invoiceNumbers) + 1)
-      : '1001';
+    const invoiceNumber = getNextInvoiceNumber(invoices, company);
+    const today = new Date().toISOString().split('T')[0];
+    const dueDate = (() => {
+      const d = new Date();
+      d.setDate(d.getDate() + (Number(company?.paymentTermsDays) || 30));
+      return d.toISOString().split('T')[0];
+    })();
 
     const updatedInvoice = {
       ...quote,
       type: 'invoice',
       status: 'draft',
-      date: new Date().toISOString().split('T')[0],
-      invoiceNumber: nextNum,
+      date: today,
+      dueDate,
+      invoiceNumber,
+      // Offertrader saknar `discount`/`account` — fälten Invoices.jsx
+      // förutsätter finns på varje rad (se raderingsfältet där).
+      rows: (quote.rows || []).map(r => ({ discount: 0, account: '3001', ...r })),
     };
 
-    setInvoices(prev => prev.map(i => i.id === quoteId ? updatedInvoice : i));
+    setQuotes(prev => prev.filter(q => q.id !== quoteId));
+    setInvoices(prev => [...prev, updatedInvoice]);
 
     let totalNet = 0;
     let vatByRate = {};
@@ -1280,6 +1657,8 @@ function App() {
       sourceId: updatedInvoice.id,
       rows: verRows,
     });
+
+    return updatedInvoice;
   };
 
   const invoiceGross = (inv) => inv.rows.reduce((sum, r) => {
@@ -1708,7 +2087,18 @@ function App() {
   const handleImportData = (importedData) => {
     if (importedData.accounts) updateCompanyField('accounts', importedData.accounts);
     if (importedData.verifications) updateCompanyField('verifications', importedData.verifications);
-    if (importedData.invoices) updateCompanyField('invoices', importedData.invoices);
+    if (importedData.invoices) {
+      // En äldre backup kan ha offerter inbakade i samma `invoices`-lista
+      // (från innan migreringen till separata listor, se normalizeStore) —
+      // splitta den precis som normalizeStore gör, annars återintroducerar
+      // en återställd backup exakt det problem separationen skulle lösa.
+      const { invoices, quotes: strayQuotes } = splitInvoicesAndQuotes(importedData.invoices);
+      updateCompanyField('invoices', invoices);
+      const importedQuotes = importedData.quotes || strayQuotes;
+      if (importedQuotes.length > 0 || importedData.quotes) updateCompanyField('quotes', importedQuotes);
+    } else if (importedData.quotes) {
+      updateCompanyField('quotes', importedData.quotes);
+    }
     if (importedData.expenses) updateCompanyField('expenses', importedData.expenses);
     if (importedData.contacts) updateCompanyField('contacts', importedData.contacts);
     if (importedData.projects) updateCompanyField('projects', importedData.projects);
@@ -1734,12 +2124,35 @@ function App() {
   const reviewCount = expenses.filter(e => !e.costAccount).length;
   const notificationCount = reviewCount + expenses.filter(e => ['draft', 'pending'].includes(e.status)).length;
 
+  // Notis-klockan hade ingen panel bakom sig — bara ett antal, ingen väg att
+  // se VAD som väntar eller klicka sig dit. Samma tre underlag som Startsidans
+  // "Att göra idag" (Dashboard.jsx) redan räknar fram, men enklare — ingen
+  // moms-deadline/lönekörning här, notisklockan behöver inte duplicera HELA
+  // den logiken för att vara användbar, bara ge en klickbar genväg.
+  const overdueInvoicesForNotif = invoices.filter(i => i.status === 'sent' && new Date(i.dueDate) < new Date());
+  const draftOrPendingExpenses = expenses.filter(e => ['draft', 'pending'].includes(e.status));
+  const notifications = [
+    ...(overdueInvoicesForNotif.length > 0 ? [{
+      icon: AlertTriangle, tone: 'red', tab: 'invoices',
+      text: overdueInvoicesForNotif.length === 1 ? '1 faktura har förfallit' : `${overdueInvoicesForNotif.length} fakturor har förfallit`,
+    }] : []),
+    ...(reviewCount > 0 ? [{
+      icon: Receipt, tone: 'green', tab: 'review',
+      text: `${reviewCount} kvitto${reviewCount > 1 ? 'n' : ''} väntar på granskning`,
+    }] : []),
+    ...(draftOrPendingExpenses.length > 0 ? [{
+      icon: FileText, tone: 'amber', tab: 'expenses',
+      text: `${draftOrPendingExpenses.length} utgift${draftOrPendingExpenses.length > 1 ? 'er' : ''} väntar på hantering`,
+    }] : []),
+  ];
+
   // ── Navigation config (flat) ──
   const navSections = [
     {
       label: 'Arbetsyta',
       items: [
-        { id: 'dashboard', label: 'Dashboard',           icon: LayoutDashboard },
+        { id: 'dashboard', label: 'Startsida',           icon: LayoutDashboard },
+        { id: 'quotes',    label: 'Offerter',            icon: FileSpreadsheet },
         { id: 'invoices',  label: 'Fakturering',         icon: FileText },
         { id: 'contacts',  label: 'Kunder',              icon: Users },
         { id: 'expenses',  label: 'Utgifter',            icon: Receipt },
@@ -1777,6 +2190,7 @@ function App() {
     { id: 'contacts',  label: 'Kunder',   icon: Users },
   ];
   const mobileSheetItems = [
+    { id: 'quotes',        label: 'Offerter',            icon: FileSpreadsheet },
     { id: 'projects',      label: 'Projekt',             icon: Briefcase },
     { id: 'verifications', label: 'Bokföring',           icon: BookOpen },
     { id: 'payroll',       label: 'Anställda och lön',   icon: UsersRound },
@@ -1955,7 +2369,7 @@ function App() {
           />
         );
       case 'quotes':
-        return <Quotes key={company?.id || data.activeCompanyId} invoices={invoices} setInvoices={setInvoices} contacts={contacts} company={company} globalAction={globalAction} clearGlobalAction={() => setGlobalAction(null)} handleGlobalAction={handleGlobalAction} />;
+        return <Quotes key={company?.id || data.activeCompanyId} quotes={quotes} setQuotes={setQuotes} onConvert={handleConvertQuoteToInvoice} contacts={contacts} projects={projects} company={company} user={user} globalAction={globalAction} clearGlobalAction={() => setGlobalAction(null)} handleGlobalAction={handleGlobalAction} />;
       case 'projects':
         return (
           <Projects
@@ -1966,6 +2380,9 @@ function App() {
             setContacts={setContacts}
             timeEntries={timeEntries}
             setTimeEntries={setTimeEntries}
+            employees={employees}
+            timeReportStatuses={timeReportStatuses}
+            setTimeReportStatuses={setTimeReportStatuses}
             globalAction={globalAction}
             clearGlobalAction={() => setGlobalAction(null)}
           />
@@ -2061,6 +2478,7 @@ function App() {
             accounts={accounts}
             verifications={verifications}
             invoices={invoices}
+            quotes={quotes}
             expenses={expenses}
             contacts={contacts}
             projects={projects}
@@ -2093,10 +2511,30 @@ function App() {
           <>
             {subscriptionGate === 'blocked' ? (
               <PaymentRequiredGate user={user} />
+            ) : mfaChallenge ? (
+              // Rätt lösenord, men 2FA aktiverad och koden inte verifierad
+              // än — se kommentaren vid mfaChallenge-state:t och
+              // MfaChallengeScreen ovan. Måste ligga FÖRE !isLoggedIn-grenen
+              // nedan: isLoggedIn blir aldrig true medan detta pågår
+              // (fetchUserData pausar sig själv här), så utan den här grenen
+              // hade Auth-skärmen bara visats igen.
+              <MfaChallengeScreen onVerify={handleMfaVerify} onCancel={handleMfaCancel} />
             ) : !isLoggedIn ? (
               showLanding
                 ? <LandingPage onEnterApp={() => setShowLanding(false)} />
                 : <Auth onLogin={handleLogin} onBackToLanding={() => setShowLanding(true)} />
+            ) : showOnboarding ? (
+              // Bugkritiskt: `showOnboarding`/handleOnboardingComplete/
+              // handleSkipOnboarding fanns redan helt färdigkopplade (även
+              // "Fortsätt registreringen"-banderollen i Dashboard.jsx satte
+              // showOnboarding=true) — men <OnboardingFlow> renderades
+              // aldrig någonstans, så klicket gjorde bokstavligen ingenting.
+              <OnboardingFlow
+                onComplete={handleOnboardingComplete}
+                onSkip={handleSkipOnboarding}
+                initialCompanyName={company?.name}
+                initialCompanyData={data.companies[data.activeCompanyId]}
+              />
             ) : (
             <div className="app-container">
 
@@ -2111,10 +2549,13 @@ function App() {
 
       {/* ── Sidebar ── */}
       <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`} style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-        {/* Logo */}
+        {/* Logo — klickbar till startsidan, med en tunn linje under (samma
+            låg-kontrast-ton som skiljer nav-grupperna åt nedanför) så den
+            känns avskild från "Startsida" istället för att glida ihop. */}
         <div className="logo-container">
-          <BokixLogo />
+          <BokixLogo onClick={() => handleNavTabChange('dashboard')} />
         </div>
+        <div style={{ height: '1px', background: 'rgba(255,255,255,0.15)', margin: '0 20px 8px', flexShrink: 0 }}></div>
 
         {/* Företagsväxlaren flyttad till Inställningar → Företag (Sida 38) —
             fanns tidigare här som en dropdown i sidomenyn. Byt-företag/
@@ -2131,6 +2572,7 @@ function App() {
               items: [
                 { id: 'dashboard', label: 'Startsida' },
                 { id: 'contacts', label: 'Kunder' },
+                { id: 'quotes', label: 'Offerter' },
                 { id: 'invoices', label: 'Fakturering' },
                 { id: 'expenses', label: 'Utgifter' },
                 { id: 'projects', label: 'Projekt' },
@@ -2238,40 +2680,52 @@ function App() {
             >
               <Menu size={22} />
             </button>
-            <div className="topbar-search">
-              <Search size={16} className="topbar-search-icon" />
-              <input type="text" id="global-search" name="global-search" placeholder="Sök verifikation, faktura, konto eller kund..." aria-label="Sök verifikation, faktura, konto eller kund" className="topbar-search-input" />
-            </div>
+            {/* Företagsnamnet i topbaren togs bort på uttrycklig kundönskan
+                (upplevdes som onödig text i huvudet på varje sida). Vilket
+                företag man jobbar i syns fortfarande via profilmenyns
+                "{company?.name}"-rad och vid företagsbyte (companyList/
+                onSwitchCompany) — bara den passiva textetiketten här är
+                borta. */}
           </div>
 
           <div className="desktop-topbar-right">
-            <button
-              className="btn btn-outline"
-              style={{ fontSize: '13px', padding: '6px 14px', borderRadius: '8px', marginRight: '8px' }}
-              onClick={() => handleGlobalAction('new_verification', 'verifications')}
-            >
-              <Plus size={14} /> Ny verifikation
-            </button>
-            
-            <button className="topbar-icon-btn" title="Hjälp & support">
+            <button className="topbar-icon-btn" title="Hjälp & support" onClick={() => setIsHelpDrawerOpen(true)}>
               <HelpCircle size={18} />
             </button>
-            <button className="topbar-icon-btn" title="Mörkt läge">
-              <Moon size={18} />
+            <button className="topbar-icon-btn" title={theme === 'dark' ? 'Ljust läge' : 'Mörkt läge'} onClick={toggleTheme}>
+              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
             </button>
-            <div style={{ position: 'relative' }}>
-              <button className="topbar-icon-btn" title="Notiser">
+            <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
+              <button className="topbar-icon-btn" title="Notiser" onClick={() => setIsNotifMenuOpen(!isNotifMenuOpen)}>
                 <Bell size={18} />
               </button>
               {notificationCount > 0 && (
-                <span style={{ position: 'absolute', top: 4, right: 4, minWidth: 16, height: 16, padding: '0 4px', backgroundColor: '#ef4444', color: 'white', borderRadius: '999px', fontSize: '9px', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ position: 'absolute', top: 4, right: 4, minWidth: 16, height: 16, padding: '0 4px', backgroundColor: '#ef4444', color: 'white', borderRadius: '999px', fontSize: '9px', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
                   {notificationCount}
                 </span>
+              )}
+              {isNotifMenuOpen && (
+                <div className="profile-dropdown notif-dropdown">
+                  <div className="profile-header" style={{ paddingBottom: 4 }}>
+                    <div className="profile-name">Notiser</div>
+                  </div>
+                  <div className="dropdown-divider"></div>
+                  {notifications.length === 0 ? (
+                    <div style={{ padding: '18px 12px', textAlign: 'center', fontSize: '13px', color: 'var(--text-muted)' }}>Inget nytt just nu</div>
+                  ) : notifications.map((n, i) => (
+                    <button key={i} onClick={() => { handleNavTabChange(n.tab); setIsNotifMenuOpen(false); }}>
+                      <span style={{ width: 26, height: 26, borderRadius: '7px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: `var(--status-${n.tone}-bg)`, color: `var(--status-${n.tone}-text)` }}>
+                        <n.icon size={13} />
+                      </span>
+                      {n.text}
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
 
             <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
-              <div 
+              <div
                 className="topbar-profile-trigger"
                 onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
                 style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', padding: '4px', borderRadius: '8px' }}
@@ -2279,7 +2733,7 @@ function App() {
                 <div className="topbar-avatar" title={user?.email || 'Profil'}>
                   {(company?.name || user?.email || 'A').charAt(0).toUpperCase()}
                 </div>
-                <ChevronDown size={14} style={{ color: '#64748b' }} />
+                <ChevronDown size={14} style={{ color: theme === 'dark' ? 'rgba(255,255,255,0.75)' : 'var(--text-secondary)' }} />
               </div>
               
               {isProfileMenuOpen && (
@@ -2298,17 +2752,26 @@ function App() {
                   <div className="dropdown-divider"></div>
                   <button onClick={() => { handleNavTabChange('profile'); setIsProfileMenuOpen(false); }}><User size={14} /> Profil</button>
                   <button onClick={() => { handleNavTabChange('settings'); setIsProfileMenuOpen(false); }}><SettingsIcon size={14} /> Inställningar</button>
-                  <button onClick={() => { setIsProfileMenuOpen(false); }}><Moon size={14} /> Byt tema</button>
+                  <button onClick={() => { toggleTheme(); setIsProfileMenuOpen(false); }}>
+                    {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />} {theme === 'dark' ? 'Ljust läge' : 'Mörkt läge'}
+                  </button>
                   <div className="dropdown-divider"></div>
                   <button onClick={() => { handleNavTabChange('accounts'); setIsProfileMenuOpen(false); }}><FolderTree size={14} /> Kontoplaner</button>
-                  <button onClick={() => { setIsProfileMenuOpen(false); }}><FileCheck size={14} /> Viktiga datum</button>
+                  {/* Ingen egen "viktiga datum"-sida finns — Skatt & bokslut är
+                      redan där deadlines (momsdeklaration, bokslut) visas, så
+                      det är dit den rimligen ska peka istället för att inte
+                      göra något alls. */}
+                  <button onClick={() => { handleNavTabChange('taxes'); setIsProfileMenuOpen(false); }}><FileCheck size={14} /> Viktiga datum</button>
                   <button onClick={() => { handleNavTabChange('taxes_yearend'); setIsProfileMenuOpen(false); }}><Shield size={14} /> Bokslut & årsredovisning</button>
                   <button onClick={() => { handleNavTabChange('taxes_vat'); setIsProfileMenuOpen(false); }}><Calculator size={14} /> Momsredovisning</button>
                   <div className="dropdown-divider"></div>
-                  <button onClick={() => { setIsProfileMenuOpen(false); }}><AlertTriangle size={14} /> Rapportera fel</button>
+                  {/* Samma mejladress/ämnesrad som felrapport-länken i
+                      HelpDrawer.jsx — en riktig kanal istället för att bara
+                      stänga menyn utan att göra något. */}
+                  <button onClick={() => { window.location.href = 'mailto:support@bokix.se?subject=Felrapport%20-%20Bokix'; setIsProfileMenuOpen(false); }}><AlertTriangle size={14} /> Rapportera fel</button>
                   <button onClick={() => { setIsHelpDrawerOpen(true); setIsProfileMenuOpen(false); }}><HelpCircle size={14} /> Hjälp & support</button>
                   <div className="dropdown-divider"></div>
-                  <button onClick={() => { setIsProfileMenuOpen(false); }}><UsersRound size={14} /> Lägg till företag</button>
+                  <button onClick={() => { setNewCompanyModal(true); setIsProfileMenuOpen(false); }}><UsersRound size={14} /> Lägg till företag</button>
                   <div className="dropdown-divider"></div>
                   <button onClick={async () => {
                     await supabase.auth.signOut();
@@ -2331,17 +2794,102 @@ function App() {
             >
               <Menu size={22} />
             </button>
-            <span className="topbar-page-title">{activeNavLabel}</span>
+            {/* Loggan syntes annars bara efter att man öppnat hamburgermenyn
+                — den vanliga sidomenyn ligger dold bakom en CSS-transform på
+                mobil, inte omonterad. Kompakt variant, samma klick till
+                startsidan som i sidomenyn. */}
+            <BokixLogo compact onClick={() => handleNavTabChange('dashboard')} />
+            {/* topbar-page-title (sidnamnet, t.ex. "Kunder") togs bort här —
+                kundfeedback: det dubblerade sidans egen <h1>-rubrik direkt
+                under, så mobil-topbaren visade "Kunder" två gånger i rad. */}
           </div>
           <div className="global-actions">
+            {/* Kundönskemål: hjälp/tema/notiser/profilmenyn fanns bara i
+                .desktop-top-bar — på mobil fanns ingen väg dit alls förutom
+                Hjälp & support som redan låg i sidomenyns fot. Tema och
+                notiser är för vardagliga för att gömmas bakom hamburgaren,
+                så de får egna ikoner här också; resten av profilmenyns
+                punkter (Profil/Inställningar/Kontoplaner m.fl.) nås via
+                samma avatar-knapp och .profile-dropdown som på desktop —
+                se den mobilanpassade positioneringen i index.css. */}
+            <button className="topbar-icon-btn" title={theme === 'dark' ? 'Ljust läge' : 'Mörkt läge'} onClick={toggleTheme}>
+              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
             <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
-              <button
-                className="btn btn-primary global-plus-btn"
-                onClick={() => setIsGlobalPlusOpen(!isGlobalPlusOpen)}
-                aria-label="Skapa nytt"
-              >
-                <Plus size={18} />
+              <button className="topbar-icon-btn" title="Notiser" onClick={() => setIsNotifMenuOpen(!isNotifMenuOpen)}>
+                <Bell size={18} />
               </button>
+              {notificationCount > 0 && (
+                <span style={{ position: 'absolute', top: 4, right: 4, minWidth: 16, height: 16, padding: '0 4px', backgroundColor: '#ef4444', color: 'white', borderRadius: '999px', fontSize: '9px', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+                  {notificationCount}
+                </span>
+              )}
+              {isNotifMenuOpen && (
+                <div className="profile-dropdown notif-dropdown">
+                  <div className="profile-header" style={{ paddingBottom: 4 }}>
+                    <div className="profile-name">Notiser</div>
+                  </div>
+                  <div className="dropdown-divider"></div>
+                  {notifications.length === 0 ? (
+                    <div style={{ padding: '18px 12px', textAlign: 'center', fontSize: '13px', color: 'var(--text-muted)' }}>Inget nytt just nu</div>
+                  ) : notifications.map((n, i) => (
+                    <button key={i} onClick={() => { handleNavTabChange(n.tab); setIsNotifMenuOpen(false); }}>
+                      <span style={{ width: 26, height: 26, borderRadius: '7px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: `var(--status-${n.tone}-bg)`, color: `var(--status-${n.tone}-text)` }}>
+                        <n.icon size={13} />
+                      </span>
+                      {n.text}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
+              <div
+                className="topbar-profile-trigger"
+                onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+                style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', padding: '4px', borderRadius: '8px' }}
+              >
+                <div className="topbar-avatar" title={user?.email || 'Profil'}>
+                  {(company?.name || user?.email || 'A').charAt(0).toUpperCase()}
+                </div>
+              </div>
+              {isProfileMenuOpen && (
+                <div className="profile-dropdown">
+                  <div className="profile-header">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+                      <div style={{ width: 38, height: 38, borderRadius: '50%', background: BRAND.green, color: 'white', fontSize: '14px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        {(company?.name || user?.email || 'A').charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <div className="profile-name">{company?.name || 'Mitt Företag'}</div>
+                        <div className="profile-role">{user?.email || 'användare@bokix.se'}</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="dropdown-divider"></div>
+                  <button onClick={() => { handleNavTabChange('profile'); setIsProfileMenuOpen(false); }}><User size={14} /> Profil</button>
+                  <button onClick={() => { handleNavTabChange('settings'); setIsProfileMenuOpen(false); }}><SettingsIcon size={14} /> Inställningar</button>
+                  <button onClick={() => { toggleTheme(); setIsProfileMenuOpen(false); }}>
+                    {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />} {theme === 'dark' ? 'Ljust läge' : 'Mörkt läge'}
+                  </button>
+                  <div className="dropdown-divider"></div>
+                  <button onClick={() => { handleNavTabChange('accounts'); setIsProfileMenuOpen(false); }}><FolderTree size={14} /> Kontoplaner</button>
+                  <button onClick={() => { handleNavTabChange('taxes'); setIsProfileMenuOpen(false); }}><FileCheck size={14} /> Viktiga datum</button>
+                  <button onClick={() => { handleNavTabChange('taxes_yearend'); setIsProfileMenuOpen(false); }}><Shield size={14} /> Bokslut & årsredovisning</button>
+                  <button onClick={() => { handleNavTabChange('taxes_vat'); setIsProfileMenuOpen(false); }}><Calculator size={14} /> Momsredovisning</button>
+                  <div className="dropdown-divider"></div>
+                  <button onClick={() => { window.location.href = 'mailto:support@bokix.se?subject=Felrapport%20-%20Bokix'; setIsProfileMenuOpen(false); }}><AlertTriangle size={14} /> Rapportera fel</button>
+                  <button onClick={() => { setIsHelpDrawerOpen(true); setIsProfileMenuOpen(false); }}><HelpCircle size={14} /> Hjälp & support</button>
+                  <div className="dropdown-divider"></div>
+                  <button onClick={() => { setNewCompanyModal(true); setIsProfileMenuOpen(false); }}><UsersRound size={14} /> Lägg till företag</button>
+                  <div className="dropdown-divider"></div>
+                  <button onClick={async () => {
+                    await supabase.auth.signOut();
+                    setIsLoggedIn(false);
+                    setShowOnboarding(false);
+                  }} className="text-danger"><LogOut size={14} /> Logga ut</button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -2454,7 +3002,11 @@ function App() {
 
 
       {/* ── Help Drawer ── */}
-      <HelpDrawer isOpen={isHelpDrawerOpen} onClose={() => setIsHelpDrawerOpen(false)} />
+      <HelpDrawer
+        isOpen={isHelpDrawerOpen}
+        onClose={() => setIsHelpDrawerOpen(false)}
+        onOpenGuide={() => { setIsHelpDrawerOpen(false); setShowOnboarding(true); }}
+      />
 
       {/* ── Toast — ersätter blockerande alert() för t.ex. "Stripe är nu
           ansluten", se stripe_connect-useEffect ── */}

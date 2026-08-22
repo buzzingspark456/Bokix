@@ -5,19 +5,20 @@ import { getCountryOptions, getDefaultCountry, SWEDEN } from '../utils/countries
 import { validateEmailList, isValidIban } from '../utils/validators';
 
 // ─── Delade formulärstilar ─────────────────────────────────────────────────
-const sectionStyle = { background: 'white', borderRadius: '12px', border: '1px solid #e4e4e7', padding: '20px', marginBottom: '16px' };
-const sectionTitleStyle = { fontSize: '13px', fontWeight: 700, color: '#111', margin: '0 0 16px', textTransform: 'uppercase', letterSpacing: '0.03em' };
-const labelStyle = { display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' };
-const helpTextStyle = { fontSize: '12px', color: '#6b7280', marginTop: '6px', lineHeight: 1.5 };
-const errorTextStyle = { fontSize: '12px', color: '#dc2626', marginTop: '6px' };
-const warningBoxStyle = { display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '10px 12px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', fontSize: '12.5px', color: '#92400e', marginTop: '8px', lineHeight: 1.5 };
+const sectionStyle = { background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border)', padding: '20px', marginBottom: '16px' };
+const sectionTitleStyle = { fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 16px', textTransform: 'uppercase', letterSpacing: '0.03em' };
+const labelStyle = { display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' };
+const helpTextStyle = { fontSize: '12px', color: 'var(--text-secondary)', marginTop: '6px', lineHeight: 1.5 };
+const errorTextStyle = { fontSize: '12px', color: 'var(--status-red-text)', marginTop: '6px' };
+const warningBoxStyle = { display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '10px 12px', background: 'var(--status-amber-bg)', border: '1px solid var(--status-amber-bg)', borderRadius: '8px', fontSize: '12.5px', color: 'var(--status-amber-text)', marginTop: '8px', lineHeight: 1.5 };
 const inputBase = {
-  width: '100%', padding: '9px 12px', border: '1px solid #d1d5db',
-  borderRadius: '8px', fontSize: '14px', color: '#111',
+  width: '100%', padding: '9px 12px', border: '1px solid var(--border)',
+  borderRadius: '8px', fontSize: '14px', color: 'var(--text-main)',
+  background: 'var(--bg-card)',
   outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit',
   transition: 'border-color 0.15s'
 };
-function inputStyle(hasError) { return { ...inputBase, borderColor: hasError ? '#ef4444' : '#d1d5db' }; }
+function inputStyle(hasError) { return { ...inputBase, borderColor: hasError ? '#ef4444' : 'var(--border)' }; }
 // gridTemplateColumns lever i CSS-klassen .form-row-2 (index.css) istället
 // för här, så den mobila 1-kolumns-överskrivningen (@media max-width 768px)
 // faktiskt kan träffa — en inline style-egenskap kan aldrig nås av en
@@ -95,7 +96,7 @@ function CustomerForm({ initial, onSave, onCancel }) {
   return (
     <form onSubmit={handleSubmit}>
       <Section title="Kundtyp">
-        <select value={form.customerType} onChange={e => handleTypeChange(e.target.value)} style={{ ...inputBase, background: 'white' }}>
+        <select value={form.customerType} onChange={e => handleTypeChange(e.target.value)} style={{ ...inputBase, background: 'var(--bg-card)' }}>
           {CUSTOMER_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
         </select>
         <p style={helpTextStyle}>Kundtypen påverkar hur moms hanteras på fakturor.</p>
@@ -173,7 +174,7 @@ function CustomerForm({ initial, onSave, onCancel }) {
           </div>
           <div style={{ gridColumn: '1 / 3' }}>
             <label style={labelStyle}>Land</label>
-            <select value={form.country} onChange={e => set('country', e.target.value)} style={{ ...inputBase, background: 'white' }}>
+            <select value={form.country} onChange={e => set('country', e.target.value)} style={{ ...inputBase, background: 'var(--bg-card)' }}>
               {countryOptions.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
@@ -201,7 +202,7 @@ function CustomerForm({ initial, onSave, onCancel }) {
       </Section>
 
       <Section title="Fakturaspråk">
-        <select value={form.invoiceLanguage} onChange={e => set('invoiceLanguage', e.target.value)} style={{ ...inputBase, background: 'white' }}>
+        <select value={form.invoiceLanguage} onChange={e => set('invoiceLanguage', e.target.value)} style={{ ...inputBase, background: 'var(--bg-card)' }}>
           <option value="sv">Svenska</option>
           <option value="en">Engelska</option>
         </select>
@@ -278,7 +279,7 @@ function SupplierForm({ initial, onSave, onCancel, accounts }) {
   return (
     <form onSubmit={handleSubmit}>
       <Section title="Leverantörstyp">
-        <select value={form.supplierType} onChange={e => handleTypeChange(e.target.value)} style={{ ...inputBase, background: 'white' }}>
+        <select value={form.supplierType} onChange={e => handleTypeChange(e.target.value)} style={{ ...inputBase, background: 'var(--bg-card)' }}>
           {SUPPLIER_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
         </select>
         <p style={helpTextStyle}>Ingående moms för leverantörsfakturor hanteras separat i flödet för Kvitto och utgifter.</p>
@@ -344,7 +345,7 @@ function SupplierForm({ initial, onSave, onCancel, accounts }) {
           </div>
           <div style={{ gridColumn: '1 / 3' }}>
             <label style={labelStyle}>Land</label>
-            <select value={form.country} onChange={e => set('country', e.target.value)} style={{ ...inputBase, background: 'white' }}>
+            <select value={form.country} onChange={e => set('country', e.target.value)} style={{ ...inputBase, background: 'var(--bg-card)' }}>
               {countryOptions.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
@@ -364,7 +365,7 @@ function SupplierForm({ initial, onSave, onCancel, accounts }) {
                 <input type="text" value={form.plusgiro} onChange={e => set('plusgiro', e.target.value)} style={inputBase} placeholder="12 34 56-7" />
               </div>
             </div>
-            <button type="button" onClick={() => set('showMorePayment', !form.showMorePayment)} style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'none', border: 'none', color: '#1a3028', fontSize: '13px', fontWeight: 600, cursor: 'pointer', padding: '10px 0 0' }}>
+            <button type="button" onClick={() => set('showMorePayment', !form.showMorePayment)} style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'none', border: 'none', color: 'var(--text-main)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', padding: '10px 0 0' }}>
               <ChevronDown size={14} style={{ transform: form.showMorePayment ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
               Fler betalningsalternativ
             </button>
@@ -404,7 +405,7 @@ function SupplierForm({ initial, onSave, onCancel, accounts }) {
       </Section>
 
       <Section title="Standardvaluta">
-        <select value={form.defaultCurrency} onChange={e => set('defaultCurrency', e.target.value)} style={{ ...inputBase, background: 'white' }}>
+        <select value={form.defaultCurrency} onChange={e => set('defaultCurrency', e.target.value)} style={{ ...inputBase, background: 'var(--bg-card)' }}>
           {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
       </Section>
@@ -421,7 +422,7 @@ function SupplierForm({ initial, onSave, onCancel, accounts }) {
 function FormActions({ onCancel, label }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', paddingTop: '4px' }}>
-      <button type="button" onClick={onCancel} style={{ padding: '9px 18px', background: 'white', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', fontWeight: 600, color: '#374151', cursor: 'pointer' }}>
+      <button type="button" onClick={onCancel} style={{ padding: '9px 18px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer' }}>
         Avbryt
       </button>
       <button type="submit" style={{ padding: '9px 18px', background: '#1a3028', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600, color: 'white', cursor: 'pointer' }}>
@@ -514,14 +515,14 @@ export default function Contacts({ contacts, setContacts, accounts = [], globalA
   const entityCount = contacts.filter(c => c.type === activeTab).length;
 
   return (
-    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: '#f0f2f5' }}>
+    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
       {/* ── Header & Tabs ── */}
-      <div style={{ background: 'white', borderBottom: '1px solid #ddd', padding: '0 20px', flexShrink: 0 }}>
+      <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '0 20px', flexShrink: 0 }}>
         {/* Sida 38, punkt 6 */}
         <div className="page-header-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0 0' }}>
           <div>
-            <h1 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: '#0f172a' }}>{title}</h1>
-            <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#888' }}>
+            <h1 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: 'var(--text-main)' }}>{title}</h1>
+            <p style={{ margin: '2px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>
               {entityCount} {activeTab === 'customer' ? (entityCount === 1 ? 'kund' : 'kunder') : (entityCount === 1 ? 'leverantör' : 'leverantörer')}
             </p>
           </div>
@@ -536,44 +537,56 @@ export default function Contacts({ contacts, setContacts, accounts = [], globalA
             <button key={t.id} onClick={() => handleSetTab(t.id)} style={{
               padding: '10px 18px', border: 'none', cursor: 'pointer', fontSize: '13px',
               fontWeight: activeTab === t.id ? 700 : 500,
-              color: activeTab === t.id ? '#1a3028' : '#666',
+              color: activeTab === t.id ? 'var(--text-main)' : 'var(--text-secondary)',
               background: 'none',
-              borderBottom: activeTab === t.id ? '3px solid #1a3028' : '3px solid transparent',
+              borderBottom: activeTab === t.id ? '3px solid #3d7a2e' : '3px solid transparent',
               marginBottom: '-1px',
             }}>{t.label}</button>
           ))}
         </div>
       </div>
 
-      {/* ── Content Area ── */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
+      {/* ── Content Area ──
+          `display:flex, flexDirection:column` tillagt (kundfeedback,
+          "white space"-genomgången) — tomt-läget nedan ("Inga kunder ännu")
+          är nu ett `flex:1`-block som centrerar sig i den lediga ytan
+          istället för att bara flyta högst upp med en stor tom sidbakgrund
+          under, samma mönster som Quotes.jsx:s InvoiceEmptyState-liknande
+          fix. Påverkar inte listläget (tabellen behåller sin naturliga
+          höjd, flex-grow:0 som standard). */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column' }}>
         {viewState === 'list' ? (
           <>
             {filtered.length > 0 || searchTerm ? (
-              <>
+              /* Kundfeedback: en lista med resultat ska INTE centreras
+                 lodrätt (försökte det — kändes bara fel, "sämst") — bara
+                 det HELT tomma läget (grenen nedan) ska centreras. En
+                 populerad (om än kort) lista ligger kvar uppe vid
+                 sök/toppen, som en vanlig tabellsida. */
+              <div style={{ width: '100%' }}>
                 {/* .page-header-row (Sida 38, punkt 6) */}
                 <div className="page-header-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
                   <div style={{ position: 'relative' }}>
-                    <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
-                    <input type="text" placeholder={`Sök ${activeTab === 'customer' ? 'kund' : 'leverantör'}...`} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{ padding: '9px 12px 9px 36px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', outline: 'none', width: '260px', background: 'white' }} />
+                    <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                    <input type="text" placeholder={`Sök ${activeTab === 'customer' ? 'kund' : 'leverantör'}...`} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{ padding: '9px 12px 9px 36px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '14px', outline: 'none', width: '260px', background: 'var(--bg-card)' }} />
                   </div>
                 </div>
 
-                <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e4e4e7', overflow: 'hidden' }}>
+                <div style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border)', overflow: 'hidden' }}>
                   {/* .responsive-table (Sida 38, punkt 1, komplettering — se
                       samma kommentar i SupplierInvoices.jsx) */}
                   <table className="responsive-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
-                      <tr style={{ background: '#f8fafc' }}>
+                      <tr style={{ background: 'var(--bg-muted)' }}>
                         {['Namn', 'Org.nummer', 'Kontaktperson', activeTab === 'customer' ? 'Senaste faktura' : 'Senaste inköp', activeTab === 'customer' ? 'Fakturerat i år' : 'Inköpt i år', 'Status'].map(h => (
-                          <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid #e4e4e7', whiteSpace: 'nowrap' }}>{h}</th>
+                          <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {filtered.length === 0 ? (
                         <tr>
-                          <td colSpan={6} style={{ padding: '40px', textAlign: 'center', color: '#9ca3af', fontSize: '14px' }}>
+                          <td colSpan={6} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '14px' }}>
                             Ingen matchade sökningen
                           </td>
                         </tr>
@@ -582,10 +595,10 @@ export default function Contacts({ contacts, setContacts, accounts = [], globalA
                           key={c.id}
                           onClick={() => openDetail(c)}
                           style={{
-                            borderBottom: i < filtered.length - 1 ? '1px solid #f1f5f9' : 'none',
+                            borderBottom: i < filtered.length - 1 ? '1px solid var(--border-light)' : 'none',
                             cursor: 'pointer', transition: 'background 0.1s'
                           }}
-                          onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+                          onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-muted)'}
                           onMouseLeave={e => e.currentTarget.style.background = ''}
                         >
                           <td data-label="Namn" style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>
@@ -598,13 +611,13 @@ export default function Contacts({ contacts, setContacts, accounts = [], globalA
                               }}>
                                 {(c.name || 'K').charAt(0).toUpperCase()}
                               </div>
-                              <span style={{ fontWeight: 600, color: '#111', fontSize: '14px' }}>{c.name}</span>
+                              <span style={{ fontWeight: 600, color: 'var(--text-main)', fontSize: '14px' }}>{c.name}</span>
                             </div>
                           </td>
-                          <td data-label="Org.nummer" style={{ padding: '14px 16px', color: '#6b7280', fontSize: '13px', whiteSpace: 'nowrap' }}>{c.orgNr || '—'}</td>
-                          <td data-label="Kontaktperson" style={{ padding: '14px 16px', color: '#6b7280', fontSize: '13px', whiteSpace: 'nowrap' }}>{c.contactPerson || c.email || '—'}</td>
-                          <td data-label={activeTab === 'customer' ? 'Senaste faktura' : 'Senaste inköp'} style={{ padding: '14px 16px', color: '#6b7280', fontSize: '13px', whiteSpace: 'nowrap' }}>{c.lastInvoiceDate || '—'}</td>
-                          <td data-label={activeTab === 'customer' ? 'Fakturerat i år' : 'Inköpt i år'} style={{ padding: '14px 16px', color: '#111', fontSize: '13px', fontWeight: 500, whiteSpace: 'nowrap' }}>
+                          <td data-label="Org.nummer" style={{ padding: '14px 16px', color: 'var(--text-secondary)', fontSize: '13px', whiteSpace: 'nowrap' }}>{c.orgNr || '—'}</td>
+                          <td data-label="Kontaktperson" style={{ padding: '14px 16px', color: 'var(--text-secondary)', fontSize: '13px', whiteSpace: 'nowrap' }}>{c.contactPerson || c.email || '—'}</td>
+                          <td data-label={activeTab === 'customer' ? 'Senaste faktura' : 'Senaste inköp'} style={{ padding: '14px 16px', color: 'var(--text-secondary)', fontSize: '13px', whiteSpace: 'nowrap' }}>{c.lastInvoiceDate || '—'}</td>
+                          <td data-label={activeTab === 'customer' ? 'Fakturerat i år' : 'Inköpt i år'} style={{ padding: '14px 16px', color: 'var(--text-main)', fontSize: '13px', fontWeight: 500, whiteSpace: 'nowrap' }}>
                             {c.totalInvoicedThisYear
                               ? new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(c.totalInvoicedThisYear)
                               : '0 kr'}
@@ -613,8 +626,8 @@ export default function Contacts({ contacts, setContacts, accounts = [], globalA
                             <span style={{
                               display: 'inline-flex', alignItems: 'center', gap: '5px',
                               padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600,
-                              background: c.active !== false ? '#dcfce7' : '#f3f4f6',
-                              color: c.active !== false ? '#15803d' : '#6b7280'
+                              background: c.active !== false ? 'var(--status-green-bg)' : 'var(--border-light)',
+                              color: c.active !== false ? 'var(--status-green-text)' : 'var(--text-secondary)'
                             }}>
                               {c.active !== false ? <CheckCircle2 size={11} /> : <XCircle size={11} />}
                               {c.active !== false ? 'Aktiv' : 'Inaktiv'}
@@ -625,16 +638,16 @@ export default function Contacts({ contacts, setContacts, accounts = [], globalA
                     </tbody>
                   </table>
                 </div>
-              </>
+              </div>
             ) : (
-              <div style={{ padding: '64px', textAlign: 'center', background: 'white', borderRadius: '12px', border: '1px dashed #cbd5e1' }}>
-                <div style={{ width: 80, height: 80, borderRadius: '50%', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', color: '#94a3b8' }}>
+              <div style={{ flex: 1, minHeight: '320px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '48px 24px', background: 'var(--bg-card)', borderRadius: '12px', border: '1px dashed var(--text-muted)' }}>
+                <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', color: 'var(--text-muted)' }}>
                   {activeTab === 'customer' ? <Users size={32} /> : <Truck size={32} />}
                 </div>
-                <h3 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 8px', color: '#111' }}>
+                <h3 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 8px', color: 'var(--text-main)' }}>
                   {activeTab === 'customer' ? 'Inga kunder ännu' : 'Inga leverantörer ännu'}
                 </h3>
-                <p style={{ color: '#64748b', fontSize: '14px', margin: '0 0 24px', maxWidth: '300px', marginLeft: 'auto', marginRight: 'auto' }}>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '14px', margin: '0 0 24px', maxWidth: '300px', marginLeft: 'auto', marginRight: 'auto' }}>
                   Lägg till din första {activeTab === 'customer' ? 'kund' : 'leverantör'} för att komma igång
                 </p>
                 <button onClick={() => openNewForm(activeTab)} style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '10px 20px', background: '#1a3028', color: 'white', border: 'none', borderRadius: '9px', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}>
@@ -646,9 +659,9 @@ export default function Contacts({ contacts, setContacts, accounts = [], globalA
         ) : (
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-              <button onClick={() => setViewState('list')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', fontSize: '13px', padding: 0 }}>← Tillbaka</button>
-              <span style={{ color: '#d1d5db' }}>|</span>
-              <h2 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: '#111' }}>
+              <button onClick={() => setViewState('list')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '13px', padding: 0 }}>← Tillbaka</button>
+              <span style={{ color: 'var(--border)' }}>|</span>
+              <h2 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>
                 {viewState === 'new'
                   ? (activeTab === 'customer' ? 'Ny kund' : 'Ny leverantör')
                   : (activeTab === 'customer' ? 'Redigera kund' : 'Redigera leverantör')}

@@ -21,7 +21,7 @@ const Drawer = ({ isOpen, onClose, title, children, width = '420px' }) => {
       <div
         style={{
           position: 'fixed', top: 0, right: 0, bottom: 0, width, maxWidth: '100vw',
-          background: 'white', boxShadow: 'var(--shadow-lg)', zIndex: 1001,
+          background: 'var(--bg-card)', boxShadow: 'var(--shadow-lg)', zIndex: 1001,
           display: 'flex', flexDirection: 'column', animation: 'slideInFromRight 0.25s var(--ease)',
         }}
         onClick={(e) => e.stopPropagation()}
@@ -37,7 +37,7 @@ const Drawer = ({ isOpen, onClose, title, children, width = '420px' }) => {
             <X size={20} />
           </button>
         </div>
-        <div style={{ flex: 1, overflowY: 'auto', padding: '22px', background: 'var(--gray-25)' }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '22px', background: 'var(--bg-page)' }}>
           {children}
         </div>
       </div>

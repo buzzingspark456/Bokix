@@ -105,12 +105,49 @@ export function createDemoSeed() {
       country: 'Sverige', orgNr: '556890-1234', vatNumber: '', paymentTerms: 30, invoiceLanguage: 'sv',
       notes: '', active: true,
     },
+    // demo_c4–c6: kundlistan hade bara 2 kunder mot fakturerings-/utgifts-
+    // sidornas 6+ rader — kundfeedback: gjorde bara Kunder-sidan (och bara
+    // den) se konstigt tom ut, en liten tabell som flöt i ett stort tomt
+    // sidbakgrunds-område. Ingen egen CSS-bugg (samma flex:1-mönster som
+    // alla andra sidor, se Contacts.jsx) — bara för lite exempeldata.
+    // Refereras inte av några fakturor/kvitton/projekt, så de påverkar
+    // aldrig Startsidans belopp, bara gör kundlistan lika fylld som
+    // resten av demot.
+    {
+      id: 'demo_c4', type: 'customer', customerType: 'se_company', name: 'Norrqvist Redovisning AB',
+      customerNumber: '1003', contactPerson: 'Johan Norrqvist', email: 'johan@norrqvistredovisning.se',
+      phone: '070-234 56 78', address: 'Drottninggatan 22', postalCode: '702 10', city: 'Örebro',
+      country: 'Sverige', orgNr: '556112-3344', vatNumber: '', paymentTerms: 30, invoiceLanguage: 'sv',
+      notes: '', active: true,
+    },
+    {
+      id: 'demo_c5', type: 'customer', customerType: 'se_company', name: 'Lindgren Fastigheter AB',
+      customerNumber: '1004', contactPerson: 'Anna Lindgren', email: 'anna@lindgrenfastigheter.se',
+      phone: '072-345 67 89', address: 'Storgatan 15', postalCode: '211 34', city: 'Malmö',
+      country: 'Sverige', orgNr: '556778-9012', vatNumber: '', paymentTerms: 20, invoiceLanguage: 'sv',
+      notes: '', active: true,
+    },
+    {
+      id: 'demo_c6', type: 'customer', customerType: 'se_company', name: 'Ekström Konsult AB',
+      customerNumber: '1005', contactPerson: 'Peter Ekström', email: 'peter@ekstromkonsult.se',
+      phone: '076-456 78 90', address: 'Karlavägen 6', postalCode: '114 31', city: 'Stockholm',
+      country: 'Sverige', orgNr: '556334-5566', vatNumber: '', paymentTerms: 30, invoiceLanguage: 'sv',
+      notes: '', active: true,
+    },
     {
       id: 'demo_c3', type: 'supplier', supplierType: 'se_company', name: 'Kontorsmax AB',
       contactPerson: 'Kundtjänst', email: 'faktura@kontorsmax.se', phone: '08-555 12 34',
       address: 'Industrivägen 8', postalCode: '171 48', city: 'Solna', country: 'Sverige',
       orgNr: '556456-7890', vatNumber: '',
       bankgiro: '123-4567', plusgiro: '', clearingNumber: '', accountNumber: '', iban: '', swift: '',
+      showMorePayment: false, defaultAccount: '6110', defaultCurrency: 'SEK', notes: '', active: true,
+    },
+    {
+      id: 'demo_c7', type: 'supplier', supplierType: 'se_company', name: 'Nordisk Kontorsservice AB',
+      contactPerson: 'Kundtjänst', email: 'faktura@nordiskkontorsservice.se', phone: '08-444 21 09',
+      address: 'Lagervägen 3', postalCode: '162 29', city: 'Vällingby', country: 'Sverige',
+      orgNr: '556223-4455', vatNumber: '',
+      bankgiro: '234-5678', plusgiro: '', clearingNumber: '', accountNumber: '', iban: '', swift: '',
       showMorePayment: false, defaultAccount: '6110', defaultCurrency: 'SEK', notes: '', active: true,
     },
   ];

@@ -4,14 +4,14 @@ import Accounts from './Accounts';
 
 function TabBar({ tabs, active, onChange }) {
   return (
-    <div style={{ display: 'flex', gap: '2px', borderBottom: '1px solid #e5e7eb', marginBottom: '24px' }}>
+    <div style={{ display: 'flex', gap: '2px', borderBottom: '1px solid var(--border)', marginBottom: '24px' }}>
       {tabs.map(t => (
         <button key={t.id} onClick={() => onChange(t.id)} style={{
           position: 'relative',
           padding: '10px 18px', background: 'none', border: 'none',
           borderBottom: active === t.id ? '2px solid #2563eb' : '2px solid transparent',
           fontSize: '13px', fontWeight: active === t.id ? 700 : 500,
-          color: active === t.id ? '#111827' : '#6b7280',
+          color: active === t.id ? 'var(--text-main)' : 'var(--text-secondary)',
           cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s', marginBottom: '-1px',
           display: 'flex', alignItems: 'center', gap: '6px'
         }}>
@@ -48,10 +48,10 @@ export default function Bokforing({ verifications, accounts, balances, onAdd, se
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
       <div style={{ marginBottom: '4px' }}>
-        <h1 style={{ fontSize: '24px', fontWeight: 700, letterSpacing: '-0.04em', color: '#111827', marginBottom: '4px' }}>
+        <h1 style={{ fontSize: '24px', fontWeight: 700, letterSpacing: '-0.04em', color: 'var(--text-main)', marginBottom: '4px' }}>
           Bokföring
         </h1>
-        <p style={{ color: '#9ca3af', fontSize: '13.5px' }}>Verifikationer, kontoplan och bokföringsposter</p>
+        <p style={{ color: 'var(--text-muted)', fontSize: '13.5px' }}>Verifikationer, kontoplan och bokföringsposter</p>
       </div>
 
       <TabBar tabs={tabs} active={pageTab} onChange={setPageTab} />

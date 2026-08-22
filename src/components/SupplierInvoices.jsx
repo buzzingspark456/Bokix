@@ -28,12 +28,12 @@ function parseAmount(str) {
 }
 
 const inputSt = {
-  width: '100%', padding: '9px 12px', border: '1px solid #d1d5db', borderRadius: '8px',
+  width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: '8px',
   fontSize: '14px', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit',
 };
-function inputStErr(hasError) { return { ...inputSt, borderColor: hasError ? '#ef4444' : '#d1d5db' }; }
+function inputStErr(hasError) { return { ...inputSt, borderColor: hasError ? '#ef4444' : 'var(--border)' }; }
 const labelSt = { display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' };
-const errSt = { fontSize: '12px', color: '#dc2626', marginTop: '4px' };
+const errSt = { fontSize: '12px', color: 'var(--status-red-text)', marginTop: '4px' };
 
 function StatusBadge({ status }) {
   const map = {
@@ -53,10 +53,10 @@ function SupplierCombo({ value, onChange, contacts, setContacts }) {
 
   if (creating) {
     return (
-      <div style={{ border: '1px dashed #cbd5e1', borderRadius: '8px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      <div style={{ border: '1px dashed var(--text-muted)', borderRadius: '8px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
         <input autoFocus value={newName} onChange={e => setNewName(e.target.value)} placeholder="Leverantörens namn" style={inputSt} />
         <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-          <button type="button" onClick={() => { setCreating(false); setNewName(''); }} style={{ padding: '6px 12px', background: 'none', border: 'none', color: '#6b7280', fontSize: '13px', cursor: 'pointer' }}>Avbryt</button>
+          <button type="button" onClick={() => { setCreating(false); setNewName(''); }} style={{ padding: '6px 12px', background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '13px', cursor: 'pointer' }}>Avbryt</button>
           <button
             type="button" disabled={!newName.trim()}
             onClick={() => {
@@ -69,7 +69,7 @@ function SupplierCombo({ value, onChange, contacts, setContacts }) {
               onChange(id);
               setCreating(false); setNewName('');
             }}
-            style={{ padding: '6px 14px', background: newName.trim() ? BRAND.green : '#e5e7eb', border: 'none', borderRadius: '6px', color: newName.trim() ? 'white' : '#9ca3af', fontSize: '13px', fontWeight: 600, cursor: newName.trim() ? 'pointer' : 'not-allowed' }}
+            style={{ padding: '6px 14px', background: newName.trim() ? BRAND.green : 'var(--border)', border: 'none', borderRadius: '6px', color: newName.trim() ? 'white' : 'var(--text-muted)', fontSize: '13px', fontWeight: 600, cursor: newName.trim() ? 'pointer' : 'not-allowed' }}
           >Lägg till</button>
         </div>
       </div>
@@ -77,7 +77,7 @@ function SupplierCombo({ value, onChange, contacts, setContacts }) {
   }
 
   return (
-    <select value={value} onChange={e => e.target.value === '__new__' ? setCreating(true) : onChange(e.target.value)} style={{ ...inputSt, background: 'white' }}>
+    <select value={value} onChange={e => e.target.value === '__new__' ? setCreating(true) : onChange(e.target.value)} style={{ ...inputSt, background: 'var(--bg-card)' }}>
       <option value="">Välj leverantör...</option>
       {suppliers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
       <option value="__new__">+ Lägg till ny leverantör...</option>
@@ -277,12 +277,12 @@ function PaySupplierInvoiceModal({ invoice, contacts, onNavigate, onConfirm, onC
 
           {/* Kort (Stripe) — Kommer snart, se kommentar ovanför komponenten */}
           <div style={{ border: '1px solid var(--border)', borderRadius: '10px', padding: '18px', opacity: 0.6, display: 'flex', flexDirection: 'column' }}>
-            <CreditCard size={20} color="#9ca3af" />
-            <div style={{ fontWeight: 700, fontSize: '14px', color: '#374151', margin: '10px 0 8px' }}>Kort (Stripe)</div>
-            <p style={{ fontSize: '12px', color: '#9ca3af', lineHeight: 1.5, margin: '0 0 16px', flex: 1 }}>
+            <CreditCard size={20} color="var(--text-muted)" />
+            <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)', margin: '10px 0 8px' }}>Kort (Stripe)</div>
+            <p style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.5, margin: '0 0 16px', flex: 1 }}>
               Kräver en annan Stripe-produkt (utbetalningar till leverantörer) än den som redan tar emot kortbetalningar från era kunder — inte byggt ännu.
             </p>
-            <button disabled style={{ width: '100%', padding: '9px 12px', background: '#f1f5f9', color: '#9ca3af', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '13px', cursor: 'not-allowed' }}>
+            <button disabled style={{ width: '100%', padding: '9px 12px', background: 'var(--border-light)', color: 'var(--text-muted)', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '13px', cursor: 'not-allowed' }}>
               Kommer snart
             </button>
           </div>
@@ -374,22 +374,22 @@ export default function SupplierInvoices({
       <div className="page-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', margin: '20px 0 16px' }}>
         <div style={{ position: 'relative' }}>
           <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-          <input type="text" placeholder="Sök leverantörsfaktura..." value={search} onChange={e => setSearch(e.target.value)} style={{ ...inputSt, paddingLeft: '36px', width: '260px', background: 'white' }} />
+          <input type="text" placeholder="Sök leverantörsfaktura..." value={search} onChange={e => setSearch(e.target.value)} style={{ ...inputSt, paddingLeft: '36px', width: '260px', background: 'var(--bg-card)' }} />
         </div>
         <button onClick={() => setShowForm(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: BRAND.green, color: 'white', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 500, cursor: 'pointer', flexShrink: 0 }}>
           <Plus size={15} /> Ny leverantörsfaktura
         </button>
       </div>
 
-      <div style={{ background: 'white', borderRadius: '12px', border: '1px solid var(--border)', overflow: 'hidden' }}>
+      <div style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border)', overflow: 'hidden' }}>
         {/* Sida 38, punkt 1 (komplettering): den här tabellen missades i den
             tidigare kortlist-omgången — samma responsive-table-mönster som
             Fakturor/Kontoplan/Bokföring nu använder. */}
         <table className="responsive-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
-            <tr style={{ background: '#f8fafc' }}>
+            <tr style={{ background: 'var(--bg-muted)' }}>
               {['Leverantör', 'Fakturanummer', 'Fakturadatum', 'Förfallodatum', 'Belopp', 'Status', ''].map(h => (
-                <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid var(--border)' }}>{h}</th>
+                <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid var(--border)' }}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -405,14 +405,14 @@ export default function SupplierInvoices({
               const effectivelyPaid = inv.status === 'paid' || optimisticPaid[inv.id];
               const isOverdue = !effectivelyPaid && inv.dueDate && new Date(inv.dueDate) < new Date();
               return (
-                <tr key={inv.id} style={{ borderBottom: i < filtered.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
-                  <td data-label="Leverantör" style={{ padding: '14px 16px', fontWeight: 600, color: '#111', fontSize: '14px' }}>
+                <tr key={inv.id} style={{ borderBottom: i < filtered.length - 1 ? '1px solid var(--border-light)' : 'none' }}>
+                  <td data-label="Leverantör" style={{ padding: '14px 16px', fontWeight: 600, color: 'var(--text-main)', fontSize: '14px' }}>
                     {contacts.find(c => c.id === inv.supplierId)?.name || inv.supplier || 'Okänd leverantör'}
                   </td>
-                  <td data-label="Fakturanummer" style={{ padding: '14px 16px', color: '#374151', fontSize: '13px' }}>#{inv.invoiceNumber}</td>
-                  <td data-label="Fakturadatum" style={{ padding: '14px 16px', color: '#6b7280', fontSize: '13px' }}>{formatDate(inv.date)}</td>
-                  <td data-label="Förfallodatum" style={{ padding: '14px 16px', color: isOverdue ? '#ef4444' : '#6b7280', fontSize: '13px', fontWeight: isOverdue ? 600 : 400 }}>{formatDate(inv.dueDate)}</td>
-                  <td data-label="Belopp" style={{ padding: '14px 16px', fontWeight: 600, color: '#111' }}>{formatSEK(inv.amount)}</td>
+                  <td data-label="Fakturanummer" style={{ padding: '14px 16px', color: 'var(--text-main)', fontSize: '13px' }}>#{inv.invoiceNumber}</td>
+                  <td data-label="Fakturadatum" style={{ padding: '14px 16px', color: 'var(--text-secondary)', fontSize: '13px' }}>{formatDate(inv.date)}</td>
+                  <td data-label="Förfallodatum" style={{ padding: '14px 16px', color: isOverdue ? '#ef4444' : 'var(--text-secondary)', fontSize: '13px', fontWeight: isOverdue ? 600 : 400 }}>{formatDate(inv.dueDate)}</td>
+                  <td data-label="Belopp" style={{ padding: '14px 16px', fontWeight: 600, color: 'var(--text-main)' }}>{formatSEK(inv.amount)}</td>
                   <td data-label="Status" style={{ padding: '14px 16px' }}>
                     {needsReview
                       ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: BRAND.amberBg, color: BRAND.amberText }}><AlertCircle size={12} /> Granska</span>

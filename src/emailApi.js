@@ -1,11 +1,19 @@
+import { supabase } from './supabaseClient';
+
 /** Samma request-mönster som stripeApi.js — en tunn wrapper runt fetch mot
  * backendens egna /api/-rutter, inte mot tredjepartstjänsten direkt (API-
- * nyckeln till Resend ska aldrig hamna i webbläsaren). */
+ * nyckeln till Resend ska aldrig hamna i webbläsaren).
+ *
+ * Säkerhetsfix: skickar nu alltid med den inloggade sessionens access-
+ * token — send-invoice.js (se dess egen kommentar) kräver den numera för
+ * att veta VEM som skickar, inte bara vad body:n påstår. */
 async function requestEmailApi(path, body) {
+  const { data: { session } = {} } = await supabase.auth.getSession();
   const response = await fetch(`/api/email/${path}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
     },
     body: JSON.stringify(body),
   });
@@ -50,9 +58,15 @@ export async function createEmailDomain(domain) {
 
 /** Live-koll av en domäns verifieringsstatus — samma anrop appen gör
  * server-side vid varje utskick, så statusen i Inställningar aldrig visar
- * något annat än vad ett faktiskt utskick just nu skulle använda. */
-export async function getEmailDomainStatus(domainId) {
-  const response = await fetch(`/api/email/domains/status?id=${encodeURIComponent(domainId)}`);
+ * något annat än vad ett faktiskt utskick just nu skulle använda.
+ * `companyId` krävs numera (säkerhetsfix, se status.js) — servern kollar
+ * att domänen faktiskt tillhör det företaget innan den svarar. */
+export async function getEmailDomainStatus(domainId, companyId) {
+  const { data: { session } = {} } = await supabase.auth.getSession();
+  const params = new URLSearchParams({ id: domainId, company_id: companyId || '' });
+  const response = await fetch(`/api/email/domains/status?${params.toString()}`, {
+    headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
+  });
   let payload = {};
   try {
     payload = await response.json();

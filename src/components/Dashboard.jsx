@@ -1,9 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import {
   FileText, Receipt, TrendingUp, TrendingDown,
-  ChevronRight, Download, ArrowUpRight, ArrowDownRight,
+  ChevronRight, ArrowUpRight, ArrowDownRight,
   CheckCircle, CheckCircle2, Minus, BarChart2,
-  UserPlus, Users, Clock, AlertCircle, Zap
+  UserPlus, Users, Clock, AlertCircle, Zap, X
 } from 'lucide-react';
 import {
   BarChart, Bar,
@@ -13,29 +13,60 @@ import {
 import { getDebet, getKredit } from '../utils/verificationAmounts';
 import { quarterToRange } from '../utils/vatCalculation';
 import { getGreeting } from '../utils/greeting';
-import { BRAND } from '../utils/brandColors';
+import { BRAND, KPI_GRADIENTS } from '../utils/brandColors';
 import { useIsMobileViewport } from '../hooks/useIsMobileViewport';
 
-/* ── Färger (Sida 30): grönt för intäkter/positivt kassaflöde, rött för
-   utgifter/kostnader — konsekvent i hela appen, inte längre blått/orange.
-   Två nyanser per färg: en ljusare "grafisk" ton för linjer/stapelfyllnad
-   (kräver bara 3:1-kontrast enligt WCAG AA för grafiska element) och en
-   mörkare ton från BRAND för text på ljus bakgrund (kräver 4.5:1). Verifierat:
-   #E24B4A mot vitt ≈ 3.9:1 — gott och väl godkänt för grafiska element,
-   men medvetet ALDRIG använt som brödtextfärg — se REVENUE/EXPENSE nedan
-   kontra BRAND.greenDark/BRAND.redText. ── */
+/* ── Färger (Sida 30): grönt för positivt/rött för negativt, konsekvent i
+   hela appen. Två nyanser per färg: en ljusare "grafisk" ton för linjer/
+   stapelfyllnad (kräver bara 3:1-kontrast enligt WCAG AA för grafiska
+   element) och en mörkare ton från BRAND för text på ljus bakgrund (kräver
+   4.5:1). Verifierat: #E24B4A mot vitt ≈ 3.9:1 — gott och väl godkänt för
+   grafiska element, men medvetet ALDRIG använt som brödtextfärg — se
+   REVENUE/EXPENSE nedan kontra BRAND.greenDark/BRAND.redText.
+   OBS: REVENUE/EXPENSE används numera bara för Resultat-läget (en enda
+   stapelserie som pekar upp/ner — position mot nollinjen bär identiteten,
+   färgen är bara sekundär bekräftelse). De dög INTE för Intäkter/Utgifter-
+   läget där två serier ligger sida vid sida och måste kunna särskiljas på
+   färgen ensam: validate_palette.js gav ΔE 2.1 för deuteranopi — långt under
+   golvet på 6. Den kategoriska jämförelsen använder CHART_REVENUE/
+   CHART_EXPENSE istället (ΔE 12.4, godkänt både ljust och mörkt). ── */
 const REVENUE = '#639922';
 const EXPENSE = '#E24B4A';
 const LIME_L  = BRAND.greenLight;
 const RED_L   = BRAND.redBg;
 
 // Djärvare, mer "glad" variant av de tre resultaträkningskorten (Sida 33) —
-// fyllda gradientytor istället för vitt kort + liten ikon-chip. Fortfarande
-// samma två semantiska hörn som resten av appen (grönt = positivt, rosa/rött
-// = kostnad), bara mer mättat. Vit text på dessa mörka gradienter ligger
-// gott och väl över 4.5:1 i båda ändarna, så kontraster hålls.
-const KPI_GRAD_POSITIVE = ['#2f8a3a', '#54b854'];
-const KPI_GRAD_NEGATIVE = ['#e0527a', '#c8305a'];
+// fyllda gradientytor istället för vitt kort + liten ikon-chip. Intäkter har
+// en egen blå nyans så den inte längre ser identisk ut som Resultat-vid-vinst
+// (båda var tidigare exakt samma gröna gradient). Kostnader delar medvetet
+// samma röda/rosa gradient som Resultat-vid-förlust — båda signalerar
+// "kostnad/negativt" och ska se ihop. Vit text på dessa mörka gradienter
+// ligger gott och väl över 4.5:1 i båda ändarna, så kontraster hålls.
+// Gradient-paren själva flyttade till brandColors.js (KPI_GRADIENTS) så
+// andra sidors egna sammanfattningskort (Reports.jsx m.fl.) kan återanvända
+// EXAKT samma nyanser — se kommentaren där.
+const KPI_GRAD_POSITIVE = KPI_GRADIENTS.positive; // Resultat: vinst
+const KPI_GRAD_NEGATIVE = KPI_GRADIENTS.negative; // Resultat: förlust, Kostnader
+const KPI_GRAD_REVENUE  = KPI_GRADIENTS.revenue;  // Intäkter
+
+// Intäkter-vs-Utgifter-grafen (kategorisk, två serier sida vid sida) — blått/
+// rosa istället för grönt/rött. Samma toner som Intäkter- och Kostnader-
+// korten ovan, så graf och nyckeltal hänger ihop visuellt, och paret klarar
+// CVD-kontrollen som det gamla gröna/röda inte gjorde (se kommentar ovan).
+const CHART_REVENUE = KPI_GRAD_REVENUE[0];  // blå
+const CHART_EXPENSE = KPI_GRAD_NEGATIVE[0]; // rosa/röd
+
+// "Kom igång"-checklistan (Sida 31) — en egen accentfärg per steg istället
+// för enhetligt grått, så listan blir lättare att skanna. Klar-status
+// målas i samma nyans som steget hade innan, bara fylld istället för outline.
+const ONBOARD_STEP_COLORS = {
+  customer: '#3b93d1', // blå — matchar Intäkter-kortets nya blå ton
+  invoice:  '#2f8a3a', // grön — samma familj som "vinst"
+  expense:  '#e2891f', // orange
+  supplier: '#8b5cf6', // lila
+};
+const CONFETTI_COLORS = [ONBOARD_STEP_COLORS.customer, ONBOARD_STEP_COLORS.invoice, ONBOARD_STEP_COLORS.expense, ONBOARD_STEP_COLORS.supplier, '#e0527a'];
+const ONBOARDING_DISMISSED_KEY = 'bokix_dashboard_checklist_dismissed';
 
 const CHART_MODES = [
   { id: 'revenue-expense', label: 'Intäkter vs Utgifter', icon: BarChart2 },
@@ -46,10 +77,10 @@ const CHART_MODES = [
 // enfärgade gröna chip för alla fyra, så raden känns levande och man kan
 // skilja knapparna åt med ett enda ögonkast.
 const QUICK_ACTIONS = [
-  { label: 'Ny faktura',       icon: FileText, tab: 'invoices', fg: '#1f7a34', bg: '#dcf4e3' },
-  { label: 'Ladda upp kvitto', icon: Receipt,  tab: 'expenses', fg: '#1f6fa8', bg: '#dcedf7' },
-  { label: 'Ny kontakt',       icon: UserPlus, tab: 'contacts', fg: '#a83a70', bg: '#fbe3ee' },
-  { label: 'Rapportera tid',   icon: Clock,    tab: 'projects', fg: '#a3730a', bg: '#fbecc9' },
+  { label: 'Ny faktura',       icon: FileText, tab: 'invoices', fg: BRAND.greenDark, bg: BRAND.greenLight },
+  { label: 'Ladda upp kvitto', icon: Receipt,  tab: 'expenses', fg: BRAND.blueText,  bg: BRAND.blueBg },
+  { label: 'Ny kontakt',       icon: UserPlus, tab: 'contacts', fg: BRAND.pinkText,  bg: BRAND.pinkBg },
+  { label: 'Rapportera tid',   icon: Clock,    tab: 'projects', fg: BRAND.amberText, bg: BRAND.amberBg },
 ];
 
 // Röd/gul/grön — exakt BRAND-tokens, samma som redan används för statusar
@@ -112,22 +143,22 @@ function ChartTooltip({ active, payload, label, fmt }) {
   if (!active || !payload?.length) return null;
   return (
     <div style={{
-      background: 'rgba(255,255,255,0.97)',
-      border: '1px solid #e5e7eb',
+      background: 'var(--bg-card)',
+      border: '1px solid var(--border)',
       borderRadius: '10px',
       padding: '10px 14px',
       boxShadow: '0 8px 24px rgba(0,0,0,0.09)',
       fontSize: '12.5px',
       minWidth: '160px',
     }}>
-      <div style={{ fontWeight: 700, color: '#111827', marginBottom: '8px', fontSize: '13px' }}>{label}</div>
+      <div style={{ fontWeight: 700, color: 'var(--text-main)', marginBottom: '8px', fontSize: '13px' }}>{label}</div>
       {payload.map((p, i) => (
         <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '2px 0' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.color, display: 'inline-block' }} />
-            <span style={{ color: '#6b7280' }}>{p.name}</span>
+            <span style={{ color: 'var(--text-secondary)' }}>{p.name}</span>
           </div>
-          <strong style={{ color: '#111827' }}>{fmt(p.value)}</strong>
+          <strong style={{ color: 'var(--text-main)' }}>{fmt(p.value)}</strong>
         </div>
       ))}
     </div>
@@ -143,8 +174,8 @@ function KpiCard({ label, value, sub, icon: Icon, color, bg, positive, onClick, 
   const bold = !!gradient;
   return (
     <button onClick={onClick} style={{
-      background: bold ? gradient[0] : 'white',
-      border: bold ? 'none' : (hero ? `1px solid ${sparkColor || color}33` : '1px solid #e5e7eb'),
+      background: bold ? `linear-gradient(135deg, ${gradient[0]}, ${gradient[1]})` : 'white',
+      border: bold ? 'none' : (hero ? `1px solid ${sparkColor || color}33` : '1px solid var(--border)'),
       borderRadius: '14px',
       padding: '20px',
       textAlign: 'left',
@@ -166,7 +197,7 @@ function KpiCard({ label, value, sub, icon: Icon, color, bg, positive, onClick, 
     onMouseLeave={e => {
       e.currentTarget.style.transform = '';
       e.currentTarget.style.boxShadow = bold ? '0 2px 8px rgba(0,0,0,0.12)' : '0 1px 3px rgba(0,0,0,0.04)';
-      if (!bold) e.currentTarget.style.borderColor = '#e5e7eb';
+      if (!bold) e.currentTarget.style.borderColor = 'var(--border)';
     }}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -181,9 +212,9 @@ function KpiCard({ label, value, sub, icon: Icon, color, bg, positive, onClick, 
       </div>
 
       <div>
-        <div style={{ fontSize: '11px', fontWeight: 600, color: bold ? 'rgba(255,255,255,0.82)' : '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px' }}>{label}</div>
-        <div style={{ fontSize: hero ? '32px' : '22px', fontWeight: 700, color: bold ? '#fff' : '#111827', letterSpacing: '-0.04em', lineHeight: 1.1 }}>{value}</div>
-        {sub && <div style={{ fontSize: '11.5px', color: bold ? 'rgba(255,255,255,0.78)' : '#9ca3af', marginTop: '4px' }}>{sub}</div>}
+        <div style={{ fontSize: '11px', fontWeight: 600, color: bold ? 'rgba(255,255,255,0.82)' : 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px' }}>{label}</div>
+        <div style={{ fontSize: hero ? '32px' : '22px', fontWeight: 700, color: bold ? '#fff' : 'var(--text-main)', letterSpacing: '-0.04em', lineHeight: 1.1 }}>{value}</div>
+        {sub && <div style={{ fontSize: '11.5px', color: bold ? 'rgba(255,255,255,0.78)' : 'var(--text-muted)', marginTop: '4px' }}>{sub}</div>}
       </div>
     </button>
   );
@@ -207,7 +238,7 @@ function TodayRow({ item, onClick }) {
       onMouseEnter={e => item.tab && (e.currentTarget.style.opacity = '0.82')}
       onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
     >
-      <div style={{ width: 24, height: 24, borderRadius: '7px', background: 'rgba(255,255,255,0.55)', color: c.text, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+      <div style={{ width: 24, height: 24, borderRadius: '7px', background: 'var(--status-chip-bg)', color: c.text, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
         <Icon size={13} />
       </div>
       <span style={{ flex: 1, fontSize: '12.5px', fontWeight: 600, color: c.text, lineHeight: 1.3 }}>{item.text}</span>
@@ -216,14 +247,24 @@ function TodayRow({ item, onClick }) {
   );
 }
 
-// `hideHeaderActions`: döljer bara Exportera/Ny faktura-knapparna i
-// headern — används av Landningssidans "Så ser det ut"-demo (LandingPage.jsx),
-// där Exportera annars faktiskt skulle ladda ner exempeldatan som en JSON-fil
-// och Ny faktura vore en förvirrande extra call-to-action mitt i en passiv
-// produktvisning. Påverkar inget för den riktiga, inloggade appen (default false).
-export default function Dashboard({ verifications, balances, accounts, invoices, expenses, contacts, setActiveTab, company, profileIncomplete, onResumeOnboarding, vatPeriods = {}, payrollRuns = [], hideHeaderActions = false }) {
+export default function Dashboard({ verifications, balances, accounts, invoices, expenses, contacts, setActiveTab, company, profileIncomplete, onResumeOnboarding, vatPeriods = {}, payrollRuns = [] }) {
   const [chartMode, setChartMode] = useState('revenue-expense');
   const isMobileViewport = useIsMobileViewport();
+
+  // ── "Kom igång"-checklistan ── Ska ligga kvar tills ALLA fyra steg är
+  // klara (inte bara försvinna så fort kontot inte längre räknas som "nytt",
+  // vilket tidigare hände redan efter första kunden/fakturan/utgiften) —
+  // plus en manuell krysknapp för den som inte vill ha kvar rutan.
+  const [onboardingDismissed, setOnboardingDismissed] = useState(() => {
+    try { return localStorage.getItem(ONBOARDING_DISMISSED_KEY) === '1'; } catch { return false; }
+  });
+  const [celebrating, setCelebrating] = useState(false);
+  const [celebrationKey, setCelebrationKey] = useState(0);
+  const wasAllOnboardingDoneRef = useRef(false);
+  const dismissOnboarding = () => {
+    setOnboardingDismissed(true);
+    try { localStorage.setItem(ONBOARDING_DISMISSED_KEY, '1'); } catch { /* privat läge etc. — inte kritiskt */ }
+  };
 
   // Bugvakt (Sida 32): `maximumFractionDigits: 0` avrundar t.ex. -0.4 till
   // -0, och Intl.NumberFormat skriver då ut "-0 kr" istället för "0 kr" —
@@ -355,6 +396,36 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
   const hasSuppliers  = contacts.some(c => c.type === 'supplier');
   const isNew         = !hasCustomers && !hasInvoices && !hasExpenses;
 
+  // Alla fyra checklist-steg klara → trigga konfetti en gång (inte om
+  // effekten kör om av andra skäl medan `allOnboardingDone` redan var sant).
+  const allOnboardingDone = hasCustomers && hasInvoices && hasExpenses && hasSuppliers;
+  useEffect(() => {
+    if (allOnboardingDone && !wasAllOnboardingDoneRef.current && !onboardingDismissed) {
+      setCelebrating(true);
+      setCelebrationKey(k => k + 1);
+      const t = setTimeout(() => setCelebrating(false), 2600);
+      wasAllOnboardingDoneRef.current = true;
+      return () => clearTimeout(t);
+    }
+    wasAllOnboardingDoneRef.current = allOnboardingDone;
+  }, [allOnboardingDone, onboardingDismissed]);
+  // Rutan ligger kvar tills allt är klart (inte bara tills kontot slutar
+  // räknas som "nytt") — men får fira klart sig innan den försvinner av sig
+  // själv, precis som texten "rutan försvinner när du är igång" lovar.
+  const showOnboarding = !onboardingDismissed && (!allOnboardingDone || celebrating);
+  const confettiPieces = useMemo(() => {
+    if (!celebrating) return [];
+    return Array.from({ length: 46 }, (_, i) => ({
+      left: Math.random() * 100,
+      size: 6 + Math.random() * 6,
+      duration: 1.8 + Math.random() * 1.3,
+      delay: Math.random() * 0.5,
+      rotate: Math.round(Math.random() * 360),
+      color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [celebrationKey]);
+
   // ── Senast bokfört — de senast bokförda (aldrig utkast) verifikationerna,
   // sorterade på riktigt datum. Beskrivningen är exakt den som redan
   // sparades när händelsen bokfördes. Beloppet är summan av debetsidan,
@@ -400,17 +471,7 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
     });
     return data;
   }, [verifications, currentYear]);
-
-  // ── Export ──
-  const handleExport = () => {
-    const blob = new Blob([JSON.stringify({ company, invoices, expenses, verifications }, null, 2)], { type: 'application/json' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href = url;
-    a.download = `bokforing-backup-${currentYear}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+  const hasChartData = chartData.some(d => d.Intäkter !== 0 || d.Utgifter !== 0);
 
   // ── Hälsning — tidsgränser i delad util, inte inline ──
   const { greeting } = getGreeting();
@@ -432,69 +493,65 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
           .dash-kpi-grid { grid-template-columns: 1fr !important; }
           .dash-quick-actions { grid-template-columns: repeat(2,1fr) !important; }
           .dash-todo-grid { grid-template-columns: 1fr !important; }
+          /* Kundfeedback: "Moms"-kortet (Senast bokfört/Moms staplas till en
+             kolumn på mobil, se 900px-brytpunkten ovan) är ofta sidans sista
+             kort — 18px räckte inte för att skilja "Se momsrapport"-knappen
+             från den fasta bottennaven, den låg nästan klistrad ovanpå. */
+          .dash-lower-grid { margin-bottom: calc(var(--mobile-nav-height, 72px) + 16px) !important; }
         }
       `}</style>
 
       {/* ─── HEADER ─── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
-          <h1 style={{ fontFamily: 'var(--font-voice)', fontWeight: 700, fontSize: '25px', letterSpacing: '-0.01em', color: '#111827', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <h1 style={{ fontFamily: 'var(--font-voice)', fontWeight: 700, fontSize: '25px', letterSpacing: '-0.01em', color: 'var(--text-main)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             {greeting}, {firstName || company?.name?.split(' ')[0] || 'Användare'} 👋
           </h1>
-          <p style={{ color: '#9ca3af', fontSize: '13px', fontWeight: 400, marginBottom: '2px' }}>
+          <p style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: 400, marginBottom: '2px' }}>
             Räkenskapsår {currentYear} · {company?.name || 'Bokix'}
           </p>
           {!isNew && (
-            <p style={{ fontSize: '13.5px', fontWeight: 600, color: hasUrgent ? '#374151' : BRAND.greenDark, marginTop: '6px' }}>
+            <p style={{ fontSize: '13.5px', fontWeight: 600, color: hasUrgent ? 'var(--text-main)' : BRAND.greenDark, marginTop: '6px' }}>
               {oneLiner}
             </p>
           )}
         </div>
-        {!hideHeaderActions && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <button onClick={handleExport} className="btn btn-secondary">
-              <Download size={14} /> Exportera
-            </button>
-            <button onClick={() => setActiveTab('invoices')} className="btn btn-primary">
-              <FileText size={14} /> Ny faktura
-            </button>
-          </div>
-        )}
       </div>
 
       {/* ─── SNABBÅTGÄRDER — det man faktiskt kom hit för att GÖRA, högst
           upp och tydligt, istället för begravt längst ner på sidan under
           alla siffror. Fyra tydligt olikfärgade kort, inte fyra identiska
-          gröna chips, så raden känns levande och går att skanna snabbt. ─── */}
-      {!isNew && (
-        <div style={{ marginBottom: '18px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
-            <Zap size={14} style={{ color: BRAND.greenDark }} />
-            <span style={{ fontSize: '13px', fontWeight: 700, color: '#374151' }}>Snabbåtgärder</span>
-          </div>
-          <div className="dash-quick-actions" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '12px' }}>
-            {QUICK_ACTIONS.map(a => (
-              <button
-                key={a.label}
-                onClick={() => setActiveTab(a.tab)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: '10px',
-                  padding: '14px 16px', background: 'white', border: '1px solid #e5e7eb', borderRadius: '13px',
-                  cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'inherit', textAlign: 'left',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 20px rgba(0,0,0,0.08)'; }}
-                onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04)'; }}
-              >
-                <div style={{ width: 36, height: 36, borderRadius: '10px', background: a.bg, color: a.fg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <a.icon size={16} />
-                </div>
-                <span style={{ fontSize: '13px', fontWeight: 600, color: '#374151', lineHeight: 1.2 }}>{a.label}</span>
-              </button>
-            ))}
-          </div>
+          gröna chips, så raden känns levande och går att skanna snabbt.
+          Visas alltid, även på ett helt nytt/tomt konto — de här fyra
+          genvägarna ÄR de första stegen man vill ta, så de ska inte gömmas
+          undan bakom `isNew` som resten av sidans siffror/grafer. ─── */}
+      <div style={{ marginBottom: '18px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
+          <Zap size={14} style={{ color: BRAND.greenDark }} />
+          <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>Snabbåtgärder</span>
         </div>
-      )}
+        <div className="dash-quick-actions" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '12px' }}>
+          {QUICK_ACTIONS.map(a => (
+            <button
+              key={a.label}
+              onClick={() => setActiveTab(a.tab)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '10px',
+                padding: '14px 16px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '13px',
+                cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'inherit', textAlign: 'left',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 20px rgba(0,0,0,0.08)'; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04)'; }}
+            >
+              <div style={{ width: 36, height: 36, borderRadius: '10px', background: a.bg, color: a.fg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <a.icon size={16} />
+              </div>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', lineHeight: 1.2 }}>{a.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
 
       {/* ─── ATT GÖRA IDAG — sidans mest konkreta, klickbara lista, nu i full
           bredd direkt under Snabbåtgärder istället för instängd i en trång
@@ -503,11 +560,11 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
         <div style={{ position: 'relative', background: 'var(--bg-cream)', border: '1px solid var(--bg-cream-border)', borderRadius: '14px', padding: '16px 18px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)', overflow: 'hidden', marginBottom: '20px' }}>
           <div aria-hidden="true" style={{ position: 'absolute', top: '-50px', right: '-50px', width: '150px', height: '150px', borderRadius: '50%', background: 'rgba(61,122,46,0.05)' }} />
           <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-            <span style={{ fontSize: '13px', fontWeight: 700, color: '#374151' }}>Att göra idag</span>
+            <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>Att göra idag</span>
             <span style={{
               fontSize: '11px', fontWeight: 700, padding: '3px 9px', borderRadius: '999px',
-              background: hasUrgent ? 'rgba(255,255,255,0.7)' : BRAND.greenLight,
-              color: hasUrgent ? '#6b7280' : BRAND.greenDark,
+              background: hasUrgent ? 'var(--bg-muted)' : BRAND.greenLight,
+              color: hasUrgent ? 'var(--text-main)' : BRAND.greenDark,
             }}>
               {hasUrgent ? `${todos.length} ${todos.length === 1 ? 'post' : 'poster'}` : 'Allt klart'}
             </span>
@@ -539,7 +596,7 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
           label="Intäkter" value={fmt(raOmsattning)} sub={`Hittills ${currentYear}`}
           icon={ArrowUpRight} color={BRAND.greenDark} bg={LIME_L} positive={true}
           onClick={() => setActiveTab('reports')}
-          gradient={KPI_GRAD_POSITIVE}
+          gradient={KPI_GRAD_REVENUE}
         />
         <KpiCard
           label="Kostnader" value={fmt(raKostnader)} sub={`Hittills ${currentYear}`}
@@ -550,99 +607,119 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
       </div>
 
       {/* ─── GRAF — full bredd, svag cremeton (Sida 31/32) istället för rent
-          vitt för att skilja den från de vita KPI-korten ovanför. ─── */}
-      {!isNew && (
-        <div style={{ background: 'var(--bg-cream)', border: '1px solid var(--bg-cream-border)', borderRadius: '14px', padding: '22px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)', marginBottom: '18px', minWidth: 0 }}>
-          {/* Chart header */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
-            <div>
-              <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#111827', letterSpacing: '-0.01em', marginBottom: '2px' }}>
-                {CHART_MODES.find(m => m.id === chartMode)?.label}
-              </h2>
-              <p style={{ fontSize: '12px', color: '#9ca3af' }}>
-                Innevarande räkenskapsår {currentYear} jämfört med {parseInt(currentYear) - 1}
-              </p>
-              {/* Legenden uppdateras dynamiskt beroende på vald flik — aldrig
-                  statisk text som bara passar första vyn. */}
-              {chartMode === 'revenue-expense' && (
-                <div style={{ display: 'flex', gap: '16px', marginTop: '8px' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: BRAND.greenDark }}>
-                    <span style={{ width: 10, height: 10, borderRadius: '50%', background: REVENUE, display: 'inline-block' }} />
-                    Intäkter {fmt(raOmsattning)}
-                  </span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: BRAND.redText }}>
-                    <span style={{ width: 10, height: 10, borderRadius: '50%', background: EXPENSE, display: 'inline-block' }} />
-                    Utgifter {fmt(raKostnader)}
-                  </span>
-                </div>
-              )}
-              {chartMode === 'result' && (
-                <div style={{ display: 'flex', gap: '16px', marginTop: '8px' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: raResultat >= 0 ? BRAND.greenDark : BRAND.redText }}>
-                    <span style={{ width: 10, height: 10, borderRadius: '50%', background: raResultat >= 0 ? REVENUE : EXPENSE, display: 'inline-block' }} />
-                    Resultat {fmt(raResultat)}
-                  </span>
-                </div>
-              )}
-            </div>
-            <div style={{ display: 'flex', gap: '4px', background: '#f9fafb', padding: '3px', borderRadius: '9px', border: '1px solid #f3f4f6', flexWrap: 'wrap' }}>
-              {CHART_MODES.map(m => (
-                <button key={m.id} onClick={() => setChartMode(m.id)} style={{
-                  display: 'flex', alignItems: 'center', gap: '5px',
-                  padding: '5px 11px', borderRadius: '6px', border: 'none', cursor: 'pointer',
-                  fontSize: '12px', fontWeight: chartMode === m.id ? 600 : 400,
-                  background: chartMode === m.id ? BRAND.green : 'transparent',
-                  color: chartMode === m.id ? 'white' : '#6b7280',
-                  boxShadow: chartMode === m.id ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-                  transition: 'all 0.15s', fontFamily: 'inherit',
-                }}>
-                  <m.icon size={11} />
-                  {m.label}
-                </button>
-              ))}
-            </div>
+          vitt för att skilja den från de vita KPI-korten ovanför. Syns alltid
+          (inte bara `!isNew`) — men visar en lugn tomt-läge-vy istället för
+          en platt nollstapel-graf tills det finns något att rita ut. ─── */}
+      <div style={{ background: 'var(--bg-cream)', border: '1px solid var(--bg-cream-border)', borderRadius: '14px', padding: '22px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)', marginBottom: '18px', minWidth: 0 }}>
+        {/* Chart header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
+          <div>
+            <h2 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.01em', marginBottom: '2px' }}>
+              {CHART_MODES.find(m => m.id === chartMode)?.label}
+            </h2>
+            <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+              Innevarande räkenskapsår {currentYear} jämfört med {parseInt(currentYear) - 1}
+            </p>
+            {/* Legenden uppdateras dynamiskt beroende på vald flik — aldrig
+                statisk text som bara passar första vyn. Intäkter/Utgifter-
+                läget använder CHART_REVENUE/CHART_EXPENSE (blå/rosa) i både
+                punkt och text — samma toner som KPI-korten ovan och ett
+                CVD-säkert par (se konstant-kommentaren). Resultat-läget
+                behåller det klassiska grönt/rött eftersom det är en enda
+                serie vars läge mot nollinjen (inte färgen) bär betydelsen. */}
+            {chartMode === 'revenue-expense' && (
+              <div style={{ display: 'flex', gap: '16px', marginTop: '8px' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: CHART_REVENUE, fontWeight: 600 }}>
+                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: CHART_REVENUE, display: 'inline-block' }} />
+                  Intäkter {fmt(raOmsattning)}
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: CHART_EXPENSE, fontWeight: 600 }}>
+                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: CHART_EXPENSE, display: 'inline-block' }} />
+                  Utgifter {fmt(raKostnader)}
+                </span>
+              </div>
+            )}
+            {chartMode === 'result' && (
+              <div style={{ display: 'flex', gap: '16px', marginTop: '8px' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: raResultat >= 0 ? BRAND.greenDark : BRAND.redText }}>
+                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: raResultat >= 0 ? REVENUE : EXPENSE, display: 'inline-block' }} />
+                  Resultat {fmt(raResultat)}
+                </span>
+              </div>
+            )}
           </div>
-
-          {/* Charts */}
-          {chartMode === 'revenue-expense' && (
-            <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }} barGap={3}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                {/* interval=2: visa en etikett, hoppa över 2, visa nästa — var
-                    tredje månad på mobil istället för alla tolv som annars
-                    överlappar varandra på en 375px-bred yta. */}
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#9ca3af' }} dy={6} interval={isMobileViewport ? 2 : 0} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#9ca3af' }} tickFormatter={fmtShort} width={44} />
-                <Tooltip content={<ChartTooltip fmt={fmt} />} cursor={{ fill: 'rgba(0,0,0,0.02)' }} />
-                {/* verticalAlign="bottom" (uttryckligt, inte bara standard-
-                    värdet) — flyttar/håller legenden under diagrammet på
-                    mobil istället för att riskera att den kläms in bredvid. */}
-                <Legend iconType="circle" iconSize={7} verticalAlign="bottom" wrapperStyle={{ fontSize: 12, paddingTop: 16 }} />
-                <Bar dataKey="Intäkter" fill={REVENUE} radius={[4,4,0,0]} barSize={16} />
-                <Bar dataKey="Utgifter" fill={EXPENSE} radius={[4,4,0,0]} barSize={16} />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-
-          {chartMode === 'result' && (
-            <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#9ca3af' }} dy={6} interval={isMobileViewport ? 2 : 0} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#9ca3af' }} tickFormatter={fmtShort} width={44} />
-                <Tooltip content={<ChartTooltip fmt={fmt} />} cursor={{ fill: 'rgba(0,0,0,0.02)' }} />
-                <ReferenceLine y={0} stroke="#e5e7eb" strokeWidth={1.5} />
-                <Bar dataKey="Resultat" radius={[4,4,0,0]} barSize={20}>
-                  {chartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.Resultat >= 0 ? REVENUE : EXPENSE} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-
+          <div style={{ display: 'flex', gap: '4px', background: 'var(--bg-muted)', padding: '3px', borderRadius: '9px', border: '1px solid var(--border-light)', flexWrap: 'wrap' }}>
+            {CHART_MODES.map(m => (
+              <button key={m.id} onClick={() => setChartMode(m.id)} style={{
+                display: 'flex', alignItems: 'center', gap: '5px',
+                padding: '5px 11px', borderRadius: '6px', border: 'none', cursor: 'pointer',
+                fontSize: '12px', fontWeight: chartMode === m.id ? 600 : 400,
+                background: chartMode === m.id ? BRAND.green : 'transparent',
+                color: chartMode === m.id ? 'white' : 'var(--text-secondary)',
+                boxShadow: chartMode === m.id ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                transition: 'all 0.15s', fontFamily: 'inherit',
+              }}>
+                <m.icon size={11} />
+                {m.label}
+              </button>
+            ))}
+          </div>
         </div>
-      )}
+
+        {/* Tomt läge — inga bokförda verifikationer än. Ett eget litet vyläge
+            istället för att bara rita en platt nollinje, så rutan förklarar
+            vad som saknas istället för att se trasig/tom ut. */}
+        {!hasChartData ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', height: '220px', textAlign: 'center' }}>
+            <div style={{ width: 44, height: 44, borderRadius: '12px', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: CHART_REVENUE, marginBottom: '2px' }}>
+              <BarChart2 size={20} />
+            </div>
+            <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>Ingen bokföring ännu</p>
+            <p style={{ fontSize: '12px', color: 'var(--text-muted)', maxWidth: '280px' }}>
+              Så fort du bokfört en faktura eller en utgift dyker den här grafen upp här.
+            </p>
+          </div>
+        ) : (
+          <>
+            {chartMode === 'revenue-expense' && (
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }} barGap={3}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-light)" />
+                  {/* interval=2: visa en etikett, hoppa över 2, visa nästa — var
+                      tredje månad på mobil istället för alla tolv som annars
+                      överlappar varandra på en 375px-bred yta. */}
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} dy={6} interval={isMobileViewport ? 2 : 0} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} tickFormatter={fmtShort} width={44} />
+                  <Tooltip content={<ChartTooltip fmt={fmt} />} cursor={{ fill: 'rgba(0,0,0,0.02)' }} />
+                  {/* verticalAlign="bottom" (uttryckligt, inte bara standard-
+                      värdet) — flyttar/håller legenden under diagrammet på
+                      mobil istället för att riskera att den kläms in bredvid. */}
+                  <Legend iconType="circle" iconSize={7} verticalAlign="bottom" wrapperStyle={{ fontSize: 12, paddingTop: 16 }} />
+                  <Bar dataKey="Intäkter" fill={CHART_REVENUE} radius={[4,4,0,0]} barSize={16} />
+                  <Bar dataKey="Utgifter" fill={CHART_EXPENSE} radius={[4,4,0,0]} barSize={16} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+
+            {chartMode === 'result' && (
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-light)" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} dy={6} interval={isMobileViewport ? 2 : 0} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} tickFormatter={fmtShort} width={44} />
+                  <Tooltip content={<ChartTooltip fmt={fmt} />} cursor={{ fill: 'rgba(0,0,0,0.02)' }} />
+                  <ReferenceLine y={0} stroke="var(--border)" strokeWidth={1.5} />
+                  <Bar dataKey="Resultat" radius={[4,4,0,0]} barSize={20}>
+                    {chartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.Resultat >= 0 ? REVENUE : EXPENSE} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </>
+        )}
+      </div>
 
       {/* ─── SENAST BOKFÖRT + MOMS — sidans två "läge just nu"-rutor, parade
           i en 2/1-rad längst ner istället för att tävla om samma vikt som
@@ -653,22 +730,22 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
           {/* Senast bokfört — riktiga, bokförda händelser (aldrig utkast),
               sorterade på riktigt datum. Beskrivningen är exakt den som redan
               sparades när händelsen bokfördes, inte en omskriven version. */}
-          <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '14px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid #f3f4f6' }}>
-              <span style={{ fontSize: '14px', fontWeight: 700, color: '#111827', letterSpacing: '-0.01em' }}>Senast bokfört</span>
+          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--border-light)' }}>
+              <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.01em' }}>Senast bokfört</span>
               <button onClick={() => setActiveTab('verifications')} className="ds-link-btn sm">Alla verifikationer</button>
             </div>
             {recentBooked.length === 0 ? (
-              <div style={{ padding: '28px 20px', textAlign: 'center', fontSize: '12.5px', color: '#9ca3af' }}>Inga bokförda verifikationer än</div>
+              <div style={{ padding: '28px 20px', textAlign: 'center', fontSize: '12.5px', color: 'var(--text-muted)' }}>Inga bokförda verifikationer än</div>
             ) : (
               <div>
                 {recentBooked.map(item => (
                   <div key={item.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '13px 20px', borderBottom: '1px solid #f7f8f7' }}>
                     <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: '13.5px', fontWeight: 600, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.description}</div>
-                      <div style={{ fontSize: '11.5px', color: '#9ca3af', marginTop: '2px' }}>{item.date} · {item.type}</div>
+                      <div style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.description}</div>
+                      <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '2px' }}>{item.date} · {item.type}</div>
                     </div>
-                    <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#111827', flexShrink: 0 }}>{fmt(item.amount)}</div>
+                    <div style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-main)', flexShrink: 0 }}>{fmt(item.amount)}</div>
                   </div>
                 ))}
               </div>
@@ -677,16 +754,16 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
 
           {/* Moms — nästa (ännu ej inlämnade) momsperiod, räknat från riktiga
               bokförda utgående/ingående moms-rader inom perioden. */}
-          <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '14px', padding: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px', padding: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {vatPeriodSummary ? (
               <>
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
-                  <span style={{ fontSize: '13px', fontWeight: 600, color: '#6b7280' }}>Moms Q{vatPeriodSummary.quarter} {vatPeriodSummary.year}</span>
-                  <span style={{ fontSize: '10.5px', color: '#9ca3af', whiteSpace: 'nowrap' }}>Förfaller {vatPeriodSummary.dueDateLabel}</span>
+                  <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>Moms Q{vatPeriodSummary.quarter} {vatPeriodSummary.year}</span>
+                  <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Förfaller {vatPeriodSummary.dueDateLabel}</span>
                 </div>
                 <div>
-                  <div style={{ fontSize: '22px', fontWeight: 700, color: '#111827', letterSpacing: '-0.03em', lineHeight: 1.1 }}>{fmt(Math.abs(vatPeriodSummary.attBetala))}</div>
-                  <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>{vatPeriodSummary.attBetala >= 0 ? 'att betala' : 'att få tillbaka'}</div>
+                  <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.03em', lineHeight: 1.1 }}>{fmt(Math.abs(vatPeriodSummary.attBetala))}</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>{vatPeriodSummary.attBetala >= 0 ? 'att betala' : 'att få tillbaka'}</div>
                 </div>
                 <div style={{ height: 6, borderRadius: 999, background: BRAND.amberBg, overflow: 'hidden' }}>
                   <div style={{
@@ -695,15 +772,15 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
                   }} />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                  <span style={{ fontSize: '11px', color: '#9ca3af' }}>Utgående {fmt(vatPeriodSummary.utgaende)}</span>
-                  <span style={{ fontSize: '11px', color: '#9ca3af' }}>Ingående {fmt(vatPeriodSummary.ingaende)}</span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Utgående {fmt(vatPeriodSummary.utgaende)}</span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Ingående {fmt(vatPeriodSummary.ingaende)}</span>
                 </div>
                 <button onClick={() => setActiveTab('taxes')} className="btn btn-secondary btn-sm" style={{ marginTop: 'auto', width: '100%', justifyContent: 'center' }}>Se momsrapport</button>
               </>
             ) : (
               <>
-                <span style={{ fontSize: '13px', fontWeight: 600, color: '#6b7280' }}>Moms</span>
-                <p style={{ fontSize: '12px', color: '#9ca3af', margin: 0 }}>Ingen kommande momsdeklaration att visa.</p>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>Moms</span>
+                <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>Ingen kommande momsdeklaration att visa.</p>
                 <button onClick={() => setActiveTab('taxes')} className="btn btn-secondary btn-sm" style={{ marginTop: 'auto', width: '100%', justifyContent: 'center' }}>Till Skatt &amp; Moms</button>
               </>
             )}
@@ -711,41 +788,78 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
         </div>
       )}
 
-      {/* ─── ONBOARDING — nedtonat, sist på sidan, subtil border istället för
-          framhävd bakgrundsfärg. Onboarding-hjälp, inte det dagliga fokuset. ─── */}
-      {profileIncomplete && !isNew && (
-        <div style={{ background: 'white', border: '1px solid #eef0f2', borderRadius: '12px', padding: '14px 18px', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', flexWrap: 'wrap' }}>
-          <div style={{ fontSize: '12.5px', color: '#6b7280' }}>
-            <strong style={{ color: '#374151', fontWeight: 700 }}>Företagsprofilen är inte klar. </strong>
-            Komplettera den för att få rätt rapporter och dokument.
-          </div>
-          <button onClick={onResumeOnboarding} style={{ padding: '7px 14px', background: 'white', color: '#374151', border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '12.5px', flexShrink: 0 }}>Fortsätt registreringen</button>
-        </div>
-      )}
-      {isNew && (
-        // Sida 31: tomt-läge/hero-yta för ett helt nytt konto — cremeton
-        // istället för vitt, samma princip som Idag-modulen ovan.
-        <div style={{ background: 'var(--bg-cream)', border: '1px solid var(--bg-cream-border)', borderRadius: '14px', padding: '20px 22px', marginTop: '4px' }}>
-          <h2 style={{ fontSize: '13px', fontWeight: 700, color: '#374151', marginBottom: '2px' }}>Kom igång med Bokix</h2>
-          <p style={{ fontSize: '12px', color: '#9ca3af', marginBottom: '14px' }}>Slutför dessa steg — den här rutan försvinner när du är igång.</p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {[
-              { done: hasCustomers, label: 'Skapa din första kund',      tab: 'contacts' },
-              { done: hasInvoices,  label: 'Skapa din första faktura',   tab: 'invoices' },
-              { done: hasExpenses,  label: 'Lägg till din första utgift', tab: 'expenses' },
-              { done: hasSuppliers, label: 'Lägg till en leverantör',    tab: 'contacts' },
-            ].map((step, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', background: 'white', borderRadius: '9px', border: `1px solid ${step.done ? '#dcefdc' : '#eef0f2'}` }}>
-                {step.done
-                  ? <CheckCircle size={15} style={{ color: BRAND.greenDark, flexShrink: 0 }} />
-                  : <div style={{ width: 15, height: 15, borderRadius: '50%', border: '2px solid #d1d5db', flexShrink: 0 }} />}
-                <span style={{ flex: 1, fontSize: '13px', color: step.done ? '#b0b6be' : '#4b5563', textDecoration: step.done ? 'line-through' : 'none' }}>{step.label}</span>
-                {!step.done && (
-                  <button onClick={() => setActiveTab(step.tab)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: BRAND.green, fontSize: '11.5px', fontWeight: 600, fontFamily: 'inherit' }}>Börja →</button>
-                )}
+      {/* "Företagsprofilen är inte klar..."-panelen (profileIncomplete && !isNew)
+          togs bort här på uttrycklig kundönskan — upplevdes som en irriterande
+          nagging-banner på Dashboard. showOnboarding-kortet nedan (de fyra
+          onboarding-stegen) är den enda kvarvarande vägen tillbaka till
+          registreringen om användaren själv vill fortsätta den. */}
+      {showOnboarding && (
+        // Sida 31: tomt-läge/hero-yta — cremeton istället för vitt, samma
+        // princip som Idag-modulen ovan. Ligger kvar tills alla fyra steg är
+        // klara (se `showOnboarding`), inte bara tills kontot slutar räknas
+        // som "nytt". `position: relative` krävs för konfetti-lagret och
+        // krysknappen som positioneras absolut ovanpå innehållet.
+        <div style={{ position: 'relative', overflow: 'hidden', background: 'var(--bg-cream)', border: '1px solid var(--bg-cream-border)', borderRadius: '14px', padding: '20px 22px', marginTop: '4px' }}>
+          {celebrating && (
+            <div aria-hidden="true" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden' }}>
+              {confettiPieces.map((p, i) => (
+                <span key={i} style={{
+                  position: 'absolute', top: '-12px', left: `${p.left}%`,
+                  width: p.size, height: p.size * 0.42,
+                  background: p.color, borderRadius: '2px', opacity: 0.9,
+                  // Animationen styr transform (fall + snurr) från och med
+                  // frame 0 — den slumpade start-rotationen sätts via en CSS-
+                  // variabel som keyframen roterar vidare från, se index.css.
+                  '--rot-start': `${p.rotate}deg`,
+                  animation: `bokix-confetti-fall ${p.duration}s cubic-bezier(.4,0,.6,1) ${p.delay}s forwards`,
+                }} />
+              ))}
+            </div>
+          )}
+
+          {/* Stäng-krysset (uppe till höger på "Kom igång"-kortet) togs bort
+              här på uttrycklig kundönskan — läste på mobilen ut som ett
+              kryss klistrat i huvudet på sidan, nära topbaren. Kortet
+              försvinner ändå automatiskt så fort alla fyra stegen är klara
+              (se `celebrating`-grenen ovan/nedan) — det är den kvarvarande
+              vägen ut, inte en knapp längre. */}
+
+          {celebrating ? (
+            <div style={{ textAlign: 'center', padding: '20px 8px', position: 'relative' }}>
+              <div style={{ fontSize: '34px', marginBottom: '6px' }}>🎉</div>
+              <h2 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '4px' }}>Grattis, du är igång!</h2>
+              <p style={{ fontSize: '12.5px', color: 'var(--text-muted)' }}>Alla startsteg är klara — den här rutan försvinner nu.</p>
+            </div>
+          ) : (
+            <>
+              <h2 style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '2px' }}>Kom igång med Bokix</h2>
+              <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '14px' }}>Slutför dessa steg — den här rutan försvinner när du är igång.</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {[
+                  { done: hasCustomers, label: 'Skapa din första kund',       tab: 'contacts', icon: UserPlus, color: ONBOARD_STEP_COLORS.customer },
+                  { done: hasInvoices,  label: 'Skapa din första faktura',    tab: 'invoices', icon: FileText, color: ONBOARD_STEP_COLORS.invoice },
+                  { done: hasExpenses,  label: 'Lägg till din första utgift', tab: 'expenses', icon: Receipt,  color: ONBOARD_STEP_COLORS.expense },
+                  { done: hasSuppliers, label: 'Lägg till en leverantör',     tab: 'contacts', icon: Users,    color: ONBOARD_STEP_COLORS.supplier },
+                ].map((step, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', background: 'var(--bg-card)', borderRadius: '9px', border: `1px solid ${step.done ? step.color + '33' : 'var(--border-light)'}` }}>
+                    <div style={{
+                      width: 26, height: 26, borderRadius: '8px', flexShrink: 0,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      background: step.done ? step.color : step.color + '1a',
+                      color: step.done ? 'white' : step.color,
+                      transition: 'all 0.2s',
+                    }}>
+                      {step.done ? <CheckCircle2 size={14} /> : <step.icon size={14} />}
+                    </div>
+                    <span style={{ flex: 1, fontSize: '13px', color: step.done ? '#b0b6be' : 'var(--text-secondary)', textDecoration: step.done ? 'line-through' : 'none' }}>{step.label}</span>
+                    {!step.done && (
+                      <button onClick={() => setActiveTab(step.tab)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: step.color, fontSize: '11.5px', fontWeight: 600, fontFamily: 'inherit' }}>Börja →</button>
+                    )}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </>
+          )}
         </div>
       )}
     </div>

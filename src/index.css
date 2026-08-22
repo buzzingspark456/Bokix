@@ -128,6 +128,33 @@
   --text-muted:     var(--gray-400);
   --text-inverse:   var(--white);
 
+  /* ── Statusfärger (badges/rader: obetald/förfallen/betald/ej bokförd
+     m.fl.) — BRAND.greenLight/redBg/amberBg/grayBg och deras Text-motsvarigheter
+     (src/utils/brandColors.js) pekar på DE HÄR tokens istället för egna hex,
+     så alla hundratals ställen som redan konsumerar BRAND.X blir tema-
+     medvetna utan att någon anropsplats behöver ändras. Ljusa, bleka
+     bakgrunder här; mörkt läge nedan gör dem till halvtransparenta
+     färgtvättar och byter text mot en ljus, läsbar nyans — annars vore
+     t.ex. mörkgrön text på en mörkgrön sida osynlig. */
+  --status-green-bg:  #eaf3de;
+  --status-green-text: #27500a;
+  --status-amber-bg:  #faeeda;
+  --status-amber-text: #633806;
+  --status-red-bg:    #fcebeb;
+  --status-red-text:  #791f1f;
+  --status-gray-bg:   #f1efe8;
+  --status-gray-text: #6b7280;
+  --status-blue-bg:   #dbeafe;
+  --status-blue-text: #1d4ed8;
+  --status-pink-bg:   #fbe3ee;
+  --status-pink-text: #a83a70;
+
+  /* Ikon-chippen inuti en färgad statusrad (t.ex. "Att göra idag" på
+     Startsidan) — en halvgenomskinlig vit cirkel läser bra mot en BLEK
+     färgtvätt (ljust läge), men blir en påfallande ljus/vit fläck mot en
+     redan mörk, halvtransparent rad (mörkt läge). */
+  --status-chip-bg: rgba(255,255,255,0.55);
+
   /* ── Borders ── */
   --border:       var(--gray-200);
   --border-light: var(--gray-100);
@@ -154,6 +181,142 @@
   --sidebar-width: 230px;
   --topbar-height: 56px;
   --mobile-nav-height: 72px; /* Fortnox-terugkoppling: storre ikoner + mer padding kraver mer hojd */
+}
+
+/* ══ MÖRKT LÄGE ══
+   Sätts via `data-theme="dark"` på <html> (App.jsx: theme-state, sparas i
+   localStorage, växlas från "Byt tema"/månikonen i headern). Mörkgrön,
+   inte neutralt svart/grå — samma gröna identitet som Auth-sidans
+   varumärkespanel (#0c1f14, återanvänd här som --bg-sidebar), så mörkt
+   läge känns som Bokix och inte ett generiskt "invert alla färger"-tema.
+   Skriver om SEMANTISKA ytor/text/kant-tokens och de bleka färgtonerna
+   (t.ex. --lime-50) som annars skulle bli nästan vita fläckar på en mörk
+   sida — INTE de numrerade --gray-N-stegen eller BRAND.* (src/utils/
+   brandColors.js). --bg-sidebar skrivs DOCK om (från den ljusgröna
+   #3d7a2e) — kundfeedback: sidomenyn stack ut som en ljus flik även när
+   resten av appen var mörk, vilket lästes som att temat inte var
+   "riktigt" mörkt. .nav-item/.sub-item/.nav-badge är redan vit text på
+   halvtransparenta overlays, så de behöver ingen egen mörk-variant.
+   De vanligaste hårdkodade grå/vita inline-färgerna över HELA appen (inte
+   bara app-skalet) är konverterade till de här tokens — se
+   darkmode-convert-skriptet i commit-historiken för listan. A4-pappers-
+   förhandsvisningen (fakturans PDF-underlag) hålls medvetet alltid vit,
+   oavsett tema, eftersom det simulerar ett fysiskt pappersark; marknads-
+   föringssidorna (landningssidan, priser, om oss) är medvetet alltid
+   ljusa/varumärkesfärgade, samma resonemang som de flesta SaaS-produkters
+   publika sajt oavsett app-tema. */
+:root[data-theme="dark"] {
+  --bg-page:    #0f1a13;
+  --bg-card:    #17281c;
+  --bg-sidebar: #0c1f14;
+  --bg-muted:   #1d3323;
+  --bg-cream:        #241f16;
+  --bg-cream-border: #3a3220;
+
+  --text-main:      #eef3ea;
+  --text-secondary: #a9baa9;
+  --text-muted:     #85987f;
+
+  --border:       #2a3d2c;
+  --border-light: #223328;
+
+  /* De numrerade --gray-N-stegen (från :root) skrivs INTE om som helhet —
+     se filkommentaren högst upp. Men 50/100/200/300 används på flera
+     ställen (Projects.jsx, Expenses.jsx, Drawer.jsx, SupplierInvoices.jsx)
+     rakt av som bakgrund/kant för avatar-cirklar, badges, tomt-lägen,
+     progress-spår och streckade kanter — ALDRIG som text (kontrollerat) —
+     och stod annars kvar på sina ljusa värden från :root, vilket var
+     precis det som gjorde Projekt-sidan "vit fortfarande". Mörka,
+     stigande nyanser här istället, samma princip som --bg-muted men i
+     fyra steg. */
+  --gray-50:  #1a2e20;
+  --gray-100: #223a28;
+  --gray-200: #2a4530;
+  --gray-300: #34523a;
+
+  /* Statusfärger — se kommentaren vid :root ovan. Bg blir en halvtransparent
+     färgtvätt istället för en nästan-vit yta; Text byts mot en LJUS nyans
+     (mörkgrön text hade varit osynlig på en mörkgrön sida). Kontroll­räknat:
+     alla fyra Text-nyanserna ≥ 6.8:1 mot både --bg-page och --bg-card. */
+  --status-green-bg:  rgba(91, 168, 90, 0.22);
+  --status-green-text: #86d182;
+  --status-amber-bg:  rgba(245, 158, 11, 0.2);
+  --status-amber-text: #f0b429;
+  --status-red-bg:    rgba(244, 63, 94, 0.2);
+  --status-red-text:  #ff8a93;
+  --status-gray-bg:   rgba(169, 186, 169, 0.14);
+  --status-gray-text: #a9baa9;
+  --status-blue-bg:   rgba(58, 143, 193, 0.22);
+  --status-blue-text: #7cc4f0;
+  --status-pink-bg:   rgba(168, 58, 112, 0.24);
+  --status-pink-text: #ec9dc4;
+  --status-chip-bg: rgba(0,0,0,0.28);
+
+  /* Bleka färgtoner (badge-/varnings-bakgrunder) — halvtransparenta
+     färgtvättar över den mörka ytan istället för de nästan vita tonerna
+     från ljust läge, som annars skulle lysa som fläckar. */
+  --lime-50:  rgba(91, 168, 90, 0.16);
+  --lime-100: rgba(91, 168, 90, 0.26);
+  --green-50:  var(--lime-50);
+  --green-100: var(--lime-100);
+  --blue-50:  rgba(58, 143, 193, 0.16);
+  --blue-100: rgba(58, 143, 193, 0.26);
+  --amber-50:  rgba(245, 158, 11, 0.16);
+  --amber-100: rgba(245, 158, 11, 0.26);
+  --red-50:  rgba(244, 63, 94, 0.16);
+  --red-100: rgba(244, 63, 94, 0.26);
+
+  --shadow-xs: 0 1px 2px rgba(0,0,0,0.24);
+  --shadow-sm: 0 1px 4px rgba(0,0,0,0.32), 0 1px 2px rgba(0,0,0,0.24);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.4), 0 2px 4px rgba(0,0,0,0.24);
+  --shadow-lg: 0 12px 28px rgba(0,0,0,0.5), 0 4px 8px rgba(0,0,0,0.3);
+}
+
+/* system-inställning "auto" (ingen sparad preferens än) — samma mörka
+   palett, men bara när besökarens OS/webbläsare faktiskt begär det. Kan
+   inte uttryckas som en enda regel eftersom media-queryn måste kunna
+   förloras för den som uttryckligen valt ljust läge trots mörkt OS. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="dark"]) {
+    --bg-page:    #0f1a13;
+    --bg-card:    #17281c;
+    --bg-sidebar: #0c1f14;
+    --bg-muted:   #1d3323;
+    --bg-cream:        #241f16;
+    --bg-cream-border: #3a3220;
+    --text-main:      #eef3ea;
+    --text-secondary: #a9baa9;
+    --text-muted:     #85987f;
+    --border:       #2a3d2c;
+    --border-light: #223328;
+    --gray-50:  #1a2e20;
+    --gray-100: #223a28;
+    --gray-200: #2a4530;
+    --gray-300: #34523a;
+    --status-green-bg:  rgba(91, 168, 90, 0.22);
+    --status-green-text: #86d182;
+    --status-amber-bg:  rgba(245, 158, 11, 0.2);
+    --status-amber-text: #f0b429;
+    --status-red-bg:    rgba(244, 63, 94, 0.2);
+    --status-red-text:  #ff8a93;
+    --status-gray-bg:   rgba(169, 186, 169, 0.14);
+    --status-gray-text: #a9baa9;
+    --status-blue-bg:   rgba(58, 143, 193, 0.22);
+    --status-blue-text: #7cc4f0;
+    --status-pink-bg:   rgba(168, 58, 112, 0.24);
+    --status-pink-text: #ec9dc4;
+    --status-chip-bg: rgba(0,0,0,0.28);
+    --lime-50:  rgba(91, 168, 90, 0.16);
+    --lime-100: rgba(91, 168, 90, 0.26);
+    --green-50:  var(--lime-50);
+    --green-100: var(--lime-100);
+    --blue-50:  rgba(58, 143, 193, 0.16);
+    --blue-100: rgba(58, 143, 193, 0.26);
+    --amber-50:  rgba(245, 158, 11, 0.16);
+    --amber-100: rgba(245, 158, 11, 0.26);
+    --red-50:  rgba(244, 63, 94, 0.16);
+    --red-100: rgba(244, 63, 94, 0.26);
+  }
 }
 
 
@@ -221,6 +384,15 @@ body {
   to   { transform: rotate(360deg); }
 }
 
+/* Dashboard.jsx: konfettibitar i "Kom igång"-rutan när alla checklist-steg
+   är klara. Faller rakt ner + snurrar, tonar bort mot slutet så de inte
+   klipps av tvärt i botten av den overflow:hidden-beskurna rutan. */
+@keyframes bokix-confetti-fall {
+  0%   { transform: translateY(0) rotate(var(--rot-start, 0deg)); opacity: 1; }
+  85%  { opacity: 1; }
+  100% { transform: translateY(160px) rotate(calc(var(--rot-start, 0deg) + 340deg)); opacity: 0; }
+}
+
 
 /* ══════════════════════════════════════════════
    APP LAYOUT
@@ -235,11 +407,21 @@ body {
 
 /* ══ SIDEBAR (MrPotato light style) ══ */
 
+/* Bugkritiskt (Windows/Chrome, skärmskalning ≠ 100%): sidebar och innehåll
+   låg tidigare i två SKILDA layout-beräkningar — sidebaren `position:fixed`
+   (mätt mot viewporten) och innehållet förskjutet med en matchande
+   `margin-left` på `.main-wrapper` (mätt i det vanliga dokumentflödet).
+   Samma `--sidebar-width`-värde i båda, men två oberoende avrundningar till
+   hela enhetspixlar kan ändå ge en hårfin lucka mellan dem vid t.ex. 125%/
+   150% skalning — exakt det kundfeedbacken "ingen space mellan menyn och
+   sidorna" beskrev. Sidebaren är nu en vanlig flex-syskon-låda i
+   `.app-container` istället (ingen `margin-left`-motpart behövs alls, se
+   `.main-wrapper` nedan) — EN layout-beräkning, omöjlig att få ur synk.
+   `position:fixed` behövs bara på mobil där sidebaren ligger utanför
+   flödet som en överlagd panel, se @media (max-width: 768px) nedan. */
 .sidebar {
-  position: fixed;
-  top: 0;
-  left: 0;
   width: var(--sidebar-width);
+  flex-shrink: 0;
   height: 100vh;
   height: 100dvh;
   background: var(--bg-sidebar);
@@ -512,6 +694,8 @@ body {
 
 /* ══ HAMBURGER KNAPP ══ */
 
+/* Bara använd inuti topbaren (.global-top-bar på mobil) — ljust läge har
+   samma kortfärgad topbar som alltid, mörkt läge-override längre ner. */
 .hamburger-btn {
   display: none;
   background: none;
@@ -532,21 +716,26 @@ body {
 
 /* ══ MAIN CONTENT ══ */
 
-/* height (inte bara min-height) + overflow:hidden här är avsiktligt: det
-   gör .main-wrapper till en fast, viewport-hög låda där .desktop-top-bar
-   ligger stilla högst upp och bara .main-content-inner scrollar internt —
-   annars har flex-barn inget definitivt höjdtak att fördela `flex:1` mot,
-   och en sida som är kortare än fönstret slutar bara vid sin egen
-   innehållshöjd istället för att fylla resten. */
+/* height (inte bara min-height) är fortfarande avsiktligt: en kort sida
+   ska ändå fylla hela viewport-höjden med sin egen bakgrund/kort (flex:1
+   på .main-content-inner nedan), inte lämna vit tomyta under sig.
+   Kundönskemål: headern ska INTE ligga stilla när man skrollar — den ska
+   scrolla bort tillsammans med resten av sidan. Tidigare var
+   .main-wrapper en overflow:hidden-låda med .desktop-top-bar som en fast
+   syskon-rad OVANFÖR .main-content-inner:s egen (inre) scroll — topbaren
+   var därför alltid synlig oavsett hur mycket man skrollade, eftersom den
+   aldrig var en del av den skrollande ytan. Skrollansvaret flyttat hit
+   (overflow-y:auto) och bort från .main-content-inner (se den regeln
+   nedan) så topbar + innehåll nu skrollar tillsammans som EN yta. */
 .main-wrapper {
-  margin-left: var(--sidebar-width);
   flex: 1;
+  min-width: 0;
   height: 100vh;
   height: 100dvh;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  max-width: calc(100vw - var(--sidebar-width));
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 /* Bugkritiskt: utan flex/höjd här stannar varje sidas rot-div (som själv
@@ -569,15 +758,25 @@ body {
    UTANFÖR `.main-content-inner`) ovanpå modalen istället för tvärtom, trots
    att 1000 > 150. Samma sak hade i teorin kunnat träffa sidebarens z-index:200
    på desktop. Insticksanimationen är borttagen härifrån av det skälet — den
-   var rent kosmetisk, felet den orsakade var inte det. */
+   var rent kosmetisk, felet den orsakade var inte det.
+
+   Egen overflow-y:auto borttagen härifrån (kundönskemål: headern ska
+   scrolla bort med resten av sidan, inte ligga stilla ovanför) —
+   .main-wrapper äger nu all scroll (både x och y), se den regeln ovan.
+   INGEN overflow-egenskap kvar här alls, medvetet — CSS-specen tvingar
+   annars fram overflow-y:auto även när den sätts explicit till "visible":
+   "om en axel är visible och den andra inte är det, räknas den synliga
+   axeln om till auto". Ett ensamt overflow-x:hidden här (för att stoppa
+   sidledesskroll) hade alltså räckt för att återinföra exakt den envisa
+   inre vertikala scrollen jag försöker ta bort — overflow-x:hidden på
+   .main-wrapper ovan sköter den spärren istället, på en nivå där den
+   inte krockar med y-axeln här. */
 .main-content-inner {
   padding: 24px 32px 56px;
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
-  overflow-x: hidden;
 }
 .main-content-inner > * {
   flex: 1;
@@ -587,18 +786,26 @@ body {
 
 /* ══ DESKTOP TOP BAR ══ */
 
+/* Kundönskemål: headern ska ha samma färg som sidomenyn — men BARA i mörkt
+   läge. I ljust läge ska headern vara vit (kortfärgen) som innan; det är
+   bara i mörkt läge --bg-card/--bg-sidebar ligger tillräckligt nära
+   varandra för att en helgrön header (--bg-sidebar i ljust läge är den
+   mättade gröna märkesfärgen) ska se avsiktlig ut istället för för mycket.
+   Se mörkt-läge-override längre ner (samma :root[data-theme="dark"]/
+   prefers-color-scheme-mönster som variabelblocken ovan) för den delen,
+   och .topbar-icon-btn/.hamburger-btn för matchande ikonfärger där. */
+/* Kundönskemål: headern ska INTE följa med (position:sticky) när man
+   skrollar sidan — bara ligga överst och sedan skrolla bort med resten av
+   innehållet, som en vanlig del av sidflödet. */
 .desktop-top-bar {
   display: flex;
   justify-content: flex-end;
   align-items: center;
   padding: 0 20px;
-  background: white;
+  background: var(--bg-card);
   border-bottom: 1px solid var(--border);
   height: 52px;
   flex-shrink: 0;
-  position: sticky;
-  top: 0;
-  z-index: 100;
   gap: 10px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
@@ -662,48 +869,6 @@ body {
   border-color: var(--lime-400);
 }
 
-/* ══ SEARCH BAR ══ */
-.topbar-search {
-  display: flex;
-  align-items: center;
-  background: var(--gray-50);
-  border: 1px solid var(--gray-200);
-  border-radius: 8px;
-  padding: 0 12px;
-  height: 36px;
-  max-width: 450px;
-  width: 100%;
-  transition: all var(--transition);
-}
-
-.topbar-search:focus-within {
-  background: white;
-  border-color: var(--lime-500);
-  box-shadow: 0 0 0 3px rgba(132, 204, 22, 0.15);
-}
-
-.topbar-search-icon {
-  color: var(--gray-400);
-  flex-shrink: 0;
-  margin-right: 8px;
-}
-
-.topbar-search-input {
-  border: none;
-  background: transparent;
-  width: 100%;
-  height: 100%;
-  font-size: 13.5px;
-  color: var(--gray-900);
-  outline: none;
-  font-family: var(--font-sans);
-}
-
-.topbar-search-input::placeholder {
-  color: var(--gray-400);
-}
-
-
 /* ══ GLOBAL TOP BAR ══ */
 
 .global-top-bar {
@@ -711,14 +876,49 @@ body {
   justify-content: space-between;
   align-items: center;
   padding: 0 24px 0 20px;
-  background: white;
+  background: var(--bg-card);
   border-bottom: 1px solid var(--border);
   height: var(--topbar-height);
   flex-shrink: 0;
-  position: sticky;
-  top: 0;
-  z-index: 100;
   gap: 12px;
+}
+
+/* Kundönskemål: headern (.desktop-top-bar/.global-top-bar) ska ha samma
+   färg som sidomenyn — men BARA i mörkt läge (ljust läge är vitt, se
+   basreglerna ovan). Samma :root[data-theme="dark"]/prefers-color-scheme-
+   par som variabelblocken högre upp i filen, eftersom "auto"-läget (ingen
+   sparad preferens) inte får ett data-theme-attribut alls. */
+:root[data-theme="dark"] .desktop-top-bar,
+:root[data-theme="dark"] .global-top-bar {
+  background: var(--bg-sidebar);
+  border-bottom-color: rgba(255,255,255,0.15);
+  box-shadow: none;
+}
+:root[data-theme="dark"] .topbar-icon-btn,
+:root[data-theme="dark"] .hamburger-btn {
+  color: rgba(255,255,255,0.75);
+}
+:root[data-theme="dark"] .topbar-icon-btn:hover,
+:root[data-theme="dark"] .hamburger-btn:hover {
+  background: rgba(255,255,255,0.12);
+  color: #ffffff;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="dark"]) .desktop-top-bar,
+  :root:not([data-theme="light"]):not([data-theme="dark"]) .global-top-bar {
+    background: var(--bg-sidebar);
+    border-bottom-color: rgba(255,255,255,0.15);
+    box-shadow: none;
+  }
+  :root:not([data-theme="light"]):not([data-theme="dark"]) .topbar-icon-btn,
+  :root:not([data-theme="light"]):not([data-theme="dark"]) .hamburger-btn {
+    color: rgba(255,255,255,0.75);
+  }
+  :root:not([data-theme="light"]):not([data-theme="dark"]) .topbar-icon-btn:hover,
+  :root:not([data-theme="light"]):not([data-theme="dark"]) .hamburger-btn:hover {
+    background: rgba(255,255,255,0.12);
+    color: #ffffff;
+  }
 }
 
 .topbar-left {
@@ -753,7 +953,7 @@ body {
   position: absolute;
   top: calc(100% + 12px);
   right: 0;
-  background: white;
+  background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
@@ -813,7 +1013,7 @@ body {
   position: absolute;
   top: calc(100% + 12px);
   right: 0;
-  background: white;
+  background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
@@ -916,8 +1116,8 @@ body {
   left: 0;
   right: 0;
   min-height: var(--mobile-nav-height);
-  background: white;
-  border-top: 1px solid #e5e7eb;
+  background: var(--bg-card);
+  border-top: 1px solid var(--border);
   z-index: 150;
   /* Subtil skugga uppåt — lyfter naven från innehållet istället för en platt linje. */
   box-shadow: 0 -2px 8px rgba(0,0,0,0.04);
@@ -971,7 +1171,7 @@ body {
   font-family: var(--font-sans);
   font-size: 12px;
   font-weight: 500;
-  color: #6b7280;
+  color: var(--text-main);
   padding: 6px 2px;
   transition: transform 0.12s ease, color 0.18s ease;
 }
@@ -992,7 +1192,7 @@ body {
   background: transparent;
   transform: scale(1);
   transition: background-color 0.18s ease, color 0.18s ease, transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
-  color: #6b7280;
+  color: var(--text-main);
 }
 
 .mobile-nav-btn.active {
@@ -1004,6 +1204,23 @@ body {
   background: #eaf3de;
   color: #3d7a2e;
   transform: scale(1.08);
+}
+
+/* Kundfeedback: den ljusa krämfärgade cirkeln (#eaf3de) + den nästan
+   svarta grön-texten (#27500a) är rätt mot en vit/ljusgrön sida (ljust
+   läge, ändras inte här) — men mot en mörk sida lyste den aktiva
+   fliken upp som en påtagligt ljus/grön fläck varje gång man tryckte
+   på Hem/Fakturor/Utgifter, i skarp kontrast mot resten av den nu
+   konsekvent mörka mobilnaven. I mörkt läge: samma vita text som de
+   inaktiva flikarna (bara fetstilen kvar som markering) och ingen
+   ljus bakgrundscirkel bakom ikonen — ser ut precis som innan man
+   tryckte, ingen "blir grön"-blixt. */
+:root[data-theme="dark"] .mobile-nav-btn.active {
+  color: var(--text-main);
+}
+:root[data-theme="dark"] .mobile-nav-btn.active .mobile-nav-icon {
+  background: transparent;
+  color: var(--text-main);
 }
 
 /* ── "Mer"-bottensheet — glider upp från botten istället för en egen sida. ── */
@@ -1027,7 +1244,7 @@ body {
   left: 0;
   right: 0;
   bottom: 0;
-  background: white;
+  background: var(--bg-card);
   border-radius: 20px 20px 0 0;
   z-index: 201;
   box-shadow: 0 -8px 30px rgba(0,0,0,0.18);
@@ -1046,7 +1263,7 @@ body {
   width: 36px;
   height: 4px;
   border-radius: 999px;
-  background: #e5e7eb;
+  background: var(--border);
   margin: 4px auto 14px;
 }
 
@@ -1073,7 +1290,7 @@ body {
   font-family: var(--font-sans);
   font-size: 15px;
   font-weight: 500;
-  color: #1f2937;
+  color: var(--text-main);
   text-align: left;
   cursor: pointer;
   transition: transform 0.1s ease, background-color 0.12s ease;
@@ -1084,7 +1301,7 @@ body {
 }
 
 .mobile-sheet-item:active {
-  background: #f4f4f5;
+  background: var(--bg-muted);
   transform: scale(0.98);
 }
 
@@ -1102,7 +1319,7 @@ body {
   border-radius: 999px;
   flex-shrink: 0;
   background: transparent;
-  color: #6b7280;
+  color: var(--text-secondary);
   transition: background-color 0.18s ease, color 0.18s ease;
 }
 
@@ -1205,7 +1422,7 @@ body {
 }
 
 .btn-secondary {
-  background: white;
+  background: var(--bg-card);
   color: var(--text-main);
   border-color: var(--border);
   box-shadow: var(--shadow-xs);
@@ -1229,7 +1446,7 @@ body {
 }
 
 .btn-danger {
-  background: white;
+  background: var(--bg-card);
   color: var(--danger-dark);
   border-color: var(--red-500);
 }
@@ -1381,7 +1598,7 @@ body {
   font-family: var(--font-sans);
   font-size: 13.5px;
   color: var(--text-main);
-  background: white;
+  background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   transition: border-color var(--transition), box-shadow var(--transition);
@@ -1505,7 +1722,7 @@ textarea.form-control {
 }
 
 .modal-content {
-  background: white;
+  background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   width: 100%;
@@ -1554,6 +1771,65 @@ textarea.form-control {
   padding-top: 16px;
   border-top: 1px solid var(--border-light);
   margin-top: 20px;
+}
+
+/* ── Kvittodetaljer (Expenses.jsx) — egen modal, inte .modal-overlay/
+   .modal-content, så den ärver inte fixen nedanför "@media 768px:
+   Modaler fullskärm på mobil" automatiskt. Bild + formulär sida vid
+   sida på desktop, var sin oberoende 90vh-skroll — men på mobil
+   (kundfeedback: "kan man ej skrolla eller se allt") gjorde exakt
+   samma flexbox-fälla att botten av formuläret (Ta bort/Stäng/Spara-
+   knapparna) klipptes bort bakom overflow:hidden på ytterboxen utan
+   att gå att nå. Basen här är oförändrad (motsvarar tidigare inline-
+   värden); mobil-overriden nedan lägger allt skroll på själva
+   overlayn istället och tar bort de två inre, oberoende skrollytorna. */
+.receipt-modal-overlay {
+  align-items: center;
+  padding: 20px;
+}
+.receipt-modal-box {
+  max-height: 90vh;
+  overflow: hidden;
+}
+.receipt-modal-image {
+  flex: 1 1 340px;
+  min-width: 280px;
+  overflow: auto;
+  max-height: 90vh;
+}
+.receipt-modal-form {
+  overflow-y: auto;
+  max-height: 90vh;
+}
+
+@media (max-width: 768px) {
+  .receipt-modal-overlay {
+    align-items: flex-start;
+    overflow-y: auto;
+    padding: 0;
+    scrollbar-width: none;
+  }
+  .receipt-modal-overlay::-webkit-scrollbar {
+    display: none;
+  }
+  .receipt-modal-box {
+    max-height: none;
+    overflow: visible;
+    min-height: 100vh;
+  }
+  .receipt-modal-image {
+    /* Fast, rimlig höjd istället för att tävla om 90vh med formuläret
+       — annars tar bilden nästan hela skärmen och formuläret (och
+       spara-knappen) hamnar långt ner utanför synfältet igen. */
+    flex: 0 0 auto;
+    width: 100%;
+    max-height: 260px;
+    overflow: hidden;
+  }
+  .receipt-modal-form {
+    max-height: none;
+    overflow: visible;
+  }
 }
 
 
@@ -1727,7 +2003,7 @@ textarea.form-control {
 
 /* Onboarding */
 .ds-onboarding {
-  background: white;
+  background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 24px 28px;
@@ -1798,7 +2074,7 @@ textarea.form-control {
 }
 
 .ds-kpi {
-  background: white;
+  background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 18px 20px;
@@ -1897,7 +2173,7 @@ textarea.form-control {
   gap: 12px;
   width: 100%;
   padding: 14px 16px;
-  background: white;
+  background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   font-size: 13.5px;
@@ -1940,7 +2216,7 @@ textarea.form-control {
 
 /* Chart */
 .ds-chart {
-  background: white;
+  background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 20px 20px 12px;
@@ -1948,7 +2224,7 @@ textarea.form-control {
 }
 
 .ds-tooltip {
-  background: white;
+  background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 10px 14px;
@@ -2020,7 +2296,7 @@ textarea.form-control {
 }
 
 .kpi-card {
-  background: white;
+  background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 20px;
@@ -2078,7 +2354,7 @@ textarea.form-control {
 }
 
 .dashboard-panel {
-  background: white;
+  background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 20px;
@@ -2106,7 +2382,7 @@ textarea.form-control {
 }
 
 .chart-tooltip {
-  background: white;
+  background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 10px 14px;
@@ -2181,13 +2457,35 @@ textarea.form-control {
   backdrop-filter: blur(5px);
 }
 
+/* Helskärm, INGEN white space (kundfeedback, andra försöket): min(1200px,
+   96vw) + 20px overlay-padding var fortfarande synligt bakgrundstyg runt
+   en flytande kortmodal, inte en riktig helskärmsvy — precis som Fakturerings
+   egen sida (InvoiceForm i Invoices.jsx) är EN sida som fyller hela
+   ytan, inte ett kort centrerat på en tom bakgrund. Förhandsgranskningen
+   ska bete sig likadant: overlayen blir en solid, opak flik som täcker
+   HELA fönstret (ingen genomskinlig backdrop kvar att se — inget att
+   blur:a bakom en full sida), och modal-content sträcks ut till 100%
+   bredd/höjd istället för att vara ett kort med marginal runt. */
+.a4-preview-overlay {
+  padding: 0;
+  align-items: stretch;
+  justify-content: stretch;
+  background: #f3f4f6;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
 .a4-document-preview {
-  max-width: 820px !important;
+  max-width: 100% !important;
+  width: 100%;
+  min-height: 100vh;
   background: transparent !important;
   box-shadow: none !important;
-  padding: 0 !important;
+  padding: 24px !important;
   overflow: visible !important;
   border: none !important;
+  border-radius: 0 !important;
+  animation: none !important;
 }
 
 .a4-document-preview .modal-header {
@@ -2445,7 +2743,7 @@ textarea.form-control {
 .text-danger { color: var(--red-600); }
 
 .saas-chart-tooltip {
-  background: white;
+  background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 7px;
   padding: 9px 13px;
@@ -2489,8 +2787,15 @@ textarea.form-control {
     --sidebar-width: 260px;
   }
 
-  /* Göm sidebar som standard på mobil */
+  /* Göm sidebar som standard på mobil — här (till skillnad från skrivbordet,
+     se .sidebar-basregeln ovan) MÅSTE den vara `position:fixed`: den ska
+     ligga som en överlagd panel UTANFÖR dokumentflödet, inte som en
+     flex-låda som fortfarande upptar plats bredvid `.main-wrapper` när den
+     translateX:as ur syn. */
   .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
     transform: translateX(-100%);
     width: var(--sidebar-width);
     z-index: 250;
@@ -2508,8 +2813,6 @@ textarea.form-control {
 
   /* Flytta main content fullt ut */
   .main-wrapper {
-    margin-left: 0;
-    max-width: 100vw;
     padding-bottom: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom, 0px));
   }
 
@@ -2525,6 +2828,36 @@ textarea.form-control {
 
   /* Göm desktop topbar på mobil */
   .desktop-top-bar {
+    display: none;
+  }
+
+  /* Profil- OCH notismenyn (öppnas nu även från mobil-topbarens avatar-
+     respektive klock-knapp) — den 240px-breda, höger-ankrade
+     desktopversionen är `position: absolute` relativt sin EGEN
+     ikon-knapps wrapper, vilket funkade för avataren (sist i raden, nära
+     högerkanten) men inte för klockan (mitt i raden) — där landade den
+     långt till vänster om ikonen den öppnades från, inte under den.
+     `position: fixed` mot själva SKÄRMEN istället för mot triggerknappen
+     löser båda: samma fasta position oavsett vilken ikon som öppnade den,
+     full bredd minus sidmarginaler, aldrig utanför skärmkanten. Max-höjd
+     med dold scrollbar (kundönskemål: "remove scroll bar") eftersom
+     profilmenyns elva punkter + huvud annars kan bli högre än korta
+     telefoners synfält. */
+  .profile-dropdown {
+    position: fixed;
+    top: calc(var(--topbar-height) + 8px);
+    left: 14px;
+    right: 14px;
+    width: auto;
+    /* mobile-nav-height med också — annars kan de sista raderna (t.ex.
+       "Logga ut") hamna visuellt bakom den fasta bottennaven på korta
+       telefoner, även om de fortfarande går att skrolla fram till. */
+    max-height: calc(100vh - var(--topbar-height) - var(--mobile-nav-height) - 20px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .profile-dropdown::-webkit-scrollbar {
     display: none;
   }
 
@@ -2633,7 +2966,7 @@ textarea.form-control {
 
   .responsive-table tr {
     display: block;
-    background: white;
+    background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: 10px;
     margin-bottom: 10px;
@@ -2714,6 +3047,27 @@ textarea.form-control {
     display: none;
   }
 
+  /* Kundfeedback: "skroll draget ska ej finnas på mobilen" — samma
+     dolda-scrollbar-behandling som .tabs-scroll-x ovan, men på appens
+     övriga skrollande ytor på mobil (sidomenyn, generella modaler,
+     "Mer"-bottensheeten, tabellwrappern). Skrollar fortfarande precis
+     som förut — bara det synliga scrollbar-facket/handtaget (vanligt
+     på Android Chrome, till skillnad från iOS Safaris självdolda) som
+     tas bort. */
+  .sidebar,
+  .modal-overlay,
+  .mobile-sheet,
+  .table-container {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .sidebar::-webkit-scrollbar,
+  .modal-overlay::-webkit-scrollbar,
+  .mobile-sheet::-webkit-scrollbar,
+  .table-container::-webkit-scrollbar {
+    display: none;
+  }
+
   /* Fortnox-terugkoppling: Skatt och bokslut-checklistans rader (titel+
      hint + status-pill sida vid sida) hade bara ~150px kvar åt texten
      efter status-pillret — tekniskt korrekt flex:1-fördelning (se
@@ -2775,6 +3129,15 @@ textarea.form-control {
      element, inte mot en ärvd/svagare regel som .form-row-2:s bas gör. */
   .form-row-stack {
     grid-template-columns: 1fr !important;
+  }
+
+  /* Offertradernas kolumnrubriker (Quotes.jsx) — meningsfulla i en
+     6-kolumnsrad på desktop, men varje fält staplas till en egen rad på
+     mobil (.form-row-stack ovan) där rubrikerna bara blir sex sammanpressade
+     ord ovanför en enda kolumn. Fälten har egna placeholders, så rubrikraden
+     är ren dubbelinformation här — döljs istället för att klämmas ihop. */
+  .quote-rows-header {
+    display: none;
   }
 
   /* Sida 38, punkt 6: sidhuvuden med titel + knapp (eller titel + sök +
@@ -2864,8 +3227,8 @@ textarea.form-control {
     margin-bottom: 20px;
     font-size: 14px;
     font-weight: 600;
-    color: #3f3f46;
-    background: white;
+    color: var(--text-main);
+    background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: 10px;
     box-sizing: border-box;

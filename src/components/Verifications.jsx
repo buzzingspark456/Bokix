@@ -256,26 +256,26 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
     });
   };
 
-  const inp = { padding: '9px 12px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '13px', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box', outline: 'none', transition: 'border-color 0.15s' };
-  const labelStyle = { display: 'block', fontSize: '12px', fontWeight: 600, color: '#374151', marginBottom: '4px' };
+  const inp = { padding: '9px 12px', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '13px', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box', outline: 'none', transition: 'border-color 0.15s', color: 'var(--text-main)', background: 'var(--bg-card)' };
+  const labelStyle = { display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '4px' };
 
   // Förhandsvisning av nästa nummer, i den serie som faktiskt är vald —
   // det riktiga numret sätts vid sparande så att det alltid är aktuellt.
   const previewNumber = initial?.number || (getNextNumber ? getNextNumber(series) : nextNumber);
 
-  const fieldLabel = { display: 'block', fontSize: '11.5px', fontWeight: 600, color: '#6b7280', marginBottom: '5px' };
+  const fieldLabel = { display: 'block', fontSize: '11.5px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '5px' };
 
   return (
-    <div style={{ background: 'white', borderRadius: '14px', border: '1px solid #eceef1', padding: '28px', marginBottom: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+    <div style={{ background: 'var(--bg-card)', borderRadius: '14px', border: '1px solid var(--border)', padding: '28px', marginBottom: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '22px' }}>
-        <h2 style={{ margin: 0, fontSize: '19px', fontWeight: 700, color: '#111', letterSpacing: '-0.01em' }}>
+        <h2 style={{ margin: 0, fontSize: '19px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.01em' }}>
           {/* En rättelseverifikation (`initial` fylld men `number` medvetet
               tömd, se "Rätta"-knappen nedan) ska visas och beskrivas som en
               NY verifikation — den ärver bara text/rader, aldrig originalets
               nummer eller "redigera befintlig"-språket. */}
           {initial?.number ? `Verifikation ${initial.number}` : 'Ny verifikation'}
         </h2>
-        <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af' }}><X size={20} /></button>
+        <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={20} /></button>
       </div>
 
       {/* Datum / Beskrivning / Serie */}
@@ -290,7 +290,7 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
         </div>
         <div style={{ width: '90px' }}>
           <label style={fieldLabel}>Serie</label>
-          <select value={series} onChange={e => setSeries(e.target.value)} style={{ ...inp, background: 'white', textAlign: 'center' }}>
+          <select value={series} onChange={e => setSeries(e.target.value)} style={{ ...inp, background: 'var(--bg-card)', textAlign: 'center' }}>
             {['A', 'B', 'C'].map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
@@ -300,7 +300,7 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
         const lockedPeriod = findLockedVatPeriod(date, vatPeriods);
         if (!lockedPeriod) return null;
         return (
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '10px 12px', marginBottom: '10px', fontSize: '12.5px', color: '#92400e', lineHeight: 1.5 }}>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-amber-bg)', border: '1px solid var(--status-amber-bg)', borderRadius: '8px', padding: '10px 12px', marginBottom: '10px', fontSize: '12.5px', color: 'var(--status-amber-text)', lineHeight: 1.5 }}>
             <AlertCircle size={15} style={{ flexShrink: 0, marginTop: 1 }} />
             <span>Denna period är redan momsredovisad. Ändringar här påverkar inte den redan inlämnade deklarationen och kräver en separat rättelse hos Skatteverket.</span>
           </div>
@@ -308,11 +308,11 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
       })()}
 
       {/* Räkenskapsår + nästa nummer + valuta, som en informationsrad */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '18px', fontSize: '12.5px', color: '#6b7280', marginBottom: '18px', flexWrap: 'wrap' }}>
-        <span>Räkenskapsår: <strong style={{ color: '#374151' }}>Räkenskapsår {(date || '').slice(0, 4) || new Date().getFullYear()}</strong> <strong style={{ color: '#374151' }}>{previewNumber}</strong></span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '18px', fontSize: '12.5px', color: 'var(--text-secondary)', marginBottom: '18px', flexWrap: 'wrap' }}>
+        <span>Räkenskapsår: <strong style={{ color: 'var(--text-main)' }}>Räkenskapsår {(date || '').slice(0, 4) || new Date().getFullYear()}</strong> <strong style={{ color: 'var(--text-main)' }}>{previewNumber}</strong></span>
         <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           Valuta
-          <select disabled title="Bokix stödjer i dagsläget bara SEK — ingen valutaomräkning görs på andra valutor" style={{ padding: '3px 8px', border: '1px solid #e4e4e7', borderRadius: '999px', fontSize: '12px', color: '#374151', background: '#f8fafc', fontFamily: 'inherit' }}>
+          <select disabled title="Bokix stödjer i dagsläget bara SEK — ingen valutaomräkning görs på andra valutor" style={{ padding: '3px 8px', border: '1px solid var(--border)', borderRadius: '999px', fontSize: '12px', color: 'var(--text-main)', background: 'var(--bg-muted)', fontFamily: 'inherit' }}>
             <option>SEK</option>
           </select>
         </span>
@@ -343,10 +343,10 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
           <PartySearch value={counterpartyId} onChange={setCounterpartyId} contacts={contacts} />
         </div>
       </div>
-      <p style={{ fontSize: '11.5px', color: '#94a3b8', marginTop: '0', marginBottom: '20px' }}>Gäller alla rader utan egen märkning.</p>
+      <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '0', marginBottom: '20px' }}>Gäller alla rader utan egen märkning.</p>
 
       {missingCounterparty && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '6px', padding: '8px 12px', marginBottom: '20px', fontSize: '12.5px', color: '#92400e' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--status-amber-bg)', border: '1px solid var(--status-amber-bg)', borderRadius: '6px', padding: '8px 12px', marginBottom: '20px', fontSize: '12.5px', color: 'var(--status-amber-text)' }}>
           <AlertCircle size={14} style={{ flexShrink: 0 }} />
           Ett reskontrakonto (kundfordringar/leverantörsskulder) är använt — ange motparten så det syns vem affärshändelsen gäller.
         </div>
@@ -358,12 +358,12 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
             <thead>
               <tr>
-                <th style={{ padding: '0 8px 8px', textAlign: 'left', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: '#9ca3af', borderBottom: '1px solid #eceef1', width: 130 }}>KONTO</th>
-                <th style={{ padding: '0 8px 8px', textAlign: 'left', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: '#9ca3af', borderBottom: '1px solid #eceef1' }}>BESKRIVNING</th>
-                <th style={{ padding: '0 8px 8px', textAlign: 'left', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: '#9ca3af', borderBottom: '1px solid #eceef1', width: 100 }}>DEBET</th>
-                <th style={{ padding: '0 8px 8px', textAlign: 'left', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: '#9ca3af', borderBottom: '1px solid #eceef1', width: 100 }}>KREDIT</th>
-                <th style={{ padding: '0 8px 8px', textAlign: 'right', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: '#9ca3af', borderBottom: '1px solid #eceef1', width: 120 }}>SALDO</th>
-                <th style={{ width: 52, borderBottom: '1px solid #eceef1' }} />
+                <th style={{ padding: '0 8px 8px', textAlign: 'left', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: 'var(--text-main)', borderBottom: '1px solid var(--border)', width: 130 }}>KONTO</th>
+                <th style={{ padding: '0 8px 8px', textAlign: 'left', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: 'var(--text-main)', borderBottom: '1px solid var(--border)' }}>BESKRIVNING</th>
+                <th style={{ padding: '0 8px 8px', textAlign: 'left', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: 'var(--text-main)', borderBottom: '1px solid var(--border)', width: 100 }}>DEBET</th>
+                <th style={{ padding: '0 8px 8px', textAlign: 'left', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: 'var(--text-main)', borderBottom: '1px solid var(--border)', width: 100 }}>KREDIT</th>
+                <th style={{ padding: '0 8px 8px', textAlign: 'right', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: 'var(--text-main)', borderBottom: '1px solid var(--border)', width: 120 }}>SALDO</th>
+                <th style={{ width: 52, borderBottom: '1px solid var(--border)' }} />
               </tr>
             </thead>
             <tbody>
@@ -376,7 +376,7 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
                 const overrideOpen = expandedRows.has(i);
                 return (
                 <React.Fragment key={i}>
-                <tr style={{ borderBottom: '1px solid #f4f5f7' }}>
+                <tr style={{ borderBottom: '1px solid var(--border-light)' }}>
                   <td style={{ padding: '6px 8px 6px 0' }}>
                     <AccountSearch
                       value={row.account}
@@ -385,7 +385,7 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
                       onChange={(code, name) => { updateRow(i, 'account', code); updateRow(i, 'accountName', name); }}
                     />
                   </td>
-                  <td style={{ padding: '6px 8px', color: '#374151', fontSize: '13px' }}>
+                  <td style={{ padding: '6px 8px', color: 'var(--text-main)', fontSize: '13px' }}>
                     <input
                       value={row.desc || ''}
                       onChange={e => updateRow(i, 'desc', e.target.value)}
@@ -399,7 +399,7 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
                       onChange={e => updateRow(i, 'debet', e.target.value)}
                       onBlur={() => handleBlurAmount(i)}
                       onKeyDown={e => { if (e.key === 'Enter') handleBlurAmount(i); }}
-                      style={{ ...inp, padding: '9px 14px', textAlign: 'left', borderRadius: '8px', border: '1px solid #d1d5db', background: '#f8fafc' }}
+                      style={{ ...inp, padding: '9px 14px', textAlign: 'left', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-muted)' }}
                       placeholder="0,00"
                     />
                   </td>
@@ -409,31 +409,31 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
                       onChange={e => updateRow(i, 'kredit', e.target.value)}
                       onBlur={() => handleBlurAmount(i)}
                       onKeyDown={e => { if (e.key === 'Enter') handleBlurAmount(i); }}
-                      style={{ ...inp, padding: '9px 14px', textAlign: 'left', borderRadius: '8px', border: '1px solid #d1d5db', background: '#f8fafc' }}
+                      style={{ ...inp, padding: '9px 14px', textAlign: 'left', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-muted)' }}
                       placeholder="0,00"
                     />
                   </td>
                   <td style={{ padding: '6px 8px', textAlign: 'right' }} title="Kontots saldo före och efter denna rad (baserat på nuvarande bokförda saldo)">
                     {projectedBalance !== null ? (
                       <div style={{ lineHeight: 1.4 }}>
-                        <div style={{ fontSize: '11px', color: '#9ca3af' }}>{fmt(currentBalance)} kr</div>
-                        <div style={{ fontSize: '13px', color: '#374151', fontWeight: 600, whiteSpace: 'nowrap' }}>→ {fmt(projectedBalance)} kr</div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{fmt(currentBalance)} kr</div>
+                        <div style={{ fontSize: '13px', color: 'var(--text-main)', fontWeight: 600, whiteSpace: 'nowrap' }}>→ {fmt(projectedBalance)} kr</div>
                       </div>
                     ) : (
-                      <span style={{ fontSize: '13px', color: '#c7cbd1' }}>–</span>
+                      <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>–</span>
                     )}
                   </td>
                   <td style={{ padding: '6px 4px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                     {warning && (
-                      <span title={warning} style={{ display: 'inline-flex', color: '#d97706', cursor: 'help', marginRight: '4px' }}>
+                      <span title={warning} style={{ display: 'inline-flex', color: 'var(--status-amber-text)', cursor: 'help', marginRight: '4px' }}>
                         <AlertCircle size={14} />
                       </span>
                     )}
-                    <button onClick={() => toggleRowOverride(i)} title="Egen kostnadsställe/projekt för denna rad" style={{ background: 'none', border: 'none', cursor: 'pointer', color: hasOverride || overrideOpen ? '#111827' : '#c7cbd1', padding: '2px', marginRight: '2px' }}>
+                    <button onClick={() => toggleRowOverride(i)} title="Egen kostnadsställe/projekt för denna rad" style={{ background: 'none', border: 'none', cursor: 'pointer', color: hasOverride || overrideOpen ? 'var(--text-main)' : 'var(--text-muted)', padding: '2px', marginRight: '2px' }}>
                       <Tag size={15} />
                     </button>
                     {rows.length > 1 && (row.account || row.debet || row.kredit) && (
-                      <button onClick={() => removeRow(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#c7cbd1', padding: '2px' }}>
+                      <button onClick={() => removeRow(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '2px' }}>
                         <Trash2 size={15} />
                       </button>
                     )}
@@ -441,7 +441,7 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
                 </tr>
                 {overrideOpen && (
                   <tr>
-                    <td colSpan={6} style={{ padding: '2px 8px 12px', background: '#fafbfc' }}>
+                    <td colSpan={6} style={{ padding: '2px 8px 12px', background: 'var(--bg-muted)' }}>
                       <div style={{ display: 'flex', gap: '10px', paddingTop: '8px' }}>
                         <div style={{ flex: 1 }}>
                           <label style={{ ...fieldLabel, marginBottom: '3px' }}>Kostnadsställe (denna rad)</label>
@@ -460,26 +460,26 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
               })}
             </tbody>
             <tfoot>
-              <tr style={{ borderTop: '1px solid #eceef1' }}>
-                <td colSpan={2} style={{ padding: '12px 8px', fontWeight: 700, fontSize: '13px', color: '#111' }}>Summa</td>
-                <td style={{ padding: '12px 8px', textAlign: 'left', fontWeight: 700, color: isBalanced ? '#111' : '#dc2626' }}>{fmt(totalDebit)}</td>
-                <td style={{ padding: '12px 8px', textAlign: 'left', fontWeight: 700, color: isBalanced ? '#111' : '#dc2626' }}>{fmt(totalCredit)}</td>
+              <tr style={{ borderTop: '1px solid var(--border)' }}>
+                <td colSpan={2} style={{ padding: '12px 8px', fontWeight: 700, fontSize: '13px', color: 'var(--text-main)' }}>Summa</td>
+                <td style={{ padding: '12px 8px', textAlign: 'left', fontWeight: 700, color: isBalanced ? 'var(--text-main)' : 'var(--status-red-text)' }}>{fmt(totalDebit)}</td>
+                <td style={{ padding: '12px 8px', textAlign: 'left', fontWeight: 700, color: isBalanced ? 'var(--text-main)' : 'var(--status-red-text)' }}>{fmt(totalCredit)}</td>
                 <td colSpan={2} />
               </tr>
               {!isBalanced && (totalDebit > 0 || totalCredit > 0) && (
                 <tr>
-                  <td colSpan={6} style={{ padding: '0 8px 8px', fontSize: '12px', color: '#dc2626' }}>Obalanserad — differens: {fmt(diff)} kr</td>
+                  <td colSpan={6} style={{ padding: '0 8px 8px', fontSize: '12px', color: 'var(--status-red-text)' }}>Obalanserad — differens: {fmt(diff)} kr</td>
                 </tr>
               )}
             </tfoot>
           </table>
           <div style={{ display: 'flex', gap: '8px', marginTop: '14px', flexWrap: 'wrap' }}>
-            <button onClick={addRow} style={{ display: 'flex', alignItems: 'center', gap: '5px', background: 'white', border: '1px solid #e4e4e7', borderRadius: '999px', padding: '7px 14px', fontSize: '12.5px', fontWeight: 600, color: '#374151', cursor: 'pointer', fontFamily: 'inherit' }}>
+            <button onClick={addRow} style={{ display: 'flex', alignItems: 'center', gap: '5px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '999px', padding: '7px 14px', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer', fontFamily: 'inherit' }}>
               <Plus size={13} /> Lägg till rad
             </button>
             {templates && templates.length > 0 && (
-              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', border: '1px solid #e4e4e7', borderRadius: '999px', background: 'white' }}>
-                <LayoutTemplate size={13} style={{ position: 'absolute', left: 12, color: '#374151', pointerEvents: 'none' }} />
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', border: '1px solid var(--border)', borderRadius: '999px', background: 'var(--bg-card)' }}>
+                <LayoutTemplate size={13} style={{ position: 'absolute', left: 12, color: 'var(--text-main)', pointerEvents: 'none' }} />
                 <select
                   value=""
                   onChange={e => {
@@ -493,7 +493,7 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
                     setCostCenter(tpl.costCenter || '');
                     setRows(tpl.rows.map(r => ({ ...r })));
                   }}
-                  style={{ padding: '7px 14px 7px 30px', border: 'none', borderRadius: '999px', fontSize: '12.5px', fontWeight: 600, color: '#374151', fontFamily: 'inherit', background: 'transparent', appearance: 'none' }}
+                  style={{ padding: '7px 14px 7px 30px', border: 'none', borderRadius: '999px', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-main)', fontFamily: 'inherit', background: 'transparent', appearance: 'none' }}
                 >
                   <option value="">Använd mall</option>
                   {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
@@ -506,7 +506,7 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
                   const name = window.prompt('Namn på mallen:', desc || '');
                   if (name && name.trim()) onSaveTemplate({ name: name.trim(), description: desc, projectId, costCenter, rows });
                 }}
-                style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '7px 14px', background: 'white', border: '1px solid #e4e4e7', borderRadius: '999px', fontSize: '12.5px', fontWeight: 600, color: '#374151', cursor: 'pointer', fontFamily: 'inherit' }}
+                style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '7px 14px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '999px', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer', fontFamily: 'inherit' }}
               >
                 <Save size={13} /> Spara som mall
               </button>
@@ -516,7 +516,7 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
 
         {/* Right side: Attachment */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-          <div style={{ fontSize: '13px', fontWeight: 700, color: '#111', marginBottom: '8px' }}>Underlag</div>
+          <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '8px' }}>Underlag</div>
           <div
             onDragOver={e => { e.preventDefault(); setDragOver(true); }}
             onDragLeave={() => setDragOver(false)}
@@ -524,7 +524,7 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
               e.preventDefault(); setDragOver(false);
               acceptFile(e.dataTransfer.files?.[0]);
             }}
-            style={{ flex: 1, border: `1px dashed ${dragOver ? '#111827' : '#d1d5db'}`, borderRadius: '10px', background: dragOver ? '#f8fafc' : 'white', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '28px', textAlign: 'center', cursor: 'pointer', transition: 'all 0.15s', minHeight: '160px' }}
+            style={{ flex: 1, border: `1px dashed ${dragOver ? 'var(--text-main)' : 'var(--border)'}`, borderRadius: '10px', background: dragOver ? 'var(--bg-muted)' : 'var(--bg-card)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '28px', textAlign: 'center', cursor: 'pointer', transition: 'all 0.15s', minHeight: '160px' }}
             onClick={() => fileInputRef.current?.click()}
           >
             <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={e => acceptFile(e.target.files[0])} accept=".pdf,.png,.jpg,.jpeg,.webp" />
@@ -537,40 +537,40 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
                     onClick={e => { e.stopPropagation(); setShowAttachmentLightbox(true); }}
                     style={{ maxWidth: '100%', maxHeight: '140px', borderRadius: '8px', objectFit: 'contain', marginBottom: '8px', cursor: 'zoom-in', boxShadow: '0 1px 4px rgba(0,0,0,0.12)' }}
                   />
-                  <span style={{ fontSize: '12.5px', fontWeight: 600, color: '#111', wordBreak: 'break-all' }}>{displayAttachmentName}</span>
+                  <span style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text-main)', wordBreak: 'break-all' }}>{displayAttachmentName}</span>
                   <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
-                    <button onClick={e => { e.stopPropagation(); setShowAttachmentLightbox(true); }} style={{ background: 'none', border: '1px solid #e4e4e7', borderRadius: '999px', padding: '4px 14px', fontSize: '12px', cursor: 'pointer', color: '#374151' }}>Visa i fullstorlek</button>
-                    <button onClick={(e) => { e.stopPropagation(); setAttachment(null); setExistingAttachment(null); }} style={{ background: 'none', border: '1px solid #e4e4e7', borderRadius: '999px', padding: '4px 14px', fontSize: '12px', cursor: 'pointer', color: '#64748b' }}>Ta bort</button>
+                    <button onClick={e => { e.stopPropagation(); setShowAttachmentLightbox(true); }} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '999px', padding: '4px 14px', fontSize: '12px', cursor: 'pointer', color: 'var(--text-main)' }}>Visa i fullstorlek</button>
+                    <button onClick={(e) => { e.stopPropagation(); setAttachment(null); setExistingAttachment(null); }} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '999px', padding: '4px 14px', fontSize: '12px', cursor: 'pointer', color: 'var(--text-secondary)' }}>Ta bort</button>
                   </div>
                 </>
               ) : (
                 <>
-                  <FileText size={28} color="#111827" style={{ marginBottom: '10px' }} />
-                  <span style={{ fontSize: '13px', fontWeight: 600, color: '#111', wordBreak: 'break-all' }}>{displayAttachmentName}</span>
+                  <FileText size={28} color="var(--text-main)" style={{ marginBottom: '10px' }} />
+                  <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', wordBreak: 'break-all' }}>{displayAttachmentName}</span>
                   <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
-                    <a href={displayAttachmentUrl} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} style={{ background: 'none', border: '1px solid #e4e4e7', borderRadius: '999px', padding: '4px 14px', fontSize: '12px', color: '#374151', textDecoration: 'none' }}>Visa PDF</a>
-                    <button onClick={(e) => { e.stopPropagation(); setAttachment(null); setExistingAttachment(null); }} style={{ background: 'none', border: '1px solid #e4e4e7', borderRadius: '999px', padding: '4px 14px', fontSize: '12px', cursor: 'pointer', color: '#64748b' }}>Ta bort</button>
+                    <a href={displayAttachmentUrl} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '999px', padding: '4px 14px', fontSize: '12px', color: 'var(--text-main)', textDecoration: 'none' }}>Visa PDF</a>
+                    <button onClick={(e) => { e.stopPropagation(); setAttachment(null); setExistingAttachment(null); }} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '999px', padding: '4px 14px', fontSize: '12px', cursor: 'pointer', color: 'var(--text-secondary)' }}>Ta bort</button>
                   </div>
                 </>
               )
             ) : (
               <>
-                <UploadCloud size={26} color="#9ca3af" style={{ marginBottom: '10px' }} />
-                <span style={{ fontSize: '13.5px', fontWeight: 600, color: '#111' }}>Dra och släpp filer här</span>
-                <span style={{ fontSize: '12px', color: '#9ca3af', marginTop: '4px' }}>PDF eller bild (max {MAX_ATTACHMENT_MB} MB)</span>
+                <UploadCloud size={26} color="var(--text-muted)" style={{ marginBottom: '10px' }} />
+                <span style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-main)' }}>Dra och släpp filer här</span>
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>PDF eller bild (max {MAX_ATTACHMENT_MB} MB)</span>
               </>
             )}
           </div>
           {fileError && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '12px', color: '#b91c1c' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '12px', color: 'var(--status-red-text)' }}>
               <AlertCircle size={13} style={{ flexShrink: 0 }} /> {fileError}
             </div>
           )}
           {attachmentBusy && (
-            <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '8px' }}>Laddar upp underlag…</div>
+            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '8px' }}>Laddar upp underlag…</div>
           )}
           {attachmentError && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '12px', color: '#b91c1c' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '12px', color: 'var(--status-red-text)' }}>
               <AlertCircle size={13} style={{ flexShrink: 0 }} /> {attachmentError}
             </div>
           )}
@@ -583,7 +583,7 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
                 placeholder="T.ex. pärm 2026 nr 14, eller e-post 2026-08-12"
                 style={inp}
               />
-              <span style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px', display: 'block' }}>Frivilligt, men bra att fylla i när inget underlag är uppladdat här.</span>
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>Frivilligt, men bra att fylla i när inget underlag är uppladdat här.</span>
             </div>
           )}
         </div>
@@ -596,7 +596,7 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
         if (validRowCount < 2) validationMessages.push('Minst två rader med konto och belopp krävs');
         const canReview = isBalanced && validationMessages.length === 0;
         return (
-      <div style={{ marginTop: '24px', paddingTop: '20px', borderTop: '1px solid #eceef1' }}>
+      <div style={{ marginTop: '24px', paddingTop: '20px', borderTop: '1px solid var(--border)' }}>
         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '10px' }}>
           <button
             onClick={() => {
@@ -605,14 +605,14 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
               setCounterpartyId(''); setOriginalLocation(''); setAttachment(null); setExistingAttachment(null);
               setRows([{ account: '', accountName: '', debet: '', kredit: '', desc: '' }]);
             }}
-            style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '9px 14px', background: 'none', border: 'none', borderRadius: '8px', fontSize: '13.5px', fontWeight: 600, color: '#6b7280', cursor: 'pointer', marginRight: 'auto' }}
+            style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '9px 14px', background: 'none', border: 'none', borderRadius: '8px', fontSize: '13.5px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', marginRight: 'auto' }}
           ><RefreshCw size={13} /> Rensa</button>
-          <button onClick={() => handleSave('draft')} disabled={attachmentBusy} style={{ padding: '10px 18px', background: 'white', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '13.5px', fontWeight: 600, color: '#374151', cursor: attachmentBusy ? 'not-allowed' : 'pointer', opacity: attachmentBusy ? 0.6 : 1 }}>
+          <button onClick={() => handleSave('draft')} disabled={attachmentBusy} style={{ padding: '10px 18px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13.5px', fontWeight: 600, color: 'var(--text-main)', cursor: attachmentBusy ? 'not-allowed' : 'pointer', opacity: attachmentBusy ? 0.6 : 1 }}>
             {attachmentBusy ? 'Laddar upp…' : 'Spara som utkast'}
           </button>
           <button onClick={() => canReview && setShowReview(true)} disabled={!canReview} style={{
-            padding: '10px 22px', background: canReview ? '#18181b' : '#e4e4e7',
-            border: 'none', borderRadius: '8px', color: canReview ? 'white' : '#9ca3af', fontWeight: 600,
+            padding: '10px 22px', background: canReview ? 'var(--text-main)' : 'var(--border)',
+            border: 'none', borderRadius: '8px', color: canReview ? 'white' : 'var(--text-muted)', fontWeight: 600,
             fontSize: '13.5px', cursor: canReview ? 'pointer' : 'not-allowed'
           }}>
             {initial?.number ? 'Granska & spara' : 'Granska & skapa'}
@@ -621,7 +621,7 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
         {validationMessages.length > 0 && (
           <div style={{ textAlign: 'right', marginTop: '8px' }}>
             {validationMessages.map(m => (
-              <div key={m} style={{ fontSize: '12px', color: '#dc2626' }}>{m}</div>
+              <div key={m} style={{ fontSize: '12px', color: 'var(--status-red-text)' }}>{m}</div>
             ))}
           </div>
         )}
@@ -642,22 +642,22 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
       {/* ── Granska innan bokföring ─────────────────────────────── */}
       {showReview && (
         <div onClick={() => setShowReview(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500, padding: 20 }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: 'white', borderRadius: '12px', padding: '24px', width: '100%', maxWidth: '480px', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
-            <h3 style={{ margin: '0 0 4px', fontSize: '16px', fontWeight: 700, color: '#111' }}>Granska verifikation</h3>
-            <p style={{ margin: '0 0 16px', fontSize: '12.5px', color: '#6b7280' }}>{date} · Serie {series} · {desc || 'Ingen beskrivning'}</p>
-            <div style={{ border: '1px solid #e4e4e7', borderRadius: '8px', overflow: 'hidden', marginBottom: '16px' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card)', borderRadius: '12px', padding: '24px', width: '100%', maxWidth: '480px', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
+            <h3 style={{ margin: '0 0 4px', fontSize: '16px', fontWeight: 700, color: 'var(--text-main)' }}>Granska verifikation</h3>
+            <p style={{ margin: '0 0 16px', fontSize: '12.5px', color: 'var(--text-secondary)' }}>{date} · Serie {series} · {desc || 'Ingen beskrivning'}</p>
+            <div style={{ border: '1px solid var(--border)', borderRadius: '8px', overflow: 'hidden', marginBottom: '16px' }}>
               {rows.filter(r => r.account && (parseFloat(r.debet) > 0 || parseFloat(r.kredit) > 0)).map((r, i) => (
-                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', fontSize: '13px', borderBottom: '1px solid #f1f5f9' }}>
-                  <span><strong style={{ color: '#1a3028' }}>{r.account}</strong> {r.accountName}</span>
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', fontSize: '13px', borderBottom: '1px solid var(--border-light)' }}>
+                  <span><strong style={{ color: 'var(--text-main)' }}>{r.account}</strong> {r.accountName}</span>
                   <span style={{ fontWeight: 600, color: r.debet ? '#2e7d32' : '#c62828' }}>{r.debet ? `D ${fmt(r.debet)}` : `K ${fmt(r.kredit)}`}</span>
                 </div>
               ))}
               {missingCounterparty && (
-                <div style={{ padding: '8px 12px', fontSize: '12px', color: '#92400e', background: '#fffbeb' }}>Observera: reskontrakonto utan motpart.</div>
+                <div style={{ padding: '8px 12px', fontSize: '12px', color: 'var(--status-amber-text)', background: 'var(--status-amber-bg)' }}>Observera: reskontrakonto utan motpart.</div>
               )}
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-              <button onClick={() => setShowReview(false)} style={{ padding: '9px 16px', background: 'white', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '13.5px', fontWeight: 600, color: '#374151', cursor: 'pointer' }}>Tillbaka och ändra</button>
+              <button onClick={() => setShowReview(false)} style={{ padding: '9px 16px', background: 'var(--bg-card)', border: '1px solid var(--text-muted)', borderRadius: '8px', fontSize: '13.5px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer' }}>Tillbaka och ändra</button>
               <button onClick={() => { handleSave('booked'); setShowReview(false); }} style={{ padding: '9px 20px', background: '#16a34a', border: 'none', borderRadius: '8px', color: 'white', fontWeight: 700, fontSize: '13.5px', cursor: 'pointer' }}>
                 {initial?.number ? 'Spara ändringar' : 'Bokför'}
               </button>
@@ -785,25 +785,25 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
   // Form is rendered inline now.
 
   const thSt = {
-    padding: '7px 10px', fontSize: '11px', fontWeight: 700, color: '#555',
-    background: '#f5f5f5', borderBottom: '2px solid #ddd', whiteSpace: 'nowrap', textAlign: 'left',
+    padding: '7px 10px', fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)',
+    background: 'var(--bg-muted)', borderBottom: '2px solid var(--border)', whiteSpace: 'nowrap', textAlign: 'left',
   };
 
   return (
-    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: '#f0f2f5' }}>
+    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
 
       {/* ── Top section: title + tabs ─────────────────────────── */}
-      <div style={{ background: 'white', borderBottom: '1px solid #ddd', padding: '0 20px', flexShrink: 0 }}>
+      <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '0 20px', flexShrink: 0 }}>
         {/* .page-header-row (Sida 38, punkt 6) */}
         <div className="page-header-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0 0' }}>
           <div>
-            <h1 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: '#0f172a' }}>Bokföring</h1>
-            <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#888' }}>Verifikationer, kontoplan och bokföringsposter</p>
+            <h1 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: 'var(--text-main)' }}>Bokföring</h1>
+            <p style={{ margin: '2px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>Verifikationer, kontoplan och bokföringsposter</p>
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
             {activeTab === 'verifications' && (
               <>
-                <span style={{ fontSize: '12px', color: '#888', alignSelf: 'center' }}>Nästa: <strong style={{ color: '#1a3028' }}>{nextNumber}</strong></span>
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)', alignSelf: 'center' }}>Nästa: <strong style={{ color: 'var(--text-main)' }}>{nextNumber}</strong></span>
                 <button onClick={() => { setEditingVer(null); setShowForm(true); }} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 16px', background: '#2e7d32', border: 'none', borderRadius: '5px', color: 'white', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}>
                   <Plus size={14} /> Ny verifikation
                 </button>
@@ -821,9 +821,9 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
             <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
               padding: '10px 18px', border: 'none', cursor: 'pointer', fontSize: '13px',
               fontWeight: activeTab === t.id ? 700 : 500,
-              color: activeTab === t.id ? '#1a3028' : '#666',
+              color: activeTab === t.id ? 'var(--text-main)' : 'var(--text-secondary)',
               background: 'none',
-              borderBottom: activeTab === t.id ? '3px solid #1a3028' : '3px solid transparent',
+              borderBottom: activeTab === t.id ? '3px solid #3d7a2e' : '3px solid transparent',
               marginBottom: '-1px',
             }}>{t.label}</button>
           ))}
@@ -862,24 +862,24 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
           )}
 
           {/* Filter bar */}
-          <div style={{ background: 'white', borderBottom: '1px solid #ddd', padding: '8px 20px', display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0, flexWrap: 'wrap', marginTop: showForm ? '0' : '0' }}>
+          <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '8px 20px', display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0, flexWrap: 'wrap', marginTop: showForm ? '0' : '0' }}>
             <div style={{ position: 'relative' }}>
-              <Search size={13} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
-              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Sök verifikation, text, belopp..." style={{ padding: '5px 8px 5px 26px', border: '1px solid #ccc', borderRadius: '4px', fontSize: '12px', fontFamily: 'inherit', width: '220px', outline: 'none' }} />
+              <Search size={13} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Sök verifikation, text, belopp..." style={{ padding: '5px 8px 5px 26px', border: '1px solid var(--border)', borderRadius: '4px', fontSize: '12px', fontFamily: 'inherit', width: '220px', outline: 'none', background: 'var(--bg-card)', color: 'var(--text-main)' }} />
             </div>
-            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={{ padding: '5px 8px', border: '1px solid #ccc', borderRadius: '4px', fontSize: '12px', fontFamily: 'inherit' }} />
-            <span style={{ fontSize: '12px', color: '#999' }}>–</span>
-            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={{ padding: '5px 8px', border: '1px solid #ccc', borderRadius: '4px', fontSize: '12px', fontFamily: 'inherit' }} />
-            <select value={series} onChange={e => setSeries(e.target.value)} style={{ padding: '5px 8px', border: '1px solid #ccc', borderRadius: '4px', fontSize: '12px', fontFamily: 'inherit' }}>
+            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={{ padding: '5px 8px', border: '1px solid var(--border)', borderRadius: '4px', fontSize: '12px', fontFamily: 'inherit', background: 'var(--bg-card)', color: 'var(--text-main)' }} />
+            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>–</span>
+            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={{ padding: '5px 8px', border: '1px solid var(--border)', borderRadius: '4px', fontSize: '12px', fontFamily: 'inherit', background: 'var(--bg-card)', color: 'var(--text-main)' }} />
+            <select value={series} onChange={e => setSeries(e.target.value)} style={{ padding: '5px 8px', border: '1px solid var(--border)', borderRadius: '4px', fontSize: '12px', fontFamily: 'inherit', background: 'var(--bg-card)', color: 'var(--text-main)' }}>
               <option value="all">Alla serier</option>
               <option value="A">Serie A</option>
               <option value="B">Serie B</option>
               <option value="C">Serie C</option>
             </select>
-            <button onClick={() => { setSearch(''); setDateFrom(''); setDateTo(''); setSeries('all'); }} style={{ background: 'none', border: '1px solid #ccc', borderRadius: '4px', padding: '5px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: '#555' }}>
+            <button onClick={() => { setSearch(''); setDateFrom(''); setDateTo(''); setSeries('all'); }} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '4px', padding: '5px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: 'var(--text-secondary)' }}>
               <RefreshCw size={12} /> Rensa
             </button>
-            <span style={{ fontSize: '12px', color: '#888', marginLeft: 'auto' }}>{filteredVers.length} verifikationer</span>
+            <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginLeft: 'auto' }}>{filteredVers.length} verifikationer</span>
           </div>
 
           {/* Table */}
@@ -889,7 +889,15 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
                 kortlisten pa mobil — .td-detail (index.css) tar bort
                 kortlagets label/varde-flexbox for den utfallbara detalj-
                 raden, som ar en hel underliggande tabell, inte ett falt. */}
-            <table className="responsive-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+            {/* height:'100%' bara verkar när tabellen är tom (se td:n nedan)
+                — kundfeedback, "white space"-genomgången: en tom lista
+                visade tidigare bara en paddad rad högst upp med en stor tom
+                sidyta under. `height:100%` på tabell/rad + `verticalAlign:
+                'middle'` på tomt-cellen centrerar meddelandet i den lediga
+                ytan istället, utan att röra tabellens normala radhöjder när
+                den FAKTISKT har innehåll (percentage-height på en rad
+                påverkar bara den raden, inte syskonraderna). */}
+            <table className="responsive-table" style={{ width: '100%', height: filteredVers.length === 0 ? '100%' : 'auto', borderCollapse: 'collapse', fontSize: '13px' }}>
               <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
                 <tr>
                   <th style={thSt}>VERIFIKATION</th>
@@ -902,9 +910,9 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
               </thead>
               <tbody>
                 {filteredVers.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} style={{ padding: '60px', textAlign: 'center', color: '#9ca3af', fontSize: '14px', background: 'white' }}>
-                      <FileText size={40} style={{ color: '#e4e4e7', marginBottom: 12, display: 'block', margin: '0 auto 12px' }} />
+                  <tr style={{ height: '100%' }}>
+                    <td colSpan={6} style={{ height: '100%', verticalAlign: 'middle', padding: '60px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '14px', background: 'var(--bg-card)' }}>
+                      <FileText size={40} style={{ color: 'var(--border)', marginBottom: 12, display: 'block', margin: '0 auto 12px' }} />
                       Inga verifikationer bokförda
                     </td>
                   </tr>
@@ -917,24 +925,24 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
                       <tr
                         id={`ver-row-${v.id}`}
                         onClick={() => setExpandedId(isExpanded ? null : v.id)}
-                        style={{ borderBottom: '1px solid #e8e8e8', background: isExpanded ? '#f0f9f0' : (i % 2 === 0 ? 'white' : '#fafafa'), cursor: 'pointer' }}
-                        onMouseEnter={e => { if (!isExpanded) e.currentTarget.style.background = '#f5fdf5'; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = isExpanded ? '#f0f9f0' : (i % 2 === 0 ? 'white' : '#fafafa'); }}
+                        style={{ borderBottom: '1px solid var(--border)', background: isExpanded ? 'var(--status-green-bg)' : (i % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-muted)'), cursor: 'pointer' }}
+                        onMouseEnter={e => { if (!isExpanded) e.currentTarget.style.background = 'var(--bg-muted)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = isExpanded ? 'var(--status-green-bg)' : (i % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-muted)'); }}
                       >
-                        <td data-label="Verifikation" style={{ padding: '10px 10px', fontWeight: 700, color: '#1a3028' }}>
+                        <td data-label="Verifikation" style={{ padding: '10px 10px', fontWeight: 700, color: 'var(--text-main)' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                             {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                             {v.number}
                           </div>
                         </td>
-                        <td data-label="Datum" style={{ padding: '10px 10px', color: '#555' }}>{v.date}</td>
-                        <td data-label="Beskrivning" style={{ padding: '10px 10px', color: '#333' }}>{v.description}</td>
-                        <td data-label="Belopp" style={{ padding: '10px 10px', textAlign: 'right', fontWeight: 600, color: '#222' }}>{fmt(amount)}</td>
+                        <td data-label="Datum" style={{ padding: '10px 10px', color: 'var(--text-secondary)' }}>{v.date}</td>
+                        <td data-label="Beskrivning" style={{ padding: '10px 10px', color: 'var(--text-main)' }}>{v.description}</td>
+                        <td data-label="Belopp" style={{ padding: '10px 10px', textAlign: 'right', fontWeight: 600, color: 'var(--text-main)' }}>{fmt(amount)}</td>
                         <td data-label="Status" style={{ padding: '10px 10px', textAlign: 'center' }}>
                           {isDraft ? (
-                            <span style={{ padding: '2px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, background: '#fef3c7', color: '#92400e' }}>Utkast</span>
+                            <span style={{ padding: '2px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, background: 'var(--status-amber-bg)', color: 'var(--status-amber-text)' }}>Utkast</span>
                           ) : (
-                            <span style={{ padding: '2px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, background: '#e8f5e9', color: '#2e7d32' }}>Bokförd</span>
+                            <span style={{ padding: '2px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, background: 'var(--status-green-bg)', color: 'var(--status-green-text)' }}>Bokförd</span>
                           )}
                         </td>
                         <td data-label="" className="td-actions" style={{ padding: '10px 10px' }} onClick={e => e.stopPropagation()}>
@@ -942,7 +950,7 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
                             <button
                               onClick={() => { setEditingVer(v); setShowForm(true); }}
                               title="Fortsätt redigera utkastet"
-                              style={{ background: 'none', border: '1px solid #ddd', borderRadius: '4px', cursor: 'pointer', padding: '3px 8px', fontSize: '11px', color: '#666', display: 'flex', alignItems: 'center', gap: '4px' }}
+                              style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '4px', cursor: 'pointer', padding: '3px 8px', fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}
                             >
                               Fortsätt
                             </button>
@@ -954,7 +962,7 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
                                 setShowForm(true);
                               }}
                               title="Skapa rättelseverifikation"
-                              style={{ background: 'none', border: '1px solid #ddd', borderRadius: '4px', cursor: 'pointer', padding: '3px 8px', fontSize: '11px', color: '#666', display: 'flex', alignItems: 'center', gap: '4px' }}
+                              style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '4px', cursor: 'pointer', padding: '3px 8px', fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}
                             >
                               <RotateCcw size={11} /> Rätta
                             </button>
@@ -963,11 +971,11 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
                       </tr>
                       {isExpanded && v.rows && (
                         <tr>
-                          <td colSpan={6} className="td-detail" style={{ padding: '0 0 0 32px', background: '#f8fdf8', borderBottom: '2px solid #c8e6c9' }}>
-                            <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', padding: '10px 8px 0', fontSize: '11.5px', color: '#666' }}>
-                              <span>Motpart: <strong style={{ color: '#333' }}>{contacts.find(c => c.id === v.counterpartyId)?.name || '—'}</strong></span>
-                              <span>Upprättad: <strong style={{ color: '#333' }}>{v.createdAt ? new Intl.DateTimeFormat('sv-SE', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(v.createdAt)) : '—'}</strong></span>
-                              {v.originalLocation && <span>Original förvaras: <strong style={{ color: '#333' }}>{v.originalLocation}</strong></span>}
+                          <td colSpan={6} className="td-detail" style={{ padding: '0 0 0 32px', background: 'var(--status-green-bg)', borderBottom: '2px solid var(--status-green-bg)' }}>
+                            <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', padding: '10px 8px 0', fontSize: '11.5px', color: 'var(--text-secondary)' }}>
+                              <span>Motpart: <strong style={{ color: 'var(--text-main)' }}>{contacts.find(c => c.id === v.counterpartyId)?.name || '—'}</strong></span>
+                              <span>Upprättad: <strong style={{ color: 'var(--text-main)' }}>{v.createdAt ? new Intl.DateTimeFormat('sv-SE', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(v.createdAt)) : '—'}</strong></span>
+                              {v.originalLocation && <span>Original förvaras: <strong style={{ color: 'var(--text-main)' }}>{v.originalLocation}</strong></span>}
                             </div>
                             {/* overflow-x:auto (mobil): 4 kolumner i 311px
                                 (efter 32px vänsterindrag) — sidledes skroll
@@ -980,7 +988,7 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
                               <thead>
                                 <tr>
                                   {['Konto', 'Kontonamn', 'Debet', 'Kredit'].map(h => (
-                                    <th key={h} style={{ padding: '4px 8px', textAlign: h === 'Debet' || h === 'Kredit' ? 'right' : 'left', color: '#888', fontWeight: 700, fontSize: '11px', borderBottom: '1px solid #e0e0e0', whiteSpace: 'nowrap' }}>{h}</th>
+                                    <th key={h} style={{ padding: '4px 8px', textAlign: h === 'Debet' || h === 'Kredit' ? 'right' : 'left', color: 'var(--text-muted)', fontWeight: 700, fontSize: '11px', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{h}</th>
                                   ))}
                                 </tr>
                               </thead>
@@ -988,23 +996,23 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
                                 {v.rows.map((r, ri) => {
                                   const rd = getDebet(r), rk = getKredit(r);
                                   return (
-                                  <tr key={ri} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                                    <td style={{ padding: '5px 8px', fontWeight: 700, color: '#1a3028', whiteSpace: 'nowrap' }}>{r.account}</td>
-                                    <td style={{ padding: '5px 8px', color: '#555', whiteSpace: 'nowrap' }}>
+                                  <tr key={ri} style={{ borderBottom: '1px solid var(--border-light)' }}>
+                                    <td style={{ padding: '5px 8px', fontWeight: 700, color: 'var(--text-main)', whiteSpace: 'nowrap' }}>{r.account}</td>
+                                    <td style={{ padding: '5px 8px', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
                                       {accounts.find(a => a.code === r.account)?.name || r.accountName || '—'}
-                                      {r.desc && <div style={{ fontSize: '11px', color: '#9ca3af' }}>{r.desc}</div>}
+                                      {r.desc && <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{r.desc}</div>}
                                     </td>
-                                    <td style={{ padding: '5px 8px', textAlign: 'right', color: rd > 0 ? '#2e7d32' : '#ccc', fontWeight: rd > 0 ? 600 : 400, whiteSpace: 'nowrap' }}>
+                                    <td style={{ padding: '5px 8px', textAlign: 'right', color: rd > 0 ? 'var(--status-green-text)' : 'var(--border)', fontWeight: rd > 0 ? 600 : 400, whiteSpace: 'nowrap' }}>
                                       {rd > 0 ? fmt(rd) : '—'}
                                     </td>
-                                    <td style={{ padding: '5px 8px', textAlign: 'right', color: rk > 0 ? '#c62828' : '#ccc', fontWeight: rk > 0 ? 600 : 400, whiteSpace: 'nowrap' }}>
+                                    <td style={{ padding: '5px 8px', textAlign: 'right', color: rk > 0 ? 'var(--status-red-text)' : 'var(--border)', fontWeight: rk > 0 ? 600 : 400, whiteSpace: 'nowrap' }}>
                                       {rk > 0 ? fmt(rk) : '—'}
                                     </td>
                                   </tr>
                                   );
                                 })}
-                                <tr style={{ background: '#f0f9f0', borderTop: '1px solid #c8e6c9' }}>
-                                  <td colSpan={2} style={{ padding: '5px 8px', fontWeight: 700, fontSize: '12px', color: '#2e7d32', whiteSpace: 'nowrap' }}>Summa</td>
+                                <tr style={{ background: 'var(--status-green-bg)', borderTop: '1px solid var(--status-green-bg)' }}>
+                                  <td colSpan={2} style={{ padding: '5px 8px', fontWeight: 700, fontSize: '12px', color: 'var(--status-green-text)', whiteSpace: 'nowrap' }}>Summa</td>
                                   <td style={{ padding: '5px 8px', textAlign: 'right', fontWeight: 700, whiteSpace: 'nowrap' }}>{fmt(v.rows.reduce((s, r) => s + getDebet(r), 0))}</td>
                                   <td style={{ padding: '5px 8px', textAlign: 'right', fontWeight: 700, whiteSpace: 'nowrap' }}>{fmt(v.rows.reduce((s, r) => s + getKredit(r), 0))}</td>
                                 </tr>
@@ -1027,23 +1035,23 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
       {activeTab === 'accounts' && (
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
           {/* Search + new account form */}
-          <div style={{ background: 'white', borderBottom: '1px solid #ddd', padding: '8px 20px', display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0, flexWrap: 'wrap' }}>
+          <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '8px 20px', display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0, flexWrap: 'wrap' }}>
             <div style={{ position: 'relative' }}>
-              <Search size={13} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
-              <input value={accountSearch} onChange={e => setAccountSearch(e.target.value)} placeholder="Sök kontonummer eller namn..." style={{ padding: '5px 8px 5px 26px', border: '1px solid #ccc', borderRadius: '4px', fontSize: '12px', fontFamily: 'inherit', width: '240px', outline: 'none' }} />
+              <Search size={13} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+              <input value={accountSearch} onChange={e => setAccountSearch(e.target.value)} placeholder="Sök kontonummer eller namn..." style={{ padding: '5px 8px 5px 26px', border: '1px solid var(--border)', borderRadius: '4px', fontSize: '12px', fontFamily: 'inherit', width: '240px', outline: 'none' }} />
             </div>
-            <span style={{ fontSize: '12px', color: '#888', marginLeft: 'auto' }}>{accounts.length} konton</span>
+            <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginLeft: 'auto' }}>{accounts.length} konton</span>
           </div>
 
           {/* New account form */}
           {showNewAccountForm && (
             <div style={{ background: '#f0f9f0', borderBottom: '1px solid #c8e6c9', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
               <span style={{ fontSize: '12px', fontWeight: 700, color: '#2e7d32' }}>Nytt konto</span>
-              <input value={newAccCode} onChange={e => setNewAccCode(e.target.value)} placeholder="Kontonummer" style={{ padding: '5px 8px', border: '1px solid #bbb', borderRadius: '3px', fontSize: '12px', fontFamily: 'inherit', width: '110px' }} />
-              <input value={newAccName} onChange={e => setNewAccName(e.target.value)} placeholder="Kontonamn" style={{ padding: '5px 8px', border: '1px solid #bbb', borderRadius: '3px', fontSize: '12px', fontFamily: 'inherit', width: '260px' }} />
+              <input value={newAccCode} onChange={e => setNewAccCode(e.target.value)} placeholder="Kontonummer" style={{ padding: '5px 8px', border: '1px solid var(--text-muted)', borderRadius: '3px', fontSize: '12px', fontFamily: 'inherit', width: '110px' }} />
+              <input value={newAccName} onChange={e => setNewAccName(e.target.value)} placeholder="Kontonamn" style={{ padding: '5px 8px', border: '1px solid var(--text-muted)', borderRadius: '3px', fontSize: '12px', fontFamily: 'inherit', width: '260px' }} />
               <button onClick={handleAddAccount} style={{ padding: '5px 14px', background: '#2e7d32', border: 'none', borderRadius: '4px', color: 'white', fontWeight: 700, fontSize: '12px', cursor: 'pointer' }}>Spara</button>
-              <button onClick={() => setShowNewAccountForm(false)} style={{ padding: '5px 10px', background: 'none', border: '1px solid #bbb', borderRadius: '4px', fontSize: '12px', cursor: 'pointer' }}>Avbryt</button>
-              {newAccCode && <span style={{ fontSize: '11px', color: '#888' }}>Kontoklass: {getGroup(newAccCode)?.label || '—'}</span>}
+              <button onClick={() => setShowNewAccountForm(false)} style={{ padding: '5px 10px', background: 'none', border: '1px solid var(--text-muted)', borderRadius: '4px', fontSize: '12px', cursor: 'pointer' }}>Avbryt</button>
+              {newAccCode && <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Kontoklass: {getGroup(newAccCode)?.label || '—'}</span>}
             </div>
           )}
 
@@ -1058,17 +1066,17 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
               if (!hasMatch) return null;
 
               return (
-                <div key={g.code} style={{ borderBottom: '1px solid #ddd' }}>
+                <div key={g.code} style={{ borderBottom: '1px solid var(--border)' }}>
                   {/* Group header */}
                   <div
                     onClick={() => setExpandedGroups(prev => ({ ...prev, [g.code]: !prev[g.code] }))}
-                    style={{ display: 'flex', alignItems: 'center', padding: '10px 20px', background: '#f0f2f5', cursor: 'pointer', userSelect: 'none' }}
+                    style={{ display: 'flex', alignItems: 'center', padding: '10px 20px', background: 'var(--bg-page)', cursor: 'pointer', userSelect: 'none' }}
                     onMouseEnter={e => e.currentTarget.style.background = '#e8eaed'}
-                    onMouseLeave={e => e.currentTarget.style.background = '#f0f2f5'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-page)'}
                   >
-                    {isOpen ? <ChevronDown size={15} style={{ marginRight: 8, color: '#555' }} /> : <ChevronRight size={15} style={{ marginRight: 8, color: '#555' }} />}
-                    <span style={{ fontSize: '13px', fontWeight: 700, color: '#333', flex: 1 }}>{g.label}</span>
-                    <span style={{ fontSize: '12px', color: '#888', marginRight: 12 }}>{groupAccs.length} konton</span>
+                    {isOpen ? <ChevronDown size={15} style={{ marginRight: 8, color: 'var(--text-secondary)' }} /> : <ChevronRight size={15} style={{ marginRight: 8, color: 'var(--text-secondary)' }} />}
+                    <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', flex: 1 }}>{g.label}</span>
+                    <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginRight: 12 }}>{groupAccs.length} konton</span>
                     <span style={{ fontSize: '13px', fontWeight: 700, color: groupBal >= 0 ? '#2e7d32' : '#c62828', minWidth: 100, textAlign: 'right' }}>
                       {fmt(groupBal)}
                     </span>
@@ -1078,31 +1086,31 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
                   {isOpen && (
                     <table className="responsive-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                       <thead>
-                        <tr style={{ background: '#fafafa' }}>
-                          <th style={{ padding: '5px 20px 5px 36px', textAlign: 'left', color: '#888', fontWeight: 700, fontSize: '11px', borderBottom: '1px solid #eee' }}>KONTO</th>
-                          <th style={{ padding: '5px 10px', textAlign: 'left', color: '#888', fontWeight: 700, fontSize: '11px', borderBottom: '1px solid #eee' }}>KONTONAMN</th>
-                          <th style={{ padding: '5px 20px 5px 10px', textAlign: 'right', color: '#888', fontWeight: 700, fontSize: '11px', borderBottom: '1px solid #eee' }}>SALDO</th>
-                          <th style={{ width: 50, borderBottom: '1px solid #eee' }} />
+                        <tr style={{ background: 'var(--bg-muted)' }}>
+                          <th style={{ padding: '5px 20px 5px 36px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 700, fontSize: '11px', borderBottom: '1px solid var(--border-light)' }}>KONTO</th>
+                          <th style={{ padding: '5px 10px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 700, fontSize: '11px', borderBottom: '1px solid var(--border-light)' }}>KONTONAMN</th>
+                          <th style={{ padding: '5px 20px 5px 10px', textAlign: 'right', color: 'var(--text-muted)', fontWeight: 700, fontSize: '11px', borderBottom: '1px solid var(--border-light)' }}>SALDO</th>
+                          <th style={{ width: 50, borderBottom: '1px solid var(--border-light)' }} />
                         </tr>
                       </thead>
                       <tbody>
                         {groupAccs.length === 0 ? (
-                          <tr><td colSpan={4} style={{ padding: '16px 36px', color: '#bbb', fontSize: '12px' }}>Inga matchande konton</td></tr>
+                          <tr><td colSpan={4} style={{ padding: '16px 36px', color: 'var(--text-muted)', fontSize: '12px' }}>Inga matchande konton</td></tr>
                         ) : groupAccs.map((a, ai) => {
                           const bal = balances[a.code] || 0;
                           const usedInVers = verifications.filter(v => v.rows?.some(r => r.account === a.code)).length;
                           return (
-                            <tr key={a.code} style={{ borderBottom: '1px solid #f5f5f5', background: ai % 2 === 0 ? 'white' : '#fafafa' }}>
-                              <td data-label="Konto" style={{ padding: '7px 10px 7px 36px', fontWeight: 700, color: '#1a3028' }}>{a.code}</td>
-                              <td data-label="Kontonamn" style={{ padding: '7px 10px', color: '#333' }}>{a.name}</td>
-                              <td data-label="Saldo" style={{ padding: '7px 20px 7px 10px', textAlign: 'right', fontWeight: bal !== 0 ? 700 : 400, color: bal > 0 ? '#2e7d32' : bal < 0 ? '#c62828' : '#bbb' }}>
+                            <tr key={a.code} style={{ borderBottom: '1px solid var(--bg-muted)', background: ai % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-muted)' }}>
+                              <td data-label="Konto" style={{ padding: '7px 10px 7px 36px', fontWeight: 700, color: 'var(--text-main)' }}>{a.code}</td>
+                              <td data-label="Kontonamn" style={{ padding: '7px 10px', color: 'var(--text-main)' }}>{a.name}</td>
+                              <td data-label="Saldo" style={{ padding: '7px 20px 7px 10px', textAlign: 'right', fontWeight: bal !== 0 ? 700 : 400, color: bal > 0 ? '#2e7d32' : bal < 0 ? '#c62828' : 'var(--text-muted)' }}>
                                 {bal !== 0 ? fmt(bal) : '—'}
                               </td>
                               <td data-label="" className="td-actions" style={{ padding: '7px 10px', textAlign: 'center' }}>
                                 <button
                                   onClick={() => handleDeactivateAccount(a.code)}
                                   title={usedInVers > 0 ? `Används i ${usedInVers} verifikationer — kan inte tas bort` : 'Ta bort konto'}
-                                  style={{ background: 'none', border: 'none', cursor: usedInVers > 0 ? 'not-allowed' : 'pointer', color: usedInVers > 0 ? '#ddd' : '#ef4444', padding: '2px' }}
+                                  style={{ background: 'none', border: 'none', cursor: usedInVers > 0 ? 'not-allowed' : 'pointer', color: usedInVers > 0 ? 'var(--border)' : '#ef4444', padding: '2px' }}
                                 >
                                   <X size={13} />
                                 </button>

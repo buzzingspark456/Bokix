@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { Menu, X, HelpCircle, LogOut } from 'lucide-react';
+import { Menu, X, HelpCircle, LogOut, Bell } from 'lucide-react';
 import { BRAND } from '../utils/brandColors';
-import { BokixWordmark } from './marketing/MarketingLayout';
+import { BokixWordmark, useMarketingTheme } from './marketing/MarketingLayout';
 import { createDemoSeed } from '../utils/landingDemoData';
 import { getDebet, getKredit } from '../utils/verificationAmounts';
 
@@ -53,7 +53,17 @@ const SIDEBAR_GROUPS = [
 ];
 
 export default function DemoWorkspace() {
+  // Kundönskemål: headern ska vara sidomeny-färgad bara i mörkt läge, vit
+  // i ljust läge — samma villkor som riktiga appens .desktop-top-bar
+  // (index.css :root[data-theme="dark"]), men den regeln kan inte träffa
+  // HÄR eftersom headerraderna nedan är inline-stylade, inte CSS-klasser.
+  const [theme] = useMarketingTheme();
   const seed = useMemo(() => createDemoSeed(), []);
+  // Samma underlag/beräkning som riktiga appens `reviewCount` (App.jsx) —
+  // kvitton/leverantörsfakturor utan kontering. Kundfeedback: demot ska se
+  // ut och kännas exakt som riktiga dashboardet, inklusive den gröna
+  // Granskning-badgen i sidomenyn, inte en förenklad variant utan den.
+  const reviewCount = seed.expenses.filter(e => !e.costAccount).length;
   const [activeDemoTab, setActiveDemoTab] = useState('dashboard');
   const [globalAction, setGlobalAction] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -213,36 +223,49 @@ export default function DemoWorkspace() {
   };
 
   return (
-    <div className="lp-demo-card" style={{ background: 'white', borderRadius: '20px', boxShadow: '0 8px 24px rgba(0,0,0,0.10), 0 0 0 1px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
-      <span style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 2, fontSize: '10.5px', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', background: 'white', padding: '4px 10px', borderRadius: '999px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>Exempeldata</span>
-
+    <div className="lp-demo-card" style={{ background: 'var(--bg-card)', borderRadius: '20px', boxShadow: '0 8px 24px rgba(0,0,0,0.10), 0 0 0 1px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
+      <div className="lp-demo-body">
       {/* Mobil topbar — bara synlig under 640px, samma mönster som riktiga
           appens .global-top-bar. Hamburgaren öppnar en nedfälld meny med
           samma sektioner som skrivbordssidomenyn, så alla funktioner går
           att nå på mobil också, inte bara Startsida. */}
-      <div className="lp-demo-mobile-topbar" style={{ alignItems: 'center', gap: '12px', padding: '0 16px', height: '52px', background: 'white', borderBottom: '1px solid #e5e7eb', flexShrink: 0, position: 'relative' }}>
+      <div className="lp-demo-mobile-topbar" style={{ alignItems: 'center', gap: '12px', padding: '0 16px', height: '52px', background: theme === 'dark' ? 'var(--bg-sidebar)' : 'var(--bg-card)', borderBottom: theme === 'dark' ? '1px solid rgba(255,255,255,0.15)' : '1px solid var(--border)', flexShrink: 0, position: 'relative' }}>
         <button onClick={() => setMobileMenuOpen(o => !o)} style={{ background: 'none', border: 'none', padding: 0, display: 'flex', cursor: 'pointer' }} aria-label="Meny">
-          {mobileMenuOpen ? <X size={19} color="#64748b" /> : <Menu size={19} color="#64748b" />}
+          {mobileMenuOpen
+            ? <X size={19} color={theme === 'dark' ? 'rgba(255,255,255,0.9)' : 'var(--text-secondary)'} />
+            : <Menu size={19} color={theme === 'dark' ? 'rgba(255,255,255,0.9)' : 'var(--text-secondary)'} />}
         </button>
-        <span style={{ fontSize: '14px', fontWeight: 600, color: '#111827' }}>
+        <span style={{ fontSize: '14px', fontWeight: 600, color: theme === 'dark' ? '#ffffff' : 'var(--text-main)' }}>
           {[...SIDEBAR_GROUPS[0], ...SIDEBAR_GROUPS[1], ...SIDEBAR_GROUPS[2]].find(i => i.id === activeDemoTab)?.label || 'Dashboard'}
         </span>
+        <span style={{ marginLeft: 'auto', fontSize: '9.5px', fontWeight: 700, color: theme === 'dark' ? 'rgba(255,255,255,0.6)' : 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Exempeldata</span>
 
         {mobileMenuOpen && (
-          <div style={{ position: 'absolute', top: '52px', left: 0, right: 0, background: BRAND.green, padding: '10px 12px', zIndex: 10, maxHeight: '60vh', overflowY: 'auto', boxShadow: '0 12px 24px rgba(0,0,0,0.18)' }}>
+          <div style={{ position: 'absolute', top: '52px', left: 0, right: 0, background: 'var(--bg-sidebar)', padding: '8px 0', zIndex: 10, maxHeight: '60vh', overflowY: 'auto', boxShadow: '0 12px 24px rgba(0,0,0,0.18)' }}>
             {SIDEBAR_GROUPS.map((group, gi) => (
-              <div key={gi} style={{ marginBottom: gi < 2 ? '8px' : 0, paddingBottom: gi < 2 ? '8px' : 0, borderBottom: gi < 2 ? '1px solid rgba(255,255,255,0.15)' : 'none' }}>
-                {group.map(item => (
-                  <button key={item.id} onClick={() => openTab(item.id)} style={{
-                    display: 'block', width: '100%', textAlign: 'left', padding: '9px 10px', borderRadius: '8px', border: 'none',
-                    fontSize: '13px', fontWeight: activeDemoTab === item.id ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit',
-                    color: activeDemoTab === item.id ? BRAND.greenDark : 'rgba(255,255,255,0.9)',
-                    background: activeDemoTab === item.id ? BRAND.greenLight : 'transparent', marginBottom: '2px',
-                  }}>
-                    {item.label}
-                  </button>
-                ))}
-              </div>
+              <React.Fragment key={gi}>
+                {gi > 0 && <div style={{ height: '1px', background: 'rgba(255,255,255,0.15)', margin: '8px 20px' }} />}
+                {group.map(item => {
+                  const isActive = activeDemoTab === item.id;
+                  const badge = item.id === 'review' ? reviewCount : 0;
+                  return (
+                    <button key={item.id} onClick={() => openTab(item.id)} style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px',
+                      width: '100%', textAlign: 'left', padding: '13px 24px', border: 'none',
+                      fontSize: '15px', fontWeight: isActive ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit',
+                      color: isActive ? '#ffffff' : 'rgba(255,255,255,0.88)',
+                      background: isActive ? 'rgba(255,255,255,0.14)' : 'none',
+                    }}>
+                      <span>{item.label}</span>
+                      {badge > 0 && (
+                        <span style={{ minWidth: '20px', height: '20px', padding: '0 6px', borderRadius: '999px', background: '#22c55e', color: 'white', fontSize: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          {badge}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </React.Fragment>
             ))}
           </div>
         )}
@@ -251,46 +274,114 @@ export default function DemoWorkspace() {
       {/* Skrivbordssidomeny — samma innehåll/ordning som riktiga appens
           sidomeny (App.jsx navSections), nu med riktiga klick istället för
           statisk text. */}
-      <div className="lp-hide-mobile" style={{ width: '190px', flexShrink: 0, background: BRAND.green, padding: '20px 12px', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ marginBottom: '22px', padding: '0 4px' }}>
-          <BokixWordmark height={20} />
+      {/* Samma proportioner/mått som riktiga appens <aside className="sidebar">
+          (App.jsx): logo-block med padding '22px 14px 18px', tunn
+          gruppavdelare, navrader padding '13px 24px' i fullbredd (inte en
+          rundad pill i en paddad kolumn) med samma vita-genomskinliga
+          aktiv-bakgrund och samma Granskning-badge — kundfeedback: demot ska
+          se ut och kännas som riktiga dashboardet, inte en förenklad
+          miniatyr av det. */}
+      <div className="lp-hide-mobile" style={{ width: '212px', flexShrink: 0, background: 'var(--bg-sidebar)', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ padding: '22px 14px 18px' }}>
+          <BokixWordmark height={62} />
         </div>
+        <div style={{ height: '1px', background: 'rgba(255,255,255,0.15)', margin: '0 20px 8px', flexShrink: 0 }} />
 
-        {SIDEBAR_GROUPS.map((group, gi) => (
-          <div key={gi} style={{ marginBottom: gi < 2 ? '10px' : 0, paddingBottom: gi < 2 ? '10px' : 0, borderBottom: gi < 2 ? '1px solid rgba(255,255,255,0.15)' : 'none' }}>
-            {group.map(item => (
-              <button key={item.id} onClick={() => openTab(item.id)} style={{
-                display: 'block', width: '100%', textAlign: 'left', padding: '7px 10px', borderRadius: '8px', border: 'none',
-                fontSize: '12px', fontWeight: activeDemoTab === item.id ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit',
-                color: activeDemoTab === item.id ? BRAND.greenDark : 'rgba(255,255,255,0.85)',
-                background: activeDemoTab === item.id ? BRAND.greenLight : 'transparent', marginBottom: '2px',
-              }}>
-                {item.label}
-              </button>
-            ))}
-          </div>
-        ))}
+        <nav style={{ display: 'flex', flexDirection: 'column', gap: 0, padding: 0, flexShrink: 0 }}>
+          {SIDEBAR_GROUPS.map((group, gi) => (
+            <React.Fragment key={gi}>
+              {gi > 0 && <div style={{ height: '1px', background: 'rgba(255,255,255,0.15)', margin: '8px 20px', flexShrink: 0 }} />}
+              {group.map(item => {
+                const isActive = activeDemoTab === item.id;
+                const badge = item.id === 'review' ? reviewCount : 0;
+                return (
+                  <button key={item.id} onClick={() => openTab(item.id)} style={{
+                    padding: '13px 24px', width: '100%', textAlign: 'left', background: isActive ? 'rgba(255,255,255,0.14)' : 'none',
+                    border: 'none', color: isActive ? '#ffffff' : 'rgba(255,255,255,0.88)', fontSize: '15px', fontWeight: isActive ? 700 : 500,
+                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexShrink: 0, fontFamily: 'inherit',
+                  }}>
+                    <span>{item.label}</span>
+                    {badge > 0 && (
+                      <span style={{ minWidth: '20px', height: '20px', padding: '0 6px', borderRadius: '999px', background: '#22c55e', color: 'white', fontSize: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        {badge}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </React.Fragment>
+          ))}
+        </nav>
 
         {/* Flexibelt tomt utrymme, precis som riktiga sidomenyn (App.jsx) —
             trycker Hjälp/Logga ut längst ner oavsett hur hög panelen är. */}
         <div style={{ flex: 1 }} />
 
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.15)', paddingTop: '10px', marginTop: '10px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 10px', fontSize: '12px', fontWeight: 500, color: 'rgba(255,255,255,0.7)' }}>
-            <HelpCircle size={14} /> Hjälp och support
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 10px', fontSize: '12px', fontWeight: 500, color: '#fca5a5' }}>
-            <LogOut size={14} /> Logga ut
-          </div>
+        <div style={{ flexShrink: 0, borderTop: '1px solid rgba(255,255,255,0.15)' }}>
+          <button onClick={blocked} style={{ padding: '13px 24px', width: '100%', textAlign: 'left', background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', fontSize: '15px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', fontFamily: 'inherit' }}>
+            <HelpCircle size={17} /> Hjälp och support
+          </button>
+          <button onClick={blocked} style={{ padding: '13px 24px', width: '100%', textAlign: 'left', background: 'none', border: 'none', color: '#fca5a5', fontSize: '15px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', fontFamily: 'inherit' }}>
+            <LogOut size={17} /> Logga ut
+          </button>
         </div>
       </div>
 
-      {/* Innehåll — samma riktiga komponent som fliken visar i appen. Kapad
-          höjd + egen scroll på skrivbordet (så kortet håller en stadig
-          storlek mellan flikar) — men INTE på mobil, se .lp-demo-content i
-          MarketingLayout.jsx. */}
-      <div className="lp-demo-content">
-        {renderContent()}
+      {/* Höger kolumn — topbar + innehåll, samma uppdelning som riktiga
+          appens <main className="main-wrapper"> (App.jsx): sidomenyn upptar
+          HELA kortets höjd (inklusive raden där topbaren ligger, precis som
+          i appen), och bara den här kolumnen har sin egen "desktop-top-bar"
+          ovanför innehållet. Wrappern själv har INTE `lp-hide-mobile` — bara
+          desktop-topbaren i den har det — annars skulle .lp-demo-content
+          (som ska synas på mobil också, se mobiltopbaren ovan) försvinna
+          med den på mobil. */}
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+        {/* Skrivbords-header — samma ikonrad som riktiga appens .desktop-top-bar
+            (Hjälp/Notiser/Avatar), tidigare helt saknad här så demot gick rakt
+            från kortets kant in i sidomenyn. Ikonerna går till samma delade
+            `blocked()`-förklaring som resten av demots skrivåtgärder — ingen
+            låtsas-panel som ser klickbar ut men inte är det. Göms på mobil
+            (`lp-hide-mobile`) där .lp-demo-mobile-topbar redan täcker samma
+            roll. "Exempeldata"-märket sitter kvar HÄR (och i mobil-topbaren
+            ovan) som ett vanligt flex-barn.
+            Kundfeedback: bakgrunden matchar sidomenyn (bg-sidebar) bara i
+            mörkt läge, precis som riktiga appens .desktop-top-bar/
+            .global-top-bar (index.css :root[data-theme="dark"]) — i ljust
+            läge är sidomenyn den mättade gröna märkesfärgen, en helgrön
+            header hade varit för mycket. Kan inte uttryckas i CSS här
+            (inline-stylat, ingen klass) — därför `theme`-villkoret istället,
+            se useMarketingTheme-importen.
+            Kundfeedback: headern ska INTE ligga fast (som en sticky rad)
+            när man skrollar — samma som riktiga appens .desktop-top-bar
+            (index.css). Flyttad HÄR IN i .lp-demo-content (den skrollande
+            ytan) som dess första barn, istället för att stå som en egen
+            fast rad ovanför den — nu skrollar den bort med resten av
+            innehållet precis som i appen. */}
+        <div className="lp-demo-content">
+          <div className="lp-hide-mobile" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', padding: '0 20px', height: '52px', margin: '-20px -20px 20px', background: theme === 'dark' ? 'var(--bg-sidebar)' : 'var(--bg-card)', borderBottom: theme === 'dark' ? '1px solid rgba(255,255,255,0.15)' : '1px solid var(--border)', flexShrink: 0 }}>
+            <span style={{ fontSize: '10.5px', fontWeight: 700, color: theme === 'dark' ? 'rgba(255,255,255,0.6)' : 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Exempeldata</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <button onClick={blocked} title="Hjälp & support" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 34, height: 34, borderRadius: '8px', background: 'none', border: 'none', cursor: 'pointer', color: theme === 'dark' ? 'rgba(255,255,255,0.75)' : 'var(--text-secondary)' }}>
+                <HelpCircle size={18} />
+              </button>
+              <div style={{ position: 'relative' }}>
+                <button onClick={blocked} title="Notiser" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 34, height: 34, borderRadius: '8px', background: 'none', border: 'none', cursor: 'pointer', color: theme === 'dark' ? 'rgba(255,255,255,0.75)' : 'var(--text-secondary)' }}>
+                  <Bell size={18} />
+                </button>
+                <span style={{ position: 'absolute', top: 3, right: 3, width: 7, height: 7, borderRadius: '50%', background: '#ef4444' }} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }} onClick={blocked} title="Profil">
+                <div style={{ width: 32, height: 32, borderRadius: '50%', background: BRAND.green, color: 'white', fontSize: '13px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, letterSpacing: '-0.02em' }}>
+                  {(seed.company?.name || 'E').charAt(0).toUpperCase()}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Innehåll — samma riktiga komponent som fliken visar i appen. */}
+          {renderContent()}
+        </div>
+      </div>
       </div>
     </div>
   );

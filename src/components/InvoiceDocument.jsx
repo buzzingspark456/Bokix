@@ -59,6 +59,56 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
   // "Att betala" antar att beloppet faktiskt förfaller till betalning —
   // sant för en faktura, men en offert är bara ett prisförslag ännu.
   const totalLabel = docType === 'quote' ? 'Offertbelopp' : 'Att betala';
+  const customerLabel = docType === 'quote' ? 'Offereras till' : 'Faktureras till';
+
+  // Fotern på en faktura är en betalningsuppmaning (bankgiro/IBAN) — visad
+  // rakt av på en offert ser den ut som ett krav på pengar för något som
+  // inte ens är sålt än, så kontonummer hör INTE hemma här. Leverans- och
+  // betalningsvillkor är däremot juridiskt förväntat innehåll i en offert
+  // (Konsumentverket/gängse affärssed: specifikation, pris, rabatt, moms,
+  // leveranstid samt leverans- och betalningsvillkor) — men rent
+  // INFORMATIVA villkor om vad som SKULLE gälla vid en accept, inte en
+  // uppmaning att betala nu. "Giltig till" står redan i metadatan ovanför
+  // (se `meta`), upprepas inte här.
+  const otherTermsList = invoice?.otherTerms ? (
+    <ul style={{ margin: '4px 0 0', paddingLeft: 14 }}>
+      {invoice.otherTerms.split('\n').map(l => l.trim()).filter(Boolean).map((line, i) => <li key={i}>{line}</li>)}
+    </ul>
+  ) : null;
+
+  // Utförande/leverans (Sida 40) — fyra separata formulärfält (Start-/
+  // slutdatum, plats, beskrivning) slås ihop till EN footer-rad här, istället
+  // för att InvoiceDocument behöver fyra nya villkorliga rader. Faller
+  // tillbaka på det gamla fritextfältet `deliveryTerms` för offerter sparade
+  // innan fälten fanns, så äldre offerter fortfarande visar vad de en gång
+  // hade ifyllt.
+  const hasWorkDetails = invoice?.workStartDate || invoice?.workEndDate || invoice?.workLocation || invoice?.deliveryDescription;
+  const workDetailsValue = hasWorkDetails ? (
+    <>
+      {(invoice?.workStartDate || invoice?.workEndDate) && (
+        <div>{formatDate(invoice?.workStartDate)} – {invoice?.workEndDate ? formatDate(invoice.workEndDate) : '—'}</div>
+      )}
+      {invoice?.workLocation && <div>{invoice.workLocation}</div>}
+      {invoice?.deliveryDescription && <div>{invoice.deliveryDescription}</div>}
+    </>
+  ) : (invoice?.deliveryTerms || null);
+
+  const footerItems = docType === 'quote'
+    ? [
+        ...(workDetailsValue ? [['Leveransvillkor', workDetailsValue]] : []),
+        ['Betalningsvillkor', invoice?.terms || '30 dagar netto'],
+        ['Dröjsmålsränta', invoice?.lateInterest || '10% enligt räntelagen'],
+        ['Kontakt', company?.email || company?.phone || '—'],
+        ...(invoice?.notIncluded ? [['Ingår ej', invoice.notIncluded]] : []),
+        ...(otherTermsList ? [['Övriga villkor', otherTermsList]] : []),
+        ['OBS', 'Detta är ett prisförslag, inte en faktura eller betalningsuppmaning.'],
+      ]
+    : [
+        ['Bankgiro', company?.bankgiro || '—'],
+        ['IBAN', company?.iban || '—'],
+        ['Betalningsvillkor', invoice?.terms || '30 dagar netto'],
+        ['Kontakt', company?.email || company?.phone || '—'],
+      ];
 
   const meta = docType === 'quote'
     ? [
@@ -177,11 +227,18 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
         </div>
       )}
 
+      {/* Org.nr och kontaktperson visas bara när kundkortet faktiskt har dem
+          ifyllda — inget nytt tvingande fält, bara mer av det som redan
+          finns sparat på kunden (se Contacts.jsx: orgNr är bara obligatoriskt
+          där för företagskunder, aldrig privatpersoner). "Att: NN" är
+          branschbruk för att rikta dokumentet till rätt person hos kunden. */}
       <div className="a4-customer-block" style={isGrid ? { border: '1.5px solid #18181b', borderRadius: 0, background: 'white' } : undefined}>
-        <div className="a4-customer-label" style={!isGrid ? { color: accent } : undefined}>Faktureras till</div>
+        <div className="a4-customer-label" style={!isGrid ? { color: accent } : undefined}>{customerLabel}</div>
         <div className="a4-customer-name">{customer?.name || 'Kund saknas'}</div>
         <div className="a4-customer-detail">
+          {customer?.contactPerson ? <>Att: {customer.contactPerson}<br /></> : null}
           {customer?.address || ''}{customer?.address ? <br /> : null}
+          {customer?.orgNr ? <>Org.nr {customer.orgNr}<br /></> : null}
           {customer?.email || ''}
         </div>
       </div>
@@ -201,15 +258,30 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
         <tbody>
           {visibleRows.length === 0 ? (
             <tr><td colSpan={5} style={{ padding: '16px 12px', color: '#9ca3af', textAlign: 'center', ...cellBorder }}>Inga rader tillagda än</td></tr>
-          ) : visibleRows.map((r) => {
+          ) : visibleRows.map((r, i) => {
             const net = r.qty * r.unitPrice * (1 - (r.discount || 0) / 100);
+            // Avdragsmärkning (Sida 40) trycks som en liten tagg efter
+            // beskrivningen — inga nya kolumner i mallarna, och den faktiska
+            // skattereduktionsberäkningen (50%-tak, arbets-/materialdelning,
+            // personnummer m.m.) görs INTE här, bara markeringen av vilka
+            // rader som avser ROT/RUT/Grönt.
+            const deductionLabel = { rot: 'ROT', rut: 'RUT', green: 'Grönt avdrag' }[r.deduction];
             return (
-              <tr key={r.id}>
-                <td style={cellBorder}>{r.description}</td>
-                <td style={{ textAlign: 'right', ...cellBorder }}>{r.qty}</td>
+              // Bugkritiskt (upptäckt vid Sida 40-verifiering): rad-objekten
+              // från Invoices.jsx/Quotes.jsx har aldrig haft ett `id`-fält,
+              // så `key={r.id}` var alltid `key={undefined}` för varje rad
+              // (React-varning, riskerar felaktig återanvändning av rader vid
+              // omordning). `r.id ?? i` faller tillbaka på indexet — rader
+              // varken sorteras om eller filtreras här, så index är stabilt.
+              <tr key={r.id ?? i}>
+                <td style={cellBorder}>
+                  {r.description}
+                  {deductionLabel && <span style={{ color: '#6b7280', fontStyle: 'italic' }}> · {deductionLabel}</span>}
+                </td>
+                <td style={{ textAlign: 'right', ...cellBorder }}>{r.qty}{r.unit && r.unit !== 'st' ? ` ${r.unit}` : ''}</td>
                 <td style={{ textAlign: 'right', ...cellBorder }}>{fmt(r.unitPrice)}</td>
                 <td style={{ textAlign: 'right', ...cellBorder }}>{r.vatRate}%</td>
-                <td style={{ textAlign: 'right', ...cellBorder }}>{fmt(net)} kr</td>
+                <td style={{ textAlign: 'right', ...cellBorder }}>{fmt(net)} {currency}</td>
               </tr>
             );
           })}
@@ -218,22 +290,45 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
 
       <div className="a4-totals-container">
         <div className="a4-totals" style={isGrid ? { border: '1.5px solid #18181b', borderRadius: 0, background: 'white' } : undefined}>
-          <div className="a4-total-row"><span>Netto</span><span>{fmt(totals?.net)} kr</span></div>
-          <div className="a4-total-row"><span>Moms</span><span>{fmt(totals?.vat)} kr</span></div>
+          <div className="a4-total-row"><span>Netto</span><span>{fmt(totals?.net)} {currency}</span></div>
+          <div className="a4-total-row"><span>Moms</span><span>{fmt(totals?.vat)} {currency}</span></div>
           <div className="a4-grand-total" style={{ borderTop: `2px solid ${accent}` }}>
             <span>{totalLabel}</span><span style={{ color: accent }}>{fmt(totals?.total)} {currency}</span>
           </div>
         </div>
       </div>
 
-      <div className="a4-footer" style={isGrid ? { borderTop: `2px solid ${accent}` } : undefined}>
-        {[
-          ['Bankgiro', company?.bankgiro || '—'],
-          ['IBAN', company?.iban || '—'],
-          ['Betalningsvillkor', invoice?.terms || '30 dagar netto'],
-          ['Kontakt', company?.email || company?.phone || '—'],
-        ].map(([l, v]) => (
-          <div key={l} className="a4-footer-item"><strong>{l}</strong>{v}</div>
+      {/* Bugkritiskt: strecket ovanför Bankgiro/IBAN/Betalningsvillkor/Kontakt
+          följde bara accentfärgen för 'grid'-mallen — övriga tre mallar föll
+          tyst tillbaka på CSS:ens hårdkodade --lime-200 (Bokix grönt), trots
+          att raden precis ovanför (a4-grand-total) redan följer accenten. Att
+          byta accentfärg i förhandsgranskningen ändrade då totalsumme-linjen
+          men inte fotlinjen — två syskonlinjer på samma sida som oväntat
+          betedde sig olika. Samma `accent`-variabel överallt nu. */}
+      {/* Avslutande hälsningsstycke — bara på offerter, direkt ovanför
+          fotraden. Vanlig affärssed på en offert (till skillnad från en
+          faktura, som inte behöver en artighetsfras för att kräva betalt). */}
+      {docType === 'quote' && (
+        <div style={{ margin: '24px 0 8px', fontSize: 11.5, color: '#3f3f46', lineHeight: 1.6 }}>
+          <p style={{ margin: '0 0 12px' }}>Vi ser fram emot ert svar och hoppas få samarbeta med er.</p>
+          <p style={{ margin: 0 }}>
+            Med vänliga hälsningar<br />
+            {company?.name || 'Ditt företag'}<br />
+            {company?.phone || ''}<br />
+            {company?.email || ''}
+          </p>
+        </div>
+      )}
+
+      <div className="a4-footer" style={{ borderTopColor: accent }}>
+        {footerItems.map(([l, v]) => (
+          // OBS-raden (och Övriga villkor-listan) på offerter är hel text/en
+          // lista, inte ett kort värde som "Bankgiro"/"IBAN" — pressad in i
+          // en fjärdedels kolumnbredd blir det nästan oläsligt, så de får
+          // spänna över hela radens bredd.
+          <div key={l} className="a4-footer-item" style={(l === 'OBS' || l === 'Övriga villkor') ? { gridColumn: '1 / -1' } : undefined}>
+            <strong>{l}</strong>{v}
+          </div>
         ))}
       </div>
       {/* Normalt flöde, inte position:absolute mot sidbotten — samma skäl

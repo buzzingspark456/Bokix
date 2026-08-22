@@ -30,18 +30,9 @@
          Bannern anropar gtag('consent','update',...) via
          src/utils/consent.js när besökaren faktiskt väljer. -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-9KXP9XW3MW"></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('consent', 'default', {
-        'analytics_storage': 'denied',
-        'ad_storage': 'denied',
-        'ad_user_data': 'denied',
-        'ad_personalization': 'denied'
-      });
-      gtag('js', new Date());
-      gtag('config', 'G-9KXP9XW3MW');
-    </script>
+    <!-- Extern fil, inte inline — se public/consent-init.js för varför
+         (Content-Security-Policy, säkerhetsgranskningen). -->
+    <script src="/consent-init.js"></script>
   </head>
   <body>
     <div id="root"></div>
