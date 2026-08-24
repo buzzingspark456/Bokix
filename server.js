@@ -91,6 +91,10 @@ const resendAdminApiKey = process.env.RESEND_ADMIN_API_KEY || null
 // verifierad domän än, eller om ett utskick med deras domän oväntat
 // misslyckas (se resolveSenderAddress/sendViaResend nedan).
 const emailFrom = process.env.EMAIL_FROM || 'Bokix <onboarding@resend.dev>'
+// Dit det publika kontaktformuläret (src/components/marketing/ContactPage.jsx)
+// faktiskt levererar — se filkommentaren på /api/email/contact nedan och i
+// api/email/contact.js (produktionsvarianten på Vercel).
+const contactInbox = process.env.CONTACT_INBOX_EMAIL || 'alwakiabdullah1@gmail.com'
 
 if (!resendApiKey) {
   console.warn('Resend API key not configured yet. Email routes will return a 503 until RESEND_API_KEY is provided.')
@@ -552,6 +556,70 @@ app.post('/api/email/send-invoice', async (req, res) => {
   } catch (error) {
     console.error('Email send error:', error)
     res.status(500).json({ error: error?.message || 'Kunde inte skicka e-post.' })
+  }
+})
+
+// ── Kontaktformulär (marknadssidan /kontakt) ─────────────────────────────
+// Bugfix: ContactPage.jsx postade tidigare till /api/email/send-invoice,
+// som sedan säkerhetsfixen mot öppna mejl-reläer kräver inloggning + ett
+// company_id ägt av användaren — en besökare som inte skapat konto än
+// (kontaktformulärets faktiska målgrupp) fick alltid 401, formuläret gick
+// aldrig att skicka in. Egen, medvetet öppen rutt istället: skickar bara
+// till EN fast mottagare (contactInbox ovan, aldrig en client-styrd `to`),
+// så den kan vara inloggningsfri utan att bli ett missbrukbart relä.
+// Speglar api/email/contact.js (produktionsvarianten på Vercel).
+app.post('/api/email/contact', async (req, res) => {
+  if (!requireResend(res)) return
+
+  if (await isRequestFromBot()) {
+    res.status(403).json({ error: 'Åtkomst nekad.' })
+    return
+  }
+
+  try {
+    const body = req.body || {}
+    const clean = (value, maxLength) => (typeof value === 'string' ? value.trim().slice(0, maxLength) : '')
+    const name = clean(body.name, 200)
+    const email = clean(body.email, 200)
+    const topic = clean(body.topic, 100) || 'Övrigt'
+    const message = clean(body.message, 5000)
+    const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+
+    if (!name || !isValidEmail || !message) {
+      res.status(400).json({ error: 'Namn, en giltig e-postadress och ett meddelande krävs.' })
+      return
+    }
+
+    const esc = (value) => String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    const html = `
+      <div style="font-family: Arial, sans-serif; font-size: 14px; color: #0f172a; line-height: 1.6;">
+        <h2 style="margin: 0 0 16px;">Nytt meddelande från kontaktformuläret</h2>
+        <p style="margin: 0 0 4px;"><strong>Namn:</strong> ${esc(name)}</p>
+        <p style="margin: 0 0 4px;"><strong>E-post:</strong> ${esc(email)}</p>
+        <p style="margin: 0 0 16px;"><strong>Ämne:</strong> ${esc(topic)}</p>
+        <p style="margin: 0 0 8px;"><strong>Meddelande:</strong></p>
+        <p style="white-space: pre-wrap; margin: 0; padding: 12px 16px; background: #f8fafc; border-radius: 8px; border: 1px solid #e5e7eb;">${esc(message)}</p>
+      </div>
+    `
+
+    const result = await sendViaResend({
+      to: [contactInbox],
+      from: emailFrom,
+      subject: `Kontaktformulär (${topic}) — ${name}`,
+      html,
+      reply_to: email,
+    })
+
+    if (!result.ok) {
+      console.error('Resend API error (contact):', result.data)
+      res.status(result.status).json({ error: result.data?.message || 'Kunde inte skicka meddelandet.' })
+      return
+    }
+
+    res.status(200).json({ id: result.data.id })
+  } catch (error) {
+    console.error('Contact email error:', error)
+    res.status(500).json({ error: error?.message || 'Kunde inte skicka meddelandet.' })
   }
 })
 

@@ -59,7 +59,11 @@ export default function FeaturesPage() {
   const navigate = useNavigate();
   const enterApp = () => navigate('/', { state: { enterApp: true } });
   return (
-    <MarketingLayout>
+    <MarketingLayout
+      title="Funktioner | Bokix"
+      description="Löpande bokföring, fakturering, lönekörning och deklarationsunderlag — allt ett svenskt företag faktiskt behöver, i ett pris."
+      path="/funktioner"
+    >
       <section style={{ padding: '150px 24px 80px', background: IVORY }}>
         <Reveal style={{ maxWidth: '720px', margin: '0 auto', textAlign: 'center' }}>
           <h1 style={{ fontFamily: SERIF, fontSize: 'clamp(32px, 5vw, 50px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '18px', lineHeight: 1.14 }}>

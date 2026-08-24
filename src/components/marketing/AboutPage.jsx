@@ -25,7 +25,11 @@ const PRINCIPLES = [
 
 export default function AboutPage() {
   return (
-    <MarketingLayout>
+    <MarketingLayout
+      title="Om oss | Bokix"
+      description="Varför Bokix finns och vilka principer det är byggt kring — inga påhittade siffror, ingen tyst gissning."
+      path="/om-oss"
+    >
       <style>{`
         .about-principle-card { position: relative; }
         .about-principle-card:hover { border-color: transparent !important; box-shadow: 0 4px 16px rgba(61,122,46,0.18) !important; }

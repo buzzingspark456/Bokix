@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useDocumentMeta } from '../hooks/useDocumentMeta';
 
 // ── Sida 37 ─────────────────────────────────────────────────────────────
 // JURIDISKT UTKAST, INTE GRANSKAT. Ett första utkast, inte ett
@@ -15,12 +16,23 @@ const table = { width: '100%', borderCollapse: 'collapse', margin: '12px 0 20px'
 const th = { textAlign: 'left', padding: '9px 12px', background: '#f1f5f9', color: '#334155', fontWeight: 700, borderBottom: '2px solid #e2e8f0' };
 const td = { padding: '9px 12px', borderBottom: '1px solid #f1f5f9', color: '#475569', verticalAlign: 'top' };
 
+// Bugfix: var tidigare new Date().toLocaleDateString(...), vilket visade
+// DAGENS datum för varje besökare varje gång — aldrig det faktiska datum
+// policyn senast ändrades. Hårdkodat istället: bumpa manuellt varje gång
+// texten nedan faktiskt ändras.
+const LAST_UPDATED = '24 augusti 2026';
+
 export default function PrivacyPolicy() {
+  useDocumentMeta({
+    title: 'Integritetspolicy | Bokix',
+    description: 'Så behandlar Bokix dina personuppgifter enligt GDPR — vad vi samlar in, varför, hur länge, och dina rättigheter.',
+    path: '/privacy',
+  });
   return (
     <div style={{ minHeight: '100vh', padding: '48px 24px', background: '#f8fafc', color: '#111827', fontFamily: 'Inter, system-ui, sans-serif' }}>
       <div style={{ maxWidth: '820px', margin: '0 auto', background: 'white', borderRadius: '24px', padding: '48px', boxShadow: '0 20px 60px rgba(15,23,42,0.08)' }}>
         <h1 style={{ marginBottom: '8px', fontSize: 'clamp(30px, 4vw, 40px)', fontWeight: 800 }}>Integritetspolicy</h1>
-        <p style={{ fontSize: '13px', color: '#94a3b8', marginBottom: '28px' }}>Senast uppdaterad: {new Date().toLocaleDateString('sv-SE', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+        <p style={{ fontSize: '13px', color: '#94a3b8', marginBottom: '28px' }}>Senast uppdaterad: {LAST_UPDATED}</p>
 
         <p style={p}>
           Den här policyn förklarar vilken personuppgiftsinformation Bokix ("vi", "oss") samlar in när du använder tjänsten, varför, hur länge den sparas, och vilka rättigheter du har enligt EU:s dataskyddsförordning (GDPR). Den gäller både dig som skapar ett konto och de kund-/leverantörsuppgifter du själv lägger in i din bokföring.

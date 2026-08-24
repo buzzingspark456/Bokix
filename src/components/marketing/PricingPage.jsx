@@ -54,7 +54,11 @@ export default function PricingPage() {
   const enterApp = () => navigate('/', { state: { enterApp: true } });
 
   return (
-    <MarketingLayout>
+    <MarketingLayout
+      title="Priser | Bokix"
+      description="Ett pris, allt ingår: 99 kr/mån exkl. moms. 30 dagar gratis, ingen bindningstid, avsluta när du vill."
+      path="/priser"
+    >
       <style>{`
         .pricing-feature-row { transition: transform 0.18s ease; }
         .pricing-feature-row:hover { transform: translateX(3px); }

@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useDocumentMeta } from '../hooks/useDocumentMeta';
 
 // ── Sida 37 ─────────────────────────────────────────────────────────────
 // JURIDISKT UTKAST, INTE GRANSKAT. Ett första utkast, inte ett
@@ -13,12 +14,21 @@ const ul = { margin: '0 0 16px', paddingLeft: '22px' };
 const warnBox = { margin: '16px 0', padding: '18px 20px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '12px' };
 const warnP = { margin: 0, lineHeight: 1.8, color: '#991b1b', fontSize: '14.5px' };
 
+// Bugfix: se motsvarande kommentar i PrivacyPolicy.jsx — var new Date() vid
+// render, visade alltid dagens datum istället för det faktiska ändringsdatumet.
+const LAST_UPDATED = '24 augusti 2026';
+
 export default function TermsPolicy() {
+  useDocumentMeta({
+    title: 'Användarvillkor | Bokix',
+    description: 'Villkoren som styr din och ditt företags användning av Bokix — vad tjänsten är, uppsägning, ansvar och betalning.',
+    path: '/terms',
+  });
   return (
     <div style={{ minHeight: '100vh', padding: '48px 24px', background: '#f8fafc', color: '#111827', fontFamily: 'Inter, system-ui, sans-serif' }}>
       <div style={{ maxWidth: '820px', margin: '0 auto', background: 'white', borderRadius: '24px', padding: '48px', boxShadow: '0 20px 60px rgba(15,23,42,0.08)' }}>
         <h1 style={{ marginBottom: '8px', fontSize: 'clamp(30px, 4vw, 40px)', fontWeight: 800 }}>Användarvillkor</h1>
-        <p style={{ fontSize: '13px', color: '#94a3b8', marginBottom: '28px' }}>Senast uppdaterad: {new Date().toLocaleDateString('sv-SE', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+        <p style={{ fontSize: '13px', color: '#94a3b8', marginBottom: '28px' }}>Senast uppdaterad: {LAST_UPDATED}</p>
 
         <p style={p}>
           Dessa villkor ("Villkoren") styr din och ditt företags användning av Bokix ("tjänsten"). Genom att skapa ett konto eller använda tjänsten godkänner du Villkoren och vår <Link to="/privacy" style={{ color: '#3d7a2e', fontWeight: 600 }}>Integritetspolicy</Link>. Om du använder tjänsten för ett företags räkning intygar du att du har behörighet att binda företaget till dessa Villkor.

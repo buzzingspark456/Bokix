@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Menu, X, Sun, Moon } from 'lucide-react';
 import { BRAND } from '../../utils/brandColors';
 import { ACCENT_CYCLE } from './marketingTokens';
+import { useDocumentMeta } from '../../hooks/useDocumentMeta';
 
 // Kundönskemål: en mörkt-läge-option på marknadssidan. Samma localStorage-
 // nyckel som den inloggade appen (App.jsx) — en besökare som redan valt
@@ -570,8 +571,13 @@ export function MarketingFooter() {
  * App.jsx:s rot-route läser av den flaggan och hoppar direkt till
  * inloggningsskärmen så "Kom igång"/"Logga in" känns likadant oavsett
  * vilken sida man klickade från. */
-export default function MarketingLayout({ onEnterApp, children }) {
+export default function MarketingLayout({ onEnterApp, children, title, description, path }) {
   const [theme, toggleTheme] = useMarketingTheme();
+  // title/description/path: valfria — sätts av varje undersida (se
+  // useDocumentMeta.js) så titel/beskrivning/OG-taggar matchar den
+  // faktiska sidan istället för att alla undersidor visar startsidans
+  // <head>-taggar från index.html i sökträffar och delningskort.
+  useDocumentMeta({ title, description, path });
   return (
     <div id="lp-root" data-theme={theme} style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", color: 'var(--mkt-heading)', background: 'var(--mkt-page-bg)', overflowX: 'hidden' }}>
       <MarketingStyles />

@@ -210,7 +210,12 @@ export default function LandingPage({ onEnterApp }) {
   };
 
   return (
-    <MarketingLayout onEnterApp={onEnterApp}>
+    <MarketingLayout
+      onEnterApp={onEnterApp}
+      title="Bokix - Smart & Enkel Bokföring online"
+      description="Bokix - Ett modernt, enkelt och kraftfullt bokföringsprogram för småföretagare och enskilda firmor."
+      path="/"
+    >
       {/* ── HERO — levande gradientklot i loggans/Startsidans egna färger
           bakom en fetstilt rubrik, inget stillastående platt fält. ── */}
       <section style={{ display: 'flex', alignItems: 'center', background: 'var(--mkt-ivory)', position: 'relative', overflow: 'hidden', paddingTop: '140px', paddingBottom: '72px' }}>

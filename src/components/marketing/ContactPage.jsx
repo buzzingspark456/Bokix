@@ -14,24 +14,6 @@ const TOPICS = [
   { icon: Mail, value: 'Övrigt', desc: 'Något annat vi kan hjälpa till med.' },
 ];
 
-const CONTACT_INBOX = 'alwakiabdullah1@gmail.com';
-
-// Bygger själva mejlets HTML-kropp av formulärfälten — enkel och läsbar i
-// vilken mejlklient som helst, inget beroende av externa mallmotorer.
-function buildEmailHtml({ name, email, topic, message }) {
-  const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  return `
-    <div style="font-family: Arial, sans-serif; font-size: 14px; color: #0f172a; line-height: 1.6;">
-      <h2 style="margin: 0 0 16px;">Nytt meddelande från kontaktformuläret</h2>
-      <p style="margin: 0 0 4px;"><strong>Namn:</strong> ${esc(name)}</p>
-      <p style="margin: 0 0 4px;"><strong>E-post:</strong> ${esc(email)}</p>
-      <p style="margin: 0 0 16px;"><strong>Ämne:</strong> ${esc(topic)}</p>
-      <p style="margin: 0 0 8px;"><strong>Meddelande:</strong></p>
-      <p style="white-space: pre-wrap; margin: 0; padding: 12px 16px; background: #f8fafc; border-radius: 8px; border: 1px solid #e5e7eb;">${esc(message)}</p>
-    </div>
-  `;
-}
-
 const inputStyle = {
   display: 'block',
   width: '100%',
@@ -77,20 +59,17 @@ export default function ContactPage() {
     setStatus('sending');
     setErrorMsg('');
     try {
-      // Återanvänder e-postrutten som redan skickar fakturor/offerter — den
-      // bryr sig bara om to/subject/html/replyTo, inte vilket "dokument"
-      // det är (se api/email/send-invoice.js). Undviker en ny Vercel-
-      // serverless-function ovanpå Hobby-planens 12-gräns (se commit
-      // "Fix: Vercel Hobby-planens grans pa 12 serverless functions").
-      const res = await fetch('/api/email/send-invoice', {
+      // Bugfix: pekade tidigare på /api/email/send-invoice, som sedan
+      // säkerhetsfixen mot öppna mejl-reläer kräver inloggning + ett ägt
+      // company_id — så en besökare som inte skapat konto än (denna sidas
+      // faktiska målgrupp) fick alltid 401 och formuläret gick aldrig att
+      // skicka in. Egen, inloggningsfri rutt istället (api/email/contact.js
+      // / server.js): bygger mejlets HTML-kropp server-side och skickar
+      // bara till en fast mottagare, ingen client-styrd `to`.
+      const res = await fetch('/api/email/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          to: CONTACT_INBOX,
-          subject: `Kontaktformulär (${form.topic}) — ${name}`,
-          html: buildEmailHtml({ name, email, topic: form.topic, message }),
-          replyTo: email,
-        }),
+        body: JSON.stringify({ name, email, topic: form.topic, message }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Kunde inte skicka meddelandet.');
@@ -104,7 +83,11 @@ export default function ContactPage() {
   }
 
   return (
-    <MarketingLayout>
+    <MarketingLayout
+      title="Kontakta oss | Bokix"
+      description="Frågor om support, fakturering eller integritet? Skriv till oss — en riktig person läser och svarar på din e-post."
+      path="/kontakt"
+    >
       <style>{`
         .contact-input:focus { border-color: ${BRAND.green} !important; box-shadow: 0 0 0 3px ${BRAND.greenLight} !important; }
         .contact-topic-btn { transition: all 0.15s; cursor: pointer; }
