@@ -220,13 +220,40 @@ function MarketingStyles() {
       }
       .lp-float { animation: lpFloat 5s ease-in-out infinite; }
 
-      @keyframes lpPulseRing {
-        0% { box-shadow: 0 0 0 0 rgba(61,122,46,0.35); }
-        70% { box-shadow: 0 0 0 14px rgba(61,122,46,0); }
-        100% { box-shadow: 0 0 0 0 rgba(61,122,46,0); }
+      /* Lighthouse (Prestanda-granskning, "Undvik icke sammansatta
+         animationer"): box-shadow-pulsen nedan animerade box-shadow direkt
+         på knappen — box-shadow är INTE en "sammansatt" (compositor-only)
+         egenskap, så webbläsaren fick måla om knappens hela yta varje
+         frame istället för att bara flytta ett GPU-lager, i alla tre
+         "Prova gratis"-knapparna samtidigt. Samma pulserande ring, men
+         byggd av en ::after-pseudoelement som skalas upp och tonas bort
+         (transform+opacity, båda äkta compositor-egenskaper) istället för
+         att måla en växande skugga. .lp-pulse behöver position:relative
+         för att pseudoelementets inset:0 ska positioneras mot KNAPPEN,
+         inte mot närmsta positionerade förälder längre upp i trädet. */
+      .lp-pulse { position: relative; }
+      .lp-pulse::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        border: 2px solid rgba(61,122,46,0.45);
+        opacity: 0.7;
+        animation: lpPulseRing 2.4s cubic-bezier(0.4,0,0.6,1) infinite;
+        pointer-events: none;
       }
-      .lp-pulse { animation: lpPulseRing 2.4s cubic-bezier(0.4,0,0.6,1) infinite; }
+      @keyframes lpPulseRing {
+        0% { transform: scale(1); opacity: 0.7; }
+        70% { transform: scale(1.16); opacity: 0; }
+        100% { transform: scale(1.16); opacity: 0; }
+      }
 
+      /* Samma sak för CTA-sektionens rörliga gradientbakgrund — animerade
+         tidigare background-position (målning varje frame över hela
+         sektionens yta) istället för transform (compositor). Nu ligger
+         gradienten på ett eget, överdimensionerat lager (se .lp-anim-
+         gradient-layer i LandingPage.jsx) som bara TRANSLATERAS sida till
+         sida — overflow:hidden på sektionen klipper det som glider utanför. */
       @keyframes lpGradientMove {
         0% { background-position: 0% 50%; }
         50% { background-position: 100% 50%; }
@@ -237,10 +264,20 @@ function MarketingStyles() {
         animation: lpGradientMove 6s ease-in-out infinite;
         -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
       }
-      .lp-anim-gradient-bg { background-size: 200% 200% !important; animation: lpGradientMove 10s ease-in-out infinite; }
+      .lp-anim-gradient-layer {
+        position: absolute; inset: -20% -50%;
+        background-size: 200% 200%;
+        animation: lpGradientShift 10s ease-in-out infinite;
+        will-change: transform;
+      }
+      @keyframes lpGradientShift {
+        0%   { transform: translate3d(0%, 0, 0); }
+        50%  { transform: translate3d(-20%, 0, 0); }
+        100% { transform: translate3d(0%, 0, 0); }
+      }
 
       @media (prefers-reduced-motion: reduce) {
-        .lp-blob, .lp-float, .lp-pulse, .lp-gradient-text, .lp-anim-gradient-bg { animation: none !important; }
+        .lp-blob, .lp-float, .lp-pulse::after, .lp-gradient-text, .lp-anim-gradient-layer { animation: none !important; }
       }
 
       .lp-logo-glow { display: inline-flex; transition: transform 0.25s ease; }
@@ -534,7 +571,7 @@ export function MarketingFooter() {
         <div>
           <h4 style={{ fontSize: '14px', fontWeight: 600, color: 'white', marginBottom: '14px' }}>Produkt</h4>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {[['Funktioner', '/funktioner'], ['Priser', '/priser']].map(([label, to]) => (
+            {[['Funktioner', '/funktioner'], ['Priser', '/priser'], ['Så väljer du bokföringsprogram', '/valja-bokforingsprogram']].map(([label, to]) => (
               <Link key={to} to={to} className="lp-footer-link" style={{ fontSize: '13.5px', color: 'rgba(255,255,255,0.6)', textDecoration: 'none', transition: 'color 0.2s' }}>
                 {label}
               </Link>

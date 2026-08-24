@@ -43,7 +43,24 @@
          utan att kasta. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" crossorigin="anonymous" />
+    <!-- Lighthouse (Prestanda, "Begäranden om renderingsblockering"): en
+         vanlig <link rel="stylesheet"> här blockerar första målningen tills
+         Google Fonts svarat. `media="print"` gör att webbläsaren laddar
+         hem den PARALLELLT utan att blockera renderingen, och `onload`
+         byter den till `all` så den faktiskt appliceras så fort den är
+         klar — texten syns direkt i systemfallback-typsnittet
+         (`&display=swap` i URL:en) och byter till Inter utan blockering.
+         `crossorigin` följer med rakt av så html2canvas fortfarande kan
+         läsa cssRules utan SecurityError, se kommentaren ovan — bara
+         LADDNINGEN är asynkron, inte CORS-beteendet. <noscript>-fallbacken
+         täcker webbläsare utan JS (onload körs aldrig då). -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+      rel="stylesheet" crossorigin="anonymous" media="print" onload="this.media='all'"
+    />
+    <noscript>
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" crossorigin="anonymous" />
+    </noscript>
 
     <!-- Google Analytics via Consent Mode v2 (Sida 37). Bugkritiskt: consent
          'default' med samtliga kategorier 'denied' MÅSTE köras innan 'config'

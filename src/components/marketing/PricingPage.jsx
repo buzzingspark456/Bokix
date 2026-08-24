@@ -1,5 +1,5 @@
 import React, { useState, Suspense, lazy } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { CheckCircle, ArrowRight, ChevronDown, ShieldCheck, Zap, Check, BarChart3 } from 'lucide-react';
 import { BRAND } from '../../utils/brandColors';
 import MarketingLayout, { Reveal } from './MarketingLayout';
@@ -212,6 +212,15 @@ export default function PricingPage() {
           </Reveal>
           <Reveal delay={100} className="lp-card-hover" style={{ background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '16px', padding: '8px 24px', boxShadow: '0 1px 3px rgba(28,36,32,0.05)' }}>
             {FAQ.map(item => <FaqItem key={item.q} {...item} />)}
+          </Reveal>
+          {/* Kontextuell länk (inte bara i footern) — hjälper både besökare
+              som vill jämföra bredare och Google att hitta guiden via en
+              redan indexerad sida, med beskrivande länktext istället för
+              "läs mer". */}
+          <Reveal delay={140} style={{ textAlign: 'center', marginTop: '20px' }}>
+            <Link to="/valja-bokforingsprogram" style={{ fontSize: '13.5px', fontWeight: 600, color: BRAND.greenDark, textDecoration: 'none' }}>
+              Fler frågor att ställa? Läs vår guide: Så väljer du bokföringsprogram →
+            </Link>
           </Reveal>
         </div>
       </section>

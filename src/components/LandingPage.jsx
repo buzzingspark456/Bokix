@@ -592,7 +592,15 @@ export default function LandingPage({ onEnterApp }) {
 
       {/* ── CTA — levande flerfärgad gradient (loggans blå→turkos→lime),
           inte längre ett stillastående mörkgrönt fält. ── */}
-      <section className="lp-anim-gradient-bg" style={{ padding: '96px 24px', backgroundImage: `linear-gradient(120deg, #0c1f14, ${BRAND.greenHover}, #0e3a2a, #0c1f14)`, position: 'relative', overflow: 'hidden' }}>
+      <section style={{ padding: '96px 24px', position: 'relative', overflow: 'hidden', background: '#0c1f14' }}>
+        {/* Lighthouse-fix (se kommentaren vid @keyframes lpGradientShift i
+            MarketingLayout.jsx): gradienten ligger nu på ett eget,
+            överdimensionerat lager som bara TRANSLATERAS istället för att
+            sektionens egen background-position animeras — statisk
+            bakgrundsfärg (#0c1f14, gradientens mörkaste ton) på sektionen
+            själv är fallbacken tills lagret hunnit måla, så det aldrig
+            flimrar vitt/tomt innan gradienten är på plats. */}
+        <div aria-hidden className="lp-anim-gradient-layer" style={{ backgroundImage: `linear-gradient(120deg, #0c1f14, ${BRAND.greenHover}, #0e3a2a, #0c1f14)` }} />
         <div aria-hidden className="lp-blob lp-blob-slow" style={{ position: 'absolute', top: '-140px', right: '10%', width: '380px', height: '380px', borderRadius: '50%', background: grad(GRAD.blueTeal), opacity: 0.25, filter: 'blur(70px)', pointerEvents: 'none' }} />
         <div aria-hidden className="lp-blob lp-blob-slower" style={{ position: 'absolute', bottom: '-160px', left: '10%', width: '380px', height: '380px', borderRadius: '50%', background: grad(GRAD.tealLime), opacity: 0.2, filter: 'blur(70px)', pointerEvents: 'none' }} />
         <Reveal style={{ maxWidth: '700px', margin: '0 auto', textAlign: 'center', position: 'relative' }}>

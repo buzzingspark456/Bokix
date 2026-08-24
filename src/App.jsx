@@ -278,10 +278,12 @@ function MfaChallengeScreen({ onVerify, onCancel }) {
 // juridiksidorna, laddas numera lazy — själva startbunten behöver inte
 // längre innehålla t.ex. hela Löne- eller Bokförings-modulen bara för
 // att visa inloggningssidan. Kvar som vanliga (icke-lazy) imports: allt
-// som hör till den KRITISKA första renderingen (LandingPage/Auth/
-// OnboardingFlow) eller alltid är monterat som appens "skal" (CookieBanner/
-// HelpDrawer/Toast/PaymentRequiredGate) — att göra DEM lazy hade bara
-// lagt till en onödig Suspense-flimmer på den väg alla besökare går.
+// som hör till den KRITISKA första renderingen (Auth/OnboardingFlow) eller
+// alltid är monterat som appens "skal" (HelpDrawer/Toast/
+// PaymentRequiredGate) — att göra DEM lazy hade bara lagt till en onödig
+// Suspense-flimmer på den väg alla inloggade användare går. CookieBanner
+// är INTE kvar här längre — den monteras nu en gång för alla i
+// AppRouter.jsx (marknad OCH inloggad app delar samma instans där).
 const Dashboard = lazy(() => import('./components/Dashboard'));
 const Invoices = lazy(() => import('./components/Invoices'));
 const Quotes = lazy(() => import('./components/Quotes'));
@@ -296,30 +298,44 @@ const Projects = lazy(() => import('./components/Projects'));
 const TimeTracking = lazy(() => import('./components/TimeTracking'));
 const Payroll = lazy(() => import('./components/Payroll'));
 const Taxes = lazy(() => import('./components/Taxes'));
+// Alla ANDRA marknads-/juridiksidor (FeaturesPage/PricingPage/AboutPage/
+// ContactPage/ChooseSoftwareGuidePage/PrivacyPolicy/TermsPolicy/
+// CookiesPolicy/PersonuppgiftsBitradesAvtal) flyttade till AppRouter.jsx
+// (Prestanda-fixet: se kommentaren vid App-komponentens topp) — den här
+// filen (och allt DEN importerar: Stripe, alla sidomeny-ikoner nedan,
+// lönehantering osv.) laddas nu bara när någon faktiskt loggar in eller
+// registrerar sig, inte för varje besökare som bara läser startsidan.
+//
+// LandingPage är UNDANTAGET och stannar kvar som ett vanligt (icke-lazy)
+// import här också, trots att AppRouter.jsx ÄVEN har en egen kopia: om
+// App.jsx laddas för att localStorage råkade ha en sparad session-nyckel
+// (RootRoute i AppRouter.jsx antar då inloggad) men den sessionen visar sig
+// vara utgången/ogiltig när den riktiga koll:en (nedan) körs, hamnar
+// `isLoggedIn` ändå kvar på false — och showLanding är fortfarande sant
+// (ingen `enterApp`-flagga sattes den vägen in). Grenen längre ner
+// (`!isLoggedIn ? showLanding ? <LandingPage/> : <Auth/> ...`) MÅSTE alltså
+// kunna rendera LandingPage helt själv, utan att förlita sig på att
+// AppRouter redan gjorde det — annars kraschar just den situationen
+// (utgången session) med en ReferenceError.
 import LandingPage from './components/LandingPage';
-const FeaturesPage = lazy(() => import('./components/marketing/FeaturesPage'));
-const PricingPage = lazy(() => import('./components/marketing/PricingPage'));
-const AboutPage = lazy(() => import('./components/marketing/AboutPage'));
-const ContactPage = lazy(() => import('./components/marketing/ContactPage'));
 import Auth from './components/Auth';
 import OnboardingFlow from './components/OnboardingFlow';
-import CookieBanner from './components/CookieBanner';
 import { supabase } from './supabaseClient';
-import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
-const PrivacyPolicy = lazy(() => import('./components/PrivacyPolicy'));
-const TermsPolicy = lazy(() => import('./components/TermsPolicy'));
-const CookiesPolicy = lazy(() => import('./components/CookiesPolicy'));
-const PersonuppgiftsBitradesAvtal = lazy(() => import('./components/PersonuppgiftsBitradesAvtal'));
+import { useLocation, useNavigate } from 'react-router-dom';
 const ReviewQueue = lazy(() => import('./components/ReviewQueue'));
 const CompanySettings = lazy(() => import('./components/CompanySettings'));
 import HelpDrawer from './components/HelpDrawer';
 import Toast from './components/shared/Toast';
 import PaymentRequiredGate from './components/PaymentRequiredGate';
 
-// Fallback under den enda <Suspense> som omsluter <Routes> (se return-
-// satsen längre ner) — visas bara under den korta stund en lazy-flik
+// Fallback under den enda <Suspense> som omsluter App-komponentens JSX (se
+// return-satsen längre ner) — visas bara under den korta stund en lazy-flik
 // (t.ex. Skatt och bokslut) laddar sin egen JS-bunt för första gången,
 // aldrig vid vanlig flikväxling efteråt (webbläsaren har den cachad då).
+// AppRouter.jsx har en egen, identisk minimalkopia som Suspense-fallback
+// medan HELA den här filen (App.jsx, lazy-laddad därifrån) hämtas första
+// gången — kan inte importera den härifrån, den filen är ju precis det som
+// fortfarande laddas i det ögonblicket.
 function RouteLoadingFallback() {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--bg-page)' }}>
@@ -449,8 +465,9 @@ const SKELETON_CONTENT_BY_VARIANT = {
 // Invoices, Taxes, m.fl.) är alla React.lazy() — första gången man klickar
 // sig till en flik vars JS-bunt inte redan hämtats den här sessionen
 // SUSPENDAR den komponenten. Innan den här inre gränsen fanns bubblade det
-// upp till den enda <Suspense> som omslöt HELA <Routes> (RouteLoadingFallback,
-// en ensam cirkel) — vilket monterade bort sidomeny+topbar+ALLT och ersatte
+// upp till den enda <Suspense> som omslöt HELA App-komponentens JSX
+// (RouteLoadingFallback, en ensam cirkel) — vilket monterade bort
+// sidomeny+topbar+ALLT och ersatte
 // dem med en tom sida med en snurra, på VARJE flik man inte redan besökt.
 // Den här inre gränsen fångar suspendet lokalt: sidomeny/topbar förblir
 // monterade och stilla, bara innehållsytan visar en siluett av sidan man
@@ -780,6 +797,25 @@ const resolveNavGroup = (id) => resolveTab(id === 'supplier_invoices' ? 'expense
 // ──────────────────────────────────────────────
 // APP COMPONENT
 // ──────────────────────────────────────────────
+// Prestandafix (Lighthouse: mobil 62, FCP/LCP 5–6.6s på marknadssidan):
+// den här komponenten är hela den INLOGGADE bokföringsappen — sidomeny,
+// Stripe, lönehantering, alla ~35 ikoner nedan m.m. — och laddades tidigare
+// eagert för VARJE besökare, även någon som bara tittar på startsidan och
+// aldrig loggar in. main.jsx importerade den här filen direkt (inte lazy),
+// så hela den bunten (620+ KB) laddades innan hero-sektionen ens hann
+// målas, på en långsam mobilanslutning flera sekunders extra väntan för
+// inget en anonym besökare faktiskt behövde.
+//
+// Routingen (tidigare <Routes> här i filen, med både "/" OCH marknads-/
+// juridiksidorna som syskon-Route) är flyttad till AppRouter.jsx, som nu
+// är det som main.jsx faktiskt monterar. AppRouter.jsx äger marknads-/
+// juridiksidorna direkt (LandingPage m.fl., aldrig via den här filen) och
+// lazy-laddar den HÄR komponenten (App) bara när någon faktiskt klickar
+// "Kom igång"/"Logga in", redan har en sparad inloggning, eller kommer in
+// via en Supabase-/Stripe-callback-länk — se AppRouter.jsx:s RootRoute för
+// exakt villkoren. Den här filens EGEN logik (isLoggedIn/showLanding/
+// Auth/Onboarding/Dashboard-växlingen nedan) är HELT oförändrad — den vet
+// inte ens att den numera monteras lite senare än förr.
 function App() {
   const [data, setData] = useState(loadData);
   const [activeTab, setActiveTab] = useState(() => {
@@ -2808,11 +2844,7 @@ function App() {
   return (
     <>
     <Suspense fallback={<RouteLoadingFallback />}>
-    <Routes>
-      <Route
-        path="/"
-        element={
-          <>
+      <>
             {subscriptionGate === 'blocked' ? (
               <PaymentRequiredGate user={user} />
             ) : mfaChallenge ? (
@@ -3354,29 +3386,7 @@ function App() {
     </div>
     )}
     </>
-          }
-        />
-        {/* Sitemap (Sida 29) — varje marknadssida en egen riktig route/URL,
-            inte ett skroll-ankare på startsidan. Loggan i MarketingLayout
-            går alltid till "/" oavsett vilken av dessa man står på. */}
-        <Route path="/funktioner" element={<FeaturesPage />} />
-        <Route path="/priser" element={<PricingPage />} />
-        <Route path="/om-oss" element={<AboutPage />} />
-        <Route path="/kontakt" element={<ContactPage />} />
-        <Route path="/privacy" element={<PrivacyPolicy />} />
-        <Route path="/terms" element={<TermsPolicy />} />
-        {/* GDPR-innehållet är nu fullt inbakat i den utökade Integritetspolicyn
-            (avsnitt 6, "Dina rättigheter") — en egen tunnare GDPR-sida skulle
-            bara bli en sämre, lätt-att-glömma-uppdatera dubblett. */}
-        <Route path="/gdpr" element={<Navigate to="/privacy" replace />} />
-        <Route path="/cookies" element={<CookiesPolicy />} />
-        <Route path="/pub" element={<PersonuppgiftsBitradesAvtal />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
     </Suspense>
-    {/* Monterad utanför <Routes> så den syns på alla sidor (marknadsföring
-        OCH inloggad app), Sida 37. */}
-    <CookieBanner />
     </>
   );
 }
