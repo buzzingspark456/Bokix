@@ -1,8 +1,8 @@
-import React, { useState, Suspense, lazy } from 'react';
+import React, { useState, lazy } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { CheckCircle, ArrowRight, ChevronDown, ShieldCheck, Zap, Check, BarChart3 } from 'lucide-react';
 import { BRAND } from '../../utils/brandColors';
-import MarketingLayout, { Reveal } from './MarketingLayout';
+import MarketingLayout, { Reveal, RevealLazy } from './MarketingLayout';
 import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW, ACCENT_CYCLE } from './marketingTokens';
 import { PageMeta, JsonLd, SITE_URL } from '../../utils/seo';
 // Lazy: se samma resonemang i LandingPage.jsx — DemoWorkspace drar in
@@ -197,11 +197,12 @@ export default function PricingPage() {
             </p>
           </Reveal>
 
-          <Reveal scale style={{ position: 'relative' }}>
-            <Suspense fallback={<div style={{ minHeight: '480px' }} />}>
-              <DemoWorkspace />
-            </Suspense>
-          </Reveal>
+          {/* RevealLazy (inte Reveal+Suspense) — samma Prestanda-fix som
+              LandingPage.jsx, se RevealLazy:s egen kommentar i
+              MarketingLayout.jsx. */}
+          <RevealLazy>
+            <DemoWorkspace />
+          </RevealLazy>
         </div>
       </section>
 

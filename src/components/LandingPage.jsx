@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Suspense, lazy } from 'react';
+import React, { useState, useEffect, lazy } from 'react';
 import { Link } from 'react-router-dom';
 import {
   BarChart3, Check, X, Minus,
@@ -9,7 +9,7 @@ import {
   Table2, Calculator, Eye, Clock,
 } from 'lucide-react';
 import { BRAND } from '../utils/brandColors';
-import MarketingLayout, { Reveal, useReveal, BokixWordmark } from './marketing/MarketingLayout';
+import MarketingLayout, { Reveal, RevealLazy, useReveal, BokixWordmark } from './marketing/MarketingLayout';
 import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW_SM, ACCENT, ACCENT_CYCLE } from './marketing/marketingTokens';
 import { IllBokforing, IllFakturering, IllSkatt, IllPersonal } from './marketing/featureIllustrations';
 import { PageMeta } from '../utils/seo';
@@ -349,11 +349,12 @@ export default function LandingPage({ onEnterApp }) {
             </p>
           </Reveal>
 
-          <Reveal scale style={{ position: 'relative' }}>
-            <Suspense fallback={<div style={{ minHeight: '480px' }} />}>
-              <DemoWorkspace />
-            </Suspense>
-          </Reveal>
+          {/* RevealLazy (inte Reveal+Suspense) — se dess egen kommentar i
+              MarketingLayout.jsx: mountar DemoWorkspace först vid skroll
+              hit, inte direkt vid sidladdning. */}
+          <RevealLazy>
+            <DemoWorkspace />
+          </RevealLazy>
         </div>
       </section>
 

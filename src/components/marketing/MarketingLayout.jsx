@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Menu, X, Sun, Moon } from 'lucide-react';
 import { BRAND } from '../../utils/brandColors';
@@ -120,7 +120,13 @@ function MarketingStyles() {
         --mkt-card-shadow-sm: 0 10px 24px -18px rgba(28,36,32,0.2);
         --mkt-accent-green-fg: oklch(52% 0.17 145);
         --mkt-accent-green-soft: oklch(93% 0.05 145);
-        --mkt-accent-blue-fg: oklch(56% 0.17 240);
+        /* Lighthouse (Tillgänglighet): 56% ljushet gav rgb(0,124,204) mot
+           vit kortbakgrund = 4.42:1 — precis under WCAG AA:s 4.5:1-krav
+           för text i den här storleken (Nyckeltalskortens "INTÄKTER"-
+           etikett, 12px fet). 52% ger rgb(0,112,191) = 5.16:1, samma blå
+           ton bara någon nyans mörkare. Röd/grön (raderna nedan) klarade
+           redan 4.5:1 utan ändring, rörda inte. */
+        --mkt-accent-blue-fg: oklch(52% 0.17 240);
         --mkt-accent-blue-soft: oklch(93% 0.045 240);
         --mkt-accent-red-fg: oklch(55% 0.19 25);
         --mkt-accent-red-soft: oklch(93% 0.05 25);
@@ -419,6 +425,32 @@ export function Reveal({ as: Tag = 'div', scale = false, delay = 0, style, class
   );
 }
 
+/** Som Reveal (scale), men för TUNGA React.lazy()-komponenter (t.ex.
+ * DemoWorkspace) — mountar barnen först när sektionen faktiskt är på väg
+ * in i vy, inte bara vid mount. Lighthouse (Prestanda-granskningen):
+ * `lazy()` delar bara upp KODEN i en egen bunt, det avgör INTE när den
+ * hämtas — en <Suspense><DemoWorkspace/></Suspense> som renderas
+ * ovillkorligt (vilket LandingPage.jsx/PricingPage.jsx gjorde, bara
+ * visuellt längre ner på sidan) triggar importen direkt vid mount ändå,
+ * så en besökare som ALDRIG scrollar dit laddade den ~235 KB tunga
+ * bunten (jspdf/html2canvas/BarChart/orgType, PDF-export- och
+ * diagramberoenden DemoWorkspace drar in) helt i onödan. `{inView &&
+ * children}` löser det: JSX-uttrycket <DemoWorkspace/> hos anroparen
+ * SKAPAR bara ett element-objekt (billigt, ingen import) — det är först
+ * när React faktiskt FÖRSÖKER RENDERA det (reconciliation) som lazy()
+ * triggar sin dynamiska import, och så länge inView är false inkluderas
+ * elementet aldrig i det som returneras här, så det når aldrig dit. */
+export function RevealLazy({ children, fallbackMinHeight = 480, style, ...rest }) {
+  const [ref, inView] = useReveal();
+  return (
+    <div ref={ref} className={`lp-reveal-scale ${inView ? 'lp-in' : ''}`} style={{ position: 'relative', ...style }} {...rest}>
+      <Suspense fallback={<div style={{ minHeight: `${fallbackMinHeight}px` }} />}>
+        {inView && children}
+      </Suspense>
+    </div>
+  );
+}
+
 /** Header/nav, delad av alla marknadssidor. Loggan går alltid till "/".
  * Nav-punkterna går till sina egna sidor (sitemap) — aldrig ett skroll-
  * ankare på samma sida. `onEnterApp`: skickas bara in av startsidan (som
@@ -569,7 +601,12 @@ export function MarketingFooter() {
         </div>
 
         <div>
-          <h4 style={{ fontSize: '14px', fontWeight: 600, color: 'white', marginBottom: '14px' }}>Produkt</h4>
+          {/* Lighthouse (Tillgänglighet, "Rubrikelementen har inte
+              ordnats i följd"): sidans sista rubrik före footern är alltid
+              en <h2> (CTA-sektionen) — <h4> här hoppade över <h3>.
+              Footerns tre kolumnrubriker är <h3> istället, samma nivå
+              sidans övriga <h2>→<h3>-underrubriker redan använder. */}
+          <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'white', marginBottom: '14px' }}>Produkt</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {[['Funktioner', '/funktioner'], ['Priser', '/priser'], ['Så väljer du bokföringsprogram', '/valja-bokforingsprogram']].map(([label, to]) => (
               <Link key={to} to={to} className="lp-footer-link" style={{ fontSize: '13.5px', color: 'rgba(255,255,255,0.6)', textDecoration: 'none', transition: 'color 0.2s' }}>
@@ -580,7 +617,7 @@ export function MarketingFooter() {
         </div>
 
         <div>
-          <h4 style={{ fontSize: '14px', fontWeight: 600, color: 'white', marginBottom: '14px' }}>Företag</h4>
+          <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'white', marginBottom: '14px' }}>Företag</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {[['Om oss', '/om-oss'], ['Kontakt', '/kontakt']].map(([label, to]) => (
               <Link key={to} to={to} className="lp-footer-link" style={{ fontSize: '13.5px', color: 'rgba(255,255,255,0.6)', textDecoration: 'none', transition: 'color 0.2s' }}>
@@ -591,7 +628,7 @@ export function MarketingFooter() {
         </div>
 
         <div>
-          <h4 style={{ fontSize: '14px', fontWeight: 600, color: 'white', marginBottom: '14px' }}>Juridiskt</h4>
+          <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'white', marginBottom: '14px' }}>Juridiskt</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {[
               { title: 'Integritetspolicy', to: '/privacy' },
@@ -619,7 +656,11 @@ export function MarketingFooter() {
       </div>
 
       <div className="lp-footer-bottom" style={{ maxWidth: '1200px', margin: '0 auto', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '24px' }}>
-        <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)' }}>
+        {/* Lighthouse (Tillgänglighet, "Kontrasten ... inte tillräckligt
+            stor"): 0.4 gav ~3.75:1 mot #0e2018, under WCAG AA:s 4.5:1-krav
+            för vanlig text. 0.55 ger ~5.9:1 — fortfarande tydligt dämpad/
+            lågprioriterad text, bara inte olaglig lite för svag. */}
+        <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.55)' }}>
           © {year} Bokix. Alla rättigheter förbehållna.
         </div>
       </div>

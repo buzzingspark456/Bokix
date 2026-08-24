@@ -19,13 +19,23 @@ CREATE TABLE IF NOT EXISTS public.user_data (
 );
 
 -- Add trigger to update updated_at on row change
+-- Supabase säkerhetslinter ("Function Search Path Mutable"): utan ett
+-- fastnaglat search_path kan en användare med skrivrätt i något schema som
+-- ligger tidigare i sessionens search_path skapa en egen funktion/typ med
+-- samma namn som något funktionen råkar referera oskalifierat, och på så
+-- sätt kapa vad funktionen faktiskt kör (relevant för SECURITY DEFINER-
+-- funktioner, men Supabase flaggar det på alla funktioner som god praxis).
+-- SET search_path = '' tvingar alla referenser att vara fullt kvalificerade
+-- — ofarligt här, now() är inbyggt (pg_catalog söks alltid implicit, även
+-- med tomt search_path).
 CREATE OR REPLACE FUNCTION public.set_updated_at()
 RETURNS trigger AS $$
 BEGIN
   NEW.updated_at = now();
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql
+SET search_path = '';
 
 DROP TRIGGER IF EXISTS set_updated_at ON public.user_data;
 CREATE TRIGGER set_updated_at
@@ -37,29 +47,34 @@ EXECUTE FUNCTION public.set_updated_at();
 ALTER TABLE public.user_data ENABLE ROW LEVEL SECURITY;
 
 -- Policy: select only own rows
+-- (select auth.uid()) istället för bara auth.uid() i samtliga policyer
+-- nedan (Supabase prestandalinter, "Auth RLS Initialization Plan"): som
+-- ett skalärt underuttryck utvärderar Postgres det EN gång per fråga,
+-- inte en gång per rad som annars — ren prestandaoptimering, exakt samma
+-- åtkomstlogik.
 CREATE POLICY "Select own user data"
 ON public.user_data
 FOR SELECT
-USING (auth.uid() = user_id);
+USING ((select auth.uid()) = user_id);
 
 -- Policy: insert only own rows
 CREATE POLICY "Insert own user data"
 ON public.user_data
 FOR INSERT
-WITH CHECK (auth.uid() = user_id);
+WITH CHECK ((select auth.uid()) = user_id);
 
 -- Policy: update only own rows
 CREATE POLICY "Update own user data"
 ON public.user_data
 FOR UPDATE
-USING (auth.uid() = user_id)
-WITH CHECK (auth.uid() = user_id);
+USING ((select auth.uid()) = user_id)
+WITH CHECK ((select auth.uid()) = user_id);
 
 -- Policy: delete only own rows
 CREATE POLICY "Delete own user data"
 ON public.user_data
 FOR DELETE
-USING (auth.uid() = user_id);
+USING ((select auth.uid()) = user_id);
 
 -- ═══════════════════════════════════════════════════════════
 -- Stripe Connect OAuth: server-side skrivning av stripeAccountId
@@ -152,7 +167,7 @@ ALTER TABLE public.stripe_payment_events ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Select own payment events"
 ON public.stripe_payment_events
 FOR SELECT
-USING (auth.uid() = user_id);
+USING ((select auth.uid()) = user_id);
 
 -- Enda skrivåtkomsten en inloggad användare har: kvittera sin egen
 -- redan-tillämpade händelse (sätta applied_at). Kan inte skapa nya rader
@@ -161,8 +176,8 @@ USING (auth.uid() = user_id);
 CREATE POLICY "Apply own payment events"
 ON public.stripe_payment_events
 FOR UPDATE
-USING (auth.uid() = user_id)
-WITH CHECK (auth.uid() = user_id);
+USING ((select auth.uid()) = user_id)
+WITH CHECK ((select auth.uid()) = user_id);
 
 -- ═══════════════════════════════════════════════════════════
 -- Prenumerationer: Bokix egen plan (99 kr/mån, 30 dagars gratis provperiod)
@@ -206,7 +221,7 @@ ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Select own subscription"
 ON public.subscriptions
 FOR SELECT
-USING (auth.uid() = user_id);
+USING ((select auth.uid()) = user_id);
 
 -- ═══════════════════════════════════════════════════════════
 -- Storage: profilbilder och företagslogotyper (Inställningar)
@@ -249,10 +264,21 @@ ON CONFLICT (id) DO UPDATE SET file_size_limit = 3145728, allowed_mime_types = A
 -- uppladdning gav "new row violates row-level security policy" trots en
 -- korrekt inloggad användare som skrev till sin egen mapp, i den
 -- tidigare enda-bucket-varianten av den här filen.
+-- Supabase säkerhetslinter ("Public Bucket Allows Listing"): den här
+-- policyn gav SELECT på storage.objects för bucket_id='profile' till ALLA
+-- roller (ingen TO-klausul) — vilket inte bara tillåter att LÄSA en känd
+-- bildfil, det tillåter att LISTA/bläddra i hela bucketens filnamn
+-- (t.ex. `select * from storage.objects where bucket_id='profile'` via
+-- PostgREST), och därmed skörda varenda registrerad användares uid ur
+-- filsökvägarna "<uid>/avatar.png". Onödig dessutom: en PUBLIC bucket
+-- (public:true ovan) serverar redan enskilda filer via
+-- /storage/v1/object/public/... helt UTAN att RLS på storage.objects
+-- konsulteras alls — <img src={getPublicUrl}> (Settings.jsx) slutar
+-- alltså inte fungera av att policyn tas bort. Exakt samma resonemang som
+-- redan är nedskrivet för bokix-uploads-bucketen längre ner i den här
+-- filen (skriven innan denna kommentar, tillämpades bara aldrig
+-- retroaktivt på profile/companylogo).
 DROP POLICY IF EXISTS "Publik läsning av profile" ON storage.objects;
-CREATE POLICY "Publik läsning av profile"
-ON storage.objects FOR SELECT
-USING (bucket_id = 'profile');
 
 DROP POLICY IF EXISTS "Egen uppladdning i profile" ON storage.objects;
 CREATE POLICY "Egen uppladdning i profile"
@@ -274,10 +300,8 @@ CREATE POLICY "Egen radering i profile"
 ON storage.objects FOR DELETE TO authenticated
 USING (bucket_id = 'profile' AND (storage.foldername(name))[1] = (SELECT auth.uid()::text));
 
+-- Samma fix/resonemang som "Publik läsning av profile" ovan.
 DROP POLICY IF EXISTS "Publik läsning av companylogo" ON storage.objects;
-CREATE POLICY "Publik läsning av companylogo"
-ON storage.objects FOR SELECT
-USING (bucket_id = 'companylogo');
 
 DROP POLICY IF EXISTS "Egen uppladdning i companylogo" ON storage.objects;
 CREATE POLICY "Egen uppladdning i companylogo"
@@ -355,3 +379,33 @@ DROP POLICY IF EXISTS "Egen radering i bokix-uploads" ON storage.objects;
 CREATE POLICY "Egen radering i bokix-uploads"
 ON storage.objects FOR DELETE TO authenticated
 USING (bucket_id = 'bokix-uploads' AND (storage.foldername(name))[1] = (SELECT auth.uid()::text));
+
+-- ═══════════════════════════════════════════════════════════
+-- Supabase säkerhetslinter: public.rls_auto_enable()
+-- ═══════════════════════════════════════════════════════════
+-- Den här funktionen finns i den LEVANDE databasen (linterns rapport
+-- flaggade den som SECURITY DEFINER, körbar av både anon och
+-- authenticated via /rest/v1/rpc/rls_auto_enable) men skapas INGENSTANS
+-- i den här filen — den kommer alltså inte från Bokix egen kodbas. Troligt
+-- ursprung: en engångshjälpfunktion Supabase Studios eget säkerhetsråd
+-- ("Auto fix"-knappen på RLS-varningar) kan installera i projektet.
+--
+-- Eftersom den inte är vår egen kod GÖR den här filen INGET åt dess
+-- definition (vet inte vad den faktiskt utför, och att gissa en ny
+-- CREATE OR REPLACE hade kunnat skriva över en Supabase-intern funktion
+-- på ett sätt som stör deras egen tooling). Det säkra, minimala steget
+-- nedan tar bara bort den publika körrätten — om appen aldrig anropar
+-- rls_auto_enable() (den gör inte det, ingen sådan RPC finns i src/eller
+-- api/), är det ofarligt: DO-blocket är villkorat på att funktionen
+-- faktiskt finns, så det är ofarligt att köra även om den redan är borttagen
+-- eller aldrig fanns i första taget.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public' AND p.proname = 'rls_auto_enable'
+  ) THEN
+    REVOKE ALL ON FUNCTION public.rls_auto_enable() FROM PUBLIC, anon, authenticated;
+  END IF;
+END $$;

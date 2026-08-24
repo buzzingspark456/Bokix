@@ -85,7 +85,11 @@ export default function CookieBanner() {
             <div title="Alltid aktiva — krävs för att logga in och för att tjänsten ska fungera" style={{ width: 40, height: 22, borderRadius: '999px', background: BRAND.green, margin: '0 auto', position: 'relative', opacity: 0.5, cursor: 'not-allowed' }}>
               <div style={{ position: 'absolute', top: 2, right: 2, width: 18, height: 18, borderRadius: '50%', background: 'var(--bg-card)' }} />
             </div>
-            <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginTop: '6px' }}>Alltid aktiva</div>
+            {/* Lighthouse (Tillgänglighet): --text-muted (#a1a1aa) mot vit
+                kortbakgrund gav bara ~2.56:1 — långt under WCAG AA:s
+                4.5:1. --text-secondary (~7.7:1) är fortfarande en dämpad,
+                sekundär ton, bara inte olagligt svag. */}
+            <div style={{ fontSize: '10.5px', color: 'var(--text-secondary)', marginTop: '6px' }}>Alltid aktiva</div>
           </div>
           <div style={{ padding: '16px 24px', textAlign: 'center' }}>
             <div style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '10px' }}>Statistik</div>
@@ -98,7 +102,8 @@ export default function CookieBanner() {
             >
               <div style={{ position: 'absolute', top: 2, left: statsPreview ? 20 : 2, width: 18, height: 18, borderRadius: '50%', background: 'var(--bg-card)', transition: 'left 0.15s' }} />
             </button>
-            <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginTop: '6px' }}>Google Analytics</div>
+            {/* Samma kontrastfix som "Alltid aktiva" ovan. */}
+            <div style={{ fontSize: '10.5px', color: 'var(--text-secondary)', marginTop: '6px' }}>Google Analytics</div>
           </div>
         </div>
 

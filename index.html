@@ -46,21 +46,28 @@
     <!-- Lighthouse (Prestanda, "Begäranden om renderingsblockering"): en
          vanlig <link rel="stylesheet"> här blockerar första målningen tills
          Google Fonts svarat. `media="print"` gör att webbläsaren laddar
-         hem den PARALLELLT utan att blockera renderingen, och `onload`
+         hem den PARALLELLT utan att blockera renderingen; /font-swap.js
          byter den till `all` så den faktiskt appliceras så fort den är
          klar — texten syns direkt i systemfallback-typsnittet
          (`&display=swap` i URL:en) och byter till Inter utan blockering.
-         `crossorigin` följer med rakt av så html2canvas fortfarande kan
-         läsa cssRules utan SecurityError, se kommentaren ovan — bara
-         LADDNINGEN är asynkron, inte CORS-beteendet. <noscript>-fallbacken
-         täcker webbläsare utan JS (onload körs aldrig då). -->
+         ETT inline onload="..."-attribut hade gjort exakt samma sak men
+         bryter mot Content-Security-Policyn (vercel.json script-src har
+         ingen 'unsafe-inline') — därav ett externt script istället, se
+         dess egen kommentar, samma mönster som consent-init.js redan
+         använder av samma skäl. `crossorigin` följer med rakt av så
+         html2canvas fortfarande kan läsa cssRules utan SecurityError, se
+         kommentaren ovan — bara LADDNINGEN är asynkron, inte CORS-
+         beteendet. <noscript>-fallbacken täcker webbläsare utan JS
+         (font-swap.js körs aldrig då). -->
     <link
+      data-font-async
       href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
-      rel="stylesheet" crossorigin="anonymous" media="print" onload="this.media='all'"
+      rel="stylesheet" crossorigin="anonymous" media="print"
     />
     <noscript>
       <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" crossorigin="anonymous" />
     </noscript>
+    <script src="/font-swap.js" defer></script>
 
     <!-- Google Analytics via Consent Mode v2 (Sida 37). Bugkritiskt: consent
          'default' med samtliga kategorier 'denied' MÅSTE köras innan 'config'
@@ -68,9 +75,15 @@
          vid sidladdning, innan besökaren hunnit svara i cookiebannern
          (src/components/CookieBanner.jsx), vilket bryter mot GDPR/ePrivacy.
          Bannern anropar gtag('consent','update',...) via
-         src/utils/consent.js när besökaren faktiskt väljer. -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-9KXP9XW3MW"></script>
-    <!-- Extern fil, inte inline — se public/consent-init.js för varför
+         src/utils/consent.js när besökaren faktiskt väljer.
+
+         Själva gtag.js-scriptet (tidigare en egen <script async src="…">
+         här) är flyttat IN i consent-init.js och fördröjt (Lighthouse:
+         163.8 KiB, den största "oanvänd JavaScript"-posten) — se den
+         filens egen kommentar för hela resonemanget och varför
+         konsent-ordningen fortfarande garanterat håller.
+
+         Extern fil, inte inline — se public/consent-init.js för varför
          (Content-Security-Policy, säkerhetsgranskningen). -->
     <script src="/consent-init.js"></script>
   </head>
