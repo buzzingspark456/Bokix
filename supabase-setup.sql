@@ -52,18 +52,21 @@ ALTER TABLE public.user_data ENABLE ROW LEVEL SECURITY;
 -- ett skalärt underuttryck utvärderar Postgres det EN gång per fråga,
 -- inte en gång per rad som annars — ren prestandaoptimering, exakt samma
 -- åtkomstlogik.
+DROP POLICY IF EXISTS "Select own user data" ON public.user_data;
 CREATE POLICY "Select own user data"
 ON public.user_data
 FOR SELECT
 USING ((select auth.uid()) = user_id);
 
 -- Policy: insert only own rows
+DROP POLICY IF EXISTS "Insert own user data" ON public.user_data;
 CREATE POLICY "Insert own user data"
 ON public.user_data
 FOR INSERT
 WITH CHECK ((select auth.uid()) = user_id);
 
 -- Policy: update only own rows
+DROP POLICY IF EXISTS "Update own user data" ON public.user_data;
 CREATE POLICY "Update own user data"
 ON public.user_data
 FOR UPDATE
@@ -71,6 +74,7 @@ USING ((select auth.uid()) = user_id)
 WITH CHECK ((select auth.uid()) = user_id);
 
 -- Policy: delete only own rows
+DROP POLICY IF EXISTS "Delete own user data" ON public.user_data;
 CREATE POLICY "Delete own user data"
 ON public.user_data
 FOR DELETE
@@ -164,6 +168,7 @@ ALTER TABLE public.stripe_payment_events ENABLE ROW LEVEL SECURITY;
 
 -- Bara service_role (webhooken) skriver nya rader — se INSERT-avsaknaden
 -- för authenticated/anon nedan, ingen policy = ingen åtkomst.
+DROP POLICY IF EXISTS "Select own payment events" ON public.stripe_payment_events;
 CREATE POLICY "Select own payment events"
 ON public.stripe_payment_events
 FOR SELECT
@@ -173,6 +178,7 @@ USING ((select auth.uid()) = user_id);
 -- redan-tillämpade händelse (sätta applied_at). Kan inte skapa nya rader
 -- (RLS INSERT saknas helt för authenticated/anon) eller ändra andra fält
 -- eftersom WITH CHECK kräver att user_id fortfarande är densamma.
+DROP POLICY IF EXISTS "Apply own payment events" ON public.stripe_payment_events;
 CREATE POLICY "Apply own payment events"
 ON public.stripe_payment_events
 FOR UPDATE
@@ -218,6 +224,7 @@ ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
 -- Läsning: bara sin egen rad. Ingen INSERT/UPDATE/DELETE-policy för
 -- authenticated/anon alls — precis som stripe_payment_events kan bara
 -- webhooken (service-role, kringgår RLS) skriva hit.
+DROP POLICY IF EXISTS "Select own subscription" ON public.subscriptions;
 CREATE POLICY "Select own subscription"
 ON public.subscriptions
 FOR SELECT

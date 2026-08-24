@@ -9,8 +9,28 @@
       "destination": "https://api.vercel.com/bot-protection/v1/proxy/:path*"
     },
     {
+      "source": "/funktioner",
+      "destination": "/funktioner/index.html"
+    },
+    {
+      "source": "/priser",
+      "destination": "/priser/index.html"
+    },
+    {
+      "source": "/om-oss",
+      "destination": "/om-oss/index.html"
+    },
+    {
+      "source": "/kontakt",
+      "destination": "/kontakt/index.html"
+    },
+    {
+      "source": "/valja-bokforingsprogram",
+      "destination": "/valja-bokforingsprogram/index.html"
+    },
+    {
       "source": "/((?!api).*)",
-      "destination": "/index.html"
+      "destination": "/app-shell.html"
     }
   ],
   "headers": [
