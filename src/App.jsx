@@ -43,7 +43,6 @@ import { createStripeCheckoutSession } from './stripeApi';
 import { createEmailDomain, getEmailDomainStatus } from './emailApi';
 import { getDebet, getKredit } from './utils/verificationAmounts';
 import { BRAND } from './utils/brandColors';
-import { createDemoSeed } from './utils/landingDemoData'; // TEMP: mobile audit bypass, see useEffect below — removed before this change ships
 
 // ── Bokix Logo Component (light sidebar) ──
 // Klickbar — tar till startsidan precis som varumärkeslogotyper brukar göra.
@@ -1035,22 +1034,6 @@ function App() {
 
   // Auth effect
   useEffect(() => {
-    // ── TEMPORARY — mobile responsiveness audit bypass ──────────────────
-    // NOT a feature. Lets me (Claude) view the real authenticated app
-    // chrome with demo data during local dev without real Supabase
-    // credentials, via ?__mobileaudit=1. import.meta.env.DEV-gated so it
-    // can never run in a production build. Removed entirely, along with
-    // the createDemoSeed import above, before this audit is done.
-    if (import.meta.env.DEV && new URLSearchParams(window.location.search).has('__mobileaudit')) {
-      const seed = createDemoSeed();
-      setData({ activeCompanyId: seed.company.id, companies: { [seed.company.id]: seed } });
-      setUser({ id: '00000000-0000-0000-0000-000000000000', email: 'audit@local.dev', user_metadata: { first_name: 'Audit' } });
-      setIsLoggedIn(true);
-      setIsLoadingAuth(false);
-      setShowLanding(false);
-      return;
-    }
-
     // Failsafe: never hang forever on loading screen
     const loadingTimeout = setTimeout(() => {
       setIsLoadingAuth(false);
