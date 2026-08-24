@@ -3,8 +3,12 @@ import { Link } from 'react-router-dom';
 // ── Sida 37 ─────────────────────────────────────────────────────────────
 // JURIDISKT UTKAST, INTE GRANSKAT. Ett första utkast, inte ett
 // färdiggranskat juridiskt dokument. Innan sidan går live i produktion
-// måste en jurist läsa igenom och godkänna innehållet, och företagets
-// organisationsnummer/adress verifieras mot aktuell information.
+// måste en jurist läsa igenom och godkänna innehållet.
+//
+// Bolagsidentitet bekräftad av kunden (samma som PrivacyPolicy.jsx,
+// avsnitt 1) — Bokix, Strömsörgatan 19, Skellefteå. Bolagsform/org.nr
+// medvetet UTELÄMNADE här — se motsvarande kommentar i PrivacyPolicy.jsx
+// för varför.
 
 const h2 = { marginTop: '36px', marginBottom: '12px', fontSize: '19px', fontWeight: 800, color: '#0f172a' };
 const p = { marginBottom: '14px', lineHeight: 1.8, color: '#475569', fontSize: '15px' };
@@ -21,7 +25,7 @@ export default function TermsPolicy() {
         <p style={{ fontSize: '13px', color: '#94a3b8', marginBottom: '28px' }}>Senast uppdaterad: {new Date().toLocaleDateString('sv-SE', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
 
         <p style={p}>
-          Dessa villkor ("Villkoren") styr din och ditt företags användning av Bokix ("tjänsten"). Genom att skapa ett konto eller använda tjänsten godkänner du Villkoren och vår <Link to="/privacy" style={{ color: '#3d7a2e', fontWeight: 600 }}>Integritetspolicy</Link>. Om du använder tjänsten för ett företags räkning intygar du att du har behörighet att binda företaget till dessa Villkor.
+          Dessa villkor ("Villkoren") ingås mellan dig/ditt företag och Bokix, Strömsörgatan 19, Skellefteå ("Bokix", "vi", "oss"), och styr din och ditt företags användning av tjänsten Bokix. Genom att skapa ett konto eller använda tjänsten godkänner du Villkoren och vår <Link to="/privacy" style={{ color: '#3d7a2e', fontWeight: 600 }}>Integritetspolicy</Link>. Om du använder tjänsten för ett företags räkning intygar du att du har behörighet att binda företaget till dessa Villkor.
         </p>
 
         <h2 style={h2}>1. Vad tjänsten är</h2>
@@ -66,6 +70,12 @@ export default function TermsPolicy() {
         <p style={p}>
           Vi strävar efter hög tillgänglighet men garanterar inte att tjänsten är felfri eller tillgänglig utan avbrott. Planerat underhåll meddelas när det är praktiskt möjligt. Vi rekommenderar att du regelbundet exporterar din data (Inställningar → Data och Inställningar) som en egen säkerhetskopia.
         </p>
+        <p style={p}>
+          Bokix är byggt på och beroende av tredjepartsleverantörer (bland annat Supabase, Stripe, Resend och Vercel — se <Link to="/privacy" style={{ color: '#3d7a2e', fontWeight: 600 }}>Integritetspolicyn</Link>, avsnitt 4). Driftstörningar hos en sådan leverantör kan påverka tjänstens tillgänglighet, och vi ansvarar inte för avbrott som orsakas utanför vår egen kontroll.
+        </p>
+        <p style={p}>
+          Ingen av parterna ansvarar för underlåtenhet att uppfylla dessa Villkor om det beror på omständigheter utanför partens rimliga kontroll (force majeure), till exempel naturkatastrof, krig, myndighetsbeslut, arbetsmarknadskonflikt eller omfattande avbrott hos internet-/molntjänstleverantörer.
+        </p>
 
         <h2 style={h2}>7. Din data</h2>
         <p style={p}>
@@ -97,6 +107,7 @@ export default function TermsPolicy() {
           <div style={{ display: 'flex', gap: '16px' }}>
             <Link to="/privacy" style={{ color: '#64748b', fontWeight: 600, textDecoration: 'none', fontSize: '14px' }}>Integritetspolicy</Link>
             <Link to="/cookies" style={{ color: '#64748b', fontWeight: 600, textDecoration: 'none', fontSize: '14px' }}>Cookiepolicy</Link>
+            <Link to="/pub" style={{ color: '#64748b', fontWeight: 600, textDecoration: 'none', fontSize: '14px' }}>PUB-avtal</Link>
           </div>
         </div>
       </div>

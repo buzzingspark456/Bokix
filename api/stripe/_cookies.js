@@ -15,10 +15,16 @@ export function parseCookies(header) {
 
 export const STRIPE_OAUTH_COOKIE = 'bokix_stripe_oauth_state';
 
+// Secure: cookien saknade tidigare flaggan — utan den skickas den även över
+// vanlig http://, inte bara https://. Ofarligt i praktiken på Vercel (allt
+// är https i produktion), men ett gratis extra lager mot en nätverksnivå-
+// nedgradering. `Secure` fungerar även på http://localhost (webbläsare
+// behandlar localhost som en "secure context" oavsett schema), så lokal
+// dev via server.js påverkas inte.
 export function stripeOauthStateCookie(value) {
-  return `${STRIPE_OAUTH_COOKIE}=${encodeURIComponent(value)}; HttpOnly; Path=/; Max-Age=600; SameSite=Lax`;
+  return `${STRIPE_OAUTH_COOKIE}=${encodeURIComponent(value)}; HttpOnly; Secure; Path=/; Max-Age=600; SameSite=Lax`;
 }
 
 export function clearStripeOauthStateCookie() {
-  return `${STRIPE_OAUTH_COOKIE}=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax`;
+  return `${STRIPE_OAUTH_COOKIE}=; HttpOnly; Secure; Path=/; Max-Age=0; SameSite=Lax`;
 }

@@ -2,6 +2,11 @@
 <html lang="sv">
   <head>
     <meta charset="UTF-8" />
+    <!-- Google Search Console-ägarverifiering (HTML-tagg-metoden) — bevisar
+         att den här sajten faktiskt är bokix.se inför Google, krävs innan
+         sitemapen (public/sitemap.xml) kan skickas in. Ta ALDRIG bort utan
+         att verifiera i Search Console om domänen behöver verifieras om. -->
+    <meta name="google-site-verification" content="3y6QgWaWZDle_daSlZfCE4BVn-nh6H-YSNOEsgfWJ-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
@@ -10,6 +15,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Bokix - Ett modernt, enkelt och kraftfullt bokföringsprogram för småföretagare och enskilda firmor." />
     <title>Bokix - Smart & Enkel Bokföring online</title>
+    <!-- Bas-fallback för Open Graph/Twitter Card — täcker sidor som ännu
+         inte satt egna taggar (t.ex. /privacy, /terms) samt det korta
+         ögonblicket innan React hunnit montera och (för de fem marknads-
+         sidorna) skriva över med sina egna via <PageMeta>, se
+         src/utils/seo.jsx. React 19 hissar title/meta/link till <head> när
+         de renderas i komponentträdet och skriver då över dessa. -->
+    <link rel="canonical" href="https://www.bokix.se/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Bokix" />
+    <meta property="og:title" content="Bokix - Smart & Enkel Bokföring online" />
+    <meta property="og:description" content="Bokix - Ett modernt, enkelt och kraftfullt bokföringsprogram för småföretagare och enskilda firmor." />
+    <meta property="og:url" content="https://www.bokix.se/" />
+    <meta property="og:image" content="https://www.bokix.se/icon-512.png" />
+    <meta property="og:locale" content="sv_SE" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Bokix - Smart & Enkel Bokföring online" />
+    <meta name="twitter:description" content="Bokix - Ett modernt, enkelt och kraftfullt bokföringsprogram för småföretagare och enskilda firmor." />
+    <meta name="twitter:image" content="https://www.bokix.se/icon-512.png" />
     <!-- Google Fonts som en riktig <link> med crossorigin, INTE ett @import
          i index.css — ett cross-origin @import gör att html2canvas (faktura-
          PDF/mejl-export) kastar en SecurityError när den försöker läsa

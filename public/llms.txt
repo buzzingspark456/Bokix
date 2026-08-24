@@ -1,0 +1,28 @@
+# Bokix
+
+> Bokix är ett modernt, enkelt och kraftfullt bokföringsprogram för svenska småföretagare och enskilda firmor. Bokföring, fakturering, lön och moms i ett enda verktyg.
+
+Bokix körs helt i webbläsaren på https://www.bokix.se — inget att installera. Priset är 99 kr/mån exklusive moms, allt ingår i det priset (ingen "bas + tillägg per funktion"-modell), och det finns ingen bindningstid.
+
+Bokix stöder enskild firma, aktiebolag, handelsbolag/kommanditbolag och ekonomisk förening, och bokför enligt rätt regler för respektive bolagsform utifrån organisationsnumret.
+
+## Funktioner
+
+- Löpande bokföring med full svensk BAS-kontoplan, och en granskningsvy så inget bokförs fel utan att användaren ser det först
+- Kund- och leverantörsfakturor, obegränsat antal, med flera fakturamallar, egen logotyp och accentfärg
+- Lönekörningar för hela personalen, med rätt skatteavdrag
+- Moms-, AGI- och kontrolluppgiftssammanställningar
+- Kortbetalningar via Stripe
+- PDF-export av fakturor, lönebesked och deklarationsunderlag
+
+## Sidor
+
+- [Startsida](https://www.bokix.se/): översikt över produkten
+- [Funktioner](https://www.bokix.se/funktioner): detaljerad genomgång av vad som ingår
+- [Priser](https://www.bokix.se/priser): pris, vad som ingår och vanliga frågor
+- [Om oss](https://www.bokix.se/om-oss): varför Bokix finns och principerna produkten byggs efter
+- [Kontakt](https://www.bokix.se/kontakt): kontaktformulär, support@bokix.se
+
+## Kontakt
+
+E-post: support@bokix.se

@@ -5,6 +5,26 @@
 // två garanterat gör exakt samma sak.
 import { createClient } from '@supabase/supabase-js';
 
+// Säkerhetsfix (säkerhetsgranskningen) — se den fulla kommentaren i
+// api/stripe/create-subscription-checkout.js för VARFÖR den här kollen
+// finns. Flyttad hit (samma fil som upsertSubscription, redan delad mellan
+// api/stripe/create-subscription-checkout.js och server.js) istället för
+// att finnas som två separata, lätt-att-glömma-uppdatera kopior — server.js
+// hade tidigare sin egen, oparallella create-subscription-checkout-rutt utan
+// den här kollen alls, ett latent kryphål i lokal utveckling.
+export async function hasExistingSubscription(userId) {
+  const supabaseUrl = process.env.VITE_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceRoleKey) {
+    // Kan inte slå upp — hellre neka öppet (kräv inloggning) än att av
+    // misstag släppa igenom ett obehörigt anrop mot ett okänt konto.
+    return true;
+  }
+  const admin = createClient(supabaseUrl, serviceRoleKey);
+  const { data } = await admin.from('subscriptions').select('user_id').eq('user_id', userId).maybeSingle();
+  return !!data;
+}
+
 export async function upsertSubscription({
   userId,
   stripeCustomerId,

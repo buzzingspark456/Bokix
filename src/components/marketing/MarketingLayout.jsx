@@ -3,6 +3,32 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Menu, X, Sun, Moon } from 'lucide-react';
 import { BRAND } from '../../utils/brandColors';
 import { ACCENT_CYCLE } from './marketingTokens';
+import { JsonLd, SITE_URL } from '../../utils/seo';
+
+// Organization-schema (schema.org) — samma på VARJE marknadssida (den här
+// layouten wrappar alla fem, se botten av filen) eftersom en organisations
+// identitet inte är sid-specifik. Ger Google/Bing ett tydligt, strukturerat
+// "det här företaget heter Bokix, finns på den här domänen, nås på den här
+// mejladressen" istället för att behöva gissa det ur brödtexten — samma sak
+// AI-svarsmotorer (Claude/ChatGPT/Perplexity) hellre citerar än fritext.
+// Bara verifierbara fält (namn, url, kontakt-mejl som redan står på
+// /kontakt) — inga påhittade adresser/organisationsnummer/betyg.
+const ORGANIZATION_SCHEMA = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: 'Bokix',
+  url: SITE_URL,
+  logo: `${SITE_URL}/icon-512.png`,
+  description: 'Bokix är ett modernt, enkelt och kraftfullt bokföringsprogram för svenska småföretagare och enskilda firmor — bokföring, fakturering och lön i samma verktyg.',
+  email: 'support@bokix.se',
+  contactPoint: {
+    '@type': 'ContactPoint',
+    email: 'support@bokix.se',
+    contactType: 'customer support',
+    areaServed: 'SE',
+    availableLanguage: ['sv'],
+  },
+};
 
 // Kundönskemål: en mörkt-läge-option på marknadssidan. Samma localStorage-
 // nyckel som den inloggade appen (App.jsx) — en besökare som redan valt
@@ -534,6 +560,7 @@ export function MarketingFooter() {
               { title: 'Integritetspolicy', to: '/privacy' },
               { title: 'Användarvillkor', to: '/terms' },
               { title: 'Cookiepolicy', to: '/cookies' },
+              { title: 'PUB-avtal', to: '/pub' },
             ].map(link => (
               <Link key={link.to} to={link.to} className="lp-footer-link" style={{ fontSize: '13.5px', color: 'rgba(255,255,255,0.6)', textDecoration: 'none', transition: 'color 0.2s' }}>
                 {link.title}
@@ -574,6 +601,7 @@ export default function MarketingLayout({ onEnterApp, children }) {
   const [theme, toggleTheme] = useMarketingTheme();
   return (
     <div id="lp-root" data-theme={theme} style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", color: 'var(--mkt-heading)', background: 'var(--mkt-page-bg)', overflowX: 'hidden' }}>
+      <JsonLd data={ORGANIZATION_SCHEMA} />
       <MarketingStyles />
       <MarketingHeader onEnterApp={onEnterApp} theme={theme} onToggleTheme={toggleTheme} />
       {children}

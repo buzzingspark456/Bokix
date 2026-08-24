@@ -3,51 +3,17 @@ import helmet from 'helmet'
 import rateLimit from 'express-rate-limit'
 import Stripe from 'stripe'
 import dotenv from 'dotenv'
-import fs from 'fs'
-import path from 'path'
-import { fileURLToPath } from 'url'
 import { createClient } from '@supabase/supabase-js'
 import { createSignedState, verifySignedState } from './api/stripe/_oauthState.js'
 import { parseCookies, STRIPE_OAUTH_COOKIE, stripeOauthStateCookie, clearStripeOauthStateCookie } from './api/stripe/_cookies.js'
 import { recordStripePaymentEvent } from './api/stripe/_paymentEvents.js'
-import { upsertSubscription } from './api/stripe/_subscriptions.js'
+import { upsertSubscription, hasExistingSubscription } from './api/stripe/_subscriptions.js'
 import { normalizeAbsoluteUrl, appendQueryParam } from './api/stripe/_urls.js'
 import { resolveInvoiceLineItems } from './api/stripe/_invoiceLineItems.js'
 import { requireAuthedUser, loadOwnedCompany } from './api/_auth.js'
 import { isRequestFromBot } from './api/_botid.js'
 
 dotenv.config()
-
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
-const dataDir = path.join(__dirname, 'data')
-const dataFilePath = path.join(dataDir, 'app-data.json')
-
-function ensureStoreFile() {
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true })
-  }
-
-  if (!fs.existsSync(dataFilePath)) {
-    fs.writeFileSync(dataFilePath, JSON.stringify({ companies: {} }, null, 2))
-  }
-}
-
-function loadStore() {
-  ensureStoreFile()
-  try {
-    return JSON.parse(fs.readFileSync(dataFilePath, 'utf8'))
-  } catch {
-    return { companies: {} }
-  }
-}
-
-function saveStore(store) {
-  ensureStoreFile()
-  fs.writeFileSync(dataFilePath, JSON.stringify(store, null, 2))
-}
-
-const store = loadStore()
 
 // Sida 37: den tidigare VITE_-prefixade fallbacken (VITE_STRIPE_SECRET_KEY)
 // är borttagen — allt som börjar med VITE_ bundlas statiskt in i klient-JS
@@ -309,31 +275,13 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' })
 })
 
-app.get('/api/companies/:companyId/data', (req, res) => {
-  const companyData = store.companies?.[req.params.companyId]
-  if (!companyData) {
-    return res.status(404).json({ error: 'Company data not found' })
-  }
-
-  res.json(companyData)
-})
-
-app.put('/api/companies/:companyId/data', (req, res) => {
-  const companyId = req.params.companyId
-  const payload = req.body
-
-  if (!payload || typeof payload !== 'object') {
-    return res.status(400).json({ error: 'Expected a company data object' })
-  }
-
-  if (!store.companies) {
-    store.companies = {}
-  }
-
-  store.companies[companyId] = payload
-  saveStore(store)
-  res.json({ ok: true, companyId })
-})
+// Säkerhetsstädning: /api/companies/:companyId/data (GET/PUT) togs bort
+// härifrån — obehövd, unauthenticated död kod. Skrev/läste bara en lokal
+// JSON-fil (data/app-data.json) som ingen frontend-kod någonsin anropade;
+// riktig företagsdata går via supabase.from('user_data') direkt från
+// klienten (Row Level Security i Supabase, inte via server.js), och den
+// motsvarande produktionsroutet finns inte alls i api/ (Vercels serverless-
+// funktioner) — bara lokal dev-kod utan motsvarighet i drift.
 
 function handleError(res, error, status = 500) {
   console.error('Stripe API error:', error)
@@ -443,6 +391,18 @@ app.post('/api/stripe/create-subscription-checkout', async (req, res) => {
     const body = req.body || {}
     if (!body.user_id) {
       return res.status(400).json({ error: 'user_id krävs.' })
+    }
+
+    // Säkerhetsfix (se motsvarande kommentar i api/stripe/create-
+    // subscription-checkout.js, samma logik speglad här för lokal
+    // utveckling): den här rutten litade tidigare blint på body.user_id,
+    // helt utan den skyddskoll produktionsversionen redan hade fått.
+    if (await hasExistingSubscription(body.user_id)) {
+      const user = await requireAuthedUser(req, res)
+      if (!user) return // requireAuthedUser har redan svarat 401
+      if (user.id !== body.user_id) {
+        return res.status(403).json({ error: 'user_id matchar inte den inloggade användaren.' })
+      }
     }
 
     const baseUrl = normalizeAbsoluteUrl(process.env.STRIPE_SUCCESS_URL, 'http://localhost:5173')

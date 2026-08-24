@@ -5,6 +5,7 @@ import { BRAND } from '../../utils/brandColors';
 import MarketingLayout, { Reveal } from './MarketingLayout';
 import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW, ACCENT } from './marketingTokens';
 import { IllBokforing, IllFakturering, IllSkatt, IllPersonal } from './featureIllustrations';
+import { PageMeta } from '../../utils/seo';
 
 // Fördjupad version av startsidans fyra kolumner — samma fyra riktiga
 // huvudsektioner (se globala sidomenyn i App.jsx), nu med de faktiska
@@ -60,6 +61,11 @@ export default function FeaturesPage() {
   const enterApp = () => navigate('/', { state: { enterApp: true } });
   return (
     <MarketingLayout>
+      <PageMeta
+        title="Funktioner — bokföring, fakturering, lön och moms | Bokix"
+        description="Se allt som ingår i Bokix: löpande bokföring med full BAS-kontoplan, kund- och leverantörsfakturor, lönekörning och moms-/AGI-sammanställningar — i ett verktyg."
+        path="/funktioner"
+      />
       <section style={{ padding: '150px 24px 80px', background: IVORY }}>
         <Reveal style={{ maxWidth: '720px', margin: '0 auto', textAlign: 'center' }}>
           <h1 style={{ fontFamily: SERIF, fontSize: 'clamp(32px, 5vw, 50px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '18px', lineHeight: 1.14 }}>

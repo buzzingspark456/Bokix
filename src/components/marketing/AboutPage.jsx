@@ -4,6 +4,7 @@ import { ShieldCheck, Eye, Layers, ArrowRight } from 'lucide-react';
 import { BRAND } from '../../utils/brandColors';
 import MarketingLayout, { Reveal } from './MarketingLayout';
 import { SERIF, INK, MUTED, IVORY, CARD_BORDER, CARD_SHADOW, ACCENT_CYCLE } from './marketingTokens';
+import { PageMeta } from '../../utils/seo';
 
 // Genuina, konkreta principer — inte påhittade grundare-citat eller en
 // uppdiktad företagshistoria vi inte har. Tre principer, samma tre
@@ -26,6 +27,11 @@ const PRINCIPLES = [
 export default function AboutPage() {
   return (
     <MarketingLayout>
+      <PageMeta
+        title="Om oss | Bokix"
+        description="Bokix byggs för svenska småföretagare som vill lägga tid på verksamheten, inte pappersarbete. Läs varför vi finns och principerna vi bygger produkten efter."
+        path="/om-oss"
+      />
       <style>{`
         .about-principle-card { position: relative; }
         .about-principle-card:hover { border-color: transparent !important; box-shadow: 0 4px 16px rgba(61,122,46,0.18) !important; }

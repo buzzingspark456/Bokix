@@ -384,6 +384,34 @@ body {
   to   { transform: rotate(360deg); }
 }
 
+/* Inloggningens laddningsskärm (App.jsx, isLoadingAuth) — en tyst
+   "skelett"-siluett av sidomenyn/topbaren/Startsida-ytorna istället för en
+   ensam snurrande cirkel mitt på en tom sida, så det syns direkt VAD som
+   är på väg att laddas in innan datan är på plats. Ljuset glider över
+   formerna istället för att pulsera i opacitet — mindre "trött blinkande",
+   känns mer som att innehållet är på väg att komma. */
+@keyframes bokix-skeleton-sheen {
+  from { background-position: -300px 0; }
+  to   { background-position: 300px 0; }
+}
+
+.skeleton-shape {
+  background: linear-gradient(90deg, var(--bg-muted) 25%, var(--border) 37%, var(--bg-muted) 63%);
+  background-size: 400px 100%;
+  animation: bokix-skeleton-sheen 1.4s ease-in-out infinite;
+  border-radius: 8px;
+}
+
+/* Egen, ljusare variant för skuggformerna INNE i sidomenyn — den mörka
+   gröna/turkosa sidebar-bakgrunden gör att --bg-muted/--border (avsedda för
+   ljusa sidytor) knappt syns där, se .skeleton-shape ovan för sidytans. */
+.skeleton-shape--on-sidebar {
+  background: linear-gradient(90deg, rgba(255,255,255,0.12) 25%, rgba(255,255,255,0.22) 37%, rgba(255,255,255,0.12) 63%);
+  background-size: 400px 100%;
+  animation: bokix-skeleton-sheen 1.4s ease-in-out infinite;
+  border-radius: 6px;
+}
+
 /* Dashboard.jsx: konfettibitar i "Kom igång"-rutan när alla checklist-steg
    är klara. Faller rakt ner + snurrar, tonar bort mot slutet så de inte
    klipps av tvärt i botten av den overflow:hidden-beskurna rutan. */
@@ -802,7 +830,14 @@ body {
   justify-content: flex-end;
   align-items: center;
   padding: 0 20px;
-  background: var(--bg-card);
+  /* Kundönskemål: headern ska ha samma bakgrund som dashboarden — inte sitt
+     eget vita/mörka kort-lager (--bg-card). --bg-page är exakt samma
+     variabel som body (se basregeln längre ner i filen) och därmed samma
+     yta som lyser igenom bakom .main-content-inner, så headern smälter ihop
+     med sidan under den istället för att sticka ut som ett eget kort. Gäller
+     BÅDA teman nu (tidigare var mörkt läge en egen specialfärg, se den
+     borttagna :root[data-theme="dark"]-overriden nedanför). */
+  background: var(--bg-page);
   border-bottom: 1px solid var(--border);
   height: 52px;
   flex-shrink: 0;
@@ -876,24 +911,24 @@ body {
   justify-content: space-between;
   align-items: center;
   padding: 0 24px 0 20px;
-  background: var(--bg-card);
+  /* Samma dashboard-bakgrund som .desktop-top-bar ovan — se kommentaren
+     där. */
+  background: var(--bg-page);
   border-bottom: 1px solid var(--border);
   height: var(--topbar-height);
   flex-shrink: 0;
   gap: 12px;
 }
 
-/* Kundönskemål: headern (.desktop-top-bar/.global-top-bar) ska ha samma
-   färg som sidomenyn — men BARA i mörkt läge (ljust läge är vitt, se
-   basreglerna ovan). Samma :root[data-theme="dark"]/prefers-color-scheme-
-   par som variabelblocken högre upp i filen, eftersom "auto"-läget (ingen
-   sparad preferens) inte får ett data-theme-attribut alls. */
-:root[data-theme="dark"] .desktop-top-bar,
-:root[data-theme="dark"] .global-top-bar {
-  background: var(--bg-sidebar);
-  border-bottom-color: rgba(255,255,255,0.15);
-  box-shadow: none;
-}
+/* Mörkt läge: bakgrunden matchar redan dashboarden via --bg-page ovan (den
+   variabeln byter själv värde i :root[data-theme="dark"], se blocket högre
+   upp i filen) — headern behöver alltså INGEN egen bakgrundsfärg-override
+   längre (tidigare stod den i --bg-sidebars mörkgröna ton här istället för
+   dashboardens). Kvar är bara ikonfärgerna: --gray-500 (basfärgen på
+   .topbar-icon-btn) är för mörk mot en mörk bakgrund, så den ljusas upp
+   här, precis som :root[data-theme="dark"]/prefers-color-scheme-paret gör
+   för variabelblocken högre upp i filen — "auto"-läget (ingen sparad
+   preferens) får aldrig ett data-theme-attribut alls. */
 :root[data-theme="dark"] .topbar-icon-btn,
 :root[data-theme="dark"] .hamburger-btn {
   color: rgba(255,255,255,0.75);
@@ -904,12 +939,6 @@ body {
   color: #ffffff;
 }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]):not([data-theme="dark"]) .desktop-top-bar,
-  :root:not([data-theme="light"]):not([data-theme="dark"]) .global-top-bar {
-    background: var(--bg-sidebar);
-    border-bottom-color: rgba(255,255,255,0.15);
-    box-shadow: none;
-  }
   :root:not([data-theme="light"]):not([data-theme="dark"]) .topbar-icon-btn,
   :root:not([data-theme="light"]):not([data-theme="dark"]) .hamburger-btn {
     color: rgba(255,255,255,0.75);
@@ -3173,6 +3202,16 @@ textarea.form-control {
     display: none;
   }
 
+  /* INK2S-sammanfattningen (Taxes.jsx): två resultatkort med en pil
+     emellan. På mobil radbryter korten under varandra (flex-wrap) och
+     pilen — tänkt att peka höger, mellan två kort sida vid sida — hamnar
+     då liggande för sig själv mellan två staplade kort, vilket bara ser
+     ut som ett feltryckt tecken. Döljs på mobil, ordningen (resultat
+     följt av över-/underskott) räcker som förklaring i sig. */
+  .ink2s-arrow {
+    display: none;
+  }
+
   /* Samma feedback: .page-shell hade en FAST header + en oberoende inre
      skrollyta (.page-shell-scroll) — bra för korta headers (Fakturor/
      Kontakter, som INTE fick den här klassen), men en hög header som
@@ -3242,6 +3281,28 @@ textarea.form-control {
     padding-left: 0 !important;
     width: 100%;
   }
+}
+
+/* ══ Scrollbar på/av (Inställningar → Data och Inställningar) ══
+   Kundönskemål: en växel för att dölja webbläsarens synliga scrollbar på
+   DATORN också — mobilen döljer sin redan ovillkorligt (se .sidebar m.fl.
+   i @media 768px ovan), det här är det motsvarande valet för desktop.
+   `data-hide-scrollbar` sätts på <html> i App.jsx (samma mönster som
+   `data-theme`), sparat i localStorage så valet består mellan besök.
+   scrollbar-width ärvs till alla underliggande skrollbara ytor (Firefox);
+   ::-webkit-scrollbar ärvs inte, så den träffas explicit via `*` på varje
+   efterkommande element istället (Chrome/Edge/Safari). Sidan skrollar
+   fortfarande precis som förut — bara handtaget/facket syns inte. */
+html[data-hide-scrollbar="true"] {
+  scrollbar-width: none;
+}
+html[data-hide-scrollbar="true"] * {
+  scrollbar-width: none;
+}
+html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 /* ══ Extra liten skärm (≤ 400px) ══ */

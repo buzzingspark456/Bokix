@@ -3,8 +3,18 @@ import { Link } from 'react-router-dom';
 // ── Sida 37 ─────────────────────────────────────────────────────────────
 // JURIDISKT UTKAST, INTE GRANSKAT. Ett första utkast, inte ett
 // färdiggranskat juridiskt dokument. Innan sidan går live i produktion
-// måste en jurist läsa igenom och godkänna innehållet, och företagets
-// organisationsnummer/adress verifieras mot aktuell information.
+// måste en jurist läsa igenom och godkänna innehållet.
+//
+// Bolagsidentitet (avsnitt 1) bekräftad av kunden: Bokix, adress
+// Strömsörgatan 19, Skellefteå. Bolagsform/org.nr medvetet UTELÄMNADE från
+// den här publika, sökmotorindexerade sidan efter kundens uttryckliga
+// önskemål — avsnitt 1 ber istället om att kontakta support@bokix.se för
+// det. Org.nr för en enskild firma är innehavarens personnummer, därav
+// känsligheten.
+//
+// Avsnitt 10 (personuppgiftsbiträdesavtal) länkar till det fullständiga
+// PUB-avtalet på /pub (PersonuppgiftsBitradesAvtal.jsx) — se den filen för
+// samma "juridiskt utkast, inte granskat"-markering.
 
 const h2 = { marginTop: '36px', marginBottom: '12px', fontSize: '19px', fontWeight: 800, color: '#0f172a' };
 const h3 = { marginTop: '22px', marginBottom: '8px', fontSize: '15px', fontWeight: 700, color: '#0f172a' };
@@ -28,7 +38,10 @@ export default function PrivacyPolicy() {
 
         <h2 style={h2}>1. Personuppgiftsansvarig</h2>
         <p style={p}>
-          Bokix är personuppgiftsansvarig för de personuppgifter som behandlas i tjänsten. Har du frågor om hur dina uppgifter hanteras, eller vill utöva någon av dina rättigheter nedan, kontaktar du oss på <a href="mailto:support@bokix.se" style={{ color: '#3d7a2e', fontWeight: 600 }}>support@bokix.se</a>.
+          Bokix, Strömsörgatan 19, Skellefteå, är personuppgiftsansvarig för de personuppgifter som behandlas i tjänsten. Har du frågor om hur dina uppgifter hanteras, vill ha vårt organisationsnummer, eller vill utöva någon av dina rättigheter nedan, kontaktar du oss på <a href="mailto:support@bokix.se" style={{ color: '#3d7a2e', fontWeight: 600 }}>support@bokix.se</a>.
+        </p>
+        <p style={p}>
+          Observera skillnaden mellan de två roller vi kan ha: för dina EGNA konto- och företagsuppgifter är vi personuppgiftsansvariga (se ovan). För de kund-, leverantörs- och anställduppgifter DU själv lägger in i din bokföring är DU personuppgiftsansvarig och Bokix är personuppgiftsbiträde åt dig — se avsnitt 10.
         </p>
 
         <h2 style={h2}>2. Vilka uppgifter vi samlar in</h2>
@@ -84,23 +97,31 @@ export default function PrivacyPolicy() {
         </ul>
 
         <h2 style={h2}>4. Vilka vi delar uppgifter med</h2>
-        <p style={p}>Vi säljer aldrig dina uppgifter. Uppgifter delas bara med underleverantörer som behövs för att driva tjänsten:</p>
+        <p style={p}>Vi säljer aldrig dina uppgifter. Uppgifter delas bara med underleverantörer (personuppgiftsbiträden åt oss) som behövs för att driva tjänsten:</p>
         <ul style={ul}>
           <li style={li}><strong>Supabase</strong> — databas- och autentiseringsleverantör. All bokförings- och kontodata lagras hos Supabase på våra vägnar.</li>
-          <li style={li}><strong>Stripe</strong> — betalningsleverantör, används om du ansluter kortbetalningar för dina egna kundfakturor. Kortuppgifter går direkt till Stripe och passerar aldrig våra servrar.</li>
+          <li style={li}><strong>Stripe</strong> — betalningsleverantör, används om du ansluter kortbetalningar för dina egna kundfakturor. Kortuppgifter går direkt till Stripe och passerar aldrig våra servrar. Stripe behandlar även dina egna kontouppgifter (namn, e-post) för Bokix egen prenumerationsfakturering.</li>
+          <li style={li}><strong>Resend</strong> — e-postleverantör. Skickar fakturor och offerter du väljer att mejla till dina kunder (mottagarens adress, ämnesrad, innehåll och eventuell PDF-bilaga går genom Resend).</li>
+          <li style={li}><strong>Vercel</strong> — driftar och hostar hela tjänsten (webbappen och de serverfunktioner som hanterar t.ex. betalningar och e-post). All trafik till Bokix passerar genom Vercels infrastruktur.</li>
+          <li style={li}><strong>Vercel BotID</strong> — automatiserad bot-/missbruksdetektering på formulär (t.ex. registrering), en del av Vercel-plattformen ovan.</li>
         </ul>
         <p style={p}>
           Vi delar aldrig uppgifter med tredje part för marknadsföringsändamål. Uppgifter kan lämnas ut om vi är skyldiga att göra det enligt lag, till exempel vid en begäran från Skatteverket eller en domstol.
         </p>
 
-        <h2 style={h2}>5. Hur länge vi sparar uppgifterna</h2>
+        <h2 style={h2}>5. Överföring utanför EU/EES</h2>
+        <p style={p}>
+          Flera av underleverantörerna i avsnitt 4 (bland annat Stripe, Resend och Vercel) är amerikanska bolag och kan behandla uppgifter i, eller från, USA. När det sker gör vi det bara med ett giltigt överföringsverktyg på plats — till exempel att leverantören är ansluten till EU-U.S. Data Privacy Framework, eller att vi har standardavtalsklausuler (SCC) med dem — i enlighet med respektive leverantörs egna dataskyddsvillkor. Vill du se vilket verktyg som gäller för en specifik leverantör, kontakta oss på <a href="mailto:support@bokix.se" style={{ color: '#3d7a2e', fontWeight: 600 }}>support@bokix.se</a>.
+        </p>
+
+        <h2 style={h2}>6. Hur länge vi sparar uppgifterna</h2>
         <ul style={ul}>
           <li style={li}>Kontouppgifter sparas så länge du har ett aktivt konto, och raderas eller anonymiseras inom rimlig tid efter att kontot avslutats.</li>
           <li style={li}>Bokföringsdata (verifikationer, fakturor, kvitton) sparas i minst sju år efter räkenskapsårets utgång, i enlighet med bokföringslagens arkiveringskrav — även om du säger upp kontot.</li>
           <li style={li}>Teknisk logg-data sparas kortare tid, normalt några veckor, och används enbart för drift och säkerhet.</li>
         </ul>
 
-        <h2 style={h2}>6. Dina rättigheter</h2>
+        <h2 style={h2}>7. Dina rättigheter</h2>
         <p style={p}>Enligt GDPR har du rätt att:</p>
         <ul style={ul}>
           <li style={li}>Få ett utdrag av vilka uppgifter vi har om dig (du kan även exportera all din data direkt i appen under Inställningar → Data och Inställningar).</li>
@@ -111,17 +132,22 @@ export default function PrivacyPolicy() {
           <li style={li}>Lämna in ett klagomål till Integritetsskyddsmyndigheten (IMY), imy.se, om du anser att vi behandlar dina uppgifter felaktigt.</li>
         </ul>
 
-        <h2 style={h2}>7. Säkerhet</h2>
+        <h2 style={h2}>8. Säkerhet</h2>
         <p style={p}>
           Lösenord lagras aldrig i klartext. Data överförs krypterat (HTTPS/TLS). Åtkomst till din bokföringsdata skyddas av behörighetskontroller på databasnivå (Row Level Security) så att endast du kan läsa och skriva din egen data.
         </p>
 
-        <h2 style={h2}>8. Cookies</h2>
+        <h2 style={h2}>9. Cookies</h2>
         <p style={p}>
           Vi använder ett litet antal cookies och liknande tekniker (t.ex. localStorage) för inloggning och grundfunktion — se vår <Link to="/cookies" style={{ color: '#3d7a2e', fontWeight: 600 }}>Cookiepolicy</Link> för en fullständig lista.
         </p>
 
-        <h2 style={h2}>9. Ändringar i denna policy</h2>
+        <h2 style={h2}>10. Personuppgiftsbiträdesavtal (PUB) för dig som företagskund</h2>
+        <p style={p}>
+          De kund-, leverantörs- och anställduppgifter du själv registrerar i din bokföring (t.ex. dina kunders namn/adress, eller dina anställdas personnummer och lön i lönemodulen) ägs och ansvaras för av DIG — du är personuppgiftsansvarig för dem. Bokix behandlar dem enbart på dina instruktioner, som personuppgiftsbiträde. Villkoren för det regleras i vårt <Link to="/pub" style={{ color: '#3d7a2e', fontWeight: 600 }}>personuppgiftsbiträdesavtal (PUB)</Link>, som gäller automatiskt för alla företagskunder från och med att du använder tjänsten. Har du frågor kring det, kontakta <a href="mailto:support@bokix.se" style={{ color: '#3d7a2e', fontWeight: 600 }}>support@bokix.se</a>.
+        </p>
+
+        <h2 style={h2}>11. Ändringar i denna policy</h2>
         <p style={p}>
           Om vi gör väsentliga ändringar i hur vi behandlar dina uppgifter meddelar vi det i tjänsten innan ändringen börjar gälla. Datumet högst upp på sidan visar när policyn senast uppdaterades.
         </p>
@@ -131,6 +157,7 @@ export default function PrivacyPolicy() {
           <div style={{ display: 'flex', gap: '16px' }}>
             <Link to="/terms" style={{ color: '#64748b', fontWeight: 600, textDecoration: 'none', fontSize: '14px' }}>Användarvillkor</Link>
             <Link to="/cookies" style={{ color: '#64748b', fontWeight: 600, textDecoration: 'none', fontSize: '14px' }}>Cookiepolicy</Link>
+            <Link to="/pub" style={{ color: '#64748b', fontWeight: 600, textDecoration: 'none', fontSize: '14px' }}>PUB-avtal</Link>
           </div>
         </div>
       </div>

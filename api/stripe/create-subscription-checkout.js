@@ -4,6 +4,8 @@ import { parseJsonBody } from './_parseBody.js';
 import { normalizeAbsoluteUrl, appendQueryParam } from './_urls.js';
 import { checkRateLimit } from '../_rateLimit.js';
 import { isRequestFromBot } from '../_botid.js';
+import { requireAuthedUser } from '../_auth.js';
+import { hasExistingSubscription } from './_subscriptions.js';
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY || null;
 const stripe = stripeSecretKey && !stripeSecretKey.startsWith('pk_')
@@ -21,6 +23,26 @@ const stripe = stripeSecretKey && !stripeSecretKey.startsWith('pk_')
 // Stripe Dashboard krävs innan det här fungerar.
 const SUBSCRIPTION_PRICE_SEK_ORE = 9900; // 99,00 kr/mån
 const TRIAL_DAYS = 30;
+
+// Säkerhetsfix (säkerhetsgranskningen): den här endpointen litade tidigare
+// blint på body.user_id. Vem som helst kunde posta en godtycklig (gissad
+// eller läckt) användares user_id, slutföra Checkout med sitt EGET kort och
+// sedan avbryta prenumerationen — webhook.js → upsertSubscription skriver
+// prenumerationsstatus rakt in i `subscriptions`, keyed på user_id, UTAN
+// att jämföra mot en redan sparad stripe_customer_id. En avbruten, spoofad
+// prenumeration hade alltså skrivit över en RIKTIG betalande kunds status
+// till "canceled" och låst ute dem via PaymentRequiredGate.
+//
+// Kan INTE bara kräva requireAuthedUser rakt av här som i de andra Stripe-
+// endpointsen: anropet sker direkt efter supabase.auth.signUp() (Auth.jsx,
+// regStep===3), och `data.session` kan vara null där om Supabase-projektet
+// kräver bekräftad e-post innan en session utfärdas — det är den enda
+// legitima anropspunkten utan inloggad session. Lösningen (hasExistingSub-
+// scription, _subscriptions.js): en HELT NY user_id (inget att skydda ännu)
+// tillåts precis som idag. Men finns redan en subscriptions-rad för det
+// user_id:t — dvs. kontot har redan varit igenom det här flödet — krävs en
+// verifierad session SOM MATCHAR user_id, så bara den inloggade ägaren kan
+// skapa en ny checkout mot sitt eget, redan existerande konto.
 
 export default async function handler(req, res) {
   applySecurityHeaders(res);
@@ -47,6 +69,15 @@ export default async function handler(req, res) {
     if (!body.user_id) {
       res.status(400).json({ error: 'user_id krävs.' });
       return;
+    }
+
+    if (await hasExistingSubscription(body.user_id)) {
+      const user = await requireAuthedUser(req, res);
+      if (!user) return; // requireAuthedUser har redan svarat 401
+      if (user.id !== body.user_id) {
+        res.status(403).json({ error: 'user_id matchar inte den inloggade användaren.' });
+        return;
+      }
     }
 
     const baseUrl = normalizeAbsoluteUrl(process.env.STRIPE_SUCCESS_URL, 'http://localhost:5173');

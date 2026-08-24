@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, Suspense, lazy } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle, ArrowRight, ChevronDown, ShieldCheck, Zap, Check, BarChart3 } from 'lucide-react';
 import { BRAND } from '../../utils/brandColors';
 import MarketingLayout, { Reveal } from './MarketingLayout';
 import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW, ACCENT_CYCLE } from './marketingTokens';
-import DemoWorkspace from '../DemoWorkspace';
+import { PageMeta, JsonLd, SITE_URL } from '../../utils/seo';
+// Lazy: se samma resonemang i LandingPage.jsx — DemoWorkspace drar in
+// hela den inloggade appens komponentträd.
+const DemoWorkspace = lazy(() => import('../DemoWorkspace'));
 
 const INCLUDED = [
   'Obegränsat med kund- och leverantörsfakturor',
@@ -24,6 +27,48 @@ const FAQ = [
   { q: 'Vilka bolagsformer stöds?', a: 'Bokix känner igen enskild firma, aktiebolag, handelsbolag/kommanditbolag och ekonomisk förening utifrån organisationsnumret, och bokför enligt rätt regler för respektive form.' },
   { q: 'Ingår support i priset?', a: 'Ja, support ingår. Du når oss på support@bokix.se.' },
 ];
+
+// FAQPage-schema byggt direkt av FAQ ovan — samma fyra frågor/svar som
+// faktiskt visas på sidan, aldrig en egen dubblett-lista som kan glida
+// isär från vad besökaren ser. Google kan visa dessa som en utfällbar
+// FAQ-rich-snippet direkt i sökresultatet, och det är precis den sortens
+// strukturerade fråga/svar-data AI-svarsmotorer (Perplexity/ChatGPT/Claude
+// när de faktiskt läser sidan) helst citerar rakt av.
+const FAQ_SCHEMA = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: FAQ.map(({ q, a }) => ({
+    '@type': 'Question',
+    name: q,
+    acceptedAnswer: { '@type': 'Answer', text: a },
+  })),
+};
+
+// SoftwareApplication-schema — priset (99 kr/mån exkl. moms) står redan
+// hårdkodat i sidans eget UI nedan (samma tal, en enda källa att hålla i
+// synk om priset någonsin ändras). Ger Google/AI-svarsmotorer ett exakt,
+// strukturerat pris istället för att behöva läsa/gissa det ur brödtexten.
+const SOFTWARE_SCHEMA = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'Bokix',
+  applicationCategory: 'BusinessApplication',
+  operatingSystem: 'Web',
+  url: `${SITE_URL}/priser`,
+  description: 'Bokföring, fakturering, lönehantering och momsredovisning för svenska småföretagare och enskilda firmor.',
+  offers: {
+    '@type': 'Offer',
+    price: '99',
+    priceCurrency: 'SEK',
+    priceSpecification: {
+      '@type': 'UnitPriceSpecification',
+      price: '99',
+      priceCurrency: 'SEK',
+      unitText: 'MON',
+      valueAddedTaxIncluded: false,
+    },
+  },
+};
 
 function FaqItem({ q, a }) {
   const [open, setOpen] = useState(false);
@@ -55,6 +100,13 @@ export default function PricingPage() {
 
   return (
     <MarketingLayout>
+      <PageMeta
+        title="Priser — 99 kr/mån, allt ingår | Bokix"
+        description="Ett pris, allt ingår: bokföring, fakturering, lön och moms. 99 kr/mån exkl. moms, ingen bindningstid, ingen dold avgift per funktion."
+        path="/priser"
+      />
+      <JsonLd data={SOFTWARE_SCHEMA} />
+      <JsonLd data={FAQ_SCHEMA} />
       <style>{`
         .pricing-feature-row { transition: transform 0.18s ease; }
         .pricing-feature-row:hover { transform: translateX(3px); }
@@ -146,7 +198,9 @@ export default function PricingPage() {
           </Reveal>
 
           <Reveal scale style={{ position: 'relative' }}>
-            <DemoWorkspace />
+            <Suspense fallback={<div style={{ minHeight: '480px' }} />}>
+              <DemoWorkspace />
+            </Suspense>
           </Reveal>
         </div>
       </section>

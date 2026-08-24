@@ -99,6 +99,31 @@ function SectionHeading({ icon: Icon, tone = 'green', children }) {
   );
 }
 
+// ── Av/på-växel ── Egen liten switch istället för en vanlig kryssruta —
+// samma visuella språk (pill + rund handtag, Bokix grönt när på) som
+// resten av inställningssidan redan bygger på för statuspunkter (Badge
+// ovan). Den underliggande <input type="checkbox"> ligger kvar men osynlig
+// (opacity 0) ovanpå, så tangentbord/skärmläsare/klick fungerar precis som
+// en riktig checkbox — bara utseendet är egengjort.
+function ToggleSwitch({ checked, onChange, label, hint, disabled = false }) {
+  return (
+    <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.6 : 1 }}>
+      <span>
+        <span style={{ display: 'block', fontWeight: 600, fontSize: '13.5px', color: 'var(--text-main)' }}>{label}</span>
+        {hint && <span style={{ display: 'block', fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px', maxWidth: '480px' }}>{hint}</span>}
+      </span>
+      <span style={{ position: 'relative', flexShrink: 0, width: '40px', height: '22px' }}>
+        <input
+          type="checkbox" checked={checked} onChange={onChange} disabled={disabled}
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', margin: 0, opacity: 0, cursor: disabled ? 'not-allowed' : 'pointer' }}
+        />
+        <span style={{ position: 'absolute', inset: 0, borderRadius: '999px', background: checked ? BRAND.green : 'var(--border)', transition: 'background-color 0.15s ease', pointerEvents: 'none' }} />
+        <span style={{ position: 'absolute', top: '2px', left: checked ? '20px' : '2px', width: '18px', height: '18px', borderRadius: '50%', background: 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.25)', transition: 'left 0.15s ease', pointerEvents: 'none' }} />
+      </span>
+    </label>
+  );
+}
+
 function Badge({ tone = 'warning', children }) {
   const map = {
     positive: { bg: BRAND.greenLight, color: BRAND.greenDark },
@@ -724,6 +749,13 @@ export default function Settings({
   contacts = [], projects = [], onImport, onReset, stripeAccountId, onConnectStripe, onDisconnectStripe,
   onConnectEmailDomain, onCheckEmailDomainStatus, onDisconnectEmailDomain, user,
   companyList = [], activeCompanyId, onSwitchCompany, onAddCompany,
+  // Desktop-scrollbar på/av (Sida: "have in setting users chose to have
+  // scroll bar or not in desktop") — state/localStorage/attributet på
+  // <html> ägs av App.jsx (samma mönster som `theme`/`toggleTheme`), den
+  // här komponenten visar bara växeln. hideScrollbar=false (scrollbaren
+  // syns, webbläsarens standard) om App.jsx av något skäl inte skickar ner
+  // den — t.ex. landningssidans demo, se DemoWorkspace.jsx.
+  hideScrollbar = false, onToggleHideScrollbar,
   // Landningssidans demo (DemoWorkspace.jsx) monterar den HÄR, riktiga
   // Inställningar-sidan (istället för en handbyggd efterlikning) så en
   // besökare kan se den på riktigt, men utan inloggning finns ingen
@@ -1347,6 +1379,16 @@ export default function Settings({
                   </div>
                   <Badge tone={stripeAccountId ? 'positive' : 'warning'}>{stripeAccountId ? 'Ansluten' : 'Av'}</Badge>
                 </div>
+              </div>
+
+              <div style={card}>
+                <div style={{ marginBottom: '14px' }}><SectionHeading icon={Laptop} tone="gray">Utseende på datorn</SectionHeading></div>
+                <ToggleSwitch
+                  checked={hideScrollbar}
+                  onChange={() => onToggleHideScrollbar?.()}
+                  label="Dölj scrollbar"
+                  hint="Göm det synliga scrollfältet i webbläsarfönstret på datorn. Sidan skrollar precis som förut — bara handtaget syns inte. Mobilen döljer sitt redan alltid, oavsett den här inställningen."
+                />
               </div>
 
               <div style={{ ...card, background: 'var(--status-red-bg)', border: '1px solid var(--status-red-bg)' }}>

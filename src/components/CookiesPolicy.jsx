@@ -50,7 +50,13 @@ export default function CookiesPolicy() {
               <td style={td}><code style={code}>bokforing_data</code></td>
               <td style={td}>localStorage</td>
               <td style={td}>Lokal cachekopia av din bokföringsdata, så appen fungerar även vid tillfälligt avbrott mot servern.</td>
-              <td style={td}>Tills den skrivs över eller rensas manuellt</td>
+              <td style={td}>Tills du loggar ut (rensas automatiskt), skrivs över, eller rensas manuellt</td>
+            </tr>
+            <tr>
+              <td style={td}><code style={code}>bokforing_data_owner</code></td>
+              <td style={td}>localStorage</td>
+              <td style={td}>Kommer ihåg VILKET konto den lokala cachekopian ovan tillhör, så att om flera olika Bokix-konton loggar in i samma webbläsare (t.ex. en delad dator) visas aldrig en annan användares cachade data av misstag.</td>
+              <td style={td}>Tills du loggar ut (rensas automatiskt), skrivs över, eller rensas manuellt</td>
             </tr>
             <tr>
               <td style={td}><code style={code}>bokix_onboarding_completed</code> / <code style={code}>_skipped</code></td>
@@ -75,6 +81,11 @@ export default function CookiesPolicy() {
             </tr>
           </tbody>
         </table>
+
+        <h2 style={h2}>Strikt nödvändiga — bot-/missbruksskydd</h2>
+        <p style={p}>
+          Vid registrering och inloggning kan Cloudflare Turnstile (en osynlig captcha-tjänst, aktiveras bara om vi satt på den) och Vercel BotID sätta egna cookies/lagring för att skilja riktiga användare från automatiserade missbruksförsök. Ingen av dem används för spårning eller marknadsföring.
+        </p>
 
         <h2 style={h2}>Analys — kräver ditt samtycke</h2>
         <p style={p}>
@@ -113,6 +124,7 @@ export default function CookiesPolicy() {
           <div style={{ display: 'flex', gap: '16px' }}>
             <Link to="/privacy" style={{ color: '#64748b', fontWeight: 600, textDecoration: 'none', fontSize: '14px' }}>Integritetspolicy</Link>
             <Link to="/terms" style={{ color: '#64748b', fontWeight: 600, textDecoration: 'none', fontSize: '14px' }}>Användarvillkor</Link>
+            <Link to="/pub" style={{ color: '#64748b', fontWeight: 600, textDecoration: 'none', fontSize: '14px' }}>PUB-avtal</Link>
           </div>
         </div>
       </div>

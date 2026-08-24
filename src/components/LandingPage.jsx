@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { Link } from 'react-router-dom';
 import {
   BarChart3, Check, X, Minus,
@@ -12,7 +12,14 @@ import { BRAND } from '../utils/brandColors';
 import MarketingLayout, { Reveal, useReveal, BokixWordmark } from './marketing/MarketingLayout';
 import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW_SM, ACCENT, ACCENT_CYCLE } from './marketing/marketingTokens';
 import { IllBokforing, IllFakturering, IllSkatt, IllPersonal } from './marketing/featureIllustrations';
-import DemoWorkspace from './DemoWorkspace';
+import { PageMeta } from '../utils/seo';
+// Lazy: DemoWorkspace monterar en RIKTIG kopia av hela den inloggade
+// appens komponentträd (Dashboard, Invoices, Bokföring, Skatt, m.fl.) för
+// den interaktiva produktdemon längre ner på sidan (utanför den första
+// skärmen). Statiskt importerad tvingade den in samma tunga bunt även
+// för en besökare som aldrig scrollar dit — se App.jsx för samma
+// resonemang kring den inloggade appens egna flikar.
+const DemoWorkspace = lazy(() => import('./DemoWorkspace'));
 
 // ── Bokix egna gradienter, hämtade rakt från produkten — INTE en importerad
 // extern designreferens. Loggans blå→turkos→lime (BokixWordmark i
@@ -211,6 +218,11 @@ export default function LandingPage({ onEnterApp }) {
 
   return (
     <MarketingLayout onEnterApp={onEnterApp}>
+      <PageMeta
+        title="Bokix — Smart & enkel bokföring online för småföretagare"
+        description="Bokix samlar bokföring, fakturering, löner och moms i ett enda verktyg för svenska småföretagare och enskilda firmor. Kom igång på minuter, 99 kr/mån."
+        path="/"
+      />
       {/* ── HERO — levande gradientklot i loggans/Startsidans egna färger
           bakom en fetstilt rubrik, inget stillastående platt fält. ── */}
       <section style={{ display: 'flex', alignItems: 'center', background: 'var(--mkt-ivory)', position: 'relative', overflow: 'hidden', paddingTop: '140px', paddingBottom: '72px' }}>
@@ -338,7 +350,9 @@ export default function LandingPage({ onEnterApp }) {
           </Reveal>
 
           <Reveal scale style={{ position: 'relative' }}>
-            <DemoWorkspace />
+            <Suspense fallback={<div style={{ minHeight: '480px' }} />}>
+              <DemoWorkspace />
+            </Suspense>
           </Reveal>
         </div>
       </section>

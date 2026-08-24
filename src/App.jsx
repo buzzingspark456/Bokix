@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, Suspense, lazy } from 'react';
 import {
   LayoutDashboard,
   FileText,
   Receipt,
+  Loader2,
   Users,
   BookOpen,
   FolderTree,
@@ -272,45 +273,278 @@ function MfaChallengeScreen({ onVerify, onCancel }) {
     </div>
   );
 }
-import Dashboard from './components/Dashboard';
-import Invoices from './components/Invoices';
-import Quotes from './components/Quotes';
-import Expenses from './components/Expenses';
-import SupplierInvoices from './components/SupplierInvoices';
-import Contacts from './components/Contacts';
-import Verifications from './components/Verifications';
-import Accounts from './components/Accounts';
-import Reports from './components/Reports';
-import Settings from './components/Settings';
-import Projects from './components/Projects';
-import TimeTracking from './components/TimeTracking';
-import Payroll from './components/Payroll';
-import Taxes from './components/Taxes';
+// Kod-splittring (Sida ~14, bunt-storleksvarningen från `vite build`):
+// alla flikar i den inloggade appen, plus de rena marknadsförings-/
+// juridiksidorna, laddas numera lazy — själva startbunten behöver inte
+// längre innehålla t.ex. hela Löne- eller Bokförings-modulen bara för
+// att visa inloggningssidan. Kvar som vanliga (icke-lazy) imports: allt
+// som hör till den KRITISKA första renderingen (LandingPage/Auth/
+// OnboardingFlow) eller alltid är monterat som appens "skal" (CookieBanner/
+// HelpDrawer/Toast/PaymentRequiredGate) — att göra DEM lazy hade bara
+// lagt till en onödig Suspense-flimmer på den väg alla besökare går.
+const Dashboard = lazy(() => import('./components/Dashboard'));
+const Invoices = lazy(() => import('./components/Invoices'));
+const Quotes = lazy(() => import('./components/Quotes'));
+const Expenses = lazy(() => import('./components/Expenses'));
+const SupplierInvoices = lazy(() => import('./components/SupplierInvoices'));
+const Contacts = lazy(() => import('./components/Contacts'));
+const Verifications = lazy(() => import('./components/Verifications'));
+const Accounts = lazy(() => import('./components/Accounts'));
+const Reports = lazy(() => import('./components/Reports'));
+const Settings = lazy(() => import('./components/Settings'));
+const Projects = lazy(() => import('./components/Projects'));
+const TimeTracking = lazy(() => import('./components/TimeTracking'));
+const Payroll = lazy(() => import('./components/Payroll'));
+const Taxes = lazy(() => import('./components/Taxes'));
 import LandingPage from './components/LandingPage';
-import FeaturesPage from './components/marketing/FeaturesPage';
-import PricingPage from './components/marketing/PricingPage';
-import AboutPage from './components/marketing/AboutPage';
-import ContactPage from './components/marketing/ContactPage';
+const FeaturesPage = lazy(() => import('./components/marketing/FeaturesPage'));
+const PricingPage = lazy(() => import('./components/marketing/PricingPage'));
+const AboutPage = lazy(() => import('./components/marketing/AboutPage'));
+const ContactPage = lazy(() => import('./components/marketing/ContactPage'));
 import Auth from './components/Auth';
 import OnboardingFlow from './components/OnboardingFlow';
 import CookieBanner from './components/CookieBanner';
 import { supabase } from './supabaseClient';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import PrivacyPolicy from './components/PrivacyPolicy';
-import TermsPolicy from './components/TermsPolicy';
-import CookiesPolicy from './components/CookiesPolicy';
-import ReviewQueue from './components/ReviewQueue';
-import CompanySettings from './components/CompanySettings';
+const PrivacyPolicy = lazy(() => import('./components/PrivacyPolicy'));
+const TermsPolicy = lazy(() => import('./components/TermsPolicy'));
+const CookiesPolicy = lazy(() => import('./components/CookiesPolicy'));
+const PersonuppgiftsBitradesAvtal = lazy(() => import('./components/PersonuppgiftsBitradesAvtal'));
+const ReviewQueue = lazy(() => import('./components/ReviewQueue'));
+const CompanySettings = lazy(() => import('./components/CompanySettings'));
 import HelpDrawer from './components/HelpDrawer';
 import Toast from './components/shared/Toast';
 import PaymentRequiredGate from './components/PaymentRequiredGate';
+
+// Fallback under den enda <Suspense> som omsluter <Routes> (se return-
+// satsen längre ner) — visas bara under den korta stund en lazy-flik
+// (t.ex. Skatt och bokslut) laddar sin egen JS-bunt för första gången,
+// aldrig vid vanlig flikväxling efteråt (webbläsaren har den cachad då).
+function RouteLoadingFallback() {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--bg-page)' }}>
+      <Loader2 size={28} color="var(--text-muted)" style={{ animation: 'spin 0.8s linear infinite' }} />
+    </div>
+  );
+}
+
+// Sidomenyns grupper/etiketter speglade från den RIKTIGA <nav> längre ner
+// (samma tre grupper, samma ordning) — bara så AppLoadingSkeleton kan visa
+// exakt samma radlängder OCH markera rätt rad som aktiv, istället för sex
+// gissade streck utan koppling till vilken sida man faktiskt ska in på.
+const SKELETON_NAV_GROUPS = [
+  ['dashboard', 'contacts', 'quotes', 'invoices', 'expenses', 'projects'],
+  ['review', 'verifications', 'payroll', 'reports', 'taxes'],
+  ['settings'],
+];
+// Bredd i % per nav-rad (samma etiketter som riktiga <nav>:en, fast som
+// streck) — statiska tal räcker, det är bara en siluett.
+const SKELETON_NAV_WIDTHS = { dashboard: 62, contacts: 50, quotes: 56, invoices: 68, expenses: 58, projects: 52, review: 66, verifications: 60, payroll: 78, reports: 82, taxes: 70, settings: 64 };
+
+// Vilken innehålls-siluett (se DashboardSkeletonContent/ListSkeletonContent/
+// SettingsSkeletonContent nedan) som bäst speglar respektive sidas FAKTISKA
+// form — kort+graf för Startsida/Rapporter, tabellrader för de flesta
+// listsidorna (inkl. Skatt och bokslut, som är en radlista av deklarations-
+// steg, inte ett formulär), och etikett/fält-par för Inställningar/Företag.
+const SKELETON_VARIANT_BY_TAB = {
+  dashboard: 'dashboard',
+  reports: 'dashboard',
+  settings: 'settings',
+  company: 'settings',
+};
+function skeletonVariantForTab(tab) {
+  return SKELETON_VARIANT_BY_TAB[resolveNavGroup(tab)] || 'list';
+}
+
+function DashboardSkeletonContent() {
+  return (
+    <>
+      {/* "Hej, ..."-rubriken */}
+      <div className="skeleton-shape" style={{ width: '240px', height: '28px' }} />
+
+      {/* KPI-korten (Intäkter/Kostnader/Resultat) */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+        {[0, 1, 2].map(i => (
+          <div key={i} className="skeleton-shape" style={{ height: '108px', borderRadius: '16px' }} />
+        ))}
+      </div>
+
+      {/* Grafen */}
+      <div className="skeleton-shape" style={{ height: '260px', borderRadius: '16px' }} />
+
+      {/* Listrader (t.ex. "Senast bokfört") */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        {[0, 1, 2, 3].map(i => (
+          <div key={i} className="skeleton-shape" style={{ height: '46px', borderRadius: '10px' }} />
+        ))}
+      </div>
+    </>
+  );
+}
+
+// Kunder/Offerter/Fakturering/Utgifter/Projekt/Granskning/Bokföring/
+// Anställda och lön/Skatt och bokslut — samma grundform på alla: en rubrik,
+// en verktygsrad (sök + en primärknapp), sen en tabell/lista av rader.
+function ListSkeletonContent() {
+  return (
+    <>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
+        <div className="skeleton-shape" style={{ width: '200px', height: '26px' }} />
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <div className="skeleton-shape" style={{ width: '180px', height: '34px', borderRadius: '8px' }} />
+          <div className="skeleton-shape" style={{ width: '110px', height: '34px', borderRadius: '8px' }} />
+        </div>
+      </div>
+
+      {/* Statisk ram (som riktiga tabellkortet), skimret hör hemma på
+          INNEHÅLLET i varje rad, inte på själva behållaren — annars döljs
+          det mesta av skimret bakom radernas egna, täckande bakgrunder. */}
+      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          {[0, 1, 2, 3, 4, 5].map(i => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '14px 18px', borderTop: i > 0 ? '1px solid var(--border)' : 'none' }}>
+              <div className="skeleton-shape" style={{ width: '32%', height: '13px' }} />
+              <div className="skeleton-shape" style={{ width: '16%', height: '13px' }} />
+              <div className="skeleton-shape" style={{ width: '14%', height: '13px', marginLeft: 'auto' }} />
+              <div className="skeleton-shape" style={{ width: '60px', height: '20px', borderRadius: '999px' }} />
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// Inställningar/Företag — etikett+fält-par grupperade i ett par kortsektioner,
+// samma form som Settings.jsx/CompanySettings.jsx faktiska formulär.
+function SettingsSkeletonContent() {
+  return (
+    <>
+      <div className="skeleton-shape" style={{ width: '180px', height: '28px' }} />
+      {[0, 1].map(section => (
+        <div key={section} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', padding: '20px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '18px' }}>
+            {[0, 1, 2, 3].map(i => (
+              <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div className="skeleton-shape" style={{ width: '40%', height: '11px' }} />
+                <div className="skeleton-shape" style={{ height: '36px', borderRadius: '8px' }} />
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </>
+  );
+}
+
+const SKELETON_CONTENT_BY_VARIANT = {
+  dashboard: DashboardSkeletonContent,
+  list: ListSkeletonContent,
+  settings: SettingsSkeletonContent,
+};
+
+// Fallback för <Suspense> RUNT {renderContent()} (se main-content-inner
+// längre ner) — bara innehållsytans egen siluett, INTE sidomeny/topbar.
+// Säkerhetsgranskningen/UX-fixet: de riktiga sidkomponenterna (Dashboard,
+// Invoices, Taxes, m.fl.) är alla React.lazy() — första gången man klickar
+// sig till en flik vars JS-bunt inte redan hämtats den här sessionen
+// SUSPENDAR den komponenten. Innan den här inre gränsen fanns bubblade det
+// upp till den enda <Suspense> som omslöt HELA <Routes> (RouteLoadingFallback,
+// en ensam cirkel) — vilket monterade bort sidomeny+topbar+ALLT och ersatte
+// dem med en tom sida med en snurra, på VARJE flik man inte redan besökt.
+// Den här inre gränsen fångar suspendet lokalt: sidomeny/topbar förblir
+// monterade och stilla, bara innehållsytan visar en siluett av sidan man
+// faktiskt är på väg till (samma variant-mappning som AppLoadingSkeleton).
+function PageContentSkeleton({ tab }) {
+  const ContentSkeleton = SKELETON_CONTENT_BY_VARIANT[skeletonVariantForTab(tab)];
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }} aria-busy="true">
+      <ContentSkeleton />
+    </div>
+  );
+}
+
+// Startskärmen medan inloggning/datainhämtning pågår (App.jsx, se
+// `if (isLoadingAuth) return <AppLoadingSkeleton tab={activeTab} />` längre
+// ner) — en tyst siluett av sidomeny + topbar + INNEHÅLLET på sidan man
+// faktiskt är på väg in på (activeTab, redan känt vid omladdning tack vare
+// URL-hashen — se useState(activeTab) ovan), inte alltid Startsidans form.
+// Återanvänder samma klassnamn som den riktiga layouten (.app-container/
+// .sidebar/.main-wrapper/.desktop-top-bar/.global-top-bar) för att få EXAKT
+// samma bredd/höjd/responsivitet gratis från index.css — inget hopp i
+// layouten när den riktiga sidan (med data) sen tar över samma platser.
+function AppLoadingSkeleton({ tab }) {
+  const activeGroup = resolveNavGroup(tab);
+  const ContentSkeleton = SKELETON_CONTENT_BY_VARIANT[skeletonVariantForTab(tab)];
+
+  return (
+    <div className="app-container" aria-busy="true" aria-label="Laddar Bokix…">
+      <aside className="sidebar" style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+        <div className="logo-container" style={{ padding: '22px 24px 18px' }}>
+          <div className="skeleton-shape--on-sidebar" style={{ width: '104px', height: '26px' }} />
+        </div>
+        <div style={{ height: '1px', background: 'rgba(255,255,255,0.15)', margin: '0 20px 12px', flexShrink: 0 }} />
+        <nav style={{ display: 'flex', flexDirection: 'column', gap: 0, padding: '4px 0', flexShrink: 0 }}>
+          {SKELETON_NAV_GROUPS.map((group, gi) => (
+            <React.Fragment key={gi}>
+              {gi > 0 && <div style={{ height: '1px', background: 'rgba(255,255,255,0.15)', margin: '8px 20px' }} />}
+              {group.map(id => {
+                const isActive = resolveTab(id) === activeGroup;
+                return (
+                  <div key={id} style={{ padding: '9px 24px', background: isActive ? 'rgba(255,255,255,0.14)' : 'none' }}>
+                    <div className="skeleton-shape--on-sidebar" style={{ width: `${SKELETON_NAV_WIDTHS[id] || 60}%`, height: '13px', opacity: isActive ? 1 : 0.75 }} />
+                  </div>
+                );
+              })}
+            </React.Fragment>
+          ))}
+        </nav>
+      </aside>
+
+      <main className="main-wrapper">
+        <div className="desktop-top-bar">
+          <div style={{ flex: 1 }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div className="skeleton-shape" style={{ width: '34px', height: '34px', borderRadius: '8px' }} />
+            <div className="skeleton-shape" style={{ width: '34px', height: '34px', borderRadius: '8px' }} />
+            <div className="skeleton-shape" style={{ width: '34px', height: '34px', borderRadius: '8px' }} />
+            <div className="skeleton-shape" style={{ width: '32px', height: '32px', borderRadius: '50%' }} />
+          </div>
+        </div>
+
+        <div className="global-top-bar">
+          <div className="topbar-left" style={{ display: 'flex', alignItems: 'center' }}>
+            <div className="skeleton-shape" style={{ width: '30px', height: '30px', borderRadius: '8px' }} />
+            <div className="skeleton-shape" style={{ width: '84px', height: '20px', marginLeft: '10px' }} />
+          </div>
+          <div className="global-actions" style={{ display: 'flex', gap: '8px' }}>
+            <div className="skeleton-shape" style={{ width: '34px', height: '34px', borderRadius: '8px' }} />
+            <div className="skeleton-shape" style={{ width: '34px', height: '34px', borderRadius: '8px' }} />
+          </div>
+        </div>
+
+        <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '1100px' }}>
+          <ContentSkeleton />
+        </div>
+      </main>
+    </div>
+  );
+}
+
 // ──────────────────────────────────────────────
 // Default company data factory
 // ──────────────────────────────────────────────
 function createEmptyCompanyData(companyInfo) {
   return {
     company: {
-      id: `company_${Date.now()}`,
+      // Slumpsuffix utöver tidsstämpeln (samma mönster som t.ex. Invoices.jsx
+      // newRowId/Expenses.jsx) — säkerhetsgranskningen: company_id skickas
+      // oautentiserat till create-checkout-session.js (kundens fakturalänk,
+      // se App.jsx getInvoicePaymentLinkUrl), så en ren Date.now()-baserad id
+      // vore gissningsbar inom ett smalt tidsfönster. user_id (en riktig
+      // Supabase-UUID) är fortfarande huvudspärren, det här är bara ett extra
+      // lager.
+      id: `company_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       name: companyInfo.name || 'Nytt företag',
       orgNr: companyInfo.orgNr || '',
       vatNr: '',
@@ -410,6 +644,31 @@ function normalizeStore(store) {
 // STORAGE
 // ──────────────────────────────────────────────
 const STORAGE_KEY = 'bokforing_data';
+// Säkerhetsfix (säkerhetsgranskningen): en enda global localStorage-nyckel
+// för hela bokförings-blobben (kunder, fakturor, löner — riktig PII/
+// ekonomidata) rensades tidigare ALDRIG vid utloggning, och lästes rakt av
+// utan att kolla VEM den tillhörde. På en delad dator: nästa person som
+// öppnade samma webbläsare (inloggad eller ej) kunde läsa föregångarens
+// data via localStorage — och i undantagsfallet "Supabase tillfälligt
+// otillgängligt" (isSupabaseUnavailableError) skulle en ANNAN inloggad
+// användare rentav få föregångarens cachade data laddad som sin egen. Den
+// här ägar-taggen (en separat, liten nyckel — INTE inbakad i själva
+// data-blobben, så den aldrig råkar följa med till Supabase state-kolumnen)
+// gör att cachen bara återanvänds om den redan tillhör den nu inloggade
+// användaren; annars börjar man om från tomt istället för att riskera att
+// visa (eller spara över) någon annans siffror. clearLocalData() rensar
+// båda nycklarna vid utloggning, se alla supabase.auth.signOut()-anrop.
+const STORAGE_OWNER_KEY = 'bokforing_data_owner';
+
+function blankData() {
+  const defaultData = createEmptyCompanyData({});
+  return {
+    activeCompanyId: defaultData.company.id,
+    companies: {
+      [defaultData.company.id]: defaultData,
+    },
+  };
+}
 
 function loadData() {
   try {
@@ -425,17 +684,39 @@ function loadData() {
   }
 
   // Initialize blank company data for new users
-  const defaultData = createEmptyCompanyData({});
-  return {
-    activeCompanyId: defaultData.company.id,
-    companies: {
-      [defaultData.company.id]: defaultData,
-    },
-  };
+  return blankData();
 }
 
-function saveData(data) {
+// Som loadData(), men returnerar bara den cachade datan om den redan är
+// taggad med SAMMA userId — annars null, så anropande kod kan falla
+// tillbaka på en tom, oskriven state istället för en annan användares.
+// Utan känt userId (t.ex. mock-/demo-läge utan riktig inloggning) tillåts
+// cachen som förut — det finns inget konto den skulle kunna läcka från.
+function loadDataForUser(userId) {
+  if (!userId) return loadData();
+  try {
+    const owner = localStorage.getItem(STORAGE_OWNER_KEY);
+    if (owner && owner !== userId) return null;
+  } catch {
+    // ignore
+  }
+  return loadData();
+}
+
+function saveData(data, ownerId) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  if (ownerId) {
+    try { localStorage.setItem(STORAGE_OWNER_KEY, ownerId); } catch { /* privat läge etc. */ }
+  }
+}
+
+function clearLocalData() {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(STORAGE_OWNER_KEY);
+  } catch {
+    // ignore
+  }
 }
 
 function isSupabaseUnavailableError(error) {
@@ -599,6 +880,21 @@ function App() {
     try { localStorage.setItem('bokix_theme', theme); } catch { /* samma reservläge som ovan */ }
   }, [theme]);
   const toggleTheme = () => setTheme(t => (t === 'dark' ? 'light' : 'dark'));
+
+  // ── Scrollbar på/av (desktop) ── Kundönskemål: en Inställningar-växel
+  // för att dölja webbläsarens synliga scrollbar på DATORN — mobilen
+  // döljer sin redan ovillkorligt (se index.css @media 768px). Samma
+  // spara-i-localStorage/sätt-attribut-på-<html>-mönster som temat ovan;
+  // index.css läser `data-hide-scrollbar` på <html> för att slå av/på den.
+  const [hideScrollbar, setHideScrollbar] = useState(() => {
+    try { return localStorage.getItem('bokix_hide_scrollbar') === 'true'; }
+    catch { return false; /* privat läge/blockerad storage — visa scrollbaren (standard) */ }
+  });
+  useEffect(() => {
+    document.documentElement.setAttribute('data-hide-scrollbar', hideScrollbar ? 'true' : 'false');
+    try { localStorage.setItem('bokix_hide_scrollbar', String(hideScrollbar)); } catch { /* samma reservläge som temat */ }
+  }, [hideScrollbar]);
+  const toggleHideScrollbar = () => setHideScrollbar(v => !v);
 
   // Global intent state
   const [globalAction, setGlobalAction] = useState(null);
@@ -793,7 +1089,7 @@ function App() {
       }
 
       if (!supabaseEnabled) {
-        const cached = loadData();
+        const cached = loadDataForUser(authUser.id) ?? blankData();
         setData(cached);
         setHasCompletedOnboarding(localStorage.getItem('bokix_onboarding_completed') === 'true');
         setHasSkippedOnboarding(localStorage.getItem('bokix_onboarding_skipped') === 'true');
@@ -849,7 +1145,7 @@ function App() {
       if (error) {
         if (isSupabaseUnavailableError(error)) {
           setSupabaseEnabled(false);
-          const cached = loadData();
+          const cached = loadDataForUser(authUser.id) ?? blankData();
           setData(cached);
           setHasCompletedOnboarding(localStorage.getItem('bokix_onboarding_completed') === 'true');
           setHasSkippedOnboarding(localStorage.getItem('bokix_onboarding_skipped') === 'true');
@@ -870,7 +1166,7 @@ function App() {
 
         if (isSupabaseUnavailableError(fallback.error)) {
           setSupabaseEnabled(false);
-          const cached = loadData();
+          const cached = loadDataForUser(authUser.id) ?? blankData();
           setData(cached);
           setHasCompletedOnboarding(localStorage.getItem('bokix_onboarding_completed') === 'true');
           setHasSkippedOnboarding(localStorage.getItem('bokix_onboarding_skipped') === 'true');
@@ -974,6 +1270,7 @@ function App() {
 
   const handleMfaCancel = async () => {
     await supabase.auth.signOut();
+    clearLocalData();
     setMfaChallenge(null);
     setIsLoggedIn(false);
   };
@@ -1046,7 +1343,10 @@ function App() {
 
   // Persist
   useEffect(() => {
-    saveData(data);
+    // Taggar cachen med den inloggade användaren (se loadDataForUser/
+    // STORAGE_OWNER_KEY-kommentaren ovan) — utan user (mock-/demo-läge)
+    // sparas den precis som förut, otaggad.
+    saveData(data, user?.id);
 
     const timeoutIds = [];
 
@@ -1226,12 +1526,10 @@ function App() {
     // Tidigare stod en felsökningstext ("Kontrollera att Supabase-nycklar
     // är inlagda") här permanent, synlig för alla vid varje sidladdning —
     // en intern debug-notering som aldrig skulle vara användarvänd.
-    return (
-      <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', background: 'var(--bg-muted)', fontFamily: 'sans-serif' }}>
-        <div style={{ width: 36, height: 36, border: '3px solid var(--border)', borderTopColor: '#3d7a2e', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-        <div style={{ color: 'var(--text-secondary)', fontSize: '15px' }}>Laddar Bokix…</div>
-      </div>
-    );
+    // Visade tidigare bara en ensam snurrande cirkel mitt på en tom sida —
+    // ersatt med en skelettsiluett av sidan man är på väg in i (sidomeny +
+    // topbar + Startsidans kort/graf/lista), se AppLoadingSkeleton ovan.
+    return <AppLoadingSkeleton tab={activeTab} />;
   }
 
   // Current company data
@@ -1536,7 +1834,10 @@ function App() {
   // Auto-book invoice creation
   const handleAddInvoice = (invoice) => {
     const invType = invoice.type || 'invoice';
-    const inv = { ...invoice, id: `inv_${Date.now()}`, type: invType };
+    // Slumpsuffix (se motsvarande kommentar vid company_id ovan) — invoice_id
+    // skickas precis som company_id oautentiserat till create-checkout-
+    // session.js via fakturans betalningslänk.
+    const inv = { ...invoice, id: `inv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`, type: invType };
     setInvoices(prev => [...prev, inv]);
 
     if (invType === 'quote') return;
@@ -2495,6 +2796,8 @@ function App() {
             activeCompanyId={data.activeCompanyId}
             onSwitchCompany={handleSwitchCompany}
             onAddCompany={() => setNewCompanyModal(true)}
+            hideScrollbar={hideScrollbar}
+            onToggleHideScrollbar={toggleHideScrollbar}
           />
         );
       default:
@@ -2504,6 +2807,7 @@ function App() {
 
   return (
     <>
+    <Suspense fallback={<RouteLoadingFallback />}>
     <Routes>
       <Route
         path="/"
@@ -2775,6 +3079,7 @@ function App() {
                   <div className="dropdown-divider"></div>
                   <button onClick={async () => {
                     await supabase.auth.signOut();
+                    clearLocalData();
                     setIsLoggedIn(false);
                     setShowOnboarding(false);
                   }} className="text-danger"><LogOut size={14} /> Logga ut</button>
@@ -2885,6 +3190,7 @@ function App() {
                   <div className="dropdown-divider"></div>
                   <button onClick={async () => {
                     await supabase.auth.signOut();
+                    clearLocalData();
                     setIsLoggedIn(false);
                     setShowOnboarding(false);
                   }} className="text-danger"><LogOut size={14} /> Logga ut</button>
@@ -2895,7 +3201,9 @@ function App() {
         </div>
 
         <div className="main-content-inner">
-          {renderContent()}
+          <Suspense fallback={<PageContentSkeleton tab={activeTab} />}>
+            {renderContent()}
+          </Suspense>
         </div>
       </main>
 
@@ -3031,6 +3339,7 @@ function App() {
                 <button className="btn btn-danger" style={{ backgroundColor: '#ef4444', color: 'white' }} onClick={async () => {
                   setShowLogoutConfirm(false);
                   await supabase.auth.signOut();
+                  clearLocalData();
                   setIsLoggedIn(false);
                   setShowOnboarding(false);
                 }}>
@@ -3061,8 +3370,10 @@ function App() {
             bara bli en sämre, lätt-att-glömma-uppdatera dubblett. */}
         <Route path="/gdpr" element={<Navigate to="/privacy" replace />} />
         <Route path="/cookies" element={<CookiesPolicy />} />
+        <Route path="/pub" element={<PersonuppgiftsBitradesAvtal />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+    </Suspense>
     {/* Monterad utanför <Routes> så den syns på alla sidor (marknadsföring
         OCH inloggad app), Sida 37. */}
     <CookieBanner />

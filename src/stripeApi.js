@@ -1,3 +1,5 @@
+import { supabase } from './supabaseClient';
+
 // Statuskoder som troligen är TILLFÄLLIGA — infrastruktur (Vercels edge/
 // bot-skydd, ett momentant nätverksglapp) snarare än ett riktigt fel i vår
 // egen kod. Vår server-kod returnerar själv aldrig 404 eller 429 — ser vi
@@ -13,10 +15,13 @@ function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function fetchOnce(path, body) {
+async function fetchOnce(path, body, accessToken) {
   const response = await fetch(`/api/stripe/${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    },
     body: JSON.stringify(body),
     cache: 'no-store',
   });
@@ -29,7 +34,7 @@ async function fetchOnce(path, body) {
   return { response, payload };
 }
 
-async function requestStripeApi(path, body) {
+async function requestStripeApi(path, body, accessToken) {
   let lastError;
 
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
@@ -38,7 +43,7 @@ async function requestStripeApi(path, body) {
 
     let response, payload;
     try {
-      ({ response, payload } = await fetchOnce(path, body));
+      ({ response, payload } = await fetchOnce(path, body, accessToken));
     } catch (networkErr) {
       // fetch() själv kastade (nätverksfel, avbrutet anrop) — alltid värt
       // att försöka igen, oavsett vilken status det skulle blivit.
@@ -59,12 +64,25 @@ async function requestStripeApi(path, body) {
 }
 
 export async function createStripeCheckoutSession(payload) {
+  // Ingen Authorization-header här med avsikt — den som betalar en faktura
+  // är kundens KUND, inte ett inloggat Bokix-konto. Servern (create-checkout-
+  // session.js) räknar själv om belopp/rader från den lagrade fakturan i
+  // stället för att lita på klienten, se kommentaren där.
   return requestStripeApi('create-checkout-session', payload);
 }
 
 // Bokix egen plan (99 kr/mån, 30 dagars gratis provperiod) — helt separat
 // från createStripeCheckoutSession ovan, som gäller kunders fakturabetalningar
 // via ett anslutet Stripe-konto. Se api/stripe/create-subscription-checkout.js.
+//
+// Skickar med access_token om det finns en aktiv session (t.ex. anropet
+// från PaymentRequiredGate.jsx, en redan inloggad användare) — servern
+// kräver den om kontot redan har en subscriptions-rad, se säkerhets-
+// kommentaren i create-subscription-checkout.js. Direkt efter signUp()
+// (Auth.jsx) finns ofta ingen session än (kräver bekräftad e-post beroende
+// på Supabase-projektets inställning) — då skickas anropet utan token,
+// precis som förut, och servern tillåter det eftersom kontot är helt nytt.
 export async function createStripeSubscriptionCheckout(payload) {
-  return requestStripeApi('create-subscription-checkout', payload);
+  const { data: { session } = {} } = await supabase.auth.getSession();
+  return requestStripeApi('create-subscription-checkout', payload, session?.access_token);
 }
