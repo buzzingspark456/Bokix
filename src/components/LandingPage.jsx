@@ -12,7 +12,8 @@ import { BRAND } from '../utils/brandColors';
 import MarketingLayout, { Reveal, useReveal, BokixWordmark } from './marketing/MarketingLayout';
 import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW_SM, ACCENT, ACCENT_CYCLE } from './marketing/marketingTokens';
 import { IllBokforing, IllFakturering, IllSkatt, IllPersonal } from './marketing/featureIllustrations';
-import DemoWorkspace from './DemoWorkspace';
+import { ROUTE_META } from './marketing/routeMeta';
+import SsrSafeDemo from './marketing/SsrSafeDemo';
 
 // ── Bokix egna gradienter, hämtade rakt från produkten — INTE en importerad
 // extern designreferens. Loggans blå→turkos→lime (BokixWordmark i
@@ -210,12 +211,7 @@ export default function LandingPage({ onEnterApp }) {
   };
 
   return (
-    <MarketingLayout
-      onEnterApp={onEnterApp}
-      title="Bokix - Smart & Enkel Bokföring online"
-      description="Bokix - Ett modernt, enkelt och kraftfullt bokföringsprogram för småföretagare och enskilda firmor."
-      path="/"
-    >
+    <MarketingLayout onEnterApp={onEnterApp} {...ROUTE_META['/']} path="/">
       {/* ── HERO — levande gradientklot i loggans/Startsidans egna färger
           bakom en fetstilt rubrik, inget stillastående platt fält. ── */}
       <section style={{ display: 'flex', alignItems: 'center', background: 'var(--mkt-ivory)', position: 'relative', overflow: 'hidden', paddingTop: '140px', paddingBottom: '72px' }}>
@@ -343,7 +339,7 @@ export default function LandingPage({ onEnterApp }) {
           </Reveal>
 
           <Reveal scale style={{ position: 'relative' }}>
-            <DemoWorkspace />
+            <SsrSafeDemo />
           </Reveal>
         </div>
       </section>

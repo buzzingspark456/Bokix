@@ -8,41 +8,51 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://www.bokix.se/</loc>
+    <lastmod>2026-08-24</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
     <loc>https://www.bokix.se/funktioner</loc>
+    <lastmod>2026-08-24</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.bokix.se/priser</loc>
+    <lastmod>2026-08-24</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.bokix.se/om-oss</loc>
+    <lastmod>2026-08-24</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://www.bokix.se/kontakt</loc>
+    <lastmod>2026-08-24</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
+  <!-- lastmod här ska matcha LAST_UPDATED-konstanten i respektive
+       src/components/*Policy.jsx — bumpa båda tillsammans när texten ändras. -->
   <url>
     <loc>https://www.bokix.se/privacy</loc>
+    <lastmod>2026-08-24</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
   <url>
     <loc>https://www.bokix.se/terms</loc>
+    <lastmod>2026-08-24</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
   <url>
     <loc>https://www.bokix.se/cookies</loc>
+    <lastmod>2026-08-24</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>

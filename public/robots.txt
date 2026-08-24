@@ -1,4 +1,10 @@
 User-agent: *
 Disallow: /api/
 
+# Medvetet inga separata Disallow-block för AI-crawlers (GPTBot, ClaudeBot,
+# PerplexityBot, Google-Extended, CCBot m.fl.) — de täcks redan av
+# "User-agent: *" ovan och ska kunna läsa marknadssidorna precis som vilken
+# sökmotor som helst. Se även /llms.txt för en curerad sammanfattning riktad
+# specifikt till AI-agenter.
+
 Sitemap: https://www.bokix.se/sitemap.xml

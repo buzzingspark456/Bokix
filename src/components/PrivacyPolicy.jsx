@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
+import { ROUTE_META } from './marketing/routeMeta';
 
 // ── Sida 37 ─────────────────────────────────────────────────────────────
 // JURIDISKT UTKAST, INTE GRANSKAT. Ett första utkast, inte ett
@@ -23,11 +24,7 @@ const td = { padding: '9px 12px', borderBottom: '1px solid #f1f5f9', color: '#47
 const LAST_UPDATED = '24 augusti 2026';
 
 export default function PrivacyPolicy() {
-  useDocumentMeta({
-    title: 'Integritetspolicy | Bokix',
-    description: 'Så behandlar Bokix dina personuppgifter enligt GDPR — vad vi samlar in, varför, hur länge, och dina rättigheter.',
-    path: '/privacy',
-  });
+  useDocumentMeta({ ...ROUTE_META['/privacy'], path: '/privacy' });
   return (
     <div style={{ minHeight: '100vh', padding: '48px 24px', background: '#f8fafc', color: '#111827', fontFamily: 'Inter, system-ui, sans-serif' }}>
       <div style={{ maxWidth: '820px', margin: '0 auto', background: 'white', borderRadius: '24px', padding: '48px', boxShadow: '0 20px 60px rgba(15,23,42,0.08)' }}>

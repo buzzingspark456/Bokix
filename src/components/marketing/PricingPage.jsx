@@ -4,7 +4,8 @@ import { CheckCircle, ArrowRight, ChevronDown, ShieldCheck, Zap, Check, BarChart
 import { BRAND } from '../../utils/brandColors';
 import MarketingLayout, { Reveal } from './MarketingLayout';
 import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW, ACCENT_CYCLE } from './marketingTokens';
-import DemoWorkspace from '../DemoWorkspace';
+import { ROUTE_META } from './routeMeta';
+import SsrSafeDemo from './SsrSafeDemo';
 
 const INCLUDED = [
   'Obegränsat med kund- och leverantörsfakturor',
@@ -18,7 +19,10 @@ const INCLUDED = [
 ];
 
 // Ärliga, konkreta frågor — inga påhittade "99% nöjda kunder"-svar.
-const FAQ = [
+// Exporterad: scripts/prerender.mjs återanvänder EXAKT samma frågor/svar för
+// FAQPage-strukturerad data (JSON-LD), så det som står i schemat aldrig kan
+// glida isär från det som faktiskt visas på sidan.
+export const FAQ = [
   { q: 'Behöver jag ange kortuppgifter för att prova?', a: 'Ja, du lägger in dina betaluppgifter hos Stripe redan vid registreringen — men du debiteras ingenting under de första 30 dagarna. Avslutar du innan dess kostar det dig aldrig något.' },
   { q: 'Kan jag avsluta när som helst?', a: 'Ja. Det finns ingen uppsägningstid eller bindningstid, du avslutar när du vill.' },
   { q: 'Vilka bolagsformer stöds?', a: 'Bokix känner igen enskild firma, aktiebolag, handelsbolag/kommanditbolag och ekonomisk förening utifrån organisationsnumret, och bokför enligt rätt regler för respektive form.' },
@@ -54,11 +58,7 @@ export default function PricingPage() {
   const enterApp = () => navigate('/', { state: { enterApp: true } });
 
   return (
-    <MarketingLayout
-      title="Priser | Bokix"
-      description="Ett pris, allt ingår: 99 kr/mån exkl. moms. 30 dagar gratis, ingen bindningstid, avsluta när du vill."
-      path="/priser"
-    >
+    <MarketingLayout {...ROUTE_META['/priser']} path="/priser">
       <style>{`
         .pricing-feature-row { transition: transform 0.18s ease; }
         .pricing-feature-row:hover { transform: translateX(3px); }
@@ -150,7 +150,7 @@ export default function PricingPage() {
           </Reveal>
 
           <Reveal scale style={{ position: 'relative' }}>
-            <DemoWorkspace />
+            <SsrSafeDemo />
           </Reveal>
         </div>
       </section>

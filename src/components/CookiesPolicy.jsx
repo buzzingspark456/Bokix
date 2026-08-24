@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
+import { ROUTE_META } from './marketing/routeMeta';
 
 // ── Sida 37 ─────────────────────────────────────────────────────────────
 // JURIDISKT UTKAST, INTE GRANSKAT. Texten på den här sidan (liksom
@@ -25,11 +26,7 @@ const goodP = { margin: 0, lineHeight: 1.75, color: '#15803d', fontSize: '14.5px
 const LAST_UPDATED = '24 augusti 2026';
 
 export default function CookiesPolicy() {
-  useDocumentMeta({
-    title: 'Cookiepolicy | Bokix',
-    description: 'Vilka cookies Bokix använder, varför, och hur du styr ditt samtycke. Inga marknadsföringscookies.',
-    path: '/cookies',
-  });
+  useDocumentMeta({ ...ROUTE_META['/cookies'], path: '/cookies' });
   return (
     <div style={{ minHeight: '100vh', padding: '48px 24px', background: '#f8fafc', color: '#111827', fontFamily: 'Inter, system-ui, sans-serif' }}>
       <div style={{ maxWidth: '820px', margin: '0 auto', background: 'white', borderRadius: '24px', padding: '48px', boxShadow: '0 20px 60px rgba(15,23,42,0.08)' }}>

@@ -1,0 +1,47 @@
+# Bokix
+
+> Bokix är en webbaserad bokföringstjänst för svenska småföretag och
+> enskilda firmor: löpande bokföring, fakturering, kvitto-/utgiftshantering,
+> lönekörning och underlag inför moms-/skattedeklaration — allt i ett pris,
+> 99 kr/mån exkl. moms, 30 dagar gratis, ingen bindningstid.
+
+Den här filen följer den framväxande llms.txt-konventionen
+(https://llmstxt.org) — en kort, curerad sammanfattning tänkt att göra det
+enklare för AI-agenter och språkmodeller att förstå vad Bokix är och hitta
+rätt sida direkt, istället för att behöva tolka hela sajten.
+
+## Vad Bokix gör
+
+- Löpande bokföring enligt svensk kontoplan (BAS), med automatisk
+  bokföring av det som går att bokföra automatiskt och en granskningskö för
+  allt osäkert.
+- Fakturering och offerter till kunder, med PDF-export och egen logotyp.
+- Kvitto- och utgiftshantering.
+- Lönekörning med korrekt svenskt skatteavdrag.
+- Moms-, AGI- och kontrolluppgiftsunderlag (SIE/SRU/KU-export).
+- Kortbetalningar via Stripe.
+- Stöder enskild firma, aktiebolag, handelsbolag/kommanditbolag och
+  ekonomisk förening.
+
+## Pris
+
+Ett enda pris: 99 kr/mån exkl. moms. Allt ovan ingår, inga tillägg.
+30 dagar gratis, ingen bindningstid, avsluta när som helst.
+
+## Sidor
+
+- [Startsida](https://www.bokix.se/): översikt och produktdemo.
+- [Priser](https://www.bokix.se/priser): pris, vad som ingår, vanliga frågor.
+- [Funktioner](https://www.bokix.se/funktioner): detaljerad genomgång av
+  bokföring, fakturering, lön och deklaration.
+- [Om oss](https://www.bokix.se/om-oss): varför Bokix finns och vilka
+  principer det är byggt kring.
+- [Kontakt](https://www.bokix.se/kontakt): support, fakturafrågor,
+  integritetsfrågor.
+- [Integritetspolicy](https://www.bokix.se/privacy)
+- [Användarvillkor](https://www.bokix.se/terms)
+- [Cookiepolicy](https://www.bokix.se/cookies)
+
+## Kontakt
+
+support@bokix.se

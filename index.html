@@ -33,6 +33,51 @@
     <!-- Extern fil, inte inline — se public/consent-init.js för varför
          (Content-Security-Policy, säkerhetsgranskningen). -->
     <script src="/consent-init.js"></script>
+
+    <!-- Schema.org strukturerad data (samma innehåll som
+         src/components/marketing/structuredData.js) — garanterad baslinje
+         som finns kvar oavsett vilken sida en crawler faktiskt landar på,
+         och oavsett om scripts/prerender.mjs lyckas skriva sina egna
+         per-sida-varianter. Statisk text i denna fil bryts aldrig av att
+         appens JS misslyckas att köra, vilket är precis vad sök- och
+         AI-svarsmotorer (Google AI Overviews, Perplexity, ChatGPT/Claude
+         med webbsökning) behöver för att kunna citera exakta fakta om
+         Bokix (pris, vad som ingår) istället för att gissa. -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "Bokix",
+      "url": "https://www.bokix.se",
+      "logo": "https://www.bokix.se/icon-512.png",
+      "description": "Bokix är en webbaserad tjänst för enkel och säker bokföring för svenska företag.",
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "email": "support@bokix.se",
+        "contactType": "customer support",
+        "areaServed": "SE",
+        "availableLanguage": ["Swedish"]
+      }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Bokix",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Web",
+      "url": "https://www.bokix.se",
+      "description": "Bokix är ett modernt, enkelt och kraftfullt bokföringsprogram för svenska småföretagare och enskilda firmor — löpande bokföring, fakturering, lönekörning och deklarationsunderlag i ett pris.",
+      "offers": {
+        "@type": "Offer",
+        "price": "99",
+        "priceCurrency": "SEK",
+        "url": "https://www.bokix.se/priser",
+        "description": "99 kr/mån exkl. moms, 30 dagar gratis, ingen bindningstid."
+      }
+    }
+    </script>
   </head>
   <body>
     <div id="root"></div>

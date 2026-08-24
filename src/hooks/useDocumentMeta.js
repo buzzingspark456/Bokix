@@ -17,6 +17,16 @@ function upsertMeta(attr, key, content) {
   el.setAttribute('content', content);
 }
 
+function upsertCanonical(href) {
+  let el = document.head.querySelector('link[rel="canonical"]');
+  if (!el) {
+    el = document.createElement('link');
+    el.setAttribute('rel', 'canonical');
+    document.head.appendChild(el);
+  }
+  el.setAttribute('href', href);
+}
+
 /** Sätter <title>, <meta name="description"> och grundläggande Open
  * Graph/Twitter-taggar för den monterade sidan.
  *
@@ -37,6 +47,7 @@ export function useDocumentMeta({ title, description, path = '/' }) {
     if (description) upsertMeta('name', 'description', description);
 
     const url = `${SITE_URL}${path}`;
+    upsertCanonical(url);
     if (title) upsertMeta('property', 'og:title', title);
     if (description) upsertMeta('property', 'og:description', description);
     upsertMeta('property', 'og:url', url);

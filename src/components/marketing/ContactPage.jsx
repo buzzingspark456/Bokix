@@ -3,6 +3,7 @@ import { Mail, LifeBuoy, CreditCard, ShieldCheck, CheckCircle2, AlertCircle, Loa
 import { BRAND } from '../../utils/brandColors';
 import MarketingLayout, { Reveal } from './MarketingLayout';
 import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW, ACCENT_CYCLE } from './marketingTokens';
+import { ROUTE_META } from './routeMeta';
 
 // Ämnesval i formuläret — samma tre ärendetyper som tidigare bara var
 // mailto-genvägar, nu förifyllda dropdown-värden istället. "Övrigt" täcker
@@ -83,11 +84,7 @@ export default function ContactPage() {
   }
 
   return (
-    <MarketingLayout
-      title="Kontakta oss | Bokix"
-      description="Frågor om support, fakturering eller integritet? Skriv till oss — en riktig person läser och svarar på din e-post."
-      path="/kontakt"
-    >
+    <MarketingLayout {...ROUTE_META['/kontakt']} path="/kontakt">
       <style>{`
         .contact-input:focus { border-color: ${BRAND.green} !important; box-shadow: 0 0 0 3px ${BRAND.greenLight} !important; }
         .contact-topic-btn { transition: all 0.15s; cursor: pointer; }
