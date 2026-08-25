@@ -291,6 +291,10 @@ import FeaturesPage from './components/marketing/FeaturesPage';
 import PricingPage from './components/marketing/PricingPage';
 import AboutPage from './components/marketing/AboutPage';
 import ContactPage from './components/marketing/ContactPage';
+import CompareHub from './components/marketing/comparisons/CompareHub';
+import CompareFortnox from './components/marketing/comparisons/CompareFortnox';
+import CompareBokio from './components/marketing/comparisons/CompareBokio';
+import CompareVisma from './components/marketing/comparisons/CompareVisma';
 import Auth from './components/Auth';
 import OnboardingFlow from './components/OnboardingFlow';
 import CookieBanner from './components/CookieBanner';
@@ -3054,6 +3058,12 @@ function App() {
         <Route path="/priser" element={<PricingPage />} />
         <Route path="/om-oss" element={<AboutPage />} />
         <Route path="/kontakt" element={<ContactPage />} />
+        {/* Konkurrentjämförelser (SEO: "fortnox alternativ", "bokio vs
+            fortnox" osv.) — se src/components/marketing/comparisons/. */}
+        <Route path="/jamfor" element={<CompareHub />} />
+        <Route path="/jamfor/fortnox" element={<CompareFortnox />} />
+        <Route path="/jamfor/bokio" element={<CompareBokio />} />
+        <Route path="/jamfor/visma-eekonomi" element={<CompareVisma />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/terms" element={<TermsPolicy />} />
         {/* GDPR-innehållet är nu fullt inbakat i den utökade Integritetspolicyn

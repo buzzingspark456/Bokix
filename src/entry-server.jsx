@@ -9,6 +9,10 @@ import ContactPage from './components/marketing/ContactPage.jsx';
 import PrivacyPolicy from './components/PrivacyPolicy.jsx';
 import TermsPolicy from './components/TermsPolicy.jsx';
 import CookiesPolicy from './components/CookiesPolicy.jsx';
+import CompareHub from './components/marketing/comparisons/CompareHub.jsx';
+import CompareFortnox from './components/marketing/comparisons/CompareFortnox.jsx';
+import CompareBokio from './components/marketing/comparisons/CompareBokio.jsx';
+import CompareVisma from './components/marketing/comparisons/CompareVisma.jsx';
 
 // Återexporterad rakt av: scripts/prerender.mjs behöver den EXAKTA FAQ-
 // arrayen som PricingPage.jsx faktiskt renderar (för FAQPage-JSON-LD), men
@@ -35,6 +39,10 @@ const PAGES = {
   '/privacy': PrivacyPolicy,
   '/terms': TermsPolicy,
   '/cookies': CookiesPolicy,
+  '/jamfor': CompareHub,
+  '/jamfor/fortnox': CompareFortnox,
+  '/jamfor/bokio': CompareBokio,
+  '/jamfor/visma-eekonomi': CompareVisma,
 };
 
 export function render(path) {

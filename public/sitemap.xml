@@ -36,6 +36,33 @@
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
+  <!-- Konkurrentjämförelser (SEO: "fortnox alternativ", "bokio vs fortnox"
+       osv.) — se src/components/marketing/comparisons/. Priserna där ändras
+       oftare än övrig marknadstext, därför changefreq monthly. -->
+  <url>
+    <loc>https://www.bokix.se/jamfor</loc>
+    <lastmod>2026-08-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.bokix.se/jamfor/fortnox</loc>
+    <lastmod>2026-08-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.bokix.se/jamfor/bokio</loc>
+    <lastmod>2026-08-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.bokix.se/jamfor/visma-eekonomi</loc>
+    <lastmod>2026-08-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
   <!-- lastmod här ska matcha LAST_UPDATED-konstanten i respektive
        src/components/*Policy.jsx — bumpa båda tillsammans när texten ändras. -->
   <url>

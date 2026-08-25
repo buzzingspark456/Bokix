@@ -509,7 +509,7 @@ export function MarketingFooter() {
         <div>
           <h4 style={{ fontSize: '14px', fontWeight: 600, color: 'white', marginBottom: '14px' }}>Produkt</h4>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {[['Funktioner', '/funktioner'], ['Priser', '/priser']].map(([label, to]) => (
+            {[['Funktioner', '/funktioner'], ['Priser', '/priser'], ['Jämför alternativ', '/jamfor']].map(([label, to]) => (
               <Link key={to} to={to} className="lp-footer-link" style={{ fontSize: '13.5px', color: 'rgba(255,255,255,0.6)', textDecoration: 'none', transition: 'color 0.2s' }}>
                 {label}
               </Link>

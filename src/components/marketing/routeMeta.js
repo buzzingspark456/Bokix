@@ -36,4 +36,20 @@ export const ROUTE_META = {
     title: 'Cookiepolicy | Bokix',
     description: 'Vilka cookies Bokix använder, varför, och hur du styr ditt samtycke. Inga marknadsföringscookies.',
   },
+  '/jamfor': {
+    title: 'Jämför bokföringsprogram | Bokix',
+    description: 'Bokix jämfört med Fortnox, Bokio och Visma eEkonomi — pris, funktioner och vad som faktiskt skiljer.',
+  },
+  '/jamfor/fortnox': {
+    title: 'Bokix vs Fortnox — jämförelse och pris | Bokix',
+    description: 'Fortnox eller Bokix? Jämför pris, vad som ingår och vad som skiljer. Fortnox priser senast kontrollerade augusti 2026.',
+  },
+  '/jamfor/bokio': {
+    title: 'Bokix vs Bokio — jämförelse och pris | Bokix',
+    description: 'Bokio eller Bokix? Jämför pris, vad som ingår och vad som skiljer. Bokio priser senast kontrollerade augusti 2026.',
+  },
+  '/jamfor/visma-eekonomi': {
+    title: 'Bokix vs Visma eEkonomi — jämförelse och pris | Bokix',
+    description: 'Visma eEkonomi (Spiris) eller Bokix? Jämför pris, vad som ingår och vad som skiljer.',
+  },
 };

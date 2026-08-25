@@ -73,10 +73,12 @@ async function main() {
     return;
   }
 
-  const [{ render, FAQ }, { ROUTE_META }, { getOrganizationJsonLd, getSoftwareApplicationJsonLd, getFaqJsonLd, SITE_URL }] = await Promise.all([
+  const [{ render, FAQ }, { ROUTE_META }, { getOrganizationJsonLd, getSoftwareApplicationJsonLd, getFaqJsonLd, SITE_URL }, { COMPARISONS }] = await Promise.all([
     import(entryPath),
     import(resolve(ROOT, 'src/components/marketing/routeMeta.js')),
     import(resolve(ROOT, 'src/components/marketing/structuredData.js')),
+    // Ren JS (ingen JSX) — importeras direkt, samma anledning som routeMeta.js.
+    import(resolve(ROOT, 'src/components/marketing/comparisons/comparisonData.js')),
   ]);
 
   const template = readFileSync(resolve(DIST, 'index.html'), 'utf8');
@@ -116,10 +118,15 @@ async function main() {
         `<script type="application/ld+json">${orgJsonLd}</script>`,
         `<script type="application/ld+json">${appJsonLd}</script>`,
       ];
-      // FAQPage-schema bara på /priser — samma FAQ-array som PricingPage.jsx
-      // faktiskt renderar, aldrig egna påhittade frågor (se structuredData.js).
+      // FAQPage-schema — samma FAQ-array respektive sida faktiskt renderar,
+      // aldrig egna påhittade frågor (se structuredData.js).
       if (route === '/priser' && Array.isArray(FAQ)) {
         extraHead.push(`<script type="application/ld+json">${JSON.stringify(getFaqJsonLd(FAQ))}</script>`);
+      }
+      const comparisonSlug = route.startsWith('/jamfor/') ? route.slice('/jamfor/'.length) : null;
+      const comparison = comparisonSlug ? COMPARISONS[comparisonSlug] : null;
+      if (comparison && Array.isArray(comparison.faq)) {
+        extraHead.push(`<script type="application/ld+json">${JSON.stringify(getFaqJsonLd(comparison.faq))}</script>`);
       }
       html = html.replace('</head>', `${extraHead.join('\n    ')}\n  </head>`);
 
