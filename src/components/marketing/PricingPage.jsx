@@ -55,7 +55,7 @@ const SOFTWARE_SCHEMA = {
   applicationCategory: 'BusinessApplication',
   operatingSystem: 'Web',
   url: `${SITE_URL}/priser`,
-  description: 'Bokföring, fakturering, lönehantering och momsredovisning för svenska småföretagare och enskilda firmor.',
+  description: 'Bokföring, fakturering, lönehantering och momsredovisning för svenska företag i alla bolagsformer.',
   offers: {
     '@type': 'Offer',
     price: '99',

@@ -220,7 +220,7 @@ export default function LandingPage({ onEnterApp }) {
     <MarketingLayout onEnterApp={onEnterApp}>
       <PageMeta
         title="Bokix — Smart & enkel bokföring online för småföretagare"
-        description="Bokix samlar bokföring, fakturering, löner och moms i ett enda verktyg för svenska småföretagare och enskilda firmor. Kom igång på minuter, 99 kr/mån."
+        description="Bokix samlar bokföring, fakturering, löner och moms i ett enda verktyg för svenska företag i alla bolagsformer. Kom igång på minuter, 99 kr/mån."
         path="/"
       />
       {/* ── HERO — levande gradientklot i loggans/Startsidans egna färger

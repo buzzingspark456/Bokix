@@ -19,7 +19,7 @@ const ORGANIZATION_SCHEMA = {
   name: 'Bokix',
   url: SITE_URL,
   logo: `${SITE_URL}/icon-512.png`,
-  description: 'Bokix är ett modernt, enkelt och kraftfullt bokföringsprogram för svenska småföretagare och enskilda firmor — bokföring, fakturering och lön i samma verktyg.',
+  description: 'Bokix är ett modernt, enkelt och kraftfullt bokföringsprogram för svenska företag i alla bolagsformer — bokföring, fakturering och lön i samma verktyg.',
   email: 'support@bokix.se',
   contactPoint: {
     '@type': 'ContactPoint',

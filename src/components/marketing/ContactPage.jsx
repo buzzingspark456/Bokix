@@ -15,7 +15,7 @@ const TOPICS = [
   { icon: Mail, value: 'Övrigt', desc: 'Något annat vi kan hjälpa till med.' },
 ];
 
-const CONTACT_INBOX = 'alwakiabdullah1@gmail.com';
+const CONTACT_INBOX = 'support@bokix.se';
 
 // Bygger själva mejlets HTML-kropp av formulärfälten — enkel och läsbar i
 // vilken mejlklient som helst, inget beroende av externa mallmotorer.

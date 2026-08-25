@@ -1,6 +1,6 @@
 # Bokix
 
-> Bokix är ett modernt, enkelt och kraftfullt bokföringsprogram för svenska småföretagare och enskilda firmor. Bokföring, fakturering, lön och moms i ett enda verktyg.
+> Bokix är ett modernt, enkelt och kraftfullt bokföringsprogram för svenska företag i alla bolagsformer — enskild firma, aktiebolag, handelsbolag/kommanditbolag och ekonomisk förening. Bokföring, fakturering, lön och moms i ett enda verktyg.
 
 Bokix körs helt i webbläsaren på https://www.bokix.se — inget att installera. Priset är 99 kr/mån exklusive moms, allt ingår i det priset (ingen "bas + tillägg per funktion"-modell), och det finns ingen bindningstid.
 
