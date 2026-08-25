@@ -52,4 +52,24 @@ export const ROUTE_META = {
     title: 'Bokix vs Visma eEkonomi — jämförelse och pris | Bokix',
     description: 'Visma eEkonomi (Spiris) eller Bokix? Jämför pris, vad som ingår och vad som skiljer.',
   },
+  '/guider': {
+    title: 'Guider om bokföring och företagande | Bokix',
+    description: 'Praktiska guider om bokföring, moms, fakturering och att välja bokföringsprogram för svenska småföretag och enskilda firmor.',
+  },
+  '/guider/enskild-firma-bokforing': {
+    title: 'Bokföring för enskild firma — komplett guide 2026 | Bokix',
+    description: 'Så bokför du som enskild firma: vad du måste spara, momsregistrering, F-skatt och löpande bokföring steg för steg.',
+  },
+  '/guider/momsdeklaration': {
+    title: 'Momsdeklaration steg för steg — guide 2026 | Bokix',
+    description: 'Så fungerar momsdeklaration för enskild firma och aktiebolag: redovisningsperioder, deadlines och vanliga misstag.',
+  },
+  '/guider/fakturering-vad-kravs': {
+    title: 'Fakturera som enskild firma eller aktiebolag — vad krävs? | Bokix',
+    description: 'Vilka uppgifter en svensk faktura måste innehålla, betalningsvillkor, dröjsmålsränta och vanliga faktureringsmisstag.',
+  },
+  '/guider/valja-bokforingsprogram': {
+    title: 'Vad kostar ett bokföringsprogram? Jämförelse 2026 | Bokix',
+    description: 'Så jämför du bokföringsprogram som Fortnox, Bokio och Visma eEkonomi på riktigt — pris, vad som faktiskt ingår, och frågor att ställa innan du väljer.',
+  },
 };

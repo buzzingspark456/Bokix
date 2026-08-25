@@ -13,6 +13,11 @@ import CompareHub from './components/marketing/comparisons/CompareHub.jsx';
 import CompareFortnox from './components/marketing/comparisons/CompareFortnox.jsx';
 import CompareBokio from './components/marketing/comparisons/CompareBokio.jsx';
 import CompareVisma from './components/marketing/comparisons/CompareVisma.jsx';
+import GuideHub from './components/marketing/guides/GuideHub.jsx';
+import GuideEnskildFirma from './components/marketing/guides/GuideEnskildFirma.jsx';
+import GuideMoms from './components/marketing/guides/GuideMoms.jsx';
+import GuideFakturering from './components/marketing/guides/GuideFakturering.jsx';
+import GuideValjaBokforingsprogram from './components/marketing/guides/GuideValjaBokforingsprogram.jsx';
 
 // Återexporterad rakt av: scripts/prerender.mjs behöver den EXAKTA FAQ-
 // arrayen som PricingPage.jsx faktiskt renderar (för FAQPage-JSON-LD), men
@@ -43,6 +48,11 @@ const PAGES = {
   '/jamfor/fortnox': CompareFortnox,
   '/jamfor/bokio': CompareBokio,
   '/jamfor/visma-eekonomi': CompareVisma,
+  '/guider': GuideHub,
+  '/guider/enskild-firma-bokforing': GuideEnskildFirma,
+  '/guider/momsdeklaration': GuideMoms,
+  '/guider/fakturering-vad-kravs': GuideFakturering,
+  '/guider/valja-bokforingsprogram': GuideValjaBokforingsprogram,
 };
 
 export function render(path) {

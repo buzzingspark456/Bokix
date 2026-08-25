@@ -38,6 +38,15 @@ Ett enda pris: 99 kr/mån exkl. moms. Allt ovan ingår, inga tillägg.
   principer det är byggt kring.
 - [Kontakt](https://www.bokix.se/kontakt): support, fakturafrågor,
   integritetsfrågor.
+- [Jämför bokföringsprogram](https://www.bokix.se/jamfor): Bokix jämfört
+  med [Fortnox](https://www.bokix.se/jamfor/fortnox),
+  [Bokio](https://www.bokix.se/jamfor/bokio) och
+  [Visma eEkonomi](https://www.bokix.se/jamfor/visma-eekonomi).
+- [Guider](https://www.bokix.se/guider): praktiska genomgångar av
+  [bokföring för enskild firma](https://www.bokix.se/guider/enskild-firma-bokforing),
+  [momsdeklaration](https://www.bokix.se/guider/momsdeklaration),
+  [fakturering](https://www.bokix.se/guider/fakturering-vad-kravs) och
+  [att välja bokföringsprogram](https://www.bokix.se/guider/valja-bokforingsprogram).
 - [Integritetspolicy](https://www.bokix.se/privacy)
 - [Användarvillkor](https://www.bokix.se/terms)
 - [Cookiepolicy](https://www.bokix.se/cookies)

@@ -73,12 +73,13 @@ async function main() {
     return;
   }
 
-  const [{ render, FAQ }, { ROUTE_META }, { getOrganizationJsonLd, getSoftwareApplicationJsonLd, getFaqJsonLd, SITE_URL }, { COMPARISONS }] = await Promise.all([
+  const [{ render, FAQ }, { ROUTE_META }, { getOrganizationJsonLd, getSoftwareApplicationJsonLd, getFaqJsonLd, SITE_URL }, { COMPARISONS }, { GUIDE_FAQ }] = await Promise.all([
     import(entryPath),
     import(resolve(ROOT, 'src/components/marketing/routeMeta.js')),
     import(resolve(ROOT, 'src/components/marketing/structuredData.js')),
     // Ren JS (ingen JSX) — importeras direkt, samma anledning som routeMeta.js.
     import(resolve(ROOT, 'src/components/marketing/comparisons/comparisonData.js')),
+    import(resolve(ROOT, 'src/components/marketing/guides/guidesFaq.js')),
   ]);
 
   const template = readFileSync(resolve(DIST, 'index.html'), 'utf8');
@@ -127,6 +128,11 @@ async function main() {
       const comparison = comparisonSlug ? COMPARISONS[comparisonSlug] : null;
       if (comparison && Array.isArray(comparison.faq)) {
         extraHead.push(`<script type="application/ld+json">${JSON.stringify(getFaqJsonLd(comparison.faq))}</script>`);
+      }
+      const guideSlug = route.startsWith('/guider/') ? route.slice('/guider/'.length) : null;
+      const guideFaq = guideSlug ? GUIDE_FAQ[guideSlug] : null;
+      if (guideFaq) {
+        extraHead.push(`<script type="application/ld+json">${JSON.stringify(getFaqJsonLd(guideFaq))}</script>`);
       }
       html = html.replace('</head>', `${extraHead.join('\n    ')}\n  </head>`);
 

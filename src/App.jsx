@@ -295,6 +295,11 @@ import CompareHub from './components/marketing/comparisons/CompareHub';
 import CompareFortnox from './components/marketing/comparisons/CompareFortnox';
 import CompareBokio from './components/marketing/comparisons/CompareBokio';
 import CompareVisma from './components/marketing/comparisons/CompareVisma';
+import GuideHub from './components/marketing/guides/GuideHub';
+import GuideEnskildFirma from './components/marketing/guides/GuideEnskildFirma';
+import GuideMoms from './components/marketing/guides/GuideMoms';
+import GuideFakturering from './components/marketing/guides/GuideFakturering';
+import GuideValjaBokforingsprogram from './components/marketing/guides/GuideValjaBokforingsprogram';
 import Auth from './components/Auth';
 import OnboardingFlow from './components/OnboardingFlow';
 import CookieBanner from './components/CookieBanner';
@@ -3064,6 +3069,13 @@ function App() {
         <Route path="/jamfor/fortnox" element={<CompareFortnox />} />
         <Route path="/jamfor/bokio" element={<CompareBokio />} />
         <Route path="/jamfor/visma-eekonomi" element={<CompareVisma />} />
+        {/* Guider (SEO/AI-content: egna sökbara sidor om bokföring, moms,
+            fakturering — se src/components/marketing/guides/). */}
+        <Route path="/guider" element={<GuideHub />} />
+        <Route path="/guider/enskild-firma-bokforing" element={<GuideEnskildFirma />} />
+        <Route path="/guider/momsdeklaration" element={<GuideMoms />} />
+        <Route path="/guider/fakturering-vad-kravs" element={<GuideFakturering />} />
+        <Route path="/guider/valja-bokforingsprogram" element={<GuideValjaBokforingsprogram />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/terms" element={<TermsPolicy />} />
         {/* GDPR-innehållet är nu fullt inbakat i den utökade Integritetspolicyn

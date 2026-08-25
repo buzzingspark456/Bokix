@@ -63,6 +63,37 @@
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
+  <!-- Guider (SEO/AI-content) — se src/components/marketing/guides/. -->
+  <url>
+    <loc>https://www.bokix.se/guider</loc>
+    <lastmod>2026-08-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://www.bokix.se/guider/enskild-firma-bokforing</loc>
+    <lastmod>2026-08-24</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://www.bokix.se/guider/momsdeklaration</loc>
+    <lastmod>2026-08-24</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://www.bokix.se/guider/fakturering-vad-kravs</loc>
+    <lastmod>2026-08-24</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://www.bokix.se/guider/valja-bokforingsprogram</loc>
+    <lastmod>2026-08-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
   <!-- lastmod här ska matcha LAST_UPDATED-konstanten i respektive
        src/components/*Policy.jsx — bumpa båda tillsammans när texten ändras. -->
   <url>
