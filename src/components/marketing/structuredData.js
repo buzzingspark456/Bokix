@@ -19,9 +19,14 @@ export function getOrganizationJsonLd() {
     '@context': 'https://schema.org',
     '@type': 'Organization',
     name: 'Bokix',
+    // Disambiguering: "Bokix" delar tyvärr namn med Nasdaq-fondtickern
+    // BOKIX (en BlackRock-fond) — alternateName + en beskrivning som
+    // direkt nämner "bokföringsprogram"/"Sverige" hjälper sök- och
+    // AI-motorer skilja på de två helt orelaterade sakerna.
+    alternateName: 'Bokix bokföringsprogram',
     url: SITE_URL,
     logo: `${SITE_URL}/icon-512.png`,
-    description: 'Bokix är en webbaserad tjänst för enkel och säker bokföring för svenska företag.',
+    description: 'Bokix är ett svenskt, webbaserat bokföringsprogram (bokix.se) för småföretag och enskilda firmor — inte att förväxla med fondtickern BOKIX.',
     contactPoint: {
       '@type': 'ContactPoint',
       email: 'support@bokix.se',

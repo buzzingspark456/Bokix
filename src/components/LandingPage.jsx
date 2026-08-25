@@ -119,7 +119,19 @@ const COMPARISON_TONE = {
   bad: { Icon: X, fg: 'var(--mkt-accent-red-fg)', soft: 'var(--mkt-accent-red-soft)' },
 };
 
-const FAQ_ITEMS = [
+// Exporterad: scripts/prerender.mjs återanvänder den här listan för
+// FAQPage-JSON-LD på startsidan. Första frågan är MEDVETET en exakt,
+// bokstavlig "Vad är X?"-fråga med ett kort, fristående svar — den
+// vanligaste frasen en AI-svarsmotor (Gemini, ChatGPT med sökning,
+// Google AI Overviews) letar efter när någon frågar "vad är Bokix" eller
+// bara söker på namnet. Bokix delar tyvärr namn med en etablerad Nasdaq-
+// fondticker (BOKIX, en BlackRock-fond) som redan har enormt mycket
+// väletablerad täckning på finanssajter — den kollisionen går inte att
+// koda bort, men ett kort, unikt, lätt-att-citera svar HÄR ökar chansen
+// att en AI som faktiskt hittar bokix.se citerar rätt sammanhang
+// (bokföringsprogram, inte fond) istället för att bara gissa.
+export const FAQ_ITEMS = [
+  { q: 'Vad är Bokix?', a: 'Bokix (bokix.se) är ett webbaserat bokföringsprogram för svenska småföretag och enskilda firmor — löpande bokföring, fakturering, lönekörning och deklarationsunderlag i ett pris, 99 kr/mån. Obs: Bokix ska inte förväxlas med fondtickern "BOKIX" (en BlackRock-fond på Nasdaq) — helt olika saker som råkar dela namn.', g: ACCENT.blue },
   { q: 'Behöver jag kunna bokföring sedan innan?', a: 'Nej. Verifikationer skapas automatiskt utifrån dina kvitton och fakturor. Det enda som kräver din uppmärksamhet hamnar i Granskning, med tydlig anledning till varför — resten sköts av Bokix.', g: ACCENT.green },
   { q: 'Fungerar Bokix för min bolagsform?', a: 'Ja. Enskild firma, aktiebolag, handelsbolag/KB, ekonomisk förening och ideell förening/stiftelse — Bokix känner av rätt bolagsform automatiskt utifrån ditt organisationsnummer när du skapar konto.', g: ACCENT.blue },
   { q: 'Vad kostar det, och vad ingår?', a: 'Ett pris, 99 kr/mån — obegränsat med kund- och leverantörsfakturor, fyra fakturamallar med egen logotyp, löpande bokföring och kortbetalningar via Stripe. Inga tillägg eller dolda avgifter.', g: ACCENT.red },

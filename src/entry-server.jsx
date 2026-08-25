@@ -25,6 +25,7 @@ import GuideValjaBokforingsprogram from './components/marketing/guides/GuideValj
 // där) — den här redan Vite-byggda bunten är enda stället där PricingPage.jsx
 // redan blivit ren JS.
 export { FAQ } from './components/marketing/PricingPage.jsx';
+export { FAQ_ITEMS as HOME_FAQ } from './components/LandingPage.jsx';
 
 // Byggs till en SEPARAT Node-bunt (`vite build --ssr src/entry-server.jsx`,
 // se scripts/prerender.mjs) — bara till för att producera statiska HTML-

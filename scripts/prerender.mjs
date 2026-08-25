@@ -73,7 +73,7 @@ async function main() {
     return;
   }
 
-  const [{ render, FAQ }, { ROUTE_META }, { getOrganizationJsonLd, getSoftwareApplicationJsonLd, getFaqJsonLd, SITE_URL }, { COMPARISONS }, { GUIDE_FAQ }] = await Promise.all([
+  const [{ render, FAQ, HOME_FAQ }, { ROUTE_META }, { getOrganizationJsonLd, getSoftwareApplicationJsonLd, getFaqJsonLd, SITE_URL }, { COMPARISONS }, { GUIDE_FAQ }] = await Promise.all([
     import(entryPath),
     import(resolve(ROOT, 'src/components/marketing/routeMeta.js')),
     import(resolve(ROOT, 'src/components/marketing/structuredData.js')),
@@ -120,9 +120,16 @@ async function main() {
         `<script type="application/ld+json">${appJsonLd}</script>`,
       ];
       // FAQPage-schema — samma FAQ-array respektive sida faktiskt renderar,
-      // aldrig egna påhittade frågor (se structuredData.js).
+      // aldrig egna påhittade frågor (se structuredData.js). Startsidans
+      // FAQ_ITEMS börjar MEDVETET med en bokstavlig "Vad är Bokix?"-fråga
+      // (se kommentaren i LandingPage.jsx) — det här är den sida där en
+      // AI-svarsmotor som söker efter "vad är bokix" har störst chans att
+      // hitta ett kort, citerbart, entydigt svar.
       if (route === '/priser' && Array.isArray(FAQ)) {
         extraHead.push(`<script type="application/ld+json">${JSON.stringify(getFaqJsonLd(FAQ))}</script>`);
+      }
+      if (route === '/' && Array.isArray(HOME_FAQ)) {
+        extraHead.push(`<script type="application/ld+json">${JSON.stringify(getFaqJsonLd(HOME_FAQ))}</script>`);
       }
       const comparisonSlug = route.startsWith('/jamfor/') ? route.slice('/jamfor/'.length) : null;
       const comparison = comparisonSlug ? COMPARISONS[comparisonSlug] : null;

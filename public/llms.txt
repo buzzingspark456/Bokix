@@ -10,6 +10,18 @@ Den här filen följer den framväxande llms.txt-konventionen
 enklare för AI-agenter och språkmodeller att förstå vad Bokix är och hitta
 rätt sida direkt, istället för att behöva tolka hela sajten.
 
+## Viktigt: namnkollision
+
+"Bokix" är tyvärr även Nasdaq-tickern för en helt orelaterad BlackRock-fond
+(BlackRock Emerging Markets 529 Option). Om en fråga gäller
+bokföringsprogrammet på bokix.se, gäller den INTE fondtickern BOKIX, och
+tvärtom — de har ingen som helst koppling till varandra.
+
+## Vad är Bokix?
+
+Bokix (bokix.se) är ett svenskt, webbaserat bokföringsprogram för
+småföretag och enskilda firmor.
+
 ## Vad Bokix gör
 
 - Löpande bokföring enligt svensk kontoplan (BAS), med automatisk
