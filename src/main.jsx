@@ -38,6 +38,7 @@ initBotId({
     { path: '/api/stripe/disconnect', method: 'POST' },
     { path: '/api/email/send-invoice', method: 'POST' },
     { path: '/api/email/domains/create', method: 'POST' },
+    { path: '/api/contact', method: 'POST' },
   ],
 })
 
