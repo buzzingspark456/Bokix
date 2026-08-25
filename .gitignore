@@ -33,3 +33,8 @@ dist-ssr
 #   kunddata i versionshistorik".
 /Bokix/
 /data/
+
+# Playwright (npm run test:e2e) — körningsartefakter, inte källkod.
+/test-results/
+/playwright-report/
+/playwright/.cache/

@@ -88,6 +88,30 @@ function requireResendAdmin(res) {
 /** Namnet före @ i en avsändaradress — samma för alla, oavsett domän. */
 const SENDER_LOCAL_PART = 'faktura'
 
+// ── Kontaktformulär (publik marknadssajt) — se motsvarande kommentar i
+// api/contact.js för varför det här är en EGEN rutt och inte samma som
+// send-invoice: ingen inloggning krävs, men mottagare/HTML byggs alltid
+// på servern istället för att lita på klienten.
+const CONTACT_INBOX = process.env.CONTACT_INBOX || 'support@bokix.se'
+const CONTACT_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const ALLOWED_CONTACT_TOPICS = ['Support', 'Fakturering & pris', 'Säkerhet & integritet', 'Övrigt']
+
+function escContact(value) {
+  return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
+function buildContactEmailHtml({ name, email, topic, message }) {
+  return `
+    <div style="font-family: Arial, sans-serif; font-size: 14px; color: #0f172a; line-height: 1.6;">
+      <p><strong>Namn:</strong> ${escContact(name)}</p>
+      <p><strong>E-post:</strong> ${escContact(email)}</p>
+      <p><strong>Ämne:</strong> ${escContact(topic)}</p>
+      <p><strong>Meddelande:</strong></p>
+      <p style="white-space: pre-wrap;">${escContact(message)}</p>
+    </div>
+  `
+}
+
 function fallbackSenderAddress(companyName) {
   // Om EMAIL_FROM redan är på formen "Namn <adress>" byts bara namndelen ut
   // mot företagets — annars återanvänds hela EMAIL_FROM oförändrad.
@@ -511,6 +535,55 @@ app.post('/api/email/send-invoice', async (req, res) => {
     res.status(200).json({ id: result.data.id })
   } catch (error) {
     console.error('Email send error:', error)
+    res.status(500).json({ error: error?.message || 'Kunde inte skicka e-post.' })
+  }
+})
+
+// Striktare gräns än övriga e-postrutter (sensitiveLimiter ovan tillåter
+// 30) — ett anonymt, oautentiserat formulär är det mest utsatta målet
+// för spam av alla rutterna här.
+const contactLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 5, standardHeaders: true, legacyHeaders: false })
+app.post('/api/contact', contactLimiter, async (req, res) => {
+  if (!requireResend(res)) return
+
+  if (await isRequestFromBot()) {
+    res.status(403).json({ error: 'Åtkomst nekad.' })
+    return
+  }
+
+  try {
+    const body = req.body || {}
+    const name = typeof body.name === 'string' ? body.name.trim() : ''
+    const email = typeof body.email === 'string' ? body.email.trim() : ''
+    const topic = ALLOWED_CONTACT_TOPICS.includes(body.topic) ? body.topic : 'Övrigt'
+    const message = typeof body.message === 'string' ? body.message.trim() : ''
+
+    if (!name || !email || !message) {
+      res.status(400).json({ error: 'Namn, e-post och meddelande krävs.' })
+      return
+    }
+    if (!CONTACT_EMAIL_RE.test(email)) {
+      res.status(400).json({ error: 'Ogiltig e-postadress.' })
+      return
+    }
+
+    const result = await sendViaResend({
+      from: emailFrom,
+      to: [CONTACT_INBOX],
+      subject: `Kontaktformulär (${topic}) — ${name}`,
+      html: buildContactEmailHtml({ name, email, topic, message }),
+      reply_to: email,
+    })
+
+    if (!result.ok) {
+      console.error('Resend API error (contact):', result.data)
+      res.status(result.status).json({ error: result.data?.message || 'Resend kunde inte skicka e-posten.' })
+      return
+    }
+
+    res.status(200).json({ id: result.data.id })
+  } catch (error) {
+    console.error('Contact form send error:', error)
     res.status(500).json({ error: error?.message || 'Kunde inte skicka e-post.' })
   }
 })

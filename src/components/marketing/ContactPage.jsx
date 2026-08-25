@@ -15,24 +15,6 @@ const TOPICS = [
   { icon: Mail, value: 'Övrigt', desc: 'Något annat vi kan hjälpa till med.' },
 ];
 
-const CONTACT_INBOX = 'support@bokix.se';
-
-// Bygger själva mejlets HTML-kropp av formulärfälten — enkel och läsbar i
-// vilken mejlklient som helst, inget beroende av externa mallmotorer.
-function buildEmailHtml({ name, email, topic, message }) {
-  const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  return `
-    <div style="font-family: Arial, sans-serif; font-size: 14px; color: #0f172a; line-height: 1.6;">
-      <h2 style="margin: 0 0 16px;">Nytt meddelande från kontaktformuläret</h2>
-      <p style="margin: 0 0 4px;"><strong>Namn:</strong> ${esc(name)}</p>
-      <p style="margin: 0 0 4px;"><strong>E-post:</strong> ${esc(email)}</p>
-      <p style="margin: 0 0 16px;"><strong>Ämne:</strong> ${esc(topic)}</p>
-      <p style="margin: 0 0 8px;"><strong>Meddelande:</strong></p>
-      <p style="white-space: pre-wrap; margin: 0; padding: 12px 16px; background: #f8fafc; border-radius: 8px; border: 1px solid #e5e7eb;">${esc(message)}</p>
-    </div>
-  `;
-}
-
 const inputStyle = {
   display: 'block',
   width: '100%',
@@ -78,20 +60,15 @@ export default function ContactPage() {
     setStatus('sending');
     setErrorMsg('');
     try {
-      // Återanvänder e-postrutten som redan skickar fakturor/offerter — den
-      // bryr sig bara om to/subject/html/replyTo, inte vilket "dokument"
-      // det är (se api/email/send-invoice.js). Undviker en ny Vercel-
-      // serverless-function ovanpå Hobby-planens 12-gräns (se commit
-      // "Fix: Vercel Hobby-planens grans pa 12 serverless functions").
-      const res = await fetch('/api/email/send-invoice', {
+      // Egen rutt (api/contact.js), INTE /api/email/send-invoice — den
+      // kräver inloggad session + company_id (se requireAuthedUser i
+      // _auth.js), vilket en anonym besökare här aldrig har. Skickar bara
+      // de rena formulärfälten — mottagare och e-postens HTML byggs på
+      // servern, inte klienten (se motsvarande kommentar i api/contact.js).
+      const res = await fetch('/api/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          to: CONTACT_INBOX,
-          subject: `Kontaktformulär (${form.topic}) — ${name}`,
-          html: buildEmailHtml({ name, email, topic: form.topic, message }),
-          replyTo: email,
-        }),
+        body: JSON.stringify({ name, email, topic: form.topic, message }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Kunde inte skicka meddelandet.');
