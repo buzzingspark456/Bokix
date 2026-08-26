@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Search, CheckCircle2, XCircle, Users, Truck, ChevronDown, AlertTriangle } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Plus, Search, CheckCircle2, XCircle, Users, Truck, ChevronDown, AlertTriangle, Download, Upload, Check } from 'lucide-react';
 import { AccountSearch } from './shared/SearchInputs';
 import { getCountryOptions, getDefaultCountry, SWEDEN } from '../utils/countries';
 import { validateEmailList, isValidIban } from '../utils/validators';
+import { contactsToCsv, csvToContacts, downloadCsv } from '../utils/csvRegister';
 
 // ─── Delade formulärstilar ─────────────────────────────────────────────────
 const sectionStyle = { background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border)', padding: '20px', marginBottom: '16px' };
@@ -514,6 +515,72 @@ export default function Contacts({ contacts, setContacts, accounts = [], globalA
   const newBtnText = activeTab === 'customer' ? 'Ny kund' : 'Ny leverantör';
   const entityCount = contacts.filter(c => c.type === activeTab).length;
 
+  // ── Export/import av register (CSV) ──
+  // Exporterar HELA aktiv flik (inte bara det sökfiltrerade urvalet) — en
+  // sökning är en tillfällig vy, inte ett medvetet val av vilka som ska med
+  // i en backup/flytt till ett annat system.
+  const importFileRef = useRef(null);
+  const [importMsg, setImportMsg] = useState(null); // { type: 'success'|'error', text }
+
+  const handleExportCsv = () => {
+    const list = contacts.filter(c => c.type === activeTab);
+    const csv = contactsToCsv(activeTab, list);
+    downloadCsv(`${activeTab === 'customer' ? 'kunder' : 'leverantorer'}_${new Date().toISOString().split('T')[0]}.csv`, csv);
+  };
+
+  const handleImportClick = () => importFileRef.current?.click();
+
+  // Uppdaterar (matchar på kundnummer/org-/personnummer, annars namn) om
+  // raden redan finns, annars lägger till en ny — samma idé som ett SIE-
+  // import brukar göra, så en CSV kan importeras om flera gånger (t.ex. en
+  // uppdaterad prislista) utan att skapa dubbletter varje gång.
+  const handleImportFile = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const imported = csvToContacts(activeTab, ev.target.result);
+        if (imported.length === 0) throw new Error('Inga giltiga rader hittades (kräver minst en "Namn"-kolumn).');
+        let added = 0, updated = 0;
+        setContacts(prev => {
+          const next = [...prev];
+          imported.forEach((item, i) => {
+            // Varje kriterium är ett EGET villkor kombinerat med OR, inte en
+            // kedja av tidiga return — annars avslutade ett kundnummer som
+            // FANNS men skiljde sig (t.ex. omnumrerad kund sedan senaste
+            // export) hela matchningen direkt, utan att ens pröva org-nr
+            // eller namn på samma rad, och skapade en dublett istället för
+            // att uppdatera.
+            const matchIdx = next.findIndex(c => {
+              if (c.type !== activeTab) return false;
+              const byNumber = activeTab === 'customer' && item.customerNumber && c.customerNumber && item.customerNumber === c.customerNumber;
+              const byOrgNr = item.orgNr && c.orgNr && item.orgNr === c.orgNr;
+              const byName = c.name?.trim().toLowerCase() === item.name?.trim().toLowerCase();
+              return byNumber || byOrgNr || byName;
+            });
+            const base = activeTab === 'customer' ? emptyCustomer() : emptySupplier();
+            const merged = { ...base, ...item, type: activeTab, active: true };
+            if (matchIdx === -1) {
+              next.push({ id: `contact_${Date.now()}_${i}`, balance: 0, lastInvoiceDate: null, totalInvoicedThisYear: 0, ...merged });
+              added++;
+            } else {
+              next[matchIdx] = { ...next[matchIdx], ...merged, id: next[matchIdx].id };
+              updated++;
+            }
+          });
+          return next;
+        });
+        setImportMsg({ type: 'success', text: `${added} ny${added === 1 ? '' : 'a'}, ${updated} uppdaterad${updated === 1 ? '' : 'e'}.` });
+      } catch (err) {
+        setImportMsg({ type: 'error', text: `Kunde inte importera: ${err.message}` });
+      }
+      setTimeout(() => setImportMsg(null), 6000);
+    };
+    reader.readAsText(file, 'utf-8');
+    e.target.value = '';
+  };
+
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
       {/* ── Header & Tabs ── */}
@@ -527,11 +594,26 @@ export default function Contacts({ contacts, setContacts, accounts = [], globalA
             </p>
           </div>
           {viewState === 'list' && (
-            <button onClick={() => openNewForm(activeTab)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 16px', background: '#2e7d32', border: 'none', borderRadius: '5px', color: 'white', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}>
-              <Plus size={14} /> {newBtnText}
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button onClick={handleExportCsv} title={`Exportera ${title.toLowerCase()} som CSV`} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 12px', background: 'none', border: '1px solid var(--border)', borderRadius: '5px', color: 'var(--text-secondary)', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}>
+                <Download size={14} /> Exportera
+              </button>
+              <button onClick={handleImportClick} title={`Importera ${title.toLowerCase()} från CSV`} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 12px', background: 'none', border: '1px solid var(--border)', borderRadius: '5px', color: 'var(--text-secondary)', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}>
+                <Upload size={14} /> Importera
+              </button>
+              <input type="file" ref={importFileRef} accept=".csv" style={{ display: 'none' }} onChange={handleImportFile} />
+              <button onClick={() => openNewForm(activeTab)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 16px', background: '#2e7d32', border: 'none', borderRadius: '5px', color: 'white', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}>
+                <Plus size={14} /> {newBtnText}
+              </button>
+            </div>
           )}
         </div>
+        {importMsg && (
+          <div style={{ margin: '10px 0', padding: '8px 12px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12.5px', background: importMsg.type === 'success' ? 'var(--status-green-bg)' : 'var(--status-red-bg)', color: importMsg.type === 'success' ? 'var(--status-green-text)' : 'var(--status-red-text)' }}>
+            {importMsg.type === 'success' ? <Check size={14} /> : <AlertTriangle size={14} />}
+            {importMsg.text}
+          </div>
+        )}
         <div style={{ display: 'flex', gap: 0, marginTop: '12px' }}>
           {[{ id: 'customer', label: 'Kunder' }, { id: 'supplier', label: 'Leverantörer' }].map(t => (
             <button key={t.id} onClick={() => handleSetTab(t.id)} style={{

@@ -39,6 +39,10 @@ initBotId({
     { path: '/api/email/send-invoice', method: 'POST' },
     { path: '/api/email/domains/create', method: 'POST' },
     { path: '/api/contact', method: 'POST' },
+    // Sparar ett fält åt en INBJUDEN användare (company_members) i ägarens
+    // företag — se api/company-access.js. GET (läsning) skyddas medvetet
+    // INTE av BotID, samma konvention som api/email/domains/status.js.
+    { path: '/api/company-access', method: 'POST' },
   ],
 })
 

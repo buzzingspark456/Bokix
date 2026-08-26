@@ -2,9 +2,10 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   User, Building2, CreditCard, Users, Shield, Sliders, Check, Download, Upload,
   AlertTriangle, Trash2, Mail, Plug, Laptop, FileText, Lock, KeyRound, Image as ImageIcon,
-  Palette, Landmark, Hash, Calendar, Phone, Plus, X, ZoomIn, ZoomOut, Maximize2,
+  Palette, Landmark, Hash, Calendar, Phone, Plus, X, ZoomIn, ZoomOut, Maximize2, Bell,
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
+import { sendInvoiceEmail } from '../emailApi';
 import { BRAND } from '../utils/brandColors';
 import InvoiceDocument, { INVOICE_TEMPLATES, DEFAULT_INVOICE_TEMPLATE } from './InvoiceDocument';
 import { useIsMobileViewport } from '../hooks/useIsMobileViewport';
@@ -744,6 +745,275 @@ function InvoiceTemplateSection({ company, setCompanyInfo, user, readOnly = fals
   );
 }
 
+// ── Användare och Åtkomst (max 3 per företag — ägare + upp till 2 inbjudna,
+// se supabase-setup.sql: company_members) ──────────────────────────────────
+// companyName/inviterName kommer från fält användaren själv äger och kan
+// sätta till vad som helst (t.ex. "<a href=...>") — utan escaping hade det
+// injicerats rakt in i mejlets HTML och skickats till en riktig kollega via
+// Resend som om det kom från Bokix.
+function escHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// Bygger inbjudningsmejlets HTML — samma "Hej ... Med vänlig hälsning"-ton
+// som fakturautskicket (Invoices.jsx), grönt CTA-knapp i samma märkesfärg.
+function buildInviteEmailHtml({ companyName, inviterName, inviteUrl, role }) {
+  const roleLabel = role === 'editor' ? 'redigera' : 'se (läsbehörighet)';
+  const safeInviter = escHtml(inviterName) || 'Någon';
+  const safeCompany = escHtml(companyName) || 'sitt företag';
+  return `
+    <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; color: #1a1a1a;">
+      <p>Hej,</p>
+      <p>${safeInviter} har bjudit in dig till <strong>${safeCompany}</strong> på Bokix — du kommer kunna ${roleLabel} företagets bokföring.</p>
+      <p style="margin: 28px 0;">
+        <a href="${inviteUrl}" style="display: inline-block; padding: 12px 24px; background: #3d7a2e; color: white; text-decoration: none; border-radius: 8px; font-weight: 700;">Acceptera inbjudan</a>
+      </p>
+      <p style="font-size: 13px; color: #666;">Länken är giltig i 7 dagar. Har du redan ett Bokix-konto loggar du bara in — annars skapar du ett nytt.</p>
+      <p>Med vänlig hälsning<br/>Bokix</p>
+    </div>
+  `;
+}
+
+const ROLE_LABELS = { editor: 'Kan redigera', viewer: 'Kan bara läsa' };
+const STATUS_LABELS = { pending: 'Väntar på svar', active: 'Aktiv', revoked: 'Återkallad' };
+const STATUS_COLORS = {
+  pending: { bg: BRAND.amberBg, text: BRAND.amberText },
+  active: { bg: BRAND.greenLight, text: BRAND.greenDark },
+  revoked: { bg: 'var(--border-light)', text: 'var(--text-muted)' },
+};
+
+function UsersAndAccessSection({ company, user, firstName, lastName, sharedAccess, readOnly = false }) {
+  // Jag är ägaren om jag inte själv är en INBJUDEN gäst på det här
+  // företaget (App.jsx skickar sharedAccess bara för ett delat företag).
+  // Bara ägaren får bjuda in/ändra roll/återkalla — RLS (supabase-setup.sql)
+  // stoppar det ändå server-side om någon skulle lura klienten, men UI:t
+  // ska aldrig ens ERBJUDA knappar en inbjuden gäst inte får använda.
+  const isOwner = !sharedAccess;
+
+  const [members, setMembers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showInviteForm, setShowInviteForm] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState('editor');
+  const [inviteBusy, setInviteBusy] = useState(false);
+  const [inviteError, setInviteError] = useState('');
+  const [inviteSuccess, setInviteSuccess] = useState('');
+
+  const loadMembers = async () => {
+    if (!company?.id) { setLoading(false); return; }
+    setLoading(true);
+    // RLS avgör själv vad som faktiskt kommer tillbaka: ägaren ser hela
+    // listan, en inbjuden gäst ser bara sin EGEN rad (se "Se egna
+    // medlemskapsrader" i supabase-setup.sql) — inget extra filter behövs
+    // här för att uppnå det, policyn gör jobbet.
+    const { data, error } = await supabase
+      .from('company_members')
+      .select('id, invited_email, role, status, invited_at, expires_at')
+      .eq('company_id', company.id)
+      .order('invited_at', { ascending: true });
+    if (!error) setMembers(data || []);
+    setLoading(false);
+  };
+
+  useEffect(() => { loadMembers(); }, [company?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // "Max 3 användare" = ägaren + högst 2 aktiva/väntande — samma gräns som
+  // databasens INSERT-policy (company_members) redan hårdkodar, upprepad
+  // här bara för att kunna visa/dölja "Bjud in"-knappen proaktivt istället
+  // för att låta ett insert-försök alltid gå fram till servern och 403:a.
+  const activeOrPendingCount = members.filter(m => m.status !== 'revoked').length;
+  const atCap = activeOrPendingCount >= 2;
+
+  const handleInvite = async (e) => {
+    e.preventDefault();
+    if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; }
+    setInviteError(''); setInviteSuccess('');
+    const email = inviteEmail.trim().toLowerCase();
+    if (!email || !email.includes('@')) { setInviteError('Ange en giltig e-postadress.'); return; }
+    setInviteBusy(true);
+    try {
+      const { data: inserted, error } = await supabase
+        .from('company_members')
+        .insert({ owner_user_id: user.id, company_id: company.id, invited_email: email, role: inviteRole })
+        .select()
+        .single();
+      if (error) throw error;
+
+      // Skickar inbjudningsmejlet via samma Resend-relä som fakturautskick
+      // (emailApi.js → api/email/send-invoice.js) — det bryr sig aldrig om
+      // VILKET dokument som skickas, bara mottagare/ämne/HTML. Misslyckas
+      // SJÄLVA UTSKICKET (t.ex. Resend nere) tas raden inte bort — ägaren
+      // kan bjuda in igen, eller dela länken manuellt.
+      const inviteUrl = `${window.location.origin}/invite?token=${inserted.invite_token}`;
+      const html = buildInviteEmailHtml({
+        companyName: company.name,
+        inviterName: [firstName, lastName].filter(Boolean).join(' ') || user?.email,
+        inviteUrl,
+        role: inviteRole,
+      });
+      try {
+        await sendInvoiceEmail({
+          to: email,
+          subject: `Du är inbjuden till ${company.name || 'ett företag'} på Bokix`,
+          html,
+          company_id: company.id,
+        });
+      } catch (sendErr) {
+        console.error('Kunde inte skicka inbjudningsmejlet:', sendErr);
+        setInviteSuccess(`Inbjudan skapad, men mejlet kunde inte skickas. Dela länken manuellt: ${inviteUrl}`);
+        setInviteEmail('');
+        setShowInviteForm(false);
+        loadMembers();
+        return;
+      }
+
+      setInviteSuccess(`Inbjudan skickad till ${email}.`);
+      setInviteEmail('');
+      setShowInviteForm(false);
+      loadMembers();
+    } catch (err) {
+      const isDuplicate = err?.code === '23505';
+      setInviteError(isDuplicate ? 'Den här personen är redan inbjuden till företaget.' : (err?.message || 'Kunde inte skicka inbjudan.'));
+    } finally {
+      setInviteBusy(false);
+    }
+  };
+
+  const handleRoleChange = async (memberId, role) => {
+    if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; }
+    await supabase.from('company_members').update({ role }).eq('id', memberId);
+    loadMembers();
+  };
+
+  const handleRevoke = async (memberId) => {
+    if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; }
+    if (!window.confirm('Återkalla den här personens åtkomst till företaget?')) return;
+    await supabase.from('company_members').update({ status: 'revoked' }).eq('id', memberId);
+    loadMembers();
+  };
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
+        <h2 style={{ fontSize: '20px', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>Användare och Åtkomst</h2>
+        {isOwner && (
+          <button
+            onClick={() => setShowInviteForm(v => !v)}
+            disabled={atCap && !showInviteForm}
+            title={atCap ? 'Max 3 användare per företag (ägare + 2 inbjudna) — återkalla någon för att bjuda in en ny.' : undefined}
+            style={atCap ? { display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: 'var(--border)', color: 'var(--text-muted)', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'not-allowed' } : btnPrimary}
+          >
+            <Mail size={16} style={{ marginRight: 6, verticalAlign: '-3px' }} /> {showInviteForm ? 'Avbryt' : 'Bjud in användare'}
+          </button>
+        )}
+      </div>
+
+      {isOwner && atCap && !showInviteForm && (
+        <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginBottom: '14px' }}>Max 3 användare per företag är nått (du + 2 inbjudna). Återkalla någon nedan för att bjuda in en ny.</p>
+      )}
+
+      {isOwner && showInviteForm && (
+        <form onSubmit={handleInvite} style={{ ...card, marginBottom: '16px' }}>
+          <div className="form-row-2" style={grid2}>
+            <div>
+              <label style={labelStyle}>E-postadress</label>
+              <input type="email" required autoFocus value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} style={inputBase} placeholder="namn@exempel.se" />
+            </div>
+            <div>
+              <label style={labelStyle}>Behörighet</label>
+              <select value={inviteRole} onChange={e => setInviteRole(e.target.value)} style={inputBase}>
+                <option value="editor">Kan redigera</option>
+                <option value="viewer">Kan bara läsa</option>
+              </select>
+            </div>
+          </div>
+          {inviteError && <p style={{ color: BRAND.redText, fontSize: '13px', marginTop: '10px' }}>{inviteError}</p>}
+          <div style={{ marginTop: '16px', display: 'flex', gap: '10px' }}>
+            <button type="submit" disabled={inviteBusy} style={{ ...btnPrimary, opacity: inviteBusy ? 0.6 : 1 }}>{inviteBusy ? 'Skickar…' : 'Skicka inbjudan'}</button>
+            <button type="button" onClick={() => setShowInviteForm(false)} style={btnSecondary}>Avbryt</button>
+          </div>
+        </form>
+      )}
+
+      {inviteSuccess && (
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '10px 12px', background: BRAND.greenLight, color: BRAND.greenDark, borderRadius: '8px', fontSize: '13px', marginBottom: '16px' }}>
+          <Check size={15} style={{ flexShrink: 0, marginTop: '1px' }} /> <span>{inviteSuccess}</span>
+        </div>
+      )}
+
+      <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+          <thead>
+            <tr style={{ background: 'var(--border-light)', borderBottom: '1px solid var(--border)' }}>
+              <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-secondary)', fontWeight: 600 }}>Användare</th>
+              <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-secondary)', fontWeight: 600 }}>Roll</th>
+              <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-secondary)', fontWeight: 600 }}>Status</th>
+              {isOwner && <th style={{ padding: '12px 16px' }}></th>}
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style={{ padding: '16px' }}>
+                <div style={{ fontWeight: 600, color: 'var(--text-main)' }}>{isOwner ? ([firstName, lastName].filter(Boolean).join(' ') || 'Ditt konto') : 'Ägare'}</div>
+                {isOwner && <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{user?.email}</div>}
+              </td>
+              <td style={{ padding: '16px' }}>Administratör</td>
+              <td style={{ padding: '16px' }}>
+                <span style={{ padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: BRAND.greenLight, color: BRAND.greenDark }}>Aktiv</span>
+              </td>
+              {isOwner && <td></td>}
+            </tr>
+            {members.map(m => (
+              <tr key={m.id} style={{ borderTop: '1px solid var(--border-light)' }}>
+                <td style={{ padding: '16px' }}>
+                  <div style={{ fontWeight: 600, color: 'var(--text-main)' }}>{m.invited_email}</div>
+                </td>
+                <td style={{ padding: '16px' }}>
+                  {isOwner && m.status !== 'revoked' ? (
+                    <select value={m.role} onChange={e => handleRoleChange(m.id, e.target.value)} style={{ ...inputBase, width: 'auto', padding: '4px 8px', fontSize: '13px' }}>
+                      <option value="editor">Kan redigera</option>
+                      <option value="viewer">Kan bara läsa</option>
+                    </select>
+                  ) : ROLE_LABELS[m.role] || m.role}
+                </td>
+                <td style={{ padding: '16px' }}>
+                  <span style={{ padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: STATUS_COLORS[m.status]?.bg, color: STATUS_COLORS[m.status]?.text }}>
+                    {STATUS_LABELS[m.status] || m.status}
+                  </span>
+                </td>
+                {isOwner && (
+                  <td style={{ padding: '16px', textAlign: 'right' }}>
+                    {m.status !== 'revoked' && (
+                      <button onClick={() => handleRevoke(m.id)} title="Återkalla åtkomst" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
+                        <Trash2 size={15} />
+                      </button>
+                    )}
+                  </td>
+                )}
+              </tr>
+            ))}
+            {!loading && members.length === 0 && isOwner && (
+              <tr>
+                <td colSpan={4} style={{ padding: '16px', color: 'var(--text-muted)', fontSize: '13px' }}>Inga andra användare inbjudna ännu.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+      {isOwner ? (
+        <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginTop: '10px', maxWidth: '560px' }}>Max 3 användare per företag totalt (du + 2 inbjudna). "Kan redigera" ger samma åtkomst som du har; "Kan bara läsa" kan se men aldrig spara ändringar.</p>
+      ) : (
+        <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginTop: '10px', maxWidth: '560px' }}>Du har blivit inbjuden till det här företaget av ägaren ({ROLE_LABELS[sharedAccess.role] || sharedAccess.role}-behörighet).</p>
+      )}
+    </div>
+  );
+}
+
 export default function Settings({
   company = {}, setCompanyInfo, accounts = [], verifications = [], invoices = [], quotes = [], expenses = [],
   contacts = [], projects = [], onImport, onReset, stripeAccountId, onConnectStripe, onDisconnectStripe,
@@ -756,6 +1026,12 @@ export default function Settings({
   // syns, webbläsarens standard) om App.jsx av något skäl inte skickar ner
   // den — t.ex. landningssidans demo, se DemoWorkspace.jsx.
   hideScrollbar = false, onToggleHideScrollbar,
+  // Sidomenyns färg i ljust läge — se index.css (data-sidebar-style) och
+  // App.jsx (sidebarStyle/toggleSidebarStyle) för resten av mekaniken.
+  sidebarStyle = 'green', onToggleSidebarStyle,
+  // Satt av App.jsx (currentCompany.__shared) bara när det AKTIVA företaget
+  // är någon ANNANS som jag blivit inbjuden till — se UsersAndAccessSection.
+  sharedAccess = null,
   // Landningssidans demo (DemoWorkspace.jsx) monterar den HÄR, riktiga
   // Inställningar-sidan (istället för en handbyggd efterlikning) så en
   // besökare kan se den på riktigt, men utan inloggning finns ingen
@@ -1133,6 +1409,25 @@ export default function Settings({
                   </div>
                 </div>
               </div>
+
+              {/* Enda kontrollen över api/cron/reminders.js (den automatiska
+                  påminnelse-cronen) som finns i UI:t — annars en helt osynlig
+                  bakgrundsprocess ingen kan stoppa utan att röra kod/Vercel-
+                  miljövariabler. Dagarna (3/faktura, 7/deklaration) är fortfarande
+                  hårdkodade förvalsvärden, inte redigerbara här — bara av/på. */}
+              <div style={card}>
+                <div style={{ marginBottom: '4px' }}><SectionHeading icon={Bell} tone="green">Automatiska påminnelser</SectionHeading></div>
+                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 16px', maxWidth: '672px' }}>Skickas automatiskt, en gång om dagen: en betalningspåminnelse till kunden 3 dagar efter förfallodatum om en faktura är obetald, och en påminnelse till er själva 7 dagar innan moms-/AGI-deadline.</p>
+                <div style={{ maxWidth: '480px' }}>
+                  <ToggleSwitch
+                    checked={company?.notifications?.enabled ?? true}
+                    onChange={(e) => setCompanyInfo({ ...company, notifications: { ...company?.notifications, enabled: e.target.checked } })}
+                    label="Skicka automatiska påminnelser"
+                    hint="Av stänger alla automatiska utskick för det här företaget — manuell påminnelse-knappen på fakturor påverkas inte."
+                    disabled={readOnly}
+                  />
+                </div>
+              </div>
             </div>
           )}
 
@@ -1299,32 +1594,7 @@ export default function Settings({
           {/* 5. Användare och Åtkomst */}
           {activeTab === 'users' && (
             <div style={{ animation: 'fadeIn 0.2s ease' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
-                <h2 style={{ fontSize: '20px', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>Användare och Åtkomst</h2>
-                <button disabled title="Inbjudan av fler användare till samma företag är inte byggt ännu" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: 'var(--border)', color: 'var(--text-muted)', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'not-allowed' }}>
-                  <Mail size={16} /> Bjud in användare
-                </button>
-              </div>
-              <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
-                  <thead>
-                    <tr style={{ background: 'var(--border-light)', borderBottom: '1px solid var(--border)' }}>
-                      <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-secondary)', fontWeight: 600 }}>Användare</th>
-                      <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-secondary)', fontWeight: 600 }}>Roll</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td style={{ padding: '16px' }}>
-                        <div style={{ fontWeight: 600, color: 'var(--text-main)' }}>{[firstName, lastName].filter(Boolean).join(' ') || 'Ditt konto'}</div>
-                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{user?.email}</div>
-                      </td>
-                      <td style={{ padding: '16px' }}>Administratör</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-              <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginTop: '10px', maxWidth: '560px' }}>Fler användare per företag (t.ex. en redovisningsbyrå med egen inloggning) är planerat men inte byggt ännu.</p>
+              <UsersAndAccessSection company={company} user={user} firstName={firstName} lastName={lastName} sharedAccess={sharedAccess} readOnly={readOnly} />
             </div>
           )}
 
@@ -1389,6 +1659,14 @@ export default function Settings({
                   label="Dölj scrollbar"
                   hint="Göm det synliga scrollfältet i webbläsarfönstret på datorn. Sidan skrollar precis som förut — bara handtaget syns inte. Mobilen döljer sitt redan alltid, oavsett den här inställningen."
                 />
+                <div style={{ marginTop: '18px', paddingTop: '18px', borderTop: '1px solid var(--border-light)' }}>
+                  <ToggleSwitch
+                    checked={sidebarStyle === 'dark'}
+                    onChange={() => onToggleSidebarStyle?.()}
+                    label="Mörk sidomeny"
+                    hint="Sidomenyn blir mörk (samma nyans som mörkt läge) medan resten av appen fortfarande är ljus. Har ingen effekt om du redan kör mörkt läge — där är sidomenyn mörk ändå."
+                  />
+                </div>
               </div>
 
               <div style={{ ...card, background: 'var(--status-red-bg)', border: '1px solid var(--status-red-bg)' }}>

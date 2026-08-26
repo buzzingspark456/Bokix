@@ -4,7 +4,7 @@ import {
   Plus, X, Send, Check, FileText, FileSpreadsheet,
   Search, ChevronRight, ChevronLeft, ChevronDown, ChevronUp,
   MoreVertical, RefreshCw, Printer, Eye, CreditCard, Link2,
-  MessageSquare, Tag, Lock, Settings2, Download, AlertTriangle, Inbox, Trash2,
+  MessageSquare, Tag, Lock, Settings2, Download, Upload, AlertTriangle, Inbox, Trash2,
   ZoomIn, ZoomOut
 } from 'lucide-react';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
@@ -13,6 +13,7 @@ import { exportInvoicePdf, getInvoicePdfBase64 } from '../utils/exportInvoicePdf
 import { sendInvoiceEmail } from '../emailApi';
 import { BRAND } from '../utils/brandColors';
 import { getNextInvoiceNumber } from '../utils/invoiceNumbering';
+import { articlesToCsv, csvToArticles, downloadCsv } from '../utils/csvRegister';
 
 const newRowId = () => (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `row_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 const withRowIds = (rows) => rows.map(r => ({ id: r.id || newRowId(), ...r }));
@@ -92,7 +93,7 @@ const lbl = { display: 'block', fontSize: '11px', color: 'var(--text-main)', mar
 const cell = (w) => ({ display: 'inline-block', width: w, verticalAlign: 'top', paddingRight: '8px', boxSizing: 'border-box' });
 
 // ─── Invoice Full Form (Fortnox-inspired) ──────────────────────────────────────
-function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, invoiceList, onCreateCreditNote, onMarkPaid, onRegisterPayment, onUnmarkPaid, onUpdateNote, verifications = [], nav, onGetPaymentLinkUrl }) {
+function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, invoiceList, onCreateCreditNote, onMarkPaid, onRegisterPayment, onUnmarkPaid, onUpdateNote, verifications = [], nav, onGetPaymentLinkUrl, articles = [], setArticles }) {
   // En bokförd faktura (allt utom utkast) får inte längre ändra belopp/rader/kund —
   // korrigeringar sker via kreditfaktura. Datum och kommentar går fortfarande att ändra.
   const isLocked = Boolean(initial) && (initial.status || 'draft') !== 'draft';
@@ -108,7 +109,7 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
     return d.toISOString().split('T')[0];
   });
   const [rows, setRows] = useState(() => withRowIds(initial?.rows || prefill?.rows || [
-    { description: '', qty: 1, unitPrice: 0, vatRate: 25, discount: 0, account: '3001' }
+    { description: '', qty: 1, unitPrice: 0, vatRate: 25, discount: 0, account: '3001', articleNumber: '' }
   ]));
   const [expandedRows, setExpandedRows] = useState(new Set());
   const toggleRowAdvanced = (id) => setExpandedRows(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -183,9 +184,42 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
   const nextNum = initial?.invoiceNumber || getNextInvoiceNumber(invoiceList, company);
   const ocr = nextNum.padStart(7, '0');
 
-  const addRow = () => setRows(r => [...r, { id: newRowId(), description: '', qty: 1, unitPrice: 0, vatRate: 25, discount: 0, account: '3001' }]);
+  const addRow = () => setRows(r => [...r, { id: newRowId(), description: '', qty: 1, unitPrice: 0, vatRate: 25, discount: 0, account: '3001', articleNumber: '' }]);
   const updateRow = (i, field, val) => setRows(r => r.map((row, idx) => idx === i ? { ...row, [field]: val } : row));
   const removeRow = (i) => setRows(r => r.filter((_, idx) => idx !== i));
+
+  // Artikelregister — hittar en sparad artikel på exakt artikelnr (skiftlägesokänsligt,
+  // trimmat) och fyller i rest av raden åt användaren. Manuellt vald, aldrig automatiskt
+  // vid varje knapptryck, så en användare som medvetet ändrat pris/text på raden aldrig
+  // blir överskriven i tysthet.
+  const findArticleByNumber = (num) => {
+    const key = (num || '').trim().toLowerCase();
+    if (!key) return null;
+    return articles.find(a => (a.articleNumber || '').trim().toLowerCase() === key) || null;
+  };
+  const applyArticleToRow = (i, article) => {
+    setRows(r => r.map((row, idx) => idx === i ? {
+      ...row,
+      articleNumber: article.articleNumber,
+      description: article.description || row.description,
+      unitPrice: article.unitPrice ?? row.unitPrice,
+      vatRate: article.vatRate ?? row.vatRate,
+      account: article.account || row.account,
+    } : row));
+  };
+  // Sparar (eller uppdaterar, om samma artikelnr redan finns) raden som en
+  // artikel i registret — samma register som fylls i via `<datalist>` nedan.
+  const saveRowAsArticle = (row) => {
+    const num = (row.articleNumber || '').trim();
+    if (!num || !setArticles) return;
+    setArticles(prev => {
+      const key = num.toLowerCase();
+      const existingIdx = prev.findIndex(a => (a.articleNumber || '').trim().toLowerCase() === key);
+      const next = { articleNumber: num, description: row.description, unitPrice: row.unitPrice, vatRate: row.vatRate, account: row.account };
+      if (existingIdx === -1) return [...prev, next];
+      return prev.map((a, idx) => idx === existingIdx ? next : a);
+    });
+  };
 
   const calcRow = (r) => {
     const gross = r.qty * r.unitPrice * (1 - (r.discount || 0) / 100);
@@ -809,7 +843,35 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
                               <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
                                 <div>
                                   <label style={lbl}>Artikelnr</label>
-                                  <input disabled={isLocked} style={inp} placeholder="Artnr" />
+                                  <div style={{ display: 'flex', gap: '4px' }}>
+                                    <input
+                                      disabled={isLocked}
+                                      style={inp}
+                                      placeholder="Artnr"
+                                      value={row.articleNumber || ''}
+                                      list="article-register-list"
+                                      onChange={e => updateRow(i, 'articleNumber', e.target.value)}
+                                      // Väljs en BEFINTLIG artikel ur <datalist>-listan (blur = klart att
+                                      // skriva) fylls resten av raden i automatiskt — men bara då, aldrig
+                                      // vid varje tecken, så halvskrivna artikelnummer inte triggar en
+                                      // ofärdig träff mitt i inmatningen.
+                                      onBlur={e => {
+                                        const hit = findArticleByNumber(e.target.value);
+                                        if (hit) applyArticleToRow(i, hit);
+                                      }}
+                                    />
+                                    {!isLocked && (
+                                      <button
+                                        type="button"
+                                        onClick={() => saveRowAsArticle(row)}
+                                        disabled={!(row.articleNumber || '').trim()}
+                                        title="Spara radens artikelnr/benämning/pris/moms i artikelregistret för återanvändning"
+                                        style={{ flexShrink: 0, padding: '0 8px', border: '1px solid var(--text-muted)', borderRadius: '3px', background: 'var(--bg-card)', cursor: (row.articleNumber || '').trim() ? 'pointer' : 'not-allowed', color: 'var(--text-main)', fontSize: '12px' }}
+                                      >
+                                        Spara
+                                      </button>
+                                    )}
+                                  </div>
                                 </div>
                                 <div>
                                   <label style={lbl}>Tjänst (momsfri)</label>
@@ -844,6 +906,14 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
                   )}
                 </tbody>
               </table>
+              {/* Delas av alla radernas Artikelnr-fält ovan (HTML5 <datalist>
+                  kräver ett enda, delat id) — native webbläsarautocomplete,
+                  ingen egen dropdown-komponent behövs. */}
+              <datalist id="article-register-list">
+                {articles.map(a => (
+                  <option key={a.articleNumber} value={a.articleNumber}>{a.description}</option>
+                ))}
+              </datalist>
             </div>
           </div>
 
@@ -1246,7 +1316,166 @@ function SupplierInvoicesPanel({ expenses, contacts, onMarkPaid, onOpenFull, onC
   );
 }
 
-export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegisterPayment, onUnmarkPaid, setInvoices, company, globalAction, clearGlobalAction, onNavigate, verifications = [], expenses = [], onMarkSupplierInvoicePaid, handleGlobalAction, onCreatePaymentLink, onGetPaymentLinkUrl }) {
+// ─── Artikelregister ───────────────────────────────────────────────────────
+// Fristående lista/redigering av det sparade artikelregistret (samma
+// `articles` som fylls i via fakturaradernas "Spara"-knapp och <datalist>,
+// se InvoiceForm ovan) — så registret går att bygga upp och städa i utan att
+// först behöva öppna en faktura.
+function ArticleRegisterModal({ articles, setArticles, onClose }) {
+  const empty = { articleNumber: '', description: '', unitPrice: 0, vatRate: 25, account: '3001' };
+  const [editing, setEditing] = useState(null); // null = ingen redigeras, annars ett utkast (nytt eller befintligt)
+  const [importMsg, setImportMsg] = useState(null);
+  const importFileRef = useRef(null);
+
+  const startNew = () => setEditing({ ...empty });
+  const startEdit = (a) => setEditing({ ...a });
+
+  const handleExportCsv = () => downloadCsv(`artiklar_${new Date().toISOString().split('T')[0]}.csv`, articlesToCsv(articles));
+  const handleImportClick = () => importFileRef.current?.click();
+  // Uppdaterar (matchar på artikelnr) om artikeln redan finns, annars lägger
+  // till en ny — samma upsert-princip som "Spara"-knappen på fakturaraden.
+  const handleImportFile = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const imported = csvToArticles(ev.target.result);
+        if (imported.length === 0) throw new Error('Inga giltiga rader hittades (kräver minst ett "Artikelnr").');
+        let added = 0, updated = 0;
+        setArticles(prev => {
+          const next = [...prev];
+          imported.forEach(item => {
+            const key = item.articleNumber.trim().toLowerCase();
+            const idx = next.findIndex(a => (a.articleNumber || '').trim().toLowerCase() === key);
+            if (idx === -1) { next.push(item); added++; }
+            else { next[idx] = item; updated++; }
+          });
+          return next;
+        });
+        setImportMsg({ type: 'success', text: `${added} ny${added === 1 ? '' : 'a'}, ${updated} uppdaterad${updated === 1 ? '' : 'e'}.` });
+      } catch (err) {
+        setImportMsg({ type: 'error', text: `Kunde inte importera: ${err.message}` });
+      }
+      setTimeout(() => setImportMsg(null), 6000);
+    };
+    reader.readAsText(file, 'utf-8');
+    e.target.value = '';
+  };
+
+  const save = () => {
+    const num = (editing.articleNumber || '').trim();
+    if (!num) return;
+    setArticles(prev => {
+      const key = num.toLowerCase();
+      const idx = prev.findIndex(a => (a.articleNumber || '').trim().toLowerCase() === key);
+      const next = { ...editing, articleNumber: num };
+      if (idx === -1) return [...prev, next];
+      return prev.map((a, i) => i === idx ? next : a);
+    });
+    setEditing(null);
+  };
+
+  const remove = (num) => {
+    if (!window.confirm(`Ta bort artikel "${num}" från registret? Redan sparade fakturor påverkas inte.`)) return;
+    setArticles(prev => prev.filter(a => a.articleNumber !== num));
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(17, 24, 39, 0.4)', WebkitBackdropFilter: 'blur(4px)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: '20px' }} onClick={onClose}>
+      <div style={{ background: 'var(--bg-card)', borderRadius: '12px', width: '100%', maxWidth: '640px', maxHeight: '80vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.15)' }} onClick={e => e.stopPropagation()}>
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--text-main)' }}>Artikelregister</h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button onClick={handleExportCsv} title="Exportera artiklar som CSV" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '5px 10px', background: 'none', border: '1px solid var(--border)', borderRadius: '5px', color: 'var(--text-secondary)', fontWeight: 600, fontSize: '12px', cursor: 'pointer' }}>
+              <Download size={13} /> Exportera
+            </button>
+            <button onClick={handleImportClick} title="Importera artiklar från CSV" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '5px 10px', background: 'none', border: '1px solid var(--border)', borderRadius: '5px', color: 'var(--text-secondary)', fontWeight: 600, fontSize: '12px', cursor: 'pointer' }}>
+              <Upload size={13} /> Importera
+            </button>
+            <input type="file" ref={importFileRef} accept=".csv" style={{ display: 'none' }} onChange={handleImportFile} />
+            <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
+          </div>
+        </div>
+        {importMsg && (
+          <div style={{ margin: '10px 20px 0', padding: '8px 12px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12.5px', background: importMsg.type === 'success' ? 'var(--status-green-bg)' : 'var(--status-red-bg)', color: importMsg.type === 'success' ? 'var(--status-green-text)' : 'var(--status-red-text)' }}>
+            {importMsg.type === 'success' ? <Check size={14} /> : <AlertTriangle size={14} />}
+            {importMsg.text}
+          </div>
+        )}
+
+        <div style={{ overflowY: 'auto', flex: 1, padding: '12px 20px' }}>
+          {editing ? (
+            <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', marginBottom: '16px' }}>
+              <div>
+                <label style={lbl}>Artikelnr</label>
+                <input style={inp} value={editing.articleNumber} onChange={e => setEditing(s => ({ ...s, articleNumber: e.target.value }))} placeholder="t.ex. 1001" />
+              </div>
+              <div>
+                <label style={lbl}>Konto</label>
+                <input style={inp} value={editing.account} onChange={e => setEditing(s => ({ ...s, account: e.target.value }))} />
+              </div>
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label style={lbl}>Benämning</label>
+                <input style={inp} value={editing.description} onChange={e => setEditing(s => ({ ...s, description: e.target.value }))} placeholder="Beskrivning av tjänst eller produkt" />
+              </div>
+              <div>
+                <label style={lbl}>Pris (exkl. moms)</label>
+                <input type="number" style={inp} value={editing.unitPrice} onChange={e => setEditing(s => ({ ...s, unitPrice: Number(e.target.value) }))} />
+              </div>
+              <div>
+                <label style={lbl}>Moms</label>
+                <select style={inp} value={editing.vatRate} onChange={e => setEditing(s => ({ ...s, vatRate: Number(e.target.value) }))}>
+                  {[0, 6, 12, 25].map(r => <option key={r} value={r}>{r}%</option>)}
+                </select>
+              </div>
+              <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                <button onClick={() => setEditing(null)} style={{ padding: '6px 14px', border: '1px solid var(--border)', borderRadius: '5px', background: 'none', cursor: 'pointer', fontSize: '13px' }}>Avbryt</button>
+                <button onClick={save} disabled={!editing.articleNumber.trim()} style={{ padding: '6px 14px', border: 'none', borderRadius: '5px', background: '#2e7d32', color: 'white', fontWeight: 700, cursor: editing.articleNumber.trim() ? 'pointer' : 'not-allowed', fontSize: '13px' }}>Spara</button>
+              </div>
+            </div>
+          ) : (
+            <button onClick={startNew} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 14px', marginBottom: '12px', background: '#2e7d32', border: 'none', borderRadius: '5px', fontSize: '13px', fontWeight: 700, color: 'white', cursor: 'pointer' }}>
+              <Plus size={14} /> Ny artikel
+            </button>
+          )}
+
+          {articles.length === 0 ? (
+            <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Inga artiklar sparade ännu. Lägg till en här, eller tryck "Spara" på en fakturarad.</p>
+          ) : (
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+              <thead>
+                <tr>
+                  <th style={{ textAlign: 'left', padding: '6px 8px', color: 'var(--text-secondary)', fontSize: '11px' }}>Artikelnr</th>
+                  <th style={{ textAlign: 'left', padding: '6px 8px', color: 'var(--text-secondary)', fontSize: '11px' }}>Benämning</th>
+                  <th style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--text-secondary)', fontSize: '11px' }}>Pris</th>
+                  <th style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--text-secondary)', fontSize: '11px' }}>Moms</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {articles.map(a => (
+                  <tr key={a.articleNumber} style={{ borderTop: '1px solid var(--border-light)' }}>
+                    <td style={{ padding: '6px 8px' }}>{a.articleNumber}</td>
+                    <td style={{ padding: '6px 8px' }}>{a.description}</td>
+                    <td style={{ padding: '6px 8px', textAlign: 'right' }}>{fmt(a.unitPrice)}</td>
+                    <td style={{ padding: '6px 8px', textAlign: 'right' }}>{a.vatRate}%</td>
+                    <td style={{ padding: '6px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <button onClick={() => startEdit(a)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1565c0', fontSize: '12px', marginRight: '8px' }}>Ändra</button>
+                      <button onClick={() => remove(a.articleNumber)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><Trash2 size={13} /></button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegisterPayment, onUnmarkPaid, setInvoices, company, globalAction, clearGlobalAction, onNavigate, verifications = [], expenses = [], onMarkSupplierInvoicePaid, handleGlobalAction, onCreatePaymentLink, onGetPaymentLinkUrl, articles = [], setArticles }) {
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Två klart avgränsade sektioner, inte en klämd sida-vid-sida-vy — varje
@@ -1274,6 +1503,7 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
   const [editingInvoice, setEditingInvoice] = useState(null);
   const [invoicePrefill, setInvoicePrefill] = useState(null); // t.ex. från Tidrapportering → "Skapa faktura"
   const [selected, setSelected] = useState(new Set());
+  const [showArticleRegister, setShowArticleRegister] = useState(false);
   // Fakturorna visas i tydligt rubrikerade sektioner per status (Förfallen/
   // Obetald/Ej bokförd/Betald) istället för en enda blandad lista — piller-
   // knapparna ovanför hoppar ner till respektive sektion.
@@ -1626,6 +1856,8 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
         company={company}
         initial={editingInvoice}
         prefill={invoicePrefill}
+        articles={articles}
+        setArticles={setArticles}
         onSave={handleSaveInvoice}
         onCreateCreditNote={handleCreateCreditNote}
         onMarkPaid={onMarkPaid}
@@ -1674,8 +1906,12 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
         ))}
         <div style={{ flex: 1 }} />
         <button onClick={() => onNavigate?.('reports')} style={{ padding: '4px 14px 12px', border: 'none', background: 'none', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', cursor: 'pointer' }}>Rapporter</button>
+        <button onClick={() => setShowArticleRegister(true)} style={{ padding: '4px 14px 12px', border: 'none', background: 'none', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', cursor: 'pointer' }}>Artiklar</button>
         <button onClick={() => onNavigate?.('contacts')} style={{ padding: '4px 14px 12px', border: 'none', background: 'none', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', cursor: 'pointer' }}>Kunder ↓</button>
       </div>
+      {showArticleRegister && (
+        <ArticleRegisterModal articles={articles} setArticles={setArticles} onClose={() => setShowArticleRegister(false)} />
+      )}
 
     {section === 'kunder' && (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>

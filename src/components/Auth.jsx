@@ -76,8 +76,21 @@ const APP_SECTIONS_OVERVIEW = [
   { icon: Shield, label: 'Skatt och bokslut' },
 ];
 
+// Sessionstoken satt av InviteRedeem.jsx när någon öppnar en inbjudningslänk
+// — samma nyckel som App.jsx:s redeemPendingInvite läser vid nästa lyckade
+// inloggning/registrering. sessionStorage (inte localStorage): tokenet ska
+// inte överleva längre än den här enskilda flikens session, och rensas
+// ändå bort explicit av redeemPendingInvite oavsett utfall.
+const PENDING_INVITE_KEY = 'bokix_pending_invite_token';
+
 export default function Auth({ onLogin, onBackToLanding }) {
   const [isLogin, setIsLogin] = useState(true);
+  // En inbjuden person ska aldrig behöva ange ett eget företagsnamn/orgnr
+  // eller betala för en egen prenumeration — de ska bara skapa ett lösenord
+  // och komma in. Läses en gång vid mount (inte varje render) eftersom
+  // sessionStorage inte kan ändras av något ANNAT än InviteRedeem.jsx medan
+  // det här formuläret är öppet.
+  const [hasPendingInvite] = useState(() => typeof window !== 'undefined' && Boolean(sessionStorage.getItem(PENDING_INVITE_KEY)));
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [regStep, setRegStep] = useState(0); // 0=personal, 1=email-confirm, 2=company, 3=password
@@ -147,8 +160,10 @@ export default function Auth({ onLogin, onBackToLanding }) {
     }
 
     if (regStep === 1) {
-      // Email step – just a placeholder, user confirms and moves to company
-      setRegStep(2);
+      // Email step – just a placeholder, user confirms and moves to company.
+      // En inbjuden person hoppar rakt förbi företagssteget (3) — de ska
+      // aldrig ombes namnge ett eget företag för att gå med i någon ANNANS.
+      setRegStep(hasPendingInvite ? 3 : 2);
       return;
     }
 
@@ -178,14 +193,30 @@ export default function Auth({ onLogin, onBackToLanding }) {
             data: {
               first_name: regFirstName,
               last_name: regLastName,
-              company_name: regCompany,
-              org_nr: regOrgNr,
+              // Tomma för en inbjuden person — de skapar inget eget företag
+              // här (se hasPendingInvite ovan). App.jsx:s fetchUserData
+              // hoppar då över "skapa tomt företag"-grenen helt, eftersom
+              // den bara körs när varken egen data eller delad åtkomst finns.
+              company_name: hasPendingInvite ? '' : regCompany,
+              org_nr: hasPendingInvite ? '' : regOrgNr,
             },
             ...(regCaptchaToken ? { captchaToken: regCaptchaToken } : {}),
           }
         });
         if (error) throw error;
         accountCreated = true;
+
+        // Inbjuden person: inget eget företag, ingen egen prenumeration att
+        // betala för — de rider på ägarens (se supabase-setup.sql:
+        // company_members, App.jsx: fetchUserData/hasSharedAccess). Själva
+        // inlösningen av inbjudan sker i App.jsx (redeemPendingInvite) så
+        // fort en riktig session finns — här är det klart, invänta bara att
+        // onAuthStateChange (App.jsx) tar över (kräver bekräftad e-post
+        // beroende på projektets Supabase-inställningar, precis som annars).
+        if (hasPendingInvite) {
+          setLoading(false);
+          return;
+        }
 
         // Kontot finns nu (oavsett om data.session är satt — det kräver
         // bekräftad e-post beroende på Supabase-projektets inställningar,

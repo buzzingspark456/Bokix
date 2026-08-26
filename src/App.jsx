@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
 import {
   LayoutDashboard,
   FileText,
@@ -43,6 +43,7 @@ import { createStripeCheckoutSession } from './stripeApi';
 import { createEmailDomain, getEmailDomainStatus } from './emailApi';
 import { getDebet, getKredit } from './utils/verificationAmounts';
 import { BRAND } from './utils/brandColors';
+import { COMPANY_WRITABLE_FIELDS } from '../api/_companyFields.js';
 
 // ── Bokix Logo Component (light sidebar) ──
 // Klickbar — tar till startsidan precis som varumärkeslogotyper brukar göra.
@@ -587,6 +588,21 @@ function createEmptyCompanyData(companyInfo) {
       fiscalYear: `${new Date().getFullYear()}-01-01`,
       vatPeriod: 'quarterly',
       chartPlan: 'bas2025',
+      // Automatiska påminnelser (api/cron/reminders.js) — inga inställningar
+      // i UI:t än (Sida: "ship without settings UI"), bara vettiga
+      // hårdkodade förvalsvärden. `agiRemindersSent` markerar redan
+      // skickade AGI-deadline-påminnelser per periodKey (t.ex. "2026-08")
+      // — momsens motsvarande markörer ligger istället på respektive
+      // vatPeriods[periodKey].remindersSent (se cron-jobbet), och en
+      // fakturas på invoice.remindersSent — olika platser eftersom
+      // vatPeriods/invoices redan är egna, adresserbara poster, medan AGI
+      // saknar en egen post per period att fästa markören på.
+      notifications: {
+        enabled: true,
+        invoiceReminderDays: 3,
+        declarationReminderDays: 7,
+        agiRemindersSent: {},
+      },
     },
     accounts: [...DEFAULT_ACCOUNTS],
     verifications: [],
@@ -598,6 +614,11 @@ function createEmptyCompanyData(companyInfo) {
     quotes: [],
     expenses: [],
     contacts: [],
+    // Sparade fakturarader (artikelnr/benämning/pris/momssats) att återanvända
+    // i stället för att skriva om samma rad för hand varje gång — se
+    // Invoices.jsx: ArticleRegisterModal + artikelvalet i radernas
+    // avancerade fält.
+    articles: [],
     projects: [],
     timeEntries: [],
     // Godkännande-status per (person, månad, kund) för Tidrapportering →
@@ -931,6 +952,27 @@ function App() {
   }, [hideScrollbar]);
   const toggleHideScrollbar = () => setHideScrollbar(v => !v);
 
+  // ── Sidomenyns färg i LJUST läge ── Kundönskemål: i ljust läge är
+  // sidomenyn Bokix-grön (--bg-sidebar: #3d7a2e, index.css); vissa vill
+  // hellre ha samma mörka sidomeny som mörkt läge redan använder
+  // (--bg-sidebar: #0c1f14) UTAN att byta hela appens tema till mörkt. Ren
+  // preferens, ingen effekt i mörkt läge (sidomenyn är redan mörk där) —
+  // se index.css: ":root:not([data-theme='dark'])[data-sidebar-style='dark']".
+  // Samma spara-i-localStorage/sätt-attribut-på-<html>-mönster som temat/
+  // scrollbaren ovan.
+  const [sidebarStyle, setSidebarStyle] = useState(() => {
+    try {
+      const stored = localStorage.getItem('bokix_sidebar_style');
+      if (stored === 'green' || stored === 'dark') return stored;
+    } catch { /* privat läge/blockerad storage — kör vidare med förvalet */ }
+    return 'green';
+  });
+  useEffect(() => {
+    document.documentElement.setAttribute('data-sidebar-style', sidebarStyle);
+    try { localStorage.setItem('bokix_sidebar_style', sidebarStyle); } catch { /* samma reservläge som ovan */ }
+  }, [sidebarStyle]);
+  const toggleSidebarStyle = () => setSidebarStyle(s => (s === 'dark' ? 'green' : 'dark'));
+
   // Global intent state
   const [globalAction, setGlobalAction] = useState(null);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
@@ -997,6 +1039,183 @@ function App() {
     // Mock removed to avoid 404
     return null;
   }, [])
+
+  // ── Delade företag (max 3 användare/företag — se supabase-setup.sql:
+  // company_members) ──────────────────────────────────────────────────────
+  // Fältlistan är importerad från api/_companyFields.js — samma källa som
+  // api/company-access.js och server.js använder, inte längre en tredje
+  // kopia att glömma synka. SQL-funktionen set_company_field har fortfarande
+  // sin egen PL/pgSQL-vitlista (kan inte importera JS) och måste synkas dit
+  // manuellt.
+  const SHARED_COMPANY_WRITABLE_FIELDS = COMPANY_WRITABLE_FIELDS;
+
+  const getAccessToken = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token || null;
+  };
+
+  // Löser in en väntande inbjudan (se InviteRedeem.jsx, som lägger tokenet
+  // här) — MÅSTE köras med en riktig, redan etablerad session (annars
+  // matchar ingen RLS-policy nedan), så anropas allra först i fetchUserData
+  // nedan, aldrig från Auth.jsx direkt: en nyregistrerad person har inte
+  // nödvändigtvis en session förrän e-posten är bekräftad (beror på
+  // projektets Supabase-inställningar), men fetchUserData körs bara när en
+  // session FAKTISKT finns (SIGNED_IN eller en redan aktiv session vid
+  // sidladdning) — se auth-effekten ovan.
+  const PENDING_INVITE_KEY = 'bokix_pending_invite_token';
+  const redeemPendingInvite = async (authUser) => {
+    if (typeof window === 'undefined' || !supabaseEnabled) return;
+    const token = sessionStorage.getItem(PENDING_INVITE_KEY);
+    if (!token) return;
+    try {
+      const { data: invite } = await supabase
+        .from('company_members')
+        .select('id, status, expires_at')
+        .eq('invite_token', token)
+        .maybeSingle();
+      if (!invite || invite.status !== 'pending') {
+        sessionStorage.removeItem(PENDING_INVITE_KEY);
+        return;
+      }
+      if (new Date(invite.expires_at) <= new Date()) {
+        sessionStorage.removeItem(PENDING_INVITE_KEY);
+        setToast({ message: 'Inbjudan har gått ut. Be den som bjöd in dig att skicka en ny.', variant: 'error' });
+        return;
+      }
+      // .select('id') efter UPDATE så vi kan se OM raden faktiskt träffades
+      // — RLS filtrerar tyst bort en UPDATE som inte matchar (t.ex. inloggad
+      // med fel e-post) UTAN att returnera ett fel, så utan detta hade koden
+      // trott att inlösen lyckades och visat en falsk "accepterad"-toast.
+      const { data: redeemedRows, error: redeemError } = await supabase
+        .from('company_members')
+        .update({ member_user_id: authUser.id, status: 'active', redeemed_at: new Date().toISOString() })
+        .eq('id', invite.id)
+        .select('id');
+      sessionStorage.removeItem(PENDING_INVITE_KEY);
+      if (redeemError) {
+        console.error('Kunde inte lösa in inbjudan:', redeemError);
+        setToast({ message: 'Kunde inte lösa in inbjudan. Kontakta den som bjöd in dig, eller att din inloggade e-postadress matchar den inbjudan skickades till.', variant: 'error' });
+        return;
+      }
+      if (!redeemedRows || redeemedRows.length === 0) {
+        console.error('Inlösen av inbjudan matchade ingen rad (fel inloggad e-post?)');
+        setToast({ message: 'Kunde inte lösa in inbjudan. Kontrollera att du är inloggad med samma e-postadress som inbjudan skickades till.', variant: 'error' });
+        return;
+      }
+      setToast({ message: 'Inbjudan accepterad — du har nu åtkomst till företaget.', variant: 'success' });
+    } catch (err) {
+      console.error('Fel vid inlösen av inbjudan:', err);
+      sessionStorage.removeItem(PENDING_INVITE_KEY);
+    }
+  };
+
+  // Hämtar varje AKTIVT delat företag (company_members, status='active',
+  // member_user_id = jag) via api/company-access.js — ALDRIG genom att läsa
+  // en annan users user_data-rad direkt (RLS tillåter inte det, och ska
+  // inte). En inbjudan som återkallats eller vars ägare försvunnit ger bara
+  // ett icke-OK svar för just den posten — hoppas tyst över (inloggningen
+  // ska aldrig blockeras av EN trasig inbjudan bland flera).
+  const fetchSharedCompanies = async (authUserId, accessToken) => {
+    if (!accessToken) return {};
+    const { data: memberships } = await supabase
+      .from('company_members')
+      .select('company_id, owner_user_id, role')
+      .eq('member_user_id', authUserId)
+      .eq('status', 'active');
+    if (!memberships || memberships.length === 0) return {};
+
+    // Parallellt, inte sekventiellt — en person som är inbjuden till FLERA
+    // olika ägares företag (t.ex. en redovisningskonsult med flera kunder)
+    // ska inte behöva vänta ett nätverks-tur-och-retur PER företag i följd
+    // vid varje inloggning.
+    const results = {};
+    await Promise.all(memberships.map(async (m) => {
+      try {
+        const res = await fetch(`/api/company-access?company_id=${encodeURIComponent(m.company_id)}`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (!res.ok) return;
+        const json = await res.json();
+        if (json?.company) {
+          // __shared markerar företaget som INTE mitt eget — se
+          // persist-effekten längre ner, som aldrig får skriva in det här i
+          // min egen user_data-rad, bara via set_company_field.
+          results[m.company_id] = { ...json.company, __shared: { ownerUserId: m.owner_user_id, role: json.role } };
+        }
+      } catch (err) {
+        console.error('Kunde inte hämta delat företag', m.company_id, err);
+      }
+    }));
+    return results;
+  };
+
+  // Läser om ETT av mina EGNA företag direkt från min egen user_data-rad
+  // (tillåtet av RLS — jag läser bara min egen rad). Används bara precis
+  // innan en helblobs-sparning av ett företag jag delar med andra (se
+  // persist-effekten) — en färsk kopia här, istället för min ev. förlegade
+  // lokala state, är det som faktiskt stänger kapplöpningen mot en samtidig
+  // editor-ändring (som gick via set_company_field och alltså inte syns i
+  // min lokala `data` förrän jag laddar om).
+  const fetchFreshOwnCompany = async (companyId) => {
+    if (!user) return null;
+    const { data: row, error } = await supabase.from('user_data').select('state').eq('user_id', user.id).maybeSingle();
+    if (error || !row?.state?.companies?.[companyId]) return null;
+    return row.state.companies[companyId];
+  };
+
+  // Sparar ETT delat företags ändrade fält via api/company-access.js — ett
+  // POST per FÄLT SOM FAKTISKT ÄNDRATS sedan förra sparningen (jämfört med
+  // referenslikhet, inte djup jämförelse — fungerar eftersom
+  // updateCompanyField alltid byter ut hela fältets array/objekt-referens,
+  // aldrig muterar den befintliga, exakt samma mönster som resten av appen
+  // redan bygger på). Rollen kollas här också (inte bara servern) rent för
+  // att slippa ett garanterat-att-misslyckas nätverksanrop för en viewer —
+  // den RIKTIGA spärren är ändå servern (api/company-access.js 403:ar).
+  const lastPersistedSharedFieldsRef = useRef({});
+  const persistSharedCompanyFields = async (companyId, companyData) => {
+    if (companyData.__shared?.role !== 'editor') return;
+
+    // Första gången det här företaget dyker upp i en sparningscykel den här
+    // sessionen (precis inläst via fetchSharedCompanies) finns inget
+    // "senast sparat" att jämföra mot — utan den här grenen skulle VARJE
+    // fält räknas som "ändrat" (undefined !== companyData[f] för alla 18
+    // fält) och POST:as i onödan, trots att inget faktiskt redigerats.
+    // Etablerar bara referenspunkten, sparar ingenting.
+    if (!lastPersistedSharedFieldsRef.current[companyId]) {
+      lastPersistedSharedFieldsRef.current[companyId] = Object.fromEntries(
+        SHARED_COMPANY_WRITABLE_FIELDS.map(f => [f, companyData[f]])
+      );
+      return;
+    }
+
+    const accessToken = await getAccessToken();
+    if (!accessToken) return;
+
+    const last = lastPersistedSharedFieldsRef.current[companyId];
+    const changedFields = SHARED_COMPANY_WRITABLE_FIELDS.filter(f => companyData[f] !== last[f]);
+    if (changedFields.length === 0) return;
+
+    for (const field of changedFields) {
+      try {
+        const res = await fetch('/api/company-access', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+          body: JSON.stringify({ company_id: companyId, field, value: companyData[field] }),
+        });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          console.error(`Kunde inte spara ${field} för delat företag ${companyId}:`, body?.error);
+          // Sparas inte in i "last" — försöks igen nästa gång effekten körs,
+          // istället för att tyst ge upp på ett fält som faktiskt inte gick
+          // igenom (t.ex. rollen nedgraderades till viewer mitt i sessionen).
+          continue;
+        }
+        lastPersistedSharedFieldsRef.current[companyId] = { ...lastPersistedSharedFieldsRef.current[companyId], [field]: companyData[field] };
+      } catch (err) {
+        console.error(`Nätverksfel vid sparning av ${field} för delat företag ${companyId}:`, err);
+      }
+    }
+  };
 
   const saveUserDataToSupabase = async (stateData, extras = {}) => {
     if (!user || !supabaseEnabled) return;
@@ -1117,11 +1336,28 @@ function App() {
         return;
       }
 
+      // Löser in en väntande inbjudan (om någon finns, se InviteRedeem.jsx)
+      // INNAN vi ens frågar efter delade företag nedan — annars skulle en
+      // nyss inlöst inbjudan inte synas förrän NÄSTA inloggning.
+      await redeemPendingInvite(authUser);
+
+      // ── Delade företag (company_members) — hämtas FÖRE betalspärren, för
+      // att en inbjuden användare utan egen prenumeration aldrig ska
+      // blockeras: de rider på ÄGARENS aktiva prenumeration, se
+      // hasSharedAccess-villkoret nedan. ──
+      const sessionForAccessToken = supabaseEnabled ? (await supabase.auth.getSession()).data.session : null;
+      const sharedCompanies = supabaseEnabled
+        ? await fetchSharedCompanies(authUser.id, sessionForAccessToken?.access_token)
+        : {};
+      const hasSharedAccess = Object.keys(sharedCompanies).length > 0;
+
       // ── Betalspärr: en inloggad Supabase-användare får bara in i appen med
       // en giltig prenumeration (trialing/active/past_due — past_due är
       // Stripes egen automatiska betalningsomförsök, inte samma sak som
-      // uppsagd). Kollas FÖRE all annan datainhämtning nedan, så ett
-      // blockerat konto aldrig hinner se sina egna företagsdata ens kort. ──
+      // uppsagd) ELLER minst ett aktivt delat företag (se ovan — de betalar
+      // aldrig separat, de rider på ägarens prenumeration). Kollas FÖRE all
+      // annan datainhämtning nedan, så ett blockerat konto aldrig hinner se
+      // sina egna företagsdata ens kort. ──
       const ALLOWED_SUBSCRIPTION_STATUSES = ['trialing', 'active', 'past_due'];
       const fetchSubscriptionStatus = async () => {
         const { data } = await supabase
@@ -1138,21 +1374,34 @@ function App() {
       // (?subscription_checkout=success, se Auth.jsx/create-subscription-
       // checkout.js) — webhooken (customer.subscription.created) kan hinna
       // efter med några sekunder. Väntar in den istället för att blockera
-      // någon som precis betalade, max ~9 sekunder innan vi ger upp.
+      // någon som precis betalade, max ~9 sekunder innan vi ger upp. En
+      // inbjuden användare med hasSharedAccess väntar aldrig in det här —
+      // de har redan sin väg in.
       const justSubscribed = initialSubscriptionCheckoutParam === 'success';
-      if (justSubscribed && (!subRow || !ALLOWED_SUBSCRIPTION_STATUSES.includes(subRow.status))) {
+      if (!hasSharedAccess && justSubscribed && (!subRow || !ALLOWED_SUBSCRIPTION_STATUSES.includes(subRow.status))) {
         for (let attempt = 0; attempt < 6 && (!subRow || !ALLOWED_SUBSCRIPTION_STATUSES.includes(subRow.status)); attempt++) {
           await new Promise(resolve => setTimeout(resolve, 1500));
           subRow = await fetchSubscriptionStatus();
         }
       }
 
-      if (!subRow || !ALLOWED_SUBSCRIPTION_STATUSES.includes(subRow.status)) {
+      if (!hasSharedAccess && (!subRow || !ALLOWED_SUBSCRIPTION_STATUSES.includes(subRow.status))) {
         setSubscriptionGate('blocked');
         setIsLoadingAuth(false);
         return;
       }
       setSubscriptionGate(null);
+
+      // Mina EGNA företag som JAG delar med andra (company_members,
+      // owner_user_id = jag, status='active') — taggas __hasActiveMembers
+      // nedan så persist-effekten vet att den måste läsa om just DE
+      // företagen precis innan varje helblobs-sparning (se
+      // fetchFreshOwnCompany/persist-effekten) istället för att lita blint
+      // på min lokala, ev. förlegade kopia.
+      const { data: ownedMemberships } = supabaseEnabled
+        ? await supabase.from('company_members').select('company_id').eq('owner_user_id', authUser.id).eq('status', 'active')
+        : { data: null };
+      const ownedSharedCompanyIds = new Set((ownedMemberships || []).map(m => m.company_id));
 
       const { data: dbData, error } = await supabase
         .from('user_data')
@@ -1206,6 +1455,18 @@ function App() {
         // annars stannar ett Supabase-konto kvar på den gamla delade listan
         // för evigt eftersom den vägen aldrig går via loadData().
         const resolvedState = normalizeStore(backendState || resultData.state);
+        // Taggar mina EGNA företag som har aktiva delningar (se ovan) och
+        // slår in de företag jag är INBJUDEN till (hämtade via
+        // api/company-access.js, aldrig från min egen rad — se
+        // fetchSharedCompanies). Om activeCompanyId råkar peka på ett delat
+        // företag löser det sig automatiskt här, eftersom det nu finns med
+        // i companies igen.
+        Object.keys(resolvedState.companies || {}).forEach(id => {
+          if (ownedSharedCompanyIds.has(id)) {
+            resolvedState.companies[id] = { ...resolvedState.companies[id], __hasActiveMembers: true };
+          }
+        });
+        resolvedState.companies = { ...resolvedState.companies, ...sharedCompanies };
         setData(resolvedState);
         const completed = Boolean(resultData.onboarding_completed);
         const skipped = Boolean(resultData.onboarding_skipped);
@@ -1214,6 +1475,19 @@ function App() {
         localStorage.setItem('bokix_onboarding_completed', String(completed));
         localStorage.setItem('bokix_onboarding_skipped', String(skipped));
         await syncCompanyDataToBackend(resolvedState.activeCompanyId, resolvedState);
+        setIsLoggedIn(true);
+      } else if (hasSharedAccess) {
+        // Ingen egen user_data-rad ännu (aldrig skapat ett eget företag),
+        // men minst ett aktivt delat företag — vanligast för en nyinbjuden
+        // person utan tidigare Bokix-konto. Skapar INGEN egen rad/blankt
+        // företag här (till skillnad från grenen nedan) — den personen
+        // behöver inget eget företag bara för att logga in och redigera
+        // det de blivit inbjudna till, och en spurious tom user_data-rad
+        // hade bara varit förvirrande om de senare skapar sitt EGET företag.
+        const firstSharedId = Object.keys(sharedCompanies)[0];
+        setData({ activeCompanyId: firstSharedId, companies: sharedCompanies });
+        setHasCompletedOnboarding(true);
+        setHasSkippedOnboarding(true);
         setIsLoggedIn(true);
       } else {
         // First login, create blank company data based on metadata
@@ -1378,9 +1652,37 @@ function App() {
     // Sync to Supabase debounced — this is the actual persistence path;
     // it must always run for a logged-in user, independent of the
     // (currently no-op) per-company sync above.
+    //
+    // Delade företag (company_members): `data.companies` kan innehålla en
+    // BLANDNING av mina EGNA företag och företag jag bara är INBJUDEN till
+    // (__shared) — en person kan äga sitt eget företag OCH samtidigt vara
+    // t.ex. redovisningskonsult åt någon annans. De två sorterna sparas helt
+    // olika, aldrig genom samma anrop:
+    //   1) __shared-företag sparas ALDRIG i min egen user_data-rad (data
+    //      hör hemma hos ägaren) — ett fält i taget via
+    //      persistSharedCompanyFields (api/company-access.js).
+    //   2) Mina EGNA företag sparas som förut, en helblobs-upsert — MEN om
+    //      jag själv har delat ett av dem med andra (__hasActiveMembers),
+    //      läses just DET företaget om FÄRSKT precis innan skrivningen
+    //      (fetchFreshOwnCompany) istället för att lita på min ev.
+    //      förlegade lokala kopia — annars skulle min egen periodiska
+    //      sparning kunna tysta skriva över en samtidig editors ändring som
+    //      gick via spår (1) ovan sekunder tidigare. Se kommentaren vid
+    //      set_company_field i supabase-setup.sql för samma resonemang från
+    //      andra hållet.
     if (user && isLoggedIn) {
-      timeoutIds.push(setTimeout(() => {
-        saveUserDataToSupabase(data);
+      timeoutIds.push(setTimeout(async () => {
+        const entries = Object.entries(data.companies || {});
+        const sharedEntries = entries.filter(([, c]) => c.__shared);
+        const ownEntries = entries.filter(([, c]) => !c.__shared);
+
+        await Promise.all(sharedEntries.map(([id, c]) => persistSharedCompanyFields(id, c)));
+
+        const ownCompanies = {};
+        await Promise.all(ownEntries.map(async ([id, c]) => {
+          ownCompanies[id] = c.__hasActiveMembers ? ((await fetchFreshOwnCompany(id)) || c) : c;
+        }));
+        await saveUserDataToSupabase({ ...data, companies: ownCompanies });
       }, 2000));
     }
 
@@ -1562,6 +1864,9 @@ function App() {
   const quotes = currentCompany.quotes || [];
   const expenses = currentCompany.expenses;
   const contacts = currentCompany.contacts;
+  // `|| []`: samma skyddsnät som quotes ovan — fältet finns inte i sparad
+  // data för konton skapade innan artikelregistret fanns.
+  const articles = currentCompany.articles || [];
   const projects = currentCompany.projects || [];
   const verificationTemplates = currentCompany.verificationTemplates || [];
   const vatPeriods = currentCompany.vatPeriods || {};
@@ -1592,6 +1897,7 @@ function App() {
   const setQuotes = (fn) => updateCompanyField('quotes', (prev) => (typeof fn === 'function' ? fn(prev || []) : fn));
   const setExpenses = (fn) => updateCompanyField('expenses', fn);
   const setContacts = (fn) => updateCompanyField('contacts', fn);
+  const setArticles = (fn) => updateCompanyField('articles', (prev) => (typeof fn === 'function' ? fn(prev || []) : fn));
   const setProjects = (fn) => updateCompanyField('projects', fn);
   const setEmployees = (fn) => updateCompanyField('employees', fn);
   const setPayrollRuns = (fn) => updateCompanyField('payrollRuns', fn);
@@ -2614,6 +2920,8 @@ function App() {
             key={company?.id || data.activeCompanyId}
             invoices={invoices}
             contacts={contacts}
+            articles={articles}
+            setArticles={setArticles}
             verifications={verifications}
             expenses={expenses}
             onAdd={handleAddInvoice}
@@ -2817,6 +3125,9 @@ function App() {
             onAddCompany={() => setNewCompanyModal(true)}
             hideScrollbar={hideScrollbar}
             onToggleHideScrollbar={toggleHideScrollbar}
+            sidebarStyle={sidebarStyle}
+            onToggleSidebarStyle={toggleSidebarStyle}
+            sharedAccess={currentCompany.__shared || null}
           />
         );
       default:

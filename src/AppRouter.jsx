@@ -15,6 +15,7 @@ const PrivacyPolicy = lazy(() => import('./components/PrivacyPolicy'));
 const TermsPolicy = lazy(() => import('./components/TermsPolicy'));
 const CookiesPolicy = lazy(() => import('./components/CookiesPolicy'));
 const PersonuppgiftsBitradesAvtal = lazy(() => import('./components/PersonuppgiftsBitradesAvtal'));
+const InviteRedeem = lazy(() => import('./components/InviteRedeem'));
 
 // Den INLOGGADE bokföringsappen — Stripe, Supabase, sidomeny, lönehantering,
 // allt. Lazy-laddad: bara RootRoute nedan avgör OM/NÄR den ens hämtas.
@@ -138,6 +139,11 @@ export default function AppRouter() {
         <Route path="/gdpr" element={<Navigate to="/privacy" replace />} />
         <Route path="/cookies" element={<Suspense fallback={<AppLoadingFallback />}><CookiesPolicy /></Suspense>} />
         <Route path="/pub" element={<Suspense fallback={<AppLoadingFallback />}><PersonuppgiftsBitradesAvtal /></Suspense>} />
+        {/* Länken i inbjudningsmejlet (max 3 användare/företag, se
+            supabase-setup.sql: company_members) — se InviteRedeem.jsx för
+            varför den inte gör något RLS-uppslag själv, bara sparar tokenet
+            och skickar vidare till inloggning/registrering. */}
+        <Route path="/invite" element={<Suspense fallback={<AppLoadingFallback />}><InviteRedeem /></Suspense>} />
         {/* Okänd sökväg (t.ex. en gammal djuplänk in i den inloggade appen)
             — samma "/" -fallback som förut. RootRoute ovan avgör sedan
             själv, via shouldLoadAppImmediately, om det ska bli App eller

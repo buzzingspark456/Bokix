@@ -3,6 +3,7 @@ import { parseJsonBody } from '../stripe/_parseBody.js';
 import { requireAuthedUser, loadOwnedCompany } from '../_auth.js';
 import { checkRateLimit } from '../_rateLimit.js';
 import { isRequestFromBot } from '../_botid.js';
+import { hasResendApiKey, sendWithFallback } from '../_resend.js';
 
 // Speglar POST /api/email/send-invoice i server.js (lokal dev via
 // `npm run dev`) — Vercel kör aldrig server.js i produktion, bara filer
@@ -29,56 +30,6 @@ import { isRequestFromBot } from '../_botid.js';
 // företagsdata istället för att lita på ett client-supplied company-
 // objekt — annars kunde man fortfarande skicka "från" ett företagsnamn
 // man inte äger.
-const resendApiKey = process.env.RESEND_API_KEY || null;
-const resendAdminApiKey = process.env.RESEND_ADMIN_API_KEY || null;
-const emailFrom = process.env.EMAIL_FROM || 'Bokix <onboarding@resend.dev>';
-const SENDER_LOCAL_PART = 'faktura';
-
-function fallbackSenderAddress(companyName) {
-  const match = /^(.*)<(.+)>$/.exec(emailFrom);
-  if (match && companyName) {
-    return `${companyName} via Bokix <${match[2].trim()}>`;
-  }
-  return emailFrom;
-}
-
-/** Bugkritiskt (Sida 33): frågar alltid Resend live om domänens status
- * innan ett utskick — aldrig en cachad flagga. Faller tyst tillbaka till
- * systemadressen om domänen saknas, inte är verifierad, eller om
- * statuskontrollen misslyckas. */
-async function resolveSenderAddress(company) {
-  const fallback = fallbackSenderAddress(company?.name);
-  if (!company?.resendDomainId || !company?.emailDomain || !resendAdminApiKey) {
-    return { from: fallback, usingCustomDomain: false };
-  }
-  try {
-    const domainRes = await fetch(`https://api.resend.com/domains/${company.resendDomainId}`, {
-      headers: { Authorization: `Bearer ${resendAdminApiKey}` },
-    });
-    if (!domainRes.ok) return { from: fallback, usingCustomDomain: false };
-    const domainData = await domainRes.json();
-    if (domainData?.status === 'verified') {
-      return { from: `${company.name} <${SENDER_LOCAL_PART}@${company.emailDomain}>`, usingCustomDomain: true };
-    }
-  } catch (error) {
-    console.error('Resend domain status check failed, falling back:', error);
-  }
-  return { from: fallback, usingCustomDomain: false };
-}
-
-async function sendViaResend(payload) {
-  const resendRes = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${resendApiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  });
-  const data = await resendRes.json().catch(() => ({}));
-  return { ok: resendRes.ok, status: resendRes.status, data };
-}
-
 export default async function handler(req, res) {
   applySecurityHeaders(res);
   if (req.method !== 'POST') {
@@ -86,7 +37,7 @@ export default async function handler(req, res) {
     return;
   }
 
-  if (!resendApiKey) {
+  if (!hasResendApiKey()) {
     res.status(503).json({ error: 'E-post är inte konfigurerat. Sätt RESEND_API_KEY (och valfritt EMAIL_FROM) i Vercels miljövariabler för att kunna skicka fakturor via e-post.' });
     return;
   }
@@ -114,8 +65,6 @@ export default async function handler(req, res) {
     const companyData = await loadOwnedCompany(user.id, companyId, res);
     if (!companyData) return;
 
-    const { from } = await resolveSenderAddress(companyData.company);
-
     const basePayload = {
       to: [to],
       subject,
@@ -124,15 +73,10 @@ export default async function handler(req, res) {
       ...(attachmentBase64 ? { attachments: [{ filename: attachmentFilename || 'faktura.pdf', content: attachmentBase64 }] } : {}),
     };
 
-    let result = await sendViaResend({ ...basePayload, from });
-
     // Bugkritiskt: ett misslyckat utskick med kundens egen domän försöker
     // automatiskt igen med systemadressen istället för att hela utskicket
-    // bara faller.
-    if (!result.ok && from !== fallbackSenderAddress(companyData.company?.name)) {
-      console.warn('Send with custom domain failed, retrying with fallback sender:', result.data);
-      result = await sendViaResend({ ...basePayload, from: fallbackSenderAddress(companyData.company?.name) });
-    }
+    // bara faller — se sendWithFallback i _resend.js.
+    const result = await sendWithFallback(basePayload, companyData.company);
 
     if (!result.ok) {
       console.error('Resend API error:', result.data);

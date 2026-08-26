@@ -12,6 +12,7 @@ import {
 } from 'recharts';
 import { getDebet, getKredit } from '../utils/verificationAmounts';
 import { quarterToRange } from '../utils/vatCalculation';
+import { nextVatDeadline } from '../utils/declarationDeadlines';
 import { getGreeting } from '../utils/greeting';
 import { BRAND, KPI_GRADIENTS } from '../utils/brandColors';
 import { useIsMobileViewport } from '../hooks/useIsMobileViewport';
@@ -107,36 +108,6 @@ const BOOK_TYPE_LABEL = {
 
 function pad2(n) { return String(n).padStart(2, '0'); }
 function formatISODate(d) { return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; }
-
-/* ── Momsdeklarationens förfallodag enligt Skatteverkets allmänna regel för
-   kvartalsvis redovisning (12:e i andra månaden efter periodens slut),
-   framflyttat till nästa vardag om det landar på en helg. Tar INTE hänsyn
-   till röda dagar (annandag jul m.fl.) som Skatteverket ibland flyttar fram
-   separat — bara den generella regeln, som ett riktvärde. Visas bara för
-   kvartalsvis redovisning eftersom det är det enda flödet som faktiskt är
-   implementerat i momsmodulen (se VatDeclaration.jsx). ── */
-function nextVatDeadline(company, vatPeriods) {
-  if ((company?.vatPeriod || 'quarterly') !== 'quarterly') return null;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  let y = today.getFullYear();
-  let q = Math.floor(today.getMonth() / 3) + 1;
-  let guard = 0;
-  while (vatPeriods[`${y}-Q${q}`] && guard < 8) {
-    q += 1;
-    if (q > 4) { q = 1; y += 1; }
-    guard += 1;
-  }
-  const [, periodEnd] = quarterToRange(y, q);
-  const d = new Date(periodEnd + 'T00:00:00');
-  d.setMonth(d.getMonth() + 2);
-  d.setDate(12);
-  const dow = d.getDay();
-  if (dow === 6) d.setDate(d.getDate() + 2);
-  else if (dow === 0) d.setDate(d.getDate() + 1);
-  const daysLeft = Math.round((d - today) / 86400000);
-  return { daysLeft, quarter: q, year: y, dueDate: d };
-}
 
 /* ── Custom Tooltip ── */
 function ChartTooltip({ active, payload, label, fmt }) {

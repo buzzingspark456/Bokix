@@ -12,7 +12,7 @@ import { BRAND } from '../utils/brandColors';
 import MarketingLayout, { Reveal, RevealLazy, useReveal, BokixWordmark } from './marketing/MarketingLayout';
 import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW_SM, ACCENT, ACCENT_CYCLE } from './marketing/marketingTokens';
 import { IllBokforing, IllFakturering, IllSkatt, IllPersonal } from './marketing/featureIllustrations';
-import { PageMeta } from '../utils/seo';
+import { PageMeta, JsonLd, SITE_URL } from '../utils/seo';
 // Lazy: DemoWorkspace monterar en RIKTIG kopia av hela den inloggade
 // appens komponentträd (Dashboard, Invoices, Bokföring, Skatt, m.fl.) för
 // den interaktiva produktdemon längre ner på sidan (utanför den första
@@ -134,6 +134,45 @@ const FAQ_ITEMS = [
   { q: 'Hur fungerar de 30 dagarna gratis?', a: 'Du lägger in dina betaluppgifter hos Stripe när du skapar konto, men debiteras ingenting under de första 30 dagarna. Avslutar du innan dess kostar det dig aldrig något — annars börjar 99 kr/mån dras automatiskt.', g: ACCENT.red },
 ];
 
+// FAQPage-schema byggt direkt av FAQ_ITEMS ovan — samma sex frågor/svar
+// som faktiskt visas i FAQ-sektionen, aldrig en egen dubblettlista som kan
+// glida isär från vad besökaren ser (samma mönster som PricingPage.jsx).
+const FAQ_SCHEMA = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: FAQ_ITEMS.map(({ q, a }) => ({
+    '@type': 'Question',
+    name: q,
+    acceptedAnswer: { '@type': 'Answer', text: a },
+  })),
+};
+
+// SoftwareApplication-schema för startsidan — samma produkt som
+// PricingPage.jsx beskriver, men med url satt till startsidan så
+// crawlers/AI-svarsmotorer som landar på "/" (den mest lästa sidan) också
+// får ett strukturerat pris istället för att behöva gissa det ur brödtexten.
+const SOFTWARE_SCHEMA = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'Bokix',
+  applicationCategory: 'BusinessApplication',
+  operatingSystem: 'Web',
+  url: SITE_URL,
+  description: 'Bokföring, fakturering, lönehantering och momsredovisning för svenska företag i alla bolagsformer.',
+  offers: {
+    '@type': 'Offer',
+    price: '99',
+    priceCurrency: 'SEK',
+    priceSpecification: {
+      '@type': 'UnitPriceSpecification',
+      price: '99',
+      priceCurrency: 'SEK',
+      unitText: 'MON',
+      valueAddedTaxIncluded: false,
+    },
+  },
+};
+
 function FaqItem({ item, index, isOpen, onToggle }) {
   return (
     <div className="lp-faq-item" style={{ background: isOpen ? item.g.soft : 'transparent', borderRadius: '12px', transition: 'background 0.3s ease' }}>
@@ -223,6 +262,8 @@ export default function LandingPage({ onEnterApp }) {
         description="Bokix samlar bokföring, fakturering, löner och moms i ett enda verktyg för svenska företag i alla bolagsformer. Kom igång på minuter, 99 kr/mån."
         path="/"
       />
+      <JsonLd data={SOFTWARE_SCHEMA} />
+      <JsonLd data={FAQ_SCHEMA} />
       {/* ── HERO — levande gradientklot i loggans/Startsidans egna färger
           bakom en fetstilt rubrik, inget stillastående platt fält. ── */}
       <section style={{ display: 'flex', alignItems: 'center', background: 'var(--mkt-ivory)', position: 'relative', overflow: 'hidden', paddingTop: '140px', paddingBottom: '72px' }}>

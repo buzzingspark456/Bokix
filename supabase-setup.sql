@@ -388,6 +388,199 @@ ON storage.objects FOR DELETE TO authenticated
 USING (bucket_id = 'bokix-uploads' AND (storage.foldername(name))[1] = (SELECT auth.uid()::text));
 
 -- ═══════════════════════════════════════════════════════════
+-- company_members: dela ett företag med upp till 2 extra inloggningar
+-- (ägare + max 2 inbjudna = max 3 användare per företag)
+-- ═══════════════════════════════════════════════════════════
+-- Ägarens rad i user_data (hela state-blobben) rörs INTE av detta — en
+-- inbjuden användare får ALDRIG direkt Supabase-åtkomst till ägarens rad
+-- (RLS ovan tillåter fortfarande bara auth.uid() = user_id där). Den här
+-- tabellen är enbart ett medlemskaps-/behörighetsregister. All faktisk
+-- läsning/skrivning av ägarens data ÅT en inbjuden användare sker uteslutande
+-- via api/company-access.js (service-role-nyckeln), som slår upp medlemskap
+-- här FÖRST och bara därefter läser/skriver in i user_data — precis samma
+-- indirekta mönster som set_company_stripe_account ovan redan använder för
+-- Stripes callback, fast nu för en mänsklig andraanvändare istället för en
+-- webhook. Se App.jsx (fetchUserData/persistCompanyField) för klientsidan.
+CREATE TABLE IF NOT EXISTS public.company_members (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  owner_user_id uuid NOT NULL,        -- vems user_data-rad blobben ligger i
+  company_id text NOT NULL,           -- nyckel inuti state.companies
+  invited_email text NOT NULL,
+  member_user_id uuid,                -- sätts först när inbjudan löses in
+  role text NOT NULL CHECK (role IN ('editor', 'viewer')),
+  status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'active', 'revoked')),
+  invite_token uuid NOT NULL DEFAULT gen_random_uuid(),
+  invited_at timestamptz DEFAULT now(),
+  expires_at timestamptz DEFAULT (now() + interval '7 days'),
+  redeemed_at timestamptz,
+  revoked_at timestamptz,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+-- Samma person kan inte bjudas in två gånger till samma företag SAMTIDIGT
+-- (en ny rad per omdirigering skulle annars smyga förbi 2-gränsen ovan) —
+-- men en 'revoked' rad ska INTE blockera en framtida återinbjudan, så det
+-- här är ett partiellt unikt index (bara pending/active), inte en vanlig
+-- UNIQUE-constraint på hela tabellen. Utan WHERE-villkoret skulle en ägare
+-- som återkallar en medlem aldrig kunna bjuda in samma e-post igen —
+-- INSERT hade träffat unique-violation för alltid, trots att UI:t (Settings
+-- atCap-logiken) räknar en revoked rad som en ledig plats.
+--
+-- Om ett tidigare utkast av den här filen (med UNIQUE(...) som en vanlig
+-- kolumn-constraint i CREATE TABLE ovan istället för det partiella indexet
+-- nedan) redan kördes mot en levande databas skapade Postgres automatiskt
+-- en constraint med namnet nedan — CREATE TABLE IF NOT EXISTS är då en
+-- no-op och den gamla, striktare constrainten hade blivit kvar parallellt
+-- med det nya indexet och fortsatt blockera återinbjudan. Ofarligt att
+-- köra även om den aldrig fanns (IF EXISTS).
+ALTER TABLE public.company_members DROP CONSTRAINT IF EXISTS company_members_owner_user_id_company_id_invited_email_key;
+DROP INDEX IF EXISTS company_members_active_invite_unique;
+CREATE UNIQUE INDEX company_members_active_invite_unique
+ON public.company_members (owner_user_id, company_id, invited_email)
+WHERE status IN ('pending', 'active');
+
+DROP TRIGGER IF EXISTS set_updated_at ON public.company_members;
+CREATE TRIGGER set_updated_at
+BEFORE UPDATE ON public.company_members
+FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+ALTER TABLE public.company_members ENABLE ROW LEVEL SECURITY;
+
+-- SELECT: ägaren ser alla sina inbjudningar (oavsett status). Den inbjudna
+-- ser sin egen rad — dels via e-postmatchning MOT DEN INLOGGADES JWT (så en
+-- inbjudan syns redan innan den är inlöst, t.ex. i en "Du är inbjuden"-vy),
+-- dels via member_user_id efter inlösen. `lower()` på båda sidor så en
+-- inbjudan skapad med annan skiftläge (t.ex. Namn@Firma.se) ändå matchar.
+DROP POLICY IF EXISTS "Se egna medlemskapsrader" ON public.company_members;
+CREATE POLICY "Se egna medlemskapsrader"
+ON public.company_members FOR SELECT TO authenticated
+USING (
+  (select auth.uid()) = owner_user_id
+  OR (select auth.uid()) = member_user_id
+  OR lower(invited_email) = lower((select auth.jwt() ->> 'email'))
+);
+
+-- INSERT: bara ägaren kan skapa en inbjudan, bara till sig själv som
+-- owner_user_id, och bara om företaget redan har färre än 2
+-- aktiva/väntande inbjudningar (= "max 3 användare" hårdkodat i databasen,
+-- inte bara i UI:t). Kollar INTE att company_id faktiskt finns i ägarens
+-- egen state.companies — det vore dyrt att uttrycka i en RLS-policy och
+-- är ofarligt att hoppa över här: värsta fallet är en övergiven rad som
+-- aldrig kan lösas in (api/company-access.js verifierar äkta ägarskap på
+-- riktigt, se loadMemberCompany, innan någon data någonsin lämnas ut).
+-- Race-notis: två samtidiga inbjudningar i exakt samma ögonblick skulle
+-- teoretiskt kunna klara <2-kollen båda två (klassisk TOCTOU) — accepterat
+-- här, en ägare som klickar "bjud in" två gånger på millisekunden är inget
+-- verkligt hot, och värsta utfallet är en tredje rad, inte en säkerhetslucka.
+DROP POLICY IF EXISTS "Ägare skapar inbjudan" ON public.company_members;
+CREATE POLICY "Ägare skapar inbjudan"
+ON public.company_members FOR INSERT TO authenticated
+WITH CHECK (
+  owner_user_id = (select auth.uid())
+  AND (
+    SELECT count(*) FROM public.company_members cm
+    WHERE cm.owner_user_id = (select auth.uid())
+      AND cm.company_id = company_members.company_id
+      AND cm.status IN ('pending', 'active')
+  ) < 2
+);
+
+-- UPDATE: två helt olika användare av samma policy.
+--  (a) Ägaren får ändra vad som helst på sina egna rader (byta roll,
+--      återkalla via status='revoked').
+--  (b) Den inbjudna får bara röra sin EGEN väntande, icke-utgångna rad, och
+--      WITH CHECK tvingar resultatet av den uppdateringen till EXAKT
+--      { member_user_id = mitt eget uid, status = 'active' } — dvs. en
+--      inbjuden person kan bara "lösa in" inbjudan, aldrig sätta sig själv
+--      till 'editor' eller återaktivera en redan återkallad rad.
+-- Ingen DELETE-policy: återkallelse är en statusändring, inte en radering
+-- — lämnar ett revisionsspår istället för att tysta ta bort historiken.
+DROP POLICY IF EXISTS "Hantera eller lös in medlemskap" ON public.company_members;
+CREATE POLICY "Hantera eller lös in medlemskap"
+ON public.company_members FOR UPDATE TO authenticated
+USING (
+  owner_user_id = (select auth.uid())
+  OR (
+    lower(invited_email) = lower((select auth.jwt() ->> 'email'))
+    AND status = 'pending'
+    AND expires_at > now()
+  )
+)
+WITH CHECK (
+  owner_user_id = (select auth.uid())
+  OR (
+    lower(invited_email) = lower((select auth.jwt() ->> 'email'))
+    AND member_user_id = (select auth.uid())
+    AND status = 'active'
+    -- role måste vara oförändrad — utan detta kollar WITH CHECK bara de tre
+    -- fälten ovan, så en inbjuden 'viewer' kunde annars skicka med role:
+    -- 'editor' i samma UPDATE och lösa in sig själv med skrivrätt de aldrig
+    -- blivit beviljade. Jämför mot raden som redan ligger lagrad (self-join
+    -- på primärnyckeln) istället för att lita på vad klienten skickar.
+    AND role = (SELECT cm.role FROM public.company_members cm WHERE cm.id = company_members.id)
+  )
+);
+
+-- set_company_field: samma SECURITY DEFINER-mönster som
+-- set_company_stripe_account ovan, men generell över VILKET fält som
+-- skrivs — används av api/company-access.js (en inbjuden editor sparar en
+-- ändring i ägarens blob) OCH av den kommande automatiska påminnelse-cronen
+-- (markerar en faktura/momsperiod som "påminnelse skickad"). Skriver bara
+-- ETT namngivet fält under companies.<id> istället för klientens vanliga
+-- helblobs-upsert (saveUserDataToSupabase) — minskar blast radius från
+-- "hela användarens alla företag" till "ett fält på ett företag", men
+-- eliminerar INTE kapplöpningen mot en samtidig helblobs-sparning från
+-- ägarens egen webbläsare (se App.jsx: persistCompanyField läser om det
+-- delade företagets gren precis innan varje debounce-sparning, just för
+-- att undvika att den här skrivningen tyst skrivs över några sekunder
+-- senare).
+--
+-- p_field är en vitlista, inte fritext — annars hade vem som helst med
+-- körrätt kunnat skriva in i t.ex. companies.<id>.company.stripeAccountId
+-- via den här funktionen och kringgå set_company_stripe_account helt.
+--
+-- create_missing = FALSE (till skillnad från set_company_stripe_account):
+-- hittar jsonb_set ingen befintlig companies.<id>-gren blir anropet en
+-- no-op istället för att hitta på en ny, halvfärdig företagsstruktur —
+-- en trasig/saknad gren ska upptäckas, inte tystas.
+CREATE OR REPLACE FUNCTION public.set_company_field(
+  p_user_id uuid,
+  p_company_id text,
+  p_field text,
+  p_value jsonb
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF p_field NOT IN (
+    'accounts', 'verifications', 'invoices', 'quotes', 'expenses', 'contacts',
+    'articles', 'projects', 'timeEntries', 'timeReportStatuses',
+    'billableTimeEntries', 'recurringTemplates', 'verificationTemplates',
+    'vatPeriods', 'reviewHistory', 'employees', 'payrollRuns', 'company'
+  ) THEN
+    RAISE EXCEPTION 'Ogiltigt fält för set_company_field: %', p_field;
+  END IF;
+
+  UPDATE public.user_data
+  SET state = jsonb_set(
+    coalesce(state, '{}'::jsonb),
+    ARRAY['companies', p_company_id, p_field],
+    p_value,
+    false
+  )
+  WHERE user_id = p_user_id
+    AND state #> ARRAY['companies', p_company_id] IS NOT NULL;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.set_company_field(uuid, text, text, jsonb) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.set_company_field(uuid, text, text, jsonb) TO service_role;
+
+-- ═══════════════════════════════════════════════════════════
 -- Supabase säkerhetslinter: public.rls_auto_enable()
 -- ═══════════════════════════════════════════════════════════
 -- Den här funktionen finns i den LEVANDE databasen (linterns rapport

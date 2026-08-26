@@ -5,7 +5,7 @@ import { BRAND } from '../../utils/brandColors';
 import MarketingLayout, { Reveal } from './MarketingLayout';
 import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW, ACCENT } from './marketingTokens';
 import { IllBokforing, IllFakturering, IllSkatt, IllPersonal } from './featureIllustrations';
-import { PageMeta } from '../../utils/seo';
+import { PageMeta, JsonLd } from '../../utils/seo';
 
 // Fördjupad version av startsidans fyra kolumner — samma fyra riktiga
 // huvudsektioner (se globala sidomenyn i App.jsx), nu med de faktiska
@@ -56,6 +56,24 @@ const SECTIONS = [
   },
 ];
 
+// ItemList-schema byggt direkt av SECTIONS ovan — samma fyra huvud-
+// funktioner (med underpunkter som description) som faktiskt visas på
+// sidan, aldrig en egen dubblettlista. Ger Google/AI-svarsmotorer en
+// strukturerad lista över vad produkten faktiskt gör, inte bara brödtext.
+const FEATURE_LIST_SCHEMA = {
+  '@context': 'https://schema.org',
+  '@type': 'ItemList',
+  itemListElement: SECTIONS.map((s, i) => ({
+    '@type': 'ListItem',
+    position: i + 1,
+    item: {
+      '@type': 'Thing',
+      name: s.title,
+      description: [s.desc, ...s.points].join(' '),
+    },
+  })),
+};
+
 export default function FeaturesPage() {
   const navigate = useNavigate();
   const enterApp = () => navigate('/', { state: { enterApp: true } });
@@ -66,6 +84,7 @@ export default function FeaturesPage() {
         description="Se allt som ingår i Bokix: löpande bokföring med full BAS-kontoplan, kund- och leverantörsfakturor, lönekörning och moms-/AGI-sammanställningar — i ett verktyg."
         path="/funktioner"
       />
+      <JsonLd data={FEATURE_LIST_SCHEMA} />
       <section style={{ padding: '150px 24px 80px', background: IVORY }}>
         <Reveal style={{ maxWidth: '720px', margin: '0 auto', textAlign: 'center' }}>
           <h1 style={{ fontFamily: SERIF, fontSize: 'clamp(32px, 5vw, 50px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '18px', lineHeight: 1.14 }}>

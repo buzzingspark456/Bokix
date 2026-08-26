@@ -10,7 +10,8 @@ import { recordStripePaymentEvent } from './api/stripe/_paymentEvents.js'
 import { upsertSubscription, hasExistingSubscription } from './api/stripe/_subscriptions.js'
 import { normalizeAbsoluteUrl, appendQueryParam } from './api/stripe/_urls.js'
 import { resolveInvoiceLineItems } from './api/stripe/_invoiceLineItems.js'
-import { requireAuthedUser, loadOwnedCompany } from './api/_auth.js'
+import { requireAuthedUser, loadOwnedCompany, loadMemberCompany } from './api/_auth.js'
+import { COMPANY_WRITABLE_FIELDS } from './api/_companyFields.js'
 import { isRequestFromBot } from './api/_botid.js'
 
 dotenv.config()
@@ -185,6 +186,7 @@ const sensitiveLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30, standard
 app.use('/api/', generalLimiter)
 app.use('/api/stripe/', sensitiveLimiter)
 app.use('/api/email/', sensitiveLimiter)
+app.use('/api/company-access', sensitiveLimiter)
 
 // Bugkritiskt: MÅSTE registreras INNAN den globala express.json() nedan.
 // Stripes signaturverifiering (constructEvent) kräver kroppen exakt som
@@ -536,6 +538,87 @@ app.post('/api/email/send-invoice', async (req, res) => {
   } catch (error) {
     console.error('Email send error:', error)
     res.status(500).json({ error: error?.message || 'Kunde inte skicka e-post.' })
+  }
+})
+
+// Speglar GET/POST /api/company-access i api/company-access.js — lokal
+// utveckling, samma resonemang som send-invoice ovan (Vercel kör aldrig
+// server.js i produktion). Enda rutten en INBJUDEN användare (company_members)
+// någonsin pratar med — se filkommentaren i api/company-access.js för hela
+// säkerhetsresonemanget, exakt speglat här.
+const COMPANY_ACCESS_WRITABLE_FIELDS = new Set(COMPANY_WRITABLE_FIELDS)
+
+app.get('/api/company-access', async (req, res) => {
+  // Ingen BotID-koll här (till skillnad från POST nedan) — samma konvention
+  // som api/email/domains/status.js: bara skrivande POST-endpoints
+  // registreras i main.jsx:s initBotId-lista, en GET-koll här hade bara
+  // trigga Vercels "Possible misconfiguration"-larm i onödan (verifierat
+  // lokalt).
+  const user = await requireAuthedUser(req, res)
+  if (!user) return
+
+  try {
+    const companyId = req.query?.company_id
+    if (!companyId) {
+      res.status(400).json({ error: 'company_id krävs.' })
+      return
+    }
+    const member = await loadMemberCompany(user.id, companyId, res)
+    if (!member) return
+    res.status(200).json({ company: member.companyData, role: member.role })
+  } catch (error) {
+    console.error('company-access error:', error)
+    res.status(500).json({ error: error?.message || 'Kunde inte hämta företagsdata.' })
+  }
+})
+
+app.post('/api/company-access', async (req, res) => {
+  if (await isRequestFromBot()) {
+    res.status(403).json({ error: 'Åtkomst nekad.' })
+    return
+  }
+  const user = await requireAuthedUser(req, res)
+  if (!user) return
+
+  try {
+    const body = req.body || {}
+    const { company_id: companyId, field, value } = body
+    if (!companyId || !field || value === undefined) {
+      res.status(400).json({ error: 'company_id, field och value krävs.' })
+      return
+    }
+    if (!COMPANY_ACCESS_WRITABLE_FIELDS.has(field)) {
+      res.status(400).json({ error: `Ogiltigt fält: ${field}` })
+      return
+    }
+
+    const member = await loadMemberCompany(user.id, companyId, res)
+    if (!member) return
+    if (member.role !== 'editor') {
+      res.status(403).json({ error: 'Din roll (läsare) tillåter inte att spara ändringar.' })
+      return
+    }
+
+    // Ingen ny env-var-koll här: loadMemberCompany ovan har redan skapat en
+    // admin-klient med samma VITE_SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY och
+    // skulle ha svarat 503 och returnerat null (koden hade aldrig nått hit)
+    // om någon av dem saknades — en andra koll här var därför dödkod.
+    const admin = createClient(process.env.VITE_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
+    const { error: rpcError } = await admin.rpc('set_company_field', {
+      p_user_id: member.ownerUserId,
+      p_company_id: companyId,
+      p_field: field,
+      p_value: value,
+    })
+    if (rpcError) {
+      res.status(500).json({ error: rpcError.message })
+      return
+    }
+
+    res.status(200).json({ ok: true })
+  } catch (error) {
+    console.error('company-access error:', error)
+    res.status(500).json({ error: error?.message || 'Kunde inte spara företagsdata.' })
   }
 })
 

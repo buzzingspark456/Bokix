@@ -205,6 +205,17 @@
    föringssidorna (landningssidan, priser, om oss) är medvetet alltid
    ljusa/varumärkesfärgade, samma resonemang som de flesta SaaS-produkters
    publika sajt oavsett app-tema. */
+/* Sidomenyns färg i LJUST läge, oberoende av appens tema — Inställningar →
+   Utseende på datorn → "Mörk sidomeny" (App.jsx: sidebarStyle/
+   toggleSidebarStyle). Samma mörka nyans (#0c1f14) som mörkt lägets egen
+   sidebar redan använder nedan, men UTAN att byta resten av appens
+   ljusa palett. `:not([data-theme="dark"])` gör override:en meningslös
+   (och ofarlig om den ändå skulle träffa) när appen redan är i mörkt
+   läge, där sidebaren redan är mörk av andra skäl. */
+:root:not([data-theme="dark"])[data-sidebar-style="dark"] {
+  --bg-sidebar: #0c1f14;
+}
+
 :root[data-theme="dark"] {
   --bg-page:    #0f1a13;
   --bg-card:    #17281c;
