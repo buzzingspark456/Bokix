@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import LandingPage from './components/LandingPage';
 import CookieBanner from './components/CookieBanner';
 
@@ -158,6 +159,9 @@ export default function AppRouter() {
           App.jsx hade sin egen — App.jsx monterar INTE längre någon egen,
           se kommentaren i den filen. */}
       <CookieBanner />
+      {/* Vercel Speed Insights — spårar Core Web Vitals och sidprestanda.
+          Monterad här för att täcka alla routes (marknad OCH inloggad app). */}
+      <SpeedInsights />
     </>
   );
 }
