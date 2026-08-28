@@ -39,7 +39,15 @@ function AppLoadingFallback() {
 // internt (SupabaseClient-konstruktorn). Räknad här UTAN att importera
 // @supabase/supabase-js alls, så den här filen (och därmed marknadssidans
 // bunt) aldrig behöver dra in Supabase-klienten bara för att kolla om en
-// session-nyckel råkar finnas i localStorage.
+// session-nyckel råkar finnas i storage.
+//
+// sessionStorage, INTE localStorage (kundönskemål: förbli inloggad så
+// länge fliken är öppen, men kräva ny inloggning nästa gång sajten öppnas
+// efter att den stängts) — se supabaseClient.js:s egen kommentar om
+// storage-valet där. Måste hållas i synk: klienten där och kollen här
+// måste läsa ur SAMMA storage, annars slutar den här optimeringen fungera
+// tyst (en redan inloggad användare skulle se ett onödigt landningssides-
+// flimmer innan App.jsx själv hinner läsa sessionen på sitt eget sätt).
 function getSupabaseSessionKey() {
   try {
     const url = new URL(import.meta.env.VITE_SUPABASE_URL);
@@ -71,7 +79,7 @@ function shouldLoadAppImmediately() {
   if (typeof window === 'undefined') return false;
   try {
     const sessionKey = getSupabaseSessionKey();
-    if (sessionKey && localStorage.getItem(sessionKey)) return true;
+    if (sessionKey && sessionStorage.getItem(sessionKey)) return true;
   } catch { /* privat läge/blockerad storage — inte ett skäl att anta inloggad */ }
 
   const hash = window.location.hash || '';

@@ -36,6 +36,24 @@ const mockClient = {
   }),
 };
 
+// Kundönskemål: förbli inloggad så länge fliken/webbläsaren är öppen (byta
+// flik, uppdatera sidan, navigera runt i appen — allt oförändrat), men
+// kräva ny inloggning nästa gång sajten öppnas efter att den STÄNGTS.
+// sessionStorage istället för standardvalet localStorage är hela lösningen
+// — webbläsaren rensar sessionStorage automatiskt när fliken/fönstret
+// stängs (ingen egen kod, inget `beforeunload`-race mot att en async
+// signOut()-anrop hinner klart innan sidan hinner stängas, vilket är den
+// vanliga fallgropen med den ansatsen). `typeof window` -kollen är samma
+// försiktighetsprincip som fileUpload.js redan har (den här filen laddas
+// bara klient-sidan i praktiken, se AppRouter.jsx:s kommentar om varför
+// marknadsbunten aldrig importerar supabase-js alls — men kostar inget
+// att vara explicit ändå).
+//
+// AppRouter.jsx:s egen getSupabaseSessionKey()/shouldLoadAppImmediately()
+// läser SAMMA nyckel ur sessionStorage nu (var localStorage innan) — måste
+// hållas i synk med det här, annars slutar den optimeringen fungera tyst.
 export const supabase = hasValidConfig
-  ? createClient(supabaseUrl, supabaseAnonKey)
+  ? createClient(supabaseUrl, supabaseAnonKey, {
+      auth: typeof window !== 'undefined' ? { storage: window.sessionStorage } : undefined,
+    })
   : mockClient;
