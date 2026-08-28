@@ -1,7 +1,8 @@
 import { applySecurityHeaders } from './_security.js';
 import { parseJsonBody } from './stripe/_parseBody.js';
-import { checkRateLimit } from './_rateLimit.js';
+import { checkRateLimit, getClientIp } from './_rateLimit.js';
 import { isRequestFromBot } from './_botid.js';
+import { hasRecaptchaSecretKey, verifyRecaptcha } from './_recaptcha.js';
 
 // Kontaktformuläret på den publika marknadssajten (ContactPage.jsx) —
 // egen rutt, INTE en återanvändning av /api/email/send-invoice. Den
@@ -73,6 +74,19 @@ export default async function handler(req, res) {
     if (!EMAIL_RE.test(email)) {
       res.status(400).json({ error: 'Ogiltig e-postadress.' });
       return;
+    }
+
+    // Bara om en hemlig nyckel faktiskt är satt (RECAPTCHA_SECRET_KEY) —
+    // samma "fungerar utan konfiguration tills du skaffat nycklar"-princip
+    // som Turnstile.jsx redan har på klientsidan, så en installation utan
+    // reCAPTCHA-nycklar (eller ett Playwright-test, se e2e/contact.spec.js)
+    // inte går sönder bara för att widgeten aldrig renderades.
+    if (hasRecaptchaSecretKey()) {
+      const { ok } = await verifyRecaptcha(body?.recaptchaToken, getClientIp(req));
+      if (!ok) {
+        res.status(400).json({ error: 'Kunde inte verifiera att du inte är en robot. Ladda om sidan och försök igen.' });
+        return;
+      }
     }
 
     const result = await fetch('https://api.resend.com/emails', {

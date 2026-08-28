@@ -13,6 +13,7 @@ import { resolveInvoiceLineItems } from './api/stripe/_invoiceLineItems.js'
 import { requireAuthedUser, loadOwnedCompany, loadMemberCompany } from './api/_auth.js'
 import { COMPANY_WRITABLE_FIELDS } from './src/utils/companyFields.js'
 import { isRequestFromBot } from './api/_botid.js'
+import { hasRecaptchaSecretKey, verifyRecaptcha } from './api/_recaptcha.js'
 
 dotenv.config()
 
@@ -648,6 +649,15 @@ app.post('/api/contact', contactLimiter, async (req, res) => {
     if (!CONTACT_EMAIL_RE.test(email)) {
       res.status(400).json({ error: 'Ogiltig e-postadress.' })
       return
+    }
+
+    // Samma "bara om nyckel satt"-princip som api/contact.js (produktion).
+    if (hasRecaptchaSecretKey()) {
+      const { ok } = await verifyRecaptcha(body.recaptchaToken, req.ip)
+      if (!ok) {
+        res.status(400).json({ error: 'Kunde inte verifiera att du inte är en robot. Ladda om sidan och försök igen.' })
+        return
+      }
     }
 
     const result = await sendViaResend({

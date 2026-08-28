@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Mail, LifeBuoy, CreditCard, ShieldCheck, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { BRAND } from '../../utils/brandColors';
 import MarketingLayout, { Reveal } from './MarketingLayout';
 import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW, ACCENT_CYCLE } from './marketingTokens';
 import { PageMeta } from '../../utils/seo';
+import Recaptcha from '../Recaptcha';
 
 // Ämnesval i formuläret — samma tre ärendetyper som tidigare bara var
 // mailto-genvägar, nu förifyllda dropdown-värden istället. "Övrigt" täcker
@@ -41,6 +42,7 @@ export default function ContactPage() {
   const [form, setForm] = useState({ name: '', email: '', topic: TOPICS[0].value, message: '' });
   const [status, setStatus] = useState('idle'); // idle | sending | sent | error
   const [errorMsg, setErrorMsg] = useState('');
+  const recaptchaRef = useRef(null);
 
   function update(field, value) {
     setForm((f) => ({ ...f, [field]: value }));
@@ -60,6 +62,14 @@ export default function ContactPage() {
     setStatus('sending');
     setErrorMsg('');
     try {
+      // Kör reCAPTCHA-utmaningen precis innan utskicket, inte tidigare —
+      // "invisible" v2 har ingen synlig knapp att lösa i förväg, den körs
+      // programmatiskt här och löser (oftast) direkt utan att besökaren
+      // märker något. Returnerar `null` om reCAPTCHA inte är konfigurerat
+      // (se Recaptcha.jsx) — servern hoppar då över verifieringen på samma
+      // sätt, ingen `if` behövs här för det fallet.
+      const recaptchaToken = await recaptchaRef.current?.execute();
+
       // Egen rutt (api/contact.js), INTE /api/email/send-invoice — den
       // kräver inloggad session + company_id (se requireAuthedUser i
       // _auth.js), vilket en anonym besökare här aldrig har. Skickar bara
@@ -68,7 +78,7 @@ export default function ContactPage() {
       const res = await fetch('/api/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, topic: form.topic, message }),
+        body: JSON.stringify({ name, email, topic: form.topic, message, recaptchaToken }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Kunde inte skicka meddelandet.');
@@ -78,6 +88,11 @@ export default function ContactPage() {
     } catch (err) {
       setStatus('error');
       setErrorMsg(err.message || 'Något gick fel. Försök igen om en stund.');
+    } finally {
+      // En reCAPTCHA-token är engångsbruk — utan reset() skulle ett andra
+      // försök (t.ex. efter ett fel) skicka samma redan förbrukade token
+      // igen och alltid misslyckas verifieringen.
+      recaptchaRef.current?.reset();
     }
   }
 
@@ -197,6 +212,11 @@ export default function ContactPage() {
                     </p>
                   </div>
                 )}
+
+                {/* Osynlig — renderar inget UI om den faktiskt löser
+                    utmaningen automatiskt, körs av handleSubmit ovan precis
+                    innan utskicket. Se Recaptcha.jsx. */}
+                <Recaptcha ref={recaptchaRef} />
 
                 <button
                   type="submit"

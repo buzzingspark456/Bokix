@@ -1348,7 +1348,26 @@ function App() {
     supabase.auth.getSession()
       .then(({ data: { session } }) => {
         setUser(session?.user ?? null);
-        if (session?.user) {
+        // Bugkritiskt (kodgranskning/Playwright-test): en klickad
+        // återställningslänk ger ocksa en "riktig" (om än tillfällig)
+        // session redan HÄR, innan den separata onAuthStateChange-
+        // lyssnaren längre ner ens hinner reagera på sitt eget
+        // PASSWORD_RECOVERY-event. Utan den här kollen anropade koden
+        // fetchUserData rakt av för VILKEN session som helst — vilket för
+        // en kund med utgången prov-/uppsagd prenumeration satte
+        // subscriptionGate='blocked' INNAN passwordRecovery ens hunnit bli
+        // sant, och render-ordningen (se ternary-kedjan längre ner) räckte
+        // inte ensam: state:t fastnade på "blocked" permanent eftersom
+        // inget senare någonsin nollställer det. Samma hash-baserade
+        // detektering som AppRouter.jsx:s shouldLoadAppImmediately redan
+        // använder — om länken är en återställningslänk, hoppa över
+        // fetchUserData HELT här och lita på PASSWORD_RECOVERY-eventet
+        // nedan istället.
+        const isPasswordRecoveryUrl = /type=recovery/.test(window.location.hash || '');
+        if (isPasswordRecoveryUrl) {
+          clearTimeout(loadingTimeout);
+          setIsLoadingAuth(false);
+        } else if (session?.user) {
           fetchUserData(session.user);
         } else {
           clearTimeout(loadingTimeout);
@@ -1388,6 +1407,15 @@ function App() {
         // och PasswordRecoveryScreen.
         setPasswordRecovery(true);
       } else if (event === 'SIGNED_IN') {
+        // Kodgranskning/Playwright-test: en klickad återställningslänk kan
+        // trigga BÅDE PASSWORD_RECOVERY och SIGNED_IN (ordningen mellan
+        // supabase-js-events är inte garanterad) — utan den här kollen
+        // kunde SIGNED_IN-grenen köra fetchUserData rakt över
+        // PASSWORD_RECOVERY-grenens redan satta passwordRecovery=true,
+        // exakt samma "hamnar på betalningsspärren istället för
+        // återställningsformuläret"-bugg som mount-effektens getSession()
+        // ovan redan skyddas mot. Samma hash-kontroll här.
+        if (/type=recovery/.test(window.location.hash || '')) return;
         fetchUserData(session.user);
       }
     });

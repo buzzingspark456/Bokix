@@ -15,6 +15,17 @@
 // delad limiter (Upstash), inte den här.
 const buckets = new Map();
 
+/** Samma anropar-IP-uträkning som checkRateLimit redan gjorde inline —
+ * bruten ut hit så andra rutter (t.ex. api/contact.js, som skickar med
+ * `remoteip` till Googles reCAPTCHA-verifiering) kan återanvända EXAKT
+ * samma logik istället för en tyst tredje kopia. */
+export function getClientIp(req) {
+  const forwardedFor = req.headers['x-forwarded-for'];
+  return (Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor)?.split(',')[0]?.trim()
+    || req.socket?.remoteAddress
+    || 'unknown';
+}
+
 /** Returnerar true om anropet får fortsätta. Skriver själv ett 429-svar
  * och returnerar false annars — anropande kod ska bara göra
  * `if (!checkRateLimit(req, res, { key: '...' })) return;` direkt efter
@@ -28,11 +39,7 @@ const buckets = new Map();
  * = samma IP-baserade beteende som innan, oförändrat för alla befintliga
  * anropare. */
 export function checkRateLimit(req, res, { key, windowMs = 15 * 60 * 1000, max = 20, identifier }) {
-  const forwardedFor = req.headers['x-forwarded-for'];
-  const ip = (Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor)?.split(',')[0]?.trim()
-    || req.socket?.remoteAddress
-    || 'unknown';
-  const bucketKey = `${key}:${identifier || ip}`;
+  const bucketKey = `${key}:${identifier || getClientIp(req)}`;
   const now = Date.now();
 
   // Enkel städning så minnet inte växer obegränsat under en lång varm
