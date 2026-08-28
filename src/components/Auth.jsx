@@ -12,6 +12,7 @@ import { BRAND } from '../utils/brandColors';
 import { BokixWordmark } from './marketing/MarketingLayout';
 import { createStripeSubscriptionCheckout } from '../stripeApi';
 import Turnstile from './Turnstile';
+import { SITE_URL } from '../utils/seo';
 
 // ── Litet Stripe-märke — se motsvarande kommentar i PaymentRequiredGate.jsx
 // (samma lokala-kopia-mönster). ──
@@ -156,8 +157,18 @@ export default function Auth({ onLogin, onBackToLanding }) {
     setForgotLoading(true);
     try {
       if (!forgotEmail.trim()) throw new Error('Ange din e-postadress');
+      // Bugkritiskt (kundfeedback: "blev det rött och står {}"): SITE_URL
+      // (samma kanoniska https://www.bokix.se som resten av appens SEO-
+      // taggar redan använder, se utils/seo.jsx), INTE window.location.origin.
+      // Supabase avvisar tyst hela anropet om redirectTo inte exakt matchar
+      // något i projektets egen "Redirect URLs"-allowlist (Authentication →
+      // URL Configuration) — window.location.origin kan bli t.ex.
+      // "https://bokix.se" (utan www) eller en Vercel-previewdomän beroende
+      // på var man råkar testa ifrån, vilket INTE nödvändigtvis är samma sak
+      // som det som faktiskt är allowlistat där. Ett fast, känt värde
+      // undviker den gissningsleken helt.
       const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail.trim(), {
-        redirectTo: `${window.location.origin}/`,
+        redirectTo: `${SITE_URL}/`,
         ...(forgotCaptchaToken ? { captchaToken: forgotCaptchaToken } : {}),
       });
       // Supabase svarar med fel bara för sådant som captcha/nätverk/
@@ -167,7 +178,19 @@ export default function Auth({ onLogin, onBackToLanding }) {
       if (error) throw error;
       setForgotSent(true);
     } catch (err) {
-      setErrorMsg(err.message);
+      // Bugkritiskt (kundfeedback): en trasig/oväntad felrespons från
+      // Supabase (t.ex. serverfel utan strukturerad body, sett efter att
+      // custom SMTP kopplades in) gav ett `error`-objekt UTAN läsbart
+      // `.message` — `setErrorMsg(err.message)` satte då bokstavligen
+      // "undefined" eller (om något längre upp i kedjan redan gjort
+      // `JSON.stringify` på en tom felkropp) den tomma strängen "{}",
+      // rakt av som text i rutan. Ett äkta, läsbart meddelande visas
+      // fortfarande om det finns — annars en generisk text istället för
+      // att någonsin visa den råa felrepresentationen för användaren.
+      const readable = typeof err?.message === 'string' && err.message.trim() && err.message.trim() !== '{}'
+        ? err.message
+        : 'Något gick fel. Försök igen om en stund, eller kontakta support@bokix.se om det upprepas.';
+      setErrorMsg(readable);
     } finally {
       setForgotLoading(false);
     }
