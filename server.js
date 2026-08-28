@@ -551,7 +551,7 @@ const COMPANY_ACCESS_WRITABLE_FIELDS = new Set(COMPANY_WRITABLE_FIELDS)
 
 app.get('/api/company-access', async (req, res) => {
   // Ingen BotID-koll här (till skillnad från POST nedan) — samma konvention
-  // som api/email/domains/status.js: bara skrivande POST-endpoints
+  // som GET-grenen i api/email/domains/index.js: bara skrivande POST-endpoints
   // registreras i main.jsx:s initBotId-lista, en GET-koll här hade bara
   // trigga Vercels "Possible misconfiguration"-larm i onödan (verifierat
   // lokalt).
@@ -742,7 +742,12 @@ app.post('/api/auth/request-password-reset', passwordResetLimiter, async (req, r
 // kunden ska lägga till hos sin egen domänleverantör. Kräver den privilegierade
 // RESEND_ADMIN_API_KEY (full_access) — sending_access-nycklar kan inte
 // hantera domäner alls.
-app.post('/api/email/domains/create', async (req, res) => {
+// api/email/domains/index.js (produktion) speglar BÅDE detta och GET-
+// rutten nedan i EN fil (Vercels 12-funktionsgräns) — server.js har inte
+// den gränsen (vanlig Express, inte separata serverless functions), så
+// två separata app.post/app.get räcker här, bara på SAMMA sökväg som
+// klienten nu faktiskt anropar.
+app.post('/api/email/domains', async (req, res) => {
   if (!requireResendAdmin(res)) return
 
   // Vercel BotID — se filkommentaren i main.jsx.
@@ -751,7 +756,7 @@ app.post('/api/email/domains/create', async (req, res) => {
     return
   }
 
-  // Säkerhetsfix (se motsvarande kommentar i api/email/domains/create.js).
+  // Säkerhetsfix (se motsvarande kommentar i api/email/domains/index.js, handleCreate).
   const user = await requireAuthedUser(req, res)
   if (!user) return
 
@@ -788,10 +793,10 @@ app.post('/api/email/domains/create', async (req, res) => {
 // Pollas från Inställningar-sidan (Ej verifierad → Verifierad) OCH är samma
 // live-kontroll resolveSenderAddress gör vid varje utskick — aldrig en
 // cachad flagga, se kommentaren vid resolveSenderAddress ovan.
-app.get('/api/email/domains/status', async (req, res) => {
+app.get('/api/email/domains', async (req, res) => {
   if (!requireResendAdmin(res)) return
 
-  // Säkerhetsfix (se motsvarande kommentar i api/email/domains/status.js).
+  // Säkerhetsfix (se motsvarande kommentar i api/email/domains/index.js, handleStatus).
   const user = await requireAuthedUser(req, res)
   if (!user) return
 

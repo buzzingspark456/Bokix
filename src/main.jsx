@@ -37,11 +37,15 @@ initBotId({
     { path: '/api/stripe/create-subscription-checkout', method: 'POST' },
     { path: '/api/stripe/disconnect', method: 'POST' },
     { path: '/api/email/send-invoice', method: 'POST' },
-    { path: '/api/email/domains/create', method: 'POST' },
+    // api/email/domains/index.js (tidigare två separata filer, create.js
+    // + status.js — ihopslagna, se den filens egen kommentar för varför).
+    // Bara POST (create): GET (status, läsning) skyddas medvetet INTE av
+    // BotID, samma konvention som company-access.js nedan.
+    { path: '/api/email/domains', method: 'POST' },
     { path: '/api/contact', method: 'POST' },
     // Sparar ett fält åt en INBJUDEN användare (company_members) i ägarens
     // företag — se api/company-access.js. GET (läsning) skyddas medvetet
-    // INTE av BotID, samma konvention som api/email/domains/status.js.
+    // INTE av BotID, samma konvention som api/email/domains/index.js ovan.
     { path: '/api/company-access', method: 'POST' },
   ],
 })

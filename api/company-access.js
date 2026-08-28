@@ -36,7 +36,7 @@ export default async function handler(req, res) {
 
   // Vercel BotID — se filkommentaren i main.jsx. Bara på POST (skrivningen),
   // precis som varje annan endpoint i den här kodbasen (t.ex.
-  // api/email/domains/status.js, en GET, har aldrig haft en BotID-koll
+  // GET-grenen i api/email/domains/index.js har aldrig haft en BotID-koll
   // alls) — main.jsx:s initBotId-lista registrerar bara POST-metoder,
   // aldrig GET. Kör man checkBotId() på ett anrop som inte finns i den
   // listan larmar Vercel om "Possible misconfiguration" i loggen (verifierat

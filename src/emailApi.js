@@ -53,7 +53,10 @@ export async function sendInvoiceEmail(payload) {
  * DNS-poster (SPF/DKIM) företaget ska lägga till hos sin egen
  * domänleverantör. */
 export async function createEmailDomain(domain) {
-  return requestEmailApi('domains/create', { domain });
+  // api/email/domains/index.js — slog ihop create.js (POST) och status.js
+  // (GET) till en enda fil (Vercels 12-funktionsgräns), samma URL som
+  // getEmailDomainStatus nedan nu pekar mot, bara olika HTTP-metod.
+  return requestEmailApi('domains', { domain });
 }
 
 /** Live-koll av en domäns verifieringsstatus — samma anrop appen gör
@@ -64,7 +67,7 @@ export async function createEmailDomain(domain) {
 export async function getEmailDomainStatus(domainId, companyId) {
   const { data: { session } = {} } = await supabase.auth.getSession();
   const params = new URLSearchParams({ id: domainId, company_id: companyId || '' });
-  const response = await fetch(`/api/email/domains/status?${params.toString()}`, {
+  const response = await fetch(`/api/email/domains?${params.toString()}`, {
     headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
   });
   let payload = {};
