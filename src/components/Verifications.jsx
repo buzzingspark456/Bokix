@@ -6,8 +6,10 @@ import {
 } from 'lucide-react';
 import { getDebet, getKredit } from '../utils/verificationAmounts';
 import { PartySearch, ProjectSearch, AccountSearch } from './shared/SearchInputs';
+import ListPageHeader, { ListFilterBar, listSearchInputStyle, listFilterFieldStyle } from './shared/ListPageHeader';
+import ListTable from './shared/ListTable';
 import { findLockedVatPeriod } from '../utils/vatCalculation';
-import { uploadFileToStorage } from '../utils/fileUpload';
+import { uploadFileToStorage, deleteFileFromStorage } from '../utils/fileUpload';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 const fmt = (v) => new Intl.NumberFormat('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0);
@@ -228,6 +230,11 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
         attachmentUrlToSave = await uploadFn(user.id, attachment, 'verifications');
         attachmentNameToSave = attachment.name;
         attachmentTypeToSave = attachment.type;
+        // Kostnadsgranskning: ett BYTT underlag på ett befintligt utkast
+        // laddade tidigare bara upp den nya filen — den gamla
+        // (existingAttachment, nu ersatt) blev kvar i Storage för alltid.
+        // Best effort, körs efter att den nya uppladdningen redan lyckats.
+        if (existingAttachment?.url) deleteFileFromStorage(existingAttachment.url);
       } catch (err) {
         setAttachmentBusy(false);
         const notConfigured = /bucket not found/i.test(err.message || '');
@@ -784,51 +791,27 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
 
   // Form is rendered inline now.
 
-  const thSt = {
-    padding: '7px 10px', fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)',
-    background: 'var(--bg-muted)', borderBottom: '2px solid var(--border)', whiteSpace: 'nowrap', textAlign: 'left',
-  };
-
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
 
       {/* ── Top section: title + tabs ─────────────────────────── */}
-      <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '0 20px', flexShrink: 0 }}>
-        {/* .page-header-row (Sida 38, punkt 6) */}
-        <div className="page-header-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0 0' }}>
-          <div>
-            <h1 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: 'var(--text-main)' }}>Bokföring</h1>
-            <p style={{ margin: '2px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>Verifikationer, kontoplan och bokföringsposter</p>
-          </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            {activeTab === 'verifications' && (
-              <>
-                <span style={{ fontSize: '12px', color: 'var(--text-muted)', alignSelf: 'center' }}>Nästa: <strong style={{ color: 'var(--text-main)' }}>{nextNumber}</strong></span>
-                <button onClick={() => { setEditingVer(null); setShowForm(true); }} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 16px', background: '#2e7d32', border: 'none', borderRadius: '5px', color: 'white', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}>
-                  <Plus size={14} /> Ny verifikation
-                </button>
-              </>
-            )}
-            {activeTab === 'accounts' && (
-              <button onClick={() => setShowNewAccountForm(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 16px', background: '#2e7d32', border: 'none', borderRadius: '5px', color: 'white', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}>
-                <Plus size={14} /> Nytt konto
-              </button>
-            )}
-          </div>
-        </div>
-        <div style={{ display: 'flex', gap: 0 }}>
-          {[{ id: 'verifications', label: 'Verifikationer' }, { id: 'accounts', label: 'Kontoplan' }].map(t => (
-            <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
-              padding: '10px 18px', border: 'none', cursor: 'pointer', fontSize: '13px',
-              fontWeight: activeTab === t.id ? 700 : 500,
-              color: activeTab === t.id ? 'var(--text-main)' : 'var(--text-secondary)',
-              background: 'none',
-              borderBottom: activeTab === t.id ? '3px solid #3d7a2e' : '3px solid transparent',
-              marginBottom: '-1px',
-            }}>{t.label}</button>
-          ))}
-        </div>
-      </div>
+      <ListPageHeader
+        title="Bokföring"
+        subtitle="Verifikationer, kontoplan och bokföringsposter"
+        actions={
+          activeTab === 'verifications' ? [
+            { key: 'next', type: 'note', label: 'Nästa:', value: nextNumber },
+            { key: 'new-ver', label: 'Ny verifikation', icon: Plus, onClick: () => { setEditingVer(null); setShowForm(true); }, variant: 'primary' },
+          ] : activeTab === 'accounts' ? [
+            { key: 'new-account', label: 'Nytt konto', icon: Plus, onClick: () => setShowNewAccountForm(v => !v), variant: 'primary' },
+          ] : []
+        }
+        tabs={{
+          items: [{ id: 'verifications', label: 'Verifikationer' }, { id: 'accounts', label: 'Kontoplan' }],
+          activeId: activeTab,
+          onChange: setActiveTab,
+        }}
+      />
 
       {/* ── VERIFIKATIONER TAB ───────────────────────────────────── */}
       {activeTab === 'verifications' && (
@@ -861,172 +844,143 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
             </div>
           )}
 
-          {/* Filter bar */}
-          <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '8px 20px', display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0, flexWrap: 'wrap', marginTop: showForm ? '0' : '0' }}>
+          {/* Filterrad — facit-mönstret (Sida 43, uppföljning): alla fält
+              på en rad i samma h-9-höjd, "Rensa" + levande antalsräknare
+              på en egen rad direkt under. */}
+          <ListFilterBar
+            onClear={() => { setSearch(''); setDateFrom(''); setDateTo(''); setSeries('all'); }}
+            count={filteredVers.length}
+            countLabel="verifikationer"
+          >
             <div style={{ position: 'relative' }}>
-              <Search size={13} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Sök verifikation, text, belopp..." style={{ padding: '5px 8px 5px 26px', border: '1px solid var(--border)', borderRadius: '4px', fontSize: '12px', fontFamily: 'inherit', width: '220px', outline: 'none', background: 'var(--bg-card)', color: 'var(--text-main)' }} />
+              <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Sök verifikation, text, belopp..." style={{ ...listSearchInputStyle, width: '240px' }} />
             </div>
-            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={{ padding: '5px 8px', border: '1px solid var(--border)', borderRadius: '4px', fontSize: '12px', fontFamily: 'inherit', background: 'var(--bg-card)', color: 'var(--text-main)' }} />
-            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>–</span>
-            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={{ padding: '5px 8px', border: '1px solid var(--border)', borderRadius: '4px', fontSize: '12px', fontFamily: 'inherit', background: 'var(--bg-card)', color: 'var(--text-main)' }} />
-            <select value={series} onChange={e => setSeries(e.target.value)} style={{ padding: '5px 8px', border: '1px solid var(--border)', borderRadius: '4px', fontSize: '12px', fontFamily: 'inherit', background: 'var(--bg-card)', color: 'var(--text-main)' }}>
+            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={listFilterFieldStyle} />
+            <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>–</span>
+            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={listFilterFieldStyle} />
+            <select value={series} onChange={e => setSeries(e.target.value)} style={listFilterFieldStyle}>
               <option value="all">Alla serier</option>
               <option value="A">Serie A</option>
               <option value="B">Serie B</option>
               <option value="C">Serie C</option>
             </select>
-            <button onClick={() => { setSearch(''); setDateFrom(''); setDateTo(''); setSeries('all'); }} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '4px', padding: '5px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: 'var(--text-secondary)' }}>
-              <RefreshCw size={12} /> Rensa
-            </button>
-            <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginLeft: 'auto' }}>{filteredVers.length} verifikationer</span>
-          </div>
+          </ListFilterBar>
 
           {/* Table */}
           <div style={{ flex: 1, overflowY: 'auto' }}>
-            {/* .responsive-table (Sida 38, punkt 1, komplettering): den här
-                var den enda av bokforingens listor som fortfarande missade
-                kortlisten pa mobil — .td-detail (index.css) tar bort
-                kortlagets label/varde-flexbox for den utfallbara detalj-
-                raden, som ar en hel underliggande tabell, inte ett falt. */}
-            {/* height:'100%' bara verkar när tabellen är tom (se td:n nedan)
-                — kundfeedback, "white space"-genomgången: en tom lista
-                visade tidigare bara en paddad rad högst upp med en stor tom
-                sidyta under. `height:100%` på tabell/rad + `verticalAlign:
-                'middle'` på tomt-cellen centrerar meddelandet i den lediga
-                ytan istället, utan att röra tabellens normala radhöjder när
-                den FAKTISKT har innehåll (percentage-height på en rad
-                påverkar bara den raden, inte syskonraderna). */}
-            <table className="responsive-table" style={{ width: '100%', height: filteredVers.length === 0 ? '100%' : 'auto', borderCollapse: 'collapse', fontSize: '13px' }}>
-              <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
-                <tr>
-                  <th style={thSt}>VERIFIKATION</th>
-                  <th style={thSt}>DATUM</th>
-                  <th style={thSt}>BESKRIVNING</th>
-                  <th style={{ ...thSt, textAlign: 'right' }}>BELOPP</th>
-                  <th style={{ ...thSt, textAlign: 'center' }}>STATUS</th>
-                  <th style={thSt}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredVers.length === 0 ? (
-                  <tr style={{ height: '100%' }}>
-                    <td colSpan={6} style={{ height: '100%', verticalAlign: 'middle', padding: '60px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '14px', background: 'var(--bg-card)' }}>
-                      <FileText size={40} style={{ color: 'var(--border)', marginBottom: 12, display: 'block', margin: '0 auto 12px' }} />
-                      Inga verifikationer bokförda
-                    </td>
-                  </tr>
-                ) : filteredVers.map((v, i) => {
-                  const isExpanded = expandedId === v.id;
-                  const amount = v.rows?.reduce((s, r) => s + getDebet(r), 0) || v.amount || 0;
-                  const isDraft = (v.status || 'booked') === 'draft';
-                  return (
-                    <React.Fragment key={v.id}>
-                      <tr
-                        id={`ver-row-${v.id}`}
-                        onClick={() => setExpandedId(isExpanded ? null : v.id)}
-                        style={{ borderBottom: '1px solid var(--border)', background: isExpanded ? 'var(--status-green-bg)' : (i % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-muted)'), cursor: 'pointer' }}
-                        onMouseEnter={e => { if (!isExpanded) e.currentTarget.style.background = 'var(--bg-muted)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = isExpanded ? 'var(--status-green-bg)' : (i % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-muted)'); }}
-                      >
-                        <td data-label="Verifikation" style={{ padding: '10px 10px', fontWeight: 700, color: 'var(--text-main)' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                            {v.number}
-                          </div>
-                        </td>
-                        <td data-label="Datum" style={{ padding: '10px 10px', color: 'var(--text-secondary)' }}>{v.date}</td>
-                        <td data-label="Beskrivning" style={{ padding: '10px 10px', color: 'var(--text-main)' }}>{v.description}</td>
-                        <td data-label="Belopp" style={{ padding: '10px 10px', textAlign: 'right', fontWeight: 600, color: 'var(--text-main)' }}>{fmt(amount)}</td>
-                        <td data-label="Status" style={{ padding: '10px 10px', textAlign: 'center' }}>
-                          {isDraft ? (
-                            <span style={{ padding: '2px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, background: 'var(--status-amber-bg)', color: 'var(--status-amber-text)' }}>Utkast</span>
-                          ) : (
-                            <span style={{ padding: '2px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, background: 'var(--status-green-bg)', color: 'var(--status-green-text)' }}>Bokförd</span>
-                          )}
-                        </td>
-                        <td data-label="" className="td-actions" style={{ padding: '10px 10px' }} onClick={e => e.stopPropagation()}>
-                          {isDraft ? (
-                            <button
-                              onClick={() => { setEditingVer(v); setShowForm(true); }}
-                              title="Fortsätt redigera utkastet"
-                              style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '4px', cursor: 'pointer', padding: '3px 8px', fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}
-                            >
-                              Fortsätt
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => {
-                                const newRows = v.rows ? v.rows.map(r => ({ ...r, accountName: r.accountName || '', debet: getKredit(r) || 0, kredit: getDebet(r) || 0 })) : [];
-                                setEditingVer({ ...v, description: `Rätta: ${v.number} – ${v.description}`, rows: newRows, number: undefined, status: 'booked', createdAt: undefined });
-                                setShowForm(true);
-                              }}
-                              title="Skapa rättelseverifikation"
-                              style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '4px', cursor: 'pointer', padding: '3px 8px', fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}
-                            >
-                              <RotateCcw size={11} /> Rätta
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                      {isExpanded && v.rows && (
+            <ListTable
+              rowKey={v => v.id}
+              onRowClick={v => setExpandedId(expandedId === v.id ? null : v.id)}
+              isExpanded={v => expandedId === v.id}
+              emptyMessage="Inga verifikationer bokförda"
+              rows={filteredVers}
+              columns={[
+                {
+                  key: 'number', label: 'Verifikation', fontWeight: 700, color: 'var(--text-main)', render: v => (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }} id={`ver-row-${v.id}`}>
+                      {expandedId === v.id ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                      {v.number}
+                    </div>
+                  ),
+                },
+                { key: 'date', label: 'Datum', render: v => v.date },
+                { key: 'description', label: 'Beskrivning', color: 'var(--text-main)', wrap: true, render: v => v.description },
+                {
+                  key: 'amount', label: 'Belopp', align: 'right', fontWeight: 600, color: 'var(--text-main)',
+                  render: v => fmt(v.rows?.reduce((s, r) => s + getDebet(r), 0) || v.amount || 0),
+                },
+                {
+                  key: 'status', label: 'Status', align: 'center', render: v => {
+                    const isDraft = (v.status || 'booked') === 'draft';
+                    return isDraft ? (
+                      <span style={{ padding: '2px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, background: 'var(--status-amber-bg)', color: 'var(--status-amber-text)' }}>Utkast</span>
+                    ) : (
+                      <span style={{ padding: '2px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, background: 'var(--status-green-bg)', color: 'var(--status-green-text)' }}>Bokförd</span>
+                    );
+                  },
+                },
+                {
+                  key: 'actions', label: '', render: v => {
+                    const isDraft = (v.status || 'booked') === 'draft';
+                    return (
+                      <div onClick={e => e.stopPropagation()}>
+                        {isDraft ? (
+                          <button
+                            onClick={() => { setEditingVer(v); setShowForm(true); }}
+                            title="Fortsätt redigera utkastet"
+                            style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '4px', cursor: 'pointer', padding: '3px 8px', fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}
+                          >
+                            Fortsätt
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              const newRows = v.rows ? v.rows.map(r => ({ ...r, accountName: r.accountName || '', debet: getKredit(r) || 0, kredit: getDebet(r) || 0 })) : [];
+                              setEditingVer({ ...v, description: `Rätta: ${v.number} – ${v.description}`, rows: newRows, number: undefined, status: 'booked', createdAt: undefined });
+                              setShowForm(true);
+                            }}
+                            title="Skapa rättelseverifikation"
+                            style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '4px', cursor: 'pointer', padding: '3px 8px', fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}
+                          >
+                            <RotateCcw size={11} /> Rätta
+                          </button>
+                        )}
+                      </div>
+                    );
+                  },
+                },
+              ]}
+              renderExpanded={v => !v.rows ? null : (
+                <div style={{ padding: '10px 8px 12px 32px' }}>
+                  <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', marginBottom: '4px', fontSize: '11.5px', color: 'var(--text-secondary)' }}>
+                    <span>Motpart: <strong style={{ color: 'var(--text-main)' }}>{contacts.find(c => c.id === v.counterpartyId)?.name || '—'}</strong></span>
+                    <span>Upprättad: <strong style={{ color: 'var(--text-main)' }}>{v.createdAt ? new Intl.DateTimeFormat('sv-SE', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(v.createdAt)) : '—'}</strong></span>
+                    {v.originalLocation && <span>Original förvaras: <strong style={{ color: 'var(--text-main)' }}>{v.originalLocation}</strong></span>}
+                  </div>
+                  {/* overflow-x:auto (mobil): 4 kolumner i 311px (efter
+                      32px vänsterindrag) — sidledes skroll på just denna
+                      underliggande detaljtabell istället för en kortlist-
+                      omgörning, som vore overkill för en sällan uppfälld panel. */}
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', margin: '8px 0' }}>
+                      <thead>
                         <tr>
-                          <td colSpan={6} className="td-detail" style={{ padding: '0 0 0 32px', background: 'var(--status-green-bg)', borderBottom: '2px solid var(--status-green-bg)' }}>
-                            <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', padding: '10px 8px 0', fontSize: '11.5px', color: 'var(--text-secondary)' }}>
-                              <span>Motpart: <strong style={{ color: 'var(--text-main)' }}>{contacts.find(c => c.id === v.counterpartyId)?.name || '—'}</strong></span>
-                              <span>Upprättad: <strong style={{ color: 'var(--text-main)' }}>{v.createdAt ? new Intl.DateTimeFormat('sv-SE', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(v.createdAt)) : '—'}</strong></span>
-                              {v.originalLocation && <span>Original förvaras: <strong style={{ color: 'var(--text-main)' }}>{v.originalLocation}</strong></span>}
-                            </div>
-                            {/* overflow-x:auto (mobil): 4 kolumner i 311px
-                                (efter 32px vänsterindrag) — sidledes skroll
-                                på just denna underliggande detaljtabell
-                                istället för punkt-1:s kortlist-omgörning,
-                                som vore overkill för en sällan uppfälld
-                                panel. */}
-                            <div style={{ overflowX: 'auto' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', margin: '8px 0' }}>
-                              <thead>
-                                <tr>
-                                  {['Konto', 'Kontonamn', 'Debet', 'Kredit'].map(h => (
-                                    <th key={h} style={{ padding: '4px 8px', textAlign: h === 'Debet' || h === 'Kredit' ? 'right' : 'left', color: 'var(--text-muted)', fontWeight: 700, fontSize: '11px', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{h}</th>
-                                  ))}
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {v.rows.map((r, ri) => {
-                                  const rd = getDebet(r), rk = getKredit(r);
-                                  return (
-                                  <tr key={ri} style={{ borderBottom: '1px solid var(--border-light)' }}>
-                                    <td style={{ padding: '5px 8px', fontWeight: 700, color: 'var(--text-main)', whiteSpace: 'nowrap' }}>{r.account}</td>
-                                    <td style={{ padding: '5px 8px', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
-                                      {accounts.find(a => a.code === r.account)?.name || r.accountName || '—'}
-                                      {r.desc && <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{r.desc}</div>}
-                                    </td>
-                                    <td style={{ padding: '5px 8px', textAlign: 'right', color: rd > 0 ? 'var(--status-green-text)' : 'var(--border)', fontWeight: rd > 0 ? 600 : 400, whiteSpace: 'nowrap' }}>
-                                      {rd > 0 ? fmt(rd) : '—'}
-                                    </td>
-                                    <td style={{ padding: '5px 8px', textAlign: 'right', color: rk > 0 ? 'var(--status-red-text)' : 'var(--border)', fontWeight: rk > 0 ? 600 : 400, whiteSpace: 'nowrap' }}>
-                                      {rk > 0 ? fmt(rk) : '—'}
-                                    </td>
-                                  </tr>
-                                  );
-                                })}
-                                <tr style={{ background: 'var(--status-green-bg)', borderTop: '1px solid var(--status-green-bg)' }}>
-                                  <td colSpan={2} style={{ padding: '5px 8px', fontWeight: 700, fontSize: '12px', color: 'var(--status-green-text)', whiteSpace: 'nowrap' }}>Summa</td>
-                                  <td style={{ padding: '5px 8px', textAlign: 'right', fontWeight: 700, whiteSpace: 'nowrap' }}>{fmt(v.rows.reduce((s, r) => s + getDebet(r), 0))}</td>
-                                  <td style={{ padding: '5px 8px', textAlign: 'right', fontWeight: 700, whiteSpace: 'nowrap' }}>{fmt(v.rows.reduce((s, r) => s + getKredit(r), 0))}</td>
-                                </tr>
-                              </tbody>
-                            </table>
-                            </div>
-                          </td>
+                          {['Konto', 'Kontonamn', 'Debet', 'Kredit'].map(h => (
+                            <th key={h} style={{ padding: '4px 8px', textAlign: h === 'Debet' || h === 'Kredit' ? 'right' : 'left', color: 'var(--text-muted)', fontWeight: 700, fontSize: '11px', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{h}</th>
+                          ))}
                         </tr>
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
+                      </thead>
+                      <tbody>
+                        {v.rows.map((r, ri) => {
+                          const rd = getDebet(r), rk = getKredit(r);
+                          return (
+                          <tr key={ri} style={{ borderBottom: '1px solid var(--border-light)' }}>
+                            <td style={{ padding: '5px 8px', fontWeight: 700, color: 'var(--text-main)', whiteSpace: 'nowrap' }}>{r.account}</td>
+                            <td style={{ padding: '5px 8px', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+                              {accounts.find(a => a.code === r.account)?.name || r.accountName || '—'}
+                              {r.desc && <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{r.desc}</div>}
+                            </td>
+                            <td style={{ padding: '5px 8px', textAlign: 'right', color: rd > 0 ? 'var(--status-green-text)' : 'var(--border)', fontWeight: rd > 0 ? 600 : 400, whiteSpace: 'nowrap' }}>
+                              {rd > 0 ? fmt(rd) : '—'}
+                            </td>
+                            <td style={{ padding: '5px 8px', textAlign: 'right', color: rk > 0 ? 'var(--status-red-text)' : 'var(--border)', fontWeight: rk > 0 ? 600 : 400, whiteSpace: 'nowrap' }}>
+                              {rk > 0 ? fmt(rk) : '—'}
+                            </td>
+                          </tr>
+                          );
+                        })}
+                        <tr style={{ background: 'var(--status-green-bg)', borderTop: '1px solid var(--status-green-bg)' }}>
+                          <td colSpan={2} style={{ padding: '5px 8px', fontWeight: 700, fontSize: '12px', color: 'var(--status-green-text)', whiteSpace: 'nowrap' }}>Summa</td>
+                          <td style={{ padding: '5px 8px', textAlign: 'right', fontWeight: 700, whiteSpace: 'nowrap' }}>{fmt(v.rows.reduce((s, r) => s + getDebet(r), 0))}</td>
+                          <td style={{ padding: '5px 8px', textAlign: 'right', fontWeight: 700, whiteSpace: 'nowrap' }}>{fmt(v.rows.reduce((s, r) => s + getKredit(r), 0))}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            />
           </div>
         </div>
       )}
@@ -1046,10 +1000,10 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
           {/* New account form */}
           {showNewAccountForm && (
             <div style={{ background: '#f0f9f0', borderBottom: '1px solid #c8e6c9', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
-              <span style={{ fontSize: '12px', fontWeight: 700, color: '#2e7d32' }}>Nytt konto</span>
+              <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--accent)' }}>Nytt konto</span>
               <input value={newAccCode} onChange={e => setNewAccCode(e.target.value)} placeholder="Kontonummer" style={{ padding: '5px 8px', border: '1px solid var(--text-muted)', borderRadius: '3px', fontSize: '12px', fontFamily: 'inherit', width: '110px' }} />
               <input value={newAccName} onChange={e => setNewAccName(e.target.value)} placeholder="Kontonamn" style={{ padding: '5px 8px', border: '1px solid var(--text-muted)', borderRadius: '3px', fontSize: '12px', fontFamily: 'inherit', width: '260px' }} />
-              <button onClick={handleAddAccount} style={{ padding: '5px 14px', background: '#2e7d32', border: 'none', borderRadius: '4px', color: 'white', fontWeight: 700, fontSize: '12px', cursor: 'pointer' }}>Spara</button>
+              <button onClick={handleAddAccount} style={{ padding: '5px 14px', background: 'var(--accent)', border: 'none', borderRadius: '4px', color: 'white', fontWeight: 700, fontSize: '12px', cursor: 'pointer' }}>Spara</button>
               <button onClick={() => setShowNewAccountForm(false)} style={{ padding: '5px 10px', background: 'none', border: '1px solid var(--text-muted)', borderRadius: '4px', fontSize: '12px', cursor: 'pointer' }}>Avbryt</button>
               {newAccCode && <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Kontoklass: {getGroup(newAccCode)?.label || '—'}</span>}
             </div>
@@ -1084,42 +1038,35 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
 
                   {/* Account rows */}
                   {isOpen && (
-                    <table className="responsive-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-                      <thead>
-                        <tr style={{ background: 'var(--bg-muted)' }}>
-                          <th style={{ padding: '5px 20px 5px 36px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 700, fontSize: '11px', borderBottom: '1px solid var(--border-light)' }}>KONTO</th>
-                          <th style={{ padding: '5px 10px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 700, fontSize: '11px', borderBottom: '1px solid var(--border-light)' }}>KONTONAMN</th>
-                          <th style={{ padding: '5px 20px 5px 10px', textAlign: 'right', color: 'var(--text-muted)', fontWeight: 700, fontSize: '11px', borderBottom: '1px solid var(--border-light)' }}>SALDO</th>
-                          <th style={{ width: 50, borderBottom: '1px solid var(--border-light)' }} />
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {groupAccs.length === 0 ? (
-                          <tr><td colSpan={4} style={{ padding: '16px 36px', color: 'var(--text-muted)', fontSize: '12px' }}>Inga matchande konton</td></tr>
-                        ) : groupAccs.map((a, ai) => {
-                          const bal = balances[a.code] || 0;
-                          const usedInVers = verifications.filter(v => v.rows?.some(r => r.account === a.code)).length;
-                          return (
-                            <tr key={a.code} style={{ borderBottom: '1px solid var(--bg-muted)', background: ai % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-muted)' }}>
-                              <td data-label="Konto" style={{ padding: '7px 10px 7px 36px', fontWeight: 700, color: 'var(--text-main)' }}>{a.code}</td>
-                              <td data-label="Kontonamn" style={{ padding: '7px 10px', color: 'var(--text-main)' }}>{a.name}</td>
-                              <td data-label="Saldo" style={{ padding: '7px 20px 7px 10px', textAlign: 'right', fontWeight: bal !== 0 ? 700 : 400, color: bal > 0 ? '#2e7d32' : bal < 0 ? '#c62828' : 'var(--text-muted)' }}>
-                                {bal !== 0 ? fmt(bal) : '—'}
-                              </td>
-                              <td data-label="" className="td-actions" style={{ padding: '7px 10px', textAlign: 'center' }}>
-                                <button
-                                  onClick={() => handleDeactivateAccount(a.code)}
-                                  title={usedInVers > 0 ? `Används i ${usedInVers} verifikationer — kan inte tas bort` : 'Ta bort konto'}
-                                  style={{ background: 'none', border: 'none', cursor: usedInVers > 0 ? 'not-allowed' : 'pointer', color: usedInVers > 0 ? 'var(--border)' : '#ef4444', padding: '2px' }}
-                                >
-                                  <X size={13} />
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                    <ListTable
+                      rowKey={a => a.code}
+                      emptyMessage="Inga matchande konton"
+                      rows={groupAccs}
+                      columns={[
+                        { key: 'code', label: 'Konto', fontWeight: 700, color: 'var(--text-main)', render: a => a.code },
+                        { key: 'name', label: 'Kontonamn', color: 'var(--text-main)', render: a => a.name },
+                        {
+                          key: 'balance', label: 'Saldo', align: 'right', render: a => {
+                            const bal = balances[a.code] || 0;
+                            return <span style={{ fontWeight: bal !== 0 ? 700 : 400, color: bal > 0 ? '#2e7d32' : bal < 0 ? '#c62828' : 'var(--text-muted)' }}>{bal !== 0 ? fmt(bal) : '—'}</span>;
+                          },
+                        },
+                        {
+                          key: 'actions', label: '', align: 'center', render: a => {
+                            const usedInVers = verifications.filter(v => v.rows?.some(r => r.account === a.code)).length;
+                            return (
+                              <button
+                                onClick={() => handleDeactivateAccount(a.code)}
+                                title={usedInVers > 0 ? `Används i ${usedInVers} verifikationer — kan inte tas bort` : 'Ta bort konto'}
+                                style={{ background: 'none', border: 'none', cursor: usedInVers > 0 ? 'not-allowed' : 'pointer', color: usedInVers > 0 ? 'var(--border)' : '#ef4444', padding: '2px' }}
+                              >
+                                <X size={13} />
+                              </button>
+                            );
+                          },
+                        },
+                      ]}
+                    />
                   )}
                 </div>
               );

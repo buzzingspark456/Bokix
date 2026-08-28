@@ -11,6 +11,7 @@ const PricingPage = lazy(() => import('./components/marketing/PricingPage'));
 const AboutPage = lazy(() => import('./components/marketing/AboutPage'));
 const ContactPage = lazy(() => import('./components/marketing/ContactPage'));
 const ChooseSoftwareGuidePage = lazy(() => import('./components/marketing/ChooseSoftwareGuidePage'));
+const BookingPage = lazy(() => import('./components/marketing/BookingPage'));
 const PrivacyPolicy = lazy(() => import('./components/PrivacyPolicy'));
 const TermsPolicy = lazy(() => import('./components/TermsPolicy'));
 const CookiesPolicy = lazy(() => import('./components/CookiesPolicy'));
@@ -131,6 +132,7 @@ export default function AppRouter() {
         <Route path="/om-oss" element={<Suspense fallback={<AppLoadingFallback />}><AboutPage /></Suspense>} />
         <Route path="/kontakt" element={<Suspense fallback={<AppLoadingFallback />}><ContactPage /></Suspense>} />
         <Route path="/valja-bokforingsprogram" element={<Suspense fallback={<AppLoadingFallback />}><ChooseSoftwareGuidePage /></Suspense>} />
+        <Route path="/boka-genomgang" element={<Suspense fallback={<AppLoadingFallback />}><BookingPage /></Suspense>} />
         <Route path="/privacy" element={<Suspense fallback={<AppLoadingFallback />}><PrivacyPolicy /></Suspense>} />
         <Route path="/terms" element={<Suspense fallback={<AppLoadingFallback />}><TermsPolicy /></Suspense>} />
         {/* GDPR-innehållet är nu fullt inbakat i den utökade Integritetspolicyn

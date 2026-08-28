@@ -23,3 +23,36 @@ export async function uploadFileToStorage(userId, file, folder = 'files') {
   const { data } = supabase.storage.from('bokix-uploads').getPublicUrl(path);
   return data.publicUrl;
 }
+
+// Matchar den publika URL:en Storage själv genererar (getPublicUrl ovan,
+// och samma mönster ImageUploadField i Settings.jsx använder för andra
+// buckets): `.../storage/v1/object/public/<bucket>/<path>`, ev. med en
+// `?v=...`-cachebuster på slutet (Settings.jsx) som inte hör till sökvägen.
+const PUBLIC_URL_RE = /\/storage\/v1\/object\/public\/([^/]+)\/([^?]+)/;
+
+/**
+ * Tar bort en tidigare uppladdad fil (varsomhelst i Storage — inte bara
+ * 'bokix-uploads', se PUBLIC_URL_RE ovan) utifrån dess publika URL, för att
+ * den inte ska bli kvar och betala hyra i bucketen efter att den slutat
+ * användas (kostnadsgranskning: ett kvitto som raderas eller ett underlag
+ * som byts ut skapade tidigare bara en NY fil, aldrig städade bort den
+ * gamla — se uploadFileToStorage ovan, varje uppladdning får en egen
+ * tidsstämplad nyckel istället för att skriva över en fast sökväg).
+ *
+ * "Best effort" med avsikt: körs alltid EFTER att själva användarhandlingen
+ * (radera kvitto, spara nytt underlag) redan lyckats, och får aldrig
+ * blockera eller visa ett fel för den om städningen misslyckas — det vore
+ * en kvarbliven fil i Storage, exakt samma (redan existerande) läge som
+ * innan den här funktionen fanns, inte en regression.
+ */
+export async function deleteFileFromStorage(fileUrl) {
+  if (!fileUrl) return;
+  const match = PUBLIC_URL_RE.exec(fileUrl);
+  if (!match) return;
+  const [, bucket, encodedPath] = match;
+  try {
+    await supabase.storage.from(bucket).remove([decodeURIComponent(encodedPath)]);
+  } catch {
+    // Se filkommentaren ovan — medvetet tyst.
+  }
+}

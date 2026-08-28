@@ -122,7 +122,17 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.set_company_stripe_account(uuid, text, text) FROM PUBLIC;
+-- FROM PUBLIC, anon, authenticated — inte bara PUBLIC (säkerhetsgranskningen,
+-- linterfynd "Public/Signed-In Users Can Execute SECURITY DEFINER Function"
+-- på set_company_field nedan, samma bugg gällde tyst här också). Supabase-
+-- projekt ger by default EXECUTE på nya funktioner i public-schemat direkt
+-- till anon/authenticated (ALTER DEFAULT PRIVILEGES), inte bara via PUBLIC-
+-- pseudorollen — REVOKE ... FROM PUBLIC ensam rör alltså ALDRIG de separata
+-- grantsen till anon/authenticated, de måste återkallas explicit. Samma
+-- mönster som redan användes längre ner i den här filen för
+-- rls_auto_enable() (REVOKE ... FROM PUBLIC, anon, authenticated), bara
+-- inte tillämpat konsekvent här förrän nu.
+REVOKE ALL ON FUNCTION public.set_company_stripe_account(uuid, text, text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.set_company_stripe_account(uuid, text, text) TO service_role;
 
 -- Bank-integrationen (Enable Banking) är borttagen ur appen igen — om den
@@ -163,6 +173,15 @@ CREATE TABLE IF NOT EXISTS public.stripe_payment_events (
   applied_at timestamptz,
   created_at timestamptz DEFAULT now()
 );
+
+-- Prestandaindex (kostnadsgranskning, samma resonemang som company_members
+-- ovan): user_id filtrerar BÅDE App.jsx:s direkta fråga (.eq('user_id',
+-- user.id).eq('company_id', ...).is('applied_at', null), en gång per
+-- aktivt företag) OCH RLS-policyn nedan ((select auth.uid()) = user_id) —
+-- den senare körs implicit på VARJE fråga mot tabellen, oavsett vem som
+-- frågar. Utan index sekventiell genomsökning i båda fallen.
+CREATE INDEX IF NOT EXISTS stripe_payment_events_user_id_idx
+ON public.stripe_payment_events (user_id);
 
 ALTER TABLE public.stripe_payment_events ENABLE ROW LEVEL SECURITY;
 
@@ -440,6 +459,29 @@ CREATE UNIQUE INDEX company_members_active_invite_unique
 ON public.company_members (owner_user_id, company_id, invited_email)
 WHERE status IN ('pending', 'active');
 
+-- Prestandaindex, inte constraints (kostnadsgranskning): utan dessa var
+-- company_members tabellen helt oindexerad förutom det partiella unikindexet
+-- ovan (som inte täcker någon av sökningarna nedan). Två frågemönster som
+-- körs OFTA — inte bara vid inbjudan — träffade en sekventiell genomsökning
+-- av HELA tabellen, ofarligt idag med en handfull rader men linjärt värre
+-- för varje inbjudan som någonsin skickats (ingenting städar bort gamla
+-- revoked/expired rader):
+--   1) loadMemberCompany (api/_auth.js) — VARJE läsning/skrivning en
+--      inbjuden användare gör av ett delat företag, .eq('member_user_id',
+--      ...).eq('status','active') (+ .eq('company_id', ...), täcks ändå av
+--      samma index eftersom member_user_id+status redan smalnar av till en
+--      handfull rader per användare).
+--   2) App.jsx (fetchUserData) — samma .eq('member_user_id', ...).eq(
+--      'status','active') EN gång per inloggning/sessionskontroll, för att
+--      lista vilka delade företag jag har åtkomst till.
+CREATE INDEX IF NOT EXISTS company_members_member_user_id_status_idx
+ON public.company_members (member_user_id, status);
+
+-- Invite-inlösen (App.jsx: InviteRedeem-flödet) slår upp raden via bara
+-- token — utan index samma sekventiella genomsökning som ovan.
+CREATE INDEX IF NOT EXISTS company_members_invite_token_idx
+ON public.company_members (invite_token);
+
 DROP TRIGGER IF EXISTS set_updated_at ON public.company_members;
 CREATE TRIGGER set_updated_at
 BEFORE UPDATE ON public.company_members
@@ -577,7 +619,16 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.set_company_field(uuid, text, text, jsonb) FROM PUBLIC;
+-- FROM PUBLIC, anon, authenticated — se kommentaren vid
+-- set_company_stripe_account-grantsen ovan för varför bara "FROM PUBLIC"
+-- INTE stänger anon/authenticateds egna, separata default-privilegier.
+-- Säkerhetsgranskningens faktiska fynd (Supabase-lintern flaggade just
+-- den här funktionen, körbar av både anon och authenticated via
+-- /rest/v1/rpc/set_company_field) — den avsedda åtkomstkontrollen sitter
+-- i api/company-access.js (loadMemberCompany, roll-kollen) och i
+-- api/cron/reminders.js (CRON_SECRET), INTE i databasen; funktionen ska
+-- alltså aldrig vara anropsbar direkt av en inloggad klient.
+REVOKE ALL ON FUNCTION public.set_company_field(uuid, text, text, jsonb) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.set_company_field(uuid, text, text, jsonb) TO service_role;
 
 -- ═══════════════════════════════════════════════════════════

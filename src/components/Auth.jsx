@@ -103,9 +103,20 @@ export default function Auth({ onLogin, onBackToLanding }) {
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
 
+  // "Glömt lösenord?" — egen liten vy ovanpå inloggningsformuläret, inte ett
+  // eget steg i REGISTER_STEPS (det är bara för nytt-konto-flödet). Visar
+  // ALLTID samma bekräftelse oavsett om e-postadressen faktiskt finns eller
+  // ej (se handleForgotPassword) — att svara olika hade läckt vilka
+  // e-postadresser som är registrerade i Bokix.
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotSent, setForgotSent] = useState(false);
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotCaptchaToken, setForgotCaptchaToken] = useState('');
+
   // Bot-/captcha-spärr (säkerhetsgranskningen) — se Turnstile.jsx för
-  // aktivering. Egna tokens för login/registrering eftersom det är två
-  // separata widget-instanser (olika steg i formuläret).
+  // aktivering. Egna tokens per formulär eftersom det är separata
+  // widget-instanser (olika steg/vyer).
   const [loginCaptchaToken, setLoginCaptchaToken] = useState('');
   const [regCaptchaToken, setRegCaptchaToken] = useState('');
 
@@ -127,6 +138,39 @@ export default function Auth({ onLogin, onBackToLanding }) {
     setIsLogin(login);
     setRegStep(0);
     setErrorMsg('');
+    setShowForgotPassword(false);
+    setForgotSent(false);
+  };
+
+  // Skickar återställningslänken (App.jsx: onAuthStateChange lyssnar på
+  // PASSWORD_RECOVERY-eventet den skapar, se PasswordRecoveryScreen där).
+  // redirectTo pekar på appens EGEN rot, inte en särskild "/reset"-sida —
+  // det finns ingen separat route för det här, Supabase lägger själv på
+  // #access_token=...&type=recovery i hashen och AppRouter.jsx:s
+  // shouldLoadAppImmediately känner redan igen den och laddar App.jsx
+  // direkt istället för LandingPage.
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    if (forgotLoading) return;
+    setErrorMsg('');
+    setForgotLoading(true);
+    try {
+      if (!forgotEmail.trim()) throw new Error('Ange din e-postadress');
+      const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail.trim(), {
+        redirectTo: `${window.location.origin}/`,
+        ...(forgotCaptchaToken ? { captchaToken: forgotCaptchaToken } : {}),
+      });
+      // Supabase svarar med fel bara för sådant som captcha/nätverk/
+      // hastighetsbegränsning — ALDRIG för att adressen saknar konto (det
+      // hade läckt vilka e-postadresser som är registrerade). Ett äkta fel
+      // visas ändå, men annars alltid samma "kolla din inkorg".
+      if (error) throw error;
+      setForgotSent(true);
+    } catch (err) {
+      setErrorMsg(err.message);
+    } finally {
+      setForgotLoading(false);
+    }
   };
 
   const handleLogin = async (e) => {
@@ -331,6 +375,48 @@ export default function Auth({ onLogin, onBackToLanding }) {
 
         {/* LOGIN */}
         {isLogin ? (
+          showForgotPassword ? (
+            /* "Glömt lösenord?" — se handleForgotPassword för varför samma
+               bekräftelse alltid visas, oavsett om kontot faktiskt finns. */
+            <>
+              <div style={{ marginBottom: '28px' }}>
+                <h2 style={{ fontSize: '26px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '6px', letterSpacing: '-0.02em' }}>Glömt lösenord?</h2>
+                <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Ange din e-postadress så skickar vi en återställningslänk.</p>
+              </div>
+              {forgotSent ? (
+                <div style={{ padding: '24px', background: 'var(--status-green-bg)', borderRadius: '14px', border: '1px solid var(--status-green-bg)', textAlign: 'center' }}>
+                  <div style={{ width: 56, height: 56, borderRadius: '50%', background: BRAND.green, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                    <Mail size={24} color="white" />
+                  </div>
+                  <div style={{ fontWeight: 700, fontSize: '16px', color: 'var(--text-main)', marginBottom: '8px' }}>Kolla din inkorg</div>
+                  <div style={{ fontSize: '13.5px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                    Om det finns ett konto med den adressen har vi skickat en återställningslänk dit.
+                  </div>
+                  <button type="button" onClick={() => { setShowForgotPassword(false); setForgotSent(false); }} style={{ marginTop: '18px', background: 'none', border: 'none', color: BRAND.green, fontWeight: 700, fontSize: '13.5px', cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <ArrowLeft size={14} /> Tillbaka till inloggning
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleForgotPassword} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <div>
+                    <label style={labelStyle}>E-postadress</label>
+                    <div style={{ position: 'relative' }}>
+                      <Mail size={18} color="var(--text-muted)" style={{ position: 'absolute', top: 13, left: 14, pointerEvents: 'none' }} />
+                      <input type="email" style={{ ...inputStyle, paddingLeft: '44px' }} placeholder="din@epost.se" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} required autoFocus />
+                    </div>
+                  </div>
+                  <Turnstile onVerify={setForgotCaptchaToken} onExpire={() => setForgotCaptchaToken('')} />
+                  {errorMsg && <div style={{ padding: '12px', background: 'var(--status-red-bg)', color: 'var(--status-red-text)', borderRadius: '8px', fontSize: '13px', fontWeight: 600 }}>{errorMsg}</div>}
+                  <button type="submit" disabled={forgotLoading} style={{ width: '100%', padding: '14px', background: BRAND.green, border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: 700, color: 'white', cursor: forgotLoading ? 'wait' : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', boxShadow: '0 2px 6px rgba(61,122,46,0.25)', fontFamily: 'inherit', opacity: forgotLoading ? 0.7 : 1 }}>
+                    {forgotLoading ? 'Skickar...' : 'Skicka återställningslänk'} <ArrowRight size={16} />
+                  </button>
+                  <button type="button" onClick={() => { setShowForgotPassword(false); setErrorMsg(''); }} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '13px', cursor: 'pointer', textAlign: 'center', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                    <ArrowLeft size={14} /> Tillbaka till inloggning
+                  </button>
+                </form>
+              )}
+            </>
+          ) : (
           <>
             <div style={{ marginBottom: '28px' }}>
               <h2 style={{ fontSize: '26px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '6px', letterSpacing: '-0.02em' }}>Välkommen tillbaka</h2>
@@ -345,7 +431,12 @@ export default function Auth({ onLogin, onBackToLanding }) {
                 </div>
               </div>
               <div>
-                <label style={labelStyle}>Lösenord</label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                  <label style={labelStyle}>Lösenord</label>
+                  <button type="button" onClick={() => { setShowForgotPassword(true); setErrorMsg(''); setForgotEmail(loginEmail); }} style={{ background: 'none', border: 'none', color: BRAND.green, fontWeight: 600, fontSize: '12.5px', cursor: 'pointer', fontFamily: 'inherit', marginBottom: '6px' }}>
+                    Glömt lösenord?
+                  </button>
+                </div>
                 <div style={{ position: 'relative' }}>
                   <Lock size={18} color="var(--text-muted)" style={{ position: 'absolute', top: 13, left: 14, pointerEvents: 'none' }} />
                   <input type="password" style={{ ...inputStyle, paddingLeft: '44px' }} placeholder="••••••••" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} required />
@@ -358,6 +449,7 @@ export default function Auth({ onLogin, onBackToLanding }) {
               </button>
             </form>
           </>
+          )
         ) : (
           /* REGISTER - Multi-step */
           <>

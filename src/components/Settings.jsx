@@ -9,6 +9,7 @@ import { sendInvoiceEmail } from '../emailApi';
 import { BRAND } from '../utils/brandColors';
 import InvoiceDocument, { INVOICE_TEMPLATES, DEFAULT_INVOICE_TEMPLATE } from './InvoiceDocument';
 import { useIsMobileViewport } from '../hooks/useIsMobileViewport';
+import ListTable from './shared/ListTable';
 
 // Visas istället för att faktiskt anropa Supabase när `readOnly` (Sida
 // landningssidans demo, se DemoWorkspace.jsx) — samma text överallt i den
@@ -946,65 +947,51 @@ function UsersAndAccessSection({ company, user, firstName, lastName, sharedAcces
         </div>
       )}
 
-      <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
-          <thead>
-            <tr style={{ background: 'var(--border-light)', borderBottom: '1px solid var(--border)' }}>
-              <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-secondary)', fontWeight: 600 }}>Användare</th>
-              <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-secondary)', fontWeight: 600 }}>Roll</th>
-              <th style={{ padding: '12px 16px', textAlign: 'left', color: 'var(--text-secondary)', fontWeight: 600 }}>Status</th>
-              {isOwner && <th style={{ padding: '12px 16px' }}></th>}
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td style={{ padding: '16px' }}>
+      <ListTable
+        rowKey={row => row.id}
+        rows={[{ id: '__owner__', isOwnerRow: true }, ...members]}
+        columns={[
+          {
+            key: 'user', label: 'Användare', wrap: true, render: row => row.isOwnerRow ? (
+              <div>
                 <div style={{ fontWeight: 600, color: 'var(--text-main)' }}>{isOwner ? ([firstName, lastName].filter(Boolean).join(' ') || 'Ditt konto') : 'Ägare'}</div>
                 {isOwner && <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{user?.email}</div>}
-              </td>
-              <td style={{ padding: '16px' }}>Administratör</td>
-              <td style={{ padding: '16px' }}>
-                <span style={{ padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: BRAND.greenLight, color: BRAND.greenDark }}>Aktiv</span>
-              </td>
-              {isOwner && <td></td>}
-            </tr>
-            {members.map(m => (
-              <tr key={m.id} style={{ borderTop: '1px solid var(--border-light)' }}>
-                <td style={{ padding: '16px' }}>
-                  <div style={{ fontWeight: 600, color: 'var(--text-main)' }}>{m.invited_email}</div>
-                </td>
-                <td style={{ padding: '16px' }}>
-                  {isOwner && m.status !== 'revoked' ? (
-                    <select value={m.role} onChange={e => handleRoleChange(m.id, e.target.value)} style={{ ...inputBase, width: 'auto', padding: '4px 8px', fontSize: '13px' }}>
-                      <option value="editor">Kan redigera</option>
-                      <option value="viewer">Kan bara läsa</option>
-                    </select>
-                  ) : ROLE_LABELS[m.role] || m.role}
-                </td>
-                <td style={{ padding: '16px' }}>
-                  <span style={{ padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: STATUS_COLORS[m.status]?.bg, color: STATUS_COLORS[m.status]?.text }}>
-                    {STATUS_LABELS[m.status] || m.status}
-                  </span>
-                </td>
-                {isOwner && (
-                  <td style={{ padding: '16px', textAlign: 'right' }}>
-                    {m.status !== 'revoked' && (
-                      <button onClick={() => handleRevoke(m.id)} title="Återkalla åtkomst" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
-                        <Trash2 size={15} />
-                      </button>
-                    )}
-                  </td>
-                )}
-              </tr>
-            ))}
-            {!loading && members.length === 0 && isOwner && (
-              <tr>
-                <td colSpan={4} style={{ padding: '16px', color: 'var(--text-muted)', fontSize: '13px' }}>Inga andra användare inbjudna ännu.</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+              </div>
+            ) : (
+              <div style={{ fontWeight: 600, color: 'var(--text-main)' }}>{row.invited_email}</div>
+            ),
+          },
+          {
+            key: 'role', label: 'Roll', render: row => row.isOwnerRow ? 'Administratör' : (
+              isOwner && row.status !== 'revoked' ? (
+                <select value={row.role} onChange={e => handleRoleChange(row.id, e.target.value)} style={{ ...inputBase, width: 'auto', padding: '4px 8px', fontSize: '13px' }}>
+                  <option value="editor">Kan redigera</option>
+                  <option value="viewer">Kan bara läsa</option>
+                </select>
+              ) : ROLE_LABELS[row.role] || row.role
+            ),
+          },
+          {
+            key: 'status', label: 'Status', render: row => row.isOwnerRow ? (
+              <span style={{ padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: BRAND.greenLight, color: BRAND.greenDark }}>Aktiv</span>
+            ) : (
+              <span style={{ padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: STATUS_COLORS[row.status]?.bg, color: STATUS_COLORS[row.status]?.text }}>
+                {STATUS_LABELS[row.status] || row.status}
+              </span>
+            ),
+          },
+          ...(isOwner ? [{
+            key: 'actions', label: '', align: 'right', render: row => (!row.isOwnerRow && row.status !== 'revoked') ? (
+              <button onClick={() => handleRevoke(row.id)} title="Återkalla åtkomst" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
+                <Trash2 size={15} />
+              </button>
+            ) : null,
+          }] : []),
+        ]}
+      />
+      {!loading && members.length === 0 && isOwner && (
+        <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginTop: '10px' }}>Inga andra användare inbjudna ännu.</p>
+      )}
       {isOwner ? (
         <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginTop: '10px', maxWidth: '560px' }}>Max 3 användare per företag totalt (du + 2 inbjudna). "Kan redigera" ger samma åtkomst som du har; "Kan bara läsa" kan se men aldrig spara ändringar.</p>
       ) : (
@@ -1085,7 +1072,6 @@ export default function Settings({
 
   const firstName = user?.user_metadata?.first_name || '';
   const lastName = user?.user_metadata?.last_name || '';
-  const avatarUrl = user?.user_metadata?.avatar_url || '';
   const initials = ((firstName[0] || user?.email?.[0] || '?') + (lastName[0] || '')).toUpperCase();
 
   const updateUserMeta = (patch) => {
@@ -1173,8 +1159,16 @@ export default function Settings({
   const deleteMatches = deleteConfirmText.trim().length > 0 && deleteConfirmText.trim() === (company?.name || '').trim();
 
   return (
-    <div className="settings-page" style={{ padding: '32px 40px 48px', minHeight: '100%', boxSizing: 'border-box', background: 'var(--bg-page, #f4f7f5)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '28px' }}>
+    // Kundfeedback (padding-genomgången, Skatt/Inställningar/Rapport): den
+    // här sidan hade en egen, betydligt större kant-marginal (32/40/48px)
+    // än resten av appens numera enhetliga 24px — kvarlämnad sedan innan
+    // "ingen space"-städningen, eftersom .main-content-inners bas-padding
+    // (index.css) redan nollställdes men den här sidans EGEN inline-padding
+    // aldrig rördes. Trimmad vidare till 20px (uppföljning, "inte så mycket
+    // space") — matchar ListPageHeaders eget 20px-sidoinset istället för
+    // att vara en egen, större siffra bara den här sidan hade.
+    <div className="settings-page" style={{ padding: '20px', minHeight: '100%', boxSizing: 'border-box', background: 'var(--bg-page, #f4f7f5)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '20px' }}>
         <div style={{
           width: 46, height: 46, borderRadius: '13px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
           background: BRAND.green, color: 'white', boxShadow: '0 2px 6px rgba(61, 122, 46, 0.25)',
@@ -1182,7 +1176,10 @@ export default function Settings({
           <Sliders size={22} strokeWidth={2.2} />
         </div>
         <div>
-          <h1 style={{ fontSize: '27px', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 2px', letterSpacing: '-0.01em' }}>Inställningar</h1>
+          {/* Kundfeedback ("luft i sidhuvudet"): 2px mellan rubrik och
+              undertext kändes hopklämt — samma 6-8px-rytm som Dashboard/
+              ListPageHeader fick nu. */}
+          <h1 style={{ fontSize: '27px', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 6px', letterSpacing: '-0.01em' }}>Inställningar</h1>
           <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: 0 }}>Hantera din profil, ditt företag och hur Bokix ser ut och beter sig.</p>
         </div>
       </div>
@@ -1257,15 +1254,8 @@ export default function Settings({
 
               <div style={card}>
                 <div style={{ display: 'flex', gap: '20px', alignItems: 'center', marginBottom: '20px' }}>
-                  {avatarUrl ? (
-                    <img src={avatarUrl} alt="Profilbild" style={{ width: 80, height: 80, borderRadius: '50%', objectFit: 'cover' }} />
-                  ) : (
-                    <div style={{ width: 80, height: 80, borderRadius: '50%', background: BRAND.greenLight, color: BRAND.greenDark, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px', fontWeight: 800 }}>
-                      {initials}
-                    </div>
-                  )}
-                  <div style={{ flex: 1, maxWidth: '380px' }}>
-                    <ImageUploadField label="Profilbild" value={avatarUrl} onChange={(v) => updateUserMeta({ avatar_url: v })} uploadPath={`${user?.id}/avatar`} bucket="profile" hint="JPG, PNG eller liknande, max 3 MB." readOnly={readOnly} />
+                  <div style={{ width: 80, height: 80, borderRadius: '50%', background: BRAND.greenLight, color: BRAND.greenDark, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px', fontWeight: 800, flexShrink: 0 }}>
+                    {initials}
                   </div>
                 </div>
 

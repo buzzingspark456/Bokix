@@ -313,7 +313,7 @@ function MarketingStyles() {
       @media (max-width: 900px) {
         .lp-bolagsform-row { flex-wrap: wrap; }
       }
-      .lp-footer-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 40px; }
+      .lp-footer-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr; gap: 40px; }
       .lp-footer-grid > *, .lp-features-grid > * { min-width: 0; }
       .lp-footer-bottom { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
 
@@ -346,7 +346,12 @@ function MarketingStyles() {
          rakt igenom (ingen egen bakgrund satt där heller) — bg-page och
          bg-sidebar ligger mycket närmare varandra i mörkt läge, så fogen
          syns knappt. Samma bg-page här återskapar exakt det. */
-      .lp-demo-content { flex: 1; min-width: 0; padding: 20px; max-height: min(780px, 82vh); overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; background: var(--bg-page); }
+      /* Ingen padding kvar (samma "ingen space överallt"-regel som
+         .main-content-inner i index.css, den riktiga appens motsvarande
+         skal) — demot ska visa exakt samma kant-till-kant-yta som en
+         inloggad användare faktiskt ser, inte en bredare (för smickrande)
+         attrapp med egen marginal skalet aldrig har på riktigt. */
+      .lp-demo-content { flex: 1; min-width: 0; max-height: min(780px, 82vh); overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; background: var(--bg-page); }
       @media (max-width: 640px) {
         .lp-cta-group { flex-direction: column; }
         .lp-cta-group > button, .lp-cta-group > a { width: 100%; }
@@ -624,6 +629,18 @@ export function MarketingFooter() {
                 {label}
               </Link>
             ))}
+          </div>
+        </div>
+
+        <div>
+          <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'white', marginBottom: '14px' }}>Boka</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {/* Egen route (/boka-genomgang) som bäddar in Google Kalender-
+                bokningen direkt på sidan — se BOOKING_EMBED_URL-kommentaren
+                i BookingPage.jsx för hur inbäddningen görs och varför. */}
+            <Link to="/boka-genomgang" className="lp-footer-link" style={{ fontSize: '13.5px', color: 'rgba(255,255,255,0.6)', textDecoration: 'none', transition: 'color 0.2s' }}>
+              Boka en genomgång
+            </Link>
           </div>
         </div>
 

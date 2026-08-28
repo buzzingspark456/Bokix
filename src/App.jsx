@@ -36,6 +36,7 @@ import {
   Moon,
   AlertTriangle,
   ShieldCheck,
+  Lock,
 } from 'lucide-react';
 import { DEFAULT_ACCOUNTS, VAT_ACCOUNTS, REVENUE_ACCOUNTS } from './components/AccountsData';
 import { getNextInvoiceNumber } from './utils/invoiceNumbering';
@@ -43,7 +44,8 @@ import { createStripeCheckoutSession } from './stripeApi';
 import { createEmailDomain, getEmailDomainStatus } from './emailApi';
 import { getDebet, getKredit } from './utils/verificationAmounts';
 import { BRAND } from './utils/brandColors';
-import { COMPANY_WRITABLE_FIELDS } from '../api/_companyFields.js';
+import { COMPANY_WRITABLE_FIELDS } from './utils/companyFields.js';
+import { deleteFileFromStorage } from './utils/fileUpload';
 
 // ── Bokix Logo Component (light sidebar) ──
 // Klickbar — tar till startsidan precis som varumärkeslogotyper brukar göra.
@@ -265,6 +267,85 @@ function MfaChallengeScreen({ onVerify, onCancel }) {
           style={{ width: '100%', padding: '13px', background: BRAND.green, border: 'none', borderRadius: '10px', color: 'white', fontWeight: 700, fontSize: '15px', cursor: loading || code.length !== 6 ? 'default' : 'pointer', opacity: loading || code.length !== 6 ? 0.5 : 1, fontFamily: 'inherit', transition: 'opacity 0.15s' }}
         >
           Verifiera
+        </button>
+        <button type="button" onClick={onCancel} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '13px', cursor: 'pointer', textAlign: 'center', fontFamily: 'inherit' }}>
+          Avbryt och logga ut
+        </button>
+      </form>
+    </div>
+  );
+}
+
+// Visas när Supabase-sessionen kommer från en "Glömt lösenord"-länk i
+// mejlet (PASSWORD_RECOVERY-eventet, se onAuthStateChange och
+// passwordRecovery-state:t nedan) — annars skulle en klickad återställnings-
+// länk bara logga in användaren tyst med det GAMLA lösenordet fortfarande
+// kvar, utan att någonsin faktiskt fråga efter ett nytt. Samma
+// gate-mönster (och samma "Avbryt och logga ut"-reserv) som
+// MfaChallengeScreen ovan.
+function PasswordRecoveryScreen({ onSubmit, onCancel }) {
+  const [password, setPassword] = React.useState('');
+  const [password2, setPassword2] = React.useState('');
+  const [error, setError] = React.useState('');
+  const [loading, setLoading] = React.useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (password.length < 8) { setError('Lösenordet måste vara minst 8 tecken.'); return; }
+    if (password !== password2) { setError('Lösenorden matchar inte.'); return; }
+    setError('');
+    setLoading(true);
+    try {
+      await onSubmit(password);
+    } catch (err) {
+      setError(err.message || 'Kunde inte uppdatera lösenordet. Försök igen.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: BRAND.greenLight, padding: '24px', fontFamily: "'Inter', sans-serif" }}>
+      <form onSubmit={handleSubmit} style={{ width: '100%', maxWidth: '400px', background: 'var(--bg-card)', borderRadius: '22px', padding: '36px 32px', boxShadow: '0 12px 40px -8px rgba(15,23,42,0.18)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', boxSizing: 'border-box' }}>
+        <div style={{
+          width: 56, height: 56, borderRadius: '16px', flexShrink: 0,
+          background: `linear-gradient(160deg, ${BRAND.green}, #0e3a2a)`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: `0 8px 20px -6px ${BRAND.green}99`,
+        }}>
+          <Lock size={26} color="white" strokeWidth={2.2} />
+        </div>
+
+        <div style={{ textAlign: 'center' }}>
+          <h2 style={{ fontSize: '21px', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 6px', letterSpacing: '-0.02em' }}>Skapa nytt lösenord</h2>
+          <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)', lineHeight: 1.5, margin: 0 }}>Ange ett nytt lösenord för ditt konto.</p>
+        </div>
+
+        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <input
+            type="password" autoFocus autoComplete="new-password" placeholder="Nytt lösenord (minst 8 tecken)"
+            value={password} onChange={e => setPassword(e.target.value)} disabled={loading} minLength={8} required
+            style={{ width: '100%', padding: '12px 14px', border: '1px solid var(--border)', borderRadius: '10px', fontSize: '14.5px', color: 'var(--text-main)', background: 'var(--bg-muted)', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}
+          />
+          <input
+            type="password" autoComplete="new-password" placeholder="Upprepa nytt lösenord"
+            value={password2} onChange={e => setPassword2(e.target.value)} disabled={loading} required
+            style={{ width: '100%', padding: '12px 14px', border: '1px solid var(--border)', borderRadius: '10px', fontSize: '14.5px', color: 'var(--text-main)', background: 'var(--bg-muted)', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}
+          />
+        </div>
+
+        {error && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '10px 12px', background: 'var(--status-red-bg)', color: 'var(--status-red-text)', borderRadius: '8px', fontSize: '13px', fontWeight: 600, width: '100%', boxSizing: 'border-box' }}>
+            <AlertTriangle size={14} strokeWidth={2.5} style={{ flexShrink: 0 }} /> {error}
+          </div>
+        )}
+
+        <button
+          type="submit"
+          disabled={loading}
+          style={{ width: '100%', padding: '13px', background: BRAND.green, border: 'none', borderRadius: '10px', color: 'white', fontWeight: 700, fontSize: '15px', cursor: loading ? 'wait' : 'pointer', opacity: loading ? 0.7 : 1, fontFamily: 'inherit', transition: 'opacity 0.15s' }}
+        >
+          {loading ? 'Uppdaterar...' : 'Uppdatera lösenord'}
         </button>
         <button type="button" onClick={onCancel} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '13px', cursor: 'pointer', textAlign: 'center', fontFamily: 'inherit' }}>
           Avbryt och logga ut
@@ -873,6 +954,12 @@ function App() {
   // subscriptionGate ovan), så appens data aldrig hinner hämtas ens om
   // en angripare har rätt lösenord men inte enhetens TOTP-kod.
   const [mfaChallenge, setMfaChallenge] = useState(null); // { factorId, challengeId } | null
+  // Sant medan sessionen kommer från en klickad "Glömt lösenord"-länk
+  // (PASSWORD_RECOVERY-eventet, se onAuthStateChange nedan och
+  // PasswordRecoveryScreen ovan) — tills användaren faktiskt satt ett nytt
+  // lösenord. Samma gate-mönster som mfaChallenge ovan, kollas FÖRE
+  // !isLoggedIn-grenen i renderingen av samma skäl.
+  const [passwordRecovery, setPasswordRecovery] = useState(false);
   // Fångas EN gång vid första renderingen — innan den andra useEffect-hooken
   // längre ner (?subscription_checkout=success-toasten) hinner städa bort
   // parametern ur URL:en. fetchUserData körs asynkront (efter getSession()-
@@ -1292,6 +1379,14 @@ function App() {
         setIsLoggedIn(false);
         setShowOnboarding(false);
         setSubscriptionGate(null);
+      } else if (event === 'PASSWORD_RECOVERY') {
+        // Klickad återställningslänk (Auth.jsx: "Glömt lösenord?") —
+        // Supabase loggar in med en TILLFÄLLIG session från själva länken,
+        // men det ska aldrig räcka för att komma in i appen med det gamla
+        // lösenordet fortfarande kvar. fetchUserData körs INTE här (det är
+        // bara 'SIGNED_IN' ovan som gör det) — se passwordRecovery-state:t
+        // och PasswordRecoveryScreen.
+        setPasswordRecovery(true);
       } else if (event === 'SIGNED_IN') {
         fetchUserData(session.user);
       }
@@ -1565,6 +1660,28 @@ function App() {
     await supabase.auth.signOut();
     clearLocalData();
     setMfaChallenge(null);
+    setIsLoggedIn(false);
+  };
+
+  // Lösenordsåterställning (PasswordRecoveryScreen ovan). Kastar vidare ett
+  // fel om updateUser misslyckas — skärmen visar det själv, samma mönster
+  // som handleMfaVerify.
+  const handleSetNewPassword = async (password) => {
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) throw error;
+    // Samma isLoadingAuth-brygga som handleMfaVerify använder: utan den
+    // hinner ett kort ögonblick (passwordRecovery redan false, isLoggedIn
+    // fortfarande false) falla igenom till !isLoggedIn-grenen och blinka
+    // till Auth-skärmen innan fetchUserData hinner sätta isLoggedIn(true).
+    setPasswordRecovery(false);
+    setIsLoadingAuth(true);
+    if (user) fetchUserData(user);
+  };
+
+  const handlePasswordRecoveryCancel = async () => {
+    await supabase.auth.signOut();
+    clearLocalData();
+    setPasswordRecovery(false);
     setIsLoggedIn(false);
   };
 
@@ -2584,6 +2701,13 @@ function App() {
   const handleDeleteExpense = (expenseId) => {
     const alreadyBooked = verifications.some(v => (v.source === 'expense' || v.source === 'expense_fix') && v.sourceId === expenseId);
     if (alreadyBooked) return;
+    // Kostnadsgranskning: kvittofilen i Storage följde tidigare inte med
+    // härifrån — bara raden i state togs bort, filen blev kvar och betalade
+    // hyra för evigt. "Best effort" (se deleteFileFromStorage) — väntar inte
+    // in svaret, ett misslyckat städförsök ska aldrig fördröja eller blockera
+    // att kvittot faktiskt försvinner ur listan.
+    const expense = expenses.find(e => e.id === expenseId);
+    if (expense?.receiptUrl) deleteFileFromStorage(expense.receiptUrl);
     setExpenses(prev => prev.filter(e => e.id !== expenseId));
   };
 
@@ -3087,7 +3211,11 @@ function App() {
           <Reports
             accounts={accounts}
             verifications={verifications}
+            invoices={invoices}
+            payrollRuns={payrollRuns}
+            contacts={contacts}
             company={company}
+            setCompanyInfo={setCompanyInfo}
             onNavigate={handleNavTabChange}
           />
         );
@@ -3149,6 +3277,10 @@ function App() {
               // (fetchUserData pausar sig själv här), så utan den här grenen
               // hade Auth-skärmen bara visats igen.
               <MfaChallengeScreen onVerify={handleMfaVerify} onCancel={handleMfaCancel} />
+            ) : passwordRecovery ? (
+              // Klickad "Glömt lösenord?"-länk — samma "måste ligga FÖRE
+              // !isLoggedIn" resonemang som mfaChallenge ovan.
+              <PasswordRecoveryScreen onSubmit={handleSetNewPassword} onCancel={handlePasswordRecoveryCancel} />
             ) : !isLoggedIn ? (
               showLanding
                 ? <LandingPage onEnterApp={() => setShowLanding(false)} />

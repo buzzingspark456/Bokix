@@ -78,6 +78,53 @@ dig TXT resend._domainkey.bokix.se +short   # DKIM (namnet Resend gav i steg 1)
 Eller kör om samma säkerhetsskanning som gav resultatet högst upp i den
 här filen.
 
+## 5. Supabase Auth-mejl (bekräfta konto/återställ lösenord) — custom SMTP
+
+De mejl som beskrivs ovan (fakturor/påminnelser) är EN sak, skickade av
+Bokix egen kod via Resends HTTP-API. Supabase Auths egna mejl — bekräfta
+konto, återställ lösenord, magisk länk, ändra e-post, återautentisering —
+är en HELT SEPARAT sak: Supabase skickar dem själv, utlöst av sina egna
+auth-flöden (t.ex. `supabase.auth.resetPasswordForEmail(...)` i
+[Auth.jsx](../src/components/Auth.jsx)), inte av någon kod i den här
+kodbasen.
+
+Utan konfiguration skickar Supabase de här mejlen via sin egen delade
+mailserver — hårt hastighetsbegränsad (några enstaka mejl/timme oavsett
+plan) och från en generisk Supabase-adress, inte `@bokix.se`. Inte
+produktionsdugligt: en verklig användarbas slår snabbt i taket, och en
+missad återställningslänk syns aldrig som ett fel, mejlet bara uteblir.
+
+Lösningen: Supabase stödjer "custom SMTP" — en egen mailserver för just de
+här mejlen. Resend har, utöver sitt HTTP-API, ÄVEN en vanlig SMTP-relä
+(`smtp.resend.com`) byggd exakt för såna här tredjepartsintegrationer.
+Eftersom `bokix.se` redan är DKIM/SPF/DMARC-verifierat i Resend (steg 1–3
+ovan) krävs **inga nya DNS-poster** — SMTP-reläet är bara en andra dörr in
+till SAMMA redan verifierade Resend-konto/domän, inte en ny avsändare.
+
+Konfiguration (Supabase Dashboard → Authentication → Emails → SMTP
+Settings):
+
+| Fält | Värde |
+|---|---|
+| Sender email | `noreply@bokix.se` |
+| Sender name | `Bokix` |
+| Host | `smtp.resend.com` |
+| Port | `465` |
+| Username | `resend` (bokstavligen, alltid samma för alla Resend-konton) |
+| Password | en Resend API-nyckel (`re_...`), skapad separat från `RESEND_API_KEY` (se [.env.example](../.env.example) — den nyckeln används av fakturautskicken, se ovan) med behörigheten **"Sending access"**, inte "Full access" |
+
+Två separata nycklar med avsikt: om den ena någonsin behöver återkallas
+(läckt, misstänkt missbruk) ska det inte samtidigt slå ut den andra
+funktionen.
+
+**Testa**: logga in-sidan har en "Glömt lösenord?"-länk (Auth.jsx) som
+triggar `resetPasswordForEmail` — använd den mot ett testkonto och
+kontrollera dels att mejlet kommer fram från `noreply@bokix.se`, dels
+**Resend → Logs** (visar om det gick via SMTP eller inte). App.jsx lyssnar
+på Supabases `PASSWORD_RECOVERY`-event (se `passwordRecovery`-state:t och
+`PasswordRecoveryScreen`) och visar ett "ange nytt lösenord"-formulär när
+länken i mejlet klickas.
+
 ## Relaterat
 
 - `security.txt` (samma skanning, separat kontaktväg för sårbarhets-
