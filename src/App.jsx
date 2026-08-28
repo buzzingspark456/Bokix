@@ -3267,7 +3267,20 @@ function App() {
     <>
     <Suspense fallback={<RouteLoadingFallback />}>
       <>
-            {subscriptionGate === 'blocked' ? (
+            {passwordRecovery ? (
+              // Klickad "Glömt lösenord?"-länk — MÅSTE vara FÖRSTA grenen,
+              // före subscriptionGate/mfaChallenge nedan (kodgranskning/
+              // Playwright-test: mount-effektens getSession()-anrop kör
+              // fetchUserData rakt av så fort NÅGON session finns, inklusive
+              // en tillfällig recovery-session — så subscriptionGate kunde
+              // redan hinna bli 'blocked' innan denna grens egen check ens
+              // hann köra. Utan den här ordningen såg en användare med
+              // utgången provperiod/uppsagd prenumeration betalningsspärren
+              // istället för att kunna återställa lösenordet — inlåst i en
+              // cirkel (kan inte betala utan att kunna logga in, kan inte
+              // återställa lösenordet för att komma in och betala).
+              <PasswordRecoveryScreen onSubmit={handleSetNewPassword} onCancel={handlePasswordRecoveryCancel} />
+            ) : subscriptionGate === 'blocked' ? (
               <PaymentRequiredGate user={user} />
             ) : mfaChallenge ? (
               // Rätt lösenord, men 2FA aktiverad och koden inte verifierad
@@ -3277,10 +3290,6 @@ function App() {
               // (fetchUserData pausar sig själv här), så utan den här grenen
               // hade Auth-skärmen bara visats igen.
               <MfaChallengeScreen onVerify={handleMfaVerify} onCancel={handleMfaCancel} />
-            ) : passwordRecovery ? (
-              // Klickad "Glömt lösenord?"-länk — samma "måste ligga FÖRE
-              // !isLoggedIn" resonemang som mfaChallenge ovan.
-              <PasswordRecoveryScreen onSubmit={handleSetNewPassword} onCancel={handlePasswordRecoveryCancel} />
             ) : !isLoggedIn ? (
               showLanding
                 ? <LandingPage onEnterApp={() => setShowLanding(false)} />

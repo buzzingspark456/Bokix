@@ -12,7 +12,6 @@ import { BRAND } from '../utils/brandColors';
 import { BokixWordmark } from './marketing/MarketingLayout';
 import { createStripeSubscriptionCheckout } from '../stripeApi';
 import Turnstile from './Turnstile';
-import { SITE_URL } from '../utils/seo';
 
 // ── Litet Stripe-märke — se motsvarande kommentar i PaymentRequiredGate.jsx
 // (samma lokala-kopia-mönster). ──
@@ -143,13 +142,15 @@ export default function Auth({ onLogin, onBackToLanding }) {
     setForgotSent(false);
   };
 
-  // Skickar återställningslänken (App.jsx: onAuthStateChange lyssnar på
-  // PASSWORD_RECOVERY-eventet den skapar, se PasswordRecoveryScreen där).
-  // redirectTo pekar på appens EGEN rot, inte en särskild "/reset"-sida —
-  // det finns ingen separat route för det här, Supabase lägger själv på
-  // #access_token=...&type=recovery i hashen och AppRouter.jsx:s
-  // shouldLoadAppImmediately känner redan igen den och laddar App.jsx
-  // direkt istället för LandingPage.
+  // Skickar återställningslänken via EGEN server-rutt (api/auth/
+  // request-password-reset.js) istället för direkt mot Supabase — den
+  // rutten är den enda platsen som faktiskt kan hålla koll på "max 5
+  // återställningsmejl/dygn per e-postadress" (kundönskemål), eftersom en
+  // klient aldrig kan lita på sig själv för en gräns (öppna DevTools, kör
+  // om anropet). Se den filen för redirectTo/felresonemanget som tidigare
+  // låg här (bugkritiskt: window.location.origin vs Supabases
+  // Redirect URLs-allowlist) — samma logik, bara flyttad server-side.
+  // App.jsx (onAuthStateChange, PASSWORD_RECOVERY-eventet) är oförändrad.
   const handleForgotPassword = async (e) => {
     e.preventDefault();
     if (forgotLoading) return;
@@ -157,25 +158,16 @@ export default function Auth({ onLogin, onBackToLanding }) {
     setForgotLoading(true);
     try {
       if (!forgotEmail.trim()) throw new Error('Ange din e-postadress');
-      // Bugkritiskt (kundfeedback: "blev det rött och står {}"): SITE_URL
-      // (samma kanoniska https://www.bokix.se som resten av appens SEO-
-      // taggar redan använder, se utils/seo.jsx), INTE window.location.origin.
-      // Supabase avvisar tyst hela anropet om redirectTo inte exakt matchar
-      // något i projektets egen "Redirect URLs"-allowlist (Authentication →
-      // URL Configuration) — window.location.origin kan bli t.ex.
-      // "https://bokix.se" (utan www) eller en Vercel-previewdomän beroende
-      // på var man råkar testa ifrån, vilket INTE nödvändigtvis är samma sak
-      // som det som faktiskt är allowlistat där. Ett fast, känt värde
-      // undviker den gissningsleken helt.
-      const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail.trim(), {
-        redirectTo: `${SITE_URL}/`,
-        ...(forgotCaptchaToken ? { captchaToken: forgotCaptchaToken } : {}),
+      const res = await fetch('/api/auth/request-password-reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: forgotEmail.trim(), captchaToken: forgotCaptchaToken || undefined }),
       });
-      // Supabase svarar med fel bara för sådant som captcha/nätverk/
-      // hastighetsbegränsning — ALDRIG för att adressen saknar konto (det
-      // hade läckt vilka e-postadresser som är registrerade). Ett äkta fel
-      // visas ändå, men annars alltid samma "kolla din inkorg".
-      if (error) throw error;
+      const data = await res.json().catch(() => ({}));
+      // Samma "alltid samma svar" som innan — servern svarar med fel bara
+      // för sådant som captcha/nätverk/hastighetsbegränsning (inklusive
+      // vår EGEN 5/dygn-gräns, 429), ALDRIG för att adressen saknar konto.
+      if (!res.ok) throw new Error(data?.error || 'Kunde inte skicka återställningslänken.');
       setForgotSent(true);
     } catch (err) {
       // Bugkritiskt (kundfeedback): en trasig/oväntad felrespons från

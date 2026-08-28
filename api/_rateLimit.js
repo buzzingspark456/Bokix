@@ -18,13 +18,21 @@ const buckets = new Map();
 /** Returnerar true om anropet får fortsätta. Skriver själv ett 429-svar
  * och returnerar false annars — anropande kod ska bara göra
  * `if (!checkRateLimit(req, res, { key: '...' })) return;` direkt efter
- * applySecurityHeaders(res). */
-export function checkRateLimit(req, res, { key, windowMs = 15 * 60 * 1000, max = 20 }) {
+ * applySecurityHeaders(res).
+ *
+ * `identifier` (valfri): räknar per DEN här strängen istället för
+ * anropande IP — t.ex. per e-postadress för
+ * api/auth/request-password-reset.js, där hotet är att spamma EN
+ * persons inkorg (går runt en IP-baserad gräns genom att bara byta
+ * nätverk), inte att en enskild klient översvämmar endpointen. Utelämnad
+ * = samma IP-baserade beteende som innan, oförändrat för alla befintliga
+ * anropare. */
+export function checkRateLimit(req, res, { key, windowMs = 15 * 60 * 1000, max = 20, identifier }) {
   const forwardedFor = req.headers['x-forwarded-for'];
   const ip = (Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor)?.split(',')[0]?.trim()
     || req.socket?.remoteAddress
     || 'unknown';
-  const bucketKey = `${key}:${ip}`;
+  const bucketKey = `${key}:${identifier || ip}`;
   const now = Date.now();
 
   // Enkel städning så minnet inte växer obegränsat under en lång varm

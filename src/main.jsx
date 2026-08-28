@@ -45,6 +45,17 @@ initBotId({
     { path: '/api/company-access', method: 'POST' },
   ],
 })
+// "Glömt lösenord?" (api/auth/request-password-reset.js) MEDVETET INTE
+// listad ovan, trots att den (till skillnad från signUp/signInWithPassword)
+// faktiskt går via en av våra Vercel-functions: testat och verifierat att
+// klientens BotID-inpackning FAILAR STÄNGD, inte öppen, om dess egna
+// utmaningsskript av någon anledning inte hinner/kan laddas (verifierat
+// lokalt — hela fetch()-anropet avvisas då med ett tomt Event istället för
+// att bara hoppa över kollen). Servern (isRequestFromBot i handlern) är
+// fail-open av precis den anledningen, men klientens egen inpackning här
+// är det inte — och kontoåterställning är fel flöde att introducera en ny
+// enskild felkälla i. Turnstile (Auth.jsx) + serverns egna 5/dygn-gräns
+// (_rateLimit.js) täcker missbruksrisken utan den risken.
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
