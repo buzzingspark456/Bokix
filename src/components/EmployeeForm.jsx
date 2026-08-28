@@ -296,7 +296,7 @@ export default function EmployeeForm({ initial, projects = [], onSave, onCancel 
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
         <button type="button" onClick={onCancel} style={{ padding: '9px 18px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer' }}>Avbryt</button>
-        <button type="submit" style={{ padding: '9px 18px', background: '#1a3028', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600, color: 'white', cursor: 'pointer' }}>Spara anställd</button>
+        <button type="submit" style={{ padding: '9px 18px', background: 'var(--accent)', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600, color: 'white', cursor: 'pointer' }}>Spara anställd</button>
       </div>
     </form>
   );

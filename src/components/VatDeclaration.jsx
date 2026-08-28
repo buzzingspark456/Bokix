@@ -9,6 +9,13 @@ import { downloadVatDeclarationPdf } from '../utils/vatDeclarationExport';
 
 const fmt = (v) => new Intl.NumberFormat('sv-SE').format(v || 0);
 
+// Kundfeedback ("du ska förklara va det ä, asså datum"): "Kvartal 1/2/3/4"
+// själva siffran säger ingenting om man inte redan har kalendern i huvudet
+// — vilka månader är kvartal 3? Korta månadsintervall direkt i väljarens
+// egna alternativ, inte bara i sidhuvudets löptext ovanför (som man lätt
+// missar/glömmer när man väl öppnat dropdownen).
+const QUARTER_MONTH_LABEL = { 1: 'jan–mar', 2: 'apr–jun', 3: 'jul–sep', 4: 'okt–dec' };
+
 const STEPS = [
   { id: 1, label: 'Kontrollera' },
   { id: 2, label: 'Granska' },
@@ -28,7 +35,7 @@ function Stepper({ current, maxReached }) {
               <div style={{
                 width: 32, height: 32, borderRadius: '50%',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: isActive ? '#1a3028' : (isDone ? 'var(--status-green-bg)' : 'var(--border-light)'),
+                background: isActive ? 'var(--accent)' : (isDone ? 'var(--status-green-bg)' : 'var(--border-light)'),
                 color: isActive ? 'white' : (isDone ? 'var(--status-green-text)' : 'var(--text-muted)'),
                 fontWeight: 700, fontSize: '13px', border: isActive ? 'none' : '1px solid transparent',
                 flexShrink: 0,
@@ -109,21 +116,30 @@ export default function VatDeclaration({
   };
 
   const periodLabel = `Kvartal ${quarter} (${periodStart} till ${periodEnd})`;
+  // Läsbart datumspann istället för råa ISO-datum (2026-07-01) i sidhuvudet
+  // — samma "förklara vad det är, datumet"-feedback som dropdownens
+  // månadsintervall ovan löser, bara för den redan valda perioden.
+  const fmtPeriodDate = (iso) => new Date(iso).toLocaleDateString('sv-SE', { day: 'numeric', month: 'long' });
+  const periodDateRange = `${fmtPeriodDate(periodStart)} – ${fmtPeriodDate(periodEnd)} ${year}`;
 
+  // borderRadius top-hörn fyrkantiga (inte 12px runt om): sitter numera
+  // flush direkt under Skatt och bokslut → Moms-flikens flikrad
+  // (Taxes.jsx, "no space"-genomgången), en rundad topp mot en rak
+  // flikrad lämnade en böjd glipa i hörnen.
   return (
-    <div style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border)', overflow: 'hidden' }}>
+    <div style={{ background: 'var(--bg-card)', borderRadius: '0 0 12px 12px', border: '1px solid var(--border)', overflow: 'hidden' }}>
       {/* Sidhuvud: period, datespan, antal underlag */}
       <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
           <div>
             <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>Momsdeklaration</h2>
             <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-              {periodStart} till {periodEnd} · {transactionCount} {transactionCount === 1 ? 'underliggande transaktion' : 'underliggande transaktioner'}
+              {periodDateRange} · {transactionCount} {transactionCount === 1 ? 'underliggande transaktion' : 'underliggande transaktioner'}
             </div>
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <select value={quarter} onChange={e => { setQuarter(Number(e.target.value)); setStep(1); }} disabled={isBooked} style={{ padding: '7px 10px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', background: 'var(--bg-card)', color: 'var(--text-main)' }}>
-              {[1, 2, 3, 4].map(q => <option key={q} value={q}>Kvartal {q}</option>)}
+              {[1, 2, 3, 4].map(q => <option key={q} value={q}>Kvartal {q} ({QUARTER_MONTH_LABEL[q]})</option>)}
             </select>
             <select value={year} onChange={e => { setYear(Number(e.target.value)); setStep(1); }} disabled={isBooked} style={{ padding: '7px 10px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', background: 'var(--bg-card)', color: 'var(--text-main)' }}>
               {[today.getFullYear() - 1, today.getFullYear(), today.getFullYear() + 1].map(y => <option key={y} value={y}>{y}</option>)}
@@ -186,7 +202,7 @@ export default function VatDeclaration({
                 disabled={!validation.canProceed}
                 style={{
                   display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 20px',
-                  background: validation.canProceed ? '#1a3028' : 'var(--border)', color: validation.canProceed ? 'white' : 'var(--text-muted)',
+                  background: validation.canProceed ? 'var(--accent)' : 'var(--border)', color: validation.canProceed ? 'white' : 'var(--text-muted)',
                   border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: validation.canProceed ? 'pointer' : 'not-allowed',
                 }}
               >
@@ -231,7 +247,7 @@ export default function VatDeclaration({
             </p>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <button onClick={() => setStep(1)} style={{ padding: '10px 18px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer', color: 'var(--text-main)' }}>Tillbaka</button>
-              <button onClick={() => setStep(3)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 20px', background: '#1a3028', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer' }}>
+              <button onClick={() => setStep(3)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 20px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer' }}>
                 Gå vidare till Bokför <ChevronRight size={16} />
               </button>
             </div>
@@ -289,14 +305,14 @@ export default function VatDeclaration({
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <button onClick={() => setStep(2)} style={{ padding: '10px 18px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer', color: 'var(--text-main)' }}>Tillbaka</button>
               {isBooked ? (
-                <button onClick={() => setStep(4)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 20px', background: '#1a3028', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer' }}>
+                <button onClick={() => setStep(4)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 20px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer' }}>
                   Gå vidare till Lämna in <ChevronRight size={16} />
                 </button>
               ) : (
                 <button
                   onClick={handleBook}
                   disabled={booking}
-                  style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 20px', background: booking ? 'var(--text-muted)' : '#1a3028', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: booking ? 'not-allowed' : 'pointer' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 20px', background: booking ? 'var(--text-muted)' : 'var(--accent)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: booking ? 'not-allowed' : 'pointer' }}
                 >
                   <Lock size={16} /> Bokför
                 </button>
@@ -328,7 +344,7 @@ export default function VatDeclaration({
               </div>
 
               <div style={{ border: '1px solid var(--border)', borderRadius: '10px', padding: '20px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '10px' }}>
-                <Download size={22} color="#1a3028" />
+                <Download size={22} color="var(--accent)" />
                 <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)' }}>Ladda ner PDF</div>
                 <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
                   Sammanställning med Skatteverkets rutnummer och avrundade belopp, redo att skriva av för hand.
@@ -338,7 +354,7 @@ export default function VatDeclaration({
                     { company, periodLabel, rounded, rutor: rutorForDisplay },
                     `momsdeklaration-${periodKey}.pdf`
                   )}
-                  style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: '#1a3028', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}
                 >
                   <Download size={14} /> Ladda ner PDF
                 </button>

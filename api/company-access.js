@@ -4,7 +4,7 @@ import { requireAuthedUser, loadMemberCompany } from './_auth.js';
 import { checkRateLimit } from './_rateLimit.js';
 import { isRequestFromBot } from './_botid.js';
 import { createClient } from '@supabase/supabase-js';
-import { COMPANY_WRITABLE_FIELDS } from './_companyFields.js';
+import { COMPANY_WRITABLE_FIELDS } from '../src/utils/companyFields.js';
 
 // Enda server-endpointen en INBJUDEN användare (se supabase-setup.sql:
 // company_members — ägare + upp till 2 inbjudna = max 3 per företag) någonsin

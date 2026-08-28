@@ -197,7 +197,14 @@ export default function DemoWorkspace() {
           />
         );
       case 'reports':
-        return <Reports accounts={seed.accounts} verifications={seed.verifications} company={seed.company} />;
+        return (
+          <Reports
+            accounts={seed.accounts} verifications={seed.verifications} invoices={seed.invoices}
+            payrollRuns={seed.payrollRuns} contacts={seed.contacts}
+            company={settingsCompany} setCompanyInfo={setSettingsCompany}
+            onNavigate={openTab}
+          />
+        );
       case 'settings':
         // Går att klicka runt i på riktigt — bläddra mellan Företag/
         // Betalning/Fakturamall/Användare och åtkomst/Prenumeration/Data,
@@ -281,7 +288,11 @@ export default function DemoWorkspace() {
           aktiv-bakgrund och samma Granskning-badge — kundfeedback: demot ska
           se ut och kännas som riktiga dashboardet, inte en förenklad
           miniatyr av det. */}
-      <div className="lp-hide-mobile" style={{ width: '212px', flexShrink: 0, background: 'var(--bg-sidebar)', display: 'flex', flexDirection: 'column' }}>
+      {/* borderRight: kundfeedback ("Visuell gräns meny/innehåll") — samma
+          fix som riktiga appens .sidebar (index.css) fick, upprepad här
+          eftersom demot är en egen handbyggd klon som inte delar den
+          klassen. */}
+      <div className="lp-hide-mobile" style={{ width: '212px', flexShrink: 0, background: 'var(--bg-sidebar)', display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)' }}>
         <div style={{ padding: '22px 14px 18px' }}>
           <BokixWordmark height={62} />
         </div>
@@ -358,7 +369,13 @@ export default function DemoWorkspace() {
             fast rad ovanför den — nu skrollar den bort med resten av
             innehållet precis som i appen. */}
         <div className="lp-demo-content">
-          <div className="lp-hide-mobile" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', padding: '0 20px', height: '52px', margin: '-20px -20px 20px', background: theme === 'dark' ? 'var(--bg-sidebar)' : 'var(--bg-card)', borderBottom: theme === 'dark' ? '1px solid rgba(255,255,255,0.15)' : '1px solid var(--border)', flexShrink: 0 }}>
+          {/* .lp-demo-content har ingen egen padding längre (samma
+              "ingen space"-regel som riktiga appens .main-content-inner) —
+              den här raden bar tidigare ut sig ur en 20px padding med
+              negativ marginal, men ligger nu redan dikt an mot kanten själv.
+              Bara bottenmarginalen (avstånd ner till sidans eget innehåll)
+              kvar. */}
+          <div className="lp-hide-mobile" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', padding: '0 20px', height: '52px', margin: '0 0 20px', background: theme === 'dark' ? 'var(--bg-sidebar)' : 'var(--bg-card)', borderBottom: theme === 'dark' ? '1px solid rgba(255,255,255,0.15)' : '1px solid var(--border)', flexShrink: 0 }}>
             <span style={{ fontSize: '10.5px', fontWeight: 700, color: theme === 'dark' ? 'rgba(255,255,255,0.6)' : 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Exempeldata</span>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <button onClick={blocked} title="Hjälp & support" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 34, height: 34, borderRadius: '8px', background: 'none', border: 'none', cursor: 'pointer', color: theme === 'dark' ? 'rgba(255,255,255,0.75)' : 'var(--text-secondary)' }}>

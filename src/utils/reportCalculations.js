@@ -65,7 +65,7 @@ function endOfQuarter(d) { const q = Math.floor(d.getMonth() / 3); return new Da
 /** Räkenskapsårets start baseras på företagets faktiska inställning
  * (company.fiscalYear lagrar räkenskapsårets startdatum — bara
  * månad/dag används här för att hitta INNEVARANDE räkenskapsår). */
-function fiscalYearBounds(fiscalYearStr, referenceDate) {
+export function fiscalYearBounds(fiscalYearStr, referenceDate) {
   const configured = fiscalYearStr ? toDate(fiscalYearStr) : new Date(referenceDate.getFullYear(), 0, 1);
   const month = configured.getMonth();
   const day = configured.getDate();
@@ -264,4 +264,161 @@ export function computeBalanceSheet(verifications, accounts, asOfDate) {
  * just i den här perioden". */
 export function hasAnyBookedData(verifications) {
   return (verifications || []).some(isBooked);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Rapport och analys — rapportportalen (14 namngivna rapporter). Samma
+// princip som ovan: ALDRIG hårdkodad exempeldata, allt räknas fram ur
+// faktiskt bokförda verifikationer/fakturor. En rapport utan underlag
+// visar en tom-lista (rows.length === 0), aldrig en tyst 0 kr som ser ut
+// som en riktig siffra — det avgör anroparen (ReportDetail.jsx) genom att
+// kolla `rows.length`, inte genom att gissa.
+// ─────────────────────────────────────────────────────────────────────────
+
+/** Huvudbok — saldo och alla bokförda transaktionsrader per konto, med
+ * löpande saldo. Ingångsvärde (`openingBalance`) är det ackumulerade
+ * saldot fram till (men inte med) periodens start, precis som en riktig
+ * huvudbok. Bara konton med aktivitet ELLER ett ingångssaldo skilt från
+ * noll tas med — annars skulle en huvudbok med 50+ oanvända BAS-konton
+ * drunkna de faktiskt intressanta i tomma rader. */
+export function computeLedger(verifications, accounts, start, end) {
+  const byCode = new Map(accounts.map(a => [a.code, a]));
+  const opening = new Map();
+  const entriesByAccount = new Map();
+
+  const sorted = [...verifications]
+    .filter(v => isBooked(v) && v.date)
+    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+
+  for (const ver of sorted) {
+    const d = toDate(ver.date);
+    for (const row of ver.rows || []) {
+      const debet = getDebet(row) || 0;
+      const kredit = getKredit(row) || 0;
+      if (!debet && !kredit) continue;
+      if (d < start) {
+        opening.set(row.account, (opening.get(row.account) || 0) + debet - kredit);
+        continue;
+      }
+      if (d > end) continue;
+      if (!entriesByAccount.has(row.account)) entriesByAccount.set(row.account, []);
+      entriesByAccount.get(row.account).push({
+        date: ver.date, description: ver.description || '', debet, kredit,
+        verificationId: ver.id, verificationNumber: ver.number,
+      });
+    }
+  }
+
+  const codes = new Set([...opening.keys(), ...entriesByAccount.keys()]);
+  const accountsOut = [...codes].map(code => {
+    const acc = byCode.get(code);
+    let running = opening.get(code) || 0;
+    const rows = (entriesByAccount.get(code) || []).map(e => {
+      running += e.debet - e.kredit;
+      return { ...e, runningBalance: running };
+    });
+    return {
+      code, name: acc?.name || code, openingBalance: opening.get(code) || 0,
+      rows, closingBalance: running,
+    };
+  })
+    .filter(a => a.rows.length > 0 || Math.abs(a.openingBalance) > 0.5)
+    .sort((a, b) => String(a.code).localeCompare(String(b.code)));
+
+  return { accounts: accountsOut };
+}
+
+/** Fakturarapporter — fakturerat/betalt/utestående per kund, byggt direkt
+ * ur kundfakturor (inte bokföringen) eftersom rapporten specifikt handlar
+ * om fakturaflödet/kundreskontran, inte den allmänna huvudboken. Samma
+ * bruttoformel (qty × á-pris × (1+moms%)) som Invoices.jsx behöver —
+ * DEN filen importerar `grossInvoiceAmount` härifrån (som `grossOf`),
+ * inte tvärtom (kodgranskning: fanns tidigare som två oberoende kopior,
+ * trots en kommentar här som redan påstod att den var delad). Bara
+ * riktiga kundfakturor räknas (type !== 'quote'), utkast exkluderas — en
+ * osparad/obekräftad fakturarad är inte "fakturerat" än. */
+export function grossInvoiceAmount(inv) {
+  return (inv.rows || []).reduce((sum, r) => sum + (Number(r.qty) || 0) * (Number(r.unitPrice) || 0) * (1 + (Number(r.vatRate) || 0) / 100), 0) || inv.amount || 0;
+}
+
+export function computeInvoiceReport(invoices, contacts, start, end) {
+  const byId = new Map((contacts || []).map(c => [c.id, c]));
+  const inRange = (invoices || []).filter(inv => {
+    if ((inv.type || 'invoice') === 'quote') return false;
+    if (inv.status === 'draft') return false;
+    if (!inv.date) return false;
+    const d = toDate(inv.date);
+    return d >= start && d <= end;
+  });
+
+  const byCustomer = new Map();
+  for (const inv of inRange) {
+    const key = inv.customerId || inv.customerName || 'okänd';
+    const gross = grossInvoiceAmount(inv);
+    const paid = inv.status === 'paid' ? gross : (Number(inv.paidAmount) || 0);
+    if (!byCustomer.has(key)) {
+      byCustomer.set(key, {
+        customerId: inv.customerId || null,
+        name: byId.get(inv.customerId)?.name || inv.customerName || 'Okänd kund',
+        invoiced: 0, paid: 0, invoiceCount: 0,
+      });
+    }
+    const row = byCustomer.get(key);
+    row.invoiced += gross;
+    row.paid += paid;
+    row.invoiceCount += 1;
+  }
+
+  const rows = [...byCustomer.values()]
+    .map(r => ({ ...r, outstanding: Math.max(0, r.invoiced - r.paid) }))
+    .sort((a, b) => b.invoiced - a.invoiced);
+  const totals = rows.reduce((acc, r) => ({
+    invoiced: acc.invoiced + r.invoiced, paid: acc.paid + r.paid, outstanding: acc.outstanding + r.outstanding,
+  }), { invoiced: 0, paid: 0, outstanding: 0 });
+
+  return { rows, totals, invoiceCount: inRange.length };
+}
+
+/** Nyckeltal — vinstmarginal, soliditet och kassalikviditet, räknade från
+ * samma balansräkning/resultatdata som redan finns (computeBalanceSheet/
+ * sumFlowByType), inte separata statiska tal.
+ *
+ * Soliditet (eget kapital / totala tillgångar) är en etablerad, entydig
+ * formel. Kassalikviditet ((kassa + kundfordringar) / kortfristiga
+ * skulder) är HÄR en förenklad approximation baserad på BAS-kontoklasser
+ * (2000–2099 = eget kapital, 2400–2999 = kortfristiga skulder, 15xx =
+ * kundfordringar, 1900–1999 = kassa/bank) snarare än en fullständig
+ * uppdelning i lång-/kortfristigt — flaggas därför explicit som "ungefärlig"
+ * i UI:t (ReportDetail.jsx) istället för att presenteras som en exakt siffra.
+ */
+export function computeKeyFigures(verifications, accounts, start, end) {
+  const omsattning = sumFlowByType(verifications, accounts, 'intakt', start, end);
+  const kostnader = sumFlowByType(verifications, accounts, 'kostnad', start, end);
+  const resultat = omsattning - kostnader;
+  const vinstmarginal = omsattning !== 0 ? (resultat / omsattning) * 100 : null;
+
+  const balance = computeBalanceSheet(verifications, accounts, end);
+  const egetKapital = balance.equityAndLiabilities
+    .filter(r => Number(r.code) >= 2000 && Number(r.code) < 2100)
+    .reduce((s, r) => s + r.amount, 0);
+  const kortfristigaSkulder = balance.equityAndLiabilities
+    .filter(r => Number(r.code) >= 2400)
+    .reduce((s, r) => s + Math.abs(r.amount), 0);
+  const kundfordringar = balance.assets
+    .filter(r => Number(r.code) >= 1500 && Number(r.code) < 1600)
+    .reduce((s, r) => s + r.amount, 0);
+  const kassaOchBank = balance.assets
+    .filter(r => isCashAccount({ code: r.code }))
+    .reduce((s, r) => s + r.amount, 0);
+
+  const soliditet = balance.totalAssets !== 0 ? (egetKapital / balance.totalAssets) * 100 : null;
+  const kassalikviditet = kortfristigaSkulder !== 0 ? ((kassaOchBank + kundfordringar) / kortfristigaSkulder) * 100 : null;
+
+  const hasData = balance.assets.length > 0 || balance.equityAndLiabilities.length > 0 || omsattning !== 0 || kostnader !== 0;
+
+  return {
+    omsattning, kostnader, resultat, vinstmarginal, soliditet, kassalikviditet,
+    egetKapital, totalaTillgangar: balance.totalAssets, kortfristigaSkulder, kassaOchBank, kundfordringar,
+    hasData,
+  };
 }

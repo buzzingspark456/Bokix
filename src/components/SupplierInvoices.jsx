@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  Plus, Search, Check, X, AlertCircle, Landmark, CreditCard,
+  Plus, Check, X, AlertCircle, Landmark, CreditCard,
 } from 'lucide-react';
 import { AccountSearch } from './shared/SearchInputs';
+import ListPageHeader, { ListSearchRow } from './shared/ListPageHeader';
+import ListTable from './shared/ListTable';
 import { BRAND } from '../utils/brandColors';
 
 const formatSEK = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
@@ -360,96 +362,77 @@ export default function SupplierInvoices({
   };
 
   return (
-    <div style={{ padding: '32px 40px', animation: 'fadeIn 0.25s ease', minHeight: '100%', boxSizing: 'border-box' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 500, color: 'var(--text-main)' }}>Leverantörsfakturor</h1>
-          <p style={{ margin: '2px 0 0', fontSize: '13.5px', color: 'var(--text-secondary)' }}>Registrera och håll koll på vad företaget är skyldigt sina leverantörer</p>
-        </div>
-      </div>
+    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
+      <ListPageHeader
+        title="Leverantörsfakturor"
+        subtitle="Registrera och håll koll på vad företaget är skyldigt sina leverantörer"
+        actions={[
+          { key: 'new', label: 'Ny leverantörsfaktura', icon: Plus, onClick: () => setShowForm(true), variant: 'primary' },
+        ]}
+      />
 
-      {/* Sida 38, punkt 6: .page-header-row staplar sökfältet (260px fast
-          bredd) och knappen i en kolumn på mobil istället för att tvinga
-          in dem på en rad som blir bredare än en telefonskärm. */}
-      <div className="page-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', margin: '20px 0 16px' }}>
-        <div style={{ position: 'relative' }}>
-          <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-          <input type="text" placeholder="Sök leverantörsfaktura..." value={search} onChange={e => setSearch(e.target.value)} style={{ ...inputSt, paddingLeft: '36px', width: '260px', background: 'var(--bg-card)' }} />
-        </div>
-        <button onClick={() => setShowForm(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: BRAND.green, color: 'white', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 500, cursor: 'pointer', flexShrink: 0 }}>
-          <Plus size={15} /> Ny leverantörsfaktura
-        </button>
-      </div>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column' }}>
+        <ListSearchRow value={search} onChange={e => setSearch(e.target.value)} placeholder="Sök leverantörsfaktura..." />
 
-      <div style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border)', overflow: 'hidden' }}>
-        {/* Sida 38, punkt 1 (komplettering): den här tabellen missades i den
-            tidigare kortlist-omgången — samma responsive-table-mönster som
-            Fakturor/Kontoplan/Bokföring nu använder. */}
-        <table className="responsive-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ background: 'var(--bg-muted)' }}>
-              {['Leverantör', 'Fakturanummer', 'Fakturadatum', 'Förfallodatum', 'Belopp', 'Status', ''].map(h => (
-                <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid var(--border)' }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 ? (
-              <tr>
-                <td colSpan={7} style={{ padding: '56px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                  {list.length === 0 ? 'Inga leverantörsfakturor registrerade än.' : 'Ingen matchade sökningen.'}
-                </td>
-              </tr>
-            ) : filtered.map((inv, i) => {
-              const needsReview = !inv.costAccount;
-              const effectivelyPaid = inv.status === 'paid' || optimisticPaid[inv.id];
-              const isOverdue = !effectivelyPaid && inv.dueDate && new Date(inv.dueDate) < new Date();
-              return (
-                <tr key={inv.id} style={{ borderBottom: i < filtered.length - 1 ? '1px solid var(--border-light)' : 'none' }}>
-                  <td data-label="Leverantör" style={{ padding: '14px 16px', fontWeight: 600, color: 'var(--text-main)', fontSize: '14px' }}>
-                    {contacts.find(c => c.id === inv.supplierId)?.name || inv.supplier || 'Okänd leverantör'}
-                  </td>
-                  <td data-label="Fakturanummer" style={{ padding: '14px 16px', color: 'var(--text-main)', fontSize: '13px' }}>#{inv.invoiceNumber}</td>
-                  <td data-label="Fakturadatum" style={{ padding: '14px 16px', color: 'var(--text-secondary)', fontSize: '13px' }}>{formatDate(inv.date)}</td>
-                  <td data-label="Förfallodatum" style={{ padding: '14px 16px', color: isOverdue ? '#ef4444' : 'var(--text-secondary)', fontSize: '13px', fontWeight: isOverdue ? 600 : 400 }}>{formatDate(inv.dueDate)}</td>
-                  <td data-label="Belopp" style={{ padding: '14px 16px', fontWeight: 600, color: 'var(--text-main)' }}>{formatSEK(inv.amount)}</td>
-                  <td data-label="Status" style={{ padding: '14px 16px' }}>
-                    {needsReview
-                      ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: BRAND.amberBg, color: BRAND.amberText }}><AlertCircle size={12} /> Granska</span>
-                      : (
-                        <>
-                          <StatusBadge status={effectivelyPaid ? 'paid' : (isOverdue ? 'overdue' : 'unpaid')} />
-                          {effectivelyPaid && inv.paymentMethod && (
-                            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px' }}>via {inv.paymentMethod === 'bank' ? 'bank' : 'kort'}</div>
-                          )}
-                        </>
-                      )}
-                  </td>
-                  <td data-label="" className="td-actions" style={{ padding: '14px 16px', textAlign: 'right' }}>
-                    {needsReview ? (
-                      fixingId === inv.id ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>
-                          <div style={{ width: 180 }}>
-                            <AccountSearch value={fixAccount} onChange={setFixAccount} accounts={accounts} placeholder="Välj konto..." />
-                          </div>
-                          <button onClick={() => applyFix(inv.id)} style={{ padding: '5px 10px', background: BRAND.green, color: 'white', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>Spara</button>
-                        </div>
-                      ) : (
-                        <button onClick={() => { setFixingId(inv.id); setFixAccount(''); }} style={{ padding: '5px 10px', background: BRAND.amberBg, color: BRAND.amberText, border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          Välj konto
-                        </button>
-                      )
-                    ) : !effectivelyPaid && (
-                      <button onClick={() => setPayingInvoiceId(inv.id)} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '5px 10px', background: BRAND.greenLight, color: BRAND.greenDark, border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', marginLeft: 'auto' }}>
-                        <Check size={12} /> Betala nu
-                      </button>
+        <ListTable
+          rowKey={inv => inv.id}
+          emptyMessage={list.length === 0 ? 'Inga leverantörsfakturor registrerade än.' : 'Ingen matchade sökningen.'}
+          rows={filtered}
+          columns={[
+            { key: 'supplier', label: 'Leverantör', fontWeight: 600, color: 'var(--text-main)', fontSize: '14px', render: inv => contacts.find(c => c.id === inv.supplierId)?.name || inv.supplier || 'Okänd leverantör' },
+            { key: 'invoiceNumber', label: 'Fakturanummer', color: 'var(--text-main)', render: inv => `#${inv.invoiceNumber}` },
+            { key: 'date', label: 'Fakturadatum', render: inv => formatDate(inv.date) },
+            {
+              key: 'dueDate', label: 'Förfallodatum', render: inv => {
+                const effectivelyPaid = inv.status === 'paid' || optimisticPaid[inv.id];
+                const isOverdue = !effectivelyPaid && inv.dueDate && new Date(inv.dueDate) < new Date();
+                return <span style={{ color: isOverdue ? '#ef4444' : 'var(--text-secondary)', fontWeight: isOverdue ? 600 : 400 }}>{formatDate(inv.dueDate)}</span>;
+              },
+            },
+            { key: 'amount', label: 'Belopp', fontWeight: 600, color: 'var(--text-main)', render: inv => formatSEK(inv.amount) },
+            {
+              key: 'status', label: 'Status', render: inv => {
+                const needsReview = !inv.costAccount;
+                const effectivelyPaid = inv.status === 'paid' || optimisticPaid[inv.id];
+                const isOverdue = !effectivelyPaid && inv.dueDate && new Date(inv.dueDate) < new Date();
+                return needsReview ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: BRAND.amberBg, color: BRAND.amberText }}><AlertCircle size={12} /> Granska</span>
+                ) : (
+                  <>
+                    <StatusBadge status={effectivelyPaid ? 'paid' : (isOverdue ? 'overdue' : 'unpaid')} />
+                    {effectivelyPaid && inv.paymentMethod && (
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px' }}>via {inv.paymentMethod === 'bank' ? 'bank' : 'kort'}</div>
                     )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                  </>
+                );
+              },
+            },
+            {
+              key: 'actions', label: '', align: 'right', render: inv => {
+                const needsReview = !inv.costAccount;
+                const effectivelyPaid = inv.status === 'paid' || optimisticPaid[inv.id];
+                return needsReview ? (
+                  fixingId === inv.id ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>
+                      <div style={{ width: 180 }}>
+                        <AccountSearch value={fixAccount} onChange={setFixAccount} accounts={accounts} placeholder="Välj konto..." />
+                      </div>
+                      <button onClick={() => applyFix(inv.id)} style={{ padding: '5px 10px', background: BRAND.green, color: 'white', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>Spara</button>
+                    </div>
+                  ) : (
+                    <button onClick={() => { setFixingId(inv.id); setFixAccount(''); }} style={{ padding: '5px 10px', background: BRAND.amberBg, color: BRAND.amberText, border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      Välj konto
+                    </button>
+                  )
+                ) : !effectivelyPaid ? (
+                  <button onClick={() => setPayingInvoiceId(inv.id)} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '5px 10px', background: BRAND.greenLight, color: BRAND.greenDark, border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', marginLeft: 'auto' }}>
+                    <Check size={12} /> Betala nu
+                  </button>
+                ) : null;
+              },
+            },
+          ]}
+        />
       </div>
 
       {showForm && (

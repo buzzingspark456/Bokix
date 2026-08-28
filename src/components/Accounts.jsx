@@ -68,8 +68,14 @@ export default function Accounts({ accounts, balances, setAccounts }) {
     transition: 'all 0.15s', fontFamily: 'inherit', boxSizing: 'border-box'
   };
 
+  // Kodgranskning: .main-content-inner:s bas-padding nollställdes (index.css)
+  // eftersom varje sida numera lägger sin egen padding på rot-diven — den
+  // här sidan använder inte ListPageHeader (som annars sköter det) och
+  // missades vid den omläggningen, vilket lämnade sidan helt utan
+  // marginal mot skärmkanterna. Samma flata 24px som Dashboard.jsx:s
+  // rot-div (en annan fristående sida utan ListPageHeader) redan använder.
   return (
-    <div style={{ maxWidth: '100%', margin: '0 auto' }}>
+    <div style={{ maxWidth: '100%', margin: '0 auto', padding: '24px' }}>
       {/* ── HEADER ── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
         <div>

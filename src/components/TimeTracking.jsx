@@ -95,7 +95,7 @@ export default function TimeTracking({
 
   const buttonStyle = {
     display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px',
-    background: '#1a3028', border: 'none', borderRadius: '9px', fontSize: '13px',
+    background: 'var(--accent)', border: 'none', borderRadius: '9px', fontSize: '13px',
     fontWeight: 600, cursor: 'pointer', color: 'white', transition: 'all 0.15s',
     boxShadow: '0 2px 6px rgba(26, 48, 40, 0.25)',
   };
@@ -297,7 +297,7 @@ export default function TimeTracking({
                   <td style={{ padding: '14px 20px', textAlign: 'right' }}>
                     <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
                       {entry.type === 'kund' && (
-                        <button onClick={() => handleCreateInvoiceFromEntry(entry)} title="Skapa faktura med denna rad förifylld" style={{ padding: '6px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#3d7a2e', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px' }}>
+                        <button onClick={() => handleCreateInvoiceFromEntry(entry)} title="Skapa faktura med denna rad förifylld" style={{ padding: '6px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--accent)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px' }}>
                           <FileText size={16} />
                         </button>
                       )}

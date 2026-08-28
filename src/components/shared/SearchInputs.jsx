@@ -62,7 +62,7 @@ export function EntitySearch({ value, onChange, items, placeholder, renderMeta, 
           {showCreateRow && (
             <div
               onMouseDown={handleCreate}
-              style={{ padding: '7px 10px', cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', color: '#3d7a2e', fontWeight: 600 }}
+              style={{ padding: '7px 10px', cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--accent)', fontWeight: 600 }}
               onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-muted)'}
               onMouseLeave={e => e.currentTarget.style.background = ''}
             >

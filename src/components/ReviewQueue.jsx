@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { CheckCircle2, Check, X, ChevronDown, ChevronUp, ShieldCheck, AlertCircle } from 'lucide-react';
 import { AccountSearch } from './shared/SearchInputs';
+import ListPageHeader from './shared/ListPageHeader';
+import ListTable from './shared/ListTable';
 
 const formatSEK = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
 const formatDate = (d) => {
@@ -77,7 +79,7 @@ function ReviewCard({ item, accounts, onApprove, onReject, exiting }) {
         {item.confident && (
           <button
             onClick={() => onApprove(item)}
-            style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '8px 16px', background: '#1a3028', color: 'white', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
+            style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '8px 16px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
           >
             <Check size={14} /> Godkänn
           </button>
@@ -108,7 +110,7 @@ function ReviewCard({ item, accounts, onApprove, onReject, exiting }) {
             <button
               disabled={!manualAccount}
               onClick={() => onReject(item, manualAccount)}
-              style={{ padding: '9px 16px', background: manualAccount ? '#1a3028' : 'var(--border)', color: manualAccount ? 'white' : 'var(--text-muted)', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: manualAccount ? 'pointer' : 'not-allowed', whiteSpace: 'nowrap' }}
+              style={{ padding: '9px 16px', background: manualAccount ? 'var(--accent)' : 'var(--border)', color: manualAccount ? 'white' : 'var(--text-muted)', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: manualAccount ? 'pointer' : 'not-allowed', whiteSpace: 'nowrap' }}
             >
               Bokför med detta konto
             </button>
@@ -184,37 +186,28 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
   };
 
   return (
-    <div style={{ padding: '32px 40px', minHeight: '100%' }}>
-      {/* Sidhuvud */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', gap: '16px', flexWrap: 'wrap' }}>
-        <h1 style={{ fontSize: '28px', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>Granskning</h1>
-        {tab === 'pending' && eligibleForBulk.length > 0 && (
-          <button
-            onClick={() => setShowBulkConfirm(true)}
-            style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '10px 20px', background: '#1a3028', color: 'white', border: 'none', borderRadius: '9px', fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}
-          >
-            <CheckCircle2 size={16} /> Godkänn alla
-          </button>
-        )}
-      </div>
+    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
+      {/* Header i samma mönster som Kunder/Anställda och lön/Projekt/Bokföring. */}
+      <ListPageHeader
+        title="Granskning"
+        actions={tab === 'pending' && eligibleForBulk.length > 0 ? [
+          { key: 'bulk-approve', label: 'Godkänn alla', icon: CheckCircle2, onClick: () => setShowBulkConfirm(true), variant: 'primary' },
+        ] : []}
+        tabs={{
+          items: [
+            { id: 'pending', label: 'Väntar', badge: pendingItems.length },
+            { id: 'history', label: 'Historik' },
+          ],
+          activeId: tab,
+          onChange: setTab,
+        }}
+      />
 
-      {/* Flikrad */}
-      <div style={{ display: 'flex', gap: '4px', borderBottom: '1px solid var(--border)', marginBottom: '24px' }}>
-        {[
-          { id: 'pending', label: 'Väntar', badge: pendingItems.length },
-          { id: 'history', label: 'Historik' },
-        ].map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)} style={{
-            padding: '10px 6px', marginRight: '20px', border: 'none', cursor: 'pointer', background: 'none',
-            fontSize: '14px', fontWeight: tab === t.id ? 700 : 500,
-            color: tab === t.id ? 'var(--text-main)' : 'var(--text-secondary)',
-            borderBottom: tab === t.id ? '2px solid #3d7a2e' : '2px solid transparent',
-            marginBottom: '-1px', display: 'flex', alignItems: 'center', gap: '6px',
-          }}>
-            {t.id === 'pending' ? `Väntar${t.badge > 0 ? ` · ${t.badge}` : ''}` : t.label}
-          </button>
-        ))}
-      </div>
+      {/* Ingen padding på den yttre raden längre — matchar "facit"
+          (Bokföring/Verifikationer): Historik-tabellen (nedan) ska sitta
+          flush direkt under sidhuvudet. Väntar-fliken (kort, inte en
+          tabell) behåller sin egen lokala padding. */}
+      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
 
       {tab === 'pending' && (
         visiblePending.length === 0 ? (
@@ -226,7 +219,7 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
             <p style={{ color: 'var(--text-secondary)', fontSize: '15px', margin: 0 }}>Det finns inga poster kvar att granska just nu.</p>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '24px' }}>
             {visiblePending.map(item => (
               <ReviewCard key={item.id} item={item} accounts={accounts} onApprove={handleApprove} onReject={handleReject} exiting={exitingIds.has(item.id)} />
             ))}
@@ -235,42 +228,28 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
       )}
 
       {tab === 'history' && (
-        reviewHistory.length === 0 ? (
-          <div style={{ padding: '48px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '14px', background: 'var(--bg-card)', borderRadius: '12px', border: '1px dashed var(--text-muted)' }}>
-            Inget har hanterats än.
-          </div>
-        ) : (
-          <div style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border)', overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13.5px' }}>
-              <thead>
-                <tr style={{ background: 'var(--bg-muted)' }}>
-                  {['Post', 'Konto', 'Hanterad av', 'När', 'Metod'].map(h => (
-                    <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.03em', borderBottom: '1px solid var(--border)' }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {reviewHistory.map((h, i) => (
-                  <tr key={h.id} style={{ borderTop: i > 0 ? '1px solid var(--border-light)' : 'none' }}>
-                    <td style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--text-main)' }}>{h.title} · {formatSEK(h.amount)}</td>
-                    <td style={{ padding: '12px 16px', color: 'var(--text-main)' }}>{h.account} {h.accountName}</td>
-                    <td style={{ padding: '12px 16px', color: 'var(--text-main)' }}>{h.resolvedBy}</td>
-                    <td style={{ padding: '12px 16px', color: 'var(--text-secondary)' }}>{formatDateTime(h.resolvedAt)}</td>
-                    <td style={{ padding: '12px 16px' }}>
-                      <span style={{
-                        padding: '3px 9px', borderRadius: '999px', fontSize: '11.5px', fontWeight: 600,
-                        background: h.method === 'manual' ? 'var(--border-light)' : 'var(--status-green-bg)',
-                        color: h.method === 'manual' ? 'var(--text-main)' : 'var(--status-green-text)',
-                      }}>
-                        {h.method === 'bulk' ? 'Godkänd i klump' : h.method === 'manual' ? 'Manuellt vald' : 'Förslag godkänt'}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )
+        <ListTable
+          rowKey={h => h.id}
+          emptyMessage="Inget har hanterats än."
+          rows={reviewHistory}
+          columns={[
+            { key: 'post', label: 'Post', fontWeight: 600, color: 'var(--text-main)', render: h => `${h.title} · ${formatSEK(h.amount)}` },
+            { key: 'account', label: 'Konto', color: 'var(--text-main)', render: h => `${h.account} ${h.accountName}` },
+            { key: 'resolvedBy', label: 'Hanterad av', color: 'var(--text-main)', render: h => h.resolvedBy },
+            { key: 'resolvedAt', label: 'När', render: h => formatDateTime(h.resolvedAt) },
+            {
+              key: 'method', label: 'Metod', render: h => (
+                <span style={{
+                  padding: '3px 9px', borderRadius: '999px', fontSize: '11.5px', fontWeight: 600,
+                  background: h.method === 'manual' ? 'var(--border-light)' : 'var(--status-green-bg)',
+                  color: h.method === 'manual' ? 'var(--text-main)' : 'var(--status-green-text)',
+                }}>
+                  {h.method === 'bulk' ? 'Godkänd i klump' : h.method === 'manual' ? 'Manuellt vald' : 'Förslag godkänt'}
+                </span>
+              ),
+            },
+          ]}
+        />
       )}
 
       {/* Bekräftelsedialog för "Godkänn alla" — aldrig en tyst massoperation */}
@@ -288,12 +267,13 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
               </p>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
                 <button onClick={() => setShowBulkConfirm(false)} style={{ padding: '9px 18px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer', color: 'var(--text-main)' }}>Avbryt</button>
-                <button onClick={handleBulkApprove} style={{ padding: '9px 18px', background: '#1a3028', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer', color: 'white' }}>Fortsätt</button>
+                <button onClick={handleBulkApprove} style={{ padding: '9px 18px', background: 'var(--accent)', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer', color: 'white' }}>Fortsätt</button>
               </div>
             </div>
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

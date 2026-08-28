@@ -3,6 +3,7 @@ import {
   CheckCircle2, Clock, Circle, Lock, Calculator, ChevronRight, ChevronDown, ExternalLink, Info, Download, Users, Loader2, AlertTriangle, TrendingUp, TrendingDown, Minus, ArrowRight, RotateCcw,
 } from 'lucide-react';
 import VatDeclaration from './VatDeclaration';
+import ListPageHeader from './shared/ListPageHeader';
 import { getDebet, getKredit } from '../utils/verificationAmounts';
 import { detectOrgType } from '../utils/orgType';
 import { summarizeAnnualPayrollByEmployee, neededTaxTableKeysForYear, downloadKuPdf } from '../utils/kuExport';
@@ -98,6 +99,25 @@ export default function Taxes({
   const currentYear = new Date().getFullYear().toString();
   const orgType = detectOrgType(company?.orgNr);
   const isSoleProp = orgType === 'Enskild firma';
+
+  // Kundfeedback ("för mycket att göra, ingen förstår"): sidan var tidigare
+  // FEM tunga kort (Moms/Årsbokslut/Kontrolluppgifter/INK2R/INK2S) staplade
+  // rakt under varandra i en enda lång skroll — allt syntes på en gång,
+  // oavsett vad man faktiskt kom hit för att göra just idag. Delad i flikar
+  // nu (samma ListPageHeader-mönster som Kunder/Anställda/Projekt m.fl.):
+  // bara EN del synlig åt gången, mycket mindre att ta in per besök.
+  const [activeSection, setActiveSection] = useState('vat');
+
+  // Kodgranskning: "ink2"-fliken skapas aldrig för enskild firma
+  // (sectionTabs nedan) och dess innehåll döljs med `!isSoleProp &&
+  // activeSection === 'ink2'` — men INGET återställde activeSection om
+  // isSoleProp blev sant EFTER att fliken redan valts (t.ex. org.nr ändras
+  // i Inställningar medan sidan är monterad). Fliken försvann då ur
+  // headern utan att något blev markerat, och innehållsytan renderade tom
+  // istället för att falla tillbaka till en riktig flik.
+  useEffect(() => {
+    if (isSoleProp && activeSection === 'ink2') setActiveSection('vat');
+  }, [isSoleProp, activeSection]);
 
   // Kontrolluppgifter (KU) — förvalt till föregående inkomstår, eftersom
   // det är vad man normalt lämnar in (deadline 31 januari), men innevarande
@@ -335,33 +355,40 @@ export default function Taxes({
   const getStatusBg = (status) => (status === 'Klar' ? 'var(--status-green-bg)' : status === 'Pågår' ? 'var(--status-amber-bg)' : 'var(--bg-muted)');
   const getStatusColor = (status) => (status === 'Klar' ? 'var(--status-green-text)' : status === 'Pågår' ? 'var(--status-amber-text)' : 'var(--text-secondary)');
 
-  return (
-    // page-shell/page-shell-scroll (mobil): sidan hade tidigare en FAST
-    // header + en oberoende inre skrollyta (samma monster som fungerar
-    // bra pa korta headers som Fakturor/Kontakter) — men den har sidans
-    // header ar sa hog (titel + tre rader forklaringstext) att den permanent
-    // ater upp en fjardedel av en telefonskarm. Under 768px skrollar hela
-    // sidan (header inklusive) tillsammans som en vanlig webbsida istallet,
-    // via .main-content-inner:s redan befintliga scroll (index.css).
-    <div className="page-shell" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
-      {/* ── Header ── */}
-      <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '24px 32px', flexShrink: 0 }}>
-        <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 800, color: 'var(--text-main)' }}>Skatt och bokslut</h1>
-        {/* page-desc-long (Fortnox-terugkoppling): den här radar sig till
-            tre rader pa en 375px-skarm och lag da fast permanent hogst upp
-            — halften av en telefonskarm aten upp av forklarande text, inte
-            av nagot man faktiskt kom hit for att gora. Dold pa mobil,
-            samma monster i Payroll.jsx. */}
-        <p className="page-desc-long" style={{ margin: '8px 0 0', fontSize: '14px', color: 'var(--text-secondary)', maxWidth: '600px', lineHeight: '1.5' }}>
-          Sammanställning för momsredovisning, checklista för årsbokslut och kommande viktiga datum för skatter och avgifter.
-        </p>
-      </div>
+  const sectionTabs = [
+    { id: 'vat', label: 'Moms' },
+    { id: 'yearend', label: 'Årsbokslut' },
+    { id: 'ku', label: 'Kontrolluppgifter' },
+    ...(!isSoleProp ? [{ id: 'ink2', label: 'Inkomstdeklaration' }] : []),
+  ];
 
-      {/* ── Content Area ── */}
-      <div className="page-shell-scroll" style={{ flex: 1, overflowY: 'auto', padding: '32px' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+  return (
+    // Samma "facit"-mönster som Kunder/Anställda/Projekt m.fl. (ListPageHeader
+    // med flikar) istället för den gamla egna, höga rubrik+3-radersbeskrivning-
+    // headern (som krävde en särskild mobil-undantagsregel, page-shell/
+    // page-shell-scroll i index.css, för att inte äta en fjärdedel av
+    // telefonskärmen — onödigt nu när headern är lika kompakt som överallt
+    // annars i appen).
+    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
+      <ListPageHeader
+        title="Skatt och bokslut"
+        subtitle="Momsredovisning, årsbokslut och inkomstdeklaration"
+        tabs={{ items: sectionTabs, activeId: activeSection, onChange: setActiveSection }}
+      />
+
+      {/* ── Content Area — bara den aktiva fliken renderas, inte alla fem
+          kort staplade i en lång skroll längre. Ingen padding här längre
+          (kundfeedback, "no space"-genomgången, uppföljning) — det aktiva
+          kortet sitter nu flush direkt under flikraden, samma princip som
+          Verifikationers tabell. Korten nedan har fått sina ÖVRE hörn
+          fyrkantiga istället för rundade av samma skäl som ListTable.jsx:
+          en rundad topp mot en flush, rak flikrad lämnade en liten böjd
+          glipa i hörnen istället för att kännas hopfogat. */}
+      <div style={{ flex: 1, overflowY: 'auto' }}>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
 
           {/* Momsdeklaration */}
+          {activeSection === 'vat' && (
           <VatDeclaration
             verifications={verifications}
             invoices={invoices}
@@ -372,9 +399,11 @@ export default function Taxes({
             onBookPeriod={onBookVatPeriod}
             onNavigateToVerification={onNavigateToVerification}
           />
+          )}
 
           {/* Årsbokslut */}
-          <div style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border)', overflow: 'hidden' }}>
+          {activeSection === 'yearend' && (
+          <div style={{ background: 'var(--bg-card)', borderRadius: '0 0 12px 12px', border: '1px solid var(--border)', overflow: 'hidden' }}>
             <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)' }}>
               <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '10px' }}>
                 Årsbokslut {currentYear}
@@ -439,7 +468,7 @@ export default function Taxes({
                       {step.tab && step.status !== 'Klar' && onNavigateToTab && (
                         <button
                           onClick={(e) => { e.stopPropagation(); onNavigateToTab(step.tab); }}
-                          style={{ display: 'flex', alignItems: 'center', gap: '2px', background: 'none', border: 'none', cursor: 'pointer', color: '#3d7a2e', fontSize: '12px', fontWeight: 600, fontFamily: 'inherit', padding: '2px' }}
+                          style={{ display: 'flex', alignItems: 'center', gap: '2px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontSize: '12px', fontWeight: 600, fontFamily: 'inherit', padding: '2px' }}
                         >
                           Åtgärda <ChevronRight size={12} />
                         </button>
@@ -467,7 +496,7 @@ export default function Taxes({
                 disabled={!canLock}
                 style={{
                   display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 24px',
-                  background: isLocked ? '#16a34a' : canLock ? '#3d7a2e' : 'var(--text-muted)',
+                  background: isLocked ? '#16a34a' : canLock ? 'var(--accent)' : 'var(--text-muted)',
                   border: 'none', borderRadius: '8px', color: 'white', fontSize: '14px', fontWeight: 600,
                   cursor: canLock ? 'pointer' : 'not-allowed',
                 }}
@@ -497,7 +526,7 @@ export default function Taxes({
                       ['Bokföring och bokslut', 'https://www.skatteverket.se/foretag/drivaforetag/bokforingochbokslut.4.58d555751259e4d661680006527.html'],
                       ['Enskild näringsverksamhet', 'https://www.skatteverket.se/foretag/drivaforetag/foretagsformer/enskildnaringsverksamhet/bokforingochdeklaration.4.361dc8c15312eff6fd2c99f.html'],
                     ].map(([label, url]) => (
-                      <a key={url} href={url} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#3d7a2e', fontWeight: 600, textDecoration: 'none' }}>
+                      <a key={url} href={url} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' }}>
                         {label} <ExternalLink size={11} />
                       </a>
                     ))}
@@ -506,9 +535,11 @@ export default function Taxes({
               </div>
             </div>
           </div>
+          )}
 
           {/* Kontrolluppgifter (KU) */}
-          <div style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border)', overflow: 'hidden' }}>
+          {activeSection === 'ku' && (
+          <div style={{ background: 'var(--bg-card)', borderRadius: '0 0 12px 12px', border: '1px solid var(--border)', overflow: 'hidden' }}>
             <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
               <div>
                 <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>Kontrolluppgifter (KU)</h2>
@@ -561,7 +592,7 @@ export default function Taxes({
                 <button
                   disabled={!kuTablesReady || kuEmployeeTotals.length === 0}
                   onClick={() => downloadKuPdf({ company, year: kuYear, employeeTotals: kuEmployeeTotals }, `kontrolluppgifter-${kuYear}.pdf`)}
-                  style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: (!kuTablesReady || kuEmployeeTotals.length === 0) ? 'var(--text-muted)' : '#1a3028', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '13px', cursor: (!kuTablesReady || kuEmployeeTotals.length === 0) ? 'not-allowed' : 'pointer' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: (!kuTablesReady || kuEmployeeTotals.length === 0) ? 'var(--text-muted)' : 'var(--accent)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '13px', cursor: (!kuTablesReady || kuEmployeeTotals.length === 0) ? 'not-allowed' : 'pointer' }}
                 >
                   <Download size={14} /> Ladda ner sammanställning (PDF)
                 </button>
@@ -576,12 +607,15 @@ export default function Taxes({
               </div>
             </div>
           </div>
+          )}
 
           {/* Inkomstdeklaration 2 — INK2R (balansräkning). Enskild firma
               deklarerar med NE-bilaga istället (se hjälptexten i
-              Årsbokslut-kortet ovan) och får inte se det här kortet. */}
-          {!isSoleProp && (
-            <div style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border)', overflow: 'hidden' }}>
+              Årsbokslut-kortet ovan) och får inte se det här kortet — döljs
+              nu även via egen flik (`sectionTabs` ovan skapar aldrig en
+              "Inkomstdeklaration"-flik för enskild firma). */}
+          {!isSoleProp && activeSection === 'ink2' && (
+            <div style={{ background: 'var(--bg-card)', borderRadius: '0 0 12px 12px', border: '1px solid var(--border)', overflow: 'hidden' }}>
               <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)' }}>
                 <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>Inkomstdeklaration 2 — INK2R (balansräkning)</h2>
                 <p style={{ margin: '8px 0 0', fontSize: '14px', color: 'var(--text-secondary)', maxWidth: '620px' }}>
@@ -657,7 +691,7 @@ export default function Taxes({
                   <button
                     disabled={!ink2r.balanced || ink2r.rows.length === 0}
                     onClick={() => downloadInk2rSru(company, ink2r, ink2rResultat.rows, `${currentYear}-12-31`)}
-                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: (!ink2r.balanced || ink2r.rows.length === 0) ? 'var(--text-muted)' : '#1a3028', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '13px', cursor: (!ink2r.balanced || ink2r.rows.length === 0) ? 'not-allowed' : 'pointer' }}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: (!ink2r.balanced || ink2r.rows.length === 0) ? 'var(--text-muted)' : 'var(--accent)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '13px', cursor: (!ink2r.balanced || ink2r.rows.length === 0) ? 'not-allowed' : 'pointer' }}
                   >
                     <Download size={14} /> Ladda ner SRU-fil
                   </button>
@@ -665,7 +699,7 @@ export default function Taxes({
                     href="https://sso.skatteverket.se/fv_ext/fv_web/login.do"
                     target="_blank"
                     rel="noopener noreferrer"
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: '#1a3028', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '13px', color: 'white', textDecoration: 'none' }}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: 'var(--accent)', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '13px', color: 'white', textDecoration: 'none' }}
                   >
                     Lämna in hos Skatteverket <ExternalLink size={13} />
                   </a>
@@ -703,9 +737,10 @@ export default function Taxes({
 
           {/* Inkomstdeklaration 2 — INK2S (skattemässiga justeringar).
               Går inte att räkna fram ur bokföringen — användaren matar
-              in de skattemässiga bedömningarna själv, se ink2s.js. */}
-          {!isSoleProp && (
-            <div style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border)', overflow: 'hidden' }}>
+              in de skattemässiga bedömningarna själv, se ink2s.js. Samma
+              "Inkomstdeklaration"-flik som INK2R ovan, inte en egen. */}
+          {!isSoleProp && activeSection === 'ink2' && (
+            <div style={{ background: 'var(--bg-card)', borderRadius: '0 0 12px 12px', border: '1px solid var(--border)', overflow: 'hidden' }}>
               <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', flexWrap: 'wrap' }}>
                 <div>
                   <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>Inkomstdeklaration 2 — INK2S (skattemässiga justeringar)</h2>

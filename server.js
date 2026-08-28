@@ -11,7 +11,7 @@ import { upsertSubscription, hasExistingSubscription } from './api/stripe/_subsc
 import { normalizeAbsoluteUrl, appendQueryParam } from './api/stripe/_urls.js'
 import { resolveInvoiceLineItems } from './api/stripe/_invoiceLineItems.js'
 import { requireAuthedUser, loadOwnedCompany, loadMemberCompany } from './api/_auth.js'
-import { COMPANY_WRITABLE_FIELDS } from './api/_companyFields.js'
+import { COMPANY_WRITABLE_FIELDS } from './src/utils/companyFields.js'
 import { isRequestFromBot } from './api/_botid.js'
 
 dotenv.config()

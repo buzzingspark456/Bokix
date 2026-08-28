@@ -38,7 +38,7 @@ export default function CompanySettings({ company = {}, updateCompany }) {
             fontSize: '14px', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit',
             transition: 'border-color 0.15s'
           }}
-          onFocus={e => e.target.style.borderColor = '#1a3028'}
+          onFocus={e => e.target.style.borderColor = 'var(--accent)'}
           onBlur={e => e.target.style.borderColor = 'var(--border)'}
         />
         {hint && <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '4px 0 0' }}>{hint}</p>}

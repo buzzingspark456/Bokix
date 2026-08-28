@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Search, CheckCircle2, XCircle, Users, Truck, ChevronDown, AlertTriangle, Download, Upload, Check } from 'lucide-react';
+import { Plus, CheckCircle2, XCircle, Users, Truck, ChevronDown, AlertTriangle, Download, Upload, Check, Search } from 'lucide-react';
 import { AccountSearch } from './shared/SearchInputs';
+import ListPageHeader, { ListFilterBar, listSearchInputStyle } from './shared/ListPageHeader';
+import ListTable from './shared/ListTable';
 import { getCountryOptions, getDefaultCountry, SWEDEN } from '../utils/countries';
 import { validateEmailList, isValidIban } from '../utils/validators';
 import { contactsToCsv, csvToContacts, downloadCsv } from '../utils/csvRegister';
@@ -426,7 +428,7 @@ function FormActions({ onCancel, label }) {
       <button type="button" onClick={onCancel} style={{ padding: '9px 18px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer' }}>
         Avbryt
       </button>
-      <button type="submit" style={{ padding: '9px 18px', background: '#1a3028', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600, color: 'white', cursor: 'pointer' }}>
+      <button type="submit" style={{ padding: '9px 18px', background: 'var(--accent)', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600, color: 'white', cursor: 'pointer' }}>
         Spara {label}
       </button>
     </div>
@@ -584,59 +586,49 @@ export default function Contacts({ contacts, setContacts, accounts = [], globalA
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
       {/* ── Header & Tabs ── */}
-      <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '0 20px', flexShrink: 0 }}>
-        {/* Sida 38, punkt 6 */}
-        <div className="page-header-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0 0' }}>
-          <div>
-            <h1 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: 'var(--text-main)' }}>{title}</h1>
-            <p style={{ margin: '2px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>
-              {entityCount} {activeTab === 'customer' ? (entityCount === 1 ? 'kund' : 'kunder') : (entityCount === 1 ? 'leverantör' : 'leverantörer')}
-            </p>
-          </div>
-          {viewState === 'list' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <button onClick={handleExportCsv} title={`Exportera ${title.toLowerCase()} som CSV`} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 12px', background: 'none', border: '1px solid var(--border)', borderRadius: '5px', color: 'var(--text-secondary)', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}>
-                <Download size={14} /> Exportera
-              </button>
-              <button onClick={handleImportClick} title={`Importera ${title.toLowerCase()} från CSV`} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 12px', background: 'none', border: '1px solid var(--border)', borderRadius: '5px', color: 'var(--text-secondary)', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}>
-                <Upload size={14} /> Importera
-              </button>
-              <input type="file" ref={importFileRef} accept=".csv" style={{ display: 'none' }} onChange={handleImportFile} />
-              <button onClick={() => openNewForm(activeTab)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 16px', background: '#2e7d32', border: 'none', borderRadius: '5px', color: 'white', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}>
-                <Plus size={14} /> {newBtnText}
-              </button>
-            </div>
-          )}
-        </div>
+      <ListPageHeader
+        title={title}
+        subtitle={`${entityCount} ${activeTab === 'customer' ? (entityCount === 1 ? 'kund' : 'kunder') : (entityCount === 1 ? 'leverantör' : 'leverantörer')}`}
+        actions={viewState === 'list' ? [
+          { key: 'export', label: 'Exportera', icon: Download, onClick: handleExportCsv, title: `Exportera ${title.toLowerCase()} som CSV` },
+          { key: 'import', label: 'Importera', icon: Upload, onClick: handleImportClick, title: `Importera ${title.toLowerCase()} från CSV` },
+          { key: 'new', label: newBtnText, icon: Plus, onClick: () => openNewForm(activeTab), variant: 'primary' },
+        ] : []}
+        tabs={{
+          items: [{ id: 'customer', label: 'Kunder' }, { id: 'supplier', label: 'Leverantörer' }],
+          activeId: activeTab,
+          onChange: handleSetTab,
+        }}
+      >
+        <input type="file" ref={importFileRef} accept=".csv" style={{ display: 'none' }} onChange={handleImportFile} />
         {importMsg && (
           <div style={{ margin: '10px 0', padding: '8px 12px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12.5px', background: importMsg.type === 'success' ? 'var(--status-green-bg)' : 'var(--status-red-bg)', color: importMsg.type === 'success' ? 'var(--status-green-text)' : 'var(--status-red-text)' }}>
             {importMsg.type === 'success' ? <Check size={14} /> : <AlertTriangle size={14} />}
             {importMsg.text}
           </div>
         )}
-        <div style={{ display: 'flex', gap: 0, marginTop: '12px' }}>
-          {[{ id: 'customer', label: 'Kunder' }, { id: 'supplier', label: 'Leverantörer' }].map(t => (
-            <button key={t.id} onClick={() => handleSetTab(t.id)} style={{
-              padding: '10px 18px', border: 'none', cursor: 'pointer', fontSize: '13px',
-              fontWeight: activeTab === t.id ? 700 : 500,
-              color: activeTab === t.id ? 'var(--text-main)' : 'var(--text-secondary)',
-              background: 'none',
-              borderBottom: activeTab === t.id ? '3px solid #3d7a2e' : '3px solid transparent',
-              marginBottom: '-1px',
-            }}>{t.label}</button>
-          ))}
-        </div>
-      </div>
+      </ListPageHeader>
+      {/* Sökfältet ligger kvar i samma kort som resten av sidhuvudet
+          (ListFilterBar, direkt under flikraden) — precis som Bokförings
+          filterrad, istället för att flyta löst på sidbakgrunden. */}
+      {viewState === 'list' && (
+        <ListFilterBar>
+          <div style={{ position: 'relative' }}>
+            <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+            <input type="text" placeholder={`Sök ${activeTab === 'customer' ? 'kund' : 'leverantör'}...`} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={listSearchInputStyle} />
+          </div>
+        </ListFilterBar>
+      )}
 
       {/* ── Content Area ──
-          `display:flex, flexDirection:column` tillagt (kundfeedback,
-          "white space"-genomgången) — tomt-läget nedan ("Inga kunder ännu")
-          är nu ett `flex:1`-block som centrerar sig i den lediga ytan
-          istället för att bara flyta högst upp med en stor tom sidbakgrund
-          under, samma mönster som Quotes.jsx:s InvoiceEmptyState-liknande
-          fix. Påverkar inte listläget (tabellen behåller sin naturliga
-          höjd, flex-grow:0 som standard). */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column' }}>
+          Ingen padding på YTTRE innehållsraden längre (kundfeedback:
+          tabellen ska sitta flush direkt under filterraden, exakt samma
+          "facit"-mönster som Bokföring/Verifikationer — se dess
+          `<div style={{flex:1, overflowY:'auto'}}>` runt ListTable, ingen
+          egen padding/kort-känsla). Tomt-läget och formuläret nedan har
+          fortfarande SIN EGEN padding lokalt, eftersom de är fristående
+          kort/formulär, inte en full-bredd-tabell. */}
+      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
         {viewState === 'list' ? (
           <>
             {filtered.length > 0 || searchTerm ? (
@@ -646,83 +638,55 @@ export default function Contacts({ contacts, setContacts, accounts = [], globalA
                  populerad (om än kort) lista ligger kvar uppe vid
                  sök/toppen, som en vanlig tabellsida. */
               <div style={{ width: '100%' }}>
-                {/* .page-header-row (Sida 38, punkt 6) */}
-                <div className="page-header-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
-                  <div style={{ position: 'relative' }}>
-                    <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                    <input type="text" placeholder={`Sök ${activeTab === 'customer' ? 'kund' : 'leverantör'}...`} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{ padding: '9px 12px 9px 36px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '14px', outline: 'none', width: '260px', background: 'var(--bg-card)' }} />
-                  </div>
-                </div>
-
-                <div style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border)', overflow: 'hidden' }}>
-                  {/* .responsive-table (Sida 38, punkt 1, komplettering — se
-                      samma kommentar i SupplierInvoices.jsx) */}
-                  <table className="responsive-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead>
-                      <tr style={{ background: 'var(--bg-muted)' }}>
-                        {['Namn', 'Org.nummer', 'Kontaktperson', activeTab === 'customer' ? 'Senaste faktura' : 'Senaste inköp', activeTab === 'customer' ? 'Fakturerat i år' : 'Inköpt i år', 'Status'].map(h => (
-                          <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filtered.length === 0 ? (
-                        <tr>
-                          <td colSpan={6} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '14px' }}>
-                            Ingen matchade sökningen
-                          </td>
-                        </tr>
-                      ) : filtered.map((c, i) => (
-                        <tr
-                          key={c.id}
-                          onClick={() => openDetail(c)}
-                          style={{
-                            borderBottom: i < filtered.length - 1 ? '1px solid var(--border-light)' : 'none',
-                            cursor: 'pointer', transition: 'background 0.1s'
-                          }}
-                          onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-muted)'}
-                          onMouseLeave={e => e.currentTarget.style.background = ''}
-                        >
-                          <td data-label="Namn" style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                              <div style={{
-                                width: 34, height: 34, borderRadius: '8px',
-                                background: '#1a3028',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                color: 'white', fontWeight: 700, fontSize: '14px', flexShrink: 0
-                              }}>
-                                {(c.name || 'K').charAt(0).toUpperCase()}
-                              </div>
-                              <span style={{ fontWeight: 600, color: 'var(--text-main)', fontSize: '14px' }}>{c.name}</span>
-                            </div>
-                          </td>
-                          <td data-label="Org.nummer" style={{ padding: '14px 16px', color: 'var(--text-secondary)', fontSize: '13px', whiteSpace: 'nowrap' }}>{c.orgNr || '—'}</td>
-                          <td data-label="Kontaktperson" style={{ padding: '14px 16px', color: 'var(--text-secondary)', fontSize: '13px', whiteSpace: 'nowrap' }}>{c.contactPerson || c.email || '—'}</td>
-                          <td data-label={activeTab === 'customer' ? 'Senaste faktura' : 'Senaste inköp'} style={{ padding: '14px 16px', color: 'var(--text-secondary)', fontSize: '13px', whiteSpace: 'nowrap' }}>{c.lastInvoiceDate || '—'}</td>
-                          <td data-label={activeTab === 'customer' ? 'Fakturerat i år' : 'Inköpt i år'} style={{ padding: '14px 16px', color: 'var(--text-main)', fontSize: '13px', fontWeight: 500, whiteSpace: 'nowrap' }}>
-                            {c.totalInvoicedThisYear
-                              ? new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(c.totalInvoicedThisYear)
-                              : '0 kr'}
-                          </td>
-                          <td data-label="Status" style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>
-                            <span style={{
-                              display: 'inline-flex', alignItems: 'center', gap: '5px',
-                              padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600,
-                              background: c.active !== false ? 'var(--status-green-bg)' : 'var(--border-light)',
-                              color: c.active !== false ? 'var(--status-green-text)' : 'var(--text-secondary)'
-                            }}>
-                              {c.active !== false ? <CheckCircle2 size={11} /> : <XCircle size={11} />}
-                              {c.active !== false ? 'Aktiv' : 'Inaktiv'}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <ListTable
+                  rowKey={c => c.id}
+                  onRowClick={openDetail}
+                  emptyMessage="Ingen matchade sökningen"
+                  rows={filtered}
+                  columns={[
+                    {
+                      key: 'name', label: 'Namn', render: c => (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <div style={{
+                            width: 34, height: 34, borderRadius: '8px',
+                            background: 'var(--accent)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            color: 'white', fontWeight: 700, fontSize: '14px', flexShrink: 0
+                          }}>
+                            {(c.name || 'K').charAt(0).toUpperCase()}
+                          </div>
+                          <span style={{ fontWeight: 600, color: 'var(--text-main)', fontSize: '14px' }}>{c.name}</span>
+                        </div>
+                      ),
+                    },
+                    { key: 'orgNr', label: 'Org.nummer', render: c => c.orgNr || '—' },
+                    { key: 'contactPerson', label: 'Kontaktperson', render: c => c.contactPerson || c.email || '—' },
+                    { key: 'lastInvoiceDate', label: activeTab === 'customer' ? 'Senaste faktura' : 'Senaste inköp', render: c => c.lastInvoiceDate || '—' },
+                    {
+                      key: 'totalInvoicedThisYear', label: activeTab === 'customer' ? 'Fakturerat i år' : 'Inköpt i år',
+                      color: 'var(--text-main)', fontWeight: 500,
+                      render: c => c.totalInvoicedThisYear
+                        ? new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(c.totalInvoicedThisYear)
+                        : '0 kr',
+                    },
+                    {
+                      key: 'status', label: 'Status', render: c => (
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center', gap: '5px',
+                          padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600,
+                          background: c.active !== false ? 'var(--status-green-bg)' : 'var(--border-light)',
+                          color: c.active !== false ? 'var(--status-green-text)' : 'var(--text-secondary)'
+                        }}>
+                          {c.active !== false ? <CheckCircle2 size={11} /> : <XCircle size={11} />}
+                          {c.active !== false ? 'Aktiv' : 'Inaktiv'}
+                        </span>
+                      ),
+                    },
+                  ]}
+                />
               </div>
             ) : (
-              <div style={{ flex: 1, minHeight: '320px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '48px 24px', background: 'var(--bg-card)', borderRadius: '12px', border: '1px dashed var(--text-muted)' }}>
+              <div style={{ flex: 1, minHeight: '320px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', margin: '24px', padding: '48px 24px', background: 'var(--bg-card)', borderRadius: '12px', border: '1px dashed var(--text-muted)' }}>
                 <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', color: 'var(--text-muted)' }}>
                   {activeTab === 'customer' ? <Users size={32} /> : <Truck size={32} />}
                 </div>
@@ -732,14 +696,14 @@ export default function Contacts({ contacts, setContacts, accounts = [], globalA
                 <p style={{ color: 'var(--text-secondary)', fontSize: '14px', margin: '0 0 24px', maxWidth: '300px', marginLeft: 'auto', marginRight: 'auto' }}>
                   Lägg till din första {activeTab === 'customer' ? 'kund' : 'leverantör'} för att komma igång
                 </p>
-                <button onClick={() => openNewForm(activeTab)} style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '10px 20px', background: '#1a3028', color: 'white', border: 'none', borderRadius: '9px', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}>
+                <button onClick={() => openNewForm(activeTab)} style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '10px 20px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '9px', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}>
                   <Plus size={16} /> {newBtnText}
                 </button>
               </div>
             )}
           </>
         ) : (
-          <div>
+          <div style={{ padding: '24px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
               <button onClick={() => setViewState('list')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '13px', padding: 0 }}>← Tillbaka</button>
               <span style={{ color: 'var(--border)' }}>|</span>

@@ -3,6 +3,7 @@ import {
   UploadCloud, FileText, CheckCircle2, AlertCircle, Receipt, X, Clock, Trash2, RotateCcw,
 } from 'lucide-react';
 import { AccountSearch } from './shared/SearchInputs';
+import ListPageHeader from './shared/ListPageHeader';
 import { uploadFileToStorage } from '../utils/fileUpload';
 import { BRAND } from '../utils/brandColors';
 
@@ -430,17 +431,15 @@ export default function Expenses({
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
 
-      {/* ── Sidhuvud ─────────────────────────── */}
-      <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '16px 20px 0', flexShrink: 0 }}>
-        <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 500, color: 'var(--text-main)' }}>{pageTitle || 'Utgifter'}</h1>
-        {pageSubtitle && <p style={{ margin: '2px 0 4px', fontSize: '13.5px', color: 'var(--text-secondary)' }}>{pageSubtitle}</p>}
+      {/* ── Sidhuvud (samma mönster som Kunder/Anställda och lön m.fl., Sida 43) ── */}
+      <ListPageHeader title={pageTitle || 'Utgifter'} subtitle={pageSubtitle}>
         {/* Kort förklaring av vad sidan faktiskt gör — kvittot sparas som en
             riktig bild (inte bara bokföringsfälten), och den bilden går att
             öppna igen när som helst från listan nedan. */}
-        <p style={{ margin: '0 0 16px', fontSize: '12.5px', color: 'var(--text-muted)' }}>
+        <p style={{ margin: '8px 0 0', fontSize: '12.5px', color: 'var(--text-muted)' }}>
           Ladda upp ett kvitto så syns det direkt i listan nedan — klicka på raden för att fylla i uppgifterna, se bilden i full storlek och bokföra.
         </p>
-      </div>
+      </ListPageHeader>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
         {/* Uppladdningszon — en enda yta för både enskilda filer och en hel

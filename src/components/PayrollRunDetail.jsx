@@ -41,7 +41,7 @@ function StepButtons({ completedSteps, onAdvance, canBook }) {
               display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 16px', borderRadius: '999px',
               fontSize: '13px', fontWeight: 700, border: 'none',
               cursor: disabled ? 'not-allowed' : 'pointer',
-              background: isDone ? '#ecfdf5' : (isNext ? '#1a3028' : 'var(--border-light)'),
+              background: isDone ? '#ecfdf5' : (isNext ? 'var(--accent)' : 'var(--border-light)'),
               color: isDone ? '#059669' : (isNext ? 'white' : 'var(--text-muted)'),
             }}
           >
@@ -407,7 +407,7 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
           <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.6fr) minmax(0, 1fr)', gap: '16px', alignItems: 'start' }}>
           <div style={{ ...panelCard, padding: '20px' }}>
           <h4 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Landmark size={16} color="#1a3028" /> Bank — Betalfil
+            <Landmark size={16} color="var(--accent)" /> Bank — Betalfil
           </h4>
           <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>Format</label>
           <select disabled style={{ width: '100%', maxWidth: '360px', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '14px', background: 'var(--bg-muted)', color: 'var(--text-secondary)', marginBottom: '6px' }}>
@@ -453,7 +453,7 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
               disabled={payFileBusy || Boolean(debtorAccountError) || missingIbanInfo.length === computedRows.length}
               style={{
                 display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 18px', borderRadius: '8px', fontSize: '13.5px', fontWeight: 700, border: 'none',
-                background: (payFileBusy || debtorAccountError || missingIbanInfo.length === computedRows.length) ? 'var(--border)' : '#1a3028',
+                background: (payFileBusy || debtorAccountError || missingIbanInfo.length === computedRows.length) ? 'var(--border)' : 'var(--accent)',
                 color: (payFileBusy || debtorAccountError || missingIbanInfo.length === computedRows.length) ? 'var(--text-muted)' : 'white',
                 cursor: (payFileBusy || debtorAccountError || missingIbanInfo.length === computedRows.length) ? 'not-allowed' : 'pointer',
               }}
@@ -506,7 +506,7 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '18px' }}>
             <button
               onClick={() => downloadAgiPdf({ company, period: run.period, computedRows, totals }, `agi-${run.period}.pdf`)}
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: '#1a3028', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}
             >
               <Download size={14} /> Ladda ner AGI-sammanställning (PDF)
             </button>

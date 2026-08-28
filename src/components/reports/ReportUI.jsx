@@ -1,0 +1,315 @@
+import React, { useMemo } from 'react';
+import { HelpCircle, ArrowUpRight, ArrowDownRight, Inbox } from 'lucide-react';
+import {
+  BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer,
+} from 'recharts';
+
+// Delade presentationsdelar för Rapport och analys — flyttade hit oförändrade
+// från Reports.jsx (Sida 14c) när sidan byggdes om till en rapportportal
+// (Sida 14c, uppföljning: 14 namngivna rapporter) så att både listsidan
+// (Reports.jsx) och den nya detaljvyn (ReportDetail.jsx) delar EXAKT
+// samma kort/diagram-stil istället för att en tredje, avvikande stil
+// smyger sig in i detaljvyn.
+
+export const REVENUE = '#639922';
+export const EXPENSE = '#E24B4A';
+export const COST_LIGHT = '#e0527a';
+export const COST_DARK = '#c8305a';
+export const COST_BG = '#fbe7ed';
+export const COST_CATEGORY_COLORS = [COST_DARK, COST_LIGHT, '#ec7ca0', '#f4b8d0'];
+
+export function thinLabels(labels, isMobile) {
+  if (!isMobile || labels.length <= 6) return labels;
+  const interval = Math.ceil(labels.length / 6);
+  return labels.map((l, i) => (i % interval === 0 ? l : ''));
+}
+
+export const formatSEK = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
+export const fmtDate = (d) => new Intl.DateTimeFormat('sv-SE', { day: 'numeric', month: 'short' }).format(d instanceof Date ? d : new Date(d));
+export const fmtMonthYear = (d) => new Intl.DateTimeFormat('sv-SE', { month: 'long', year: 'numeric' }).format(d);
+export const toISO = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+export function formatDelta(current, previous, invert = false) {
+  if (previous === 0 && current === 0) return null;
+  if (previous === 0) {
+    return { text: 'Ingen bokföring under samma period förra året', good: null };
+  }
+  const pct = ((current - previous) / Math.abs(previous)) * 100;
+  const rising = pct >= 0;
+  const good = invert ? !rising : rising;
+  return { text: `${rising ? '+' : ''}${pct.toFixed(0)}% mot samma period föregående år`, good };
+}
+
+export function KpiCard({ label, value, help, delta, accent, icon: Icon, iconBg, gradient }) {
+  const bold = !!gradient;
+  return (
+    <div
+      style={{
+        background: bold ? `linear-gradient(135deg, ${gradient[0]}, ${gradient[1]})` : 'var(--bg-card)',
+        borderRadius: '14px', border: bold ? 'none' : '1px solid var(--border)', padding: '18px 20px',
+        boxShadow: bold ? '0 2px 8px rgba(0,0,0,0.12)' : '0 1px 3px rgba(0,0,0,0.04)', transition: 'all 0.2s cubic-bezier(.4,0,.2,1)',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = bold ? '0 6px 16px rgba(0,0,0,0.16)' : '0 10px 28px rgba(0,0,0,0.09)'; if (!bold) e.currentTarget.style.borderColor = accent || '#c7d2c1'; }}
+      onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = bold ? '0 2px 8px rgba(0,0,0,0.12)' : '0 1px 3px rgba(0,0,0,0.04)'; if (!bold) e.currentTarget.style.borderColor = 'var(--border)'; }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+        {Icon && (
+          <div style={{ width: 34, height: 34, borderRadius: '9px', background: bold ? 'rgba(255,255,255,0.24)' : (iconBg || 'var(--border-light)'), color: bold ? '#fff' : (accent || 'var(--text-secondary)'), display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Icon size={16} />
+          </div>
+        )}
+        {help && (
+          <span title={help} style={{ display: 'inline-flex', cursor: 'help', color: bold ? 'rgba(255,255,255,0.75)' : '#b0b7c3' }}>
+            <HelpCircle size={13} />
+          </span>
+        )}
+      </div>
+      <div style={{ fontSize: '12.5px', fontWeight: 600, color: bold ? 'rgba(255,255,255,0.82)' : 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '5px' }}>{label}</div>
+      <div style={{ fontSize: '23px', fontWeight: 800, color: bold ? '#fff' : (accent || 'var(--text-main)'), letterSpacing: '-0.03em', lineHeight: 1.1, marginBottom: delta ? '6px' : 0, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
+      {delta && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: 600, color: bold ? 'rgba(255,255,255,0.9)' : (delta.good === null ? 'var(--text-muted)' : delta.good ? 'var(--status-green-text)' : 'var(--status-red-text)') }}>
+          {delta.good !== null && (delta.good ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />)}
+          {delta.text}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function TabHeadline({ label, value, accent, delta }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px', flexWrap: 'wrap', marginBottom: '4px' }}>
+      <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>{label}</span>
+      <span style={{ fontSize: '32px', fontWeight: 800, color: accent || 'var(--text-main)', lineHeight: 1, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>{value}</span>
+      {delta && (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '12.5px', fontWeight: 600, color: delta.good === null ? 'var(--text-muted)' : delta.good ? 'var(--status-green-text)' : 'var(--status-red-text)' }}>
+          {delta.good !== null && (delta.good ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />)}
+          {delta.text}
+        </span>
+      )}
+    </div>
+  );
+}
+
+export function EmptyState({ text }) {
+  return (
+    <div style={{ padding: '48px 24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13.5px', lineHeight: 1.6 }}>
+      <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--bg-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px', color: 'var(--text-muted)' }}>
+        <Inbox size={20} />
+      </div>
+      {text}
+    </div>
+  );
+}
+
+export function ChartTooltip({ active, payload, label }) {
+  if (!active || !payload?.length) return null;
+  const rows = payload.filter(p => p.value != null && p.name !== undefined);
+  if (!rows.length) return null;
+  return (
+    <div style={{ background: 'rgba(255,255,255,0.97)', border: '1px solid var(--border)', borderRadius: '10px', padding: '10px 14px', boxShadow: '0 8px 24px rgba(0,0,0,0.09)', fontSize: '12.5px', minWidth: '160px' }}>
+      {label && <div style={{ fontWeight: 700, color: 'var(--text-main)', marginBottom: '8px', fontSize: '13px' }}>{label}</div>}
+      {rows.map((p, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '2px 0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.color, display: 'inline-block', flexShrink: 0 }} />
+            <span style={{ color: 'var(--text-secondary)' }}>{p.name}</span>
+          </div>
+          <strong style={{ color: 'var(--text-main)', fontVariantNumeric: 'tabular-nums' }}>{formatSEK(p.value)}</strong>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function ComparisonLegend({ currentLabel, previousLabel, currentColorSwatch, previousColorSwatch }) {
+  return (
+    <div style={{ display: 'flex', gap: '18px', marginTop: '12px', fontSize: '12.5px', fontWeight: 600, flexWrap: 'wrap' }}>
+      <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-main)' }}>{currentColorSwatch} {currentLabel}</span>
+      <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)' }}>{previousColorSwatch} {previousLabel}</span>
+    </div>
+  );
+}
+
+export const swatch = (color, dashed = false) => (
+  <span style={{
+    width: '14px', height: dashed ? '2px' : '10px', borderRadius: dashed ? 0 : '3px', background: dashed ? 'none' : color,
+    borderTop: dashed ? `2px dashed ${color}` : undefined, display: 'inline-block', flexShrink: 0,
+  }} />
+);
+
+export function ResultBarChart({ data, isMobile }) {
+  const tickData = useMemo(() => {
+    const labels = thinLabels(data.map(d => d.label), isMobile);
+    return data.map((d, i) => ({ ...d, label: labels[i] }));
+  }, [data, isMobile]);
+
+  return (
+    <ResponsiveContainer width="100%" height={220}>
+      <BarChart data={tickData} margin={{ top: 4, right: 8, left: -12, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-light)" />
+        <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} />
+        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} tickFormatter={v => formatSEK(v).replace(/\s?kr$/, '')} width={54} />
+        <ReferenceLine y={0} stroke="var(--border)" strokeWidth={1.5} />
+        <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(0,0,0,0.02)' }} />
+        <Bar dataKey="resultat" radius={[4, 4, 0, 0]} barSize={18} name="Resultat">
+          {tickData.map((d, i) => <Cell key={i} fill={d.resultat >= 0 ? REVENUE : EXPENSE} />)}
+        </Bar>
+        <Line dataKey="prevResultat" stroke="var(--text-muted)" strokeWidth={2} strokeDasharray="4 3" dot={false} name="Föregående period" />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+export function CashflowLineChart({ data, isMobile }) {
+  const tickData = useMemo(() => {
+    const labels = thinLabels(data.map(d => d.label), isMobile);
+    return data.map((d, i) => ({ ...d, label: labels[i] }));
+  }, [data, isMobile]);
+
+  return (
+    <ResponsiveContainer width="100%" height={220}>
+      <LineChart data={tickData} margin={{ top: 4, right: 8, left: -12, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-light)" />
+        <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} />
+        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} tickFormatter={v => formatSEK(v).replace(/\s?kr$/, '')} width={54} />
+        <ReferenceLine y={0} stroke="var(--border)" strokeWidth={1.5} />
+        <Tooltip content={<ChartTooltip />} cursor={{ stroke: 'var(--border)', strokeWidth: 1 }} />
+        <Line dataKey="balance" stroke="var(--accent)" strokeWidth={2.5} dot={false} name="Saldo" />
+        <Line dataKey="prevBalance" stroke="var(--text-muted)" strokeWidth={2} strokeDasharray="4 3" dot={false} name="Föregående period" />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
+export function CostBreakdownDonut({ categories, total }) {
+  const data = categories.map((c, i) => ({ ...c, color: COST_CATEGORY_COLORS[i % COST_CATEGORY_COLORS.length] }));
+  return (
+    <div style={{ display: 'flex', gap: '28px', flexWrap: 'wrap', alignItems: 'center' }}>
+      <div style={{ width: '220px', height: '220px', flexShrink: 0, position: 'relative' }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie data={data} dataKey="amount" nameKey="name" innerRadius={62} outerRadius={100} paddingAngle={data.length > 1 ? 2 : 0} stroke="none">
+              {data.map((d, i) => <Cell key={i} fill={d.color} />)}
+            </Pie>
+            <Tooltip content={<ChartTooltip />} />
+          </PieChart>
+        </ResponsiveContainer>
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+          <span style={{ fontSize: '10.5px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Totalt</span>
+          <span style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>{formatSEK(total)}</span>
+        </div>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: 1, minWidth: '200px' }}>
+        {data.map(d => (
+          <div
+            key={d.name}
+            style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13.5px', padding: '4px 6px', borderRadius: '6px', transition: 'background-color 0.12s ease' }}
+            onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-muted)'} onMouseLeave={e => e.currentTarget.style.background = 'none'}
+          >
+            <span style={{ width: '11px', height: '11px', borderRadius: '3px', background: d.color, flexShrink: 0 }} />
+            <span style={{ color: 'var(--text-main)', fontWeight: 600, flex: 1 }}>{d.name}</span>
+            <span style={{ color: 'var(--text-main)', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{formatSEK(d.amount)}</span>
+            <span style={{ color: 'var(--text-muted)', fontWeight: 500, width: '38px', textAlign: 'right' }}>{total ? Math.round(d.amount / total * 100) : 0}%</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function BalanceSheetTable({ title, rows, total }) {
+  return (
+    <div style={{ flex: 1, minWidth: '260px' }}>
+      <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '10px' }}>{title}</div>
+      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '10px', overflow: 'hidden' }}>
+        {rows.length === 0 ? (
+          <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>Inga bokförda saldon</div>
+        ) : rows.map(r => (
+          <div
+            key={r.code}
+            style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', borderBottom: '1px solid var(--border-light)', fontSize: '13.5px', transition: 'background-color 0.12s ease' }}
+            onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-muted)'} onMouseLeave={e => e.currentTarget.style.background = 'none'}
+          >
+            <span style={{ color: 'var(--text-main)' }}>{r.name}</span>
+            <span style={{ fontWeight: 600, color: 'var(--text-main)', fontVariantNumeric: 'tabular-nums' }}>{formatSEK(r.amount)}</span>
+          </div>
+        ))}
+        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 14px', background: 'var(--bg-muted)', fontWeight: 800, fontSize: '14px' }}>
+          <span>Summa</span><span style={{ fontVariantNumeric: 'tabular-nums' }}>{formatSEK(total)}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Rapportkortets generiska ram — sektionsrubrik + valfri undertext, samma
+ * "kräm"-kort som redan etablerats för varje flik (Sida 14c). Delad här så
+ * varje rapport i ReportDetail.jsx inte behöver upprepa samma
+ * bakgrund/padding/skugga-stil för sig. */
+export function ReportSection({ title, subtitle, children }) {
+  return (
+    <div style={{ background: 'var(--bg-cream, #faf9f5)', border: '1px solid var(--bg-cream-border, #ede9de)', borderRadius: '14px', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+      {title && <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)', marginBottom: subtitle ? '4px' : '16px' }}>{title}</div>}
+      {subtitle && <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: '0 0 16px' }}>{subtitle}</p>}
+      {children}
+    </div>
+  );
+}
+
+/** Enkel dataframställningstabell — Rad/Benämning/Belopp-mönstret som
+ * redan används för INK2R (Taxes.jsx) och nu återanvänds rakt av för
+ * Huvudbok/Momsrapport/Fakturarapporter/Lönerapporter, istället för att
+ * varje rapport bygger sin egen `<table>` från grunden.
+ *
+ * Kodgranskning: MEDVETET inte samma komponent som listsidornas
+ * `ListTable` (shared/ListTable.jsx), trots det överlappande kontraktet
+ * (columns/rows/rowKey/render) — inte en glömd andra kopia. Två faktiska
+ * skillnader gör en sammanslagning fel just nu:
+ *   1. `footer` (summeringsrad) och `emphasize` (fetstil totalrad) finns
+ *      bara här — ListTable saknar båda, och 11 rapportvyer i
+ *      ReportDetail.jsx beror på dem.
+ *   2. Inget eget kort/border/skugga här (bara `overflowX:auto`) —
+ *      ReportSection ovan lägger redan på kortet runt om, till skillnad
+ *      från ListTable som ALLTID renderar sitt eget. Att återanvända
+ *      ListTable rakt av hade gett rapportsidorna kort-i-kort.
+ * Att bygga ihop dem kräver att ListTable själv får footer/emphasize-stöd
+ * OCH ett sätt att stänga av sin egen kortram — värt att göra, men en egen
+ * förändring att verifiera mot alla 11 rapportvyer, inte en bieffekt av
+ * den här kodgranskningen. */
+export function DataTable({ columns, rows, rowKey, footer }) {
+  return (
+    <div style={{ overflowX: 'auto' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13.5px' }}>
+        <thead>
+          <tr style={{ borderBottom: '1px solid var(--border)' }}>
+            {columns.map(c => (
+              <th key={c.key} style={{ textAlign: c.align || 'left', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600, width: c.width }}>{c.label}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, i) => (
+            <tr key={rowKey ? rowKey(row, i) : i} style={{ borderBottom: '1px solid var(--border-light)' }}>
+              {columns.map(c => (
+                <td key={c.key} style={{ textAlign: c.align || 'left', padding: '8px 10px', color: c.emphasize ? 'var(--text-main)' : 'var(--text-secondary)', fontWeight: c.emphasize ? 600 : 400, fontVariantNumeric: 'tabular-nums' }}>
+                  {c.render ? c.render(row, i) : row[c.key]}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+        {footer && (
+          <tfoot>
+            <tr style={{ background: 'var(--bg-muted)', fontWeight: 800 }}>
+              {footer.map((f, i) => (
+                <td key={i} style={{ textAlign: columns[i]?.align || 'left', padding: '10px' }}>{f}</td>
+              ))}
+            </tr>
+          </tfoot>
+        )}
+      </table>
+    </div>
+  );
+}

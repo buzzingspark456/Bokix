@@ -251,8 +251,21 @@ export function createDemoSeed() {
       ],
     });
   }
-  // id/number tilldelas av DemoWorkspace:s handleAddVerification-motsvarighet
-  // vid seedning (samma mönster som App.jsx), inte hårdkodat här.
+  // Bugkritiskt: kommentaren här hävdade tidigare att id/number tilldelas av
+  // "DemoWorkspace:s handleAddVerification-motsvarighet vid seedning" — men
+  // något sådant seedningssteg finns inte, DemoWorkspace skickar `seed.
+  // verifications` rakt igenom oförändrad. Resultatet: varje verifikation
+  // saknade `id` helt, vilket React-nyckeln i Verifications.jsx (`key={v.id}`,
+  // nu ListTable.jsx: `rowKey={v => v.id}`) tyst föll tillbaka på `undefined`
+  // för — exakt den klassen bugg (instabil/saknad nyckel istället för ett
+  // riktigt fält) som redan flaggats för Kundlistan/Anställda-listan.
+  // Sorterat kronologiskt och numrerat i samma A001-format som
+  // getNextNumber('A') i Verifications.jsx genererar på riktigt.
+  verifications.sort((a, b) => a.date.localeCompare(b.date));
+  verifications.forEach((v, i) => {
+    v.id = `demo_ver_${i + 1}`;
+    v.number = `A${String(i + 1).padStart(3, '0')}`;
+  });
 
   const projects = [
     { id: 'demo_p1', name: 'Kontorsflytt', contactId: 'demo_c1', status: 'active', hourlyRate: 950, budget: 0, notes: '' },

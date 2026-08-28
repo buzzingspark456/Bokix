@@ -2,10 +2,10 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Plus, X, Send, Check, FileText, FileSpreadsheet,
-  Search, ChevronRight, ChevronLeft, ChevronDown, ChevronUp,
-  MoreVertical, RefreshCw, Printer, Eye, CreditCard, Link2,
+  Search, ChevronRight, ChevronLeft, ChevronDown,
+  RefreshCw, Printer, Eye, CreditCard, Link2,
   MessageSquare, Tag, Lock, Settings2, Download, Upload, AlertTriangle, Inbox, Trash2,
-  ZoomIn, ZoomOut
+  ZoomIn, ZoomOut, Pencil, Copy, CheckCircle2, Undo2
 } from 'lucide-react';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import InvoiceDocument, { DEFAULT_INVOICE_TEMPLATE, INVOICE_TEMPLATES } from './InvoiceDocument';
@@ -14,11 +14,20 @@ import { sendInvoiceEmail } from '../emailApi';
 import { BRAND } from '../utils/brandColors';
 import { getNextInvoiceNumber } from '../utils/invoiceNumbering';
 import { articlesToCsv, csvToArticles, downloadCsv } from '../utils/csvRegister';
+import { listHeaderButtonStyle, listSearchInputStyle, listFilterFieldStyle } from './shared/ListPageHeader';
+import RowActionMenu from './shared/RowActionMenu';
+import ListTable from './shared/ListTable';
+// Kodgranskning: fanns tidigare som en egen lokal kopia här OCH som
+// grossInvoiceAmount i reportCalculations.js (den senare påstod sig i sin
+// egen kommentar vara "delad istället för en tredje tyst kopia", men var i
+// praktiken en andra oberoende implementation). Importerad härifrån istället
+// — reportCalculations.js (en utils-fil) ska inte bero på en sidkomponent,
+// så flytten gick åt det hållet, inte tvärtom. Alias till samma namn så
+// alla anrop nedan är oförändrade.
+import { grossInvoiceAmount as grossOf } from '../utils/reportCalculations';
 
 const newRowId = () => (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `row_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 const withRowIds = (rows) => rows.map(r => ({ id: r.id || newRowId(), ...r }));
-
-const grossOf = (inv) => inv.rows?.reduce((a, r) => a + r.qty * r.unitPrice * (1 + r.vatRate / 100), 0) || inv.amount || 0;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const fmt = (val) =>
@@ -65,32 +74,47 @@ function buildReminderMailto(inv, customer) {
 function Section({ title, children, defaultOpen = true }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div style={{ borderBottom: '1px solid var(--border)' }}>
+    <div style={{ borderBottom: '1px solid var(--border-light)' }}>
       <button
+        type="button"
         onClick={() => setOpen(o => !o)}
         style={{
-          width: '100%', textAlign: 'left', background: 'var(--bg-muted)',
-          border: 'none', padding: '6px 12px', cursor: 'pointer',
-          display: 'flex', alignItems: 'center', gap: '6px',
-          fontSize: '12px', fontWeight: 700, color: 'var(--text-main)', userSelect: 'none'
+          width: '100%', textAlign: 'left', background: 'none',
+          border: 'none', padding: '16px 32px', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', gap: '8px',
+          fontSize: '14px', fontWeight: 600, color: 'var(--text-main)', userSelect: 'none'
         }}
       >
-        {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+        {open ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
         {title}
       </button>
-      {open && <div style={{ padding: '12px 16px', background: 'var(--bg-card)' }}>{children}</div>}
+      {/* Bugkritiskt: `title` innehöll tidigare en egen "▾ "-prefix i
+          textsträngen (t.ex. "▾ Kunduppgifter") UTÖVER chevron-ikonen ovan
+          — två pilar synliga samtidigt. Prefixet är borttaget från
+          anropen nedan, ikonen räcker som visuell markör. */}
+      {open && <div style={{ padding: '0 32px 24px' }}>{children}</div>}
     </div>
   );
 }
 
 // ─── Field helpers ─────────────────────────────────────────────────────────────
+// Samma mått som QuoteEditor (Quotes.jsx: inputStyle/label) — fakturans
+// redigeringsläge ska kännas som offertens, inte som ett tätt kalkylblad
+// (Sida 43-uppföljning). Kaskaderar till varenda fält i formuläret genom
+// att bara byta de här delade konstanterna, ingen enskild fält-JSX rörd.
 const inp = {
-  padding: '4px 8px', border: '1px solid var(--text-muted)', borderRadius: '3px',
-  fontSize: '13px', outline: 'none', fontFamily: 'inherit', width: '100%',
-  boxSizing: 'border-box', background: 'var(--bg-card)'
+  width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: '9px',
+  fontSize: '14px', color: 'var(--text-main)', background: 'var(--bg-card)', outline: 'none',
+  transition: 'all 0.15s', fontFamily: 'inherit', boxSizing: 'border-box',
 };
-const lbl = { display: 'block', fontSize: '11px', color: 'var(--text-main)', marginBottom: '2px' };
+const lbl = { display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' };
 const cell = (w) => ({ display: 'inline-block', width: w, verticalAlign: 'top', paddingRight: '8px', boxSizing: 'border-box' });
+// Samma "+ Lägg till rad"-knapp som QuoteEditor:s outlineBtnStyle (Quotes.jsx).
+const outlineToolbarBtnStyle = {
+  display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 12px',
+  background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '9px',
+  fontSize: '12.5px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer',
+};
 
 // ─── Invoice Full Form (Fortnox-inspired) ──────────────────────────────────────
 function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, invoiceList, onCreateCreditNote, onMarkPaid, onRegisterPayment, onUnmarkPaid, onUpdateNote, verifications = [], nav, onGetPaymentLinkUrl, articles = [], setArticles }) {
@@ -345,62 +369,43 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
     }
   };
 
-  // Egen klickyta per knapp med luft runt om (padding + avrundning), inte
-  // bara en tunn kantlinje mot grannknappen — annars är det för lätt att
-  // klicka fel. Mellanrummet mellan knapparna sätts på den omslutande raden.
+  // Samma rundade pill-knapp som QuoteEditor:s toolbarBtnStyle (Quotes.jsx)
+  // istället för en text/ikon flytande fritt på raden — egen klickyta med
+  // luft och kant runt om, inte bara en tunn linje mot grannknappen.
   const topBarBtn = (label, icon, onClick, style = {}, disabled = false, title) => (
     <button onClick={disabled ? undefined : onClick} disabled={disabled} title={title} style={{
-      display: 'flex', alignItems: 'center', gap: '5px',
-      padding: '7px 10px', background: 'none', border: 'none', borderRadius: '5px',
-      fontSize: '12px', fontWeight: 500, color: disabled ? 'var(--text-muted)' : 'var(--text-main)', cursor: disabled ? 'not-allowed' : 'pointer',
-      whiteSpace: 'nowrap', alignSelf: 'center', ...style
+      display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 12px',
+      background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px',
+      fontSize: '12.5px', fontWeight: 600, color: disabled ? 'var(--text-muted)' : 'var(--text-main)', cursor: disabled ? 'not-allowed' : 'pointer',
+      whiteSpace: 'nowrap', flexShrink: 0, transition: 'all 0.15s', opacity: disabled ? 0.55 : 1,
+      ...style
     }}>
       {icon}{label}
     </button>
   );
-
-  const thSt = {
-    padding: '4px 6px', fontSize: '11px', fontWeight: 700, color: 'var(--text-main)',
-    background: 'var(--bg-muted)', borderBottom: '1px solid var(--border)', borderRight: '1px solid var(--border)',
-    whiteSpace: 'nowrap', textAlign: 'left'
-  };
-  const tdSt = {
-    padding: '2px 4px', borderBottom: '1px solid var(--border-light)', borderRight: '1px solid var(--border-light)',
-    verticalAlign: 'middle'
-  };
-  const tdInp = {
-    ...inp, border: 'none', padding: '3px 4px', borderRadius: 0,
-    background: 'transparent', fontSize: '12px'
-  };
+  const activeToolbarPillStyle = { background: 'var(--status-blue-bg)', borderColor: 'var(--status-blue-bg)', color: 'var(--status-blue-text)' };
 
   return (
-    <div style={{
-      flex: 1, minHeight: 0, background: 'var(--bg-page)',
-      display: 'flex', flexDirection: 'column', fontFamily: 'Arial, sans-serif',
-      animation: 'fadeIn 0.15s ease'
-    }}>
+    <div style={{ flex: 1, minHeight: 0, background: 'var(--bg-muted)', display: 'flex', flexDirection: 'column', animation: 'fadeIn 0.15s ease' }}>
 
-      {/* ── Top Navigation Bar ───────────────────────────────── */}
-      {/* Mer luft i höjd (padding) + en tydlig grupp-gräns (marginLeft på
-          höger knappgrupp) mellan "vad det här är" (tillbaka + identifierare)
-          och "vad man kan göra med det" (bläddring + spara-knapparna),
-          istället för att allt satt på en enda tät rad. */}
-      <div style={{ background: 'var(--bg-muted)', borderBottom: '1px solid var(--border)', padding: '14px 20px', display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
-        <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-main)', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', marginRight: '8px' }}>
+      {/* ── Top bar — samma mönster som QuoteEditor (Quotes.jsx): sticky,
+          18px titel + statusmärke till vänster, Avbryt/Spara till höger,
+          istället för en tät rad med KUNDFAKTURA/OCR/VER.NR i versaler. ── */}
+      <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '16px 24px', display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', position: 'sticky', top: 0, zIndex: 10 }}>
+        <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-main)', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
           ← Tillbaka
         </button>
-        <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>
-          KUNDFAKTURA {nextNum}*
-        </span>
-        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>OCR: {ocr}*</span>
-        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>VER.NR: {linkedVerification?.number || '—'}</span>
-        {isLocked && (
-          <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'var(--status-amber-text)', background: 'var(--status-amber-bg)', border: '1px solid var(--status-amber-bg)', borderRadius: '4px', padding: '2px 8px' }}>
-            <Lock size={11} /> Bokförd
-          </span>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          <h1 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>{initial ? `Faktura ${nextNum}` : 'Ny faktura'}</h1>
+          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>OCR: {ocr}* · VER.NR: {linkedVerification?.number || '—'}</span>
+          {isLocked && (
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'var(--status-amber-text)', background: 'var(--status-amber-bg)', border: '1px solid var(--status-amber-bg)', borderRadius: '20px', padding: '4px 10px', fontWeight: 600 }}>
+              <Lock size={11} /> Bokförd
+            </span>
+          )}
+        </div>
 
-        <div style={{ flex: 1 }} />
+        <div style={{ flex: 1, minWidth: '8px' }} />
 
         {/* Navigation — bläddrar genom samma lista man kom ifrån */}
         <div style={{ display: 'flex', gap: '2px' }}>
@@ -411,24 +416,16 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
             { s: '»', onClick: nav?.last, enabled: nav?.hasNext, title: 'Sista fakturan' },
           ].map(({ s, onClick, enabled, title }) => (
             <button
-              key={s} disabled={!enabled} onClick={onClick} title={title}
-              style={{ padding: '3px 7px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '3px', cursor: enabled ? 'pointer' : 'not-allowed', fontSize: '13px', color: enabled ? 'var(--text-main)' : 'var(--border)' }}
+              key={s} type="button" disabled={!enabled} onClick={onClick} title={title}
+              style={{ padding: '4px 8px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '4px', cursor: enabled ? 'pointer' : 'not-allowed', fontSize: '13px', color: enabled ? 'var(--text-main)' : 'var(--border)' }}
             >{s}</button>
           ))}
         </div>
 
-        <div style={{ display: 'flex', gap: '8px', marginLeft: '10px', paddingLeft: '10px', borderLeft: '1px solid var(--border)' }}>
-          <button
-            onClick={() => handleSave('sent')}
-            style={{ padding: '5px 14px', background: '#3d7a2e', border: 'none', borderRadius: '4px', color: 'white', fontWeight: 700, fontSize: '12px', cursor: 'pointer' }}
-          >
-            ✓ Skapa faktura
-          </button>
-          <button
-            onClick={onClose}
-            style={{ padding: '5px 14px', background: '#2e7d32', border: 'none', borderRadius: '4px', color: 'white', fontWeight: 700, fontSize: '12px', cursor: 'pointer' }}
-          >
-            Visa lista
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button type="button" onClick={onClose} style={listHeaderButtonStyle('secondary')}>Avbryt</button>
+          <button type="button" onClick={() => handleSave('sent')} style={listHeaderButtonStyle('primary')}>
+            <Check size={14} /> {initial ? 'Spara ändringar' : 'Skapa faktura'}
           </button>
         </div>
       </div>
@@ -442,18 +439,18 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
           Knapparna har nu ett tydligt mellanrum (gap) sinsemellan istället
           för att bara skiljas åt av en tunn kantlinje — annars är det för
           lätt att klicka fel på grannknappen. */}
-      <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'stretch', gap: '10px', padding: '0 10px', flexShrink: 0, overflowX: 'auto', position: 'relative' }}>
-        {topBarBtn('Registrera betalning', <CreditCard size={13} />, () => setShowPaymentBox(v => !v), { color: showPaymentBox ? '#1565c0' : 'var(--text-main)' }, !initial, !initial ? 'Spara fakturan först' : undefined)}
+      <div className="quote-toolbar" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 24px', flexShrink: 0, overflowX: 'auto', position: 'relative' }}>
+        {topBarBtn('Registrera betalning', <CreditCard size={13} />, () => setShowPaymentBox(v => !v), showPaymentBox ? activeToolbarPillStyle : {}, !initial, !initial ? 'Spara fakturan först' : undefined)}
         {topBarBtn(
           'Markera som obetald',
           <Tag size={13} />,
           () => { if (window.confirm(`Markera faktura ${nextNum} som obetald? Den registrerade betalningen tas bort.`)) onUnmarkPaid?.(initial.id); },
-          { color: 'var(--text-main)' },
+          {},
           !initial || initial?.status !== 'paid',
           !initial ? 'Spara fakturan först' : (initial?.status !== 'paid' ? 'Fakturan är inte markerad som betald' : 'Ångrar den registrerade betalningen')
         )}
-        {topBarBtn('Kommentar', <MessageSquare size={13} />, () => setShowCommentBox(v => !v), { color: showCommentBox ? '#1565c0' : (commentDraft ? 'var(--status-amber-text)' : 'var(--text-main)') })}
-        <div style={{ flex: 1 }} />
+        {topBarBtn('Kommentar', <MessageSquare size={13} />, () => setShowCommentBox(v => !v), showCommentBox ? activeToolbarPillStyle : (commentDraft ? { color: 'var(--status-amber-text)', borderColor: 'var(--status-amber-bg)' } : {}))}
+        <div style={{ flex: 1, minWidth: '8px' }} />
         {emailError && <span style={{ fontSize: '11px', color: '#c00', alignSelf: 'center', marginRight: 8 }}>{emailError}</span>}
         {emailSent && !emailError && <span style={{ fontSize: '11px', color: 'var(--status-green-text)', alignSelf: 'center', marginRight: 8 }}>Skickad ✓</span>}
         <input
@@ -461,8 +458,8 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
           placeholder="mottagarens@epost.se" title="Mottagarens e-postadress — förifylld från kundkortet om det finns en, men går att ändra eller fylla i här"
           disabled={!initial}
           style={{
-            padding: '5px 9px', borderRadius: '5px', border: '1px solid var(--border)', fontSize: '12px', width: '190px',
-            alignSelf: 'center', borderLeft: '1px solid var(--border)', marginLeft: '4px',
+            padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '12.5px', width: '190px',
+            flexShrink: 0, fontFamily: 'inherit',
             background: !initial ? 'var(--bg-muted)' : 'var(--bg-card)', color: !initial ? 'var(--text-muted)' : 'var(--text-main)',
           }}
         />
@@ -476,7 +473,7 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
         )}
         {pdfError && <span style={{ fontSize: '11px', color: '#c00', alignSelf: 'center', marginRight: 8 }}>{pdfError}</span>}
         {topBarBtn(pdfBusy ? 'Skapar PDF…' : 'Ladda ner PDF', <Download size={13} />, handleDownloadPdf, {}, pdfBusy)}
-        {topBarBtn('Förhandsgranska', <Eye size={13} />, () => setShowPreview(v => !v), { color: showPreview ? '#1565c0' : 'var(--text-main)' })}
+        {topBarBtn('Förhandsgranska', <Eye size={13} />, () => setShowPreview(v => !v), showPreview ? activeToolbarPillStyle : {})}
       </div>
 
       {/* Betalning och Kommentar renderas som riktiga skärmcentrerade modaler
@@ -571,7 +568,7 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
                 <button onClick={() => setShowCommentBox(false)} style={{ padding: '8px 14px', background: 'none', border: '1px solid var(--border)', borderRadius: '6px', color: 'var(--text-main)', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>Stäng</button>
                 <button
                   onClick={() => { if (initial) onUpdateNote?.(initial.id, commentDraft); setShowCommentBox(false); }}
-                  style={{ padding: '8px 16px', background: '#1a3028', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}
+                  style={{ padding: '8px 16px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}
                 >
                   {initial ? 'Spara kommentar' : 'Klart'}
                 </button>
@@ -602,71 +599,75 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
       <div style={{ flex: 1, overflowY: 'auto', display: 'flex', background: 'var(--bg-card)' }}>
         <div style={{ flex: 1, minWidth: 0, minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
 
-          {/* Top fields row — bara de fält som alltid behövs. form-row-stack
-              (Sida 38, punkt 2): kolumnbredden är ojämn (2fr 1fr 1fr 1fr) så
-              den kan inte återanvända .form-row-2/-3, men ska ändå bli en
-              kolumn på mobil. */}
-          <div className="form-row-stack" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '16px 20px', display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '18px', alignItems: 'end' }}>
-            <div>
-              <label style={lbl}>Kund</label>
-              <select value={customerId} onChange={e => setCustomerId(e.target.value)} disabled={isLocked} style={{ ...inp, background: isLocked ? 'var(--border-light)' : 'white' }}>
-                <option value="">Välj kund...</option>
-                {customers.map(c => <option key={c.id} value={c.id}>{c.id?.slice(-3)} – {c.name}</option>)}
-              </select>
-            </div>
-            <div>
-              <label style={lbl}>Fakturadatum</label>
-              <input type="date" value={invoiceDate} onChange={e => setInvoiceDate(e.target.value)} style={inp} />
-            </div>
-            <div>
-              <label style={lbl}>Förfallodatum *</label>
-              <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} style={inp} />
-            </div>
-            <div>
-              <label style={lbl}>Fakturatyp</label>
-              <div style={{ display: 'flex', border: '1px solid var(--text-muted)', borderRadius: '3px', overflow: 'hidden', opacity: isLocked ? 0.6 : 1 }}>
-                {['Faktura', 'Kontantfaktura'].map(t => (
-                  <button key={t} disabled={isLocked} onClick={() => setInvoiceType(t)} style={{
-                    flex: 1, padding: '4px 6px', border: 'none', fontSize: '12px', cursor: isLocked ? 'not-allowed' : 'pointer',
-                    background: invoiceType === t ? '#3d7a2e' : 'var(--bg-card)',
-                    color: invoiceType === t ? 'white' : 'var(--text-main)', fontWeight: invoiceType === t ? 700 : 400
-                  }}>{t}</button>
-                ))}
+          {/* Fakturauppgifter — samma sektionsmönster som QuoteEditor:s
+              "Kundinformation" (Quotes.jsx): en enda tydligt rubricerad
+              yta med generös padding, istället för två-tre tätt staplade
+              tunna kortremsor. */}
+          <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
+            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>Fakturauppgifter</h3>
+            {/* form-row-stack (Sida 38, punkt 2): kolumnbredden är ojämn
+                (2fr 1fr 1fr 1fr) så den kan inte återanvända .form-row-2/-3,
+                men ska ändå bli en kolumn på mobil. */}
+            <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '16px', alignItems: 'end', marginBottom: '16px' }}>
+              <div>
+                <label style={lbl}>Kund</label>
+                <select value={customerId} onChange={e => setCustomerId(e.target.value)} disabled={isLocked} style={{ ...inp, background: isLocked ? 'var(--border-light)' : 'var(--bg-card)' }}>
+                  <option value="">Välj kund...</option>
+                  {customers.map(c => <option key={c.id} value={c.id}>{c.id?.slice(-3)} – {c.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={lbl}>Fakturadatum</label>
+                <input type="date" value={invoiceDate} onChange={e => setInvoiceDate(e.target.value)} style={inp} />
+              </div>
+              <div>
+                <label style={lbl}>Förfallodatum *</label>
+                <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} style={inp} />
+              </div>
+              <div>
+                <label style={lbl}>Fakturatyp</label>
+                <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: '9px', overflow: 'hidden', opacity: isLocked ? 0.6 : 1 }}>
+                  {['Faktura', 'Kontantfaktura'].map(t => (
+                    <button key={t} disabled={isLocked} onClick={() => setInvoiceType(t)} style={{
+                      flex: 1, padding: '8px 6px', border: 'none', fontSize: '12.5px', cursor: isLocked ? 'not-allowed' : 'pointer',
+                      background: invoiceType === t ? 'var(--accent)' : 'var(--bg-card)',
+                      color: invoiceType === t ? 'white' : 'var(--text-main)', fontWeight: invoiceType === t ? 700 : 500
+                    }}>{t}</button>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Fakturauppgifter — bara de vanligaste fälten synliga direkt */}
-          <div className="form-row-stack" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '16px 20px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '18px' }}>
-            <div>
-              <label style={lbl}>Betalningsvillkor</label>
-              <select value={terms} onChange={e => setTerms(e.target.value)} style={inp}>
-                {['0 dagar', '10 dagar', '20 dagar', '30 dagar', '60 dagar'].map(t => <option key={t}>{t}</option>)}
-              </select>
+            <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+              <div>
+                <label style={lbl}>Betalningsvillkor</label>
+                <select value={terms} onChange={e => setTerms(e.target.value)} style={inp}>
+                  {['0 dagar', '10 dagar', '20 dagar', '30 dagar', '60 dagar'].map(t => <option key={t}>{t}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={lbl}>Vår referens</label>
+                <input value={ourRef} onChange={e => setOurRef(e.target.value)} style={inp} placeholder="Emma Johansson" />
+              </div>
+              <div>
+                <label style={lbl}>Er referens</label>
+                <input value={theirRef} onChange={e => setTheirRef(e.target.value)} style={inp} placeholder="Johan Svensson" />
+              </div>
             </div>
-            <div>
-              <label style={lbl}>Vår referens</label>
-              <input value={ourRef} onChange={e => setOurRef(e.target.value)} style={inp} placeholder="Emma Johansson" />
-            </div>
-            <div>
-              <label style={lbl}>Er referens</label>
-              <input value={theirRef} onChange={e => setTheirRef(e.target.value)} style={inp} placeholder="Johan Svensson" />
-            </div>
-          </div>
 
-          {/* Fler alternativ — sällan använda fält, dolda tills man behöver dem */}
-          <div style={{ borderBottom: '1px solid var(--border)' }}>
+            {/* Fler alternativ — sällan använda fält, dolda tills man behöver dem */}
             <button
+              type="button"
               onClick={() => setShowMoreOptions(v => !v)}
               style={{
-                width: '100%', textAlign: 'left', background: 'var(--bg-muted)', border: 'none', padding: '6px 12px',
-                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 700, color: 'var(--text-main)',
+                marginTop: '16px', background: 'none', border: 'none', padding: 0,
+                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: 'var(--accent)',
               }}
             >
               {showMoreOptions ? <ChevronDown size={13} /> : <ChevronRight size={13} />} Fler alternativ
             </button>
             {showMoreOptions && (
-              <div className="form-row-stack" style={{ padding: '12px 16px', background: 'var(--bg-card)', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
+              <div className="form-row-stack" style={{ marginTop: '16px', padding: '16px', background: 'var(--bg-muted)', borderRadius: '10px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
                 <div>
                   <label style={lbl}>Husavdrag</label>
                   <select style={inp}><option>Inget</option><option>ROT</option><option>RUT</option></select>
@@ -721,8 +722,8 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
 
           {/* Kunduppgifter */}
           {customer && (
-            <Section title="▾ Kunduppgifter" defaultOpen={false}>
-              <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
+            <Section title="Kunduppgifter" defaultOpen={false}>
+              <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
                 <div>
                   <label style={lbl}>Namn</label>
                   <input defaultValue={customer.name} style={inp} />
@@ -761,8 +762,8 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
           )}
 
           {/* Leveransuppgifter */}
-          <Section title="▾ Leveransuppgifter" defaultOpen={false}>
-            <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
+          <Section title="Leveransuppgifter" defaultOpen={false}>
+            <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
               <div><label style={lbl}>Leveransadress</label><input style={inp} /></div>
               <div><label style={lbl}>Leveransort</label><input style={inp} /></div>
               <div><label style={lbl}>Leveransdatum</label><input type="date" style={inp} /></div>
@@ -770,224 +771,176 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
             </div>
           </Section>
 
-          {/* Article Rows Table — 5 kolumner synliga, avancerade fält bakom kugghjulet.
-              Egen ram + rundade hörn så tabellen läses som en tydligt
-              avgränsad yta, istället för att bara flyta in i fälten runt om. */}
-          <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '4px 20px 16px' }}>
-            <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: '8px' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-                <thead>
-                  <tr>
-                    <th style={thSt}>BENÄMNING</th>
-                    <th style={{ ...thSt, width: 60, textAlign: 'right' }}>ANTAL</th>
-                    <th style={{ ...thSt, width: 90, textAlign: 'right' }}>À-PRIS</th>
-                    <th style={{ ...thSt, width: 55, textAlign: 'right' }}>MOMS</th>
-                    <th style={{ ...thSt, width: 90, textAlign: 'right' }}>SUMMA</th>
-                    <th style={{ ...thSt, width: 30 }}></th>
-                    <th style={{ ...thSt, width: 30 }}></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row, i) => {
-                    const { net } = calcRow(row);
-                    const advancedOpen = expandedRows.has(row.id);
-                    return (
-                      <React.Fragment key={row.id}>
-                        <tr style={{ background: i % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-muted)' }}>
-                          <td style={tdSt}>
-                            {isLocked ? (
-                              <span style={{ padding: '3px 4px', display: 'block' }}>{row.description}</span>
-                            ) : (
-                              <input
-                                value={row.description}
-                                onChange={e => updateRow(i, 'description', e.target.value)}
-                                style={{ ...tdInp, width: '100%' }}
-                                placeholder="Beskrivning av tjänst eller produkt"
-                              />
-                            )}
-                          </td>
-                          <td style={{ ...tdSt, textAlign: 'right' }}>
-                            {isLocked ? row.qty : (
-                              <input type="number" value={row.qty} onChange={e => updateRow(i, 'qty', Number(e.target.value))} style={{ ...tdInp, textAlign: 'right', width: '100%' }} />
-                            )}
-                          </td>
-                          <td style={{ ...tdSt, textAlign: 'right' }}>
-                            {isLocked ? fmt(row.unitPrice) : (
-                              <input type="number" value={row.unitPrice} onChange={e => updateRow(i, 'unitPrice', Number(e.target.value))} style={{ ...tdInp, textAlign: 'right', width: '100%' }} />
-                            )}
-                          </td>
-                          <td style={{ ...tdSt, textAlign: 'right' }}>
-                            {isLocked ? `${row.vatRate}%` : (
-                              <select value={row.vatRate} onChange={e => updateRow(i, 'vatRate', Number(e.target.value))} style={{ ...tdInp, width: '100%' }}>
-                                {[0, 6, 12, 25].map(r => <option key={r} value={r}>{r}</option>)}
-                              </select>
-                            )}
-                          </td>
-                          <td style={{ ...tdSt, textAlign: 'right', fontWeight: 600 }}>{fmt(net)}</td>
-                          <td style={{ ...tdSt, textAlign: 'center' }}>
-                            <button onClick={() => toggleRowAdvanced(row.id)} title="Fler fält för raden" style={{ background: 'none', border: 'none', cursor: 'pointer', color: advancedOpen ? '#1565c0' : 'var(--text-muted)', padding: '2px' }}>
-                              <Settings2 size={13} />
-                            </button>
-                          </td>
-                          <td style={{ ...tdSt, textAlign: 'center' }}>
-                            {!isLocked && rows.length > 1 && (
-                              <button onClick={() => removeRow(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '2px' }}>
-                                <X size={13} />
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                        {advancedOpen && (
-                          <tr style={{ background: '#f5faff' }}>
-                            <td colSpan={7} style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)' }}>
-                              <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
-                                <div>
-                                  <label style={lbl}>Artikelnr</label>
-                                  <div style={{ display: 'flex', gap: '4px' }}>
-                                    <input
-                                      disabled={isLocked}
-                                      style={inp}
-                                      placeholder="Artnr"
-                                      value={row.articleNumber || ''}
-                                      list="article-register-list"
-                                      onChange={e => updateRow(i, 'articleNumber', e.target.value)}
-                                      // Väljs en BEFINTLIG artikel ur <datalist>-listan (blur = klart att
-                                      // skriva) fylls resten av raden i automatiskt — men bara då, aldrig
-                                      // vid varje tecken, så halvskrivna artikelnummer inte triggar en
-                                      // ofärdig träff mitt i inmatningen.
-                                      onBlur={e => {
-                                        const hit = findArticleByNumber(e.target.value);
-                                        if (hit) applyArticleToRow(i, hit);
-                                      }}
-                                    />
-                                    {!isLocked && (
-                                      <button
-                                        type="button"
-                                        onClick={() => saveRowAsArticle(row)}
-                                        disabled={!(row.articleNumber || '').trim()}
-                                        title="Spara radens artikelnr/benämning/pris/moms i artikelregistret för återanvändning"
-                                        style={{ flexShrink: 0, padding: '0 8px', border: '1px solid var(--text-muted)', borderRadius: '3px', background: 'var(--bg-card)', cursor: (row.articleNumber || '').trim() ? 'pointer' : 'not-allowed', color: 'var(--text-main)', fontSize: '12px' }}
-                                      >
-                                        Spara
-                                      </button>
-                                    )}
-                                  </div>
-                                </div>
-                                <div>
-                                  <label style={lbl}>Tjänst (momsfri)</label>
-                                  <select disabled={isLocked} value={row.vatRate === 0 ? 'Ja' : 'Nej'} onChange={e => updateRow(i, 'vatRate', e.target.value === 'Ja' ? 0 : 25)} style={inp}>
-                                    <option>Ja</option><option>Nej</option>
-                                  </select>
-                                </div>
-                                <div>
-                                  <label style={lbl}>Rabatt %</label>
-                                  <input disabled={isLocked} type="number" min="0" max="100" value={row.discount || 0} onChange={e => updateRow(i, 'discount', Number(e.target.value))} style={inp} />
-                                </div>
-                                <div>
-                                  <label style={lbl}>Konto</label>
-                                  <input disabled={isLocked} value={row.account || '3001'} onChange={e => updateRow(i, 'account', e.target.value)} style={inp} />
-                                </div>
-                              </div>
-                            </td>
-                          </tr>
+          {/* Fakturarader — samma rutnätsmönster som QuoteEditor:s
+              "Offertrader" (Quotes.jsx: gridTemplateColumns-rader av riktiga
+              inputs) istället för ett tätt kalkylblad (<table>, 12px celler).
+              Avancerade fält (artikelnr/momsfri tjänst/rabatt/konto) bakom
+              kugghjulet, precis som förut — bara paketeringen är ny. */}
+          <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '12px' }}>
+              <h3 style={{ fontSize: '14px', fontWeight: 600, margin: 0 }}>Fakturarader</h3>
+              <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>{rows.length} {rows.length === 1 ? 'rad' : 'rader'}</span>
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+              <div style={{ minWidth: '760px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '2.4fr 0.7fr 0.9fr 0.7fr 0.9fr auto auto', gap: '10px', marginBottom: '8px', padding: '0 2px' }}>
+                  {['Benämning', 'Antal', 'À-pris', 'Moms', 'Summa', '', ''].map((h, i) => (
+                    <span key={i} style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em', textAlign: i >= 1 && i <= 4 ? 'right' : 'left' }}>{h}</span>
+                  ))}
+                </div>
+
+                {rows.map((row, i) => {
+                  const { net } = calcRow(row);
+                  const advancedOpen = expandedRows.has(row.id);
+                  return (
+                    <div key={row.id} style={{ marginBottom: '10px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '2.4fr 0.7fr 0.9fr 0.7fr 0.9fr auto auto', gap: '10px', alignItems: 'center' }}>
+                        {isLocked ? (
+                          <div style={{ ...inp, background: 'var(--bg-muted)', border: '1px solid var(--border-light)' }}>{row.description}</div>
+                        ) : (
+                          <input
+                            value={row.description}
+                            onChange={e => updateRow(i, 'description', e.target.value)}
+                            style={inp}
+                            placeholder="Beskrivning av tjänst eller produkt"
+                          />
                         )}
-                      </React.Fragment>
-                    );
-                  })}
-                  {/* Add row */}
-                  {!isLocked && (
-                    <tr>
-                      <td colSpan={7} style={{ padding: '4px 8px', background: 'var(--bg-muted)', borderBottom: '1px solid var(--border-light)' }}>
-                        <button onClick={addRow} style={{ background: 'none', border: 'none', color: '#1565c0', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <Plus size={13} /> Lägg till rad
+                        {isLocked ? (
+                          <div style={{ ...inp, background: 'var(--bg-muted)', border: '1px solid var(--border-light)', textAlign: 'right' }}>{row.qty}</div>
+                        ) : (
+                          <input type="number" value={row.qty} onChange={e => updateRow(i, 'qty', Number(e.target.value))} style={{ ...inp, textAlign: 'right' }} />
+                        )}
+                        {isLocked ? (
+                          <div style={{ ...inp, background: 'var(--bg-muted)', border: '1px solid var(--border-light)', textAlign: 'right' }}>{fmt(row.unitPrice)}</div>
+                        ) : (
+                          <input type="number" value={row.unitPrice} onChange={e => updateRow(i, 'unitPrice', Number(e.target.value))} style={{ ...inp, textAlign: 'right' }} />
+                        )}
+                        {isLocked ? (
+                          <div style={{ ...inp, background: 'var(--bg-muted)', border: '1px solid var(--border-light)', textAlign: 'right' }}>{row.vatRate}%</div>
+                        ) : (
+                          <select value={row.vatRate} onChange={e => updateRow(i, 'vatRate', Number(e.target.value))} style={inp}>
+                            {[0, 6, 12, 25].map(r => <option key={r} value={r}>{r}%</option>)}
+                          </select>
+                        )}
+                        <div style={{ ...inp, background: 'var(--bg-muted)', color: 'var(--text-secondary)', border: '1px solid var(--border-light)', textAlign: 'right', fontWeight: 600 }}>{fmt(net)}</div>
+                        <button type="button" onClick={() => toggleRowAdvanced(row.id)} title="Fler fält för raden" style={{ padding: '6px', background: advancedOpen ? 'var(--status-blue-bg)' : 'transparent', borderRadius: '7px', border: 'none', cursor: 'pointer', color: advancedOpen ? 'var(--status-blue-text)' : 'var(--text-muted)' }}>
+                          <Settings2 size={15} />
                         </button>
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-              {/* Delas av alla radernas Artikelnr-fält ovan (HTML5 <datalist>
-                  kräver ett enda, delat id) — native webbläsarautocomplete,
-                  ingen egen dropdown-komponent behövs. */}
-              <datalist id="article-register-list">
-                {articles.map(a => (
-                  <option key={a.articleNumber} value={a.articleNumber}>{a.description}</option>
-                ))}
-              </datalist>
+                        <button type="button" onClick={() => removeRow(i)} disabled={isLocked || rows.length === 1} title="Ta bort rad" style={{ padding: '6px', background: 'transparent', border: 'none', cursor: (isLocked || rows.length === 1) ? 'not-allowed' : 'pointer', color: (isLocked || rows.length === 1) ? 'var(--border)' : '#ef4444' }}>
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+
+                      {advancedOpen && (
+                        <div className="form-row-stack" style={{ marginTop: '8px', padding: '14px', background: 'var(--bg-muted)', borderRadius: '10px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
+                          <div>
+                            <label style={lbl}>Artikelnr</label>
+                            <div style={{ display: 'flex', gap: '6px' }}>
+                              <input
+                                disabled={isLocked}
+                                style={inp}
+                                placeholder="Artnr"
+                                value={row.articleNumber || ''}
+                                list="article-register-list"
+                                onChange={e => updateRow(i, 'articleNumber', e.target.value)}
+                                // Väljs en BEFINTLIG artikel ur <datalist>-listan (blur = klart att
+                                // skriva) fylls resten av raden i automatiskt — men bara då, aldrig
+                                // vid varje tecken, så halvskrivna artikelnummer inte triggar en
+                                // ofärdig träff mitt i inmatningen.
+                                onBlur={e => {
+                                  const hit = findArticleByNumber(e.target.value);
+                                  if (hit) applyArticleToRow(i, hit);
+                                }}
+                              />
+                              {!isLocked && (
+                                <button
+                                  type="button"
+                                  onClick={() => saveRowAsArticle(row)}
+                                  disabled={!(row.articleNumber || '').trim()}
+                                  title="Spara radens artikelnr/benämning/pris/moms i artikelregistret för återanvändning"
+                                  style={{ flexShrink: 0, padding: '0 10px', border: '1px solid var(--border)', borderRadius: '8px', background: 'var(--bg-card)', cursor: (row.articleNumber || '').trim() ? 'pointer' : 'not-allowed', color: 'var(--text-main)', fontSize: '12.5px', fontWeight: 600 }}
+                                >
+                                  Spara
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                          <div>
+                            <label style={lbl}>Tjänst (momsfri)</label>
+                            <select disabled={isLocked} value={row.vatRate === 0 ? 'Ja' : 'Nej'} onChange={e => updateRow(i, 'vatRate', e.target.value === 'Ja' ? 0 : 25)} style={inp}>
+                              <option>Ja</option><option>Nej</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label style={lbl}>Rabatt %</label>
+                            <input disabled={isLocked} type="number" min="0" max="100" value={row.discount || 0} onChange={e => updateRow(i, 'discount', Number(e.target.value))} style={inp} />
+                          </div>
+                          <div>
+                            <label style={lbl}>Konto</label>
+                            <input disabled={isLocked} value={row.account || '3001'} onChange={e => updateRow(i, 'account', e.target.value)} style={inp} />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {!isLocked && (
+              <button type="button" onClick={addRow} style={{ ...outlineToolbarBtnStyle, marginTop: '4px' }}>
+                <Plus size={14} /> Lägg till rad
+              </button>
+            )}
+
+            {/* Delas av alla radernas Artikelnr-fält ovan (HTML5 <datalist>
+                kräver ett enda, delat id) — native webbläsarautocomplete,
+                ingen egen dropdown-komponent behövs. */}
+            <datalist id="article-register-list">
+              {articles.map(a => (
+                <option key={a.articleNumber} value={a.articleNumber}>{a.description}</option>
+              ))}
+            </datalist>
+          </div>
+
+          {/* Fakturatext + summering — samma enkla, enkolumns
+              sammanställningsbox som QuoteEditor:s Offertsumma (Quotes.jsx),
+              istället för två delvis dubblerade "Ex.Moms"/"Total excl.
+              moms"-kolumner som visade samma tal två gånger. Frakt/
+              fakturaavgiftsfälten hade aldrig egna state-variabler eller
+              någon effekt på totalsumman (rena attrapper) — borttagna
+              istället för att stå kvar och antyda en uträkning som aldrig
+              faktiskt skedde. */}
+          <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
+            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>Fakturatext</h3>
+            <textarea
+              value={invoiceText} onChange={e => setInvoiceText(e.target.value)}
+              style={{ ...inp, minHeight: '70px', resize: 'vertical', lineHeight: 1.6, maxWidth: '640px', marginBottom: '20px' }}
+              placeholder="Hej! Tack för ditt köp hos oss."
+            />
+
+            <div style={{ background: 'var(--bg-muted)', border: '1px solid var(--border-light)', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '4px', maxWidth: '360px', marginLeft: 'auto', fontSize: '13px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
+                <span>Netto (exkl. moms)</span><span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{fmt(totals.net)} {currency}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
+                <span>Moms</span><span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{fmt(totals.vat)} {currency}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '8px', marginTop: '4px', borderTop: '1px solid var(--border)' }}>
+                <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>Att betala</span>
+                <span style={{ fontWeight: 800, fontSize: '16px', color: 'var(--text-main)' }}>{fmt(totals.total)} {currency}</span>
+              </div>
             </div>
           </div>
 
-          {/* Footer fields + totals */}
-          <div className="form-row-stack" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '16px 20px', display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 2fr', gap: '18px', alignItems: 'start' }}>
-            <div>
-              <label style={lbl}>Fakturatext</label>
-              <textarea value={invoiceText} onChange={e => setInvoiceText(e.target.value)} style={{ ...inp, minHeight: '60px', resize: 'vertical' }} placeholder="Hej! Tack för ditt köp hos oss." />
-            </div>
-            <div>
-              <label style={lbl}>Frakt/Exp</label>
-              <input type="number" defaultValue="0.00" style={inp} />
-            </div>
-            <div>
-              <label style={lbl}>Fakturaavgift</label>
-              <input type="number" defaultValue="0.00" style={inp} />
-            </div>
-            <div>
-              <label style={lbl}>Fakturaavgift %</label>
-              <input type="number" defaultValue="0.00" style={inp} />
-            </div>
-            <div>
-              <label style={lbl}>Netto</label>
-              <div style={{ padding: '4px 0', fontWeight: 600, fontSize: '13px' }}>{fmt(totals.net)}</div>
-            </div>
-            {/* Sammanställningen är resultatet av allt ovanför — en egen
-                lätt bakgrund gör det tydligt att det är en beräkning, inte
-                bara ytterligare två lösa fält i sidans hörn. */}
-            <div style={{ background: 'var(--bg-muted)', border: '1px solid var(--border-light)', borderRadius: '8px', padding: '10px 14px', display: 'flex', gap: '20px' }}>
-              <div style={{ flex: 1 }}>
-                <label style={lbl}>Ex.Moms</label>
-                <div style={{ padding: '4px 0', fontWeight: 600, fontSize: '13px' }}>{fmt(totals.net)}</div>
-                <label style={lbl}>Övervältring</label>
-                <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>0,00</div>
-                <label style={lbl}>Moms</label>
-                <div style={{ fontSize: '13px', color: '#3d7a2e', fontWeight: 700 }}>{fmt(totals.vat)}</div>
-              </div>
-              <div style={{ flex: 1 }}>
-                <label style={lbl}>Total excl. moms</label>
-                <div style={{ fontSize: '13px', fontWeight: 600 }}>{fmt(totals.net)}</div>
-                <label style={lbl}>Moms</label>
-                <div style={{ fontSize: '13px', fontWeight: 600 }}>{fmt(totals.vat)}</div>
-                <label style={{ ...lbl, marginTop: '6px' }}>Att betala</label>
-                <div style={{ fontSize: '16px', fontWeight: 800, color: '#3d7a2e' }}>{fmt(totals.total)} {currency}</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Distribution row */}
-          <div style={{ background: 'var(--bg-card)', padding: '16px 20px', display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'end' }}>
-            <div>
-              <label style={lbl}>Utskriftsformat</label>
-              <select style={{ ...inp, width: '140px' }}>
-                <option>Standardutskrift</option><option>Kompakt</option>
-              </select>
-            </div>
-            <div>
-              <label style={lbl}>Språk</label>
-              <select style={{ ...inp, width: '100px' }}>
-                <option>Svenska</option><option>Engelska</option><option>Norska</option>
-              </select>
-            </div>
-            <div>
-              <label style={lbl}>Distributionssätt</label>
-              <select style={{ ...inp, width: '140px' }}>
-                <option>—</option><option>E-post</option><option>Utskrift</option><option>E-faktura</option>
-              </select>
-            </div>
-            <div style={{ flex: 1 }} />
-            <button onClick={() => handleSave('draft')} style={{ padding: '7px 18px', background: 'var(--bg-card)', border: '1px solid var(--text-muted)', borderRadius: '4px', fontWeight: 600, fontSize: '13px', cursor: 'pointer', color: 'var(--text-main)' }}>
-              Spara
+          {/* Spara/bokför — sista raden i formuläret, samma placering och
+              knappstil som QuoteEditor:s "Avbryt/Spara offert". */}
+          <div style={{ padding: '20px 32px', display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+            <button type="button" onClick={() => handleSave('draft')} style={outlineToolbarBtnStyle}>
+              Spara som utkast
             </button>
-            <button onClick={() => handleSave('sent')} style={{ padding: '7px 18px', background: '#3d7a2e', border: 'none', borderRadius: '4px', fontWeight: 700, fontSize: '13px', cursor: 'pointer', color: 'white' }}>
-              ✓ Bokför
+            <button type="button" onClick={() => handleSave('sent')} style={listHeaderButtonStyle('primary')}>
+              <Check size={14} /> Bokför
             </button>
           </div>
         </div>
@@ -1029,8 +982,8 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
                         onClick={() => setInvoiceTemplateSnapshot(s => ({ ...s, templateId: tpl.id }))}
                         style={{
                           padding: '5px 10px', borderRadius: '999px', fontSize: '11.5px', fontWeight: 600, whiteSpace: 'nowrap',
-                          border: `1.5px solid ${active ? '#1a3028' : 'var(--border)'}`,
-                          background: active ? '#1a3028' : 'var(--bg-card)', color: active ? 'white' : 'var(--text-main)',
+                          border: `1.5px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
+                          background: active ? 'var(--accent)' : 'var(--bg-card)', color: active ? 'white' : 'var(--text-main)',
                           cursor: isLocked ? 'not-allowed' : 'pointer', opacity: isLocked ? 0.6 : 1,
                         }}
                       >{tpl.label}</button>
@@ -1181,17 +1134,100 @@ function InvoiceEmptyState({ isFilteredEmpty, onCreate }) {
   );
 }
 
-function SortableTh({ label, sortKeyName, sortKey, sortDir, onSort, style }) {
-  const active = sortKey === sortKeyName;
+// ─── Fakturavisning (läsläge) ───────────────────────────────────────────────
+// "Visa faktura" i radmenyn ska faktiskt bara VISA fakturan — samma riktiga
+// InvoiceDocument-komponent som PDF-export/mejl/förhandsgranskning redan
+// använder, inbäddad rakt på sidan (som QuoteEditor, inget formulär bakom
+// en modal) — inte det stora redigeringsformuläret i skrivläge. Ingen egen
+// state för fält/rader: allt kommer direkt från den sparade fakturan.
+const emptyInvoiceViewerCustomer = { name: 'Okänd kund', email: '', address: '', orgNr: '', contactPerson: '' };
+
+function InvoiceViewer({ invoice, contacts, company, status, onClose, onEdit }) {
+  const customer = contacts.find(c => c.id === invoice.customerId)
+    || { ...emptyInvoiceViewerCustomer, name: invoice.customerName || emptyInvoiceViewerCustomer.name };
+
+  const rows = invoice.rows || [];
+  // Samma beräkning som InvoiceForm/radlistan (calcRow/grossOf) — dupliceras
+  // hellre lokalt (litet, rent uttryck) än att dra in hela redigeringsformuläret
+  // bara för att komma åt en totalsumma.
+  const totals = rows.reduce((acc, r) => {
+    const gross = (Number(r.qty) || 0) * (Number(r.unitPrice) || 0) * (1 - (Number(r.discount) || 0) / 100);
+    return { net: acc.net + gross, vat: acc.vat + gross * ((Number(r.vatRate) || 0) / 100), total: acc.total + gross * (1 + (Number(r.vatRate) || 0) / 100) };
+  }, { net: 0, vat: 0, total: 0 });
+
+  const statusStyle = {
+    paid: { bg: BRAND.greenLight, color: BRAND.greenDark, label: 'Betald' },
+    overdue: { bg: BRAND.redBg, color: BRAND.redText, label: 'Förfallen' },
+    sent: { bg: BRAND.amberBg, color: BRAND.amberText, label: 'Obetald' },
+    draft: { bg: BRAND.grayBg, color: BRAND.grayText, label: 'Ej bokförd' },
+  }[status] || { bg: BRAND.grayBg, color: BRAND.grayText, label: 'Ej bokförd' };
+
+  const tpl = invoice.invoiceTemplateSnapshot || {};
+  const documentProps = {
+    invoice: { invoiceNumber: invoice.invoiceNumber, date: invoice.date, dueDate: invoice.dueDate, terms: invoice.terms },
+    customer, company, rows, totals,
+    currency: invoice.currency || 'SEK',
+    invoiceText: invoice.invoiceText || '',
+    template: tpl.templateId, accentColor: tpl.accentColor, logoUrl: tpl.logoUrl, footerText: tpl.footerText,
+  };
+
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const [pdfError, setPdfError] = useState('');
+  const captureRef = useRef(null);
+
+  const handleDownloadPdf = async () => {
+    setPdfBusy(true); setPdfError('');
+    try {
+      await exportInvoicePdf(captureRef.current, `Faktura-${invoice.invoiceNumber}.pdf`);
+    } catch {
+      setPdfError('Kunde inte skapa PDF. Försök igen.');
+    } finally {
+      setPdfBusy(false);
+    }
+  };
+
   return (
-    <th style={{ ...style, cursor: 'pointer', userSelect: 'none' }} onClick={() => onSort(sortKeyName)}>
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-        {label}
-        {active && (sortDir === 'asc' ? <ChevronUp size={11} /> : <ChevronDown size={11} />)}
-      </span>
-    </th>
+    <div style={{ flex: 1, minHeight: 0, background: 'var(--bg-page)', display: 'flex', flexDirection: 'column', animation: 'fadeIn 0.15s ease' }}>
+      {/* ── Top bar — samma mönster som QuoteEditor: sticky, 18px titel +
+          statusmärke till vänster, åtgärder till höger. ── */}
+      <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '16px 24px', display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', position: 'sticky', top: 0, zIndex: 10 }}>
+        <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-main)', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+          ← Tillbaka
+        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          <h1 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>Faktura {invoice.invoiceNumber}</h1>
+          <span style={{ padding: '4px 10px', background: statusStyle.bg, color: statusStyle.color, borderRadius: '20px', fontSize: '11px', fontWeight: 600 }}>{statusStyle.label}</span>
+        </div>
+        <div style={{ flex: 1, minWidth: '8px' }} />
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          {pdfError && <span style={{ fontSize: '11px', color: 'var(--status-red-text)' }}>{pdfError}</span>}
+          <button type="button" onClick={handleDownloadPdf} disabled={pdfBusy} style={{ ...listHeaderButtonStyle('secondary'), opacity: pdfBusy ? 0.6 : 1 }}>
+            <Download size={14} /> {pdfBusy ? 'Skapar PDF…' : 'Ladda ner PDF'}
+          </button>
+          <button type="button" onClick={onEdit} style={listHeaderButtonStyle('primary')}>
+            <Pencil size={14} /> Redigera
+          </button>
+        </div>
+      </div>
+
+      {/* ── Dokumentet — full bredd, inbäddat direkt i sidan, ingen modal. ── */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '32px', display: 'flex', justifyContent: 'center' }}>
+        <div style={{ width: '100%', maxWidth: '900px' }}>
+          <InvoiceDocument {...documentProps} />
+        </div>
+      </div>
+
+      {/* Osynlig, fast 794px-bred kopia för PDF-export — samma mönster (och
+          samma skäl) som InvoiceForm redan använder: html2canvas ska alltid
+          fånga en garanterat A4-bred nod, oavsett hur brett den synliga
+          kopian ovan råkar renderas. */}
+      <div style={{ position: 'fixed', top: 0, left: '-9999px', width: '794px', pointerEvents: 'none' }} aria-hidden="true">
+        <InvoiceDocument ref={captureRef} {...documentProps} />
+      </div>
+    </div>
   );
 }
+
 
 // ─── Höger sektion på Fakturering: Leverantörsfakturor ─────────────────────
 // Riktig data (samma `expenses`-poster som den fristående Leverantörs-
@@ -1229,7 +1265,7 @@ function SupplierInvoicesPanel({ expenses, contacts, onMarkPaid, onOpenFull, onC
         </h1>
         <div style={{ flex: 1 }} />
         <button onClick={onOpenFull} style={{ padding: '4px 10px 12px', border: 'none', background: 'none', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', cursor: 'pointer' }}>Visa alla</button>
-        <button onClick={onCreateNew} style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '10px', padding: '6px 12px', background: BRAND.green, border: 'none', borderRadius: '5px', fontSize: '12.5px', fontWeight: 700, color: 'white', cursor: 'pointer' }}>
+        <button onClick={onCreateNew} style={{ ...listHeaderButtonStyle('primary'), marginBottom: '10px' }}>
           <Plus size={13} /> Ny leverantörsfaktura
         </button>
       </div>
@@ -1243,8 +1279,8 @@ function SupplierInvoicesPanel({ expenses, contacts, onMarkPaid, onOpenFull, onC
           return (
             <button key={opt.value} onClick={() => setStatusFilter(opt.value)} style={{
               display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 10px',
-              background: isNeutral ? (isActive ? '#1a3028' : 'var(--bg-card)') : opt.bg,
-              border: isNeutral ? `1px solid ${isActive ? '#1a3028' : 'var(--border)'}` : `1.5px solid ${isActive ? opt.color : 'transparent'}`,
+              background: isNeutral ? (isActive ? 'var(--accent)' : 'var(--bg-card)') : opt.bg,
+              border: isNeutral ? `1px solid ${isActive ? 'var(--accent)' : 'var(--border)'}` : `1.5px solid ${isActive ? opt.color : 'transparent'}`,
               borderRadius: '999px', fontSize: '12px', fontWeight: isActive ? 700 : 500,
               color: isNeutral ? (isActive ? 'white' : 'var(--text-main)') : opt.color, cursor: 'pointer',
             }}>
@@ -1431,11 +1467,11 @@ function ArticleRegisterModal({ articles, setArticles, onClose }) {
               </div>
               <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                 <button onClick={() => setEditing(null)} style={{ padding: '6px 14px', border: '1px solid var(--border)', borderRadius: '5px', background: 'none', cursor: 'pointer', fontSize: '13px' }}>Avbryt</button>
-                <button onClick={save} disabled={!editing.articleNumber.trim()} style={{ padding: '6px 14px', border: 'none', borderRadius: '5px', background: '#2e7d32', color: 'white', fontWeight: 700, cursor: editing.articleNumber.trim() ? 'pointer' : 'not-allowed', fontSize: '13px' }}>Spara</button>
+                <button onClick={save} disabled={!editing.articleNumber.trim()} style={{ padding: '6px 14px', border: 'none', borderRadius: '5px', background: 'var(--accent)', color: 'white', fontWeight: 700, cursor: editing.articleNumber.trim() ? 'pointer' : 'not-allowed', fontSize: '13px' }}>Spara</button>
               </div>
             </div>
           ) : (
-            <button onClick={startNew} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 14px', marginBottom: '12px', background: '#2e7d32', border: 'none', borderRadius: '5px', fontSize: '13px', fontWeight: 700, color: 'white', cursor: 'pointer' }}>
+            <button onClick={startNew} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 14px', marginBottom: '12px', background: 'var(--accent)', border: 'none', borderRadius: '5px', fontSize: '13px', fontWeight: 700, color: 'white', cursor: 'pointer' }}>
               <Plus size={14} /> Ny artikel
             </button>
           )}
@@ -1502,6 +1538,11 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
   const [showForm, setShowForm] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState(null);
   const [invoicePrefill, setInvoicePrefill] = useState(null); // t.ex. från Tidrapportering → "Skapa faktura"
+  // "Visa faktura" (radmenyn) ≠ "Redigera" — ett skilt, rent läsläge som
+  // bara renderar den riktiga fakturan (InvoiceViewer/InvoiceDocument),
+  // aldrig det stora redigeringsformuläret. Eget state, ömsesidigt
+  // uteslutande med showForm (se closeForm/openInvoice/viewInvoice nedan).
+  const [viewingInvoice, setViewingInvoice] = useState(null);
   const [selected, setSelected] = useState(new Set());
   const [showArticleRegister, setShowArticleRegister] = useState(false);
   // Fakturorna visas i tydligt rubrikerade sektioner per status (Förfallen/
@@ -1678,135 +1719,126 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
     setInvoices(prev => prev.filter(i => i.id !== inv.id));
   };
 
-  // Radernas åtgärdsikoner (påminnelse/betalningslänk/ta bort) — en delad
-  // stil istället för tre nästan identiska inline-objekt. Även AVSTÄNGT
-  // läge får riktig kontrast (var tidigare #d1d5db, praktiskt taget
-  // osynligt mot vitt — det var precis det som gjorde kolumnen såg trasig/
-  // tom ut istället för "här finns en knapp, den är bara inte tillgänglig
-  // just nu"). Rund hover-bakgrund i knappens egen färg ger en tydlig,
-  // levande klickyta istället för en bar ikon flytande i luften.
-  const rowIconBtnStyle = (color, disabled) => ({
-    width: 26, height: 26, borderRadius: '50%',
-    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-    color: disabled ? 'var(--text-muted)' : color,
-    background: 'transparent',
-    border: 'none', cursor: disabled ? 'not-allowed' : 'pointer',
-    transition: 'background-color 0.12s ease',
-  });
-  const rowIconHover = (bg) => ({
-    onMouseEnter: e => { e.currentTarget.style.background = bg; },
-    onMouseLeave: e => { e.currentTarget.style.background = 'transparent'; },
-  });
+  // Manuell "markera som skickad" för utkast — samma statusövergång som
+  // redan sker automatiskt när man faktiskt mejlar fakturan från formuläret
+  // (se `handleSave('sent')`-anropet i InvoiceForm), men som en fristående
+  // åtgärd för den som skickat fakturan på annat sätt (post, en annan
+  // kanal) och bara vill flytta den ur "Ej bokförd" utan att mejla via appen.
+  const handleMarkSent = (inv, e) => {
+    e?.stopPropagation();
+    setInvoices(prev => prev.map(i => i.id === inv.id ? { ...i, status: 'sent' } : i));
+  };
+
+  // Radens "⋮"-meny — vilka åtgärder som visas beror på fakturans status,
+  // samma indelning som konkurrentens fakturalista (utkast/skickad/betald
+  // ser olika ut), fast med våra egna färger/komponent (RowActionMenu).
+  const openInvoice = (inv) => { setViewingInvoice(null); setEditingInvoice(inv); setInvoicePrefill(null); setShowForm(true); };
+  const viewInvoice = (inv) => { setShowForm(false); setEditingInvoice(null); setViewingInvoice(inv); };
+
+  const buildInvoiceRowMenuItems = (inv, status, customer) => {
+    const items = [
+      { key: 'view', label: 'Visa faktura', icon: Eye, onClick: () => viewInvoice(inv) },
+    ];
+    if (status !== 'paid') {
+      items.push({ key: 'edit', label: 'Redigera', icon: Pencil, onClick: () => openInvoice(inv) });
+      items.push({ key: 'mark-paid', label: 'Markera som betald', icon: CheckCircle2, onClick: () => onMarkPaid(inv.id) });
+    }
+    // "Registrera betalning" (koppling mot en verifikation/inbetalning)
+    // sköts redan inne i fakturaformuläret — den här raden öppnar dit
+    // istället för att duplicera det flödet i menyn.
+    items.push({ key: 'link-transaction', label: 'Koppla till transaktion', icon: Link2, onClick: () => openInvoice(inv) });
+    if (status !== 'paid' && onCreatePaymentLink) {
+      const canCreateLink = Boolean(company?.stripeAccountId && customer?.email);
+      items.push({
+        key: 'payment-link', label: 'Skapa betalningslänk', icon: CreditCard,
+        onClick: () => onCreatePaymentLink(inv.id),
+        disabled: !canCreateLink,
+        title: !company?.stripeAccountId
+          ? 'Anslut Stripe under Inställningar för att låta kunder betala med kort'
+          : !customer?.email ? 'Lägg till kundens e-post under Kunder för att kunna skapa en betalningslänk' : undefined,
+      });
+    }
+    items.push({ key: 'duplicate', label: 'Kopiera faktura', icon: Copy, onClick: () => handleDuplicateInvoice(inv) });
+
+    if (status === 'draft') {
+      items.push({ divider: true });
+      items.push({ key: 'mark-sent', label: 'Markera som skickad', icon: Send, onClick: (e) => handleMarkSent(inv, e) });
+    } else if (status !== 'paid') {
+      items.push({ divider: true });
+      // Bugfix (kodgranskning): tappade isOverdue-kollen som fanns innan
+      // listan byggdes om till RowActionMenu — utan den erbjöd menyn en
+      // "påminnelse"-knapp även för en nyss skickad faktura som inte ens
+      // förfallit än, inte bara faktiskt förfallna.
+      if (isOverdue(inv)) {
+        items.push({
+          key: 'remind', label: 'Skicka påminnelse', icon: Send,
+          onClick: () => { window.location.href = buildReminderMailto(inv, customer); },
+          disabled: !customer?.email,
+          title: !customer?.email ? 'Lägg till kundens e-post under Kunder för att kunna skicka en påminnelse' : undefined,
+        });
+      }
+      items.push({ key: 'credit', label: 'Kreditera faktura', icon: Undo2, onClick: () => handleCreateCreditNote(inv) });
+    } else {
+      items.push({ divider: true });
+      items.push({ key: 'credit', label: 'Kreditera faktura', icon: Undo2, onClick: () => handleCreateCreditNote(inv) });
+    }
+
+    if (status === 'draft') {
+      items.push({ divider: true });
+      items.push({ key: 'delete', label: 'Ta bort', icon: Trash2, variant: 'danger', onClick: (e) => handleDeleteInvoice(inv, e) });
+    }
+    return items;
+  };
 
   // En tabellrad — bruten ut till en egen funktion eftersom den nu renderas
   // en gång per statussektion istället för i en enda blandad tabell.
-  const renderInvoiceRow = (inv) => {
-    const status = getStatus(inv);
-    const rowBg = getRowBg(status);
-    const gross = grossOf(inv);
-    const isSelected = selected.has(inv.id);
-    const customer = contacts.find(c => c.id === inv.customerId);
-
-    return (
-      <tr key={inv.id} style={{ background: isSelected ? '#e3f2fd' : rowBg, borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
-        onMouseEnter={e => { if (!isSelected) e.currentTarget.style.filter = 'brightness(0.97)'; }}
-        onMouseLeave={e => { e.currentTarget.style.filter = ''; }}
-        onClick={() => { setEditingInvoice(inv); setInvoicePrefill(null); setShowForm(true); }}>
-        <td data-label="" className="td-select" style={{ padding: '6px 10px', textAlign: 'center' }} onClick={e => { e.stopPropagation(); toggleSelect(inv.id); }}>
-          <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(inv.id)} style={{ cursor: 'pointer' }} />
-        </td>
-        <td data-label="Fakturanr" style={{ padding: '8px 10px', fontWeight: 700, color: 'var(--text-main)' }}>
-          {inv.invoiceNumber}
-        </td>
-        <td data-label="Kund" style={{ padding: '8px 10px', color: 'var(--text-main)', fontWeight: 500 }}>{getCustomerName(inv.customerId)}</td>
-        <td data-label="Fakturadatum" style={{ padding: '8px 10px', color: 'var(--text-secondary)' }}>{formatDate(inv.date)}</td>
-        <td data-label="Förfallodatum" style={{ padding: '8px 10px', color: isOverdue(inv) ? 'var(--status-red-text)' : 'var(--text-secondary)', fontWeight: isOverdue(inv) ? 700 : 400 }}>{formatDate(inv.dueDate)}</td>
-        <td data-label="Belopp" style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 600, color: 'var(--text-main)' }}>{fmt(gross)}</td>
-        <td data-label="Status" style={{ padding: '8px 10px' }} onClick={e => e.stopPropagation()}>
-          {status === 'paid' ? (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: BRAND.greenLight, color: BRAND.greenDark }}>
-              <Check size={12} /> Betald{inv.paidDate ? ` ${formatDate(inv.paidDate)}` : ''}
-            </span>
-          ) : (
-            <button
-              onClick={e => { e.stopPropagation(); onMarkPaid(inv.id); }}
-              title="Klicka för att markera som betald"
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '999px',
-                fontSize: '12px', fontWeight: 600, cursor: 'pointer', border: 'none',
-                background: status === 'overdue' ? BRAND.redBg : status === 'draft' ? BRAND.grayBg : BRAND.amberBg,
-                color: status === 'overdue' ? BRAND.redText : status === 'draft' ? BRAND.grayText : BRAND.amberText,
-              }}
-            >
-              {status === 'overdue' ? 'Förfallen' : status === 'draft' ? 'Ej bokförd' : 'Obetald'}
-            </button>
-          )}
-        </td>
-        <td data-label="" className="td-actions" style={{ padding: '8px 10px', whiteSpace: 'nowrap' }} onClick={e => e.stopPropagation()}>
-          <div style={{ display: 'inline-flex', gap: '2px', alignItems: 'center' }}>
-            {status !== 'paid' && isOverdue(inv) && (
-              customer?.email ? (
-                <a
-                  href={buildReminderMailto(inv, customer)}
-                  onClick={e => e.stopPropagation()}
-                  title={`Skicka betalningspåminnelse till ${customer.email}`}
-                  style={rowIconBtnStyle('var(--status-amber-text)', false)}
-                  {...rowIconHover('var(--status-amber-bg)')}
-                >
-                  <Send size={14} />
-                </a>
-              ) : (
-                <span
-                  title="Lägg till kundens e-post under Kunder för att kunna skicka en påminnelse"
-                  style={rowIconBtnStyle('var(--status-amber-text)', true)}
-                >
-                  <Send size={14} />
-                </span>
-              )
-            )}
-            {status !== 'paid' && onCreatePaymentLink && (
-              company?.stripeAccountId ? (
-                customer?.email ? (
-                  <button
-                    onClick={e => { e.stopPropagation(); onCreatePaymentLink(inv.id); }}
-                    title="Skapa Stripe-betalningslänk och öppna kortbetalning"
-                    style={rowIconBtnStyle('#5b21b6', false)}
-                    {...rowIconHover('#ede9fe')}
-                  >
-                    <Link2 size={14} />
-                  </button>
-                ) : (
-                  <span
-                    title="Lägg till kundens e-post under Kunder för att kunna skapa en betalningslänk"
-                    style={rowIconBtnStyle('#5b21b6', true)}
-                  >
-                    <Link2 size={14} />
-                  </span>
-                )
-              ) : (
-                <span
-                  title="Anslut Stripe under Inställningar för att låta kunder betala med kort"
-                  style={rowIconBtnStyle('#5b21b6', true)}
-                >
-                  <Link2 size={14} />
-                </span>
-              )
-            )}
-            {status === 'draft' && (
+  // Kolumner för den delade ListTable-komponenten (samma tabell som
+  // Kunder/Anställda/Bokföring m.fl. använder) — en kolumn per synlig
+  // rubrik, `sortKeyName` på de tre som redan gick att sortera på.
+  const invoiceColumns = [
+    { key: 'invoiceNumber', label: 'Fakturanr', sortKeyName: 'invoiceNumber', fontWeight: 700, color: 'var(--text-main)', render: inv => inv.invoiceNumber },
+    { key: 'customer', label: 'Kund', fontWeight: 500, color: 'var(--text-main)', render: inv => getCustomerName(inv.customerId) },
+    { key: 'date', label: 'Fakturadatum', sortKeyName: 'date', render: inv => formatDate(inv.date) },
+    {
+      key: 'dueDate', label: 'Förfallodatum', sortKeyName: 'dueDate',
+      render: inv => <span style={{ color: isOverdue(inv) ? 'var(--status-red-text)' : 'var(--text-secondary)', fontWeight: isOverdue(inv) ? 700 : 400 }}>{formatDate(inv.dueDate)}</span>,
+    },
+    { key: 'amount', label: 'Belopp', align: 'right', sortKeyName: 'amount', fontWeight: 600, color: 'var(--text-main)', render: inv => fmt(grossOf(inv)) },
+    {
+      key: 'status', label: 'Status', render: inv => {
+        const status = getStatus(inv);
+        return (
+          <div onClick={e => e.stopPropagation()}>
+            {status === 'paid' ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: BRAND.greenLight, color: BRAND.greenDark }}>
+                <Check size={12} /> Betald{inv.paidDate ? ` ${formatDate(inv.paidDate)}` : ''}
+              </span>
+            ) : (
               <button
-                onClick={e => handleDeleteInvoice(inv, e)}
-                title={`Ta bort utkastet ${inv.invoiceNumber}`}
-                style={rowIconBtnStyle('var(--status-red-text)', false)}
-                {...rowIconHover('var(--status-red-bg)')}
+                onClick={e => { e.stopPropagation(); onMarkPaid(inv.id); }}
+                title="Klicka för att markera som betald"
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '999px',
+                  fontSize: '12px', fontWeight: 600, cursor: 'pointer', border: 'none',
+                  background: status === 'overdue' ? BRAND.redBg : status === 'draft' ? BRAND.grayBg : BRAND.amberBg,
+                  color: status === 'overdue' ? BRAND.redText : status === 'draft' ? BRAND.grayText : BRAND.amberText,
+                }}
               >
-                <Trash2 size={14} />
+                {status === 'overdue' ? 'Förfallen' : status === 'draft' ? 'Ej bokförd' : 'Obetald'}
               </button>
             )}
           </div>
-        </td>
-      </tr>
-    );
-  };
+        );
+      },
+    },
+    {
+      key: 'actions', label: '', align: 'right', render: inv => (
+        <div onClick={e => e.stopPropagation()}>
+          <RowActionMenu ariaLabel={`Fler åtgärder för faktura ${inv.invoiceNumber}`} items={buildInvoiceRowMenuItems(inv, getStatus(inv), contacts.find(c => c.id === inv.customerId))} />
+        </div>
+      ),
+    },
+  ];
 
   // Delade länkar: fakturans ID hålls i URL:en (?invoiceId=...) så en
   // delad länk alltid öppnar rätt faktura, och byte av faktura/stängning
@@ -1828,6 +1860,19 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
       return next;
     }, { replace: true });
   }, [showForm, editingInvoice]);
+
+  if (viewingInvoice) {
+    return (
+      <InvoiceViewer
+        invoice={viewingInvoice}
+        contacts={contacts}
+        company={company}
+        status={getStatus(viewingInvoice)}
+        onClose={() => setViewingInvoice(null)}
+        onEdit={() => openInvoice(viewingInvoice)}
+      />
+    );
+  }
 
   if (showForm) {
     // Bläddring («‹›») navigerar genom exakt samma sorterade/filtrerade
@@ -1884,11 +1929,6 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
     { value: 'paid', label: 'Betald', bg: BRAND.greenLight, color: BRAND.greenDark },
   ];
 
-  const thSt = {
-    padding: '8px 10px', textAlign: 'left', fontSize: '11px', fontWeight: 700,
-    color: 'var(--text-secondary)', background: 'var(--bg-muted)', borderBottom: '2px solid var(--border)', whiteSpace: 'nowrap', userSelect: 'none',
-  };
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, background: 'var(--bg-page)' }}>
       {/* Två tydligt avgränsade sektioner — varje väljs för sig och fyller
@@ -1899,7 +1939,7 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
         {[{ id: 'kunder', label: 'Kundfakturor' }, { id: 'leverantorer', label: 'Leverantörsfakturor' }].map(t => (
           <button key={t.id} onClick={() => setSection(t.id)} style={{
             padding: '12px 14px', border: 'none',
-            borderBottom: section === t.id ? `3px solid ${BRAND.green}` : '3px solid transparent',
+            borderBottom: section === t.id ? '3px solid var(--accent)' : '3px solid transparent',
             background: 'none', fontSize: '14px', fontWeight: section === t.id ? 700 : 500,
             color: section === t.id ? 'var(--text-main)' : 'var(--text-secondary)', cursor: 'pointer', whiteSpace: 'nowrap',
           }}>{t.label}</button>
@@ -1917,15 +1957,15 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
 
       <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
-        <div style={{ padding: '8px 16px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+        <div style={{ padding: '12px 20px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           <div style={{ position: 'relative' }}>
-            <Search size={13} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-            <input type="text" placeholder="Fakturanr eller kundnamn" value={searchInput} onChange={e => setSearchInput(e.target.value)} style={{ padding: '5px 8px 5px 26px', border: '1px solid var(--border)', borderRadius: '4px', fontSize: '12px', outline: 'none', fontFamily: 'inherit', width: '210px' }} />
+            <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+            <input type="text" placeholder="Fakturanr eller kundnamn" value={searchInput} onChange={e => setSearchInput(e.target.value)} style={{ ...listSearchInputStyle, width: '220px' }} />
           </div>
-          <button onClick={() => setShowExtendedSearch(v => !v)} style={{ padding: '5px 8px', background: showExtendedSearch ? '#e3f2fd' : 'none', border: '1px solid var(--border)', borderRadius: '4px', fontSize: '12px', color: '#1565c0', cursor: 'pointer', fontFamily: 'inherit' }}>Utökad sökning</button>
-          <button onClick={() => { setSearchInput(''); setDateFrom(''); setDateTo(''); setAmountMin(''); setAmountMax(''); }} style={{ padding: '5px 8px', background: 'none', border: '1px solid var(--border)', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Rensa sökning"><RefreshCw size={13} color="var(--text-secondary)" /></button>
+          <button onClick={() => setShowExtendedSearch(v => !v)} style={{ ...listHeaderButtonStyle('secondary'), ...(showExtendedSearch ? { background: 'var(--status-blue-bg)', borderColor: 'var(--status-blue-bg)', color: 'var(--status-blue-text)' } : {}) }}>Utökad sökning</button>
+          <button onClick={() => { setSearchInput(''); setDateFrom(''); setDateTo(''); setAmountMin(''); setAmountMax(''); }} title="Rensa sökning" style={{ ...listHeaderButtonStyle('secondary'), padding: '0 10px' }}><RefreshCw size={14} /></button>
           <div style={{ flex: 1 }} />
-          <button onClick={() => { setShowForm(true); setEditingInvoice(null); setInvoicePrefill(null); }} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 14px', background: '#2e7d32', border: 'none', borderRadius: '5px', fontSize: '13px', fontWeight: 700, color: 'white', cursor: 'pointer' }}>
+          <button onClick={() => { setShowForm(true); setEditingInvoice(null); setInvoicePrefill(null); }} style={listHeaderButtonStyle('primary')}>
             <Plus size={14} /> Skapa faktura
           </button>
         </div>
@@ -1933,19 +1973,19 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
           <div style={{ padding: '10px 16px', borderTop: '1px solid var(--border-light)', display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'end', background: 'var(--bg-muted)' }}>
             <div>
               <label style={lbl}>Datum från</label>
-              <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={{ ...inp, width: '140px' }} />
+              <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={{ ...listFilterFieldStyle, width: '150px' }} />
             </div>
             <div>
               <label style={lbl}>Datum till</label>
-              <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={{ ...inp, width: '140px' }} />
+              <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={{ ...listFilterFieldStyle, width: '150px' }} />
             </div>
             <div>
               <label style={lbl}>Belopp från</label>
-              <input type="number" value={amountMin} onChange={e => setAmountMin(e.target.value)} placeholder="0" style={{ ...inp, width: '110px' }} />
+              <input type="number" value={amountMin} onChange={e => setAmountMin(e.target.value)} placeholder="0" style={{ ...listFilterFieldStyle, width: '110px' }} />
             </div>
             <div>
               <label style={lbl}>Belopp till</label>
-              <input type="number" value={amountMax} onChange={e => setAmountMax(e.target.value)} placeholder="—" style={{ ...inp, width: '110px' }} />
+              <input type="number" value={amountMax} onChange={e => setAmountMax(e.target.value)} placeholder="—" style={{ ...listFilterFieldStyle, width: '110px' }} />
             </div>
           </div>
         )}
@@ -1954,7 +1994,7 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
       {/* Statuspiller — hoppar ner till respektive sektion istället för att
           filtrera bort de andra, eftersom fakturorna nu visas indelade i
           sektioner samtidigt (se nedan). */}
-      <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '6px 16px', display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0, flexWrap: 'wrap' }}>
+      <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0, flexWrap: 'wrap' }}>
         {statusOptions.filter(opt => opt.value !== 'all').map(opt => {
           const count = statusCounts[opt.value] || 0;
           if (count === 0) return null; // ingen badge/pill-brus för tomma statusar
@@ -1978,7 +2018,7 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
             </button>
           );
         })}
-        <span style={{ fontSize: '12px', color: 'var(--text-secondary)', marginLeft: '4px' }}>{sorted.length} poster</span>
+        <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginLeft: '4px' }}>{sorted.length} poster</span>
         <div style={{ flex: 1 }} />
         <Printer size={15} style={{ cursor: 'pointer', color: 'var(--text-secondary)' }} />
       </div>
@@ -2005,25 +2045,20 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
                 </span>
                 <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{fmt(sectionSum)} SEK</span>
               </div>
-              <table className="responsive-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                <thead>
-                  <tr>
-                    <th style={{ ...thSt, width: 32, textAlign: 'center' }}>
-                      <input type="checkbox" checked={allSelected} onChange={() => toggleAllInRows(rows)} style={{ cursor: 'pointer' }} />
-                    </th>
-                    <SortableTh label="FAKTURANR" sortKeyName="invoiceNumber" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} style={thSt} />
-                    <th style={thSt}>KUND</th>
-                    <SortableTh label="FAKTURADATUM" sortKeyName="date" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} style={thSt} />
-                    <SortableTh label="FÖRFALLODATUM" sortKeyName="dueDate" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} style={thSt} />
-                    <SortableTh label="BELOPP" sortKeyName="amount" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} style={{ ...thSt, textAlign: 'right' }} />
-                    <th style={thSt}>STATUS</th>
-                    <th style={thSt}></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map(inv => renderInvoiceRow(inv))}
-                </tbody>
-              </table>
+              <ListTable
+                rowKey={inv => inv.id}
+                onRowClick={inv => { setEditingInvoice(inv); setInvoicePrefill(null); setShowForm(true); }}
+                rowStyle={inv => ({ background: selected.has(inv.id) ? '#e3f2fd' : getRowBg(getStatus(inv)) })}
+                sort={{ key: sortKey, dir: sortDir, onSort: toggleSort }}
+                selectable={{
+                  checked: inv => selected.has(inv.id),
+                  onToggle: inv => toggleSelect(inv.id),
+                  allChecked: allSelected,
+                  onToggleAll: () => toggleAllInRows(rows),
+                }}
+                rows={rows}
+                columns={invoiceColumns}
+              />
             </div>
           );
         })}
@@ -2035,7 +2070,7 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
 
       {/* Bottom action bar (when rows selected) */}
       {selected.size > 0 && (
-        <div style={{ background: '#1a3028', padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+        <div style={{ background: 'var(--accent)', padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
           <span style={{ color: 'white', fontSize: '13px', fontWeight: 600 }}>({selected.size} markerade)</span>
           <button onClick={() => { selected.forEach(id => onMarkPaid(id)); setSelected(new Set()); }} style={{ padding: '6px 16px', background: '#22c55e', border: 'none', borderRadius: '5px', color: 'white', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}>
             Markera som betalda

@@ -3,7 +3,7 @@ import {
   FileText, Receipt, TrendingUp, TrendingDown,
   ChevronRight, ArrowUpRight, ArrowDownRight,
   CheckCircle, CheckCircle2, Minus, BarChart2,
-  UserPlus, Users, Clock, AlertCircle, Zap, X
+  UserPlus, Users, Clock, AlertCircle, Zap, X, MessageSquare
 } from 'lucide-react';
 import {
   BarChart, Bar,
@@ -68,6 +68,16 @@ const ONBOARD_STEP_COLORS = {
 };
 const CONFETTI_COLORS = [ONBOARD_STEP_COLORS.customer, ONBOARD_STEP_COLORS.invoice, ONBOARD_STEP_COLORS.expense, ONBOARD_STEP_COLORS.supplier, '#e0527a'];
 const ONBOARDING_DISMISSED_KEY = 'bokix_dashboard_checklist_dismissed';
+
+// Tysta textlänkar i "Kom igång"-kortets fot (support-genvägar + den
+// manuella dölj-länken) — samma dämpade mönster som HelpDrawer.jsx:s
+// motsvarande footer, så en användare känner igen sig oavsett var i appen
+// de stöter på "Kontakta support".
+const ONBOARD_FOOTER_LINK_STYLE = {
+  display: 'inline-flex', alignItems: 'center', gap: '6px',
+  fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)',
+  textDecoration: 'none', transition: 'color 0.15s',
+};
 
 const CHART_MODES = [
   { id: 'revenue-expense', label: 'Intäkter vs Utgifter', icon: BarChart2 },
@@ -225,7 +235,9 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
   // ── "Kom igång"-checklistan ── Ska ligga kvar tills ALLA fyra steg är
   // klara (inte bara försvinna så fort kontot inte längre räknas som "nytt",
   // vilket tidigare hände redan efter första kunden/fakturan/utgiften) —
-  // plus en manuell krysknapp för den som inte vill ha kvar rutan.
+  // plus en manuell "Dölj rutan"-länk i kortets fot för den som inte vill ha
+  // kvar rutan (en textlänk längst ner, inte ett kryss uppe i hörnet — se
+  // kommentaren vid showOnboarding-renderingen för varför).
   const [onboardingDismissed, setOnboardingDismissed] = useState(() => {
     try { return localStorage.getItem(ONBOARDING_DISMISSED_KEY) === '1'; } catch { return false; }
   });
@@ -370,6 +382,13 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
   // Alla fyra checklist-steg klara → trigga konfetti en gång (inte om
   // effekten kör om av andra skäl medan `allOnboardingDone` redan var sant).
   const allOnboardingDone = hasCustomers && hasInvoices && hasExpenses && hasSuppliers;
+  const onboardingSteps = [
+    { done: hasCustomers, label: 'Skapa din första kund',       tab: 'contacts', icon: UserPlus, color: ONBOARD_STEP_COLORS.customer },
+    { done: hasInvoices,  label: 'Skapa din första faktura',    tab: 'invoices', icon: FileText, color: ONBOARD_STEP_COLORS.invoice },
+    { done: hasExpenses,  label: 'Lägg till din första utgift', tab: 'expenses', icon: Receipt,  color: ONBOARD_STEP_COLORS.expense },
+    { done: hasSuppliers, label: 'Lägg till en leverantör',     tab: 'contacts', icon: Users,    color: ONBOARD_STEP_COLORS.supplier },
+  ];
+  const onboardingDoneCount = onboardingSteps.filter(s => s.done).length;
   useEffect(() => {
     if (allOnboardingDone && !wasAllOnboardingDoneRef.current && !onboardingDismissed) {
       setCelebrating(true);
@@ -455,7 +474,14 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
     // tomt fält under sista kortet på korta sidor (t.ex. en ny, nästan tom
     // startsida) istället för att sidan kändes heltäckande. Samma mönster
     // som redan fixat i SupplierInvoices.jsx.
-    <div style={{ maxWidth: '100%', margin: '0 auto', width: '100%', minHeight: '100%', boxSizing: 'border-box', background: 'var(--bg-page)' }}>
+    // Kundfeedback ("God kväll... ska inte vara för mycket åt vänster"):
+    // roten hade noll padding (uppmätt: h1 stod EXAKT vid samma x-koordinat
+    // som sidomenyns högerkant, 0px marginal) — till skillnad från Rapport
+    // och analys/Skatt och bokslut, som redan har egen 24px innehålls-
+    // padding på motsvarande nivå. Samma 24px här nu, så Startsidan matchar
+    // de andra "dashboard-liknande" sidorna istället för att stå ensam
+    // helt flush mot kanten.
+    <div style={{ maxWidth: '100%', margin: '0 auto', width: '100%', minHeight: '100%', boxSizing: 'border-box', background: 'var(--bg-page)', padding: '24px' }}>
       <style>{`
         @media (max-width: 900px) {
           .dash-lower-grid { grid-template-columns: 1fr !important; }
@@ -473,16 +499,22 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
       `}</style>
 
       {/* ─── HEADER ─── */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', flexWrap: 'wrap', gap: '16px' }}>
+      {/* Kundfeedback ("luft i sidhuvudet"): hälsningen, räkenskapsårsraden
+          och statusraden ("X saker väntar...") satt tidigare nästan
+          klistrade ovanpå varandra (4px/2px/6px) — ingen läsbar rytm
+          mellan rubrik/undertext/statusrad. Jämn 8px mellan alla tre
+          raderna nu, och en betydligt större 28px innan Snabbåtgärder
+          börjar (upp från 20px) så sektionerna känns tydligt avskilda. */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '28px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
-          <h1 style={{ fontFamily: 'var(--font-voice)', fontWeight: 700, fontSize: '25px', letterSpacing: '-0.01em', color: 'var(--text-main)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <h1 style={{ fontFamily: 'var(--font-voice)', fontWeight: 700, fontSize: '25px', letterSpacing: '-0.01em', color: 'var(--text-main)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             {greeting}, {firstName || company?.name?.split(' ')[0] || 'Användare'} 👋
           </h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: 400, marginBottom: '2px' }}>
+          <p style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: 400, marginBottom: '8px' }}>
             Räkenskapsår {currentYear} · {company?.name || 'Bokix'}
           </p>
           {!isNew && (
-            <p style={{ fontSize: '13.5px', fontWeight: 600, color: hasUrgent ? 'var(--text-main)' : BRAND.greenDark, marginTop: '6px' }}>
+            <p style={{ fontSize: '13.5px', fontWeight: 600, color: hasUrgent ? 'var(--text-main)' : BRAND.greenDark, marginTop: 0 }}>
               {oneLiner}
             </p>
           )}
@@ -767,9 +799,10 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
       {showOnboarding && (
         // Sida 31: tomt-läge/hero-yta — cremeton istället för vitt, samma
         // princip som Idag-modulen ovan. Ligger kvar tills alla fyra steg är
-        // klara (se `showOnboarding`), inte bara tills kontot slutar räknas
-        // som "nytt". `position: relative` krävs för konfetti-lagret och
-        // krysknappen som positioneras absolut ovanpå innehållet.
+        // klara ELLER användaren själv döljer den via fotlänken (se
+        // `showOnboarding`/`dismissOnboarding`), inte bara tills kontot
+        // slutar räknas som "nytt". `position: relative` krävs för
+        // konfetti-lagret, som positioneras absolut ovanpå innehållet.
         <div style={{ position: 'relative', overflow: 'hidden', background: 'var(--bg-cream)', border: '1px solid var(--bg-cream-border)', borderRadius: '14px', padding: '20px 22px', marginTop: '4px' }}>
           {celebrating && (
             <div aria-hidden="true" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden' }}>
@@ -788,13 +821,6 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
             </div>
           )}
 
-          {/* Stäng-krysset (uppe till höger på "Kom igång"-kortet) togs bort
-              här på uttrycklig kundönskan — läste på mobilen ut som ett
-              kryss klistrat i huvudet på sidan, nära topbaren. Kortet
-              försvinner ändå automatiskt så fort alla fyra stegen är klara
-              (se `celebrating`-grenen ovan/nedan) — det är den kvarvarande
-              vägen ut, inte en knapp längre. */}
-
           {celebrating ? (
             <div style={{ textAlign: 'center', padding: '20px 8px', position: 'relative' }}>
               <div style={{ fontSize: '34px', marginBottom: '6px' }}>🎉</div>
@@ -803,31 +829,94 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
             </div>
           ) : (
             <>
-              <h2 style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '2px' }}>Kom igång med Bokix</h2>
-              <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '14px' }}>Slutför dessa steg — den här rutan försvinner när du är igång.</p>
+              <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '12px' }}>
+                <h2 style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>Kom igång med Bokix</h2>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                  {onboardingDoneCount} av {onboardingSteps.length} klara
+                </span>
+              </div>
+
+              {/* Fyra segment istället för en enfärgad laddningsbar — varje
+                  ruta fylls i sitt EGET stegs färg när det är klart, så
+                  raden dubblar som en legend för listan under den, inte bara
+                  en generisk procent-mätare. */}
+              <div style={{ display: 'flex', gap: '4px', margin: '8px 0 14px' }}>
+                {onboardingSteps.map((step, i) => (
+                  <span key={i} style={{ flex: 1, height: '4px', borderRadius: '2px', background: step.done ? step.color : 'var(--border-light)', transition: 'background 0.3s' }} />
+                ))}
+              </div>
+
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {[
-                  { done: hasCustomers, label: 'Skapa din första kund',       tab: 'contacts', icon: UserPlus, color: ONBOARD_STEP_COLORS.customer },
-                  { done: hasInvoices,  label: 'Skapa din första faktura',    tab: 'invoices', icon: FileText, color: ONBOARD_STEP_COLORS.invoice },
-                  { done: hasExpenses,  label: 'Lägg till din första utgift', tab: 'expenses', icon: Receipt,  color: ONBOARD_STEP_COLORS.expense },
-                  { done: hasSuppliers, label: 'Lägg till en leverantör',     tab: 'contacts', icon: Users,    color: ONBOARD_STEP_COLORS.supplier },
-                ].map((step, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', background: 'var(--bg-card)', borderRadius: '9px', border: `1px solid ${step.done ? step.color + '33' : 'var(--border-light)'}` }}>
-                    <div style={{
-                      width: 26, height: 26, borderRadius: '8px', flexShrink: 0,
+                {onboardingSteps.map((step, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => setActiveTab(step.tab)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '11px', width: '100%',
+                      padding: '10px 12px', background: 'var(--bg-card)', borderRadius: '10px',
+                      border: '1px solid var(--border-light)', cursor: 'pointer', textAlign: 'left',
+                      fontFamily: 'inherit', transition: 'border-color 0.15s, box-shadow 0.15s',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = step.color; e.currentTarget.style.boxShadow = 'var(--shadow-sm)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-light)'; e.currentTarget.style.boxShadow = 'none'; }}
+                  >
+                    {/* Ring som fylls i — en riktig bock-metafor istället för
+                        en fyrkantig ikon-chip, så "klart" känns som att
+                        pricka av en rad i en checklista, inte som att byta
+                        färg på en ikon. */}
+                    <span style={{
+                      width: 24, height: 24, borderRadius: '50%', flexShrink: 0,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      background: step.done ? step.color : step.color + '1a',
+                      background: step.done ? step.color : 'transparent',
+                      border: step.done ? 'none' : `2px solid ${step.color}`,
                       color: step.done ? 'white' : step.color,
                       transition: 'all 0.2s',
                     }}>
-                      {step.done ? <CheckCircle2 size={14} /> : <step.icon size={14} />}
-                    </div>
-                    <span style={{ flex: 1, fontSize: '13px', color: step.done ? '#b0b6be' : 'var(--text-secondary)', textDecoration: step.done ? 'line-through' : 'none' }}>{step.label}</span>
-                    {!step.done && (
-                      <button onClick={() => setActiveTab(step.tab)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: step.color, fontSize: '11.5px', fontWeight: 600, fontFamily: 'inherit' }}>Börja →</button>
-                    )}
-                  </div>
+                      {step.done ? <CheckCircle2 size={13} /> : <step.icon size={12} />}
+                    </span>
+                    <span style={{ flex: 1, fontSize: '13px', fontWeight: 500, color: step.done ? 'var(--text-muted)' : 'var(--text-secondary)', textDecoration: step.done ? 'line-through' : 'none' }}>
+                      {step.label}
+                    </span>
+                    {!step.done && <ChevronRight size={15} color={step.color} style={{ flexShrink: 0 }} />}
+                  </button>
                 ))}
+              </div>
+
+              {/* Fot: support-genvägar + den manuella dölj-länken. INTE ett
+                  krysskort uppe i högra hörnet igen — det var precis det som
+                  läste ut som ett kryss klistrat i topbaren på mobil förra
+                  gången (se git-historik). En vanlig textlänk längst ner ger
+                  samma "bli av med rutan för gott"-möjlighet utan att krocka
+                  visuellt med appens egen topbar. */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '10px 16px', marginTop: '16px', paddingTop: '14px', borderTop: '1px solid var(--bg-cream-border)' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px' }}>
+                  <a
+                    href="mailto:support@bokix.se?subject=Support%20-%20Bokix"
+                    style={ONBOARD_FOOTER_LINK_STYLE}
+                    onMouseEnter={e => e.currentTarget.style.color = 'var(--text-main)'}
+                    onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+                  >
+                    <MessageSquare size={13} /> Kontakta support
+                  </a>
+                  <a
+                    href="mailto:support@bokix.se?subject=Felrapport%20-%20Bokix"
+                    style={ONBOARD_FOOTER_LINK_STYLE}
+                    onMouseEnter={e => e.currentTarget.style.color = 'var(--text-main)'}
+                    onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+                  >
+                    <AlertCircle size={13} /> Rapportera ett fel
+                  </a>
+                </div>
+                <button
+                  type="button"
+                  onClick={dismissOnboarding}
+                  style={{ ...ONBOARD_FOOTER_LINK_STYLE, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                  onMouseEnter={e => e.currentTarget.style.color = 'var(--text-main)'}
+                  onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+                >
+                  <X size={13} /> Dölj rutan
+                </button>
               </div>
             </>
           )}

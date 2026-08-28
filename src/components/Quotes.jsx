@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { FileSpreadsheet, Plus, Search, FileText, Check, X, Download, Trash2, Send, Eye, ZoomIn, ZoomOut, Paperclip, Loader2 } from 'lucide-react';
+import { FileSpreadsheet, Plus, FileText, Check, X, Download, Trash2, Send, Eye, ZoomIn, ZoomOut, Paperclip, Loader2, Search } from 'lucide-react';
 import InvoiceDocument, { DEFAULT_INVOICE_TEMPLATE, INVOICE_TEMPLATES } from './InvoiceDocument';
 import { exportInvoicePdf, getInvoicePdfBase64 } from '../utils/exportInvoicePdf';
 import { sendInvoiceEmail } from '../emailApi';
 import { uploadFileToStorage } from '../utils/fileUpload';
 import { BRAND } from '../utils/brandColors';
+import ListPageHeader, { ListFilterBar, listSearchInputStyle } from './shared/ListPageHeader';
+import ListTable from './shared/ListTable';
 
 const fmtSEK = (val) => new Intl.NumberFormat('sv-SE', { maximumFractionDigits: 2, minimumFractionDigits: 2 }).format(val || 0);
 const fmtDateSv = (d) => { if (!d) return '—'; try { return new Intl.DateTimeFormat('sv-SE').format(new Date(d)); } catch { return d; } };
@@ -70,7 +72,7 @@ const getStatusStyle = (status) => {
 
 const buttonStyle = {
   display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px',
-  background: '#1a3028', border: 'none', borderRadius: '9px', fontSize: '13px',
+  background: 'var(--accent)', border: 'none', borderRadius: '9px', fontSize: '13px',
   fontWeight: 600, cursor: 'pointer', color: 'white', transition: 'all 0.15s'
 };
 
@@ -442,7 +444,7 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, on
             i Quotes-listan: det är ägarens eget omdöme, inte något appen ska
             gate:a bakom ett visst statusläge. */}
         {quote && onConvert && (
-          <button type="button" onClick={onConvert} style={{ ...toolbarBtnStyle(false), color: '#3d7a2e', borderColor: 'var(--status-green-bg)' }}><FileText size={13} /> Konvertera till faktura</button>
+          <button type="button" onClick={onConvert} style={{ ...toolbarBtnStyle(false), color: 'var(--accent)', borderColor: 'var(--status-green-bg)' }}><FileText size={13} /> Konvertera till faktura</button>
         )}
         <div style={{ flex: 1, minWidth: '8px' }} />
         {emailError && <span style={{ fontSize: '11px', color: 'var(--status-red-text)', flexShrink: 0 }}>{emailError}</span>}
@@ -495,7 +497,7 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, on
                     onClick={() => setIsOneTimeCustomer(opt.id)}
                     style={{
                       padding: '7px 14px', border: 'none', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer',
-                      background: isOneTimeCustomer === opt.id ? '#1a3028' : 'var(--bg-card)',
+                      background: isOneTimeCustomer === opt.id ? 'var(--accent)' : 'var(--bg-card)',
                       color: isOneTimeCustomer === opt.id ? 'white' : 'var(--text-main)',
                     }}
                   >{opt.label}</button>
@@ -761,8 +763,15 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, on
 
           <div style={{ padding: '24px 32px' }}>
             <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>Övriga villkor</label>
+            {/* Kundfeedback: "man ser knappt vad som står i Övriga villkor"
+                — DEFAULT_OTHER_TERMS fyller fältet med FYRA rader text
+                (giltighetstid, ansvarsbegränsning m.m.) redan från start,
+                men rutans minHeight (86px) rymde bara ~3 rader — den fjärde
+                skars av mitt i texten istället för att synas i sin helhet.
+                120px rymmer alla fyra raderna direkt, ingen skrollning
+                krävs för att läsa/redigera standardtexten. */}
             <textarea
-              style={{ ...inputStyle, resize: 'vertical', minHeight: '86px', lineHeight: 1.6, fontFamily: 'inherit', maxWidth: '640px' }}
+              style={{ ...inputStyle, resize: 'vertical', minHeight: '120px', lineHeight: 1.6, fontFamily: 'inherit', maxWidth: '640px' }}
               value={otherTerms} onChange={e => setOtherTerms(e.target.value)}
               placeholder="En rad per punkt — visas som punktlista på offerten"
             />
@@ -793,8 +802,8 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, on
                         onClick={() => setTemplateSnapshot(s => ({ ...s, templateId: tpl.id }))}
                         style={{
                           padding: '5px 10px', borderRadius: '999px', fontSize: '11.5px', fontWeight: 600, whiteSpace: 'nowrap',
-                          border: `1.5px solid ${active ? '#1a3028' : 'var(--border)'}`,
-                          background: active ? '#1a3028' : 'white', color: active ? 'white' : 'var(--text-main)', cursor: 'pointer',
+                          border: `1.5px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
+                          background: active ? 'var(--accent)' : 'white', color: active ? 'white' : 'var(--text-main)', cursor: 'pointer',
                         }}
                       >{tpl.label}</button>
                     );
@@ -980,135 +989,106 @@ export default function Quotes({ quotes = [], setQuotes, onConvert, contacts = [
     );
   }
 
-  /* Bugkritiskt: `.main-content-inner` (index.css) är en flex-kolumn, och
-     den här sidan är dess flex-item. `margin: '0 auto'` (auto på
-     tväraxelns marginaler) upphäver flexbox `align-items: stretch`/`normal`
-     och centrerar istället rutan vid sin egen shrink-to-fit-bredd — sidan
-     blev en smal, centrerad kolumn mitt på skärmen istället för att fylla
-     hela bredden, till skillnad från Invoices.jsx som aldrig hade
-     auto-marginalerna. Bara `width: 100%` kvar (ingen `margin`), samma
-     mönster som Invoices.jsx. */
+  /* Header i samma mönster som Kunder/Anställda och lön/Projekt/Granskning/
+     Bokföring (Sida 43) — egen bg-card-header som stannar kvar medan bara
+     tabellen/tomt-läget scrollar under, istället för den tidigare platta
+     kolumnen där hela sidan (inklusive titel och knapp) scrollade bort i ett. */
   return (
-    <div style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
-      {/* HEADER */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
-        <div>
-          <h1 style={{ fontSize: '24px', fontWeight: 700, letterSpacing: '-0.04em', color: 'var(--text-main)', marginBottom: '5px' }}>
-            Offerter
-          </h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '13.5px', fontWeight: 400 }}>
-            Skapa offerter med samma mall som dina fakturor och konvertera till faktura när kunden accepterat
-          </p>
+    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
+      <ListPageHeader
+        title="Offerter"
+        subtitle="Skapa offerter med samma mall som dina fakturor och konvertera till faktura när kunden accepterat"
+        actions={[
+          { key: 'new', label: 'Ny offert', icon: Plus, onClick: openNew, variant: 'primary' },
+        ]}
+      />
+      {/* Sökfältet ligger kvar i sidhuvudets kort (ListFilterBar, samma
+          mönster som Bokförings filterrad) istället för att flyta löst
+          ovanför tabellen på sidbakgrunden. */}
+      <ListFilterBar>
+        <div style={{ position: 'relative' }}>
+          <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+          <input type="text" placeholder="Sök offert eller kund..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={listSearchInputStyle} />
         </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button onClick={openNew} style={buttonStyle}>
-            <Plus size={14} /> Ny offert
-          </button>
-        </div>
-      </div>
+      </ListFilterBar>
 
-      {/* SEARCH */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
-        <div style={{ position: 'relative', width: '280px' }}>
-          <Search size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-          <input
-            type="text" placeholder="Sök offert eller kund..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-            style={{ ...inputStyle, paddingLeft: '34px', paddingRight: '12px', paddingBottom: '7px', paddingTop: '7px' }}
-          />
-        </div>
-      </div>
-
-      {/* TABLE — bugkritiskt (kundfeedback, "white space"-genomgången): en
-          tom lista visade tidigare bara EN paddad tabellrad ("Inga offerter
-          skapade") längst upp i sidan, med hela resten av sidhöjden kvar som
-          ren sidbakgrund under — den ensamma raden hade ingen egen flex-höjd
-          att centrera sig i (den satt inuti tabellskalet, som i sig bara är
-          lika hög som sitt innehåll). Precis samma mönster som Invoices.jsx
-          redan löste rätt med `InvoiceEmptyState` (flex:1 + centrerat) —
-          tomt tillstånd renderas nu som ett eget flex:1-block istället för
-          att tvingas in i en tabellrad, så det centreras i den lediga ytan
-          i stället för att kännas som ett trasigt, för glest ifyllt kort. */}
-      {filtered.length === 0 ? (
-        <div style={{
-          flex: 1, minHeight: '320px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          gap: '10px', padding: '40px', textAlign: 'center',
-          background: searchTerm ? 'var(--bg-card)' : 'var(--bg-cream)',
-          border: '1px solid var(--border)', borderRadius: '14px',
-        }}>
-          <div style={{ width: 56, height: 56, borderRadius: '999px', background: searchTerm ? 'var(--border-light)' : 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: searchTerm ? 'var(--text-muted)' : BRAND.green, marginBottom: '4px' }}>
-            <FileSpreadsheet size={26} />
+      {/* Ingen padding längre — matchar "facit" (Bokföring/Verifikationer):
+          tabellen sitter flush direkt under filterraden. Tomt-läget nedan
+          behåller sin egen marginal (`margin`) eftersom det är ett
+          fristående kort, inte en full-bredd-tabell. */}
+      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+        {/* TABLE — bugkritiskt (kundfeedback, "white space"-genomgången): en
+            tom lista visade tidigare bara EN paddad tabellrad ("Inga offerter
+            skapade") längst upp i sidan, med hela resten av sidhöjden kvar som
+            ren sidbakgrund under — den ensamma raden hade ingen egen flex-höjd
+            att centrera sig i (den satt inuti tabellskalet, som i sig bara är
+            lika hög som sitt innehåll). Precis samma mönster som Invoices.jsx
+            redan löste rätt med `InvoiceEmptyState` (flex:1 + centrerat) —
+            tomt tillstånd renderas nu som ett eget flex:1-block istället för
+            att tvingas in i en tabellrad, så det centreras i den lediga ytan
+            i stället för att kännas som ett trasigt, för glest ifyllt kort. */}
+        {filtered.length === 0 ? (
+          <div style={{
+            flex: 1, minHeight: '320px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            gap: '10px', margin: '24px', padding: '40px', textAlign: 'center',
+            background: searchTerm ? 'var(--bg-card)' : 'var(--bg-cream)',
+            border: '1px solid var(--border)', borderRadius: '14px',
+          }}>
+            <div style={{ width: 56, height: 56, borderRadius: '999px', background: searchTerm ? 'var(--border-light)' : 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: searchTerm ? 'var(--text-muted)' : BRAND.green, marginBottom: '4px' }}>
+              <FileSpreadsheet size={26} />
+            </div>
+            <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-main)' }}>
+              {searchTerm ? 'Inga offerter matchar din sökning' : 'Inga offerter skapade'}
+            </div>
+            <div style={{ fontSize: '13.5px', color: 'var(--text-muted)', maxWidth: '320px' }}>
+              {searchTerm ? 'Prova att rensa sökningen ovan.' : 'Klicka på "Ny offert" för att komma igång.'}
+            </div>
           </div>
-          <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-main)' }}>
-            {searchTerm ? 'Inga offerter matchar din sökning' : 'Inga offerter skapade'}
-          </div>
-          <div style={{ fontSize: '13.5px', color: 'var(--text-muted)', maxWidth: '320px' }}>
-            {searchTerm ? 'Prova att rensa sökningen ovan.' : 'Klicka på "Ny offert" för att komma igång.'}
-          </div>
-        </div>
-      ) : (
-      /* Kundfeedback: en populerad (om än kort) lista ska inte centreras
-         lodrätt — bara det helt tomma läget ovan. */
-      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13.5px' }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg-muted)' }}>
-                <th style={{ padding: '14px 20px', fontWeight: 600, color: 'var(--text-main)' }}>Offertnr</th>
-                <th style={{ padding: '14px 20px', fontWeight: 600, color: 'var(--text-main)' }}>Kund</th>
-                <th style={{ padding: '14px 20px', fontWeight: 600, color: 'var(--text-main)' }}>Datum</th>
-                <th style={{ padding: '14px 20px', fontWeight: 600, color: 'var(--text-main)' }}>Status</th>
-                <th style={{ padding: '14px 20px', fontWeight: 600, color: 'var(--text-main)', textAlign: 'right' }}>Belopp</th>
-                <th style={{ padding: '14px 20px', fontWeight: 600, color: 'var(--text-main)', textAlign: 'right' }}>Åtgärder</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((q, idx) => {
+        ) : (
+        /* Kundfeedback: en populerad (om än kort) lista ska inte centreras
+           lodrätt — bara det helt tomma läget ovan. */
+        <ListTable
+          rowKey={q => q.id}
+          onRowClick={openEdit}
+          rows={filtered}
+          columns={[
+            {
+              key: 'invoiceNumber', label: 'Offertnr', fontWeight: 600, color: 'var(--text-main)', render: q => (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <FileSpreadsheet size={16} color="var(--text-muted)" /> {q.invoiceNumber || '—'}
+                </div>
+              ),
+            },
+            { key: 'customer', label: 'Kund', fontWeight: 500, render: q => contacts.find(c => c.id === q.customerId)?.name || q.customerName || '—' },
+            { key: 'date', label: 'Datum', render: q => q.date },
+            {
+              key: 'status', label: 'Status', render: q => {
                 const s = getStatusStyle(getDisplayStatus(q));
-                const customerName = contacts.find(c => c.id === q.customerId)?.name || q.customerName || '—';
-                const total = getTotal(q);
-                return (
-                  <tr
-                    key={q.id} onClick={() => openEdit(q)}
-                    style={{ borderBottom: idx < filtered.length - 1 ? '1px solid var(--border-light)' : 'none', cursor: 'pointer' }}
-                    onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-muted)'} onMouseLeave={e => e.currentTarget.style.background = 'white'}
-                  >
-                    <td style={{ padding: '14px 20px', fontWeight: 600, color: 'var(--text-main)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <FileSpreadsheet size={16} color="var(--text-muted)" /> {q.invoiceNumber || '—'}
-                      </div>
-                    </td>
-                    <td style={{ padding: '14px 20px', color: 'var(--text-secondary)', fontWeight: 500 }}>{customerName}</td>
-                    <td style={{ padding: '14px 20px', color: 'var(--text-secondary)' }}>{q.date}</td>
-                    <td style={{ padding: '14px 20px' }}>
-                      <span style={{ padding: '4px 10px', background: s.bg, color: s.color, borderRadius: '20px', fontSize: '11px', fontWeight: 600 }}>{s.label}</span>
-                    </td>
-                    <td style={{ padding: '14px 20px', textAlign: 'right', fontWeight: 500 }}>{total.toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr</td>
-                    <td style={{ padding: '14px 20px', textAlign: 'right' }}>
-                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                        {/* Alltid tillgänglig oavsett status (utkast/skickad/accepterad/
-                            avvisad/förfallen) — det är ägarens eget omdöme om en kund
-                            faktiskt vill ha en faktura, inte något appen ska hindra
-                            baserat på var i statusflödet offerten råkar stå. Se samma
-                            resonemang vid motsvarande knapp i QuoteEditor ovan. */}
-                        <button onClick={(e) => handleConvert(q, e)} title="Konvertera till faktura" style={{ padding: '6px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#3d7a2e' }}>
-                          <FileText size={16} />
-                        </button>
-                        <button onClick={(e) => handleDelete(q.id, e)} title="Ta bort" style={{ padding: '6px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444' }}>
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-              {/* Tomt-läget hanteras nu helt utanför tabellen ovan (se filtered.length
-                  === 0-grenen), så den här tabellen renderas bara när det finns
-                  rader — ingen egen "tom rad"-gren behövs längre här. */}
-            </tbody>
-          </table>
-        </div>
+                return <span style={{ padding: '4px 10px', background: s.bg, color: s.color, borderRadius: '20px', fontSize: '11px', fontWeight: 600 }}>{s.label}</span>;
+              },
+            },
+            { key: 'total', label: 'Belopp', align: 'right', fontWeight: 500, render: q => `${getTotal(q).toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr` },
+            {
+              key: 'actions', label: 'Åtgärder', align: 'right', render: q => (
+                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                  {/* Alltid tillgänglig oavsett status (utkast/skickad/accepterad/
+                      avvisad/förfallen) — det är ägarens eget omdöme om en kund
+                      faktiskt vill ha en faktura, inte något appen ska hindra
+                      baserat på var i statusflödet offerten råkar stå. Se samma
+                      resonemang vid motsvarande knapp i QuoteEditor ovan. */}
+                  <button onClick={(e) => handleConvert(q, e)} title="Konvertera till faktura" style={{ padding: '6px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--accent)' }}>
+                    <FileText size={16} />
+                  </button>
+                  <button onClick={(e) => handleDelete(q.id, e)} title="Ta bort" style={{ padding: '6px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444' }}>
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              ),
+            },
+          ]}
+        />
+        )}
       </div>
-      )}
     </div>
   );
 }

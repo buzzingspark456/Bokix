@@ -6,6 +6,8 @@ import {
   User, Users, Send, ClipboardCheck, CheckCircle2, Undo2, ListChecks,
 } from 'lucide-react';
 import { ProjectSearch, EntitySearch } from './shared/SearchInputs';
+import ListPageHeader from './shared/ListPageHeader';
+import ListTable from './shared/ListTable';
 import { BRAND } from '../utils/brandColors';
 
 const formatSEK = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
@@ -579,76 +581,60 @@ function TimeReportsView({ timeEntries, employees, timeReportStatuses, setTimeRe
       {reports.length === 0 ? (
         <SectionEmptyState icon={ListChecks} title="Ingen tid loggad denna månad ännu." />
       ) : (
-        // Riktig tabell (samma .responsive-table-recept som Fakturor/
+        // Riktig tabell (samma delade ListTable-komponent som Fakturor/
         // Kontakter/Kontoplan) istället för fristående kortrader — en
         // rubrikrad ger flödet en riktig kolumnstruktur att läsa mot, och på
         // mobil kollapsar varje rad automatiskt till ett etikett/värde-kort.
-        <div style={{ ...cardBase, overflow: 'hidden' }}>
-          <table className="responsive-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13.5px' }}>
-            <thead>
-              <tr>
-                <th style={{ textAlign: 'left', padding: '10px 16px', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid var(--border)' }}>Person</th>
-                <th style={{ textAlign: 'right', padding: '10px 16px', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid var(--border)' }}>Registreringar</th>
-                <th style={{ textAlign: 'right', padding: '10px 16px', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid var(--border)' }}>Timmar</th>
-                <th style={{ textAlign: 'left', padding: '10px 16px', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid var(--border)' }}>Status</th>
-                <th style={{ padding: '10px 16px', borderBottom: '1px solid var(--border)' }} />
-              </tr>
-            </thead>
-            <tbody>
-              {reports.map(r => {
+        <ListTable
+          rowKey={r => r.person.id}
+          onRowClick={r => setOpenReport(r)}
+          rows={reports}
+          columns={[
+            {
+              key: 'person', label: 'Person', render: r => (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ width: 30, height: 30, borderRadius: '999px', background: 'var(--gray-100)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', flexShrink: 0 }}>
+                    {r.person.id === SELF_PERSON_ID ? <User size={14} /> : <Users size={14} />}
+                  </div>
+                  <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>{r.person.name}</span>
+                </div>
+              ),
+            },
+            { key: 'entries', label: 'Registreringar', align: 'right', render: r => r.entries.length },
+            { key: 'hours', label: 'Timmar', align: 'right', fontWeight: 700, color: 'var(--text-main)', render: r => `${formatHours(r.hours)} h` },
+            {
+              key: 'status', label: 'Status', render: r => {
                 const statusMeta = TIME_REPORT_STATUS[r.status];
+                return <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', fontWeight: 600, background: statusMeta.bg, color: statusMeta.color, whiteSpace: 'nowrap' }}>{statusMeta.label}</span>;
+              },
+            },
+            {
+              key: 'actions', label: '', align: 'right', render: r => {
                 const ActionIcon = ACTION_ICON[r.status];
                 return (
-                  <tr
-                    key={r.person.id}
-                    onClick={() => setOpenReport(r)}
-                    style={{ cursor: 'pointer', borderBottom: '1px solid var(--border-light)' }}
-                    onMouseEnter={e => e.currentTarget.style.background = 'var(--gray-50)'}
-                    onMouseLeave={e => e.currentTarget.style.background = ''}
-                  >
-                    <td data-label="Person" style={{ padding: '12px 16px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <div style={{ width: 30, height: 30, borderRadius: '999px', background: 'var(--gray-100)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', flexShrink: 0 }}>
-                          {r.person.id === SELF_PERSON_ID ? <User size={14} /> : <Users size={14} />}
-                        </div>
-                        <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>{r.person.name}</span>
-                      </div>
-                    </td>
-                    <td data-label="Registreringar" style={{ padding: '12px 16px', textAlign: 'right', color: 'var(--text-secondary)' }}>
-                      {r.entries.length}
-                    </td>
-                    <td data-label="Timmar" style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 700, color: 'var(--text-main)' }}>
-                      {formatHours(r.hours)} h
-                    </td>
-                    <td data-label="Status" style={{ padding: '12px 16px' }}>
-                      <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', fontWeight: 600, background: statusMeta.bg, color: statusMeta.color, whiteSpace: 'nowrap' }}>{statusMeta.label}</span>
-                    </td>
-                    <td data-label="" style={{ padding: '12px 16px', textAlign: 'right' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
-                        {r.status !== 'pending' && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); revert(r); }} title="Skicka tillbaka ett steg"
-                            style={{ background: 'none', border: 'none', padding: '7px', borderRadius: '8px', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', flexShrink: 0 }}
-                          >
-                            <Undo2 size={14} />
-                          </button>
-                        )}
-                        {ActionIcon && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); advance(r); }}
-                            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 12px', background: BRAND.green, color: 'white', border: 'none', borderRadius: '8px', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap' }}
-                          >
-                            <ActionIcon size={13} /> {ACTION_LABEL[r.status]}
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
+                    {r.status !== 'pending' && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); revert(r); }} title="Skicka tillbaka ett steg"
+                        style={{ background: 'none', border: 'none', padding: '7px', borderRadius: '8px', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', flexShrink: 0 }}
+                      >
+                        <Undo2 size={14} />
+                      </button>
+                    )}
+                    {ActionIcon && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); advance(r); }}
+                        style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 12px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap' }}
+                      >
+                        <ActionIcon size={13} /> {ACTION_LABEL[r.status]}
+                      </button>
+                    )}
+                  </div>
                 );
-              })}
-            </tbody>
-          </table>
-        </div>
+              },
+            },
+          ]}
+        />
       )}
 
       {openReport && (
@@ -997,31 +983,23 @@ export default function Projects({ projects = [], setProjects, contacts = [], se
   const labelSt = { display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' };
 
   return (
-    <div style={{ padding: '32px 40px', animation: 'fadeIn 0.25s ease', minHeight: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
-      {/* Sidhuvud — .page-header-row (Sida 38, punkt 6) */}
-      <div className="page-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 500, color: 'var(--text-main)' }}>Projekt</h1>
-          <p style={{ margin: '2px 0 0', fontSize: '13.5px', color: 'var(--text-secondary)' }}>Följs upp lönsamhet, tid och kostnader per projekt</p>
-        </div>
-        <button onClick={() => openNewProjectForm()} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: BRAND.green, color: 'white', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 500, cursor: 'pointer', flexShrink: 0 }}>
-          <Plus size={15} /> Nytt projekt
-        </button>
-      </div>
+    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
+      {/* Header i samma mönster som Kunder/Anställda och lön/Bokföring —
+          kort-bakgrund + kantlinje, inte flytande text på sidbakgrunden. */}
+      <ListPageHeader
+        title="Projekt"
+        subtitle="Följs upp lönsamhet, tid och kostnader per projekt"
+        actions={[
+          { key: 'new', label: 'Nytt projekt', icon: Plus, onClick: () => openNewProjectForm(), variant: 'primary' },
+        ]}
+        tabs={{
+          items: [{ id: 'projects', label: 'Projekt' }, { id: 'time', label: 'Tidrapportering' }],
+          activeId: activeTab,
+          onChange: handleSetTab,
+        }}
+      />
 
-      {/* Flikrad */}
-      <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border)', marginTop: '16px' }}>
-        {[{ id: 'projects', label: 'Projekt' }, { id: 'time', label: 'Tidrapportering' }].map(t => (
-          <button key={t.id} onClick={() => handleSetTab(t.id)} style={{
-            padding: '10px 18px', border: 'none', cursor: 'pointer', fontSize: '13.5px',
-            fontWeight: activeTab === t.id ? 600 : 500,
-            color: activeTab === t.id ? BRAND.green : 'var(--text-secondary)',
-            background: 'none',
-            borderBottom: activeTab === t.id ? `2px solid ${BRAND.green}` : '2px solid transparent',
-            marginBottom: '-1px',
-          }}>{t.label}</button>
-        ))}
-      </div>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column' }}>
 
       {activeTab === 'projects' && (
         <div style={{ marginTop: '20px', flex: 1, display: 'flex', flexDirection: 'column' }}>
@@ -1298,6 +1276,7 @@ export default function Projects({ projects = [], setProjects, contacts = [], se
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

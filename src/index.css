@@ -439,6 +439,16 @@ body {
 
 .app-container {
   display: flex;
+  /* Kundfeedback: "ha liten space mellan menyn och dashbord, jätte lite" —
+     en medveten, mycket liten lucka mellan sidomenyn och innehållet
+     (utöver .sidebar:s egen border-right ovan), INTE samma sak som den
+     gamla display-skalningsbuggen ("ingen space mellan menyn och sidorna",
+     se historisk kommentar vid .sidebar) — den gav en OAVSIKTLIG,
+     inkonsekvent lucka som bara syntes vid vissa skalningsnivåer. Den här
+     är en fast, avsiktlig 6px som alltid syns lika på alla skärmar.
+     Ingen effekt på mobil — sidomenyn ligger där `position:fixed` (se
+     @media 768px), utanför flex-flödet `gap` verkar på. */
+  gap: 6px;
   min-height: 100vh;
   min-height: 100dvh;
 }
@@ -464,7 +474,15 @@ body {
   height: 100vh;
   height: 100dvh;
   background: var(--bg-sidebar);
+  /* Kundfeedback ("Visuell gräns meny/innehåll"): mörkgröna menyn och det
+     vita/mörka innehållet möttes tidigare rakt av utan någon linje —
+     kändes läckande/oavsiktligt istället för en riktig panelgräns. Samma
+     `--border`-ton som alla andra panelgränser i appen (samma variabel
+     som t.ex. ListPageHeader/ListTable redan använder), diskret mot både
+     den mörka menyn och den ljusa ytan, ingen tung skugga. Bara border-r —
+     de andra sidorna (0 tidigare via `border: none` ovan) rörs inte. */
   border: none;
+  border-right: 1px solid var(--border);
   border-radius: 0;
   display: flex;
   flex-direction: column;
@@ -810,8 +828,17 @@ body {
    inre vertikala scrollen jag försöker ta bort — overflow-x:hidden på
    .main-wrapper ovan sköter den spärren istället, på en nivå där den
    inte krockar med y-axeln här. */
+/* Sida 43 (uppföljning, "ingen space"-genomgången — nu utökad till HELA
+   appen, inte bara listsidorna): den här skalklassen la tidigare på en
+   egen 24px/32px/56px marginal ovanpå VARJE sidas redan egna
+   header/innehålls-padding — dubbel padding, inte en avsiktlig extra
+   marginal. Ingen padding kvar här alls; varje sida äger nu sin egen enda
+   marginal själv (ListPageHeader/ListTable för listsidorna, egen padding
+   på rot-diven för Dashboard/Inställningar/Rapport och analys/formulär
+   osv, se respektive komponent) — precis som de redan gjorde, bara utan
+   att skalet lägger på ytterligare ett lager runt om. */
 .main-content-inner {
-  padding: 24px 32px 56px;
+  padding: 0;
   flex: 1;
   min-height: 0;
   display: flex;
@@ -2804,8 +2831,15 @@ textarea.form-control {
     --sidebar-width: 200px;
   }
 
+  /* Bugkritiskt (den riktiga "ingen space"-buggen): den här regeln var
+     kvar från INNAN .main-content-inner:s bas-padding nollställdes ovan
+     — en @media-regel är mer specifik än basregeln, så på allt ≤1024px
+     bred vann den ALLTID tillbaka den gamla 24/24/48px-marginalen,
+     oavsett vad basregeln säger. Exakt det kundfeedbacken visade
+     (kortet flöt med synlig marginal runt om, bara på en smalare
+     skärm/fönsterbredd). Ingen padding kvar här heller nu. */
   .main-content-inner {
-    padding: 24px 24px 48px;
+    padding: 0;
   }
 
   .ds-kpi-row {
@@ -2856,8 +2890,11 @@ textarea.form-control {
     padding-bottom: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom, 0px));
   }
 
+  /* Samma "ingen space"-regel som ≤1024px-brytpunkten ovan — den här var
+     den andra kvarlämnade @media-overriden som vann tillbaka en gammal
+     marginal på smalare skärmar, oavsett basregelns padding:0. */
   .main-content-inner {
-    padding: 16px 16px 24px;
+    padding: 0;
   }
 
   /* Topbar synlig på mobil för hamburger-meny */
@@ -3260,9 +3297,13 @@ textarea.form-control {
   }
 
   /* Inställningar (Sida 38, punkt 5): sidomenyn blir en dropdown högst
-     upp, innehållet fyller hela bredden under. */
+     upp, innehållet fyller hela bredden under. Padding-genomgången: samma
+     kant-marginal trimmad här som på desktop-inlinestilen ovan (Settings.jsx)
+     — bara lite tightare (16px) för de smalaste skärmarna, ingen egen
+     kvarlämnad 20/16/32px-avvikelse längre. !important behövs fortfarande
+     för att vinna över Settings.jsx:s inline padding på denna brytpunkt. */
   .settings-page {
-    padding: 20px 16px 32px !important;
+    padding: 16px !important;
   }
 
   .settings-nav-desktop {
