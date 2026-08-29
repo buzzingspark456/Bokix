@@ -344,7 +344,7 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
       {missingTaxTable.length > 0 && (
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-red-bg)', border: '1px solid var(--status-red-bg)', borderRadius: '8px', padding: '12px 14px', marginBottom: '20px', fontSize: '13px', color: '#991b1b' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-red-bg)', border: '1px solid var(--status-red-bg)', borderRadius: '8px', padding: '12px 14px', marginBottom: '20px', fontSize: '13px', color: 'var(--status-red-text)' }}>
           <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 1 }} />
           <div style={{ flex: 1 }}>
             <div>
@@ -370,7 +370,7 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
       )}
 
       {missingBankInfo.length > 0 && (
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-red-bg)', border: '1px solid var(--status-red-bg)', borderRadius: '8px', padding: '12px 14px', marginBottom: '20px', fontSize: '13px', color: '#991b1b' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-red-bg)', border: '1px solid var(--status-red-bg)', borderRadius: '8px', padding: '12px 14px', marginBottom: '20px', fontSize: '13px', color: 'var(--status-red-text)' }}>
           <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 1 }} />
           <span>{missingBankInfo.length} {missingBankInfo.length === 1 ? 'anställd saknar' : 'anställda saknar'} clearing-/kontonummer och kommer inte att inkluderas i betalfilen. Komplettera under Anställda innan Betala-steget.</span>
         </div>
@@ -434,7 +434,7 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
           </div>
 
           {debtorAccountError && (
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-red-bg)', border: '1px solid var(--status-red-bg)', borderRadius: '8px', padding: '12px 14px', marginBottom: '14px', fontSize: '12.5px', color: '#991b1b', lineHeight: 1.5 }}>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-red-bg)', border: '1px solid var(--status-red-bg)', borderRadius: '8px', padding: '12px 14px', marginBottom: '14px', fontSize: '12.5px', color: 'var(--status-red-text)', lineHeight: 1.5 }}>
               <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 1 }} />
               <span>{debtorAccountError}</span>
             </div>

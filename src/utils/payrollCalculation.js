@@ -57,12 +57,20 @@ export function computeEmployeePayroll(employee, row) {
     taxNote = `Sidoinkomst: ${(SECONDARY_INCOME_TAX_RATE * 100).toFixed(0)}% fast skatteavdrag (fristående beräkningsväg, inte tabellbaserad)`;
   } else if (employee.taxTable?.tabellnr && employee.taxTable?.kolumn) {
     try {
-      const { amount, extrapolated } = lookupSkatteavdrag({
+      const { amount, extrapolated, extrapolatedFrom } = lookupSkatteavdrag({
         year: employee.taxTable.year, tabellnr: employee.taxTable.tabellnr,
         kolumn: employee.taxTable.kolumn, inkomst: taxableIncome,
       });
       tax = round(amount);
-      taxNote = `Skattetabell ${employee.taxTable.tabellnr}, kolumn ${employee.taxTable.kolumn}, inkomst ${round(taxableIncome)} kr${extrapolated ? ' (utanför tabellens intervall — uppskattat från högsta kända bracket)' : ''}`;
+      // Bugfix (kundrapport): påstod tidigare ALLTID "högsta kända bracket",
+      // även när inkomsten låg UNDER tabellens lägsta rad (t.ex. 0 kr för en
+      // timanställd utan registrerade timmar) — se filkommentaren i
+      // skattetabell.js för hela felet (25 944 kr skatt på 0 kr bruttolön).
+      // Beskriver nu rätt riktning.
+      const extrapolationNote = extrapolated
+        ? ` (${extrapolatedFrom === 'lowest' ? 'under tabellens lägsta intervall — uppskattat från lägsta kända rad' : 'över tabellens högsta intervall — uppskattat från högsta kända rad'})`
+        : '';
+      taxNote = `Skattetabell ${employee.taxTable.tabellnr}, kolumn ${employee.taxTable.kolumn}, inkomst ${round(taxableIncome)} kr${extrapolationNote}`;
     } catch (err) {
       tax = 0;
       taxNote = `Skattetabell ej inläst (${err.message})`;

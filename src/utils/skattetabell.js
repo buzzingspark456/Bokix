@@ -102,16 +102,37 @@ export function lookupSkatteavdrag({ year, tabellnr, kolumn, inkomst, periodCode
     return { amount: val === '' || val === undefined ? 0 : Number(val), extrapolated: false };
   }
 
-  // Inkomst över tabellens högsta angivna intervall — använd högsta kända
+  // Inkomst utanför tabellens angivna intervall — använd närmaste kända
   // raden som approximation och flagga det tydligt, hellre än att krascha
   // eller tyst returnera fel belopp.
-  const highest = [...periodRows].sort((a, b) => Number(b['inkomst t.o.m.']) - Number(a['inkomst t.o.m.']))[0];
-  if (highest) {
-    const val = highest[`kolumn ${kolumn}`];
-    return { amount: val === '' || val === undefined ? 0 : Number(val), extrapolated: true };
-  }
+  //
+  // Bugkritiskt (kundrapport): valde tidigare ALLTID högsta raden, oavsett
+  // åt vilket håll inkomsten låg utanför intervallet. En timanställd utan
+  // registrerade timmar denna period (inkomst 0 kr, se computeEmployeePayroll
+  // i payrollCalculation.js) föll då UNDER tabellens lägsta angivna rad,
+  // men fick ändå skatten för den ALLRA HÖGSTA inkomstraden — 25 944 kr i
+  // avdrag på 0 kr bruttolön, ett negativt nettolön. Måste skilja på
+  // riktning: en inkomst UNDER lägsta raden ska approximeras mot LÄGSTA
+  // raden (typiskt 0 kr skatt vid 0 kr inkomst), bara en inkomst ÖVER
+  // högsta raden ska approximeras mot HÖGSTA raden.
+  if (periodRows.length === 0) return { amount: 0, extrapolated: true, notFound: true };
 
-  return { amount: 0, extrapolated: true, notFound: true };
+  const sorted = [...periodRows].sort((a, b) => Number(a['inkomst t.o.m.']) - Number(b['inkomst t.o.m.']));
+  const lowest = sorted[0];
+  const highest = sorted[sorted.length - 1];
+  const belowRange = income < Number(lowest['inkomst fr.o.m.']);
+  const nearest = belowRange ? lowest : highest;
+
+  const val = nearest[`kolumn ${kolumn}`];
+  return {
+    amount: val === '' || val === undefined ? 0 : Number(val),
+    extrapolated: true,
+    // Vilket håll approximationen gjordes åt — payrollCalculation.js
+    // använder den för att beskriva rätt riktning i taxNote istället för
+    // att alltid påstå "högsta bracket" (se filkommentaren ovan för buggen
+    // det ersätter).
+    extrapolatedFrom: belowRange ? 'lowest' : 'highest',
+  };
 }
 
 export function isSkattetabellCached(year, tabellnr) {
