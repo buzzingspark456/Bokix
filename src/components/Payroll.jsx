@@ -51,21 +51,24 @@ export default function Payroll({
   };
 
   if (selectedRun) {
+    // Kundfeedback ("täcker inte hela och är inte i toppen"): den här
+    // vyn låg tidigare i en paddad, centrerad ö (padding 32px 40px) helt
+    // utan sidhuvud — se filkommentaren i PayrollRunDetail.jsx. Den äger nu
+    // sitt eget fullbredds-skal (ListPageHeader + scrollande innehåll),
+    // samma mönster som listvyn nedan — ingen extra padding-wrapper här.
     return (
-      <div style={{ padding: '32px 40px', minHeight: '100%' }}>
-        <PayrollRunDetail
-          run={selectedRun}
-          previousRun={previousRun}
-          accounts={accounts}
-          company={company}
-          onBack={() => setSelectedRunId(null)}
-          onAdvanceStep={onAdvanceRunStep}
-          onBookRun={onBookRun}
-          onMarkPaid={onMarkRunPaid}
-          onUpdateRow={(employeeId, patch) => onUpdateRunRow(selectedRun.id, employeeId, patch)}
-          onRefreshSnapshots={() => onRefreshRunSnapshots?.(selectedRun.id, employees)}
-        />
-      </div>
+      <PayrollRunDetail
+        run={selectedRun}
+        previousRun={previousRun}
+        accounts={accounts}
+        company={company}
+        onBack={() => setSelectedRunId(null)}
+        onAdvanceStep={onAdvanceRunStep}
+        onBookRun={onBookRun}
+        onMarkPaid={onMarkRunPaid}
+        onUpdateRow={(employeeId, patch) => onUpdateRunRow(selectedRun.id, employeeId, patch)}
+        onRefreshSnapshots={() => onRefreshRunSnapshots?.(selectedRun.id, employees)}
+      />
     );
   }
 

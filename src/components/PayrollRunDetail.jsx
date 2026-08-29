@@ -3,6 +3,7 @@ import {
   Check, ChevronDown, ChevronUp, AlertTriangle, Download, ChevronLeft, Loader2, ExternalLink, RefreshCw, Landmark, CreditCard,
 } from 'lucide-react';
 import CalculationRow from './shared/CalculationRow';
+import ListPageHeader from './shared/ListPageHeader';
 import { computeEmployeePayroll, summarizePayrollRun } from '../utils/payrollCalculation';
 import { PAYROLL_RUN_STEPS, PAYROLL_ACCOUNTS } from '../utils/payrollConfig';
 import { generatePayslipPdf } from '../utils/payslipExport';
@@ -26,7 +27,7 @@ function StatusBadge({ status }) {
 
 function StepButtons({ completedSteps, onAdvance, canBook }) {
   return (
-    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '24px' }}>
+    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
       {PAYROLL_RUN_STEPS.map((step, i) => {
         const isDone = completedSteps.includes(step.id);
         const prevDone = i === 0 || completedSteps.includes(PAYROLL_RUN_STEPS[i - 1].id);
@@ -303,34 +304,45 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
 
   if (!tablesReady) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '40vh', gap: '12px', color: 'var(--text-secondary)' }}>
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', color: 'var(--text-secondary)', background: 'var(--bg-page)' }}>
         <Loader2 size={24} className="spin" style={{ animation: 'spin 0.8s linear infinite' }} />
         <span style={{ fontSize: '13.5px' }}>Hämtar skattetabeller från Skatteverket…</span>
       </div>
     );
   }
 
+  // Kundfeedback ("täcker inte hela och är inte i toppen"): den här vyn låg
+  // tidigare i en paddad, centrerad ö (Payroll.jsx: padding 32px 40px runt
+  // hela komponenten) helt utan ListPageHeader — enda sidan i appen som såg
+  // ut så, medan alla andra listsidor (Kunder/Fakturering/Bokföring m.fl.)
+  // delar samma sidhuvud-mönster (se ListPageHeader.jsx: "en enda delad
+  // sidhuvud-komponent för alla listsidor"). Samma fullbredds-skal + fast
+  // sidhuvud nu, med StepButtons som headerns "extra rad" (children) så
+  // stegindikatorn stannar synlig medan innehållet under scrollar, istället
+  // för att scrolla bort tillsammans med resten.
+  const subtitleParts = [
+    `Utbetalningsdatum: ${run.payDate || '—'}`,
+    `${run.rows.length} ${run.rows.length === 1 ? 'anställd' : 'anställda'}`,
+  ];
+  if (run.paymentMethod) subtitleParts.push(`Betald via ${run.paymentMethod === 'bank' ? 'bank' : 'kort'}`);
+
   return (
-    <div>
-      <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'none', border: 'none', color: 'var(--text-secondary)', fontWeight: 600, fontSize: '13px', cursor: 'pointer', marginBottom: '16px' }}>
-        <ChevronLeft size={16} /> Tillbaka till lönekörningar
-      </button>
-
-      {/* Statusrad */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', marginBottom: '20px' }}>
-        <h2 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>Lönekörning {run.period}</h2>
-        <StatusBadge status={displayStatus} />
-        <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Utbetalningsdatum: {run.payDate || '—'}</span>
-        <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{run.rows.length} {run.rows.length === 1 ? 'anställd' : 'anställda'}</span>
-        {run.paymentMethod && (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: 'var(--border-light)', color: 'var(--text-secondary)' }}>
-            {run.paymentMethod === 'bank' ? <Landmark size={12} /> : <CreditCard size={12} />} Betald via {run.paymentMethod === 'bank' ? 'bank' : 'kort'}
+    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
+      <ListPageHeader
+        title={
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '10px' }}>
+            Lönekörning {run.period} <StatusBadge status={displayStatus} />
           </span>
-        )}
-      </div>
+        }
+        subtitle={subtitleParts.join(' · ')}
+        actions={[{ key: 'back', label: 'Tillbaka till lönekörningar', icon: ChevronLeft, onClick: onBack }]}
+      >
+        <div style={{ padding: '14px 0 16px' }}>
+          <StepButtons completedSteps={run.completedSteps} onAdvance={handleAdvance} canBook={canBook} />
+        </div>
+      </ListPageHeader>
 
-      <StepButtons completedSteps={run.completedSteps} onAdvance={handleAdvance} canBook={canBook} />
-
+      <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
       {missingTaxTable.length > 0 && (
         <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-red-bg)', border: '1px solid var(--status-red-bg)', borderRadius: '8px', padding: '12px 14px', marginBottom: '20px', fontSize: '13px', color: '#991b1b' }}>
           <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 1 }} />
@@ -491,7 +503,16 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
         </div>
       )}
 
-      {run.completedSteps.includes('payslips') && (
+      {/* Bugfix (kundrapport: "funkar inte som den ska"): gated tidigare på
+          'payslips' (steg 4, Lönebesked) istället för 'booked' (steg 5,
+          Bokför) — se PAYROLL_RUN_STEPS i payrollConfig.js, "AGI och skatt"
+          är steg 6, EFTER Bokför. Panelen (och dess kryssruta, som direkt
+          anropar onAdvanceStep('agi') utan StepButtons egen sekvens-spärr)
+          blev alltså synlig och ifyllbar långt innan AGI-steget faktiskt
+          var näst på tur — kunde markera 'agi' som klar innan 'booked' ens
+          var det, vilket fick stegraden ovan att se bakvänd ut (ett SENARE
+          steg grönt/klart medan ett TIDIGARE fortfarande stod grått). */}
+      {run.completedSteps.includes('booked') && (
         <div style={{ ...panelCard, marginTop: '28px', padding: '20px' }}>
           <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 8px' }}>AGI och skatt</h3>
           <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 14px', lineHeight: 1.5 }}>
@@ -526,6 +547,7 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
           </label>
         </div>
       )}
+      </div>
     </div>
   );
 }
