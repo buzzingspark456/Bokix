@@ -96,14 +96,19 @@ async function handleStart(res, user, body) {
   authorizeUrl.searchParams.set('client_id', clientId);
   authorizeUrl.searchParams.set('redirect_uri', redirectUri);
   authorizeUrl.searchParams.set('state', state);
-  // ZETTLE_OAUTH_SCOPE lämnas medvetet UTELÄMNAD om den inte är satt,
-  // istället för att gissa på exakta scope-strängar (t.ex. "READ:PURCHASE")
-  // utan att ha verifierat dem mot din faktiska app-registrering i Zettles
-  // Developer Portal — fel scope-sträng hade kunnat få HELA auktoriserings-
-  // anropet avvisat. Sätt env-variabeln (mellanslagsseparerad lista) när du
-  // vet exakt vilka scopes din registrerade app ska begära.
-  const scope = process.env.ZETTLE_OAUTH_SCOPE;
-  if (scope) authorizeUrl.searchParams.set('scope', scope);
+  // Bugfix (verifierat mot en riktig Zettle-app): scope får INTE vara tom —
+  // Zettle avvisar hela auktoriseringsanropet med "Invalid scope. Requested
+  // scope(s) can't be empty." annars, den tidigare "utelämna scope om den
+  // inte är satt"-varianten fungerade alltså aldrig i praktiken. Standard-
+  // värdet nedan är precis det Bokix faktiskt behöver för att hämta
+  // transaktioner/finansdata som bokföringsunderlag (samma syfte som
+  // stripe_ledger_events, se supabase-setup.sql) — mellanslagsseparerad
+  // lista, exakt formatet Zettles egen dokumentation visar (github.com/
+  // iZettle/api-documentation: authorization.md). ZETTLE_OAUTH_SCOPE kan
+  // fortfarande sätta ett annat värde vid behov, men behövs inte längre för
+  // att flödet ska fungera.
+  const scope = process.env.ZETTLE_OAUTH_SCOPE || 'READ:PURCHASE READ:FINANCE';
+  authorizeUrl.searchParams.set('scope', scope);
 
   res.setHeader('Set-Cookie', zettleOauthStateCookie(state));
   res.status(200).json({ url: authorizeUrl.toString() });

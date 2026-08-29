@@ -1078,8 +1078,10 @@ app.post('/api/zettle/callback', async (req, res) => {
   authorizeUrl.searchParams.set('client_id', clientId)
   authorizeUrl.searchParams.set('redirect_uri', redirectUri)
   authorizeUrl.searchParams.set('state', state)
-  const scope = process.env.ZETTLE_OAUTH_SCOPE
-  if (scope) authorizeUrl.searchParams.set('scope', scope)
+  // Bugfix (verifierat mot en riktig Zettle-app, se filkommentaren i
+  // api/zettle/callback.js): scope får inte vara tom.
+  const scope = process.env.ZETTLE_OAUTH_SCOPE || 'READ:PURCHASE READ:FINANCE'
+  authorizeUrl.searchParams.set('scope', scope)
 
   res.setHeader('Set-Cookie', zettleOauthStateCookie(state))
   res.status(200).json({ url: authorizeUrl.toString() })
