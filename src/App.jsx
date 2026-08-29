@@ -2252,13 +2252,10 @@ function App() {
 
   // Bygger Checkout-radrar och skapar en Stripe-betalningssession, returnerar
   // bara URL:en — kastar (istället för att larma med alert) så anroparen
-  // själv avgör hur ett fel ska visas. Delad av två helt olika flöden:
-  // dels "skapa betalningslänk"-ikonen i fakturalistan (som sedan navigerar
-  // dit, se handleCreateInvoicePaymentLink), dels e-postutskicket
-  // (Invoices.jsx handleSendEmail), som lägger länken i mejlet till kunden
-  // istället för att lämna appen — att navigera avsändarens egen webbläsare
-  // till Stripes kassasida vore fel där, det är ju inte avsändaren som ska
-  // betala.
+  // själv avgör hur ett fel ska visas. Delad av två flöden i Invoices.jsx:
+  // dels PaymentLinkModal ("Skapa betalningslänk" i radmenyn — visar länken
+  // för kopiering/e-postutskick istället för att navigera bort ifrån appen),
+  // dels handleSendEmail (lägger samma länk direkt i fakturamejlet).
   const getInvoicePaymentLinkUrl = async (invoiceId) => {
     const invoice = invoices.find(i => i.id === invoiceId);
     if (!invoice) throw new Error('Fakturan kunde inte hittas.');
@@ -2303,17 +2300,6 @@ function App() {
 
     if (!session?.url) throw new Error('Betalningslänk skapad, men ingen länk mottogs.');
     return session.url;
-  };
-
-  const handleCreateInvoicePaymentLink = async (invoiceId) => {
-    try {
-      const url = await getInvoicePaymentLinkUrl(invoiceId);
-      setInvoices(prev => prev.map(i => i.id === invoiceId ? { ...i, status: 'sent' } : i));
-      window.location.href = url;
-    } catch (error) {
-      console.error(error);
-      alert(`Kunde inte skapa betalningslänk: ${error.message || error}`);
-    }
   };
 
   // Add (or continue-update) a verification.
@@ -3139,7 +3125,6 @@ function App() {
             onUnmarkPaid={handleUnmarkInvoicePaid}
             onMarkSupplierInvoicePaid={handleMarkSupplierInvoicePaid}
             handleGlobalAction={handleGlobalAction}
-            onCreatePaymentLink={handleCreateInvoicePaymentLink}
             onGetPaymentLinkUrl={getInvoicePaymentLinkUrl}
             stripeAccountId={company.stripeAccountId}
             setInvoices={setInvoices}

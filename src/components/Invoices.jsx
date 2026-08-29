@@ -1511,7 +1511,145 @@ function ArticleRegisterModal({ articles, setArticles, onClose }) {
   );
 }
 
-export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegisterPayment, onUnmarkPaid, setInvoices, company, globalAction, clearGlobalAction, onNavigate, verifications = [], expenses = [], onMarkSupplierInvoicePaid, handleGlobalAction, onCreatePaymentLink, onGetPaymentLinkUrl, articles = [], setArticles }) {
+/**
+ * Kundrapporterad bugg: raden "Skapa betalningslänk" gjorde tidigare
+ * window.location.href = url rakt av — navigerade bort BOKFÖRARENS EGEN
+ * flik till kundens betalsida, istället för att ge en länk att dela.
+ * Visar nu länken i en dialog med en riktig Kopiera-knapp, plus ett
+ * valfritt "skicka med e-post"-fält (samma sendInvoiceEmail-relä och
+ * "Betala nu"-knappstil som InvoiceForm redan bygger när Stripe är
+ * anslutet, se paymentLinkUrl-grenen i handleSendEmail ovan).
+ *
+ * Betalningsmottagare (kundfråga): pengarna går till FÖRETAGETS egna
+ * anslutna Stripe-konto, inte till Bokix — se create-checkout-session.js
+ * (transfer_data.destination = det anslutna kontot). Bara Bokix egen
+ * plattformsavgift (application_fee_amount, redan uträknad server-side)
+ * går till Bokix. Den här komponenten ändrar inget i det flödet, den
+ * visar bara den redan skapade länken.
+ */
+function PaymentLinkModal({ invoice, customer, company, onGetPaymentLinkUrl, onClose, onMarkSent }) {
+  const [url, setUrl] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [copied, setCopied] = useState(false);
+  const [emailTo, setEmailTo] = useState(customer?.email || '');
+  const [emailBusy, setEmailBusy] = useState(false);
+  const [emailError, setEmailError] = useState('');
+  const [emailSent, setEmailSent] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const generatedUrl = await onGetPaymentLinkUrl(invoice.id);
+        if (cancelled) return;
+        setUrl(generatedUrl);
+        onMarkSent?.(invoice.id);
+      } catch (err) {
+        if (!cancelled) setError(err.message || 'Kunde inte skapa betalningslänk.');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [invoice.id]);
+
+  const handleCopy = async () => {
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard-API:et kan nekas (osäker kontext, behörighet m.m.) — inte
+      // kritiskt, länken syns ändå i fältet ovan och går att markera/
+      // kopiera för hand.
+    }
+  };
+
+  const handleSendEmail = async () => {
+    const to = emailTo.trim();
+    if (!to) { setEmailError('Ange en mottagaradress.'); return; }
+    if (!/^\S+@\S+\.\S+$/.test(to)) { setEmailError('Det där ser inte ut som en giltig e-postadress.'); return; }
+    setEmailBusy(true); setEmailError(''); setEmailSent(false);
+    try {
+      const html = `
+        <p>Hej${customer?.contactPerson ? ' ' + customer.contactPerson : ''},</p>
+        <p>Här är en betalningslänk för faktura <strong>${invoice.invoiceNumber}</strong> på <strong>${fmt(grossOf(invoice))} kr</strong>.</p>
+        <p style="margin: 20px 0;">
+          <a href="${url}" style="display:inline-block;padding:12px 26px;background:#3d7a2e;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600;">Betala nu</a>
+        </p>
+        <p>Med vänlig hälsning<br/>${company?.name || ''}</p>
+      `;
+      await sendInvoiceEmail({
+        to,
+        subject: `Betalningslänk – faktura ${invoice.invoiceNumber}`,
+        html,
+        replyTo: company?.email || undefined,
+        company_id: company?.id,
+      });
+      setEmailSent(true);
+    } catch (err) {
+      setEmailError(err.message || 'Kunde inte skicka e-post.');
+    } finally {
+      setEmailBusy(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" style={{ maxWidth: '460px' }} onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2 className="modal-title">Betalningslänk — faktura {invoice.invoiceNumber}</h2>
+          <button className="modal-close" onClick={onClose}><X size={18} /></button>
+        </div>
+        <div style={{ padding: '20px 24px' }}>
+          {loading ? (
+            <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: '14px' }}>Skapar länk...</div>
+          ) : error ? (
+            <div style={{ fontSize: '13px', color: 'var(--status-red-text)', fontWeight: 600 }}>{error}</div>
+          ) : (
+            <>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>Länk</label>
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
+                <input
+                  type="text" readOnly value={url || ''}
+                  onFocus={e => e.target.select()}
+                  style={{ flex: 1, padding: '9px 12px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', background: 'var(--bg-muted)', color: 'var(--text-main)' }}
+                />
+                <button type="button" onClick={handleCopy} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 14px', background: copied ? 'var(--status-green-bg)' : 'var(--accent)', color: copied ? 'var(--status-green-text)' : 'white', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                  {copied ? <><Check size={14} /> Kopierad!</> : <><Copy size={14} /> Kopiera</>}
+                </button>
+              </div>
+
+              <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: '16px' }}>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '8px' }}>Skicka med e-post (valfritt)</div>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <input
+                    type="email" value={emailTo} onChange={e => { setEmailTo(e.target.value); setEmailError(''); }}
+                    placeholder="kund@foretag.se"
+                    style={{ flex: 1, padding: '9px 12px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', background: 'var(--bg-card)', color: 'var(--text-main)' }}
+                  />
+                  <button
+                    type="button" onClick={handleSendEmail} disabled={emailBusy || !emailTo.trim()}
+                    style={{ padding: '9px 16px', background: (emailBusy || !emailTo.trim()) ? 'var(--border)' : 'var(--accent)', color: (emailBusy || !emailTo.trim()) ? 'var(--text-muted)' : 'white', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: (emailBusy || !emailTo.trim()) ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}
+                  >
+                    {emailBusy ? 'Skickar...' : 'Skicka'}
+                  </button>
+                </div>
+                {emailError && <div style={{ fontSize: '12px', color: 'var(--status-red-text)', marginTop: '8px' }}>{emailError}</div>}
+                {emailSent && !emailError && <div style={{ fontSize: '12px', color: 'var(--status-green-text)', fontWeight: 600, marginTop: '8px' }}>Skickad ✓</div>}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegisterPayment, onUnmarkPaid, setInvoices, company, globalAction, clearGlobalAction, onNavigate, verifications = [], expenses = [], onMarkSupplierInvoicePaid, handleGlobalAction, onGetPaymentLinkUrl, articles = [], setArticles }) {
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Två klart avgränsade sektioner, inte en klämd sida-vid-sida-vy — varje
@@ -1525,6 +1663,11 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
     next.set('section', s);
     return next;
   }, { replace: true });
+
+  // Vilken faktura PaymentLinkModal (ovan) just nu är öppen för — null när
+  // stängd. Håller själva fakturaobjektet (inte bara ett id) så modalen
+  // slipper leta rätt på den igen i en lista som kan hinna ändras.
+  const [paymentLinkInvoice, setPaymentLinkInvoice] = useState(null);
 
   const [searchInput, setSearchInput] = useState('');
   const search = useDebouncedValue(searchInput, 300);
@@ -1747,20 +1890,21 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
     // sköts redan inne i fakturaformuläret — den här raden öppnar dit
     // istället för att duplicera det flödet i menyn.
     items.push({ key: 'link-transaction', label: 'Koppla till transaktion', icon: Link2, onClick: () => openInvoice(inv) });
-    if (status !== 'paid' && onCreatePaymentLink) {
+    if (status !== 'paid' && onGetPaymentLinkUrl) {
       // Bugfix (kundrapport: "Skapa betalningslänk funkar inte" — knappen
       // grå trots att Stripe var anslutet): krävde tidigare att kunden
       // eller företaget hade en sparad e-post, men en e-postadress är bara
       // valfri förifyllnad i Stripe Checkout (create-checkout-session.js),
-      // aldrig ett krav — Stripe frågar payern själv om den saknas. Länken
-      // är till för att KOPIERAS/delas manuellt (SMS, i person m.m.), inte
-      // bara ett automatiskt mejlutskick, så det enda som faktiskt krävs är
-      // att Stripe är anslutet. Se samma borttagna krav i App.jsx:s
-      // getInvoicePaymentLinkUrl.
+      // aldrig ett krav — Stripe frågar payern själv om den saknas. Enda
+      // faktiska kravet är att Stripe är anslutet. Se samma borttagna krav
+      // i App.jsx:s getInvoicePaymentLinkUrl.
+      //
+      // Öppnar PaymentLinkModal (ovan) istället för att navigera bort
+      // direkt — se den komponentens filkommentar för varför.
       const canCreateLink = Boolean(company?.stripeAccountId);
       items.push({
         key: 'payment-link', label: 'Skapa betalningslänk', icon: CreditCard,
-        onClick: () => onCreatePaymentLink(inv.id),
+        onClick: () => setPaymentLinkInvoice({ invoice: inv, customer }),
         disabled: !canCreateLink,
         title: !canCreateLink ? 'Anslut Stripe under Inställningar för att låta kunder betala med kort' : undefined,
       });
@@ -2099,6 +2243,17 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
         onCreateNew={() => handleGlobalAction?.({ type: 'new_supplier_invoice' }, 'supplier_invoices')}
       />
     </div>
+    )}
+
+    {paymentLinkInvoice && onGetPaymentLinkUrl && (
+      <PaymentLinkModal
+        invoice={paymentLinkInvoice.invoice}
+        customer={paymentLinkInvoice.customer}
+        company={company}
+        onGetPaymentLinkUrl={onGetPaymentLinkUrl}
+        onClose={() => setPaymentLinkInvoice(null)}
+        onMarkSent={(id) => setInvoices(prev => prev.map(i => i.id === id ? { ...i, status: 'sent' } : i))}
+      />
     )}
     </div>
   );

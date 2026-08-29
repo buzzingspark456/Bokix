@@ -136,7 +136,7 @@ export default function DemoWorkspace() {
             invoices={seed.invoices} contacts={seed.contacts} verifications={seed.verifications} expenses={seed.expenses}
             onAdd={blocked} onMarkPaid={blocked} onRegisterPayment={blocked}
             onUnmarkPaid={blocked} onMarkSupplierInvoicePaid={blocked}
-            handleGlobalAction={handleGlobalAction} onCreatePaymentLink={blocked} onGetPaymentLinkUrl={blocked}
+            handleGlobalAction={handleGlobalAction} onGetPaymentLinkUrl={blocked}
             stripeAccountId={undefined} setInvoices={noop} company={seed.company}
             globalAction={globalAction} clearGlobalAction={clearGlobalAction} onNavigate={openTab}
           />
