@@ -1748,14 +1748,22 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
     // istället för att duplicera det flödet i menyn.
     items.push({ key: 'link-transaction', label: 'Koppla till transaktion', icon: Link2, onClick: () => openInvoice(inv) });
     if (status !== 'paid' && onCreatePaymentLink) {
-      const canCreateLink = Boolean(company?.stripeAccountId && customer?.email);
+      // Bugfix (kundrapport: "Skapa betalningslänk funkar inte"): den här
+      // kollen kollade bara customer?.email, men App.jsx:s
+      // getInvoicePaymentLinkUrl faller redan tillbaka på company.email om
+      // KUNDEN saknar en egen — knappen var alltså inaktiverad (grå, med
+      // tooltip om saknad kund-e-post) i fall där ett klick faktiskt hade
+      // fungerat. Matchar nu samma fallback som servern/App.jsx redan
+      // använder, istället för att blockera i onödan.
+      const recipientEmail = customer?.email || company?.email;
+      const canCreateLink = Boolean(company?.stripeAccountId && recipientEmail);
       items.push({
         key: 'payment-link', label: 'Skapa betalningslänk', icon: CreditCard,
         onClick: () => onCreatePaymentLink(inv.id),
         disabled: !canCreateLink,
         title: !company?.stripeAccountId
           ? 'Anslut Stripe under Inställningar för att låta kunder betala med kort'
-          : !customer?.email ? 'Lägg till kundens e-post under Kunder för att kunna skapa en betalningslänk' : undefined,
+          : !recipientEmail ? 'Lägg till kundens e-post under Kunder (eller en företags-e-post under Inställningar) för att kunna skapa en betalningslänk' : undefined,
       });
     }
     items.push({ key: 'duplicate', label: 'Kopiera faktura', icon: Copy, onClick: () => handleDuplicateInvoice(inv) });
