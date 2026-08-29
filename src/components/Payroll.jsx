@@ -201,15 +201,22 @@ export default function Payroll({
       )}
 
       {activeTab === 'runs' && (
-        <div style={{ padding: '24px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+          {/* Kundfeedback ("samma vy som resten av sidorna, den ska täcka,
+              inga spaces"): den här fliken låg tidigare hel i en padded
+              24px-box, till skillnad från Anställda-fliken och "facit"-
+              sidorna (Bokföring/Verifikationer) där tabellen sitter flush
+              direkt under filterraden. Varning/formulär behåller sin egen
+              marginal (de är fristående kort, inte tabellen), men
+              ListTable nedan är nu flush precis som överallt annars. */}
           {employees.length === 0 && (
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-amber-bg)', border: '1px solid var(--status-amber-bg)', borderRadius: '8px', padding: '12px 14px', marginBottom: '20px', fontSize: '13px', color: 'var(--status-amber-text)' }}>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-amber-bg)', border: '1px solid var(--status-amber-bg)', borderRadius: '8px', padding: '12px 14px', margin: '20px 24px 0', fontSize: '13px', color: 'var(--status-amber-text)' }}>
               Du behöver lägga till minst en anställd innan du kan skapa en lönekörning. Klicka på "Ny lönekörning" för att komma till formuläret under fliken Anställda.
             </div>
           )}
 
           {showNewRun && (
-            <div style={{ ...panelCard, padding: '20px', marginBottom: '20px' }}>
+            <div style={{ ...panelCard, padding: '20px', margin: '20px 24px 0' }}>
               <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 700 }}>Ny lönekörning</h3>
               <div style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
                 <div>
