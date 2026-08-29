@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { sendInvoiceEmail } from '../emailApi';
+import { cancelStripeSubscription, reactivateStripeSubscription } from '../stripeApi';
 import { BRAND } from '../utils/brandColors';
 import InvoiceDocument, { INVOICE_TEMPLATES, DEFAULT_INVOICE_TEMPLATE } from './InvoiceDocument';
 import { useIsMobileViewport } from '../hooks/useIsMobileViewport';
@@ -1001,6 +1002,168 @@ function UsersAndAccessSection({ company, user, firstName, lastName, sharedAcces
   );
 }
 
+const fmtDateSv = (d) => {
+  if (!d) return '—';
+  try { return new Intl.DateTimeFormat('sv-SE', { year: 'numeric', month: 'long', day: 'numeric' }).format(new Date(d)); } catch { return d; }
+};
+
+const SUBSCRIPTION_STATUS_LABELS = {
+  trialing: 'Provperiod', active: 'Aktiv', past_due: 'Betalning misslyckades — försöker igen',
+  canceled: 'Avslutad', unpaid: 'Obetald', incomplete: 'Ofullständig', incomplete_expired: 'Utgången',
+};
+
+/** Inställningar → Prenumeration. Läser kontots EGEN rad i
+ * public.subscriptions (RLS: bara sin egen, se supabase-setup.sql) och ger
+ * en riktig väg att avsluta/återaktivera — se api/stripe/create-
+ * subscription-checkout.js (action: 'cancel'/'reactivate'). Ersätter den
+ * tidigare statiska platshållartexten som alltid stod kvar oavsett faktisk
+ * status, och som gjorde TermsPolicy.jsx:s löfte ("Uppsägning sker under
+ * Inställningar i tjänsten") osant i praktiken. */
+function SubscriptionSection({ user, sharedAccess, readOnly = false }) {
+  // Samma "jag är ägare om jag inte är en inbjuden gäst"-regel som
+  // UsersAndAccessSection ovan. En inbjuden gäst rider på ÄGARENS
+  // prenumeration (App.jsx: hasSharedAccess) och har ingen egen rad att
+  // avsluta här.
+  const isOwner = !sharedAccess;
+
+  const [sub, setSub] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [confirmCancel, setConfirmCancel] = useState(false);
+
+  const loadSubscription = async () => {
+    if (readOnly || !isOwner || !user?.id) { setLoading(false); return; }
+    setLoading(true);
+    const { data } = await supabase
+      .from('subscriptions')
+      .select('status, trial_ends_at, current_period_end, cancel_at_period_end')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    setSub(data || null);
+    setLoading(false);
+  };
+
+  useEffect(() => { loadSubscription(); }, [user?.id, isOwner]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleCancel = async () => {
+    if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; }
+    setBusy(true); setError('');
+    try {
+      await cancelStripeSubscription();
+      await loadSubscription();
+      setConfirmCancel(false);
+    } catch (err) {
+      setError(err.message || 'Kunde inte avsluta prenumerationen. Försök igen om en stund.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleReactivate = async () => {
+    if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; }
+    setBusy(true); setError('');
+    try {
+      await reactivateStripeSubscription();
+      await loadSubscription();
+    } catch (err) {
+      setError(err.message || 'Kunde inte återaktivera prenumerationen. Försök igen om en stund.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!isOwner) {
+    return (
+      <div style={card}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+          <Shield size={20} style={{ color: BRAND.green, flexShrink: 0, marginTop: '2px' }} />
+          <div style={{ fontSize: '13px', color: 'var(--text-secondary)', maxWidth: '520px' }}>
+            Du har åtkomst till det här företaget via en inbjudan från ägaren — det finns ingen egen prenumeration att hantera här. Frågor om fakturering går till den som bjöd in dig.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return <div style={card}><div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Läser in...</div></div>;
+  }
+
+  if (!sub) {
+    return (
+      <div style={card}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+          <Shield size={20} style={{ color: BRAND.green, flexShrink: 0, marginTop: '2px' }} />
+          <div>
+            <div style={{ fontWeight: 700, color: 'var(--text-main)', marginBottom: '4px' }}>Ingen aktiv betalprenumeration ännu</div>
+            <div style={{ fontSize: '13px', color: 'var(--text-secondary)', maxWidth: '520px' }}>Bokix har i dagsläget ingen betald abonnemangsplan kopplad till kontot.</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const isTrialing = sub.status === 'trialing';
+  const endDate = isTrialing ? sub.trial_ends_at : sub.current_period_end;
+  const statusBadge = sub.cancel_at_period_end
+    ? { bg: 'var(--status-amber-bg)', text: 'var(--status-amber-text)', label: 'Avslutas' }
+    : (sub.status === 'active' || sub.status === 'trialing')
+      ? { bg: 'var(--status-green-bg)', text: 'var(--status-green-text)', label: SUBSCRIPTION_STATUS_LABELS[sub.status] || sub.status }
+      : { bg: 'var(--status-red-bg)', text: 'var(--status-red-text)', label: SUBSCRIPTION_STATUS_LABELS[sub.status] || sub.status };
+
+  return (
+    <div style={card}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+          <Shield size={20} style={{ color: BRAND.green, flexShrink: 0, marginTop: '2px' }} />
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+              <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>Bokix — 99 kr/mån</span>
+              <span style={{ padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: statusBadge.bg, color: statusBadge.text }}>{statusBadge.label}</span>
+            </div>
+            <div style={{ fontSize: '13px', color: 'var(--text-secondary)', maxWidth: '480px' }}>
+              {sub.cancel_at_period_end
+                ? <>Avslutas {fmtDateSv(endDate)} — du har full åtkomst fram till dess, sedan tas inget mer betalt.</>
+                : isTrialing
+                  ? <>Kostnadsfri provperiod till {fmtDateSv(endDate)}, därefter 99 kr/mån automatiskt.</>
+                  : sub.status === 'past_due'
+                    ? <>Senaste betalningen misslyckades — Stripe försöker automatiskt igen. Uppdatera ditt kort om det upprepas.</>
+                    : <>Förnyas automatiskt {fmtDateSv(endDate)}.</>}
+            </div>
+          </div>
+        </div>
+
+        {!sub.cancel_at_period_end && sub.status !== 'canceled' && !confirmCancel && (
+          <button onClick={() => setConfirmCancel(true)} style={{ ...btnSecondary, flexShrink: 0 }}>Avsluta prenumeration</button>
+        )}
+        {sub.cancel_at_period_end && (
+          <button onClick={handleReactivate} disabled={busy} style={{ ...btnPrimary, flexShrink: 0, opacity: busy ? 0.6 : 1 }}>
+            {busy ? 'Återaktiverar...' : 'Ångra uppsägning'}
+          </button>
+        )}
+      </div>
+
+      {confirmCancel && (
+        <div style={{ marginTop: '16px', padding: '14px 16px', background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: '10px' }}>
+          <div style={{ fontSize: '13px', color: 'var(--text-main)', fontWeight: 600, marginBottom: '4px' }}>Avsluta prenumerationen?</div>
+          <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginBottom: '12px' }}>
+            Du behåller full åtkomst till och med {fmtDateSv(endDate)} — redan betald tid återbetalas inte, men inget mer dras efter det.
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button onClick={handleCancel} disabled={busy} style={{ ...btnPrimary, background: '#dc2626', boxShadow: 'none', opacity: busy ? 0.6 : 1 }}>
+              {busy ? 'Avslutar...' : 'Ja, avsluta'}
+            </button>
+            <button onClick={() => setConfirmCancel(false)} disabled={busy} style={btnGhost}>Avbryt</button>
+          </div>
+        </div>
+      )}
+
+      {error && <div style={{ marginTop: '12px', fontSize: '12.5px', color: 'var(--status-red-text)', fontWeight: 600 }}>{error}</div>}
+    </div>
+  );
+}
+
 export default function Settings({
   company = {}, setCompanyInfo, accounts = [], verifications = [], invoices = [], quotes = [], expenses = [],
   contacts = [], projects = [], onImport, onReset, stripeAccountId, onConnectStripe, onDisconnectStripe,
@@ -1592,15 +1755,7 @@ export default function Settings({
           {activeTab === 'subscription' && (
             <div style={{ animation: 'fadeIn 0.2s ease' }}>
               <h2 style={{ fontSize: '20px', fontWeight: 700, margin: '0 0 20px', color: 'var(--text-main)' }}>Prenumeration</h2>
-              <div style={card}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                  <Shield size={20} style={{ color: BRAND.green, flexShrink: 0, marginTop: '2px' }} />
-                  <div>
-                    <div style={{ fontWeight: 700, color: 'var(--text-main)', marginBottom: '4px' }}>Ingen aktiv betalprenumeration ännu</div>
-                    <div style={{ fontSize: '13px', color: 'var(--text-secondary)', maxWidth: '520px' }}>Bokix har i dagsläget ingen betald abonnemangsplan kopplad till kontot — vi visar aldrig en påhittad plan eller ett fakturadatum här. Prislistan uppdateras och wire:as in när faktureringen är på plats.</div>
-                  </div>
-                </div>
-              </div>
+              <SubscriptionSection user={user} sharedAccess={sharedAccess} readOnly={readOnly} />
               <div style={card}>
                 <h3 style={{ fontSize: '14.5px', fontWeight: 700, margin: '0 0 10px', color: 'var(--text-main)' }}>Betalhistorik</h3>
                 <div style={{ fontSize: '13px', color: 'var(--text-muted)', padding: '12px 0' }}>Ingen betalhistorik ännu.</div>

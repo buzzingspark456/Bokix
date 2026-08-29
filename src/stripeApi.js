@@ -86,3 +86,21 @@ export async function createStripeSubscriptionCheckout(payload) {
   const { data: { session } = {} } = await supabase.auth.getSession();
   return requestStripeApi('create-subscription-checkout', payload, session?.access_token);
 }
+
+// Avsluta/återaktivera Bokix egen prenumeration (Inställningar →
+// Prenumeration) — samma endpoint/fil som createStripeSubscriptionCheckout
+// ovan (server-kommentaren i create-subscription-checkout.js förklarar
+// varför: Vercels 12-funktionsgräns), skiljs bara på body.action. Kräver
+// alltid en inloggad session — till skillnad från checkout-anropet ovan
+// finns ingen legitim anropspunkt utan en.
+export async function cancelStripeSubscription() {
+  const { data: { session } = {} } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error('Du måste vara inloggad för att avsluta prenumerationen.');
+  return requestStripeApi('create-subscription-checkout', { action: 'cancel' }, session.access_token);
+}
+
+export async function reactivateStripeSubscription() {
+  const { data: { session } = {} } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error('Du måste vara inloggad för att återaktivera prenumerationen.');
+  return requestStripeApi('create-subscription-checkout', { action: 'reactivate' }, session.access_token);
+}

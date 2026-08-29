@@ -5,7 +5,7 @@ import { normalizeAbsoluteUrl, appendQueryParam } from './_urls.js';
 import { checkRateLimit } from '../_rateLimit.js';
 import { isRequestFromBot } from '../_botid.js';
 import { requireAuthedUser } from '../_auth.js';
-import { hasExistingSubscription } from './_subscriptions.js';
+import { hasExistingSubscription, getSubscriptionRow, upsertSubscription } from './_subscriptions.js';
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY || null;
 const stripe = stripeSecretKey && !stripeSecretKey.startsWith('pk_')
@@ -66,6 +66,55 @@ export default async function handler(req, res) {
 
   try {
     const body = await parseJsonBody(req);
+
+    // ── Avsluta/återaktivera en BEFINTLIG prenumeration (Inställningar →
+    // Prenumeration) — samma endpoint som skapar en ny Checkout-session
+    // nedan istället för en egen fil, av samma "Vercel Hobby 12-funktions-
+    // gräns"-skäl som redan dokumenterat i api/cron/reminders.js (se commit
+    // "Fix: deployen misslyckades — 13 serverless functions, över Vercels
+    // 12-gräns"). Kräver ALLTID en verifierad inloggad session — ingen
+    // body.user_id-genväg som checkout-grenen nedan har (den har sitt eget,
+    // dokumenterade skäl: anropet kan komma direkt efter signUp() innan en
+    // session hunnit utfärdas). Att avsluta någons prenumeration kan bara
+    // den inloggade ägaren själv göra.
+    if (body.action === 'cancel' || body.action === 'reactivate') {
+      const authedUser = await requireAuthedUser(req, res);
+      if (!authedUser) return; // requireAuthedUser har redan svarat 401
+
+      const subRow = await getSubscriptionRow(authedUser.id);
+      if (!subRow?.stripe_subscription_id) {
+        res.status(404).json({ error: 'Ingen prenumeration hittades för kontot.' });
+        return;
+      }
+
+      const updated = await stripe.subscriptions.update(subRow.stripe_subscription_id, {
+        cancel_at_period_end: body.action === 'cancel',
+      });
+
+      // Webhooken (customer.subscription.updated) skriver samma nya status
+      // till public.subscriptions som vanligt, men kan dröja någon sekund —
+      // speglar samma fält direkt här också (samma upsert-funktion
+      // webhooken själv använder) så Inställningar kan visa rätt läge utan
+      // att behöva vänta in eller polla den.
+      await upsertSubscription({
+        userId: authedUser.id,
+        stripeCustomerId: typeof updated.customer === 'string' ? updated.customer : updated.customer?.id,
+        stripeSubscriptionId: updated.id,
+        status: updated.status,
+        trialEndsAt: updated.trial_end ? new Date(updated.trial_end * 1000).toISOString() : null,
+        currentPeriodEnd: updated.current_period_end ? new Date(updated.current_period_end * 1000).toISOString() : null,
+        cancelAtPeriodEnd: !!updated.cancel_at_period_end,
+      });
+
+      res.status(200).json({
+        status: updated.status,
+        cancelAtPeriodEnd: !!updated.cancel_at_period_end,
+        trialEndsAt: updated.trial_end ? new Date(updated.trial_end * 1000).toISOString() : null,
+        currentPeriodEnd: updated.current_period_end ? new Date(updated.current_period_end * 1000).toISOString() : null,
+      });
+      return;
+    }
+
     if (!body.user_id) {
       res.status(400).json({ error: 'user_id krävs.' });
       return;

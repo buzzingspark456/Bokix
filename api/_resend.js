@@ -4,16 +4,30 @@
 // avsändaruppslag/fallback-logik istället för en egen, lätt-att-driva-isär
 // kopia. Bara ett hjälpmodul (`_`-prefix), räknas inte mot Vercels
 // 12-funktionsgräns (Hobby-plan).
-const resendApiKey = process.env.RESEND_API_KEY || null;
-const resendAdminApiKey = process.env.RESEND_ADMIN_API_KEY || null;
-const emailFrom = process.env.EMAIL_FROM || 'Bokix <onboarding@resend.dev>';
+//
+// Bugkritiskt (lokal utveckling): env-variablerna läses HÄR INNE I
+// funktionerna, INTE som toppnivå-konstanter längre. server.js importerar
+// numera api/cron/reminders.js (och därmed transitivt den här filen)
+// direkt istället för att handkopiera dess logik (se kommentaren vid
+// remindersHandler-importen i server.js) — ES-moduler evaluerar HELA
+// importgrafen INNAN den importerande filens egen kod körs, så en
+// toppnivå-konstant här hade läst process.env INNAN server.js:s egen
+// dotenv.config() (som körs i server.js:s kroppstext, efter dess imports)
+// hunnit sätta något — resultatet blev "RESEND_API_KEY saknas" trots att
+// nyckeln fanns i .env. Vercel-produktionen påverkas inte (env-variabler
+// finns redan satta innan någon modul evalueras där), men lokalt måste
+// läsningen skjutas upp till anropstillfället.
+const getResendApiKey = () => process.env.RESEND_API_KEY || null;
+const getResendAdminApiKey = () => process.env.RESEND_ADMIN_API_KEY || null;
+const getEmailFrom = () => process.env.EMAIL_FROM || 'Bokix <onboarding@resend.dev>';
 const SENDER_LOCAL_PART = 'faktura';
 
 export function hasResendApiKey() {
-  return Boolean(resendApiKey);
+  return Boolean(getResendApiKey());
 }
 
 export function fallbackSenderAddress(companyName) {
+  const emailFrom = getEmailFrom();
   const match = /^(.*)<(.+)>$/.exec(emailFrom);
   if (match && companyName) {
     return `${companyName} via Bokix <${match[2].trim()}>`;
@@ -26,6 +40,7 @@ export function fallbackSenderAddress(companyName) {
  * systemadressen om domänen saknas, inte är verifierad, eller om
  * statuskontrollen misslyckas. */
 export async function resolveSenderAddress(company) {
+  const resendAdminApiKey = getResendAdminApiKey();
   const fallback = fallbackSenderAddress(company?.name);
   if (!company?.resendDomainId || !company?.emailDomain || !resendAdminApiKey) {
     return { from: fallback, usingCustomDomain: false };
@@ -49,7 +64,7 @@ export async function sendViaResend(payload) {
   const resendRes = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${resendApiKey}`,
+      Authorization: `Bearer ${getResendApiKey()}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(payload),

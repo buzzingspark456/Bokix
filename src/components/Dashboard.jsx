@@ -68,6 +68,16 @@ const ONBOARD_STEP_COLORS = {
 };
 const CONFETTI_COLORS = [ONBOARD_STEP_COLORS.customer, ONBOARD_STEP_COLORS.invoice, ONBOARD_STEP_COLORS.expense, ONBOARD_STEP_COLORS.supplier, '#e0527a'];
 const ONBOARDING_DISMISSED_KEY = 'bokix_dashboard_checklist_dismissed';
+// Kundrapporterad bugg: "Grattis, du är igång!"-firandet blossade upp på
+// NYTT varje gång man lämnade Dashboard och kom tillbaka, trots att alla
+// fyra steg redan var klara sedan tidigare besök. Orsaken var
+// wasAllOnboardingDoneRef nedan — en `ref`, som (till skillnad från denna
+// localStorage-backade flagga) alltid börjar om på `false` varje gång
+// Dashboard monteras om (varje flikbyte bort och tillbaka), så effekten
+// trodde att kontot "just nu" blev klart igen och triggade om firandet.
+// Den här flaggan kommer ihåg att firandet redan skett EN gång, permanent
+// — texten lovar "den här rutan försvinner nu", inte "till nästa besök".
+const ONBOARDING_CELEBRATED_KEY = 'bokix_dashboard_checklist_celebrated';
 
 // Tysta textlänkar i "Kom igång"-kortets fot (support-genvägar + den
 // manuella dölj-länken) — samma dämpade mönster som HelpDrawer.jsx:s
@@ -243,6 +253,10 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
   });
   const [celebrating, setCelebrating] = useState(false);
   const [celebrationKey, setCelebrationKey] = useState(0);
+  // Se ONBOARDING_CELEBRATED_KEY-kommentaren ovan för bugen den här löser.
+  const [hasCelebratedBefore, setHasCelebratedBefore] = useState(() => {
+    try { return localStorage.getItem(ONBOARDING_CELEBRATED_KEY) === '1'; } catch { return false; }
+  });
   const wasAllOnboardingDoneRef = useRef(false);
   const dismissOnboarding = () => {
     setOnboardingDismissed(true);
@@ -390,15 +404,21 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
   ];
   const onboardingDoneCount = onboardingSteps.filter(s => s.done).length;
   useEffect(() => {
-    if (allOnboardingDone && !wasAllOnboardingDoneRef.current && !onboardingDismissed) {
+    // !hasCelebratedBefore — se ONBOARDING_CELEBRATED_KEY-kommentaren
+    // ovan: utan den här kollen triggade en ombygg (Dashboard monteras om
+    // vid varje flikbyte bort och tillbaka) om firandet på nytt varje gång,
+    // eftersom wasAllOnboardingDoneRef ensam alltid börjar om på `false`.
+    if (allOnboardingDone && !wasAllOnboardingDoneRef.current && !onboardingDismissed && !hasCelebratedBefore) {
       setCelebrating(true);
       setCelebrationKey(k => k + 1);
+      setHasCelebratedBefore(true);
+      try { localStorage.setItem(ONBOARDING_CELEBRATED_KEY, '1'); } catch { /* privat läge etc. — inte kritiskt */ }
       const t = setTimeout(() => setCelebrating(false), 2600);
       wasAllOnboardingDoneRef.current = true;
       return () => clearTimeout(t);
     }
     wasAllOnboardingDoneRef.current = allOnboardingDone;
-  }, [allOnboardingDone, onboardingDismissed]);
+  }, [allOnboardingDone, onboardingDismissed, hasCelebratedBefore]);
   // Rutan ligger kvar tills allt är klart (inte bara tills kontot slutar
   // räknas som "nytt") — men får fira klart sig innan den försvinner av sig
   // själv, precis som texten "rutan försvinner när du är igång" lovar.

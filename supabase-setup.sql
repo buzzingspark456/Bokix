@@ -205,6 +205,85 @@ USING ((select auth.uid()) = user_id)
 WITH CHECK ((select auth.uid()) = user_id);
 
 -- ═══════════════════════════════════════════════════════════
+-- Stripe-bokföringsunderlag: betalningar, utbetalningar och avgifter från
+-- kundens ANSLUTNA Stripe-konto (till skillnad från stripe_payment_events
+-- ovan, som bara loggar BOKIX EGNA fakturabetalningar)
+-- ═══════════════════════════════════════════════════════════
+-- Samma "aldrig skriv rakt in i user_data.state"-resonemang som
+-- stripe_payment_events/subscriptions ovan: cronen (api/cron/reminders.js)
+-- läser kundens ANSLUTNA kontos Balance Transactions (Stripe Connect,
+-- destination-charges — se create-checkout-session.js) och loggar dem HÄR,
+-- service-role, en rad per Stripe balance-transaction-id (idempotent mot
+-- Stripes "minst en gång"-semantik/omkörning). Klienten (ReviewQueue.jsx)
+-- läser sedan sina egna ogranskade rader och föreslår en bokföring genom
+-- den VANLIGA klient-sidans verifikationsflödet, precis som
+-- stripe_payment_events redan gör för fakturabetalningar — aldrig
+-- auto-bokfört rakt av, alltid granskat av användaren först.
+--
+-- VIKTIGT om vad "avgift" betyder här: Bokix använder Stripe Connect med
+-- destination-charges (transfer_data.destination + application_fee_amount,
+-- se create-checkout-session.js) — själva korttransaktionen och Stripes
+-- egen korttjänstavgift sker på BOKIX PLATTFORMSKONTO, inte på kundens
+-- anslutna konto. Vad som landar på KUNDENS konto är en TRANSFER (typ
+-- 'transfer'), redan netto Stripes avgift OCH Bokix egen plattformsavgift.
+-- Den plattformsavgiften är däremot en riktig, hittills obokförd kostnad
+-- för kunden — mellanskillnaden mellan vad fakturan bokfördes till
+-- (1930/1510 vid betalning, se handleRegisterInvoicePayment i App.jsx) och
+-- vad som faktiskt landade i Stripe-saldot beräknas av cronen (bästa-
+-- försök-matchning mot stripe_payment_events inom ett litet tidsfönster,
+-- inte en garanterad metadata-koppling) och sparas i platform_fee_amount.
+CREATE TABLE IF NOT EXISTS public.stripe_ledger_events (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  company_id text NOT NULL,
+  stripe_account_id text NOT NULL,
+  stripe_balance_transaction_id text NOT NULL UNIQUE,
+  -- Stripes egna balance-transaction-typer rakt av: transfer, payout,
+  -- charge, payment, refund, adjustment, stripe_fee m.fl. — ingen egen
+  -- omkodning i databasen, bara i UI vid behov (samma princip som
+  -- subscriptions.status ovan).
+  type text NOT NULL,
+  amount numeric NOT NULL,
+  fee numeric NOT NULL DEFAULT 0,
+  currency text NOT NULL,
+  description text,
+  source_id text,
+  created_at_stripe timestamptz NOT NULL,
+  matched_invoice_id text,
+  platform_fee_amount numeric,
+  reviewed_at timestamptz,
+  verification_id text,
+  created_at timestamptz DEFAULT now()
+);
+
+-- Prestandaindex: ReviewQueue.jsx frågar alltid "mina ogranskade rader för
+-- det här företaget" — utan index en sekventiell genomsökning av hela
+-- tabellen för varje sidladdning, likadant resonemang som övriga
+-- prestandaindex i den här filen.
+CREATE INDEX IF NOT EXISTS stripe_ledger_events_company_pending_idx
+ON public.stripe_ledger_events (company_id)
+WHERE reviewed_at IS NULL;
+
+ALTER TABLE public.stripe_ledger_events ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Select own stripe ledger events" ON public.stripe_ledger_events;
+CREATE POLICY "Select own stripe ledger events"
+ON public.stripe_ledger_events
+FOR SELECT
+USING ((select auth.uid()) = user_id);
+
+-- Enda skrivåtkomsten en inloggad användare har: kvittera sin egen post
+-- (reviewed_at/verification_id) efter att ha granskat/bokfört den i
+-- ReviewQueue.jsx — samma mönster som "Apply own payment events" ovan.
+-- Kan inte skapa nya rader (ingen INSERT-policy) eller ändra belopp/typ.
+DROP POLICY IF EXISTS "Apply own stripe ledger events" ON public.stripe_ledger_events;
+CREATE POLICY "Apply own stripe ledger events"
+ON public.stripe_ledger_events
+FOR UPDATE
+USING ((select auth.uid()) = user_id)
+WITH CHECK ((select auth.uid()) = user_id);
+
+-- ═══════════════════════════════════════════════════════════
 -- Prenumerationer: Bokix egen plan (99 kr/mån, 30 dagars gratis provperiod)
 -- ═══════════════════════════════════════════════════════════
 -- Samma resonemang som stripe_payment_events ovan — "är den här användaren
@@ -231,6 +310,12 @@ CREATE TABLE IF NOT EXISTS public.subscriptions (
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()
 );
+
+-- Dedup-markör för trial-slut-påminnelsen (api/cron/reminders.js) — utan
+-- den skulle ett "<=" (robust mot ett missat cron-pass, samma resonemang
+-- som moms-/AGI-påminnelserna i samma fil) skicka om mejlet varje dag fram
+-- till att provperioden faktiskt tar slut, inte bara en gång.
+ALTER TABLE public.subscriptions ADD COLUMN IF NOT EXISTS trial_reminder_sent_at timestamptz;
 
 DROP TRIGGER IF EXISTS set_updated_at ON public.subscriptions;
 CREATE TRIGGER set_updated_at

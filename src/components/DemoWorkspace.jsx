@@ -145,9 +145,10 @@ export default function DemoWorkspace() {
         return (
           <SupplierInvoices
             expenses={seed.expenses} accounts={seed.accounts} contacts={seed.contacts} setContacts={noop}
-            onAddSupplierInvoice={blocked} onMarkSupplierInvoicePaid={blocked}
+            projects={seed.projects} user={demoUser}
+            onAddSupplierInvoice={blocked} onMarkSupplierInvoicePaid={blocked} onUnmarkSupplierInvoicePaid={blocked}
             onFixExpenseAccount={blocked} globalAction={globalAction} clearGlobalAction={clearGlobalAction}
-            onNavigate={openTab}
+            onNavigate={openTab} uploadFn={demoUploadFn}
           />
         );
       case 'expenses':

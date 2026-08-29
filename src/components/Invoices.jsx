@@ -1234,7 +1234,7 @@ function InvoiceViewer({ invoice, contacts, company, status, onClose, onEdit }) 
 // fakturor-sidan), inte en förenklad attrapp — men kompakt, utan flerrads-
 // kontering/filuppladdning. "Ny leverantörsfaktura" och "Visa alla" öppnar
 // den fullständiga sidan för det som faktiskt kräver mer plats.
-function SupplierInvoicesPanel({ expenses, contacts, onMarkPaid, onOpenFull, onCreateNew }) {
+function SupplierInvoicesPanel({ expenses, contacts, onMarkPaid, onOpenFull, onOpenInvoice, onCreateNew }) {
   const [statusFilter, setStatusFilter] = useState('all');
   const list = expenses.filter(e => e.type === 'supplier_invoice');
 
@@ -1318,7 +1318,7 @@ function SupplierInvoicesPanel({ expenses, contacts, onMarkPaid, onOpenFull, onC
                 const status = getStatus(inv);
                 const supplier = contacts.find(c => c.id === inv.supplierId);
                 return (
-                  <tr key={inv.id} style={{ background: getRowBg(status === 'sent' ? 'sent' : status), borderBottom: '1px solid var(--border)', cursor: 'pointer' }} onClick={onOpenFull}>
+                  <tr key={inv.id} style={{ background: getRowBg(status === 'sent' ? 'sent' : status), borderBottom: '1px solid var(--border)', cursor: 'pointer' }} onClick={() => onOpenInvoice?.(inv)}>
                     <td style={{ padding: '8px 10px', fontWeight: 500, color: 'var(--text-main)' }}>{supplier?.name || 'Okänd leverantör'}</td>
                     <td style={{ padding: '8px 10px', color: 'var(--text-secondary)' }}>#{inv.invoiceNumber}</td>
                     <td style={{ padding: '8px 10px', color: 'var(--text-secondary)' }}>{formatDate(inv.date)}</td>
@@ -2088,6 +2088,7 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
         contacts={contacts}
         onMarkPaid={onMarkSupplierInvoicePaid}
         onOpenFull={() => onNavigate?.('supplier_invoices')}
+        onOpenInvoice={(inv) => handleGlobalAction?.({ type: 'view_supplier_invoice', payload: { id: inv.id } }, 'supplier_invoices')}
         onCreateNew={() => handleGlobalAction?.({ type: 'new_supplier_invoice' }, 'supplier_invoices')}
       />
     </div>

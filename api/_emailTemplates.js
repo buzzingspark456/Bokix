@@ -48,3 +48,22 @@ export function buildAgiDeadlineHtml({ company, deadline, siteUrl }) {
     <p>Med vänlig hälsning<br/>Bokix</p>
   `;
 }
+
+/** Automatisk påminnelse till KONTOT innan den kostnadsfria provperioden
+ * går ut och kortet dras första gången — kontonivå, inget företagsobjekt
+ * att hälsa "Hej [företag]" med (till skillnad från vat/agi ovan), därför
+ * bara "Hej". Länken går till startsidan (samma mönster som vat/agi ovan,
+ * `${siteUrl}/`) — appen har ingen tillförlitlig djuplänk direkt till en
+ * Inställningar-underflik, se Settings.jsx (aktiv underflik hämtas ur
+ * SAMMA window.location.hash som App.jsx redan använder för toppnivåfliken,
+ * så en länk hit skulle kräva "#subscription" och då aldrig ens nå fram
+ * till Inställningar-sidan). Vägen dit står istället i brödtexten. */
+export function buildTrialEndingHtml({ trialEndsAt, siteUrl }) {
+  return `
+    <p>Hej,</p>
+    <p>Din kostnadsfria provperiod av Bokix går ut <strong>${formatDate(trialEndsAt)}</strong>. Därefter dras <strong>99 kr/mån</strong> automatiskt på kortet du la in.</p>
+    <p>Vill du inte fortsätta går det bra att avsluta när som helst innan dess, utan att det kostar något — under Inställningar → Prenumeration.</p>
+    ${siteUrl ? ctaButton(`${siteUrl}/`, 'Öppna Bokix') : ''}
+    <p>Med vänlig hälsning<br/>Bokix</p>
+  `;
+}

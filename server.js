@@ -7,7 +7,8 @@ import { createClient } from '@supabase/supabase-js'
 import { createSignedState, verifySignedState } from './api/stripe/_oauthState.js'
 import { parseCookies, STRIPE_OAUTH_COOKIE, stripeOauthStateCookie, clearStripeOauthStateCookie } from './api/stripe/_cookies.js'
 import { recordStripePaymentEvent } from './api/stripe/_paymentEvents.js'
-import { upsertSubscription, hasExistingSubscription } from './api/stripe/_subscriptions.js'
+import { upsertSubscription, hasExistingSubscription, getSubscriptionRow } from './api/stripe/_subscriptions.js'
+import remindersHandler from './api/cron/reminders.js'
 import { normalizeAbsoluteUrl, appendQueryParam } from './api/stripe/_urls.js'
 import { resolveInvoiceLineItems } from './api/stripe/_invoiceLineItems.js'
 import { requireAuthedUser, loadOwnedCompany, loadMemberCompany } from './api/_auth.js'
@@ -416,6 +417,42 @@ app.post('/api/stripe/create-subscription-checkout', async (req, res) => {
 
   try {
     const body = req.body || {}
+
+    // Avsluta/återaktivera en BEFINTLIG prenumeration — se motsvarande
+    // kommentar i api/stripe/create-subscription-checkout.js (samma logik
+    // speglad här för lokal utveckling). Kräver alltid en verifierad
+    // inloggad session, till skillnad från checkout-grenen nedan.
+    if (body.action === 'cancel' || body.action === 'reactivate') {
+      const authedUser = await requireAuthedUser(req, res)
+      if (!authedUser) return
+
+      const subRow = await getSubscriptionRow(authedUser.id)
+      if (!subRow?.stripe_subscription_id) {
+        return res.status(404).json({ error: 'Ingen prenumeration hittades för kontot.' })
+      }
+
+      const updated = await stripe.subscriptions.update(subRow.stripe_subscription_id, {
+        cancel_at_period_end: body.action === 'cancel',
+      })
+
+      await upsertSubscription({
+        userId: authedUser.id,
+        stripeCustomerId: typeof updated.customer === 'string' ? updated.customer : updated.customer?.id,
+        stripeSubscriptionId: updated.id,
+        status: updated.status,
+        trialEndsAt: updated.trial_end ? new Date(updated.trial_end * 1000).toISOString() : null,
+        currentPeriodEnd: updated.current_period_end ? new Date(updated.current_period_end * 1000).toISOString() : null,
+        cancelAtPeriodEnd: !!updated.cancel_at_period_end,
+      })
+
+      return res.status(200).json({
+        status: updated.status,
+        cancelAtPeriodEnd: !!updated.cancel_at_period_end,
+        trialEndsAt: updated.trial_end ? new Date(updated.trial_end * 1000).toISOString() : null,
+        currentPeriodEnd: updated.current_period_end ? new Date(updated.current_period_end * 1000).toISOString() : null,
+      })
+    }
+
     if (!body.user_id) {
       return res.status(400).json({ error: 'user_id krävs.' })
     }
@@ -985,6 +1022,21 @@ app.post('/api/stripe/disconnect', async (req, res) => {
     handleError(res, error)
   }
 })
+
+// Speglar /api/cron/reminders — TILL SKILLNAD från varje annan rutt i den
+// här filen är den här INTE handkopierad, utan importerar och kör
+// produktionens handler direkt (se importen av remindersHandler ovan).
+// Skäl: fem separata påminnelse-/underlagsflöden (fakturor, moms, AGI,
+// trial, Stripe-ledger) med riktig Resend-utskicks- och Stripe-matchnings-
+// logik är för mycket att hålla två handskrivna kopior i synk utan att den
+// ena tyst glider isär från den andra — precis den sortens bugg
+// handkopiering annars riskerar (se t.ex. kommentaren vid create-
+// subscription-checkout ovan om varför DEN rutten historiskt saknat en
+// säkerhetskoll just för att de två kopiorna glidit isär). Vercels
+// request/response-objekt är Express-kompatibla nog (req.headers, req.query,
+// res.status().json()) för att detta ska fungera rakt av. Testa lokalt:
+// `curl -H "Authorization: Bearer $CRON_SECRET" "http://localhost:5000/api/cron/reminders?dryRun=true"`
+app.all('/api/cron/reminders', (req, res) => remindersHandler(req, res))
 
 const port = Number(process.env.PORT || 5000)
 app.listen(port, () => {

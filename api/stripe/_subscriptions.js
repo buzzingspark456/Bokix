@@ -25,6 +25,20 @@ export async function hasExistingSubscription(userId) {
   return !!data;
 }
 
+/** Hämtar HELA prenumerationsraden för ett konto (Inställningar →
+ * Prenumeration: avsluta/återaktivera, se create-subscription-checkout.js)
+ * — till skillnad från hasExistingSubscription ovan, som bara kollar OM en
+ * rad finns, behöver avsluta/återaktivera-flödet stripe_subscription_id:t
+ * för att veta VILKEN Stripe-prenumeration som ska uppdateras. */
+export async function getSubscriptionRow(userId) {
+  const supabaseUrl = process.env.VITE_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceRoleKey) return null;
+  const admin = createClient(supabaseUrl, serviceRoleKey);
+  const { data } = await admin.from('subscriptions').select('*').eq('user_id', userId).maybeSingle();
+  return data || null;
+}
+
 export async function upsertSubscription({
   userId,
   stripeCustomerId,

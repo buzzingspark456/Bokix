@@ -889,11 +889,16 @@ const tabAliases = {
   settings:         'settings',
 };
 const resolveTab = (id) => tabAliases[id] || id;
-// "Leverantörsfakturor" är sen flikmärgningen (se Expenses.jsx) inte längre
-// en egen sidopunkt — men Faktureringens genväg navigerar ändå dit med det
-// gamla id:t så att rätt underflik öppnas (se initialTab i App.jsx:s render-
-// switch). Här, för meny-highlight/rubrik, ska den räknas som "expenses".
-const resolveNavGroup = (id) => resolveTab(id === 'supplier_invoices' ? 'expenses' : id);
+// "Leverantörsfakturor" (SupplierInvoices.jsx) har ingen egen sidopunkt i
+// sidomenyn — den nås via Faktureringens ("invoices") egen Leverantörer-
+// flik/genväg (Invoices.jsx: SupplierInvoicesPanel), som navigerar hit med
+// det fristående tab-id:t 'supplier_invoices' så att rätt sida (inte bara
+// rätt underflik) öppnas. Här, för meny-highlight/rubrik, ska den därför
+// räknas som "invoices" — INTE "expenses": den hörde tidigare hemma som en
+// flik under Utgifter, men sen den flyttades till Fakturering ska
+// sidomenyn markera "Fakturering", inte hoppa till "Utgifter" och se ut
+// att navigera bort till en annan sida (kundrapporterad förvirring).
+const resolveNavGroup = (id) => resolveTab(id === 'supplier_invoices' ? 'invoices' : id);
 
 // ──────────────────────────────────────────────
 // APP COMPONENT
@@ -945,6 +950,20 @@ function App() {
   // active/past_due) — se PaymentRequiredGate.jsx. Satt i fetchUserData,
   // FÖRE isLoggedIn(true), så appen aldrig hinner visas ens ett ögonblick.
   const [subscriptionGate, setSubscriptionGate] = useState(null);
+  // Bugkritiskt (kundrapport): vilken användare den HÄR fliken senast satte
+  // igång fetchUserData för. En `ref`, inte state — måste kunna läsas
+  // synkront inne i onAuthStateChange-lyssnaren nedan, inte vänta in en
+  // re-render. Supabase delar inloggningen via localStorage mellan ALLA
+  // flikar av samma origin: loggar man in på ETT konto i en flik medan en
+  // ANNAN flik redan visar ett annat, inloggat konto, sänder Supabase ett
+  // SIGNED_IN-event även till den andra fliken. Att bara köra
+  // fetchUserData(session.user) rakt av där kapplöper mot en redan pågående
+  // fetchUserData för den gamla användaren — exakt det som hände en kund:
+  // ett konto utan avslutad betalning visade betalspärren, ett klick
+  // landade istället på instrumentpanelen, för att den kapplöpande
+  // fetchUserData-körningen för det GAMLA (redan betalande) kontot hann
+  // svara sist och skrev över gaten. Se onAuthStateChange längre ner.
+  const loadedUserIdRef = useRef(null);
   // Säkerhetsfix (säkerhetsgranskningen): TwoFactorSection (Settings.jsx)
   // lät användare registrera TOTP, men login-flödet kollade aldrig
   // "authenticator assurance level" efteråt — en inloggning med rätt
@@ -1395,6 +1414,7 @@ function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null);
       if (!session?.user) {
+        loadedUserIdRef.current = null;
         setIsLoggedIn(false);
         setShowOnboarding(false);
         setSubscriptionGate(null);
@@ -1416,6 +1436,19 @@ function App() {
         // återställningsformuläret"-bugg som mount-effektens getSession()
         // ovan redan skyddas mot. Samma hash-kontroll här.
         if (/type=recovery/.test(window.location.hash || '')) return;
+        // Se loadedUserIdRef-kommentaren ovan: den här fliken har redan en
+        // annan (eller ingen) användare inläst sedan tidigare. Skiljer
+        // mellan "första inloggningen i den här fliken" (loadedUserIdRef
+        // fortfarande null, kör fetchUserData som vanligt, oförändrat) och
+        // "ett ANNAT konto loggades in i en annan flik" (kör bara en hård
+        // omladdning istället — den enda garanterat race-fria vägen: den
+        // här fliken monteras om helt från scratch och läser precis den
+        // session som faktiskt ligger i localStorage NU, ingen kvarbliven
+        // state, ingen kapplöpning mellan två samtidiga fetchUserData).
+        if (loadedUserIdRef.current && loadedUserIdRef.current !== session.user.id) {
+          window.location.reload();
+          return;
+        }
         fetchUserData(session.user);
       }
     });
@@ -1427,6 +1460,10 @@ function App() {
   }, []);
 
   const fetchUserData = async (authUser) => {
+    // Se loadedUserIdRef-kommentaren vid subscriptionGate ovan — satt HÄR,
+    // innan något asynkront ens hinner starta, så en cross-tab SIGNED_IN
+    // för ett annat konto som hinner före upptäcks av nästa jämförelse.
+    loadedUserIdRef.current = authUser.id;
     try {
       // MFA-spärr — se kommentaren vid mfaChallenge ovan. Körs FÖRST, före
       // allt annat (även demo-läget nedan har en riktig Supabase-session
@@ -2627,6 +2664,18 @@ function App() {
     });
   };
 
+  // "Markera som obetald" för en leverantörsfaktura — samma princip som
+  // handleUnmarkInvoicePaid (kundfaktura) ovan: status/betaldatum
+  // återställs och betalningsverifikationen tas faktiskt bort, inte bara
+  // döljs. En faktura betald privat (paidByOwnerPrivately) skapade aldrig
+  // någon supplier_invoice_payment-verifikation (skulden ligger redan mot
+  // 2018, se handleAddSupplierInvoice) — filtret nedan är då ett no-op,
+  // vilket är rätt: det finns ingen betalning att ångra där.
+  const handleUnmarkSupplierInvoicePaid = (expenseId) => {
+    setExpenses(prev => prev.map(e => e.id === expenseId ? { ...e, status: 'unpaid', paidDate: undefined, paymentMethod: undefined } : e));
+    setVerifications(prev => prev.filter(v => !(v.source === 'supplier_invoice_payment' && v.sourceId === expenseId)));
+  };
+
   // Sätter konto på en utgift som saknar kontering — antingen via det gamla
   // "Fixa manuellt"-läget i Kvitto och utgifter, eller via Granskningssidans
   // Godkänn/Avvisa (som båda i slutändan bara väljer rätt konto).
@@ -3140,8 +3189,11 @@ function App() {
             accounts={accounts}
             contacts={contacts}
             setContacts={setContacts}
+            projects={projects}
+            user={user}
             onAddSupplierInvoice={handleAddSupplierInvoice}
             onMarkSupplierInvoicePaid={handleMarkSupplierInvoicePaid}
+            onUnmarkSupplierInvoicePaid={handleUnmarkSupplierInvoicePaid}
             onFixExpenseAccount={handleFixExpenseAccount}
             globalAction={globalAction}
             clearGlobalAction={() => setGlobalAction(null)}
@@ -3204,6 +3256,9 @@ function App() {
             accounts={accounts}
             reviewHistory={reviewHistory}
             onResolve={handleFixExpenseAccount}
+            user={user}
+            company={company}
+            onAddVerification={handleAddVerification}
           />
         );
 
