@@ -46,44 +46,31 @@ const btnStripeConnect = {
   fontWeight: 600, fontSize: '14px', cursor: 'pointer', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.06)',
 };
 
-// Zettles eget ordmärke — vektorpaths hämtade rakt av från Zettles egen
-// Wikimedia Commons-fil (samma "riktig vektor, inte en ikon"-princip som
-// StripeLogo ovan; public domain — "consists only of simple geometric
-// shapes or text", se filens egen licenssida). "by PayPal" finns inte i
-// den filen (den är från innan omdöpningen) — läggs till som en egen liten
-// textrad i samma navy, för att matcha dagens "Zettle by PayPal"-logga
-// istället för att låtsas den gamla ensam-Zettle-loggan är hela varumärket.
-function ZettleLogo({ height = 18, showByPaypal = true }) {
-  const width = (height * 415) / 125;
+// Zettles eget kombinerade ordmärke ("Zettle" + "by PayPal") — en riktig
+// rasterbild (public/zettle-logo.png, hämtad rakt av från Zettles egen
+// Wikimedia Commons-fil — public domain, "consists only of simple
+// geometric shapes or text", se filens licenssida), INTE ett handritat
+// SVG-försök. Ett tidigare försök att bygga om loggan i vektorform (från
+// en äldre, 2018-daterad "iZettle"-fil med annat, kantigare typsnitt) såg
+// sämre ut än originalet — kundfeedback och en skickad skärmdump av den
+// riktiga, nuvarande loggan visade tydligt att typsnittet inte matchade.
+// --zettle-logo-filter (index.css) gör hela märket vitt i mörkt läge
+// (`brightness(0) invert(1)`) istället för fill på enskilda paths, eftersom
+// en rasterbild inte har separata, färgbara delar.
+function ZettleLogo({ height = 18 }) {
+  const width = height * (3626 / 1612);
   return (
-    <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', gap: '3px' }}>
-      <svg viewBox="0 0 415 125" width={width} height={height} xmlns="http://www.w3.org/2000/svg" aria-label="Zettle">
-        <path fill="#A391E0" d="M96.426,29.643l-53.222,68.02h23.822l52.256-68.02H96.426z" />
-        <path fill="var(--zettle-wordmark)" d="M280.31,20.971h-18.326v20.059h-25.045V20.971h-18.344v20.059h-16.968v15.98h16.968V115h18.344V57.01
-          h25.045V115h18.326V57.01h16.965v-15.98H280.31V20.971z M176.741,69.623h-31.527c0.586-8.516,7.744-15.074,16.276-14.918
-          c9.024,0,14.778,6.641,15.33,14.918H176.741z M195.342,103.611L184.13,92.499c-5.049,5.399-12.039,8.569-19.428,8.808
-          c-10.616,0.399-19.637-7.689-20.394-18.285h52.67c2.325-26.543-14.365-43.744-35.843-43.744c-22.029,0-36.394,17.871-36.394,39.015
-          c0,23.151,17.242,38.463,39.133,38.463c12.315,0,24.354-4.866,31.527-13.144H195.342z M323.678,115.001V10.548h-18.325v104.435
-          L323.678,115.001z M29.391,115.001V43.73H11.066v71.271H29.391z M119.283,115.001v-17.34H43.204v17.34H119.283z M119.283,29.641
-          V12.32h-74.7v17.341L119.283,29.641z M7.5,20.971c0.001,7.03,5.701,12.729,12.731,12.728c7.028-0.001,12.726-5.699,12.727-12.728
-          c-0.001-7.029-5.701-12.728-12.731-12.727C13.198,8.246,7.5,13.943,7.5,20.971z M387.027,69.623H355.5
-          c0.596-8.518,7.76-15.075,16.295-14.918c9.025,0,14.779,6.641,15.312,14.918H387.027z M405.646,103.611l-11.229-11.112
-          c-5.043,5.41-12.037,8.58-19.43,8.808c-10.607,0.389-19.617-7.697-20.373-18.285h52.67c2.324-26.543-14.365-43.744-35.844-43.744
-          c-22.029,0-36.394,17.871-36.394,39.015c0,23.151,17.279,38.463,39.133,38.463c12.314,0,24.354-4.866,31.527-13.144H405.646z" />
-      </svg>
-      {showByPaypal && (
-        <span style={{ fontSize: `${Math.max(8, height * 0.32)}px`, fontWeight: 500, color: 'var(--zettle-wordmark)', letterSpacing: '0.01em', marginLeft: '1px' }}>
-          by <span style={{ fontWeight: 800 }}>PayPal</span>
-        </span>
-      )}
-    </span>
+    <img
+      src="/zettle-logo.png" alt="Zettle by PayPal" height={height} width={width}
+      style={{ height, width, objectFit: 'contain', filter: 'var(--zettle-logo-filter, none)' }}
+    />
   );
 }
 
 // Samma "vit botten, riktig logga"-mönster som btnStripeConnect ovan.
 const btnZettleConnect = {
   display: 'inline-flex', alignItems: 'center', gap: '10px', padding: '9px 18px 9px 16px',
-  background: 'var(--bg-card)', color: 'var(--zettle-wordmark)', border: '1px solid var(--border)', borderRadius: '8px',
+  background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border)', borderRadius: '8px',
   fontWeight: 600, fontSize: '14px', cursor: 'pointer', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.06)',
 };
 
@@ -1863,7 +1850,7 @@ export default function Settings({
                       <Badge tone="positive">Ansluten</Badge>
                     ) : (
                       <button onClick={() => { if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; } onConnectZettle(); }} style={btnZettleConnect}>
-                        <ZettleLogo height={15} showByPaypal={false} /> Anslut
+                        <ZettleLogo height={15} /> Anslut
                       </button>
                     )}
                   </div>

@@ -128,11 +128,17 @@
   --text-muted:     var(--gray-400);
   --text-inverse:   var(--white);
 
-  /* Zettles varumärkesnavy (ZettleLogo, Settings.jsx) — en egen token,
-     inte --text-main: den bytter till en gråaktig ton i mörkt läge, men
-     Zettles ordmärke ska bli VITT i mörkt läge (kundfeedback: den mörka
-     navyn syntes knappt mot en mörk bakgrund), inte gråaktigt. */
-  --zettle-wordmark: #1A1F4D;
+  /* ZettleLogo (Settings.jsx) är en riktig rasterbild (Zettles egen
+     Wikimedia Commons-fil, exakt loggan kunden visade som referens —
+     ett handritat SVG-försök av samma logga såg sämre ut, se commit-
+     historiken), inte en vektor att sätta fill på. Ett CSS-filter är
+     istället det som byter färg per tema: `none` här (ljust läge, visar
+     navy/lila precis som originalfilen), `brightness(0) invert(1)` i
+     mörkt läge nedan — gör VARJE opak pixel (både navy och lila) till
+     rent vitt. Tappar den lila accentfärgen i mörkt läge, men den mörka
+     navyn syntes knappt mot en mörk bakgrund (kundfeedback), och ett
+     enfärgat vitt märke är den vanliga lösningen för just det problemet. */
+  --zettle-logo-filter: none;
 
   /* ── Statusfärger (badges/rader: obetald/förfallen/betald/ej bokförd
      m.fl.) — BRAND.greenLight/redBg/amberBg/grayBg och deras Text-motsvarigheter
@@ -233,7 +239,7 @@
   --text-main:      #eef3ea;
   --text-secondary: #a9baa9;
   --text-muted:     #85987f;
-  --zettle-wordmark: #ffffff;
+  --zettle-logo-filter: brightness(0) invert(1);
 
   --border:       #2a3d2c;
   --border-light: #223328;
@@ -305,7 +311,7 @@
     --text-main:      #eef3ea;
     --text-secondary: #a9baa9;
     --text-muted:     #85987f;
-    --zettle-wordmark: #ffffff;
+    --zettle-logo-filter: brightness(0) invert(1);
     --border:       #2a3d2c;
     --border-light: #223328;
     --gray-50:  #1a2e20;
