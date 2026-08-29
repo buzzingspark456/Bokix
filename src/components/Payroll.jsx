@@ -16,6 +16,7 @@ export default function Payroll({
 }) {
   const [activeTab, setActiveTab] = useState('employees');
   const [search, setSearch] = useState('');
+  const [runSearch, setRunSearch] = useState('');
   const [viewState, setViewState] = useState('list'); // 'list' | 'new' | 'edit'
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [selectedRunId, setSelectedRunId] = useState(null);
@@ -37,11 +38,17 @@ export default function Payroll({
   };
 
   const sortedRuns = [...payrollRuns].sort((a, b) => b.period.localeCompare(a.period));
+  const filteredRuns = sortedRuns.filter(r => !runSearch || r.period.toLowerCase().includes(runSearch.toLowerCase()));
   const selectedRun = payrollRuns.find(r => r.id === selectedRunId);
   const selectedRunIndex = sortedRuns.findIndex(r => r.id === selectedRunId);
   const previousRun = selectedRunIndex >= 0 ? sortedRuns[selectedRunIndex + 1] : null;
 
   const activeEmployeesForPeriod = employees.filter(e => !e.endDate || e.endDate >= newRunPeriod + '-01');
+  // Kundens egen skärmdump visade tre identiska "Lönekörning 2026-08"-
+  // utkast — inget skydd mot att av misstag skapa flera körningar för
+  // samma period fanns. Varnar (blockerar inte, en avsiktlig andra
+  // körning kan vara legitim, t.ex. en rättelse) precis innan man skapar.
+  const existingRunForPeriod = payrollRuns.find(r => r.period === newRunPeriod);
 
   const handleCreateRun = () => {
     if (activeEmployeesForPeriod.length === 0) return; // extra skydd, knappen är redan spärrad
@@ -98,14 +105,20 @@ export default function Payroll({
         }}
       />
       {/* Sökfältet ligger kvar i samma kort som resten av sidhuvudet
-          (ListFilterBar, direkt under flikraden) — bara på "Anställda"-
-          fliken, precis som Bokförings filterrad, istället för att flyta
-          löst på sidbakgrunden under kortet. */}
-      {activeTab === 'employees' && viewState === 'list' && (
+          (ListFilterBar, direkt under flikraden) — precis som Bokförings
+          filterrad, istället för att flyta löst på sidbakgrunden under
+          kortet. Kundfeedback ("gör lönekörningar mer som anställda"):
+          Lönekörningar-fliken saknade den här raden helt, till skillnad
+          från Anställda — samma ListFilterBar/sökfält-mönster nu på båda. */}
+      {((activeTab === 'employees' && viewState === 'list') || activeTab === 'runs') && (
         <ListFilterBar>
           <div style={{ position: 'relative' }}>
             <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-            <input type="text" placeholder="Sök anställd..." value={search} onChange={e => setSearch(e.target.value)} style={listSearchInputStyle} />
+            {activeTab === 'employees' ? (
+              <input type="text" placeholder="Sök anställd..." value={search} onChange={e => setSearch(e.target.value)} style={listSearchInputStyle} />
+            ) : (
+              <input type="text" placeholder="Sök period, t.ex. 2026-08..." value={runSearch} onChange={e => setRunSearch(e.target.value)} style={listSearchInputStyle} />
+            )}
           </div>
         </ListFilterBar>
       )}
@@ -213,6 +226,11 @@ export default function Payroll({
                   ? 'Ingen anställd är aktiv under vald period (kontrollera anställnings-/slutdatum under Anställda). Körningen kan inte skapas förrän minst en anställd matchar perioden.'
                   : `${activeEmployeesForPeriod.length} ${activeEmployeesForPeriod.length === 1 ? 'anställd' : 'anställda'} kommer att inkluderas i denna körning.`}
               </div>
+              {existingRunForPeriod && (
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-amber-bg)', border: '1px solid var(--status-amber-bg)', borderRadius: '8px', padding: '10px 12px', marginBottom: '14px', fontSize: '12.5px', color: 'var(--status-amber-text)' }}>
+                  Det finns redan en lönekörning för {newRunPeriod} ({existingRunForPeriod.completedSteps.includes('booked') ? 'bokförd' : existingRunForPeriod.completedSteps.includes('calculated') ? 'beräknad' : 'utkast'}). Fortsätt bara om du medvetet vill skapa en till, t.ex. en rättelse.
+                </div>
+              )}
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
                 <button onClick={() => setShowNewRun(false)} style={{ padding: '9px 18px', background: 'var(--border-light)', border: 'none', borderRadius: '8px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer' }}>Avbryt</button>
                 <button onClick={handleCreateRun} disabled={activeEmployeesForPeriod.length === 0} style={{ padding: '9px 18px', background: activeEmployeesForPeriod.length ? 'var(--accent)' : 'var(--border)', color: activeEmployeesForPeriod.length ? 'white' : 'var(--text-muted)', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: activeEmployeesForPeriod.length ? 'pointer' : 'not-allowed' }}>Skapa</button>
@@ -223,8 +241,8 @@ export default function Payroll({
           <ListTable
             rowKey={r => r.id}
             onRowClick={r => setSelectedRunId(r.id)}
-            emptyMessage="Inga tidigare lönekörningar."
-            rows={sortedRuns}
+            emptyMessage={sortedRuns.length === 0 ? 'Inga tidigare lönekörningar.' : 'Ingen matchade sökningen.'}
+            rows={filteredRuns}
             columns={[
               { key: 'period', label: 'Period', fontWeight: 700, color: 'var(--text-main)', fontSize: '14px', render: r => `Lönekörning ${r.period}` },
               { key: 'employees', label: 'Anställda', color: 'var(--text-main)', fontSize: '14px', render: r => r.rows.length },
