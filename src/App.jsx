@@ -2265,8 +2265,16 @@ function App() {
     if (!company.stripeAccountId) throw new Error('Stripe är inte anslutet.');
 
     const customer = contacts.find(c => c.id === invoice.customerId);
-    const customerEmail = customer?.email || company.email;
-    if (!customerEmail) throw new Error('Kundens e-postadress saknas.');
+    // Bugfix (kundrapport: "Skapa betalningslänk funkar inte" — knappen var
+    // grå för en faktura vars kund/företag saknade e-post): en e-postadress
+    // krävdes tidigare hårt här, trots att den bara är valfri förifyllnad
+    // i Stripe Checkout (create-checkout-session.js: `customer_email:
+    // body.customer_email || undefined`) — Stripe frågar payern om den
+    // saknas, kräver den aldrig i förväg. Länken är till för att KOPIERAS/
+    // delas manuellt (SMS, i person, m.m.), inte bara ett automatiskt
+    // mejlutskick, så den ska gå att skapa oavsett om en e-post råkar
+    // finnas sparad eller inte.
+    const customerEmail = customer?.email || company.email || undefined;
 
     // Säkerhetsfix (se säkerhetsgranskningen): raderna/beloppet/avgiften
     // byggdes tidigare här och skickades med i requesten — backend litade

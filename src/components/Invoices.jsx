@@ -1748,22 +1748,21 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
     // istället för att duplicera det flödet i menyn.
     items.push({ key: 'link-transaction', label: 'Koppla till transaktion', icon: Link2, onClick: () => openInvoice(inv) });
     if (status !== 'paid' && onCreatePaymentLink) {
-      // Bugfix (kundrapport: "Skapa betalningslänk funkar inte"): den här
-      // kollen kollade bara customer?.email, men App.jsx:s
-      // getInvoicePaymentLinkUrl faller redan tillbaka på company.email om
-      // KUNDEN saknar en egen — knappen var alltså inaktiverad (grå, med
-      // tooltip om saknad kund-e-post) i fall där ett klick faktiskt hade
-      // fungerat. Matchar nu samma fallback som servern/App.jsx redan
-      // använder, istället för att blockera i onödan.
-      const recipientEmail = customer?.email || company?.email;
-      const canCreateLink = Boolean(company?.stripeAccountId && recipientEmail);
+      // Bugfix (kundrapport: "Skapa betalningslänk funkar inte" — knappen
+      // grå trots att Stripe var anslutet): krävde tidigare att kunden
+      // eller företaget hade en sparad e-post, men en e-postadress är bara
+      // valfri förifyllnad i Stripe Checkout (create-checkout-session.js),
+      // aldrig ett krav — Stripe frågar payern själv om den saknas. Länken
+      // är till för att KOPIERAS/delas manuellt (SMS, i person m.m.), inte
+      // bara ett automatiskt mejlutskick, så det enda som faktiskt krävs är
+      // att Stripe är anslutet. Se samma borttagna krav i App.jsx:s
+      // getInvoicePaymentLinkUrl.
+      const canCreateLink = Boolean(company?.stripeAccountId);
       items.push({
         key: 'payment-link', label: 'Skapa betalningslänk', icon: CreditCard,
         onClick: () => onCreatePaymentLink(inv.id),
         disabled: !canCreateLink,
-        title: !company?.stripeAccountId
-          ? 'Anslut Stripe under Inställningar för att låta kunder betala med kort'
-          : !recipientEmail ? 'Lägg till kundens e-post under Kunder (eller en företags-e-post under Inställningar) för att kunna skapa en betalningslänk' : undefined,
+        title: !canCreateLink ? 'Anslut Stripe under Inställningar för att låta kunder betala med kort' : undefined,
       });
     }
     items.push({ key: 'duplicate', label: 'Kopiera faktura', icon: Copy, onClick: () => handleDuplicateInvoice(inv) });
