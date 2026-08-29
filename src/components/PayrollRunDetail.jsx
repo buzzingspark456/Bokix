@@ -101,7 +101,14 @@ function EmployeeRow({ row, computed, previousComputed, accounts, onUpdateRow, l
           </div>
           {isZero ? (
             <div style={{ fontSize: '12.5px', color: 'var(--status-amber-text)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span>Inga tidrapporter registrerade för denna period</span>
+              {/* Bugfix (kundrapport): visade "Inga tidrapporter" oavsett
+                  löneform — meningslöst för en månadsanställd (ingen
+                  timme-koncept alls för dem), vars faktiska problem är en
+                  0 kr månadslön på anställningsposten, inte saknade
+                  tidrapporter. Se payrollCalculation.js: Grundlön-formeln
+                  för en månadsanställd är "monthlySalary × employmentRate%",
+                  helt skild från timanställdas "hourlyRate × hoursWorked". */}
+              <span>{isHourly ? 'Inga tidrapporter registrerade för denna period' : 'Ingen månadslön angiven — kontrollera lön/anställningsgrad under Anställda'}</span>
               {isHourly && !locked && (
                 <span onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <input
