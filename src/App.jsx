@@ -2960,10 +2960,13 @@ function App() {
   // till skillnad från handleAdvanceRunStep, som bara lägger till en flagga
   // utan att spara någon ytterligare information. Idempotent, samma mönster
   // som handleAdvanceRunStep redan använder.
+  // paidAt (kundfeedback: "all information" ska synas efter betalning,
+  // inte bara att steget bockats av) — samma "spara VAD/NÄR, inte bara
+  // klar/ej klar"-princip som paymentMethod redan är byggd på.
   const handleMarkRunPaid = (runId, paymentMethod = 'bank') => {
     setPayrollRuns(prev => prev.map(r => {
       if (r.id !== runId || r.completedSteps.includes('paid')) return r;
-      return { ...r, completedSteps: [...r.completedSteps, 'paid'], paymentMethod };
+      return { ...r, completedSteps: [...r.completedSteps, 'paid'], paymentMethod, paidAt: new Date().toISOString() };
     }));
   };
 

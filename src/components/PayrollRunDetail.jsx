@@ -197,6 +197,13 @@ function VerificationBlock({ title, rows, accounts }) {
 export default function PayrollRunDetail({ run, previousRun, accounts, company, onBack, onAdvanceStep, onBookRun, onMarkPaid, onUpdateRow, onRefreshSnapshots }) {
   const [agiConfirmed, setAgiConfirmed] = useState(run.completedSteps.includes('agi'));
   const [showBankGuide, setShowBankGuide] = useState(false);
+  // Kundfeedback ("man ska kunna göra manuellt om man vill"): Betala-steget
+  // gick tidigare BARA att slutföra via en pil-knapp i sidhuvudet som blint
+  // antog 'bank' — ingen riktig knapp fanns i Betalningsmetod-panelen alls,
+  // och inget alternativ för den som betalat på annat sätt (Swish, kontant,
+  // en separat överföring). showManualPay slår bara på/av den mindre synliga
+  // "annat sätt"-sektionen, döljs by default så Bank förblir förstahandsvalet.
+  const [showManualPay, setShowManualPay] = useState(false);
   const [tablesReady, setTablesReady] = useState(false);
   const [tablesError, setTablesError] = useState(null);
   const [payFileBusy, setPayFileBusy] = useState(false);
@@ -324,7 +331,12 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
     `Utbetalningsdatum: ${run.payDate || '—'}`,
     `${run.rows.length} ${run.rows.length === 1 ? 'anställd' : 'anställda'}`,
   ];
-  if (run.paymentMethod) subtitleParts.push(`Betald via ${run.paymentMethod === 'bank' ? 'bank' : 'kort'}`);
+  // Bugfix (samma kundrapport som betalsektionen nedan): antog tidigare att
+  // allt som inte var 'bank' måste vara 'kort' — en binär gissning som blev
+  // fel så fort 'manual' (Swish/kontant/annan överföring, se den nya
+  // knappen nedan) infördes som ett riktigt tredje värde.
+  const PAYMENT_METHOD_LABELS = { bank: 'bank', card: 'kort', manual: 'manuellt' };
+  if (run.paymentMethod) subtitleParts.push(`Betald via ${PAYMENT_METHOD_LABELS[run.paymentMethod] || run.paymentMethod}`);
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
@@ -411,95 +423,158 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
 
       {run.completedSteps.includes('approved') && (
         <div style={{ marginTop: '28px' }}>
-          {/* Sida 35: betalningsmetod-val — Bank fungerar (befintlig
-              pain.001-betalfil, oförändrad innanför sitt kort nedan), Kort
-              är ärligt "Kommer snart" eftersom det skulle kräva en helt
-              annan Stripe-produkt (utbetalningar) än den som redan finns. */}
           <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 12px' }}>Betalningsmetod</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.6fr) minmax(0, 1fr)', gap: '16px', alignItems: 'start' }}>
-          <div style={{ ...panelCard, padding: '20px' }}>
-          <h4 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Landmark size={16} color="var(--accent)" /> Bank — Betalfil
-          </h4>
-          <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>Format</label>
-          <select disabled style={{ width: '100%', maxWidth: '360px', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '14px', background: 'var(--bg-muted)', color: 'var(--text-secondary)', marginBottom: '6px' }}>
-            <option>ISO 20022 pain.001 (XML)</option>
-          </select>
-          <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '14px', lineHeight: 1.5 }}>
-            ISO 20022, standarden för betalfiler. Kräver oftast filkommunikationsavtal med banken: flera internetbanker tar inte emot pain.001 via vanlig filuppladdning.
-          </p>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-amber-bg)', border: '1px solid var(--status-amber-bg)', borderRadius: '8px', padding: '12px 14px', marginBottom: '16px', fontSize: '12.5px', color: 'var(--status-amber-text)', lineHeight: 1.5 }}>
-            <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 1 }} />
-            <span>pain.001 skickas normalt via filkommunikationsavtal eller bankgirokoppling, inte genom att laddas upp i internetbanken. Kontrollera att din bank tar emot filen den vägen i god tid före utbetalningsdagen — filen skickas aldrig automatiskt någonstans, du laddar upp den själv.</span>
-          </div>
 
-          {debtorAccountError && (
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-red-bg)', border: '1px solid var(--status-red-bg)', borderRadius: '8px', padding: '12px 14px', marginBottom: '14px', fontSize: '12.5px', color: 'var(--status-red-text)', lineHeight: 1.5 }}>
-              <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 1 }} />
-              <span>{debtorAccountError}</span>
+          {/* Kundfeedback ("all information", "hela stilen är inte så bra"):
+              en redan betald körning visade tidigare exakt samma formulär
+              som en obetald — ingen bekräftelse på VAD som faktiskt hände.
+              Ersätts nu med en ren kvittens (metod + datum) istället för
+              att lämna nedladdnings-/markera-som-betald-knapparna aktiva
+              för en redan avslutad betalning. */}
+          {run.completedSteps.includes('paid') ? (
+            <div style={{ ...panelCard, padding: '20px', display: 'flex', alignItems: 'center', gap: '14px' }}>
+              <div style={{ width: 40, height: 40, borderRadius: '10px', background: 'var(--status-green-bg)', color: 'var(--status-green-text)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Check size={20} />
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '14.5px', color: 'var(--text-main)' }}>
+                  Betald {run.paidAt ? new Date(run.paidAt).toLocaleDateString('sv-SE') : ''}
+                </div>
+                <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                  Via {PAYMENT_METHOD_LABELS[run.paymentMethod] || run.paymentMethod || 'okänt sätt'} · {fmt(totals.net)} kr nettolön till {computedRows.length} {computedRows.length === 1 ? 'anställd' : 'anställda'}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.6fr) minmax(0, 1fr)', gap: '16px', alignItems: 'stretch' }}>
+              <div style={{ ...panelCard, padding: '20px', display: 'flex', flexDirection: 'column' }}>
+                <h4 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Landmark size={16} color="var(--accent)" /> Bank — Betalfil
+                </h4>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>Format</label>
+                <select disabled style={{ width: '100%', maxWidth: '360px', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '14px', background: 'var(--bg-muted)', color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                  <option>ISO 20022 pain.001 (XML)</option>
+                </select>
+                <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '14px', lineHeight: 1.5 }}>
+                  ISO 20022, standarden för betalfiler. Kräver oftast filkommunikationsavtal med banken: flera internetbanker tar inte emot pain.001 via vanlig filuppladdning.
+                </p>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-amber-bg)', border: '1px solid var(--status-amber-bg)', borderRadius: '8px', padding: '12px 14px', marginBottom: '16px', fontSize: '12.5px', color: 'var(--status-amber-text)', lineHeight: 1.5 }}>
+                  <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 1 }} />
+                  <span>pain.001 skickas normalt via filkommunikationsavtal eller bankgirokoppling, inte genom att laddas upp i internetbanken. Kontrollera att din bank tar emot filen den vägen i god tid före utbetalningsdagen — filen skickas aldrig automatiskt någonstans, du laddar upp den själv.</span>
+                </div>
+
+                {debtorAccountError && (
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-red-bg)', border: '1px solid var(--status-red-bg)', borderRadius: '8px', padding: '12px 14px', marginBottom: '14px', fontSize: '12.5px', color: 'var(--status-red-text)', lineHeight: 1.5 }}>
+                    <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 1 }} />
+                    <span>{debtorAccountError}</span>
+                  </div>
+                )}
+
+                {missingIbanInfo.length > 0 && (
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 14px', marginBottom: '14px', fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                    <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 1, color: 'var(--text-muted)' }} />
+                    <span>
+                      {missingIbanInfo.length} {missingIbanInfo.length === 1 ? 'anställd saknar' : 'anställda saknar'} IBAN/BIC ({missingIbanInfo.map(r => `${r.row.employeeSnapshot?.firstName || ''} ${r.row.employeeSnapshot?.lastName || ''}`.trim()).join(', ')}) och exkluderas från betalfilen om du laddar ner den nu. Komplettera under Anställda.
+                    </span>
+                  </div>
+                )}
+
+                {payFileError && (
+                  <div style={{ fontSize: '12.5px', color: 'var(--status-red-text)', marginBottom: '12px' }}>{payFileError}</div>
+                )}
+                {payFileResult && (
+                  <div style={{ fontSize: '12.5px', color: 'var(--status-green-text)', marginBottom: '12px', fontWeight: 600 }}>
+                    Betalfil nedladdad — {payFileResult.eligible} {payFileResult.eligible === 1 ? 'anställd' : 'anställda'} inkluderade
+                    {payFileResult.excluded.length > 0 ? `, ${payFileResult.excluded.length} exkluderade (saknar IBAN/BIC).` : '.'}
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <button
+                    onClick={handleDownloadPayFile}
+                    disabled={payFileBusy || Boolean(debtorAccountError) || missingIbanInfo.length === computedRows.length}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 18px', borderRadius: '8px', fontSize: '13.5px', fontWeight: 700, border: 'none',
+                      background: (payFileBusy || debtorAccountError || missingIbanInfo.length === computedRows.length) ? 'var(--border)' : 'var(--accent)',
+                      color: (payFileBusy || debtorAccountError || missingIbanInfo.length === computedRows.length) ? 'var(--text-muted)' : 'white',
+                      cursor: (payFileBusy || debtorAccountError || missingIbanInfo.length === computedRows.length) ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    <Download size={15} /> {payFileBusy ? 'Skapar fil…' : 'Ladda ner betalfil'}
+                  </button>
+                  <button type="button" onClick={() => setShowBankGuide(s => !s)} style={{ background: 'none', border: 'none', color: 'var(--text-main)', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
+                    Så importerar du filen i din bank {showBankGuide ? <ChevronUp size={13} style={{ verticalAlign: 'middle' }} /> : <ChevronDown size={13} style={{ verticalAlign: 'middle' }} />}
+                  </button>
+                </div>
+                {showBankGuide && (
+                  <div style={{ marginTop: '12px', padding: '14px', background: 'var(--bg-muted)', borderRadius: '8px', fontSize: '13px', color: 'var(--text-main)', lineHeight: 1.6 }}>
+                    I de flesta internetbanker: logga in på företagets internetbank, sök upp "Filöverföring" eller "Leverantörsbetalningar" i menyn, välj rätt filformat (pain.001/ISO 20022) och ladda upp filen där. Vissa banker kräver ett separat filkommunikationsavtal som tecknas i förväg — kontakta din bank om alternativet inte syns. Sök efter din banks egen dokumentation för exakta steg, eftersom detta skiljer sig mellan banker.
+                  </div>
+                )}
+
+                {/* Kundfeedback ("man ska kunna markera som betald"): fanns
+                    tidigare INGEN knapp här alls — enda vägen att slutföra
+                    Betala-steget var pilen i sidhuvudet, helt frikopplad
+                    från den här panelen och det du faktiskt just gjorde
+                    (laddade ner filen). Riktig bekräftelse-knapp nu,
+                    direkt där handlingen ägde rum. */}
+                <div style={{ marginTop: 'auto', paddingTop: '18px', borderTop: '1px solid var(--border-light)' }}>
+                  <button
+                    onClick={() => onMarkPaid(run.id, 'bank')}
+                    style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '10px 20px', background: 'var(--status-green-text)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 700, fontSize: '13.5px', cursor: 'pointer' }}
+                  >
+                    <Check size={15} /> Markera som betald
+                  </button>
+                  <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', margin: '8px 0 0' }}>
+                    Klicka när lönerna faktiskt är utbetalda — t.ex. efter att du laddat upp betalfilen i banken. Bokix kan inte se det själv.
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ ...panelCard, padding: '20px', opacity: 0.6 }}>
+                  <h4 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <CreditCard size={16} color="var(--text-muted)" /> Kort (Stripe)
+                  </h4>
+                  <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', lineHeight: 1.6, margin: '0 0 18px' }}>
+                    Lämpligt för enstaka mindre utbetalningar, men kräver en annan Stripe-produkt (utbetalningar till anställda) än den som redan tar emot kortbetalningar från era kunder — inte byggt ännu.
+                  </p>
+                  <button disabled style={{ width: '100%', padding: '9px 12px', background: 'var(--border-light)', color: 'var(--text-muted)', border: 'none', borderRadius: '8px', fontWeight: 700, fontSize: '13px', cursor: 'not-allowed' }}>
+                    Kommer snart
+                  </button>
+                </div>
+
+                {/* Kundfeedback ("man ska kunna göra manuellt om man
+                    vill"): den enda vägen framåt var tidigare att anta att
+                    ALLA betalar via den här bankfilen. En del betalar via
+                    Swish, kontant eller en separat överföring redan innan
+                    de ens öppnar Bokix — de ska kunna säga det, inte tvingas
+                    låtsas att en bankfil användes. */}
+                <div style={{ ...panelCard, padding: '18px' }}>
+                  <button
+                    type="button" onClick={() => setShowManualPay(s => !s)}
+                    style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--text-main)', fontSize: '13px', fontWeight: 600 }}
+                  >
+                    Betalade du på ett annat sätt?
+                    {showManualPay ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                  </button>
+                  {showManualPay && (
+                    <div style={{ marginTop: '12px' }}>
+                      <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '0 0 12px', lineHeight: 1.5 }}>
+                        T.ex. Swish, kontant eller en separat överföring du redan gjort. Bokix bokför samma verifikationer oavsett — det här styr bara vad som visas som betalningssätt.
+                      </p>
+                      <button
+                        onClick={() => onMarkPaid(run.id, 'manual')}
+                        style={{ width: '100%', padding: '9px 12px', background: 'var(--bg-muted)', color: 'var(--text-main)', border: '1px solid var(--border)', borderRadius: '8px', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}
+                      >
+                        Markera som betald manuellt
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           )}
-
-          {missingIbanInfo.length > 0 && (
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 14px', marginBottom: '14px', fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-              <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 1, color: 'var(--text-muted)' }} />
-              <span>
-                {missingIbanInfo.length} {missingIbanInfo.length === 1 ? 'anställd saknar' : 'anställda saknar'} IBAN/BIC ({missingIbanInfo.map(r => `${r.row.employeeSnapshot?.firstName || ''} ${r.row.employeeSnapshot?.lastName || ''}`.trim()).join(', ')}) och exkluderas från betalfilen om du laddar ner den nu. Komplettera under Anställda.
-              </span>
-            </div>
-          )}
-
-          {payFileError && (
-            <div style={{ fontSize: '12.5px', color: 'var(--status-red-text)', marginBottom: '12px' }}>{payFileError}</div>
-          )}
-          {payFileResult && (
-            <div style={{ fontSize: '12.5px', color: 'var(--status-green-text)', marginBottom: '12px', fontWeight: 600 }}>
-              Betalfil nedladdad — {payFileResult.eligible} {payFileResult.eligible === 1 ? 'anställd' : 'anställda'} inkluderade
-              {payFileResult.excluded.length > 0 ? `, ${payFileResult.excluded.length} exkluderade (saknar IBAN/BIC).` : '.'}
-            </div>
-          )}
-
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-            <button
-              onClick={handleDownloadPayFile}
-              disabled={payFileBusy || Boolean(debtorAccountError) || missingIbanInfo.length === computedRows.length}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 18px', borderRadius: '8px', fontSize: '13.5px', fontWeight: 700, border: 'none',
-                background: (payFileBusy || debtorAccountError || missingIbanInfo.length === computedRows.length) ? 'var(--border)' : 'var(--accent)',
-                color: (payFileBusy || debtorAccountError || missingIbanInfo.length === computedRows.length) ? 'var(--text-muted)' : 'white',
-                cursor: (payFileBusy || debtorAccountError || missingIbanInfo.length === computedRows.length) ? 'not-allowed' : 'pointer',
-              }}
-            >
-              <Download size={15} /> {payFileBusy ? 'Skapar fil…' : 'Ladda ner betalfil'}
-            </button>
-            <button type="button" onClick={() => setShowBankGuide(s => !s)} style={{ background: 'none', border: 'none', color: 'var(--text-main)', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
-              Så importerar du filen i din bank {showBankGuide ? <ChevronUp size={13} style={{ verticalAlign: 'middle' }} /> : <ChevronDown size={13} style={{ verticalAlign: 'middle' }} />}
-            </button>
-          </div>
-          {showBankGuide && (
-            <div style={{ marginTop: '12px', padding: '14px', background: 'var(--bg-muted)', borderRadius: '8px', fontSize: '13px', color: 'var(--text-main)', lineHeight: 1.6 }}>
-              I de flesta internetbanker: logga in på företagets internetbank, sök upp "Filöverföring" eller "Leverantörsbetalningar" i menyn, välj rätt filformat (pain.001/ISO 20022) och ladda upp filen där. Vissa banker kräver ett separat filkommunikationsavtal som tecknas i förväg — kontakta din bank om alternativet inte syns. Sök efter din banks egen dokumentation för exakta steg, eftersom detta skiljer sig mellan banker.
-            </div>
-          )}
-
-          <div style={{ marginTop: '18px', paddingTop: '14px', borderTop: '1px solid var(--border-light)', fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            Automatisk direktbetalning via open banking (utan filimport) är planerad.
-            <span style={{ padding: '2px 8px', borderRadius: '999px', background: 'var(--border-light)', color: 'var(--text-muted)', fontSize: '10.5px', fontWeight: 700 }}>Kommer snart</span>
-          </div>
-          </div>
-
-          <div style={{ ...panelCard, padding: '20px', opacity: 0.6 }}>
-            <h4 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <CreditCard size={16} color="var(--text-muted)" /> Kort (Stripe)
-            </h4>
-            <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', lineHeight: 1.6, margin: '0 0 18px' }}>
-              Lämpligt för enstaka mindre utbetalningar, men kräver en annan Stripe-produkt (utbetalningar till anställda) än den som redan tar emot kortbetalningar från era kunder — inte byggt ännu.
-            </p>
-            <button disabled style={{ width: '100%', padding: '9px 12px', background: 'var(--border-light)', color: 'var(--text-muted)', border: 'none', borderRadius: '8px', fontWeight: 700, fontSize: '13px', cursor: 'not-allowed' }}>
-              Kommer snart
-            </button>
-          </div>
-          </div>
         </div>
       )}
 
