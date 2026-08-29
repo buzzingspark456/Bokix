@@ -403,7 +403,13 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
       )}
 
       <SummaryCards totals={totals} />
-      <div style={{ background: 'var(--text-main)', color: 'white', borderRadius: '14px', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px', boxShadow: '0 4px 14px rgba(17, 24, 39, 0.18)' }}>
+      {/* Bugfix (kundrapport, dark mode): bakgrunden var --text-main, som
+          i mörkt tema ÄR nästan-vit text-färgen (#eef3ea) — rutan blev då
+          nästan-vit med vit text, osynlig. --accent skrivs aldrig om per
+          tema (samma gröna varumärkesfärg i både ljust och mörkt läge),
+          vilket är samma mönster som knappar i resten av appen använder
+          för accentfärgad yta med vit text. */}
+      <div style={{ background: 'var(--accent)', color: 'white', borderRadius: '14px', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px', boxShadow: '0 4px 14px rgba(61, 122, 46, 0.25)' }}>
         <span style={{ fontWeight: 600, fontSize: '14px' }}>Total kostnad</span>
         <span style={{ fontWeight: 800, fontSize: '22px' }}>{fmt(totals.totalCost)} kr</span>
       </div>
