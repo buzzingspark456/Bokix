@@ -128,6 +128,12 @@
   --text-muted:     var(--gray-400);
   --text-inverse:   var(--white);
 
+  /* Zettles varumärkesnavy (ZettleLogo, Settings.jsx) — en egen token,
+     inte --text-main: den bytter till en gråaktig ton i mörkt läge, men
+     Zettles ordmärke ska bli VITT i mörkt läge (kundfeedback: den mörka
+     navyn syntes knappt mot en mörk bakgrund), inte gråaktigt. */
+  --zettle-wordmark: #1A1F4D;
+
   /* ── Statusfärger (badges/rader: obetald/förfallen/betald/ej bokförd
      m.fl.) — BRAND.greenLight/redBg/amberBg/grayBg och deras Text-motsvarigheter
      (src/utils/brandColors.js) pekar på DE HÄR tokens istället för egna hex,
@@ -227,6 +233,7 @@
   --text-main:      #eef3ea;
   --text-secondary: #a9baa9;
   --text-muted:     #85987f;
+  --zettle-wordmark: #ffffff;
 
   --border:       #2a3d2c;
   --border-light: #223328;
@@ -298,6 +305,7 @@
     --text-main:      #eef3ea;
     --text-secondary: #a9baa9;
     --text-muted:     #85987f;
+    --zettle-wordmark: #ffffff;
     --border:       #2a3d2c;
     --border-light: #223328;
     --gray-50:  #1a2e20;
