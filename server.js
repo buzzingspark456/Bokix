@@ -890,18 +890,61 @@ async function persistStripeAccountId({ userId, companyId, stripeAccountId }) {
   if (error) throw error
 }
 
-// Säkerhetsfix (se motsvarande kommentar i api/stripe/oauth-start.js, samma
+// Säkerhetsfix (se motsvarande kommentar i api/stripe/connect.js, samma
 // logik speglad här för lokal utveckling): var en ren GET med user_id/
 // company_id i query-strängen — vem som helst kunde avfyra den för
 // VILKEN användare/företag som helst och koppla sitt eget Stripe-konto
 // till någon annans Bokix-företag. Autentiserad POST nu istället,
 // returnerar adressen som JSON — frontend navigerar dit själv.
-app.post('/api/stripe/oauth-start', async (req, res) => {
+//
+// /api/stripe/connect (inte längre separata oauth-start.js/disconnect.js)
+// — de två slogs ihop (dispatch på req.body.action) för att göra plats åt
+// en ny Zettle-integration under Vercels 12-funktionsgräns (Hobby), se
+// filkommentaren i api/stripe/connect.js. Speglat likadant här.
+app.post('/api/stripe/connect', async (req, res) => {
   if (await isRequestFromBot()) {
     res.status(403).json({ error: 'Åtkomst nekad.' })
     return
   }
 
+  const user = await requireAuthedUser(req, res)
+  if (!user) return
+
+  const { company_id: companyId, action } = req.body || {}
+  if (!companyId) {
+    res.status(400).json({ error: 'company_id krävs.' })
+    return
+  }
+
+  if (action === 'disconnect') {
+    if (!requireStripe(res)) return
+    try {
+      const companyData = await loadOwnedCompany(user.id, companyId, res)
+      if (!companyData) return
+      const stripeAccountId = companyData.company?.stripeAccountId
+      if (!stripeAccountId) {
+        return res.status(400).json({ error: 'Inget Stripe-konto är anslutet för det här företaget.' })
+      }
+
+      const clientId = process.env.STRIPE_CONNECT_CLIENT_ID
+      if (clientId) {
+        try {
+          await stripe.oauth.deauthorize({ client_id: clientId, stripe_user_id: stripeAccountId })
+        } catch (err) {
+          console.warn('Stripe deauthorize warning:', err.message)
+        }
+      }
+
+      await persistStripeAccountId({ userId: user.id, companyId, stripeAccountId: null })
+      res.status(200).json({ ok: true })
+    } catch (error) {
+      handleError(res, error)
+    }
+    return
+  }
+
+  // Förval 'start' — samma "okänd/saknad action tolkas som start"-regel
+  // som connect.js.
   const clientId = process.env.STRIPE_CONNECT_CLIENT_ID
   if (!clientId || !process.env.STRIPE_OAUTH_STATE_SECRET) {
     console.error('Stripe OAuth start: STRIPE_CONNECT_CLIENT_ID eller STRIPE_OAUTH_STATE_SECRET saknas.')
@@ -909,14 +952,6 @@ app.post('/api/stripe/oauth-start', async (req, res) => {
     return
   }
 
-  const user = await requireAuthedUser(req, res)
-  if (!user) return
-
-  const { company_id: companyId } = req.body || {}
-  if (!companyId) {
-    res.status(400).json({ error: 'company_id krävs.' })
-    return
-  }
   const companyData = await loadOwnedCompany(user.id, companyId, res)
   if (!companyData) return
 
@@ -975,51 +1010,6 @@ app.get('/api/stripe/callback', async (req, res) => {
   } catch (err) {
     console.error('Stripe OAuth callback error:', err)
     redirectWithStatus('error')
-  }
-})
-
-app.post('/api/stripe/disconnect', async (req, res) => {
-  if (!requireStripe(res)) return
-
-  // Vercel BotID — se filkommentaren i main.jsx.
-  if (await isRequestFromBot()) {
-    res.status(403).json({ error: 'Åtkomst nekad.' })
-    return
-  }
-
-  // Säkerhetsfix (se motsvarande kommentar i api/stripe/disconnect.js,
-  // samma logik speglad här för lokal utveckling): kräver nu en verifierad
-  // session och bevisar ägarskap av företaget, istället för att lita på
-  // user_id/company_id/stripe_account_id rakt från requesten.
-  const user = await requireAuthedUser(req, res)
-  if (!user) return
-
-  try {
-    const { company_id: companyId } = req.body || {}
-    if (!companyId) {
-      return res.status(400).json({ error: 'company_id krävs.' })
-    }
-
-    const companyData = await loadOwnedCompany(user.id, companyId, res)
-    if (!companyData) return
-    const stripeAccountId = companyData.company?.stripeAccountId
-    if (!stripeAccountId) {
-      return res.status(400).json({ error: 'Inget Stripe-konto är anslutet för det här företaget.' })
-    }
-
-    const clientId = process.env.STRIPE_CONNECT_CLIENT_ID
-    if (clientId) {
-      try {
-        await stripe.oauth.deauthorize({ client_id: clientId, stripe_user_id: stripeAccountId })
-      } catch (err) {
-        console.warn('Stripe deauthorize warning:', err.message)
-      }
-    }
-
-    await persistStripeAccountId({ userId: user.id, companyId, stripeAccountId: null })
-    res.status(200).json({ ok: true })
-  } catch (error) {
-    handleError(res, error)
   }
 })
 

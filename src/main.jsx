@@ -35,7 +35,12 @@ initBotId({
   protect: [
     { path: '/api/stripe/create-checkout-session', method: 'POST' },
     { path: '/api/stripe/create-subscription-checkout', method: 'POST' },
-    { path: '/api/stripe/disconnect', method: 'POST' },
+    // Tidigare bara /api/stripe/disconnect — oauth-start.js/disconnect.js
+    // slogs ihop till connect.js (action: 'start'/'disconnect') för att
+    // göra plats under Vercels 12-funktionsgräns, se filkommentaren där.
+    // Skyddar nu BÅDA actionerna, inte bara disconnect (oauth-start hade
+    // aldrig BotID-skydd — ett förbiseende, inte avsiktligt).
+    { path: '/api/stripe/connect', method: 'POST' },
     { path: '/api/email/send-invoice', method: 'POST' },
     // api/email/domains/index.js (tidigare två separata filer, create.js
     // + status.js — ihopslagna, se den filens egen kommentar för varför).

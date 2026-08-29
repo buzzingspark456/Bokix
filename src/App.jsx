@@ -2156,13 +2156,18 @@ function App() {
   // Klassiskt Stripe Connect OAuth ("Standard"-konton) — hela poängen är
   // fortfarande att lämna Bokix och landa på Stripes egen hostade sida,
   // men själva starten är nu ett autentiserat POST-anrop (säkerhetsfix,
-  // se api/stripe/oauth-start.js) istället för en ren länk-navigering:
+  // se api/stripe/connect.js) istället för en ren länk-navigering:
   // en GET med bara user_id/company_id i URL:en gick tidigare att avfyra
   // för VILKEN användare/företag som helst, utan att verifiera vem som
   // faktiskt klickade — kunde koppla en angripares Stripe-konto till
   // någon annans Bokix-företag. Backend sköter state-generering och
   // cookien precis som förut, bara returnerar adressen som JSON istället
   // för att själv göra 302:an, så vi kan skicka med sessionens token.
+  //
+  // /api/stripe/connect (inte /oauth-start längre) — start och disconnect
+  // slogs ihop till en fil för att göra plats under Vercels 12-funktions-
+  // gräns (Hobby), se filkommentaren i connect.js. action: 'start' väljer
+  // grenen.
   const handleOpenStripeOnboarding = async () => {
     if (!user) {
       alert('Logga in för att ansluta Stripe.');
@@ -2171,13 +2176,13 @@ function App() {
     if (company.stripeAccountId) return; // redan anslutet — inget att göra
     try {
       const { data: { session } = {} } = await supabase.auth.getSession();
-      const response = await fetch('/api/stripe/oauth-start', {
+      const response = await fetch('/api/stripe/connect', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
         },
-        body: JSON.stringify({ company_id: data.activeCompanyId }),
+        body: JSON.stringify({ company_id: data.activeCompanyId, action: 'start' }),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || !payload?.url) throw new Error(payload?.error || `Kunde inte starta Stripe-anslutningen (${response.status})`);
@@ -2196,15 +2201,17 @@ function App() {
       // Säkerhetsfix: user_id och stripe_account_id skickas inte längre med
       // — servern verifierar nu vem som anropar via sessionens access-token
       // och slår själv upp vilket konto som faktiskt är kopplat till
-      // företaget (se disconnect.js), istället för att lita på body:n.
+      // företaget (se connect.js: handleDisconnect), istället för att lita
+      // på body:n. Samma /api/stripe/connect-endpoint som start ovan,
+      // action: 'disconnect' väljer grenen.
       const { data: { session } = {} } = await supabase.auth.getSession();
-      const response = await fetch('/api/stripe/disconnect', {
+      const response = await fetch('/api/stripe/connect', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
         },
-        body: JSON.stringify({ company_id: data.activeCompanyId }),
+        body: JSON.stringify({ company_id: data.activeCompanyId, action: 'disconnect' }),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload?.error || `Frånkoppling misslyckades (${response.status})`);
