@@ -18,8 +18,9 @@ import PricingPage from './components/marketing/PricingPage.jsx';
 import AboutPage from './components/marketing/AboutPage.jsx';
 import ContactPage from './components/marketing/ContactPage.jsx';
 import ChooseSoftwareGuidePage from './components/marketing/ChooseSoftwareGuidePage.jsx';
+import AlternativePage from './components/marketing/AlternativePage.jsx';
 
-export const PRERENDER_ROUTES = ['/', '/funktioner', '/priser', '/om-oss', '/kontakt', '/valja-bokforingsprogram'];
+export const PRERENDER_ROUTES = ['/', '/funktioner', '/priser', '/om-oss', '/kontakt', '/valja-bokforingsprogram', '/alternativ'];
 
 const PAGES = {
   '/': LandingPage,
@@ -28,6 +29,7 @@ const PAGES = {
   '/om-oss': AboutPage,
   '/kontakt': ContactPage,
   '/valja-bokforingsprogram': ChooseSoftwareGuidePage,
+  '/alternativ': AlternativePage,
 };
 
 /** Renderar en enda route till en HTML-sträng + de <title>/<meta>/<link>-

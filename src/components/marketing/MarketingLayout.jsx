@@ -613,7 +613,7 @@ export function MarketingFooter() {
               sidans övriga <h2>→<h3>-underrubriker redan använder. */}
           <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'white', marginBottom: '14px' }}>Produkt</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {[['Funktioner', '/funktioner'], ['Priser', '/priser'], ['Så väljer du bokföringsprogram', '/valja-bokforingsprogram']].map(([label, to]) => (
+            {[['Funktioner', '/funktioner'], ['Priser', '/priser'], ['Så väljer du bokföringsprogram', '/valja-bokforingsprogram'], ['Alternativ till Fortnox/Bokio/Spiris', '/alternativ']].map(([label, to]) => (
               <Link key={to} to={to} className="lp-footer-link" style={{ fontSize: '13.5px', color: 'rgba(255,255,255,0.6)', textDecoration: 'none', transition: 'color 0.2s' }}>
                 {label}
               </Link>

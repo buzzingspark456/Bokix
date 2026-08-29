@@ -127,6 +127,13 @@ export default function ChooseSoftwareGuidePage() {
               Se prissättning <ArrowRight size={15} />
             </Link>
           </div>
+          {/* Kontextuell länk (inte bara i footern) — samma mönster som
+              PricingPage.jsx redan använder för att länka hit. Redan bytt
+              från ett annat program? /alternativ har den mer specifika
+              genomgången (bytesprocess, FAQ) den här guiden inte upprepar. */}
+          <p style={{ fontSize: '13.5px', color: MUTED, marginTop: '20px' }}>
+            Redan inne på ett specifikt program? Se <Link to="/alternativ" style={{ color: BRAND.greenDark, fontWeight: 600 }}>alternativ till Fortnox, Bokio och Spiris</Link>.
+          </p>
         </Reveal>
       </section>
     </MarketingLayout>

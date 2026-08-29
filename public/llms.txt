@@ -20,6 +20,8 @@ Bokix stöder enskild firma, aktiebolag, handelsbolag/kommanditbolag och ekonomi
 - [Startsida](https://www.bokix.se/): översikt över produkten
 - [Funktioner](https://www.bokix.se/funktioner): detaljerad genomgång av vad som ingår
 - [Priser](https://www.bokix.se/priser): pris, vad som ingår och vanliga frågor
+- [Så väljer du bokföringsprogram](https://www.bokix.se/valja-bokforingsprogram): sju generella kriterier för att jämföra bokföringsprogram
+- [Alternativ till Fortnox, Bokio och Spiris](https://www.bokix.se/alternativ): för dig som funderar på att byta bokföringsprogram — vad Bokix erbjuder och hur bytet går till
 - [Om oss](https://www.bokix.se/om-oss): varför Bokix finns och principerna produkten byggs efter
 - [Kontakt](https://www.bokix.se/kontakt): kontaktformulär, support@bokix.se
 

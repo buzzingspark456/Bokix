@@ -35,6 +35,10 @@
       "destination": "/valja-bokforingsprogram/index.html"
     },
     {
+      "source": "/alternativ",
+      "destination": "/alternativ/index.html"
+    },
+    {
       "source": "/((?!api).*)",
       "destination": "/app-shell.html"
     }
