@@ -1791,6 +1791,33 @@ function App() {
     window.history.replaceState({}, '', window.location.pathname + (newSearch ? `?${newSearch}` : '') + window.location.hash);
   }, []);
 
+  // Samma mönster som stripe_connect-useEffect ovan, för Zettle (api/zettle/
+  // callback.js). Egen useEffect (inte samma som Stripe-varianten) så en
+  // status-parameter aldrig kan förväxlas med den andra leverantörens.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get('zettle_connect');
+    if (!status) return;
+
+    const messages = {
+      connected: 'Zettle är nu anslutet till Bokix.',
+      cancelled: 'Anslutningen avbröts, du kan försöka igen när du vill.',
+      error: 'Något gick fel vid Zettle-anslutningen. Försök igen, eller kontakta support om felet kvarstår.',
+    };
+    const variants = { connected: 'success', cancelled: 'info', error: 'error' };
+    const debugDetail = params.get('debug'); // temporärt diagnos-fält, se api/zettle/callback.js
+    setToast({
+      message: (messages[status] || messages.error) + (debugDetail ? ` (${debugDetail})` : ''),
+      variant: variants[status] || 'error',
+    });
+
+    params.delete('zettle_connect');
+    params.delete('debug');
+    const newSearch = params.toString();
+    window.history.replaceState({}, '', window.location.pathname + (newSearch ? `?${newSearch}` : '') + window.location.hash);
+  }, []);
+
   // Samma mönster som stripe_connect-useEffect ovan, för registreringens
   // Stripe-betalningssteg (Auth.jsx → create-subscription-checkout.js).
   // "success" betyder bara att kortet lades till och provperioden startade
@@ -2219,6 +2246,37 @@ function App() {
     } catch (error) {
       console.error(error);
       alert(`Kunde inte koppla från Stripe: ${error.message || error}`);
+    }
+  };
+
+  // Zettle (PayPal Zettle/iZettle) OAuth — samma mönster som Stripe Connect
+  // ovan (autentiserad POST returnerar auktoriseringsadressen som JSON,
+  // frontend navigerar dit själv), se api/zettle/callback.js. Ingen
+  // "action"-body-parameter behövs här (till skillnad från Stripes
+  // connect.js) — POST på den vägen betyder alltid "starta", GET är
+  // reserverat för Zettles egen redirect tillbaka.
+  const handleOpenZettleOnboarding = async () => {
+    if (!user) {
+      alert('Logga in för att ansluta Zettle.');
+      return;
+    }
+    if (company.zettleAccessToken) return; // redan anslutet — inget att göra
+    try {
+      const { data: { session } = {} } = await supabase.auth.getSession();
+      const response = await fetch('/api/zettle/callback', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({ company_id: data.activeCompanyId }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload?.url) throw new Error(payload?.error || `Kunde inte starta Zettle-anslutningen (${response.status})`);
+      window.location.href = payload.url;
+    } catch (error) {
+      console.error(error);
+      alert(`Kunde inte ansluta Zettle: ${error.message || error}`);
     }
   };
 
@@ -3326,6 +3384,8 @@ function App() {
             stripeAccountId={company.stripeAccountId}
             onConnectStripe={handleOpenStripeOnboarding}
             onDisconnectStripe={handleDisconnectStripe}
+            zettleConnected={Boolean(company.zettleAccessToken)}
+            onConnectZettle={handleOpenZettleOnboarding}
             onConnectEmailDomain={handleConnectEmailDomain}
             onCheckEmailDomainStatus={handleCheckEmailDomainStatus}
             onDisconnectEmailDomain={handleDisconnectEmailDomain}

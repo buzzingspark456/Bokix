@@ -135,6 +135,50 @@ $$;
 REVOKE ALL ON FUNCTION public.set_company_stripe_account(uuid, text, text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.set_company_stripe_account(uuid, text, text) TO service_role;
 
+-- Samma SECURITY DEFINER-mönster som set_company_stripe_account ovan, för
+-- Zettles OAuth-tokens (api/zettle/callback.js) — den callbacken körs
+-- precis som Stripes helt utan inloggad session, bara service-role kan
+-- skriva. Tre fält i EN funktion (istället för tre anrop av
+-- set_company_field, som ändå inte får skriva stripeAccountId-liknande
+-- känsliga fält, se whitelisten där) så att access/refresh-token och
+-- utgångstid alltid sparas tillsammans, atomärt.
+CREATE OR REPLACE FUNCTION public.set_company_zettle_tokens(
+  p_user_id uuid,
+  p_company_id text,
+  p_access_token text,
+  p_refresh_token text,
+  p_expires_at timestamptz
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  UPDATE public.user_data
+  SET state = jsonb_set(
+    jsonb_set(
+      jsonb_set(
+        coalesce(state, '{}'::jsonb),
+        ARRAY['companies', p_company_id, 'company', 'zettleAccessToken'],
+        to_jsonb(p_access_token),
+        true
+      ),
+      ARRAY['companies', p_company_id, 'company', 'zettleRefreshToken'],
+      to_jsonb(p_refresh_token),
+      true
+    ),
+    ARRAY['companies', p_company_id, 'company', 'zettleTokenExpiresAt'],
+    to_jsonb(p_expires_at),
+    true
+  )
+  WHERE user_id = p_user_id;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.set_company_zettle_tokens(uuid, text, text, text, timestamptz) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.set_company_zettle_tokens(uuid, text, text, text, timestamptz) TO service_role;
+
 -- Bank-integrationen (Enable Banking) är borttagen ur appen igen — om den
 -- här filen redan kördes mot din databas medan den fanns, städar detta bort
 -- kvarlämningen (no-op annars, IF EXISTS gör det säkert att köra oavsett).

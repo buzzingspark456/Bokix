@@ -41,6 +41,10 @@ initBotId({
     // Skyddar nu BÅDA actionerna, inte bara disconnect (oauth-start hade
     // aldrig BotID-skydd — ett förbiseende, inte avsiktligt).
     { path: '/api/stripe/connect', method: 'POST' },
+    // api/zettle/callback.js — bara POST (starta anslutningen) skyddas;
+    // GET är Zettles egen redirect tillbaka, ingen användare "fyller i"
+    // något där, samma konvention som email/domains och company-access.
+    { path: '/api/zettle/callback', method: 'POST' },
     { path: '/api/email/send-invoice', method: 'POST' },
     // api/email/domains/index.js (tidigare två separata filer, create.js
     // + status.js — ihopslagna, se den filens egen kommentar för varför).

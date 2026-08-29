@@ -1167,6 +1167,7 @@ function SubscriptionSection({ user, sharedAccess, readOnly = false }) {
 export default function Settings({
   company = {}, setCompanyInfo, accounts = [], verifications = [], invoices = [], quotes = [], expenses = [],
   contacts = [], projects = [], onImport, onReset, stripeAccountId, onConnectStripe, onDisconnectStripe,
+  zettleConnected = false, onConnectZettle,
   onConnectEmailDomain, onCheckEmailDomainStatus, onDisconnectEmailDomain, user,
   companyList = [], activeCompanyId, onSwitchCompany, onAddCompany,
   // Desktop-scrollbar på/av (Sida: "have in setting users chose to have
@@ -1794,6 +1795,19 @@ export default function Settings({
                   </div>
                   <Badge tone={stripeAccountId ? 'positive' : 'warning'}>{stripeAccountId ? 'Ansluten' : 'Av'}</Badge>
                 </div>
+                {onConnectZettle && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: '8px', marginTop: '10px' }}>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: '13.5px', color: 'var(--text-main)' }}>Zettle</div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{zettleConnected ? 'Anslutet' : 'Inte anslutet'}</div>
+                    </div>
+                    {zettleConnected ? (
+                      <Badge tone="positive">Ansluten</Badge>
+                    ) : (
+                      <button onClick={() => { if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; } onConnectZettle(); }} style={btnGhost}>Anslut</button>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div style={card}>

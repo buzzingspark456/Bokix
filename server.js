@@ -6,6 +6,8 @@ import dotenv from 'dotenv'
 import { createClient } from '@supabase/supabase-js'
 import { createSignedState, verifySignedState } from './api/stripe/_oauthState.js'
 import { parseCookies, STRIPE_OAUTH_COOKIE, stripeOauthStateCookie, clearStripeOauthStateCookie } from './api/stripe/_cookies.js'
+import { createSignedState as createZettleSignedState, verifySignedState as verifyZettleSignedState } from './api/zettle/_oauthState.js'
+import { ZETTLE_OAUTH_COOKIE, zettleOauthStateCookie, clearZettleOauthStateCookie } from './api/zettle/_cookies.js'
 import { recordStripePaymentEvent } from './api/stripe/_paymentEvents.js'
 import { upsertSubscription, hasExistingSubscription, getSubscriptionRow } from './api/stripe/_subscriptions.js'
 import remindersHandler from './api/cron/reminders.js'
@@ -1010,6 +1012,146 @@ app.get('/api/stripe/callback', async (req, res) => {
   } catch (err) {
     console.error('Stripe OAuth callback error:', err)
     redirectWithStatus('error')
+  }
+})
+
+// ── Zettle (PayPal Zettle/iZettle) OAuth ────────────────────────────────
+// Speglar api/zettle/callback.js för lokal utveckling — se den filens
+// egna kommentarer för hela resonemanget (varför GET+POST delar samma väg,
+// varför en egen cookie/state-hemlighet per leverantör osv).
+const ZETTLE_AUTHORIZE_URL = 'https://oauth.zettle.com/authorize'
+const ZETTLE_TOKEN_URL = 'https://oauth.zettle.com/token'
+
+async function persistZettleTokens({ userId, companyId, accessToken, refreshToken, expiresAt }) {
+  const supabaseUrl = process.env.VITE_SUPABASE_URL
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error('SUPABASE_SERVICE_ROLE_KEY saknas — kan inte spara kopplingen server-side.')
+  }
+  const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey)
+  const { error } = await supabaseAdmin.rpc('set_company_zettle_tokens', {
+    p_user_id: userId,
+    p_company_id: companyId,
+    p_access_token: accessToken,
+    p_refresh_token: refreshToken,
+    p_expires_at: expiresAt,
+  })
+  if (error) throw error
+}
+
+app.post('/api/zettle/callback', async (req, res) => {
+  if (await isRequestFromBot()) {
+    res.status(403).json({ error: 'Åtkomst nekad.' })
+    return
+  }
+
+  const clientId = process.env.ZETTLE_CLIENT_ID
+  if (!clientId || !process.env.ZETTLE_OAUTH_STATE_SECRET) {
+    console.error('Zettle OAuth start: ZETTLE_CLIENT_ID eller ZETTLE_OAUTH_STATE_SECRET saknas.')
+    res.status(503).json({ error: 'Zettle-anslutning är inte konfigurerad.' })
+    return
+  }
+
+  const user = await requireAuthedUser(req, res)
+  if (!user) return
+
+  const { company_id: companyId } = req.body || {}
+  if (!companyId) {
+    res.status(400).json({ error: 'company_id krävs.' })
+    return
+  }
+  const companyData = await loadOwnedCompany(user.id, companyId, res)
+  if (!companyData) return
+
+  let state
+  try {
+    state = createZettleSignedState({ user_id: user.id, company_id: companyId })
+  } catch (err) {
+    console.error('Zettle OAuth start error:', err)
+    res.status(500).json({ error: 'Kunde inte starta Zettle-anslutningen.' })
+    return
+  }
+
+  const redirectUri = process.env.ZETTLE_OAUTH_REDIRECT_URI || `http://localhost:${process.env.PORT || 5000}/api/zettle/callback`
+  const authorizeUrl = new URL(ZETTLE_AUTHORIZE_URL)
+  authorizeUrl.searchParams.set('response_type', 'code')
+  authorizeUrl.searchParams.set('client_id', clientId)
+  authorizeUrl.searchParams.set('redirect_uri', redirectUri)
+  authorizeUrl.searchParams.set('state', state)
+  const scope = process.env.ZETTLE_OAUTH_SCOPE
+  if (scope) authorizeUrl.searchParams.set('scope', scope)
+
+  res.setHeader('Set-Cookie', zettleOauthStateCookie(state))
+  res.status(200).json({ url: authorizeUrl.toString() })
+})
+
+app.get('/api/zettle/callback', async (req, res) => {
+  const { code, state, error: zettleError } = req.query || {}
+  res.setHeader('Set-Cookie', clearZettleOauthStateCookie())
+
+  const redirectWithZettleStatus = (status, detail) => {
+    const debugParam = detail ? `&debug=${encodeURIComponent(String(detail).slice(0, 200))}` : ''
+    res.redirect(302, `${appUrl}/?zettle_connect=${status}${debugParam}`)
+  }
+
+  if (zettleError) return redirectWithZettleStatus('cancelled')
+
+  const cookies = parseCookies(req.headers.cookie)
+  const cookieState = cookies[ZETTLE_OAUTH_COOKIE]
+  if (!state || !cookieState || state !== cookieState) {
+    console.error('Zettle OAuth callback: state matchar inte cookien (möjligt CSRF-försök).')
+    return redirectWithZettleStatus('error')
+  }
+
+  const payload = verifyZettleSignedState(state)
+  if (!payload?.user_id || !payload?.company_id) {
+    console.error('Zettle OAuth callback: ogiltig eller för gammal state-signatur.')
+    return redirectWithZettleStatus('error')
+  }
+
+  if (!code) return redirectWithZettleStatus('cancelled')
+
+  const clientId = process.env.ZETTLE_CLIENT_ID
+  const clientSecret = process.env.ZETTLE_CLIENT_SECRET
+  if (!clientId || !clientSecret) {
+    console.error('Zettle OAuth callback: ZETTLE_CLIENT_ID/ZETTLE_CLIENT_SECRET saknas.')
+    return redirectWithZettleStatus('error')
+  }
+
+  try {
+    const redirectUri = process.env.ZETTLE_OAUTH_REDIRECT_URI || `http://localhost:${process.env.PORT || 5000}/api/zettle/callback`
+    const tokenRes = await fetch(ZETTLE_TOKEN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        client_id: clientId,
+        client_secret: clientSecret,
+        code,
+        redirect_uri: redirectUri,
+      }),
+    })
+    const tokenData = await tokenRes.json().catch(() => ({}))
+    if (!tokenRes.ok || !tokenData?.access_token) {
+      throw new Error(tokenData?.error_description || tokenData?.error || `Zettle svarade ${tokenRes.status} utan access_token.`)
+    }
+
+    const expiresAt = tokenData.expires_in
+      ? new Date(Date.now() + Number(tokenData.expires_in) * 1000).toISOString()
+      : null
+
+    await persistZettleTokens({
+      userId: payload.user_id,
+      companyId: payload.company_id,
+      accessToken: tokenData.access_token,
+      refreshToken: tokenData.refresh_token || null,
+      expiresAt,
+    })
+
+    redirectWithZettleStatus('connected')
+  } catch (err) {
+    console.error('Zettle OAuth callback error:', err)
+    redirectWithZettleStatus('error', err.message)
   }
 })
 
