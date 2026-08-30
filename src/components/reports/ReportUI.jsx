@@ -1,7 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useId } from 'react';
 import { HelpCircle, ArrowUpRight, ArrowDownRight, Inbox } from 'lucide-react';
 import {
-  BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
+  BarChart, Bar, LineChart, Line, AreaChart, Area, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer,
 } from 'recharts';
 
@@ -103,7 +103,11 @@ export function EmptyState({ text }) {
   );
 }
 
-export function ChartTooltip({ active, payload, label }) {
+// `valueFormatter` (default formatSEK) — tillagd för MarginTrendChart nedan
+// vars serie är en PROCENT, inte ett kronbelopp; alla befintliga anrops-
+// ställen (som inte bryr sig om skillnaden) fortsätter få exakt samma
+// SEK-formatering som innan utan att ändra en enda rad hos dem.
+export function ChartTooltip({ active, payload, label, valueFormatter = formatSEK }) {
   if (!active || !payload?.length) return null;
   const rows = payload.filter(p => p.value != null && p.name !== undefined);
   if (!rows.length) return null;
@@ -116,7 +120,7 @@ export function ChartTooltip({ active, payload, label }) {
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.color, display: 'inline-block', flexShrink: 0 }} />
             <span style={{ color: 'var(--text-secondary)' }}>{p.name}</span>
           </div>
-          <strong style={{ color: 'var(--text-main)', fontVariantNumeric: 'tabular-nums' }}>{formatSEK(p.value)}</strong>
+          <strong style={{ color: 'var(--text-main)', fontVariantNumeric: 'tabular-nums' }}>{valueFormatter(p.value)}</strong>
         </div>
       ))}
     </div>
@@ -183,6 +187,69 @@ export function CashflowLineChart({ data, isMobile }) {
   );
 }
 
+/** Gradientfylld variant av CashflowLineChart ovan — Företagsöversikten
+ * (OverviewReport, ReportDetail.jsx) vill ha ett "finare" (kundens ord),
+ * mer trendbetonat intryck för samma saldo-serie än den befintliga rapportens
+ * rena linje. `useId()` istället för ett hårdkodat gradient-id: två
+ * instanser av samma diagramkomponent på en sida (t.ex. om en framtida vy
+ * visar den två gånger) ska aldrig råka dela — eller skriva över varandras —
+ * <linearGradient>. */
+export function CashflowAreaChart({ data, isMobile }) {
+  const gradientId = useId();
+  const tickData = useMemo(() => {
+    const labels = thinLabels(data.map(d => d.label), isMobile);
+    return data.map((d, i) => ({ ...d, label: labels[i] }));
+  }, [data, isMobile]);
+
+  return (
+    <ResponsiveContainer width="100%" height={220}>
+      <AreaChart data={tickData} margin={{ top: 4, right: 8, left: -12, bottom: 0 }}>
+        <defs>
+          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor="var(--accent)" stopOpacity={0.32} />
+            <stop offset="95%" stopColor="var(--accent)" stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-light)" />
+        <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} />
+        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} tickFormatter={v => formatSEK(v).replace(/\s?kr$/, '')} width={54} />
+        <ReferenceLine y={0} stroke="var(--border)" strokeWidth={1.5} />
+        <Tooltip content={<ChartTooltip />} cursor={{ stroke: 'var(--border)', strokeWidth: 1 }} />
+        <Area type="monotone" dataKey="balance" stroke="var(--accent)" strokeWidth={2.5} fill={`url(#${gradientId})`} dot={false} activeDot={{ r: 5 }} name="Saldo" />
+        <Line type="monotone" dataKey="prevBalance" stroke="var(--text-muted)" strokeWidth={2} strokeDasharray="4 3" dot={false} name="Föregående period" />
+      </AreaChart>
+    </ResponsiveContainer>
+  );
+}
+
+/** Vinstmarginal per månad (%) — en annan FORM än övriga rapportdiagram med
+ * flit: marginalen är i grunden en lutning/trend att läsa av, inte staplar
+ * att jämföra sida vid sida. `data`: [{label, margin}] där `margin` är
+ * `null` för en månad utan omsättning (0/0 vore odefinierat) — Area/Line
+ * hoppar naturligt över en null-punkt (ritar ett glapp) istället för att
+ * plotta en missvisande nolla mitt i trenden. */
+export function MarginTrendChart({ data }) {
+  const gradientId = useId();
+  return (
+    <ResponsiveContainer width="100%" height={220}>
+      <AreaChart data={data} margin={{ top: 4, right: 8, left: -12, bottom: 0 }}>
+        <defs>
+          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor={REVENUE} stopOpacity={0.30} />
+            <stop offset="95%" stopColor={REVENUE} stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-light)" />
+        <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} />
+        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} tickFormatter={v => `${v}%`} width={48} />
+        <ReferenceLine y={0} stroke="var(--border)" strokeWidth={1.5} />
+        <Tooltip content={<ChartTooltip valueFormatter={v => `${v.toFixed(1)}%`} />} cursor={{ stroke: 'var(--border)', strokeWidth: 1 }} />
+        <Area type="monotone" dataKey="margin" stroke={REVENUE} strokeWidth={2.5} fill={`url(#${gradientId})`} dot={false} activeDot={{ r: 5 }} name="Vinstmarginal" connectNulls={false} />
+      </AreaChart>
+    </ResponsiveContainer>
+  );
+}
+
 export function CostBreakdownDonut({ categories, total }) {
   const data = categories.map((c, i) => ({ ...c, color: COST_CATEGORY_COLORS[i % COST_CATEGORY_COLORS.length] }));
   return (
@@ -215,6 +282,41 @@ export function CostBreakdownDonut({ categories, total }) {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+/** Topp-kostnadskonton som en rankad lista med horisontella barer — en
+ * finmaskigare, kontospecifik komplettering till CostBreakdownDonut ovans
+ * fyra breda hinkar: "vart tar pengarna vägen, konto för konto" istället
+ * för bara "vilken bred kategori". Byggd i vanlig HTML/CSS precis som
+ * BalanceSheetTable/donutens legend ovan, inte recharts — en ren
+ * ranking-lista har inget att vinna på ett SVG-koordinatsystem.
+ * Återanvänder samma COST_CATEGORY_COLORS/COST_BG som donuten ovan (fanns
+ * sedan tidigare, aldrig konsumerade) så de två panelerna hör ihop
+ * visuellt trots att de grupperar kostnaderna helt olika. */
+export function CostRankingList({ rows, total }) {
+  const top = rows.slice(0, 5);
+  const max = top.length ? top[0].amount : 0;
+  const restTotal = total - top.reduce((s, r) => s + r.amount, 0);
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+      {top.map((r, i) => (
+        <div key={r.code}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', fontSize: '13px', marginBottom: '5px' }}>
+            <span style={{ color: 'var(--text-main)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.code} {r.name}</span>
+            <span style={{ color: 'var(--text-secondary)', fontWeight: 700, fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>{formatSEK(r.amount)}</span>
+          </div>
+          <div style={{ height: '8px', borderRadius: '999px', background: COST_BG, overflow: 'hidden' }}>
+            <div style={{ height: '100%', borderRadius: '999px', width: `${max ? (r.amount / max) * 100 : 0}%`, background: COST_CATEGORY_COLORS[i % COST_CATEGORY_COLORS.length] }} />
+          </div>
+        </div>
+      ))}
+      {rows.length > top.length && (
+        <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', margin: '2px 0 0' }}>
+          + {rows.length - top.length} till konto, {formatSEK(restTotal)} totalt
+        </p>
+      )}
     </div>
   );
 }

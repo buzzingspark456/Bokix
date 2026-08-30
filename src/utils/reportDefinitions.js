@@ -12,6 +12,19 @@
 // (senast öppnad-tidsstämpeln, se Reports.jsx).
 export const REPORT_SECTIONS = [
   {
+    id: 'overview',
+    label: 'Översikt',
+    reports: [
+      // Kundönskemål: en visuell "allt på en gång"-sida, jämförbar med
+      // Fortnox/Vismas företagsöversikter — bygger uteslutande på samma
+      // riktiga, redan beräknade tal som Nyckeltal/Resultaträkning/
+      // Årsrapport, bara i fler och delvis nya diagramformer (ringdiagram,
+      // gradientfyllda trendlinjer, rankad kostnadslista) — se
+      // ReportDetail.jsx:s OverviewReport.
+      { id: 'overview', name: 'Företagsöversikt', description: 'Omsättning, marginaler, kostnadsfördelning och kassaflöde i en visuell överblick.' },
+    ],
+  },
+  {
     id: 'ongoing',
     label: 'Löpande',
     reports: [

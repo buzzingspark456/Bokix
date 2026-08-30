@@ -3,11 +3,13 @@ import { ChevronLeft, Download, TrendingUp, TrendingDown, ArrowUpRight, ArrowDow
 import {
   formatSEK, fmtDate, fmtMonthYear, toISO, formatDelta,
   KpiCard, TabHeadline, EmptyState, ReportSection, DataTable,
-  ResultBarChart, CashflowLineChart, BalanceSheetTable, ComparisonLegend, swatch, REVENUE,
+  ResultBarChart, CashflowLineChart, CashflowAreaChart, MarginTrendChart,
+  CostBreakdownDonut, CostRankingList, BalanceSheetTable, ComparisonLegend, swatch, REVENUE,
 } from './ReportUI';
 import {
   sumFlowByType, buildResultSeries, buildCashflowSeries, computeBalanceSheet,
   computeLedger, computeInvoiceReport, computeKeyFigures, fiscalYearBounds,
+  groupCostsByCategory, groupCostsByAccount,
 } from '../../utils/reportCalculations';
 import { computeVatPeriod } from '../../utils/vatCalculation';
 import { VAT_RUTOR } from '../../utils/vatConfig';
@@ -146,6 +148,7 @@ export default function ReportDetail({
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
+        {reportId === 'overview' && <OverviewReport {...{ verifications, accounts, company, isMobile }} />}
         {reportId === 'result' && <ResultReport {...{ verifications, accounts, start, end, prevStart, prevEnd, isMobile }} />}
         {reportId === 'balance' && <BalanceReport {...{ verifications, accounts, end }} />}
         {reportId === 'cashflow' && <CashflowReport {...{ verifications, accounts, start, end, prevStart, prevEnd, isMobile }} />}
@@ -157,6 +160,87 @@ export default function ReportDetail({
         {reportId === 'annual' && <AnnualReport {...{ verifications, accounts, company, isMobile }} />}
         {reportId === 'quarterly' && <QuarterlyReport {...{ verifications, accounts, payrollRuns, company }} />}
         {reportId === 'monthly' && <MonthlyReport {...{ verifications, accounts }} />}
+      </div>
+    </div>
+  );
+}
+
+// ── 0. Företagsöversikt ─────────────────────────────────────────────────
+// Kundönskemål (jämförde med Fortnox/Vismas företagsöversikter): en
+// visuell "allt på en gång"-sida med FLER och FINARE diagramformer än
+// resten av rapportportalen. Ingen ny beräkningslogik — bara nya sätt att
+// visa exakt samma riktiga, redan beräknade tal som Nyckeltal/
+// Resultaträkning/Årsrapport redan använder, plus två beräkningsfunktioner
+// (groupCostsByCategory/groupCostsByAccount i reportCalculations.js) och
+// en färdig komponent (CostBreakdownDonut i ReportUI.jsx) som redan fanns
+// men aldrig kopplades in någonstans i appen förrän nu.
+// Ignorerar (som Årsrapport/Kvartalsrapport ovan) sidans egen periodväljare
+// — en översikt är per definition hela innevarande räkenskapsår hittills.
+function OverviewReport({ verifications, accounts, company, isMobile }) {
+  const { fyStart, fyEnd, prevStart, prevEnd } = useMemo(() => {
+    const now = new Date();
+    const { start: fyStart, end: fyNaturalEnd } = fiscalYearBounds(company?.fiscalYear, now);
+    const fyEnd = fyNaturalEnd < now ? fyNaturalEnd : now;
+    const prevStart = new Date(fyStart.getFullYear() - 1, fyStart.getMonth(), fyStart.getDate());
+    const prevEnd = new Date(fyEnd.getFullYear() - 1, fyEnd.getMonth(), fyEnd.getDate());
+    return { fyStart, fyEnd, prevStart, prevEnd };
+  }, [company?.fiscalYear]);
+
+  const k = useMemo(() => computeKeyFigures(verifications, accounts, fyStart, fyEnd), [verifications, accounts, fyStart, fyEnd]);
+  const prevK = useMemo(() => computeKeyFigures(verifications, accounts, prevStart, prevEnd), [verifications, accounts, prevStart, prevEnd]);
+  const series = useMemo(() => buildResultSeries(verifications, accounts, fyStart, fyEnd), [verifications, accounts, fyStart, fyEnd]);
+  const prevSeries = useMemo(() => buildResultSeries(verifications, accounts, prevStart, prevEnd), [verifications, accounts, prevStart, prevEnd]);
+  const cashPoints = useMemo(() => buildCashflowSeries(verifications, accounts, fyStart, fyEnd), [verifications, accounts, fyStart, fyEnd]);
+  const prevCashPoints = useMemo(() => buildCashflowSeries(verifications, accounts, prevStart, prevEnd), [verifications, accounts, prevStart, prevEnd]);
+  const costCategories = useMemo(() => groupCostsByCategory(verifications, accounts, fyStart, fyEnd), [verifications, accounts, fyStart, fyEnd]);
+  const costAccounts = useMemo(() => groupCostsByAccount(verifications, accounts, fyStart, fyEnd), [verifications, accounts, fyStart, fyEnd]);
+
+  const hasActivity = series.some(m => m.intakt !== 0 || m.kostnad !== 0);
+  if (!hasActivity) return <ReportSection><EmptyState text="Ingen bokförd data ännu för innevarande räkenskapsår." /></ReportSection>;
+
+  const resultChartData = series.map((m, i) => ({ label: m.label, resultat: m.intakt - m.kostnad, prevResultat: prevSeries[i] ? (prevSeries[i].intakt - prevSeries[i].kostnad) : null }));
+  // `margin`: null (inte 0) för en månad helt utan omsättning — 0/0 är
+  // odefinierat, inte "0% marginal", och MarginTrendChart hoppar redan
+  // medvetet över null-punkter (connectNulls={false}) istället för att
+  // rita ett missvisande dropp till noll.
+  const marginData = series.map(m => ({ label: m.label, margin: m.intakt !== 0 ? ((m.intakt - m.kostnad) / m.intakt) * 100 : null }));
+  const cashChartData = cashPoints.map((p, i) => ({ label: fmtDate(p.date), balance: p.balance, prevBalance: prevCashPoints[i] ? prevCashPoints[i].balance : null }));
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px' }}>
+        <KpiCard label="Omsättning" value={formatSEK(k.omsattning)} icon={TrendingUp} accent="var(--text-main)" iconBg="var(--border-light)" delta={formatDelta(k.omsattning, prevK.omsattning)} />
+        <KpiCard label="Resultat" value={formatSEK(k.resultat)} icon={k.resultat >= 0 ? TrendingUp : TrendingDown} accent={k.resultat >= 0 ? 'var(--status-green-text)' : 'var(--status-red-text)'} iconBg="var(--border-light)" delta={formatDelta(k.resultat, prevK.resultat)} />
+        <KpiCard label="Vinstmarginal" value={fmtPct(k.vinstmarginal)} icon={Percent} accent="var(--text-main)" iconBg="var(--border-light)" />
+        <KpiCard label="Soliditet" value={fmtPct(k.soliditet)} icon={Scale} accent="var(--text-main)" iconBg="var(--border-light)" />
+      </div>
+
+      <ReportSection title="Omsättning och resultat" subtitle="Resultat per månad, jämfört med samma period föregående räkenskapsår.">
+        <ResultBarChart data={resultChartData} isMobile={isMobile} />
+        <ComparisonLegend currentLabel="Innevarande räkenskapsår" previousLabel="Föregående räkenskapsår" currentColorSwatch={swatch(REVENUE)} previousColorSwatch={swatch('var(--text-muted)', true)} />
+      </ReportSection>
+
+      <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+        <ReportSection title="Kostnadsfördelning" subtitle="Var pengarna gick, i fyra breda kategorier.">
+          {costCategories.categories.length === 0
+            ? <EmptyState text="Inga bokförda kostnader ännu." />
+            : <CostBreakdownDonut categories={costCategories.categories} total={costCategories.total} />}
+        </ReportSection>
+        <ReportSection title="Marginalutveckling" subtitle="Vinstmarginal per månad — resultat i förhållande till omsättning.">
+          <MarginTrendChart data={marginData} />
+        </ReportSection>
+      </div>
+
+      <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+        <ReportSection title="Kassaflöde" subtitle="Ackumulerat saldo på bank och i kassa genom året.">
+          <CashflowAreaChart data={cashChartData} isMobile={isMobile} />
+          <ComparisonLegend currentLabel="Innevarande räkenskapsår" previousLabel="Föregående räkenskapsår" currentColorSwatch={swatch('var(--accent)')} previousColorSwatch={swatch('var(--text-muted)', true)} />
+        </ReportSection>
+        <ReportSection title="Största kostnadskontona" subtitle="De fem konton som stod för mest av årets kostnader.">
+          {costAccounts.rows.length === 0
+            ? <EmptyState text="Inga bokförda kostnader ännu." />
+            : <CostRankingList rows={costAccounts.rows} total={costAccounts.total} />}
+        </ReportSection>
       </div>
     </div>
   );
