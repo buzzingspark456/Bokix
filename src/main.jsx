@@ -52,10 +52,30 @@ initBotId({
     // BotID, samma konvention som company-access.js nedan.
     { path: '/api/email/domains', method: 'POST' },
     { path: '/api/contact', method: 'POST' },
-    // Sparar ett fält åt en INBJUDEN användare (company_members) i ägarens
-    // företag — se api/company-access.js. GET (läsning) skyddas medvetet
-    // INTE av BotID, samma konvention som api/email/domains/index.js ovan.
-    { path: '/api/company-access', method: 'POST' },
+    // api/company-access.js POST MEDVETET INTE listad (var det tidigare,
+    // se git-historik) — samma "glömt lösenord"-resonemang som
+    // request-password-reset nedan, av samma faktiska anledning: filen
+    // fick 2026-08-30 en andra, helt oautentiserad gren (action: 'lookup',
+    // FöretagsAPI-uppslag i Kunder/Leverantörer OCH i registreringens
+    // "Ditt företag"-steg — den senare körs INNAN kontot ens finns).
+    // Verifierat lokalt (Playwright, samma metod som redan dokumenterat
+    // nedan): klientens BotID-inpackning HÄNGER på obestämd tid när
+    // utmaningsskriptet inte laddas (404 lokalt, av samma skäl som alltid
+    // — Vercels riktiga BotID-infrastruktur finns bara i produktion), inte
+    // bara i det redan kända "avvisas med ett tomt Event"-fallet — company-
+    // lookup-fetchen löste sig aldrig, varken lyckat eller som fel, precis
+    // det symtomet en kund rapporterade IRL på bokix.se (org.nummer-fältet
+    // fastnade på "Hämtar företagsuppgifter…" för evigt). Ett fel skript-
+    // laddningsförsök (nätverksglapp, annonsblockerare, integritets-
+    // tillägg — exakt vad kommentaren nedan redan varnar för) räcker för
+    // att permanent låsa fältet, även i produktion. Skyddet den här grenen
+    // faktiskt behöver (den sparar ett riktigt fält åt en inbjuden
+    // användare) kommer ändå från requireAuthedUser + loadMemberCompany +
+    // role==='editor' i api/company-access.js — ett Supabase-uträknat
+    // konto med bevisat, aktivt medlemskap i just det företaget, en mycket
+    // starkare spärr än BotID för en redan autentiserad skrivning. Server-
+    // sidans egen isRequestFromBot()-koll (fail-open, se _botid.js) körs
+    // fortfarande för lookup-grenen, plus dess egen rate-limit-bucket.
   ],
 })
 // "Glömt lösenord?" (api/auth/request-password-reset.js) MEDVETET INTE
