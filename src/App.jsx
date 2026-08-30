@@ -3806,7 +3806,46 @@ function App() {
 
         <div className="main-content-inner">
           <Suspense fallback={<PageContentSkeleton tab={activeTab} />}>
-            {renderContent()}
+            {/* Kundfeedback ("menyn står i vägen"): den fasta bottennaven
+                (.mobile-bottom-nav, en syskon-yta UTANFÖR .main-wrapper)
+                döljer alltid de sista ~100px av VILKEN mobilsida som helst.
+                Tre steg innan den här löste det INTE:
+                1) padding-bottom på .main-wrapper (den skrollande
+                   behållaren själv) — bekräftat i test (höjde
+                   --mobile-nav-height till 400px, scrollHeight ändrades
+                   inte alls) att Chromium inte räknar en flex-behållares
+                   EGEN slut-padding som skrollbart innehåll.
+                2) padding-bottom på .main-content-inner (flex-BARNET) —
+                   samma resultat, av ett djupare skäl: .main-content-inner
+                   > * (index.css) ger sidans rot-div `flex:1; min-height:0`,
+                   vilket tvingar NER dess egen box till bara den yta som
+                   får plats (oavsett hur högt innehållet egentligen är) —
+                   resten "sticker ut" via overflow:visible. Padding på
+                   FÖRÄLDERN till en sådan hopklämd box syns aldrig i
+                   scrollHeight, bara innehållets EGEN overflow gör det.
+                3) ett riktigt spacer-element som SYSKON till
+                   .main-content-inner — samma icke-effekt, av samma skäl
+                   fast ur en annan vinkel: ett syskon positioneras efter
+                   den hopklämda boxens EGEN (lilla) höjd, inte efter var
+                   dess overflow-innehåll faktiskt slutar längre ner.
+                Lösningen: ett EXTRA lager HÄR, INNANFÖR Suspense, som
+                sidans rot-div (renderContent()) och spacern delar. Den
+                nya diven ÄRVER `.main-content-inner > *`s flex:1/min-
+                height:0 (den är nu den direkta barnet) och kläms ihop
+                precis som förut — men eftersom den själv bara är ett
+                vanligt block-element (ingen egen flex/min-height-regel
+                på DESS barn) läggs sidans rot-div och spacern ut i
+                NORMALT dokumentflöde inuti den. Sidans rot-div får då
+                växa till sin RIKTIGA innehållshöjd (ingen min-height:0
+                tvingar ihop den längre på den här nivån), och spacern
+                hamnar äntligen genuint EFTER den — vilket räknas in i
+                .main-wrapper:s scrollHeight på riktigt, exakt samma
+                mekanism som redan lät sidans overflow nå upp genom alla
+                lager till .main-wrapper innan den här fixen. */}
+            <div className="page-content-with-spacer">
+              {renderContent()}
+              <div className="mobile-nav-spacer" aria-hidden="true" />
+            </div>
           </Suspense>
         </div>
       </main>

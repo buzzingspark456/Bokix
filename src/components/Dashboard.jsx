@@ -510,11 +510,16 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
           .dash-kpi-grid { grid-template-columns: 1fr !important; }
           .dash-quick-actions { grid-template-columns: repeat(2,1fr) !important; }
           .dash-todo-grid { grid-template-columns: 1fr !important; }
-          /* Kundfeedback: "Moms"-kortet (Senast bokfört/Moms staplas till en
-             kolumn på mobil, se 900px-brytpunkten ovan) är ofta sidans sista
-             kort — 18px räckte inte för att skilja "Se momsrapport"-knappen
-             från den fasta bottennaven, den låg nästan klistrad ovanpå. */
-          .dash-lower-grid { margin-bottom: calc(var(--mobile-nav-height, 72px) + 16px) !important; }
+          /* En tidigare version hade en egen margin-bottom-regel här på
+             .dash-lower-grid, byggd på antagandet att Moms-kortet "ofta"
+             var sidans sista kort — trasig så fort showOnboarding-kortet
+             (nedan i JSX:en) renderades EFTER den, vilket gjorde att just
+             det kortet (inte dash-lower-grid) blev det verkliga sista
+             elementet utan eget skydd. Riktig fix nu istället: index.css
+             ROOT-variabeln --mobile-nav-height matchar bottennavens
+             faktiska höjd och .main-wrapper:s padding-bottom (samma fil)
+             räknar på den — skyddar VAD SOM ÄN råkar vara sist på VILKEN
+             SOM HELST mobilsida, inte bara den här komponentens gissning. */
         }
       `}</style>
 

@@ -192,7 +192,21 @@
   /* ── Layout ── */
   --sidebar-width: 230px;
   --topbar-height: 56px;
-  --mobile-nav-height: 72px; /* Fortnox-terugkoppling: storre ikoner + mer padding kraver mer hojd */
+  /* Kundfeedback (2026-08-30): "Moms Q3 2026", kundrader, fakturarader —
+     sista biten av innehållet på nästan varje mobilsida gömdes bakom den
+     fasta bottennaven, menyn "stod i vägen". Uppmätt (Playwright,
+     getBoundingClientRect på .mobile-bottom-nav): navens RIKTIGA höjd är
+     ~94px (10px+10px inner-padding + knappens 6px+6px padding + 40px
+     ikoncirkel + 6px gap + ~16px etikett), inte 72px — det gamla värdet
+     här var kvar från INNAN "större ikoner + mer padding"-ändringen ovan
+     gjorde varje knapp fysiskt högre, och uppdaterades aldrig i takt.
+     .main-wrapper:s padding-bottom (nedan, ≤768px) räknar rakt av på den
+     här variabeln, så ALL scrollbart innehåll slutade ~22px för tidigt —
+     exakt de sista 22 pixlarna en fast botten-navigation döljer. 100px
+     ger lite marginal utöver de uppmätta ~94px istället för att ligga
+     pixel-exakt på gränsen (typsnittsmetrik kan skilja någon pixel
+     mellan Android/iOS). */
+  --mobile-nav-height: 100px;
 }
 
 /* ══ MÖRKT LÄGE ══
@@ -886,6 +900,13 @@ body {
   min-height: 0;
   display: flex;
   flex-direction: column;
+}
+/* Dold på skrivbord — bara relevant bakom .mobile-bottom-nav, som i sig
+   bara existerar ≤768px (se @media nedan för den faktiska höjden och
+   App.jsx:s .page-content-with-spacer för varför den ligger just där i
+   trädet den gör). */
+.mobile-nav-spacer {
+  display: none;
 }
 .main-content-inner > * {
   flex: 1;
@@ -1757,6 +1778,13 @@ textarea.form-control {
 
 .form-row-3 {
   grid-template-columns: 1fr 1fr 1fr;
+}
+
+/* Kandidatraderna i FöretagsAPI-sökdropdownen under Namn-fältet i
+   Kunder/Leverantörer (useCompanyLookup, Contacts.jsx) — enda hover-behovet
+   där, resten av dropdownens utseende sätts inline i komponenten. */
+.company-lookup-result:hover {
+  background: var(--bg-muted);
 }
 
 
@@ -2945,7 +2973,6 @@ textarea.form-control {
      kort överlägg medan man faktiskt drar. Panorerar/skrollar fortfarande
      precis likadant, bara utan den synliga listen. */
   .main-wrapper {
-    padding-bottom: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom, 0px));
     scrollbar-width: none;
   }
   .main-wrapper::-webkit-scrollbar {
@@ -2957,6 +2984,21 @@ textarea.form-control {
      marginal på smalare skärmar, oavsett basregelns padding:0. */
   .main-content-inner {
     padding: 0;
+  }
+
+  /* Säkerhetsmarginal mot bottennaven — se App.jsx:s .page-content-with-
+     spacer för varför det här måste vara ett RIKTIGT element med riktig
+     höjd, genuint EFTER sidans innehåll i dokumentflödet, och inte
+     padding på .main-wrapper eller .main-content-inner (båda testade;
+     ingen påverkade faktisk scrollHeight — .main-content-inner:s barn
+     kläms alltid ihop av flex:1/min-height:0 oavsett innehållets höjd).
+     Kundfeedback ("good distance between the content and the bar"): att
+     bara MATCHA navens höjd räckte tekniskt (inget gömdes längre) men
+     sista kortets kant låg klistrad rakt mot navens överkant utan luft —
+     +18px utöver navens egen höjd ger ett riktigt synligt mellanrum. */
+  .mobile-nav-spacer {
+    display: block;
+    height: calc(var(--mobile-nav-height) + 18px + env(safe-area-inset-bottom, 0px));
   }
 
   /* Topbar synlig på mobil för hamburger-meny */
@@ -3121,18 +3163,23 @@ textarea.form-control {
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: 10px;
-    margin-bottom: 8px;
+    margin-bottom: 12px;
     overflow: hidden;
   }
 
+  /* Kundfeedback (2026-08-30): korten kändes för hoptryckta igen — rader
+     nästan klistrade mot sina egna kant-linjer. Lite mer luft (padding/
+     min-height) utan att gå tillbaka till den ursprungliga 44px/rad-
+     regeln som gjorde listorna orimligt höga (se kommentaren ovan om
+     "sidan är SÅ stor på mobilen"). */
   .responsive-table td {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
     width: auto;
-    min-height: 30px;
-    padding: 5px 12px;
+    min-height: 34px;
+    padding: 9px 14px;
     border-bottom: 1px solid #f1f5f9;
     text-align: right;
     /* Sida 38, punkt 10: siffror/brödtext i listor får aldrig krympa under

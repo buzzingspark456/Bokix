@@ -9,6 +9,7 @@ import { ProjectSearch, EntitySearch } from './shared/SearchInputs';
 import ListPageHeader, { ListFilterBar } from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
 import { BRAND } from '../utils/brandColors';
+import { useIsMobileViewport } from '../hooks/useIsMobileViewport';
 
 const formatSEK = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
 
@@ -97,34 +98,49 @@ function getReportStatus(timeReportStatuses, personId, monthKey, customerId) {
   return found?.status || 'pending';
 }
 
-// ── KPI-ruta för Översikt — ikonbricka, etikett, värde, valfri delrad.
-// Samma visuella recept som Dashboard.jsx:s KpiCard (ikon i färgad cirkel,
-// versal etikett, stort tal) men fristående markup här, samma konvention
-// som resten av sidorna följer (ingen delad komponent mellan sidorna). ──
-function ProjectKpiCard({ icon: Icon, label, value, sub, tone = 'neutral' }) {
-  const [hover, setHover] = useState(false);
-  const badge = tone === 'negative'
-    ? { bg: BRAND.redBg, color: BRAND.redText }
-    : { bg: BRAND.greenLight, color: BRAND.greenDark };
+// ── KPI-remsa för Översikt — kundfeedback ("kant i kant istället än
+// under varandra", "asså designen"): en första mobilfix gjorde varje kort
+// kompakt men lämnade dem som TRE separata rundade kort som staplades
+// under varandra (.form-row-stack tvingar 1 kolumn på mobil) — inte den
+// flush/sammanslagna kant-i-kant-look resten av appen redan använder
+// (Kunder/Bokföring: en enda ram, inga enskilt inramade kort). Samma
+// mönster här nu: EN gemensam ram (cardBase) med tre kolumner som delar
+// tunna innerlinjer istället för tre egna kort med mellanrum — gäller på
+// både mobil och desktop, aldrig staplat. ──
+function ProjectKpiStrip({ items }) {
+  const isMobileViewport = useIsMobileViewport();
   return (
-    <div
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      style={{
-        ...cardBase, padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '12px',
-        transition: 'box-shadow 0.15s ease, transform 0.15s ease',
-        transform: hover ? 'translateY(-2px)' : 'none',
-        boxShadow: hover ? '0 8px 20px rgba(17,24,39,0.08)' : '0 1px 2px rgba(17,24,39,0.03)',
-      }}
-    >
-      <div style={{ width: 34, height: 34, borderRadius: '9px', background: badge.bg, color: badge.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-        <Icon size={16} />
-      </div>
-      <div>
-        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px' }}>{label}</div>
-        <div style={{ fontSize: '21px', fontWeight: 700, color: tone === 'negative' ? BRAND.redText : 'var(--text-main)', letterSpacing: '-0.02em', lineHeight: 1.15 }}>{value}</div>
-        {sub && <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)', marginTop: '3px' }}>{sub}</div>}
-      </div>
+    <div style={{ ...cardBase, display: 'grid', gridTemplateColumns: `repeat(${items.length}, 1fr)`, overflow: 'hidden' }}>
+      {items.map((item, i) => {
+        const { icon: Icon, label, value, sub, tone = 'neutral' } = item;
+        const badge = tone === 'negative'
+          ? { bg: BRAND.redBg, color: BRAND.redText }
+          : { bg: BRAND.greenLight, color: BRAND.greenDark };
+        return (
+          <div
+            key={label}
+            style={{
+              padding: isMobileViewport ? '14px 10px' : '18px 20px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: isMobileViewport ? 'center' : 'flex-start',
+              textAlign: isMobileViewport ? 'center' : 'left',
+              gap: isMobileViewport ? '8px' : '12px',
+              minWidth: 0,
+              borderRight: i < items.length - 1 ? '1px solid var(--border)' : 'none',
+            }}
+          >
+            <div style={{ width: 34, height: 34, borderRadius: '9px', background: badge.bg, color: badge.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Icon size={16} />
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px' }}>{label}</div>
+              <div style={{ fontSize: isMobileViewport ? '17px' : '21px', fontWeight: 700, color: tone === 'negative' ? BRAND.redText : 'var(--text-main)', letterSpacing: '-0.02em', lineHeight: 1.15 }}>{value}</div>
+              {sub && <div style={{ fontSize: '10.5px', color: 'var(--text-secondary)', marginTop: '3px' }}>{sub}</div>}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -1163,17 +1179,19 @@ export default function Projects({ projects = [], setProjects, contacts = [], se
                   saker. Enklare mental modell: scrolla och filtrera, inte
                   navigera. Egen padding bara här (KPI:er/varning är kort,
                   inte tabellen) — tabellen längre ner har ingen. */}
-              <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px', padding: '18px 20px 0' }}>
-                <ProjectKpiCard icon={Zap} label="Aktiva projekt" value={String(activeProjects.length)} />
-                <ProjectKpiCard
-                  icon={Clock} label="Nedlagd tid"
-                  value={`${formatHours(totalActiveTimeSpent)} h`}
-                  sub={totalActiveBudgetHours ? `av ${totalActiveBudgetHours} h budgeterat` : 'Ingen budget satt'}
-                />
-                <ProjectKpiCard
-                  icon={totalActiveProfit >= 0 ? TrendingUp : TrendingDown} label="Lönsamhet"
-                  value={formatSEK(totalActiveProfit)} tone={totalActiveProfit < 0 ? 'negative' : 'neutral'}
-                />
+              <div style={{ padding: '18px 20px 0' }}>
+                <ProjectKpiStrip items={[
+                  { icon: Zap, label: 'Aktiva projekt', value: String(activeProjects.length) },
+                  {
+                    icon: Clock, label: 'Nedlagd tid',
+                    value: `${formatHours(totalActiveTimeSpent)} h`,
+                    sub: totalActiveBudgetHours ? `av ${totalActiveBudgetHours} h budgeterat` : 'Ingen budget satt',
+                  },
+                  {
+                    icon: totalActiveProfit >= 0 ? TrendingUp : TrendingDown, label: 'Lönsamhet',
+                    value: formatSEK(totalActiveProfit), tone: totalActiveProfit < 0 ? 'negative' : 'neutral',
+                  },
+                ]} />
               </div>
 
               {/* Kompakt varningsrad istället för en hel inbäddad sektion —
