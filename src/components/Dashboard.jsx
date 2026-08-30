@@ -3,10 +3,14 @@ import {
   FileText, Receipt, TrendingUp, TrendingDown,
   ChevronRight, ArrowUpRight, ArrowDownRight,
   CheckCircle, CheckCircle2, Minus, BarChart2,
-  UserPlus, Users, Clock, AlertCircle, Zap, X, MessageSquare
+  UserPlus, Users, Clock, AlertCircle, Zap, X, MessageSquare,
+  // Aliasat — 'LineChart' krockar annars med recharts-komponenten med
+  // samma namn som redan importeras nedan (två helt olika saker: en ikon
+  // kontra en diagramkomponent).
+  LineChart as LineChartIcon, Table2,
 } from 'lucide-react';
 import {
-  BarChart, Bar,
+  BarChart, Bar, LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Legend, ReferenceLine, Cell
 } from 'recharts';
@@ -57,6 +61,20 @@ const KPI_GRAD_REVENUE  = KPI_GRADIENTS.revenue;  // Intäkter
 const CHART_REVENUE = KPI_GRAD_REVENUE[0];  // blå
 const CHART_EXPENSE = KPI_GRAD_NEGATIVE[0]; // rosa/röd
 
+// Föregående års jämförelselinjer (Intäkter vs Utgifter-läget): SAMMA
+// validerade nyanser som ovan, bara halvtransparenta — inte en tredje/fjärde
+// egen kulör att CVD-validera på nytt (validate_palette.js, se dataviz-
+// skillen). Urskiljs från innevarande års staplar via FORM (streckad linje
+// ovanpå/vid sidan av stapeln), inte via en ny färg — samma "sekundär,
+// icke-färgbaserad kodning"-princip som redan etablerats för Rapport och
+// analys (ReportUI.jsx: dashed grå linje = "Föregående period").
+const hexToRgba = (hex, alpha) => {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+};
+const CHART_REVENUE_PREV = hexToRgba(CHART_REVENUE, 0.55);
+const CHART_EXPENSE_PREV = hexToRgba(CHART_EXPENSE, 0.55);
+
 // "Kom igång"-checklistan (Sida 31) — en egen accentfärg per steg istället
 // för enhetligt grått, så listan blir lättare att skanna. Klar-status
 // målas i samma nyans som steget hade innan, bara fylld istället för outline.
@@ -93,6 +111,80 @@ const CHART_MODES = [
   { id: 'revenue-expense', label: 'Intäkter vs Utgifter', icon: BarChart2 },
   { id: 'result',          label: 'Resultat',              icon: Minus },
 ];
+
+// Diagramformat — samma data, tre sätt att läsa den. "Tabell" är inte bara
+// en extra vy för smaksak: dataviz-skillens tillgänglighetskrav säger att en
+// tabellvy alltid ska finnas som alternativ till en ren grafisk framställning.
+const FORMAT_MODES = [
+  { id: 'bars',  label: 'Staplar', icon: BarChart2 },
+  { id: 'line',  label: 'Linje',   icon: LineChartIcon },
+  { id: 'table', label: 'Tabell',  icon: Table2 },
+];
+
+/** Liten färgad prick/streck-swatch för handbyggda legender (samma mönster
+ * som ReportUI.jsx:s `swatch`-hjälpare, men lokal här eftersom Dashboard.jsx
+ * inte i övrigt delar presentationsdelar med Rapport och analys). */
+function legendSwatch(color, dashed = false) {
+  return (
+    <span style={{
+      width: '13px', height: dashed ? '2px' : '9px', borderRadius: dashed ? 0 : '50%',
+      background: dashed ? 'none' : color, borderTop: dashed ? `2px dashed ${color}` : undefined,
+      display: 'inline-block', flexShrink: 0,
+    }} />
+  );
+}
+
+/** Delta-badge (pil + procent) för tabellformatets "vs föreg. år"-kolumn —
+ * samma piktogram/färglogik som KPI-kortens delta, i miniatyr. `null` (inte
+ * "0%") när fjolårssiffran är 0, av samma skäl som ReportUI.jsx:s
+ * formatDelta: en procentuell förändring från noll är matematiskt
+ * meningslös, inte "oändligt bra/dåligt". */
+function DeltaBadge({ current, previous }) {
+  if (!previous) return <span style={{ color: 'var(--text-muted)' }}>—</span>;
+  const pct = ((current - previous) / Math.abs(previous)) * 100;
+  const rising = pct >= 0;
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: rising ? BRAND.greenDark : BRAND.redText, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+      {rising ? <ArrowUpRight size={11} /> : <ArrowDownRight size={11} />}
+      {Math.abs(pct).toFixed(0)}%
+    </span>
+  );
+}
+
+/** Tabellformatet — samma tolv månadsrader som graferna, som en riktig
+ * `<table>` istället för streck/staplar. Kolumnerna anpassar sig efter
+ * chartMode så tabellen aldrig visar en tom "Utgifter"-kolumn i Resultat-läget. */
+function ChartDataTable({ data, mode, fmt, hasPrevYearData, previousYear }) {
+  const showRevExp = mode === 'revenue-expense';
+  return (
+    <div style={{ overflowX: 'auto' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+        <thead>
+          <tr style={{ borderBottom: '1px solid var(--border)' }}>
+            <th style={{ textAlign: 'left', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600 }}>Månad</th>
+            {showRevExp && <th style={{ textAlign: 'right', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600 }}>Intäkter</th>}
+            {showRevExp && <th style={{ textAlign: 'right', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600 }}>Utgifter</th>}
+            <th style={{ textAlign: 'right', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600 }}>Resultat</th>
+            {hasPrevYearData && <th style={{ textAlign: 'right', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600 }}>Resultat {previousYear}</th>}
+            {hasPrevYearData && <th style={{ textAlign: 'right', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600 }}>Förändring</th>}
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((row, i) => (
+            <tr key={row.name} style={{ borderBottom: '1px solid var(--border-light)', background: i % 2 === 1 ? 'var(--bg-muted)' : 'transparent' }}>
+              <td style={{ padding: '7px 10px', color: 'var(--text-main)', fontWeight: 600 }}>{row.name}</td>
+              {showRevExp && <td style={{ textAlign: 'right', padding: '7px 10px', color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>{fmt(row.Intäkter)}</td>}
+              {showRevExp && <td style={{ textAlign: 'right', padding: '7px 10px', color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>{fmt(row.Utgifter)}</td>}
+              <td style={{ textAlign: 'right', padding: '7px 10px', color: row.Resultat >= 0 ? BRAND.greenDark : BRAND.redText, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{fmt(row.Resultat)}</td>
+              {hasPrevYearData && <td style={{ textAlign: 'right', padding: '7px 10px', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>{fmt(row.PrevResultat)}</td>}
+              {hasPrevYearData && <td style={{ textAlign: 'right', padding: '7px 10px' }}><DeltaBadge current={row.Resultat} previous={row.PrevResultat} /></td>}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 // Snabbåtgärder — varje genväg får en egen tydlig färg istället för samma
 // enfärgade gröna chip för alla fyra, så raden känns levande och man kan
@@ -240,6 +332,7 @@ function TodayRow({ item, onClick }) {
 
 export default function Dashboard({ verifications, balances, accounts, invoices, expenses, contacts, setActiveTab, company, profileIncomplete, onResumeOnboarding, vatPeriods = {}, payrollRuns = [] }) {
   const [chartMode, setChartMode] = useState('revenue-expense');
+  const [chartFormat, setChartFormat] = useState('bars');
   const isMobileViewport = useIsMobileViewport();
 
   // ── "Kom igång"-checklistan ── Ska ligga kvar tills ALLA fyra steg är
@@ -457,9 +550,17 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
   }, [verifications]);
 
   // ── Chartdata ──
+  // Räknar nu fram BÅDA årens Intäkter/Utgifter/Resultat, inte bara
+  // innevarande år — subtitleraden under diagramrubriken ("Innevarande
+  // räkenskapsår X jämfört med Y") lovade den jämförelsen sedan tidigare,
+  // men PrevIntäkter/PrevUtgifter räknades aldrig ut (bara en ensam,
+  // aldrig renderad 'Föregående år'-summa för intäkter) — grafen visade
+  // alltså aldrig det den påstod. Fixat här; själva ritningen (streckade
+  // jämförelselinjer) sker längre ner i JSX:en.
+  const previousYear = String(parseInt(currentYear) - 1);
   const chartData = useMemo(() => {
     const names = ['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
-    const data = names.map(name => ({ name, Intäkter: 0, Utgifter: 0, Resultat: 0, 'Föregående år': 0 }));
+    const data = names.map(name => ({ name, Intäkter: 0, Utgifter: 0, Resultat: 0, PrevIntäkter: 0, PrevUtgifter: 0, PrevResultat: 0 }));
     verifications.forEach(v => {
       if ((v.status || 'booked') === 'draft') return;
       const year = v.date.substring(0, 4);
@@ -471,17 +572,33 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
         if (year === currentYear) {
           data[mIdx].Intäkter += rev;
           data[mIdx].Utgifter += cost;
-        } else if (year === String(parseInt(currentYear) - 1)) {
-          data[mIdx]['Föregående år'] += rev;
+        } else if (year === previousYear) {
+          data[mIdx].PrevIntäkter += rev;
+          data[mIdx].PrevUtgifter += cost;
         }
       });
     });
     data.forEach(d => {
       d.Resultat = d.Intäkter - d.Utgifter;
+      d.PrevResultat = d.PrevIntäkter - d.PrevUtgifter;
     });
-    return data;
-  }, [verifications, currentYear]);
+    // Kundfeedback: grafen visade hela kalenderåret (Jan–Dec) rakt av, så
+    // Sep–Dec stod som en missvisande platt nolla mitt i (både stapel- och
+    // tabellformatet) och som ett rakt STUP ner till 0 i linjeformatet —
+    // exakt likadant som "ingen försäljning alls" hade sett ut, trots att
+    // de månaderna helt enkelt inte har inträffat än. `currentYear` här ÄR
+    // per definition det verkliga innevarande kalenderåret (`new Date().
+    // getFullYear()`, se konstanten ovan) — det finns alltså aldrig ett
+    // läge där den här widgeten visar ett förflutet år och SKA rendera
+    // hela tolv månader. Klipper bort allt efter dagens månad istället.
+    return data.slice(0, new Date().getMonth() + 1);
+  }, [verifications, currentYear, previousYear]);
   const hasChartData = chartData.some(d => d.Intäkter !== 0 || d.Utgifter !== 0);
+  // Bara sant om det FAKTISKT finns bokförd fjolårsdata — annars skulle
+  // jämförelselinjerna bara vara en missvisande platt nolla (t.ex. ett
+  // helt nytt företags allra första räkenskapsår).
+  const hasPrevYearData = chartData.some(d => d.PrevIntäkter !== 0 || d.PrevUtgifter !== 0);
+  const prevYearResultatTotal = chartData.reduce((sum, d) => sum + d.PrevResultat, 0);
 
   // ── Hälsning — tidsgränser i delad util, inte inline ──
   const { greeting } = getGreeting();
@@ -640,13 +757,18 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
           en platt nollstapel-graf tills det finns något att rita ut. ─── */}
       <div style={{ background: 'var(--bg-cream)', border: '1px solid var(--bg-cream-border)', borderRadius: '14px', padding: '22px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)', marginBottom: '18px', minWidth: 0 }}>
         {/* Chart header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px', flexWrap: 'wrap', gap: '12px' }}>
           <div>
             <h2 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.01em', marginBottom: '2px' }}>
               {CHART_MODES.find(m => m.id === chartMode)?.label}
             </h2>
             <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-              Innevarande räkenskapsår {currentYear} jämfört med {parseInt(currentYear) - 1}
+              {/* "jämfört med"-delen visas bara när det FAKTISKT finns
+                  bokförd fjolårsdata (hasPrevYearData) — annars lovade
+                  raden en jämförelse som varken graf eller tabell hade
+                  något att visa för (t.ex. företagets allra första
+                  räkenskapsår). */}
+              Innevarande räkenskapsår {currentYear}{hasPrevYearData ? ` jämfört med ${previousYear}` : ''}
             </p>
             {/* Legenden uppdateras dynamiskt beroende på vald flik — aldrig
                 statisk text som bara passar första vyn. Intäkter/Utgifter-
@@ -654,9 +776,12 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
                 punkt och text — samma toner som KPI-korten ovan och ett
                 CVD-säkert par (se konstant-kommentaren). Resultat-läget
                 behåller det klassiska grönt/rött eftersom det är en enda
-                serie vars läge mot nollinjen (inte färgen) bär betydelsen. */}
+                serie vars läge mot nollinjen (inte färgen) bär betydelsen.
+                Föregående års siffror (när de finns) läggs till som en egen,
+                dämpad/streckad post — samma "form, inte färg, bär den andra
+                dimensionen"-princip som graferna längre ner använder. */}
             {chartMode === 'revenue-expense' && (
-              <div style={{ display: 'flex', gap: '16px', marginTop: '8px' }}>
+              <div style={{ display: 'flex', gap: '16px', marginTop: '8px', flexWrap: 'wrap' }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: CHART_REVENUE, fontWeight: 600 }}>
                   <span style={{ width: 10, height: 10, borderRadius: '50%', background: CHART_REVENUE, display: 'inline-block' }} />
                   Intäkter {fmt(raOmsattning)}
@@ -665,14 +790,26 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
                   <span style={{ width: 10, height: 10, borderRadius: '50%', background: CHART_EXPENSE, display: 'inline-block' }} />
                   Utgifter {fmt(raKostnader)}
                 </span>
+                {hasPrevYearData && (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                    {legendSwatch(CHART_REVENUE_PREV, true)}{legendSwatch(CHART_EXPENSE_PREV, true)}
+                    {previousYear}
+                  </span>
+                )}
               </div>
             )}
             {chartMode === 'result' && (
-              <div style={{ display: 'flex', gap: '16px', marginTop: '8px' }}>
+              <div style={{ display: 'flex', gap: '16px', marginTop: '8px', flexWrap: 'wrap' }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: raResultat >= 0 ? BRAND.greenDark : BRAND.redText }}>
                   <span style={{ width: 10, height: 10, borderRadius: '50%', background: raResultat >= 0 ? REVENUE : EXPENSE, display: 'inline-block' }} />
                   Resultat {fmt(raResultat)}
                 </span>
+                {hasPrevYearData && (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                    {legendSwatch('var(--text-muted)', true)}
+                    Resultat {previousYear} {fmt(prevYearResultatTotal)}
+                  </span>
+                )}
               </div>
             )}
           </div>
@@ -694,6 +831,33 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
           </div>
         </div>
 
+        {/* Formatväljare (Staplar/Linje/Tabell) — samma data, tre sätt att
+            läsa den (kundönskemål: "olika format"). Egen, mindre rad under
+            huvudväxlaren istället för att klämmas in bredvid den — annars
+            får headerraden fyra knappar att trängas om utrymme med titel +
+            legend på små skärmar. Döljs i tomt-läge (nedan) — inget att
+            växla format PÅ än. */}
+        {hasChartData && (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '14px' }}>
+            <div style={{ display: 'flex', gap: '4px', background: 'var(--bg-muted)', padding: '3px', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
+              {FORMAT_MODES.map(f => (
+                <button key={f.id} onClick={() => setChartFormat(f.id)} title={f.label} style={{
+                  display: 'flex', alignItems: 'center', gap: '5px',
+                  padding: '4px 9px', borderRadius: '5px', border: 'none', cursor: 'pointer',
+                  fontSize: '11.5px', fontWeight: chartFormat === f.id ? 600 : 400,
+                  background: chartFormat === f.id ? 'var(--bg-card)' : 'transparent',
+                  color: chartFormat === f.id ? 'var(--text-main)' : 'var(--text-muted)',
+                  boxShadow: chartFormat === f.id ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
+                  transition: 'all 0.15s', fontFamily: 'inherit',
+                }}>
+                  <f.icon size={11} />
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Tomt läge — inga bokförda verifikationer än. Ett eget litet vyläge
             istället för att bara rita en platt nollinje, så rutan förklarar
             vad som saknas istället för att se trasig/tom ut. */}
@@ -707,42 +871,97 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
               Så fort du bokfört en faktura eller en utgift dyker den här grafen upp här.
             </p>
           </div>
+        ) : chartFormat === 'table' ? (
+          <ChartDataTable data={chartData} mode={chartMode} fmt={fmt} hasPrevYearData={hasPrevYearData} previousYear={previousYear} />
         ) : (
           <>
             {chartMode === 'revenue-expense' && (
               <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }} barGap={3}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-light)" />
-                  {/* interval=2: visa en etikett, hoppa över 2, visa nästa — var
-                      tredje månad på mobil istället för alla tolv som annars
-                      överlappar varandra på en 375px-bred yta. */}
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} dy={6} interval={isMobileViewport ? 2 : 0} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} tickFormatter={fmtShort} width={44} />
-                  <Tooltip content={<ChartTooltip fmt={fmt} />} cursor={{ fill: 'rgba(0,0,0,0.02)' }} />
-                  {/* verticalAlign="bottom" (uttryckligt, inte bara standard-
-                      värdet) — flyttar/håller legenden under diagrammet på
-                      mobil istället för att riskera att den kläms in bredvid. */}
-                  <Legend iconType="circle" iconSize={7} verticalAlign="bottom" wrapperStyle={{ fontSize: 12, paddingTop: 16 }} />
-                  <Bar dataKey="Intäkter" fill={CHART_REVENUE} radius={[4,4,0,0]} barSize={16} />
-                  <Bar dataKey="Utgifter" fill={CHART_EXPENSE} radius={[4,4,0,0]} barSize={16} />
-                </BarChart>
+                {chartFormat === 'line' ? (
+                  <LineChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-light)" />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} dy={6} interval={isMobileViewport ? 2 : 0} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} tickFormatter={fmtShort} width={44} />
+                    <Tooltip content={<ChartTooltip fmt={fmt} />} cursor={{ stroke: 'var(--border)', strokeWidth: 1 }} />
+                    <Legend iconType="plainline" verticalAlign="bottom" wrapperStyle={{ fontSize: 12, paddingTop: 16 }} />
+                    <Line type="monotone" dataKey="Intäkter" name="Intäkter" stroke={CHART_REVENUE} strokeWidth={2.5} dot={false} activeDot={{ r: 5 }} />
+                    <Line type="monotone" dataKey="Utgifter" name="Utgifter" stroke={CHART_EXPENSE} strokeWidth={2.5} dot={false} activeDot={{ r: 5 }} />
+                    {hasPrevYearData && <Line type="monotone" dataKey="PrevIntäkter" name={`Intäkter ${previousYear}`} stroke={CHART_REVENUE_PREV} strokeWidth={2} strokeDasharray="4 3" dot={false} />}
+                    {hasPrevYearData && <Line type="monotone" dataKey="PrevUtgifter" name={`Utgifter ${previousYear}`} stroke={CHART_EXPENSE_PREV} strokeWidth={2} strokeDasharray="4 3" dot={false} />}
+                  </LineChart>
+                ) : (
+                  <BarChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }} barGap={3}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-light)" />
+                    {/* interval=2: visa en etikett, hoppa över 2, visa nästa — var
+                        tredje månad på mobil istället för alla tolv som annars
+                        överlappar varandra på en 375px-bred yta. */}
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} dy={6} interval={isMobileViewport ? 2 : 0} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} tickFormatter={fmtShort} width={44} />
+                    <Tooltip content={<ChartTooltip fmt={fmt} />} cursor={{ fill: 'rgba(0,0,0,0.02)' }} />
+                    {/* verticalAlign="bottom" (uttryckligt, inte bara standard-
+                        värdet) — flyttar/håller legenden under diagrammet på
+                        mobil istället för att riskera att den kläms in bredvid. */}
+                    <Legend iconType="circle" iconSize={7} verticalAlign="bottom" wrapperStyle={{ fontSize: 12, paddingTop: 16 }} />
+                    <Bar dataKey="Intäkter" fill={CHART_REVENUE} radius={[4,4,0,0]} barSize={16} />
+                    <Bar dataKey="Utgifter" fill={CHART_EXPENSE} radius={[4,4,0,0]} barSize={16} />
+                    {/* Föregående års jämförelse ritas som en streckad linje
+                        ovanpå de egna årets staplar (samma konvention som
+                        Rapport och analys, ReportUI.jsx) — bara när det finns
+                        något att jämföra med. */}
+                    {hasPrevYearData && <Line type="monotone" dataKey="PrevIntäkter" name={`Intäkter ${previousYear}`} stroke={CHART_REVENUE_PREV} strokeWidth={2} strokeDasharray="4 3" dot={false} legendType="plainline" />}
+                    {hasPrevYearData && <Line type="monotone" dataKey="PrevUtgifter" name={`Utgifter ${previousYear}`} stroke={CHART_EXPENSE_PREV} strokeWidth={2} strokeDasharray="4 3" dot={false} legendType="plainline" />}
+                  </BarChart>
+                )}
               </ResponsiveContainer>
             )}
 
             {chartMode === 'result' && (
               <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-light)" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} dy={6} interval={isMobileViewport ? 2 : 0} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} tickFormatter={fmtShort} width={44} />
-                  <Tooltip content={<ChartTooltip fmt={fmt} />} cursor={{ fill: 'rgba(0,0,0,0.02)' }} />
-                  <ReferenceLine y={0} stroke="var(--border)" strokeWidth={1.5} />
-                  <Bar dataKey="Resultat" radius={[4,4,0,0]} barSize={20}>
-                    {chartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.Resultat >= 0 ? REVENUE : EXPENSE} />
-                    ))}
-                  </Bar>
-                </BarChart>
+                {chartFormat === 'line' ? (
+                  <LineChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-light)" />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} dy={6} interval={isMobileViewport ? 2 : 0} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} tickFormatter={fmtShort} width={44} />
+                    <Tooltip content={<ChartTooltip fmt={fmt} />} cursor={{ stroke: 'var(--border)', strokeWidth: 1 }} />
+                    <ReferenceLine y={0} stroke="var(--border)" strokeWidth={1.5} />
+                    {/* Recharts (v3 i det här projektet, se package.json) hämtar
+                        <Legend>-innehållet ENBART från en intern context som
+                        varje diagramelement registrerar sig i självt — en
+                        manuellt satt `payload`-prop på <Legend> läses inte
+                        längre (till skillnad från Recharts v2, där mönstret
+                        kom ifrån). Rätt fix är alltså att ge varje element sin
+                        egen korrekta `name`/färg och låta Legend läsa av dem
+                        automatiskt, inte att skicka in en egen payload-array. */}
+                    {hasPrevYearData && <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 12, paddingTop: 16 }} />}
+                    <Line type="monotone" dataKey="Resultat" name="Resultat" stroke={raResultat >= 0 ? REVENUE : EXPENSE} strokeWidth={2.5} dot={false} activeDot={{ r: 5 }} />
+                    {hasPrevYearData && <Line type="monotone" dataKey="PrevResultat" name={`Resultat ${previousYear}`} stroke="var(--text-muted)" strokeWidth={2} strokeDasharray="4 3" dot={false} />}
+                  </LineChart>
+                ) : (
+                  <BarChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-light)" />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} dy={6} interval={isMobileViewport ? 2 : 0} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} tickFormatter={fmtShort} width={44} />
+                    <Tooltip content={<ChartTooltip fmt={fmt} />} cursor={{ fill: 'rgba(0,0,0,0.02)' }} />
+                    <ReferenceLine y={0} stroke="var(--border)" strokeWidth={1.5} />
+                    {/* Legend bara när det finns en fjolårslinje att förklara —
+                        annars är en enda stapelserie självförklarande via sin
+                        position mot nollinjen (se kommentaren vid CHART_MODES-
+                        legenden ovan), precis som innan denna ändring. Bar-
+                        elementet nedan får därför sitt EGET explicita `fill`
+                        (som annars vore onödigt — färgen sätts annars per
+                        Cell) enbart för att Recharts v3:s auto-legend-context
+                        ska ha en färg att läsa av; se kommentaren i Linje-
+                        formatets Legend ovan för varför en manuell `payload`
+                        inte fungerar här. */}
+                    {hasPrevYearData && <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 12, paddingTop: 16 }} />}
+                    <Bar dataKey="Resultat" name="Resultat" fill={raResultat >= 0 ? REVENUE : EXPENSE} radius={[4,4,0,0]} barSize={20}>
+                      {chartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.Resultat >= 0 ? REVENUE : EXPENSE} />
+                      ))}
+                    </Bar>
+                    {hasPrevYearData && <Line type="monotone" dataKey="PrevResultat" name={`Resultat ${previousYear}`} stroke="var(--text-muted)" strokeWidth={2} strokeDasharray="4 3" dot={false} />}
+                  </BarChart>
+                )}
               </ResponsiveContainer>
             )}
           </>
