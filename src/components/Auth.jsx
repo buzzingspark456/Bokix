@@ -2,12 +2,13 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   LogIn, UserPlus, Building2, Mail, Lock,
-  ArrowRight, ArrowLeft, ShieldCheck, Check, User, Hash,
+  ArrowRight, ArrowLeft, ShieldCheck, Check, User, Hash, Search,
   RefreshCw,
   FileText, BarChart3, Receipt, Users, Shield, Briefcase,
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { detectOrgType, formatOrgNr } from '../utils/orgType';
+import { useCompanyLookup } from '../hooks/useCompanyLookup';
 import { BRAND } from '../utils/brandColors';
 import { BokixWordmark } from './marketing/MarketingLayout';
 import { createStripeSubscriptionCheckout } from '../stripeApi';
@@ -38,6 +39,28 @@ const labelStyle = {
 };
 
 const REGISTER_STEPS = ['Personlig info', 'Bekräfta e-post', 'Företag', 'Lösenord'];
+
+// ── Autouppslag mot FöretagsAPI på registreringens "Ditt företag"-steg
+// (useCompanyLookup, se api/company-access.js) — samma sökknapp-under-
+// fältet-mönster som Contacts.jsx, egna stilar här eftersom Auth.jsx:s
+// inputs (mörkare bg-muted-bakgrund, rundare hörn) inte delar utseende
+// med Kunder/Leverantörer-formulären. ──
+const lookupButtonStyle = {
+  display: 'flex', alignItems: 'center', justifyContent: 'center',
+  width: '46px', flexShrink: 0, border: '1px solid var(--border)',
+  borderRadius: '10px', background: 'var(--bg-muted)', color: 'var(--text-secondary)', cursor: 'pointer',
+};
+const lookupDropdownStyle = {
+  position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 20,
+  background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '10px',
+  boxShadow: '0 8px 24px rgba(17,24,39,0.14)', overflow: 'hidden', maxHeight: '220px', overflowY: 'auto',
+};
+const lookupResultItemStyle = {
+  display: 'flex', flexDirection: 'column', gap: '2px', width: '100%', textAlign: 'left',
+  padding: '10px 12px', border: 'none', borderTop: '1px solid var(--border)', background: 'transparent',
+  cursor: 'pointer', fontSize: '13px', color: 'var(--text-main)', fontFamily: 'inherit',
+};
+const lookupStatusStyle = { fontSize: '12px', marginTop: '8px', lineHeight: 1.5, color: 'var(--text-secondary)' };
 
 // Säkerhetsgranskningen: bara en längdgräns (8 tecken) fanns tidigare,
 // ingen som helst indikation till användaren om hur starkt lösenordet
@@ -132,6 +155,19 @@ export default function Auth({ onLogin, onBackToLanding }) {
   const [regOrgNr, setRegOrgNr] = useState('');
 
   const orgType = detectOrgType(regOrgNr);
+
+  // Autouppslag mot FöretagsAPI — det här steget har bara namn + org.nummer
+  // (till skillnad från Contacts.jsx finns ingen adress/postnr/ort-fält
+  // här ännu, det fylls i senare i OnboardingFlow.jsx efter inloggning),
+  // så adaptern nedan ignorerar de fälten från useCompanyLookup helt.
+  // org.nummer formateras via SAMMA formatOrgNr som fältets egen onChange
+  // använder, så en ifylld post-lookup-siffersträng ser likadan ut
+  // (556123-4567) som en manuellt inskriven.
+  const handleLookupField = (key, value) => {
+    if (key === 'name') setRegCompany(value);
+    else if (key === 'orgNr') setRegOrgNr(formatOrgNr(value));
+  };
+  const companyLookup = useCompanyLookup(handleLookupField);
 
   // Switch between login/register and reset step
   const switchMode = (login) => {
@@ -541,12 +577,38 @@ export default function Auth({ onLogin, onBackToLanding }) {
               {/* STEP 2 – Company */}
               {regStep === 2 && (
                 <>
-                  <div>
+                  <div style={{ position: 'relative' }}>
                     <label style={labelStyle}>Företagsnamn *</label>
-                    <div style={{ position: 'relative' }}>
-                      <Building2 size={16} color="var(--text-muted)" style={{ position: 'absolute', top: 14, left: 12, pointerEvents: 'none' }} />
-                      <input type="text" style={{ ...inputStyle, paddingLeft: '38px' }} placeholder="Ditt Företag AB" value={regCompany} onChange={e => setRegCompany(e.target.value)} required />
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <div style={{ position: 'relative', flex: 1 }}>
+                        <Building2 size={16} color="var(--text-muted)" style={{ position: 'absolute', top: 14, left: 12, pointerEvents: 'none' }} />
+                        <input
+                          type="text" style={{ ...inputStyle, paddingLeft: '38px' }} placeholder="Ditt Företag AB" value={regCompany}
+                          onChange={e => { setRegCompany(e.target.value); companyLookup.queueNameSearch(e.target.value); }}
+                          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); companyLookup.searchByName(regCompany); } }}
+                          required
+                        />
+                      </div>
+                      <button
+                        type="button" onClick={() => companyLookup.searchByName(regCompany)}
+                        disabled={regCompany.trim().length < 2 || companyLookup.nameSearch.status === 'loading'}
+                        title="Sök i företagsregistret" style={lookupButtonStyle}
+                      >
+                        <Search size={15} />
+                      </button>
                     </div>
+                    {companyLookup.nameSearch.status === 'loading' && <div style={lookupStatusStyle}>Söker…</div>}
+                    {companyLookup.nameSearch.status === 'error' && <div style={lookupStatusStyle}>{companyLookup.nameSearch.message}</div>}
+                    {companyLookup.nameResults.length > 0 && (
+                      <div style={lookupDropdownStyle}>
+                        {companyLookup.nameResults.map(c => (
+                          <button key={c.orgNumber || c.name} type="button" onClick={() => companyLookup.applyCompany(c)} className="company-lookup-result" style={lookupResultItemStyle}>
+                            <span style={{ fontWeight: 600 }}>{c.name}</span>
+                            <span style={{ color: 'var(--text-secondary)', fontSize: '11.5px' }}>{c.orgNumber || '—'}{c.city ? ` · ${c.city}` : ''}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div>
                     <label style={labelStyle}>Organisationsnummer * <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(10 siffror)</span></label>
@@ -558,10 +620,13 @@ export default function Auth({ onLogin, onBackToLanding }) {
                         style={{ ...inputStyle, paddingLeft: '38px' }}
                         placeholder="556123-4567"
                         value={regOrgNr}
-                        onChange={e => setRegOrgNr(formatOrgNr(e.target.value))}
+                        onChange={e => { const formatted = formatOrgNr(e.target.value); setRegOrgNr(formatted); companyLookup.handleOrgNrChange(formatted); }}
                         required
                       />
                     </div>
+                    {companyLookup.orgLookup.status === 'loading' && <div style={lookupStatusStyle}>Hämtar företagsuppgifter…</div>}
+                    {companyLookup.orgLookup.status === 'done' && <div style={{ ...lookupStatusStyle, color: 'var(--status-green-text)' }}>{companyLookup.orgLookup.message}</div>}
+                    {companyLookup.orgLookup.status === 'error' && <div style={lookupStatusStyle}>{companyLookup.orgLookup.message}</div>}
                     {orgType && (
                       <div style={{ marginTop: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '5px 10px', background: BRAND.greenLight, borderRadius: '6px', fontSize: '12px', fontWeight: 700, color: BRAND.greenDark }}>
                         <Check size={12} /> Identifierad som: {orgType}

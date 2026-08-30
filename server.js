@@ -585,8 +585,83 @@ app.post('/api/email/send-invoice', async (req, res) => {
 // utveckling, samma resonemang som send-invoice ovan (Vercel kör aldrig
 // server.js i produktion). Enda rutten en INBJUDEN användare (company_members)
 // någonsin pratar med — se filkommentaren i api/company-access.js för hela
-// säkerhetsresonemanget, exakt speglat här.
+// säkerhetsresonemanget, exakt speglat här. POST { action: 'lookup', ... }
+// (FöretagsAPI-uppslag, se samma fils kommentar) speglas här också.
 const COMPANY_ACCESS_WRITABLE_FIELDS = new Set(COMPANY_WRITABLE_FIELDS)
+
+const FORETAGSAPI_KEY = process.env.FORETAGSAPI_KEY || null
+const FORETAGSAPI_SEARCH_URL = 'https://data.foretagsapi.se/v1/search'
+
+function toCompanySummary(c) {
+  return {
+    name: c?.name || '',
+    orgNumber: c?.orgNumber || '',
+    legalForm: c?.legalForm || '',
+    street: c?.postalAddress?.street || '',
+    postalCode: c?.postalAddress?.postalCode || '',
+    city: c?.postalAddress?.city || '',
+    active: !c?.deregistrationDate,
+  }
+}
+
+async function handleCompanyLookup(body, res) {
+  if (!FORETAGSAPI_KEY) {
+    res.status(503).json({ error: 'Företagsuppslag är inte konfigurerat (FORETAGSAPI_KEY saknas).' })
+    return
+  }
+  const query = typeof body?.query === 'string' ? body.query.trim() : ''
+  if (!query) {
+    res.status(400).json({ error: 'query krävs.' })
+    return
+  }
+
+  let requestBody
+  if (body?.mode === 'orgnr') {
+    const digits = query.replace(/\D/g, '')
+    if (digits.length !== 10) {
+      res.status(400).json({ error: 'Organisationsnumret måste vara 10 siffror.' })
+      return
+    }
+    requestBody = { org_number: digits }
+  } else if (body?.mode === 'name') {
+    const limit = Math.min(Math.max(Number(body?.limit) || 5, 1), 10)
+    requestBody = { q: query, limit }
+  } else {
+    res.status(400).json({ error: 'mode måste vara "orgnr" eller "name".' })
+    return
+  }
+
+  let apiResponse
+  try {
+    apiResponse = await fetch(FORETAGSAPI_SEARCH_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${FORETAGSAPI_KEY}` },
+      body: JSON.stringify(requestBody),
+    })
+  } catch (error) {
+    console.error('FöretagsAPI-anrop misslyckades:', error)
+    res.status(502).json({ error: 'Kunde inte nå företagsregistret just nu.' })
+    return
+  }
+  const data = await apiResponse.json().catch(() => ({}))
+
+  if (!apiResponse.ok) {
+    if (apiResponse.status === 402) {
+      res.status(402).json({ error: 'Företagsuppslaget är slut för den här månaden. Fyll i uppgifterna manuellt.' })
+      return
+    }
+    if (apiResponse.status === 429) {
+      res.status(429).json({ error: 'För många uppslag mot företagsregistret just nu. Försök igen om en stund.' })
+      return
+    }
+    console.error('FöretagsAPI-fel:', apiResponse.status, data)
+    res.status(502).json({ error: 'Kunde inte slå upp företaget just nu.' })
+    return
+  }
+
+  const companies = Array.isArray(data?.companies) ? data.companies.map(toCompanySummary) : []
+  res.status(200).json({ companies })
+}
 
 app.get('/api/company-access', async (req, res) => {
   // Ingen BotID-koll här (till skillnad från POST nedan) — samma konvention
@@ -617,11 +692,28 @@ app.post('/api/company-access', async (req, res) => {
     res.status(403).json({ error: 'Åtkomst nekad.' })
     return
   }
+
+  const body = req.body || {}
+
+  // Ingen inloggning krävs för lookup — Auth.jsx:s registreringsflöde
+  // anropar den här INNAN kontot finns (signUp() körs först i steg 4),
+  // se filkommentaren i api/company-access.js för hela resonemanget.
+  // Måste avgöras INNAN requireAuthedUser nedan, annars 401:ar en
+  // oinloggad registrering redan här.
+  if (body?.action === 'lookup') {
+    try {
+      await handleCompanyLookup(body, res)
+    } catch (error) {
+      console.error('company-access lookup error:', error)
+      res.status(500).json({ error: error?.message || 'Kunde inte slå upp företaget.' })
+    }
+    return
+  }
+
   const user = await requireAuthedUser(req, res)
   if (!user) return
 
   try {
-    const body = req.body || {}
     const { company_id: companyId, field, value } = body
     if (!companyId || !field || value === undefined) {
       res.status(400).json({ error: 'company_id, field och value krävs.' })

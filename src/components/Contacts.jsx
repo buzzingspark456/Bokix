@@ -6,6 +6,7 @@ import ListTable from './shared/ListTable';
 import { getCountryOptions, getDefaultCountry, SWEDEN } from '../utils/countries';
 import { validateEmailList, isValidIban } from '../utils/validators';
 import { contactsToCsv, csvToContacts, downloadCsv } from '../utils/csvRegister';
+import { useCompanyLookup } from '../hooks/useCompanyLookup';
 
 // ─── Delade formulärstilar ─────────────────────────────────────────────────
 const sectionStyle = { background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border)', padding: '20px', marginBottom: '16px' };
@@ -28,11 +29,50 @@ function inputStyle(hasError) { return { ...inputBase, borderColor: hasError ? '
 // media query. Se klassnamnet på varje <div className="form-row-2" style={grid2}> nedan.
 const grid2 = { display: 'grid', gap: '16px' };
 
+// ─── Autouppslag mot FöretagsAPI (useCompanyLookup) — delade stilar för
+// sök-knappen bredvid Namn-fältet och kandidatlistan som faller ut under
+// den. Egna, inte återanvända från ListTable/SearchInputs, eftersom det
+// här är ett fritt flytande resultat UNDER ett formulärfält, inte en
+// sidas huvudlista. ──
+const lookupButtonStyle = {
+  display: 'flex', alignItems: 'center', justifyContent: 'center',
+  width: '42px', flexShrink: 0, border: '1px solid var(--border)',
+  borderRadius: '8px', background: 'var(--bg-card)', color: 'var(--text-secondary)',
+  cursor: 'pointer',
+};
+const lookupDropdownStyle = {
+  position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 20,
+  background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px',
+  boxShadow: '0 8px 24px rgba(17,24,39,0.14)', overflow: 'hidden', maxHeight: '220px', overflowY: 'auto',
+};
+const lookupResultItemStyle = {
+  display: 'flex', flexDirection: 'column', gap: '2px', width: '100%', textAlign: 'left',
+  padding: '10px 12px', border: 'none', borderTop: '1px solid var(--border)', background: 'transparent',
+  cursor: 'pointer', fontSize: '13px', color: 'var(--text-main)', fontFamily: 'inherit',
+};
+const lookupStatusStyle = { fontSize: '12px', marginTop: '6px', lineHeight: 1.5 };
+
 function Section({ title, children }) {
   return (
     <div style={sectionStyle}>
       {title && <h3 style={sectionTitleStyle}>{title}</h3>}
       {children}
+    </div>
+  );
+}
+
+// Kandidatlistan som faller ut under Namn-fältet efter en namnsökning —
+// delad mellan CustomerForm och SupplierForm istället för dubblerad JSX.
+function CompanyLookupResults({ results, onPick }) {
+  if (!results.length) return null;
+  return (
+    <div style={lookupDropdownStyle}>
+      {results.map(c => (
+        <button key={c.orgNumber || c.name} type="button" onClick={() => onPick(c)} className="company-lookup-result" style={lookupResultItemStyle}>
+          <span style={{ fontWeight: 600 }}>{c.name}</span>
+          <span style={{ color: 'var(--text-secondary)', fontSize: '11.5px' }}>{c.orgNumber || '—'}{c.city ? ` · ${c.city}` : ''}</span>
+        </button>
+      ))}
     </div>
   );
 }
@@ -59,6 +99,7 @@ function CustomerForm({ initial, onSave, onCancel }) {
   const [form, setForm] = useState(initial ? { ...emptyCustomer(), ...initial } : emptyCustomer());
   const [errors, setErrors] = useState({});
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const lookup = useCompanyLookup(set);
 
   const handleTypeChange = (customerType) => {
     setForm(f => ({ ...f, customerType, country: getDefaultCountry(customerType) }));
@@ -67,6 +108,11 @@ function CustomerForm({ initial, onSave, onCancel }) {
   const isEuNoVat = form.customerType === 'eu_company' && !form.vatNumber.trim();
   const orgNrRequired = form.customerType !== 'se_individual';
   const countryOptions = getCountryOptions(form.customerType);
+  // FöretagsAPI täcker bara svenska företag (se openapi.json) — auto-
+  // uppslag på namn/org.nummer erbjuds därför bara för se_company, inte
+  // för privatpersoner (inget org.nummer att slå upp) eller utländska
+  // kunder (fel register helt).
+  const lookupEnabled = form.customerType === 'se_company';
 
   const validate = () => {
     const errs = {};
@@ -114,10 +160,31 @@ function CustomerForm({ initial, onSave, onCancel }) {
 
       <Section title="Grunduppgifter">
         <div className="form-row-2" style={grid2}>
-          <div>
+          <div style={{ position: 'relative' }}>
             <label style={labelStyle}>Namn *</label>
-            <input type="text" value={form.name} onChange={e => set('name', e.target.value)} style={inputStyle(errors.name)} placeholder="Exempelföretag AB" />
+            {lookupEnabled ? (
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  type="text" value={form.name}
+                  onChange={e => { set('name', e.target.value); lookup.queueNameSearch(e.target.value); }}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); lookup.searchByName(form.name); } }}
+                  style={{ ...inputStyle(errors.name), flex: 1 }} placeholder="Exempelföretag AB"
+                />
+                <button
+                  type="button" onClick={() => lookup.searchByName(form.name)}
+                  disabled={form.name.trim().length < 2 || lookup.nameSearch.status === 'loading'}
+                  title="Sök i företagsregistret" style={lookupButtonStyle}
+                >
+                  <Search size={15} />
+                </button>
+              </div>
+            ) : (
+              <input type="text" value={form.name} onChange={e => set('name', e.target.value)} style={inputStyle(errors.name)} placeholder="Exempelföretag AB" />
+            )}
             {errors.name && <div style={errorTextStyle}>{errors.name}</div>}
+            {lookup.nameSearch.status === 'loading' && <div style={lookupStatusStyle}>Söker…</div>}
+            {lookup.nameSearch.status === 'error' && <div style={lookupStatusStyle}>{lookup.nameSearch.message}</div>}
+            <CompanyLookupResults results={lookup.nameResults} onPick={lookup.applyCompany} />
           </div>
           <div>
             <label style={labelStyle}>Kundnummer</label>
@@ -188,8 +255,15 @@ function CustomerForm({ initial, onSave, onCancel }) {
         <div className="form-row-2" style={grid2}>
           <div>
             <label style={labelStyle}>Organisationsnummer{orgNrRequired ? ' *' : ''}</label>
-            <input type="text" value={form.orgNr} onChange={e => set('orgNr', e.target.value)} style={inputStyle(errors.orgNr)} required={orgNrRequired} placeholder="XXXXXX-XXXX" />
+            <input
+              type="text" value={form.orgNr}
+              onChange={e => { set('orgNr', e.target.value); if (lookupEnabled) lookup.handleOrgNrChange(e.target.value); }}
+              style={inputStyle(errors.orgNr)} required={orgNrRequired} placeholder="XXXXXX-XXXX"
+            />
             {errors.orgNr && <div style={errorTextStyle}>{errors.orgNr}</div>}
+            {lookupEnabled && lookup.orgLookup.status === 'loading' && <div style={lookupStatusStyle}>Hämtar företagsuppgifter…</div>}
+            {lookupEnabled && lookup.orgLookup.status === 'done' && <div style={{ ...lookupStatusStyle, color: 'var(--status-green-text)' }}>{lookup.orgLookup.message}</div>}
+            {lookupEnabled && lookup.orgLookup.status === 'error' && <div style={lookupStatusStyle}>{lookup.orgLookup.message}</div>}
           </div>
           <div>
             <label style={labelStyle}>Betalningsvillkor (dagar)</label>
@@ -247,6 +321,7 @@ function SupplierForm({ initial, onSave, onCancel, accounts }) {
   const [errors, setErrors] = useState({});
   const isNew = !initial;
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const lookup = useCompanyLookup(set);
 
   const handleTypeChange = (supplierType) => {
     setForm(f => ({
@@ -290,10 +365,31 @@ function SupplierForm({ initial, onSave, onCancel, accounts }) {
 
       <Section title="Grunduppgifter">
         <div className="form-row-2" style={grid2}>
-          <div style={{ gridColumn: '1 / 3' }}>
+          <div style={{ gridColumn: '1 / 3', position: 'relative' }}>
             <label style={labelStyle}>Namn *</label>
-            <input type="text" value={form.name} onChange={e => set('name', e.target.value)} style={inputStyle(errors.name)} placeholder="Exempelföretag AB" />
+            {isSwedish ? (
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  type="text" value={form.name}
+                  onChange={e => { set('name', e.target.value); lookup.queueNameSearch(e.target.value); }}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); lookup.searchByName(form.name); } }}
+                  style={{ ...inputStyle(errors.name), flex: 1 }} placeholder="Exempelföretag AB"
+                />
+                <button
+                  type="button" onClick={() => lookup.searchByName(form.name)}
+                  disabled={form.name.trim().length < 2 || lookup.nameSearch.status === 'loading'}
+                  title="Sök i företagsregistret" style={lookupButtonStyle}
+                >
+                  <Search size={15} />
+                </button>
+              </div>
+            ) : (
+              <input type="text" value={form.name} onChange={e => set('name', e.target.value)} style={inputStyle(errors.name)} placeholder="Exempelföretag AB" />
+            )}
             {errors.name && <div style={errorTextStyle}>{errors.name}</div>}
+            {lookup.nameSearch.status === 'loading' && <div style={lookupStatusStyle}>Söker…</div>}
+            {lookup.nameSearch.status === 'error' && <div style={lookupStatusStyle}>{lookup.nameSearch.message}</div>}
+            <CompanyLookupResults results={lookup.nameResults} onPick={lookup.applyCompany} />
           </div>
         </div>
       </Section>
@@ -320,8 +416,15 @@ function SupplierForm({ initial, onSave, onCancel, accounts }) {
         <div className="form-row-2" style={grid2}>
           <div>
             <label style={labelStyle}>Organisationsnummer *</label>
-            <input type="text" value={form.orgNr} onChange={e => set('orgNr', e.target.value)} style={inputStyle(errors.orgNr)} required />
+            <input
+              type="text" value={form.orgNr}
+              onChange={e => { set('orgNr', e.target.value); if (isSwedish) lookup.handleOrgNrChange(e.target.value); }}
+              style={inputStyle(errors.orgNr)} required
+            />
             {errors.orgNr && <div style={errorTextStyle}>{errors.orgNr}</div>}
+            {isSwedish && lookup.orgLookup.status === 'loading' && <div style={lookupStatusStyle}>Hämtar företagsuppgifter…</div>}
+            {isSwedish && lookup.orgLookup.status === 'done' && <div style={{ ...lookupStatusStyle, color: 'var(--status-green-text)' }}>{lookup.orgLookup.message}</div>}
+            {isSwedish && lookup.orgLookup.status === 'error' && <div style={lookupStatusStyle}>{lookup.orgLookup.message}</div>}
           </div>
           {!isSwedish && (
             <div>
