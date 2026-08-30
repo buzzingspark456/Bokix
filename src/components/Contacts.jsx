@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, CheckCircle2, XCircle, Users, Truck, ChevronDown, AlertTriangle, Download, Upload, Check, Search } from 'lucide-react';
+import { Plus, CheckCircle2, XCircle, Users, Truck, ChevronDown, AlertTriangle, Download, Upload, Check, Search, Building2 } from 'lucide-react';
 import { AccountSearch } from './shared/SearchInputs';
 import ListPageHeader, { ListFilterBar, listSearchInputStyle } from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
@@ -43,13 +43,20 @@ const lookupButtonStyle = {
 const lookupDropdownStyle = {
   position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 20,
   background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px',
-  boxShadow: '0 8px 24px rgba(17,24,39,0.14)', overflow: 'hidden', maxHeight: '220px', overflowY: 'auto',
+  boxShadow: '0 8px 24px rgba(17,24,39,0.14)', overflow: 'hidden', maxHeight: '260px', overflowY: 'auto',
 };
 const lookupResultItemStyle = {
-  display: 'flex', flexDirection: 'column', gap: '2px', width: '100%', textAlign: 'left',
-  padding: '10px 12px', border: 'none', borderTop: '1px solid var(--border)', background: 'transparent',
-  cursor: 'pointer', fontSize: '13px', color: 'var(--text-main)', fontFamily: 'inherit',
+  display: 'flex', alignItems: 'center', gap: '10px', width: '100%', textAlign: 'left',
+  padding: '9px 12px', border: 'none', borderTop: '1px solid var(--border)', background: 'transparent',
+  cursor: 'pointer', fontFamily: 'inherit', minWidth: 0,
 };
+const lookupResultIconStyle = {
+  width: '28px', height: '28px', borderRadius: '7px', background: 'var(--bg-muted)',
+  color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+};
+const lookupResultTextStyle = { minWidth: 0, flex: 1 };
+const lookupResultNameStyle = { fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
+const lookupResultMetaStyle = { fontSize: '11.5px', color: 'var(--text-secondary)', marginTop: '1px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
 const lookupStatusStyle = { fontSize: '12px', marginTop: '6px', lineHeight: 1.5 };
 
 function Section({ title, children }) {
@@ -66,11 +73,14 @@ function Section({ title, children }) {
 function CompanyLookupResults({ results, onPick }) {
   if (!results.length) return null;
   return (
-    <div style={lookupDropdownStyle}>
+    <div className="company-lookup-dropdown" style={lookupDropdownStyle}>
       {results.map(c => (
         <button key={c.orgNumber || c.name} type="button" onClick={() => onPick(c)} className="company-lookup-result" style={lookupResultItemStyle}>
-          <span style={{ fontWeight: 600 }}>{c.name}</span>
-          <span style={{ color: 'var(--text-secondary)', fontSize: '11.5px' }}>{c.orgNumber || '—'}{c.city ? ` · ${c.city}` : ''}</span>
+          <div style={lookupResultIconStyle}><Building2 size={14} /></div>
+          <div style={lookupResultTextStyle}>
+            <div style={lookupResultNameStyle}>{c.name}</div>
+            <div style={lookupResultMetaStyle}>{c.orgNumber || '—'}{c.city ? ` · ${c.city}` : ''}</div>
+          </div>
         </button>
       ))}
     </div>

@@ -1780,11 +1780,26 @@ textarea.form-control {
   grid-template-columns: 1fr 1fr 1fr;
 }
 
-/* Kandidatraderna i FöretagsAPI-sökdropdownen under Namn-fältet i
-   Kunder/Leverantörer (useCompanyLookup, Contacts.jsx) — enda hover-behovet
-   där, resten av dropdownens utseende sätts inline i komponenten. */
+/* FöretagsAPI-sökdropdownen under Namn-fältet (useCompanyLookup) — delad
+   mellan Kunder/Leverantörer (Contacts.jsx) och registreringens "Ditt
+   företag"-steg (Auth.jsx). Resten av utseendet sätts inline i respektive
+   komponent (två olika lookupDropdownStyle-objekt, olika border-radius för
+   att matcha varje ställes egna inputs) — bara det som CSS faktiskt krävs
+   för (hover, @keyframes) ligger här. */
 .company-lookup-result:hover {
   background: var(--bg-muted);
+}
+@keyframes companyLookupDropdownIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.company-lookup-dropdown {
+  animation: companyLookupDropdownIn 0.14s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .company-lookup-dropdown {
+    animation: none;
+  }
 }
 
 

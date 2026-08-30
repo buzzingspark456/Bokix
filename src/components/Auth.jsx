@@ -53,13 +53,20 @@ const lookupButtonStyle = {
 const lookupDropdownStyle = {
   position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 20,
   background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '10px',
-  boxShadow: '0 8px 24px rgba(17,24,39,0.14)', overflow: 'hidden', maxHeight: '220px', overflowY: 'auto',
+  boxShadow: '0 8px 24px rgba(17,24,39,0.14)', overflow: 'hidden', maxHeight: '260px', overflowY: 'auto',
 };
 const lookupResultItemStyle = {
-  display: 'flex', flexDirection: 'column', gap: '2px', width: '100%', textAlign: 'left',
-  padding: '10px 12px', border: 'none', borderTop: '1px solid var(--border)', background: 'transparent',
-  cursor: 'pointer', fontSize: '13px', color: 'var(--text-main)', fontFamily: 'inherit',
+  display: 'flex', alignItems: 'center', gap: '10px', width: '100%', textAlign: 'left',
+  padding: '9px 12px', border: 'none', borderTop: '1px solid var(--border)', background: 'transparent',
+  cursor: 'pointer', fontFamily: 'inherit', minWidth: 0,
 };
+const lookupResultIconStyle = {
+  width: '28px', height: '28px', borderRadius: '8px', background: 'var(--bg-muted)',
+  color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+};
+const lookupResultTextStyle = { minWidth: 0, flex: 1 };
+const lookupResultNameStyle = { fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
+const lookupResultMetaStyle = { fontSize: '11.5px', color: 'var(--text-secondary)', marginTop: '1px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
 const lookupStatusStyle = { fontSize: '12px', marginTop: '8px', lineHeight: 1.5, color: 'var(--text-secondary)' };
 
 // Säkerhetsgranskningen: bara en längdgräns (8 tecken) fanns tidigare,
@@ -600,11 +607,14 @@ export default function Auth({ onLogin, onBackToLanding }) {
                     {companyLookup.nameSearch.status === 'loading' && <div style={lookupStatusStyle}>Söker…</div>}
                     {companyLookup.nameSearch.status === 'error' && <div style={lookupStatusStyle}>{companyLookup.nameSearch.message}</div>}
                     {companyLookup.nameResults.length > 0 && (
-                      <div style={lookupDropdownStyle}>
+                      <div className="company-lookup-dropdown" style={lookupDropdownStyle}>
                         {companyLookup.nameResults.map(c => (
                           <button key={c.orgNumber || c.name} type="button" onClick={() => companyLookup.applyCompany(c)} className="company-lookup-result" style={lookupResultItemStyle}>
-                            <span style={{ fontWeight: 600 }}>{c.name}</span>
-                            <span style={{ color: 'var(--text-secondary)', fontSize: '11.5px' }}>{c.orgNumber || '—'}{c.city ? ` · ${c.city}` : ''}</span>
+                            <div style={lookupResultIconStyle}><Building2 size={14} /></div>
+                            <div style={lookupResultTextStyle}>
+                              <div style={lookupResultNameStyle}>{c.name}</div>
+                              <div style={lookupResultMetaStyle}>{c.orgNumber || '—'}{c.city ? ` · ${c.city}` : ''}</div>
+                            </div>
                           </button>
                         ))}
                       </div>
