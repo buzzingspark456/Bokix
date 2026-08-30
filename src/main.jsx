@@ -73,9 +73,17 @@ initBotId({
     // användare) kommer ändå från requireAuthedUser + loadMemberCompany +
     // role==='editor' i api/company-access.js — ett Supabase-uträknat
     // konto med bevisat, aktivt medlemskap i just det företaget, en mycket
-    // starkare spärr än BotID för en redan autentiserad skrivning. Server-
-    // sidans egen isRequestFromBot()-koll (fail-open, se _botid.js) körs
-    // fortfarande för lookup-grenen, plus dess egen rate-limit-bucket.
+    // starkare spärr än BotID för en redan autentiserad skrivning.
+    // RÄTTELSE (2026-08-30): api/company-access.js:s egen isRequestFromBot()
+    // ansågs tidigare "fail-open, harmless" oavsett — fel. Utan en
+    // client-registrering här skickas x-is-human-headern aldrig alls, och
+    // Vercels riktiga bot-tjänst kan då (utan att kasta något fel — inget
+    // för _botid.js:s fail-open att fånga) landa i isBot:true för vanliga
+    // användare. Det var den faktiska orsaken till "Åtkomst nekad" på
+    // både lookup-grenen och fältsparningen i produktion — servern har
+    // därför INGEN BotID-koll alls längre för den här filen, bara
+    // rate-limit (lookup) respektive requireAuthedUser+loadMemberCompany+
+    // role (fältsparning).
   ],
 })
 // "Glömt lösenord?" (api/auth/request-password-reset.js) MEDVETET INTE

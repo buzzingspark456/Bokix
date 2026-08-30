@@ -688,11 +688,11 @@ app.get('/api/company-access', async (req, res) => {
 })
 
 app.post('/api/company-access', async (req, res) => {
-  if (await isRequestFromBot()) {
-    res.status(403).json({ error: 'Åtkomst nekad.' })
-    return
-  }
-
+  // Ingen BotID-koll här längre — speglar api/company-access.js (se
+  // rättningen och den utförliga förklaringen där, 2026-08-30). Utan en
+  // matchande client-registrering i main.jsx skickas x-is-human-headern
+  // aldrig, och Vercels bot-tjänst kunde då landa i isBot:true för vanliga
+  // användare i produktion ("Åtkomst nekad" på både sökning och sparning).
   const body = req.body || {}
 
   // Ingen inloggning krävs för lookup — Auth.jsx:s registreringsflöde

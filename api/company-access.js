@@ -2,7 +2,6 @@ import { applySecurityHeaders } from './_security.js';
 import { parseJsonBody } from './stripe/_parseBody.js';
 import { requireAuthedUser, loadMemberCompany } from './_auth.js';
 import { checkRateLimit } from './_rateLimit.js';
-import { isRequestFromBot } from './_botid.js';
 import { createClient } from '@supabase/supabase-js';
 import { COMPANY_WRITABLE_FIELDS } from '../src/utils/companyFields.js';
 
@@ -139,23 +138,26 @@ export default async function handler(req, res) {
   }
   if (!checkRateLimit(req, res, { key: 'company-access', max: 60 })) return;
 
-  // Vercel BotID — se filkommentaren i main.jsx. Bara på POST (skrivningen),
-  // precis som varje annan endpoint i den här kodbasen (t.ex.
-  // GET-grenen i api/email/domains/index.js har aldrig haft en BotID-koll
-  // alls) — main.jsx:s initBotId-lista registrerar bara POST-metoder,
-  // aldrig GET. Kör man checkBotId() på ett anrop som inte finns i den
-  // listan larmar Vercel om "Possible misconfiguration" i loggen (verifierat
-  // lokalt via `npm run dev`) eftersom klienten aldrig skickade en
-  // BotID-token för just den kombinationen — fail-open (se _botid.js) så
-  // det blockerar ingenting, men larmet är brus värt att undvika.
+  // OBS: ingen BotID-koll här längre (till skillnad från main.jsx:s
+  // filkommentar, som är föråldrad på den punkten — se rättningen i den
+  // filen). api/company-access.js POST är MEDVETET borttagen ur
+  // initBotId-listan i main.jsx (den fixen för "hängde permanent") — utan
+  // en matchande client-registrering skickar botid/client ALDRIG
+  // x-is-human-headern för det här anropet (se dess källa:
+  // node_modules/botid/dist/client/core/index.js, `d==null||!l` faller
+  // igenom till ett helt orört fetch-anrop). Ett checkBotId()-anrop här
+  // trodde vi tidigare bara "larmade i loggen och fail-öppnade" (se
+  // _botid.js) — men det gäller bara när checkBotId() KASTAR ett fel.
+  // Utan headern klassificerar Vercels riktiga bot-tjänst själva anropet
+  // och kan (verifierat i produktion — det här var buggen bakom "Åtkomst
+  // nekad" / sökningen funkar inte) landa i isBot:true för helt vanliga
+  // användare, ingen kastad exception att fånga. Skyddet den här filens
+  // egen kommentar redan pekade på (rate limit ovan för lookup-grenen,
+  // requireAuthedUser + loadMemberCompany + role==='editor' för
+  // fältsparningen) är det faktiska försvaret — BotID var bara ett extra
+  // lager som numera inte kan fungera för den här filen.
   let postBody = null;
   if (req.method === 'POST') {
-    const isBot = await isRequestFromBot();
-    if (isBot) {
-      res.status(403).json({ error: 'Åtkomst nekad.' });
-      return;
-    }
-
     // Body läses av här (en gång — req är en ström, kan inte parsas
     // två gånger) EFTERSOM lookup-grenen nedan måste kunna svara INNAN
     // requireAuthedUser körs. Sparas i postBody och återanvänds istället
