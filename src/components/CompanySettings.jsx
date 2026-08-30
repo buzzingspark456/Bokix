@@ -1,5 +1,7 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { Check } from 'lucide-react';
+import { Check, Lock } from 'lucide-react';
+
+const SUPPORT_EMAIL = 'support@bokix.se';
 
 export default function CompanySettings({ company = {}, updateCompany }) {
   const [savedFields, setSavedFields] = useState({});
@@ -14,13 +16,23 @@ export default function CompanySettings({ company = {}, updateCompany }) {
     }, 500);
   }, [company, updateCompany]);
 
-  const Field = ({ label, name, type = 'text', placeholder, hint, required }) => {
+  // Företagsnamn/org.nummer identifierar KONTOT (sätts en gång vid
+  // registreringen, se Auth.jsx:s "Ditt företag"-steg — obligatoriska där,
+  // ofta autoifyllda från FöretagsAPI). Kundönskemål: precis som Fortnox/
+  // Bokio ska de inte gå att ändra i efterhand av misstag härifrån — bara
+  // supporten kan ändra dem, efter verifiering. Låst bara när fältet
+  // FAKTISKT redan har ett värde (locked && company[name]) — ett äldre
+  // konto eller en kant-case-rad som av någon anledning saknar värdet ska
+  // fortfarande kunna fyllas i första gången, inte fastna permanent tomt.
+  const Field = ({ label, name, type = 'text', placeholder, hint, required, locked }) => {
     const [val, setVal] = useState(company[name] || '');
+    const isLocked = locked && company[name];
     return (
       <div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-          <label style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>
+          <label style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
             {label}{required && <span style={{ color: '#ef4444' }}> *</span>}
+            {isLocked && <Lock size={12} color="var(--text-muted)" />}
           </label>
           {savedFields[name] && (
             <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: '#16a34a', fontWeight: 500 }}>
@@ -32,16 +44,24 @@ export default function CompanySettings({ company = {}, updateCompany }) {
           type={type}
           placeholder={placeholder}
           value={val}
-          onChange={e => { setVal(e.target.value); autoSave(name, e.target.value); }}
+          readOnly={isLocked}
+          onChange={e => { if (isLocked) return; setVal(e.target.value); autoSave(name, e.target.value); }}
           style={{
             width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: '8px',
             fontSize: '14px', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit',
-            transition: 'border-color 0.15s'
+            transition: 'border-color 0.15s',
+            background: isLocked ? 'var(--bg-muted)' : 'transparent',
+            color: isLocked ? 'var(--text-secondary)' : 'var(--text-main)',
+            cursor: isLocked ? 'not-allowed' : 'text',
           }}
-          onFocus={e => e.target.style.borderColor = 'var(--accent)'}
-          onBlur={e => e.target.style.borderColor = 'var(--border)'}
+          onFocus={e => { if (!isLocked) e.target.style.borderColor = 'var(--accent)'; }}
+          onBlur={e => { e.target.style.borderColor = 'var(--border)'; }}
         />
-        {hint && <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '4px 0 0' }}>{hint}</p>}
+        {isLocked ? (
+          <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '4px 0 0' }}>
+            Kan inte ändras här. Kontakta <a href={`mailto:${SUPPORT_EMAIL}`} style={{ color: 'var(--accent)' }}>{SUPPORT_EMAIL}</a> om uppgiften är felaktig.
+          </p>
+        ) : hint && <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '4px 0 0' }}>{hint}</p>}
       </div>
     );
   };
@@ -59,9 +79,9 @@ export default function CompanySettings({ company = {}, updateCompany }) {
       <div style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border)', padding: '24px', marginBottom: '20px' }}>
         <h2 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 20px' }}>Grunduppgifter</h2>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <Field label="Företagsnamn" name="name" placeholder="T.ex. Acme AB" required />
+          <Field label="Företagsnamn" name="name" placeholder="T.ex. Acme AB" required locked />
           <div className="form-row-2" style={{ display: 'grid', gap: '16px' }}>
-            <Field label="Organisationsnummer" name="orgNr" placeholder="XXXXXX-XXXX" />
+            <Field label="Organisationsnummer" name="orgNr" placeholder="XXXXXX-XXXX" locked />
             <Field label="Momsregistreringsnummer" name="vatNr" placeholder="SE556XXXXXXXXXX01" />
           </div>
           <Field label="Adress" name="address" placeholder="Gatuadress, Postnummer Stad" />
