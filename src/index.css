@@ -522,12 +522,25 @@ body {
   transition: transform 0.3s var(--ease);
 }
 
-/* Sidebar overlay (mobil) */
+/* Sidebar overlay (mobil). Kundfeedback ("det är fel med logo" — visade sig
+   vara HAR, inte loggan: en ljus/vit ruta bredvid den i en skärmdump). Det
+   var den här överlagringen som gjorde sitt jobb (dämpa bakgrundsinnehållet
+   medan menyn är öppen) men för svagt i LJUST läge — 50% svart över en vit
+   sida blev bara en medelgrå ruta med fortfarande läsbara ikoner/text
+   genom den (måne-/klock-ikonen, "Exempel"-texten), vilket i en liten
+   skärmdump lätt läses som "en trasig vit box" istället för avsiktligt
+   dämpad bakgrund. Starkare opacitet + ett riktigt oskärpe-lager gör att
+   bakgrunden blir en mjuk, otydlig vägg istället för fortfarande-läsbart
+   innehåll — samma "dimmed + blurred backdrop"-recept som iOS/Android-
+   menyer redan använder, entydigt "det här är inaktivt" istället för att
+   se ut som ett eget, oavsiktligt element. */
 .sidebar-overlay {
   display: none;
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.5);
+  background: rgba(0,0,0,0.65);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
   z-index: 199;
   animation: fadeIn 0.2s ease both;
 }

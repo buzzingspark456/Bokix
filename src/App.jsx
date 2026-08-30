@@ -71,9 +71,16 @@ function BokixLogo({ onClick, compact = false }) {
         background: 'none', border: 'none', cursor: 'pointer',
         transition: 'opacity 0.15s', flexShrink: 0,
       } : {
-        padding: '22px 14px 18px', display: 'flex', flexDirection: 'column',
+        // Kundfeedback ("den ska vara i mitten, inte for mycket at hoger
+        // eller vanster"): loggan satt vansterjusterad i sin fullbredds-
+        // ruta (flex-column utan alignItems stracker BARNET, men en SVG
+        // har egen intrinsic bredd sa den hamnade kvar vid startkanten
+        // istallet). alignItems:'center' centrerar den horisontellt i
+        // sidomenyns logga-yta, textAlign inte langre relevant utan en
+        // textnod att justera.
+        padding: '22px 14px 18px', display: 'flex', flexDirection: 'column', alignItems: 'center',
         background: 'none', border: 'none', cursor: 'pointer', width: '100%',
-        textAlign: 'left', transition: 'opacity 0.15s',
+        transition: 'opacity 0.15s',
       }}
       onMouseEnter={e => { e.currentTarget.style.opacity = '0.82'; }}
       onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
