@@ -4,6 +4,14 @@ import { Menu, X, Sun, Moon } from 'lucide-react';
 import { BRAND } from '../../utils/brandColors';
 import { ACCENT_CYCLE } from './marketingTokens';
 import { JsonLd, SITE_URL } from '../../utils/seo';
+// Ordmärket flyttat till shared/ (delas nu även av App.jsx BokixLogo, se
+// dess egen kommentar för varför). Importerad OCH återexporterad under
+// samma namn här — importen ger den här filens EGNA <BokixWordmark>-bruk
+// (headern/footern/mobilmenyn nedan) en lokal bindning, återexporten låter
+// de sex ställen som redan gör `import { BokixWordmark } from
+// './marketing/MarketingLayout'` fortsätta oförändrade.
+import BokixWordmark from '../shared/BokixWordmark';
+export { BokixWordmark };
 
 // Organization-schema (schema.org) — samma på VARJE marknadssida (den här
 // layouten wrappar alla fem, se botten av filen) eftersom en organisations
@@ -62,25 +70,8 @@ export function useMarketingTheme() {
   return [theme, () => setTheme(t => (t === 'dark' ? 'light' : 'dark'))];
 }
 
-// ── Bokix ordmärke — exakt samma gradient som sidopanelens logga i själva
-// appen (App.jsx BokixLogo), så en besökare känner igen samma identitet på
-// marknadssidan som i produkten. Loggan är alltid en länk till startsidan
-// ("/"), oavsett vilken undersida man står på. ──
-export function BokixWordmark({ height = 34 }) {
-  const width = (height * 140) / 48;
-  return (
-    <svg viewBox="0 0 140 48" width={width} height={height} xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="bokixLpGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#0ea5e9" />
-          <stop offset="50%" stopColor="#14b8a6" />
-          <stop offset="100%" stopColor="#84cc16" />
-        </linearGradient>
-      </defs>
-      <text x="4" y="38" fontFamily="Georgia, 'Times New Roman', serif" fontSize="46" fontWeight="600" fill="url(#bokixLpGrad)" letterSpacing="-1.5">Bokix</text>
-    </svg>
-  );
-}
+// Loggan är alltid en länk till startsidan ("/"), oavsett vilken undersida
+// man står på — se användningarna av <BokixWordmark> nedan.
 
 // Sitemap — varje punkt är en RIKTIG egen sida/URL, inte ett skrolla-till-
 // sektion-på-samma-sida-ankare som tidigare. Loggan är det enda som alltid

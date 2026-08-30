@@ -46,6 +46,7 @@ import { getDebet, getKredit } from './utils/verificationAmounts';
 import { BRAND } from './utils/brandColors';
 import { COMPANY_WRITABLE_FIELDS } from './utils/companyFields.js';
 import { deleteFileFromStorage } from './utils/fileUpload';
+import BokixWordmark from './components/shared/BokixWordmark';
 
 // ── Bokix Logo Component (light sidebar) ──
 // Klickbar — tar till startsidan precis som varumärkeslogotyper brukar göra.
@@ -57,10 +58,10 @@ import { deleteFileFromStorage } from './utils/fileUpload';
 // (ren CSS-transform, alltid kvar i DOM:en) — så mobilens topbar hade ingen
 // logotyp alls förrän man öppnat menyn. `compact` renderar samma logotyp i
 // en liten variant utan blockpadding, till mobilens topbar (56px hög).
-// `useId()` ger varje instans sin egen gradient-id — annars kolliderar
-// SVG:erna på id="bokixGrad" när båda ligger i DOM:en samtidigt.
+// Själva ordmärket (shared/BokixWordmark.jsx) delas nu med marknadssidan
+// — se dess egen kommentar för varför det bytt från levande <text> till
+// fasta vektorkonturer (kundfeedback: "inte stabil ... på alla platser").
 function BokixLogo({ onClick, compact = false }) {
-  const gradId = `bokixGrad-${React.useId()}`;
   return (
     <button
       onClick={onClick}
@@ -82,25 +83,8 @@ function BokixLogo({ onClick, compact = false }) {
           märkbart större eftersom den inte längre delar ytan med en rad text.
           Kundfeedback (upprepad): fortfarande för liten både i sidomenyn och
           i mobil-topbaren — ytterligare en storleksökning här, samma
-          proportion (viewBox 140:48) bevarad på båda varianterna. */}
-      <svg viewBox="0 0 140 48" width={compact ? 108 : 180} height={compact ? 37 : 62} xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#0ea5e9" />
-            <stop offset="50%" stopColor="#14b8a6" />
-            <stop offset="100%" stopColor="#84cc16" />
-          </linearGradient>
-        </defs>
-        <text
-          x="4"
-          y="38"
-          fontFamily="Georgia, 'Times New Roman', serif"
-          fontSize="46"
-          fontWeight="600"
-          fill={`url(#${gradId})`}
-          letterSpacing="-1.5"
-        >Bokix</text>
-      </svg>
+          proportion bevarad på båda varianterna. */}
+      <BokixWordmark height={compact ? 37 : 62} />
     </button>
   );
 }

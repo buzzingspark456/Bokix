@@ -49,6 +49,18 @@ function getRowBg(status) {
   return '#ffffff';
 }
 
+// Kundfeedback ("starkare färger för obetald och betald"): de vanliga
+// BRAND.amberBg/greenLight-tonerna är avsiktligt bleka (samma neutrala
+// nyanser som delas av alla andra badges i hela appen, se brandColors.js) —
+// för just de HÄR två statusarna, den enda frågan som faktiskt spelar roll
+// på hela sidan ("har jag fått betalt eller inte?"), ska svaret synas på
+// långt håll, inte gissas fram från en blek pastellton. Egna, mättade
+// heltäckande färger lokalt HÄR (inte i BRAND) så bara Fakturor-sidans
+// badges/knappar påverkas — Bokförings/lönekörningens statusmärken, som
+// delar samma BRAND-tokens, rörs inte.
+const STRONG_PAID = { bg: '#16a34a', text: '#ffffff' };
+const STRONG_UNPAID = { bg: '#d97706', text: '#ffffff' };
+
 function addDays(dateStr, days) {
   const d = new Date(`${dateStr}T00:00:00`);
   d.setDate(d.getDate() + Number(days || 0));
@@ -1961,7 +1973,7 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
         return (
           <div onClick={e => e.stopPropagation()}>
             {status === 'paid' ? (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: BRAND.greenLight, color: BRAND.greenDark }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 700, background: STRONG_PAID.bg, color: STRONG_PAID.text }}>
                 <Check size={12} /> Betald{inv.paidDate ? ` ${formatDate(inv.paidDate)}` : ''}
               </span>
             ) : (
@@ -1970,9 +1982,9 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
                 title="Klicka för att markera som betald"
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '999px',
-                  fontSize: '12px', fontWeight: 600, cursor: 'pointer', border: 'none',
-                  background: status === 'overdue' ? BRAND.redBg : status === 'draft' ? BRAND.grayBg : BRAND.amberBg,
-                  color: status === 'overdue' ? BRAND.redText : status === 'draft' ? BRAND.grayText : BRAND.amberText,
+                  fontSize: '12px', fontWeight: 700, cursor: 'pointer', border: 'none',
+                  background: status === 'overdue' ? BRAND.redBg : status === 'draft' ? BRAND.grayBg : STRONG_UNPAID.bg,
+                  color: status === 'overdue' ? BRAND.redText : status === 'draft' ? BRAND.grayText : STRONG_UNPAID.text,
                 }}
               >
                 {status === 'overdue' ? 'Förfallen' : status === 'draft' ? 'Ej bokförd' : 'Obetald'}
@@ -2075,9 +2087,9 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
   const statusOptions = [
     { value: 'all', label: 'Alla' },
     { value: 'draft', label: 'Ej bokförd', bg: BRAND.grayBg, color: BRAND.grayText },
-    { value: 'sent', label: 'Obetald', bg: BRAND.amberBg, color: BRAND.amberText },
+    { value: 'sent', label: 'Obetald', bg: STRONG_UNPAID.bg, color: STRONG_UNPAID.text, strong: true },
     { value: 'overdue', label: 'Förfallen', bg: BRAND.redBg, color: BRAND.redText },
-    { value: 'paid', label: 'Betald', bg: BRAND.greenLight, color: BRAND.greenDark },
+    { value: 'paid', label: 'Betald', bg: STRONG_PAID.bg, color: STRONG_PAID.text, strong: true },
   ];
 
   return (
@@ -2161,10 +2173,18 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
               }}
             >
               {opt.label}
+              {/* Kraftfulla (obetald/betald) badges har numera en heltäckande,
+                  mättad bakgrund — den vanliga --status-chip-bg (en
+                  ~55%-vit overlay tänkt för bleka pastellbakgrunder) skulle
+                  bli en urblekt fläck ovanpå en mörk grön/orange yta med
+                  näst intill osynlig vit text. Egen vit halvtransparent
+                  "glas"-variant för just de här istället, samma recept som
+                  färgade etiketter med räknare i andra produkter. */}
               <span style={{
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 16, height: 16, padding: '0 4px',
                 borderRadius: '999px', fontSize: '10px', fontWeight: 700,
-                background: 'var(--status-chip-bg)', color: opt.color,
+                background: opt.strong ? 'rgba(255,255,255,0.28)' : 'var(--status-chip-bg)',
+                color: opt.strong ? '#ffffff' : opt.color,
               }}>{count}</span>
             </button>
           );
@@ -2182,39 +2202,54 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
         <InvoiceEmptyState isFilteredEmpty={invoiceList.length > 0} onCreate={() => { setShowForm(true); setEditingInvoice(null); setInvoicePrefill(null); }} />
       ) : (
       <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>
-        {statusOptions.filter(opt => opt.value !== 'all').map(opt => {
-          const rows = sorted.filter(inv => getStatus(inv) === opt.value);
-          if (rows.length === 0) return null;
-          const allSelected = rows.every(inv => selected.has(inv.id));
-          const sectionSum = rows.reduce((sum, inv) => sum + grossOf(inv), 0);
-          return (
-            <div key={opt.value} ref={el => { sectionRefs.current[opt.value] = el; }} style={{ marginBottom: '20px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 10px 6px' }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '3px 10px', borderRadius: '999px', fontSize: '13px', fontWeight: 700, background: opt.bg, color: opt.color }}>
-                  {opt.label}
-                  <span style={{ background: 'var(--status-chip-bg)', borderRadius: '999px', padding: '0 6px', fontSize: '11px' }}>{rows.length}</span>
-                </span>
-                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{fmt(sectionSum)} SEK</span>
-              </div>
-              <ListTable
-                rowKey={inv => inv.id}
-                onRowClick={inv => { setEditingInvoice(inv); setInvoicePrefill(null); setShowForm(true); }}
-                rowStyle={inv => ({ background: selected.has(inv.id) ? '#e3f2fd' : getRowBg(getStatus(inv)) })}
-                sort={{ key: sortKey, dir: sortDir, onSort: toggleSort }}
-                selectable={{
-                  checked: inv => selected.has(inv.id),
-                  onToggle: inv => toggleSelect(inv.id),
-                  allChecked: allSelected,
-                  onToggleAll: () => toggleAllInRows(rows),
-                }}
-                rows={rows}
-                columns={invoiceColumns}
-              />
-            </div>
-          );
-        })}
+        {/* Kundfeedback ("inga space mellan fakturorna"): varje statussektion
+            var tidigare sitt EGET fristående, kantat/rundat kort med 20px
+            mellanrum till nästa — såg ut som flera lösryckta tabellfragment
+            istället för en sammanhängande lista. Alla sektioner (inkl.
+            summeringsraden sist) delar nu EN gemensam yttre kant/skugga/
+            rundning (samma "flush"-princip som Kunder/Bokföring), och varje
+            enskild ListTable renderas `bordered={false}` så bara EN kantlinje
+            syns mellan två sektioner, inte två travade på varandra. */}
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', boxShadow: 'var(--shadow-sm)', overflow: 'hidden' }}>
+          {statusOptions.filter(opt => opt.value !== 'all')
+            .map(opt => ({ opt, rows: sorted.filter(inv => getStatus(inv) === opt.value) }))
+            .filter(g => g.rows.length > 0)
+            .map(({ opt, rows }, i) => {
+              const allSelected = rows.every(inv => selected.has(inv.id));
+              const sectionSum = rows.reduce((sum, inv) => sum + grossOf(inv), 0);
+              return (
+                <div key={opt.value} ref={el => { sectionRefs.current[opt.value] = el; }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 10px', background: 'var(--bg-muted)', borderTop: i === 0 ? 'none' : '1px solid var(--border)' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '3px 10px', borderRadius: '999px', fontSize: '13px', fontWeight: 700, background: opt.bg, color: opt.color }}>
+                      {opt.label}
+                      <span style={{
+                        borderRadius: '999px', padding: '0 6px', fontSize: '11px',
+                        background: opt.strong ? 'rgba(255,255,255,0.28)' : 'var(--status-chip-bg)',
+                      }}>{rows.length}</span>
+                    </span>
+                    <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{fmt(sectionSum)} SEK</span>
+                  </div>
+                  <ListTable
+                    bordered={false}
+                    rowKey={inv => inv.id}
+                    onRowClick={inv => { setEditingInvoice(inv); setInvoicePrefill(null); setShowForm(true); }}
+                    rowStyle={inv => ({ background: selected.has(inv.id) ? '#e3f2fd' : getRowBg(getStatus(inv)) })}
+                    sort={{ key: sortKey, dir: sortDir, onSort: toggleSort }}
+                    selectable={{
+                      checked: inv => selected.has(inv.id),
+                      onToggle: inv => toggleSelect(inv.id),
+                      allChecked: allSelected,
+                      onToggleAll: () => toggleAllInRows(rows),
+                    }}
+                    rows={rows}
+                    columns={invoiceColumns}
+                  />
+                </div>
+              );
+            })}
         <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '10px 16px', background: 'var(--bg-muted)', borderTop: '2px solid var(--border)', fontWeight: 700, fontSize: '13px', color: 'var(--text-main)' }}>
           Summa SEK&nbsp;<span style={{ color: 'var(--text-main)', marginLeft: '6px' }}>{fmt(sumTotal)}</span>
+        </div>
         </div>
       </div>
       )}

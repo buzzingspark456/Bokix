@@ -136,14 +136,14 @@ export default function Accounts({ accounts, balances, setAccounts }) {
                     onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-muted)'}
                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                   >
-                    <td data-label="Kontokod" style={{ padding: '14px 20px', fontWeight: 700, color: '#3a8fc1' }}>{acc.code}</td>
-                    <td data-label="Kontonamn" style={{ padding: '14px 20px', fontWeight: 500, color: 'var(--text-main)' }}>{acc.name}</td>
-                    <td data-label="Kontotyp" style={{ padding: '14px 20px' }}>
+                    <td className="lt-cell" data-label="Kontokod" style={{ fontWeight: 700, color: '#3a8fc1' }}>{acc.code}</td>
+                    <td className="lt-cell" data-label="Kontonamn" style={{ fontWeight: 500, color: 'var(--text-main)' }}>{acc.name}</td>
+                    <td className="lt-cell" data-label="Kontotyp">
                       <span style={{ padding: '4px 10px', background: acolor.bg, color: acolor.text, border: `1px solid ${acolor.border}`, borderRadius: '20px', fontSize: '11px', fontWeight: 600, letterSpacing: '0.02em' }}>
                         {getSwedishTypeName(acc.type)}
                       </span>
                     </td>
-                    <td data-label="Aktuellt saldo" style={{ padding: '14px 20px', textAlign: 'right', fontWeight: 600, color: bal === 0 ? 'var(--text-muted)' : 'var(--text-main)', letterSpacing: '-0.02em' }}>
+                    <td className="lt-cell" data-label="Aktuellt saldo" style={{ textAlign: 'right', fontWeight: 600, color: bal === 0 ? 'var(--text-muted)' : 'var(--text-main)', letterSpacing: '-0.02em' }}>
                       {formatSEK(bal)}
                     </td>
                   </tr>

@@ -27,27 +27,46 @@ function StatusBadge({ status }) {
 
 function StepButtons({ completedSteps, onAdvance, canBook }) {
   return (
-    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', paddingTop: '22px' }}>
       {PAYROLL_RUN_STEPS.map((step, i) => {
         const isDone = completedSteps.includes(step.id);
         const prevDone = i === 0 || completedSteps.includes(PAYROLL_RUN_STEPS[i - 1].id);
         const isNext = !isDone && prevDone;
         const disabled = !prevDone || isDone || (step.id === 'booked' && !canBook);
         return (
-          <button
-            key={step.id}
-            disabled={disabled}
-            onClick={() => onAdvance(step.id)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 16px', borderRadius: '999px',
-              fontSize: '13px', fontWeight: 700, border: 'none',
-              cursor: disabled ? 'not-allowed' : 'pointer',
-              background: isDone ? '#ecfdf5' : (isNext ? 'var(--accent)' : 'var(--border-light)'),
-              color: isDone ? '#059669' : (isNext ? 'white' : 'var(--text-muted)'),
-            }}
-          >
-            {isDone && <Check size={14} />} {step.label}
-          </button>
+          <div key={step.id} style={{ position: 'relative' }}>
+            {/* Kundfeedback ("hur skulle jag veta att det är man skulle
+                trycka, ha en pil eller nått") — accentfärgen räckte inte
+                som ledtråd ensam. Studsande pil + "Klicka här"-etikett
+                pekar nu rakt ut den enda knapp som faktiskt går att
+                klicka just nu. */}
+            {isNext && !disabled && (
+              <div
+                style={{
+                  position: 'absolute', top: '-24px', left: '50%',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px',
+                  animation: 'bokix-step-bounce 1s ease-in-out infinite', pointerEvents: 'none',
+                }}
+              >
+                <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--accent)', whiteSpace: 'nowrap' }}>Klicka här</span>
+                <ChevronDown size={13} color="var(--accent)" style={{ marginTop: '-2px' }} />
+              </div>
+            )}
+            <button
+              disabled={disabled}
+              onClick={() => onAdvance(step.id)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 16px', borderRadius: '999px',
+                fontSize: '13px', fontWeight: 700, border: 'none',
+                cursor: disabled ? 'not-allowed' : 'pointer',
+                background: isDone ? '#ecfdf5' : (isNext ? 'var(--accent)' : 'var(--border-light)'),
+                color: isDone ? '#059669' : (isNext ? 'white' : 'var(--text-muted)'),
+                animation: (isNext && !disabled) ? 'bokix-step-pulse 1.8s ease-in-out infinite' : 'none',
+              }}
+            >
+              {isDone && <Check size={14} />} {step.label}
+            </button>
+          </div>
         );
       })}
     </div>

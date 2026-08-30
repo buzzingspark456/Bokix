@@ -11,7 +11,9 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 //
 // Låst radhöjd/padding/vertikal centrering på alla sidor genom att bara
 // byta DEN HÄR komponentens konstanter, ingen enskild sidas tabell-JSX rörd.
-const CELL_PADDING = '14px 16px'; // ≈ h-12/py-3 tillsammans med 13–14px text
+// Radcellernas padding sätts numera via CSS-klassen .lt-cell (index.css),
+// inte här — se kommentaren vid .lt-cell för varför (inline style vinner
+// alltid över mobilens @media-override annars).
 const HEAD_CELL_PADDING = '12px 16px';
 
 /**
@@ -35,7 +37,15 @@ const HEAD_CELL_PADDING = '12px 16px';
  * @param {{key: string, dir: 'asc'|'desc', onSort: (sortKeyName: string) => void}} [sort]
  *   - tillsammans med `col.sortKeyName`: klickbar kolumnrubrik med sorteringspil.
  */
-export default function ListTable({ columns, rows, rowKey, onRowClick, emptyMessage = 'Inga poster', selectable, isExpanded, renderExpanded, rowStyle, sort }) {
+/**
+ * @param {boolean} [bordered=true] - sätt `false` för att rendera EN av
+ *   flera ListTable-instanser som staplas direkt på varandra utan mellanrum
+ *   (t.ex. Fakturors statusindelade sektioner) — den egna
+ *   bakgrunden/kanten/skuggan/rundningen slås av så en gemensam yttre kant
+ *   runt HELA stapeln kan sitta istället, utan dubbla kantlinjer eller
+ *   isolerade skuggor per sektion.
+ */
+export default function ListTable({ columns, rows, rowKey, onRowClick, emptyMessage = 'Inga poster', selectable, isExpanded, renderExpanded, rowStyle, sort, bordered = true }) {
   const colSpan = columns.length + (selectable ? 1 : 0);
   return (
     // overflowX:'auto' (bugkritiskt, kundfeedback: "Status rutan är
@@ -53,7 +63,9 @@ export default function ListTable({ columns, rows, rowKey, onRowClick, emptyMess
     // filterraden ovanför. Bara nederkanten rundad nu (samma "fäst mot det
     // ovanför, avrundad mot sidbakgrunden under"-princip som ListFilterBar/
     // ListPageHeader redan följer på sina egna nederkanter).
-    <div style={{ background: 'var(--bg-card)', borderRadius: '0 0 12px 12px', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)', overflowX: 'auto', overflowY: 'hidden' }}>
+    <div style={bordered
+      ? { background: 'var(--bg-card)', borderRadius: '0 0 12px 12px', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)', overflowX: 'auto', overflowY: 'hidden' }
+      : { overflowX: 'auto', overflowY: 'hidden' }}>
       {/* .responsive-table (Sida 38, punkt 1): staplar kolumnerna med
           data-label-etiketter under en brytpunkt istället för att tvinga
           sidledesskroll — samma klass alla listsidors tabeller redan delar. */}
@@ -111,8 +123,18 @@ export default function ListTable({ columns, rows, rowKey, onRowClick, emptyMess
                   onMouseEnter={onRowClick && !expanded ? e => { e.currentTarget.style.filter = 'brightness(0.97)'; } : undefined}
                   onMouseLeave={onRowClick && !expanded ? e => { e.currentTarget.style.filter = ''; } : undefined}
                 >
+                  {/* className="td-select"/"td-actions" (inte bara inline style):
+                      på mobil (index.css @media 768px, .responsive-table)
+                      lyfts de här två ut ur det staplade etikett/värde-flödet
+                      och läggs som hörn-overlays ovanpå kortet istället —
+                      annars fick en ensam kryssruta/kebab-knapp en HEL egen
+                      44px-rad för sig själv. Paddingen sätts numera av
+                      .lt-cell (index.css) i stället för inline här, av samma
+                      skäl: en inline style vinner ALLTID över en extern
+                      @media-regel, så mobilens tätare padding (se .lt-cell)
+                      kunde annars aldrig slå igenom. */}
                   {selectable && (
-                    <td style={{ padding: CELL_PADDING, textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+                    <td className="lt-cell td-select" style={{ textAlign: 'center' }} onClick={e => e.stopPropagation()}>
                       <input type="checkbox" checked={selectable.checked(row)} onChange={() => selectable.onToggle(row)} style={{ cursor: 'pointer' }} />
                     </td>
                   )}
@@ -120,8 +142,9 @@ export default function ListTable({ columns, rows, rowKey, onRowClick, emptyMess
                     <td
                       key={col.key}
                       data-label={col.label}
+                      className={`lt-cell${col.key === 'actions' ? ' td-actions' : ''}`}
                       style={{
-                        padding: CELL_PADDING, textAlign: col.align || 'left', verticalAlign: 'middle',
+                        textAlign: col.align || 'left', verticalAlign: 'middle',
                         fontSize: col.fontSize || '13px', color: col.color || 'var(--text-secondary)',
                         fontWeight: col.fontWeight, whiteSpace: col.wrap ? 'normal' : 'nowrap',
                       }}

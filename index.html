@@ -27,7 +27,32 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Kundfeedback ("no zooming ... mobile apps ser perfekta ut, inte
+         zoombara"): maximum-scale=1 + user-scalable=no stänger av pinch-/
+         dubbeltrycks-zoom PÅ SIDAN, samma känsla som en riktig nativ app.
+         iOS Safari (10+) respekterar detta ändå fortfarande INTE för sin
+         egen SYSTEM-tillgänglighetszoom (trepunktstryck/förstoringsglas i
+         Inställningar) — den funkar oavsett, så ingen med den funktionen
+         påslagen förlorar något.
+
+         Bugkritiskt (hittat under just den här felsökningen, se PRODUCTION
+         READINESS-anteckningarna/commit-historiken för detaljer): en
+         HTML-kommentar avslutas med bindestreck-bindestreck-större-än,
+         INTE CSS/JS-syntaxens asterisk-snedstreck. Ett första försök att
+         skriva just den här kommentaren använde av misstag fel
+         avslutningstecken, vilket gjorde att webbläsaren aldrig såg
+         kommentaren som klar och tyst svalde HELA viewport-metataggen
+         (och allt annat fram till nästa riktiga avslutning längre ner i
+         filen) som kommentartext. Resultatet: en sökning efter
+         viewport-metataggen i DOM:en gav ingenting, och mobila
+         webbläsare föll tillbaka på sin breda "desktop"-layoutviewport
+         och skalade ner HELA sidan — den bakomliggande orsaken till
+         praktiskt taget alla "sidan är för stor/känns inte stabil på
+         mobilen"-symptom, inte bara en kosmetisk detalj. Skriv ALDRIG en
+         bokstavlig avslutningssekvens rakt in i kommentartexten här igen
+         (som just orsakade en ANDRA, identisk incident under samma
+         felsökning) — beskriv den, återge den aldrig. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <!-- Bas-fallback för Open Graph/Twitter Card — täcker sidor som ännu
          inte satt egna taggar (t.ex. /privacy, /terms) samt det korta
          ögonblicket innan React hunnit montera och (för de fem marknads-
