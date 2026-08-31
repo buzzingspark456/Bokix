@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { lookupCompanyByOrgNumber, searchCompaniesByName } from '../utils/companyLookup';
+import { detectOrgType } from '../utils/orgType';
 
 const NAME_DEBOUNCE_MS = 500;
 const NAME_MIN_CHARS = 3;
@@ -51,6 +52,12 @@ export function useCompanyLookup(set) {
     if (company.street) set('address', company.street);
     if (company.postalCode) set('postalCode', company.postalCode);
     if (company.city) set('city', company.city);
+    // FöretagsAPI's own legalForm (e.g. "AB", "HB") — the register's actual
+    // answer, not the local digit-position guess in utils/orgType.js. Passed
+    // through as an extra field the same way address/postalCode/city already
+    // are; a caller's `set` that doesn't know this key just ignores it,
+    // same as any other consumer of this hook that hasn't opted in.
+    if (company.legalForm) set('legalForm', company.legalForm);
     if (nameDebounceRef.current) clearTimeout(nameDebounceRef.current);
     setNameResults([]);
     setNameSearch({ status: 'idle', message: '' });
@@ -60,6 +67,24 @@ export function useCompanyLookup(set) {
     const digits = String(rawOrgNr || '').replace(/\D/g, '');
     if (digits.length !== 10) return;
     lastOrgNrQueried.current = digits;
+    // Enskild firma har inget eget organisationsnummer att slå upp —
+    // ägarens personnummer ÄR numret (se orgType.js:s kommentar för regeln,
+    // tredje siffran 0/1). FöretagsAPI är Bolagsverkets bolagsregister och
+    // kommer ALDRIG ha en träff för ett sådant nummer (enskilda firmor är
+    // inte egna juridiska personer, alltså inte registrerade där) — att
+    // ändå skicka det vidare vore bara ett bortkastat (kredit-belagt, se
+    // 402-hanteringen nedan) anrop som garanterat svarar "hittades inte",
+    // och ett onödigt utskick av ett personnummer till en extern tjänst.
+    // Kortsluts här istället med samma neutrala 'error'-status som ett
+    // faktiskt "hittades inte" redan renderas med (se Auth.jsx/Contacts.jsx)
+    // — ingen ny UI-gren behövs, meddelandet är bara mer korrekt.
+    if (detectOrgType(digits) === 'Enskild firma') {
+      setOrgLookup({
+        status: 'error',
+        message: 'Enskild firma drivs av en privatperson (personnumret är firmans nummer) — inget bolagsregister att slå upp. Fyll i namnet manuellt.',
+      });
+      return;
+    }
     setOrgLookup({ status: 'loading', message: '' });
     try {
       const company = await lookupCompanyByOrgNumber(digits);

@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  LogIn, UserPlus, Building2, Mail, Lock,
-  ArrowRight, ArrowLeft, ShieldCheck, Check, User, Hash, Search,
+  LogIn, UserPlus, Mail, Lock,
+  ArrowRight, ArrowLeft, ShieldCheck, Check, User, Hash,
   RefreshCw,
   FileText, BarChart3, Receipt, Users, Shield, Briefcase,
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
-import { detectOrgType, formatOrgNr } from '../utils/orgType';
+import { detectOrgType, formatLegalForm, formatOrgNr } from '../utils/orgType';
 import { useCompanyLookup } from '../hooks/useCompanyLookup';
 import { BRAND } from '../utils/brandColors';
 import { BokixWordmark } from './marketing/MarketingLayout';
@@ -41,32 +41,11 @@ const labelStyle = {
 const REGISTER_STEPS = ['Personlig info', 'Bekräfta e-post', 'Företag', 'Lösenord'];
 
 // ── Autouppslag mot FöretagsAPI på registreringens "Ditt företag"-steg
-// (useCompanyLookup, se api/company-access.js) — samma sökknapp-under-
-// fältet-mönster som Contacts.jsx, egna stilar här eftersom Auth.jsx:s
-// inputs (mörkare bg-muted-bakgrund, rundare hörn) inte delar utseende
-// med Kunder/Leverantörer-formulären. ──
-const lookupButtonStyle = {
-  display: 'flex', alignItems: 'center', justifyContent: 'center',
-  width: '46px', flexShrink: 0, border: '1px solid var(--border)',
-  borderRadius: '10px', background: 'var(--bg-muted)', color: 'var(--text-secondary)', cursor: 'pointer',
-};
-const lookupDropdownStyle = {
-  position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 20,
-  background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '10px',
-  boxShadow: '0 8px 24px rgba(17,24,39,0.14)', overflow: 'hidden', maxHeight: '260px', overflowY: 'auto',
-};
-const lookupResultItemStyle = {
-  display: 'flex', alignItems: 'center', gap: '10px', width: '100%', textAlign: 'left',
-  padding: '9px 12px', border: 'none', borderTop: '1px solid var(--border)', background: 'transparent',
-  cursor: 'pointer', fontFamily: 'inherit', minWidth: 0,
-};
-const lookupResultIconStyle = {
-  width: '28px', height: '28px', borderRadius: '8px', background: 'var(--bg-muted)',
-  color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-};
-const lookupResultTextStyle = { minWidth: 0, flex: 1 };
-const lookupResultNameStyle = { fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
-const lookupResultMetaStyle = { fontSize: '11.5px', color: 'var(--text-secondary)', marginTop: '1px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
+// (useCompanyLookup, se api/company-access.js). Företagsnamnet skrivs inte
+// längre in för hand här — organisationsnumret är det enda fältet, och när
+// 10 siffror är ifyllda slår handleOrgNrChange upp och fyller regCompany
+// automatiskt (se companyLookup nedan). lookupStatusStyle visar resultatet
+// av det uppslaget under fältet. ──
 const lookupStatusStyle = { fontSize: '12px', marginTop: '8px', lineHeight: 1.5, color: 'var(--text-secondary)' };
 
 // Säkerhetsgranskningen: bara en längdgräns (8 tecken) fanns tidigare,
@@ -160,19 +139,31 @@ export default function Auth({ onLogin, onBackToLanding }) {
   // Step 2 – Company
   const [regCompany, setRegCompany] = useState('');
   const [regOrgNr, setRegOrgNr] = useState('');
+  // Register's own answer for the legal form (FöretagsAPI's `legalForm`,
+  // via applyCompany) — authoritative, unlike the digit-position guess
+  // below. Empty until a lookup actually resolves.
+  const [regLegalForm, setRegLegalForm] = useState('');
 
+  // Fallback only: a local heuristic from the org number's own digits, used
+  // when a real lookup hasn't resolved a legal form yet (or failed) so the
+  // step still shows *something*. Can be wrong — see orgType.js's own
+  // caveat — so regLegalForm below is always preferred once present.
   const orgType = detectOrgType(regOrgNr);
+  const displayedOrgType = (regLegalForm && formatLegalForm(regLegalForm)) || orgType;
 
   // Autouppslag mot FöretagsAPI — det här steget har bara namn + org.nummer
   // (till skillnad från Contacts.jsx finns ingen adress/postnr/ort-fält
   // här ännu, det fylls i senare i OnboardingFlow.jsx efter inloggning),
-  // så adaptern nedan ignorerar de fälten från useCompanyLookup helt.
-  // org.nummer formateras via SAMMA formatOrgNr som fältets egen onChange
-  // använder, så en ifylld post-lookup-siffersträng ser likadan ut
-  // (556123-4567) som en manuellt inskriven.
+  // så adaptern nedan ignorerar de flesta fälten från useCompanyLookup —
+  // utom 'legalForm' (se regLegalForm ovan), som ersätter den lokala
+  // gissningen i orgType.js med registrets faktiska svar så fort ett
+  // uppslag lyckas. org.nummer formateras via SAMMA formatOrgNr som
+  // fältets egen onChange använder, så en ifylld post-lookup-siffersträng
+  // ser likadan ut (556123-4567) som en manuellt inskriven.
   const handleLookupField = (key, value) => {
     if (key === 'name') setRegCompany(value);
     else if (key === 'orgNr') setRegOrgNr(formatOrgNr(value));
+    else if (key === 'legalForm') setRegLegalForm(value);
   };
   const companyLookup = useCompanyLookup(handleLookupField);
 
@@ -270,9 +261,21 @@ export default function Auth({ onLogin, onBackToLanding }) {
     }
 
     if (regStep === 2) {
-      if (!regCompany.trim()) { setErrorMsg('Ange företagsnamn'); return; }
       if (!regOrgNr.trim() || regOrgNr.replace(/\D/g, '').length < 10) {
         setErrorMsg('Ange ett giltigt organisationsnummer (10 siffror)');
+        return;
+      }
+      // Företagsnamnet fylls i automatiskt av ett lyckat FöretagsAPI-uppslag
+      // (regCompany sätts då av companyLookup.applyCompany via
+      // handleLookupField), men fältet nedan är ALLTID redigerbart för
+      // hand — se motiveringen vid namnfältet: en enskild firma har inget
+      // eget bolagsregister att slå upp (bara ägarens personnummer, se
+      // orgType.js), och ett FöretagsAPI-avbrott/slut kredit-kvot (402)
+      // ska aldrig kunna blockera en registrering helt. Så den här
+      // kontrollen är bara ett vanligt obligatoriskt-fält-krav numera,
+      // inte ett bevis på ett lyckat uppslag.
+      if (!regCompany.trim()) {
+        setErrorMsg('Ange företagsnamnet.');
         return;
       }
       setRegStep(3);
@@ -581,45 +584,22 @@ export default function Auth({ onLogin, onBackToLanding }) {
                 </div>
               )}
 
-              {/* STEP 2 – Company */}
+              {/* STEP 2 – Company. handleOrgNrChange slår upp mot
+                  FöretagsAPI så fort 10 siffror är ifyllda och fyller
+                  regCompany automatiskt (se companyLookup ovan) — men
+                  namnfältet nedan är ALLTID ett vanligt redigerbart fält,
+                  aldrig bara en bekräftelsetext. Tre fall där uppslaget
+                  aldrig ger ett namn och manuell inmatning är den ENDA
+                  vägen framåt: (1) enskild firma — inget eget
+                  bolagsregister att slå upp (personnumret ÄR numret, se
+                  orgType.js/useCompanyLookup.js), (2) FöretagsAPI:s
+                  månadskvot slut (402), (3) registret helt otillgängligt
+                  (502/nätverksfel). Innan den här ändringen fanns inget
+                  namnfält alls här — vilket blockerade registrering HELT
+                  i alla tre fallen (se git-historiken för den borttagna
+                  varianten). */}
               {regStep === 2 && (
                 <>
-                  <div style={{ position: 'relative' }}>
-                    <label style={labelStyle}>Företagsnamn *</label>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <div style={{ position: 'relative', flex: 1 }}>
-                        <Building2 size={16} color="var(--text-muted)" style={{ position: 'absolute', top: 14, left: 12, pointerEvents: 'none' }} />
-                        <input
-                          type="text" style={{ ...inputStyle, paddingLeft: '38px' }} placeholder="Ditt Företag AB" value={regCompany}
-                          onChange={e => { setRegCompany(e.target.value); companyLookup.queueNameSearch(e.target.value); }}
-                          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); companyLookup.searchByName(regCompany); } }}
-                          required
-                        />
-                      </div>
-                      <button
-                        type="button" onClick={() => companyLookup.searchByName(regCompany)}
-                        disabled={regCompany.trim().length < 2 || companyLookup.nameSearch.status === 'loading'}
-                        title="Sök i företagsregistret" style={lookupButtonStyle}
-                      >
-                        <Search size={15} />
-                      </button>
-                    </div>
-                    {companyLookup.nameSearch.status === 'loading' && <div style={lookupStatusStyle}>Söker…</div>}
-                    {companyLookup.nameSearch.status === 'error' && <div style={lookupStatusStyle}>{companyLookup.nameSearch.message}</div>}
-                    {companyLookup.nameResults.length > 0 && (
-                      <div className="company-lookup-dropdown" style={lookupDropdownStyle}>
-                        {companyLookup.nameResults.map(c => (
-                          <button key={c.orgNumber || c.name} type="button" onClick={() => companyLookup.applyCompany(c)} className="company-lookup-result" style={lookupResultItemStyle}>
-                            <div style={lookupResultIconStyle}><Building2 size={14} /></div>
-                            <div style={lookupResultTextStyle}>
-                              <div style={lookupResultNameStyle}>{c.name}</div>
-                              <div style={lookupResultMetaStyle}>{c.orgNumber || '—'}{c.city ? ` · ${c.city}` : ''}</div>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
                   <div>
                     <label style={labelStyle}>Organisationsnummer * <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(10 siffror)</span></label>
                     <div style={{ position: 'relative' }}>
@@ -630,16 +610,36 @@ export default function Auth({ onLogin, onBackToLanding }) {
                         style={{ ...inputStyle, paddingLeft: '38px' }}
                         placeholder="556123-4567"
                         value={regOrgNr}
-                        onChange={e => { const formatted = formatOrgNr(e.target.value); setRegOrgNr(formatted); companyLookup.handleOrgNrChange(formatted); }}
+                        onChange={e => { const formatted = formatOrgNr(e.target.value); setRegOrgNr(formatted); setRegCompany(''); setRegLegalForm(''); companyLookup.handleOrgNrChange(formatted); }}
                         required
                       />
                     </div>
                     {companyLookup.orgLookup.status === 'loading' && <div style={lookupStatusStyle}>Hämtar företagsuppgifter…</div>}
-                    {companyLookup.orgLookup.status === 'done' && <div style={{ ...lookupStatusStyle, color: 'var(--status-green-text)' }}>{companyLookup.orgLookup.message}</div>}
                     {companyLookup.orgLookup.status === 'error' && <div style={lookupStatusStyle}>{companyLookup.orgLookup.message}</div>}
-                    {orgType && (
+                  </div>
+
+                  <div>
+                    <label style={labelStyle}>Företagsnamn *</label>
+                    <input
+                      type="text"
+                      style={inputStyle}
+                      placeholder="Ex. Mitt Företag AB"
+                      value={regCompany}
+                      onChange={e => setRegCompany(e.target.value)}
+                      required
+                    />
+                    {/* Kort, flyktig bekräftelse direkt efter ett lyckat
+                        uppslag — fältet ovan är annars identiskt oavsett om
+                        namnet kom från registret eller skrevs in för hand;
+                        det ena är inte "mer rätt" eller mer låst än det andra. */}
+                    {companyLookup.orgLookup.status === 'done' && regCompany && (
+                      <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 600, color: BRAND.greenDark }}>
+                        <Check size={12} /> Hämtat från bolagsregistret — ändra gärna om något stämmer bättre.
+                      </div>
+                    )}
+                    {displayedOrgType && (
                       <div style={{ marginTop: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '5px 10px', background: BRAND.greenLight, borderRadius: '6px', fontSize: '12px', fontWeight: 700, color: BRAND.greenDark }}>
-                        <Check size={12} /> Identifierad som: {orgType}
+                        <Check size={12} /> Identifierad som: {displayedOrgType}
                       </div>
                     )}
                   </div>
