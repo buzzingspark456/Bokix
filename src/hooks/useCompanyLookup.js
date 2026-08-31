@@ -30,14 +30,13 @@ export function useCompanyLookup(set) {
   const [nameResults, setNameResults] = useState([]);
   const [nameSearch, setNameSearch] = useState({ status: 'idle', message: '' });
 
-  // Förhindrar dubbletter/kapplöpningar utan extra state-omrenderingar:
-  // lastOrgNrQueried stoppar ett nytt anrop för SAMMA 10 siffror varje
-  // gång onChange fyrar (annars ett anrop per tangenttryck efter den
-  // tionde siffran redan skrivits). nameRequestSeq ignorerar ett SVAR som
-  // hinner komma tillbaka efter ett senare, mer aktuellt sökanrop (annars
-  // kan en snabbt uppskriven kortare sökning "vinna" över resultatet av
-  // det man faktiskt hann skriva färdigt).
-  const lastOrgNrQueried = useRef('');
+  // nameRequestSeq förhindrar en kapplöpning utan extra state-omrenderingar:
+  // ignorerar ett SVAR som hinner komma tillbaka efter ett senare, mer
+  // aktuellt sökanrop (annars kan en snabbt uppskriven kortare sökning
+  // "vinna" över resultatet av det man faktiskt hann skriva färdigt).
+  // (org.nummer-uppslaget hade tidigare en motsvarande lastOrgNrQueried-ref
+  // för att stoppa dubbletter — borttagen, se handleOrgNrChange nedan för
+  // varför den var både obehövlig och orsaken till en riktig bugg.)
   const nameDebounceRef = useRef(null);
   const nameRequestSeq = useRef(0);
 
@@ -66,7 +65,6 @@ export function useCompanyLookup(set) {
   const lookupByOrgNr = useCallback(async (rawOrgNr) => {
     const digits = String(rawOrgNr || '').replace(/\D/g, '');
     if (digits.length !== 10) return;
-    lastOrgNrQueried.current = digits;
     // Enskild firma har inget eget organisationsnummer att slå upp —
     // ägarens personnummer ÄR numret (se orgType.js:s kommentar för regeln,
     // tredje siffran 0/1). FöretagsAPI är Bolagsverkets bolagsregister och
@@ -101,12 +99,23 @@ export function useCompanyLookup(set) {
 
   // Kallas direkt från org.nummer-fältets onChange (inte bara onBlur) —
   // triggar sig själv så fort 10 siffror är ifyllda, ingen fältväxling
-  // krävs. No-op tills dess, och no-op igen om just DE här 10 siffrorna
-  // redan slogs upp (fortsatt skrivande efter en lyckad/misslyckad
-  // matchning ska inte spamma om samma anrop).
+  // krävs. No-op tills dess.
+  //
+  // Kundfeedback (två omgångar): fungerade första gången, men om man
+  // raderade fältet och skrev in SAMMA nummer igen (t.ex. för att testa
+  // igen) hände ingenting alls — varken laddning eller felmeddelande.
+  // Orsaken var en lastOrgNrQueried-ref som skulle skydda mot att spamma
+  // om SAMMA 10 siffror — men den var både obehövlig (webbläsarens onChange
+  // fyrar bara vid en FAKTISK värdeändring, så samma 10 siffror kan aldrig
+  // trigga två gånger i rad utan en ändring emellan) och trasig i just det
+  // här fallet: ersätts hela fältets innehåll i EN operation (markera allt +
+  // klistra in, eller skriv över en markering) hinner värdet aldrig passera
+  // en mellanliggande <10-siffror-onChange, så refen nollställdes aldrig
+  // och guarden blockerade det medvetna omförsöket. Bortplockad helt —
+  // finns inget kvar att skydda mot.
   const handleOrgNrChange = useCallback((rawValue) => {
     const digits = String(rawValue || '').replace(/\D/g, '');
-    if (digits.length !== 10 || digits === lastOrgNrQueried.current) return;
+    if (digits.length !== 10) return;
     lookupByOrgNr(digits);
   }, [lookupByOrgNr]);
 
