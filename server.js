@@ -1,6 +1,6 @@
 import express from 'express'
 import helmet from 'helmet'
-import rateLimit, { ipKeyGenerator } from 'express-rate-limit'
+import rateLimit from 'express-rate-limit'
 import Stripe from 'stripe'
 import dotenv from 'dotenv'
 import { createClient } from '@supabase/supabase-js'
@@ -11,6 +11,7 @@ import { ZETTLE_OAUTH_COOKIE, zettleOauthStateCookie, clearZettleOauthStateCooki
 import { recordStripePaymentEvent } from './api/stripe/_paymentEvents.js'
 import { upsertSubscription, hasExistingSubscription, getSubscriptionRow } from './api/stripe/_subscriptions.js'
 import remindersHandler from './api/cron/reminders.js'
+import requestPasswordResetHandler from './api/auth/request-password-reset.js'
 import { normalizeAbsoluteUrl, appendQueryParam } from './api/stripe/_urls.js'
 import { resolveInvoiceLineItems } from './api/stripe/_invoiceLineItems.js'
 import { requireAuthedUser, loadOwnedCompany, loadMemberCompany } from './api/_auth.js'
@@ -812,61 +813,22 @@ app.post('/api/contact', contactLimiter, async (req, res) => {
   }
 })
 
-// ── "Glömt lösenord?" (Auth.jsx) — lokal spegling av api/auth/
-// request-password-reset.js ────────────────────────────────────────────
-// Samma resonemang som övriga produktionsrutter här: den riktiga
-// Vercel-functionen är den som faktiskt körs skarpt, den här är bara för
-// `npm run dev` lokalt. keyGenerator: per E-POSTADRESS (inte bara IP, se
-// motsvarande kommentar i _rateLimit.js/api/auth/request-password-reset.js)
-// — annars går 5/dygn-gränsen runt genom att bara byta nätverk, vilket INTE
-// stoppar den faktiska risken (trakassera en enskild persons inkorg).
-const passwordResetLimiter = rateLimit({
-  windowMs: 24 * 60 * 60 * 1000,
-  max: 5,
-  standardHeaders: true,
-  legacyHeaders: false,
-  // ipKeyGenerator (inte bara req.ip) för IP-reservfallet — express-rate-
-  // limit v8 kräver den för att normalisera IPv6-adresser korrekt (annars
-  // kan olika skrivsätt av SAMMA IPv6-adress smita förbi gränsen), se
-  // ERR_ERL_KEY_GEN_IPV6 i biblioteket.
-  keyGenerator: (req) => (typeof req.body?.email === 'string' && req.body.email.trim() ? req.body.email.trim().toLowerCase() : ipKeyGenerator(req.ip)),
-})
-app.post('/api/auth/request-password-reset', passwordResetLimiter, async (req, res) => {
-  if (await isRequestFromBot()) {
-    res.status(403).json({ error: 'Åtkomst nekad.' })
-    return
-  }
-
-  const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : ''
-  if (!email || !CONTACT_EMAIL_RE.test(email)) {
-    res.status(400).json({ error: 'Ogiltig e-postadress.' })
-    return
-  }
-
-  const supabaseUrl = process.env.VITE_SUPABASE_URL
-  const anonKey = process.env.VITE_SUPABASE_ANON_KEY
-  if (!supabaseUrl || !anonKey) {
-    res.status(503).json({ error: 'Supabase är inte konfigurerat.' })
-    return
-  }
-  const supabaseAnon = createClient(supabaseUrl, anonKey)
-
-  try {
-    const { error } = await supabaseAnon.auth.resetPasswordForEmail(email, {
-      redirectTo: 'https://www.bokix.se/',
-      ...(typeof req.body?.captchaToken === 'string' && req.body.captchaToken ? { captchaToken: req.body.captchaToken } : {}),
-    })
-    if (error) {
-      console.error('resetPasswordForEmail error:', error.message)
-      res.status(error.status && error.status < 500 ? error.status : 502).json({ error: error.message || 'Kunde inte skicka återställningslänken. Försök igen om en stund.' })
-      return
-    }
-    res.status(200).json({ ok: true })
-  } catch (error) {
-    console.error('request-password-reset unexpected error:', error)
-    res.status(500).json({ error: 'Något gick fel. Försök igen om en stund.' })
-  }
-})
+// ── "Glömt lösenord?" OCH registreringens e-postverifieringskod (Auth.jsx)
+// — TILL SKILLNAD från varje annan rutt i den här filen (utom /api/cron/
+// reminders, se remindersHandler ovan) är den här INTE handkopierad.
+// Bugkritiskt (hittades i produktion): en tidigare handkopierad version av
+// den här rutten kände bara till det GAMLA lösenordsåterställnings-anropet
+// — när api/auth/request-password-reset.js senare fick två nya grenar
+// (send-signup-code/verify-signup-code, se den filens kommentar) fortsatte
+// den handkopierade lokala rutten att BLINT göra en riktig
+// resetPasswordForEmail oavsett `action` i body:n, så registreringens
+// "Bekräfta e-post"-steg fick ett riktigt återställningsmejl istället för
+// en kod i lokal utveckling (skarpt/Vercel påverkades aldrig, den kör bara
+// api/-filen). Exakt den sortens tyst isärglidning reminders.js:s egen
+// kommentar redan varnar för — samma fix här: importera och kör
+// produktionens handler direkt (se importen av requestPasswordResetHandler
+// ovan) istället för att hålla en andra kopia i synk för hand.
+app.all('/api/auth/request-password-reset', (req, res) => requestPasswordResetHandler(req, res))
 
 // ── E-postdomän per kund (Sida 33, Steg 2) ───────────────────────────────
 // Skapar en domän hos Resend och returnerar DNS-posterna (SPF/DKIM) som

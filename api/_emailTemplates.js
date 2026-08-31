@@ -67,3 +67,19 @@ export function buildTrialEndingHtml({ trialEndsAt, siteUrl }) {
     <p>Med vänlig hälsning<br/>Bokix</p>
   `;
 }
+
+/** Engångskoden i registreringens "Bekräfta e-post"-steg (Auth.jsx) — se
+ * api/auth/request-password-reset.js:s send-signup-code-gren. Koden visas
+ * stort och glesspatierat, samma idé som alla andra tjänsters e-post-OTP,
+ * så den går snabbt att läsa och skriva av även på en liten mobilskärm. */
+export function buildSignupVerificationHtml({ code }) {
+  return `
+    <p>Hej,</p>
+    <p>Din kod för att bekräfta e-postadressen hos Bokix är:</p>
+    <p style="margin: 24px 0; text-align: center;">
+      <span style="display:inline-block;padding:14px 22px;background:#f4f4f5;border-radius:10px;font-size:32px;font-weight:700;letter-spacing:10px;color:#111827;">${code}</span>
+    </p>
+    <p>Koden gäller i 10 minuter. Bad du inte om den här koden kan du bortse från mejlet.</p>
+    <p>Med vänlig hälsning<br/>Bokix</p>
+  `;
+}

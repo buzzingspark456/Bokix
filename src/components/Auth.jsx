@@ -1,14 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   LogIn, UserPlus, Mail, Lock,
   ArrowRight, ArrowLeft, ShieldCheck, Check, User, Hash,
   RefreshCw,
-  FileText, BarChart3, Receipt, Users, Shield, Briefcase,
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { detectOrgType, formatLegalForm, formatOrgNr } from '../utils/orgType';
 import { useCompanyLookup } from '../hooks/useCompanyLookup';
+import { sendSignupCode, verifySignupCode } from '../utils/signupVerification';
+import { translateSupabaseAuthError } from '../utils/translateAuthError';
 import { BRAND } from '../utils/brandColors';
 import { BokixWordmark } from './marketing/MarketingLayout';
 import { createStripeSubscriptionCheckout } from '../stripeApi';
@@ -28,8 +29,8 @@ function StripeBadge() {
 }
 
 const inputStyle = {
-  width: '100%', padding: '12px 14px', border: '1px solid var(--border)', borderRadius: '10px',
-  fontSize: '14.5px', color: 'var(--text-main)', background: 'var(--bg-muted)', outline: 'none',
+  width: '100%', padding: '13px 16px', border: '1px solid var(--border)', borderRadius: '10px',
+  fontSize: '15px', color: 'var(--text-main)', background: 'var(--bg-muted)', outline: 'none',
   fontFamily: 'inherit', boxSizing: 'border-box', transition: 'all 0.2s',
 };
 
@@ -39,6 +40,7 @@ const labelStyle = {
 };
 
 const REGISTER_STEPS = ['Personlig info', 'Bekräfta e-post', 'Företag', 'Lösenord'];
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // ── Autouppslag mot FöretagsAPI på registreringens "Ditt företag"-steg
 // (useCompanyLookup, se api/company-access.js). Företagsnamnet skrivs inte
@@ -71,19 +73,6 @@ function passwordStrength(pw) {
   if (score <= 3) return { label: 'Bra', color: '#84cc16', pct: 75 };
   return { label: 'Starkt', color: '#3d7a2e', pct: 100 };
 }
-
-// ── Översikt över appens faktiska huvudsektioner (samma sex som den
-// riktiga inloggade sidomenyn i App.jsx), visad på sista registrerings-
-// steget — en snabb "karta" över vad som väntar innan man ens loggat in
-// första gången, inte en påhittad funktionslista. ──
-const APP_SECTIONS_OVERVIEW = [
-  { icon: FileText, label: 'Fakturering' },
-  { icon: BarChart3, label: 'Bokföring' },
-  { icon: Receipt, label: 'Utgifter' },
-  { icon: Briefcase, label: 'Projekt' },
-  { icon: Users, label: 'Anställda och lön' },
-  { icon: Shield, label: 'Skatt och bokslut' },
-];
 
 // Sessionstoken satt av InviteRedeem.jsx när någon öppnar en inbjudningslänk
 // — samma nyckel som App.jsx:s redeemPendingInvite läser vid nästa lyckade
@@ -136,6 +125,65 @@ export default function Auth({ onLogin, onBackToLanding }) {
   const [regPassword, setRegPassword] = useState('');
   const [regPassword2, setRegPassword2] = useState('');
 
+  // Step 1 – Bekräfta e-post. Kundfeedback: föregående version lät VILKEN
+  // e-postadress som helst passera det här steget obekräftad, ända till
+  // betalning — se filkommentaren i api/auth/request-password-reset.js
+  // för varför verifieringen görs där (send-signup-code/verify-signup-code)
+  // istället för en riktig supabase.auth.signInWithOtp/verifyOtp. `otpToken`
+  // är den signerade token:en från send-signup-code — måste skickas med
+  // OFÖRÄNDRAD till verify-signup-code, håller koden+e-posten den gällde
+  // för inbakade så servern inte behöver spara något mellan de två anropen.
+  // `emailVerified` är den faktiska spärren: handleNextStep vägrar lämna
+  // steg 1 förrän den är sann, oavsett vad som står i kodfältet.
+  const [regVerifyCode, setRegVerifyCode] = useState('');
+  const [otpToken, setOtpToken] = useState('');
+  const [emailVerified, setEmailVerified] = useState(false);
+  // Bara ett litet UI-tillstånd för knapparna (spinner/"Skickar…" text) —
+  // det FAKTISKA felmeddelandet visas i formulärets vanliga errorMsg-banner
+  // (samma ställe som alla andra fel i det här formuläret), inte här.
+  const [otpStatus, setOtpStatus] = useState('idle'); // idle|sending|verifying
+  // Egen nedräkning (inte bara ett `disabled`-flagg) så "Skicka koden igen"
+  // visar HUR LÄNGE kvar istället för att bara vara gråad utan förklaring —
+  // ren UX-artighet, den riktiga spärren mot missbruk är server-sidans
+  // hastighetsbegränsning (se _rateLimit.js-anropen i send-signup-code).
+  const [resendCooldown, setResendCooldown] = useState(0);
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const id = setTimeout(() => setResendCooldown(s => s - 1), 1000);
+    return () => clearTimeout(id);
+  }, [resendCooldown]);
+
+  // Nollställer hela kod-verifieringen — anropas både när man byter
+  // e-postadress på steg 0 (en redan verifierad kod för den GAMLA adressen
+  // ska aldrig kunna godkänna en NY) och när man växlar bort från
+  // registreringsflödet helt (switchMode nedan).
+  const resetEmailVerification = () => {
+    setRegVerifyCode('');
+    setOtpToken('');
+    setEmailVerified(false);
+    setOtpStatus('idle');
+    setResendCooldown(0);
+  };
+
+  /** Skickar (eller skickar OM) koden. Returnerar ett läsbart felmeddelande
+   * vid fel, annars null — anropande kod (handleNextStep/resend-knappen)
+   * bestämmer själv vad som ska hända med det (visa i errorMsg, stanna kvar
+   * på steget). */
+  const sendCode = async () => {
+    setOtpStatus('sending');
+    try {
+      const token = await sendSignupCode(regEmail);
+      setOtpToken(token);
+      setRegVerifyCode('');
+      setResendCooldown(30);
+      return null;
+    } catch (err) {
+      return err?.message || 'Kunde inte skicka koden just nu. Försök igen om en stund.';
+    } finally {
+      setOtpStatus('idle');
+    }
+  };
+
   // Step 2 – Company
   const [regCompany, setRegCompany] = useState('');
   const [regOrgNr, setRegOrgNr] = useState('');
@@ -174,6 +222,7 @@ export default function Auth({ onLogin, onBackToLanding }) {
     setErrorMsg('');
     setShowForgotPassword(false);
     setForgotSent(false);
+    resetEmailVerification();
   };
 
   // Skickar återställningslänken via EGEN server-rutt (api/auth/
@@ -235,7 +284,7 @@ export default function Auth({ onLogin, onBackToLanding }) {
       });
       if (error) throw error;
     } catch (err) {
-      setErrorMsg(err.message);
+      setErrorMsg(translateSupabaseAuthError(err.message));
     } finally {
       setLoading(false);
     }
@@ -247,16 +296,34 @@ export default function Auth({ onLogin, onBackToLanding }) {
 
     if (regStep === 0) {
       if (!regFirstName.trim()) { setErrorMsg('Ange ditt förnamn'); return; }
-      if (!regEmail.trim()) { setErrorMsg('Ange din e-postadress'); return; }
+      if (!regEmail.trim() || !EMAIL_RE.test(regEmail.trim())) { setErrorMsg('Ange en giltig e-postadress'); return; }
+      setLoading(true);
+      const error = await sendCode();
+      setLoading(false);
+      if (error) { setErrorMsg(error); return; }
       setRegStep(1);
       return;
     }
 
     if (regStep === 1) {
-      // Email step – just a placeholder, user confirms and moves to company.
-      // En inbjuden person hoppar rakt förbi företagssteget (3) — de ska
-      // aldrig ombes namnge ett eget företag för att gå med i någon ANNANS.
-      setRegStep(hasPendingInvite ? 3 : 2);
+      // Kundfeedback: det här steget släppte tidigare igenom VILKEN
+      // e-postadress som helst obekräftad — se filkommentaren vid
+      // emailVerified/otpToken ovan. Fortsätt är nu en riktig kod-kontroll,
+      // inte bara ett nästa-klick.
+      if (!/^\d{6}$/.test(regVerifyCode)) { setErrorMsg('Ange den sexsiffriga koden från mejlet.'); return; }
+      setOtpStatus('verifying');
+      try {
+        await verifySignupCode({ email: regEmail, code: regVerifyCode, token: otpToken });
+        setEmailVerified(true);
+        // En inbjuden person hoppar rakt förbi företagssteget (3) — de ska
+        // aldrig ombes namnge ett eget företag för att gå med i någon
+        // ANNANS.
+        setRegStep(hasPendingInvite ? 3 : 2);
+      } catch (err) {
+        setErrorMsg(err?.message || 'Fel kod. Försök igen.');
+      } finally {
+        setOtpStatus('idle');
+      }
       return;
     }
 
@@ -349,7 +416,7 @@ export default function Auth({ onLogin, onBackToLanding }) {
         setErrorMsg(
           accountCreated
             ? `Kontot skapades, men vi kunde inte skicka dig vidare till betalning (${stripeIssue}). Kontakta support@bokix.se så hjälper vi dig igång.`
-            : err.message
+            : translateSupabaseAuthError(err.message)
         );
       } finally {
         setLoading(false);
@@ -358,8 +425,9 @@ export default function Auth({ onLogin, onBackToLanding }) {
   };
 
   return (
-    <div id="auth-root" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: BRAND.greenLight, fontFamily: "'Inter', sans-serif", padding: '32px 20px' }}>
+    <div id="auth-root" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Inter', sans-serif", padding: '48px 20px', position: 'relative', overflow: 'hidden', background: '#0b1710' }}>
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,500;0,600;0,700;1,500&display=swap');
         #auth-root, #auth-root *, #auth-root *::before, #auth-root *::after { box-sizing: border-box; }
         #auth-root button { -webkit-appearance: none; appearance: none; -webkit-tap-highlight-color: transparent; }
         /* Kundfeedback (samma skärmdump som flik-fixet ovan): webbläsarens
@@ -379,43 +447,116 @@ export default function Auth({ onLogin, onBackToLanding }) {
           box-shadow: 0 0 0 1000px var(--bg-muted) inset;
           transition: background-color 5000s ease-in-out 0s;
         }
-        .auth-logo-link { display: inline-flex; text-decoration: none; transition: opacity 0.2s ease; }
-        .auth-logo-link:hover { opacity: 0.85; }
+        .auth-logo-link { display: inline-flex; text-decoration: none; transition: transform 0.2s ease; }
+        .auth-logo-link:hover { transform: translateY(-1px); }
         @keyframes authSpin { to { transform: rotate(360deg); } }
         .auth-spin { animation: authSpin 1s linear infinite; }
-        @media (prefers-reduced-motion: reduce) { .auth-spin { animation: none !important; } }
-        @media (max-width: 480px) {
-          .auth-form-panel { padding: 32px 22px !important; }
+
+        /* ── Atmosfären bakom kortet — ledger-linjer (papperslinjer som ett
+           kassabok/verifikat) plus två långsamt drivande glöd-klot i exakt
+           samma gröna/limegula toner som loggans egen gradient (BokixWordmark)
+           och knapparnas BRAND.green. Rent dekorativt lager, aria-hidden,
+           bakom allt annat (z-index -1 relativt #auth-root:s children). Ren
+           CSS, ingen bildfil — håller sidan snabb och skarp på alla skärmar. */
+        .auth-atmosphere { position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+        .auth-atmosphere::before {
+          content: ''; position: absolute; inset: 0;
+          background-image: repeating-linear-gradient(rgba(238,243,234,0.05) 0 1px, transparent 1px 44px);
+          -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, #000 0%, transparent 75%);
+                  mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, #000 0%, transparent 75%);
+        }
+        .auth-glow { position: absolute; border-radius: 50%; filter: blur(70px); opacity: 0.5; }
+        .auth-glow-a { width: 480px; height: 480px; top: -160px; left: -120px; background: #3d7a2e; animation: authDriftA 22s ease-in-out infinite; }
+        .auth-glow-b { width: 420px; height: 420px; bottom: -180px; right: -100px; background: #84cc16; opacity: 0.28; animation: authDriftB 26s ease-in-out infinite; }
+        @keyframes authDriftA { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(40px, 30px); } }
+        @keyframes authDriftB { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(-30px, -35px); } }
+
+        .auth-column { position: relative; z-index: 1; width: 100%; max-width: 512px; display: flex; flex-direction: column; align-items: center; }
+        @keyframes authRise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+        .auth-brandblock { animation: authRise 0.5s cubic-bezier(0.16,1,0.3,1) both; }
+        .auth-card { animation: authRise 0.5s cubic-bezier(0.16,1,0.3,1) 0.08s both; }
+
+        /* Signaturdetaljen: en tunn gradient-linje längs kortets ÖVERKANT i
+           precis samma två toner som loggans gradient börjar/slutar med —
+           en "saldorad", inte en generisk dekorstrimma. Enda djärva detaljen
+           på sidan; allt annat runt den hålls medvetet lugnt. */
+        .auth-card { position: relative; }
+        .auth-card::before {
+          content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+          background: linear-gradient(90deg, #0ea5e9, #14b8a6, #84cc16);
+        }
+
+        .auth-input { transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease; }
+        .auth-input:hover { border-color: var(--text-muted); }
+        .auth-input:focus { border-color: #3d7a2e; box-shadow: 0 0 0 3px rgba(61,122,46,0.16); background: var(--bg-card); }
+
+        .auth-btn-primary { transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease; }
+        .auth-btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(61,122,46,0.32); }
+        .auth-btn-primary:active:not(:disabled) { transform: translateY(0); }
+        .auth-btn-ghost { transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease; }
+        .auth-btn-ghost:hover { background: var(--bg-muted); color: var(--text-main); }
+        #auth-root button:focus-visible, #auth-root input:focus-visible, #auth-root a:focus-visible {
+          outline: 2px solid #3d7a2e; outline-offset: 2px;
+        }
+
+        .auth-tab { transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease; }
+
+        @keyframes authStepIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+        .auth-step-fade { animation: authStepIn 0.28s ease both; }
+
+        @keyframes authPulseRing { 0% { box-shadow: 0 0 0 0 rgba(61,122,46,0.35); } 100% { box-shadow: 0 0 0 14px rgba(61,122,46,0); } }
+        .auth-pulse { animation: authPulseRing 1.8s ease-out infinite; }
+
+        @media (prefers-reduced-motion: reduce) {
+          .auth-spin, .auth-glow-a, .auth-glow-b, .auth-brandblock, .auth-card, .auth-step-fade, .auth-pulse { animation: none !important; }
+          .auth-btn-primary:hover:not(:disabled) { transform: none; }
+        }
+        @media (max-width: 560px) {
+          .auth-form-panel { padding: 34px 24px !important; }
         }
       `}</style>
 
+      <div className="auth-atmosphere" aria-hidden="true">
+        <div className="auth-glow auth-glow-a" />
+        <div className="auth-glow auth-glow-b" />
+      </div>
+
+      <div className="auth-column">
       {/* Kundfeedback: den tidigare tvåkolumns-layouten (varumärkespanel med
           funktionslista + "100% Säkert/GDPR/Krypterat"-märken bredvid
           formuläret) var säljande text som inte hör hemma på en inloggnings-
           sida — det är inte här man övertygar någon om att köpa Bokix, det
-          är här en redan övertygad besökare snabbt ska komma in. Ett enda
-          centrerat kort istället: bara loggan (identitet, inte reklam) och
-          själva formuläret. Smalare maxbredd (440px, inte 960px) eftersom
-          kortet inte längre behöver rymma två kolumner. */}
-      <div style={{ width: '100%', maxWidth: '440px', background: 'var(--bg-card)', borderRadius: '24px', overflow: 'hidden', boxShadow: '0 4px 20px rgba(15,23,42,0.10)' }}>
-        <div className="auth-form-panel" style={{ padding: '44px 40px' }}>
-          {/* Bugkritiskt: LandingPage/Auth växlar via lokalt state
-              (App.jsx: showLanding), inte skilda routes — en vanlig
-              <Link to="/"> är ett no-op när man redan står på "/", vilket
-              gjorde loggan verkningslös här. onBackToLanding (App.jsx)
-              nollställer det state:t direkt; e.preventDefault() stoppar
-              Link:ens egen (verkningslösa) navigeringsförsök så de två
-              aldrig krockar. */}
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '28px' }}>
-            <Link
-              to="/"
-              className="auth-logo-link"
-              aria-label="Till startsidan"
-              onClick={(e) => { if (onBackToLanding) { e.preventDefault(); onBackToLanding(); } }}
-            >
-              <BokixWordmark height={32} />
-            </Link>
-          </div>
+          är här en redan övertygad besökare snabbt ska komma in. Fortfarande
+          ETT enda centrerat kort (ingen andra kolumn återinförd) — bara
+          loggan flyttad UT ovanför kortet, på atmosfären, så den känns som
+          en riktig ankomst istället för en logotyp inklämd överst i ett
+          formulär.
+          Kundfeedback (uppföljning): kortet kändes för litet på desktop —
+          maxbredden och innerpaddingen höjda (se .auth-column/.auth-form-panel
+          nedan) för att kännas som en riktig, rejäl destination istället för
+          ett hopklämt formulär, samma taggline under loggan togs bort (den
+          tillförde inget en besökare som redan klickat "Logga in" behövde
+          läsa). */}
+      <div className="auth-brandblock" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '32px' }}>
+        {/* Bugkritiskt: LandingPage/Auth växlar via lokalt state
+            (App.jsx: showLanding), inte skilda routes — en vanlig
+            <Link to="/"> är ett no-op när man redan står på "/", vilket
+            gjorde loggan verkningslös här. onBackToLanding (App.jsx)
+            nollställer det state:t direkt; e.preventDefault() stoppar
+            Link:ens egen (verkningslösa) navigeringsförsök så de två
+            aldrig krockar. */}
+        <Link
+          to="/"
+          className="auth-logo-link"
+          aria-label="Till startsidan"
+          onClick={(e) => { if (onBackToLanding) { e.preventDefault(); onBackToLanding(); } }}
+        >
+          <BokixWordmark height={40} />
+        </Link>
+      </div>
+
+      <div style={{ width: '100%', background: 'var(--bg-card)', borderRadius: '22px', overflow: 'hidden', boxShadow: '0 20px 50px -12px rgba(0,0,0,0.45), 0 0 0 1px rgba(238,243,234,0.06)' }} className="auth-card">
+        <div className="auth-form-panel" style={{ padding: '52px 52px 48px' }}>
 
         {/* Mode tabs — bugkritiskt (kundfeedback, med skärmdump): den aktiva
             fliken hade en HÅRDKODAD `background: 'white'` medan texten
@@ -426,10 +567,10 @@ export default function Auth({ onLogin, onBackToLanding }) {
             istället: vit i ljust läge (ingen synlig skillnad där) men
             korrekt mörk i mörkt läge, matchar texten igen. */}
         <div style={{ display: 'flex', background: 'var(--border-light)', borderRadius: '12px', padding: '4px', marginBottom: '32px' }}>
-          <button onClick={() => switchMode(true)} style={{ flex: 1, padding: '10px 0', border: 'none', borderRadius: '8px', background: isLogin ? 'var(--bg-card)' : 'transparent', color: isLogin ? 'var(--text-main)' : 'var(--text-secondary)', fontWeight: 600, fontSize: '14px', cursor: 'pointer', transition: 'all 0.2s', boxShadow: isLogin ? '0 2px 4px rgba(0,0,0,0.04)' : 'none', fontFamily: 'inherit', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
+          <button className="auth-tab" onClick={() => switchMode(true)} style={{ flex: 1, padding: '10px 0', border: 'none', borderRadius: '8px', background: isLogin ? 'var(--bg-card)' : 'transparent', color: isLogin ? 'var(--text-main)' : 'var(--text-secondary)', fontWeight: 600, fontSize: '14px', cursor: 'pointer', boxShadow: isLogin ? '0 2px 4px rgba(0,0,0,0.04)' : 'none', fontFamily: 'inherit', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
             <LogIn size={16} /> Logga in
           </button>
-          <button onClick={() => switchMode(false)} style={{ flex: 1, padding: '10px 0', border: 'none', borderRadius: '8px', background: !isLogin ? 'var(--bg-card)' : 'transparent', color: !isLogin ? 'var(--text-main)' : 'var(--text-secondary)', fontWeight: 600, fontSize: '14px', cursor: 'pointer', transition: 'all 0.2s', boxShadow: !isLogin ? '0 2px 4px rgba(0,0,0,0.04)' : 'none', fontFamily: 'inherit', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
+          <button className="auth-tab" onClick={() => switchMode(false)} style={{ flex: 1, padding: '10px 0', border: 'none', borderRadius: '8px', background: !isLogin ? 'var(--bg-card)' : 'transparent', color: !isLogin ? 'var(--text-main)' : 'var(--text-secondary)', fontWeight: 600, fontSize: '14px', cursor: 'pointer', boxShadow: !isLogin ? '0 2px 4px rgba(0,0,0,0.04)' : 'none', fontFamily: 'inherit', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
             <UserPlus size={16} /> Nytt konto
           </button>
         </div>
@@ -441,19 +582,19 @@ export default function Auth({ onLogin, onBackToLanding }) {
                bekräftelse alltid visas, oavsett om kontot faktiskt finns. */
             <>
               <div style={{ marginBottom: '28px' }}>
-                <h2 style={{ fontSize: '26px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '6px', letterSpacing: '-0.02em' }}>Glömt lösenord?</h2>
+                <h2 style={{ fontFamily: "'Newsreader', Georgia, serif", fontSize: '31px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '7px', letterSpacing: '-0.01em' }}>Glömt lösenord?</h2>
                 <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Ange din e-postadress så skickar vi en återställningslänk.</p>
               </div>
               {forgotSent ? (
-                <div style={{ padding: '24px', background: 'var(--status-green-bg)', borderRadius: '14px', border: '1px solid var(--status-green-bg)', textAlign: 'center' }}>
-                  <div style={{ width: 56, height: 56, borderRadius: '50%', background: BRAND.green, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-                    <Mail size={24} color="white" />
+                <div style={{ padding: '32px 28px', background: 'var(--status-green-bg)', borderRadius: '16px', border: '1px solid var(--status-green-bg)', textAlign: 'center' }}>
+                  <div className="auth-pulse" style={{ width: 64, height: 64, borderRadius: '50%', background: BRAND.green, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' }}>
+                    <Mail size={26} color="white" />
                   </div>
-                  <div style={{ fontWeight: 700, fontSize: '16px', color: 'var(--text-main)', marginBottom: '8px' }}>Kolla din inkorg</div>
-                  <div style={{ fontSize: '13.5px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                  <div style={{ fontFamily: "'Newsreader', Georgia, serif", fontWeight: 600, fontSize: '21px', color: 'var(--text-main)', marginBottom: '10px' }}>Kolla din inkorg</div>
+                  <div style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.65 }}>
                     Om det finns ett konto med den adressen har vi skickat en återställningslänk dit.
                   </div>
-                  <button type="button" onClick={() => { setShowForgotPassword(false); setForgotSent(false); }} style={{ marginTop: '18px', background: 'none', border: 'none', color: BRAND.green, fontWeight: 700, fontSize: '13.5px', cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <button className="auth-btn-ghost" type="button" onClick={() => { setShowForgotPassword(false); setForgotSent(false); }} style={{ marginTop: '20px', background: 'none', border: 'none', borderRadius: '8px', color: BRAND.green, fontWeight: 700, fontSize: '13.5px', cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 8px' }}>
                     <ArrowLeft size={14} /> Tillbaka till inloggning
                   </button>
                 </div>
@@ -463,15 +604,15 @@ export default function Auth({ onLogin, onBackToLanding }) {
                     <label style={labelStyle}>E-postadress</label>
                     <div style={{ position: 'relative' }}>
                       <Mail size={18} color="var(--text-muted)" style={{ position: 'absolute', top: 13, left: 14, pointerEvents: 'none' }} />
-                      <input type="email" style={{ ...inputStyle, paddingLeft: '44px' }} placeholder="din@epost.se" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} required autoFocus />
+                      <input className="auth-input" type="email" style={{ ...inputStyle, paddingLeft: '44px' }} placeholder="din@epost.se" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} required autoFocus />
                     </div>
                   </div>
                   <Turnstile onVerify={setForgotCaptchaToken} onExpire={() => setForgotCaptchaToken('')} />
                   {errorMsg && <div style={{ padding: '12px', background: 'var(--status-red-bg)', color: 'var(--status-red-text)', borderRadius: '8px', fontSize: '13px', fontWeight: 600 }}>{errorMsg}</div>}
-                  <button type="submit" disabled={forgotLoading} style={{ width: '100%', padding: '14px', background: BRAND.green, border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: 700, color: 'white', cursor: forgotLoading ? 'wait' : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', boxShadow: '0 2px 6px rgba(61,122,46,0.25)', fontFamily: 'inherit', opacity: forgotLoading ? 0.7 : 1 }}>
+                  <button className="auth-btn-primary" type="submit" disabled={forgotLoading} style={{ width: '100%', padding: '17px 18px', background: BRAND.green, border: 'none', borderRadius: '12px', fontSize: '16px', fontWeight: 700, color: 'white', cursor: forgotLoading ? 'wait' : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', boxShadow: '0 2px 6px rgba(61,122,46,0.25)', fontFamily: 'inherit', opacity: forgotLoading ? 0.7 : 1 }}>
                     {forgotLoading ? 'Skickar...' : 'Skicka återställningslänk'} <ArrowRight size={16} />
                   </button>
-                  <button type="button" onClick={() => { setShowForgotPassword(false); setErrorMsg(''); }} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '13px', cursor: 'pointer', textAlign: 'center', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                  <button className="auth-btn-ghost" type="button" onClick={() => { setShowForgotPassword(false); setErrorMsg(''); }} style={{ background: 'none', border: 'none', borderRadius: '8px', color: 'var(--text-secondary)', fontSize: '13px', cursor: 'pointer', textAlign: 'center', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '8px' }}>
                     <ArrowLeft size={14} /> Tillbaka till inloggning
                   </button>
                 </form>
@@ -480,7 +621,7 @@ export default function Auth({ onLogin, onBackToLanding }) {
           ) : (
           <>
             <div style={{ marginBottom: '28px' }}>
-              <h2 style={{ fontSize: '26px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '6px', letterSpacing: '-0.02em' }}>Välkommen tillbaka</h2>
+              <h2 style={{ fontFamily: "'Newsreader', Georgia, serif", fontSize: '33px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '7px', letterSpacing: '-0.01em' }}>Välkommen tillbaka</h2>
               <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Logga in på ditt konto nedan.</p>
             </div>
             <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -488,7 +629,7 @@ export default function Auth({ onLogin, onBackToLanding }) {
                 <label style={labelStyle}>E-postadress</label>
                 <div style={{ position: 'relative' }}>
                   <Mail size={18} color="var(--text-muted)" style={{ position: 'absolute', top: 13, left: 14, pointerEvents: 'none' }} />
-                  <input type="email" style={{ ...inputStyle, paddingLeft: '44px' }} placeholder="din@epost.se" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} required />
+                  <input className="auth-input" type="email" style={{ ...inputStyle, paddingLeft: '44px' }} placeholder="din@epost.se" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} required />
                 </div>
               </div>
               <div>
@@ -500,12 +641,12 @@ export default function Auth({ onLogin, onBackToLanding }) {
                 </div>
                 <div style={{ position: 'relative' }}>
                   <Lock size={18} color="var(--text-muted)" style={{ position: 'absolute', top: 13, left: 14, pointerEvents: 'none' }} />
-                  <input type="password" style={{ ...inputStyle, paddingLeft: '44px' }} placeholder="••••••••" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} required />
+                  <input className="auth-input" type="password" style={{ ...inputStyle, paddingLeft: '44px' }} placeholder="••••••••" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} required />
                 </div>
               </div>
               <Turnstile onVerify={setLoginCaptchaToken} onExpire={() => setLoginCaptchaToken('')} />
               {errorMsg && <div style={{ padding: '12px', background: 'var(--status-red-bg)', color: 'var(--status-red-text)', borderRadius: '8px', fontSize: '13px', fontWeight: 600 }}>{errorMsg}</div>}
-              <button type="submit" disabled={loading} style={{ width: '100%', padding: '14px', background: BRAND.green, border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: 700, color: 'white', cursor: loading ? 'wait' : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', boxShadow: '0 2px 6px rgba(61,122,46,0.25)', fontFamily: 'inherit', opacity: loading ? 0.7 : 1 }}>
+              <button className="auth-btn-primary" type="submit" disabled={loading} style={{ width: '100%', padding: '17px 18px', background: BRAND.green, border: 'none', borderRadius: '12px', fontSize: '16px', fontWeight: 700, color: 'white', cursor: loading ? 'wait' : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', boxShadow: '0 2px 6px rgba(61,122,46,0.25)', fontFamily: 'inherit', opacity: loading ? 0.7 : 1 }}>
                 {loading ? 'Loggar in...' : 'Logga in'} <ArrowRight size={16} />
               </button>
             </form>
@@ -516,15 +657,17 @@ export default function Auth({ onLogin, onBackToLanding }) {
           <>
             {/* Step indicator */}
             <div style={{ marginBottom: '28px' }}>
-              <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '18px' }}>
                 {REGISTER_STEPS.map((s, i) => (
-                  <div key={s} style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <div style={{ height: '4px', borderRadius: '2px', background: i <= regStep ? BRAND.green : 'var(--border)', transition: 'background 0.3s' }} />
-                    <span style={{ fontSize: '11px', fontWeight: i === regStep ? 700 : 500, color: i <= regStep ? BRAND.green : 'var(--text-muted)' }}>{s}</span>
+                  <div key={s} style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '7px' }}>
+                    <div style={{ position: 'relative', height: '4px', borderRadius: '2px', background: 'var(--border)', overflow: 'hidden' }}>
+                      <div style={{ position: 'absolute', inset: 0, borderRadius: '2px', background: 'linear-gradient(90deg, #3d7a2e, #84cc16)', transform: `scaleX(${i <= regStep ? 1 : 0})`, transformOrigin: 'left', transition: 'transform 0.35s ease' }} />
+                    </div>
+                    <span style={{ fontSize: '11px', fontWeight: i === regStep ? 700 : 500, color: i <= regStep ? BRAND.greenDark : 'var(--text-muted)' }}>{s}</span>
                   </div>
                 ))}
               </div>
-              <h2 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '4px', letterSpacing: '-0.02em' }}>
+              <h2 key={regStep} className="auth-step-fade" style={{ fontFamily: "'Newsreader', Georgia, serif", fontSize: '28px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '5px', letterSpacing: '-0.01em' }}>
                 {regStep === 0 && 'Personlig info'}
                 {regStep === 1 && 'Bekräfta e-post'}
                 {regStep === 2 && 'Ditt företag'}
@@ -532,55 +675,86 @@ export default function Auth({ onLogin, onBackToLanding }) {
               </h2>
               <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)' }}>
                 {regStep === 0 && 'Fyll i dina uppgifter för att skapa ett konto.'}
-                {regStep === 1 && `Vi skickar ett bekräftelsemail till ${regEmail}.`}
+                {regStep === 1 && `Skriv in koden vi skickade till ${regEmail}.`}
                 {regStep === 2 && 'Ange ditt företag – det här är obligatoriskt.'}
                 {regStep === 3 && 'Sista steget — sedan skickas du vidare till betalning.'}
               </p>
             </div>
 
-            <form onSubmit={handleNextStep} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <form onSubmit={handleNextStep} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
               {/* STEP 0 – Personal info */}
               {regStep === 0 && (
-                <>
+                <div key="step0" className="auth-step-fade" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   <div className="form-row-2" style={{ display: 'grid', gap: '12px' }}>
                     <div>
                       <label style={labelStyle}>Förnamn *</label>
                       <div style={{ position: 'relative' }}>
                         <User size={16} color="var(--text-muted)" style={{ position: 'absolute', top: 14, left: 12, pointerEvents: 'none' }} />
-                        <input type="text" style={{ ...inputStyle, paddingLeft: '38px' }} placeholder="Anna" value={regFirstName} onChange={e => setRegFirstName(e.target.value)} required />
+                        <input className="auth-input" type="text" style={{ ...inputStyle, paddingLeft: '38px' }} placeholder="Anna" value={regFirstName} onChange={e => setRegFirstName(e.target.value)} required />
                       </div>
                     </div>
                     <div>
                       <label style={labelStyle}>Efternamn</label>
-                      <input type="text" style={inputStyle} placeholder="Svensson" value={regLastName} onChange={e => setRegLastName(e.target.value)} />
+                      <input className="auth-input" type="text" style={inputStyle} placeholder="Svensson" value={regLastName} onChange={e => setRegLastName(e.target.value)} />
                     </div>
                   </div>
                   <div>
                     <label style={labelStyle}>E-postadress *</label>
                     <div style={{ position: 'relative' }}>
                       <Mail size={16} color="var(--text-muted)" style={{ position: 'absolute', top: 14, left: 12, pointerEvents: 'none' }} />
-                      <input type="email" style={{ ...inputStyle, paddingLeft: '38px' }} placeholder="anna@foretag.se" value={regEmail} onChange={e => setRegEmail(e.target.value)} required />
+                      <input
+                        className="auth-input"
+                        type="email"
+                        style={{ ...inputStyle, paddingLeft: '38px' }}
+                        placeholder="anna@foretag.se"
+                        value={regEmail}
+                        // En redan verifierad kod/token hörde till den GAMLA
+                        // adressen — måste nollställas så en ändrad adress
+                        // aldrig kan glida igenom på gårdagens verifiering.
+                        onChange={e => { setRegEmail(e.target.value); resetEmailVerification(); }}
+                        required
+                      />
                     </div>
                   </div>
-                </>
+                </div>
               )}
 
-              {/* STEP 1 – Confirm email */}
+              {/* STEP 1 – Bekräfta e-post med en riktig sexsiffrig kod (se
+                  emailVerified/otpToken-kommentaren vid state:t ovan för
+                  varför) — Fortsätt-knappen i foten nedan blir en
+                  "Bekräfta"-knapp för det här steget, avstängd tills 6
+                  siffror är ifyllda (se dess disabled-villkor). */}
               {regStep === 1 && (
-                <div style={{ padding: '24px', background: 'var(--status-green-bg)', borderRadius: '14px', border: '1px solid var(--status-green-bg)', textAlign: 'center' }}>
-                  <div style={{ width: 56, height: 56, borderRadius: '50%', background: BRAND.green, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-                    <Mail size={24} color="white" />
+                <div key="step1" className="auth-step-fade" style={{ padding: '32px 28px', background: 'var(--status-green-bg)', borderRadius: '16px', border: '1px solid var(--status-green-bg)', textAlign: 'center' }}>
+                  <div className="auth-pulse" style={{ width: 64, height: 64, borderRadius: '50%', background: BRAND.green, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' }}>
+                    <Mail size={26} color="white" />
                   </div>
-                  <div style={{ fontWeight: 700, fontSize: '16px', color: 'var(--text-main)', marginBottom: '8px' }}>Kontrollera din inkorg</div>
-                  <div style={{ fontSize: '13.5px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                    Vi kommer att skicka ett bekräftelsemail till<br />
-                    <strong>{regEmail}</strong><br />
-                    efter att kontot skapats. Klicka på länken i mailet för att aktivera ditt konto.
+                  <div style={{ fontFamily: "'Newsreader', Georgia, serif", fontWeight: 600, fontSize: '21px', color: 'var(--text-main)', marginBottom: '10px' }}>Kolla din inkorg</div>
+                  <div style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '20px' }}>
+                    Vi skickade en sexsiffrig kod till<br />
+                    <strong style={{ color: 'var(--text-main)' }}>{regEmail}</strong>
                   </div>
-                  <div style={{ marginTop: '16px', padding: '10px 14px', background: BRAND.greenLight, borderRadius: '8px', fontSize: '12.5px', color: BRAND.greenDark, fontWeight: 600 }}>
-                    Ingen brådska — klicka på länken när du vill. Nästa steg här är företagsuppgifter, sedan lösenord och betalning.
-                  </div>
+                  <input
+                    className="auth-input"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={6}
+                    placeholder="000000"
+                    value={regVerifyCode}
+                    onChange={e => setRegVerifyCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    style={{ ...inputStyle, textAlign: 'center', fontSize: '26px', fontWeight: 700, letterSpacing: '10px', padding: '14px', fontFamily: "'Inter', monospace" }}
+                  />
+                  <button
+                    type="button"
+                    className="auth-btn-ghost"
+                    onClick={async () => { setErrorMsg(''); const error = await sendCode(); if (error) setErrorMsg(error); }}
+                    disabled={resendCooldown > 0 || otpStatus === 'sending'}
+                    style={{ marginTop: '14px', background: 'none', border: 'none', borderRadius: '8px', padding: '6px 10px', color: resendCooldown > 0 ? 'var(--text-muted)' : BRAND.green, fontWeight: 700, fontSize: '13px', cursor: resendCooldown > 0 ? 'default' : 'pointer', fontFamily: 'inherit' }}
+                  >
+                    {otpStatus === 'sending' ? 'Skickar…' : resendCooldown > 0 ? `Skicka koden igen (${resendCooldown}s)` : 'Fick du ingen kod? Skicka igen'}
+                  </button>
                 </div>
               )}
 
@@ -599,12 +773,18 @@ export default function Auth({ onLogin, onBackToLanding }) {
                   i alla tre fallen (se git-historiken för den borttagna
                   varianten). */}
               {regStep === 2 && (
-                <>
+                <div key="step2" className="auth-step-fade" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {emailVerified && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: BRAND.greenDark, marginTop: '-4px' }}>
+                      <Check size={13} /> E-postadressen är verifierad
+                    </div>
+                  )}
                   <div>
                     <label style={labelStyle}>Organisationsnummer * <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(10 siffror)</span></label>
                     <div style={{ position: 'relative' }}>
                       <Hash size={16} color="var(--text-muted)" style={{ position: 'absolute', top: 14, left: 12, pointerEvents: 'none' }} />
                       <input
+                        className="auth-input"
                         type="text"
                         inputMode="numeric"
                         style={{ ...inputStyle, paddingLeft: '38px' }}
@@ -621,6 +801,7 @@ export default function Auth({ onLogin, onBackToLanding }) {
                   <div>
                     <label style={labelStyle}>Företagsnamn *</label>
                     <input
+                      className="auth-input"
                       type="text"
                       style={inputStyle}
                       placeholder="Ex. Mitt Företag AB"
@@ -633,55 +814,38 @@ export default function Auth({ onLogin, onBackToLanding }) {
                         namnet kom från registret eller skrevs in för hand;
                         det ena är inte "mer rätt" eller mer låst än det andra. */}
                     {companyLookup.orgLookup.status === 'done' && regCompany && (
-                      <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 600, color: BRAND.greenDark }}>
-                        <Check size={12} /> Hämtat från bolagsregistret — ändra gärna om något stämmer bättre.
+                      <div style={{ marginTop: '9px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: BRAND.greenDark }}>
+                        <Check size={13} /> Hämtat från bolagsregistret — ändra gärna om något stämmer bättre.
                       </div>
                     )}
                     {displayedOrgType && (
-                      <div style={{ marginTop: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '5px 10px', background: BRAND.greenLight, borderRadius: '6px', fontSize: '12px', fontWeight: 700, color: BRAND.greenDark }}>
-                        <Check size={12} /> Identifierad som: {displayedOrgType}
+                      <div style={{ marginTop: '9px', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 12px', background: BRAND.greenLight, borderRadius: '999px', fontSize: '12.5px', fontWeight: 700, color: BRAND.greenDark }}>
+                        <Check size={13} /> Identifierad som: {displayedOrgType}
                       </div>
                     )}
                   </div>
-
-                  {/* Översikt — vad som väntar efter lösenord och betalning,
-                      så resan inte känns som ett svart hål innan man loggat
-                      in första gången. */}
-                  <div>
-                    <div style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '9px' }}>
-                      Det här väntar sen
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '7px' }}>
-                      {APP_SECTIONS_OVERVIEW.map(s => (
-                        <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '8px 10px', background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: '9px' }}>
-                          <s.icon size={13} color={BRAND.greenDark} style={{ flexShrink: 0 }} />
-                          <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>{s.label}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </>
+                </div>
               )}
 
               {/* STEP 3 – Password, sedan konto + betalning */}
               {regStep === 3 && redirectingToPayment && (
-                <div style={{ padding: '24px', background: 'var(--status-green-bg)', borderRadius: '14px', border: '1px solid var(--status-green-bg)', textAlign: 'center' }}>
-                  <div style={{ width: 56, height: 56, borderRadius: '50%', background: BRAND.green, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-                    <RefreshCw size={24} color="white" className="auth-spin" />
+                <div className="auth-step-fade" style={{ padding: '32px 28px', background: 'var(--status-green-bg)', borderRadius: '16px', border: '1px solid var(--status-green-bg)', textAlign: 'center' }}>
+                  <div style={{ width: 64, height: 64, borderRadius: '50%', background: BRAND.green, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' }}>
+                    <RefreshCw size={26} color="white" className="auth-spin" />
                   </div>
-                  <div style={{ fontWeight: 700, fontSize: '16px', color: 'var(--text-main)', marginBottom: '8px' }}>Kontot är skapat</div>
-                  <div style={{ fontSize: '13.5px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                  <div style={{ fontFamily: "'Newsreader', Georgia, serif", fontWeight: 600, fontSize: '21px', color: 'var(--text-main)', marginBottom: '10px' }}>Kontot är skapat</div>
+                  <div style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.65 }}>
                     Skickar dig vidare till Stripe för betalningsuppgifter...
                   </div>
                 </div>
               )}
               {regStep === 3 && !redirectingToPayment && (
-                <>
+                <div key="step3" className="auth-step-fade" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   <div>
                     <label style={labelStyle}>Lösenord *</label>
                     <div style={{ position: 'relative' }}>
                       <Lock size={16} color="var(--text-muted)" style={{ position: 'absolute', top: 14, left: 12, pointerEvents: 'none' }} />
-                      <input type="password" style={{ ...inputStyle, paddingLeft: '38px' }} placeholder="Minst 8 tecken" value={regPassword} onChange={e => setRegPassword(e.target.value)} required minLength={8} />
+                      <input className="auth-input" type="password" style={{ ...inputStyle, paddingLeft: '38px' }} placeholder="Minst 8 tecken" value={regPassword} onChange={e => setRegPassword(e.target.value)} required minLength={8} />
                     </div>
                     {passwordStrength(regPassword) && (
                       <div style={{ marginTop: '6px' }}>
@@ -696,7 +860,7 @@ export default function Auth({ onLogin, onBackToLanding }) {
                     <label style={labelStyle}>Bekräfta lösenord *</label>
                     <div style={{ position: 'relative' }}>
                       <Lock size={16} color="var(--text-muted)" style={{ position: 'absolute', top: 14, left: 12, pointerEvents: 'none' }} />
-                      <input type="password" style={{ ...inputStyle, paddingLeft: '38px', borderColor: regPassword2 && regPassword2 !== regPassword ? '#f43f5e' : undefined }} placeholder="Upprepa lösenord" value={regPassword2} onChange={e => setRegPassword2(e.target.value)} required />
+                      <input className="auth-input" type="password" style={{ ...inputStyle, paddingLeft: '38px', borderColor: regPassword2 && regPassword2 !== regPassword ? '#f43f5e' : undefined }} placeholder="Upprepa lösenord" value={regPassword2} onChange={e => setRegPassword2(e.target.value)} required />
                     </div>
                   </div>
 
@@ -710,7 +874,7 @@ export default function Auth({ onLogin, onBackToLanding }) {
                     </span>
                   </div>
                   <Turnstile onVerify={setRegCaptchaToken} onExpire={() => setRegCaptchaToken('')} />
-                </>
+                </div>
               )}
 
               {errorMsg && (
@@ -720,20 +884,32 @@ export default function Auth({ onLogin, onBackToLanding }) {
               {!redirectingToPayment && (
                 <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
                   {regStep > 0 && (
-                    <button type="button" onClick={() => { setRegStep(s => s - 1); setErrorMsg(''); }} style={{ padding: '12px 20px', border: '1px solid var(--border)', borderRadius: '10px', fontSize: '14px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
+                    <button className="auth-btn-ghost" type="button" onClick={() => { setRegStep(s => s - 1); setErrorMsg(''); }} style={{ padding: '17px 22px', border: '1px solid var(--border)', borderRadius: '12px', fontSize: '15px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
                       <ArrowLeft size={14} /> Tillbaka
                     </button>
                   )}
-                  <button type="submit" disabled={loading} style={{ flex: 1, padding: '14px', background: BRAND.green, border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: 700, color: 'white', cursor: loading ? 'wait' : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', boxShadow: '0 2px 6px rgba(61,122,46,0.25)', fontFamily: 'inherit', opacity: loading ? 0.7 : 1 }}>
-                    {loading
-                      ? (regStep === REGISTER_STEPS.length - 1 ? 'Skapar konto...' : 'Fortsätt...')
-                      : regStep === REGISTER_STEPS.length - 1 ? 'Skapa konto och lägg till betalning' : 'Fortsätt'} <ArrowRight size={16} />
-                  </button>
+                  {(() => {
+                    const verifying = regStep === 1 && otpStatus === 'verifying';
+                    const codeIncomplete = regStep === 1 && regVerifyCode.length !== 6;
+                    const busy = loading || verifying;
+                    const isDisabled = busy || codeIncomplete;
+                    let label;
+                    if (regStep === REGISTER_STEPS.length - 1) label = busy ? 'Skapar konto...' : 'Skapa konto och lägg till betalning';
+                    else if (regStep === 0) label = busy ? 'Skickar kod...' : 'Fortsätt';
+                    else if (regStep === 1) label = verifying ? 'Bekräftar...' : 'Bekräfta';
+                    else label = busy ? 'Fortsätt...' : 'Fortsätt';
+                    return (
+                      <button className="auth-btn-primary" type="submit" disabled={isDisabled} style={{ flex: 1, padding: '17px 18px', background: BRAND.green, border: 'none', borderRadius: '12px', fontSize: '16px', fontWeight: 700, color: 'white', cursor: isDisabled ? (busy ? 'wait' : 'not-allowed') : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', boxShadow: '0 2px 6px rgba(61,122,46,0.25)', fontFamily: 'inherit', opacity: isDisabled ? 0.6 : 1 }}>
+                        {label} <ArrowRight size={16} />
+                      </button>
+                    );
+                  })()}
                 </div>
               )}
             </form>
           </>
         )}
+      </div>
       </div>
       </div>
     </div>
