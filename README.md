@@ -41,13 +41,15 @@ Konfiguration i Vercel/produktionen:
 - `STRIPE_SUCCESS_URL` (t.ex. `https://din-app.vercel.app/success`)
 - `STRIPE_CANCEL_URL` (t.ex. `https://din-app.vercel.app/cancel`)
 - `STRIPE_WEBHOOK_SECRET` (Stripe webhook secret)
+- `STRIPE_PLATFORM_FEE_PERCENT` (Bokix egen avgift på kundfakturors kortbetalningar, förval `2.5`)
+- `STRIPE_PLATFORM_FEE_FIXED_ORE` (fast del i öre, förval `180` = 1,80 kr — bara adderad för SEK-fakturor)
 
-Bokix egen avgift på kundfakturors kortbetalningar sätts INTE via en
-miljövariabel längre (det fanns tidigare en fast `VITE_STRIPE_PLATFORM_
-FEE_PERCENT`) — den följer numera Stripes egen avgift dynamiskt plus 1%
-marginal, konfigurerat via Stripes "Platform Pricing Tool" i Stripe
-Dashboard (Connect-inställningarna), inte i kod. Se api/stripe/create-
-checkout-session.js:s kommentar för hela resonemanget.
+Bokix avgift är en UPPSKATTNING (Stripes egen kortavgift för ett
+europeiskt kort + 1% marginal), satt i förväg när betalningslänken
+skapas — Stripes "Platform Pricing Tool" (som skulle räknat ut en sann
+dynamisk avgift efter betalningen) stödjer inte den kontotyp Bokix
+använder (direct charges på Standard-konton). Se
+api/stripe/_invoiceLineItems.js:s kommentar för hela resonemanget.
 
 Observera: `pk_`-nyckeln är publicerbar och fungerar inte på servern. Använd `sk_`-nyckeln i Vercel/`.env`.
 
@@ -61,6 +63,8 @@ STRIPE_ONBOARDING_RETURN_URL=http://localhost:5173
 STRIPE_ONBOARDING_REFRESH_URL=http://localhost:5173
 STRIPE_SUCCESS_URL=http://localhost:5173
 STRIPE_CANCEL_URL=http://localhost:5173
+STRIPE_PLATFORM_FEE_PERCENT=2.5
+STRIPE_PLATFORM_FEE_FIXED_ORE=180
 ```
 
 Efter att ha lagt till dessa variabler i `.env` kör du:

@@ -53,7 +53,7 @@ export default async function handler(req, res) {
       res.status(resolved.status || 400).json({ error: resolved.error });
       return;
     }
-    const { lineItems, currency, stripeAccountId } = resolved;
+    const { lineItems, currency, applicationFeeAmount, stripeAccountId } = resolved;
 
     // Bank transfer (docs.stripe.com/payments/bank-transfers#checkout) kräver
     // en riktig Stripe-kund på sessionen, inte bara customer_email — annars
@@ -75,32 +75,27 @@ export default async function handler(req, res) {
       stripeCustomerId = stripeCustomer.id;
     }
 
-    // Kundfeedback (två omgångar): (1) betalningslänken visade Bokix eget
-    // namn/logga i Checkout-headern istället för kundens, och (2) Bokix
-    // egen avgift ska inte vara en fast, orelaterad procentsats (var 5%) —
-    // den ska följa Stripes EGEN avgift (som beror på vilket kort som
-    // faktiskt används, känd först EFTER betalningen) plus en liten,
-    // egen marginal ovanpå. Båda löses av samma ändring: en "direct
-    // charge" istället för den gamla "destination charge"
-    // (transfer_data.destination) — sessionen skapas nu DIREKT på det
-    // anslutna kontot ({ stripeAccount: stripeAccountId } nedan, motsvarar
-    // Stripes Stripe-Account-header), så Checkout visar KUNDENS egen
-    // branding (verifierat mot docs.stripe.com/connect/direct-charges).
+    // Kundfeedback (tre omgångar): (1) betalningslänken visade Bokix eget
+    // namn/logga i Checkout-headern istället för kundens, (2) Bokix egen
+    // avgift ska inte vara en fast, orelaterad procentsats (var 5%) — den
+    // ska följa Stripes EGEN avgift plus en liten egen marginal, (3) en
+    // sann DYNAMISK "Stripes verkliga avgift" (känd först EFTER
+    // betalningen, via Stripes Dashboard-konfigurerade Platform Pricing
+    // Tool) visade sig INTE stödjas av Stripe för direct charges på
+    // Standard-konton (docs.stripe.com/connect/platform-pricing-tools:
+    // "Configured pricing doesn't apply to direct charges on Standard
+    // accounts") — precis den kombination den här filen använder för att
+    // lösa (1). Löst med en UPPSKATTAD, i förväg uträknad
+    // application_fee_amount istället (se _invoiceLineItems.js för hela
+    // formeln/resonemanget) — närmaste möjliga kompromiss mellan korrekt
+    // branding/pengaflöde och en riktigt dynamisk avgift, som Stripes
+    // egna verktyg tyvärr inte tillåter här.
     //
-    // INGEN application_fee_amount sätts längre här (jämför tidigare
-    // version) — det är MEDVETET, inte en kvarglömd rad. Stripe kan inte
-    // känna till sin egen avgift förrän kortet faktiskt dragits (den
-    // varierar per korttyp/land), så ett i förväg uträknat fast belopp
-    // hade aldrig kunnat vara "Stripes avgift + 1%" på riktigt, bara en
-    // gissning. Den riktiga lösningen är Stripes egen "Platform Pricing
-    // Tool" (ställs in i Stripe Dashboard under Connect-inställningarna,
-    // inte i kod) — den räknar automatiskt ut en dynamisk avgift PER
-    // betalning utifrån Stripes faktiska, redan kända avgift för just den
-    // transaktionen. Om ett application_fee_amount hade satts här hade det
-    // enligt Stripes egen dokumentation ("Fees set with this method
-    // override the pricing logic specified in the Platform Pricing Tool")
-    // tyst KÖRT ÖVER Dashboard-inställningen — så koden måste avstå helt
-    // för att Dashboard-regeln ska få gälla.
+    // (1) löses fortfarande av samma "direct charge"-mönster: sessionen
+    // skapas DIREKT på det anslutna kontot ({ stripeAccount: stripeAccountId }
+    // nedan, motsvarar Stripes Stripe-Account-header), så Checkout visar
+    // KUNDENS egen branding (verifierat mot docs.stripe.com/connect/
+    // direct-charges).
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
       ...(stripeCustomerId ? { customer: stripeCustomerId } : (customerEmail ? { customer_email: customerEmail } : {})),
@@ -121,6 +116,9 @@ export default async function handler(req, res) {
       // begränsad till bara kort.
       ...(customerType === 'se_individual' ? {} : { excluded_payment_method_types: ['klarna'] }),
       line_items: lineItems,
+      payment_intent_data: {
+        application_fee_amount: applicationFeeAmount,
+      },
       // Så webhooken (checkout.session.completed, se webhook.js) vet VILKEN
       // faktura som ska markeras betald — utan det här finns ingen koppling
       // alls mellan en Stripe-betalning och en Bokix-faktura.

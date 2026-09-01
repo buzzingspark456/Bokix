@@ -62,10 +62,32 @@ export async function resolveInvoiceLineItems({ userId, companyId, invoiceId }) 
     return { error: 'Fakturan saknar giltiga rader.', status: 400 };
   }
 
-  // Inget applicationFeeAmount att räkna ut här längre — Bokix avgift
-  // sätts numera av Stripes egen Platform Pricing Tool (Dashboard-
-  // konfiguration, dynamisk "Stripes verkliga avgift + 1%"), inte ett
-  // fast, i förväg uträknat belopp. Se create-checkout-session.js:s
-  // kommentar vid session-anropet för hela resonemanget.
-  return { lineItems, currency, stripeAccountId };
+  // Bokix egen avgift — kundbeslut: ska följa Stripes EGEN avgift (inte
+  // vara en fast, orelaterad procentsats) plus 1% marginal. Stripes riktiga
+  // Sverige-prislista (stripe.com/en-se/pricing, kollad i den här
+  // sessionen) är 1,5% + 1,80 kr för europeiska kort, upp till 3,15% +
+  // 1,80 kr för utländska. En SANN dynamisk "Stripes verkliga avgift"
+  // känns bara efter att kortet dragits (Platform Pricing Tool, som skulle
+  // räknat ut den automatiskt, funkar tyvärr INTE för direct charges på
+  // Standard-konton — Stripes egen begränsning, se docs.stripe.com/
+  // connect/platform-pricing-tools#requirements) — så det här är en
+  // UPPSKATTNING satt när betalningslänken skapas, inte en exakt
+  // efterhandsberäkning: antar den vanligaste bankomatt-europeiska
+  // kortavgiften (1,5%) + 1% marginal, avrundat till 2,5%. Blir något för
+  // lågt för utländska kort (som egentligen kostar 3,15%), men det är den
+  // bästa avvägningen mellan "korrekt branding + pengarna direkt till
+  // kunden" (direct charge, kräver ett belopp i förväg) och en exakt
+  // efterhandsberäknad avgift (som skulle krävt att INTE ta ut något via
+  // Stripe alls, bara logga och fakturera kunden separat i efterhand).
+  const PLATFORM_FEE_PERCENT = Number.parseFloat(process.env.STRIPE_PLATFORM_FEE_PERCENT || '2.5');
+  const PLATFORM_FEE_FIXED_ORE = Number.parseInt(process.env.STRIPE_PLATFORM_FEE_FIXED_ORE || '180', 10);
+  const totalGross = lineItems.reduce((sum, item) => sum + item.price_data.unit_amount * item.quantity, 0);
+  // Den fasta delen (1,80 kr) är en svensk kronbelopp — adderas bara för
+  // SEK-fakturor, annars hade "180" tolkats som 180 av VALUTANS egen
+  // minsta enhet (t.ex. 1,80 USD, ett helt annat belopp) för de fåtal
+  // andra valutor Bokix stödjer (se BANK_TRANSFER_CURRENCIES i create-
+  // checkout-session.js).
+  const applicationFeeAmount = Math.round(totalGross * (PLATFORM_FEE_PERCENT / 100)) + (currency === 'sek' ? PLATFORM_FEE_FIXED_ORE : 0);
+
+  return { lineItems, currency, applicationFeeAmount, stripeAccountId };
 }

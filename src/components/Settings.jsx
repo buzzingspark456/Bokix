@@ -49,6 +49,13 @@ const btnStripeConnect = {
   fontWeight: 600, fontSize: '14px', cursor: 'pointer', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.06)',
 };
 
+// Visningssiffra för avgiftstexten nedan — klientbunten kan inte läsa
+// server-only env-variabler (STRIPE_PLATFORM_FEE_PERCENT,
+// api/stripe/_invoiceLineItems.js), så den hårdkodas här som ren
+// visningstext. Måste hållas i synk för hand om den env-variabeln
+// någonsin sätts till något annat än 2,5 i Vercel (inte satt där just nu).
+const PLATFORM_FEE_PERCENT_DISPLAY = 2.5;
+
 // Zettles eget kombinerade ordmärke ("Zettle" + "by PayPal") — en riktig
 // rasterbild (public/zettle-logo.png, hämtad rakt av från Zettles egen
 // Wikimedia Commons-fil — public domain, "consists only of simple
@@ -1946,22 +1953,24 @@ export default function Settings({
                           ? 'Stripe är anslutet — kunder kan betala dina fakturor med kort direkt online.'
                           : 'Anslut Stripe för att låta kunder betala fakturor med kort direkt online.'}
                       </p>
-                      {/* Kundbeslut: Bokix egen avgift ska INTE vara en fast,
-                          orelaterad procentsats (var tidigare 5%) — den ska
-                          följa Stripes EGEN avgift (beror på korttyp, känd
-                          först efter betalningen) plus en liten egen
-                          marginal (1%) ovanpå. En sådan dynamisk "kostnad
-                          plus"-avgift kan bara Stripe själva räkna ut per
-                          betalning (Platform Pricing Tool, ställs in i
-                          Stripe Dashboard — se create-checkout-session.js:s
-                          kommentar för hela resonemanget om varför koden
-                          INTE längre sätter något fast belopp). Ingen
-                          konstant att visa här längre, bara en ärlig
-                          förklaring av modellen + en hänvisning dit den
-                          faktiska summan syns. */}
+                      {/* Kundbeslut: Bokix egen avgift ska följa Stripes EGEN
+                          avgift (beror på korttyp, känd först efter
+                          betalningen) plus en liten egen marginal (1%)
+                          ovanpå — INTE en fast, orelaterad procentsats (var
+                          tidigare 5%). En sann dynamisk "Stripes verkliga
+                          avgift"-modell visade sig inte stödjas av Stripe
+                          för den här kontotypen (direct charges på Standard-
+                          konton, se _invoiceLineItems.js:s kommentar för
+                          källan) — så siffran nedan är en UPPSKATTNING satt
+                          i förväg (europeiskt kort-antagande: 1,5% + 1%
+                          marginal ≈ 2,5%, plus 1,80 kr), inte en exakt
+                          efterhandsberäkning. Måste hållas i synk för hand
+                          med STRIPE_PLATFORM_FEE_PERCENT/_FIXED_ORE (env,
+                          samma förvalda 2,5/180 om de inte är satta) om de
+                          någonsin ändras i Vercel. */}
                       {stripeAccountId && (
                         <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '6px 0 0', lineHeight: 1.6 }}>
-                          Du har tillgång till din egen Stripe-dashboard för att följa saldo, utbetalningar och avgifter. Avgiften per betalning är Stripes egen korttransaktionsavgift (normalt 1,5% + 1,80 kr för europeiska kort, upp till 3,15% + 1,80 kr för utländska — beror på kundens kort) plus en liten Bokix-marginal på 1% ovanpå. Exakt belopp per betalning syns i din Stripe-dashboard.
+                          Du har tillgång till din egen Stripe-dashboard för att följa saldo, utbetalningar och avgifter. Bokix tar en uppskattad avgift på {PLATFORM_FEE_PERCENT_DISPLAY}% + 1,80 kr per betalning (Stripes egen kortavgift + 1% marginal, baserat på ett europeiskt kort — något lägre än den faktiska kostnaden för utländska kort, som normalt kostar 3,15% + 1,80 kr hos Stripe). Exakt belopp per betalning syns i din Stripe-dashboard.
                         </p>
                       )}
                     </div>
