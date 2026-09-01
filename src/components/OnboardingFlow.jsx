@@ -1,6 +1,8 @@
 ﻿import React, { useMemo, useState } from 'react';
-import { ArrowRight, Building2, UserRound, Workflow } from 'lucide-react';
+import { ArrowRight, Building2, UserRound, Workflow, Check } from 'lucide-react';
 import { BRAND } from '../utils/brandColors';
+import { useCompanyLookup } from '../hooks/useCompanyLookup';
+import { formatOrgNr } from '../utils/orgType';
 
 const steps = [
   { title: 'Välkommen', description: 'Skapa din företagsprofil och börja bokföra med Bokix.' },
@@ -20,6 +22,17 @@ export default function OnboardingFlow({ onComplete, onSkip, initialCompanyName,
   const [fiscalYear, setFiscalYear] = useState(initialCompanyData?.company?.fiscalYear || `${new Date().getFullYear()}-01-01`);
   const [vatPeriod, setVatPeriod] = useState(initialCompanyData?.company?.vatPeriod || 'quarterly');
   const [chartPlan, setChartPlan] = useState(initialCompanyData?.company?.chartPlan || 'bas2025');
+
+  // Org.nummer-uppslag (kundfeedback: "Lägg till företag" bytte till den
+  // här flödet istället för sin egen bara-namn-och-orgNr-modal — men
+  // tappade då lookup:en den modalen redan hade fått. Samma hook/mönster
+  // som Auth.jsx/Contacts.jsx/Settings.jsx, skriver till orgNr/companyName
+  // istället för regX-state.
+  const companyLookup = useCompanyLookup((key, value) => {
+    if (key === 'name') setCompanyName(value);
+    else if (key === 'orgNr') setOrgNr(formatOrgNr(value));
+    else if (key === 'address') setAddress(value);
+  });
 
   const progress = useMemo(() => ((step + 1) / steps.length) * 100, [step]);
 
@@ -63,10 +76,26 @@ export default function OnboardingFlow({ onComplete, onSkip, initialCompanyName,
               <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px' }}>Organisationsnummer</label>
               <input
                 value={orgNr}
-                onChange={(e) => setOrgNr(e.target.value)}
+                onChange={(e) => {
+                  const formatted = formatOrgNr(e.target.value);
+                  setOrgNr(formatted);
+                  companyLookup.handleOrgNrChange(formatted);
+                }}
                 placeholder="556123-4567"
                 style={{ width: '100%', border: '1px solid var(--border)', borderRadius: '12px', padding: '12px 14px', fontSize: '14px' }}
               />
+              {companyLookup.orgLookup.status === 'loading' && <div style={{ fontSize: '12px', marginTop: '6px', color: 'var(--text-secondary)' }}>Hämtar företagsuppgifter…</div>}
+              {companyLookup.orgLookup.status === 'error' && <div style={{ fontSize: '12px', marginTop: '6px', color: 'var(--text-secondary)' }}>{companyLookup.orgLookup.message}</div>}
+              {companyLookup.orgLookup.status === 'firma' && (
+                <div style={{ fontSize: '12px', marginTop: '6px', display: 'flex', alignItems: 'flex-start', gap: '5px', color: BRAND.greenDark, fontWeight: 600 }}>
+                  <Check size={12} style={{ flexShrink: 0, marginTop: '2px' }} /> <span>{companyLookup.orgLookup.message}</span>
+                </div>
+              )}
+              {companyLookup.orgLookup.status === 'done' && (
+                <div style={{ fontSize: '12px', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '5px', color: BRAND.greenDark, fontWeight: 600 }}>
+                  <Check size={12} /> Hämtat från bolagsregistret — ändra gärna om något stämmer bättre.
+                </div>
+              )}
             </div>
             <div>
               <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px' }}>Adress</label>

@@ -336,9 +336,15 @@ WITH CHECK ((select auth.uid()) = user_id);
 -- tabell, en rad per användare, skriven enbart av webhooken (service-role)
 -- utifrån Stripes egna prenumerationshändelser — aldrig av klienten.
 --
--- En rad per user_id (UNIQUE), inte per company_id: priset är ett enda
--- konto-pris ("Ett pris. Allt ingår.", se PricingPage.jsx), inte per
--- företag som en användare har kopplat i user_data.state.companies.
+-- UPPDATERAD (kundkrav: betala per företag, inte ett konto-pris för
+-- obegränsat antal): en rad per (user_id, company_id) numera, inte bara
+-- user_id — se migreringen strax nedan. company_id NULL = det KONTOTS
+-- ursprungliga/redan existerande abonnemang (skapat innan den här ändringen,
+-- eller kontots FÖRSTA företag vid signup, se Auth.jsx regStep 3 — det
+-- flödet är oförändrat och skickar aldrig company_id) — "redan betalt", inga
+-- nya krav bakåt i tiden. Varje NYTT företag därefter ("Lägg till företag",
+-- App.jsx) får sin EGEN rad med ett riktigt company_id, sitt eget Stripe
+-- Checkout, sitt eget kort/betalning — se create-subscription-checkout.js.
 CREATE TABLE IF NOT EXISTS public.subscriptions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL UNIQUE,
@@ -360,6 +366,22 @@ CREATE TABLE IF NOT EXISTS public.subscriptions (
 -- som moms-/AGI-påminnelserna i samma fil) skicka om mejlet varje dag fram
 -- till att provperioden faktiskt tar slut, inte bara en gång.
 ALTER TABLE public.subscriptions ADD COLUMN IF NOT EXISTS trial_reminder_sent_at timestamptz;
+
+-- Betala-per-företag: company_id '' (INTE NULL — se nedan) = kontots
+-- ursprungliga/redan existerande abonnemang (se kommentaren ovanför CREATE
+-- TABLE). Byter den gamla ensam-user_id-uniciteten mot (user_id,
+-- company_id). En riktig NOT NULL-kolumn med en tom sträng som
+-- "legacy"-värde istället för NULL + ett partiellt index är MEDVETET: ett
+-- partiellt unikt index matchar inte ett PostgREST/supabase-js .upsert()
+-- med onConflict:'user_id' (Postgres kräver att ON CONFLICT:s WHERE-villkor
+-- matchar index­predikatet exakt, något onConflict-optionen inte kan
+-- uttrycka) — hade gett ett runtime-fel första gången legacy-raden
+-- uppdaterades. Med en riktig, fullständig UNIQUE(user_id, company_id)
+-- fungerar samma onConflict-sats för BÅDA fallen.
+ALTER TABLE public.subscriptions ADD COLUMN IF NOT EXISTS company_id text NOT NULL DEFAULT '';
+ALTER TABLE public.subscriptions DROP CONSTRAINT IF EXISTS subscriptions_user_id_key;
+ALTER TABLE public.subscriptions DROP CONSTRAINT IF EXISTS subscriptions_user_company_unique;
+ALTER TABLE public.subscriptions ADD CONSTRAINT subscriptions_user_company_unique UNIQUE (user_id, company_id);
 
 DROP TRIGGER IF EXISTS set_updated_at ON public.subscriptions;
 CREATE TRIGGER set_updated_at
@@ -789,3 +811,31 @@ BEGIN
     REVOKE ALL ON FUNCTION public.rls_auto_enable() FROM PUBLIC, anon, authenticated;
   END IF;
 END $$;
+
+-- ═══════════════════════════════════════════════════════════
+-- Cron-checkpoint: api/cron/reminders.js
+-- ═══════════════════════════════════════════════════════════
+-- Varje funktionskörning har en exekveringsgräns (se TIME_BUDGET_MS i
+-- reminders.js för varför filen INTE gissar på plattformens exakta
+-- gräns här). reminders.js läser HELA user_data i sidor (se PAGE_SIZE-
+-- kommentaren där) och gör riktiga nätverksanrop (Resend, Stripe) per
+-- företag som har något att påminna om — ju fler användare, desto större
+-- risk att en enda daglig körning inte hinner igenom alla innan den kapas.
+--
+-- Utan den här tabellen skulle en kapad körning bara hinna samma FÖRSTA
+-- sida användare varje dag (stabil user_id-ordning) och ALDRIG nå resten —
+-- inte "en dags fördröjning" utan permanent svält för alla användare efter
+-- brytpunkten. Med den: cronen sparar var den kom (senaste behandlade
+-- user_id) och nästa körning fortsätter DÄRIFRÅN i stället för att börja om,
+-- så en fullständig genomsökning bara sprids ut över fler dagar när
+-- användarbasen växer, i stället för att tysta hela svansen av användare.
+-- En enda rad ('reminders'), läst/skriven bara av service-role (samma
+-- betrodda serverprocess som redan läser hela user_data här) — ingen
+-- policy alls för authenticated/anon nedan är avsiktligt: ingen åtkomst.
+CREATE TABLE IF NOT EXISTS public.cron_progress (
+  id text PRIMARY KEY,
+  cursor_value text,
+  updated_at timestamptz DEFAULT now()
+);
+
+ALTER TABLE public.cron_progress ENABLE ROW LEVEL SECURITY;

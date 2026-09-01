@@ -7,12 +7,27 @@ import { isRequestFromBot } from '../_botid.js';
 import { requireAuthedUser } from '../_auth.js';
 import { hasExistingSubscription, getSubscriptionRow, upsertSubscription } from './_subscriptions.js';
 
-const stripeSecretKey = process.env.STRIPE_SECRET_KEY || null;
-const stripe = stripeSecretKey && !stripeSecretKey.startsWith('pk_')
-  ? new Stripe(stripeSecretKey, {
-      // apiVersion removed to use Stripe account default
-    })
-  : null;
+// Läses INTE in som modul-nivå-konstant — samma gotcha som _resend.js/
+// _signedToken.js/company-access.js:s getForetagsApiKey redan har en
+// identisk kommentar om: server.js:s dotenv.config() körs EFTER sina egna
+// imports (ES-moduler kör hela den importerade modul-kroppen innan
+// importörens egen kod, dotenv.config() inkluderad). Den här filen
+// importerades tidigare aldrig direkt av server.js (som hade en egen
+// handkopierad create-subscription-checkout-rutt, se den ruttens
+// kommentar i server.js) — när server.js:s /api/stripe/create-
+// subscription-checkout byttes till att importera PRODUKTIONSFILEN direkt
+// blev en modul-nivå-konstant här plötsligt permanent `null` i lokal
+// utveckling, trots en korrekt ifylld .env ("Stripe is not configured"
+// även med nyckeln på plats). Fungerade ändå hela tiden i produktion
+// (Vercel injicerar env-variabler innan modulen ens laddas).
+function getStripe() {
+  const stripeSecretKey = process.env.STRIPE_SECRET_KEY || null;
+  return stripeSecretKey && !stripeSecretKey.startsWith('pk_')
+    ? new Stripe(stripeSecretKey, {
+        // apiVersion removed to use Stripe account default
+      })
+    : null;
+}
 
 // Bokix egen plan — "Ett pris. Allt ingår." (PricingPage.jsx/LandingPage.jsx),
 // inte en variabel per kund som create-checkout-session.js (den gäller
@@ -51,6 +66,7 @@ export default async function handler(req, res) {
     return;
   }
 
+  const stripe = getStripe();
   if (!stripe) {
     res.status(503).json({ error: 'Stripe is not configured. Set STRIPE_SECRET_KEY before trying again.' });
     return;
@@ -77,13 +93,18 @@ export default async function handler(req, res) {
     // dokumenterade skäl: anropet kan komma direkt efter signUp() innan en
     // session hunnit utfärdas). Att avsluta någons prenumeration kan bara
     // den inloggade ägaren själv göra.
+    // company_id (betala-per-företag, kundkrav) — genomgående null/undefined
+    // för kontots ORIGINALFLÖDE (oförändrat: Auth.jsx regStep 3, aldrig
+    // skickat med company_id), ett riktigt värde bara för "Lägg till
+    // företag" (App.jsx). Se _subscriptions.js:s kommentar för hur ''
+    // (legacy) vs ett riktigt id hålls isär i databasen.
     if (body.action === 'cancel' || body.action === 'reactivate') {
       const authedUser = await requireAuthedUser(req, res);
       if (!authedUser) return; // requireAuthedUser har redan svarat 401
 
-      const subRow = await getSubscriptionRow(authedUser.id);
+      const subRow = await getSubscriptionRow(authedUser.id, body.company_id || null);
       if (!subRow?.stripe_subscription_id) {
-        res.status(404).json({ error: 'Ingen prenumeration hittades för kontot.' });
+        res.status(404).json({ error: 'Ingen prenumeration hittades för det här företaget.' });
         return;
       }
 
@@ -98,6 +119,7 @@ export default async function handler(req, res) {
       // att behöva vänta in eller polla den.
       await upsertSubscription({
         userId: authedUser.id,
+        companyId: body.company_id || null,
         stripeCustomerId: typeof updated.customer === 'string' ? updated.customer : updated.customer?.id,
         stripeSubscriptionId: updated.id,
         status: updated.status,
@@ -120,7 +142,21 @@ export default async function handler(req, res) {
       return;
     }
 
-    if (await hasExistingSubscription(body.user_id)) {
+    // Ett riktigt company_id (Lägg till företag) kräver ALLTID en inloggad,
+    // verifierad session som matchar user_id — till skillnad från
+    // kontots ORIGINALflöde nedan (kan komma direkt efter signUp(), innan
+    // en session hunnit utfärdas, se filkommentaren högst upp) finns det
+    // ingen legitim anledning att skapa checkout för ETT SPECIFIKT,
+    // redan existerande företag utan att redan vara inloggad — man måste
+    // ju redan ha loggat in för att kunna klicka "Lägg till företag" alls.
+    if (body.company_id) {
+      const user = await requireAuthedUser(req, res);
+      if (!user) return;
+      if (user.id !== body.user_id) {
+        res.status(403).json({ error: 'user_id matchar inte den inloggade användaren.' });
+        return;
+      }
+    } else if (await hasExistingSubscription(body.user_id)) {
       const user = await requireAuthedUser(req, res);
       if (!user) return; // requireAuthedUser har redan svarat 401
       if (user.id !== body.user_id) {
@@ -156,10 +192,21 @@ export default async function handler(req, res) {
         // metadata följer med automatiskt på VARJE efterföljande
         // customer.subscription.*-händelse (webhook.js), utan att behöva
         // slå upp/expandera sessionen igen för att koppla ihop dem.
-        metadata: { user_id: body.user_id },
+        // company_id (bara satt när det HÄR anropet gäller "Lägg till
+        // företag", body.company_id) läses av webhook.js på samma sätt som
+        // user_id, samma mönster som checkout.session.completed:s egen
+        // company_id/invoice_id-metadata (kundfakturaflödet, orelaterat men
+        // samma princip) redan använder.
+        metadata: body.company_id ? { user_id: body.user_id, company_id: body.company_id } : { user_id: body.user_id },
       },
-      metadata: { user_id: body.user_id },
-      success_url: appendQueryParam(baseUrl, 'subscription_checkout', 'success'),
+      metadata: body.company_id ? { user_id: body.user_id, company_id: body.company_id } : { user_id: body.user_id },
+      // company_id på success_url (bara satt när body.company_id finns) —
+      // App.jsx:s "vänta in webhooken"-logik (fetchUserData) behöver veta
+      // VILKET företags rad den ska vänta på, annars väntar den (fel) in
+      // kontots legacy-rad, som en ny företags-checkout aldrig skriver till.
+      success_url: body.company_id
+        ? appendQueryParam(appendQueryParam(baseUrl, 'subscription_checkout', 'success'), 'company_id', body.company_id)
+        : appendQueryParam(baseUrl, 'subscription_checkout', 'success'),
       cancel_url: appendQueryParam(cancelBaseUrl, 'subscription_checkout', 'cancelled'),
     });
     res.status(200).json({ session });

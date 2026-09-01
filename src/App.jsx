@@ -12,7 +12,6 @@ import {
   Building2,
   ChevronDown,
   ChevronRight,
-  Plus,
   X,
   Calculator,
   Clock,
@@ -25,7 +24,6 @@ import {
   ArrowLeftRight,
   CheckSquare,
   Shield,
-  User,
   UsersRound,
   Bell,
   HelpCircle,
@@ -40,7 +38,7 @@ import {
 } from 'lucide-react';
 import { DEFAULT_ACCOUNTS, VAT_ACCOUNTS, REVENUE_ACCOUNTS } from './components/AccountsData';
 import { getNextInvoiceNumber } from './utils/invoiceNumbering';
-import { createStripeCheckoutSession } from './stripeApi';
+import { createStripeCheckoutSession, createStripeSubscriptionCheckout } from './stripeApi';
 import { createEmailDomain, getEmailDomainStatus } from './emailApi';
 import { getDebet, getKredit } from './utils/verificationAmounts';
 import { BRAND } from './utils/brandColors';
@@ -891,6 +889,26 @@ const resolveTab = (id) => tabAliases[id] || id;
 // att navigera bort till en annan sida (kundrapporterad förvirring).
 const resolveNavGroup = (id) => resolveTab(id === 'supplier_invoices' ? 'invoices' : id);
 
+// Stripes egna statusar som räknas som "betalande" — trialing/active/
+// past_due (past_due är Stripes egen automatiska betalningsomförsök, inte
+// samma sak som uppsagd). Delad av fetchUserData:s inloggnings-gate och
+// isActiveCompanyPaid (reaktiv, per aktivt företag) längre ner — måste
+// vara EXAKT samma lista på båda ställena.
+const ALLOWED_SUBSCRIPTION_STATUSES = ['trialing', 'active', 'past_due'];
+
+// Kundönskemål: ägarens eget konto ska aldrig blockeras av betalspärren,
+// varken kontots ORIGINALspärr (fetchUserData) eller den nya per-företags-
+// spärren (isActiveCompanyPaid) — testar/utvecklar appen utan att behöva
+// en riktig Stripe-prenumeration löpande. Bara en klientsidan-gate att
+// kringgå (subscriptions.status styr ingen server-sidan-behörighet
+// någonstans idag — RLS på user_data/subscriptions är ren ägarskaps-
+// baserad, inte prenumerations-baserad), så en ren e-post-allowlist här
+// räcker, ingen serverändring behövs.
+const FREE_ACCOUNT_EMAILS = ['alwakiabdullah1@gmail.com'];
+// Skiftlägesokänslig jämförelse — Supabase normaliserar INTE nödvändigtvis
+// e-postens skiftläge till gemener, den sparas som inskriven vid signup.
+const isFreeAccountEmail = (email) => FREE_ACCOUNT_EMAILS.includes(String(email || '').trim().toLowerCase());
+
 // ──────────────────────────────────────────────
 // APP COMPONENT
 // ──────────────────────────────────────────────
@@ -941,6 +959,16 @@ function App() {
   // active/past_due) — se PaymentRequiredGate.jsx. Satt i fetchUserData,
   // FÖRE isLoggedIn(true), så appen aldrig hinner visas ens ett ögonblick.
   const [subscriptionGate, setSubscriptionGate] = useState(null);
+  // Betala-per-företag (kundkrav): ALLA prenumerationsrader för kontot,
+  // keyed på company_id ('' = legacy, se supabase-setup.sql:s kommentar
+  // vid public.subscriptions) — hämtad EN gång i fetchUserData (direkt
+  // RLS-skyddad klientläsning, se den kommentaren för varför INTE en
+  // server-rond-trip), konsumerad reaktivt av isActiveCompanyPaid nedan
+  // varje gång activeCompanyId ändras (företagsbyte, en nyss klar
+  // onboarding). Ingen egen refresh vid byte behövs: en ny betalning
+  // innebär alltid en Stripe-redirect och därmed en full sidladdning när
+  // man kommer tillbaka, som hämtar en färsk karta av sig själv.
+  const [subscriptionsMap, setSubscriptionsMap] = useState({});
   // Bugkritiskt (kundrapport): vilken användare den HÄR fliken senast satte
   // igång fetchUserData för. En `ref`, inte state — måste kunna läsas
   // synkront inne i onAuthStateChange-lyssnaren nedan, inte vänta in en
@@ -978,6 +1006,14 @@ function App() {
   const [initialSubscriptionCheckoutParam] = useState(
     () => new URLSearchParams(window.location.search).get('subscription_checkout')
   );
+  // Betala-per-företag (kundkrav): satt bara på success_url när Stripe-
+  // checkouten gällde ETT SPECIFIKT nytillagt företag (se create-
+  // subscription-checkout.js) — talar om för fetchUserData:s "vänta in
+  // webhooken"-logik VILKEN rad den ska vänta på istället för att (fel)
+  // anta kontots legacy-rad, som en sådan checkout aldrig skriver till.
+  const [initialSubscriptionCheckoutCompanyId] = useState(
+    () => new URLSearchParams(window.location.search).get('company_id')
+  );
 
   // "Kom igång"/"Logga in" klickat på en av de fristående marknadssidorna
   // (Funktioner/Priser/Om oss/Kontakt, se MarketingLayout) navigerar hit
@@ -1007,14 +1043,20 @@ function App() {
 
   const [user, setUser] = useState(null);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
-  const [newCompanyModal, setNewCompanyModal] = useState(false);
-  const [newCompanyName, setNewCompanyName] = useState('');
-  const [newCompanyOrg, setNewCompanyOrg] = useState('');
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(() => localStorage.getItem('bokix_onboarding_completed') === 'true');
   const [hasSkippedOnboarding, setHasSkippedOnboarding] = useState(() => localStorage.getItem('bokix_onboarding_skipped') === 'true');
   const [dbSupportsProfileColumns, setDbSupportsProfileColumns] = useState(false);
   const [supabaseEnabled, setSupabaseEnabled] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  // 'first-company' (kontots ORIGINALflöde, oförändrat — signup/
+  // fetchUserData's "skapa tomt företag"-gren) vs 'new-company' ("Lägg till
+  // företag", handleStartNewCompany nedan) — samma <OnboardingFlow>
+  // återanvänds för båda (se showOnboarding-grenen längre ner), men
+  // onComplete/onSkip beter sig olika: 'new-company' rör ALDRIG kontots
+  // egna onboarding_completed/company_name-kolumner (de beskriver bara det
+  // ALLRA FÖRSTA företaget) och avslutas med en Stripe-betalningsomdirigering
+  // istället för att bara gå till dashboarden.
+  const [onboardingMode, setOnboardingMode] = useState('first-company');
 
   // ── Tema (ljust/mörkt) ── Sparat val vinner; annars OS-inställningen
   // (prefers-color-scheme) första gången, precis som webbläsaren själv
@@ -1051,10 +1093,13 @@ function App() {
 
   // ── Sidomenyns färg i LJUST läge ── Kundönskemål: i ljust läge är
   // sidomenyn Bokix-grön (--bg-sidebar: #3d7a2e, index.css); vissa vill
-  // hellre ha samma mörka sidomeny som mörkt läge redan använder
-  // (--bg-sidebar: #0c1f14) UTAN att byta hela appens tema till mörkt. Ren
-  // preferens, ingen effekt i mörkt läge (sidomenyn är redan mörk där) —
-  // se index.css: ":root:not([data-theme='dark'])[data-sidebar-style='dark']".
+  // hellre ha en mörk sidomeny UTAN att byta hela appens tema till mörkt.
+  // EGEN mörkgrön nyans (--bg-sidebar: #0b3d2a) — inte literal samma hex
+  // som mörkt lägets egen sidebar (#0c1f14): kundfeedback, den nyansen
+  // kändes fel/urvattnad ihopblandad med resten av en annars ljus app,
+  // trots att den ser bra ut FÖR mörkt läge. Ren preferens, ingen effekt i
+  // mörkt läge (sidomenyn är redan mörk där) — se index.css:
+  // ":root:not([data-theme='dark'])[data-sidebar-style='dark']".
   // Samma spara-i-localStorage/sätt-attribut-på-<html>-mönster som temat/
   // scrollbaren ovan.
   const [sidebarStyle, setSidebarStyle] = useState(() => {
@@ -1095,8 +1140,63 @@ function App() {
   };
 
   // Close sidebar when tab changes on mobile
+  // Bugkritiskt: profilmenyns "Bokslut & årsredovisning"/"Momsredovisning"
+  // (App.jsx längre ner) skickar tabId 'taxes_yearend'/'taxes_vat" —
+  // resolveTab slår ihop BÅDA till samma sida ('taxes'), vilket är rätt
+  // för VILKEN SIDA som ska visas men tappar VILKEN FLIK på den sidan.
+  // Taxes.jsx:s egen activeSection-state (se den filens initialSection-
+  // prop) behöver den mer specifika informationen separat, eftersom den
+  // annars alltid stannar på sitt eget förval ('vat') oavsett vilken av de
+  // två knapparna man klickade.
+  // 'taxes' (profilmenyns "Viktiga datum", inget mer specifikt val) pekar
+  // numera på Taxes.jsx:s egen "Viktiga datum"-flik ('dates') istället för
+  // Moms — den fliken existerar nu specifikt för det, se Taxes.jsx.
+  const taxesSectionAliases = { taxes: 'dates', taxes_vat: 'vat', taxes_yearend: 'yearend' };
+  const [taxesInitialSection, setTaxesInitialSection] = useState('vat');
+
+  // Kundfeedback (två omgångar): "Rapportera fel" öppnade först bara en
+  // mailto:-länk — gjorde ingenting alls utan en registrerad mejlklient
+  // (vanligast för webbmejl-användare). Kundönskemål efteråt: en riktig,
+  // enkel formulär-ruta i appen istället, "som en kontaktlista" — inte ens
+  // en mejlapp ska behöva öppnas. Återanvänder /api/contact (samma rutt
+  // som den publika marknadssajtens kontaktformulär, ContactPage.jsx —
+  // kräver medvetet ingen inloggning där, men fungerar precis lika bra
+  // för en redan inloggad avsändare) istället för att bygga en ny rutt —
+  // Vercels 12-funktionsgräns är redan på 12/12. Namn/e-post fylls i
+  // TYST från den inloggade sessionen (så enkelt som möjligt, bara EN
+  // textruta att fylla i) — se handleSubmitErrorReport/modalen nedan.
+  const [reportErrorModal, setReportErrorModal] = useState(false);
+  const [reportErrorText, setReportErrorText] = useState('');
+  const [reportErrorBusy, setReportErrorBusy] = useState(false);
+
+  const handleSubmitErrorReport = async () => {
+    const message = reportErrorText.trim();
+    if (!message) return;
+    setReportErrorBusy(true);
+    try {
+      const senderName = [user?.user_metadata?.first_name, user?.user_metadata?.last_name].filter(Boolean).join(' ').trim()
+        || company?.name
+        || 'Bokix-användare';
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: senderName, email: user?.email || '', topic: 'Felrapport', message }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload?.error || `Kunde inte skicka (${res.status})`);
+      setReportErrorModal(false);
+      setReportErrorText('');
+      setToast({ message: 'Tack! Felrapporten är skickad till oss.', variant: 'success' });
+    } catch (err) {
+      setToast({ message: err.message || 'Kunde inte skicka felrapporten. Försök igen om en stund.', variant: 'error' });
+    } finally {
+      setReportErrorBusy(false);
+    }
+  };
+
   const handleNavTabChange = (tabId) => {
     const rTab = resolveTab(tabId);
+    if (taxesSectionAliases[tabId]) setTaxesInitialSection(taxesSectionAliases[tabId]);
     setActiveTab(rTab);
     if (typeof window !== 'undefined') window.location.hash = rTab;
     setSidebarOpen(false);
@@ -1503,23 +1603,40 @@ function App() {
       const hasSharedAccess = Object.keys(sharedCompanies).length > 0;
 
       // ── Betalspärr: en inloggad Supabase-användare får bara in i appen med
-      // en giltig prenumeration (trialing/active/past_due — past_due är
-      // Stripes egen automatiska betalningsomförsök, inte samma sak som
-      // uppsagd) ELLER minst ett aktivt delat företag (se ovan — de betalar
+      // en giltig prenumeration på kontots LEGACY-rad (trialing/active/
+      // past_due) ELLER minst ett aktivt delat företag (se ovan — de betalar
       // aldrig separat, de rider på ägarens prenumeration). Kollas FÖRE all
       // annan datainhämtning nedan, så ett blockerat konto aldrig hinner se
-      // sina egna företagsdata ens kort. ──
-      const ALLOWED_SUBSCRIPTION_STATUSES = ['trialing', 'active', 'past_due'];
-      const fetchSubscriptionStatus = async () => {
-        const { data } = await supabase
+      // sina egna företagsdata ens kort — EXAKT samma ordning/logik som
+      // innan denna ändring, rör bara kontots ORIGINALprenumeration.
+      //
+      // Betala-per-företag (kundkrav): hämtar numera ALLA rader (inte bara
+      // legacy) i EN fråga, fortfarande en RAK RLS-skyddad klientläsning
+      // (subscriptions.select policy: auth.uid() = user_id) — inget
+      // company_id-filter behövs för att slippa .maybeSingle()-kraschen,
+      // .select() utan den returnerar bara en array. MEDVETET inte en
+      // server-rond-trip (t.ex. action:'list' via create-subscription-
+      // checkout.js): den HÄR koden gatear ALLA inloggningar, appens mest
+      // kritiska väg — ju färre beroenden (en till Vercel-function, en
+      // service-role-nyckel, requireAuthedUser) mellan "har man en giltig
+      // prenumeration" och "kommer man in", desto mindre yta för ett nytt,
+      // helt orelaterat fel att av misstag låsa ute en betalande kund.
+      // Kartan (keyed på company_id, '' = legacy) används sen igen längre
+      // ner (setSubscriptionsMap) för isActiveCompanyPaid — det AKTIVA
+      // företagets egen, reaktiva betalspärr.
+      const fetchSubscriptionsMap = async () => {
+        const { data, error } = await supabase
           .from('subscriptions')
-          .select('status')
-          .eq('user_id', authUser.id)
-          .maybeSingle();
-        return data;
+          .select('company_id, status, trial_ends_at, current_period_end, cancel_at_period_end')
+          .eq('user_id', authUser.id);
+        if (error) return {};
+        const map = {};
+        (data || []).forEach(row => { map[row.company_id || ''] = row; });
+        return map;
       };
 
-      let subRow = await fetchSubscriptionStatus();
+      let subsMap = await fetchSubscriptionsMap();
+      let subRow = subsMap[''] || null;
 
       // Precis kommen tillbaka från en lyckad Stripe Checkout
       // (?subscription_checkout=success, se Auth.jsx/create-subscription-
@@ -1527,16 +1644,28 @@ function App() {
       // efter med några sekunder. Väntar in den istället för att blockera
       // någon som precis betalade, max ~9 sekunder innan vi ger upp. En
       // inbjuden användare med hasSharedAccess väntar aldrig in det här —
-      // de har redan sin väg in.
+      // de har redan sin väg in. company_id på URL:en (se
+      // initialSubscriptionCheckoutCompanyId ovan) betyder att det gällde
+      // ett SPECIFIKT nytt företag, inte legacy-raden — väntar då in DEN
+      // raden istället (behövs inte för inloggningsgaten nedan, bara så
+      // subscriptionsMap är färsk direkt när isActiveCompanyPaid kollar den
+      // strax efter — annars hade en nyss betald andra-företag-redirect
+      // fortfarande visat betalspärren i upp till ~9 sekunder).
       const justSubscribed = initialSubscriptionCheckoutParam === 'success';
-      if (!hasSharedAccess && justSubscribed && (!subRow || !ALLOWED_SUBSCRIPTION_STATUSES.includes(subRow.status))) {
-        for (let attempt = 0; attempt < 6 && (!subRow || !ALLOWED_SUBSCRIPTION_STATUSES.includes(subRow.status)); attempt++) {
+      const waitingForCompanyId = justSubscribed ? initialSubscriptionCheckoutCompanyId : null;
+      const stillWaiting = () => waitingForCompanyId
+        ? !ALLOWED_SUBSCRIPTION_STATUSES.includes(subsMap[waitingForCompanyId]?.status)
+        : (!subRow || !ALLOWED_SUBSCRIPTION_STATUSES.includes(subRow.status));
+      if (!hasSharedAccess && justSubscribed && stillWaiting()) {
+        for (let attempt = 0; attempt < 6 && stillWaiting(); attempt++) {
           await new Promise(resolve => setTimeout(resolve, 1500));
-          subRow = await fetchSubscriptionStatus();
+          subsMap = await fetchSubscriptionsMap();
+          subRow = subsMap[''] || null;
         }
       }
+      setSubscriptionsMap(subsMap);
 
-      if (!hasSharedAccess && (!subRow || !ALLOWED_SUBSCRIPTION_STATUSES.includes(subRow.status))) {
+      if (!hasSharedAccess && !isFreeAccountEmail(authUser.email) && (!subRow || !ALLOWED_SUBSCRIPTION_STATUSES.includes(subRow.status))) {
         setSubscriptionGate('blocked');
         setIsLoadingAuth(false);
         return;
@@ -1819,17 +1948,29 @@ function App() {
     const params = new URLSearchParams(window.location.search);
     const status = params.get('subscription_checkout');
     if (!status) return;
+    // company_id (betala-per-företag) — bara satt när checkouten gällde ett
+    // SPECIFIKT nytillagt företag, inte kontots originalflöde (Auth.jsx).
+    // Anroparen är redan inloggad då (till skillnad från originalflödet,
+    // där man kommer hit direkt efter en signUp() utan session), så
+    // "Logga in för att komma igång" hade varit förvirrande/fel där.
+    const forCompany = Boolean(params.get('company_id'));
 
-    const messages = {
-      success: 'Klart! 30 dagar gratis, sedan 99 kr/mån. Logga in för att komma igång.',
-      cancelled: 'Betalningen avbröts — kontot är skapat, men provperioden startar först när betalningsuppgifter är tillagda. Logga in och försök igen.',
-    };
+    const messages = forCompany
+      ? {
+          success: 'Klart! 30 dagar gratis, sedan 99 kr/mån för det här företaget.',
+          cancelled: 'Betalningen avbröts — företaget är skapat, men blockerat tills betalningsuppgifter läggs till. Öppna Inställningar → Prenumeration för att försöka igen.',
+        }
+      : {
+          success: 'Klart! 30 dagar gratis, sedan 99 kr/mån. Logga in för att komma igång.',
+          cancelled: 'Betalningen avbröts — kontot är skapat, men provperioden startar först när betalningsuppgifter är tillagda. Logga in och försök igen.',
+        };
     setToast({
       message: messages[status] || messages.cancelled,
       variant: status === 'success' ? 'success' : 'info',
     });
 
     params.delete('subscription_checkout');
+    params.delete('company_id');
     const newSearch = params.toString();
     window.history.replaceState({}, '', window.location.pathname + (newSearch ? `?${newSearch}` : '') + window.location.hash);
   }, []);
@@ -1959,15 +2100,18 @@ function App() {
     if (typeof window !== 'undefined') window.location.hash = 'dashboard';
   };
 
-  const handleCreateCompany = () => {
-    const name = newCompanyName.trim();
-    if (!name) return;
-
-    const newCompanyData = createEmptyCompanyData({
-      name,
-      orgNr: newCompanyOrg.trim(),
-    });
-
+  // "Lägg till företag" (profilmenyn) — kundkrav: betala per företag, en
+  // riktigare "sign up"-upplevelse istället för ett bart 2-fälts-formulär.
+  // Skapar ett tomt platshållarföretag (namnlöst tills OnboardingFlow
+  // fyller i det, precis som en helt ny signup redan gör — se
+  // fetchUserData:s "skapa tomt företag"-gren), stämplar det
+  // requiresOwnPayment (se supabase-setup.sql:s kommentar vid public.
+  // subscriptions), och öppnar SAMMA OnboardingFlow som kontots eget
+  // första företag redan använder — bara onComplete/onSkip skiljer sig
+  // (handleNewCompanyOnboardingComplete/-Skip nedan), se onboardingMode.
+  const handleStartNewCompany = () => {
+    const newCompanyData = createEmptyCompanyData({ name: '', orgNr: '' });
+    newCompanyData.company.requiresOwnPayment = true;
     setData(prev => ({
       ...prev,
       activeCompanyId: newCompanyData.company.id,
@@ -1976,10 +2120,35 @@ function App() {
         [newCompanyData.company.id]: newCompanyData,
       },
     }));
-    setNewCompanyName('');
-    setNewCompanyOrg('');
-    setNewCompanyModal(false);
-    setActiveTab('dashboard');
+    setOnboardingMode('new-company');
+    setShowOnboarding(true);
+  };
+
+  // Skickar det nya företaget vidare till Stripe för dess EGNA betalning —
+  // samma redirect-mönster/felmeddelande som Auth.jsx regStep 3 (kontots
+  // ORIGINALflöde) redan använder. Delad av både
+  // handleNewCompanyOnboardingComplete och -Skip nedan (skip hoppar bara
+  // över INFO-fälten, aldrig betalningen — se filkommentaren vid
+  // onboardingMode).
+  const redirectNewCompanyToPayment = async (companyId) => {
+    try {
+      const { session } = await createStripeSubscriptionCheckout({
+        user_id: user.id,
+        customer_email: user.email,
+        company_id: companyId,
+      });
+      if (!session?.url) throw new Error('Ingen betalningslänk mottogs från Stripe.');
+      window.location.href = session.url;
+    } catch (err) {
+      const stripeIssue = /^Stripe API error \(\d+\)$/.test(err.message)
+        ? 'kunde inte nå betalningstjänsten just nu'
+        : err.message;
+      setToast({
+        message: `Företaget skapades, men vi kunde inte skicka dig vidare till betalning (${stripeIssue}). Öppna Inställningar → Prenumeration för att försöka igen.`,
+        variant: 'error',
+      });
+      setActiveTab('dashboard');
+    }
   };
 
   const handleOnboardingComplete = async (profile) => {
@@ -2043,6 +2212,59 @@ function App() {
     });
   };
 
+  // "Lägg till företag" — samma fältsparning som handleOnboardingComplete
+  // ovan, men MEDVETET utan dess `extras`-argument till
+  // saveUserDataToSupabase: onboarding_completed/company_name/company_orgnr
+  // m.fl. är kontots EGNA kolumner (beskriver bara det allra första
+  // företaget) och ska aldrig skrivas över av ett SENARE tillagt företags
+  // uppgifter. Avslutas med Stripe-redirect istället för bara dashboarden,
+  // se onboardingMode/redirectNewCompanyToPayment.
+  const handleNewCompanyOnboardingComplete = async (profile) => {
+    const companyId = data.activeCompanyId;
+    const existing = data.companies[companyId].company;
+    const name = profile.companyName?.trim() || existing.name || 'Nytt företag';
+    const nextState = {
+      ...data,
+      companies: {
+        ...data.companies,
+        [companyId]: {
+          ...data.companies[companyId],
+          company: {
+            ...existing,
+            name,
+            orgNr: profile.orgNr || existing.orgNr,
+            address: profile.address || existing.address,
+            email: profile.email || existing.email,
+            phone: profile.phone || existing.phone,
+            logoUrl: profile.logoUrl || existing.logoUrl,
+            fiscalYear: profile.fiscalYear || existing.fiscalYear,
+            vatPeriod: profile.vatPeriod || existing.vatPeriod,
+            chartPlan: profile.chartPlan || existing.chartPlan || 'bas2025',
+          },
+        },
+      },
+    };
+
+    setData(nextState);
+    setShowOnboarding(false);
+    setOnboardingMode('first-company'); // återställ — se filkommentaren vid onboardingMode-deklarationen
+    await saveUserDataToSupabase(nextState);
+    await redirectNewCompanyToPayment(companyId);
+  };
+
+  // "Hoppa över" i OnboardingFlow för ett NYTT företag — hoppar bara över
+  // INFO-fälten (namnet blir kvar som "Nytt företag" tills man fyller i det
+  // senare i Inställningar, precis som kontots första företag redan
+  // tillåter), aldrig över betalningen. Ett `requiresOwnPayment`-företag
+  // utan en betald prenumerationsrad blockeras ändå av gaten (App.jsx:s
+  // isActiveCompanyPaid) så fort man landar i appen, om Stripe-redirecten
+  // här av någon anledning misslyckas eller avbryts.
+  const handleSkipNewCompanyOnboarding = async () => {
+    setShowOnboarding(false);
+    setOnboardingMode('first-company'); // återställ — se filkommentaren vid onboardingMode-deklarationen
+    await redirectNewCompanyToPayment(data.activeCompanyId);
+  };
+
   if (isLoadingAuth) {
     // Tidigare stod en felsökningstext ("Kontrollera att Supabase-nycklar
     // är inlagda") här permanent, synlig för alla vid varje sidladdning —
@@ -2056,6 +2278,17 @@ function App() {
   // Current company data
   const currentCompany = data.companies[data.activeCompanyId];
   const company = currentCompany.company;
+  // Betala-per-företag (kundkrav): reaktiv (omräknad varje render, inte en
+  // useEffect/useState) — legacy-företag (!requiresOwnPayment, dvs. allt
+  // som fanns innan den här ändringen samt kontots första företag) är
+  // redan täckta av inloggningens egen betalspärr ovan (subscriptionGate,
+  // kontots legacy-rad) och behöver ingen egen koll här. Ett
+  // requiresOwnPayment-företag kollas mot SIN EGNA rad i subscriptionsMap
+  // (satt i fetchUserData, se den kommentaren) — omräknas automatiskt vid
+  // varje företagsbyte eftersom `company` då ändras.
+  const isActiveCompanyPaid = isFreeAccountEmail(user?.email)
+    || !company?.requiresOwnPayment
+    || ALLOWED_SUBSCRIPTION_STATUSES.includes(subscriptionsMap[company.id]?.status);
   const accounts = currentCompany.accounts;
   const verifications = currentCompany.verifications;
   const invoices = currentCompany.invoices;
@@ -3166,6 +3399,7 @@ function App() {
             onAddVerification={handleAddVerification}
             setCompanyInfo={setCompanyInfo}
             onNavigateToTab={handleNavTabChange}
+            initialSection={taxesInitialSection}
           />
         );
       case 'invoices':
@@ -3394,7 +3628,7 @@ function App() {
             companyList={companyList}
             activeCompanyId={data.activeCompanyId}
             onSwitchCompany={handleSwitchCompany}
-            onAddCompany={() => setNewCompanyModal(true)}
+            onAddCompany={handleStartNewCompany}
             hideScrollbar={hideScrollbar}
             onToggleHideScrollbar={toggleHideScrollbar}
             sidebarStyle={sidebarStyle}
@@ -3445,11 +3679,22 @@ function App() {
               // showOnboarding=true) — men <OnboardingFlow> renderades
               // aldrig någonstans, så klicket gjorde bokstavligen ingenting.
               <OnboardingFlow
-                onComplete={handleOnboardingComplete}
-                onSkip={handleSkipOnboarding}
+                onComplete={onboardingMode === 'new-company' ? handleNewCompanyOnboardingComplete : handleOnboardingComplete}
+                onSkip={onboardingMode === 'new-company' ? handleSkipNewCompanyOnboarding : handleSkipOnboarding}
                 initialCompanyName={company?.name}
                 initialCompanyData={data.companies[data.activeCompanyId]}
               />
+            ) : !isActiveCompanyPaid ? (
+              // Betala-per-företag (kundkrav): det AKTIVA företaget kräver
+              // sin egen betalning (requiresOwnPayment) och har ingen giltig
+              // rad i subscriptionsMap än — vanligast om Stripe-redirecten i
+              // redirectNewCompanyToPayment (App.jsx) misslyckades/avbröts,
+              // eller om man byter till ett tidigare skapat men aldrig
+              // slutbetalt företag (handleSwitchCompany). Skiljer sig från
+              // subscriptionGate==='blocked' ovan (kontots ORIGINALspärr,
+              // kollad före all datainhämtning) — den här kan bara avgöras
+              // EFTER att data.activeCompanyId/company är kända.
+              <PaymentRequiredGate user={user} company={company} />
             ) : (
             <div className="app-container">
 
@@ -3665,8 +3910,13 @@ function App() {
                     </div>
                   </div>
                   <div className="dropdown-divider"></div>
-                  <button onClick={() => { handleNavTabChange('profile'); setIsProfileMenuOpen(false); }}><User size={14} /> Profil</button>
-                  <button onClick={() => { handleNavTabChange('settings'); setIsProfileMenuOpen(false); }}><SettingsIcon size={14} /> Inställningar</button>
+                  {/* Kundfeedback: "Profil" och "Inställningar" var redundanta
+                      här — Inställningar finns redan som en egen punkt i
+                      huvudsidomenyn (navGroups/navItems ovan) och "Profil" är
+                      bara en flik INUTI just den sidan (Settings.jsx: "Min
+                      profil"), inte en egen destination. Borttagna, inte bara
+                      dolda — samma två rader fanns dubblerat i mobilkopian av
+                      den här menyn, borttagna där också. */}
                   <button onClick={() => { toggleTheme(); setIsProfileMenuOpen(false); }}>
                     {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />} {theme === 'dark' ? 'Ljust läge' : 'Mörkt läge'}
                   </button>
@@ -3683,10 +3933,10 @@ function App() {
                   {/* Samma mejladress/ämnesrad som felrapport-länken i
                       HelpDrawer.jsx — en riktig kanal istället för att bara
                       stänga menyn utan att göra något. */}
-                  <button onClick={() => { window.location.href = 'mailto:support@bokix.se?subject=Felrapport%20-%20Bokix'; setIsProfileMenuOpen(false); }}><AlertTriangle size={14} /> Rapportera fel</button>
+                  <button onClick={() => { setReportErrorModal(true); setIsProfileMenuOpen(false); }}><AlertTriangle size={14} /> Rapportera fel</button>
                   <button onClick={() => { setIsHelpDrawerOpen(true); setIsProfileMenuOpen(false); }}><HelpCircle size={14} /> Hjälp & support</button>
                   <div className="dropdown-divider"></div>
-                  <button onClick={() => { setNewCompanyModal(true); setIsProfileMenuOpen(false); }}><UsersRound size={14} /> Lägg till företag</button>
+                  <button onClick={() => { handleStartNewCompany(); setIsProfileMenuOpen(false); }}><UsersRound size={14} /> Lägg till företag</button>
                   <div className="dropdown-divider"></div>
                   <button onClick={async () => {
                     await supabase.auth.signOut();
@@ -3783,8 +4033,13 @@ function App() {
                     </div>
                   </div>
                   <div className="dropdown-divider"></div>
-                  <button onClick={() => { handleNavTabChange('profile'); setIsProfileMenuOpen(false); }}><User size={14} /> Profil</button>
-                  <button onClick={() => { handleNavTabChange('settings'); setIsProfileMenuOpen(false); }}><SettingsIcon size={14} /> Inställningar</button>
+                  {/* Kundfeedback: "Profil" och "Inställningar" var redundanta
+                      här — Inställningar finns redan som en egen punkt i
+                      huvudsidomenyn (navGroups/navItems ovan) och "Profil" är
+                      bara en flik INUTI just den sidan (Settings.jsx: "Min
+                      profil"), inte en egen destination. Borttagna, inte bara
+                      dolda — samma två rader fanns dubblerat i mobilkopian av
+                      den här menyn, borttagna där också. */}
                   <button onClick={() => { toggleTheme(); setIsProfileMenuOpen(false); }}>
                     {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />} {theme === 'dark' ? 'Ljust läge' : 'Mörkt läge'}
                   </button>
@@ -3794,10 +4049,10 @@ function App() {
                   <button onClick={() => { handleNavTabChange('taxes_yearend'); setIsProfileMenuOpen(false); }}><Shield size={14} /> Bokslut & årsredovisning</button>
                   <button onClick={() => { handleNavTabChange('taxes_vat'); setIsProfileMenuOpen(false); }}><Calculator size={14} /> Momsredovisning</button>
                   <div className="dropdown-divider"></div>
-                  <button onClick={() => { window.location.href = 'mailto:support@bokix.se?subject=Felrapport%20-%20Bokix'; setIsProfileMenuOpen(false); }}><AlertTriangle size={14} /> Rapportera fel</button>
+                  <button onClick={() => { setReportErrorModal(true); setIsProfileMenuOpen(false); }}><AlertTriangle size={14} /> Rapportera fel</button>
                   <button onClick={() => { setIsHelpDrawerOpen(true); setIsProfileMenuOpen(false); }}><HelpCircle size={14} /> Hjälp & support</button>
                   <div className="dropdown-divider"></div>
-                  <button onClick={() => { setNewCompanyModal(true); setIsProfileMenuOpen(false); }}><UsersRound size={14} /> Lägg till företag</button>
+                  <button onClick={() => { handleStartNewCompany(); setIsProfileMenuOpen(false); }}><UsersRound size={14} /> Lägg till företag</button>
                   <div className="dropdown-divider"></div>
                   <button onClick={async () => {
                     await supabase.auth.signOut();
@@ -3912,52 +4167,12 @@ function App() {
       </div>
 
       {/* ── New Company Modal ── */}
-      {newCompanyModal && (
-        <div className="modal-overlay" onClick={() => setNewCompanyModal(false)}>
-          <div className="modal-content" style={{ maxWidth: '440px' }} onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2 className="modal-title">Skapa nytt företag</h2>
-              <button className="modal-close" onClick={() => setNewCompanyModal(false)}>
-                <X size={18} />
-              </button>
-            </div>
-            <form onSubmit={(e) => { e.preventDefault(); handleCreateCompany(); }}>
-              <div className="form-group">
-                <label className="form-label">Företagsnamn *</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="T.ex. Mitt Företag AB"
-                  value={newCompanyName}
-                  onChange={e => setNewCompanyName(e.target.value)}
-                  required
-                  autoFocus
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Organisationsnummer</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="XXXXXX-XXXX"
-                  value={newCompanyOrg}
-                  onChange={e => setNewCompanyOrg(e.target.value)}
-                />
-                <span className="form-hint">Kan fyllas i senare under Inställningar</span>
-              </div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setNewCompanyModal(false)}>
-                  Avbryt
-                </button>
-                <button type="submit" className="btn btn-primary" disabled={!newCompanyName.trim()}>
-                  <Plus size={16} /> Skapa företag
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
+      {/* "Skapa nytt företag"-modalen (bara namn + org.nr) är borttagen —
+          kundfeedback: "Lägg till företag" ska vara en riktig upplevelse,
+          inte ett bart 2-fälts-formulär. Ersatt av samma OnboardingFlow som
+          redan finns för kontots FÖRSTA företag (se showOnboarding-grenen
+          ovan) — handleStartNewCompany nedan skapar ett tomt platshållar-
+          företag och öppnar den direkt istället, se onboardingMode. */}
 
       {/* ── Help Drawer ── */}
       <HelpDrawer
@@ -3997,6 +4212,46 @@ function App() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Rapportera fel — samma modal-mönster som ovan. Kundönskemål:
+          "som en kontaktlista", en enda ruta att fylla i, så enkelt som
+          möjligt — namn/e-post skickas tyst med från den inloggade
+          sessionen, se handleSubmitErrorReport. ── */}
+      {reportErrorModal && (
+        <div className="modal-overlay" onClick={() => { if (!reportErrorBusy) setReportErrorModal(false); }}>
+          <div className="modal-content" style={{ maxWidth: '440px' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">Rapportera fel</h2>
+              <button className="modal-close" onClick={() => setReportErrorModal(false)}>
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={(e) => { e.preventDefault(); handleSubmitErrorReport(); }}>
+              <div className="form-group">
+                <label className="form-label">Vad gick fel?</label>
+                <textarea
+                  className="form-control"
+                  rows={5}
+                  placeholder="Beskriv vad som hände — gärna vilken sida du var på och vad du klickade på."
+                  value={reportErrorText}
+                  onChange={e => setReportErrorText(e.target.value)}
+                  autoFocus
+                  required
+                />
+                <span className="form-hint">Skickas till support@bokix.se.</span>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={() => setReportErrorModal(false)} disabled={reportErrorBusy}>
+                  Avbryt
+                </button>
+                <button type="submit" className="btn btn-primary" disabled={reportErrorBusy || !reportErrorText.trim()}>
+                  {reportErrorBusy ? 'Skickar...' : 'Skicka'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

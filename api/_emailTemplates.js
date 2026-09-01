@@ -23,7 +23,7 @@ export function buildInvoiceReminderHtml({ invoice, customer, company, grossAmou
     <p>Hej${customer?.contactPerson ? ' ' + customer.contactPerson : ''},</p>
     <p>Det här är en automatisk påminnelse om faktura <strong>${invoice.invoiceNumber}</strong> på <strong>${fmt(grossAmount)} kr</strong>, som förföll ${formatDate(invoice.dueDate)}.</p>
     <p>Hör av dig om du redan betalat eller har frågor.</p>
-    <p>Med vänlig hälsning<br/>${company?.name || ''}</p>
+    <p>Med vänlig hälsning<br/>${company?.invoiceDisplayName || company?.name || ''}</p>
   `;
 }
 

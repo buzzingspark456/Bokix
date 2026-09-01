@@ -55,7 +55,22 @@ import { verifyReauthGrant } from './_signedToken.js';
 // två separata endpoints.
 const WRITABLE_FIELDS = new Set(COMPANY_WRITABLE_FIELDS);
 
-const FORETAGSAPI_KEY = process.env.FORETAGSAPI_KEY || null;
+// Läses INTE in som modul-nivå-konstant — samma gotcha som _signedToken.js/
+// _oauthState.js redan har en identisk kommentar om: server.js:s
+// dotenv.config() körs EFTER sina egna imports (ES-moduler kör hela det
+// importerade modul-kroppen innan importörens egen kod, dotenv.config()
+// inkluderad). Den här filen importerades tidigare aldrig direkt av
+// server.js (som hade en egen handkopierad FORETAGSAPI_KEY-konstant,
+// deklarerad EFTER sin egen dotenv.config()-rad och därför opåverkad) —
+// när server.js:s /api/company-access byttes till att importera
+// PRODUKTIONSFILEN direkt (se den kommentaren) blev en modul-nivå-konstant
+// här plötsligt `null` för alltid i lokal utveckling, trots en korrekt
+// ifylld .env ("FORETAGSAPI_KEY saknas" även med nyckeln på plats).
+// Fungerade ändå hela tiden i produktion (Vercel injicerar env-variabler
+// innan modulen ens laddas, inget dotenv/körordning inblandat där).
+function getForetagsApiKey() {
+  return process.env.FORETAGSAPI_KEY || null;
+}
 const FORETAGSAPI_SEARCH_URL = 'https://data.foretagsapi.se/v1/search';
 
 // Krymper FöretagsAPI:s fulla Company-objekt (se openapi.json) till bara de
@@ -79,7 +94,8 @@ function toCompanySummary(c) {
  * mellan i UI:t). Skriver själv res.status(...) och returnerar — samma
  * anropsmönster som requireAuthedUser m.fl. i _auth.js. */
 async function handleCompanyLookup(body, res) {
-  if (!FORETAGSAPI_KEY) {
+  const foretagsApiKey = getForetagsApiKey();
+  if (!foretagsApiKey) {
     res.status(503).json({ error: 'Företagsuppslag är inte konfigurerat (FORETAGSAPI_KEY saknas).' });
     return;
   }
@@ -110,7 +126,7 @@ async function handleCompanyLookup(body, res) {
   try {
     apiResponse = await fetch(FORETAGSAPI_SEARCH_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${FORETAGSAPI_KEY}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${foretagsApiKey}` },
       body: JSON.stringify(requestBody),
     });
   } catch (error) {
@@ -238,13 +254,15 @@ export default async function handler(req, res) {
     // måste kunna verifieras server-side, vilket ett rent klient-anrop
     // aldrig kan.
     let ownerUserId = null;
+    let ownerCompanyData = null;
     {
       const { data: ownRow, error: ownRowError } = await admin.from('user_data').select('state').eq('user_id', user.id).maybeSingle();
       if (ownRowError) {
         res.status(500).json({ error: ownRowError.message });
         return;
       }
-      if (ownRow?.state?.companies?.[companyId]) ownerUserId = user.id;
+      const existing = ownRow?.state?.companies?.[companyId];
+      if (existing) { ownerUserId = user.id; ownerCompanyData = existing; }
     }
 
     if (ownerUserId) {
@@ -255,6 +273,20 @@ export default async function handler(req, res) {
       // kollen är explicit ändå ifall det ändras senare.
       if (field === 'company' && !verifyReauthGrant(reauthToken, user.id)) {
         res.status(403).json({ error: 'Åtkomst nekad.' });
+        return;
+      }
+      // Låst registrerat företagsnamn: en gång satt (dvs. orgNr är ifyllt —
+      // se Settings.jsx:s kommentar om varför just orgNr är signalen "riktig
+      // registrering genomförd", inte en egen flagga) går namnet inte att
+      // ändra härifrån längre, ens med ett giltigt reauthToken — kontakta
+      // support är den enda vägen. Servern är den RIKTIGA spärren (ett rått
+      // API-anrop kan aldrig kringgå den), Settings.jsx:s låsta UI är bara
+      // återspeglingen av samma regel. Fritt fram att sätta namnet FÖRSTA
+      // gången (tomt orgNr = oavslutad registrering, se "Jag har inget
+      // företag än" i Auth.jsx) — det är precis vad Settings.jsx:s
+      // "Slutför din företagsregistrering"-flöde gör.
+      if (field === 'company' && ownerCompanyData?.orgNr && value?.name !== ownerCompanyData?.name) {
+        res.status(403).json({ error: 'Företagsnamnet är låst efter registreringen. Kontakta support@bokix.se för att ändra det.' });
         return;
       }
     } else {

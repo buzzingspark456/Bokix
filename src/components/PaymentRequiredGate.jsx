@@ -22,16 +22,19 @@ function StripeBadge() {
   );
 }
 
-// ── Visas istället för appen (App.jsx: subscriptionGate === 'blocked') när
-// en inloggad Supabase-användare INTE har en giltig rad i public.
-// subscriptions (trialing/active/past_due) — t.ex. om de stängde
-// Stripe-fliken innan de la in betalningsuppgifter, eller om webhooken
-// (customer.subscription.*) av någon anledning inte hunnit skriva statusen
-// än. Aldrig ett silent-block: alltid en tydlig väg vidare till Stripe,
-// eller ut igen. ──
-export default function PaymentRequiredGate({ user, onSignedOut }) {
+// ── Visas istället för appen när en inloggad Supabase-användare INTE har
+// en giltig rad i public.subscriptions (trialing/active/past_due) — antingen
+// KONTOTS ORIGINALSPÄRR (App.jsx: subscriptionGate === 'blocked', legacy-
+// raden, oförändrad sedan innan betala-per-företag) eller (kundkrav) ett
+// SPECIFIKT företags EGNA obetalda abonnemang (App.jsx: !isActiveCompanyPaid,
+// `company` prop satt då) — t.ex. om Stripe-fliken stängdes innan
+// betalningsuppgifter lades in, eller om webhooken (customer.subscription.*)
+// av någon anledning inte hunnit skriva statusen än. Aldrig ett silent-block:
+// alltid en tydlig väg vidare till Stripe, eller ut igen. ──
+export default function PaymentRequiredGate({ user, company, onSignedOut }) {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const forCompany = Boolean(company?.requiresOwnPayment);
 
   const handleContinueToPayment = async () => {
     setErrorMsg('');
@@ -40,6 +43,7 @@ export default function PaymentRequiredGate({ user, onSignedOut }) {
       const { session } = await createStripeSubscriptionCheckout({
         user_id: user.id,
         customer_email: user.email,
+        company_id: forCompany ? company.id : undefined,
       });
       if (!session?.url) throw new Error('Ingen betalningslänk mottogs från Stripe.');
       window.location.href = session.url;
@@ -74,10 +78,12 @@ export default function PaymentRequiredGate({ user, onSignedOut }) {
         </div>
 
         <h1 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '10px', letterSpacing: '-0.01em' }}>
-          Slutför din betalning för att fortsätta
+          {forCompany ? 'Slutför betalningen för det här företaget' : 'Slutför din betalning för att fortsätta'}
         </h1>
         <p style={{ fontSize: '14.5px', color: 'var(--text-secondary)', lineHeight: 1.65, marginBottom: '28px' }}>
-          Ditt konto ({user?.email}) är skapat, men du har inte lagt in betalningsuppgifter hos Stripe än. 30 dagar gratis, sedan 99 kr/mån — avsluta innan dess så kostar det ingenting.
+          {forCompany
+            ? <>Varje företag i Bokix betalas för sig — <strong>{company?.name || 'det här företaget'}</strong> väntar fortfarande på betalningsuppgifter hos Stripe. 30 dagar gratis, sedan 99 kr/mån — avsluta innan dess så kostar det ingenting.</>
+            : <>Ditt konto ({user?.email}) är skapat, men du har inte lagt in betalningsuppgifter hos Stripe än. 30 dagar gratis, sedan 99 kr/mån — avsluta innan dess så kostar det ingenting.</>}
         </p>
 
         {errorMsg && (

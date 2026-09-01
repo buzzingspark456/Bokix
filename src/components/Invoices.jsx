@@ -352,12 +352,12 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
         </p>
         ` : ''}
         <p>Hör av dig om du har några frågor.</p>
-        <p>Med vänlig hälsning<br/>${company?.name || ''}</p>
+        <p>Med vänlig hälsning<br/>${(company?.invoiceDisplayName || company?.name) || ''}</p>
       `;
 
       await sendInvoiceEmail({
         to,
-        subject: `Faktura ${nextNum} från ${company?.name || 'oss'}`,
+        subject: `Faktura ${nextNum} från ${(company?.invoiceDisplayName || company?.name) || 'oss'}`,
         html,
         replyTo: company?.email || undefined,
         attachmentBase64,
@@ -1592,7 +1592,7 @@ function PaymentLinkModal({ invoice, customer, company, onGetPaymentLinkUrl, onC
         <p style="margin: 20px 0;">
           <a href="${url}" style="display:inline-block;padding:12px 26px;background:#3d7a2e;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600;">Betala nu</a>
         </p>
-        <p>Med vänlig hälsning<br/>${company?.name || ''}</p>
+        <p>Med vänlig hälsning<br/>${(company?.invoiceDisplayName || company?.name) || ''}</p>
       `;
       await sendInvoiceEmail({
         to,

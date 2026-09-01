@@ -17,11 +17,32 @@ import { hasRecaptchaSecretKey, verifyRecaptcha } from './_recaptcha.js';
 // och e-postens HTML byggs alltid här på servern av validerade fält.
 // Annars vore det exakt det öppna mejl-reläet som säkerhetsgranskningen
 // (se kommentaren i send-invoice.js) redan en gång stängde igen.
-const resendApiKey = process.env.RESEND_API_KEY || null;
-const emailFrom = process.env.EMAIL_FROM || 'Bokix <onboarding@resend.dev>';
-const CONTACT_INBOX = process.env.CONTACT_INBOX || 'support@bokix.se';
+// Läses INTE in som modul-nivå-konstanter — samma gotcha som _resend.js/
+// _signedToken.js/company-access.js:s getForetagsApiKey/create-
+// subscription-checkout.js:s getStripe redan har en identisk kommentar
+// om: server.js:s dotenv.config() körs EFTER sina egna imports. Den här
+// filen importerades tidigare aldrig direkt av server.js (som hade en
+// egen handkopierad /api/contact-rutt) — när server.js:s /api/contact
+// byttes till att importera PRODUKTIONSFILEN direkt blev de här konstanterna
+// plötsligt permanent `null`/sina fallback-värden i lokal utveckling,
+// trots en korrekt ifylld .env ("E-post är inte konfigurerat" även med
+// nyckeln på plats). Fungerade ändå hela tiden i produktion.
+function getResendApiKey() {
+  return process.env.RESEND_API_KEY || null;
+}
+function getEmailFrom() {
+  return process.env.EMAIL_FROM || 'Bokix <onboarding@resend.dev>';
+}
+function getContactInbox() {
+  return process.env.CONTACT_INBOX || 'support@bokix.se';
+}
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const ALLOWED_TOPICS = ['Support', 'Fakturering & pris', 'Säkerhet & integritet', 'Övrigt'];
+// 'Felrapport' — den inloggade appens "Rapportera fel" (App.jsx), inte
+// bara den publika kontaktsidans egna ämnen. Samma rutt, samma
+// oautentiserade väg (kräver inte requireAuthedUser — se filkommentaren
+// högst upp), en inloggad avsändare skickar bara med sina egna
+// namn/e-post redan ifyllda istället för att behöva skriva dem.
+const ALLOWED_TOPICS = ['Support', 'Fakturering & pris', 'Säkerhet & integritet', 'Felrapport', 'Övrigt'];
 
 function esc(value) {
   return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -46,6 +67,7 @@ export default async function handler(req, res) {
     return;
   }
 
+  const resendApiKey = getResendApiKey();
   if (!resendApiKey) {
     res.status(503).json({ error: 'E-post är inte konfigurerat. Sätt RESEND_API_KEY i Vercels miljövariabler för att kunna ta emot kontaktformulär.' });
     return;
@@ -96,8 +118,8 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: emailFrom,
-        to: [CONTACT_INBOX],
+        from: getEmailFrom(),
+        to: [getContactInbox()],
         subject: `Kontaktformulär (${topic}) — ${name}`,
         html: buildEmailHtml({ name, email, topic, message }),
         reply_to: email,

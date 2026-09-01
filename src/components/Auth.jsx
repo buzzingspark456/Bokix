@@ -191,6 +191,9 @@ export default function Auth({ onLogin, onBackToLanding }) {
   // via applyCompany) — authoritative, unlike the digit-position guess
   // below. Empty until a lookup actually resolves.
   const [regLegalForm, setRegLegalForm] = useState('');
+  // "Jag har inget företag än" — se knappen i steg 2 och handleNextStep:s
+  // regStep===2-gren för hela resonemanget.
+  const [skipCompany, setSkipCompany] = useState(false);
 
   // Fallback only: a local heuristic from the org number's own digits, used
   // when a real lookup hasn't resolved a legal form yet (or failed) so the
@@ -328,22 +331,34 @@ export default function Auth({ onLogin, onBackToLanding }) {
     }
 
     if (regStep === 2) {
-      if (!regOrgNr.trim() || regOrgNr.replace(/\D/g, '').length < 10) {
-        setErrorMsg('Ange ett giltigt organisationsnummer (10 siffror)');
-        return;
-      }
-      // Företagsnamnet fylls i automatiskt av ett lyckat FöretagsAPI-uppslag
-      // (regCompany sätts då av companyLookup.applyCompany via
-      // handleLookupField), men fältet nedan är ALLTID redigerbart för
-      // hand — se motiveringen vid namnfältet: en enskild firma har inget
-      // eget bolagsregister att slå upp (bara ägarens personnummer, se
-      // orgType.js), och ett FöretagsAPI-avbrott/slut kredit-kvot (402)
-      // ska aldrig kunna blockera en registrering helt. Så den här
-      // kontrollen är bara ett vanligt obligatoriskt-fält-krav numera,
-      // inte ett bevis på ett lyckat uppslag.
-      if (!regCompany.trim()) {
-        setErrorMsg('Ange företagsnamnet.');
-        return;
+      // "Jag har inget företag än" (se knappen nedan) — hoppar över hela
+      // valideringen precis som hasPendingInvite redan gör (fast den hoppar
+      // över SJÄLVA STEGET, den här bara fälten inuti det, användaren har
+      // fortfarande sett/kunnat fylla i steget). signUp()-anropet nedan
+      // skickar tomma company_name/org_nr precis som för en inbjuden
+      // person — App.jsx:s fetchUserData skapar då ett tomt platshållar-
+      // företag ('Mitt Företag AB', orgNr: '') som Settings.jsx:s
+      // Företag-flik känner igen (via ett tomt orgNr) och visar en riktig
+      // "slutför registreringen"-vy för, med samma org.nummer-uppslag som
+      // här — se Settings.jsx:s kommentar vid Grunduppgifter.
+      if (!skipCompany) {
+        if (!regOrgNr.trim() || regOrgNr.replace(/\D/g, '').length < 10) {
+          setErrorMsg('Ange ett giltigt organisationsnummer (10 siffror)');
+          return;
+        }
+        // Företagsnamnet fylls i automatiskt av ett lyckat FöretagsAPI-uppslag
+        // (regCompany sätts då av companyLookup.applyCompany via
+        // handleLookupField), men fältet nedan är ALLTID redigerbart för
+        // hand — se motiveringen vid namnfältet: en enskild firma har inget
+        // eget bolagsregister att slå upp (bara ägarens personnummer, se
+        // orgType.js), och ett FöretagsAPI-avbrott/slut kredit-kvot (402)
+        // ska aldrig kunna blockera en registrering helt. Så den här
+        // kontrollen är bara ett vanligt obligatoriskt-fält-krav numera,
+        // inte ett bevis på ett lyckat uppslag.
+        if (!regCompany.trim()) {
+          setErrorMsg('Ange företagsnamnet.');
+          return;
+        }
       }
       setRegStep(3);
       return;
@@ -365,12 +380,15 @@ export default function Auth({ onLogin, onBackToLanding }) {
             data: {
               first_name: regFirstName,
               last_name: regLastName,
-              // Tomma för en inbjuden person — de skapar inget eget företag
-              // här (se hasPendingInvite ovan). App.jsx:s fetchUserData
-              // hoppar då över "skapa tomt företag"-grenen helt, eftersom
-              // den bara körs när varken egen data eller delad åtkomst finns.
-              company_name: hasPendingInvite ? '' : regCompany,
-              org_nr: hasPendingInvite ? '' : regOrgNr,
+              // Tomma för en inbjuden person (se hasPendingInvite ovan —
+              // App.jsx:s fetchUserData hoppar då över "skapa tomt
+              // företag"-grenen helt, eftersom den bara körs när varken
+              // egen data eller delad åtkomst finns) ELLER för "Jag har
+              // inget företag än" (skipCompany, steg 2) — då körs samma
+              // gren, men skapar ETT tomt platshållarföretag istället för
+              // att hoppas över, se kommentaren vid skipCompany-deklarationen.
+              company_name: (hasPendingInvite || skipCompany) ? '' : regCompany,
+              org_nr: (hasPendingInvite || skipCompany) ? '' : regOrgNr,
             },
             ...(regCaptchaToken ? { captchaToken: regCaptchaToken } : {}),
           }
@@ -779,51 +797,93 @@ export default function Auth({ onLogin, onBackToLanding }) {
                       <Check size={13} /> E-postadressen är verifierad
                     </div>
                   )}
-                  <div>
-                    <label style={labelStyle}>Organisationsnummer * <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(10 siffror)</span></label>
-                    <div style={{ position: 'relative' }}>
-                      <Hash size={16} color="var(--text-muted)" style={{ position: 'absolute', top: 14, left: 12, pointerEvents: 'none' }} />
-                      <input
-                        className="auth-input"
-                        type="text"
-                        inputMode="numeric"
-                        style={{ ...inputStyle, paddingLeft: '38px' }}
-                        placeholder="556123-4567"
-                        value={regOrgNr}
-                        onChange={e => { const formatted = formatOrgNr(e.target.value); setRegOrgNr(formatted); setRegCompany(''); setRegLegalForm(''); companyLookup.handleOrgNrChange(formatted); }}
-                        required
-                      />
+                  {skipCompany ? (
+                    // "Jag har inget företag än" valt — se knappen och
+                    // handleNextStep:s regStep===2-gren för hela resonemanget.
+                    // Ångra-knappen nollställer INTE regOrgNr/regCompany (om
+                    // man redan hunnit skriva något innan man klickade skip,
+                    // ingen anledning att slänga det).
+                    <div style={{ padding: '16px', background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>Inget företag registrerat än — inga problem.</div>
+                      <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                        Du kan lägga till organisationsnummer och företagsnamn senare, under Inställningar → Företag.
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSkipCompany(false)}
+                        style={{ alignSelf: 'flex-start', marginTop: '4px', background: 'none', border: 'none', padding: 0, color: BRAND.green, fontWeight: 700, fontSize: '12.5px', cursor: 'pointer', fontFamily: 'inherit' }}
+                      >
+                        Jag har ett företag ändå
+                      </button>
                     </div>
-                    {companyLookup.orgLookup.status === 'loading' && <div style={lookupStatusStyle}>Hämtar företagsuppgifter…</div>}
-                    {companyLookup.orgLookup.status === 'error' && <div style={lookupStatusStyle}>{companyLookup.orgLookup.message}</div>}
-                  </div>
+                  ) : (
+                    <>
+                      <div>
+                        <label style={labelStyle}>Organisationsnummer * <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(10 siffror)</span></label>
+                        <div style={{ position: 'relative' }}>
+                          <Hash size={16} color="var(--text-muted)" style={{ position: 'absolute', top: 14, left: 12, pointerEvents: 'none' }} />
+                          <input
+                            className="auth-input"
+                            type="text"
+                            inputMode="numeric"
+                            style={{ ...inputStyle, paddingLeft: '38px' }}
+                            placeholder="556123-4567"
+                            value={regOrgNr}
+                            onChange={e => { const formatted = formatOrgNr(e.target.value); setRegOrgNr(formatted); setRegCompany(''); setRegLegalForm(''); companyLookup.handleOrgNrChange(formatted); }}
+                            required
+                          />
+                        </div>
+                        {companyLookup.orgLookup.status === 'loading' && <div style={lookupStatusStyle}>Hämtar företagsuppgifter…</div>}
+                        {companyLookup.orgLookup.status === 'error' && <div style={lookupStatusStyle}>{companyLookup.orgLookup.message}</div>}
+                        {/* Enskild firma är FÖRVÄNTAT, inte ett misslyckat uppslag
+                            (se useCompanyLookup.js:s kommentar) — egen, positiv
+                            stil (samma gröna Check-mönster som "Hämtat från
+                            bolagsregistret" nedan) istället för att dela
+                            lookupStatusStyles neutrala "nåt gick kanske fel"-ton. */}
+                        {companyLookup.orgLookup.status === 'firma' && (
+                          <div style={{ ...lookupStatusStyle, display: 'flex', alignItems: 'flex-start', gap: '6px', color: BRAND.greenDark, fontWeight: 600 }}>
+                            <Check size={13} style={{ flexShrink: 0, marginTop: '2px' }} />
+                            <span>{companyLookup.orgLookup.message}</span>
+                          </div>
+                        )}
+                      </div>
 
-                  <div>
-                    <label style={labelStyle}>Företagsnamn *</label>
-                    <input
-                      className="auth-input"
-                      type="text"
-                      style={inputStyle}
-                      placeholder="Ex. Mitt Företag AB"
-                      value={regCompany}
-                      onChange={e => setRegCompany(e.target.value)}
-                      required
-                    />
-                    {/* Kort, flyktig bekräftelse direkt efter ett lyckat
-                        uppslag — fältet ovan är annars identiskt oavsett om
-                        namnet kom från registret eller skrevs in för hand;
-                        det ena är inte "mer rätt" eller mer låst än det andra. */}
-                    {companyLookup.orgLookup.status === 'done' && regCompany && (
-                      <div style={{ marginTop: '9px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: BRAND.greenDark }}>
-                        <Check size={13} /> Hämtat från bolagsregistret — ändra gärna om något stämmer bättre.
+                      <div>
+                        <label style={labelStyle}>Företagsnamn *</label>
+                        <input
+                          className="auth-input"
+                          type="text"
+                          style={inputStyle}
+                          placeholder="Ex. Mitt Företag AB"
+                          value={regCompany}
+                          onChange={e => setRegCompany(e.target.value)}
+                          required
+                        />
+                        {/* Kort, flyktig bekräftelse direkt efter ett lyckat
+                            uppslag — fältet ovan är annars identiskt oavsett om
+                            namnet kom från registret eller skrevs in för hand;
+                            det ena är inte "mer rätt" eller mer låst än det andra. */}
+                        {companyLookup.orgLookup.status === 'done' && regCompany && (
+                          <div style={{ marginTop: '9px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: BRAND.greenDark }}>
+                            <Check size={13} /> Hämtat från bolagsregistret — ändra gärna om något stämmer bättre.
+                          </div>
+                        )}
+                        {displayedOrgType && (
+                          <div style={{ marginTop: '9px', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 12px', background: BRAND.greenLight, borderRadius: '999px', fontSize: '12.5px', fontWeight: 700, color: BRAND.greenDark }}>
+                            <Check size={13} /> Identifierad som: {displayedOrgType}
+                          </div>
+                        )}
                       </div>
-                    )}
-                    {displayedOrgType && (
-                      <div style={{ marginTop: '9px', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 12px', background: BRAND.greenLight, borderRadius: '999px', fontSize: '12.5px', fontWeight: 700, color: BRAND.greenDark }}>
-                        <Check size={13} /> Identifierad som: {displayedOrgType}
-                      </div>
-                    )}
-                  </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setSkipCompany(true)}
+                        style={{ alignSelf: 'flex-start', background: 'none', border: 'none', padding: 0, color: 'var(--text-muted)', fontWeight: 600, fontSize: '12.5px', cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline' }}
+                      >
+                        Jag har inget företag än
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
 

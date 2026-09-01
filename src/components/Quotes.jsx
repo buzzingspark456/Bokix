@@ -322,11 +322,11 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, on
         ${messageHtml}
         ${attachmentsHtml}
         <p>Hör av dig om du har några frågor.</p>
-        <p>Med vänlig hälsning<br/>${company?.name || ''}</p>
+        <p>Med vänlig hälsning<br/>${(company?.invoiceDisplayName || company?.name) || ''}</p>
       `;
       await sendInvoiceEmail({
         to,
-        subject: `Offert ${previewNumber} från ${company?.name || 'oss'}`,
+        subject: `Offert ${previewNumber} från ${(company?.invoiceDisplayName || company?.name) || 'oss'}`,
         html,
         replyTo: company?.email || undefined,
         attachmentBase64,

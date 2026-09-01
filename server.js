@@ -10,15 +10,16 @@ import { parseCookies, STRIPE_OAUTH_COOKIE, stripeOauthStateCookie, clearStripeO
 import { createSignedState as createZettleSignedState, verifySignedState as verifyZettleSignedState } from './api/zettle/_oauthState.js'
 import { ZETTLE_OAUTH_COOKIE, zettleOauthStateCookie, clearZettleOauthStateCookie } from './api/zettle/_cookies.js'
 import { recordStripePaymentEvent } from './api/stripe/_paymentEvents.js'
-import { upsertSubscription, hasExistingSubscription, getSubscriptionRow } from './api/stripe/_subscriptions.js'
+import { upsertSubscription } from './api/stripe/_subscriptions.js'
 import remindersHandler from './api/cron/reminders.js'
 import requestPasswordResetHandler from './api/auth/request-password-reset.js'
 import companyAccessHandler from './api/company-access.js'
-import { normalizeAbsoluteUrl, appendQueryParam } from './api/stripe/_urls.js'
+import createSubscriptionCheckoutHandler from './api/stripe/create-subscription-checkout.js'
+import contactHandler from './api/contact.js'
+import { normalizeAbsoluteUrl } from './api/stripe/_urls.js'
 import { resolveInvoiceLineItems } from './api/stripe/_invoiceLineItems.js'
 import { requireAuthedUser, loadOwnedCompany } from './api/_auth.js'
 import { isRequestFromBot } from './api/_botid.js'
-import { hasRecaptchaSecretKey, verifyRecaptcha } from './api/_recaptcha.js'
 
 dotenv.config()
 
@@ -94,30 +95,6 @@ function requireResendAdmin(res) {
 
 /** Namnet före @ i en avsändaradress — samma för alla, oavsett domän. */
 const SENDER_LOCAL_PART = 'faktura'
-
-// ── Kontaktformulär (publik marknadssajt) — se motsvarande kommentar i
-// api/contact.js för varför det här är en EGEN rutt och inte samma som
-// send-invoice: ingen inloggning krävs, men mottagare/HTML byggs alltid
-// på servern istället för att lita på klienten.
-const CONTACT_INBOX = process.env.CONTACT_INBOX || 'support@bokix.se'
-const CONTACT_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const ALLOWED_CONTACT_TOPICS = ['Support', 'Fakturering & pris', 'Säkerhet & integritet', 'Övrigt']
-
-function escContact(value) {
-  return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}
-
-function buildContactEmailHtml({ name, email, topic, message }) {
-  return `
-    <div style="font-family: Arial, sans-serif; font-size: 14px; color: #0f172a; line-height: 1.6;">
-      <p><strong>Namn:</strong> ${escContact(name)}</p>
-      <p><strong>E-post:</strong> ${escContact(email)}</p>
-      <p><strong>Ämne:</strong> ${escContact(topic)}</p>
-      <p><strong>Meddelande:</strong></p>
-      <p style="white-space: pre-wrap;">${escContact(message)}</p>
-    </div>
-  `
-}
 
 function fallbackSenderAddress(companyName) {
   // Om EMAIL_FROM redan är på formen "Namn <adress>" byts bara namndelen ut
@@ -279,8 +256,18 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
       // prenumeration (registreringsflödet), helt separat från
       // checkout.session.completed ovan.
       const sub = event.data.object
+      // company_id — betala-per-företag (kundkrav), se motsvarande kommentar
+      // i api/stripe/webhook.js. Måste hållas i synk manuellt: den här
+      // routen läser den råa request-strömmen själv (express.raw() ovan,
+      // krävs för Stripes signaturverifiering) på ett sätt som INTE är
+      // kompatibelt med produktionsfilens req.text() rakt av — till
+      // skillnad från company-access.js/request-password-reset.js kunde den
+      // här därför inte bytas till ett direkt-import utan att riskera att
+      // knäcka det känsligaste flödet i hela appen. Se filkommentaren vid
+      // api/stripe/connect.js:s mirror härunder för samma avvägning.
       await upsertSubscription({
         userId: sub.metadata?.user_id,
+        companyId: sub.metadata?.company_id || null,
         stripeCustomerId: typeof sub.customer === 'string' ? sub.customer : sub.customer?.id,
         stripeSubscriptionId: sub.id,
         status: sub.status,
@@ -403,109 +390,19 @@ app.post('/api/stripe/create-checkout-session', async (req, res) => {
   }
 })
 
-// Bokix egen plan — "Ett pris. Allt ingår." — helt separat från
-// create-checkout-session ovan (kunders fakturabetalningar via ett anslutet
-// konto). Se motsvarande kommentar i api/stripe/create-subscription-
-// checkout.js (samma logik speglad här för lokal utveckling).
-const SUBSCRIPTION_PRICE_SEK_ORE = 9900 // 99,00 kr/mån
-const SUBSCRIPTION_TRIAL_DAYS = 30
-
-app.post('/api/stripe/create-subscription-checkout', async (req, res) => {
-  if (!requireStripe(res)) return
-
-  // Vercel BotID — se filkommentaren i main.jsx.
-  if (await isRequestFromBot()) {
-    res.status(403).json({ error: 'Åtkomst nekad.' })
-    return
-  }
-
-  try {
-    const body = req.body || {}
-
-    // Avsluta/återaktivera en BEFINTLIG prenumeration — se motsvarande
-    // kommentar i api/stripe/create-subscription-checkout.js (samma logik
-    // speglad här för lokal utveckling). Kräver alltid en verifierad
-    // inloggad session, till skillnad från checkout-grenen nedan.
-    if (body.action === 'cancel' || body.action === 'reactivate') {
-      const authedUser = await requireAuthedUser(req, res)
-      if (!authedUser) return
-
-      const subRow = await getSubscriptionRow(authedUser.id)
-      if (!subRow?.stripe_subscription_id) {
-        return res.status(404).json({ error: 'Ingen prenumeration hittades för kontot.' })
-      }
-
-      const updated = await stripe.subscriptions.update(subRow.stripe_subscription_id, {
-        cancel_at_period_end: body.action === 'cancel',
-      })
-
-      await upsertSubscription({
-        userId: authedUser.id,
-        stripeCustomerId: typeof updated.customer === 'string' ? updated.customer : updated.customer?.id,
-        stripeSubscriptionId: updated.id,
-        status: updated.status,
-        trialEndsAt: updated.trial_end ? new Date(updated.trial_end * 1000).toISOString() : null,
-        currentPeriodEnd: updated.current_period_end ? new Date(updated.current_period_end * 1000).toISOString() : null,
-        cancelAtPeriodEnd: !!updated.cancel_at_period_end,
-      })
-
-      return res.status(200).json({
-        status: updated.status,
-        cancelAtPeriodEnd: !!updated.cancel_at_period_end,
-        trialEndsAt: updated.trial_end ? new Date(updated.trial_end * 1000).toISOString() : null,
-        currentPeriodEnd: updated.current_period_end ? new Date(updated.current_period_end * 1000).toISOString() : null,
-      })
-    }
-
-    if (!body.user_id) {
-      return res.status(400).json({ error: 'user_id krävs.' })
-    }
-
-    // Säkerhetsfix (se motsvarande kommentar i api/stripe/create-
-    // subscription-checkout.js, samma logik speglad här för lokal
-    // utveckling): den här rutten litade tidigare blint på body.user_id,
-    // helt utan den skyddskoll produktionsversionen redan hade fått.
-    if (await hasExistingSubscription(body.user_id)) {
-      const user = await requireAuthedUser(req, res)
-      if (!user) return // requireAuthedUser har redan svarat 401
-      if (user.id !== body.user_id) {
-        return res.status(403).json({ error: 'user_id matchar inte den inloggade användaren.' })
-      }
-    }
-
-    const baseUrl = normalizeAbsoluteUrl(process.env.STRIPE_SUCCESS_URL, 'http://localhost:5173')
-    const cancelBaseUrl = normalizeAbsoluteUrl(process.env.STRIPE_CANCEL_URL, 'http://localhost:5173')
-
-    const session = await stripe.checkout.sessions.create({
-      mode: 'subscription',
-      customer_email: body.customer_email || undefined,
-      // Se motsvarande kommentar i api/stripe/create-subscription-checkout.js
-      allow_promotion_codes: true,
-      line_items: [
-        {
-          price_data: {
-            currency: 'sek',
-            product_data: { name: 'Bokix' },
-            unit_amount: SUBSCRIPTION_PRICE_SEK_ORE,
-            recurring: { interval: 'month' },
-          },
-          quantity: 1,
-        },
-      ],
-      subscription_data: {
-        trial_period_days: SUBSCRIPTION_TRIAL_DAYS,
-        metadata: { user_id: body.user_id },
-      },
-      metadata: { user_id: body.user_id },
-      success_url: appendQueryParam(baseUrl, 'subscription_checkout', 'success'),
-      cancel_url: appendQueryParam(cancelBaseUrl, 'subscription_checkout', 'cancelled'),
-    })
-
-    res.status(200).json({ session })
-  } catch (error) {
-    handleError(res, error)
-  }
-})
+// Bokix egen plan — "betala per företag" (kundkrav, se api/stripe/create-
+// subscription-checkout.js:s filkommentar för hela resonemanget) — tidigare
+// en handkopierad lokal-dev-version av den filen (samma "lärde sig aldrig
+// om nya grenar"-bugg som redan fixats två gånger tidigare denna session,
+// se company-access.js/request-password-reset.js). Till skillnad från
+// webhooken ovan (som MÅSTE läsa den råa request-strömmen för Stripes
+// signaturverifiering, inkompatibelt med produktionsfilens req.text() via
+// en vanlig Express-req) har den här routen inget sådant hinder — body:n
+// är redan ett vanligt parsat objekt, exakt samma form produktionsfilens
+// egen parseJsonBody(req) redan hanterar transparent. Importerar och kör
+// produktionens handler direkt istället för att hålla en tredje kopia i
+// synk för hand.
+app.post('/api/stripe/create-subscription-checkout', (req, res) => createSubscriptionCheckoutHandler(req, res))
 
 // ── E-post (Resend) ──────────────────────────────────────────────────────
 // Skickar riktiga mejl till kunder — till skillnad från mailto:-länkarna på
@@ -595,63 +492,14 @@ app.post('/api/email/send-invoice', async (req, res) => {
 // istället för att hålla en andra kopia i synk för hand.
 app.all('/api/company-access', (req, res) => companyAccessHandler(req, res))
 
-// Striktare gräns än övriga e-postrutter (sensitiveLimiter ovan tillåter
-// 30) — ett anonymt, oautentiserat formulär är det mest utsatta målet
-// för spam av alla rutterna här.
-const contactLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 5, standardHeaders: true, legacyHeaders: false })
-app.post('/api/contact', contactLimiter, async (req, res) => {
-  if (!requireResend(res)) return
-
-  if (await isRequestFromBot()) {
-    res.status(403).json({ error: 'Åtkomst nekad.' })
-    return
-  }
-
-  try {
-    const body = req.body || {}
-    const name = typeof body.name === 'string' ? body.name.trim() : ''
-    const email = typeof body.email === 'string' ? body.email.trim() : ''
-    const topic = ALLOWED_CONTACT_TOPICS.includes(body.topic) ? body.topic : 'Övrigt'
-    const message = typeof body.message === 'string' ? body.message.trim() : ''
-
-    if (!name || !email || !message) {
-      res.status(400).json({ error: 'Namn, e-post och meddelande krävs.' })
-      return
-    }
-    if (!CONTACT_EMAIL_RE.test(email)) {
-      res.status(400).json({ error: 'Ogiltig e-postadress.' })
-      return
-    }
-
-    // Samma "bara om nyckel satt"-princip som api/contact.js (produktion).
-    if (hasRecaptchaSecretKey()) {
-      const { ok } = await verifyRecaptcha(body.recaptchaToken, req.ip)
-      if (!ok) {
-        res.status(400).json({ error: 'Kunde inte verifiera att du inte är en robot. Ladda om sidan och försök igen.' })
-        return
-      }
-    }
-
-    const result = await sendViaResend({
-      from: emailFrom,
-      to: [CONTACT_INBOX],
-      subject: `Kontaktformulär (${topic}) — ${name}`,
-      html: buildContactEmailHtml({ name, email, topic, message }),
-      reply_to: email,
-    })
-
-    if (!result.ok) {
-      console.error('Resend API error (contact):', result.data)
-      res.status(result.status).json({ error: result.data?.message || 'Resend kunde inte skicka e-posten.' })
-      return
-    }
-
-    res.status(200).json({ id: result.data.id })
-  } catch (error) {
-    console.error('Contact form send error:', error)
-    res.status(500).json({ error: error?.message || 'Kunde inte skicka e-post.' })
-  }
-})
+// /api/contact — tidigare en handkopierad lokal-dev-version (egna
+// ALLOWED_CONTACT_TOPICS/CONTACT_EMAIL_RE/buildContactEmailHtml), samma
+// "lärde sig aldrig om nya ämnen"-risk som redan träffat den här kodbasen
+// flera gånger (se importraderna ovan): App.jsx:s nya "Rapportera fel"-
+// formulär lade till ämnet 'Felrapport' i produktionsfilen, som den här
+// kopian aldrig hade fått reda på. Löst likadant: importerar och kör
+// produktionens handler direkt.
+app.post('/api/contact', (req, res) => contactHandler(req, res))
 
 // ── "Glömt lösenord?" OCH registreringens e-postverifieringskod (Auth.jsx)
 // — TILL SKILLNAD från varje annan rutt i den här filen (utom /api/cron/

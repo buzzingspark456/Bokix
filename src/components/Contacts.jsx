@@ -274,6 +274,14 @@ function CustomerForm({ initial, onSave, onCancel }) {
             {lookupEnabled && lookup.orgLookup.status === 'loading' && <div style={lookupStatusStyle}>Hämtar företagsuppgifter…</div>}
             {lookupEnabled && lookup.orgLookup.status === 'done' && <div style={{ ...lookupStatusStyle, color: 'var(--status-green-text)' }}>{lookup.orgLookup.message}</div>}
             {lookupEnabled && lookup.orgLookup.status === 'error' && <div style={lookupStatusStyle}>{lookup.orgLookup.message}</div>}
+            {/* Enskild firma är förväntat, inte ett misslyckat uppslag — se
+                useCompanyLookup.js:s kommentar och Auth.jsx:s motsvarighet. */}
+            {lookupEnabled && lookup.orgLookup.status === 'firma' && (
+              <div style={{ ...lookupStatusStyle, display: 'flex', alignItems: 'flex-start', gap: '6px', color: 'var(--status-green-text)', fontWeight: 600 }}>
+                <Check size={13} style={{ flexShrink: 0, marginTop: '2px' }} />
+                <span>{lookup.orgLookup.message}</span>
+              </div>
+            )}
           </div>
           <div>
             <label style={labelStyle}>Betalningsvillkor (dagar)</label>
@@ -435,6 +443,12 @@ function SupplierForm({ initial, onSave, onCancel, accounts }) {
             {isSwedish && lookup.orgLookup.status === 'loading' && <div style={lookupStatusStyle}>Hämtar företagsuppgifter…</div>}
             {isSwedish && lookup.orgLookup.status === 'done' && <div style={{ ...lookupStatusStyle, color: 'var(--status-green-text)' }}>{lookup.orgLookup.message}</div>}
             {isSwedish && lookup.orgLookup.status === 'error' && <div style={lookupStatusStyle}>{lookup.orgLookup.message}</div>}
+            {isSwedish && lookup.orgLookup.status === 'firma' && (
+              <div style={{ ...lookupStatusStyle, display: 'flex', alignItems: 'flex-start', gap: '6px', color: 'var(--status-green-text)', fontWeight: 600 }}>
+                <Check size={13} style={{ flexShrink: 0, marginTop: '2px' }} />
+                <span>{lookup.orgLookup.message}</span>
+              </div>
+            )}
           </div>
           {!isSwedish && (
             <div>

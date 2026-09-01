@@ -130,6 +130,11 @@ export default async function handler(req, res) {
         const sub = event.data.object;
         await upsertSubscription({
           userId: sub.metadata?.user_id,
+          // company_id — betala-per-företag (kundkrav), se create-
+          // subscription-checkout.js. Saknas (undefined) för kontots
+          // ORIGINALprenumeration, precis som innan — upsertSubscription/
+          // _subscriptions.js behandlar det som legacy-raden.
+          companyId: sub.metadata?.company_id || null,
           stripeCustomerId: typeof sub.customer === 'string' ? sub.customer : sub.customer?.id,
           stripeSubscriptionId: sub.id,
           status: sub.status,
@@ -145,6 +150,7 @@ export default async function handler(req, res) {
         const sub = event.data.object;
         await upsertSubscription({
           userId: sub.metadata?.user_id,
+          companyId: sub.metadata?.company_id || null,
           stripeCustomerId: typeof sub.customer === 'string' ? sub.customer : sub.customer?.id,
           stripeSubscriptionId: sub.id,
           status: sub.status,

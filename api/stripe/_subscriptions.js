@@ -12,7 +12,18 @@ import { createClient } from '@supabase/supabase-js';
 // att finnas som två separata, lätt-att-glömma-uppdatera kopior — server.js
 // hade tidigare sin egen, oparallella create-subscription-checkout-rutt utan
 // den här kollen alls, ett latent kryphål i lokal utveckling.
-export async function hasExistingSubscription(userId) {
+// Betala-per-företag (kundkrav): companyId ''/null/undefined = kontots
+// ursprungliga/legacy-abonnemang (se supabase-setup.sql:s kommentar vid
+// public.subscriptions för hela resonemanget — "redan betalt", oförändrat
+// för alla konton/företag som fanns innan den här ändringen). Ett riktigt
+// companyId = ett SPECIFIKT, nytt tillagt företags EGNA abonnemang.
+// company_id är NOT NULL i databasen (tom sträng, inte NULL, för
+// legacy-raden — se samma SQL-kommentar för varför: en riktig, fullständig
+// UNIQUE(user_id, company_id) fungerar med .upsert()s onConflict-option,
+// ett NULL+partiellt-index-upplägg hade inte gjort det).
+const legacyCompanyId = (companyId) => companyId || '';
+
+export async function hasExistingSubscription(userId, companyId = null) {
   const supabaseUrl = process.env.VITE_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !serviceRoleKey) {
@@ -21,26 +32,28 @@ export async function hasExistingSubscription(userId) {
     return true;
   }
   const admin = createClient(supabaseUrl, serviceRoleKey);
-  const { data } = await admin.from('subscriptions').select('user_id').eq('user_id', userId).maybeSingle();
+  const { data } = await admin.from('subscriptions').select('user_id').eq('user_id', userId).eq('company_id', legacyCompanyId(companyId)).maybeSingle();
   return !!data;
 }
 
-/** Hämtar HELA prenumerationsraden för ett konto (Inställningar →
- * Prenumeration: avsluta/återaktivera, se create-subscription-checkout.js)
- * — till skillnad från hasExistingSubscription ovan, som bara kollar OM en
- * rad finns, behöver avsluta/återaktivera-flödet stripe_subscription_id:t
- * för att veta VILKEN Stripe-prenumeration som ska uppdateras. */
-export async function getSubscriptionRow(userId) {
+/** Hämtar HELA prenumerationsraden för ETT företag (companyId null =
+ * kontots legacy-rad, se hasExistingSubscription ovan) — Inställningar →
+ * Prenumeration (avsluta/återaktivera, se create-subscription-checkout.js)
+ * behöver stripe_subscription_id:t för att veta VILKEN Stripe-prenumeration
+ * som ska uppdateras. */
+export async function getSubscriptionRow(userId, companyId = null) {
   const supabaseUrl = process.env.VITE_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !serviceRoleKey) return null;
   const admin = createClient(supabaseUrl, serviceRoleKey);
-  const { data } = await admin.from('subscriptions').select('*').eq('user_id', userId).maybeSingle();
+  const { data } = await admin.from('subscriptions').select('*').eq('user_id', userId).eq('company_id', legacyCompanyId(companyId)).maybeSingle();
   return data || null;
 }
 
+
 export async function upsertSubscription({
   userId,
+  companyId = null,
   stripeCustomerId,
   stripeSubscriptionId,
   status,
@@ -61,14 +74,16 @@ export async function upsertSubscription({
     return;
   }
   const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
-  // upsert på user_id (UNIQUE, en rad per konto) — samma rad uppdateras av
-  // varje efterföljande subscription-händelse för samma användare, i
-  // motsats till stripe_payment_events som är en append-only logg.
+  // upsert på (user_id, company_id) — EN riktig, fullständig unik
+  // constraint (se supabase-setup.sql:s kommentar för varför company_id är
+  // '' istället för NULL för legacy-raden, inte ett partiellt index).
+  // Samma onConflict-sats täcker båda fallen.
   const { error } = await supabaseAdmin
     .from('subscriptions')
     .upsert(
       {
         user_id: userId,
+        company_id: legacyCompanyId(companyId),
         stripe_customer_id: stripeCustomerId,
         stripe_subscription_id: stripeSubscriptionId,
         status,
@@ -76,7 +91,7 @@ export async function upsertSubscription({
         current_period_end: currentPeriodEnd,
         cancel_at_period_end: cancelAtPeriodEnd,
       },
-      { onConflict: 'user_id' }
+      { onConflict: 'user_id,company_id' }
     );
   if (error) throw error;
 }

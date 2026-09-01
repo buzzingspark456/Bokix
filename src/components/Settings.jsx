@@ -12,6 +12,8 @@ import InvoiceDocument, { INVOICE_TEMPLATES, DEFAULT_INVOICE_TEMPLATE } from './
 import { useIsMobileViewport } from '../hooks/useIsMobileViewport';
 import ListTable from './shared/ListTable';
 import { sendReauthCode, verifyReauthCode, changePassword } from '../utils/reauthVerification';
+import { useCompanyLookup } from '../hooks/useCompanyLookup';
+import { detectOrgType, formatLegalForm, formatOrgNr } from '../utils/orgType';
 
 // Visas istället för att faktiskt anropa Supabase när `readOnly` (Sida
 // landningssidans demo, se DemoWorkspace.jsx) — samma text överallt i den
@@ -1149,12 +1151,18 @@ const SUBSCRIPTION_STATUS_LABELS = {
  * tidigare statiska platshållartexten som alltid stod kvar oavsett faktisk
  * status, och som gjorde TermsPolicy.jsx:s löfte ("Uppsägning sker under
  * Inställningar i tjänsten") osant i praktiken. */
-function SubscriptionSection({ user, sharedAccess, readOnly = false }) {
+function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) {
   // Samma "jag är ägare om jag inte är en inbjuden gäst"-regel som
   // UsersAndAccessSection ovan. En inbjuden gäst rider på ÄGARENS
   // prenumeration (App.jsx: hasSharedAccess) och har ingen egen rad att
   // avsluta här.
   const isOwner = !sharedAccess;
+  // Betala-per-företag (kundkrav): '' = kontots legacy-rad (allt som fanns
+  // innan denna ändring, samt kontots första företag), ett riktigt id =
+  // det AKTIVA företagets EGNA rad — se supabase-setup.sql:s kommentar vid
+  // public.subscriptions. Sidan visar/hanterar alltså alltid DET företag
+  // man just nu står på, inte kontot som helhet.
+  const companyId = company?.requiresOwnPayment ? company.id : '';
 
   const [sub, setSub] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -1165,22 +1173,26 @@ function SubscriptionSection({ user, sharedAccess, readOnly = false }) {
   const loadSubscription = async () => {
     if (readOnly || !isOwner || !user?.id) { setLoading(false); return; }
     setLoading(true);
+    // .eq('company_id', companyId) krävs numera — utan den matchar frågan
+    // ALLA företags rader för kontot, och .maybeSingle() kraschar så fort
+    // det finns mer än en (dvs. så fort ett andra företag köpts).
     const { data } = await supabase
       .from('subscriptions')
       .select('status, trial_ends_at, current_period_end, cancel_at_period_end')
       .eq('user_id', user.id)
+      .eq('company_id', companyId)
       .maybeSingle();
     setSub(data || null);
     setLoading(false);
   };
 
-  useEffect(() => { loadSubscription(); }, [user?.id, isOwner]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { loadSubscription(); }, [user?.id, isOwner, companyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCancel = async () => {
     if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; }
     setBusy(true); setError('');
     try {
-      await cancelStripeSubscription();
+      await cancelStripeSubscription(companyId || null);
       await loadSubscription();
       setConfirmCancel(false);
     } catch (err) {
@@ -1194,7 +1206,7 @@ function SubscriptionSection({ user, sharedAccess, readOnly = false }) {
     if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; }
     setBusy(true); setError('');
     try {
-      await reactivateStripeSubscription();
+      await reactivateStripeSubscription(companyId || null);
       await loadSubscription();
     } catch (err) {
       setError(err.message || 'Kunde inte återaktivera prenumerationen. Försök igen om en stund.');
@@ -1354,8 +1366,29 @@ export default function Settings({
   const [companySaveBusy, setCompanySaveBusy] = useState(false);
   const [companySaveError, setCompanySaveError] = useState('');
   const [companySaveSuccess, setCompanySaveSuccess] = useState(false);
-  const COMPANY_INFO_KEYS = ['name', 'orgNr', 'vatNr', 'address', 'fSkatt', 'email', 'phone'];
+  const COMPANY_INFO_KEYS = ['name', 'orgNr', 'vatNr', 'address', 'fSkatt', 'email', 'phone', 'invoiceDisplayName'];
   const companyInfoDirty = COMPANY_INFO_KEYS.some(k => (companyDraft?.[k] || '') !== (company?.[k] || ''));
+
+  // Registrerat företagsnamn LÅST efter en genomförd registrering — se
+  // api/company-access.js:s motsvarande, faktiska serverspärr (den här
+  // flaggan styr bara VISNINGEN, servern är den riktiga gränsen). Ett tomt
+  // orgNr betyder "Jag har inget företag än" valdes vid registreringen
+  // (Auth.jsx) — inget nytt fält att hålla i synk, samma signal servern
+  // redan använder.
+  const companyRegistrationComplete = Boolean(company?.orgNr);
+  // Org.nummer-uppslaget för "Slutför din företagsregistrering" nedan —
+  // samma hook/mönster som Auth.jsx:s registreringssteg 2 och
+  // Contacts.jsx, skriver bara till companyDraft istället för regX-state.
+  const [companyRegLegalForm, setCompanyRegLegalForm] = useState('');
+  const companyRegLookup = useCompanyLookup((key, value) => {
+    if (key === 'name') setCompanyDraft(d => ({ ...d, name: value }));
+    else if (key === 'orgNr') setCompanyDraft(d => ({ ...d, orgNr: formatOrgNr(value) }));
+    else if (key === 'legalForm') setCompanyRegLegalForm(value);
+  });
+  // Samma "auktoritativt uppslagssvar före lokal siffer-gissning"-prioritet
+  // som Auth.jsx:s displayedOrgType.
+  const companyRegOrgType = detectOrgType(companyDraft?.orgNr);
+  const companyRegDisplayedOrgType = (companyRegLegalForm && formatLegalForm(companyRegLegalForm)) || companyRegOrgType;
 
   const saveCompanyInfo = async (reauthToken) => {
     setCompanySaveBusy(true); setCompanySaveError('');
@@ -1671,28 +1704,108 @@ export default function Settings({
 
               <div style={card}>
                 <div style={{ marginBottom: '16px' }}><SectionHeading icon={Building2} tone="green">Grunduppgifter</SectionHeading></div>
-                <div style={{ maxWidth: '672px' }}>
-                  <AutoField label="Företagsnamn" value={companyDraft?.name || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, name: v })} required />
-                </div>
-                <div className="form-row-2" style={{ ...grid2, maxWidth: '672px' }}>
-                  <AutoField label="Organisationsnummer" value={companyDraft?.orgNr || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, orgNr: v })} />
-                  <AutoField label="Momsregistreringsnummer" value={companyDraft?.vatNr || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, vatNr: v })} />
-                </div>
-                <div style={{ maxWidth: '672px' }}>
-                  <AutoField label="Adress" value={companyDraft?.address || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, address: v })} />
-                </div>
-                {/* F-skattsedel skrivs ut på varenda faktura/offert (se InvoiceDocument)
-                    men gick tidigare inte att ändra någonstans — den föll tillbaka på
-                    en hårdkodad text ("Innehar F-skattsedel") som INTE nödvändigtvis
-                    stämmer för alla företagsformer. Görs redigerbar här istället för
-                    att tyst påstå något om företaget som kanske inte är sant. */}
-                <div style={{ maxWidth: '672px' }}>
-                  <AutoField
-                    label="F-skattsedel (text på faktura)" value={companyDraft?.fSkatt || 'Innehar F-skattsedel'}
-                    onChange={(v) => setCompanyDraft({ ...companyDraft, fSkatt: v })}
-                    hint="Skrivs ut på fakturor/offerter under företagsuppgifterna. Ändra eller töm om det inte stämmer för ditt företag."
-                  />
-                </div>
+                {!companyRegistrationComplete ? (
+                  // "Jag har inget företag än" valdes vid registreringen
+                  // (Auth.jsx) — samma org.nummer-uppslag/badge-mönster som
+                  // där, men skriver till companyDraft och sparas via samma
+                  // Spara ändringar+reauth-knapp längst ner som allt annat i
+                  // det här kortet. Namnet går att sätta FRITT här (se
+                  // api/company-access.js:s lås — orgNr tomt = ej avslutad
+                  // registrering) — LÅSES först i och med att det sparas.
+                  <div style={{ maxWidth: '672px' }}>
+                    <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 16px' }}>
+                      Slutför din företagsregistrering — organisationsnumret och namnet du sparar här blir företagets registrerade uppgifter (namnet går att låsa upp igen bara via support@bokix.se, så dubbelkolla innan du sparar).
+                    </p>
+                    <div>
+                      <label style={labelStyle}>Organisationsnummer <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(10 siffror)</span></label>
+                      <input
+                        type="text" inputMode="numeric" style={inputBase} placeholder="556123-4567"
+                        value={companyDraft?.orgNr || ''}
+                        onChange={e => {
+                          const formatted = formatOrgNr(e.target.value);
+                          setCompanyDraft(d => ({ ...d, orgNr: formatted, name: '' }));
+                          setCompanyRegLegalForm('');
+                          companyRegLookup.handleOrgNrChange(formatted);
+                        }}
+                      />
+                      {companyRegLookup.orgLookup.status === 'loading' && <div style={{ fontSize: '12px', marginTop: '8px', color: 'var(--text-secondary)' }}>Hämtar företagsuppgifter…</div>}
+                      {companyRegLookup.orgLookup.status === 'error' && <div style={{ fontSize: '12px', marginTop: '8px', color: 'var(--text-secondary)' }}>{companyRegLookup.orgLookup.message}</div>}
+                      {companyRegLookup.orgLookup.status === 'firma' && (
+                        <div style={{ fontSize: '12px', marginTop: '8px', display: 'flex', alignItems: 'flex-start', gap: '6px', color: BRAND.greenDark, fontWeight: 600 }}>
+                          <Check size={13} style={{ flexShrink: 0, marginTop: '2px' }} /><span>{companyRegLookup.orgLookup.message}</span>
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ marginTop: '14px' }}>
+                      <label style={labelStyle}>Företagsnamn</label>
+                      <input
+                        type="text" style={inputBase} placeholder="Ex. Mitt Företag AB"
+                        // 'Mitt Företag AB' är App.jsx:s platshållarnamn för
+                        // just den här (oavslutade) registreringen — visas
+                        // aldrig som om det vore ett riktigt ifyllt värde,
+                        // annars ser fältet ut att redan innehålla ett svar.
+                        // Genererar samtidigt en användbar bieffekt: skrivs
+                        // inget ÖVER platshållaren är companyDraft.name
+                        // fortfarande bokstavligen oförändrat mot company.name,
+                        // så companyInfoDirty (och därmed Spara-knappen)
+                        // förblir avstängd tills man faktiskt skrivit något.
+                        value={companyDraft?.name === 'Mitt Företag AB' ? '' : (companyDraft?.name || '')}
+                        onChange={e => setCompanyDraft(d => ({ ...d, name: e.target.value }))}
+                      />
+                      {companyRegDisplayedOrgType && (
+                        <div style={{ marginTop: '9px', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 12px', background: BRAND.greenLight, borderRadius: '999px', fontSize: '12.5px', fontWeight: 700, color: BRAND.greenDark }}>
+                          <Check size={13} /> Identifierad som: {companyRegDisplayedOrgType}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ maxWidth: '672px' }}>
+                      <label style={labelStyle}>Företagsnamn</label>
+                      <div style={{ ...inputBase, background: 'var(--bg-muted)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', cursor: 'default' }}>
+                        {company?.name || '—'}
+                      </div>
+                      {/* Låst — se api/company-access.js:s serverspärr. Bara
+                          UI-återspeglingen av den regeln, inte själva
+                          skyddet (det sitter server-side, verifierat även
+                          med ett giltigt reauthToken). */}
+                      <div style={{ marginTop: '6px', fontSize: '11.5px', color: 'var(--text-muted)' }}>
+                        Registrerat företagsnamn — kontakta <a href="mailto:support@bokix.se" style={{ color: BRAND.green }}>support@bokix.se</a> för att ändra det. Vill du visa ett annat namn på fakturor, använd fältet nedan istället.
+                      </div>
+                    </div>
+                    <div className="form-row-2" style={{ ...grid2, maxWidth: '672px' }}>
+                      <AutoField label="Organisationsnummer" value={companyDraft?.orgNr || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, orgNr: v })} />
+                      <AutoField label="Momsregistreringsnummer" value={companyDraft?.vatNr || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, vatNr: v })} />
+                    </div>
+                    <div style={{ maxWidth: '672px' }}>
+                      <AutoField label="Adress" value={companyDraft?.address || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, address: v })} />
+                    </div>
+                    {/* F-skattsedel skrivs ut på varenda faktura/offert (se InvoiceDocument)
+                        men gick tidigare inte att ändra någonstans — den föll tillbaka på
+                        en hårdkodad text ("Innehar F-skattsedel") som INTE nödvändigtvis
+                        stämmer för alla företagsformer. Görs redigerbar här istället för
+                        att tyst påstå något om företaget som kanske inte är sant. */}
+                    <div style={{ maxWidth: '672px' }}>
+                      <AutoField
+                        label="F-skattsedel (text på faktura)" value={companyDraft?.fSkatt || 'Innehar F-skattsedel'}
+                        onChange={(v) => setCompanyDraft({ ...companyDraft, fSkatt: v })}
+                        hint="Skrivs ut på fakturor/offerter under företagsuppgifterna. Ändra eller töm om det inte stämmer för ditt företag."
+                      />
+                    </div>
+                    {/* Fritt visningsnamn för fakturor — separat från det
+                        låsta registrerade namnet ovan (se InvoiceDocument.jsx:s
+                        motsvarande fallback). Tomt = använd det registrerade
+                        namnet, precis som innan den här möjligheten fanns. */}
+                    <div style={{ maxWidth: '672px' }}>
+                      <AutoField
+                        label="Visningsnamn på faktura" value={companyDraft?.invoiceDisplayName || ''}
+                        onChange={(v) => setCompanyDraft({ ...companyDraft, invoiceDisplayName: v })}
+                        hint="Visas på fakturor/offerter istället för det registrerade företagsnamnet, om ifyllt — t.ex. om ni är kända under ett annat namn. Lämna tomt för att visa det registrerade namnet."
+                      />
+                    </div>
+                  </>
+                )}
               </div>
 
               <div style={card}>
@@ -1980,7 +2093,7 @@ export default function Settings({
           {activeTab === 'subscription' && (
             <div style={{ animation: 'fadeIn 0.2s ease' }}>
               <h2 style={{ fontSize: '20px', fontWeight: 700, margin: '0 0 20px', color: 'var(--text-main)' }}>Prenumeration</h2>
-              <SubscriptionSection user={user} sharedAccess={sharedAccess} readOnly={readOnly} />
+              <SubscriptionSection user={user} company={company} sharedAccess={sharedAccess} readOnly={readOnly} />
               <div style={card}>
                 <h3 style={{ fontSize: '14.5px', fontWeight: 700, margin: '0 0 10px', color: 'var(--text-main)' }}>Betalhistorik</h3>
                 <div style={{ fontSize: '13px', color: 'var(--text-muted)', padding: '12px 0' }}>Ingen betalhistorik ännu.</div>
@@ -2066,7 +2179,7 @@ export default function Settings({
                     checked={sidebarStyle === 'dark'}
                     onChange={() => onToggleSidebarStyle?.()}
                     label="Mörk sidomeny"
-                    hint="Sidomenyn blir mörk (samma nyans som mörkt läge) medan resten av appen fortfarande är ljus. Har ingen effekt om du redan kör mörkt läge — där är sidomenyn mörk ändå."
+                    hint="Sidomenyn blir mörkgrön medan resten av appen fortfarande är ljus. Har ingen effekt om du redan kör mörkt läge — där är sidomenyn mörk ändå."
                   />
                 </div>
               </div>

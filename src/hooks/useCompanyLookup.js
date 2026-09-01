@@ -26,7 +26,7 @@ const NAME_MIN_CHARS = 3;
 // bara som en kort, icke-blockerande textrad — formuläret fungerar exakt
 // som innan uppslaget fanns om något går fel.
 export function useCompanyLookup(set) {
-  const [orgLookup, setOrgLookup] = useState({ status: 'idle', message: '' }); // idle|loading|done|error
+  const [orgLookup, setOrgLookup] = useState({ status: 'idle', message: '' }); // idle|loading|done|error|firma
   const [nameResults, setNameResults] = useState([]);
   const [nameSearch, setNameSearch] = useState({ status: 'idle', message: '' });
 
@@ -73,12 +73,15 @@ export function useCompanyLookup(set) {
     // ändå skicka det vidare vore bara ett bortkastat (kredit-belagt, se
     // 402-hanteringen nedan) anrop som garanterat svarar "hittades inte",
     // och ett onödigt utskick av ett personnummer till en extern tjänst.
-    // Kortsluts här istället med samma neutrala 'error'-status som ett
-    // faktiskt "hittades inte" redan renderas med (se Auth.jsx/Contacts.jsx)
-    // — ingen ny UI-gren behövs, meddelandet är bara mer korrekt.
+    // Kundfeedback: det här är FÖRVÄNTAT beteende, inte ett misslyckat
+    // uppslag — men delade tidigare samma 'error'-status (och därmed samma
+    // röda/varnande styling) som ett faktiskt "hittades inte", vilket lästes
+    // som "trasigt" istället för "så här ska det se ut för enskild firma".
+    // Egen status ('firma') så Auth.jsx/Contacts.jsx kan visa den med en
+    // neutral, informativ stil — samma meddelandetext som innan.
     if (detectOrgType(digits) === 'Enskild firma') {
       setOrgLookup({
-        status: 'error',
+        status: 'firma',
         message: 'Enskild firma drivs av en privatperson (personnumret är firmans nummer) — inget bolagsregister att slå upp. Fyll i namnet manuellt.',
       });
       return;

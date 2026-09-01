@@ -93,14 +93,20 @@ export async function createStripeSubscriptionCheckout(payload) {
 // varför: Vercels 12-funktionsgräns), skiljs bara på body.action. Kräver
 // alltid en inloggad session — till skillnad från checkout-anropet ovan
 // finns ingen legitim anropspunkt utan en.
-export async function cancelStripeSubscription() {
+//
+// companyId (betala-per-företag, kundkrav) — utelämnad/null = kontots
+// ursprungliga/legacy-abonnemang, precis som innan denna ändring; ett
+// riktigt värde riktar avsluta/återaktivera mot just DET företagets EGNA
+// abonnemang istället (Settings.jsx: Prenumeration-fliken skickar numera
+// alltid det aktiva företagets id).
+export async function cancelStripeSubscription(companyId = null) {
   const { data: { session } = {} } = await supabase.auth.getSession();
   if (!session?.access_token) throw new Error('Du måste vara inloggad för att avsluta prenumerationen.');
-  return requestStripeApi('create-subscription-checkout', { action: 'cancel' }, session.access_token);
+  return requestStripeApi('create-subscription-checkout', { action: 'cancel', company_id: companyId || undefined }, session.access_token);
 }
 
-export async function reactivateStripeSubscription() {
+export async function reactivateStripeSubscription(companyId = null) {
   const { data: { session } = {} } = await supabase.auth.getSession();
   if (!session?.access_token) throw new Error('Du måste vara inloggad för att återaktivera prenumerationen.');
-  return requestStripeApi('create-subscription-checkout', { action: 'reactivate' }, session.access_token);
+  return requestStripeApi('create-subscription-checkout', { action: 'reactivate', company_id: companyId || undefined }, session.access_token);
 }
