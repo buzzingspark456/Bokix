@@ -56,3 +56,21 @@ export function verifySignedToken(token, maxAgeMs = 10 * 60 * 1000) {
   if (!payload?.ts || Date.now() - payload.ts > maxAgeMs) return null;
   return payload;
 }
+
+// 5 min — samma konstant som api/auth/request-password-reset.js:s eget
+// REAUTH_GRANT_MAX_AGE_MS (den filen prägar tokenen, den här bara
+// kontrollerar den, så de måste hållas i synk manuellt precis som
+// COMPANY_WRITABLE_FIELDS redan är dokumenterat att göra på två ställen).
+const REAUTH_GRANT_MAX_AGE_MS = 5 * 60 * 1000;
+
+/** Delad koll för alla tre känsliga åtgärder som kräver ett nyligen
+ * verifierat reauth-koden (Settings.jsx: byt lösenord/spara
+ * företagsuppgifter, App.jsx: Stripe-anslutning) — se
+ * api/auth/request-password-reset.js:s verify-reauth-code-gren för var
+ * `reauthToken` kommer ifrån. Ligger här (inte i request-password-reset.js
+ * självt) så api/company-access.js och api/stripe/connect.js kan importera
+ * den utan att dra in en hel annan routes handler-fil. */
+export function verifyReauthGrant(reauthToken, userId) {
+  const payload = verifySignedToken(reauthToken, REAUTH_GRANT_MAX_AGE_MS);
+  return !!payload && payload.purpose === 'reauth-grant' && payload.uid === userId;
+}

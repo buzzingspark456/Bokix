@@ -5,6 +5,7 @@ import Stripe from 'stripe'
 import dotenv from 'dotenv'
 import { createClient } from '@supabase/supabase-js'
 import { createSignedState, verifySignedState } from './api/stripe/_oauthState.js'
+import { verifyReauthGrant } from './api/_signedToken.js'
 import { parseCookies, STRIPE_OAUTH_COOKIE, stripeOauthStateCookie, clearStripeOauthStateCookie } from './api/stripe/_cookies.js'
 import { createSignedState as createZettleSignedState, verifySignedState as verifyZettleSignedState } from './api/zettle/_oauthState.js'
 import { ZETTLE_OAUTH_COOKIE, zettleOauthStateCookie, clearZettleOauthStateCookie } from './api/zettle/_cookies.js'
@@ -12,10 +13,10 @@ import { recordStripePaymentEvent } from './api/stripe/_paymentEvents.js'
 import { upsertSubscription, hasExistingSubscription, getSubscriptionRow } from './api/stripe/_subscriptions.js'
 import remindersHandler from './api/cron/reminders.js'
 import requestPasswordResetHandler from './api/auth/request-password-reset.js'
+import companyAccessHandler from './api/company-access.js'
 import { normalizeAbsoluteUrl, appendQueryParam } from './api/stripe/_urls.js'
 import { resolveInvoiceLineItems } from './api/stripe/_invoiceLineItems.js'
-import { requireAuthedUser, loadOwnedCompany, loadMemberCompany } from './api/_auth.js'
-import { COMPANY_WRITABLE_FIELDS } from './src/utils/companyFields.js'
+import { requireAuthedUser, loadOwnedCompany } from './api/_auth.js'
 import { isRequestFromBot } from './api/_botid.js'
 import { hasRecaptchaSecretKey, verifyRecaptcha } from './api/_recaptcha.js'
 
@@ -582,178 +583,17 @@ app.post('/api/email/send-invoice', async (req, res) => {
   }
 })
 
-// Speglar GET/POST /api/company-access i api/company-access.js — lokal
-// utveckling, samma resonemang som send-invoice ovan (Vercel kör aldrig
-// server.js i produktion). Enda rutten en INBJUDEN användare (company_members)
-// någonsin pratar med — se filkommentaren i api/company-access.js för hela
-// säkerhetsresonemanget, exakt speglat här. POST { action: 'lookup', ... }
-// (FöretagsAPI-uppslag, se samma fils kommentar) speglas här också.
-const COMPANY_ACCESS_WRITABLE_FIELDS = new Set(COMPANY_WRITABLE_FIELDS)
-
-const FORETAGSAPI_KEY = process.env.FORETAGSAPI_KEY || null
-const FORETAGSAPI_SEARCH_URL = 'https://data.foretagsapi.se/v1/search'
-
-function toCompanySummary(c) {
-  return {
-    name: c?.name || '',
-    orgNumber: c?.orgNumber || '',
-    legalForm: c?.legalForm || '',
-    street: c?.postalAddress?.street || '',
-    postalCode: c?.postalAddress?.postalCode || '',
-    city: c?.postalAddress?.city || '',
-    active: !c?.deregistrationDate,
-  }
-}
-
-async function handleCompanyLookup(body, res) {
-  if (!FORETAGSAPI_KEY) {
-    res.status(503).json({ error: 'Företagsuppslag är inte konfigurerat (FORETAGSAPI_KEY saknas).' })
-    return
-  }
-  const query = typeof body?.query === 'string' ? body.query.trim() : ''
-  if (!query) {
-    res.status(400).json({ error: 'query krävs.' })
-    return
-  }
-
-  let requestBody
-  if (body?.mode === 'orgnr') {
-    const digits = query.replace(/\D/g, '')
-    if (digits.length !== 10) {
-      res.status(400).json({ error: 'Organisationsnumret måste vara 10 siffror.' })
-      return
-    }
-    requestBody = { org_number: digits }
-  } else if (body?.mode === 'name') {
-    const limit = Math.min(Math.max(Number(body?.limit) || 5, 1), 10)
-    requestBody = { q: query, limit }
-  } else {
-    res.status(400).json({ error: 'mode måste vara "orgnr" eller "name".' })
-    return
-  }
-
-  let apiResponse
-  try {
-    apiResponse = await fetch(FORETAGSAPI_SEARCH_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${FORETAGSAPI_KEY}` },
-      body: JSON.stringify(requestBody),
-    })
-  } catch (error) {
-    console.error('FöretagsAPI-anrop misslyckades:', error)
-    res.status(502).json({ error: 'Kunde inte nå företagsregistret just nu.' })
-    return
-  }
-  const data = await apiResponse.json().catch(() => ({}))
-
-  if (!apiResponse.ok) {
-    if (apiResponse.status === 402) {
-      res.status(402).json({ error: 'Företagsuppslaget är slut för den här månaden. Fyll i uppgifterna manuellt.' })
-      return
-    }
-    if (apiResponse.status === 429) {
-      res.status(429).json({ error: 'För många uppslag mot företagsregistret just nu. Försök igen om en stund.' })
-      return
-    }
-    console.error('FöretagsAPI-fel:', apiResponse.status, data)
-    res.status(502).json({ error: 'Kunde inte slå upp företaget just nu.' })
-    return
-  }
-
-  const companies = Array.isArray(data?.companies) ? data.companies.map(toCompanySummary) : []
-  res.status(200).json({ companies })
-}
-
-app.get('/api/company-access', async (req, res) => {
-  // Ingen BotID-koll här (till skillnad från POST nedan) — samma konvention
-  // som GET-grenen i api/email/domains/index.js: bara skrivande POST-endpoints
-  // registreras i main.jsx:s initBotId-lista, en GET-koll här hade bara
-  // trigga Vercels "Possible misconfiguration"-larm i onödan (verifierat
-  // lokalt).
-  const user = await requireAuthedUser(req, res)
-  if (!user) return
-
-  try {
-    const companyId = req.query?.company_id
-    if (!companyId) {
-      res.status(400).json({ error: 'company_id krävs.' })
-      return
-    }
-    const member = await loadMemberCompany(user.id, companyId, res)
-    if (!member) return
-    res.status(200).json({ company: member.companyData, role: member.role })
-  } catch (error) {
-    console.error('company-access error:', error)
-    res.status(500).json({ error: error?.message || 'Kunde inte hämta företagsdata.' })
-  }
-})
-
-app.post('/api/company-access', async (req, res) => {
-  // Ingen BotID-koll här längre — speglar api/company-access.js (se
-  // rättningen och den utförliga förklaringen där, 2026-08-30). Utan en
-  // matchande client-registrering i main.jsx skickas x-is-human-headern
-  // aldrig, och Vercels bot-tjänst kunde då landa i isBot:true för vanliga
-  // användare i produktion ("Åtkomst nekad" på både sökning och sparning).
-  const body = req.body || {}
-
-  // Ingen inloggning krävs för lookup — Auth.jsx:s registreringsflöde
-  // anropar den här INNAN kontot finns (signUp() körs först i steg 4),
-  // se filkommentaren i api/company-access.js för hela resonemanget.
-  // Måste avgöras INNAN requireAuthedUser nedan, annars 401:ar en
-  // oinloggad registrering redan här.
-  if (body?.action === 'lookup') {
-    try {
-      await handleCompanyLookup(body, res)
-    } catch (error) {
-      console.error('company-access lookup error:', error)
-      res.status(500).json({ error: error?.message || 'Kunde inte slå upp företaget.' })
-    }
-    return
-  }
-
-  const user = await requireAuthedUser(req, res)
-  if (!user) return
-
-  try {
-    const { company_id: companyId, field, value } = body
-    if (!companyId || !field || value === undefined) {
-      res.status(400).json({ error: 'company_id, field och value krävs.' })
-      return
-    }
-    if (!COMPANY_ACCESS_WRITABLE_FIELDS.has(field)) {
-      res.status(400).json({ error: `Ogiltigt fält: ${field}` })
-      return
-    }
-
-    const member = await loadMemberCompany(user.id, companyId, res)
-    if (!member) return
-    if (member.role !== 'editor') {
-      res.status(403).json({ error: 'Din roll (läsare) tillåter inte att spara ändringar.' })
-      return
-    }
-
-    // Ingen ny env-var-koll här: loadMemberCompany ovan har redan skapat en
-    // admin-klient med samma VITE_SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY och
-    // skulle ha svarat 503 och returnerat null (koden hade aldrig nått hit)
-    // om någon av dem saknades — en andra koll här var därför dödkod.
-    const admin = createClient(process.env.VITE_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
-    const { error: rpcError } = await admin.rpc('set_company_field', {
-      p_user_id: member.ownerUserId,
-      p_company_id: companyId,
-      p_field: field,
-      p_value: value,
-    })
-    if (rpcError) {
-      res.status(500).json({ error: rpcError.message })
-      return
-    }
-
-    res.status(200).json({ ok: true })
-  } catch (error) {
-    console.error('company-access error:', error)
-    res.status(500).json({ error: error?.message || 'Kunde inte spara företagsdata.' })
-  }
-})
+// GET/POST /api/company-access — kördes tidigare som en handkopierad,
+// egen lokal-dev-version av api/company-access.js. Bugkritiskt mönster
+// (samma sak hände request-password-reset.js, se dess importrad ovan och
+// commit-historiken 2026-08-31): den handkopierade versionen lärde sig
+// aldrig om ändringar i originalet — här specifikt reauthToken-kollen och
+// ägar-snabbvägen som lades till för Settings.jsx:s "Spara ändringar"
+// (Företagsuppgifter, Reauthentication). Löst en gång för alla på samma
+// sätt som request-password-reset.js: importera och kör produktionens
+// handler direkt (samma mönster som redan finns för /api/cron/reminders)
+// istället för att hålla en andra kopia i synk för hand.
+app.all('/api/company-access', (req, res) => companyAccessHandler(req, res))
 
 // Striktare gräns än övriga e-postrutter (sensitiveLimiter ovan tillåter
 // 30) — ett anonymt, oautentiserat formulär är det mest utsatta målet
@@ -966,9 +806,19 @@ app.post('/api/stripe/connect', async (req, res) => {
   const user = await requireAuthedUser(req, res)
   if (!user) return
 
-  const { company_id: companyId, action } = req.body || {}
+  const { company_id: companyId, action, reauthToken } = req.body || {}
   if (!companyId) {
     res.status(400).json({ error: 'company_id krävs.' })
+    return
+  }
+
+  // Reauthentication — speglar api/stripe/connect.js:s koll (se den filens
+  // kommentar). Måste hållas i synk manuellt eftersom den här routen INTE
+  // importerar produktionens handler (till skillnad från company-access.js/
+  // request-password-reset.js ovan) — se filkommentaren strax ovan om
+  // varför Stripe OAuth-flödet medvetet inte rördes vid det bytet.
+  if (!verifyReauthGrant(reauthToken, user.id)) {
+    res.status(403).json({ error: 'Åtkomst nekad.' })
     return
   }
 

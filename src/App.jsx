@@ -2186,7 +2186,12 @@ function App() {
   // slogs ihop till en fil för att göra plats under Vercels 12-funktions-
   // gräns (Hobby), se filkommentaren i connect.js. action: 'start' väljer
   // grenen.
-  const handleOpenStripeOnboarding = async () => {
+  // reauthToken (Settings.jsx: Betalning-flikens ReauthCodeStep, se den
+  // filens kommentar vid "Ta emot kortbetalningar") — vem som helst med en
+  // kapad browser-session skulle annars kunna koppla om vart pengarna går
+  // med bara ett klick. connect.js:s handler avvisar anropet med 403 om
+  // token:en saknas/är ogiltig, se verifyReauthGrant i _signedToken.js.
+  const handleOpenStripeOnboarding = async (reauthToken) => {
     if (!user) {
       alert('Logga in för att ansluta Stripe.');
       return;
@@ -2200,7 +2205,7 @@ function App() {
           'Content-Type': 'application/json',
           ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
         },
-        body: JSON.stringify({ company_id: data.activeCompanyId, action: 'start' }),
+        body: JSON.stringify({ company_id: data.activeCompanyId, action: 'start', reauthToken }),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || !payload?.url) throw new Error(payload?.error || `Kunde inte starta Stripe-anslutningen (${response.status})`);
@@ -2211,7 +2216,9 @@ function App() {
     }
   };
 
-  const handleDisconnectStripe = async () => {
+  // reauthToken — se kommentaren vid handleOpenStripeOnboarding ovan, samma
+  // resonemang gäller frånkoppling.
+  const handleDisconnectStripe = async (reauthToken) => {
     if (!company.stripeAccountId) return;
     if (!window.confirm('Koppla från Stripe? Bokix kan då inte längre ta emot kortbetalningar till det här kontot.')) return;
 
@@ -2229,7 +2236,7 @@ function App() {
           'Content-Type': 'application/json',
           ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
         },
-        body: JSON.stringify({ company_id: data.activeCompanyId, action: 'disconnect' }),
+        body: JSON.stringify({ company_id: data.activeCompanyId, action: 'disconnect', reauthToken }),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload?.error || `Frånkoppling misslyckades (${response.status})`);

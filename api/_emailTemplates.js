@@ -83,3 +83,21 @@ export function buildSignupVerificationHtml({ code }) {
     <p>Med vänlig hälsning<br/>Bokix</p>
   `;
 }
+
+/** Reauthentication inför en känslig ändring (byt lösenord, spara
+ * företagsuppgifter, koppla/koppla från Stripe) — se
+ * api/auth/request-password-reset.js:s send-reauth-code-gren. Samma
+ * visuella mönster som buildSignupVerificationHtml ovan (stor,
+ * glesspatierad kod), bara annan brödtext eftersom mottagaren redan är
+ * inloggad, inte mitt i registreringen. */
+export function buildReauthCodeHtml({ code }) {
+  return `
+    <p>Hej,</p>
+    <p>Din kod för att bekräfta ändringen i Bokix är:</p>
+    <p style="margin: 24px 0; text-align: center;">
+      <span style="display:inline-block;padding:14px 22px;background:#f4f4f5;border-radius:10px;font-size:32px;font-weight:700;letter-spacing:10px;color:#111827;">${code}</span>
+    </p>
+    <p>Koden gäller i 10 minuter. Bad du inte om den här koden bör du byta lösenord — någon annan kan ha kommit åt ditt konto.</p>
+    <p>Med vänlig hälsning<br/>Bokix</p>
+  `;
+}

@@ -4,21 +4,33 @@ import { requireAuthedUser, loadMemberCompany } from './_auth.js';
 import { checkRateLimit } from './_rateLimit.js';
 import { createClient } from '@supabase/supabase-js';
 import { COMPANY_WRITABLE_FIELDS } from '../src/utils/companyFields.js';
+import { verifyReauthGrant } from './_signedToken.js';
 
-// Enda server-endpointen en INBJUDEN användare (se supabase-setup.sql:
-// company_members — ägare + upp till 2 inbjudna = max 3 per företag) någonsin
-// pratar med för att läsa/skriva ett delat företags data. En inbjuden
-// användare har ALDRIG en egen user_data-rad för det här företaget (blobben
-// ligger kvar hos ägaren) och får därför aldrig gå via klientens vanliga
-// direkta supabase.from('user_data')-anrop — RLS på user_data tillåter
-// fortfarande bara auth.uid() = user_id. Den här filen är den enda platsen
-// som får kringgå det, via service-role-nyckeln, och bara efter att ha
-// bevisat ett AKTIVT medlemskap (loadMemberCompany i _auth.js).
+// Huvudsakligen till för en INBJUDEN användare (se supabase-setup.sql:
+// company_members — ägare + upp till 2 inbjudna = max 3 per företag) att
+// läsa/skriva ett delat företags data. En inbjuden användare har ALDRIG en
+// egen user_data-rad för det här företaget (blobben ligger kvar hos
+// ägaren) och får därför aldrig gå via klientens vanliga direkta
+// supabase.from('user_data')-anrop — RLS på user_data tillåter fortfarande
+// bara auth.uid() = user_id. Den här filen är den enda platsen som får
+// kringgå det, via service-role-nyckeln, och bara efter att ha bevisat ett
+// AKTIVT medlemskap (loadMemberCompany i _auth.js).
+//
+// ÄGAREN sparar normalt sett ALDRIG via den här filen (skriver direkt mot
+// sin egen user_data-rad, RLS räcker där) — MED ETT UNDANTAG: field==='company'
+// (Settings.jsx:s "Spara ändringar"-knapp för Företagsuppgifter, se
+// Reauthentication-kommentaren vid reauthToken nedan) går hit ÄVEN för
+// ägaren, eftersom just den skrivningen måste kunna kräva ett server-
+// verifierat reauthToken — något ett rent klient-anrop aldrig kan göra.
+// POST-grenen provar därför en ägar-snabbväg (egen user_data-rad) FÖRE
+// loadMemberCompany.
 //
 // GET  ?company_id=X          → { company: <hela företagets state-gren>, role }
-// POST { company_id, field, value } → sparar ETT fält via set_company_field
-//   (samma vitlista av tillåtna fält som SQL-funktionen själv kräver — se
-//   supabase-setup.sql). Avvisas med 403 om rollen är 'viewer'.
+// POST { company_id, field, value, reauthToken? } → sparar ETT fält via
+//   set_company_field (samma vitlista av tillåtna fält som SQL-funktionen
+//   själv kräver — se supabase-setup.sql). Avvisas med 403 om rollen är
+//   'viewer', eller (bara för field==='company', ägaren själv) om
+//   reauthToken saknas/är ogiltig — se verifyReauthGrant i _signedToken.js.
 // POST { action: 'lookup', mode: 'orgnr'|'name', query } → se
 //   handleCompanyLookup nedan. En tredje, i grunden orelaterad rutt (slår
 //   upp ett företag i FöretagsAPI:s register, rör aldrig company_members
@@ -201,7 +213,7 @@ export default async function handler(req, res) {
     }
 
     // POST (fältsparning) — postBody parsades redan ovan.
-    const { company_id: companyId, field, value } = postBody || {};
+    const { company_id: companyId, field, value, reauthToken } = postBody || {};
     if (!companyId || !field || value === undefined) {
       res.status(400).json({ error: 'company_id, field och value krävs.' });
       return;
@@ -211,18 +223,52 @@ export default async function handler(req, res) {
       return;
     }
 
-    const member = await loadMemberCompany(user.id, companyId, res);
-    if (!member) return;
-    if (member.role !== 'editor') {
-      res.status(403).json({ error: 'Din roll (läsare) tillåter inte att spara ändringar.' });
-      return;
-    }
-
     const supabaseUrl = process.env.VITE_SUPABASE_URL;
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     const admin = createClient(supabaseUrl, serviceRoleKey);
+
+    // Ägar-snabbväg, provas FÖRE loadMemberCompany: den funktionen letar
+    // bara i company_members, dit ägaren själv aldrig läggs (se filens
+    // kommentar högst upp — ägaren har sin egen rad i user_data direkt,
+    // ingen medlemskapsrad att slå upp). Ägaren sparar annars ALLTID
+    // direkt via klientens egen supabase.from('user_data')-anrop
+    // (App.jsx:s updateCompanyField) — förutom just 'company'-fältet, som
+    // Settings.jsx numera skickar hit istället EFTERSOM den skrivningen
+    // (Reauthentication, se kommentaren vid reauthToken-kollen nedan)
+    // måste kunna verifieras server-side, vilket ett rent klient-anrop
+    // aldrig kan.
+    let ownerUserId = null;
+    {
+      const { data: ownRow, error: ownRowError } = await admin.from('user_data').select('state').eq('user_id', user.id).maybeSingle();
+      if (ownRowError) {
+        res.status(500).json({ error: ownRowError.message });
+        return;
+      }
+      if (ownRow?.state?.companies?.[companyId]) ownerUserId = user.id;
+    }
+
+    if (ownerUserId) {
+      // Bara 'company' kräver reauth idag (Settings.jsx:s nya "Spara
+      // ändringar"-knapp för Företagsuppgifter) — övriga WRITABLE_FIELDS
+      // sparas aldrig via den här filen för ägaren (se kommentaren ovan),
+      // så grenen är i praktiken bara nådd med field==='company', men
+      // kollen är explicit ändå ifall det ändras senare.
+      if (field === 'company' && !verifyReauthGrant(reauthToken, user.id)) {
+        res.status(403).json({ error: 'Åtkomst nekad.' });
+        return;
+      }
+    } else {
+      const member = await loadMemberCompany(user.id, companyId, res);
+      if (!member) return;
+      if (member.role !== 'editor') {
+        res.status(403).json({ error: 'Din roll (läsare) tillåter inte att spara ändringar.' });
+        return;
+      }
+      ownerUserId = member.ownerUserId;
+    }
+
     const { error: rpcError } = await admin.rpc('set_company_field', {
-      p_user_id: member.ownerUserId,
+      p_user_id: ownerUserId,
       p_company_id: companyId,
       p_field: field,
       p_value: value,

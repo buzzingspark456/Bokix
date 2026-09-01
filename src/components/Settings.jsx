@@ -11,6 +11,7 @@ import { BRAND } from '../utils/brandColors';
 import InvoiceDocument, { INVOICE_TEMPLATES, DEFAULT_INVOICE_TEMPLATE } from './InvoiceDocument';
 import { useIsMobileViewport } from '../hooks/useIsMobileViewport';
 import ListTable from './shared/ListTable';
+import { sendReauthCode, verifyReauthCode, changePassword } from '../utils/reauthVerification';
 
 // Visas istället för att faktiskt anropa Supabase när `readOnly` (Sida
 // landningssidans demo, se DemoWorkspace.jsx) — samma text överallt i den
@@ -401,11 +402,98 @@ function TemplateCard({ tpl, selected, onSelect, previewProps, scale }) {
   );
 }
 
+// ── Reauthentication (emailad engångskod) ──
+// Delad av alla tre känsliga flöden som kräver den (byt lösenord här,
+// Företagsuppgifters "Spara ändringar", Stripe-anslutning i App.jsx) — se
+// src/utils/reauthVerification.js och api/auth/request-password-reset.js:s
+// send-reauth-code/verify-reauth-code. Skickar koden automatiskt när
+// steget mountas (föräldern renderar den bara när en reauth faktiskt
+// behövs) — samma "kolla din inkorg, skriv sexsiffrig kod"-mönster som
+// Auth.jsx:s registreringssteg 1, men i Settings-sidans egna kort-/
+// knappstilar istället för auth-sidans (helt separat visuell stil, se
+// Auth.jsx:s toppkommentar om varför den ser ut som den gör).
+function ReauthCodeStep({ onVerified, onCancel }) {
+  const [code, setCode] = useState('');
+  const [otpToken, setOtpToken] = useState('');
+  const [status, setStatus] = useState('sending'); // sending|idle|verifying
+  const [error, setError] = useState('');
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  const send = async () => {
+    setStatus('sending'); setError('');
+    try {
+      const { data: { session } = {} } = await supabase.auth.getSession();
+      const token = await sendReauthCode(session?.access_token);
+      setOtpToken(token);
+      setCode('');
+      setResendCooldown(30);
+    } catch (err) {
+      setError(err?.message || 'Kunde inte skicka koden just nu. Försök igen om en stund.');
+    } finally {
+      setStatus('idle');
+    }
+  };
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { send(); }, []);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const id = setTimeout(() => setResendCooldown(s => s - 1), 1000);
+    return () => clearTimeout(id);
+  }, [resendCooldown]);
+
+  const verify = async () => {
+    if (!/^\d{6}$/.test(code)) { setError('Ange den sexsiffriga koden från mejlet.'); return; }
+    setStatus('verifying'); setError('');
+    try {
+      const { data: { session } = {} } = await supabase.auth.getSession();
+      const reauthToken = await verifyReauthCode({ accessToken: session?.access_token, code, token: otpToken });
+      onVerified(reauthToken);
+    } catch (err) {
+      setError(err?.message || 'Fel kod. Försök igen.');
+      setStatus('idle');
+    }
+  };
+
+  return (
+    <div style={{ background: 'var(--status-green-bg)', border: '1px solid var(--status-green-bg)', borderRadius: '12px', padding: '18px', maxWidth: '360px', textAlign: 'center' }}>
+      <div style={{ fontWeight: 700, fontSize: '14.5px', color: 'var(--text-main)', marginBottom: '6px' }}>Bekräfta med kod</div>
+      <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '14px' }}>
+        Vi skickade en sexsiffrig kod till din e-post — skriv in den för att bekräfta ändringen.
+      </div>
+      <input
+        type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="000000"
+        value={code} onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+        style={{ ...inputBase, textAlign: 'center', fontSize: '22px', fontWeight: 700, letterSpacing: '8px' }}
+      />
+      {error && <div style={{ color: 'var(--status-red-text)', fontSize: '12.5px', marginTop: '10px' }}>{error}</div>}
+      <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginTop: '14px' }}>
+        <button type="button" onClick={onCancel} style={btnGhost}>Avbryt</button>
+        <button
+          type="button" onClick={verify} disabled={status === 'verifying' || code.length !== 6}
+          style={{ ...btnPrimary, opacity: (status === 'verifying' || code.length !== 6) ? 0.5 : 1, cursor: (status === 'verifying' || code.length !== 6) ? 'not-allowed' : 'pointer' }}
+        >
+          {status === 'verifying' ? 'Bekräftar...' : 'Bekräfta'}
+        </button>
+      </div>
+      <button
+        type="button" onClick={send} disabled={resendCooldown > 0 || status === 'sending'}
+        style={{ marginTop: '10px', background: 'none', border: 'none', borderRadius: '8px', padding: '4px 8px', color: resendCooldown > 0 ? 'var(--text-muted)' : BRAND.green, fontWeight: 700, fontSize: '12px', cursor: resendCooldown > 0 ? 'default' : 'pointer', fontFamily: 'inherit' }}
+      >
+        {status === 'sending' ? 'Skickar…' : resendCooldown > 0 ? `Skicka koden igen (${resendCooldown}s)` : 'Fick du ingen kod? Skicka igen'}
+      </button>
+    </div>
+  );
+}
+
 // ── Lösenordssektion ──
 // Nuvarande lösenord verifieras genom att faktiskt logga in med det (Supabase
 // kräver det inte för updateUser, men en aktiv session i webbläsaren ska inte
 // räcka för att byta lösenord — annars skyddar fältet "Nuvarande lösenord"
-// ingenting alls).
+// ingenting alls). Reauthentication (ReauthCodeStep ovan) är ett ANDRA,
+// oberoende steg efter det — se filkommentaren i request-password-reset.js:s
+// handleChangePassword för varför bytet själv numera görs server-side.
 function PasswordSection({ user, readOnly = false }) {
   const [currentPw, setCurrentPw] = useState('');
   const [newPw, setNewPw] = useState('');
@@ -413,6 +501,7 @@ function PasswordSection({ user, readOnly = false }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [showReauth, setShowReauth] = useState(false);
 
   const changedAt = user?.user_metadata?.password_changed_at;
 
@@ -424,20 +513,29 @@ function PasswordSection({ user, readOnly = false }) {
     if (newPw !== confirmPw) { setError('Lösenorden matchar inte varandra.'); return; }
     setBusy(true);
     const { error: reauthError } = await supabase.auth.signInWithPassword({ email: user.email, password: currentPw });
+    setBusy(false);
     if (reauthError) {
-      setBusy(false);
       setError('Nuvarande lösenord stämmer inte.');
       return;
     }
-    const { error: updateError } = await supabase.auth.updateUser({
-      password: newPw,
-      data: { password_changed_at: new Date().toISOString() },
-    });
-    setBusy(false);
-    if (updateError) { setError(updateError.message); return; }
-    setCurrentPw(''); setNewPw(''); setConfirmPw('');
-    setSuccess(true);
-    setTimeout(() => setSuccess(false), 4000);
+    setShowReauth(true);
+  };
+
+  const handleReauthVerified = async (reauthToken) => {
+    setBusy(true); setError('');
+    try {
+      const { data: { session } = {} } = await supabase.auth.getSession();
+      await changePassword({ accessToken: session?.access_token, newPassword: newPw, reauthToken });
+      setCurrentPw(''); setNewPw(''); setConfirmPw('');
+      setShowReauth(false);
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 4000);
+    } catch (err) {
+      setShowReauth(false);
+      setError(err?.message || 'Kunde inte byta lösenord. Försök igen om en stund.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -448,27 +546,31 @@ function PasswordSection({ user, readOnly = false }) {
           {changedAt ? `Senast ändrat ${relativeTimeSv(changedAt)}` : 'Inte spårat ännu — byt lösenord här för att börja spåra det'}
         </span>
       </div>
-      <form onSubmit={submit}>
-        <div style={{ marginBottom: '14px' }}>
-          <label style={labelStyle}>Nuvarande lösenord</label>
-          <input type="password" value={currentPw} onChange={e => setCurrentPw(e.target.value)} style={{ ...inputBase, maxWidth: '340px' }} autoComplete="current-password" required />
-        </div>
-        <div className="form-row-2" style={{ ...grid2, maxWidth: '672px' }}>
-          <div>
-            <label style={labelStyle}>Nytt lösenord</label>
-            <input type="password" value={newPw} onChange={e => setNewPw(e.target.value)} style={inputBase} autoComplete="new-password" minLength={8} required />
+      {showReauth ? (
+        <ReauthCodeStep onVerified={handleReauthVerified} onCancel={() => setShowReauth(false)} />
+      ) : (
+        <form onSubmit={submit}>
+          <div style={{ marginBottom: '14px' }}>
+            <label style={labelStyle}>Nuvarande lösenord</label>
+            <input type="password" value={currentPw} onChange={e => setCurrentPw(e.target.value)} style={{ ...inputBase, maxWidth: '340px' }} autoComplete="current-password" required />
           </div>
-          <div>
-            <label style={labelStyle}>Bekräfta nytt lösenord</label>
-            <input type="password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} style={inputBase} autoComplete="new-password" minLength={8} required />
+          <div className="form-row-2" style={{ ...grid2, maxWidth: '672px' }}>
+            <div>
+              <label style={labelStyle}>Nytt lösenord</label>
+              <input type="password" value={newPw} onChange={e => setNewPw(e.target.value)} style={inputBase} autoComplete="new-password" minLength={8} required />
+            </div>
+            <div>
+              <label style={labelStyle}>Bekräfta nytt lösenord</label>
+              <input type="password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} style={inputBase} autoComplete="new-password" minLength={8} required />
+            </div>
           </div>
-        </div>
-        {error && <div style={{ color: 'var(--status-red-text)', fontSize: '13px', marginTop: '10px' }}>{error}</div>}
-        {success && <div style={{ color: BRAND.greenDark, fontSize: '13px', marginTop: '10px', fontWeight: 600 }}>Lösenordet är uppdaterat.</div>}
-        <button type="submit" disabled={busy || !currentPw || !newPw || !confirmPw} style={{ ...btnPrimary, marginTop: '14px', opacity: (busy || !currentPw || !newPw || !confirmPw) ? 0.5 : 1, cursor: (busy || !currentPw || !newPw || !confirmPw) ? 'not-allowed' : 'pointer' }}>
-          {busy ? 'Sparar...' : 'Byt lösenord'}
-        </button>
-      </form>
+          {error && <div style={{ color: 'var(--status-red-text)', fontSize: '13px', marginTop: '10px' }}>{error}</div>}
+          {success && <div style={{ color: BRAND.greenDark, fontSize: '13px', marginTop: '10px', fontWeight: 600 }}>Lösenordet är uppdaterat.</div>}
+          <button type="submit" disabled={busy || !currentPw || !newPw || !confirmPw} style={{ ...btnPrimary, marginTop: '14px', opacity: (busy || !currentPw || !newPw || !confirmPw) ? 0.5 : 1, cursor: (busy || !currentPw || !newPw || !confirmPw) ? 'not-allowed' : 'pointer' }}>
+            {busy ? 'Kontrollerar...' : 'Byt lösenord'}
+          </button>
+        </form>
+      )}
     </div>
   );
 }
@@ -1229,6 +1331,58 @@ export default function Settings({
   const [nextInvoiceNumberInput, setNextInvoiceNumberInput] = useState('');
   const [invoiceNumberError, setInvoiceNumberError] = useState('');
 
+  // ── Företagsuppgifter: "Spara ändringar" + Reauthentication ──
+  // Till skillnad från resten av company-fälten (som fortfarande autosparar
+  // direkt via setCompanyInfo på varje tangenttryckning) håller de HÄR
+  // fälten (Grunduppgifter + Kontaktuppgifter-korten nedan — namn, org.nr,
+  // momsreg.nr, adress, F-skatt, e-post, telefon) ett lokalt utkast och
+  // sparas bara vid ett uttryckligt klick, EFTERSOM skrivningen måste
+  // kunna kräva ett server-verifierat reauthToken (se ReauthCodeStep ovan)
+  // — ett rent klient-anrop kan aldrig bevisa det. Skickas därför till
+  // /api/company-access (field: 'company') istället för direkt via
+  // setCompanyInfo, se saveCompanyInfo nedan.
+  // KÄND BEGRÄNSNING: resyncas mot `company` varje gång den propen ändras
+  // (t.ex. en autosparning i en ANNAN flik, som Bankuppgifter) — ett
+  // osparat utkast här kan då tappas om en sådan autosparning hinner före.
+  // Sällsynt (kräver att man redigerar två flikar "samtidigt" i samma
+  // session) och accepterat, inte åtgärdat här.
+  const [companyDraft, setCompanyDraft] = useState(company);
+  useEffect(() => { setCompanyDraft(company); }, [company]);
+  const [showCompanyReauth, setShowCompanyReauth] = useState(false);
+  // Stripe-anslutningens eget reauth-läge (Betalning-fliken) — null|'connect'|'disconnect'.
+  const [stripeReauthAction, setStripeReauthAction] = useState(null);
+  const [companySaveBusy, setCompanySaveBusy] = useState(false);
+  const [companySaveError, setCompanySaveError] = useState('');
+  const [companySaveSuccess, setCompanySaveSuccess] = useState(false);
+  const COMPANY_INFO_KEYS = ['name', 'orgNr', 'vatNr', 'address', 'fSkatt', 'email', 'phone'];
+  const companyInfoDirty = COMPANY_INFO_KEYS.some(k => (companyDraft?.[k] || '') !== (company?.[k] || ''));
+
+  const saveCompanyInfo = async (reauthToken) => {
+    setCompanySaveBusy(true); setCompanySaveError('');
+    try {
+      const { data: { session } = {} } = await supabase.auth.getSession();
+      const response = await fetch('/api/company-access', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({ company_id: activeCompanyId, field: 'company', value: companyDraft, reauthToken }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload?.error || `Kunde inte spara (${response.status})`);
+      setCompanyInfo(companyDraft);
+      setShowCompanyReauth(false);
+      setCompanySaveSuccess(true);
+      setTimeout(() => setCompanySaveSuccess(false), 4000);
+    } catch (err) {
+      setShowCompanyReauth(false);
+      setCompanySaveError(err?.message || 'Kunde inte spara ändringarna. Försök igen om en stund.');
+    } finally {
+      setCompanySaveBusy(false);
+    }
+  };
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const hash = window.location.hash.replace('#', '');
@@ -1518,14 +1672,14 @@ export default function Settings({
               <div style={card}>
                 <div style={{ marginBottom: '16px' }}><SectionHeading icon={Building2} tone="green">Grunduppgifter</SectionHeading></div>
                 <div style={{ maxWidth: '672px' }}>
-                  <AutoField label="Företagsnamn" value={company?.name || ''} onChange={(v) => setCompanyInfo({ ...company, name: v })} required />
+                  <AutoField label="Företagsnamn" value={companyDraft?.name || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, name: v })} required />
                 </div>
                 <div className="form-row-2" style={{ ...grid2, maxWidth: '672px' }}>
-                  <AutoField label="Organisationsnummer" value={company?.orgNr || ''} onChange={(v) => setCompanyInfo({ ...company, orgNr: v })} />
-                  <AutoField label="Momsregistreringsnummer" value={company?.vatNr || ''} onChange={(v) => setCompanyInfo({ ...company, vatNr: v })} />
+                  <AutoField label="Organisationsnummer" value={companyDraft?.orgNr || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, orgNr: v })} />
+                  <AutoField label="Momsregistreringsnummer" value={companyDraft?.vatNr || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, vatNr: v })} />
                 </div>
                 <div style={{ maxWidth: '672px' }}>
-                  <AutoField label="Adress" value={company?.address || ''} onChange={(v) => setCompanyInfo({ ...company, address: v })} />
+                  <AutoField label="Adress" value={companyDraft?.address || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, address: v })} />
                 </div>
                 {/* F-skattsedel skrivs ut på varenda faktura/offert (se InvoiceDocument)
                     men gick tidigare inte att ändra någonstans — den föll tillbaka på
@@ -1534,8 +1688,8 @@ export default function Settings({
                     att tyst påstå något om företaget som kanske inte är sant. */}
                 <div style={{ maxWidth: '672px' }}>
                   <AutoField
-                    label="F-skattsedel (text på faktura)" value={company?.fSkatt || 'Innehar F-skattsedel'}
-                    onChange={(v) => setCompanyInfo({ ...company, fSkatt: v })}
+                    label="F-skattsedel (text på faktura)" value={companyDraft?.fSkatt || 'Innehar F-skattsedel'}
+                    onChange={(v) => setCompanyDraft({ ...companyDraft, fSkatt: v })}
                     hint="Skrivs ut på fakturor/offerter under företagsuppgifterna. Ändra eller töm om det inte stämmer för ditt företag."
                   />
                 </div>
@@ -1544,9 +1698,33 @@ export default function Settings({
               <div style={card}>
                 <div style={{ marginBottom: '16px' }}><SectionHeading icon={Phone} tone="green">Kontaktuppgifter</SectionHeading></div>
                 <div className="form-row-2" style={{ ...grid2, maxWidth: '672px' }}>
-                  <AutoField label="E-post" type="email" value={company?.email || ''} onChange={(v) => setCompanyInfo({ ...company, email: v })} hint="Visas som kontaktväg längst ner på fakturor." />
-                  <AutoField label="Telefon" type="tel" value={company?.phone || ''} onChange={(v) => setCompanyInfo({ ...company, phone: v })} />
+                  <AutoField label="E-post" type="email" value={companyDraft?.email || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, email: v })} hint="Visas som kontaktväg längst ner på fakturor." />
+                  <AutoField label="Telefon" type="tel" value={companyDraft?.phone || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, phone: v })} />
                 </div>
+              </div>
+
+              {/* Reauthentication (se ReauthCodeStep ovan) — Grunduppgifter/
+                  Kontaktuppgifter ovan autosparar INTE längre, de kräver ett
+                  uttryckligt klick här + en emailad kod. Övriga företagsfält
+                  (Logotyp, Räkenskapsår/moms, påminnelser, Bankuppgifter i
+                  Betalning-fliken) är opåverkade, autosparar som förut. */}
+              <div style={{ marginBottom: '20px' }}>
+                {showCompanyReauth ? (
+                  <ReauthCodeStep onVerified={saveCompanyInfo} onCancel={() => setShowCompanyReauth(false)} />
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => { if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; } setShowCompanyReauth(true); }}
+                      disabled={!companyInfoDirty || companySaveBusy}
+                      style={{ ...btnPrimary, opacity: (!companyInfoDirty || companySaveBusy) ? 0.5 : 1, cursor: (!companyInfoDirty || companySaveBusy) ? 'not-allowed' : 'pointer' }}
+                    >
+                      {companySaveBusy ? 'Sparar...' : 'Spara ändringar'}
+                    </button>
+                    {companySaveError && <div style={{ color: 'var(--status-red-text)', fontSize: '13px', marginTop: '10px' }}>{companySaveError}</div>}
+                    {companySaveSuccess && <div style={{ color: BRAND.greenDark, fontSize: '13px', marginTop: '10px', fontWeight: 600 }}>Företagsuppgifterna är sparade.</div>}
+                  </>
+                )}
               </div>
 
               <div style={card}>
@@ -1631,20 +1809,38 @@ export default function Settings({
 
               <div style={card}>
                 <div style={{ marginBottom: '14px' }}><SectionHeading icon={CreditCard} tone={stripeAccountId ? 'green' : 'amber'}>Ta emot kortbetalningar</SectionHeading></div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
-                  <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0, maxWidth: '480px' }}>
+                {/* Reauthentication (se ReauthCodeStep ovan) — koppla till/från
+                    ett Stripe-konto styr var pengarna hamnar, minst lika
+                    känsligt som lösenord/företagsuppgifter. onConnectStripe/
+                    onDisconnectStripe (App.jsx) tar numera emot reauthToken
+                    som argument och skickar med det till /api/stripe/connect,
+                    se App.jsx:s handlers. */}
+                {stripeReauthAction ? (
+                  <ReauthCodeStep
+                    onVerified={async (reauthToken) => {
+                      const act = stripeReauthAction;
+                      setStripeReauthAction(null);
+                      if (act === 'disconnect') await onDisconnectStripe?.(reauthToken);
+                      else await onConnectStripe?.(reauthToken);
+                    }}
+                    onCancel={() => setStripeReauthAction(null)}
+                  />
+                ) : (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+                    <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0, maxWidth: '480px' }}>
+                      {stripeAccountId
+                        ? 'Stripe är anslutet — kunder kan betala dina fakturor med kort direkt online.'
+                        : 'Anslut Stripe för att låta kunder betala fakturor med kort direkt online.'}
+                    </p>
                     {stripeAccountId
-                      ? 'Stripe är anslutet — kunder kan betala dina fakturor med kort direkt online.'
-                      : 'Anslut Stripe för att låta kunder betala fakturor med kort direkt online.'}
-                  </p>
-                  {stripeAccountId
-                    ? <button onClick={onDisconnectStripe} style={btnGhost}>Koppla från</button>
-                    : (
-                      <button onClick={onConnectStripe} style={btnStripeConnect}>
-                        <StripeLogo height={15} /> Anslut Stripe
-                      </button>
-                    )}
-                </div>
+                      ? <button onClick={() => { if (readOnly) { onDisconnectStripe?.(); return; } setStripeReauthAction('disconnect'); }} style={btnGhost}>Koppla från</button>
+                      : (
+                        <button onClick={() => { if (readOnly) { onConnectStripe?.(); return; } setStripeReauthAction('connect'); }} style={btnStripeConnect}>
+                          <StripeLogo height={15} /> Anslut Stripe
+                        </button>
+                      )}
+                  </div>
+                )}
               </div>
 
               {/* E-postavsändare (Sida 33) — egen domän för utgående fakturor/kvitton/

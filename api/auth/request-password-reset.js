@@ -2,9 +2,10 @@ import { createClient } from '@supabase/supabase-js';
 import { applySecurityHeaders } from '../_security.js';
 import { parseJsonBody } from '../stripe/_parseBody.js';
 import { checkRateLimit } from '../_rateLimit.js';
-import { createSignedToken, verifySignedToken } from '../_signedToken.js';
+import { requireAuthedUser } from '../_auth.js';
+import { createSignedToken, verifySignedToken, verifyReauthGrant } from '../_signedToken.js';
 import { hasResendApiKey, sendWithFallback } from '../_resend.js';
-import { buildSignupVerificationHtml } from '../_emailTemplates.js';
+import { buildSignupVerificationHtml, buildReauthCodeHtml } from '../_emailTemplates.js';
 import { translateSupabaseAuthError } from '../../src/utils/translateAuthError.js';
 
 // "Glömt lösenord?" (Auth.jsx) gick tidigare direkt mot
@@ -45,6 +46,14 @@ import { translateSupabaseAuthError } from '../../src/utils/translateAuthError.j
 const SITE_URL = 'https://www.bokix.se';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SIGNUP_CODE_MAX_AGE_MS = 10 * 60 * 1000;
+// Reauthentication (Settings.jsx: byt lösenord/spara företagsuppgifter,
+// App.jsx: Stripe-anslutning) — se send-reauth-code/verify-reauth-code
+// längst ned i den här filen. Koden själv gäller 10 min här (samma som
+// signup-koden, gott om tid att hämta mejlet) — den KORTARE livslängden
+// på själva reauthToken:en (5 min, kollas av verifyReauthGrant i
+// _signedToken.js) är det som faktiskt skyddar de känsliga skriv-
+// endpointsen, se den funktionens kommentar.
+const REAUTH_CODE_MAX_AGE_MS = 10 * 60 * 1000;
 
 async function handlePasswordReset(req, body, res) {
   const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : '';
@@ -183,6 +192,121 @@ async function handleVerifySignupCode(body, res) {
   res.status(200).json({ ok: true });
 }
 
+/** Skickar en engångskod till DEN INLOGGADE ANVÄNDARENS EGEN, av Supabase
+ * verifierade e-post (user.email från requireAuthedUser) — ALDRIG till en
+ * client-supplied adress i body:n, annars kunde vem som helst med en
+ * kapad session skicka koden till sin egen inkorg istället. Samma
+ * dubbla hastighetsbegränsning (IP + här per user.id istället för e-post,
+ * eftersom anroparen redan är bevisat inloggad) som send-signup-code. */
+async function handleSendReauthCode(req, res) {
+  const user = await requireAuthedUser(req, res);
+  if (!user) return;
+  if (!checkRateLimit(req, res, { key: 'reauth-code-ip', max: 20 })) return;
+  if (!checkRateLimit(req, res, { key: 'reauth-code-user', windowMs: 60 * 60 * 1000, max: 10, identifier: user.id })) return;
+
+  if (!hasResendApiKey()) {
+    res.status(503).json({ error: 'E-postutskick är inte konfigurerat just nu.' });
+    return;
+  }
+
+  const code = String(Math.floor(100000 + Math.random() * 900000));
+  let token;
+  try {
+    token = createSignedToken({ uid: user.id, code, purpose: 'reauth' });
+  } catch (err) {
+    console.error('createSignedToken (reauth code) misslyckades:', err.message);
+    res.status(503).json({ error: 'Reauthentication är inte konfigurerad just nu.' });
+    return;
+  }
+
+  try {
+    const result = await sendWithFallback({
+      to: [user.email],
+      subject: 'Din kod för att bekräfta ändringen',
+      html: buildReauthCodeHtml({ code }),
+    });
+    if (!result.ok) {
+      console.error('Kunde inte skicka reauth-kod:', result.data);
+      res.status(502).json({ error: 'Kunde inte skicka koden just nu. Försök igen om en stund.' });
+      return;
+    }
+    res.status(200).json({ ok: true, token });
+  } catch (err) {
+    console.error('handleSendReauthCode unexpected error:', err);
+    res.status(500).json({ error: 'Något gick fel. Försök igen om en stund.' });
+  }
+}
+
+/** Kollar den inskrivna koden mot token:en från send-reauth-code, precis
+ * som handleVerifySignupCode — men lämnar (om koden stämmer) ut ett NYTT,
+ * kortlivat `reauthToken` (se verifyReauthGrant i _signedToken.js) istället
+ * för att bara svara ok:true. De faktiska känsliga skriv-endpointsen
+ * (change-password nedan, api/company-access.js, api/stripe/connect.js)
+ * kräver DEN här token:en, inte koden själv — de har ingen anledning att
+ * känna till/verifiera en sexsiffrig kod, bara att en nyligen genomförd
+ * reauthentication för RÄTT uid finns. */
+async function handleVerifyReauthCode(req, body, res) {
+  const user = await requireAuthedUser(req, res);
+  if (!user) return;
+
+  const code = typeof body?.code === 'string' ? body.code.trim() : '';
+  const token = typeof body?.token === 'string' ? body.token : '';
+  if (!code || !token) {
+    res.status(400).json({ error: 'Kod och token krävs.' });
+    return;
+  }
+
+  const payload = verifySignedToken(token, REAUTH_CODE_MAX_AGE_MS);
+  if (!payload || payload.purpose !== 'reauth' || payload.uid !== user.id || payload.code !== code) {
+    res.status(400).json({ error: 'Fel kod, eller så har den gått ut. Kontrollera koden eller skicka en ny.' });
+    return;
+  }
+
+  const reauthToken = createSignedToken({ uid: user.id, purpose: 'reauth-grant' });
+  res.status(200).json({ ok: true, reauthToken });
+}
+
+/** Byter lösenord server-side, via service-role (auth.admin.updateUserById)
+ * istället för klientens direkta supabase.auth.updateUser — kräver ett
+ * färskt reauthToken (se verifyReauthGrant), så en kapad browser-session
+ * ensam inte längre räcker för att byta lösenord (Settings.jsx:s egen
+ * "nuvarande lösenord"-koll är fortfarande kvar OCKSÅ, oförändrad, som ett
+ * första steg — det här är ett andra, oberoende bevis). */
+async function handleChangePassword(req, body, res) {
+  const user = await requireAuthedUser(req, res);
+  if (!user) return;
+  if (!checkRateLimit(req, res, { key: 'change-password', windowMs: 60 * 60 * 1000, max: 10, identifier: user.id })) return;
+
+  const newPassword = typeof body?.newPassword === 'string' ? body.newPassword : '';
+  const reauthToken = typeof body?.reauthToken === 'string' ? body.reauthToken : '';
+  if (!newPassword || newPassword.length < 8) {
+    res.status(400).json({ error: 'Nytt lösenord måste vara minst 8 tecken.' });
+    return;
+  }
+  if (!verifyReauthGrant(reauthToken, user.id)) {
+    res.status(403).json({ error: 'Åtkomst nekad.' });
+    return;
+  }
+
+  const supabaseUrl = process.env.VITE_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceRoleKey) {
+    res.status(503).json({ error: 'Supabase är inte konfigurerat.' });
+    return;
+  }
+  const admin = createClient(supabaseUrl, serviceRoleKey);
+  const { error } = await admin.auth.admin.updateUserById(user.id, {
+    password: newPassword,
+    user_metadata: { ...(user.user_metadata || {}), password_changed_at: new Date().toISOString() },
+  });
+  if (error) {
+    console.error('handleChangePassword updateUserById error:', error.message);
+    res.status(500).json({ error: 'Kunde inte byta lösenord. Försök igen om en stund.' });
+    return;
+  }
+  res.status(200).json({ ok: true });
+}
+
 export default async function handler(req, res) {
   applySecurityHeaders(res);
   if (req.method !== 'POST') {
@@ -198,6 +322,18 @@ export default async function handler(req, res) {
   }
   if (body?.action === 'verify-signup-code') {
     await handleVerifySignupCode(body, res);
+    return;
+  }
+  if (body?.action === 'send-reauth-code') {
+    await handleSendReauthCode(req, res);
+    return;
+  }
+  if (body?.action === 'verify-reauth-code') {
+    await handleVerifyReauthCode(req, body, res);
+    return;
+  }
+  if (body?.action === 'change-password') {
+    await handleChangePassword(req, body, res);
     return;
   }
   await handlePasswordReset(req, body, res);

@@ -23,6 +23,7 @@ import { parseJsonBody } from './_parseBody.js';
 import { requireAuthedUser, loadOwnedCompany } from '../_auth.js';
 import { checkRateLimit } from '../_rateLimit.js';
 import { isRequestFromBot } from '../_botid.js';
+import { verifyReauthGrant } from '../_signedToken.js';
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY || null;
 const stripe = stripeSecretKey && !stripeSecretKey.startsWith('pk_') ? new Stripe(stripeSecretKey, {}) : null;
@@ -151,6 +152,18 @@ export default async function handler(req, res) {
     // Läses EN gång här — req:ns ström kan bara konsumeras en gång, se
     // kommentaren vid handleStart ovan.
     const body = await parseJsonBody(req);
+
+    // Reauthentication (App.jsx:s Stripe-anslutningsknappar, se
+    // api/auth/request-password-reset.js:s send-reauth-code/verify-reauth-
+    // code) — koppla till/från kundens Stripe-konto styr var pengarna
+    // hamnar, ett minst lika känsligt ändringssteg som lösenord/
+    // företagsuppgifter. En färsk, nyligen verifierad kod krävs för BÅDA
+    // grenarna (start OCH disconnect), inte bara disconnect.
+    if (!verifyReauthGrant(body?.reauthToken, user.id)) {
+      res.status(403).json({ error: 'Åtkomst nekad.' });
+      return;
+    }
+
     if (body?.action === 'disconnect') {
       await handleDisconnect(res, user, body);
     } else {
