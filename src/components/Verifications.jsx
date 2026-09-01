@@ -677,8 +677,16 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
 }
 
 // ─── Main Bokföring Component ──────────────────────────────────────────────────
-export default function Bokforing({ verifications = [], accounts = [], balances = {}, contacts = [], projects = [], templates = [], onSaveTemplate, onAdd, setVerifications, setAccounts, highlightVerificationId, onClearHighlight, vatPeriods, user, uploadFn = uploadFileToStorage }) {
-  const [activeTab, setActiveTab] = useState('verifications');
+export default function Bokforing({ verifications = [], accounts = [], balances = {}, contacts = [], projects = [], templates = [], onSaveTemplate, onAdd, setVerifications, setAccounts, highlightVerificationId, onClearHighlight, vatPeriods, user, uploadFn = uploadFileToStorage, initialTab }) {
+  const [activeTab, setActiveTab] = useState(initialTab || 'verifications');
+  // Samma mönster som Taxes.jsx:s initialSection — App.jsx:s
+  // verificationsInitialTab (profilmenyns "Kontoplaner" ska landa på
+  // Kontoplan-fliken här, inte Verifikationer, se dess egen kommentar)
+  // ändras efter att den här komponenten redan monterats en gång, så
+  // bara useState:s förvalsvärde ovan räcker inte.
+  useEffect(() => {
+    if (initialTab) setActiveTab(initialTab);
+  }, [initialTab]);
   const [expandedId, setExpandedId] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [editingVer, setEditingVer] = useState(null);

@@ -1,6 +1,12 @@
 import React, { useState } from 'react';
 import { Plus, X, Check, AlertCircle, FolderTree } from 'lucide-react';
 
+// OANVÄND sedan App.jsx:s `case 'accounts':` togs bort (var bokstavligen
+// oåtkomlig kod — tabAliases mappar redan 'accounts' -> 'verifications'
+// innan den switchen körs, se App.jsx:s verificationsSectionAliases-
+// kommentar). Riktiga "Kontoplan"-sidan är Verifications.jsx (Bokforing-
+// komponenten) egen "accounts"-flik. Lämnad orörd hellre än borttagen —
+// ingen brådska att radera filen bara för att den slutade importeras.
 export default function Accounts({ accounts, balances, setAccounts }) {
   const [filterType, setFilterType] = useState('all');
   const [isModalOpen, setIsModalOpen] = useState(false);

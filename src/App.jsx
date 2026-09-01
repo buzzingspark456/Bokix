@@ -361,7 +361,6 @@ const Expenses = lazy(() => import('./components/Expenses'));
 const SupplierInvoices = lazy(() => import('./components/SupplierInvoices'));
 const Contacts = lazy(() => import('./components/Contacts'));
 const Verifications = lazy(() => import('./components/Verifications'));
-const Accounts = lazy(() => import('./components/Accounts'));
 const Reports = lazy(() => import('./components/Reports'));
 const Settings = lazy(() => import('./components/Settings'));
 const Projects = lazy(() => import('./components/Projects'));
@@ -1158,6 +1157,21 @@ function App() {
   const taxesSectionAliases = { taxes: 'dates', taxes_vat: 'vat', taxes_yearend: 'yearend' };
   const [taxesInitialSection, setTaxesInitialSection] = useState('vat');
 
+  // Samma bugg, samma fix som taxesSectionAliases ovan: profilmenyns
+  // "Kontoplaner" gjorde handleNavTabChange('accounts'), men tabAliases
+  // (nedan) mappar redan 'accounts' -> 'verifications' (Bokföring-sidan
+  // återanvänder samma komponent/flikvy för både Verifikationer och
+  // Kontoplan) — så bara VILKEN top-nivå-sida som skulle visas styrdes,
+  // aldrig VILKEN flik inuti den. Resultatet: "Kontoplaner" landade alltid
+  // på Verifikationer-fliken, aldrig Kontoplan. `case 'accounts':`
+  // (renderTabContent, längre ner) var dessutom bokstavligen oåtkomlig
+  // kod av samma skäl (resolveTab(activeTab) hinner redan bli
+  // 'verifications' innan switchen körs) — borttagen tillsammans med sin
+  // lazy-import av <Accounts>, se den filens kommentar om varför filen
+  // ändå får ligga kvar orörd.
+  const verificationsSectionAliases = { verifications: 'verifications', accounts: 'accounts' };
+  const [verificationsInitialTab, setVerificationsInitialTab] = useState('verifications');
+
   // Kundfeedback (två omgångar): "Rapportera fel" öppnade först bara en
   // mailto:-länk — gjorde ingenting alls utan en registrerad mejlklient
   // (vanligast för webbmejl-användare). Kundönskemål efteråt: en riktig,
@@ -1201,6 +1215,7 @@ function App() {
   const handleNavTabChange = (tabId) => {
     const rTab = resolveTab(tabId);
     if (taxesSectionAliases[tabId]) setTaxesInitialSection(taxesSectionAliases[tabId]);
+    if (verificationsSectionAliases[tabId]) setVerificationsInitialTab(verificationsSectionAliases[tabId]);
     setActiveTab(rTab);
     if (typeof window !== 'undefined') window.location.hash = rTab;
     setSidebarOpen(false);
@@ -3606,14 +3621,7 @@ function App() {
             vatPeriods={vatPeriods}
             highlightVerificationId={highlightVerificationId}
             onClearHighlight={() => setHighlightVerificationId(null)}
-          />
-        );
-      case 'accounts':
-        return (
-          <Accounts
-            accounts={accounts}
-            balances={balances}
-            setAccounts={setAccounts}
+            initialTab={verificationsInitialTab}
           />
         );
       case 'reports':
