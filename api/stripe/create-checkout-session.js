@@ -68,10 +68,30 @@ export default async function handler(req, res) {
     const BANK_TRANSFER_CURRENCIES = new Set(['eur', 'gbp', 'usd']);
     let stripeCustomerId;
     if (BANK_TRANSFER_CURRENCIES.has(currency) && customerEmail) {
-      const stripeCustomer = await stripe.customers.create({ email: customerEmail });
+      // Måste skapas i det ANSLUTNA kontots eget kund-namnrymd (samma
+      // { stripeAccount } request-option som sessionen nedan) — en kund
+      // skapad på Bokix eget plattformskonto går inte att referera från en
+      // session skapad direkt på ett annat (anslutet) konto, se
+      // direct-charge-kommentaren vid session-anropet.
+      const stripeCustomer = await stripe.customers.create({ email: customerEmail }, { stripeAccount: stripeAccountId });
       stripeCustomerId = stripeCustomer.id;
     }
 
+    // Kundfeedback: betalningslänken visade Bokix eget namn/logga i
+    // Checkout-headern, och pengarna skulle synas hos KUNDEN (det anslutna
+    // Stripe-kontot), inte "gå via" Bokix först. Det förra sättet
+    // (payment_intent_data.transfer_data.destination, ingen `stripeAccount`
+    // request-option) är Stripes "destination charge"-mönster — tekniskt
+    // routar pengarna rätt (Stripe transfererar automatiskt), men Bokix
+    // förblir "merchant of record" så Checkout-sidan visar PLATTFORMENS
+    // (Bokix) branding, inte det anslutna kontots egen (verifierat mot
+    // Stripes officiella docs.stripe.com/connect/direct-charges: "the
+    // connected account's branding is used in Checkout"). Bytt till en
+    // "direct charge" istället — sessionen skapas DIREKT på det anslutna
+    // kontot ({ stripeAccount: stripeAccountId } nedan, motsvarar Stripes
+    // Stripe-Account-header), ingen transfer_data behövs (laddningen sker
+    // redan på rätt konto), application_fee_amount fungerar identiskt och
+    // transfereras automatiskt TILL Bokix istället för FRÅN Bokix.
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
       ...(stripeCustomerId ? { customer: stripeCustomerId } : (customerEmail ? { customer_email: customerEmail } : {})),
@@ -92,11 +112,13 @@ export default async function handler(req, res) {
       // begränsad till bara kort.
       ...(customerType === 'se_individual' ? {} : { excluded_payment_method_types: ['klarna'] }),
       line_items: lineItems,
+      // Ingen transfer_data — det är destination-charge-mönstret, se
+      // kommentaren ovan. Bara application_fee_amount kvar; Stripe
+      // transfererar den automatiskt till Bokix EFTER att betalningen gått
+      // igenom på det anslutna kontot (docs.stripe.com/connect/direct-
+      // charges#collect-fees).
       payment_intent_data: {
         application_fee_amount: applicationFeeAmount,
-        transfer_data: {
-          destination: stripeAccountId,
-        },
       },
       // Så webhooken (checkout.session.completed, se webhook.js) vet VILKEN
       // faktura som ska markeras betald — utan det här finns ingen koppling
@@ -108,7 +130,7 @@ export default async function handler(req, res) {
       },
       success_url: normalizeAbsoluteUrl(process.env.STRIPE_SUCCESS_URL, 'http://localhost:5173'),
       cancel_url: normalizeAbsoluteUrl(process.env.STRIPE_CANCEL_URL, 'http://localhost:5173'),
-    });
+    }, { stripeAccount: stripeAccountId });
     res.status(200).json({ session });
   } catch (error) {
     console.error('Stripe create-checkout-session error:', error);

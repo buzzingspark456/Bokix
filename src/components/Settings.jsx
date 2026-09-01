@@ -1956,19 +1956,23 @@ export default function Settings({
                           ? 'Stripe är anslutet — kunder kan betala dina fakturor med kort direkt online.'
                           : 'Anslut Stripe för att låta kunder betala fakturor med kort direkt online.'}
                       </p>
-                      {/* Kundfråga: "får jag avgifter" — ärligt svar, inte
-                          bara "avgifter kan tillkomma". Bokix eget uttag
-                          (application_fee_amount) sätts i _invoiceLineItems.js,
-                          STRIPE_PLATFORM_FEE_PERCENT (env, förval 5% — inte
-                          satt i produktion just nu så 5% gäller på riktigt),
-                          UTÖVER Stripes egen korttransaktionsavgift (satt av
-                          Stripe, inte Bokix, varierar per kort/land — därför
-                          ingen exakt siffra för DEN delen här, bara en
-                          hänvisning till dashboarden där det faktiska
-                          avdraget syns per betalning). */}
+                      {/* Kundfråga: "hur mycket avgifter går till oss, hur
+                          mycket till Stripe, hur mycket totalt" — ärligt
+                          svar med riktiga siffror, inte bara "avgifter kan
+                          tillkomma". Bokix eget uttag (application_fee_amount)
+                          sätts i _invoiceLineItems.js, STRIPE_PLATFORM_FEE_
+                          PERCENT (env, förval 5% — inte satt i produktion
+                          just nu så 5% gäller på riktigt). Stripes egen
+                          korttransaktionsavgift (satt av Stripe, inte Bokix)
+                          hämtad från deras officiella prislista för Sverige
+                          (stripe.com/en-se/pricing, kollad i den här
+                          sessionen): 1,5% + 1,80 kr för europeiska kort, upp
+                          till 3,15% + 1,80 kr för utländska — ett SPANN, inte
+                          en exakt siffra, eftersom det beror på vilket kort
+                          kunden råkar betala med. */}
                       {stripeAccountId && (
-                        <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '6px 0 0' }}>
-                          Du har tillgång till din egen Stripe-dashboard för att följa saldo, utbetalningar och avgifter. Stripes egna korttransaktionsavgifter dras per betalning (varierar per korttyp), plus Bokix plattformsavgift på {PLATFORM_FEE_PERCENT_DISPLAY}% per fakturabetalning.
+                        <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '6px 0 0', lineHeight: 1.6 }}>
+                          Du har tillgång till din egen Stripe-dashboard för att följa saldo, utbetalningar och avgifter. Bokix tar {PLATFORM_FEE_PERCENT_DISPLAY}% per fakturabetalning. Stripe tar sin egen korttransaktionsavgift utöver det — normalt 1,5% + 1,80 kr för europeiska kort, upp till 3,15% + 1,80 kr för utländska. Totalt landar avgifterna oftast runt {PLATFORM_FEE_PERCENT_DISPLAY + 1.5}–{PLATFORM_FEE_PERCENT_DISPLAY + 3.15}% + 1,80 kr per betalning — exakt belopp per transaktion syns i din Stripe-dashboard.
                         </p>
                       )}
                     </div>

@@ -15,9 +15,8 @@ import remindersHandler from './api/cron/reminders.js'
 import requestPasswordResetHandler from './api/auth/request-password-reset.js'
 import companyAccessHandler from './api/company-access.js'
 import createSubscriptionCheckoutHandler from './api/stripe/create-subscription-checkout.js'
+import createCheckoutSessionHandler from './api/stripe/create-checkout-session.js'
 import contactHandler from './api/contact.js'
-import { normalizeAbsoluteUrl } from './api/stripe/_urls.js'
-import { resolveInvoiceLineItems } from './api/stripe/_invoiceLineItems.js'
 import { requireAuthedUser, loadOwnedCompany } from './api/_auth.js'
 import { isRequestFromBot } from './api/_botid.js'
 
@@ -316,79 +315,15 @@ function requireStripe(res) {
   return true
 }
 
-app.post('/api/stripe/create-checkout-session', async (req, res) => {
-  if (!requireStripe(res)) return
-
-  // Vercel BotID — se filkommentaren i main.jsx. isRequestFromBot() är
-  // fail-open (aldrig true om kollen själv strular) och returnerar alltid
-  // false lokalt (NODE_ENV !== "production"), se api/_botid.js.
-  if (await isRequestFromBot()) {
-    res.status(403).json({ error: 'Åtkomst nekad.' })
-    return
-  }
-
-  try {
-    const body = req.body || {}
-    const { user_id: userId, company_id: companyId, invoice_id: invoiceId, customer_email: customerEmail, customer_type: customerType } = body
-    if (!userId || !companyId || !invoiceId) {
-      res.status(400).json({ error: 'user_id, company_id och invoice_id krävs.' })
-      return
-    }
-
-    // Säkerhetsfix (se motsvarande kommentar i api/stripe/create-checkout-
-    // session.js, samma logik speglad här för lokal utveckling):
-    // line_items/application_fee_amount/stripe_account_id togs tidigare emot
-    // rakt från requesten och skickades vidare oförändrade — vem som helst
-    // kunde posta ett eget (manipulerat) belopp direkt mot endpointen. Slås
-    // nu upp och räknas om från den lagrade fakturan istället.
-    const resolved = await resolveInvoiceLineItems({ userId, companyId, invoiceId, platformFeePercent: Number.parseFloat(process.env.STRIPE_PLATFORM_FEE_PERCENT || '5') })
-    if (resolved.error) {
-      res.status(resolved.status || 400).json({ error: resolved.error })
-      return
-    }
-    const { lineItems, currency, applicationFeeAmount, stripeAccountId } = resolved
-
-    // Bank transfer kräver en riktig Stripe-kund på sessionen, inte bara
-    // customer_email, och stödjer bara EUR/GBP/JPY/MXN/USD — aldrig SEK
-    // eller NOK.
-    const BANK_TRANSFER_CURRENCIES = new Set(['eur', 'gbp', 'usd'])
-    let stripeCustomerId
-    if (BANK_TRANSFER_CURRENCIES.has(currency) && customerEmail) {
-      const stripeCustomer = await stripe.customers.create({ email: customerEmail })
-      stripeCustomerId = stripeCustomer.id
-    }
-
-    const session = await stripe.checkout.sessions.create({
-      mode: 'payment',
-      ...(stripeCustomerId ? { customer: stripeCustomerId } : (customerEmail ? { customer_email: customerEmail } : {})),
-      // payment_method_types utelämnas alltid så Checkout visar allt
-      // Dashboard-påslaget som är relevant (kort, Pay by Bank, Klarna,
-      // Swish, ...). Enda undantaget: Klarna exkluderas explicit för
-      // företagskunder (stödjer inte B2B) — övriga metoder som Pay by Bank
-      // har ingen sådan spärr.
-      ...(customerType === 'se_individual' ? {} : { excluded_payment_method_types: ['klarna'] }),
-      line_items: lineItems,
-      // Kopplingen webhooken behöver för att veta vilken faktura som betalats.
-      metadata: {
-        user_id: userId,
-        company_id: companyId,
-        invoice_id: invoiceId,
-      },
-      payment_intent_data: {
-        application_fee_amount: applicationFeeAmount,
-        transfer_data: {
-          destination: stripeAccountId,
-        },
-      },
-      success_url: normalizeAbsoluteUrl(process.env.STRIPE_SUCCESS_URL, 'http://localhost:5173'),
-      cancel_url: normalizeAbsoluteUrl(process.env.STRIPE_CANCEL_URL, 'http://localhost:5173'),
-    })
-
-    res.status(200).json({ session })
-  } catch (error) {
-    handleError(res, error)
-  }
-})
+// Kundfakturors betalningslänk — tidigare en handkopierad lokal-dev-
+// version av api/stripe/create-checkout-session.js (samma "lärde sig
+// aldrig om nya ändringar"-bugg som redan fixats flera gånger denna
+// session för andra routes, senast direct-charge-omskrivningen i just
+// den filen — mirror-kopian hade fortfarande det gamla destination-
+// charge-mönstret kvar tills nu). Inget raw-body-hinder (jämför
+// webhooken), samma direct-import-mönster som create-subscription-
+// checkout.js redan fick strax nedanför.
+app.post('/api/stripe/create-checkout-session', (req, res) => createCheckoutSessionHandler(req, res))
 
 // Bokix egen plan — "betala per företag" (kundkrav, se api/stripe/create-
 // subscription-checkout.js:s filkommentar för hela resonemanget) — tidigare
