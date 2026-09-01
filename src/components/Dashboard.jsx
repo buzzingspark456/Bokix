@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
 import {
   FileText, Receipt, TrendingUp, TrendingDown,
   ChevronRight, ArrowUpRight, ArrowDownRight,
-  CheckCircle, CheckCircle2, Minus, BarChart2,
+  CheckCircle2, Minus, BarChart2,
   UserPlus, Users, Clock, AlertCircle, Zap, X, MessageSquare,
   // Aliasat — 'LineChart' krockar annars med recharts-komponenten med
   // samma namn som redan importeras nedan (två helt olika saker: en ikon
@@ -330,7 +330,7 @@ function TodayRow({ item, onClick }) {
   );
 }
 
-export default function Dashboard({ verifications, balances, accounts, invoices, expenses, contacts, setActiveTab, company, profileIncomplete, onResumeOnboarding, vatPeriods = {}, payrollRuns = [] }) {
+export default function Dashboard({ verifications, invoices, expenses, contacts, setActiveTab, company, vatPeriods = {}, payrollRuns = [] }) {
   const [chartMode, setChartMode] = useState('revenue-expense');
   const [chartFormat, setChartFormat] = useState('bars');
   const isMobileViewport = useIsMobileViewport();

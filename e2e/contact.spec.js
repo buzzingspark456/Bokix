@@ -31,7 +31,7 @@ test.describe('Kontaktformulär (/kontakt)', () => {
     });
     // Om något i UI:t av misstag skulle regrediera tillbaka till den gamla
     // rutten ska testet fånga det explicit, inte bara timeouta tyst.
-    await page.route('**/api/email/send-invoice', async (route) => {
+    await page.route('**/api/email/send-invoice', async (_route) => {
       throw new Error('Kontaktformuläret ska inte längre anropa /api/email/send-invoice');
     });
 

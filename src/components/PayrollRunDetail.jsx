@@ -92,7 +92,7 @@ function SummaryCards({ totals }) {
   );
 }
 
-function EmployeeRow({ row, computed, previousComputed, accounts, onUpdateRow, locked }) {
+function EmployeeRow({ row, computed, previousComputed, onUpdateRow, locked }) {
   const [expanded, setExpanded] = useState(false);
   const isZero = computed.gross === 0 && computed.net === 0 && computed.tax === 0;
   const diff = previousComputed ? computed.net - previousComputed.net : null;

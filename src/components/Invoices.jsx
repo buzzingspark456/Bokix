@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  Plus, X, Send, Check, FileText, FileSpreadsheet,
-  Search, ChevronRight, ChevronLeft, ChevronDown,
+  Plus, X, Send, Check, FileText,
+  Search, ChevronRight, ChevronDown,
   RefreshCw, Printer, Eye, CreditCard, Link2,
   MessageSquare, Tag, Lock, Settings2, Download, Upload, AlertTriangle, Inbox, Trash2,
   ZoomIn, ZoomOut, Pencil, Copy, CheckCircle2, Undo2
@@ -120,7 +120,6 @@ const inp = {
   transition: 'all 0.15s', fontFamily: 'inherit', boxSizing: 'border-box',
 };
 const lbl = { display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' };
-const cell = (w) => ({ display: 'inline-block', width: w, verticalAlign: 'top', paddingRight: '8px', boxSizing: 'border-box' });
 // Samma "+ Lägg till rad"-knapp som QuoteEditor:s outlineBtnStyle (Quotes.jsx).
 const outlineToolbarBtnStyle = {
   display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 12px',
@@ -129,7 +128,7 @@ const outlineToolbarBtnStyle = {
 };
 
 // ─── Invoice Full Form (Fortnox-inspired) ──────────────────────────────────────
-function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, invoiceList, onCreateCreditNote, onMarkPaid, onRegisterPayment, onUnmarkPaid, onUpdateNote, verifications = [], nav, onGetPaymentLinkUrl, articles = [], setArticles }) {
+function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, invoiceList, onCreateCreditNote, onRegisterPayment, onUnmarkPaid, onUpdateNote, verifications = [], nav, onGetPaymentLinkUrl, articles = [], setArticles }) {
   // En bokförd faktura (allt utom utkast) får inte längre ändra belopp/rader/kund —
   // korrigeringar sker via kreditfaktura. Datum och kommentar går fortfarande att ändra.
   const isLocked = Boolean(initial) && (initial.status || 'draft') !== 'draft';

@@ -9,26 +9,17 @@ import {
   FolderTree,
   BarChart3,
   Settings as SettingsIcon,
-  Building2,
   ChevronDown,
-  ChevronRight,
   X,
   Calculator,
-  Clock,
-  DollarSign,
   FileCheck,
   Menu,
   Sun,
-  TrendingUp,
-  TrendingDown,
-  ArrowLeftRight,
-  CheckSquare,
   Shield,
   UsersRound,
   Bell,
   HelpCircle,
   Briefcase,
-  Timer,
   FileSpreadsheet,
   LogOut,
   Moon,
@@ -1048,7 +1039,11 @@ function App() {
   const [user, setUser] = useState(null);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(() => localStorage.getItem('bokix_onboarding_completed') === 'true');
-  const [hasSkippedOnboarding, setHasSkippedOnboarding] = useState(() => localStorage.getItem('bokix_onboarding_skipped') === 'true');
+  // Bara sättaren används — själva värdet speglas till localStorage men
+  // läses aldrig tillbaka från React-state någonstans (showOnboarding
+  // styr faktiskt vad som visas), se de många setHasSkippedOnboarding-
+  // anropen nedan.
+  const [, setHasSkippedOnboarding] = useState(() => localStorage.getItem('bokix_onboarding_skipped') === 'true');
   const [dbSupportsProfileColumns, setDbSupportsProfileColumns] = useState(false);
   const [supabaseEnabled, setSupabaseEnabled] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -1122,17 +1117,12 @@ function App() {
   const [globalAction, setGlobalAction] = useState(null);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isNotifMenuOpen, setIsNotifMenuOpen] = useState(false);
-  const [openMenus, setOpenMenus] = useState({ sales: true, purchases: true, accounting: true, reports: true });
   const [isHelpDrawerOpen, setIsHelpDrawerOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   // { message, variant } | null — se Toast.jsx samt stripe_connect-
   // useEffect nedan, som satte en blockerande alert() innan.
   const [toast, setToast] = useState(null);
   const [highlightVerificationId, setHighlightVerificationId] = useState(null);
-
-  const toggleMenu = (menuId) => {
-    setOpenMenus(prev => ({ ...prev, [menuId]: !prev[menuId] }));
-  };
 
   const handleGlobalAction = (action, tab) => {
     const rTab = resolveTab(tab);
@@ -1246,12 +1236,12 @@ function App() {
     });
   }, []);
 
-  const syncCompanyDataToBackend = useCallback(async (companyId, payload) => {
+  const syncCompanyDataToBackend = useCallback(async (_companyId, _payload) => {
     // Mock removed to avoid 404
     return null;
   }, [])
 
-  const loadCompanyDataFromBackend = useCallback(async (companyId) => {
+  const loadCompanyDataFromBackend = useCallback(async (_companyId) => {
     // Mock removed to avoid 404
     return null;
   }, [])
@@ -2138,7 +2128,7 @@ function App() {
     maybeAutoStartTour(user.id, handleNavTabChange);
   }, [isLoggedIn, showOnboarding, subscriptionGate, user, data.activeCompanyId, data.companies, subscriptionsMap]);
 
-  const handleLogin = (companyInfo, isNew) => {
+  const handleLogin = () => {
     // Auth component now handles Supabase calls. We just rely on onAuthStateChange.
   };
 
@@ -3319,40 +3309,6 @@ function App() {
     }] : []),
   ];
 
-  // ── Navigation config (flat) ──
-  const navSections = [
-    {
-      label: 'Arbetsyta',
-      items: [
-        { id: 'dashboard', label: 'Startsida',           icon: LayoutDashboard },
-        { id: 'quotes',    label: 'Offerter',            icon: FileSpreadsheet },
-        { id: 'invoices',  label: 'Fakturering',         icon: FileText },
-        { id: 'contacts',  label: 'Kunder',              icon: Users },
-        { id: 'expenses',  label: 'Utgifter',            icon: Receipt },
-        { id: 'projects',  label: 'Projekt',             icon: Briefcase },
-      ],
-    },
-    {
-      label: 'Bokföring och ekonomi',
-      items: [
-        { id: 'review',    label: 'Granskning',          icon: CheckSquare, badge: reviewCount },
-        { id: 'verifications', label: 'Bokföring',       icon: BookOpen },
-        { id: 'payroll',   label: 'Anställda och lön',   icon: UsersRound },
-        { id: 'taxes',     label: 'Skatt och bokslut',   icon: Shield },
-        { id: 'reports',   label: 'Rapporter',           icon: BarChart3 },
-      ],
-    },
-    {
-      label: 'Fristående',
-      items: [
-        { id: 'company',   label: 'Företag',             icon: Building2 },
-        { id: 'settings',  label: 'Inställningar',       icon: SettingsIcon },
-      ],
-    },
-  ];
-
-  const navItems = navSections.flatMap(s => s.items);
-
   // Mobile bottom nav (4 vanligaste + "Mer") — Sida 26. "Mer" öppnar en
   // bottensheet med resten av huvudpunkterna istället för att själv peka på
   // en specifik sida, så dess ikon nedan hanteras separat (se mobileSheetItems).
@@ -3374,10 +3330,6 @@ function App() {
   const isMobileSheetItemActive = mobileSheetItems.some(item => resolveNavGroup(activeTab) === resolveTab(item.id));
 
   const companyList = Object.values(data.companies).map(c => c.company);
-
-  // Active tab label for topbar
-  const activeNavLabel = navItems.find(n => resolveTab(n.id) === resolveNavGroup(activeTab))?.label || 'Hem';
-
 
   // ── Render content ──
   const renderContent = () => {

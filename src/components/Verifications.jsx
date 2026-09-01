@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  Plus, Search, ChevronRight, ChevronDown, Check, X,
-  AlertCircle, Paperclip, RotateCcw, FileText, RefreshCw,
+  Plus, Search, ChevronRight, ChevronDown, X,
+  AlertCircle, RotateCcw, FileText, RefreshCw,
   UploadCloud, Tag, LayoutTemplate, Save, Trash2
 } from 'lucide-react';
 import { getDebet, getKredit } from '../utils/verificationAmounts';
@@ -169,7 +169,7 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
 
   const addRow = () => setRows(prev => [...prev, { account: '', accountName: '', debet: '', kredit: '', desc: '' }]);
 
-  const handleBlurAmount = (i) => {
+  const handleBlurAmount = (_i) => {
     const totalDebit = rows.reduce((s, r) => s + (parseFloat(r.debet) || 0), 0);
     const totalCredit = rows.reduce((s, r) => s + (parseFloat(r.kredit) || 0), 0);
     const diff = totalDebit - totalCredit;
@@ -677,7 +677,7 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
 }
 
 // ─── Main Bokföring Component ──────────────────────────────────────────────────
-export default function Bokforing({ verifications = [], accounts = [], balances = {}, contacts = [], projects = [], templates = [], onSaveTemplate, onAdd, setVerifications, setAccounts, highlightVerificationId, onClearHighlight, vatPeriods, user, uploadFn = uploadFileToStorage, initialTab }) {
+export default function Bokforing({ verifications = [], accounts = [], balances = {}, contacts = [], projects = [], templates = [], onSaveTemplate, onAdd, setAccounts, highlightVerificationId, onClearHighlight, vatPeriods, user, uploadFn = uploadFileToStorage, initialTab }) {
   const [activeTab, setActiveTab] = useState(initialTab || 'verifications');
   // Samma mönster som Taxes.jsx:s initialSection — App.jsx:s
   // verificationsInitialTab (profilmenyns "Kontoplaner" ska landa på

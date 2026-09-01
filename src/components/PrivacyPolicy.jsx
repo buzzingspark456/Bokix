@@ -17,7 +17,6 @@ import { Link } from 'react-router-dom';
 // samma "juridiskt utkast, inte granskat"-markering.
 
 const h2 = { marginTop: '36px', marginBottom: '12px', fontSize: '19px', fontWeight: 800, color: '#0f172a' };
-const h3 = { marginTop: '22px', marginBottom: '8px', fontSize: '15px', fontWeight: 700, color: '#0f172a' };
 const p = { marginBottom: '14px', lineHeight: 1.8, color: '#475569', fontSize: '15px' };
 const li = { marginBottom: '8px', lineHeight: 1.75, color: '#475569', fontSize: '15px' };
 const ul = { margin: '0 0 16px', paddingLeft: '22px' };

@@ -81,7 +81,7 @@ function passwordStrength(pw) {
 // ändå bort explicit av redeemPendingInvite oavsett utfall.
 const PENDING_INVITE_KEY = 'bokix_pending_invite_token';
 
-export default function Auth({ onLogin, onBackToLanding }) {
+export default function Auth({ onBackToLanding }) {
   const [isLogin, setIsLogin] = useState(true);
   // En inbjuden person ska aldrig behöva ange ett eget företagsnamn/orgnr
   // eller betala för en egen prenumeration — de ska bara skapa ett lösenord

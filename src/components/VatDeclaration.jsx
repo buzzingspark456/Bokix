@@ -55,7 +55,7 @@ function Stepper({ current, maxReached }) {
 }
 
 export default function VatDeclaration({
-  verifications = [], invoices = [], expenses = [], accounts = [], company = {},
+  verifications = [], invoices = [], expenses = [], company = {},
   vatPeriods = {}, onBookPeriod, onNavigateToVerification,
 }) {
   const today = new Date();
@@ -225,7 +225,7 @@ export default function VatDeclaration({
                   </tr>
                 </thead>
                 <tbody>
-                  {rutorForDisplay.map((r, i) => {
+                  {rutorForDisplay.map((r) => {
                     const isNet = r.kind === 'net';
                     return (
                       <tr key={r.ruta} style={{ borderTop: '1px solid var(--border-light)', background: isNet ? 'var(--bg-muted)' : 'white' }}>
