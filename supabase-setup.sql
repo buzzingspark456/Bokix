@@ -265,17 +265,16 @@ WITH CHECK ((select auth.uid()) = user_id);
 -- auto-bokfört rakt av, alltid granskat av användaren först.
 --
 -- VIKTIGT om vad "avgift" betyder här: Bokix använder Stripe Connect med
--- destination-charges (transfer_data.destination + application_fee_amount,
--- se create-checkout-session.js) — själva korttransaktionen och Stripes
--- egen korttjänstavgift sker på BOKIX PLATTFORMSKONTO, inte på kundens
--- anslutna konto. Vad som landar på KUNDENS konto är en TRANSFER (typ
--- 'transfer'), redan netto Stripes avgift OCH Bokix egen plattformsavgift.
--- Den plattformsavgiften är däremot en riktig, hittills obokförd kostnad
--- för kunden — mellanskillnaden mellan vad fakturan bokfördes till
--- (1930/1510 vid betalning, se handleRegisterInvoicePayment i App.jsx) och
--- vad som faktiskt landade i Stripe-saldot beräknas av cronen (bästa-
--- försök-matchning mot stripe_payment_events inom ett litet tidsfönster,
--- inte en garanterad metadata-koppling) och sparas i platform_fee_amount.
+-- DIRECT charges (se create-checkout-session.js:s kommentar) — själva
+-- korttransaktionen sker DIREKT på kundens anslutna konto, inte på Bokix
+-- plattformskonto. Vad som syns där är en CHARGE (typ 'charge'), med
+-- Stripes egen korttjänstavgift OCH Bokix egen plattformsavgift (Stripes
+-- Platform Pricing Tool, dynamisk — "Stripes avgift + 1%") redan brutna ut
+-- separat i den transaktionens fee_details. Bokix andel (fee_details:
+-- type 'application_fee') är en riktig, hittills obokförd kostnad för
+-- kunden — matchas mot stripe_payment_events inom ett litet tidsfönster
+-- (bästa-försök, inte en garanterad metadata-koppling) och sparas i
+-- platform_fee_amount av cronen.
 CREATE TABLE IF NOT EXISTS public.stripe_ledger_events (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,

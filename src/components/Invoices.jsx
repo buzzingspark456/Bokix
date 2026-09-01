@@ -1532,12 +1532,15 @@ function ArticleRegisterModal({ articles, setArticles, onClose }) {
  * "Betala nu"-knappstil som InvoiceForm redan bygger när Stripe är
  * anslutet, se paymentLinkUrl-grenen i handleSendEmail ovan).
  *
- * Betalningsmottagare (kundfråga): pengarna går till FÖRETAGETS egna
- * anslutna Stripe-konto, inte till Bokix — se create-checkout-session.js
- * (transfer_data.destination = det anslutna kontot). Bara Bokix egen
- * plattformsavgift (application_fee_amount, redan uträknad server-side)
- * går till Bokix. Den här komponenten ändrar inget i det flödet, den
- * visar bara den redan skapade länken.
+ * Betalningsmottagare (kundfråga): pengarna landar direkt hos FÖRETAGETS
+ * egna anslutna Stripe-konto, inte hos Bokix — betalningen skapas som en
+ * "direct charge" direkt PÅ det anslutna kontot (se create-checkout-
+ * session.js:s kommentar). Bokix egen avgift (Stripes verkliga avgift +
+ * 1% marginal, dynamisk — se samma fil) transfereras separat till Bokix
+ * efter varje betalning, styrt av Stripes Platform Pricing Tool i
+ * Dashboard, inte av något värde den här filen räknar ut. Den här
+ * komponenten ändrar inget i det flödet, den visar bara den redan
+ * skapade länken.
  */
 function PaymentLinkModal({ invoice, customer, company, onGetPaymentLinkUrl, onClose, onMarkSent }) {
   const [url, setUrl] = useState(null);

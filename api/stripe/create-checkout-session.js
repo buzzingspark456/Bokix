@@ -13,8 +13,6 @@ const stripe = stripeSecretKey && !stripeSecretKey.startsWith('pk_')
     })
   : null;
 
-const platformFeePercent = Number.parseFloat(process.env.STRIPE_PLATFORM_FEE_PERCENT || '5');
-
 export default async function handler(req, res) {
   applySecurityHeaders(res);
   if (req.method !== 'POST') {
@@ -50,12 +48,12 @@ export default async function handler(req, res) {
     // vilket lät vem som helst posta ett eget (manipulerat) belopp direkt
     // mot den här endpointen. Slås nu upp och räknas om från den lagrade
     // fakturan, se _invoiceLineItems.js.
-    const resolved = await resolveInvoiceLineItems({ userId, companyId, invoiceId, platformFeePercent });
+    const resolved = await resolveInvoiceLineItems({ userId, companyId, invoiceId });
     if (resolved.error) {
       res.status(resolved.status || 400).json({ error: resolved.error });
       return;
     }
-    const { lineItems, currency, applicationFeeAmount, stripeAccountId } = resolved;
+    const { lineItems, currency, stripeAccountId } = resolved;
 
     // Bank transfer (docs.stripe.com/payments/bank-transfers#checkout) kräver
     // en riktig Stripe-kund på sessionen, inte bara customer_email — annars
@@ -77,21 +75,32 @@ export default async function handler(req, res) {
       stripeCustomerId = stripeCustomer.id;
     }
 
-    // Kundfeedback: betalningslänken visade Bokix eget namn/logga i
-    // Checkout-headern, och pengarna skulle synas hos KUNDEN (det anslutna
-    // Stripe-kontot), inte "gå via" Bokix först. Det förra sättet
-    // (payment_intent_data.transfer_data.destination, ingen `stripeAccount`
-    // request-option) är Stripes "destination charge"-mönster — tekniskt
-    // routar pengarna rätt (Stripe transfererar automatiskt), men Bokix
-    // förblir "merchant of record" så Checkout-sidan visar PLATTFORMENS
-    // (Bokix) branding, inte det anslutna kontots egen (verifierat mot
-    // Stripes officiella docs.stripe.com/connect/direct-charges: "the
-    // connected account's branding is used in Checkout"). Bytt till en
-    // "direct charge" istället — sessionen skapas DIREKT på det anslutna
-    // kontot ({ stripeAccount: stripeAccountId } nedan, motsvarar Stripes
-    // Stripe-Account-header), ingen transfer_data behövs (laddningen sker
-    // redan på rätt konto), application_fee_amount fungerar identiskt och
-    // transfereras automatiskt TILL Bokix istället för FRÅN Bokix.
+    // Kundfeedback (två omgångar): (1) betalningslänken visade Bokix eget
+    // namn/logga i Checkout-headern istället för kundens, och (2) Bokix
+    // egen avgift ska inte vara en fast, orelaterad procentsats (var 5%) —
+    // den ska följa Stripes EGEN avgift (som beror på vilket kort som
+    // faktiskt används, känd först EFTER betalningen) plus en liten,
+    // egen marginal ovanpå. Båda löses av samma ändring: en "direct
+    // charge" istället för den gamla "destination charge"
+    // (transfer_data.destination) — sessionen skapas nu DIREKT på det
+    // anslutna kontot ({ stripeAccount: stripeAccountId } nedan, motsvarar
+    // Stripes Stripe-Account-header), så Checkout visar KUNDENS egen
+    // branding (verifierat mot docs.stripe.com/connect/direct-charges).
+    //
+    // INGEN application_fee_amount sätts längre här (jämför tidigare
+    // version) — det är MEDVETET, inte en kvarglömd rad. Stripe kan inte
+    // känna till sin egen avgift förrän kortet faktiskt dragits (den
+    // varierar per korttyp/land), så ett i förväg uträknat fast belopp
+    // hade aldrig kunnat vara "Stripes avgift + 1%" på riktigt, bara en
+    // gissning. Den riktiga lösningen är Stripes egen "Platform Pricing
+    // Tool" (ställs in i Stripe Dashboard under Connect-inställningarna,
+    // inte i kod) — den räknar automatiskt ut en dynamisk avgift PER
+    // betalning utifrån Stripes faktiska, redan kända avgift för just den
+    // transaktionen. Om ett application_fee_amount hade satts här hade det
+    // enligt Stripes egen dokumentation ("Fees set with this method
+    // override the pricing logic specified in the Platform Pricing Tool")
+    // tyst KÖRT ÖVER Dashboard-inställningen — så koden måste avstå helt
+    // för att Dashboard-regeln ska få gälla.
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
       ...(stripeCustomerId ? { customer: stripeCustomerId } : (customerEmail ? { customer_email: customerEmail } : {})),
@@ -112,14 +121,6 @@ export default async function handler(req, res) {
       // begränsad till bara kort.
       ...(customerType === 'se_individual' ? {} : { excluded_payment_method_types: ['klarna'] }),
       line_items: lineItems,
-      // Ingen transfer_data — det är destination-charge-mönstret, se
-      // kommentaren ovan. Bara application_fee_amount kvar; Stripe
-      // transfererar den automatiskt till Bokix EFTER att betalningen gått
-      // igenom på det anslutna kontot (docs.stripe.com/connect/direct-
-      // charges#collect-fees).
-      payment_intent_data: {
-        application_fee_amount: applicationFeeAmount,
-      },
       // Så webhooken (checkout.session.completed, se webhook.js) vet VILKEN
       // faktura som ska markeras betald — utan det här finns ingen koppling
       // alls mellan en Stripe-betalning och en Bokix-faktura.

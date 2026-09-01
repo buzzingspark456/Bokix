@@ -11,10 +11,10 @@ import { createClient } from '@supabase/supabase-js';
 // service-role-nyckeln, eftersom endpointen inte har en inloggad
 // användarsession att RLS:a mot) och bygger line_items från DEN lagrade
 // datan — klienten kan inte längre påverka vad som faktiskt debiteras.
-// Delad mellan api/stripe/create-checkout-session.js och server.js
-// (samma mönster som _oauthState.js/_cookies.js) så logiken aldrig kan
-// divergera mellan produktion och lokal utveckling.
-export async function resolveInvoiceLineItems({ userId, companyId, invoiceId, platformFeePercent }) {
+// Används av api/stripe/create-checkout-session.js (server.js:s lokala
+// dev-route importerar numera den filens handler direkt istället för att
+// hålla en egen kopia, se server.js:s kommentar där).
+export async function resolveInvoiceLineItems({ userId, companyId, invoiceId }) {
   const supabaseUrl = process.env.VITE_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !serviceRoleKey) {
@@ -62,8 +62,10 @@ export async function resolveInvoiceLineItems({ userId, companyId, invoiceId, pl
     return { error: 'Fakturan saknar giltiga rader.', status: 400 };
   }
 
-  const totalGross = lineItems.reduce((sum, item) => sum + item.price_data.unit_amount * item.quantity, 0);
-  const applicationFeeAmount = Math.round(totalGross * ((platformFeePercent ?? 5) / 100));
-
-  return { lineItems, currency, applicationFeeAmount, stripeAccountId };
+  // Inget applicationFeeAmount att räkna ut här längre — Bokix avgift
+  // sätts numera av Stripes egen Platform Pricing Tool (Dashboard-
+  // konfiguration, dynamisk "Stripes verkliga avgift + 1%"), inte ett
+  // fast, i förväg uträknat belopp. Se create-checkout-session.js:s
+  // kommentar vid session-anropet för hela resonemanget.
+  return { lineItems, currency, stripeAccountId };
 }

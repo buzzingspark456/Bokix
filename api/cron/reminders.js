@@ -375,15 +375,26 @@ export default async function handler(req, res) {
               );
 
               if (balanceTxns.data.length > 0) {
-                // Kandidater att matcha TRANSFER-poster (pengar som landar på
-                // kundens Stripe-saldo från en Bokix-fakturabetalning) mot —
-                // Bokix EGNA loggade fakturabetalningar, samma fönster.
-                // Bästa-försök-matchning på tidsnärhet (±15 min), INTE en
-                // garanterad metadata-koppling: en transfer skapad via
-                // transfer_data på en destination-charge (create-checkout-
-                // session.js) bär ingen egen invoice_id. Ofarligt att gissa
-                // fel här — raden hamnar bara som ett FÖRSLAG i
+                // Kandidater att matcha CHARGE-poster (en kunds
+                // fakturabetalning som landar direkt på kundens eget
+                // Stripe-saldo, se create-checkout-session.js:s "direct
+                // charge"-kommentar) mot Bokix EGNA loggade
+                // fakturabetalningar, samma fönster. Bästa-försök-matchning
+                // på tidsnärhet (±15 min), INTE en garanterad metadata-
+                // koppling: balanceTransactions.list() bär inte igenom
+                // Checkout-sessionens egen metadata (invoice_id). Ofarligt
+                // att gissa fel här — raden hamnar bara som ett FÖRSLAG i
                 // ReviewQueue.jsx, aldrig auto-bokfört.
+                //
+                // Var tidigare bt.type === 'transfer' (destination-charge-
+                // modellen, se git-historiken) — en direct charge dyker
+                // istället upp som 'charge' på det ANSLUTNA kontots eget
+                // saldo, med bt.fee redan satt till summan av Stripes EGEN
+                // avgift + Bokix application_fee (inget att gissa fram via
+                // en belopps-mellanskillnad längre). Bokix egen andel bryts
+                // ut separat ur fee_details (type 'application_fee') istället
+                // för hela bt.fee, så platform_fee_amount fortsätter betyda
+                // "bara Bokix andel", inte Stripes också.
                 const { data: paymentEvents } = await admin
                   .from('stripe_payment_events')
                   .select('invoice_id, amount_total, paid_at')
@@ -396,7 +407,7 @@ export default async function handler(req, res) {
                 const toInsert = balanceTxns.data.map(bt => {
                   let matchedInvoiceId = null;
                   let platformFeeAmount = null;
-                  if (bt.type === 'transfer' && bt.currency === 'sek') {
+                  if (bt.type === 'charge' && bt.currency === 'sek') {
                     const btCreatedMs = bt.created * 1000;
                     let bestIdx = -1, bestDiff = Infinity;
                     unmatchedEvents.forEach((ev, idx) => {
@@ -406,15 +417,12 @@ export default async function handler(req, res) {
                     if (bestIdx !== -1) {
                       const ev = unmatchedEvents.splice(bestIdx, 1)[0];
                       matchedInvoiceId = ev.invoice_id;
-                      // Mellanskillnaden mellan fakturans redan bokförda
-                      // belopp och vad som faktiskt landade i Stripe-saldot —
-                      // Bokix egen plattformsavgift (application_fee_amount),
+                      // Bokix egen andel, direkt ur Stripes fee_details —
                       // se filkommentaren i supabase-setup.sql. Bara sparad
-                      // om positiv — en negativ/nolldifferens (avrundning,
-                      // ingen avgift) har inget att bokföra.
-                      const transferAmountKr = bt.amount / 100;
-                      const feeGuess = Math.round((ev.amount_total - transferAmountKr) * 100) / 100;
-                      if (feeGuess > 0) platformFeeAmount = feeGuess;
+                      // om positiv (annars inget att bokföra).
+                      const applicationFeeEntry = (bt.fee_details || []).find(fd => fd.type === 'application_fee');
+                      const feeAmount = applicationFeeEntry ? applicationFeeEntry.amount / 100 : 0;
+                      if (feeAmount > 0) platformFeeAmount = feeAmount;
                     }
                   }
 

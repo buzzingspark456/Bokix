@@ -49,16 +49,6 @@ const btnStripeConnect = {
   fontWeight: 600, fontSize: '14px', cursor: 'pointer', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.06)',
 };
 
-// Bokix eget uttag på kundfakturors kortbetalningar (Stripe Connect,
-// application_fee_amount) — servern (api/stripe/_invoiceLineItems.js)
-// räknar det på riktigt från STRIPE_PLATFORM_FEE_PERCENT (env), förval
-// 5% om den inte är satt. Klientbunten kan inte läsa en server-only
-// env-variabel, så siffran här är HÅRDKODAD som en ren visningstext —
-// måste hållas i synk för hand om STRIPE_PLATFORM_FEE_PERCENT någonsin
-// sätts till något annat än 5 i Vercel (inte satt där just nu, se
-// _invoiceLineItems.js:s kommentar).
-const PLATFORM_FEE_PERCENT_DISPLAY = 5;
-
 // Zettles eget kombinerade ordmärke ("Zettle" + "by PayPal") — en riktig
 // rasterbild (public/zettle-logo.png, hämtad rakt av från Zettles egen
 // Wikimedia Commons-fil — public domain, "consists only of simple
@@ -1956,23 +1946,22 @@ export default function Settings({
                           ? 'Stripe är anslutet — kunder kan betala dina fakturor med kort direkt online.'
                           : 'Anslut Stripe för att låta kunder betala fakturor med kort direkt online.'}
                       </p>
-                      {/* Kundfråga: "hur mycket avgifter går till oss, hur
-                          mycket till Stripe, hur mycket totalt" — ärligt
-                          svar med riktiga siffror, inte bara "avgifter kan
-                          tillkomma". Bokix eget uttag (application_fee_amount)
-                          sätts i _invoiceLineItems.js, STRIPE_PLATFORM_FEE_
-                          PERCENT (env, förval 5% — inte satt i produktion
-                          just nu så 5% gäller på riktigt). Stripes egen
-                          korttransaktionsavgift (satt av Stripe, inte Bokix)
-                          hämtad från deras officiella prislista för Sverige
-                          (stripe.com/en-se/pricing, kollad i den här
-                          sessionen): 1,5% + 1,80 kr för europeiska kort, upp
-                          till 3,15% + 1,80 kr för utländska — ett SPANN, inte
-                          en exakt siffra, eftersom det beror på vilket kort
-                          kunden råkar betala med. */}
+                      {/* Kundbeslut: Bokix egen avgift ska INTE vara en fast,
+                          orelaterad procentsats (var tidigare 5%) — den ska
+                          följa Stripes EGEN avgift (beror på korttyp, känd
+                          först efter betalningen) plus en liten egen
+                          marginal (1%) ovanpå. En sådan dynamisk "kostnad
+                          plus"-avgift kan bara Stripe själva räkna ut per
+                          betalning (Platform Pricing Tool, ställs in i
+                          Stripe Dashboard — se create-checkout-session.js:s
+                          kommentar för hela resonemanget om varför koden
+                          INTE längre sätter något fast belopp). Ingen
+                          konstant att visa här längre, bara en ärlig
+                          förklaring av modellen + en hänvisning dit den
+                          faktiska summan syns. */}
                       {stripeAccountId && (
                         <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '6px 0 0', lineHeight: 1.6 }}>
-                          Du har tillgång till din egen Stripe-dashboard för att följa saldo, utbetalningar och avgifter. Bokix tar {PLATFORM_FEE_PERCENT_DISPLAY}% per fakturabetalning. Stripe tar sin egen korttransaktionsavgift utöver det — normalt 1,5% + 1,80 kr för europeiska kort, upp till 3,15% + 1,80 kr för utländska. Totalt landar avgifterna oftast runt {PLATFORM_FEE_PERCENT_DISPLAY + 1.5}–{PLATFORM_FEE_PERCENT_DISPLAY + 3.15}% + 1,80 kr per betalning — exakt belopp per transaktion syns i din Stripe-dashboard.
+                          Du har tillgång till din egen Stripe-dashboard för att följa saldo, utbetalningar och avgifter. Avgiften per betalning är Stripes egen korttransaktionsavgift (normalt 1,5% + 1,80 kr för europeiska kort, upp till 3,15% + 1,80 kr för utländska — beror på kundens kort) plus en liten Bokix-marginal på 1% ovanpå. Exakt belopp per betalning syns i din Stripe-dashboard.
                         </p>
                       )}
                     </div>
