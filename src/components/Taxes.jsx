@@ -421,7 +421,7 @@ export default function Taxes({
           fyrkantiga istället för rundade av samma skäl som ListTable.jsx:
           en rundad topp mot en flush, rak flikrad lämnade en liten böjd
           glipa i hörnen istället för att kännas hopfogat. */}
-      <div style={{ flex: 1, overflowY: 'auto' }}>
+      <div data-tour="page-taxes-content" style={{ flex: 1, overflowY: 'auto' }}>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
 
           {/* Viktiga datum — se filkommentaren vid vatDeadlineInfo ovan. */}

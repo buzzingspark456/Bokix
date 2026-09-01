@@ -2128,7 +2128,7 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
           <button onClick={() => setShowExtendedSearch(v => !v)} style={{ ...listHeaderButtonStyle('secondary'), ...(showExtendedSearch ? { background: 'var(--status-blue-bg)', borderColor: 'var(--status-blue-bg)', color: 'var(--status-blue-text)' } : {}) }}>Utökad sökning</button>
           <button onClick={() => { setSearchInput(''); setDateFrom(''); setDateTo(''); setAmountMin(''); setAmountMax(''); }} title="Rensa sökning" style={{ ...listHeaderButtonStyle('secondary'), padding: '0 10px' }}><RefreshCw size={14} /></button>
           <div style={{ flex: 1 }} />
-          <button onClick={() => { setShowForm(true); setEditingInvoice(null); setInvoicePrefill(null); }} style={listHeaderButtonStyle('primary')}>
+          <button data-tour="page-invoices-cta" onClick={() => { setShowForm(true); setEditingInvoice(null); setInvoicePrefill(null); }} style={listHeaderButtonStyle('primary')}>
             <Plus size={14} /> Skapa faktura
           </button>
         </div>

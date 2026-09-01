@@ -1587,7 +1587,7 @@ export default function Settings({
       <div className="settings-layout" style={{ display: 'flex', gap: 0, alignItems: 'flex-start' }}>
         {/* Undermeny — fast bredd, aldrig centrerad, grupperad i tre block.
             Bara på desktop/tablet — se .settings-nav-desktop i index.css. */}
-        <div className="settings-nav-desktop" style={{ width: '232px', flexShrink: 0, paddingRight: '20px', display: 'flex', flexDirection: 'column', gap: '18px', position: 'sticky', top: '24px' }}>
+        <div data-tour="page-settings-nav" className="settings-nav-desktop" style={{ width: '232px', flexShrink: 0, paddingRight: '20px', display: 'flex', flexDirection: 'column', gap: '18px', position: 'sticky', top: '24px' }}>
           {navGroups.map(group => (
             <div key={group.label}>
               <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', padding: '0 14px', marginBottom: '6px' }}>

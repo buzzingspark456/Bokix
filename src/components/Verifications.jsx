@@ -801,7 +801,7 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
         actions={
           activeTab === 'verifications' ? [
             { key: 'next', type: 'note', label: 'Nästa:', value: nextNumber },
-            { key: 'new-ver', label: 'Ny verifikation', icon: Plus, onClick: () => { setEditingVer(null); setShowForm(true); }, variant: 'primary' },
+            { key: 'new-ver', label: 'Ny verifikation', icon: Plus, onClick: () => { setEditingVer(null); setShowForm(true); }, variant: 'primary', dataTour: 'page-verifications-cta' },
           ] : activeTab === 'accounts' ? [
             { key: 'new-account', label: 'Nytt konto', icon: Plus, onClick: () => setShowNewAccountForm(v => !v), variant: 'primary' },
           ] : []

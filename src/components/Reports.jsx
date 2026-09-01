@@ -106,7 +106,7 @@ export default function Reports({
           sidhuvudets EGEN titel-inset, medan själva ListTable är full bredd
           utan eget sidoinset — exakt samma förhållande som ListFilterBar
           (20px) → ListTable (0px) redan har på Verifikationer. */}
-      <div style={{ flex: 1, overflowY: 'auto' }}>
+      <div data-tour="page-reports-list" style={{ flex: 1, overflowY: 'auto' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', paddingBottom: '24px' }}>
           {sections.map((section, i) => (
             <div key={section.id}>

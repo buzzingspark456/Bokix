@@ -2118,7 +2118,9 @@ function App() {
     // maybeAutoStartTour väntar själv in Dashboard-fliken (lat-laddad, se
     // utils/productTour.js:s waitForElement) — sidomenyn/topbaren finns
     // redan här (samma render som satte isLoggedIn/showOnboarding).
-    maybeAutoStartTour(user.id);
+    // handleNavTabChange skickas med så rundturen kan navigera in på
+    // varje sektion på riktigt (se productTour.js:s withNavigation).
+    maybeAutoStartTour(user.id, handleNavTabChange);
   }, [isLoggedIn, showOnboarding, subscriptionGate, user, data.activeCompanyId, data.companies, subscriptionsMap]);
 
   const handleLogin = (companyInfo, isNew) => {
@@ -4213,7 +4215,7 @@ function App() {
         isOpen={isHelpDrawerOpen}
         onClose={() => setIsHelpDrawerOpen(false)}
         onOpenGuide={() => { setIsHelpDrawerOpen(false); setShowOnboarding(true); }}
-        onStartTour={() => { setIsHelpDrawerOpen(false); setActiveTab('dashboard'); startProductTourWhenReady({ uid: user?.id }); }}
+        onStartTour={() => { setIsHelpDrawerOpen(false); handleNavTabChange('dashboard'); startProductTourWhenReady({ uid: user?.id, navigate: handleNavTabChange }); }}
       />
 
       {/* ── Toast — ersätter blockerande alert() för t.ex. "Stripe är nu

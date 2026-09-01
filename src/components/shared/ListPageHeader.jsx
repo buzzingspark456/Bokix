@@ -63,7 +63,10 @@ const tabButtonStyle = (active) => ({
  *
  * @param {string} title - Sidrubrik, t.ex. "Kunder".
  * @param {string} [subtitle] - Undertext under rubriken, t.ex. "12 kunder" eller en fast beskrivning.
- * @param {Array<{key?, label, icon?, onClick, variant?: 'primary'|'secondary', title?, disabled?}>} [actions]
+ * @param {Array<{key?, label, icon?, onClick, variant?: 'primary'|'secondary', title?, disabled?, dataTour?: string}>} [actions]
+ *   `dataTour` (optional): satt som data-tour-attribut på knappen — så produktrundturen
+ *   (utils/productTour.js) kan peka på en RIKTIG knapp, t.ex. "Ny verifikation", istället
+ *   för att bara beskriva den utifrån.
  *   - Renderas i given ordning. Konvention: sekundära knappar (Exportera/Importera) FÖRST,
  *     primärknappen (Ny kund/Ny anställd, grön) SIST längst till höger.
  * @param {{items: Array<{id, label, badge?: number}>, activeId, onChange}} [tabs]
@@ -94,6 +97,7 @@ export default function ListPageHeader({ title, subtitle, actions = [], tabs, ch
               <button
                 key={a.key ?? a.label ?? i}
                 type="button"
+                data-tour={a.dataTour}
                 onClick={a.onClick}
                 title={a.title}
                 disabled={a.disabled}
