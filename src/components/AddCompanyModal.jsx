@@ -52,17 +52,10 @@ export default function AddCompanyModal({ isOpen, onClose, onSubmit, submitting 
           </button>
         </div>
         <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label className="form-label">Företagsnamn</label>
-            <input
-              className="form-control"
-              value={companyName}
-              onChange={e => setCompanyName(e.target.value)}
-              placeholder="Bokix AB"
-              autoFocus
-              required
-            />
-          </div>
+          {/* Org.numret FÖRST (kundfeedback) — det är det man faktiskt vet
+              utantill och skriver in direkt, uppslaget fyller sedan i
+              företagsnamnet nedanför automatiskt istället för att fråga
+              efter namnet man ändå inte visste hur bolagsregistret stavat. */}
           <div className="form-group">
             <label className="form-label">Organisationsnummer</label>
             <input
@@ -74,6 +67,7 @@ export default function AddCompanyModal({ isOpen, onClose, onSubmit, submitting 
                 companyLookup.handleOrgNrChange(formatted);
               }}
               placeholder="556123-4567"
+              autoFocus
             />
             {companyLookup.orgLookup.status === 'loading' && (
               <span className="form-hint">Hämtar företagsuppgifter…</span>
@@ -91,6 +85,16 @@ export default function AddCompanyModal({ isOpen, onClose, onSubmit, submitting 
                 <Check size={12} /> Hämtat från bolagsregistret — ändra gärna om något stämmer bättre.
               </span>
             )}
+          </div>
+          <div className="form-group">
+            <label className="form-label">Företagsnamn</label>
+            <input
+              className="form-control"
+              value={companyName}
+              onChange={e => setCompanyName(e.target.value)}
+              placeholder="Bokix AB"
+              required
+            />
           </div>
           <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: '0 0 4px' }}>
             Du betalar separat för det här företaget, precis som för ditt första — 30 dagar gratis, sedan 99 kr/mån.
