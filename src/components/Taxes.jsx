@@ -12,6 +12,7 @@ import { computeInk2r } from '../utils/ink2r';
 import { computeInk2rResultat } from '../utils/ink2rResultat';
 import { computeInk2s } from '../utils/ink2s';
 import { downloadInk2rSru } from '../utils/sruExport';
+import { nextVatDeadline, nextAgiDeadline } from '../utils/declarationDeadlines';
 
 const fmt = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
 
@@ -94,7 +95,7 @@ function Ink2sStatTile({ label, sublabel, amount, tone, Icon }) {
 export default function Taxes({
   company, verifications = [], invoices = [], expenses = [], accounts = [],
   payrollRuns = [], vatPeriods = {}, onBookVatPeriod, onNavigateToVerification,
-  onAddVerification, setCompanyInfo, onNavigateToTab,
+  onAddVerification, setCompanyInfo, onNavigateToTab, initialSection,
 }) {
   const currentYear = new Date().getFullYear().toString();
   const orgType = detectOrgType(company?.orgNr);
@@ -106,7 +107,22 @@ export default function Taxes({
   // oavsett vad man faktiskt kom hit för att göra just idag. Delad i flikar
   // nu (samma ListPageHeader-mönster som Kunder/Anställda/Projekt m.fl.):
   // bara EN del synlig åt gången, mycket mindre att ta in per besök.
-  const [activeSection, setActiveSection] = useState('vat');
+  const [activeSection, setActiveSection] = useState(initialSection || 'vat');
+
+  // Bugkritiskt (profilmenyn, App.jsx): "Bokslut & årsredovisning" och
+  // "Momsredovisning" skickade tidigare bara till den här sidan i
+  // ALLMÄNHET (samma 'taxes'-flik som "Viktiga datum") utan att säga VILKEN
+  // sektion — activeSection stod alltid kvar på sitt useState-förval ('vat'),
+  // så "Bokslut & årsredovisning" öppnade i praktiken Moms-fliken, aldrig
+  // Årsbokslut. App.jsx skickar nu ner initialSection per klick (se
+  // handleNavTabChange), men eftersom den HÄR komponenten inte remountas
+  // mellan två klick på taxes-relaterade profilmenyval (samma `key`, se
+  // App.jsx:s render-switch) räcker inte useState-förvalet ensamt — måste
+  // synkas explicit varje gång propen faktiskt ändras.
+  useEffect(() => {
+    if (initialSection) setActiveSection(initialSection);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialSection]);
 
   // Kodgranskning: "ink2"-fliken skapas aldrig för enskild firma
   // (sectionTabs nedan) och dess innehåll döljs med `!isSoleProp &&
@@ -356,11 +372,32 @@ export default function Taxes({
   const getStatusColor = (status) => (status === 'Klar' ? 'var(--status-green-text)' : status === 'Pågår' ? 'var(--status-amber-text)' : 'var(--text-secondary)');
 
   const sectionTabs = [
+    { id: 'dates', label: 'Viktiga datum' },
     { id: 'vat', label: 'Moms' },
     { id: 'yearend', label: 'Årsbokslut' },
     { id: 'ku', label: 'Kontrolluppgifter' },
     ...(!isSoleProp ? [{ id: 'ink2', label: 'Inkomstdeklaration' }] : []),
   ];
+
+  // ── Viktiga datum ── Kundfeedback (två omgångar): profilmenyns "Viktiga
+  // datum" ledde hit men landade alltid på Moms-fliken utan att visa något
+  // datum — sen ett smalt pill-band ovanför flikarna, men kunden ville ha
+  // en RIKTIG, egen flik ("den ska se riktigt bra ut"). Samma
+  // deadline-uträkningar som redan visas på Startsidan (Dashboard.jsx:s
+  // varningswidget, "X dagar kvar") — ALDRIG en egen, ny beräkning här,
+  // exakt samma funktioner, så de aldrig kan visa olika datum på två
+  // ställen. Bokslutsdeadline visas MEDVETET INTE — ingen befintlig,
+  // verifierad uträkning för den finns i declarationDeadlines.js, och
+  // kundens uttryckliga krav var att ALDRIG visa ett gissat datum här.
+  const vatDeadlineInfo = useMemo(() => nextVatDeadline(company, vatPeriods), [company, vatPeriods]);
+  const agiDeadlineInfo = useMemo(() => (payrollRuns.length > 0 ? nextAgiDeadline() : null), [payrollRuns.length]);
+  const fmtDeadlineDate = (d) => new Intl.DateTimeFormat('sv-SE', { day: 'numeric', month: 'short', year: 'numeric' }).format(d);
+  const daysLeftLabel = (daysLeft) => {
+    if (daysLeft < 0) return 'försenad';
+    if (daysLeft === 0) return 'idag';
+    if (daysLeft === 1) return 'imorgon';
+    return `om ${daysLeft} dagar`;
+  };
 
   return (
     // Samma "facit"-mönster som Kunder/Anställda/Projekt m.fl. (ListPageHeader
@@ -386,6 +423,93 @@ export default function Taxes({
           glipa i hörnen istället för att kännas hopfogat. */}
       <div style={{ flex: 1, overflowY: 'auto' }}>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
+
+          {/* Viktiga datum — se filkommentaren vid vatDeadlineInfo ovan. */}
+          {activeSection === 'dates' && (
+            // Kundfeedback: föregående version var en smal, lodrät stapel av
+            // 1-2 kort högst upp på en annars tom, full-höjds flik — mycket
+            // tomrum under. Ett rutnät (auto-fit) istället för en stapel gör
+            // att korten faktiskt FYLLER bredden och känns som en avsiktlig
+            // yta, inte en lista som råkar ta slut tidigt. maxWidth borttagen
+            // av samma skäl — begränsade bredden i onödan på bredare skärmar.
+            <div style={{ padding: '24px' }}>
+              <div style={{ marginBottom: '18px' }}>
+                <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '3px' }}>Kommande deadlines</div>
+                <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Automatiskt uträknat utifrån ditt företags momsperiod och lönekörningar.</div>
+              </div>
+
+              {!vatDeadlineInfo && !agiDeadlineInfo ? (
+                <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px', padding: '32px 24px', textAlign: 'center' }}>
+                  <Clock size={26} color="var(--text-muted)" style={{ marginBottom: '10px' }} />
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '4px' }}>Inga kommande deadlines just nu</div>
+                  <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>Momsperioden är redan bokad, eller så är momsredovisningen inte kvartalsvis.</div>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px' }}>
+                  {[
+                    vatDeadlineInfo && {
+                      key: 'vat', icon: Calculator,
+                      title: `Momsdeklaration`,
+                      subtitle: `Kvartal ${vatDeadlineInfo.quarter}, ${vatDeadlineInfo.year}`,
+                      detail: `Senast ${fmtDeadlineDate(vatDeadlineInfo.dueDate)}`,
+                      daysLeft: vatDeadlineInfo.daysLeft,
+                      onClick: () => setActiveSection('vat'),
+                    },
+                    agiDeadlineInfo && {
+                      key: 'agi', icon: Users,
+                      title: 'Arbetsgivardeklaration',
+                      subtitle: 'AGI',
+                      detail: `Senast ${fmtDeadlineDate(agiDeadlineInfo.dueDate)}`,
+                      daysLeft: agiDeadlineInfo.daysLeft,
+                      // AGI hanteras inte på den här sidan alls — Lönekörning
+                      // (payroll) är där det faktiska underlaget finns, till
+                      // skillnad från momskortet som pekar på en flik HÄR.
+                      onClick: () => onNavigateToTab?.('payroll'),
+                    },
+                  ].filter(Boolean).map(item => {
+                    const sevBg = item.daysLeft < 0 ? 'var(--status-red-bg)' : item.daysLeft <= 7 ? 'var(--status-amber-bg)' : 'var(--status-gray-bg)';
+                    const sevText = item.daysLeft < 0 ? 'var(--status-red-text)' : item.daysLeft <= 7 ? 'var(--status-amber-text)' : 'var(--status-gray-text)';
+                    return (
+                      <button
+                        key={item.key}
+                        type="button"
+                        onClick={item.onClick}
+                        style={{
+                          display: 'flex', flexDirection: 'column', gap: '14px', textAlign: 'left',
+                          background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px', padding: '18px',
+                          cursor: 'pointer', fontFamily: 'inherit',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                          <div style={{ width: 40, height: 40, borderRadius: '11px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: sevBg, color: sevText }}>
+                            <item.icon size={18} />
+                          </div>
+                          <div style={{ padding: '5px 12px', borderRadius: '999px', background: sevBg, color: sevText, fontSize: '12.5px', fontWeight: 700, flexShrink: 0 }}>
+                            {daysLeftLabel(item.daysLeft)}
+                          </div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '14.5px', fontWeight: 700, color: 'var(--text-main)' }}>{item.title}</div>
+                          <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginTop: '2px' }}>{item.subtitle} · {item.detail}</div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Källa/tillförlitlighet — kundkrav: datumen måste vara
+                  garanterat korrekta, inte gissade. Uträkningen (samma
+                  funktioner som Startsidans varningswidget och de
+                  automatiska påminnelsemejlen, aldrig en egen tredje
+                  beräkning) verifierades direkt mot skatteverket.se
+                  2026-09-01, inklusive augusti-undantaget (17:e istället
+                  för 12:e) — se declarationDeadlines.js. */}
+              <div style={{ marginTop: '18px', fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+                Datumen följer Skatteverkets allmänna regel (12:e i andra månaden efter perioden, med undantag för augusti då det är den 17:e) och flyttas fram till nästa vardag om de landar på en helg. Skatteverket kan i enskilda fall flytta fram ytterligare vid röda dagar.
+              </div>
+            </div>
+          )}
 
           {/* Momsdeklaration */}
           {activeSection === 'vat' && (
