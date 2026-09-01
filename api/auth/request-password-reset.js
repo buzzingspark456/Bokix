@@ -2,7 +2,6 @@ import { createClient } from '@supabase/supabase-js';
 import { applySecurityHeaders } from '../_security.js';
 import { parseJsonBody } from '../stripe/_parseBody.js';
 import { checkRateLimit } from '../_rateLimit.js';
-import { isRequestFromBot } from '../_botid.js';
 import { createSignedToken, verifySignedToken } from '../_signedToken.js';
 import { hasResendApiKey, sendWithFallback } from '../_resend.js';
 import { buildSignupVerificationHtml } from '../_emailTemplates.js';
@@ -57,12 +56,17 @@ async function handlePasswordReset(req, body, res) {
   // e-postadress (identifier) istället för IP.
   if (!checkRateLimit(req, res, { key: 'password-reset', windowMs: 24 * 60 * 60 * 1000, max: 5, identifier: email })) return;
 
-  const isBot = await isRequestFromBot();
-  if (isBot) {
-    res.status(403).json({ error: 'Åtkomst nekad.' });
-    return;
-  }
-
+  // OBS: ingen BotID-koll här längre (samma rättning, av samma anledning,
+  // som api/company-access.js redan fick — se den filens kommentar). Den
+  // här routen är MEDVETET INTE listad i main.jsx:s initBotId({ protect })
+  // (se kommentaren där för varför — klientens BotID-inpackning failar
+  // stängd om utmaningsskriptet inte laddas, fel risk att introducera i
+  // just kontoåterställning/registrering). Utan en client-registrering
+  // skickas x-is-human-headern aldrig, och Vercels riktiga bot-tjänst kan
+  // då landa i isBot:true för vanliga användare — precis den bugg som
+  // gav "Åtkomst nekad" på registreringens "Personlig info"-steg i
+  // produktion (send-signup-code-grenen nedan hade samma kod, se dess
+  // egen kommentar). Rate-limiten ovan är det faktiska skyddet.
   const supabaseUrl = process.env.VITE_SUPABASE_URL;
   const anonKey = process.env.VITE_SUPABASE_ANON_KEY;
   if (!supabaseUrl || !anonKey) {
@@ -118,12 +122,14 @@ async function handleSendSignupCode(req, body, res) {
   if (!checkRateLimit(req, res, { key: 'signup-code-ip', max: 20 })) return;
   if (!checkRateLimit(req, res, { key: 'signup-code-email', windowMs: 60 * 60 * 1000, max: 5, identifier: email })) return;
 
-  const isBot = await isRequestFromBot();
-  if (isBot) {
-    res.status(403).json({ error: 'Åtkomst nekad.' });
-    return;
-  }
-
+  // OBS: ingen BotID-koll här — se kommentaren vid samma kollen i
+  // handlePasswordReset ovan, den gäller ordagrant här också (samma fil,
+  // samma saknade client-registrering). Det HÄR var grenen som faktiskt
+  // orsakade "Åtkomst nekad" på registreringens "Personlig info"-steg i
+  // produktion (Auth.jsx handleNextStep → sendCode() → send-signup-code,
+  // kundrapporterat 2026-09-01) — riktiga användare klassades som bot bara
+  // för att x-is-human aldrig skickades. Rate-limiten ovan (20/IP,
+  // 5/e-post/timme) är det faktiska skyddet mot missbruk.
   if (!hasResendApiKey()) {
     res.status(503).json({ error: 'E-postutskick är inte konfigurerat just nu.' });
     return;
