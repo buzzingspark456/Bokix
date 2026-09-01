@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   User, Building2, CreditCard, Users, Shield, Sliders, Check, Download, Upload,
   AlertTriangle, Trash2, Mail, Plug, Laptop, FileText, Lock, KeyRound, Image as ImageIcon,
-  Palette, Landmark, Hash, Calendar, Phone, Plus, X, ZoomIn, ZoomOut, Maximize2, Bell,
+  Palette, Landmark, Hash, Calendar, Phone, Plus, X, ZoomIn, ZoomOut, Maximize2, Bell, ExternalLink,
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { sendInvoiceEmail } from '../emailApi';
@@ -48,6 +48,16 @@ const btnStripeConnect = {
   background: 'var(--bg-card)', color: '#0a2540', border: '1px solid var(--border)', borderRadius: '8px',
   fontWeight: 600, fontSize: '14px', cursor: 'pointer', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.06)',
 };
+
+// Bokix eget uttag på kundfakturors kortbetalningar (Stripe Connect,
+// application_fee_amount) — servern (api/stripe/_invoiceLineItems.js)
+// räknar det på riktigt från STRIPE_PLATFORM_FEE_PERCENT (env), förval
+// 5% om den inte är satt. Klientbunten kan inte läsa en server-only
+// env-variabel, så siffran här är HÅRDKODAD som en ren visningstext —
+// måste hållas i synk för hand om STRIPE_PLATFORM_FEE_PERCENT någonsin
+// sätts till något annat än 5 i Vercel (inte satt där just nu, se
+// _invoiceLineItems.js:s kommentar).
+const PLATFORM_FEE_PERCENT_DISPLAY = 5;
 
 // Zettles eget kombinerade ordmärke ("Zettle" + "by PayPal") — en riktig
 // rasterbild (public/zettle-logo.png, hämtad rakt av från Zettles egen
@@ -1940,18 +1950,42 @@ export default function Settings({
                   />
                 ) : (
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
-                    <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0, maxWidth: '480px' }}>
-                      {stripeAccountId
-                        ? 'Stripe är anslutet — kunder kan betala dina fakturor med kort direkt online.'
-                        : 'Anslut Stripe för att låta kunder betala fakturor med kort direkt online.'}
-                    </p>
-                    {stripeAccountId
-                      ? <button onClick={() => { if (readOnly) { onDisconnectStripe?.(); return; } setStripeReauthAction('disconnect'); }} style={btnGhost}>Koppla från</button>
-                      : (
-                        <button onClick={() => { if (readOnly) { onConnectStripe?.(); return; } setStripeReauthAction('connect'); }} style={btnStripeConnect}>
-                          <StripeLogo height={15} /> Anslut Stripe
-                        </button>
+                    <div style={{ maxWidth: '480px' }}>
+                      <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>
+                        {stripeAccountId
+                          ? 'Stripe är anslutet — kunder kan betala dina fakturor med kort direkt online.'
+                          : 'Anslut Stripe för att låta kunder betala fakturor med kort direkt online.'}
+                      </p>
+                      {/* Kundfråga: "får jag avgifter" — ärligt svar, inte
+                          bara "avgifter kan tillkomma". Bokix eget uttag
+                          (application_fee_amount) sätts i _invoiceLineItems.js,
+                          STRIPE_PLATFORM_FEE_PERCENT (env, förval 5% — inte
+                          satt i produktion just nu så 5% gäller på riktigt),
+                          UTÖVER Stripes egen korttransaktionsavgift (satt av
+                          Stripe, inte Bokix, varierar per kort/land — därför
+                          ingen exakt siffra för DEN delen här, bara en
+                          hänvisning till dashboarden där det faktiska
+                          avdraget syns per betalning). */}
+                      {stripeAccountId && (
+                        <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '6px 0 0' }}>
+                          Du har tillgång till din egen Stripe-dashboard för att följa saldo, utbetalningar och avgifter. Stripes egna korttransaktionsavgifter dras per betalning (varierar per korttyp), plus Bokix plattformsavgift på {PLATFORM_FEE_PERCENT_DISPLAY}% per fakturabetalning.
+                        </p>
                       )}
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      {stripeAccountId && (
+                        <a href="https://dashboard.stripe.com/" target="_blank" rel="noopener noreferrer" style={{ ...btnSecondary, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                          Öppna Stripe-dashboard <ExternalLink size={13} />
+                        </a>
+                      )}
+                      {stripeAccountId
+                        ? <button onClick={() => { if (readOnly) { onDisconnectStripe?.(); return; } setStripeReauthAction('disconnect'); }} style={btnGhost}>Koppla från</button>
+                        : (
+                          <button onClick={() => { if (readOnly) { onConnectStripe?.(); return; } setStripeReauthAction('connect'); }} style={btnStripeConnect}>
+                            <StripeLogo height={15} /> Anslut Stripe
+                          </button>
+                        )}
+                    </div>
                   </div>
                 )}
               </div>
