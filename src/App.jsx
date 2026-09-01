@@ -397,6 +397,7 @@ const CompanySettings = lazy(() => import('./components/CompanySettings'));
 import HelpDrawer from './components/HelpDrawer';
 import Toast from './components/shared/Toast';
 import PaymentRequiredGate from './components/PaymentRequiredGate';
+import { maybeAutoStartTour, startProductTourWhenReady } from './utils/productTour';
 
 // Fallback under den enda <Suspense> som omsluter App-komponentens JSX (se
 // return-satsen längre ner) — visas bara under den korta stund en lazy-flik
@@ -983,6 +984,9 @@ function App() {
   // fetchUserData-körningen för det GAMLA (redan betalande) kontot hann
   // svara sist och skrev över gaten. Se onAuthStateChange längre ner.
   const loadedUserIdRef = useRef(null);
+  // Se produktrundturens useEffect (nära handleLogin) — säkerställer att
+  // auto-starten bara försöker en gång per sidladdning.
+  const tourAutoStartedRef = useRef(false);
   // Säkerhetsfix (säkerhetsgranskningen): TwoFactorSection (Settings.jsx)
   // lät användare registrera TOTP, men login-flödet kollade aldrig
   // "authenticator assurance level" efteråt — en inloggning med rätt
@@ -2088,6 +2092,34 @@ function App() {
     document.addEventListener('click', handler);
     return () => document.removeEventListener('click', handler);
   }, []);
+
+  // Produktrundturen (driver.js, se utils/productTour.js) — auto-startar
+  // EN gång per konto (localStorage-flagga i den filen), men bara när den
+  // riktiga app-vyn (sidomeny + topbar, se app-container-grenen längst ner
+  // i return-satsen) faktiskt är den som kommer renderas den här
+  // omgången — annars pekar stegen på element som inte finns i DOM:et.
+  // Kan INTE läsa `isActiveCompanyPaid`/`company` (de beräknas längre ner,
+  // EFTER `if (isLoadingAuth) return`) utan att bryta hooks-ordningen om
+  // den här effekten låg där — samma villkor räknas därför om här, från
+  // samma state (data/subscriptionsMap/user), se App.jsx:s egen
+  // isActiveCompanyPaid-kommentar för originalet. `tourAutoStartedRef`
+  // säkerställer att den bara triggas EN gång per sidladdning, inte varje
+  // gång något av beroendena råkar ändras (t.ex. att öppna/stänga
+  // profilmenyn räknas inte, men skulle annars trigga om igen).
+  useEffect(() => {
+    if (tourAutoStartedRef.current) return;
+    if (!isLoggedIn || showOnboarding || subscriptionGate === 'blocked' || !user?.id) return;
+    const activeCompany = data.companies?.[data.activeCompanyId]?.company;
+    const paid = isFreeAccountEmail(user?.email)
+      || !activeCompany?.requiresOwnPayment
+      || ALLOWED_SUBSCRIPTION_STATUSES.includes(subscriptionsMap[activeCompany?.id]?.status);
+    if (!paid) return;
+    tourAutoStartedRef.current = true;
+    // maybeAutoStartTour väntar själv in Dashboard-fliken (lat-laddad, se
+    // utils/productTour.js:s waitForElement) — sidomenyn/topbaren finns
+    // redan här (samma render som satte isLoggedIn/showOnboarding).
+    maybeAutoStartTour(user.id);
+  }, [isLoggedIn, showOnboarding, subscriptionGate, user, data.activeCompanyId, data.companies, subscriptionsMap]);
 
   const handleLogin = (companyInfo, isNew) => {
     // Auth component now handles Supabase calls. We just rely on onAuthStateChange.
@@ -3762,6 +3794,7 @@ function App() {
                 return (
                   <button
                     key={item.id}
+                    data-tour={`nav-${item.id}`}
                     className={`nav-item ${isActive ? 'active' : ''}`}
                     onClick={() => handleNavTabChange(item.id)}
                     style={{
@@ -3849,7 +3882,7 @@ function App() {
           </div>
 
           <div className="desktop-topbar-right">
-            <button className="topbar-icon-btn" title="Hjälp & support" onClick={() => setIsHelpDrawerOpen(true)}>
+            <button data-tour="topbar-help" className="topbar-icon-btn" title="Hjälp & support" onClick={() => setIsHelpDrawerOpen(true)}>
               <HelpCircle size={18} />
             </button>
             <button className="topbar-icon-btn" title={theme === 'dark' ? 'Ljust läge' : 'Mörkt läge'} onClick={toggleTheme}>
@@ -3886,6 +3919,7 @@ function App() {
 
             <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
               <div
+                data-tour="topbar-profile"
                 className="topbar-profile-trigger"
                 onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
                 style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', padding: '4px', borderRadius: '8px' }}
@@ -4179,6 +4213,7 @@ function App() {
         isOpen={isHelpDrawerOpen}
         onClose={() => setIsHelpDrawerOpen(false)}
         onOpenGuide={() => { setIsHelpDrawerOpen(false); setShowOnboarding(true); }}
+        onStartTour={() => { setIsHelpDrawerOpen(false); setActiveTab('dashboard'); startProductTourWhenReady({ uid: user?.id }); }}
       />
 
       {/* ── Toast — ersätter blockerande alert() för t.ex. "Stripe är nu

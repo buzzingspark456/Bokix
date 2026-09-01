@@ -1047,7 +1047,7 @@ export default function Dashboard({ verifications, balances, accounts, invoices,
         // `showOnboarding`/`dismissOnboarding`), inte bara tills kontot
         // slutar räknas som "nytt". `position: relative` krävs för
         // konfetti-lagret, som positioneras absolut ovanpå innehållet.
-        <div style={{ position: 'relative', overflow: 'hidden', background: 'var(--bg-cream)', border: '1px solid var(--bg-cream-border)', borderRadius: '14px', padding: '20px 22px', marginTop: '4px' }}>
+        <div data-tour="dash-checklist" style={{ position: 'relative', overflow: 'hidden', background: 'var(--bg-cream)', border: '1px solid var(--bg-cream-border)', borderRadius: '14px', padding: '20px 22px', marginTop: '4px' }}>
           {celebrating && (
             <div aria-hidden="true" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden' }}>
               {confettiPieces.map((p, i) => (

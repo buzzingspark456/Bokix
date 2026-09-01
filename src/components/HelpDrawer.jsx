@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Search, Book, PlayCircle, MessageSquare, AlertCircle, ArrowLeft } from 'lucide-react';
+import { Search, Book, PlayCircle, Sparkles, MessageSquare, AlertCircle, ArrowLeft } from 'lucide-react';
 import Drawer from './Drawer';
 
 // Egna körvägar i drawern, inte separata modaler — "Ordlista" byter bara
@@ -8,6 +8,10 @@ import Drawer from './Drawer';
 // synligt innehåll internt i drawern istället.
 const SHORTCUTS = [
   { icon: PlayCircle, color: '#3a8fc1', bg: '#eef5fb', label: 'Kom igång-guide', action: 'guide' },
+  // Samma rundtur (driver.js, se utils/productTour.js) som visas
+  // automatiskt första gången ett konto loggar in — den här genvägen är
+  // den enda vägen tillbaka till den efteråt, se onStartTour/App.jsx.
+  { icon: Sparkles, color: '#c26b1f', bg: '#fdf3e7', label: 'Starta rundtur', action: 'tour' },
   { icon: Book, color: '#9333ea', bg: '#fdf4ff', label: 'Ordlista', action: 'glossary' },
 ];
 
@@ -45,7 +49,7 @@ const shortcutBtnStyle = {
 
 // `onOpenGuide`: stänger drawern och startar OnboardingFlow (App.jsx:
 // showOnboarding) — samma flöde som Dashboards "Fortsätt registreringen".
-const HelpDrawer = ({ isOpen, onClose, onOpenGuide }) => {
+const HelpDrawer = ({ isOpen, onClose, onOpenGuide, onStartTour }) => {
   const [search, setSearch] = useState('');
   const [view, setView] = useState('menu'); // 'menu' | 'glossary'
 
@@ -63,6 +67,7 @@ const HelpDrawer = ({ isOpen, onClose, onOpenGuide }) => {
 
   const handleShortcut = (action) => {
     if (action === 'guide') onOpenGuide?.();
+    else if (action === 'tour') onStartTour?.();
     else if (action === 'glossary') { setView('glossary'); setSearch(''); }
   };
 
