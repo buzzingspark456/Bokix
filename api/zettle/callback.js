@@ -116,6 +116,9 @@ async function handleStart(res, user, body) {
 
 // ── Steg 2: Zettle redirectar hit efter godkännande/avbrott ──
 async function handleCallback(req, res) {
+  // Säkerhetsgranskningen: samma saknade gräns som api/stripe/callback.js
+  // hade — se den filens motsvarande kommentar.
+  if (!checkRateLimit(req, res, { key: 'zettle-callback', max: 20 })) return;
   const { code, state, error: zettleError } = req.query || {};
   // Cookien ska bara kunna användas en gång, oavsett utfall.
   res.setHeader('Set-Cookie', clearZettleOauthStateCookie());

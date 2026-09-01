@@ -174,8 +174,15 @@ async function handleSendSignupCode(req, body, res) {
 
 /** Kollar den inskrivna koden mot token:en från send-signup-code ovan.
  * Skriver aldrig till Supabase alls — se filkommentaren högst upp för
- * varför (ingen riktig session/inloggning ska skapas här). */
-async function handleVerifySignupCode(body, res) {
+ * varför (ingen riktig session/inloggning ska skapas här).
+ *
+ * Säkerhetsgranskningen: den här grenen saknade TIDIGARE all hastighets-
+ * begränsning — koden är bara sex siffror (1 miljon kombinationer) och
+ * token:en (som bär både e-post och rätt kod, se _signedToken.js) är
+ * redan i anroparens ägo sedan send-signup-code svarade, så INGET annat
+ * stoppade ett skript från att testa alla miljon på under en minut.
+ * Samma dubbla IP+e-post-gräns som send-signup-code redan hade. */
+async function handleVerifySignupCode(req, body, res) {
   const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : '';
   const code = typeof body?.code === 'string' ? body.code.trim() : '';
   const token = typeof body?.token === 'string' ? body.token : '';
@@ -183,6 +190,8 @@ async function handleVerifySignupCode(body, res) {
     res.status(400).json({ error: 'E-post, kod och token krävs.' });
     return;
   }
+  if (!checkRateLimit(req, res, { key: 'verify-signup-code-ip', max: 20 })) return;
+  if (!checkRateLimit(req, res, { key: 'verify-signup-code-email', windowMs: 10 * 60 * 1000, max: 10, identifier: email })) return;
 
   const payload = verifySignedToken(token, SIGNUP_CODE_MAX_AGE_MS);
   if (!payload || payload.email !== email || payload.code !== code) {
@@ -248,6 +257,13 @@ async function handleSendReauthCode(req, res) {
 async function handleVerifyReauthCode(req, body, res) {
   const user = await requireAuthedUser(req, res);
   if (!user) return;
+  // Säkerhetsgranskningen: samma saknade hastighetsbegränsning som
+  // handleVerifySignupCode hade — men allvarligare här, eftersom ett
+  // godkänt svar ger ett reauthToken som öppnar lösenordsbyte/
+  // företagsuppgifter/Stripe-frånkoppling. Skyddar precis den
+  // "stulen session räcker inte"-garanti reauth-flödet finns för att ge.
+  if (!checkRateLimit(req, res, { key: 'verify-reauth-code-ip', max: 20 })) return;
+  if (!checkRateLimit(req, res, { key: 'verify-reauth-code-user', windowMs: 10 * 60 * 1000, max: 10, identifier: user.id })) return;
 
   const code = typeof body?.code === 'string' ? body.code.trim() : '';
   const token = typeof body?.token === 'string' ? body.token : '';
@@ -321,7 +337,7 @@ export default async function handler(req, res) {
     return;
   }
   if (body?.action === 'verify-signup-code') {
-    await handleVerifySignupCode(body, res);
+    await handleVerifySignupCode(req, body, res);
     return;
   }
   if (body?.action === 'send-reauth-code') {

@@ -46,7 +46,11 @@ export async function getSubscriptionRow(userId, companyId = null) {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !serviceRoleKey) return null;
   const admin = createClient(supabaseUrl, serviceRoleKey);
-  const { data } = await admin.from('subscriptions').select('*').eq('user_id', userId).eq('company_id', legacyCompanyId(companyId)).maybeSingle();
+  // Säkerhetsgranskningen (över-hämtning): enda konsumenten (create-
+  // subscription-checkout.js:s reactivate-gren) läser bara
+  // stripe_subscription_id — select('*') drog med sig hela raden
+  // (stripe_customer_id m.fl.) i onödan.
+  const { data } = await admin.from('subscriptions').select('stripe_subscription_id').eq('user_id', userId).eq('company_id', legacyCompanyId(companyId)).maybeSingle();
   return data || null;
 }
 

@@ -9,6 +9,7 @@ import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
 import { verifySignedState } from './_oauthState.js';
 import { parseCookies, STRIPE_OAUTH_COOKIE, clearStripeOauthStateCookie } from './_cookies.js';
+import { checkRateLimit } from '../_rateLimit.js';
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY || null;
 const stripe = stripeSecretKey && !stripeSecretKey.startsWith('pk_') ? new Stripe(stripeSecretKey, {}) : null;
@@ -47,6 +48,13 @@ async function persistStripeAccountId({ userId, companyId, stripeAccountId }) {
 
 export default async function handler(req, res) {
   applySecurityHeaders(res);
+  // Säkerhetsgranskningen: den här callbacken hade ingen hastighets-
+  // begränsning alls trots att den anropar Stripes OAuth-tokenendpoint
+  // och skriver till databasen. Statuskoden/cookie-jämförelsen (nedan)
+  // skyddar redan mot att en FRÄMMANDE begäran lyckas, men en gräns här
+  // ändå — annars kan IP:t ändå spamma just den här routen (och Stripes
+  // API) tomt utan att någonsin komma förbi state-kollen.
+  if (!checkRateLimit(req, res, { key: 'stripe-callback', max: 20 })) return;
   const { code, state, error: stripeError } = req.query || {};
   // Cookien ska bara kunna användas en gång, oavsett utfall.
   res.setHeader('Set-Cookie', clearStripeOauthStateCookie());

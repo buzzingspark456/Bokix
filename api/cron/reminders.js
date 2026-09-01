@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
 import { applySecurityHeaders } from '../_security.js';
@@ -93,7 +94,20 @@ export default async function handler(req, res) {
   // manuellt för att trigga/testa körningen (se README-verifieringssteg).
   const expectedSecret = process.env.CRON_SECRET;
   const authHeader = req.headers['authorization'] || '';
-  if (!expectedSecret || authHeader !== `Bearer ${expectedSecret}`) {
+  // Säkerhetsgranskningen: `!==` på en hemlighet är en icke-konstant-tids-
+  // jämförelse (returnerar vid FÖRSTA avvikande tecknet) — teoretiskt
+  // läcker det via svarstiden hur många tecken av CRON_SECRET som redan
+  // stämmer. Bytt till crypto.timingSafeEqual, samma mönster som
+  // _signedToken.js:s signaturjämförelse redan använder. Längdkollen
+  // (Buffer.byteLength) FÅR göras icke-konstant — bara innehållet, inte
+  // längden, är det som ska vara svårt att sidokanalsläsa ut.
+  const expectedHeader = `Bearer ${expectedSecret || ''}`;
+  const expectedBuf = Buffer.from(expectedHeader);
+  const actualBuf = Buffer.from(authHeader);
+  const authorized = !!expectedSecret
+    && expectedBuf.length === actualBuf.length
+    && crypto.timingSafeEqual(expectedBuf, actualBuf);
+  if (!authorized) {
     res.status(401).json({ error: 'Unauthorized' });
     return;
   }
