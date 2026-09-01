@@ -640,7 +640,6 @@ export default function Auth({ onLogin, onBackToLanding }) {
           <>
             <div style={{ marginBottom: '28px' }}>
               <h2 style={{ fontFamily: "'Newsreader', Georgia, serif", fontSize: '33px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '7px', letterSpacing: '-0.01em' }}>Välkommen tillbaka</h2>
-              <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Logga in på ditt konto nedan.</p>
             </div>
             <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div>
@@ -692,10 +691,8 @@ export default function Auth({ onLogin, onBackToLanding }) {
                 {regStep === 3 && 'Skapa lösenord'}
               </h2>
               <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)' }}>
-                {regStep === 0 && 'Fyll i dina uppgifter för att skapa ett konto.'}
                 {regStep === 1 && `Skriv in koden vi skickade till ${regEmail}.`}
-                {regStep === 2 && 'Ange ditt företag – det här är obligatoriskt.'}
-                {regStep === 3 && 'Sista steget — sedan skickas du vidare till betalning.'}
+                {regStep === 3 && 'Sedan skickas du vidare till betalning.'}
               </p>
             </div>
 
@@ -706,7 +703,7 @@ export default function Auth({ onLogin, onBackToLanding }) {
                 <div key="step0" className="auth-step-fade" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   <div className="form-row-2" style={{ display: 'grid', gap: '12px' }}>
                     <div>
-                      <label style={labelStyle}>Förnamn *</label>
+                      <label style={labelStyle}>Förnamn</label>
                       <div style={{ position: 'relative' }}>
                         <User size={16} color="var(--text-muted)" style={{ position: 'absolute', top: 14, left: 12, pointerEvents: 'none' }} />
                         <input className="auth-input" type="text" style={{ ...inputStyle, paddingLeft: '38px' }} placeholder="Anna" value={regFirstName} onChange={e => setRegFirstName(e.target.value)} required />
@@ -718,7 +715,7 @@ export default function Auth({ onLogin, onBackToLanding }) {
                     </div>
                   </div>
                   <div>
-                    <label style={labelStyle}>E-postadress *</label>
+                    <label style={labelStyle}>E-postadress</label>
                     <div style={{ position: 'relative' }}>
                       <Mail size={16} color="var(--text-muted)" style={{ position: 'absolute', top: 14, left: 12, pointerEvents: 'none' }} />
                       <input
@@ -819,7 +816,7 @@ export default function Auth({ onLogin, onBackToLanding }) {
                   ) : (
                     <>
                       <div>
-                        <label style={labelStyle}>Organisationsnummer * <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(10 siffror)</span></label>
+                        <label style={labelStyle}>Organisationsnummer <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(10 siffror)</span></label>
                         <div style={{ position: 'relative' }}>
                           <Hash size={16} color="var(--text-muted)" style={{ position: 'absolute', top: 14, left: 12, pointerEvents: 'none' }} />
                           <input
@@ -849,7 +846,7 @@ export default function Auth({ onLogin, onBackToLanding }) {
                       </div>
 
                       <div>
-                        <label style={labelStyle}>Företagsnamn *</label>
+                        <label style={labelStyle}>Företagsnamn</label>
                         <input
                           className="auth-input"
                           type="text"
@@ -902,7 +899,7 @@ export default function Auth({ onLogin, onBackToLanding }) {
               {regStep === 3 && !redirectingToPayment && (
                 <div key="step3" className="auth-step-fade" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   <div>
-                    <label style={labelStyle}>Lösenord *</label>
+                    <label style={labelStyle}>Lösenord</label>
                     <div style={{ position: 'relative' }}>
                       <Lock size={16} color="var(--text-muted)" style={{ position: 'absolute', top: 14, left: 12, pointerEvents: 'none' }} />
                       <input className="auth-input" type="password" style={{ ...inputStyle, paddingLeft: '38px' }} placeholder="Minst 8 tecken" value={regPassword} onChange={e => setRegPassword(e.target.value)} required minLength={8} />
@@ -917,7 +914,7 @@ export default function Auth({ onLogin, onBackToLanding }) {
                     )}
                   </div>
                   <div>
-                    <label style={labelStyle}>Bekräfta lösenord *</label>
+                    <label style={labelStyle}>Bekräfta lösenord</label>
                     <div style={{ position: 'relative' }}>
                       <Lock size={16} color="var(--text-muted)" style={{ position: 'absolute', top: 14, left: 12, pointerEvents: 'none' }} />
                       <input className="auth-input" type="password" style={{ ...inputStyle, paddingLeft: '38px', borderColor: regPassword2 && regPassword2 !== regPassword ? '#f43f5e' : undefined }} placeholder="Upprepa lösenord" value={regPassword2} onChange={e => setRegPassword2(e.target.value)} required />
