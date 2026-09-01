@@ -38,7 +38,7 @@ import {
 } from 'lucide-react';
 import { DEFAULT_ACCOUNTS, VAT_ACCOUNTS, REVENUE_ACCOUNTS } from './components/AccountsData';
 import { getNextInvoiceNumber } from './utils/invoiceNumbering';
-import { createStripeCheckoutSession, createStripeSubscriptionCheckout } from './stripeApi';
+import { createStripeCheckoutSession, createStripeSubscriptionCheckout, cancelStripeSubscription } from './stripeApi';
 import { createEmailDomain, getEmailDomainStatus } from './emailApi';
 import { getDebet, getKredit } from './utils/verificationAmounts';
 import { BRAND } from './utils/brandColors';
@@ -2149,6 +2149,45 @@ function App() {
     if (typeof window !== 'undefined') window.location.hash = 'dashboard';
   };
 
+  // "Ta bort företag" (Settings.jsx, kundönskemål: en snabb städknapp —
+  // testkonton kan annars hopa sig, samma fri-tillgång-konto som
+  // FREE_ACCOUNT_EMAILS gäller för gör det extra lätt att skapa många på
+  // en gång utan att märka det). Tar bort företaget HELT (inte bara dess
+  // bokföringsdata, jämför "Radera företagets bokföringsdata" ovan i
+  // Settings.jsx — den behåller företaget, den här tar bort det). Avslutar
+  // först en ev. egen Stripe-prenumeration för just det företaget
+  // (requiresOwnPayment, se handleCreateNewCompany) så en borttagen
+  // testfirma inte fortsätter dras månadsvis i tysthet — best effort,
+  // blockerar inte själva borttagningen om avslutet skulle misslyckas
+  // (företaget ska gå att bli av med även om Stripe strular just då).
+  const handleDeleteCompany = async (companyId) => {
+    const remainingIds = Object.keys(data.companies).filter(id => id !== companyId);
+    if (remainingIds.length === 0) {
+      setToast({ message: 'Du måste ha minst ett företag kvar på kontot.', variant: 'error' });
+      return;
+    }
+    const target = data.companies[companyId]?.company;
+    if (target?.requiresOwnPayment) {
+      try {
+        await cancelStripeSubscription(companyId);
+      } catch (err) {
+        console.warn('Kunde inte avsluta Stripe-prenumerationen för borttaget företag:', err.message);
+      }
+    }
+
+    const nextCompanies = { ...data.companies };
+    delete nextCompanies[companyId];
+    const nextActiveId = companyId === data.activeCompanyId ? remainingIds[0] : data.activeCompanyId;
+    const nextState = { ...data, activeCompanyId: nextActiveId, companies: nextCompanies };
+
+    setData(nextState);
+    if (nextActiveId !== data.activeCompanyId) {
+      setActiveTab('dashboard');
+      if (typeof window !== 'undefined') window.location.hash = 'dashboard';
+    }
+    await saveUserDataToSupabase(nextState);
+  };
+
   // "Lägg till företag" (profilmenyn) — öppnar bara den lätta modalen
   // (AddCompanyModal.jsx), skapar INGET förrän formuläret faktiskt
   // skickas in (handleCreateNewCompany nedan) — till skillnad från det
@@ -3636,6 +3675,7 @@ function App() {
             activeCompanyId={data.activeCompanyId}
             onSwitchCompany={handleSwitchCompany}
             onAddCompany={handleStartNewCompany}
+            onDeleteCompany={handleDeleteCompany}
             hideScrollbar={hideScrollbar}
             onToggleHideScrollbar={toggleHideScrollbar}
             sidebarStyle={sidebarStyle}

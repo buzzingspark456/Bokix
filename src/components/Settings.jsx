@@ -1318,7 +1318,7 @@ export default function Settings({
   contacts = [], projects = [], onImport, onReset, stripeAccountId, onConnectStripe, onDisconnectStripe,
   zettleConnected = false, onConnectZettle,
   onConnectEmailDomain, onCheckEmailDomainStatus, onDisconnectEmailDomain, user,
-  companyList = [], activeCompanyId, onSwitchCompany, onAddCompany,
+  companyList = [], activeCompanyId, onSwitchCompany, onAddCompany, onDeleteCompany,
   // Desktop-scrollbar på/av (Sida: "have in setting users chose to have
   // scroll bar or not in desktop") — state/localStorage/attributet på
   // <html> ägs av App.jsx (samma mönster som `theme`/`toggleTheme`), den
@@ -1682,21 +1682,50 @@ export default function Settings({
                   <div style={{ marginBottom: '16px' }}><SectionHeading icon={Landmark} tone="green">Dina företag</SectionHeading></div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxWidth: '480px', marginBottom: '12px' }}>
                     {companyList.map(c => (
-                      <button
-                        key={c.id}
-                        type="button"
-                        onClick={() => onSwitchCompany?.(c.id)}
-                        disabled={c.id === activeCompanyId}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderRadius: '8px',
-                          border: `1.5px solid ${c.id === activeCompanyId ? BRAND.green : 'var(--border)'}`,
-                          background: c.id === activeCompanyId ? BRAND.greenLight : 'var(--bg-card)',
-                          cursor: c.id === activeCompanyId ? 'default' : 'pointer', textAlign: 'left', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box',
-                        }}
-                      >
-                        {c.id === activeCompanyId ? <Check size={15} color={BRAND.greenDark} /> : <span style={{ width: 15, flexShrink: 0 }} />}
-                        <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name || 'Namnlöst företag'}</span>
-                      </button>
+                      <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <button
+                          type="button"
+                          onClick={() => onSwitchCompany?.(c.id)}
+                          disabled={c.id === activeCompanyId}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderRadius: '8px',
+                            border: `1.5px solid ${c.id === activeCompanyId ? BRAND.green : 'var(--border)'}`,
+                            background: c.id === activeCompanyId ? BRAND.greenLight : 'var(--bg-card)',
+                            cursor: c.id === activeCompanyId ? 'default' : 'pointer', textAlign: 'left', fontFamily: 'inherit', flex: 1, minWidth: 0, boxSizing: 'border-box',
+                          }}
+                        >
+                          {c.id === activeCompanyId ? <Check size={15} color={BRAND.greenDark} /> : <span style={{ width: 15, flexShrink: 0 }} />}
+                          <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name || 'Namnlöst företag'}</span>
+                        </button>
+                        {/* Kundönskemål: en snabb städknapp — går inte att ta
+                            bort det sista/enda kvarvarande företaget (samma
+                            spärr som App.jsx:s handleDeleteCompany).
+                            window.confirm istället för en tyngre "skriv
+                            namnet"-modal (jämför Radera-bokföringsdata-kortet
+                            nedan) — den här tar bort HELA företaget, inte
+                            bara dess data, men efterfrågades uttryckligen
+                            snabb/enkel för att kunna städa bort flera på en
+                            gång. */}
+                        <button
+                          type="button"
+                          title={`Ta bort ${c.name || 'företaget'}`}
+                          disabled={companyList.length <= 1}
+                          onClick={() => {
+                            if (companyList.length <= 1) return;
+                            if (window.confirm(`Ta bort "${c.name || 'Namnlöst företag'}" permanent? All bokföring, alla fakturor och kunder för det företaget försvinner. Går inte att ångra.`)) {
+                              onDeleteCompany?.(c.id);
+                            }
+                          }}
+                          style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, flexShrink: 0,
+                            background: 'none', border: '1.5px solid var(--border)', borderRadius: '8px',
+                            color: companyList.length <= 1 ? 'var(--text-muted)' : 'var(--status-red-text)',
+                            cursor: companyList.length <= 1 ? 'not-allowed' : 'pointer', opacity: companyList.length <= 1 ? 0.5 : 1,
+                          }}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     ))}
                   </div>
                   <button
