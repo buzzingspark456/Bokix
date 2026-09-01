@@ -435,7 +435,7 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
         </div>
 
         <div style={{ display: 'flex', gap: '8px' }}>
-          <button type="button" onClick={onClose} style={listHeaderButtonStyle('secondary')}>Avbryt</button>
+          <button type="button" data-tour="page-invoices-cancel" onClick={onClose} style={listHeaderButtonStyle('secondary')}>Avbryt</button>
           <button type="button" onClick={() => handleSave('sent')} style={listHeaderButtonStyle('primary')}>
             <Check size={14} /> {initial ? 'Spara ändringar' : 'Skapa faktura'}
           </button>
@@ -623,7 +623,7 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
             <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '16px', alignItems: 'end', marginBottom: '16px' }}>
               <div>
                 <label style={lbl}>Kund</label>
-                <select value={customerId} onChange={e => setCustomerId(e.target.value)} disabled={isLocked} style={{ ...inp, background: isLocked ? 'var(--border-light)' : 'var(--bg-card)' }}>
+                <select data-tour="page-invoices-field" value={customerId} onChange={e => setCustomerId(e.target.value)} disabled={isLocked} style={{ ...inp, background: isLocked ? 'var(--border-light)' : 'var(--bg-card)' }}>
                   <option value="">Välj kund...</option>
                   {customers.map(c => <option key={c.id} value={c.id}>{c.id?.slice(-3)} – {c.name}</option>)}
                 </select>

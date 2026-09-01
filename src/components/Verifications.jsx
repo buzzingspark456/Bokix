@@ -282,7 +282,7 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
               nummer eller "redigera befintlig"-språket. */}
           {initial?.number ? `Verifikation ${initial.number}` : 'Ny verifikation'}
         </h2>
-        <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={20} /></button>
+        <button data-tour="page-verifications-cancel" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={20} /></button>
       </div>
 
       {/* Datum / Beskrivning / Serie */}
@@ -293,7 +293,7 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
         </div>
         <div style={{ flex: 3 }}>
           <label style={fieldLabel}>Beskrivning</label>
-          <input value={desc} onChange={e => setDesc(e.target.value)} placeholder="Verifikationstext..." style={inp} autoFocus />
+          <input data-tour="page-verifications-field" value={desc} onChange={e => setDesc(e.target.value)} placeholder="Verifikationstext..." style={inp} autoFocus />
         </div>
         <div style={{ width: '90px' }}>
           <label style={fieldLabel}>Serie</label>

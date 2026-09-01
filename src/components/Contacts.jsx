@@ -175,6 +175,7 @@ function CustomerForm({ initial, onSave, onCancel }) {
             {lookupEnabled ? (
               <div style={{ display: 'flex', gap: '8px' }}>
                 <input
+                  data-tour="page-contacts-field"
                   type="text" value={form.name}
                   onChange={e => { set('name', e.target.value); lookup.queueNameSearch(e.target.value); }}
                   onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); lookup.searchByName(form.name); } }}
@@ -189,7 +190,7 @@ function CustomerForm({ initial, onSave, onCancel }) {
                 </button>
               </div>
             ) : (
-              <input type="text" value={form.name} onChange={e => set('name', e.target.value)} style={inputStyle(errors.name)} placeholder="Exempelföretag AB" />
+              <input data-tour="page-contacts-field" type="text" value={form.name} onChange={e => set('name', e.target.value)} style={inputStyle(errors.name)} placeholder="Exempelföretag AB" />
             )}
             {errors.name && <div style={errorTextStyle}>{errors.name}</div>}
             {lookup.nameSearch.status === 'loading' && <div style={lookupStatusStyle}>Söker…</div>}
@@ -388,6 +389,7 @@ function SupplierForm({ initial, onSave, onCancel, accounts }) {
             {isSwedish ? (
               <div style={{ display: 'flex', gap: '8px' }}>
                 <input
+                  data-tour="page-contacts-field"
                   type="text" value={form.name}
                   onChange={e => { set('name', e.target.value); lookup.queueNameSearch(e.target.value); }}
                   onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); lookup.searchByName(form.name); } }}
@@ -402,7 +404,7 @@ function SupplierForm({ initial, onSave, onCancel, accounts }) {
                 </button>
               </div>
             ) : (
-              <input type="text" value={form.name} onChange={e => set('name', e.target.value)} style={inputStyle(errors.name)} placeholder="Exempelföretag AB" />
+              <input data-tour="page-contacts-field" type="text" value={form.name} onChange={e => set('name', e.target.value)} style={inputStyle(errors.name)} placeholder="Exempelföretag AB" />
             )}
             {errors.name && <div style={errorTextStyle}>{errors.name}</div>}
             {lookup.nameSearch.status === 'loading' && <div style={lookupStatusStyle}>Söker…</div>}
@@ -552,7 +554,7 @@ function SupplierForm({ initial, onSave, onCancel, accounts }) {
 function FormActions({ onCancel, label }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', paddingTop: '4px' }}>
-      <button type="button" onClick={onCancel} style={{ padding: '9px 18px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer' }}>
+      <button type="button" data-tour="page-contacts-cancel" onClick={onCancel} style={{ padding: '9px 18px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer' }}>
         Avbryt
       </button>
       <button type="submit" style={{ padding: '9px 18px', background: 'var(--accent)', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600, color: 'white', cursor: 'pointer' }}>
@@ -719,7 +721,7 @@ export default function Contacts({ contacts, setContacts, accounts = [], globalA
         actions={viewState === 'list' ? [
           { key: 'export', label: 'Exportera', icon: Download, onClick: handleExportCsv, title: `Exportera ${title.toLowerCase()} som CSV` },
           { key: 'import', label: 'Importera', icon: Upload, onClick: handleImportClick, title: `Importera ${title.toLowerCase()} från CSV` },
-          { key: 'new', label: newBtnText, icon: Plus, onClick: () => openNewForm(activeTab), variant: 'primary' },
+          { key: 'new', label: newBtnText, icon: Plus, onClick: () => openNewForm(activeTab), variant: 'primary', dataTour: 'page-contacts-cta' },
         ] : []}
         tabs={{
           items: [{ id: 'customer', label: 'Kunder' }, { id: 'supplier', label: 'Leverantörer' }],

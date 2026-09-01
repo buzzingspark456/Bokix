@@ -1037,7 +1037,7 @@ export default function Projects({ projects = [], setProjects, contacts = [], se
         title="Projekt"
         subtitle="Följs upp lönsamhet, tid och kostnader per projekt"
         actions={[
-          { key: 'new', label: 'Nytt projekt', icon: Plus, onClick: () => openNewProjectForm(), variant: 'primary' },
+          { key: 'new', label: 'Nytt projekt', icon: Plus, onClick: () => openNewProjectForm(), variant: 'primary', dataTour: 'page-projects-cta' },
         ]}
         tabs={{
           items: [{ id: 'projects', label: 'Projekt' }, { id: 'time', label: 'Tidrapportering' }],
@@ -1244,13 +1244,13 @@ export default function Projects({ projects = [], setProjects, contacts = [], se
           <div className="modal-content" style={{ maxWidth: '480px' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h2 className="modal-title">Nytt projekt</h2>
-              <button className="modal-close" onClick={() => setShowNewProjectForm(false)}><X size={18} /></button>
+              <button className="modal-close" data-tour="page-projects-cancel" onClick={() => setShowNewProjectForm(false)}><X size={18} /></button>
             </div>
 
             <form onSubmit={handleSaveProject} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div>
                 <label style={labelSt}>Namn *</label>
-                <input type="text" value={projectForm.name} onChange={e => setProjectForm({ ...projectForm, name: e.target.value })} style={inputSt} placeholder="t.ex. Kontorsrenovering 2026" required autoFocus />
+                <input data-tour="page-projects-field" type="text" value={projectForm.name} onChange={e => setProjectForm({ ...projectForm, name: e.target.value })} style={inputSt} placeholder="t.ex. Kontorsrenovering 2026" required autoFocus />
                 <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)', marginTop: '4px' }}>Projektnumret tilldelas automatiskt (P-001, P-002 …)</div>
               </div>
 

@@ -3931,9 +3931,9 @@ function App() {
                 </div>
                 <ChevronDown size={14} style={{ color: theme === 'dark' ? 'rgba(255,255,255,0.75)' : 'var(--text-secondary)' }} />
               </div>
-              
+
               {isProfileMenuOpen && (
-                <div className="profile-dropdown">
+                <div data-tour="topbar-profile-dropdown" className="profile-dropdown">
                   <div className="profile-header">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
                       <div style={{ width: 38, height: 38, borderRadius: '50%', background: BRAND.green, color: 'white', fontSize: '14px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>

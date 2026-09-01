@@ -439,7 +439,7 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
           (Bokföring/Verifikationer): Historik-tabellen (nedan) ska sitta
           flush direkt under sidhuvudet. Väntar-fliken (kort, inte en
           tabell) behåller sin egen lokala padding. */}
-      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+      <div data-tour="page-review-content" style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
 
       {tab === 'pending' && (
         visiblePending.length === 0 ? (

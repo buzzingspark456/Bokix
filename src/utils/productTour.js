@@ -2,14 +2,12 @@
 // är beroendefritt, litet (~5kB) och pekar/lyfter fram RIKTIGA element i
 // appen istället för att bara vara en separat hjälptext ingen läser.
 //
-// Kundfeedback (v1 av den här rundturen visade bara sidomenyns knappar och
-// beskrev dem utifrån — "det här är Fakturering" osv.): en riktig rundtur
-// måste faktiskt VISA hur mjukvaran funkar, sida för sida — så varje
-// "sektion"-steg nedan navigerar in på den riktiga sidan (samma
-// handleNavTabChange som ett klick i sidomenyn skulle göra, se `navigate`)
-// och pekar på en RIKTIG funktion där (knappen som skapar en faktura,
-// knappen som bokför en verifikation, osv.), inte bara på länken i
-// sidomenyn som ledde dit.
+// Historik/kundfeedback, i tur och ordning: v1 pekade bara på sidomenyns
+// länkar och beskrev dem utifrån ("det här är Fakturering"). v2 navigerade
+// in på varje sida och pekade på EN riktig knapp där. v3 (den här): för
+// mycket text på välkomststeget, emojis som inte passade, för få sidor
+// (Kunder/Projekt/Granskning saknades), och knapparna pekades bara på
+// istället för att formulären faktiskt öppnades så de riktiga fälten syns.
 //
 // Egen fil (inte inline i App.jsx) så både auto-starten vid första
 // inloggning och "Starta rundtur igen" i Hjälp och support
@@ -24,7 +22,7 @@ import '../styles/productTour.css';
 // missvisande (t.ex. ett steg pekar på ett element som flyttats/döpts om)
 // — en ny version visar rundturen igen automatiskt även för konton som
 // redan sett en äldre version, se hasSeenTour nedan.
-const TOUR_VERSION = 'v2';
+const TOUR_VERSION = 'v3';
 
 function storageKey(uid) {
   return `bokix_tour_done_${TOUR_VERSION}_${uid}`;
@@ -54,11 +52,11 @@ function markTourSeen(uid) {
 }
 
 /** Pollar tills `selector` finns i DOM:et, eller tills `timeout` gått ut
- * (löser ändå — anroparen visar bara ett degraderat/färre-steg-läge om
- * elementet aldrig dyker upp). Behövs eftersom praktiskt taget alla flikar
- * (Dashboard/Invoices/Verifications/Reports/Taxes/Settings) är
- * `lazy(() => import(...))` i App.jsx och inte hinner ladda sin JS-bunt
- * inom en enkel fast fördröjning, särskilt vid en helt kall session. */
+ * (löser ändå — anroparen fortsätter oavsett, driver.js faller tillbaka på
+ * ett centrerat dummy-läge om elementet aldrig dyker upp). Behövs eftersom
+ * praktiskt taget alla flikar är `lazy(() => import(...))` i App.jsx och
+ * inte hinner ladda sin JS-bunt inom en enkel fast fördröjning, särskilt
+ * vid en helt kall session. */
 function waitForElement(selector, timeout = 3000, interval = 80) {
   return new Promise(resolve => {
     const start = Date.now();
@@ -71,126 +69,194 @@ function waitForElement(selector, timeout = 3000, interval = 80) {
   });
 }
 
-// Ett steg per rad. `tab` (om satt) = fliken måste vara aktiv för att
-// `element` ska finnas — se withNavigation nedan, som byter flik automatiskt
-// när man klickar Nästa/Föregående in i eller ut ur ett sådant steg.
+// Ett steg per rad.
+//   tab           - fliken måste vara aktiv för att elementet ska finnas;
+//                   withNavigation byter dit automatiskt.
+//   openSelector  - klickas (om satt) INNAN elementet letas upp, t.ex.
+//                   sidans "Ny X"-knapp, så att formuläret faktiskt öppnas.
+//   element       - det som lyfts fram/pekas på.
+//   closeSelector - klickas när man LÄMNAR steget (framåt eller bakåt), så
+//                   ett formulär öppnat via openSelector inte blir kvar
+//                   öppet i bakgrunden.
 // data-tour-attributen matchas mot attribut satta direkt i App.jsx
-// (sidomeny/topbar) och i respektive sidas "riktiga knapp" (Invoices.jsx/
-// Verifications.jsx/Settings.jsx/Taxes.jsx/Reports.jsx) — CSS-selektorer,
-// inte referenser, så den här filen aldrig behöver importera dem.
+// (sidomeny/topbar) och i respektive sidas riktiga knappar/fält — CSS-
+// selektorer, inte referenser, så den här filen aldrig behöver importera
+// dem.
 const STEP_DEFS = [
   {
     popover: {
-      title: 'Välkommen till Bokix 👋',
-      description: 'Vi visar hur du faktiskt använder Bokix — en sida i taget, med de knappar du kommer klicka på i verkligheten. Under en minut, och du kan hoppa över när du vill.',
+      title: 'Välkommen till Bokix',
+      description: 'En snabb rundtur — hoppa över när du vill.',
     },
   },
   {
     tab: 'dashboard',
     element: '.dash-quick-actions',
     popover: {
-      title: '🏠 Startsida — snabbåtgärder',
-      description: 'Det du gör oftast — ny faktura, nytt kvitto, ny utgift — är alltid ett klick bort härifrån, oavsett var i appen du befinner dig.',
+      title: 'Startsida',
+      description: 'Det du gör oftast — ny faktura, nytt kvitto, ny utgift — är alltid ett klick bort härifrån.',
     },
   },
   {
     tab: 'dashboard',
     element: '[data-tour="dash-checklist"]',
+    optional: true,
     popover: {
-      title: '🏠 Kom igång-listan',
-      description: 'Fyra korta steg som gör kontot helt klart — bocka av i din egen takt, den försvinner av sig själv när allt är gjort.',
+      title: 'Kom igång-listan',
+      description: 'Fyra korta steg som gör kontot klart — bocka av i din egen takt.',
+    },
+  },
+  {
+    tab: 'contacts',
+    openSelector: '[data-tour="page-contacts-cta"]',
+    element: '[data-tour="page-contacts-field"]',
+    closeSelector: '[data-tour="page-contacts-cancel"]',
+    popover: {
+      title: 'Kunder',
+      description: 'Fyll i namnet — Bokix slår upp organisationsnummer och adress åt dig automatiskt.',
     },
   },
   {
     tab: 'invoices',
-    element: '[data-tour="page-invoices-cta"]',
+    openSelector: '[data-tour="page-invoices-cta"]',
+    element: '[data-tour="page-invoices-field"]',
+    closeSelector: '[data-tour="page-invoices-cancel"]',
     popover: {
-      title: '🧾 Fakturering',
-      description: 'Klicka här för att skapa en faktura: välj kund, lägg till rader — Bokix räknar ut moms och totalsumma automatiskt, och du skickar direkt från appen.',
+      title: 'Fakturering',
+      description: 'Välj kund och lägg till rader — Bokix räknar moms och totalsumma automatiskt.',
     },
   },
   {
     tab: 'verifications',
-    element: '[data-tour="page-verifications-cta"]',
+    openSelector: '[data-tour="page-verifications-cta"]',
+    element: '[data-tour="page-verifications-field"]',
+    closeSelector: '[data-tour="page-verifications-cancel"]',
     popover: {
-      title: '📚 Bokföring',
-      description: '"Ny verifikation" bokför en affärshändelse — ladda upp ett kvitto eller fyll i belopp och konton själv. Allt du bokför landar här, sökbart och redo för bokslutet.',
+      title: 'Bokföring',
+      description: 'Beskriv affärshändelsen — datum, belopp och konton bokförs härifrån.',
+    },
+  },
+  {
+    tab: 'projects',
+    openSelector: '[data-tour="page-projects-cta"]',
+    element: '[data-tour="page-projects-field"]',
+    closeSelector: '[data-tour="page-projects-cancel"]',
+    popover: {
+      title: 'Projekt',
+      description: 'Namnge projektet — tid och kostnader går sedan att koppla hit.',
+    },
+  },
+  {
+    tab: 'review',
+    element: '[data-tour="page-review-content"]',
+    popover: {
+      title: 'Granskning',
+      description: 'Transaktioner som väntar på att kopplas till rätt konto, t.ex. från Stripe, hamnar här.',
     },
   },
   {
     tab: 'reports',
     element: '[data-tour="page-reports-list"]',
     popover: {
-      title: '📊 Rapport och analys',
-      description: 'Klicka på en rapport för att öppna den fullständigt beräknad — resultat, balans, moms och mer, alltid byggd direkt på din riktiga bokföring, inte en uppskattning.',
+      title: 'Rapport och analys',
+      description: 'Klicka på en rapport för att öppna den fullständigt beräknad, alltid byggd på din riktiga bokföring.',
     },
   },
   {
     tab: 'taxes',
     element: '[data-tour="page-taxes-content"]',
     popover: {
-      title: '🧮 Skatt och bokslut',
-      description: 'Momsdeklaration, bokslut och andra viktiga datum — uträknat automatiskt utifrån din bokföring, så du alltid vet vad som gäller och när det ska in.',
+      title: 'Skatt och bokslut',
+      description: 'Momsdeklaration, bokslut och viktiga datum — uträknat automatiskt utifrån din bokföring.',
     },
   },
   {
     tab: 'settings',
     element: '[data-tour="page-settings-nav"]',
     popover: {
-      title: '⚙️ Inställningar',
-      description: 'Företagsuppgifter, användare och prenumeration — allt samlat i den här menyn, en sektion per rad.',
+      title: 'Inställningar',
+      description: 'Företagsuppgifter, användare och prenumeration — allt samlat i den här menyn.',
     },
   },
   {
     element: '[data-tour="topbar-help"]',
     popover: {
-      title: '💬 Hjälp och support',
-      description: 'Ordlista, kontakt — och den här rundturen igen, när du vill se den en gång till.',
+      title: 'Hjälp och support',
+      description: 'Ordlista, kontakt — och den här rundturen igen, när du vill.',
     },
   },
   {
-    element: '[data-tour="topbar-profile"]',
+    openSelector: '[data-tour="topbar-profile"]',
+    element: '[data-tour="topbar-profile-dropdown"]',
+    closeSelector: '[data-tour="topbar-profile"]',
     popover: {
-      title: '👤 Ditt konto',
-      description: 'Tema, fler företag att lägga till, och utloggning — allt hittar du under din avatar.',
+      title: 'Ditt konto',
+      description: 'Under din avatar: kontoplaner, viktiga datum, bokslut, momsredovisning och att lägga till fler företag.',
     },
   },
   {
     popover: {
-      title: 'Klart! 🎉',
-      description: 'Kör igång — och hitta den här rundturen igen under Hjälp och support om du vill se den en gång till.',
+      title: 'Klart',
+      description: 'Hitta rundturen igen under Hjälp och support.',
     },
   },
 ];
 
+/** De flesta steg inkluderas ovillkorligt även om deras `element` inte
+ * finns just nu — de kräver ju ofta en flik-/formulärväxling först (se
+ * withNavigation), så en synkron document.querySelector-koll HÄR skulle
+ * fela på nästan varenda sidspecifikt steg innan turen ens hunnit
+ * navigera dit (det var precis den buggen v2 hade: alla sidsteg
+ * filtrerades bort direkt vid start). Enda undantaget är `optional`-
+ * flaggade steg (just nu bara dash-checklist) — den kollen är trygg
+ * eftersom startProductTourWhenReady redan garanterat väntat in
+ * Dashboard-chunken innan buildSteps() körs. */
 function buildSteps() {
-  return STEP_DEFS.filter(step => !step.element || document.querySelector(step.element));
+  return STEP_DEFS.filter(step => !step.optional || document.querySelector(step.element));
 }
 
-/** Bygger driver-nivåns onNextClick/onPrevClick: byter fram/tillbaka till
- * målstegets `tab` (om något, t.ex. 'invoices') INNAN driver.js faktiskt
- * flyttar till det steget — annars skulle stegets `element` inte finnas i
- * DOM:et än (fel flik aktiv) och driver.js skulle rendera en tom/felaktig
- * centrerad popover istället för att peka på den riktiga knappen. `navigate`
+/** Går in i `step`: byter flik (om satt), öppnar ev. formulär
+ * (openSelector) och väntar in det slutgiltiga elementet. Anropas av
+ * withNavigation innan driver.js faktiskt flyttar till steget. */
+async function enterStep(step, navigate) {
+  if (!step) return;
+  if (step.tab) navigate(step.tab);
+  if (step.openSelector) {
+    await waitForElement(step.openSelector, 3000);
+    document.querySelector(step.openSelector)?.click();
+  }
+  if (step.element) await waitForElement(step.element, 3000);
+}
+
+/** Lämnar `step`: stänger ett ev. öppnat formulär (closeSelector) så det
+ * inte blir kvar öppet i bakgrunden när man navigerar iväg, går bakåt in
+ * i det igen, eller stänger hela rundturen mitt i. */
+function leaveStep(step) {
+  if (!step?.closeSelector) return;
+  document.querySelector(step.closeSelector)?.click();
+}
+
+/** Bygger driver-nivåns onNextClick/onPrevClick/onCloseClick.  `navigate`
  * är App.jsx:s egen handleNavTabChange — samma funktion ett klick i
  * sidomenyn skulle anropa, så den uppdaterar URL-hash/stänger mobilmenyn
- * precis som en riktig navigering. Anropar alltid `navigate(tab)` även om
- * den flikan råkar redan vara aktiv (ofarligt no-op) — enklare och säkrare
- * än att hålla reda på "nuvarande flik" separat i den här filen. */
+ * precis som en riktig navigering. Anropar den alltid, även om flikens
+ * redan aktiv (ofarligt no-op) — enklare än att hålla reda på "nuvarande
+ * flik" separat i den här filen. */
 function withNavigation(steps, navigate) {
-  const goToStepTab = async (targetStep) => {
-    if (!targetStep?.tab) return;
-    navigate(targetStep.tab);
-    await waitForElement(targetStep.element, 3000);
-  };
   return {
     onNextClick: async (_element, _step, opts) => {
-      await goToStepTab(steps[opts.index + 1]);
+      leaveStep(steps[opts.index]);
+      await enterStep(steps[opts.index + 1], navigate);
       opts.driver.moveNext();
     },
     onPrevClick: async (_element, _step, opts) => {
-      await goToStepTab(steps[opts.index - 1]);
+      leaveStep(steps[opts.index]);
+      await enterStep(steps[opts.index - 1], navigate);
       opts.driver.movePrevious();
+    },
+    onCloseClick: (_element, _step, opts) => {
+      leaveStep(steps[opts.index]);
+      opts.driver.destroy();
     },
   };
 }
@@ -222,6 +288,7 @@ export function startProductTour({ uid, navigate } = {}) {
     steps,
     onNextClick: nav.onNextClick,
     onPrevClick: nav.onPrevClick,
+    onCloseClick: nav.onCloseClick,
     onDestroyed: () => markTourSeen(uid),
   });
 
