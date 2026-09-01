@@ -396,6 +396,7 @@ const CompanySettings = lazy(() => import('./components/CompanySettings'));
 import HelpDrawer from './components/HelpDrawer';
 import Toast from './components/shared/Toast';
 import PaymentRequiredGate from './components/PaymentRequiredGate';
+import AddCompanyModal from './components/AddCompanyModal';
 import { maybeAutoStartTour, startProductTourWhenReady } from './utils/productTour';
 
 // Fallback under den enda <Suspense> som omsluter App-komponentens JSX (se
@@ -1051,15 +1052,14 @@ function App() {
   const [dbSupportsProfileColumns, setDbSupportsProfileColumns] = useState(false);
   const [supabaseEnabled, setSupabaseEnabled] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
-  // 'first-company' (kontots ORIGINALflöde, oförändrat — signup/
-  // fetchUserData's "skapa tomt företag"-gren) vs 'new-company' ("Lägg till
-  // företag", handleStartNewCompany nedan) — samma <OnboardingFlow>
-  // återanvänds för båda (se showOnboarding-grenen längre ner), men
-  // onComplete/onSkip beter sig olika: 'new-company' rör ALDRIG kontots
-  // egna onboarding_completed/company_name-kolumner (de beskriver bara det
-  // ALLRA FÖRSTA företaget) och avslutas med en Stripe-betalningsomdirigering
-  // istället för att bara gå till dashboarden.
-  const [onboardingMode, setOnboardingMode] = useState('first-company');
+  // "Lägg till företag" (profilmenyn) — kundfeedback: återanvände
+  // tidigare <OnboardingFlow> (kontots ORIGINAL-signupguide, fyra steg
+  // med progressbar) för det här också, kändes för tungt för att bara
+  // lägga till ETT till företag. Egen, enkel modal istället, se
+  // AddCompanyModal.jsx/handleCreateNewCompany nedan — <OnboardingFlow>
+  // används numera bara för kontots allra första företag.
+  const [newCompanyModalOpen, setNewCompanyModalOpen] = useState(false);
+  const [newCompanyModalSubmitting, setNewCompanyModalSubmitting] = useState(false);
 
   // ── Tema (ljust/mörkt) ── Sparat val vinner; annars OS-inställningen
   // (prefers-color-scheme) första gången, precis som webbläsaren själv
@@ -2149,36 +2149,19 @@ function App() {
     if (typeof window !== 'undefined') window.location.hash = 'dashboard';
   };
 
-  // "Lägg till företag" (profilmenyn) — kundkrav: betala per företag, en
-  // riktigare "sign up"-upplevelse istället för ett bart 2-fälts-formulär.
-  // Skapar ett tomt platshållarföretag (namnlöst tills OnboardingFlow
-  // fyller i det, precis som en helt ny signup redan gör — se
-  // fetchUserData:s "skapa tomt företag"-gren), stämplar det
-  // requiresOwnPayment (se supabase-setup.sql:s kommentar vid public.
-  // subscriptions), och öppnar SAMMA OnboardingFlow som kontots eget
-  // första företag redan använder — bara onComplete/onSkip skiljer sig
-  // (handleNewCompanyOnboardingComplete/-Skip nedan), se onboardingMode.
+  // "Lägg till företag" (profilmenyn) — öppnar bara den lätta modalen
+  // (AddCompanyModal.jsx), skapar INGET förrän formuläret faktiskt
+  // skickas in (handleCreateNewCompany nedan) — till skillnad från det
+  // gamla OnboardingFlow-baserade flödet, som skapade ett tomt
+  // platshållarföretag redan HÄR, innan användaren skrivit in något alls
+  // (så "Avbryt" lämnade kvar ett spöktomt företag om man ångrade sig).
   const handleStartNewCompany = () => {
-    const newCompanyData = createEmptyCompanyData({ name: '', orgNr: '' });
-    newCompanyData.company.requiresOwnPayment = true;
-    setData(prev => ({
-      ...prev,
-      activeCompanyId: newCompanyData.company.id,
-      companies: {
-        ...prev.companies,
-        [newCompanyData.company.id]: newCompanyData,
-      },
-    }));
-    setOnboardingMode('new-company');
-    setShowOnboarding(true);
+    setNewCompanyModalOpen(true);
   };
 
   // Skickar det nya företaget vidare till Stripe för dess EGNA betalning —
   // samma redirect-mönster/felmeddelande som Auth.jsx regStep 3 (kontots
-  // ORIGINALflöde) redan använder. Delad av både
-  // handleNewCompanyOnboardingComplete och -Skip nedan (skip hoppar bara
-  // över INFO-fälten, aldrig betalningen — se filkommentaren vid
-  // onboardingMode).
+  // ORIGINALflöde) redan använder. Delad av handleCreateNewCompany nedan.
   const redirectNewCompanyToPayment = async (companyId) => {
     try {
       const { session } = await createStripeSubscriptionCheckout({
@@ -2261,57 +2244,39 @@ function App() {
     });
   };
 
-  // "Lägg till företag" — samma fältsparning som handleOnboardingComplete
-  // ovan, men MEDVETET utan dess `extras`-argument till
-  // saveUserDataToSupabase: onboarding_completed/company_name/company_orgnr
-  // m.fl. är kontots EGNA kolumner (beskriver bara det allra första
-  // företaget) och ska aldrig skrivas över av ett SENARE tillagt företags
-  // uppgifter. Avslutas med Stripe-redirect istället för bara dashboarden,
-  // se onboardingMode/redirectNewCompanyToPayment.
-  const handleNewCompanyOnboardingComplete = async (profile) => {
-    const companyId = data.activeCompanyId;
-    const existing = data.companies[companyId].company;
-    const name = profile.companyName?.trim() || existing.name || 'Nytt företag';
-    const nextState = {
-      ...data,
-      companies: {
-        ...data.companies,
-        [companyId]: {
-          ...data.companies[companyId],
-          company: {
-            ...existing,
-            name,
-            orgNr: profile.orgNr || existing.orgNr,
-            address: profile.address || existing.address,
-            email: profile.email || existing.email,
-            phone: profile.phone || existing.phone,
-            logoUrl: profile.logoUrl || existing.logoUrl,
-            fiscalYear: profile.fiscalYear || existing.fiscalYear,
-            vatPeriod: profile.vatPeriod || existing.vatPeriod,
-            chartPlan: profile.chartPlan || existing.chartPlan || 'bas2025',
-          },
+  // AddCompanyModal.jsx:s submit — skapar det nya företaget HÄR (inte i
+  // handleStartNewCompany, se den funktionens kommentar) och avslutar med
+  // Stripe-redirect istället för bara dashboarden. MEDVETET utan
+  // saveUserDataToSupabase:s `extras`-argument (jämför handleOnboardingComplete
+  // ovan): onboarding_completed/company_name/company_orgnr m.fl. är
+  // kontots EGNA kolumner (beskriver bara det allra första företaget) och
+  // ska aldrig skrivas över av ett SENARE tillagt företags uppgifter.
+  // Räkenskapsår/momsperiod/kontoplan sätts inte i formuläret längre —
+  // createEmptyCompanyData:s egna förval duger, ändringsbart i
+  // Inställningar sen.
+  const handleCreateNewCompany = async ({ companyName, orgNr, address }) => {
+    setNewCompanyModalSubmitting(true);
+    try {
+      const newCompanyData = createEmptyCompanyData({ name: companyName, orgNr });
+      newCompanyData.company.requiresOwnPayment = true;
+      if (address) newCompanyData.company.address = address;
+      const companyId = newCompanyData.company.id;
+      const nextState = {
+        ...data,
+        activeCompanyId: companyId,
+        companies: {
+          ...data.companies,
+          [companyId]: newCompanyData,
         },
-      },
-    };
+      };
 
-    setData(nextState);
-    setShowOnboarding(false);
-    setOnboardingMode('first-company'); // återställ — se filkommentaren vid onboardingMode-deklarationen
-    await saveUserDataToSupabase(nextState);
-    await redirectNewCompanyToPayment(companyId);
-  };
-
-  // "Hoppa över" i OnboardingFlow för ett NYTT företag — hoppar bara över
-  // INFO-fälten (namnet blir kvar som "Nytt företag" tills man fyller i det
-  // senare i Inställningar, precis som kontots första företag redan
-  // tillåter), aldrig över betalningen. Ett `requiresOwnPayment`-företag
-  // utan en betald prenumerationsrad blockeras ändå av gaten (App.jsx:s
-  // isActiveCompanyPaid) så fort man landar i appen, om Stripe-redirecten
-  // här av någon anledning misslyckas eller avbryts.
-  const handleSkipNewCompanyOnboarding = async () => {
-    setShowOnboarding(false);
-    setOnboardingMode('first-company'); // återställ — se filkommentaren vid onboardingMode-deklarationen
-    await redirectNewCompanyToPayment(data.activeCompanyId);
+      setData(nextState);
+      setNewCompanyModalOpen(false);
+      await saveUserDataToSupabase(nextState);
+      await redirectNewCompanyToPayment(companyId);
+    } finally {
+      setNewCompanyModalSubmitting(false);
+    }
   };
 
   if (isLoadingAuth) {
@@ -3721,8 +3686,8 @@ function App() {
               // showOnboarding=true) — men <OnboardingFlow> renderades
               // aldrig någonstans, så klicket gjorde bokstavligen ingenting.
               <OnboardingFlow
-                onComplete={onboardingMode === 'new-company' ? handleNewCompanyOnboardingComplete : handleOnboardingComplete}
-                onSkip={onboardingMode === 'new-company' ? handleSkipNewCompanyOnboarding : handleSkipOnboarding}
+                onComplete={handleOnboardingComplete}
+                onSkip={handleSkipOnboarding}
                 initialCompanyName={company?.name}
                 initialCompanyData={data.companies[data.activeCompanyId]}
               />
@@ -4211,12 +4176,19 @@ function App() {
       </div>
 
       {/* ── New Company Modal ── */}
-      {/* "Skapa nytt företag"-modalen (bara namn + org.nr) är borttagen —
-          kundfeedback: "Lägg till företag" ska vara en riktig upplevelse,
-          inte ett bart 2-fälts-formulär. Ersatt av samma OnboardingFlow som
-          redan finns för kontots FÖRSTA företag (se showOnboarding-grenen
-          ovan) — handleStartNewCompany nedan skapar ett tomt platshållar-
-          företag och öppnar den direkt istället, se onboardingMode. */}
+      {/* "Lägg till företag" — kundfeedback (två omgångar): först en bar
+          namn+org.nr-modal, sedan ersatt av kontots FÖRSTA-företags fyrstegs
+          OnboardingFlow-guide ("en riktig upplevelse"). Andra omgången
+          kundfeedback: den guiden kändes för tung/"wizard-aktig" bara för
+          att lägga till ETT till företag på ett konto som redan finns —
+          tillbaka till en enkel modal (AddCompanyModal.jsx), men med
+          org.nummerslagningen kvar (se handleCreateNewCompany ovan). */}
+      <AddCompanyModal
+        isOpen={newCompanyModalOpen}
+        onClose={() => setNewCompanyModalOpen(false)}
+        onSubmit={handleCreateNewCompany}
+        submitting={newCompanyModalSubmitting}
+      />
 
       {/* ── Help Drawer ── */}
       <HelpDrawer
