@@ -27,7 +27,7 @@ export default function CookiesPolicy() {
         <p style={{ fontSize: '13px', color: '#94a3b8', marginBottom: '28px' }}>Senast uppdaterad: {new Date().toLocaleDateString('sv-SE', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
 
         <div style={goodBox}>
-          <p style={goodP}>Bokix använder inga marknadsförings- eller reklamcookies. Vi använder Google Analytics för grundläggande besöksstatistik, men bara om du aktivt godkänt det i cookiebannern — den sätts aldrig innan du sagt ja.</p>
+          <p style={goodP}>Bokix använder inga marknadsförings- eller reklamcookies. Vi använder Google Analytics och Microsoft Clarity för grundläggande besöksstatistik, men bara om du aktivt godkänt det i cookiebannern — ingen av dem sätts innan du sagt ja.</p>
         </div>
 
         <p style={p}>
@@ -89,7 +89,7 @@ export default function CookiesPolicy() {
 
         <h2 style={h2}>Analys — kräver ditt samtycke</h2>
         <p style={p}>
-          Vi använder Google Analytics för att förstå hur besökare hittar och använder Bokix marknadsföringssidor. Vi kör det via Googles "Consent Mode": mätscriptet laddas alltid, men det sätts uttryckligen till "nekad" (denied) tills du valt "Acceptera alla" i cookiebannern. Väljer du "Endast nödvändiga" stannar analys-cookies nekade, permanent, tills du själv ändrar dig via "Cookieinställningar" i sidfoten.
+          Vi använder Google Analytics och Microsoft Clarity för att förstå hur besökare hittar och använder Bokix marknadsföringssidor — Clarity visar oss dessutom var på sidan besökare klickar och scrollar (skärminspelningar och klickkartor), men Microsoft maskerar all text och alla inmatningsfält som kan innehålla personlig eller känslig information innan något sparas. Båda körs via samma princip: mätscripten laddas alltid, men sätts uttryckligen till "nekad" (denied) tills du valt "Acceptera alla" i cookiebannern. Väljer du "Endast nödvändiga" stannar analys-cookies nekade, permanent, tills du själv ändrar dig via "Cookieinställningar" i sidfoten. Vi har inte kopplat något annonskonto till Clarity, så de av Clarity/Microsofts cookies som annars används för annonsering (t.ex. <code style={code}>MUID</code>) sätts aldrig av Bokix.
         </p>
         <table style={table}>
           <thead>
@@ -101,6 +101,12 @@ export default function CookiesPolicy() {
               <td style={td}>Cookie (Google Analytics)</td>
               <td style={td}>Skiljer besökare åt för anonymiserad besöksstatistik. Sätts bara efter att du klickat "Acceptera alla".</td>
               <td style={td}>_ga: 2 år, _gid: 24 timmar</td>
+            </tr>
+            <tr>
+              <td style={td}><code style={code}>_clck</code> / <code style={code}>_clsk</code> / <code style={code}>CLID</code></td>
+              <td style={td}>Cookie (Microsoft Clarity)</td>
+              <td style={td}>Håller isär besökare och kopplar ihop sidvisningar till samma besök, för skärminspelningar och klickstatistik. Sätts bara efter att du klickat "Acceptera alla".</td>
+              <td style={td}>_clck/CLID: 1 år, _clsk: 1 dag</td>
             </tr>
             <tr>
               <td style={td}><code style={code}>bokix_cookie_consent</code></td>

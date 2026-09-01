@@ -40,3 +40,14 @@ export function updateGtagConsent(granted) {
     analytics_storage: granted ? 'granted' : 'denied',
   });
 }
+
+/** Samma sak för Microsoft Clarity (consentv2, se public/consent-init.js:s
+ * kommentar för varför just den API-versionen). ad_Storage hålls 'denied'
+ * av samma "ingen annonsintegration"-skäl som updateGtagConsent ovan. */
+export function updateClarityConsent(granted) {
+  if (typeof window.clarity !== 'function') return;
+  window.clarity('consentv2', {
+    ad_Storage: 'denied',
+    analytics_Storage: granted ? 'granted' : 'denied',
+  });
+}
