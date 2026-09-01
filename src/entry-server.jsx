@@ -10,7 +10,13 @@
 // inloggade appen (Stripe/Supabase/hela bokföringsappen) ska aldrig röras
 // av eller bunt:as in i den här SSR-byggnaden.
 import { renderToString } from 'react-dom/server';
-import { StaticRouter } from 'react-router-dom/server';
+// react-router-dom v7 (säkerhetsgranskningen: npm audit fix, tog bort en
+// critical jsPDF-sårbarhet i samma uppgradering) slog ihop /server-
+// subpath-exporten in i huvudpaketet — den separata './server'-vägen
+// finns inte kvar i v7:s package.json exports-fält alls (bekräftat: SSR-
+// bygget kraschade med "'./server' is not exported" innan den här raden
+// ändrades), StaticRouter exporteras nu bara härifrån.
+import { StaticRouter } from 'react-router-dom';
 
 import LandingPage from './components/LandingPage.jsx';
 import FeaturesPage from './components/marketing/FeaturesPage.jsx';
