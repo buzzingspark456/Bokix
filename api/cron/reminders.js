@@ -59,6 +59,20 @@ const SITE_URL = 'https://www.bokix.se';
 // löfte som kräver att kunden FAKTISKT hinner få veta att tiden går ut.
 const TRIAL_REMINDER_DAYS_BEFORE = 3;
 
+// Skalningsskydd (kodgranskning): user_data-genomsökningen längre ner gör en
+// riktig avvaktad nätverksbegäran (Resend, Stripe) per företag som faktiskt
+// har något att påminna om — med tillräckligt många aktiva företag samma
+// dag kan EN daglig körning i teorin ta längre än funktionens exekverings-
+// gräns, oavsett vilken den faktiskt är (Vercel höjde nyligen Hobby-planens
+// standardgräns rejält med Fluid compute, men den här filen kan inte läsa av
+// projektets faktiska inställning, och en felaktigt optimistisk gissning här
+// är värre än en för försiktig — se checkpoint-resonemanget nedan). Satt
+// medvetet lågt med bred marginal, inte som en gissning på plattformens
+// exakta gräns: konsekvensen av att stanna för tidigt är bara att en
+// fullständig genomsökning sprids ut över fler dagars körningar (se
+// cron_progress i supabase-setup.sql), aldrig ett avbrutet skriv-anrop.
+const TIME_BUDGET_MS = 8000;
+
 const grossOf = (inv) => inv.rows?.reduce((a, r) => a + r.qty * r.unitPrice * (1 + r.vatRate / 100), 0) || inv.amount || 0;
 const daysBetween = (a, b) => Math.round((a - b) / 86400000);
 
@@ -69,6 +83,7 @@ function startOfToday() {
 }
 
 export default async function handler(req, res) {
+  const startTime = Date.now();
   applySecurityHeaders(res);
 
   // Delad hemlighet, inte requireAuthedUser — en cron-körning har ingen
@@ -174,265 +189,317 @@ export default async function handler(req, res) {
     // user_data sluta se resten av användarna helt tyst, trots
     // kommentaren ovan om "fullständig genomsökning" — och ingen error
     // hade avslöjat det.
+    //
+    // Checkpoint (se cron_progress i supabase-setup.sql och TIME_BUDGET_MS
+    // ovan): fortsätter från senast FÄRDIGBEHANDLADE user_id i stället för
+    // att alltid börja om från början — annars skulle en körning som tar
+    // slut på tid varje dag bara hinna med samma första sida användare i
+    // user_id-ordning, och resten skulle aldrig någonsin nås. Sidan/raden
+    // hämtas OCH bearbetas varvat (inte "hämta allt, bearbeta sen") så att
+    // tidsbudgeten också täcker själva hämtningen för en väldigt stor
+    // tabell, inte bara e-postutskicken.
     const PAGE_SIZE = 1000;
-    const rows = [];
+    const { data: progressRow, error: progressError } = await admin
+      .from('cron_progress')
+      .select('cursor_value')
+      .eq('id', 'reminders')
+      .maybeSingle();
+    if (progressError) summary.errors.push(`cron_progress läsning: ${progressError.message}`);
+    const cursor = progressRow?.cursor_value || null;
+
+    let lastCompletedUserId = cursor;
+    let completedFullPass = true;
+
+    pageLoop:
     for (let from = 0; ; from += PAGE_SIZE) {
-      const { data: page, error: pageError } = await admin
+      if (Date.now() - startTime > TIME_BUDGET_MS) { completedFullPass = false; break; }
+
+      let pageQuery = admin
         .from('user_data')
         .select('user_id, state')
         .not('state', 'is', null)
+        .order('user_id', { ascending: true })
         .range(from, from + PAGE_SIZE - 1);
+      if (cursor) pageQuery = pageQuery.gt('user_id', cursor);
+
+      const { data: page, error: pageError } = await pageQuery;
       if (pageError) throw pageError;
-      rows.push(...(page || []));
-      if (!page || page.length < PAGE_SIZE) break;
-    }
+      if (!page || page.length === 0) break;
 
-    for (const row of rows || []) {
-      summary.usersScanned += 1;
-      const companies = row.state?.companies || {};
+      for (const row of page) {
+        if (Date.now() - startTime > TIME_BUDGET_MS) { completedFullPass = false; break pageLoop; }
+        summary.usersScanned += 1;
+        const companies = row.state?.companies || {};
 
-      for (const [companyId, companyData] of Object.entries(companies)) {
-        const notif = { ...DEFAULT_NOTIFICATIONS, ...(companyData.company?.notifications || {}) };
-        if (!notif.enabled) continue;
+        for (const [companyId, companyData] of Object.entries(companies)) {
+          const notif = { ...DEFAULT_NOTIFICATIONS, ...(companyData.company?.notifications || {}) };
+          if (!notif.enabled) continue;
 
-        // Samlar vad som FAKTISKT ändrades för DEN HÄR companyn så bara
-        // ändrade fält skrivs tillbaka (set_company_field, ett fält i
-        // taget) — aldrig ett helblobs-upsert från cronen.
-        const changedFields = new Set();
+          // Samlar vad som FAKTISKT ändrades för DEN HÄR companyn så bara
+          // ändrade fält skrivs tillbaka (set_company_field, ett fält i
+          // taget) — aldrig ett helblobs-upsert från cronen.
+          const changedFields = new Set();
 
-        // ── 1) Fakturapåminnelser till kunden ──
-        const invoices = Array.isArray(companyData.invoices) ? companyData.invoices : [];
-        for (const inv of invoices) {
-          if (inv.status === 'paid' || inv.status === 'draft' || !inv.dueDate) continue;
-          const daysOverdue = daysBetween(today, new Date(`${inv.dueDate}T00:00:00`));
-          if (daysOverdue < notif.invoiceReminderDays) continue;
+          // ── 1) Fakturapåminnelser till kunden ──
+          const invoices = Array.isArray(companyData.invoices) ? companyData.invoices : [];
+          for (const inv of invoices) {
+            if (inv.status === 'paid' || inv.status === 'draft' || !inv.dueDate) continue;
+            const daysOverdue = daysBetween(today, new Date(`${inv.dueDate}T00:00:00`));
+            if (daysOverdue < notif.invoiceReminderDays) continue;
 
-          const marker = `overdue_${notif.invoiceReminderDays}d`;
-          if (inv.remindersSent?.includes(marker)) continue;
+            const marker = `overdue_${notif.invoiceReminderDays}d`;
+            if (inv.remindersSent?.includes(marker)) continue;
 
-          const customer = (companyData.contacts || []).find(c => c.id === inv.customerId);
-          if (!customer?.email) continue;
+            const customer = (companyData.contacts || []).find(c => c.id === inv.customerId);
+            if (!customer?.email) continue;
 
-          try {
-            if (dryRun) {
-              summary.wouldSend.push({ type: 'invoice', companyId, to: customer.email, invoiceNumber: inv.invoiceNumber, daysOverdue });
-              summary.invoiceReminders += 1;
-              continue;
-            }
-            const remainingDue = Math.max(0, grossOf(inv) - (inv.paidAmount || 0));
-            const html = buildInvoiceReminderHtml({ invoice: inv, customer, company: companyData.company, grossAmount: remainingDue });
-            const result = await sendWithFallback({
-              to: [customer.email],
-              subject: `Betalningspåminnelse – faktura ${inv.invoiceNumber}`,
-              html,
-            }, companyData.company);
-            if (!result.ok) throw new Error(result.data?.message || 'Resend-fel');
-
-            inv.remindersSent = [...(inv.remindersSent || []), marker];
-            changedFields.add('invoices');
-            summary.invoiceReminders += 1;
-          } catch (err) {
-            summary.errors.push(`invoice ${inv.id} (${companyId}): ${err.message}`);
-          }
-        }
-
-        // ── 2) Momsdeklarations-deadline till företaget ──
-        // "<=" (inte "===") av samma skäl som fakturapåminnelsen ovan: ett
-        // enda missat cron-pass (deploy-fönster, kall start, avbrott) skulle
-        // annars göra att daysLeft aldrig träffar exakt N igen för den här
-        // perioden och påminnelsen uteblir helt. remindersSent-markören
-        // nedan gör ändå att den bara skickas EN gång per period.
-        const vatDeadline = nextVatDeadline(companyData.company, companyData.vatPeriods || {});
-        if (vatDeadline && vatDeadline.daysLeft <= notif.declarationReminderDays) {
-          const periodKey = `${vatDeadline.year}-Q${vatDeadline.quarter}`;
-          const period = (companyData.vatPeriods || {})[periodKey] || {};
-          const marker = `deadline_${notif.declarationReminderDays}d`;
-          const recipient = companyData.company?.email;
-          if (!period.remindersSent?.includes(marker) && recipient) {
             try {
               if (dryRun) {
-                summary.wouldSend.push({ type: 'vat', companyId, to: recipient, quarter: vatDeadline.quarter, year: vatDeadline.year, daysLeft: vatDeadline.daysLeft });
-                summary.vatReminders += 1;
-              } else {
-                const html = buildVatDeadlineHtml({ company: companyData.company, deadline: vatDeadline, siteUrl: SITE_URL });
-                const result = await sendWithFallback({
-                  to: [recipient],
-                  subject: `Påminnelse: momsdeklaration kvartal ${vatDeadline.quarter} ska in ${vatDeadline.dueDate.toLocaleDateString('sv-SE')}`,
-                  html,
-                }, companyData.company);
-                if (!result.ok) throw new Error(result.data?.message || 'Resend-fel');
-
-                companyData.vatPeriods = { ...(companyData.vatPeriods || {}), [periodKey]: { ...period, remindersSent: [...(period.remindersSent || []), marker] } };
-                changedFields.add('vatPeriods');
-                summary.vatReminders += 1;
+                summary.wouldSend.push({ type: 'invoice', companyId, to: customer.email, invoiceNumber: inv.invoiceNumber, daysOverdue });
+                summary.invoiceReminders += 1;
+                continue;
               }
+              const remainingDue = Math.max(0, grossOf(inv) - (inv.paidAmount || 0));
+              const html = buildInvoiceReminderHtml({ invoice: inv, customer, company: companyData.company, grossAmount: remainingDue });
+              const result = await sendWithFallback({
+                to: [customer.email],
+                subject: `Betalningspåminnelse – faktura ${inv.invoiceNumber}`,
+                html,
+              }, companyData.company);
+              if (!result.ok) throw new Error(result.data?.message || 'Resend-fel');
+
+              inv.remindersSent = [...(inv.remindersSent || []), marker];
+              changedFields.add('invoices');
+              summary.invoiceReminders += 1;
             } catch (err) {
-              summary.errors.push(`vat ${companyId}: ${err.message}`);
+              summary.errors.push(`invoice ${inv.id} (${companyId}): ${err.message}`);
             }
           }
-        }
 
-        // ── 3) AGI-deadline till företaget ──
-        if (Array.isArray(companyData.employees) && companyData.employees.length > 0) {
-          const agiDeadline = nextAgiDeadline(today);
-          // Samma "<=" istället för "===" som för momsdeadlinen ovan, och
-          // av samma skäl — robust mot ett missat cron-pass.
-          if (agiDeadline.daysLeft <= notif.declarationReminderDays) {
+          // ── 2) Momsdeklarations-deadline till företaget ──
+          // "<=" (inte "===") av samma skäl som fakturapåminnelsen ovan: ett
+          // enda missat cron-pass (deploy-fönster, kall start, avbrott) skulle
+          // annars göra att daysLeft aldrig träffar exakt N igen för den här
+          // perioden och påminnelsen uteblir helt. remindersSent-markören
+          // nedan gör ändå att den bara skickas EN gång per period.
+          const vatDeadline = nextVatDeadline(companyData.company, companyData.vatPeriods || {});
+          if (vatDeadline && vatDeadline.daysLeft <= notif.declarationReminderDays) {
+            const periodKey = `${vatDeadline.year}-Q${vatDeadline.quarter}`;
+            const period = (companyData.vatPeriods || {})[periodKey] || {};
             const marker = `deadline_${notif.declarationReminderDays}d`;
-            const sentForPeriod = notif.agiRemindersSent?.[agiDeadline.periodKey] || [];
             const recipient = companyData.company?.email;
-            if (!sentForPeriod.includes(marker) && recipient) {
+            if (!period.remindersSent?.includes(marker) && recipient) {
               try {
                 if (dryRun) {
-                  summary.wouldSend.push({ type: 'agi', companyId, to: recipient, periodKey: agiDeadline.periodKey, daysLeft: agiDeadline.daysLeft });
-                  summary.agiReminders += 1;
+                  summary.wouldSend.push({ type: 'vat', companyId, to: recipient, quarter: vatDeadline.quarter, year: vatDeadline.year, daysLeft: vatDeadline.daysLeft });
+                  summary.vatReminders += 1;
                 } else {
-                  const html = buildAgiDeadlineHtml({ company: companyData.company, deadline: agiDeadline, siteUrl: SITE_URL });
+                  const html = buildVatDeadlineHtml({ company: companyData.company, deadline: vatDeadline, siteUrl: SITE_URL });
                   const result = await sendWithFallback({
                     to: [recipient],
-                    subject: `Påminnelse: AGI för ${agiDeadline.periodKey} ska in ${agiDeadline.dueDate.toLocaleDateString('sv-SE')}`,
+                    subject: `Påminnelse: momsdeklaration kvartal ${vatDeadline.quarter} ska in ${vatDeadline.dueDate.toLocaleDateString('sv-SE')}`,
                     html,
                   }, companyData.company);
                   if (!result.ok) throw new Error(result.data?.message || 'Resend-fel');
 
-                  companyData.company = {
-                    ...companyData.company,
-                    notifications: {
-                      ...notif,
-                      agiRemindersSent: { ...notif.agiRemindersSent, [agiDeadline.periodKey]: [...sentForPeriod, marker] },
-                    },
-                  };
-                  changedFields.add('company');
-                  summary.agiReminders += 1;
+                  companyData.vatPeriods = { ...(companyData.vatPeriods || {}), [periodKey]: { ...period, remindersSent: [...(period.remindersSent || []), marker] } };
+                  changedFields.add('vatPeriods');
+                  summary.vatReminders += 1;
                 }
               } catch (err) {
-                summary.errors.push(`agi ${companyId}: ${err.message}`);
+                summary.errors.push(`vat ${companyId}: ${err.message}`);
               }
             }
           }
-        }
 
-        // ── 5) Stripe-bokföringsunderlag från kundens anslutna konto ──
-        // Skriver till EN EGEN tabell (stripe_ledger_events), inte via
-        // changedFields/set_company_field nedan som resten av loopen — se
-        // filkommentaren i supabase-setup.sql för varför (samma "aldrig
-        // rakt in i user_data.state"-skäl som stripe_payment_events/
-        // subscriptions). Aldrig auto-bokfört: ReviewQueue.jsx föreslår en
-        // kontering som användaren själv godkänner.
-        const stripeAccountId = companyData.company?.stripeAccountId;
-        const stripe = getStripeClient();
-        if (stripe && stripeAccountId) {
-          try {
-            // Samma överlappande fönster-princip som trial-påminnelsen
-            // ovan (robust mot ett missat cron-pass) — UNIQUE(stripe_
-            // balance_transaction_id) + ignoreDuplicates gör en omkörning
-            // av samma dagar ofarlig.
-            const lookbackSeconds = 4 * 86400;
-            const createdAfter = Math.floor(Date.now() / 1000) - lookbackSeconds;
-            const balanceTxns = await stripe.balanceTransactions.list(
-              { limit: 100, created: { gte: createdAfter } },
-              { stripeAccount: stripeAccountId }
-            );
+          // ── 3) AGI-deadline till företaget ──
+          if (Array.isArray(companyData.employees) && companyData.employees.length > 0) {
+            const agiDeadline = nextAgiDeadline(today);
+            // Samma "<=" istället för "===" som för momsdeadlinen ovan, och
+            // av samma skäl — robust mot ett missat cron-pass.
+            if (agiDeadline.daysLeft <= notif.declarationReminderDays) {
+              const marker = `deadline_${notif.declarationReminderDays}d`;
+              const sentForPeriod = notif.agiRemindersSent?.[agiDeadline.periodKey] || [];
+              const recipient = companyData.company?.email;
+              if (!sentForPeriod.includes(marker) && recipient) {
+                try {
+                  if (dryRun) {
+                    summary.wouldSend.push({ type: 'agi', companyId, to: recipient, periodKey: agiDeadline.periodKey, daysLeft: agiDeadline.daysLeft });
+                    summary.agiReminders += 1;
+                  } else {
+                    const html = buildAgiDeadlineHtml({ company: companyData.company, deadline: agiDeadline, siteUrl: SITE_URL });
+                    const result = await sendWithFallback({
+                      to: [recipient],
+                      subject: `Påminnelse: AGI för ${agiDeadline.periodKey} ska in ${agiDeadline.dueDate.toLocaleDateString('sv-SE')}`,
+                      html,
+                    }, companyData.company);
+                    if (!result.ok) throw new Error(result.data?.message || 'Resend-fel');
 
-            if (balanceTxns.data.length > 0) {
-              // Kandidater att matcha TRANSFER-poster (pengar som landar på
-              // kundens Stripe-saldo från en Bokix-fakturabetalning) mot —
-              // Bokix EGNA loggade fakturabetalningar, samma fönster.
-              // Bästa-försök-matchning på tidsnärhet (±15 min), INTE en
-              // garanterad metadata-koppling: en transfer skapad via
-              // transfer_data på en destination-charge (create-checkout-
-              // session.js) bär ingen egen invoice_id. Ofarligt att gissa
-              // fel här — raden hamnar bara som ett FÖRSLAG i
-              // ReviewQueue.jsx, aldrig auto-bokfört.
-              const { data: paymentEvents } = await admin
-                .from('stripe_payment_events')
-                .select('invoice_id, amount_total, paid_at')
-                .eq('user_id', row.user_id)
-                .eq('company_id', companyId)
-                .gte('paid_at', new Date(createdAfter * 1000).toISOString());
-              const unmatchedEvents = [...(paymentEvents || [])];
-              const MATCH_WINDOW_MS = 15 * 60 * 1000;
-
-              const toInsert = balanceTxns.data.map(bt => {
-                let matchedInvoiceId = null;
-                let platformFeeAmount = null;
-                if (bt.type === 'transfer' && bt.currency === 'sek') {
-                  const btCreatedMs = bt.created * 1000;
-                  let bestIdx = -1, bestDiff = Infinity;
-                  unmatchedEvents.forEach((ev, idx) => {
-                    const diff = Math.abs(new Date(ev.paid_at).getTime() - btCreatedMs);
-                    if (diff < MATCH_WINDOW_MS && diff < bestDiff) { bestDiff = diff; bestIdx = idx; }
-                  });
-                  if (bestIdx !== -1) {
-                    const ev = unmatchedEvents.splice(bestIdx, 1)[0];
-                    matchedInvoiceId = ev.invoice_id;
-                    // Mellanskillnaden mellan fakturans redan bokförda
-                    // belopp och vad som faktiskt landade i Stripe-saldot —
-                    // Bokix egen plattformsavgift (application_fee_amount),
-                    // se filkommentaren i supabase-setup.sql. Bara sparad
-                    // om positiv — en negativ/nolldifferens (avrundning,
-                    // ingen avgift) har inget att bokföra.
-                    const transferAmountKr = bt.amount / 100;
-                    const feeGuess = Math.round((ev.amount_total - transferAmountKr) * 100) / 100;
-                    if (feeGuess > 0) platformFeeAmount = feeGuess;
+                    companyData.company = {
+                      ...companyData.company,
+                      notifications: {
+                        ...notif,
+                        agiRemindersSent: { ...notif.agiRemindersSent, [agiDeadline.periodKey]: [...sentForPeriod, marker] },
+                      },
+                    };
+                    changedFields.add('company');
+                    summary.agiReminders += 1;
                   }
+                } catch (err) {
+                  summary.errors.push(`agi ${companyId}: ${err.message}`);
                 }
-
-                return {
-                  user_id: row.user_id,
-                  company_id: companyId,
-                  stripe_account_id: stripeAccountId,
-                  stripe_balance_transaction_id: bt.id,
-                  type: bt.type,
-                  amount: bt.amount / 100,
-                  fee: bt.fee / 100,
-                  currency: bt.currency,
-                  description: bt.description || null,
-                  source_id: typeof bt.source === 'string' ? bt.source : (bt.source?.id || null),
-                  created_at_stripe: new Date(bt.created * 1000).toISOString(),
-                  matched_invoice_id: matchedInvoiceId,
-                  platform_fee_amount: platformFeeAmount,
-                };
-              });
-
-              if (dryRun) {
-                summary.wouldSend.push({ type: 'stripe_ledger', companyId, count: toInsert.length });
-                summary.stripeLedgerEvents += toInsert.length;
-              } else {
-                // ignoreDuplicates → INSERT ... ON CONFLICT DO NOTHING: en
-                // redan loggad (och kanske redan granskad/bokförd) rad ska
-                // ALDRIG skrivas över av en omkörning av samma dagar.
-                const { error: insertError } = await admin
-                  .from('stripe_ledger_events')
-                  .upsert(toInsert, { onConflict: 'stripe_balance_transaction_id', ignoreDuplicates: true });
-                if (insertError) throw insertError;
-                summary.stripeLedgerEvents += toInsert.length;
               }
             }
-          } catch (err) {
-            summary.errors.push(`stripe ledger ${companyId}: ${err.message}`);
+          }
+
+          // ── 5) Stripe-bokföringsunderlag från kundens anslutna konto ──
+          // Skriver till EN EGEN tabell (stripe_ledger_events), inte via
+          // changedFields/set_company_field nedan som resten av loopen — se
+          // filkommentaren i supabase-setup.sql för varför (samma "aldrig
+          // rakt in i user_data.state"-skäl som stripe_payment_events/
+          // subscriptions). Aldrig auto-bokfört: ReviewQueue.jsx föreslår en
+          // kontering som användaren själv godkänner.
+          const stripeAccountId = companyData.company?.stripeAccountId;
+          const stripe = getStripeClient();
+          if (stripe && stripeAccountId) {
+            try {
+              // Samma överlappande fönster-princip som trial-påminnelsen
+              // ovan (robust mot ett missat cron-pass) — UNIQUE(stripe_
+              // balance_transaction_id) + ignoreDuplicates gör en omkörning
+              // av samma dagar ofarlig.
+              const lookbackSeconds = 4 * 86400;
+              const createdAfter = Math.floor(Date.now() / 1000) - lookbackSeconds;
+              const balanceTxns = await stripe.balanceTransactions.list(
+                { limit: 100, created: { gte: createdAfter } },
+                { stripeAccount: stripeAccountId }
+              );
+
+              if (balanceTxns.data.length > 0) {
+                // Kandidater att matcha TRANSFER-poster (pengar som landar på
+                // kundens Stripe-saldo från en Bokix-fakturabetalning) mot —
+                // Bokix EGNA loggade fakturabetalningar, samma fönster.
+                // Bästa-försök-matchning på tidsnärhet (±15 min), INTE en
+                // garanterad metadata-koppling: en transfer skapad via
+                // transfer_data på en destination-charge (create-checkout-
+                // session.js) bär ingen egen invoice_id. Ofarligt att gissa
+                // fel här — raden hamnar bara som ett FÖRSLAG i
+                // ReviewQueue.jsx, aldrig auto-bokfört.
+                const { data: paymentEvents } = await admin
+                  .from('stripe_payment_events')
+                  .select('invoice_id, amount_total, paid_at')
+                  .eq('user_id', row.user_id)
+                  .eq('company_id', companyId)
+                  .gte('paid_at', new Date(createdAfter * 1000).toISOString());
+                const unmatchedEvents = [...(paymentEvents || [])];
+                const MATCH_WINDOW_MS = 15 * 60 * 1000;
+
+                const toInsert = balanceTxns.data.map(bt => {
+                  let matchedInvoiceId = null;
+                  let platformFeeAmount = null;
+                  if (bt.type === 'transfer' && bt.currency === 'sek') {
+                    const btCreatedMs = bt.created * 1000;
+                    let bestIdx = -1, bestDiff = Infinity;
+                    unmatchedEvents.forEach((ev, idx) => {
+                      const diff = Math.abs(new Date(ev.paid_at).getTime() - btCreatedMs);
+                      if (diff < MATCH_WINDOW_MS && diff < bestDiff) { bestDiff = diff; bestIdx = idx; }
+                    });
+                    if (bestIdx !== -1) {
+                      const ev = unmatchedEvents.splice(bestIdx, 1)[0];
+                      matchedInvoiceId = ev.invoice_id;
+                      // Mellanskillnaden mellan fakturans redan bokförda
+                      // belopp och vad som faktiskt landade i Stripe-saldot —
+                      // Bokix egen plattformsavgift (application_fee_amount),
+                      // se filkommentaren i supabase-setup.sql. Bara sparad
+                      // om positiv — en negativ/nolldifferens (avrundning,
+                      // ingen avgift) har inget att bokföra.
+                      const transferAmountKr = bt.amount / 100;
+                      const feeGuess = Math.round((ev.amount_total - transferAmountKr) * 100) / 100;
+                      if (feeGuess > 0) platformFeeAmount = feeGuess;
+                    }
+                  }
+
+                  return {
+                    user_id: row.user_id,
+                    company_id: companyId,
+                    stripe_account_id: stripeAccountId,
+                    stripe_balance_transaction_id: bt.id,
+                    type: bt.type,
+                    amount: bt.amount / 100,
+                    fee: bt.fee / 100,
+                    currency: bt.currency,
+                    description: bt.description || null,
+                    source_id: typeof bt.source === 'string' ? bt.source : (bt.source?.id || null),
+                    created_at_stripe: new Date(bt.created * 1000).toISOString(),
+                    matched_invoice_id: matchedInvoiceId,
+                    platform_fee_amount: platformFeeAmount,
+                  };
+                });
+
+                if (dryRun) {
+                  summary.wouldSend.push({ type: 'stripe_ledger', companyId, count: toInsert.length });
+                  summary.stripeLedgerEvents += toInsert.length;
+                } else {
+                  // ignoreDuplicates → INSERT ... ON CONFLICT DO NOTHING: en
+                  // redan loggad (och kanske redan granskad/bokförd) rad ska
+                  // ALDRIG skrivas över av en omkörning av samma dagar.
+                  const { error: insertError } = await admin
+                    .from('stripe_ledger_events')
+                    .upsert(toInsert, { onConflict: 'stripe_balance_transaction_id', ignoreDuplicates: true });
+                  if (insertError) throw insertError;
+                  summary.stripeLedgerEvents += toInsert.length;
+                }
+              }
+            } catch (err) {
+              summary.errors.push(`stripe ledger ${companyId}: ${err.message}`);
+            }
+          }
+
+          // ── Skriv tillbaka bara det som faktiskt ändrades, ett fält i
+          // taget via set_company_field (samma funktion som
+          // api/company-access.js använder för en delad editors ändringar) —
+          // aldrig ett helblobs-upsert från cronen. changedFields är redan
+          // tomt vid dryRun (ingen av grenarna ovan lägger till något då),
+          // men loopen skyddas explicit ändå — försvar i djupled, inte
+          // enbart beroende av att inget hamnade i setet. ──
+          if (dryRun) continue;
+          for (const field of changedFields) {
+            const { error: rpcError } = await admin.rpc('set_company_field', {
+              p_user_id: row.user_id,
+              p_company_id: companyId,
+              p_field: field,
+              p_value: companyData[field],
+            });
+            if (rpcError) summary.errors.push(`set_company_field ${field} (${companyId}): ${rpcError.message}`);
           }
         }
 
-        // ── Skriv tillbaka bara det som faktiskt ändrades, ett fält i
-        // taget via set_company_field (samma funktion som
-        // api/company-access.js använder för en delad editors ändringar) —
-        // aldrig ett helblobs-upsert från cronen. changedFields är redan
-        // tomt vid dryRun (ingen av grenarna ovan lägger till något då),
-        // men loopen skyddas explicit ändå — försvar i djupled, inte
-        // enbart beroende av att inget hamnade i setet. ──
-        if (dryRun) continue;
-        for (const field of changedFields) {
-          const { error: rpcError } = await admin.rpc('set_company_field', {
-            p_user_id: row.user_id,
-            p_company_id: companyId,
-            p_field: field,
-            p_value: companyData[field],
-          });
-          if (rpcError) summary.errors.push(`set_company_field ${field} (${companyId}): ${rpcError.message}`);
-        }
+        // Den här ANVÄNDAREN (alla dess företag) är nu helt klar — flyttar
+        // checkpointen hit, inte vid varje enskilt fält, så en tidsbudget som
+        // tar slut MITT I en användares företagslista aldrig lämnar den
+        // användaren halvbehandlad över ett cron-pass till nästa: nästa
+        // körnings `.gt('user_id', cursor)` börjar om just den användaren
+        // från noll (idempotent — remindersSent-markörerna ovan gör redan
+        // utskickade påminnelser till ett billigt no-op, aldrig ett dubbelt
+        // mejl).
+        lastCompletedUserId = row.user_id;
       }
+
+      if (page.length < PAGE_SIZE) break;
     }
+
+    // completedFullPass: hela user_data hann genomsökas den här körningen
+    // (ingen tidsbudget-avbrytning ovan) — nollställ checkpointen så NÄSTA
+    // körning börjar om från början igen i stället för att stå still för
+    // evigt på det sista user_id:t. Annars (avbruten av TIME_BUDGET_MS):
+    // spara var vi kom, så nästa körning fortsätter därifrån.
+    if (!dryRun) {
+      const { error: checkpointError } = await admin
+        .from('cron_progress')
+        .upsert({ id: 'reminders', cursor_value: completedFullPass ? null : lastCompletedUserId, updated_at: new Date().toISOString() }, { onConflict: 'id' });
+      if (checkpointError) summary.errors.push(`cron_progress skrivning: ${checkpointError.message}`);
+    }
+    summary.truncatedByTimeBudget = !completedFullPass;
+    if (!completedFullPass) summary.resumeFrom = lastCompletedUserId;
 
     res.status(200).json(summary);
   } catch (error) {

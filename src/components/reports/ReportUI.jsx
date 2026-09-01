@@ -1,5 +1,10 @@
 import React, { useMemo, useId } from 'react';
-import { HelpCircle, ArrowUpRight, ArrowDownRight, Inbox } from 'lucide-react';
+import {
+  HelpCircle, ArrowUpRight, ArrowDownRight, Inbox, BarChart2,
+  // Aliasade — krockar annars med recharts-komponenterna av samma namn
+  // som redan importeras nedan (ikoner, inte diagram).
+  LineChart as LineChartIcon, AreaChart as AreaChartIcon,
+} from 'lucide-react';
 import {
   BarChart, Bar, LineChart, Line, AreaChart, Area, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer,
@@ -103,10 +108,11 @@ export function EmptyState({ text }) {
   );
 }
 
-// `valueFormatter` (default formatSEK) — tillagd för MarginTrendChart nedan
-// vars serie är en PROCENT, inte ett kronbelopp; alla befintliga anrops-
-// ställen (som inte bryr sig om skillnaden) fortsätter få exakt samma
-// SEK-formatering som innan utan att ändra en enda rad hos dem.
+// `valueFormatter` (default formatSEK) — tillagd för TrendChart nedan, vars
+// serie ibland är en PROCENT (t.ex. Företagsöversiktens marginaltrend), inte
+// ett kronbelopp; alla befintliga anropsställen (som inte bryr sig om
+// skillnaden) fortsätter få exakt samma SEK-formatering som innan utan att
+// ändra en enda rad hos dem.
 export function ChartTooltip({ active, payload, label, valueFormatter = formatSEK }) {
   if (!active || !payload?.length) return null;
   const rows = payload.filter(p => p.value != null && p.name !== undefined);
@@ -187,65 +193,131 @@ export function CashflowLineChart({ data, isMobile }) {
   );
 }
 
-/** Gradientfylld variant av CashflowLineChart ovan — Företagsöversikten
- * (OverviewReport, ReportDetail.jsx) vill ha ett "finare" (kundens ord),
- * mer trendbetonat intryck för samma saldo-serie än den befintliga rapportens
- * rena linje. `useId()` istället för ett hårdkodat gradient-id: två
- * instanser av samma diagramkomponent på en sida (t.ex. om en framtida vy
- * visar den två gånger) ska aldrig råka dela — eller skriva över varandras —
- * <linearGradient>. */
-export function CashflowAreaChart({ data, isMobile }) {
+const CHART_FORMAT_ICONS = { bar: BarChart2, line: LineChartIcon, area: AreaChartIcon };
+const CHART_FORMAT_LABELS = { bar: 'Stapel', line: 'Linje', area: 'Yta' };
+
+/** Diagramformat-växlare (Stapel/Linje/Yta) för ett rapportkorts header —
+ * kundönskemål efter Företagsöversiktens första version: kunna VÄLJA typ
+ * av graf för en serie, inte bara få en fast vy. Rent presentationsval,
+ * inget nytt tal räknas fram — `TrendChart` nedan konsumerar `value` och
+ * ritar om exakt samma data i den valda formen.
+ * `formats`: vilken delmängd som är meningsfull för just den serien (t.ex.
+ * Omsättning och resultat erbjuder alla tre, en ren procentserie som
+ * Marginalutveckling bara linje/yta — en "marginal-stapel" per månad läses
+ * sämre än en trend, se choosing-a-form-resonemanget i dataviz-skillen). */
+export function ChartFormatToggle({ value, onChange, formats = ['bar', 'line', 'area'] }) {
+  return (
+    <div style={{ display: 'flex', gap: '4px', background: 'var(--bg-muted)', padding: '3px', borderRadius: '8px', border: '1px solid var(--border-light)', flexShrink: 0 }}>
+      {formats.map(f => {
+        const Icon = CHART_FORMAT_ICONS[f];
+        return (
+          <button key={f} onClick={() => onChange(f)} title={CHART_FORMAT_LABELS[f]} style={{
+            display: 'flex', alignItems: 'center', gap: '5px',
+            padding: '4px 9px', borderRadius: '5px', border: 'none', cursor: 'pointer',
+            fontSize: '11.5px', fontWeight: value === f ? 600 : 400,
+            background: value === f ? 'var(--bg-card)' : 'transparent',
+            color: value === f ? 'var(--text-main)' : 'var(--text-muted)',
+            boxShadow: value === f ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
+            transition: 'all 0.15s', fontFamily: 'inherit',
+          }}>
+            <Icon size={12} />
+            {CHART_FORMAT_LABELS[f]}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Generell trendgraf som kan rita SAMMA data som Stapel, Linje eller
+ * gradientfylld Yta (styrt av `format`, se ChartFormatToggle ovan) — ersätter
+ * de tidigare fast-formaterade CashflowAreaChart/MarginTrendChart (togs bort
+ * här; bara Företagsöversikten konsumerade dem, se ReportDetail.jsx) med EN
+ * komponent istället för en nästan-identisk kopia per diagramformat.
+ *
+ * `colorBySign`: färgar varje stapel grönt/rött efter tecken (Bar-läget,
+ * t.ex. Resultat) istället för en enda `color` — bara meningsfullt för
+ * Stapel-formatet, eftersom Linje/Yta bara kan ha EN stroke-färg för hela
+ * serien (ingen "delad färg vid nolla"-gradient-trick här, se `color`-
+ * fallet nedan som väljer en enda färg efter seriens ÖVERGRIPANDE tecken).
+ * `prevDataKey`/`prevName`: valfri streckad, dämpad jämförelseserie (samma
+ * konvention som resten av rapportportalen — se ComparisonLegend). `null`-
+ * punkter (`connectNulls={false}`, gäller Linje/Yta) ritas som ett glapp,
+ * aldrig en missvisande nolla — se Företagsöversiktens marginaldata. */
+export function TrendChart({
+  data, format = 'bar', dataKey, name, color, colorBySign = false,
+  prevDataKey, prevName, prevColor = 'var(--text-muted)',
+  yTickFormatter = v => formatSEK(v).replace(/\s?kr$/, ''), valueFormatter = formatSEK,
+  // 54 (inte 48) som standard — matchar ResultBarChart/CashflowLineChart
+  // ovan: en SEK-formatterad axel ("125 000") behöver mer bredd än en
+  // procentaxel. Marginalutveckling (ReportDetail.jsx) skickar 48 uttryckligen,
+  // precis som gamla MarginTrendChart gjorde — annars klipps kronbelopp av.
+  yAxisWidth = 54,
+  height = 220, isMobile,
+}) {
   const gradientId = useId();
   const tickData = useMemo(() => {
     const labels = thinLabels(data.map(d => d.label), isMobile);
     return data.map((d, i) => ({ ...d, label: labels[i] }));
   }, [data, isMobile]);
+  // Stapel-lägets per-punkt-tecken-färgning gäller bara Bar; Linje/Yta får
+  // en enda stroke-färg vald efter seriens SAMMANLAGDA tecken (samma
+  // förenkling som Dashboard.jsx:s Resultat-linjeformat använder).
+  const singleColor = color || (colorBySign ? (data.reduce((s, d) => s + (d[dataKey] || 0), 0) >= 0 ? REVENUE : EXPENSE) : 'var(--accent)');
 
-  return (
-    <ResponsiveContainer width="100%" height={220}>
-      <AreaChart data={tickData} margin={{ top: 4, right: 8, left: -12, bottom: 0 }}>
-        <defs>
-          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="var(--accent)" stopOpacity={0.32} />
-            <stop offset="95%" stopColor="var(--accent)" stopOpacity={0} />
-          </linearGradient>
-        </defs>
-        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-light)" />
-        <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} />
-        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} tickFormatter={v => formatSEK(v).replace(/\s?kr$/, '')} width={54} />
-        <ReferenceLine y={0} stroke="var(--border)" strokeWidth={1.5} />
-        <Tooltip content={<ChartTooltip />} cursor={{ stroke: 'var(--border)', strokeWidth: 1 }} />
-        <Area type="monotone" dataKey="balance" stroke="var(--accent)" strokeWidth={2.5} fill={`url(#${gradientId})`} dot={false} activeDot={{ r: 5 }} name="Saldo" />
-        <Line type="monotone" dataKey="prevBalance" stroke="var(--text-muted)" strokeWidth={2} strokeDasharray="4 3" dot={false} name="Föregående period" />
-      </AreaChart>
-    </ResponsiveContainer>
+  const axesAndTooltip = (
+    <>
+      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-light)" />
+      <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} />
+      <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} tickFormatter={yTickFormatter} width={yAxisWidth} />
+      <ReferenceLine y={0} stroke="var(--border)" strokeWidth={1.5} />
+      <Tooltip content={<ChartTooltip valueFormatter={valueFormatter} />} cursor={format === 'bar' ? { fill: 'rgba(0,0,0,0.02)' } : { stroke: 'var(--border)', strokeWidth: 1 }} />
+    </>
   );
-}
+  const prevLine = prevDataKey && (
+    <Line type="monotone" dataKey={prevDataKey} name={prevName} stroke={prevColor} strokeWidth={2} strokeDasharray="4 3" dot={false} />
+  );
 
-/** Vinstmarginal per månad (%) — en annan FORM än övriga rapportdiagram med
- * flit: marginalen är i grunden en lutning/trend att läsa av, inte staplar
- * att jämföra sida vid sida. `data`: [{label, margin}] där `margin` är
- * `null` för en månad utan omsättning (0/0 vore odefinierat) — Area/Line
- * hoppar naturligt över en null-punkt (ritar ett glapp) istället för att
- * plotta en missvisande nolla mitt i trenden. */
-export function MarginTrendChart({ data }) {
-  const gradientId = useId();
+  if (format === 'bar') {
+    return (
+      <ResponsiveContainer width="100%" height={height}>
+        <BarChart data={tickData} margin={{ top: 4, right: 8, left: -12, bottom: 0 }}>
+          {axesAndTooltip}
+          {/* `fill` sätts även när colorBySign är sant (då egentligen
+              onödigt — varje stapel målas om av sin egen Cell nedan) med
+              flit: Recharts v3 läser <Legend>-swatchens färg från Bar-
+              elementets EGNA fill, inte från Cell-barnen (se Dashboard.jsx:s
+              motsvarande kommentar/fix) — men den här komponenten renderar
+              ingen <Legend> alls (ComparisonLegend ovanför/under bär den
+              rollen, som i resten av rapportportalen), så det är bara ett
+              ofarligt säkerhetsnät om någon lägger till en Legend senare. */}
+          <Bar dataKey={dataKey} name={name} fill={singleColor} radius={[4, 4, 0, 0]} barSize={18}>
+            {colorBySign && tickData.map((d, i) => <Cell key={i} fill={d[dataKey] >= 0 ? REVENUE : EXPENSE} />)}
+          </Bar>
+          {prevLine}
+        </BarChart>
+      </ResponsiveContainer>
+    );
+  }
+
+  const ChartTag = format === 'area' ? AreaChart : LineChart;
   return (
-    <ResponsiveContainer width="100%" height={220}>
-      <AreaChart data={data} margin={{ top: 4, right: 8, left: -12, bottom: 0 }}>
-        <defs>
-          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor={REVENUE} stopOpacity={0.30} />
-            <stop offset="95%" stopColor={REVENUE} stopOpacity={0} />
-          </linearGradient>
-        </defs>
-        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-light)" />
-        <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} />
-        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} tickFormatter={v => `${v}%`} width={48} />
-        <ReferenceLine y={0} stroke="var(--border)" strokeWidth={1.5} />
-        <Tooltip content={<ChartTooltip valueFormatter={v => `${v.toFixed(1)}%`} />} cursor={{ stroke: 'var(--border)', strokeWidth: 1 }} />
-        <Area type="monotone" dataKey="margin" stroke={REVENUE} strokeWidth={2.5} fill={`url(#${gradientId})`} dot={false} activeDot={{ r: 5 }} name="Vinstmarginal" connectNulls={false} />
-      </AreaChart>
+    <ResponsiveContainer width="100%" height={height}>
+      <ChartTag data={tickData} margin={{ top: 4, right: 8, left: -12, bottom: 0 }}>
+        {format === 'area' && (
+          <defs>
+            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor={singleColor} stopOpacity={0.30} />
+              <stop offset="95%" stopColor={singleColor} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+        )}
+        {axesAndTooltip}
+        {format === 'area'
+          ? <Area type="monotone" dataKey={dataKey} name={name} stroke={singleColor} strokeWidth={2.5} fill={`url(#${gradientId})`} dot={false} activeDot={{ r: 5 }} connectNulls={false} />
+          : <Line type="monotone" dataKey={dataKey} name={name} stroke={singleColor} strokeWidth={2.5} dot={false} activeDot={{ r: 5 }} connectNulls={false} />}
+        {prevLine}
+      </ChartTag>
     </ResponsiveContainer>
   );
 }
@@ -350,10 +422,21 @@ export function BalanceSheetTable({ title, rows, total }) {
  * "kräm"-kort som redan etablerats för varje flik (Sida 14c). Delad här så
  * varje rapport i ReportDetail.jsx inte behöver upprepa samma
  * bakgrund/padding/skugga-stil för sig. */
-export function ReportSection({ title, subtitle, children }) {
+// `actions` (valfri): en högerjusterad kontroll bredvid titeln — hittills
+// bara ChartFormatToggle (Företagsöversikten), men skriven generellt så
+// ett framtida rapportkort kan lägga en egen knapp/väljare där utan att
+// själv bygga om hela rubrikraden. Bakåtkompatibel: alla befintliga 11
+// rapportvyer som inte skickar `actions` renderas pixel-för-pixel
+// oförändrade (samma villkor/marginaler som innan för title/subtitle).
+export function ReportSection({ title, subtitle, actions, children }) {
   return (
     <div style={{ background: 'var(--bg-cream, #faf9f5)', border: '1px solid var(--bg-cream-border, #ede9de)', borderRadius: '14px', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
-      {title && <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)', marginBottom: subtitle ? '4px' : '16px' }}>{title}</div>}
+      {(title || actions) && (
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginBottom: subtitle ? '4px' : '16px' }}>
+          {title && <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)' }}>{title}</div>}
+          {actions}
+        </div>
+      )}
       {subtitle && <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: '0 0 16px' }}>{subtitle}</p>}
       {children}
     </div>

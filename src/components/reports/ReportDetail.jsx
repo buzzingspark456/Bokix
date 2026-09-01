@@ -3,7 +3,7 @@ import { ChevronLeft, Download, TrendingUp, TrendingDown, ArrowUpRight, ArrowDow
 import {
   formatSEK, fmtDate, fmtMonthYear, toISO, formatDelta,
   KpiCard, TabHeadline, EmptyState, ReportSection, DataTable,
-  ResultBarChart, CashflowLineChart, CashflowAreaChart, MarginTrendChart,
+  ResultBarChart, CashflowLineChart, TrendChart, ChartFormatToggle,
   CostBreakdownDonut, CostRankingList, BalanceSheetTable, ComparisonLegend, swatch, REVENUE,
 } from './ReportUI';
 import {
@@ -177,6 +177,17 @@ export default function ReportDetail({
 // Ignorerar (som Årsrapport/Kvartalsrapport ovan) sidans egen periodväljare
 // — en översikt är per definition hela innevarande räkenskapsår hittills.
 function OverviewReport({ verifications, accounts, company, isMobile }) {
+  // Kundönskemål: "de kan välja typ av graf" — tre oberoende format-val,
+  // ett per panel (inte ett enda globalt för hela sidan, eftersom
+  // Stapel/Linje/Yta passar olika bra för olika serier, se
+  // ChartFormatToggle-kommentaren i ReportUI.jsx). 'bar' som standard för
+  // Omsättning/resultat (matchar tidigare fast beteende innan den här
+  // ändringen), 'area' som standard för Marginal/Kassaflöde (samma
+  // gradientfyllda look som redan var fast innan valmöjligheten fanns).
+  const [resultFormat, setResultFormat] = useState('bar');
+  const [marginFormat, setMarginFormat] = useState('area');
+  const [cashFormat, setCashFormat] = useState('area');
+
   const { fyStart, fyEnd, prevStart, prevEnd } = useMemo(() => {
     const now = new Date();
     const { start: fyStart, end: fyNaturalEnd } = fiscalYearBounds(company?.fiscalYear, now);
@@ -200,9 +211,9 @@ function OverviewReport({ verifications, accounts, company, isMobile }) {
 
   const resultChartData = series.map((m, i) => ({ label: m.label, resultat: m.intakt - m.kostnad, prevResultat: prevSeries[i] ? (prevSeries[i].intakt - prevSeries[i].kostnad) : null }));
   // `margin`: null (inte 0) för en månad helt utan omsättning — 0/0 är
-  // odefinierat, inte "0% marginal", och MarginTrendChart hoppar redan
-  // medvetet över null-punkter (connectNulls={false}) istället för att
-  // rita ett missvisande dropp till noll.
+  // odefinierat, inte "0% marginal", och TrendChart hoppar redan medvetet
+  // över null-punkter i Linje-/Yta-format (connectNulls={false}) istället
+  // för att rita ett missvisande dropp till noll.
   const marginData = series.map(m => ({ label: m.label, margin: m.intakt !== 0 ? ((m.intakt - m.kostnad) / m.intakt) * 100 : null }));
   const cashChartData = cashPoints.map((p, i) => ({ label: fmtDate(p.date), balance: p.balance, prevBalance: prevCashPoints[i] ? prevCashPoints[i].balance : null }));
 
@@ -215,8 +226,15 @@ function OverviewReport({ verifications, accounts, company, isMobile }) {
         <KpiCard label="Soliditet" value={fmtPct(k.soliditet)} icon={Scale} accent="var(--text-main)" iconBg="var(--border-light)" />
       </div>
 
-      <ReportSection title="Omsättning och resultat" subtitle="Resultat per månad, jämfört med samma period föregående räkenskapsår.">
-        <ResultBarChart data={resultChartData} isMobile={isMobile} />
+      <ReportSection
+        title="Omsättning och resultat" subtitle="Resultat per månad, jämfört med samma period föregående räkenskapsår."
+        actions={<ChartFormatToggle value={resultFormat} onChange={setResultFormat} formats={['bar', 'line', 'area']} />}
+      >
+        <TrendChart
+          data={resultChartData} format={resultFormat} isMobile={isMobile}
+          dataKey="resultat" name="Resultat" colorBySign
+          prevDataKey="prevResultat" prevName="Föregående räkenskapsår"
+        />
         <ComparisonLegend currentLabel="Innevarande räkenskapsår" previousLabel="Föregående räkenskapsår" currentColorSwatch={swatch(REVENUE)} previousColorSwatch={swatch('var(--text-muted)', true)} />
       </ReportSection>
 
@@ -226,14 +244,29 @@ function OverviewReport({ verifications, accounts, company, isMobile }) {
             ? <EmptyState text="Inga bokförda kostnader ännu." />
             : <CostBreakdownDonut categories={costCategories.categories} total={costCategories.total} />}
         </ReportSection>
-        <ReportSection title="Marginalutveckling" subtitle="Vinstmarginal per månad — resultat i förhållande till omsättning.">
-          <MarginTrendChart data={marginData} />
+        <ReportSection
+          title="Marginalutveckling" subtitle="Vinstmarginal per månad — resultat i förhållande till omsättning."
+          actions={<ChartFormatToggle value={marginFormat} onChange={setMarginFormat} formats={['area', 'line']} />}
+        >
+          <TrendChart
+            data={marginData} format={marginFormat} isMobile={isMobile}
+            dataKey="margin" name="Vinstmarginal" color={REVENUE}
+            yTickFormatter={v => `${v}%`} valueFormatter={v => `${v.toFixed(1)}%`}
+            yAxisWidth={48}
+          />
         </ReportSection>
       </div>
 
       <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-        <ReportSection title="Kassaflöde" subtitle="Ackumulerat saldo på bank och i kassa genom året.">
-          <CashflowAreaChart data={cashChartData} isMobile={isMobile} />
+        <ReportSection
+          title="Kassaflöde" subtitle="Ackumulerat saldo på bank och i kassa genom året."
+          actions={<ChartFormatToggle value={cashFormat} onChange={setCashFormat} formats={['area', 'line']} />}
+        >
+          <TrendChart
+            data={cashChartData} format={cashFormat} isMobile={isMobile}
+            dataKey="balance" name="Saldo" color="var(--accent)"
+            prevDataKey="prevBalance" prevName="Föregående räkenskapsår"
+          />
           <ComparisonLegend currentLabel="Innevarande räkenskapsår" previousLabel="Föregående räkenskapsår" currentColorSwatch={swatch('var(--accent)')} previousColorSwatch={swatch('var(--text-muted)', true)} />
         </ReportSection>
         <ReportSection title="Största kostnadskontona" subtitle="De fem konton som stod för mest av årets kostnader.">
