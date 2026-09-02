@@ -12,11 +12,18 @@
 // utgående moms, 2641 för ingående, 3001–3004 för försäljning per momssats.
 // ─────────────────────────────────────────────────────────────────────────
 
-// Momssats → ruta för momspliktig försäljning (underlag, exkl. moms)
+// Momssats → ruta för momspliktig försäljning (underlag, exkl. moms).
+// Bugfix: alla momssatser går i SAMMA ruta (05) — ruta 05 är en enda
+// sammanslagen box för all momspliktig försäljning oavsett momssats
+// (bekräftat mot Skatteverkets egen sida "Fylla i momsdeklarationen").
+// Ruta 06 är uttag (självbetjäning) och ruta 07 vinstmarginalbeskattning
+// — helt andra typer av underlag, inte "12%-" respektive "6%-försäljning"
+// som det stod här tidigare. Själva rutuppdelningen per momssats sker
+// först i utgående moms (ruta 10/11/12), se VAT_RUTOR nedan.
 export const SALES_RUTA_BY_RATE = {
   25: '05',
-  12: '06',
-  6: '07',
+  12: '05',
+  6: '05',
 };
 
 // Momssats → ruta för utgående moms
@@ -45,10 +52,10 @@ export const VAT_SETTLEMENT_ACCOUNT = '2650'; // Redovisningskonto för moms
 
 // Rutor i den ordning de ska visas i Steg 2, med etikett och typ (för att
 // kunna rendera generiskt oavsett hur många momssatser som är aktiva).
+// 'salesTotal' summerar underlagByRate över alla tre satserna till EN rad
+// (ruta 05) — se kommentaren vid SALES_RUTA_BY_RATE ovan för varför.
 export const VAT_RUTOR = [
-  { ruta: '05', label: 'Momspliktig försäljning (underlag, exkl. moms)', rate: 25, kind: 'sales' },
-  { ruta: '06', label: 'Momspliktig försäljning, 12 %', rate: 12, kind: 'sales' },
-  { ruta: '07', label: 'Momspliktig försäljning, 6 %', rate: 6, kind: 'sales' },
+  { ruta: '05', label: 'Momspliktig försäljning (underlag, exkl. moms)', kind: 'salesTotal' },
   { ruta: '10', label: 'Utgående moms, 25 %', rate: 25, kind: 'output' },
   { ruta: '11', label: 'Utgående moms, 12 %', rate: 12, kind: 'output' },
   { ruta: '12', label: 'Utgående moms, 6 %', rate: 6, kind: 'output' },

@@ -403,7 +403,7 @@ function KeyFiguresReport({ verifications, accounts, start, end }) {
 function VatReport({ verifications, start, end }) {
   const vat = useMemo(() => computeVatPeriod({ verifications, periodStart: toISO(start), periodEnd: toISO(end) }), [verifications, start, end]);
   const valueForRuta = (ruta) => {
-    if (ruta.kind === 'sales') return vat.underlagByRate[ruta.rate];
+    if (ruta.kind === 'salesTotal') return vat.underlagByRate[25] + vat.underlagByRate[12] + vat.underlagByRate[6];
     if (ruta.kind === 'output') return vat.outputVatByRate[ruta.rate];
     if (ruta.kind === 'input') return vat.inputVat;
     if (ruta.kind === 'net') return vat.netToPay;

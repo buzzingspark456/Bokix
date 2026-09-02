@@ -5,7 +5,7 @@ import {
   quarterToRange, previousQuarterRange,
 } from '../utils/vatCalculation';
 import { VAT_RUTOR, OUTPUT_VAT_ACCOUNT_BY_RATE, INPUT_VAT_ACCOUNT, VAT_SETTLEMENT_ACCOUNT } from '../utils/vatConfig';
-import { downloadVatDeclarationPdf } from '../utils/vatDeclarationExport';
+import { downloadVatDeclarationPdf, downloadVatDeclarationXml } from '../utils/vatDeclarationExport';
 
 const fmt = (v) => new Intl.NumberFormat('sv-SE').format(v || 0);
 
@@ -64,6 +64,7 @@ export default function VatDeclaration({
   const [quarter, setQuarter] = useState(defaultQuarter);
   const [step, setStep] = useState(1);
   const [booking, setBooking] = useState(false);
+  const [xmlError, setXmlError] = useState('');
   // Ref, inte state — muteras synkront och skyddar mot dubbelklick även
   // innan React hunnit rendera om (useState-uppdateringar batchas).
   const bookingRef = useRef(false);
@@ -89,7 +90,7 @@ export default function VatDeclaration({
 
   const rutorForDisplay = VAT_RUTOR.map(r => {
     let value = null;
-    if (r.kind === 'sales') value = rounded.underlagByRate[r.rate];
+    if (r.kind === 'salesTotal') value = rounded.underlagByRate[25] + rounded.underlagByRate[12] + rounded.underlagByRate[6];
     else if (r.kind === 'output') value = rounded.outputVatByRate[r.rate];
     else if (r.kind === 'input') value = rounded.inputVat;
     else if (r.kind === 'net') value = rounded.netToPay;
@@ -112,6 +113,15 @@ export default function VatDeclaration({
       // bookingRef förblir true — perioden är nu bokförd (isBooked tar över
       // som spärr så fort vatPeriods-propen hunnit uppdateras uppåt).
       setBooking(false);
+    }
+  };
+
+  const handleDownloadXml = () => {
+    setXmlError('');
+    try {
+      downloadVatDeclarationXml({ company, year, quarter, rounded }, `momsdeklaration-${periodKey}.xml`);
+    } catch (e) {
+      setXmlError(e.message);
     }
   };
 
@@ -332,20 +342,26 @@ export default function VatDeclaration({
             )}
 
             <div className="form-row-2" style={{ display: 'grid', gap: '16px', marginBottom: '20px' }}>
-              <div style={{ border: '1px solid var(--border)', borderRadius: '10px', padding: '20px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '10px', opacity: 0.6 }}>
-                <FileText size={22} color="var(--text-muted)" />
-                <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)' }}>Ladda ner XML-fil</div>
-                <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
-                  Inte tillgänglig än — filformatet kunde inte verifieras med full säkerhet mot Skatteverkets specifikation. Använd PDF-vägen nedan tills vidare.
+              <div style={{ border: '1px solid var(--border)', borderRadius: '10px', padding: '20px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '10px' }}>
+                <FileText size={22} color="var(--accent)" />
+                <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)' }}>Ladda ner fil för uppladdning (XML)</div>
+                <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
+                  Filen du laddar upp under Deklarera via fil hos Skatteverket — innehåller samma avrundade belopp som PDF:en.
                 </p>
-                <button disabled style={{ padding: '8px 16px', background: 'var(--border-light)', color: 'var(--text-muted)', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '13px', cursor: 'not-allowed' }}>
-                  Kommer snart
+                <button
+                  onClick={handleDownloadXml}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}
+                >
+                  <Download size={14} /> Ladda ner fil för uppladdning (XML)
                 </button>
+                {xmlError && (
+                  <p style={{ fontSize: '12px', color: 'var(--status-red-text)', margin: 0, lineHeight: 1.4 }}>{xmlError}</p>
+                )}
               </div>
 
               <div style={{ border: '1px solid var(--border)', borderRadius: '10px', padding: '20px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '10px' }}>
                 <Download size={22} color="var(--accent)" />
-                <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)' }}>Ladda ner PDF</div>
+                <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)' }}>Ladda ner momsdeklaration (PDF)</div>
                 <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
                   Sammanställning med Skatteverkets rutnummer och avrundade belopp, redo att skriva av för hand.
                 </p>
@@ -356,7 +372,7 @@ export default function VatDeclaration({
                   )}
                   style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}
                 >
-                  <Download size={14} /> Ladda ner PDF
+                  <Download size={14} /> Ladda ner momsdeklaration (PDF)
                 </button>
               </div>
             </div>
@@ -364,10 +380,10 @@ export default function VatDeclaration({
             <div style={{ background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: '10px', padding: '20px' }}>
               <div style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-main)', marginBottom: '10px' }}>Så här lämnar du in hos Skatteverket</div>
               <ol style={{ margin: 0, paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13.5px', color: 'var(--text-main)', lineHeight: 1.5 }}>
+                <li>Ladda ner XML-filen ovan.</li>
                 <li>Logga in på skatteverket.se med BankID.</li>
-                <li>Öppna Moms- och arbetsgivardeklarationer och välj Deklarera via fil, eller fyll i uppgifterna manuellt.</li>
-                <li>Fyll i rutorna med beloppen från PDF:en ovan (i hela kronor).</li>
-                <li>Granska och signera.</li>
+                <li>Öppna Moms- och arbetsgivardeklarationer och välj Deklarera via fil.</li>
+                <li>Ladda upp filen, granska och signera.</li>
               </ol>
               <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: '12px 0 16px' }}>
                 Vill du hellre fylla i rutorna för hand laddar du ner PDF:en och skriver av beloppen (i hela kronor).
