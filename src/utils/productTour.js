@@ -56,8 +56,10 @@ function markTourSeen(uid) {
  * ett centrerat dummy-läge om elementet aldrig dyker upp). Behövs eftersom
  * praktiskt taget alla flikar är `lazy(() => import(...))` i App.jsx och
  * inte hinner ladda sin JS-bunt inom en enkel fast fördröjning, särskilt
- * vid en helt kall session. */
-function waitForElement(selector, timeout = 3000, interval = 80) {
+ * vid en helt kall session.
+ * Exporterad — utils/invoiceTour.js (Fakturor-sidans egen, kortare guide)
+ * återanvänder den här istället för att hålla en andra tyst kopia. */
+export function waitForElement(selector, timeout = 3000, interval = 80) {
   return new Promise(resolve => {
     const start = Date.now();
     const check = () => {

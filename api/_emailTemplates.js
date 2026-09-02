@@ -1,9 +1,9 @@
-// Server-sidans HTML-mallar för AUTOMATISKA utskick (api/cron/reminders.js)
+﻿// Server-sidans HTML-mallar för AUTOMATISKA utskick (api/cron/reminders.js)
 // — till skillnad från fakturautskicket (Invoices.jsx) byggs HTML:en här på
 // SERVERN, inte klienten, eftersom en cron-körning inte har någon inloggad
 // klient som kan bygga den. Samma ton/formatering som fakturamejlet i
 // Invoices.jsx (~rad 310-320): "Hej ... Med vänlig hälsning", samma gröna
-// CTA-knapp (#3d7a2e, Bokix märkesfärg) — bara ett annat innehåll.
+// CTA-knapp (#0b6329, Bokix märkesfärg) — bara ett annat innehåll.
 const fmt = (val) => new Intl.NumberFormat('sv-SE', { maximumFractionDigits: 2, minimumFractionDigits: 2 }).format(val || 0);
 const formatDate = (d) => {
   if (!d) return '—';
@@ -11,7 +11,7 @@ const formatDate = (d) => {
 };
 
 function ctaButton(url, label) {
-  return `<p style="margin: 20px 0;"><a href="${url}" style="display:inline-block;padding:12px 26px;background:#3d7a2e;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600;">${label}</a></p>`;
+  return `<p style="margin: 20px 0;"><a href="${url}" style="display:inline-block;padding:12px 26px;background:#0b6329;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600;">${label}</a></p>`;
 }
 
 /** Automatisk betalningspåminnelse till KUNDEN — samma sakinnehåll som den
@@ -61,7 +61,7 @@ export function buildAgiDeadlineHtml({ company, deadline, siteUrl }) {
 export function buildTrialEndingHtml({ trialEndsAt, siteUrl }) {
   return `
     <p>Hej,</p>
-    <p>Din kostnadsfria provperiod av Bokix går ut <strong>${formatDate(trialEndsAt)}</strong>. Därefter dras <strong>99 kr/mån</strong> automatiskt på kortet du la in.</p>
+    <p>Din kostnadsfria provperiod av Bokix går ut <strong>${formatDate(trialEndsAt)}</strong>. Därefter dras <strong>179 kr/mån</strong> automatiskt på kortet du la in.</p>
     <p>Vill du inte fortsätta går det bra att avsluta när som helst innan dess, utan att det kostar något — under Inställningar → Prenumeration.</p>
     ${siteUrl ? ctaButton(`${siteUrl}/`, 'Öppna Bokix') : ''}
     <p>Med vänlig hälsning<br/>Bokix</p>

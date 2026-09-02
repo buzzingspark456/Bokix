@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, Suspense } from 'react';
+﻿import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Menu, X, Sun, Moon } from 'lucide-react';
 import { BRAND } from '../../utils/brandColors';
@@ -151,7 +151,7 @@ function MarketingStyles() {
       #lp-root[data-theme="dark"] .lp-btn-secondary:hover { background: var(--mkt-ivory) !important; }
       #lp-root[data-theme="dark"] .lp-mobile-menu.lp-open { background: var(--mkt-page-bg) !important; }
       .lp-btn-primary { transition: all 0.2s !important; }
-      .lp-btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 25px -5px rgba(61,122,46,0.4) !important; }
+      .lp-btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 25px -5px rgba(11,99,41,0.4) !important; }
       .lp-btn-secondary:hover { background: #f9fafb !important; }
       .lp-feature-card { transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
       .lp-feature-card:hover { transform: translateY(-4px); box-shadow: 0 16px 32px -12px rgba(0,0,0,0.14) !important; border-color: transparent !important; }
@@ -234,7 +234,7 @@ function MarketingStyles() {
         position: absolute;
         inset: 0;
         border-radius: inherit;
-        border: 2px solid rgba(61,122,46,0.45);
+        border: 2px solid rgba(11,99,41,0.45);
         opacity: 0.7;
         animation: lpPulseRing 2.4s cubic-bezier(0.4,0,0.6,1) infinite;
         pointer-events: none;
@@ -534,7 +534,7 @@ export function MarketingHeader({ onEnterApp, theme, onToggleTheme }) {
             <button className="lp-btn-secondary" onClick={handleEnterApp} style={{ padding: '11px 16px', background: 'transparent', border: '1px solid var(--mkt-border-soft)', borderRadius: '9px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: 'var(--mkt-nav-text)', fontFamily: 'inherit', minHeight: '44px' }}>
               Logga in
             </button>
-            <button className="lp-btn-primary" onClick={handleEnterApp} style={{ padding: '11px 18px', background: BRAND.green, border: 'none', borderRadius: '9px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', color: 'white', fontFamily: 'inherit', boxShadow: '0 4px 15px -3px rgba(61,122,46,0.35)', minHeight: '44px' }}>
+            <button className="lp-btn-primary" onClick={handleEnterApp} style={{ padding: '11px 18px', background: BRAND.green, border: 'none', borderRadius: '9px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', color: 'white', fontFamily: 'inherit', boxShadow: '0 4px 15px -3px rgba(11,99,41,0.35)', minHeight: '44px' }}>
               Kom igång
             </button>
           </div>

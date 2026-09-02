@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { Search, Book, PlayCircle, Sparkles, MessageSquare, AlertCircle, ArrowLeft } from 'lucide-react';
+﻿import React, { useMemo, useState } from 'react';
+import { Search, Book, PlayCircle, Sparkles, FileText, MessageSquare, AlertCircle, ArrowLeft } from 'lucide-react';
 import Drawer from './Drawer';
 
 // Egna körvägar i drawern, inte separata modaler — "Ordlista" byter bara
@@ -12,6 +12,10 @@ const SHORTCUTS = [
   // automatiskt första gången ett konto loggar in — den här genvägen är
   // den enda vägen tillbaka till den efteråt, se onStartTour/App.jsx.
   { icon: Sparkles, color: '#c26b1f', bg: '#fdf3e7', label: 'Starta rundtur', action: 'tour' },
+  // Fakturor-sidans egen, kortare guide (utils/invoiceTour.js) — döljs där
+  // efter första visningen, den här genvägen är den enda vägen tillbaka,
+  // se onStartInvoiceTour/App.jsx.
+  { icon: FileText, color: '#0b6329', bg: '#eef7ec', label: 'Fakturaguide', action: 'invoice-tour' },
   { icon: Book, color: '#9333ea', bg: '#fdf4ff', label: 'Ordlista', action: 'glossary' },
 ];
 
@@ -49,7 +53,7 @@ const shortcutBtnStyle = {
 
 // `onOpenGuide`: stänger drawern och startar OnboardingFlow (App.jsx:
 // showOnboarding) — samma flöde som Dashboards "Fortsätt registreringen".
-const HelpDrawer = ({ isOpen, onClose, onOpenGuide, onStartTour }) => {
+const HelpDrawer = ({ isOpen, onClose, onOpenGuide, onStartTour, onStartInvoiceTour }) => {
   const [search, setSearch] = useState('');
   const [view, setView] = useState('menu'); // 'menu' | 'glossary'
 
@@ -68,6 +72,7 @@ const HelpDrawer = ({ isOpen, onClose, onOpenGuide, onStartTour }) => {
   const handleShortcut = (action) => {
     if (action === 'guide') onOpenGuide?.();
     else if (action === 'tour') onStartTour?.();
+    else if (action === 'invoice-tour') onStartInvoiceTour?.();
     else if (action === 'glossary') { setView('glossary'); setSearch(''); }
   };
 

@@ -21,7 +21,7 @@ import { PageMeta, JsonLd, SITE_URL } from '../../utils/seo';
 const CRITERIA = [
   {
     icon: Wallet, accentKey: 'green', title: '1. Vad ingår egentligen i priset?',
-    body: 'Många bokföringsprogram säljs som "bas + tillägg per funktion" — grundpriset ser lågt ut tills du räknar in fakturering, lön och support som egna tillägg. Fråga dig: vad är kvar att betala extra för när du väl kommit igång? I Bokix kostar allt 99 kr/mån exkl. moms, och bokföring, fakturering, lön och momsredovisning ingår i det priset — inga dolda tillägg att räkna ut i efterhand.',
+    body: 'Många bokföringsprogram säljs som "bas + tillägg per funktion" — grundpriset ser lågt ut tills du räknar in fakturering, lön och support som egna tillägg. Fråga dig: vad är kvar att betala extra för när du väl kommit igång? I Bokix kostar allt 179 kr/mån exkl. moms, och bokföring, fakturering, lön och momsredovisning ingår i det priset — inga dolda tillägg att räkna ut i efterhand.',
   },
   {
     icon: Building2, accentKey: 'blue', title: '2. Stödjer det din bolagsform?',

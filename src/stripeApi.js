@@ -71,7 +71,7 @@ export async function createStripeCheckoutSession(payload) {
   return requestStripeApi('create-checkout-session', payload);
 }
 
-// Bokix egen plan (99 kr/mån, 30 dagars gratis provperiod) — helt separat
+// Bokix egen plan (179 kr/mån, 30 dagars gratis provperiod) — helt separat
 // från createStripeCheckoutSession ovan, som gäller kunders fakturabetalningar
 // via ett anslutet Stripe-konto. Se api/stripe/create-subscription-checkout.js.
 //

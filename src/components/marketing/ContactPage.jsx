@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+﻿import React, { useRef, useState } from 'react';
 import { Mail, LifeBuoy, CreditCard, ShieldCheck, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { BRAND } from '../../utils/brandColors';
 import MarketingLayout, { Reveal } from './MarketingLayout';
@@ -107,7 +107,7 @@ export default function ContactPage() {
         .contact-input:focus { border-color: ${BRAND.green} !important; box-shadow: 0 0 0 3px ${BRAND.greenLight} !important; }
         .contact-topic-btn { transition: all 0.15s; cursor: pointer; }
         .contact-topic-btn:hover { border-color: ${BRAND.green} !important; }
-        .contact-submit-btn:not(:disabled):hover { transform: translateY(-1px); box-shadow: 0 8px 25px -5px rgba(61,122,46,0.4); }
+        .contact-submit-btn:not(:disabled):hover { transform: translateY(-1px); box-shadow: 0 8px 25px -5px rgba(11,99,41,0.4); }
         .contact-submit-btn:disabled { opacity: 0.65; cursor: not-allowed; }
         @keyframes contactSpin { to { transform: rotate(360deg); } }
         .contact-spin { animation: contactSpin 0.8s linear infinite; }

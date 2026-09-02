@@ -1,4 +1,4 @@
-import React, { useState, lazy } from 'react';
+﻿import React, { useState, lazy } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { CheckCircle, ArrowRight, ChevronDown, ShieldCheck, Zap, Check, BarChart3 } from 'lucide-react';
 import { BRAND } from '../../utils/brandColors';
@@ -44,7 +44,7 @@ const FAQ_SCHEMA = {
   })),
 };
 
-// SoftwareApplication-schema — priset (99 kr/mån exkl. moms) står redan
+// SoftwareApplication-schema — priset (179 kr/mån exkl. moms) står redan
 // hårdkodat i sidans eget UI nedan (samma tal, en enda källa att hålla i
 // synk om priset någonsin ändras). Ger Google/AI-svarsmotorer ett exakt,
 // strukturerat pris istället för att behöva läsa/gissa det ur brödtexten.
@@ -58,11 +58,11 @@ const SOFTWARE_SCHEMA = {
   description: 'Bokföring, fakturering, lönehantering och momsredovisning för svenska företag i alla bolagsformer.',
   offers: {
     '@type': 'Offer',
-    price: '99',
+    price: '179',
     priceCurrency: 'SEK',
     priceSpecification: {
       '@type': 'UnitPriceSpecification',
-      price: '99',
+      price: '179',
       priceCurrency: 'SEK',
       unitText: 'MON',
       valueAddedTaxIncluded: false,
@@ -101,8 +101,8 @@ export default function PricingPage() {
   return (
     <MarketingLayout>
       <PageMeta
-        title="Priser — 99 kr/mån, allt ingår | Bokix"
-        description="Ett pris, allt ingår: bokföring, fakturering, lön och moms. 99 kr/mån exkl. moms, ingen bindningstid, ingen dold avgift per funktion."
+        title="Priser — 179 kr/mån, allt ingår | Bokix"
+        description="Ett pris, allt ingår: bokföring, fakturering, lön och moms. 179 kr/mån exkl. moms, ingen bindningstid, ingen dold avgift per funktion."
         path="/priser"
       />
       <JsonLd data={SOFTWARE_SCHEMA} />
@@ -138,7 +138,7 @@ export default function PricingPage() {
                 fel som bakgrund här). */}
             <div style={{ background: BRAND.green, padding: '38px 36px 34px', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
               <div style={{ position: 'relative' }}>
-                <span style={{ fontFamily: SERIF, fontSize: '52px', fontWeight: 700, letterSpacing: '-0.01em', color: 'white' }}>99 kr</span>
+                <span style={{ fontFamily: SERIF, fontSize: '52px', fontWeight: 700, letterSpacing: '-0.01em', color: 'white' }}>179 kr</span>
                 <span style={{ fontSize: '16px', color: 'rgba(255,255,255,0.6)' }}> /mån</span>
                 <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.65)', marginTop: '6px' }}>Exkl. moms · avsluta när som helst</div>
               </div>
@@ -158,7 +158,7 @@ export default function PricingPage() {
                   );
                 })}
               </div>
-              <button className="lp-btn-primary" onClick={enterApp} style={{ width: '100%', padding: '16px', borderRadius: '12px', border: 'none', background: BRAND.green, fontSize: '15.5px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', color: 'white', boxShadow: '0 2px 8px rgba(61,122,46,0.3)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+              <button className="lp-btn-primary" onClick={enterApp} style={{ width: '100%', padding: '16px', borderRadius: '12px', border: 'none', background: BRAND.green, fontSize: '15.5px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', color: 'white', boxShadow: '0 2px 8px rgba(11,99,41,0.3)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                 Kom igång gratis <ArrowRight size={16} />
               </button>
               <div style={{ textAlign: 'center', fontSize: '12.5px', color: 'var(--mkt-muted)', marginTop: '14px' }}>Gratis i 30 dagar · avsluta när som helst</div>

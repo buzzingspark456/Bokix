@@ -389,6 +389,7 @@ import Toast from './components/shared/Toast';
 import PaymentRequiredGate from './components/PaymentRequiredGate';
 import AddCompanyModal from './components/AddCompanyModal';
 import { maybeAutoStartTour, startProductTourWhenReady } from './utils/productTour';
+import { startInvoiceTourWhenReady } from './utils/invoiceTour';
 
 // Fallback under den enda <Suspense> som omsluter App-komponentens JSX (se
 // return-satsen längre ner) — visas bara under den korta stund en lazy-flik
@@ -1966,11 +1967,11 @@ function App() {
 
     const messages = forCompany
       ? {
-          success: 'Klart! 30 dagar gratis, sedan 99 kr/mån för det här företaget.',
+          success: 'Klart! 30 dagar gratis, sedan 179 kr/mån för det här företaget.',
           cancelled: 'Betalningen avbröts — företaget är skapat, men blockerat tills betalningsuppgifter läggs till. Öppna Inställningar → Prenumeration för att försöka igen.',
         }
       : {
-          success: 'Klart! 30 dagar gratis, sedan 99 kr/mån. Logga in för att komma igång.',
+          success: 'Klart! 30 dagar gratis, sedan 179 kr/mån. Logga in för att komma igång.',
           cancelled: 'Betalningen avbröts — kontot är skapat, men provperioden startar först när betalningsuppgifter är tillagda. Logga in och försök igen.',
         };
     setToast({
@@ -3437,6 +3438,8 @@ function App() {
             globalAction={globalAction}
             clearGlobalAction={() => setGlobalAction(null)}
             onNavigate={handleNavTabChange}
+            uid={user?.id}
+            projects={projects}
           />
         );
       case 'expense_overview':
@@ -3850,17 +3853,17 @@ function App() {
 
           <div className="desktop-topbar-right">
             <button data-tour="topbar-help" className="topbar-icon-btn" title="Hjälp & support" onClick={() => setIsHelpDrawerOpen(true)}>
-              <HelpCircle size={18} />
+              <HelpCircle size={23} />
             </button>
             <button className="topbar-icon-btn" title={theme === 'dark' ? 'Ljust läge' : 'Mörkt läge'} onClick={toggleTheme}>
-              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+              {theme === 'dark' ? <Sun size={23} /> : <Moon size={23} />}
             </button>
             <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
               <button className="topbar-icon-btn" title="Notiser" onClick={() => setIsNotifMenuOpen(!isNotifMenuOpen)}>
-                <Bell size={18} />
+                <Bell size={23} />
               </button>
               {notificationCount > 0 && (
-                <span style={{ position: 'absolute', top: 4, right: 4, minWidth: 16, height: 16, padding: '0 4px', backgroundColor: '#ef4444', color: 'white', borderRadius: '999px', fontSize: '9px', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+                <span style={{ position: 'absolute', top: 3, right: 3, minWidth: 18, height: 18, padding: '0 4px', backgroundColor: '#ef4444', color: 'white', borderRadius: '999px', fontSize: '10px', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
                   {notificationCount}
                 </span>
               )}
@@ -3894,7 +3897,7 @@ function App() {
                 <div className="topbar-avatar" title={user?.email || 'Profil'}>
                   {(company?.name || user?.email || 'A').charAt(0).toUpperCase()}
                 </div>
-                <ChevronDown size={14} style={{ color: theme === 'dark' ? 'rgba(255,255,255,0.75)' : 'var(--text-secondary)' }} />
+                <ChevronDown size={18} style={{ color: theme === 'dark' ? 'rgba(255,255,255,0.75)' : 'var(--text-secondary)' }} />
               </div>
 
               {isProfileMenuOpen && (
@@ -3980,14 +3983,14 @@ function App() {
                 samma avatar-knapp och .profile-dropdown som på desktop —
                 se den mobilanpassade positioneringen i index.css. */}
             <button className="topbar-icon-btn" title={theme === 'dark' ? 'Ljust läge' : 'Mörkt läge'} onClick={toggleTheme}>
-              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+              {theme === 'dark' ? <Sun size={23} /> : <Moon size={23} />}
             </button>
             <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
               <button className="topbar-icon-btn" title="Notiser" onClick={() => setIsNotifMenuOpen(!isNotifMenuOpen)}>
-                <Bell size={18} />
+                <Bell size={23} />
               </button>
               {notificationCount > 0 && (
-                <span style={{ position: 'absolute', top: 4, right: 4, minWidth: 16, height: 16, padding: '0 4px', backgroundColor: '#ef4444', color: 'white', borderRadius: '999px', fontSize: '9px', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+                <span style={{ position: 'absolute', top: 3, right: 3, minWidth: 18, height: 18, padding: '0 4px', backgroundColor: '#ef4444', color: 'white', borderRadius: '999px', fontSize: '10px', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
                   {notificationCount}
                 </span>
               )}
@@ -4188,6 +4191,7 @@ function App() {
         onClose={() => setIsHelpDrawerOpen(false)}
         onOpenGuide={() => { setIsHelpDrawerOpen(false); setShowOnboarding(true); }}
         onStartTour={() => { setIsHelpDrawerOpen(false); handleNavTabChange('dashboard'); startProductTourWhenReady({ uid: user?.id, navigate: handleNavTabChange }); }}
+        onStartInvoiceTour={() => { setIsHelpDrawerOpen(false); handleNavTabChange('invoices'); startInvoiceTourWhenReady({ uid: user?.id }); }}
       />
 
       {/* ── Toast — ersätter blockerande alert() för t.ex. "Stripe är nu

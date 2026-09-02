@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+﻿import { lazy, Suspense, useEffect, useState } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import LandingPage from './components/LandingPage';
 import CookieBanner from './components/CookieBanner';
@@ -28,7 +28,7 @@ const App = lazy(() => import('./App'));
 function AppLoadingFallback() {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--bg-page, #f4f7f5)' }}>
-      <div style={{ width: 28, height: 28, borderRadius: '50%', border: '3px solid rgba(61,122,46,0.25)', borderTopColor: '#3d7a2e', animation: 'spin 0.8s linear infinite' }} />
+      <div style={{ width: 28, height: 28, borderRadius: '50%', border: '3px solid rgba(11,99,41,0.25)', borderTopColor: '#0b6329', animation: 'spin 0.8s linear infinite' }} />
     </div>
   );
 }

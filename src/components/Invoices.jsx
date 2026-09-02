@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+﻿import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Plus, X, Send, Check, FileText,
   Search, ChevronRight, ChevronDown,
   RefreshCw, Printer, Eye, CreditCard, Link2,
   MessageSquare, Tag, Lock, Settings2, Download, Upload, AlertTriangle, Inbox, Trash2,
-  ZoomIn, ZoomOut, Pencil, Copy, CheckCircle2, Undo2
+  ZoomIn, ZoomOut, Pencil, Copy, CheckCircle2, Undo2, Sparkles
 } from 'lucide-react';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import InvoiceDocument, { DEFAULT_INVOICE_TEMPLATE, INVOICE_TEMPLATES } from './InvoiceDocument';
@@ -25,6 +25,9 @@ import ListTable from './shared/ListTable';
 // så flytten gick åt det hållet, inte tvärtom. Alias till samma namn så
 // alla anrop nedan är oförändrade.
 import { grossInvoiceAmount as grossOf } from '../utils/reportCalculations';
+import { hasSeenInvoiceTour, startInvoiceTour } from '../utils/invoiceTour';
+import { waitForElement } from '../utils/productTour';
+import { ROT_RUT_RATES, ROT_RUT_COMBINED_CAP, calcRotRutDeduction } from '../utils/rotRutConfig';
 
 const newRowId = () => (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `row_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 const withRowIds = (rows) => rows.map(r => ({ id: r.id || newRowId(), ...r }));
@@ -60,6 +63,32 @@ function getRowBg(status) {
 // delar samma BRAND-tokens, rörs inte.
 const STRONG_PAID = { bg: '#16a34a', text: '#ffffff' };
 const STRONG_UNPAID = { bg: '#d97706', text: '#ffffff' };
+
+// Exempelfaktura — Fakturaguiden (utils/invoiceTour.js) pekar på statusmärket
+// och radmenyn, men de flesta konton har inga riktiga fakturor än när de
+// klickar igång guiden. Injiceras (bara i listan här på skärmen, se
+// sortedWithDemo längre ner) enbart medan guiden är öppen OCH listan
+// annars är tom — försvinner automatiskt när guiden stängs, skrivs aldrig
+// till invoices/setInvoices, och alla dess radåtgärder är overksamma (se
+// buildInvoiceRowMenuItems' isDemo-gren och de isDemo-vakterna nedan) så
+// den aldrig av misstag kan sparas som en riktig faktura.
+const DEMO_INVOICE_ID = '__demo_invoice__';
+const DEMO_CUSTOMER_ID = '__demo_customer__';
+function buildDemoInvoice() {
+  const today = new Date();
+  const due = new Date(); due.setDate(due.getDate() + 30);
+  return {
+    id: DEMO_INVOICE_ID,
+    isDemo: true,
+    invoiceNumber: 'DEMO-01',
+    customerId: DEMO_CUSTOMER_ID,
+    date: today.toISOString().split('T')[0],
+    dueDate: due.toISOString().split('T')[0],
+    status: 'sent',
+    currency: 'SEK',
+    rows: [{ description: 'Exempeltjänst', qty: 1, unitPrice: 1000, vatRate: 25, discount: 0, account: '3001' }],
+  };
+}
 
 function addDays(dateStr, days) {
   const d = new Date(`${dateStr}T00:00:00`);
@@ -128,7 +157,7 @@ const outlineToolbarBtnStyle = {
 };
 
 // ─── Invoice Full Form (Fortnox-inspired) ──────────────────────────────────────
-function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, invoiceList, onCreateCreditNote, onRegisterPayment, onUnmarkPaid, onUpdateNote, verifications = [], nav, onGetPaymentLinkUrl, articles = [], setArticles }) {
+function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, invoiceList, onCreateCreditNote, onRegisterPayment, onUnmarkPaid, onUpdateNote, verifications = [], nav, onGetPaymentLinkUrl, articles = [], setArticles, projects = [] }) {
   // En bokförd faktura (allt utom utkast) får inte längre ändra belopp/rader/kund —
   // korrigeringar sker via kreditfaktura. Datum och kommentar går fortfarande att ändra.
   const isLocked = Boolean(initial) && (initial.status || 'draft') !== 'draft';
@@ -144,7 +173,7 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
     return d.toISOString().split('T')[0];
   });
   const [rows, setRows] = useState(() => withRowIds(initial?.rows || prefill?.rows || [
-    { description: '', qty: 1, unitPrice: 0, vatRate: 25, discount: 0, account: '3001', articleNumber: '' }
+    { description: '', qty: 1, unitPrice: 0, vatRate: 25, discount: 0, account: '3001', articleNumber: '', rotRutLabor: true }
   ]));
   const [expandedRows, setExpandedRows] = useState(new Set());
   const toggleRowAdvanced = (id) => setExpandedRows(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -152,6 +181,23 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
   const [ourRef, setOurRef] = useState(initial?.ourRef || '');
   const [theirRef, setTheirRef] = useState(initial?.theirRef || '');
   const [ourOrderNr, setOurOrderNr] = useState(initial?.ourOrderNr || '');
+  const [projectId, setProjectId] = useState(initial?.projectId || prefill?.projectId || '');
+  // Pris inkl. moms — ren INMATNINGS-bekvämlighet, rör aldrig vad som
+  // faktiskt sparas. row.unitPrice är och förblir alltid nettopriset
+  // (exkl. moms), exakt som förut — calcRow (nedan), grossInvoiceAmount
+  // (reportCalculations.js), Stripe-betalningslänken
+  // (_invoiceLineItems.js) och den utskrivna fakturan (InvoiceDocument.jsx)
+  // läser alla unitPrice som netto och behöver därför INTE veta att den
+  // här växeln finns. När den är på räknas bara À-pris-fältets VISADE och
+  // INSKRIVNA värde om till/från brutto vid varje tangenttryckning (se
+  // fältet i Fakturarader nedan) — själva state:t den skriver till är
+  // fortfarande nettot.
+  const [priceInclVat, setPriceInclVat] = useState(initial?.priceInclVat || false);
+  // Husavdrag (ROT/RUT) — bara relevant för privatpersoner (customer.
+  // customerType === 'se_individual', se Contacts.jsx), aldrig företag.
+  // 'none' | 'rot' | 'rut'. Se utils/rotRutConfig.js för procentsatser/tak
+  // och varför avdraget räknas på arbetsradernas BRUTTObelopp (inkl. moms).
+  const [rotRutType, setRotRutType] = useState(initial?.rotRutType || 'none');
   const [invoiceType, setInvoiceType] = useState('Faktura');
   const [terms, setTerms] = useState('30 dagar');
   // Bugkritiskt: sparades tidigare aldrig med på fakturan (se handleSave
@@ -162,7 +208,6 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
   const [currency, setCurrency] = useState(initial?.currency || 'SEK');
   const [invoiceText, setInvoiceText] = useState('');
   const [showPreview, setShowPreview] = useState(false);
-  const [showMoreOptions, setShowMoreOptions] = useState(false);
   // Sida 38, punkt 4: explicit +/- zoom som fallback till det äkta
   // tvåfingers-pinchzoom-gest som webbläsaren redan tillåter rakt av (ingen
   // user-scalable=no/maximum-scale i index.html som spärrar den) — en A4-
@@ -219,7 +264,7 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
   const nextNum = initial?.invoiceNumber || getNextInvoiceNumber(invoiceList, company);
   const ocr = nextNum.padStart(7, '0');
 
-  const addRow = () => setRows(r => [...r, { id: newRowId(), description: '', qty: 1, unitPrice: 0, vatRate: 25, discount: 0, account: '3001', articleNumber: '' }]);
+  const addRow = () => setRows(r => [...r, { id: newRowId(), description: '', qty: 1, unitPrice: 0, vatRate: 25, discount: 0, account: '3001', articleNumber: '', rotRutLabor: true }]);
   const updateRow = (i, field, val) => setRows(r => r.map((row, idx) => idx === i ? { ...row, [field]: val } : row));
   const removeRow = (i) => setRows(r => r.filter((_, idx) => idx !== i));
 
@@ -266,6 +311,15 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
     return { net: acc.net + c.net, vat: acc.vat + c.vat, total: acc.total + c.total };
   }, { net: 0, vat: 0, total: 0 });
 
+  // Husavdrag — bara valbart för privatpersoner (se rotRutType-kommentaren
+  // ovan). Nollställer INTE rotRutType om en redan sparad faktura råkar ha
+  // en kund som bytt typ i efterhand — visar hellre en tydlig varning än
+  // att tyst rensa bort ett val som redan sparats på fakturan.
+  const customerIsIndividual = customer?.customerType === 'se_individual';
+  const rotRut = calcRotRutDeduction(rotRutType, rows);
+  const amountAfterRotRut = totals.total - rotRut.deduction;
+  const customerHasPersonnummer = Boolean(customer?.orgNr?.trim());
+
   const alreadyPaid = initial?.paidAmount || 0;
   const remainingDue = Math.max(0, totals.total - alreadyPaid);
 
@@ -302,7 +356,7 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
     // "Spara"-knapp) så en kommentar man skrivit på en NY, ännu osparad
     // faktura faktiskt följer med — annars gick den förlorad eftersom
     // Kommentar-knappen tidigare var helt avstängd innan första sparningen.
-    onSave({ customerId, date: invoiceDate, dueDate, rows, status, type: 'invoice', invoiceNumber: nextNum, ourRef, theirRef, ourOrderNr, internalNote: commentDraft, invoiceTemplateSnapshot, currency });
+    onSave({ customerId, date: invoiceDate, dueDate, rows, status, type: 'invoice', invoiceNumber: nextNum, ourRef, theirRef, ourOrderNr, projectId: projectId || undefined, priceInclVat, rotRutType: rotRutType !== 'none' ? rotRutType : undefined, internalNote: commentDraft, invoiceTemplateSnapshot, currency });
   };
 
   const handleDownloadPdf = async () => {
@@ -347,7 +401,7 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
         <p>Bifogat finner du faktura <strong>${nextNum}</strong> på <strong>${fmt(totals.total)} kr</strong>, med förfallodatum ${formatDate(dueDate)}.</p>
         ${paymentLinkUrl ? `
         <p style="margin: 20px 0;">
-          <a href="${paymentLinkUrl}" style="display:inline-block;padding:12px 26px;background:#3d7a2e;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600;">Betala nu</a>
+          <a href="${paymentLinkUrl}" style="display:inline-block;padding:12px 26px;background:#0b6329;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600;">Betala nu</a>
         </p>
         ` : ''}
         <p>Hör av dig om du har några frågor.</p>
@@ -434,7 +488,7 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
         </div>
 
         <div style={{ display: 'flex', gap: '8px' }}>
-          <button type="button" data-tour="page-invoices-cancel" onClick={onClose} style={listHeaderButtonStyle('secondary')}>Avbryt</button>
+          <button type="button" data-tour="page-invoices-cancel" data-inv-tour="form-cancel" onClick={onClose} style={listHeaderButtonStyle('secondary')}>Avbryt</button>
           <button type="button" onClick={() => handleSave('sent')} style={listHeaderButtonStyle('primary')}>
             <Check size={14} /> {initial ? 'Spara ändringar' : 'Skapa faktura'}
           </button>
@@ -622,7 +676,7 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
             <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '16px', alignItems: 'end', marginBottom: '16px' }}>
               <div>
                 <label style={lbl}>Kund</label>
-                <select data-tour="page-invoices-field" value={customerId} onChange={e => setCustomerId(e.target.value)} disabled={isLocked} style={{ ...inp, background: isLocked ? 'var(--border-light)' : 'var(--bg-card)' }}>
+                <select data-tour="page-invoices-field" data-inv-tour="form-customer" value={customerId} onChange={e => setCustomerId(e.target.value)} disabled={isLocked} style={{ ...inp, background: isLocked ? 'var(--border-light)' : 'var(--bg-card)' }}>
                   <option value="">Välj kund...</option>
                   {customers.map(c => <option key={c.id} value={c.id}>{c.id?.slice(-3)} – {c.name}</option>)}
                 </select>
@@ -666,67 +720,69 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
               </div>
             </div>
 
-            {/* Fler alternativ — sällan använda fält, dolda tills man behöver dem */}
-            <button
-              type="button"
-              onClick={() => setShowMoreOptions(v => !v)}
-              style={{
-                marginTop: '16px', background: 'none', border: 'none', padding: 0,
-                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: 'var(--accent)',
-              }}
-            >
-              {showMoreOptions ? <ChevronDown size={13} /> : <ChevronRight size={13} />} Fler alternativ
-            </button>
-            {showMoreOptions && (
-              <div className="form-row-stack" style={{ marginTop: '16px', padding: '16px', background: 'var(--bg-muted)', borderRadius: '10px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
-                <div>
-                  <label style={lbl}>Husavdrag</label>
-                  <select style={inp}><option>Inget</option><option>ROT</option><option>RUT</option></select>
+            {/* "Fler alternativ" (dolt bakom en Fler alternativ-knapp) togs
+                bort helt — kundfeedback: sidan såg ut som Fortnox rakt av
+                utan att faktiskt göra samma sak. Av de tio fälten som stod
+                där var FEM rent dekorativa (Kostnadsställe/Prislista/Kurs/
+                Enhet/Etiketter) — ingen value/onChange någonstans, skrev
+                man i dem sparades det aldrig. Bara Ert ordernummer och
+                Valuta var på riktigt kopplade till state, de visas nu direkt
+                utan någon gömd panel att klicka fram för nästan ingenting.
+                Projekt och Husavdrag (Pris inkl. moms också, se
+                Fakturarader nedan) var likaså dekorativa i sitt gamla skick
+                — men till skillnad från de tre ovan FINNS det riktiga
+                system bakom dem (projektmodulen som Offert/Leverantörs-
+                faktura redan länkar mot, respektive de faktiska ROT/RUT-
+                reglerna, se utils/rotRutConfig.js) — kopplade till på
+                riktigt istället för att antingen återskapa attrapperna
+                eller strunta i dem helt. */}
+            <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginTop: '16px' }}>
+              <div>
+                <label style={lbl}>Ert ordernummer</label>
+                <input value={ourOrderNr} onChange={e => setOurOrderNr(e.target.value)} style={inp} placeholder="Valfritt" />
+              </div>
+              <div>
+                <label style={lbl}>Valuta</label>
+                <select value={currency} onChange={e => setCurrency(e.target.value)} style={inp}>
+                  {['SEK', 'NOK', 'EUR', 'USD', 'GBP'].map(c => <option key={c}>{c}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={lbl}>Projekt</label>
+                <select value={projectId} onChange={e => setProjectId(e.target.value)} style={inp}>
+                  <option value="">Inget projekt</option>
+                  {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {/* Husavdrag (ROT/RUT) — bara relevant när kunden är en
+                privatperson, aldrig ett företag. Döljs helt annars istället
+                för att visas gråad/förklaras varför den inte går att välja. */}
+            {customerIsIndividual && (
+              <div style={{ marginTop: '16px' }}>
+                <label style={lbl}>Husavdrag</label>
+                <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: '9px', overflow: 'hidden', maxWidth: '300px' }}>
+                  {[{ v: 'none', l: 'Inget' }, { v: 'rot', l: `ROT (${ROT_RUT_RATES.rot.percent}%)` }, { v: 'rut', l: `RUT (${ROT_RUT_RATES.rut.percent}%)` }].map(({ v, l }) => (
+                    <button key={v} type="button" onClick={() => setRotRutType(v)} style={{
+                      flex: 1, padding: '8px 6px', border: 'none', fontSize: '12.5px', cursor: 'pointer',
+                      background: rotRutType === v ? 'var(--accent)' : 'var(--bg-card)',
+                      color: rotRutType === v ? 'white' : 'var(--text-main)', fontWeight: rotRutType === v ? 700 : 500,
+                    }}>{l}</button>
+                  ))}
                 </div>
-                <div>
-                  <label style={lbl}>Kostnadsställe (Ks)</label>
-                  <input style={inp} placeholder="Kost. Beteckning" />
-                </div>
-                <div>
-                  <label style={lbl}>Prislista</label>
-                  <select style={inp}><option>Prislista A</option><option>Prislista B</option></select>
-                </div>
-                <div>
-                  <label style={lbl}>Ert ordernummer</label>
-                  <input value={ourOrderNr} onChange={e => setOurOrderNr(e.target.value)} style={inp} />
-                </div>
-                <div>
-                  <label style={lbl}>Projekt (P)</label>
-                  <input style={inp} placeholder="Projekt, Benämning, Projektledare" />
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <label style={lbl}>Pris inkl. moms</label>
-                  <div style={{ display: 'flex', gap: '12px', paddingTop: '4px' }}>
-                    {['Ja', 'Nej'].map(v => (
-                      <label key={v} style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', cursor: 'pointer' }}>
-                        <input type="radio" name="priceInclVat" value={v} defaultChecked={v === 'Nej'} /> {v}
-                      </label>
-                    ))}
+                {rotRutType !== 'none' && (
+                  <div style={{ marginTop: '8px', fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.5, maxWidth: '460px' }}>
+                    {!customerHasPersonnummer && (
+                      <p style={{ margin: '0 0 4px', color: 'var(--status-red-text)', fontWeight: 600 }}>
+                        Kunden saknar personnummer — krävs för en {ROT_RUT_RATES[rotRutType].label}-begäran hos Skatteverket. Lägg till det under Kontakter.
+                      </p>
+                    )}
+                    <p style={{ margin: 0 }}>
+                      Avdraget räknas bara på rader märkta "Arbete" nedan, aldrig material. {ROT_RUT_RATES[rotRutType].label} och eventuellt andra husavdrag delar samma tak på {new Intl.NumberFormat('sv-SE').format(ROT_RUT_COMBINED_CAP)} kr per person och år — Bokix håller idag inte reda på hur mycket av taket kunden redan använt över tidigare fakturor.
+                    </p>
                   </div>
-                </div>
-                <div>
-                  <label style={lbl}>Valuta</label>
-                  <select value={currency} onChange={e => setCurrency(e.target.value)} style={inp}>
-                    {['SEK', 'NOK', 'EUR', 'USD', 'GBP'].map(c => <option key={c}>{c}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label style={lbl}>Kurs</label>
-                  <input defaultValue="1" style={inp} />
-                </div>
-                <div>
-                  <label style={lbl}>Enhet</label>
-                  <input defaultValue="1" style={inp} />
-                </div>
-                <div>
-                  <label style={lbl}>Etiketter</label>
-                  <input style={inp} placeholder="Lägg till etikett..." />
-                </div>
+                )}
               </div>
             )}
           </div>
@@ -788,14 +844,32 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
               Avancerade fält (artikelnr/momsfri tjänst/rabatt/konto) bakom
               kugghjulet, precis som förut — bara paketeringen är ny. */}
           <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
               <h3 style={{ fontSize: '14px', fontWeight: 600, margin: 0 }}>Fakturarader</h3>
-              <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>{rows.length} {rows.length === 1 ? 'rad' : 'rader'}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                {/* Pris inkl. moms — påverkar bara hur À-pris-fältet
+                    tolkar det du skriver, se priceInclVat-kommentaren
+                    ovan. Avstängd som förval eftersom nettopris (dagens
+                    beteende) är det gängse i bokföringsprogram. */}
+                <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: '7px', overflow: 'hidden' }}>
+                  {[{ v: false, l: 'Pris exkl. moms' }, { v: true, l: 'Pris inkl. moms' }].map(({ v, l }) => (
+                    <button
+                      key={l} type="button" onClick={() => setPriceInclVat(v)}
+                      style={{
+                        padding: '5px 10px', border: 'none', fontSize: '11.5px', fontWeight: 600, cursor: 'pointer',
+                        background: priceInclVat === v ? 'var(--accent)' : 'var(--bg-card)',
+                        color: priceInclVat === v ? 'white' : 'var(--text-secondary)',
+                      }}
+                    >{l}</button>
+                  ))}
+                </div>
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>{rows.length} {rows.length === 1 ? 'rad' : 'rader'}</span>
+              </div>
             </div>
             <div style={{ overflowX: 'auto' }}>
               <div style={{ minWidth: '760px' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '2.4fr 0.7fr 0.9fr 0.7fr 0.9fr auto auto', gap: '10px', marginBottom: '8px', padding: '0 2px' }}>
-                  {['Benämning', 'Antal', 'À-pris', 'Moms', 'Summa', '', ''].map((h, i) => (
+                  {['Benämning', 'Antal', priceInclVat ? 'À-pris (inkl. moms)' : 'À-pris', 'Moms', 'Summa', '', ''].map((h, i) => (
                     <span key={i} style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em', textAlign: i >= 1 && i <= 4 ? 'right' : 'left' }}>{h}</span>
                   ))}
                 </div>
@@ -824,7 +898,19 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
                         {isLocked ? (
                           <div style={{ ...inp, background: 'var(--bg-muted)', border: '1px solid var(--border-light)', textAlign: 'right' }}>{fmt(row.unitPrice)}</div>
                         ) : (
-                          <input type="number" value={row.unitPrice} onChange={e => updateRow(i, 'unitPrice', Number(e.target.value))} style={{ ...inp, textAlign: 'right' }} />
+                          <input
+                            type="number"
+                            // row.unitPrice är alltid nettot (se priceInclVat-
+                            // kommentaren ovan) — bara VISNINGEN och det man
+                            // skriver in räknas om till/från brutto här.
+                            value={priceInclVat ? row.unitPrice * (1 + (row.vatRate || 0) / 100) : row.unitPrice}
+                            onChange={e => {
+                              const typed = Number(e.target.value);
+                              const net = priceInclVat ? typed / (1 + (row.vatRate || 0) / 100) : typed;
+                              updateRow(i, 'unitPrice', net);
+                            }}
+                            style={{ ...inp, textAlign: 'right' }}
+                          />
                         )}
                         {isLocked ? (
                           <div style={{ ...inp, background: 'var(--bg-muted)', border: '1px solid var(--border-light)', textAlign: 'right' }}>{row.vatRate}%</div>
@@ -841,6 +927,26 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
                           <Trash2 size={15} />
                         </button>
                       </div>
+
+                      {/* Arbete/Material — bara synlig när Husavdrag är
+                          valt ovan. Avdraget (utils/rotRutConfig.js) räknas
+                          bara på rader märkta "Arbete", aldrig material. */}
+                      {rotRutType !== 'none' && !isLocked && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px' }}>
+                          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Rad avser:</span>
+                          {[{ v: true, l: 'Arbete' }, { v: false, l: 'Material' }].map(({ v, l }) => (
+                            <button
+                              key={l} type="button" onClick={() => updateRow(i, 'rotRutLabor', v)}
+                              style={{
+                                padding: '2px 9px', borderRadius: '999px', border: '1px solid transparent', cursor: 'pointer',
+                                fontSize: '11px', fontWeight: 600,
+                                background: Boolean(row.rotRutLabor) === v ? BRAND.greenLight : 'var(--bg-muted)',
+                                color: Boolean(row.rotRutLabor) === v ? BRAND.greenDark : 'var(--text-secondary)',
+                              }}
+                            >{l}</button>
+                          ))}
+                        </div>
+                      )}
 
                       {advancedOpen && (
                         <div className="form-row-stack" style={{ marginTop: '8px', padding: '14px', background: 'var(--bg-muted)', borderRadius: '10px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
@@ -937,10 +1043,25 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
               <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
                 <span>Moms</span><span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{fmt(totals.vat)} {currency}</span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '8px', marginTop: '4px', borderTop: '1px solid var(--border)' }}>
-                <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>Att betala</span>
-                <span style={{ fontWeight: 800, fontSize: '16px', color: 'var(--text-main)' }}>{fmt(totals.total)} {currency}</span>
-              </div>
+              {rotRutType === 'none' ? (
+                <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '8px', marginTop: '4px', borderTop: '1px solid var(--border)' }}>
+                  <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>Att betala</span>
+                  <span style={{ fontWeight: 800, fontSize: '16px', color: 'var(--text-main)' }}>{fmt(totals.total)} {currency}</span>
+                </div>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '8px', marginTop: '4px', borderTop: '1px solid var(--border)', color: 'var(--text-secondary)' }}>
+                    <span>Fakturerat belopp</span><span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{fmt(totals.total)} {currency}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--status-red-text)' }}>
+                    <span>{ROT_RUT_RATES[rotRutType].label}-avdrag ({rotRut.rate}%)</span><span style={{ fontWeight: 600 }}>−{fmt(rotRut.deduction)} {currency}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '8px', marginTop: '4px', borderTop: '1px solid var(--border)' }}>
+                    <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>Att betala</span>
+                    <span style={{ fontWeight: 800, fontSize: '16px', color: 'var(--text-main)' }}>{fmt(amountAfterRotRut)} {currency}</span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -1061,6 +1182,7 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
                   accentColor={invoiceTemplateSnapshot.accentColor}
                   logoUrl={invoiceTemplateSnapshot.logoUrl}
                   footerText={invoiceTemplateSnapshot.footerText}
+                  rotRut={rotRutType !== 'none' ? { type: rotRutType, ...rotRut } : null}
                 />
               </div>
             </div>
@@ -1084,6 +1206,7 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
           accentColor={invoiceTemplateSnapshot.accentColor}
           logoUrl={invoiceTemplateSnapshot.logoUrl}
           footerText={invoiceTemplateSnapshot.footerText}
+          rotRut={rotRutType !== 'none' ? { type: rotRutType, ...rotRut } : null}
         />
       </div>
     </div>
@@ -1165,6 +1288,7 @@ function InvoiceViewer({ invoice, contacts, company, status, onClose, onEdit }) 
     const gross = (Number(r.qty) || 0) * (Number(r.unitPrice) || 0) * (1 - (Number(r.discount) || 0) / 100);
     return { net: acc.net + gross, vat: acc.vat + gross * ((Number(r.vatRate) || 0) / 100), total: acc.total + gross * (1 + (Number(r.vatRate) || 0) / 100) };
   }, { net: 0, vat: 0, total: 0 });
+  const rotRut = calcRotRutDeduction(invoice.rotRutType, rows);
 
   const statusStyle = {
     paid: { bg: BRAND.greenLight, color: BRAND.greenDark, label: 'Betald' },
@@ -1180,6 +1304,7 @@ function InvoiceViewer({ invoice, contacts, company, status, onClose, onEdit }) 
     currency: invoice.currency || 'SEK',
     invoiceText: invoice.invoiceText || '',
     template: tpl.templateId, accentColor: tpl.accentColor, logoUrl: tpl.logoUrl, footerText: tpl.footerText,
+    rotRut: invoice.rotRutType ? { type: invoice.rotRutType, ...rotRut } : null,
   };
 
   const [pdfBusy, setPdfBusy] = useState(false);
@@ -1592,7 +1717,7 @@ function PaymentLinkModal({ invoice, customer, company, onGetPaymentLinkUrl, onC
         <p>Hej${customer?.contactPerson ? ' ' + customer.contactPerson : ''},</p>
         <p>Här är en betalningslänk för faktura <strong>${invoice.invoiceNumber}</strong> på <strong>${fmt(grossOf(invoice))} kr</strong>.</p>
         <p style="margin: 20px 0;">
-          <a href="${url}" style="display:inline-block;padding:12px 26px;background:#3d7a2e;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600;">Betala nu</a>
+          <a href="${url}" style="display:inline-block;padding:12px 26px;background:#0b6329;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600;">Betala nu</a>
         </p>
         <p>Med vänlig hälsning<br/>${(company?.invoiceDisplayName || company?.name) || ''}</p>
       `;
@@ -1663,7 +1788,7 @@ function PaymentLinkModal({ invoice, customer, company, onGetPaymentLinkUrl, onC
   );
 }
 
-export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegisterPayment, onUnmarkPaid, setInvoices, company, globalAction, clearGlobalAction, onNavigate, verifications = [], expenses = [], onMarkSupplierInvoicePaid, handleGlobalAction, onGetPaymentLinkUrl, articles = [], setArticles }) {
+export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegisterPayment, onUnmarkPaid, setInvoices, company, globalAction, clearGlobalAction, onNavigate, verifications = [], expenses = [], onMarkSupplierInvoicePaid, handleGlobalAction, onGetPaymentLinkUrl, articles = [], setArticles, uid, projects = [] }) {
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Två klart avgränsade sektioner, inte en klämd sida-vid-sida-vy — varje
@@ -1702,6 +1827,29 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
   const [viewingInvoice, setViewingInvoice] = useState(null);
   const [selected, setSelected] = useState(new Set());
   const [showArticleRegister, setShowArticleRegister] = useState(false);
+
+  // Fakturaguiden (utils/invoiceTour.js) — genvägsknappen längst upp döljs
+  // så fort kontot sett guiden en gång (localStorage, samma "sedd"-mönster
+  // som den globala rundturen). Egen React-state utöver den — annars märker
+  // sidan aldrig av att guiden precis stängdes, localStorage-läsningen sker
+  // ju bara vid första render.
+  const [invoiceTourSeen, setInvoiceTourSeen] = useState(() => hasSeenInvoiceTour(uid));
+  // Exempelfakturan (buildDemoInvoice ovan) är bara på under tiden guiden är
+  // öppen — sätts av handleStartInvoiceTour, nollställs igen så fort guiden
+  // stängs (oavsett om den klickats igenom eller avbrutits i förtid), se
+  // onDestroyed nedan.
+  const [tourDemoActive, setTourDemoActive] = useState(false);
+  const handleStartInvoiceTour = async () => {
+    setTourDemoActive(true);
+    // Väntar in att exempelfakturan (om den behövdes, dvs. listan annars var
+    // tom) faktiskt hunnit renderas innan guiden startar — annars hinner
+    // dess "valfria" steg (statusmärket/radmenyn) redan filtrerats bort som
+    // "elementet finns inte" (samma race som buildSteps' kommentar i
+    // invoiceTour.js varnar för), eftersom setTourDemoActive inte flushar
+    // DOM:et synkront.
+    await waitForElement('[data-inv-tour="row-status"]', 1000);
+    startInvoiceTour({ uid, onDestroyed: () => { setInvoiceTourSeen(true); setTourDemoActive(false); } });
+  };
   // Fakturorna visas i tydligt rubrikerade sektioner per status (Förfallen/
   // Obetald/Ej bokförd/Betald) istället för en enda blandad lista — piller-
   // knapparna ovanför hoppar ner till respektive sektion.
@@ -1727,7 +1875,7 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
     return inv.status || 'draft';
   };
 
-  const getCustomerName = (id) => contacts.find(c => c.id === id)?.name || '—';
+  const getCustomerName = (id) => id === DEMO_CUSTOMER_ID ? 'Exempelkund AB' : (contacts.find(c => c.id === id)?.name || '—');
 
   const matchesSearchAndRange = (inv) => {
     if (search) {
@@ -1770,6 +1918,15 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
       return 0;
     });
   }, [filtered, sortKey, sortDir]);
+
+  // Bara den grenen som faktiskt renderar listan (InvoiceEmptyState-gaten +
+  // statusgrupperingen längre ner) använder den här — bläddringen
+  // («‹›» i InvoiceForm) använder fortfarande `sorted` orört, en påhittad
+  // exempelfaktura ska aldrig gå att bläddra in i redigeringsläge.
+  const sortedWithDemo = useMemo(() => {
+    if (!tourDemoActive || invoiceList.length > 0) return sorted;
+    return [...sorted, buildDemoInvoice()];
+  }, [sorted, tourDemoActive, invoiceList.length]);
 
   const sumTotal = filtered.reduce((sum, inv) => sum + grossOf(inv), 0);
 
@@ -1852,15 +2009,17 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
   };
 
   const toggleSelect = (id) => {
+    if (id === DEMO_INVOICE_ID) return; // exempelfakturan (Fakturaguiden) ska inte gå att massmarkera/betala
     setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   };
   // "Markera alla" görs per sektion (se STATUS_SECTIONS-renderingen nedan) —
   // varje sektions rubrikkryssruta markerar/avmarkerar bara sina egna rader.
   const toggleAllInRows = (rows) => {
-    const allSelected = rows.length > 0 && rows.every(inv => selected.has(inv.id));
+    const realRows = rows.filter(inv => !inv.isDemo); // exempelfakturan räknas inte med i "Markera alla"
+    const allSelected = realRows.length > 0 && realRows.every(inv => selected.has(inv.id));
     setSelected(prev => {
       const n = new Set(prev);
-      rows.forEach(inv => (allSelected ? n.delete(inv.id) : n.add(inv.id)));
+      realRows.forEach(inv => (allSelected ? n.delete(inv.id) : n.add(inv.id)));
       return n;
     });
   };
@@ -1893,6 +2052,27 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
   const viewInvoice = (inv) => { setShowForm(false); setEditingInvoice(null); setViewingInvoice(inv); };
 
   const buildInvoiceRowMenuItems = (inv, status, customer) => {
+    // Exempelfakturan (buildDemoInvoice, bara synlig under Fakturaguiden) —
+    // samma etiketter/ikoner/ordning som en riktig faktura skulle haft, så
+    // guiden visar exakt vad menyn innehåller, men varje åtgärd är overksam.
+    // Öppnar den varken det riktiga redigeringsformuläret eller skriver till
+    // invoices/setInvoices — den ska aldrig av misstag kunna sparas som en
+    // riktig faktura.
+    if (inv.isDemo) {
+      const noop = () => {};
+      return [
+        { key: 'view', label: 'Visa faktura', icon: Eye, onClick: noop },
+        { key: 'edit', label: 'Redigera', icon: Pencil, onClick: noop },
+        { key: 'mark-paid', label: 'Markera som betald', icon: CheckCircle2, onClick: noop },
+        { key: 'link-transaction', label: 'Koppla till transaktion', icon: Link2, onClick: noop },
+        { key: 'payment-link', label: 'Skapa betalningslänk', icon: CreditCard, onClick: noop },
+        { key: 'duplicate', label: 'Kopiera faktura', icon: Copy, onClick: noop },
+        { divider: true },
+        { key: 'mark-sent', label: 'Markera som skickad', icon: Send, onClick: noop },
+        { divider: true },
+        { key: 'delete', label: 'Ta bort', icon: Trash2, variant: 'danger', onClick: noop },
+      ];
+    }
     const items = [
       { key: 'view', label: 'Visa faktura', icon: Eye, onClick: () => viewInvoice(inv) },
     ];
@@ -1961,7 +2141,15 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
   // Kunder/Anställda/Bokföring m.fl. använder) — en kolumn per synlig
   // rubrik, `sortKeyName` på de tre som redan gick att sortera på.
   const invoiceColumns = [
-    { key: 'invoiceNumber', label: 'Fakturanr', sortKeyName: 'invoiceNumber', fontWeight: 700, color: 'var(--text-main)', render: inv => inv.invoiceNumber },
+    {
+      key: 'invoiceNumber', label: 'Fakturanr', sortKeyName: 'invoiceNumber', fontWeight: 700, color: 'var(--text-main)',
+      render: inv => inv.isDemo ? (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+          {inv.invoiceNumber}
+          <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 7px', borderRadius: '999px', background: 'var(--status-blue-bg)', color: 'var(--status-blue-text)' }}>Exempel</span>
+        </span>
+      ) : inv.invoiceNumber,
+    },
     { key: 'customer', label: 'Kund', fontWeight: 500, color: 'var(--text-main)', render: inv => getCustomerName(inv.customerId) },
     { key: 'date', label: 'Fakturadatum', sortKeyName: 'date', render: inv => formatDate(inv.date) },
     {
@@ -1973,15 +2161,15 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
       key: 'status', label: 'Status', render: inv => {
         const status = getStatus(inv);
         return (
-          <div onClick={e => e.stopPropagation()}>
+          <div data-inv-tour="row-status" onClick={e => e.stopPropagation()}>
             {status === 'paid' ? (
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 700, background: STRONG_PAID.bg, color: STRONG_PAID.text }}>
                 <Check size={12} /> Betald{inv.paidDate ? ` ${formatDate(inv.paidDate)}` : ''}
               </span>
             ) : (
               <button
-                onClick={e => { e.stopPropagation(); onMarkPaid(inv.id); }}
-                title="Klicka för att markera som betald"
+                onClick={e => { e.stopPropagation(); if (!inv.isDemo) onMarkPaid(inv.id); }}
+                title={inv.isDemo ? 'Exempelfaktura — bara för visning' : 'Klicka för att markera som betald'}
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '999px',
                   fontSize: '12px', fontWeight: 700, cursor: 'pointer', border: 'none',
@@ -1999,7 +2187,7 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
     {
       key: 'actions', label: '', align: 'right', render: inv => (
         <div onClick={e => e.stopPropagation()}>
-          <RowActionMenu ariaLabel={`Fler åtgärder för faktura ${inv.invoiceNumber}`} items={buildInvoiceRowMenuItems(inv, getStatus(inv), contacts.find(c => c.id === inv.customerId))} />
+          <RowActionMenu ariaLabel={`Fler åtgärder för faktura ${inv.invoiceNumber}`} items={buildInvoiceRowMenuItems(inv, getStatus(inv), contacts.find(c => c.id === inv.customerId))} triggerProps={{ 'data-inv-tour': 'row-menu' }} />
         </div>
       ),
     },
@@ -2068,6 +2256,7 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
         prefill={invoicePrefill}
         articles={articles}
         setArticles={setArticles}
+        projects={projects}
         onSave={handleSaveInvoice}
         onCreateCreditNote={handleCreateCreditNote}
         onMarkPaid={onMarkPaid}
@@ -2100,7 +2289,7 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
           då hela bredden, inte en sida-vid-sida-klämd vy. Bara dessa två
           flikar; resten av den gamla flikraden (Inbetalningar/Påminnelser/
           Återkommande/Offerter) är fortsatt borttagen. */}
-      <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '0 16px', display: 'flex', alignItems: 'center', flexShrink: 0, flexWrap: 'wrap' }}>
+      <div data-inv-tour="tabs" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '0 16px', display: 'flex', alignItems: 'center', flexShrink: 0, flexWrap: 'wrap' }}>
         {[{ id: 'kunder', label: 'Kundfakturor' }, { id: 'leverantorer', label: 'Leverantörsfakturor' }].map(t => (
           <button key={t.id} onClick={() => setSection(t.id)} style={{
             padding: '12px 14px', border: 'none',
@@ -2110,6 +2299,18 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
           }}>{t.label}</button>
         ))}
         <div style={{ flex: 1 }} />
+        {/* Fakturaguiden — döljs för gott (den här sidladdningen) så fort den
+            stängts en gång, se invoiceTourSeen ovan. Kvar därefter under
+            Hjälp och support (HelpDrawer.jsx → App.jsx:s onStartInvoiceTour). */}
+        {!invoiceTourSeen && (
+          <button onClick={handleStartInvoiceTour} style={{
+            display: 'flex', alignItems: 'center', gap: '6px', padding: '5px 12px', margin: '4px 0',
+            borderRadius: '999px', border: '1px solid var(--status-blue-text)', background: 'var(--status-blue-bg)',
+            color: 'var(--status-blue-text)', fontSize: '12.5px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap',
+          }}>
+            <Sparkles size={13} /> Så funkar fakturering
+          </button>
+        )}
         <button onClick={() => onNavigate?.('reports')} style={{ padding: '4px 14px 12px', border: 'none', background: 'none', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', cursor: 'pointer' }}>Rapporter</button>
         <button onClick={() => setShowArticleRegister(true)} style={{ padding: '4px 14px 12px', border: 'none', background: 'none', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', cursor: 'pointer' }}>Artiklar</button>
         <button onClick={() => onNavigate?.('contacts')} style={{ padding: '4px 14px 12px', border: 'none', background: 'none', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', cursor: 'pointer' }}>Kunder ↓</button>
@@ -2130,7 +2331,7 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
           <button onClick={() => setShowExtendedSearch(v => !v)} style={{ ...listHeaderButtonStyle('secondary'), ...(showExtendedSearch ? { background: 'var(--status-blue-bg)', borderColor: 'var(--status-blue-bg)', color: 'var(--status-blue-text)' } : {}) }}>Utökad sökning</button>
           <button onClick={() => { setSearchInput(''); setDateFrom(''); setDateTo(''); setAmountMin(''); setAmountMax(''); }} title="Rensa sökning" style={{ ...listHeaderButtonStyle('secondary'), padding: '0 10px' }}><RefreshCw size={14} /></button>
           <div style={{ flex: 1 }} />
-          <button data-tour="page-invoices-cta" onClick={() => { setShowForm(true); setEditingInvoice(null); setInvoicePrefill(null); }} style={listHeaderButtonStyle('primary')}>
+          <button data-tour="page-invoices-cta" data-inv-tour="create-cta" onClick={() => { setShowForm(true); setEditingInvoice(null); setInvoicePrefill(null); }} style={listHeaderButtonStyle('primary')}>
             <Plus size={14} /> Skapa faktura
           </button>
         </div>
@@ -2200,7 +2401,7 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
           status (Förfallen/Obetald/Ej bokförd/Betald) istället för en enda
           blandad lista. Tomma sektioner visas inte alls. Status är klickbar
           där det finns en riktig åtgärd att göra (markera betald). */}
-      {sorted.length === 0 ? (
+      {sortedWithDemo.length === 0 ? (
         <InvoiceEmptyState isFilteredEmpty={invoiceList.length > 0} onCreate={() => { setShowForm(true); setEditingInvoice(null); setInvoicePrefill(null); }} />
       ) : (
       <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>
@@ -2214,10 +2415,11 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
             syns mellan två sektioner, inte två travade på varandra. */}
         <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', boxShadow: 'var(--shadow-sm)', overflow: 'hidden' }}>
           {statusOptions.filter(opt => opt.value !== 'all')
-            .map(opt => ({ opt, rows: sorted.filter(inv => getStatus(inv) === opt.value) }))
+            .map(opt => ({ opt, rows: sortedWithDemo.filter(inv => getStatus(inv) === opt.value) }))
             .filter(g => g.rows.length > 0)
             .map(({ opt, rows }, i) => {
-              const allSelected = rows.every(inv => selected.has(inv.id));
+              const realRows = rows.filter(inv => !inv.isDemo);
+              const allSelected = realRows.length > 0 && realRows.every(inv => selected.has(inv.id));
               const sectionSum = rows.reduce((sum, inv) => sum + grossOf(inv), 0);
               return (
                 <div key={opt.value} ref={el => { sectionRefs.current[opt.value] = el; }}>
@@ -2234,7 +2436,7 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
                   <ListTable
                     bordered={false}
                     rowKey={inv => inv.id}
-                    onRowClick={inv => { setEditingInvoice(inv); setInvoicePrefill(null); setShowForm(true); }}
+                    onRowClick={inv => { if (inv.isDemo) return; setEditingInvoice(inv); setInvoicePrefill(null); setShowForm(true); }}
                     rowStyle={inv => ({ background: selected.has(inv.id) ? '#e3f2fd' : getRowBg(getStatus(inv)) })}
                     sort={{ key: sortKey, dir: sortDir, onSort: toggleSort }}
                     selectable={{

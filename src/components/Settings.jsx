@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+﻿import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   User, Building2, CreditCard, Users, Shield, Sliders, Check, Download, Upload,
   AlertTriangle, Trash2, Mail, Plug, Laptop, FileText, Lock, KeyRound, Image as ImageIcon,
@@ -107,7 +107,7 @@ const inputBase = {
   // mitt i en annars mörk sida.
   background: 'var(--bg-card)', color: 'var(--text-main)',
 };
-const btnPrimary = { padding: '9px 18px', background: BRAND.green, color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer', boxShadow: '0 2px 6px rgba(61, 122, 46, 0.25)' };
+const btnPrimary = { padding: '9px 18px', background: BRAND.green, color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer', boxShadow: '0 2px 6px rgba(11, 99, 41, 0.25)' };
 const btnSecondary = { padding: '9px 18px', background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border)', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer' };
 const btnGhost = { padding: '9px 14px', background: 'transparent', color: 'var(--text-secondary)', border: 'none', fontWeight: 600, fontSize: '13px', cursor: 'pointer' };
 // Säkerhetsförsvagande handling (t.ex. stänga av tvåstegsverifiering) — dämpad
@@ -912,7 +912,7 @@ function buildInviteEmailHtml({ companyName, inviterName, inviteUrl, role }) {
       <p>Hej,</p>
       <p>${safeInviter} har bjudit in dig till <strong>${safeCompany}</strong> på Bokix — du kommer kunna ${roleLabel} företagets bokföring.</p>
       <p style="margin: 28px 0;">
-        <a href="${inviteUrl}" style="display: inline-block; padding: 12px 24px; background: #3d7a2e; color: white; text-decoration: none; border-radius: 8px; font-weight: 700;">Acceptera inbjudan</a>
+        <a href="${inviteUrl}" style="display: inline-block; padding: 12px 24px; background: #0b6329; color: white; text-decoration: none; border-radius: 8px; font-weight: 700;">Acceptera inbjudan</a>
       </p>
       <p style="font-size: 13px; color: #666;">Länken är giltig i 7 dagar. Har du redan ett Bokix-konto loggar du bara in — annars skapar du ett nytt.</p>
       <p>Med vänlig hälsning<br/>Bokix</p>
@@ -1268,14 +1268,14 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
           <Shield size={20} style={{ color: BRAND.green, flexShrink: 0, marginTop: '2px' }} />
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
-              <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>Bokix — 99 kr/mån</span>
+              <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>Bokix — 179 kr/mån</span>
               <span style={{ padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: statusBadge.bg, color: statusBadge.text }}>{statusBadge.label}</span>
             </div>
             <div style={{ fontSize: '13px', color: 'var(--text-secondary)', maxWidth: '480px' }}>
               {sub.cancel_at_period_end
                 ? <>Avslutas {fmtDateSv(endDate)} — du har full åtkomst fram till dess, sedan tas inget mer betalt.</>
                 : isTrialing
-                  ? <>Kostnadsfri provperiod till {fmtDateSv(endDate)}, därefter 99 kr/mån automatiskt.</>
+                  ? <>Kostnadsfri provperiod till {fmtDateSv(endDate)}, därefter 179 kr/mån automatiskt.</>
                   : sub.status === 'past_due'
                     ? <>Senaste betalningen misslyckades — Stripe försöker automatiskt igen. Uppdatera ditt kort om det upprepas.</>
                     : <>Förnyas automatiskt {fmtDateSv(endDate)}.</>}
@@ -1557,7 +1557,7 @@ export default function Settings({
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '20px' }}>
         <div style={{
           width: 46, height: 46, borderRadius: '13px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: BRAND.green, color: 'white', boxShadow: '0 2px 6px rgba(61, 122, 46, 0.25)',
+          background: BRAND.green, color: 'white', boxShadow: '0 2px 6px rgba(11, 99, 41, 0.25)',
         }}>
           <Sliders size={22} strokeWidth={2.2} />
         </div>
@@ -1615,7 +1615,7 @@ export default function Settings({
                         color: active ? 'white' : 'var(--text-main)',
                         fontWeight: active ? 700 : 500,
                         borderRadius: '10px', cursor: 'pointer', textAlign: 'left', fontSize: '14px',
-                        boxShadow: active ? '0 4px 12px rgba(61, 122, 46, 0.28)' : 'none',
+                        boxShadow: active ? '0 4px 12px rgba(11, 99, 41, 0.28)' : 'none',
                         transition: 'background-color 0.12s, box-shadow 0.12s',
                       }}
                     >

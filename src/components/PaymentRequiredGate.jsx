@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { CreditCard, LogOut, AlertCircle, Lock } from 'lucide-react';
 import { BRAND } from '../utils/brandColors';
 import { BokixWordmark } from './marketing/MarketingLayout';
@@ -82,8 +82,8 @@ export default function PaymentRequiredGate({ user, company, onSignedOut }) {
         </h1>
         <p style={{ fontSize: '14.5px', color: 'var(--text-secondary)', lineHeight: 1.65, marginBottom: '28px' }}>
           {forCompany
-            ? <>Varje företag i Bokix betalas för sig — <strong>{company?.name || 'det här företaget'}</strong> väntar fortfarande på betalningsuppgifter hos Stripe. 30 dagar gratis, sedan 99 kr/mån — avsluta innan dess så kostar det ingenting.</>
-            : <>Ditt konto ({user?.email}) är skapat, men du har inte lagt in betalningsuppgifter hos Stripe än. 30 dagar gratis, sedan 99 kr/mån — avsluta innan dess så kostar det ingenting.</>}
+            ? <>Varje företag i Bokix betalas för sig — <strong>{company?.name || 'det här företaget'}</strong> väntar fortfarande på betalningsuppgifter hos Stripe. 30 dagar gratis, sedan 179 kr/mån — avsluta innan dess så kostar det ingenting.</>
+            : <>Ditt konto ({user?.email}) är skapat, men du har inte lagt in betalningsuppgifter hos Stripe än. 30 dagar gratis, sedan 179 kr/mån — avsluta innan dess så kostar det ingenting.</>}
         </p>
 
         {errorMsg && (
@@ -95,7 +95,7 @@ export default function PaymentRequiredGate({ user, company, onSignedOut }) {
         <button
           onClick={handleContinueToPayment}
           disabled={loading}
-          style={{ width: '100%', padding: '14px', background: BRAND.green, border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: 700, color: 'white', cursor: loading ? 'wait' : 'pointer', boxShadow: '0 2px 6px rgba(61,122,46,0.25)', fontFamily: 'inherit', opacity: loading ? 0.7 : 1, marginBottom: '14px' }}
+          style={{ width: '100%', padding: '14px', background: BRAND.green, border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: 700, color: 'white', cursor: loading ? 'wait' : 'pointer', boxShadow: '0 2px 6px rgba(11,99,41,0.25)', fontFamily: 'inherit', opacity: loading ? 0.7 : 1, marginBottom: '14px' }}
         >
           {loading ? 'Skickar dig till Stripe...' : 'Fortsätt till betalning'}
         </button>

@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useRef } from 'react';
+﻿import React, { useMemo, useState, useEffect, useRef } from 'react';
 import {
   FileText, Receipt, TrendingUp, TrendingDown,
   ChevronRight, ArrowUpRight, ArrowDownRight,
@@ -119,6 +119,18 @@ const FORMAT_MODES = [
   { id: 'bars',  label: 'Staplar', icon: BarChart2 },
   { id: 'line',  label: 'Linje',   icon: LineChartIcon },
   { id: 'table', label: 'Tabell',  icon: Table2 },
+];
+
+// Linjestil (kundönskemål: "olika varianter så de kan välja hur den ska se
+// ut") — bara relevant i Linje-formatet ovan, en egen liten radväljare som
+// bara syns där. `type` är Recharts egen <Line>-prop: 'monotone' rundar av
+// kurvan mellan punkterna, 'linear' drar raka segment rakt mellan dem,
+// 'stepAfter' hoppar i steg (håller föregående månads värde tills nästa
+// punkt) — tre olika sätt att läsa SAMMA siffror, ingen ändrar datan.
+const LINE_VARIANTS = [
+  { id: 'smooth',   label: 'Slät',   type: 'monotone' },
+  { id: 'straight', label: 'Rak',    type: 'linear' },
+  { id: 'step',     label: 'Trappa', type: 'stepAfter' },
 ];
 
 /** Liten färgad prick/streck-swatch för handbyggda legender (samma mönster
@@ -333,6 +345,17 @@ function TodayRow({ item, onClick }) {
 export default function Dashboard({ verifications, invoices, expenses, contacts, setActiveTab, company, vatPeriods = {}, payrollRuns = [] }) {
   const [chartMode, setChartMode] = useState('revenue-expense');
   const [chartFormat, setChartFormat] = useState('bars');
+  // Sparat val, samma mönster som temat (App.jsx bokix_theme) — en användare
+  // som väljer "Trappa" en gång ska inte behöva välja om det varje besök.
+  const [lineStyle, setLineStyle] = useState(() => {
+    try { return localStorage.getItem('bokix_chart_line_style') || 'smooth'; }
+    catch { return 'smooth'; }
+  });
+  const handleSetLineStyle = (id) => {
+    setLineStyle(id);
+    try { localStorage.setItem('bokix_chart_line_style', id); } catch { /* privat läge etc. */ }
+  };
+  const curveType = LINE_VARIANTS.find(v => v.id === lineStyle)?.type || 'monotone';
   const isMobileViewport = useIsMobileViewport();
 
   // ── "Kom igång"-checklistan ── Ska ligga kvar tills ALLA fyra steg är
@@ -475,9 +498,6 @@ export default function Dashboard({ verifications, invoices, expenses, contacts,
   todos.sort((a, b) => SEV[a.sev].rank - SEV[b.sev].rank);
 
   const hasUrgent = todos[0].sev !== 'success' || todos.length > 1 || todos[0].tab !== null;
-  const oneLiner = (todos.length === 1 && todos[0].tab === null)
-    ? 'Allt ser bra ut — inget brådskande just nu'
-    : `${todos.length} sak${todos.length > 1 ? 'er' : ''} väntar på dig idag`;
 
   // ── Onboarding ──
   const hasCustomers  = contacts.some(c => c.type === 'customer');
@@ -591,7 +611,21 @@ export default function Dashboard({ verifications, invoices, expenses, contacts,
     // getFullYear()`, se konstanten ovan) — det finns alltså aldrig ett
     // läge där den här widgeten visar ett förflutet år och SKA rendera
     // hela tolv månader. Klipper bort allt efter dagens månad istället.
-    return data.slice(0, new Date().getMonth() + 1);
+    const ytd = data.slice(0, new Date().getMonth() + 1);
+    // Samma problem i andra änden (kundfrågan "varför börjar grafen i
+    // januari om företaget bokförde sin första verifikation i augusti?"):
+    // ett nytt företag utan importerad historik har Jan–Jul som samma
+    // missvisande platta nolla i graf-STARTEN. Klipper bort ledande månader
+    // helt utan data (varken i år eller föregående år) — men bara fram till
+    // den FÖRSTA månaden som faktiskt har något bokfört. Ett företag som
+    // importerat gammal historik (bokförd med riktiga datum tillbaka till
+    // januari) har alltså data redan i januari och klipps inte alls; ett
+    // helt nytt företag som bara bokfört sedan augusti visar bara Aug–nu.
+    // Om HELA året saknar data (`hasChartData`/`hasPrevYearData` nedan blir
+    // false) finns ingen "första månad" att hitta — då behålls ytd orörd,
+    // widgeten faller tillbaka på sitt vanliga tomt-läge istället.
+    const firstDataIdx = ytd.findIndex(d => d.Intäkter !== 0 || d.Utgifter !== 0 || d.PrevIntäkter !== 0 || d.PrevUtgifter !== 0);
+    return firstDataIdx > 0 ? ytd.slice(firstDataIdx) : ytd;
   }, [verifications, currentYear, previousYear]);
   const hasChartData = chartData.some(d => d.Intäkter !== 0 || d.Utgifter !== 0);
   // Bara sant om det FAKTISKT finns bokförd fjolårsdata — annars skulle
@@ -641,26 +675,14 @@ export default function Dashboard({ verifications, invoices, expenses, contacts,
       `}</style>
 
       {/* ─── HEADER ─── */}
-      {/* Kundfeedback ("luft i sidhuvudet"): hälsningen, räkenskapsårsraden
-          och statusraden ("X saker väntar...") satt tidigare nästan
-          klistrade ovanpå varandra (4px/2px/6px) — ingen läsbar rytm
-          mellan rubrik/undertext/statusrad. Jämn 8px mellan alla tre
-          raderna nu, och en betydligt större 28px innan Snabbåtgärder
-          börjar (upp från 20px) så sektionerna känns tydligt avskilda. */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '28px', flexWrap: 'wrap', gap: '16px' }}>
-        <div>
-          <h1 style={{ fontFamily: 'var(--font-voice)', fontWeight: 700, fontSize: '25px', letterSpacing: '-0.01em', color: 'var(--text-main)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {greeting}, {firstName || company?.name?.split(' ')[0] || 'Användare'} 👋
-          </h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: 400, marginBottom: '8px' }}>
-            Räkenskapsår {currentYear} · {company?.name || 'Bokix'}
-          </p>
-          {!isNew && (
-            <p style={{ fontSize: '13.5px', fontWeight: 600, color: hasUrgent ? 'var(--text-main)' : BRAND.greenDark, marginTop: 0 }}>
-              {oneLiner}
-            </p>
-          )}
-        </div>
+      {/* Kundfeedback: räkenskapsårsraden och "X saker väntar"-statusraden
+          (tidigare här) togs bort helt — kändes onödiga/upprepade (statusen
+          finns redan i "Att göra idag" nedan, räkenskapsåret i grafrubriken
+          längre ner). Bara hälsningen kvar, större och centrerad. */}
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
+        <h1 style={{ fontFamily: 'var(--font-voice)', fontWeight: 700, fontSize: '32px', letterSpacing: '-0.01em', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '10px', textAlign: 'center' }}>
+          {greeting}, {firstName || company?.name?.split(' ')[0] || 'Användare'} 👋
+        </h1>
       </div>
 
       {/* ─── SNABBÅTGÄRDER — det man faktiskt kom hit för att GÖRA, högst
@@ -675,22 +697,22 @@ export default function Dashboard({ verifications, invoices, expenses, contacts,
           <Zap size={14} style={{ color: BRAND.greenDark }} />
           <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>Snabbåtgärder</span>
         </div>
-        <div className="dash-quick-actions" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '12px' }}>
+        <div className="dash-quick-actions" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '10px' }}>
           {QUICK_ACTIONS.map(a => (
             <button
               key={a.label}
               onClick={() => setActiveTab(a.tab)}
               style={{
-                display: 'flex', alignItems: 'center', gap: '10px',
-                padding: '14px 16px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '13px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '9px',
+                padding: '11px 14px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px',
                 cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'inherit', textAlign: 'left',
                 boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
               }}
               onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 20px rgba(0,0,0,0.08)'; }}
               onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04)'; }}
             >
-              <div style={{ width: 36, height: 36, borderRadius: '10px', background: a.bg, color: a.fg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <a.icon size={16} />
+              <div style={{ width: 32, height: 32, borderRadius: '9px', background: a.bg, color: a.fg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <a.icon size={15} />
               </div>
               <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', lineHeight: 1.2 }}>{a.label}</span>
             </button>
@@ -703,7 +725,7 @@ export default function Dashboard({ verifications, invoices, expenses, contacts,
           bottenruta. Röd/gul/grön styr ordning, aldrig kronologi. ─── */}
       {!isNew && (
         <div style={{ position: 'relative', background: 'var(--bg-cream)', border: '1px solid var(--bg-cream-border)', borderRadius: '14px', padding: '16px 18px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)', overflow: 'hidden', marginBottom: '20px' }}>
-          <div aria-hidden="true" style={{ position: 'absolute', top: '-50px', right: '-50px', width: '150px', height: '150px', borderRadius: '50%', background: 'rgba(61,122,46,0.05)' }} />
+          <div aria-hidden="true" style={{ position: 'absolute', top: '-50px', right: '-50px', width: '150px', height: '150px', borderRadius: '50%', background: 'rgba(11,99,41,0.05)' }} />
           <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
             <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>Att göra idag</span>
             <span style={{
@@ -858,6 +880,26 @@ export default function Dashboard({ verifications, invoices, expenses, contacts,
           </div>
         )}
 
+        {/* Linjestil-väljaren — bara meningsfull i Linje-formatet ovan. */}
+        {hasChartData && chartFormat === 'line' && (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '14px', marginTop: '-8px' }}>
+            <div style={{ display: 'flex', gap: '4px', background: 'var(--bg-muted)', padding: '3px', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
+              {LINE_VARIANTS.map(v => (
+                <button key={v.id} onClick={() => handleSetLineStyle(v.id)} title={v.label} style={{
+                  padding: '4px 10px', borderRadius: '5px', border: 'none', cursor: 'pointer',
+                  fontSize: '11.5px', fontWeight: lineStyle === v.id ? 600 : 400,
+                  background: lineStyle === v.id ? 'var(--bg-card)' : 'transparent',
+                  color: lineStyle === v.id ? 'var(--text-main)' : 'var(--text-muted)',
+                  boxShadow: lineStyle === v.id ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
+                  transition: 'all 0.15s', fontFamily: 'inherit',
+                }}>
+                  {v.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Tomt läge — inga bokförda verifikationer än. Ett eget litet vyläge
             istället för att bara rita en platt nollinje, så rutan förklarar
             vad som saknas istället för att se trasig/tom ut. */}
@@ -884,10 +926,10 @@ export default function Dashboard({ verifications, invoices, expenses, contacts,
                     <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} tickFormatter={fmtShort} width={44} />
                     <Tooltip content={<ChartTooltip fmt={fmt} />} cursor={{ stroke: 'var(--border)', strokeWidth: 1 }} />
                     <Legend iconType="plainline" verticalAlign="bottom" wrapperStyle={{ fontSize: 12, paddingTop: 16 }} />
-                    <Line type="monotone" dataKey="Intäkter" name="Intäkter" stroke={CHART_REVENUE} strokeWidth={2.5} dot={false} activeDot={{ r: 5 }} />
-                    <Line type="monotone" dataKey="Utgifter" name="Utgifter" stroke={CHART_EXPENSE} strokeWidth={2.5} dot={false} activeDot={{ r: 5 }} />
-                    {hasPrevYearData && <Line type="monotone" dataKey="PrevIntäkter" name={`Intäkter ${previousYear}`} stroke={CHART_REVENUE_PREV} strokeWidth={2} strokeDasharray="4 3" dot={false} />}
-                    {hasPrevYearData && <Line type="monotone" dataKey="PrevUtgifter" name={`Utgifter ${previousYear}`} stroke={CHART_EXPENSE_PREV} strokeWidth={2} strokeDasharray="4 3" dot={false} />}
+                    <Line type={curveType} dataKey="Intäkter" name="Intäkter" stroke={CHART_REVENUE} strokeWidth={3.5} dot={false} activeDot={{ r: 5 }} />
+                    <Line type={curveType} dataKey="Utgifter" name="Utgifter" stroke={CHART_EXPENSE} strokeWidth={3.5} dot={false} activeDot={{ r: 5 }} />
+                    {hasPrevYearData && <Line type={curveType} dataKey="PrevIntäkter" name={`Intäkter ${previousYear}`} stroke={CHART_REVENUE_PREV} strokeWidth={2} strokeDasharray="4 3" dot={false} />}
+                    {hasPrevYearData && <Line type={curveType} dataKey="PrevUtgifter" name={`Utgifter ${previousYear}`} stroke={CHART_EXPENSE_PREV} strokeWidth={2} strokeDasharray="4 3" dot={false} />}
                   </LineChart>
                 ) : (
                   <BarChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }} barGap={3}>
@@ -933,8 +975,8 @@ export default function Dashboard({ verifications, invoices, expenses, contacts,
                         egen korrekta `name`/färg och låta Legend läsa av dem
                         automatiskt, inte att skicka in en egen payload-array. */}
                     {hasPrevYearData && <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 12, paddingTop: 16 }} />}
-                    <Line type="monotone" dataKey="Resultat" name="Resultat" stroke={raResultat >= 0 ? REVENUE : EXPENSE} strokeWidth={2.5} dot={false} activeDot={{ r: 5 }} />
-                    {hasPrevYearData && <Line type="monotone" dataKey="PrevResultat" name={`Resultat ${previousYear}`} stroke="var(--text-muted)" strokeWidth={2} strokeDasharray="4 3" dot={false} />}
+                    <Line type={curveType} dataKey="Resultat" name="Resultat" stroke={raResultat >= 0 ? REVENUE : EXPENSE} strokeWidth={3.5} dot={false} activeDot={{ r: 5 }} />
+                    {hasPrevYearData && <Line type={curveType} dataKey="PrevResultat" name={`Resultat ${previousYear}`} stroke="var(--text-muted)" strokeWidth={2} strokeDasharray="4 3" dot={false} />}
                   </LineChart>
                 ) : (
                   <BarChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>

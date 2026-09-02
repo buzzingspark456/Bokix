@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+﻿import { Link } from 'react-router-dom';
 
 // ── Sida 37 ─────────────────────────────────────────────────────────────
 // JURIDISKT UTKAST, INTE GRANSKAT. Precis som PrivacyPolicy.jsx/
@@ -42,7 +42,7 @@ export default function PersonuppgiftsBitradesAvtal() {
         </div>
 
         <p style={p}>
-          Det här avtalet ("PUB") reglerar Bokix behandling av personuppgifter för din räkning, i enlighet med artikel 28 i EU:s dataskyddsförordning (GDPR). Det kompletterar <Link to="/terms" style={{ color: '#3d7a2e', fontWeight: 600 }}>Användarvillkoren</Link> och <Link to="/privacy" style={{ color: '#3d7a2e', fontWeight: 600 }}>Integritetspolicyn</Link> — vid en eventuell motsägelse gäller det här avtalet för just den personuppgiftsbehandling det beskriver.
+          Det här avtalet ("PUB") reglerar Bokix behandling av personuppgifter för din räkning, i enlighet med artikel 28 i EU:s dataskyddsförordning (GDPR). Det kompletterar <Link to="/terms" style={{ color: '#0b6329', fontWeight: 600 }}>Användarvillkoren</Link> och <Link to="/privacy" style={{ color: '#0b6329', fontWeight: 600 }}>Integritetspolicyn</Link> — vid en eventuell motsägelse gäller det här avtalet för just den personuppgiftsbehandling det beskriver.
         </p>
 
         <h2 style={h2}>1. Parter</h2>
@@ -92,7 +92,7 @@ export default function PersonuppgiftsBitradesAvtal() {
 
         <h2 style={h2}>5. Underbiträden</h2>
         <p style={p}>
-          Du godkänner härmed generellt att Bokix anlitar följande underbiträden för att leverera tjänsten. Samma lista som <Link to="/privacy" style={{ color: '#3d7a2e', fontWeight: 600 }}>Integritetspolicyns</Link> avsnitt 4 — håll koll där om listan uppdateras.
+          Du godkänner härmed generellt att Bokix anlitar följande underbiträden för att leverera tjänsten. Samma lista som <Link to="/privacy" style={{ color: '#0b6329', fontWeight: 600 }}>Integritetspolicyns</Link> avsnitt 4 — håll koll där om listan uppdateras.
         </p>
         <table style={table}>
           <thead>
@@ -135,7 +135,7 @@ export default function PersonuppgiftsBitradesAvtal() {
 
         <h2 style={h2}>10. Ansvar</h2>
         <p style={p}>
-          Respektive parts ansvar för skada till följd av behandling i strid med GDPR eller det här avtalet regleras av GDPR artikel 82 och, i övrigt, av ansvarsbegränsningen i <Link to="/terms" style={{ color: '#3d7a2e', fontWeight: 600 }}>Användarvillkoren</Link>.
+          Respektive parts ansvar för skada till följd av behandling i strid med GDPR eller det här avtalet regleras av GDPR artikel 82 och, i övrigt, av ansvarsbegränsningen i <Link to="/terms" style={{ color: '#0b6329', fontWeight: 600 }}>Användarvillkoren</Link>.
         </p>
 
         <h2 style={h2}>11. Tillämplig lag</h2>

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+﻿import React, { useState, useRef, useEffect } from 'react';
 import {
   UploadCloud, FileText, CheckCircle2, AlertCircle, Receipt, X, Clock, Trash2, RotateCcw,
 } from 'lucide-react';
@@ -275,7 +275,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, allReceipts, status, 
             <div style={{ display: 'flex', gap: '10px' }}>
               <button type="button" onClick={onClose} style={{ padding: '8px 16px', background: 'var(--border-light)', border: 'none', borderRadius: '8px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer', fontSize: '13px' }}>Stäng</button>
               {status !== 'reversed' && (
-                <button type="button" onClick={handleSave} style={{ padding: '8px 18px', background: BRAND.green, border: 'none', borderRadius: '8px', fontWeight: 600, color: 'white', cursor: 'pointer', fontSize: '13px', boxShadow: '0 2px 6px rgba(61, 122, 46, 0.25)' }}>
+                <button type="button" onClick={handleSave} style={{ padding: '8px 18px', background: BRAND.green, border: 'none', borderRadius: '8px', fontWeight: 600, color: 'white', cursor: 'pointer', fontSize: '13px', boxShadow: '0 2px 6px rgba(11, 99, 41, 0.25)' }}>
                   {readOnly ? 'Spara ändringar' : 'Spara och bokför'}
                 </button>
               )}

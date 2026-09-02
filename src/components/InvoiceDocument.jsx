@@ -1,4 +1,5 @@
 import React, { forwardRef } from 'react';
+import { ROT_RUT_RATES } from '../utils/rotRutConfig';
 
 const fmt = (val) =>
   new Intl.NumberFormat('sv-SE', { maximumFractionDigits: 2, minimumFractionDigits: 2 }).format(val || 0);
@@ -34,7 +35,7 @@ export const DEFAULT_INVOICE_TEMPLATE = 'bold';
 const InvoiceDocument = forwardRef(function InvoiceDocument(
   {
     invoice, customer, company, rows = [], totals, currency = 'SEK', invoiceText, docLabel = 'FAKTURA',
-    docType = 'invoice', logoUrl, footerText, template = DEFAULT_INVOICE_TEMPLATE, accentColor,
+    docType = 'invoice', logoUrl, footerText, template = DEFAULT_INVOICE_TEMPLATE, accentColor, rotRut = null,
   },
   ref
 ) {
@@ -292,8 +293,14 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
         <div className="a4-totals" style={isGrid ? { border: '1.5px solid #18181b', borderRadius: 0, background: 'white' } : undefined}>
           <div className="a4-total-row"><span>Netto</span><span>{fmt(totals?.net)} {currency}</span></div>
           <div className="a4-total-row"><span>Moms</span><span>{fmt(totals?.vat)} {currency}</span></div>
+          {rotRut?.deduction > 0 && (
+            <>
+              <div className="a4-total-row"><span>Fakturerat belopp</span><span>{fmt(totals?.total)} {currency}</span></div>
+              <div className="a4-total-row"><span>{ROT_RUT_RATES[rotRut.type]?.label || 'Husavdrag'} ({rotRut.rate}%)</span><span>−{fmt(rotRut.deduction)} {currency}</span></div>
+            </>
+          )}
           <div className="a4-grand-total" style={{ borderTop: `2px solid ${accent}` }}>
-            <span>{totalLabel}</span><span style={{ color: accent }}>{fmt(totals?.total)} {currency}</span>
+            <span>{totalLabel}</span><span style={{ color: accent }}>{fmt((totals?.total || 0) - (rotRut?.deduction || 0))} {currency}</span>
           </div>
         </div>
       </div>

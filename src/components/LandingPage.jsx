@@ -1,4 +1,4 @@
-import React, { useState, useEffect, lazy } from 'react';
+﻿import React, { useState, useEffect, lazy } from 'react';
 import { Link } from 'react-router-dom';
 import {
   BarChart3, Check, X, Minus,
@@ -128,10 +128,10 @@ const COMPARISON_TONE = {
 const FAQ_ITEMS = [
   { q: 'Behöver jag kunna bokföring sedan innan?', a: 'Nej. Verifikationer skapas automatiskt utifrån dina kvitton och fakturor. Det enda som kräver din uppmärksamhet hamnar i Granskning, med tydlig anledning till varför — resten sköts av Bokix.', g: ACCENT.green },
   { q: 'Fungerar Bokix för min bolagsform?', a: 'Ja. Enskild firma, aktiebolag, handelsbolag/KB, ekonomisk förening och ideell förening/stiftelse — Bokix känner av rätt bolagsform automatiskt utifrån ditt organisationsnummer när du skapar konto.', g: ACCENT.blue },
-  { q: 'Vad kostar det, och vad ingår?', a: 'Ett pris, 99 kr/mån — obegränsat med kund- och leverantörsfakturor, fyra fakturamallar med egen logotyp, löpande bokföring och kortbetalningar via Stripe. Inga tillägg eller dolda avgifter.', g: ACCENT.red },
+  { q: 'Vad kostar det, och vad ingår?', a: 'Ett pris, 179 kr/mån — obegränsat med kund- och leverantörsfakturor, fyra fakturamallar med egen logotyp, löpande bokföring och kortbetalningar via Stripe. Inga tillägg eller dolda avgifter.', g: ACCENT.red },
   { q: 'Kan jag ta med mig min bokföring om jag vill byta bort från Bokix senare?', a: 'Ja. Din bokföring går att exportera som SIE4-fil, det standardformat svenska bokföringsprogram och redovisningskonsulter använder för att flytta data mellan system — din data är aldrig inlåst.', g: ACCENT.green },
   { q: 'Är Bokix anpassat efter svensk bokföringslag och Skatteverkets regler?', a: 'Ja, det är hela utgångspunkten. BAS-kontoplan, momsdeklaration per kvartal (25/12/6 %), AGI- och kontrolluppgiftssammanställningar samt skatteavdrag enligt Skatteverkets egna skattetabeller vid lönekörning.', g: ACCENT.blue },
-  { q: 'Hur fungerar de 30 dagarna gratis?', a: 'Du lägger in dina betaluppgifter hos Stripe när du skapar konto, men debiteras ingenting under de första 30 dagarna. Avslutar du innan dess kostar det dig aldrig något — annars börjar 99 kr/mån dras automatiskt.', g: ACCENT.red },
+  { q: 'Hur fungerar de 30 dagarna gratis?', a: 'Du lägger in dina betaluppgifter hos Stripe när du skapar konto, men debiteras ingenting under de första 30 dagarna. Avslutar du innan dess kostar det dig aldrig något — annars börjar 179 kr/mån dras automatiskt.', g: ACCENT.red },
 ];
 
 // FAQPage-schema byggt direkt av FAQ_ITEMS ovan — samma sex frågor/svar
@@ -161,11 +161,11 @@ const SOFTWARE_SCHEMA = {
   description: 'Bokföring, fakturering, lönehantering och momsredovisning för svenska företag i alla bolagsformer.',
   offers: {
     '@type': 'Offer',
-    price: '99',
+    price: '179',
     priceCurrency: 'SEK',
     priceSpecification: {
       '@type': 'UnitPriceSpecification',
-      price: '99',
+      price: '179',
       priceCurrency: 'SEK',
       unitText: 'MON',
       valueAddedTaxIncluded: false,
@@ -259,7 +259,7 @@ export default function LandingPage({ onEnterApp }) {
     <MarketingLayout onEnterApp={onEnterApp}>
       <PageMeta
         title="Bokix — Smart & enkel bokföring online för småföretagare"
-        description="Bokix samlar bokföring, fakturering, löner och moms i ett enda verktyg för svenska företag i alla bolagsformer. Kom igång på minuter, 99 kr/mån."
+        description="Bokix samlar bokföring, fakturering, löner och moms i ett enda verktyg för svenska företag i alla bolagsformer. Kom igång på minuter, 179 kr/mån."
         path="/"
       />
       <JsonLd data={SOFTWARE_SCHEMA} />
@@ -282,7 +282,7 @@ export default function LandingPage({ onEnterApp }) {
           </p>
 
           <div className="lp-fadeinup lp-delay-2 lp-cta-group" style={{ display: 'flex', justifyContent: 'center', gap: '12px' }}>
-            <button className="lp-btn-primary lp-pulse" onClick={onEnterApp} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '16px 30px', background: BRAND.green, border: 'none', borderRadius: '12px', fontSize: '15.5px', fontWeight: 700, cursor: 'pointer', color: 'white', fontFamily: 'inherit', boxShadow: '0 10px 26px -8px rgba(61,122,46,0.5)', minHeight: '44px' }}>
+            <button className="lp-btn-primary lp-pulse" onClick={onEnterApp} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '16px 30px', background: BRAND.green, border: 'none', borderRadius: '12px', fontSize: '15.5px', fontWeight: 700, cursor: 'pointer', color: 'white', fontFamily: 'inherit', boxShadow: '0 10px 26px -8px rgba(11,99,41,0.5)', minHeight: '44px' }}>
               Prova gratis <ArrowRight size={16} />
             </button>
             <button className="lp-btn-secondary" onClick={scrollToDemo} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '16px 26px', background: 'var(--mkt-card-bg)', border: '1.5px solid var(--mkt-border-soft)', borderRadius: '12px', fontSize: '15.5px', fontWeight: 600, cursor: 'pointer', color: 'var(--mkt-ink-soft)', fontFamily: 'inherit', minHeight: '44px' }}>
@@ -553,7 +553,7 @@ export default function LandingPage({ onEnterApp }) {
           <div className="lp-lux-card" style={{ background: 'var(--mkt-card-bg)', border: '1px solid var(--mkt-card-border)', borderRadius: '20px', padding: '40px 32px 32px', boxShadow: '0 24px 44px -30px rgba(28,36,32,0.24), 0 2px 8px rgba(28,36,32,0.05)', width: '100%', maxWidth: '380px', margin: '0 auto', boxSizing: 'border-box', position: 'relative', overflow: 'hidden' }}>
             <div aria-hidden style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '4px', background: BRAND.green }} />
             <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-              <span style={{ fontFamily: 'Georgia, "Times New Roman", serif', fontSize: '46px', fontWeight: 700, letterSpacing: '-0.01em', color: 'var(--mkt-ink)' }}><CountUp target={99} suffix=" kr" /></span>
+              <span style={{ fontFamily: 'Georgia, "Times New Roman", serif', fontSize: '46px', fontWeight: 700, letterSpacing: '-0.01em', color: 'var(--mkt-ink)' }}><CountUp target={179} suffix=" kr" /></span>
               <span style={{ fontSize: '14.5px', color: 'var(--mkt-muted)' }}> /mån</span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '28px', borderTop: '1px solid var(--mkt-card-border)', paddingTop: '24px' }}>
@@ -571,7 +571,7 @@ export default function LandingPage({ onEnterApp }) {
                 </div>
               ))}
             </div>
-            <button className="lp-btn-primary lp-pulse" onClick={onEnterApp} style={{ width: '100%', padding: '15px', borderRadius: '12px', border: 'none', background: BRAND.green, fontSize: '15px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', color: 'white', boxShadow: '0 8px 20px -6px rgba(61,122,46,0.4)', minHeight: '44px', marginBottom: '14px' }}>
+            <button className="lp-btn-primary lp-pulse" onClick={onEnterApp} style={{ width: '100%', padding: '15px', borderRadius: '12px', border: 'none', background: BRAND.green, fontSize: '15px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', color: 'white', boxShadow: '0 8px 20px -6px rgba(11,99,41,0.4)', minHeight: '44px', marginBottom: '14px' }}>
               Kom igång gratis
             </button>
             <Link to="/priser" style={{ display: 'block', textAlign: 'center', fontSize: '13px', fontWeight: 600, color: MUTED, textDecoration: 'none' }}>

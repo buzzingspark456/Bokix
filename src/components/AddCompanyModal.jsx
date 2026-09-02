@@ -97,7 +97,7 @@ export default function AddCompanyModal({ isOpen, onClose, onSubmit, submitting 
             />
           </div>
           <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: '0 0 4px' }}>
-            Du betalar separat för det här företaget, precis som för ditt första — 30 dagar gratis, sedan 99 kr/mån.
+            Du betalar separat för det här företaget, precis som för ditt första — 30 dagar gratis, sedan 179 kr/mån.
           </p>
           <div className="modal-footer">
             <button type="button" className="btn btn-secondary" onClick={handleClose} disabled={submitting}>

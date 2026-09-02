@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+﻿import React, { useState, useMemo, useEffect } from 'react';
 import {
   Check, ChevronDown, ChevronUp, AlertTriangle, Download, ChevronLeft, Loader2, ExternalLink, RefreshCw, Landmark, CreditCard,
 } from 'lucide-react';
@@ -428,7 +428,7 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
           tema (samma gröna varumärkesfärg i både ljust och mörkt läge),
           vilket är samma mönster som knappar i resten av appen använder
           för accentfärgad yta med vit text. */}
-      <div style={{ background: 'var(--accent)', color: 'white', borderRadius: '14px', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px', boxShadow: '0 4px 14px rgba(61, 122, 46, 0.25)' }}>
+      <div style={{ background: 'var(--accent)', color: 'white', borderRadius: '14px', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px', boxShadow: '0 4px 14px rgba(11, 99, 41, 0.25)' }}>
         <span style={{ fontWeight: 600, fontSize: '14px' }}>Total kostnad</span>
         <span style={{ fontWeight: 800, fontSize: '22px' }}>{fmt(totals.totalCost)} kr</span>
       </div>

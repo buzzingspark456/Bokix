@@ -19,8 +19,8 @@
  * en "surface" som ska mörkna.
  */
 export const BRAND = {
-  green: '#3d7a2e',       // Primär accent: knappar, logga, sidopanelens bakgrund
-  greenHover: '#336524',
+  green: '#0b6329',       // Primär accent: knappar, logga — samma nyans som sidopanelen (--bg-sidebar)
+  greenHover: '#094f21',
   greenDark: 'var(--status-green-text)',  // Text på ljusgrön bakgrund (aktiv menypunkt, positiv badge)
   greenLight: 'var(--status-green-bg)',   // Bakgrund: aktiv menypunkt, positiv badge, avatar-cirkel
   amberBg: 'var(--status-amber-bg)',      // Neutral "inte aktiverat"-badge, bakgrund (inte röd — inget fel)

@@ -20,7 +20,7 @@ import { PageMeta, JsonLd, SITE_URL } from '../../utils/seo';
 const BOKIX_ANSWERS = [
   {
     icon: Wallet, accentKey: 'green', title: 'Ett pris, allt ingår',
-    body: '99 kr/mån exklusive moms — bokföring, fakturering, lönekörningar och momsredovisning ingår i det priset. Ingen "bas + tillägg per funktion"-modell att räkna ut i efterhand.',
+    body: '179 kr/mån exklusive moms — bokföring, fakturering, lönekörningar och momsredovisning ingår i det priset. Ingen "bas + tillägg per funktion"-modell att räkna ut i efterhand.',
   },
   {
     icon: Clock3, accentKey: 'blue', title: 'Ingen bindningstid',
@@ -54,7 +54,7 @@ const SWITCH_STEPS = [
 
 const FAQ = [
   { q: 'Kan jag flytta min bokföring från Fortnox, Bokio eller Spiris till Bokix?', a: 'Det finns ingen automatisk importfunktion från andra program idag — de flesta byter genom att börja löpande bokföring i Bokix från ett valt datum (t.ex. ett nytt räkenskapsår) och arkivera det gamla systemets data separat, precis som bokföringslagen ändå kräver i sju år.' },
-  { q: 'Vad kostar Bokix jämfört med andra bokföringsprogram?', a: 'Bokix kostar 99 kr/mån exklusive moms, allt ingår. Vi anger medvetet inga priser för andra program här — de ändras, och vi kan inte verifiera dem. Jämför gärna själv direkt mot leverantörens egen prissida.' },
+  { q: 'Vad kostar Bokix jämfört med andra bokföringsprogram?', a: 'Bokix kostar 179 kr/mån exklusive moms, allt ingår. Vi anger medvetet inga priser för andra program här — de ändras, och vi kan inte verifiera dem. Jämför gärna själv direkt mot leverantörens egen prissida.' },
   { q: 'Har Bokix bindningstid eller uppsägningstid?', a: 'Nej. Du avslutar när du vill, och de första 30 dagarna kostar ingenting alls om du avslutar innan dess.' },
   { q: 'Stöder Bokix samma bolagsformer som andra bokföringsprogram?', a: 'Bokix stöder enskild firma, aktiebolag, handelsbolag/kommanditbolag och ekonomisk förening, och bokför enligt rätt regler för respektive form utifrån organisationsnumret.' },
 ];

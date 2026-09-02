@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   LogIn, UserPlus, Mail, Lock,
@@ -71,7 +71,7 @@ function passwordStrength(pw) {
   if (score <= 1) return { label: 'Svagt — lägg till fler tecken', color: '#ef4444', pct: 25 };
   if (score === 2) return { label: 'Okej', color: '#f59e0b', pct: 50 };
   if (score <= 3) return { label: 'Bra', color: '#84cc16', pct: 75 };
-  return { label: 'Starkt', color: '#3d7a2e', pct: 100 };
+  return { label: 'Starkt', color: '#0b6329', pct: 100 };
 }
 
 // Sessionstoken satt av InviteRedeem.jsx när någon öppnar en inbjudningslänk
@@ -484,7 +484,7 @@ export default function Auth({ onBackToLanding }) {
                   mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, #000 0%, transparent 75%);
         }
         .auth-glow { position: absolute; border-radius: 50%; filter: blur(70px); opacity: 0.5; }
-        .auth-glow-a { width: 480px; height: 480px; top: -160px; left: -120px; background: #3d7a2e; animation: authDriftA 22s ease-in-out infinite; }
+        .auth-glow-a { width: 480px; height: 480px; top: -160px; left: -120px; background: #0b6329; animation: authDriftA 22s ease-in-out infinite; }
         .auth-glow-b { width: 420px; height: 420px; bottom: -180px; right: -100px; background: #84cc16; opacity: 0.28; animation: authDriftB 26s ease-in-out infinite; }
         @keyframes authDriftA { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(40px, 30px); } }
         @keyframes authDriftB { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(-30px, -35px); } }
@@ -506,15 +506,15 @@ export default function Auth({ onBackToLanding }) {
 
         .auth-input { transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease; }
         .auth-input:hover { border-color: var(--text-muted); }
-        .auth-input:focus { border-color: #3d7a2e; box-shadow: 0 0 0 3px rgba(61,122,46,0.16); background: var(--bg-card); }
+        .auth-input:focus { border-color: #0b6329; box-shadow: 0 0 0 3px rgba(11,99,41,0.16); background: var(--bg-card); }
 
         .auth-btn-primary { transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease; }
-        .auth-btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(61,122,46,0.32); }
+        .auth-btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(11,99,41,0.32); }
         .auth-btn-primary:active:not(:disabled) { transform: translateY(0); }
         .auth-btn-ghost { transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease; }
         .auth-btn-ghost:hover { background: var(--bg-muted); color: var(--text-main); }
         #auth-root button:focus-visible, #auth-root input:focus-visible, #auth-root a:focus-visible {
-          outline: 2px solid #3d7a2e; outline-offset: 2px;
+          outline: 2px solid #0b6329; outline-offset: 2px;
         }
 
         .auth-tab { transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease; }
@@ -522,7 +522,7 @@ export default function Auth({ onBackToLanding }) {
         @keyframes authStepIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
         .auth-step-fade { animation: authStepIn 0.28s ease both; }
 
-        @keyframes authPulseRing { 0% { box-shadow: 0 0 0 0 rgba(61,122,46,0.35); } 100% { box-shadow: 0 0 0 14px rgba(61,122,46,0); } }
+        @keyframes authPulseRing { 0% { box-shadow: 0 0 0 0 rgba(11,99,41,0.35); } 100% { box-shadow: 0 0 0 14px rgba(11,99,41,0); } }
         .auth-pulse { animation: authPulseRing 1.8s ease-out infinite; }
 
         @media (prefers-reduced-motion: reduce) {
@@ -627,7 +627,7 @@ export default function Auth({ onBackToLanding }) {
                   </div>
                   <Turnstile onVerify={setForgotCaptchaToken} onExpire={() => setForgotCaptchaToken('')} />
                   {errorMsg && <div style={{ padding: '12px', background: 'var(--status-red-bg)', color: 'var(--status-red-text)', borderRadius: '8px', fontSize: '13px', fontWeight: 600 }}>{errorMsg}</div>}
-                  <button className="auth-btn-primary" type="submit" disabled={forgotLoading} style={{ width: '100%', padding: '17px 18px', background: BRAND.green, border: 'none', borderRadius: '12px', fontSize: '16px', fontWeight: 700, color: 'white', cursor: forgotLoading ? 'wait' : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', boxShadow: '0 2px 6px rgba(61,122,46,0.25)', fontFamily: 'inherit', opacity: forgotLoading ? 0.7 : 1 }}>
+                  <button className="auth-btn-primary" type="submit" disabled={forgotLoading} style={{ width: '100%', padding: '17px 18px', background: BRAND.green, border: 'none', borderRadius: '12px', fontSize: '16px', fontWeight: 700, color: 'white', cursor: forgotLoading ? 'wait' : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', boxShadow: '0 2px 6px rgba(11,99,41,0.25)', fontFamily: 'inherit', opacity: forgotLoading ? 0.7 : 1 }}>
                     {forgotLoading ? 'Skickar...' : 'Skicka återställningslänk'} <ArrowRight size={16} />
                   </button>
                   <button className="auth-btn-ghost" type="button" onClick={() => { setShowForgotPassword(false); setErrorMsg(''); }} style={{ background: 'none', border: 'none', borderRadius: '8px', color: 'var(--text-secondary)', fontSize: '13px', cursor: 'pointer', textAlign: 'center', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '8px' }}>
@@ -663,7 +663,7 @@ export default function Auth({ onBackToLanding }) {
               </div>
               <Turnstile onVerify={setLoginCaptchaToken} onExpire={() => setLoginCaptchaToken('')} />
               {errorMsg && <div style={{ padding: '12px', background: 'var(--status-red-bg)', color: 'var(--status-red-text)', borderRadius: '8px', fontSize: '13px', fontWeight: 600 }}>{errorMsg}</div>}
-              <button className="auth-btn-primary" type="submit" disabled={loading} style={{ width: '100%', padding: '17px 18px', background: BRAND.green, border: 'none', borderRadius: '12px', fontSize: '16px', fontWeight: 700, color: 'white', cursor: loading ? 'wait' : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', boxShadow: '0 2px 6px rgba(61,122,46,0.25)', fontFamily: 'inherit', opacity: loading ? 0.7 : 1 }}>
+              <button className="auth-btn-primary" type="submit" disabled={loading} style={{ width: '100%', padding: '17px 18px', background: BRAND.green, border: 'none', borderRadius: '12px', fontSize: '16px', fontWeight: 700, color: 'white', cursor: loading ? 'wait' : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', boxShadow: '0 2px 6px rgba(11,99,41,0.25)', fontFamily: 'inherit', opacity: loading ? 0.7 : 1 }}>
                 {loading ? 'Loggar in...' : 'Logga in'} <ArrowRight size={16} />
               </button>
             </form>
@@ -678,7 +678,7 @@ export default function Auth({ onBackToLanding }) {
                 {REGISTER_STEPS.map((s, i) => (
                   <div key={s} style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '7px' }}>
                     <div style={{ position: 'relative', height: '4px', borderRadius: '2px', background: 'var(--border)', overflow: 'hidden' }}>
-                      <div style={{ position: 'absolute', inset: 0, borderRadius: '2px', background: 'linear-gradient(90deg, #3d7a2e, #84cc16)', transform: `scaleX(${i <= regStep ? 1 : 0})`, transformOrigin: 'left', transition: 'transform 0.35s ease' }} />
+                      <div style={{ position: 'absolute', inset: 0, borderRadius: '2px', background: 'linear-gradient(90deg, #0b6329, #84cc16)', transform: `scaleX(${i <= regStep ? 1 : 0})`, transformOrigin: 'left', transition: 'transform 0.35s ease' }} />
                     </div>
                     <span style={{ fontSize: '11px', fontWeight: i === regStep ? 700 : 500, color: i <= regStep ? BRAND.greenDark : 'var(--text-muted)' }}>{s}</span>
                   </div>
@@ -927,7 +927,7 @@ export default function Auth({ onBackToLanding }) {
                   <div style={{ display: 'flex', gap: '9px', alignItems: 'flex-start', padding: '10px 12px', background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: '9px' }}>
                     <ShieldCheck size={15} color={BRAND.greenDark} style={{ flexShrink: 0, marginTop: 1 }} />
                     <span style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                      Näst skickas du till <StripeBadge /> för att lägga in betalningsuppgifter. 30 dagar gratis, sedan 99 kr/mån — avsluta innan dess så kostar det ingenting.
+                      Näst skickas du till <StripeBadge /> för att lägga in betalningsuppgifter. 30 dagar gratis, sedan 179 kr/mån — avsluta innan dess så kostar det ingenting.
                     </span>
                   </div>
                   <Turnstile onVerify={setRegCaptchaToken} onExpire={() => setRegCaptchaToken('')} />
@@ -956,7 +956,7 @@ export default function Auth({ onBackToLanding }) {
                     else if (regStep === 1) label = verifying ? 'Bekräftar...' : 'Bekräfta';
                     else label = busy ? 'Fortsätt...' : 'Fortsätt';
                     return (
-                      <button className="auth-btn-primary" type="submit" disabled={isDisabled} style={{ flex: 1, padding: '17px 18px', background: BRAND.green, border: 'none', borderRadius: '12px', fontSize: '16px', fontWeight: 700, color: 'white', cursor: isDisabled ? (busy ? 'wait' : 'not-allowed') : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', boxShadow: '0 2px 6px rgba(61,122,46,0.25)', fontFamily: 'inherit', opacity: isDisabled ? 0.6 : 1 }}>
+                      <button className="auth-btn-primary" type="submit" disabled={isDisabled} style={{ flex: 1, padding: '17px 18px', background: BRAND.green, border: 'none', borderRadius: '12px', fontSize: '16px', fontWeight: 700, color: 'white', cursor: isDisabled ? (busy ? 'wait' : 'not-allowed') : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', boxShadow: '0 2px 6px rgba(11,99,41,0.25)', fontFamily: 'inherit', opacity: isDisabled ? 0.6 : 1 }}>
                         {label} <ArrowRight size={16} />
                       </button>
                     );

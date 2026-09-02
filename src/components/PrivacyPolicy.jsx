@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+﻿import { Link } from 'react-router-dom';
 
 // ── Sida 37 ─────────────────────────────────────────────────────────────
 // JURIDISKT UTKAST, INTE GRANSKAT. Ett första utkast, inte ett
@@ -37,7 +37,7 @@ export default function PrivacyPolicy() {
 
         <h2 style={h2}>1. Personuppgiftsansvarig</h2>
         <p style={p}>
-          Bokix, Strömsörgatan 19, Skellefteå, är personuppgiftsansvarig för de personuppgifter som behandlas i tjänsten. Har du frågor om hur dina uppgifter hanteras, vill ha vårt organisationsnummer, eller vill utöva någon av dina rättigheter nedan, kontaktar du oss på <a href="mailto:support@bokix.se" style={{ color: '#3d7a2e', fontWeight: 600 }}>support@bokix.se</a>.
+          Bokix, Strömsörgatan 19, Skellefteå, är personuppgiftsansvarig för de personuppgifter som behandlas i tjänsten. Har du frågor om hur dina uppgifter hanteras, vill ha vårt organisationsnummer, eller vill utöva någon av dina rättigheter nedan, kontaktar du oss på <a href="mailto:support@bokix.se" style={{ color: '#0b6329', fontWeight: 600 }}>support@bokix.se</a>.
         </p>
         <p style={p}>
           Observera skillnaden mellan de två roller vi kan ha: för dina EGNA konto- och företagsuppgifter är vi personuppgiftsansvariga (se ovan). För de kund-, leverantörs- och anställduppgifter DU själv lägger in i din bokföring är DU personuppgiftsansvarig och Bokix är personuppgiftsbiträde åt dig — se avsnitt 10.
@@ -110,7 +110,7 @@ export default function PrivacyPolicy() {
 
         <h2 style={h2}>5. Överföring utanför EU/EES</h2>
         <p style={p}>
-          Flera av underleverantörerna i avsnitt 4 (bland annat Stripe, Resend och Vercel) är amerikanska bolag och kan behandla uppgifter i, eller från, USA. När det sker gör vi det bara med ett giltigt överföringsverktyg på plats — till exempel att leverantören är ansluten till EU-U.S. Data Privacy Framework, eller att vi har standardavtalsklausuler (SCC) med dem — i enlighet med respektive leverantörs egna dataskyddsvillkor. Vill du se vilket verktyg som gäller för en specifik leverantör, kontakta oss på <a href="mailto:support@bokix.se" style={{ color: '#3d7a2e', fontWeight: 600 }}>support@bokix.se</a>.
+          Flera av underleverantörerna i avsnitt 4 (bland annat Stripe, Resend och Vercel) är amerikanska bolag och kan behandla uppgifter i, eller från, USA. När det sker gör vi det bara med ett giltigt överföringsverktyg på plats — till exempel att leverantören är ansluten till EU-U.S. Data Privacy Framework, eller att vi har standardavtalsklausuler (SCC) med dem — i enlighet med respektive leverantörs egna dataskyddsvillkor. Vill du se vilket verktyg som gäller för en specifik leverantör, kontakta oss på <a href="mailto:support@bokix.se" style={{ color: '#0b6329', fontWeight: 600 }}>support@bokix.se</a>.
         </p>
 
         <h2 style={h2}>6. Hur länge vi sparar uppgifterna</h2>
@@ -138,12 +138,12 @@ export default function PrivacyPolicy() {
 
         <h2 style={h2}>9. Cookies</h2>
         <p style={p}>
-          Vi använder ett litet antal cookies och liknande tekniker (t.ex. localStorage) för inloggning och grundfunktion — se vår <Link to="/cookies" style={{ color: '#3d7a2e', fontWeight: 600 }}>Cookiepolicy</Link> för en fullständig lista.
+          Vi använder ett litet antal cookies och liknande tekniker (t.ex. localStorage) för inloggning och grundfunktion — se vår <Link to="/cookies" style={{ color: '#0b6329', fontWeight: 600 }}>Cookiepolicy</Link> för en fullständig lista.
         </p>
 
         <h2 style={h2}>10. Personuppgiftsbiträdesavtal (PUB) för dig som företagskund</h2>
         <p style={p}>
-          De kund-, leverantörs- och anställduppgifter du själv registrerar i din bokföring (t.ex. dina kunders namn/adress, eller dina anställdas personnummer och lön i lönemodulen) ägs och ansvaras för av DIG — du är personuppgiftsansvarig för dem. Bokix behandlar dem enbart på dina instruktioner, som personuppgiftsbiträde. Villkoren för det regleras i vårt <Link to="/pub" style={{ color: '#3d7a2e', fontWeight: 600 }}>personuppgiftsbiträdesavtal (PUB)</Link>, som gäller automatiskt för alla företagskunder från och med att du använder tjänsten. Har du frågor kring det, kontakta <a href="mailto:support@bokix.se" style={{ color: '#3d7a2e', fontWeight: 600 }}>support@bokix.se</a>.
+          De kund-, leverantörs- och anställduppgifter du själv registrerar i din bokföring (t.ex. dina kunders namn/adress, eller dina anställdas personnummer och lön i lönemodulen) ägs och ansvaras för av DIG — du är personuppgiftsansvarig för dem. Bokix behandlar dem enbart på dina instruktioner, som personuppgiftsbiträde. Villkoren för det regleras i vårt <Link to="/pub" style={{ color: '#0b6329', fontWeight: 600 }}>personuppgiftsbiträdesavtal (PUB)</Link>, som gäller automatiskt för alla företagskunder från och med att du använder tjänsten. Har du frågor kring det, kontakta <a href="mailto:support@bokix.se" style={{ color: '#0b6329', fontWeight: 600 }}>support@bokix.se</a>.
         </p>
 
         <h2 style={h2}>11. Ändringar i denna policy</h2>

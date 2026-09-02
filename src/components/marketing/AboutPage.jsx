@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { Link } from 'react-router-dom';
 import { ShieldCheck, Eye, Layers, ArrowRight } from 'lucide-react';
 import { BRAND } from '../../utils/brandColors';
@@ -34,7 +34,7 @@ export default function AboutPage() {
       />
       <style>{`
         .about-principle-card { position: relative; }
-        .about-principle-card:hover { border-color: transparent !important; box-shadow: 0 4px 16px rgba(61,122,46,0.18) !important; }
+        .about-principle-card:hover { border-color: transparent !important; box-shadow: 0 4px 16px rgba(11,99,41,0.18) !important; }
       `}</style>
 
       <section style={{ padding: '150px 24px 90px', background: IVORY, position: 'relative', overflow: 'hidden' }}>

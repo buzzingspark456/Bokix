@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+﻿import { Link } from 'react-router-dom';
 
 // ── Sida 37 ─────────────────────────────────────────────────────────────
 // JURIDISKT UTKAST, INTE GRANSKAT. Ett första utkast, inte ett
@@ -25,7 +25,7 @@ export default function TermsPolicy() {
         <p style={{ fontSize: '13px', color: '#94a3b8', marginBottom: '28px' }}>Senast uppdaterad: {new Date().toLocaleDateString('sv-SE', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
 
         <p style={p}>
-          Dessa villkor ("Villkoren") ingås mellan dig/ditt företag och Bokix, Strömsörgatan 19, Skellefteå ("Bokix", "vi", "oss"), och styr din och ditt företags användning av tjänsten Bokix. Genom att skapa ett konto eller använda tjänsten godkänner du Villkoren och vår <Link to="/privacy" style={{ color: '#3d7a2e', fontWeight: 600 }}>Integritetspolicy</Link>. Om du använder tjänsten för ett företags räkning intygar du att du har behörighet att binda företaget till dessa Villkor.
+          Dessa villkor ("Villkoren") ingås mellan dig/ditt företag och Bokix, Strömsörgatan 19, Skellefteå ("Bokix", "vi", "oss"), och styr din och ditt företags användning av tjänsten Bokix. Genom att skapa ett konto eller använda tjänsten godkänner du Villkoren och vår <Link to="/privacy" style={{ color: '#0b6329', fontWeight: 600 }}>Integritetspolicy</Link>. Om du använder tjänsten för ett företags räkning intygar du att du har behörighet att binda företaget till dessa Villkor.
         </p>
 
         <h2 style={h2}>1. Vad tjänsten är</h2>
@@ -37,7 +37,7 @@ export default function TermsPolicy() {
         <ul style={ul}>
           <li style={li}>Du måste vara minst 18 år och ha rätt att företräda det företag du registrerar för att skapa ett konto.</li>
           <li style={li}>Du ansvarar för att uppgifterna du lämnar vid registrering är korrekta, och för att hålla ditt lösenord hemligt.</li>
-          <li style={li}>Tjänsten erbjuds mot en månadsavgift enligt gällande prissättning (se <Link to="/priser" style={{ color: '#3d7a2e', fontWeight: 600 }}>bokix.se/priser</Link>), med en kostnadsfri provperiod om 30 dagar. Inget kreditkort krävs för att starta provperioden.</li>
+          <li style={li}>Tjänsten erbjuds mot en månadsavgift enligt gällande prissättning (se <Link to="/priser" style={{ color: '#0b6329', fontWeight: 600 }}>bokix.se/priser</Link>), med en kostnadsfri provperiod om 30 dagar. Inget kreditkort krävs för att starta provperioden.</li>
           <li style={li}>Du kan säga upp din prenumeration när som helst — det finns ingen bindningstid. Uppsägning sker under Inställningar i tjänsten.</li>
           <li style={li}>Redan betalda avgifter återbetalas inte för påbörjade perioder, om inte annat följer av tvingande konsumenträtt.</li>
         </ul>
@@ -71,7 +71,7 @@ export default function TermsPolicy() {
           Vi strävar efter hög tillgänglighet men garanterar inte att tjänsten är felfri eller tillgänglig utan avbrott. Planerat underhåll meddelas när det är praktiskt möjligt. Vi rekommenderar att du regelbundet exporterar din data (Inställningar → Data och Inställningar) som en egen säkerhetskopia.
         </p>
         <p style={p}>
-          Bokix är byggt på och beroende av tredjepartsleverantörer (bland annat Supabase, Stripe, Resend och Vercel — se <Link to="/privacy" style={{ color: '#3d7a2e', fontWeight: 600 }}>Integritetspolicyn</Link>, avsnitt 4). Driftstörningar hos en sådan leverantör kan påverka tjänstens tillgänglighet, och vi ansvarar inte för avbrott som orsakas utanför vår egen kontroll.
+          Bokix är byggt på och beroende av tredjepartsleverantörer (bland annat Supabase, Stripe, Resend och Vercel — se <Link to="/privacy" style={{ color: '#0b6329', fontWeight: 600 }}>Integritetspolicyn</Link>, avsnitt 4). Driftstörningar hos en sådan leverantör kan påverka tjänstens tillgänglighet, och vi ansvarar inte för avbrott som orsakas utanför vår egen kontroll.
         </p>
         <p style={p}>
           Ingen av parterna ansvarar för underlåtenhet att uppfylla dessa Villkor om det beror på omständigheter utanför partens rimliga kontroll (force majeure), till exempel naturkatastrof, krig, myndighetsbeslut, arbetsmarknadskonflikt eller omfattande avbrott hos internet-/molntjänstleverantörer.

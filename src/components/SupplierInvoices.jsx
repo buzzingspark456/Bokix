@@ -337,7 +337,16 @@ function SupplierInvoiceForm({ contacts, setContacts, accounts, projects = [], u
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto' }}>
-        <div style={{ maxWidth: '820px', margin: '0 auto' }}>
+        {/* Kundfeedback: kändes smalare/mindre "rymlig" än Kundfakturans
+            InvoiceForm, som stretchar hela bredden. 820px var i smalaste
+            laget för ett formulär med flera 2-kolumnsrader (varje fält blev
+            väldigt smalt) — bredare kolumn (inte hela bredden, medvetet:
+            en riktig faktura med rader/mallval/förhandsgranskning är en
+            annan sorts sida än den här enklare kvitto-registreringen, se
+            kommentaren vid Fler alternativ-borttaget i Invoices.jsx för
+            samma resonemang åt andra hållet) — mer luft utan att sträcka ut
+            varje enskilt inputfält orimligt brett på en stor skärm. */}
+        <div style={{ maxWidth: '1040px', margin: '0 auto' }}>
 
           {/* Underlag */}
           <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
@@ -569,7 +578,16 @@ function SupplierInvoiceViewer({ invoice, contacts, accounts, projects, onClose,
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto' }}>
-        <div style={{ maxWidth: '820px', margin: '0 auto' }}>
+        {/* Kundfeedback: kändes smalare/mindre "rymlig" än Kundfakturans
+            InvoiceForm, som stretchar hela bredden. 820px var i smalaste
+            laget för ett formulär med flera 2-kolumnsrader (varje fält blev
+            väldigt smalt) — bredare kolumn (inte hela bredden, medvetet:
+            en riktig faktura med rader/mallval/förhandsgranskning är en
+            annan sorts sida än den här enklare kvitto-registreringen, se
+            kommentaren vid Fler alternativ-borttaget i Invoices.jsx för
+            samma resonemang åt andra hållet) — mer luft utan att sträcka ut
+            varje enskilt inputfält orimligt brett på en stor skärm. */}
+        <div style={{ maxWidth: '1040px', margin: '0 auto' }}>
 
           {needsReview && (
             <div style={{ margin: '24px 32px 0', background: BRAND.amberBg, color: BRAND.amberText, borderRadius: '8px', padding: '10px 14px', fontSize: '12.5px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -809,6 +827,13 @@ export default function SupplierInvoices({
       if (inv) {
         setShowForm(false);
         setViewingInvoice(inv);
+        // Bugkritiskt: saknades helt här (till skillnad från grenen ovan)
+        // — "Tillbaka" i SupplierInvoiceViewer visste därför aldrig att
+        // den här vyn öppnades via en genväg utifrån (t.ex. den inbäddade
+        // panelen på Faktureringssidan) och föll alltid tillbaka på den
+        // HÄR sidans egen lista istället för att ta användaren dit de
+        // faktiskt kom ifrån. Se returnToOrigin nedan.
+        setOpenedViaGlobalAction(true);
       }
       clearGlobalAction?.();
     }
@@ -836,6 +861,7 @@ export default function SupplierInvoices({
     setOptimisticPaid(prev => { const n = { ...prev }; delete n[id]; return n; });
     onUnmarkSupplierInvoicePaid?.(id);
     setViewingInvoice(null);
+    returnToOrigin();
   };
 
   const applyFix = (id) => {
@@ -845,21 +871,31 @@ export default function SupplierInvoices({
     setFixAccount('');
   };
 
-  const closeForm = () => { setShowForm(false); setOpenedViaGlobalAction(false); };
-
-  // När formuläret öppnades via Faktureringens "Ny leverantörsfaktura"-
-  // genväg för tillbaka dit efter sparning — annars (öppnat härifrån) stannar
-  // man kvar på den här fliken.
-  const handleSave = (data) => {
-    onAddSupplierInvoice?.(data);
+  // Delad "gå tillbaka dit man kom ifrån"-logik — öppnades formuläret/
+  // läsläget via en genväg utifrån (t.ex. den inbäddade Leverantörs-
+  // fakturor-panelen på Faktureringssidan, se handleGlobalAction i
+  // Invoices.jsx), ska Avbryt/Tillbaka OCH en lyckad sparning ta tillbaka
+  // dit — inte bara falla ner till den HÄR sidans egen lista (bugkritiskt:
+  // nästan alltid fel om man kom via genvägen). Användes tidigare bara vid
+  // sparning, och satte då fel underflik ('kunder' istället för
+  // 'leverantorer' — tog en tillbaka till Kundfakturor-fliken i
+  // Fakturering, inte Leverantörsfakturor där man faktiskt var).
+  const returnToOrigin = () => {
     if (openedViaGlobalAction) {
       setSearchParams(prev => {
         const next = new URLSearchParams(prev);
-        next.set('section', 'kunder');
+        next.set('section', 'leverantorer');
         return next;
       }, { replace: true });
       onNavigate?.('invoices');
     }
+    setOpenedViaGlobalAction(false);
+  };
+
+  const closeForm = () => { setShowForm(false); returnToOrigin(); };
+
+  const handleSave = (data) => {
+    onAddSupplierInvoice?.(data);
     closeForm();
   };
 
@@ -875,7 +911,7 @@ export default function SupplierInvoices({
     mainContent = (
       <SupplierInvoiceViewer
         invoice={viewingInvoice} contacts={contacts} accounts={accounts} projects={projects}
-        onClose={() => setViewingInvoice(null)}
+        onClose={() => { setViewingInvoice(null); returnToOrigin(); }}
         onPay={() => setPayingInvoiceId(viewingInvoice.id)}
         onUnmarkPaid={() => handleUnmarkPaid(viewingInvoice.id)}
       />
@@ -971,7 +1007,7 @@ export default function SupplierInvoices({
           invoice={list.find(inv => inv.id === payingInvoiceId)}
           contacts={contacts}
           onNavigate={onNavigate}
-          onConfirm={(method) => { handleMarkPaid(payingInvoiceId, method); setViewingInvoice(null); }}
+          onConfirm={(method) => { handleMarkPaid(payingInvoiceId, method); setViewingInvoice(null); returnToOrigin(); }}
           onCancel={() => setPayingInvoiceId(null)}
         />
       )}

@@ -20,7 +20,11 @@ import { MoreVertical } from 'lucide-react';
 // `items`: array av antingen
 //   { key?, label, icon?, onClick, variant?: 'danger', disabled?, title? }
 // eller en avdelare: { divider: true }
-export default function RowActionMenu({ items, ariaLabel = 'Fler åtgärder' }) {
+// `triggerProps` — valfria extra attribut på själva kebab-knappen (t.ex.
+// `data-inv-tour`, se utils/invoiceTour.js) så en sidas egen produktguide
+// kan peka ut/klicka menyn utan att den här delade komponenten behöver
+// veta något om vem som frågar.
+export default function RowActionMenu({ items, ariaLabel = 'Fler åtgärder', triggerProps = {} }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState(null); // { left/right, top/bottom }
   const btnRef = useRef(null);
@@ -84,6 +88,7 @@ export default function RowActionMenu({ items, ariaLabel = 'Fler åtgärder' }) 
         aria-label={ariaLabel}
         aria-haspopup="menu"
         aria-expanded={open}
+        {...triggerProps}
         style={{
           width: 30, height: 30, borderRadius: '7px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
           background: open ? 'var(--bg-muted)' : 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer',

@@ -36,7 +36,7 @@ function getStripe() {
 // — samma teknik som redan används för fakturarader (App.jsx
 // getInvoicePaymentLinkUrl) — så ingen manuell produkt-/prisuppsättning i
 // Stripe Dashboard krävs innan det här fungerar.
-const SUBSCRIPTION_PRICE_SEK_ORE = 9900; // 99,00 kr/mån
+const SUBSCRIPTION_PRICE_SEK_ORE = 17900; // 179,00 kr/mån
 const TRIAL_DAYS = 30;
 
 // Säkerhetsfix (säkerhetsgranskningen): den här endpointen litade tidigare
