@@ -10,6 +10,7 @@ import ListPageHeader, { ListFilterBar, listSearchInputStyle, listFilterFieldSty
 import ListTable from './shared/ListTable';
 import { findLockedVatPeriod } from '../utils/vatCalculation';
 import { uploadFileToStorage, deleteFileFromStorage } from '../utils/fileUpload';
+import { confirmDialog, promptDialog } from './shared/ConfirmDialog';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 const fmt = (v) => new Intl.NumberFormat('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0);
@@ -489,11 +490,11 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
                 <LayoutTemplate size={13} style={{ position: 'absolute', left: 12, color: 'var(--text-main)', pointerEvents: 'none' }} />
                 <select
                   value=""
-                  onChange={e => {
+                  onChange={async e => {
                     const tpl = templates.find(t => t.id === e.target.value);
                     if (!tpl) return;
                     if (rows.some(r => r.account || r.debet || r.kredit)) {
-                      if (!window.confirm('Ersätt raderna i formuläret med mallens rader?')) return;
+                      if (!(await confirmDialog('Ersätt raderna i formuläret med mallens rader?'))) return;
                     }
                     setDesc(tpl.description || '');
                     setProjectId(tpl.projectId || '');
@@ -509,8 +510,8 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
             )}
             {onSaveTemplate && (
               <button
-                onClick={() => {
-                  const name = window.prompt('Namn på mallen:', desc || '');
+                onClick={async () => {
+                  const name = await promptDialog('Namn på mallen:', { defaultValue: desc || '', placeholder: 'T.ex. Kontorsmaterial' });
                   if (name && name.trim()) onSaveTemplate({ name: name.trim(), description: desc, projectId, costCenter, rows });
                 }}
                 style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '7px 14px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '999px', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer', fontFamily: 'inherit' }}
@@ -606,8 +607,8 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
       <div style={{ marginTop: '24px', paddingTop: '20px', borderTop: '1px solid var(--border)' }}>
         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '10px' }}>
           <button
-            onClick={() => {
-              if (!window.confirm('Rensa formuläret? Ifylld information försvinner.')) return;
+            onClick={async () => {
+              if (!(await confirmDialog('Rensa formuläret? Ifylld information försvinner.'))) return;
               setDesc(''); setProjectId(''); setCostCenter(''); setInternalNote('');
               setCounterpartyId(''); setOriginalLocation(''); setAttachment(null); setExistingAttachment(null);
               setRows([{ account: '', accountName: '', debet: '', kredit: '', desc: '' }]);
@@ -677,7 +678,7 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
 }
 
 // ─── Main Bokföring Component ──────────────────────────────────────────────────
-export default function Bokforing({ verifications = [], accounts = [], balances = {}, contacts = [], projects = [], templates = [], onSaveTemplate, onAdd, setAccounts, highlightVerificationId, onClearHighlight, vatPeriods, user, uploadFn = uploadFileToStorage, initialTab }) {
+export default function Bokforing({ verifications = [], accounts = [], balances = {}, contacts = [], projects = [], templates = [], onSaveTemplate, onAdd, setVerifications, setAccounts, highlightVerificationId, onClearHighlight, vatPeriods, user, uploadFn = uploadFileToStorage, initialTab }) {
   const [activeTab, setActiveTab] = useState(initialTab || 'verifications');
   // Samma mönster som Taxes.jsx:s initialSection — App.jsx:s
   // verificationsInitialTab (profilmenyns "Kontoplaner" ska landa på
@@ -737,6 +738,17 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
     onAdd({ number, ...data });
     setShowForm(false);
     setEditingVer(null);
+  };
+
+  // Kundönskemål: utkast (status: 'draft') gick bara att fortsätta redigera,
+  // aldrig ta bort — till skillnad från t.ex. fakturautkast (Invoices.jsx),
+  // som redan har en riktig "Ta bort utkastet"-knapp. Ett utkast har ingen
+  // verklig bokföringspåverkan än (till skillnad från en BOKFÖRD
+  // verifikation, som aldrig raderas — bara rättas, se Rätta-knappen), så
+  // en hård radering är säker här.
+  const handleDeleteDraft = async (v) => {
+    if (!(await confirmDialog(`Ta bort utkastet ${v.number}? Det går inte att ångra.`, { title: 'Ta bort utkast', confirmLabel: 'Ta bort', danger: true }))) return;
+    setVerifications?.(prev => prev.filter(x => x.id !== v.id));
   };
 
   // Filter verifications
@@ -912,15 +924,24 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
                   key: 'actions', label: '', render: v => {
                     const isDraft = (v.status || 'booked') === 'draft';
                     return (
-                      <div onClick={e => e.stopPropagation()}>
+                      <div onClick={e => e.stopPropagation()} style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
                         {isDraft ? (
-                          <button
-                            onClick={() => { setEditingVer(v); setShowForm(true); }}
-                            title="Fortsätt redigera utkastet"
-                            style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '4px', cursor: 'pointer', padding: '3px 8px', fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}
-                          >
-                            Fortsätt
-                          </button>
+                          <>
+                            <button
+                              onClick={() => { setEditingVer(v); setShowForm(true); }}
+                              title="Fortsätt redigera utkastet"
+                              style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '4px', cursor: 'pointer', padding: '3px 8px', fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}
+                            >
+                              Fortsätt
+                            </button>
+                            <button
+                              onClick={() => handleDeleteDraft(v)}
+                              title="Ta bort utkastet"
+                              style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '4px', cursor: 'pointer', padding: '3px 8px', fontSize: '11px', color: 'var(--status-red-text)', display: 'flex', alignItems: 'center', gap: '4px' }}
+                            >
+                              <Trash2 size={11} />
+                            </button>
+                          </>
                         ) : (
                           <button
                             onClick={() => {
@@ -986,8 +1007,59 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
                       </tbody>
                     </table>
                   </div>
+                  {/* Samma Fortsätt/Ta bort/Rätta-knappar som radens egen
+                      'actions'-kolumn ovan (oförändrad, fortsatt synlig på
+                      desktop) — dubblerade hit så de fortfarande går att nå
+                      i listradsläget på mobil (ListTable `mobileList`, se
+                      dess JSDoc), som inte har en egen åtgärdskolumn.
+                      Ofarligt att visa på båda ställena samtidigt: samma
+                      handlers, ingen egen state. */}
+                  <div onClick={e => e.stopPropagation()} style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
+                    {(v.status || 'booked') === 'draft' ? (
+                      <>
+                        <button
+                          onClick={() => { setEditingVer(v); setShowForm(true); }}
+                          style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '4px', cursor: 'pointer', padding: '4px 10px', fontSize: '11.5px', color: 'var(--text-secondary)' }}
+                        >
+                          Fortsätt
+                        </button>
+                        <button
+                          onClick={() => handleDeleteDraft(v)}
+                          style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '4px', cursor: 'pointer', padding: '4px 10px', fontSize: '11.5px', color: 'var(--status-red-text)', display: 'flex', alignItems: 'center', gap: '4px' }}
+                        >
+                          <Trash2 size={11} /> Ta bort
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          const newRows = v.rows ? v.rows.map(r => ({ ...r, accountName: r.accountName || '', debet: getKredit(r) || 0, kredit: getDebet(r) || 0 })) : [];
+                          setEditingVer({ ...v, description: `Rätta: ${v.number} – ${v.description}`, rows: newRows, number: undefined, status: 'booked', createdAt: undefined });
+                          setShowForm(true);
+                        }}
+                        style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '4px', cursor: 'pointer', padding: '4px 10px', fontSize: '11.5px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}
+                      >
+                        <RotateCcw size={11} /> Rätta
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
+              mobileList={v => {
+                const isDraft = (v.status || 'booked') === 'draft';
+                const total = fmt(v.rows?.reduce((s, r) => s + getDebet(r), 0) || v.amount || 0);
+                return {
+                  dot: isDraft ? 'var(--status-amber-text)' : 'var(--status-green-text)',
+                  primary: v.description || '—',
+                  amount: total,
+                  meta: `${v.number} · ${v.date}`,
+                  pill: (
+                    <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '10.5px', fontWeight: 700, background: isDraft ? 'var(--status-amber-bg)' : 'var(--status-green-bg)', color: isDraft ? 'var(--status-amber-text)' : 'var(--status-green-text)' }}>
+                      {isDraft ? 'Utkast' : 'Bokförd'}
+                    </span>
+                  ),
+                };
+              }}
             />
           </div>
         </div>

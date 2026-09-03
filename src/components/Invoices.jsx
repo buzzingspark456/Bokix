@@ -13,8 +13,9 @@ import { exportInvoicePdf, getInvoicePdfBase64 } from '../utils/exportInvoicePdf
 import { sendInvoiceEmail } from '../emailApi';
 import { BRAND } from '../utils/brandColors';
 import { getNextInvoiceNumber } from '../utils/invoiceNumbering';
+import { confirmDialog } from './shared/ConfirmDialog';
 import { articlesToCsv, csvToArticles, downloadCsv } from '../utils/csvRegister';
-import { listHeaderButtonStyle, listSearchInputStyle, listFilterFieldStyle } from './shared/ListPageHeader';
+import { listHeaderButtonStyle, listSearchInputStyle, listFilterFieldStyle, PAGE_SIZE_OPTIONS } from './shared/ListPageHeader';
 import RowActionMenu from './shared/RowActionMenu';
 import ListTable from './shared/ListTable';
 // Kodgranskning: fanns tidigare som en egen lokal kopia här OCH som
@@ -509,7 +510,7 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
         {topBarBtn(
           'Markera som obetald',
           <Tag size={13} />,
-          () => { if (window.confirm(`Markera faktura ${nextNum} som obetald? Den registrerade betalningen tas bort.`)) onUnmarkPaid?.(initial.id); },
+          async () => { if (await confirmDialog(`Markera faktura ${nextNum} som obetald? Den registrerade betalningen tas bort.`)) onUnmarkPaid?.(initial.id); },
           {},
           !initial || initial?.status !== 'paid',
           !initial ? 'Spara fakturan först' : (initial?.status !== 'paid' ? 'Fakturan är inte markerad som betald' : 'Ångrar den registrerade betalningen')
@@ -648,7 +649,7 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
           <AlertTriangle size={16} style={{ flexShrink: 0 }} />
           <span>
             Den här fakturan är bokförd — kund, belopp och rader kan inte längre ändras. Behöver du korrigera ett fel?{' '}
-            <button onClick={() => { if (window.confirm(`Skapa en kreditfaktura som motsvarar faktura ${nextNum}?`)) onCreateCreditNote?.(initial); }} style={{ background: 'none', border: 'none', color: 'var(--status-amber-text)', fontWeight: 700, textDecoration: 'underline', cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>Skapa en kreditfaktura</button>
+            <button onClick={async () => { if (await confirmDialog(`Skapa en kreditfaktura som motsvarar faktura ${nextNum}?`)) onCreateCreditNote?.(initial); }} style={{ background: 'none', border: 'none', color: 'var(--status-amber-text)', fontWeight: 700, textDecoration: 'underline', cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>Skapa en kreditfaktura</button>
             {' '}istället. Datum och kommentar går fortfarande att uppdatera.
           </span>
         </div>
@@ -1440,48 +1441,76 @@ function SupplierInvoicesPanel({ expenses, contacts, onMarkPaid, onOpenFull, onO
           <div style={{ fontSize: '13.5px' }}>{list.length === 0 ? 'Inga leverantörsfakturor registrerade än.' : 'Inga fakturor i det här filtret.'}</div>
         </div>
       ) : (
+        // Bugfix (kundfeedback, skärmdump på mobil/iPad): den här panelen
+        // hade tidigare en egen handrullad <table> som aldrig fick
+        // className="responsive-table" — till skillnad från VARJE annan
+        // lista i appen (Kunder/Offerter/kundfakturasektionerna ovan m.fl.)
+        // föll den då aldrig om till kortläget på en smal skärm, bara
+        // klämde ihop alla sex kolumnerna sida vid sida med avklippt text.
+        // Samma delade ListTable-komponent som resten av appen istället —
+        // får responsiviteten, statusfärgerna och radhöjden gratis, ingen
+        // egen kopia att glömma uppdatera nästa gång de justeras.
         <div style={{ flex: 1, overflowY: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-            <thead style={{ position: 'sticky', top: 0 }}>
-              <tr>
-                {['LEVERANTÖR', 'FAKTURANR', 'FAKTURADATUM', 'FÖRFALLER', 'BELOPP', ''].map((h, i) => (
-                  <th key={h} style={{ padding: '8px 10px', textAlign: i === 4 ? 'right' : 'left', fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)', background: 'var(--bg-muted)', borderBottom: '2px solid var(--border)', whiteSpace: 'nowrap' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {sorted.map(inv => {
-                const status = getStatus(inv);
-                const supplier = contacts.find(c => c.id === inv.supplierId);
-                return (
-                  <tr key={inv.id} style={{ background: getRowBg(status === 'sent' ? 'sent' : status), borderBottom: '1px solid var(--border)', cursor: 'pointer' }} onClick={() => onOpenInvoice?.(inv)}>
-                    <td style={{ padding: '8px 10px', fontWeight: 500, color: 'var(--text-main)' }}>{supplier?.name || 'Okänd leverantör'}</td>
-                    <td style={{ padding: '8px 10px', color: 'var(--text-secondary)' }}>#{inv.invoiceNumber}</td>
-                    <td style={{ padding: '8px 10px', color: 'var(--text-secondary)' }}>{formatDate(inv.date)}</td>
-                    <td style={{ padding: '8px 10px', color: status === 'overdue' ? BRAND.redText : 'var(--text-secondary)', fontWeight: status === 'overdue' ? 700 : 400 }}>{formatDate(inv.dueDate)}</td>
-                    <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 600, color: 'var(--text-main)' }}>{fmt(inv.amount)}</td>
-                    <td style={{ padding: '8px 10px', whiteSpace: 'nowrap' }} onClick={e => e.stopPropagation()}>
-                      {status !== 'paid' ? (
-                        <button
-                          onClick={() => onMarkPaid?.(inv.id)}
-                          title="Klicka för att markera som betald"
-                          style={{
-                            padding: '3px 9px', borderRadius: '999px', fontSize: '11px', fontWeight: 600, border: 'none', cursor: 'pointer',
-                            background: status === 'overdue' ? BRAND.redBg : BRAND.amberBg,
-                            color: status === 'overdue' ? BRAND.redText : BRAND.amberText,
-                          }}
-                        >
-                          {status === 'overdue' ? 'Förfallen' : 'Obetald'}
-                        </button>
-                      ) : (
-                        <span style={{ padding: '3px 9px', borderRadius: '999px', fontSize: '11px', fontWeight: 600, background: BRAND.greenLight, color: BRAND.greenDark }}>Betald</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <ListTable
+            rowKey={inv => inv.id}
+            onRowClick={inv => onOpenInvoice?.(inv)}
+            rowStyle={inv => ({ background: getRowBg(getStatus(inv) === 'sent' ? 'sent' : getStatus(inv)) })}
+            emptyMessage="Inga fakturor i det här filtret."
+            rows={sorted}
+            mobileList={inv => {
+              const status = getStatus(inv);
+              const dot = status === 'overdue' ? BRAND.redText : status === 'paid' ? BRAND.greenDark : BRAND.amberText;
+              return {
+                dot,
+                primary: contacts.find(c => c.id === inv.supplierId)?.name || 'Okänd leverantör',
+                amount: fmt(inv.amount),
+                meta: `#${inv.invoiceNumber} · ${status === 'overdue' ? 'förföll' : status === 'paid' ? 'betald' : 'förfaller'} ${formatDate(inv.dueDate)}`,
+                pill: status === 'paid' ? (
+                  <span style={{ padding: '2px 8px', borderRadius: '999px', fontSize: '10.5px', fontWeight: 600, background: BRAND.greenLight, color: BRAND.greenDark }}>Betald</span>
+                ) : (
+                  <span style={{ padding: '2px 8px', borderRadius: '999px', fontSize: '10.5px', fontWeight: 600, background: status === 'overdue' ? BRAND.redBg : BRAND.amberBg, color: status === 'overdue' ? BRAND.redText : BRAND.amberText }}>
+                    {status === 'overdue' ? 'Förfallen' : 'Obetald'}
+                  </span>
+                ),
+              };
+            }}
+            columns={[
+              {
+                key: 'supplier', label: 'Leverantör', fontWeight: 500, color: 'var(--text-main)', wrap: true,
+                render: inv => contacts.find(c => c.id === inv.supplierId)?.name || 'Okänd leverantör',
+              },
+              { key: 'invoiceNumber', label: 'Fakturanr', render: inv => `#${inv.invoiceNumber}` },
+              { key: 'date', label: 'Fakturadatum', render: inv => formatDate(inv.date) },
+              {
+                key: 'dueDate', label: 'Förfaller',
+                render: inv => {
+                  const status = getStatus(inv);
+                  return <span style={{ color: status === 'overdue' ? BRAND.redText : 'var(--text-secondary)', fontWeight: status === 'overdue' ? 700 : 400 }}>{formatDate(inv.dueDate)}</span>;
+                },
+              },
+              { key: 'amount', label: 'Belopp', align: 'right', fontWeight: 600, color: 'var(--text-main)', render: inv => fmt(inv.amount) },
+              {
+                key: 'actions', label: '', render: inv => {
+                  const status = getStatus(inv);
+                  return status !== 'paid' ? (
+                    <button
+                      onClick={e => { e.stopPropagation(); onMarkPaid?.(inv.id); }}
+                      title="Klicka för att markera som betald"
+                      style={{
+                        padding: '3px 9px', borderRadius: '999px', fontSize: '11px', fontWeight: 600, border: 'none', cursor: 'pointer',
+                        background: status === 'overdue' ? BRAND.redBg : BRAND.amberBg,
+                        color: status === 'overdue' ? BRAND.redText : BRAND.amberText,
+                      }}
+                    >
+                      {status === 'overdue' ? 'Förfallen' : 'Obetald'}
+                    </button>
+                  ) : (
+                    <span style={{ padding: '3px 9px', borderRadius: '999px', fontSize: '11px', fontWeight: 600, background: BRAND.greenLight, color: BRAND.greenDark }}>Betald</span>
+                  );
+                },
+              },
+            ]}
+          />
         </div>
       )}
     </>
@@ -1548,8 +1577,8 @@ function ArticleRegisterModal({ articles, setArticles, onClose }) {
     setEditing(null);
   };
 
-  const remove = (num) => {
-    if (!window.confirm(`Ta bort artikel "${num}" från registret? Redan sparade fakturor påverkas inte.`)) return;
+  const remove = async (num) => {
+    if (!(await confirmDialog(`Ta bort artikel "${num}" från registret? Redan sparade fakturor påverkas inte.`, { danger: true }))) return;
     setArticles(prev => prev.filter(a => a.articleNumber !== num));
   };
 
@@ -1817,6 +1846,11 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
   const [amountMax, setAmountMax] = useState('');
   const [sortKey, setSortKey] = useState('date');
   const [sortDir, setSortDir] = useState('desc');
+  // Kundönskemål: "en knapp där man kan se femton, trettio, femtio" — visar
+  // upp till N fakturor PER statussektion nedan (Förfallen/Obetald/osv),
+  // inte N totalt över alla — annars kunde en hel statusgrupp försvinna
+  // tyst bara för att en annan grupp råkade fylla hela gränsen.
+  const [pageSize, setPageSize] = useState(30);
   const [showForm, setShowForm] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState(null);
   const [invoicePrefill, setInvoicePrefill] = useState(null); // t.ex. från Tidrapportering → "Skapa faktura"
@@ -2029,9 +2063,9 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
   // riktig verifikation och ett fakturanummer som redan kan vara känt
   // hos kunden, den korrigeras med en kreditfaktura, den raderas inte.
   // Ett utkast har ingen sådan koppling än, så det går att bara ta bort.
-  const handleDeleteInvoice = (inv, e) => {
+  const handleDeleteInvoice = async (inv, e) => {
     e?.stopPropagation();
-    if (!window.confirm(`Ta bort utkastet ${inv.invoiceNumber}? Det går inte att ångra.`)) return;
+    if (!(await confirmDialog(`Ta bort utkastet ${inv.invoiceNumber}? Det går inte att ångra.`, { danger: true }))) return;
     setInvoices(prev => prev.filter(i => i.id !== inv.id));
   };
 
@@ -2150,7 +2184,7 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
         </span>
       ) : inv.invoiceNumber,
     },
-    { key: 'customer', label: 'Kund', fontWeight: 500, color: 'var(--text-main)', render: inv => getCustomerName(inv.customerId) },
+    { key: 'customer', label: 'Kund', fontWeight: 500, color: 'var(--text-main)', wrap: true, render: inv => getCustomerName(inv.customerId) },
     { key: 'date', label: 'Fakturadatum', sortKeyName: 'date', render: inv => formatDate(inv.date) },
     {
       key: 'dueDate', label: 'Förfallodatum', sortKeyName: 'dueDate',
@@ -2192,6 +2226,35 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
       ),
     },
   ];
+
+  // Kort dag+månad ("24 sep"), samma Intl-mönster som redan används i
+  // Reports.jsx — bara för listradens metatext (rad 2), inte för själva
+  // fakturadatafälten (som fortfarande visar hela ISO-datumet på desktop).
+  const shortDate = (d) => { try { return new Intl.DateTimeFormat('sv-SE', { day: 'numeric', month: 'short' }).format(new Date(d)); } catch { return d; } };
+
+  // Listradsläget (ListTable `mobileList`, se dess JSDoc) för kundfakturor
+  // under 900px — kund som identitet, förfallo-/betaldatum och fakturanr
+  // som metatext, samma statusfärger som skrivbordskolumnens egen badge.
+  const invoiceMobileRow = (inv) => {
+    const status = getStatus(inv);
+    const dot = status === 'overdue' ? BRAND.redText : status === 'draft' ? BRAND.grayText : status === 'paid' ? STRONG_PAID.bg : STRONG_UNPAID.bg;
+    const metaDate = status === 'paid' ? `betald ${shortDate(inv.paidDate)}` : status === 'overdue' ? `förföll ${shortDate(inv.dueDate)}` : `förfaller ${shortDate(inv.dueDate)}`;
+    return {
+      dot,
+      primary: getCustomerName(inv.customerId),
+      amount: fmt(grossOf(inv)),
+      meta: `#${inv.invoiceNumber} · ${metaDate}`,
+      pill: status === 'paid' ? (
+        <span style={{ padding: '2px 8px', borderRadius: '999px', fontSize: '10.5px', fontWeight: 700, background: STRONG_PAID.bg, color: STRONG_PAID.text }}>Betald</span>
+      ) : (
+        <span style={{
+          padding: '2px 8px', borderRadius: '999px', fontSize: '10.5px', fontWeight: 700,
+          background: status === 'overdue' ? BRAND.redBg : status === 'draft' ? BRAND.grayBg : STRONG_UNPAID.bg,
+          color: status === 'overdue' ? BRAND.redText : status === 'draft' ? BRAND.grayText : STRONG_UNPAID.text,
+        }}>{status === 'overdue' ? 'Förfallen' : status === 'draft' ? 'Ej bokförd' : 'Obetald'}</span>
+      ),
+    };
+  };
 
   // Delade länkar: fakturans ID hålls i URL:en (?invoiceId=...) så en
   // delad länk alltid öppnar rätt faktura, och byte av faktura/stängning
@@ -2394,6 +2457,20 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
         })}
         <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginLeft: '4px' }}>{sorted.length} poster</span>
         <div style={{ flex: 1 }} />
+        {/* Kundönskemål: "en knapp där man kan se femton, trettio, femtio"
+            — visar upp till N per statussektion nedan (se pageSize-state:t
+            kommentar), inte N totalt. */}
+        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-muted)' }}>
+          Visa
+          <select
+            value={pageSize}
+            onChange={e => setPageSize(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+            style={{ ...listFilterFieldStyle, height: '28px', padding: '0 8px', fontSize: '12px' }}
+          >
+            {PAGE_SIZE_OPTIONS.map(n => <option key={n} value={n}>{n}</option>)}
+            <option value="all">Alla</option>
+          </select>
+        </label>
         <Printer size={15} style={{ cursor: 'pointer', color: 'var(--text-secondary)' }} />
       </div>
 
@@ -2418,7 +2495,12 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
             .map(opt => ({ opt, rows: sortedWithDemo.filter(inv => getStatus(inv) === opt.value) }))
             .filter(g => g.rows.length > 0)
             .map(({ opt, rows }, i) => {
-              const realRows = rows.filter(inv => !inv.isDemo);
+              // Sidhuvudets räknare/summa avser hela statusgruppen (oavsett
+              // "Visa N"-gräns) — bara själva tabellen (och "markera
+              // alla"-kryssrutan, som ska matcha det som faktiskt syns)
+              // beskärs till pageSize.
+              const visibleRows = pageSize === 'all' ? rows : rows.slice(0, pageSize);
+              const realRows = visibleRows.filter(inv => !inv.isDemo);
               const allSelected = realRows.length > 0 && realRows.every(inv => selected.has(inv.id));
               const sectionSum = rows.reduce((sum, inv) => sum + grossOf(inv), 0);
               return (
@@ -2432,6 +2514,9 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
                       }}>{rows.length}</span>
                     </span>
                     <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{fmt(sectionSum)} SEK</span>
+                    {visibleRows.length < rows.length && (
+                      <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>— visar {visibleRows.length} av {rows.length}</span>
+                    )}
                   </div>
                   <ListTable
                     bordered={false}
@@ -2443,10 +2528,11 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
                       checked: inv => selected.has(inv.id),
                       onToggle: inv => toggleSelect(inv.id),
                       allChecked: allSelected,
-                      onToggleAll: () => toggleAllInRows(rows),
+                      onToggleAll: () => toggleAllInRows(visibleRows),
                     }}
-                    rows={rows}
+                    rows={visibleRows}
                     columns={invoiceColumns}
+                    mobileList={invoiceMobileRow}
                   />
                 </div>
               );

@@ -22,11 +22,13 @@
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
     "lucide-react": "^1.28.0",
+    "papaparse": "^5.7.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-router-dom": "^7.18.3",
     "recharts": "^3.9.2",
-    "stripe": "^22.4.0"
+    "stripe": "^22.4.0",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-latest/xlsx-latest.tgz"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",

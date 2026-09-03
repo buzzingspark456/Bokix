@@ -7,13 +7,15 @@ import {
 import { supabase } from '../supabaseClient';
 import { sendInvoiceEmail } from '../emailApi';
 import { cancelStripeSubscription, reactivateStripeSubscription } from '../stripeApi';
-import { BRAND } from '../utils/brandColors';
+import { BRAND, VIVID } from '../utils/brandColors';
 import InvoiceDocument, { INVOICE_TEMPLATES, DEFAULT_INVOICE_TEMPLATE } from './InvoiceDocument';
 import { useIsMobileViewport } from '../hooks/useIsMobileViewport';
 import ListTable from './shared/ListTable';
 import { sendReauthCode, verifyReauthCode, changePassword } from '../utils/reauthVerification';
 import { useCompanyLookup } from '../hooks/useCompanyLookup';
 import { detectOrgType, formatLegalForm, formatOrgNr } from '../utils/orgType';
+import { getGreeting } from '../utils/greeting';
+import { confirmDialog } from './shared/ConfirmDialog';
 
 // Visas istället för att faktiskt anropa Supabase när `readOnly` (Sida
 // landningssidans demo, se DemoWorkspace.jsx) — samma text överallt i den
@@ -122,17 +124,29 @@ const btnDangerGhost = { padding: '9px 18px', background: 'var(--bg-card)', colo
 // Färgad ikon-i-cirkel framför ett kortnamn — gör varje sektion visuellt
 // identifierbar på en snabb blick istället för en lång lista av likadana
 // svarta rubriker, och ger sidan starkare färg utan att den blir stökig.
+// Kundfeedback ("bättre UI/UX, färgsättning, organiserat"): 16 av sidans 17
+// SectionHeading-anrop stod tidigare på tone="green" — samma bleka
+// status-badge-grönt (BRAND.greenLight/greenDark) överallt, oavsett vad
+// sektionen faktiskt handlade om, vilket gjorde en lång sida med likadana
+// gröna cirklar svårare att skanna, inte lättare. Samma VIVID-solid-ikon-
+// behandling som Dashboard nu (se brandColors.js) — en distinkt kulör per
+// ÄMNE (säkerhet=blått, utseende/varumärke=rosa, deadlines/påminnelser=
+// gult, kärnidentitet/pengar=grönt, verktyg=neutral skiffer, radera=rött)
+// istället för en enda upprepad ton, så färgen faktiskt hjälper till att
+// gruppera sidan i huvudet på en snabb titt.
 const SECTION_TONES = {
-  green: { bg: BRAND.greenLight, color: BRAND.greenDark },
-  amber: { bg: BRAND.amberBg, color: BRAND.amberText },
-  red: { bg: BRAND.redBg, color: BRAND.redText },
-  gray: { bg: BRAND.grayBg, color: 'var(--status-gray-text)' },
+  green: VIVID.green,
+  blue:  VIVID.blue,
+  pink:  VIVID.pink,
+  amber: VIVID.amber,
+  red:   VIVID.red,
+  gray:  '#64748b', // Neutral skiffer (verktyg/integrationer) — medvetet INTE en VIVID-brandkulör.
 };
 function SectionHeading({ icon: Icon, tone = 'green', children }) {
-  const t = SECTION_TONES[tone] || SECTION_TONES.green;
+  const bg = SECTION_TONES[tone] || SECTION_TONES.green;
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-      <div style={{ width: 34, height: 34, borderRadius: '10px', background: t.bg, color: t.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+      <div style={{ width: 34, height: 34, borderRadius: '10px', background: bg, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: `0 2px 6px ${bg}4d` }}>
         <Icon size={17} strokeWidth={2.3} />
       </div>
       <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>{children}</h3>
@@ -215,7 +229,7 @@ function detectDevice() {
 // i en annan flik) medan användaren har en osparad ändring liggande i debounce-
 // fönstret, ska den INTE tystas skrivas över — annars kan ett halvfärdigt
 // fältvärde radera det användaren precis skrev innan det hann sparas.
-function AutoField({ label, type = 'text', value, onChange, hint, required, placeholder }) {
+function AutoField({ label, type = 'text', value, onChange, hint, required, placeholder, showSaveState = true }) {
   const [val, setVal] = useState(value || '');
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
@@ -248,10 +262,19 @@ function AutoField({ label, type = 'text', value, onChange, hint, required, plac
         <label style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>
           {label}{required && <span style={{ color: '#ef4444' }}> *</span>}
         </label>
-        <div style={{ fontSize: '12px', minHeight: '18px', display: 'flex', alignItems: 'center' }}>
-          {isSaving && <span style={{ color: 'var(--text-muted)' }}>Sparar...</span>}
-          {isSaved && <span style={{ color: BRAND.greenDark, display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 500 }}><Check size={12} /> Sparat</span>}
-        </div>
+        {/* showSaveState=false (Grunduppgifter/Kontaktuppgifter, se
+            anropsställena): fältet skriver bara till lokal companyDraft-
+            state, inte till kontot — "Sparat ✓" hade ljugit om det (såg ut
+            som en riktig autosave fast inget var sparat än, bara ett klick
+            på "Spara ändringar" + reauth-koden längre ner faktiskt
+            persisterar). Ingen indikator alls här istället; den riktiga
+            sparknappen har sin egen busy/success-text. */}
+        {showSaveState && (
+          <div style={{ fontSize: '12px', minHeight: '18px', display: 'flex', alignItems: 'center' }}>
+            {isSaving && <span style={{ color: 'var(--text-muted)' }}>Sparar...</span>}
+            {isSaved && <span style={{ color: BRAND.greenDark, display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 500 }}><Check size={12} /> Sparat</span>}
+          </div>
+        )}
       </div>
       <input
         type={type} value={val} onChange={handleChange} placeholder={placeholder}
@@ -550,7 +573,7 @@ function PasswordSection({ user, readOnly = false }) {
   return (
     <div style={card}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '6px' }}>
-        <SectionHeading icon={Lock} tone="gray">Lösenord</SectionHeading>
+        <SectionHeading icon={Lock} tone="blue">Lösenord</SectionHeading>
         <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
           {changedAt ? `Senast ändrat ${relativeTimeSv(changedAt)}` : 'Inte spårat ännu — byt lösenord här för att börja spåra det'}
         </span>
@@ -632,7 +655,7 @@ function TwoFactorSection() {
 
   const disable = async () => {
     if (!verifiedFactor) return;
-    if (!window.confirm('Inaktivera tvåstegsverifiering? Kontot blir skyddat av enbart lösenord igen.')) return;
+    if (!(await confirmDialog('Inaktivera tvåstegsverifiering? Kontot blir skyddat av enbart lösenord igen.', { danger: true }))) return;
     setBusy(true);
     const { error } = await supabase.auth.mfa.unenroll({ factorId: verifiedFactor.id });
     setBusy(false);
@@ -698,7 +721,7 @@ function ActiveSessionsSection({ user, readOnly = false }) {
 
   return (
     <div style={card}>
-      <div style={{ marginBottom: '8px' }}><SectionHeading icon={Laptop} tone="gray">Aktiva sessioner</SectionHeading></div>
+      <div style={{ marginBottom: '8px' }}><SectionHeading icon={Laptop} tone="blue">Aktiva sessioner</SectionHeading></div>
       <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 14px', maxWidth: '560px' }}>
         Bokix kan i dagsläget inte visa en lista över dina enskilda inloggade enheter. Du kan däremot logga ut alla andra sessioner än den du sitter på just nu — t.ex. om du glömt logga ut på en delad dator eller en gammal telefon.
       </p>
@@ -764,7 +787,7 @@ function InvoiceTemplateSection({ company, setCompanyInfo, user, readOnly = fals
   return (
     <>
       <div style={card}>
-        <div style={{ marginBottom: '6px' }}><SectionHeading icon={Palette} tone="green">Välj mall</SectionHeading></div>
+        <div style={{ marginBottom: '6px' }}><SectionHeading icon={Palette} tone="pink">Välj mall</SectionHeading></div>
         <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 16px', maxWidth: '672px' }}>
           Välj utseendet på dina utgående kund- och leverantörsfakturor. Redan skickade fakturor behåller sitt utseende — bara nya fakturor använder mallen du väljer här.
         </p>
@@ -788,7 +811,7 @@ function InvoiceTemplateSection({ company, setCompanyInfo, user, readOnly = fals
       </div>
 
       <div style={card}>
-        <div style={{ marginBottom: '16px' }}><SectionHeading icon={ImageIcon} tone="green">Anpassa mallen</SectionHeading></div>
+        <div style={{ marginBottom: '16px' }}><SectionHeading icon={ImageIcon} tone="pink">Anpassa mallen</SectionHeading></div>
         <div style={{ display: 'flex', gap: '28px', flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: '260px', maxWidth: '380px' }}>
             <div style={{ marginBottom: '18px' }}>
@@ -1033,7 +1056,7 @@ function UsersAndAccessSection({ company, user, firstName, lastName, sharedAcces
 
   const handleRevoke = async (memberId) => {
     if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; }
-    if (!window.confirm('Återkalla den här personens åtkomst till företaget?')) return;
+    if (!(await confirmDialog('Återkalla den här personens åtkomst till företaget?', { danger: true }))) return;
     await supabase.from('company_members').update({ status: 'revoked' }).eq('id', memberId);
     loadMembers();
   };
@@ -1458,6 +1481,9 @@ export default function Settings({
 
   const firstName = user?.user_metadata?.first_name || '';
   const lastName = user?.user_metadata?.last_name || '';
+  // Bara för toggle-hintens exempeltext nedan — samma tidsberoende hälsning
+  // som Startsidan faktiskt visar, inte en hårdkodad "Hej".
+  const { greeting: greetingPreview } = getGreeting();
   const initials = ((firstName[0] || user?.email?.[0] || '?') + (lastName[0] || '')).toUpperCase();
 
   const updateUserMeta = (patch) => {
@@ -1646,11 +1672,29 @@ export default function Settings({
                 </div>
 
                 <div className="form-row-2" style={{ ...grid2, maxWidth: '672px' }}>
-                  <AutoField label="Förnamn" value={firstName} onChange={(v) => updateUserMeta({ first_name: v })} />
+                  <AutoField label="Förnamn (det du vill bli kallad)" value={firstName} onChange={(v) => updateUserMeta({ first_name: v })} hint="Det här namnet visas i hälsningen på Startsidan." />
                   <AutoField label="Efternamn" value={lastName} onChange={(v) => updateUserMeta({ last_name: v })} />
                   <div style={{ gridColumn: '1 / 3' }}>
                     <AutoField label="E-post (inloggning)" type="email" value={user?.email || ''} onChange={(v) => { if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; } supabase.auth.updateUser({ email: v }); }} hint="Kräver att du bekräftar via e-post innan ändringen gäller." required />
                   </div>
+                </div>
+              </div>
+
+              {/* Kundönskemål: dels ska hälsningen (Startsidan) använda ett
+                  namn användaren själv väljer (Förnamn ovan, inte en gissning
+                  från företagsnamnet), dels ska den gå att stänga av helt —
+                  och stängs den av ska Startsidans övriga innehåll flytta
+                  upp istället för att lämna ett tomt hål (Dashboard.jsx). */}
+              <div style={card}>
+                <div style={{ marginBottom: '4px' }}><SectionHeading icon={User} tone="green">Hälsning på Startsidan</SectionHeading></div>
+                <div style={{ maxWidth: '480px' }}>
+                  <ToggleSwitch
+                    checked={user?.user_metadata?.show_dashboard_greeting !== false}
+                    onChange={(e) => updateUserMeta({ show_dashboard_greeting: e.target.checked })}
+                    label="Visa hälsningen på Startsidan"
+                    hint={`Av döljer "${greetingPreview}, ${firstName || 'Användare'} 👋" och flyttar upp resten av sidan.`}
+                    disabled={readOnly}
+                  />
                 </div>
               </div>
 
@@ -1699,8 +1743,8 @@ export default function Settings({
                         </button>
                         {/* Kundönskemål: en snabb städknapp — går inte att ta
                             bort det sista/enda kvarvarande företaget (samma
-                            spärr som App.jsx:s handleDeleteCompany).
-                            window.confirm istället för en tyngre "skriv
+                            spärr som App.jsx:s handleDeleteCompany). En enkel
+                            bekräftelsedialog istället för en tyngre "skriv
                             namnet"-modal (jämför Radera-bokföringsdata-kortet
                             nedan) — den här tar bort HELA företaget, inte
                             bara dess data, men efterfrågades uttryckligen
@@ -1710,9 +1754,9 @@ export default function Settings({
                           type="button"
                           title={`Ta bort ${c.name || 'företaget'}`}
                           disabled={companyList.length <= 1}
-                          onClick={() => {
+                          onClick={async () => {
                             if (companyList.length <= 1) return;
-                            if (window.confirm(`Ta bort "${c.name || 'Namnlöst företag'}" permanent? All bokföring, alla fakturor och kunder för det företaget försvinner. Går inte att ångra.`)) {
+                            if (await confirmDialog(`Ta bort "${c.name || 'Namnlöst företag'}" permanent? All bokföring, alla fakturor och kunder för det företaget försvinner. Går inte att ångra.`, { danger: true })) {
                               onDeleteCompany?.(c.id);
                             }
                           }}
@@ -1739,7 +1783,19 @@ export default function Settings({
               )}
 
               <div style={card}>
-                <div style={{ marginBottom: '16px' }}><SectionHeading icon={Building2} tone="green">Grunduppgifter</SectionHeading></div>
+                {/* Kundfeedback ("vet inte vad som händer"): fälten här och i
+                    Kontaktuppgifter nedan autosparar INTE (kräver klick på
+                    "Spara ändringar" + en emailad kod, se reauth-blocket
+                    efter Kontaktuppgifter) — till skillnad från praktiskt
+                    taget alla andra fält på hela sidan. AutoField:s egen
+                    "Sparat ✓" är avstängd på dem (showSaveState=false nedan)
+                    så den inte ljuger om att något redan är sparat, och den
+                    här badgen säger uttryckligen vad som gäller istället för
+                    att bara vara tyst om det. */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}>
+                  <SectionHeading icon={Building2} tone="green">Grunduppgifter</SectionHeading>
+                  <Badge tone="warning">Kräver att du sparar</Badge>
+                </div>
                 {!companyRegistrationComplete ? (
                   // "Jag har inget företag än" valdes vid registreringen
                   // (Auth.jsx) — samma org.nummer-uppslag/badge-mönster som
@@ -1811,11 +1867,11 @@ export default function Settings({
                       </div>
                     </div>
                     <div className="form-row-2" style={{ ...grid2, maxWidth: '672px' }}>
-                      <AutoField label="Organisationsnummer" value={companyDraft?.orgNr || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, orgNr: v })} />
-                      <AutoField label="Momsregistreringsnummer" value={companyDraft?.vatNr || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, vatNr: v })} />
+                      <AutoField label="Organisationsnummer" value={companyDraft?.orgNr || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, orgNr: v })} showSaveState={false} />
+                      <AutoField label="Momsregistreringsnummer" value={companyDraft?.vatNr || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, vatNr: v })} showSaveState={false} />
                     </div>
                     <div style={{ maxWidth: '672px' }}>
-                      <AutoField label="Adress" value={companyDraft?.address || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, address: v })} />
+                      <AutoField label="Adress" value={companyDraft?.address || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, address: v })} showSaveState={false} />
                     </div>
                     {/* F-skattsedel skrivs ut på varenda faktura/offert (se InvoiceDocument)
                         men gick tidigare inte att ändra någonstans — den föll tillbaka på
@@ -1827,6 +1883,7 @@ export default function Settings({
                         label="F-skattsedel (text på faktura)" value={companyDraft?.fSkatt || 'Innehar F-skattsedel'}
                         onChange={(v) => setCompanyDraft({ ...companyDraft, fSkatt: v })}
                         hint="Skrivs ut på fakturor/offerter under företagsuppgifterna. Ändra eller töm om det inte stämmer för ditt företag."
+                        showSaveState={false}
                       />
                     </div>
                     {/* Fritt visningsnamn för fakturor — separat från det
@@ -1838,6 +1895,7 @@ export default function Settings({
                         label="Visningsnamn på faktura" value={companyDraft?.invoiceDisplayName || ''}
                         onChange={(v) => setCompanyDraft({ ...companyDraft, invoiceDisplayName: v })}
                         hint="Visas på fakturor/offerter istället för det registrerade företagsnamnet, om ifyllt — t.ex. om ni är kända under ett annat namn. Lämna tomt för att visa det registrerade namnet."
+                        showSaveState={false}
                       />
                     </div>
                   </>
@@ -1845,10 +1903,13 @@ export default function Settings({
               </div>
 
               <div style={card}>
-                <div style={{ marginBottom: '16px' }}><SectionHeading icon={Phone} tone="green">Kontaktuppgifter</SectionHeading></div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}>
+                  <SectionHeading icon={Phone} tone="blue">Kontaktuppgifter</SectionHeading>
+                  <Badge tone="warning">Kräver att du sparar</Badge>
+                </div>
                 <div className="form-row-2" style={{ ...grid2, maxWidth: '672px' }}>
-                  <AutoField label="E-post" type="email" value={companyDraft?.email || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, email: v })} hint="Visas som kontaktväg längst ner på fakturor." />
-                  <AutoField label="Telefon" type="tel" value={companyDraft?.phone || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, phone: v })} />
+                  <AutoField label="E-post" type="email" value={companyDraft?.email || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, email: v })} hint="Visas som kontaktväg längst ner på fakturor." showSaveState={false} />
+                  <AutoField label="Telefon" type="tel" value={companyDraft?.phone || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, phone: v })} showSaveState={false} />
                 </div>
               </div>
 
@@ -1857,11 +1918,15 @@ export default function Settings({
                   uttryckligt klick här + en emailad kod. Övriga företagsfält
                   (Logotyp, Räkenskapsår/moms, påminnelser, Bankuppgifter i
                   Betalning-fliken) är opåverkade, autosparar som förut. */}
-              <div style={{ marginBottom: '20px' }}>
+              <div style={{ marginBottom: '28px' }}>
                 {showCompanyReauth ? (
                   <ReauthCodeStep onVerified={saveCompanyInfo} onCancel={() => setShowCompanyReauth(false)} />
                 ) : (
                   <>
+                    {/* Uttryckligen vad knappen sparar — utan den här raden
+                        ser den ut som en global "spara hela sidan"-knapp,
+                        trots att den bara gäller de två korten ovanför. */}
+                    <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: '0 0 10px' }}>Sparar ändringarna i Grunduppgifter och Kontaktuppgifter ovan.</p>
                     <button
                       type="button"
                       onClick={() => { if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; } setShowCompanyReauth(true); }}
@@ -1876,8 +1941,19 @@ export default function Settings({
                 )}
               </div>
 
+              {/* Visuell skiljelinje: allt ovanför kräver "Spara ändringar"-
+                  klicket (+ Dina företag, en egen fristående åtgärd högst
+                  upp) — allt NEDANFÖR autosparar fält-för-fält, som resten
+                  av appen. En egen liten rubrik + linje istället för att
+                  bara lita på att badgen ovan räckte för att minnas det
+                  hela vägen ner till Automatiska påminnelser. */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '4px 0 16px' }}>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>Autosparas direkt</span>
+                <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
+              </div>
+
               <div style={card}>
-                <div style={{ marginBottom: '16px' }}><SectionHeading icon={ImageIcon} tone="green">Logotyp</SectionHeading></div>
+                <div style={{ marginBottom: '16px' }}><SectionHeading icon={ImageIcon} tone="pink">Logotyp</SectionHeading></div>
                 <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
                   <div style={{ flex: 1, minWidth: '260px', maxWidth: '440px' }}>
                     <ImageUploadField label="Logotyp" value={company?.logoUrl || ''} onChange={(v) => setCompanyInfo({ ...company, logoUrl: v })} uploadPath={`${user?.id}/logo-${company?.id}`} bucket="companylogo" hint="Används överst på dina utgående fakturor. Max 3 MB." readOnly={readOnly} />
@@ -1900,7 +1976,7 @@ export default function Settings({
                   på en separat, svårhittad "Företag"-sida utanför Inställningar
                   (CompanySettings.jsx), inte här där man faktiskt letar. */}
               <div style={card}>
-                <div style={{ marginBottom: '4px' }}><SectionHeading icon={Calendar} tone="green">Räkenskapsår och moms</SectionHeading></div>
+                <div style={{ marginBottom: '4px' }}><SectionHeading icon={Calendar} tone="amber">Räkenskapsår och moms</SectionHeading></div>
                 <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 16px', maxWidth: '672px' }}>Styr periodiseringen i Rapporter, Momsdeklaration och Skatter.</p>
                 <div className="form-row-2" style={{ ...grid2, maxWidth: '672px' }}>
                   <AutoField label="Räkenskapsår startar" type="date" value={company?.fiscalYear || ''} onChange={(v) => setCompanyInfo({ ...company, fiscalYear: v })} />
@@ -1925,7 +2001,7 @@ export default function Settings({
                   miljövariabler. Dagarna (3/faktura, 7/deklaration) är fortfarande
                   hårdkodade förvalsvärden, inte redigerbara här — bara av/på. */}
               <div style={card}>
-                <div style={{ marginBottom: '4px' }}><SectionHeading icon={Bell} tone="green">Automatiska påminnelser</SectionHeading></div>
+                <div style={{ marginBottom: '4px' }}><SectionHeading icon={Bell} tone="amber">Automatiska påminnelser</SectionHeading></div>
                 <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 16px', maxWidth: '672px' }}>Skickas automatiskt, en gång om dagen: en betalningspåminnelse till kunden 3 dagar efter förfallodatum om en faktura är obetald, och en påminnelse till er själva 7 dagar innan moms-/AGI-deadline.</p>
                 <div style={{ maxWidth: '480px' }}>
                   <ToggleSwitch
@@ -2112,28 +2188,34 @@ export default function Settings({
                   <AutoField label="Standardtext på faktura" value={company?.invoiceFooterText || 'Tack för er affär! Dröjsmålsränta debiteras enligt räntelagen.'} onChange={(v) => setCompanyInfo({ ...company, invoiceFooterText: v })} />
                 </div>
 
+                {/* Bugkritiskt (mörkt läge): hela den här varningsrutan använde
+                    hårdkodad #991b1b/#fca5a5 istället för --status-red-text/
+                    -bg — de togs INTE om i mörkt läge (till skillnad från
+                    variablerna), så texten blev en nästan omöjlig-att-läsa
+                    mörk maroon mot en halvtransparent mörkröd bakgrund. Samma
+                    tema-variabler som resten av sidan överallt nu istället. */}
                 <div style={{ marginTop: '20px', padding: '16px', background: 'var(--status-red-bg)', border: '1px solid var(--status-red-bg)', borderRadius: '8px', maxWidth: '672px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--status-red-text)', fontWeight: 600, marginBottom: '8px' }}>
                     <AlertTriangle size={16} /> Numreringsserie
                   </div>
-                  <div style={{ fontSize: '13px', color: '#991b1b', marginBottom: '12px' }}>
+                  <div style={{ fontSize: '13px', color: 'var(--status-red-text)', marginBottom: '12px' }}>
                     Nästa fakturanummer räknas normalt automatiskt fram (högsta använda + 1). Detta fält höjer bara ett golv — det kan aldrig sättas till eller under ett nummer som redan använts, så det kan inte skapa krockar i bokföringen.
                   </div>
                   <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
                     <div>
-                      <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#991b1b', marginBottom: '4px' }}>Golv för nästa fakturanummer</label>
+                      <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--status-red-text)', marginBottom: '4px' }}>Golv för nästa fakturanummer</label>
                       <input
                         type="number" value={nextInvoiceNumberInput} onChange={e => { setNextInvoiceNumberInput(e.target.value); setInvoiceNumberError(''); }}
                         placeholder={String(maxUsedInvoiceNumber + 1)}
-                        style={{ width: '160px', padding: '8px', borderRadius: '6px', border: '1px solid #fca5a5', background: 'var(--bg-card)', color: '#991b1b', boxSizing: 'border-box' }}
+                        style={{ width: '160px', padding: '8px', borderRadius: '6px', border: '1px solid var(--status-red-text)', background: 'var(--bg-card)', color: 'var(--status-red-text)', boxSizing: 'border-box' }}
                       />
                     </div>
-                    <button onClick={saveNextInvoiceNumber} style={{ padding: '8px 16px', background: '#991b1b', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 600, cursor: 'pointer' }}>Spara golv</button>
-                    <span style={{ fontSize: '12px', color: '#991b1b' }}>
+                    <button onClick={saveNextInvoiceNumber} style={{ padding: '8px 16px', background: 'var(--status-red-text)', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 600, cursor: 'pointer' }}>Spara golv</button>
+                    <span style={{ fontSize: '12px', color: 'var(--status-red-text)' }}>
                       {company?.nextInvoiceNumber ? `Aktivt golv: ${company.nextInvoiceNumber}. ` : ''}Högsta använda fakturanummer just nu: {maxUsedInvoiceNumber || '—'}.
                     </span>
                   </div>
-                  {invoiceNumberError && <div style={{ color: '#991b1b', fontSize: '12.5px', marginTop: '8px', fontWeight: 600 }}>{invoiceNumberError}</div>}
+                  {invoiceNumberError && <div style={{ color: 'var(--status-red-text)', fontSize: '12.5px', marginTop: '8px', fontWeight: 600 }}>{invoiceNumberError}</div>}
                 </div>
               </div>
             </div>
@@ -2172,7 +2254,7 @@ export default function Settings({
               <h2 style={{ fontSize: '20px', fontWeight: 700, margin: '0 0 20px', color: 'var(--text-main)' }}>Data och Inställningar</h2>
 
               <div style={card}>
-                <div style={{ marginBottom: '14px' }}><SectionHeading icon={Download} tone="green">Exportera och importera data</SectionHeading></div>
+                <div style={{ marginBottom: '14px' }}><SectionHeading icon={Download} tone="blue">Exportera och importera data</SectionHeading></div>
                 <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 16px', maxWidth: '672px' }}>
                   Ladda ner all bokföringsdata för det här företaget (konton, verifikationer, fakturor, kvitton/utgifter, kunder/leverantörer). Vi låser aldrig in din data.
                 </p>

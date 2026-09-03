@@ -466,12 +466,10 @@ app.all('/api/auth/request-password-reset', (req, res) => requestPasswordResetHa
 app.post('/api/email/domains', async (req, res) => {
   if (!requireResendAdmin(res)) return
 
-  // Vercel BotID — se filkommentaren i main.jsx.
-  if (await isRequestFromBot()) {
-    res.status(403).json({ error: 'Åtkomst nekad.' })
-    return
-  }
-
+  // Ingen BotID-koll här längre — se motsvarande kommentar i
+  // api/email/domains/index.js, handleCreate (samma bugg/fix som
+  // company-access.js: utan client-registrering i main.jsx landar
+  // Vercels bot-tjänst i isBot:true för vanliga användare).
   // Säkerhetsfix (se motsvarande kommentar i api/email/domains/index.js, handleCreate).
   const user = await requireAuthedUser(req, res)
   if (!user) return

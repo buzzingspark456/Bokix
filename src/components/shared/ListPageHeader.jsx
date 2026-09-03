@@ -158,24 +158,48 @@ export function ListSearchRow({ value, onChange, placeholder, right }) {
  * @param {() => void} [onClear] - visar "Rensa"-knappen när satt.
  * @param {number} [count] - den levande antalsräknaren, t.ex. `filteredVers.length`.
  * @param {string} [countLabel] - t.ex. "verifikationer".
+ * @param {number} [pageSize] - tillsammans med `onPageSizeChange`: en "visa N åt gången"-väljare
+ *   (kundönskemål: "en knapp där man kan se femton, trettio, femtio") i samma rad som räknaren.
+ *   Sidan äger själv `pageSize`-state:t och skär av sin egen `rows`-array innan den skickas till
+ *   ListTable — den här komponenten vet inget om paginering, bara om att RITA väljaren.
+ * @param {(n: number|'all') => void} [onPageSizeChange]
+ * @param {Array<number>} [pageSizeOptions] - default PAGE_SIZE_OPTIONS.
  */
-export function ListFilterBar({ children, onClear, count, countLabel }) {
-  const hasSecondRow = Boolean(onClear) || count != null;
+export const PAGE_SIZE_OPTIONS = [15, 30, 50, 100];
+
+export function ListFilterBar({ children, onClear, count, countLabel, pageSize, onPageSizeChange, pageSizeOptions = PAGE_SIZE_OPTIONS }) {
+  const hasPageSize = pageSize != null && onPageSizeChange;
+  const hasSecondRow = Boolean(onClear) || count != null || hasPageSize;
   return (
     <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)', background: 'var(--bg-card)', flexShrink: 0 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: hasSecondRow ? '10px' : 0 }}>
         {children}
       </div>
       {hasSecondRow && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
           {onClear ? (
             <button type="button" onClick={onClear} style={listHeaderButtonStyle('secondary')}>
               <RefreshCw size={14} /> Rensa
             </button>
           ) : <span />}
-          {count != null && (
-            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{count} {countLabel}</span>
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginLeft: 'auto' }}>
+            {count != null && (
+              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{count} {countLabel}</span>
+            )}
+            {hasPageSize && (
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-muted)' }}>
+                Visa
+                <select
+                  value={pageSize}
+                  onChange={e => onPageSizeChange(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+                  style={{ ...listFilterFieldStyle, height: '28px', padding: '0 8px', fontSize: '12px' }}
+                >
+                  {pageSizeOptions.map(n => <option key={n} value={n}>{n}</option>)}
+                  <option value="all">Alla</option>
+                </select>
+              </label>
+            )}
+          </div>
         </div>
       )}
     </div>

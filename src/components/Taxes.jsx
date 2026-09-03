@@ -13,6 +13,7 @@ import { computeInk2rResultat } from '../utils/ink2rResultat';
 import { computeInk2s } from '../utils/ink2s';
 import { downloadInk2rSru } from '../utils/sruExport';
 import { nextVatDeadline, nextAgiDeadline } from '../utils/declarationDeadlines';
+import { confirmDialog } from './shared/ConfirmDialog';
 
 const fmt = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
 
@@ -225,9 +226,9 @@ export default function Taxes({
     }));
   };
   const hasAnyInk2sValue = Object.values(ink2sValues || {}).some(v => v !== '' && v != null && Number(v) !== 0);
-  const resetInk2sValues = () => {
+  const resetInk2sValues = async () => {
     if (isLocked || !hasAnyInk2sValue) return;
-    if (!window.confirm(`Nollställa alla ifyllda INK2S-belopp för ${currentYear}? Det går inte att ångra.`)) return;
+    if (!(await confirmDialog(`Nollställa alla ifyllda INK2S-belopp för ${currentYear}? Det går inte att ångra.`, { danger: true }))) return;
     setCompanyInfo(prev => {
       const next = { ...(prev.ink2s || {}) };
       delete next[currentYear];

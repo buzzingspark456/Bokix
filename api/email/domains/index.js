@@ -2,7 +2,6 @@ import { applySecurityHeaders } from '../../_security.js';
 import { parseJsonBody } from '../../stripe/_parseBody.js';
 import { requireAuthedUser, loadOwnedCompany } from '../../_auth.js';
 import { checkRateLimit } from '../../_rateLimit.js';
-import { isRequestFromBot } from '../../_botid.js';
 
 // Slog ihop det som tidigare var TVÅ separata filer (create.js POST,
 // status.js GET) till en enda — Vercels 12-funktionsgräns (Hobby-plan):
@@ -29,13 +28,18 @@ const resendAdminApiKey = process.env.RESEND_ADMIN_API_KEY || null;
 async function handleCreate(req, res) {
   if (!checkRateLimit(req, res, { key: 'email-domain-create', max: 10 })) return;
 
-  // Vercel BotID — se filkommentaren i main.jsx. Bara på POST (skrivningen).
-  const isBot = await isRequestFromBot();
-  if (isBot) {
-    res.status(403).json({ error: 'Åtkomst nekad.' });
-    return;
-  }
-
+  // OBS: ingen BotID-koll här längre (till skillnad från tidigare — se
+  // git-historik och main.jsx:s filkommentar, "Anslut domän"-noten).
+  // Den här POST-vägen togs bort ur main.jsx:s initBotId-protect-lista av
+  // exakt samma skäl som api/company-access.js redan är det: utan en
+  // matchande client-registrering skickar botid/client ALDRIG
+  // x-is-human-headern, och Vercels riktiga bot-tjänst kan då (utan att
+  // checkBotId() kastar något fel — inget för _botid.js:s fail-open att
+  // fånga) landa i isBot:true för helt vanliga användare vars
+  // utmaningsskript blockerats (annonsblockerare, integritetstillägg,
+  // nätverksglapp). Det var den bekräftade orsaken till en kunds "Kunde
+  // inte koppla domänen" — inte ett fel hos Resend eller den här servern.
+  // requireAuthedUser nedan + rate-limiten ovan är det faktiska skyddet.
   const user = await requireAuthedUser(req, res);
   if (!user) return;
 

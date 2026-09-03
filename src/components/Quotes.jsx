@@ -7,6 +7,7 @@ import { uploadFileToStorage } from '../utils/fileUpload';
 import { BRAND } from '../utils/brandColors';
 import ListPageHeader, { ListFilterBar, listSearchInputStyle } from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
+import { confirmDialog } from './shared/ConfirmDialog';
 
 const fmtSEK = (val) => new Intl.NumberFormat('sv-SE', { maximumFractionDigits: 2, minimumFractionDigits: 2 }).format(val || 0);
 const fmtDateSv = (d) => { if (!d) return '—'; try { return new Intl.DateTimeFormat('sv-SE').format(new Date(d)); } catch { return d; } };
@@ -885,6 +886,9 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, on
 
 export default function Quotes({ quotes = [], setQuotes, onConvert, contacts = [], projects = [], company, user, globalAction, clearGlobalAction, handleGlobalAction }) {
   const [searchTerm, setSearchTerm] = useState('');
+  // Kundönskemål: "en knapp där man kan se femton, trettio, femtio" — samma
+  // visa-N-åt-gången-väljare som Kunder/Fakturering (ListFilterBar).
+  const [pageSize, setPageSize] = useState(30);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState(null); // null = ny offert, annars id på offerten som redigeras
 
@@ -902,10 +906,11 @@ export default function Quotes({ quotes = [], setQuotes, onConvert, contacts = [
     const customerName = contacts.find(c => c.id === q.customerId)?.name || q.customerName || '';
     return customerName.toLowerCase().includes(s) || (q.invoiceNumber || '').toLowerCase().includes(s);
   });
+  const visible = pageSize === 'all' ? filtered : filtered.slice(0, pageSize);
 
-  const handleDelete = (id, e) => {
+  const handleDelete = async (id, e) => {
     e?.stopPropagation();
-    if (!window.confirm('Vill du ta bort denna offert?')) return;
+    if (!(await confirmDialog('Vill du ta bort denna offert?', { title: 'Ta bort offert', confirmLabel: 'Ta bort', danger: true }))) return;
     if (setQuotes) setQuotes(prev => prev.filter(q => q.id !== id));
   };
 
@@ -917,9 +922,9 @@ export default function Quotes({ quotes = [], setQuotes, onConvert, contacts = [
   // med ett RIKTIGT nästa fakturanummer ur samma serie som Invoices.jsx
   // använder, och bokför den (precis som en direkt-skapad faktura). Alltid
   // tillgänglig oavsett status — ägarens eget omdöme, inte appens.
-  const handleConvert = (quote, e) => {
+  const handleConvert = async (quote, e) => {
     e?.stopPropagation();
-    if (!window.confirm('Konvertera denna offert till en faktura?')) return;
+    if (!(await confirmDialog('Konvertera denna offert till en faktura?', { title: 'Konvertera till faktura', confirmLabel: 'Konvertera' }))) return;
     if (!onConvert) return;
     onConvert(quote.id);
     setIsFormOpen(false);
@@ -1005,7 +1010,12 @@ export default function Quotes({ quotes = [], setQuotes, onConvert, contacts = [
       {/* Sökfältet ligger kvar i sidhuvudets kort (ListFilterBar, samma
           mönster som Bokförings filterrad) istället för att flyta löst
           ovanför tabellen på sidbakgrunden. */}
-      <ListFilterBar>
+      <ListFilterBar
+        count={filtered.length}
+        countLabel={filtered.length === 1 ? 'offert' : 'offerter'}
+        pageSize={pageSize}
+        onPageSizeChange={setPageSize}
+      >
         <div style={{ position: 'relative' }}>
           <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
           <input type="text" placeholder="Sök offert eller kund..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={listSearchInputStyle} />
@@ -1050,7 +1060,17 @@ export default function Quotes({ quotes = [], setQuotes, onConvert, contacts = [
         <ListTable
           rowKey={q => q.id}
           onRowClick={openEdit}
-          rows={filtered}
+          rows={visible}
+          mobileList={q => {
+            const s = getStatusStyle(getDisplayStatus(q));
+            return {
+              dot: s.color,
+              primary: contacts.find(c => c.id === q.customerId)?.name || q.customerName || '—',
+              amount: `${getTotal(q).toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr`,
+              meta: `${q.invoiceNumber || '—'} · ${q.date || ''}`,
+              pill: <span style={{ padding: '2px 8px', background: s.bg, color: s.color, borderRadius: '999px', fontSize: '10.5px', fontWeight: 700 }}>{s.label}</span>,
+            };
+          }}
           columns={[
             {
               key: 'invoiceNumber', label: 'Offertnr', fontWeight: 600, color: 'var(--text-main)', render: q => (
@@ -1059,7 +1079,7 @@ export default function Quotes({ quotes = [], setQuotes, onConvert, contacts = [
                 </div>
               ),
             },
-            { key: 'customer', label: 'Kund', fontWeight: 500, render: q => contacts.find(c => c.id === q.customerId)?.name || q.customerName || '—' },
+            { key: 'customer', label: 'Kund', fontWeight: 500, wrap: true, render: q => contacts.find(c => c.id === q.customerId)?.name || q.customerName || '—' },
             { key: 'date', label: 'Datum', render: q => q.date },
             {
               key: 'status', label: 'Status', render: q => {

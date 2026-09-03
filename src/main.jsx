@@ -43,14 +43,9 @@ initBotId({
     { path: '/api/stripe/connect', method: 'POST' },
     // api/zettle/callback.js — bara POST (starta anslutningen) skyddas;
     // GET är Zettles egen redirect tillbaka, ingen användare "fyller i"
-    // något där, samma konvention som email/domains och company-access.
+    // något där, samma konvention som company-access.
     { path: '/api/zettle/callback', method: 'POST' },
     { path: '/api/email/send-invoice', method: 'POST' },
-    // api/email/domains/index.js (tidigare två separata filer, create.js
-    // + status.js — ihopslagna, se den filens egen kommentar för varför).
-    // Bara POST (create): GET (status, läsning) skyddas medvetet INTE av
-    // BotID, samma konvention som company-access.js nedan.
-    { path: '/api/email/domains', method: 'POST' },
     { path: '/api/contact', method: 'POST' },
     // api/company-access.js POST MEDVETET INTE listad (var det tidigare,
     // se git-historik) — samma "glömt lösenord"-resonemang som
@@ -84,6 +79,22 @@ initBotId({
     // därför INGEN BotID-koll alls längre för den här filen, bara
     // rate-limit (lookup) respektive requireAuthedUser+loadMemberCompany+
     // role (fältsparning).
+    //
+    // api/email/domains/index.js POST ("Anslut domän", Inställningar) hade
+    // EXAKT samma bugg och är av samma skäl nu borttagen härifrån (var
+    // tidigare listad, se git-historik): en kund rapporterade "Kunde inte
+    // koppla domänen" — requestEmailApi (emailApi.js) fångade felet och
+    // föll tillbaka på den generiska texten eftersom error.message var
+    // tomt, vilket bara händer om fetch() avvisas med botid/clients
+    // tomma Event istället för ett riktigt Error-objekt (se "avvisas med
+    // ett tomt Event"-noten ovan) — dvs samma klient-inpacknings-krasch,
+    // inte ett verkligt Resend-/serverfel (Resend-kontot och
+    // RESEND_ADMIN_API_KEY verifierade fungera separat). Skyddet den här
+    // grenen faktiskt behöver kommer redan från requireAuthedUser +
+    // rate limit (10/instans) i api/email/domains/index.js, samma
+    // resonemang som company-access.js ovan — server-sidans egen
+    // isRequestFromBot()-anrop där är därför också borttagen (se den
+    // filens kommentar).
   ],
 })
 // "Glömt lösenord?" (api/auth/request-password-reset.js) MEDVETET INTE

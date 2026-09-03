@@ -22,4 +22,10 @@ export const COMPANY_WRITABLE_FIELDS = [
   'articles', 'projects', 'timeEntries', 'timeReportStatuses',
   'billableTimeEntries', 'recurringTemplates', 'verificationTemplates',
   'vatPeriods', 'reviewHistory', 'employees', 'payrollRuns', 'company',
+  // Bank – CSV/Excel-import: importerade transaktioner, se Bank.jsx.
+  // bankImportProfiles (ihågkommen kolumnmappning per bank) ligger
+  // medvetet NÄSTLAD under 'company' istället för som ett eget fält —
+  // sparar en whitelist-synk här OCH i supabase-setup.sql eftersom
+  // 'company' redan är skrivbart.
+  'bankTransactions',
 ];
