@@ -36,6 +36,18 @@ const HEAD_CELL_PADDING = '12px 16px';
  *   färgkodning per status/markerad) — slås samman ovanpå tabellens egna standardstilar.
  * @param {{key: string, dir: 'asc'|'desc', onSort: (sortKeyName: string) => void}} [sort]
  *   - tillsammans med `col.sortKeyName`: klickbar kolumnrubrik med sorteringspil.
+ * @param {(row, i) => {dot?: string, primary: ReactNode, amount?: ReactNode, meta?: ReactNode, pill?: ReactNode}} [mobileList]
+ *   - Kundönskemål (skärmdumpar, jämfört tre riktiga alternativ i en artefakt, "C. Listrad" valdes):
+ *     under 900px ersätts den staplade etikett/värde-kortvyn HELT av en tätare listrad utan
+ *     upprepade etiketter — en rad 1 (fet identitet vänster + belopp höger) och en tunn rad 2
+ *     (muted metatext vänster + valfri statuspill höger), ungefär hälften så hög per post som
+ *     kortvyn. Sidan äger själv exakt VAD som visas (samma "content är sidans jobb, struktur är
+ *     ListTable:s jobb"-princip som `render` redan följer) — ListTable vet inget om vad en
+ *     "primär identitet" eller "belopp" betyder för en given lista, bara hur den ska se ut.
+ *     `dot` är en rå CSS-färg (t.ex. `BRAND.redText`), inte ett fast enum — olika listor har
+ *     helt olika statusvokabulär (Obetald/Betald/Förfallen för fakturor, Bokförd/Utkast för
+ *     verifikationer). Utelämna `mobileList` helt för att behålla den äldre, generiska
+ *     kort-vyn (fortfarande vad sidor som ännu inte migrerats använder).
  */
 /**
  * @param {boolean} [bordered=true] - sätt `false` för att rendera EN av
@@ -45,7 +57,7 @@ const HEAD_CELL_PADDING = '12px 16px';
  *   runt HELA stapeln kan sitta istället, utan dubbla kantlinjer eller
  *   isolerade skuggor per sektion.
  */
-export default function ListTable({ columns, rows, rowKey, onRowClick, emptyMessage = 'Inga poster', selectable, isExpanded, renderExpanded, rowStyle, sort, bordered = true }) {
+export default function ListTable({ columns, rows, rowKey, onRowClick, emptyMessage = 'Inga poster', selectable, isExpanded, renderExpanded, rowStyle, sort, bordered = true, mobileList }) {
   const colSpan = columns.length + (selectable ? 1 : 0);
   return (
     // overflowX:'auto' (bugkritiskt, kundfeedback: "Status rutan är
@@ -69,7 +81,7 @@ export default function ListTable({ columns, rows, rowKey, onRowClick, emptyMess
       {/* .responsive-table (Sida 38, punkt 1): staplar kolumnerna med
           data-label-etiketter under en brytpunkt istället för att tvinga
           sidledesskroll — samma klass alla listsidors tabeller redan delar. */}
-      <table className="responsive-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+      <table className={`responsive-table${mobileList ? ' has-mobile-list' : ''}`} style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr style={{ background: 'var(--bg-muted)' }}>
             {selectable && (
@@ -142,7 +154,7 @@ export default function ListTable({ columns, rows, rowKey, onRowClick, emptyMess
                     <td
                       key={col.key}
                       data-label={col.label}
-                      className={`lt-cell${col.key === 'actions' ? ' td-actions' : ''}`}
+                      className={`lt-cell${col.key === 'actions' ? ' td-actions' : ''}${col.wrap ? ' lt-cell-wrap' : ''}`}
                       style={{
                         textAlign: col.align || 'left', verticalAlign: 'middle',
                         fontSize: col.fontSize || '13px', color: col.color || 'var(--text-secondary)',
@@ -165,6 +177,58 @@ export default function ListTable({ columns, rows, rowKey, onRowClick, emptyMess
           })}
         </tbody>
       </table>
+
+      {/* Listrad-läget (under 900px, se mobileList-JSDoc:en ovan) — en helt
+          separat DOM-struktur, inte samma <table> omformad med CSS. En
+          tvådelad reflow (rad 1: identitet+belopp, rad 2: metatext+pill)
+          går inte att uttrycka pålitligt genom att bara flytta om samma
+          <td>-celler med grid/flex-`order` när antalet metafält varierar
+          fritt per lista — en egen, syftesbyggd struktur är robustare än
+          CSS-akrobatik på en delad markup. Renderas alltid (även på
+          desktop-bredd), döljs bara med CSS — .responsive-table.has-mobile-
+          list är den som i sin tur döms bort under 900px, se index.css. */}
+      {mobileList && (
+        <div className="lt-mobile-list">
+          {rows.length === 0 ? (
+            <div className="lt-mobile-empty">{emptyMessage}</div>
+          ) : rows.map((row, i) => {
+            const key = rowKey(row);
+            const expanded = Boolean(isExpanded?.(row));
+            const m = mobileList(row, i);
+            return (
+              <React.Fragment key={key}>
+                <div
+                  className="lt-mobile-row"
+                  onClick={onRowClick ? () => onRowClick(row) : undefined}
+                  style={{ cursor: onRowClick ? 'pointer' : 'default', ...rowStyle?.(row) }}
+                >
+                  {selectable && (
+                    <span className="lt-mobile-check" onClick={e => e.stopPropagation()}>
+                      <input type="checkbox" checked={selectable.checked(row)} onChange={() => selectable.onToggle(row)} style={{ cursor: 'pointer' }} />
+                    </span>
+                  )}
+                  {m.dot && <span className="lt-mobile-dot" style={{ background: m.dot }} />}
+                  <div className="lt-mobile-body">
+                    <div className="lt-mobile-line1">
+                      <span className="lt-mobile-primary">{m.primary}</span>
+                      {m.amount != null && <span className="lt-mobile-amount">{m.amount}</span>}
+                    </div>
+                    {(m.meta != null || m.pill) && (
+                      <div className="lt-mobile-line2">
+                        {m.meta != null && <span className="lt-mobile-meta">{m.meta}</span>}
+                        {m.pill}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                {expanded && renderExpanded && (
+                  <div className="lt-mobile-expanded">{renderExpanded(row)}</div>
+                )}
+              </React.Fragment>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

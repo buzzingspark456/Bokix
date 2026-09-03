@@ -6,6 +6,7 @@ import {
   Loader2,
   Users,
   BookOpen,
+  Landmark,
   FolderTree,
   BarChart3,
   Settings as SettingsIcon,
@@ -55,22 +56,18 @@ function BokixLogo({ onClick, compact = false }) {
     <button
       onClick={onClick}
       title="Till startsidan"
-      style={compact ? {
-        display: 'flex', alignItems: 'center', padding: 0,
-        background: 'none', border: 'none', cursor: 'pointer',
-        transition: 'opacity 0.15s', flexShrink: 0,
-      } : {
-        // Kundfeedback ("den ska vara i mitten, inte for mycket at hoger
-        // eller vanster"): loggan satt vansterjusterad i sin fullbredds-
-        // ruta (flex-column utan alignItems stracker BARNET, men en SVG
-        // har egen intrinsic bredd sa den hamnade kvar vid startkanten
-        // istallet). alignItems:'center' centrerar den horisontellt i
-        // sidomenyns logga-yta, textAlign inte langre relevant utan en
-        // textnod att justera.
-        padding: '22px 14px 18px', display: 'flex', flexDirection: 'column', alignItems: 'center',
-        background: 'none', border: 'none', cursor: 'pointer', width: '100%',
-        transition: 'opacity 0.15s',
-      }}
+      // Kundfeedback ("den ska vara i mitten, inte for mycket at hoger eller
+      // vanster"): loggan satt vansterjusterad i sin fullbredds-ruta
+      // (flex-column utan alignItems stracker BARNET, men en SVG har egen
+      // intrinsic bredd sa den hamnade kvar vid startkanten istallet).
+      // alignItems:'center' centrerar den horisontellt i sidomenyns
+      // logga-yta.
+      // Uppföljning ("amazing i helskärm, för stor/för mycket luft i
+      // halvskärm och på mobilen"): storlek/padding flyttade från inline
+      // style (fast pixelvärde oavsett fönsterbredd) till CSS-klasser
+      // (index.css) — bara CSS kan svara på @media-brytpunkter. Se
+      // .bokix-logo-btn--full/--compact + .bokix-wordmark--full/--compact.
+      className={compact ? 'bokix-logo-btn bokix-logo-btn--compact' : 'bokix-logo-btn bokix-logo-btn--full'}
       onMouseEnter={e => { e.currentTarget.style.opacity = '0.82'; }}
       onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
     >
@@ -80,7 +77,10 @@ function BokixLogo({ onClick, compact = false }) {
           Kundfeedback (upprepad): fortfarande för liten både i sidomenyn och
           i mobil-topbaren — ytterligare en storleksökning här, samma
           proportion bevarad på båda varianterna. */}
-      <BokixWordmark height={compact ? 37 : 62} />
+      <BokixWordmark
+        height={compact ? 37 : 62}
+        className={compact ? 'bokix-wordmark--compact' : 'bokix-wordmark--full'}
+      />
     </button>
   );
 }
@@ -352,6 +352,7 @@ const Expenses = lazy(() => import('./components/Expenses'));
 const SupplierInvoices = lazy(() => import('./components/SupplierInvoices'));
 const Contacts = lazy(() => import('./components/Contacts'));
 const Verifications = lazy(() => import('./components/Verifications'));
+const Bank = lazy(() => import('./components/Bank'));
 const Reports = lazy(() => import('./components/Reports'));
 const Settings = lazy(() => import('./components/Settings'));
 const Projects = lazy(() => import('./components/Projects'));
@@ -386,6 +387,7 @@ const ReviewQueue = lazy(() => import('./components/ReviewQueue'));
 const CompanySettings = lazy(() => import('./components/CompanySettings'));
 import HelpDrawer from './components/HelpDrawer';
 import Toast from './components/shared/Toast';
+import { ConfirmDialogHost, confirmDialog, promptDialog } from './components/shared/ConfirmDialog';
 import PaymentRequiredGate from './components/PaymentRequiredGate';
 import AddCompanyModal from './components/AddCompanyModal';
 import { maybeAutoStartTour, startProductTourWhenReady } from './utils/productTour';
@@ -647,6 +649,12 @@ function createEmptyCompanyData(companyInfo) {
       resendDomainId: '',
       emailDomainStatus: '', // '' | 'pending' | 'verified' | 'failed'
       emailDomainRecords: [],
+      // Bank – CSV/Excel-import (Bank.jsx): ihågkommen kolumnmappning per
+      // bank, nyckel = fingerprintHeaders(kolumnrubriker) (bankImport.js).
+      // Nästlad här (inte ett eget toppnivåfält på företaget) så den slipper
+      // en egen post i COMPANY_WRITABLE_FIELDS/set_company_field-vitlistan
+      // — 'company' är redan skrivbart.
+      bankImportProfiles: {},
       defaultVat: 25,
       fiscalYear: `${new Date().getFullYear()}-01-01`,
       vatPeriod: 'quarterly',
@@ -698,6 +706,13 @@ function createEmptyCompanyData(companyInfo) {
     reviewHistory: [],
     employees: [],
     payrollRuns: [],
+    // Bank – CSV/Excel-import (Bank.jsx). Företag som fanns innan den här
+    // funktionen skeppades har inget generellt backfill-steg (finns inte i
+    // kodbasen — se normalizeCompanyData nedan, som bara gör en engångs-
+    // migrering av offerter/fakturor) — Bank.jsx defaultar därför själv
+    // via `bankTransactions = []` i sin prop-destrukturering, samma
+    // konvention som `expenses = []` i Invoices.jsx.
+    bankTransactions: [],
   };
 }
 
@@ -839,9 +854,12 @@ function isSupabaseUnavailableError(error) {
 // TAB ROUTING & ALIASES
 // ──────────────────────────────────────────────
 const tabAliases = { 
-  profile:          'settings', 
+  profile:          'settings',
   users:            'settings',
-  bank:             'dashboard',
+  // 'bank' hade tidigare en död platshållare här ('bank' → 'dashboard') —
+  // Bank.jsx (Bank – CSV/Excel-import) finns nu på riktigt som 'bank', och
+  // resolveTab (nedan) faller redan tillbaka på id:t självt när det saknas
+  // här, så ingen alias-rad behövs längre.
   taxes_vat:        'taxes',
   taxes_yearend:    'taxes',
   time:             'projects',
@@ -2350,6 +2368,10 @@ function App() {
   const reviewHistory = currentCompany.reviewHistory || [];
   const employees = currentCompany.employees || [];
   const payrollRuns = currentCompany.payrollRuns || [];
+  // Bank – CSV/Excel-import (Bank.jsx). `|| []`: samma skyddsnät som
+  // quotes/articles ovan — konton inloggade sedan innan den här funktionen
+  // fanns saknar fältet i sparad data tills de sparar något själva.
+  const bankTransactions = currentCompany.bankTransactions || [];
   const timeEntries = currentCompany.timeEntries || [];
   const timeReportStatuses = currentCompany.timeReportStatuses || [];
   // Separat från `timeEntries` (Projekt-fliken, "hur mycket tid gick åt på
@@ -2382,6 +2404,7 @@ function App() {
   const setTimeReportStatuses = (fn) => updateCompanyField('timeReportStatuses', fn);
   const setBillableTimeEntries = (fn) => updateCompanyField('billableTimeEntries', fn);
   const setRecurringTemplates = (fn) => updateCompanyField('recurringTemplates', fn);
+  const setBankTransactions = (fn) => updateCompanyField('bankTransactions', (prev) => (typeof fn === 'function' ? fn(prev || []) : fn));
 
   const handleSaveVerificationTemplate = ({ name, description, projectId, costCenter, rows }) => {
     updateCompanyField('verificationTemplates', [
@@ -2497,7 +2520,7 @@ function App() {
   // resonemang gäller frånkoppling.
   const handleDisconnectStripe = async (reauthToken) => {
     if (!company.stripeAccountId) return;
-    if (!window.confirm('Koppla från Stripe? Bokix kan då inte längre ta emot kortbetalningar till det här kontot.')) return;
+    if (!(await confirmDialog('Koppla från Stripe? Bokix kan då inte längre ta emot kortbetalningar till det här kontot.'))) return;
 
     try {
       // Säkerhetsfix: user_id och stripe_account_id skickas inte längre med
@@ -2585,8 +2608,8 @@ function App() {
     return result;
   };
 
-  const handleDisconnectEmailDomain = () => {
-    if (!window.confirm('Koppla från den här avsändardomänen? Fakturor skickas via Bokix reservadress igen tills en ny domän kopplas och verifieras.')) return;
+  const handleDisconnectEmailDomain = async () => {
+    if (!(await confirmDialog('Koppla från den här avsändardomänen? Fakturor skickas via Bokix reservadress igen tills en ny domän kopplas och verifieras.'))) return;
     setCompanyInfo({ ...company, emailDomain: '', resendDomainId: '', emailDomainStatus: '', emailDomainRecords: [] });
   };
 
@@ -2981,13 +3004,21 @@ function App() {
   // slutföra idag (se PaySupplierInvoiceModal i SupplierInvoices.jsx för
   // varför "kort" fortfarande är "Kommer snart" och aldrig skickar hit
   // 'card').
-  const handleMarkSupplierInvoicePaid = (expenseId, paymentMethod = 'bank') => {
+  //
+  // `date` (Bank – CSV/Excel-import, Bank.jsx): tredje, valfritt argument
+  // — defaultar till idag precis som förut, så de två befintliga
+  // anropsställena (SupplierInvoices.jsx, Invoices.jsx→SupplierInvoices-
+  // Panel, båda `(id, paymentMethod)`) är opåverkade. Bank.jsx skickar
+  // istället bankradens EGNA datum (dagen pengarna faktiskt lämnade
+  // kontot) — annars skulle en bankmatchning bokföra betalningen på fel
+  // dag bara för att man råkar importera/bekräfta matchningen senare.
+  const handleMarkSupplierInvoicePaid = (expenseId, paymentMethod = 'bank', date = new Date().toISOString().split('T')[0]) => {
     const inv = expenses.find(e => e.id === expenseId);
     if (!inv) return;
-    setExpenses(prev => prev.map(e => e.id === expenseId ? { ...e, status: 'paid', paidDate: new Date().toISOString().split('T')[0], paymentMethod } : e));
+    setExpenses(prev => prev.map(e => e.id === expenseId ? { ...e, status: 'paid', paidDate: date, paymentMethod } : e));
 
     handleAddVerification({
-      date: new Date().toISOString().split('T')[0],
+      date,
       description: `Betalning leverantörsfaktura ${inv.invoiceNumber}`,
       source: 'supplier_invoice_payment',
       sourceId: inv.id,
@@ -3269,8 +3300,8 @@ function App() {
     if (importedData.company) updateCompanyField('company', { ...company, ...importedData.company });
   };
 
-  const handleResetData = () => {
-    if (window.confirm('Är du säker på att du vill återställa all data? Detta tar bort eventuella sparade uppgifter och startar om med tomt företag.')) {
+  const handleResetData = async () => {
+    if (await confirmDialog('Är du säker på att du vill återställa all data? Detta tar bort eventuella sparade uppgifter och startar om med tomt företag.', { danger: true })) {
       const defaultData = createEmptyCompanyData({ id: data.activeCompanyId });
       setData(prev => ({
         ...prev,
@@ -3323,6 +3354,7 @@ function App() {
     { id: 'quotes',        label: 'Offerter',            icon: FileSpreadsheet },
     { id: 'projects',      label: 'Projekt',             icon: Briefcase },
     { id: 'verifications', label: 'Bokföring',           icon: BookOpen },
+    { id: 'bank',          label: 'Bank',                icon: Landmark },
     { id: 'payroll',       label: 'Anställda och lön',   icon: UsersRound },
     { id: 'taxes',         label: 'Skatt och bokslut',   icon: Shield },
     { id: 'reports',       label: 'Rapport och analys',  icon: BarChart3 },
@@ -3349,6 +3381,7 @@ function App() {
             contacts={contacts}
             setActiveTab={setActiveTab}
             company={company}
+            user={user}
             profileIncomplete={!hasCompletedOnboarding}
             onResumeOnboarding={() => setShowOnboarding(true)}
             vatPeriods={vatPeriods}
@@ -3583,6 +3616,24 @@ function App() {
             initialTab={verificationsInitialTab}
           />
         );
+      case 'bank':
+        return (
+          <Bank
+            bankTransactions={bankTransactions}
+            bankImportProfiles={company?.bankImportProfiles || {}}
+            invoices={invoices}
+            expenses={expenses}
+            contacts={contacts}
+            accounts={accounts}
+            verifications={verifications}
+            vatPeriods={vatPeriods}
+            onSetBankTransactions={setBankTransactions}
+            onUpdateCompany={setCompanyInfo}
+            onRegisterInvoicePayment={handleRegisterInvoicePayment}
+            onMarkSupplierInvoicePaid={handleMarkSupplierInvoicePaid}
+            onAddVerification={handleAddVerification}
+          />
+        );
       case 'reports':
         return (
           <Reports
@@ -3745,6 +3796,7 @@ function App() {
               items: [
                 { id: 'review', label: 'Granskning', badge: reviewCount },
                 { id: 'verifications', label: 'Bokföring' },
+                { id: 'bank', label: 'Bank' },
                 { id: 'payroll', label: 'Anställda och lön' },
                 { id: 'reports', label: 'Rapport och analys' },
                 { id: 'taxes', label: 'Skatt och bokslut' },
@@ -3832,7 +3884,12 @@ function App() {
       {/* ── Main Content ── */}
       <main className="main-wrapper" key={activeTab}>
 
-        {/* Desktop Top Bar */}
+        {/* Desktop Top Bar — kundönskemål: ska bara synas på Startsidan, inte
+            på alla andra sidor. Hjälp/Logga ut finns ändå kvar överallt via
+            sidomenyns fasta botten-sektion (samma aside, ovanför); resten av
+            klustret (tema/notiser/övriga profilmeny-punkter) blir alltså
+            Startsida-bara. */}
+        {activeTab === 'dashboard' && (
         <div className="desktop-top-bar">
           <div className="desktop-topbar-left" style={{ flex: 1, marginRight: '32px' }}>
             {/* Hamburger (mobil) */}
@@ -3953,6 +4010,7 @@ function App() {
             </div>
           </div>
         </div>
+        )}
 
         {/* Mobile Top Bar */}
         <div className="global-top-bar">
@@ -4197,6 +4255,14 @@ function App() {
       {/* ── Toast — ersätter blockerande alert() för t.ex. "Stripe är nu
           ansluten", se stripe_connect-useEffect ── */}
       <Toast message={toast?.message} variant={toast?.variant} onClose={() => setToast(null)} />
+
+      {/* ── Confirm/prompt-dialog — ersätter native window.confirm()/
+          window.prompt() överallt i appen (Quotes/Invoices/Expenses/
+          SupplierInvoices/Verifications/Taxes/Settings/App.jsx), se
+          ConfirmDialog.jsx för resonemanget. En enda host här, anropad
+          imperativt (confirmDialog/promptDialog) från vilken fil som
+          helst — samma "en instans, anropad utifrån"-mönster som Toast. ── */}
+      <ConfirmDialogHost />
 
       {/* ── Logout Confirmation Modal ── */}
       {showLogoutConfirm && (

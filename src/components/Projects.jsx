@@ -145,17 +145,26 @@ function ProjectKpiStrip({ items }) {
   );
 }
 
-// ── Litet, vänligt tomläge för en enskild flik/grupp (t.ex. "inga träffar
-// vid sökning" eller "inga avdelningar än") — samma ikon-i-cirkel-mönster
-// som EmptyProjectsState nedan, bara kompaktare för att användas inuti en
-// redan navigerad flik istället för hela sidans förstagångsläge. ──
+// ── Vänligt tomläge för en enskild flik/grupp (t.ex. "inga träffar vid
+// sökning" eller "inga avdelningar än") — samma ikon-i-cirkel-mönster som
+// EmptyProjectsState nedan. Kundfeedback ("tidrapporten känns som en halv
+// sida"): fyllde tidigare bara en liten, fast-höjd box högst upp — på en
+// i övrigt full-höjds flik (Tidrapportering/Rapporter) lämnade det en stor
+// tom yta under, vilket lästes som att sidan var trasigt liten/halvfärdig.
+// Samma flex:1+centrerad-i-den-lediga-ytan-behandling som EmptyProjectsState
+// nedan/Quotes.jsx:s tomma-läge nu istället — kräver att anroparens EGEN
+// flex-kedja (se TimeReportsView/TimeTrackingTab) faktiskt ger den utrymme
+// att växa i, annars är flex:1 ett no-op. ──
 function SectionEmptyState({ icon: Icon = Search, title }) {
   return (
-    <div style={{ padding: '44px 24px', textAlign: 'center', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border)' }}>
-      <div style={{ width: 38, height: 38, borderRadius: '999px', background: 'var(--gray-100)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 10px' }}>
-        <Icon size={17} color="var(--text-muted)" />
+    <div style={{
+      flex: 1, minHeight: '280px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      textAlign: 'center', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border)',
+    }}>
+      <div style={{ width: 44, height: 44, borderRadius: '999px', background: 'var(--gray-100)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+        <Icon size={19} color="var(--text-muted)" />
       </div>
-      <div style={{ fontSize: '13.5px', fontWeight: 500, color: 'var(--text-secondary)' }}>{title}</div>
+      <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-secondary)' }}>{title}</div>
     </div>
   );
 }
@@ -394,18 +403,27 @@ function TimeTrackingTab({ projects, timeEntries, setTimeEntries, setProjects, p
   };
 
   return (
-    <div>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
       {rows.length === 0 ? (
         // Kundfeedback ("smooth, easy för kunder"): tomläget pekade tidigare
         // ner mot en liten, lös knapp en bra bit under boxen — två separata
         // block för samma handling. Samma "+ Lägg till projekt"-flöde (samma
         // showAddRow/ProjectSearch som blocket under tabellen) sitter nu
         // DIREKT i tomläget, en enda tydlig call-to-action istället för två.
-        <div style={{ margin: '0 20px', padding: '44px 24px', textAlign: 'center', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border)' }}>
-          <div style={{ width: 38, height: 38, borderRadius: '999px', background: 'var(--gray-100)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 10px' }}>
-            <Clock size={17} color="var(--text-muted)" />
+        //
+        // Kundfeedback (uppföljning, "tidrapporten känns som en halv sida"):
+        // en liten fast-höjd box högst upp på en i övrigt full-höjds flik
+        // lämnade en stor tom yta under den — samma flex:1-behandling som
+        // EmptyProjectsState/SectionEmptyState ovan nu istället, centrerad
+        // i HELA den lediga ytan snarare än att flyta i toppen.
+        <div style={{
+          flex: 1, minHeight: '280px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          margin: '0 20px', padding: '44px 24px', textAlign: 'center', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border)',
+        }}>
+          <div style={{ width: 44, height: 44, borderRadius: '999px', background: 'var(--gray-100)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+            <Clock size={19} color="var(--text-muted)" />
           </div>
-          <div style={{ fontSize: '13.5px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '16px' }}>Ingen tid registrerad ännu denna vecka.</div>
+          <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '16px' }}>Ingen tid registrerad ännu denna vecka.</div>
           {showAddRow ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', maxWidth: '280px', margin: '0 auto' }}>
               <div style={{ flex: 1 }}>
@@ -613,9 +631,9 @@ function TimeReportsView({ timeEntries, employees, timeReportStatuses, setTimeRe
   const ACTION_ICON = { pending: Send, submitted: ClipboardCheck, attested: CheckCircle2 };
 
   return (
-    <div>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
       {reports.length === 0 ? (
-        <div style={{ margin: '0 20px' }}><SectionEmptyState icon={ListChecks} title="Ingen tid loggad denna månad ännu." /></div>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', margin: '0 20px' }}><SectionEmptyState icon={ListChecks} title="Ingen tid loggad denna månad ännu." /></div>
       ) : (
         // Riktig tabell (samma delade ListTable-komponent som Fakturor/
         // Kontakter/Kontoplan) istället för fristående kortrader — en

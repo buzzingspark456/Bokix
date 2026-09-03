@@ -34,7 +34,7 @@ const PATH_D = "M8.39 37L2.92 37L2.92 35.25Q3.79 34.75 4.78 34.38Q5.77 34.01 6.6
 const VB_WIDTH = 125;
 const VB_HEIGHT = 40;
 
-export default function BokixWordmark({ height = 34, style }) {
+export default function BokixWordmark({ height = 34, style, className }) {
   // Egen gradient-id per instans (useId()) — annars kolliderar två
   // samtidigt monterade loggor (t.ex. sidopanelen + mobilens topbar) på
   // samma id="...", vilket i vissa webbläsare tyst tappar fyllningen på
@@ -44,7 +44,7 @@ export default function BokixWordmark({ height = 34, style }) {
   return (
     <svg
       viewBox={`0 0 ${VB_WIDTH} ${VB_HEIGHT}`} width={width} height={height}
-      xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Bokix" style={style}
+      xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Bokix" style={style} className={className}
     >
       <defs>
         <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">

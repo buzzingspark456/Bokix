@@ -568,6 +568,10 @@ function FormActions({ onCancel, label }) {
 export default function Contacts({ contacts, setContacts, accounts = [], globalAction, clearGlobalAction }) {
   const [activeTab, setActiveTab] = useState('customer'); // 'customer' | 'supplier'
   const [searchTerm, setSearchTerm] = useState('');
+  // Kundönskemål: "en knapp där man kan se femton, trettio, femtio" — en
+  // visa-N-åt-gången-väljare, inte fullständig sidnumrering. 30 som förval,
+  // samma "rimligt mellanläge"-tänk som ListFilterBar:s PAGE_SIZE_OPTIONS.
+  const [pageSize, setPageSize] = useState(30);
   const [viewState, setViewState] = useState('list'); // 'list' | 'new' | 'edit'
   const [selectedContact, setSelectedContact] = useState(null);
 
@@ -641,6 +645,9 @@ export default function Contacts({ contacts, setContacts, accounts = [], globalA
       c.phone?.toLowerCase().includes(s)
     );
   });
+  // "Visa N åt gången" skär bara av VYN — export/import ovan använder
+  // fortfarande hela `filtered`/den obeskurna listan, inte den här.
+  const visible = pageSize === 'all' ? filtered : filtered.slice(0, pageSize);
 
   const title = activeTab === 'customer' ? 'Kunder' : 'Leverantörer';
   const newBtnText = activeTab === 'customer' ? 'Ny kund' : 'Ny leverantör';
@@ -741,7 +748,12 @@ export default function Contacts({ contacts, setContacts, accounts = [], globalA
           (ListFilterBar, direkt under flikraden) — precis som Bokförings
           filterrad, istället för att flyta löst på sidbakgrunden. */}
       {viewState === 'list' && (
-        <ListFilterBar>
+        <ListFilterBar
+          count={filtered.length}
+          countLabel={activeTab === 'customer' ? (filtered.length === 1 ? 'kund' : 'kunder') : (filtered.length === 1 ? 'leverantör' : 'leverantörer')}
+          pageSize={pageSize}
+          onPageSizeChange={setPageSize}
+        >
           <div style={{ position: 'relative' }}>
             <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
             <input type="text" placeholder={`Sök ${activeTab === 'customer' ? 'kund' : 'leverantör'}...`} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={listSearchInputStyle} />
@@ -771,10 +783,25 @@ export default function Contacts({ contacts, setContacts, accounts = [], globalA
                   rowKey={c => c.id}
                   onRowClick={openDetail}
                   emptyMessage="Ingen matchade sökningen"
-                  rows={filtered}
+                  rows={visible}
+                  mobileList={c => ({
+                    dot: c.active !== false ? 'var(--status-green-text)' : 'var(--text-muted)',
+                    primary: c.name,
+                    amount: c.totalInvoicedThisYear
+                      ? new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(c.totalInvoicedThisYear)
+                      : undefined,
+                    meta: [c.orgNr, c.contactPerson || c.email].filter(Boolean).join(' · ') || undefined,
+                    pill: (
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', borderRadius: '999px', fontSize: '10.5px', fontWeight: 600,
+                        background: c.active !== false ? 'var(--status-green-bg)' : 'var(--border-light)',
+                        color: c.active !== false ? 'var(--status-green-text)' : 'var(--text-secondary)',
+                      }}>{c.active !== false ? 'Aktiv' : 'Inaktiv'}</span>
+                    ),
+                  })}
                   columns={[
                     {
-                      key: 'name', label: 'Namn', render: c => (
+                      key: 'name', label: 'Namn', wrap: true, render: c => (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                           <div style={{
                             width: 34, height: 34, borderRadius: '8px',

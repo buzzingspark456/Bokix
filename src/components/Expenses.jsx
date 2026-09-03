@@ -6,6 +6,7 @@ import { AccountSearch } from './shared/SearchInputs';
 import ListPageHeader from './shared/ListPageHeader';
 import { uploadFileToStorage } from '../utils/fileUpload';
 import { BRAND } from '../utils/brandColors';
+import { confirmDialog } from './shared/ConfirmDialog';
 
 // ── Formatting ──
 const formatSEK = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
@@ -138,7 +139,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, allReceipts, status, 
   const isPdf = receipt.receiptType === 'application/pdf' && receipt.receiptUrl;
   const accountLabel = accounts.find(a => a.code === form.costAccount);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const newErrors = {};
     const amount = parseAmount(form.amount);
     if (!form.date) newErrors.date = 'Datum krävs.';
@@ -152,7 +153,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, allReceipts, status, 
     // själv som en dublett så fort man öppnar och sparar det en andra gång.
     const dup = allReceipts.find(r => r.id !== receipt.id && r.date === form.date && Math.abs((r.amount || 0) - amount) < 0.01 && (r.supplier || '').trim().toLowerCase() === form.supplier.trim().toLowerCase());
     if (dup) {
-      const ok = window.confirm(`Det finns redan ett kvitto från "${dup.supplier}" på ${formatSEK(dup.amount)} samma datum. Vill du spara ändå?`);
+      const ok = await confirmDialog(`Det finns redan ett kvitto från "${dup.supplier}" på ${formatSEK(dup.amount)} samma datum. Vill du spara ändå?`);
       if (!ok) return;
     }
 
@@ -258,7 +259,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, allReceipts, status, 
               // samma princip som fakturors "Skapa en kreditfaktura".
               <button
                 type="button"
-                onClick={() => { if (window.confirm('Skapa en rättelseverifikation som nollar ut kontering och belopp för det här kvittot? Originalbokföringen finns kvar i historiken, bara raderas eller ändras aldrig.')) { onReverse(receipt.id); onClose(); } }}
+                onClick={async () => { if (await confirmDialog('Skapa en rättelseverifikation som nollar ut kontering och belopp för det här kvittot? Originalbokföringen finns kvar i historiken, bara raderas eller ändras aldrig.')) { onReverse(receipt.id); onClose(); } }}
                 style={{ display: 'flex', alignItems: 'center', gap: '5px', background: 'none', border: 'none', color: BRAND.amberText, fontSize: '13px', fontWeight: 600, cursor: 'pointer', padding: '8px 4px' }}
               >
                 <RotateCcw size={14} /> Rätta bokföring
@@ -266,7 +267,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, allReceipts, status, 
             ) : status !== 'reversed' ? (
               <button
                 type="button"
-                onClick={() => { if (window.confirm('Ta bort det här kvittot? Det går inte att ångra.')) { onDelete(receipt.id); onClose(); } }}
+                onClick={async () => { if (await confirmDialog('Ta bort det här kvittot? Det går inte att ångra.', { danger: true })) { onDelete(receipt.id); onClose(); } }}
                 style={{ display: 'flex', alignItems: 'center', gap: '5px', background: 'none', border: 'none', color: BRAND.redText, fontSize: '13px', fontWeight: 600, cursor: 'pointer', padding: '8px 4px' }}
               >
                 <Trash2 size={14} /> Ta bort

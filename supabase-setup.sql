@@ -752,7 +752,11 @@ BEGIN
     'accounts', 'verifications', 'invoices', 'quotes', 'expenses', 'contacts',
     'articles', 'projects', 'timeEntries', 'timeReportStatuses',
     'billableTimeEntries', 'recurringTemplates', 'verificationTemplates',
-    'vatPeriods', 'reviewHistory', 'employees', 'payrollRuns', 'company'
+    'vatPeriods', 'reviewHistory', 'employees', 'payrollRuns', 'company',
+    -- Bank – CSV/Excel-import (Bank.jsx). Hålls manuellt i synk mot
+    -- COMPANY_WRITABLE_FIELDS i src/utils/companyFields.js — den här
+    -- SQL-funktionen kan inte importera JS.
+    'bankTransactions'
   ) THEN
     RAISE EXCEPTION 'Ogiltigt fält för set_company_field: %', p_field;
   END IF;

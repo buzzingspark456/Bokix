@@ -36,6 +36,24 @@ export const BRAND = {
 };
 
 /**
+ * Djärva, mättade ikon-kulörer — literal hex med flit, samma resonemang som
+ * BRAND.green: dessa ÄR den starka accentfärgen (solid bakgrund + vit ikon),
+ * inte en pastell "status-badge"-yta som ska vara diskret. Kundfeedback:
+ * Snabbåtgärderna och "Att göra idag"-ikonerna återanvände BRAND.*Bg/*Text
+ * (--status-*, index.css) — tänkta för diskreta statusmärken, inte för
+ * knappar man vill klicka på — och blev därför blek/urvattnad ("AI-mall"-
+ * känsla). Samma nyanser oavsett tema (vit ikon på en mättad platta läses
+ * lika bra i båda), så ingen ljust/mörkt-uppdelning behövs här.
+ */
+export const VIVID = {
+  green: '#16a34a',  // Ny faktura, "Allt klart"/success-ikoner
+  blue:  '#2563eb',  // Ladda upp kvitto, informativa ikoner
+  pink:  '#db2777',  // Ny kontakt
+  amber: '#d97706',  // Rapportera tid, varning/väntar-ikoner
+  red:   '#dc2626',  // Förfallet/kritiskt
+};
+
+/**
  * Djärva gradient-par för "hero"-siffror (Startsidans Resultat/Intäkter/
  * Kostnader-kort m.fl.) — literal hex med flit, precis som BRAND.green:
  * dessa ÄR den starka accentfärgen själv (ett `linear-gradient`-bakgrund),

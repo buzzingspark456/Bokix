@@ -3,7 +3,7 @@ import {
   FileText, Receipt, TrendingUp, TrendingDown,
   ChevronRight, ArrowUpRight, ArrowDownRight,
   CheckCircle2, Minus, BarChart2,
-  UserPlus, Users, Clock, AlertCircle, Zap, X, MessageSquare,
+  UserPlus, Users, Clock, AlertCircle, Zap, X, MessageSquare, ClipboardCheck,
   // Aliasat — 'LineChart' krockar annars med recharts-komponenten med
   // samma namn som redan importeras nedan (två helt olika saker: en ikon
   // kontra en diagramkomponent).
@@ -18,7 +18,7 @@ import { getDebet, getKredit } from '../utils/verificationAmounts';
 import { quarterToRange } from '../utils/vatCalculation';
 import { nextVatDeadline } from '../utils/declarationDeadlines';
 import { getGreeting } from '../utils/greeting';
-import { BRAND, KPI_GRADIENTS } from '../utils/brandColors';
+import { BRAND, KPI_GRADIENTS, VIVID } from '../utils/brandColors';
 import { useIsMobileViewport } from '../hooks/useIsMobileViewport';
 
 /* ── Färger (Sida 30): grönt för positivt/rött för negativt, konsekvent i
@@ -201,19 +201,23 @@ function ChartDataTable({ data, mode, fmt, hasPrevYearData, previousYear }) {
 // Snabbåtgärder — varje genväg får en egen tydlig färg istället för samma
 // enfärgade gröna chip för alla fyra, så raden känns levande och man kan
 // skilja knapparna åt med ett enda ögonkast.
+// Kundfeedback ("starkare färger, inte AI-mall-känsla"): bytt från de bleka
+// status-badge-tonerna (BRAND.*Bg/*Text, tänkta för diskreta märken) till
+// VIVID — solida, mättade plattor med vit ikon (se brandColors.js).
 const QUICK_ACTIONS = [
-  { label: 'Ny faktura',       icon: FileText, tab: 'invoices', fg: BRAND.greenDark, bg: BRAND.greenLight },
-  { label: 'Ladda upp kvitto', icon: Receipt,  tab: 'expenses', fg: BRAND.blueText,  bg: BRAND.blueBg },
-  { label: 'Ny kontakt',       icon: UserPlus, tab: 'contacts', fg: BRAND.pinkText,  bg: BRAND.pinkBg },
-  { label: 'Rapportera tid',   icon: Clock,    tab: 'projects', fg: BRAND.amberText, bg: BRAND.amberBg },
+  { label: 'Ny faktura',       icon: FileText, tab: 'invoices', bg: VIVID.green },
+  { label: 'Ladda upp kvitto', icon: Receipt,  tab: 'expenses', bg: VIVID.blue },
+  { label: 'Ny kontakt',       icon: UserPlus, tab: 'contacts', bg: VIVID.pink },
+  { label: 'Rapportera tid',   icon: Clock,    tab: 'projects', bg: VIVID.amber },
 ];
 
-// Röd/gul/grön — exakt BRAND-tokens, samma som redan används för statusar
-// i övriga listor i appen (Bokförd/Granska/Förfallen).
+// Röd/gul/grön — samma BRAND-tokens som statusar i övriga listor i appen
+// (Bokförd/Granska/Förfallen) för radens BAKGRUND (bg, diskret tint), men en
+// solid VIVID-platta för ikon-chippen (icon) — se QUICK_ACTIONS-kommentaren.
 const SEV = {
-  danger:  { bg: BRAND.redBg,    text: BRAND.redText,   rank: 0 },
-  warning: { bg: BRAND.amberBg,  text: BRAND.amberText, rank: 1 },
-  success: { bg: BRAND.greenLight, text: BRAND.greenDark, rank: 2 },
+  danger:  { bg: BRAND.redBg,    text: BRAND.redText,   icon: VIVID.red,   rank: 0 },
+  warning: { bg: BRAND.amberBg,  text: BRAND.amberText, icon: VIVID.amber, rank: 1 },
+  success: { bg: BRAND.greenLight, text: BRAND.greenDark, icon: VIVID.green, rank: 2 },
 };
 
 // Etikett för "Senast bokfört" — vilken typ av affärshändelse en
@@ -316,8 +320,11 @@ function KpiCard({ label, value, sub, icon: Icon, color, bg, positive, onClick, 
 }
 
 /* ── "Idag"-raden — konkreta, klickbara händelser. Röd > gul > grön styr
-   ordningen, aldrig kronologi. Tom kö visas aldrig som tomrum — en lugn
-   grön rad förklarar att inget kräver uppmärksamhet. ── */
+   ordningen, aldrig kronologi. Tom kö renderas inte här längre — Dashboards
+   "Allt klart"-läge (hasUrgent === false) tar ett eget, lugnare spår
+   istället, se anropsstället. Så varje TodayRow som faktiskt renderas är
+   alltid klickbar, riktig hover (lyft + skugga, samma språk som
+   Snabbåtgärder-korten ovanför) istället för bara en opacitetsdimning. ── */
 function TodayRow({ item, onClick }) {
   const c = SEV[item.sev] || SEV.warning;
   const Icon = item.icon;
@@ -326,14 +333,15 @@ function TodayRow({ item, onClick }) {
       onClick={onClick}
       style={{
         display: 'flex', alignItems: 'center', gap: '10px', width: '100%',
-        padding: '10px 10px', background: c.bg, border: 'none',
-        borderRadius: '10px', cursor: item.tab ? 'pointer' : 'default',
-        textAlign: 'left', transition: 'opacity 0.15s', fontFamily: 'inherit',
+        padding: '11px 12px', background: c.bg, border: 'none',
+        borderRadius: '10px', cursor: 'pointer',
+        textAlign: 'left', transition: 'transform 0.15s, box-shadow 0.15s', fontFamily: 'inherit',
+        boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
       }}
-      onMouseEnter={e => item.tab && (e.currentTarget.style.opacity = '0.82')}
-      onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 14px rgba(0,0,0,0.08)'; }}
+      onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,0.03)'; }}
     >
-      <div style={{ width: 24, height: 24, borderRadius: '7px', background: 'var(--status-chip-bg)', color: c.text, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+      <div style={{ width: 26, height: 26, borderRadius: '8px', background: c.icon, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: `0 2px 5px ${c.icon}55` }}>
         <Icon size={13} />
       </div>
       <span style={{ flex: 1, fontSize: '12.5px', fontWeight: 600, color: c.text, lineHeight: 1.3 }}>{item.text}</span>
@@ -342,7 +350,7 @@ function TodayRow({ item, onClick }) {
   );
 }
 
-export default function Dashboard({ verifications, invoices, expenses, contacts, setActiveTab, company, vatPeriods = {}, payrollRuns = [] }) {
+export default function Dashboard({ verifications, invoices, expenses, contacts, setActiveTab, company, user, vatPeriods = {}, payrollRuns = [] }) {
   const [chartMode, setChartMode] = useState('revenue-expense');
   const [chartFormat, setChartFormat] = useState('bars');
   // Sparat val, samma mönster som temat (App.jsx bokix_theme) — en användare
@@ -636,7 +644,19 @@ export default function Dashboard({ verifications, invoices, expenses, contacts,
 
   // ── Hälsning — tidsgränser i delad util, inte inline ──
   const { greeting } = getGreeting();
-  const firstName = company?.name?.split(' ')[0] || '';
+  // Kundönskemål: hälsningen ska visa vad ANVÄNDAREN vill bli kallad (satt
+  // under Inställningar → Min profil → Förnamn), inte en gissning baserad
+  // på företagsnamnet — en enskild firma "Anna Andersson AB" gav "Anna",
+  // men ett aktiebolag "Nordstrom Konsult AB" hade lika gärna kunnat ge
+  // "Nordstrom" istället för ett riktigt förnamn. Företagsnamnet är kvar
+  // som sista utväg för konton som ännu inte fyllt i sitt förnamn.
+  const firstName = user?.user_metadata?.first_name || company?.name?.split(' ')[0] || '';
+  // Samma Min profil-sektion: av/på för hela hälsningsraden. Standard PÅ
+  // (bara explicit false döljer den) så befintliga konton inte tappar den
+  // tyst. Döljs den ska resten av sidan flytta upp — se att blocket nedan
+  // hoppas över HELT (inget tomt div kvar som fortfarande tar sin
+  // marginBottom) istället för att bara göra texten osynlig.
+  const showGreeting = user?.user_metadata?.show_dashboard_greeting !== false;
 
   return (
     // Bugkritiskt: rotdiven hade varken minHeight eller egen bakgrund, bara
@@ -649,10 +669,14 @@ export default function Dashboard({ verifications, invoices, expenses, contacts,
     // roten hade noll padding (uppmätt: h1 stod EXAKT vid samma x-koordinat
     // som sidomenyns högerkant, 0px marginal) — till skillnad från Rapport
     // och analys/Skatt och bokslut, som redan har egen 24px innehålls-
-    // padding på motsvarande nivå. Samma 24px här nu, så Startsidan matchar
-    // de andra "dashboard-liknande" sidorna istället för att stå ensam
-    // helt flush mot kanten.
-    <div style={{ maxWidth: '100%', margin: '0 auto', width: '100%', minHeight: '100%', boxSizing: 'border-box', background: 'var(--bg-page)', padding: '24px' }}>
+    // padding på motsvarande nivå. Samma 24px här nu (sidor/botten), så
+    // Startsidan matchar de andra "dashboard-liknande" sidorna istället för
+    // att stå ensam helt flush mot kanten.
+    // Uppföljning ("för mycket space" efter att topbaren krympte och
+    // tappade sin egen bakgrund/kant): samma 24px OVANFÖR gav nu, utan en
+    // synlig linje som motiverar den, ett stort odifferentierat tomrum
+    // innan hälsningen — bara toppen trimmad, sidorna/botten oförändrade.
+    <div style={{ maxWidth: '100%', margin: '0 auto', width: '100%', minHeight: '100%', boxSizing: 'border-box', background: 'var(--bg-page)', padding: '24px', paddingTop: '8px' }}>
       <style>{`
         @media (max-width: 900px) {
           .dash-lower-grid { grid-template-columns: 1fr !important; }
@@ -678,12 +702,26 @@ export default function Dashboard({ verifications, invoices, expenses, contacts,
       {/* Kundfeedback: räkenskapsårsraden och "X saker väntar"-statusraden
           (tidigare här) togs bort helt — kändes onödiga/upprepade (statusen
           finns redan i "Att göra idag" nedan, räkenskapsåret i grafrubriken
-          längre ner). Bara hälsningen kvar, större och centrerad. */}
-      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
-        <h1 style={{ fontFamily: 'var(--font-voice)', fontWeight: 700, fontSize: '32px', letterSpacing: '-0.01em', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '10px', textAlign: 'center' }}>
-          {greeting}, {firstName || company?.name?.split(' ')[0] || 'Användare'} 👋
+          längre ner). Bara hälsningen kvar, större och centrerad.
+          Går att stänga av helt (Inställningar → Min profil) — blocket
+          hoppas då över i sin helhet, ingen kvarlämnad marginBottom, så
+          Snabbåtgärder-raden nedanför flyttar upp och tar platsen istället
+          för att lämna ett tomt hål. */}
+      {showGreeting && (
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px', padding: '0 12px' }}>
+        {/* Bugkritiskt: display:flex på ett <h1> som bara innehåller löpande
+            text (namn + emoji) bröt radbrytningen på smala/halva skärmar —
+            "Good evening" och ", Abdullah 👋" hamnade på separata rader på
+            konstiga ställen istället för att radbryta som en sammanhängande
+            mening. En vanlig textrad (ingen flex, bara textAlign:center)
+            radbryter normalt om den någonsin behöver, och clamp() gör att
+            den sällan ens behöver det — storleken krymper mjukt med
+            fönsterbredden istället för en fast 44px oavsett skärm. */}
+        <h1 style={{ fontFamily: 'var(--font-voice)', fontWeight: 700, fontSize: 'clamp(24px, 6vw, 44px)', letterSpacing: '-0.01em', color: 'var(--text-main)', textAlign: 'center', margin: 0, maxWidth: '100%' }}>
+          {greeting}, {firstName || 'Användare'} 👋
         </h1>
       </div>
+      )}
 
       {/* ─── SNABBÅTGÄRDER — det man faktiskt kom hit för att GÖRA, högst
           upp och tydligt, istället för begravt längst ner på sidan under
@@ -711,7 +749,7 @@ export default function Dashboard({ verifications, invoices, expenses, contacts,
               onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 20px rgba(0,0,0,0.08)'; }}
               onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04)'; }}
             >
-              <div style={{ width: 32, height: 32, borderRadius: '9px', background: a.bg, color: a.fg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <div style={{ width: 32, height: 32, borderRadius: '9px', background: a.bg, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: `0 2px 6px ${a.bg}4d` }}>
                 <a.icon size={15} />
               </div>
               <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', lineHeight: 1.2 }}>{a.label}</span>
@@ -722,12 +760,28 @@ export default function Dashboard({ verifications, invoices, expenses, contacts,
 
       {/* ─── ATT GÖRA IDAG — sidans mest konkreta, klickbara lista, nu i full
           bredd direkt under Snabbåtgärder istället för instängd i en trång
-          bottenruta. Röd/gul/grön styr ordning, aldrig kronologi. ─── */}
+          bottenruta. Röd/gul/grön styr ordning, aldrig kronologi.
+          Kundfeedback ("bättre UI/bakgrund"): dekorationscirkeln var
+          osynlig/meningslös (5% grön på cremefärg), rubriken hade ingen
+          ikon (till skillnad från Snabbåtgärder ovanför) och radernas
+          "hover" var bara en opacitetsdimning — allt uppgraderat nedan.
+          "Allt klart" var dessutom bara ÄNNU en radknapp trots att den inte
+          går att klicka på (tab: null) — nu ett eget, lugnare tillstånd som
+          faktiskt känns som en belöning istället för fyllnadsinnehåll. ─── */}
       {!isNew && (
         <div style={{ position: 'relative', background: 'var(--bg-cream)', border: '1px solid var(--bg-cream-border)', borderRadius: '14px', padding: '16px 18px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)', overflow: 'hidden', marginBottom: '20px' }}>
-          <div aria-hidden="true" style={{ position: 'absolute', top: '-50px', right: '-50px', width: '150px', height: '150px', borderRadius: '50%', background: 'rgba(11,99,41,0.05)' }} />
-          <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-            <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>Att göra idag</span>
+          {/* Glöden syns bara när allt faktiskt ÄR klart — dekoration som
+              betyder något (lugn/klart), inte bara utfyllnad oavsett läge. */}
+          {!hasUrgent && (
+            <div aria-hidden="true" style={{ position: 'absolute', top: '-70px', right: '-50px', width: '200px', height: '200px', borderRadius: '50%', background: `radial-gradient(circle, ${VIVID.green}1f, transparent 70%)` }} />
+          )}
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ width: 28, height: 28, borderRadius: '9px', background: hasUrgent ? VIVID.amber : VIVID.green, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: `0 2px 6px ${(hasUrgent ? VIVID.amber : VIVID.green)}4d` }}>
+                <ClipboardCheck size={16} />
+              </div>
+              <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>Att göra idag</span>
+            </div>
             <span style={{
               fontSize: '11px', fontWeight: 700, padding: '3px 9px', borderRadius: '999px',
               background: hasUrgent ? 'var(--bg-muted)' : BRAND.greenLight,
@@ -736,11 +790,21 @@ export default function Dashboard({ verifications, invoices, expenses, contacts,
               {hasUrgent ? `${todos.length} ${todos.length === 1 ? 'post' : 'poster'}` : 'Allt klart'}
             </span>
           </div>
-          <div className="dash-todo-grid" style={{ position: 'relative', display: 'grid', gridTemplateColumns: todos.length > 1 ? 'repeat(2,1fr)' : '1fr', gap: '6px' }}>
-            {todos.map((t, i) => (
-              <TodayRow key={i} item={t} onClick={() => t.tab && setActiveTab(t.tab)} />
-            ))}
-          </div>
+
+          {hasUrgent ? (
+            <div className="dash-todo-grid" style={{ position: 'relative', display: 'grid', gridTemplateColumns: todos.length > 1 ? 'repeat(2,1fr)' : '1fr', gap: '8px' }}>
+              {todos.map((t, i) => (
+                <TodayRow key={i} item={t} onClick={() => t.tab && setActiveTab(t.tab)} />
+              ))}
+            </div>
+          ) : (
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '10px', padding: '4px 2px 2px' }}>
+              <div style={{ width: 30, height: 30, borderRadius: '50%', background: VIVID.green, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: `0 3px 8px ${VIVID.green}40` }}>
+                <CheckCircle2 size={16} />
+              </div>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>{todos[0].text}</span>
+            </div>
+          )}
         </div>
       )}
 

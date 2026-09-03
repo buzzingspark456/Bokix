@@ -8,6 +8,7 @@ import ListPageHeader, { ListSearchRow, listHeaderButtonStyle } from './shared/L
 import ListTable from './shared/ListTable';
 import { uploadFileToStorage } from '../utils/fileUpload';
 import { BRAND } from '../utils/brandColors';
+import { confirmDialog } from './shared/ConfirmDialog';
 
 const formatSEK = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
 const formatDate = (d) => {
@@ -44,10 +45,22 @@ const labelSt = { display: 'block', fontSize: '13px', fontWeight: 600, color: 'v
 const errSt = { fontSize: '12px', color: 'var(--status-red-text)', marginTop: '4px' };
 const helpSt = { fontSize: '12px', color: 'var(--text-muted)', marginTop: '6px', lineHeight: 1.4 };
 
+// Kundfeedback ("i ljust läge, gör dem mer synliga... jag vet inte om den
+// är grå eller inte"): den här sidans Obetald/Betald-märken använde den
+// bleka --status-amber/-green-pastellen (samma ton som "neutrala, inget
+// hänt än"-badges) — samma sorts svag kontrast mot en ljus sidbakgrund som
+// gjorde dem svåra att skilja åt på håll/för nedsatt syn. Fakturering
+// (Invoices.jsx STRONG_PAID/STRONG_UNPAID) löste redan exakt det här för
+// kundfakturor med en heltäckande, mättad bakgrund + vit text — samma
+// literala, tema-oberoende färger här nu istället, så Leverantörsfakturor
+// och Fakturering ser ut som EN produkt, inte två olika kontrastnivåer.
+const STRONG_PAID = { bg: '#16a34a', text: '#ffffff' };
+const STRONG_UNPAID = { bg: '#d97706', text: '#ffffff' };
+
 function StatusBadge({ status }) {
   const map = {
-    paid: { label: 'Betald', bg: BRAND.greenLight, color: BRAND.greenDark },
-    unpaid: { label: 'Obetald', bg: BRAND.amberBg, color: BRAND.amberText },
+    paid: { label: 'Betald', bg: STRONG_PAID.bg, color: STRONG_PAID.text },
+    unpaid: { label: 'Obetald', bg: STRONG_UNPAID.bg, color: STRONG_UNPAID.text },
     overdue: { label: 'Förfallen', bg: '#fff1f2', color: '#be123c' },
   };
   const s = map[status] || map.unpaid;
@@ -565,7 +578,7 @@ function SupplierInvoiceViewer({ invoice, contacts, accounts, projects, onClose,
         {invoice.status === 'paid' ? (
           <button
             type="button"
-            onClick={() => { if (window.confirm('Markera fakturan som obetald igen? Betalningsverifikationen tas bort.')) onUnmarkPaid?.(); }}
+            onClick={async () => { if (await confirmDialog('Markera fakturan som obetald igen? Betalningsverifikationen tas bort.')) onUnmarkPaid?.(); }}
             style={listHeaderButtonStyle('secondary')}
           >
             Markera som obetald
@@ -935,8 +948,24 @@ export default function SupplierInvoices({
             onRowClick={inv => setViewingInvoice(inv)}
             emptyMessage={list.length === 0 ? 'Inga leverantörsfakturor registrerade än.' : 'Ingen matchade sökningen.'}
             rows={filtered}
+            mobileList={inv => {
+              const needsReview = !inv.costAccount && !inv.rows?.length;
+              const effectivelyPaid = inv.status === 'paid' || optimisticPaid[inv.id];
+              const isOverdue = !effectivelyPaid && inv.dueDate && new Date(inv.dueDate) < new Date();
+              const dot = needsReview ? BRAND.amberText : isOverdue ? '#be123c' : effectivelyPaid ? STRONG_PAID.bg : STRONG_UNPAID.bg;
+              const dueLabel = effectivelyPaid ? 'betald' : isOverdue ? 'förföll' : 'förfaller';
+              return {
+                dot,
+                primary: contacts.find(c => c.id === inv.supplierId)?.name || inv.supplier || 'Okänd leverantör',
+                amount: formatSEK(inv.amount),
+                meta: `#${inv.invoiceNumber} · ${dueLabel} ${formatDate(inv.dueDate)}`,
+                pill: needsReview ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', borderRadius: '999px', fontSize: '10.5px', fontWeight: 600, background: BRAND.amberBg, color: BRAND.amberText }}><AlertCircle size={11} /> Granska</span>
+                ) : <StatusBadge status={effectivelyPaid ? 'paid' : (isOverdue ? 'overdue' : 'unpaid')} />,
+              };
+            }}
             columns={[
-              { key: 'supplier', label: 'Leverantör', fontWeight: 600, color: 'var(--text-main)', fontSize: '14px', render: inv => contacts.find(c => c.id === inv.supplierId)?.name || inv.supplier || 'Okänd leverantör' },
+              { key: 'supplier', label: 'Leverantör', fontWeight: 600, color: 'var(--text-main)', fontSize: '14px', wrap: true, render: inv => contacts.find(c => c.id === inv.supplierId)?.name || inv.supplier || 'Okänd leverantör' },
               { key: 'invoiceNumber', label: 'Fakturanummer', color: 'var(--text-main)', render: inv => `#${inv.invoiceNumber}` },
               { key: 'date', label: 'Fakturadatum', render: inv => formatDate(inv.date) },
               {

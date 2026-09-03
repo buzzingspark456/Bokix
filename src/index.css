@@ -161,7 +161,12 @@
   --status-red-bg:    #fcebeb;
   --status-red-text:  #791f1f;
   --status-gray-bg:   #f1efe8;
-  --status-gray-text: #6b7280;
+  /* Bugfix (kundfeedback, ljust läge: "jag vet inte om den är grå eller
+     inte... de behöver se bra"): #6b7280 mot #f1efe8 gav 4.20:1 —
+     under WCAG AA:s 4.5:1-krav för normal text, uppmätt. #4b5563 (samma
+     nyans, bara mörkare) ger 6.57:1, gott och väl godkänt utan att bytas
+     mot en annan färg — fortfarande läses som "neutral grå", inte svart. */
+  --status-gray-text: #4b5563;
   --status-blue-bg:   #dbeafe;
   --status-blue-text: #1d4ed8;
   --status-pink-bg:   #fbe3ee;
@@ -578,6 +583,48 @@ body {
   padding: 0;
 }
 
+/* Bokix-loggan (App.jsx: BokixLogo) — base-stilarna för de två varianterna,
+   flyttade hit FRÅN inline style specifikt så storlek/padding kan svara på
+   @media-brytpunkter nedan (en riktig inline style vinner alltid över CSS,
+   oavsett specificitet, så det gick inte att bara override:a den på plats). */
+.bokix-logo-btn {
+  display: flex;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.bokix-logo-btn--compact {
+  align-items: center;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.bokix-logo-btn--full {
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  padding: 22px 14px 18px;
+}
+
+/* Kundfeedback: "amazing" i helskärm (denna storlek/padding, orörd här) —
+   men i halvskärm/ett smalare fönster (sidomenyn själv krymper redan till
+   200px, se --sidebar-width ≤1024px nedan) blev SAMMA fasta 62px-logga och
+   22/14/18px-padding för stor/för mycket luft runt en nu smalare kolumn.
+   Bara `width:auto` + `height` här — CSS-egenskaper vinner alltid över
+   width/height-ATTRIBUT (till skillnad från riktig inline style), så ingen
+   !important behövs. */
+@media (max-width: 1024px) {
+  .bokix-logo-btn--full {
+    padding: 15px 12px 13px;
+  }
+  .bokix-wordmark--full {
+    width: auto;
+    height: 52px;
+  }
+}
+
 /* Company selector */
 .company-selector {
   display: flex;
@@ -941,20 +988,18 @@ body {
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  padding: 0 20px;
-  /* Kundönskemål: headern ska ha samma bakgrund som dashboarden — inte sitt
-     eget vita/mörka kort-lager (--bg-card). --bg-page är exakt samma
-     variabel som body (se basregeln längre ner i filen) och därmed samma
-     yta som lyser igenom bakom .main-content-inner, så headern smälter ihop
-     med sidan under den istället för att sticka ut som ett eget kort. Gäller
-     BÅDA teman nu (tidigare var mörkt läge en egen specialfärg, se den
-     borttagna :root[data-theme="dark"]-overriden nedanför). */
-  background: var(--bg-page);
-  border-bottom: 1px solid var(--border);
-  height: 52px;
+  /* Kundfeedback: baren spände tidigare hela sidans bredd (full-width
+     bakgrund + border-bottom + skugga) trots att den bara innehöll
+     ikonklustret längst till höger — vänsterhalvan (företagsnamnet togs
+     bort på ett ännu tidigare kundönskemål) var därför bara tom luft ändå.
+     Krympt till sitt eget innehåll istället (width: fit-content +
+     margin-left: auto) — ingen egen bakgrund/kant/skugga längre, klustret
+     flyter bara högst upp till höger och smälter ihop med sidan under det. */
+  width: fit-content;
+  margin-left: auto;
+  padding: 6px 20px 2px;
   flex-shrink: 0;
   gap: 10px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
 
 .desktop-topbar-left {
@@ -966,7 +1011,12 @@ body {
 .desktop-topbar-right {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  /* Kundfeedback: en tidigare version gav klustret ett eget "kort" (bakgrund
+     + kant) för att lösa "känns tomt/smått" — kunden ville tillbaka till
+     rena, ramlösa ikoner (bara .topbar-icon-btn:s egen hover-bakgrund), bara
+     med bra storlek. Ingen bakgrund/kant här längre — se .topbar-icon-btn/
+     .topbar-avatar för storleken (40px). */
 }
 
 .topbar-new-btn {
@@ -981,9 +1031,9 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 10px;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
   background: transparent;
   border: none;
   cursor: pointer;
@@ -997,12 +1047,12 @@ body {
 }
 
 .topbar-avatar {
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   background: #0b6329;
   color: white;
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 700;
   display: flex;
   align-items: center;
@@ -1226,9 +1276,11 @@ body {
 
 .global-actions {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
   flex-shrink: 0;
+  /* Kundfeedback: samma ändring som .desktop-topbar-right (index.css) — inget
+     "kort" (bakgrund/kant) runt klustret längre, bara rena ikoner. */
 }
 
 
@@ -2967,6 +3019,18 @@ textarea.form-control {
     --sidebar-width: 260px;
   }
 
+  /* Kundfeedback: den kompakta loggan (mobil-topbaren, .global-top-bar)
+     "för stor, för mycket utrymme runt" på telefon. Mindre logga + tightare
+     avstånd till hamburgerknappen bredvid (samma .topbar-left som redan
+     hade en generös 12px-gap tänkt för en större logga). */
+  .bokix-wordmark--compact {
+    width: auto;
+    height: 30px;
+  }
+  .topbar-left {
+    gap: 8px;
+  }
+
   /* Göm sidebar som standard på mobil — här (till skillnad från skrivbordet,
      se .sidebar-basregeln ovan) MÅSTE den vara `position:fixed`: den ska
      ligga som en överlagd panel UTANFÖR dokumentflödet, inte som en
@@ -3151,142 +3215,17 @@ textarea.form-control {
     padding: 0 16px;
   }
 
-  /* Sida 38, punkt 1: tabell → kortlista på mobil istället för sidledes
-     skroll. `<thead>` göms, varje `<tr>` blir ett fristående kort, och
-     varje `<td>` läggs ut som ett etikett/värde-par (etiketten kommer från
-     `data-label` på cellen, satt i JSX — samma verkliga celler/knappar/
-     länkar som på desktop, bara omlagda med CSS, så ingen interaktivitet
-     dupliceras i en separat kort-komponent). Lägg `className="responsive-
-     table"` på `<table>` och `data-label="Kolumnnamn"` (eller `""` för
-     rent visuella kolumner som en checkbox eller åtgärdsikoner) på varje
-     `<td>` för att få en tabell att omfattas. */
-  .responsive-table,
-  .responsive-table tbody {
-    display: block;
-    width: 100%;
-  }
-
-  .responsive-table thead {
-    display: none;
-  }
-
-  /* Kundfeedback ("sidan är SÅ stor på mobilen ... Fakturor, Kunder,
-     vad som helst"): den ursprungliga kortläges-raden gav VARJE kolumn en
-     egen fullbredds-rad på minst 44px — en faktura med 7 kolumner
-     (kryssruta/fakturanr/kund/datum/förfaller/belopp/status/åtgärder)
-     blev då ~350px HÖGT innan man ens sett en enda rad till, och en lista
-     med bara 9 fakturor krävde flera skärmars skrollning. 44px-regeln
-     (Sida 38, punkt 8) gällde en RIKTIG tryckyta (en knapp/länk) — en ren
-     etikett/värde-textrad har inget sådant krav, den behöver bara vara
-     läsbar. Tätare rader nu (respekterar fortfarande att en cell som
-     RÅKAR innehålla en egen knapp/kryssruta förblir en riktig tryckyta,
-     se td-select/td-actions nedan) — utan att röra någon sidas JSX,
-     samma `.responsive-table`-klass, bara tätare. */
-  .responsive-table tr {
-    display: block;
-    position: relative;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    margin-bottom: 12px;
-    overflow: hidden;
-  }
-
-  /* Kundfeedback (2026-08-30): korten kändes för hoptryckta igen — rader
-     nästan klistrade mot sina egna kant-linjer. Lite mer luft (padding/
-     min-height) utan att gå tillbaka till den ursprungliga 44px/rad-
-     regeln som gjorde listorna orimligt höga (se kommentaren ovan om
-     "sidan är SÅ stor på mobilen"). */
-  .responsive-table td {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    width: auto;
-    min-height: 34px;
-    padding: 9px 14px;
-    border-bottom: 1px solid #f1f5f9;
-    text-align: right;
-    /* Sida 38, punkt 10: siffror/brödtext i listor får aldrig krympa under
-       13px. INTE !important — en td som redan fått en EGEN, större inline
-       font-size (t.ex. leverantörsnamnet i SupplierInvoices på 14px) ska
-       inte klämmas ner till golvet, bara en td som annars bara ÄRVER en
-       mindre storlek från <table>:s egen inline style (t.ex.
-       verifikationslistans kontosaldon, ärvda 12px) — och en direkt regel
-       på elementet självt slår alltid en ärvd egenskap utan att behöva
-       !important. En td som skulle sätta sin EGEN mindre storlek inline
-       (ingen i de fyra listorna gör det just nu) skulle fortfarande vinna
-       över den här raden — se kommentaren i PRODUCTION_READINESS-stil:
-       detta är en riktad, inte en total, garanti. */
-    font-size: 13px;
-  }
-
-  .responsive-table tr td:last-child {
-    border-bottom: none;
-  }
-
-  .responsive-table td::before {
-    content: attr(data-label);
-    flex-shrink: 0;
-    font-size: 10.5px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: #9ca3af;
-  }
-
-  /* Rent visuella kolumner (data-label="") — flyttade ut ur det
-     staplade flödet helt och lagda som ett hörn-overlay ovanpå kortet
-     istället för att var och en fick en egen tom-känns-rad (en kryssruta
-     ELLER en enda kebab-knapp fyllde tidigare en HEL 30-44px-rad för sig
-     själv, med bara sig själv höger-justerad i den). Kryssrutan i
-     kortets övre vänstra hörn, åtgärdsmenyn i övre högra — precis det
-     "kort med overlay-kontroller"-mönster riktiga mobilappar redan
-     använder. 44px-tryckytan (Sida 38, punkt 8) gäller fortfarande här:
-     det ÄR en riktig knapp/kryssruta, bara utan sin egen radhöjd. */
-  .responsive-table td.td-select,
-  .responsive-table td.td-actions {
-    position: absolute;
-    top: 4px;
-    min-height: 0;
-    min-width: 44px;
-    padding: 0 8px;
-    border-bottom: none;
-    background: none;
-  }
-  .responsive-table td.td-select { left: 0; justify-content: flex-start; }
-  .responsive-table td.td-actions { right: 0; justify-content: flex-end; }
-  /* Plats åt hörn-overlayen: raden precis under kryssrutan/kebab-knappen
-     får extra sidopadding så etiketten/värdet aldrig hamnar under den.
-     `+`/`:has()` istället för :first-of-type — :first-of-type matchar
-     positionen "första <td> bland ALLA syskon", vilket ALDRIG kan vara
-     sant för en td som samtidigt kräver :not(.td-select), eftersom just
-     den kryssruta-cellen bokstavligen ÄR den strukturellt första — så
-     kombinationen matchade tyst ingenting alls. `td.td-select + td`
-     (nästa syskon efter kryssrutan) respektive `:has(+ td.td-actions)`
-     (cellen precis FÖRE kebab-knappen — `:has()` har brett stöd i alla
-     moderna mobilwebbläsare sedan 2022) pekar ut exakt rätt cell istället. */
-  .responsive-table td.td-select + td {
-    padding-left: 48px;
-  }
-  .responsive-table td:has(+ td.td-actions) {
-    padding-right: 48px;
-  }
-
-  /* En utfällbar detaljrad (t.ex. verifikationens kontorader) är en HEL
-     underliggande panel, inte ett etikett/värde-par — kortlägets
-     display:flex/justify-content/min-height/::before skulle klämma
-     ihop den. Backar till vanligt block för just den här cellen. */
-  .responsive-table td.td-detail {
-    display: block;
-    min-height: 0;
-    padding: 0;
-    text-align: left;
-  }
-
-  .responsive-table td.td-detail::before {
-    content: none;
-  }
+  /* .responsive-table-reglerna (Sida 38, punkt 1: tabell → kortlista)
+     FLYTTADE till en egen, bredare @media (max-width: 900px)-block efter
+     den här — se den för hela historiken/kommentarerna. Kundfeedback
+     ("mobile och iPad"): 768px täcker telefoner men inte moderna iPads i
+     stående läge (iPad Air/Pro ~820–834px CSS-bredd) — de föll tidigare
+     rakt igenom brytpunkten och fick hela desktop-tabellen klämd i ett för
+     smalt utrymme (kolumnerna sida vid sida, text avklippt, se
+     skärmdumpen). Bara tabell-reglerna behövde en bredare gräns — resten
+     av det här 768px-blocket (sidomeny/bottensheet/modal-fullskärm m.m.)
+     ska fortfarande vara telefon-bara, inte trigga på en iPad i liggande
+     läge (1024px) eller ett smalt skrivbordsfönster. */
 
   /* Rapporter: flikraden (Resultat/Kassaflöde/Kostnadsfördelning/
      Balansräkning) skrollar sidledes med momentum på iOS istället för
@@ -3507,6 +3446,235 @@ textarea.form-control {
   .settings-content {
     padding-left: 0 !important;
     width: 100%;
+  }
+}
+
+/* ══ Tabell → kortlista, tabletbredd (max-width: 900px) ══
+   Egen, bredare brytpunkt än telefon-blocket (768px) ovan — flyttad hit
+   från den, oförändrad i övrigt. Kundfeedback (skärmdump, "mobile eller
+   iPad"): en iPad i stående läge (iPad Air/Pro ~820–834px CSS-bredd,
+   iPad Mini ~744px — redan under 768px och alltså opåverkad) föll mellan
+   telefon-brytpunkten och en riktig desktop-bredd, och fick hela
+   desktop-tabellen (alla kolumner sida vid sida) klämd i ett för smalt
+   utrymme istället för kortlistan — text avklippt, sidledesskroll. 900px
+   ger marginal för alla nuvarande iPad-modellers portrait-bredd utan att
+   trigga på en iPad i liggande läge (1024px) eller ett normalt
+   skrivbordsfönster. Se filkommentaren vid punkt 1 i telefon-blocket ovan
+   för hela `.responsive-table`-mekaniken (data-label, td-select/
+   td-actions-overlayen, td-detail m.m.) — oförändrad här, bara flyttad. */
+
+/* Listrad-läget (ListTable.jsx `mobileList`-prop) — dold på desktop-bredd
+   som standard, oavsett vilken bredd. Bara EN plats (utanför @media, alltid
+   aktiv) behövs för detta eftersom .lt-mobile-list annars aldrig visas —
+   selektorn nedan i @media-blocket är den enda som slår på den. */
+.lt-mobile-list {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  /* En tabell med `mobileList` satt byter HELT till listradsläget under
+     900px — den vanliga staplade kort-vyn (.responsive-table nedan) döms
+     bort istället för att visas parallellt. */
+  table.responsive-table.has-mobile-list {
+    display: none;
+  }
+  .lt-mobile-list {
+    display: block;
+  }
+  .lt-mobile-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 11px 4px;
+    border-bottom: 1px solid var(--border-light);
+  }
+  .lt-mobile-row:last-child {
+    border-bottom: none;
+  }
+  .lt-mobile-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    flex-shrink: 0;
+    margin-top: 6px;
+  }
+  .lt-mobile-check {
+    display: flex;
+    align-items: center;
+    padding-top: 2px;
+  }
+  .lt-mobile-body {
+    flex: 1;
+    min-width: 0;
+  }
+  .lt-mobile-line1 {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .lt-mobile-primary {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--text-main);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .lt-mobile-amount {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--text-main);
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+  }
+  .lt-mobile-line2 {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 2px;
+  }
+  .lt-mobile-meta {
+    font-size: 11px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .lt-mobile-empty {
+    padding: 40px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 14px;
+  }
+  .lt-mobile-expanded {
+    background: var(--status-green-bg);
+    border-bottom: 1px solid var(--border-light);
+  }
+
+  .responsive-table,
+  .responsive-table tbody {
+    display: block;
+    width: 100%;
+  }
+
+  .responsive-table thead {
+    display: none;
+  }
+
+  /* Kundfeedback (uppföljning, skärmdumpar av Offerter/Leverantörsfakturor
+     på mobil/iPad): fortfarande för mycket luft mellan fälten inom ett
+     kort och mellan korten själva — en tredje, lättare åtstramning ovanpå
+     2026-08-30-justeringen (som redan gick åt andra hållet, se historiken
+     ovan i telefon-blocket den här flyttades ifrån). Håller mig medvetet
+     inom samma tak (34px/9px var redan en avvägning mot en ÄNNU tidigare
+     "för hoptryckt"-kommentar) — en måttlig, inte en total, omvänd. */
+  .responsive-table tr {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    position: relative;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 8px;
+    overflow: hidden;
+  }
+
+  .responsive-table td {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 1px;
+    width: auto;
+    min-height: 28px;
+    padding: 6px 14px;
+    border-bottom: 1px solid #f1f5f9;
+    text-align: left;
+    font-size: 13px;
+  }
+
+  .responsive-table tr td:last-child {
+    border-bottom: none;
+  }
+
+  .responsive-table td::before {
+    content: attr(data-label);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #9ca3af;
+  }
+
+  .responsive-table td.td-select,
+  .responsive-table td.td-actions {
+    position: absolute;
+    top: 4px;
+    min-height: 0;
+    min-width: 44px;
+    padding: 0 8px;
+    border-bottom: none;
+    background: none;
+  }
+  .responsive-table td.td-select { left: 0; justify-content: flex-start; }
+  .responsive-table td.td-actions { right: 0; justify-content: flex-end; }
+  .responsive-table td.td-select::before,
+  .responsive-table td.td-actions::before {
+    content: none;
+  }
+  .responsive-table td.td-select + td {
+    padding-left: 48px;
+  }
+  /* Bugfix (upptäckt genom att faktiskt rendera kortet i en riktig
+     webbläsare på mobilbredd, inte bara läsa CSS:en): båda overlay-cellerna
+     (kryssruta/kebab-meny) sitter position:absolute UPPE i kortet (top:4px)
+     — men kebab-menyn/åtgärdsikonerna är oftast SISTA kolumnen i JSX:ens
+     `columns`-array, längst NER i det staplade fältflödet. Den gamla
+     regeln `td:has(+ td.td-actions)` gav alltså padding åt fältet precis
+     FÖRE åtgärdskolumnen i DOM-ordning (t.ex. "Belopp", ofta sist) —
+     fel cell, den satt ändå inte under ikonen. Ikonen låg istället rakt
+     ovanpå det FÖRSTA fältets värde (t.ex. "Offertnr: OFF-1001"), som
+     aldrig fick något utrymme undanskaffat alls. `:has()` på RADEN
+     (kollar om en åtgärdskolumn finns NÅGONSTANS i raden) + `:first-child`
+     pekar ut rätt cell istället — den som faktiskt ligger under ikonen. */
+  .responsive-table tr:has(td.td-actions) > td:first-child:not(.td-select):not(.td-actions) {
+    padding-right: 48px;
+  }
+  .responsive-table tr:has(td.td-actions) > td.td-select + td {
+    padding-right: 48px;
+  }
+
+  /* Kundfeedback (skärmdumpar, uppföljning: "för mycket utrymme... gör
+     dem raka"): kortets fält staplades tidigare ETT per rad (label ovanför/
+     bredvid värdet, hela kortbredden) — verifierat i en riktig
+     mobilbrowser-rendering: fem fält blev ~200px HÖGT per kort, långt mer
+     än nödvändigt. Kortet är nu ett 2-kolumns rutnät istället (två fält
+     sida vid sida, värdet under sin egen etikett) — ungefär en tredjedel
+     kortare totalt, samma verifierade i en ny rendering. En kolumn med
+     långt fritext-innehåll (kundnamn, beskrivning) skulle annars bli
+     orimligt hög i sin ruta och lämna ett tomt hål bredvid sig i
+     grannkolumnen (verifierat med ett långt leverantörsnamn) — samma
+     `col.wrap`-flagga som redan finns för just såna kolumner (ListTable.jsx,
+     satt av anroparen för t.ex. Beskrivning/Leverantör/Kund) ger nu ÄVEN
+     `lt-cell-wrap`-klassen här, som spänner fältet över HELA kortbredden
+     istället för att tvingas in i en halv kolumn. */
+  .responsive-table td.lt-cell-wrap {
+    grid-column: 1 / -1;
+    text-align: left;
+  }
+
+  .responsive-table td.td-detail {
+    display: block;
+    grid-column: 1 / -1;
+    min-height: 0;
+    padding: 0;
+    text-align: left;
+  }
+
+  .responsive-table td.td-detail::before {
+    content: none;
   }
 }
 
