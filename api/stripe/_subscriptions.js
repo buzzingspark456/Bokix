@@ -46,11 +46,12 @@ export async function getSubscriptionRow(userId, companyId = null) {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !serviceRoleKey) return null;
   const admin = createClient(supabaseUrl, serviceRoleKey);
-  // Säkerhetsgranskningen (över-hämtning): enda konsumenten (create-
-  // subscription-checkout.js:s reactivate-gren) läser bara
-  // stripe_subscription_id — select('*') drog med sig hela raden
-  // (stripe_customer_id m.fl.) i onödan.
-  const { data } = await admin.from('subscriptions').select('stripe_subscription_id').eq('user_id', userId).eq('company_id', legacyCompanyId(companyId)).maybeSingle();
+  // Säkerhetsgranskningen (över-hämtning): hämtar bara de fält som
+  // faktiskt läses, aldrig select('*') — stripe_subscription_id för
+  // uppsägning/återaktivering, plus plan och created_at, som
+  // återbetalningen vid uppsagt årsabonnemang räknar på. Kundens
+  // stripe_customer_id och statusfälten hämtas fortfarande inte.
+  const { data } = await admin.from('subscriptions').select('stripe_subscription_id, plan, created_at').eq('user_id', userId).eq('company_id', legacyCompanyId(companyId)).maybeSingle();
   return data || null;
 }
 
@@ -58,6 +59,12 @@ export async function getSubscriptionRow(userId, companyId = null) {
 export async function upsertSubscription({
   userId,
   companyId = null,
+  // Vilket abonnemang kunden faktiskt köpte ("employer_yearly"). Kommer ur
+  // Stripe-metadatan som checkouten satte, och är det appen läser för att
+  // veta om lönemodulen ingår. `undefined` lämnar kolumnen orörd — en
+  // statusuppdatering från en gammal prenumeration utan plan i metadatan
+  // ska inte nolla en plan som redan står i databasen.
+  plan,
   stripeCustomerId,
   stripeSubscriptionId,
   status,
@@ -90,6 +97,7 @@ export async function upsertSubscription({
         company_id: legacyCompanyId(companyId),
         stripe_customer_id: stripeCustomerId,
         stripe_subscription_id: stripeSubscriptionId,
+        ...(plan ? { plan } : {}),
         status,
         trial_ends_at: trialEndsAt,
         current_period_end: currentPeriodEnd,

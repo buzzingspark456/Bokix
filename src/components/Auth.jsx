@@ -12,7 +12,9 @@ import { sendSignupCode, verifySignupCode } from '../utils/signupVerification';
 import { translateSupabaseAuthError } from '../utils/translateAuthError';
 import { BRAND } from '../utils/brandColors';
 import { BokixWordmark } from './marketing/MarketingLayout';
+import CloudShaderBackground from './marketing/CloudShaderBackground';
 import { createStripeSubscriptionCheckout } from '../stripeApi';
+import { planFromId } from '../utils/plans';
 import Turnstile from './Turnstile';
 
 // ── Litet Stripe-märke — se motsvarande kommentar i PaymentRequiredGate.jsx
@@ -29,14 +31,14 @@ function StripeBadge() {
 }
 
 const inputStyle = {
-  width: '100%', padding: '13px 16px', border: '1px solid var(--border)', borderRadius: '10px',
-  fontSize: '15px', color: 'var(--text-main)', background: 'var(--bg-muted)', outline: 'none',
+  width: '100%', padding: '16px 18px', border: '1px solid var(--border)', borderRadius: '11px',
+  fontSize: '17px', color: 'var(--text-main)', background: 'var(--bg-muted)', outline: 'none',
   fontFamily: 'inherit', boxSizing: 'border-box', transition: 'all 0.2s',
 };
 
 const labelStyle = {
-  display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)',
-  marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.04em',
+  display: 'block', fontSize: '13px', fontWeight: 700, color: 'var(--text-secondary)',
+  marginBottom: '7px', textTransform: 'uppercase', letterSpacing: '0.04em',
 };
 
 const REGISTER_STEPS = ['Personlig info', 'Bekräfta e-post', 'Företag', 'Lösenord'];
@@ -81,8 +83,22 @@ function passwordStrength(pw) {
 // ändå bort explicit av redeemPendingInvite oavsett utfall.
 const PENDING_INVITE_KEY = 'bokix_pending_invite_token';
 
-export default function Auth({ onBackToLanding }) {
-  const [isLogin, setIsLogin] = useState(true);
+// Kundönskemål ("skapa konto gratis ska gå till registrering, inte
+// inloggning") — vilken flik som visas när formuläret öppnas styrs av
+// VILKEN knapp som togs hit (Prova gratis/Kom igång/Skapa konto → 'signup',
+// Logga in → 'login'), inte alltid samma hårdkodade förval.
+/** `plan` är det abonnemang besökaren valde på prissidan
+ * ("employer_yearly"). Förvalet är den nivå som gällde innan valen
+ * fanns, så en registrering som startar någon annanstans än prissidan
+ * fungerar oförändrat. Servern validerar värdet igen — det här är ett
+ * val, inte ett löfte om vad som debiteras. */
+export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'employer_monthly' }) {
+  const [isLogin, setIsLogin] = useState(initialMode !== 'signup');
+  // Priset i rutan ovanför "Skapa konto"-knappen ska vara det besökaren
+  // just valde på prissidan, inte 179 kr för alla (som det stod innan
+  // nivåerna fanns). Samma uppslagning som checkouten själv gör på
+  // servern, så texten och beloppet aldrig kan säga olika saker.
+  const selectedPlan = planFromId(plan);
   // En inbjuden person ska aldrig behöva ange ett eget företagsnamn/orgnr
   // eller betala för en egen prenumeration — de ska bara skapa ett lösenord
   // och komma in. Läses en gång vid mount (inte varje render) eftersom
@@ -411,13 +427,14 @@ export default function Auth({ onBackToLanding }) {
         // Kontot finns nu (oavsett om data.session är satt — det kräver
         // bekräftad e-post beroende på Supabase-projektets inställningar,
         // men data.user.id finns redan). Skickas direkt vidare till Stripe
-        // för betalningsuppgifter: 30 dagars gratis provperiod, sedan 99
-        // kr/mån (create-subscription-checkout.js) — email-bekräftelsen
+        // för betalningsuppgifter: 30 dagars gratis provperiod, sedan priset
+        // för den valda planen (src/utils/plans.js) — email-bekräftelsen
         // sköts parallellt via länken i mejlet, blockerar inte det här.
         setRedirectingToPayment(true);
         const { session } = await createStripeSubscriptionCheckout({
           user_id: data.user.id,
           customer_email: regEmail,
+          plan,
         });
         if (!session?.url) throw new Error('Ingen betalningslänk mottogs från Stripe.');
         window.location.href = session.url;
@@ -443,7 +460,7 @@ export default function Auth({ onBackToLanding }) {
   };
 
   return (
-    <div id="auth-root" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Inter', sans-serif", padding: '48px 20px', position: 'relative', overflow: 'hidden', background: '#0b1710' }}>
+    <div id="auth-root" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Inter', sans-serif", padding: '48px 20px', position: 'relative', overflow: 'hidden', background: 'var(--mkt-ivory)' }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,500;0,600;0,700;1,500&display=swap');
         #auth-root, #auth-root *, #auth-root *::before, #auth-root *::after { box-sizing: border-box; }
@@ -467,29 +484,36 @@ export default function Auth({ onBackToLanding }) {
         }
         .auth-logo-link { display: inline-flex; text-decoration: none; transition: transform 0.2s ease; }
         .auth-logo-link:hover { transform: translateY(-1px); }
+        /* Kundfeedback (skärmdump): en fast MÖRK vinjett (tidigare försök
+           här) gjorde loggan grumlig/svårläst i mörkt läge, där himlen redan
+           är mörk — dubbelt mörkt istället för kontrast. Samma frostade-
+           glas-teknik som navheadern redan använder för EXAKT samma problem
+           (logga/text ovanpå en levande himmel, se MarketingHeader-
+           kommentaren om "garanterad kontrast mot VILKEN bakgrund som
+           helst"): en halvgenomskinlig chip i --mkt-header-bg (vit i ljust
+           läge, nästan svart i mörkt läge) + blur, ISTÄLLET FÖR en hårdkodad
+           färg — vänder sig alltså rätt automatiskt i båda lägena, och ger
+           loggans egna klara blå/turkos/limegröna gradient en lugn, neutral
+           yta att synas mot ("bright", inte grumlig). */
+        .auth-logo-chip {
+          display: inline-flex; align-items: center; justify-content: center;
+          padding: 22px 44px; border-radius: 20px;
+          background: color-mix(in srgb, var(--mkt-header-bg) 74%, transparent);
+          backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+          border: 1px solid color-mix(in srgb, var(--mkt-header-bg) 45%, transparent);
+          box-shadow: 0 10px 30px -12px rgba(0,0,0,0.28);
+        }
         @keyframes authSpin { to { transform: rotate(360deg); } }
         .auth-spin { animation: authSpin 1s linear infinite; }
 
-        /* ── Atmosfären bakom kortet — ledger-linjer (papperslinjer som ett
-           kassabok/verifikat) plus två långsamt drivande glöd-klot i exakt
-           samma gröna/limegula toner som loggans egen gradient (BokixWordmark)
-           och knapparnas BRAND.green. Rent dekorativt lager, aria-hidden,
-           bakom allt annat (z-index -1 relativt #auth-root:s children). Ren
-           CSS, ingen bildfil — håller sidan snabb och skarp på alla skärmar. */
-        .auth-atmosphere { position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
-        .auth-atmosphere::before {
-          content: ''; position: absolute; inset: 0;
-          background-image: repeating-linear-gradient(rgba(238,243,234,0.05) 0 1px, transparent 1px 44px);
-          -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, #000 0%, transparent 75%);
-                  mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, #000 0%, transparent 75%);
-        }
-        .auth-glow { position: absolute; border-radius: 50%; filter: blur(70px); opacity: 0.5; }
-        .auth-glow-a { width: 480px; height: 480px; top: -160px; left: -120px; background: #0b6329; animation: authDriftA 22s ease-in-out infinite; }
-        .auth-glow-b { width: 420px; height: 420px; bottom: -180px; right: -100px; background: #84cc16; opacity: 0.28; animation: authDriftB 26s ease-in-out infinite; }
-        @keyframes authDriftA { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(40px, 30px); } }
-        @keyframes authDriftB { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(-30px, -35px); } }
-
-        .auth-column { position: relative; z-index: 1; width: 100%; max-width: 512px; display: flex; flex-direction: column; align-items: center; }
+        /* ── Atmosfären bakom kortet — kundönskemål: samma levande
+           molnhimmel som Startsidans Hero (CloudShaderBackground.jsx,
+           samma port av Aceternitys shader), inte den tidigare mörkgröna
+           ledger-linje-bakgrunden. Rendras som absolut positionerad
+           bakgrund direkt i #auth-root:s markup nedan (bakom .auth-column
+           via position:relative/z-index:1 där), tema-medveten precis som
+           på Startsidan. ── */
+        .auth-column { position: relative; z-index: 1; width: 100%; max-width: 640px; display: flex; flex-direction: column; align-items: center; }
         @keyframes authRise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
         .auth-brandblock { animation: authRise 0.5s cubic-bezier(0.16,1,0.3,1) both; }
         .auth-card { animation: authRise 0.5s cubic-bezier(0.16,1,0.3,1) 0.08s both; }
@@ -526,18 +550,15 @@ export default function Auth({ onBackToLanding }) {
         .auth-pulse { animation: authPulseRing 1.8s ease-out infinite; }
 
         @media (prefers-reduced-motion: reduce) {
-          .auth-spin, .auth-glow-a, .auth-glow-b, .auth-brandblock, .auth-card, .auth-step-fade, .auth-pulse { animation: none !important; }
+          .auth-spin, .auth-brandblock, .auth-card, .auth-step-fade, .auth-pulse { animation: none !important; }
           .auth-btn-primary:hover:not(:disabled) { transform: none; }
         }
         @media (max-width: 560px) {
-          .auth-form-panel { padding: 34px 24px !important; }
+          .auth-form-panel { padding: 40px 26px !important; }
         }
       `}</style>
 
-      <div className="auth-atmosphere" aria-hidden="true">
-        <div className="auth-glow auth-glow-a" />
-        <div className="auth-glow auth-glow-b" />
-      </div>
+      <CloudShaderBackground style={{ position: 'absolute', inset: 0, minHeight: 0, zIndex: 0 }} />
 
       <div className="auth-column">
       {/* Kundfeedback: den tidigare tvåkolumns-layouten (varumärkespanel med
@@ -554,8 +575,19 @@ export default function Auth({ onBackToLanding }) {
           nedan) för att kännas som en riktig, rejäl destination istället för
           ett hopklämt formulär, samma taggline under loggan togs bort (den
           tillförde inget en besökare som redan klickat "Logga in" behövde
-          läsa). */}
-      <div className="auth-brandblock" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '32px' }}>
+          läsa).
+          Kundfeedback (ännu en uppföljning, "gör den mycket större"): kortet,
+          loggan, flikarna, stegrubriken, fältetiketterna och Fortsätt-knappen
+          skalade upp ytterligare ett steg (se maxWidth/height/fontSize/padding
+          nedan) — samma mönster, bara en tydligare skala rakt igenom.
+          Kundfeedback (ännu en uppföljning): loggan uppskalad EN gång till
+          (56 → 88). Ett första försök med en fast MÖRK vinjett bakom den
+          gjorde loggan grumlig i mörkt läge (redan mörk himmel + ännu en
+          mörk yta = sämre kontrast, inte bättre) — ersatt med samma
+          frostade-glas-chip som navheadern (.auth-logo-chip, se dess egen
+          kommentar för hela resonemanget), som vänder rätt automatiskt i
+          båda lägena istället för att gissa en färg. */}
+      <div className="auth-brandblock" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '36px' }}>
         {/* Bugkritiskt: LandingPage/Auth växlar via lokalt state
             (App.jsx: showLanding), inte skilda routes — en vanlig
             <Link to="/"> är ett no-op när man redan står på "/", vilket
@@ -565,16 +597,16 @@ export default function Auth({ onBackToLanding }) {
             aldrig krockar. */}
         <Link
           to="/"
-          className="auth-logo-link"
+          className="auth-logo-link auth-logo-chip"
           aria-label="Till startsidan"
           onClick={(e) => { if (onBackToLanding) { e.preventDefault(); onBackToLanding(); } }}
         >
-          <BokixWordmark height={40} />
+          <BokixWordmark height={88} />
         </Link>
       </div>
 
       <div style={{ width: '100%', background: 'var(--bg-card)', borderRadius: '22px', overflow: 'hidden', boxShadow: '0 20px 50px -12px rgba(0,0,0,0.45), 0 0 0 1px rgba(238,243,234,0.06)' }} className="auth-card">
-        <div className="auth-form-panel" style={{ padding: '52px 52px 48px' }}>
+        <div className="auth-form-panel" style={{ padding: '64px 64px 60px' }}>
 
         {/* Mode tabs — bugkritiskt (kundfeedback, med skärmdump): den aktiva
             fliken hade en HÅRDKODAD `background: 'white'` medan texten
@@ -584,12 +616,12 @@ export default function Auth({ onBackToLanding }) {
             tidigare, t.ex. innan utloggning) var mörkt. `var(--bg-card)`
             istället: vit i ljust läge (ingen synlig skillnad där) men
             korrekt mörk i mörkt läge, matchar texten igen. */}
-        <div style={{ display: 'flex', background: 'var(--border-light)', borderRadius: '12px', padding: '4px', marginBottom: '32px' }}>
-          <button className="auth-tab" onClick={() => switchMode(true)} style={{ flex: 1, padding: '10px 0', border: 'none', borderRadius: '8px', background: isLogin ? 'var(--bg-card)' : 'transparent', color: isLogin ? 'var(--text-main)' : 'var(--text-secondary)', fontWeight: 600, fontSize: '14px', cursor: 'pointer', boxShadow: isLogin ? '0 2px 4px rgba(0,0,0,0.04)' : 'none', fontFamily: 'inherit', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
-            <LogIn size={16} /> Logga in
+        <div style={{ display: 'flex', background: 'var(--border-light)', borderRadius: '14px', padding: '5px', marginBottom: '36px' }}>
+          <button className="auth-tab" onClick={() => switchMode(true)} style={{ flex: 1, padding: '14px 0', border: 'none', borderRadius: '10px', background: isLogin ? 'var(--bg-card)' : 'transparent', color: isLogin ? 'var(--text-main)' : 'var(--text-secondary)', fontWeight: 600, fontSize: '16px', cursor: 'pointer', boxShadow: isLogin ? '0 2px 4px rgba(0,0,0,0.04)' : 'none', fontFamily: 'inherit', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '9px' }}>
+            <LogIn size={19} /> Logga in
           </button>
-          <button className="auth-tab" onClick={() => switchMode(false)} style={{ flex: 1, padding: '10px 0', border: 'none', borderRadius: '8px', background: !isLogin ? 'var(--bg-card)' : 'transparent', color: !isLogin ? 'var(--text-main)' : 'var(--text-secondary)', fontWeight: 600, fontSize: '14px', cursor: 'pointer', boxShadow: !isLogin ? '0 2px 4px rgba(0,0,0,0.04)' : 'none', fontFamily: 'inherit', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
-            <UserPlus size={16} /> Nytt konto
+          <button className="auth-tab" onClick={() => switchMode(false)} style={{ flex: 1, padding: '14px 0', border: 'none', borderRadius: '10px', background: !isLogin ? 'var(--bg-card)' : 'transparent', color: !isLogin ? 'var(--text-main)' : 'var(--text-secondary)', fontWeight: 600, fontSize: '16px', cursor: 'pointer', boxShadow: !isLogin ? '0 2px 4px rgba(0,0,0,0.04)' : 'none', fontFamily: 'inherit', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '9px' }}>
+            <UserPlus size={19} /> Nytt konto
           </button>
         </div>
 
@@ -600,7 +632,7 @@ export default function Auth({ onBackToLanding }) {
                bekräftelse alltid visas, oavsett om kontot faktiskt finns. */
             <>
               <div style={{ marginBottom: '28px' }}>
-                <h2 style={{ fontFamily: "'Newsreader', Georgia, serif", fontSize: '31px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '7px', letterSpacing: '-0.01em' }}>Glömt lösenord?</h2>
+                <h2 style={{ fontFamily: "'Newsreader', Georgia, serif", fontSize: '34px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '8px', letterSpacing: '-0.01em' }}>Glömt lösenord?</h2>
                 <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Ange din e-postadress så skickar vi en återställningslänk.</p>
               </div>
               {forgotSent ? (
@@ -621,14 +653,14 @@ export default function Auth({ onBackToLanding }) {
                   <div>
                     <label style={labelStyle}>E-postadress</label>
                     <div style={{ position: 'relative' }}>
-                      <Mail size={18} color="var(--text-muted)" style={{ position: 'absolute', top: 13, left: 14, pointerEvents: 'none' }} />
-                      <input className="auth-input" type="email" style={{ ...inputStyle, paddingLeft: '44px' }} placeholder="din@epost.se" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} required autoFocus />
+                      <Mail size={18} color="var(--text-muted)" style={{ position: 'absolute', top: 15, left: 16, pointerEvents: 'none' }} />
+                      <input className="auth-input" type="email" style={{ ...inputStyle, paddingLeft: '48px' }} placeholder="din@epost.se" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} required autoFocus />
                     </div>
                   </div>
                   <Turnstile onVerify={setForgotCaptchaToken} onExpire={() => setForgotCaptchaToken('')} />
                   {errorMsg && <div style={{ padding: '12px', background: 'var(--status-red-bg)', color: 'var(--status-red-text)', borderRadius: '8px', fontSize: '13px', fontWeight: 600 }}>{errorMsg}</div>}
-                  <button className="auth-btn-primary" type="submit" disabled={forgotLoading} style={{ width: '100%', padding: '17px 18px', background: BRAND.green, border: 'none', borderRadius: '12px', fontSize: '16px', fontWeight: 700, color: 'white', cursor: forgotLoading ? 'wait' : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', boxShadow: '0 2px 6px rgba(11,99,41,0.25)', fontFamily: 'inherit', opacity: forgotLoading ? 0.7 : 1 }}>
-                    {forgotLoading ? 'Skickar...' : 'Skicka återställningslänk'} <ArrowRight size={16} />
+                  <button className="auth-btn-primary" type="submit" disabled={forgotLoading} style={{ width: '100%', padding: '20px 22px', background: BRAND.green, border: 'none', borderRadius: '13px', fontSize: '18px', fontWeight: 700, color: 'white', cursor: forgotLoading ? 'wait' : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', boxShadow: '0 2px 6px rgba(11,99,41,0.25)', fontFamily: 'inherit', opacity: forgotLoading ? 0.7 : 1 }}>
+                    {forgotLoading ? 'Skickar...' : 'Skicka återställningslänk'} <ArrowRight size={18} />
                   </button>
                   <button className="auth-btn-ghost" type="button" onClick={() => { setShowForgotPassword(false); setErrorMsg(''); }} style={{ background: 'none', border: 'none', borderRadius: '8px', color: 'var(--text-secondary)', fontSize: '13px', cursor: 'pointer', textAlign: 'center', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '8px' }}>
                     <ArrowLeft size={14} /> Tillbaka till inloggning
@@ -639,14 +671,14 @@ export default function Auth({ onBackToLanding }) {
           ) : (
           <>
             <div style={{ marginBottom: '28px' }}>
-              <h2 style={{ fontFamily: "'Newsreader', Georgia, serif", fontSize: '33px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '7px', letterSpacing: '-0.01em' }}>Välkommen tillbaka</h2>
+              <h2 style={{ fontFamily: "'Newsreader', Georgia, serif", fontSize: '36px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '8px', letterSpacing: '-0.01em' }}>Välkommen tillbaka</h2>
             </div>
             <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div>
                 <label style={labelStyle}>E-postadress</label>
                 <div style={{ position: 'relative' }}>
-                  <Mail size={18} color="var(--text-muted)" style={{ position: 'absolute', top: 13, left: 14, pointerEvents: 'none' }} />
-                  <input className="auth-input" type="email" style={{ ...inputStyle, paddingLeft: '44px' }} placeholder="din@epost.se" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} required />
+                  <Mail size={18} color="var(--text-muted)" style={{ position: 'absolute', top: 15, left: 16, pointerEvents: 'none' }} />
+                  <input className="auth-input" type="email" style={{ ...inputStyle, paddingLeft: '48px' }} placeholder="din@epost.se" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} required />
                 </div>
               </div>
               <div>
@@ -657,14 +689,14 @@ export default function Auth({ onBackToLanding }) {
                   </button>
                 </div>
                 <div style={{ position: 'relative' }}>
-                  <Lock size={18} color="var(--text-muted)" style={{ position: 'absolute', top: 13, left: 14, pointerEvents: 'none' }} />
-                  <input className="auth-input" type="password" style={{ ...inputStyle, paddingLeft: '44px' }} placeholder="••••••••" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} required />
+                  <Lock size={18} color="var(--text-muted)" style={{ position: 'absolute', top: 15, left: 16, pointerEvents: 'none' }} />
+                  <input className="auth-input" type="password" style={{ ...inputStyle, paddingLeft: '48px' }} placeholder="••••••••" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} required />
                 </div>
               </div>
               <Turnstile onVerify={setLoginCaptchaToken} onExpire={() => setLoginCaptchaToken('')} />
               {errorMsg && <div style={{ padding: '12px', background: 'var(--status-red-bg)', color: 'var(--status-red-text)', borderRadius: '8px', fontSize: '13px', fontWeight: 600 }}>{errorMsg}</div>}
-              <button className="auth-btn-primary" type="submit" disabled={loading} style={{ width: '100%', padding: '17px 18px', background: BRAND.green, border: 'none', borderRadius: '12px', fontSize: '16px', fontWeight: 700, color: 'white', cursor: loading ? 'wait' : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', boxShadow: '0 2px 6px rgba(11,99,41,0.25)', fontFamily: 'inherit', opacity: loading ? 0.7 : 1 }}>
-                {loading ? 'Loggar in...' : 'Logga in'} <ArrowRight size={16} />
+              <button className="auth-btn-primary" type="submit" disabled={loading} style={{ width: '100%', padding: '20px 22px', background: BRAND.green, border: 'none', borderRadius: '13px', fontSize: '18px', fontWeight: 700, color: 'white', cursor: loading ? 'wait' : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', boxShadow: '0 2px 6px rgba(11,99,41,0.25)', fontFamily: 'inherit', opacity: loading ? 0.7 : 1 }}>
+                {loading ? 'Loggar in...' : 'Logga in'} <ArrowRight size={18} />
               </button>
             </form>
           </>
@@ -680,11 +712,11 @@ export default function Auth({ onBackToLanding }) {
                     <div style={{ position: 'relative', height: '4px', borderRadius: '2px', background: 'var(--border)', overflow: 'hidden' }}>
                       <div style={{ position: 'absolute', inset: 0, borderRadius: '2px', background: 'linear-gradient(90deg, #0b6329, #84cc16)', transform: `scaleX(${i <= regStep ? 1 : 0})`, transformOrigin: 'left', transition: 'transform 0.35s ease' }} />
                     </div>
-                    <span style={{ fontSize: '11px', fontWeight: i === regStep ? 700 : 500, color: i <= regStep ? BRAND.greenDark : 'var(--text-muted)' }}>{s}</span>
+                    <span style={{ fontSize: '13px', fontWeight: i === regStep ? 700 : 500, color: i <= regStep ? BRAND.greenDark : 'var(--text-muted)' }}>{s}</span>
                   </div>
                 ))}
               </div>
-              <h2 key={regStep} className="auth-step-fade" style={{ fontFamily: "'Newsreader', Georgia, serif", fontSize: '28px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '5px', letterSpacing: '-0.01em' }}>
+              <h2 key={regStep} className="auth-step-fade" style={{ fontFamily: "'Newsreader', Georgia, serif", fontSize: '34px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px', letterSpacing: '-0.01em' }}>
                 {regStep === 0 && 'Personlig info'}
                 {regStep === 1 && 'Bekräfta e-post'}
                 {regStep === 2 && 'Ditt företag'}
@@ -705,8 +737,8 @@ export default function Auth({ onBackToLanding }) {
                     <div>
                       <label style={labelStyle}>Förnamn</label>
                       <div style={{ position: 'relative' }}>
-                        <User size={16} color="var(--text-muted)" style={{ position: 'absolute', top: 14, left: 12, pointerEvents: 'none' }} />
-                        <input className="auth-input" type="text" style={{ ...inputStyle, paddingLeft: '38px' }} placeholder="Anna" value={regFirstName} onChange={e => setRegFirstName(e.target.value)} required />
+                        <User size={16} color="var(--text-muted)" style={{ position: 'absolute', top: 16, left: 14, pointerEvents: 'none' }} />
+                        <input className="auth-input" type="text" style={{ ...inputStyle, paddingLeft: '42px' }} placeholder="Anna" value={regFirstName} onChange={e => setRegFirstName(e.target.value)} required />
                       </div>
                     </div>
                     <div>
@@ -717,11 +749,11 @@ export default function Auth({ onBackToLanding }) {
                   <div>
                     <label style={labelStyle}>E-postadress</label>
                     <div style={{ position: 'relative' }}>
-                      <Mail size={16} color="var(--text-muted)" style={{ position: 'absolute', top: 14, left: 12, pointerEvents: 'none' }} />
+                      <Mail size={16} color="var(--text-muted)" style={{ position: 'absolute', top: 16, left: 14, pointerEvents: 'none' }} />
                       <input
                         className="auth-input"
                         type="email"
-                        style={{ ...inputStyle, paddingLeft: '38px' }}
+                        style={{ ...inputStyle, paddingLeft: '42px' }}
                         placeholder="anna@foretag.se"
                         value={regEmail}
                         // En redan verifierad kod/token hörde till den GAMLA
@@ -818,12 +850,12 @@ export default function Auth({ onBackToLanding }) {
                       <div>
                         <label style={labelStyle}>Organisationsnummer <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(10 siffror)</span></label>
                         <div style={{ position: 'relative' }}>
-                          <Hash size={16} color="var(--text-muted)" style={{ position: 'absolute', top: 14, left: 12, pointerEvents: 'none' }} />
+                          <Hash size={16} color="var(--text-muted)" style={{ position: 'absolute', top: 16, left: 14, pointerEvents: 'none' }} />
                           <input
                             className="auth-input"
                             type="text"
                             inputMode="numeric"
-                            style={{ ...inputStyle, paddingLeft: '38px' }}
+                            style={{ ...inputStyle, paddingLeft: '42px' }}
                             placeholder="556123-4567"
                             value={regOrgNr}
                             onChange={e => { const formatted = formatOrgNr(e.target.value); setRegOrgNr(formatted); setRegCompany(''); setRegLegalForm(''); companyLookup.handleOrgNrChange(formatted); }}
@@ -901,8 +933,8 @@ export default function Auth({ onBackToLanding }) {
                   <div>
                     <label style={labelStyle}>Lösenord</label>
                     <div style={{ position: 'relative' }}>
-                      <Lock size={16} color="var(--text-muted)" style={{ position: 'absolute', top: 14, left: 12, pointerEvents: 'none' }} />
-                      <input className="auth-input" type="password" style={{ ...inputStyle, paddingLeft: '38px' }} placeholder="Minst 8 tecken" value={regPassword} onChange={e => setRegPassword(e.target.value)} required minLength={8} />
+                      <Lock size={16} color="var(--text-muted)" style={{ position: 'absolute', top: 16, left: 14, pointerEvents: 'none' }} />
+                      <input className="auth-input" type="password" style={{ ...inputStyle, paddingLeft: '42px' }} placeholder="Minst 8 tecken" value={regPassword} onChange={e => setRegPassword(e.target.value)} required minLength={8} />
                     </div>
                     {passwordStrength(regPassword) && (
                       <div style={{ marginTop: '6px' }}>
@@ -916,8 +948,8 @@ export default function Auth({ onBackToLanding }) {
                   <div>
                     <label style={labelStyle}>Bekräfta lösenord</label>
                     <div style={{ position: 'relative' }}>
-                      <Lock size={16} color="var(--text-muted)" style={{ position: 'absolute', top: 14, left: 12, pointerEvents: 'none' }} />
-                      <input className="auth-input" type="password" style={{ ...inputStyle, paddingLeft: '38px', borderColor: regPassword2 && regPassword2 !== regPassword ? '#f43f5e' : undefined }} placeholder="Upprepa lösenord" value={regPassword2} onChange={e => setRegPassword2(e.target.value)} required />
+                      <Lock size={16} color="var(--text-muted)" style={{ position: 'absolute', top: 16, left: 14, pointerEvents: 'none' }} />
+                      <input className="auth-input" type="password" style={{ ...inputStyle, paddingLeft: '42px', borderColor: regPassword2 && regPassword2 !== regPassword ? '#f43f5e' : undefined }} placeholder="Upprepa lösenord" value={regPassword2} onChange={e => setRegPassword2(e.target.value)} required />
                     </div>
                   </div>
 
@@ -927,7 +959,7 @@ export default function Auth({ onBackToLanding }) {
                   <div style={{ display: 'flex', gap: '9px', alignItems: 'flex-start', padding: '10px 12px', background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: '9px' }}>
                     <ShieldCheck size={15} color={BRAND.greenDark} style={{ flexShrink: 0, marginTop: 1 }} />
                     <span style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                      Näst skickas du till <StripeBadge /> för att lägga in betalningsuppgifter. 30 dagar gratis, sedan 179 kr/mån — avsluta innan dess så kostar det ingenting.
+                      Näst skickas du till <StripeBadge /> för att lägga in betalningsuppgifter. 30 dagar gratis, sedan {selectedPlan ? selectedPlan.price : 179} kr/mån — avsluta innan dess så kostar det ingenting.
                     </span>
                   </div>
                   <Turnstile onVerify={setRegCaptchaToken} onExpire={() => setRegCaptchaToken('')} />
@@ -941,8 +973,8 @@ export default function Auth({ onBackToLanding }) {
               {!redirectingToPayment && (
                 <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
                   {regStep > 0 && (
-                    <button className="auth-btn-ghost" type="button" onClick={() => { setRegStep(s => s - 1); setErrorMsg(''); }} style={{ padding: '17px 22px', border: '1px solid var(--border)', borderRadius: '12px', fontSize: '15px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}>
-                      <ArrowLeft size={14} /> Tillbaka
+                    <button className="auth-btn-ghost" type="button" onClick={() => { setRegStep(s => s - 1); setErrorMsg(''); }} style={{ padding: '20px 26px', border: '1px solid var(--border)', borderRadius: '13px', fontSize: '17px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
+                      <ArrowLeft size={16} /> Tillbaka
                     </button>
                   )}
                   {(() => {
@@ -956,8 +988,8 @@ export default function Auth({ onBackToLanding }) {
                     else if (regStep === 1) label = verifying ? 'Bekräftar...' : 'Bekräfta';
                     else label = busy ? 'Fortsätt...' : 'Fortsätt';
                     return (
-                      <button className="auth-btn-primary" type="submit" disabled={isDisabled} style={{ flex: 1, padding: '17px 18px', background: BRAND.green, border: 'none', borderRadius: '12px', fontSize: '16px', fontWeight: 700, color: 'white', cursor: isDisabled ? (busy ? 'wait' : 'not-allowed') : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', boxShadow: '0 2px 6px rgba(11,99,41,0.25)', fontFamily: 'inherit', opacity: isDisabled ? 0.6 : 1 }}>
-                        {label} <ArrowRight size={16} />
+                      <button className="auth-btn-primary" type="submit" disabled={isDisabled} style={{ flex: 1, padding: '20px 22px', background: BRAND.green, border: 'none', borderRadius: '13px', fontSize: '18px', fontWeight: 700, color: 'white', cursor: isDisabled ? (busy ? 'wait' : 'not-allowed') : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', boxShadow: '0 2px 6px rgba(11,99,41,0.25)', fontFamily: 'inherit', opacity: isDisabled ? 0.6 : 1 }}>
+                        {label} <ArrowRight size={18} />
                       </button>
                     );
                   })()}

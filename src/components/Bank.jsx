@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   Upload, UploadCloud, AlertCircle, CheckCircle2, X, ChevronDown, ChevronRight,
-  Landmark, ArrowDownCircle, ArrowUpCircle, HelpCircle, Search,
+  Landmark, ArrowDownCircle, ArrowUpCircle, HelpCircle, Search, Trash2, Undo2,
 } from 'lucide-react';
 import ListPageHeader, { ListFilterBar, listSearchInputStyle, listFilterFieldStyle } from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
@@ -107,6 +107,11 @@ export default function Bank({
   const [dateTo, setDateTo] = useState('');
   const [expandedId, setExpandedId] = useState(null);
   const [showImportModal, setShowImportModal] = useState(false);
+  // "Visa N"-väljaren, samma som Bokföring/fakturorna (kundönskemål: den
+  // ska finnas och fungera likadant på alla listsidor). Kontoutdrag är
+  // dessutom den lista som oftast är LÅNG — en importerad månad kan vara
+  // hundratals rader.
+  const [pageSize, setPageSize] = useState(30);
 
   const filtered = useMemo(() => {
     return (bankTransactions || [])
@@ -120,6 +125,8 @@ export default function Bank({
       })
       .sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt || '').localeCompare(a.createdAt || ''));
   }, [bankTransactions, activeTab, dateFrom, dateTo, search]);
+
+  const visibleTransactions = pageSize === 'all' ? filtered : filtered.slice(0, pageSize);
 
   const tabCounts = useMemo(() => {
     const c = { all: bankTransactions.length, unmatched: 0, matched: 0, booked: 0, ignored: 0 };
@@ -146,6 +153,47 @@ export default function Bank({
     }
   };
 
+  // Kundönskemål: "om de gjort fel ska de kunna ta bort". Import är det
+  // enda stället i appen där en användare med ETT klick kan få in hundratals
+  // rader som inte skulle in — fel fil, fel konto, fel period — och utan en
+  // väg tillbaka blir enda utvägen att ignorera dem en och en.
+  //
+  // Viktigt och därför utskrivet i dialogen: raden här är bara BANKENS rad.
+  // Har den redan bokförts eller matchats mot en faktura ligger den
+  // verifikationen (eller betalningen) kvar i bokföringen — den ska rättas
+  // där, inte försvinna tyst för att en importrad togs bort. Att radera
+  // verifikationen härifrån vore mycket värre: bokföring rättas med en
+  // rättelsepost, aldrig genom att spåren tas bort.
+  const handleDeleteRow = async (row) => {
+    const booked = row.status === 'booked' || row.status === 'matched';
+    const message = booked
+      ? 'Ta bort den här raden från bankvyn? Verifikationen eller betalningen den redan skapat ligger kvar i bokföringen och måste rättas där.'
+      : 'Ta bort den här raden från bankvyn? Den försvinner bara härifrån — du kan importera kontoutdraget igen.';
+    if (!(await confirmDialog(message))) return;
+    onSetBankTransactions(prev => prev.filter(t => t.id !== row.id));
+    setExpandedId(null);
+  };
+
+  // Hela den senaste importomgången. Varje importerad rad bär sitt
+  // `importBatch` (satt i buildBankTransactionRecords, bankImport.js), så
+  // "fel fil" går att backa i ett svep i stället för rad för rad.
+  // Bara rader som fortfarande är ORÖRDA (ej hanterade eller ignorerade)
+  // räknas in: har man redan bokfört något ur omgången är den inte längre
+  // en felimport att ångra, och de raderna lämnas kvar med flit.
+  const latestBatch = useMemo(() => {
+    const batches = (bankTransactions || []).filter(t => t.importBatchId).map(t => t.importBatchId);
+    if (!batches.length) return null;
+    const newest = batches.sort().at(-1);
+    const rows = bankTransactions.filter(t => t.importBatchId === newest && (t.status === 'unmatched' || t.status === 'ignored'));
+    return rows.length ? { id: newest, count: rows.length } : null;
+  }, [bankTransactions]);
+
+  const handleUndoImport = async () => {
+    if (!latestBatch) return;
+    if (!(await confirmDialog(`Ångra den senaste importen? ${latestBatch.count} ohanterade rader tas bort från bankvyn. Redan bokförda rader ur samma omgång lämnas kvar.`))) return;
+    onSetBankTransactions(prev => prev.filter(t => !(t.importBatchId === latestBatch.id && (t.status === 'unmatched' || t.status === 'ignored'))));
+    setExpandedId(null);
+  };
   const handleIgnore = async (row) => {
     if (!(await confirmDialog('Ignorera den här transaktionen? Ingen verifikation skapas — använd det t.ex. för överföringar mellan era egna konton.'))) return;
     updateRow(row.id, { status: 'ignored' });
@@ -194,6 +242,10 @@ export default function Bank({
         title="Bank"
         subtitle="Importera kontoutdrag (CSV/Excel), matcha mot fakturor och bokför"
         actions={[
+          // Visas bara när det FINNS en ohanterad importomgång att ångra —
+          // en permanent "Ångra"-knapp bredvid "Importera" hade sett ut som
+          // en lika stor och lika vanlig handling som importen själv.
+          ...(latestBatch ? [{ key: 'undo', label: `Ångra import (${latestBatch.count})`, icon: Undo2, onClick: handleUndoImport }] : []),
           { key: 'import', label: 'Importera transaktioner', icon: Upload, onClick: () => setShowImportModal(true), variant: 'primary' },
         ]}
         tabs={{
@@ -213,6 +265,8 @@ export default function Bank({
         onClear={() => { setSearch(''); setDateFrom(''); setDateTo(''); }}
         count={filtered.length}
         countLabel="transaktioner"
+        pageSize={pageSize}
+        onPageSizeChange={setPageSize}
       >
         {/* Samma sökfälts-mönster som Bokförings egen ListFilterBar (facit-
             sidan för den här komponenten) — sökikon + listSearchInputStyle
@@ -250,7 +304,7 @@ export default function Bank({
           <ListTable
             rowKey={t => t.id}
             emptyMessage="Inga transaktioner matchar filtret"
-            rows={filtered}
+            rows={visibleTransactions}
             onRowClick={t => t.status === 'unmatched' && setExpandedId(expandedId === t.id ? null : t.id)}
             isExpanded={t => expandedId === t.id}
             renderExpanded={t => (
@@ -264,6 +318,7 @@ export default function Bank({
                 onConfirmSupplierMatch={id => handleConfirmSupplierMatch(t, id)}
                 onQuickBook={form => handleQuickBook(t, form)}
                 onIgnore={() => handleIgnore(t)}
+                onDelete={() => handleDeleteRow(t)}
               />
             )}
             columns={[
@@ -311,7 +366,7 @@ export default function Bank({
 }
 
 // ── Radexpansion: matchningsförslag + "Bokför direkt" + "Ignorera" ───────
-function BankRowDetail({ row, invoiceCandidates, supplierCandidates, accounts, vatPeriods, onConfirmInvoiceMatch, onConfirmSupplierMatch, onQuickBook, onIgnore }) {
+function BankRowDetail({ row, invoiceCandidates, supplierCandidates, accounts, vatPeriods, onConfirmInvoiceMatch, onConfirmSupplierMatch, onQuickBook, onIgnore, onDelete }) {
   const isInflow = row.amount > 0;
   const candidates = isInflow ? invoiceCandidates : supplierCandidates;
   const [selectedId, setSelectedId] = useState('');
@@ -360,6 +415,12 @@ function BankRowDetail({ row, invoiceCandidates, supplierCandidates, accounts, v
         <button onClick={onIgnore} style={{ padding: '7px 14px', background: 'none', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}>
           Ignorera
         </button>
+        {/* Ligger sist och längst till höger (marginLeft: auto) — det är den
+            enda oåterkalleliga handlingen i raden, och ska inte sitta
+            granne med de två vanliga. */}
+        <button onClick={onDelete} style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 14px', background: 'none', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '12.5px', fontWeight: 600, color: 'var(--status-red-text)', cursor: 'pointer' }}>
+          <Trash2 size={13} /> Ta bort raden
+        </button>
       </div>
 
       {showQuickBook && (
@@ -399,6 +460,70 @@ function BankRowDetail({ row, invoiceCandidates, supplierCandidates, accounts, v
 }
 
 // ── Importguide: fil → kolumnmappning → förhandsgranskning → commit ──────
+// Klickvägarna är KUNDENS EGNA uppgifter (levererade ordagrant), inte
+// gissade eller hämtade från bankernas sidor av mig — därför ligger de
+// samlade i EN lista här: ändrar en bank sin meny räcker det att rätta
+// raden, utan att röra vare sig guiden eller importlogiken.
+//
+// Varför det här behövs alls: importen kan läsa en bankfil, men den kan
+// inte hjälpa någon att HITTA exportknappen i sin internetbank — och det
+// är precis där en förstagångsanvändare fastnar. "Ladda upp ditt
+// kontoutdrag" är värdelöst för den som inte vet att internetbanken ens
+// kan exportera ett.
+const BANK_EXPORT_PATHS = [
+  { bank: 'Nordea', path: 'Logga in → Konton → Välj konto → Transaktioner → Exportera (CSV)' },
+  { bank: 'SEB', path: 'Logga in → Konton → Transaktioner → Exportera (CSV), eller Kontoutdrag → Hämta som fil (CSV)' },
+  { bank: 'Swedbank', path: 'Logga in → Konton → Transaktioner → Exportera kontoutdrag (CSV)' },
+  { bank: 'Handelsbanken', path: 'Logga in → Konton → Transaktioner → Ladda ner (CSV)' },
+  { bank: 'Länsförsäkringar', path: 'Logga in → Konton → Kontoutdrag → Exportera (CSV)' },
+  { bank: 'ICA Banken', path: 'Logga in → Konton → Transaktioner → Exportera till fil (CSV)' },
+  { bank: 'Skandia', path: 'Logga in → Konton → Transaktioner → Exportera (CSV)' },
+  { bank: 'Lunar', path: 'Logga in → Konto → Transaktioner → Exportera (CSV)' },
+  { bank: 'Northmill', path: 'Logga in → Konto → Kontoutdrag → Ladda ner (CSV)' },
+];
+
+// Hopfälld som standard: den som redan har filen på skrivbordet ska inte
+// behöva skrolla förbi nio banker för att komma åt släppytan, och den som
+// INTE har den hittar hjälpen direkt under den (samma plats man tittar på
+// när man undrar "vilken fil menar de?").
+function BankExportHelp() {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ marginTop: '14px', border: '1px solid var(--border)', borderRadius: '10px', overflow: 'hidden' }}>
+      <button
+        type="button" onClick={() => setOpen(o => !o)} aria-expanded={open}
+        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '11px 14px', background: 'var(--bg-muted)', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', textAlign: 'left' }}
+      >
+        <HelpCircle size={15} color={BRAND.greenDark} style={{ flexShrink: 0 }} />
+        <span style={{ flex: 1 }}>Så exporterar du från din bank</span>
+        {open ? <ChevronDown size={15} color="var(--text-muted)" /> : <ChevronRight size={15} color="var(--text-muted)" />}
+      </button>
+      {/* Ingen egen maxhöjd/scroll på listan: .modal-overlay scrollar redan
+          (index.css), och en scrollruta INUTI en scrollande modal ger två
+          konkurrerande hjul — listan är nio rader, den får ta plats. */}
+      {open && (
+        <div style={{ padding: '4px 0' }}>
+          {BANK_EXPORT_PATHS.map(({ bank, path }) => (
+            <div key={bank} style={{ display: 'grid', gridTemplateColumns: '132px 1fr', gap: '12px', alignItems: 'baseline', padding: '9px 14px', borderTop: '1px solid var(--border-light)' }}>
+              <span style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--text-main)' }}>{bank}</span>
+              <span style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.55 }}>{path}</span>
+            </div>
+          ))}
+          <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', lineHeight: 1.6, margin: 0, padding: '10px 14px', borderTop: '1px solid var(--border-light)' }}>
+            Har du en annan bank? Leta efter "Exportera", "Ladda ner" eller "Hämta som fil" i transaktionslistan. Alla format med en rubrikrad fungerar — kolumnerna kopplas i nästa steg.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// "CSV, XLSX, XLS eller TXT (max 10 MB)" är inte bara text i gränssnittet
+// — båda reglerna kontrolleras i handleFile nedan, samma mönster som
+// underlagsuppladdningen i Verifications.jsx/SupplierInvoices.jsx.
+const MAX_BANK_FILE_MB = 10;
+const ACCEPTED_BANK_EXTENSIONS = ['.csv', '.txt', '.xlsx', '.xls'];
+
 const STEP_LABELS = ['Fil', 'Kolumner', 'Förhandsgranskning'];
 
 function ImportWizardModal({ bankTransactions, bankImportProfiles, onUpdateCompany, onImport, onClose }) {
@@ -421,6 +546,20 @@ function ImportWizardModal({ bankTransactions, bankImportProfiles, onUpdateCompa
 
   const handleFile = async (file) => {
     if (!file) return;
+    // Kontrolleras HÄR och inte bara via <input accept> — accept gäller
+    // filväljaren, men säger ingenting om en fil som släpps med drag and
+    // drop. En .pdf eller .zip hade annars gått rakt in i CSV-tolkaren och
+    // gett ett obegripligt "hittade inga rader"-fel i stället för att säga
+    // vad som faktiskt var fel.
+    const name = (file.name || '').toLowerCase();
+    if (!ACCEPTED_BANK_EXTENSIONS.some(ext => name.endsWith(ext))) {
+      setError(`"${file.name}" är inte en bankfil som kan läsas. Ladda upp CSV, TXT, XLSX eller XLS.`);
+      return;
+    }
+    if (file.size > MAX_BANK_FILE_MB * 1024 * 1024) {
+      setError(`"${file.name}" är för stor (max ${MAX_BANK_FILE_MB} MB).`);
+      return;
+    }
     setBusy(true); setError('');
     try {
       const mod = await loadBankModule();
@@ -495,6 +634,7 @@ function ImportWizardModal({ bankTransactions, bankImportProfiles, onUpdateCompa
         )}
 
         {step === 0 && (
+          <>
           <div
             onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
             onDragLeave={() => setIsDragging(false)}
@@ -507,7 +647,7 @@ function ImportWizardModal({ bankTransactions, bankImportProfiles, onUpdateCompa
               cursor: busy ? 'wait' : 'pointer', transition: 'border-color 0.15s, background 0.15s',
             }}
           >
-            <input type="file" id="bank-import-file" style={{ display: 'none' }} accept=".csv,.xlsx,.xls" disabled={busy} onChange={e => handleFile(e.target.files?.[0])} />
+            <input type="file" id="bank-import-file" style={{ display: 'none' }} accept=".csv,.txt,.xlsx,.xls" disabled={busy} onChange={e => handleFile(e.target.files?.[0])} />
             <div style={{ width: 44, height: 44, borderRadius: '999px', background: BRAND.greenLight, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
               <UploadCloud size={20} color={BRAND.greenDark} />
             </div>
@@ -515,8 +655,10 @@ function ImportWizardModal({ bankTransactions, bankImportProfiles, onUpdateCompa
               {busy ? 'Läser filen...' : 'Ladda upp kontoutdrag'}
             </h3>
             <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: '0 0 6px' }}>Dra och släpp filen här, eller klicka för att välja</p>
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>CSV, XLSX eller XLS — exporterat från er internetbank</p>
+            <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>CSV, TXT, XLSX eller XLS (max {MAX_BANK_FILE_MB} MB) — exporterat från er internetbank</p>
           </div>
+          <BankExportHelp />
+          </>
         )}
 
         {step === 1 && mapping && (

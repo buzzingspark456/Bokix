@@ -116,6 +116,6 @@ describe('summarizePayrollRun', () => {
 
   it('returnerar nollor för en tom lönekörning', () => {
     const summary = summarizePayrollRun([])
-    expect(summary).toEqual({ gross: 0, tax: 0, net: 0, employerFee: 0, vacationProvision: 0, vacationFee: 0, totalCost: 0 })
+    expect(summary).toEqual({ gross: 0, tax: 0, net: 0, employerFee: 0, vacationProvision: 0, vacationFee: 0, taxFree: 0, totalCost: 0 })
   })
 })

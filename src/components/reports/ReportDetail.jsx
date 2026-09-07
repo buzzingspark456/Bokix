@@ -3,13 +3,19 @@ import { ChevronLeft, Download, TrendingUp, TrendingDown, ArrowUpRight, ArrowDow
 import {
   formatSEK, fmtDate, fmtMonthYear, toISO, formatDelta,
   KpiCard, TabHeadline, EmptyState, ReportSection, DataTable,
-  ResultBarChart, CashflowLineChart, TrendChart, ChartFormatToggle,
+  ResultBarChart, CashflowLineChart,
   CostBreakdownDonut, CostRankingList, BalanceSheetTable, ComparisonLegend, swatch, REVENUE,
+  formatSharePct,
+  ChartTypeToggle, TREND_CHART_TYPES, FLOW_CHART_TYPES, SHARE_CHART_TYPES, KeyFigureGauge,
+  ReportDisplayProvider, useReportDisplay, DisplaySettingsMenu,
+  CHART_H_MAIN, CHART_H_SIDE,
+  ReportSheet, SheetPanel, InlineLegend, StatTile, MarginLinesChart, MARGIN_SERIES,
+  PeriodPicker, PeriodHeading, OVERVIEW_PERIODS, RevenueExpenseChart, CashflowComparisonChart,
 } from './ReportUI';
 import {
-  sumFlowByType, buildResultSeries, buildCashflowSeries, computeBalanceSheet,
+  sumFlowByType, buildResultSeries, buildMarginSeries, buildCashflowSeries, computeBalanceSheet,
   computeLedger, computeInvoiceReport, computeKeyFigures, fiscalYearBounds,
-  groupCostsByCategory, groupCostsByAccount,
+  groupCostsByCategory, groupCostsByAccount, overviewPeriodBounds,
 } from '../../utils/reportCalculations';
 import { computeVatPeriod } from '../../utils/vatCalculation';
 import { VAT_RUTOR } from '../../utils/vatConfig';
@@ -114,15 +120,20 @@ function aggregatePayroll(payrollRuns, start, end) {
   return { rows, totals, runCount: runs.length };
 }
 
+/** `display` är företagets sparade presentationsval (färger + enhet, se
+ * utils/chartPalette.js) och `onDisplayChange` sparar en ändring. Båda
+ * kommer från Reports.jsx, som äger företagsposten — detaljvyn läser och
+ * skickar vidare, den äger ingenting själv. */
 export default function ReportDetail({
   reportId, bounds, verifications, accounts, invoices, payrollRuns, contacts, company,
-  isMobile, onBack,
+  isMobile, onBack, display, onDisplayChange,
 }) {
   const meta = getReportMeta(reportId);
   const { start, end, prevStart, prevEnd } = bounds;
   const periodLabel = `${bounds.label} · ${fmtMonthYear(start)}–${fmtMonthYear(end)}`;
 
   return (
+    <ReportDisplayProvider colors={display?.colors} unit={display?.unit}>
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
       <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '16px 20px', flexShrink: 0 }}>
         <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '12.5px', fontWeight: 600, padding: 0, marginBottom: '10px' }}>
@@ -131,12 +142,28 @@ export default function ReportDetail({
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
           <div>
             <h1 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>{meta?.name || 'Rapport'}</h1>
-            <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>{periodLabel}</p>
+            {/* Företagsöversikten (reportId === 'overview') har en EGEN,
+                oberoende periodväljare (PeriodHeading/PeriodPicker, se
+                OverviewReport nedan) — den här raden byggs av sidans
+                GEMENSAMMA period (listvyns eget filter i Reports.jsx), som
+                Företagsöversikten aldrig använt för sina egna beräkningar.
+                Att visa båda samtidigt gav en synlig motsägelse (rubriken
+                påstod t.ex. hela räkenskapsåret medan grafen, satt till
+                "Denna månad", visade något helt annat) — döljs därför bara
+                här, Företagsöversikten visar sin egen, korrekta rad istället. */}
+            {reportId !== 'overview' && <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>{periodLabel}</p>}
           </div>
           {/* Ladda ner-knappen: platsen och utformningen finns redan (Sida
               14c, uppföljning), men själva PDF/Excel-kopplingen är ett
               senare steg — därför inaktiv med en tydlig "kommer snart"-
               förklaring istället för att låtsas fungera. */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          {onDisplayChange && (
+            <DisplaySettingsMenu
+              colors={display?.colors} unit={display?.unit}
+              onChange={onDisplayChange}
+            />
+          )}
           <button
             disabled
             title="PDF/Excel-export för enskilda rapporter kommer i ett senare steg."
@@ -144,6 +171,7 @@ export default function ReportDetail({
           >
             <Download size={14} /> Ladda ner (kommer snart)
           </button>
+          </div>
         </div>
       </div>
 
@@ -162,6 +190,7 @@ export default function ReportDetail({
         {reportId === 'monthly' && <MonthlyReport {...{ verifications, accounts }} />}
       </div>
     </div>
+    </ReportDisplayProvider>
   );
 }
 
@@ -176,105 +205,296 @@ export default function ReportDetail({
 // men aldrig kopplades in någonstans i appen förrän nu.
 // Ignorerar (som Årsrapport/Kvartalsrapport ovan) sidans egen periodväljare
 // — en översikt är per definition hela innevarande räkenskapsår hittills.
+// Sida 56, kundgenomgång ("redo the entire analytics from the beginning,
+// ta bort Staplar/Linje/Yta" — jämfört med blocks.tremor.so/blocks/
+// line-charts och /bar-charts): den gamla versionen visade bara
+// NETTOresultatet som en enda stapel per månad, var alltid låst till hela
+// räkenskapsåret, OCH lät besökaren växla varje korts graftyp fritt
+// (Stapel/Linje/Yta) — ingen riktig Tremor-block gör det, varje block
+// committar till EN form. Ombyggd i fyra delar:
+//   1. En sidnivå-periodväljare (PeriodPicker) — "denna månad" / "senaste tre
+//      månaderna" / "räkenskapsåret" (overviewPeriodBounds i
+//      reportCalculations.js), som styr datumintervall OCH bucket-storlek
+//      (dag/månad) för samtliga diagram på sidan, inte bara ett.
+//   2. Huvuddiagrammet är Intäkter OCH Utgifter som två egna, grupperade
+//      staplar (RevenueExpenseChart, en riktig port av Tremors BarChart —
+//      se tremor/BarChart.jsx), lagt i en 2/3-diagram + 1/3-sammanfattning-
+//      layout rakt av från Tremors "ETF performance comparison"-block
+//      (chart-compositions) — en ChartSummaryList bredvid grafen, inte en
+//      rad ovanpå den.
+//   3. Kassaflödet är en egen CashflowComparisonChart — Tremors "month to
+//      date"-mönster (line-charts, "Line Chart 4"): den valda perioden mot
+//      samma period föregående år som två linjer på samma axel, inget
+//      graftvalsval kvar.
+//   4. Marginalutveckling har ETT fast format (gradientfylld yta) istället
+//      för ett Yta/Linje-val — en ren procentserie läses bäst som en trend,
+//      inte som något besökaren ska behöva välja form för varje gång.
+// OVERVIEW_PERIODS (fem flikar) flyttad till ReportUI.jsx, se dess egen
+// kommentar — Dashboard.jsx:s "Intäkter vs Utgifter"-widget (kundönskemål:
+// "ska vara på startsidan också") delar nu EXAKT samma flikuppsättning,
+// inte en lokal, potentiellt avvikande kopia.
 function OverviewReport({ verifications, accounts, company, isMobile }) {
-  // Kundönskemål: "de kan välja typ av graf" — tre oberoende format-val,
-  // ett per panel (inte ett enda globalt för hela sidan, eftersom
-  // Stapel/Linje/Yta passar olika bra för olika serier, se
-  // ChartFormatToggle-kommentaren i ReportUI.jsx). 'bar' som standard för
-  // Omsättning/resultat (matchar tidigare fast beteende innan den här
-  // ändringen), 'area' som standard för Marginal/Kassaflöde (samma
-  // gradientfyllda look som redan var fast innan valmöjligheten fanns).
-  const [resultFormat, setResultFormat] = useState('bar');
-  const [marginFormat, setMarginFormat] = useState('area');
-  const [cashFormat, setCashFormat] = useState('area');
+  const [periodId, setPeriodId] = useState('year');
+  // Ett formval per panel, lokalt i vyn: det är ett sätt att TITTA på
+  // siffrorna, inte en inställning som ska överleva sidbytet. Förvalen är
+  // de former respektive data faktiskt läses bäst i — staplar när två
+  // serier jämförs period för period, ring för andelar, linje för en kvot
+  // över tid, yta för en nivå som ackumuleras.
+  const [revenueChart, setRevenueChart] = useState('bar');
+  const [costChart, setCostChart] = useState('donut');
+  const [marginChart, setMarginChart] = useState('line');
+  const [cashChart, setCashChart] = useState('area');
+  // Färger och beloppsenhet kommer från företagets val (ReportDisplayProvider
+  // i skalet ovan), inte från modulkonstanter — samma källa som diagrammen
+  // själva läser, så bricka, legend och kurva aldrig kan visa olika färg för
+  // samma serie.
+  const { palette, amount } = useReportDisplay();
+  // Diagramhöjd efter skärm: en 340px hög graf på en telefon fyller nästan
+  // hela vyn och tvingar fram en skrollning per panel. `isMobile` kommer
+  // från samma viewport-hook som resten av appen (useIsMobileViewport).
+  const mainH = isMobile ? 240 : CHART_H_MAIN;
+  const sideH = isMobile ? 210 : CHART_H_SIDE;
 
-  const { fyStart, fyEnd, prevStart, prevEnd } = useMemo(() => {
-    const now = new Date();
-    const { start: fyStart, end: fyNaturalEnd } = fiscalYearBounds(company?.fiscalYear, now);
-    const fyEnd = fyNaturalEnd < now ? fyNaturalEnd : now;
-    const prevStart = new Date(fyStart.getFullYear() - 1, fyStart.getMonth(), fyStart.getDate());
-    const prevEnd = new Date(fyEnd.getFullYear() - 1, fyEnd.getMonth(), fyEnd.getDate());
-    return { fyStart, fyEnd, prevStart, prevEnd };
-  }, [company?.fiscalYear]);
+  const bounds = useMemo(() => overviewPeriodBounds(periodId, { fiscalYearStart: company?.fiscalYear, verifications }), [periodId, company?.fiscalYear, verifications]);
+  const { start, end, prevStart, prevEnd, granularity, label: periodLabel, hasComparison } = bounds;
 
-  const k = useMemo(() => computeKeyFigures(verifications, accounts, fyStart, fyEnd), [verifications, accounts, fyStart, fyEnd]);
+  const k = useMemo(() => computeKeyFigures(verifications, accounts, start, end), [verifications, accounts, start, end]);
   const prevK = useMemo(() => computeKeyFigures(verifications, accounts, prevStart, prevEnd), [verifications, accounts, prevStart, prevEnd]);
-  const series = useMemo(() => buildResultSeries(verifications, accounts, fyStart, fyEnd), [verifications, accounts, fyStart, fyEnd]);
-  const prevSeries = useMemo(() => buildResultSeries(verifications, accounts, prevStart, prevEnd), [verifications, accounts, prevStart, prevEnd]);
-  const cashPoints = useMemo(() => buildCashflowSeries(verifications, accounts, fyStart, fyEnd), [verifications, accounts, fyStart, fyEnd]);
-  const prevCashPoints = useMemo(() => buildCashflowSeries(verifications, accounts, prevStart, prevEnd), [verifications, accounts, prevStart, prevEnd]);
-  const costCategories = useMemo(() => groupCostsByCategory(verifications, accounts, fyStart, fyEnd), [verifications, accounts, fyStart, fyEnd]);
-  const costAccounts = useMemo(() => groupCostsByAccount(verifications, accounts, fyStart, fyEnd), [verifications, accounts, fyStart, fyEnd]);
+  const series = useMemo(() => buildResultSeries(verifications, accounts, start, end, granularity), [verifications, accounts, start, end, granularity]);
+  const marginSeries = useMemo(() => buildMarginSeries(verifications, accounts, start, end, granularity), [verifications, accounts, start, end, granularity]);
 
+  // Marginaltrappan har tre steg — men alla tre bär bara information om
+  // företaget faktiskt HAR kostnader i varje lager. Ett tjänsteföretag utan
+  // varukostnader (klass 4) får bruttomarginal = 100 % varje månad: en platt
+  // linje i diagrammets tak som aldrig säger något. Har man inga finansiella
+  // poster (klass 8) blir vinstmarginalen identisk med rörelsemarginalen och
+  // ritas exakt ovanpå den — legenden lovar tre serier, ytan visar två, och
+  // den dolda ser bara "borta" ut. Därför visas bara de lager som skiljer sig
+  // åt; `layersNote` säger rakt ut varför de andra saknas.
+  const visibleMargins = useMemo(() => {
+    const pts = marginSeries.filter(d => d.rorelse != null);
+    if (!pts.length) return { series: MARGIN_SERIES, note: null };
+    const near = (a, b) => Math.abs(a - b) < 0.05;
+    const identical = (key) => pts.every(p => p[key] != null && near(p[key], p.rorelse));
+    const alwaysFull = (key) => pts.every(p => p[key] != null && near(p[key], 100));
+    const dropped = [];
+    const series = MARGIN_SERIES.filter((s) => {
+      if (s.key === 'rorelse') return true;
+      if (alwaysFull(s.key) || identical(s.key)) { dropped.push(s.key); return false; }
+      return true;
+    });
+    const note = !dropped.length ? null
+      : dropped.length === 2
+        ? 'Inga varukostnader eller finansiella poster i perioden — brutto- och vinstmarginalen sammanfaller med rörelsemarginalen.'
+        : dropped[0] === 'brutto'
+          ? 'Inga varukostnader i perioden — bruttomarginalen ligger på 100 % hela perioden.'
+          : 'Inga finansiella poster i perioden — vinstmarginalen sammanfaller med rörelsemarginalen.';
+    return { series, note };
+  }, [marginSeries]);
+
+  const cashPoints = useMemo(() => buildCashflowSeries(verifications, accounts, start, end, granularity), [verifications, accounts, start, end, granularity]);
+  const prevCashPoints = useMemo(() => buildCashflowSeries(verifications, accounts, prevStart, prevEnd, granularity), [verifications, accounts, prevStart, prevEnd, granularity]);
+  const costCategories = useMemo(() => groupCostsByCategory(verifications, accounts, start, end), [verifications, accounts, start, end]);
+  const costAccounts = useMemo(() => groupCostsByAccount(verifications, accounts, start, end), [verifications, accounts, start, end]);
+
+  // Rubrikraden (PeriodHeading + PeriodPicker) — alltid samma, oavsett om
+  // perioden faktiskt har någon bokföring eller inte (se `hasActivity`
+  // nedan): en besökare måste kunna SE vilket datumspann en tom period
+  // faktiskt täcker, och kunna byta till en flik som har data, utan att
+  // rubrikraden försvinner i tomt-läget.
+  const periodHeader = (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
+      <PeriodHeading label={periodLabel} start={start} end={end} />
+      <PeriodPicker value={periodId} onChange={setPeriodId} options={OVERVIEW_PERIODS} />
+    </div>
+  );
   const hasActivity = series.some(m => m.intakt !== 0 || m.kostnad !== 0);
-  if (!hasActivity) return <ReportSection><EmptyState text="Ingen bokförd data ännu för innevarande räkenskapsår." /></ReportSection>;
 
-  const resultChartData = series.map((m, i) => ({ label: m.label, resultat: m.intakt - m.kostnad, prevResultat: prevSeries[i] ? (prevSeries[i].intakt - prevSeries[i].kostnad) : null }));
-  // `margin`: null (inte 0) för en månad helt utan omsättning — 0/0 är
-  // odefinierat, inte "0% marginal", och TrendChart hoppar redan medvetet
-  // över null-punkter i Linje-/Yta-format (connectNulls={false}) istället
-  // för att rita ett missvisande dropp till noll.
-  const marginData = series.map(m => ({ label: m.label, margin: m.intakt !== 0 ? ((m.intakt - m.kostnad) / m.intakt) * 100 : null }));
-  const cashChartData = cashPoints.map((p, i) => ({ label: fmtDate(p.date), balance: p.balance, prevBalance: prevCashPoints[i] ? prevCashPoints[i].balance : null }));
+  if (!hasActivity) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        {periodHeader}
+        <ReportSection><EmptyState text={`Ingen bokförd data ännu för ${periodLabel.toLowerCase()}.`} /></ReportSection>
+      </div>
+    );
+  }
+
+  const revenueExpenseData = series.map(m => ({ label: m.label, Intäkter: m.intakt, Utgifter: m.kostnad }));
+  // Fältnamnen är själva periodetiketten ("Denna månad" osv) snarare än ett
+  // fast "Saldo" — CashflowComparisonChart's legend (Tremors "Line Chart 4":
+  // currentMonth/lastMonth) ska alltid namnge VILKEN period som visas, inte
+  // ett generiskt ord som inte längre stämmer när fliken byts. Ingen
+  // "Föregående år"-serie alls när !hasComparison ("Sedan start") — se
+  // CashflowComparisonChart's kommentar i ReportUI.jsx.
+  const cashChartData = cashPoints.map((p, i) => ({
+    label: fmtDate(p.date), [periodLabel]: p.balance,
+    ...(hasComparison ? { 'Föregående år': prevCashPoints[i] ? prevCashPoints[i].balance : null } : {}),
+  }));
+  // `comparable` — inte bara "har perioden en jämförelseperiod?" (hasComparison)
+  // utan "finns det FAKTISKT något bokfört i den?". Buggrapport från riktig
+  // data: ett bolag utan fjolårshistorik fick raden "Ingen data förra året"
+  // upprepad FEM gånger på samma skärm (två nyckeltalskort + tre rader i
+  // sammanfattningslistan) — samma icke-besked, om och om igen, i utrymme som
+  // skulle burit siffror. Saknas underlaget helt låtsas sidan inte att den
+  // jämför: inga delta-rader, ingen "jämfört med"-undertext.
+  const comparable = hasComparison && (prevK.omsattning !== 0 || prevK.kostnader !== 0);
+  const omsDelta = comparable ? formatDelta(k.omsattning, prevK.omsattning) : null;
+  const kostDelta = comparable ? formatDelta(k.kostnader, prevK.kostnader, true) : null;
+  const resDelta = comparable ? formatDelta(k.resultat, prevK.resultat) : null;
+  const comparisonNote = comparable ? 'Jämfört med samma period föregående år.' : null;
+  // Kassaflödeskortets rubriktal: saldot vid periodens SISTA punkt, inte en
+  // summa — ett ackumulerat saldo summeras inte, det avläses.
+  const currentCash = cashPoints.length ? cashPoints[cashPoints.length - 1].balance : 0;
+
+  // Kundens Figma-utkast, implementerat: INGA kort. Hela översikten är ett
+  // vitt ark (ReportSheet) där panelerna skiljs åt av hårfina linjer i stället
+  // för av ramar, skuggor och luft. Linjerna ritas inte per panel utan av
+  // rutnätet självt: behållaren har `background: var(--border)` och `gap: 1px`,
+  // så springorna MELLAN cellerna är linjerna. Det gör att de aldrig
+  // dubbleras, aldrig hamnar på en ytterkant, och — viktigast — att de
+  // fortfarande blir vågräta avdelare när `.form-row-stack` staplar allt till
+  // en kolumn på mobil. Ett `borderLeft` per panel hade blivit ett hängande
+  // streck i mobilvyn.
+  // Rutnätet och spannen ligger i index.css (`.sheet-grid` / `.sheet-span-*`),
+  // inte som inline-stilar — se kommentaren där: ett inline `grid-column:
+  // span N` går inte att nollställa i en mediefråga, och ett spann som är
+  // bredare än rutnätets enda kolumn skapar då implicita kolumner i stället
+  // för att stapla. Det gjorde hela arket obrytbart på mobil.
+  const cell = { background: 'var(--bg-card)' };
+  // Kostnadernas största kategori — utkastets "varav personal 44 %" är ingen
+  // fast text utan den faktiskt största posten, uträknad ur samma
+  // kostnadsfördelning som ringen bredvid visar.
+  const topCost = [...costCategories.categories].sort((a, b) => b.amount - a.amount)[0];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px' }}>
-        <KpiCard label="Omsättning" value={formatSEK(k.omsattning)} icon={TrendingUp} accent="var(--text-main)" iconBg="var(--border-light)" delta={formatDelta(k.omsattning, prevK.omsattning)} />
-        <KpiCard label="Resultat" value={formatSEK(k.resultat)} icon={k.resultat >= 0 ? TrendingUp : TrendingDown} accent={k.resultat >= 0 ? 'var(--status-green-text)' : 'var(--status-red-text)'} iconBg="var(--border-light)" delta={formatDelta(k.resultat, prevK.resultat)} />
-        <KpiCard label="Vinstmarginal" value={fmtPct(k.vinstmarginal)} icon={Percent} accent="var(--text-main)" iconBg="var(--border-light)" />
-        <KpiCard label="Soliditet" value={fmtPct(k.soliditet)} icon={Scale} accent="var(--text-main)" iconBg="var(--border-light)" />
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      {periodHeader}
 
-      <ReportSection
-        title="Omsättning och resultat" subtitle="Resultat per månad, jämfört med samma period föregående räkenskapsår."
-        actions={<ChartFormatToggle value={resultFormat} onChange={setResultFormat} formats={['bar', 'line', 'area']} />}
-      >
-        <TrendChart
-          data={resultChartData} format={resultFormat} isMobile={isMobile}
-          dataKey="resultat" name="Resultat" colorBySign
-          prevDataKey="prevResultat" prevName="Föregående räkenskapsår"
-        />
-        <ComparisonLegend currentLabel="Innevarande räkenskapsår" previousLabel="Föregående räkenskapsår" currentColorSwatch={swatch(REVENUE)} previousColorSwatch={swatch('var(--text-muted)', true)} />
-      </ReportSection>
+      <ReportSheet>
+        <div className="sheet-grid">
+          {/* Nyckeltalsbandet — fyra brickor, som i utkastet. Vinstmarginal och
+              soliditet har inga egna brickor längre utan ligger som kontexttext
+              under det tal de faktiskt hör ihop med (marginalen under
+              resultatet, soliditeten under kassalikviditeten). Fyra tal att
+              läsa i stället för fem, utan att något mått försvann. */}
+          <div className="sheet-span-3" style={cell}>
+            <StatTile
+              label="Omsättning" value={amount.value(k.omsattning)} icon={TrendingUp} tone={palette.income}
+              delta={omsDelta} context={omsDelta?.context}
+            />
+          </div>
+          <div className="sheet-span-3" style={cell}>
+            <StatTile
+              label="Resultat" value={amount.value(k.resultat)} icon={k.resultat >= 0 ? TrendingUp : TrendingDown}
+              tone={k.resultat >= 0 ? palette.profit : palette.cost}
+              accent={k.resultat >= 0 ? 'var(--status-green-text)' : 'var(--status-red-text)'}
+              delta={resDelta}
+              context={k.vinstmarginal != null ? `marginal ${fmtPct(k.vinstmarginal)}` : resDelta?.context}
+            />
+          </div>
+          <div className="sheet-span-3" style={cell}>
+            <StatTile
+              label="Kassalikviditet" value={fmtPct(k.kassalikviditet)} icon={Wallet} tone={palette.cash}
+              context={k.soliditet != null ? `soliditet ${fmtPct(k.soliditet)}` : 'saknar underlag'}
+            />
+          </div>
+          <div className="sheet-span-3" style={cell}>
+            <StatTile
+              label="Kostnader" value={amount.value(k.kostnader)} icon={Scale} tone={palette.cost}
+              delta={kostDelta}
+              context={topCost ? `varav ${topCost.name.toLowerCase()} ${formatSharePct(topCost.amount, costCategories.total)}` : kostDelta?.context}
+            />
+          </div>
 
-      <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-        <ReportSection title="Kostnadsfördelning" subtitle="Var pengarna gick, i fyra breda kategorier.">
-          {costCategories.categories.length === 0
-            ? <EmptyState text="Inga bokförda kostnader ännu." />
-            : <CostBreakdownDonut categories={costCategories.categories} total={costCategories.total} />}
-        </ReportSection>
-        <ReportSection
-          title="Marginalutveckling" subtitle="Vinstmarginal per månad — resultat i förhållande till omsättning."
-          actions={<ChartFormatToggle value={marginFormat} onChange={setMarginFormat} formats={['area', 'line']} />}
-        >
-          <TrendChart
-            data={marginData} format={marginFormat} isMobile={isMobile}
-            dataKey="margin" name="Vinstmarginal" color={REVENUE}
-            yTickFormatter={v => `${v}%`} valueFormatter={v => `${v.toFixed(1)}%`}
-            yAxisWidth={48}
-          />
-        </ReportSection>
-      </div>
+          <div className="sheet-span-7" style={cell}>
+            <SheetPanel
+              title="Intäkter vs utgifter"
+              subtitle={comparisonNote}
+              /* Kombi ritar en tredje serie (resultatet) — legenden måste
+                 följa med, annars står en grön linje i diagrammet utan att
+                 något säger vad den är. */
+              legend={<InlineLegend items={[
+                { label: 'Intäkter', color: palette.income },
+                { label: 'Utgifter', color: palette.cost },
+                ...(revenueChart === 'combo' ? [{ label: 'Resultat', color: palette.profit }] : []),
+              ]} />}
+              controls={<ChartTypeToggle value={revenueChart} onChange={setRevenueChart} options={TREND_CHART_TYPES} />}
+            >
+              <RevenueExpenseChart data={revenueExpenseData} isMobile={isMobile} granularity={granularity} height={mainH} variant={revenueChart} />
+            </SheetPanel>
+          </div>
+          <div className="sheet-span-5" style={cell}>
+            <SheetPanel
+              title="Kostnadsfördelning"
+              controls={costCategories.categories.length > 0
+                ? <ChartTypeToggle value={costChart} onChange={setCostChart} options={SHARE_CHART_TYPES} />
+                : null}
+            >
+              {costCategories.categories.length === 0
+                ? <EmptyState text="Inga bokförda kostnader ännu." />
+                : <CostBreakdownDonut categories={costCategories.categories} total={costCategories.total} variant={costChart} />}
+            </SheetPanel>
+          </div>
 
-      <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-        <ReportSection
-          title="Kassaflöde" subtitle="Ackumulerat saldo på bank och i kassa genom året."
-          actions={<ChartFormatToggle value={cashFormat} onChange={setCashFormat} formats={['area', 'line']} />}
-        >
-          <TrendChart
-            data={cashChartData} format={cashFormat} isMobile={isMobile}
-            dataKey="balance" name="Saldo" color="var(--accent)"
-            prevDataKey="prevBalance" prevName="Föregående räkenskapsår"
-          />
-          <ComparisonLegend currentLabel="Innevarande räkenskapsår" previousLabel="Föregående räkenskapsår" currentColorSwatch={swatch('var(--accent)')} previousColorSwatch={swatch('var(--text-muted)', true)} />
-        </ReportSection>
-        <ReportSection title="Största kostnadskontona" subtitle="De fem konton som stod för mest av årets kostnader.">
-          {costAccounts.rows.length === 0
-            ? <EmptyState text="Inga bokförda kostnader ännu." />
-            : <CostRankingList rows={costAccounts.rows} total={costAccounts.total} />}
-        </ReportSection>
-      </div>
+          <div className="sheet-span-7" style={cell}>
+            <SheetPanel
+              title="Marginalanalys"
+              subtitle={visibleMargins.series.length > 1
+                ? 'Andel av omsättningen som är kvar efter varje kostnadslager'
+                : `${visibleMargins.series[0].label} — andel av omsättningen som är kvar efter rörelsens kostnader`}
+              /* En ensam serie behöver ingen legend; underrubriken namnger den. */
+              legend={visibleMargins.series.length > 1
+                ? <InlineLegend items={visibleMargins.series.map(s => ({ label: s.label.replace('marginal', ''), color: palette.marginTones[MARGIN_SERIES.findIndex(m => m.key === s.key)] || palette.profit }))} />
+                : null}
+              controls={<ChartTypeToggle value={marginChart} onChange={setMarginChart} options={FLOW_CHART_TYPES} />}
+            >
+              <MarginLinesChart data={marginSeries} series={visibleMargins.series} isMobile={isMobile} height={sideH} variant={marginChart} />
+              {visibleMargins.note && (
+                <p style={{ margin: '10px 0 0', fontSize: '12.5px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                  {visibleMargins.note}
+                </p>
+              )}
+            </SheetPanel>
+          </div>
+          <div className="sheet-span-5" style={cell}>
+            <SheetPanel
+              title="Kassaflöde"
+              subtitle={`Likvida medel per period · ${amount.value(currentCash)} vid periodens slut`}
+              controls={<ChartTypeToggle value={cashChart} onChange={setCashChart} options={FLOW_CHART_TYPES} />}
+            >
+              <CashflowComparisonChart
+                data={cashChartData} currentLabel={periodLabel}
+                previousLabel={comparable ? 'Föregående år' : null}
+                height={sideH} variant={cashChart}
+              />
+            </SheetPanel>
+          </div>
+
+          <div className="sheet-span-7" style={cell}>
+            <SheetPanel title="Största kostnadskontona" subtitle="De fem konton som drar mest i perioden">
+              {costAccounts.rows.length === 0
+                ? <EmptyState text="Inga bokförda kostnader ännu." />
+                : <CostRankingList rows={costAccounts.rows} total={costAccounts.total} />}
+            </SheetPanel>
+          </div>
+          {/* Nyckeltalen får en egen panel i stället för att bara ligga som
+              kontexttext under brickorna högst upp: tre procenttal som
+              ringar visar direkt vilket av dem som ligger lågt, vilket en
+              rad text aldrig gör. Samma tal som brickorna, ingen ny
+              beräkning — se computeKeyFigures. */}
+          <div className="sheet-span-5" style={cell}>
+            <SheetPanel title="Nyckeltal" subtitle="Tre fristående mått på hur företaget står — inte tre delar av samma helhet">
+              <KeyFigureGauge
+                figures={[
+                  { label: 'Vinstmarginal', value: k.vinstmarginal, display: fmtPct(k.vinstmarginal), color: palette.profit, help: 'Andel av omsättningen som blir kvar' },
+                  { label: 'Kassalikviditet', value: k.kassalikviditet, display: fmtPct(k.kassalikviditet), color: palette.cash, help: 'Omsättningstillgångar mot kortfristiga skulder' },
+                  { label: 'Soliditet', value: k.soliditet, display: fmtPct(k.soliditet), color: palette.neutral, help: 'Eget kapital i förhållande till balansomslutningen' },
+                ]}
+              />
+            </SheetPanel>
+          </div>
+        </div>
+      </ReportSheet>
     </div>
   );
 }

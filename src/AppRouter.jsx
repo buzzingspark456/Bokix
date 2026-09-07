@@ -12,6 +12,31 @@ const AboutPage = lazy(() => import('./components/marketing/AboutPage'));
 const ContactPage = lazy(() => import('./components/marketing/ContactPage'));
 const ChooseSoftwareGuidePage = lazy(() => import('./components/marketing/ChooseSoftwareGuidePage'));
 const BookingPage = lazy(() => import('./components/marketing/BookingPage'));
+// Bugg (fanns redan innan de nya sidorna nedan): /alternativ var med i
+// public/sitemap.xml, prerenderades av entry-server.jsx och hade en egen
+// rewrite i vercel.json — men saknade route HÄR. En besökare som klickade
+// den interna länken från /valja-bokforingsprogram föll därför på catch-all
+// nedan och kastades till startsidan, och samma sak hände så fort någon
+// navigerade vidare från den förrenderade sidan.
+const AlternativePage = lazy(() => import('./components/marketing/AlternativePage'));
+// "Byt bokföringsprogram" — den praktiska HUR-sidan (SIE4-export ur det
+// gamla programmet → import i Bokix), skild från /alternativ som svarar
+// på VARFÖR. Måste stå på samma fyra ställen som varje annan statisk
+// marknadssida: här, i PRERENDER_ROUTES/PAGES (entry-server.jsx), i
+// vercel.json:s rewrites och i public/sitemap.xml.
+const SwitchPage = lazy(() => import('./components/marketing/SwitchPage'));
+// Fria verktyg (/verktyg + fem räknare), ordlistan, integrationssidan och
+// säkerhetssidan — alla publika, alla lazy av samma skäl som ovan: en
+// besökare som bara ska till startsidan ska inte hämta dem.
+const ToolsHubPage = lazy(() => import('./components/marketing/tools/ToolsHubPage'));
+const MomsKalkylatorPage = lazy(() => import('./components/marketing/tools/MomsKalkylatorPage'));
+const LonekalkylatorPage = lazy(() => import('./components/marketing/tools/LonekalkylatorPage'));
+const EgenavgifterPage = lazy(() => import('./components/marketing/tools/EgenavgifterPage'));
+const RotRutKalkylatorPage = lazy(() => import('./components/marketing/tools/RotRutKalkylatorPage'));
+const DrojsmalsrantaPage = lazy(() => import('./components/marketing/tools/DrojsmalsrantaPage'));
+const OrdlistaPage = lazy(() => import('./components/marketing/OrdlistaPage'));
+const IntegrationsPage = lazy(() => import('./components/marketing/IntegrationsPage'));
+const SecurityPage = lazy(() => import('./components/marketing/SecurityPage'));
 const PrivacyPolicy = lazy(() => import('./components/PrivacyPolicy'));
 const TermsPolicy = lazy(() => import('./components/TermsPolicy'));
 const CookiesPolicy = lazy(() => import('./components/CookiesPolicy'));
@@ -115,21 +140,46 @@ function RootRoute() {
 
   return (
     <LandingPage
-      onEnterApp={() => {
+      onEnterApp={(mode, plan) => {
         // Samma state-flagga som App.jsx:s egen useEffect förväntar sig
         // (och rensar) direkt efter mount, så Auth-skärmen visas direkt
         // istället för att App.jsx skulle rendera sin EGEN LandingPage-gren
-        // en gång till ovanpå den här.
-        navigate('.', { state: { enterApp: true } });
+        // en gång till ovanpå den här. authMode följer med samma väg så
+        // "Kom igång"/"Skapa konto" landar på registrering, inte inloggning.
+        // `plan` är abonnemanget besökaren klickade i prissektionen — utan
+        // det skulle registreringen alltid anta den dyraste nivån oavsett
+        // vilket kort som klickades.
+        navigate('.', { state: { enterApp: true, authMode: mode, ...(plan ? { plan } : {}) } });
         setWantsApp(true);
       }}
     />
   );
 }
 
+// Kundönskemål ("när man trycker på policy eller sektion ska den alltid
+// gå högst upp") — React Router byter INTE scrollposition automatiskt vid
+// en <Link>-navigering (till skillnad från en vanlig, icke-SPA sidladdning)
+// — stod man t.ex. och läste FAQ:n längst ner på startsidan och klickade
+// "Integritetspolicy" i sidfoten, monterades PrivacyPolicy fortfarande
+// scrollad lika långt ner. Nyckt på `pathname` (inte hela `location` —
+// hash-ändringar, t.ex. Supabase-inloggningslänkar i RootRoute ovan, eller
+// den inloggade appens egen aktiva-flik-hash i App.jsx, ska INTE trigga
+// detta) och en instant hopp (inte smooth) — matchar hur en vanlig
+// sidladdning redan beter sig, till skillnad från loggans EGEN smooth-
+// scroll vid klick på samma sida (MarketingLayout.jsx), som är en annan,
+// avsiktligt mjukare animation för ett annat fall (redan på sidan).
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+  return null;
+}
+
 export default function AppRouter() {
   return (
     <>
+      <ScrollToTop />
       <Routes>
         <Route path="/" element={<RootRoute />} />
         {/* Sitemap (Sida 29) — varje marknadssida en egen riktig route/URL,
@@ -141,6 +191,23 @@ export default function AppRouter() {
         <Route path="/kontakt" element={<Suspense fallback={<AppLoadingFallback />}><ContactPage /></Suspense>} />
         <Route path="/valja-bokforingsprogram" element={<Suspense fallback={<AppLoadingFallback />}><ChooseSoftwareGuidePage /></Suspense>} />
         <Route path="/boka-genomgang" element={<Suspense fallback={<AppLoadingFallback />}><BookingPage /></Suspense>} />
+        <Route path="/alternativ" element={<Suspense fallback={<AppLoadingFallback />}><AlternativePage /></Suspense>} />
+        <Route path="/byt-bokforingsprogram" element={<Suspense fallback={<AppLoadingFallback />}><SwitchPage /></Suspense>} />
+        <Route path="/integrationer" element={<Suspense fallback={<AppLoadingFallback />}><IntegrationsPage /></Suspense>} />
+        <Route path="/sakerhet" element={<Suspense fallback={<AppLoadingFallback />}><SecurityPage /></Suspense>} />
+        <Route path="/ordlista" element={<Suspense fallback={<AppLoadingFallback />}><OrdlistaPage /></Suspense>} />
+        {/* Verktygsnavet + de fem räknarna. Sökvägarna måste hållas i
+            synk med TOOLS i marketing/tools/toolsConfig.js (sidfoten,
+            navet och korsläkarna bygger sina länkar därifrån), med
+            PRERENDER_ROUTES i entry-server.jsx och med rewrites i
+            vercel.json — samma tre ställen som varje annan statisk
+            marknadssida redan står på. */}
+        <Route path="/verktyg" element={<Suspense fallback={<AppLoadingFallback />}><ToolsHubPage /></Suspense>} />
+        <Route path="/verktyg/momskalkylator" element={<Suspense fallback={<AppLoadingFallback />}><MomsKalkylatorPage /></Suspense>} />
+        <Route path="/verktyg/lonekalkylator" element={<Suspense fallback={<AppLoadingFallback />}><LonekalkylatorPage /></Suspense>} />
+        <Route path="/verktyg/egenavgifter" element={<Suspense fallback={<AppLoadingFallback />}><EgenavgifterPage /></Suspense>} />
+        <Route path="/verktyg/rot-rut" element={<Suspense fallback={<AppLoadingFallback />}><RotRutKalkylatorPage /></Suspense>} />
+        <Route path="/verktyg/drojsmalsranta" element={<Suspense fallback={<AppLoadingFallback />}><DrojsmalsrantaPage /></Suspense>} />
         <Route path="/privacy" element={<Suspense fallback={<AppLoadingFallback />}><PrivacyPolicy /></Suspense>} />
         <Route path="/terms" element={<Suspense fallback={<AppLoadingFallback />}><TermsPolicy /></Suspense>} />
         {/* GDPR-innehållet är nu fullt inbakat i den utökade Integritetspolicyn

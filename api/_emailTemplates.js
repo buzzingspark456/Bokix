@@ -58,10 +58,10 @@ export function buildAgiDeadlineHtml({ company, deadline, siteUrl }) {
  * SAMMA window.location.hash som App.jsx redan använder för toppnivåfliken,
  * så en länk hit skulle kräva "#subscription" och då aldrig ens nå fram
  * till Inställningar-sidan). Vägen dit står istället i brödtexten. */
-export function buildTrialEndingHtml({ trialEndsAt, siteUrl }) {
+export function buildTrialEndingHtml({ trialEndsAt, monthlyPrice = 179, siteUrl }) {
   return `
     <p>Hej,</p>
-    <p>Din kostnadsfria provperiod av Bokix går ut <strong>${formatDate(trialEndsAt)}</strong>. Därefter dras <strong>179 kr/mån</strong> automatiskt på kortet du la in.</p>
+    <p>Din kostnadsfria provperiod av Bokix går ut <strong>${formatDate(trialEndsAt)}</strong>. Därefter dras <strong>${monthlyPrice} kr/mån</strong> automatiskt på kortet du la in.</p>
     <p>Vill du inte fortsätta går det bra att avsluta när som helst innan dess, utan att det kostar något — under Inställningar → Prenumeration.</p>
     ${siteUrl ? ctaButton(`${siteUrl}/`, 'Öppna Bokix') : ''}
     <p>Med vänlig hälsning<br/>Bokix</p>

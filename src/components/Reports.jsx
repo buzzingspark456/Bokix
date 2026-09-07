@@ -66,6 +66,15 @@ export default function Reports({
         verifications={verifications} accounts={accounts} invoices={invoices}
         payrollRuns={payrollRuns} contacts={contacts} company={company}
         isMobile={isMobile}
+        // Presentationsvalen (diagramfärger + beloppsenhet) sparas på
+        // FÖRETAGET, inte per rapport: en användare som valt grönt för
+        // intäkter menar det i hela appen, inte bara i den rapport hen råkade
+        // stå i när valet gjordes. Samma mönster som reportLastOpened ovan.
+        display={company?.reportDisplay}
+        onDisplayChange={(patch) => setCompanyInfo?.(prev => ({
+          ...prev,
+          reportDisplay: { ...(prev.reportDisplay || {}), ...patch },
+        }))}
         onBack={() => setOpenReportId(null)}
       />
     );

@@ -3,11 +3,11 @@ import {
   FileText, Receipt, TrendingUp, TrendingDown,
   ChevronRight, ArrowUpRight, ArrowDownRight,
   CheckCircle2, Minus, BarChart2,
-  UserPlus, Users, Clock, AlertCircle, Zap, X, MessageSquare, ClipboardCheck,
+  UserPlus, Users, Clock, AlertCircle, Zap, X, MessageSquare, ClipboardCheck, Upload,
   // Aliasat — 'LineChart' krockar annars med recharts-komponenten med
   // samma namn som redan importeras nedan (två helt olika saker: en ikon
   // kontra en diagramkomponent).
-  LineChart as LineChartIcon, Table2,
+  LineChart as LineChartIcon, AreaChart as AreaChartIcon, Table2, Layers,
 } from 'lucide-react';
 import {
   BarChart, Bar, LineChart, Line,
@@ -18,8 +18,17 @@ import { getDebet, getKredit } from '../utils/verificationAmounts';
 import { quarterToRange } from '../utils/vatCalculation';
 import { nextVatDeadline } from '../utils/declarationDeadlines';
 import { getGreeting } from '../utils/greeting';
+import SieImportModal from './SieImportModal';
 import { BRAND, KPI_GRADIENTS, VIVID } from '../utils/brandColors';
-import { useIsMobileViewport } from '../hooks/useIsMobileViewport';
+import { resolveChartPalette, makeAmountFormatters } from '../utils/chartPalette';
+import { RevenueExpenseChart, ReportDisplayProvider } from './reports/ReportUI';
+// Kundönskemål: samma fem period-flikar (Denna månad/3 mån/6 mån/
+// Räkenskapsåret/Sedan start) som Rapport och analys → Företagsöversikt,
+// på "Intäkter vs Utgifter"-grafen här också — delad komponent/lista och
+// delad datumberäkning istället för en andra, lokal implementation som kan
+// glida isär (se PeriodPicker/OVERVIEW_PERIODS-kommentaren i ReportUI.jsx).
+import { PeriodPicker, PeriodHeading, OVERVIEW_PERIODS } from './reports/ReportUI';
+import { overviewPeriodBounds, buildResultSeries } from '../utils/reportCalculations';
 
 /* ── Färger (Sida 30): grönt för positivt/rött för negativt, konsekvent i
    hela appen. Två nyanser per färg: en ljusare "grafisk" ton för linjer/
@@ -54,12 +63,14 @@ const KPI_GRAD_POSITIVE = KPI_GRADIENTS.positive; // Resultat: vinst
 const KPI_GRAD_NEGATIVE = KPI_GRADIENTS.negative; // Resultat: förlust, Kostnader
 const KPI_GRAD_REVENUE  = KPI_GRADIENTS.revenue;  // Intäkter
 
-// Intäkter-vs-Utgifter-grafen (kategorisk, två serier sida vid sida) — blått/
-// rosa istället för grönt/rött. Samma toner som Intäkter- och Kostnader-
-// korten ovan, så graf och nyckeltal hänger ihop visuellt, och paret klarar
-// CVD-kontrollen som det gamla gröna/röda inte gjorde (se kommentar ovan).
-const CHART_REVENUE = KPI_GRAD_REVENUE[0];  // blå
-const CHART_EXPENSE = KPI_GRAD_NEGATIVE[0]; // rosa/röd
+// Intäkter-vs-Utgifter-grafens färger kommer numera från paletten
+// (utils/chartPalette.js, se `chart` i komponenten): förvalet är samma
+// blå/röda par som tidigare — samma toner som Intäkter- och Kostnader-
+// korten ovan, och det par som klarar CVD-kontrollen som det gamla
+// gröna/röda inte gjorde (se kommentaren högst upp) — men företaget kan
+// välja andra i rapporternas Utseende-meny, och då ska startsidan följa
+// med. Annars visar de två sidorna samma två tal i olika färger, vilket
+// var precis det problemet valen skulle lösa.
 
 // Föregående års jämförelselinjer (Intäkter vs Utgifter-läget): SAMMA
 // validerade nyanser som ovan, bara halvtransparenta — inte en tredje/fjärde
@@ -72,8 +83,8 @@ const hexToRgba = (hex, alpha) => {
   const n = parseInt(hex.slice(1), 16);
   return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
 };
-const CHART_REVENUE_PREV = hexToRgba(CHART_REVENUE, 0.55);
-const CHART_EXPENSE_PREV = hexToRgba(CHART_EXPENSE, 0.55);
+// (Jämförelseårets halvtransparenta varianter räknas fram i komponenten,
+// eftersom grundfärgen numera kan komma från företagets eget val.)
 
 // "Kom igång"-checklistan (Sida 31) — en egen accentfärg per steg istället
 // för enhetligt grått, så listan blir lättare att skanna. Klar-status
@@ -86,6 +97,14 @@ const ONBOARD_STEP_COLORS = {
 };
 const CONFETTI_COLORS = [ONBOARD_STEP_COLORS.customer, ONBOARD_STEP_COLORS.invoice, ONBOARD_STEP_COLORS.expense, ONBOARD_STEP_COLORS.supplier, '#e0527a'];
 const ONBOARDING_DISMISSED_KEY = 'bokix_dashboard_checklist_dismissed';
+// Kundönskemål (Sida 51, SIE4-import) — en EGEN dismiss-flagga, samma
+// mönster som checklistans, men medvetet en helt fristående ruta, INTE en
+// femte rad i onboardingSteps: den arrayens längd är hårdkodad in i "X av
+// 4 klara"-räknaren och konfetti-villkoret ovan, och den här rutan gäller
+// bara den mindre gruppen som faktiskt bytte från ett annat program — de
+// flesta nya konton gör aldrig det här steget, till skillnad från de
+// fyra riktiga onboarding-stegen.
+const SIE_IMPORT_DISMISSED_KEY = 'bokix_dashboard_sie_import_dismissed';
 // Kundrapporterad bugg: "Grattis, du är igång!"-firandet blossade upp på
 // NYTT varje gång man lämnade Dashboard och kom tillbaka, trots att alla
 // fyra steg redan var klara sedan tidigare besök. Orsaken var
@@ -107,30 +126,40 @@ const ONBOARD_FOOTER_LINK_STYLE = {
   textDecoration: 'none', transition: 'color 0.15s',
 };
 
+// Tre sätt att läsa samma period. "Allt tillsammans" finns för att de två
+// första svarar på olika frågor — hur mycket kom in och gick ut, respektive
+// vad blev kvar — och den som vill se sambandet mellan dem tvingades annars
+// växla fram och tillbaka och hålla den ena kurvan i huvudet.
 const CHART_MODES = [
   { id: 'revenue-expense', label: 'Intäkter vs Utgifter', icon: BarChart2 },
   { id: 'result',          label: 'Resultat',              icon: Minus },
+  { id: 'all',             label: 'Allt tillsammans',      icon: Layers },
 ];
 
 // Diagramformat — samma data, tre sätt att läsa den. "Tabell" är inte bara
 // en extra vy för smaksak: dataviz-skillens tillgänglighetskrav säger att en
 // tabellvy alltid ska finnas som alternativ till en ren grafisk framställning.
+//
+// "Yta" fanns här förut, togs bort, och är nu tillbaka — det är värt att
+// skriva ut varför, så ingen tar bort den igen på gamla grunder.
+// Ursprungsproblemet var att två OBEROENDE serier (Intäkter mycket större,
+// Utgifter mycket mindre) ritades som två platt fyllda, halvtransparenta
+// ytor: i överlappet blandades kulörerna till en tredje, grumlig ton
+// (kundfeedback: "yta-diagrammet ser så dåligt ut"). Det var formen som var
+// fel, inte färgerna.
+//
+// Det som ändrats sedan dess är att widgeten inte längre ritar sin egen
+// graf: linje- och ytläget renderas av EXAKT samma komponent som
+// Företagsöversikten (RevenueExpenseChart, ReportUI.jsx), där ytan är en
+// gradient som tonar ut mot noll i stället för en platt fyllning. Överlappet
+// blir då den mindre seriens egen ton mot en nästan genomskinlig bakgrund,
+// inte två färger som blandas. Kundönskemål: "linje och yta på startsidan
+// ska vara samma som i Företagsöversikt".
 const FORMAT_MODES = [
   { id: 'bars',  label: 'Staplar', icon: BarChart2 },
   { id: 'line',  label: 'Linje',   icon: LineChartIcon },
+  { id: 'area',  label: 'Yta',     icon: AreaChartIcon },
   { id: 'table', label: 'Tabell',  icon: Table2 },
-];
-
-// Linjestil (kundönskemål: "olika varianter så de kan välja hur den ska se
-// ut") — bara relevant i Linje-formatet ovan, en egen liten radväljare som
-// bara syns där. `type` är Recharts egen <Line>-prop: 'monotone' rundar av
-// kurvan mellan punkterna, 'linear' drar raka segment rakt mellan dem,
-// 'stepAfter' hoppar i steg (håller föregående månads värde tills nästa
-// punkt) — tre olika sätt att läsa SAMMA siffror, ingen ändrar datan.
-const LINE_VARIANTS = [
-  { id: 'smooth',   label: 'Slät',   type: 'monotone' },
-  { id: 'straight', label: 'Rak',    type: 'linear' },
-  { id: 'step',     label: 'Trappa', type: 'stepAfter' },
 ];
 
 /** Liten färgad prick/streck-swatch för handbyggda legender (samma mönster
@@ -163,21 +192,26 @@ function DeltaBadge({ current, previous }) {
   );
 }
 
-/** Tabellformatet — samma tolv månadsrader som graferna, som en riktig
- * `<table>` istället för streck/staplar. Kolumnerna anpassar sig efter
- * chartMode så tabellen aldrig visar en tom "Utgifter"-kolumn i Resultat-läget. */
-function ChartDataTable({ data, mode, fmt, hasPrevYearData, previousYear }) {
-  const showRevExp = mode === 'revenue-expense';
+/** Tabellformatet — samma rader (dag eller månad, beroende på vald
+ * period-flik, se PeriodPicker/overviewPeriodBounds) som graferna, som en
+ * riktig `<table>` istället för streck/staplar. Kolumnerna anpassar sig
+ * efter chartMode så tabellen aldrig visar en tom "Utgifter"-kolumn i
+ * Resultat-läget. */
+function ChartDataTable({ data, mode, fmt, hasPrevYearData, comparisonLabel }) {
+  // 'all' visar samma kolumner som Intäkter vs Utgifter plus resultatet —
+  // resultatkolumnen finns redan alltid, så det räcker att öppna de två
+  // första för det nya läget.
+  const showRevExp = mode === 'revenue-expense' || mode === 'all';
   return (
     <div style={{ overflowX: 'auto' }}>
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
         <thead>
           <tr style={{ borderBottom: '1px solid var(--border)' }}>
-            <th style={{ textAlign: 'left', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600 }}>Månad</th>
+            <th style={{ textAlign: 'left', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600 }}>Period</th>
             {showRevExp && <th style={{ textAlign: 'right', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600 }}>Intäkter</th>}
             {showRevExp && <th style={{ textAlign: 'right', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600 }}>Utgifter</th>}
             <th style={{ textAlign: 'right', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600 }}>Resultat</th>
-            {hasPrevYearData && <th style={{ textAlign: 'right', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600 }}>Resultat {previousYear}</th>}
+            {hasPrevYearData && <th style={{ textAlign: 'right', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600 }}>Resultat {comparisonLabel}</th>}
             {hasPrevYearData && <th style={{ textAlign: 'right', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600 }}>Förändring</th>}
           </tr>
         </thead>
@@ -204,11 +238,17 @@ function ChartDataTable({ data, mode, fmt, hasPrevYearData, previousYear }) {
 // Kundfeedback ("starkare färger, inte AI-mall-känsla"): bytt från de bleka
 // status-badge-tonerna (BRAND.*Bg/*Text, tänkta för diskreta märken) till
 // VIVID — solida, mättade plattor med vit ikon (se brandColors.js).
+// `staffOnly: true` visas bara för företag som FAKTISKT har personal.
+// Kundönskemål: en enskild firma utan anställda ska inte mötas av
+// lönefunktioner den aldrig kommer använda. Villkoret är verkliga
+// anställda, inte vilket abonnemang som köpts — se kommentaren vid
+// `hasStaff` i komponenten för varför.
 const QUICK_ACTIONS = [
   { label: 'Ny faktura',       icon: FileText, tab: 'invoices', bg: VIVID.green },
   { label: 'Ladda upp kvitto', icon: Receipt,  tab: 'expenses', bg: VIVID.blue },
   { label: 'Ny kontakt',       icon: UserPlus, tab: 'contacts', bg: VIVID.pink },
   { label: 'Rapportera tid',   icon: Clock,    tab: 'projects', bg: VIVID.amber },
+  { label: 'Kör lön',          icon: Users,    tab: 'payroll',  bg: VIVID.red, staffOnly: true },
 ];
 
 // Röd/gul/grön — samma BRAND-tokens som statusar i övriga listor i appen
@@ -218,20 +258,6 @@ const SEV = {
   danger:  { bg: BRAND.redBg,    text: BRAND.redText,   icon: VIVID.red,   rank: 0 },
   warning: { bg: BRAND.amberBg,  text: BRAND.amberText, icon: VIVID.amber, rank: 1 },
   success: { bg: BRAND.greenLight, text: BRAND.greenDark, icon: VIVID.green, rank: 2 },
-};
-
-// Etikett för "Senast bokfört" — vilken typ av affärshändelse en
-// verifikation kommer ifrån, för den korta "datum · typ"-metaraden.
-const BOOK_TYPE_LABEL = {
-  invoice:                  'Faktura',
-  invoice_payment:          'Betalning',
-  expense:                  'Utgift',
-  expense_fix:              'Utgift',
-  supplier_invoice:         'Leverantörsfaktura',
-  supplier_invoice_payment: 'Betalning',
-  payroll:                  'Lön',
-  vat_declaration:          'Moms',
-  manual:                   'Manuell',
 };
 
 function pad2(n) { return String(n).padStart(2, '0'); }
@@ -350,21 +376,36 @@ function TodayRow({ item, onClick }) {
   );
 }
 
-export default function Dashboard({ verifications, invoices, expenses, contacts, setActiveTab, company, user, vatPeriods = {}, payrollRuns = [] }) {
+export default function Dashboard({ verifications, accounts = [], invoices, expenses, contacts, setActiveTab, company, user, vatPeriods = {}, payrollRuns = [], employees = [], onBulkImportSie }) {
+  // Har företaget personal? Avgörs på verkliga anställda och lönekörningar,
+  // inte på vilket abonnemang som köpts. Nivån GÅR numera att läsa
+  // (subscriptions.plan, se src/utils/plans.js) — men faktisk användning är
+  // ändå det ärligare villkoret här: den som skaffar sin första anställd
+  // får lönegenvägen samma dag, utan att först behöva byta abonnemang.
+  const hasStaff = employees.length > 0 || payrollRuns.length > 0;
+  const quickActions = QUICK_ACTIONS.filter(a => !a.staffOnly || hasStaff);
   const [chartMode, setChartMode] = useState('revenue-expense');
+  // Företagets egna färg- och beloppsval (samma post som rapportsidan
+  // sparar, company.reportDisplay). `useMemo` för att paletten annars
+  // skulle byggas om vid varje omritning av startsidan.
+  const { chart, amount } = useMemo(() => ({
+    chart: resolveChartPalette(company?.reportDisplay?.colors),
+    amount: makeAmountFormatters(company?.reportDisplay?.unit),
+  }), [company?.reportDisplay?.colors, company?.reportDisplay?.unit]);
+  const chartRevenue = chart.income;
+  const chartExpense = chart.cost;
+  const chartRevenuePrev = hexToRgba(chartRevenue, 0.55);
+  const chartExpensePrev = hexToRgba(chartExpense, 0.55);
   const [chartFormat, setChartFormat] = useState('bars');
-  // Sparat val, samma mönster som temat (App.jsx bokix_theme) — en användare
-  // som väljer "Trappa" en gång ska inte behöva välja om det varje besök.
-  const [lineStyle, setLineStyle] = useState(() => {
-    try { return localStorage.getItem('bokix_chart_line_style') || 'smooth'; }
-    catch { return 'smooth'; }
-  });
-  const handleSetLineStyle = (id) => {
-    setLineStyle(id);
-    try { localStorage.setItem('bokix_chart_line_style', id); } catch { /* privat läge etc. */ }
-  };
-  const curveType = LINE_VARIANTS.find(v => v.id === lineStyle)?.type || 'monotone';
-  const isMobileViewport = useIsMobileViewport();
+  // Kundönskemål: samma period-flikar som Rapport och analys →
+  // Företagsöversikt (PeriodPicker/OVERVIEW_PERIODS, ReportUI.jsx). 'year'
+  // som standard — samma förvalda vy widgeten alltid haft (hela
+  // räkenskapsåret hittills), bara nu en av fem valbara istället för det
+  // enda alternativet.
+  const [periodId, setPeriodId] = useState('year');
+  // Kundfeedback: linjestil-väljaren (Slät/Rak/Trappa) bort helt — alltid
+  // den släta (monotone) kurvan, samma som var förvalt innan.
+  const curveType = 'monotone';
 
   // ── "Kom igång"-checklistan ── Ska ligga kvar tills ALLA fyra steg är
   // klara (inte bara försvinna så fort kontot inte längre räknas som "nytt",
@@ -387,6 +428,15 @@ export default function Dashboard({ verifications, invoices, expenses, contacts,
     try { localStorage.setItem(ONBOARDING_DISMISSED_KEY, '1'); } catch { /* privat läge etc. — inte kritiskt */ }
   };
 
+  const [sieImportDismissed, setSieImportDismissed] = useState(() => {
+    try { return localStorage.getItem(SIE_IMPORT_DISMISSED_KEY) === '1'; } catch { return false; }
+  });
+  const [showSieImportModal, setShowSieImportModal] = useState(false);
+  const dismissSieImportCallout = () => {
+    setSieImportDismissed(true);
+    try { localStorage.setItem(SIE_IMPORT_DISMISSED_KEY, '1'); } catch { /* privat läge etc. — inte kritiskt */ }
+  };
+
   // Bugvakt (Sida 32): `maximumFractionDigits: 0` avrundar t.ex. -0.4 till
   // -0, och Intl.NumberFormat skriver då ut "-0 kr" istället för "0 kr" —
   // ett äkta minustecken framför en siffra som i praktiken är noll. Ett
@@ -403,6 +453,13 @@ export default function Dashboard({ verifications, invoices, expenses, contacts,
     if (Math.abs(v) >= 1000) return `${Math.round(v / 1000)}k`;
     return String(Math.round(v));
   };
+  // Har företaget uttryckligen valt tusental eller kronor gäller det valet
+  // även här. I `auto`-läget behålls widgetens egen korta form ("160k",
+  // "1,2Mkr") — den är byggd för en smal ruta på startsidan, inte för en
+  // rapportsida med gott om axelutrymme.
+  const explicitUnit = company?.reportDisplay?.unit && company.reportDisplay.unit !== 'auto';
+  const axisTick = explicitUnit ? amount.axis : fmtShort;
+  const axisWidth = explicitUnit ? amount.axisWidth : 52;
 
   const currentYear = new Date().getFullYear().toString();
 
@@ -472,7 +529,7 @@ export default function Dashboard({ verifications, invoices, expenses, contacts,
       ? (mostOverdueDays <= 1 ? 'förföll igår' : `förföll för ${mostOverdueDays} dagar sedan`)
       : 'har förfallit';
     todos.push({
-      sev: 'danger', icon: AlertCircle, tab: 'invoices',
+      sev: 'danger', icon: AlertCircle, tab: 'invoices', daysLeft: -mostOverdueDays,
       text: overdueInvoices.length === 1
         ? `1 faktura ${whenText} — ${fmt(overdueAmount)}`
         : `${overdueInvoices.length} fakturor ${whenText} — ${fmt(overdueAmount)} totalt`,
@@ -480,10 +537,10 @@ export default function Dashboard({ verifications, invoices, expenses, contacts,
   }
   if (vatDeadline) {
     if (vatDeadline.daysLeft < 0) {
-      todos.push({ sev: 'danger', icon: AlertCircle, text: `Momsdeklaration för kvartal ${vatDeadline.quarter} är försenad`, tab: 'taxes' });
+      todos.push({ sev: 'danger', icon: AlertCircle, text: `Momsdeklaration för kvartal ${vatDeadline.quarter} är försenad`, tab: 'taxes', daysLeft: vatDeadline.daysLeft });
     } else if (vatDeadline.daysLeft <= 7) {
       const when = vatDeadline.daysLeft === 0 ? 'idag' : vatDeadline.daysLeft === 1 ? 'imorgon' : `om ${vatDeadline.daysLeft} dagar`;
-      todos.push({ sev: 'warning', icon: Clock, text: `Momsdeklaration ska lämnas ${when}`, tab: 'taxes' });
+      todos.push({ sev: 'warning', icon: Clock, text: `Momsdeklaration ska lämnas ${when}`, tab: 'taxes', daysLeft: vatDeadline.daysLeft });
     }
   }
   if (pendingPayrollRuns.length > 0) {
@@ -503,7 +560,17 @@ export default function Dashboard({ verifications, invoices, expenses, contacts,
   if (todos.length === 0) {
     todos.push({ sev: 'success', icon: CheckCircle2, text: 'Inget kräver din uppmärksamhet idag', tab: null });
   }
-  todos.sort((a, b) => SEV[a.sev].rank - SEV[b.sev].rank);
+  // Allvarsgrad först (försenat före kommande), men DÄRINOM det som har
+  // minst tid kvar. Utan `daysLeft` som andrahandsnyckel avgjorde
+  // insättningsordningen i koden vad som stod överst, vilket inte har
+  // något med hur bråttom det är att göra.
+  todos.sort((a, b) => {
+    const bySeverity = SEV[a.sev].rank - SEV[b.sev].rank;
+    if (bySeverity !== 0) return bySeverity;
+    const aDays = a.daysLeft ?? Number.POSITIVE_INFINITY;
+    const bDays = b.daysLeft ?? Number.POSITIVE_INFINITY;
+    return aDays - bDays;
+  });
 
   const hasUrgent = todos[0].sev !== 'success' || todos.length > 1 || todos[0].tab !== null;
 
@@ -557,90 +624,123 @@ export default function Dashboard({ verifications, invoices, expenses, contacts,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [celebrationKey]);
 
-  // ── Senast bokfört — de senast bokförda (aldrig utkast) verifikationerna,
-  // sorterade på riktigt datum. Beskrivningen är exakt den som redan
-  // sparades när händelsen bokfördes. Beloppet är summan av debetsidan,
-  // som (eftersom varje verifikation är balanserad) alltid motsvarar
-  // radens bruttobelopp oavsett källa — faktura, utgift eller lön. ──
-  const recentBooked = useMemo(() => {
-    return verifications
-      .filter(v => (v.status || 'booked') !== 'draft')
-      .slice()
-      .sort((a, b) => b.date.localeCompare(a.date) || String(b.id).localeCompare(String(a.id)))
-      .slice(0, 4)
-      .map(v => ({
-        id: v.id,
-        description: v.description || v.number,
-        date: v.date,
-        type: BOOK_TYPE_LABEL[v.source] || 'Verifikation',
-        amount: v.rows.reduce((s, r) => s + getDebet(r), 0),
-      }));
-  }, [verifications]);
+  // ── Utestående — pengar på väg in och pengar på väg ut ──────────────
+  //
+  // Ersatte "Senast bokfört", som visade de fyra senaste verifikationerna.
+  // Den rutan var en backspegel: den listade det du själv nyss gjort,
+  // krävde ingenting av dig, och låg bredvid momskortet som gör precis
+  // tvärtom. Ytan används nu till den enda siffra på sidan som svarar på
+  // "har jag pengar nästa månad" — vad kunderna är skyldiga dig och vad du
+  // är skyldig dina leverantörer. Hela verifikationslistan finns kvar under
+  // Bokföring, som är där man går när man vill titta bakåt.
+  //
+  // Räknas ur fakturorna och leverantörsfakturorna själva, aldrig ur
+  // bokförda saldon: en obetald faktura är utestående oavsett hur den
+  // bokförts, och kontantmetoden bokför den inte alls förrän den betalas.
+  const outstanding = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const daysOverdue = (dueDate) => {
+      if (!dueDate) return 0;
+      const due = new Date(dueDate);
+      due.setHours(0, 0, 0, 0);
+      return Math.max(0, Math.round((today - due) / 86400000));
+    };
 
+    const unpaidInvoices = (invoices || []).filter(i => i.status === 'sent');
+    // Delbetalda fakturor räknas på det som ÅTERSTÅR, inte på hela
+    // beloppet — annars säger rutan att man har mer att få in än man har.
+    const receivable = unpaidInvoices.reduce((sum, i) => sum + Math.max(0, invoiceGross(i) - (i.paidAmount || 0)), 0);
+    const overdueIn = unpaidInvoices.filter(i => daysOverdue(i.dueDate) > 0);
+    const oldestOverdue = overdueIn.reduce((max, i) => Math.max(max, daysOverdue(i.dueDate)), 0);
+
+    // Leverantörsfakturor ligger bland utgifterna med type
+    // 'supplier_invoice' och en egen status (se SupplierInvoices.jsx) —
+    // inte i en egen lista.
+    const unpaidSupplier = (expenses || []).filter(e => e.type === 'supplier_invoice' && e.status !== 'paid');
+    const payable = unpaidSupplier.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+    const overdueOut = unpaidSupplier.filter(e => daysOverdue(e.dueDate) > 0);
+
+    return {
+      receivable, payable,
+      inCount: unpaidInvoices.length, outCount: unpaidSupplier.length,
+      overdueInCount: overdueIn.length, overdueOutCount: overdueOut.length,
+      oldestOverdue,
+      net: receivable - payable,
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [invoices, expenses]);
   // ── Chartdata ──
-  // Räknar nu fram BÅDA årens Intäkter/Utgifter/Resultat, inte bara
-  // innevarande år — subtitleraden under diagramrubriken ("Innevarande
-  // räkenskapsår X jämfört med Y") lovade den jämförelsen sedan tidigare,
-  // men PrevIntäkter/PrevUtgifter räknades aldrig ut (bara en ensam,
-  // aldrig renderad 'Föregående år'-summa för intäkter) — grafen visade
-  // alltså aldrig det den påstod. Fixat här; själva ritningen (streckade
-  // jämförelselinjer) sker längre ner i JSX:en.
-  const previousYear = String(parseInt(currentYear) - 1);
+  // Kundönskemål: samma fem period-flikar som Rapport och analys →
+  // Företagsöversikt (PeriodPicker ovan) styr nu den här grafen också, inte
+  // ett hårdkodat "hela kalenderåret hittills". overviewPeriodBounds
+  // (reportCalculations.js) räknar ut datumintervallet OCH bucket-
+  // storleken (dag för "Denna månad", annars månad), buildResultSeries
+  // bucketar de faktiskt bokförda beloppen — samma två funktioner som
+  // Företagsöversikten använder, inte en andra, lokal kalenderårsimplementation
+  // som (innan den här ändringen) alltid räknade kalenderår oavsett
+  // företagets riktiga räkenskapsår och aldrig kunde visa mer än 12 månader.
+  //
+  // `hasComparison` (från overviewPeriodBounds) är falskt för "Sedan start"
+  // — det finns ingen meningsfull period FÖRE företagets första bokförda
+  // dag att jämföra med, se samma resonemang i ReportDetail.jsx.
+  // `comparisonLabel` ersätter den tidigare inbakade årtalstexten
+  // ("Intäkter 2025") i legender/tabellrubrik — flikarnas fönster kan nu
+  // spänna över ett årsskifte (t.ex. "6 mån" i februari täcker både
+  // föregående och innevarande kalenderår), så ett enda hårdkodat årtal
+  // vore periodvis felaktigt. En generisk "föregående år" stämmer alltid,
+  // eftersom jämförelseperioden (prevStart/prevEnd) alltid är EXAKT ett år
+  // tidigare oavsett flik.
+  const comparisonLabel = 'föregående år';
+  const periodBounds = useMemo(
+    () => overviewPeriodBounds(periodId, { fiscalYearStart: company?.fiscalYear, verifications }),
+    [periodId, company?.fiscalYear, verifications],
+  );
   const chartData = useMemo(() => {
-    const names = ['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
-    const data = names.map(name => ({ name, Intäkter: 0, Utgifter: 0, Resultat: 0, PrevIntäkter: 0, PrevUtgifter: 0, PrevResultat: 0 }));
-    verifications.forEach(v => {
-      if ((v.status || 'booked') === 'draft') return;
-      const year = v.date.substring(0, 4);
-      const mIdx = parseInt(v.date.substring(5, 7)) - 1;
-      if (mIdx < 0 || mIdx >= 12) return;
-      v.rows.forEach(r => {
-        const rev  = r.account.startsWith('3') ? (getKredit(r) - getDebet(r)) : 0;
-        const cost = ['4','5','6','7'].some(p => r.account.startsWith(p)) ? (getDebet(r) - getKredit(r)) : 0;
-        if (year === currentYear) {
-          data[mIdx].Intäkter += rev;
-          data[mIdx].Utgifter += cost;
-        } else if (year === previousYear) {
-          data[mIdx].PrevIntäkter += rev;
-          data[mIdx].PrevUtgifter += cost;
-        }
-      });
+    const { start, end, prevStart, prevEnd, granularity, hasComparison } = periodBounds;
+    const series = buildResultSeries(verifications, accounts, start, end, granularity);
+    const prevSeries = hasComparison ? buildResultSeries(verifications, accounts, prevStart, prevEnd, granularity) : [];
+    return series.map((m, i) => {
+      const prev = prevSeries[i];
+      return {
+        name: m.label, Intäkter: m.intakt, Utgifter: m.kostnad, Resultat: m.intakt - m.kostnad,
+        PrevIntäkter: prev ? prev.intakt : 0, PrevUtgifter: prev ? prev.kostnad : 0,
+        PrevResultat: prev ? (prev.intakt - prev.kostnad) : 0,
+      };
     });
-    data.forEach(d => {
-      d.Resultat = d.Intäkter - d.Utgifter;
-      d.PrevResultat = d.PrevIntäkter - d.PrevUtgifter;
-    });
-    // Kundfeedback: grafen visade hela kalenderåret (Jan–Dec) rakt av, så
-    // Sep–Dec stod som en missvisande platt nolla mitt i (både stapel- och
-    // tabellformatet) och som ett rakt STUP ner till 0 i linjeformatet —
-    // exakt likadant som "ingen försäljning alls" hade sett ut, trots att
-    // de månaderna helt enkelt inte har inträffat än. `currentYear` här ÄR
-    // per definition det verkliga innevarande kalenderåret (`new Date().
-    // getFullYear()`, se konstanten ovan) — det finns alltså aldrig ett
-    // läge där den här widgeten visar ett förflutet år och SKA rendera
-    // hela tolv månader. Klipper bort allt efter dagens månad istället.
-    const ytd = data.slice(0, new Date().getMonth() + 1);
-    // Samma problem i andra änden (kundfrågan "varför börjar grafen i
-    // januari om företaget bokförde sin första verifikation i augusti?"):
-    // ett nytt företag utan importerad historik har Jan–Jul som samma
-    // missvisande platta nolla i graf-STARTEN. Klipper bort ledande månader
-    // helt utan data (varken i år eller föregående år) — men bara fram till
-    // den FÖRSTA månaden som faktiskt har något bokfört. Ett företag som
-    // importerat gammal historik (bokförd med riktiga datum tillbaka till
-    // januari) har alltså data redan i januari och klipps inte alls; ett
-    // helt nytt företag som bara bokfört sedan augusti visar bara Aug–nu.
-    // Om HELA året saknar data (`hasChartData`/`hasPrevYearData` nedan blir
-    // false) finns ingen "första månad" att hitta — då behålls ytd orörd,
-    // widgeten faller tillbaka på sitt vanliga tomt-läge istället.
-    const firstDataIdx = ytd.findIndex(d => d.Intäkter !== 0 || d.Utgifter !== 0 || d.PrevIntäkter !== 0 || d.PrevUtgifter !== 0);
-    return firstDataIdx > 0 ? ytd.slice(firstDataIdx) : ytd;
-  }, [verifications, currentYear, previousYear]);
+  }, [verifications, accounts, periodBounds]);
+
+  // Samma rader som `chartData`, men med jämförelseårets tal även under de
+  // ETIKETTER den delade grafen använder som serienamn ("Intäkter 2025").
+  // Tremor-porten identifierar en serie på kategorinamnet, inte på ett eget
+  // dataKey — och `chartData` behålls oförändrad eftersom tabellvyn och
+  // stapelläget läser sina egna Prev*-fält.
+  // "Allt tillsammans": intäkter och utgifter som vanligt plus resultatet
+  // som en tredje serie. Resultatet ligger redan i `chartData`, det behöver
+  // bara ett fältnamn som matchar seriens etikett.
+  const combinedChartData = useMemo(() => chartData.map(row => ({ ...row, Resultat: row.Resultat })), [chartData]);
+
+  const comparisonChartData = useMemo(() => chartData.map(row => ({
+    ...row,
+    [`Intäkter ${comparisonLabel}`]: row.PrevIntäkter,
+    [`Utgifter ${comparisonLabel}`]: row.PrevUtgifter,
+  })), [chartData, comparisonLabel]);
   const hasChartData = chartData.some(d => d.Intäkter !== 0 || d.Utgifter !== 0);
-  // Bara sant om det FAKTISKT finns bokförd fjolårsdata — annars skulle
-  // jämförelselinjerna bara vara en missvisande platt nolla (t.ex. ett
-  // helt nytt företags allra första räkenskapsår).
-  const hasPrevYearData = chartData.some(d => d.PrevIntäkter !== 0 || d.PrevUtgifter !== 0);
+  // Bara sant om det FAKTISKT finns bokförd fjolårsdata OCH perioden har en
+  // meningsfull jämförelse alls (periodBounds.hasComparison — falskt för
+  // "Sedan start") — annars skulle jämförelselinjerna bara vara en
+  // missvisande platt nolla.
+  const hasPrevYearData = periodBounds.hasComparison && chartData.some(d => d.PrevIntäkter !== 0 || d.PrevUtgifter !== 0);
   const prevYearResultatTotal = chartData.reduce((sum, d) => sum + d.PrevResultat, 0);
+  // Grafens EGNA totaler för den valda perioden — INTE raOmsattning/
+  // raKostnader/raResultat (NYCKELTAL-korten ovan, alltid innevarande
+  // KALENDERÅR, ett separat och medvetet oförändrat mått). Grafens legend/
+  // rubrik måste stämma med vad grafen faktiskt visar, annars läser en
+  // besökare på "Denna månad" en legend som fortfarande påstår hela
+  // kalenderårets summa.
+  const periodOmsattning = chartData.reduce((sum, d) => sum + d.Intäkter, 0);
+  const periodKostnader = chartData.reduce((sum, d) => sum + d.Utgifter, 0);
+  const periodResultat = periodOmsattning - periodKostnader;
 
   // ── Hälsning — tidsgränser i delad util, inte inline ──
   const { greeting } = getGreeting();
@@ -735,8 +835,11 @@ export default function Dashboard({ verifications, invoices, expenses, contacts,
           <Zap size={14} style={{ color: BRAND.greenDark }} />
           <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>Snabbåtgärder</span>
         </div>
-        <div className="dash-quick-actions" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '10px' }}>
-          {QUICK_ACTIONS.map(a => (
+        {/* Kolumnantalet följer hur många genvägar som faktiskt visas (fyra
+            utan personal, fem med) — ett fast fyrkolumnsrutnät hade lämnat
+            den femte ensam på en egen rad. */}
+        <div className="dash-quick-actions" style={{ display: 'grid', gridTemplateColumns: `repeat(${quickActions.length},1fr)`, gap: '10px' }}>
+          {quickActions.map(a => (
             <button
               key={a.label}
               onClick={() => setActiveTab(a.tab)}
@@ -842,23 +945,38 @@ export default function Dashboard({ verifications, invoices, expenses, contacts,
           (inte bara `!isNew`) — men visar en lugn tomt-läge-vy istället för
           en platt nollstapel-graf tills det finns något att rita ut. ─── */}
       <div style={{ background: 'var(--bg-cream)', border: '1px solid var(--bg-cream-border)', borderRadius: '14px', padding: '22px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)', marginBottom: '18px', minWidth: 0 }}>
+        {/* Period-väljare (kundönskemål: "ska vara på startsidan också" +
+            "det måste visa datumet") — samma PeriodHeading/PeriodPicker/
+            OVERVIEW_PERIODS som Rapport och analys → Företagsöversikt
+            (ReportUI.jsx): etikett OCH exakt start–slutdatum till vänster,
+            flikarna till höger. Alltid synlig (inte gated på hasChartData)
+            av samma skäl som CHART_MODES-växlaren nedan redan är det: en
+            besökare som landar på en tom flik (t.ex. "Denna månad" utan
+            bokföring än) måste kunna växla till en flik som FAKTISKT har
+            data, inte fastna i ett tomt läge utan utväg. Egen rad, tydligt
+            skild (18px) från graf-rubrikraden under — två separata beslut
+            (VILKEN period, VILKEN graf) ska inte läsas ihop till ett. */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', marginBottom: '20px' }}>
+          <PeriodHeading label={periodBounds.label} start={periodBounds.start} end={periodBounds.end} />
+          <PeriodPicker value={periodId} onChange={setPeriodId} options={OVERVIEW_PERIODS} />
+        </div>
         {/* Chart header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px', flexWrap: 'wrap', gap: '12px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
           <div>
-            <h2 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.01em', marginBottom: '2px' }}>
+            <h2 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.01em', marginBottom: '4px' }}>
               {CHART_MODES.find(m => m.id === chartMode)?.label}
             </h2>
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-              {/* "jämfört med"-delen visas bara när det FAKTISKT finns
-                  bokförd fjolårsdata (hasPrevYearData) — annars lovade
-                  raden en jämförelse som varken graf eller tabell hade
-                  något att visa för (t.ex. företagets allra första
-                  räkenskapsår). */}
-              Innevarande räkenskapsår {currentYear}{hasPrevYearData ? ` jämfört med ${previousYear}` : ''}
-            </p>
+            {/* Kort — INTE periodetiketten igen (PeriodHeading ovan visar
+                redan etikett + datum en gång) — bara jämförelsenoten, och
+                bara när den FAKTISKT stämmer (hasPrevYearData). */}
+            {hasPrevYearData && (
+              <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>
+                Jämfört med samma period {comparisonLabel}.
+              </p>
+            )}
             {/* Legenden uppdateras dynamiskt beroende på vald flik — aldrig
                 statisk text som bara passar första vyn. Intäkter/Utgifter-
-                läget använder CHART_REVENUE/CHART_EXPENSE (blå/rosa) i både
+                läget använder chartRevenue/chartExpense (blå/rosa) i både
                 punkt och text — samma toner som KPI-korten ovan och ett
                 CVD-säkert par (se konstant-kommentaren). Resultat-läget
                 behåller det klassiska grönt/rött eftersom det är en enda
@@ -867,54 +985,50 @@ export default function Dashboard({ verifications, invoices, expenses, contacts,
                 dämpad/streckad post — samma "form, inte färg, bär den andra
                 dimensionen"-princip som graferna längre ner använder. */}
             {chartMode === 'revenue-expense' && (
-              <div style={{ display: 'flex', gap: '16px', marginTop: '8px', flexWrap: 'wrap' }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: CHART_REVENUE, fontWeight: 600 }}>
-                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: CHART_REVENUE, display: 'inline-block' }} />
-                  Intäkter {fmt(raOmsattning)}
+              <div style={{ display: 'flex', gap: '18px', marginTop: '10px', flexWrap: 'wrap' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: chartRevenue, fontWeight: 600 }}>
+                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: chartRevenue, display: 'inline-block' }} />
+                  Intäkter {fmt(periodOmsattning)}
                 </span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: CHART_EXPENSE, fontWeight: 600 }}>
-                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: CHART_EXPENSE, display: 'inline-block' }} />
-                  Utgifter {fmt(raKostnader)}
+                <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: chartExpense, fontWeight: 600 }}>
+                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: chartExpense, display: 'inline-block' }} />
+                  Utgifter {fmt(periodKostnader)}
                 </span>
                 {hasPrevYearData && (
                   <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>
-                    {legendSwatch(CHART_REVENUE_PREV, true)}{legendSwatch(CHART_EXPENSE_PREV, true)}
-                    {previousYear}
+                    {legendSwatch(chartRevenuePrev, true)}{legendSwatch(chartExpensePrev, true)}
+                    Föregående år
                   </span>
                 )}
               </div>
             )}
             {chartMode === 'result' && (
-              <div style={{ display: 'flex', gap: '16px', marginTop: '8px', flexWrap: 'wrap' }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: raResultat >= 0 ? BRAND.greenDark : BRAND.redText }}>
-                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: raResultat >= 0 ? REVENUE : EXPENSE, display: 'inline-block' }} />
-                  Resultat {fmt(raResultat)}
+              <div style={{ display: 'flex', gap: '18px', marginTop: '10px', flexWrap: 'wrap' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: periodResultat >= 0 ? BRAND.greenDark : BRAND.redText }}>
+                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: periodResultat >= 0 ? REVENUE : EXPENSE, display: 'inline-block' }} />
+                  Resultat {fmt(periodResultat)}
                 </span>
                 {hasPrevYearData && (
                   <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>
                     {legendSwatch('var(--text-muted)', true)}
-                    Resultat {previousYear} {fmt(prevYearResultatTotal)}
+                    Resultat {comparisonLabel} {fmt(prevYearResultatTotal)}
                   </span>
                 )}
               </div>
             )}
           </div>
-          <div style={{ display: 'flex', gap: '4px', background: 'var(--bg-muted)', padding: '3px', borderRadius: '9px', border: '1px solid var(--border-light)', flexWrap: 'wrap' }}>
-            {CHART_MODES.map(m => (
-              <button key={m.id} onClick={() => setChartMode(m.id)} style={{
-                display: 'flex', alignItems: 'center', gap: '5px',
-                padding: '5px 11px', borderRadius: '6px', border: 'none', cursor: 'pointer',
-                fontSize: '12px', fontWeight: chartMode === m.id ? 600 : 400,
-                background: chartMode === m.id ? BRAND.green : 'transparent',
-                color: chartMode === m.id ? 'white' : 'var(--text-secondary)',
-                boxShadow: chartMode === m.id ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-                transition: 'all 0.15s', fontFamily: 'inherit',
-              }}>
-                <m.icon size={11} />
-                {m.label}
-              </button>
-            ))}
-          </div>
+          {/* Samma väljare som perioden ovanför (PeriodPicker, ReportUI.jsx),
+              bara med en annan ikon. Var tidigare en knapprad — med tre lägen
+              och en formatrad under blev det fyra plus fyra knappar som
+              trängdes med rubriken på samma yta. En rullgardin säger dessutom
+              vad som ÄR valt utan att man ska läsa vilken knapp som är fylld. */}
+          <PeriodPicker
+            value={chartMode}
+            onChange={setChartMode}
+            options={CHART_MODES}
+            icon={CHART_MODES.find(m => m.id === chartMode)?.icon || BarChart2}
+            ariaLabel="Välj diagram"
+          />
         </div>
 
         {/* Formatväljare (Staplar/Linje/Tabell) — samma data, tre sätt att
@@ -944,32 +1058,12 @@ export default function Dashboard({ verifications, invoices, expenses, contacts,
           </div>
         )}
 
-        {/* Linjestil-väljaren — bara meningsfull i Linje-formatet ovan. */}
-        {hasChartData && chartFormat === 'line' && (
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '14px', marginTop: '-8px' }}>
-            <div style={{ display: 'flex', gap: '4px', background: 'var(--bg-muted)', padding: '3px', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
-              {LINE_VARIANTS.map(v => (
-                <button key={v.id} onClick={() => handleSetLineStyle(v.id)} title={v.label} style={{
-                  padding: '4px 10px', borderRadius: '5px', border: 'none', cursor: 'pointer',
-                  fontSize: '11.5px', fontWeight: lineStyle === v.id ? 600 : 400,
-                  background: lineStyle === v.id ? 'var(--bg-card)' : 'transparent',
-                  color: lineStyle === v.id ? 'var(--text-main)' : 'var(--text-muted)',
-                  boxShadow: lineStyle === v.id ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
-                  transition: 'all 0.15s', fontFamily: 'inherit',
-                }}>
-                  {v.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* Tomt läge — inga bokförda verifikationer än. Ett eget litet vyläge
             istället för att bara rita en platt nollinje, så rutan förklarar
             vad som saknas istället för att se trasig/tom ut. */}
         {!hasChartData ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', height: '220px', textAlign: 'center' }}>
-            <div style={{ width: 44, height: 44, borderRadius: '12px', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: CHART_REVENUE, marginBottom: '2px' }}>
+            <div style={{ width: 44, height: 44, borderRadius: '12px', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: chartRevenue, marginBottom: '2px' }}>
               <BarChart2 size={20} />
             </div>
             <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>Ingen bokföring ännu</p>
@@ -978,56 +1072,98 @@ export default function Dashboard({ verifications, invoices, expenses, contacts,
             </p>
           </div>
         ) : chartFormat === 'table' ? (
-          <ChartDataTable data={chartData} mode={chartMode} fmt={fmt} hasPrevYearData={hasPrevYearData} previousYear={previousYear} />
+          <ChartDataTable data={chartData} mode={chartMode} fmt={fmt} hasPrevYearData={hasPrevYearData} comparisonLabel={comparisonLabel} />
         ) : (
           <>
-            {chartMode === 'revenue-expense' && (
+            {/* Bugkritiskt (kundrapporterad: "en massa saker är osynliga,
+                de ligger utanför"): `margin.left` var tidigare -20 och
+                Y-axelns `width` bara 44 — ett negativt vänstermarginal-värde
+                flyttar HELA ritytan (inklusive Y-axelns etiketter) 20px åt
+                vänster om <svg>:ns egen vänsterkant, och en <svg> klipper
+                per spec allt som hamnar utanför sitt eget koordinatsystem
+                (`overflow: hidden` är webbläsarens default för <svg>-
+                rotelement). Kombinationen klippte routinmässigt den FÖRSTA
+                siffran i en Y-axeletikett ("160k" visades som "l0k") så
+                fort talet blev tillräckligt stort/brett — `margin.left: 0`
+                + `width={52}` ger etiketterna faktiskt utrymme att rymmas
+                innanför SVG:ns vänsterkant istället för att gissa ett
+                negativt tal som råkade fungera för just kortare belopp. */}
+            {/* Allt tillsammans. I stapelläget är det kombiformen — fyllda
+                intäktsstaplar, dämpade utgiftsstaplar och resultatet som en
+                linje ovanpå — alltså exakt samma bild som Företagsöversikten
+                ritar. I linje- och ytläget blir resultatet i stället en tredje
+                kurva bredvid de två andra. Samma komponent i båda fallen. */}
+            {chartMode === 'all' && chartFormat !== 'table' && (
+              <ReportDisplayProvider colors={company?.reportDisplay?.colors} unit={company?.reportDisplay?.unit}>
+                <RevenueExpenseChart
+                  data={combinedChartData}
+                  indexKey="name"
+                  variant={chartFormat === 'bars' ? 'combo' : chartFormat}
+                  height={260}
+                  isMobile={false}
+                  extraSeries={chartFormat === 'bars' ? [] : [{ label: 'Resultat', color: chart.profit, dashed: false }]}
+                />
+              </ReportDisplayProvider>
+            )}
+
+            {chartMode === 'revenue-expense' && (chartFormat === 'line' || chartFormat === 'area') && (
+              // Samma komponent som Företagsöversikten ritar med — mjuk
+              // monotone-kurva, samma linjetjocklek, punkter i linjeläget och
+              // gradientfylld yta i ytläget. Föregående år följer med som två
+              // streckade serier, samma konvention som stapelläget nedan.
+              <ReportDisplayProvider colors={company?.reportDisplay?.colors} unit={company?.reportDisplay?.unit}>
+                <RevenueExpenseChart
+                  data={comparisonChartData}
+                  indexKey="name"
+                  variant={chartFormat}
+                  height={260}
+                  isMobile={false}
+                  extraSeries={hasPrevYearData ? [
+                    { label: `Intäkter ${comparisonLabel}`, color: chartRevenuePrev },
+                    { label: `Utgifter ${comparisonLabel}`, color: chartExpensePrev },
+                  ] : []}
+                />
+              </ReportDisplayProvider>
+            )}
+
+            {chartMode === 'revenue-expense' && chartFormat === 'bars' && (
               <ResponsiveContainer width="100%" height={260}>
-                {chartFormat === 'line' ? (
-                  <LineChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                  <BarChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }} barGap={3}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-light)" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} dy={6} interval={isMobileViewport ? 2 : 0} />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} tickFormatter={fmtShort} width={44} />
-                    <Tooltip content={<ChartTooltip fmt={fmt} />} cursor={{ stroke: 'var(--border)', strokeWidth: 1 }} />
-                    <Legend iconType="plainline" verticalAlign="bottom" wrapperStyle={{ fontSize: 12, paddingTop: 16 }} />
-                    <Line type={curveType} dataKey="Intäkter" name="Intäkter" stroke={CHART_REVENUE} strokeWidth={3.5} dot={false} activeDot={{ r: 5 }} />
-                    <Line type={curveType} dataKey="Utgifter" name="Utgifter" stroke={CHART_EXPENSE} strokeWidth={3.5} dot={false} activeDot={{ r: 5 }} />
-                    {hasPrevYearData && <Line type={curveType} dataKey="PrevIntäkter" name={`Intäkter ${previousYear}`} stroke={CHART_REVENUE_PREV} strokeWidth={2} strokeDasharray="4 3" dot={false} />}
-                    {hasPrevYearData && <Line type={curveType} dataKey="PrevUtgifter" name={`Utgifter ${previousYear}`} stroke={CHART_EXPENSE_PREV} strokeWidth={2} strokeDasharray="4 3" dot={false} />}
-                  </LineChart>
-                ) : (
-                  <BarChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }} barGap={3}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-light)" />
-                    {/* interval=2: visa en etikett, hoppa över 2, visa nästa — var
-                        tredje månad på mobil istället för alla tolv som annars
-                        överlappar varandra på en 375px-bred yta. */}
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} dy={6} interval={isMobileViewport ? 2 : 0} />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} tickFormatter={fmtShort} width={44} />
+                    {/* `interval="preserveStartEnd"` — recharts väljer själv hur
+                        många etiketter som får plats utan att överlappa, istället
+                        för det tidigare hårdkodade "hoppa över var tredje", som
+                        antog exakt tolv kalendermånader. Med period-flikarna
+                        (PeriodPicker ovan) kan `chartData` nu lika gärna vara
+                        31 DAGAR ("Denna månad") som 3/6/12+ månader — ett fast
+                        hopp-tal hade antingen klämt ihop dagsetiketter eller
+                        glesat ut en redan kort månadsserie i onödan. */}
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} dy={6} interval="preserveStartEnd" />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} tickFormatter={axisTick} width={axisWidth} />
                     <Tooltip content={<ChartTooltip fmt={fmt} />} cursor={{ fill: 'rgba(0,0,0,0.02)' }} />
                     {/* verticalAlign="bottom" (uttryckligt, inte bara standard-
                         värdet) — flyttar/håller legenden under diagrammet på
                         mobil istället för att riskera att den kläms in bredvid. */}
                     <Legend iconType="circle" iconSize={7} verticalAlign="bottom" wrapperStyle={{ fontSize: 12, paddingTop: 16 }} />
-                    <Bar dataKey="Intäkter" fill={CHART_REVENUE} radius={[4,4,0,0]} barSize={16} />
-                    <Bar dataKey="Utgifter" fill={CHART_EXPENSE} radius={[4,4,0,0]} barSize={16} />
+                    <Bar dataKey="Intäkter" fill={chartRevenue} radius={[4,4,0,0]} barSize={16} />
+                    <Bar dataKey="Utgifter" fill={chartExpense} radius={[4,4,0,0]} barSize={16} />
                     {/* Föregående års jämförelse ritas som en streckad linje
                         ovanpå de egna årets staplar (samma konvention som
                         Rapport och analys, ReportUI.jsx) — bara när det finns
                         något att jämföra med. */}
-                    {hasPrevYearData && <Line type="monotone" dataKey="PrevIntäkter" name={`Intäkter ${previousYear}`} stroke={CHART_REVENUE_PREV} strokeWidth={2} strokeDasharray="4 3" dot={false} legendType="plainline" />}
-                    {hasPrevYearData && <Line type="monotone" dataKey="PrevUtgifter" name={`Utgifter ${previousYear}`} stroke={CHART_EXPENSE_PREV} strokeWidth={2} strokeDasharray="4 3" dot={false} legendType="plainline" />}
+                    {hasPrevYearData && <Line type="monotone" dataKey="PrevIntäkter" name={`Intäkter ${comparisonLabel}`} stroke={chartRevenuePrev} strokeWidth={2} strokeDasharray="4 3" dot={false} legendType="plainline" />}
+                    {hasPrevYearData && <Line type="monotone" dataKey="PrevUtgifter" name={`Utgifter ${comparisonLabel}`} stroke={chartExpensePrev} strokeWidth={2} strokeDasharray="4 3" dot={false} legendType="plainline" />}
                   </BarChart>
-                )}
               </ResponsiveContainer>
             )}
 
             {chartMode === 'result' && (
               <ResponsiveContainer width="100%" height={260}>
                 {chartFormat === 'line' ? (
-                  <LineChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                  <LineChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-light)" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} dy={6} interval={isMobileViewport ? 2 : 0} />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} tickFormatter={fmtShort} width={44} />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} dy={6} interval="preserveStartEnd" />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} tickFormatter={axisTick} width={axisWidth} />
                     <Tooltip content={<ChartTooltip fmt={fmt} />} cursor={{ stroke: 'var(--border)', strokeWidth: 1 }} />
                     <ReferenceLine y={0} stroke="var(--border)" strokeWidth={1.5} />
                     {/* Recharts (v3 i det här projektet, se package.json) hämtar
@@ -1039,14 +1175,14 @@ export default function Dashboard({ verifications, invoices, expenses, contacts,
                         egen korrekta `name`/färg och låta Legend läsa av dem
                         automatiskt, inte att skicka in en egen payload-array. */}
                     {hasPrevYearData && <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 12, paddingTop: 16 }} />}
-                    <Line type={curveType} dataKey="Resultat" name="Resultat" stroke={raResultat >= 0 ? REVENUE : EXPENSE} strokeWidth={3.5} dot={false} activeDot={{ r: 5 }} />
-                    {hasPrevYearData && <Line type={curveType} dataKey="PrevResultat" name={`Resultat ${previousYear}`} stroke="var(--text-muted)" strokeWidth={2} strokeDasharray="4 3" dot={false} />}
+                    <Line type={curveType} dataKey="Resultat" name="Resultat" stroke={periodResultat >= 0 ? REVENUE : EXPENSE} strokeWidth={3.5} dot={false} activeDot={{ r: 5 }} />
+                    {hasPrevYearData && <Line type={curveType} dataKey="PrevResultat" name={`Resultat ${comparisonLabel}`} stroke="var(--text-muted)" strokeWidth={2} strokeDasharray="4 3" dot={false} />}
                   </LineChart>
                 ) : (
-                  <BarChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                  <BarChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-light)" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} dy={6} interval={isMobileViewport ? 2 : 0} />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} tickFormatter={fmtShort} width={44} />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} dy={6} interval="preserveStartEnd" />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} tickFormatter={axisTick} width={axisWidth} />
                     <Tooltip content={<ChartTooltip fmt={fmt} />} cursor={{ fill: 'rgba(0,0,0,0.02)' }} />
                     <ReferenceLine y={0} stroke="var(--border)" strokeWidth={1.5} />
                     {/* Legend bara när det finns en fjolårslinje att förklara —
@@ -1060,12 +1196,12 @@ export default function Dashboard({ verifications, invoices, expenses, contacts,
                         formatets Legend ovan för varför en manuell `payload`
                         inte fungerar här. */}
                     {hasPrevYearData && <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 12, paddingTop: 16 }} />}
-                    <Bar dataKey="Resultat" name="Resultat" fill={raResultat >= 0 ? REVENUE : EXPENSE} radius={[4,4,0,0]} barSize={20}>
+                    <Bar dataKey="Resultat" name="Resultat" fill={periodResultat >= 0 ? REVENUE : EXPENSE} radius={[4,4,0,0]} barSize={20}>
                       {chartData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.Resultat >= 0 ? REVENUE : EXPENSE} />
                       ))}
                     </Bar>
-                    {hasPrevYearData && <Line type="monotone" dataKey="PrevResultat" name={`Resultat ${previousYear}`} stroke="var(--text-muted)" strokeWidth={2} strokeDasharray="4 3" dot={false} />}
+                    {hasPrevYearData && <Line type="monotone" dataKey="PrevResultat" name={`Resultat ${comparisonLabel}`} stroke="var(--text-muted)" strokeWidth={2} strokeDasharray="4 3" dot={false} />}
                   </BarChart>
                 )}
               </ResponsiveContainer>
@@ -1074,37 +1210,79 @@ export default function Dashboard({ verifications, invoices, expenses, contacts,
         )}
       </div>
 
-      {/* ─── SENAST BOKFÖRT + MOMS — sidans två "läge just nu"-rutor, parade
+      {/* ─── UTESTÅENDE + MOMS — sidans två "läge just nu"-rutor, parade
           i en 2/1-rad längst ner istället för att tävla om samma vikt som
           Snabbåtgärder/Att göra idag/Nyckeltalen ovanför (Sida 34). ─── */}
       {!isNew && (
         <div className="dash-lower-grid" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '14px', marginBottom: '18px', alignItems: 'stretch' }}>
 
-          {/* Senast bokfört — riktiga, bokförda händelser (aldrig utkast),
-              sorterade på riktigt datum. Beskrivningen är exakt den som redan
-              sparades när händelsen bokfördes, inte en omskriven version. */}
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
+          {/* Utestående — se kommentaren vid `outstanding` ovan för varför
+              den här ytan inte längre visar de senaste verifikationerna. */}
+          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--border-light)' }}>
-              <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.01em' }}>Senast bokfört</span>
-              <button onClick={() => setActiveTab('verifications')} className="ds-link-btn sm">Alla verifikationer</button>
+              <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.01em' }}>Utestående</span>
+              <button onClick={() => setActiveTab('invoices')} className="ds-link-btn sm">Alla fakturor</button>
             </div>
-            {recentBooked.length === 0 ? (
-              <div style={{ padding: '28px 20px', textAlign: 'center', fontSize: '12.5px', color: 'var(--text-muted)' }}>Inga bokförda verifikationer än</div>
-            ) : (
-              <div>
-                {recentBooked.map(item => (
-                  <div key={item.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '13px 20px', borderBottom: '1px solid #f7f8f7' }}>
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.description}</div>
-                      <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '2px' }}>{item.date} · {item.type}</div>
-                    </div>
-                    <div style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-main)', flexShrink: 0 }}>{fmt(item.amount)}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
 
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1px', background: 'var(--border-light)', flex: 1 }}>
+              {[
+                {
+                  key: 'in', label: 'Att få in', amount: outstanding.receivable,
+                  count: outstanding.inCount, overdue: outstanding.overdueInCount,
+                  tone: chartRevenue, tab: 'invoices',
+                  empty: 'Inga obetalda kundfakturor',
+                  note: outstanding.oldestOverdue > 0
+                    ? `äldsta förföll för ${outstanding.oldestOverdue} dagar sedan`
+                    : null,
+                },
+                {
+                  key: 'out', label: 'Att betala', amount: outstanding.payable,
+                  count: outstanding.outCount, overdue: outstanding.overdueOutCount,
+                  tone: chartExpense, tab: 'expenses',
+                  empty: 'Inga obetalda leverantörsfakturor',
+                  note: null,
+                },
+              ].map(box => (
+                <button
+                  key={box.key} type="button" onClick={() => setActiveTab(box.tab)}
+                  style={{
+                    background: 'var(--bg-card)', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                    textAlign: 'left', padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '6px',
+                  }}
+                >
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: box.tone }} />
+                    {box.label}
+                  </span>
+                  <span style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.03em', lineHeight: 1.1 }}>
+                    {fmt(box.amount)}
+                  </span>
+                  {box.count === 0 ? (
+                    <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>{box.empty}</span>
+                  ) : (
+                    <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
+                      {box.count} {box.count === 1 ? 'faktura' : 'fakturor'}
+                      {box.overdue > 0 && (
+                        <span style={{ color: 'var(--status-red-text)', fontWeight: 700 }}>{` · ${box.overdue} förfallen${box.overdue === 1 ? '' : 'a'}`}</span>
+                      )}
+                    </span>
+                  )}
+                  {box.note && (
+                    <span style={{ fontSize: '11px', color: 'var(--status-red-text)' }}>{box.note}</span>
+                  )}
+                </button>
+              ))}
+            </div>
+
+            {/* Nettot är poängen med att visa de två bredvid varandra: det
+                säger om månaden går ihop, vilket ingen av siffrorna gör ensam. */}
+            <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border-light)', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '12px' }}>
+              <span style={{ fontSize: '12.5px', color: 'var(--text-secondary)', fontWeight: 600 }}>Netto</span>
+              <span style={{ fontSize: '15px', fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: outstanding.net >= 0 ? 'var(--status-green-text)' : 'var(--status-red-text)' }}>
+                {fmt(outstanding.net)}
+              </span>
+            </div>
+          </div>
           {/* Moms — nästa (ännu ej inlämnade) momsperiod, räknat från riktiga
               bokförda utgående/ingående moms-rader inom perioden. */}
           <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px', padding: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -1271,6 +1449,42 @@ export default function Dashboard({ verifications, invoices, expenses, contacts,
             </>
           )}
         </div>
+      )}
+
+      {/* Kundönskemål (Sida 51): "har du bokfört någon annanstans innan?"
+          — en helt FRISTÅENDE ruta, inte en femte checklista-rad (se
+          SIE_IMPORT_DISMISSED_KEY-kommentaren ovan för varför). Samma
+          isNew-villkor som checklistan ovan, men sitt eget dismiss-state
+          så den inte kopplas till checklistans "alla klara"-firande. */}
+      {isNew && !sieImportDismissed && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', flexWrap: 'wrap', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px', padding: '16px 20px', marginTop: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+            <div style={{ width: 38, height: 38, borderRadius: '10px', background: 'var(--status-green-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Upload size={17} color="var(--status-green-text)" />
+            </div>
+            <div>
+              <div style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-main)' }}>Har du bokfört någon annanstans innan?</div>
+              <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>Importera din bokföring från Fortnox, Spiris eller Bokio via en SIE4-fil.</div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+            <button type="button" onClick={() => setShowSieImportModal(true)} style={{ padding: '9px 16px', background: BRAND.green, color: 'white', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+              Importera bokföring
+            </button>
+            <button type="button" onClick={dismissSieImportCallout} aria-label="Dölj" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', padding: '4px' }}>
+              <X size={15} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showSieImportModal && (
+        <SieImportModal
+          accounts={accounts}
+          verifications={verifications}
+          onImport={(newVerifications, newAccounts, sourceTag) => onBulkImportSie?.(newVerifications, newAccounts, sourceTag)}
+          onClose={() => setShowSieImportModal(false)}
+        />
       )}
     </div>
   );

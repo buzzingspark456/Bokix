@@ -1,0 +1,129 @@
+/* Tailwind CSS v4, scoped to the Tremor chart components only.
+ *
+ * Deliberately importing theme.css + utilities.css directly instead of the
+ * usual `@import "tailwindcss";` — that shorthand also pulls in
+ * preflight.css, Tailwind's global reset (margins, headings, buttons,
+ * form controls, box-sizing — all reset to a blank slate). This app's
+ * other ~100 components are hand-styled inline against the browser's
+ * normal defaults and its own index.css, built up over a long time; a
+ * global reset landing on top of all of it would visually shift things
+ * everywhere, not just wherever a Tremor component is used. Skipping
+ * preflight keeps Tailwind's utility classes (bg-*, flex, text-*, ...)
+ * available without touching anything outside of what actually uses them.
+ */
+
+/* Bugkritiskt (kundrapporterad: "Yta-diagrammets tooltip ser trasig ut" —
+ * en solid svart ruta i ett annars ljust tema): Tailwind v4:s `dark:`-
+ * variant matchar `@media (prefers-color-scheme: dark)` AS DEFAULT, INTE
+ * appens egen ljus/mörkt-växlare. App.jsx sätter alltid `data-theme="light"`
+ * eller `data-theme="dark"` på <html> (aldrig något tredje "system"-läge
+ * kvarstår vid körning — se App.jsx:s theme-useState/useEffect, den läser
+ * OS-preferensen bara EN gång vid första besöket och skriver sedan ett
+ * konkret val till localStorage/data-theme), så varje `dark:bg-gray-950`
+ * osv i de porterade Tremor-komponenterna (Card.jsx, AreaChart.jsx,
+ * BarChart.jsx) aktiverades tidigare efter BESÖKARENS OS-inställning
+ * istället för appens eget valda tema — synligt fel så fort de två skiljer
+ * sig åt (ljust app-tema + mörk OS-preferens gav en mörk tooltip mitt i ett
+ * ljust kort). Denna @custom-variant gör om `dark:` till att matcha
+ * exakt samma attribut som resten av appen (index.css:s
+ * `:root[data-theme="dark"]`), inte webbläsarens `prefers-color-scheme`. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+/* Tremor's own light/dark color tokens (from tremor.so's block source) —
+ * scoped under .tremor so they never leak into the rest of the app's own
+ * CSS variables (index.css already has its own --bg-card/--text-main/etc,
+ * a completely separate system). */
+.tremor {
+  --tremor-brand-faint: #eff6ff;
+  --tremor-brand-muted: #bfdbfe;
+  --tremor-brand-subtle: #60a5fa;
+  --tremor-brand: #3b82f6;
+  --tremor-brand-emphasis: #1d4ed8;
+  --tremor-brand-inverted: #ffffff;
+
+  --tremor-background-muted: #f9fafb;
+  --tremor-background-subtle: #f3f4f6;
+  --tremor-background: #ffffff;
+  --tremor-background-emphasis: #374151;
+
+  --tremor-border: #e5e7eb;
+  --tremor-ring: #e5e7eb;
+
+  --tremor-content-subtle: #9ca3af;
+  --tremor-content: #6b7280;
+  --tremor-content-emphasis: #374151;
+  --tremor-content-strong: #111827;
+  --tremor-content-inverted: #ffffff;
+}
+/* Axlarnas siffror och månadsnamn ska följa appens tema.
+ *
+ * Kundrapporterat: "månaderna och kr och % är svart" i mörkt läge. De var
+ * bokstavligen svarta — i BÅDA temana. recharts v3 renderar varje etikett
+ * som `<text class="recharts-text recharts-cartesian-axis-tick-value"
+ * fill="">`: ett TOMT fill-attribut, vilket är ogiltigt och faller tillbaka
+ * på SVG:ens standardfärg, alltså svart. Tremors `fill-gray-500`-klass
+ * sitter på axelns <g> och ärvs aldrig ner, eftersom <text> har ett eget
+ * (om än tomt) fill. Mot vit yta i ljust läge ser svart bara ut som "lite
+ * mörkare än tänkt" och passerar obemärkt; mot appens mörkgröna yta i mörkt
+ * läge försvinner texten.
+ *
+ * OBS klassnamnet: etiketten ligger INTE inuti `.recharts-cartesian-axis-
+ * tick` (den klassen sitter på själva tick-strecken) — den bär
+ * `.recharts-cartesian-axis-tick-value` själv. En regel skriven mot
+ * `.recharts-cartesian-axis-tick text` matchar noll element.
+ *
+ * `--text-secondary` är appens egen token för sekundärtext (index.css, satt
+ * för både ljust och mörkt) — samma färg som resten av appens hjälptext,
+ * i stället för en fast Tailwind-grå som inte vet om vilket tema som gäller. */
+.tremor .recharts-cartesian-axis-tick-value {
+  fill: var(--text-secondary);
+}
+
+/* Ytdiagrammets FYLLNING ska aldrig ha en kontur.
+ *
+ * recharts ritar varje <Area> som TVÅ banor: `.recharts-area-area` (den
+ * slutna ytan ner till baslinjen) och `.recharts-area-curve` (själva linjen
+ * ovanpå). recharts sätter `stroke="none"` på ytan — men det är ett
+ * PRESENTATIONSATTRIBUT, och Tremor-porten färgar serien via en klass
+ * (`stroke-blue-500`) plus, för råa hex-färger, en inline `style`. Båda
+ * vinner över attributet, så ytan blir konturad: banan går ner till
+ * baslinjen, längs y=0 och upp igen, vilket ritar en LÅDA runt serien.
+ *
+ * Med en synlig gradientfyllning ser man det knappt (konturen sammanfaller
+ * med fyllningens kant). Med `fill="none"` — som Marginalanalysen använder,
+ * tre rena linjer — blev det uppenbart: en mörkgrön rektangel runt hela
+ * diagrammet istället för en linje vid 100 %. `!important` krävs eftersom
+ * inline-style annars vinner. Linjen ritas ändå av `.recharts-area-curve`. */
+.tremor .recharts-area-area {
+  stroke: none !important;
+}
+
+/* Samma bugfix som @custom-variant dark ovan, för de här handskrivna CSS-
+ * variablerna (matchar aldrig Tailwind-utilities, så @custom-variant
+ * påverkar dem inte) — `:root[data-theme="dark"]` istället för den gamla
+ * `.dark`-klassen som appen faktiskt aldrig sätter. */
+:root[data-theme="dark"] .tremor {
+  --tremor-brand-faint: #0B1229;
+  --tremor-brand-muted: #172554;
+  --tremor-brand-subtle: #1d4ed8;
+  --tremor-brand: #3b82f6;
+  --tremor-brand-emphasis: #60a5fa;
+  --tremor-brand-inverted: #030712;
+
+  --tremor-background-muted: #131A2B;
+  --tremor-background-subtle: #1f2937;
+  --tremor-background: #111827;
+  --tremor-background-emphasis: #d1d5db;
+
+  --tremor-border: #374151;
+  --tremor-ring: rgba(0, 0, 0, 0.05);
+
+  --tremor-content-subtle: #4b5563;
+  --tremor-content: #6b7280;
+  --tremor-content-emphasis: #e5e7eb;
+  --tremor-content-strong: #f9fafb;
+  --tremor-content-inverted: #000000;
+}

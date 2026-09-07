@@ -38,3 +38,6 @@ dist-ssr
 /test-results/
 /playwright-report/
 /playwright/.cache/
+
+# Lokal scratch-katalog (kopior av public/ + seed-skript), aldrig kod som ska med
+.tmp-kpistrip/

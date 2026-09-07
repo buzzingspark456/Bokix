@@ -19,43 +19,44 @@ import { PageMeta, JsonLd, SITE_URL } from '../../utils/seo';
 // verifierbara fakta (samma siffror som redan står på /priser).
 const BOKIX_ANSWERS = [
   {
-    icon: Wallet, accentKey: 'green', title: 'Ett pris, allt ingår',
-    body: '179 kr/mån exklusive moms — bokföring, fakturering, lönekörningar och momsredovisning ingår i det priset. Ingen "bas + tillägg per funktion"-modell att räkna ut i efterhand.',
+    icon: Wallet, accentKey: 'green', title: 'Två priser, allt ingår',
+    body: '129 kr/mån utan anställda, 179 kr/mån med lönemodulen. Bokföring, fakturering, lönekörningar och momsredovisning ingår i priset. Ingen "bas + tillägg per funktion"-modell att räkna ut i efterhand.',
   },
   {
     icon: Clock3, accentKey: 'blue', title: 'Ingen bindningstid',
-    body: 'Du avslutar när du vill, ingen uppsägningstid. 30 dagar kostnadsfritt innan något debiteras alls — avslutar du innan dess kostar det aldrig något.',
+    body: 'På månadsplanen avslutar du när du vill, utan uppsägningstid. Väljer du årsplanens lägre pris gäller minst tre månader. 30 dagar kostnadsfritt innan något debiteras alls, avslutar du innan dess kostar det aldrig något.',
   },
   {
     icon: Layers, accentKey: 'red', title: 'Alla bolagsformer',
-    body: 'Enskild firma, aktiebolag, handelsbolag/kommanditbolag och ekonomisk förening — Bokix känner igen bolagsformen utifrån organisationsnumret och bokför enligt rätt regler för just den.',
+    body: 'Enskild firma, aktiebolag, handelsbolag/kommanditbolag och ekonomisk förening: Bokix känner igen bolagsformen utifrån organisationsnumret och bokför enligt rätt regler för just den.',
   },
   {
     icon: ShieldCheck, accentKey: 'green', title: 'Osäkert bokförs aldrig tyst',
-    body: 'Allt som är osäkert i den automatiska bokföringen läggs i en granskningsvy för en snabb bekräftelse först — aldrig en gissning som bokförs utan att du ser den.',
+    body: 'Allt som är osäkert i den automatiska bokföringen läggs i en granskningsvy för en snabb bekräftelse först. Aldrig en gissning som bokförs utan att du ser den.',
   },
 ];
 
-// Ärligt om vad "byta" faktiskt innebär: Bokix har ingen automatisk
-// importfunktion FRÅN andra bokföringsprogram (SIE-import finns inte i
-// kodbasen, bara export — se sieExport.js/sieExport.test.js, verifierat
-// innan den här sidan skrevs). Det vanliga, realistiska sättet de flesta
-// byter bokföringsprogram på är att börja löpande bokföring i det nya
-// verktyget från ett valt datum, och arkivera det gamla systemets export
-// (bokföringslagens sjuåriga arkiveringskrav gäller oavsett vilket
-// program den skapades i). Påstår INTE ett en-klicks-importflöde som
-// inte finns.
+// Ärligt om vad "byta" faktiskt innebär. UPPDATERAD: när den här sidan
+// först skrevs fanns bara SIE4-EXPORT i kodbasen, och texten sa därför
+// uttryckligen att någon automatisk import inte fanns. Nu finns den
+// (utils/sieImport.js + SieImportModal.jsx), och sidan MÅSTE följa med —
+// en marknadssida som förnekar en funktion produkten faktiskt har är
+// lika skadlig som en som lovar en den inte har. Den fullständiga
+// hur-gör-jag-sidan är /byt-bokforingsprogram; de fyra stegen här är
+// kortversionen. Fortfarande INGET påstående om ett magiskt "ett klick
+// och allt är på plats": importen kräver en SIE4-fil ur det gamla
+// programmet, en kontomappning och en uttrycklig bekräftelse.
 const SWITCH_STEPS = [
-  { title: '1. Välj ett brytdatum', body: 'De flesta byter bokföringsprogram vid en periodgräns — nytt räkenskapsår, nytt kvartal, eller helt enkelt idag. Du behöver inte flytta all historik för att komma igång.' },
-  { title: '2. Sätt upp företaget i Bokix', body: 'Ange organisationsnummer så känner Bokix igen bolagsformen automatiskt, och lägg in ingående balanser för brytdatumet.' },
-  { title: '3. Bokför löpande i Bokix framåt', body: 'Fakturor, kvitton och lönekörningar från och med brytdatumet sköts i Bokix. Det gamla systemets data arkiveras som vanligt (bokföringslagens sjuårskrav gäller oavsett system).' },
-  { title: '4. Du är aldrig inlåst igen', body: 'Bokix kan exportera hela din bokföring som en riktig SIE4-fil när du vill — samma öppna standardformat som resten av branschen använder, om du någonsin skulle vilja flytta vidare.' },
+  { title: '1. Exportera en SIE4-fil ur ditt nuvarande program', body: 'Alla svenska bokföringsprogram kan exportera SIE, branschens standardformat. Bokix läser filen oavsett vilket program som skapade den.' },
+  { title: '2. Sätt upp företaget i Bokix', body: 'Ange organisationsnummer så känner Bokix igen bolagsformen automatiskt och bokför enligt rätt regler för just den.' },
+  { title: '3. Importera bokföringen', body: 'Under Inställningar → Data läser du in SIE4-filen: konton, verifikationer och ingående balanser. Du får granska kontomappningen och en förhandsgranskning, ingenting bokförs innan du bekräftar.' },
+  { title: '4. Du är aldrig inlåst igen', body: 'Bokix kan exportera hela din bokföring som en riktig SIE4-fil när du vill, samma öppna standardformat som resten av branschen använder, om du någonsin skulle vilja flytta vidare.' },
 ];
 
 const FAQ = [
-  { q: 'Kan jag flytta min bokföring från Fortnox, Bokio eller Spiris till Bokix?', a: 'Det finns ingen automatisk importfunktion från andra program idag — de flesta byter genom att börja löpande bokföring i Bokix från ett valt datum (t.ex. ett nytt räkenskapsår) och arkivera det gamla systemets data separat, precis som bokföringslagen ändå kräver i sju år.' },
-  { q: 'Vad kostar Bokix jämfört med andra bokföringsprogram?', a: 'Bokix kostar 179 kr/mån exklusive moms, allt ingår. Vi anger medvetet inga priser för andra program här — de ändras, och vi kan inte verifiera dem. Jämför gärna själv direkt mot leverantörens egen prissida.' },
-  { q: 'Har Bokix bindningstid eller uppsägningstid?', a: 'Nej. Du avslutar när du vill, och de första 30 dagarna kostar ingenting alls om du avslutar innan dess.' },
+  { q: 'Kan jag flytta min bokföring från Fortnox, Bokio eller Spiris till Bokix?', a: 'Ja. Exportera en SIE4-fil ur programmet du använder idag och läs in den i Bokix under Inställningar → Data. Konton, verifikationer och ingående balanser följer med. Kundregister, öppna fakturor och kvittobilder gör det inte, det ligger inte i SIE-formatet. Spara ändå det gamla systemets underlag: bokföringslagen kräver sju års arkivering oavsett program.' },
+  { q: 'Vad kostar Bokix jämfört med andra bokföringsprogram?', a: 'Bokix kostar 129 kr/mån utan anställda och 179 kr/mån med lönemodulen, allt ingår. Vi anger medvetet inga priser för andra program här, de ändras, och vi kan inte verifiera dem. Jämför gärna själv direkt mot leverantörens egen prissida.' },
+  { q: 'Har Bokix bindningstid eller uppsägningstid?', a: 'Månadsplanen har varken bindningstid eller uppsägningstid — du avslutar när du vill. Årsplanen, som har ett lägre månadspris, gäller i minst tre månader. De första 30 dagarna kostar ingenting alls om du avslutar innan dess.' },
   { q: 'Stöder Bokix samma bolagsformer som andra bokföringsprogram?', a: 'Bokix stöder enskild firma, aktiebolag, handelsbolag/kommanditbolag och ekonomisk förening, och bokför enligt rätt regler för respektive form utifrån organisationsnumret.' },
 ];
 
@@ -89,7 +90,7 @@ function FaqItem({ q, a }) {
 
 export default function AlternativePage() {
   const navigate = useNavigate();
-  const enterApp = () => navigate('/', { state: { enterApp: true } });
+  const enterApp = () => navigate('/', { state: { enterApp: true, authMode: 'signup' } });
 
   // Article-schema, samma mönster/motivering som ChooseSoftwareGuidePage.jsx
   // (Organization som author/publisher, aldrig en påhittad namngiven
@@ -97,8 +98,8 @@ export default function AlternativePage() {
   const articleSchema = {
     '@context': 'https://schema.org',
     '@type': 'Article',
-    headline: 'Alternativ till Fortnox, Bokio och Spiris — jämför bokföringsprogram',
-    description: 'En ärlig guide för dig som funderar på att byta bokföringsprogram — vad Bokix faktiskt erbjuder, hur bytet går till, och vanliga frågor.',
+    headline: 'Alternativ till Fortnox, Bokio och Spiris: jämför bokföringsprogram',
+    description: 'En ärlig guide för dig som funderar på att byta bokföringsprogram: vad Bokix faktiskt erbjuder, hur bytet går till, och vanliga frågor.',
     author: { '@type': 'Organization', name: 'Bokix', url: SITE_URL },
     publisher: { '@type': 'Organization', name: 'Bokix', url: SITE_URL, logo: { '@type': 'ImageObject', url: `${SITE_URL}/icon-512.png` } },
     mainEntityOfPage: `${SITE_URL}/alternativ`,
@@ -108,7 +109,7 @@ export default function AlternativePage() {
     <MarketingLayout>
       <PageMeta
         title="Alternativ till Fortnox, Bokio och Spiris | Bokix"
-        description="Funderar du på att byta bokföringsprogram från Fortnox, Bokio eller Spiris? Se vad Bokix erbjuder, hur bytet går till, och vanliga frågor — ärligt, inga påhittade jämförelser."
+        description="Funderar du på att byta bokföringsprogram från Fortnox, Bokio eller Spiris? Se vad Bokix erbjuder, hur bytet går till, och vanliga frågor, ärligt, inga påhittade jämförelser."
         path="/alternativ"
         type="article"
       />
@@ -117,14 +118,11 @@ export default function AlternativePage() {
 
       <section style={{ padding: '150px 24px 70px', background: IVORY, position: 'relative', overflow: 'hidden' }}>
         <Reveal style={{ maxWidth: '760px', margin: '0 auto', textAlign: 'center', position: 'relative' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '7px 16px', borderRadius: '999px', background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, fontSize: '12.5px', fontWeight: 700, color: BRAND.greenDark, marginBottom: '20px' }}>
-            Byta bokföringsprogram
-          </div>
           <h1 style={{ fontFamily: SERIF, fontSize: 'clamp(28px, 4.5vw, 44px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '18px', lineHeight: 1.16 }}>
             Alternativ till Fortnox, Bokio och Spiris
           </h1>
           <p style={{ fontSize: '17px', color: MUTED, lineHeight: 1.7 }}>
-            Funderar du på att byta bokföringsprogram? Här är vad Bokix faktiskt erbjuder, hur bytet går till rent praktiskt, och svar på vanliga frågor — inga gissade siffror om andra leverantörer, bara verifierbara fakta om Bokix.
+            Funderar du på att byta bokföringsprogram? Här är vad Bokix faktiskt erbjuder, hur bytet går till rent praktiskt, och svar på vanliga frågor. Inga gissade siffror om andra leverantörer, bara verifierbara fakta om Bokix.
           </p>
         </Reveal>
       </section>
@@ -167,7 +165,7 @@ export default function AlternativePage() {
             </div>
             <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(22px, 3vw, 30px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '10px' }}>Så byter du till Bokix</h2>
             <p style={{ fontSize: '14.5px', color: MUTED, maxWidth: '520px', margin: '0 auto', lineHeight: 1.65 }}>
-              Ärligt: det finns ingen automatisk importknapp från andra program idag. Så här går ett byte praktiskt till för de flesta.
+              Kortversionen. Vill du ha hela guiden, med var SIE-exporten ligger i just ditt program, se <Link to="/byt-bokforingsprogram" style={{ color: BRAND.greenDark, fontWeight: 600 }}>Byt till Bokix</Link>.
             </p>
           </Reveal>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -207,7 +205,7 @@ export default function AlternativePage() {
             Redo att testa?
           </h2>
           <p style={{ fontSize: '15.5px', color: MUTED, marginBottom: '28px', lineHeight: 1.65 }}>
-            30 dagar att testa med din egen bokföring innan något kostar något, ingen bindningstid.
+            30 dagar att testa med din egen bokföring innan något kostar något, ingen bindningstid på månadsplanen.
           </p>
           <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
             <button onClick={enterApp} style={{ padding: '14px 28px', background: BRAND.green, border: 'none', borderRadius: '12px', color: 'white', fontWeight: 700, fontSize: '15px', cursor: 'pointer' }}>Prova gratis</button>

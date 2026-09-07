@@ -366,6 +366,16 @@ CREATE TABLE IF NOT EXISTS public.subscriptions (
 -- till att provperioden faktiskt tar slut, inte bara en gång.
 ALTER TABLE public.subscriptions ADD COLUMN IF NOT EXISTS trial_reminder_sent_at timestamptz;
 
+-- Vilket abonnemang kunden faktiskt köpte ("solo_monthly", "employer_yearly").
+-- Sattes tidigare ingenstans: checkouten debiterade samma belopp för alla och
+-- prissidans två nivåer fanns bara i marknadsföringen. Appen läser kolumnen
+-- för att veta om lönemodulen ingår (src/utils/plans.js).
+--
+-- NULL för alla konton som skapades innan nivåerna fanns. De har betalat
+-- 179 kr, alltså full funktionalitet — planIncludesPayroll() behandlar därför
+-- saknad plan som "allt ingår", aldrig som "minsta nivån".
+ALTER TABLE public.subscriptions ADD COLUMN IF NOT EXISTS plan text;
+
 -- Betala-per-företag: company_id '' (INTE NULL — se nedan) = kontots
 -- ursprungliga/redan existerande abonnemang (se kommentaren ovanför CREATE
 -- TABLE). Byter den gamla ensam-user_id-uniciteten mot (user_id,

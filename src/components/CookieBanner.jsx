@@ -12,35 +12,17 @@ import { getStoredConsent, storeConsent, updateGtagConsent, updateClarityConsent
 // utanför/vid sidan av <Routes>, så den syns på alla sidor (inloggad app
 // också, inte bara marknadsföringssidorna).
 //
-// Layout inspirerad av en vanlig samtyckesbanner-referens (rubrik + kort
-// beskrivning + en rad med kategori-reglage + två knappar), men medvetet
-// INTE en exakt kopia: bara två riktiga kategorier visas (Nödvändiga,
-// Statistik), inte fyra — Bokix har varken Preferences- eller
-// Marketing-cookies, och att visa reglage för kategorier som inte finns
-// vore precis den sortens påhittade UI den här appen genomgående undviker.
-// "Statistik"-reglaget är en förhandsvisning av valet, inte en tredje
-// separat "spara mitt urval"-väg — de två knapparna längst ner (samma två
-// som redan specades) ger alltid ett entydigt, färdigt utfall oavsett var
-// reglaget råkar stå när man klickar.
-// Bugkritiskt/juridisk risk, MEDVETET beslut — inte ett förbiseende:
-// statsPreview startar 'true' (Statistik-reglaget visas påslaget innan
-// besökaren gjort ett aktivt val). Förvalt/förikryssat samtycke för
-// icke-nödvändiga cookies är ogiltigt enligt EU-domstolens Planet49-dom
-// och strider mot Consent Mode-uppsättningens egen princip (analytics_
-// storage startar 'denied' i index.html/consent.js). INGET samtycke
-// sparas eller skickas till Google bara för att reglaget visas påslaget
-// — updateGtagConsent/storeConsent anropas fortfarande bara när en av
-// knapparna klickas — men det visuella förvalet i sig är ett känt
-// GDPR-riskmönster. Måste godkännas av en jurist innan lansering, precis
-// som de tre juridiska sidornas eget "ej granskat än"-förbehåll redan
-// flaggar (PrivacyPolicy.jsx/TermsPolicy.jsx/CookiesPolicy.jsx).
+// Bara två riktiga kategorier (Nödvändiga, Statistik) — Bokix har varken
+// Preferences- eller Marketing-cookies. Statistik-reglaget är av som
+// standard tills besökaren aktivt väljer "Acceptera alla"; ett förikryssat
+// reglage för icke-nödvändiga cookies är ogiltigt samtycke (Planet49).
 export default function CookieBanner() {
   const [visible, setVisible] = useState(false);
-  const [statsPreview, setStatsPreview] = useState(true);
+  const [statsPreview, setStatsPreview] = useState(false);
 
   useEffect(() => {
     if (getStoredConsent() === null) setVisible(true);
-    const reopen = () => { setStatsPreview(getStoredConsent() !== 'denied'); setVisible(true); };
+    const reopen = () => { setStatsPreview(getStoredConsent() === 'granted'); setVisible(true); };
     window.addEventListener('bokix-open-cookie-prefs', reopen);
     return () => window.removeEventListener('bokix-open-cookie-prefs', reopen);
   }, []);

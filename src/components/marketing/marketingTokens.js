@@ -23,16 +23,24 @@ export const CARD_BORDER = 'var(--mkt-card-border)';
 export const CARD_SHADOW = 'var(--mkt-card-shadow)';
 export const CARD_SHADOW_SM = 'var(--mkt-card-shadow-sm)';
 
-// Samma tre roller som Dashboards nyckeltal (positivt/neutralt/kostnad),
-// mot vita/ljusa ytor istället för fyllda gradienter — men tydligt GRÖNT,
-// BLÅTT och RÖTT (högre mättnad än ett tidigare, mer urvattnat försök),
-// samma ljushet/mättnad i oklch för alla tre, bara skiftad nyans.
+// Samma roller som Dashboards nyckeltal (positivt/neutralt/kostnad) plus
+// TEAL (loggans mellanfärg, blå→TURKOS→lime) — mot vita/ljusa ytor istället
+// för fyllda gradienter, samma ljushet/mättnad i oklch för alla, bara
+// skiftad nyans. RÖTT är medvetet reserverat för kostnads-/skatte-/
+// varningsrelaterat innehåll (kundönskemål: sajten ska kännas blå/vit/grön
+// i grunden, inte rödtonad) — se ACCENT_CYCLE nedan, som INTE cyklar rött
+// längre, bara vid explicit `ACCENT.red` på ett fåtal semantiskt riktiga
+// ställen (Skatt och bokslut, leverantörsfakturor/kostnadsflödet,
+// jämförelsetabellens "dåligt"-ikon).
 export const ACCENT = {
   green: { fg: 'var(--mkt-accent-green-fg)', soft: 'var(--mkt-accent-green-soft)' },
   blue: { fg: 'var(--mkt-accent-blue-fg)', soft: 'var(--mkt-accent-blue-soft)' },
+  teal: { fg: 'var(--mkt-accent-teal-fg)', soft: 'var(--mkt-accent-teal-soft)' },
   red: { fg: 'var(--mkt-accent-red-fg)', soft: 'var(--mkt-accent-red-soft)' },
 };
 
 // Cyklisk lista att indexera med i%3 när ett antal kort/rader inte är
-// exakt tre — håller alltid samma tre nyanser istället för att hitta på fler.
-export const ACCENT_CYCLE = [ACCENT.green, ACCENT.blue, ACCENT.red];
+// exakt tre — grönt/blått/turkos (INTE rött, se kommentaren ovan) håller
+// varje upprepad lista på sajten (nav, trovärdighetsrad, bolagsformer,
+// FAQ, onboarding-steg, m.fl.) inom samma blå/vita/gröna grundton.
+export const ACCENT_CYCLE = [ACCENT.green, ACCENT.blue, ACCENT.teal];

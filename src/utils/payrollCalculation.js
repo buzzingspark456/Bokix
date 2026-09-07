@@ -1,5 +1,6 @@
 import { lookupSkatteavdrag } from './skattetabell';
 import { EMPLOYER_FEE_CATEGORIES, VACATION_RULES, SECONDARY_INCOME_TAX_RATE } from './payrollConfig';
+import { summarizePayLines } from './payTypes';
 
 const round = (v) => Math.round(v || 0);
 
@@ -22,6 +23,16 @@ export function computeEmployeePayroll(employee, row) {
 
   const steps = [];
 
+  // 0. Lönearter (row.lines) — övertid, OB, jour, frånvaro, förmåner,
+  // skattefria ersättningar och nettoavdrag. Varje rad blir ett eget steg
+  // längre ner, men summorna behövs redan här eftersom de går in i
+  // brutto-, skatte- och avgiftsunderlagen.
+  //
+  // De gamla råa fälten (row.additions m.fl.) läses fortfarande och läggs
+  // OVANPÅ lönearternas summor: lönekörningar som sparades innan
+  // lönearterna fanns ska räknas likadant som förut.
+  const payLines = summarizePayLines(row.lines, employee);
+
   // 1. Grundlön
   let baseSalary;
   if (employee.salaryForm === 'timlon') {
@@ -34,9 +45,20 @@ export function computeEmployeePayroll(employee, row) {
     steps.push({ label: 'Grundlön', formula: `${employee.monthlySalary || 0} kr × ${employee.employmentRate ?? 100}%`, result: round(baseSalary) });
   }
 
-  // 2. Bruttolön
-  const additions = Number(row.additions) || 0;
-  const absence = Number(row.absenceDeduction) || 0;
+  // 2. Lönearternas egna rader — en per stycke, med sin formel, INNAN
+  // bruttolönen summeras. Det är skillnaden mot att bara mata in en
+  // klumpsumma: den anställda kan läsa VAD tillägget bestod av.
+  payLines.lines.forEach((l) => {
+    steps.push({
+      label: l.name,
+      formula: l.formula,
+      result: round(l.signedAmount),
+    });
+  });
+
+  // 3. Bruttolön
+  const additions = (Number(row.additions) || 0) + payLines.additions;
+  const absence = (Number(row.absenceDeduction) || 0) + payLines.absence;
   const grossDeduction = Number(row.grossDeduction) || 0;
   const gross = baseSalary + additions - absence - grossDeduction;
   steps.push({
@@ -45,8 +67,10 @@ export function computeEmployeePayroll(employee, row) {
     result: round(gross),
   });
 
-  // 3. Skattegrundande inkomst
-  const benefits = Number(row.benefits) || 0;
+  // 4. Skattegrundande inkomst. Förmåner höjer underlaget för skatt och
+  // avgifter men betalas aldrig ut — därför läggs de till HÄR och inte i
+  // bruttolönen ovan.
+  const benefits = (Number(row.benefits) || 0) + payLines.benefits;
   const taxableIncome = gross + benefits;
   steps.push({ label: 'Skattegrundande inkomst', formula: `${round(gross)} + ${round(benefits)} (förmåner)`, result: round(taxableIncome) });
 
@@ -81,10 +105,15 @@ export function computeEmployeePayroll(employee, row) {
   }
   steps.push({ label: 'Skatteavdrag', formula: taxNote, result: round(tax) });
 
-  // 5. Nettolön
-  const netDeduction = Number(row.netDeduction) || 0;
-  const net = gross - tax - netDeduction;
-  steps.push({ label: 'Nettolön', formula: `${round(gross)} − ${round(tax)} (skatt) − ${round(netDeduction)} (nettoavdrag)`, result: round(net) });
+  // 6. Nettolön. Skattefria ersättningar (milersättning, traktamente)
+  // betalas ut men har aldrig passerat skatte- eller avgiftsunderlaget —
+  // de läggs därför på först här, efter skatten.
+  const netDeduction = (Number(row.netDeduction) || 0) + payLines.netDeductions;
+  const taxFree = payLines.taxFree;
+  const net = gross - tax - netDeduction + taxFree;
+  const netFormula = `${round(gross)} − ${round(tax)} (skatt) − ${round(netDeduction)} (nettoavdrag)`
+    + (taxFree ? ` + ${round(taxFree)} (skattefritt)` : '');
+  steps.push({ label: 'Nettolön', formula: netFormula, result: round(net) });
 
   // 6. Avgiftskategori
   steps.push({ label: 'Avgiftskategori', formula: `${feeCategory.label}: ${(feeCategory.rate * 100).toFixed(2)}%`, result: null });
@@ -108,13 +137,18 @@ export function computeEmployeePayroll(employee, row) {
   const vacationFee = vacationProvision * feeCategory.rate;
   steps.push({ label: 'Arbetsgivaravgifter på semesteravsättning', formula: `${round(vacationProvision)} × ${(feeCategory.rate * 100).toFixed(2)}%`, result: round(vacationFee) });
 
-  // 10. Total arbetsgivarkostnad
-  const totalCost = gross + employerFee + vacationProvision + vacationFee;
-  steps.push({ label: 'Total arbetsgivarkostnad', formula: `${round(gross)} + ${round(employerFee)} + ${round(vacationProvision)} + ${round(vacationFee)}`, result: round(totalCost) });
+  // 11. Total arbetsgivarkostnad. Skattefria ersättningar är ingen lön
+  // men är pengar som lämnar företaget, så de hör hemma i kostnaden —
+  // annars underskattas vad lönekörningen faktiskt kostar.
+  const totalCost = gross + employerFee + vacationProvision + vacationFee + taxFree;
+  const costFormula = `${round(gross)} + ${round(employerFee)} + ${round(vacationProvision)} + ${round(vacationFee)}`
+    + (taxFree ? ` + ${round(taxFree)} (skattefritt)` : '');
+  steps.push({ label: 'Total arbetsgivarkostnad', formula: costFormula, result: round(totalCost) });
 
   return {
     baseSalary: round(baseSalary), gross: round(gross), taxableIncome: round(taxableIncome),
     tax: round(tax), net: round(net), employerFee: round(employerFee),
+    taxFree: round(taxFree), payLines: payLines.lines,
     vacationProvision: round(vacationProvision), vacationFee: round(vacationFee),
     totalCost: round(totalCost), feeCategory, vacationRule, steps,
     hasBankInfo: Boolean(employee.clearingNumber && employee.accountNumber),
@@ -136,6 +170,7 @@ export function summarizePayrollRun(computedRows) {
     employerFee: acc.employerFee + r.employerFee,
     vacationProvision: acc.vacationProvision + r.vacationProvision,
     vacationFee: acc.vacationFee + r.vacationFee,
+    taxFree: acc.taxFree + (r.taxFree || 0),
     totalCost: acc.totalCost + r.totalCost,
-  }), { gross: 0, tax: 0, net: 0, employerFee: 0, vacationProvision: 0, vacationFee: 0, totalCost: 0 });
+  }), { gross: 0, tax: 0, net: 0, employerFee: 0, vacationProvision: 0, vacationFee: 0, taxFree: 0, totalCost: 0 });
 }

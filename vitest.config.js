@@ -7,6 +7,10 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   test: {
     environment: 'node',
-    include: ['src/**/*.test.js'],
+    // api/ ligger med sedan datastädningen (api/cron/_dataRetention.js):
+    // den bestämmer VILKA konton som raderas, och den sortens logik ska
+    // testas lika hårt som räknemotorerna i src/ — inte lämnas otestad för
+    // att den råkar bo i en annan mapp.
+    include: ['src/**/*.test.js', 'api/**/*.test.js'],
   },
 })

@@ -5,6 +5,7 @@ import {
   UploadCloud, Tag, LayoutTemplate, Save, Trash2
 } from 'lucide-react';
 import { getDebet, getKredit } from '../utils/verificationAmounts';
+import { accountMatches } from '../utils/accountSearch';
 import { PartySearch, ProjectSearch, AccountSearch } from './shared/SearchInputs';
 import ListPageHeader, { ListFilterBar, listSearchInputStyle, listFilterFieldStyle } from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
@@ -695,6 +696,10 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [series, setSeries] = useState('all');
+  // "Visa N"-väljaren (kundönskemål: samma väljare, som faktiskt
+  // fungerar, på alla listsidor). ListFilterBar ritar den, sidan äger
+  // state:t och skär av sin egen lista — se den komponentens JSDoc.
+  const [pageSize, setPageSize] = useState(30);
 
   // Kontoplan state
   const [accountSearch, setAccountSearch] = useState('');
@@ -769,15 +774,18 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
     return true;
   }).slice().reverse(); // newest first
 
+  const visibleVers = pageSize === 'all' ? filteredVers : filteredVers.slice(0, pageSize);
+
   // Kontoplan grouping
   const getGroupAccounts = (groupCode) => {
     return accounts.filter(a => {
       const n = parseInt(a.code, 10);
       const g = BAS_GROUPS.find(g => g.code === groupCode);
       return g && n >= g.range[0] && n <= g.range[1];
-    }).filter(a =>
-      !accountSearch || a.code.startsWith(accountSearch) || a.name.toLowerCase().includes(accountSearch.toLowerCase())
-    );
+    // Samma matchning som kontofälten i formulären (utils/accountSearch.js):
+    // sökte man "30" här förut fick man inte 4030, eftersom numret måste
+    // BÖRJA med det inskrivna. Nu beter sig kontoplanen likadant överallt.
+    }).filter(a => accountMatches(a, accountSearch));
   };
 
   const getGroupBalance = (groupCode) => {
@@ -871,6 +879,8 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
             onClear={() => { setSearch(''); setDateFrom(''); setDateTo(''); setSeries('all'); }}
             count={filteredVers.length}
             countLabel="verifikationer"
+            pageSize={pageSize}
+            onPageSizeChange={setPageSize}
           >
             <div style={{ position: 'relative' }}>
               <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
@@ -894,7 +904,7 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
               onRowClick={v => setExpandedId(expandedId === v.id ? null : v.id)}
               isExpanded={v => expandedId === v.id}
               emptyMessage="Inga verifikationer bokförda"
-              rows={filteredVers}
+              rows={visibleVers}
               columns={[
                 {
                   key: 'number', label: 'Verifikation', fontWeight: 700, color: 'var(--text-main)', render: v => (

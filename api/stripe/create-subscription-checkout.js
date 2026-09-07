@@ -1,4 +1,5 @@
 import { applySecurityHeaders } from '../_security.js';
+import { resolvePlan, TRIAL_DAYS, resolveCancellation } from '../../src/utils/plans.js';
 import Stripe from 'stripe';
 import { parseJsonBody } from './_parseBody.js';
 import { normalizeAbsoluteUrl, appendQueryParam } from './_urls.js';
@@ -29,15 +30,17 @@ function getStripe() {
     : null;
 }
 
-// Bokix egen plan — "Ett pris. Allt ingår." (PricingPage.jsx/LandingPage.jsx),
-// inte en variabel per kund som create-checkout-session.js (den gäller
-// KUNDERS fakturabetalningar via ett anslutet Stripe-konto, helt separat
-// flöde). inline price_data istället för ett förskapat Stripe Price-objekt
-// — samma teknik som redan används för fakturarader (App.jsx
-// getInvoicePaymentLinkUrl) — så ingen manuell produkt-/prisuppsättning i
-// Stripe Dashboard krävs innan det här fungerar.
-const SUBSCRIPTION_PRICE_SEK_ORE = 17900; // 179,00 kr/mån
-const TRIAL_DAYS = 30;
+// Beloppet kommer ur den DELADE plankatalogen (src/utils/plans.js), samma
+// fil prissidan renderar ifrån — inte ur en konstant här. Tidigare stod
+// 17900 öre hårdkodat, vilket betydde att en kund som valde "Utan
+// personal" (129 kr) ändå debiterades 179 kr och att appen omöjligt kunde
+// veta vilken nivå som köpts. Ett pris som bara finns på ETT ställe kan
+// inte glida isär mot det kunden såg.
+//
+// inline price_data i stället för förskapade Stripe Price-objekt — samma
+// teknik som redan används för fakturarader (App.jsx
+// getInvoicePaymentLinkUrl) — så ingen manuell produktuppsättning i Stripe
+// Dashboard krävs, och en prisändring i katalogen slår igenom direkt.
 
 // Säkerhetsfix (säkerhetsgranskningen): den här endpointen litade tidigare
 // blint på body.user_id. Vem som helst kunde posta en godtycklig (gissad
@@ -108,10 +111,31 @@ export default async function handler(req, res) {
         return;
       }
 
-      const updated = await stripe.subscriptions.update(subRow.stripe_subscription_id, {
-        cancel_at_period_end: body.action === 'cancel',
-      });
+      // Årsplanen har en minsta avtalstid på tre månader (plans.js). Säger
+      // kunden upp innan dess löper abonnemanget till minimitidens slut i
+      // stället för till innevarande periods slut — månadsplanen och en
+      // årsplan som passerat minimitiden avslutas som vanligt.
+      //
+      // Ingen återbetalning finns någonstans i flödet, och det är hela
+      // poängen med att debitera månadsvis även på årsplanen: det finns
+      // aldrig ett förskott att betala tillbaka, alltså inget belopp att
+      // räkna fel på och ingen manuell hantering när något krånglar.
+      const cancellation = body.action === 'cancel'
+        ? resolveCancellation({
+            planId: subRow.plan,
+            startedAt: subRow.created_at,
+          })
+        : { atPeriodEnd: true, cancelAt: null };
 
+      const updated = await stripe.subscriptions.update(subRow.stripe_subscription_id, {
+        ...(body.action === 'cancel' && cancellation.cancelAt
+          ? { cancel_at: Math.floor(cancellation.cancelAt.getTime() / 1000) }
+          : { cancel_at_period_end: body.action === 'cancel' }),
+        // Återaktivering måste nolla BÅDA vägarna ut: en prenumeration som
+        // sagts upp med cancel_at (minimitiden) släpps inte av att bara
+        // cancel_at_period_end sätts till false.
+        ...(body.action === 'reactivate' ? { cancel_at: null, cancel_at_period_end: false } : {}),
+      });
       // Webhooken (customer.subscription.updated) skriver samma nya status
       // till public.subscriptions som vanligt, men kan dröja någon sekund —
       // speglar samma fält direkt här också (samma upsert-funktion
@@ -130,6 +154,12 @@ export default async function handler(req, res) {
 
       res.status(200).json({
         status: updated.status,
+        plan: subRow.plan || null,
+        // Slutdatumet när uppsägningen skjuts fram till minimitidens slut,
+        // så gränssnittet kan säga "avslutas 15 april" i stället för bara
+        // "uppsagd".
+        cancelAt: updated.cancel_at ? new Date(updated.cancel_at * 1000).toISOString() : null,
+        minimumMonths: cancellation.minimumMonths || 0,
         cancelAtPeriodEnd: !!updated.cancel_at_period_end,
         trialEndsAt: updated.trial_end ? new Date(updated.trial_end * 1000).toISOString() : null,
         currentPeriodEnd: updated.current_period_end ? new Date(updated.current_period_end * 1000).toISOString() : null,
@@ -165,6 +195,12 @@ export default async function handler(req, res) {
       }
     }
 
+    // Planen valideras mot katalogen innan något debiteras. En okänd
+    // sträng får aldrig leda till ett belopp — då faller den tillbaka på
+    // den nivå som gällde innan valet fanns (med personal, månadsvis), så
+    // en gammal klient som inte skickar med `plan` fungerar oförändrat.
+    const plan = resolvePlan(...String(body.plan || 'employer_monthly').split('_')) || resolvePlan('employer', 'monthly');
+
     const baseUrl = normalizeAbsoluteUrl(process.env.STRIPE_SUCCESS_URL, 'http://localhost:5173');
     const cancelBaseUrl = normalizeAbsoluteUrl(process.env.STRIPE_CANCEL_URL, 'http://localhost:5173');
 
@@ -179,9 +215,9 @@ export default async function handler(req, res) {
         {
           price_data: {
             currency: 'sek',
-            product_data: { name: 'Bokix' },
-            unit_amount: SUBSCRIPTION_PRICE_SEK_ORE,
-            recurring: { interval: 'month' },
+            product_data: { name: `Bokix — ${plan.name}` },
+            unit_amount: plan.amountOre,
+            recurring: { interval: plan.stripeInterval },
           },
           quantity: 1,
         },
@@ -197,16 +233,26 @@ export default async function handler(req, res) {
         // user_id, samma mönster som checkout.session.completed:s egen
         // company_id/invoice_id-metadata (kundfakturaflödet, orelaterat men
         // samma princip) redan använder.
-        metadata: body.company_id ? { user_id: body.user_id, company_id: body.company_id } : { user_id: body.user_id },
+        metadata: body.company_id
+          ? { user_id: body.user_id, company_id: body.company_id, plan: plan.id }
+          : { user_id: body.user_id, plan: plan.id },
       },
-      metadata: body.company_id ? { user_id: body.user_id, company_id: body.company_id } : { user_id: body.user_id },
+      metadata: body.company_id
+        ? { user_id: body.user_id, company_id: body.company_id, plan: plan.id }
+        : { user_id: body.user_id, plan: plan.id },
       // company_id på success_url (bara satt när body.company_id finns) —
       // App.jsx:s "vänta in webhooken"-logik (fetchUserData) behöver veta
       // VILKET företags rad den ska vänta på, annars väntar den (fel) in
       // kontots legacy-rad, som en ny företags-checkout aldrig skriver till.
+      // `plan` med på success_url: kvittotexten i App.jsx sa tidigare
+      // "sedan 179 kr/mån" oavsett vad kunden faktiskt valt i checkouten,
+      // eftersom den inte hade något sätt att veta nivån. Nu läser den
+      // planen härifrån (planFromId) och nämner rätt belopp. Bara ett
+      // visningsvärde — vad som debiteras avgörs av `plan` ovan, aldrig av
+      // en parameter i webbläsarens adressfält.
       success_url: body.company_id
-        ? appendQueryParam(appendQueryParam(baseUrl, 'subscription_checkout', 'success'), 'company_id', body.company_id)
-        : appendQueryParam(baseUrl, 'subscription_checkout', 'success'),
+        ? appendQueryParam(appendQueryParam(appendQueryParam(baseUrl, 'subscription_checkout', 'success'), 'plan', plan.id), 'company_id', body.company_id)
+        : appendQueryParam(appendQueryParam(baseUrl, 'subscription_checkout', 'success'), 'plan', plan.id),
       cancel_url: appendQueryParam(cancelBaseUrl, 'subscription_checkout', 'cancelled'),
     });
     res.status(200).json({ session });

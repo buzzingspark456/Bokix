@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { CheckCircle2, Check, X, ChevronDown, ChevronUp, ShieldCheck, AlertCircle, CreditCard, Landmark, HelpCircle } from 'lucide-react';
+import { CheckCircle2, Check, X, ChevronDown, ChevronUp, ShieldCheck, CreditCard, Landmark, HelpCircle, FileText, Receipt, Info } from 'lucide-react';
 import { AccountSearch } from './shared/SearchInputs';
 import ListPageHeader from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
@@ -19,6 +19,148 @@ const formatDateTime = (iso) => {
 
 const KIND_LABEL = { receipt: 'kvitto', supplier_invoice: 'leverantörsfaktura' };
 const KIND_LABEL_PLURAL = { receipt: 'kvitton', supplier_invoice: 'leverantörsfakturor' };
+
+/** "2 dagar sedan" till metaraden. Ett datum säger vilken dag posten är
+ * från; ålder säger hur länge den legat och väntat — det är det senare man
+ * granskar efter, så båda står i raden. */
+const agoLabel = (d) => {
+  if (!d) return null;
+  const then = new Date(d);
+  if (Number.isNaN(then.getTime())) return null;
+  const days = Math.floor((Date.now() - then.getTime()) / 86400000);
+  if (days <= 0) return 'i dag';
+  if (days === 1) return '1 dag sedan';
+  if (days < 30) return `${days} dagar sedan`;
+  const months = Math.floor(days / 30);
+  return months === 1 ? '1 månad sedan' : `${months} månader sedan`;
+};
+
+// ── Radlayouten för granskningslistan ───────────────────────────────────
+// Korten var tidigare fristående boxar i hela fönstrets bredd. På en stor
+// skärm blev en rad på fyra ord över 1 500 px bred, med ett tomrum mellan
+// texten till vänster och ingenting till höger — kundens invändning. Nu:
+// EN inramad lista med tunna avdelare, centrerad och maxbreddad, så raden
+// har samma längd oavsett skärm. På mobil krymper sidopaddingen i stället
+// (16 px), eftersom marginalerna där tar av det som faktiskt ska läsas.
+// Korten låg tidigare i en 980px-bred, centrerad spalt med 20px luft
+// ovanför — de svävade då som ett eget kort mitt på sidan i stället för att
+// sitta ihop med sidhuvudet, som alla andra listsidor gör (kundönskemål:
+// "i granskning ska den vara ihopfogad med headern, i vår stil, och på alla
+// sidor"). Nu samma förhållande som ListTable → ListFilterBar: kanten flush
+// mot headern, rak överkant, avrundad först mot sidbakgrunden nedtill.
+
+const REVIEW_LIST_CSS = `
+  .rq-list { width: 100%; padding: 0 0 24px; box-sizing: border-box; }
+  .rq-card { background: var(--bg-card); border: 1px solid var(--border); border-top: none; border-radius: 0 0 12px 12px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+  .rq-row { display: flex; gap: 14px; padding: 16px 20px; align-items: flex-start; }
+  .rq-row + .rq-row { border-top: 1px solid var(--border-light); }
+  .rq-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .rq-meta { font-size: 11px; font-weight: 700; letter-spacing: 0.055em; text-transform: uppercase; color: var(--text-muted); line-height: 1.5; }
+  .rq-title { font-size: 14.5px; font-weight: 600; color: var(--text-main); margin-top: 5px; line-height: 1.45; }
+  .rq-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  @media (max-width: 640px) {
+    .rq-list { padding: 0 0 18px; }
+    .rq-row { padding: 14px 14px; gap: 11px; }
+    .rq-head { flex-direction: column; gap: 6px; }
+    .rq-actions button { flex: 1 1 auto; justify-content: center; }
+  }
+`;
+
+/** Knappstil för radens åtgärder — samma höjd och radie som listsidornas
+ * övriga knappar (shared/ListPageHeader.jsx), bara en aning nättare
+ * eftersom de sitter inuti en rad och inte i ett sidhuvud. */
+function rowButtonStyle(variant = 'secondary') {
+  const tone = {
+    primary: { background: 'var(--accent)', color: 'white', border: 'none' },
+    danger: { background: 'var(--bg-card)', color: 'var(--status-red-text)', border: '1px solid var(--border)' },
+    secondary: { background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border)' },
+    ghost: { background: 'none', color: 'var(--text-secondary)', border: '1px solid transparent' },
+  }[variant];
+  return {
+    display: 'inline-flex', alignItems: 'center', gap: '6px',
+    height: '32px', padding: '0 13px', boxSizing: 'border-box',
+    borderRadius: '8px', fontSize: '12.5px', fontWeight: 600,
+    cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
+    ...tone,
+  };
+}
+
+const BADGE_TONES = {
+  green: { bg: 'var(--status-green-bg)', fg: 'var(--status-green-text)' },
+  amber: { bg: 'var(--status-amber-bg)', fg: 'var(--status-amber-text)' },
+  blue: { bg: 'var(--status-blue-bg)', fg: 'var(--status-blue-text)' },
+  neutral: { bg: 'var(--border-light)', fg: 'var(--text-secondary)' },
+};
+
+/**
+ * Skalet varje granskningsrad delar: markeringsruta, ikon, metarad,
+ * åtgärdsmening, statusetikett till höger och knapparna under. Både
+ * utgifts- och Stripe-raderna använder det, så de två flikarna aldrig kan
+ * driva isär visuellt.
+ *
+ * `selectable === false` betyder att posten inte går att godkänna som den
+ * är (den saknar konto) — rutan visas ändå, men avstängd och med en
+ * förklaring i title, i stället för att bara utelämnas: en lucka i
+ * kolumnen ser ut som en bugg, en avstängd ruta förklarar sig själv.
+ */
+function ReviewRowShell({
+  icon: Icon, tone = 'neutral', meta, title, badge, exiting,
+  selectable = false, selected = false, onToggleSelect, selectHint,
+  // `extra` sitter MELLAN meningen och knapparna — för de val som måste
+  // göras innan knappen går att trycka (momssats och intäktskonto på en
+  // Stripe-betalning utan matchande faktura). Under knapparna hade det
+  // varit fel ordning: man fyller i först och bekräftar sedan.
+  extra, actions, children,
+}) {
+  const badgeTone = BADGE_TONES[badge?.tone || 'neutral'];
+  const iconTone = BADGE_TONES[tone];
+  return (
+    <div className="rq-row" style={{
+      opacity: exiting ? 0 : 1,
+      transform: exiting ? 'translateX(24px)' : 'none',
+      transition: 'opacity 0.22s ease, transform 0.22s ease',
+    }}>
+      {onToggleSelect && (
+        <input
+          type="checkbox"
+          checked={selected}
+          disabled={!selectable}
+          onChange={onToggleSelect}
+          title={selectable ? 'Markera för att godkänna flera på en gång' : selectHint}
+          aria-label={selectable ? `Markera: ${title}` : selectHint}
+          style={{ width: '16px', height: '16px', marginTop: '9px', accentColor: 'var(--accent)', cursor: selectable ? 'pointer' : 'not-allowed', flexShrink: 0 }}
+        />
+      )}
+      <span style={{
+        width: 34, height: 34, borderRadius: '9px', flexShrink: 0,
+        background: iconTone.bg, color: iconTone.fg,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <Icon size={16} />
+      </span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="rq-head">
+          <div style={{ minWidth: 0 }}>
+            <div className="rq-meta">{meta.filter(Boolean).join(' · ')}</div>
+            <div className="rq-title">{title}</div>
+          </div>
+          {badge && (
+            <span style={{
+              flexShrink: 0, padding: '4px 10px', borderRadius: '999px',
+              fontSize: '11.5px', fontWeight: 700, whiteSpace: 'nowrap',
+              background: badgeTone.bg, color: badgeTone.fg,
+            }}>
+              {badge.label}
+            </span>
+          )}
+        </div>
+        {extra}
+        {actions && <div className="rq-actions">{actions}</div>}
+        {children}
+      </div>
+    </div>
+  );
+}
 
 // Stripe-ledgerns typsträngar → svensk etikett, bara för visning (samma
 // princip som SUBSCRIPTION_STATUS_LABELS i Settings.jsx — ingen omkodning
@@ -63,79 +205,86 @@ function suggestAccount(item, allExpenses) {
   return { account: latest.costAccount, confident: false };
 }
 
-function ReviewCard({ item, accounts, onApprove, onReject, exiting }) {
+/**
+ * En post som saknar kontering. Raden säger tre saker i den ordning man
+ * faktiskt granskar dem: VAD det är (metaraden), VAD som händer om du
+ * godkänner (åtgärdsmeningen), och HUR säkert förslaget är (etiketten).
+ *
+ * Saknas förslag helt heter knappen "Ange konto", inte "Avvisa" — det
+ * finns inget att avvisa, och kundönskemålet var uttryckligen att en
+ * leverantörsfaktura utan kontering ska leda till just det valet.
+ */
+function ReviewCard({ item, accounts, onApprove, onReject, exiting, selected, onToggleSelect }) {
   const [expanded, setExpanded] = useState(false);
   const [rejecting, setRejecting] = useState(false);
   const [manualAccount, setManualAccount] = useState('');
 
+  const isSupplierInvoice = item.type === 'supplier_invoice';
   const kindLabel = KIND_LABEL[item.type] || 'post';
-  const title = `${item.type === 'supplier_invoice' ? 'Leverantörsfaktura' : 'Kvitto'} utan kontering — ${item.supplier || item.description || 'Okänt inköpsställe'} ${formatSEK(item.amount)}`;
   const suggestedAccountObj = accounts.find(a => a.code === item.account);
+  const who = item.supplier || item.description || 'okänt inköpsställe';
+
+  // "Föreslaget ur tidigare konteringar" är ordagrant vad suggestAccount
+  // gör (samma leverantör, samma konto förra gången) — aldrig "föreslaget
+  // av AI", som hade varit ett påstående koden inte kan backa upp.
+  const meta = [
+    isSupplierInvoice ? 'Leverantörsfaktura' : 'Kvitto',
+    item.account ? 'föreslaget ur tidigare konteringar' : 'ingen tidigare matchning',
+    agoLabel(item.date),
+  ];
+
+  const title = item.account
+    ? `Kontera ${who} ${formatSEK(item.amount)} som ${item.account} ${suggestedAccountObj?.name || ''}`.trim()
+    : `Ange konto för ${who} ${formatSEK(item.amount)}`;
+
+  const badge = item.account
+    ? (item.confident ? { label: 'Säkert förslag', tone: 'green' } : { label: 'Osäkert förslag', tone: 'amber' })
+    : { label: 'Konto saknas', tone: 'neutral' };
 
   return (
-    <div style={{
-      background: 'var(--bg-card)', borderRadius: '14px', border: '1px solid var(--border)',
-      padding: '20px 24px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
-      opacity: exiting ? 0 : 1, transform: exiting ? 'translateX(24px)' : 'none',
-      transition: 'opacity 0.22s ease, transform 0.22s ease',
-    }}>
-      <div style={{ marginBottom: '12px' }}>
-        <div style={{ fontWeight: 700, fontSize: '15px', color: 'var(--text-main)', marginBottom: '4px' }}>{title}</div>
-        <div style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>{formatDate(item.date)} · {kindLabel}</div>
-      </div>
-
-      {item.account ? (
-        <div style={{
-          display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '6px 12px', borderRadius: '999px',
-          marginBottom: '14px', fontSize: '12.5px', fontWeight: 600,
-          background: item.confident ? 'var(--status-green-bg)' : 'var(--status-amber-bg)',
-          border: `1px solid ${item.confident ? 'var(--status-green-bg)' : 'var(--status-amber-bg)'}`,
-          color: item.confident ? 'var(--status-green-text)' : 'var(--status-amber-text)',
-        }}>
-          {item.confident ? <ShieldCheck size={14} /> : <AlertCircle size={14} />}
-          {item.confident ? 'Säkert förslag: ' : 'Osäkert förslag: '}
-          Kontera som {item.account} {suggestedAccountObj?.name || ''}
-        </div>
-      ) : (
-        <div style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginBottom: '14px' }}>Ingen tidigare matchning hittades — ange konto manuellt.</div>
-      )}
-
-      <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-        {item.confident && (
+    <ReviewRowShell
+      icon={isSupplierInvoice ? FileText : Receipt}
+      tone={badge.tone}
+      meta={meta}
+      title={title}
+      badge={badge}
+      exiting={exiting}
+      selectable={Boolean(item.account)}
+      selected={selected}
+      onToggleSelect={onToggleSelect}
+      selectHint="Posten saknar konto — ange ett konto innan den kan godkännas."
+      actions={
+        <>
+          {item.account && (
+            <button onClick={() => onApprove(item)} style={rowButtonStyle('primary')}>
+              <Check size={14} /> Godkänn
+            </button>
+          )}
           <button
-            onClick={() => onApprove(item)}
-            style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '8px 16px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
+            onClick={() => setRejecting(r => !r)}
+            style={rowButtonStyle(item.account ? 'danger' : 'primary')}
           >
-            <Check size={14} /> Godkänn
+            {item.account ? <><X size={14} /> Avvisa</> : 'Ange konto'}
           </button>
-        )}
-        <button
-          onClick={() => setRejecting(r => !r)}
-          style={{ padding: '8px 16px', background: rejecting ? 'var(--border-light)' : 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
-        >
-          {item.confident ? 'Avvisa' : 'Ange konto'}
-        </button>
-        <button
-          onClick={() => setExpanded(e => !e)}
-          style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '8px 12px', background: 'none', color: 'var(--text-secondary)', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', marginLeft: 'auto' }}
-        >
-          Visa detaljer {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-        </button>
-      </div>
-
+          <button onClick={() => setExpanded(e => !e)} style={{ ...rowButtonStyle('ghost'), marginLeft: 'auto' }}>
+            <Info size={14} /> Visa detaljer {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+          </button>
+        </>
+      }
+    >
       {rejecting && (
-        <div style={{ marginTop: '14px', padding: '14px', background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: '10px' }}>
+        <div style={{ marginTop: '12px', padding: '14px', background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: '10px' }}>
           <div style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '8px' }}>
-            {item.confident ? 'Fel förslag — ange rätt konto:' : 'Ange konto:'}
+            {item.account ? 'Fel förslag — ange rätt konto:' : 'Ange konto:'}
           </div>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <div style={{ flex: 1 }}>
+          <div className="rq-account-picker" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
               <AccountSearch value={manualAccount} onChange={setManualAccount} accounts={accounts} placeholder="Sök konto..." />
             </div>
             <button
               disabled={!manualAccount}
               onClick={() => onReject(item, manualAccount)}
-              style={{ padding: '9px 16px', background: manualAccount ? 'var(--accent)' : 'var(--border)', color: manualAccount ? 'white' : 'var(--text-muted)', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: manualAccount ? 'pointer' : 'not-allowed', whiteSpace: 'nowrap' }}
+              style={{ ...rowButtonStyle(manualAccount ? 'primary' : 'secondary'), opacity: manualAccount ? 1 : 0.6, cursor: manualAccount ? 'pointer' : 'not-allowed' }}
             >
               Bokför med detta konto
             </button>
@@ -147,7 +296,7 @@ function ReviewCard({ item, accounts, onApprove, onReject, exiting }) {
       )}
 
       {expanded && (
-        <div className="form-row-2" style={{ marginTop: '14px', paddingTop: '14px', borderTop: '1px solid var(--border-light)', display: 'grid', gap: '10px', fontSize: '13px' }}>
+        <div className="form-row-2" style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border-light)', display: 'grid', gap: '10px', fontSize: '13px' }}>
           <div><span style={{ color: 'var(--text-muted)' }}>Typ:</span> {kindLabel}</div>
           <div><span style={{ color: 'var(--text-muted)' }}>Datum:</span> {formatDate(item.date)}</div>
           <div><span style={{ color: 'var(--text-muted)' }}>Belopp:</span> {formatSEK(item.amount)}</div>
@@ -156,10 +305,9 @@ function ReviewCard({ item, accounts, onApprove, onReject, exiting }) {
           <div style={{ gridColumn: '1 / 3' }}><span style={{ color: 'var(--text-muted)' }}>Underlag:</span> Inget bifogat underlag är sparat för denna post.</div>
         </div>
       )}
-    </div>
+    </ReviewRowShell>
   );
 }
-
 const VAT_RATES = [25, 12, 6, 0];
 
 /** Ett kort för en Stripe-ledgerrad (public.stripe_ledger_events) — samma
@@ -186,85 +334,82 @@ function StripeLedgerCard({ item, accounts, onBookPlatformFee, onBookSale, onMar
   const typeLabel = STRIPE_TYPE_LABEL[item.type] || item.type;
   const isForeign = item.currency !== 'sek';
 
-  let title, icon, accentBg, accentText;
-  if (category === 'platform_fee') {
-    title = `Bokix plattformsavgift — ${formatSEK(item.platform_fee_amount)}`;
-    icon = <ShieldCheck size={14} />;
-    accentBg = 'var(--status-green-bg)'; accentText = 'var(--status-green-text)';
-  } else if (category === 'payout') {
-    title = `Utbetalning till bank — ${formatMoney(item.amount, item.currency)}`;
-    icon = <Landmark size={14} />;
-    accentBg = 'var(--status-blue-bg)'; accentText = 'var(--status-blue-text)';
-  } else if (category === 'unmatched_sale') {
-    title = `Betalning utan kopplad faktura — ${formatSEK(item.amount)}`;
-    icon = <CreditCard size={14} />;
-    accentBg = 'var(--status-amber-bg)'; accentText = 'var(--status-amber-text)';
-  } else {
-    title = `${typeLabel} — ${formatMoney(item.amount, item.currency)}`;
-    icon = <HelpCircle size={14} />;
-    accentBg = 'var(--border-light)'; accentText = 'var(--text-secondary)';
-  }
+  // Samma tre delar som utgiftsraden: metarad, åtgärdsmening, etikett.
+  // Meningen säger vad knappen gör — inte bara vad raden är.
+  const view = {
+    platform_fee: {
+      icon: ShieldCheck, tone: 'green',
+      note: 'beräknad ur fakturans bokförda belopp',
+      title: `Bokför Bokix plattformsavgift ${formatSEK(item.platform_fee_amount)} mot 6570 Bankkostnader`,
+      badge: { label: 'Beräknad avgift', tone: 'green' },
+    },
+    payout: {
+      icon: Landmark, tone: 'blue',
+      note: 'inget att bokföra här',
+      title: `Utbetalning till bank ${formatMoney(item.amount, item.currency)} — jämför mot ditt bankkontoutdrag`,
+      badge: { label: 'Avstämning', tone: 'blue' },
+    },
+    unmatched_sale: {
+      icon: CreditCard, tone: 'amber',
+      note: 'ingen matchande faktura',
+      title: `Bokför betalning ${formatSEK(item.amount)} — välj momssats och intäktskonto`,
+      badge: { label: 'Kräver val', tone: 'amber' },
+    },
+    manual: {
+      icon: HelpCircle, tone: 'neutral',
+      note: isForeign ? 'utländsk valuta' : 'ingen automatisk kontering ännu',
+      title: `${typeLabel} ${formatMoney(item.amount, item.currency)} — hanteras manuellt`,
+      badge: { label: 'Manuell', tone: 'neutral' },
+    },
+  }[category];
 
   return (
-    <div style={{
-      background: 'var(--bg-card)', borderRadius: '14px', border: '1px solid var(--border)',
-      padding: '20px 24px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
-      opacity: exiting ? 0 : 1, transform: exiting ? 'translateX(24px)' : 'none',
-      transition: 'opacity 0.22s ease, transform 0.22s ease',
-    }}>
-      <div style={{ marginBottom: '12px' }}>
-        <div style={{ fontWeight: 700, fontSize: '15px', color: 'var(--text-main)', marginBottom: '4px' }}>{title}</div>
-        <div style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>{formatDate(item.created_at_stripe)} · {typeLabel}</div>
-      </div>
-
-      <div style={{
-        display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '6px 12px', borderRadius: '999px',
-        marginBottom: '14px', fontSize: '12.5px', fontWeight: 600, background: accentBg, color: accentText,
-      }}>
-        {icon}
-        {category === 'platform_fee' && 'Beräknad avgift — bokförs mot 6570 Bankkostnader'}
-        {category === 'payout' && 'Avstämningsunderlag — jämför mot ditt bankkontoutdrag'}
-        {category === 'unmatched_sale' && 'Ingen matchande faktura hittades — välj momssats och konto'}
-        {category === 'manual' && (isForeign ? 'Utländsk valuta — inte automatiserat ännu' : 'Ingen automatisk kontering för den här posttypen ännu')}
-      </div>
-
-      {category === 'unmatched_sale' && (
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '14px' }}>
-          <select value={vatRate} onChange={e => { const r = Number(e.target.value); setVatRate(r); setSaleAccount(REVENUE_ACCOUNTS[r]); }} style={{ padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '13px', background: 'var(--bg-card)', color: 'var(--text-main)' }}>
+    <ReviewRowShell
+      icon={view.icon}
+      tone={view.tone}
+      meta={[typeLabel, view.note, agoLabel(item.created_at_stripe)]}
+      title={view.title}
+      badge={view.badge}
+      exiting={exiting}
+      extra={category === 'unmatched_sale' && (
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginTop: '12px' }}>
+          <select value={vatRate} onChange={e => { const r = Number(e.target.value); setVatRate(r); setSaleAccount(REVENUE_ACCOUNTS[r]); }} style={{ height: '32px', padding: '0 10px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '12.5px', background: 'var(--bg-card)', color: 'var(--text-main)', fontFamily: 'inherit' }}>
             {VAT_RATES.map(r => <option key={r} value={r}>{r}% moms</option>)}
           </select>
-          <div style={{ minWidth: '220px' }}>
+          <div style={{ minWidth: '220px', flex: '1 1 220px' }}>
             <AccountSearch value={saleAccount} onChange={setSaleAccount} accounts={accounts} placeholder="Intäktskonto..." />
           </div>
         </div>
       )}
-
-      <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-        {category === 'platform_fee' && (
-          <button onClick={() => onBookPlatformFee(item)} style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '8px 16px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
-            <Check size={14} /> Bokför avgift
+      actions={
+        <>
+          {category === 'platform_fee' && (
+            <button onClick={() => onBookPlatformFee(item)} style={rowButtonStyle('primary')}>
+              <Check size={14} /> Bokför avgift
+            </button>
+          )}
+          {category === 'unmatched_sale' && (
+            <button
+              disabled={!saleAccount}
+              onClick={() => onBookSale(item, saleAccount, vatRate)}
+              style={{ ...rowButtonStyle(saleAccount ? 'primary' : 'secondary'), opacity: saleAccount ? 1 : 0.6, cursor: saleAccount ? 'pointer' : 'not-allowed' }}
+            >
+              <Check size={14} /> Bokför försäljning
+            </button>
+          )}
+          {(category === 'payout' || category === 'manual') && (
+            <button onClick={() => onMarkHandled(item)} style={rowButtonStyle('secondary')}>
+              Markera som hanterad
+            </button>
+          )}
+          <button onClick={() => setExpanded(e => !e)} style={{ ...rowButtonStyle('ghost'), marginLeft: 'auto' }}>
+            <Info size={14} /> Visa detaljer {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
           </button>
-        )}
-        {category === 'unmatched_sale' && (
-          <button disabled={!saleAccount} onClick={() => onBookSale(item, saleAccount, vatRate)} style={{ padding: '9px 16px', background: saleAccount ? 'var(--accent)' : 'var(--border)', color: saleAccount ? 'white' : 'var(--text-muted)', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: saleAccount ? 'pointer' : 'not-allowed' }}>
-            Bokför försäljning
-          </button>
-        )}
-        {(category === 'payout' || category === 'manual') && (
-          <button onClick={() => onMarkHandled(item)} style={{ padding: '8px 16px', background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
-            Markera som hanterad
-          </button>
-        )}
-        <button
-          onClick={() => setExpanded(e => !e)}
-          style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '8px 12px', background: 'none', color: 'var(--text-secondary)', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', marginLeft: 'auto' }}
-        >
-          Visa detaljer {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-        </button>
-      </div>
-
+        </>
+      }
+    >
       {expanded && (
-        <div className="form-row-2" style={{ marginTop: '14px', paddingTop: '14px', borderTop: '1px solid var(--border-light)', display: 'grid', gap: '10px', fontSize: '13px' }}>
+        <div className="form-row-2" style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border-light)', display: 'grid', gap: '10px', fontSize: '13px' }}>
           <div><span style={{ color: 'var(--text-muted)' }}>Typ:</span> {typeLabel} ({item.type})</div>
           <div><span style={{ color: 'var(--text-muted)' }}>Datum:</span> {formatDate(item.created_at_stripe)}</div>
           <div><span style={{ color: 'var(--text-muted)' }}>Belopp:</span> {formatMoney(item.amount, item.currency)}</div>
@@ -273,11 +418,11 @@ function StripeLedgerCard({ item, accounts, onBookPlatformFee, onBookSale, onMar
           {item.description && <div style={{ gridColumn: '1 / 3' }}><span style={{ color: 'var(--text-muted)' }}>Stripe-beskrivning:</span> {item.description}</div>}
         </div>
       )}
-    </div>
+    </ReviewRowShell>
   );
 }
 
-export default function ReviewQueue({ expenses = [], accounts = [], reviewHistory = [], onResolve, user, company, onAddVerification }) {
+export default function ReviewQueue({ expenses = [], accounts = [], reviewHistory = [], onResolve, user, company, onAddVerification, demoStripeItems }) {
   const [tab, setTab] = useState('pending'); // 'pending' | 'history'
   const [exitingIds, setExitingIds] = useState(new Set());
   const [showBulkConfirm, setShowBulkConfirm] = useState(false);
@@ -296,6 +441,24 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
   const visiblePending = pendingItems.filter(i => !exitingIds.has(i.id));
   const eligibleForBulk = visiblePending.filter(i => i.confident);
 
+  // ── Markerade poster ────────────────────────────────────────────────
+  // "Godkänn alla" tar bara de säkra förslagen och är ett allt-eller-inget-
+  // val. Markeringsrutorna ger mellanläget: granska raderna, kryssa i de du
+  // godkänner (även ett osäkert förslag du själv läst igenom) och bekräfta
+  // dem i en klump. Poster utan konto går aldrig att kryssa i — det finns
+  // inget att godkänna förrän ett konto valts.
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const toggleSelected = (id) => setSelectedIds(prev => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+  // Rensar bort id:n som inte längre finns kvar i listan (godkända,
+  // konterade i en annan flik) så räknaren aldrig visar fler än som syns.
+  const selectedItems = visiblePending.filter(i => selectedIds.has(i.id) && i.account);
+  const bulkTargets = selectedItems.length > 0 ? selectedItems : eligibleForBulk;
+  const bulkIsSelection = selectedItems.length > 0;
+
   const finishResolve = (item, account, method) => {
     setExitingIds(prev => new Set(prev).add(item.id));
     setTimeout(() => {
@@ -309,7 +472,7 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
 
   const bulkSummary = useMemo(() => {
     const groups = {};
-    eligibleForBulk.forEach(i => {
+    bulkTargets.forEach(i => {
       const accName = accounts.find(a => a.code === i.account)?.name || i.account;
       const key = `${i.type}|${accName}`;
       groups[key] = (groups[key] || 0) + 1;
@@ -319,11 +482,12 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
       const label = count === 1 ? KIND_LABEL[type] : KIND_LABEL_PLURAL[type];
       return `${count} ${label} kategoriseras som ${accName}`;
     });
-    return `Detta godkänner ${eligibleForBulk.length} ${eligibleForBulk.length === 1 ? 'post' : 'poster'}: ${parts.join(', ')}.`;
-  }, [eligibleForBulk, accounts]);
+    return `Detta godkänner ${bulkTargets.length} ${bulkTargets.length === 1 ? 'post' : 'poster'}: ${parts.join(', ')}.`;
+  }, [bulkTargets, accounts]);
 
   const handleBulkApprove = () => {
-    eligibleForBulk.forEach(item => finishResolve(item, item.account, 'bulk'));
+    bulkTargets.forEach(item => finishResolve(item, item.account, 'bulk'));
+    setSelectedIds(new Set());
     setShowBulkConfirm(false);
   };
 
@@ -334,10 +498,16 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
   // supabase-setup.sql för hela flödet: cronen (api/cron/reminders.js)
   // loggar rader, den här komponenten föreslår en kontering, användaren
   // godkänner — aldrig auto-bokfört.
-  const [stripeItems, setStripeItems] = useState([]);
-  const [stripeLoading, setStripeLoading] = useState(true);
+  // `demoStripeItems` (landningssidans DemoWorkspace) matar in samma rader
+  // som en riktig Supabase-hämtning skulle ge, och stänger av både hämtningen
+  // och reviewed_at-skrivningen nedan — demon har varken session eller
+  // databas, men ska ändå kunna visa Stripe-fliken med riktigt innehåll.
+  const isDemo = Array.isArray(demoStripeItems);
+  const [stripeItems, setStripeItems] = useState(isDemo ? demoStripeItems : []);
+  const [stripeLoading, setStripeLoading] = useState(!isDemo);
 
   const loadStripeItems = async () => {
+    if (isDemo) { setStripeLoading(false); return; }
     if (!user?.id || !company?.id) { setStripeLoading(false); return; }
     setStripeLoading(true);
     const { data } = await supabase
@@ -369,7 +539,9 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
   // Alla tre skriver samma sak till DB (reviewed_at) — bara VAD som
   // bokförs (om något) skiljer. RLS ("Apply own stripe ledger events" i
   // supabase-setup.sql) begränsar skrivningen till kontots egen rad.
-  const markStripeReviewed = (item) => supabase.from('stripe_ledger_events').update({ reviewed_at: new Date().toISOString() }).eq('id', item.id);
+  const markStripeReviewed = (item) => (isDemo
+    ? Promise.resolve()
+    : supabase.from('stripe_ledger_events').update({ reviewed_at: new Date().toISOString() }).eq('id', item.id));
 
   const handleBookPlatformFee = (item) => {
     const feeAmount = Math.round(Number(item.platform_fee_amount) || 0);
@@ -418,11 +590,18 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
+      <style>{REVIEW_LIST_CSS}</style>
       {/* Header i samma mönster som Kunder/Anställda och lön/Projekt/Bokföring. */}
       <ListPageHeader
         title="Granskning"
-        actions={tab === 'pending' && eligibleForBulk.length > 0 ? [
-          { key: 'bulk-approve', label: 'Godkänn alla', icon: CheckCircle2, onClick: () => setShowBulkConfirm(true), variant: 'primary' },
+        // Antalet står i knappen, inte bara i bekräftelserutan: hur många
+        // poster ett klick omfattar ska gå att se INNAN man klickar.
+        actions={tab === 'pending' && bulkTargets.length > 0 ? [
+          {
+            key: 'bulk-approve',
+            label: `${bulkIsSelection ? 'Godkänn markerade' : 'Godkänn alla'} (${bulkTargets.length})`,
+            icon: CheckCircle2, onClick: () => setShowBulkConfirm(true), variant: 'primary',
+          },
         ] : []}
         tabs={{
           items: [
@@ -451,10 +630,18 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
             <p style={{ color: 'var(--text-secondary)', fontSize: '15px', margin: 0 }}>Det finns inga poster kvar att granska just nu.</p>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '24px' }}>
-            {visiblePending.map(item => (
-              <ReviewCard key={item.id} item={item} accounts={accounts} onApprove={handleApprove} onReject={handleReject} exiting={exitingIds.has(item.id)} />
-            ))}
+          <div className="rq-list">
+            <div className="rq-card">
+              {visiblePending.map(item => (
+                <ReviewCard
+                  key={item.id} item={item} accounts={accounts}
+                  onApprove={handleApprove} onReject={handleReject}
+                  exiting={exitingIds.has(item.id)}
+                  selected={selectedIds.has(item.id)}
+                  onToggleSelect={() => toggleSelected(item.id)}
+                />
+              ))}
+            </div>
           </div>
         )
       )}
@@ -479,16 +666,18 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
             <p style={{ color: 'var(--text-secondary)', fontSize: '15px', margin: 0 }}>Inga Stripe-transaktioner väntar på granskning just nu. Nya rader hämtas en gång om dagen.</p>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '24px' }}>
-            {visibleStripeItems.map(item => (
-              <StripeLedgerCard
-                key={item.id} item={item} accounts={accounts}
-                onBookPlatformFee={handleBookPlatformFee}
-                onBookSale={handleBookSale}
-                onMarkHandled={handleMarkStripeHandled}
-                exiting={exitingIds.has(item.id)}
-              />
-            ))}
+          <div className="rq-list">
+            <div className="rq-card">
+              {visibleStripeItems.map(item => (
+                <StripeLedgerCard
+                  key={item.id} item={item} accounts={accounts}
+                  onBookPlatformFee={handleBookPlatformFee}
+                  onBookSale={handleBookSale}
+                  onMarkHandled={handleMarkStripeHandled}
+                  exiting={exitingIds.has(item.id)}
+                />
+              ))}
+            </div>
           </div>
         )
       )}
@@ -523,13 +712,15 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
         <div className="modal-overlay" onClick={() => setShowBulkConfirm(false)}>
           <div className="modal-content" style={{ maxWidth: '440px' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h2 className="modal-title">Godkänn alla?</h2>
+              <h2 className="modal-title">{bulkIsSelection ? 'Godkänn markerade?' : 'Godkänn alla?'}</h2>
               <button className="modal-close" onClick={() => setShowBulkConfirm(false)}><X size={18} /></button>
             </div>
             <div style={{ padding: '20px 24px' }}>
               <p style={{ fontSize: '14px', color: 'var(--text-main)', lineHeight: 1.6, margin: '0 0 8px' }}>{bulkSummary}</p>
               <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: '0 0 20px' }}>
-                Poster med osäkra förslag ingår inte — de kräver individuell hantering under Väntar.
+                {bulkIsSelection
+                  ? 'Bara de poster du markerat ingår. Poster utan konto går inte att markera — de behöver ett konto först.'
+                  : 'Poster med osäkra förslag ingår inte — de kräver individuell hantering under Väntar.'}
               </p>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
                 <button onClick={() => setShowBulkConfirm(false)} style={{ padding: '9px 18px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer', color: 'var(--text-main)' }}>Avbryt</button>

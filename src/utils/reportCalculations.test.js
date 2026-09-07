@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   isBooked, classifyAccount, isCashAccount, getPeriodBounds, sumFlowByType,
   groupCostsByAccount, groupCostsByCategory, computeCashBalanceAt,
-  buildCashflowSeries, buildResultSeries, computeBalanceSheet, hasAnyBookedData,
+  buildCashflowSeries, buildResultSeries, buildMarginSeries, computeBalanceSheet, hasAnyBookedData,
 } from './reportCalculations'
 
 const accounts = [
@@ -13,7 +13,9 @@ const accounts = [
   { code: '5010', name: 'Lokalhyra' },           // kostnad (Lokal-kategori)
   { code: '5910', name: 'Reklam' },              // kostnad (Marknadsföring-kategori)
   { code: '7210', name: 'Löner' },               // kostnad (Personal-kategori)
-  { code: '6100', name: 'Kontorsmaterial' },     // kostnad (Övrigt-kategori)
+  { code: '6100', name: 'Kontorsmaterial' },     // kostnad (Övriga externa kostnader)
+  { code: '6110', name: 'Förbrukningsinventarier' }, // kostnad (Övriga externa kostnader)
+  { code: '4010', name: 'Inköp material' },      // kostnad (Varor och material)
 ]
 
 function ver(overrides) {
@@ -155,23 +157,52 @@ describe('groupCostsByCategory', () => {
   const start = new Date(2026, 5, 1)
   const end = new Date(2026, 5, 30)
 
-  it('buckets accounts into the four fixed categories', () => {
+  it('buckets accounts into the fixed BAS categories, in fixed order', () => {
     const verifications = [ver({
       rows: [
         { account: '7210', debet: 10000, kredit: 0 }, // Personal
         { account: '5910', debet: 2000, kredit: 0 },  // Marknadsföring
         { account: '5010', debet: 3000, kredit: 0 },  // Lokal
-        { account: '6100', debet: 500, kredit: 0 },   // Övrigt
+        { account: '6100', debet: 500, kredit: 0 },   // Övriga externa kostnader
       ],
     })]
     const { categories, total } = groupCostsByCategory(verifications, accounts, start, end)
     expect(categories).toEqual([
-      { name: 'Personal', amount: 10000 },
-      { name: 'Lokal', amount: 3000 },
-      { name: 'Marknadsföring', amount: 2000 },
-      { name: 'Övrigt', amount: 500 },
+      { name: 'Personal', colorIndex: 0, amount: 10000 },
+      { name: 'Lokal', colorIndex: 1, amount: 3000 },
+      { name: 'Marknadsföring', colorIndex: 2, amount: 2000 },
+      { name: 'Övriga externa kostnader', colorIndex: 4, amount: 500 },
     ])
     expect(total).toBe(15500)
+  })
+
+  // Regression: hela BAS-klass 4 och 6 saknades i indelningen, så ett bolag
+  // vars kostnader nästan uteslutande låg på t.ex. 6110 Kontorsmaterial fick
+  // ringdiagrammet "Övrigt 100%" — ett diagram utan innehåll.
+  it('places class 4 and class 6 accounts in real categories, not Övrigt', () => {
+    const verifications = [ver({
+      rows: [
+        { account: '6110', debet: 263978, kredit: 0 }, // Övriga externa kostnader
+        { account: '4010', debet: 5000, kredit: 0 },   // Varor och material
+      ],
+    })]
+    const { categories } = groupCostsByCategory(verifications, accounts, start, end)
+    expect(categories.map(c => c.name)).toEqual(['Varor och material', 'Övriga externa kostnader'])
+    expect(categories.some(c => c.name === 'Övrigt')).toBe(false)
+  })
+
+  // `colorIndex` följer den FASTA kategorilistan, inte utdatans ordning — så en
+  // kategori behåller sin färg när en annan saknar belopp.
+  it('keeps a category colour stable when other categories are absent', () => {
+    const onlyPersonal = [ver({ rows: [{ account: '7210', debet: 100, kredit: 0 }] })]
+    const withLokal = [ver({ rows: [
+      { account: '5010', debet: 900, kredit: 0 },
+      { account: '7210', debet: 100, kredit: 0 },
+    ] })]
+    const a = groupCostsByCategory(onlyPersonal, accounts, start, end).categories
+    const b = groupCostsByCategory(withLokal, accounts, start, end).categories
+    const personalIn = list => list.find(c => c.name === 'Personal').colorIndex
+    expect(personalIn(a)).toBe(personalIn(b))
   })
 })
 
@@ -236,5 +267,79 @@ describe('hasAnyBookedData', () => {
   })
   it('is true as soon as one verification is booked', () => {
     expect(hasAnyBookedData([{ status: 'draft' }, { status: 'booked' }])).toBe(true)
+  })
+})
+
+describe('buildMarginSeries', () => {
+  const start = new Date(2026, 5, 1)
+  const end = new Date(2026, 5, 30)
+  const marginAccounts = [
+    { code: '3001', name: 'Försäljning' },       // intäkt
+    { code: '4010', name: 'Inköp material' },    // klass 4 — varor
+    { code: '5010', name: 'Lokalhyra' },         // klass 5 — övriga externa
+    { code: '6110', name: 'Kontorsmaterial' },   // klass 6 — övriga externa
+    { code: '7210', name: 'Löner' },             // klass 7 — personal
+    { code: '7830', name: 'Avskrivningar' },     // klass 7 — avskrivningar
+    { code: '8410', name: 'Räntekostnader' },    // klass 8 — finansiellt
+  ]
+
+  it('trappar av kostnaderna klass för klass', () => {
+    const verifications = [ver({
+      rows: [
+        { account: '3001', debet: 0, kredit: 1000 },
+        { account: '4010', debet: 400, kredit: 0 },  // brutto: 1000-400 = 600 → 60%
+        { account: '5010', debet: 60, kredit: 0 },
+        { account: '6110', debet: 40, kredit: 0 },
+        { account: '7210', debet: 150, kredit: 0 },
+        { account: '7830', debet: 50, kredit: 0 },   // rörelse: 600-300 = 300 → 30%
+        { account: '8410', debet: 50, kredit: 0 },   // vinst:   300-50  = 250 → 25%
+      ],
+    })]
+    const series = buildMarginSeries(verifications, marginAccounts, start, end)
+    expect(series).toHaveLength(1)
+    expect(series[0].brutto).toBeCloseTo(60)
+    expect(series[0].rorelse).toBeCloseTo(30)
+    expect(series[0].vinst).toBeCloseTo(25)
+  })
+
+  // Avskrivningar (78xx) är en RÖRELSEkostnad trots att de ligger i klass 7
+  // tillsammans med lönerna — de ska dras av redan i rörelsemarginalen.
+  it('räknar avskrivningar som rörelsekostnad, inte som finansiell post', () => {
+    const verifications = [ver({
+      rows: [
+        { account: '3001', debet: 0, kredit: 1000 },
+        { account: '7830', debet: 200, kredit: 0 },
+      ],
+    })]
+    const [row] = buildMarginSeries(verifications, marginAccounts, start, end)
+    expect(row.rorelse).toBeCloseTo(80)
+    expect(row.vinst).toBeCloseTo(80)
+  })
+
+  // Ett tjänstebolag utan klass 4 har per definition 100% bruttomarginal.
+  it('ger 100% bruttomarginal när det inte finns några varukostnader', () => {
+    const verifications = [ver({
+      rows: [
+        { account: '3001', debet: 0, kredit: 500 },
+        { account: '7210', debet: 100, kredit: 0 },
+      ],
+    })]
+    const [row] = buildMarginSeries(verifications, marginAccounts, start, end)
+    expect(row.brutto).toBe(100)
+    expect(row.rorelse).toBeCloseTo(80)
+  })
+
+  // 0/0 är odefinierat — en nolla hade ritats som ett verkligt ras till noll.
+  it('ger null (inte 0) för en period helt utan intäkter', () => {
+    const verifications = [ver({ rows: [{ account: '7210', debet: 100, kredit: 0 }] })]
+    const [row] = buildMarginSeries(verifications, marginAccounts, start, end)
+    expect(row.brutto).toBeNull()
+    expect(row.rorelse).toBeNull()
+    expect(row.vinst).toBeNull()
+  })
+
+  it('ger en punkt per kalendermånad, även för månader utan verifikationer', () => {
+    const q1 = buildMarginSeries([], marginAccounts, new Date(2026, 0, 1), new Date(2026, 2, 31))
+    expect(q1.map(r => r.label)).toHaveLength(3)
   })
 })

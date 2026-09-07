@@ -39,6 +39,46 @@
       "destination": "/alternativ/index.html"
     },
     {
+      "source": "/byt-bokforingsprogram",
+      "destination": "/byt-bokforingsprogram/index.html"
+    },
+    {
+      "source": "/integrationer",
+      "destination": "/integrationer/index.html"
+    },
+    {
+      "source": "/sakerhet",
+      "destination": "/sakerhet/index.html"
+    },
+    {
+      "source": "/ordlista",
+      "destination": "/ordlista/index.html"
+    },
+    {
+      "source": "/verktyg",
+      "destination": "/verktyg/index.html"
+    },
+    {
+      "source": "/verktyg/momskalkylator",
+      "destination": "/verktyg/momskalkylator/index.html"
+    },
+    {
+      "source": "/verktyg/lonekalkylator",
+      "destination": "/verktyg/lonekalkylator/index.html"
+    },
+    {
+      "source": "/verktyg/egenavgifter",
+      "destination": "/verktyg/egenavgifter/index.html"
+    },
+    {
+      "source": "/verktyg/rot-rut",
+      "destination": "/verktyg/rot-rut/index.html"
+    },
+    {
+      "source": "/verktyg/drojsmalsranta",
+      "destination": "/verktyg/drojsmalsranta/index.html"
+    },
+    {
       "source": "/((?!api).*)",
       "destination": "/app-shell.html"
     }
@@ -56,10 +96,22 @@
     {
       "source": "/((?!api).*)",
       "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-        { "key": "Strict-Transport-Security", "value": "max-age=31536000; includeSubDomains" },
-        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=31536000; includeSubDomains"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=()"
+        },
         {
           "key": "Content-Security-Policy-Report-Only",
           "value": "default-src 'self'; script-src 'self' https://www.googletagmanager.com https://challenges.cloudflare.com https://*.clarity.ms https://c.bing.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.supabase.co https://www.google-analytics.com https://analytics.google.com https://challenges.cloudflare.com https://*.clarity.ms https://c.bing.com; frame-src https://challenges.cloudflare.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"

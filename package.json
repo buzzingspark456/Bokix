@@ -15,7 +15,9 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.8",
+    "@tailwindcss/vite": "^4.3.3",
     "botid": "^1.5.11",
+    "clsx": "^2.1.1",
     "driver.js": "^1.8.0",
     "express-rate-limit": "^8.6.2",
     "helmet": "^8.3.0",
@@ -28,6 +30,8 @@
     "react-router-dom": "^7.18.3",
     "recharts": "^3.9.2",
     "stripe": "^22.4.0",
+    "tailwind-merge": "^3.6.0",
+    "tailwindcss": "^4.3.3",
     "xlsx": "https://cdn.sheetjs.com/xlsx-latest/xlsx-latest.tgz"
   },
   "devDependencies": {

@@ -16,6 +16,11 @@ import { useCompanyLookup } from '../hooks/useCompanyLookup';
 import { detectOrgType, formatLegalForm, formatOrgNr } from '../utils/orgType';
 import { getGreeting } from '../utils/greeting';
 import { confirmDialog } from './shared/ConfirmDialog';
+import { downloadSie4 } from '../utils/sieExport';
+import { planFromId } from '../utils/plans';
+import SieImportModal from './SieImportModal';
+import { ProgramLogo } from './shared/BrandLogos';
+import { MIGRATION_SOURCES } from '../utils/migrationSources';
 
 // Visas istället för att faktiskt anropa Supabase när `readOnly` (Sida
 // landningssidans demo, se DemoWorkspace.jsx) — samma text överallt i den
@@ -55,8 +60,8 @@ const btnStripeConnect = {
 // server-only env-variabler (STRIPE_PLATFORM_FEE_PERCENT,
 // api/stripe/_invoiceLineItems.js), så den hårdkodas här som ren
 // visningstext. Måste hållas i synk för hand om den env-variabeln
-// någonsin sätts till något annat än 2,5 i Vercel (inte satt där just nu).
-const PLATFORM_FEE_PERCENT_DISPLAY = 2.5;
+// någonsin sätts till något annat än 3,5 i Vercel (inte satt där just nu).
+const PLATFORM_FEE_PERCENT_DISPLAY = 3.5;
 
 // Zettles eget kombinerade ordmärke ("Zettle" + "by PayPal") — en riktig
 // rasterbild (public/zettle-logo.png, hämtad rakt av från Zettles egen
@@ -1278,6 +1283,13 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
 
   const isTrialing = sub.status === 'trialing';
   const endDate = isTrialing ? sub.trial_ends_at : sub.current_period_end;
+  // Priset här stod hårdkodat som "179 kr/mån" — alltså fel belopp för
+  // alla utom "Med personal, månadsvis", sedan nivåerna infördes. Nu läses
+  // det ur planen som faktiskt sparats på prenumerationsraden. Saknas den
+  // (konton som skapades innan nivåerna fanns) gäller 179 kr, av exakt
+  // samma skäl som planIncludesPayroll ger dem full funktionalitet.
+  const plan = planFromId(sub.plan);
+  const priceLabel = `${plan ? plan.price : 179} kr/mån`;
   const statusBadge = sub.cancel_at_period_end
     ? { bg: 'var(--status-amber-bg)', text: 'var(--status-amber-text)', label: 'Avslutas' }
     : (sub.status === 'active' || sub.status === 'trialing')
@@ -1291,14 +1303,14 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
           <Shield size={20} style={{ color: BRAND.green, flexShrink: 0, marginTop: '2px' }} />
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
-              <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>Bokix — 179 kr/mån</span>
+              <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>Bokix{plan ? ` ${plan.name}` : ''} — {priceLabel}</span>
               <span style={{ padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: statusBadge.bg, color: statusBadge.text }}>{statusBadge.label}</span>
             </div>
             <div style={{ fontSize: '13px', color: 'var(--text-secondary)', maxWidth: '480px' }}>
               {sub.cancel_at_period_end
                 ? <>Avslutas {fmtDateSv(endDate)} — du har full åtkomst fram till dess, sedan tas inget mer betalt.</>
                 : isTrialing
-                  ? <>Kostnadsfri provperiod till {fmtDateSv(endDate)}, därefter 179 kr/mån automatiskt.</>
+                  ? <>Kostnadsfri provperiod till {fmtDateSv(endDate)}, därefter {priceLabel} automatiskt.</>
                   : sub.status === 'past_due'
                     ? <>Senaste betalningen misslyckades — Stripe försöker automatiskt igen. Uppdatera ditt kort om det upprepas.</>
                     : <>Förnyas automatiskt {fmtDateSv(endDate)}.</>}
@@ -1338,7 +1350,7 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
 
 export default function Settings({
   company = {}, setCompanyInfo, accounts = [], verifications = [], invoices = [], quotes = [], expenses = [],
-  contacts = [], projects = [], onImport, onReset, stripeAccountId, onConnectStripe, onDisconnectStripe,
+  contacts = [], projects = [], onImport, onReset, onBulkImportSie, stripeAccountId, onConnectStripe, onDisconnectStripe,
   zettleConnected = false, onConnectZettle,
   onConnectEmailDomain, onCheckEmailDomainStatus, onDisconnectEmailDomain, user,
   companyList = [], activeCompanyId, onSwitchCompany, onAddCompany, onDeleteCompany,
@@ -1367,6 +1379,7 @@ export default function Settings({
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [importBusy, setImportBusy] = useState(false);
   const [importMsg, setImportMsg] = useState('');
+  const [showSieImport, setShowSieImport] = useState(false);
   const [emailDomainInput, setEmailDomainInput] = useState('');
   const [emailDomainBusy, setEmailDomainBusy] = useState(false);
   const [emailDomainError, setEmailDomainError] = useState('');
@@ -1544,6 +1557,15 @@ export default function Settings({
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
+  };
+
+  // Kundönskemål/kodgranskningsfynd: landningssidans FAQ och prissidan
+  // påstår redan "SIE4-export — din bokföring är alltid din", men fram
+  // till nu fanns ingen knapp någonstans som faktiskt utlöste den —
+  // sieExport.js var aldrig kopplad till UI, bara till sitt eget test.
+  // Den här knappen är den konkreta fixen som gör påståendet sant.
+  const handleExportSie = () => {
+    downloadSie4(company, accounts, verifications);
   };
 
   const handleImportFile = (e) => {
@@ -2058,24 +2080,24 @@ export default function Settings({
                           ? 'Stripe är anslutet — kunder kan betala dina fakturor med kort direkt online.'
                           : 'Anslut Stripe för att låta kunder betala fakturor med kort direkt online.'}
                       </p>
-                      {/* Kundbeslut: Bokix egen avgift ska följa Stripes EGEN
-                          avgift (beror på korttyp, känd först efter
-                          betalningen) plus en liten egen marginal (1%)
-                          ovanpå — INTE en fast, orelaterad procentsats (var
-                          tidigare 5%). En sann dynamisk "Stripes verkliga
-                          avgift"-modell visade sig inte stödjas av Stripe
-                          för den här kontotypen (direct charges på Standard-
-                          konton, se _invoiceLineItems.js:s kommentar för
-                          källan) — så siffran nedan är en UPPSKATTNING satt
-                          i förväg (europeiskt kort-antagande: 1,5% + 1%
-                          marginal ≈ 2,5%, plus 1,80 kr), inte en exakt
-                          efterhandsberäkning. Måste hållas i synk för hand
-                          med STRIPE_PLATFORM_FEE_PERCENT/_FIXED_ORE (env,
-                          samma förvalda 2,5/180 om de inte är satta) om de
-                          någonsin ändras i Vercel. */}
+                      {/* Kundbeslut: Bokix egen avgift = Stripes EGEN avgift
+                          (beror på korttyp, känd först efter betalningen)
+                          plus en egen marginal ovanpå — INTE en fast,
+                          orelaterad procentsats. En sann dynamisk "Stripes
+                          verkliga avgift"-modell visade sig inte stödjas av
+                          Stripe för den här kontotypen (direct charges på
+                          Standard-konton, se _invoiceLineItems.js:s
+                          kommentar för källan) — så siffran nedan är en
+                          UPPSKATTNING satt i förväg (europeiskt kort-
+                          antagande: Stripes 1,5% + 1,80 kr, plus Bokix egen
+                          marginal på 2% + 0,50 kr = totalt 3,5% + 2,30 kr),
+                          inte en exakt efterhandsberäkning. Måste hållas i
+                          synk för hand med STRIPE_PLATFORM_FEE_PERCENT/
+                          _FIXED_ORE (env, samma förvalda 3,5/230 om de inte
+                          är satta) om de någonsin ändras i Vercel. */}
                       {stripeAccountId && (
                         <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '6px 0 0', lineHeight: 1.6 }}>
-                          Du har tillgång till din egen Stripe-dashboard för att följa saldo, utbetalningar och avgifter. Bokix tar en uppskattad avgift på {PLATFORM_FEE_PERCENT_DISPLAY}% + 1,80 kr per betalning (Stripes egen kortavgift + 1% marginal, baserat på ett europeiskt kort — något lägre än den faktiska kostnaden för utländska kort, som normalt kostar 3,15% + 1,80 kr hos Stripe). Exakt belopp per betalning syns i din Stripe-dashboard.
+                          Du har tillgång till din egen Stripe-dashboard för att följa saldo, utbetalningar och avgifter. Bokix tar en uppskattad avgift på {PLATFORM_FEE_PERCENT_DISPLAY}% + 2,30 kr per betalning (Stripes egen kortavgift på 1,5% + 1,80 kr, plus Bokix egen marginal på 2% + 0,50 kr, baserat på ett europeiskt kort — något lägre än den faktiska kostnaden för utländska kort, som normalt kostar 3,15% + 1,80 kr hos Stripe). Exakt belopp per betalning syns i din Stripe-dashboard.
                         </p>
                       )}
                     </div>
@@ -2262,11 +2284,48 @@ export default function Settings({
                   <button onClick={handleExport} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 18px', background: 'var(--border-light)', color: 'var(--text-secondary)', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}>
                     <Download size={16} /> Ladda ner allt (JSON)
                   </button>
+                  <button onClick={handleExportSie} title="Standardformatet svenska bokföringsprogram och redovisningskonsulter använder för att flytta data mellan system." style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 18px', background: 'var(--border-light)', color: 'var(--text-secondary)', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}>
+                    <Download size={16} /> Ladda ner som SIE4-fil
+                  </button>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 18px', background: 'var(--border-light)', color: 'var(--text-secondary)', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600, cursor: importBusy ? 'not-allowed' : 'pointer', opacity: importBusy ? 0.6 : 1 }}>
                     <Upload size={16} /> {importBusy ? 'Importerar...' : 'Importera från fil'}
                     <input type="file" accept="application/json" onChange={handleImportFile} disabled={importBusy} style={{ display: 'none' }} />
                   </label>
                   {importMsg && <span style={{ fontSize: '13px', color: importMsg.startsWith('Kunde inte') ? 'var(--status-red-text)' : BRAND.greenDark, fontWeight: 600 }}>{importMsg}</span>}
+                </div>
+
+                {/* Kundönskemål (Sida 51): ta med bokföringen från ett annat
+                    program vid byte — SIE4-baserad, samma allmänna
+                    filstandard oavsett om det var Fortnox/Spiris/Bokio.
+                    Egen rad, tydligt skild från JSON-backupen ovan: det
+                    här skriver in en hel historik i den AKTIVA bokföringen,
+                    mycket högre stakes än en ren backup/återställning. */}
+                <div style={{ marginTop: '14px', paddingTop: '14px', borderTop: '1px solid var(--border-light)' }}>
+                  <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 10px' }}>
+                    Bytte du hit från ett annat bokföringsprogram? Ta med dig hela din bokföring via en SIE4-fil.
+                  </p>
+                  {/* Loggorna för de program man faktiskt byter FRÅN (samma
+                      lista som importguidens steg 1 och den publika
+                      /byt-bokforingsprogram-sidan, src/utils/migrationSources.js).
+                      Rent igenkänningsvärde före klicket: raden svarar på
+                      "gäller det här mitt program?" utan att man först måste
+                      öppna modalen. Vit platta bakom varje logga av samma
+                      skäl som i modalen — flera bildfiler har vit bakgrund
+                      inbakad och skulle se ut som klistermärken i mörkt tema. */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
+                    {MIGRATION_SOURCES.map(p => (
+                      <span
+                        key={p.id} title={p.note ? `${p.name} — ${p.note}` : p.name}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 34, height: 34, borderRadius: '8px', background: '#fff', border: '1px solid var(--border-light)' }}
+                      >
+                        <ProgramLogo src={p.logo} alt={p.name} size={22} />
+                      </span>
+                    ))}
+                    <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>med flera</span>
+                  </div>
+                  <button onClick={() => setShowSieImport(true)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 18px', background: BRAND.greenLight, color: BRAND.greenDark, border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}>
+                    <Upload size={16} /> Importera från annat bokföringsprogram (SIE4)
+                  </button>
                 </div>
               </div>
 
@@ -2357,6 +2416,15 @@ export default function Settings({
           )}
         </div>
       </div>
+
+      {showSieImport && (
+        <SieImportModal
+          accounts={accounts}
+          verifications={verifications}
+          onImport={(newVerifications, newAccounts, sourceTag) => onBulkImportSie?.(newVerifications, newAccounts, sourceTag)}
+          onClose={() => setShowSieImport(false)}
+        />
+      )}
     </div>
   );
 }

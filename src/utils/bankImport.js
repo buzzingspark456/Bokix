@@ -67,18 +67,40 @@ export async function parseBankFile(file) {
 }
 
 // ── Kolumnmappning: gissa, men lita aldrig blint ─────────────────────────
+// Både svenska OCH engelska kolumnnamn. Svenska banker exporterar inte alltid
+// på svenska: samma bank kan ge "Bokföringsdag" i det svenska gränssnittet och
+// "booking_date" i det engelska, och de nyare app-bankerna (samt varje
+// utländskt konto ett svenskt bolag råkar ha) exporterar i praktiken alltid
+// engelska rubriker. Matchningen är dessutom substrängbaserad (se `pick`
+// nedan), så "booking_date" fångas redan av "date" — posterna här är de som
+// INTE gör det: ord som saknar sin svenska motsvarighet helt.
+//
+// Ordningen i varje lista är prioritetsordning: den första posten som
+// förekommer i filen vinner. Därför står de mest specifika först — "bokfört
+// saldo" före "saldo", "transaction date" före "date" — annars kan en bredare
+// term råka fånga fel kolumn i en fil som har båda.
 const HEADER_DICTIONARY = {
-  date: ['bokföringsdag', 'transaktionsdag', 'valutadag', 'datum', 'date', 'bokfört'],
-  description: ['text', 'beskrivning', 'specifikation', 'meddelande', 'transaktion', 'rubrik', 'description'],
-  amount: ['belopp', 'amount', 'summa'],
-  debit: ['uttag', 'debet', 'debit'],
-  credit: ['insättning', 'kredit', 'credit'],
-  balance: ['bokfört saldo', 'saldo', 'balance'],
-  reference: ['referens', 'ocr', 'meddelande till mottagaren', 'reference'],
+  date: [
+    'bokföringsdag', 'transaktionsdag', 'valutadag', 'datum', 'bokfört',
+    'booking date', 'booking_date', 'transaction date', 'transaction_date',
+    'value date', 'value_date', 'posting date', 'posted', 'date',
+  ],
+  description: [
+    'text', 'beskrivning', 'specifikation', 'meddelande', 'transaktion', 'rubrik', 'motpart',
+    'description', 'narrative', 'details', 'payee', 'merchant', 'counterparty', 'memo', 'title',
+  ],
+  amount: ['belopp', 'summa', 'transaktionsbelopp', 'amount', 'value', 'transaction amount'],
+  debit: ['uttag', 'debet', 'debit', 'withdrawal', 'money out', 'paid out', 'outflow'],
+  credit: ['insättning', 'kredit', 'credit', 'deposit', 'money in', 'paid in', 'inflow'],
+  balance: ['bokfört saldo', 'saldo', 'balance after', 'balance_after', 'running balance', 'closing balance', 'balance'],
+  reference: ['referens', 'ocr', 'meddelande till mottagaren', 'reference', 'message', 'note', 'notes'],
 };
 
+// Understreck och bindestreck blir mellanslag: "booking_date",
+// "booking-date" och "Booking Date" är samma kolumn för alla praktiska
+// syften, och ordlistan ovan ska inte behöva lista varje skrivsätt.
 function normalizeHeader(h) {
-  return (h ?? '').toString().trim().toLowerCase().replace(/[.:]/g, '');
+  return (h ?? '').toString().trim().toLowerCase().replace(/[.:]/g, '').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ');
 }
 
 export function fingerprintHeaders(headers) {

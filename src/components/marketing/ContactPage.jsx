@@ -3,6 +3,7 @@ import { Mail, LifeBuoy, CreditCard, ShieldCheck, CheckCircle2, AlertCircle, Loa
 import { BRAND } from '../../utils/brandColors';
 import MarketingLayout, { Reveal } from './MarketingLayout';
 import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW, ACCENT_CYCLE } from './marketingTokens';
+import { GRAD, grad, AuroraLayer } from './aurora';
 import { PageMeta } from '../../utils/seo';
 import Recaptcha from '../Recaptcha';
 
@@ -100,7 +101,7 @@ export default function ContactPage() {
     <MarketingLayout>
       <PageMeta
         title="Kontakta oss | Bokix"
-        description="Frågor om Bokix — support, fakturering eller säkerhet? Skriv till oss, en riktig person läser och svarar direkt på din e-post. Inget säljteam, inget callcenter."
+        description="Kontakta Bokix om support, fakturering och pris, säkerhet och integritet, eller något annat. Skriv några rader här så svarar vi på din e-post."
         path="/kontakt"
       />
       <style>{`
@@ -111,24 +112,51 @@ export default function ContactPage() {
         .contact-submit-btn:disabled { opacity: 0.65; cursor: not-allowed; }
         @keyframes contactSpin { to { transform: rotate(360deg); } }
         .contact-spin { animation: contactSpin 0.8s linear infinite; }
+        @media (max-width: 860px) {
+          .contact-layout-grid { grid-template-columns: 1fr !important; }
+        }
       `}</style>
 
-      <section style={{ padding: '150px 24px 60px', background: IVORY, position: 'relative', overflow: 'hidden' }}>
-        <Reveal style={{ maxWidth: '620px', margin: '0 auto', textAlign: 'center', position: 'relative' }}>
-          <div style={{ width: 60, height: 60, borderRadius: '17px', background: BRAND.green, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
-            <Mail size={26} color="white" />
-          </div>
-          <h1 style={{ fontFamily: SERIF, fontSize: 'clamp(30px, 4.5vw, 44px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '16px', lineHeight: 1.16 }}>
+      <section style={{ padding: '150px 24px 44px', background: IVORY, position: 'relative', overflow: 'hidden' }}>
+        <AuroraLayer
+          stops={[['rgba(14,165,233,0.18)', '96% -8%'], ['rgba(47,138,58,0.14)', '2% 108%']]}
+          blob={{ gradient: grad(GRAD.blueTeal), top: '-160px', right: '-110px', left: 'auto', size: '440px', opacity: 0.2 }}
+        />
+        <Reveal style={{ maxWidth: '720px', margin: '0 auto', textAlign: 'center', position: 'relative' }}>
+          <h1 style={{ fontFamily: SERIF, fontSize: 'clamp(36px, 5.5vw, 56px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '18px', lineHeight: 1.14 }}>
             Kontakta oss
           </h1>
-          <p style={{ fontSize: '16.5px', color: MUTED, lineHeight: 1.75 }}>
-            Inget säljteam, inget callcenter. Skriv till oss här nedan, en riktig person läser och svarar direkt på din e-post.
-          </p>
         </Reveal>
       </section>
 
-      <section style={{ padding: '40px 24px 110px', background: 'var(--mkt-page-bg)' }}>
-        <Reveal scale style={{ maxWidth: '640px', margin: '0 auto' }}>
+      <section style={{ padding: '20px 24px 120px', background: 'var(--mkt-page-bg)', position: 'relative', overflow: 'hidden' }}>
+        <AuroraLayer
+          stops={[['rgba(20,184,166,0.12)', '4% 100%'], ['rgba(132,204,22,0.12)', '96% 0%']]}
+        />
+        <div style={{ maxWidth: 'min(92vw, 1100px)', margin: '0 auto', display: 'grid', gridTemplateColumns: 'minmax(260px, 380px) 1fr', gap: '40px', alignItems: 'start', position: 'relative' }} className="contact-layout-grid">
+
+          <Reveal style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+            {TOPICS.map((t, i) => {
+              const accent = ACCENT_CYCLE[i % 3];
+              return (
+                <div key={t.value} style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
+                  <div style={{ width: 42, height: 42, borderRadius: '12px', background: accent.soft, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <t.icon size={19} color={accent.fg} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '15px', fontWeight: 700, color: INK, marginBottom: '3px' }}>{t.value}</div>
+                    <div style={{ fontSize: '13.5px', color: MUTED, lineHeight: 1.55 }}>{t.desc}</div>
+                  </div>
+                </div>
+              );
+            })}
+            <div style={{ marginTop: '10px', paddingTop: '20px', borderTop: `1px solid ${CARD_BORDER}` }}>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '8px' }}>Eller mejla direkt</div>
+              <a href="mailto:support@bokix.se" style={{ fontSize: '15.5px', fontWeight: 700, color: BRAND.green, textDecoration: 'none' }}>support@bokix.se</a>
+            </div>
+          </Reveal>
+
+          <Reveal scale delay={80} style={{ position: 'relative' }}>
           <div style={{ background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '22px', padding: 'clamp(24px, 5vw, 40px)', boxShadow: CARD_SHADOW }}>
             {status === 'sent' ? (
               <div style={{ textAlign: 'center', padding: '30px 10px' }}>
@@ -241,7 +269,8 @@ export default function ContactPage() {
               </form>
             )}
           </div>
-        </Reveal>
+          </Reveal>
+        </div>
       </section>
     </MarketingLayout>
   );

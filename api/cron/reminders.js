@@ -5,6 +5,8 @@ import { applySecurityHeaders } from '../_security.js';
 import { hasResendApiKey, sendWithFallback } from '../_resend.js';
 import { buildInvoiceReminderHtml, buildVatDeadlineHtml, buildAgiDeadlineHtml, buildTrialEndingHtml } from '../_emailTemplates.js';
 import { nextVatDeadline, nextAgiDeadline } from '../../src/utils/declarationDeadlines.js';
+import { planFromId } from '../../src/utils/plans.js';
+import { runDataRetention } from './_dataRetention.js';
 
 // Bugkritiskt (lokal utveckling, samma orsak/fix som api/_resend.js): måste
 // vara en LAT, memoiserad getter, inte en toppnivå-konstant. server.js
@@ -148,7 +150,7 @@ export default async function handler(req, res) {
     try {
       const { data: trialRows, error: trialError } = await admin
         .from('subscriptions')
-        .select('id, user_id, trial_ends_at')
+        .select('id, user_id, trial_ends_at, plan')
         .eq('status', 'trialing')
         .is('trial_reminder_sent_at', null)
         .not('trial_ends_at', 'is', null);
@@ -175,7 +177,16 @@ export default async function handler(req, res) {
             continue;
           }
 
-          const html = buildTrialEndingHtml({ trialEndsAt: row.trial_ends_at, siteUrl: SITE_URL });
+          // Beloppet ur kundens EGNA plan, inte 179 kr för alla: mejlet
+          // säger vad som faktiskt dras när provperioden tar slut. Saknad
+          // plan (konton från innan nivåerna fanns) faller tillbaka på 179,
+          // samma nivå som checkouten själv använder utan angiven plan.
+          const trialPlan = planFromId(row.plan);
+          const html = buildTrialEndingHtml({
+            trialEndsAt: row.trial_ends_at,
+            monthlyPrice: trialPlan ? trialPlan.price : 179,
+            siteUrl: SITE_URL,
+          });
           const result = await sendWithFallback({
             to: [recipient],
             subject: 'Din provperiod hos Bokix går snart ut',
@@ -279,6 +290,16 @@ export default async function handler(req, res) {
                 to: [customer.email],
                 subject: `Betalningspåminnelse – faktura ${inv.invoiceNumber}`,
                 html,
+                // Svar ska gå till FÖRETAGET som skickar påminnelsen, inte
+                // till Bokix. Samma reply_to som fakturautskicket självt
+                // redan sätter (Invoices.jsx → api/email/send-invoice.js).
+                // Blev skarpt när systemavsändaren byttes från en
+                // noreply-adress till support@bokix.se: utan det här
+                // hamnar kundens "jag har redan betalat" i Bokix
+                // supportinkorg i stället för hos den som fakturerat.
+                // Bara när företaget har en e-postadress ifylld — Resend
+                // avvisar en tom reply_to.
+                ...(companyData.company?.email ? { reply_to: companyData.company.email } : {}),
               }, companyData.company);
               if (!result.ok) throw new Error(result.data?.message || 'Resend-fel');
 
@@ -522,6 +543,16 @@ export default async function handler(req, res) {
     }
     summary.truncatedByTimeBudget = !completedFullPass;
     if (!completedFullPass) summary.resumeFrom = lastCompletedUserId;
+
+    // Datastädning (dataminimering) — se _dataRetention.js för vad som
+    // städas och, viktigare, vad som ALDRIG rörs: allt som är
+    // räkenskapsinformation omfattas av bokföringslagens arkivkrav och är
+    // undantaget. Körs bara när hela genomgången hann klart, så en
+    // tidsbudget-avbruten körning inte städar på halva underlaget.
+    if (completedFullPass) {
+      summary.dataRetention = await runDataRetention(admin, { dryRun });
+      if (summary.dataRetention.errors?.length) summary.errors.push(...summary.dataRetention.errors);
+    }
 
     res.status(200).json(summary);
   } catch (error) {

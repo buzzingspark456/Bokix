@@ -1,6 +1,7 @@
-import { Link } from 'react-router-dom';
+import { Cookie } from 'lucide-react';
+import { PolicyLayout, PolicySection, PolicyTable, PolicyCode, PolicyCallout, policyP } from './marketing/PolicyLayout';
+import { ACCENT } from './marketing/marketingTokens';
 
-// ── Sida 37 ─────────────────────────────────────────────────────────────
 // JURIDISKT UTKAST, INTE GRANSKAT. Texten på den här sidan (liksom
 // PrivacyPolicy.jsx och TermsPolicy.jsx) är ett första utkast, inte ett
 // färdiggranskat juridiskt dokument. Innan den här sidan går live i
@@ -9,131 +10,92 @@ import { Link } from 'react-router-dom';
 // mot den faktiska, aktuella informationen (ingen platshållartext finns i
 // den här filen idag, men kontrollera ändå att inget hunnit bli inaktuellt
 // mellan detta utkast och lanseringen).
-
-const h2 = { marginTop: '36px', marginBottom: '12px', fontSize: '19px', fontWeight: 800, color: '#0f172a' };
-const p = { marginBottom: '14px', lineHeight: 1.8, color: '#475569', fontSize: '15px' };
-const table = { width: '100%', borderCollapse: 'collapse', margin: '12px 0 20px', fontSize: '13.5px' };
-const th = { textAlign: 'left', padding: '9px 12px', background: '#f1f5f9', color: '#334155', fontWeight: 700, borderBottom: '2px solid #e2e8f0' };
-const td = { padding: '9px 12px', borderBottom: '1px solid #f1f5f9', color: '#475569', verticalAlign: 'top' };
-const code = { fontFamily: 'ui-monospace, Menlo, monospace', fontSize: '12.5px', background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px' };
-const goodBox = { margin: '16px 0', padding: '16px 20px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '12px' };
-const goodP = { margin: 0, lineHeight: 1.75, color: '#15803d', fontSize: '14.5px', fontWeight: 600 };
-
+//
+// Kundönskemål ("gör policysidorna organiserade") — samma ombyggnad som
+// TermsPolicy.jsx: från en fristående vit box utan sajt-header/footer och
+// hårdkodade ljusa hexfärger, till samma delade PolicyLayout-system som
+// PrivacyPolicy.jsx. Sakinnehållet (kakornas namn/typ/ändamål/livslängd)
+// är verifierat mot faktisk kod vid ombyggnaden — inte bara omflyttat:
+// src/utils/consent.js (bokix_cookie_consent, 365 dagar), public/
+// consent-init.js (GA-mätid G-9KXP9XW3MW, Clarity), api/stripe/_cookies.js
+// (bokix_stripe_oauth_state), App.jsx (bokforing_data/_owner,
+// bokix_onboarding_completed/_skipped) — allt stämde redan, inget påhittat.
 export default function CookiesPolicy() {
   return (
-    <div style={{ minHeight: '100vh', padding: '48px 24px', background: '#f8fafc', color: '#111827', fontFamily: 'Inter, system-ui, sans-serif' }}>
-      <div style={{ maxWidth: '820px', margin: '0 auto', background: 'white', borderRadius: '24px', padding: '48px', boxShadow: '0 20px 60px rgba(15,23,42,0.08)' }}>
-        <h1 style={{ marginBottom: '8px', fontSize: 'clamp(30px, 4vw, 40px)', fontWeight: 800 }}>Cookiepolicy</h1>
-        <p style={{ fontSize: '13px', color: '#94a3b8', marginBottom: '28px' }}>Senast uppdaterad: {new Date().toLocaleDateString('sv-SE', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-
-        <div style={goodBox}>
-          <p style={goodP}>Bokix använder inga marknadsförings- eller reklamcookies. Vi använder Google Analytics och Microsoft Clarity för grundläggande besöksstatistik, men bara om du aktivt godkänt det i cookiebannern — ingen av dem sätts innan du sagt ja.</p>
-        </div>
-
-        <p style={p}>
-          Den här sidan listar exakt vilka cookies och liknande lagringstekniker (t.ex. <code style={code}>localStorage</code>) Bokix faktiskt sätter i din webbläsare, inte en generisk mall. De nödvändiga cookies nedan kräver inget samtycke enligt gällande regler (de behövs för att logga in och för att tjänsten ska fungera), men analyscookies gör det, och visas bara efter att du klickat "Acceptera alla" i cookiebannern som visas vid ditt första besök.
+    <PolicyLayout
+      icon={Cookie}
+      title="Cookiepolicy"
+      accent={ACCENT.teal}
+      path="/cookies"
+      updated="2026-09-07"
+      metaTitle="Cookiepolicy | Bokix"
+      metaDescription="Exakt vilka cookies och liknande lagringstekniker Bokix sätter i din webbläsare, och hur du hanterar ditt samtycke."
+      intro="Den här sidan listar exakt vilka cookies och liknande tekniker Bokix faktiskt sätter i din webbläsare — inte en generisk mall."
+    >
+      <PolicySection n={1} title="Sammanfattning" first>
+        <PolicyCallout tone="good">
+          Bokix använder inga marknadsförings- eller reklamcookies. Vi använder Google Analytics och Microsoft Clarity för grundläggande besöksstatistik, men bara om du aktivt godkänt det i cookiebannern — ingen av dem sätts innan du sagt ja.
+        </PolicyCallout>
+        <p style={policyP}>
+          De nödvändiga cookies nedan kräver inget samtycke enligt gällande regler (de behövs för att logga in och för att tjänsten ska fungera), men analyscookies gör det, och sätts bara efter att du klickat "Acceptera alla" i cookiebannern som visas vid ditt första besök.
         </p>
+      </PolicySection>
 
-        <h2 style={h2}>Strikt nödvändiga — inloggning och session</h2>
-        <table style={table}>
-          <thead>
-            <tr><th style={th}>Namn</th><th style={th}>Typ</th><th style={th}>Ändamål</th><th style={th}>Livslängd</th></tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td style={td}><code style={code}>sb-*-auth-token</code></td>
-              <td style={td}>localStorage</td>
-              <td style={td}>Håller dig inloggad mellan sidladdningar (sätts av vår inloggningsleverantör Supabase).</td>
-              <td style={td}>Tills du loggar ut, eller sessionen löper ut</td>
-            </tr>
-            <tr>
-              <td style={td}><code style={code}>bokforing_data</code></td>
-              <td style={td}>localStorage</td>
-              <td style={td}>Lokal cachekopia av din bokföringsdata, så appen fungerar även vid tillfälligt avbrott mot servern.</td>
-              <td style={td}>Tills du loggar ut (rensas automatiskt), skrivs över, eller rensas manuellt</td>
-            </tr>
-            <tr>
-              <td style={td}><code style={code}>bokforing_data_owner</code></td>
-              <td style={td}>localStorage</td>
-              <td style={td}>Kommer ihåg VILKET konto den lokala cachekopian ovan tillhör, så att om flera olika Bokix-konton loggar in i samma webbläsare (t.ex. en delad dator) visas aldrig en annan användares cachade data av misstag.</td>
-              <td style={td}>Tills du loggar ut (rensas automatiskt), skrivs över, eller rensas manuellt</td>
-            </tr>
-            <tr>
-              <td style={td}><code style={code}>bokix_onboarding_completed</code> / <code style={code}>_skipped</code></td>
-              <td style={td}>localStorage</td>
-              <td style={td}>Kommer ihåg om du gått igenom (eller hoppat över) startguiden, så den inte visas igen i onödan.</td>
-              <td style={td}>Tills du rensar webbläsardata</td>
-            </tr>
-          </tbody>
-        </table>
+      <PolicySection n={2} title="Strikt nödvändiga — inloggning och session">
+        <PolicyTable
+          head={['Namn', 'Typ', 'Ändamål', 'Livslängd']}
+          rows={[
+            [<PolicyCode>sb-*-auth-token</PolicyCode>, 'localStorage', 'Håller dig inloggad mellan sidladdningar (sätts av vår inloggningsleverantör Supabase).', 'Tills du loggar ut, eller sessionen löper ut'],
+            [<PolicyCode>bokforing_data</PolicyCode>, 'localStorage', 'Lokal cachekopia av din bokföringsdata, så appen fungerar även vid tillfälligt avbrott mot servern.', 'Tills du loggar ut (rensas automatiskt), skrivs över, eller rensas manuellt'],
+            [<PolicyCode>bokforing_data_owner</PolicyCode>, 'localStorage', 'Kommer ihåg VILKET konto den lokala cachekopian ovan tillhör, så att om flera olika Bokix-konton loggar in i samma webbläsare (t.ex. en delad dator) visas aldrig en annan användares cachade data av misstag.', 'Tills du loggar ut (rensas automatiskt), skrivs över, eller rensas manuellt'],
+            [<>
+              <PolicyCode>bokix_onboarding_completed</PolicyCode> / <PolicyCode>_skipped</PolicyCode>
+            </>, 'localStorage', 'Kommer ihåg om du gått igenom (eller hoppat över) startguiden, så den inte visas igen i onödan.', 'Tills du rensar webbläsardata'],
+          ]}
+        />
+      </PolicySection>
 
-        <h2 style={h2}>Strikt nödvändiga — säkerhet vid bankkoppling till Stripe</h2>
-        <table style={table}>
-          <thead>
-            <tr><th style={th}>Namn</th><th style={th}>Typ</th><th style={th}>Ändamål</th><th style={th}>Livslängd</th></tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td style={td}><code style={code}>bokix_stripe_oauth_state</code></td>
-              <td style={td}>Cookie (httpOnly)</td>
-              <td style={td}>Skyddar mot förfalskade anslutningsförsök (CSRF) under de sekunder det tar att ansluta Stripe för kortbetalningar. Sätts bara om du aktivt startar den anslutningen under Inställningar.</td>
-              <td style={td}>Max 10 minuter, raderas direkt efter anslutningen</td>
-            </tr>
-          </tbody>
-        </table>
+      <PolicySection n={3} title="Strikt nödvändiga — säkerhet vid anslutning till Stripe">
+        <PolicyTable
+          head={['Namn', 'Typ', 'Ändamål', 'Livslängd']}
+          rows={[
+            [<PolicyCode>bokix_stripe_oauth_state</PolicyCode>, 'Cookie (httpOnly)', 'Skyddar mot förfalskade anslutningsförsök (CSRF) under de sekunder det tar att ansluta Stripe för kortbetalningar. Sätts bara om du aktivt startar den anslutningen under Inställningar.', 'Max 10 minuter, raderas direkt efter anslutningen'],
+          ]}
+        />
+      </PolicySection>
 
-        <h2 style={h2}>Strikt nödvändiga — bot-/missbruksskydd</h2>
-        <p style={p}>
+      <PolicySection n={4} title="Strikt nödvändiga — bot-/missbruksskydd">
+        <p style={policyP}>
           Vid registrering och inloggning kan Cloudflare Turnstile (en osynlig captcha-tjänst, aktiveras bara om vi satt på den) och Vercel BotID sätta egna cookies/lagring för att skilja riktiga användare från automatiserade missbruksförsök. Ingen av dem används för spårning eller marknadsföring.
         </p>
+      </PolicySection>
 
-        <h2 style={h2}>Analys — kräver ditt samtycke</h2>
-        <p style={p}>
-          Vi använder Google Analytics och Microsoft Clarity för att förstå hur besökare hittar och använder Bokix marknadsföringssidor — Clarity visar oss dessutom var på sidan besökare klickar och scrollar (skärminspelningar och klickkartor), men Microsoft maskerar all text och alla inmatningsfält som kan innehålla personlig eller känslig information innan något sparas. Båda körs via samma princip: mätscripten laddas alltid, men sätts uttryckligen till "nekad" (denied) tills du valt "Acceptera alla" i cookiebannern. Väljer du "Endast nödvändiga" stannar analys-cookies nekade, permanent, tills du själv ändrar dig via "Cookieinställningar" i sidfoten. Vi har inte kopplat något annonskonto till Clarity, så de av Clarity/Microsofts cookies som annars används för annonsering (t.ex. <code style={code}>MUID</code>) sätts aldrig av Bokix.
+      <PolicySection n={5} title="Analys — kräver ditt samtycke">
+        <p style={policyP}>
+          Vi använder Google Analytics och Microsoft Clarity för att förstå hur besökare hittar och använder Bokix marknadsföringssidor — Clarity visar oss dessutom var på sidan besökare klickar och scrollar (skärminspelningar och klickkartor), men Microsoft maskerar all text och alla inmatningsfält som kan innehålla personlig eller känslig information innan något sparas. Båda körs via samma princip: mätscripten laddas alltid, men sätts uttryckligen till "nekad" (denied) tills du valt "Acceptera alla" i cookiebannern. Väljer du "Endast nödvändiga" stannar analys-cookies nekade, permanent, tills du själv ändrar dig via "Cookieinställningar" i sidfoten. Vi har inte kopplat något annonskonto till Clarity, så de av Clarity/Microsofts cookies som annars används för annonsering (t.ex. <PolicyCode>MUID</PolicyCode>) sätts aldrig av Bokix.
         </p>
-        <table style={table}>
-          <thead>
-            <tr><th style={th}>Namn</th><th style={th}>Typ</th><th style={th}>Ändamål</th><th style={th}>Livslängd</th></tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td style={td}><code style={code}>_ga</code> / <code style={code}>_gid</code></td>
-              <td style={td}>Cookie (Google Analytics)</td>
-              <td style={td}>Skiljer besökare åt för anonymiserad besöksstatistik. Sätts bara efter att du klickat "Acceptera alla".</td>
-              <td style={td}>_ga: 2 år, _gid: 24 timmar</td>
-            </tr>
-            <tr>
-              <td style={td}><code style={code}>_clck</code> / <code style={code}>_clsk</code> / <code style={code}>CLID</code></td>
-              <td style={td}>Cookie (Microsoft Clarity)</td>
-              <td style={td}>Håller isär besökare och kopplar ihop sidvisningar till samma besök, för skärminspelningar och klickstatistik. Sätts bara efter att du klickat "Acceptera alla".</td>
-              <td style={td}>_clck/CLID: 1 år, _clsk: 1 dag</td>
-            </tr>
-            <tr>
-              <td style={td}><code style={code}>bokix_cookie_consent</code></td>
-              <td style={td}>Cookie</td>
-              <td style={td}>Kommer ihåg ditt val i cookiebannern (accepterat eller nekat), så bannern inte visas på varje besök.</td>
-              <td style={td}>12 månader</td>
-            </tr>
-          </tbody>
-        </table>
-        <p style={p}>
+        <PolicyTable
+          head={['Namn', 'Typ', 'Ändamål', 'Livslängd']}
+          rows={[
+            [<>
+              <PolicyCode>_ga</PolicyCode> / <PolicyCode>_gid</PolicyCode>
+            </>, 'Cookie (Google Analytics)', 'Skiljer besökare åt för anonymiserad besöksstatistik. Sätts bara efter att du klickat "Acceptera alla".', '_ga: 2 år, _gid: 24 timmar'],
+            [<>
+              <PolicyCode>_clck</PolicyCode> / <PolicyCode>_clsk</PolicyCode> / <PolicyCode>CLID</PolicyCode>
+            </>, 'Cookie (Microsoft Clarity)', 'Håller isär besökare och kopplar ihop sidvisningar till samma besök, för skärminspelningar och klickstatistik. Sätts bara efter att du klickat "Acceptera alla".', '_clck/CLID: 1 år, _clsk: 1 dag'],
+            [<PolicyCode>bokix_cookie_consent</PolicyCode>, 'Cookie', 'Kommer ihåg ditt val i cookiebannern (accepterat eller nekat), så bannern inte visas på varje besök.', '12 månader'],
+          ]}
+        />
+        <p style={policyP}>
           Inga marknadsförings- eller reklamcookies används, oavsett vad du väljer i bannern. Vill du ändra ditt tidigare val, klicka "Cookieinställningar" längst ner på vilken sida som helst.
         </p>
+      </PolicySection>
 
-        <h2 style={h2}>Hur du kan hantera cookies</h2>
-        <p style={p}>
+      <PolicySection n={6} title="Hur du kan hantera cookies">
+        <p style={policyP}>
           Du kan blockera eller radera cookies och localStorage i din webbläsares inställningar när som helst. De nödvändiga cookies ovan krävs för grundfunktionen, så att blockera dem innebär att du blir utloggad och att onboarding-guiden kan visas igen, men ingen data i din faktiska bokföring påverkas (den ligger sparad hos oss, inte bara lokalt).
         </p>
-
-        <div style={{ marginTop: '40px', paddingTop: '24px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
-          <Link to="/" style={{ color: '#0f172a', fontWeight: 700, textDecoration: 'none' }}>&larr; Tillbaka till startsidan</Link>
-          <div style={{ display: 'flex', gap: '16px' }}>
-            <Link to="/privacy" style={{ color: '#64748b', fontWeight: 600, textDecoration: 'none', fontSize: '14px' }}>Integritetspolicy</Link>
-            <Link to="/terms" style={{ color: '#64748b', fontWeight: 600, textDecoration: 'none', fontSize: '14px' }}>Användarvillkor</Link>
-            <Link to="/pub" style={{ color: '#64748b', fontWeight: 600, textDecoration: 'none', fontSize: '14px' }}>PUB-avtal</Link>
-          </div>
-        </div>
-      </div>
-    </div>
+      </PolicySection>
+    </PolicyLayout>
   );
 }

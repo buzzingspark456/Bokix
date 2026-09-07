@@ -16,12 +16,20 @@ describe('generateSIE4 — huvud', () => {
     expect(sie).toContain('#FNAMN "Test AB"\r\n')
   })
 
-  it('#GEN och #RAR använder dagens datum respektive innevarande kalenderår', () => {
+  it('#GEN använder dagens datum, #RAR faller tillbaka till innevarande kalenderår när inget fiscalYear satts', () => {
     const sie = generateSIE4({ name: 'Test AB' }, [], [])
     const today = new Date().toISOString().split('T')[0].replace(/-/g, '')
     const year = new Date().getFullYear()
     expect(sie).toContain(`#GEN ${today}\r\n`)
     expect(sie).toContain(`#RAR 0 ${year}0101 ${year}1231\r\n`)
+  })
+
+  it('#RAR följer företagets EGNA fiscalYear istället för alltid kalenderåret (kodgranskningsfynd)', () => {
+    // Brutet räkenskapsår, 1 juli–30 juni — testet är skrivet oberoende av
+    // vilket "idag" faktiskt är genom att bara kontrollera att start-
+    // /slutmånaderna (juli/juni) stämmer, inte ett hårdkodat årtal.
+    const sie = generateSIE4({ name: 'Test AB', fiscalYear: '2020-07-01' }, [], [])
+    expect(sie).toMatch(/#RAR 0 \d{4}0701 \d{4}0630\r\n/)
   })
 
   it('faller tillbaka till "Okänt Företag" och utelämnar #ORGNR helt om företagsnamn/orgnr saknas', () => {
@@ -30,9 +38,14 @@ describe('generateSIE4 — huvud', () => {
     expect(sie).not.toContain('#ORGNR')
   })
 
-  it('rensar orgnumret till bara siffror', () => {
-    const sie = generateSIE4({ name: 'Test AB', orgNumber: '556677-8899' }, [], [])
+  it('rensar orgnumret till bara siffror — läser company.orgNr (INTE orgNumber, kodgranskningsfynd)', () => {
+    const sie = generateSIE4({ name: 'Test AB', orgNr: '556677-8899' }, [], [])
     expect(sie).toContain('#ORGNR "5566778899"\r\n')
+  })
+
+  it('en gammal verifikation med orgNumber (fel fältnamn) ger INGEN #ORGNR-rad — dokumenterar att fältet verkligen bytt namn', () => {
+    const sie = generateSIE4({ name: 'Test AB', orgNumber: '556677-8899' }, [], [])
+    expect(sie).not.toContain('#ORGNR')
   })
 })
 
@@ -95,5 +108,44 @@ describe('generateSIE4 — verifikationer', () => {
     ]
     const sie = generateSIE4({ name: 'Test AB' }, accounts, verifications)
     expect(sie.indexOf('#VER A 1 ')).toBeLessThan(sie.indexOf('#VER A 2 '))
+  })
+
+  it('använder verifikationens EGEN serie istället för att alltid hårdkoda "A" (kodgranskningsfynd)', () => {
+    const verifications = [
+      { status: 'booked', series: 'B', number: '1', date: '2026-06-01', description: 'Lönekörning', rows: [{ account: '1930', debet: 100, kredit: 0 }] },
+    ]
+    const sie = generateSIE4({ name: 'Test AB' }, accounts, verifications)
+    expect(sie).toContain('#VER B 1 20260601 "Lönekörning"\r\n')
+  })
+
+  it('en verifikation utan eget series-fält (gammal data) faller fortfarande tillbaka till "A"', () => {
+    const verifications = [
+      { status: 'booked', number: '1', date: '2026-06-01', description: 'Gammal post', rows: [{ account: '1930', debet: 100, kredit: 0 }] },
+    ]
+    const sie = generateSIE4({ name: 'Test AB' }, accounts, verifications)
+    expect(sie).toContain('#VER A 1 20260601 "Gammal post"\r\n')
+  })
+})
+
+describe('generateSIE4 — ingående/utgående balanser (#IB/#UB)', () => {
+  it('skriver INGA #IB/#UB-rader när det inte finns någon bokförd historik', () => {
+    const sie = generateSIE4({ name: 'Test AB' }, accounts, [])
+    expect(sie).not.toContain('#IB')
+    expect(sie).not.toContain('#UB')
+  })
+
+  it('härleder #IB/#UB ur samma bokförda historik som appens rapporter (computeLedger), inte en egen balansberäkning', () => {
+    // fiscalYear satt till 2020-01-01 så testet är oberoende av vilket
+    // "idag" det faktiskt körs — en post FÖRE räkenskapsårets start blir
+    // #IB (ingående balans), en post INOM året bidrar till #UB (utgående).
+    const company = { name: 'Test AB', fiscalYear: '2020-01-01' }
+    const priorYear = new Date().getFullYear() - 1
+    const verifications = [
+      { status: 'booked', number: '1', date: `${priorYear}-06-01`, description: 'Föregående år', rows: [{ account: '1930', debet: 1000, kredit: 0 }, { account: '3001', debet: 0, kredit: 1000 }] },
+      { status: 'booked', number: '2', date: `${new Date().getFullYear()}-01-15`, description: 'Innevarande år', rows: [{ account: '1930', debet: 500, kredit: 0 }, { account: '3001', debet: 0, kredit: 500 }] },
+    ]
+    const sie = generateSIE4(company, accounts, verifications)
+    expect(sie).toContain('#IB 0 1930 1000.00\r\n')
+    expect(sie).toContain('#UB 0 1930 1500.00\r\n')
   })
 })

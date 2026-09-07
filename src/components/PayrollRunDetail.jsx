@@ -1,10 +1,11 @@
 ﻿import React, { useState, useMemo, useEffect } from 'react';
 import {
-  Check, ChevronDown, ChevronUp, AlertTriangle, Download, ChevronLeft, Loader2, ExternalLink, RefreshCw, Landmark, CreditCard,
+  Check, ChevronDown, ChevronUp, AlertTriangle, Download, ChevronLeft, Loader2, ExternalLink, RefreshCw, Landmark, CreditCard, Trash2,
 } from 'lucide-react';
 import CalculationRow from './shared/CalculationRow';
 import ListPageHeader from './shared/ListPageHeader';
 import { computeEmployeePayroll, summarizePayrollRun } from '../utils/payrollCalculation';
+import { PAY_TYPE_GROUPS, PAY_LINE_KINDS, getPayType, defaultRateFor } from '../utils/payTypes';
 import { PAYROLL_RUN_STEPS, PAYROLL_ACCOUNTS } from '../utils/payrollConfig';
 import { generatePayslipPdf } from '../utils/payslipExport';
 import { downloadAgiPdf } from '../utils/agiExport';
@@ -92,6 +93,130 @@ function SummaryCards({ totals }) {
   );
 }
 
+/** Lönearter på en anställds rad — övertid, OB, jour, beredskap, frånvaro,
+ * förmåner, milersättning, löneutmätning.
+ *
+ * Beräkningsmotorn tog emot tillägg, avdrag, förmåner och nettoavdrag
+ * långt innan den här editorn fanns, men det gick inte att MATA IN dem
+ * någonstans: en lönekörning kunde bara bestå av grundlön. Det är den
+ * här vyn som gör hela lönemodulen användbar för ett företag med
+ * verklig personal — och varje rad bär sitt namn och sin formel vidare
+ * till lönebeskedet, så den anställda ser vad tillägget bestod av i
+ * stället för en klumpsumma.
+ *
+ * Antal och à-pris är alltid redigerbara, även när lönearten har ett
+ * förvalt påslag: nivåerna för övertid, OB, jour och beredskap kommer ur
+ * kollektiv- eller anställningsavtal, inte ur lagen, och systemet ska
+ * aldrig påstå att det vet vad som gäller hos just er.
+ */
+function PayLinesEditor({ row, computed, onUpdateRow, locked }) {
+  const employee = row.employeeSnapshot;
+  const lines = row.lines || [];
+  const [adding, setAdding] = useState('');
+
+  const updateLines = (next) => onUpdateRow(row.employeeId, { lines: next });
+
+  const addLine = (payTypeId) => {
+    const type = getPayType(payTypeId);
+    if (!type) return;
+    const rate = defaultRateFor(type, employee);
+    updateLines([...lines, {
+      id: `pl_${Date.now()}`,
+      payTypeId,
+      quantity: type.defaultQuantity ?? 1,
+      rate: rate == null ? '' : rate,
+      note: '',
+    }]);
+    setAdding('');
+  };
+
+  const patchLine = (id, patch) => updateLines(lines.map(l => (l.id === id ? { ...l, ...patch } : l)));
+  const removeLine = (id) => updateLines(lines.filter(l => l.id !== id));
+
+  const cellInput = { padding: '6px 8px', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '12.5px', fontFamily: 'inherit', background: 'var(--bg-card)', color: 'var(--text-main)', width: '100%', boxSizing: 'border-box' };
+
+  return (
+    <div style={{ marginTop: '14px', paddingTop: '14px', borderTop: '1px dashed var(--border)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: lines.length ? '10px' : '6px', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--text-main)' }}>Lönearter</span>
+        {!locked && (
+          <select
+            value={adding}
+            onChange={e => addLine(e.target.value)}
+            style={{ ...cellInput, width: 'auto', minWidth: '190px', cursor: 'pointer' }}
+            aria-label="Lägg till löneart"
+          >
+            <option value="">+ Lägg till löneart…</option>
+            {PAY_TYPE_GROUPS.map(g => (
+              <optgroup key={g.label} label={g.label}>
+                {g.ids.map(id => <option key={id} value={id}>{getPayType(id)?.name}</option>)}
+              </optgroup>
+            ))}
+          </select>
+        )}
+      </div>
+
+      {lines.length === 0 ? (
+        <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, lineHeight: 1.6 }}>
+          Inga lönearter på den här raden — bara grundlönen. Lägg till övertid, OB, jour, frånvaro, förmåner, milersättning eller avdrag ovan.
+        </p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {lines.map(line => {
+            const type = getPayType(line.payTypeId);
+            const calc = computed.payLines?.find(c => c.payTypeId === line.payTypeId && c.quantity === (Number(line.quantity) || 0));
+            if (!type) return null;
+            const kind = PAY_LINE_KINDS[type.kind];
+            return (
+              <div key={line.id} style={{ background: 'var(--bg-muted)', border: '1px solid var(--border-light)', borderRadius: '8px', padding: '10px 12px' }}>
+                <div className="payline-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.5fr) 78px 96px minmax(0,1fr) 90px 30px', gap: '8px', alignItems: 'center' }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{type.name}</div>
+                    <div style={{ fontSize: '10.5px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{kind.label}</div>
+                  </div>
+                  <input
+                    type="number" step="0.01" min="0" value={line.quantity}
+                    disabled={locked}
+                    onChange={e => patchLine(line.id, { quantity: e.target.value })}
+                    style={{ ...cellInput, textAlign: 'right' }} aria-label={`Antal ${type.unit}`}
+                  />
+                  <input
+                    type="number" step="0.01" value={line.rate}
+                    disabled={locked}
+                    placeholder="à-pris"
+                    onChange={e => patchLine(line.id, { rate: e.target.value })}
+                    style={{ ...cellInput, textAlign: 'right' }} aria-label="À-pris i kronor"
+                  />
+                  <input
+                    type="text" value={line.note || ''}
+                    disabled={locked}
+                    placeholder="Anteckning (valfri)"
+                    onChange={e => patchLine(line.id, { note: e.target.value })}
+                    style={cellInput}
+                  />
+                  <div style={{ fontSize: '13px', fontWeight: 800, textAlign: 'right', color: kind.sign < 0 ? 'var(--status-red-text)' : 'var(--text-main)', whiteSpace: 'nowrap' }}>
+                    {kind.sign < 0 ? '−' : ''}{fmt(calc ? calc.amount : (Number(line.quantity) || 0) * (Number(line.rate) || 0))} kr
+                  </div>
+                  {!locked ? (
+                    <button
+                      type="button" onClick={() => removeLine(line.id)} aria-label={`Ta bort ${type.name}`}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '4px', lineHeight: 0 }}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  ) : <span />}
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px', lineHeight: 1.5 }}>
+                  {type.unit} × à-pris. {type.help}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 function EmployeeRow({ row, computed, previousComputed, onUpdateRow, locked }) {
   const [expanded, setExpanded] = useState(false);
   const isZero = computed.gross === 0 && computed.net === 0 && computed.tax === 0;
@@ -168,6 +293,7 @@ function EmployeeRow({ row, computed, previousComputed, onUpdateRow, locked }) {
       {expanded && (
         <div style={{ padding: '4px 18px 16px', borderTop: '1px solid var(--border-light)' }}>
           {computed.steps.map((s, i) => <CalculationRow key={i} {...s} />)}
+          <PayLinesEditor row={row} computed={computed} onUpdateRow={onUpdateRow} locked={locked} />
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
             <button
               onClick={(e) => { e.stopPropagation(); generatePayslipPdf({ employee: row.employeeSnapshot, computed, period: row.period }).save(`lonebesked-${row.employeeSnapshot.lastName}-${row.period}.pdf`); }}
@@ -302,8 +428,22 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
   const period = run.period;
   const verBlocks = useMemo(() => {
     const acc = PAYROLL_ACCOUNTS;
+    // Skattefria ersättningar (milersättning, traktamente) ingår i
+    // nettobeloppet som betalas ut, men är INTE lön: de har eget
+    // kostnadskonto per löneart och ska aldrig hamna i 7210. Utan en egen
+    // debetrad skulle verifikationen dessutom inte balansera — krediten
+    // mot bankkontot innehåller ju pengarna.
+    const taxFreeByAccount = new Map();
+    computedRows.forEach(({ computed }) => {
+      (computed.payLines || [])
+        .filter(l => l.kind === 'taxFree')
+        .forEach(l => taxFreeByAccount.set(l.account, (taxFreeByAccount.get(l.account) || 0) + l.amount));
+    });
     const block1 = [
       { account: acc.grossSalary, description: `Lön ${period}: Bruttolön`, debet: totals.gross, kredit: 0 },
+      ...[...taxFreeByAccount.entries()].map(([account, amount]) => (
+        { account, description: `Lön ${period}: Skattefri ersättning`, debet: Math.round(amount), kredit: 0 }
+      )),
       { account: acc.tax, description: `Lön ${period}: Personalskatt`, debet: 0, kredit: totals.tax },
       { account: acc.netSalaryBank, description: `Lön ${period}: Nettolön`, debet: 0, kredit: totals.net },
     ];
@@ -318,7 +458,7 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
       { account: acc.vacationSocialFeeLiability, description: `Lön ${period}: Sociala avgifter semester`, debet: 0, kredit: totals.vacationFee },
     ];
     return { block1, block2, block3 };
-  }, [totals, period]);
+  }, [totals, period, computedRows]);
 
   const handleAdvance = (stepId) => {
     if (stepId === 'booked') {

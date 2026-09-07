@@ -222,11 +222,19 @@ function TimeCellPopover({ hours: initialHours, description: initialDescription,
   useEffect(() => {
     const handleEsc = (e) => { if (e.key === 'Escape') onClose(); };
     const handleClickOutside = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
+    // Rutan är `position: fixed` med en position uträknad ur cellens läge
+    // när den öppnades (se kommentaren längre ner). Scrollar rutnätet under
+    // tiden står den alltså kvar där cellen VAR — den stängs därför vid
+    // scroll, i stället för att peka på fel dag. `true` fångar även scroll i
+    // rutnätets egen behållare, inte bara i fönstret.
+    const handleScroll = () => onClose();
     window.addEventListener('keydown', handleEsc);
     document.addEventListener('mousedown', handleClickOutside);
+    window.addEventListener('scroll', handleScroll, true);
     return () => {
       window.removeEventListener('keydown', handleEsc);
       document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('scroll', handleScroll, true);
     };
   }, [onClose]);
 
@@ -317,7 +325,10 @@ function DayCell({ entry, isToday, isOpen, onOpen, children }) {
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       style={{
-        textAlign: 'center', padding: '14px 6px', cursor: 'pointer', fontSize: '14px',
+        // Höjden sätts här, inte på raden: cellen ÄR klickytan, och en
+        // rad på 60 px är skillnaden mellan att pricka rätt dag och att
+        // träffa grannen — särskilt på pekskärm.
+        textAlign: 'center', padding: '20px 8px', height: '60px', cursor: 'pointer', fontSize: '16px',
         background,
         fontWeight: entry ? 700 : 400,
         color: entry ? BRAND.greenDark : 'var(--text-muted)',
@@ -325,7 +336,7 @@ function DayCell({ entry, isToday, isOpen, onOpen, children }) {
         transition: 'background 0.12s',
       }}
     >
-      {entry ? formatHours(entry.hours) : (hover ? <Plus size={15} color={BRAND.green} style={{ verticalAlign: 'middle' }} /> : '–')}
+      {entry ? formatHours(entry.hours) : (hover ? <Plus size={18} color={BRAND.green} style={{ verticalAlign: 'middle' }} /> : '–')}
       {children}
     </td>
   );
@@ -403,7 +414,7 @@ function TimeTrackingTab({ projects, timeEntries, setTimeEntries, setProjects, p
   };
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
       {rows.length === 0 ? (
         // Kundfeedback ("smooth, easy för kunder"): tomläget pekade tidigare
         // ner mot en liten, lös knapp en bra bit under boxen — två separata
@@ -456,24 +467,35 @@ function TimeTrackingTab({ projects, timeEntries, setTimeEntries, setProjects, p
         // här), plus större celler/typsnitt genomgående (14px bastext,
         // rymligare padding, bredare dagkolumner) — kändes tidigare klämt
         // ihop och svårläst.
-        <div style={{ ...cardBase, border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)', overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px', minWidth: '760px' }}>
+        // Kundfeedback, andra vändan ("gör tidrapporteringen större"):
+        // rutnätet var fortfarande en låg box högst upp på en full-höjds
+        // flik, med små celler att pricka. Tre ändringar:
+        //  - Kortet är flex:1 och fyller den lediga höjden i stället för att
+        //    sluta efter ett par rader.
+        //  - Raderna är rejält högre (≈60 px) och texten större — en timcell
+        //    är en klickyta, inte en tabellsiffra att kisa på.
+        //  - Dagrubrikerna sitter kvar överst vid scroll (sticky), och
+        //    projektkolumnen sitter kvar till vänster när dagarna scrollas i
+        //    sidled på en smal skärm — annars vet man inte vilken rad man
+        //    fyller i.
+        <div style={{ ...cardBase, border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)', flex: 1, minHeight: 0, overflow: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '15px', minWidth: '860px' }}>
             <thead>
               <tr>
-                <th style={{ textAlign: 'left', padding: '14px 16px', fontSize: '11.5px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid var(--border)' }}>
+                <th style={{ textAlign: 'left', padding: '16px 20px', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, left: 0, zIndex: 3, background: 'var(--bg-card)', minWidth: '200px' }}>
                   Projekt
                 </th>
                 {weekDates.map((date) => {
                   const dateStr = getISODate(date);
                   const isToday = dateStr === todayStr;
                   return (
-                    <th key={dateStr} style={{ padding: '14px 6px', textAlign: 'center', width: '76px', borderBottom: `1px solid ${isToday ? BRAND.green : 'var(--border)'}`, borderLeft: '1px solid var(--border-light)', background: isToday ? BRAND.greenLight : 'transparent' }}>
-                      <div style={{ fontSize: '11px', fontWeight: 600, color: isToday ? BRAND.greenDark : 'var(--text-secondary)', textTransform: 'capitalize' }}>{date.toLocaleDateString('sv-SE', { weekday: 'short' })}</div>
-                      <div style={{ fontSize: '16px', fontWeight: 700, color: isToday ? BRAND.greenDark : 'var(--text-main)', marginTop: '3px' }}>{date.getDate()}</div>
+                    <th key={dateStr} style={{ padding: '14px 8px', textAlign: 'center', width: '104px', borderBottom: `1px solid ${isToday ? BRAND.green : 'var(--border)'}`, borderLeft: '1px solid var(--border-light)', background: isToday ? BRAND.greenLight : 'var(--bg-card)', position: 'sticky', top: 0, zIndex: 2 }}>
+                      <div style={{ fontSize: '12.5px', fontWeight: 600, color: isToday ? BRAND.greenDark : 'var(--text-secondary)', textTransform: 'capitalize' }}>{date.toLocaleDateString('sv-SE', { weekday: 'short' })}</div>
+                      <div style={{ fontSize: '20px', fontWeight: 700, color: isToday ? BRAND.greenDark : 'var(--text-main)', marginTop: '4px' }}>{date.getDate()}</div>
                     </th>
                   );
                 })}
-                <th style={{ padding: '14px 16px', textAlign: 'right', fontSize: '11.5px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border-light)' }}>
+                <th style={{ padding: '16px 20px', textAlign: 'right', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border-light)', position: 'sticky', top: 0, zIndex: 2, background: 'var(--bg-card)' }}>
                   Totalt
                 </th>
               </tr>
@@ -483,10 +505,10 @@ function TimeTrackingTab({ projects, timeEntries, setTimeEntries, setProjects, p
                 const rowTotal = sumHours(weekEntries.filter(t => t.projectId === project.id));
                 return (
                   <tr key={project.id}>
-                    <td style={{ padding: '14px 16px', borderBottom: '1px solid var(--border-light)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '9px', minWidth: '140px' }}>
-                        <span style={{ width: 9, height: 9, borderRadius: '999px', background: project.color || BRAND.green, flexShrink: 0 }} />
-                        <span style={{ fontWeight: 600, color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.name}</span>
+                    <td style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-light)', position: 'sticky', left: 0, zIndex: 1, background: 'var(--bg-card)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: '180px' }}>
+                        <span style={{ width: 10, height: 10, borderRadius: '999px', background: project.color || BRAND.green, flexShrink: 0 }} />
+                        <span style={{ fontWeight: 600, fontSize: '15px', color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.name}</span>
                       </div>
                     </td>
                     {weekDates.map((date) => {
@@ -514,7 +536,7 @@ function TimeTrackingTab({ projects, timeEntries, setTimeEntries, setProjects, p
                         </DayCell>
                       );
                     })}
-                    <td style={{ padding: '14px 16px', textAlign: 'right', fontWeight: 700, color: rowTotal > 0 ? 'var(--text-main)' : 'var(--text-muted)', borderBottom: '1px solid var(--border-light)', borderLeft: '1px solid var(--border-light)' }}>
+                    <td style={{ padding: '16px 20px', textAlign: 'right', fontWeight: 700, fontSize: '15px', color: rowTotal > 0 ? 'var(--text-main)' : 'var(--text-muted)', borderBottom: '1px solid var(--border-light)', borderLeft: '1px solid var(--border-light)' }}>
                       {rowTotal > 0 ? `${formatHours(rowTotal)} h` : '–'}
                     </td>
                   </tr>
@@ -523,17 +545,17 @@ function TimeTrackingTab({ projects, timeEntries, setTimeEntries, setProjects, p
             </tbody>
             <tfoot>
               <tr>
-                <td style={{ padding: '14px 16px', fontWeight: 700, fontSize: '11.5px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Totalt</td>
+                <td style={{ padding: '16px 20px', fontWeight: 700, fontSize: '12px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', borderTop: '1px solid var(--border)', position: 'sticky', left: 0, zIndex: 1, background: 'var(--bg-card)' }}>Totalt</td>
                 {weekDates.map(date => {
                   const dateStr = getISODate(date);
                   const total = dayTotal(dateStr);
                   return (
-                    <td key={dateStr} style={{ padding: '14px 6px', textAlign: 'center', fontWeight: 700, color: total > 0 ? BRAND.greenDark : 'var(--text-muted)', borderLeft: '1px solid var(--border-light)' }}>
+                    <td key={dateStr} style={{ padding: '16px 8px', textAlign: 'center', fontWeight: 700, fontSize: '15px', color: total > 0 ? BRAND.greenDark : 'var(--text-muted)', borderLeft: '1px solid var(--border-light)', borderTop: '1px solid var(--border)' }}>
                       {total > 0 ? formatHours(total) : '–'}
                     </td>
                   );
                 })}
-                <td style={{ padding: '14px 16px', textAlign: 'right', fontWeight: 700, color: BRAND.greenDark, borderLeft: '1px solid var(--border-light)' }}>
+                <td style={{ padding: '16px 20px', textAlign: 'right', fontWeight: 700, fontSize: '16px', color: BRAND.greenDark, borderLeft: '1px solid var(--border-light)', borderTop: '1px solid var(--border)' }}>
                   {formatHours(weekTotal)} h
                 </td>
               </tr>
@@ -548,7 +570,7 @@ function TimeTrackingTab({ projects, timeEntries, setTimeEntries, setProjects, p
           synlig när det redan finns minst en rad — det helt tomma läget har
           sin EGEN, redan synliga version av precis samma knapp ovan. */}
       {rows.length > 0 && (
-        <div style={{ marginTop: '12px', padding: '0 20px' }}>
+        <div style={{ marginTop: '12px', padding: '0 20px 18px', flexShrink: 0 }}>
           {showAddRow ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', maxWidth: '280px' }}>
               <div style={{ flex: 1 }}>
@@ -1241,7 +1263,10 @@ export default function Projects({ projects = [], setProjects, contacts = [], se
       )}
 
       {activeTab === 'time' && (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', paddingTop: '18px' }}>
+        // minHeight: 0 hela vägen ner — utan det växer rutnätet förbi den
+        // lediga höjden i stället för att scrolla inuti sig självt, och då
+        // fastnar varken dagrubrikerna eller projektkolumnen där de ska.
+        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', paddingTop: '18px' }}>
           {timeSubTab === 'week' ? (
             <TimeTrackingTab
               projects={projects} timeEntries={timeEntries} setTimeEntries={setTimeEntries} setProjects={setProjects}

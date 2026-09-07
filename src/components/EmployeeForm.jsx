@@ -36,7 +36,7 @@ function emptyEmployee() {
     salaryForm: 'manadslon', monthlySalary: '', hourlyRate: '',
     taxForm: 'a_skatt', secondaryIncome: false,
     municipality: '', taxTableMode: 'manual', taxTable: { tabellnr: '', kolumn: 1, year: new Date().getFullYear() },
-    vacationRule: 'procentregeln', vacationDays: 25,
+    vacationRule: 'procentregeln', vacationDays: 25, savedVacationDays: 0,
     costCenter: '', projectId: '',
     clearingNumber: '', accountNumber: '', iban: '', bic: '',
     active: true,
@@ -239,6 +239,15 @@ export default function EmployeeForm({ initial, projects = [], onSave, onCancel 
             <input type="number" value={form.vacationDays} onChange={e => set('vacationDays', Number(e.target.value))} style={inputStyle(errors.vacationDays)} />
             <p style={helpTextStyle}>Lagstadgat minimum: {MIN_VACATION_DAYS} dagar</p>
             {errors.vacationDays && <div style={errorTextStyle}>{errors.vacationDays}</div>}
+          </div>
+          <div>
+            {/* Sparade dagar kan inte räknas fram av systemet: historiken
+                före Bokix finns inte här, och ett företag som flyttar in
+                mitt i ett semesterår har nästan alltid ett ingående saldo.
+                Därför ett fält att skriva in, inte en gissning. */}
+            <label style={labelStyle}>Sparade semesterdagar</label>
+            <input type="number" min="0" value={form.savedVacationDays ?? 0} onChange={e => set('savedVacationDays', Number(e.target.value))} style={inputBase} />
+            <p style={helpTextStyle}>Dagar från tidigare år. Dagar över 20 per år får sparas i högst fem år.</p>
           </div>
         </div>
       </Section>

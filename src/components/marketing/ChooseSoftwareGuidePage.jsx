@@ -21,15 +21,15 @@ import { PageMeta, JsonLd, SITE_URL } from '../../utils/seo';
 const CRITERIA = [
   {
     icon: Wallet, accentKey: 'green', title: '1. Vad ingår egentligen i priset?',
-    body: 'Många bokföringsprogram säljs som "bas + tillägg per funktion" — grundpriset ser lågt ut tills du räknar in fakturering, lön och support som egna tillägg. Fråga dig: vad är kvar att betala extra för när du väl kommit igång? I Bokix kostar allt 179 kr/mån exkl. moms, och bokföring, fakturering, lön och momsredovisning ingår i det priset — inga dolda tillägg att räkna ut i efterhand.',
+    body: 'Många bokföringsprogram säljs som "bas + tillägg per funktion": grundpriset ser lågt ut tills du räknar in fakturering, lön och support som egna tillägg. Fråga dig: vad är kvar att betala extra för när du väl kommit igång? I Bokix kostar allt 129 kr/mån utan anställda och 179 kr/mån med lönemodulen, och bokföring, fakturering, lön och momsredovisning ingår i det priset. Inga dolda tillägg att räkna ut i efterhand.',
   },
   {
     icon: Building2, accentKey: 'blue', title: '2. Stödjer det din bolagsform?',
-    body: 'Enskild firma, aktiebolag, handelsbolag/kommanditbolag och ekonomisk förening bokförs delvis olika — fel regelverk kan ge en bokföring som ser rätt ut men inte är det. Bokix känner igen bolagsformen utifrån organisationsnumret och bokför enligt rätt regler för just den.',
+    body: 'Enskild firma, aktiebolag, handelsbolag/kommanditbolag och ekonomisk förening bokförs delvis olika: fel regelverk kan ge en bokföring som ser rätt ut men inte är det. Bokix känner igen bolagsformen utifrån organisationsnumret och bokför enligt rätt regler för just den.',
   },
   {
     icon: ShieldCheck, accentKey: 'red', title: '3. Kan du lita på det som bokförs automatiskt?',
-    body: 'Automatisk bokföring är bekvämt tills den bokför fel utan att du märker det. Ett bra tecken är om programmet visar dig VAD som är osäkert innan det bokförs, inte bara i efterhand. I Bokix läggs allt som är osäkert i en granskningsvy för en snabb bekräftelse — aldrig en tyst gissning.',
+    body: 'Automatisk bokföring är bekvämt tills den bokför fel utan att du märker det. Ett bra tecken är om programmet visar dig VAD som är osäkert innan det bokförs, inte bara i efterhand. I Bokix läggs allt som är osäkert i en granskningsvy för en snabb bekräftelse. Aldrig en tyst gissning.',
   },
   {
     icon: Layers, accentKey: 'green', title: '4. Ett verktyg, eller flera prenumerationer att hålla ihop?',
@@ -37,21 +37,21 @@ const CRITERIA = [
   },
   {
     icon: Clock3, accentKey: 'blue', title: '5. Bindningstid och uppsägning',
-    body: 'Läs igenom villkoren för hur du avslutar, inte bara hur du kommer igång — en bindningstid du inte räknat med är dyr att upptäcka i efterhand. Bokix har ingen bindningstid eller uppsägningstid alls, du avslutar när du vill.',
+    body: 'Läs igenom villkoren för hur du avslutar, inte bara hur du kommer igång. En bindningstid du inte räknat med är dyr att upptäcka i efterhand. Bokix månadsplan har varken bindningstid eller uppsägningstid — du avslutar när du vill. Årsplanens lägre pris gäller mot minst tre månader, och det står utskrivet innan du väljer den.',
   },
   {
     icon: LifeBuoy, accentKey: 'red', title: '6. Vem svarar när något krånglar?',
-    body: 'Support som ingår i priset är inte samma sak som support som faktiskt svarar snabbt. Hos Bokix ingår support i priset och går direkt till en riktig person på support@bokix.se — inget säljteam eller callcenter i vägen.',
+    body: 'Support som ingår i priset är inte samma sak som support som faktiskt svarar snabbt. Hos Bokix ingår support i priset och går direkt till en riktig person på support@bokix.se, inget säljteam eller callcenter i vägen.',
   },
   {
     icon: Gift, accentKey: 'green', title: '7. Kan du testa utan att förbinda dig?',
-    body: 'En provperiod är bara värd något om du faktiskt hinner testa med din egen bokföring, inte en demo med exempeldata. Bokix ger 30 dagar innan något debiteras alls — avslutar du innan dess kostar det aldrig något.',
+    body: 'En provperiod är bara värd något om du faktiskt hinner testa med din egen bokföring, inte en demo med exempeldata. Bokix ger 30 dagar innan något debiteras alls. Avslutar du innan dess kostar det aldrig något.',
   },
 ];
 
 export default function ChooseSoftwareGuidePage() {
   const navigate = useNavigate();
-  const enterApp = () => navigate('/', { state: { enterApp: true } });
+  const enterApp = () => navigate('/', { state: { enterApp: true, authMode: 'signup' } });
 
   // Article-schema — en genuin guide, inte en produktsida, så Article
   // (inte SoftwareApplication) är rätt typ här. author är "Bokix" som
@@ -61,7 +61,7 @@ export default function ChooseSoftwareGuidePage() {
     '@context': 'https://schema.org',
     '@type': 'Article',
     headline: 'Så väljer du bokföringsprogram: 7 saker att tänka på',
-    description: 'En praktisk guide till vad som faktiskt spelar roll när du jämför bokföringsprogram — pris, bolagsform, support och mer.',
+    description: 'En praktisk guide till vad som faktiskt spelar roll när du jämför bokföringsprogram: pris, bolagsform, support och mer.',
     author: { '@type': 'Organization', name: 'Bokix', url: SITE_URL },
     publisher: { '@type': 'Organization', name: 'Bokix', url: SITE_URL, logo: { '@type': 'ImageObject', url: `${SITE_URL}/icon-512.png` } },
     mainEntityOfPage: `${SITE_URL}/valja-bokforingsprogram`,
@@ -71,7 +71,7 @@ export default function ChooseSoftwareGuidePage() {
     <MarketingLayout>
       <PageMeta
         title="Så väljer du bokföringsprogram: 7 saker att tänka på | Bokix"
-        description="En praktisk guide till vad som faktiskt spelar roll när du jämför bokföringsprogram — pris, bolagsform, automatisk bokföring, support och uppsägning."
+        description="En praktisk guide till vad som faktiskt spelar roll när du jämför bokföringsprogram: pris, bolagsform, automatisk bokföring, support och uppsägning."
         path="/valja-bokforingsprogram"
         type="article"
       />
@@ -79,14 +79,11 @@ export default function ChooseSoftwareGuidePage() {
 
       <section style={{ padding: '150px 24px 70px', background: IVORY, position: 'relative', overflow: 'hidden' }}>
         <Reveal style={{ maxWidth: '720px', margin: '0 auto', textAlign: 'center', position: 'relative' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '7px 16px', borderRadius: '999px', background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, fontSize: '12.5px', fontWeight: 700, color: BRAND.greenDark, marginBottom: '20px' }}>
-            Guide
-          </div>
           <h1 style={{ fontFamily: SERIF, fontSize: 'clamp(30px, 4.5vw, 46px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '18px', lineHeight: 1.16 }}>
             Så väljer du bokföringsprogram: 7 saker att tänka på
           </h1>
           <p style={{ fontSize: '17px', color: MUTED, lineHeight: 1.7 }}>
-            Sju konkreta kriterier att pröva vilket bokföringsprogram som helst mot — inte bara det du redan tittar på. Skrivet av Bokix, men användbart oavsett vad du väljer.
+            Sju konkreta kriterier att pröva vilket bokföringsprogram som helst mot, inte bara det du redan tittar på. Skrivet av Bokix, men användbart oavsett vad du väljer.
           </p>
         </Reveal>
       </section>
@@ -119,7 +116,7 @@ export default function ChooseSoftwareGuidePage() {
             Så svarar Bokix på alla sju
           </h2>
           <p style={{ fontSize: '15.5px', color: MUTED, marginBottom: '28px', lineHeight: 1.65 }}>
-            Ett pris, allt ingår, ingen bindningstid — och 30 dagar att testa med din egen bokföring innan något kostar något.
+            Två priser, allt ingår, ingen bindningstid på månadsplanen, och 30 dagar att testa med din egen bokföring innan något kostar något.
           </p>
           <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
             <button onClick={enterApp} style={{ padding: '14px 28px', background: BRAND.green, border: 'none', borderRadius: '12px', color: 'white', fontWeight: 700, fontSize: '15px', cursor: 'pointer' }}>Prova gratis</button>

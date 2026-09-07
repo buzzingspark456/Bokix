@@ -17,6 +17,7 @@ import { confirmDialog } from './shared/ConfirmDialog';
 import { articlesToCsv, csvToArticles, downloadCsv } from '../utils/csvRegister';
 import { listHeaderButtonStyle, listSearchInputStyle, listFilterFieldStyle, PAGE_SIZE_OPTIONS } from './shared/ListPageHeader';
 import RowActionMenu from './shared/RowActionMenu';
+import { AccountSearch } from './shared/SearchInputs';
 import ListTable from './shared/ListTable';
 // Kodgranskning: fanns tidigare som en egen lokal kopia här OCH som
 // grossInvoiceAmount i reportCalculations.js (den senare påstod sig i sin
@@ -158,7 +159,7 @@ const outlineToolbarBtnStyle = {
 };
 
 // ─── Invoice Full Form (Fortnox-inspired) ──────────────────────────────────────
-function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, invoiceList, onCreateCreditNote, onRegisterPayment, onUnmarkPaid, onUpdateNote, verifications = [], nav, onGetPaymentLinkUrl, articles = [], setArticles, projects = [] }) {
+function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefill, company, invoiceList, onCreateCreditNote, onRegisterPayment, onUnmarkPaid, onUpdateNote, verifications = [], nav, onGetPaymentLinkUrl, articles = [], setArticles, projects = [] }) {
   // En bokförd faktura (allt utom utkast) får inte längre ändra belopp/rader/kund —
   // korrigeringar sker via kreditfaktura. Datum och kommentar går fortfarande att ändra.
   const isLocked = Boolean(initial) && (initial.status || 'draft') !== 'draft';
@@ -995,7 +996,14 @@ function InvoiceForm({ contacts, onSave, onClose, initial, prefill, company, inv
                           </div>
                           <div>
                             <label style={lbl}>Konto</label>
-                            <input disabled={isLocked} value={row.account || '3001'} onChange={e => updateRow(i, 'account', e.target.value)} style={inp} />
+                            {/* Var ett tomt textfält där man förväntades kunna
+                                fyra siffror utantill. Samma sökbara kontoväljare
+                                som resten av appen använder, med hela kontoplanen
+                                ett klick bort. Låst faktura: bara kontot, ingen
+                                väljare — fältet ska inte gå att ändra då. */}
+                            {isLocked
+                              ? <input disabled value={row.account || '3001'} style={inp} />
+                              : <AccountSearch value={row.account || '3001'} onChange={code => updateRow(i, 'account', code)} accounts={accounts} placeholder="Sök konto…" />}
                           </div>
                         </div>
                       )}
@@ -1373,6 +1381,9 @@ function InvoiceViewer({ invoice, contacts, company, status, onClose, onEdit }) 
 // den fullständiga sidan för det som faktiskt kräver mer plats.
 function SupplierInvoicesPanel({ expenses, contacts, onMarkPaid, onOpenFull, onOpenInvoice, onCreateNew }) {
   const [statusFilter, setStatusFilter] = useState('all');
+  // Samma "Visa N"-väljare som kundfakturorna och Bokföring (kundönskemål:
+  // den ska finnas och fungera likadant på ALLA listor, inte bara en).
+  const [pageSize, setPageSize] = useState(30);
   const list = expenses.filter(e => e.type === 'supplier_invoice');
 
   const getStatus = (inv) => {
@@ -1393,6 +1404,7 @@ function SupplierInvoicesPanel({ expenses, contacts, onMarkPaid, onOpenFull, onO
 
   const filtered = statusFilter === 'all' ? list : list.filter(inv => getStatus(inv) === statusFilter);
   const sorted = [...filtered].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  const visible = pageSize === 'all' ? sorted : sorted.slice(0, pageSize);
 
   return (
     <>
@@ -1407,6 +1419,7 @@ function SupplierInvoicesPanel({ expenses, contacts, onMarkPaid, onOpenFull, onO
         </button>
       </div>
 
+      {list.length > 0 && (
       <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '6px 16px', display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0, flexWrap: 'wrap' }}>
         {statusOptions.map(opt => {
           const isActive = statusFilter === opt.value;
@@ -1414,26 +1427,44 @@ function SupplierInvoicesPanel({ expenses, contacts, onMarkPaid, onOpenFull, onO
           if (opt.value !== 'all' && count === 0) return null;
           const isNeutral = opt.value === 'all';
           return (
-            <button key={opt.value} onClick={() => setStatusFilter(opt.value)} style={{
+            <button key={opt.value} onClick={() => setStatusFilter(opt.value)} aria-pressed={isActive} style={{
               display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 10px',
-              background: isNeutral ? (isActive ? 'var(--accent)' : 'var(--bg-card)') : opt.bg,
-              border: isNeutral ? `1px solid ${isActive ? 'var(--accent)' : 'var(--border)'}` : `1.5px solid ${isActive ? opt.color : 'transparent'}`,
-              borderRadius: '999px', fontSize: '12px', fontWeight: isActive ? 700 : 500,
-              color: isNeutral ? (isActive ? 'white' : 'var(--text-main)') : opt.color, cursor: 'pointer',
+              background: isNeutral ? (isActive ? 'var(--bg-muted)' : 'transparent') : opt.bg,
+              border: '1.5px solid transparent',
+              // Exakt samma markering av valt piller som kundfakturorna
+              // (ring utanför pillret i dess egen färg) — de två flikarna
+              // ligger bredvid varandra och ska inte se ut som två olika
+              // produkter.
+              boxShadow: isActive ? `0 0 0 2px var(--bg-card), 0 0 0 3.5px ${isNeutral ? 'var(--text-secondary)' : opt.color}` : 'none',
+              borderRadius: '999px', fontSize: '12px', fontWeight: isActive ? 700 : 600,
+              color: isNeutral ? 'var(--text-secondary)' : opt.color, cursor: 'pointer',
             }}>
               {opt.label}
               {count > 0 && (
                 <span style={{
                   display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 16, height: 16, padding: '0 4px',
                   borderRadius: '999px', fontSize: '10px', fontWeight: 700,
-                  background: isNeutral ? (isActive ? 'rgba(255,255,255,0.25)' : 'var(--border)') : 'var(--status-chip-bg)',
-                  color: isNeutral ? (isActive ? 'white' : 'var(--text-secondary)') : opt.color,
+                  background: 'var(--status-chip-bg)',
+                  color: isNeutral ? 'var(--text-secondary)' : opt.color,
                 }}>{count}</span>
               )}
             </button>
           );
         })}
+        <div style={{ flex: 1 }} />
+        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-muted)' }}>
+          Visa
+          <select
+            value={pageSize}
+            onChange={e => setPageSize(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+            style={{ ...listFilterFieldStyle, height: '28px', padding: '0 8px', fontSize: '12px' }}
+          >
+            {PAGE_SIZE_OPTIONS.map(n => <option key={n} value={n}>{n}</option>)}
+            <option value="all">Alla</option>
+          </select>
+        </label>
       </div>
+      )}
 
       {sorted.length === 0 ? (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '32px', background: 'var(--bg-card)', textAlign: 'center', color: 'var(--text-muted)' }}>
@@ -1456,7 +1487,7 @@ function SupplierInvoicesPanel({ expenses, contacts, onMarkPaid, onOpenFull, onO
             onRowClick={inv => onOpenInvoice?.(inv)}
             rowStyle={inv => ({ background: getRowBg(getStatus(inv) === 'sent' ? 'sent' : getStatus(inv)) })}
             emptyMessage="Inga fakturor i det här filtret."
-            rows={sorted}
+            rows={visible}
             mobileList={inv => {
               const status = getStatus(inv);
               const dot = status === 'overdue' ? BRAND.redText : status === 'paid' ? BRAND.greenDark : BRAND.amberText;
@@ -1511,6 +1542,11 @@ function SupplierInvoicesPanel({ expenses, contacts, onMarkPaid, onOpenFull, onO
               },
             ]}
           />
+          {/* Samma ärliga avskärningsrad som kundfakturorna: en "Visa 30"
+              får aldrig se ut som om det var alla fakturor som fanns. */}
+          <div style={{ padding: '9px 16px', borderTop: '1px solid var(--border)', background: 'var(--bg-muted)', fontSize: '12px', color: 'var(--text-muted)' }}>
+            {visible.length < sorted.length ? `Visar ${visible.length} av ${sorted.length}` : `${sorted.length} ${sorted.length === 1 ? 'faktura' : 'fakturor'}`}
+          </div>
         </div>
       )}
     </>
@@ -1522,7 +1558,7 @@ function SupplierInvoicesPanel({ expenses, contacts, onMarkPaid, onOpenFull, onO
 // `articles` som fylls i via fakturaradernas "Spara"-knapp och <datalist>,
 // se InvoiceForm ovan) — så registret går att bygga upp och städa i utan att
 // först behöva öppna en faktura.
-function ArticleRegisterModal({ articles, setArticles, onClose }) {
+function ArticleRegisterModal({ articles, setArticles, accounts = [], onClose }) {
   const empty = { articleNumber: '', description: '', unitPrice: 0, vatRate: 25, account: '3001' };
   const [editing, setEditing] = useState(null); // null = ingen redigeras, annars ett utkast (nytt eller befintligt)
   const [importMsg, setImportMsg] = useState(null);
@@ -1614,7 +1650,12 @@ function ArticleRegisterModal({ articles, setArticles, onClose }) {
               </div>
               <div>
                 <label style={lbl}>Konto</label>
-                <input style={inp} value={editing.account} onChange={e => setEditing(s => ({ ...s, account: e.target.value }))} />
+                <AccountSearch
+                  value={editing.account}
+                  onChange={code => setEditing(s => ({ ...s, account: code }))}
+                  accounts={accounts}
+                  placeholder="Sök konto…"
+                />
               </div>
               <div style={{ gridColumn: '1 / -1' }}>
                 <label style={lbl}>Benämning</label>
@@ -1689,7 +1730,7 @@ function ArticleRegisterModal({ articles, setArticles, onClose }) {
  * egna anslutna Stripe-konto, inte hos Bokix — betalningen skapas som en
  * "direct charge" direkt PÅ det anslutna kontot (se create-checkout-
  * session.js:s kommentar). Bokix egen avgift (Stripes verkliga avgift +
- * 1% marginal, dynamisk — se samma fil) transfereras separat till Bokix
+ * 2% marginal, dynamisk — se samma fil) transfereras separat till Bokix
  * efter varje betalning, styrt av Stripes Platform Pricing Tool i
  * Dashboard, inte av något värde den här filen räknar ut. Den här
  * komponenten ändrar inget i det flödet, den visar bara den redan
@@ -1704,6 +1745,27 @@ function PaymentLinkModal({ invoice, customer, company, onGetPaymentLinkUrl, onC
   const [emailBusy, setEmailBusy] = useState(false);
   const [emailError, setEmailError] = useState('');
   const [emailSent, setEmailSent] = useState(false);
+
+  // Kundönskemål ("kunna skicka PDF:en tillsammans med betalningslänken")
+  // — samma mönster som InvoiceViewer ovan: en osynlig, fast 794px-bred
+  // kopia av InvoiceDocument för html2canvas att fånga, oavsett vad den
+  // här modalens egen bredd råkar vara.
+  const rows = invoice.rows || [];
+  const totals = rows.reduce((acc, r) => {
+    const gross = (Number(r.qty) || 0) * (Number(r.unitPrice) || 0) * (1 - (Number(r.discount) || 0) / 100);
+    return { net: acc.net + gross, vat: acc.vat + gross * ((Number(r.vatRate) || 0) / 100), total: acc.total + gross * (1 + (Number(r.vatRate) || 0) / 100) };
+  }, { net: 0, vat: 0, total: 0 });
+  const rotRut = calcRotRutDeduction(invoice.rotRutType, rows);
+  const tpl = invoice.invoiceTemplateSnapshot || {};
+  const documentProps = {
+    invoice: { invoiceNumber: invoice.invoiceNumber, date: invoice.date, dueDate: invoice.dueDate, terms: invoice.terms },
+    customer, company, rows, totals,
+    currency: invoice.currency || 'SEK',
+    invoiceText: invoice.invoiceText || '',
+    template: tpl.templateId, accentColor: tpl.accentColor, logoUrl: tpl.logoUrl, footerText: tpl.footerText,
+    rotRut: invoice.rotRutType ? { type: invoice.rotRutType, ...rotRut } : null,
+  };
+  const captureRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -1742,9 +1804,19 @@ function PaymentLinkModal({ invoice, customer, company, onGetPaymentLinkUrl, onC
     if (!/^\S+@\S+\.\S+$/.test(to)) { setEmailError('Det där ser inte ut som en giltig e-postadress.'); return; }
     setEmailBusy(true); setEmailError(''); setEmailSent(false);
     try {
+      // Best effort — misslyckas PDF-genereringen (t.ex. ett konstigt
+      // fakturamallsval) skickas betalningslänken ändå, bara utan bilagan,
+      // istället för att hela utskicket stoppas.
+      let attachmentBase64 = null;
+      try {
+        attachmentBase64 = await getInvoicePdfBase64(captureRef.current);
+      } catch (pdfErr) {
+        console.warn('Kunde inte skapa PDF-bilaga till betalningslänken, skickar utan:', pdfErr);
+      }
+
       const html = `
         <p>Hej${customer?.contactPerson ? ' ' + customer.contactPerson : ''},</p>
-        <p>Här är en betalningslänk för faktura <strong>${invoice.invoiceNumber}</strong> på <strong>${fmt(grossOf(invoice))} kr</strong>.</p>
+        <p>Här är en betalningslänk för faktura <strong>${invoice.invoiceNumber}</strong> på <strong>${fmt(grossOf(invoice))} kr</strong>${attachmentBase64 ? ', med fakturan bifogad som PDF' : ''}.</p>
         <p style="margin: 20px 0;">
           <a href="${url}" style="display:inline-block;padding:12px 26px;background:#0b6329;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600;">Betala nu</a>
         </p>
@@ -1756,6 +1828,7 @@ function PaymentLinkModal({ invoice, customer, company, onGetPaymentLinkUrl, onC
         html,
         replyTo: company?.email || undefined,
         company_id: company?.id,
+        ...(attachmentBase64 ? { attachmentBase64, attachmentFilename: `faktura-${invoice.invoiceNumber}.pdf` } : {}),
       });
       setEmailSent(true);
     } catch (err) {
@@ -1806,6 +1879,7 @@ function PaymentLinkModal({ invoice, customer, company, onGetPaymentLinkUrl, onC
                     {emailBusy ? 'Skickar...' : 'Skicka'}
                   </button>
                 </div>
+                <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '6px' }}>Fakturan bifogas automatiskt som PDF.</div>
                 {emailError && <div style={{ fontSize: '12px', color: 'var(--status-red-text)', marginTop: '8px' }}>{emailError}</div>}
                 {emailSent && !emailError && <div style={{ fontSize: '12px', color: 'var(--status-green-text)', fontWeight: 600, marginTop: '8px' }}>Skickad ✓</div>}
               </div>
@@ -1813,11 +1887,17 @@ function PaymentLinkModal({ invoice, customer, company, onGetPaymentLinkUrl, onC
           )}
         </div>
       </div>
+
+      {/* Osynlig, fast 794px-bred kopia för PDF-bilagan — samma mönster som
+          InvoiceViewer/InvoiceForm. */}
+      <div style={{ position: 'fixed', top: 0, left: '-9999px', width: '794px', pointerEvents: 'none' }} aria-hidden="true">
+        <InvoiceDocument ref={captureRef} {...documentProps} />
+      </div>
     </div>
   );
 }
 
-export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegisterPayment, onUnmarkPaid, setInvoices, company, globalAction, clearGlobalAction, onNavigate, verifications = [], expenses = [], onMarkSupplierInvoicePaid, handleGlobalAction, onGetPaymentLinkUrl, articles = [], setArticles, uid, projects = [] }) {
+export default function Invoices({ invoices, contacts, accounts = [], onAdd, onMarkPaid, onRegisterPayment, onUnmarkPaid, setInvoices, company, globalAction, clearGlobalAction, onNavigate, verifications = [], expenses = [], onMarkSupplierInvoicePaid, handleGlobalAction, onGetPaymentLinkUrl, articles = [], setArticles, uid, projects = [] }) {
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Två klart avgränsade sektioner, inte en klämd sida-vid-sida-vy — varje
@@ -1884,10 +1964,12 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
     await waitForElement('[data-inv-tour="row-status"]', 1000);
     startInvoiceTour({ uid, onDestroyed: () => { setInvoiceTourSeen(true); setTourDemoActive(false); } });
   };
-  // Fakturorna visas i tydligt rubrikerade sektioner per status (Förfallen/
-  // Obetald/Ej bokförd/Betald) istället för en enda blandad lista — piller-
-  // knapparna ovanför hoppar ner till respektive sektion.
-  const sectionRefs = useRef({});
+  // Statuspillren ovanför tabellen är ett riktigt filter (kundönskemål:
+  // "en sektion där man kan se endast ej bokförda eller obetalda"). Tidigare
+  // fanns i stället en sektion per status, och pillren skrollade bara ner
+  // till rätt sektion — nu finns EN tabell med ETT sidhuvud, som på
+  // Bokföring/Verifikationer.
+  const [statusFilter, setStatusFilter] = useState("all");
 
   useEffect(() => {
     if (globalAction?.type === 'new_invoice') {
@@ -1899,7 +1981,7 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
 
   // Sök-/intervallfilter-ändringar ska nollställa markeringar — annars kan
   // man stå kvar med rader markerade som inte längre syns.
-  useEffect(() => { setSelected(new Set()); }, [search, dateFrom, dateTo, amountMin, amountMax]);
+  useEffect(() => { setSelected(new Set()); }, [search, dateFrom, dateTo, amountMin, amountMax, statusFilter]);
 
   const invoiceList = invoices.filter(i => i.type !== 'quote');
 
@@ -1925,22 +2007,31 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
     return true;
   };
 
-  // Fritextsökning + datum/beloppsintervall — statusen delar inte längre upp
-  // via ett filter utan via egna sektioner (se STATUS_SECTIONS nedan), så
-  // den här listan innehåller alla statusar samtidigt.
-  const filtered = useMemo(() => invoiceList.filter(matchesSearchAndRange),
+  // Fritextsökning + datum/beloppsintervall, ALLA statusar. Statusvalet
+  // läggs på separat nedan (statusFiltered) — pillrens räknare ska visa hur
+  // många fakturor som finns i varje status med nuvarande sökning, alltså
+  // räknade FÖRE statusfiltret, annars skulle den valda statusen alltid
+  // vara den enda med en siffra > 0.
+  const searchFiltered = useMemo(() => invoiceList.filter(matchesSearchAndRange),
     [invoiceList, search, dateFrom, dateTo, amountMin, amountMax, contacts]);
 
-  // Antal poster per status, för sektionsrubrikerna/pillren — räknat på
-  // sök/intervall-filtrerad lista så siffrorna uppdateras när man skriver.
+  const filtered = useMemo(
+    () => (statusFilter === 'all' ? searchFiltered : searchFiltered.filter(inv => getStatus(inv) === statusFilter)),
+    [searchFiltered, statusFilter],
+  );
+
+  // Antal poster per status, för statuspillren — räknat på den
+  // sök/intervall-filtrerade listan (se ovan) så siffrorna uppdateras när
+  // man skriver, men utan att påverkas av vilket statuspiller som är valt.
   const statusCounts = useMemo(() => {
     const counts = {};
-    invoiceList.filter(matchesSearchAndRange).forEach(inv => {
+    searchFiltered.forEach(inv => {
       const st = getStatus(inv);
       counts[st] = (counts[st] || 0) + 1;
     });
     return counts;
-  }, [invoiceList, search, dateFrom, dateTo, amountMin, amountMax, contacts]);
+  }, [searchFiltered]);
+  const allStatusCount = searchFiltered.length;
 
   const sorted = useMemo(() => {
     const dir = sortDir === 'asc' ? 1 : -1;
@@ -1954,13 +2045,19 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
   }, [filtered, sortKey, sortDir]);
 
   // Bara den grenen som faktiskt renderar listan (InvoiceEmptyState-gaten +
-  // statusgrupperingen längre ner) använder den här — bläddringen
+  // tabellen längre ner) använder den här — bläddringen
   // («‹›» i InvoiceForm) använder fortfarande `sorted` orört, en påhittad
   // exempelfaktura ska aldrig gå att bläddra in i redigeringsläge.
   const sortedWithDemo = useMemo(() => {
     if (!tourDemoActive || invoiceList.length > 0) return sorted;
     return [...sorted, buildDemoInvoice()];
   }, [sorted, tourDemoActive, invoiceList.length]);
+
+  // "Visa N" gäller hela listan nu (en tabell i stället för en tabell per
+  // status). Markera-alla-rutan ska matcha exakt det som syns — och aldrig
+  // försöka markera exempelfakturan, som inte är en riktig post.
+  const visibleRows = pageSize === 'all' ? sortedWithDemo : sortedWithDemo.slice(0, pageSize);
+  const selectableRows = visibleRows.filter(inv => !inv.isDemo);
 
   const sumTotal = filtered.reduce((sum, inv) => sum + grossOf(inv), 0);
 
@@ -2314,6 +2411,7 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
         // men fältvärdena är kvar från föregående faktura).
         key={editingInvoice?.id || (invoicePrefill ? `prefill-${invoicePrefill.sourceKey || 'x'}` : 'new')}
         contacts={contacts}
+        accounts={accounts}
         company={company}
         initial={editingInvoice}
         prefill={invoicePrefill}
@@ -2379,7 +2477,7 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
         <button onClick={() => onNavigate?.('contacts')} style={{ padding: '4px 14px 12px', border: 'none', background: 'none', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', cursor: 'pointer' }}>Kunder ↓</button>
       </div>
       {showArticleRegister && (
-        <ArticleRegisterModal articles={articles} setArticles={setArticles} onClose={() => setShowArticleRegister(false)} />
+        <ArticleRegisterModal articles={articles} setArticles={setArticles} accounts={accounts} onClose={() => setShowArticleRegister(false)} />
       )}
 
     {section === 'kunder' && (
@@ -2420,46 +2518,62 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
         )}
       </div>
 
-      {/* Statuspiller — hoppar ner till respektive sektion istället för att
-          filtrera bort de andra, eftersom fakturorna nu visas indelade i
-          sektioner samtidigt (se nedan). */}
+      {/* Statuspiller — FILTRERAR listan (kundönskemål: "en sektion där man
+          kan se endast ej bokförda eller obetalda"). De hoppade tidigare
+          bara ner till en av flera statussektioner; nu finns bara EN tabell,
+          så pillren är riktiga filter med "Alla" som utgångsläge.
+          Hela raden döljs när företaget inte har någon faktura alls
+          (kundönskemål: "har man inga fakturor ska den ej finnas") — en
+          filterrad utan något att filtrera är bara brus på en tom sida. */}
+      {invoiceList.length > 0 && (
       <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0, flexWrap: 'wrap' }}>
-        {statusOptions.filter(opt => opt.value !== 'all').map(opt => {
-          const count = statusCounts[opt.value] || 0;
-          if (count === 0) return null; // ingen badge/pill-brus för tomma statusar
+        {statusOptions.map(opt => {
+          const count = opt.value === 'all' ? allStatusCount : (statusCounts[opt.value] || 0);
+          // Tomma statusar visas inte — men den valda gömmer sig aldrig,
+          // annars försvinner vägen tillbaka när sista fakturan i den
+          // statusen byter status medan filtret står kvar på den.
+          if (count === 0 && opt.value !== statusFilter && opt.value !== 'all') return null;
+          const isActive = statusFilter === opt.value;
+          const neutral = opt.value === 'all';
           return (
             <button
               key={opt.value}
-              onClick={() => sectionRefs.current[opt.value]?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+              onClick={() => setStatusFilter(opt.value)}
+              aria-pressed={isActive}
               style={{
                 display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 10px',
-                background: opt.bg, border: '1.5px solid transparent',
-                borderRadius: '999px', fontSize: '12px', fontWeight: 600,
-                color: opt.color, cursor: 'pointer',
+                background: neutral ? (isActive ? 'var(--bg-muted)' : 'transparent') : opt.bg,
+                border: '1.5px solid transparent',
+                // Vald status: en tydlig ring UTANFÖR pillret i dess egen färg
+                // (via en dubbel box-shadow med kortbakgrunden emellan) —
+                // en inre kantlinje syntes knappt mot de mättade
+                // obetald/betald-pillren, som redan har en färgad yta.
+                boxShadow: isActive ? '0 0 0 2px var(--bg-card), 0 0 0 3.5px ' + (neutral ? 'var(--text-secondary)' : opt.color) : 'none',
+                borderRadius: '999px', fontSize: '12px', fontWeight: isActive ? 700 : 600,
+                color: neutral ? 'var(--text-secondary)' : opt.color, cursor: 'pointer',
               }}
             >
               {opt.label}
-              {/* Kraftfulla (obetald/betald) badges har numera en heltäckande,
+              {/* Kraftfulla (obetald/betald) badges har en heltäckande,
                   mättad bakgrund — den vanliga --status-chip-bg (en
                   ~55%-vit overlay tänkt för bleka pastellbakgrunder) skulle
                   bli en urblekt fläck ovanpå en mörk grön/orange yta med
                   näst intill osynlig vit text. Egen vit halvtransparent
-                  "glas"-variant för just de här istället, samma recept som
-                  färgade etiketter med räknare i andra produkter. */}
+                  "glas"-variant för just de här istället. */}
               <span style={{
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 16, height: 16, padding: '0 4px',
                 borderRadius: '999px', fontSize: '10px', fontWeight: 700,
                 background: opt.strong ? 'rgba(255,255,255,0.28)' : 'var(--status-chip-bg)',
-                color: opt.strong ? '#ffffff' : opt.color,
+                color: opt.strong ? '#ffffff' : (neutral ? 'var(--text-secondary)' : opt.color),
               }}>{count}</span>
             </button>
           );
         })}
-        <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginLeft: '4px' }}>{sorted.length} poster</span>
         <div style={{ flex: 1 }} />
         {/* Kundönskemål: "en knapp där man kan se femton, trettio, femtio"
-            — visar upp till N per statussektion nedan (se pageSize-state:t
-            kommentar), inte N totalt. */}
+            — gäller nu HELA listan (en tabell), inte per statussektion, och
+            samma väljare/ordning som ListFilterBar ritar på Bokföring och de
+            andra listsidorna. */}
         <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-muted)' }}>
           Visa
           <select
@@ -2473,73 +2587,51 @@ export default function Invoices({ invoices, contacts, onAdd, onMarkPaid, onRegi
         </label>
         <Printer size={15} style={{ cursor: 'pointer', color: 'var(--text-secondary)' }} />
       </div>
+      )}
 
-      {/* Sektioner — fakturorna delas upp i egna rubrikerade sektioner per
-          status (Förfallen/Obetald/Ej bokförd/Betald) istället för en enda
-          blandad lista. Tomma sektioner visas inte alls. Status är klickbar
-          där det finns en riktig åtgärd att göra (markera betald). */}
+      {/* EN tabell med ETT sidhuvud (Fakturanr/Kund/Fakturadatum/Förfallo-
+          datum/Belopp/Status) och alla rader under varandra — kundönskemål,
+          uttryckligen med Bokföring/Verifikationer som förebild. Ersätter de
+          fyra statusindelade sektionerna (Förfallen/Obetald/Ej bokförd/
+          Betald), som gav fyra sidhuvuden och fyra "markera alla"-rutor på
+          samma skärm; statusen står i sin egen kolumn per rad och väljs med
+          pillren ovanför i stället.
+          Kortet är rakt upptill (0 0 12px 12px) och sitter flush mot
+          filterraden ovanför — samma "fäst mot det ovanför, avrundad mot
+          sidbakgrunden under"-princip som ListTable/ListFilterBar redan
+          följer, i stället för ett runt kort som svävade under headern. */}
       {sortedWithDemo.length === 0 ? (
         <InvoiceEmptyState isFilteredEmpty={invoiceList.length > 0} onCreate={() => { setShowForm(true); setEditingInvoice(null); setInvoicePrefill(null); }} />
       ) : (
       <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>
-        {/* Kundfeedback ("inga space mellan fakturorna"): varje statussektion
-            var tidigare sitt EGET fristående, kantat/rundat kort med 20px
-            mellanrum till nästa — såg ut som flera lösryckta tabellfragment
-            istället för en sammanhängande lista. Alla sektioner (inkl.
-            summeringsraden sist) delar nu EN gemensam yttre kant/skugga/
-            rundning (samma "flush"-princip som Kunder/Bokföring), och varje
-            enskild ListTable renderas `bordered={false}` så bara EN kantlinje
-            syns mellan två sektioner, inte två travade på varandra. */}
-        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', boxShadow: 'var(--shadow-sm)', overflow: 'hidden' }}>
-          {statusOptions.filter(opt => opt.value !== 'all')
-            .map(opt => ({ opt, rows: sortedWithDemo.filter(inv => getStatus(inv) === opt.value) }))
-            .filter(g => g.rows.length > 0)
-            .map(({ opt, rows }, i) => {
-              // Sidhuvudets räknare/summa avser hela statusgruppen (oavsett
-              // "Visa N"-gräns) — bara själva tabellen (och "markera
-              // alla"-kryssrutan, som ska matcha det som faktiskt syns)
-              // beskärs till pageSize.
-              const visibleRows = pageSize === 'all' ? rows : rows.slice(0, pageSize);
-              const realRows = visibleRows.filter(inv => !inv.isDemo);
-              const allSelected = realRows.length > 0 && realRows.every(inv => selected.has(inv.id));
-              const sectionSum = rows.reduce((sum, inv) => sum + grossOf(inv), 0);
-              return (
-                <div key={opt.value} ref={el => { sectionRefs.current[opt.value] = el; }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 10px', background: 'var(--bg-muted)', borderTop: i === 0 ? 'none' : '1px solid var(--border)' }}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '3px 10px', borderRadius: '999px', fontSize: '13px', fontWeight: 700, background: opt.bg, color: opt.color }}>
-                      {opt.label}
-                      <span style={{
-                        borderRadius: '999px', padding: '0 6px', fontSize: '11px',
-                        background: opt.strong ? 'rgba(255,255,255,0.28)' : 'var(--status-chip-bg)',
-                      }}>{rows.length}</span>
-                    </span>
-                    <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{fmt(sectionSum)} SEK</span>
-                    {visibleRows.length < rows.length && (
-                      <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>— visar {visibleRows.length} av {rows.length}</span>
-                    )}
-                  </div>
-                  <ListTable
-                    bordered={false}
-                    rowKey={inv => inv.id}
-                    onRowClick={inv => { if (inv.isDemo) return; setEditingInvoice(inv); setInvoicePrefill(null); setShowForm(true); }}
-                    rowStyle={inv => ({ background: selected.has(inv.id) ? '#e3f2fd' : getRowBg(getStatus(inv)) })}
-                    sort={{ key: sortKey, dir: sortDir, onSort: toggleSort }}
-                    selectable={{
-                      checked: inv => selected.has(inv.id),
-                      onToggle: inv => toggleSelect(inv.id),
-                      allChecked: allSelected,
-                      onToggleAll: () => toggleAllInRows(visibleRows),
-                    }}
-                    rows={visibleRows}
-                    columns={invoiceColumns}
-                    mobileList={invoiceMobileRow}
-                  />
-                </div>
-              );
-            })}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '10px 16px', background: 'var(--bg-muted)', borderTop: '2px solid var(--border)', fontWeight: 700, fontSize: '13px', color: 'var(--text-main)' }}>
-          Summa SEK&nbsp;<span style={{ color: 'var(--text-main)', marginLeft: '6px' }}>{fmt(sumTotal)}</span>
-        </div>
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderTop: 'none', borderRadius: '0 0 12px 12px', boxShadow: 'var(--shadow-sm)', overflow: 'hidden' }}>
+          <ListTable
+            bordered={false}
+            rowKey={inv => inv.id}
+            onRowClick={inv => { if (inv.isDemo) return; setEditingInvoice(inv); setInvoicePrefill(null); setShowForm(true); }}
+            rowStyle={inv => ({ background: selected.has(inv.id) ? '#e3f2fd' : getRowBg(getStatus(inv)) })}
+            sort={{ key: sortKey, dir: sortDir, onSort: toggleSort }}
+            selectable={{
+              checked: inv => selected.has(inv.id),
+              onToggle: inv => toggleSelect(inv.id),
+              allChecked: selectableRows.length > 0 && selectableRows.every(inv => selected.has(inv.id)),
+              onToggleAll: () => toggleAllInRows(visibleRows),
+            }}
+            rows={visibleRows}
+            columns={invoiceColumns}
+            mobileList={invoiceMobileRow}
+          />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '10px 16px', background: 'var(--bg-muted)', borderTop: '2px solid var(--border)', fontWeight: 700, fontSize: '13px', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
+            {/* Vänster: ärlig avskärningsrad. Utan den ser en "Visa 30" ut
+                som om företaget bara HADE 30 fakturor. Summan till höger
+                avser hela det filtrerade urvalet, inte bara det som ryms. */}
+            <span style={{ fontWeight: 500, fontSize: '12px', color: 'var(--text-muted)' }}>
+              {visibleRows.length < sortedWithDemo.length
+                ? 'Visar ' + visibleRows.length + ' av ' + sortedWithDemo.length
+                : sortedWithDemo.length + (sortedWithDemo.length === 1 ? ' faktura' : ' fakturor')}
+            </span>
+            <span>Summa SEK&nbsp;<span style={{ color: 'var(--text-main)', marginLeft: '6px' }}>{fmt(sumTotal)}</span></span>
+          </div>
         </div>
       </div>
       )}

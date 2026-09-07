@@ -40,11 +40,19 @@ export default function BokixWordmark({ height = 34, style, className }) {
   // samma id="...", vilket i vissa webbläsare tyst tappar fyllningen på
   // den ena kopian.
   const gradId = `bokixWordmarkGrad-${React.useId()}`;
-  const width = (height * VB_WIDTH) / VB_HEIGHT;
+  // `height` tar antingen ett rent tal (räknar ut en exakt width-attribut,
+  // som förut) eller en CSS-sträng (t.ex. en clamp()) — samma mönster som
+  // BrandLogos.jsx:s loggor. En sträng kan inte multipliceras fram till en
+  // width-attribut (ger NaN) och en clamp() är inte ett giltigt SVG-attribut-
+  // värde, så då sätts bara style/viewBox:ens egen bredd/höjd-ratio sköter
+  // skalningen istället.
+  const numeric = typeof height === 'number';
+  const width = numeric ? (height * VB_WIDTH) / VB_HEIGHT : undefined;
   return (
     <svg
-      viewBox={`0 0 ${VB_WIDTH} ${VB_HEIGHT}`} width={width} height={height}
-      xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Bokix" style={style} className={className}
+      viewBox={`0 0 ${VB_WIDTH} ${VB_HEIGHT}`} {...(numeric ? { width, height } : {})}
+      xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Bokix"
+      style={numeric ? style : { height, width: 'auto', ...style }} className={className}
     >
       <defs>
         <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">

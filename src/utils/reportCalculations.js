@@ -105,6 +105,105 @@ export function getPeriodBounds(periodId, { referenceDate = new Date(), fiscalYe
   return { start, end, prevStart, prevEnd, label };
 }
 
+/** Tidigaste bokförda datumet över huvud taget — underlag för "Sedan
+ * start" (overviewPeriodBounds nedan): det datumet ÄR periodens start, det
+ * finns inget fast antal dagar/månader att räkna bakåt från som för de
+ * andra flikarna. `null` om företaget inte har någon bokföring alls (ett
+ * helt nytt konto) — anroparen faller då tillbaka på dagens datum, vilket
+ * ger en tom (men inte trasig) period, samma princip som resten av
+ * rapportportalen använder för "inget bokfört ännu". */
+function earliestBookedDate(verifications) {
+  let min = null;
+  for (const ver of (verifications || [])) {
+    if (!isBooked(ver) || !ver.date) continue;
+    const d = toDate(ver.date);
+    if (!min || d < min) min = d;
+  }
+  return min;
+}
+
+/** Datumintervall för Företagsöversiktens period-flikar — kundönskemål:
+ * "jag vill kunna kolla hela året, 3 månader, 1 månad, 6 månader, sedan
+ * start" på översiktssidan, inte bara ett fast val. Fem flikar, valda för
+ * att täcka de faktiskt användbara tidshorisonterna för en bokförings-
+ * översikt utan att bli en godtycklig lista:
+ *   - 'month'/'q3'/'q6' — rullande "hittills"-fönster (den här månaden,
+ *     de tre/sex senaste) för att se en KORT trend i detalj.
+ *   - 'year' — räkenskapsåret, appens egen huvudperiod (moms/skatt räknas
+ *     mot den, se getPeriodBounds ovan) snarare än ett generiskt
+ *     "senaste 12 månaderna" som inte skulle stämma mot bokslutet.
+ *   - 'all' — hela historiken, för frågan "hur går det EGENTLIGEN för
+ *     bolaget" bortom ett enskilt år.
+ * Jämförelseperioden (prevStart/prevEnd) är EXAKT samma datumintervall ett
+ * år tidigare för de fyra rullande/räkenskapsårs-flikarna — samma "mot
+ * samma period föregående år"-konvention som getPeriodBounds ovan använder
+ * för resten av rapportportalen. 'all' har per definition ingen
+ * jämförelseperiod (det fanns inget företag "året innan starten") —
+ * `hasComparison: false` signalerar det till anroparen (ReportDetail.jsx)
+ * så den kan UTELÄMNA en missvisande "0 kr förra året"-jämförelse istället
+ * för att visa en teknisk sanning som läses som ett påstående om tillväxt.
+ * `granularity` styr om buildResultSeries/buildCashflowSeries ovan ska
+ * bucketa per dag eller per kalendermånad — en enda kalendermånad har för
+ * få naturliga buckets (bara start+slut) för en läsbar stapel-/linjegraf
+ * om den inte delas upp per dag. */
+export function overviewPeriodBounds(periodId, { fiscalYearStart, referenceDate = new Date(), verifications } = {}) {
+  const now = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), referenceDate.getDate());
+
+  if (periodId === 'month') {
+    // Kundgenomgång (två motstridiga önskemål efter varandra, löst genom
+    // att fråga): perioden stannar vid IDAG — visar bara dagar som faktiskt
+    // hänt (t.ex. "1–5 sep." den 5:e), aldrig tomma framtida dagar. `now`
+    // beräknas om VARJE gång den här funktionen anropas (inget cachat/
+    // hårdkodat datum) — i morgon, när "idag" blir den 6:e, blir `end`
+    // automatiskt den 6:e utan någon egen kod för det; det är bara vad
+    // `new Date()` (referenceDate) ger för färskt värde den dagen.
+    const start = startOfMonth(now);
+    const naturalEnd = endOfMonth(now);
+    const end = naturalEnd < now ? naturalEnd : now;
+    return {
+      start, end,
+      prevStart: addYears(start, -1), prevEnd: addYears(end, -1),
+      granularity: 'day', label: 'Denna månad', hasComparison: true,
+    };
+  }
+  if (periodId === 'q3') {
+    const start = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+    const end = now;
+    return {
+      start, end,
+      prevStart: addYears(start, -1), prevEnd: addYears(end, -1),
+      granularity: 'month', label: 'Senaste 3 månaderna', hasComparison: true,
+    };
+  }
+  if (periodId === 'q6') {
+    const start = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+    const end = now;
+    return {
+      start, end,
+      prevStart: addYears(start, -1), prevEnd: addYears(end, -1),
+      granularity: 'month', label: 'Senaste 6 månaderna', hasComparison: true,
+    };
+  }
+  if (periodId === 'all') {
+    const start = startOfMonth(earliestBookedDate(verifications) || now);
+    return {
+      start, end: now,
+      // Nollängdsintervall (inte "ett år tidigare") — det finns ingen
+      // meningsfull jämförelseperiod före starten, se hasComparison nedan.
+      prevStart: start, prevEnd: start,
+      granularity: 'month', label: 'Sedan start', hasComparison: false,
+    };
+  }
+  // 'year' (default) — hela innevarande räkenskapsår, kapat vid dagens datum.
+  const { start: fyStart, end: fyNaturalEnd } = fiscalYearBounds(fiscalYearStart, now);
+  const end = fyNaturalEnd < now ? fyNaturalEnd : now;
+  return {
+    start: fyStart, end,
+    prevStart: addYears(fyStart, -1), prevEnd: addYears(end, -1),
+    granularity: 'month', label: 'Räkenskapsåret', hasComparison: true,
+  };
+}
+
 /** Summerar ett kontoflöde (intäkt eller kostnad) för perioden. Intäkter är
  * kreditnormerade (kredit − debet), kostnader debetnormerade (debet − kredit) —
  * så resultatet blir ett positivt tal för "normal" bokföring i båda fallen. */
@@ -155,13 +254,25 @@ export function groupCostsByAccount(verifications, accounts, start, end) {
 // inom klass 5, klass 7 = personal); allt annat i kostnadsklasserna 4–8
 // hamnar i "Övrigt" snarare än att gissa en finare indelning utan stöd
 // i kontoplanen.
+// Buggrapport från riktig data: ett företag vars kostnader till 99,9% låg på
+// 6110 Kontorsmaterial fick ringdiagrammet "Övrigt 263 978 kr (100%)" plus en
+// osynlig "Personal 295 kr (0%)"-skiva — alltså ett diagram som inte sa
+// någonting alls. Orsaken var att reglerna nedan bara kände igen klass 7
+// (personal) och två spann i klass 5: HELA klass 4 (varor/material) och HELA
+// klass 6 (övriga externa kostnader — där 6110 bor, och där en stor del av ett
+// litet bolags kostnader faktiskt ligger) föll rakt igenom till "Övrigt".
+// Nu täcks alla kostnadsklasser (4–8) enligt BAS egen indelning.
+const COST_CATEGORIES = ['Personal', 'Lokal', 'Marknadsföring', 'Varor och material', 'Övriga externa kostnader', 'Övrigt'];
+
 function categoryForAccount(code) {
   const n = Number(code);
   if (!Number.isFinite(n)) return 'Övrigt';
-  if (n >= 7000 && n < 7700) return 'Personal';
-  if (n >= 5900 && n < 6000) return 'Marknadsföring';
+  if (n >= 4000 && n < 5000) return 'Varor och material';
   if (n >= 5000 && n < 5200) return 'Lokal';
-  return 'Övrigt';
+  if (n >= 5900 && n < 6000) return 'Marknadsföring';
+  if (n >= 5200 && n < 7000) return 'Övriga externa kostnader'; // inkl. 6xxx (6110 m.fl.)
+  if (n >= 7000 && n < 7700) return 'Personal';
+  return 'Övrigt'; // 77xx–79xx av-/nedskrivningar, 8xxx finansiellt, okända koder
 }
 
 /** Kostnadsfördelning i fyra kategorier (för ringdiagrammet) istället för
@@ -174,10 +285,14 @@ export function groupCostsByCategory(verifications, accounts, start, end) {
     const cat = categoryForAccount(r.code);
     sums.set(cat, (sums.get(cat) || 0) + r.amount);
   }
-  const order = ['Personal', 'Lokal', 'Marknadsföring', 'Övrigt'];
   const total = rows.reduce((s, r) => s + r.amount, 0);
-  const categories = order
-    .map(name => ({ name, amount: sums.get(name) || 0 }))
+  // `colorIndex` = platsen i den FASTA kategorilistan, inte i den filtrerade
+  // utdatan. Utan det byter en kategori färg så fort en annan råkar bli tom
+  // (bokför man sin första lokalkostnad skulle Personal plötsligt måla om
+  // sig) — "färgen följer posten, aldrig dess ordningsnummer", se
+  // dataviz-skillens anti-mönster "recolor-on-filter".
+  const categories = COST_CATEGORIES
+    .map((name, colorIndex) => ({ name, colorIndex, amount: sums.get(name) || 0 }))
     .filter(c => c.amount > 0);
   return { categories, total };
 }
@@ -201,8 +316,23 @@ export function computeCashBalanceAt(verifications, accounts, uptoDate) {
 
 /** Serie av {date, balance}-punkter för likviditetsgrafen: en punkt per
  * kalendermånad inom perioden plus periodens slutdatum, var och en det
- * verkliga ackumulerade saldot fram till den punkten. */
-export function buildCashflowSeries(verifications, accounts, start, end) {
+ * verkliga ackumulerade saldot fram till den punkten.
+ *
+ * `granularity: 'day'` (Företagsöversiktens månadsvy, se ReportDetail.jsx)
+ * ger istället en punkt per KALENDERDAG — en enda kalendermånad har för få
+ * naturliga punkter (bara periodens start+slut) för att bli en läsbar graf,
+ * till skillnad från kvartals-/årsvyn där en punkt per månad räcker.
+ * Standardvärdet 'month' bevarar exakt tidigare beteende/signatur. */
+export function buildCashflowSeries(verifications, accounts, start, end, granularity = 'month') {
+  if (granularity === 'day') {
+    const points = [];
+    let cursor = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    while (cursor <= end) {
+      points.push({ date: fmtISO(cursor), balance: computeCashBalanceAt(verifications, accounts, cursor) });
+      cursor = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() + 1);
+    }
+    return points;
+  }
   const points = [];
   let cursor = startOfMonth(start);
   while (cursor <= end) {
@@ -217,8 +347,25 @@ export function buildCashflowSeries(verifications, accounts, start, end) {
 }
 
 /** Serie av {label, intakt, kostnad}-punkter, en per kalendermånad inom
- * perioden — flöde per månad, inte ackumulerat. */
-export function buildResultSeries(verifications, accounts, start, end) {
+ * perioden — flöde per månad, inte ackumulerat.
+ *
+ * `granularity: 'day'` — se buildCashflowSeries ovan för samma resonemang:
+ * Företagsöversiktens månadsvy vill se dag för dag, inte en enda stapel för
+ * hela månaden. Standardvärdet 'month' bevarar exakt tidigare beteende. */
+export function buildResultSeries(verifications, accounts, start, end, granularity = 'month') {
+  if (granularity === 'day') {
+    const days = [];
+    let cursor = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    while (cursor <= end) {
+      days.push({
+        label: String(cursor.getDate()),
+        intakt: sumFlowByType(verifications, accounts, 'intakt', cursor, cursor),
+        kostnad: sumFlowByType(verifications, accounts, 'kostnad', cursor, cursor),
+      });
+      cursor = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() + 1);
+    }
+    return days;
+  }
   const months = [];
   let cursor = startOfMonth(start);
   while (cursor <= end) {
@@ -232,6 +379,102 @@ export function buildResultSeries(verifications, accounts, start, end) {
     cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
   }
   return months;
+}
+
+/**
+ * Marginalanalys per period: brutto-, rörelse- och vinstmarginal.
+ *
+ * De tre måtten är samma kvot (resultat / omsättning) med olika mycket
+ * kostnader avdragna — varje steg lägger till nästa lager, så de bildar en
+ * trappa där brutto >= rörelse >= vinst så länge klasserna är positiva:
+ *
+ *   Bruttomarginal  = (intäkter − varor/material)                 / intäkter
+ *   Rörelsemarginal = (intäkter − varor − övriga externa − klass 7) / intäkter
+ *   Vinstmarginal   = (intäkter − ALLA kostnader)                  / intäkter
+ *
+ * Kostnaderna delas på BAS-klass: 4 = varor och material (kostnad sålda
+ * varor), 5–6 = övriga externa kostnader, 7 = personal OCH avskrivningar
+ * (77xx–78xx ligger i samma klass och är rörelsekostnader båda två), 8 =
+ * finansiella poster och skatt.
+ *
+ * Två medvetna begränsningar, värda att känna till innan siffran citeras:
+ *   - Nämnaren är samma `intakt`-klassificering som resten av modulen
+ *     använder (hela klass 3), inte strikt nettoomsättning 3000–3799. Det
+ *     gör att marginalerna alltid går ihop med Omsättning-nyckeltalet på
+ *     samma sida i stället för att avvika med några kronor.
+ *   - Ett tjänstebolag utan klass 4-kostnader får bruttomarginal 100 %.
+ *     Det är korrekt (det finns inga sålda varor att dra av), inte en bugg.
+ *
+ * `null` (inte 0) för en period helt utan intäkter — 0/0 är odefinierat,
+ * och en nolla här hade ritats som ett verkligt ras ner till nollinjen.
+ */
+export function buildMarginSeries(verifications, accounts, start, end, granularity = 'month') {
+  const byCode = new Map(accounts.map(a => [a.code, a]));
+  const keyFor = (d) => (granularity === 'day' ? fmtISO(d) : `${d.getFullYear()}-${d.getMonth()}`);
+
+  // Hinkarna byggs först (samma etiketter/ordning som buildResultSeries), så
+  // en period utan en enda verifikation ändå får en punkt i serien.
+  const buckets = [];
+  const indexByKey = new Map();
+  const pushBucket = (date, label) => {
+    indexByKey.set(keyFor(date), buckets.length);
+    buckets.push({ label, intakt: 0, varor: 0, ovrigaExterna: 0, personal: 0, finansiellt: 0 });
+  };
+  if (granularity === 'day') {
+    let cursor = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    while (cursor <= end) {
+      pushBucket(cursor, String(cursor.getDate()));
+      cursor = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() + 1);
+    }
+  } else {
+    let cursor = startOfMonth(start);
+    while (cursor <= end) {
+      pushBucket(cursor, new Intl.DateTimeFormat('sv-SE', { month: 'short' }).format(cursor));
+      cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+    }
+  }
+
+  // EN genomgång av verifikationerna (till skillnad från buildResultSeries,
+  // som anropar sumFlowByType per hink) — här behövs fem summor per hink, och
+  // fem × antal hinkar separata genomgångar av hela verifikationslistan hade
+  // blivit onödigt dyrt på dagsupplösning.
+  for (const ver of verifications) {
+    if (!isBooked(ver) || !ver.date) continue;
+    const d = toDate(ver.date);
+    if (d < start || d > end) continue;
+    const idx = indexByKey.get(keyFor(d));
+    if (idx === undefined) continue;
+    const bucket = buckets[idx];
+    for (const row of ver.rows || []) {
+      const acc = byCode.get(row.account);
+      const type = classifyAccount(acc);
+      if (type === 'intakt') {
+        bucket.intakt += getKredit(row) - getDebet(row);
+        continue;
+      }
+      if (type !== 'kostnad') continue;
+      const amount = getDebet(row) - getKredit(row);
+      const n = Number(row.account);
+      if (n >= 4000 && n < 5000) bucket.varor += amount;
+      else if (n >= 5000 && n < 7000) bucket.ovrigaExterna += amount;
+      else if (n >= 7000 && n < 8000) bucket.personal += amount;
+      // Allt annat (klass 8, plus konton som klassats som kostnad via ett
+      // uttryckligt `account.type` men ligger utanför 4000–7999) hamnar i
+      // sista lagret — det som bara vinstmarginalen drar av.
+      else bucket.finansiellt += amount;
+    }
+  }
+
+  return buckets.map(b => {
+    const share = (kvar) => (b.intakt !== 0 ? (kvar / b.intakt) * 100 : null);
+    const rorelsekostnader = b.varor + b.ovrigaExterna + b.personal;
+    return {
+      label: b.label,
+      brutto: share(b.intakt - b.varor),
+      rorelse: share(b.intakt - rorelsekostnader),
+      vinst: share(b.intakt - rorelsekostnader - b.finansiellt),
+    };
+  });
 }
 
 /** Balansräkning som ögonblicksbild vid periodens slutdatum — ackumulerat

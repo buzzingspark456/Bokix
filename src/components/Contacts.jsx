@@ -7,6 +7,7 @@ import { getCountryOptions, getDefaultCountry, SWEDEN } from '../utils/countries
 import { validateEmailList, isValidIban } from '../utils/validators';
 import { contactsToCsv, csvToContacts, downloadCsv } from '../utils/csvRegister';
 import { useCompanyLookup } from '../hooks/useCompanyLookup';
+import AnchoredDropdown from './shared/AnchoredDropdown';
 
 // ─── Delade formulärstilar ─────────────────────────────────────────────────
 const sectionStyle = { background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border)', padding: '20px', marginBottom: '16px' };
@@ -40,11 +41,11 @@ const lookupButtonStyle = {
   borderRadius: '8px', background: 'var(--bg-card)', color: 'var(--text-secondary)',
   cursor: 'pointer',
 };
-const lookupDropdownStyle = {
-  position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 20,
-  background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px',
-  boxShadow: '0 8px 24px rgba(17,24,39,0.14)', overflow: 'hidden', maxHeight: '260px', overflowY: 'auto',
-};
+// Panelens egna stilar; placeringen sköter AnchoredDropdown (portal +
+// fixed). Låg tidigare `position: absolute` inuti formuläret och klipptes
+// därför av modalens scrollande body så fort fältet låg en bit ner —
+// samma fel som sökrutan i tidrapporteringen hade.
+const lookupDropdownStyle = { borderRadius: '8px', boxShadow: '0 8px 24px rgba(17,24,39,0.14)' };
 const lookupResultItemStyle = {
   display: 'flex', alignItems: 'center', gap: '10px', width: '100%', textAlign: 'left',
   padding: '9px 12px', border: 'none', borderTop: '1px solid var(--border)', background: 'transparent',
@@ -70,10 +71,15 @@ function Section({ title, children }) {
 
 // Kandidatlistan som faller ut under Namn-fältet efter en namnsökning —
 // delad mellan CustomerForm och SupplierForm istället för dubblerad JSX.
-function CompanyLookupResults({ results, onPick }) {
-  if (!results.length) return null;
+function CompanyLookupResults({ results, onPick, anchorRef }) {
   return (
-    <div className="company-lookup-dropdown" style={lookupDropdownStyle}>
+    <AnchoredDropdown
+      anchorRef={anchorRef}
+      open={results.length > 0}
+      maxHeight={260}
+      className="company-lookup-dropdown"
+      style={lookupDropdownStyle}
+    >
       {results.map(c => (
         <button key={c.orgNumber || c.name} type="button" onClick={() => onPick(c)} className="company-lookup-result" style={lookupResultItemStyle}>
           <div style={lookupResultIconStyle}><Building2 size={14} /></div>
@@ -83,7 +89,7 @@ function CompanyLookupResults({ results, onPick }) {
           </div>
         </button>
       ))}
-    </div>
+    </AnchoredDropdown>
   );
 }
 
@@ -110,6 +116,9 @@ function CustomerForm({ initial, onSave, onCancel }) {
   const [errors, setErrors] = useState({});
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const lookup = useCompanyLookup(set);
+  // Ankaret för träfflistan: den ligger numera i en portal och måste få veta
+  // var Namn-fältet står på skärmen.
+  const nameFieldRef = useRef();
 
   const handleTypeChange = (customerType) => {
     setForm(f => ({ ...f, customerType, country: getDefaultCountry(customerType) }));
@@ -170,7 +179,7 @@ function CustomerForm({ initial, onSave, onCancel }) {
 
       <Section title="Grunduppgifter">
         <div className="form-row-2" style={grid2}>
-          <div style={{ position: 'relative' }}>
+          <div ref={nameFieldRef} style={{ position: 'relative' }}>
             <label style={labelStyle}>Namn *</label>
             {lookupEnabled ? (
               <div style={{ display: 'flex', gap: '8px' }}>
@@ -195,7 +204,7 @@ function CustomerForm({ initial, onSave, onCancel }) {
             {errors.name && <div style={errorTextStyle}>{errors.name}</div>}
             {lookup.nameSearch.status === 'loading' && <div style={lookupStatusStyle}>Söker…</div>}
             {lookup.nameSearch.status === 'error' && <div style={lookupStatusStyle}>{lookup.nameSearch.message}</div>}
-            <CompanyLookupResults results={lookup.nameResults} onPick={lookup.applyCompany} />
+            <CompanyLookupResults results={lookup.nameResults} onPick={lookup.applyCompany} anchorRef={nameFieldRef} />
           </div>
           <div>
             <label style={labelStyle}>Kundnummer</label>
@@ -341,6 +350,7 @@ function SupplierForm({ initial, onSave, onCancel, accounts }) {
   const isNew = !initial;
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const lookup = useCompanyLookup(set);
+  const nameFieldRef = useRef();
 
   const handleTypeChange = (supplierType) => {
     setForm(f => ({
@@ -384,7 +394,7 @@ function SupplierForm({ initial, onSave, onCancel, accounts }) {
 
       <Section title="Grunduppgifter">
         <div className="form-row-2" style={grid2}>
-          <div style={{ gridColumn: '1 / 3', position: 'relative' }}>
+          <div ref={nameFieldRef} style={{ gridColumn: '1 / 3', position: 'relative' }}>
             <label style={labelStyle}>Namn *</label>
             {isSwedish ? (
               <div style={{ display: 'flex', gap: '8px' }}>
@@ -409,7 +419,7 @@ function SupplierForm({ initial, onSave, onCancel, accounts }) {
             {errors.name && <div style={errorTextStyle}>{errors.name}</div>}
             {lookup.nameSearch.status === 'loading' && <div style={lookupStatusStyle}>Söker…</div>}
             {lookup.nameSearch.status === 'error' && <div style={lookupStatusStyle}>{lookup.nameSearch.message}</div>}
-            <CompanyLookupResults results={lookup.nameResults} onPick={lookup.applyCompany} />
+            <CompanyLookupResults results={lookup.nameResults} onPick={lookup.applyCompany} anchorRef={nameFieldRef} />
           </div>
         </div>
       </Section>

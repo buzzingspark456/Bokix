@@ -108,9 +108,6 @@
      skickad bildreferens) satt rätt i mättnad/karaktär men behövde
      mörkna ytterligare ett steg. */
   --bg-sidebar: #0b6329;
-  /* Sidopanelens gradient-slutpunkt (djärvare tema, Sida 33) — grön glider
-     mot en varm turkos istället för att vara en platt färgyta. */
-  --bg-sidebar-end: #1f8a72;
   --bg-muted:   #f4f4f5;
 
   /* ── Varm sekundärton (Sida 31) ──
@@ -532,6 +529,12 @@ body {
   flex-shrink: 0;
   height: 100vh;
   height: 100dvh;
+  /* Kundfeedback (uppföljning, skärmdump): ett kort försök med en
+     grön→turkos-gradient (--bg-sidebar-end) gjorde menyn omärkbart
+     olikfärgad upptill/nedtill — kunden ville en RIKTIGT enhetlig färg
+     rakt igenom, inte en gradient. Tillbaka till den platta
+     --bg-sidebar-tonen (samma i alla dess varianter: ljus grön, den
+     valbara mörkgröna sidebar-stilen, och mörkt lägets egen mörka ton). */
   background: var(--bg-sidebar);
   /* Kundfeedback ("Visuell gräns meny/innehåll"): mörkgröna menyn och det
      vita/mörka innehållet möttes tidigare rakt av utan någon linje —
@@ -3762,4 +3765,83 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
 .recharts-wrapper *:focus,
 .recharts-surface:focus {
   outline: none;
+}
+
+/* ── Företagsöversiktens ark (ReportSheet, ReportDetail.jsx) ──────────────
+   Ett vitt ark där panelerna skiljs åt av hårfina linjer i stället för av
+   kort med egen ram och skugga. Linjerna ÄR rutnätets springor: behållaren
+   har `background: var(--border)` och `gap: 1px`, så mellanrummen mellan
+   cellerna visar bakgrunden. Därför slipper varje panel egna kantlinjer som
+   annars skulle dubbleras eller hänga kvar på ytterkanterna.
+
+   Spannen ligger här (inte som inline `gridColumn`) av ett konkret skäl:
+   ett element med `grid-column: span 3` i ett rutnät som bara har EN
+   explicit kolumn skapar IMPLICITA kolumner för att uppfylla spannet — det
+   klamras alltså inte till en kolumn. Med spannen inline gick sidan därför
+   inte att stapla på mobil: rutnätet blev tolv innehållsbreda kolumner som
+   klipptes av arkets `overflow: hidden`. Med spannen som klasser kan de
+   nollställas (`grid-column: auto`) i mediefrågan längst ner. */
+.sheet-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 1px;
+  background: var(--border);
+}
+.sheet-span-3  { grid-column: span 3; }
+.sheet-span-5  { grid-column: span 5; }
+.sheet-span-7  { grid-column: span 7; }
+.sheet-span-12 { grid-column: span 12; }
+
+/* Mellanläge (surfplatta/halv skärm): fyra nyckeltal blir två och två,
+   diagrampanelerna tar full bredd — en halv panel blir för smal för en
+   läsbar axel långt innan mobilbrytpunkten. */
+@media (max-width: 1100px) {
+  .sheet-grid > .sheet-span-3 { grid-column: span 6; }
+  .sheet-grid > .sheet-span-5,
+  .sheet-grid > .sheet-span-7 { grid-column: span 12; }
+}
+
+@media (max-width: 768px) {
+  .sheet-grid { grid-template-columns: 1fr; }
+  /* Nollar spannen helt — se kommentaren ovan om implicita kolumner.
+     Klasserna räknas upp var för sig med FLIT: en enklare `.sheet-grid > *`
+     har lägre specificitet (0,1,0) än mellanlägets `.sheet-grid >
+     .sheet-span-3` (0,2,0) och förlorar därför trots att den står senare i
+     filen — nyckeltalen blev kvar två och två och klipptes av på mobil. */
+  .sheet-grid > .sheet-span-5,
+  .sheet-grid > .sheet-span-7,
+  .sheet-grid > .sheet-span-12 { grid-column: auto; }
+
+  /* Nyckeltalen är UNDANTAGET: fyra korta tal (ett belopp och en rad
+     kontext var) staplade i en enda kolumn blev fyra skärmhöjder att skrolla
+     förbi innan första diagrammet ens syntes. Två och två är fortfarande
+     läsbart på en telefon eftersom talen är korta — det är DIAGRAMMEN som
+     inte tål en halv skärmbredd, inte brickorna. */
+  .sheet-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sheet-grid > .sheet-span-3 { grid-column: span 1; }
+  .sheet-grid > .sheet-span-5,
+  .sheet-grid > .sheet-span-7,
+  .sheet-grid > .sheet-span-12 { grid-column: 1 / -1; }
+
+  /* Luften i panelerna: 26/28px är rätt på ett brett ark men äter en
+     tiondel av en telefonskärm i sidled. Diagramytan behöver de pixlarna
+     mer än marginalen gör. */
+  .sheet-grid .sheet-panel { padding: 20px 16px 22px; }
+  .sheet-grid .stat-tile { padding: 18px 16px 18px; }
+  .sheet-grid .stat-tile-value { font-size: 24px; }
+}
+
+/* Riktigt smala telefoner: nyckeltalen får en kolumn var. Två 24px-tal
+   bredvid varandra under 380px börjar radbryta mitt i beloppet. */
+@media (max-width: 380px) {
+  .sheet-grid { grid-template-columns: 1fr; }
+  .sheet-grid > .sheet-span-3 { grid-column: auto; }
+}
+
+/* Diagramväljarna (Staplar/Linje/Yta/Kombi) i panelrubrikerna: på smala
+   skärmar ska de lägga sig på egen rad under rubriken i stället för att
+   trycka ihop den till två tecken per rad. */
+@media (max-width: 640px) {
+  .sheet-panel-head { flex-direction: column; align-items: flex-start !important; gap: 10px !important; }
+  .kpi-gauge-row { gap: 12px !important; }
 }

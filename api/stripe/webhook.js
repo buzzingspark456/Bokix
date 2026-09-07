@@ -130,6 +130,11 @@ export default async function handler(req, res) {
         const sub = event.data.object;
         await upsertSubscription({
           userId: sub.metadata?.user_id,
+          // Vilket abonnemang som köptes, satt som metadata av
+          // create-subscription-checkout.js. Följer med på varje
+          // customer.subscription.*-händelse eftersom metadatan sitter på
+          // själva prenumerationen, inte bara på checkout-sessionen.
+          plan: sub.metadata?.plan || undefined,
           // company_id — betala-per-företag (kundkrav), se create-
           // subscription-checkout.js. Saknas (undefined) för kontots
           // ORIGINALprenumeration, precis som innan — upsertSubscription/
@@ -150,6 +155,11 @@ export default async function handler(req, res) {
         const sub = event.data.object;
         await upsertSubscription({
           userId: sub.metadata?.user_id,
+          // Vilket abonnemang som köptes, satt som metadata av
+          // create-subscription-checkout.js. Följer med på varje
+          // customer.subscription.*-händelse eftersom metadatan sitter på
+          // själva prenumerationen, inte bara på checkout-sessionen.
+          plan: sub.metadata?.plan || undefined,
           companyId: sub.metadata?.company_id || null,
           stripeCustomerId: typeof sub.customer === 'string' ? sub.customer : sub.customer?.id,
           stripeSubscriptionId: sub.id,

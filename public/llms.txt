@@ -2,7 +2,7 @@
 
 > Bokix är ett modernt, enkelt och kraftfullt bokföringsprogram för svenska företag i alla bolagsformer — enskild firma, aktiebolag, handelsbolag/kommanditbolag och ekonomisk förening. Bokföring, fakturering, lön och moms i ett enda verktyg.
 
-Bokix körs helt i webbläsaren på https://www.bokix.se — inget att installera. Priset är 99 kr/mån exklusive moms, allt ingår i det priset (ingen "bas + tillägg per funktion"-modell), och det finns ingen bindningstid.
+Bokix körs helt i webbläsaren på https://www.bokix.se — inget att installera. Priset är 129 kr/mån utan anställda och 179 kr/mån med lönemodulen. Bokix är inte momsregistrerat, så ingen moms tillkommer på abonnemanget. Allt ingår i priset (ingen "bas + tillägg per funktion"-modell). Månadsplanen har ingen bindningstid; årsplanen ger ett lägre månadspris (109 respektive 149 kr/mån) mot en minsta avtalstid på tre månader.
 
 Bokix stöder enskild firma, aktiebolag, handelsbolag/kommanditbolag och ekonomisk förening, och bokför enligt rätt regler för respektive bolagsform utifrån organisationsnumret.
 
@@ -14,6 +14,10 @@ Bokix stöder enskild firma, aktiebolag, handelsbolag/kommanditbolag och ekonomi
 - Moms-, AGI- och kontrolluppgiftssammanställningar
 - Kortbetalningar via Stripe
 - PDF-export av fakturor, lönebesked och deklarationsunderlag
+- SIE4-import och -export, samt import av kontoutdrag från bank som CSV eller Excel
+- Skatteverkets egna filformat: eSKD för momsdeklarationen och SRU för räkenskapsscheman
+- Betalfil till bank för nettolöner (ISO 20022 pain.001)
+- Tvåfaktorsautentisering (TOTP) och åtkomstkontroll på databasnivå
 
 ## Sidor
 
@@ -22,8 +26,28 @@ Bokix stöder enskild firma, aktiebolag, handelsbolag/kommanditbolag och ekonomi
 - [Priser](https://www.bokix.se/priser): pris, vad som ingår och vanliga frågor
 - [Så väljer du bokföringsprogram](https://www.bokix.se/valja-bokforingsprogram): sju generella kriterier för att jämföra bokföringsprogram
 - [Alternativ till Fortnox, Bokio och Spiris](https://www.bokix.se/alternativ): för dig som funderar på att byta bokföringsprogram — vad Bokix erbjuder och hur bytet går till
+- [Byt bokföringsprogram till Bokix](https://www.bokix.se/byt-bokforingsprogram): flytta bokföringen från Fortnox, Visma, Spiris, Bokio, Björn Lundén, Wint eller SpeedLedger via en SIE4-fil
+- [Gratis verktyg](https://www.bokix.se/verktyg): fem kostnadsfria räknare, inget konto krävs
+- [Momskalkylator](https://www.bokix.se/verktyg/momskalkylator): lägg på eller räkna ur moms med 25, 12 eller 6 procent
+- [Lönekalkylator](https://www.bokix.se/verktyg/lonekalkylator): arbetsgivaravgift, semesteravsättning och total kostnad för en anställd
+- [Egenavgiftskalkylator](https://www.bokix.se/verktyg/egenavgifter): schablonavdrag, egenavgifter och skatt på överskottet i enskild firma
+- [ROT- och RUT-kalkylator](https://www.bokix.se/verktyg/rot-rut): avdraget på arbetskostnaden och vad kunden betalar
+- [Dröjsmålsränta](https://www.bokix.se/verktyg/drojsmalsranta): ränta enligt räntelagen plus lagstadgade förseningsavgifter
+- [Ordlista](https://www.bokix.se/ordlista): bokförings-, skatte- och lönebegrepp förklarade på svenska
+- [Integrationer](https://www.bokix.se/integrationer): kopplingar och filformat, samt en lista över vad Bokix inte har
+- [Säkerhet](https://www.bokix.se/sakerhet): kryptering, åtkomstkontroll, automatisk gallring och dataportabilitet
 - [Om oss](https://www.bokix.se/om-oss): varför Bokix finns och principerna produkten byggs efter
 - [Kontakt](https://www.bokix.se/kontakt): kontaktformulär, support@bokix.se
+- [Boka en genomgång](https://www.bokix.se/boka-genomgang): boka en personlig genomgång av Bokix
+
+## Juridiskt
+
+Samma fyra dokument som ligger i sidfoten på varje sida:
+
+- [Integritetspolicy](https://www.bokix.se/privacy): vilka personuppgifter som behandlas, varför, hur länge de sparas och vilka underleverantörer som anlitas
+- [Användarvillkor](https://www.bokix.se/terms): konto och prenumeration, priser och uppsägning, ansvarsbegränsning
+- [Cookiepolicy](https://www.bokix.se/cookies): exakt vilka cookies och lagringstekniker som sätts, och vilka som kräver samtycke
+- [PUB-avtal](https://www.bokix.se/pub): personuppgiftsbiträdesavtal enligt GDPR artikel 28, gäller automatiskt för alla konton
 
 ## Kontakt
 

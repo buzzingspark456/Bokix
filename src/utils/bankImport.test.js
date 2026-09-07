@@ -215,3 +215,37 @@ describe('invoiceRemaining', () => {
     expect(invoiceRemaining(inv)).toBeCloseTo(950)
   })
 })
+
+// ── Engelska kolumnrubriker ────────────────────────────────────────────
+// Kundrapport: en riktig bankexport med rubrikerna booking_date/description/
+// amount/balance_after. Svenska banker exporterar inte alltid på svenska —
+// samma bank ger ofta engelska rubriker i sitt engelska gränssnitt, och
+// app-bankerna gör det nästan alltid.
+describe('guessColumnMapping — engelska och blandade rubriker', () => {
+  it('känner igen en engelsk export med understreck', () => {
+    const m = guessColumnMapping(['booking_date', 'description', 'amount', 'balance_after'])
+    expect(m.date).toBe('booking_date')
+    expect(m.description).toBe('description')
+    expect(m.amountColumn).toBe('amount')
+    expect(m.amountMode).toBe('single')
+    expect(m.balanceColumn).toBe('balance_after')
+  })
+
+  it('känner igen separata Money in/Money out-kolumner', () => {
+    const m = guessColumnMapping(['Transaction Date', 'Details', 'Money out', 'Money in', 'Running balance'])
+    expect(m.date).toBe('Transaction Date')
+    expect(m.description).toBe('Details')
+    expect(m.amountMode).toBe('split')
+    expect(m.debitColumn).toBe('Money out')
+    expect(m.creditColumn).toBe('Money in')
+    expect(m.balanceColumn).toBe('Running balance')
+  })
+
+  it('svenska rubriker fungerar oförändrat', () => {
+    const m = guessColumnMapping(['Bokföringsdag', 'Text', 'Belopp', 'Bokfört saldo'])
+    expect(m.date).toBe('Bokföringsdag')
+    expect(m.description).toBe('Text')
+    expect(m.amountColumn).toBe('Belopp')
+    expect(m.balanceColumn).toBe('Bokfört saldo')
+  })
+})

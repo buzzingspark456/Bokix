@@ -467,7 +467,16 @@ export default function Taxes({
                       // skillnad från momskortet som pekar på en flik HÄR.
                       onClick: () => onNavigateToTab?.('payroll'),
                     },
-                  ].filter(Boolean).map(item => {
+                  ]
+                    .filter(Boolean)
+                    // Närmast förfall först. Ordningen var tidigare fast
+                    // (moms, sedan AGI) vilket betydde att en deklaration
+                    // som skulle in om två dagar kunde ligga under en som
+                    // hade sex veckor kvar. Det man ska göra härnäst ska
+                    // stå först — en försenad (negativa dagar) hamnar då
+                    // också överst av sig självt.
+                    .sort((a, b) => a.daysLeft - b.daysLeft)
+                    .map(item => {
                     const sevBg = item.daysLeft < 0 ? 'var(--status-red-bg)' : item.daysLeft <= 7 ? 'var(--status-amber-bg)' : 'var(--status-gray-bg)';
                     const sevText = item.daysLeft < 0 ? 'var(--status-red-text)' : item.daysLeft <= 7 ? 'var(--status-amber-text)' : 'var(--status-gray-text)';
                     return (

@@ -33,9 +33,11 @@ import { getNextInvoiceNumber } from './utils/invoiceNumbering';
 import { createStripeCheckoutSession, createStripeSubscriptionCheckout, cancelStripeSubscription } from './stripeApi';
 import { createEmailDomain, getEmailDomainStatus } from './emailApi';
 import { getDebet, getKredit } from './utils/verificationAmounts';
+import { planFromId } from './utils/plans';
 import { BRAND } from './utils/brandColors';
 import { COMPANY_WRITABLE_FIELDS } from './utils/companyFields.js';
 import { deleteFileFromStorage } from './utils/fileUpload';
+import { collectStorageUrls } from './utils/storageUrls';
 import BokixWordmark from './components/shared/BokixWordmark';
 
 // ── Bokix Logo Component (light sidebar) ──
@@ -965,6 +967,14 @@ function App() {
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showLanding, setShowLanding] = useState(true);
+  // 'signup' | 'login' — vilken Auth-flik som ska visas när showLanding
+  // blir false. Sätts av VILKEN knapp som klickades (se enterApp-effekten
+  // och LandingPage-anropet nedan), inte alltid samma förval.
+  const [authMode, setAuthMode] = useState('login');
+  // Vilket abonnemang besökaren klickade på prissidan. Följer med i
+  // navigeringens state (AppRouter → hit → Auth) i stället för att
+  // registreringen alltid ska anta den dyraste nivån.
+  const [selectedPlan, setSelectedPlan] = useState('employer_monthly');
   // null = ingen bedömning gjord än / inte blockerad. 'blocked' = inloggad
   // Supabase-användare UTAN giltig public.subscriptions-rad (trialing/
   // active/past_due) — se PaymentRequiredGate.jsx. Satt i fetchUserData,
@@ -1039,6 +1049,8 @@ function App() {
   useEffect(() => {
     if (location.state?.enterApp) {
       setShowLanding(false);
+      setAuthMode(location.state?.authMode === 'signup' ? 'signup' : 'login');
+      if (location.state?.plan) setSelectedPlan(location.state.plan);
       navigate('.', { replace: true, state: {} });
     }
   }, [location.state]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -1982,14 +1994,21 @@ function App() {
     // där man kommer hit direkt efter en signUp() utan session), så
     // "Logga in för att komma igång" hade varit förvirrande/fel där.
     const forCompany = Boolean(params.get('company_id'));
+    // Beloppet kommer från planen checkouten faktiskt skapades för (den
+    // skickas tillbaka på success_url, se create-subscription-checkout.js).
+    // Stod tidigare hårdkodat som 179 kr, vilket blev fel för alla utom
+    // "Med personal, månadsvis"; 179 kvarstår som fallback för länkar utan
+    // parametern, samma nivå som servern själv faller tillbaka på.
+    const checkoutPlan = planFromId(params.get('plan'));
+    const priceLabel = `${checkoutPlan ? checkoutPlan.price : 179} kr/mån`;
 
     const messages = forCompany
       ? {
-          success: 'Klart! 30 dagar gratis, sedan 179 kr/mån för det här företaget.',
+          success: `Klart! 30 dagar gratis, sedan ${priceLabel} för det här företaget.`,
           cancelled: 'Betalningen avbröts — företaget är skapat, men blockerat tills betalningsuppgifter läggs till. Öppna Inställningar → Prenumeration för att försöka igen.',
         }
       : {
-          success: 'Klart! 30 dagar gratis, sedan 179 kr/mån. Logga in för att komma igång.',
+          success: `Klart! 30 dagar gratis, sedan ${priceLabel}. Logga in för att komma igång.`,
           cancelled: 'Betalningen avbröts — kontot är skapat, men provperioden startar först när betalningsuppgifter är tillagda. Logga in och försök igen.',
         };
     setToast({
@@ -2183,6 +2202,22 @@ function App() {
         console.warn('Kunde inte avsluta Stripe-prenumerationen för borttaget företag:', err.message);
       }
     }
+
+    // Dataminimering: företagets uppladdade filer (kvitton, underlag,
+    // logotyp) ligger i Storage, inte i JSON-posten — de försvinner alltså
+    // INTE av att företaget tas bort ur `data`. Utan det här steget blev
+    // varenda kvittobild kvar i bucketen för alltid, osynlig för
+    // användaren och betald av oss.
+    //
+    // Filerna samlas via mönstret (collectStorageUrls), inte via en lista
+    // med kända fältnamn — ett nytt filfält någon lägger till i framtiden
+    // städas då automatiskt i stället för att tyst missas.
+    //
+    // Körs FÖRE state-uppdateringen medan datan fortfarande finns kvar att
+    // läsa, men väntas inte in (deleteFileFromStorage är best effort, se
+    // fileUpload.js) — en misslyckad städning får aldrig hindra att
+    // företaget faktiskt tas bort.
+    collectStorageUrls(data.companies[companyId]).forEach(url => deleteFileFromStorage(url));
 
     const nextCompanies = { ...data.companies };
     delete nextCompanies[companyId];
@@ -2692,6 +2727,63 @@ function App() {
       // hålla id:t unikt inom samma synkrona batch.
       const id = `${Date.now()}_${prev.length}`;
       return [...prev, { ...newVer, id, number }];
+    });
+  };
+
+  // Kundönskemål (SIE4-import, Sida 51): en enda batch-skrivning istället
+  // för att loopa handleAddVerification per rad — det skalar inte till
+  // potentiellt tusentals importerade verifikationer (varje loop-varv
+  // vore sin egen fullständiga funktionella uppdatering av HELA
+  // companies-trädet). Räknar upp varje seriens löpnummer EN gång från
+  // den befintliga bokföringen (samma padStart(3,'0')-konvention som
+  // getNextNumber i Verifications.jsx), sedan sekventiellt inom batchen —
+  // annars hade flera importerade verifikationer i samma serie fått
+  // samma nummer. Det URSPRUNGLIGA SIE-datumet bevaras ALLTID oförändrat;
+  // filens egna serie+nummer sparas bara i sourceId för spårbarhet, inte
+  // som det faktiska numret (kollisioner mot redan befintlig bokföring är
+  // annars troliga — en ny SIE4-import som också råkar börja på A001 får
+  // inte tyst skriva över en riktig, redan bokförd A001).
+  // OBS: medvetet en vanlig funktion, INTE useCallback — den här koden
+  // körs efter `if (isLoadingAuth) return ...` ovan (samma anledning som
+  // handleAddVerification ovan är en vanlig funktion), och ett hook-anrop
+  // där hade villkorligt hoppats över beroende på isLoadingAuth, vilket
+  // React upptäcker och kraschar på ("Rendered more hooks than during
+  // the previous render").
+  const handleBulkImportVerifications = (newVerifications, newAccounts, sourceTag = 'sie_import') => {
+    if (newAccounts?.length) {
+      updateCompanyField('accounts', prev => {
+        const existingCodes = new Set(prev.map(a => a.code));
+        const toAdd = newAccounts.filter(a => !existingCodes.has(a.code));
+        return toAdd.length ? [...prev, ...toAdd] : prev;
+      });
+    }
+
+    updateCompanyField('verifications', prev => {
+      const seriesMax = {};
+      const nextNumberFor = (seriesLetter) => {
+        if (seriesMax[seriesLetter] === undefined) {
+          seriesMax[seriesLetter] = prev.reduce((m, v) => {
+            if (!(v.number || '').startsWith(seriesLetter)) return m;
+            const n = parseInt((v.number || '').replace(/\D/g, ''), 10);
+            return !isNaN(n) && n > m ? n : m;
+          }, 0);
+        }
+        seriesMax[seriesLetter] += 1;
+        return seriesMax[seriesLetter];
+      };
+      const withNumbers = newVerifications.map((v, i) => {
+        const seriesLetter = v.series || 'A';
+        const n = nextNumberFor(seriesLetter);
+        return {
+          ...v,
+          id: `${Date.now()}_${i}_${seriesLetter}`,
+          number: `${seriesLetter}${String(n).padStart(3, '0')}`,
+          status: 'booked',
+          source: v.source || sourceTag,
+          sourceId: v.sourceId || `${sourceTag}_${seriesLetter}_${v.sieNumber ?? i}`,
+        };
+      });
+      return [...prev, ...withNumbers];
     });
   };
 
@@ -3386,6 +3478,8 @@ function App() {
             onResumeOnboarding={() => setShowOnboarding(true)}
             vatPeriods={vatPeriods}
             payrollRuns={payrollRuns}
+            employees={employees}
+            onBulkImportSie={handleBulkImportVerifications}
           />
         );
       case 'time':
@@ -3454,6 +3548,7 @@ function App() {
             key={company?.id || data.activeCompanyId}
             invoices={invoices}
             contacts={contacts}
+            accounts={accounts}
             articles={articles}
             setArticles={setArticles}
             verifications={verifications}
@@ -3687,10 +3782,11 @@ function App() {
             sidebarStyle={sidebarStyle}
             onToggleSidebarStyle={toggleSidebarStyle}
             sharedAccess={currentCompany.__shared || null}
+            onBulkImportSie={handleBulkImportVerifications}
           />
         );
       default:
-        return <Dashboard {...commonProps} invoices={invoices} expenses={expenses} contacts={contacts} setActiveTab={setActiveTab} company={company} />;
+        return <Dashboard {...commonProps} invoices={invoices} expenses={expenses} contacts={contacts} setActiveTab={setActiveTab} company={company} onBulkImportSie={handleBulkImportVerifications} />;
     }
   };
 
@@ -3723,8 +3819,8 @@ function App() {
               <MfaChallengeScreen onVerify={handleMfaVerify} onCancel={handleMfaCancel} />
             ) : !isLoggedIn ? (
               showLanding
-                ? <LandingPage onEnterApp={() => setShowLanding(false)} />
-                : <Auth onLogin={handleLogin} onBackToLanding={() => setShowLanding(true)} />
+                ? <LandingPage onEnterApp={(mode, plan) => { setShowLanding(false); setAuthMode(mode === 'signup' ? 'signup' : 'login'); if (plan) setSelectedPlan(plan); }} />
+                : <Auth onLogin={handleLogin} onBackToLanding={() => setShowLanding(true)} initialMode={authMode} plan={selectedPlan} />
             ) : showOnboarding ? (
               // Bugkritiskt: `showOnboarding`/handleOnboardingComplete/
               // handleSkipOnboarding fanns redan helt färdigkopplade (även

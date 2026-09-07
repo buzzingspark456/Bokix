@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Plus, ChevronRight, Users, UserCog, CalendarClock, Search } from 'lucide-react';
+import { Plus, ChevronRight, Users, UserCog, CalendarClock, Search, Palmtree } from 'lucide-react';
+import VacationOverview from './VacationOverview';
 import EmployeeForm from './EmployeeForm';
 import PayrollRunDetail from './PayrollRunDetail';
 import ListPageHeader, { ListFilterBar, listSearchInputStyle } from './shared/ListPageHeader';
@@ -99,7 +100,14 @@ export default function Payroll({
               : []
         }
         tabs={{
-          items: [{ id: 'employees', label: 'Anställda', icon: UserCog }, { id: 'runs', label: 'Lönekörningar', icon: CalendarClock }],
+          items: [
+            { id: 'employees', label: 'Anställda', icon: UserCog },
+            { id: 'runs', label: 'Lönekörningar', icon: CalendarClock },
+            // Semestersaldon hör hemma bredvid lönekörningarna och inte inne
+            // i en enskild anställd: frågan "hur mycket semester ligger vi på"
+            // är en företagsfråga (och en balanspost), inte en personalfråga.
+            { id: 'vacation', label: 'Semester', icon: Palmtree },
+          ],
           activeId: activeTab,
           onChange: (id) => { setActiveTab(id); setViewState('list'); setSelectedEmployee(null); },
         }}
@@ -198,6 +206,14 @@ export default function Payroll({
             onCancel={() => { setViewState('list'); setSelectedEmployee(null); }}
           />
         </div>
+      )}
+
+      {activeTab === 'vacation' && (
+        <VacationOverview
+          employees={employees}
+          payrollRuns={payrollRuns}
+          onSelectEmployee={(employee) => { setActiveTab('employees'); setSelectedEmployee(employee); setViewState('edit'); }}
+        />
       )}
 
       {activeTab === 'runs' && (
