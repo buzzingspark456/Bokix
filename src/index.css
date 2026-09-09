@@ -1451,20 +1451,29 @@ body {
   align-items: stretch;
 }
 
-/* Två sektioner sida vid sida på dator (plan + kvitton, profil +
-   säkerhet). Den vänstra är huvudsaken och får mer plats. */
+/* Sektioner sida vid sida på dator.
+   VARFÖR spalter (columns) och inte ett rutnät: ett rutnät gör varje RAD
+   lika hög som sin högsta cell, så en kort sektion bredvid en lång lämnade
+   ett lodrätt hål på flera hundra pixlar — den enskilt största källan till
+   den upprepade kundinvändningen om tom yta på den här sidan. Med spalter
+   börjar nästa sektion direkt där den föregående slutade, oberoende av vad
+   grannspalten gör.
+   "break-inside: avoid" håller ihop varje sektion; utan den kan ett kort
+   klippas mitt itu vid spaltbrytningen. Sektionens egen marginBottom
+   (Settings.jsx: SettingsSection) är det lodräta avståndet. */
 .settings-split {
-  display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
-  gap: 16px;
-  align-items: start;
+  columns: 2;
+  column-gap: 12px;
+}
+
+.settings-split > * {
+  break-inside: avoid;
+  -webkit-column-break-inside: avoid;
+  display: block;
 }
 
 @media (max-width: 1000px) {
-  .settings-split {
-    grid-template-columns: 1fr;
-    gap: 0;
-  }
+  .settings-split { columns: 1; }
 }
 
 .settings-grid {
@@ -1492,6 +1501,65 @@ body {
 .settings-grid > * {
   margin-bottom: 0 !important;
 }
+
+
+/* ══════════════════════════════════════════════
+   INSTÄLLNINGAR — översikten och tätheten
+══════════════════════════════════════════════ */
+
+/* Översikten (Settings.jsx: SettingsHub). Åtta kort som fyller bredden i
+   stället för en flikrad + två små rutor och en halv skärm tom yta, vilket
+   var den upprepade kundinvändningen mot den här sidan. */
+.settings-hub {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr));
+  gap: 10px;
+}
+
+.settings-hub-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  width: 100%;
+  padding: 14px 15px;
+  text-align: left;
+  font-family: inherit;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.settings-hub-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 6px 16px -10px rgba(15, 23, 42, 0.35);
+  transform: translateY(-1px);
+}
+
+.settings-hub-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  flex-shrink: 0;
+  background: var(--status-green-bg);
+  color: var(--accent);
+}
+
+/* Tätheten inne i ett avsnitt.
+   Kundinvändningen var inte en enskild siffra utan summan: varje sektion
+   hade en egen bottenmarginal, varje kort en egen innerpadding, och två
+   spalter som inte fylldes lika högt lämnade en lodrät lucka i den korta.
+   Måtten här drar ihop rytmen ett steg överallt; `align-content: start`
+   låter i stället spalterna sluta där innehållet slutar. */
+@media (min-width: 1001px) {
+  .settings-split { gap: 12px; }
+}
+
+.settings-split > * { min-width: 0; }
 
 /* ══════════════════════════════════════════════
    MOBILE BOTTOM NAVIGATION

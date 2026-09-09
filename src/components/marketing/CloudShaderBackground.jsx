@@ -337,6 +337,11 @@ export default function CloudShaderBackground({
       }
       gl.viewport(0, 0, w, h);
       gl.uniform2f(loc.res, w, h);
+      // Att sätta canvas.width nollställer ritbufferten. Rullar loopen
+      // fyller nästa bildruta i den igen — gör den inte det (nödbromsen,
+      // pausen, reducerad rörelse) skulle hjälten annars bli tom vid varje
+      // fönsterändring.
+      if (!running && loc.res) drawFrame();
     };
     const observer = new ResizeObserver(resize);
     observer.observe(canvas);
@@ -381,6 +386,17 @@ export default function CloudShaderBackground({
     // sekunder framåt i samma ögonblick man skrollar tillbaka.
     let elapsedMs = 0;
     let prevNow = 0;
+    const drawFrame = () => {
+      const p = paramsRef.current;
+      const { cloud, skyTop, skyBottom } = resolveColors(p);
+      gl.uniform1f(loc.time, reduceMotion ? 0 : (elapsedMs / 1000) * p.speed);
+      gl.uniform1f(loc.count, Math.min(6, Math.max(1, p.count)));
+      gl.uniform3f(loc.cloud, cloud[0], cloud[1], cloud[2]);
+      gl.uniform3f(loc.skyTop, skyTop[0], skyTop[1], skyTop[2]);
+      gl.uniform3f(loc.skyBottom, skyBottom[0], skyBottom[1], skyBottom[2]);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+    };
+
     const draw = (now) => {
       if (!running) return;
       if (prevNow && now - lastDraw < MIN_FRAME_MS) { frame = requestAnimationFrame(draw); return; }
@@ -444,17 +460,20 @@ export default function CloudShaderBackground({
     const onVisibilityChange = () => setRunning(onScreen && !document.hidden);
     document.addEventListener('visibilitychange', onVisibilityChange);
 
-    // Byt om vid temaväxling även under reduced-motion (en enda ommålad
-    // bildruta, ingen rAF-loop dras igång för det).
+    // Byt om vid temaväxling när loopen INTE ritar av sig själv.
+    //
+    // Bugkritiskt (kundrapporterat: "hjälten är kvar i ljust läge när jag
+    // slår om till mörkt"): villkoret var tidigare bara `reduceMotion`,
+    // vilket stämde så länge loopen alltid rullade i övriga fall. Sedan
+    // nödbromsen och pausen vid utskrollad hjälte tillkom finns det tre
+    // lägen där ingen ny bildruta ritas — reducerad rörelse, pausad, och
+    // permanent stoppad — och i alla tre satt den senast ritade himlen
+    // kvar i FEL tema tills sidan laddades om. Rätt villkor är därför
+    // "ritar loopen inte just nu?", inte "har användaren stängt av
+    // animationer?".
     const themeObserver = new MutationObserver(() => {
-      if (!reduceMotion) return;
-      const p = paramsRef.current;
-      const { cloud, skyTop, skyBottom } = resolveColors(p);
-      gl.uniform1f(loc.count, Math.min(6, Math.max(1, p.count)));
-      gl.uniform3f(loc.cloud, cloud[0], cloud[1], cloud[2]);
-      gl.uniform3f(loc.skyTop, skyTop[0], skyTop[1], skyTop[2]);
-      gl.uniform3f(loc.skyBottom, skyBottom[0], skyBottom[1], skyBottom[2]);
-      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      if (running) return; // loopen plockar upp färgerna själv nästa bildruta
+      drawFrame();
     });
     themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 

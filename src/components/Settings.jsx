@@ -3,6 +3,7 @@ import {
   Building2, CreditCard, Shield, Check, Download, Upload,
   Trash2, Mail, Laptop, Lock, KeyRound, Image as ImageIcon,
   Palette, Landmark, Hash, Calendar, Plus, X, ZoomIn, ZoomOut, Maximize2, Bell, ExternalLink, Sun, Moon,
+  UserRound, FileText, Plug, Users, Database, Cog, ChevronRight, ArrowLeft,
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { sendInvoiceEmail } from '../emailApi';
@@ -116,6 +117,55 @@ const SETTINGS_TABS = [
   { id: 'appearance', label: 'Utseende' },
   { id: 'data', label: 'Din data' },
 ];
+
+// ── Inställningarnas ingång ──────────────────────────────────────────────
+// Kundfeedback, upprepad: sidan öppnade alltid i "Min profil" och kastade
+// därmed in en som skulle till något helt annat mitt i ett formulär. Nu
+// öppnar den i stället på en översikt där man VÄLJER område — och varje
+// område beskrivs med en rad, så man slipper gissa vad "Din data" innehåller.
+//
+// Ikon och beskrivning bor här bredvid etiketten (SETTINGS_TABS ovan bär
+// bara id + label eftersom flikraden inte har plats för mer).
+const SECTION_META = {
+  profile: { icon: UserRound, desc: 'Namn, e-post, lösenord och tvåstegsverifiering.' },
+  company: { icon: Building2, desc: 'Företagsuppgifter, adress, räkenskapsår och kontoplan.' },
+  invoice: { icon: FileText, desc: 'Fakturamall, logotyp, betalvillkor och numrering.' },
+  integrations: { icon: Plug, desc: 'Stripe, Zettle och egen avsändardomän för mejl.' },
+  users: { icon: Users, desc: 'Bjud in kollegor och styr vad de får se.' },
+  subscription: { icon: CreditCard, desc: 'Din plan, kvitton och uppsägning.' },
+  appearance: { icon: Palette, desc: 'Ljust eller mörkt, sidomeny och småsaker i gränssnittet.' },
+  data: { icon: Database, desc: 'Exportera, importera SIE, säkerhetskopiera och radera.' },
+};
+
+/** Översikten. Ett tätt rutnät som fyller bredden — åtta kort på två rader
+ * på en vanlig skärm, i stället för två små rutor och en halv skärm tom
+ * yta (vilket var precis vad flikarna gav när man landade på en kort
+ * flik). */
+function SettingsHub({ sections, onPick }) {
+  return (
+    <div className="settings-hub">
+      {sections.map(section => {
+        const meta = SECTION_META[section.id] || {};
+        const Icon = meta.icon || Cog;
+        return (
+          <button
+            key={section.id}
+            type="button"
+            className="settings-hub-card"
+            onClick={() => onPick(section.id)}
+          >
+            <span className="settings-hub-icon"><Icon size={17} /></span>
+            <span style={{ minWidth: 0, flex: 1 }}>
+              <span style={{ display: 'block', fontSize: '14px', fontWeight: 700, color: 'var(--text-main)' }}>{section.label}</span>
+              {meta.desc && <span style={{ display: 'block', fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.5, marginTop: '2px' }}>{meta.desc}</span>}
+            </span>
+            <ChevronRight size={16} color="var(--text-muted)" style={{ flexShrink: 0, alignSelf: 'center' }} />
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 // ── Delade stilar ──
 // Bugkritiskt (Sida 15): varje sektion är ett fullbrett, ljust kort — inte
@@ -271,10 +321,15 @@ function Badge({ tone = 'warning', children }) {
 // Serifen (--font-voice, samma som Startsidans hälsning) används på EN
 // plats: företagets/personens namn i identitetskortet högst upp i en flik.
 // Det är sidans enda "designade" moment — resten är medvetet tyst.
+// Måtten här är sidans lodräta rytm, och de är MEDVETET snåla:
+// kundinvändningen mot inställningarna var återkommande och handlade om
+// summan av luft — sektionsmarginal plus rubrikmarginal plus kortets egen
+// innerpadding, tre gånger per skärm. Ändra dem här, inte i en enskild
+// flik, annars driver flikarna isär igen.
 function SettingsSection({ title, description, children, actions }) {
   return (
-    <section style={{ marginBottom: '18px' }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '14px', flexWrap: 'wrap', marginBottom: '8px' }}>
+    <section style={{ marginBottom: '12px' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginBottom: '6px' }}>
         <div style={{ minWidth: 0 }}>
           <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.01em' }}>{title}</h2>
           {description && (
@@ -302,7 +357,7 @@ function SettingCard({ title, icon: Icon, tone = 'green', badge, description, ch
     }}>
       {(title || badge) && (
         <div style={{
-          display: 'flex', alignItems: 'center', gap: '11px', padding: '10px 14px',
+          display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 13px',
           borderBottom: '1px solid var(--border-light)',
         }}>
           {Icon && <SectionHeadingIcon icon={Icon} tone={danger ? 'red' : tone} />}
@@ -338,8 +393,8 @@ function SectionHeadingIcon({ icon: Icon, tone = 'green' }) {
 function SettingRow({ label, description, children, last }) {
   return (
     <div style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '18px', flexWrap: 'wrap',
-      padding: '10px 0',
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap',
+      padding: '8px 0',
       borderBottom: last ? 'none' : '1px solid var(--border-light)',
     }}>
       <div style={{ minWidth: '180px', flex: 1 }}>
@@ -1925,7 +1980,9 @@ export default function Settings({
   // en inställning.
   theme = 'light', onToggleTheme,
 }) {
-  const [activeTab, setActiveTab] = useState('profile');
+  // `null` = översikten (SettingsHub). Se kommentaren vid SECTION_META
+  // för varför sidan inte längre öppnar mitt i ett formulär.
+  const [activeTab, setActiveTab] = useState(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [importBusy, setImportBusy] = useState(false);
   const [importMsg, setImportMsg] = useState('');
@@ -2053,13 +2110,26 @@ export default function Settings({
     }
   };
 
+  // Djuplänk in i ett visst avsnitt.
+  //
+  // Bugkritiskt (kundrapporterat: "när jag gör något hamnar jag på en gammal
+  // sida"): avsnittet skrevs tidigare som en NAKEN hash — #data, #appearance,
+  // #integrations. Men hashen är appens GLOBALA sidväljare (App.jsx:
+  // resolveTab), och de orden är inga sidor där. Laddade man om med
+  // #data i adressfältet slog switchens default till och man landade på
+  // Startsidan i stället för i inställningarna man just stod i. Numera
+  // skrivs "settings/<avsnitt>", och resolveTab läser bara delen före
+  // snedstrecket — hashen pekar alltså alltid på en riktig sida, och
+  // avsnittet åker med som en underdel av den.
+  //
+  // De gamla, nakna formerna (#profile/#company/#users) läses fortfarande:
+  // de finns som alias i App.jsx sedan tidigare och kan ligga i någons
+  // bokmärke.
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const hash = window.location.hash.replace('#', '');
-      if (SETTINGS_TABS.some(t => t.id === hash)) {
-        setActiveTab(hash);
-      }
-    }
+    if (typeof window === 'undefined') return;
+    const hash = window.location.hash.replace('#', '');
+    const section = hash.startsWith('settings/') ? hash.slice('settings/'.length) : hash;
+    if (SETTINGS_TABS.some(t => t.id === section)) setActiveTab(section);
   }, []);
 
   // App.jsx kan öppna sidan direkt på en viss flik (t.ex. den gamla
@@ -2071,8 +2141,18 @@ export default function Settings({
 
   const handleSetTab = (tab) => {
     setActiveTab(tab);
-    if (typeof window !== 'undefined') window.history.replaceState(null, '', `#${tab}`);
+    // Se kommentaren vid hash-avläsningen ovan för varför den är
+    // namnrymdad. `null` = tillbaka till översikten, som inte har något
+    // eget avsnitt att peka ut.
+    if (typeof window !== 'undefined') {
+      window.history.replaceState(null, '', tab ? `#settings/${tab}` : '#settings');
+    }
   };
+
+  const visibleSections = ufSettingsSections(company, SETTINGS_TABS);
+  // `null` när man står på översikten. Styr sidhuvudet, flikraden och
+  // vilken vy som renderas — ETT värde, inte tre villkor som kan glida isär.
+  const activeSection = visibleSections.find(t => t.id === activeTab) || null;
 
   const firstName = user?.user_metadata?.first_name || '';
   const lastName = user?.user_metadata?.last_name || '';
@@ -2477,21 +2557,30 @@ export default function Settings({
           bred sidomeny — kundfeedback: "jag gillar inte att den ligger i
           sidan i stället för i toppen", och ikonen efterfrågades bort. */}
       <ListPageHeader
-        title="Inställningar"
-        subtitle="Din profil, ditt företag och hur Bokix ser ut och beter sig."
+        title={activeSection ? activeSection.label : 'Inställningar'}
+        subtitle={activeSection ? (SECTION_META[activeSection.id]?.desc || '') : 'Välj vad du vill ändra.'}
+        actions={activeSection
+          ? [{ key: 'back', label: 'Alla inställningar', icon: ArrowLeft, onClick: () => handleSetTab(null) }]
+          : []}
         // Piller-flikar (ListPageHeader): åtta flikar får inte plats på en
         // rad, och den understrukna standardraden skrollade då i sidled så
         // att de sista (Utseende, Din data) låg utanför skärmkanten —
         // kundfeedback: "man kan inte se dem, man måste skrolla". Pillren
         // radbryter i stället; alla åtta syns samtidigt och är ett tryck
         // bort, på bred skärm såväl som på telefon.
-        tabs={{ items: ufSettingsSections(company, SETTINGS_TABS), activeId: activeTab, onChange: handleSetTab, variant: 'pills' }}
+        // Flikraden hör till ett öppnat avsnitt, inte till översikten —
+        // där ÄR korten navigeringen, och en flikrad ovanför dem hade varit
+        // samma val två gånger på samma skärm.
+        tabs={activeSection
+          ? { items: visibleSections, activeId: activeTab, onChange: handleSetTab, variant: 'pills' }
+          : undefined}
       />
 
       {/* Ett läsbart mått i stället för hela skärmbredden: formulärfält som
           spänner över 1400 px läses inte, de skannas förbi. */}
       <div className="settings-content" style={{ flex: 1, minWidth: 0, overflowY: 'auto' }}>
-        <div data-tour="page-settings-nav" style={{ maxWidth: '1180px', margin: '0 auto', padding: 'clamp(14px, 1.4vw, 20px)' }}>
+        <div data-tour="page-settings-nav" style={{ maxWidth: '1180px', margin: '0 auto', padding: 'clamp(12px, 1.2vw, 18px)' }}>
+          {!activeSection && <SettingsHub sections={visibleSections} onPick={handleSetTab} />}
           {/* 1. Min profil */}
           {activeTab === 'profile' && (
             <div style={{ animation: 'fadeIn 0.2s ease' }}>
@@ -2553,11 +2642,11 @@ export default function Settings({
                   ) : <TwoFactorSection />}
                 </div>
               </SettingsSection>
-              </div>
 
               <SettingsSection title="Inloggningar" description="Enheter där du är inloggad just nu.">
                 <ActiveSessionsSection user={user} readOnly={readOnly} />
               </SettingsSection>
+              </div>
             </div>
           )}
 

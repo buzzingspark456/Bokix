@@ -915,7 +915,16 @@ const tabAliases = {
   company:          'settings',
   settings:         'settings',
 };
-const resolveTab = (id) => tabAliases[id] || id;
+// En sida får ha en underdel efter ett snedstreck — "settings/data" är
+// fortfarande sidan "settings". Utan det skrev Inställningar sitt avsnitt
+// som en naken hash (#data), vilket är ett sid-id som inte finns: en
+// omladdning slog då till switchens default och kastade tillbaka en till
+// Startsidan mitt i det man höll på med. Underdelen ägs av sidan själv,
+// routingen här bryr sig bara om delen före snedstrecket.
+const resolveTab = (id) => {
+  const base = String(id || '').split('/')[0];
+  return tabAliases[base] || base;
+};
 // "Leverantörsfakturor" (SupplierInvoices.jsx) har ingen egen sidopunkt i
 // sidomenyn — den nås via Faktureringens ("invoices") egen Leverantörer-
 // flik/genväg (Invoices.jsx: SupplierInvoicesPanel), som navigerar hit med

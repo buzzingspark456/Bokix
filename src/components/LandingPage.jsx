@@ -6,7 +6,7 @@ import {
   Building2, Briefcase, Landmark, HeartHandshake, UserCheck,
   Gavel,
   Eye, Workflow, FileBarChart, CreditCard, TrendingUp, Cog,
-  UserPlus, Send, GraduationCap,
+  GraduationCap,
 } from 'lucide-react';
 import { BRAND } from '../utils/brandColors';
 import MarketingLayout, { Reveal, BokixWordmark } from './marketing/MarketingLayout';
@@ -61,11 +61,6 @@ const FEATURE_COLUMNS = [
   },
 ];
 
-const ONBOARDING_STEPS = [
-  { n: '1', icon: UserPlus, title: 'Skapa ditt konto', desc: 'Ange företagsnamn och organisationsnummer. Bokix känner själv igen om det är en enskild firma, ett aktiebolag eller en annan bolagsform.', g: ACCENT.blue },
-  { n: '2', icon: Building2, title: 'Fyll i företagsuppgifter', desc: 'Adress, räkenskapsår, momsperiod och kontoplan (BAS), klart på ett par minuter med rimliga förval redan ifyllda.', g: ACCENT.teal },
-  { n: '3', icon: Send, title: 'Kom igång med fakturering', desc: 'Skicka din första kundfaktura eller registrera ett kvitto. Du landar direkt i en fungerande bokföring, inte en tom sida.', g: ACCENT.green },
-];
 
 // Prisdata delad med PricingPage.jsx (se pricingTiers.js för resonemanget
 // kring axeln/priset/den korrigerade "ingen bankkoppling"-texten) — en
@@ -800,50 +795,6 @@ export default function LandingPage({ onEnterApp }) {
             >
               Se hur bankimporten fungerar <ArrowRight size={15} />
             </Link>
-          </Reveal>
-        </div>
-      </section>
-
-      {/* ── ONBOARDING I TRE STEG — kundönskemål ("gör den snyggare"):
-          samma kopplad-pipeline-idé (ikonnod → rörlig linje → ikonnod) som
-          leverantörsfaktura-flödet längre upp, inte en vertikal numrerad
-          lista längre. .lp-step-flow/.lp-step-connector i
-          MarketingLayout.jsx — egna, smalare klasser (ingen skärmdump att
-          rymma här, det här ÄR signup-flödet). ── */}
-      <section style={{ padding: '76px 24px', background: 'var(--mkt-card-bg)', position: 'relative', overflow: 'hidden' }}>
-        <AuroraLayer
-          stops={[['rgba(14,165,233,0.18)', '2% -6%'], ['rgba(47,138,58,0.14)', '98% 106%']]}
-          blob={{ gradient: grad(GRAD.blueTeal), top: '-150px', left: '-110px', size: '440px', opacity: 0.2 }}
-        />
-        <div style={{ maxWidth: 'min(90vw, 1300px)', margin: '0 auto', position: 'relative' }}>
-          <Reveal style={{ textAlign: 'center', marginBottom: '48px' }}>
-            <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(26px, 4vw, 38px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '12px' }}>
-              Igång på tre steg
-            </h2>
-            <p style={{ fontSize: '16.5px', color: MUTED }}>Ingen krånglig uppsättning, bara det som faktiskt behövs.</p>
-          </Reveal>
-
-          {/* Kundönskemål ("gör den större så det är mindre space") — noden/
-              ikonen/texten storleksökta rejält (64→84px cirkel, 280→340px
-              nod i MarketingLayout.jsx) så tre enkla ikon+text-block fyller
-              den breda raden lika bra som skärmdump-korten i leverantörs-
-              faktura-flödet gör längre upp. */}
-          <Reveal scale className="lp-step-flow">
-            {ONBOARDING_STEPS.map((step, i, arr) => (
-              <React.Fragment key={step.n}>
-                <div className="lp-step-node">
-                  <div style={{ width: 84, height: 84, borderRadius: '50%', background: step.g.fg, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 12px 26px -10px ${step.g.fg}`, marginBottom: '20px', flexShrink: 0, position: 'relative' }}>
-                    <step.icon size={36} />
-                    <span style={{ position: 'absolute', top: -5, right: -5, width: 27, height: 27, borderRadius: '50%', background: 'var(--mkt-card-bg)', border: `2px solid ${step.g.fg}`, color: step.g.fg, fontSize: '13px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{step.n}</span>
-                  </div>
-                  <h3 style={{ fontSize: '19px', fontWeight: 700, color: INK, marginBottom: '9px' }}>{step.title}</h3>
-                  <p style={{ fontSize: '15px', color: MUTED, lineHeight: 1.65 }}>{step.desc}</p>
-                </div>
-                {i < arr.length - 1 && (
-                  <div aria-hidden className="lp-step-connector lp-flow-connector" style={{ backgroundImage: `linear-gradient(90deg, ${step.g.fg}, ${arr[i + 1].g.fg}, ${step.g.fg})` }} />
-                )}
-              </React.Fragment>
-            ))}
           </Reveal>
         </div>
       </section>
