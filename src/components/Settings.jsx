@@ -368,7 +368,7 @@ function SettingCard({ title, icon: Icon, tone = 'green', badge, description, ch
           {badge}
         </div>
       )}
-      <div style={{ padding: '14px' }}>{children}</div>
+      {children != null && <div style={{ padding: '14px' }}>{children}</div>}
     </div>
   );
 }
@@ -506,8 +506,8 @@ function IntegrationTile({ logo, name, tagline, connected, statusLabel, action, 
       style={{
         background: 'var(--bg-card)',
         border: `1px solid ${open ? BRAND.green : 'var(--border)'}`,
-        borderRadius: '14px', padding: '15px 16px', minWidth: 0,
-        display: 'flex', flexDirection: 'column', gap: '12px',
+        borderRadius: '14px', padding: '20px 20px 18px', minWidth: 0,
+        display: 'flex', flexDirection: 'column', gap: '14px',
         cursor: clickable ? 'pointer' : 'default',
         boxShadow: open ? '0 4px 14px rgba(11, 99, 41, 0.12)' : '0 1px 2px rgba(15, 23, 42, 0.04)',
       }}
@@ -2576,10 +2576,13 @@ export default function Settings({
           : undefined}
       />
 
-      {/* Ett läsbart mått i stället för hela skärmbredden: formulärfält som
-          spänner över 1400 px läses inte, de skannas förbi. */}
+      {/* Bredden begränsas av SPALTERNA, inte av behållaren: varje kort
+          hamnar i en spalt på 380–520 px, vilket är den läsbara radlängd
+          det gamla 1180-taket fanns för att skapa. Taket i sig lämnade
+          bara flera hundra tomma pixlar i var kant på en bred skärm
+          (kundrapporterat med skärmbild från en 1674 px-skärm). */}
       <div className="settings-content" style={{ flex: 1, minWidth: 0, overflowY: 'auto' }}>
-        <div data-tour="page-settings-nav" style={{ maxWidth: '1180px', margin: '0 auto', padding: 'clamp(12px, 1.2vw, 18px)' }}>
+        <div data-tour="page-settings-nav" style={{ maxWidth: '1680px', margin: '0 auto', padding: 'clamp(12px, 1.2vw, 18px)' }}>
           {!activeSection && <SettingsHub sections={visibleSections} onPick={handleSetTab} />}
           {/* 1. Min profil */}
           {activeTab === 'profile' && (
@@ -2598,15 +2601,17 @@ export default function Settings({
                 ]}
               />
 
-              {/* Uppgifter och säkerhet sida vid sida — profilen är fyra fält
-                  och behövde inte en egen skärmhöjd före lösenordet. */}
+              {/* FYRA likvärdiga kort, inga rubriker utanför dem.
+                  Tidigare låg korten under egna sektionsrubriker ("Säkerhet"
+                  över ett kort som redan hette "Lösenord") — samma sak sagd
+                  två gånger, och en extra rytmnivå som kostade luft på varje
+                  skärm. Varje kort bär nu sin egen rubrik.
+                  Fyra jämnstora block packar dessutom spalterna mycket bättre
+                  än två block där det ena är dubbelt så högt som det andra —
+                  det var därför högerspalten stod tom halva skärmen. */}
               <div className="settings-split">
-              <SettingsSection
-                title="Dina uppgifter"
-                description="E-postadressen är din inloggning."
-              >
-                <SettingCard>
-                  <div className="form-row-2" style={{ ...grid2, maxWidth: FORM_MAX }}>
+                <SettingCard title="Dina uppgifter" icon={UserRound} description="E-postadressen är din inloggning.">
+                  <div className="form-row-2" style={grid2}>
                     <AutoField label="Förnamn" value={firstName} onChange={(v) => updateUserMeta({ first_name: v })} hint="Det du vill bli kallad." />
                     <AutoField label="Efternamn" value={lastName} onChange={(v) => updateUserMeta({ last_name: v })} />
                     <div style={{ gridColumn: '1 / -1' }}>
@@ -2614,38 +2619,18 @@ export default function Settings({
                     </div>
                   </div>
                 </SettingCard>
-              </SettingsSection>
 
-              {/* Hälsningen på Startsidan flyttad härifrån till fliken
-                  Utseende — kundfeedback: den hörde ihop med de andra
-                  "hur ser appen ut"-valen, som låg i en helt annan flik. */}
+                <PasswordSection user={user} readOnly={readOnly} />
 
-              <SettingsSection
-                title="Säkerhet"
-                description="Gäller ditt konto, inte företaget."
-              >
-                {/* Säkerhetskorten i ett rutnät i stället för tre fullbreda
-                    block under varandra (kundfeedback: "lösenordsdelen tar hela
-                    skärmen"). Två kolumner på en bred skärm, en på en smal —
-                    se .settings-grid i index.css. */}
-                <div style={{ display: 'grid', gap: '14px' }}>
-                  <PasswordSection user={user} readOnly={readOnly} />
-                  {/* readOnly (demo): TwoFactorSection hämtar riktiga MFA-faktorer
-                      från Supabase direkt vid mount (ingen klickbar åtgärd att
-                      spärra) — hoppas över helt istället för att göra ett
-                      Supabase-anrop från en icke-inloggad besökare. */}
-                  {readOnly ? (
-                    <div style={card}>
-                      <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 4px' }}>Tvåstegsverifiering</h3>
-                      <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>Kräver ett riktigt konto att visa och aktivera.</p>
-                    </div>
-                  ) : <TwoFactorSection />}
-                </div>
-              </SettingsSection>
+                {/* readOnly (demo): TwoFactorSection hämtar riktiga
+                    MFA-faktorer från Supabase direkt vid mount — hoppas över
+                    helt istället för att göra ett Supabase-anrop från en
+                    icke-inloggad besökare. */}
+                {readOnly ? (
+                  <SettingCard title="Tvåstegsverifiering" icon={KeyRound} description="Kräver ett riktigt konto att visa och aktivera." />
+                ) : <TwoFactorSection />}
 
-              <SettingsSection title="Inloggningar" description="Enheter där du är inloggad just nu.">
                 <ActiveSessionsSection user={user} readOnly={readOnly} />
-              </SettingsSection>
               </div>
             </div>
           )}

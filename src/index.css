@@ -1444,10 +1444,14 @@ body {
    och under"). 265px låter alla fyra tjänsterna ligga på EN rad på en bred
    skärm i stället för två glesa, och faller till tre, två och till sist en
    kolumn när fönstret krymper. */
+/* Integrationsbrickorna. Kundönskemål: de ska ta mer plats — det är den
+   flik man kommer till för att koppla ihop Bokix med något annat, och en
+   liten bricka ser ut som en bisak. Måttet ger tre per rad på en vanlig
+   bred skärm i stället för fyra hopklämda. */
 .integration-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 265px), 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
+  gap: 14px;
   align-items: stretch;
 }
 
@@ -1464,6 +1468,25 @@ body {
 .settings-split {
   columns: 2;
   column-gap: 12px;
+}
+
+/* Ett enda lodrätt avstånd oavsett vilken sorts kort som ligger i spalten
+   — SettingCard, SettingsSection och de kort som bär sin egen `card`-stil
+   hade annars tre olika marginaler i samma flöde. */
+.settings-split > * {
+  margin-bottom: 12px !important;
+}
+
+/* Fler spalter när skärmen räcker till. Spaltbredden (och därmed
+   radlängden i formulären) hålls mellan ~380 och ~520 px — bredare än så
+   slutar man läsa fälten och börjar skanna förbi dem, vilket var hela
+   skälet till det gamla behållartaket. */
+@media (min-width: 1500px) {
+  .settings-split { columns: 3; }
+}
+
+@media (min-width: 2100px) {
+  .settings-split { columns: 4; }
 }
 
 .settings-split > * {
