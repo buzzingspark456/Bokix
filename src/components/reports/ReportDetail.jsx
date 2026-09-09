@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ChevronLeft, Download, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight, Percent, Scale, Wallet, Loader2, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, Printer, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight, Percent, Scale, Wallet, Loader2, AlertTriangle } from 'lucide-react';
 import {
-  formatSEK, fmtDate, fmtMonthYear, toISO, formatDelta,
+  formatSEK, formatPct, fmtDate, fmtMonthYear, toISO, formatDelta,
   KpiCard, TabHeadline, EmptyState, ReportSection, DataTable,
   ResultBarChart, CashflowLineChart,
   CostBreakdownDonut, CostRankingList, BalanceSheetTable, ComparisonLegend, swatch, REVENUE,
@@ -24,7 +24,9 @@ import { computeEmployeePayroll } from '../../utils/payrollCalculation';
 import { neededTaxTableKeysForYear } from '../../utils/kuExport';
 import { preloadSkattetabell } from '../../utils/skattetabell';
 
-const fmtPct = (v) => (v == null ? '—' : `${v.toFixed(1)}%`);
+// Procent går genom ReportUI:s formatPct (svensk decimalkomma + hårt
+// mellanslag) — samma format i varje panel, se dess kommentar.
+const fmtPct = (v) => formatPct(v);
 
 /** Genererar en kort, faktabaserad sammanfattning för Årsrapporten utifrån
  * redan beräknade, riktiga tal — INTE ett fritextfält användaren förväntas
@@ -34,21 +36,21 @@ function buildAnnualSummary({ omsattning, prevOmsattning, resultat, prevResultat
   const sentences = [];
   if (prevOmsattning) {
     const pct = ((omsattning - prevOmsattning) / Math.abs(prevOmsattning)) * 100;
-    sentences.push(`Omsättningen ${pct >= 0 ? 'ökade' : 'minskade'} med ${Math.abs(pct).toFixed(0)}% jämfört med föregående räkenskapsår (${formatSEK(prevOmsattning)} → ${formatSEK(omsattning)}).`);
+    sentences.push(`Omsättningen ${pct >= 0 ? 'ökade' : 'minskade'} med ${formatPct(Math.abs(pct), 0)} jämfört med föregående räkenskapsår (${formatSEK(prevOmsattning)} → ${formatSEK(omsattning)}).`);
   } else if (omsattning) {
     sentences.push(`Omsättningen för året landade på ${formatSEK(omsattning)}. Ingen bokföring hittades för föregående år att jämföra med.`);
   }
   if (prevResultat) {
     const pct = ((resultat - prevResultat) / Math.abs(prevResultat)) * 100;
-    sentences.push(`Resultatet ${pct >= 0 ? 'ökade' : 'minskade'} med ${Math.abs(pct).toFixed(0)}% (${formatSEK(prevResultat)} → ${formatSEK(resultat)}).`);
+    sentences.push(`Resultatet ${pct >= 0 ? 'ökade' : 'minskade'} med ${formatPct(Math.abs(pct), 0)} (${formatSEK(prevResultat)} → ${formatSEK(resultat)}).`);
   } else {
     sentences.push(`Årets resultat blev ${formatSEK(resultat)}${resultat >= 0 ? ', ett positivt resultat' : ', ett underskott'}.`);
   }
   if (vinstmarginal != null) {
-    sentences.push(`Vinstmarginalen för året var ${vinstmarginal.toFixed(1)}%.`);
+    sentences.push(`Vinstmarginalen för året var ${formatPct(vinstmarginal)}.`);
   }
   if (soliditet != null) {
-    sentences.push(`Soliditeten (eget kapital i förhållande till totala tillgångar) uppgick till ${soliditet.toFixed(1)}%.`);
+    sentences.push(`Soliditeten (eget kapital i förhållande till totala tillgångar) uppgick till ${formatPct(soliditet)}.`);
   }
   return sentences.join(' ');
 }
@@ -153,11 +155,20 @@ export default function ReportDetail({
                 här, Företagsöversikten visar sin egen, korrekta rad istället. */}
             {reportId !== 'overview' && <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>{periodLabel}</p>}
           </div>
-          {/* Ladda ner-knappen: platsen och utformningen finns redan (Sida
-              14c, uppföljning), men själva PDF/Excel-kopplingen är ett
-              senare steg — därför inaktiv med en tydlig "kommer snart"-
-              förklaring istället för att låtsas fungera. */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          {/* Knappen var tidigare permanent inaktiv med texten "Ladda ner
+              (kommer snart)" — en död knapp överst på sidan, på den yta
+              kundfeedbacken beskrev som appens bästa ("men gör hela
+              analyssidan riktigt bra"). En rapport man inte kan få ut ur
+              programmet är inte klar, så den gör nu något på riktigt:
+              webbläsarens utskrift, som också är vägen till en PDF ("Spara
+              som PDF" finns i varje utskriftsdialog på alla plattformar).
+              Utskriftsreglerna i index.css (@media print, .report-scroll,
+              .no-print) fäller bort sidomeny och knappar och låter hela
+              rapporten flöda över flera sidor i stället för att klippas i
+              sin scrollruta. Det är också varför det INTE är en egen
+              PDF-generator: en riktig export ska visa exakt det man ser,
+              och den koden finns redan i webbläsaren. */}
+          <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           {onDisplayChange && (
             <DisplaySettingsMenu
               colors={display?.colors} unit={display?.unit}
@@ -165,17 +176,17 @@ export default function ReportDetail({
             />
           )}
           <button
-            disabled
-            title="PDF/Excel-export för enskilda rapporter kommer i ett senare steg."
-            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 14px', background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13.5px', fontWeight: 600, color: 'var(--text-muted)', cursor: 'not-allowed' }}
+            onClick={() => window.print()}
+            title="Öppnar webbläsarens utskrift. Välj &quot;Spara som PDF&quot; som skrivare för en PDF-fil."
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 14px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13.5px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer' }}
           >
-            <Download size={14} /> Ladda ner (kommer snart)
+            <Printer size={14} /> Skriv ut / PDF
           </button>
           </div>
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
+      <div className="report-scroll" style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
         {reportId === 'overview' && <OverviewReport {...{ verifications, accounts, company, isMobile }} />}
         {reportId === 'result' && <ResultReport {...{ verifications, accounts, start, end, prevStart, prevEnd, isMobile }} />}
         {reportId === 'balance' && <BalanceReport {...{ verifications, accounts, end }} />}
@@ -895,11 +906,11 @@ function MonthlyReport({ verifications, accounts }) {
         <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '14px' }}>
           <KpiCard
             label="Omsättning" value={formatSEK(latest.omsattning)} icon={TrendingUp} accent="var(--text-main)" iconBg="var(--border-light)"
-            delta={omsDeviation ? { text: `${omsDeviation.up ? '+' : ''}${omsDeviation.pct.toFixed(0)}% mot 12-månaderssnittet (${formatSEK(avgPriorOmsattning)})`, good: omsDeviation.up } : null}
+            delta={omsDeviation ? { text: `${omsDeviation.up ? '+' : ''}${formatPct(omsDeviation.pct, 0)} mot 12-månaderssnittet (${formatSEK(avgPriorOmsattning)})`, good: omsDeviation.up } : null}
           />
           <KpiCard
             label="Resultat" value={formatSEK(latest.resultat)} icon={latest.resultat >= 0 ? TrendingUp : TrendingDown} accent={latest.resultat >= 0 ? 'var(--status-green-text)' : 'var(--status-red-text)'} iconBg="var(--border-light)"
-            delta={resDeviation ? { text: `${resDeviation.up ? '+' : ''}${resDeviation.pct.toFixed(0)}% mot 12-månaderssnittet (${formatSEK(avgPriorResultat)})`, good: resDeviation.up } : null}
+            delta={resDeviation ? { text: `${resDeviation.up ? '+' : ''}${formatPct(resDeviation.pct, 0)} mot 12-månaderssnittet (${formatSEK(avgPriorResultat)})`, good: resDeviation.up } : null}
           />
         </div>
         {(omsDeviation || resDeviation) && (

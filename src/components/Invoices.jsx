@@ -646,7 +646,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
       )}
 
       {isLocked && (
-        <div style={{ background: '#fff8e1', borderBottom: '1px solid #ffe0b2', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '12.5px', color: '#7c4a03', flexShrink: 0 }}>
+        <div style={{ background: 'var(--status-amber-bg)', borderBottom: '1px solid var(--border)', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '12.5px', color: '#7c4a03', flexShrink: 0 }}>
           <AlertTriangle size={16} style={{ flexShrink: 0 }} />
           <span>
             Den här fakturan är bokförd — kund, belopp och rader kan inte längre ändras. Behöver du korrigera ett fel?{' '}
@@ -1488,14 +1488,20 @@ function SupplierInvoicesPanel({ expenses, contacts, onMarkPaid, onOpenFull, onO
             rowStyle={inv => ({ background: getRowBg(getStatus(inv) === 'sent' ? 'sent' : getStatus(inv)) })}
             emptyMessage="Inga fakturor i det här filtret."
             rows={visible}
+            roundedBottom={false}
             mobileList={inv => {
               const status = getStatus(inv);
               const dot = status === 'overdue' ? BRAND.redText : status === 'paid' ? BRAND.greenDark : BRAND.amberText;
+              // Samma resonemang som kundfakturornas rad: numret bär
+              // identiteten när leverantören saknas, och att den saknas
+              // skrivs ut i klartext.
+              const supplierName = contacts.find(c => c.id === inv.supplierId)?.name;
+              const dueLabel = `${status === 'overdue' ? 'förföll' : status === 'paid' ? 'betald' : 'förfaller'} ${formatDate(inv.dueDate)}`;
               return {
                 dot,
-                primary: contacts.find(c => c.id === inv.supplierId)?.name || 'Okänd leverantör',
+                primary: supplierName || `Faktura #${inv.invoiceNumber}`,
                 amount: fmt(inv.amount),
-                meta: `#${inv.invoiceNumber} · ${status === 'overdue' ? 'förföll' : status === 'paid' ? 'betald' : 'förfaller'} ${formatDate(inv.dueDate)}`,
+                meta: supplierName ? `#${inv.invoiceNumber} · ${dueLabel}` : `Ingen leverantör vald · ${dueLabel}`,
                 pill: status === 'paid' ? (
                   <span style={{ padding: '2px 8px', borderRadius: '999px', fontSize: '10.5px', fontWeight: 600, background: BRAND.greenLight, color: BRAND.greenDark }}>Betald</span>
                 ) : (
@@ -1544,7 +1550,7 @@ function SupplierInvoicesPanel({ expenses, contacts, onMarkPaid, onOpenFull, onO
           />
           {/* Samma ärliga avskärningsrad som kundfakturorna: en "Visa 30"
               får aldrig se ut som om det var alla fakturor som fanns. */}
-          <div style={{ padding: '9px 16px', borderTop: '1px solid var(--border)', background: 'var(--bg-muted)', fontSize: '12px', color: 'var(--text-muted)' }}>
+          <div style={{ padding: '9px 16px', border: '1px solid var(--border)', borderTop: 'none', borderRadius: '0 0 12px 12px', background: 'var(--bg-muted)', fontSize: '12px', color: 'var(--text-muted)', boxShadow: 'var(--shadow-sm)' }}>
             {visible.length < sorted.length ? `Visar ${visible.length} av ${sorted.length}` : `${sorted.length} ${sorted.length === 1 ? 'faktura' : 'fakturor'}`}
           </div>
         </div>
@@ -1897,7 +1903,7 @@ function PaymentLinkModal({ invoice, customer, company, onGetPaymentLinkUrl, onC
   );
 }
 
-export default function Invoices({ invoices, contacts, accounts = [], onAdd, onMarkPaid, onRegisterPayment, onUnmarkPaid, setInvoices, company, globalAction, clearGlobalAction, onNavigate, verifications = [], expenses = [], onMarkSupplierInvoicePaid, handleGlobalAction, onGetPaymentLinkUrl, articles = [], setArticles, uid, projects = [] }) {
+export default function Invoices({ ufQuota = { limited: false }, invoices, contacts, accounts = [], onAdd, onMarkPaid, onRegisterPayment, onUnmarkPaid, setInvoices, company, globalAction, clearGlobalAction, onNavigate, verifications = [], expenses = [], onMarkSupplierInvoicePaid, handleGlobalAction, onGetPaymentLinkUrl, articles = [], setArticles, uid, projects = [] }) {
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Två klart avgränsade sektioner, inte en klämd sida-vid-sida-vy — varje
@@ -2336,11 +2342,20 @@ export default function Invoices({ invoices, contacts, accounts = [], onAdd, onM
     const status = getStatus(inv);
     const dot = status === 'overdue' ? BRAND.redText : status === 'draft' ? BRAND.grayText : status === 'paid' ? STRONG_PAID.bg : STRONG_UNPAID.bg;
     const metaDate = status === 'paid' ? `betald ${shortDate(inv.paidDate)}` : status === 'overdue' ? `förföll ${shortDate(inv.dueDate)}` : `förfaller ${shortDate(inv.dueDate)}`;
+    // Kundfeedback med skärmdump: på mobilen stod det bara "—" överst på
+    // raden. Identitetsraden hämtade kundnamnet, och saknas kunden (utkast
+    // där ingen valts än, eller en kund som tagits bort) blev hela raden
+    // anonym — fakturanumret låg som liten metatext och gick inte att
+    // urskilja. Nu tar fakturanumret över som identitet när kunden saknas,
+    // och metaraden SÄGER att kunden saknas i stället för att bara utelämna
+    // den, så man vet vad som är fel och kan åtgärda det.
+    const customerName = getCustomerName(inv.customerId);
+    const hasCustomer = Boolean(customerName) && customerName !== '—';
     return {
       dot,
-      primary: getCustomerName(inv.customerId),
+      primary: hasCustomer ? customerName : `Faktura #${inv.invoiceNumber}`,
       amount: fmt(grossOf(inv)),
-      meta: `#${inv.invoiceNumber} · ${metaDate}`,
+      meta: hasCustomer ? `#${inv.invoiceNumber} · ${metaDate}` : `Ingen kund vald · ${metaDate}`,
       pill: status === 'paid' ? (
         <span style={{ padding: '2px 8px', borderRadius: '999px', fontSize: '10.5px', fontWeight: 700, background: STRONG_PAID.bg, color: STRONG_PAID.text }}>Betald</span>
       ) : (
@@ -2492,7 +2507,28 @@ export default function Invoices({ invoices, contacts, accounts = [], onAdd, onM
           <button onClick={() => setShowExtendedSearch(v => !v)} style={{ ...listHeaderButtonStyle('secondary'), ...(showExtendedSearch ? { background: 'var(--status-blue-bg)', borderColor: 'var(--status-blue-bg)', color: 'var(--status-blue-text)' } : {}) }}>Utökad sökning</button>
           <button onClick={() => { setSearchInput(''); setDateFrom(''); setDateTo(''); setAmountMin(''); setAmountMax(''); }} title="Rensa sökning" style={{ ...listHeaderButtonStyle('secondary'), padding: '0 10px' }}><RefreshCw size={14} /></button>
           <div style={{ flex: 1 }} />
-          <button data-tour="page-invoices-cta" data-inv-tour="create-cta" onClick={() => { setShowForm(true); setEditingInvoice(null); setInvoicePrefill(null); }} style={listHeaderButtonStyle('primary')}>
+          {ufQuota.limited && (
+            <span
+              title={`Gratiskontot för UF får skapa ${ufQuota.limit} fakturor per dygn.`}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '5px 10px', borderRadius: '999px',
+                background: ufQuota.reached ? 'var(--status-amber-bg)' : 'var(--bg-muted)',
+                color: ufQuota.reached ? 'var(--status-amber-text)' : 'var(--text-secondary)',
+                fontSize: '12px', fontWeight: 700, whiteSpace: 'nowrap',
+              }}
+            >
+              {ufQuota.reached
+                ? `Dagens ${ufQuota.limit} fakturor är skapade`
+                : `${ufQuota.remaining} av ${ufQuota.limit} fakturor kvar idag`}
+            </span>
+          )}
+          <button
+            data-tour="page-invoices-cta" data-inv-tour="create-cta"
+            onClick={() => { setShowForm(true); setEditingInvoice(null); setInvoicePrefill(null); }}
+            disabled={ufQuota.reached}
+            title={ufQuota.reached ? 'Dygnstaket är nått — fler fakturor går att skapa imorgon.' : undefined}
+            style={{ ...listHeaderButtonStyle('primary'), ...(ufQuota.reached ? { opacity: 0.5, cursor: 'not-allowed' } : {}) }}
+          >
             <Plus size={14} /> Skapa faktura
           </button>
         </div>
@@ -2609,7 +2645,7 @@ export default function Invoices({ invoices, contacts, accounts = [], onAdd, onM
             bordered={false}
             rowKey={inv => inv.id}
             onRowClick={inv => { if (inv.isDemo) return; setEditingInvoice(inv); setInvoicePrefill(null); setShowForm(true); }}
-            rowStyle={inv => ({ background: selected.has(inv.id) ? '#e3f2fd' : getRowBg(getStatus(inv)) })}
+            rowStyle={inv => ({ background: selected.has(inv.id) ? 'var(--status-blue-bg)' : getRowBg(getStatus(inv)) })}
             sort={{ key: sortKey, dir: sortDir, onSort: toggleSort }}
             selectable={{
               checked: inv => selected.has(inv.id),
@@ -2619,9 +2655,10 @@ export default function Invoices({ invoices, contacts, accounts = [], onAdd, onM
             }}
             rows={visibleRows}
             columns={invoiceColumns}
+            roundedBottom={false}
             mobileList={invoiceMobileRow}
           />
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '10px 16px', background: 'var(--bg-muted)', borderTop: '2px solid var(--border)', fontWeight: 700, fontSize: '13px', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '10px 16px', background: 'var(--bg-muted)', border: '1px solid var(--border)', borderTop: '2px solid var(--border)', borderRadius: '0 0 12px 12px', fontWeight: 700, fontSize: '13px', color: 'var(--text-secondary)', flexWrap: 'wrap', boxShadow: 'var(--shadow-sm)' }}>
             {/* Vänster: ärlig avskärningsrad. Utan den ser en "Visa 30" ut
                 som om företaget bara HADE 30 fakturor. Summan till höger
                 avser hela det filtrerade urvalet, inte bara det som ryms. */}

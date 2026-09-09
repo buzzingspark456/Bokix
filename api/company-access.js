@@ -1,4 +1,5 @@
 import { applySecurityHeaders } from './_security.js';
+import { canWriteField } from '../src/utils/pageAccess.js';
 import { parseJsonBody } from './stripe/_parseBody.js';
 import { requireAuthedUser, loadMemberCompany } from './_auth.js';
 import { checkRateLimit } from './_rateLimit.js';
@@ -224,7 +225,7 @@ export default async function handler(req, res) {
       }
       const member = await loadMemberCompany(user.id, companyId, res);
       if (!member) return;
-      res.status(200).json({ company: member.companyData, role: member.role });
+      res.status(200).json({ company: member.companyData, role: member.role, pageAccess: member.pageAccess || null });
       return;
     }
 
@@ -289,11 +290,31 @@ export default async function handler(req, res) {
         res.status(403).json({ error: 'Företagsnamnet är låst efter registreringen. Kontakta support@bokix.se för att ändra det.' });
         return;
       }
+      // …och organisationsnumret av exakt samma skäl. Det är företagets
+      // identitet i allt appen skickar vidare: fakturor, momsdeklarationen
+      // och AGI:n till Skatteverket, SIE-exporten till revisorn,
+      // bolagsuppslagen. Ett ändrat org.nummer på en befintlig bokföring är
+      // aldrig en rättelse — det är ett annat företag — så det går inte att
+      // skriva om härifrån, ens med giltig reauth. Fritt fram FÖRSTA gången
+      // (tomt orgNr = oavslutad registrering), precis som namnet ovan.
+      if (field === 'company' && ownerCompanyData?.orgNr && value?.orgNr !== ownerCompanyData?.orgNr) {
+        res.status(403).json({ error: 'Organisationsnumret är låst efter registreringen. Kontakta support@bokix.se för att ändra det.' });
+        return;
+      }
     } else {
       const member = await loadMemberCompany(user.id, companyId, res);
       if (!member) return;
       if (member.role !== 'editor') {
         res.status(403).json({ error: 'Din roll (läsare) tillåter inte att spara ändringar.' });
+        return;
+      }
+      // Sidbehörigheter (company_members.page_access): kontrollen som gör
+      // dem verkliga. Klienten döljer sidor, men det är HÄR skrivningen
+      // faktiskt stoppas — en dold meny är ingen behörighet. Saknas listan
+      // (alla inbjudningar gjorda innan behörigheterna fanns) släpps allt
+      // igenom precis som förut.
+      if (!canWriteField(member.pageAccess, field, member.role)) {
+        res.status(403).json({ error: 'Du har inte behörighet till den delen av företaget.' });
         return;
       }
       ownerUserId = member.ownerUserId;

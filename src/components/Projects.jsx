@@ -8,8 +8,8 @@ import {
 import { ProjectSearch, EntitySearch } from './shared/SearchInputs';
 import ListPageHeader, { ListFilterBar } from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
-import { BRAND } from '../utils/brandColors';
 import { useIsMobileViewport } from '../hooks/useIsMobileViewport';
+import { BRAND } from '../utils/brandColors';
 
 const formatSEK = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
 
@@ -107,10 +107,25 @@ function getReportStatus(timeReportStatuses, personId, monthKey, customerId) {
 // mönster här nu: EN gemensam ram (cardBase) med tre kolumner som delar
 // tunna innerlinjer istället för tre egna kort med mellanrum — gäller på
 // både mobil och desktop, aldrig staplat. ──
+// Kundfeedback: "aktiva projekt, nedlagd tid och lönsamhet — det är så
+// mycket luft mellan dem, slå ihop dem och gör dem mycket bättre."
+// Remsan var tre höga kort där ikonen låg ovanför etiketten och värdet:
+// tre korta tal fick nästan 100 px höjd och en tredjedel av sidan var tom
+// innan projektlistan ens började.
+//
+// Nu: EN tät rad. Ikonen ligger bredvid texten i stället för ovanför (halva
+// höjden), och kolumnerna är `auto-fit` med en minsta bredd — på halvskärm
+// blir det två plus en i stället för tre ihopklämda (kundfeedbacken om
+// halvskärm gäller den här sidan också). `isMobileViewport` behövs inte
+// längre: samma täta rad fungerar i alla bredder, det är vad auto-fit gör.
 function ProjectKpiStrip({ items }) {
-  const isMobileViewport = useIsMobileViewport();
   return (
-    <div style={{ ...cardBase, display: 'grid', gridTemplateColumns: `repeat(${items.length}, 1fr)`, overflow: 'hidden' }}>
+    <div style={{
+      ...cardBase,
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+      overflow: 'hidden',
+    }}>
       {items.map((item, i) => {
         const { icon: Icon, label, value, sub, tone = 'neutral' } = item;
         const badge = tone === 'negative'
@@ -120,23 +135,27 @@ function ProjectKpiStrip({ items }) {
           <div
             key={label}
             style={{
-              padding: isMobileViewport ? '14px 10px' : '18px 20px',
+              padding: '13px 16px',
               display: 'flex',
-              flexDirection: 'column',
-              alignItems: isMobileViewport ? 'center' : 'flex-start',
-              textAlign: isMobileViewport ? 'center' : 'left',
-              gap: isMobileViewport ? '8px' : '12px',
+              alignItems: 'center',
+              gap: '12px',
               minWidth: 0,
-              borderRight: i < items.length - 1 ? '1px solid var(--border)' : 'none',
+              // Skiljelinjen ritas som en vänsterkant på alla utom den
+              // första — med auto-fit vet en cell inte längre om den är
+              // sist på sin rad, och en högerkant hade då kunnat hamna
+              // mot kortets egen ytterkant.
+              borderLeft: i === 0 ? 'none' : '1px solid var(--border)',
             }}
           >
-            <div style={{ width: 34, height: 34, borderRadius: '9px', background: badge.bg, color: badge.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <Icon size={16} />
+            <div style={{ width: 30, height: 30, borderRadius: '9px', background: badge.bg, color: badge.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Icon size={15} />
             </div>
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px' }}>{label}</div>
-              <div style={{ fontSize: isMobileViewport ? '17px' : '21px', fontWeight: 700, color: tone === 'negative' ? BRAND.redText : 'var(--text-main)', letterSpacing: '-0.02em', lineHeight: 1.15 }}>{value}</div>
-              {sub && <div style={{ fontSize: '10.5px', color: 'var(--text-secondary)', marginTop: '3px' }}>{sub}</div>}
+              <div style={{ fontSize: '10.5px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '7px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '19px', fontWeight: 700, color: tone === 'negative' ? BRAND.redText : 'var(--text-main)', letterSpacing: '-0.02em', lineHeight: 1.2 }}>{value}</span>
+                {sub && <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{sub}</span>}
+              </div>
             </div>
           </div>
         );
@@ -356,6 +375,15 @@ function TimeTrackingTab({ projects, timeEntries, setTimeEntries, setProjects, p
   const [openCell, setOpenCell] = useState(null); // { projectId, dateStr }
   const [extraProjectIds, setExtraProjectIds] = useState([]);
   const [showAddRow, setShowAddRow] = useState(false);
+  // Kundfeedback: tidrapporteringen "ska vara bra på mobil". Rutnätet är sju
+  // dagkolumner à 104 px plus en projektkolumn — på en telefon syntes två
+  // dagar, resten låg utanför kanten (den vågräta skrollen fanns, men inget
+  // sa att den fanns). Under 640 px visas därför EN dag i taget, vald med
+  // en dagrad ovanför rutnätet. Samma tabell, samma celler, samma
+  // popover — bara en kolumn i stället för sju, vilket också är hur man
+  // faktiskt rapporterar tid på en telefon: en dag, nu.
+  const isNarrow = useIsMobileViewport(640);
+  const [selectedDayIdx, setSelectedDayIdx] = useState(null);
 
   // personId/currentWeekStart ägs numera av Projects (se dess kommentar
   // "på projekt headern") — personväljaren/veckonavigeringen renderas där,
@@ -369,6 +397,16 @@ function TimeTrackingTab({ projects, timeEntries, setTimeEntries, setProjects, p
   const weekStartStr = getISODate(weekDates[0]);
   const weekEndStr = getISODate(weekDates[6]);
   const todayStr = getISODate(new Date());
+
+  // Vilken dag mobilvyn står på. Förvalet räknas fram vid varje rendering
+  // (inte en gång vid mount) så veckobyte alltid landar på en dag i DEN
+  // veckan: dagens datum om det ligger i veckan, annars måndagen.
+  const todayIdxInWeek = weekDates.findIndex(d => getISODate(d) === todayStr);
+  const activeDayIdx = selectedDayIdx ?? (todayIdxInWeek >= 0 ? todayIdxInWeek : 0);
+  // Nollställ dagvalet när veckan byts, annars ligger "onsdag" kvar och
+  // pekar på fel vecka efter en framåtpil.
+  useEffect(() => { setSelectedDayIdx(null); }, [weekStartStr]);
+  const visibleDates = isNarrow ? [weekDates[Math.min(activeDayIdx, 6)]] : weekDates;
 
   const personEntries = timeEntries.filter(t => (t.personId || SELF_PERSON_ID) === personId);
   const weekEntries = personEntries.filter(t => t.date >= weekStartStr && t.date <= weekEndStr);
@@ -479,13 +517,44 @@ function TimeTrackingTab({ projects, timeEntries, setTimeEntries, setProjects, p
         //    sidled på en smal skärm — annars vet man inte vilken rad man
         //    fyller i.
         <div style={{ ...cardBase, border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)', flex: 1, minHeight: 0, overflow: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '15px', minWidth: '860px' }}>
+          {/* Dagväljaren — bara på smal skärm, där rutnätet visar en dag i
+              taget. Varje chip bär dagens summa, så man ser var timmarna
+              ligger i veckan utan att bläddra igenom sju dagar. */}
+          {isNarrow && (
+            <div style={{ display: 'flex', gap: '6px', padding: '12px', overflowX: 'auto', borderBottom: '1px solid var(--border)' }}>
+              {weekDates.map((date, i) => {
+                const dateStr = getISODate(date);
+                const isToday = dateStr === todayStr;
+                const isActive = i === Math.min(activeDayIdx, 6);
+                const total = dayTotal(dateStr);
+                return (
+                  <button
+                    key={dateStr}
+                    type="button"
+                    onClick={() => setSelectedDayIdx(i)}
+                    style={{
+                      flex: '1 0 auto', minWidth: '44px', padding: '7px 4px', borderRadius: '10px', cursor: 'pointer',
+                      fontFamily: 'inherit', textAlign: 'center', lineHeight: 1.25,
+                      background: isActive ? BRAND.green : (isToday ? 'var(--status-green-bg)' : 'var(--bg-muted)'),
+                      color: isActive ? 'white' : 'var(--text-main)',
+                      border: `1px solid ${isActive ? BRAND.green : 'var(--border)'}`,
+                    }}
+                  >
+                    <div style={{ fontSize: '10.5px', fontWeight: 600, textTransform: 'capitalize', opacity: 0.85 }}>{date.toLocaleDateString('sv-SE', { weekday: 'short' })}</div>
+                    <div style={{ fontSize: '15px', fontWeight: 700 }}>{date.getDate()}</div>
+                    <div style={{ fontSize: '10px', fontWeight: 600, opacity: total > 0 ? 0.95 : 0.5 }}>{total > 0 ? `${formatHours(total)} h` : '–'}</div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '15px', minWidth: isNarrow ? 0 : '860px' }}>
             <thead>
               <tr>
-                <th style={{ textAlign: 'left', padding: '16px 20px', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, left: 0, zIndex: 3, background: 'var(--bg-card)', minWidth: '200px' }}>
+                <th style={{ textAlign: 'left', padding: '16px 20px', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, left: 0, zIndex: 3, background: 'var(--bg-card)', minWidth: isNarrow ? '120px' : '200px' }}>
                   Projekt
                 </th>
-                {weekDates.map((date) => {
+                {visibleDates.map((date) => {
                   const dateStr = getISODate(date);
                   const isToday = dateStr === todayStr;
                   return (
@@ -506,12 +575,12 @@ function TimeTrackingTab({ projects, timeEntries, setTimeEntries, setProjects, p
                 return (
                   <tr key={project.id}>
                     <td style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-light)', position: 'sticky', left: 0, zIndex: 1, background: 'var(--bg-card)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: '180px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: isNarrow ? 0 : '180px' }}>
                         <span style={{ width: 10, height: 10, borderRadius: '999px', background: project.color || BRAND.green, flexShrink: 0 }} />
                         <span style={{ fontWeight: 600, fontSize: '15px', color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.name}</span>
                       </div>
                     </td>
-                    {weekDates.map((date) => {
+                    {visibleDates.map((date) => {
                       const dateStr = getISODate(date);
                       const isToday = dateStr === todayStr;
                       const entry = getEntry(project.id, dateStr);
@@ -546,7 +615,7 @@ function TimeTrackingTab({ projects, timeEntries, setTimeEntries, setProjects, p
             <tfoot>
               <tr>
                 <td style={{ padding: '16px 20px', fontWeight: 700, fontSize: '12px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', borderTop: '1px solid var(--border)', position: 'sticky', left: 0, zIndex: 1, background: 'var(--bg-card)' }}>Totalt</td>
-                {weekDates.map(date => {
+                {visibleDates.map(date => {
                   const dateStr = getISODate(date);
                   const total = dayTotal(dateStr);
                   return (
@@ -860,7 +929,7 @@ function ProjectsListTable({ list, contacts, timeEntries, expandedProjectId, set
         {
           key: 'profit', label: 'Lönsamhet', align: 'right', fontWeight: 700, render: p => {
             const profit = (p.revenue || 0) - (p.cost || 0);
-            return <span style={{ color: profit >= 0 ? 'var(--text-main)' : '#be123c' }}>{formatSEK(profit)}</span>;
+            return <span style={{ color: profit >= 0 ? 'var(--text-main)' : 'var(--status-red-text)' }}>{formatSEK(profit)}</span>;
           },
         },
       ]}

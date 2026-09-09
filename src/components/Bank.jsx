@@ -9,6 +9,8 @@ import { AccountSearch } from './shared/SearchInputs';
 import { confirmDialog } from './shared/ConfirmDialog';
 import { findLockedVatPeriod } from '../utils/vatCalculation';
 import { BRAND } from '../utils/brandColors';
+import { BankLogo } from './shared/BrandLogos';
+import { BANK_SOURCES, OTHER_BANK_HINT, MAX_BANK_FILE_MB, ACCEPTED_BANK_EXTENSIONS, splitBankPath } from '../utils/bankSources';
 
 // Bank – CSV/Excel-import. `bankImport.js` (parsning/normalisering/
 // matchningsförslag, statisk import av papaparse+xlsx) laddas BARA lazy
@@ -348,6 +350,24 @@ export default function Bank({
               },
               { key: 'status', label: 'Status', align: 'center', render: t => <StatusBadge status={t.status} /> },
             ]}
+            // Kundfeedback: "i bank är den stor på mobilen — gör så den blir
+            // som Verifikationer, där den ser jättebra ut och inte är så
+            // stor". Banklistan saknade en `mobileList`, och föll därför
+            // tillbaka på den staplade kortvyn där varje fält får en egen
+            // rad med sin etikett ovanför (fyra rader per transaktion). Samma
+            // täta listrad som verifikationslistan i stället: text + belopp
+            // på rad ett, datum/referens på rad två, status som märke.
+            mobileList={t => ({
+              dot: STATUS_META[t.status]?.text || 'var(--status-amber-text)',
+              primary: t.description || (t.amount > 0 ? 'Insättning' : 'Uttag'),
+              amount: (
+                <span style={{ color: t.amount > 0 ? 'var(--status-green-text)' : 'var(--text-main)' }}>
+                  {t.amount > 0 ? '+' : ''}{fmt(t.amount)} kr
+                </span>
+              ),
+              meta: [formatDate(t.date), t.reference ? `Ref: ${t.reference}` : null].filter(Boolean).join(' · '),
+              pill: <StatusBadge status={t.status} />,
+            })}
           />
         )}
       </div>
@@ -460,60 +480,125 @@ function BankRowDetail({ row, invoiceCandidates, supplierCandidates, accounts, v
 }
 
 // ── Importguide: fil → kolumnmappning → förhandsgranskning → commit ──────
-// Klickvägarna är KUNDENS EGNA uppgifter (levererade ordagrant), inte
-// gissade eller hämtade från bankernas sidor av mig — därför ligger de
-// samlade i EN lista här: ändrar en bank sin meny räcker det att rätta
-// raden, utan att röra vare sig guiden eller importlogiken.
+// Banklistan (namn, logotyp, klickväg till exporten) kommer från
+// src/utils/bankSources.js — samma källa som den publika sidan
+// /koppla-bank och startsidans animation läser. Låg tidigare som en egen
+// BANK_EXPORT_PATHS-konstant HÄR; två listor hade garanterat glidit isär
+// i samma sekund en bank ändrade sin meny, och en besökare som sett
+// "Skandia" på sajten och sedan inte hittar den i modalen tappar
+// förtroendet direkt (exakt samma resonemang som migrationSources.js
+// redan gör för bokföringsprogrammen).
 //
-// Varför det här behövs alls: importen kan läsa en bankfil, men den kan
+// Varför hjälpen behövs alls: importen kan läsa en bankfil, men den kan
 // inte hjälpa någon att HITTA exportknappen i sin internetbank — och det
 // är precis där en förstagångsanvändare fastnar. "Ladda upp ditt
 // kontoutdrag" är värdelöst för den som inte vet att internetbanken ens
 // kan exportera ett.
-const BANK_EXPORT_PATHS = [
-  { bank: 'Nordea', path: 'Logga in → Konton → Välj konto → Transaktioner → Exportera (CSV)' },
-  { bank: 'SEB', path: 'Logga in → Konton → Transaktioner → Exportera (CSV), eller Kontoutdrag → Hämta som fil (CSV)' },
-  { bank: 'Swedbank', path: 'Logga in → Konton → Transaktioner → Exportera kontoutdrag (CSV)' },
-  { bank: 'Handelsbanken', path: 'Logga in → Konton → Transaktioner → Ladda ner (CSV)' },
-  { bank: 'Länsförsäkringar', path: 'Logga in → Konton → Kontoutdrag → Exportera (CSV)' },
-  { bank: 'ICA Banken', path: 'Logga in → Konton → Transaktioner → Exportera till fil (CSV)' },
-  { bank: 'Skandia', path: 'Logga in → Konton → Transaktioner → Exportera (CSV)' },
-  { bank: 'Lunar', path: 'Logga in → Konto → Transaktioner → Exportera (CSV)' },
-  { bank: 'Northmill', path: 'Logga in → Konto → Kontoutdrag → Ladda ner (CSV)' },
-];
 
-// Hopfälld som standard: den som redan har filen på skrivbordet ska inte
-// behöva skrolla förbi nio banker för att komma åt släppytan, och den som
-// INTE har den hittar hjälpen direkt under den (samma plats man tittar på
-// när man undrar "vilken fil menar de?").
+// Loggraden gör TVÅ jobb med en och samma rad, med flit: den svarar på
+// frågan man har innan man klickar på något ("funkar det här med MIN
+// bank?") och den är väljaren som tar fram klickvägen. En separat
+// "funkar med"-remsa ovanför släppytan hade betytt samma nio loggor
+// två gånger i samma modal.
+//
+// Ingen hopfällning: klickvägen visas bara för den bank man faktiskt
+// valt, så det som står här hela tiden är två rader loggor. Det var
+// nio klickvägar i klartext som gjorde att hjälpen behövde fällas ihop
+// för att inte skjuta ner släppytan — de finns inte längre.
+// "Annan bank" som en likvärdig bricka i raden, inte som en fotnot under
+// den: importen läser filen oavsett bank (se bankSources.js), och den som
+// inte ser sin egen bank bland loggorna ska hitta sitt svar i raden i
+// stället för att stänga modalen. Samma bricka som väljaren på
+// /koppla-bank har.
+const OTHER_BANK_TILE = { id: 'other', name: 'Annan bank' };
+
+// Bricka med logotypen STOR och namnet under — samma form som den
+// publika väljaren på /koppla-bank. Loggan får ta i stort sett hela
+// rutan (kundönskemål: den ska synas ordentligt, inte vara ett litet
+// märke i ett hörn); namnet under är det som gör raden läsbar även för
+// den som inte känner igen ett märke på formen.
+function BankPickerButton({ bank, on, onClick }) {
+  return (
+    <button
+      type="button" onClick={onClick} aria-pressed={on} aria-label={bank.name}
+      style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '7px',
+        padding: '8px 8px 9px', background: 'var(--bg-card)', cursor: 'pointer', fontFamily: 'inherit',
+        border: `1.5px solid ${on ? BRAND.green : 'var(--border)'}`, borderRadius: '10px',
+        boxShadow: on ? `0 0 0 2px ${BRAND.greenLight}` : 'none',
+      }}
+    >
+      <span style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: 48, padding: '0 8px',
+        background: bank.logo ? '#fff' : 'var(--bg-muted)', border: '1px solid var(--border-light)', borderRadius: '8px',
+      }}>
+        {bank.logo
+          ? <BankLogo bank={bank} maxW={86} maxH={68} />
+          : <Landmark size={21} color="var(--text-muted)" />}
+      </span>
+      <span style={{ fontSize: '12px', fontWeight: 700, color: on ? BRAND.greenDark : 'var(--text-secondary)' }}>{bank.name}</span>
+    </button>
+  );
+}
+
 function BankExportHelp() {
-  const [open, setOpen] = useState(false);
+  // `null` = ingen bank vald ännu: visa raden, men inte någon vägledning.
+  // `'other'` = "Annan bank"-brickan, som har sin egen generella text i
+  // stället för en bankspecifik klickväg.
+  const [selected, setSelected] = useState(null);
+  const active = BANK_SOURCES.find(b => b.id === selected);
   return (
     <div style={{ marginTop: '14px', border: '1px solid var(--border)', borderRadius: '10px', overflow: 'hidden' }}>
-      <button
-        type="button" onClick={() => setOpen(o => !o)} aria-expanded={open}
-        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '11px 14px', background: 'var(--bg-muted)', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', textAlign: 'left' }}
-      >
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '11px 14px', background: 'var(--bg-muted)', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>
         <HelpCircle size={15} color={BRAND.greenDark} style={{ flexShrink: 0 }} />
         <span style={{ flex: 1 }}>Så exporterar du från din bank</span>
-        {open ? <ChevronDown size={15} color="var(--text-muted)" /> : <ChevronRight size={15} color="var(--text-muted)" />}
-      </button>
-      {/* Ingen egen maxhöjd/scroll på listan: .modal-overlay scrollar redan
-          (index.css), och en scrollruta INUTI en scrollande modal ger två
-          konkurrerande hjul — listan är nio rader, den får ta plats. */}
-      {open && (
-        <div style={{ padding: '4px 0' }}>
-          {BANK_EXPORT_PATHS.map(({ bank, path }) => (
-            <div key={bank} style={{ display: 'grid', gridTemplateColumns: '132px 1fr', gap: '12px', alignItems: 'baseline', padding: '9px 14px', borderTop: '1px solid var(--border-light)' }}>
-              <span style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--text-main)' }}>{bank}</span>
-              <span style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.55 }}>{path}</span>
-            </div>
+        <span style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--text-muted)' }}>Välj din bank</span>
+      </div>
+
+      <div style={{ padding: '12px 14px 14px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(122px, 1fr))', gap: '8px' }}>
+          {BANK_SOURCES.map(b => (
+            <BankPickerButton
+              key={b.id} bank={b} on={selected === b.id}
+              onClick={() => setSelected(selected === b.id ? null : b.id)}
+            />
           ))}
-          <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', lineHeight: 1.6, margin: 0, padding: '10px 14px', borderTop: '1px solid var(--border-light)' }}>
-            Har du en annan bank? Leta efter "Exportera", "Ladda ner" eller "Hämta som fil" i transaktionslistan. Alla format med en rubrikrad fungerar — kolumnerna kopplas i nästa steg.
-          </p>
+          {/* "Annan bank" sist och likvärdig med de nio andra, inte en
+              fotnot: importen läser filen oavsett bank, och den som inte
+              ser sin egen bank i raden ska hitta sitt svar HÄR i stället
+              för att stänga modalen. */}
+          <BankPickerButton
+            bank={OTHER_BANK_TILE} on={selected === 'other'}
+            onClick={() => setSelected(selected === 'other' ? null : 'other')}
+          />
         </div>
-      )}
+
+        {selected === 'other' ? (
+          <p style={{ fontSize: '12.5px', color: 'var(--text-main)', lineHeight: 1.7, margin: '14px 0 0' }}>
+            {OTHER_BANK_HINT} Bokix läser filen oavsett vilken bank som skapade den — importen är en generell CSV- och Excel-läsare, inte en integration mot varje enskild bank. Det gäller även utländska konton.
+          </p>
+        ) : active ? (
+          <>
+            {/* Klickvägen som brickor med pilar emellan — samma sträng som
+                /koppla-bank visar, uppdelad med samma delade hjälpfunktion. */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px', marginTop: '14px' }}>
+              {splitBankPath(active.path).map((part, i) => (
+                <React.Fragment key={part}>
+                  {i > 0 && <ChevronRight size={13} color="var(--text-muted)" style={{ flexShrink: 0 }} />}
+                  <span style={{ padding: '5px 9px', borderRadius: '7px', background: 'var(--bg-muted)', border: '1px solid var(--border-light)', fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>{part}</span>
+                </React.Fragment>
+              ))}
+            </div>
+            <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', lineHeight: 1.6, margin: '12px 0 0' }}>
+              Hittar du inte knappen? Menyplaceringen kan ha ändrats sedan guiden skrevs — sök på "exportera" eller "kontoutdrag" i bankens egen hjälp.
+            </p>
+          </>
+        ) : (
+          <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', lineHeight: 1.6, margin: '12px 0 0' }}>
+            Klicka på din bank så visar vi var exportknappen brukar sitta. Har du en annan bank fungerar filen ändå — välj "Annan bank".
+          </p>
+        )}
+      </div>
     </div>
   );
 }
@@ -521,8 +606,9 @@ function BankExportHelp() {
 // "CSV, XLSX, XLS eller TXT (max 10 MB)" är inte bara text i gränssnittet
 // — båda reglerna kontrolleras i handleFile nedan, samma mönster som
 // underlagsuppladdningen i Verifications.jsx/SupplierInvoices.jsx.
-const MAX_BANK_FILE_MB = 10;
-const ACCEPTED_BANK_EXTENSIONS = ['.csv', '.txt', '.xlsx', '.xls'];
+// Konstanterna bor i bankSources.js: /koppla-bank utlovar samma siffror i
+// text, och de får inte kunna säga olika saker.
+
 
 const STEP_LABELS = ['Fil', 'Kolumner', 'Förhandsgranskning'];
 

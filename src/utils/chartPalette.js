@@ -78,11 +78,23 @@ function family(id) {
  * eller okända värden faller tillbaka på förvalet, så en trasig eller gammal
  * inställning aldrig kan ge en osynlig graf.
  */
-export function resolveChartPalette(prefs) {
+export function resolveChartPalette(prefs, options = {}) {
   const chosen = { ...DEFAULT_CHART_COLORS, ...(prefs || {}) };
   const income = family(chosen.income);
   const cost = family(chosen.cost);
   const profit = family(chosen.profit);
+  // Mörkt läge. De VALDA färgerna (income/cost/profit) rörs aldrig — en
+  // användare som valt grönt för intäkter ska se grönt i båda lägena. Bara
+  // de två tonerna som är valda FÖR ETT LJUST ARK skrivs om, för att de
+  // slutar fungera helt på mörk botten:
+  //   · `wash`, den nästan vita spårfärgen bakom rankningsstaplarna, blev
+  //     ett lysande band tvärs över panelen (kundfeedback: mörkt läge).
+  //   · `ramp[0]`, familjens mörkaste ton, används som vinstmarginalens
+  //     linje — #1c5c28 mot #0f1a13 är i praktiken osynligt.
+  // Färgerna kan inte lösas i CSS: de skickas till Recharts som SVG-
+  // attribut, och ett attribut löser aldrig upp var(--x). Se
+  // hooks/useIsDarkTheme.js.
+  const dark = !!options.dark;
   return {
     roles: chosen,
     income: income.base,
@@ -91,16 +103,32 @@ export function resolveChartPalette(prefs) {
     cash: income.soft,
     cost: cost.base,
     costRamp: cost.ramp,
-    costWash: cost.wash,
+    costWash: dark ? 'rgba(255,255,255,0.10)' : cost.wash,
     profit: profit.base,
     // Marginaltrappan: ljusast överst (bruttomarginal, minst avdraget) och
     // mörkast underst (vinstmarginalen, det som faktiskt blir kvar).
-    marginTones: [profit.soft, profit.base, profit.ramp[0]],
+    marginTones: [profit.soft, profit.base, dark ? lighten(profit.ramp[0], 0.5) : profit.ramp[0]],
     // Härledda kvoter utan egen +/- riktning. Skiffer i alla paletter — den
     // ska INTE se ut som ännu en av de tre rollerna.
-    neutral: '#4a5568',
+    neutral: dark ? '#94a3b8' : '#4a5568',
     muted: '#c9d2cd',
   };
+}
+
+/** Blandar en hexfärg mot vitt. Används bara för mörkt läge ovan: en ton
+ * som är vald för att vara den mörkaste i en ljus ramp måste lyftas för att
+ * synas mot en mörk botten, och den ska följa med om användaren byter
+ * färgfamilj — därför uträknad, inte en handplockad extra hexkod per
+ * familj. `amount` 0 = oförändrad, 1 = vit. */
+export function lighten(hex, amount = 0.5) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || ''));
+  if (!m) return hex;
+  const n = parseInt(m[1], 16);
+  const mix = (c) => Math.round(c + (255 - c) * Math.min(Math.max(amount, 0), 1));
+  const r = mix((n >> 16) & 255);
+  const g = mix((n >> 8) & 255);
+  const b = mix(n & 255);
+  return `#${((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1)}`;
 }
 
 const nf = (min, max) => new Intl.NumberFormat('sv-SE', { minimumFractionDigits: min, maximumFractionDigits: max });

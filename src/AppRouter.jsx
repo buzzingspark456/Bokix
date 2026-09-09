@@ -25,7 +25,17 @@ const AlternativePage = lazy(() => import('./components/marketing/AlternativePag
 // marknadssida: här, i PRERENDER_ROUTES/PAGES (entry-server.jsx), i
 // vercel.json:s rewrites och i public/sitemap.xml.
 const SwitchPage = lazy(() => import('./components/marketing/SwitchPage'));
-// Fria verktyg (/verktyg + fem räknare), ordlistan, integrationssidan och
+// "Koppla banken" — systersidan till SwitchPage: samma sorts HUR-sida, fast
+// för kontoutdraget i stället för bokföringshistoriken. Står på samma fyra
+// ställen som varje annan statisk marknadssida: här, i PRERENDER_ROUTES/
+// PAGES (entry-server.jsx), i vercel.json:s rewrites och i sitemap.xml.
+const BankPage = lazy(() => import('./components/marketing/BankPage'));
+// "Bokix för UF-företag" — eget erbjudande OCH en egen, mindre produkt
+// (utils/ufMode.js). Samma fyra ställen som varje annan statisk
+// marknadssida: här, i PRERENDER_ROUTES/PAGES (entry-server.jsx), i
+// vercel.json:s rewrites och i public/sitemap.xml.
+const UfPage = lazy(() => import('./components/marketing/UfPage'));
+// Fria verktyg (/verktyg + räknarna), ordlistan, integrationssidan och
 // säkerhetssidan — alla publika, alla lazy av samma skäl som ovan: en
 // besökare som bara ska till startsidan ska inte hämta dem.
 const ToolsHubPage = lazy(() => import('./components/marketing/tools/ToolsHubPage'));
@@ -34,6 +44,9 @@ const LonekalkylatorPage = lazy(() => import('./components/marketing/tools/Lonek
 const EgenavgifterPage = lazy(() => import('./components/marketing/tools/EgenavgifterPage'));
 const RotRutKalkylatorPage = lazy(() => import('./components/marketing/tools/RotRutKalkylatorPage'));
 const DrojsmalsrantaPage = lazy(() => import('./components/marketing/tools/DrojsmalsrantaPage'));
+// Utdelning/3:12 — de nya reglerna som gäller från 1 januari 2026 (se
+// UtdelningPage.jsx för varför sidan är så uttalad om vilket år den avser).
+const UtdelningPage = lazy(() => import('./components/marketing/tools/UtdelningPage'));
 const OrdlistaPage = lazy(() => import('./components/marketing/OrdlistaPage'));
 const IntegrationsPage = lazy(() => import('./components/marketing/IntegrationsPage'));
 const SecurityPage = lazy(() => import('./components/marketing/SecurityPage'));
@@ -140,7 +153,7 @@ function RootRoute() {
 
   return (
     <LandingPage
-      onEnterApp={(mode, plan) => {
+      onEnterApp={(mode, plan, options) => {
         // Samma state-flagga som App.jsx:s egen useEffect förväntar sig
         // (och rensar) direkt efter mount, så Auth-skärmen visas direkt
         // istället för att App.jsx skulle rendera sin EGEN LandingPage-gren
@@ -149,7 +162,11 @@ function RootRoute() {
         // `plan` är abonnemanget besökaren klickade i prissektionen — utan
         // det skulle registreringen alltid anta den dyraste nivån oavsett
         // vilket kort som klickades.
-        navigate('.', { state: { enterApp: true, authMode: mode, ...(plan ? { plan } : {}) } });
+        // `options.uf` sätts av /uf-sidans knappar (marketing/UfPage.jsx) —
+        // registreringen ska då starta i UF-läge: inget organisationsnummer,
+        // inget betalsteg. Går samma väg som `plan` (location.state), inte
+        // via en egen mekanism.
+        navigate('.', { state: { enterApp: true, authMode: mode, ...(plan ? { plan } : {}), ...(options?.uf ? { uf: true } : {}) } });
         setWantsApp(true);
       }}
     />
@@ -193,10 +210,12 @@ export default function AppRouter() {
         <Route path="/boka-genomgang" element={<Suspense fallback={<AppLoadingFallback />}><BookingPage /></Suspense>} />
         <Route path="/alternativ" element={<Suspense fallback={<AppLoadingFallback />}><AlternativePage /></Suspense>} />
         <Route path="/byt-bokforingsprogram" element={<Suspense fallback={<AppLoadingFallback />}><SwitchPage /></Suspense>} />
+        <Route path="/koppla-bank" element={<Suspense fallback={<AppLoadingFallback />}><BankPage /></Suspense>} />
+        <Route path="/uf" element={<Suspense fallback={<AppLoadingFallback />}><UfPage /></Suspense>} />
         <Route path="/integrationer" element={<Suspense fallback={<AppLoadingFallback />}><IntegrationsPage /></Suspense>} />
         <Route path="/sakerhet" element={<Suspense fallback={<AppLoadingFallback />}><SecurityPage /></Suspense>} />
         <Route path="/ordlista" element={<Suspense fallback={<AppLoadingFallback />}><OrdlistaPage /></Suspense>} />
-        {/* Verktygsnavet + de fem räknarna. Sökvägarna måste hållas i
+        {/* Verktygsnavet + räknarna. Sökvägarna måste hållas i
             synk med TOOLS i marketing/tools/toolsConfig.js (sidfoten,
             navet och korsläkarna bygger sina länkar därifrån), med
             PRERENDER_ROUTES i entry-server.jsx och med rewrites i
@@ -208,6 +227,7 @@ export default function AppRouter() {
         <Route path="/verktyg/egenavgifter" element={<Suspense fallback={<AppLoadingFallback />}><EgenavgifterPage /></Suspense>} />
         <Route path="/verktyg/rot-rut" element={<Suspense fallback={<AppLoadingFallback />}><RotRutKalkylatorPage /></Suspense>} />
         <Route path="/verktyg/drojsmalsranta" element={<Suspense fallback={<AppLoadingFallback />}><DrojsmalsrantaPage /></Suspense>} />
+        <Route path="/verktyg/utdelning" element={<Suspense fallback={<AppLoadingFallback />}><UtdelningPage /></Suspense>} />
         <Route path="/privacy" element={<Suspense fallback={<AppLoadingFallback />}><PrivacyPolicy /></Suspense>} />
         <Route path="/terms" element={<Suspense fallback={<AppLoadingFallback />}><TermsPolicy /></Suspense>} />
         {/* GDPR-innehållet är nu fullt inbakat i den utökade Integritetspolicyn

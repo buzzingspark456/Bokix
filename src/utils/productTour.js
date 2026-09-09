@@ -177,7 +177,7 @@ const STEP_DEFS = [
     element: '[data-tour="page-settings-nav"]',
     popover: {
       title: 'Inställningar',
-      description: 'Företagsuppgifter, användare och prenumeration — allt samlat i den här menyn.',
+      description: 'Företagsuppgifter, användare, prenumeration och utseende — välj del i flikraden högst upp.',
     },
   },
   {

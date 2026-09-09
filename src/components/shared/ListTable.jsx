@@ -57,7 +57,16 @@ const HEAD_CELL_PADDING = '12px 16px';
  *   runt HELA stapeln kan sitta istället, utan dubbla kantlinjer eller
  *   isolerade skuggor per sektion.
  */
-export default function ListTable({ columns, rows, rowKey, onRowClick, emptyMessage = 'Inga poster', selectable, isExpanded, renderExpanded, rowStyle, sort, bordered = true, mobileList }) {
+/**
+ * @param {boolean} [roundedBottom=true] - sätt `false` när något ANNAT ligger
+ *   direkt under tabellen inuti samma kort (t.ex. fakturalistornas
+ *   summarad "1 faktura · Summa SEK …"). Tabellens rundade nederkant
+ *   skar annars in i raden under, så hörnen såg bågformade och avhuggna
+ *   ut i stället för raka — kundfeedback med skärmdump: "ser du hur den är
+ *   cirklig och inte rak". Det som ligger sist i kortet ska bära
+ *   rundningen, inte tabellen mitt i.
+ */
+export default function ListTable({ columns, rows, rowKey, onRowClick, emptyMessage = 'Inga poster', selectable, isExpanded, renderExpanded, rowStyle, sort, bordered = true, roundedBottom = true, mobileList }) {
   const colSpan = columns.length + (selectable ? 1 : 0);
   return (
     // overflowX:'auto' (bugkritiskt, kundfeedback: "Status rutan är
@@ -76,7 +85,7 @@ export default function ListTable({ columns, rows, rowKey, onRowClick, emptyMess
     // ovanför, avrundad mot sidbakgrunden under"-princip som ListFilterBar/
     // ListPageHeader redan följer på sina egna nederkanter).
     <div style={bordered
-      ? { background: 'var(--bg-card)', borderRadius: '0 0 12px 12px', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)', overflowX: 'auto', overflowY: 'hidden' }
+      ? { background: 'var(--bg-card)', borderRadius: roundedBottom ? '0 0 12px 12px' : 0, border: '1px solid var(--border)', borderBottom: roundedBottom ? '1px solid var(--border)' : 'none', boxShadow: roundedBottom ? 'var(--shadow-sm)' : 'none', overflowX: 'auto', overflowY: 'hidden' }
       : { overflowX: 'auto', overflowY: 'hidden' }}>
       {/* .responsive-table (Sida 38, punkt 1): staplar kolumnerna med
           data-label-etiketter under en brytpunkt istället för att tvinga
@@ -96,11 +105,21 @@ export default function ListTable({ columns, rows, rowKey, onRowClick, emptyMess
                 <th
                   key={col.key}
                   onClick={sortable ? () => sort.onSort(col.sortKeyName) : undefined}
+                  // `col.help`: en förklaring av vad kolumnen faktiskt betyder,
+                  // som webbläsarens egen tooltip. Kundfeedback gällde
+                  // semesteröversikten ("jag förstår inte vad det här är") men
+                  // problemet är generellt — en kolumnrubrik i versaler får
+                  // plats med ett ord, och ett ord räcker inte för "Intjänat"
+                  // eller "Skuld inkl. avgifter". Native title= i stället för
+                  // en egen tooltip-komponent: fungerar med tangentbord och
+                  // skärmläsare utan att lägga till någon interaktion som kan
+                  // krocka med sorteringsklicket i samma rubrik.
+                  title={col.help}
                   style={{
                     padding: HEAD_CELL_PADDING, textAlign: col.align || 'left', fontSize: '12px', fontWeight: 700,
                     color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em',
                     borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap', width: col.width,
-                    cursor: sortable ? 'pointer' : undefined, userSelect: sortable ? 'none' : undefined,
+                    cursor: sortable ? 'pointer' : (col.help ? 'help' : undefined), userSelect: sortable ? 'none' : undefined,
                   }}
                 >
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
@@ -217,6 +236,19 @@ export default function ListTable({ columns, rows, rowKey, onRowClick, emptyMess
                       <div className="lt-mobile-line2">
                         {m.meta != null && <span className="lt-mobile-meta">{m.meta}</span>}
                         {m.pill}
+                      </div>
+                    )}
+                    {/* `meta2`: en TREDJE rad, för det fält som är hela
+                        anledningen att man öppnar listan på telefonen —
+                        kundens telefonnummer, fakturans referens, kvittots
+                        konto. Kundfeedback: "man ser knappt infon på
+                        mobilen" gällde inte att raderna var för höga (de
+                        var redan täta) utan att de bar för lite. Frivillig:
+                        listor som klarar sig på två rader ser exakt likadana
+                        ut som förut. */}
+                    {m.meta2 != null && (
+                      <div className="lt-mobile-line3">
+                        <span className="lt-mobile-meta">{m.meta2}</span>
                       </div>
                     )}
                   </div>

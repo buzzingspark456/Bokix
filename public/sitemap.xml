@@ -37,6 +37,16 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://www.bokix.se/koppla-bank</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.bokix.se/uf</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://www.bokix.se/om-oss</loc>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
@@ -78,6 +88,11 @@
   </url>
   <url>
     <loc>https://www.bokix.se/verktyg/drojsmalsranta</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://www.bokix.se/verktyg/utdelning</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>

@@ -26,12 +26,15 @@ import ContactPage from './components/marketing/ContactPage.jsx';
 import ChooseSoftwareGuidePage from './components/marketing/ChooseSoftwareGuidePage.jsx';
 import AlternativePage from './components/marketing/AlternativePage.jsx';
 import SwitchPage from './components/marketing/SwitchPage.jsx';
+import BankPage from './components/marketing/BankPage.jsx';
+import UfPage from './components/marketing/UfPage.jsx';
 import ToolsHubPage from './components/marketing/tools/ToolsHubPage.jsx';
 import MomsKalkylatorPage from './components/marketing/tools/MomsKalkylatorPage.jsx';
 import LonekalkylatorPage from './components/marketing/tools/LonekalkylatorPage.jsx';
 import EgenavgifterPage from './components/marketing/tools/EgenavgifterPage.jsx';
 import RotRutKalkylatorPage from './components/marketing/tools/RotRutKalkylatorPage.jsx';
 import DrojsmalsrantaPage from './components/marketing/tools/DrojsmalsrantaPage.jsx';
+import UtdelningPage from './components/marketing/tools/UtdelningPage.jsx';
 import OrdlistaPage from './components/marketing/OrdlistaPage.jsx';
 import IntegrationsPage from './components/marketing/IntegrationsPage.jsx';
 import SecurityPage from './components/marketing/SecurityPage.jsx';
@@ -44,10 +47,10 @@ import SecurityPage from './components/marketing/SecurityPage.jsx';
 // definitioner i rå HTML är hela poängen med den sidan.
 export const PRERENDER_ROUTES = [
   '/', '/funktioner', '/priser', '/om-oss', '/kontakt', '/valja-bokforingsprogram', '/alternativ',
-  '/byt-bokforingsprogram',
+  '/byt-bokforingsprogram', '/koppla-bank', '/uf',
   '/integrationer', '/sakerhet', '/ordlista',
   '/verktyg', '/verktyg/momskalkylator', '/verktyg/lonekalkylator', '/verktyg/egenavgifter',
-  '/verktyg/rot-rut', '/verktyg/drojsmalsranta',
+  '/verktyg/rot-rut', '/verktyg/drojsmalsranta', '/verktyg/utdelning',
 ];
 
 const PAGES = {
@@ -59,6 +62,8 @@ const PAGES = {
   '/valja-bokforingsprogram': ChooseSoftwareGuidePage,
   '/alternativ': AlternativePage,
   '/byt-bokforingsprogram': SwitchPage,
+  '/koppla-bank': BankPage,
+  '/uf': UfPage,
   '/integrationer': IntegrationsPage,
   '/sakerhet': SecurityPage,
   '/ordlista': OrdlistaPage,
@@ -68,6 +73,7 @@ const PAGES = {
   '/verktyg/egenavgifter': EgenavgifterPage,
   '/verktyg/rot-rut': RotRutKalkylatorPage,
   '/verktyg/drojsmalsranta': DrojsmalsrantaPage,
+  '/verktyg/utdelning': UtdelningPage,
 };
 
 /** Renderar en enda route till en HTML-sträng + de <title>/<meta>/<link>-

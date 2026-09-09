@@ -6,7 +6,7 @@ import {
   Building2, Briefcase, Landmark, HeartHandshake, UserCheck,
   Gavel,
   Eye, Workflow, FileBarChart, CreditCard, TrendingUp, Cog,
-  UserPlus, Send,
+  UserPlus, Send, GraduationCap,
 } from 'lucide-react';
 import { BRAND } from '../utils/brandColors';
 import MarketingLayout, { Reveal, BokixWordmark } from './marketing/MarketingLayout';
@@ -16,6 +16,8 @@ import CloudShaderBackground from './marketing/CloudShaderBackground';
 import { GRAD, grad, AuroraLayer } from './marketing/aurora';
 import { StripeLogo, StripeIconLogo, ZettleLogo, BolagsverketLogo, SkatteverketLogo, BasLogo, GdprLogo } from './shared/BrandLogos';
 import MigrationFlow from './marketing/MigrationFlow';
+import BankFlow from './marketing/BankFlow';
+import { UF_NAV_IDS, UF_NAV_LABELS, UF_FREE_MONTHS } from '../utils/ufMode';
 import { PRICING_TIERS } from './marketing/pricingTiers';
 import { resolvePlan, YEARLY_MINIMUM_MONTHS } from '../utils/plans';
 import { PageMeta, JsonLd, SITE_URL } from '../utils/seo';
@@ -752,6 +754,51 @@ export default function LandingPage({ onEnterApp }) {
         </div>
       </section>
 
+      {/* ── BANKEN (kundönskemål: "en sektion om hur man kopplar sin bank,
+          med bankernas loggor och en cool animation") — placerad direkt
+          efter "Kopplat till", eftersom den besvarar den naturliga
+          följdfrågan på det diagrammet: "okej, men hur kommer mina
+          BANKrader in?". Animationen bor i marketing/BankFlow.jsx, delad
+          med hjälten på /koppla-bank; sektionen här är bara ram, rubrik
+          och vägen vidare — exakt samma arbetsdelning som bytessektionen
+          längre ner har mot MigrationFlow.jsx.
+          Ivory mot kortbakgrunden i sektionerna före och efter, så de tre
+          flödesanimationerna på sidan inte flyter ihop till ett enda långt
+          fält. ── */}
+      <section style={{ padding: '76px 24px', background: IVORY, borderTop: '1px solid var(--mkt-border-soft)', borderBottom: '1px solid var(--mkt-border-soft)', position: 'relative', overflow: 'hidden' }}>
+        <AuroraLayer
+          stops={[['rgba(20,184,166,0.16)', '2% -4%'], ['rgba(47,138,58,0.14)', '98% 104%']]}
+          blob={{ gradient: grad(GRAD.blueTeal), top: 'auto', bottom: '-160px', left: '-120px', size: '420px', opacity: 0.2 }}
+        />
+        <div style={{ maxWidth: '900px', margin: '0 auto', position: 'relative' }}>
+          <Reveal style={{ textAlign: 'center', marginBottom: '38px' }}>
+            <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(26px, 4vw, 38px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '12px' }}>
+              Banken in i bokföringen
+            </h2>
+            {/* Formuleringen är avsiktligt exakt: kontoutdraget är en FIL
+                du exporterar, inte en direktkoppling mot banken (se
+                filkommentaren i bankSources.js — sajten får aldrig antyda
+                en funktion som inte finns). */}
+            <p style={{ fontSize: '16.5px', color: MUTED, lineHeight: 1.65, maxWidth: '620px', margin: '0 auto' }}>
+              Exportera kontoutdraget ur din internetbank och läs in det i Bokix. Inbetalningar matchas mot dina obetalda fakturor, utbetalningar mot leverantörsfakturorna — och du lämnar aldrig ut någon bankinloggning.
+            </p>
+          </Reveal>
+
+          <Reveal scale delay={80}>
+            <BankFlow />
+          </Reveal>
+
+          <Reveal delay={140} style={{ textAlign: 'center', marginTop: '30px' }}>
+            <Link
+              to="/koppla-bank"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '13px 24px', background: 'var(--mkt-card-bg)', border: `1.5px solid ${CARD_BORDER}`, borderRadius: '12px', color: INK_SOFT, fontWeight: 700, fontSize: '15px', textDecoration: 'none' }}
+            >
+              Se hur bankimporten fungerar <ArrowRight size={15} />
+            </Link>
+          </Reveal>
+        </div>
+      </section>
+
       {/* ── ONBOARDING I TRE STEG — kundönskemål ("gör den snyggare"):
           samma kopplad-pipeline-idé (ikonnod → rörlig linje → ikonnod) som
           leverantörsfaktura-flödet längre upp, inte en vertikal numrerad
@@ -1006,6 +1053,47 @@ export default function LandingPage({ onEnterApp }) {
               );
             })}
           </div>
+        </Reveal>
+      </section>
+
+      {/* ── UF-FÖRETAG (kundönskemål: "en UF-sektion") — står direkt efter
+          priserna med flit: den svarar på invändningen som uppstår i
+          exakt det ögonblicket ("129 kr i månaden har vi inte") för den
+          enda grupp som har ett annat erbjudande. Hela produkten är också
+          en annan för dem, se utils/ufMode.js — sektionen säljer alltså
+          inte samma sak billigare, den pekar på en egen sida.
+          Siffrorna kommer ur ufMode.js, aldrig ur en handskriven text
+          här: startsidan och /uf får inte kunna lova olika saker. ── */}
+      <section style={{ padding: '68px 24px', background: 'var(--mkt-card-bg)', borderTop: '1px solid var(--mkt-border-soft)', position: 'relative', overflow: 'hidden' }}>
+        <AuroraLayer
+          stops={[['rgba(132,204,22,0.16)', '4% -6%'], ['rgba(14,165,233,0.14)', '96% 106%']]}
+          blob={{ gradient: grad(GRAD.green), top: '-150px', right: '-120px', left: 'auto', size: '420px', opacity: 0.2 }}
+        />
+        <Reveal style={{ maxWidth: '760px', margin: '0 auto', textAlign: 'center', position: 'relative' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '6px 14px', borderRadius: '999px', background: 'var(--mkt-accent-green-soft)', color: BRAND.greenDark, fontSize: '12px', fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: '18px' }}>
+            <GraduationCap size={14} /> För UF-företag
+          </span>
+          <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(24px, 3.6vw, 36px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '14px' }}>
+            Driver ni ett UF-företag? Då är det gratis.
+          </h2>
+          <p style={{ fontSize: '16.5px', color: MUTED, lineHeight: 1.7, maxWidth: '620px', margin: '0 auto 24px' }}>
+            Gratis i {UF_FREE_MONTHS} månader, inget organisationsnummer och inga betaluppgifter. Ni får fakturering, kvitton, bokföring enligt BAS-kontoplanen och ett årsbokslut — men slipper offerter, projekt och löner som ett UF-år ändå aldrig innehåller.
+          </p>
+
+          <div style={{ display: 'flex', gap: '9px', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '26px' }}>
+            {UF_NAV_IDS.filter(id => id !== 'settings' && id !== 'review').map(id => (
+              <span key={id} style={{ padding: '7px 13px', borderRadius: '999px', background: 'var(--mkt-ivory)', border: `1px solid ${CARD_BORDER}`, fontSize: '13px', fontWeight: 600, color: INK_SOFT }}>
+                {UF_NAV_LABELS[id]}
+              </span>
+            ))}
+          </div>
+
+          <Link
+            to="/uf"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '14px 28px', background: BRAND.green, border: 'none', borderRadius: '12px', color: 'white', fontWeight: 700, fontSize: '15.5px', textDecoration: 'none' }}
+          >
+            Läs mer om Bokix för UF <ArrowRight size={16} />
+          </Link>
         </Reveal>
       </section>
 

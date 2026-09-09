@@ -264,3 +264,41 @@ export function ProgramLogo({ src, alt, size = 26 }) {
     />
   );
 }
+
+// ── Logotyp för en BANK man exporterar sitt kontoutdrag ur ──
+// Egen komponent, inte ProgramLogo ovan, av EN konkret anledning: de sju
+// bokföringsprogrammens filer är alla ungefär kvadratiska symbolmärken
+// och kan därför bo i en fast kvadratisk ruta. Banklogotyperna är tvärtom
+// nästan alla ordbilder i vitt skilda proportioner — 9,7:1 (Handelsbanken)
+// till 0,97:1 (Northmill) — och en fast kvadrat hade antingen krympt
+// ordbilderna till oläsliga streck eller låtit den kvadratiska svälla ut
+// ur raden.
+//
+// Måtten är därför PROCENT av den omgivande brickan (som alltid har en
+// bestämd storlek på anropsstället), inte pixlar: `objectFit: contain` mot
+// ett tak i BÅDA riktningar låter varje märke växa tills det slår i det
+// mått som begränsar just det — bredden för en ordbild, höjden för en
+// staplad lockup — utan en enda uppmätning i JS. `scale` (per bank, se
+// bankSources.js) är den optiska finjusteringen ovanpå det: en kvadratisk
+// lockup med samma höjdtak som en ordbild SER hälften så stor ut, och
+// `radius` rundar de banker vars märke är en solid färgplatta (SEB,
+// Lunar) i stället för en fristående ordbild.
+//
+// Vit platta bakom sätts av anropsstället, inte här — flera av filerna har
+// egen vit bakgrund inbakad och skulle se ut som klistermärken mot en mörk
+// yta. Samma NO_SAVE_PROPS som resten av filen (se kommentaren högst upp
+// för vad det gör och inte gör).
+export function BankLogo({ bank, maxW = 76, maxH = 56 }) {
+  const scale = bank.scale || 1;
+  return (
+    <img
+      src={bank.logo} alt={bank.name} loading="lazy"
+      style={noSaveStyle({
+        maxWidth: `${maxW * scale}%`, maxHeight: `${maxH * scale}%`,
+        width: 'auto', height: 'auto', objectFit: 'contain', display: 'block',
+        ...(bank.radius ? { borderRadius: bank.radius } : null),
+      })}
+      {...NO_SAVE_PROPS}
+    />
+  );
+}

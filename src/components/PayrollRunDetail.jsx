@@ -19,7 +19,7 @@ const panelCard = { background: 'var(--bg-card)', borderRadius: '14px', border: 
 function StatusBadge({ status }) {
   const map = {
     booked: { label: 'Bokförd', bg: 'var(--status-green-bg)', color: 'var(--status-green-text)' },
-    calculated: { label: 'Beräknad', bg: '#e0f2fe', color: '#0369a1' },
+    calculated: { label: 'Beräknad', bg: 'var(--status-blue-bg)', color: 'var(--status-blue-text)' },
     draft: { label: 'Utkast', bg: 'var(--border-light)', color: 'var(--text-secondary)' },
   };
   const s = map[status] || map.draft;
@@ -49,7 +49,7 @@ function StepButtons({ completedSteps, onAdvance, canBook }) {
                   animation: 'bokix-step-bounce 1s ease-in-out infinite', pointerEvents: 'none',
                 }}
               >
-                <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--accent)', whiteSpace: 'nowrap' }}>Klicka här</span>
+                <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--accent-text)', whiteSpace: 'nowrap' }}>Klicka här</span>
                 <ChevronDown size={13} color="var(--accent)" style={{ marginTop: '-2px' }} />
               </div>
             )}
@@ -60,7 +60,7 @@ function StepButtons({ completedSteps, onAdvance, canBook }) {
                 display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 16px', borderRadius: '999px',
                 fontSize: '13px', fontWeight: 700, border: 'none',
                 cursor: disabled ? 'not-allowed' : 'pointer',
-                background: isDone ? '#ecfdf5' : (isNext ? 'var(--accent)' : 'var(--border-light)'),
+                background: isDone ? 'var(--status-green-bg)' : (isNext ? 'var(--accent)' : 'var(--border-light)'),
                 color: isDone ? '#059669' : (isNext ? 'white' : 'var(--text-muted)'),
                 animation: (isNext && !disabled) ? 'bokix-step-pulse 1.8s ease-in-out infinite' : 'none',
               }}

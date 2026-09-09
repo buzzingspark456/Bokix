@@ -784,6 +784,13 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
         @media (max-width: 640px) {
           .dash-kpi-grid { grid-template-columns: 1fr !important; }
           .dash-quick-actions { grid-template-columns: repeat(2,1fr) !important; }
+          /* Kundfeedback: "på telefonen är det tomt bredvid Kör lön". Med
+             personal visas FEM genvägar, och den femte hamnade ensam på
+             sista raden med en lika stor tom ruta bredvid sig. En udda
+             sista genväg får därför spänna över båda kolumnerna i stället
+             — ingen tom halva, och knappen blir samtidigt en större
+             träffyta. */
+          .dash-quick-actions > :last-child:nth-child(odd) { grid-column: 1 / -1; }
           .dash-todo-grid { grid-template-columns: 1fr !important; }
           /* En tidigare version hade en egen margin-bottom-regel här på
              .dash-lower-grid, byggd på antagandet att Moms-kortet "ofta"

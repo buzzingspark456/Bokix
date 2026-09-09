@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
+import { visiblePages } from './utils/pageAccess';
+import { isUfCompany, ufPageState, ufInvoiceQuota, ufFreePeriod, UF_NAV_IDS, UF_HIDDEN_REPORT_IDS } from './utils/ufMode';
 import {
   LayoutDashboard,
   FileText,
@@ -386,11 +388,15 @@ import OnboardingFlow from './components/OnboardingFlow';
 import { supabase } from './supabaseClient';
 import { useLocation, useNavigate } from 'react-router-dom';
 const ReviewQueue = lazy(() => import('./components/ReviewQueue'));
-const CompanySettings = lazy(() => import('./components/CompanySettings'));
 import HelpDrawer from './components/HelpDrawer';
 import Toast from './components/shared/Toast';
 import { ConfirmDialogHost, confirmDialog, promptDialog } from './components/shared/ConfirmDialog';
 import PaymentRequiredGate from './components/PaymentRequiredGate';
+// Spärrsidan för funktioner som inte ingår i UF-läget (utils/ufMode.js).
+// Statisk import av samma skäl som PaymentRequiredGate ovan: några rader
+// markup som hör till renderingen av en helt vanlig flik — en lazy-gräns
+// runt den hade bara lagt till en laddningsruta för ingenting.
+import UfLockedPage from './components/UfLockedPage';
 import AddCompanyModal from './components/AddCompanyModal';
 import { maybeAutoStartTour, startProductTourWhenReady } from './utils/productTour';
 import { startInvoiceTourWhenReady } from './utils/invoiceTour';
@@ -499,7 +505,7 @@ function ListSkeletonContent() {
 }
 
 // Inställningar/Företag — etikett+fält-par grupperade i ett par kortsektioner,
-// samma form som Settings.jsx/CompanySettings.jsx faktiska formulär.
+// samma form som Settings.jsx faktiska formulär.
 function SettingsSkeletonContent() {
   return (
     <>
@@ -631,6 +637,21 @@ function createEmptyCompanyData(companyInfo) {
       id: `company_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       name: companyInfo.name || 'Nytt företag',
       orgNr: companyInfo.orgNr || '',
+      // ── UF-läget (utils/ufMode.js) ──
+      // Sätts vid registreringen (Auth.jsx → user_metadata.uf) och ändras
+      // aldrig efteråt: ett UF-företag är en egen sorts företag hela
+      // läsåret, inte ett läge man slår av och på. Frånvarande/false på
+      // varje annat företag, och hela UF-läget är då ett no-op.
+      isUf: Boolean(companyInfo.isUf),
+      // Skolan UF-företaget hör till. Rent informativt (visas i
+      // Inställningar → Företag och på fakturan där ett vanligt företag
+      // har sitt organisationsnummer) — ett UF-företag har oftast inget
+      // eget organisationsnummer att skriva dit.
+      ufSchool: companyInfo.ufSchool || '',
+      // När gratisperioden började räknas. Speglad från
+      // user_metadata.uf_started_at så appen kan visa "X dagar kvar" utan
+      // att läsa auth-metadata i varje komponent.
+      ufStartedAt: companyInfo.ufStartedAt || '',
       vatNr: '',
       address: '',
       email: '',
@@ -887,7 +908,11 @@ const tabAliases = {
   payroll:          'payroll',
   taxes:            'taxes',
   reports:          'reports',
-  company:          'company',
+  // Kundfeedback: det fanns TVÅ 'Företag'-sidor — den här (CompanySettings.jsx,
+  // autosparande) och Inställningar → Företag (kräver spara + verifiering).
+  // Samma uppgifter, olika beteende, olika lås. Den gamla sidan är borttagen;
+  // id:t leder nu till inställningssidan, som öppnas direkt på Företag-fliken.
+  company:          'settings',
   settings:         'settings',
 };
 const resolveTab = (id) => tabAliases[id] || id;
@@ -975,6 +1000,10 @@ function App() {
   // navigeringens state (AppRouter → hit → Auth) i stället för att
   // registreringen alltid ska anta den dyraste nivån.
   const [selectedPlan, setSelectedPlan] = useState('employer_monthly');
+  // Registreringen startar i UF-läge när besökaren kom hit från /uf
+  // (AppRouter: location.state.uf). Rör bara <Auth> — själva UF-flaggan på
+  // kontot sätts i signUp-metadatan därifrån, se Auth.jsx.
+  const [signupAsUf, setSignupAsUf] = useState(false);
   // null = ingen bedömning gjord än / inte blockerad. 'blocked' = inloggad
   // Supabase-användare UTAN giltig public.subscriptions-rad (trialing/
   // active/past_due) — se PaymentRequiredGate.jsx. Satt i fetchUserData,
@@ -1051,6 +1080,7 @@ function App() {
       setShowLanding(false);
       setAuthMode(location.state?.authMode === 'signup' ? 'signup' : 'login');
       if (location.state?.plan) setSelectedPlan(location.state.plan);
+      if (location.state?.uf) setSignupAsUf(true);
       navigate('.', { replace: true, state: {} });
     }
   }, [location.state]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -1377,7 +1407,7 @@ function App() {
           // __shared markerar företaget som INTE mitt eget — se
           // persist-effekten längre ner, som aldrig får skriva in det här i
           // min egen user_data-rad, bara via set_company_field.
-          results[m.company_id] = { ...json.company, __shared: { ownerUserId: m.owner_user_id, role: json.role } };
+          results[m.company_id] = { ...json.company, __shared: { ownerUserId: m.owner_user_id, role: json.role, pageAccess: json.pageAccess || null } };
         }
       } catch (err) {
         console.error('Kunde inte hämta delat företag', m.company_id, err);
@@ -1705,7 +1735,23 @@ function App() {
       }
       setSubscriptionsMap(subsMap);
 
-      if (!hasSharedAccess && !isFreeAccountEmail(authUser.email) && (!subRow || !ALLOWED_SUBSCRIPTION_STATUSES.includes(subRow.status))) {
+      // UF-konton (utils/ufMode.js) har ingen Stripe-prenumeration alls —
+      // registreringen hoppar över betalsteget helt (Auth.jsx). De släpps
+      // in på sin gratisperiod i stället, räknad från uf_started_at i
+      // auth-metadatan. Metadatan är det ENDA som går att läsa så här
+      // tidigt: gaten körs före all företagsdata hämtas, och det är hela
+      // poängen med den (ett blockerat konto ska aldrig hinna se sina
+      // siffror). När perioden löpt ut faller kontot tillbaka på den
+      // vanliga spärren nedan och får betalskärmen som alla andra.
+      //
+      // Samma sorts klientspärr som FREE_ACCOUNT_EMAILS ovan, med samma
+      // förbehåll: prenumerationsstatus styr ingen server-side-behörighet
+      // idag, så det här är produktlogik, inte en säkerhetsgräns.
+      const ufMeta = authUser.user_metadata || {};
+      const ufFree = ufMeta.uf ? ufFreePeriod(ufMeta.uf_started_at) : null;
+      const withinUfFreePeriod = Boolean(ufFree && !ufFree.expired);
+
+      if (!hasSharedAccess && !withinUfFreePeriod && !isFreeAccountEmail(authUser.email) && (!subRow || !ALLOWED_SUBSCRIPTION_STATUSES.includes(subRow.status))) {
         setSubscriptionGate('blocked');
         setIsLoadingAuth(false);
         return;
@@ -1813,8 +1859,14 @@ function App() {
         // First login, create blank company data based on metadata
         const metadata = authUser.user_metadata || {};
         const newData = createEmptyCompanyData({
-          name: metadata.company_name || 'Mitt Företag AB',
-          orgNr: metadata.org_nr || ''
+          // UF-registreringen (Auth.jsx) skickar inget org.nummer och ett
+          // eget förvalt namn — ett UF-företag som inte hunnit döpa sig
+          // ska inte heta "Mitt Företag AB".
+          name: metadata.company_name || (metadata.uf ? 'Mitt UF-företag' : 'Mitt Företag AB'),
+          orgNr: metadata.org_nr || '',
+          isUf: Boolean(metadata.uf),
+          ufSchool: metadata.uf_school || '',
+          ufStartedAt: metadata.uf_started_at || '',
         });
         const initialStore = {
           activeCompanyId: newData.company.id,
@@ -2790,10 +2842,32 @@ function App() {
   // Auto-book invoice creation
   const handleAddInvoice = (invoice) => {
     const invType = invoice.type || 'invoice';
+
+    // UF-kontots dygnstak. Returnerar tidigt UTAN att spara — anropsstället
+    // (Invoices.jsx) döljer och låser redan knappen när taket är nått, så
+    // hit kommer man i praktiken bara via en väg som missat kollen.
+    const quota = ufInvoiceQuota(company, invoices);
+    if (quota.reached) {
+      setToast({
+        message: `Ni har skapat ${quota.limit} fakturor idag — fler går att skapa imorgon. Gratiskontot för UF har ett dygnstak.`,
+        variant: 'error',
+      });
+      return;
+    }
+
     // Slumpsuffix (se motsvarande kommentar vid company_id ovan) — invoice_id
     // skickas precis som company_id oautentiserat till create-checkout-
     // session.js via fakturans betalningslänk.
-    const inv = { ...invoice, id: `inv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`, type: invType };
+    const inv = {
+      ...invoice,
+      id: `inv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      type: invType,
+      // NÄR fakturan skapades, till skillnad från `date` (fakturadatumet,
+      // som användaren själv sätter). Läses av ufInvoiceQuota; harmlöst
+      // för alla andra företag, men gör dygnstaket omöjligt att nolla
+      // genom att backdatera fakturan.
+      createdAt: new Date().toISOString(),
+    };
     setInvoices(prev => [...prev, inv]);
 
     if (invType === 'quote') return;
@@ -3433,6 +3507,24 @@ function App() {
     }] : []),
   ];
 
+  // ── Render content ──
+  // Vilka sidor som får synas i menyn. null = alla (mitt eget företag, eller
+  // en inbjudan gjord innan sidbehörigheterna fanns). Behörigheten som
+  // FAKTISKT skyddar data ligger server-side i api/company-access.js — den
+  // här raden är bara menyn.
+  const sharedNavIds = currentCompany?.__shared
+    ? visiblePages(currentCompany.__shared.pageAccess, currentCompany.__shared.role)
+    : null;
+  // UF-läget (utils/ufMode.js) skär bort de sidor ett UF-företag aldrig
+  // ska använda — offerter, projekt och lön. Det är en EGEN begränsning
+  // vid sidan av sidbehörigheterna ovan, inte samma sak: behörigheterna
+  // säger vad en inbjuden person får se av NÅGON ANNANS företag, UF-läget
+  // vad företaget självt har för funktioner. Snittet av båda gäller när
+  // de råkar mötas (en inbjuden medlem i ett UF-företag).
+  const allowedNavIds = isUfCompany(company)
+    ? UF_NAV_IDS.filter(id => sharedNavIds === null || id === 'settings' || sharedNavIds.includes(id))
+    : sharedNavIds;
+
   // Mobile bottom nav (4 vanligaste + "Mer") — Sida 26. "Mer" öppnar en
   // bottensheet med resten av huvudpunkterna istället för att själv peka på
   // en specifik sida, så dess ikon nedan hanteras separat (se mobileSheetItems).
@@ -3452,16 +3544,44 @@ function App() {
     { id: 'reports',       label: 'Rapport och analys',  icon: BarChart3 },
     { id: 'settings',      label: 'Inställningar',       icon: SettingsIcon },
   ];
-  const isMobileSheetItemActive = mobileSheetItems.some(item => resolveNavGroup(activeTab) === resolveTab(item.id));
+  // Mobilmenyn måste filtreras på samma sätt som sidomenyn — annars är
+  // UF-lägets avstängda sidor (Offerter/Projekt/Lön) borta på desktop men
+  // kvar i mobilens "Mer"-sheet, vilket är sämre än att inte ha filtrerat
+  // alls: samma app säger två olika saker beroende på skärmbredd.
+  // allowedNavIds är null för ett vanligt eget företag, så det här är ett
+  // no-op där. 'settings' undantas precis som i sidomenyn.
+  const isNavIdAllowed = (id) => allowedNavIds === null || id === 'settings' || allowedNavIds.includes(id);
+  const visibleMobileNavItems = mobileNavItems.filter(item => isNavIdAllowed(item.id));
+  const visibleMobileSheetItems = mobileSheetItems.filter(item => isNavIdAllowed(item.id));
+  const isMobileSheetItemActive = visibleMobileSheetItems.some(item => resolveNavGroup(activeTab) === resolveTab(item.id));
 
   const companyList = Object.values(data.companies).map(c => c.company);
 
-  // ── Render content ──
   const renderContent = () => {
     const commonProps = {
       accounts, balances, verifications,
       globalAction, clearGlobalAction: () => setGlobalAction(null)
     };
+
+    // 'company' (sidomenyn/profilmenyn) och 'settings' landar båda på
+    // inställningssidan — den förra direkt på Företag-fliken.
+    const settingsInitialSection = activeTab === 'company' ? 'company' : undefined;
+
+    // Kom man ändå hit — bokmärkt URL-hash, en genväg från en annan sida,
+    // produktrundturen — visas förklaringen i stället för sidan. Ligger
+    // FÖRE switchen, inte som en gren i den: annars måste varje ny sida
+    // komma ihåg att lägga till kollen, och den som glömmer släpper in
+    // funktionen tyst.
+    // resolveNavGroup, INTE resolveTab: frågan är vilken MENYPUNKT sidan
+    // hör till, och det är exakt vad resolveNavGroup svarar på.
+    // Leverantörsfakturor ('supplier_invoices') är den som gör skillnaden —
+    // den har ingen egen menypunkt utan hör till Fakturering, och med
+    // resolveTab (som lämnar id:t orört) hade den räknats som en okänd
+    // sida och spärrats för UF, mitt i ett flöde som annars fungerar.
+    const ufTab = resolveNavGroup(activeTab);
+    if (ufPageState(company, ufTab) === 'blocked') {
+      return <UfLockedPage tabId={ufTab} onNavigate={handleNavTabChange} />;
+    }
 
     switch (resolveTab(activeTab)) {
       case 'dashboard':
@@ -3546,6 +3666,7 @@ function App() {
         return (
           <Invoices
             key={company?.id || data.activeCompanyId}
+            ufQuota={ufInvoiceQuota(company, invoices)}
             invoices={invoices}
             contacts={contacts}
             accounts={accounts}
@@ -3732,6 +3853,7 @@ function App() {
       case 'reports':
         return (
           <Reports
+            hiddenReportIds={isUfCompany(company) ? UF_HIDDEN_REPORT_IDS : undefined}
             accounts={accounts}
             verifications={verifications}
             invoices={invoices}
@@ -3740,13 +3862,6 @@ function App() {
             company={company}
             setCompanyInfo={setCompanyInfo}
             onNavigate={handleNavTabChange}
-          />
-        );
-      case 'company':
-        return (
-          <CompanySettings 
-            company={company} 
-            updateCompany={setCompanyInfo} 
           />
         );
       case 'settings':
@@ -3783,6 +3898,9 @@ function App() {
             onToggleSidebarStyle={toggleSidebarStyle}
             sharedAccess={currentCompany.__shared || null}
             onBulkImportSie={handleBulkImportVerifications}
+            theme={theme}
+            onToggleTheme={toggleTheme}
+            initialSection={settingsInitialSection}
           />
         );
       default:
@@ -3820,7 +3938,7 @@ function App() {
             ) : !isLoggedIn ? (
               showLanding
                 ? <LandingPage onEnterApp={(mode, plan) => { setShowLanding(false); setAuthMode(mode === 'signup' ? 'signup' : 'login'); if (plan) setSelectedPlan(plan); }} />
-                : <Auth onLogin={handleLogin} onBackToLanding={() => setShowLanding(true)} initialMode={authMode} plan={selectedPlan} />
+                : <Auth onLogin={handleLogin} onBackToLanding={() => setShowLanding(true)} initialMode={authMode} plan={selectedPlan} initialUf={signupAsUf} />
             ) : showOnboarding ? (
               // Bugkritiskt: `showOnboarding`/handleOnboardingComplete/
               // handleSkipOnboarding fanns redan helt färdigkopplade (även
@@ -3904,7 +4022,9 @@ function App() {
                 { id: 'settings', label: 'Inställningar' },
               ],
             },
-          ].map((group, gi) => (
+          ].map(group => ({ ...group, items: group.items.filter(item => allowedNavIds === null || item.id === 'settings' || allowedNavIds.includes(item.id)) }))
+           .filter(group => group.items.length > 0)
+           .map((group, gi) => (
             <React.Fragment key={gi}>
               {gi > 0 && <div style={{ height: '1px', background: 'rgba(255,255,255,0.15)', margin: '8px 20px', flexShrink: 0 }}></div>}
               {group.items.map((item) => {
@@ -4074,9 +4194,31 @@ function App() {
                       profil"), inte en egen destination. Borttagna, inte bara
                       dolda — samma två rader fanns dubblerat i mobilkopian av
                       den här menyn, borttagna där också. */}
-                  <button onClick={() => { toggleTheme(); setIsProfileMenuOpen(false); }}>
-                    {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />} {theme === 'dark' ? 'Ljust läge' : 'Mörkt läge'}
-                  </button>
+                  {/* Kundfeedback: raden hette bara "Ljust läge" (alltså det
+                      läge man skulle BYTA TILL) och gick att läsa precis
+                      tvärtom — som att man redan var i ljust läge. Nu båda
+                      alternativen bredvid varandra med det aktiva ifyllt, så
+                      det syns vilket som gäller utan att man behöver klicka
+                      och se vad som händer. Samma kontroll på mobil, där den
+                      här menyn är enda vägen till temavalet om man inte
+                      hittar ikonen i topbaren. */}
+                  <div className="profile-theme-row">
+                    <span className="profile-theme-label">Utseende</span>
+                    <div className="profile-theme-toggle">
+                      <button
+                        type="button"
+                        className={theme !== 'dark' ? 'is-active' : ''}
+                        onClick={() => { if (theme === 'dark') toggleTheme(); }}
+                        aria-pressed={theme !== 'dark'}
+                      ><Sun size={13} /> Ljust</button>
+                      <button
+                        type="button"
+                        className={theme === 'dark' ? 'is-active' : ''}
+                        onClick={() => { if (theme !== 'dark') toggleTheme(); }}
+                        aria-pressed={theme === 'dark'}
+                      ><Moon size={13} /> Mörkt</button>
+                    </div>
+                  </div>
                   <div className="dropdown-divider"></div>
                   <button onClick={() => { handleNavTabChange('accounts'); setIsProfileMenuOpen(false); }}><FolderTree size={14} /> Kontoplaner</button>
                   {/* Ingen egen "viktiga datum"-sida finns — Skatt & bokslut är
@@ -4198,9 +4340,31 @@ function App() {
                       profil"), inte en egen destination. Borttagna, inte bara
                       dolda — samma två rader fanns dubblerat i mobilkopian av
                       den här menyn, borttagna där också. */}
-                  <button onClick={() => { toggleTheme(); setIsProfileMenuOpen(false); }}>
-                    {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />} {theme === 'dark' ? 'Ljust läge' : 'Mörkt läge'}
-                  </button>
+                  {/* Kundfeedback: raden hette bara "Ljust läge" (alltså det
+                      läge man skulle BYTA TILL) och gick att läsa precis
+                      tvärtom — som att man redan var i ljust läge. Nu båda
+                      alternativen bredvid varandra med det aktiva ifyllt, så
+                      det syns vilket som gäller utan att man behöver klicka
+                      och se vad som händer. Samma kontroll på mobil, där den
+                      här menyn är enda vägen till temavalet om man inte
+                      hittar ikonen i topbaren. */}
+                  <div className="profile-theme-row">
+                    <span className="profile-theme-label">Utseende</span>
+                    <div className="profile-theme-toggle">
+                      <button
+                        type="button"
+                        className={theme !== 'dark' ? 'is-active' : ''}
+                        onClick={() => { if (theme === 'dark') toggleTheme(); }}
+                        aria-pressed={theme !== 'dark'}
+                      ><Sun size={13} /> Ljust</button>
+                      <button
+                        type="button"
+                        className={theme === 'dark' ? 'is-active' : ''}
+                        onClick={() => { if (theme !== 'dark') toggleTheme(); }}
+                        aria-pressed={theme === 'dark'}
+                      ><Moon size={13} /> Mörkt</button>
+                    </div>
+                  </div>
                   <div className="dropdown-divider"></div>
                   <button onClick={() => { handleNavTabChange('accounts'); setIsProfileMenuOpen(false); }}><FolderTree size={14} /> Kontoplaner</button>
                   <button onClick={() => { handleNavTabChange('taxes'); setIsProfileMenuOpen(false); }}><FileCheck size={14} /> Viktiga datum</button>
@@ -4273,7 +4437,7 @@ function App() {
       {/* ── Mobile Bottom Navigation (Sida 26) ── */}
       <nav className="mobile-bottom-nav" aria-label="Mobilnavigation">
         <div className="mobile-bottom-nav-inner">
-          {mobileNavItems.map(item => {
+          {visibleMobileNavItems.map(item => {
             const isActive = resolveNavGroup(activeTab) === resolveTab(item.id);
             return (
               <button
@@ -4309,7 +4473,7 @@ function App() {
       <div className={`mobile-sheet-overlay ${mobileMoreOpen ? 'open' : ''}`} onClick={() => setMobileMoreOpen(false)} />
       <div className={`mobile-sheet ${mobileMoreOpen ? 'open' : ''}`} role="dialog" aria-modal="true" aria-label="Fler sidor">
         <div className="mobile-sheet-handle" />
-        {mobileSheetItems.map(item => {
+        {visibleMobileSheetItems.map(item => {
           const isActive = resolveNavGroup(activeTab) === resolveTab(item.id);
           return (
             <button
@@ -4343,7 +4507,6 @@ function App() {
       <HelpDrawer
         isOpen={isHelpDrawerOpen}
         onClose={() => setIsHelpDrawerOpen(false)}
-        onOpenGuide={() => { setIsHelpDrawerOpen(false); setShowOnboarding(true); }}
         onStartTour={() => { setIsHelpDrawerOpen(false); handleNavTabChange('dashboard'); startProductTourWhenReady({ uid: user?.id, navigate: handleNavTabChange }); }}
         onStartInvoiceTour={() => { setIsHelpDrawerOpen(false); handleNavTabChange('invoices'); startInvoiceTourWhenReady({ uid: user?.id }); }}
       />

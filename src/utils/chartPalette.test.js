@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  lighten,
   resolveChartPalette,
   makeAmountFormatters,
   CHART_COLOR_FAMILIES,
@@ -90,5 +91,44 @@ describe('makeAmountFormatters', () => {
 
   it('okänd enhet beter sig som auto', () => {
     expect(makeAmountFormatters('parsec').value(203400)).toBe('203 tkr')
+  })
+})
+
+// Mörkt läge (kundfeedback: "mörk text/mörka toner i mörkt läge"). De VALDA
+// rollfärgerna får aldrig ändras av temat — bara de två toner som är valda
+// för ett ljust ark.
+describe('resolveChartPalette i mörkt läge', () => {
+  const light = resolveChartPalette()
+  const dark = resolveChartPalette(undefined, { dark: true })
+
+  it('rör inte de valda rollfärgerna', () => {
+    expect(dark.income).toBe(light.income)
+    expect(dark.cost).toBe(light.cost)
+    expect(dark.profit).toBe(light.profit)
+    expect(dark.costRamp).toEqual(light.costRamp)
+  })
+
+  it('byter den nästan vita spårfärgen mot en genomskinlig', () => {
+    expect(light.costWash).toMatch(/^#/)
+    expect(dark.costWash).toBe('rgba(255,255,255,0.10)')
+  })
+
+  it('lyfter marginaltrappans mörkaste ton så den syns mot mörk botten', () => {
+    expect(light.marginTones[2]).toBe('#1c5c28')
+    expect(dark.marginTones[2]).not.toBe(light.marginTones[2])
+    expect(lighten('#1c5c28', 0.5)).toBe(dark.marginTones[2])
+    // De två ljusare stegen är redan läsbara och ska vara oförändrade.
+    expect(dark.marginTones.slice(0, 2)).toEqual(light.marginTones.slice(0, 2))
+  })
+})
+
+describe('lighten', () => {
+  it('0 lämnar färgen orörd, 1 ger vitt', () => {
+    expect(lighten('#1c5c28', 0)).toBe('#1c5c28')
+    expect(lighten('#1c5c28', 1)).toBe('#ffffff')
+  })
+
+  it('returnerar indata oförändrad när det inte är en hexfärg', () => {
+    expect(lighten('rgba(0,0,0,0.5)')).toBe('rgba(0,0,0,0.5)')
   })
 })

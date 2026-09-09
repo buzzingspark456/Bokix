@@ -211,7 +211,7 @@ export default function OnboardingFlow({ onComplete, onSkip, initialCompanyName,
             <button onClick={onSkip} style={{ border: 0, background: 'transparent', color: 'var(--text-secondary)', fontWeight: 700, cursor: 'pointer' }}>Hoppa över</button>
           </div>
 
-          <div style={{ height: '8px', borderRadius: '999px', background: '#eef2f7', overflow: 'hidden', marginBottom: '24px' }}>
+          <div style={{ height: '8px', borderRadius: '999px', background: 'var(--bg-muted)', overflow: 'hidden', marginBottom: '24px' }}>
             <div style={{ width: `${progress}%`, height: '100%', background: BRAND.green, transition: 'width 0.25s ease' }} />
           </div>
         </div>

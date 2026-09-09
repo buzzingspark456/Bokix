@@ -445,7 +445,7 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, on
             i Quotes-listan: det är ägarens eget omdöme, inte något appen ska
             gate:a bakom ett visst statusläge. */}
         {quote && onConvert && (
-          <button type="button" onClick={onConvert} style={{ ...toolbarBtnStyle(false), color: 'var(--accent)', borderColor: 'var(--status-green-bg)' }}><FileText size={13} /> Konvertera till faktura</button>
+          <button type="button" onClick={onConvert} style={{ ...toolbarBtnStyle(false), color: 'var(--accent-text)', borderColor: 'var(--status-green-bg)' }}><FileText size={13} /> Konvertera till faktura</button>
         )}
         <div style={{ flex: 1, minWidth: '8px' }} />
         {emailError && <span style={{ fontSize: '11px', color: 'var(--status-red-text)', flexShrink: 0 }}>{emailError}</span>}
@@ -1063,12 +1063,43 @@ export default function Quotes({ quotes = [], setQuotes, onConvert, contacts = [
           rows={visible}
           mobileList={q => {
             const s = getStatusStyle(getDisplayStatus(q));
+            // Kundfeedback (skärmdump): raden inleddes med "—" så fort ingen
+            // kund var vald — och en offert utan kund är just den man behöver
+            // hitta igen. Offertnumret bär identiteten i stället, och att
+            // kunden saknas står i klartext på metaraden.
+            const customerName = contacts.find(c => c.id === q.customerId)?.name || q.customerName;
+            const metaRest = `${q.date || ''}${q.dueDate ? ` · giltig t.o.m. ${q.dueDate}` : ''}`;
             return {
               dot: s.color,
-              primary: contacts.find(c => c.id === q.customerId)?.name || q.customerName || '—',
+              primary: customerName || `Offert ${q.invoiceNumber || ''}`.trim(),
               amount: `${getTotal(q).toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr`,
-              meta: `${q.invoiceNumber || '—'} · ${q.date || ''}`,
+              meta: customerName
+                ? `${q.invoiceNumber || '—'} · ${metaRest}`
+                : `Ingen kund vald · ${metaRest}`,
               pill: <span style={{ padding: '2px 8px', background: s.bg, color: s.color, borderRadius: '999px', fontSize: '10.5px', fontWeight: 700 }}>{s.label}</span>,
+              // Åtgärdskolumnen (skapa faktura / ta bort) fanns bara i
+              // desktoptabellen — på telefonen gick en offert därför att läsa
+              // men inte att göra något med. Kundfeedback: "man får ej info …
+              // ska vara bra som fakturering". Samma två handlers som
+              // kolumnen använder, ingen egen logik.
+              meta2: (
+                <span style={{ display: 'inline-flex', gap: '8px', marginTop: '4px' }} onClick={e => e.stopPropagation()}>
+                  <button
+                    type="button"
+                    onClick={(e) => handleConvert(q, e)}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 10px', background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: '999px', fontSize: '11.5px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer', fontFamily: 'inherit' }}
+                  >
+                    <FileText size={12} /> Skapa faktura
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => handleDelete(q.id, e)}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 10px', background: 'none', border: '1px solid var(--border)', borderRadius: '999px', fontSize: '11.5px', fontWeight: 600, color: 'var(--status-red-text)', cursor: 'pointer', fontFamily: 'inherit' }}
+                  >
+                    <Trash2 size={12} /> Ta bort
+                  </button>
+                </span>
+              ),
             };
           }}
           columns={[
@@ -1096,7 +1127,7 @@ export default function Quotes({ quotes = [], setQuotes, onConvert, contacts = [
                       faktiskt vill ha en faktura, inte något appen ska hindra
                       baserat på var i statusflödet offerten råkar stå. Se samma
                       resonemang vid motsvarande knapp i QuoteEditor ovan. */}
-                  <button onClick={(e) => handleConvert(q, e)} title="Konvertera till faktura" style={{ padding: '6px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--accent)' }}>
+                  <button onClick={(e) => handleConvert(q, e)} title="Konvertera till faktura" style={{ padding: '6px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--accent-text)' }}>
                     <FileText size={16} />
                   </button>
                   <button onClick={(e) => handleDelete(q.id, e)} title="Ta bort" style={{ padding: '6px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444' }}>

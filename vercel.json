@@ -43,6 +43,14 @@
       "destination": "/byt-bokforingsprogram/index.html"
     },
     {
+      "source": "/koppla-bank",
+      "destination": "/koppla-bank/index.html"
+    },
+    {
+      "source": "/uf",
+      "destination": "/uf/index.html"
+    },
+    {
       "source": "/integrationer",
       "destination": "/integrationer/index.html"
     },
@@ -77,6 +85,10 @@
     {
       "source": "/verktyg/drojsmalsranta",
       "destination": "/verktyg/drojsmalsranta/index.html"
+    },
+    {
+      "source": "/verktyg/utdelning",
+      "destination": "/verktyg/utdelning/index.html"
     },
     {
       "source": "/((?!api).*)",

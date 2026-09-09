@@ -89,7 +89,7 @@ export async function loadMemberCompany(userId, companyId, res) {
 
   const { data: membership, error: membershipError } = await admin
     .from('company_members')
-    .select('owner_user_id, role')
+    .select('owner_user_id, role, page_access')
     .eq('company_id', companyId)
     .eq('member_user_id', userId)
     .eq('status', 'active')
@@ -119,5 +119,5 @@ export async function loadMemberCompany(userId, companyId, res) {
     res.status(403).json({ error: 'Företaget hittades inte längre.' });
     return null;
   }
-  return { companyData, role: membership.role, ownerUserId: membership.owner_user_id };
+  return { companyData, role: membership.role, pageAccess: membership.page_access || null, ownerUserId: membership.owner_user_id };
 }

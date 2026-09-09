@@ -5,6 +5,7 @@ import {
   UploadCloud, Tag, LayoutTemplate, Save, Trash2
 } from 'lucide-react';
 import { getDebet, getKredit } from '../utils/verificationAmounts';
+import { BRAND } from '../utils/brandColors';
 import { accountMatches } from '../utils/accountSearch';
 import { PartySearch, ProjectSearch, AccountSearch } from './shared/SearchInputs';
 import ListPageHeader, { ListFilterBar, listSearchInputStyle, listFilterFieldStyle } from './shared/ListPageHeader';
@@ -94,8 +95,15 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
           kredit: getKredit(r) ? String(getKredit(r)) : '',
           desc: r.desc || '',
         }))
+      // TVÅ tomma rader, inte en. En verifikation kan per definition aldrig
+      // bestå av en enda rad (debet måste möta kredit — formulärets egen
+      // validering nedan kräver också minst två), så en ensam rad var ett
+      // steg användaren alltid måste ta själv innan något gick att spara.
+      // Kundfeedback: "gör det enklare att faktiskt göra" — det här är den
+      // billigaste delen av det.
       : [
-          { account: '', accountName: '', debet: '', kredit: '', desc: '' }
+          { account: '', accountName: '', debet: '', kredit: '', desc: '' },
+          { account: '', accountName: '', debet: '', kredit: '', desc: '' },
         ]
   );
 
@@ -202,6 +210,9 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
   const totalCredit = rows.reduce((s, r) => s + (parseFloat(r.kredit) || 0), 0);
   const diff = Math.abs(totalDebit - totalCredit);
   const isBalanced = diff < 0.01 && totalDebit > 0;
+  // Har användaren börjat fylla i belopp alls? Skiljer "tomt formulär" från
+  // "riktig obalans" i summaraden nedan.
+  const hasAmounts = totalDebit > 0 || totalCredit > 0;
 
   // Ett bokfört utkast måste balansera precis som en färdig verifikation —
   // men ett utkast som fortfarande är under arbete får sparas obalanserat,
@@ -274,21 +285,58 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
 
   const fieldLabel = { display: 'block', fontSize: '11.5px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '5px' };
 
+  // Valideringen räknas här (inte inne i knappraden längst ner, där den låg
+  // förut) eftersom den nu behövs på TVÅ ställen: i sidhuvudets primärknapp
+  // och i meddelanderaden vid knapparna längst ner.
+  const validRowCount = rows.filter(r => r.account && (parseFloat(r.debet) > 0 || parseFloat(r.kredit) > 0)).length;
+  const validationMessages = [];
+  if (!desc.trim()) validationMessages.push('Ange en beskrivning');
+  if (validRowCount < 2) validationMessages.push('Minst två rader med konto och belopp krävs');
+  const canReview = isBalanced && validationMessages.length === 0;
+  const title = initial?.number ? `Verifikation ${initial.number}` : 'Ny verifikation';
+
   return (
-    <div style={{ background: 'var(--bg-card)', borderRadius: '14px', border: '1px solid var(--border)', padding: '28px', marginBottom: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '22px' }}>
-        <h2 style={{ margin: 0, fontSize: '19px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.01em' }}>
-          {/* En rättelseverifikation (`initial` fylld men `number` medvetet
-              tömd, se "Rätta"-knappen nedan) ska visas och beskrivas som en
-              NY verifikation — den ärver bara text/rader, aldrig originalets
-              nummer eller "redigera befintlig"-språket. */}
-          {initial?.number ? `Verifikation ${initial.number}` : 'Ny verifikation'}
-        </h2>
-        <button data-tour="page-verifications-cancel" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={20} /></button>
+    // Kundfeedback: "jag vill ha en riktig sida för att göra en
+    // verifikation" — formuläret låg tidigare som ett kort INUTI listvyn,
+    // med filterraden och hela verifikationslistan kvar under sig medan man
+    // konterade. Samma helsidesmönster som fakturaformuläret (Invoices.jsx)
+    // redan använder: sticky rubrikrad med Tillbaka + åtgärder, och bara
+    // formuläret under. Sidan bakom monteras inte alls så länge den här är
+    // öppen (se `if (showForm) return …` i Bokforing nedan).
+    <div style={{ flex: 1, minHeight: 0, background: 'var(--bg-muted)', display: 'flex', flexDirection: 'column', animation: 'fadeIn 0.15s ease' }}>
+      <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '14px 24px', display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', position: 'sticky', top: 0, zIndex: 10 }}>
+        <button type="button" data-tour="page-verifications-cancel" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-main)', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+          ← Tillbaka
+        </button>
+        {/* En rättelseverifikation (`initial` fylld men `number` medvetet
+            tömd, se "Rätta"-knappen nedan) ska visas och beskrivas som en
+            NY verifikation — den ärver bara text/rader, aldrig originalets
+            nummer eller "redigera befintlig"-språket. */}
+        <h1 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.01em' }}>{title}</h1>
+        <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>Serie {series} · {previewNumber}</span>
+        <div style={{ flex: 1, minWidth: '8px' }} />
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <button type="button" onClick={onClose} style={{ padding: '9px 16px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer' }}>Avbryt</button>
+          <button type="button" onClick={() => handleSave('draft')} disabled={attachmentBusy} style={{ padding: '9px 16px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', cursor: attachmentBusy ? 'not-allowed' : 'pointer', opacity: attachmentBusy ? 0.6 : 1 }}>
+            {attachmentBusy ? 'Laddar upp…' : 'Spara som utkast'}
+          </button>
+          <button
+            type="button"
+            onClick={() => canReview && setShowReview(true)}
+            disabled={!canReview}
+            title={canReview ? undefined : validationMessages.join(' · ') || 'Debet och kredit måste vara lika'}
+            style={{ padding: '9px 18px', background: canReview ? BRAND.green : 'var(--border)', border: 'none', borderRadius: '8px', color: canReview ? 'white' : 'var(--text-muted)', fontSize: '13px', fontWeight: 700, cursor: canReview ? 'pointer' : 'not-allowed' }}
+          >
+            {initial?.number ? 'Granska & spara' : 'Granska & bokför'}
+          </button>
+        </div>
       </div>
 
+      <div style={{ flex: 1, overflowY: 'auto', padding: 'clamp(14px, 2vw, 24px)' }}>
+      <div style={{ background: 'var(--bg-card)', borderRadius: '14px', border: '1px solid var(--border)', padding: 'clamp(16px, 2.2vw, 28px)', maxWidth: '1180px', margin: '0 auto', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+
       {/* Datum / Beskrivning / Serie */}
-      <div style={{ display: 'flex', gap: '16px', marginBottom: '10px' }}>
+      <div className="ver-form-row" style={{ marginBottom: '10px' }}>
         <div style={{ flex: 1 }}>
           <label style={fieldLabel}>Datum</label>
           <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inp} />
@@ -338,7 +386,7 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
         />
       </div>
 
-      <div style={{ display: 'flex', gap: '16px', marginBottom: '6px' }}>
+      <div className="ver-form-row" style={{ marginBottom: '6px' }}>
         <div style={{ flex: 1 }}>
           <label style={fieldLabel}>Kostnadsställe</label>
           <input value={costCenter} onChange={e => setCostCenter(e.target.value)} placeholder="Ange kostnadsställe" style={inp} />
@@ -361,17 +409,26 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: '24px' }}>
-        {/* Rows table */}
-        <div style={{ flex: 2 }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+      {/* Konteringsraderna + underlaget. Klass i stället för inline
+          `display:flex` (kundfeedback: "gör det bra i halvskärm också") —
+          en inline style kan inte ha en mediafråga, så de två kolumnerna
+          satt kvar sida vid sida även i ett fönster där kontorutan blev för
+          smal för ett kontonummer. Se .ver-form-grid i index.css. */}
+      <div className="ver-form-grid">
+        {/* Rows table. Egen vågrät skroll (och en minsta bredd på tabellen)
+            i stället för att kolumnerna pressas ihop tills beloppen klipps
+            av — kundfeedback om halvskärm: "0,0(" i en 60px bred ruta är
+            värre än att behöva skrolla den lilla biten i sidled. Resten av
+            sidan skrollar aldrig i sidled, bara den här tabellen. */}
+        <div style={{ minWidth: 0, overflowX: 'auto' }}>
+          <table style={{ width: '100%', minWidth: '620px', borderCollapse: 'collapse', fontSize: '13px' }}>
             <thead>
               <tr>
-                <th style={{ padding: '0 8px 8px', textAlign: 'left', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: 'var(--text-main)', borderBottom: '1px solid var(--border)', width: 130 }}>KONTO</th>
-                <th style={{ padding: '0 8px 8px', textAlign: 'left', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: 'var(--text-main)', borderBottom: '1px solid var(--border)' }}>BESKRIVNING</th>
-                <th style={{ padding: '0 8px 8px', textAlign: 'left', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: 'var(--text-main)', borderBottom: '1px solid var(--border)', width: 100 }}>DEBET</th>
-                <th style={{ padding: '0 8px 8px', textAlign: 'left', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: 'var(--text-main)', borderBottom: '1px solid var(--border)', width: 100 }}>KREDIT</th>
-                <th style={{ padding: '0 8px 8px', textAlign: 'right', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: 'var(--text-main)', borderBottom: '1px solid var(--border)', width: 120 }}>SALDO</th>
+                <th style={{ padding: '0 8px 8px', textAlign: 'left', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border)', width: 140 }}>KONTO</th>
+                <th style={{ padding: '0 8px 8px', textAlign: 'left', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border)' }}>BESKRIVNING</th>
+                <th style={{ padding: '0 8px 8px', textAlign: 'right', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border)', width: 110 }}>DEBET</th>
+                <th style={{ padding: '0 8px 8px', textAlign: 'right', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border)', width: 110 }}>KREDIT</th>
+                <th style={{ padding: '0 8px 8px', textAlign: 'right', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border)', width: 120 }}>SALDO</th>
                 <th style={{ width: 52, borderBottom: '1px solid var(--border)' }} />
               </tr>
             </thead>
@@ -408,7 +465,7 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
                       onChange={e => updateRow(i, 'debet', e.target.value)}
                       onBlur={() => handleBlurAmount(i)}
                       onKeyDown={e => { if (e.key === 'Enter') handleBlurAmount(i); }}
-                      style={{ ...inp, padding: '9px 14px', textAlign: 'left', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-muted)' }}
+                      style={{ ...inp, padding: '9px 12px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-muted)' }}
                       placeholder="0,00"
                     />
                   </td>
@@ -418,7 +475,7 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
                       onChange={e => updateRow(i, 'kredit', e.target.value)}
                       onBlur={() => handleBlurAmount(i)}
                       onKeyDown={e => { if (e.key === 'Enter') handleBlurAmount(i); }}
-                      style={{ ...inp, padding: '9px 14px', textAlign: 'left', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-muted)' }}
+                      style={{ ...inp, padding: '9px 12px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-muted)' }}
                       placeholder="0,00"
                     />
                   </td>
@@ -469,17 +526,31 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
               })}
             </tbody>
             <tfoot>
+              {/* Summan färgas RÖD bara när det faktiskt finns en obalans att
+                  åtgärda. Ett tomt formulär (0 mot 0) är inte ett fel — men
+                  visades ändå med två röda nollor, vilket gjorde att varje ny
+                  verifikation började med att se trasig ut. */}
               <tr style={{ borderTop: '1px solid var(--border)' }}>
                 <td colSpan={2} style={{ padding: '12px 8px', fontWeight: 700, fontSize: '13px', color: 'var(--text-main)' }}>Summa</td>
-                <td style={{ padding: '12px 8px', textAlign: 'left', fontWeight: 700, color: isBalanced ? 'var(--text-main)' : 'var(--status-red-text)' }}>{fmt(totalDebit)}</td>
-                <td style={{ padding: '12px 8px', textAlign: 'left', fontWeight: 700, color: isBalanced ? 'var(--text-main)' : 'var(--status-red-text)' }}>{fmt(totalCredit)}</td>
+                <td style={{ padding: '12px 8px', textAlign: 'right', fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: hasAmounts && !isBalanced ? 'var(--status-red-text)' : 'var(--text-main)' }}>{fmt(totalDebit)}</td>
+                <td style={{ padding: '12px 8px', textAlign: 'right', fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: hasAmounts && !isBalanced ? 'var(--status-red-text)' : 'var(--text-main)' }}>{fmt(totalCredit)}</td>
                 <td colSpan={2} />
               </tr>
-              {!isBalanced && (totalDebit > 0 || totalCredit > 0) && (
-                <tr>
-                  <td colSpan={6} style={{ padding: '0 8px 8px', fontSize: '12px', color: 'var(--status-red-text)' }}>Obalanserad — differens: {fmt(diff)} kr</td>
-                </tr>
-              )}
+              <tr>
+                <td colSpan={6} style={{ padding: '0 8px 10px' }}>
+                  {hasAmounts && !isBalanced ? (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: 'var(--status-red-text)', background: 'var(--status-red-bg)', borderRadius: '999px', padding: '4px 12px' }}>
+                      <AlertCircle size={13} /> Debet och kredit skiljer sig med {fmt(diff)} kr — {totalDebit > totalCredit ? 'lägg till kredit' : 'lägg till debet'} för att kunna bokföra
+                    </span>
+                  ) : hasAmounts ? (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: 'var(--status-green-text)', background: 'var(--status-green-bg)', borderRadius: '999px', padding: '4px 12px' }}>
+                      Balanserar — debet = kredit
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Fyll i minst två rader: en debet och en kredit på samma belopp.</span>
+                  )}
+                </td>
+              </tr>
             </tfoot>
           </table>
           <div style={{ display: 'flex', gap: '8px', marginTop: '14px', flexWrap: 'wrap' }}>
@@ -524,7 +595,7 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
         </div>
 
         {/* Right side: Attachment */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '8px' }}>Underlag</div>
           <div
             onDragOver={e => { e.preventDefault(); setDragOver(true); }}
@@ -598,13 +669,6 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
         </div>
       </div>
 
-      {(() => {
-        const validRowCount = rows.filter(r => r.account && (parseFloat(r.debet) > 0 || parseFloat(r.kredit) > 0)).length;
-        const validationMessages = [];
-        if (!desc.trim()) validationMessages.push('Ange en beskrivning');
-        if (validRowCount < 2) validationMessages.push('Minst två rader med konto och belopp krävs');
-        const canReview = isBalanced && validationMessages.length === 0;
-        return (
       <div style={{ marginTop: '24px', paddingTop: '20px', borderTop: '1px solid var(--border)' }}>
         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '10px' }}>
           <button
@@ -612,31 +676,28 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
               if (!(await confirmDialog('Rensa formuläret? Ifylld information försvinner.'))) return;
               setDesc(''); setProjectId(''); setCostCenter(''); setInternalNote('');
               setCounterpartyId(''); setOriginalLocation(''); setAttachment(null); setExistingAttachment(null);
-              setRows([{ account: '', accountName: '', debet: '', kredit: '', desc: '' }]);
+              setRows([
+                { account: '', accountName: '', debet: '', kredit: '', desc: '' },
+                { account: '', accountName: '', debet: '', kredit: '', desc: '' },
+              ]);
             }}
             style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '9px 14px', background: 'none', border: 'none', borderRadius: '8px', fontSize: '13.5px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', marginRight: 'auto' }}
           ><RefreshCw size={13} /> Rensa</button>
-          <button onClick={() => handleSave('draft')} disabled={attachmentBusy} style={{ padding: '10px 18px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13.5px', fontWeight: 600, color: 'var(--text-main)', cursor: attachmentBusy ? 'not-allowed' : 'pointer', opacity: attachmentBusy ? 0.6 : 1 }}>
-            {attachmentBusy ? 'Laddar upp…' : 'Spara som utkast'}
-          </button>
-          <button onClick={() => canReview && setShowReview(true)} disabled={!canReview} style={{
-            padding: '10px 22px', background: canReview ? 'var(--text-main)' : 'var(--border)',
-            border: 'none', borderRadius: '8px', color: canReview ? 'white' : 'var(--text-muted)', fontWeight: 600,
-            fontSize: '13.5px', cursor: canReview ? 'pointer' : 'not-allowed'
-          }}>
-            {initial?.number ? 'Granska & spara' : 'Granska & skapa'}
-          </button>
+          {/* Spara-knapparna satt tidigare BÅDE här och i rubrikraden. Nu
+              bara i rubrikraden, som är sticky och därmed alltid nåbar —
+              samma sak två gånger på samma sida är precis den sortens
+              onödiga täthet kundfeedbacken gällde ("gör det luftigare"). */}
+          {validationMessages.length > 0 && (
+            <div style={{ textAlign: 'right', fontSize: '12px', color: 'var(--text-secondary)' }}>
+              {validationMessages.map(m => (
+                <div key={m}>{m}</div>
+              ))}
+            </div>
+          )}
         </div>
-        {validationMessages.length > 0 && (
-          <div style={{ textAlign: 'right', marginTop: '8px' }}>
-            {validationMessages.map(m => (
-              <div key={m} style={{ fontSize: '12px', color: 'var(--status-red-text)' }}>{m}</div>
-            ))}
-          </div>
-        )}
       </div>
-        );
-      })()}
+      </div>
+      </div>
 
       {/* ── Underlag i fullstorlek ──────────────────────────────── */}
       {showAttachmentLightbox && displayAttachmentUrl && (
@@ -658,7 +719,7 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
               {rows.filter(r => r.account && (parseFloat(r.debet) > 0 || parseFloat(r.kredit) > 0)).map((r, i) => (
                 <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', fontSize: '13px', borderBottom: '1px solid var(--border-light)' }}>
                   <span><strong style={{ color: 'var(--text-main)' }}>{r.account}</strong> {r.accountName}</span>
-                  <span style={{ fontWeight: 600, color: r.debet ? '#2e7d32' : '#c62828' }}>{r.debet ? `D ${fmt(r.debet)}` : `K ${fmt(r.kredit)}`}</span>
+                  <span style={{ fontWeight: 600, color: r.debet ? 'var(--status-green-text)' : 'var(--status-red-text)' }}>{r.debet ? `D ${fmt(r.debet)}` : `K ${fmt(r.kredit)}`}</span>
                 </div>
               ))}
               {missingCounterparty && (
@@ -817,7 +878,36 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
     setAccounts(prev => prev.filter(a => a.code !== code));
   };
 
-  // Form is rendered inline now.
+  // Verifikationsformuläret är en EGEN sida, inte ett kort ovanpå listan
+  // (kundfeedback, se VerificationForm:s egen kommentar). Tidig retur enligt
+  // exakt samma mönster som Invoices.jsx redan använder för fakturor: listan,
+  // filterraden och flikarna monteras inte alls medan man konterar.
+  if (showForm) {
+    return (
+      <VerificationForm
+        // Samma resonemang som InvoiceForm i Invoices.jsx: utan en key som
+        // ändras med VILKEN verifikation som redigeras/rättas, återanvänder
+        // React samma instans och dess interna useState (rader, underlag,
+        // m.m.) nollställs aldrig om man klickar "Fortsätt"/"Rätta" på en
+        // annan rad medan formuläret redan är öppet.
+        key={editingVer?.id ?? 'new'}
+        accounts={accounts}
+        contacts={contacts}
+        projects={projects}
+        balances={balances}
+        templates={templates}
+        onSaveTemplate={onSaveTemplate}
+        nextNumber={nextNumber}
+        getNextNumber={getNextNumber}
+        initial={editingVer}
+        onSave={handleSaveVerification}
+        onClose={() => { setShowForm(false); setEditingVer(null); }}
+        vatPeriods={vatPeriods}
+        user={user}
+        uploadFn={uploadFn}
+      />
+    );
+  }
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
@@ -844,34 +934,6 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
       {/* ── VERIFIKATIONER TAB ───────────────────────────────────── */}
       {activeTab === 'verifications' && (
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-          {showForm && (
-            <div style={{ padding: '24px 20px 0 20px' }}>
-              <VerificationForm
-                // Samma resonemang som InvoiceForm i Invoices.jsx: utan en
-                // key som ändras med VILKEN verifikation som redigeras/
-                // rättas, återanvänder React samma instans och dess interna
-                // useState (rader, underlag, m.m.) nollställs aldrig om man
-                // klickar "Fortsätt"/"Rätta" på en annan rad medan
-                // formuläret redan är öppet.
-                key={editingVer?.id ?? 'new'}
-                accounts={accounts}
-                contacts={contacts}
-                projects={projects}
-                balances={balances}
-                templates={templates}
-                onSaveTemplate={onSaveTemplate}
-                nextNumber={nextNumber}
-                getNextNumber={getNextNumber}
-                initial={editingVer}
-                onSave={handleSaveVerification}
-                onClose={() => { setShowForm(false); setEditingVer(null); }}
-                vatPeriods={vatPeriods}
-                user={user}
-                uploadFn={uploadFn}
-              />
-            </div>
-          )}
-
           {/* Filterrad — facit-mönstret (Sida 43, uppföljning): alla fält
               på en rad i samma h-9-höjd, "Rensa" + levande antalsräknare
               på en egen rad direkt under. */}
@@ -1060,7 +1122,9 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
                 const total = fmt(v.rows?.reduce((s, r) => s + getDebet(r), 0) || v.amount || 0);
                 return {
                   dot: isDraft ? 'var(--status-amber-text)' : 'var(--status-green-text)',
-                  primary: v.description || '—',
+                  // Utan beskrivning stod det bara '—' överst på raden på
+                  // mobilen; verifikationsnumret bär identiteten i stället.
+                  primary: v.description || `Verifikation ${v.number}`,
                   amount: total,
                   meta: `${v.number} · ${v.date}`,
                   pill: (
@@ -1089,8 +1153,8 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
 
           {/* New account form */}
           {showNewAccountForm && (
-            <div style={{ background: '#f0f9f0', borderBottom: '1px solid #c8e6c9', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
-              <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--accent)' }}>Nytt konto</span>
+            <div style={{ background: 'var(--lime-50)', borderBottom: '1px solid var(--border)', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+              <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--accent-text)' }}>Nytt konto</span>
               <input value={newAccCode} onChange={e => setNewAccCode(e.target.value)} placeholder="Kontonummer" style={{ padding: '5px 8px', border: '1px solid var(--text-muted)', borderRadius: '3px', fontSize: '12px', fontFamily: 'inherit', width: '110px' }} />
               <input value={newAccName} onChange={e => setNewAccName(e.target.value)} placeholder="Kontonamn" style={{ padding: '5px 8px', border: '1px solid var(--text-muted)', borderRadius: '3px', fontSize: '12px', fontFamily: 'inherit', width: '260px' }} />
               <button onClick={handleAddAccount} style={{ padding: '5px 14px', background: 'var(--accent)', border: 'none', borderRadius: '4px', color: 'white', fontWeight: 700, fontSize: '12px', cursor: 'pointer' }}>Spara</button>
@@ -1112,16 +1176,22 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
               return (
                 <div key={g.code} style={{ borderBottom: '1px solid var(--border)' }}>
                   {/* Group header */}
+                  {/* Sticky: kontoplanen är 90+ rader lång och kontoklassen
+                      (1000-tal = tillgångar, 2000-tal = skulder …) är det
+                      enda som gör en rad begriplig. Utan den här raden
+                      kvar i toppen tappade man vilken klass man scrollat in
+                      i — kundfeedback: "gör så att man faktiskt kan läsa
+                      allt, nu ligger de bara under varandra". */}
                   <div
                     onClick={() => setExpandedGroups(prev => ({ ...prev, [g.code]: !prev[g.code] }))}
-                    style={{ display: 'flex', alignItems: 'center', padding: '10px 20px', background: 'var(--bg-page)', cursor: 'pointer', userSelect: 'none' }}
-                    onMouseEnter={e => e.currentTarget.style.background = '#e8eaed'}
+                    style={{ display: 'flex', alignItems: 'center', padding: '10px 20px', background: 'var(--bg-page)', cursor: 'pointer', userSelect: 'none', position: 'sticky', top: 0, zIndex: 2, borderBottom: '1px solid var(--border)' }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-muted)'}
                     onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-page)'}
                   >
                     {isOpen ? <ChevronDown size={15} style={{ marginRight: 8, color: 'var(--text-secondary)' }} /> : <ChevronRight size={15} style={{ marginRight: 8, color: 'var(--text-secondary)' }} />}
                     <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', flex: 1 }}>{g.label}</span>
                     <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginRight: 12 }}>{groupAccs.length} konton</span>
-                    <span style={{ fontSize: '13px', fontWeight: 700, color: groupBal >= 0 ? '#2e7d32' : '#c62828', minWidth: 100, textAlign: 'right' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 700, color: groupBal >= 0 ? 'var(--status-green-text)' : 'var(--status-red-text)', minWidth: 100, textAlign: 'right' }}>
                       {fmt(groupBal)}
                     </span>
                   </div>
@@ -1138,7 +1208,7 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
                         {
                           key: 'balance', label: 'Saldo', align: 'right', render: a => {
                             const bal = balances[a.code] || 0;
-                            return <span style={{ fontWeight: bal !== 0 ? 700 : 400, color: bal > 0 ? '#2e7d32' : bal < 0 ? '#c62828' : 'var(--text-muted)' }}>{bal !== 0 ? fmt(bal) : '—'}</span>;
+                            return <span style={{ fontWeight: bal !== 0 ? 700 : 400, color: bal > 0 ? 'var(--status-green-text)' : bal < 0 ? 'var(--status-red-text)' : 'var(--text-muted)' }}>{bal !== 0 ? fmt(bal) : '—'}</span>;
                           },
                         },
                         {

@@ -634,6 +634,17 @@ WHERE status IN ('pending', 'active');
 --   2) App.jsx (fetchUserData) — samma .eq('member_user_id', ...).eq(
 --      'status','active') EN gång per inloggning/sessionskontroll, för att
 --      lista vilka delade företag jag har åtkomst till.
+-- Sidbehörigheter per medlem (kundönskemål: "man ska kunna välja vilka
+-- sidor hen kan se och redigera"). NULL = ingen lista satt, alltså exakt
+-- det gamla beteendet: rollen ensam bestämmer och alla sidor syns. Därför
+-- behöver inga befintliga inbjudningar migreras.
+--
+-- Formen är { "<sid-id>": "none" | "view" | "edit" } — samma id:n som
+-- src/utils/pageAccess.js (ACCESS_PAGES). Kontrollen som FAKTISKT skyddar
+-- data sitter i api/company-access.js (canWriteField), inte i klienten:
+-- en dold meny är ingen behörighet.
+ALTER TABLE public.company_members ADD COLUMN IF NOT EXISTS page_access jsonb;
+
 CREATE INDEX IF NOT EXISTS company_members_member_user_id_status_idx
 ON public.company_members (member_user_id, status);
 

@@ -250,7 +250,7 @@ function CustomerForm({ initial, onSave, onCancel }) {
 
       <Section title="Adress">
         <div className="form-row-2" style={grid2}>
-          <div style={{ gridColumn: '1 / 3' }}>
+          <div style={{ gridColumn: '1 / -1' }}>
             <label style={labelStyle}>Gatuadress</label>
             <input type="text" value={form.address} onChange={e => set('address', e.target.value)} style={inputBase} />
           </div>
@@ -262,7 +262,7 @@ function CustomerForm({ initial, onSave, onCancel }) {
             <label style={labelStyle}>Ort</label>
             <input type="text" value={form.city} onChange={e => set('city', e.target.value)} style={inputBase} />
           </div>
-          <div style={{ gridColumn: '1 / 3' }}>
+          <div style={{ gridColumn: '1 / -1' }}>
             <label style={labelStyle}>Land</label>
             <select value={form.country} onChange={e => set('country', e.target.value)} style={{ ...inputBase, background: 'var(--bg-card)' }}>
               {countryOptions.map(c => <option key={c} value={c}>{c}</option>)}
@@ -298,7 +298,7 @@ function CustomerForm({ initial, onSave, onCancel }) {
             <input type="number" value={form.paymentTerms} onChange={e => set('paymentTerms', Number(e.target.value))} style={inputBase} min={0} />
           </div>
           {form.customerType === 'eu_company' && (
-            <div style={{ gridColumn: '1 / 3' }}>
+            <div style={{ gridColumn: '1 / -1' }}>
               <label style={labelStyle}>VAT-nummer</label>
               <input type="text" value={form.vatNumber} onChange={e => set('vatNumber', e.target.value)} style={inputBase} placeholder="SE556677889901" />
             </div>
@@ -394,7 +394,7 @@ function SupplierForm({ initial, onSave, onCancel, accounts }) {
 
       <Section title="Grunduppgifter">
         <div className="form-row-2" style={grid2}>
-          <div ref={nameFieldRef} style={{ gridColumn: '1 / 3', position: 'relative' }}>
+          <div ref={nameFieldRef} style={{ gridColumn: '1 / -1', position: 'relative' }}>
             <label style={labelStyle}>Namn *</label>
             {isSwedish ? (
               <div style={{ display: 'flex', gap: '8px' }}>
@@ -473,7 +473,7 @@ function SupplierForm({ initial, onSave, onCancel, accounts }) {
 
       <Section title="Adress">
         <div className="form-row-2" style={grid2}>
-          <div style={{ gridColumn: '1 / 3' }}>
+          <div style={{ gridColumn: '1 / -1' }}>
             <label style={labelStyle}>Gatuadress</label>
             <input type="text" value={form.address} onChange={e => set('address', e.target.value)} style={inputBase} />
           </div>
@@ -485,7 +485,7 @@ function SupplierForm({ initial, onSave, onCancel, accounts }) {
             <label style={labelStyle}>Ort</label>
             <input type="text" value={form.city} onChange={e => set('city', e.target.value)} style={inputBase} />
           </div>
-          <div style={{ gridColumn: '1 / 3' }}>
+          <div style={{ gridColumn: '1 / -1' }}>
             <label style={labelStyle}>Land</label>
             <select value={form.country} onChange={e => set('country', e.target.value)} style={{ ...inputBase, background: 'var(--bg-card)' }}>
               {countryOptions.map(c => <option key={c} value={c}>{c}</option>)}
@@ -796,11 +796,22 @@ export default function Contacts({ contacts, setContacts, accounts = [], globalA
                   rows={visible}
                   mobileList={c => ({
                     dot: c.active !== false ? 'var(--status-green-text)' : 'var(--text-muted)',
-                    primary: c.name,
+                    primary: c.name || 'Namnlös kontakt',
                     amount: c.totalInvoicedThisYear
                       ? new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(c.totalInvoicedThisYear)
                       : undefined,
-                    meta: [c.orgNr, c.contactPerson || c.email].filter(Boolean).join(' · ') || undefined,
+                    meta: [c.orgNr, c.contactPerson, c.lastInvoiceDate ? `senast ${c.lastInvoiceDate}` : null].filter(Boolean).join(' · ') || undefined,
+                    // Kundfeedback: "man ser knappt infon på mobilen". Det man
+                    // faktiskt vill åt i en kundlista på telefonen är numret
+                    // och adressen — och kunna trycka på dem. Riktiga tel:/
+                    // mailto:-länkar, inte bara text, så telefonen ringer upp
+                    // eller öppnar mejlet direkt.
+                    meta2: (c.phone || c.email) ? (
+                      <span onClick={e => e.stopPropagation()} style={{ display: 'inline-flex', gap: '12px', flexWrap: 'wrap' }}>
+                        {c.phone && <a href={`tel:${c.phone.replace(/\s/g, '')}`}>{c.phone}</a>}
+                        {c.email && <a href={`mailto:${c.email}`}>{c.email}</a>}
+                      </span>
+                    ) : undefined,
                     pill: (
                       <span style={{
                         display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', borderRadius: '999px', fontSize: '10.5px', fontWeight: 600,

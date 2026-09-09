@@ -301,8 +301,8 @@ function ReviewCard({ item, accounts, onApprove, onReject, exiting, selected, on
           <div><span style={{ color: 'var(--text-muted)' }}>Datum:</span> {formatDate(item.date)}</div>
           <div><span style={{ color: 'var(--text-muted)' }}>Belopp:</span> {formatSEK(item.amount)}</div>
           <div><span style={{ color: 'var(--text-muted)' }}>Moms:</span> {item.vatAmount ? formatSEK(item.vatAmount) : '—'}</div>
-          <div style={{ gridColumn: '1 / 3' }}><span style={{ color: 'var(--text-muted)' }}>Inköpsställe/leverantör:</span> {item.supplier || '—'}</div>
-          <div style={{ gridColumn: '1 / 3' }}><span style={{ color: 'var(--text-muted)' }}>Underlag:</span> Inget bifogat underlag är sparat för denna post.</div>
+          <div style={{ gridColumn: '1 / -1' }}><span style={{ color: 'var(--text-muted)' }}>Inköpsställe/leverantör:</span> {item.supplier || '—'}</div>
+          <div style={{ gridColumn: '1 / -1' }}><span style={{ color: 'var(--text-muted)' }}>Underlag:</span> Inget bifogat underlag är sparat för denna post.</div>
         </div>
       )}
     </ReviewRowShell>
@@ -414,8 +414,8 @@ function StripeLedgerCard({ item, accounts, onBookPlatformFee, onBookSale, onMar
           <div><span style={{ color: 'var(--text-muted)' }}>Datum:</span> {formatDate(item.created_at_stripe)}</div>
           <div><span style={{ color: 'var(--text-muted)' }}>Belopp:</span> {formatMoney(item.amount, item.currency)}</div>
           <div><span style={{ color: 'var(--text-muted)' }}>Valuta:</span> {(item.currency || '').toUpperCase()}</div>
-          {item.matched_invoice_id && <div style={{ gridColumn: '1 / 3' }}><span style={{ color: 'var(--text-muted)' }}>Kopplad faktura:</span> {item.matched_invoice_id} (bästa-försök-matchning på tidsnärhet, inte garanterad)</div>}
-          {item.description && <div style={{ gridColumn: '1 / 3' }}><span style={{ color: 'var(--text-muted)' }}>Stripe-beskrivning:</span> {item.description}</div>}
+          {item.matched_invoice_id && <div style={{ gridColumn: '1 / -1' }}><span style={{ color: 'var(--text-muted)' }}>Kopplad faktura:</span> {item.matched_invoice_id} (bästa-försök-matchning på tidsnärhet, inte garanterad)</div>}
+          {item.description && <div style={{ gridColumn: '1 / -1' }}><span style={{ color: 'var(--text-muted)' }}>Stripe-beskrivning:</span> {item.description}</div>}
         </div>
       )}
     </ReviewRowShell>

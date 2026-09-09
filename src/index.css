@@ -85,6 +85,14 @@
   --accent-hover:   #094f21;
   --accent-light:   #eaf3de;
   --accent-border:  var(--lime-200);
+  /* Accentfärgen som TEXT. --accent (#0b6329) är vald för att bära vit text
+     på en knapp, alltså mörk — och den skrivs medvetet INTE om i mörkt läge,
+     eftersom en ljusare knappbakgrund hade sänkt kontrasten mot den vita
+     texten. Men samma variabel användes också som textfärg på ett tiotal
+     ställen (nyckeltal, länkar, rubriker), och där blev den mörkgrön text på
+     mörkgrön botten i mörkt läge — precis det kundfeedbacken pekade på. Egen
+     token för textbruket, så knappar och text kan gå åt olika håll. */
+  --accent-text:    #0b6329;
 
   --success:        var(--lime-500);
   --success-light:  var(--lime-50);
@@ -265,6 +273,7 @@
   --text-main:      #eef3ea;
   --text-secondary: #a9baa9;
   --text-muted:     #85987f;
+  --accent-text:    #86d182;
   --zettle-logo-filter: brightness(0) invert(1);
 
   --border:       #2a3d2c;
@@ -337,6 +346,7 @@
     --text-main:      #eef3ea;
     --text-secondary: #a9baa9;
     --text-muted:     #85987f;
+    --accent-text:    #86d182;
     --zettle-logo-filter: brightness(0) invert(1);
     --border:       #2a3d2c;
     --border-light: #223328;
@@ -368,6 +378,55 @@
     --red-50:  rgba(244, 63, 94, 0.16);
     --red-100: rgba(244, 63, 94, 0.26);
   }
+}
+
+/* ══ MÖRKT LÄGE: NATIVA KONTROLLER OCH OSTYLADE FÄLT ══
+   Kundfeedback (första riktiga användaren): "det finns en massa ställen i
+   mörkt läge där texten är mörk — svårt att läsa eller skriva". Grundorsaken
+   var INTE de enskilda sidorna utan två saker som saknades globalt:
+
+   1) `color-scheme` var aldrig satt. Utan den ritar webbläsaren alla NATIVA
+      delar i ljust läge oavsett vad appen målar: datumväljarens kalender,
+      <select>-listan som fälls ut, autofyll-gulmarkeringen, scrollbars och
+      textmarkeringen. Ett <input type="date"> i mörkt läge fick alltså en
+      vit kalenderpopup med svart text och en nästan osynlig kalenderikon.
+
+   2) Alla fält som INTE fick en egen inline-färg (och de är många — sök-
+      rutan i Kontoplan, filterfälten, nya-konto-formuläret) ärvde
+      webbläsarens standard: VIT bakgrund + SVART text. I ljust läge syns
+      det inte alls; i mörkt läge blev de vita fläckar — och de fält som
+      satte `color: var(--text-main)` men INGEN bakgrund blev nästan vit
+      text på vit botten, alltså exakt "går inte att skriva i".
+
+   Regeln nedan träffar bara fält som inte redan sätter sina egna färger:
+   en inline style (som resten av appen använder) vinner alltid över den
+   här. Den kan alltså inte ändra utseendet på något som redan var rätt —
+   den lagar bara det som aldrig fick en färg alls. */
+:root[data-theme="dark"] { color-scheme: dark; }
+:root[data-theme="light"] { color-scheme: light; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="dark"]) { color-scheme: dark; }
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="submit"]):not([type="button"]),
+select,
+textarea {
+  background-color: var(--bg-card);
+  color: var(--text-main);
+  border-color: var(--border);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-muted);
+  opacity: 1; /* Firefox tonar ner placeholders ytterligare som standard */
+}
+
+/* <option> ärver inte fältets färger i alla webbläsare — utan den här
+   raden blev den utfällda listan svart text på mörk botten i Windows. */
+option {
+  background-color: var(--bg-card);
+  color: var(--text-main);
 }
 
 
@@ -1277,6 +1336,55 @@ body {
   color: var(--danger);
 }
 
+/* Temavalet i profilmenyn (App.jsx). Två segment i stället för en rad som
+   bara hette "Ljust läge" — se kommentaren där. Ligger i .profile-dropdown
+   men ska INTE ärva radknappsstilen ovan, därav de egna reglerna. */
+.profile-theme-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+}
+
+.profile-theme-label {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text-main);
+}
+
+.profile-theme-toggle {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--bg-muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.profile-dropdown .profile-theme-toggle button {
+  padding: 5px 11px;
+  gap: 5px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.profile-dropdown .profile-theme-toggle button.is-active {
+  background: var(--bg-card);
+  color: var(--text-main);
+  box-shadow: var(--shadow-xs);
+}
+
+.profile-dropdown .profile-theme-toggle button.is-active svg {
+  color: var(--accent-text);
+}
+
+.profile-dropdown .profile-theme-toggle button:hover {
+  background: var(--bg-card);
+}
+
 .global-actions {
   display: flex;
   gap: 6px;
@@ -1288,17 +1396,101 @@ body {
 
 
 /* ══════════════════════════════════════════════
-   INSTÄLLNINGAR — sektionsväljare
-   Sida 38, punkt 5: den fasta 232px-sidomenyn (.settings-nav-desktop) är
-   bra på desktop/tablet men äter en fjärdedel+ av en 375px-mobilskärm och
-   klämmer .settings-content till en oläsbar remsa. .settings-nav-mobile
-   (en native <select> med samma tre grupper som optgroups) tar över på
-   mobil istället — samma display:none-växling som .global-top-bar/
-   .desktop-top-bar ovan.
+   INSTÄLLNINGAR
+   Kundfeedback: sektionsvalet låg i en egen 232px sidomeny (desktop) och en
+   <select> (mobil) — till skillnad från varenda annan sida i appen, som har
+   sina flikar i toppen. Både sidomenyn och dropdownen är borta; sidan
+   använder nu samma ListPageHeader-flikrad som Kunder/Fakturering/Bokföring.
+
+   Kvar här: rutnätet som gör att ett litet kort (t.ex. Lösenord) inte
+   sträcker sig över hela skärmbredden bara för att det står ensamt —
+   "lösenordsdelen tar hela skärmen" i samma feedback.
 ══════════════════════════════════════════════ */
 
-.settings-nav-mobile {
+/* Flikraden får aldrig radbryta ett fliknamn — "Min profil" som blev
+   "Min" / "profil" på två rader (halvskärm med åtta flikar) läses som två
+   flikar. Skrolla i sidled i stället, på alla bredder. */
+.page-header-tabs {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.page-header-tabs::-webkit-scrollbar {
   display: none;
+}
+
+.page-header-tabs > button {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* …med ETT undantag: pillervarianten (ListPageHeader `tabs.variant:
+   'pills'`, i dag bara Inställningar). Åtta flikar får inte plats på en rad
+   ens på en bred skärm, och en sidledsskrollande rad gömmer de sista
+   flikarna helt — kundfeedback: "de sista ligger utanför skärmen, man måste
+   skrolla för att se dem". Pillren radbryter i stället, så samtliga flikar
+   syns och är ETT tryck bort på alla bredder. Dubbelklassen (0,2,0) vinner
+   medvetet över mobilblockets `.page-header-tabs { overflow-x: auto }`
+   längre ner i filen. */
+.page-header-tabs.page-header-tabs--pills {
+  flex-wrap: wrap;
+  overflow-x: visible;
+}
+
+/* Integrationskorten. Egen bredd, inte samma som formulärkorten:
+   loggan och namnet ska synas på håll. Kolumnen var 430px bred — med fyra
+   tjänster gav det två glesa kort per rad och en tom högerhalva i varje
+   kort (kundfeedback: "i integrationsdelen är det så mycket space, över
+   och under"). 265px låter alla fyra tjänsterna ligga på EN rad på en bred
+   skärm i stället för två glesa, och faller till tre, två och till sist en
+   kolumn när fönstret krymper. */
+.integration-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 265px), 1fr));
+  gap: 12px;
+  align-items: stretch;
+}
+
+/* Två sektioner sida vid sida på dator (plan + kvitton, profil +
+   säkerhet). Den vänstra är huvudsaken och får mer plats. */
+.settings-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 1000px) {
+  .settings-split {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+}
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+/* Rörelse: bara det som gör sidan lugn att använda — ett mjukt anslag när
+   man byter flik, och en hårfin lyftning på kort man kan klicka. Ingen
+   effekt för den som bett om mindre rörelse (prefers-reduced-motion
+   respekteras av regeln längst ner i den här filen). */
+.settings-content [style*="fadeIn"] {
+  animation-duration: 0.22s;
+}
+
+.settings-content .lp-card-hover,
+.settings-content button {
+  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+/* Korten har en egen marginBottom (Settings.jsx: card-stilen) för det
+   staplade flödet — den ska inte dubblera rutnätets gap. */
+.settings-grid > * {
+  margin-bottom: 0 !important;
 }
 
 /* ══════════════════════════════════════════════
@@ -2974,6 +3166,49 @@ textarea.form-control {
 
 
 /* ══════════════════════════════════════════════
+   HALVSKÄRM (kundfeedback)
+══════════════════════════════════════════════
+   "Gör allt bra i halvskärm också — många företagare kör webbläsaren på
+   halva skärmen och något annat på andra halvan."
+
+   Varför det inte redan fungerade: appens brytpunkter gick från desktop
+   (allt sida vid sida) direkt till 768px (mobilläge). Ett fönster på halva
+   en vanlig skärm landar mitt emellan — 720–960px — alltså i det breda
+   läget, men med 200px sidomeny kvar och bara ~550–760px innehåll. Det är
+   där tvåkolumnsformulären klämdes ihop.
+
+   Klasserna nedan finns för layouter som annars är inline-stylade i JSX.
+   En inline style kan inte innehålla en mediafråga, så de MÅSTE ligga här
+   för att kunna stapla om sig. */
+
+/* Verifikationsformuläret: konteringsraderna + underlaget (Verifications.jsx) */
+.ver-form-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+/* Fältrader i verifikationsformuläret (datum/beskrivning/serie,
+   kostnadsställe/projekt/motpart) — bryter till flera rader i stället för
+   att pressa ihop varje fält till en oanvändbar bredd. */
+.ver-form-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.ver-form-row > * {
+  min-width: 190px;
+}
+
+@media (max-width: 1080px) {
+  .ver-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ══════════════════════════════════════════════
    RESPONSIVE — TABLET (≤ 1024px)
 ══════════════════════════════════════════════ */
 
@@ -3011,6 +3246,20 @@ textarea.form-control {
    desktop. */
 .lt-cell {
   padding: 14px 16px;
+}
+
+/* Halvskärm med mus (samma fall som tabell-brytpunkten längre ner):
+   tabellen får vara kvar, men med tätare celler så fler kolumner ryms
+   innan den behöver skrollas i sidled. Rubrikcellernas padding sätts som
+   inline style i ListTable.jsx (HEAD_CELL_PADDING) — därav !important,
+   annars vinner den inline-stilen. */
+@media (hover: hover) and (min-width: 621px) and (max-width: 1000px) {
+  .lt-cell {
+    padding: 10px 10px;
+  }
+  .responsive-table th {
+    padding: 10px 10px !important;
+  }
 }
 
 /* ══════════════════════════════════════════════
@@ -3358,6 +3607,45 @@ textarea.form-control {
     width: 100% !important;
   }
 
+  /* Knappraden i sidhuvudet (ListPageHeader `actions`). Knapparna är
+     `flex-shrink: 0` + `nowrap` för skrivbordet, vilket på en telefon gjorde
+     att två knappar (t.ex. "Ångra import" + "Importera transaktioner" på
+     Bank) sköt ut över kanten och den högra klipptes av. Här får de i
+     stället dela på bredden och radbryta. */
+  .page-header-actions {
+    flex-wrap: wrap;
+  }
+
+  .page-header-actions > button {
+    flex: 1 1 auto;
+    min-width: 0;
+    flex-shrink: 1 !important;
+    padding: 0 12px !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Flikraden: skrolla i sidled i stället för att radbryta. En flikrad som
+     bryts till två rader ser ut som två olika kontroller — kundfeedback om
+     Bank på mobil, där "Alla · 8 / Ej hanterade · 2 / Matchade · 1 …" bröts
+     mitt i. Rullningslisten döljs; att raden går att dra syns ändå på att
+     sista fliken skärs av vid kanten. */
+  .page-header-tabs {
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .page-header-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .page-header-tabs > button {
+    flex-shrink: 0;
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+
   /* Fortnox-jämförelsen (kundfeedback): lång förklaringstext under en
      sidrubrik (t.ex. Skatt och bokslut) radbryter till 3+ rader på en
      375px-skärm och läggs sig FAST högst upp i .page-shell nedan — en
@@ -3413,43 +3701,6 @@ textarea.form-control {
     font-size: 18px;
   }
 
-  /* Inställningar (Sida 38, punkt 5): sidomenyn blir en dropdown högst
-     upp, innehållet fyller hela bredden under. Padding-genomgången: samma
-     kant-marginal trimmad här som på desktop-inlinestilen ovan (Settings.jsx)
-     — bara lite tightare (16px) för de smalaste skärmarna, ingen egen
-     kvarlämnad 20/16/32px-avvikelse längre. !important behövs fortfarande
-     för att vinna över Settings.jsx:s inline padding på denna brytpunkt. */
-  .settings-page {
-    padding: 16px !important;
-  }
-
-  .settings-nav-desktop {
-    display: none !important; /* inline style={{display:'flex'}} on this element otherwise wins */
-  }
-
-  .settings-nav-mobile {
-    display: block;
-    width: 100%;
-    min-height: 46px; /* punkt 8: touch-mål ≥ 44px */
-    padding: 10px 14px;
-    margin-bottom: 20px;
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--text-main);
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    box-sizing: border-box;
-  }
-
-  .settings-layout {
-    flex-direction: column;
-  }
-
-  .settings-content {
-    padding-left: 0 !important;
-    width: 100%;
-  }
 }
 
 /* ══ Tabell → kortlista, tabletbredd (max-width: 900px) ══
@@ -3474,7 +3725,25 @@ textarea.form-control {
   display: none;
 }
 
-@media (max-width: 900px) {
+/* Villkoret är inte längre BARA bredden (kundfeedback: "gör det bra i
+   halvskärm också — i helskärm är det jättebra, i halvskärm inte lika
+   bra"). Ett skrivbordsfönster på halva en vanlig skärm är ~900–960px
+   brett och föll därmed in i surfplatte-brytpunkten nedan: en riktig
+   tabell byttes mot den staplade kortvyn, där varje fält får en egen rad
+   med sin etikett ovanför. På en iPad är det rätt val; i ett smalt
+   skrivbordsfönster blev fyra fakturarader lika höga som hela fönstret,
+   trots att en tabell hade fått plats.
+
+   `hover: none` skiljer dem åt: en pekskärm (telefon/surfplatta) har
+   ingen hover, ett fönster med mus har det. Så:
+     · pekskärm upp till 900px  → kortlista/listrad (oförändrat, iPad
+       portrait ~820px täcks fortfarande)
+     · musfönster under 620px   → kortlista också, där ryms ingen tabell
+       oavsett pekdon
+     · musfönster 620–900px     → riktig tabell, med den vågräta scroll
+       ListTable redan har.
+   Se filkommentaren nedan för själva `.responsive-table`-mekaniken. */
+@media (max-width: 900px) and (hover: none), (max-width: 620px) {
   /* En tabell med `mobileList` satt byter HELT till listradsläget under
      900px — den vanliga staplade kort-vyn (.responsive-table nedan) döms
      bort istället för att visas parallellt. */
@@ -3544,6 +3813,23 @@ textarea.form-control {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+  /* Tredje raden (ListTable mobileList `meta2`) — samma nedtonade stil som
+     rad 2, men får bryta ordentligt: här ligger telefonnummer/e-post och
+     referenser som är hela poängen med raden, och de får inte klippas bort
+     med "…" på en smal telefon. */
+  .lt-mobile-line3 {
+    margin-top: 2px;
+  }
+  .lt-mobile-line3 .lt-mobile-meta {
+    white-space: normal;
+    display: block;
+    line-height: 1.5;
+  }
+  .lt-mobile-line3 a {
+    color: var(--accent-text);
+    font-weight: 600;
+    text-decoration: none;
   }
   .lt-mobile-empty {
     padding: 40px;
@@ -3750,6 +4036,25 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
 
   body {
     background: white !important;
+  }
+
+  /* Rapportvyns egen scrollruta (ReportDetail.jsx: .report-scroll) sätter
+     overflowY:auto som INLINE style, och en utskrift klipper då allt utom
+     den första skärmhöjden — knappen "Skriv ut / PDF" hade gett en enda
+     avhuggen sida. `!important` i en stilmall vinner över en vanlig inline
+     style, vilket är hela poängen med att regeln ligger här och inte i
+     komponenten. */
+  .report-scroll {
+    overflow: visible !important;
+    height: auto !important;
+    padding: 0 !important;
+  }
+
+  /* Ett diagram eller en panel ska inte delas mitt itu av ett sidbrytt. */
+  .sheet-panel,
+  .report-section {
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 }
 

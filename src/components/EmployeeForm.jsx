@@ -113,7 +113,7 @@ export default function EmployeeForm({ initial, projects = [], onSave, onCancel 
             <label style={labelStyle}>Postnummer</label>
             <input value={form.postalCode} onChange={e => set('postalCode', e.target.value)} style={inputBase} />
           </div>
-          <div style={{ gridColumn: '1 / 3' }}>
+          <div style={{ gridColumn: '1 / -1' }}>
             <label style={labelStyle}>Gatuadress</label>
             <input value={form.address} onChange={e => set('address', e.target.value)} style={inputBase} />
           </div>

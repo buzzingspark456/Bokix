@@ -6,6 +6,7 @@ import VatDeclaration from './VatDeclaration';
 import ListPageHeader from './shared/ListPageHeader';
 import { getDebet, getKredit } from '../utils/verificationAmounts';
 import { detectOrgType } from '../utils/orgType';
+import { isUfCompany, UF_TAX_SECTION_IDS } from '../utils/ufMode';
 import { summarizeAnnualPayrollByEmployee, neededTaxTableKeysForYear, downloadKuPdf } from '../utils/kuExport';
 import { preloadSkattetabell } from '../utils/skattetabell';
 import { computeInk2r } from '../utils/ink2r';
@@ -93,6 +94,32 @@ function Ink2sStatTile({ label, sublabel, amount, tone, Icon }) {
   );
 }
 
+/** Ett steg i INK2R-sidans "så gör du"-lista. Samma visuella språk som
+ * momsdeklarationens Stepper (VatDeclaration.jsx) — numrerad cirkel som
+ * blir en grön bock när steget är avklarat — men som en LODRÄT checklista
+ * i stället för en vågrät guide, eftersom stegen här inte byter vy: allt
+ * ligger på samma sida och steg 1 är något appen kontrollerar åt dig. */
+function Ink2Step({ n, title, done, last, children }) {
+  return (
+    <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', paddingBottom: last ? 0 : '12px', borderBottom: last ? 'none' : '1px solid var(--border)' }}>
+      <div style={{
+        width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: done ? 'var(--status-green-bg)' : 'var(--bg-card)',
+        color: done ? 'var(--status-green-text)' : 'var(--text-secondary)',
+        border: done ? 'none' : '1px solid var(--border)',
+        fontSize: '12.5px', fontWeight: 700,
+      }}>
+        {done ? <CheckCircle2 size={15} /> : n}
+      </div>
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '5px' }}>{title}</div>
+        <div style={{ fontSize: '13px', lineHeight: 1.6 }}>{children}</div>
+      </div>
+    </div>
+  );
+}
+
 export default function Taxes({
   company, verifications = [], invoices = [], expenses = [], accounts = [],
   payrollRuns = [], vatPeriods = {}, onBookVatPeriod, onNavigateToVerification,
@@ -109,6 +136,8 @@ export default function Taxes({
   // nu (samma ListPageHeader-mönster som Kunder/Anställda/Projekt m.fl.):
   // bara EN del synlig åt gången, mycket mindre att ta in per besök.
   const [activeSection, setActiveSection] = useState(initialSection || 'vat');
+  // Vilken INK2R-rad som är utfälld och visar kontona bakom sitt belopp.
+  const [expandedInk2rRow, setExpandedInk2rRow] = useState(null);
 
   // Bugkritiskt (profilmenyn, App.jsx): "Bokslut & årsredovisning" och
   // "Momsredovisning" skickade tidigare bara till den här sidan i
@@ -372,13 +401,17 @@ export default function Taxes({
   const getStatusBg = (status) => (status === 'Klar' ? 'var(--status-green-bg)' : status === 'Pågår' ? 'var(--status-amber-bg)' : 'var(--bg-muted)');
   const getStatusColor = (status) => (status === 'Klar' ? 'var(--status-green-text)' : status === 'Pågår' ? 'var(--status-amber-text)' : 'var(--text-secondary)');
 
+  // UF-läget: bara Viktiga datum, Moms och Årsbokslut (UF_TAX_SECTION_IDS
+  // i utils/ufMode.js — se den kommentaren för varför Moms är kvar men
+  // Kontrolluppgifter och Inkomstdeklaration inte är det). Filtret ligger
+  // sist så en flik aldrig kan smyga in genom att läggas till ovanför.
   const sectionTabs = [
     { id: 'dates', label: 'Viktiga datum' },
     { id: 'vat', label: 'Moms' },
     { id: 'yearend', label: 'Årsbokslut' },
     { id: 'ku', label: 'Kontrolluppgifter' },
     ...(!isSoleProp ? [{ id: 'ink2', label: 'Inkomstdeklaration' }] : []),
-  ];
+  ].filter(tab => !isUfCompany(company) || UF_TAX_SECTION_IDS.includes(tab.id));
 
   // ── Viktiga datum ── Kundfeedback (två omgångar): profilmenyns "Viktiga
   // datum" ledde hit men landade alltid på Moms-fliken utan att visa något
@@ -602,7 +635,7 @@ export default function Taxes({
                       {step.tab && step.status !== 'Klar' && onNavigateToTab && (
                         <button
                           onClick={(e) => { e.stopPropagation(); onNavigateToTab(step.tab); }}
-                          style={{ display: 'flex', alignItems: 'center', gap: '2px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontSize: '12px', fontWeight: 600, fontFamily: 'inherit', padding: '2px' }}
+                          style={{ display: 'flex', alignItems: 'center', gap: '2px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent-text)', fontSize: '12px', fontWeight: 600, fontFamily: 'inherit', padding: '2px' }}
                         >
                           Åtgärda <ChevronRight size={12} />
                         </button>
@@ -660,7 +693,7 @@ export default function Taxes({
                       ['Bokföring och bokslut', 'https://www.skatteverket.se/foretag/drivaforetag/bokforingochbokslut.4.58d555751259e4d661680006527.html'],
                       ['Enskild näringsverksamhet', 'https://www.skatteverket.se/foretag/drivaforetag/foretagsformer/enskildnaringsverksamhet/bokforingochdeklaration.4.361dc8c15312eff6fd2c99f.html'],
                     ].map(([label, url]) => (
-                      <a key={url} href={url} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' }}>
+                      <a key={url} href={url} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--accent-text)', fontWeight: 600, textDecoration: 'none' }}>
                         {label} <ExternalLink size={11} />
                       </a>
                     ))}
@@ -752,9 +785,85 @@ export default function Taxes({
             <div style={{ background: 'var(--bg-card)', borderRadius: '0 0 12px 12px', border: '1px solid var(--border)', overflow: 'hidden' }}>
               <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)' }}>
                 <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>Inkomstdeklaration 2 — INK2R (balansräkning)</h2>
-                <p style={{ margin: '8px 0 0', fontSize: '14px', color: 'var(--text-secondary)', maxWidth: '620px' }}>
-                  Räknas automatiskt fram ur bokförda verifikationer per {currentYear}-12-31, radnumrerat enligt Skatteverkets blankett INK2R.
+                <p style={{ margin: '8px 0 0', fontSize: '14px', color: 'var(--text-secondary)', maxWidth: '660px' }}>
+                  Det här är företagets balans- och resultaträkning i Skatteverkets eget format. Bokix fyller i den åt dig ur
+                  bokföringen per {currentYear}-12-31 — du kontrollerar, laddar ner filen och lämnar in den hos Skatteverket.
                 </p>
+              </div>
+
+              {/* Kundfeedback: "man vet inte riktigt vad man ska göra här".
+                  Sidan visade två långa tabeller först och gömde knapparna
+                  längst ner — samma innehåll, men ingen ordning att följa.
+                  Momsdeklarationens steg-för-steg (samma sida, fliken
+                  bredvid) var precis det användaren berömde, så INK2R får
+                  samma språk: tre steg, med status på det första och
+                  knapparna direkt i steg två och tre. */}
+              <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--border)', background: 'var(--bg-muted)', display: 'grid', gap: '12px' }}>
+                <Ink2Step
+                  n={1}
+                  done={ink2r.balanced && ink2r.rows.length > 0}
+                  title="Kontrollera att balansräkningen stämmer"
+                >
+                  {ink2r.rows.length === 0 ? (
+                    <span style={{ color: 'var(--text-secondary)' }}>Inga bokförda balanskonton ännu för {currentYear} — bokför året först.</span>
+                  ) : ink2r.balanced ? (
+                    <span style={{ color: 'var(--text-secondary)' }}>
+                      Tillgångar {fmt(ink2r.totalAssets)} = eget kapital och skulder {fmt(ink2r.totalEquityAndLiabilities)}. Klart att lämna in.
+                    </span>
+                  ) : (
+                    <span style={{ color: 'var(--text-secondary)' }}>
+                      <strong style={{ color: 'var(--status-red-text)' }}>Skillnad {fmt(Math.abs(ink2r.difference))} kr.</strong>{' '}
+                      Tillgångarna är {ink2r.difference > 0 ? 'större' : 'mindre'} än eget kapital och skulder. Vanligaste orsaken är att
+                      årets resultat inte är omfört till eget kapital i bokslutet, eller att en verifikation ligger kvar som utkast.
+                      {onNavigateToTab && (
+                        <>
+                          {' '}
+                          <button
+                            type="button"
+                            onClick={() => onNavigateToTab('reports')}
+                            style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', color: 'var(--accent-text)', fontWeight: 700, cursor: 'pointer', textDecoration: 'underline' }}
+                          >
+                            Öppna balansräkningen
+                          </button>
+                          {' '}för att se var differensen sitter.
+                        </>
+                      )}
+                    </span>
+                  )}
+                </Ink2Step>
+
+                <Ink2Step n={2} title="Ladda ner filerna till Skatteverket">
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <button
+                      disabled={!ink2r.balanced || ink2r.rows.length === 0}
+                      onClick={() => downloadInk2rSru(company, ink2r, ink2rResultat.rows, `${currentYear}-12-31`)}
+                      style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: (!ink2r.balanced || ink2r.rows.length === 0) ? 'var(--border)' : 'var(--accent)', color: (!ink2r.balanced || ink2r.rows.length === 0) ? 'var(--text-muted)' : 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '13px', cursor: (!ink2r.balanced || ink2r.rows.length === 0) ? 'not-allowed' : 'pointer' }}
+                    >
+                      <Download size={14} /> Ladda ner SRU-fil
+                    </button>
+                    <span style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>
+                      Två filer (INFO.SRU och BLANKETTER.SRU) sparas i din nedladdningsmapp.
+                      {!ink2r.balanced && ink2r.rows.length > 0 && ' Går att ladda ner först när balansräkningen stämmer.'}
+                    </span>
+                  </div>
+                </Ink2Step>
+
+                <Ink2Step n={3} title="Lämna in hos Skatteverket" last>
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <a
+                      href="https://sso.skatteverket.se/fv_ext/fv_web/login.do"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontWeight: 600, fontSize: '13px', color: 'var(--text-main)', textDecoration: 'none' }}
+                    >
+                      Öppna Skatteverket <ExternalLink size={13} />
+                    </a>
+                    <span style={{ fontSize: '12.5px', color: 'var(--text-secondary)', maxWidth: '620px' }}>
+                      Logga in med BankID som företag → e-tjänsten <em>Filöverföring</em> → filtyp <em>Inkomstdeklaration</em> → ladda upp de två filerna.
+                      Bokix skickar aldrig in något åt dig; inloggningen sker alltid direkt hos Skatteverket.
+                    </span>
+                  </div>
+                </Ink2Step>
               </div>
 
               <div style={{ padding: '20px 24px' }}>
@@ -773,13 +882,49 @@ export default function Taxes({
                         </tr>
                       </thead>
                       <tbody>
-                        {ink2r.rows.map(r => (
-                          <tr key={r.row} style={{ borderBottom: '1px solid var(--border-light)' }}>
-                            <td style={{ padding: '8px 10px', color: 'var(--text-muted)' }}>{r.row}</td>
-                            <td style={{ padding: '8px 10px', color: 'var(--text-main)' }}>{r.label}</td>
-                            <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 600, color: 'var(--text-main)' }}>{fmt(r.amount)}</td>
-                          </tr>
-                        ))}
+                        {/* Varje rad går att fälla ut och visa VILKA konton
+                            som byggde upp beloppet (computeInk2r.accounts).
+                            Kundfeedback: "visa vad som ligger under" — en
+                            summa man inte kan spåra går inte att kontrollera,
+                            och kontrollen är hela syftet innan inlämning. */}
+                        {ink2r.rows.map(r => {
+                          const open = expandedInk2rRow === r.row;
+                          return (
+                            <React.Fragment key={r.row}>
+                              <tr
+                                onClick={() => setExpandedInk2rRow(open ? null : r.row)}
+                                style={{ borderBottom: open ? 'none' : '1px solid var(--border-light)', cursor: 'pointer' }}
+                                title={`Fältkod ${r.fieldCode} · klicka för att se kontona bakom beloppet`}
+                              >
+                                <td style={{ padding: '8px 10px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                    {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}{r.row}
+                                  </span>
+                                </td>
+                                <td style={{ padding: '8px 10px', color: 'var(--text-main)' }}>{r.label}</td>
+                                <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 600, color: 'var(--text-main)', fontVariantNumeric: 'tabular-nums' }}>{fmt(r.amount)}</td>
+                              </tr>
+                              {open && (
+                                <tr style={{ borderBottom: '1px solid var(--border-light)' }}>
+                                  <td />
+                                  <td colSpan={2} style={{ padding: '2px 10px 10px' }}>
+                                    <div style={{ background: 'var(--bg-muted)', borderRadius: '8px', padding: '10px 12px' }}>
+                                      <div style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Konton bakom raden</div>
+                                      {r.accounts.length === 0 ? (
+                                        <div style={{ fontSize: '12.5px', color: 'var(--text-muted)' }}>Inga konton med saldo.</div>
+                                      ) : r.accounts.map(a => (
+                                        <div key={a.code} style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', fontSize: '12.5px', padding: '3px 0', color: 'var(--text-secondary)' }}>
+                                          <span><strong style={{ color: 'var(--text-main)' }}>{a.code}</strong> {a.name}</span>
+                                          <span style={{ fontVariantNumeric: 'tabular-nums', color: 'var(--text-main)', fontWeight: 600 }}>{fmt(a.amount)}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </React.Fragment>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -821,44 +966,10 @@ export default function Taxes({
                   </div>
                 )}
 
-                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '12px' }}>
-                  <button
-                    disabled={!ink2r.balanced || ink2r.rows.length === 0}
-                    onClick={() => downloadInk2rSru(company, ink2r, ink2rResultat.rows, `${currentYear}-12-31`)}
-                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: (!ink2r.balanced || ink2r.rows.length === 0) ? 'var(--text-muted)' : 'var(--accent)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '13px', cursor: (!ink2r.balanced || ink2r.rows.length === 0) ? 'not-allowed' : 'pointer' }}
-                  >
-                    <Download size={14} /> Ladda ner SRU-fil
-                  </button>
-                  <a
-                    href="https://sso.skatteverket.se/fv_ext/fv_web/login.do"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: 'var(--accent)', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '13px', color: 'white', textDecoration: 'none' }}
-                  >
-                    Lämna in hos Skatteverket <ExternalLink size={13} />
-                  </a>
-                  <a
-                    href="https://www.bas.se/kontoplaner/sru/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontWeight: 600, fontSize: '13px', color: 'var(--text-main)', textDecoration: 'none' }}
-                  >
-                    Kontrollera SRU-koder på bas.se <ExternalLink size={13} />
-                  </a>
-                </div>
-
-                {/* Bokix kan aldrig skicka in filen automatiskt åt dig —
-                    inlämningen kräver BankID-inloggning direkt hos
-                    Skatteverket, och den inloggningen ska aldrig gå via
-                    en tredjepartsapp. Så steg-för-steg istället för en
-                    föreställning om en "en-klicks"-inlämning. */}
-                <div style={{ display: 'flex', gap: '10px', fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.7, marginTop: '12px', padding: '12px 14px', background: 'var(--bg-muted)', borderRadius: '8px' }}>
-                  <Info size={15} style={{ flexShrink: 0, marginTop: 1, color: 'var(--text-muted)' }} />
-                  <div>
-                    <strong>Så lämnar du in filerna:</strong> ladda ner SRU-filen ovan (två filer, INFO.SRU och BLANKETTER.SRU, sparas i din nedladdningsmapp) → klicka "Lämna in hos Skatteverket" och logga in med BankID som företag → sök upp e-tjänsten <em>Filöverföring</em> under "Alla e-tjänster" om du inte hamnar där direkt → välj filtyp <em>Inkomstdeklaration</em> → ladda upp de två filerna du sparade. Bokix skickar aldrig in något åt dig — inloggningen sker alltid direkt hos Skatteverket.
-                  </div>
-                </div>
-
+                {/* Knapparna satt tidigare HÄR, längst ner efter två långa
+                    tabeller — de ligger nu i steg 2 och 3 högst upp, där man
+                    faktiskt letar efter dem. Kvar här: bara källhänvisningen
+                    för fältkoderna, som hör till tabellerna ovan. */}
                 <div style={{ display: 'flex', gap: '10px', fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.6, marginTop: '10px', padding: '12px 14px', background: 'var(--bg-muted)', borderRadius: '8px' }}>
                   <Info size={15} style={{ flexShrink: 0, marginTop: 1, color: 'var(--text-muted)' }} />
                   <div>

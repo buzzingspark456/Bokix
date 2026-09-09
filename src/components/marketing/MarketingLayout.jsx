@@ -908,6 +908,7 @@ const FOOTER_COLUMNS = [
       { label: 'Funktioner', to: '/funktioner' },
       { label: 'Priser', to: '/priser' },
       { label: 'Integrationer', to: '/integrationer' },
+      { label: 'Koppla banken', to: '/koppla-bank' },
       { label: 'Säkerhet', to: '/sakerhet' },
     ],
   },
@@ -924,6 +925,7 @@ const FOOTER_COLUMNS = [
       { label: 'Bokföringsordlista', to: '/ordlista' },
       { label: 'Välj rätt program', to: '/valja-bokforingsprogram' },
       { label: 'Byt till Bokix', to: '/byt-bokforingsprogram' },
+      { label: 'För UF-företag', to: '/uf' },
     ],
   },
   {

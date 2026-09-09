@@ -82,3 +82,45 @@ describe('computeInk2r', () => {
     expect(result.balanced).toBe(false)
   })
 })
+
+// Kundfeedback på INK2R-sidan: "visa vad som ligger bakom raderna". Varje
+// rad bär nu sina konton, så en summa går att kontrollera mot bokföringen
+// innan filen lämnas in.
+describe('computeInk2r: konton bakom varje rad', () => {
+  const accounts = [
+    { code: '1930', name: 'Företagskonto' },
+    { code: '1910', name: 'Kassa' },
+    { code: '2440', name: 'Leverantörsskulder' },
+  ]
+  const verifications = [
+    {
+      date: '2026-03-01', status: 'booked', rows: [
+        { account: '1930', debet: 8000, kredit: 0 },
+        { account: '1910', debet: 2000, kredit: 0 },
+        { account: '2440', debet: 0, kredit: 10000 },
+      ],
+    },
+  ]
+  const r = computeInk2r(verifications, accounts, new Date('2026-12-31T23:59:59'))
+
+  it('samlar båda kassakontona under rad 2.26, störst först', () => {
+    const kassa = r.rows.find(x => x.row === '2.26')
+    expect(kassa.accounts.map(a => a.code)).toEqual(['1930', '1910'])
+    expect(kassa.amount).toBe(kassa.accounts.reduce((s, a) => s + a.amount, 0))
+  })
+
+  it('difference är noll när balansräkningen går ihop', () => {
+    expect(r.balanced).toBe(true)
+    expect(Math.abs(r.difference)).toBeLessThan(1)
+  })
+
+  it('difference visar hur mycket som saknas när den inte går ihop', () => {
+    const obalans = computeInk2r(
+      [{ date: '2026-03-01', status: 'booked', rows: [{ account: '1930', debet: 5000, kredit: 0 }] }],
+      accounts,
+      new Date('2026-12-31T23:59:59')
+    )
+    expect(obalans.balanced).toBe(false)
+    expect(obalans.difference).toBe(5000)
+  })
+})

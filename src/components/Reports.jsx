@@ -7,6 +7,10 @@ import { getPeriodBounds } from '../utils/reportCalculations';
 import { visibleReportSections } from '../utils/reportDefinitions';
 import { useIsMobileViewport } from '../hooks/useIsMobileViewport';
 
+// Stabil referens som förval: en ny [] per render hade gjort useMemo:n
+// nedan meningslös (nytt beroende varje gång).
+const NO_HIDDEN_REPORTS = [];
+
 const inputSt = { padding: '9px 12px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '14px', outline: 'none', fontFamily: 'inherit', background: 'var(--bg-card)', color: 'var(--text-main)' };
 
 // Sida 14c, uppföljning: "Rapport och analys" byggdes om från en enda
@@ -34,7 +38,7 @@ function relativeOpenedLabel(iso) {
 
 export default function Reports({
   accounts = [], verifications = [], invoices = [], payrollRuns = [], contacts = [],
-  company = {}, setCompanyInfo, onNavigate,
+  company = {}, setCompanyInfo, onNavigate, hiddenReportIds = NO_HIDDEN_REPORTS,
 }) {
   const isMobile = useIsMobileViewport();
   const [period, setPeriod] = useState('year');
@@ -47,7 +51,10 @@ export default function Reports({
   }), [period, customStart, customEnd, company?.fiscalYear]);
 
   const hasPayrollData = useMemo(() => (payrollRuns || []).some(r => r.completedSteps?.includes('booked')), [payrollRuns]);
-  const sections = useMemo(() => visibleReportSections({ hasPayrollData }), [hasPayrollData]);
+  const sections = useMemo(
+    () => visibleReportSections({ hasPayrollData, hiddenReportIds }),
+    [hasPayrollData, hiddenReportIds]
+  );
   const lastOpened = company?.reportLastOpened || {};
 
   const openReport = (reportId) => {

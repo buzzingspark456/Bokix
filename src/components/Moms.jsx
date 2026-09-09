@@ -47,14 +47,14 @@ export default function Moms({ balances }) {
               </div>
             </div>
 
-            <div style={{ ...rowStyleTotal, background: netMoms >= 0 ? 'var(--status-green-bg)' : 'var(--status-red-bg)', borderColor: netMoms >= 0 ? '#16a34a' : 'var(--status-red-text)' }}>
+            <div style={{ ...rowStyleTotal, background: netMoms >= 0 ? 'var(--status-green-bg)' : 'var(--status-red-bg)', borderColor: netMoms >= 0 ? 'var(--status-green-text)' : 'var(--status-red-text)' }}>
               <div>
                 <strong style={{ display: 'block', fontSize: '16px', marginBottom: '2px' }}>
                   {netMoms >= 0 ? 'Moms att betala' : 'Moms att få tillbaka'}
                 </strong>
-                <span style={{ fontSize: '13px', color: netMoms >= 0 ? 'var(--status-green-text)' : '#991b1b', fontWeight: 500 }}>Netto skatteskuld / skattefordran</span>
+                <span style={{ fontSize: '13px', color: netMoms >= 0 ? 'var(--status-green-text)' : 'var(--status-red-text)', fontWeight: 500 }}>Netto skatteskuld / skattefordran</span>
               </div>
-              <span style={{ color: netMoms >= 0 ? '#16a34a' : 'var(--status-red-text)', fontSize: '24px', letterSpacing: '-0.03em' }}>
+              <span style={{ color: netMoms >= 0 ? 'var(--status-green-text)' : 'var(--status-red-text)', fontSize: '24px', letterSpacing: '-0.03em' }}>
                 {formatSEK(Math.abs(netMoms))}
               </span>
             </div>
