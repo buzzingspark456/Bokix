@@ -402,7 +402,12 @@ export default function LandingPage({ onEnterApp }) {
         <CloudShaderBackground style={{ position: 'absolute', inset: 0, minHeight: 0 }} />
         <div aria-hidden className="lp-blob" style={{ position: 'absolute', top: '-160px', left: '-120px', width: '440px', height: '440px', borderRadius: '50%', background: grad(GRAD.blueTeal), opacity: 0.16, filter: 'blur(60px)', pointerEvents: 'none' }} />
         <div aria-hidden className="lp-blob lp-blob-slow" style={{ position: 'absolute', top: '-100px', right: '-140px', width: '480px', height: '480px', borderRadius: '50%', background: grad(GRAD.green), opacity: 0.16, filter: 'blur(70px)', pointerEvents: 'none' }} />
-        <div aria-hidden className="lp-blob lp-blob-slower" style={{ position: 'absolute', bottom: '-180px', left: '30%', width: '420px', height: '420px', borderRadius: '50%', background: grad(GRAD.pink), opacity: 0.1, filter: 'blur(70px)', pointerEvents: 'none' }} />
+        {/* Kundönskemål: bort med den röda tonen i Hero. Här låg ett
+            tredje klot i GRAD.pink (Dashboards kostnadsgradient) — det
+            syntes som ett rödrosa skimmer längst ner i hjälten, och rött
+            är dessutom reserverat för kostnads-/varningsinnehåll på resten
+            av sajten (se GRAD-kommentaren i aurora.jsx). Hjälten har nu
+            bara loggans egna blå/turkos och grönt. */}
 
         <div style={{ maxWidth: '900px', margin: '0 auto', padding: '0 24px', textAlign: 'center', position: 'relative' }}>
           <h1 className="lp-fadeinup" style={{ fontFamily: 'Georgia, "Times New Roman", serif', fontSize: 'clamp(36px, 7vw, 84px)', fontWeight: 700, lineHeight: 1.1, letterSpacing: '-0.01em', color: 'var(--mkt-ink)', marginBottom: '26px' }}>

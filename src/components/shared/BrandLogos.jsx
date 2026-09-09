@@ -14,6 +14,23 @@ const NO_SAVE_PROPS = {
 };
 const noSaveStyle = (style) => ({ ...style, WebkitUserDrag: 'none', userSelect: 'none' });
 
+// ── BILDSTORLEK ──
+// Rasterfilerna i public/ är nedskalade till ungefär dubbla den storlek de
+// FAKTISKT visas i (2× för skärmar med hög pixeltäthet), inte originalens
+// fulla mått. Skälet är mätt, inte principiellt: startsidan laddade 639 kB
+// bilder, varav Zettles logotyp ensam stod för 233 kB (två varianter à
+// 3626×1612 pixlar, visade i 44 pixlars höjd). Efter nedskalningen är hela
+// bildmängden ~91 kB.
+//
+// Byter någon ut en av filerna: skala ner den först. En 4000 pixlar bred
+// PNG i en 40 pixlar hög bricka syns inte som skarpare — bara som en
+// långsammare sida. `aspectRatio` nedan är ett FÖRHÅLLANDE och påverkas
+// inte av nedskalningen, men måste stämma med den nya filens proportion.
+//
+// Alla loggor här ligger under första skärmen (trovärdighetsraden och
+// "Kopplat till"-diagrammet) — därav loading="lazy" genomgående: de ska
+// inte konkurrera med hjälten om bandbredden vid första målningen.
+
 // ── Riktiga tredjeparts-varumärken Bokix faktiskt integrerar med — samma
 // princip som BokixWordmark.jsx (delad, en enda källa) men för LOGGOR VI
 // INTE ÄGER. Kopior av de redan granskade komponenterna i Settings.jsx
@@ -54,7 +71,7 @@ export function StripeLogo({ height = 16 }) {
   const numeric = typeof height === 'number';
   return (
     <img
-      src="/stripe-wordmark.png" alt="Stripe"
+      src="/stripe-wordmark.png" alt="Stripe" loading="lazy"
       {...(numeric ? { height, width: height * (3840 / 1599) } : {})}
       style={noSaveStyle({ height, width: 'auto', objectFit: 'contain' })}
       {...NO_SAVE_PROPS}
@@ -79,7 +96,7 @@ export function StripeLogo({ height = 16 }) {
 export function StripeIconLogo({ height = 16 }) {
   return (
     <img
-      src="/stripe-icon-brandfetch.webp" alt="Stripe"
+      src="/stripe-icon-brandfetch.webp" alt="Stripe" loading="lazy"
       height={typeof height === 'number' ? height : undefined}
       style={noSaveStyle({ height, width: 'auto', objectFit: 'contain', borderRadius: '22%' })}
       {...NO_SAVE_PROPS}
@@ -105,8 +122,8 @@ function ThemedLogo({ lightSrc, darkSrc, alt, height, aspectRatio }) {
   const style = noSaveStyle({ height, width: 'auto', objectFit: 'contain' });
   return (
     <>
-      <img src={lightSrc} alt={alt} className="lp-logo-light" {...commonProps} style={style} {...NO_SAVE_PROPS} />
-      <img src={darkSrc} alt={alt} className="lp-logo-dark" {...commonProps} style={style} {...NO_SAVE_PROPS} />
+      <img src={lightSrc} alt={alt} className="lp-logo-light" loading="lazy" {...commonProps} style={style} {...NO_SAVE_PROPS} />
+      <img src={darkSrc} alt={alt} className="lp-logo-dark" loading="lazy" {...commonProps} style={style} {...NO_SAVE_PROPS} />
     </>
   );
 }
@@ -233,7 +250,7 @@ export function GdprLogo({ height = 18 }) {
 export function BasLogo({ height = 18 }) {
   return (
     <img
-      src="/bas-logo.jpg" alt="BAS-kontoplan" height={height}
+      src="/bas-logo.jpg" alt="BAS-kontoplan" height={height} loading="lazy"
       style={noSaveStyle({ height, width: 'auto', objectFit: 'contain' })}
       {...NO_SAVE_PROPS}
     />
