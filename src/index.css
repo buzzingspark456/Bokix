@@ -1477,15 +1477,25 @@ body {
   margin-bottom: 12px !important;
 }
 
-/* Fler spalter när skärmen räcker till. Spaltbredden (och därmed
-   radlängden i formulären) hålls mellan ~380 och ~520 px — bredare än så
-   slutar man läsa fälten och börjar skanna förbi dem, vilket var hela
-   skälet till det gamla behållartaket. */
-@media (min-width: 1500px) {
+/* Fler spalter när det finns plats. Spaltbredden (och därmed radlängden i
+   formulären) hålls mellan ~380 och ~520 px — bredare än så slutar man
+   läsa fälten och börjar skanna förbi dem, vilket var hela skälet till det
+   gamla behållartaket.
+   MÄTT PÅ BEHÅLLAREN, inte på fönstret: sedan sektionslistan tillkom är
+   innehållsytan ~250 px smalare än fönstret, och en fönsterbaserad regel
+   gav då tre spalter på en yta som bara rymde två — fälten bröt mitt i
+   etiketterna. Saknas stöd för @container blir det två spalter, vilket är
+   ett fullgott utfall. */
+.settings-main {
+  container-type: inline-size;
+  container-name: settingsmain;
+}
+
+@container settingsmain (min-width: 1120px) {
   .settings-split { columns: 3; }
 }
 
-@media (min-width: 2100px) {
+@container settingsmain (min-width: 1520px) {
   .settings-split { columns: 4; }
 }
 
@@ -1570,6 +1580,81 @@ body {
   flex-shrink: 0;
   background: var(--status-green-bg);
   color: var(--accent);
+}
+
+
+/* Sektionslistan vid sidan (Settings.jsx: SettingsRail).
+   Sektionerna låg tidigare som en flikrad i toppen; kundönskemål att de
+   ska finnas kvar vid sidan medan man jobbar i ett avsnitt. Listan tar
+   dessutom just det vågräta utrymme som annars stod tomt på en bred
+   skärm. */
+.settings-shell {
+  display: grid;
+  grid-template-columns: 236px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.settings-rail {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.settings-rail-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-align: left;
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+
+.settings-rail-item:hover { background: var(--bg-muted); color: var(--text-main); }
+
+.settings-rail-item-on {
+  background: var(--status-green-bg);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.settings-rail-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  color: inherit;
+}
+
+.settings-rail-divider {
+  height: 1px;
+  margin: 5px 8px;
+  background: var(--border-light);
+}
+
+/* Under 1000 px finns inget sidoutrymme att lägga listan i. Där är
+   översikten navigeringen i stället — samma innehåll, en form som passar
+   en telefon. */
+@media (max-width: 999px) {
+  .settings-shell { grid-template-columns: 1fr; gap: 0; }
+  .settings-rail { display: none; }
 }
 
 /* Tätheten inne i ett avsnitt.

@@ -3,7 +3,7 @@ import {
   Building2, CreditCard, Shield, Check, Download, Upload,
   Trash2, Mail, Laptop, Lock, KeyRound, Image as ImageIcon,
   Palette, Landmark, Hash, Calendar, Plus, X, ZoomIn, ZoomOut, Maximize2, Bell, ExternalLink, Sun, Moon,
-  UserRound, FileText, Plug, Users, Database, Cog, ChevronRight, ArrowLeft,
+  UserRound, FileText, Plug, Users, Database, Cog, ChevronRight, ArrowLeft, LayoutGrid,
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { sendInvoiceEmail } from '../emailApi';
@@ -164,6 +164,51 @@ function SettingsHub({ sections, onPick }) {
         );
       })}
     </div>
+  );
+}
+
+/** Sektionslistan vid sidan av innehållet.
+ *
+ * Kundönskemål: sektionerna ska INTE ligga som en flikrad i toppen — man
+ * ska gå in i Inställningar och därifrån välja, och valet ska finnas kvar
+ * medan man jobbar. En lodrät lista klarar det flikraden inte gjorde: åtta
+ * poster med ikon och namn får plats utan att radbryta, den aktiva syns
+ * tydligt, och den ligger i det vågräta utrymme som ändå stod tomt på en
+ * bred skärm.
+ *
+ * Listan visas bara från 1000 px (se .settings-rail i index.css). På smala
+ * skärmar finns inget sidoutrymme att lägga den i — där är översikten
+ * (SettingsHub) navigeringen i stället, med en väg tillbaka i sidhuvudet.
+ */
+function SettingsRail({ sections, activeId, onPick }) {
+  return (
+    <nav className="settings-rail" aria-label="Inställningar">
+      <button
+        type="button"
+        className={`settings-rail-item${activeId ? '' : ' settings-rail-item-on'}`}
+        onClick={() => onPick(null)}
+      >
+        <span className="settings-rail-icon"><LayoutGrid size={15} /></span>
+        Översikt
+      </button>
+      <div className="settings-rail-divider" />
+      {sections.map(section => {
+        const Icon = SECTION_META[section.id]?.icon || Cog;
+        const on = activeId === section.id;
+        return (
+          <button
+            key={section.id}
+            type="button"
+            className={`settings-rail-item${on ? ' settings-rail-item-on' : ''}`}
+            aria-current={on ? 'page' : undefined}
+            onClick={() => onPick(section.id)}
+          >
+            <span className="settings-rail-icon"><Icon size={15} /></span>
+            {section.label}
+          </button>
+        );
+      })}
+    </nav>
   );
 }
 
@@ -1870,7 +1915,7 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
         overflow: 'hidden', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
       }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '20px', flexWrap: 'wrap', padding: '22px 24px' }}>
-          <div style={{ minWidth: 0 }}>
+          <div className="settings-main" style={{ minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
               <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Din plan</span>
               <span style={{ padding: '3px 10px', borderRadius: '999px', fontSize: '11.5px', fontWeight: 700, background: statusBadge.bg, color: statusBadge.text }}>{statusBadge.label}</span>
@@ -2568,12 +2613,9 @@ export default function Settings({
         // kundfeedback: "man kan inte se dem, man måste skrolla". Pillren
         // radbryter i stället; alla åtta syns samtidigt och är ett tryck
         // bort, på bred skärm såväl som på telefon.
-        // Flikraden hör till ett öppnat avsnitt, inte till översikten —
-        // där ÄR korten navigeringen, och en flikrad ovanför dem hade varit
-        // samma val två gånger på samma skärm.
-        tabs={activeSection
-          ? { items: visibleSections, activeId: activeTab, onChange: handleSetTab, variant: 'pills' }
-          : undefined}
+        // Ingen flikrad. Sektionerna bor i listan vid sidan (SettingsRail)
+        // på bred skärm och i översikten (SettingsHub) på smal — se
+        // kundönskemålet i SettingsRail-kommentaren.
       />
 
       {/* Bredden begränsas av SPALTERNA, inte av behållaren: varje kort
@@ -2582,7 +2624,9 @@ export default function Settings({
           bara flera hundra tomma pixlar i var kant på en bred skärm
           (kundrapporterat med skärmbild från en 1674 px-skärm). */}
       <div className="settings-content" style={{ flex: 1, minWidth: 0, overflowY: 'auto' }}>
-        <div data-tour="page-settings-nav" style={{ maxWidth: '1680px', margin: '0 auto', padding: 'clamp(12px, 1.2vw, 18px)' }}>
+        <div data-tour="page-settings-nav" className="settings-shell" style={{ maxWidth: '1680px', margin: '0 auto', padding: 'clamp(12px, 1.2vw, 18px)' }}>
+          <SettingsRail sections={visibleSections} activeId={activeTab} onPick={handleSetTab} />
+          <div style={{ minWidth: 0 }}>
           {!activeSection && <SettingsHub sections={visibleSections} onPick={handleSetTab} />}
           {/* 1. Min profil */}
           {activeTab === 'profile' && (
@@ -3306,6 +3350,7 @@ export default function Settings({
               </SettingsSection>
             </div>
           )}
+          </div>
         </div>
       </div>
 
