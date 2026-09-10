@@ -42,7 +42,18 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
 ) {
   const tpl = INVOICE_TEMPLATES[template] || INVOICE_TEMPLATES[DEFAULT_INVOICE_TEMPLATE];
   const accent = accentColor || tpl.defaultAccent;
-  const visibleRows = rows.filter(r => r.description);
+  // Bugkritiskt: filtret var `r.description` ensamt, alltså doldes varje
+  // rad utan text — ÄVEN om den hade antal och pris. Summan räknas på alla
+  // rader, så resultatet blev en faktura där det stod "Inga rader tillagda
+  // än" ovanför ett belopp på 8 325 kr. Kunden som får den kan varken
+  // förstå eller kontrollera vad hen ska betala för, och en faktura utan
+  // uppgift om varans eller tjänstens art uppfyller inte heller
+  // faktureringskraven i mervärdesskattelagen.
+  //
+  // Nu döljs bara rader som är HELT tomma. Bär raden ett belopp syns den,
+  // med en tydlig markering om att beskrivningen saknas.
+  const hasAmount = (r) => Number(r.qty) || Number(r.unitPrice) || Number(r.amount);
+  const visibleRows = rows.filter(r => r.description || hasAmount(r));
   const isGrid = template === 'grid';
   const isBold = template === 'bold';
   const isClassic = template === 'classic';
@@ -277,7 +288,7 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
               // varken sorteras om eller filtreras här, så index är stabilt.
               <tr key={r.id ?? i}>
                 <td style={cellBorder}>
-                  {r.description}
+                  {r.description || <span style={{ color: '#b91c1c' }}>Beskrivning saknas</span>}
                   {deductionLabel && <span style={{ color: '#6b7280', fontStyle: 'italic' }}> · {deductionLabel}</span>}
                 </td>
                 <td style={{ textAlign: 'right', ...cellBorder }}>{r.qty}{r.unit && r.unit !== 'st' ? ` ${r.unit}` : ''}</td>

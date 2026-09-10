@@ -243,6 +243,10 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
   const [showEmailCompose, setShowEmailCompose] = useState(false);
   const [emailMessage, setEmailMessage] = useState('');
   const [emailSubject, setEmailSubject] = useState('');
+  const [emailWarnings, setEmailWarnings] = useState([]);
+  // Kundönskemål: alla vill inte ha en betalningsknapp i mejlet — vissa
+  // fakturerar mot bankgiro och vill inte betala Stripes avgift.
+  const [emailWithPaymentLink, setEmailWithPaymentLink] = useState(true);
   // Förifylld från kundkortet om det finns en sparad adress, men alltid
   // redigerbar — man ska kunna skicka till en mottagare utan att först
   // behöva gå och spara en e-post på kunden (t.ex. en engångsmottagare,
@@ -426,6 +430,17 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
     };
   };
 
+  /** Sådant kunden kommer att sakna i mejlet. Blockerar inte — det är
+   *  användarens faktura — men det ska inte gå att missa. */
+  const invoiceWarnings = () => {
+    const varningar = [];
+    if (!customer) varningar.push('Ingen kund är vald, så fakturan saknar mottagaruppgifter.');
+    const utanText = rows.filter(r => !r.description && (Number(r.qty) || Number(r.unitPrice)));
+    if (utanText.length) varningar.push(`${utanText.length === 1 ? 'En rad saknar' : `${utanText.length} rader saknar`} beskrivning — kunden ser bara ett belopp.`);
+    if (!rows.some(r => r.description || Number(r.qty) || Number(r.unitPrice))) varningar.push('Fakturan har inga rader.');
+    return varningar;
+  };
+
   const openEmailCompose = () => {
     const to = emailToInput.trim();
     if (!to) { setEmailError('Ange en mottagaradress.'); return; }
@@ -435,6 +450,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
     setEmailMessage(sparad || defaultEmailMessage());
     setEmailSubject(`Faktura ${nextNum} från ${(company?.invoiceDisplayName || company?.name) || 'oss'}`);
     setEmailError(''); setEmailSent(false);
+    setEmailWarnings(invoiceWarnings());
     setShowEmailCompose(true);
     // Nästa tick: fönstret ska hinna ritas FÖRE html2canvas börjar arbeta.
     // Startas förberedelsen i samma svep kan den blockera huvudtråden precis
@@ -497,7 +513,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
       // Betalningslänken är best effort: misslyckas den (t.ex. ogiltiga
       // rader) skickas fakturan ändå, bara utan knappen, i stället för att
       // hela utskicket stoppas av ett Stripe-fel.
-      const paymentLinkUrl = prep.link ? await prep.link : null;
+      const paymentLinkUrl = emailWithPaymentLink && prep.link ? await prep.link : null;
 
       // Användarens egen text först, sedan det som ALLTID ska med:
       // betalningsknappen och en rad som säger vad bilagan är. Den som
@@ -1264,10 +1280,32 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
                 />
               </div>
 
+              {emailWarnings.length > 0 && (
+                <div style={{ background: 'var(--status-amber-bg)', border: '1px solid var(--status-amber-bg)', borderRadius: '10px', padding: '12px 14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '7px', fontSize: '12.5px', fontWeight: 700, color: 'var(--status-amber-text)', marginBottom: '6px' }}>
+                    <AlertTriangle size={14} /> Kontrollera fakturan först
+                  </div>
+                  <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '12.5px', color: 'var(--status-amber-text)', lineHeight: 1.6 }}>
+                    {emailWarnings.map(v => <li key={v}>{v}</li>)}
+                  </ul>
+                </div>
+              )}
+
               {/* Det som alltid följer med, sagt rakt ut så ingen skriver
                   "se bifogad faktura" i tron att den inte finns. */}
               <div style={{ background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: '10px', padding: '12px 14px', fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                Följer med automatiskt: fakturan som PDF{company?.stripeAccountId ? ', en "Betala nu"-knapp' : ''} och en rad med fakturanummer, belopp och förfallodatum.
+                Följer med automatiskt: fakturan som PDF och en rad med fakturanummer, belopp och förfallodatum.
+                {company?.stripeAccountId && (
+                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginTop: '10px', cursor: 'pointer', color: 'var(--text-main)' }}>
+                    <input
+                      type="checkbox"
+                      checked={emailWithPaymentLink}
+                      onChange={e => setEmailWithPaymentLink(e.target.checked)}
+                      style={{ marginTop: '2px', cursor: 'pointer' }}
+                    />
+                    <span>Lägg med en <strong>Betala nu</strong>-knapp (kortbetalning via Stripe). Avmarkera om kunden ska betala mot bankgiro i stället.</span>
+                  </label>
+                )}
               </div>
 
               {emailError && (
