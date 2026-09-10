@@ -334,6 +334,19 @@ function ToggleSwitch({ checked, onChange, label, hint, disabled = false }) {
   );
 }
 
+
+/** Googles G, ritad. Fyra färgfält, samma proportioner som märket. */
+function GoogleGlyph({ size = 17 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden focusable="false">
+      <path fill="#4285F4" d="M45.1 24.5c0-1.6-.1-2.8-.4-4H24v7.3h12.1c-.2 2-1.6 5-4.5 7l-.1.3 6.5 5 .5.1c4.1-3.8 6.6-9.4 6.6-15.7" />
+      <path fill="#34A853" d="M24 46c5.9 0 10.9-2 14.5-5.3l-6.9-5.4c-1.8 1.3-4.3 2.2-7.6 2.2-5.8 0-10.7-3.8-12.5-9.1l-.3.1-6.7 5.2-.1.3C7.9 41 15.4 46 24 46" />
+      <path fill="#FBBC05" d="M11.5 28.4c-.5-1.4-.7-2.9-.7-4.4s.3-3 .7-4.4v-.3l-6.8-5.3-.2.1C3 17.1 2.2 20.5 2.2 24s.8 6.9 2.3 9.9z" />
+      <path fill="#EA4335" d="M24 9.5c4.1 0 6.9 1.8 8.5 3.3l6.2-6C34.9 3.3 29.9 1 24 1 15.4 1 7.9 6 4.5 14.1l6.9 5.4C13.3 13.3 18.2 9.5 24 9.5" />
+    </svg>
+  );
+}
+
 function Badge({ tone = 'warning', children }) {
   const map = {
     positive: { bg: BRAND.greenLight, color: BRAND.greenDark },
@@ -2461,6 +2474,275 @@ export default function Settings({
     </div>
   );
 
+  // ── Skicka från din egen adress (SMTP) ────────────────────────────────
+  // För alla som inte äger en domän: i stället för att verifiera DNS
+  // kopplar man sitt befintliga mejlkonto, och fakturan går ut därifrån.
+  // All hantering av lösenordet sker på servern (api/_smtp.js) — det här
+  // formuläret skickar det EN gång och får aldrig tillbaka det.
+  const [ownSender, setOwnSender] = useState(null);
+  const [ownSenderProviders, setOwnSenderProviders] = useState([]);
+  const [ownSenderReady, setOwnSenderReady] = useState(true);
+  const [ownSenderGoogle, setOwnSenderGoogle] = useState(false);
+  const [ownSenderLoaded, setOwnSenderLoaded] = useState(false);
+  const [ownSenderBusy, setOwnSenderBusy] = useState(false);
+  const [ownSenderError, setOwnSenderError] = useState('');
+  const [ownSenderOpen, setOwnSenderOpen] = useState(false);
+  const [ownSenderForm, setOwnSenderForm] = useState({
+    fromEmail: '', fromName: '', password: '', provider: 'custom', host: '', port: 465, secure: true,
+  });
+
+  const senderApi = async (init) => {
+    const { data: { session } = {} } = await supabase.auth.getSession();
+    const auth = session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
+    const res = await fetch(init.url, {
+      method: init.method || 'GET',
+      headers: { 'Content-Type': 'application/json', ...auth },
+      ...(init.body ? { body: JSON.stringify(init.body) } : {}),
+    });
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(payload?.error || `Något gick fel (${res.status})`);
+    return payload;
+  };
+
+  useEffect(() => {
+    if (!activeCompanyId || ownSenderLoaded) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const payload = await senderApi({ url: `/api/email/domains?resource=sender&company_id=${encodeURIComponent(activeCompanyId)}` });
+        if (cancelled) return;
+        setOwnSender(payload.sender || null);
+        setOwnSenderProviders(payload.providers || []);
+        setOwnSenderReady(payload.configured !== false && !payload.missingTable);
+        setOwnSenderGoogle(Boolean(payload.googleAvailable));
+      } catch {
+        // Tyst: kortet visar bara "inte kopplat" om statusen inte gick att
+        // hämta. Ett rött fel innan användaren gjort något är brus.
+      } finally {
+        if (!cancelled) setOwnSenderLoaded(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [activeCompanyId, ownSenderLoaded]);
+
+  // Fyller i serveruppgifterna när adressen skrivs, så en gmail-adress
+  // aldrig behöver se ordet SMTP.
+  const pickProviderFor = (email) => {
+    const addr = String(email || '').toLowerCase();
+    const hit = ownSenderProviders.find(pr => (
+      (pr.id === 'gmail' && /@(gmail|googlemail)\.com$/.test(addr))
+      || (pr.id === 'outlook' && /@(outlook|hotmail|live)\.[a-z.]+$/.test(addr))
+      || (pr.id === 'msn' && /@msn\.com$/.test(addr))
+    ));
+    return hit || null;
+  };
+
+  const activeProvider = ownSenderProviders.find(pr => pr.id === ownSenderForm.provider) || null;
+
+  const handleOwnSenderEmailChange = (value) => {
+    const guess = pickProviderFor(value);
+    setOwnSenderForm(f => ({
+      ...f,
+      fromEmail: value,
+      ...(guess ? { provider: guess.id, host: guess.host, port: guess.port, secure: guess.secure } : {}),
+    }));
+    setOwnSenderError('');
+  };
+
+  const handleOwnSenderProviderChange = (id) => {
+    const pr = ownSenderProviders.find(x => x.id === id);
+    setOwnSenderForm(f => ({ ...f, provider: id, host: pr?.host || '', port: pr?.port || 465, secure: pr?.secure ?? true }));
+    setOwnSenderError('');
+  };
+
+  // Google-vägen: servern bygger inloggningsadressen (den bär en signerad
+  // state som binder ihop inloggningen med rätt företag), klienten öppnar
+  // den. Vi begär bara rätten att SKICKA — se api/_gmail.js.
+  const handleConnectGoogle = async () => {
+    setOwnSenderBusy(true); setOwnSenderError('');
+    try {
+      const payload = await senderApi({
+        url: '/api/email/domains',
+        method: 'POST',
+        body: { resource: 'sender', action: 'oauth-url', company_id: activeCompanyId },
+      });
+      if (!payload?.url) throw new Error('Fick ingen inloggningsadress från servern.');
+      window.location.href = payload.url;
+    } catch (err) {
+      setOwnSenderError(err.message || 'Kunde inte starta inloggningen mot Google.');
+      setOwnSenderBusy(false);
+    }
+  };
+
+  const handleOwnSenderSave = async () => {
+    setOwnSenderBusy(true); setOwnSenderError('');
+    try {
+      const payload = await senderApi({
+        url: '/api/email/domains',
+        method: 'POST',
+        body: {
+          resource: 'sender',
+          company_id: activeCompanyId,
+          fromEmail: ownSenderForm.fromEmail.trim(),
+          fromName: ownSenderForm.fromName.trim() || company?.name || '',
+          password: ownSenderForm.password,
+          provider: ownSenderForm.provider,
+          host: ownSenderForm.host,
+          port: ownSenderForm.port,
+          secure: ownSenderForm.secure,
+        },
+      });
+      setOwnSender(payload.sender || null);
+      setOwnSenderOpen(false);
+      setOwnSenderForm(f => ({ ...f, password: '' }));
+    } catch (err) {
+      setOwnSenderError(err.message || 'Kunde inte spara avsändaren.');
+    } finally {
+      setOwnSenderBusy(false);
+    }
+  };
+
+  const handleOwnSenderRemove = async () => {
+    if (!(await confirmDialog('Koppla från din egen avsändaradress? Fakturor skickas då via Bokix adress igen.'))) return;
+    setOwnSenderBusy(true); setOwnSenderError('');
+    try {
+      await senderApi({ url: '/api/email/domains', method: 'POST', body: { resource: 'sender', action: 'remove', company_id: activeCompanyId } });
+      setOwnSender(null);
+    } catch (err) {
+      setOwnSenderError(err.message || 'Kunde inte koppla från.');
+    } finally {
+      setOwnSenderBusy(false);
+    }
+  };
+
+  const ownSenderCard = (
+    <div style={card}>
+      <div style={{ marginBottom: '14px' }}>
+        <SectionHeading icon={Mail} tone={ownSender?.verifiedAt ? 'green' : 'gray'}>
+          Skicka från din egen adress
+        </SectionHeading>
+      </div>
+
+      {ownSender ? (
+        <>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '14px', flexWrap: 'wrap', marginBottom: '12px' }}>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)' }}>{ownSender.fromEmail}</div>
+              <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                {ownSender.provider === 'google'
+                  ? 'Kopplat med Google. Bokix kan skicka i ditt namn — men inte läsa något i din inkorg.'
+                  : 'Fakturor och offerter skickas härifrån, och hamnar i din egen Skickat-mapp.'}
+              </div>
+            </div>
+            <Badge tone={ownSender.verifiedAt ? 'positive' : 'warning'}>
+              {ownSender.verifiedAt ? 'Ansluten' : 'Ej testad'}
+            </Badge>
+          </div>
+          {ownSender.lastError && (
+            <div style={{ fontSize: '12.5px', color: 'var(--status-red-text)', background: 'var(--status-red-bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '10px 12px', marginBottom: '12px', maxWidth: FORM_MAX }}>
+              Senaste utskicket gick inte via din adress: {ownSender.lastError} Fakturan skickades via Bokix adress i stället.
+            </div>
+          )}
+          <button onClick={handleOwnSenderRemove} disabled={ownSenderBusy} style={btnGhost}>Koppla från</button>
+        </>
+      ) : (
+        <>
+          <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 14px', maxWidth: '560px' }}>
+            Har du ingen egen domän? Koppla mejlkontot du redan har — Gmail, Outlook eller vad du använder — så går fakturan ut från din vanliga adress i stället för via Bokix. Kostar inget och kunden ser din adress som avsändare.
+          </p>
+          {!ownSenderReady ? (
+            <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>
+              Funktionen är inte påslagen på servern ännu.
+            </div>
+          ) : !ownSenderOpen ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'flex-start' }}>
+              {ownSenderGoogle && (
+                <>
+                  {/* Enklaste vägen först: logga in, godkänn, klart. Inga
+                      serveradresser, inga app-lösenord. */}
+                  <button
+                    onClick={handleConnectGoogle}
+                    disabled={ownSenderBusy}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', padding: '10px 16px', borderRadius: '10px', border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-main)', fontWeight: 700, fontSize: '14px', cursor: ownSenderBusy ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: ownSenderBusy ? 0.6 : 1 }}
+                  >
+                    <GoogleGlyph />
+                    {ownSenderBusy ? 'Öppnar Google…' : 'Logga in med Google'}
+                  </button>
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', maxWidth: '520px', lineHeight: 1.55 }}>
+                    Google frågar bara om en enda behörighet: att skicka e-post åt dig. Bokix kan inte läsa, radera eller söka i din inkorg — den behörigheten begär vi aldrig.
+                  </div>
+                </>
+              )}
+              <button onClick={() => setOwnSenderOpen(true)} style={ownSenderGoogle ? btnGhost : btnPrimary}>
+                {ownSenderGoogle ? 'Annan e-postleverantör' : 'Koppla min adress'}
+              </button>
+            </div>
+          ) : (
+            <div style={{ maxWidth: FORM_MAX }}>
+              <div className="form-row-stack" style={grid2}>
+                <AutoField label="Din e-postadress" value={ownSenderForm.fromEmail} onChange={handleOwnSenderEmailChange} placeholder="namn@gmail.com" />
+                <AutoField label="Avsändarnamn (visas för kunden)" value={ownSenderForm.fromName} onChange={(v) => setOwnSenderForm(f => ({ ...f, fromName: v }))} placeholder={company?.name || 'Ditt företag'} />
+              </div>
+
+              <div style={{ marginTop: '12px' }}>
+                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Leverantör</label>
+                <select
+                  value={ownSenderForm.provider}
+                  onChange={e => handleOwnSenderProviderChange(e.target.value)}
+                  style={{ ...inputBase, width: '100%' }}
+                >
+                  {ownSenderProviders.map(pr => <option key={pr.id} value={pr.id}>{pr.label}</option>)}
+                </select>
+              </div>
+
+              {activeProvider?.help && (
+                <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginTop: '10px', lineHeight: 1.55 }}>
+                  {activeProvider.help}
+                  {activeProvider.appPasswordUrl && (
+                    <> <a href={activeProvider.appPasswordUrl} target="_blank" rel="noopener noreferrer" style={{ color: BRAND.greenDark, fontWeight: 600 }}>Skapa app-lösenord →</a></>
+                  )}
+                </div>
+              )}
+
+              {ownSenderForm.provider === 'custom' && (
+                <div className="form-row-stack" style={{ ...grid2, marginTop: '12px' }}>
+                  <AutoField label="Serveradress (SMTP)" value={ownSenderForm.host} onChange={(v) => setOwnSenderForm(f => ({ ...f, host: v }))} placeholder="smtp.leverantor.se" />
+                  <AutoField label="Port" type="number" value={String(ownSenderForm.port)} onChange={(v) => setOwnSenderForm(f => ({ ...f, port: Number(v) || 465, secure: Number(v) === 465 }))} />
+                </div>
+              )}
+
+              <div style={{ marginTop: '12px' }}>
+                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>App-lösenord</label>
+                <input
+                  type="password"
+                  value={ownSenderForm.password}
+                  onChange={e => { setOwnSenderForm(f => ({ ...f, password: e.target.value })); setOwnSenderError(''); }}
+                  placeholder="Klistra in app-lösenordet"
+                  autoComplete="new-password"
+                  style={{ ...inputBase, width: '100%' }}
+                />
+                <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '6px' }}>
+                  Lösenordet krypteras innan det sparas och visas aldrig igen. Vi testar inloggningen direkt när du sparar.
+                </div>
+              </div>
+
+              {ownSenderError && (
+                <div style={{ color: 'var(--status-red-text)', fontSize: '12.5px', marginTop: '10px', fontWeight: 600 }}>{ownSenderError}</div>
+              )}
+
+              <div style={{ display: 'flex', gap: '10px', marginTop: '14px', flexWrap: 'wrap' }}>
+                <button onClick={handleOwnSenderSave} disabled={ownSenderBusy} style={{ ...btnPrimary, opacity: ownSenderBusy ? 0.6 : 1, cursor: ownSenderBusy ? 'not-allowed' : 'pointer' }}>
+                  {ownSenderBusy ? 'Testar inloggningen…' : 'Testa och spara'}
+                </button>
+                <button onClick={() => { setOwnSenderOpen(false); setOwnSenderError(''); }} style={btnGhost}>Avbryt</button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+
   const emailSenderCard = (
     <div style={card}>
       <div style={{ marginBottom: '14px' }}>
@@ -3178,7 +3460,14 @@ export default function Settings({
                 <div style={{ marginTop: '18px' }}>{stripeCard}</div>
               )}
               {openIntegration === 'email' && (
-                <div style={{ marginTop: '18px' }}>{emailSenderCard}</div>
+                <>
+                  {/* Två vägar till samma sak: egen DOMÄN (kräver att man
+                      äger en) och egen ADRESS via sitt befintliga mejlkonto
+                      (kräver ingenting). Den som saknar domän ska inte
+                      behöva leta efter den andra vägen på en annan sida. */}
+                  <div style={{ marginTop: '18px' }}>{emailSenderCard}</div>
+                  <div style={{ marginTop: '18px' }}>{ownSenderCard}</div>
+                </>
               )}
             </div>
           )}

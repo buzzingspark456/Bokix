@@ -863,3 +863,41 @@ CREATE TABLE IF NOT EXISTS public.cron_progress (
 );
 
 ALTER TABLE public.cron_progress ENABLE ROW LEVEL SECURITY;
+
+-- ══════════════════════════════════════════════════════════════════════
+-- EGEN AVSÄNDARADRESS (SMTP) — api/_smtp.js
+-- ══════════════════════════════════════════════════════════════════════
+-- Den som saknar egen domän kan inte verifiera en avsändardomän hos
+-- Resend, och skickar därför som "Företaget via Bokix". Med en rad här
+-- skickas fakturan i stället genom kundens EGET mejlkonto (Gmail,
+-- Outlook, one.com …) — mejlet kommer från deras riktiga adress, hamnar i
+-- deras Skickat-mapp, och kostar Bokix ingenting eftersom det går på
+-- deras egen kvot.
+--
+-- SÄKERHET: `secret` är app-lösenordet krypterat med AES-256-GCM
+-- (EMAIL_SECRET_KEY i miljövariablerna). RLS är PÅ och det finns
+-- MEDVETET ingen policy alls — precis som cron_progress ovan. Ingen
+-- inloggad klient kan läsa eller skriva raden; bara serverfunktionerna
+-- med service_role-nyckeln, som aldrig skickar hemligheten vidare till
+-- webbläsaren. Tappar man den principen läcker man kundens
+-- mejllösenord.
+CREATE TABLE IF NOT EXISTS public.email_senders (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  company_id text NOT NULL,          -- nyckel inuti state.companies
+  provider text NOT NULL DEFAULT 'custom',
+  from_email text NOT NULL,
+  from_name text,
+  host text NOT NULL,
+  port integer NOT NULL,
+  secure boolean NOT NULL DEFAULT true,
+  username text NOT NULL,
+  secret text NOT NULL,              -- krypterat, aldrig klartext
+  verified_at timestamptz,           -- satt först när inloggningen testats
+  last_error text,                   -- varför senaste utskicket föll
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now(),
+  UNIQUE (user_id, company_id)       -- en avsändare per företag
+);
+
+ALTER TABLE public.email_senders ENABLE ROW LEVEL SECURITY;
