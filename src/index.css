@@ -3476,6 +3476,38 @@ textarea.form-control {
 .status-neutral { border-top: 2px solid var(--gray-300); }
 
 
+/* ── Verktygsraden i faktura-/offertvyn på smala skärmar ──────────────
+   Kundrapport: knapparna (Registrera betalning, Kommentar, Skicka via
+   e-post, Ladda ner PDF, Förhandsgranska) låg för långt isär och hamnade
+   utanför skärmkanten på mobil och halv skärm.
+
+   Orsaken är ett flex:1-mellanrum som skjuter e-postgruppen mot höger
+   kant. Snyggt när raden får plats, förödande när den inte gör det: med
+   overflow-x: auto sköts högergruppen helt enkelt utanför synfältet, och
+   man måste skrolla i sidled för att hitta Skicka.
+
+   Under 1100px tas mellanrummet bort och raden bryter i stället till flera
+   rader. Alla knappar syns, ingen sidledsscroll. */
+/* Två klasser i väljaren med flit: Quotes.jsx injicerar en GLOBAL regel
+   för .quote-toolbar som sätter nowrap + sidledsscroll under 720px. Den
+   är avsiktlig där, men skulle annars slå ut den här. Högre specificitet
+   vinner oavsett i vilken ordning stilarna hamnar i dokumentet. */
+@media (max-width: 1100px) {
+  .quote-toolbar.invoice-toolbar {
+    flex-wrap: wrap;
+    overflow-x: visible;
+    row-gap: 8px;
+  }
+  .quote-toolbar.invoice-toolbar .toolbar-spacer { display: none; }
+  /* E-postfältet får ta den plats som blir över på raden i stället för att
+     stå fast på 190px och trycka ut Skicka-knappen. */
+  .quote-toolbar.invoice-toolbar .toolbar-email-input {
+    flex: 1 1 160px;
+    width: auto !important;
+    min-width: 0;
+  }
+}
+
 /* ══════════════════════════════════════════════
    A4 DOCUMENT PREVIEW (Faktura/Offert)
 ══════════════════════════════════════════════ */

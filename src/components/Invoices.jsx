@@ -402,6 +402,30 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
   // just den här webbläsaren, inte en inställning värd att synka.
   const messageStorageKey = `bokix-fakturamejl-${company?.id || 'default'}`;
 
+  // Löften, inte värden: vi vill inte rendera om komponenten när de blir
+  // klara, bara kunna vänta in dem vid Skicka.
+  const emailPrepRef = useRef({ pdf: null, link: null });
+
+  /** Startar PDF-rendering och betalningslänk i bakgrunden. Fel sväljs här
+   *  och tas om hand vid Skicka i stället — ett misslyckat förberedelse-
+   *  försök ska inte visa ett felmeddelande medan man skriver. */
+  const prepareEmailAttachments = () => {
+    // Promise.resolve() runt BÅDA anropen: de kommer utifrån och behöver
+    // inte returnera ett löfte. onGetPaymentLinkUrl gör det t.ex. inte i
+    // demoläget, och då kraschade hela fakturavyn på .catch of null — en
+    // bugg som testet fångade innan den nådde någon kund.
+    emailPrepRef.current = {
+      pdf: Promise.resolve()
+        .then(() => getInvoicePdfBase64(captureRef.current))
+        .catch(err => { console.warn('Kunde inte förbereda PDF:en:', err); return null; }),
+      link: (company?.stripeAccountId && onGetPaymentLinkUrl && initial?.id)
+        ? Promise.resolve()
+          .then(() => onGetPaymentLinkUrl(initial.id))
+          .catch(err => { console.warn('Kunde inte förbereda betalningslänken:', err); return null; })
+        : Promise.resolve(null),
+    };
+  };
+
   const openEmailCompose = () => {
     const to = emailToInput.trim();
     if (!to) { setEmailError('Ange en mottagaradress.'); return; }
@@ -412,6 +436,10 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
     setEmailSubject(`Faktura ${nextNum} från ${(company?.invoiceDisplayName || company?.name) || 'oss'}`);
     setEmailError(''); setEmailSent(false);
     setShowEmailCompose(true);
+    // Nästa tick: fönstret ska hinna ritas FÖRE html2canvas börjar arbeta.
+    // Startas förberedelsen i samma svep kan den blockera huvudtråden precis
+    // när rutan skulle ha dykt upp, och klicket känns trögt.
+    setTimeout(prepareEmailAttachments, 0);
   };
 
   const handleSave = (status = 'draft') => {
@@ -444,20 +472,32 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
     if (!/^\S+@\S+\.\S+$/.test(to)) { setEmailError('Det där ser inte ut som en giltig e-postadress.'); return; }
     setEmailBusy(true); setEmailError(''); setEmailSent(false);
     try {
-      const attachmentBase64 = await getInvoicePdfBase64(captureRef.current);
+      // Förberett när fönstret öppnades (se prepareEmailAttachments).
+      // Föll förberedelsen görs den om här, så ett tillfälligt fel inte
+      // betyder att fakturan går iväg utan bilaga.
+      const prep = emailPrepRef.current;
+      // Vänta in den förberedda PDF:en, men aldrig längre än 20 sekunder.
+      // Hänger renderingen ska användaren få ett fel att agera på, inte en
+      // knapp som står och snurrar för alltid.
+      const medTidsgräns = (löfte, ms) => Promise.race([
+        löfte,
+        new Promise((_, avvisa) => setTimeout(() => avvisa(new Error('PDF-tidsgräns')), ms)),
+      ]);
 
-      // Om Stripe är anslutet, lägg in en riktig betalningslänk i mejlet så
-      // kunden kan betala direkt — best effort: misslyckas länken (t.ex.
-      // ogiltiga rader) skickas fakturan ändå, bara utan knappen, istället
-      // för att hela utskicket stoppas av ett Stripe-fel.
-      let paymentLinkUrl = null;
-      if (company?.stripeAccountId && onGetPaymentLinkUrl && initial?.id) {
-        try {
-          paymentLinkUrl = await onGetPaymentLinkUrl(initial.id);
-        } catch (linkErr) {
-          console.warn('Kunde inte skapa betalningslänk till mejlet, skickar utan:', linkErr);
-        }
+      let attachmentBase64 = null;
+      try {
+        attachmentBase64 = prep.pdf
+          ? await medTidsgräns(prep.pdf, 20000)
+          : await medTidsgräns(getInvoicePdfBase64(captureRef.current), 20000);
+      } catch (pdfErr) {
+        console.error('PDF till mejlet misslyckades:', pdfErr);
+        throw new Error('Kunde inte skapa PDF:en till mejlet. Prova Förhandsgranska först, eller ladda ner PDF:en och bifoga den manuellt.');
       }
+
+      // Betalningslänken är best effort: misslyckas den (t.ex. ogiltiga
+      // rader) skickas fakturan ändå, bara utan knappen, i stället för att
+      // hela utskicket stoppas av ett Stripe-fel.
+      const paymentLinkUrl = prep.link ? await prep.link : null;
 
       // Användarens egen text först, sedan det som ALLTID ska med:
       // betalningsknappen och en rad som säger vad bilagan är. Den som
@@ -574,7 +614,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
           Knapparna har nu ett tydligt mellanrum (gap) sinsemellan istället
           för att bara skiljas åt av en tunn kantlinje — annars är det för
           lätt att klicka fel på grannknappen. */}
-      <div className="quote-toolbar" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 24px', flexShrink: 0, overflowX: 'auto', position: 'relative' }}>
+      <div className="quote-toolbar invoice-toolbar" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 24px', flexShrink: 0, overflowX: 'auto', position: 'relative' }}>
         {topBarBtn('Registrera betalning', <CreditCard size={13} />, () => setShowPaymentBox(v => !v), showPaymentBox ? activeToolbarPillStyle : {}, !initial, !initial ? 'Spara fakturan först' : undefined)}
         {topBarBtn(
           'Markera som obetald',
@@ -585,13 +625,18 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
           !initial ? 'Spara fakturan först' : (initial?.status !== 'paid' ? 'Fakturan är inte markerad som betald' : 'Ångrar den registrerade betalningen')
         )}
         {topBarBtn('Kommentar', <MessageSquare size={13} />, () => setShowCommentBox(v => !v), showCommentBox ? activeToolbarPillStyle : (commentDraft ? { color: 'var(--status-amber-text)', borderColor: 'var(--status-amber-bg)' } : {}))}
-        <div style={{ flex: 1, minWidth: '8px' }} />
+        {/* Mellanrummet som skjuter e-postgruppen åt höger. Klass, inte bara
+            inline style: på smala skärmar ska det FÖRSVINNA (se .quote-toolbar
+            i index.css) så knapparna står tillsammans i stället för att
+            hamna utanför skärmkanten bakom en sidledsscroll. */}
+        <div className="toolbar-spacer" style={{ flex: 1, minWidth: '8px' }} />
         {emailError && <span style={{ fontSize: '11px', color: '#c00', alignSelf: 'center', marginRight: 8 }}>{emailError}</span>}
         {emailSent && !emailError && <span style={{ fontSize: '11px', color: 'var(--status-green-text)', alignSelf: 'center', marginRight: 8 }}>Skickad ✓</span>}
         <input
           type="email" value={emailToInput} onChange={e => { setEmailToInput(e.target.value); setEmailError(''); }}
           placeholder="mottagarens@epost.se" title="Mottagarens e-postadress — förifylld från kundkortet om det finns en, men går att ändra eller fylla i här"
           disabled={!initial}
+          className="toolbar-email-input"
           style={{
             padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '12.5px', width: '190px',
             flexShrink: 0, fontFamily: 'inherit',
