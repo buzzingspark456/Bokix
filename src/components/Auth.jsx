@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   LogIn, UserPlus, Mail, Lock,
   ArrowRight, ArrowLeft, ShieldCheck, Check, User, Hash,
-  RefreshCw,
+  RefreshCw, GraduationCap,
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { detectOrgType, formatLegalForm, formatOrgNr } from '../utils/orgType';
@@ -15,6 +15,7 @@ import { BokixWordmark } from './marketing/MarketingLayout';
 import CloudShaderBackground from './marketing/CloudShaderBackground';
 import { createStripeSubscriptionCheckout } from '../stripeApi';
 import { planFromId } from '../utils/plans';
+import { UF_FREE_MONTHS } from '../utils/ufMode';
 import Turnstile from './Turnstile';
 
 // ── Litet Stripe-märke — se motsvarande kommentar i PaymentRequiredGate.jsx
@@ -92,7 +93,7 @@ const PENDING_INVITE_KEY = 'bokix_pending_invite_token';
  * fanns, så en registrering som startar någon annanstans än prissidan
  * fungerar oförändrat. Servern validerar värdet igen — det här är ett
  * val, inte ett löfte om vad som debiteras. */
-export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'employer_monthly' }) {
+export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'employer_monthly', initialUf = false }) {
   const [isLogin, setIsLogin] = useState(initialMode !== 'signup');
   // Priset i rutan ovanför "Skapa konto"-knappen ska vara det besökaren
   // just valde på prissidan, inte 179 kr för alla (som det stod innan
@@ -210,6 +211,19 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
   // "Jag har inget företag än" — se knappen i steg 2 och handleNextStep:s
   // regStep===2-gren för hela resonemanget.
   const [skipCompany, setSkipCompany] = useState(false);
+
+  // ── UF-registrering (utils/ufMode.js) ──
+  // Ett UF-företag har oftast inget organisationsnummer att slå upp, inga
+  // uppgifter i bolagsregistret och ingen prenumeration att teckna. Hela
+  // steg 2 byter därför skepnad: företagsnamn + skola i stället för
+  // org.nummer + registeruppslag, och steg 3 skapar kontot UTAN att skicka
+  // någon vidare till Stripe.
+  //
+  // Förvalet kommer från /uf-sidans knappar (initialUf), men växeln finns
+  // också i formuläret: någon som hamnat i det vanliga flödet ska kunna
+  // byta utan att gå tillbaka till marknadssidan.
+  const [isUfSignup, setIsUfSignup] = useState(Boolean(initialUf));
+  const [regUfSchool, setRegUfSchool] = useState('');
 
   // Fallback only: a local heuristic from the org number's own digits, used
   // when a real lookup hasn't resolved a legal form yet (or failed) so the
@@ -357,6 +371,16 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
       // Företag-flik känner igen (via ett tomt orgNr) och visar en riktig
       // "slutför registreringen"-vy för, med samma org.nummer-uppslag som
       // här — se Settings.jsx:s kommentar vid Grunduppgifter.
+      // UF-företag: bara namnet är obligatoriskt. Inget org.nummer krävs
+      // (de flesta UF-företag har inget), och skolan är frivillig.
+      if (isUfSignup) {
+        if (!regCompany.trim()) {
+          setErrorMsg('Ange vad ert UF-företag heter.');
+          return;
+        }
+        setRegStep(3);
+        return;
+      }
       if (!skipCompany) {
         if (!regOrgNr.trim() || regOrgNr.replace(/\D/g, '').length < 10) {
           setErrorMsg('Ange ett giltigt organisationsnummer (10 siffror)');
@@ -404,6 +428,14 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
               // gren, men skapar ETT tomt platshållarföretag istället för
               // att hoppas över, se kommentaren vid skipCompany-deklarationen.
               company_name: (hasPendingInvite || skipCompany) ? '' : regCompany,
+              // UF-läget. Läses av App.jsx på två ställen: betalspärren
+              // (uf + uf_started_at = släpps in på gratisperioden) och
+              // skapandet av det första företaget (isUf/ufSchool på
+              // företagsposten). uf_started_at sätts HÄR, vid
+              // registreringen — det är den enda tidpunkt gratisperioden
+              // räknas från, inte "när företaget skapades" eller "första
+              // inloggningen", som båda kan glida.
+              ...(isUfSignup ? { uf: true, uf_school: regUfSchool, uf_started_at: new Date().toISOString() } : {}),
               org_nr: (hasPendingInvite || skipCompany) ? '' : regOrgNr,
             },
             ...(regCaptchaToken ? { captchaToken: regCaptchaToken } : {}),
@@ -420,6 +452,16 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
         // onAuthStateChange (App.jsx) tar över (kräver bekräftad e-post
         // beroende på projektets Supabase-inställningar, precis som annars).
         if (hasPendingInvite) {
+          setLoading(false);
+          return;
+        }
+
+        // UF-konton har ingen prenumeration att teckna — gratis i
+        // UF_FREE_MONTHS månader, sedan samma val som alla andra. Samma väg
+        // ut som en inbjuden person: kontot finns, onAuthStateChange
+        // (App.jsx) tar över så fort sessionen är klar. Ingen Stripe
+        // Checkout, ingen betalningssida.
+        if (isUfSignup) {
           setLoading(false);
           return;
         }
@@ -719,7 +761,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
               <h2 key={regStep} className="auth-step-fade" style={{ fontFamily: "'Newsreader', Georgia, serif", fontSize: '34px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px', letterSpacing: '-0.01em' }}>
                 {regStep === 0 && 'Personlig info'}
                 {regStep === 1 && 'Bekräfta e-post'}
-                {regStep === 2 && 'Ditt företag'}
+                {regStep === 2 && (isUfSignup ? 'Ert UF-företag' : 'Ditt företag')}
                 {regStep === 3 && 'Skapa lösenord'}
               </h2>
               <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)' }}>
@@ -826,7 +868,52 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                       <Check size={13} /> E-postadressen är verifierad
                     </div>
                   )}
-                  {skipCompany ? (
+                  {isUfSignup ? (
+                    // UF-företag: namn + skola, inget organisationsnummer
+                    // och inget registeruppslag (det finns ingenting att slå
+                    // upp — se isUfSignup-kommentaren vid state:t ovan).
+                    <>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '13px 14px', background: BRAND.greenLight, borderRadius: '10px' }}>
+                        <GraduationCap size={16} color={BRAND.greenDark} style={{ flexShrink: 0, marginTop: 1 }} />
+                        <div style={{ fontSize: '12.5px', color: BRAND.greenDark, lineHeight: 1.6, fontWeight: 600 }}>
+                          Ni registrerar ett UF-företag. Gratis i {UF_FREE_MONTHS} månader, inget organisationsnummer och inga betaluppgifter behövs.
+                        </div>
+                      </div>
+
+                      <div>
+                        <label style={labelStyle}>UF-företagets namn</label>
+                        <input
+                          className="auth-input"
+                          type="text"
+                          style={inputStyle}
+                          placeholder="Ex. Solkraft UF"
+                          value={regCompany}
+                          onChange={e => setRegCompany(e.target.value)}
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label style={labelStyle}>Skola <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(frivilligt)</span></label>
+                        <input
+                          className="auth-input"
+                          type="text"
+                          style={inputStyle}
+                          placeholder="Ex. Katedralskolan"
+                          value={regUfSchool}
+                          onChange={e => setRegUfSchool(e.target.value)}
+                        />
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setIsUfSignup(false)}
+                        style={{ alignSelf: 'flex-start', background: 'none', border: 'none', padding: 0, color: 'var(--text-muted)', fontWeight: 600, fontSize: '12.5px', cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline' }}
+                      >
+                        Vi är inte ett UF-företag
+                      </button>
+                    </>
+                  ) : skipCompany ? (
                     // "Jag har inget företag än" valt — se knappen och
                     // handleNextStep:s regStep===2-gren för hela resonemanget.
                     // Ångra-knappen nollställer INTE regOrgNr/regCompany (om
@@ -904,13 +991,26 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                         )}
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() => setSkipCompany(true)}
-                        style={{ alignSelf: 'flex-start', background: 'none', border: 'none', padding: 0, color: 'var(--text-muted)', fontWeight: 600, fontSize: '12.5px', cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline' }}
-                      >
-                        Jag har inget företag än
-                      </button>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-start' }}>
+                        <button
+                          type="button"
+                          onClick={() => setSkipCompany(true)}
+                          style={{ background: 'none', border: 'none', padding: 0, color: 'var(--text-muted)', fontWeight: 600, fontSize: '12.5px', cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline' }}
+                        >
+                          Jag har inget företag än
+                        </button>
+                        {/* Vägen in i UF-läget för den som INTE kom via
+                            /uf-sidan. Utan den här är UF-registreringen
+                            omöjlig att hitta för någon som klickade "Kom
+                            igång" på startsidan. */}
+                        <button
+                          type="button"
+                          onClick={() => setIsUfSignup(true)}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'none', border: 'none', padding: 0, color: BRAND.green, fontWeight: 700, fontSize: '12.5px', cursor: 'pointer', fontFamily: 'inherit' }}
+                        >
+                          <GraduationCap size={13} /> Vi driver ett UF-företag
+                        </button>
+                      </div>
                     </>
                   )}
                 </div>
@@ -959,7 +1059,9 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                   <div style={{ display: 'flex', gap: '9px', alignItems: 'flex-start', padding: '10px 12px', background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: '9px' }}>
                     <ShieldCheck size={15} color={BRAND.greenDark} style={{ flexShrink: 0, marginTop: 1 }} />
                     <span style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                      Näst skickas du till <StripeBadge /> för att lägga in betalningsuppgifter. 30 dagar gratis, sedan {selectedPlan ? selectedPlan.price : 179} kr/mån — avsluta innan dess så kostar det ingenting.
+                      {isUfSignup
+                        ? `Nästa steg är appen. UF-kontot är gratis i ${UF_FREE_MONTHS} månader — inga betaluppgifter, inget som börjar kosta automatiskt.`
+                        : <>Näst skickas du till <StripeBadge /> för att lägga in betalningsuppgifter. 30 dagar gratis, sedan {selectedPlan ? selectedPlan.price : 179} kr/mån — avsluta innan dess så kostar det ingenting.</>}
                     </span>
                   </div>
                   <Turnstile onVerify={setRegCaptchaToken} onExpire={() => setRegCaptchaToken('')} />
@@ -983,7 +1085,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                     const busy = loading || verifying;
                     const isDisabled = busy || codeIncomplete;
                     let label;
-                    if (regStep === REGISTER_STEPS.length - 1) label = busy ? 'Skapar konto...' : 'Skapa konto och lägg till betalning';
+                    if (regStep === REGISTER_STEPS.length - 1) label = busy ? 'Skapar konto...' : (isUfSignup ? 'Skapa UF-konto' : 'Skapa konto och lägg till betalning');
                     else if (regStep === 0) label = busy ? 'Skickar kod...' : 'Fortsätt';
                     else if (regStep === 1) label = verifying ? 'Bekräftar...' : 'Bekräfta';
                     else label = busy ? 'Fortsätt...' : 'Fortsätt';

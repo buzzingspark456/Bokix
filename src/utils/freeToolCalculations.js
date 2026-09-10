@@ -239,3 +239,130 @@ export function calcLateInterest({ amount, dueDate, paidDate, referenceRate = DE
     total: kr2(principal + interest + feeTotal),
   };
 }
+
+// ── 3:12-reglerna: gränsbelopp och skatt på utdelning ───────────────────
+// Källa: de nya 3:12-reglerna som gäller från och med beskattningsåret
+// 2026 (utdelning som beslutas 2026, deklareras på K10 våren 2027).
+// Kontrollerat september 2026.
+//
+// Vad som ÄNDRADES 2026, och varför den här filen inte får innehålla den
+// gamla mattematiken kvar: förenklingsregeln (schablon 2,75 IBB) och
+// huvudregeln (löneunderlagsregeln med löneuttagskrav) är hopslagna till
+// EN regel. Det finns alltså inte längre något "välj den regel som ger
+// mest" — grundbelopp och lönebaserat utrymme läggs ihop, alltid.
+// Dessutom slopades löneuttagskravet och 4 %-spärren helt, och sparat
+// utdelningsutrymme räknas inte längre upp med ränta.
+//
+// IBB = inkomstbasbeloppet för året FÖRE beskattningsåret (80 600 kr för
+// 2025, som alltså styr gränsbeloppet för 2026) — samma princip som den
+// gamla förenklingsregeln redan använde. Ett fält i verktyget hade varit
+// fel här: det är inte en uppgift användaren har, det är en siffra som
+// ändras en gång om året och som vi ansvarar för att hålla rätt.
+export const DIVIDEND_RULES = {
+  // Beskattningsåret satserna nedan gäller för.
+  year: 2026,
+  // Inkomstbasbeloppet för året före beskattningsåret.
+  incomeBaseAmount: 80600,
+  // Grundbeloppet: 4 IBB (tidigare förenklingsregelns 2,75 IBB).
+  baseAmountIbb: 4,
+  // Lönebaserat utrymme: 50 % av delägarens andel av löneunderlaget,
+  // efter ett schablonavdrag på 8 IBB (som ersätter det slopade
+  // löneuttagskravet — avdraget motsvarar schablonmässigt delägarens egen
+  // lön, som numera räknas in i löneunderlaget).
+  wageDeductionIbb: 8,
+  wageShare: 0.5,
+  // Taket: det lönebaserade utrymmet får aldrig överstiga 50 gånger
+  // delägarens egen (eller en närståendes) kontanta lön från bolaget.
+  wageCapMultiple: 50,
+  // Utdelning INOM gränsbeloppet: 2/3 av utdelningen tas upp i
+  // inkomstslaget kapital (30 %), vilket ger 20 % effektiv skatt.
+  taxRateWithin: 0.20,
+  // Utdelning ÖVER gränsbeloppet beskattas som tjänst upp till
+  // takbeloppet 90 IBB, därefter som kapital med 30 %.
+  serviceCapIbb: 90,
+  taxRateAboveCap: 0.30,
+};
+
+/** Grundbeloppet i kronor för året (4 IBB) — exporterat för sidtexten, så
+ * en siffra som "322 400 kr" aldrig skrivs för hand någonstans. */
+export const DIVIDEND_BASE_AMOUNT = DIVIDEND_RULES.baseAmountIbb * DIVIDEND_RULES.incomeBaseAmount;
+export const DIVIDEND_WAGE_DEDUCTION = DIVIDEND_RULES.wageDeductionIbb * DIVIDEND_RULES.incomeBaseAmount;
+export const DIVIDEND_SERVICE_CAP = DIVIDEND_RULES.serviceCapIbb * DIVIDEND_RULES.incomeBaseAmount;
+
+/**
+ * Gränsbelopp enligt 3:12 och skatten på en planerad utdelning.
+ *
+ * `ownershipPercent` — delägarens ägarandel i procent. Både grundbeloppet
+ *   OCH löneunderlaget fördelas efter den, så en 50 %-ägare får halva
+ *   grundbeloppet, inte hela (den vanligaste missen när två makar äger
+ *   bolaget tillsammans och båda räknar med fullt grundbelopp).
+ * `payroll` — kontanta bruttolöner i bolaget och dess dotterbolag under
+ *   året FÖRE beskattningsåret, inklusive delägarens egen lön.
+ * `ownSalary` — delägarens egen (eller närståendes) kontanta lön samma
+ *   år. Används BARA till 50-gångertaket — sedan löneuttagskravet
+ *   slopades finns ingen nedre gräns längre.
+ * `savedAllowance` — sparat utdelningsutrymme från tidigare år. Följer
+ *   med in i de nya reglerna, men räknas inte längre upp med ränta.
+ * `dividend` — den utdelning som planeras tas ut.
+ * `serviceTaxRate` — uppskattad marginalskatt på tjänsteinkomst, för den
+ *   del som överstiger gränsbeloppet. En uppskattning, och sidan säger
+ *   det: den verkliga satsen beror på kommun, övriga inkomster och
+ *   jobbskatteavdrag.
+ */
+export function calcDividendAllowance({
+  ownershipPercent = 100,
+  payroll = 0,
+  ownSalary = 0,
+  savedAllowance = 0,
+  dividend = 0,
+  serviceTaxRate = 52,
+}) {
+  const share = Math.min(Math.max(Number(ownershipPercent) || 0, 0), 100) / 100;
+  const totalPayroll = Math.max(Number(payroll) || 0, 0);
+  const salary = Math.max(Number(ownSalary) || 0, 0);
+  const saved = Math.max(Number(savedAllowance) || 0, 0);
+  const planned = Math.max(Number(dividend) || 0, 0);
+
+  const baseAmount = DIVIDEND_BASE_AMOUNT * share;
+  const payrollShare = totalPayroll * share;
+  // Aldrig negativt: ett litet bolag där andelen av löneunderlaget är
+  // mindre än 8 IBB får noll lönebaserat utrymme, inte ett avdrag som
+  // äter upp grundbeloppet.
+  const wageBaseAfterDeduction = Math.max(payrollShare - DIVIDEND_WAGE_DEDUCTION, 0);
+  const wageBasedRaw = wageBaseAfterDeduction * DIVIDEND_RULES.wageShare;
+  const wageCap = salary * DIVIDEND_RULES.wageCapMultiple;
+  const wageBased = Math.min(wageBasedRaw, wageCap);
+
+  const allowance = baseAmount + wageBased + saved;
+
+  const withinAllowance = Math.min(planned, allowance);
+  const aboveAllowance = Math.max(planned - allowance, 0);
+  const taxWithin = withinAllowance * DIVIDEND_RULES.taxRateWithin;
+  const taxAbove = aboveAllowance * ((Number(serviceTaxRate) || 0) / 100);
+
+  return {
+    share,
+    baseAmount: kr(baseAmount),
+    payrollShare: kr(payrollShare),
+    wageBaseAfterDeduction: kr(wageBaseAfterDeduction),
+    wageBasedRaw: kr(wageBasedRaw),
+    wageCap: kr(wageCap),
+    // Sant när 50-gångertaket faktiskt slog till — sidan visar då varför
+    // utrymmet blev lägre än formeln antyder, i stället för att bara visa
+    // ett tal som inte går att räkna efter.
+    wageCapApplied: wageBasedRaw > wageCap,
+    wageBased: kr(wageBased),
+    savedAllowance: kr(saved),
+    allowance: kr(allowance),
+    dividend: kr(planned),
+    withinAllowance: kr(withinAllowance),
+    aboveAllowance: kr(aboveAllowance),
+    taxWithin: kr(taxWithin),
+    taxAbove: kr(taxAbove),
+    totalTax: kr(taxWithin + taxAbove),
+    net: kr(planned - taxWithin - taxAbove),
+    // Outnyttjat utrymme sparas till nästa år (utan uppräkning sedan 2026).
+    carriedForward: kr(Math.max(allowance - planned, 0)),
+    effectiveTaxRate: planned > 0 ? kr2(((taxWithin + taxAbove) / planned) * 100) : 0,
+  };
+}

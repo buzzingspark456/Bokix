@@ -1,6 +1,5 @@
 # Bokix security.txt (RFC 9116) — hur man rapporterar en säkerhetsbrist
-# till oss. Ingen bug bounty-plattform ännu (till skillnad från Bokio/
-# Fortnox, som båda kör sina program via Intigriti) — bara en vanlig
+# till oss. Ingen bug bounty-plattform ännu — bara en vanlig
 # supportadress tills vidare.
 Contact: mailto:support@bokix.se
 Canonical: https://www.bokix.se/.well-known/security.txt

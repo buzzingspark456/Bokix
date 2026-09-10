@@ -181,7 +181,7 @@ export default function VatDeclaration({
                     disabled={!err.verificationId}
                     style={{
                       textAlign: 'left', padding: '12px 14px', background: 'var(--status-red-bg)', border: '1px solid var(--status-red-bg)',
-                      borderRadius: '8px', color: '#991b1b', fontSize: '13px', cursor: err.verificationId ? 'pointer' : 'default',
+                      borderRadius: '8px', color: 'var(--status-red-text)', fontSize: '13px', cursor: err.verificationId ? 'pointer' : 'default',
                       display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', fontFamily: 'inherit',
                     }}
                   >

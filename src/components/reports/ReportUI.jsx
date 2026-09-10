@@ -16,6 +16,7 @@ import {
   resolveChartPalette, makeAmountFormatters, CHART_COLOR_CHOICES, CHART_ROLES,
   AMOUNT_UNITS, DEFAULT_CHART_COLORS, DEFAULT_AMOUNT_UNIT,
 } from '../../utils/chartPalette';
+import { useIsDarkTheme } from '../../hooks/useIsDarkTheme';
 // Tailwind, scopat till bara Tremor-komponenterna (src/tremor.css:s egen
 // kommentar förklarar varför preflight/reset är avstängt) — CSS-import
 // som sidoeffekt här, laddas en gång oavsett hur många ställen som
@@ -125,10 +126,15 @@ const ReportDisplayContext = React.createContext({
 });
 
 export function ReportDisplayProvider({ colors, unit, children }) {
+  // Temat är en del av paletten, inte en separat sak varje diagram måste
+  // komma ihåg: två toner är valda för ett ljust ark och skrivs om i mörkt
+  // läge (se resolveChartPalette). Läses här, EN gång, så alla paneler
+  // under providern byter samtidigt när användaren växlar tema.
+  const isDark = useIsDarkTheme();
   const value = useMemo(() => ({
-    palette: resolveChartPalette(colors),
+    palette: resolveChartPalette(colors, { dark: isDark }),
     amount: makeAmountFormatters(unit),
-  }), [colors, unit]);
+  }), [colors, unit, isDark]);
   return <ReportDisplayContext.Provider value={value}>{children}</ReportDisplayContext.Provider>;
 }
 
@@ -427,6 +433,22 @@ export function thinLabels(labels, isMobile) {
 }
 
 export const formatSEK = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
+
+/**
+ * Procenttal på svenska: decimalKOMMA och hårt mellanslag före %-tecknet
+ * ("49,1 %", inte "49.1%").
+ *
+ * Fanns tidigare som ett halvdussin egna `${v.toFixed(1)}%` runtom i
+ * rapporterna, varav EN plats råkade göra `.replace('.', ',')` — så samma
+ * rapport kunde visa "50.0 %" i ett diagram och "50,0 %" i nästa panel.
+ * Ett hårt mellanslag ( ) så talet aldrig bryter rad mellan siffran
+ * och tecknet.
+ */
+export const formatPct = (val, decimals = 1) => (
+  val == null || !Number.isFinite(Number(val))
+    ? '—'
+    : `${new Intl.NumberFormat('sv-SE', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(Number(val))} %`
+);
 export const fmtDate = (d) => new Intl.DateTimeFormat('sv-SE', { day: 'numeric', month: 'short' }).format(d instanceof Date ? d : new Date(d));
 export const fmtMonthYear = (d) => new Intl.DateTimeFormat('sv-SE', { month: 'long', year: 'numeric' }).format(d);
 // Kundfeedback: "det måste visa datumet — om det är den här månaden ska
@@ -459,8 +481,8 @@ export function formatDelta(current, previous, invert = false) {
   // (DeltaPill) bär själva talet, den dämpade texten bredvid bär jämförelsen.
   // Svensk decimalkomma och ett hårt mellanslag före %, som i utkastet.
   return {
-    text: `${rising ? '+' : ''}${pct.toFixed(0)}% mot samma period föregående år`,
-    short: `${rising ? '+' : '−'}${Math.abs(pct).toFixed(1).replace('.', ',')} %`,
+    text: `${rising ? '+' : ''}${formatPct(pct, 0)} mot samma period föregående år`,
+    short: `${rising ? '+' : '−'}${formatPct(Math.abs(pct))}`,
     context: 'mot föregående år',
     good,
   };
@@ -1230,12 +1252,12 @@ export function MarginLinesChart({ data, series = MARGIN_SERIES, isMobile, heigh
     index: 'label',
     categories: series.map(s => s.label),
     colors: series.map(s => palette.marginTones[MARGIN_SERIES.findIndex(m => m.key === s.key)] || palette.profit),
-    valueFormatter: v => (v == null ? '—' : `${v.toFixed(1)} %`),
+    valueFormatter: v => formatPct(v),
     tickFormatter: v => `${Math.round(v)} %`,
     yAxisWidth: 52,
     // Procenttal: ingen härledd resultatrad, den skulle vara meningslös
     // (skillnaden mellan två marginaler är inte ett belopp).
-    customTooltip: (props) => <ChartTooltip {...props} showDerived={false} valueFormatter={v => (v == null ? '—' : `${v.toFixed(1)} %`)} />,
+    customTooltip: (props) => <ChartTooltip {...props} showDerived={false} valueFormatter={v => formatPct(v)} />,
     showLegend: false,
     style: { height },
   };

@@ -10,7 +10,7 @@ import { TOOLS, TOOLS_HUB_PATH } from './toolsConfig';
 // Navet för de fria verktygen. Egen sida (inte bara sidfotslänkar) av två
 // skäl: den är målsidan för "gratis verktyg bokföring"-sökningar, och den
 // ger varje enskilt verktyg en intern länk från en sida med tyngd —
-// annars hänger de fem verktygssidorna bara i sidfoten.
+// annars hänger verktygssidorna bara i sidfoten.
 //
 // Kortlistan byggs ur TOOLS (toolsConfig.js), aldrig ur en egen kopia:
 // ett nytt verktyg ska dyka upp här, i sidfoten och i "fler verktyg"-raden
@@ -34,7 +34,7 @@ export default function ToolsHubPage() {
     <MarketingLayout>
       <PageMeta
         title="Gratis verktyg för företagare — moms, lön, ROT/RUT och mer | Bokix"
-        description="Fem gratisverktyg för svenska företagare: momskalkylator, lönekalkylator, egenavgifter för enskild firma, ROT- och RUT-avdrag samt dröjsmålsränta. Inget konto krävs."
+        description="Sex gratisverktyg för svenska företagare: momskalkylator, lönekalkylator, egenavgifter för enskild firma, ROT- och RUT-avdrag, dröjsmålsränta och gränsbelopp enligt 3:12-reglerna. Inget konto krävs."
         path={TOOLS_HUB_PATH}
       />
       <JsonLd data={ITEM_LIST_SCHEMA} />

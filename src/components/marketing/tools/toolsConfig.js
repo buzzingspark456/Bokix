@@ -1,4 +1,4 @@
-import { Percent, Users, Briefcase, Hammer, AlarmClock } from 'lucide-react';
+import { Percent, Users, Briefcase, Hammer, AlarmClock, PiggyBank } from 'lucide-react';
 
 // ── EN källa för de fria verktygen ──────────────────────────────────────
 // Listan konsumeras av: sidfoten (MarketingLayout.jsx), verktygsnavet
@@ -65,6 +65,16 @@ export const TOOLS = [
     title: 'Dröjsmålsränta',
     short: 'Ränta på en försenad faktura',
     description: 'Dröjsmålsränta per dag enligt räntelagen, plus de påminnelse- och förseningsavgifter du faktiskt får ta ut.',
+  },
+  {
+    slug: 'utdelning',
+    footerLabel: 'Utdelning 3:12',
+    path: '/verktyg/utdelning',
+    icon: PiggyBank,
+    accentKey: 'teal',
+    title: 'Utdelningskalkylator (3:12)',
+    short: 'Gränsbelopp och skatt på utdelning',
+    description: 'Räkna ut gränsbeloppet i ditt fåmansbolag enligt de nya 3:12-reglerna från 2026 — grundbelopp, lönebaserat utrymme och vad utdelningen kostar i skatt.',
   },
 ];
 

@@ -92,6 +92,10 @@ function MarketingStyles() {
     <style>{`
       @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
       #lp-root, #lp-root *, #lp-root *::before, #lp-root *::after { box-sizing: border-box; }
+      /* Rubriker bryter jämnt i stället för att lämna ett ensamt ord
+         på sista raden ("...varje / månad"). Stöds brett; webbläsare utan
+         stöd bryter som förut. */
+      #lp-root h1, #lp-root h2, #lp-root h3 { text-wrap: balance; }
       html { scroll-behavior: smooth; }
 
       /* ── Marknadssajtens egna tema-tokens (marketingTokens.js pekar hit) —
@@ -133,6 +137,8 @@ function MarketingStyles() {
         --mkt-nav-text: #374151;
         --mkt-heading: #111827;
         --mkt-section-red-tint: oklch(97% 0.02 25);
+        --mkt-section-mint: oklch(97.5% 0.022 165);
+        --mkt-section-blue: oklch(97.5% 0.02 245);
       }
       #lp-root[data-theme="dark"] {
         --mkt-page-bg: #0f1a13;
@@ -157,6 +163,8 @@ function MarketingStyles() {
         --mkt-nav-text: #c3d0bd;
         --mkt-heading: #eef3ea;
         --mkt-section-red-tint: oklch(20% 0.03 25);
+        --mkt-section-mint: oklch(21% 0.03 165);
+        --mkt-section-blue: oklch(21% 0.03 245);
       }
       #lp-root[data-theme="dark"] .lp-btn-secondary:hover { background: var(--mkt-ivory) !important; }
       /* Kundönskemål: Zettle/Bolagsverket/Skatteverkets loggor (BrandLogos.jsx,
@@ -236,17 +244,6 @@ function MarketingStyles() {
       .lp-blob-slow { animation-duration: 20s; }
       .lp-blob-slower { animation-duration: 26s; }
 
-      /* ── Blå vågdelare (kundönskemål) — två lagrade SVG-vågor i loggans
-         blå→turkos-gradient, en sektion ren visuell paus mellan två
-         innehållstunga sektioner. Framvågen driver sakta sidled (samma
-         lugna tempo som .lp-blob), bakvågen står stilla för lite djup
-         utan att bli rörigt. ── */
-      @keyframes lpWaveDrift {
-        0%, 100% { transform: translateX(0); }
-        50% { transform: translateX(-3%); }
-      }
-      .lp-wave-front { animation: lpWaveDrift 16s ease-in-out infinite; will-change: transform; }
-      @media (prefers-reduced-motion: reduce) { .lp-wave-front { animation: none; } }
 
       /* ── Kundönskemål ("linjer till Bokix som rör sig hela tiden",
          "mer automation"): marscherande streck längs SVG-linjer — samma
@@ -515,6 +512,12 @@ function MarketingStyles() {
       .lp-footer-grid { display: grid; grid-template-columns: repeat(5, minmax(0, max-content)); gap: 32px 40px; justify-content: space-between; }
       .lp-footer-legal { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; }
       .lp-footer-grid > *, .lp-bento-grid > * { min-width: 0; }
+
+      /* Vanliga frågor: två spalter först när det finns plats. Under
+         1100px är det en läslista som förut — en accordion i två smala
+         spalter är sämre än en i en bred. */
+      .lp-faq-grid { display: grid; grid-template-columns: 1fr; gap: 0 32px; align-items: start; }
+      @media (min-width: 1100px) { .lp-faq-grid { grid-template-columns: 1fr 1fr; } }
       .lp-footer-bottom { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px 28px; }
 
       /* Kolumnrubrikerna: versaler, spärrad, dämpad — de ska LÄSAS som
@@ -908,6 +911,7 @@ const FOOTER_COLUMNS = [
       { label: 'Funktioner', to: '/funktioner' },
       { label: 'Priser', to: '/priser' },
       { label: 'Integrationer', to: '/integrationer' },
+      { label: 'Koppla banken', to: '/koppla-bank' },
       { label: 'Säkerhet', to: '/sakerhet' },
     ],
   },
@@ -922,8 +926,8 @@ const FOOTER_COLUMNS = [
     heading: 'Lär dig',
     links: [
       { label: 'Bokföringsordlista', to: '/ordlista' },
-      { label: 'Välj rätt program', to: '/valja-bokforingsprogram' },
       { label: 'Byt till Bokix', to: '/byt-bokforingsprogram' },
+      { label: 'För UF-företag', to: '/uf' },
     ],
   },
   {
@@ -931,7 +935,6 @@ const FOOTER_COLUMNS = [
     links: [
       { label: 'Om oss', to: '/om-oss' },
       { label: 'Kontakt', to: '/kontakt' },
-      { label: 'Boka en genomgång', to: '/boka-genomgang' },
     ],
   },
 ];

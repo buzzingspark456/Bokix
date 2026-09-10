@@ -14,6 +14,23 @@ const NO_SAVE_PROPS = {
 };
 const noSaveStyle = (style) => ({ ...style, WebkitUserDrag: 'none', userSelect: 'none' });
 
+// ── BILDSTORLEK ──
+// Rasterfilerna i public/ är nedskalade till ungefär dubbla den storlek de
+// FAKTISKT visas i (2× för skärmar med hög pixeltäthet), inte originalens
+// fulla mått. Skälet är mätt, inte principiellt: startsidan laddade 639 kB
+// bilder, varav Zettles logotyp ensam stod för 233 kB (två varianter à
+// 3626×1612 pixlar, visade i 44 pixlars höjd). Efter nedskalningen är hela
+// bildmängden ~91 kB.
+//
+// Byter någon ut en av filerna: skala ner den först. En 4000 pixlar bred
+// PNG i en 40 pixlar hög bricka syns inte som skarpare — bara som en
+// långsammare sida. `aspectRatio` nedan är ett FÖRHÅLLANDE och påverkas
+// inte av nedskalningen, men måste stämma med den nya filens proportion.
+//
+// Alla loggor här ligger under första skärmen (trovärdighetsraden och
+// "Kopplat till"-diagrammet) — därav loading="lazy" genomgående: de ska
+// inte konkurrera med hjälten om bandbredden vid första målningen.
+
 // ── Riktiga tredjeparts-varumärken Bokix faktiskt integrerar med — samma
 // princip som BokixWordmark.jsx (delad, en enda källa) men för LOGGOR VI
 // INTE ÄGER. Kopior av de redan granskade komponenterna i Settings.jsx
@@ -32,10 +49,11 @@ const noSaveStyle = (style) => ({ ...style, WebkitUserDrag: 'none', userSelect: 
 // public/ (bolagsverket-logo.png / skatteverket-logo.png / bas-logo.png)
 // innan de faktiskt syns; tills dess visar <img> en trasig bild-ikon.
 //
-// GDPR-badgen (EU-flaggan med hänglås och texten "GDPR") — KUNDBESLUT,
-// taget igen efter att avvägningen lagts fram en andra gång. Skiljer sig
-// från de övriga märkena här på två sätt: den är RITAD, inte en inlånad
-// bildfil (se GdprLogo nedan för varför), och den är ingen utfärdares
+// GDPR-badgen (tolv EU-stjärnor i en ring med ordet "GDPR" i mitten) —
+// KUNDBESLUT, taget om flera gånger; både att den ska visas och hur den
+// ska se ut. Skiljer sig från de övriga märkena här på två sätt: den är
+// RITAD, inte en inlånad bildfil (se GdprLogo nedan för varför), och den
+// är ingen utfärdares
 // logotyp — det finns ingen officiell "GDPR-certifiering" som någon delar
 // ut. Etiketten bredvid är därför medvetet bara "GDPR" (se TRUST_POINTS i
 // LandingPage.jsx) — inget påstående om revision eller certifikat, bara
@@ -54,7 +72,7 @@ export function StripeLogo({ height = 16 }) {
   const numeric = typeof height === 'number';
   return (
     <img
-      src="/stripe-wordmark.png" alt="Stripe"
+      src="/stripe-wordmark.png" alt="Stripe" loading="lazy"
       {...(numeric ? { height, width: height * (3840 / 1599) } : {})}
       style={noSaveStyle({ height, width: 'auto', objectFit: 'contain' })}
       {...NO_SAVE_PROPS}
@@ -79,7 +97,7 @@ export function StripeLogo({ height = 16 }) {
 export function StripeIconLogo({ height = 16 }) {
   return (
     <img
-      src="/stripe-icon-brandfetch.webp" alt="Stripe"
+      src="/stripe-icon-brandfetch.webp" alt="Stripe" loading="lazy"
       height={typeof height === 'number' ? height : undefined}
       style={noSaveStyle({ height, width: 'auto', objectFit: 'contain', borderRadius: '22%' })}
       {...NO_SAVE_PROPS}
@@ -105,8 +123,8 @@ function ThemedLogo({ lightSrc, darkSrc, alt, height, aspectRatio }) {
   const style = noSaveStyle({ height, width: 'auto', objectFit: 'contain' });
   return (
     <>
-      <img src={lightSrc} alt={alt} className="lp-logo-light" {...commonProps} style={style} {...NO_SAVE_PROPS} />
-      <img src={darkSrc} alt={alt} className="lp-logo-dark" {...commonProps} style={style} {...NO_SAVE_PROPS} />
+      <img src={lightSrc} alt={alt} className="lp-logo-light" loading="lazy" {...commonProps} style={style} {...NO_SAVE_PROPS} />
+      <img src={darkSrc} alt={alt} className="lp-logo-dark" loading="lazy" {...commonProps} style={style} {...NO_SAVE_PROPS} />
     </>
   );
 }
@@ -158,35 +176,44 @@ export function SkatteverketLogo({ height = 18 }) {
   return <ThemedLogo lightSrc="/skatteverket-logo-light.png" darkSrc="/skatteverket-logo-dark.png" alt="Skatteverket" height={height} aspectRatio={400 / 400} />;
 }
 
-// GDPR-badgen — EU-flaggan (blå botten, tolv gula stjärnor i ring) med ett
-// hänglås och ordet GDPR i mitten. Se kommentaren högst upp i filen för vad
-// märket är och inte är.
+// GDPR-badgen — tolv gula EU-stjärnor i en ring med ordet GDPR mörkblått i
+// mitten. Se kommentaren högst upp i filen för vad märket är och inte är.
 //
-// RITAD HÄR, inte en nedladdad bildfil. Kunden pekade ut en förlaga på en
-// annan sajt, men den filen heter shutterstock_729521863 — en licensierad
-// stockbild som DEN sajten betalat för, inte något vi får kopiera vidare.
-// Motivet i sig går att göra själv utan att låna något: EU-flaggan är en
-// officiell symbol som fritt får återges (blått #003399, gult #FFCC00, tolv
-// stjärnor på en cirkel med radie 1/3 av höjden — EU:s egen specifikation),
-// och ett hänglås plus fyra versaler är ingens upphovsrätt.
+// FORMEN ÄR KUNDENS VAL, andra gången. Först var det EU-flaggan med ett
+// hänglås; nu stjärnringen utan platta, efter att kunden pekat ut ett
+// exempel på en annan sajt. Båda gångerna har förlagan varit någon annans
+// bildfil (först en licensierad stockbild, sedan en ikon från ett
+// kommersiellt bolags webbplats), och båda gångerna är märket RITAT här i
+// stället för nedladdat.
 //
-// Att rita den ger dessutom två saker en 800×600-rasterbild inte kan:
-// knivskarp i varje storlek (den sitter i en ~50px hög bricka), och ett
-// LÄSBART "GDPR" — texten är medvetet större i förhållande till stjärnringen
-// än i förlagan, där ordet blir en grå fläck så fort bilden skalas ner till
-// bricknivå. Stjärnorna är av samma skäl en aning större än EU-specens 1/18.
+// Det är inte krångel för krånglets skull: motivet i sig är fritt — EU:s
+// stjärnkrans är en officiell symbol som får återges (gult #FFCC00, tolv
+// stjärnor på en cirkel), och fyra versaler är ingens upphovsrätt — medan
+// någon annans FIL är deras. Att rita det ger dessutom två saker en
+// rasterbild inte kan: knivskarpt i varje storlek (märket sitter i en ~50px
+// hög bricka) och ett läsbart "GDPR" även nedskalat, där förlagans ord blir
+// en fläck.
+//
+// Blå platta med vit text (kundens val, tredje vändan): märket bär sin egen
+// bakgrund och fungerar därför likadant i ljust och mörkt läge, till
+// skillnad från versionen med mörkblå text som krävde en ljus yta under.
 export function GdprLogo({ height = 18 }) {
   const numeric = typeof height === 'number';
-  // 3:2, samma proportion som EU-flaggan.
-  const width = numeric ? Math.round((height * 3) / 2) : undefined;
+  // Kvadratiskt märke: stjärnringen med ordet i mitten, ingen flaggplatta.
+  const width = numeric ? height : undefined;
   return (
     <svg
-      viewBox="0 0 900 600" role="img" aria-label="GDPR"
+      viewBox="180 30 540 540" role="img" aria-label="GDPR"
       {...(numeric ? { width, height } : {})}
-      style={noSaveStyle({ height, width: numeric ? width : 'auto', display: 'block', borderRadius: '6%' })}
+      style={noSaveStyle({ height, width: numeric ? width : 'auto', display: 'block' })}
       {...NO_SAVE_PROPS}
     >
-      <rect width="900" height="600" fill="#003399" />
+      {/* EU-blå platta bakom hela märket. Rundade hörn, inte en cirkel:
+          märket står bredvid andra fyrkantiga logotyper i samma rad, och en
+          disc hade legat och skavt mot dem. */}
+      <rect x="180" y="30" width="540" height="540" rx="66" fill="#003399" />
+      {/* EU-stjärnorna: tolv stycken på en cirkel med radie 210 kring
+          (450,300) — samma koordinater som märket haft hela tiden. */}
       <g fill="#FFCC00">
         <polygon points="450.0,42.0 456.7,62.7 478.5,62.7 460.9,75.5 467.6,96.3 450.0,83.5 432.4,96.3 439.1,75.5 421.5,62.7 443.3,62.7" />
         <polygon points="564.0,72.5 570.7,93.3 592.5,93.3 574.9,106.1 581.6,126.8 564.0,114.0 546.4,126.8 553.1,106.1 535.5,93.3 557.3,93.3" />
@@ -201,25 +228,53 @@ export function GdprLogo({ height = 18 }) {
         <polygon points="252.5,156.0 259.3,176.7 281.1,176.7 263.4,189.5 270.2,210.3 252.5,197.5 234.9,210.3 241.6,189.5 224.0,176.7 245.8,176.7" />
         <polygon points="336.0,72.5 342.7,93.3 364.5,93.3 346.9,106.1 353.6,126.8 336.0,114.0 318.4,126.8 325.1,106.1 307.5,93.3 329.3,93.3" />
       </g>
-      {/* Hänglås + ordbild, EXAKT centrerade som en grupp kring flaggans
-          mitt (x=450). Siffrorna är UPPMÄTTA i webbläsaren (getBBox), inte
-          gissade: låset är 80 brett, mellanrummet 20 och GDPR-texten 213,8
-          vid fontSize 74 — gruppen spänner 293→606,8, mittpunkt 449,9.
-          Stjärnringens inre kant ligger 177 från mitten (radie 210 minus
-          stjärnradie 33), så det blir ~20px luft mellan texten och
-          stjärnorna i stället för att de nuddar varandra. Ändras fontSize
-          eller låsets bredd måste x-värdena räknas om — texten centrerar
-          sig inte själv, den ritas från sin vänsterkant.
-          Nyckelhålet är urstansat i flaggans egen blå. */}
-      <g fill="#ffffff">
-        <path d="M285 288v-17a31 31 0 0 1 62 0v17h-17v-17a15 15 0 0 0-30 0v17z" />
-        <rect x="274" y="288" width="84" height="71" rx="11" />
-        <circle cx="316" cy="313" r="12" fill="#003399" />
-        <path d="M308 316h16l5 27h-26z" fill="#003399" />
-        <text
-          x="386" y="329" fontSize="80" fontWeight="700" letterSpacing="2"
-          fontFamily="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif"
-        >GDPR</text>
+      {/* Ordet i ringens mitt. text-anchor="middle" + dominant-baseline
+          gör centreringen själv; den gamla versionen hade uppmätta
+          x-värden eftersom låset låg bredvid texten och gruppen skulle
+          centreras som helhet. Nu finns inget lås, så texten centrerar
+          sig kring 450 utan handpåläggning. */}
+      <text
+        x="450" y="300" fill="#ffffff"
+        fontSize="118" fontWeight="800" letterSpacing="1"
+        textAnchor="middle" dominantBaseline="central"
+        fontFamily="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif"
+      >GDPR</text>
+    </svg>
+  );
+}
+
+// Märket för "Byggt efter svensk bokföringslag" — svenska flaggan.
+// RITAT här, som GDPR-brickan ovanför, och
+// av ett viktigare skäl än där: det FINNS ingen logotyp för bokföringslagen
+// att låna. Bokföringsnämnden har en egen logotyp, men den är deras — att
+// sätta en myndighets märke bredvid ett påstående om vår produkt läser som
+// ett godkännande vi inte har, och det vore fel oavsett hur väl vi följer
+// deras regler.
+//
+// Flaggan är däremot en nationell symbol som fritt får återges, och den
+// säger exakt vad etiketten bredvid säger: svensk lag. Inget certifikat,
+// ingen utfärdare, ingen revision — samma linje som GDPR-brickan (se
+// kommentaren där). Här satt först ett paragraftecken i korsets mitt; det
+// togs bort på kundens begäran, flaggan ska vara flaggan.
+//
+// Flaggans EGNA proportioner (16:10) och korsbandens officiella lägen —
+// inte en kvadratisk bricka med ett kors i. En flagga som är fel formad
+// läser som en ungefärlig flagga, och det är värre än ingen alls.
+// Bandbredd 2 av 16, lodrätt band från x=5, vågrätt från y=4.
+export function BokforingslagLogo({ height = 18 }) {
+  const numeric = typeof height === 'number';
+  const width = numeric ? Math.round(height * 1.6) : undefined;
+  return (
+    <svg
+      viewBox="0 0 16 10" role="img" aria-label="Sverige"
+      {...(numeric ? { width, height } : {})}
+      style={noSaveStyle({ height, width: numeric ? width : 'auto', display: 'block', borderRadius: '7%' })}
+      {...NO_SAVE_PROPS}
+    >
+      <rect width="16" height="10" fill="#006AA7" />
+      <g fill="#FECC00">
+        <rect x="5" y="0" width="2" height="10" />
+        <rect x="0" y="4" width="16" height="2" />
       </g>
     </svg>
   );
@@ -233,7 +288,7 @@ export function GdprLogo({ height = 18 }) {
 export function BasLogo({ height = 18 }) {
   return (
     <img
-      src="/bas-logo.jpg" alt="BAS-kontoplan" height={height}
+      src="/bas-logo.jpg" alt="BAS-kontoplan" height={height} loading="lazy"
       style={noSaveStyle({ height, width: 'auto', objectFit: 'contain' })}
       {...NO_SAVE_PROPS}
     />
@@ -260,6 +315,44 @@ export function ProgramLogo({ src, alt, size = 26 }) {
     <img
       src={src} alt={alt} width={size} height={size} loading="lazy"
       style={noSaveStyle({ width: size, height: size, objectFit: 'contain', display: 'block' })}
+      {...NO_SAVE_PROPS}
+    />
+  );
+}
+
+// ── Logotyp för en BANK man exporterar sitt kontoutdrag ur ──
+// Egen komponent, inte ProgramLogo ovan, av EN konkret anledning: de sju
+// bokföringsprogrammens filer är alla ungefär kvadratiska symbolmärken
+// och kan därför bo i en fast kvadratisk ruta. Banklogotyperna är tvärtom
+// nästan alla ordbilder i vitt skilda proportioner — 9,7:1 (Handelsbanken)
+// till 0,97:1 (Northmill) — och en fast kvadrat hade antingen krympt
+// ordbilderna till oläsliga streck eller låtit den kvadratiska svälla ut
+// ur raden.
+//
+// Måtten är därför PROCENT av den omgivande brickan (som alltid har en
+// bestämd storlek på anropsstället), inte pixlar: `objectFit: contain` mot
+// ett tak i BÅDA riktningar låter varje märke växa tills det slår i det
+// mått som begränsar just det — bredden för en ordbild, höjden för en
+// staplad lockup — utan en enda uppmätning i JS. `scale` (per bank, se
+// bankSources.js) är den optiska finjusteringen ovanpå det: en kvadratisk
+// lockup med samma höjdtak som en ordbild SER hälften så stor ut, och
+// `radius` rundar de banker vars märke är en solid färgplatta (SEB,
+// Lunar) i stället för en fristående ordbild.
+//
+// Vit platta bakom sätts av anropsstället, inte här — flera av filerna har
+// egen vit bakgrund inbakad och skulle se ut som klistermärken mot en mörk
+// yta. Samma NO_SAVE_PROPS som resten av filen (se kommentaren högst upp
+// för vad det gör och inte gör).
+export function BankLogo({ bank, maxW = 76, maxH = 56 }) {
+  const scale = bank.scale || 1;
+  return (
+    <img
+      src={bank.logo} alt={bank.name} loading="lazy"
+      style={noSaveStyle({
+        maxWidth: `${maxW * scale}%`, maxHeight: `${maxH * scale}%`,
+        width: 'auto', height: 'auto', objectFit: 'contain', display: 'block',
+        ...(bank.radius ? { borderRadius: bank.radius } : null),
+      })}
       {...NO_SAVE_PROPS}
     />
   );

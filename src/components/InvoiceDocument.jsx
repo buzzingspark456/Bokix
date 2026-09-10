@@ -1,4 +1,5 @@
 import React, { forwardRef } from 'react';
+import { formatCompanyAddress } from '../utils/companyAddress';
 import { ROT_RUT_RATES } from '../utils/rotRutConfig';
 
 const fmt = (val) =>
@@ -134,7 +135,7 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
             {logoUrl ? <img src={logoUrl} alt={(company?.invoiceDisplayName || company?.name) || 'Logotyp'} style={{ maxHeight: 40, maxWidth: 160, marginBottom: 10, display: 'block' }} /> : null}
             <div className="a4-company-name">{(company?.invoiceDisplayName || company?.name) || 'Ditt företag'}</div>
             <div className="a4-company-detail">
-              {company?.address || 'Adress saknas'}<br />
+              {formatCompanyAddress(company) || 'Adress saknas'}<br />
               {company?.orgNr ? `Org.nr ${company.orgNr}` : ''}{company?.vatNr ? ` · VAT ${company.vatNr}` : ''}<br />
               {company?.fSkatt || 'Innehar F-skattsedel'}
             </div>
@@ -155,7 +156,7 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
           <div>
             <div style={{ fontSize: 17, fontWeight: 700, color: '#111', marginBottom: 6 }}>{(company?.invoiceDisplayName || company?.name) || 'Ditt företag'}</div>
             <div style={{ fontSize: 11.5, color: '#52525b', lineHeight: 1.7 }}>
-              {company?.address || 'Adress saknas'}<br />
+              {formatCompanyAddress(company) || 'Adress saknas'}<br />
               {company?.orgNr ? `Org.nr ${company.orgNr}` : ''}{company?.vatNr ? ` · VAT ${company.vatNr}` : ''}<br />
               {company?.fSkatt || 'Innehar F-skattsedel'}
             </div>
@@ -188,7 +189,7 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
             {logoUrl && <img src={logoUrl} alt={(company?.invoiceDisplayName || company?.name) || 'Logotyp'} style={{ maxHeight: 32, maxWidth: 140, marginBottom: 10, display: 'block' }} />}
             <div style={{ fontSize: 15, fontWeight: 700, color: '#111', marginBottom: 4 }}>{(company?.invoiceDisplayName || company?.name) || 'Ditt företag'}</div>
             <div style={{ fontSize: 11.5, color: '#52525b', lineHeight: 1.7 }}>
-              {company?.address || 'Adress saknas'}<br />
+              {formatCompanyAddress(company) || 'Adress saknas'}<br />
               {company?.orgNr ? `Org.nr ${company.orgNr}` : ''}{company?.vatNr ? ` · VAT ${company.vatNr}` : ''}
             </div>
           </div>
@@ -210,7 +211,7 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
             {logoUrl ? <img src={logoUrl} alt={(company?.invoiceDisplayName || company?.name) || 'Logotyp'} style={{ maxHeight: 34, maxWidth: 150, marginBottom: 8, display: 'block' }} /> : null}
             <div style={{ fontSize: 15, fontWeight: 700, color: '#111', marginBottom: 4 }}>{(company?.invoiceDisplayName || company?.name) || 'Ditt företag'}</div>
             <div style={{ fontSize: 11, color: '#3f3f46', lineHeight: 1.6 }}>
-              {company?.address || 'Adress saknas'}<br />
+              {formatCompanyAddress(company) || 'Adress saknas'}<br />
               {company?.orgNr ? `Org.nr ${company.orgNr}` : ''}{company?.vatNr ? ` · VAT ${company.vatNr}` : ''}
             </div>
           </div>

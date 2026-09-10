@@ -75,13 +75,82 @@ export function EntitySearch({ value, onChange, items, placeholder, renderMeta, 
           {showCreateRow && (
             <div
               onMouseDown={handleCreate}
-              style={{ padding: '7px 10px', cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--accent)', fontWeight: 600 }}
+              style={{ padding: '7px 10px', cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--accent-text)', fontWeight: 600 }}
               onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-muted)'}
               onMouseLeave={e => e.currentTarget.style.background = ''}
             >
               <span>+</span><span>{createLabel}: "{trimmedQ}"</span>
             </div>
           )}
+      </AnchoredDropdown>
+    </div>
+  );
+}
+
+/**
+ * Fritextfält med en SYNLIG förslagslista — för värden som sparas som text,
+ * inte som ett id (leverantörsnamn på ett kvitto, till exempel).
+ *
+ * Ersätter <input list="..."> plus <datalist>. Den inbyggda datalisten ser
+ * bra ut i dokumentationen och nästan ingenting i verkligheten: den visar
+ * inget när fältet får fokus, öppnar sig olika i varje webbläsare, går inte
+ * att stila, och på mobil syns den knappt alls. Kundens iakttagelse var
+ * kort och korrekt: "man kan inte se något i Leverantör".
+ *
+ * Den här listan öppnas när fältet får fokus, visar allt man skrivit förut
+ * och filtrerar medan man skriver. Man kan fortfarande skriva vad som helst
+ * — förslagen är en genväg, inte ett tvång.
+ */
+export function TextSuggestInput({ value, onChange, suggestions = [], placeholder, disabled, style, emptyHint }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef();
+  const inputRef = useRef();
+  const listRef = useRef();
+
+  useDismissOnOutsideClick(open, () => setOpen(false), ref, listRef);
+
+  const q = String(value || '').trim().toLowerCase();
+  // Med tomt fält visas allt (det är hela poängen — man ska SE vad som
+  // finns). Med text filtreras listan, och en exakt träff är inget förslag
+  // värt att visa: den står redan i fältet.
+  const matches = (suggestions || [])
+    .filter(s => (q ? s.toLowerCase().includes(q) : true))
+    .filter(s => s.toLowerCase() !== q);
+
+  return (
+    <div ref={ref} style={{ position: 'relative', width: '100%' }}>
+      <input
+        ref={inputRef}
+        type="text"
+        disabled={disabled}
+        value={value || ''}
+        onChange={e => { onChange(e.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        onKeyDown={e => { if (e.key === 'Escape' && open) { e.stopPropagation(); setOpen(false); } }}
+        placeholder={placeholder}
+        style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '14px', fontFamily: 'inherit', boxSizing: 'border-box', outline: 'none', background: 'var(--bg-card)', color: 'var(--text-main)', ...style }}
+      />
+      <AnchoredDropdown
+        anchorRef={inputRef}
+        panelRef={listRef}
+        open={open && !disabled && (matches.length > 0 || Boolean(emptyHint && !suggestions.length))}
+        minWidth={220}
+        maxHeight={260}
+      >
+        {matches.map(s => (
+          <div
+            key={s}
+            onMouseDown={() => { onChange(s); setOpen(false); }}
+            style={{ padding: '8px 11px', cursor: 'pointer', fontSize: '13.5px', color: 'var(--text-main)', borderBottom: '1px solid var(--border-light)' }}
+            onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-muted)'}
+            onMouseLeave={e => e.currentTarget.style.background = ''}
+          >
+            {s}
+          </div>
+        ))}
+        {emptyHint && !suggestions.length && (
+          <div style={{ padding: '9px 11px', fontSize: '12.5px', color: 'var(--text-muted)' }}>{emptyHint}</div>
+        )}
       </AnchoredDropdown>
     </div>
   );

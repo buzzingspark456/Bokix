@@ -86,11 +86,17 @@ export function getReportMeta(reportId) {
  * nu — `hasPayrollData` styr om Lön & personal-sektionen visas alls
  * (spec: "hoppa över sektioner som inte passar"). En sektion utan några
  * synliga rapporter kvar tas bort helt, inte en tom rubrikrad. */
-export function visibleReportSections({ hasPayrollData }) {
+export function visibleReportSections({ hasPayrollData, hiddenReportIds = [] }) {
   return REPORT_SECTIONS
     .map(section => ({
       ...section,
-      reports: section.reports.filter(r => r.requires !== 'payroll' || hasPayrollData),
+      // `hiddenReportIds` är UF-lägets bortval (UF_HIDDEN_REPORT_IDS i
+      // utils/ufMode.js) — en lista utifrån, inte ett UF-villkor inbakat
+      // här: den här filen ska förbli en ren rapportkatalog utan att veta
+      // något om bolagsformer eller konton.
+      reports: section.reports.filter(r =>
+        (r.requires !== 'payroll' || hasPayrollData) && !hiddenReportIds.includes(r.id)
+      ),
     }))
     .filter(section => section.reports.length > 0);
 }

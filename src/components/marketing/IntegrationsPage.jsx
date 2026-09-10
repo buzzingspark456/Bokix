@@ -1,11 +1,12 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, ArrowDownToLine, ArrowUpFromLine, CreditCard, Landmark, FileSpreadsheet, XCircle } from 'lucide-react';
+import { ArrowRight, FileSpreadsheet, XCircle } from 'lucide-react';
 import { BRAND } from '../../utils/brandColors';
 import MarketingLayout, { Reveal } from './MarketingLayout';
-import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW, CARD_SHADOW_SM, ACCENT } from './marketingTokens';
+import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW, ACCENT } from './marketingTokens';
 import { AuroraLayer } from './aurora';
 import { StripeIconLogo, ZettleLogo, BolagsverketLogo, SkatteverketLogo, BasLogo } from '../shared/BrandLogos';
+import FormatExchange from './FormatExchange';
 import { PageMeta, JsonLd } from '../../utils/seo';
 
 // ── Integrationer och filformat (/integrationer) ────────────────────────
@@ -72,21 +73,25 @@ const CONNECTIONS = [
 
 const IMPORTS = [
   {
+    label: 'SIE4-fil',
     title: 'SIE4-fil från ditt gamla program',
-    body: 'Kontoplan, verifikationer och ingående saldon läses in från en SIE4-fil. Formatet är samma standard oavsett om filen kommer från Fortnox, Bokio, Visma eller Speedledger — Bokix läser filen, inte programmet den kom ur.',
+    body: 'Kontoplan, verifikationer och ingående saldon läses in ur filen. SIE4 är en svensk standard, så Bokix läser filen — inte programmet den kom ur.',
     meta: 'SIE4I och SIE4E · .se-fil',
   },
   {
+    label: 'Kontoutdrag',
     title: 'Kontoutdrag från banken',
     body: 'Ladda upp bankens CSV- eller Excel-export så tolkas kolumnerna automatiskt, oavsett om banken exporterar semikolon, kommatecken, en signerad beloppskolumn eller separata uttag och insättningar. Den föreslagna kolumnmappningen visas för godkännande innan något importeras.',
     meta: 'CSV och XLSX · UTF-8 eller Windows-1252',
   },
   {
+    label: 'Kvitton och fakturor',
     title: 'Kvitton och leverantörsfakturor',
     body: 'Ladda upp underlaget och registrera posten direkt mot rätt konto. Underlaget ligger kvar kopplat till verifikationen, så det går att ta fram vid en granskning utan att leta i en pärm.',
     meta: 'PDF, JPG och PNG',
   },
   {
+    label: 'Kundregister',
     title: 'Kunder och artiklar',
     body: 'Kundregister och artikellistor kan läsas in från CSV i stället för att skrivas in en rad i taget vid uppstart.',
     meta: 'CSV',
@@ -95,31 +100,37 @@ const IMPORTS = [
 
 const EXPORTS = [
   {
+    label: 'SIE4-export',
     title: 'SIE4-export av hela bokföringen',
     body: 'Hela räkenskapsåret med kontoplan, verifikationer samt ingående och utgående balanser. Ge filen till din revisor, eller ta med den till ett annat program. Din bokföring är din, alltid.',
     meta: 'SIE4E · .se-fil',
   },
   {
+    label: 'eSKD',
     title: 'Momsdeklaration som eSKD-fil',
     body: 'Momsdeklarationen byggs som Skatteverkets eget XML-format och laddas upp direkt i e-tjänsten, i stället för att siffrorna knappas in för hand ruta för ruta.',
     meta: 'eSKD · XML',
   },
   {
+    label: 'Betalfil',
     title: 'Betalfil till banken',
     body: 'Nettolönerna i en lönekörning som en riktig ISO 20022-fil (pain.001), samma format de flesta svenska företagsbanker tar emot för filbaserade utbetalningar. Kräver IBAN och BIC per anställd.',
     meta: 'ISO 20022 pain.001.001.03 · XML',
   },
   {
+    label: 'SRU',
     title: 'Räkenskapsscheman som SRU',
     body: 'Balans- och resultaträkning enligt INK2R, med fältkoder ur BAS-intressenternas officiella kopplingstabell, som SRU-filer till inkomstdeklarationen.',
     meta: 'INFO.SRU och BLANKETTER.SRU',
   },
   {
+    label: 'PDF',
     title: 'PDF på allt du skickar vidare',
     body: 'Fakturor, lönebesked, AGI-sammanställningar, kontrolluppgifter och rapporter. PDF:en är alltid identisk med förhandsvisningen du godkände.',
     meta: 'PDF',
   },
   {
+    label: 'CSV',
     title: 'Rapporter och register som CSV',
     body: 'Listvyer och rapporter går att ta ut som CSV för egen analys i Excel eller Google Kalkylark.',
     meta: 'CSV med BOM, öppnas rätt i svensk Excel',
@@ -157,30 +168,6 @@ const SCHEMA = {
   })),
 };
 
-function FormatList({ icon: Icon, title, intro, items, accent }) {
-  return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
-        <span style={{ width: 38, height: 38, borderRadius: '11px', background: accent.soft, color: accent.fg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          <Icon size={18} />
-        </span>
-        <h2 style={{ fontSize: '20px', fontWeight: 700, color: INK, margin: 0, letterSpacing: '-0.01em' }}>{title}</h2>
-      </div>
-      <p style={{ fontSize: '14.5px', color: MUTED, lineHeight: 1.65, margin: '0 0 20px' }}>{intro}</p>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        {items.map(item => (
-          <div key={item.title} style={{ background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '14px', padding: '18px 20px', boxShadow: CARD_SHADOW_SM }}>
-            <h3 style={{ fontSize: '15px', fontWeight: 700, color: INK, margin: '0 0 6px' }}>{item.title}</h3>
-            <p style={{ fontSize: '13.5px', color: INK_SOFT, lineHeight: 1.7, margin: '0 0 9px' }}>{item.body}</p>
-            <span style={{ display: 'inline-block', fontSize: '11.5px', fontWeight: 700, letterSpacing: '0.02em', color: accent.fg, background: accent.soft, padding: '4px 9px', borderRadius: '7px' }}>
-              {item.meta}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 export default function IntegrationsPage() {
   const navigate = useNavigate();
@@ -195,8 +182,7 @@ export default function IntegrationsPage() {
       <JsonLd data={SCHEMA} />
       <style>{`
         .bx-int-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
-        .bx-int-flow { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: start; }
-        @media (max-width: 860px) { .bx-int-grid, .bx-int-flow { grid-template-columns: 1fr; gap: 18px; } }
+        @media (max-width: 860px) { .bx-int-grid { grid-template-columns: 1fr; gap: 18px; } }
       `}</style>
 
       <section style={{ padding: '150px 24px 60px', background: IVORY, position: 'relative', overflow: 'hidden' }}>
@@ -239,28 +225,25 @@ export default function IntegrationsPage() {
       </section>
 
       {/* ── In och ut ── */}
-      <section style={{ padding: '70px 24px 20px', background: 'var(--mkt-page-bg)' }}>
-        <Reveal className="bx-int-flow" style={{ maxWidth: '900px', margin: '0 auto' }}>
-          <FormatList
-            icon={ArrowDownToLine}
-            accent={ACCENT.blue}
-            title="Data in"
-            intro="Fyra vägar in i Bokix. Ingen av dem kräver att du skriver av något för hand."
-            items={IMPORTS}
-          />
-          <FormatList
-            icon={ArrowUpFromLine}
-            accent={ACCENT.green}
-            title="Data ut"
-            intro="Allt du lagt in går att få ut igen, i format andra system faktiskt läser."
-            items={EXPORTS}
-          />
-        </Reveal>
+      <section style={{ padding: '70px 24px', background: IVORY, borderTop: `1px solid var(--mkt-border-soft)`, marginTop: '50px' }}>
+        <div style={{ maxWidth: '940px', margin: '0 auto' }}>
+          <Reveal style={{ textAlign: 'center', marginBottom: '30px' }}>
+            <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(23px, 3.2vw, 32px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, margin: '0 0 9px' }}>
+              Tio filformat, in och ut
+            </h2>
+            <p style={{ fontSize: '15.5px', color: MUTED, lineHeight: 1.6, margin: 0, maxWidth: '540px', marginLeft: 'auto', marginRight: 'auto' }}>
+              Välj ett så står det vad det är och vad det används till.
+            </p>
+          </Reveal>
+          <Reveal scale delay={60}>
+            <FormatExchange imports={IMPORTS} exports={EXPORTS} />
+          </Reveal>
+        </div>
       </section>
 
       {/* ── Ärlighetsavsnittet ── */}
-      <section style={{ padding: '70px 24px 20px', background: 'var(--mkt-page-bg)' }}>
-        <Reveal style={{ maxWidth: '900px', margin: '0 auto', background: IVORY, border: `1px solid ${CARD_BORDER}`, borderRadius: '22px', padding: 'clamp(26px, 4.5vw, 40px)' }}>
+      <section style={{ padding: '70px 24px', background: 'var(--mkt-page-bg)', borderTop: `1px solid var(--mkt-border-soft)` }}>
+        <Reveal style={{ maxWidth: '900px', margin: '0 auto', background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '22px', padding: 'clamp(26px, 4.5vw, 40px)', boxShadow: CARD_SHADOW }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
             <span style={{ width: 38, height: 38, borderRadius: '11px', background: ACCENT.red.soft, color: ACCENT.red.fg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <XCircle size={18} />
@@ -272,7 +255,7 @@ export default function IntegrationsPage() {
           </p>
           <div className="bx-int-grid">
             {NOT_YET.map(item => (
-              <div key={item.title} style={{ background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '14px', padding: '18px 20px' }}>
+              <div key={item.title} style={{ background: IVORY, border: `1px solid ${CARD_BORDER}`, borderRadius: '14px', padding: '18px 20px' }}>
                 <h3 style={{ fontSize: '15px', fontWeight: 700, color: INK, margin: '0 0 6px' }}>{item.title}</h3>
                 <p style={{ fontSize: '13.5px', color: INK_SOFT, lineHeight: 1.7, margin: 0 }}>{item.body}</p>
               </div>
@@ -282,14 +265,10 @@ export default function IntegrationsPage() {
       </section>
 
       {/* ── Byta program ── */}
-      <section style={{ padding: '70px 24px 100px', background: 'var(--mkt-page-bg)' }}>
+      <section style={{ padding: '70px 24px 100px', background: IVORY, borderTop: `1px solid var(--mkt-border-soft)` }}>
         <Reveal scale style={{ maxWidth: '900px', margin: '0 auto', background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '22px', padding: 'clamp(28px, 5vw, 46px)', textAlign: 'center', boxShadow: CARD_SHADOW }}>
-          <div style={{ display: 'inline-flex', gap: '10px', marginBottom: '18px' }}>
-            {[FileSpreadsheet, Landmark, CreditCard].map((Icon, i) => (
-              <span key={i} style={{ width: 40, height: 40, borderRadius: '12px', background: [ACCENT.blue, ACCENT.teal, ACCENT.green][i].soft, color: [ACCENT.blue, ACCENT.teal, ACCENT.green][i].fg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Icon size={18} />
-              </span>
-            ))}
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginBottom: '18px', padding: '8px 15px', borderRadius: '999px', background: ACCENT.blue.soft, color: ACCENT.blue.fg, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace', fontSize: '13px', fontWeight: 700 }}>
+            <FileSpreadsheet size={15} /> bokforing-2026.se
           </div>
           <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(23px, 3.4vw, 32px)', fontWeight: 700, color: INK, margin: '0 0 12px', letterSpacing: '-0.01em' }}>
             Byter du från ett annat program?
@@ -301,7 +280,7 @@ export default function IntegrationsPage() {
             <button onClick={() => navigate('/', { state: { enterApp: true, authMode: 'signup' } })} style={{ padding: '14px 28px', background: BRAND.green, border: 'none', borderRadius: '12px', color: 'white', fontWeight: 700, fontSize: '15px', cursor: 'pointer', fontFamily: 'inherit' }}>
               Prova gratis
             </button>
-            <Link to="/alternativ" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '14px 24px', background: IVORY, border: `1.5px solid ${CARD_BORDER}`, borderRadius: '12px', color: INK_SOFT, fontWeight: 600, fontSize: '15px', textDecoration: 'none' }}>
+            <Link to="/byt-bokforingsprogram" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '14px 24px', background: 'var(--mkt-card-bg)', border: `1.5px solid ${CARD_BORDER}`, borderRadius: '12px', color: INK_SOFT, fontWeight: 600, fontSize: '15px', textDecoration: 'none' }}>
               Så går bytet till <ArrowRight size={15} />
             </Link>
           </div>

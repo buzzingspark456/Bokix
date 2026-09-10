@@ -486,10 +486,8 @@ export default function DemoWorkspace() {
                       </div>
                     </div>
                     <div className="dropdown-divider"></div>
-                    <button onClick={() => { toggleTheme(); setProfileOpen(false); }}>
-                      {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />} {theme === 'dark' ? 'Ljust läge' : 'Mörkt läge'}
-                    </button>
-                    <div className="dropdown-divider"></div>
+                    {/* Temaväljaren är borttagen här, precis som i appens
+                        egen profilmeny (App.jsx) — den bor i topbaren. */}
                     {/* Kontoplanen ligger som en flik inuti Bokföring i demon,
                         precis som appens 'accounts' är en vy inom samma sida. */}
                     <button onClick={() => { openTab('verifications'); setProfileOpen(false); }}><FolderTree size={14} /> Kontoplaner</button>

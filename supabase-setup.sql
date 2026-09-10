@@ -634,6 +634,17 @@ WHERE status IN ('pending', 'active');
 --   2) App.jsx (fetchUserData) — samma .eq('member_user_id', ...).eq(
 --      'status','active') EN gång per inloggning/sessionskontroll, för att
 --      lista vilka delade företag jag har åtkomst till.
+-- Sidbehörigheter per medlem (kundönskemål: "man ska kunna välja vilka
+-- sidor hen kan se och redigera"). NULL = ingen lista satt, alltså exakt
+-- det gamla beteendet: rollen ensam bestämmer och alla sidor syns. Därför
+-- behöver inga befintliga inbjudningar migreras.
+--
+-- Formen är { "<sid-id>": "none" | "view" | "edit" } — samma id:n som
+-- src/utils/pageAccess.js (ACCESS_PAGES). Kontrollen som FAKTISKT skyddar
+-- data sitter i api/company-access.js (canWriteField), inte i klienten:
+-- en dold meny är ingen behörighet.
+ALTER TABLE public.company_members ADD COLUMN IF NOT EXISTS page_access jsonb;
+
 CREATE INDEX IF NOT EXISTS company_members_member_user_id_status_idx
 ON public.company_members (member_user_id, status);
 
@@ -852,3 +863,41 @@ CREATE TABLE IF NOT EXISTS public.cron_progress (
 );
 
 ALTER TABLE public.cron_progress ENABLE ROW LEVEL SECURITY;
+
+-- ══════════════════════════════════════════════════════════════════════
+-- EGEN AVSÄNDARADRESS (SMTP) — api/_smtp.js
+-- ══════════════════════════════════════════════════════════════════════
+-- Den som saknar egen domän kan inte verifiera en avsändardomän hos
+-- Resend, och skickar därför som "Företaget via Bokix". Med en rad här
+-- skickas fakturan i stället genom kundens EGET mejlkonto (Gmail,
+-- Outlook, one.com …) — mejlet kommer från deras riktiga adress, hamnar i
+-- deras Skickat-mapp, och kostar Bokix ingenting eftersom det går på
+-- deras egen kvot.
+--
+-- SÄKERHET: `secret` är app-lösenordet krypterat med AES-256-GCM
+-- (EMAIL_SECRET_KEY i miljövariablerna). RLS är PÅ och det finns
+-- MEDVETET ingen policy alls — precis som cron_progress ovan. Ingen
+-- inloggad klient kan läsa eller skriva raden; bara serverfunktionerna
+-- med service_role-nyckeln, som aldrig skickar hemligheten vidare till
+-- webbläsaren. Tappar man den principen läcker man kundens
+-- mejllösenord.
+CREATE TABLE IF NOT EXISTS public.email_senders (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  company_id text NOT NULL,          -- nyckel inuti state.companies
+  provider text NOT NULL DEFAULT 'custom',
+  from_email text NOT NULL,
+  from_name text,
+  host text NOT NULL,
+  port integer NOT NULL,
+  secure boolean NOT NULL DEFAULT true,
+  username text NOT NULL,
+  secret text NOT NULL,              -- krypterat, aldrig klartext
+  verified_at timestamptz,           -- satt först när inloggningen testats
+  last_error text,                   -- varför senaste utskicket föll
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now(),
+  UNIQUE (user_id, company_id)       -- en avsändare per företag
+);
+
+ALTER TABLE public.email_senders ENABLE ROW LEVEL SECURITY;

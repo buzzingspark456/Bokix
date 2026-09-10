@@ -9,10 +9,10 @@ import { PageMeta, JsonLd, SITE_URL } from '../../../utils/seo';
 import { TOOLS, TOOLS_HUB_PATH } from './toolsConfig';
 
 // ── Gemensamt skal för alla fria verktyg (/verktyg/*) ───────────────────
-// Samma roll som PolicyLayout.jsx har för de fyra juridiska sidorna: fem
-// verktyg som var för sig hade blivit fem lite olika sidor, med samma
-// rubriknivåer, samma resultatpanel och samma "så räknar vi"-block skrivet
-// fem gånger. Här ligger allt utom själva räknaren.
+// Samma roll som PolicyLayout.jsx har för de fyra juridiska sidorna: ett
+// halvdussin verktyg som var för sig hade blivit lika många lite olika
+// sidor, med samma rubriknivåer, samma resultatpanel och samma "så räknar
+// vi"-block skrivet om och om igen. Här ligger allt utom själva räknaren.
 //
 // Varför verktygen finns alls: de är den enda sorts innehåll som är
 // användbart för någon som INTE är kund ännu, utan att vara reklam. En

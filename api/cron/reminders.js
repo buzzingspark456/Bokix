@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
 import { applySecurityHeaders } from '../_security.js';
 import { hasResendApiKey, sendWithFallback } from '../_resend.js';
+import { trySendFromOwnAddress } from '../_smtp.js';
 import { buildInvoiceReminderHtml, buildVatDeadlineHtml, buildAgiDeadlineHtml, buildTrialEndingHtml } from '../_emailTemplates.js';
 import { nextVatDeadline, nextAgiDeadline } from '../../src/utils/declarationDeadlines.js';
 import { planFromId } from '../../src/utils/plans.js';
@@ -286,9 +287,21 @@ export default async function handler(req, res) {
               }
               const remainingDue = Math.max(0, grossOf(inv) - (inv.paidAmount || 0));
               const html = buildInvoiceReminderHtml({ invoice: inv, customer, company: companyData.company, grossAmount: remainingDue });
-              const result = await sendWithFallback({
+              // Har företaget kopplat sin egen adress ska påminnelsen komma
+              // därifrån, precis som fakturan gjorde. En påminnelse från en
+              // annan avsändare än fakturan ser ut som ett bedrägeriförsök.
+              const subject = `Betalningspåminnelse – faktura ${inv.invoiceNumber}`;
+              const own = await trySendFromOwnAddress(row.user_id, companyId, {
+                to: customer.email,
+                subject,
+                html,
+                ...(companyData.company?.email ? { replyTo: companyData.company.email } : {}),
+              });
+              const result = own.used && own.ok
+                ? { ok: true, data: { id: own.id } }
+                : await sendWithFallback({
                 to: [customer.email],
-                subject: `Betalningspåminnelse – faktura ${inv.invoiceNumber}`,
+                subject,
                 html,
                 // Svar ska gå till FÖRETAGET som skickar påminnelsen, inte
                 // till Bokix. Samma reply_to som fakturautskicket självt

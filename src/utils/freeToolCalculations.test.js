@@ -5,6 +5,10 @@ import {
   calcSoleTraderFees,
   calcLateInterest,
   daysBetween,
+  calcDividendAllowance,
+  DIVIDEND_RULES,
+  DIVIDEND_BASE_AMOUNT,
+  DIVIDEND_WAGE_DEDUCTION,
   STANDARD_EMPLOYER_FEE_RATE,
   VACATION_PROVISION_RATE,
   LATE_INTEREST_MARKUP,
@@ -143,5 +147,79 @@ describe('calcLateInterest', () => {
   it('okända avgifts-id:n ignoreras i stället för att krascha', () => {
     const r = calcLateInterest({ amount: 1000, dueDate: '2026-01-01', paidDate: '2026-01-01', fees: ['finns-inte'] })
     expect(r.feeTotal).toBe(0)
+  })
+})
+
+describe('calcDividendAllowance (3:12)', () => {
+  // Grundbeloppet är 4 IBB från och med 2026 — går den här sönder visar
+  // verktyget den GAMLA förenklingsregelns 2,75 IBB, vilket ger ett
+  // gränsbelopp som är drygt 100 000 kr för lågt.
+  it('grundbeloppet är 4 inkomstbasbelopp', () => {
+    expect(DIVIDEND_BASE_AMOUNT).toBe(4 * DIVIDEND_RULES.incomeBaseAmount)
+    const r = calcDividendAllowance({ ownershipPercent: 100, payroll: 0, ownSalary: 0 })
+    expect(r.baseAmount).toBe(DIVIDEND_BASE_AMOUNT)
+    expect(r.allowance).toBe(DIVIDEND_BASE_AMOUNT)
+  })
+
+  // Den vanligaste missen när två makar äger bolaget tillsammans: båda
+  // räknar med HELA grundbeloppet. Det fördelas efter ägarandel.
+  it('grundbeloppet fördelas efter ägarandel', () => {
+    const r = calcDividendAllowance({ ownershipPercent: 50, payroll: 0, ownSalary: 0 })
+    expect(r.baseAmount).toBe(DIVIDEND_BASE_AMOUNT / 2)
+  })
+
+  it('lönebaserat utrymme är 50 % av andelen av löneunderlaget efter 8 IBB', () => {
+    const payroll = 2000000
+    const r = calcDividendAllowance({ ownershipPercent: 100, payroll, ownSalary: 600000 })
+    expect(r.wageBased).toBe(Math.round((payroll - DIVIDEND_WAGE_DEDUCTION) * 0.5))
+    expect(r.allowance).toBe(r.baseAmount + r.wageBased)
+  })
+
+  it('avdraget på 8 IBB kan aldrig ge ett negativt lönebaserat utrymme', () => {
+    const r = calcDividendAllowance({ ownershipPercent: 100, payroll: 300000, ownSalary: 300000 })
+    expect(r.wageBased).toBe(0)
+    expect(r.allowance).toBe(DIVIDEND_BASE_AMOUNT)
+  })
+
+  it('taket på 50 gånger egen lön slår till och flaggas', () => {
+    // 5 mkr i löneunderlag ger ett råutrymme på 2 177 600 kr, men en egen
+    // lön på 30 000 kr sätter taket vid 1 500 000 kr.
+    const r = calcDividendAllowance({ ownershipPercent: 100, payroll: 5000000, ownSalary: 30000 })
+    expect(r.wageCap).toBe(30000 * 50)
+    expect(r.wageCapApplied).toBe(true)
+    expect(r.wageBased).toBe(r.wageCap)
+  })
+
+  it('sparat utdelningsutrymme läggs till utan uppräkning', () => {
+    const r = calcDividendAllowance({ ownershipPercent: 100, savedAllowance: 100000 })
+    expect(r.allowance).toBe(DIVIDEND_BASE_AMOUNT + 100000)
+  })
+
+  it('utdelning inom gränsbeloppet beskattas med 20 %', () => {
+    const r = calcDividendAllowance({ ownershipPercent: 100, dividend: 200000 })
+    expect(r.withinAllowance).toBe(200000)
+    expect(r.aboveAllowance).toBe(0)
+    expect(r.totalTax).toBe(40000)
+    expect(r.net).toBe(160000)
+  })
+
+  it('överskjutande del beskattas som tjänst', () => {
+    const r = calcDividendAllowance({ ownershipPercent: 100, dividend: 400000, serviceTaxRate: 52 })
+    expect(r.withinAllowance).toBe(DIVIDEND_BASE_AMOUNT)
+    expect(r.aboveAllowance).toBe(400000 - DIVIDEND_BASE_AMOUNT)
+    expect(r.taxAbove).toBe(Math.round((400000 - DIVIDEND_BASE_AMOUNT) * 0.52))
+    expect(r.carriedForward).toBe(0)
+  })
+
+  it('outnyttjat utrymme sparas till nästa år', () => {
+    const r = calcDividendAllowance({ ownershipPercent: 100, dividend: 100000 })
+    expect(r.carriedForward).toBe(DIVIDEND_BASE_AMOUNT - 100000)
+  })
+
+  it('tomma fält ger nollor, inte NaN', () => {
+    const r = calcDividendAllowance({ ownershipPercent: '', payroll: '', ownSalary: '', dividend: '' })
+    expect(r.allowance).toBe(0)
+    expect(r.totalTax).toBe(0)
+    expect(r.effectiveTaxRate).toBe(0)
   })
 })

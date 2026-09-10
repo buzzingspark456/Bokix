@@ -89,7 +89,7 @@ export default function PersonuppgiftsBitradesAvtal() {
         <PolicyTable
           head={['Underbiträde', 'Roll']}
           rows={[
-            ['Supabase', 'Databas och autentisering — all bokförings- och kontodata'],
+            ['Supabase', 'Databas och autentisering — all bokförings- och kontodata. Lagring inom EU (Frankfurt, Tyskland).'],
             ['Stripe', 'Betalningar (dina kortbetalningar från kunder, samt Bokix egen fakturering)'],
             ['Resend', 'Utskick av fakturor/offerter du väljer att mejla'],
             ['Vercel (inkl. BotID)', 'Drift/hosting av tjänsten samt bot-/missbruksskydd'],

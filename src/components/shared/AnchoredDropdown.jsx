@@ -59,9 +59,19 @@ export function useAnchorRect(open, anchorRef) {
  * @param {number} [props.minWidth]          Minsta bredd; annars ankarets bredd.
  * @param {number} [props.maxHeight]         Tak för höjden, klamras dessutom mot det som får plats.
  * @param {React.RefObject} [props.panelRef]  Får panelens DOM-element, för "klickade jag utanför?"-kontroller.
+ *
+ * Om z-index: 1090 räckte så länge listorna bara användes på vanliga sidor.
+ * Kvittovyn och underlagsvisaren ligger på 1150, och en lista som öppnas
+ * DÄR hamnade alltså bakom sin egen modal — den renderades, men syntes
+ * inte. Så såg buggen ut i verkligheten: leverantörs- och kontofälten i
+ * Kvittodetaljer verkade helt döda.
+ *
+ * En förankrad lista hör alltid ovanpå ytan som äger fältet, så grundvärdet
+ * ligger nu över modallagret. Bekräftelsedialogen (2000) ligger fortfarande
+ * över, vilket är rätt: den frågar något som måste besvaras först.
  */
 export default function AnchoredDropdown({
-  anchorRef, open, align = 'left', minWidth, maxHeight = 300, zIndex = 1090,
+  anchorRef, open, align = 'left', minWidth, maxHeight = 300, zIndex = 1200,
   panelRef, style, children, ...rest
 }) {
   const rect = useAnchorRect(open, anchorRef);

@@ -16,6 +16,11 @@
 //      som gör att ordlistan lyfter verktygssidorna, inte tvärtom.
 export const TERMS = [
   {
+    term: '3:12-reglerna',
+    def: 'Reglerna som styr hur utdelning och kapitalvinst beskattas för dig som äger och arbetar i ett fåmansföretag. De avgör hur mycket du kan ta ut till 20 procents skatt i stället för som lön. Från och med 2026 gäller en enda regel: ett grundbelopp på fyra inkomstbasbelopp plus ett lönebaserat utrymme.',
+    tool: '/verktyg/utdelning',
+  },
+  {
     term: 'Aktiebolag (AB)',
     def: 'En egen juridisk person, skild från dig som ägare. Bolaget äger sina tillgångar, ansvarar för sina skulder och betalar bolagsskatt på vinsten. Kräver aktiekapital, årsredovisning till Bolagsverket och att du tar ut lön eller utdelning för att få ut pengar ur bolaget.',
   },
@@ -104,12 +109,22 @@ export const TERMS = [
     def: 'Ett godkännande från Skatteverket som visar att du själv betalar skatt och sociala avgifter på dina inkomster. Utan F-skatt måste den som anlitar dig göra skatteavdrag och betala arbetsgivaravgifter, vilket i praktiken gör det svårt att fakturera företag.',
   },
   {
+    term: 'Fåmansföretag',
+    def: 'Förenklat ett aktiebolag där fyra eller färre delägare tillsammans äger mer än hälften av rösterna. Är du dessutom verksam i betydande omfattning i bolaget är dina aktier kvalificerade, och då gäller 3:12-reglerna för din utdelning.',
+    tool: '/verktyg/utdelning',
+  },
+  {
     term: 'Förmånsbeskattning',
     def: 'När en anställd får något annat än pengar av arbetsgivaren — tjänstebil, fri kost, friskvård utöver skattefri nivå — och värdet beskattas som lön. Förmånen läggs till underlaget för både skatteavdrag och arbetsgivaravgifter.',
   },
   {
     term: 'Grundbok och huvudbok',
     def: 'Två vyer av samma bokföring. Grundboken visar affärshändelserna i den ordning de inträffade, huvudboken visar dem sorterade per konto. Bokföringslagen kräver båda — i ett bokföringsprogram skapas de automatiskt ur samma verifikationer.',
+  },
+  {
+    term: 'Gränsbelopp',
+    def: 'Den utdelning du som delägare i ett fåmansföretag får ta ut till 20 procents skatt under ett år. Det består av ett grundbelopp på fyra inkomstbasbelopp (322 400 kr för 2026), fördelat efter ägarandel, plus hälften av din andel av föregående års löner efter ett avdrag på åtta inkomstbasbelopp. Det du inte använder sparas till kommande år.',
+    tool: '/verktyg/utdelning',
   },
   {
     term: 'Handelsbolag',
@@ -139,6 +154,11 @@ export const TERMS = [
   {
     term: 'Kundfordran',
     def: 'Pengar du har rätt att få in men ännu inte fått — alltså skickade fakturor som inte är betalda. Bokförs som en tillgång tills betalningen kommer.',
+  },
+  {
+    term: 'K10 (blankett)',
+    def: 'Bilagan till din privata inkomstdeklaration där du redovisar utdelning och försäljning av aktier i ditt fåmansföretag, och räknar fram årets gränsbelopp. Lämna den varje år även om du inte tagit någon utdelning — annars tappar du det sparade utdelningsutrymmet.',
+    tool: '/verktyg/utdelning',
   },
   {
     term: 'K2 och K3',
@@ -219,6 +239,11 @@ export const TERMS = [
   {
     term: 'Traktamente',
     def: 'Skattefri ersättning för ökade levnadskostnader vid tjänsteresa med övernattning utanför den vanliga verksamhetsorten. Skatteverket fastställer schablonbelopp per hel och halv dag, och belopp därutöver beskattas som lön.',
+  },
+  {
+    term: 'Utdelning',
+    def: 'Pengar som ett aktiebolag delar ut till sina ägare av vinsten. Beslutas på bolagsstämman och får bara tas ur fritt eget kapital enligt senast fastställda balansräkning. Inom gränsbeloppet beskattas den med 20 procent, därutöver som tjänsteinkomst — och till skillnad från lön ger den varken pension eller sjukpenning.',
+    tool: '/verktyg/utdelning',
   },
   {
     term: 'Utgående moms',

@@ -22,17 +22,17 @@
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.bokix.se/valja-bokforingsprogram</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
-  </url>
-  <url>
-    <loc>https://www.bokix.se/alternativ</loc>
+    <loc>https://www.bokix.se/byt-bokforingsprogram</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.bokix.se/byt-bokforingsprogram</loc>
+    <loc>https://www.bokix.se/koppla-bank</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.bokix.se/uf</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -78,6 +78,11 @@
   </url>
   <url>
     <loc>https://www.bokix.se/verktyg/drojsmalsranta</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://www.bokix.se/verktyg/utdelning</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>

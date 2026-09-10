@@ -299,8 +299,8 @@ function KpiCard({ label, value, sub, icon: Icon, color, bg, positive, onClick, 
   const bold = !!gradient;
   return (
     <button onClick={onClick} style={{
-      background: bold ? `linear-gradient(135deg, ${gradient[0]}, ${gradient[1]})` : 'white',
-      border: bold ? 'none' : (hero ? `1px solid ${sparkColor || color}33` : '1px solid var(--border)'),
+      background: bold ? `linear-gradient(135deg, ${gradient[0]}, ${gradient[1]})` : 'var(--bg-card)',
+      border: bold ? 'none' : (hero ? `1px solid ${color}33` : '1px solid var(--border)'),
       borderRadius: '14px',
       padding: '20px',
       textAlign: 'left',
@@ -317,7 +317,7 @@ function KpiCard({ label, value, sub, icon: Icon, color, bg, positive, onClick, 
     onMouseEnter={e => {
       e.currentTarget.style.transform = 'translateY(-3px)';
       e.currentTarget.style.boxShadow = bold ? '0 6px 16px rgba(0,0,0,0.16)' : '0 10px 28px rgba(0,0,0,0.09)';
-      if (!bold) e.currentTarget.style.borderColor = sparkColor || color;
+      if (!bold) e.currentTarget.style.borderColor = color;
     }}
     onMouseLeave={e => {
       e.currentTarget.style.transform = '';
@@ -784,6 +784,13 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
         @media (max-width: 640px) {
           .dash-kpi-grid { grid-template-columns: 1fr !important; }
           .dash-quick-actions { grid-template-columns: repeat(2,1fr) !important; }
+          /* Kundfeedback: "på telefonen är det tomt bredvid Kör lön". Med
+             personal visas FEM genvägar, och den femte hamnade ensam på
+             sista raden med en lika stor tom ruta bredvid sig. En udda
+             sista genväg får därför spänna över båda kolumnerna i stället
+             — ingen tom halva, och knappen blir samtidigt en större
+             träffyta. */
+          .dash-quick-actions > :last-child:nth-child(odd) { grid-column: 1 / -1; }
           .dash-todo-grid { grid-template-columns: 1fr !important; }
           /* En tidigare version hade en egen margin-bottom-regel här på
              .dash-lower-grid, byggd på antagandet att Moms-kortet "ofta"
@@ -911,21 +918,13 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
         </div>
       )}
 
-      {/* ─── NYCKELTAL — Resultat/Intäkter/Kostnader, med vardagliga
-          etiketter (inte bokföringsjargong som "RÅ Omsättning") så siffrorna
-          är begripliga utan förkunskaper. ─── */}
+      {/* ─── NYCKELTAL — Intäkter → Kostnader → Resultat, i den ordning
+          talen faktiskt uppstår: det kommer in pengar, det går ut pengar,
+          och skillnaden är resultatet. Kundönskemål, och rätt även sakligt;
+          förut stod resultatet först, alltså svaret före räkningen.
+          Alla tre korten är LIKA STORA (inget `hero` längre) — samma
+          önskemål: "gör dem i samma storlek". ─── */}
       <div className="dash-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '14px', marginBottom: '20px' }}>
-        <KpiCard
-          hero
-          label="Resultat" value={fmt(raResultat)}
-          sub={raResultat >= 0 ? `Vinst ${currentYear}` : `Förlust ${currentYear}`}
-          icon={raResultat >= 0 ? TrendingUp : TrendingDown}
-          color={raResultat >= 0 ? BRAND.greenDark : BRAND.redText}
-          bg={raResultat >= 0 ? LIME_L : RED_L}
-          positive={raResultat >= 0}
-          onClick={() => setActiveTab('reports')}
-          gradient={raResultat >= 0 ? KPI_GRAD_POSITIVE : KPI_GRAD_NEGATIVE}
-        />
         <KpiCard
           label="Intäkter" value={fmt(raOmsattning)} sub={`Hittills ${currentYear}`}
           icon={ArrowUpRight} color={BRAND.greenDark} bg={LIME_L} positive={true}
@@ -937,6 +936,16 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
           icon={ArrowDownRight} color={BRAND.redText} bg={RED_L} positive={false}
           onClick={() => setActiveTab('expenses')}
           gradient={KPI_GRAD_NEGATIVE}
+        />
+        <KpiCard
+          label="Resultat" value={fmt(raResultat)}
+          sub={raResultat >= 0 ? `Vinst ${currentYear}` : `Förlust ${currentYear}`}
+          icon={raResultat >= 0 ? TrendingUp : TrendingDown}
+          color={raResultat >= 0 ? BRAND.greenDark : BRAND.redText}
+          bg={raResultat >= 0 ? LIME_L : RED_L}
+          positive={raResultat >= 0}
+          onClick={() => setActiveTab('reports')}
+          gradient={raResultat >= 0 ? KPI_GRAD_POSITIVE : KPI_GRAD_NEGATIVE}
         />
       </div>
 

@@ -58,6 +58,24 @@ const tabButtonStyle = (active) => ({
   marginBottom: '-1px', display: 'flex', alignItems: 'center', gap: '6px',
 });
 
+// Piller-varianten (`tabs.variant: 'pills'`). Till för sidor med så många
+// flikar att den vanliga understruket-raden inte får plats på en skärmbredd
+// — Inställningar har åtta. Kundfeedback: "de sista flikarna ligger utanför
+// skärmen, man måste skrolla i sidled för att se dem". Understrukna flikar
+// KAN inte radbryta (två understrykningslinjer under varandra läses som två
+// skilda kontroller), men pillren kan: de bär sin egen ram och sin egen
+// bakgrund, så en andra rad ser ut precis som den första. Alla flikar syns
+// därmed samtidigt, både på bred skärm och på telefon.
+const tabPillStyle = (active) => ({
+  padding: '7px 14px', cursor: 'pointer', fontSize: '13px', fontFamily: 'inherit',
+  fontWeight: active ? 700 : 600,
+  color: active ? '#fff' : 'var(--text-secondary)',
+  background: active ? 'var(--accent)' : 'var(--bg-muted)',
+  border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
+  borderRadius: '999px', display: 'inline-flex', alignItems: 'center', gap: '6px',
+  whiteSpace: 'nowrap',
+});
+
 /**
  * Delad sidhuvud-toolbar för samtliga listsidor.
  *
@@ -69,13 +87,17 @@ const tabButtonStyle = (active) => ({
  *   för att bara beskriva den utifrån.
  *   - Renderas i given ordning. Konvention: sekundära knappar (Exportera/Importera) FÖRST,
  *     primärknappen (Ny kund/Ny anställd, grön) SIST längst till höger.
- * @param {{items: Array<{id, label, badge?: number}>, activeId, onChange}} [tabs]
- *   - Flikrad under sidhuvudet, alltid med samma avstånd (marginTop 12px) och samma
+ * @param {{items: Array<{id, label, badge?: number}>, activeId, onChange, variant?: 'underline'|'pills'}} [tabs]
+ *   - Flikrad under sidhuvudet, alltid med samma avstånd och samma
  *     understrykningsstil (3px grön, aktiv flik).
+ *   - `variant: 'pills'`: rundade knappar som RADBRYTER i stället för att skrollas
+ *     i sidled. Bara för sidor med fler flikar än vad som får plats på en rad
+ *     (Inställningar, åtta stycken) — annars gäller understrykningen.
  * @param {React.ReactNode} [children] - Extra rad mellan sidhuvud och flikar, t.ex. en importstatus-banner.
  */
 export default function ListPageHeader({ title, subtitle, actions = [], tabs, children }) {
   const hasTabs = tabs && tabs.items?.length > 0;
+  const pills = Boolean(hasTabs && tabs.variant === 'pills');
   return (
     <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '0 20px', paddingBottom: hasTabs ? 0 : '16px', flexShrink: 0 }}>
       <div className="page-header-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0 0', gap: '16px', flexWrap: 'wrap' }}>
@@ -88,7 +110,12 @@ export default function ListPageHeader({ title, subtitle, actions = [], tabs, ch
           {subtitle && <p style={{ margin: '6px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>{subtitle}</p>}
         </div>
         {actions.length > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          // `page-header-actions`: på telefon läggs knapparna på en egen rad
+          // och delar bredden i stället för att ligga kvar på rubrikraden och
+          // skjuta ut över kanten (kundfeedback: "Importera transaktioner"
+          // var avklippt på mobilen). Klass, inte inline style, eftersom
+          // regeln behöver en mediafråga — se index.css.
+          <div className="page-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             {actions.map((a, i) => a.type === 'note' ? (
               <span key={a.key ?? i} style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                 {a.label} {a.value && <strong style={{ color: 'var(--text-main)' }}>{a.value}</strong>}
@@ -112,10 +139,19 @@ export default function ListPageHeader({ title, subtitle, actions = [], tabs, ch
 
       {children}
 
-      {tabs && tabs.items?.length > 0 && (
-        <div style={{ display: 'flex', gap: 0, marginTop: '12px' }}>
+      {hasTabs && (
+        <div
+          className={'page-header-tabs' + (pills ? ' page-header-tabs--pills' : '')}
+          style={{ display: 'flex', gap: pills ? '7px' : 0, marginTop: pills ? '10px' : '12px', paddingBottom: pills ? '12px' : 0 }}
+        >
           {tabs.items.map(t => (
-            <button key={t.id} type="button" onClick={() => tabs.onChange(t.id)} style={tabButtonStyle(tabs.activeId === t.id)}>
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => tabs.onChange(t.id)}
+              aria-current={tabs.activeId === t.id ? 'page' : undefined}
+              style={pills ? tabPillStyle(tabs.activeId === t.id) : tabButtonStyle(tabs.activeId === t.id)}
+            >
               {t.icon && <t.icon size={14} />}
               {t.label}{typeof t.badge === 'number' && t.badge > 0 ? ` · ${t.badge}` : ''}
             </button>

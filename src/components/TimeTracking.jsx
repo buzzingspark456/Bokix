@@ -297,7 +297,7 @@ export default function TimeTracking({
                   <td style={{ padding: '14px 20px', textAlign: 'right' }}>
                     <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
                       {entry.type === 'kund' && (
-                        <button onClick={() => handleCreateInvoiceFromEntry(entry)} title="Skapa faktura med denna rad förifylld" style={{ padding: '6px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--accent)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px' }}>
+                        <button onClick={() => handleCreateInvoiceFromEntry(entry)} title="Skapa faktura med denna rad förifylld" style={{ padding: '6px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--accent-text)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px' }}>
                           <FileText size={16} />
                         </button>
                       )}

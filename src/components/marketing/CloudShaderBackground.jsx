@@ -239,6 +239,23 @@ const PALETTES = {
   dark: { skyTop: '#0b3a5c', skyBottom: '#0a1622', cloud: '#274a63' },
 };
 
+// Himlen som CSS, för tiden innan WebGL hunnit rita sin första bildruta
+// (och permanent för den som saknar WebGL). Färgerna är PALETTES ovan —
+// ändras paletten måste den här strängen ändras med, annars blinkar
+// hjälten om från en himmel till en annan vid varje sidladdning. Det är
+// exakt det felet den finns för att ta bort.
+//
+// Temat läses från <html data-theme>, samma flagga som resolveColors
+// nedan och useMarketingTheme (MarketingLayout.jsx) redan använder.
+// Hur många pixlar shadern faktiskt ritar, som andel av skärmens egna.
+// Se den långa kommentaren i resize() för mätvärdena bakom siffran.
+const RENDER_SCALE = 0.6;
+
+const SKY_FALLBACK_CSS = `
+  .bx-cloudsky { background: linear-gradient(180deg, ${PALETTES.light.skyTop} 0%, ${PALETTES.light.skyBottom} 100%); }
+  :root[data-theme="dark"] .bx-cloudsky { background: linear-gradient(180deg, ${PALETTES.dark.skyTop} 0%, ${PALETTES.dark.skyBottom} 100%); }
+`;
+
 /** Ren port av Aceternitys CloudShader (se filkommentaren högst upp) —
  * samma props-yta som originalet (speed/count/cloudColor/skyTopColor/
  * skyBottomColor/className/children), plus tema-medveten färgomkoppling
@@ -295,7 +312,21 @@ export default function CloudShaderBackground({
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     const resize = () => {
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      // PRESTANDA. Den här shadern är den dyraste enskilda saken på hela
+      // marknadssajten: en helskärms-fragmentshader med femoktavs billow-
+      // brus per pixel, och kostnaden växer linjärt med antalet pixlar.
+      // Uppmätt i ett headless Chromium (mjukvaru-WebGL, alltså värsta
+      // fallet men samma proportioner som en svag mobil-GPU): 2 336 ms
+      // långa uppgifter och 4 fps med dpr 2 mot 61 ms och 20 fps med
+      // hjälten helt avstängd.
+      //
+      // dpr 2 × full upplösning = fyra gånger så många pixlar som dpr 1.
+      // Moln är mjuka gradienter utan skarpa kanter — de överlever att
+      // ritas i lägre upplösning och skalas upp av webbläsaren, till
+      // skillnad från text eller en logotyp. RENDER_SCALE 0.6 vid dpr-tak
+      // 1.5 ger ~0.8 enheter per CSS-pixel, alltså knappt en femtedel av
+      // pixlarna mot förut, och skillnaden går inte att se på en himmel.
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5) * RENDER_SCALE;
       const width = canvas.clientWidth;
       const height = canvas.clientHeight;
       const w = Math.max(1, Math.floor(width * dpr));
@@ -306,6 +337,11 @@ export default function CloudShaderBackground({
       }
       gl.viewport(0, 0, w, h);
       gl.uniform2f(loc.res, w, h);
+      // Att sätta canvas.width nollställer ritbufferten. Rullar loopen
+      // fyller nästa bildruta i den igen — gör den inte det (nödbromsen,
+      // pausen, reducerad rörelse) skulle hjälten annars bli tom vid varje
+      // fönsterändring.
+      if (!running && loc.res) drawFrame();
     };
     const observer = new ResizeObserver(resize);
     observer.observe(canvas);
@@ -325,11 +361,50 @@ export default function CloudShaderBackground({
       };
     };
 
-    const start = performance.now();
+    // Molnen driver långsamt. 60 bildrutor i sekunden är dubbelt så dyrt
+    // som 30 utan att se annorlunda ut för en rörelse i den här takten.
+    const MIN_FRAME_MS = 1000 / 30;
+    let lastDraw = 0;
+    // ── Nödbromsen ──
+    // Mjukvaru-WebGL (ingen GPU-drivrutin, äldre laptop, vissa mobiler i
+    // strömsparläge) ritar den här shadern i 4–11 bildrutor per sekund.
+    // Då är animationen inte längre en animation — den är bara en
+    // huvudtråd som står och stampar medan besökaren försöker skrolla.
+    // Efter en sekunds uppvärmning mäts vad enheten faktiskt klarar; går
+    // det trögt stannar loopen för gott och canvasen behåller sin sista
+    // ritade bildruta. Resultatet är en stillastående himmel med moln —
+    // samma bild, utan rörelsen och utan kostnaden. Ingen ser en tom yta,
+    // och ingen sitter med en sida som hackar.
+    const WARMUP_MS = 1000;
+    const MIN_ACCEPTABLE_FPS = 24;
+    let warmupStart = 0;
+    let warmupFrames = 0;
+    let benchmarked = false;
+    // Egen klocka i stället för now - start: loopen pausas när hjälten
+    // skrollats förbi eller fliken göms (se nedan), och en klocka som
+    // fortsätter ticka under pausen hade fått molnen att hoppa flera
+    // sekunder framåt i samma ögonblick man skrollar tillbaka.
+    let elapsedMs = 0;
+    let prevNow = 0;
+    const drawFrame = () => {
+      const p = paramsRef.current;
+      const { cloud, skyTop, skyBottom } = resolveColors(p);
+      gl.uniform1f(loc.time, reduceMotion ? 0 : (elapsedMs / 1000) * p.speed);
+      gl.uniform1f(loc.count, Math.min(6, Math.max(1, p.count)));
+      gl.uniform3f(loc.cloud, cloud[0], cloud[1], cloud[2]);
+      gl.uniform3f(loc.skyTop, skyTop[0], skyTop[1], skyTop[2]);
+      gl.uniform3f(loc.skyBottom, skyBottom[0], skyBottom[1], skyBottom[2]);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+    };
+
     const draw = (now) => {
       if (!running) return;
+      if (prevNow && now - lastDraw < MIN_FRAME_MS) { frame = requestAnimationFrame(draw); return; }
+      if (prevNow) elapsedMs += now - prevNow;
+      prevNow = now;
+      lastDraw = now;
       const p = paramsRef.current;
-      const elapsed = reduceMotion ? 0 : ((now - start) / 1000) * p.speed;
+      const elapsed = reduceMotion ? 0 : (elapsedMs / 1000) * p.speed;
       const { cloud, skyTop, skyBottom } = resolveColors(p);
 
       gl.uniform1f(loc.time, elapsed);
@@ -338,21 +413,67 @@ export default function CloudShaderBackground({
       gl.uniform3f(loc.skyTop, skyTop[0], skyTop[1], skyTop[2]);
       gl.uniform3f(loc.skyBottom, skyBottom[0], skyBottom[1], skyBottom[2]);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+      if (!benchmarked && !reduceMotion) {
+        if (!warmupStart) warmupStart = now;
+        warmupFrames++;
+        const warmedFor = now - warmupStart;
+        if (warmedFor >= WARMUP_MS) {
+          benchmarked = true;
+          const achieved = (warmupFrames / warmedFor) * 1000;
+          if (achieved < MIN_ACCEPTABLE_FPS) {
+            running = false;
+            return; // sista bildrutan blir kvar på canvasen
+          }
+        }
+      }
+
       frame = requestAnimationFrame(draw);
     };
     frame = requestAnimationFrame(draw);
 
-    // Byt om vid temaväxling även under reduced-motion (en enda ommålad
-    // bildruta, ingen rAF-loop dras igång för det).
+    // Loopen ska inte kosta något när ingen tittar. Två skäl att pausa:
+    // hjälten är utskrollad (besökaren läser prissektionen — molnen ritas
+    // ändå, varje bildruta, hela sessionen) och fliken är dold. Båda var
+    // ren ren förlust innan: en öppen flik i bakgrunden fortsatte bränna
+    // GPU och batteri på en himmel ingen ser.
+    const setRunning = (next) => {
+      // Har nödbromsen slagit till startar loopen aldrig igen — den här
+      // enheten klarar inte att animera shadern, och det ändras inte av
+      // att man skrollar tillbaka.
+      if (benchmarked && !running) return;
+      if (next === running) return;
+      running = next;
+      if (next) {
+        prevNow = 0; // nollställ deltat, annars räknas hela pausen som en bildruta
+        frame = requestAnimationFrame(draw);
+      } else {
+        cancelAnimationFrame(frame);
+      }
+    };
+    let onScreen = true;
+    const visibility = new IntersectionObserver(([entry]) => {
+      onScreen = entry.isIntersecting;
+      setRunning(onScreen && !document.hidden);
+    }, { threshold: 0 });
+    visibility.observe(canvas);
+    const onVisibilityChange = () => setRunning(onScreen && !document.hidden);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    // Byt om vid temaväxling när loopen INTE ritar av sig själv.
+    //
+    // Bugkritiskt (kundrapporterat: "hjälten är kvar i ljust läge när jag
+    // slår om till mörkt"): villkoret var tidigare bara `reduceMotion`,
+    // vilket stämde så länge loopen alltid rullade i övriga fall. Sedan
+    // nödbromsen och pausen vid utskrollad hjälte tillkom finns det tre
+    // lägen där ingen ny bildruta ritas — reducerad rörelse, pausad, och
+    // permanent stoppad — och i alla tre satt den senast ritade himlen
+    // kvar i FEL tema tills sidan laddades om. Rätt villkor är därför
+    // "ritar loopen inte just nu?", inte "har användaren stängt av
+    // animationer?".
     const themeObserver = new MutationObserver(() => {
-      if (!reduceMotion) return;
-      const p = paramsRef.current;
-      const { cloud, skyTop, skyBottom } = resolveColors(p);
-      gl.uniform1f(loc.count, Math.min(6, Math.max(1, p.count)));
-      gl.uniform3f(loc.cloud, cloud[0], cloud[1], cloud[2]);
-      gl.uniform3f(loc.skyTop, skyTop[0], skyTop[1], skyTop[2]);
-      gl.uniform3f(loc.skyBottom, skyBottom[0], skyBottom[1], skyBottom[2]);
-      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      if (running) return; // loopen plockar upp färgerna själv nästa bildruta
+      drawFrame();
     });
     themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 
@@ -360,6 +481,8 @@ export default function CloudShaderBackground({
       running = false;
       cancelAnimationFrame(frame);
       observer.disconnect();
+      visibility.disconnect();
+      document.removeEventListener('visibilitychange', onVisibilityChange);
       themeObserver.disconnect();
       gl.deleteBuffer(buffer);
       gl.deleteProgram(program);
@@ -370,7 +493,11 @@ export default function CloudShaderBackground({
   }, []);
 
   return (
-    <div className={className} style={{ position: 'relative', height: '100%', minHeight: '320px', width: '100%', overflow: 'hidden', ...style }}>
+    <div className={`bx-cloudsky${className ? ` ${className}` : ''}`} style={{ position: 'relative', height: '100%', minHeight: '320px', width: '100%', overflow: 'hidden', ...style }}>
+      {/* Se kommentaren vid SKY_FALLBACK_CSS: gradienten under canvasen är
+          samma himmel som shadern målar, så det inte finns någon skillnad
+          att se mellan förrenderad HTML och första ritade bildrutan. */}
+      <style>{SKY_FALLBACK_CSS}</style>
       <canvas ref={canvasRef} aria-hidden="true" style={{ pointerEvents: 'none', position: 'absolute', inset: 0, width: '100%', height: '100%' }} />
       {children ? (
         <div style={{ position: 'relative', zIndex: 10, display: 'flex', height: '100%', width: '100%', alignItems: 'center', justifyContent: 'center' }}>

@@ -1,5 +1,5 @@
 ﻿import React, { useMemo, useState } from 'react';
-import { Search, Book, PlayCircle, Sparkles, FileText, MessageSquare, AlertCircle, ArrowLeft } from 'lucide-react';
+import { Search, Book, Sparkles, FileText, MessageSquare, AlertCircle, ArrowLeft } from 'lucide-react';
 import Drawer from './Drawer';
 
 // Egna körvägar i drawern, inte separata modaler — "Ordlista" byter bara
@@ -7,16 +7,17 @@ import Drawer from './Drawer';
 // en overlay ovanpå. `action` körs på klick; `view` (om satt) byter
 // synligt innehåll internt i drawern istället.
 const SHORTCUTS = [
-  { icon: PlayCircle, color: '#3a8fc1', bg: '#eef5fb', label: 'Kom igång-guide', action: 'guide' },
+  // "Kom igång-guide" är borttagen (kundönskemål) — registreringsflödet
+  // hör hemma vid registreringen, inte som en genväg i hjälpen.
   // Samma rundtur (driver.js, se utils/productTour.js) som visas
   // automatiskt första gången ett konto loggar in — den här genvägen är
   // den enda vägen tillbaka till den efteråt, se onStartTour/App.jsx.
-  { icon: Sparkles, color: '#c26b1f', bg: '#fdf3e7', label: 'Starta rundtur', action: 'tour' },
+  { icon: Sparkles, color: 'var(--status-amber-text)', bg: 'var(--status-amber-bg)', label: 'Starta rundtur', action: 'tour' },
   // Fakturor-sidans egen, kortare guide (utils/invoiceTour.js) — döljs där
   // efter första visningen, den här genvägen är den enda vägen tillbaka,
   // se onStartInvoiceTour/App.jsx.
-  { icon: FileText, color: '#0b6329', bg: '#eef7ec', label: 'Fakturaguide', action: 'invoice-tour' },
-  { icon: Book, color: '#9333ea', bg: '#fdf4ff', label: 'Ordlista', action: 'glossary' },
+  { icon: FileText, color: 'var(--status-green-text)', bg: 'var(--status-green-bg)', label: 'Fakturaguide', action: 'invoice-tour' },
+  { icon: Book, color: 'var(--status-pink-text)', bg: 'var(--status-pink-bg)', label: 'Ordlista', action: 'glossary' },
 ];
 
 // En första, enkel ordlista över de bokföringstermer som faktiskt
@@ -51,9 +52,7 @@ const shortcutBtnStyle = {
   cursor: 'pointer', textAlign: 'left', transition: 'all var(--transition)', fontFamily: 'var(--font-sans)',
 };
 
-// `onOpenGuide`: stänger drawern och startar OnboardingFlow (App.jsx:
-// showOnboarding) — samma flöde som Dashboards "Fortsätt registreringen".
-const HelpDrawer = ({ isOpen, onClose, onOpenGuide, onStartTour, onStartInvoiceTour }) => {
+const HelpDrawer = ({ isOpen, onClose, onStartTour, onStartInvoiceTour }) => {
   const [search, setSearch] = useState('');
   const [view, setView] = useState('menu'); // 'menu' | 'glossary'
 
@@ -70,8 +69,7 @@ const HelpDrawer = ({ isOpen, onClose, onOpenGuide, onStartTour, onStartInvoiceT
   }, [search]);
 
   const handleShortcut = (action) => {
-    if (action === 'guide') onOpenGuide?.();
-    else if (action === 'tour') onStartTour?.();
+    if (action === 'tour') onStartTour?.();
     else if (action === 'invoice-tour') onStartInvoiceTour?.();
     else if (action === 'glossary') { setView('glossary'); setSearch(''); }
   };

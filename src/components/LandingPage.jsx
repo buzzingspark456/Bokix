@@ -3,19 +3,19 @@ import { Link } from 'react-router-dom';
 import {
   BarChart3, Check, X,
   ArrowRight, ChevronRight, ChevronDown,
-  Building2, Briefcase, Landmark, HeartHandshake, UserCheck,
-  Gavel,
-  Eye, Workflow, FileBarChart, CreditCard, TrendingUp, Cog,
-  UserPlus, Send,
+  GraduationCap,
 } from 'lucide-react';
 import { BRAND } from '../utils/brandColors';
 import MarketingLayout, { Reveal, BokixWordmark } from './marketing/MarketingLayout';
+import ToolMotif, { ToolMotifStyles } from './marketing/toolMotifs';
+import { FeatureDemoStyles, DemoBokforing, DemoFakturering, DemoSkatt, DemoPersonal } from './marketing/featureDemos';
 import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW_SM, ACCENT, ACCENT_CYCLE } from './marketing/marketingTokens';
-import { IllBokforing, IllFakturering, IllSkatt, IllPersonal } from './marketing/featureIllustrations';
 import CloudShaderBackground from './marketing/CloudShaderBackground';
 import { GRAD, grad, AuroraLayer } from './marketing/aurora';
-import { StripeLogo, StripeIconLogo, ZettleLogo, BolagsverketLogo, SkatteverketLogo, BasLogo, GdprLogo } from './shared/BrandLogos';
+import { StripeLogo, StripeIconLogo, ZettleLogo, BolagsverketLogo, SkatteverketLogo, BasLogo, GdprLogo, BokforingslagLogo } from './shared/BrandLogos';
 import MigrationFlow from './marketing/MigrationFlow';
+import BankFlow from './marketing/BankFlow';
+import { UF_NAV_IDS, UF_NAV_LABELS, UF_FREE_MONTHS } from '../utils/ufMode';
 import { PRICING_TIERS } from './marketing/pricingTiers';
 import { resolvePlan, YEARLY_MINIMUM_MONTHS } from '../utils/plans';
 import { PageMeta, JsonLd, SITE_URL } from '../utils/seo';
@@ -29,12 +29,17 @@ const DemoWorkspace = lazy(() => import('./DemoWorkspace'));
 
 // ── Faktiska bolagsformer Bokix kan identifiera/bokföra för (se
 // src/utils/orgType.js) — inte en påhittad lista. ──
+// Bara namnen. Här satt tidigare en ikon per bolagsform — en person med
+// bock för enskild firma, en portfölj för handelsbolag, ett tempel för
+// ekonomisk förening. Ingen av dem betyder något; de var fem olika sätt
+// att säga "företag" bredvid ett ord som redan sa exakt vilket. Sätt inte
+// tillbaka dem.
 const COMPANY_TYPES = [
-  { icon: UserCheck, label: 'Enskild firma' },
-  { icon: Building2, label: 'Aktiebolag (AB)' },
-  { icon: Briefcase, label: 'Handelsbolag / KB' },
-  { icon: Landmark, label: 'Ekonomisk förening' },
-  { icon: HeartHandshake, label: 'Ideell förening / stiftelse' },
+  { label: 'Enskild firma' },
+  { label: 'Aktiebolag (AB)' },
+  { label: 'Handelsbolag / KB' },
+  { label: 'Ekonomisk förening' },
+  { label: 'Ideell förening / stiftelse' },
 ];
 
 // ── Fyra kolumner, matchat mot appens faktiska huvudsektioner (se globala
@@ -42,28 +47,23 @@ const COMPANY_TYPES = [
 // istället för samma enfärgade gröna chip fyra gånger. ──
 const FEATURE_COLUMNS = [
   {
-    art: IllBokforing, title: 'Bokföring', g: ACCENT.green,
-    desc: 'Verifikationer bokförs automatiskt utifrån dina kvitton och fakturor, med en tydlig kontoplan och en egen Granskning för det som behöver ses över manuellt.',
+    demo: DemoBokforing, title: 'Bokföring', g: ACCENT.green,
+    desc: 'Kvitton och fakturor blir verifikationer av sig själva. Det osäkra hamnar i Granskning i stället för att gissas.',
   },
   {
-    art: IllFakturering, title: 'Fakturering', g: ACCENT.blue,
-    desc: 'Skapa kundfakturor med den fakturamall som passar ditt varumärke, registrera leverantörsfakturor och ta emot kortbetalningar direkt via Stripe.',
+    demo: DemoFakturering, title: 'Fakturering', g: ACCENT.blue,
+    desc: 'Fyra mallar, din logotyp, kortbetalning via Stripe.',
   },
   {
-    art: IllSkatt, title: 'Skatt och bokslut', g: ACCENT.red,
-    desc: 'Momsdeklaration, AGI- och kontrolluppgiftssammanställningar samt ett bokslutsflöde som låser räkenskapsåret, redo att lämna till Skatteverket.',
+    demo: DemoSkatt, title: 'Skatt och bokslut', g: ACCENT.red,
+    desc: 'Moms, AGI och ett bokslut som låser året.',
   },
   {
-    art: IllPersonal, title: 'Personal', g: ACCENT.green,
-    desc: 'Lönekörningar med automatiskt skatteavdrag enligt Skatteverkets skattetabeller, lönebesked och en riktig betalfil (ISO 20022) till banken, klar att ladda upp utan manuella summeringar.',
+    demo: DemoPersonal, title: 'Personal', g: ACCENT.green,
+    desc: 'Rätt skatteavdrag, lönebesked och betalfil till banken.',
   },
 ];
 
-const ONBOARDING_STEPS = [
-  { n: '1', icon: UserPlus, title: 'Skapa ditt konto', desc: 'Ange företagsnamn och organisationsnummer. Bokix känner själv igen om det är en enskild firma, ett aktiebolag eller en annan bolagsform.', g: ACCENT.blue },
-  { n: '2', icon: Building2, title: 'Fyll i företagsuppgifter', desc: 'Adress, räkenskapsår, momsperiod och kontoplan (BAS), klart på ett par minuter med rimliga förval redan ifyllda.', g: ACCENT.teal },
-  { n: '3', icon: Send, title: 'Kom igång med fakturering', desc: 'Skicka din första kundfaktura eller registrera ett kvitto. Du landar direkt i en fungerande bokföring, inte en tom sida.', g: ACCENT.green },
-];
 
 // Prisdata delad med PricingPage.jsx (se pricingTiers.js för resonemanget
 // kring axeln/priset/den korrigerade "ingen bankkoppling"-texten) — en
@@ -145,7 +145,10 @@ const CONNECTION_POS = [
 // kvadrat (Stripe-ikonen) på exakt samma pixelhöjd. Värdena är alltså
 // balanserade mot varandra, inte satta till samma tal.
 const TRUST_POINTS = [
-  { icon: Gavel, label: 'Byggt efter svensk bokföringslag' },
+  // Ritad flaggbricka, inte en myndighetslogotyp — se BrandLogos.jsx.
+  // Här satt först en klubba ur ett ikonbibliotek (en domstolssymbol, inte
+  // en bokföringssymbol) och sedan ingenting alls.
+  { logo: BokforingslagLogo, logoHeight: 46, label: 'Byggt efter svensk bokföringslag' },
   { logo: GdprLogo, logoHeight: 56, label: 'GDPR' },
   // Kundönskemål: Stripe-ikonet HÄR, inte ordmärket — StripeIconLogo, INTE
   // StripeLogo (den senare används bara i "Kopplat till"-diagrammet
@@ -155,49 +158,28 @@ const TRUST_POINTS = [
 ];
 
 
-// ── Kundönskemål: "sluta jämföra oss mot konkurrenter — förklara vad man
-// FÅR av att använda tjänsten, inte varför vi är bättre." En "vi vs dem"-
-// tabell läser lätt som "nystartat bolag som behöver övertyga dig om att
-// det är bättre än det etablerade alternativet", precis tvärtom mot vad
-// den skulle uppnå. Sex konkreta saker man faktiskt får (kundens egna
-// ord, lätt förkortade till rubrik+text) istället — ingen jämförelse mot
-// kalkylark/byrå alls längre. ──
-const BENEFIT_ITEMS = [
-  {
-    icon: Workflow, accent: ACCENT.blue,
-    title: 'Bokföring som sköter sig själv',
-    desc: 'Automatisk BAS-kategorisering och färdiga rapporter, direkt från dina kvitton och fakturor.',
-  },
-  {
-    icon: FileBarChart, accent: ACCENT.teal,
-    title: 'Rapporter när du behöver dem',
-    desc: 'Momsrapporter, resultat- och balansräkning på begäran, med påminnelser baserade på din omsättning och bokslutsperiod.',
-  },
-  {
-    icon: Eye, accent: ACCENT.green,
-    title: 'Full insyn, i realtid',
-    desc: 'Se exakt hur varje verifikation och bokföringsrad påverkar resultat och balans, direkt när den bokförs.',
-  },
-  {
-    icon: CreditCard, accent: ACCENT.blue,
-    title: 'Betalningar med din egen branding',
-    desc: 'Kortbetalningar direkt på fakturan, i ditt eget utseende och din egen logga.',
-  },
-  {
-    icon: TrendingUp, accent: ACCENT.teal,
-    title: 'Mindre fel, mer tid',
-    desc: 'Spara tid, minska fel och få insikter som faktiskt hjälper företaget växa.',
-  },
-  {
-    // Kundönskemål ("ser AI ut") — Sparkles ("magisk AI"-ikonen praktiskt
-    // taget varenda genererad SaaS-sida använder för "smart") bytt mot Cog,
-    // en mekanism/motor — matchar "robust bokföringslogik" bättre än en
-    // glittrig stjärna.
-    icon: Cog, accent: ACCENT.green,
-    title: 'Byggt för att alltid bli rätt',
-    desc: 'Ett smartare system som automatiserar mer, byggt på Sveriges mest robusta bokföringslogik.',
-  },
-];
+// ── Sex delar av verktyget, med var sin rörelse ─────────────────────────
+// Här stod tidigare sex LÖFTEN: "Mindre fel, mer tid", "Full insyn, i
+// realtid", "Byggt för att alltid bli rätt". Kundens invändning i sak: de
+// säger ingenting. Och det sista påstod dessutom "Sveriges mest robusta
+// bokföringslogik" — ett superlativ vi inte kan belägga, alltså precis
+// den sorts mening sajten i övrigt vägrar skriva.
+//
+// Nu är det sex namngivna delar av appen i stället, var och en med samma
+// motiv som /funktioner använder (toolMotifs.jsx) — en rörelse som visar
+// vad delen gör, och en rad text. Delade motiv betyder också att sidorna
+// inte kan glida isär: ändrar man bilden ändras den på båda ställena.
+//
+// Banken har en egen sektion längre ner på sidan och är därför inte med
+// här — den skulle bli en dubblett två skärmar isär.
+const TOOL_ITEMS = [
+  { motif: 'kvitton', title: 'Utgifter och kvitton', desc: 'Underlaget sitter kvar på verifikationen.' },
+  { motif: 'offerter', title: 'Offerter', desc: 'Blir faktura med ett klick när kunden tackat ja.' },
+  { motif: 'projekt', title: 'Projekt', desc: 'Se vilket uppdrag som faktiskt bär sig.' },
+  { motif: 'kunder', title: 'Kunder och kontakter', desc: 'Fylls i från organisationsnumret.' },
+  { motif: 'rapporter', title: 'Rapport och analys', desc: 'Resultat, balans, kassaflöde, huvudbok, nyckeltal.' },
+  { motif: 'konto', title: 'Konto och behörighet', desc: 'Tvåfaktor, tre användare, flera företag.' },
+];;
 
 // Kundönskemål ("en färg, inte olika") — FAQ-raderna cyklade tidigare
 // grönt/blått/turkos/rött (g-fältet per rad). En enda genomgående accent
@@ -224,6 +206,10 @@ const FAQ_ITEMS = [
 // FAQPage-schema byggt direkt av FAQ_ITEMS ovan — samma frågor/svar som
 // faktiskt visas i FAQ-sektionen, aldrig en egen dubblettlista som kan
 // glida isär från vad besökaren ser (samma mönster som PricingPage.jsx).
+// Var listan delas i två spalter på breda skärmar. Udda antal hamnar i
+// den vänstra, som läses först.
+const FAQ_SPLIT = Math.ceil(FAQ_ITEMS.length / 2);
+
 const FAQ_SCHEMA = {
   '@context': 'https://schema.org',
   '@type': 'FAQPage',
@@ -390,6 +376,9 @@ export default function LandingPage({ onEnterApp }) {
       />
       <JsonLd data={SOFTWARE_SCHEMA} />
       <JsonLd data={FAQ_SCHEMA} />
+      <ToolMotifStyles />
+      <FeatureDemoStyles />
+
       {/* ── HERO — levande gradientklot i loggans/Startsidans egna färger
           bakom en fetstilt rubrik, inget stillastående platt fält. ── */}
       <section style={{ display: 'flex', alignItems: 'center', background: 'var(--mkt-ivory)', position: 'relative', overflow: 'hidden', paddingTop: '140px', paddingBottom: '72px' }}>
@@ -400,7 +389,12 @@ export default function LandingPage({ onEnterApp }) {
         <CloudShaderBackground style={{ position: 'absolute', inset: 0, minHeight: 0 }} />
         <div aria-hidden className="lp-blob" style={{ position: 'absolute', top: '-160px', left: '-120px', width: '440px', height: '440px', borderRadius: '50%', background: grad(GRAD.blueTeal), opacity: 0.16, filter: 'blur(60px)', pointerEvents: 'none' }} />
         <div aria-hidden className="lp-blob lp-blob-slow" style={{ position: 'absolute', top: '-100px', right: '-140px', width: '480px', height: '480px', borderRadius: '50%', background: grad(GRAD.green), opacity: 0.16, filter: 'blur(70px)', pointerEvents: 'none' }} />
-        <div aria-hidden className="lp-blob lp-blob-slower" style={{ position: 'absolute', bottom: '-180px', left: '30%', width: '420px', height: '420px', borderRadius: '50%', background: grad(GRAD.pink), opacity: 0.1, filter: 'blur(70px)', pointerEvents: 'none' }} />
+        {/* Kundönskemål: bort med den röda tonen i Hero. Här låg ett
+            tredje klot i GRAD.pink (Dashboards kostnadsgradient) — det
+            syntes som ett rödrosa skimmer längst ner i hjälten, och rött
+            är dessutom reserverat för kostnads-/varningsinnehåll på resten
+            av sajten (se GRAD-kommentaren i aurora.jsx). Hjälten har nu
+            bara loggans egna blå/turkos och grönt. */}
 
         <div style={{ maxWidth: '900px', margin: '0 auto', padding: '0 24px', textAlign: 'center', position: 'relative' }}>
           <h1 className="lp-fadeinup" style={{ fontFamily: 'Georgia, "Times New Roman", serif', fontSize: 'clamp(36px, 7vw, 84px)', fontWeight: 700, lineHeight: 1.1, letterSpacing: '-0.01em', color: 'var(--mkt-ink)', marginBottom: '26px' }}>
@@ -427,16 +421,16 @@ export default function LandingPage({ onEnterApp }) {
 
       {/* ── FUNKTIONSÖVERSIKT — flyttad upp direkt efter nyckeltalen (annan
           ordning än tidigare), varje kort med egen gradient-ikonchip. ── */}
-      <section id="funktioner-teaser" style={{ padding: '76px 24px', background: 'var(--mkt-card-bg)', borderTop: '1px solid var(--mkt-border-soft)', position: 'relative', overflow: 'hidden' }}>
+      <section id="funktioner-teaser" style={{ padding: '84px 24px', background: 'var(--mkt-card-bg)', borderTop: '1px solid var(--mkt-border-soft)', borderBottom: '1px solid var(--mkt-border-soft)', position: 'relative', overflow: 'hidden' }}>
         {/* Kolumnräkneark-radband (kundönskemål: "cool", inte generisk) —
             en riktig bokföringsdetalj, reserverad för den här sektionen och
             jämförelsetabellen längre ner eftersom innehållet faktiskt
             HANDLAR om bokföring/tabelldata. */}
+        {/* Räkenskapslinjerna kvar, aurora-klotet borta: sektionen ska
+            vara REN VIT (kundönskemål). De tonade kloten gjorde den
+            gulgrön i kanterna, vilket är precis den färg elfenbens-
+            sektionerna redan har — och då syntes inte skiftet mellan dem. */}
         <div aria-hidden className="lp-ledger-lines" />
-        <AuroraLayer
-          stops={[['rgba(14,165,233,0.20)', '4% -4%'], ['rgba(132,204,22,0.16)', '98% 104%']]}
-          blob={{ gradient: grad(GRAD.green), top: 'auto', bottom: '-180px', right: '-140px', left: 'auto', size: '480px', opacity: 0.22 }}
-        />
         {/* Kundönskemål: en FAST maxWidth ("gör den bredare") löser bara
             problemet vid EN specifik fönsterbredd — bredare än det ser det
             fortfarande tomt ut, smalare än det klipps det i onödan.
@@ -472,8 +466,8 @@ export default function LandingPage({ onEnterApp }) {
                       skärmar — en 300px-bred bild i ett 1600px-brett kort
                       lämnade orimligt mycket tom yta runt en kort
                       textrad). */}
-                  <div style={{ background: f.g.soft, width: 'min(400px, 40%)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-                    <f.art accent={f.g} />
+                  <div style={{ background: f.g.soft, width: 'min(420px, 42%)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'clamp(20px, 3vw, 32px)' }}>
+                    <f.demo />
                   </div>
                   <div style={{ padding: '36px 40px 36px 34px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                     <h3 style={{ fontSize: '25px', fontWeight: 700, color: 'var(--mkt-ink)', marginBottom: '10px' }}>{f.title}</h3>
@@ -486,8 +480,11 @@ export default function LandingPage({ onEnterApp }) {
                   className="lp-lux-card"
                   style={{ background: 'var(--mkt-card-bg)', border: '1px solid var(--mkt-card-border)', borderRadius: '18px', overflow: 'hidden', boxShadow: '0 14px 30px -20px rgba(28,36,32,0.26)' }}
                 >
-                  <div style={{ background: f.g.soft, height: '188px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '10px' }}>
-                    <f.art accent={f.g} />
+                  {/* Fast höjd, inte minHeight: de tre demona är olika
+                      höga (fyra momsrutor mot tre lönerader), och utan ett
+                      tak hamnade rubrikerna på olika nivå i de tre korten. */}
+                  <div style={{ background: f.g.soft, height: '218px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '22px' }}>
+                    <f.demo />
                   </div>
                   <div style={{ padding: '26px 26px 30px' }}>
                     <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--mkt-ink)', marginBottom: '9px' }}>{f.title}</h3>
@@ -511,12 +508,13 @@ export default function LandingPage({ onEnterApp }) {
           MarketingLayout.jsx). Listan dubblerad exakt en gång (inte fler)
           — -50% translateX landar prickar på var kopia 2 börjar, sömlöst.
           Pausar vid hover/tangentbordsfokus så den går att läsa. ── */}
-      <section style={{ padding: '64px 24px', background: IVORY, borderBottom: `1px solid ${CARD_BORDER}`, position: 'relative', overflow: 'hidden' }}>
-        <AuroraLayer
-          stops={[['rgba(14,165,233,0.16)', '2% 110%'], ['rgba(20,184,166,0.16)', '98% -10%']]}
-          blob={{ gradient: grad(GRAD.blueTeal), top: '-150px', left: '-110px', size: '420px', opacity: 0.2, slow: true }}
-        />
-        <Reveal style={{ maxWidth: '1080px', margin: '0 auto', textAlign: 'center', position: 'relative' }}>
+      {/* Ren vit yta: här låg tidigare två tonade aurora-klot OCH en 160px
+          hög blå vågdelare direkt under. Två färgeffekter i rad kring en rad
+          som bara räknar upp bolagsformer — raden är innehållet, resten var
+          dekor som konkurrerade med den. Hårfina linjer skiljer sektionerna
+          åt i stället. */}
+      <section style={{ padding: '64px 24px 72px', background: IVORY, borderBottom: `1px solid var(--mkt-border-soft)`, position: 'relative', overflow: 'hidden' }}>
+        <Reveal style={{ maxWidth: 'min(92vw, 1240px)', margin: '0 auto', textAlign: 'center', position: 'relative' }}>
           <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(22px, 3vw, 28px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '28px' }}>
             Oavsett vad Bolagsverket kallar dig
           </h2>
@@ -527,11 +525,12 @@ export default function LandingPage({ onEnterApp }) {
               COMPANY_TYPES.map((t, i) => {
                 const accent = ACCENT_CYCLE[i % 3];
                 return (
-                  <div key={`${t.label}-${copy}`} aria-hidden={copy > 0} className="lp-lux-card lp-marquee-badge" style={{ display: 'flex', alignItems: 'center', gap: '9px', padding: '8px 16px 8px 8px', background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '100px', whiteSpace: 'nowrap' }}>
-                    <div className="lp-marquee-badge-icon" style={{ width: 26, height: 26, borderRadius: '50%', background: accent.fg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <t.icon size={13} color="white" />
-                    </div>
-                    <span className="lp-marquee-badge-label" style={{ fontSize: '13.5px', fontWeight: 600, color: INK_SOFT }}>{t.label}</span>
+                  <div key={`${t.label}-${copy}`} aria-hidden={copy > 0} className="lp-lux-card lp-marquee-badge" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 20px', background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '100px', whiteSpace: 'nowrap' }}>
+                    {/* En liten prick i accentfärgen i stället för en ikon:
+                        den håller kvar färgrytmen i raden utan att påstå att
+                        en symbol betyder "handelsbolag". */}
+                    <span aria-hidden style={{ width: 7, height: 7, borderRadius: '50%', background: accent.fg, flexShrink: 0 }} />
+                    <span className="lp-marquee-badge-label" style={{ fontSize: '14px', fontWeight: 600, color: INK_SOFT }}>{t.label}</span>
                   </div>
                 );
               })
@@ -540,64 +539,37 @@ export default function LandingPage({ onEnterApp }) {
         </Reveal>
       </section>
 
-      {/* ── BLÅ VÅGDELARE — ren visuell paus mellan bolagsformsraden
-          och "Det här får du", loggans egen blå→turkos-gradient som två
-          lagrade vågor istället för en hård sektionskant. ── */}
-      <section aria-hidden style={{ position: 'relative', overflow: 'hidden', background: 'var(--mkt-ivory)', height: '160px' }}>
-        <svg viewBox="0 0 1440 200" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
-          <defs>
-            <linearGradient id="lp-wave-grad" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor="#0ea5e9" />
-              <stop offset="100%" stopColor="#14b8a6" />
-            </linearGradient>
-          </defs>
-          <path d="M0,90 C160,40 320,140 480,90 C640,40 800,140 960,90 C1120,40 1280,140 1440,90 L1440,200 L0,200 Z" fill="url(#lp-wave-grad)" opacity="0.18" />
-          <path className="lp-wave-front" d="M0,130 C160,180 320,80 480,130 C640,180 800,80 960,130 C1120,180 1280,80 1440,130 L1440,200 L0,200 Z" fill="url(#lp-wave-grad)" opacity="0.34" />
-        </svg>
-      </section>
-
       {/* ── DET HÄR FÅR DU — kundönskemål: sluta jämföra mot konkurrenter,
           förklara vad man FÅR istället (se BENEFIT_ITEMS-kommentaren högst
           upp för resonemanget). Sex kort i samma lp-lux-card-språk som
           resten av sidan, ingen "vi vs dem"-tabell längre. ── */}
-      <section style={{ padding: '76px 24px', background: 'var(--mkt-card-bg)', position: 'relative', overflow: 'hidden' }}>
+      {/* Egen yta, men i tema-tokens: varm elfenbensbotten med sajtens
+          räkenskapslinjer, en gradientrand överst och ett mjukt ljus i
+          hörnen. Här låg ett fast mörkgrönt band ett tag — det såg likadant
+          ut i ljust och mörkt läge, och kundkravet är att sektionen ska vara
+          genomarbetad i BÅDA teman, inte identisk i båda. */}
+      <section style={{ padding: '84px 24px 92px', background: 'var(--mkt-section-mint)', position: 'relative', overflow: 'hidden' }}>
+        <div aria-hidden style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', backgroundImage: 'linear-gradient(90deg, #0ea5e9, #14b8a6, #84cc16)', opacity: 0.85 }} />
         <div aria-hidden className="lp-ledger-lines" />
-        <AuroraLayer
-          stops={[['rgba(20,184,166,0.18)', '2% -6%'], ['rgba(132,204,22,0.16)', '100% 108%']]}
-          blob={{ gradient: grad(GRAD.tealLime), top: '-140px', bottom: 'auto', right: '-100px', left: 'auto', size: '460px', opacity: 0.2 }}
-        />
         <div style={{ maxWidth: 'min(92vw, 1600px)', margin: '0 auto', position: 'relative' }}>
           <Reveal style={{ textAlign: 'center', marginBottom: '48px' }}>
             <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(24px, 3.5vw, 38px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '14px' }}>
               Det här får du med Bokix
             </h2>
             <p style={{ fontSize: '17px', color: MUTED, maxWidth: '600px', margin: '0 auto', lineHeight: 1.6 }}>
-              Sex saker som faktiskt märks i vardagen, inte funktioner för funktionernas skull.
+              Sex delar av verktyget. Allt ingår, inget kostar extra.
             </p>
           </Reveal>
 
           {/* minmax-golvet höjt (300→400px) i takt med den bredare
               behållaren ovan — annars bryter auto-fit till 4-5 kolumner på
               breda skärmar och lämnar sex kort som 4+2 istället för 3+3. */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '22px' }}>
-            {BENEFIT_ITEMS.map((b, i) => (
-              <Reveal key={b.title} delay={i * 70} className="lp-lux-card" style={{ background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '18px', padding: '30px 28px', boxShadow: '0 14px 30px -22px rgba(28,36,32,0.26)' }}>
-                {b.logo ? (
-                  // Kundönskemål ("riktig logga istället för en ikon som
-                  // inte säger något") — Stripes eget ordmärke istället för
-                  // en generisk CreditCard-ikon. Auto-bred pill (ordmärket
-                  // är bredare än det är högt), samma 50px höjd som de
-                  // andra korten för att fortfarande rada upp snyggt.
-                  <div style={{ height: 50, padding: '0 16px', borderRadius: '14px', background: b.accent.soft, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: '18px' }}>
-                    <b.logo height={22} />
-                  </div>
-                ) : (
-                  <div style={{ width: 50, height: 50, borderRadius: '14px', background: b.accent.soft, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '18px' }}>
-                    <b.icon size={24} color={b.accent.fg} />
-                  </div>
-                )}
-                <h3 style={{ fontSize: '17.5px', fontWeight: 700, color: INK, marginBottom: '9px' }}>{b.title}</h3>
-                <p style={{ fontSize: '14.5px', color: MUTED, lineHeight: 1.65 }}>{b.desc}</p>
+          <div className="bx-tool-grid bx-tool-grid-3" style={{ maxWidth: 'min(92vw, 1320px)', margin: '0 auto' }}>
+            {TOOL_ITEMS.map((b, i) => (
+              <Reveal key={b.title} delay={i * 70} className="lp-lux-card" style={{ background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '18px', padding: '20px 22px 24px', boxShadow: '0 18px 38px -26px rgba(28,36,32,0.4)' }}>
+                <ToolMotif kind={b.motif} />
+                <h3 style={{ fontSize: '16.5px', fontWeight: 700, color: INK, marginBottom: '7px' }}>{b.title}</h3>
+                <p style={{ fontSize: '14px', color: MUTED, lineHeight: 1.6, margin: 0 }}>{b.desc}</p>
               </Reveal>
             ))}
           </div>
@@ -611,9 +583,8 @@ export default function LandingPage({ onEnterApp }) {
           etablerat (se kommentaren där). Badgearna fick också en lugnare
           yta (kundönskemål: "mindre tjock bakgrund") — mjuk, ljus
           tonad cirkel + accentfärgad ikon istället för en solid, mättad
-          cirkel med vit ikon (samma "mjukare"-princip som BENEFIT_ITEMS-
-          korten ovan använder). ── */}
-      <section style={{ padding: '48px 0 60px', background: IVORY, position: 'relative', overflow: 'hidden' }}>
+          cirkel med vit ikon. ── */}
+      <section style={{ padding: '48px 0 60px', background: IVORY, borderTop: '1px solid var(--mkt-border-soft)', position: 'relative', overflow: 'hidden' }}>
         <div aria-hidden style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', width: 'min(420px, 70%)', height: '2px', opacity: 0.5, background: `linear-gradient(90deg, transparent, ${ACCENT.green.fg}, ${ACCENT.blue.fg}, ${ACCENT.teal.fg}, transparent)` }} />
         <Reveal scale className="lp-marquee" tabIndex={0} aria-label="Bokix i korthet">
           <div className="lp-marquee-track">
@@ -633,9 +604,9 @@ export default function LandingPage({ onEnterApp }) {
                         <t.logo height={t.logoHeight || 28} />
                       </div>
                     ) : (
-                      <div style={{ width: 72, height: 72, borderRadius: '50%', background: accent.soft, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <t.icon size={31} color={accent.fg} strokeWidth={1.75} />
-                      </div>
+                      // Alla fyra raderna har ett märke numera. Grenen står
+                      // kvar som skydd om någon lägger till en rad utan.
+                      <span aria-hidden style={{ width: 14, flexShrink: 0 }} />
                     )}
                     <span style={{ fontSize: '15px', fontWeight: 700, color: INK_SOFT }}>{t.label}</span>
                   </div>
@@ -742,7 +713,7 @@ export default function LandingPage({ onEnterApp }) {
               return (
                 <div key={c.key} style={{ position: 'absolute', left: `${(p.x / 800) * 100}%`, top: `${(p.y / 300) * 100}%`, transform: 'translate(-50%, -50%)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'clamp(6px, 2vw, 12px)', width: 'clamp(60px, 17vw, 170px)', zIndex: 2 }}>
                   <div style={{ width: 'clamp(56px, 18vw, 130px)', height: 'clamp(56px, 18vw, 130px)', borderRadius: '50%', background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, boxShadow: '0 14px 28px -14px rgba(28,36,32,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
-                    {c.kind === 'logo' ? <c.Logo height={c.logoHeight} /> : <c.icon size={42} color={BRAND.green} />}
+                    <c.Logo height={c.logoHeight} />
                   </div>
                   <span style={{ fontSize: 'clamp(10px, 2.8vw, 16px)', fontWeight: 600, color: MUTED, textAlign: 'center', lineHeight: 1.35 }}>{c.label}</span>
                 </div>
@@ -752,46 +723,46 @@ export default function LandingPage({ onEnterApp }) {
         </div>
       </section>
 
-      {/* ── ONBOARDING I TRE STEG — kundönskemål ("gör den snyggare"):
-          samma kopplad-pipeline-idé (ikonnod → rörlig linje → ikonnod) som
-          leverantörsfaktura-flödet längre upp, inte en vertikal numrerad
-          lista längre. .lp-step-flow/.lp-step-connector i
-          MarketingLayout.jsx — egna, smalare klasser (ingen skärmdump att
-          rymma här, det här ÄR signup-flödet). ── */}
-      <section style={{ padding: '76px 24px', background: 'var(--mkt-card-bg)', position: 'relative', overflow: 'hidden' }}>
-        <AuroraLayer
-          stops={[['rgba(14,165,233,0.18)', '2% -6%'], ['rgba(47,138,58,0.14)', '98% 106%']]}
-          blob={{ gradient: grad(GRAD.blueTeal), top: '-150px', left: '-110px', size: '440px', opacity: 0.2 }}
-        />
-        <div style={{ maxWidth: 'min(90vw, 1300px)', margin: '0 auto', position: 'relative' }}>
-          <Reveal style={{ textAlign: 'center', marginBottom: '48px' }}>
+      {/* ── BANKEN (kundönskemål: "en sektion om hur man kopplar sin bank,
+          med bankernas loggor och en cool animation") — placerad direkt
+          efter "Kopplat till", eftersom den besvarar den naturliga
+          följdfrågan på det diagrammet: "okej, men hur kommer mina
+          BANKrader in?". Animationen bor i marketing/BankFlow.jsx, delad
+          med hjälten på /koppla-bank; sektionen här är bara ram, rubrik
+          och vägen vidare — exakt samma arbetsdelning som bytessektionen
+          längre ner har mot MigrationFlow.jsx.
+          Ivory mot kortbakgrunden i sektionerna före och efter, så de tre
+          flödesanimationerna på sidan inte flyter ihop till ett enda långt
+          fält. ── */}
+      <section style={{ padding: '76px 24px', background: IVORY, borderTop: '1px solid var(--mkt-border-soft)', borderBottom: '1px solid var(--mkt-border-soft)', position: 'relative', overflow: 'hidden' }}>
+        <div style={{ maxWidth: 'min(92vw, 1240px)', margin: '0 auto', position: 'relative' }}>
+          <Reveal style={{ textAlign: 'center', marginBottom: '38px' }}>
             <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(26px, 4vw, 38px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '12px' }}>
-              Igång på tre steg
+              Banken in i bokföringen
             </h2>
-            <p style={{ fontSize: '16.5px', color: MUTED }}>Ingen krånglig uppsättning, bara det som faktiskt behövs.</p>
+            {/* Formuleringen är avsiktligt exakt: kontoutdraget är en FIL
+                du exporterar, inte en direktkoppling mot banken (se
+                filkommentaren i bankSources.js — sajten får aldrig antyda
+                en funktion som inte finns). */}
+            <p style={{ fontSize: '16.5px', color: MUTED, lineHeight: 1.65, maxWidth: '620px', margin: '0 auto' }}>
+              Exportera kontoutdraget ur din internetbank och läs in det i Bokix. Inbetalningar matchas mot dina obetalda fakturor, utbetalningar mot leverantörsfakturorna — och du lämnar aldrig ut någon bankinloggning.
+            </p>
           </Reveal>
 
-          {/* Kundönskemål ("gör den större så det är mindre space") — noden/
-              ikonen/texten storleksökta rejält (64→84px cirkel, 280→340px
-              nod i MarketingLayout.jsx) så tre enkla ikon+text-block fyller
-              den breda raden lika bra som skärmdump-korten i leverantörs-
-              faktura-flödet gör längre upp. */}
-          <Reveal scale className="lp-step-flow">
-            {ONBOARDING_STEPS.map((step, i, arr) => (
-              <React.Fragment key={step.n}>
-                <div className="lp-step-node">
-                  <div style={{ width: 84, height: 84, borderRadius: '50%', background: step.g.fg, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 12px 26px -10px ${step.g.fg}`, marginBottom: '20px', flexShrink: 0, position: 'relative' }}>
-                    <step.icon size={36} />
-                    <span style={{ position: 'absolute', top: -5, right: -5, width: 27, height: 27, borderRadius: '50%', background: 'var(--mkt-card-bg)', border: `2px solid ${step.g.fg}`, color: step.g.fg, fontSize: '13px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{step.n}</span>
-                  </div>
-                  <h3 style={{ fontSize: '19px', fontWeight: 700, color: INK, marginBottom: '9px' }}>{step.title}</h3>
-                  <p style={{ fontSize: '15px', color: MUTED, lineHeight: 1.65 }}>{step.desc}</p>
-                </div>
-                {i < arr.length - 1 && (
-                  <div aria-hidden className="lp-step-connector lp-flow-connector" style={{ backgroundImage: `linear-gradient(90deg, ${step.g.fg}, ${arr[i + 1].g.fg}, ${step.g.fg})` }} />
-                )}
-              </React.Fragment>
-            ))}
+          <Reveal scale delay={80}>
+            {/* Utan "Annan bank"-brickan i loggväggen: den bor på
+                /koppla-bank, där frågan "min bank saknas" faktiskt ska
+                besvaras. Här räcker noten under väggen. */}
+            <BankFlow otherTile={false} />
+          </Reveal>
+
+          <Reveal delay={140} style={{ textAlign: 'center', marginTop: '30px' }}>
+            <Link
+              to="/koppla-bank"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '13px 24px', background: 'var(--mkt-card-bg)', border: `1.5px solid ${CARD_BORDER}`, borderRadius: '12px', color: INK_SOFT, fontWeight: 700, fontSize: '15px', textDecoration: 'none' }}
+            >
+              Se hur bankimporten fungerar <ArrowRight size={15} />
+            </Link>
           </Reveal>
         </div>
       </section>
@@ -806,12 +777,8 @@ export default function LandingPage({ onEnterApp }) {
           vägen vidare. Ivory mot kortbakgrunden i sektionen ovanför, och
           en tunn underkant mot prissektionen (som också är ivory) så
           skarven syns. ── */}
-      <section style={{ padding: '76px 24px', background: IVORY, borderBottom: `1px solid var(--mkt-border-soft)`, position: 'relative', overflow: 'hidden' }}>
-        <AuroraLayer
-          stops={[['rgba(14,165,233,0.16)', '4% 0%'], ['rgba(47,138,58,0.14)', '96% 100%']]}
-          blob={{ gradient: grad(GRAD.blueTeal), top: '-140px', right: '-90px', size: '400px', opacity: 0.18 }}
-        />
-        <div style={{ maxWidth: '860px', margin: '0 auto', position: 'relative' }}>
+      <section style={{ padding: '76px 24px', background: 'var(--mkt-card-bg)', borderBottom: `1px solid var(--mkt-border-soft)`, position: 'relative', overflow: 'hidden' }}>
+        <div style={{ maxWidth: 'min(92vw, 1180px)', margin: '0 auto', position: 'relative' }}>
           <Reveal style={{ textAlign: 'center', marginBottom: '38px' }}>
             <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(26px, 4vw, 38px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '12px' }}>
               Ta med dig bokföringen hit
@@ -852,10 +819,7 @@ export default function LandingPage({ onEnterApp }) {
           olika listlängd, och den dyrare nivån ("featured") får mer luft/
           större typsnitt för att kännas som "mer" utan att bli högre än
           sin granne. ── */}
-      <section style={{ padding: '76px 24px', background: 'var(--mkt-ivory)', position: 'relative', overflow: 'hidden' }}>
-        <div aria-hidden style={{ position: 'absolute', inset: 0, pointerEvents: 'none', backgroundImage: "radial-gradient(680px circle at 6% 4%, rgba(14,165,233,0.18), transparent 62%), radial-gradient(680px circle at 94% 96%, rgba(47,138,58,0.16), transparent 62%)" }} />
-        <div aria-hidden className="lp-blob lp-blob-slow" style={{ position: 'absolute', top: '8%', left: '6%', width: '420px', height: '420px', borderRadius: '50%', background: grad(GRAD.blueTeal), opacity: 0.22, filter: 'blur(90px)', pointerEvents: 'none' }} />
-        <div aria-hidden className="lp-blob lp-blob-slower" style={{ position: 'absolute', bottom: '4%', right: '6%', width: '420px', height: '420px', borderRadius: '50%', background: grad(GRAD.green), opacity: 0.2, filter: 'blur(90px)', pointerEvents: 'none' }} />
+      <section style={{ padding: '84px 24px', background: 'var(--mkt-section-blue)', borderTop: '1px solid var(--mkt-border-soft)', borderBottom: '1px solid var(--mkt-border-soft)', position: 'relative', overflow: 'hidden' }}>
 
         <Reveal style={{ textAlign: 'center', marginBottom: '44px', position: 'relative' }}>
           <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(26px, 4vw, 38px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '12px' }}>
@@ -1009,18 +973,51 @@ export default function LandingPage({ onEnterApp }) {
         </Reveal>
       </section>
 
+      {/* ── UF-FÖRETAG (kundönskemål: "en UF-sektion") — står direkt efter
+          priserna med flit: den svarar på invändningen som uppstår i
+          exakt det ögonblicket ("129 kr i månaden har vi inte") för den
+          enda grupp som har ett annat erbjudande. Hela produkten är också
+          en annan för dem, se utils/ufMode.js — sektionen säljer alltså
+          inte samma sak billigare, den pekar på en egen sida.
+          Siffrorna kommer ur ufMode.js, aldrig ur en handskriven text
+          här: startsidan och /uf får inte kunna lova olika saker. ── */}
+      <section style={{ padding: '68px 24px', background: 'var(--mkt-card-bg)', borderTop: '1px solid var(--mkt-border-soft)', position: 'relative', overflow: 'hidden' }}>
+        <Reveal style={{ maxWidth: '760px', margin: '0 auto', textAlign: 'center', position: 'relative' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '6px 14px', borderRadius: '999px', background: 'var(--mkt-accent-green-soft)', color: BRAND.greenDark, fontSize: '12px', fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: '18px' }}>
+            <GraduationCap size={14} /> För UF-företag
+          </span>
+          <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(24px, 3.6vw, 36px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '14px' }}>
+            Driver ni ett UF-företag? Då är det gratis.
+          </h2>
+          <p style={{ fontSize: '16.5px', color: MUTED, lineHeight: 1.7, maxWidth: '620px', margin: '0 auto 24px' }}>
+            Gratis i {UF_FREE_MONTHS} månader, inget organisationsnummer och inga betaluppgifter. Ni får fakturering, kvitton, bokföring enligt BAS-kontoplanen och ett årsbokslut — men slipper offerter, projekt och löner som ett UF-år ändå aldrig innehåller.
+          </p>
+
+          <div style={{ display: 'flex', gap: '9px', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '26px' }}>
+            {UF_NAV_IDS.filter(id => id !== 'settings' && id !== 'review').map(id => (
+              <span key={id} style={{ padding: '7px 13px', borderRadius: '999px', background: 'var(--mkt-ivory)', border: `1px solid ${CARD_BORDER}`, fontSize: '13px', fontWeight: 600, color: INK_SOFT }}>
+                {UF_NAV_LABELS[id]}
+              </span>
+            ))}
+          </div>
+
+          <Link
+            to="/uf"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '14px 28px', background: BRAND.green, border: 'none', borderRadius: '12px', color: 'white', fontWeight: 700, fontSize: '15.5px', textDecoration: 'none' }}
+          >
+            Läs mer om Bokix för UF <ArrowRight size={16} />
+          </Link>
+        </Reveal>
+      </section>
+
       {/* ── FAQ ── */}
       <section style={{ padding: '76px 24px', background: IVORY, position: 'relative', overflow: 'hidden' }}>
-        <AuroraLayer
-          stops={[['rgba(132,204,22,0.14)', '2% 108%'], ['rgba(14,165,233,0.14)', '98% -8%']]}
-          blob={{ gradient: grad(GRAD.limeGreen), bottom: '-150px', top: 'auto', right: '-110px', left: 'auto', size: '400px', opacity: 0.16, slow: true }}
-        />
         {/* En FAQ-lista breddad till 1300px hade blivit löjligt gles
             (fråga vänsterjusterad, chevron ute vid högerkanten, hav av
             tomt mellanrum) — accordions är en läslista, hålls kompakta men
             fluid (min(vw,px)) så den ändå andas mer på ett halv-skärms-
             fönster än den tidigare fasta 760px gjorde. */}
-        <div style={{ maxWidth: 'min(88vw, 1040px)', margin: '0 auto', position: 'relative' }}>
+        <div style={{ maxWidth: 'min(92vw, 1240px)', margin: '0 auto', position: 'relative' }}>
           <Reveal style={{ textAlign: 'center', marginBottom: '48px' }}>
             <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(28px, 4.4vw, 44px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '12px' }}>
               Vanliga frågor
@@ -1029,9 +1026,23 @@ export default function LandingPage({ onEnterApp }) {
           </Reveal>
 
           <Reveal scale style={{ background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '22px', padding: '8px 34px', boxShadow: '0 20px 40px -26px rgba(28,36,32,0.22), 0 2px 10px rgba(28,36,32,0.05)' }}>
-            {FAQ_ITEMS.map((item, i) => (
-              <FaqItem key={item.q} item={item} index={i} isOpen={openFaq === i} onToggle={() => setOpenFaq(openFaq === i ? -1 : i)} accent={FAQ_ACCENT} />
-            ))}
+            {/* Två spalter först över 1100px (se .lp-faq-grid), och som TVÅ
+                egna staplar — inte ett rutnät med en fråga per cell. I ett
+                rutnät växer hela raden när ett svar fälls ut, så grannfrågan
+                får ett tomt hål under sig. Under brytpunkten ligger
+                spalterna på varandra och ordningen blir densamma som förut. */}
+            <div className="lp-faq-grid">
+              {[FAQ_ITEMS.slice(0, FAQ_SPLIT), FAQ_ITEMS.slice(FAQ_SPLIT)].map((column, c) => (
+                <div key={c}>
+                  {column.map((item, j) => {
+                    const i = c === 0 ? j : j + FAQ_SPLIT;
+                    return (
+                      <FaqItem key={item.q} item={item} index={i} isOpen={openFaq === i} onToggle={() => setOpenFaq(openFaq === i ? -1 : i)} accent={FAQ_ACCENT} />
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
           </Reveal>
         </div>
       </section>

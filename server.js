@@ -12,6 +12,11 @@ import { ZETTLE_OAUTH_COOKIE, zettleOauthStateCookie, clearZettleOauthStateCooki
 import { recordStripePaymentEvent } from './api/stripe/_paymentEvents.js'
 import { upsertSubscription } from './api/stripe/_subscriptions.js'
 import remindersHandler from './api/cron/reminders.js'
+import {
+  PROVIDERS as SMTP_PROVIDERS, GOOGLE_PROVIDER, guessProvider, publicView, hasEmailSecretKey,
+  loadSenderRow, saveSenderRow, deleteSenderRow, encryptSecret, verifySmtp,
+} from './api/_smtp.js'
+import { hasGoogleOAuth, buildAuthUrl, exchangeCode, signState, verifyState } from './api/_gmail.js'
 import requestPasswordResetHandler from './api/auth/request-password-reset.js'
 import companyAccessHandler from './api/company-access.js'
 import createSubscriptionCheckoutHandler from './api/stripe/create-subscription-checkout.js'
@@ -463,6 +468,121 @@ app.all('/api/auth/request-password-reset', (req, res) => requestPasswordResetHa
 // den gränsen (vanlig Express, inte separata serverless functions), så
 // två separata app.post/app.get räcker här, bara på SAMMA sökväg som
 // klienten nu faktiskt anropar.
+// ── Egen avsändaradress (SMTP) — speglar api/email/domains/index.js ──────
+// Delar EXAKT samma hjälpmodul som produktionen (api/_smtp.js), så det
+// finns ingen andra kopia av krypteringen eller SMTP-testet att glida
+// isär från.
+app.get('/api/email/domains', async (req, res, next) => {
+  // Samma sökväg som domänstatus — grenen väljs på ?resource=sender, precis
+  // som i produktionshandlern. next() lämnar över till domänrutten nedan.
+  if (req.query?.resource !== 'sender') return next()
+  const user = await requireAuthedUser(req, res)
+  if (!user) return
+  const companyId = req.query?.company_id
+  if (!companyId) { res.status(400).json({ error: 'company_id krävs.' }); return }
+  const { row, error, missingTable } = await loadSenderRow(user.id, companyId)
+  if (error) { res.status(500).json({ error }); return }
+  res.json({
+    sender: publicView(row),
+    providers: Object.values(SMTP_PROVIDERS).map(({ id, label, host, port, secure, appPasswordUrl, help }) => ({
+      id, label, host, port, secure, appPasswordUrl: appPasswordUrl || null, help,
+    })),
+    configured: hasEmailSecretKey(),
+    googleAvailable: hasEmailSecretKey() && hasGoogleOAuth(),
+    missingTable: Boolean(missingTable),
+  })
+})
+
+app.post('/api/email/domains', async (req, res, next) => {
+  if (req.body?.resource !== 'sender') return next()
+  const user = await requireAuthedUser(req, res)
+  if (!user) return
+  const body = req.body || {}
+  const companyId = body.company_id
+  if (!companyId) { res.status(400).json({ error: 'company_id krävs.' }); return }
+
+  // Origin lokalt är http://localhost:5173 (Vite) eller den här servern.
+  // Måste vara EXAKT samma sträng när koden växlas in som när den skapades,
+  // annars nekar Google.
+  const devOrigin = req.headers.origin || `http://${req.headers.host}`
+
+  if (body.action === 'oauth-url') {
+    if (!hasEmailSecretKey() || !hasGoogleOAuth()) {
+      res.status(503).json({ error: 'Google-inloggning är inte konfigurerad på servern.' })
+      return
+    }
+    const state = signState({ uid: user.id, cid: companyId })
+    res.json({ url: buildAuthUrl({ state, origin: devOrigin, loginHint: body.loginHint || undefined }) })
+    return
+  }
+
+  if (body.action === 'oauth-exchange') {
+    const claims = verifyState(body.state)
+    if (!claims) { res.status(400).json({ error: 'Kopplingen kunde inte verifieras. Försök igen.' }); return }
+    if (claims.uid !== user.id) { res.status(403).json({ error: 'Kopplingen hör till en annan inloggning.' }); return }
+    try {
+      const { refreshToken, email } = await exchangeCode(body.code, devOrigin)
+      if (!email) { res.status(400).json({ error: 'Kunde inte läsa vilken adress som kopplades.' }); return }
+      const saved = await saveSenderRow(user.id, claims.cid, {
+        provider: GOOGLE_PROVIDER,
+        from_email: email,
+        from_name: null,
+        host: 'gmail.googleapis.com',
+        port: 443,
+        secure: true,
+        username: email,
+        secret: encryptSecret(refreshToken),
+        verified_at: new Date().toISOString(),
+        last_error: null,
+      })
+      if (saved.error) { res.status(500).json({ error: saved.error }); return }
+      const { row } = await loadSenderRow(user.id, claims.cid)
+      res.json({ sender: publicView(row) })
+    } catch (error) {
+      res.status(400).json({ error: error?.message || 'Kunde inte slutföra kopplingen.' })
+    }
+    return
+  }
+
+  if (body.action === 'remove') {
+    const result = await deleteSenderRow(user.id, companyId)
+    if (result.error) { res.status(500).json({ error: result.error }); return }
+    res.json({ sender: null })
+    return
+  }
+
+  if (!hasEmailSecretKey()) {
+    res.status(503).json({ error: 'Servern saknar EMAIL_SECRET_KEY och kan därför inte spara e-postlösenord säkert.' })
+    return
+  }
+  const { fromEmail, fromName, password } = body
+  if (!fromEmail || !password) { res.status(400).json({ error: 'fromEmail och password krävs.' }); return }
+
+  const providerId = SMTP_PROVIDERS[body.provider] ? body.provider : guessProvider(fromEmail)
+  const preset = SMTP_PROVIDERS[providerId]
+  const host = String(body.host || preset.host || '').trim()
+  const port = Number(body.port || preset.port)
+  const secure = body.secure === undefined ? preset.secure : Boolean(body.secure)
+  const username = String(body.username || fromEmail).trim()
+  if (!host || !port) { res.status(400).json({ error: 'Serveradress och port krävs.' }); return }
+
+  const check = await verifySmtp({ host, port, secure, username, password })
+  if (!check.ok) { res.status(400).json({ error: check.error }); return }
+
+  const saved = await saveSenderRow(user.id, companyId, {
+    provider: providerId,
+    from_email: String(fromEmail).trim(),
+    from_name: fromName ? String(fromName).trim() : null,
+    host, port, secure, username,
+    secret: encryptSecret(password),
+    verified_at: new Date().toISOString(),
+    last_error: null,
+  })
+  if (saved.error) { res.status(500).json({ error: saved.error }); return }
+  const { row } = await loadSenderRow(user.id, companyId)
+  res.json({ sender: publicView(row) })
+})
+
 app.post('/api/email/domains', async (req, res) => {
   if (!requireResendAdmin(res)) return
 

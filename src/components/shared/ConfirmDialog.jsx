@@ -69,7 +69,7 @@ export function ConfirmDialogHost() {
   };
 
   return (
-    <div className="modal-overlay" onClick={() => close(cancelValue)}>
+    <div className="modal-overlay confirm-dialog-overlay" onClick={() => close(cancelValue)}>
       <div className="modal-content" style={{ maxWidth: '420px' }} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h2 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

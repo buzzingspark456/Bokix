@@ -173,20 +173,39 @@ export function ink2rRowForAccount(code) {
 export function computeInk2r(verifications, accounts, asOfDate) {
   const { assets, equityAndLiabilities, totalAssets, totalEquityAndLiabilities } = computeBalanceSheet(verifications, accounts, asOfDate);
   const sums = new Map();
+  // Vilka KONTON som byggde upp varje rad. Kundfeedback om den här sidan:
+  // "man vet inte riktigt vad man ska göra, visa vad som ligger bakom" — en
+  // rad som bara säger "2.19 Kundfordringar 116 500 kr" går inte att
+  // kontrollera mot något, och att kontrollera är hela poängen med sidan
+  // innan man lämnar in den till Skatteverket. Samlas här i stället för i
+  // komponenten, så både UI och tester kan läsa samma uppdelning.
+  const byRow = new Map();
   const unmatched = [];
   for (const acc of [...assets, ...equityAndLiabilities]) {
     const rowId = ink2rRowForAccount(acc.code);
     if (!rowId) { unmatched.push(acc); continue; }
     sums.set(rowId, (sums.get(rowId) || 0) + acc.amount);
+    if (!byRow.has(rowId)) byRow.set(rowId, []);
+    byRow.get(rowId).push({ code: acc.code, name: acc.name, amount: acc.amount });
   }
   const rows = INK2R_ROWS
-    .map(def => ({ ...def, amount: sums.get(def.row) || 0 }))
+    .map(def => ({
+      ...def,
+      amount: sums.get(def.row) || 0,
+      // Störst först: den post som förklarar mest av radens belopp ska stå
+      // överst när raden fälls ut.
+      accounts: (byRow.get(def.row) || []).slice().sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount)),
+    }))
     .filter(r => Math.abs(r.amount) > 0.5);
+  const difference = totalAssets - totalEquityAndLiabilities;
   return {
     rows,
     totalAssets,
     totalEquityAndLiabilities,
-    balanced: Math.abs(totalAssets - totalEquityAndLiabilities) < 1,
+    balanced: Math.abs(difference) < 1,
+    // Skillnaden med tecken. UI:t behöver den för att kunna säga HUR MYCKET
+    // och åt vilket håll det saknas, i stället för bara "balanserar inte".
+    difference,
     unmatched,
   };
 }

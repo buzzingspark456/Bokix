@@ -61,7 +61,7 @@ function StatusBadge({ status }) {
   const map = {
     paid: { label: 'Betald', bg: STRONG_PAID.bg, color: STRONG_PAID.text },
     unpaid: { label: 'Obetald', bg: STRONG_UNPAID.bg, color: STRONG_UNPAID.text },
-    overdue: { label: 'Förfallen', bg: '#fff1f2', color: '#be123c' },
+    overdue: { label: 'Förfallen', bg: 'var(--status-red-bg)', color: 'var(--status-red-text)' },
   };
   const s = map[status] || map.unpaid;
   return <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: s.bg, color: s.color }}>{s.label}</span>;
@@ -952,13 +952,19 @@ export default function SupplierInvoices({
               const needsReview = !inv.costAccount && !inv.rows?.length;
               const effectivelyPaid = inv.status === 'paid' || optimisticPaid[inv.id];
               const isOverdue = !effectivelyPaid && inv.dueDate && new Date(inv.dueDate) < new Date();
-              const dot = needsReview ? BRAND.amberText : isOverdue ? '#be123c' : effectivelyPaid ? STRONG_PAID.bg : STRONG_UNPAID.bg;
+              const dot = needsReview ? BRAND.amberText : isOverdue ? 'var(--status-red-text)' : effectivelyPaid ? STRONG_PAID.bg : STRONG_UNPAID.bg;
               const dueLabel = effectivelyPaid ? 'betald' : isOverdue ? 'förföll' : 'förfaller';
+              // Numret bär identiteten när leverantören saknas — annars blev
+              // raden en anonym "Okänd leverantör" utan något som skiljer den
+              // från nästa. Samma mönster som kundfakturorna (Invoices.jsx).
+              const supplierName = contacts.find(c => c.id === inv.supplierId)?.name || inv.supplier;
               return {
                 dot,
-                primary: contacts.find(c => c.id === inv.supplierId)?.name || inv.supplier || 'Okänd leverantör',
+                primary: supplierName || `Faktura #${inv.invoiceNumber}`,
                 amount: formatSEK(inv.amount),
-                meta: `#${inv.invoiceNumber} · ${dueLabel} ${formatDate(inv.dueDate)}`,
+                meta: supplierName
+                  ? `#${inv.invoiceNumber} · ${dueLabel} ${formatDate(inv.dueDate)}`
+                  : `Ingen leverantör vald · ${dueLabel} ${formatDate(inv.dueDate)}`,
                 pill: needsReview ? (
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', borderRadius: '999px', fontSize: '10.5px', fontWeight: 600, background: BRAND.amberBg, color: BRAND.amberText }}><AlertCircle size={11} /> Granska</span>
                 ) : <StatusBadge status={effectivelyPaid ? 'paid' : (isOverdue ? 'overdue' : 'unpaid')} />,

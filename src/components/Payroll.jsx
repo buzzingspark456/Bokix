@@ -272,7 +272,7 @@ export default function Payroll({
               {
                 key: 'status', label: 'Status', render: r => {
                   const status = r.completedSteps.includes('booked') ? 'Bokförd' : (r.completedSteps.includes('calculated') ? 'Beräknad' : 'Utkast');
-                  const statusColor = status === 'Bokförd' ? { bg: 'var(--status-green-bg)', color: 'var(--status-green-text)' } : status === 'Beräknad' ? { bg: '#e0f2fe', color: '#0369a1' } : { bg: 'var(--border-light)', color: 'var(--text-secondary)' };
+                  const statusColor = status === 'Bokförd' ? { bg: 'var(--status-green-bg)', color: 'var(--status-green-text)' } : status === 'Beräknad' ? { bg: 'var(--status-blue-bg)', color: 'var(--status-blue-text)' } : { bg: 'var(--border-light)', color: 'var(--text-secondary)' };
                   return <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: statusColor.bg, color: statusColor.color }}>{status}</span>;
                 },
               },

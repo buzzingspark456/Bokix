@@ -58,11 +58,11 @@ export default function MigrationFlow({ note = true }) {
 
         /* Scenen: källa → ledning → nav. Vågrät i ALLA bredder, se
            filkommentaren ovan. */
-        .bx-mf-stage { display: flex; align-items: center; justify-content: center; gap: clamp(8px, 2.4vw, 20px); width: 100%; max-width: 620px; }
+        .bx-mf-stage { display: flex; align-items: center; justify-content: center; gap: clamp(8px, 2.4vw, 20px); width: 100%; max-width: min(94%, 860px); }
         .bx-mf-side { display: flex; flex-direction: column; align-items: center; gap: 9px; flex-shrink: 0; }
 
         .bx-mf-tile { display: flex; align-items: center; justify-content: center; background: #fff; border-radius: 14px; }
-        .bx-mf-tile-lg { width: clamp(66px, 17vw, 92px); height: clamp(66px, 17vw, 92px); border: 1.5px solid var(--mkt-card-border); box-shadow: var(--mkt-card-shadow); }
+        .bx-mf-tile-lg { width: clamp(66px, 9vw, 128px); height: clamp(66px, 9vw, 128px); border: 1.5px solid var(--mkt-card-border); box-shadow: var(--mkt-card-shadow); }
         .bx-mf-label { font-size: clamp(11.5px, 2.6vw, 13.5px); font-weight: 700; letter-spacing: -0.005em; white-space: nowrap; }
 
         /* Bytet i vänsteränden: gamla loggan lämnar, nya kommer in. Byter
@@ -77,7 +77,7 @@ export default function MigrationFlow({ note = true }) {
 
         /* Ledningen mellan dem — .lp-flow-connector (delad) sköter själva
            vandringen, det här sätter bara formen. */
-        .bx-mf-pipe { position: relative; flex: 1 1 auto; min-width: clamp(52px, 16vw, 150px); height: 34px; }
+        .bx-mf-pipe { position: relative; flex: 1 1 auto; min-width: clamp(52px, 9vw, 200px); height: 34px; }
         .bx-mf-wire { position: absolute; left: 0; right: 0; top: 50%; height: 3px; margin-top: -1.5px; border-radius: 3px; }
 
         /* SIE4-paketet som färdas från programmet in i Bokix. Spåret är
@@ -125,6 +125,9 @@ export default function MigrationFlow({ note = true }) {
         .bx-mf-chip { width: 56px; height: 56px; border: 1px solid var(--mkt-card-border); border-radius: 15px; transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.35s, box-shadow 0.35s; }
         .bx-mf-chip-on { transform: translateY(-4px) scale(1.09); border-color: ${BRAND.green}; box-shadow: 0 10px 20px -10px rgba(28,36,32,0.45); }
         @media (min-width: 560px) { .bx-mf-row { max-width: 470px; } }
+        /* På riktigt breda skärmar får alla sju brickorna rymmas på en rad
+           utan att raden i sig blir en smal remsa mitt i sektionen. */
+        @media (min-width: 1280px) { .bx-mf-row { max-width: 760px; gap: 14px; } }
 
         /* Under 480px räckte clamp():arna precis men INTE mer: scenen fyllde
            sektionens hela innermått, så navets ring (och dess pulsering)

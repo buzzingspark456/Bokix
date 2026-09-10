@@ -11,10 +11,9 @@ import { MIGRATION_SOURCES, OTHER_PROGRAM_HINT, MENU_MOVED_HINT } from '../../ut
 
 // ── "Byt till Bokix" (/byt-bokforingsprogram) — den publika sidan för
 // någon som redan bokför någon annanstans och undrar om de kan ta med
-// sig bokföringen hit. Skild från /alternativ, som svarar på en annan
-// fråga (VARFÖR byta / vad Bokix är för något): den här sidan svarar
-// bara på HUR, och är byggd runt en sak som faktiskt finns i produkten —
-// SIE4-importen (SieImportModal.jsx + utils/sieImport.js).
+// sig bokföringen hit. Sidan svarar på HUR, och är byggd runt en sak som
+// faktiskt finns i produkten — SIE4-importen (SieImportModal.jsx +
+// utils/sieImport.js).
 //
 // Programlistan (namn, logotyp, exportvägledning) kommer från
 // src/utils/migrationSources.js, samma källa som importguiden inne i
@@ -24,8 +23,8 @@ import { MIGRATION_SOURCES, OTHER_PROGRAM_HINT, MENU_MOVED_HINT } from '../../ut
 //
 // Om konkurrentloggorna: bara identifierande användning ("byt hit från
 // X"), inga påståenden OM dem — inga priser, inga funktionsjämförelser,
-// ingen "vi är bättre"-tabell. Se migrationSources.js och
-// AlternativePage.jsx för hela resonemanget bakom den linjen.
+// ingen "vi är bättre"-tabell. Se migrationSources.js för hela
+// resonemanget bakom den linjen.
 
 // De fyra stegen i ett verkligt byte. Steg 2 beskriver den RIKTIGA
 // importen (fyrstegsguiden i appen), inte ett påhittat "ett klick och
@@ -371,7 +370,7 @@ export default function SwitchPage() {
             {FAQ.map(item => <FaqItem key={item.q} {...item} />)}
           </Reveal>
           <Reveal delay={140} style={{ textAlign: 'center', marginTop: '20px', fontSize: '14px', color: MUTED }}>
-            Vill du veta varför man byter, inte bara hur? Läs <Link to="/alternativ" style={{ color: BRAND.greenDark, fontWeight: 600 }}>alternativ till Fortnox, Bokio och Spiris</Link> eller <Link to="/valja-bokforingsprogram" style={{ color: BRAND.greenDark, fontWeight: 600 }}>så väljer du bokföringsprogram</Link>.
+            Vill du se vad du får när du väl är här? Läs om <Link to="/funktioner" style={{ color: BRAND.greenDark, fontWeight: 600 }}>allt som ingår</Link>.
           </Reveal>
         </div>
       </section>

@@ -4,6 +4,7 @@ import { requireAuthedUser, loadOwnedCompany } from '../_auth.js';
 import { checkRateLimit } from '../_rateLimit.js';
 import { isRequestFromBot } from '../_botid.js';
 import { hasResendApiKey, sendWithFallback } from '../_resend.js';
+import { trySendFromOwnAddress } from '../_smtp.js';
 
 // Speglar POST /api/email/send-invoice i server.js (lokal dev via
 // `npm run dev`) — Vercel kör aldrig server.js i produktion, bara filer
@@ -37,10 +38,6 @@ export default async function handler(req, res) {
     return;
   }
 
-  if (!hasResendApiKey()) {
-    res.status(503).json({ error: 'E-post är inte konfigurerat. Sätt RESEND_API_KEY (och valfritt EMAIL_FROM) i Vercels miljövariabler för att kunna skicka fakturor via e-post.' });
-    return;
-  }
   if (!checkRateLimit(req, res, { key: 'send-invoice', max: 30 })) return;
 
   // Vercel BotID — se filkommentaren i main.jsx.
@@ -73,6 +70,38 @@ export default async function handler(req, res) {
       ...(attachmentBase64 ? { attachments: [{ filename: attachmentFilename || 'faktura.pdf', content: attachmentBase64 }] } : {}),
     };
 
+    // ── 1. Kundens EGEN adress, om den är kopplad ──
+    // Har företaget en verifierad SMTP-avsändare (Inställningar →
+    // Fakturautskick) går mejlet genom deras eget mejlkonto: rätt
+    // avsändare, deras egen Skickat-mapp, och ingen kostnad för oss.
+    // Se api/_smtp.js för hela resonemanget.
+    const own = await trySendFromOwnAddress(user.id, companyId, {
+      to,
+      subject,
+      html,
+      replyTo,
+      attachmentBase64,
+      attachmentFilename,
+    });
+    if (own.used && own.ok) {
+      res.status(200).json({ id: own.id, sentFrom: 'own' });
+      return;
+    }
+
+    // ── 2. Annars Bokix egen väg ──
+    // Hit kommer vi antingen för att ingen egen adress är kopplad, eller
+    // för att den just misslyckades. Att låta fakturan gå iväg via
+    // systemadressen är alltid bättre än att inte gå iväg alls — kunden
+    // ser felet på sin SMTP-inställning i Inställningar.
+    if (!hasResendApiKey()) {
+      res.status(503).json({
+        error: own.used
+          ? `Utskicket från din egen adress misslyckades: ${own.error}`
+          : 'E-post är inte konfigurerat. Sätt RESEND_API_KEY (och valfritt EMAIL_FROM) i Vercels miljövariabler för att kunna skicka fakturor via e-post.',
+      });
+      return;
+    }
+
     // Bugkritiskt: ett misslyckat utskick med kundens egen domän försöker
     // automatiskt igen med systemadressen istället för att hela utskicket
     // bara faller — se sendWithFallback i _resend.js.
@@ -84,7 +113,7 @@ export default async function handler(req, res) {
       return;
     }
 
-    res.status(200).json({ id: result.data.id });
+    res.status(200).json({ id: result.data.id, sentFrom: 'bokix' });
   } catch (error) {
     console.error('Email send error:', error);
     res.status(500).json({ error: error?.message || 'Kunde inte skicka e-post.' });
