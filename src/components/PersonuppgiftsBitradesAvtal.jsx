@@ -93,6 +93,7 @@ export default function PersonuppgiftsBitradesAvtal() {
             ['Stripe', 'Betalningar (dina kortbetalningar från kunder, samt Bokix egen fakturering)'],
             ['Resend', 'Utskick av fakturor/offerter du väljer att mejla'],
             ['Vercel (inkl. BotID)', 'Drift/hosting av tjänsten samt bot-/missbruksskydd'],
+            ['Google', 'Endast om du själv kopplat din Gmail-adress som avsändare — utskicket går då genom ditt eget konto. Bokix har enbart behörighet att skicka, aldrig att läsa.'],
           ]}
         />
         <p style={policyP}>
