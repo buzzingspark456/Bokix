@@ -20,7 +20,7 @@ import { INK, INK_SOFT, MUTED } from './marketingTokens';
 //
 // Ingen text här lovar något appen inte gör — anhalterna motsvarar
 // funktioner som finns (fakturering, kvitton/bank, bokslutsflödet).
-const STEP_MS = 3400;
+const STEP_MS = 5200;
 
 const STEPS = [
   {
@@ -56,12 +56,31 @@ export default function UfYearFlow() {
   // som inte har en muspekare — hela spåret är riktiga knappar, inte
   // dekor, så tangentbord och skärmläsare kommer åt samma innehåll.
   const [held, setHeld] = useState(null);
+  // Pekaren NÅGONSTANS i modulen (spår som kort) pausar också, utan att
+  // byta anhalt. Kundklagomål, ordagrant i sak: kortet hann bytas mitt i
+  // meningen medan man läste det. Den som har pekaren här läser — då ska
+  // klockan stå still, inte bara när man råkar hålla den på en prick.
+  const [paused, setPaused] = useState(false);
 
   useEffect(() => {
-    if (prefersReducedMotion() || held !== null) return undefined;
+    if (prefersReducedMotion() || paused || held !== null) return undefined;
     const t = setInterval(() => setI(prev => (prev + 1) % STEPS.length), STEP_MS);
     return () => clearInterval(t);
-  }, [held]);
+  }, [paused, held]);
+
+  // Att SLÄPPA en anhalt får aldrig hoppa tillbaka till där den
+  // automatiska klockan råkade stå när man förde pekaren dit (det var
+  // buggen: hovra steg 1, lämna, och kortet slog om till steg 3 i samma
+  // ögonblick). Vi flyttar därför klockan till den anhalt man faktiskt
+  // tittade på och låter den fortsätta därifrån — ett helt intervall
+  // senare, eftersom effekten startas om.
+  const release = idx => { setI(idx); setHeld(null); };
+
+  // Pointer-, inte mouse-händelser, och bara för en riktig muspekare: på
+  // en pekskärm skickar webbläsaren ett mouseenter vid tryck men ofta
+  // inget mouseleave, och tidslinjen hade då frusit på den anhalt man
+  // råkade nudda. Där är tryck = klick, och klicket flyttar klockan.
+  const isMouse = e => e.pointerType === 'mouse';
 
   const active = held ?? i;
   const step = STEPS[active];
@@ -70,7 +89,11 @@ export default function UfYearFlow() {
   const progress = STEPS.length > 1 ? (active / (STEPS.length - 1)) * 100 : 0;
 
   return (
-    <div className="bx-uy">
+    <div
+      className="bx-uy"
+      onPointerEnter={e => { if (isMouse(e)) setPaused(true); }}
+      onPointerLeave={e => { if (isMouse(e)) setPaused(false); }}
+    >
       <style>{`
         .bx-uy { width: 100%; display: flex; flex-direction: column; align-items: center; gap: clamp(20px, 3.4vw, 30px); }
 
@@ -142,11 +165,11 @@ export default function UfYearFlow() {
               type="button"
               className={`bx-uy-stop${idx === active ? ' bx-uy-stop-on' : ''}${idx < active ? ' bx-uy-stop-done' : ''}`}
               aria-pressed={idx === active}
-              onMouseEnter={() => setHeld(idx)}
-              onMouseLeave={() => setHeld(null)}
+              onPointerEnter={e => { if (isMouse(e)) setHeld(idx); }}
+              onPointerLeave={e => { if (isMouse(e)) release(idx); }}
               onFocus={() => setHeld(idx)}
-              onBlur={() => setHeld(null)}
-              onClick={() => { setHeld(null); setI(idx); }}
+              onBlur={() => release(idx)}
+              onClick={() => release(idx)}
             >
               <span className="bx-uy-dot-wrap">
                 <span className="bx-uy-dot"><s.icon size={20} /></span>

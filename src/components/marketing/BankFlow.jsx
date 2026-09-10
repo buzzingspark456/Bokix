@@ -53,14 +53,19 @@ const LEDGER_ROWS = [
 // vilket är det som faktiskt är sant (se bankSources.js: importen är en
 // generell fil-läsare, inte en integration per bank). Samma svar som
 // väljaren på /koppla-bank och importguiden i appen ger.
-const WALL_ITEMS = [...BANK_LOGOS, { id: 'other', name: 'Annan bank', other: true }];
+// Startsidan visar den INTE (otherTile={false}): dess sektion är en
+// aptitretare som ska leda vidare till /koppla-bank, och noten under
+// väggen bär redan "vilken bank som helst"-löftet i klartext där.
+// Brickan hör hemma på sidan som faktiskt ska besvara frågan.
+const OTHER_TILE = { id: 'other', name: 'Annan bank', other: true };
+const WALL_ITEMS = [...BANK_LOGOS, OTHER_TILE];
 
 function prefersReducedMotion() {
   if (typeof window === 'undefined' || !window.matchMedia) return false;
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
-export default function BankFlow({ note = true, ledger = true }) {
+export default function BankFlow({ note = true, ledger = true, otherTile = true }) {
   // EN räknare driver allt: vilken bank som visas, vilken filtyp paketet
   // bär och hur många rader i kontoutdraget som hunnit bli klara. Två
   // separata timers hade glidit ur fas inom ett par varv, och hela
@@ -81,6 +86,7 @@ export default function BankFlow({ note = true, ledger = true }) {
   // läget (alla rader klara), inte det tomma — en stillbild ska visa vad
   // man får, inte utgångsläget.
   const doneRows = still ? LEDGER_ROWS.length : tick % (LEDGER_ROWS.length + 1);
+  const wallItems = otherTile ? WALL_ITEMS : BANK_LOGOS;
 
   return (
     <div className="bx-bf">
@@ -88,7 +94,7 @@ export default function BankFlow({ note = true, ledger = true }) {
         .bx-bf { display: flex; flex-direction: column; align-items: center; gap: clamp(18px, 3.6vw, 28px); width: 100%; }
 
         /* Akt 1–2: banken → ledningen → navet. Vågrät i ALLA bredder. */
-        .bx-bf-stage { display: flex; align-items: center; justify-content: center; gap: clamp(8px, 2.4vw, 20px); width: 100%; max-width: 660px; }
+        .bx-bf-stage { display: flex; align-items: center; justify-content: center; gap: clamp(8px, 2.4vw, 20px); width: 100%; max-width: min(94%, 900px); }
         .bx-bf-side { display: flex; flex-direction: column; align-items: center; gap: 9px; flex-shrink: 0; }
         .bx-bf-label { font-size: clamp(11px, 2.5vw, 13.5px); font-weight: 700; letter-spacing: -0.005em; white-space: nowrap; }
 
@@ -97,7 +103,7 @@ export default function BankFlow({ note = true, ledger = true }) {
         .bx-bf-tile {
           display: flex; align-items: center; justify-content: center; background: #fff;
           border-radius: 15px; border: 1.5px solid var(--mkt-card-border); box-shadow: var(--mkt-card-shadow);
-          width: clamp(104px, 27vw, 168px); height: clamp(62px, 16vw, 88px); padding: 0 10px;
+          width: clamp(104px, 14vw, 216px); height: clamp(62px, 8vw, 112px); padding: 0 10px;
         }
 
         /* Bankbytet i vänsteränden — samma svep som MigrationFlow, startas
@@ -108,7 +114,7 @@ export default function BankFlow({ note = true, ledger = true }) {
         }
         .bx-bf-swap { animation: bxBfSwap 0.45s cubic-bezier(0.22, 1, 0.36, 1) both; }
 
-        .bx-bf-pipe { position: relative; flex: 1 1 auto; min-width: clamp(48px, 15vw, 150px); height: 36px; }
+        .bx-bf-pipe { position: relative; flex: 1 1 auto; min-width: clamp(48px, 9vw, 210px); height: 36px; }
         .bx-bf-wire { position: absolute; left: 0; right: 0; top: 50%; height: 3px; margin-top: -1.5px; border-radius: 3px; }
 
         /* Filen som färdas. Spåret är lika brett som ledningen, så
@@ -140,7 +146,7 @@ export default function BankFlow({ note = true, ledger = true }) {
         .bx-bf-halo { position: absolute; inset: -6px; border-radius: 21px; border: 1.5px solid ${BRAND.green}; opacity: 0.28; pointer-events: none; animation: bxBfArrive ${CYCLE_MS}ms ease-in-out infinite; }
 
         /* Akt 3: kontoutdraget som fylls på. */
-        .bx-bf-ledger { width: 100%; max-width: 440px; background: var(--mkt-card-bg); border: 1px solid var(--mkt-card-border); border-radius: 16px; box-shadow: var(--mkt-card-shadow); overflow: hidden; }
+        .bx-bf-ledger { width: 100%; max-width: min(94%, 620px); background: var(--mkt-card-bg); border: 1px solid var(--mkt-card-border); border-radius: 16px; box-shadow: var(--mkt-card-shadow); overflow: hidden; }
         .bx-bf-ledger-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 15px; border-bottom: 1px solid var(--mkt-card-border); background: var(--mkt-ivory); }
         .bx-bf-ledger-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 11px 15px; border-top: 1px solid var(--mkt-border-soft); transition: background 0.45s ease; }
         .bx-bf-ledger-row:first-of-type { border-top: none; }
@@ -175,7 +181,7 @@ export default function BankFlow({ note = true, ledger = true }) {
         .bx-bf-wall-tile { display: flex; flex-direction: column; align-items: center; gap: 9px; flex-shrink: 0; }
         .bx-bf-wall-box {
           display: flex; align-items: center; justify-content: center; background: #fff;
-          width: clamp(126px, 25vw, 178px); height: clamp(58px, 11.5vw, 80px); padding: 0 12px;
+          width: clamp(126px, 13vw, 214px); height: clamp(58px, 6vw, 98px); padding: 0 12px;
           border: 1.5px solid var(--mkt-card-border); border-radius: 15px; box-shadow: var(--mkt-card-shadow);
           transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.4s, box-shadow 0.4s;
         }
@@ -263,9 +269,10 @@ export default function BankFlow({ note = true, ledger = true }) {
       )}
 
       {/* Alla banker rullande förbi, med namn under precis som väljaren på
-          /koppla-bank — plus "Annan bank" sist i varje varv, så raden
-          aldrig kan läsas som "de här nio och inga andra". Den bank som
-          just nu ligger i flödet ovanför lyfts, i alla kopior samtidigt.
+          /koppla-bank — och där (otherTile) "Annan bank" sist i varje
+          varv, så raden aldrig kan läsas som "de här nio och inga andra".
+          Den bank som just nu ligger i flödet ovanför lyfts, i alla
+          kopior samtidigt.
 
           Fyra kopior (inte två): .lp-marquee-track:s -25%-translateX
           landar exakt på kopia 2 = sömlös loop. Bara den första kopian
@@ -273,7 +280,7 @@ export default function BankFlow({ note = true, ledger = true }) {
       <div className="bx-bf-wall lp-marquee" tabIndex={0} aria-label="Banker vars kontoutdrag Bokix läser">
         <div className="bx-bf-wall-track lp-marquee-track">
           {[0, 1, 2, 3].map(copy => (
-            WALL_ITEMS.map(item => {
+            wallItems.map(item => {
               const on = item.id === active.id;
               return (
                 <span

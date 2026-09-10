@@ -306,15 +306,6 @@ export default function PricingPage() {
               <FaqItem key={item.q} {...item} index={i} open={openFaq === i} onToggle={() => setOpenFaq(openFaq === i ? -1 : i)} />
             ))}
           </Reveal>
-          {/* Kontextuell länk (inte bara i footern) — hjälper både besökare
-              som vill jämföra bredare och Google att hitta guiden via en
-              redan indexerad sida, med beskrivande länktext istället för
-              "läs mer". */}
-          <Reveal delay={140} style={{ textAlign: 'center', marginTop: '20px' }}>
-            <Link to="/valja-bokforingsprogram" style={{ fontSize: '13.5px', fontWeight: 600, color: BRAND.greenDark, textDecoration: 'none' }}>
-              Fler frågor att ställa? Läs vår guide: Så väljer du bokföringsprogram →
-            </Link>
-          </Reveal>
         </div>
       </section>
     </MarketingLayout>

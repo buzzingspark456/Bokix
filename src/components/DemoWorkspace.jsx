@@ -486,27 +486,8 @@ export default function DemoWorkspace() {
                       </div>
                     </div>
                     <div className="dropdown-divider"></div>
-                    {/* Samma tvådelade temaväljare som den riktiga appens
-                        profilmeny (App.jsx) — se kommentaren där för varför
-                        den ersatte raden som bara hette "Ljust läge". */}
-                    <div className="profile-theme-row">
-                      <span className="profile-theme-label">Utseende</span>
-                      <div className="profile-theme-toggle">
-                        <button
-                          type="button"
-                          className={theme !== 'dark' ? 'is-active' : ''}
-                          onClick={() => { if (theme === 'dark') toggleTheme(); }}
-                          aria-pressed={theme !== 'dark'}
-                        ><Sun size={13} /> Ljust</button>
-                        <button
-                          type="button"
-                          className={theme === 'dark' ? 'is-active' : ''}
-                          onClick={() => { if (theme !== 'dark') toggleTheme(); }}
-                          aria-pressed={theme === 'dark'}
-                        ><Moon size={13} /> Mörkt</button>
-                      </div>
-                    </div>
-                    <div className="dropdown-divider"></div>
+                    {/* Temaväljaren är borttagen här, precis som i appens
+                        egen profilmeny (App.jsx) — den bor i topbaren. */}
                     {/* Kontoplanen ligger som en flik inuti Bokföring i demon,
                         precis som appens 'accounts' är en vy inom samma sida. */}
                     <button onClick={() => { openTab('verifications'); setProfileOpen(false); }}><FolderTree size={14} /> Kontoplaner</button>

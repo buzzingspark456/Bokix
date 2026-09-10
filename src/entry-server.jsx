@@ -23,8 +23,6 @@ import FeaturesPage from './components/marketing/FeaturesPage.jsx';
 import PricingPage from './components/marketing/PricingPage.jsx';
 import AboutPage from './components/marketing/AboutPage.jsx';
 import ContactPage from './components/marketing/ContactPage.jsx';
-import ChooseSoftwareGuidePage from './components/marketing/ChooseSoftwareGuidePage.jsx';
-import AlternativePage from './components/marketing/AlternativePage.jsx';
 import SwitchPage from './components/marketing/SwitchPage.jsx';
 import BankPage from './components/marketing/BankPage.jsx';
 import UfPage from './components/marketing/UfPage.jsx';
@@ -46,7 +44,7 @@ import SecurityPage from './components/marketing/SecurityPage.jsx';
 // klientbunten tagit över. Ordlistan förrenderas av samma skäl: femtio
 // definitioner i rå HTML är hela poängen med den sidan.
 export const PRERENDER_ROUTES = [
-  '/', '/funktioner', '/priser', '/om-oss', '/kontakt', '/valja-bokforingsprogram', '/alternativ',
+  '/', '/funktioner', '/priser', '/om-oss', '/kontakt',
   '/byt-bokforingsprogram', '/koppla-bank', '/uf',
   '/integrationer', '/sakerhet', '/ordlista',
   '/verktyg', '/verktyg/momskalkylator', '/verktyg/lonekalkylator', '/verktyg/egenavgifter',
@@ -59,8 +57,6 @@ const PAGES = {
   '/priser': PricingPage,
   '/om-oss': AboutPage,
   '/kontakt': ContactPage,
-  '/valja-bokforingsprogram': ChooseSoftwareGuidePage,
-  '/alternativ': AlternativePage,
   '/byt-bokforingsprogram': SwitchPage,
   '/koppla-bank': BankPage,
   '/uf': UfPage,

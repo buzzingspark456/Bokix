@@ -364,7 +364,7 @@ const TimeTracking = lazy(() => import('./components/TimeTracking'));
 const Payroll = lazy(() => import('./components/Payroll'));
 const Taxes = lazy(() => import('./components/Taxes'));
 // Alla ANDRA marknads-/juridiksidor (FeaturesPage/PricingPage/AboutPage/
-// ContactPage/ChooseSoftwareGuidePage/PrivacyPolicy/TermsPolicy/
+// ContactPage/PrivacyPolicy/TermsPolicy/
 // CookiesPolicy/PersonuppgiftsBitradesAvtal) flyttade till AppRouter.jsx
 // (Prestanda-fixet: se kommentaren vid App-komponentens topp) — den här
 // filen (och allt DEN importerar: Stripe, alla sidomeny-ikoner nedan,
@@ -4203,32 +4203,10 @@ function App() {
                       profil"), inte en egen destination. Borttagna, inte bara
                       dolda — samma två rader fanns dubblerat i mobilkopian av
                       den här menyn, borttagna där också. */}
-                  {/* Kundfeedback: raden hette bara "Ljust läge" (alltså det
-                      läge man skulle BYTA TILL) och gick att läsa precis
-                      tvärtom — som att man redan var i ljust läge. Nu båda
-                      alternativen bredvid varandra med det aktiva ifyllt, så
-                      det syns vilket som gäller utan att man behöver klicka
-                      och se vad som händer. Samma kontroll på mobil, där den
-                      här menyn är enda vägen till temavalet om man inte
-                      hittar ikonen i topbaren. */}
-                  <div className="profile-theme-row">
-                    <span className="profile-theme-label">Utseende</span>
-                    <div className="profile-theme-toggle">
-                      <button
-                        type="button"
-                        className={theme !== 'dark' ? 'is-active' : ''}
-                        onClick={() => { if (theme === 'dark') toggleTheme(); }}
-                        aria-pressed={theme !== 'dark'}
-                      ><Sun size={13} /> Ljust</button>
-                      <button
-                        type="button"
-                        className={theme === 'dark' ? 'is-active' : ''}
-                        onClick={() => { if (theme !== 'dark') toggleTheme(); }}
-                        aria-pressed={theme === 'dark'}
-                      ><Moon size={13} /> Mörkt</button>
-                    </div>
-                  </div>
-                  <div className="dropdown-divider"></div>
+                  {/* Temavalet låg här också. Borttaget på kundens begäran —
+                      det finns kvar på två ställen: sol/måne-ikonen i
+                      topbaren (båda layouterna) och Inställningar →
+                      Utseende. Lägg inte tillbaka det här utan att fråga. */}
                   <button onClick={() => { handleNavTabChange('accounts'); setIsProfileMenuOpen(false); }}><FolderTree size={14} /> Kontoplaner</button>
                   {/* Ingen egen "viktiga datum"-sida finns — Skatt & bokslut är
                       redan där deadlines (momsdeklaration, bokslut) visas, så
@@ -4349,32 +4327,6 @@ function App() {
                       profil"), inte en egen destination. Borttagna, inte bara
                       dolda — samma två rader fanns dubblerat i mobilkopian av
                       den här menyn, borttagna där också. */}
-                  {/* Kundfeedback: raden hette bara "Ljust läge" (alltså det
-                      läge man skulle BYTA TILL) och gick att läsa precis
-                      tvärtom — som att man redan var i ljust läge. Nu båda
-                      alternativen bredvid varandra med det aktiva ifyllt, så
-                      det syns vilket som gäller utan att man behöver klicka
-                      och se vad som händer. Samma kontroll på mobil, där den
-                      här menyn är enda vägen till temavalet om man inte
-                      hittar ikonen i topbaren. */}
-                  <div className="profile-theme-row">
-                    <span className="profile-theme-label">Utseende</span>
-                    <div className="profile-theme-toggle">
-                      <button
-                        type="button"
-                        className={theme !== 'dark' ? 'is-active' : ''}
-                        onClick={() => { if (theme === 'dark') toggleTheme(); }}
-                        aria-pressed={theme !== 'dark'}
-                      ><Sun size={13} /> Ljust</button>
-                      <button
-                        type="button"
-                        className={theme === 'dark' ? 'is-active' : ''}
-                        onClick={() => { if (theme !== 'dark') toggleTheme(); }}
-                        aria-pressed={theme === 'dark'}
-                      ><Moon size={13} /> Mörkt</button>
-                    </div>
-                  </div>
-                  <div className="dropdown-divider"></div>
                   <button onClick={() => { handleNavTabChange('accounts'); setIsProfileMenuOpen(false); }}><FolderTree size={14} /> Kontoplaner</button>
                   <button onClick={() => { handleNavTabChange('taxes'); setIsProfileMenuOpen(false); }}><FileCheck size={14} /> Viktiga datum</button>
                   <button onClick={() => { handleNavTabChange('taxes_yearend'); setIsProfileMenuOpen(false); }}><Shield size={14} /> Bokslut & årsredovisning</button>

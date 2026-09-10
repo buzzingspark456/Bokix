@@ -31,14 +31,6 @@
       "destination": "/kontakt/index.html"
     },
     {
-      "source": "/valja-bokforingsprogram",
-      "destination": "/valja-bokforingsprogram/index.html"
-    },
-    {
-      "source": "/alternativ",
-      "destination": "/alternativ/index.html"
-    },
-    {
       "source": "/byt-bokforingsprogram",
       "destination": "/byt-bokforingsprogram/index.html"
     },
@@ -129,6 +121,18 @@
           "value": "default-src 'self'; script-src 'self' https://www.googletagmanager.com https://challenges.cloudflare.com https://*.clarity.ms https://c.bing.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.supabase.co https://www.google-analytics.com https://analytics.google.com https://challenges.cloudflare.com https://*.clarity.ms https://c.bing.com; frame-src https://challenges.cloudflare.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
         }
       ]
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/valja-bokforingsprogram",
+      "destination": "/funktioner",
+      "permanent": true
+    },
+    {
+      "source": "/alternativ",
+      "destination": "/byt-bokforingsprogram",
+      "permanent": true
     }
   ]
 }

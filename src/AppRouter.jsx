@@ -10,18 +10,16 @@ const FeaturesPage = lazy(() => import('./components/marketing/FeaturesPage'));
 const PricingPage = lazy(() => import('./components/marketing/PricingPage'));
 const AboutPage = lazy(() => import('./components/marketing/AboutPage'));
 const ContactPage = lazy(() => import('./components/marketing/ContactPage'));
-const ChooseSoftwareGuidePage = lazy(() => import('./components/marketing/ChooseSoftwareGuidePage'));
 const BookingPage = lazy(() => import('./components/marketing/BookingPage'));
-// Bugg (fanns redan innan de nya sidorna nedan): /alternativ var med i
-// public/sitemap.xml, prerenderades av entry-server.jsx och hade en egen
-// rewrite i vercel.json — men saknade route HÄR. En besökare som klickade
-// den interna länken från /valja-bokforingsprogram föll därför på catch-all
-// nedan och kastades till startsidan, och samma sak hände så fort någon
-// navigerade vidare från den förrenderade sidan.
-const AlternativePage = lazy(() => import('./components/marketing/AlternativePage'));
+const GmailConnectCallback = lazy(() => import('./components/GmailConnectCallback'));
+// LÄRDOM, från en bugg på en numera borttagen sida: en statisk sida måste
+// stå på ALLA fyra ställen — route här, förrendering i entry-server.jsx,
+// rewrite i vercel.json och rad i public/sitemap.xml. Saknas routen faller
+// besökaren på catch-all nedan och kastas till startsidan, trots att den
+// förrenderade HTML-filen finns.
 // "Byt bokföringsprogram" — den praktiska HUR-sidan (SIE4-export ur det
-// gamla programmet → import i Bokix), skild från /alternativ som svarar
-// på VARFÖR. Måste stå på samma fyra ställen som varje annan statisk
+// gamla programmet → import i Bokix). Måste stå på samma fyra ställen som
+// varje annan statisk
 // marknadssida: här, i PRERENDER_ROUTES/PAGES (entry-server.jsx), i
 // vercel.json:s rewrites och i public/sitemap.xml.
 const SwitchPage = lazy(() => import('./components/marketing/SwitchPage'));
@@ -206,9 +204,14 @@ export default function AppRouter() {
         <Route path="/priser" element={<Suspense fallback={<AppLoadingFallback />}><PricingPage /></Suspense>} />
         <Route path="/om-oss" element={<Suspense fallback={<AppLoadingFallback />}><AboutPage /></Suspense>} />
         <Route path="/kontakt" element={<Suspense fallback={<AppLoadingFallback />}><ContactPage /></Suspense>} />
-        <Route path="/valja-bokforingsprogram" element={<Suspense fallback={<AppLoadingFallback />}><ChooseSoftwareGuidePage /></Suspense>} />
         <Route path="/boka-genomgang" element={<Suspense fallback={<AppLoadingFallback />}><BookingPage /></Suspense>} />
-        <Route path="/alternativ" element={<Suspense fallback={<AppLoadingFallback />}><AlternativePage /></Suspense>} />
+        {/* Googles callback efter "Logga in med Google" i Inställningar.
+            MÅSTE vara exakt den här sökvägen: adressen är registrerad hos
+            Google och får inte innehålla någon frågesträng. Att det är en
+            vy i appen och inte en serverlös funktion är också medvetet —
+            se api/_gmail.js. Inte förrenderad och inte i sitemap: sidan är
+            bara ett mellansteg, inte något att hitta i en sökmotor. */}
+        <Route path="/koppla-mejl" element={<Suspense fallback={<AppLoadingFallback />}><GmailConnectCallback /></Suspense>} />
         <Route path="/byt-bokforingsprogram" element={<Suspense fallback={<AppLoadingFallback />}><SwitchPage /></Suspense>} />
         <Route path="/koppla-bank" element={<Suspense fallback={<AppLoadingFallback />}><BankPage /></Suspense>} />
         <Route path="/uf" element={<Suspense fallback={<AppLoadingFallback />}><UfPage /></Suspense>} />

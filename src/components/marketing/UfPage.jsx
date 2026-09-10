@@ -188,7 +188,7 @@ export default function UfPage() {
         <div style={{ maxWidth: '920px', margin: '0 auto' }}>
           <Reveal style={{ textAlign: 'center', marginBottom: '32px' }}>
             <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(23px, 3.2vw, 32px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, margin: 0 }}>
-              Åtta saker, alla på riktigt
+              Åtta saker ni får
             </h2>
           </Reveal>
           <div className="bx-uf-grid">

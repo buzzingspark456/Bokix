@@ -64,7 +64,7 @@ export default function PrivacyPolicy() {
       <PolicySection n={4} title="Vilka vi delar uppgifter med">
         <p style={policyP}>Vi säljer aldrig dina uppgifter. Uppgifter delas bara med underleverantörer (personuppgiftsbiträden åt oss) som behövs för att driva tjänsten:</p>
         <ul style={policyUl}>
-          <li style={policyLi}><strong>Supabase</strong> — databas- och autentiseringsleverantör. All bokförings- och kontodata lagras hos Supabase på våra vägnar.</li>
+          <li style={policyLi}><strong>Supabase</strong> — databas- och autentiseringsleverantör. All bokförings- och kontodata, inklusive de kvitton och underlag du laddar upp, lagras hos Supabase på våra vägnar i ett datacenter inom EU (Frankfurt, Tyskland).</li>
           <li style={policyLi}><strong>Stripe</strong> — betalningsleverantör, används om du ansluter kortbetalningar för dina egna kundfakturor. Kortuppgifter går direkt till Stripe och passerar aldrig våra servrar. Stripe behandlar även dina egna kontouppgifter (namn, e-post) för Bokix egen prenumerationsfakturering.</li>
           <li style={policyLi}><strong>Resend</strong> — e-postleverantör. Skickar fakturor och offerter du väljer att mejla till dina kunder (mottagarens adress, ämnesrad, innehåll och eventuell PDF-bilaga går genom Resend).</li>
           <li style={policyLi}><strong>Vercel</strong> — driftar och hostar hela tjänsten (webbappen och de serverfunktioner som hanterar t.ex. betalningar och e-post). All trafik till Bokix passerar genom Vercels infrastruktur.</li>
@@ -76,6 +76,9 @@ export default function PrivacyPolicy() {
       </PolicySection>
 
       <PolicySection n={5} title="Överföring utanför EU/EES">
+        <p style={policyP}>
+          Själva lagringen av din bokföring — databasen och de filer du laddar upp — sker inom EU, i Frankfurt, Tyskland (se avsnitt 4).
+        </p>
         <p style={policyP}>
           Flera av underleverantörerna i avsnitt 4 (bland annat Stripe, Resend och Vercel) är amerikanska bolag och kan behandla uppgifter i, eller från, USA. När det sker gör vi det bara med ett giltigt överföringsverktyg på plats — till exempel att leverantören är ansluten till EU-U.S. Data Privacy Framework, eller att vi har standardavtalsklausuler (SCC) med dem — i enlighet med respektive leverantörs egna dataskyddsvillkor. Vill du se vilket verktyg som gäller för en specifik leverantör, kontakta oss på <a href="mailto:support@bokix.se" style={link}>support@bokix.se</a>.
         </p>

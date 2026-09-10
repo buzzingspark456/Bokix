@@ -24,9 +24,7 @@ Bokix stöder enskild firma, aktiebolag, handelsbolag/kommanditbolag och ekonomi
 - [Startsida](https://www.bokix.se/): översikt över produkten
 - [Funktioner](https://www.bokix.se/funktioner): detaljerad genomgång av vad som ingår
 - [Priser](https://www.bokix.se/priser): pris, vad som ingår och vanliga frågor
-- [Så väljer du bokföringsprogram](https://www.bokix.se/valja-bokforingsprogram): sju generella kriterier för att jämföra bokföringsprogram
-- [Alternativ till Fortnox, Bokio och Spiris](https://www.bokix.se/alternativ): för dig som funderar på att byta bokföringsprogram — vad Bokix erbjuder och hur bytet går till
-- [Byt bokföringsprogram till Bokix](https://www.bokix.se/byt-bokforingsprogram): flytta bokföringen från Fortnox, Visma, Spiris, Bokio, Björn Lundén, Wint eller SpeedLedger via en SIE4-fil
+- [Byt bokföringsprogram till Bokix](https://www.bokix.se/byt-bokforingsprogram): flytta bokföringen från ditt nuvarande program via en SIE4-fil
 - [Bokix för UF-företag](https://www.bokix.se/uf): gratis bokföring under UF-året — fakturering, kvitton, bokföring och årsbokslut, utan organisationsnummer och utan betaluppgifter
 - [Koppla banken till bokföringen](https://www.bokix.se/koppla-bank): exportera kontoutdraget ur internetbanken (Nordea, SEB, Swedbank, Handelsbanken, Länsförsäkringar, ICA Banken, Skandia, Lunar, Northmill m.fl.) och läs in det i Bokix — filimport, ingen direktkoppling mot banken
 - [Gratis verktyg](https://www.bokix.se/verktyg): sex kostnadsfria räknare, inget konto krävs

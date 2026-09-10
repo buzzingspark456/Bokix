@@ -9,8 +9,7 @@
 //
 // Listan är MEDVETET bara namn + exportvägledning. Inga påståenden OM
 // konkurrenterna (pris, funktioner, "sämre än Bokix") — samma princip
-// som AlternativePage.jsx/ChooseSoftwareGuidePage.jsx redan motiverar
-// utförligt i sina egna filkommentarer: vi kan inte verifiera deras
+// vi håller på: vi kan inte verifiera deras
 // uppgifter, de kan ändra dem när som helst, och jämförande reklam med
 // oreviderade sifferpåståenden är juridiskt känsligt (marknadsförings-
 // lagen). Att nämna dem vid namn och visa deras logotyp för att förklara

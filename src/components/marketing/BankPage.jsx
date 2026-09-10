@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  ArrowRight, ChevronDown, ChevronRight, FileDown, UploadCloud, Columns3, CheckCircle2,
-  ShieldCheck, KeyRound, Undo2, Copy, Landmark, Sparkles,
+  ArrowRight, ChevronDown, ChevronRight, FileDown, UploadCloud, Columns3, CheckCircle2, Landmark,
 } from 'lucide-react';
 import { BRAND } from '../../utils/brandColors';
 import MarketingLayout, { Reveal } from './MarketingLayout';
-import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW, ACCENT, ACCENT_CYCLE } from './marketingTokens';
+import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW, ACCENT_CYCLE } from './marketingTokens';
 import { PageMeta, JsonLd, SITE_URL } from '../../utils/seo';
 import BankFlow from './BankFlow';
 import { BankLogo } from '../shared/BrandLogos';
@@ -21,20 +20,20 @@ import { BANK_SOURCES, OTHER_BANK_HINT, MAX_BANK_FILE_MB, splitBankPath } from '
 //
 // Sidans SVÅRASTE mening är rubriken. "Koppla din bank" är vad besökaren
 // söker på, men får INTE läsas som "logga in med BankID i Bokix så
-// hämtas transaktionerna automatiskt" — den funktionen finns inte, och
-// hela avsnittet "Vi frågar aldrig efter dina bankuppgifter" nedan
-// bygger tvärtom på att den inte gör det. Därför säger hjälten rakt ut
-// vad det ÄR (en exportfil från internetbanken) redan i ingressen, och
-// säkerhetsavsnittet vänder frånvaron av en direktkoppling till det den
-// faktiskt är för en småföretagare: ingen tredje part som sitter på
-// inloggningen till företagskontot.
+// hämtas transaktionerna automatiskt" — den funktionen finns inte.
+// Därför säger hjälten rakt ut vad det ÄR (en exportfil från
+// internetbanken) redan i ingressen, och FAQ:ns första fråga
+// ("Kopplar Bokix till min bank direkt?") svarar nej i klartext och
+// vänder frånvaron av en direktkoppling till det den faktiskt är för en
+// småföretagare: ingen tredje part som sitter på inloggningen till
+// företagskontot. (Här stod tidigare ett eget säkerhetsavsnitt med fyra
+// kort — borttaget på kundens begäran; FAQ:n bär numera den poängen.)
 //
 // All faktatext här är kontrollerad mot koden, inte mot en broschyr:
 // filformaten och 10 MB-taket kommer ur samma konstanter som
 // uppladdningen kontrollerar (bankSources.js), kolumngissningen och
 // teckenkodningen finns i utils/bankImport.js (guessColumnMapping,
-// decodeBankCsvText), dubblettskyddet i dedupeAgainstExisting, ångra-
-// knappen och de fyra statusarna i Bank.jsx.
+// decodeBankCsvText), statusarna i Bank.jsx.
 
 const STEPS = [
   {
@@ -52,28 +51,6 @@ const STEPS = [
   {
     icon: CheckCircle2, title: 'Matcha och bokför',
     body: 'Varje rad hamnar som "ej hanterad" tills du gör något med den. Inbetalningar föreslås mot dina obetalda kundfakturor, utbetalningar mot leverantörsfakturor, och resten kan du snabbokföra på ett konto direkt i listan.',
-  },
-];
-
-// Det som skiljer en import som går att lita på från en som bara läser en
-// fil. Varje punkt motsvarar en funktion som finns i koden, ingen är en
-// avsiktsförklaring.
-const SAFEGUARDS = [
-  {
-    icon: KeyRound, accent: ACCENT.green, title: 'Vi frågar aldrig efter dina bankuppgifter',
-    body: 'Ingen BankID-inloggning till banken, inget lösenord, ingen direktkoppling som ligger kvar och läser ditt konto. Du exporterar en fil och laddar upp den. Bokix kan bara se det du själv skickar med.',
-  },
-  {
-    icon: Copy, accent: ACCENT.blue, title: 'Samma period två gånger gör ingen skada',
-    body: 'Importen jämför varje rad mot det som redan ligger inne och hoppar över dubbletter. Du kan alltså ta med lite marginal i datumintervallet utan att kontoutdraget fylls av dubbla rader.',
-  },
-  {
-    icon: Undo2, accent: ACCENT.teal, title: 'En import går att ångra',
-    body: 'Varje uppladdning sparas som en egen omgång. Blev det fel fil eller fel konto tar du bort hela omgången med en knapp, utan att röra något du importerat tidigare.',
-  },
-  {
-    icon: ShieldCheck, accent: ACCENT.green, title: 'Ingenting bokförs bakom ryggen på dig',
-    body: 'Matchningarna är förslag. En rad blir en verifikation först när du har tryckt på den — och rader du inte vill ha kvar kan markeras som ignorerade i stället för att bli halvfärdiga.',
   },
 ];
 
@@ -351,40 +328,6 @@ export default function BankPage() {
               );
             })}
           </div>
-        </div>
-      </section>
-
-      {/* ── Vad som skyddar dig ── */}
-      <section style={{ padding: '60px 24px 20px', background: 'var(--mkt-page-bg)' }}>
-        <div style={{ maxWidth: '860px', margin: '0 auto' }}>
-          <Reveal style={{ textAlign: 'center', marginBottom: '28px' }}>
-            <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(22px, 3vw, 30px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '10px' }}>
-              En fil är en trygghet, inte en begränsning
-            </h2>
-            <p style={{ fontSize: '14.5px', color: MUTED, maxWidth: '580px', margin: '0 auto', lineHeight: 1.65 }}>
-              Bokix har ingen direktkoppling in i din bank — och det är ett medvetet val, inte en lucka.
-            </p>
-          </Reveal>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
-            {SAFEGUARDS.map((s, i) => (
-              <Reveal key={s.title} delay={i * 60} className="lp-card-hover" style={{ background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '16px', padding: '22px 24px', boxShadow: CARD_SHADOW }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-                  <span style={{ width: 34, height: 34, borderRadius: '9px', background: s.accent.soft, color: s.accent.fg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <s.icon size={17} />
-                  </span>
-                  <h3 style={{ fontSize: '15px', fontWeight: 700, color: INK, margin: 0, letterSpacing: '-0.005em' }}>{s.title}</h3>
-                </div>
-                <p style={{ fontSize: '13.5px', color: INK_SOFT, lineHeight: 1.7, margin: 0 }}>{s.body}</p>
-              </Reveal>
-            ))}
-          </div>
-
-          <Reveal delay={120} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', marginTop: '18px', background: IVORY, border: `1px solid ${CARD_BORDER}`, borderRadius: '14px', padding: '18px 22px' }}>
-            <Sparkles size={18} color={BRAND.greenDark} style={{ flexShrink: 0, marginTop: 1 }} />
-            <p style={{ fontSize: '13.5px', color: INK_SOFT, lineHeight: 1.7, margin: 0 }}>
-              Betalar dina kunder med kort? Då behöver du inte filen för de raderna — <Link to="/integrationer" style={{ color: BRAND.greenDark, fontWeight: 600 }}>Stripe och Zettle</Link> lämnar sina underlag direkt till Bokix.
-            </p>
-          </Reveal>
         </div>
       </section>
 
