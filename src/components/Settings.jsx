@@ -232,6 +232,18 @@ const grid2 = { display: 'grid', gap: '12px' };
 // löpmeter brett — och betyder ingenting på mobil, där .form-row-2 ändå
 // staplar till en kolumn (index.css).
 const FORM_MAX = '920px';
+
+// Serverns leverantörslista (api/_smtp.js PROVIDERS) i kopia, som reserv
+// när statusanropet inte gick igenom. Utan den stod användaren med en tom
+// rullgardin och kunde inte fylla i formuläret alls — precis det som
+// rapporterades. Servern vinner alltid när svaret kommer fram.
+const FALLBACK_MAIL_PROVIDERS = [
+  { id: 'gmail', label: 'Gmail / Google Workspace', host: 'smtp.gmail.com', port: 465, secure: true, appPasswordUrl: 'https://myaccount.google.com/apppasswords', help: 'Kräver tvåstegsverifiering på Google-kontot. Skapa ett app-lösenord (16 tecken) och klistra in det här — inte ditt vanliga lösenord.' },
+  { id: 'outlook', label: 'Outlook / Hotmail / Microsoft 365', host: 'smtp-mail.outlook.com', port: 587, secure: false, appPasswordUrl: 'https://account.microsoft.com/security', help: 'Kräver tvåstegsverifiering. Skapa ett app-lösenord under Säkerhet och klistra in det här.' },
+  { id: 'onecom', label: 'one.com', host: 'send.one.com', port: 465, secure: true, appPasswordUrl: null, help: 'Använd samma lösenord som till webbmejlen hos one.com.' },
+  { id: 'loopia', label: 'Loopia', host: 'mailcluster.loopia.se', port: 465, secure: true, appPasswordUrl: null, help: 'Använd samma lösenord som till webbmejlen hos Loopia.' },
+  { id: 'custom', label: 'Annan leverantör', host: '', port: 465, secure: true, appPasswordUrl: null, help: 'Fyll i serveradress och port från din leverantörs hjälpsidor. Söker du på "SMTP" plus leverantörens namn hittar du dem.' },
+];
 const labelStyle = { display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' };
 const inputBase = {
   width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: '8px',
@@ -2480,9 +2492,13 @@ export default function Settings({
   // All hantering av lösenordet sker på servern (api/_smtp.js) — det här
   // formuläret skickar det EN gång och får aldrig tillbaka det.
   const [ownSender, setOwnSender] = useState(null);
-  const [ownSenderProviders, setOwnSenderProviders] = useState([]);
+  // Reservlista, identisk med serverns PROVIDERS (api/_smtp.js). Servern
+  // är källan, men ett tomt urval är värre än en kopia som råkar bli en
+  // version gammal — då står användaren med en tom rullgardin.
+  const [ownSenderProviders, setOwnSenderProviders] = useState(FALLBACK_MAIL_PROVIDERS);
   const [ownSenderReady, setOwnSenderReady] = useState(true);
   const [ownSenderGoogle, setOwnSenderGoogle] = useState(false);
+  const [ownSenderStatusError, setOwnSenderStatusError] = useState('');
   const [ownSenderLoaded, setOwnSenderLoaded] = useState(false);
   const [ownSenderBusy, setOwnSenderBusy] = useState(false);
   const [ownSenderError, setOwnSenderError] = useState('');
@@ -2512,12 +2528,11 @@ export default function Settings({
         const payload = await senderApi({ url: `/api/email/domains?resource=sender&company_id=${encodeURIComponent(activeCompanyId)}` });
         if (cancelled) return;
         setOwnSender(payload.sender || null);
-        setOwnSenderProviders(payload.providers || []);
+        if (payload.providers?.length) setOwnSenderProviders(payload.providers);
         setOwnSenderReady(payload.configured !== false && !payload.missingTable);
         setOwnSenderGoogle(Boolean(payload.googleAvailable));
-      } catch {
-        // Tyst: kortet visar bara "inte kopplat" om statusen inte gick att
-        // hämta. Ett rött fel innan användaren gjort något är brus.
+      } catch (err) {
+        if (!cancelled) setOwnSenderStatusError(err.message || 'Kunde inte hämta status.');
       } finally {
         if (!cancelled) setOwnSenderLoaded(true);
       }
@@ -2647,38 +2662,49 @@ export default function Settings({
         </>
       ) : (
         <>
-          <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 14px', maxWidth: '560px' }}>
-            Har du ingen egen domän? Koppla mejlkontot du redan har — Gmail, Outlook eller vad du använder — så går fakturan ut från din vanliga adress i stället för via Bokix. Kostar inget och kunden ser din adress som avsändare.
+          <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 16px', maxWidth: '560px' }}>
+            Skicka fakturor från adressen du redan har, i stället för via Bokix. Kunden ser din adress som avsändare, mejlet hamnar i din egen Skickat-mapp, och det kostar ingenting extra.
           </p>
-          {!ownSenderReady ? (
-            <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>
-              Funktionen är inte påslagen på servern ännu.
+
+          {ownSenderStatusError && (
+            <div style={{ fontSize: '12.5px', color: 'var(--status-red-text)', marginBottom: '12px', fontWeight: 600 }}>
+              Kunde inte läsa statusen: {ownSenderStatusError}
             </div>
-          ) : !ownSenderOpen ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'flex-start' }}>
-              {ownSenderGoogle && (
-                <>
-                  {/* Enklaste vägen först: logga in, godkänn, klart. Inga
-                      serveradresser, inga app-lösenord. */}
-                  <button
-                    onClick={handleConnectGoogle}
-                    disabled={ownSenderBusy}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', padding: '10px 16px', borderRadius: '10px', border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-main)', fontWeight: 700, fontSize: '14px', cursor: ownSenderBusy ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: ownSenderBusy ? 0.6 : 1 }}
-                  >
-                    <GoogleGlyph />
-                    {ownSenderBusy ? 'Öppnar Google…' : 'Logga in med Google'}
-                  </button>
-                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', maxWidth: '520px', lineHeight: 1.55 }}>
-                    Google frågar bara om en enda behörighet: att skicka e-post åt dig. Bokix kan inte läsa, radera eller söka i din inkorg — den behörigheten begär vi aldrig.
-                  </div>
-                </>
-              )}
-              <button onClick={() => setOwnSenderOpen(true)} style={ownSenderGoogle ? btnGhost : btnPrimary}>
-                {ownSenderGoogle ? 'Annan e-postleverantör' : 'Koppla min adress'}
+          )}
+
+          {!ownSenderOpen ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', alignItems: 'flex-start', maxWidth: '560px' }}>
+              {/* Google är HUVUDVÄGEN. Ett klick, en inloggning, klart —
+                  inga serveradresser och inga app-lösenord. Manuella
+                  vägen ligger kvar som en textlänk under, för Outlook,
+                  one.com och egna domäner. */}
+              <button
+                onClick={handleConnectGoogle}
+                disabled={ownSenderBusy || !ownSenderGoogle}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '11px', padding: '13px 20px', borderRadius: '11px', border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-main)', fontWeight: 700, fontSize: '15px', cursor: (ownSenderBusy || !ownSenderGoogle) ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: (ownSenderBusy || !ownSenderGoogle) ? 0.55 : 1, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}
+              >
+                <GoogleGlyph size={19} />
+                {ownSenderBusy ? 'Öppnar Google…' : 'Fortsätt med Google'}
+              </button>
+
+              <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                {ownSenderGoogle
+                  ? 'Google frågar om en enda behörighet: att skicka e-post åt dig. Bokix kan inte läsa, söka i eller radera något i din inkorg — den behörigheten begär vi aldrig.'
+                  : 'Google-inloggningen är inte påslagen på servern ännu (GOOGLE_OAUTH_CLIENT_ID och GOOGLE_OAUTH_CLIENT_SECRET saknas). Använd den manuella vägen så länge.'}
+              </div>
+
+              <button
+                onClick={() => setOwnSenderOpen(true)}
+                style={{ background: 'none', border: 'none', padding: 0, fontFamily: 'inherit', fontSize: '13px', fontWeight: 600, color: 'var(--accent-text)', cursor: 'pointer', textDecoration: 'underline' }}
+              >
+                Använder du inte Gmail? Koppla en annan leverantör
               </button>
             </div>
           ) : (
             <div style={{ maxWidth: FORM_MAX }}>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '12px' }}>
+                Koppla med app-lösenord
+              </div>
               <div className="form-row-stack" style={grid2}>
                 <AutoField label="Din e-postadress" value={ownSenderForm.fromEmail} onChange={handleOwnSenderEmailChange} placeholder="namn@gmail.com" />
                 <AutoField label="Avsändarnamn (visas för kunden)" value={ownSenderForm.fromName} onChange={(v) => setOwnSenderForm(f => ({ ...f, fromName: v }))} placeholder={company?.name || 'Ditt företag'} />
