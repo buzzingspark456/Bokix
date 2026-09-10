@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Plus, Search, ChevronRight, ChevronDown, X,
-  AlertCircle, RotateCcw, FileText, RefreshCw,
+  AlertCircle, RotateCcw, RefreshCw,
   UploadCloud, Tag, LayoutTemplate, Save, Trash2
 } from 'lucide-react';
 import { getDebet, getKredit } from '../utils/verificationAmounts';
@@ -11,6 +11,7 @@ import { PartySearch, ProjectSearch, AccountSearch } from './shared/SearchInputs
 import ListPageHeader, { ListFilterBar, listSearchInputStyle, listFilterFieldStyle } from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
 import { findLockedVatPeriod } from '../utils/vatCalculation';
+import { DocumentPane, DocumentLightbox } from './shared/DocumentViewer';
 import { uploadFileToStorage, deleteFileFromStorage } from '../utils/fileUpload';
 import { confirmDialog, promptDialog } from './shared/ConfirmDialog';
 
@@ -137,13 +138,11 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
     setAttachmentUrl(url);
     return () => URL.revokeObjectURL(url);
   }, [attachment]);
-  const attachmentIsImage = attachment
-    ? attachment.type?.startsWith('image/')
-    : existingAttachment?.type?.startsWith('image/');
   // Vad som faktiskt visas i förhandsvisningen: en nyvald fil vinner över
   // ett redan uppladdat underlag (man håller på att byta ut det).
   const displayAttachmentName = attachment?.name || existingAttachment?.name;
   const displayAttachmentUrl = attachment ? attachmentUrl : existingAttachment?.url;
+  const displayAttachmentType = attachment ? attachment.type : existingAttachment?.type;
   const hasAttachment = Boolean(attachment || existingAttachment);
 
   // "PDF eller bild (max 10 MB)" är inte bara text i gränssnittet — den
@@ -597,48 +596,46 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
         {/* Right side: Attachment */}
         <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '8px' }}>Underlag</div>
+          {/* Ett uppladdat underlag visas i SAMMA visare som kvittovyn i
+              Utgifter (shared/DocumentViewer.jsx), inte som en tumnagel i
+              släppytan. Skillnaden var påtaglig: en 140px hög bild av ett
+              kvitto går inte att läsa av, och en PDF fick ingen förhands-
+              visning alls. Panelen har samma höjd som den tomma släppytan,
+              så spalten är lika hög före och efter en uppladdning — sidan
+              hoppar inte när man lägger till eller byter underlag. */}
           <div
-            onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+            onDragOver={e => { e.preventDefault(); if (!dragOver) setDragOver(true); }}
             onDragLeave={() => setDragOver(false)}
             onDrop={e => {
               e.preventDefault(); setDragOver(false);
               acceptFile(e.dataTransfer.files?.[0]);
             }}
-            style={{ flex: 1, border: `1px dashed ${dragOver ? 'var(--text-main)' : 'var(--border)'}`, borderRadius: '10px', background: dragOver ? 'var(--bg-muted)' : 'var(--bg-card)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '28px', textAlign: 'center', cursor: 'pointer', transition: 'all 0.15s', minHeight: '160px' }}
-            onClick={() => fileInputRef.current?.click()}
+            style={{ minWidth: 0, borderRadius: '12px', outline: `2px dashed ${dragOver ? 'var(--text-main)' : 'transparent'}`, outlineOffset: '3px', transition: 'outline-color 0.15s' }}
           >
             <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={e => acceptFile(e.target.files[0])} accept=".pdf,.png,.jpg,.jpeg,.webp" />
             {hasAttachment ? (
-              attachmentIsImage ? (
-                <>
-                  <img
-                    src={displayAttachmentUrl}
-                    alt={displayAttachmentName}
-                    onClick={e => { e.stopPropagation(); setShowAttachmentLightbox(true); }}
-                    style={{ maxWidth: '100%', maxHeight: '140px', borderRadius: '8px', objectFit: 'contain', marginBottom: '8px', cursor: 'zoom-in', boxShadow: '0 1px 4px rgba(0,0,0,0.12)' }}
-                  />
-                  <span style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text-main)', wordBreak: 'break-all' }}>{displayAttachmentName}</span>
-                  <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
-                    <button onClick={e => { e.stopPropagation(); setShowAttachmentLightbox(true); }} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '999px', padding: '4px 14px', fontSize: '12px', cursor: 'pointer', color: 'var(--text-main)' }}>Visa i fullstorlek</button>
-                    <button onClick={(e) => { e.stopPropagation(); setAttachment(null); setExistingAttachment(null); }} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '999px', padding: '4px 14px', fontSize: '12px', cursor: 'pointer', color: 'var(--text-secondary)' }}>Ta bort</button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <FileText size={28} color="var(--text-main)" style={{ marginBottom: '10px' }} />
-                  <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', wordBreak: 'break-all' }}>{displayAttachmentName}</span>
-                  <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
-                    <a href={displayAttachmentUrl} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '999px', padding: '4px 14px', fontSize: '12px', color: 'var(--text-main)', textDecoration: 'none' }}>Visa PDF</a>
-                    <button onClick={(e) => { e.stopPropagation(); setAttachment(null); setExistingAttachment(null); }} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '999px', padding: '4px 14px', fontSize: '12px', cursor: 'pointer', color: 'var(--text-secondary)' }}>Ta bort</button>
-                  </div>
-                </>
-              )
-            ) : (
               <>
+                <DocumentPane
+                  className="dv-embed"
+                  url={displayAttachmentUrl}
+                  type={displayAttachmentType}
+                  name={displayAttachmentName}
+                />
+                <div className="ver-doc-actions">
+                  <button type="button" className="ver-doc-btn" onClick={() => setShowAttachmentLightbox(true)}>Visa i fullstorlek</button>
+                  <button type="button" className="ver-doc-btn" onClick={() => fileInputRef.current?.click()}>Byt fil</button>
+                  <button type="button" className="ver-doc-btn ver-doc-btn-muted" onClick={() => { setAttachment(null); setExistingAttachment(null); }}>Ta bort</button>
+                </div>
+              </>
+            ) : (
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                style={{ border: `1px dashed ${dragOver ? 'var(--text-main)' : 'var(--border)'}`, borderRadius: '12px', background: dragOver ? 'var(--bg-muted)' : 'var(--bg-card)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '28px', textAlign: 'center', cursor: 'pointer', transition: 'all 0.15s', height: 'clamp(320px, 44vh, 560px)', boxSizing: 'border-box' }}
+              >
                 <UploadCloud size={26} color="var(--text-muted)" style={{ marginBottom: '10px' }} />
                 <span style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-main)' }}>Dra och släpp filer här</span>
                 <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>PDF eller bild (max {MAX_ATTACHMENT_MB} MB)</span>
-              </>
+              </div>
             )}
           </div>
           {fileError && (
@@ -699,14 +696,19 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
       </div>
       </div>
 
-      {/* ── Underlag i fullstorlek ──────────────────────────────── */}
+      {/* ── Underlag i fullstorlek ──────────────────────────────────
+          Samma visare som kvittovyn i Utgifter (shared/DocumentViewer.jsx):
+          zoom för fotade underlag och PDF:er renderade inline. Låg tidigare
+          som en naken <img> här, vilket betydde att ett PDF-underlag inte
+          gick att förhandsvisa alls — det hade bara en "Visa PDF"-länk till
+          en ny flik. ── */}
       {showAttachmentLightbox && displayAttachmentUrl && (
-        <div onClick={() => setShowAttachmentLightbox(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 600, padding: 32 }}>
-          <img src={displayAttachmentUrl} alt={displayAttachmentName} style={{ maxWidth: '92vw', maxHeight: '92vh', objectFit: 'contain', borderRadius: '6px', boxShadow: '0 20px 60px rgba(0,0,0,0.4)' }} />
-          <button onClick={() => setShowAttachmentLightbox(false)} style={{ position: 'fixed', top: 20, right: 24, background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: '999px', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', cursor: 'pointer' }}>
-            <X size={20} />
-          </button>
-        </div>
+        <DocumentLightbox
+          url={displayAttachmentUrl}
+          type={displayAttachmentType}
+          name={displayAttachmentName}
+          onClose={() => setShowAttachmentLightbox(false)}
+        />
       )}
 
       {/* ── Granska innan bokföring ─────────────────────────────── */}

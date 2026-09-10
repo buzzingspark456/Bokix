@@ -1,8 +1,10 @@
-﻿import React, { useState, useRef, useEffect } from 'react';
+﻿import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
-  UploadCloud, FileText, CheckCircle2, AlertCircle, Receipt, X, Clock, Trash2, RotateCcw,
+  UploadCloud, FileText, CheckCircle2, AlertCircle, Receipt, X, Clock, Trash2, RotateCcw, Search,
 } from 'lucide-react';
 import { AccountSearch } from './shared/SearchInputs';
+import { DocumentPane } from './shared/DocumentViewer';
+import { TextSuggestInput } from './shared/SearchInputs';
 import ListPageHeader from './shared/ListPageHeader';
 import { uploadFileToStorage } from '../utils/fileUpload';
 import { BRAND } from '../utils/brandColors';
@@ -106,11 +108,36 @@ function EmptyReceiptsState({ text }) {
   );
 }
 
-// ── Detaljvy per kvitto (Sida 34) — bild i full storlek till vänster,
-// redigerbart formulär till höger. Kvittot finns redan i listan (skapades
-// direkt vid uppladdning med tomma fält, se uploadReceipt i Expenses),
-// den här modalen är hur man färdigställer/bokför det — eller, om det
-// redan är bokfört, bara tittar på uppgifterna i efterhand. ──
+// ── Kvittovyn (Sida 34) — fälten till vänster, dokumentet till höger ──
+// Kvittot finns redan i listan (det skapas direkt vid uppladdning med tomma
+// fält, se uploadReceipt i Expenses); den här vyn är hur man färdigställer
+// och bokför det — eller, om det redan är bokfört, bara läser uppgifterna
+// i efterhand.
+//
+// Omgjord efter kundfeedback, och hela omgörningen vilar på en enda
+// omständighet: vi tolkar INTE kvittot automatiskt (ingen OCR ännu). Allt
+// fylls i för hand, och då är det två saker som avgör hur snabbt det går.
+//
+//  1. Man måste kunna LÄSA kvittot medan man skriver. Dokumentet ligger
+//     därför i en riktig visare bredvid formuläret, i helskärm
+//     (shared/DocumentViewer.jsx, delad med verifikationens underlag).
+//     Den gamla vyn visade en filikon och texten "Öppna PDF-kvitto i ny
+//     flik" — man fick alltså lämna formuläret för att se beloppet man
+//     skulle skriva in.
+//  2. Fälten ska svara medan man skriver. Momsuppdelningen (netto/moms/
+//     totalt) räknas fram live ur bruttobeloppet och momssatsen, och
+//     snabbvalen under kontofältet är de konton man faktiskt använt mest på
+//     sina egna kvitton. Ingen gissning presenteras som ett svar från appen
+//     — det står "snabbval", för det är vad det är.
+
+// Belopp med ören — momsuppdelningen är det enda stället på sidan där
+// decimalerna faktiskt betyder något (25% av 842,50 är inte ett jämnt tal).
+const formatSEK2 = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', minimumFractionDigits: 2 }).format(val || 0);
+
+// Statusetiketterna i STATUS_META är plural (de sitter på filterpillren som
+// räknar flera kvitton). Här handlar det om ETT kvitto.
+const STATUS_SINGULAR = { unhandled: 'Ej hanterad', pending: 'Pågående', booked: 'Bokförd', reversed: 'Rättad' };
+
 function ReceiptDetailModal({ receipt, accounts, projects, allReceipts, status, onSave, onDelete, onReverse, onClose }) {
   // "Rättad" är också ett låst tillstånd — samma skäl som "Bokförd": en
   // rättelseverifikation ändrar inte originalet, så fälten som redan
@@ -127,7 +154,6 @@ function ReceiptDetailModal({ receipt, accounts, projects, allReceipts, status, 
     notes: receipt.notes || '',
   });
   const [errors, setErrors] = useState({});
-  const [imgFailed, setImgFailed] = useState(false);
 
   useEffect(() => {
     const handleEsc = (e) => { if (e.key === 'Escape') onClose(); };
@@ -135,9 +161,37 @@ function ReceiptDetailModal({ receipt, accounts, projects, allReceipts, status, 
     return () => window.removeEventListener('keydown', handleEsc);
   }, [onClose]);
 
-  const isImage = receipt.receiptType?.startsWith('image/') && receipt.receiptUrl;
-  const isPdf = receipt.receiptType === 'application/pdf' && receipt.receiptUrl;
   const accountLabel = accounts.find(a => a.code === form.costAccount);
+
+  // Momsuppdelning live. Beloppet man skriver in är brutto (ink moms), precis
+  // som det står på kvittot — netto och moms är det som faktiskt bokförs, och
+  // att visa dem här är skillnaden mellan att skriva en siffra och att se vad
+  // den blir. Samma räkning som bokföringen gör efteråt, inte en egen.
+  const grossAmount = parseAmount(form.amount);
+  const hasAmount = !isNaN(grossAmount) && grossAmount > 0;
+  const vatRate = Number(form.vatRate) || 0;
+  const vatAmount = hasAmount ? grossAmount - grossAmount / (1 + vatRate / 100) : 0;
+  const netAmount = hasAmount ? grossAmount - vatAmount : 0;
+
+  // Snabbval för konto = de konton som redan använts mest på företagets egna
+  // kvitton, inte en generell topplista. Ett företag bokför i praktiken
+  // samma handfull konton om och om igen.
+  const frequentAccounts = useMemo(() => {
+    const counts = new Map();
+    (allReceipts || []).forEach(r => {
+      if (r.costAccount && r.id !== receipt.id) counts.set(r.costAccount, (counts.get(r.costAccount) || 0) + 1);
+    });
+    return [...counts.entries()]
+      .sort((x, y) => y[1] - x[1])
+      .slice(0, 4)
+      .map(([code]) => ({ code, name: accounts.find(acc => acc.code === code)?.name || '' }));
+  }, [allReceipts, accounts, receipt.id]);
+
+  // Leverantörer man redan skrivit in en gång — ett vanligt kvittoflöde är
+  // samma fem ställen om igen (macken, matbutiken, en webbshop).
+  const supplierSuggestions = useMemo(() => (
+    [...new Set((allReceipts || []).map(r => (r.supplier || '').trim()).filter(Boolean))].slice(0, 50)
+  ), [allReceipts]);
 
   const handleSave = async () => {
     const newErrors = {};
@@ -164,95 +218,156 @@ function ReceiptDetailModal({ receipt, accounts, projects, allReceipts, status, 
     onClose();
   };
 
+  const statusMeta = STATUS_META[status];
+
   return (
-    <div onClick={onClose} className="receipt-modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)', zIndex: 1150, display: 'flex', justifyContent: 'center' }}>
-      <div onClick={e => e.stopPropagation()} className="receipt-modal-box" style={{ background: 'var(--bg-card)', borderRadius: '16px', width: '100%', maxWidth: 920, display: 'flex', flexWrap: 'wrap', boxShadow: '0 20px 60px rgba(0,0,0,0.35)' }}>
+    // Helskärm, inte ett kort på en mörk bakgrund: kvittot ÄR sidan medan
+    // man håller på med det. Overlayen är därför opak (det finns inget
+    // bakom att skymta) och stängs inte längre av ett bakgrundsklick —
+    // det finns ingen bakgrund att klicka på. Esc och Stäng gäller.
+    <div className="receipt-modal-overlay" role="dialog" aria-modal="true" aria-label="Kvittodetaljer" style={{ position: 'fixed', inset: 0, zIndex: 1150, display: 'flex' }}>
+      <div className="receipt-modal-box">
 
-        {/* Vänster: bilden i full storlek */}
-        <div className="receipt-modal-image" style={{ background: 'var(--text-main)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
-          {isImage && !imgFailed ? (
-            <img src={receipt.receiptUrl} alt="Kvitto" onError={() => setImgFailed(true)} style={{ maxWidth: '100%', maxHeight: '80vh', borderRadius: '6px', boxShadow: '0 4px 20px rgba(0,0,0,0.4)' }} />
-          ) : isPdf ? (
-            <a href={receipt.receiptUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', color: 'white', textDecoration: 'none' }}>
-              <FileText size={48} />
-              <span style={{ fontSize: '13px', fontWeight: 600 }}>Öppna PDF-kvitto i ny flik</span>
-            </a>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', color: 'rgba(255,255,255,0.6)', textAlign: 'center', padding: '0 20px' }}>
-              <Receipt size={48} />
-              <span style={{ fontSize: '13px' }}>{imgFailed ? 'Bilden kunde inte visas i den här webbläsaren (t.ex. HEIC).' : 'Ingen bild sparad för det här kvittot.'}</span>
+        {/* ── Vänster: formuläret ── */}
+        <div className="rc-form">
+          <div className="rc-form-head">
+            <div style={{ minWidth: 0 }}>
+              <h2 style={{ margin: 0, fontSize: '16.5px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.01em' }}>Kvittodetaljer</h2>
+              <p style={{ margin: '3px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>
+                {readOnly ? 'Bokfört underlag' : 'Fyll i uppgifterna från kvittot'}
+              </p>
             </div>
-          )}
-        </div>
-
-        {/* Höger: formulär */}
-        <div className="receipt-modal-form" style={{ flex: '1 1 380px', minWidth: 300, padding: '24px', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '18px' }}>
-            <h2 style={{ margin: 0, fontSize: '17px', fontWeight: 700, color: 'var(--text-main)' }}>Kvittodetaljer</h2>
-            <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4 }}><X size={18} /></button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+              {statusMeta && (
+                <span style={{ padding: '4px 10px', borderRadius: '999px', background: statusMeta.bg, color: statusMeta.color, fontSize: '11.5px', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                  {STATUS_SINGULAR[status] || statusMeta.label}
+                </span>
+              )}
+              <button onClick={onClose} aria-label="Stäng" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, display: 'flex' }}><X size={18} /></button>
+            </div>
           </div>
 
-          {status === 'reversed' ? (
-            <div style={{ background: BRAND.grayBg, color: BRAND.grayText, borderRadius: '8px', padding: '8px 12px', fontSize: '12.5px', fontWeight: 600, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <RotateCcw size={14} /> Den här bokföringen har rättats med en motverifikation — originalet ändras aldrig i efterhand
-            </div>
-          ) : readOnly && (
-            <div style={{ background: BRAND.greenLight, color: BRAND.greenDark, borderRadius: '8px', padding: '8px 12px', fontSize: '12.5px', fontWeight: 600, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <CheckCircle2 size={14} /> Redan bokfört — belopp och konto kan inte ändras här
-            </div>
-          )}
-
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px' }}>
-            <div style={{ flex: '1 1 160px' }}>
-              <label style={labelSt}>Datum</label>
-              <input type="date" disabled={readOnly} value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} style={inputStErr(errors.date)} />
-              {errors.date && <div style={errSt}>{errors.date}</div>}
-            </div>
-            <div style={{ flex: '1 1 200px' }}>
-              <label style={labelSt}>Inköpsställe / Leverantör</label>
-              <input type="text" disabled={readOnly} value={form.supplier} onChange={e => setForm(f => ({ ...f, supplier: e.target.value }))} style={inputStErr(errors.supplier)} />
-              {errors.supplier && <div style={errSt}>{errors.supplier}</div>}
-            </div>
-            <div style={{ flex: '1 1 160px' }}>
-              <label style={labelSt}>Belopp ink moms (kr)</label>
-              <AmountInput disabled={readOnly} value={form.amount} onChange={v => setForm(f => ({ ...f, amount: v }))} style={inputStErr(errors.amount)} />
-              {errors.amount && <div style={errSt}>{errors.amount}</div>}
-            </div>
-            <div style={{ flex: '1 1 120px' }}>
-              <label style={labelSt}>Momssats</label>
-              <select disabled={readOnly} value={form.vatRate} onChange={e => setForm(f => ({ ...f, vatRate: Number(e.target.value) }))} style={{ ...inputSt, background: 'var(--bg-card)' }}>
-                {[25, 12, 6, 0].map(v => <option key={v} value={v}>{v}%</option>)}
-              </select>
-            </div>
-            <div style={{ flex: '1 1 100%' }}>
-              <label style={labelSt}>Konto</label>
-              {readOnly ? (
-                <div style={{ ...inputSt, background: 'var(--bg-muted)', color: 'var(--text-main)' }}>
-                  {accountLabel ? `${accountLabel.code} – ${accountLabel.name}` : form.costAccount || '—'}
-                </div>
-              ) : (
-                <>
-                  <AccountSearch value={form.costAccount} onChange={code => setForm(f => ({ ...f, costAccount: code }))} accounts={accounts} placeholder="Sök konto, t.ex. 6110 Kontorsmaterial..." />
-                  {errors.costAccount && <div style={errSt}>{errors.costAccount}</div>}
-                </>
-              )}
-            </div>
-            {projects.length > 0 && (
-              <div style={{ flex: '1 1 100%' }}>
-                <label style={labelSt}>Projekt (valfritt)</label>
-                <select value={form.projectId} onChange={e => setForm(f => ({ ...f, projectId: e.target.value }))} style={{ ...inputSt, background: 'var(--bg-card)' }}>
-                  <option value="">Inget projekt</option>
-                  {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                </select>
+          <div className="rc-form-body">
+            {status === 'reversed' ? (
+              <div style={{ background: BRAND.grayBg, color: BRAND.grayText, borderRadius: '10px', padding: '10px 13px', fontSize: '12.5px', fontWeight: 600, marginBottom: '16px', display: 'flex', alignItems: 'flex-start', gap: '7px', lineHeight: 1.5 }}>
+                <RotateCcw size={14} style={{ flexShrink: 0, marginTop: 2 }} /> Den här bokföringen har rättats med en motverifikation — originalet ändras aldrig i efterhand
+              </div>
+            ) : readOnly && (
+              <div style={{ background: BRAND.greenLight, color: BRAND.greenDark, borderRadius: '10px', padding: '10px 13px', fontSize: '12.5px', fontWeight: 600, marginBottom: '16px', display: 'flex', alignItems: 'flex-start', gap: '7px', lineHeight: 1.5 }}>
+                <CheckCircle2 size={14} style={{ flexShrink: 0, marginTop: 2 }} /> Redan bokfört — belopp och konto kan inte ändras här
               </div>
             )}
-            <div style={{ flex: '1 1 100%' }}>
-              <label style={labelSt}>Anteckningar (valfritt)</label>
-              <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={3} style={{ ...inputSt, resize: 'vertical', fontFamily: 'inherit' }} />
+
+            <div className="rc-grid">
+              <div>
+                <label style={labelSt}>Datum</label>
+                <input type="date" disabled={readOnly} value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} style={inputStErr(errors.date)} />
+                {errors.date && <div style={errSt}>{errors.date}</div>}
+              </div>
+              <div>
+                <label style={labelSt}>Belopp ink moms (kr)</label>
+                <AmountInput disabled={readOnly} value={form.amount} onChange={v => setForm(f => ({ ...f, amount: v }))} style={inputStErr(errors.amount)} />
+                {errors.amount && <div style={errSt}>{errors.amount}</div>}
+              </div>
+              <div className="rc-span">
+                <label style={labelSt}>Inköpsställe / Leverantör</label>
+                {/* Synlig lista över ställen man handlat på förut, inte en
+                    <datalist> — se TextSuggestInput i shared/SearchInputs.jsx
+                    för varför den inbyggda inte dög. */}
+                <TextSuggestInput
+                  disabled={readOnly}
+                  value={form.supplier}
+                  onChange={v => setForm(f => ({ ...f, supplier: v }))}
+                  suggestions={supplierSuggestions}
+                  placeholder="T.ex. Circle K, Clas Ohlson…"
+                  style={inputStErr(errors.supplier)}
+                  emptyHint="Ställen du skriver in här dyker upp som förslag nästa gång."
+                />
+                {errors.supplier && <div style={errSt}>{errors.supplier}</div>}
+              </div>
+              <div className="rc-span">
+                <label style={labelSt}>Momssats</label>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  {[25, 12, 6, 0].map(v => {
+                    const on = Number(form.vatRate) === v;
+                    return (
+                      <button
+                        key={v} type="button" disabled={readOnly}
+                        onClick={() => setForm(f => ({ ...f, vatRate: v }))}
+                        style={{
+                          flex: 1, padding: '8px 0', borderRadius: '8px', fontSize: '13px', fontWeight: 700,
+                          fontFamily: 'inherit', cursor: readOnly ? 'default' : 'pointer',
+                          border: `1.5px solid ${on ? BRAND.green : 'var(--border)'}`,
+                          background: on ? BRAND.greenLight : 'var(--bg-card)',
+                          color: on ? BRAND.greenDark : 'var(--text-secondary)',
+                          opacity: readOnly && !on ? 0.5 : 1,
+                        }}
+                      >
+                        {v}%
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Vad som faktiskt bokförs, medan man skriver. */}
+              <div className="rc-span rc-split" aria-live="polite">
+                <div>
+                  <div className="rc-split-k">Netto</div>
+                  <div className="rc-split-v">{hasAmount ? formatSEK2(netAmount) : '—'}</div>
+                </div>
+                <div>
+                  <div className="rc-split-k">Moms {vatRate}%</div>
+                  <div className="rc-split-v">{hasAmount ? formatSEK2(vatAmount) : '—'}</div>
+                </div>
+                <div>
+                  <div className="rc-split-k">Totalt</div>
+                  <div className="rc-split-v">{hasAmount ? formatSEK2(grossAmount) : '—'}</div>
+                </div>
+              </div>
+
+              <div className="rc-span">
+                <label style={labelSt}>Konto</label>
+                {readOnly ? (
+                  <div style={{ ...inputSt, background: 'var(--bg-muted)', color: 'var(--text-main)' }}>
+                    {accountLabel ? `${accountLabel.code} – ${accountLabel.name}` : form.costAccount || '—'}
+                  </div>
+                ) : (
+                  <>
+                    <AccountSearch value={form.costAccount} onChange={code => setForm(f => ({ ...f, costAccount: code }))} accounts={accounts} placeholder="Sök konto, t.ex. 6110 Kontorsmaterial..." />
+                    {errors.costAccount && <div style={errSt}>{errors.costAccount}</div>}
+                    {frequentAccounts.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px', alignItems: 'center' }}>
+                        <span style={{ fontSize: '11.5px', color: 'var(--text-muted)', fontWeight: 600 }}>Snabbval:</span>
+                        {frequentAccounts.map(acc => (
+                          <button key={acc.code} type="button" className="rc-chip" onClick={() => setForm(f => ({ ...f, costAccount: acc.code }))} title={acc.name}>
+                            {acc.code}{acc.name ? ` ${acc.name}` : ''}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
+              {projects.length > 0 && (
+                <div className="rc-span">
+                  <label style={labelSt}>Projekt (valfritt)</label>
+                  <select value={form.projectId} onChange={e => setForm(f => ({ ...f, projectId: e.target.value }))} style={{ ...inputSt, background: 'var(--bg-card)' }}>
+                    <option value="">Inget projekt</option>
+                    {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                </div>
+              )}
+
+              <div className="rc-span">
+                <label style={labelSt}>Anteckningar (valfritt)</label>
+                <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} placeholder="Vad var det här köpet till?" style={{ ...inputSt, resize: 'vertical', fontFamily: 'inherit' }} />
+              </div>
             </div>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--border)' }}>
+          <div className="rc-form-foot">
             {status === 'booked' ? (
               // Bokförd — kan inte raderas (Bokföringslagen), men rättas med
               // en ny länkad motverifikation (handleReverseExpense i App.jsx),
@@ -274,15 +389,23 @@ function ReceiptDetailModal({ receipt, accounts, projects, allReceipts, status, 
               </button>
             ) : <span />}
             <div style={{ display: 'flex', gap: '10px' }}>
-              <button type="button" onClick={onClose} style={{ padding: '8px 16px', background: 'var(--border-light)', border: 'none', borderRadius: '8px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer', fontSize: '13px' }}>Stäng</button>
+              <button type="button" onClick={onClose} style={{ padding: '9px 16px', background: 'var(--border-light)', border: 'none', borderRadius: '9px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer', fontSize: '13px', fontFamily: 'inherit' }}>Stäng</button>
               {status !== 'reversed' && (
-                <button type="button" onClick={handleSave} style={{ padding: '8px 18px', background: BRAND.green, border: 'none', borderRadius: '8px', fontWeight: 600, color: 'white', cursor: 'pointer', fontSize: '13px', boxShadow: '0 2px 6px rgba(11, 99, 41, 0.25)' }}>
+                <button type="button" onClick={handleSave} style={{ padding: '9px 18px', background: BRAND.green, border: 'none', borderRadius: '9px', fontWeight: 600, color: 'white', cursor: 'pointer', fontSize: '13px', fontFamily: 'inherit', boxShadow: '0 2px 8px rgba(11, 99, 41, 0.28)' }}>
                   {readOnly ? 'Spara ändringar' : 'Spara och bokför'}
                 </button>
               )}
             </div>
           </div>
         </div>
+
+        {/* ── Höger: dokumentet ── */}
+        <DocumentPane
+          url={receipt.receiptUrl}
+          type={receipt.receiptType}
+          emptyText="Ingen fil är sparad för det här kvittot. Uppgifterna bredvid går att fylla i ändå."
+        />
+
       </div>
     </div>
   );
@@ -304,34 +427,82 @@ export default function Expenses({
   const [isDragging, setIsDragging] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState([]);
   const [detailReceiptId, setDetailReceiptId] = useState(null);
+  // URL:en till ett kvitto som just laddats upp och ska öppnas så fort det
+  // finns i listan. Se effekten längre ner.
+  const [autoOpenUrl, setAutoOpenUrl] = useState(null);
   const intervalsRef = useRef({});
 
-  // -- Flikar + statusfilter (Sida 27) --
+  // -- Flikar, sök + statusfilter (Sida 27) --
   const [viewTab, setViewTab] = useState('all'); // 'all' | 'mine'
   const [statusFilter, setStatusFilter] = useState(null); // null | 'unhandled' | 'pending' | 'booked'
+  const [query, setQuery] = useState('');
 
   useEffect(() => () => {
     // Städa upp alla pågående upload-timers om komponenten avmonteras
     Object.values(intervalsRef.current).forEach(clearInterval);
   }, []); // eslint-disable-line
 
+  // Ett nyss uppladdat kvitto öppnas direkt i detaljvyn. Uppladdningen
+  // lämnade förut efter sig en rad utan leverantör, belopp eller konto —
+  // "kvitto utan namn" i listan — och det var upp till användaren att förstå
+  // att raden måste klickas på. Filen ÄR ju det man håller på med, så vyn
+  // där uppgifterna fylls i ska komma av sig själv.
+  //
+  // Vi kan inte öppna på ett id direkt efter onAdd: id:t sätts av föräldern
+  // och posten finns inte i `expenses` förrän nästa render. Vi väntar därför
+  // på att kvittot med den uppladdade URL:en faktiskt dyker upp.
+  useEffect(() => {
+    if (!autoOpenUrl) return;
+    const added = expenses.find(e => e.type === 'receipt' && e.receiptUrl === autoOpenUrl);
+    if (!added) return;
+    setDetailReceiptId(added.id);
+    setAutoOpenUrl(null);
+  }, [expenses, autoOpenUrl]);
+
   const allReceipts = [...expenses.filter(e => e.type === 'receipt')].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 
-  // Flikval och statusfilter kombineras, nollställer aldrig varandra —
-  // "Mina kvitton" + "Ej hanterade" ska t.ex. gå att visa samtidigt.
-  const tabFiltered = viewTab === 'mine' ? allReceipts.filter(r => r.uploadedBy?.id === user?.id) : allReceipts;
+  // "Alla kvitton"/"Mina kvitton" visas BARA när det finns kvitton från fler
+  // än en person. Kundens invändning, ordagrant i sak: "jag ser ingen
+  // skillnad, det ligger ju samma sak under båda" — och så är det: i ett
+  // enmansföretag är flikarna två namn på exakt samma lista, alltså två
+  // klick som aldrig kan leda någonstans. De hör hemma i ett delat konto
+  // (flera anställda som laddar upp kvitton), inte hos alla.
+  const uploaderIds = new Set(allReceipts.map(r => r.uploadedBy?.id).filter(Boolean));
+  const showUploaderTabs = uploaderIds.size > 1;
+  const effectiveTab = showUploaderTabs ? viewTab : 'all';
+
+  // Flikval, sökning och statusfilter kombineras, nollställer aldrig
+  // varandra — "Mina kvitton" + "Ej hanterade" ska t.ex. gå att visa
+  // samtidigt.
+  const tabFiltered = effectiveTab === 'mine' ? allReceipts.filter(r => r.uploadedBy?.id === user?.id) : allReceipts;
+
+  // Sökningen går på det man faktiskt minns av ett kvitto: var man handlade,
+  // vad det gällde, vilket konto det hamnade på eller ungefär vad det kostade.
+  const q = query.trim().toLowerCase();
+  const searched = q
+    ? tabFiltered.filter(r => {
+      const accName = accounts.find(a => a.code === r.costAccount)?.name;
+      return [r.supplier, r.description, r.notes, r.costAccount, accName, r.date, r.amount]
+        .filter(v => v !== undefined && v !== null && v !== '')
+        .some(v => String(v).toLowerCase().includes(q));
+    })
+    : tabFiltered;
+
   const statusCounts = {
-    unhandled: tabFiltered.filter(r => getReceiptStatus(r, verifications) === 'unhandled').length,
-    pending: tabFiltered.filter(r => getReceiptStatus(r, verifications) === 'pending').length,
-    booked: tabFiltered.filter(r => getReceiptStatus(r, verifications) === 'booked').length,
-    reversed: tabFiltered.filter(r => getReceiptStatus(r, verifications) === 'reversed').length,
+    unhandled: searched.filter(r => getReceiptStatus(r, verifications) === 'unhandled').length,
+    pending: searched.filter(r => getReceiptStatus(r, verifications) === 'pending').length,
+    booked: searched.filter(r => getReceiptStatus(r, verifications) === 'booked').length,
+    reversed: searched.filter(r => getReceiptStatus(r, verifications) === 'reversed').length,
   };
-  const receiptsList = statusFilter ? tabFiltered.filter(r => getReceiptStatus(r, verifications) === statusFilter) : tabFiltered;
+  const receiptsList = statusFilter ? searched.filter(r => getReceiptStatus(r, verifications) === statusFilter) : searched;
   const receiptsTotal = receiptsList.reduce((s, r) => s + (r.amount || 0), 0);
+  const unhandledTotal = allReceipts.filter(r => getReceiptStatus(r, verifications) === 'unhandled').length;
   const detailReceipt = detailReceiptId ? allReceipts.find(r => r.id === detailReceiptId) : null;
 
   // ── Drag & drop / filhantering ──
-  const handleDragOver = (e) => { e.preventDefault(); setIsDragging(true); };
+  // Sätt bara state när det FAKTISKT ändras — dragover fyras av
+  // kontinuerligt medan filen svävar över ytan.
+  const handleDragOver = (e) => { e.preventDefault(); if (!isDragging) setIsDragging(true); };
   const handleDragLeave = (e) => { e.preventDefault(); setIsDragging(false); };
   const handleDrop = (e) => {
     e.preventDefault();
@@ -350,7 +521,7 @@ export default function Expenses({
   // fyllts i (Sida 34). Fälten är tomma till att börja med; kvittot hamnar
   // därför i "Ej hanterade" precis som ett kvitto med saknat konto redan
   // gör idag, tills användaren öppnar detaljvyn och sparar.
-  const uploadReceipt = (file) => {
+  const uploadReceipt = (file, openWhenDone = false) => {
     const id = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     setUploadingFiles(prev => [...prev, { id, file, progress: 0 }]);
 
@@ -387,6 +558,7 @@ export default function Expenses({
             email: user?.email || '',
           } : null,
         });
+        if (openWhenDone) setAutoOpenUrl(receiptUrl);
       })
       .catch(err => {
         finish();
@@ -416,7 +588,11 @@ export default function Expenses({
     setFileErrors(errors);
     if (valid.length === 0) return;
     if (!user?.id) { setFileErrors(prev => [...prev, 'Du måste vara inloggad för att ladda upp kvitton.']); return; }
-    valid.forEach(uploadReceipt);
+    // En hel mapp med kvitton ska inte kasta upp en modal per fil — då är
+    // man i "tömma telefonen"-läget och vill se listan växa. Ett ensamt
+    // kvitto är däremot alltid ett kvitto man tänkt fylla i på en gång.
+    const openWhenDone = valid.length === 1;
+    valid.forEach(f => uploadReceipt(f, openWhenDone));
   };
 
   // ── Rätta konto manuellt på en post som saknar kontering ──
@@ -443,41 +619,36 @@ export default function Expenses({
       </ListPageHeader>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
-        {/* Uppladdningszon — en enda yta för både enskilda filer och en hel
-            mapp (Sida 34), istället för separata konkurrerande ytor. */}
+        {/* Uppladdningszonen — en enda yta för både enskilda filer och en
+            hel mapp (Sida 34), istället för separata konkurrerande ytor.
+            Numera ett lågt band i stället för en 36px-paddad ruta som tog
+            halva förstaskärmen: att släppa in filer gör man ibland, listan
+            under är det man är här för resten av tiden. */}
         <div
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
           onClick={() => document.getElementById('receipt-upload').click()}
-          style={{
-            border: `1.5px dashed ${isDragging ? BRAND.green : 'var(--gray-300)'}`,
-            background: isDragging ? 'rgba(234,243,222,0.4)' : 'var(--bg-card)',
-            borderRadius: '12px', padding: '36px 20px', textAlign: 'center',
-            cursor: 'pointer', transition: 'border-color 0.15s, background 0.15s', marginBottom: '24px',
-          }}
+          className={`rc-drop${isDragging ? ' rc-drop-on' : ''}`}
         >
           <input type="file" id="receipt-upload" style={{ display: 'none' }} multiple accept={ACCEPT_ATTR} onChange={handleFileInput} />
           {/* Mappval kräver ett eget, separat <input> — webkitdirectory kan
               inte slås på/av dynamiskt på samma inputelement som filval. */}
           <input type="file" id="receipt-upload-folder" style={{ display: 'none' }} multiple webkitdirectory="" directory="" onChange={handleFileInput} />
-          <div style={{ width: 44, height: 44, borderRadius: '999px', background: BRAND.greenLight, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
-            <UploadCloud size={20} color={BRAND.greenDark} />
-          </div>
-          <h3 style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-main)', margin: '0 0 4px' }}>
-            Ladda upp kvitton
-          </h3>
-          <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: '0 0 6px' }}>
-            Dra och släpp filer här, eller klicka för att välja — eller{' '}
-            <button
-              type="button"
-              onClick={e => { e.stopPropagation(); document.getElementById('receipt-upload-folder').click(); }}
-              style={{ background: 'none', border: 'none', padding: 0, color: BRAND.green, fontWeight: 600, cursor: 'pointer', fontSize: 'inherit', fontFamily: 'inherit', textDecoration: 'underline' }}
-            >
-              välj en hel mapp
-            </button>
-          </p>
-          <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>PDF, JPG, PNG eller HEIC. Max {MAX_FILE_MB} MB per fil, upp till {MAX_FILES} filer åt gången.</p>
+          <span className="rc-drop-icon"><UploadCloud size={19} color={BRAND.greenDark} /></span>
+          <span className="rc-drop-text">
+            <span className="rc-drop-title">{isDragging ? 'Släpp filerna här' : 'Ladda upp kvitton'}</span>
+            <span className="rc-drop-hint">
+              Dra och släpp, eller klicka för att välja. PDF, JPG, PNG eller HEIC — max {MAX_FILE_MB} MB per fil, upp till {MAX_FILES} åt gången.
+            </span>
+          </span>
+          <button
+            type="button"
+            className="rc-drop-folder"
+            onClick={e => { e.stopPropagation(); document.getElementById('receipt-upload-folder').click(); }}
+          >
+            Välj en hel mapp
+          </button>
         </div>
 
         {fileErrors.length > 0 && (
@@ -510,34 +681,59 @@ export default function Expenses({
           </div>
         )}
 
-        {/* Tidigare utgifter */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
-          <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>Tidigare utgifter</h3>
-          {receiptsList.length > 0 && (
-            <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-              {receiptsList.length} {receiptsList.length === 1 ? 'utgift' : 'utgifter'} · {formatSEK(receiptsTotal)} totalt
-            </span>
-          )}
+        {/* Rubrikrad + sökning. Sökningen är ny: en kvittolista växer med
+            varje månad, och det enda man minns i efterhand är var man
+            handlade eller ungefär vad det kostade — statusfiltren nedanför
+            hjälper inte den som letar efter ETT kvitto. */}
+        <div className="rc-list-head">
+          <div style={{ minWidth: 0 }}>
+            <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>Tidigare utgifter</h3>
+            {receiptsList.length > 0 && (
+              <span style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>
+                {receiptsList.length} {receiptsList.length === 1 ? 'utgift' : 'utgifter'} · {formatSEK(receiptsTotal)} totalt
+                {unhandledTotal > 0 && !statusFilter && !q ? ` · ${unhandledTotal} väntar på uppgifter` : ''}
+              </span>
+            )}
+          </div>
+          <div className="rc-search">
+            <Search size={14} color="var(--text-muted)" style={{ flexShrink: 0 }} />
+            <input
+              type="search"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="Sök leverantör, konto eller belopp…"
+              aria-label="Sök bland kvitton"
+            />
+            {query && (
+              <button type="button" onClick={() => setQuery('')} aria-label="Rensa sökning" className="rc-search-clear">
+                <X size={13} />
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Flikar: Alla kvitton / Mina kvitton (Sida 27) */}
-        <div style={{ display: 'flex', gap: '20px', marginBottom: '10px' }}>
-          {[{ id: 'all', label: 'Alla kvitton' }, { id: 'mine', label: 'Mina kvitton' }].map(t => (
-            <button
-              key={t.id}
-              onClick={() => setViewTab(t.id)}
-              style={{
-                background: 'none', border: 'none', cursor: 'pointer', padding: '0 0 8px',
-                fontSize: '13.5px', fontWeight: viewTab === t.id ? 600 : 500,
-                color: viewTab === t.id ? BRAND.green : 'var(--text-secondary)',
-                borderBottom: `2px solid ${viewTab === t.id ? BRAND.green : 'transparent'}`,
-                fontFamily: 'inherit',
-              }}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+        {/* Flikar: Alla kvitton / Mina kvitton (Sida 27) — bara i ett konto
+            där faktiskt fler än en person har laddat upp något, se
+            showUploaderTabs ovan. */}
+        {showUploaderTabs && (
+          <div style={{ display: 'flex', gap: '20px', marginBottom: '10px' }}>
+            {[{ id: 'all', label: 'Alla kvitton' }, { id: 'mine', label: 'Mina kvitton' }].map(t => (
+              <button
+                key={t.id}
+                onClick={() => setViewTab(t.id)}
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer', padding: '0 0 8px',
+                  fontSize: '13.5px', fontWeight: effectiveTab === t.id ? 600 : 500,
+                  color: effectiveTab === t.id ? BRAND.green : 'var(--text-secondary)',
+                  borderBottom: `2px solid ${effectiveTab === t.id ? BRAND.green : 'transparent'}`,
+                  fontFamily: 'inherit',
+                }}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Statusfilter — klicka igen på en aktiv pill för att rensa den. */}
         <div style={{ display: 'flex', gap: '6px', marginBottom: '14px', flexWrap: 'wrap' }}>
@@ -565,20 +761,29 @@ export default function Expenses({
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {receiptsList.length === 0 ? (
-            <EmptyReceiptsState text={allReceipts.length > 0 ? 'Inga kvitton matchar det här filtret.' : undefined} />
+            <EmptyReceiptsState text={
+              q ? `Inga kvitton matchar "${query.trim()}".`
+                : allReceipts.length > 0 ? 'Inga kvitton matchar det här filtret.'
+                  : undefined
+            } />
           ) : receiptsList.map(r => {
             const status = getReceiptStatus(r, verifications);
             const categoryName = accounts.find(a => a.code === r.costAccount)?.name;
-            const uploaderName = viewTab === 'all' ? displayUploaderName(r.uploadedBy) : null;
+            // Vem som laddade upp är bara intressant när det finns fler än
+            // en person att skilja på (samma resonemang som flikarna ovan).
+            const uploaderName = showUploaderTabs && effectiveTab === 'all' ? displayUploaderName(r.uploadedBy) : null;
             const isImage = r.receiptType?.startsWith('image/') && r.receiptUrl;
             const isPdf = r.receiptType === 'application/pdf' && r.receiptUrl;
             return (
               <div
                 key={r.id}
                 onClick={() => setDetailReceiptId(r.id)}
-                style={{ display: 'flex', alignItems: 'center', gap: '14px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', padding: '10px 14px', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.03)', cursor: 'pointer' }}
+                role="button"
+                tabIndex={0}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDetailReceiptId(r.id); } }}
+                className="rc-row"
               >
-                <div style={{ width: 52, height: 52, borderRadius: '10px', background: 'var(--gray-100)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
+                <div className="rc-row-thumb">
                   {isImage ? (
                     <img src={r.receiptUrl} alt="Kvitto" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.currentTarget.style.display = 'none'; }} />
                   ) : isPdf ? (
