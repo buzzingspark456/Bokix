@@ -238,6 +238,11 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
   const [emailBusy, setEmailBusy] = useState(false);
   const [emailError, setEmailError] = useState('');
   const [emailSent, setEmailSent] = useState(false);
+  // Meddelandefönstret: öppnas i stället för att skicka direkt, så texten
+  // går att anpassa per kund.
+  const [showEmailCompose, setShowEmailCompose] = useState(false);
+  const [emailMessage, setEmailMessage] = useState('');
+  const [emailSubject, setEmailSubject] = useState('');
   // Förifylld från kundkortet om det finns en sparad adress, men alltid
   // redigerbar — man ska kunna skicka till en mottagare utan att först
   // behöva gå och spara en e-post på kunden (t.ex. en engångsmottagare,
@@ -353,6 +358,62 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
     footerText: company?.invoiceFooterText || '',
   });
 
+  // ── Fritext i mejlet ──────────────────────────────────────────────────
+  // Kundönskemål: man ska kunna skriva vad man vill till kunden, eftersom
+  // det skiljer sig från kund till kund — men fakturan och betalningslänken
+  // ska följa med ändå. Därför skriver användaren BARA meddelandet; PDF:en,
+  // "Betala nu"-knappen och sammanfattningsraden läggs på av systemet och
+  // går inte att råka radera.
+
+  /** Användarens text hamnar i ett HTML-mejl. Utan escaping skulle ett
+   *  ampersand eller ett mindre-än-tecken kunna bryta uppmärkningen — och
+   *  i värsta fall låta någon klistra in taggar som följer med till
+   *  mottagaren. */
+  const escapeHtml = (text) => String(text || '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+  /** Tomrad blir nytt stycke, enkel radbrytning blir <br/> — så texten ser
+   *  ut i mejlet som den gjorde i rutan. */
+  const messageToHtml = (text) => escapeHtml(text)
+    .split(/\n\s*\n/)
+    .map(block => `<p style="margin:0 0 14px;">${block.trim().replace(/\n/g, '<br/>')}</p>`)
+    .join('');
+
+  /** Förifylld text. Hälsningen använder kontaktpersonen när den finns,
+   *  annars företagsnamnet — samma logik som mejlet hade innan det gick att
+   *  redigera. */
+  const defaultEmailMessage = () => {
+    const hälsning = customer?.contactPerson || customer?.name || '';
+    return [
+      `Hej${hälsning ? ' ' + hälsning : ''},`,
+      '',
+      `Bifogat finner du faktura ${nextNum} på ${fmt(totals.total)} kr, med förfallodatum ${formatDate(dueDate)}.`,
+      '',
+      'Hör av dig om du har några frågor.',
+      '',
+      'Med vänlig hälsning',
+      (company?.invoiceDisplayName || company?.name) || '',
+    ].join('\n');
+  };
+
+  // Senast använda text ligger kvar som utgångspunkt nästa gång, per
+  // företag. localStorage och inte kontot: det här är en bekvämlighet i
+  // just den här webbläsaren, inte en inställning värd att synka.
+  const messageStorageKey = `bokix-fakturamejl-${company?.id || 'default'}`;
+
+  const openEmailCompose = () => {
+    const to = emailToInput.trim();
+    if (!to) { setEmailError('Ange en mottagaradress.'); return; }
+    if (!/^\S+@\S+\.\S+$/.test(to)) { setEmailError('Det där ser inte ut som en giltig e-postadress.'); return; }
+    let sparad = '';
+    try { sparad = window.localStorage.getItem(messageStorageKey) || ''; } catch { /* privat läge */ }
+    setEmailMessage(sparad || defaultEmailMessage());
+    setEmailSubject(`Faktura ${nextNum} från ${(company?.invoiceDisplayName || company?.name) || 'oss'}`);
+    setEmailError(''); setEmailSent(false);
+    setShowEmailCompose(true);
+  };
+
   const handleSave = (status = 'draft') => {
     // internalNote skickas alltid med här (inte bara via popoverns egen
     // "Spara"-knapp) så en kommentar man skrivit på en NY, ännu osparad
@@ -398,21 +459,24 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
         }
       }
 
+      // Användarens egen text först, sedan det som ALLTID ska med:
+      // betalningsknappen och en rad som säger vad bilagan är. Den som
+      // bara skriver "Hej!" får ändå ett mejl kunden kan betala från.
       const html = `
-        <p>Hej${customer?.contactPerson ? ' ' + customer.contactPerson : ''},</p>
-        <p>Bifogat finner du faktura <strong>${nextNum}</strong> på <strong>${fmt(totals.total)} kr</strong>, med förfallodatum ${formatDate(dueDate)}.</p>
+        ${messageToHtml(emailMessage || defaultEmailMessage())}
         ${paymentLinkUrl ? `
-        <p style="margin: 20px 0;">
+        <p style="margin: 22px 0;">
           <a href="${paymentLinkUrl}" style="display:inline-block;padding:12px 26px;background:#0b6329;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600;">Betala nu</a>
         </p>
         ` : ''}
-        <p>Hör av dig om du har några frågor.</p>
-        <p>Med vänlig hälsning<br/>${(company?.invoiceDisplayName || company?.name) || ''}</p>
+        <p style="margin:22px 0 0;padding-top:14px;border-top:1px solid #e5e7eb;font-size:13px;color:#6b7280;">
+          Faktura ${nextNum} · ${fmt(totals.total)} kr · förfaller ${formatDate(dueDate)} · bifogad som PDF
+        </p>
       `;
 
       await sendInvoiceEmail({
         to,
-        subject: `Faktura ${nextNum} från ${(company?.invoiceDisplayName || company?.name) || 'oss'}`,
+        subject: emailSubject.trim() || `Faktura ${nextNum} från ${(company?.invoiceDisplayName || company?.name) || 'oss'}`,
         html,
         replyTo: company?.email || undefined,
         attachmentBase64,
@@ -424,7 +488,11 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
         company_id: company?.id,
       });
 
+      // Texten blir utgångspunkt nästa gång — de flesta skriver ungefär
+      // samma sak, och den som vill ändra gör det i rutan.
+      try { window.localStorage.setItem(messageStorageKey, emailMessage); } catch { /* privat läge */ }
       setEmailSent(true);
+      setShowEmailCompose(false);
       // Precis som "✓ Skapa faktura"-knappen — ett utkast som faktiskt
       // skickas till kunden är per definition inte längre ett utkast.
       if ((initial?.status || 'draft') === 'draft') handleSave('sent');
@@ -533,7 +601,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
         {topBarBtn(
           emailBusy ? 'Skickar…' : 'Skicka via e-post',
           <Send size={13} />,
-          handleSendEmail,
+          openEmailCompose,
           {},
           emailBusy || !initial || !emailToInput.trim(),
           !initial ? 'Spara fakturan först' : (!emailToInput.trim() ? 'Ange en mottagaradress' : `Skicka faktura ${nextNum} till ${emailToInput.trim()}`)
@@ -1093,6 +1161,85 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
              till 92% — där syntes aldrig "hela" fakturan, bara en hopklämd
              tumnagel av den. Mall/accentfärg-väljaren flyttar med hit upp
              i modalens header, ändras fortfarande direkt på DENNA faktura. ── */}
+      {/* ── Skriv meddelandet till kunden ────────────────────────────────
+          Utskicket gick tidigare iväg direkt när man tryckte "Skicka via
+          e-post", med en fast text. Kundönskemål: texten skiljer sig från
+          kund till kund och måste gå att skriva om. Det som INTE går att
+          skriva bort är PDF:en, betalningsknappen och sammanfattningsraden
+          — de läggs på efter meddelandet, så en faktura aldrig kan gå iväg
+          utan det kunden behöver för att kunna betala. ── */}
+      {showEmailCompose && (
+        <div className="modal-overlay" onClick={() => !emailBusy && setShowEmailCompose(false)}>
+          <div className="modal-content" style={{ maxWidth: '620px' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">Skicka faktura {nextNum}</h2>
+              <button className="modal-close" onClick={() => setShowEmailCompose(false)} disabled={emailBusy}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Till</label>
+                <input
+                  className="form-control"
+                  value={emailToInput}
+                  onChange={e => setEmailToInput(e.target.value)}
+                  placeholder="mottagarens@epost.se"
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Ämne</label>
+                <input
+                  className="form-control"
+                  value={emailSubject}
+                  onChange={e => setEmailSubject(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '10px', marginBottom: '6px' }}>
+                  <label style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text-secondary)' }}>Meddelande</label>
+                  <button
+                    type="button"
+                    onClick={() => setEmailMessage(defaultEmailMessage())}
+                    style={{ background: 'none', border: 'none', padding: 0, fontFamily: 'inherit', fontSize: '12px', fontWeight: 600, color: 'var(--accent-text)', cursor: 'pointer' }}
+                  >
+                    Återställ standardtexten
+                  </button>
+                </div>
+                <textarea
+                  className="form-control"
+                  value={emailMessage}
+                  onChange={e => setEmailMessage(e.target.value)}
+                  rows={9}
+                  style={{ resize: 'vertical', lineHeight: 1.6 }}
+                  placeholder="Hej! Här kommer fakturan för…"
+                />
+              </div>
+
+              {/* Det som alltid följer med, sagt rakt ut så ingen skriver
+                  "se bifogad faktura" i tron att den inte finns. */}
+              <div style={{ background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: '10px', padding: '12px 14px', fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                Följer med automatiskt: fakturan som PDF{company?.stripeAccountId ? ', en "Betala nu"-knapp' : ''} och en rad med fakturanummer, belopp och förfallodatum.
+              </div>
+
+              {emailError && (
+                <div style={{ fontSize: '12.5px', color: 'var(--status-red-text)', fontWeight: 600 }}>{emailError}</div>
+              )}
+            </div>
+
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setShowEmailCompose(false)} disabled={emailBusy}>Avbryt</button>
+              <button className="btn btn-primary" onClick={handleSendEmail} disabled={emailBusy || !emailToInput.trim()}>
+                {emailBusy ? 'Skickar…' : 'Skicka'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showPreview && (
         <div className="modal-overlay a4-preview-overlay" onClick={() => setShowPreview(false)}>
           <div className="modal-content a4-document-preview" onClick={e => e.stopPropagation()}>
