@@ -19,7 +19,7 @@ import {
 import { hasGoogleOAuth, buildAuthUrl, exchangeCode, signState, verifyState } from './api/_gmail.js'
 import requestPasswordResetHandler from './api/auth/request-password-reset.js'
 import companyAccessHandler from './api/company-access.js'
-import createSubscriptionCheckoutHandler from './api/stripe/create-subscription-checkout.js'
+import createSubscriptionCheckoutHandler from './api/stripe/_subscriptionCheckout.js'
 import createCheckoutSessionHandler from './api/stripe/create-checkout-session.js'
 import contactHandler from './api/contact.js'
 import ocrHandler from './api/ocr.js'
