@@ -174,15 +174,17 @@ function ReceiptDetailModal({ receipt, accounts, projects, allReceipts, status, 
   // ── OCR ────────────────────────────────────────────────────────────────────
   // ocrStatus: 'idle' | 'scanning' | 'done' | 'error'
   const [ocrStatus, setOcrStatus] = useState('idle');
+  const [ocrMessage, setOcrMessage] = useState('');
   // Håller reda på vilka fält som fylldes i av OCR så vi kan visa en badge.
   const [ocrFields, setOcrFields] = useState(new Set());
 
   const runOcr = useCallback(async (input) => {
     if (!input || readOnly) return;
     setOcrStatus('scanning');
+    setOcrMessage('Startar läsning…');
     try {
-      const text = await ocrFile(input);
-      console.log('[OCR] raw text:', text.slice(0, 500));
+      const text = await ocrFile(input, msg => setOcrMessage(msg));
+      console.log('[OCR] raw text:', text ? text.slice(0, 500) : '(empty)');
       const parsed = parseReceiptText(text);
       console.log('[OCR] parsed:', parsed);
       const filled = new Set();
@@ -197,17 +199,20 @@ function ReceiptDetailModal({ receipt, accounts, projects, allReceipts, status, 
       });
       setOcrFields(filled);
       setOcrStatus('done');
+      setOcrMessage('');
     } catch (err) {
       console.error('OCR misslyckades:', err);
       setOcrStatus('error');
+      setOcrMessage('');
     }
   }, [readOnly]);
 
   const hasReceiptFile = Boolean(receipt.receiptUrl);
-  const isBlank = !receipt.date && !receipt.supplier && !receipt.amount && !receipt.costAccount;
+  // Ett kvitto räknas som nytt/obehandlat om varken leverantör, belopp eller konto fyllts i än
+  const isUnprocessed = !receipt.supplier && (!receipt.amount || Number(receipt.amount) === 0) && !receipt.costAccount;
   
   useEffect(() => {
-    if (hasReceiptFile && isBlank && !readOnly) {
+    if (hasReceiptFile && isUnprocessed && !readOnly) {
       runOcr(receipt.receiptUrl);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -292,7 +297,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, allReceipts, status, 
             <div style={{ minWidth: 0 }}>
               <h2 style={{ margin: 0, fontSize: '16.5px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.01em' }}>Kvittodetaljer</h2>
               <p style={{ margin: '3px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>
-                {readOnly ? 'Bokfört underlag' : ocrStatus === 'scanning' ? 'Läser kvittot…' : ocrStatus === 'done' ? 'OCR klar — granska och justera' : 'Fyll i uppgifterna från kvittot'}
+                {readOnly ? 'Bokfört underlag' : ocrStatus === 'scanning' ? (ocrMessage || 'Läser kvittot…') : ocrStatus === 'done' ? 'OCR klar — granska och justera' : 'Fyll i uppgifterna från kvittot'}
               </p>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
@@ -300,7 +305,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, allReceipts, status, 
               {!readOnly && hasReceiptFile && (
                 <button
                   type="button"
-                  title={ocrStatus === 'scanning' ? 'Läser…' : 'Läs av kvittot automatiskt med OCR'}
+                  title={ocrStatus === 'scanning' ? (ocrMessage || 'Läser…') : 'Läs av kvittot automatiskt med OCR'}
                   disabled={ocrStatus === 'scanning'}
                   onClick={() => runOcr(receipt.receiptUrl)}
                   style={{
@@ -313,7 +318,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, allReceipts, status, 
                   }}
                 >
                   <ScanLine size={14} style={{ animation: ocrStatus === 'scanning' ? 'spin 1s linear infinite' : 'none' }} />
-                  {ocrStatus === 'scanning' ? 'Läser…' : 'Läs av'}
+                  {ocrStatus === 'scanning' ? (ocrMessage || 'Läser…') : 'Läs av'}
                 </button>
               )}
               {statusMeta && (
