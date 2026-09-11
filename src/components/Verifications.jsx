@@ -100,10 +100,8 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
       // bestå av en enda rad (debet måste möta kredit — formulärets egen
       // validering nedan kräver också minst två), så en ensam rad var ett
       // steg användaren alltid måste ta själv innan något gick att spara.
-      // Kundfeedback: "gör det enklare att faktiskt göra" — det här är den
-      // billigaste delen av det.
+      // En tom startrad visas — användaren lägger till fler via "Lägg till rad".
       : [
-          { account: '', accountName: '', debet: '', kredit: '', desc: '' },
           { account: '', accountName: '', debet: '', kredit: '', desc: '' },
         ]
   );
@@ -497,7 +495,7 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
                     <button onClick={() => toggleRowOverride(i)} title="Egen kostnadsställe/projekt för denna rad" style={{ background: 'none', border: 'none', cursor: 'pointer', color: hasOverride || overrideOpen ? 'var(--text-main)' : 'var(--text-muted)', padding: '2px', marginRight: '2px' }}>
                       <Tag size={15} />
                     </button>
-                    {rows.length > 1 && (row.account || row.debet || row.kredit) && (
+                    {rows.length > 1 && (
                       <button onClick={() => removeRow(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '2px' }}>
                         <Trash2 size={15} />
                       </button>

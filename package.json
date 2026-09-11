@@ -24,8 +24,11 @@
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
     "lucide-react": "^1.28.0",
+    "multer": "^2.3.0",
+    "node-tesseract-ocr": "^2.2.1",
     "nodemailer": "^10.0.3",
     "papaparse": "^5.7.0",
+    "pdfjs-dist": "^6.3.289",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-router-dom": "^7.18.3",
@@ -33,6 +36,7 @@
     "stripe": "^22.4.0",
     "tailwind-merge": "^3.6.0",
     "tailwindcss": "^4.3.3",
+    "tesseract.js": "^7.0.0",
     "xlsx": "https://cdn.sheetjs.com/xlsx-latest/xlsx-latest.tgz"
   },
   "devDependencies": {

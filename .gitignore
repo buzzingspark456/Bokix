@@ -41,3 +41,6 @@ dist-ssr
 
 # Lokal scratch-katalog (kopior av public/ + seed-skript), aldrig kod som ska med
 .tmp-kpistrip/
+
+*.traineddata
+public/tessdata/

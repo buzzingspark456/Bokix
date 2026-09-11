@@ -22,6 +22,7 @@ import companyAccessHandler from './api/company-access.js'
 import createSubscriptionCheckoutHandler from './api/stripe/create-subscription-checkout.js'
 import createCheckoutSessionHandler from './api/stripe/create-checkout-session.js'
 import contactHandler from './api/contact.js'
+import ocrHandler from './api/ocr.js'
 import { requireAuthedUser, loadOwnedCompany } from './api/_auth.js'
 import { isRequestFromBot } from './api/_botid.js'
 
@@ -343,6 +344,8 @@ app.post('/api/stripe/create-checkout-session', (req, res) => createCheckoutSess
 // produktionens handler direkt istället för att hålla en tredje kopia i
 // synk för hand.
 app.post('/api/stripe/create-subscription-checkout', (req, res) => createSubscriptionCheckoutHandler(req, res))
+
+app.post('/api/ocr', (req, res) => ocrHandler(req, res))
 
 // ── E-post (Resend) ──────────────────────────────────────────────────────
 // Skickar riktiga mejl till kunder — till skillnad från mailto:-länkarna på

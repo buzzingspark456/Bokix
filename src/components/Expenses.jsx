@@ -1,6 +1,6 @@
-﻿import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import {
-  UploadCloud, FileText, CheckCircle2, AlertCircle, Receipt, X, Clock, Trash2, RotateCcw, Search,
+  UploadCloud, FileText, CheckCircle2, AlertCircle, Receipt, X, Clock, Trash2, RotateCcw, Search, ScanLine,
 } from 'lucide-react';
 import { AccountSearch } from './shared/SearchInputs';
 import { DocumentPane } from './shared/DocumentViewer';
@@ -9,6 +9,7 @@ import ListPageHeader from './shared/ListPageHeader';
 import { uploadFileToStorage } from '../utils/fileUpload';
 import { BRAND } from '../utils/brandColors';
 import { confirmDialog } from './shared/ConfirmDialog';
+import { ocrFile, parseReceiptText } from '../utils/ocrReceipt';
 
 // ── Formatting ──
 const formatSEK = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
@@ -138,6 +139,21 @@ const formatSEK2 = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', 
 // räknar flera kvitton). Här handlar det om ETT kvitto.
 const STATUS_SINGULAR = { unhandled: 'Ej hanterad', pending: 'Pågående', booked: 'Bokförd', reversed: 'Rättad' };
 
+// Liten badge som visas intill fältets label när OCR fyllt i det.
+// Försvinner så fort användaren redigerar fältet manuellt.
+function OcrBadge() {
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: '3px',
+      fontSize: '10px', fontWeight: 700, letterSpacing: '0.02em',
+      padding: '1px 6px', borderRadius: '999px', verticalAlign: 'middle', marginLeft: '5px',
+      background: '#e0f2fe', color: '#0369a1',
+    }}>
+      <ScanLine size={10} /> OCR
+    </span>
+  );
+}
+
 function ReceiptDetailModal({ receipt, accounts, projects, allReceipts, status, onSave, onDelete, onReverse, onClose }) {
   // "Rättad" är också ett låst tillstånd — samma skäl som "Bokförd": en
   // rättelseverifikation ändrar inte originalet, så fälten som redan
@@ -154,6 +170,48 @@ function ReceiptDetailModal({ receipt, accounts, projects, allReceipts, status, 
     notes: receipt.notes || '',
   });
   const [errors, setErrors] = useState({});
+
+  // ── OCR ────────────────────────────────────────────────────────────────────
+  // ocrStatus: 'idle' | 'scanning' | 'done' | 'error'
+  const [ocrStatus, setOcrStatus] = useState('idle');
+  // Håller reda på vilka fält som fylldes i av OCR så vi kan visa en badge.
+  const [ocrFields, setOcrFields] = useState(new Set());
+
+  const runOcr = useCallback(async (input) => {
+    if (!input || readOnly) return;
+    setOcrStatus('scanning');
+    try {
+      const text = await ocrFile(input);
+      console.log('[OCR] raw text:', text.slice(0, 500));
+      const parsed = parseReceiptText(text);
+      console.log('[OCR] parsed:', parsed);
+      const filled = new Set();
+      setForm(prev => {
+        const next = { ...prev };
+        if (parsed.date) { next.date = parsed.date; filled.add('date'); }
+        if (parsed.amount) { next.amount = String(parsed.amount).replace('.', ','); filled.add('amount'); }
+        if (parsed.vatRate !== null && parsed.vatRate !== undefined) { next.vatRate = parsed.vatRate; filled.add('vatRate'); }
+        if (parsed.supplier) { next.supplier = parsed.supplier; filled.add('supplier'); }
+        if (parsed.accountCode) { next.costAccount = parsed.accountCode; filled.add('costAccount'); }
+        return next;
+      });
+      setOcrFields(filled);
+      setOcrStatus('done');
+    } catch (err) {
+      console.error('OCR misslyckades:', err);
+      setOcrStatus('error');
+    }
+  }, [readOnly]);
+
+  const hasReceiptFile = Boolean(receipt.receiptUrl);
+  const isBlank = !receipt.date && !receipt.supplier && !receipt.amount && !receipt.costAccount;
+  
+  useEffect(() => {
+    if (hasReceiptFile && isBlank && !readOnly) {
+      runOcr(receipt.receiptUrl);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const handleEsc = (e) => { if (e.key === 'Escape') onClose(); };
@@ -234,10 +292,30 @@ function ReceiptDetailModal({ receipt, accounts, projects, allReceipts, status, 
             <div style={{ minWidth: 0 }}>
               <h2 style={{ margin: 0, fontSize: '16.5px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.01em' }}>Kvittodetaljer</h2>
               <p style={{ margin: '3px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>
-                {readOnly ? 'Bokfört underlag' : 'Fyll i uppgifterna från kvittot'}
+                {readOnly ? 'Bokfört underlag' : ocrStatus === 'scanning' ? 'Läser kvittot…' : ocrStatus === 'done' ? 'OCR klar — granska och justera' : 'Fyll i uppgifterna från kvittot'}
               </p>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+              {/* OCR-knapp: kör om manuellt, bara när det finns en fil */}
+              {!readOnly && hasReceiptFile && (
+                <button
+                  type="button"
+                  title={ocrStatus === 'scanning' ? 'Läser…' : 'Läs av kvittot automatiskt med OCR'}
+                  disabled={ocrStatus === 'scanning'}
+                  onClick={() => runOcr(receipt.receiptUrl)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '5px',
+                    padding: '6px 12px', borderRadius: '8px', border: '1px solid var(--border)',
+                    background: ocrStatus === 'scanning' ? 'var(--bg-muted)' : 'var(--bg-card)',
+                    color: ocrStatus === 'scanning' ? 'var(--text-muted)' : 'var(--text-main)',
+                    fontSize: '12px', fontWeight: 600, cursor: ocrStatus === 'scanning' ? 'not-allowed' : 'pointer',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  <ScanLine size={14} style={{ animation: ocrStatus === 'scanning' ? 'spin 1s linear infinite' : 'none' }} />
+                  {ocrStatus === 'scanning' ? 'Läser…' : 'Läs av'}
+                </button>
+              )}
               {statusMeta && (
                 <span style={{ padding: '4px 10px', borderRadius: '999px', background: statusMeta.bg, color: statusMeta.color, fontSize: '11.5px', fontWeight: 700, whiteSpace: 'nowrap' }}>
                   {STATUS_SINGULAR[status] || statusMeta.label}
@@ -258,26 +336,31 @@ function ReceiptDetailModal({ receipt, accounts, projects, allReceipts, status, 
               </div>
             )}
 
+            {/* OCR-felmeddelande */}
+            {ocrStatus === 'error' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '7px', background: BRAND.amberBg, color: BRAND.amberText, borderRadius: '8px', padding: '8px 12px', marginBottom: '12px', fontSize: '12.5px', fontWeight: 600 }}>
+                <AlertCircle size={14} />
+                Kunde inte läsa av kvittot automatiskt — fyll i uppgifterna manuellt.
+              </div>
+            )}
+
             <div className="rc-grid">
               <div>
-                <label style={labelSt}>Datum</label>
-                <input type="date" disabled={readOnly} value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} style={inputStErr(errors.date)} />
+                <label style={labelSt}>Datum {ocrFields.has('date') && <OcrBadge />}</label>
+                <input type="date" disabled={readOnly} value={form.date} onChange={e => { setForm(f => ({ ...f, date: e.target.value })); setOcrFields(s => { const n = new Set(s); n.delete('date'); return n; }); }} style={inputStErr(errors.date)} />
                 {errors.date && <div style={errSt}>{errors.date}</div>}
               </div>
               <div>
-                <label style={labelSt}>Belopp ink moms (kr)</label>
-                <AmountInput disabled={readOnly} value={form.amount} onChange={v => setForm(f => ({ ...f, amount: v }))} style={inputStErr(errors.amount)} />
+                <label style={labelSt}>Belopp ink moms (kr) {ocrFields.has('amount') && <OcrBadge />}</label>
+                <AmountInput disabled={readOnly} value={form.amount} onChange={v => { setForm(f => ({ ...f, amount: v })); setOcrFields(s => { const n = new Set(s); n.delete('amount'); return n; }); }} style={inputStErr(errors.amount)} />
                 {errors.amount && <div style={errSt}>{errors.amount}</div>}
               </div>
               <div className="rc-span">
-                <label style={labelSt}>Inköpsställe / Leverantör</label>
-                {/* Synlig lista över ställen man handlat på förut, inte en
-                    <datalist> — se TextSuggestInput i shared/SearchInputs.jsx
-                    för varför den inbyggda inte dög. */}
+                <label style={labelSt}>Inköpsställe / Leverantör {ocrFields.has('supplier') && <OcrBadge />}</label>
                 <TextSuggestInput
                   disabled={readOnly}
                   value={form.supplier}
-                  onChange={v => setForm(f => ({ ...f, supplier: v }))}
+                  onChange={v => { setForm(f => ({ ...f, supplier: v })); setOcrFields(s => { const n = new Set(s); n.delete('supplier'); return n; }); }}
                   suggestions={supplierSuggestions}
                   placeholder="T.ex. Circle K, Clas Ohlson…"
                   style={inputStErr(errors.supplier)}
@@ -286,14 +369,14 @@ function ReceiptDetailModal({ receipt, accounts, projects, allReceipts, status, 
                 {errors.supplier && <div style={errSt}>{errors.supplier}</div>}
               </div>
               <div className="rc-span">
-                <label style={labelSt}>Momssats</label>
+                <label style={labelSt}>Momssats {ocrFields.has('vatRate') && <OcrBadge />}</label>
                 <div style={{ display: 'flex', gap: '6px' }}>
                   {[25, 12, 6, 0].map(v => {
                     const on = Number(form.vatRate) === v;
                     return (
                       <button
                         key={v} type="button" disabled={readOnly}
-                        onClick={() => setForm(f => ({ ...f, vatRate: v }))}
+                        onClick={() => { setForm(f => ({ ...f, vatRate: v })); setOcrFields(s => { const n = new Set(s); n.delete('vatRate'); return n; }); }}
                         style={{
                           flex: 1, padding: '8px 0', borderRadius: '8px', fontSize: '13px', fontWeight: 700,
                           fontFamily: 'inherit', cursor: readOnly ? 'default' : 'pointer',
@@ -327,14 +410,14 @@ function ReceiptDetailModal({ receipt, accounts, projects, allReceipts, status, 
               </div>
 
               <div className="rc-span">
-                <label style={labelSt}>Konto</label>
+                <label style={labelSt}>Konto {ocrFields.has('costAccount') && <OcrBadge />}</label>
                 {readOnly ? (
                   <div style={{ ...inputSt, background: 'var(--bg-muted)', color: 'var(--text-main)' }}>
                     {accountLabel ? `${accountLabel.code} – ${accountLabel.name}` : form.costAccount || '—'}
                   </div>
                 ) : (
                   <>
-                    <AccountSearch value={form.costAccount} onChange={code => setForm(f => ({ ...f, costAccount: code }))} accounts={accounts} placeholder="Sök konto, t.ex. 6110 Kontorsmaterial..." />
+                    <AccountSearch value={form.costAccount} onChange={code => { setForm(f => ({ ...f, costAccount: code })); setOcrFields(s => { const n = new Set(s); n.delete('costAccount'); return n; }); }} accounts={accounts} placeholder="Sök konto, t.ex. 6110 Kontorsmaterial..." />
                     {errors.costAccount && <div style={errSt}>{errors.costAccount}</div>}
                     {frequentAccounts.length > 0 && (
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px', alignItems: 'center' }}>
