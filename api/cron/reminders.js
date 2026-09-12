@@ -8,6 +8,7 @@ import { buildInvoiceReminderHtml, buildVatDeadlineHtml, buildAgiDeadlineHtml, b
 import { nextVatDeadline, nextAgiDeadline } from '../../src/utils/declarationDeadlines.js';
 import { planFromId } from '../../src/utils/plans.js';
 import { runDataRetention } from './_dataRetention.js';
+import { refreshZettleToken, fetchZettlePurchases } from '../zettle/_client.js';
 
 // Bugkritiskt (lokal utveckling, samma orsak/fix som api/_resend.js): måste
 // vara en LAT, memoiserad getter, inte en toppnivå-konstant. server.js
@@ -32,8 +33,8 @@ function getStripeClient() {
 // Vercel Cron (vercel.json: crons) anropar den här EN gång/dag — den ENDA
 // nya funktionen för hela "automatiska påminnelser"-funktionen (Vercels
 // 12-funktionsgräns, Hobby-plan, redan på 11/12 efter api/company-access.js
-// — se filkommentaren där). Hanterar därför FEM olika sorters påminnelser/
-// underlag i en enda körning istället för fem separata cron-endpoints:
+// — se filkommentaren där). Hanterar därför SEX olika sorters påminnelser/
+// underlag i en enda körning istället för sex separata cron-endpoints:
 //   1) Fakturapåminnelse till KUNDEN, N dagar efter förfallodatum
 //   2) Momsdeklarations-deadline till FÖRETAGET, N dagar innan
 //   3) AGI-deadline till FÖRETAGET, N dagar innan
@@ -41,6 +42,11 @@ function getStripeClient() {
 //   5) Stripe-bokföringsunderlag från KUNDENS anslutna Stripe-konto
 //      (betalningar/utbetalningar/avgifter, se stripe_ledger_events i
 //      supabase-setup.sql och ReviewQueue.jsx för resten av flödet)
+//   6) Zettle-bokföringsunderlag (kortförsäljning) från KUNDENS anslutna
+//      Zettle-konto — samma idé som punkt 5, se zettle_ledger_events i
+//      supabase-setup.sql. "Pops up" en gång om dagen (den här cronens
+//      schema i vercel.json), inte i realtid — Zettle skickar ingen
+//      webhook Bokix lyssnar på, det här är en daglig hämtning.
 //
 // Ingen SQL-tabell med enskilda fakturor finns (allt ligger i user_data.
 // state, en JSONB-blob per användare) — det går alltså INTE att göra en
@@ -136,7 +142,7 @@ export default async function handler(req, res) {
   // skarp körning skulle ha gjort.
   const dryRun = req.query?.dryRun === 'true' || req.query?.dryRun === '1';
 
-  const summary = { dryRun, usersScanned: 0, invoiceReminders: 0, vatReminders: 0, agiReminders: 0, trialReminders: 0, stripeLedgerEvents: 0, errors: [], wouldSend: [] };
+  const summary = { dryRun, usersScanned: 0, invoiceReminders: 0, vatReminders: 0, agiReminders: 0, trialReminders: 0, stripeLedgerEvents: 0, zettleLedgerEvents: 0, errors: [], wouldSend: [] };
 
   try {
     const today = startOfToday();
@@ -507,6 +513,89 @@ export default async function handler(req, res) {
               }
             } catch (err) {
               summary.errors.push(`stripe ledger ${companyId}: ${err.message}`);
+            }
+          }
+
+          // ── 6) Zettle-bokföringsunderlag från kundens anslutna Zettle-konto ──
+          // Skriver till EN EGEN tabell (zettle_ledger_events), samma skäl
+          // som Stripe-blocket ovan. ReviewQueue.jsx föreslår kontering,
+          // användaren godkänner — aldrig auto-bokfört.
+          const zettleRefreshToken = companyData.company?.zettleRefreshToken;
+          const zettleClientId = process.env.ZETTLE_CLIENT_ID;
+          const zettleClientSecret = process.env.ZETTLE_CLIENT_SECRET;
+          if (zettleRefreshToken && zettleClientId && zettleClientSecret) {
+            try {
+              // Zettles access-token lever bara 2 timmar (se _client.js) —
+              // cronen kör en gång om dagen, så en sparad access-token är
+              // ALLTID för gammal. Förnya ovillkorligt varje körning
+              // istället för att jämföra mot zettleTokenExpiresAt — enklare
+              // och kan inte hamna fel av en klock-/tidszonsbugg.
+              const refreshed = await refreshZettleToken({
+                clientId: zettleClientId,
+                clientSecret: zettleClientSecret,
+                refreshToken: zettleRefreshToken,
+              });
+
+              if (!dryRun) {
+                const { error: tokenError } = await admin.rpc('set_company_zettle_tokens', {
+                  p_user_id: row.user_id,
+                  p_company_id: companyId,
+                  p_access_token: refreshed.accessToken,
+                  p_refresh_token: refreshed.refreshToken,
+                  p_expires_at: refreshed.expiresAt,
+                });
+                if (tokenError) throw tokenError;
+              }
+
+              // Samma överlappande 4-dagarsfönster som Stripe-blocket ovan
+              // — robust mot ett missat cron-pass. UNIQUE(zettle_purchase_
+              // uuid) + ignoreDuplicates gör en omkörning av samma dagar
+              // ofarlig.
+              const lookbackDays = 4;
+              const endDate = new Date();
+              const startDate = new Date(endDate.getTime() - lookbackDays * 86400000);
+              const purchases = await fetchZettlePurchases({
+                accessToken: refreshed.accessToken,
+                startDate: startDate.toISOString().slice(0, 10),
+                endDate: endDate.toISOString().slice(0, 10),
+              });
+
+              if (purchases.length > 0) {
+                const toInsert = purchases
+                  // purchaseUUID1 är den nuvarande, rekommenderade identifieraren
+                  // (purchaseUUID är den gamla, avvecklade) — se _client.js.
+                  .filter(p => p.purchaseUUID1)
+                  .map(p => ({
+                    user_id: row.user_id,
+                    company_id: companyId,
+                    zettle_purchase_uuid: p.purchaseUUID1,
+                    purchase_number: p.purchaseNumber ?? null,
+                    amount: (p.amount || 0) / 100,
+                    vat_amount: (p.vatAmount || 0) / 100,
+                    currency: p.currency || 'SEK',
+                    // `refund` = den här RADEN är själva återbetalningen.
+                    // `refunded` (en tidigare försäljning som SENARE fått en
+                    // återbetalning) hanteras inte separat här — den
+                    // ursprungliga försäljningsraden syns fortfarande som
+                    // den var, återbetalningen dyker upp som sin EGEN rad.
+                    is_refund: Boolean(p.refund),
+                    payment_type: p.payments?.[0]?.type || null,
+                    created_at_zettle: p.timestamp || p.created,
+                  }));
+
+                if (dryRun) {
+                  summary.wouldSend.push({ type: 'zettle_ledger', companyId, count: toInsert.length });
+                  summary.zettleLedgerEvents += toInsert.length;
+                } else {
+                  const { error: insertError } = await admin
+                    .from('zettle_ledger_events')
+                    .upsert(toInsert, { onConflict: 'zettle_purchase_uuid', ignoreDuplicates: true });
+                  if (insertError) throw insertError;
+                  summary.zettleLedgerEvents += toInsert.length;
+                }
+              }
+            } catch (err) {
+              summary.errors.push(`zettle ledger ${companyId}: ${err.message}`);
             }
           }
 

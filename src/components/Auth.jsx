@@ -766,7 +766,14 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
               </h2>
               <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)' }}>
                 {regStep === 1 && `Skriv in koden vi skickade till ${regEmail}.`}
-                {regStep === 3 && 'Sedan skickas du vidare till betalning.'}
+                {/* Bugkritiskt (kundrapport: "det säger betalning/organisationsnummer
+                    fast det är ett UF-konto"): den här raden sa "Sedan skickas
+                    du vidare till betalning" OAVSETT isUfSignup — men UF-konton
+                    skickas ALDRIG till Stripe (se handleNextStep, regStep===3:
+                    isUfSignup-grenen returnerar direkt, ingen
+                    createStripeSubscriptionCheckout). Texten ljög alltså för
+                    exakt den kontotyp den handlar minst om. */}
+                {regStep === 3 && !isUfSignup && 'Sedan skickas du vidare till betalning.'}
               </p>
             </div>
 

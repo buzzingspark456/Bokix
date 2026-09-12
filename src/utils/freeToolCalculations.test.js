@@ -6,6 +6,10 @@ import {
   calcLateInterest,
   daysBetween,
   calcDividendAllowance,
+  nextVatDeadlinePublic,
+  calcAnnualReportDeadline,
+  ANNUAL_REPORT_LATE_FEES,
+  ANNUAL_REPORT_MAX_TOTAL_FEE,
   DIVIDEND_RULES,
   DIVIDEND_BASE_AMOUNT,
   DIVIDEND_WAGE_DEDUCTION,
@@ -221,5 +225,90 @@ describe('calcDividendAllowance (3:12)', () => {
     expect(r.allowance).toBe(0)
     expect(r.totalTax).toBe(0)
     expect(r.effectiveTaxRate).toBe(0)
+  })
+})
+
+describe('nextVatDeadlinePublic', () => {
+  it('kvartalsvis: samma svar som declarationDeadlines.nextVatDeadline för ett obokat kvartal', () => {
+    // Regressionsfallet som redan är täckt i declarationDeadlines.test.js
+    // (kvartal 4 → 12 februari ÅRET EFTER, inte mars pga överspillsbuggen).
+    const r = nextVatDeadlinePublic({ vatPeriod: 'quarterly', referenceDate: new Date('2026-10-15T00:00:00') })
+    expect(r.dueDate.getFullYear()).toBe(2027)
+    expect(r.dueDate.getMonth()).toBe(1) // februari
+    expect(r.dueDate.getDate()).toBe(12)
+  })
+
+  it('kvartalsvis: augusti-undantaget (17:e i stället för 12:e)', () => {
+    const r = nextVatDeadlinePublic({ vatPeriod: 'quarterly', referenceDate: new Date('2026-04-15T00:00:00') })
+    expect(r.dueDate.getMonth()).toBe(7) // augusti
+    expect(r.dueDate.getDate()).toBe(17)
+  })
+
+  it('månadsvis: december-momsen (deklareras i januari) använder 17:e-undantaget', () => {
+    const refBefore = new Date('2025-12-05T00:00:00') // väntar fortfarande på november-momsen
+    const before = nextVatDeadlinePublic({ vatPeriod: 'monthly', referenceDate: refBefore })
+    expect(before.periodDate.getMonth()).toBe(10) // november
+
+    const refAfter = new Date('2025-12-15T00:00:00') // nu räknas december-momsen
+    const after = nextVatDeadlinePublic({ vatPeriod: 'monthly', referenceDate: refAfter })
+    expect(after.periodDate.getMonth()).toBe(11) // december
+    expect(after.dueDate.getFullYear()).toBe(2026)
+    expect(after.dueDate.getMonth()).toBe(0) // januari
+    expect(after.dueDate.getDate()).toBe(19) // 17 jan 2026 är en lördag — framflyttat
+  })
+
+  it('månadsvis förfallodag landar aldrig på en helg', () => {
+    for (let m = 0; m < 12; m++) {
+      const r = nextVatDeadlinePublic({ vatPeriod: 'monthly', referenceDate: new Date(2026, m, 1) })
+      const dow = r.dueDate.getDay()
+      expect(dow).not.toBe(0)
+      expect(dow).not.toBe(6)
+    }
+  })
+
+  it('årsvis: inget exakt datum, av flit (beror på bolagsform)', () => {
+    const r = nextVatDeadlinePublic({ vatPeriod: 'yearly' })
+    expect(r.dueDate).toBeNull()
+  })
+})
+
+describe('calcAnnualReportDeadline', () => {
+  it('kalenderår (31 december) → sju månader senare, 31 juli', () => {
+    const r = calcAnnualReportDeadline({ fiscalYearEnd: '2025-12-31' })
+    expect(r.deadline.getFullYear()).toBe(2026)
+    expect(r.deadline.getMonth()).toBe(6) // juli
+    expect(r.deadline.getDate()).toBe(31)
+  })
+
+  it('brutet räkenskapsår som korsar februari håller kvar månadens SISTA dag (ingen överspillsbugg)', () => {
+    // 31 juli + 7 månader = februari — exakt den sortens datum som tidigare
+    // rann över till mars i en annan del av samma sorts uträkning
+    // (nextVatDeadline, declarationDeadlines.js) innan setDate(1) FÖRST-
+    // skyddet fanns. 2026 är inte skottår, så sista februari är den 28:e.
+    const r = calcAnnualReportDeadline({ fiscalYearEnd: '2025-07-31' })
+    expect(r.deadline.getMonth()).toBe(1) // februari, INTE mars
+    expect(r.deadline.getDate()).toBe(28)
+  })
+
+  it('förseningsavgiftstrappan (räkenskapsår 2025+): 7500 → 7500 → 15000, 30000 totalt', () => {
+    const r = calcAnnualReportDeadline({ fiscalYearEnd: '2025-12-31' })
+    expect(r.feeSchedule.map(f => f.amount)).toEqual([7500, 7500, 15000])
+    expect(r.totalMaxFee).toBe(30000)
+    expect(ANNUAL_REPORT_MAX_TOTAL_FEE).toBe(30000)
+    expect(ANNUAL_REPORT_LATE_FEES.length).toBe(3)
+  })
+
+  it('förseningsavgifternas datum ligger 0/2/4 månader efter deadline, med bevarad månads-sista-dag', () => {
+    const r = calcAnnualReportDeadline({ fiscalYearEnd: '2025-12-31' }) // deadline 2026-07-31
+    expect(r.feeSchedule[0].date.getTime()).toBe(r.deadline.getTime())
+    expect(r.feeSchedule[1].date.getMonth()).toBe(8) // september
+    expect(r.feeSchedule[1].date.getDate()).toBe(30) // september har bara 30 dagar
+    expect(r.feeSchedule[2].date.getMonth()).toBe(10) // november
+    expect(r.feeSchedule[2].date.getDate()).toBe(30)
+  })
+
+  it('ogiltigt datum ger null i stället för ett trasigt resultat', () => {
+    expect(calcAnnualReportDeadline({ fiscalYearEnd: '' })).toBeNull()
+    expect(calcAnnualReportDeadline({ fiscalYearEnd: 'not-a-date' })).toBeNull()
   })
 })

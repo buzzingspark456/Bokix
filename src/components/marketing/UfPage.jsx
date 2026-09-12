@@ -64,7 +64,7 @@ const FAQ = [
   },
   {
     q: 'Får vi med oss bokföringen efteråt?',
-    a: 'Ja. Exportera hela året som en SIE4-fil — standardformatet varje bokföringsprogram kan läsa. Spara den: räkenskapsinformation ska bevaras i sju år, även för ett UF-företag.',
+    a: 'Ja. Exportera hela året som en SIE4-fil — standardformatet varje bokföringsprogram kan läsa. Spara den: räkenskapsinformation ska bevaras till och med det sjunde året efter utgången av det kalenderår då räkenskapsåret avslutades, även för ett UF-företag.',
   },
 ];
 

@@ -252,7 +252,7 @@ export const TERMS = [
   },
   {
     term: 'Verifikation',
-    def: 'Underlaget för en bokförd affärshändelse: kvittot, fakturan eller kontoutdraget, tillsammans med uppgift om datum, belopp och motpart. Varje post i bokföringen måste ha en verifikation, och den ska sparas i sju år.',
+    def: 'Underlaget för en bokförd affärshändelse: kvittot, fakturan eller kontoutdraget, tillsammans med uppgift om datum, belopp och motpart. Varje post i bokföringen måste ha en verifikation, och den ska sparas till och med det sjunde året efter utgången av det kalenderår då räkenskapsåret avslutades.',
   },
   {
     term: 'Årsredovisning',

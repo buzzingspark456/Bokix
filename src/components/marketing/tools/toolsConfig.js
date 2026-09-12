@@ -1,4 +1,4 @@
-import { Percent, Users, Briefcase, Hammer, AlarmClock, PiggyBank } from 'lucide-react';
+import { Percent, Users, Briefcase, Hammer, AlarmClock, PiggyBank, CalendarClock, FileClock } from 'lucide-react';
 
 // ── EN källa för de fria verktygen ──────────────────────────────────────
 // Listan konsumeras av: sidfoten (MarketingLayout.jsx), verktygsnavet
@@ -75,6 +75,26 @@ export const TOOLS = [
     title: 'Utdelningskalkylator (3:12)',
     short: 'Gränsbelopp och skatt på utdelning',
     description: 'Räkna ut gränsbeloppet i ditt fåmansbolag enligt de nya 3:12-reglerna från 2026 — grundbelopp, lönebaserat utrymme och vad utdelningen kostar i skatt.',
+  },
+  {
+    slug: 'momsdatum',
+    footerLabel: 'Momsdatum',
+    path: '/verktyg/momsdatum',
+    icon: CalendarClock,
+    accentKey: 'blue',
+    title: 'Momsdeklaration — nästa datum',
+    short: 'När ska jag deklarera moms?',
+    description: 'Se nästa förfallodatum för momsdeklarationen — månadsvis, kvartalsvis eller årsvis, inklusive Skatteverkets undantag i januari och augusti.',
+  },
+  {
+    slug: 'arsredovisning',
+    footerLabel: 'Årsredovisning-deadline',
+    path: '/verktyg/arsredovisning',
+    icon: FileClock,
+    accentKey: 'red',
+    title: 'Deadline för årsredovisningen',
+    short: 'Sju månader — och vad förseningen kostar',
+    description: 'Räkna ut när årsredovisningen senast ska vara hos Bolagsverket och hela förseningsavgiftstrappan om den blir sen.',
   },
 ];
 

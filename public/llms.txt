@@ -27,13 +27,15 @@ Bokix stöder enskild firma, aktiebolag, handelsbolag/kommanditbolag och ekonomi
 - [Byt bokföringsprogram till Bokix](https://www.bokix.se/byt-bokforingsprogram): flytta bokföringen från ditt nuvarande program via en SIE4-fil
 - [Bokix för UF-företag](https://www.bokix.se/uf): gratis bokföring under UF-året — fakturering, kvitton, bokföring och årsbokslut, utan organisationsnummer och utan betaluppgifter
 - [Koppla banken till bokföringen](https://www.bokix.se/koppla-bank): exportera kontoutdraget ur internetbanken (Nordea, SEB, Swedbank, Handelsbanken, Länsförsäkringar, ICA Banken, Skandia, Lunar, Northmill m.fl.) och läs in det i Bokix — filimport, ingen direktkoppling mot banken
-- [Gratis verktyg](https://www.bokix.se/verktyg): sex kostnadsfria räknare, inget konto krävs
+- [Gratis verktyg](https://www.bokix.se/verktyg): åtta kostnadsfria räknare, inget konto krävs
 - [Momskalkylator](https://www.bokix.se/verktyg/momskalkylator): lägg på eller räkna ur moms med 25, 12 eller 6 procent
 - [Lönekalkylator](https://www.bokix.se/verktyg/lonekalkylator): arbetsgivaravgift, semesteravsättning och total kostnad för en anställd
 - [Egenavgiftskalkylator](https://www.bokix.se/verktyg/egenavgifter): schablonavdrag, egenavgifter och skatt på överskottet i enskild firma
 - [ROT- och RUT-kalkylator](https://www.bokix.se/verktyg/rot-rut): avdraget på arbetskostnaden och vad kunden betalar
 - [Dröjsmålsränta](https://www.bokix.se/verktyg/drojsmalsranta): ränta enligt räntelagen plus lagstadgade förseningsavgifter
 - [Utdelningskalkylator (3:12)](https://www.bokix.se/verktyg/utdelning): gränsbelopp och skatt på utdelning i fåmansbolag enligt de nya 3:12-reglerna från 2026
+- [Momsdeklaration — nästa datum](https://www.bokix.se/verktyg/momsdatum): nästa förfallodatum för momsdeklarationen, månadsvis, kvartalsvis eller årsvis
+- [Deadline för årsredovisningen](https://www.bokix.se/verktyg/arsredovisning): Bolagsverkets sjumånadersfrist och förseningsavgiftstrappan om den missas
 - [Ordlista](https://www.bokix.se/ordlista): bokförings-, skatte- och lönebegrepp förklarade på svenska
 - [Integrationer](https://www.bokix.se/integrationer): kopplingar och filformat, samt en lista över vad Bokix inte har
 - [Säkerhet](https://www.bokix.se/sakerhet): kryptering, åtkomstkontroll, automatisk gallring och dataportabilitet

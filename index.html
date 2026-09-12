@@ -2,6 +2,13 @@
 <html lang="sv">
   <head>
     <meta charset="UTF-8" />
+    <!-- Måste vara FÖRSTA elementet i <head> efter charset — den ska sätta
+         data-theme (och de två syskonattributen) på <html> innan
+         webbläsaren hinner måla något alls, annars blinkar sidan förbi i
+         ljust läge vid varje omladdning i mörkt läge. Se filens egen
+         kommentar (public/theme-init.js) för varför den är en extern fil
+         och inte ett inline-script. -->
+    <script src="/theme-init.js"></script>
     <!-- Google Search Console-ägarverifiering (HTML-tagg-metoden) — bevisar
          att den här sajten faktiskt är bokix.se inför Google, krävs innan
          sitemapen (public/sitemap.xml) kan skickas in. Ta ALDRIG bort utan

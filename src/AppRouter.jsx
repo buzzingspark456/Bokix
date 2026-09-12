@@ -45,7 +45,27 @@ const DrojsmalsrantaPage = lazy(() => import('./components/marketing/tools/Drojs
 // Utdelning/3:12 — de nya reglerna som gäller från 1 januari 2026 (se
 // UtdelningPage.jsx för varför sidan är så uttalad om vilket år den avser).
 const UtdelningPage = lazy(() => import('./components/marketing/tools/UtdelningPage'));
+// "Momsdatum" och "Deadline för årsredovisningen" — samma sorts fria
+// verktyg som ovan, fast med logiken (nextVatDeadlinePublic/
+// calcAnnualReportDeadline) återanvänd rakt av från den inloggade appens
+// egen, redan verifierade deadline-matte (declarationDeadlines.js), se
+// freeToolCalculations.js:s filkommentar för resonemanget.
+const MomsDatumPage = lazy(() => import('./components/marketing/tools/MomsDatumPage'));
+const ArsredovisningPage = lazy(() => import('./components/marketing/tools/ArsredovisningPage'));
 const OrdlistaPage = lazy(() => import('./components/marketing/OrdlistaPage'));
+// Bloggen — DYNAMISKT innehåll (skrivs/publiceras via /internal, se
+// InternalApp.jsx), till skillnad från varenda annan marknadssida i den
+// här filen. Förrenderas därför INTE (ingen post i entry-server.jsx:s
+// PRERENDER_ROUTES/PAGES eller egen vercel.json-rewrite) — ett nytt
+// inlägg måste synas direkt utan en ny deploy, vilket bara går med rena
+// klient-routes. Faller igenom till app-shell.html:s catch-all-rewrite
+// precis som den inloggade appens egna routes redan gör.
+const BlogListPage = lazy(() => import('./components/marketing/blog/BlogListPage'));
+const BlogPostPage = lazy(() => import('./components/marketing/blog/BlogPostPage'));
+// Det dolda admin-läget — ingen länk till den någonstans i den publika
+// navigeringen, se InternalApp.jsx för behörighetskollen (klient-sidan är
+// bara UI, den riktiga spärren är api/admin/index.js:s ADMIN_EMAILS).
+const InternalApp = lazy(() => import('./components/internal/InternalApp'));
 const IntegrationsPage = lazy(() => import('./components/marketing/IntegrationsPage'));
 const SecurityPage = lazy(() => import('./components/marketing/SecurityPage'));
 const PrivacyPolicy = lazy(() => import('./components/PrivacyPolicy'));
@@ -218,6 +238,9 @@ export default function AppRouter() {
         <Route path="/integrationer" element={<Suspense fallback={<AppLoadingFallback />}><IntegrationsPage /></Suspense>} />
         <Route path="/sakerhet" element={<Suspense fallback={<AppLoadingFallback />}><SecurityPage /></Suspense>} />
         <Route path="/ordlista" element={<Suspense fallback={<AppLoadingFallback />}><OrdlistaPage /></Suspense>} />
+        <Route path="/blogg" element={<Suspense fallback={<AppLoadingFallback />}><BlogListPage /></Suspense>} />
+        <Route path="/blogg/:slug" element={<Suspense fallback={<AppLoadingFallback />}><BlogPostPage /></Suspense>} />
+        <Route path="/internal" element={<Suspense fallback={<AppLoadingFallback />}><InternalApp /></Suspense>} />
         {/* Verktygsnavet + räknarna. Sökvägarna måste hållas i
             synk med TOOLS i marketing/tools/toolsConfig.js (sidfoten,
             navet och korsläkarna bygger sina länkar därifrån), med
@@ -231,6 +254,8 @@ export default function AppRouter() {
         <Route path="/verktyg/rot-rut" element={<Suspense fallback={<AppLoadingFallback />}><RotRutKalkylatorPage /></Suspense>} />
         <Route path="/verktyg/drojsmalsranta" element={<Suspense fallback={<AppLoadingFallback />}><DrojsmalsrantaPage /></Suspense>} />
         <Route path="/verktyg/utdelning" element={<Suspense fallback={<AppLoadingFallback />}><UtdelningPage /></Suspense>} />
+        <Route path="/verktyg/momsdatum" element={<Suspense fallback={<AppLoadingFallback />}><MomsDatumPage /></Suspense>} />
+        <Route path="/verktyg/arsredovisning" element={<Suspense fallback={<AppLoadingFallback />}><ArsredovisningPage /></Suspense>} />
         <Route path="/privacy" element={<Suspense fallback={<AppLoadingFallback />}><PrivacyPolicy /></Suspense>} />
         <Route path="/terms" element={<Suspense fallback={<AppLoadingFallback />}><TermsPolicy /></Suspense>} />
         {/* GDPR-innehållet är nu fullt inbakat i den utökade Integritetspolicyn

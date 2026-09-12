@@ -77,7 +77,7 @@ export const UF_NAV_LABELS = {
   dashboard: 'Startsida',
   contacts: 'Kunder',
   invoices: 'Fakturering',
-  expenses: 'Utgifter och kvitton',
+  expenses: 'Kvitton',
   review: 'Granskning',
   verifications: 'Bokföring',
   bank: 'Bank',

@@ -1479,26 +1479,28 @@ export function KeyFigureGauge({ figures }) {
     </div>
   );
 }
-export function BalanceSheetTable({ title, rows, total }) {
+// Kundönskemål (Sida 14c, uppföljning: alla rapporter ska matcha Företags-
+// översiktens ark-look): levde tidigare i sitt EGET rundade/kantade kort
+// (border-radius, border, egen bakgrund) — dubblerade SheetPanel:s kort
+// runt sig, ett kort inuti ett kort. `title` togs bort ur den här
+// komponenten av samma skäl — SheetPanel:s egen rubrikrad äger rubriken
+// nu, ingen anropare skickar längre in en egen.
+export function BalanceSheetTable({ rows, total }) {
   return (
-    <div style={{ flex: 1, minWidth: '260px' }}>
-      <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '10px' }}>{title}</div>
-      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '10px', overflow: 'hidden' }}>
-        {rows.length === 0 ? (
-          <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>Inga bokförda saldon</div>
-        ) : rows.map(r => (
-          <div
-            key={r.code}
-            style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', borderBottom: '1px solid var(--border-light)', fontSize: '13.5px', transition: 'background-color 0.12s ease' }}
-            onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-muted)'} onMouseLeave={e => e.currentTarget.style.background = 'none'}
-          >
-            <span style={{ color: 'var(--text-main)' }}>{r.name}</span>
-            <span style={{ fontWeight: 600, color: 'var(--text-main)', fontVariantNumeric: 'tabular-nums' }}>{formatSEK(r.amount)}</span>
-          </div>
-        ))}
-        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 14px', background: 'var(--bg-muted)', fontWeight: 800, fontSize: '14px' }}>
-          <span>Summa</span><span style={{ fontVariantNumeric: 'tabular-nums' }}>{formatSEK(total)}</span>
+    <div>
+      {rows.length === 0 ? (
+        <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>Inga bokförda saldon</div>
+      ) : rows.map(r => (
+        <div
+          key={r.code}
+          style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--border-light)', fontSize: '13.5px', transition: 'background-color 0.12s ease' }}
+        >
+          <span style={{ color: 'var(--text-main)' }}>{r.name}</span>
+          <span style={{ fontWeight: 600, color: 'var(--text-main)', fontVariantNumeric: 'tabular-nums' }}>{formatSEK(r.amount)}</span>
         </div>
+      ))}
+      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0 0', fontWeight: 800, fontSize: '14px', color: 'var(--text-main)' }}>
+        <span>Summa</span><span style={{ fontVariantNumeric: 'tabular-nums' }}>{formatSEK(total)}</span>
       </div>
     </div>
   );

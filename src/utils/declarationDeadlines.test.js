@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { nextVatDeadline, nextAgiDeadline } from './declarationDeadlines'
+import { nextVatDeadline, nextAgiDeadline, nextKuDeadline } from './declarationDeadlines'
 
 describe('nextVatDeadline', () => {
   it('returns null for non-quarterly reporting', () => {
@@ -108,6 +108,63 @@ describe('nextAgiDeadline', () => {
   it('computes a positive or zero daysLeft for the returned deadline', () => {
     const ref = new Date(2026, 5, 1)
     const result = nextAgiDeadline(ref)
+    expect(result.daysLeft).toBeGreaterThanOrEqual(0)
+  })
+
+  // Regressionstest (omkorsverifierat 2026-09-12 mot flera oberoende
+  // datumtabeller, se filkommentaren i declarationDeadlines.js) — december-
+  // lönen (deklareras i januari) hade tidigare fel förfallodag: 12 januari
+  // istället för det dokumenterade undantaget, 17 januari (framflyttat till
+  // 19 januari 2026 eftersom 17:e är en lördag det året).
+  it('uses the 17th (not the 12th) for December payroll, due in January', () => {
+    const ref = new Date(2025, 11, 5) // 5 december 2025, före den 12:e
+    const result = nextAgiDeadline(ref)
+    expect(result.periodKey).toBe('2025-11') // väntar — lönerna avser NOVEMBER här (12:e december inte passerad än)
+
+    const refAfter = new Date(2025, 11, 15) // 15 december 2025, efter den 12:e — nu räknas DECEMBER-lönen
+    const resultAfter = nextAgiDeadline(refAfter)
+    expect(resultAfter.periodKey).toBe('2025-12') // lönerna avser december
+    expect(resultAfter.dueDate.getFullYear()).toBe(2026)
+    expect(resultAfter.dueDate.getMonth()).toBe(0) // januari
+    expect(resultAfter.dueDate.getDate()).toBe(19) // 17 januari 2026 är en lördag — framflyttat till måndag
+  })
+})
+
+// Regressionstest (kundfeedback: "viktiga datum visar inget när det
+// senaste är avklarat") — KU var den saknade tredje deadline-typen: till
+// skillnad från moms/AGI (som alltid har NÅGON framtida period att peka på)
+// fanns ingen uträkning alls för KU:s fasta 31 januari-datum, så "Viktiga
+// datum" kunde stå helt tomt utanför en snar moms-/lönedeadline.
+describe('nextKuDeadline', () => {
+  it('returns this year\'s 31 January (rolled off any weekend) when still ahead', () => {
+    const ref = new Date(2026, 0, 5) // 5 januari 2026, före den 31:a
+    const result = nextKuDeadline(ref)
+    // 31 januari 2026 är en lördag — framflyttat till måndag 2 februari,
+    // se rollForwardPastWeekend. Kollar därför bara att den INTE hoppat
+    // vidare till nästa ÅR (den faktiska bugg-ytan) — exakt vilken dag den
+    // landar på täcks redan av "never lands on a weekend" nedan.
+    expect(result.dueDate.getFullYear()).toBe(2026)
+    expect(result.incomeYear).toBe(2025) // KU:n avser inkomståret INNAN förfallodatumets år
+  })
+
+  it('rolls to next year\'s 31 January once this year\'s has passed', () => {
+    const ref = new Date(2026, 5, 1) // juni 2026, långt efter 31 januari
+    const result = nextKuDeadline(ref)
+    expect(result.dueDate.getFullYear()).toBe(2027)
+    expect(result.incomeYear).toBe(2026)
+  })
+
+  it('never lands on a weekend, whatever year it falls in', () => {
+    for (let y = 2025; y <= 2032; y++) {
+      const result = nextKuDeadline(new Date(y, 0, 1))
+      const dow = result.dueDate.getDay()
+      expect(dow).not.toBe(0)
+      expect(dow).not.toBe(6)
+    }
+  })
+
+  it('computes a non-negative daysLeft for the returned deadline', () => {
+    const result = nextKuDeadline(new Date(2026, 8, 12))
     expect(result.daysLeft).toBeGreaterThanOrEqual(0)
   })
 })

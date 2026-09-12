@@ -40,7 +40,7 @@ const SIDEBAR_GROUPS = [
     { id: 'contacts', label: 'Kunder' },
     { id: 'quotes', label: 'Offerter' },
     { id: 'invoices', label: 'Fakturering' },
-    { id: 'expenses', label: 'Utgifter' },
+    { id: 'expenses', label: 'Kvitton' },
     { id: 'projects', label: 'Projekt' },
   ],
   [
@@ -198,7 +198,7 @@ export default function DemoWorkspace() {
             expenses={seed.expenses} accounts={seed.accounts} verifications={seed.verifications} projects={seed.projects}
             user={demoUser} onAdd={blocked} onFixExpenseAccount={blocked}
             onSaveReceiptDetails={blocked} onDeleteExpense={blocked} onReverseExpense={blocked}
-            pageTitle="Utgifter" pageSubtitle="Alla registrerade utgifter" uploadFn={demoUploadFn}
+            pageTitle="Kvitton" pageSubtitle="Alla uppladdade kvitton" uploadFn={demoUploadFn}
           />
         );
       case 'projects':
@@ -214,9 +214,11 @@ export default function DemoWorkspace() {
             expenses={seed.expenses} accounts={seed.accounts} reviewHistory={seed.reviewHistory}
             onResolve={blocked} onAddVerification={blocked}
             user={demoUser} company={seed.company}
-            // Stripe-fliken hämtar annars ur Supabase — här skickas samma
-            // rader in direkt i stället (se demoStripeItems i ReviewQueue).
+            // Stripe/Zettle-flikarna hämtar annars ur Supabase — här skickas
+            // samma rader in direkt i stället (se demoStripeItems/
+            // demoZettleItems i ReviewQueue).
             demoStripeItems={seed.stripeLedgerEvents}
+            demoZettleItems={seed.zettleLedgerEvents}
           />
         );
       case 'bank':

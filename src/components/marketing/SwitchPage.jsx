@@ -86,7 +86,7 @@ const FAQ = [
   },
   {
     q: 'Måste jag säga upp det gamla programmet direkt?',
-    a: 'Nej, och det kan vara klokt att låta bli tills du sett att allt kom med. Tänk också på att bokföringslagen kräver att räkenskapsinformationen bevaras i sju år — spara SIE-filen och det gamla systemets underlag oavsett vilket program du bokför i.',
+    a: 'Nej, och det kan vara klokt att låta bli tills du sett att allt kom med. Tänk också på att bokföringslagen kräver att räkenskapsinformationen bevaras till och med det sjunde året efter utgången av det kalenderår då räkenskapsåret avslutades — spara SIE-filen och det gamla systemets underlag oavsett vilket program du bokför i.',
   },
   {
     q: 'Kostar bytet något?',
@@ -354,7 +354,7 @@ export default function SwitchPage() {
           <Reveal delay={120} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', marginTop: '18px', background: IVORY, border: `1px solid ${CARD_BORDER}`, borderRadius: '14px', padding: '18px 22px' }}>
             <ShieldCheck size={18} color={BRAND.greenDark} style={{ flexShrink: 0, marginTop: 1 }} />
             <p style={{ fontSize: '13.5px', color: INK_SOFT, lineHeight: 1.7, margin: 0 }}>
-              Spara SIE-filen och det gamla systemets underlag även efter bytet. Bokföringslagen kräver att räkenskapsinformationen bevaras i sju år, oavsett vilket program den skapades i.
+              Spara SIE-filen och det gamla systemets underlag även efter bytet. Bokföringslagen kräver att räkenskapsinformationen bevaras till och med det sjunde året efter utgången av det kalenderår då räkenskapsåret avslutades, oavsett vilket program den skapades i.
             </p>
           </Reveal>
         </div>

@@ -30,6 +30,14 @@ export function formatKr(value, decimals = 0) {
   return n.toLocaleString('sv-SE', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 }
 
+/** "17 augusti 2026" — samma långa svenska datumform på båda
+ * deadline-verktygen (momsdatum, arsredovisning-deadline) i stället för
+ * att varje sida formaterar datum för sig. */
+export function formatDateSv(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '—';
+  return new Intl.DateTimeFormat('sv-SE', { day: 'numeric', month: 'long', year: 'numeric' }).format(date);
+}
+
 /** Stilar som behöver mediafrågor (kan inte uttryckas som inline-style) —
  * scopade till .bx-tool-* så de aldrig kan läcka ut i den inloggade
  * appens egna klasser. Renderas en gång per verktygssida, samma mönster

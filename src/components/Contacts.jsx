@@ -800,7 +800,17 @@ export default function Contacts({ contacts, setContacts, accounts = [], globalA
                     amount: c.totalInvoicedThisYear
                       ? new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(c.totalInvoicedThisYear)
                       : undefined,
-                    meta: [c.orgNr, c.contactPerson, c.lastInvoiceDate ? `senast ${c.lastInvoiceDate}` : null].filter(Boolean).join(' · ') || undefined,
+                    // Kundfeedback (uppföljning): fälten fanns redan här, men
+                    // utan etiketter — "556677-8899 · Anna Andersson · senast
+                    // 2026-08-15" säger inte VILKET fält som är vad utan att
+                    // man redan vet ordningen utantill. Korta etiketter på
+                    // varje bit i stället, samma tre fält som desktoptabellens
+                    // Org.nummer/Kontaktperson/Senaste faktura-kolumner.
+                    meta: [
+                      c.orgNr ? `Org.nr ${c.orgNr}` : null,
+                      c.contactPerson ? `Kontakt ${c.contactPerson}` : null,
+                      c.lastInvoiceDate ? `${activeTab === 'customer' ? 'Senaste faktura' : 'Senaste inköp'} ${c.lastInvoiceDate}` : null,
+                    ].filter(Boolean).join(' · ') || undefined,
                     // Kundfeedback: "man ser knappt infon på mobilen". Det man
                     // faktiskt vill åt i en kundlista på telefonen är numret
                     // och adressen — och kunna trycka på dem. Riktiga tel:/

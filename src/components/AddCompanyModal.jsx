@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Check } from 'lucide-react';
 import { useCompanyLookup } from '../hooks/useCompanyLookup';
 import { formatOrgNr } from '../utils/orgType';
@@ -14,10 +14,17 @@ import { formatOrgNr } from '../utils/orgType';
 // längre — samma förnuftiga förval som createEmptyCompanyData redan
 // sätter, ändringsbart i Inställningar sen, precis som kontots första
 // företag redan tillåter.
-export default function AddCompanyModal({ isOpen, onClose, onSubmit, submitting }) {
+export default function AddCompanyModal({ isOpen, onClose, onSubmit, submitting, defaultEmail = '' }) {
   const [companyName, setCompanyName] = useState('');
   const [orgNr, setOrgNr] = useState('');
   const [address, setAddress] = useState('');
+  // Kundönskemål: det nya företaget ska inte bara TYST få kontots e-post
+  // i bakgrunden (se App.jsx: createEmptyCompanyData) — man ska se den och
+  // kunna ändra den redan här, precis som org.nummer/namnet. Förvalt till
+  // kontots egen e-post (samma som annars hade hamnat där ändå), men ett
+  // eget, synligt och redigerbart fält, inte gömt.
+  const [email, setEmail] = useState(defaultEmail);
+  useEffect(() => { if (isOpen) setEmail(defaultEmail); }, [isOpen, defaultEmail]);
 
   const companyLookup = useCompanyLookup((key, value) => {
     if (key === 'name') setCompanyName(value);
@@ -32,14 +39,25 @@ export default function AddCompanyModal({ isOpen, onClose, onSubmit, submitting 
     setCompanyName('');
     setOrgNr('');
     setAddress('');
+    setEmail(defaultEmail);
     companyLookup.clearNameResults();
     onClose();
   };
 
+  // Kundönskemål: "organisationsnumret måste vara där, samma med
+  // företagsnamnet" — samma 10-siffror-krav som registreringens steg 2
+  // (Auth.jsx handleNextStep, regStep===2) redan ställer på det ALLRA
+  // första företaget. Den här modalen körde tidigare ENDAST
+  // companyName.trim() som spärr — orgNr gick att lämna helt tomt för ett
+  // TILLAGT företag, en lucka det ursprungliga registreringsflödet aldrig
+  // hade.
+  const orgNrValid = orgNr.replace(/\D/g, '').length >= 10;
+  const canSubmit = Boolean(companyName.trim()) && orgNrValid && !submitting;
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!companyName.trim() || submitting) return;
-    onSubmit({ companyName: companyName.trim(), orgNr, address });
+    if (!canSubmit) return;
+    onSubmit({ companyName: companyName.trim(), orgNr, address, email: email.trim() });
   };
 
   return (
@@ -68,7 +86,11 @@ export default function AddCompanyModal({ isOpen, onClose, onSubmit, submitting 
               }}
               placeholder="556123-4567"
               autoFocus
+              required
             />
+            {orgNr && !orgNrValid && companyLookup.orgLookup.status !== 'loading' && (
+              <span className="form-hint">Ange ett giltigt organisationsnummer (10 siffror).</span>
+            )}
             {companyLookup.orgLookup.status === 'loading' && (
               <span className="form-hint">Hämtar företagsuppgifter…</span>
             )}
@@ -96,6 +118,19 @@ export default function AddCompanyModal({ isOpen, onClose, onSubmit, submitting 
               required
             />
           </div>
+          {/* Frivilligt — förvalt till kontots egen e-post (kundönskemål:
+              inte bara tyst i bakgrunden), men ett vanligt, redigerbart
+              fält precis som adress/bank/telefon senare i Inställningar. */}
+          <div className="form-group">
+            <label className="form-label">E-post <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>(valfritt, kan ändras senare)</span></label>
+            <input
+              className="form-control"
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="info@bokix.se"
+            />
+          </div>
           <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: '0 0 4px' }}>
             Du betalar separat för det här företaget, precis som för ditt första — 30 dagar gratis, sedan 179 kr/mån.
           </p>
@@ -103,7 +138,7 @@ export default function AddCompanyModal({ isOpen, onClose, onSubmit, submitting 
             <button type="button" className="btn btn-secondary" onClick={handleClose} disabled={submitting}>
               Avbryt
             </button>
-            <button type="submit" className="btn btn-primary" disabled={submitting || !companyName.trim()}>
+            <button type="submit" className="btn btn-primary" disabled={!canSubmit}>
               {submitting ? 'Skapar...' : 'Skapa och fortsätt till betalning'}
             </button>
           </div>

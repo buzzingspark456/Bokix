@@ -224,14 +224,22 @@ export function normalizeRows(rawRows, mapping) {
 }
 
 // ── Dedup: gör omimport av en överlappande period säker/idempotent ──────
-function rowKey(r) { return `${r.date}|${r.amount}|${r.description}`; }
+// `accountId` MÅSTE vara med i nyckeln (flera bankkonton, kundönskemål) —
+// annars skulle samma datum/belopp/beskrivning på TVÅ olika konton (fullt
+// normalt: en kund som betalar samma summa till både företagskontot och en
+// separat sparbuffert samma dag) tolkas som en dubblett och tyst hoppas
+// över på det andra kontot.
+function rowKey(r, accountId) { return `${accountId || 'default'}|${r.date}|${r.amount}|${r.description}`; }
 
-export function dedupeAgainstExisting(newRows, existingBankTransactions) {
-  const seen = new Set((existingBankTransactions || []).map(rowKey));
+export function dedupeAgainstExisting(newRows, existingBankTransactions, accountId) {
+  // Jämför bara mot transaktioner på SAMMA konto — en transaktion på ett
+  // annat konto ska aldrig kunna blockera en riktig import här.
+  const relevant = (existingBankTransactions || []).filter(t => (t.accountId || 'default') === (accountId || 'default'));
+  const seen = new Set(relevant.map(t => rowKey(t, t.accountId)));
   const toImport = [];
   const alreadyImported = [];
   (newRows || []).forEach(r => {
-    const key = rowKey(r);
+    const key = rowKey(r, accountId);
     if (seen.has(key)) { alreadyImported.push(r); return; }
     seen.add(key); // skydd mot dubbletter INOM samma fil också
     toImport.push(r);
@@ -239,11 +247,16 @@ export function dedupeAgainstExisting(newRows, existingBankTransactions) {
   return { toImport, alreadyImported };
 }
 
-export function buildBankTransactionRecords(rows, importBatchId) {
+export function buildBankTransactionRecords(rows, importBatchId, accountId) {
   const createdAt = new Date().toISOString();
   return (rows || []).map((r, i) => ({
     id: `btx_${Date.now()}_${i}`,
     importBatchId,
+    // Odefinierad `accountId` (feature aldrig använd) betyder "det
+    // syntetiserade default-kontot" — se ACCOUNT-hanteringen i Bank.jsx.
+    // Sparas bara explicit när det FAKTISKT är ett riktigt, namngivet
+    // konto, så gamla/enkla företag aldrig får ett onödigt fält.
+    ...(accountId && accountId !== 'default' ? { accountId } : {}),
     date: r.date,
     description: r.description,
     amount: r.amount,

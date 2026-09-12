@@ -1,9 +1,11 @@
 ﻿import React, { useState, useMemo, useEffect } from 'react';
 import {
   Check, ChevronDown, ChevronUp, AlertTriangle, Download, ChevronLeft, Loader2, ExternalLink, RefreshCw, Landmark, CreditCard, Trash2,
+  Wallet, Receipt, Banknote, ShieldCheck,
 } from 'lucide-react';
 import CalculationRow from './shared/CalculationRow';
 import ListPageHeader from './shared/ListPageHeader';
+import { BRAND } from '../utils/brandColors';
 import { computeEmployeePayroll, summarizePayrollRun } from '../utils/payrollCalculation';
 import { PAY_TYPE_GROUPS, PAY_LINE_KINDS, getPayType, defaultRateFor } from '../utils/payTypes';
 import { PAYROLL_RUN_STEPS, PAYROLL_ACCOUNTS } from '../utils/payrollConfig';
@@ -26,67 +28,101 @@ function StatusBadge({ status }) {
   return <span style={{ padding: '4px 12px', borderRadius: '999px', fontSize: '12.5px', fontWeight: 700, background: s.bg, color: s.color }}>{s.label}</span>;
 }
 
+// Kundönskemål ("mycket bättre UI"): en rad likadana piller gav ingen känsla
+// av att det här ÄR en sekvens — bara sex knappar i samma form, färgen fick
+// bära hela beskedet om ordning. Numrerade cirklar + en förbindelselinje
+// mellan dem (samma mönster som checkout-/onboardingflöden hos i princip
+// alla större SaaS-produkter) gör klart/kommande/framtida läsbart på en
+// blick, oavsett färgseende. Bocken ersätter siffran när steget är klart,
+// linjen till NÄSTA cirkel färgas i så fort steget FÖRE den är klart.
 function StepButtons({ completedSteps, onAdvance, canBook }) {
   return (
-    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', paddingTop: '22px' }}>
+    <div className="payroll-stepper" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', rowGap: '20px', paddingTop: '22px' }}>
       {PAYROLL_RUN_STEPS.map((step, i) => {
         const isDone = completedSteps.includes(step.id);
         const prevDone = i === 0 || completedSteps.includes(PAYROLL_RUN_STEPS[i - 1].id);
         const isNext = !isDone && prevDone;
         const disabled = !prevDone || isDone || (step.id === 'booked' && !canBook);
+        const isLast = i === PAYROLL_RUN_STEPS.length - 1;
         return (
-          <div key={step.id} style={{ position: 'relative' }}>
-            {/* Kundfeedback ("hur skulle jag veta att det är man skulle
-                trycka, ha en pil eller nått") — accentfärgen räckte inte
-                som ledtråd ensam. Studsande pil + "Klicka här"-etikett
-                pekar nu rakt ut den enda knapp som faktiskt går att
-                klicka just nu. */}
-            {isNext && !disabled && (
-              <div
+          <React.Fragment key={step.id}>
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              {/* Kundfeedback ("hur skulle jag veta att det är man skulle
+                  trycka, ha en pil eller nått") — accentfärgen räckte inte
+                  som ledtråd ensam. Studsande pil + "Klicka här"-etikett
+                  pekar rakt ut det enda steg som faktiskt går att klicka
+                  just nu. */}
+              {isNext && !disabled && (
+                <div
+                  style={{
+                    position: 'absolute', top: '-24px', left: '15px',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px',
+                    animation: 'bokix-step-bounce 1s ease-in-out infinite', pointerEvents: 'none',
+                  }}
+                >
+                  <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--accent-text)', whiteSpace: 'nowrap' }}>Klicka här</span>
+                  <ChevronDown size={13} color="var(--accent)" style={{ marginTop: '-2px' }} />
+                </div>
+              )}
+              <button
+                disabled={disabled}
+                onClick={() => onAdvance(step.id)}
                 style={{
-                  position: 'absolute', top: '-24px', left: '50%',
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px',
-                  animation: 'bokix-step-bounce 1s ease-in-out infinite', pointerEvents: 'none',
+                  display: 'flex', alignItems: 'center', gap: '9px', padding: '4px 14px 4px 4px', borderRadius: '999px',
+                  fontSize: '13px', fontWeight: 700, border: 'none', background: 'none',
+                  cursor: disabled ? 'not-allowed' : 'pointer',
+                  animation: (isNext && !disabled) ? 'bokix-step-pulse 1.8s ease-in-out infinite' : 'none',
                 }}
               >
-                <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--accent-text)', whiteSpace: 'nowrap' }}>Klicka här</span>
-                <ChevronDown size={13} color="var(--accent)" style={{ marginTop: '-2px' }} />
-              </div>
+                <span style={{
+                  width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '12.5px', fontWeight: 800,
+                  background: isDone ? BRAND.green : (isNext ? 'var(--accent)' : 'var(--border-light)'),
+                  color: isDone || isNext ? 'white' : 'var(--text-muted)',
+                  boxShadow: isNext ? '0 0 0 4px var(--status-green-bg)' : 'none',
+                  transition: 'background 0.15s, box-shadow 0.15s',
+                }}>
+                  {isDone ? <Check size={15} /> : i + 1}
+                </span>
+                <span className="step-label" style={{ color: isDone ? 'var(--text-main)' : (isNext ? 'var(--text-main)' : 'var(--text-muted)') }}>{step.label}</span>
+              </button>
+            </div>
+            {!isLast && (
+              <span aria-hidden className="step-connector" style={{ flex: '1 1 24px', minWidth: '20px', maxWidth: '56px', height: '2px', margin: '0 2px', borderRadius: '1px', background: isDone ? BRAND.green : 'var(--border-light)', transition: 'background 0.15s' }} />
             )}
-            <button
-              disabled={disabled}
-              onClick={() => onAdvance(step.id)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 16px', borderRadius: '999px',
-                fontSize: '13px', fontWeight: 700, border: 'none',
-                cursor: disabled ? 'not-allowed' : 'pointer',
-                background: isDone ? 'var(--status-green-bg)' : (isNext ? 'var(--accent)' : 'var(--border-light)'),
-                color: isDone ? '#059669' : (isNext ? 'white' : 'var(--text-muted)'),
-                animation: (isNext && !disabled) ? 'bokix-step-pulse 1.8s ease-in-out infinite' : 'none',
-              }}
-            >
-              {isDone && <Check size={14} />} {step.label}
-            </button>
-          </div>
+          </React.Fragment>
         );
       })}
     </div>
   );
 }
 
+// Kundönskemål ("mycket bättre UI"): fyra likadana textrutor i rad gav
+// ingen ledtråd om VAD varje siffra var utan att läsa etiketten först. En
+// liten ikon per kort (samma mönster som Semesteröversiktens kort) gör
+// dem urskiljbara på en blick — färgen på siffran gör fortfarande jobbet
+// att visa "detta är ett avdrag" (röd skatt) kontra "detta är kvar" (grön
+// netto), ikonen gör bara att man känner igen KORTET snabbare, inte bara
+// TALET.
 function SummaryCards({ totals }) {
   const cards = [
-    { label: 'Brutto', value: totals.gross, color: 'var(--text-main)' },
-    { label: 'Skatt', value: totals.tax, color: 'var(--status-red-text)' },
-    { label: 'Netto', value: totals.net, color: 'var(--status-green-text)' },
-    { label: 'Avgifter', value: totals.employerFee + totals.vacationFee, color: 'var(--text-main)' },
+    { label: 'Brutto', value: totals.gross, color: 'var(--text-main)', icon: Wallet },
+    { label: 'Skatt', value: totals.tax, color: 'var(--status-red-text)', icon: Receipt },
+    { label: 'Netto', value: totals.net, color: 'var(--status-green-text)', icon: Banknote },
+    { label: 'Avgifter', value: totals.employerFee + totals.vacationFee, color: 'var(--text-main)', icon: ShieldCheck },
   ];
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '12px' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 190px), 1fr))', gap: '12px', marginBottom: '12px' }}>
       {cards.map(c => (
-        <div key={c.label} style={{ ...panelCard, padding: '16px' }}>
-          <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '6px' }}>{c.label}</div>
-          <div style={{ fontSize: '20px', fontWeight: 800, color: c.color }}>{fmt(c.value)} kr</div>
+        <div key={c.label} style={{ ...panelCard, padding: '16px', display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+          <div style={{ width: 34, height: 34, borderRadius: '10px', background: 'var(--bg-muted)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <c.icon size={16} />
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '5px' }}>{c.label}</div>
+            <div style={{ fontSize: '20px', fontWeight: 800, color: c.color }}>{fmt(c.value)} kr</div>
+          </div>
         </div>
       ))}
     </div>

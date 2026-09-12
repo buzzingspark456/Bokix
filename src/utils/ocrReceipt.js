@@ -18,9 +18,79 @@ const MONTHS_MAP = {
   juni: '06', juli: '07', augusti: '08', september: '09', oktober: '10',
   november: '11', december: '12',
   january: '01', february: '02', march: '03',
-  june: '06', july: '07', august: '08', september: '09', october: '10',
-  december: '12',
+  june: '06', july: '07', august: '08', october: '10',
 };
+
+/**
+ * Tolkar en enskild siffersträng från ett kvitto — "48,99", "1.234,56"
+ * (europeisk), "1,234.56" (amerikansk), "5,000" eller "5000" — till ett
+ * tal. Punkt och komma används olika beroende på land, och en tresiffrig
+ * grupp efter separatorn (t.ex. "5,000") är en TUSENTALSAVGRÄNSARE, inte
+ * decimaler, medan en en- eller tvåsiffrig grupp ("48,99") är decimaler.
+ * Bugkritiskt för japanska/kinesiska kvitton: yen skrivs praktiskt taget
+ * ALDRIG med decimaler ("¥5,000" är femtusen yen, inte 5 kronor och 00
+ * öre) — utan den här skillnaden blev "¥5,000" tidigare feltolkat som
+ * 5,00 eftersom den gamla koden bara tog de två SISTA siffrorna efter ett
+ * kommatecken, oavsett hur många det faktiskt var.
+ */
+function parseMoneyToken(raw) {
+  const clean = String(raw).trim().replace(/\s/g, '');
+  const hasComma = clean.includes(',');
+  const hasDot = clean.includes('.');
+  let normalized = clean;
+  if (hasComma && hasDot) {
+    // Båda förekommer — den SISTA av dem är decimaltecknet, resten är
+    // tusentalsgruppering ("1.234,56" eller "1,234.56").
+    const decimalSep = clean.lastIndexOf(',') > clean.lastIndexOf('.') ? ',' : '.';
+    const thousandsSep = decimalSep === ',' ? '.' : ',';
+    normalized = clean.split(thousandsSep).join('').replace(decimalSep, '.');
+  } else if (hasComma || hasDot) {
+    const sep = hasComma ? ',' : '.';
+    const parts = clean.split(sep);
+    const lastPart = parts[parts.length - 1];
+    normalized = (parts.length > 2 || lastPart.length === 3)
+      // Flera separatorer, eller exakt tre siffror efter den enda — det är
+      // tusentalsgruppering ("5,000" = femtusen), inga decimaler.
+      ? parts.join('')
+      // En separator med 1-2 siffror efter — det ÄR decimaler ("48,99").
+      : parts.join('.');
+  }
+  const n = parseFloat(normalized);
+  return isNaN(n) ? null : n;
+}
+
+// Belopp MED decimaler ("48,99", "1.234,56") — i praktiken aldrig ett
+// referens- eller ordernummer, så den här formen är alltid en säker
+// kandidat, på vilken rad som helst.
+const MONEY_DECIMAL_RE = /\d[\d\s]*[,.]\d{1,2}\b/g;
+// Rena heltalsbelopp på minst 3 siffror, ev. tusentalsgrupperat ("5,000",
+// "5000") — krävs för valutor utan decimaler (yen, och ofta yuan på större
+// B2B-fakturor). Ett ensamt en/tvåsiffrigt heltal matchas medvetet INTE
+// (för lätt att råka plocka upp en momssats eller ett kvantitetstal).
+const MONEY_WHOLE_RE = /\b\d{1,3}(?:[.,]\d{3})+\b|\b\d{3,6}\b/g;
+// Facit för lastAmountOnLine, som bara körs på rader som REDAN matchat ett
+// starkt nyckelord (totalt/summa/att betala/…) — där är ett heltal en
+// säker kandidat också, till skillnad från fallback-sökningen nedan som
+// letar i HELA dokumentet utan någon sån kontext (se idLikeLine där).
+const MONEY_TOKEN_RE = /\d[\d\s]*[,.]\d{1,2}\b|\b\d{1,3}(?:[.,]\d{3})+\b|\b\d{3,6}\b/g;
+
+/** Sista (störst rimliga) beloppet på en rad, tolkat med parseMoneyToken. */
+function lastAmountOnLine(line) {
+  const matches = line.match(MONEY_TOKEN_RE);
+  if (!matches) return null;
+  const parsed = matches.map(parseMoneyToken).filter(v => v !== null && v > 0);
+  return parsed.length ? parsed[parsed.length - 1] : null;
+}
+
+// Rader som ser ut att innehålla ett referens-, order- eller telefonnummer
+// — ett heltal DÄR ska inte kunna vinna över det riktiga totalbeloppet i
+// den okontextuella fallback-sökningen (skedde tidigare: "Ref 88213" slog
+// den faktiska summan 169,00 rakt av eftersom 88213 > 169).
+const ID_LIKE_LINE_RE = /\bref\b|\bnr\b|\border\b|\bnummer\b|\borg\.?\s*nr\b|\btel(?:efon)?\b|\bphone\b|\bid\b/i;
+// Rader med ett fullständigt numeriskt datum ("2024-07-01") — annars
+// plockade fallback-sökningen upp ÅRTALET (2024) som ett heltalsbelopp,
+// eftersom det numeriskt sett är större än en liten totalsumma.
+const DATE_LIKE_LINE_RE = /\b(?:20|19)\d{2}[-/.]\d{1,2}[-/.]\d{1,2}\b|\b\d{1,2}[-/.]\d{1,2}[-/.](?:20|19)\d{2}\b/;
 
 /**
  * Extraherar text ur en digital PDF i webbläsaren med pdfjs-dist.
@@ -246,13 +316,32 @@ const KNOWN_SUPPLIERS = [
  */
 export function parseReceiptText(text) {
   if (!text || typeof text !== 'string') {
-    return { date: null, amount: null, vatRate: 25, supplier: null, accountCode: null };
+    return { date: null, amount: null, vatRate: 25, supplier: null, accountCode: null, currency: null };
   }
 
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
   const fullText = text.toLowerCase();
 
   // ── 1. Datum ──────────────────────────────────────────────────────────────
+  // Numeriska datum med / eller - är tvetydiga: "02/15" kan bara vara
+  // MM/DD (USA), inget månadsnummer går över 12 — men "03/05" kan vara
+  // BÅDE 3:e maj (svensk DD/MM, appens standardkonvention) och 5:e mars
+  // (amerikansk MM/DD). Utan den här upplösningen blev ett amerikanskt
+  // kvitto som "02/15/2022" tidigare "2022-15-02" — ett ogiltigt datum
+  // (månad 15) som gav antingen ingen valutakurs alls eller, värre, en
+  // kurs för fel dag om siffrorna råkade vara ≤ 12 båda två (tyst fel
+  // datum, tyst fel belopp i kronor — bugkritiskt eftersom hela poängen
+  // med valutaomräkningen är att använda RÄTT dags kurs).
+  const looksAmerican = /\$|\bUSD\b|\bCAD\b|\bAUD\b/i.test(text);
+  function resolveDayMonth(a, b) {
+    const na = parseInt(a, 10), nb = parseInt(b, 10);
+    if (na > 12 && nb <= 12) return { day: na, month: nb };
+    if (nb > 12 && na <= 12) return { day: nb, month: na };
+    // Äkta tvetydigt (båda ≤ 12) — amerikanska kvitton (dollartecken/
+    // USD/CAD/AUD i texten) skriver MM/DD, annars svensk standard DD/MM.
+    return looksAmerican ? { day: nb, month: na } : { day: na, month: nb };
+  }
+
   let date = null;
   for (const line of lines) {
     // YYYY-MM-DD eller YYYY/MM/DD eller YYYY.MM.DD
@@ -261,19 +350,26 @@ export function parseReceiptText(text) {
       date = `${m1[1]}-${m1[2].padStart(2, '0')}-${m1[3].padStart(2, '0')}`;
       break;
     }
-    // DD-MM-YYYY eller DD/MM/YYYY eller DD.MM.YYYY
+    // DD/MM/YYYY eller MM/DD/YYYY (- eller . fungerar också) — se
+    // resolveDayMonth ovan för vilken tolkning som vinner.
     const m2 = line.match(/\b(\d{1,2})[-/.](\d{1,2})[-/.](20\d{2})\b/);
     if (m2) {
-      date = `${m2[3]}-${m2[2].padStart(2, '0')}-${m2[1].padStart(2, '0')}`;
-      break;
+      const { day, month } = resolveDayMonth(m2[1], m2[2]);
+      if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+        date = `${m2[3]}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        break;
+      }
     }
-    // DD/MM-YY (t.ex. "01/06-22" eller "01-06-22")
+    // DD/MM-YY eller MM/DD-YY (t.ex. "01/06-22" eller "06/01-22")
     const m3 = line.match(/\b(\d{1,2})[/.-](\d{1,2})[-]([12]\d)\b/);
     if (m3) {
       const yr = parseInt(m3[3], 10);
       const fullYear = yr < 70 ? 2000 + yr : 1900 + yr;
-      date = `${fullYear}-${m3[2].padStart(2, '0')}-${m3[1].padStart(2, '0')}`;
-      break;
+      const { day, month } = resolveDayMonth(m3[1], m3[2]);
+      if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+        date = `${fullYear}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        break;
+      }
     }
     // Textdatum: "May 12, 2024" eller "12 maj 2024" eller "12 juni 2023"
     const m4 = line.match(/\b(\d{1,2})?\s*([a-zA-ZåäöÅÄÖ]{3,10})\s+(\d{1,2})?,?\s*(20\d{2})\b/);
@@ -291,20 +387,23 @@ export function parseReceiptText(text) {
 
   // ── 2. Totalbelopp ────────────────────────────────────────────────────────
   let amount = null;
+  // Raden där totalbeloppet faktiskt stod — sparas separat för valutakollen
+  // längre ner (## Valuta). Kollar bara DEN raden, inte hela kvittot: många
+  // utländska SaaS-fakturor (Vercel, GitHub …) visar en delsumma i dollar
+  // OVANFÖR en redan SEK-omräknad totalsumma, och en sådan referensrad ska
+  // inte trigga en falsklarm om utländsk valuta.
+  let amountLine = null;
   const primaryAmountKeywords = /att betala|total amount|amount paid|amount due|totalt|total\b/i;
   const secondaryAmountKeywords = /summa|belopp|sum\b|to pay|kort|card|sek|kronor|subtotal/i;
 
   // 1. Försök först med primära nyckelord (t.ex. "Totalt: 193,75" eller "Att betala: 900,58")
   for (const line of lines) {
     if (primaryAmountKeywords.test(line) && !/subtotal|delbelopp/i.test(line)) {
-      const matches = line.match(/(\d[\d\s]*[,.]\d{2})/g);
-      if (matches) {
-        const last = matches[matches.length - 1];
-        const parsed = parseFloat(last.replace(/\s/g, '').replace(',', '.'));
-        if (!isNaN(parsed) && parsed > 0) {
-          amount = parsed;
-          break;
-        }
+      const parsed = lastAmountOnLine(line);
+      if (parsed !== null) {
+        amount = parsed;
+        amountLine = line;
+        break;
       }
     }
   }
@@ -313,34 +412,74 @@ export function parseReceiptText(text) {
   if (!amount) {
     for (const line of lines) {
       if (secondaryAmountKeywords.test(line)) {
-        const matches = line.match(/(\d[\d\s]*[,.]\d{2})/g);
-        if (matches) {
-          const last = matches[matches.length - 1];
-          const parsed = parseFloat(last.replace(/\s/g, '').replace(',', '.'));
-          if (!isNaN(parsed) && parsed > 0) {
-            amount = parsed;
-            break;
-          }
+        const parsed = lastAmountOnLine(line);
+        if (parsed !== null) {
+          amount = parsed;
+          amountLine = line;
+          break;
         }
       }
     }
   }
 
-  // Fallback: leta efter det största rimliga beloppet med decimaler i hela dokumentet
+  // Fallback: leta efter det största rimliga beloppet i hela dokumentet.
+  // Decimalbelopp är alltid kandidater; heltal bara på rader som INTE ser
+  // ut att vara ett referens-/ordernummer (se ID_LIKE_LINE_RE) — annars
+  // vinner lätt ett kvittonummer över den faktiska totalsumman.
   if (!amount) {
     let max = 0;
+    let maxLine = null;
     for (const line of lines) {
-      const matches = line.match(/(\d{1,6}[,.]\d{2})/g);
-      if (matches) {
+      const skipWhole = ID_LIKE_LINE_RE.test(line) || DATE_LIKE_LINE_RE.test(line);
+      const matches = [
+        ...(line.match(MONEY_DECIMAL_RE) || []),
+        ...(skipWhole ? [] : (line.match(MONEY_WHOLE_RE) || [])),
+      ];
+      if (matches.length) {
         for (const raw of matches) {
-          const v = parseFloat(raw.replace(/\s/g, '').replace(',', '.'));
-          if (!isNaN(v) && v > max && v < 500000) {
+          const v = parseMoneyToken(raw);
+          if (v !== null && v > max && v < 500000) {
             max = v;
+            maxLine = line;
           }
         }
       }
     }
-    if (max > 0) amount = max;
+    if (max > 0) { amount = max; amountLine = maxLine; }
+  }
+
+  // ── Valuta ────────────────────────────────────────────────────────────────
+  // Bokix bokför bara i svenska kronor (Bokföringslagen 4 kap. 6 §: löpande
+  // bokföring ska ske i SEK). Ett kvittobelopp i en annan valuta får ALDRIG
+  // tolkas som om det redan vore kronor — det skulle boka fel belopp med en
+  // faktor på flera gånger. Hittas ett valutatecken/-kod på totalradens
+  // egen text (och inget som uttryckligen säger "SEK"/"kr" på samma rad)
+  // returneras valutakoden istället för att gissa ett kronbelopp — anroparen
+  // (Expenses.jsx/Verifications.jsx) ska då lämna beloppsfältet tomt och
+  // be användaren skriva in det omräknade SEK-beloppet själv.
+  let currency = null;
+  if (amountLine) {
+    const explicitSek = /\bsek\b|\bkr\b|:-/i.test(amountLine);
+    if (!explicitSek) {
+      if (/\$/.test(amountLine)) currency = 'USD';
+      else if (/£/.test(amountLine)) currency = 'GBP';
+      else if (/€/.test(amountLine)) currency = 'EUR';
+      // 元 är entydigt kinesiska yuan (RMB) — förekommer aldrig på ett
+      // japanskt kvitto. ¥ ensamt är tvetydigt mellan yen och yuan;
+      // internationellt är yen den vanligare tolkningen av tecknet utan
+      // vidare sammanhang, så det är förvalet.
+      else if (/元/.test(amountLine)) currency = 'CNY';
+      else if (/¥/.test(amountLine)) currency = 'JPY';
+      else {
+        const codeMatch = amountLine.match(/\b(USD|GBP|EUR|NOK|DKK|CHF|JPY|CNY|RMB|CAD|AUD)\b/i);
+        if (codeMatch) {
+          const code = codeMatch[1].toUpperCase();
+          // RMB ("renminbi") är det vardagliga namnet, CNY är ISO-koden
+          // Frankfurter/ECB faktiskt känner till (utils/currencyConversion.js).
+          currency = code === 'RMB' ? 'CNY' : code;
+        }
+      }
+    }
   }
 
   // ── 3. Leverantör & Konto ────────────────────────────────────────────────
@@ -402,7 +541,11 @@ export function parseReceiptText(text) {
       { re: /restaurang|lunch|middag|fika|café|cafe|mat|livsmedel|grocery/, code: '5010' },
       { re: /kontors|papper|penna|bläck|toner|staples/, code: '6110' },
       { re: /porto|frakt|paket|post|fedex|ups/, code: '6230' },
-      { re: /telefon|mobil|abonnemang|tele2|telia|3\b|comviq|telenor/, code: '6212' },
+      // OBS: "\b3\b" (fristående siffran 3, operatören "3"/tre.se) — INTE
+      // "3\b", som matchade sista siffran i vilket belopp eller referens-
+      // nummer som helst så fort det råkade sluta på 3 (t.ex. "88213" i ett
+      // ordernummer), och kategoriserade då kvittot fel som telefonkostnad.
+      { re: /telefon|mobil|abonnemang|tele2|telia|\b3\b|comviq|telenor/, code: '6212' },
       { re: /internet|bredband|fiber|itux|bahnhof/, code: '6212' },
       { re: /server|hosting|cloud|saas|domän|domain|software|licens/, code: '6540' },
       { re: /facklitteratur|böcker|tidskrift|bok\b/, code: '6980' },
@@ -419,5 +562,5 @@ export function parseReceiptText(text) {
     }
   }
 
-  return { date, amount, vatRate, supplier, accountCode };
+  return { date, amount, vatRate, supplier, accountCode, currency };
 }

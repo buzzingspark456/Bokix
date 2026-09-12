@@ -92,7 +92,7 @@ export default function TermsPolicy() {
 
       <PolicySection n={7} title="Din data">
         <p style={policyP}>
-          Du äger din bokföringsdata. Vi använder den bara för att leverera tjänsten till dig, aldrig för att sälja den vidare. Du kan exportera all din data när som helst i tjänsten. Vid uppsägning av kontot bevarar vi bokföringsdata så länge bokföringslagen kräver det (normalt sju år), men slutar ta betalt och stänger av åtkomsten till det aktiva gränssnittet.
+          Du äger din bokföringsdata. Vi använder den bara för att leverera tjänsten till dig, aldrig för att sälja den vidare. Du kan exportera all din data när som helst i tjänsten. Vid uppsägning av kontot bevarar vi bokföringsdata så länge bokföringslagen kräver det (till och med det sjunde året efter utgången av det kalenderår då räkenskapsåret avslutades), men slutar ta betalt och stänger av åtkomsten till det aktiva gränssnittet.
         </p>
       </PolicySection>
 

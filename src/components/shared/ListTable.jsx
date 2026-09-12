@@ -36,6 +36,18 @@ const HEAD_CELL_PADDING = '12px 16px';
  *   färgkodning per status/markerad) — slås samman ovanpå tabellens egna standardstilar.
  * @param {{key: string, dir: 'asc'|'desc', onSort: (sortKeyName: string) => void}} [sort]
  *   - tillsammans med `col.sortKeyName`: klickbar kolumnrubrik med sorteringspil.
+ * @param {(row) => string|null} [groupBy] - Kundönskemål (Bokföring, efter Utgifters
+ *   månadsgruppering: "samma sak här, jag älskar det"): delar upp `rows` i sektioner med en
+ *   lättviktig rubrikrad mellan dem — EN delad `<thead>` (aldrig upprepad, till skillnad från att
+ *   stapla flera hela ListTable-instanser), bara en extra rad som skjuts in framför varje ny
+ *   grupps första post. Kräver att `rows` REDAN är sorterat så att samma nyckel ligger i följd —
+ *   ListTable sorterar aldrig om själv, den bara upptäcker när nyckeln BYTER värde mellan två
+ *   rader på varandra. `null`/`undefined` från en rad utelämnar den ur gruppering (ingen rubrik
+ *   skjuts in för den övergången).
+ * @param {(groupKey: string, rows: Array<object>) => ReactNode} [renderGroupHeader] - Innehållet
+ *   i rubrikraden för en grupp — sidan äger helt vad som visas (t.ex. "September 2026 · 4 st ·
+ *   12 300 kr"), ListTable vet bara VAR den ska sitta. `rows` är alla rader i just den gruppen
+ *   (för summor/antal) — samma content-är-sidans-jobb-princip som `mobileList`.
  * @param {(row, i) => {dot?: string, primary: ReactNode, amount?: ReactNode, meta?: ReactNode, pill?: ReactNode}} [mobileList]
  *   - Kundönskemål (skärmdumpar, jämfört tre riktiga alternativ i en artefakt, "C. Listrad" valdes):
  *     under 900px ersätts den staplade etikett/värde-kortvyn HELT av en tätare listrad utan
@@ -66,8 +78,34 @@ const HEAD_CELL_PADDING = '12px 16px';
  *   cirklig och inte rak". Det som ligger sist i kortet ska bära
  *   rundningen, inte tabellen mitt i.
  */
-export default function ListTable({ columns, rows, rowKey, onRowClick, emptyMessage = 'Inga poster', selectable, isExpanded, renderExpanded, rowStyle, sort, bordered = true, roundedBottom = true, mobileList }) {
+export default function ListTable({ columns, rows, rowKey, onRowClick, emptyMessage = 'Inga poster', selectable, isExpanded, renderExpanded, rowStyle, sort, bordered = true, roundedBottom = true, mobileList, groupBy, renderGroupHeader }) {
   const colSpan = columns.length + (selectable ? 1 : 0);
+
+  // Gruppering (valfri, se groupBy/renderGroupHeader JSDoc ovan): en
+  // engångsgenomgång av (det redan sorterade) `rows` som dels bygger
+  // groupKey → rader-i-den-gruppen (för renderGroupHeader:s summor/antal),
+  // dels markerar vilka radindex som är en grupps FÖRSTA rad (där
+  // rubrikraden ska skjutas in). Delas mellan desktop-tabellen och
+  // mobil-listan nedan — samma indelning, två olika DOM-strukturer.
+  const groupRows = new Map();
+  const groupStartIndices = new Set();
+  if (groupBy) {
+    let prevKey;
+    rows.forEach((row, i) => {
+      const key = groupBy(row);
+      if (key != null) {
+        if (!groupRows.has(key)) groupRows.set(key, []);
+        groupRows.get(key).push(row);
+        if (key !== prevKey) groupStartIndices.add(i);
+      }
+      prevKey = key;
+    });
+  }
+  const groupHeaderCell = (row) => {
+    const key = groupBy(row);
+    return renderGroupHeader(key, groupRows.get(key) || []);
+  };
+
   return (
     // overflowX:'auto' (bugkritiskt, kundfeedback: "Status rutan är
     // sammanslagen med sidans header" — i själva verket klipptes
@@ -143,6 +181,13 @@ export default function ListTable({ columns, rows, rowKey, onRowClick, emptyMess
             const expanded = Boolean(isExpanded?.(row));
             return (
               <React.Fragment key={key}>
+                {groupBy && renderGroupHeader && groupStartIndices.has(i) && (
+                  <tr>
+                    <td colSpan={colSpan} className="lt-group-header" style={{ padding: i === 0 ? '10px 16px 8px' : '18px 16px 8px', background: 'var(--bg-card)', borderBottom: '1px solid var(--border-light)' }}>
+                      {groupHeaderCell(row)}
+                    </td>
+                  </tr>
+                )}
                 <tr
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
                   style={{
@@ -216,6 +261,11 @@ export default function ListTable({ columns, rows, rowKey, onRowClick, emptyMess
             const m = mobileList(row, i);
             return (
               <React.Fragment key={key}>
+                {groupBy && renderGroupHeader && groupStartIndices.has(i) && (
+                  <div style={{ padding: i === 0 ? '8px 14px 6px' : '16px 14px 6px' }}>
+                    {groupHeaderCell(row)}
+                  </div>
+                )}
                 <div
                   className="lt-mobile-row"
                   onClick={onRowClick ? () => onRowClick(row) : undefined}

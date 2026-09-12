@@ -19,7 +19,14 @@ const VARIANTS = {
 // huvudinnehållet"-mönster som CookieBanner/HelpDrawer), styrd av ett enda
 // { message, variant } | null-state — se stripe_connect/bank_connect-
 // useEffects.
-export default function Toast({ message, variant = 'success', onClose, duration = 6000 }) {
+// `action`: valfri { label, onClick } — en genväg direkt i notisen (t.ex.
+// "Visa i Granskning →" efter en lyckad Stripe/Zettle-anslutning). Utan
+// den lämnade en ren bekräftelsetext ("Stripe är nu anslutet") användaren
+// att själv gissa VAR de nya transaktionerna dyker upp — kundönskemål:
+// visa vägen dit direkt i samma andetag som bekräftelsen, inte bara att
+// det lyckades. Klick på åtgärden stänger notisen själv (samma onClose),
+// anroparen behöver inte göra det manuellt i sin egen handler.
+export default function Toast({ message, variant = 'success', action, onClose, duration = 6000 }) {
   useEffect(() => {
     if (!message) return undefined;
     const timer = setTimeout(onClose, duration);
@@ -45,7 +52,17 @@ export default function Toast({ message, variant = 'success', onClose, duration 
       <div style={{ width: 30, height: 30, borderRadius: '50%', background: bg, color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
         <Icon size={16} />
       </div>
-      <div style={{ flex: 1, fontSize: '13.5px', color: 'var(--text-main)', lineHeight: 1.5, paddingTop: '5px' }}>{message}</div>
+      <div style={{ flex: 1, paddingTop: '5px' }}>
+        <div style={{ fontSize: '13.5px', color: 'var(--text-main)', lineHeight: 1.5 }}>{message}</div>
+        {action && (
+          <button
+            onClick={() => { action.onClick(); onClose(); }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', marginTop: '8px', padding: 0, background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 700, color, fontFamily: 'inherit' }}
+          >
+            {action.label} →
+          </button>
+        )}
+      </div>
       <button
         onClick={onClose}
         aria-label="Stäng"

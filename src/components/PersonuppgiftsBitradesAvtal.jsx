@@ -119,7 +119,7 @@ export default function PersonuppgiftsBitradesAvtal() {
 
       <PolicySection n={8} title="Radering och återlämning vid avtalets slut">
         <p style={policyP}>
-          När du avslutar ditt konto slutar Bokix ta betalt och stänger av åtkomsten till det aktiva gränssnittet. Du kan exportera all din data när som helst innan dess (Inställningar → Data och Inställningar). Bokföringsdata bevaras därefter i den utsträckning bokföringslagen kräver (normalt sju år) innan den raderas eller anonymiseras — det här avtalet begränsar inte den lagstadgade skyldigheten. Uppgifter som inte omfattas av ett sådant lagkrav raderas inom rimlig tid efter kontots avslut.
+          När du avslutar ditt konto slutar Bokix ta betalt och stänger av åtkomsten till det aktiva gränssnittet. Du kan exportera all din data när som helst innan dess (Inställningar → Data och Inställningar). Bokföringsdata bevaras därefter i den utsträckning bokföringslagen kräver (till och med det sjunde året efter utgången av det kalenderår då räkenskapsåret avslutades) innan den raderas eller anonymiseras — det här avtalet begränsar inte den lagstadgade skyldigheten. Uppgifter som inte omfattas av ett sådant lagkrav raderas inom rimlig tid efter kontots avslut.
         </p>
       </PolicySection>
 

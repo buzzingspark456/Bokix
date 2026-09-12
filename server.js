@@ -19,6 +19,7 @@ import {
 import { hasGoogleOAuth, buildAuthUrl, exchangeCode, signState, verifyState } from './api/_gmail.js'
 import requestPasswordResetHandler from './api/auth/request-password-reset.js'
 import companyAccessHandler from './api/company-access.js'
+import adminHandler from './api/admin/index.js'
 import createSubscriptionCheckoutHandler from './api/stripe/_subscriptionCheckout.js'
 import createCheckoutSessionHandler from './api/stripe/create-checkout-session.js'
 import contactHandler from './api/contact.js'
@@ -431,6 +432,12 @@ app.post('/api/email/send-invoice', async (req, res) => {
 // handler direkt (samma mönster som redan finns för /api/cron/reminders)
 // istället för att hålla en andra kopia i synk för hand.
 app.all('/api/company-access', (req, res) => companyAccessHandler(req, res))
+
+// GET/POST /api/admin — samma "importera produktionens handler rakt av"-
+// mönster som company-access.js ovan, av samma skäl: en handkopierad
+// lokal-dev-tvilling till admin-panelens API (behörighetskoll, blogg-
+// CRUD) hade bara varit ett nytt ställe för de två att glida isär.
+app.all('/api/admin', (req, res) => adminHandler(req, res))
 
 // /api/contact — tidigare en handkopierad lokal-dev-version (egna
 // ALLOWED_CONTACT_TOPICS/CONTACT_EMAIL_RE/buildContactEmailHtml), samma

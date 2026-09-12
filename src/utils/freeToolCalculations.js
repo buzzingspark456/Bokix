@@ -18,6 +18,7 @@
 // procentsats än den appen faktiskt bokför med.
 // ─────────────────────────────────────────────────────────────────────────
 import { EMPLOYER_FEE_CATEGORIES, VACATION_RULES } from './payrollConfig';
+import { dueDayForMonth, rollForwardPastWeekend, quarterToRange } from './declarationDeadlines';
 
 /** Öresavrundning till hela kronor — samma `Math.round` som resten av
  * appen använder för presenterade belopp (vatCalculation.roundKr). */
@@ -365,4 +366,145 @@ export function calcDividendAllowance({
     carriedForward: kr(Math.max(allowance - planned, 0)),
     effectiveTaxRate: planned > 0 ? kr2(((taxWithin + taxAbove) / planned) * 100) : 0,
   };
+}
+
+// ── Momsdeklaration: nästa förfallodag ──────────────────────────────────
+// Samma undantag (17:e i stället för 12:e i januari/augusti) och samma
+// helg-framflyttning som den inloggade appen redan använder — importerade
+// härifrån (declarationDeadlines.js), aldrig omskrivna, av exakt det skäl
+// filkommentaren överst i den filen ger: två separata kopior av samma
+// datummatte som kan glida isär är precis den sortens bugg en tidigare
+// kundrapport (fel förfallodag för kvartal 4) redan kostade en hel
+// felsökningsrunda. Det HÄR verktyget skiljer sig bara i EN sak från
+// den inloggade appens nextVatDeadline: det känner inte till vilka
+// perioder som redan är bokförda (ingen inloggning, inget att hoppa
+// över) — det svarar alltid "nästa deadline räknat från idag".
+//
+// Årsvis momsredovisning har MEDVETET inget exakt datum här: den
+// deadline:n sammanfaller med inkomstdeklarationen och beror på
+// bolagsform (t.ex. den 12:e i andra månaden efter beskattningsårets
+// utgång för en enskild firma, men ett helt annat datum för ett
+// aktiebolag) — att räkna fram ETT datum för alla hade gissat fel för
+// de flesta som väljer det alternativet.
+export function nextVatDeadlinePublic({ vatPeriod = 'quarterly', referenceDate = new Date() } = {}) {
+  const today = new Date(referenceDate);
+  today.setHours(0, 0, 0, 0);
+
+  if (vatPeriod === 'monthly') {
+    const y = today.getFullYear();
+    const m = today.getMonth();
+    const dueThisMonth = new Date(y, m, dueDayForMonth(m));
+    rollForwardPastWeekend(dueThisMonth);
+    let dueDate, periodDate;
+    if (today > dueThisMonth) {
+      const nextMonth = (m + 1) % 12;
+      const nextYear = m === 11 ? y + 1 : y;
+      dueDate = new Date(nextYear, nextMonth, dueDayForMonth(nextMonth));
+      rollForwardPastWeekend(dueDate);
+      periodDate = new Date(nextYear, nextMonth - 1, 1);
+    } else {
+      dueDate = dueThisMonth;
+      periodDate = new Date(y, m - 1, 1);
+    }
+    return { vatPeriod, dueDate, periodDate };
+  }
+
+  if (vatPeriod === 'quarterly') {
+    // Samma "sätt dagen till 1 FÖRE setMonth"-skydd som nextVatDeadline
+    // (declarationDeadlines.js) — utan den knuffar en 31:a i kvartalets
+    // sista dag över i fel månad när +2 månader läggs på (det var
+    // ursprungsbuggen den kommentaren beskriver).
+    const deadlineFor = (year, quarter) => {
+      const [, periodEnd] = quarterToRange(year, quarter);
+      const d = new Date(`${periodEnd}T00:00:00`);
+      d.setDate(1);
+      d.setMonth(d.getMonth() + 2);
+      d.setDate(dueDayForMonth(d.getMonth()));
+      rollForwardPastWeekend(d);
+      return d;
+    };
+    let y = today.getFullYear();
+    let q = Math.floor(today.getMonth() / 3) + 1;
+    let dueDate = deadlineFor(y, q);
+    if (today > dueDate) {
+      q += 1;
+      if (q > 4) { q = 1; y += 1; }
+      dueDate = deadlineFor(y, q);
+    }
+    return { vatPeriod, dueDate, quarter: q, year: y };
+  }
+
+  // 'yearly' — inget exakt datum, se filkommentaren ovan.
+  return { vatPeriod, dueDate: null };
+}
+
+// ── Årsredovisning: deadline och förseningsavgifter ─────────────────────
+// Källa: Årsredovisningslagen (ÅRL)/Aktiebolagslagen (ABL) — sju månader
+// efter räkenskapsårets utgång — samt Bolagsverkets förseningsavgifts-
+// trappa, för PRIVATA aktiebolag (publika aktiebolag har dubbla belopp:
+// 15 000/15 000/30 000 kr, inte modellerat här). Beloppen nedan gäller
+// räkenskapsår som inleds 2025-01-01 eller senare — den skärpta trappan
+// som ersatte den äldre 5 000/(+5 000)/(+10 000)-modellen. Verifierat mot
+// Bolagsverkets egen sida ("Årsredovisningsguiden för aktiebolag — för
+// räkenskapsår som inleds 2025-01-01 eller senare") och FAR Online,
+// kontrollerat september 2026.
+//
+// RÄTTELSE (samma session): en tidigare faktagranskning av en extern
+// artikel i den här konversationen använde av misstag en felaktig
+// blandning (5 000/7 500/15 000, "20 000 totalt") — en sammanslagning av
+// den GAMLA första nivån med de NYA senare nivåerna, och en total som
+// inte ens stämde med den blandningen (5000+7500+15000=27500, inte
+// 20000). Rätt siffra, verifierad här på riktigt: 7 500 → 7 500 → 15 000,
+// 30 000 kr totalt, för räkenskapsår 2025 och framåt.
+export const ANNUAL_REPORT_DEADLINE_MONTHS = 7;
+export const ANNUAL_REPORT_LATE_FEES = [
+  { id: 'first', amount: 7500, monthsAfterDeadline: 0, label: 'Första förseningsavgiften' },
+  { id: 'second', amount: 7500, monthsAfterDeadline: 2, label: 'Andra förseningsavgiften', note: 'Om årsredovisningen fortfarande inte kommit in två månader senare.' },
+  { id: 'third', amount: 15000, monthsAfterDeadline: 4, label: 'Tredje förseningsavgiften', note: 'Om den fortfarande saknas fyra månader efter deadline.' },
+];
+export const ANNUAL_REPORT_MAX_TOTAL_FEE = ANNUAL_REPORT_LATE_FEES.reduce((s, f) => s + f.amount, 0);
+
+/** Lägger till N hela månader på ett datum, och håller kvar
+ * "sista dagen i månaden"-egenskapen om utgångsdatumet redan var det —
+ * annars hade t.ex. 31 juli + 7 månader (februari) runnit över till mars
+ * i stället för att landa på februaris sista dag, exakt samma sorts
+ * överspillsbugg som redan hittades och fixades i nextVatDeadline
+ * (declarationDeadlines.js). Räkenskapsår SLUTAR alltid på en månads
+ * sista dag, så det här är regeln, inte undantaget, för den här
+ * funktionen. */
+function addMonthsKeepingMonthEnd(date, months) {
+  const isLastDayOfMonth = date.getDate() === new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+  const d = new Date(date);
+  d.setDate(1);
+  d.setMonth(d.getMonth() + months);
+  if (isLastDayOfMonth) {
+    d.setMonth(d.getMonth() + 1, 0); // sista dagen i (den nu förskjutna) månaden
+  } else {
+    d.setDate(date.getDate());
+  }
+  return d;
+}
+
+/**
+ * Bolagsverkets deadline för årsredovisningen (sju månader efter
+ * räkenskapsårets utgång) och hela förseningsavgiftstrappan räknad
+ * framåt från den deadline:n.
+ *
+ * @param fiscalYearEnd ISO-datumsträng, räkenskapsårets sista dag.
+ */
+export function calcAnnualReportDeadline({ fiscalYearEnd, referenceDate = new Date() }) {
+  const end = new Date(`${fiscalYearEnd}T00:00:00`);
+  if (Number.isNaN(end.getTime())) return null;
+
+  const deadline = addMonthsKeepingMonthEnd(end, ANNUAL_REPORT_DEADLINE_MONTHS);
+  const feeSchedule = ANNUAL_REPORT_LATE_FEES.map(fee => ({
+    ...fee,
+    date: addMonthsKeepingMonthEnd(deadline, fee.monthsAfterDeadline),
+  }));
+
+  const today = new Date(referenceDate);
+  today.setHours(0, 0, 0, 0);
+  const daysLeft = Math.round((deadline - today) / 86400000);
+
+  return { deadline, feeSchedule, totalMaxFee: ANNUAL_REPORT_MAX_TOTAL_FEE, daysLeft };
 }

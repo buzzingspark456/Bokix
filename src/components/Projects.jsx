@@ -118,10 +118,21 @@ function getReportStatus(timeReportStatuses, personId, monthKey, customerId) {
 // blir det två plus en i stället för tre ihopklämda (kundfeedbacken om
 // halvskärm gäller den här sidan också). `isMobileViewport` behövs inte
 // längre: samma täta rad fungerar i alla bredder, det är vad auto-fit gör.
-function ProjectKpiStrip({ items }) {
+// `flush`: kundönskemål ("slå ihop KPI-remsan med headern och under") —
+// Projekt-flikens egen remsa stod tidigare i en egen padding-inramad ö
+// (18px topp, 20px sidor) med ett synligt mellanrum upp mot filterraden och
+// ner mot tabellen, samma "svävande kort"-problem som redan lösts på andra
+// sidor (Bokföring/Verifikationer: filterrad→tabell, 0 gap). `flush` gör
+// remsan kantlös (ingen radie) och full bredd i stället för ett eget avrundat
+// kort — anroparen slutar ge den egen padding/marginal, så den sluter an
+// direkt mot filterraden ovanför och tabellen under, en enda sammanhängande
+// yta. Tidrapporternas egen remsa (TimeReportsView) berörs inte — den
+// behåller sin fristående kort-look, `flush` är opt-in.
+function ProjectKpiStrip({ items, flush = false }) {
   return (
     <div style={{
       ...cardBase,
+      ...(flush ? { borderRadius: 0 } : {}),
       display: 'grid',
       gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
       overflow: 'hidden',
@@ -428,6 +439,13 @@ function TimeTrackingTab({ projects, timeEntries, setTimeEntries, setProjects, p
 
   const getEntry = (projectId, dateStr) => weekEntries.find(t => t.projectId === projectId && t.date === dateStr);
   const dayTotal = (dateStr) => sumHours(weekEntries.filter(t => t.date === dateStr));
+  // Kundönskemål ("gör Tidrapportering finare"): samma korta, färgade
+  // sammanfattningsremsa (ProjectKpiStrip, redan etablerad på Projekt-fliken
+  // och Rapporter-fliken) ovanför rutnätet — snittet räknas bara på dagar
+  // som FAKTISKT har loggad tid, inte alla sju kalenderdagar, annars ser en
+  // vecka med bara tre arbetsdagar ut att ha ovanligt lite tid per dag.
+  const loggedDayCount = weekDates.filter(d => dayTotal(getISODate(d)) > 0).length;
+  const avgPerLoggedDay = loggedDayCount > 0 ? weekTotal / loggedDayCount : 0;
 
   const handleSaveCell = (projectId, dateStr, { hours, description }) => {
     const existing = getEntry(projectId, dateStr);
@@ -516,6 +534,20 @@ function TimeTrackingTab({ projects, timeEntries, setTimeEntries, setProjects, p
         //    projektkolumnen sitter kvar till vänster när dagarna scrollas i
         //    sidled på en smal skärm — annars vet man inte vilken rad man
         //    fyller i.
+        //
+        // Kundönskemål ("gör Tidrapportering finare"): en kort KPI-remsa
+        // (samma ProjectKpiStrip som Projekt-/Rapporter-flikarna) ovanför
+        // rutnätet — vecko-/persontotalen stod redan i filterraden ovanför
+        // som ren text, men gav ingen känsla av hur veckan faktiskt
+        // fördelade sig (hur många projekt, snitt per arbetsdag).
+        <>
+        <div style={{ marginBottom: '14px', flexShrink: 0 }}>
+          <ProjectKpiStrip items={[
+            { icon: Clock, label: 'Timmar denna vecka', value: `${formatHours(weekTotal)} h` },
+            { icon: Zap, label: 'Projekt', value: String(rows.length) },
+            { icon: TrendingUp, label: 'Snitt per arbetsdag', value: loggedDayCount > 0 ? `${formatHours(avgPerLoggedDay)} h` : '–', sub: loggedDayCount > 0 ? `${loggedDayCount} ${loggedDayCount === 1 ? 'dag' : 'dagar'} loggade` : 'Ingen tid loggad än' },
+          ]} />
+        </div>
         <div style={{ ...cardBase, border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)', flex: 1, minHeight: 0, overflow: 'auto' }}>
           {/* Dagväljaren — bara på smal skärm, där rutnätet visar en dag i
               taget. Varje chip bär dagens summa, så man ser var timmarna
@@ -631,6 +663,7 @@ function TimeTrackingTab({ projects, timeEntries, setTimeEntries, setProjects, p
             </tfoot>
           </table>
         </div>
+        </>
       )}
 
       {/* Lägg till ytterligare en projektrad — sökbar combobox (samma
@@ -721,11 +754,70 @@ function TimeReportsView({ timeEntries, employees, timeReportStatuses, setTimeRe
   const ACTION_LABEL = { pending: 'Skicka in', submitted: 'Attestera', attested: 'Godkänn' };
   const ACTION_ICON = { pending: Send, submitted: ClipboardCheck, attested: CheckCircle2 };
 
+  // ── Bulk-attestera/godkänn — kundönskemål ("automation based... det
+  // behöver fungera som ett workflow"): utan det här måste varje persons
+  // rapport klickas fram individuellt, en i taget, även när HELA teamet
+  // redan är klart att gå vidare samtidigt (typiskt runt månadsskiftet).
+  // Ett enda anrop bygger nästa state i EN omgång (i stället för en
+  // `setStatus`-loop, som annars skulle kunna kollidera på samma
+  // Date.now()-millisekund för `id` när flera rader flyttas i samma klick).
+  const bulkAdvance = (fromStatus) => {
+    const toStatus = TIME_REPORT_STAGES[TIME_REPORT_STAGES.indexOf(fromStatus) + 1];
+    const targets = reports.filter(r => r.status === fromStatus);
+    if (targets.length === 0 || !toStatus) return;
+    setTimeReportStatuses(prev => {
+      let next = [...prev];
+      targets.forEach(r => {
+        const key = reportKey(r.person.id, r.monthKey);
+        const idx = next.findIndex(s => reportKey(s.personId, s.monthKey, s.customerId) === key);
+        if (idx === -1) next = [...next, { id: `trs_${Date.now()}_${r.person.id}`, personId: r.person.id, monthKey: r.monthKey, customerId: null, status: toStatus }];
+        else next = next.map((s, i) => i === idx ? { ...s, status: toStatus } : s);
+      });
+      return next;
+    });
+  };
+
+  const submittedReports = reports.filter(r => r.status === 'submitted');
+  const attestedReports = reports.filter(r => r.status === 'attested');
+  const monthTotalHours = reports.reduce((sum, r) => sum + r.hours, 0);
+
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
       {reports.length === 0 ? (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', margin: '0 20px' }}><SectionEmptyState icon={ListChecks} title="Ingen tid loggad denna månad ännu." /></div>
       ) : (
+        <>
+          {/* Samma merge-med-headern-princip som Projekt-fliken (ProjectKpiStrip)
+              — Rapporter kändes tidigare bart i jämförelse: bara en tabell,
+              ingen sammanfattning. Bulk-knapparna (kundönskemål: "automation
+              based... workflow") gör hela teamets rapporter klara i EN klick
+              i stället för en rad i taget, och syns bara när det faktiskt
+              finns något att driva framåt. */}
+          <div style={{ padding: '18px 20px 14px' }}>
+            <ProjectKpiStrip items={[
+              { icon: Users, label: 'Personer', value: String(reports.length) },
+              { icon: Clock, label: 'Totalt loggat', value: `${formatHours(monthTotalHours)} h` },
+              { icon: Send, label: 'Väntar attest', value: String(submittedReports.length), tone: submittedReports.length > 0 ? 'negative' : 'neutral' },
+              { icon: ClipboardCheck, label: 'Väntar godkännande', value: String(attestedReports.length), tone: attestedReports.length > 0 ? 'negative' : 'neutral' },
+            ]} />
+            {(submittedReports.length > 0 || attestedReports.length > 0) && (
+              <div style={{ display: 'flex', gap: '8px', marginTop: '12px', flexWrap: 'wrap' }}>
+                {submittedReports.length > 0 && (
+                  <button onClick={() => bulkAdvance('submitted')} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 14px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer' }}>
+                    <ClipboardCheck size={14} /> Attestera alla inskickade ({submittedReports.length})
+                  </button>
+                )}
+                {attestedReports.length > 0 && (
+                  <button onClick={() => bulkAdvance('attested')} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 14px', background: BRAND.green, border: 'none', borderRadius: '8px', fontSize: '12.5px', fontWeight: 600, color: 'white', cursor: 'pointer' }}>
+                    <CheckCircle2 size={14} /> Godkänn alla attesterade ({attestedReports.length})
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+      {reports.length > 0 && (
         // Riktig tabell (samma delade ListTable-komponent som Fakturor/
         // Kontakter/Kontoplan) istället för fristående kortrader — en
         // rubrikrad ger flödet en riktig kolumnstruktur att läsa mot, och på
@@ -1286,26 +1378,33 @@ export default function Projects({ projects = [], setProjects, contacts = [], se
                   Alla är nu synliga samtidigt (KPI-remsa + filter) istället
                   för fem flikar man måste klicka sig mellan för att jämföra
                   saker. Enklare mental modell: scrolla och filtrera, inte
-                  navigera. Egen padding bara här (KPI:er/varning är kort,
-                  inte tabellen) — tabellen längre ner har ingen. */}
-              <div style={{ padding: '18px 20px 0' }}>
-                <ProjectKpiStrip items={[
-                  { icon: Zap, label: 'Aktiva projekt', value: String(activeProjects.length) },
-                  {
-                    icon: Clock, label: 'Nedlagd tid',
-                    value: `${formatHours(totalActiveTimeSpent)} h`,
-                    sub: totalActiveBudgetHours ? `av ${totalActiveBudgetHours} h budgeterat` : 'Ingen budget satt',
-                  },
-                  {
-                    icon: totalActiveProfit >= 0 ? TrendingUp : TrendingDown, label: 'Lönsamhet',
-                    value: formatSEK(totalActiveProfit), tone: totalActiveProfit < 0 ? 'negative' : 'neutral',
-                  },
-                ]} />
-              </div>
+                  navigera.
+                  Kundönskemål ("slå ihop KPI-remsan med headern och under"):
+                  ingen egen padding längre — `flush` (se ProjectKpiStrip)
+                  gör remsan kantlös och full bredd, samma "facit"-princip
+                  som filterrad→tabell redan har på Bokföring/Verifikationer,
+                  så den sluter direkt an mot filterraden ovanför OCH
+                  tabellen under (ingen varningsrad emellan) i stället för
+                  att sväva som ett eget avrundat kort med luft runt om. */}
+              <ProjectKpiStrip flush items={[
+                { icon: Zap, label: 'Aktiva projekt', value: String(activeProjects.length) },
+                {
+                  icon: Clock, label: 'Nedlagd tid',
+                  value: `${formatHours(totalActiveTimeSpent)} h`,
+                  sub: totalActiveBudgetHours ? `av ${totalActiveBudgetHours} h budgeterat` : 'Ingen budget satt',
+                },
+                {
+                  icon: totalActiveProfit >= 0 ? TrendingUp : TrendingDown, label: 'Lönsamhet',
+                  value: formatSEK(totalActiveProfit), tone: totalActiveProfit < 0 ? 'negative' : 'neutral',
+                },
+              ]} />
 
               {/* Kompakt varningsrad istället för en hel inbäddad sektion —
                   syns bara när den faktiskt behövs, försvinner annars helt
-                  (ingen "allt bra"-text som bara tar plats). */}
+                  (ingen "allt bra"-text som bara tar plats). Egen inset
+                  (inte flush) med flit — en varning ska läsas som en egen,
+                  avgränsad notis, inte smälta in i den sammanhängande
+                  KPI-remsa→tabell-ytan. */}
               {atRiskProjects.length > 0 && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', background: BRAND.redBg, color: BRAND.redText, borderRadius: '8px', fontSize: '13px', margin: '18px 20px 0' }}>
                   <AlertTriangle size={15} style={{ flexShrink: 0 }} />
@@ -1313,7 +1412,7 @@ export default function Projects({ projects = [], setProjects, contacts = [], se
                 </div>
               )}
 
-              <div style={{ marginTop: '18px' }}>
+              <div style={{ marginTop: atRiskProjects.length > 0 ? '18px' : 0 }}>
                 <ProjectsListTable
                   list={visibleProjects} contacts={contacts} timeEntries={timeEntries}
                   expandedProjectId={expandedProjectId} setExpandedProjectId={setExpandedProjectId}

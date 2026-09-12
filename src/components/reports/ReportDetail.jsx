@@ -2,9 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ChevronLeft, Printer, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight, Percent, Scale, Wallet, Loader2, AlertTriangle } from 'lucide-react';
 import {
   formatSEK, formatPct, fmtDate, fmtMonthYear, toISO, formatDelta,
-  KpiCard, TabHeadline, EmptyState, ReportSection, DataTable,
-  ResultBarChart, CashflowLineChart,
-  CostBreakdownDonut, CostRankingList, BalanceSheetTable, ComparisonLegend, swatch, REVENUE,
+  EmptyState, ReportSection, DataTable,
+  CostBreakdownDonut, CostRankingList, BalanceSheetTable,
   formatSharePct,
   ChartTypeToggle, TREND_CHART_TYPES, FLOW_CHART_TYPES, SHARE_CHART_TYPES, KeyFigureGauge,
   ReportDisplayProvider, useReportDisplay, DisplaySettingsMenu,
@@ -27,6 +26,15 @@ import { preloadSkattetabell } from '../../utils/skattetabell';
 // Procent går genom ReportUI:s formatPct (svensk decimalkomma + hårt
 // mellanslag) — samma format i varje panel, se dess kommentar.
 const fmtPct = (v) => formatPct(v);
+
+// `.sheet-grid` (index.css) ritar cellernas MELLANRUM som linjer (grid-
+// behållaren har `background: var(--border)` och `gap: 1px` — se den
+// filens kommentar). Varje egen cell behöver därför sin egen
+// `background: var(--bg-card)` för att TÄCKA sin egen yta och bara lämna
+// den 1px-breda linjen mellan sig och grannen synlig. Modulnivå (inte en
+// lokal konstant per rapportfunktion) sedan fler rapporter än
+// OverviewReport nu delar samma sheet-grid-mönster.
+const cellBg = { background: 'var(--bg-card)' };
 
 /** Genererar en kort, faktabaserad sammanfattning för Årsrapporten utifrån
  * redan beräknade, riktiga tal — INTE ett fritextfält användaren förväntas
@@ -371,7 +379,6 @@ function OverviewReport({ verifications, accounts, company, isMobile }) {
   // span N` går inte att nollställa i en mediefråga, och ett spann som är
   // bredare än rutnätets enda kolumn skapar då implicita kolumner i stället
   // för att stapla. Det gjorde hela arket obrytbart på mobil.
-  const cell = { background: 'var(--bg-card)' };
   // Kostnadernas största kategori — utkastets "varav personal 44 %" är ingen
   // fast text utan den faktiskt största posten, uträknad ur samma
   // kostnadsfördelning som ringen bredvid visar.
@@ -388,13 +395,13 @@ function OverviewReport({ verifications, accounts, company, isMobile }) {
               under det tal de faktiskt hör ihop med (marginalen under
               resultatet, soliditeten under kassalikviditeten). Fyra tal att
               läsa i stället för fem, utan att något mått försvann. */}
-          <div className="sheet-span-3" style={cell}>
+          <div className="sheet-span-3" style={cellBg}>
             <StatTile
               label="Omsättning" value={amount.value(k.omsattning)} icon={TrendingUp} tone={palette.income}
               delta={omsDelta} context={omsDelta?.context}
             />
           </div>
-          <div className="sheet-span-3" style={cell}>
+          <div className="sheet-span-3" style={cellBg}>
             <StatTile
               label="Resultat" value={amount.value(k.resultat)} icon={k.resultat >= 0 ? TrendingUp : TrendingDown}
               tone={k.resultat >= 0 ? palette.profit : palette.cost}
@@ -403,13 +410,13 @@ function OverviewReport({ verifications, accounts, company, isMobile }) {
               context={k.vinstmarginal != null ? `marginal ${fmtPct(k.vinstmarginal)}` : resDelta?.context}
             />
           </div>
-          <div className="sheet-span-3" style={cell}>
+          <div className="sheet-span-3" style={cellBg}>
             <StatTile
               label="Kassalikviditet" value={fmtPct(k.kassalikviditet)} icon={Wallet} tone={palette.cash}
               context={k.soliditet != null ? `soliditet ${fmtPct(k.soliditet)}` : 'saknar underlag'}
             />
           </div>
-          <div className="sheet-span-3" style={cell}>
+          <div className="sheet-span-3" style={cellBg}>
             <StatTile
               label="Kostnader" value={amount.value(k.kostnader)} icon={Scale} tone={palette.cost}
               delta={kostDelta}
@@ -417,7 +424,7 @@ function OverviewReport({ verifications, accounts, company, isMobile }) {
             />
           </div>
 
-          <div className="sheet-span-7" style={cell}>
+          <div className="sheet-span-7" style={cellBg}>
             <SheetPanel
               title="Intäkter vs utgifter"
               subtitle={comparisonNote}
@@ -434,7 +441,7 @@ function OverviewReport({ verifications, accounts, company, isMobile }) {
               <RevenueExpenseChart data={revenueExpenseData} isMobile={isMobile} granularity={granularity} height={mainH} variant={revenueChart} />
             </SheetPanel>
           </div>
-          <div className="sheet-span-5" style={cell}>
+          <div className="sheet-span-5" style={cellBg}>
             <SheetPanel
               title="Kostnadsfördelning"
               controls={costCategories.categories.length > 0
@@ -447,7 +454,7 @@ function OverviewReport({ verifications, accounts, company, isMobile }) {
             </SheetPanel>
           </div>
 
-          <div className="sheet-span-7" style={cell}>
+          <div className="sheet-span-7" style={cellBg}>
             <SheetPanel
               title="Marginalanalys"
               subtitle={visibleMargins.series.length > 1
@@ -467,7 +474,7 @@ function OverviewReport({ verifications, accounts, company, isMobile }) {
               )}
             </SheetPanel>
           </div>
-          <div className="sheet-span-5" style={cell}>
+          <div className="sheet-span-5" style={cellBg}>
             <SheetPanel
               title="Kassaflöde"
               subtitle={`Likvida medel per period · ${amount.value(currentCash)} vid periodens slut`}
@@ -481,7 +488,7 @@ function OverviewReport({ verifications, accounts, company, isMobile }) {
             </SheetPanel>
           </div>
 
-          <div className="sheet-span-7" style={cell}>
+          <div className="sheet-span-7" style={cellBg}>
             <SheetPanel title="Största kostnadskontona" subtitle="De fem konton som drar mest i perioden">
               {costAccounts.rows.length === 0
                 ? <EmptyState text="Inga bokförda kostnader ännu." />
@@ -493,7 +500,7 @@ function OverviewReport({ verifications, accounts, company, isMobile }) {
               ringar visar direkt vilket av dem som ligger lågt, vilket en
               rad text aldrig gör. Samma tal som brickorna, ingen ny
               beräkning — se computeKeyFigures. */}
-          <div className="sheet-span-5" style={cell}>
+          <div className="sheet-span-5" style={cellBg}>
             <SheetPanel title="Nyckeltal" subtitle="Tre fristående mått på hur företaget står — inte tre delar av samma helhet">
               <KeyFigureGauge
                 figures={[
@@ -511,127 +518,225 @@ function OverviewReport({ verifications, accounts, company, isMobile }) {
 }
 
 // ── 1. Resultaträkning ──────────────────────────────────────────────────
+// Kundönskemål ("alla rapporter ska se ut som Företagsöversikten" — se
+// skärmdumpen kundfeedbacken skickade av just OverviewReport): samma
+// ReportSheet/sheet-grid/SheetPanel/StatTile-språk som Översikten redan
+// bygger på, inte den äldre, enklare ReportSection+TabHeadline-stommen.
+// Återanvänder Översiktens EGNA, redan byggda diagramkomponenter
+// (RevenueExpenseChart m.fl.) — ingen ny visualisering uppfanns, bara
+// samma byggstenar applicerade på en enda rapport i stället för alla sex
+// på en gång.
 function ResultReport({ verifications, accounts, start, end, prevStart, prevEnd, isMobile }) {
+  const { palette, amount } = useReportDisplay();
+  const [chartType, setChartType] = useState('bar');
+
   const omsattning = useMemo(() => sumFlowByType(verifications, accounts, 'intakt', start, end), [verifications, accounts, start, end]);
   const kostnader = useMemo(() => sumFlowByType(verifications, accounts, 'kostnad', start, end), [verifications, accounts, start, end]);
   const resultat = omsattning - kostnader;
   const prevOmsattning = useMemo(() => sumFlowByType(verifications, accounts, 'intakt', prevStart, prevEnd), [verifications, accounts, prevStart, prevEnd]);
   const prevKostnader = useMemo(() => sumFlowByType(verifications, accounts, 'kostnad', prevStart, prevEnd), [verifications, accounts, prevStart, prevEnd]);
   const prevResultat = prevOmsattning - prevKostnader;
+  const marginal = omsattning ? (resultat / omsattning) * 100 : null;
 
   const series = useMemo(() => buildResultSeries(verifications, accounts, start, end), [verifications, accounts, start, end]);
-  const prevSeries = useMemo(() => buildResultSeries(verifications, accounts, prevStart, prevEnd), [verifications, accounts, prevStart, prevEnd]);
   const hasActivity = series.some(m => m.intakt !== 0 || m.kostnad !== 0);
-  const chartData = series.map((m, i) => ({ label: m.label, resultat: m.intakt - m.kostnad, prevResultat: prevSeries[i] ? (prevSeries[i].intakt - prevSeries[i].kostnad) : null }));
+  const chartData = series.map(m => ({ label: m.label, Intäkter: m.intakt, Utgifter: m.kostnad }));
 
-  if (!hasActivity) return <ReportSection><EmptyState text="Ingen bokförd data ännu för denna period." /></ReportSection>;
+  if (!hasActivity) return <ReportSheet><EmptyState text="Ingen bokförd data ännu för denna period." /></ReportSheet>;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      <ReportSection>
-        <TabHeadline label="Resultat för perioden" value={formatSEK(resultat)} accent={resultat >= 0 ? 'var(--status-green-text)' : 'var(--status-red-text)'} delta={formatDelta(resultat, prevResultat)} />
-        <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: '0 0 16px' }}>Grönt för lönsamma perioder, rött för de som gick back.</p>
-        <ResultBarChart data={chartData} isMobile={isMobile} />
-        <ComparisonLegend currentLabel="Vald period" previousLabel="Föregående år" currentColorSwatch={swatch(REVENUE)} previousColorSwatch={swatch('var(--text-muted)', true)} />
-      </ReportSection>
-      <ReportSection title="Månad för månad">
-        <DataTable
-          columns={[
-            { key: 'label', label: 'Månad' },
-            { key: 'intakt', label: 'Intäkter', align: 'right', render: r => formatSEK(r.intakt) },
-            { key: 'kostnad', label: 'Kostnader', align: 'right', render: r => formatSEK(r.kostnad) },
-            { key: 'resultat', label: 'Resultat', align: 'right', emphasize: true, render: r => formatSEK(r.intakt - r.kostnad) },
-          ]}
-          rows={series}
-          rowKey={r => r.label}
-          footer={['Summa', formatSEK(omsattning), formatSEK(kostnader), formatSEK(resultat)]}
-        />
-      </ReportSection>
-    </div>
+    <ReportSheet>
+      <div className="sheet-grid">
+        <div className="sheet-span-3" style={cellBg}>
+          <StatTile label="Omsättning" value={amount.value(omsattning)} icon={TrendingUp} tone={palette.income} delta={formatDelta(omsattning, prevOmsattning)} />
+        </div>
+        <div className="sheet-span-3" style={cellBg}>
+          <StatTile label="Kostnader" value={amount.value(kostnader)} icon={Scale} tone={palette.cost} delta={formatDelta(kostnader, prevKostnader, true)} />
+        </div>
+        <div className="sheet-span-3" style={cellBg}>
+          <StatTile
+            label="Resultat" value={amount.value(resultat)} icon={resultat >= 0 ? TrendingUp : TrendingDown}
+            tone={resultat >= 0 ? palette.profit : palette.cost} accent={resultat >= 0 ? 'var(--status-green-text)' : 'var(--status-red-text)'}
+            delta={formatDelta(resultat, prevResultat)}
+          />
+        </div>
+        <div className="sheet-span-3" style={cellBg}>
+          <StatTile label="Marginal" value={marginal != null ? fmtPct(marginal) : '—'} icon={Percent} tone={palette.neutral} context="andel av omsättningen" />
+        </div>
+
+        <div className="sheet-span-12" style={cellBg}>
+          <SheetPanel
+            title="Intäkter vs utgifter" subtitle="Grönt för lönsamma perioder, rött för de som gick back."
+            legend={<InlineLegend items={[{ label: 'Intäkter', color: palette.income }, { label: 'Utgifter', color: palette.cost }]} />}
+            controls={<ChartTypeToggle value={chartType} onChange={setChartType} options={TREND_CHART_TYPES} />}
+          >
+            <RevenueExpenseChart data={chartData} isMobile={isMobile} height={CHART_H_MAIN} variant={chartType} />
+          </SheetPanel>
+        </div>
+
+        <div className="sheet-span-12" style={cellBg}>
+          <SheetPanel title="Månad för månad">
+            <DataTable
+              columns={[
+                { key: 'label', label: 'Månad' },
+                { key: 'intakt', label: 'Intäkter', align: 'right', render: r => formatSEK(r.intakt) },
+                { key: 'kostnad', label: 'Kostnader', align: 'right', render: r => formatSEK(r.kostnad) },
+                { key: 'resultat', label: 'Resultat', align: 'right', emphasize: true, render: r => formatSEK(r.intakt - r.kostnad) },
+              ]}
+              rows={series}
+              rowKey={r => r.label}
+              footer={['Summa', formatSEK(omsattning), formatSEK(kostnader), formatSEK(resultat)]}
+            />
+          </SheetPanel>
+        </div>
+      </div>
+    </ReportSheet>
   );
 }
 
 // ── 2. Balansräkning ────────────────────────────────────────────────────
 function BalanceReport({ verifications, accounts, end }) {
+  const { palette, amount } = useReportDisplay();
   const balance = useMemo(() => computeBalanceSheet(verifications, accounts, end), [verifications, accounts, end]);
   const isEmpty = balance.assets.length === 0 && balance.equityAndLiabilities.length === 0;
+  // Balansräkningens grundekvation: tillgångar = eget kapital + skulder,
+  // alltid — ingen tredje, oberoende siffra att räkna fram. Brickan är
+  // bara en visuell kontroll att de faktiskt stämmer, inte ett nytt mått.
+  const balanced = Math.abs(balance.totalAssets - balance.totalEquityAndLiabilities) < 1;
+  if (isEmpty) return <ReportSheet><EmptyState text="Inga bokförda tillgångs- eller skuldsaldon ännu." /></ReportSheet>;
   return (
-    // Ingen extra avslutande punkt efter fmtDate(end) — svenska korta
-    // månadsförkortningar ("aug.", "sep.") har redan en egen punkt, en till
-    // gav en synlig dubbelpunkt ("28 aug..").
-    <ReportSection title="Balansräkning" subtitle={`Ögonblicksbild av vad företaget äger och är skyldigt, per ${fmtDate(end)}`}>
-      {isEmpty ? <EmptyState text="Inga bokförda tillgångs- eller skuldsaldon ännu." /> : (
-        <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
-          <BalanceSheetTable title="Tillgångar" rows={balance.assets} total={balance.totalAssets} />
-          <BalanceSheetTable title="Eget kapital och skulder" rows={balance.equityAndLiabilities} total={balance.totalEquityAndLiabilities} />
+    <ReportSheet>
+      <div className="sheet-grid">
+        <div className="sheet-span-6" style={cellBg}>
+          <StatTile label="Tillgångar" value={amount.value(balance.totalAssets)} icon={Wallet} tone={palette.income} />
         </div>
-      )}
-    </ReportSection>
+        <div className="sheet-span-6" style={cellBg}>
+          <StatTile
+            label="Eget kapital och skulder" value={amount.value(balance.totalEquityAndLiabilities)} icon={Scale} tone={palette.neutral}
+            context={balanced ? 'balanserar mot tillgångarna' : 'stämmer inte mot tillgångarna — bokför klart perioden'}
+            accent={balanced ? undefined : 'var(--status-red-text)'}
+          />
+        </div>
+        {/* Ingen extra avslutande punkt efter fmtDate(end) — svenska korta
+            månadsförkortningar ("aug.", "sep.") har redan en egen punkt, en
+            till gav en synlig dubbelpunkt ("28 aug.."). */}
+        <div className="sheet-span-6" style={cellBg}>
+          <SheetPanel title="Tillgångar" subtitle={`Per ${fmtDate(end)}`}>
+            <BalanceSheetTable rows={balance.assets} total={balance.totalAssets} />
+          </SheetPanel>
+        </div>
+        <div className="sheet-span-6" style={cellBg}>
+          <SheetPanel title="Eget kapital och skulder" subtitle={`Per ${fmtDate(end)}`}>
+            <BalanceSheetTable rows={balance.equityAndLiabilities} total={balance.totalEquityAndLiabilities} />
+          </SheetPanel>
+        </div>
+      </div>
+    </ReportSheet>
   );
 }
 
 // ── 3. Kassaflödesanalys ────────────────────────────────────────────────
-function CashflowReport({ verifications, accounts, start, end, prevStart, prevEnd, isMobile }) {
+function CashflowReport({ verifications, accounts, start, end, prevStart, prevEnd }) {
+  const { palette, amount } = useReportDisplay();
+  const [chartType, setChartType] = useState('area');
   const points = useMemo(() => buildCashflowSeries(verifications, accounts, start, end), [verifications, accounts, start, end]);
   const prevPoints = useMemo(() => buildCashflowSeries(verifications, accounts, prevStart, prevEnd), [verifications, accounts, prevStart, prevEnd]);
   const hasActivity = points.some(p => p.balance !== 0) || prevPoints.some(p => p.balance !== 0);
   const currentCash = points.length ? points[points.length - 1].balance : 0;
-  const chartData = points.map((p, i) => ({ label: fmtDate(p.date), balance: p.balance, prevBalance: prevPoints[i] ? prevPoints[i].balance : null }));
+  const startCash = points.length ? points[0].balance : 0;
+  const comparable = prevPoints.some(p => p.balance !== 0);
+  const chartData = points.map((p, i) => ({
+    label: fmtDate(p.date), 'Vald period': p.balance,
+    ...(comparable ? { 'Föregående år': prevPoints[i] ? prevPoints[i].balance : null } : {}),
+  }));
 
-  if (!hasActivity) return <ReportSection><EmptyState text="Ingen kassaflödesdata för denna period." /></ReportSection>;
+  if (!hasActivity) return <ReportSheet><EmptyState text="Ingen kassaflödesdata för denna period." /></ReportSheet>;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      <ReportSection>
-        <TabHeadline label="Pengar på bank och i kassa" value={formatSEK(currentCash)} accent={currentCash >= 0 ? 'var(--text-main)' : 'var(--status-red-text)'} />
-        <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: '0 0 16px' }}>Ackumulerat saldo genom perioden, konto 1900–1999.</p>
-        <CashflowLineChart data={chartData} isMobile={isMobile} />
-        <ComparisonLegend currentLabel="Vald period" previousLabel="Föregående år" currentColorSwatch={swatch('var(--accent)')} previousColorSwatch={swatch('var(--text-muted)', true)} />
-      </ReportSection>
-      <ReportSection title="Saldo per månad">
-        <DataTable
-          columns={[{ key: 'label', label: 'Datum' }, { key: 'balance', label: 'Saldo', align: 'right', emphasize: true, render: r => formatSEK(r.balance) }]}
-          rows={points}
-          rowKey={r => r.date}
-        />
-      </ReportSection>
-    </div>
+    <ReportSheet>
+      <div className="sheet-grid">
+        <div className="sheet-span-6" style={cellBg}>
+          <StatTile label="Saldo vid periodens slut" value={amount.value(currentCash)} icon={Wallet} tone={palette.cash} accent={currentCash >= 0 ? undefined : 'var(--status-red-text)'} />
+        </div>
+        <div className="sheet-span-6" style={cellBg}>
+          <StatTile label="Förändring under perioden" value={amount.value(currentCash - startCash)} icon={currentCash >= startCash ? TrendingUp : TrendingDown} tone={currentCash >= startCash ? palette.profit : palette.cost} />
+        </div>
+
+        <div className="sheet-span-12" style={cellBg}>
+          <SheetPanel
+            title="Kassaflöde" subtitle="Ackumulerat saldo genom perioden, konto 1900–1999."
+            controls={<ChartTypeToggle value={chartType} onChange={setChartType} options={FLOW_CHART_TYPES} />}
+          >
+            <CashflowComparisonChart
+              data={chartData} currentLabel="Vald period" previousLabel={comparable ? 'Föregående år' : null}
+              height={CHART_H_MAIN} variant={chartType}
+            />
+          </SheetPanel>
+        </div>
+
+        <div className="sheet-span-12" style={cellBg}>
+          <SheetPanel title="Saldo per månad">
+            <DataTable
+              columns={[{ key: 'label', label: 'Datum' }, { key: 'balance', label: 'Saldo', align: 'right', emphasize: true, render: r => formatSEK(r.balance) }]}
+              rows={points}
+              rowKey={r => r.date}
+            />
+          </SheetPanel>
+        </div>
+      </div>
+    </ReportSheet>
   );
 }
 
 // ── 4. Nyckeltal ────────────────────────────────────────────────────────
 function KeyFiguresReport({ verifications, accounts, start, end }) {
+  const { palette } = useReportDisplay();
   const k = useMemo(() => computeKeyFigures(verifications, accounts, start, end), [verifications, accounts, start, end]);
-  if (!k.hasData) return <ReportSection><EmptyState text="Ingen bokförd data ännu för denna period." /></ReportSection>;
+  if (!k.hasData) return <ReportSheet><EmptyState text="Ingen bokförd data ännu för denna period." /></ReportSheet>;
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px' }}>
-        <KpiCard label="Vinstmarginal" value={fmtPct(k.vinstmarginal)} icon={Percent} accent="var(--text-main)" iconBg="var(--border-light)" help="Resultat i förhållande till omsättning. Högre är bättre." />
-        <KpiCard label="Soliditet" value={fmtPct(k.soliditet)} icon={Scale} accent="var(--text-main)" iconBg="var(--border-light)" help="Eget kapital i förhållande till totala tillgångar — hur mycket av verksamheten som är finansierad med eget kapital snarare än lån." />
-        <KpiCard label="Kassalikviditet (ungefärlig)" value={fmtPct(k.kassalikviditet)} icon={Wallet} accent="var(--text-main)" iconBg="var(--border-light)" help="(Kassa/bank + kundfordringar) / kortfristiga skulder — förmågan att betala kortfristiga skulder. Förenklad beräkning baserad på kontonummer, inte en fullständig uppdelning i lång-/kortfristigt." />
+    <ReportSheet>
+      <div className="sheet-grid">
+        {/* Samma KeyFigureGauge (ring per mått) som Översiktens egen
+            "Nyckeltal"-panel — samma tre mått, samma visuella form, bara
+            som en egen, full rapport i stället för en delyta bland fem
+            andra. */}
+        <div className="sheet-span-12" style={cellBg}>
+          <SheetPanel title="Nyckeltal" subtitle="Tre fristående mått på hur företaget står — inte tre delar av samma helhet.">
+            <KeyFigureGauge
+              figures={[
+                { label: 'Vinstmarginal', value: k.vinstmarginal, display: fmtPct(k.vinstmarginal), color: palette.profit, help: 'Resultat i förhållande till omsättning. Högre är bättre.' },
+                { label: 'Kassalikviditet', value: k.kassalikviditet, display: fmtPct(k.kassalikviditet), color: palette.cash, help: '(Kassa/bank + kundfordringar) / kortfristiga skulder — förenklad beräkning baserad på kontonummer.' },
+                { label: 'Soliditet', value: k.soliditet, display: fmtPct(k.soliditet), color: palette.neutral, help: 'Eget kapital i förhållande till totala tillgångar.' },
+              ]}
+            />
+          </SheetPanel>
+        </div>
+        <div className="sheet-span-12" style={cellBg}>
+          <SheetPanel title="Underlag">
+            <DataTable
+              columns={[{ key: 'label', label: 'Post' }, { key: 'value', label: 'Belopp', align: 'right', emphasize: true }]}
+              rows={[
+                { label: 'Omsättning', value: formatSEK(k.omsattning) },
+                { label: 'Kostnader', value: formatSEK(k.kostnader) },
+                { label: 'Resultat', value: formatSEK(k.resultat) },
+                { label: 'Eget kapital', value: formatSEK(k.egetKapital) },
+                { label: 'Totala tillgångar', value: formatSEK(k.totalaTillgangar) },
+                { label: 'Kortfristiga skulder (konto ≥ 2400)', value: formatSEK(k.kortfristigaSkulder) },
+                { label: 'Kassa och bank', value: formatSEK(k.kassaOchBank) },
+                { label: 'Kundfordringar', value: formatSEK(k.kundfordringar) },
+              ]}
+              rowKey={r => r.label}
+            />
+          </SheetPanel>
+        </div>
       </div>
-      <ReportSection title="Underlag">
-        <DataTable
-          columns={[{ key: 'label', label: 'Post' }, { key: 'value', label: 'Belopp', align: 'right', emphasize: true }]}
-          rows={[
-            { label: 'Omsättning', value: formatSEK(k.omsattning) },
-            { label: 'Kostnader', value: formatSEK(k.kostnader) },
-            { label: 'Resultat', value: formatSEK(k.resultat) },
-            { label: 'Eget kapital', value: formatSEK(k.egetKapital) },
-            { label: 'Totala tillgångar', value: formatSEK(k.totalaTillgangar) },
-            { label: 'Kortfristiga skulder (konto ≥ 2400)', value: formatSEK(k.kortfristigaSkulder) },
-            { label: 'Kassa och bank', value: formatSEK(k.kassaOchBank) },
-            { label: 'Kundfordringar', value: formatSEK(k.kundfordringar) },
-          ]}
-          rowKey={r => r.label}
-        />
-      </ReportSection>
-    </div>
+    </ReportSheet>
   );
 }
 
 // ── 5. Momsrapport ──────────────────────────────────────────────────────
 function VatReport({ verifications, start, end }) {
+  const { palette, amount } = useReportDisplay();
   const vat = useMemo(() => computeVatPeriod({ verifications, periodStart: toISO(start), periodEnd: toISO(end) }), [verifications, start, end]);
   const valueForRuta = (ruta) => {
     if (ruta.kind === 'salesTotal') return vat.underlagByRate[25] + vat.underlagByRate[12] + vat.underlagByRate[6];
@@ -641,102 +746,159 @@ function VatReport({ verifications, start, end }) {
     return 0;
   };
   const hasActivity = vat.outputVatTotal !== 0 || vat.inputVat !== 0;
-  if (!hasActivity) return <ReportSection><EmptyState text="Ingen momspliktig aktivitet bokförd för denna period." /></ReportSection>;
+  if (!hasActivity) return <ReportSheet><EmptyState text="Ingen momspliktig aktivitet bokförd för denna period." /></ReportSheet>;
   return (
-    <ReportSection title="Momsrapport" subtitle="Underlag till momsdeklarationen, ruta för ruta — samma beräkning som Skatt och bokslut → Moms.">
-      <DataTable
-        columns={[
-          { key: 'ruta', label: 'Ruta', width: '70px' },
-          { key: 'label', label: 'Beskrivning' },
-          { key: 'value', label: 'Belopp', align: 'right', emphasize: true, render: r => formatSEK(r.value) },
-        ]}
-        rows={VAT_RUTOR.map(r => ({ ...r, value: valueForRuta(r) }))}
-        rowKey={r => r.ruta}
-      />
-    </ReportSection>
+    <ReportSheet>
+      <div className="sheet-grid">
+        <div className="sheet-span-4" style={cellBg}>
+          <StatTile label="Utgående moms" value={amount.value(vat.outputVatTotal)} icon={ArrowUpRight} tone={palette.income} />
+        </div>
+        <div className="sheet-span-4" style={cellBg}>
+          <StatTile label="Ingående moms" value={amount.value(vat.inputVat)} icon={ArrowDownRight} tone={palette.cost} />
+        </div>
+        <div className="sheet-span-4" style={cellBg}>
+          <StatTile
+            label={vat.netToPay >= 0 ? 'Att betala' : 'Att få tillbaka'} value={amount.value(Math.abs(vat.netToPay))}
+            icon={Scale} tone={vat.netToPay >= 0 ? palette.cost : palette.profit}
+          />
+        </div>
+        <div className="sheet-span-12" style={cellBg}>
+          <SheetPanel title="Momsrapport" subtitle="Underlag till momsdeklarationen, ruta för ruta — samma beräkning som Skatt och bokslut → Moms.">
+            <DataTable
+              columns={[
+                { key: 'ruta', label: 'Ruta', width: '70px' },
+                { key: 'label', label: 'Beskrivning' },
+                { key: 'value', label: 'Belopp', align: 'right', emphasize: true, render: r => formatSEK(r.value) },
+              ]}
+              rows={VAT_RUTOR.map(r => ({ ...r, value: valueForRuta(r) }))}
+              rowKey={r => r.ruta}
+            />
+          </SheetPanel>
+        </div>
+      </div>
+    </ReportSheet>
   );
 }
 
 // ── 6. Huvudbok ─────────────────────────────────────────────────────────
 function LedgerReport({ verifications, accounts, start, end }) {
   const ledger = useMemo(() => computeLedger(verifications, accounts, start, end), [verifications, accounts, start, end]);
-  if (ledger.accounts.length === 0) return <ReportSection><EmptyState text="Inga bokförda transaktioner för denna period." /></ReportSection>;
+  if (ledger.accounts.length === 0) return <ReportSheet><EmptyState text="Inga bokförda transaktioner för denna period." /></ReportSheet>;
+  // En panel per konto, i samma sheet-grid som resten av rapporterna —
+  // ingen naturlig nyckeltalsrad här (antalet konton varierar fritt), så
+  // arket är bara staplade full-bredd-paneler i stället för ett rutnät.
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      {ledger.accounts.map(acc => (
-        <ReportSection key={acc.code} title={`${acc.code} — ${acc.name}`} subtitle={`Ingående saldo ${formatSEK(acc.openingBalance)} · Utgående saldo ${formatSEK(acc.closingBalance)}`}>
-          {acc.rows.length === 0 ? (
-            <div style={{ fontSize: '12.5px', color: 'var(--text-muted)' }}>Ingen aktivitet under perioden — saldot är oförändrat sedan periodens start.</div>
-          ) : (
-            <DataTable
-              columns={[
-                { key: 'date', label: 'Datum', width: '100px', render: r => fmtDate(r.date) },
-                { key: 'description', label: 'Beskrivning' },
-                { key: 'debet', label: 'Debet', align: 'right', render: r => r.debet ? formatSEK(r.debet) : '' },
-                { key: 'kredit', label: 'Kredit', align: 'right', render: r => r.kredit ? formatSEK(r.kredit) : '' },
-                { key: 'runningBalance', label: 'Saldo', align: 'right', emphasize: true, render: r => formatSEK(r.runningBalance) },
-              ]}
-              rows={acc.rows}
-              rowKey={(r, i) => `${r.verificationId}_${i}`}
-            />
-          )}
-        </ReportSection>
-      ))}
-    </div>
+    <ReportSheet>
+      <div className="sheet-grid">
+        {ledger.accounts.map(acc => (
+          <div key={acc.code} className="sheet-span-12" style={cellBg}>
+            <SheetPanel title={`${acc.code} — ${acc.name}`} subtitle={`Ingående saldo ${formatSEK(acc.openingBalance)} · Utgående saldo ${formatSEK(acc.closingBalance)}`}>
+              {acc.rows.length === 0 ? (
+                <div style={{ fontSize: '12.5px', color: 'var(--text-muted)' }}>Ingen aktivitet under perioden — saldot är oförändrat sedan periodens start.</div>
+              ) : (
+                <DataTable
+                  columns={[
+                    { key: 'date', label: 'Datum', width: '100px', render: r => fmtDate(r.date) },
+                    { key: 'description', label: 'Beskrivning' },
+                    { key: 'debet', label: 'Debet', align: 'right', render: r => r.debet ? formatSEK(r.debet) : '' },
+                    { key: 'kredit', label: 'Kredit', align: 'right', render: r => r.kredit ? formatSEK(r.kredit) : '' },
+                    { key: 'runningBalance', label: 'Saldo', align: 'right', emphasize: true, render: r => formatSEK(r.runningBalance) },
+                  ]}
+                  rows={acc.rows}
+                  rowKey={(r, i) => `${r.verificationId}_${i}`}
+                />
+              )}
+            </SheetPanel>
+          </div>
+        ))}
+      </div>
+    </ReportSheet>
   );
 }
 
 // ── 7. Fakturarapporter ─────────────────────────────────────────────────
 function InvoiceReport({ invoices, contacts, start, end }) {
+  const { palette, amount } = useReportDisplay();
   const report = useMemo(() => computeInvoiceReport(invoices, contacts, start, end), [invoices, contacts, start, end]);
-  if (report.rows.length === 0) return <ReportSection><EmptyState text="Inga kundfakturor bokförda/skickade för denna period." /></ReportSection>;
+  if (report.rows.length === 0) return <ReportSheet><EmptyState text="Inga kundfakturor bokförda/skickade för denna period." /></ReportSheet>;
   return (
-    <ReportSection title="Fakturerat, betalt och utestående per kund">
-      <DataTable
-        columns={[
-          { key: 'name', label: 'Kund', emphasize: true },
-          { key: 'invoiceCount', label: 'Antal', align: 'right' },
-          { key: 'invoiced', label: 'Fakturerat', align: 'right', render: r => formatSEK(r.invoiced) },
-          { key: 'paid', label: 'Betalt', align: 'right', render: r => formatSEK(r.paid) },
-          { key: 'outstanding', label: 'Utestående', align: 'right', emphasize: true, render: r => formatSEK(r.outstanding) },
-        ]}
-        rows={report.rows}
-        rowKey={r => r.customerId || r.name}
-        footer={['Summa', String(report.invoiceCount), formatSEK(report.totals.invoiced), formatSEK(report.totals.paid), formatSEK(report.totals.outstanding)]}
-      />
-    </ReportSection>
+    <ReportSheet>
+      <div className="sheet-grid">
+        <div className="sheet-span-4" style={cellBg}>
+          <StatTile label="Fakturerat" value={amount.value(report.totals.invoiced)} icon={TrendingUp} tone={palette.income} context={`${report.invoiceCount} fakturor`} />
+        </div>
+        <div className="sheet-span-4" style={cellBg}>
+          <StatTile label="Betalt" value={amount.value(report.totals.paid)} icon={ArrowUpRight} tone={palette.profit} />
+        </div>
+        <div className="sheet-span-4" style={cellBg}>
+          <StatTile label="Utestående" value={amount.value(report.totals.outstanding)} icon={Scale} tone={palette.cost} />
+        </div>
+        <div className="sheet-span-12" style={cellBg}>
+          <SheetPanel title="Fakturerat, betalt och utestående per kund">
+            <DataTable
+              columns={[
+                { key: 'name', label: 'Kund', emphasize: true },
+                { key: 'invoiceCount', label: 'Antal', align: 'right' },
+                { key: 'invoiced', label: 'Fakturerat', align: 'right', render: r => formatSEK(r.invoiced) },
+                { key: 'paid', label: 'Betalt', align: 'right', render: r => formatSEK(r.paid) },
+                { key: 'outstanding', label: 'Utestående', align: 'right', emphasize: true, render: r => formatSEK(r.outstanding) },
+              ]}
+              rows={report.rows}
+              rowKey={r => r.customerId || r.name}
+              footer={['Summa', String(report.invoiceCount), formatSEK(report.totals.invoiced), formatSEK(report.totals.paid), formatSEK(report.totals.outstanding)]}
+            />
+          </SheetPanel>
+        </div>
+      </div>
+    </ReportSheet>
   );
 }
 
 // ── 8. Lönerapporter ────────────────────────────────────────────────────
 function PayrollReport({ payrollRuns, start, end }) {
+  const { palette, amount } = useReportDisplay();
   const tablesReady = usePayrollPreload(payrollRuns);
   const report = useMemo(() => tablesReady ? aggregatePayroll(payrollRuns, start, end) : null, [tablesReady, payrollRuns, start, end]);
 
   if (!tablesReady) {
     return (
-      <ReportSection>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-muted)', fontSize: '13.5px' }}>
+      <ReportSheet>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-muted)', fontSize: '13.5px', padding: '26px 28px' }}>
           <Loader2 size={16} style={{ animation: 'spin 0.8s linear infinite' }} /> Läser in skattetabeller…
         </div>
-      </ReportSection>
+      </ReportSheet>
     );
   }
-  if (!report || report.rows.length === 0) return <ReportSection><EmptyState text="Inga bokförda lönekörningar för denna period." /></ReportSection>;
+  if (!report || report.rows.length === 0) return <ReportSheet><EmptyState text="Inga bokförda lönekörningar för denna period." /></ReportSheet>;
   return (
-    <ReportSection title="Bruttolön, skatt och arbetsgivaravgifter per anställd">
-      <DataTable
-        columns={[
-          { key: 'name', label: 'Anställd', emphasize: true },
-          { key: 'gross', label: 'Bruttolön', align: 'right', render: r => formatSEK(r.gross) },
-          { key: 'tax', label: 'Avdragen skatt', align: 'right', render: r => formatSEK(r.tax) },
-          { key: 'employerFee', label: 'Arbetsgivaravgifter', align: 'right', render: r => formatSEK(r.employerFee) },
-        ]}
-        rows={report.rows}
-        rowKey={r => r.employeeId}
-        footer={['Summa', formatSEK(report.totals.gross), formatSEK(report.totals.tax), formatSEK(report.totals.employerFee)]}
-      />
-    </ReportSection>
+    <ReportSheet>
+      <div className="sheet-grid">
+        <div className="sheet-span-4" style={cellBg}>
+          <StatTile label="Bruttolön" value={amount.value(report.totals.gross)} icon={TrendingUp} tone={palette.income} context={`${report.rows.length} anställda`} />
+        </div>
+        <div className="sheet-span-4" style={cellBg}>
+          <StatTile label="Avdragen skatt" value={amount.value(report.totals.tax)} icon={Scale} tone={palette.cost} />
+        </div>
+        <div className="sheet-span-4" style={cellBg}>
+          <StatTile label="Arbetsgivaravgifter" value={amount.value(report.totals.employerFee)} icon={ArrowDownRight} tone={palette.cost} />
+        </div>
+        <div className="sheet-span-12" style={cellBg}>
+          <SheetPanel title="Bruttolön, skatt och arbetsgivaravgifter per anställd">
+            <DataTable
+              columns={[
+                { key: 'name', label: 'Anställd', emphasize: true },
+                { key: 'gross', label: 'Bruttolön', align: 'right', render: r => formatSEK(r.gross) },
+                { key: 'tax', label: 'Avdragen skatt', align: 'right', render: r => formatSEK(r.tax) },
+                { key: 'employerFee', label: 'Arbetsgivaravgifter', align: 'right', render: r => formatSEK(r.employerFee) },
+              ]}
+              rows={report.rows}
+              rowKey={r => r.employeeId}
+              footer={['Summa', formatSEK(report.totals.gross), formatSEK(report.totals.tax), formatSEK(report.totals.employerFee)]}
+            />
+          </SheetPanel>
+        </div>
+      </div>
+    </ReportSheet>
   );
 }
 
@@ -746,6 +908,8 @@ function PayrollReport({ payrollRuns, start, end }) {
 // listvyns period-väljare (samma resonemang som Taxes.jsx alltid använder
 // innevarande räkenskapsår, oberoende av Rapport och analys' egen filter).
 function AnnualReport({ verifications, accounts, company, isMobile }) {
+  const { palette, amount } = useReportDisplay();
+  const [chartType, setChartType] = useState('bar');
   // Kodgranskning: `now`/fyStart/fyEnd räknades tidigare om som VANLIGA
   // const:ar i komponentkroppen (inte i en useMemo), men listades ändå som
   // useMemo-beroenden nedan — `new Date()` är ett NYTT objekt varje render,
@@ -768,39 +932,60 @@ function AnnualReport({ verifications, accounts, company, isMobile }) {
   const k = useMemo(() => computeKeyFigures(verifications, accounts, fyStart, fyEnd), [verifications, accounts, fyStart, fyEnd]);
   const prevK = useMemo(() => computeKeyFigures(verifications, accounts, prevStart, prevEnd), [verifications, accounts, prevStart, prevEnd]);
   const series = useMemo(() => buildResultSeries(verifications, accounts, fyStart, fyEnd), [verifications, accounts, fyStart, fyEnd]);
-  const prevSeries = useMemo(() => buildResultSeries(verifications, accounts, prevStart, prevEnd), [verifications, accounts, prevStart, prevEnd]);
-  const chartData = series.map((m, i) => ({ label: m.label, resultat: m.intakt - m.kostnad, prevResultat: prevSeries[i] ? (prevSeries[i].intakt - prevSeries[i].kostnad) : null }));
   const hasActivity = series.some(m => m.intakt !== 0 || m.kostnad !== 0);
 
-  if (!hasActivity) return <ReportSection><EmptyState text="Ingen bokförd data ännu för innevarande räkenskapsår." /></ReportSection>;
+  if (!hasActivity) return <ReportSheet><EmptyState text="Ingen bokförd data ännu för innevarande räkenskapsår." /></ReportSheet>;
 
   const summary = buildAnnualSummary({
     omsattning: k.omsattning, prevOmsattning: prevK.omsattning,
     resultat: k.resultat, prevResultat: prevK.resultat,
     vinstmarginal: k.vinstmarginal, soliditet: k.soliditet,
   });
+  const revenueExpenseData = series.map(m => ({ label: m.label, Intäkter: m.intakt, Utgifter: m.kostnad }));
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      <ReportSection title={`Räkenskapsåret ${fyStart.getFullYear()}${fyStart.getFullYear() !== fyEnd.getFullYear() ? `–${fyEnd.getFullYear()}` : ''}`} subtitle={`${fmtDate(fyStart)} – ${fmtDate(fyEnd)}`}>
-        <p style={{ fontSize: '14px', color: 'var(--text-main)', lineHeight: 1.7, margin: 0 }}>{summary}</p>
-      </ReportSection>
-      <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px' }}>
-        <KpiCard label="Omsättning" value={formatSEK(k.omsattning)} icon={TrendingUp} accent="var(--text-main)" iconBg="var(--border-light)" />
-        <KpiCard label="Resultat" value={formatSEK(k.resultat)} icon={k.resultat >= 0 ? TrendingUp : TrendingDown} accent={k.resultat >= 0 ? 'var(--status-green-text)' : 'var(--status-red-text)'} iconBg="var(--border-light)" />
-        <KpiCard label="Vinstmarginal" value={fmtPct(k.vinstmarginal)} icon={Percent} accent="var(--text-main)" iconBg="var(--border-light)" />
-        <KpiCard label="Soliditet" value={fmtPct(k.soliditet)} icon={Scale} accent="var(--text-main)" iconBg="var(--border-light)" />
+    <ReportSheet>
+      <div className="sheet-grid">
+        <div className="sheet-span-12" style={cellBg}>
+          <SheetPanel title={`Räkenskapsåret ${fyStart.getFullYear()}${fyStart.getFullYear() !== fyEnd.getFullYear() ? `–${fyEnd.getFullYear()}` : ''}`} subtitle={`${fmtDate(fyStart)} – ${fmtDate(fyEnd)}`}>
+            <p style={{ fontSize: '14px', color: 'var(--text-main)', lineHeight: 1.7, margin: 0 }}>{summary}</p>
+          </SheetPanel>
+        </div>
+
+        <div className="sheet-span-3" style={cellBg}>
+          <StatTile label="Omsättning" value={amount.value(k.omsattning)} icon={TrendingUp} tone={palette.income} delta={formatDelta(k.omsattning, prevK.omsattning)} />
+        </div>
+        <div className="sheet-span-3" style={cellBg}>
+          <StatTile
+            label="Resultat" value={amount.value(k.resultat)} icon={k.resultat >= 0 ? TrendingUp : TrendingDown}
+            tone={k.resultat >= 0 ? palette.profit : palette.cost} accent={k.resultat >= 0 ? 'var(--status-green-text)' : 'var(--status-red-text)'}
+            delta={formatDelta(k.resultat, prevK.resultat)}
+          />
+        </div>
+        <div className="sheet-span-3" style={cellBg}>
+          <StatTile label="Vinstmarginal" value={fmtPct(k.vinstmarginal)} icon={Percent} tone={palette.neutral} />
+        </div>
+        <div className="sheet-span-3" style={cellBg}>
+          <StatTile label="Soliditet" value={fmtPct(k.soliditet)} icon={Scale} tone={palette.neutral} />
+        </div>
+
+        <div className="sheet-span-12" style={cellBg}>
+          <SheetPanel
+            title="Resultat per månad"
+            legend={<InlineLegend items={[{ label: 'Intäkter', color: palette.income }, { label: 'Utgifter', color: palette.cost }]} />}
+            controls={<ChartTypeToggle value={chartType} onChange={setChartType} options={TREND_CHART_TYPES} />}
+          >
+            <RevenueExpenseChart data={revenueExpenseData} isMobile={isMobile} height={CHART_H_MAIN} variant={chartType} />
+          </SheetPanel>
+        </div>
       </div>
-      <ReportSection title="Resultat per månad">
-        <ResultBarChart data={chartData} isMobile={isMobile} />
-        <ComparisonLegend currentLabel="Innevarande räkenskapsår" previousLabel="Föregående räkenskapsår" currentColorSwatch={swatch(REVENUE)} previousColorSwatch={swatch('var(--text-muted)', true)} />
-      </ReportSection>
-    </div>
+    </ReportSheet>
   );
 }
 
 // ── 10. Kvartalsrapport ─────────────────────────────────────────────────
 function QuarterlyReport({ verifications, accounts, payrollRuns, company }) {
+  const { palette, amount } = useReportDisplay();
   // Samma fix/resonemang som AnnualReport ovan: `now`/fyStart i en enda
   // useMemo (stabil tills company.fiscalYear ändras, inte ett nytt
   // Date-objekt varje render) + fiscalYearBounds återanvänd istället för
@@ -830,42 +1015,72 @@ function QuarterlyReport({ verifications, accounts, payrollRuns, company }) {
   }, [verifications, accounts, payrollRuns, tablesReady, fyStart, now]);
 
   if (quarters.every(q => q.omsattning === 0 && q.kostnader === 0)) {
-    return <ReportSection><EmptyState text="Ingen bokförd data ännu för innevarande räkenskapsår." /></ReportSection>;
+    return <ReportSheet><EmptyState text="Ingen bokförd data ännu för innevarande räkenskapsår." /></ReportSheet>;
   }
 
+  const totalOmsattning = quarters.reduce((s, q) => s + q.omsattning, 0);
+  const totalResultat = quarters.reduce((s, q) => s + q.resultat, 0);
+  const chartData = quarters.map(q => ({ label: q.label, Intäkter: q.omsattning, Utgifter: q.kostnader }));
+
   return (
-    <ReportSection title="Kvartal för kvartal" subtitle={`Räkenskapsåret som startade ${fmtDate(fyStart)}`}>
-      <DataTable
-        columns={[
-          { key: 'label', label: 'Kvartal', emphasize: true },
-          { key: 'omsattning', label: 'Omsättning', align: 'right', render: r => formatSEK(r.omsattning) },
-          { key: 'resultat', label: 'Resultat', align: 'right', emphasize: true, render: r => formatSEK(r.resultat) },
-          { key: 'momsAttBetala', label: 'Moms att betala', align: 'right', render: r => formatSEK(r.momsAttBetala) },
-          { key: 'arbetsgivaravgifter', label: 'Arbetsgivaravgifter', align: 'right', render: r => tablesReady ? formatSEK(r.arbetsgivaravgifter) : '…' },
-          {
-            key: 'trend', label: 'Utveckling', align: 'right', render: (r, i) => {
-              if (i === 0) return '—';
-              const prev = quarters[i - 1];
-              const delta = formatDelta(r.resultat, prev.resultat);
-              if (!delta) return '—';
-              return (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: delta.good === null ? 'var(--text-muted)' : delta.good ? 'var(--status-green-text)' : 'var(--status-red-text)', fontWeight: 600 }}>
-                  {delta.good !== null && (delta.good ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />)}
-                  {delta.text.split(' mot')[0]}
-                </span>
-              );
-            },
-          },
-        ]}
-        rows={quarters}
-        rowKey={r => r.label}
-      />
-    </ReportSection>
+    <ReportSheet>
+      <div className="sheet-grid">
+        <div className="sheet-span-6" style={cellBg}>
+          <StatTile label="Omsättning hittills i år" value={amount.value(totalOmsattning)} icon={TrendingUp} tone={palette.income} />
+        </div>
+        <div className="sheet-span-6" style={cellBg}>
+          <StatTile
+            label="Resultat hittills i år" value={amount.value(totalResultat)} icon={totalResultat >= 0 ? TrendingUp : TrendingDown}
+            tone={totalResultat >= 0 ? palette.profit : palette.cost} accent={totalResultat >= 0 ? 'var(--status-green-text)' : 'var(--status-red-text)'}
+          />
+        </div>
+
+        <div className="sheet-span-12" style={cellBg}>
+          <SheetPanel
+            title="Omsättning per kvartal" subtitle={`Räkenskapsåret som startade ${fmtDate(fyStart)}`}
+            legend={<InlineLegend items={[{ label: 'Intäkter', color: palette.income }, { label: 'Utgifter', color: palette.cost }]} />}
+          >
+            <RevenueExpenseChart data={chartData} isMobile={false} height={CHART_H_SIDE} variant="bar" />
+          </SheetPanel>
+        </div>
+
+        <div className="sheet-span-12" style={cellBg}>
+          <SheetPanel title="Kvartal för kvartal">
+            <DataTable
+              columns={[
+                { key: 'label', label: 'Kvartal', emphasize: true },
+                { key: 'omsattning', label: 'Omsättning', align: 'right', render: r => formatSEK(r.omsattning) },
+                { key: 'resultat', label: 'Resultat', align: 'right', emphasize: true, render: r => formatSEK(r.resultat) },
+                { key: 'momsAttBetala', label: 'Moms att betala', align: 'right', render: r => formatSEK(r.momsAttBetala) },
+                { key: 'arbetsgivaravgifter', label: 'Arbetsgivaravgifter', align: 'right', render: r => tablesReady ? formatSEK(r.arbetsgivaravgifter) : '…' },
+                {
+                  key: 'trend', label: 'Utveckling', align: 'right', render: (r, i) => {
+                    if (i === 0) return '—';
+                    const prev = quarters[i - 1];
+                    const delta = formatDelta(r.resultat, prev.resultat);
+                    if (!delta) return '—';
+                    return (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: delta.good === null ? 'var(--text-muted)' : delta.good ? 'var(--status-green-text)' : 'var(--status-red-text)', fontWeight: 600 }}>
+                        {delta.good !== null && (delta.good ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />)}
+                        {delta.text.split(' mot')[0]}
+                      </span>
+                    );
+                  },
+                },
+              ]}
+              rows={quarters}
+              rowKey={r => r.label}
+            />
+          </SheetPanel>
+        </div>
+      </div>
+    </ReportSheet>
   );
 }
 
 // ── 11. Månadsrapport ───────────────────────────────────────────────────
 function MonthlyReport({ verifications, accounts }) {
+  const { palette, amount } = useReportDisplay();
   const months = useMemo(() => {
     const now = new Date();
     const list = [];
@@ -887,7 +1102,7 @@ function MonthlyReport({ verifications, accounts }) {
   const avgPriorOmsattning = prior.length ? prior.reduce((s, m) => s + m.omsattning, 0) / prior.length : 0;
 
   const hasActivity = months.some(m => m.omsattning !== 0 || m.kostnader !== 0);
-  if (!hasActivity) return <ReportSection><EmptyState text="Ingen bokförd data ännu." /></ReportSection>;
+  if (!hasActivity) return <ReportSheet><EmptyState text="Ingen bokförd data ännu." /></ReportSheet>;
 
   // Avvikelse: >30% avvikelse mot snittet av de 12 föregående månaderna
   // flaggas — en tydlig, förklarad tröskel istället för en gissad "känsla".
@@ -899,39 +1114,60 @@ function MonthlyReport({ verifications, accounts }) {
   };
   const omsDeviation = deviationFlag(latest.omsattning, avgPriorOmsattning);
   const resDeviation = deviationFlag(latest.resultat, avgPriorResultat);
+  const chartData = months.map(m => ({ label: m.label, Intäkter: m.omsattning, Utgifter: m.kostnader }));
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      <ReportSection title={`Senaste månaden: ${latest.label}`} subtitle="Jämfört med snittet av de tolv föregående månaderna.">
-        <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '14px' }}>
-          <KpiCard
-            label="Omsättning" value={formatSEK(latest.omsattning)} icon={TrendingUp} accent="var(--text-main)" iconBg="var(--border-light)"
-            delta={omsDeviation ? { text: `${omsDeviation.up ? '+' : ''}${formatPct(omsDeviation.pct, 0)} mot 12-månaderssnittet (${formatSEK(avgPriorOmsattning)})`, good: omsDeviation.up } : null}
-          />
-          <KpiCard
-            label="Resultat" value={formatSEK(latest.resultat)} icon={latest.resultat >= 0 ? TrendingUp : TrendingDown} accent={latest.resultat >= 0 ? 'var(--status-green-text)' : 'var(--status-red-text)'} iconBg="var(--border-light)"
-            delta={resDeviation ? { text: `${resDeviation.up ? '+' : ''}${formatPct(resDeviation.pct, 0)} mot 12-månaderssnittet (${formatSEK(avgPriorResultat)})`, good: resDeviation.up } : null}
+    <ReportSheet>
+      <div className="sheet-grid">
+        <div className="sheet-span-6" style={cellBg}>
+          <StatTile
+            label="Omsättning senaste månaden" value={amount.value(latest.omsattning)} icon={TrendingUp} tone={palette.income}
+            delta={omsDeviation ? { text: `${omsDeviation.up ? '+' : ''}${formatPct(omsDeviation.pct, 0)} mot snittet`, good: omsDeviation.up } : null}
+            context={!omsDeviation ? `snitt ${formatSEK(avgPriorOmsattning)}` : undefined}
           />
         </div>
+        <div className="sheet-span-6" style={cellBg}>
+          <StatTile
+            label="Resultat senaste månaden" value={amount.value(latest.resultat)} icon={latest.resultat >= 0 ? TrendingUp : TrendingDown}
+            tone={latest.resultat >= 0 ? palette.profit : palette.cost} accent={latest.resultat >= 0 ? 'var(--status-green-text)' : 'var(--status-red-text)'}
+            delta={resDeviation ? { text: `${resDeviation.up ? '+' : ''}${formatPct(resDeviation.pct, 0)} mot snittet`, good: resDeviation.up } : null}
+            context={!resDeviation ? `snitt ${formatSEK(avgPriorResultat)}` : undefined}
+          />
+        </div>
+
         {(omsDeviation || resDeviation) && (
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', marginTop: '16px', padding: '10px 14px', background: 'var(--status-amber-bg)', borderRadius: '8px', fontSize: '12.5px', color: 'var(--status-amber-text)' }}>
-            <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 1 }} />
-            <span>Markant avvikelse (≥30%) mot de tolv föregående månadernas snitt — värt en extra koll, men inte nödvändigtvis fel.</span>
+          <div className="sheet-span-12" style={cellBg}>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', padding: '14px 28px', fontSize: '12.5px', color: 'var(--status-amber-text)' }}>
+              <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 1 }} />
+              <span>Markant avvikelse (≥30%) mot de tolv föregående månadernas snitt, {latest.label} — värt en extra koll, men inte nödvändigtvis fel.</span>
+            </div>
           </div>
         )}
-      </ReportSection>
-      <ReportSection title="De senaste 13 månaderna">
-        <DataTable
-          columns={[
-            { key: 'label', label: 'Månad' },
-            { key: 'omsattning', label: 'Omsättning', align: 'right', render: r => formatSEK(r.omsattning) },
-            { key: 'kostnader', label: 'Kostnader', align: 'right', render: r => formatSEK(r.kostnader) },
-            { key: 'resultat', label: 'Resultat', align: 'right', emphasize: true, render: r => formatSEK(r.resultat) },
-          ]}
-          rows={[...months].reverse()}
-          rowKey={r => r.label}
-        />
-      </ReportSection>
-    </div>
+
+        <div className="sheet-span-12" style={cellBg}>
+          <SheetPanel
+            title="De senaste 13 månaderna" subtitle="Jämfört med snittet av de tolv föregående månaderna."
+            legend={<InlineLegend items={[{ label: 'Intäkter', color: palette.income }, { label: 'Utgifter', color: palette.cost }]} />}
+          >
+            <RevenueExpenseChart data={chartData} isMobile={false} height={CHART_H_MAIN} variant="bar" />
+          </SheetPanel>
+        </div>
+
+        <div className="sheet-span-12" style={cellBg}>
+          <SheetPanel title="De senaste 13 månaderna, i siffror">
+            <DataTable
+              columns={[
+                { key: 'label', label: 'Månad' },
+                { key: 'omsattning', label: 'Omsättning', align: 'right', render: r => formatSEK(r.omsattning) },
+                { key: 'kostnader', label: 'Kostnader', align: 'right', render: r => formatSEK(r.kostnader) },
+                { key: 'resultat', label: 'Resultat', align: 'right', emphasize: true, render: r => formatSEK(r.resultat) },
+              ]}
+              rows={[...months].reverse()}
+              rowKey={r => r.label}
+            />
+          </SheetPanel>
+        </div>
+      </div>
+    </ReportSheet>
   );
 }

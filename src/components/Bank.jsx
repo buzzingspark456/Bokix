@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Upload, UploadCloud, AlertCircle, CheckCircle2, X, ChevronDown, ChevronRight,
   Landmark, ArrowDownCircle, ArrowUpCircle, HelpCircle, Search, Trash2, Undo2,
+  Plus, Settings, Pencil, Check,
 } from 'lucide-react';
 import ListPageHeader, { ListFilterBar, listSearchInputStyle, listFilterFieldStyle } from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
@@ -31,6 +32,24 @@ const inp = {
   background: 'var(--bg-card)', color: 'var(--text-main)',
 };
 const fieldLabel = { display: 'block', fontSize: '11.5px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' };
+
+// ── Flera bankkonton (kundönskemål: "byta bank, namnge kontot, importera
+// dit, se vilket konto som hör till bokföringen") ──────────────────────────
+// `company.bankAccounts` är TOM för alla företag som aldrig rört funktionen
+// (se App.jsx createEmptyCompanyData) — det finns alltså inget att migrera.
+// I det läget syntetiserar getEffectiveAccounts ETT konto i minnet, aldrig
+// sparat, bundet mot 1930 (exakt samma konto varje transaktion redan
+// bokfördes mot innan den här funktionen fanns). Den blir bara en riktig,
+// sparad lista i company.bankAccounts första gången någon lägger till ett
+// ANDRA konto (se handleSaveAccount nedan) — och då följer det
+// syntetiserade default-kontot med in i den sparade listan precis som det
+// var, så gamla transaktioner (utan accountId alls) fortsätter peka på
+// exakt samma bokföringskonto som innan.
+const DEFAULT_BANK_ACCOUNT = { id: 'default', name: 'Huvudkonto', ledgerAccount: '1930', isDefault: true };
+function getEffectiveAccounts(bankAccounts) {
+  return (bankAccounts && bankAccounts.length > 0) ? bankAccounts : [DEFAULT_BANK_ACCOUNT];
+}
+function accountIdOf(row) { return row.accountId || 'default'; }
 
 const STATUS_META = {
   unmatched: { label: 'Ej hanterad', bg: 'var(--status-amber-bg)', text: 'var(--status-amber-text)' },
@@ -91,6 +110,7 @@ function supplierInvoiceCandidates(expenses, contacts) {
 export default function Bank({
   bankTransactions = [],
   bankImportProfiles = {},
+  bankAccounts = [],
   invoices = [],
   expenses = [],
   contacts = [],
@@ -99,6 +119,7 @@ export default function Bank({
   vatPeriods,
   onSetBankTransactions,
   onUpdateCompany,
+  setAccounts,
   onRegisterInvoicePayment,
   onMarkSupplierInvoicePaid,
   onAddVerification,
@@ -109,15 +130,57 @@ export default function Bank({
   const [dateTo, setDateTo] = useState('');
   const [expandedId, setExpandedId] = useState(null);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showAccountsModal, setShowAccountsModal] = useState(false);
+  // "Alla konton" som förval — kontoväljaren nedan (syns bara med fler än
+  // ETT konto) filtrerar listan precis som statusflikarna redan gör.
+  const [selectedAccountId, setSelectedAccountId] = useState('all');
   // "Visa N"-väljaren, samma som Bokföring/fakturorna (kundönskemål: den
   // ska finnas och fungera likadant på alla listsidor). Kontoutdrag är
   // dessutom den lista som oftast är LÅNG — en importerad månad kan vara
   // hundratals rader.
   const [pageSize, setPageSize] = useState(30);
 
+  const effectiveAccounts = getEffectiveAccounts(bankAccounts);
+  const hasMultipleAccounts = effectiveAccounts.length > 1;
+  const accountById = (id) => effectiveAccounts.find(a => a.id === id) || DEFAULT_BANK_ACCOUNT;
+
+  // ── Kontohantering: lägg till/döp om/ta bort ────────────────────────────
+  // Samma "syntetiserat default blir riktigt först när det behövs"-princip
+  // som getEffectiveAccounts: så fort listan sparas för första gången följer
+  // default-kontot med, oförändrat, så gamla otaggade transaktioner
+  // fortsätter peka på precis samma bokföringskonto (1930) som innan.
+  const persistAccounts = (updater) => {
+    onUpdateCompany?.(company => ({ ...company, bankAccounts: updater(getEffectiveAccounts(company.bankAccounts)) }));
+  };
+  const handleAddAccount = (name, ledgerAccount) => {
+    if (!name.trim() || !ledgerAccount) return;
+    persistAccounts(list => [...list, { id: `bank_${Date.now()}`, name: name.trim(), ledgerAccount }]);
+    // Kontokoden måste FINNAS i kontoplanen — annars visas den utan namn
+    // överallt en verifikation refererar den (Bokföring, Rapporter m.fl.).
+    // Läggs bara till om den faktiskt saknas; en redan existerande kod
+    // (t.ex. återanvänder man 1930 självt) rörs aldrig.
+    if (setAccounts && !accounts.some(a => a.code === ledgerAccount)) {
+      setAccounts(prev => prev.some(a => a.code === ledgerAccount)
+        ? prev
+        : [...prev, { code: ledgerAccount, name: `Bankkonto ${name.trim()}` }].sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true })));
+    }
+  };
+  const handleRenameAccount = (id, name) => {
+    if (!name.trim()) return;
+    persistAccounts(list => list.map(a => a.id === id ? { ...a, name: name.trim() } : a));
+  };
+  const handleDeleteAccount = async (account) => {
+    const used = bankTransactions.filter(t => accountIdOf(t) === account.id).length;
+    if (used > 0) { alert(`"${account.name}" har ${used} transaktioner och kan inte tas bort. Ta bort eller vänta med raderna först.`); return; }
+    if (!(await confirmDialog(`Ta bort bankkontot "${account.name}"? Det går inte att ångra.`, { danger: true }))) return;
+    persistAccounts(list => list.filter(a => a.id !== account.id));
+    if (selectedAccountId === account.id) setSelectedAccountId('all');
+  };
+
   const filtered = useMemo(() => {
     return (bankTransactions || [])
       .filter(t => activeTab === 'all' || t.status === activeTab)
+      .filter(t => selectedAccountId === 'all' || accountIdOf(t) === selectedAccountId)
       .filter(t => !dateFrom || t.date >= dateFrom)
       .filter(t => !dateTo || t.date <= dateTo)
       .filter(t => {
@@ -126,7 +189,7 @@ export default function Bank({
         return t.description?.toLowerCase().includes(q) || String(t.amount).includes(q) || t.reference?.toLowerCase().includes(q);
       })
       .sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt || '').localeCompare(a.createdAt || ''));
-  }, [bankTransactions, activeTab, dateFrom, dateTo, search]);
+  }, [bankTransactions, activeTab, selectedAccountId, dateFrom, dateTo, search]);
 
   const visibleTransactions = pageSize === 'all' ? filtered : filtered.slice(0, pageSize);
 
@@ -146,12 +209,16 @@ export default function Bank({
   // längre bak än det, vilket ser ut som att importen inte gav något alls.
   // Vidgar filtret till att täcka de nya raderna, och hoppar till "Ej
   // hanterade" — det är där man faktiskt ska jobba direkt efter en import.
-  const handleImportCommit = (rows) => {
+  const handleImportCommit = (rows, accountId) => {
     onSetBankTransactions(prev => [...prev, ...rows]);
     if (rows.length) {
       const earliest = rows.reduce((min, r) => (!min || r.date < min) ? r.date : min, null);
       if (earliest && (!dateFrom || earliest < dateFrom)) setDateFrom(earliest);
       setActiveTab('unmatched');
+      // Hoppa till DET kontot som just importerades till, annars ser den nya
+      // omgången ut att saknas om ett annat konto råkade vara valt sedan
+      // tidigare.
+      if (accountId && accountId !== 'default') setSelectedAccountId(accountId);
     }
   };
 
@@ -208,14 +275,14 @@ export default function Bank({
 
   const handleConfirmInvoiceMatch = (row, invoiceId) => {
     if (!invoiceId) return;
-    onRegisterInvoicePayment(invoiceId, Math.abs(row.amount), row.date);
+    onRegisterInvoicePayment(invoiceId, Math.abs(row.amount), row.date, accountById(accountIdOf(row)).ledgerAccount);
     updateRow(row.id, { status: 'matched', matchedType: 'invoice', matchedId: invoiceId, verificationSource: 'invoice_payment' });
     setExpandedId(null);
   };
 
   const handleConfirmSupplierMatch = (row, expenseId) => {
     if (!expenseId) return;
-    onMarkSupplierInvoicePaid(expenseId, 'bank', row.date);
+    onMarkSupplierInvoicePaid(expenseId, 'bank', row.date, accountById(accountIdOf(row)).ledgerAccount);
     updateRow(row.id, { status: 'matched', matchedType: 'supplier_invoice', matchedId: expenseId, verificationSource: 'supplier_invoice_payment' });
     setExpandedId(null);
   };
@@ -224,6 +291,9 @@ export default function Bank({
     const number = getNextSeriesNumber(verifications, series);
     const amount = Math.round(Math.abs(row.amount));
     const isInflow = row.amount > 0;
+    // Vilket bankkonto raden faktiskt kom ifrån (flera bankkonton,
+    // kundönskemål) — inte längre alltid 1930.
+    const bankLedgerAccount = accountById(accountIdOf(row)).ledgerAccount;
     onAddVerification({
       number,
       date,
@@ -231,8 +301,8 @@ export default function Bank({
       source: 'bank_import',
       sourceId: row.id,
       rows: isInflow
-        ? [{ account: '1930', debet: amount, kredit: 0 }, { account: counterAccount, debet: 0, kredit: amount }]
-        : [{ account: counterAccount, debet: amount, kredit: 0 }, { account: '1930', debet: 0, kredit: amount }],
+        ? [{ account: bankLedgerAccount, debet: amount, kredit: 0 }, { account: counterAccount, debet: 0, kredit: amount }]
+        : [{ account: counterAccount, debet: amount, kredit: 0 }, { account: bankLedgerAccount, debet: 0, kredit: amount }],
     });
     updateRow(row.id, { status: 'booked', verificationSource: 'bank_import' });
     setExpandedId(null);
@@ -244,6 +314,11 @@ export default function Bank({
         title="Bank"
         subtitle="Importera kontoutdrag (CSV/Excel), matcha mot fakturor och bokför"
         actions={[
+          // Kundönskemål: flera bankkonton, namngivna, med egen import och
+          // eget bokföringskonto. Knappen ligger kvar även med bara ett
+          // (syntetiserat) konto — annars skulle ingen hitta funktionen
+          // första gången de faktiskt behöver den.
+          { key: 'accounts', label: 'Bankkonton', icon: Settings, onClick: () => setShowAccountsModal(true) },
           // Visas bara när det FINNS en ohanterad importomgång att ångra —
           // en permanent "Ångra"-knapp bredvid "Importera" hade sett ut som
           // en lika stor och lika vanlig handling som importen själv.
@@ -264,7 +339,7 @@ export default function Bank({
       />
 
       <ListFilterBar
-        onClear={() => { setSearch(''); setDateFrom(''); setDateTo(''); }}
+        onClear={() => { setSearch(''); setDateFrom(''); setDateTo(''); setSelectedAccountId('all'); }}
         count={filtered.length}
         countLabel="transaktioner"
         pageSize={pageSize}
@@ -281,6 +356,15 @@ export default function Bank({
         <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={listFilterFieldStyle} />
         <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>–</span>
         <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={listFilterFieldStyle} />
+        {/* Bara synlig med fler än ETT konto — annars är det ett filter som
+            aldrig kan göra något, samma princip som Kvittons uppladdar-
+            flikar (Expenses.jsx). */}
+        {hasMultipleAccounts && (
+          <select value={selectedAccountId} onChange={e => setSelectedAccountId(e.target.value)} style={listFilterFieldStyle}>
+            <option value="all">Alla konton</option>
+            {effectiveAccounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+          </select>
+        )}
       </ListFilterBar>
 
       <div style={{ flex: 1, overflowY: 'auto' }}>
@@ -316,6 +400,7 @@ export default function Bank({
                 supplierCandidates={supplierInvoiceCandidates(expenses, contacts)}
                 accounts={accounts}
                 vatPeriods={vatPeriods}
+                ledgerAccount={accountById(accountIdOf(t)).ledgerAccount}
                 onConfirmInvoiceMatch={id => handleConfirmInvoiceMatch(t, id)}
                 onConfirmSupplierMatch={id => handleConfirmSupplierMatch(t, id)}
                 onQuickBook={form => handleQuickBook(t, form)}
@@ -336,7 +421,14 @@ export default function Bank({
                 key: 'description', label: 'Beskrivning', color: 'var(--text-main)', wrap: true, render: t => (
                   <div>
                     {t.description || <span style={{ color: 'var(--text-muted)' }}>–</span>}
-                    {t.reference && <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '2px' }}>Ref: {t.reference}</div>}
+                    {/* Kontonamnet — bara när det faktiskt finns mer än ett
+                        att skilja på, se hasMultipleAccounts. Det här är
+                        SVARET på "vilket konto hör den här ihop med", inte
+                        bara en etikett. */}
+                    {hasMultipleAccounts && (
+                      <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '2px' }}>{accountById(accountIdOf(t)).name}{t.reference ? ` · Ref: ${t.reference}` : ''}</div>
+                    )}
+                    {!hasMultipleAccounts && t.reference && <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '2px' }}>Ref: {t.reference}</div>}
                   </div>
                 ),
               },
@@ -365,7 +457,7 @@ export default function Bank({
                   {t.amount > 0 ? '+' : ''}{fmt(t.amount)} kr
                 </span>
               ),
-              meta: [formatDate(t.date), t.reference ? `Ref: ${t.reference}` : null].filter(Boolean).join(' · '),
+              meta: [formatDate(t.date), hasMultipleAccounts ? accountById(accountIdOf(t)).name : null, t.reference ? `Ref: ${t.reference}` : null].filter(Boolean).join(' · '),
               pill: <StatusBadge status={t.status} />,
             })}
           />
@@ -376,17 +468,130 @@ export default function Bank({
         <ImportWizardModal
           bankTransactions={bankTransactions}
           bankImportProfiles={bankImportProfiles}
+          bankAccountsList={effectiveAccounts}
+          onAddBankAccount={handleAddAccount}
           onUpdateCompany={onUpdateCompany}
           onImport={handleImportCommit}
           onClose={() => setShowImportModal(false)}
+        />
+      )}
+
+      {showAccountsModal && (
+        <BankAccountsModal
+          accounts={effectiveAccounts}
+          bankTransactions={bankTransactions}
+          onAdd={handleAddAccount}
+          onRename={handleRenameAccount}
+          onDelete={handleDeleteAccount}
+          onClose={() => setShowAccountsModal(false)}
         />
       )}
     </div>
   );
 }
 
+// ── Bankkonton: lägg till/döp om/ta bort ────────────────────────────────
+// Kundönskemål: "namnge kontot man har, lägg till ett annat, se vilka
+// transaktioner som hör till vilket". Default-kontot (isDefault, alltid
+// bundet mot 1930) kan döpas om men aldrig raderas eller flyttas till ett
+// annat bokföringskonto — det ÄR redan bokfört mot 1930 i alla tidigare
+// transaktioner, att ändra det i efterhand hade gjort gammal bokföring
+// missvisande.
+function BankAccountsModal({ accounts, bankTransactions, onAdd, onRename, onDelete, onClose }) {
+  const [renamingId, setRenamingId] = useState(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [showAdd, setShowAdd] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newLedger, setNewLedger] = useState('');
+
+  const countFor = (id) => bankTransactions.filter(t => accountIdOf(t) === id).length;
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" style={{ maxWidth: '480px' }} onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <span className="modal-title">Bankkonton</span>
+          <button className="modal-close" onClick={onClose}><X size={18} /></button>
+        </div>
+        <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: '0 0 14px', lineHeight: 1.5 }}>
+          Ett konto per riktigt bankkonto ni har — importera till rätt ett, och varje konto bokförs mot sitt eget konto i kontoplanen (t.ex. 1930 eller 1931).
+        </p>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '14px' }}>
+          {accounts.map(a => {
+            const count = countFor(a.id);
+            const isRenaming = renamingId === a.id;
+            return (
+              <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', border: '1px solid var(--border)', borderRadius: '8px', background: 'var(--bg-card)' }}>
+                <div style={{ width: 34, height: 34, borderRadius: '9px', background: 'var(--bg-muted)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Landmark size={16} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  {isRenaming ? (
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <input value={renameValue} onChange={e => setRenameValue(e.target.value)} style={{ ...inp, padding: '6px 8px', fontSize: '13px' }} autoFocus
+                        onKeyDown={e => { if (e.key === 'Enter') { onRename(a.id, renameValue); setRenamingId(null); } if (e.key === 'Escape') setRenamingId(null); }} />
+                      <button onClick={() => { onRename(a.id, renameValue); setRenamingId(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: BRAND.green, padding: '4px' }}><Check size={16} /></button>
+                    </div>
+                  ) : (
+                    <>
+                      <div style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-main)' }}>{a.name}</div>
+                      <div style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>Konto {a.ledgerAccount} · {count} {count === 1 ? 'transaktion' : 'transaktioner'}</div>
+                    </>
+                  )}
+                </div>
+                {!isRenaming && (
+                  <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
+                    <button onClick={() => { setRenamingId(a.id); setRenameValue(a.name); }} title="Byt namn" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '6px' }}><Pencil size={14} /></button>
+                    {!a.isDefault && (
+                      <button onClick={() => onDelete(a)} title="Ta bort kontot" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--status-red-text)', padding: '6px' }}><Trash2 size={14} /></button>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {showAdd ? (
+          <div style={{ border: '1px solid var(--border)', borderRadius: '8px', padding: '12px' }}>
+            <div style={{ marginBottom: '10px' }}>
+              <label style={fieldLabel}>Namn</label>
+              <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="T.ex. Sparkonto Handelsbanken" style={inp} autoFocus />
+            </div>
+            <div style={{ marginBottom: '12px' }}>
+              <label style={fieldLabel}>Bokförs mot konto</label>
+              {/* Vanlig textruta, medvetet INTE AccountSearch — den kräver
+                  att koden redan finns i kontoplanen (matchar bara BEFINTLIGA
+                  konton, se SearchInputs.jsx), men hela poängen här är att
+                  kunna ange ett bankkontos NYA kod (t.ex. 1931) innan den
+                  ens är skapad i kontoplanen. */}
+              <input value={newLedger} onChange={e => setNewLedger(e.target.value.replace(/[^0-9]/g, '').slice(0, 4))} placeholder="T.ex. 1931" style={inp} inputMode="numeric" />
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>Fyrsiffrig kontokod. Finns den inte redan i kontoplanen läggs den till automatiskt, samma som ett nytt konto under Bokföring → Kontoplan.</span>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <button onClick={() => { setShowAdd(false); setNewName(''); setNewLedger(''); }} style={{ padding: '8px 14px', background: 'none', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}>Avbryt</button>
+              <button
+                disabled={!newName.trim() || !newLedger}
+                onClick={() => { onAdd(newName, newLedger); setShowAdd(false); setNewName(''); setNewLedger(''); }}
+                style={{ padding: '8px 16px', background: (newName.trim() && newLedger) ? BRAND.green : 'var(--gray-300)', color: 'white', border: 'none', borderRadius: '6px', fontSize: '12.5px', fontWeight: 700, cursor: (newName.trim() && newLedger) ? 'pointer' : 'not-allowed' }}
+              >
+                Lägg till
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button onClick={() => setShowAdd(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 14px', background: 'none', border: '1px dashed var(--border)', borderRadius: '8px', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', width: '100%', justifyContent: 'center' }}>
+            <Plus size={14} /> Nytt bankkonto
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Radexpansion: matchningsförslag + "Bokför direkt" + "Ignorera" ───────
-function BankRowDetail({ row, invoiceCandidates, supplierCandidates, accounts, vatPeriods, onConfirmInvoiceMatch, onConfirmSupplierMatch, onQuickBook, onIgnore, onDelete }) {
+function BankRowDetail({ row, invoiceCandidates, supplierCandidates, accounts, vatPeriods, ledgerAccount = '1930', onConfirmInvoiceMatch, onConfirmSupplierMatch, onQuickBook, onIgnore, onDelete }) {
   const isInflow = row.amount > 0;
   const candidates = isInflow ? invoiceCandidates : supplierCandidates;
   const [selectedId, setSelectedId] = useState('');
@@ -462,7 +667,7 @@ function BankRowDetail({ row, invoiceCandidates, supplierCandidates, accounts, v
           </div>
           <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
             <div style={{ flex: 1 }}>
-              <label style={fieldLabel}>{isInflow ? 'Motkonto (kredit)' : 'Motkonto (debet)'} — 1930 {isInflow ? 'debiteras' : 'krediteras'} automatiskt med {fmt(Math.abs(row.amount))} kr</label>
+              <label style={fieldLabel}>{isInflow ? 'Motkonto (kredit)' : 'Motkonto (debet)'} — {ledgerAccount} {isInflow ? 'debiteras' : 'krediteras'} automatiskt med {fmt(Math.abs(row.amount))} kr</label>
               <AccountSearch value={qbAccount} onChange={setQbAccount} accounts={accounts} placeholder="Sök konto..." />
             </div>
             <button
@@ -612,7 +817,7 @@ function BankExportHelp() {
 
 const STEP_LABELS = ['Fil', 'Kolumner', 'Förhandsgranskning'];
 
-function ImportWizardModal({ bankTransactions, bankImportProfiles, onUpdateCompany, onImport, onClose }) {
+function ImportWizardModal({ bankTransactions, bankImportProfiles, bankAccountsList, onAddBankAccount, onUpdateCompany, onImport, onClose }) {
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -622,6 +827,35 @@ function ImportWizardModal({ bankTransactions, bankImportProfiles, onUpdateCompa
   const [rawRows, setRawRows] = useState([]);
   const [mapping, setMapping] = useState(null);
   const [preview, setPreview] = useState(null); // { toImport, alreadyImported, errors }
+
+  // Vilket bankkonto importen gäller (flera bankkonton, kundönskemål) —
+  // bara relevant att välja när det faktiskt finns fler än ett, annars är
+  // det syntetiserade default-kontot redan det enda alternativet och
+  // väljaren skulle bara vara ett extra klick utan mening.
+  const hasChoice = bankAccountsList.length > 1;
+  const [accountId, setAccountId] = useState(bankAccountsList[0]?.id || 'default');
+  const [showNewAccount, setShowNewAccount] = useState(false);
+  const [newAccountName, setNewAccountName] = useState('');
+  const [newAccountLedger, setNewAccountLedger] = useState('');
+  const handleCreateAccountInline = () => {
+    if (!newAccountName.trim() || !newAccountLedger) return;
+    onAddBankAccount(newAccountName, newAccountLedger);
+    // Nya kontot hamnar sist i listan (Bank.jsx:s persistAccounts) — väljs
+    // direkt så man inte behöver hitta det igen i selecten.
+    setAccountId(`bank_pending_${newAccountName}`); // ersätts nedan så fort listan hunnit uppdateras
+    setShowNewAccount(false);
+    setNewAccountName(''); setNewAccountLedger('');
+  };
+  // bankAccountsList uppdateras asynkront (går via onUpdateCompany → props,
+  // en render-omgång bort) — så fort det NYA kontot faktiskt finns i listan
+  // (matchar namnet vi just skapade), byt till dess riktiga id. Enklare och
+  // säkrare än att gissa ett id i förväg.
+  useEffect(() => {
+    if (!accountId.startsWith('bank_pending_')) return;
+    const pendingName = accountId.replace('bank_pending_', '');
+    const created = bankAccountsList.find(a => a.name === pendingName);
+    if (created) setAccountId(created.id);
+  }, [bankAccountsList, accountId]);
 
   const loadBankModule = async () => {
     if (bankMod) return bankMod;
@@ -670,7 +904,7 @@ function ImportWizardModal({ bankTransactions, bankImportProfiles, onUpdateCompa
     try {
       const mod = await loadBankModule();
       const { rows, errors } = mod.normalizeRows(rawRows, mapping);
-      const { toImport, alreadyImported } = mod.dedupeAgainstExisting(rows, bankTransactions);
+      const { toImport, alreadyImported } = mod.dedupeAgainstExisting(rows, bankTransactions, accountId);
       setPreview({ toImport, alreadyImported, errors });
       // Kom ihåg mappningen för nästa gång samma bank importeras — nästlad
       // under company.bankImportProfiles (se App.jsx createEmptyCompanyData).
@@ -689,8 +923,8 @@ function ImportWizardModal({ bankTransactions, bankImportProfiles, onUpdateCompa
     try {
       const mod = await loadBankModule();
       const batchId = `batch_${Date.now()}`;
-      const records = mod.buildBankTransactionRecords(preview.toImport, batchId);
-      onImport(records);
+      const records = mod.buildBankTransactionRecords(preview.toImport, batchId, accountId);
+      onImport(records, accountId);
       onClose();
     } finally {
       setBusy(false);
@@ -721,6 +955,49 @@ function ImportWizardModal({ bankTransactions, bankImportProfiles, onUpdateCompa
 
         {step === 0 && (
           <>
+          {/* Kontoväljaren — bara synlig med fler än ETT bankkonto (se
+              hasChoice ovan). Med bara det syntetiserade default-kontot
+              importeras dit tyst, precis som innan funktionen fanns —
+              nollfriktion för alla som aldrig rör den. */}
+          {hasChoice && (
+            <div style={{ marginBottom: '16px' }}>
+              <label style={fieldLabel}>Vilket bankkonto gäller importen?</label>
+              {!showNewAccount ? (
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <select value={accountId} onChange={e => setAccountId(e.target.value)} style={{ ...inp, flex: 1 }}>
+                    {bankAccountsList.map(a => <option key={a.id} value={a.id}>{a.name} (konto {a.ledgerAccount})</option>)}
+                  </select>
+                  <button type="button" onClick={() => setShowNewAccount(true)} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '9px 12px', background: 'none', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    <Plus size={13} /> Nytt konto
+                  </button>
+                </div>
+              ) : (
+                <div style={{ border: '1px solid var(--border)', borderRadius: '8px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <input value={newAccountName} onChange={e => setNewAccountName(e.target.value)} placeholder="Namn, t.ex. Sparkonto Handelsbanken" style={inp} autoFocus />
+                  <input value={newAccountLedger} onChange={e => setNewAccountLedger(e.target.value.replace(/[^0-9]/g, '').slice(0, 4))} placeholder="Bokförs mot konto, t.ex. 1931" style={inp} inputMode="numeric" />
+                  <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                    <button type="button" onClick={() => { setShowNewAccount(false); setNewAccountName(''); setNewAccountLedger(''); }} style={{ padding: '7px 12px', background: 'none', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}>Avbryt</button>
+                    <button type="button" disabled={!newAccountName.trim() || !newAccountLedger} onClick={handleCreateAccountInline} style={{ padding: '7px 14px', background: (newAccountName.trim() && newAccountLedger) ? BRAND.green : 'var(--gray-300)', color: 'white', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 700, cursor: (newAccountName.trim() && newAccountLedger) ? 'pointer' : 'not-allowed' }}>Lägg till och välj</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          {!hasChoice && (
+            <button type="button" onClick={() => setShowNewAccount(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '12px', padding: 0, background: 'none', border: 'none', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}>
+              <Plus size={12} /> Fler bankkonton? Lägg till ett innan du importerar
+            </button>
+          )}
+          {!hasChoice && showNewAccount && (
+            <div style={{ border: '1px solid var(--border)', borderRadius: '8px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+              <input value={newAccountName} onChange={e => setNewAccountName(e.target.value)} placeholder="Namn, t.ex. Sparkonto Handelsbanken" style={inp} autoFocus />
+              <input value={newAccountLedger} onChange={e => setNewAccountLedger(e.target.value.replace(/[^0-9]/g, '').slice(0, 4))} placeholder="Bokförs mot konto, t.ex. 1931" style={inp} inputMode="numeric" />
+              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                <button type="button" onClick={() => { setShowNewAccount(false); setNewAccountName(''); setNewAccountLedger(''); }} style={{ padding: '7px 12px', background: 'none', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}>Avbryt</button>
+                <button type="button" disabled={!newAccountName.trim() || !newAccountLedger} onClick={handleCreateAccountInline} style={{ padding: '7px 14px', background: (newAccountName.trim() && newAccountLedger) ? BRAND.green : 'var(--gray-300)', color: 'white', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 700, cursor: (newAccountName.trim() && newAccountLedger) ? 'pointer' : 'not-allowed' }}>Lägg till och välj</button>
+              </div>
+            </div>
+          )}
           <div
             onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
             onDragLeave={() => setIsDragging(false)}

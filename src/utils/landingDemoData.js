@@ -435,6 +435,28 @@ export function createDemoSeed() {
     },
   ];
 
+  // Granskningens Zettle-flik (`demoZettleItems` i ReviewQueue.jsx) — samma
+  // idé som stripeLedgerEvents ovan. Två vanliga försäljningar (kort och
+  // kontant, så momssats/intäktskonto-valet syns för båda betalsätten) plus
+  // en återbetalning (hanteras alltid manuellt, ingen gissning).
+  const zettleLedgerEvents = [
+    {
+      id: 'demo_zettle_1', zettle_purchase_uuid: 'demo-zettle-purchase-1', purchase_number: 4821,
+      amount: 450, vat_amount: 90, currency: 'SEK', is_refund: false, payment_type: 'IZETTLE_CARD',
+      created_at_zettle: `${daysFromToday(-2)}T13:05:00Z`, reviewed_at: null,
+    },
+    {
+      id: 'demo_zettle_2', zettle_purchase_uuid: 'demo-zettle-purchase-2', purchase_number: 4809,
+      amount: 1200, vat_amount: 240, currency: 'SEK', is_refund: false, payment_type: 'CASH',
+      created_at_zettle: `${daysFromToday(-6)}T10:40:00Z`, reviewed_at: null,
+    },
+    {
+      id: 'demo_zettle_3', zettle_purchase_uuid: 'demo-zettle-purchase-3', purchase_number: 4791,
+      amount: 299, vat_amount: 60, currency: 'SEK', is_refund: true, payment_type: 'IZETTLE_CARD',
+      created_at_zettle: `${daysFromToday(-9)}T15:22:00Z`, reviewed_at: null,
+    },
+  ];
+
   // ── Offerter — egen flik i appen (Quotes.jsx), saknades helt i demon
   // trots att den finns i riktiga sidomenyn. Tre stycken i tre olika
   // lägen (skickad, accepterad, utkast) så statusfärgerna och
@@ -526,6 +548,9 @@ export function createDemoSeed() {
       // Satt (uppdiktat id) enbart för att Granskningens Stripe-flik ska ha
       // något att visa i demon — inget riktigt Stripe-konto anropas någonstans.
       stripeAccountId: 'acct_demo_exempel',
+      // Samma sak för Zettle-fliken — uppdiktat, inget riktigt Zettle-konto
+      // anropas (se demoZettleItems i ReviewQueue.jsx).
+      zettleAccessToken: 'demo_zettle_access_token',
       emailDomain: '', resendDomainId: '', emailDomainStatus: '', emailDomainRecords: [],
       defaultVat: 25, fiscalYear: `${YEAR}-01-01`, vatPeriod: 'quarterly', chartPlan: 'bas2025',
     },
@@ -544,6 +569,7 @@ export function createDemoSeed() {
     timeEntries,
     bankTransactions,
     stripeLedgerEvents,
+    zettleLedgerEvents,
     employees,
     payrollRuns: [],
     vatPeriods: {},

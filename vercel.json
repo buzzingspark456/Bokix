@@ -87,6 +87,14 @@
       "destination": "/verktyg/utdelning/index.html"
     },
     {
+      "source": "/verktyg/momsdatum",
+      "destination": "/verktyg/momsdatum/index.html"
+    },
+    {
+      "source": "/verktyg/arsredovisning",
+      "destination": "/verktyg/arsredovisning/index.html"
+    },
+    {
       "source": "/((?!api).*)",
       "destination": "/app-shell.html"
     }
@@ -122,7 +130,7 @@
         },
         {
           "key": "Content-Security-Policy-Report-Only",
-          "value": "default-src 'self'; script-src 'self' https://www.googletagmanager.com https://challenges.cloudflare.com https://*.clarity.ms https://c.bing.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.supabase.co https://www.google-analytics.com https://analytics.google.com https://challenges.cloudflare.com https://*.clarity.ms https://c.bing.com; frame-src https://challenges.cloudflare.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+          "value": "default-src 'self'; script-src 'self' https://www.googletagmanager.com https://challenges.cloudflare.com https://*.clarity.ms https://c.bing.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.supabase.co https://www.google-analytics.com https://analytics.google.com https://challenges.cloudflare.com https://*.clarity.ms https://c.bing.com https://api.frankfurter.dev; frame-src https://challenges.cloudflare.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
         }
       ]
     }

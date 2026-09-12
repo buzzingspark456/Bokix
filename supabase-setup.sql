@@ -327,6 +327,60 @@ USING ((select auth.uid()) = user_id)
 WITH CHECK ((select auth.uid()) = user_id);
 
 -- ═══════════════════════════════════════════════════════════
+-- Zettle (PayPal Zettle) — kortförsäljning som bokföringsunderlag
+-- ═══════════════════════════════════════════════════════════
+-- Exakt samma mönster som stripe_ledger_events ovan, av samma skäl. Enda
+-- riktiga skillnaden: det finns ingen Bokix-egen avgift att bryta ut här
+-- (Zettle är kundens EGET kortterminalkonto, Bokix tar ingen andel av
+-- försäljningen) — varje rad är alltså alltid en obokförd intäkt tills
+-- användaren själv väljer momssats och intäktskonto i ReviewQueue.jsx,
+-- aldrig ett "säkert förslag" som platform_fee-raden på Stripe-sidan.
+--
+-- Hämtas av cronen (api/cron/reminders.js) från Zettles Purchase API
+-- (GET https://purchase.izettle.com/purchases/v2, verifierat mot
+-- developer.zettle.com/docs/api/purchase i september 2026) — en rad per
+-- purchaseUUID1 (idempotent mot en omkörning av samma dagar, precis som
+-- stripe_balance_transaction_id).
+CREATE TABLE IF NOT EXISTS public.zettle_ledger_events (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  company_id text NOT NULL,
+  zettle_purchase_uuid text NOT NULL UNIQUE,
+  purchase_number bigint,
+  amount numeric NOT NULL,
+  vat_amount numeric NOT NULL DEFAULT 0,
+  currency text NOT NULL,
+  is_refund boolean NOT NULL DEFAULT false,
+  payment_type text,
+  created_at_zettle timestamptz NOT NULL,
+  reviewed_at timestamptz,
+  verification_id text,
+  created_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS zettle_ledger_events_company_pending_idx
+ON public.zettle_ledger_events (company_id)
+WHERE reviewed_at IS NULL;
+
+ALTER TABLE public.zettle_ledger_events ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Select own zettle ledger events" ON public.zettle_ledger_events;
+CREATE POLICY "Select own zettle ledger events"
+ON public.zettle_ledger_events
+FOR SELECT
+USING ((select auth.uid()) = user_id);
+
+-- Samma begränsade skrivåtkomst som Stripe-motsvarigheten: bara kvittera
+-- (reviewed_at/verification_id) en egen redan hämtad rad, aldrig skapa nya
+-- eller ändra belopp.
+DROP POLICY IF EXISTS "Apply own zettle ledger events" ON public.zettle_ledger_events;
+CREATE POLICY "Apply own zettle ledger events"
+ON public.zettle_ledger_events
+FOR UPDATE
+USING ((select auth.uid()) = user_id)
+WITH CHECK ((select auth.uid()) = user_id);
+
+-- ═══════════════════════════════════════════════════════════
 -- Prenumerationer: Bokix egen plan (99 kr/mån, 30 dagars gratis provperiod)
 -- ═══════════════════════════════════════════════════════════
 -- Samma resonemang som stripe_payment_events ovan — "är den här användaren
@@ -901,3 +955,58 @@ CREATE TABLE IF NOT EXISTS public.email_senders (
 );
 
 ALTER TABLE public.email_senders ENABLE ROW LEVEL SECURITY;
+
+-- ══════════════════════════════════════════════════════════════════════
+-- BLOGG (admin-CMS, Sida: internt admin-läge på /internal) — api/admin/blog.js
+-- ══════════════════════════════════════════════════════════════════════
+-- Skrivning (skapa/ändra/radera/publicera) går ALDRIG via klientens egen
+-- Supabase-nyckel — bara via api/admin/blog.js med service-role-nyckeln,
+-- som själv verifierar att den inloggade användarens e-post finns i en
+-- hårdkodad admin-lista (samma "kort, hårdkodad lista, inte en egen
+-- roll-tabell för en handfull personer"-avvägning som FREE_ACCOUNT_EMAILS
+-- i App.jsx redan gör). RLS här är därför MEDVETET stängd för alla
+-- skrivningar oavsett roll — precis som email_senders ovan — och öppen
+-- bara för LÄSNING av publicerade inlägg, så den publika bloggsidan kan
+-- läsa direkt med anon-nyckeln utan en egen serverfunktion.
+CREATE TABLE IF NOT EXISTS public.blog_posts (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug text NOT NULL UNIQUE,
+  title text NOT NULL,
+  excerpt text,
+  content text NOT NULL DEFAULT '',   -- Markdown, renderas av utils/markdown.js
+  cover_image_url text,
+  author_name text,
+  seo_description text,
+  tags text[] NOT NULL DEFAULT '{}',
+  status text NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published')),
+  published_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.blog_posts ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Publik läsning av publicerade blogginlägg" ON public.blog_posts;
+CREATE POLICY "Publik läsning av publicerade blogginlägg"
+ON public.blog_posts FOR SELECT TO anon, authenticated
+USING (status = 'published');
+
+-- Omslagsbilder till blogginlägg. Publik bucket (samma "public:true serverar
+-- filer direkt, ingen SELECT-policy behövs"-resonemang som profile/
+-- companylogo ovan) — bara UPPLADDNING är låst, till samma admin-e-post
+-- som api/admin/blog.js kräver server-side. Ändra listan på BÅDA
+-- ställena (här och i api/admin/blog.js) om en andra person ska kunna
+-- skriva blogginlägg.
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES ('blogimages', 'blogimages', true, 5242880, ARRAY['image/jpeg', 'image/png', 'image/webp'])
+ON CONFLICT (id) DO UPDATE SET file_size_limit = 5242880, allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/webp'];
+
+DROP POLICY IF EXISTS "Admin-uppladdning i blogimages" ON storage.objects;
+CREATE POLICY "Admin-uppladdning i blogimages"
+ON storage.objects FOR INSERT TO authenticated
+WITH CHECK (bucket_id = 'blogimages' AND (SELECT auth.jwt() ->> 'email') = ANY (ARRAY['alwakiabdullah1@gmail.com', 'abbealwaki08@gmail.com']));
+
+DROP POLICY IF EXISTS "Admin-radering i blogimages" ON storage.objects;
+CREATE POLICY "Admin-radering i blogimages"
+ON storage.objects FOR DELETE TO authenticated
+USING (bucket_id = 'blogimages' AND (SELECT auth.jwt() ->> 'email') = ANY (ARRAY['alwakiabdullah1@gmail.com', 'abbealwaki08@gmail.com']));

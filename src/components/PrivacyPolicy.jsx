@@ -112,7 +112,7 @@ export default function PrivacyPolicy() {
       <PolicySection n={7} title="Hur länge vi sparar uppgifterna">
         <ul style={policyUl}>
           <li style={policyLi}>Kontouppgifter sparas så länge du har ett aktivt konto, och raderas eller anonymiseras inom rimlig tid efter att kontot avslutats.</li>
-          <li style={policyLi}>Bokföringsdata (verifikationer, fakturor, kvitton) sparas i minst sju år efter räkenskapsårets utgång, i enlighet med bokföringslagens arkiveringskrav — även om du säger upp kontot.</li>
+          <li style={policyLi}>Bokföringsdata (verifikationer, fakturor, kvitton) sparas till och med det sjunde året efter utgången av det kalenderår då räkenskapsåret avslutades, i enlighet med bokföringslagens arkiveringskrav (7 kap. 2 § BFL) — även om du säger upp kontot.</li>
           <li style={policyLi}>Teknisk logg-data sparas kortare tid, normalt några veckor, och används enbart för drift och säkerhet.</li>
           <li style={policyLi}>Uppladdade filer (kvitton, underlag, logotyper) som ingen post i tjänsten längre hänvisar till raderas automatiskt efter sju dagar, av ett jobb som körs varje dygn.</li>
           <li style={policyLi}>Ett konto som skapats men aldrig aktiverats — registreringen avbröts före betalsteget — raderas automatiskt efter 30 dagar, inklusive de företags- och kontaktuppgifter som hunnit fyllas i.</li>

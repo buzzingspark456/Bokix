@@ -33,6 +33,8 @@ import EgenavgifterPage from './components/marketing/tools/EgenavgifterPage.jsx'
 import RotRutKalkylatorPage from './components/marketing/tools/RotRutKalkylatorPage.jsx';
 import DrojsmalsrantaPage from './components/marketing/tools/DrojsmalsrantaPage.jsx';
 import UtdelningPage from './components/marketing/tools/UtdelningPage.jsx';
+import MomsDatumPage from './components/marketing/tools/MomsDatumPage.jsx';
+import ArsredovisningPage from './components/marketing/tools/ArsredovisningPage.jsx';
 import OrdlistaPage from './components/marketing/OrdlistaPage.jsx';
 import IntegrationsPage from './components/marketing/IntegrationsPage.jsx';
 import SecurityPage from './components/marketing/SecurityPage.jsx';
@@ -49,6 +51,7 @@ export const PRERENDER_ROUTES = [
   '/integrationer', '/sakerhet', '/ordlista',
   '/verktyg', '/verktyg/momskalkylator', '/verktyg/lonekalkylator', '/verktyg/egenavgifter',
   '/verktyg/rot-rut', '/verktyg/drojsmalsranta', '/verktyg/utdelning',
+  '/verktyg/momsdatum', '/verktyg/arsredovisning',
 ];
 
 const PAGES = {
@@ -70,6 +73,8 @@ const PAGES = {
   '/verktyg/rot-rut': RotRutKalkylatorPage,
   '/verktyg/drojsmalsranta': DrojsmalsrantaPage,
   '/verktyg/utdelning': UtdelningPage,
+  '/verktyg/momsdatum': MomsDatumPage,
+  '/verktyg/arsredovisning': ArsredovisningPage,
 };
 
 /** Renderar en enda route till en HTML-sträng + de <title>/<meta>/<link>-

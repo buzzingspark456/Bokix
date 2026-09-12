@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { FileSpreadsheet, Plus, FileText, Check, X, Download, Trash2, Send, Eye, ZoomIn, ZoomOut, Paperclip, Loader2, Search } from 'lucide-react';
+import { FileSpreadsheet, Plus, FileText, Check, X, Download, Trash2, Send, Eye, ZoomIn, ZoomOut, Paperclip, Loader2, Search, Package } from 'lucide-react';
 import InvoiceDocument, { DEFAULT_INVOICE_TEMPLATE, INVOICE_TEMPLATES } from './InvoiceDocument';
 import { exportInvoicePdf, getInvoicePdfBase64 } from '../utils/exportInvoicePdf';
 import { sendInvoiceEmail } from '../emailApi';
@@ -106,7 +106,7 @@ const toolbarBtnStyle = (active) => ({
  * förhandsgranskning som öppnas på begäran. Samma lösning återanvänds här
  * rakt av — samma CSS-klass, samma mönster, samma mobilanpassning.
  */
-function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, onSave, onClose, onConvert }) {
+function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, articles = [], onSave, onClose, onConvert }) {
   const [customerId, setCustomerId] = useState(quote?.customerId || '');
   const [customerName, setCustomerName] = useState(quote?.customerName || '');
   const [date, setDate] = useState(quote?.date || new Date().toISOString().split('T')[0]);
@@ -260,6 +260,26 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, on
   const addRow = () => setRows(r => [...r, emptyRow()]);
   const removeRow = (i) => setRows(r => r.filter((_, idx) => idx !== i));
   const updateRow = (i, field, val) => setRows(r => r.map((row, idx) => idx === i ? { ...row, [field]: val } : row));
+
+  // Produktregistret (Articles.jsx, samma `articles` som Invoices.jsx redan
+  // använder) — offertraderna har inget eget articleNumber-fält (annan
+  // radform än fakturans, se emptyRow() ovan), så matchningen sker på
+  // BESKRIVNING istället för artikelnr. Väljs en exakt träff (blur = klart
+  // att skriva, samma "aldrig mitt i inmatningen"-princip som InvoiceForm)
+  // fylls pris/moms i automatiskt.
+  const findArticleByDescription = (text) => {
+    const key = (text || '').trim().toLowerCase();
+    if (!key) return null;
+    return articles.find(a => (a.description || '').trim().toLowerCase() === key) || null;
+  };
+  const applyArticleToRow = (i, article) => {
+    setRows(r => r.map((row, idx) => idx === i ? {
+      ...row,
+      description: article.description || row.description,
+      price: article.unitPrice ?? row.price,
+      vat: article.vatRate ?? row.vat,
+    } : row));
+  };
 
   // Formaterade strängar för InvoiceDocument — samma generiska `terms`/
   // `lateInterest`-fält som fakturans mall redan läser, byggda av de
@@ -657,7 +677,16 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, on
                   return (
                     <div key={i} style={{ display: 'grid', gridTemplateColumns: '2.2fr 0.8fr 0.8fr 1fr 0.8fr 0.9fr 1.1fr 1fr auto', gap: '10px', marginBottom: '10px', alignItems: 'center' }}>
                       <input type="text" placeholder="Beskrivning" style={inputStyle} value={row.description}
-                        onChange={e => updateRow(i, 'description', e.target.value)} required />
+                        list="quote-article-register-list"
+                        onChange={e => updateRow(i, 'description', e.target.value)}
+                        // Väljs en BEFINTLIG artikel ur <datalist>-listan (blur = klart
+                        // att skriva) fylls pris/moms i automatiskt — samma mönster som
+                        // fakturaradens Artikelnr-fält (Invoices.jsx).
+                        onBlur={e => {
+                          const hit = findArticleByDescription(e.target.value);
+                          if (hit) applyArticleToRow(i, hit);
+                        }}
+                        required />
                       <input type="number" placeholder="Antal" style={inputStyle} value={row.qty}
                         onChange={e => updateRow(i, 'qty', e.target.value)} />
                       <select style={inputStyle} value={row.unit} onChange={e => updateRow(i, 'unit', e.target.value)}>
@@ -683,6 +712,15 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, on
               </div>
             </div>
             <button type="button" onClick={addRow} style={{ ...outlineBtnStyle, padding: '6px 12px', fontSize: '12px', marginTop: '4px', marginBottom: '16px' }}>+ Lägg till rad</button>
+
+            {/* Delas av alla radernas Beskrivning-fält ovan (HTML5 <datalist>
+                kräver ett enda, delat id) — samma produktregister som
+                Invoices.jsx, native webbläsarautocomplete. */}
+            <datalist id="quote-article-register-list">
+              {articles.map((a, i) => (
+                <option key={a.id || `${a.description}-${i}`} value={a.description}>{a.description}</option>
+              ))}
+            </datalist>
 
             {/* Summeringsblock — samma "egen lätt bakgrund"-mönster som redan
                 etablerat för fakturans sammanställningsbox (Invoices.jsx). */}
@@ -795,6 +833,16 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, on
               </div>
               <div className="quote-preview-controls" style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
                 <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                  {/* Kundfeedback (skärmdump, mörkt läge): den inaktiva pillrens
+                      bakgrund var hårdkodad 'white' (inte en tema-medveten
+                      var(--bg-card)) — en ljus, malplacerad fläck mot den
+                      mörka rubrikraden i stället för att smälta in. Samma
+                      bugg fanns INTE i Invoices.jsx:s motsvarande väljare
+                      (redan var(--bg-card)) — rättat till samma mönster här.
+                      "Grönt i alla, inte bara den valda": inaktiva pillar
+                      fick dessutom en grön kant + grön text i stället för
+                      det neutrala grå/svarta paret, så HELA gruppen läses
+                      som en sammanhängande grön mallväljare. */}
                   {Object.values(INVOICE_TEMPLATES).map(tpl => {
                     const active = templateSnapshot.templateId === tpl.id;
                     return (
@@ -803,8 +851,8 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, on
                         onClick={() => setTemplateSnapshot(s => ({ ...s, templateId: tpl.id }))}
                         style={{
                           padding: '5px 10px', borderRadius: '999px', fontSize: '11.5px', fontWeight: 600, whiteSpace: 'nowrap',
-                          border: `1.5px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
-                          background: active ? 'var(--accent)' : 'white', color: active ? 'white' : 'var(--text-main)', cursor: 'pointer',
+                          border: `1.5px solid var(--accent)`,
+                          background: active ? 'var(--accent)' : 'var(--bg-card)', color: active ? 'white' : 'var(--accent-text)', cursor: 'pointer',
                         }}
                       >{tpl.label}</button>
                     );
@@ -884,7 +932,7 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, on
   );
 }
 
-export default function Quotes({ quotes = [], setQuotes, onConvert, contacts = [], projects = [], company, user, globalAction, clearGlobalAction, handleGlobalAction }) {
+export default function Quotes({ quotes = [], setQuotes, onConvert, contacts = [], projects = [], company, user, globalAction, clearGlobalAction, handleGlobalAction, articles = [], onNavigate }) {
   const [searchTerm, setSearchTerm] = useState('');
   // Kundönskemål: "en knapp där man kan se femton, trettio, femtio" — samma
   // visa-N-åt-gången-väljare som Kunder/Fakturering (ListFilterBar).
@@ -987,6 +1035,7 @@ export default function Quotes({ quotes = [], setQuotes, onConvert, contacts = [
         projects={projects}
         company={company}
         user={user}
+        articles={articles}
         onSave={handleSaveQuote}
         onClose={closeForm}
         onConvert={editingQuote ? (e) => handleConvert(editingQuote, e) : null}
@@ -1004,6 +1053,9 @@ export default function Quotes({ quotes = [], setQuotes, onConvert, contacts = [
         title="Offerter"
         subtitle="Skapa offerter med samma mall som dina fakturor och konvertera till faktura när kunden accepterat"
         actions={[
+          // Samma produktregister som fakturorna (Articles.jsx) — samma
+          // genväg härifrån som Invoices.jsx:s "Artiklar"-länk.
+          { key: 'articles', label: 'Artiklar', icon: Package, onClick: () => onNavigate?.('articles'), variant: 'secondary' },
           { key: 'new', label: 'Ny offert', icon: Plus, onClick: openNew, variant: 'primary' },
         ]}
       />

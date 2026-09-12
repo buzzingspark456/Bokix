@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Plus, Search, ChevronRight, ChevronDown, X,
   AlertCircle, RotateCcw, RefreshCw,
-  UploadCloud, Tag, LayoutTemplate, Save, Trash2
+  UploadCloud, Tag, LayoutTemplate, Save, Trash2, ScanLine
 } from 'lucide-react';
 import { getDebet, getKredit } from '../utils/verificationAmounts';
 import { BRAND } from '../utils/brandColors';
@@ -14,9 +14,54 @@ import { findLockedVatPeriod } from '../utils/vatCalculation';
 import { DocumentPane, DocumentLightbox } from './shared/DocumentViewer';
 import { uploadFileToStorage, deleteFileFromStorage } from '../utils/fileUpload';
 import { confirmDialog, promptDialog } from './shared/ConfirmDialog';
+import { ocrFile, parseReceiptText } from '../utils/ocrReceipt';
+import { convertToSek } from '../utils/currencyConversion';
+
+// Bara för att skriva ut valutavarningen lite snyggare — ingen omräkning
+// görs här, det är enbart kosmetiskt.
+const CURRENCY_SYMBOL = { USD: '$', GBP: '£', EUR: '€', JPY: '¥', CNY: '¥', NOK: 'kr', DKK: 'kr' };
+// Yen (och i praktiken oftast yuan på kvitton) skrivs utan decimaler —
+// "¥5000,00" ser trasigt ut för en valuta som aldrig har ören/fen.
+const formatForeignAmount = (code, amount) => (code === 'JPY' || code === 'CNY') ? String(Math.round(amount)) : amount.toFixed(2);
+
+// Liten badge som visas intill ett fälts label när OCR fyllt i det —
+// samma mönster (och samma utseende) som kvittovyn i Utgifter
+// (Expenses.jsx). Försvinner så fort användaren redigerar fältet själv.
+function OcrBadge() {
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: '3px',
+      fontSize: '10px', fontWeight: 700, letterSpacing: '0.02em',
+      padding: '1px 6px', borderRadius: '999px', verticalAlign: 'middle', marginLeft: '5px',
+      background: '#e0f2fe', color: '#0369a1',
+    }}>
+      <ScanLine size={10} /> OCR
+    </span>
+  );
+}
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 const fmt = (v) => new Intl.NumberFormat('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0);
+// Beloppslös variant (heltal, ingen valuta) — grupprubrikernas summor, se
+// renderVerGroupHeader nedan. Samma format som Kvittons formatSEK.
+const fmtSEK = (v) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(v || 0);
+// Kundönskemål ("samma som i Kvitton, jag älskar det"): kronologisk
+// gruppering av listan per månad, med samma väljare (Alla månader/en
+// specifik kalendermånad från alla år/Grupperat-Lista) som Expenses.jsx
+// redan har. Se den filens kommentarer för hela resonemanget — samma
+// mekanik, bara återanvänd här mot ListTable:s nya groupBy-stöd i stället
+// för Kvittons egna platta kort.
+const formatMonthLabel = (yearMonth) => {
+  const [y, m] = yearMonth.split('-').map(Number);
+  const label = new Intl.DateTimeFormat('sv-SE', { month: 'long', year: 'numeric' }).format(new Date(y, (m || 1) - 1, 1));
+  return label.charAt(0).toUpperCase() + label.slice(1);
+};
+const MONTH_NAMES = [
+  { v: '01', label: 'Januari' }, { v: '02', label: 'Februari' }, { v: '03', label: 'Mars' },
+  { v: '04', label: 'April' }, { v: '05', label: 'Maj' }, { v: '06', label: 'Juni' },
+  { v: '07', label: 'Juli' }, { v: '08', label: 'Augusti' }, { v: '09', label: 'September' },
+  { v: '10', label: 'Oktober' }, { v: '11', label: 'November' }, { v: '12', label: 'December' },
+];
 
 // ─── BAS Account reference ────────────────────────────────────────────────────
 const BAS_GROUPS = [
@@ -128,6 +173,99 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
   const toggleRowOverride = (i) => setExpandedRows(prev => { const n = new Set(prev); n.has(i) ? n.delete(i) : n.add(i); return n; });
   const fileInputRef = useRef(null);
 
+  // ── OCR ──────────────────────────────────────────────────────────────────
+  // Samma idé som kvittovyn i Utgifter (Expenses.jsx): släpp in en bild eller
+  // PDF och slipp knappa in datum, belopp och konto för hand. Skillnaden här
+  // är att en verifikation är dubbel bokföring — OCR fyller alltså inte bara
+  // fält, den bygger raderna: kostnadskontot (netto) + ev. ingående moms
+  // (2641), båda i debet, mot ett gissat betalkonto (1930, företagskonto) i
+  // kredit — samma trepartsmönster som handleSaveReceiptDetails i App.jsx
+  // redan använder för kvitton. Det ÄR en gissning (framför allt betalkontot
+  // — kvittot säger inte om det begicks med kort eller kontant), så raderna
+  // markeras tydligt som OCR och måste granskas innan bokföring, aldrig
+  // presenterade som ett facit.
+  // ocrStatus: 'idle' | 'scanning' | 'done' | 'error'
+  const [ocrStatus, setOcrStatus] = useState('idle');
+  const [ocrMessage, setOcrMessage] = useState('');
+  // Vilka fält som fylldes i av OCR — styr badgarna, och rensas fält för fält
+  // så fort användaren redigerar något av dem själv.
+  const [ocrFields, setOcrFields] = useState(new Set());
+  // Räknare för att göra körningar avbrytbara: hinner användaren byta fil
+  // eller trycka "Läs av igen" innan en pågående läsning är klar (kvitton
+  // kan ta allt från någon sekund till flera tior sekunder beroende på
+  // storlek), ska bara den SENASTE körningens resultat någonsin skrivas in
+  // — annars kan en långsam, föråldrad körning hinna ikapp och skriva över
+  // ett nyare, redan klart resultat. Samma id jämförs efter varje await.
+  const ocrRunIdRef = useRef(0);
+  // Ett kvitto i en annan valuta än kronor — { code, amount, converted } |
+  // null. `converted` är { sek, rate, date } från convertToSek (utils/
+  // currencyConversion.js) — eller null om kursen inte gick att hämta, och
+  // då byggs raderna inte alls (se nedan).
+  const [ocrForeignCurrency, setOcrForeignCurrency] = useState(null);
+
+  const runOcr = useCallback(async (input) => {
+    if (!input) return;
+    const runId = ++ocrRunIdRef.current;
+    const isCurrent = () => ocrRunIdRef.current === runId;
+    setOcrStatus('scanning');
+    setOcrMessage('Startar läsning…');
+    setOcrForeignCurrency(null);
+    try {
+      const text = await ocrFile(input, msg => { if (isCurrent()) setOcrMessage(msg); });
+      if (!isCurrent()) return; // en nyare körning har redan tagit över
+      const parsed = parseReceiptText(text);
+      const filled = new Set();
+      if (parsed.date) { setDate(parsed.date); filled.add('date'); }
+      if (parsed.supplier) { setDesc(parsed.supplier); filled.add('desc'); }
+
+      // Utländsk valuta — räkna om till kronor med DAGSKURSEN FÖR
+      // KÖPDATUMET (Skatteverkets rekommendation) innan raderna byggs.
+      // Går omräkningen inte att göra fylls raderna INTE i som om talet
+      // redan vore kronor — se convertToSek/ocrForeignCurrency.
+      let grossSek = parsed.currency ? null : parsed.amount;
+      if (parsed.amount && parsed.currency) {
+        if (isCurrent()) setOcrMessage(`Räknar om ${parsed.currency} till kronor…`);
+        const converted = await convertToSek(parsed.amount, parsed.currency, parsed.date);
+        if (!isCurrent()) return;
+        if (converted) grossSek = converted.sek;
+        setOcrForeignCurrency({ code: parsed.currency, amount: parsed.amount, converted });
+      }
+
+      if (grossSek) {
+        const gross = Math.round(grossSek * 100) / 100;
+        const vatRate = parsed.vatRate ?? 25;
+        const net = vatRate > 0 ? Math.round((gross / (1 + vatRate / 100)) * 100) / 100 : gross;
+        const vat = Math.round((gross - net) * 100) / 100;
+        const costAccount = parsed.accountCode || '';
+        const newRows = [{
+          account: costAccount,
+          accountName: accounts.find(a => a.code === costAccount)?.name || '',
+          debet: net ? net.toFixed(2) : '', kredit: '', desc: parsed.supplier || '',
+        }];
+        if (vat > 0) {
+          newRows.push({ account: '2641', accountName: accounts.find(a => a.code === '2641')?.name || 'Ingående moms', debet: vat.toFixed(2), kredit: '', desc: '' });
+        }
+        newRows.push({ account: '1930', accountName: accounts.find(a => a.code === '1930')?.name || 'Företagskonto/bank', debet: '', kredit: gross.toFixed(2), desc: '' });
+        setRows(newRows);
+        filled.add('rows');
+      }
+      setOcrFields(filled);
+      setOcrStatus(filled.size > 0 || parsed.currency ? 'done' : 'error');
+      setOcrMessage('');
+    } catch (err) {
+      if (!isCurrent()) return;
+      console.error('OCR misslyckades:', err);
+      setOcrStatus('error');
+      setOcrMessage('');
+    }
+  }, [accounts]);
+
+  // Ett formulär räknas som orört om ingen beskrivning och inga rader är
+  // ifyllda ännu — bara då fylls raderna i automatiskt vid uppladdning.
+  // Redan påbörjad kontering ska aldrig skrivas över utan att användaren
+  // bett om det (via "Läs av igen"-knappen).
+  const isPristineForm = () => !desc.trim() && rows.every(r => !r.account && !r.debet && !r.kredit && !(r.desc && r.desc.trim()));
+
   // Ett underlag ska faktiskt kunna ses, inte bara visas som ett filnamn —
   // skapa en object-URL för förhandsvisning och städa upp den när den byts ut.
   useEffect(() => {
@@ -157,6 +295,17 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
     }
     setFileError('');
     setAttachment(file);
+    // Automatisk avläsning bara på ett orört formulär (se isPristineForm) —
+    // byter man ut underlaget på en redan ifylld verifikation ska det INTE
+    // skriva över konteringen i tysthet.
+    if (isPristineForm()) runOcr(file);
+  };
+
+  // Kör om avläsningen manuellt, oavsett formulärets skick — en medveten
+  // handling, till skillnad från den tysta auto-körningen ovan.
+  const rerunOcr = () => {
+    const src = attachment || existingAttachment?.url;
+    if (src) runOcr(src);
   };
 
   // Mild varning — inte en spärr — om ett reskontrakonto (kundfordringar/
@@ -164,7 +313,13 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
   const usesReskontraAccount = rows.some(r => isReskontraAccount(r.account));
   const missingCounterparty = usesReskontraAccount && !counterpartyId;
 
+  // Rensar OCR-badgen på raderna så fort användaren rör konteringen själv —
+  // samma "försvinner vid redigering"-princip som Datum/Beskrivning nedan.
+  const clearRowsOcrBadge = () => setOcrFields(s => { if (!s.has('rows')) return s; const n = new Set(s); n.delete('rows'); return n; });
+
   const updateRow = (i, field, val) => {
+    clearRowsOcrBadge();
+    if (ocrForeignCurrency) setOcrForeignCurrency(null);
     setRows(prev => {
       const next = [...prev];
       next[i] = { ...next[i], [field]: val };
@@ -174,7 +329,7 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
     });
   };
 
-  const addRow = () => setRows(prev => [...prev, { account: '', accountName: '', debet: '', kredit: '', desc: '' }]);
+  const addRow = () => { clearRowsOcrBadge(); setRows(prev => [...prev, { account: '', accountName: '', debet: '', kredit: '', desc: '' }]); };
 
   const handleBlurAmount = (_i) => {
     const totalDebit = rows.reduce((s, r) => s + (parseFloat(r.debet) || 0), 0);
@@ -199,6 +354,7 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
 
   const removeRow = (i) => {
     if (rows.length > 1) {
+      clearRowsOcrBadge();
       setRows(r => r.filter((_, idx) => idx !== i));
     }
   };
@@ -335,12 +491,12 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
       {/* Datum / Beskrivning / Serie */}
       <div className="ver-form-row" style={{ marginBottom: '10px' }}>
         <div style={{ flex: 1 }}>
-          <label style={fieldLabel}>Datum</label>
-          <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inp} />
+          <label style={fieldLabel}>Datum {ocrFields.has('date') && <OcrBadge />}</label>
+          <input type="date" value={date} onChange={e => { setDate(e.target.value); setOcrFields(s => { const n = new Set(s); n.delete('date'); return n; }); }} style={inp} />
         </div>
         <div style={{ flex: 3 }}>
-          <label style={fieldLabel}>Beskrivning</label>
-          <input data-tour="page-verifications-field" value={desc} onChange={e => setDesc(e.target.value)} placeholder="Verifikationstext..." style={inp} autoFocus />
+          <label style={fieldLabel}>Beskrivning {ocrFields.has('desc') && <OcrBadge />}</label>
+          <input data-tour="page-verifications-field" value={desc} onChange={e => { setDesc(e.target.value); setOcrFields(s => { const n = new Set(s); n.delete('desc'); return n; }); }} placeholder="Verifikationstext..." style={inp} autoFocus />
         </div>
         <div style={{ width: '90px' }}>
           <label style={fieldLabel}>Serie</label>
@@ -417,7 +573,34 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
             av — kundfeedback om halvskärm: "0,0(" i en 60px bred ruta är
             värre än att behöva skrolla den lilla biten i sidled. Resten av
             sidan skrollar aldrig i sidled, bara den här tabellen. */}
-        <div style={{ minWidth: 0, overflowX: 'auto' }}>
+        <div className="ver-form-rows" style={{ minWidth: 0, overflowX: 'auto' }}>
+          {ocrFields.has('rows') && (
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '7px', background: BRAND.amberBg, color: BRAND.amberText, borderRadius: '8px', padding: '8px 12px', marginBottom: '12px', fontSize: '12.5px', fontWeight: 600, lineHeight: 1.5 }}>
+              <ScanLine size={14} style={{ flexShrink: 0, marginTop: 1 }} />
+              Rader ifyllda automatiskt från kvittot (OCR) — kontrollera konto, moms och betalkonto innan du bokför. Betalkontot är alltid en gissning (1930).
+            </div>
+          )}
+          {/* Utländsk valuta — beloppet ÄR omräknat till kronor med en
+              riktig, publicerad kurs (convertToSek, ECB-data för
+              köpdatumet), inte ett hittepåtal. Kursen och datumet visas
+              öppet så det går att kontrollera — bankens egen
+              växlingsavgift kan göra att det faktiskt dragna beloppet
+              skiljer sig någon procent. Gick kursen inte att hämta byggs
+              raderna inte alls, se convertToSek. */}
+          {ocrForeignCurrency && (
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '7px', background: BRAND.amberBg, color: BRAND.amberText, borderRadius: '8px', padding: '8px 12px', marginBottom: '12px', fontSize: '12.5px', fontWeight: 600, lineHeight: 1.5 }}>
+              <AlertCircle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
+              {ocrForeignCurrency.converted ? (
+                <span>
+                  Kvittot var i {ocrForeignCurrency.code} ({CURRENCY_SYMBOL[ocrForeignCurrency.code] || ''}{formatForeignAmount(ocrForeignCurrency.code, ocrForeignCurrency.amount)}) — raderna är byggda med {fmt(ocrForeignCurrency.converted.sek)} kr, omräknat med dagskursen {ocrForeignCurrency.converted.rate.toFixed(4)} SEK/{ocrForeignCurrency.code}{ocrForeignCurrency.converted.date ? ` (${ocrForeignCurrency.converted.date})` : ''}. Kontrollera mot kontoutdraget — bankens växlingsavgift kan göra att det skiljer sig något.
+                </span>
+              ) : (
+                <span>
+                  Kvittot verkar vara i {ocrForeignCurrency.code} ({CURRENCY_SYMBOL[ocrForeignCurrency.code] || ''}{formatForeignAmount(ocrForeignCurrency.code, ocrForeignCurrency.amount)}) men kursen gick inte att hämta automatiskt — fyll i raderna med beloppet i SEK själv, helst det som faktiskt drogs på kortet.
+                </span>
+              )}
+            </div>
+          )}
           <table style={{ width: '100%', minWidth: '620px', borderCollapse: 'collapse', fontSize: '13px' }}>
             <thead>
               <tr>
@@ -425,7 +608,14 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
                 <th style={{ padding: '0 8px 8px', textAlign: 'left', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border)' }}>BESKRIVNING</th>
                 <th style={{ padding: '0 8px 8px', textAlign: 'right', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border)', width: 110 }}>DEBET</th>
                 <th style={{ padding: '0 8px 8px', textAlign: 'right', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border)', width: 110 }}>KREDIT</th>
-                <th style={{ padding: '0 8px 8px', textAlign: 'right', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border)', width: 120 }}>SALDO</th>
+                <th style={{ padding: '0 8px 8px', textAlign: 'right', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border)', width: 120 }}>
+                  SALDO
+                  {/* Utan den här raden trodde kunden att beloppet var själva
+                      radens/verifikationens belopp — det är kontots HELA
+                      historiska saldo före/efter denna rad. Stod tidigare
+                      bara i en hover-title, som aldrig syns på mobil/touch. */}
+                  <div style={{ fontWeight: 500, letterSpacing: 'normal', textTransform: 'none', fontSize: '9.5px', color: 'var(--text-muted)', marginTop: '1px' }}>hela kontot</div>
+                </th>
                 <th style={{ width: 52, borderBottom: '1px solid var(--border)' }} />
               </tr>
             </thead>
@@ -476,10 +666,10 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
                       placeholder="0,00"
                     />
                   </td>
-                  <td style={{ padding: '6px 8px', textAlign: 'right' }} title="Kontots saldo före och efter denna rad (baserat på nuvarande bokförda saldo)">
+                  <td style={{ padding: '6px 8px', textAlign: 'right' }} title="Kontots hela bokförda saldo — inte bara den här raden — före och efter att raden bokförs">
                     {projectedBalance !== null ? (
                       <div style={{ lineHeight: 1.4 }}>
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{fmt(currentBalance)} kr</div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{fmt(currentBalance)} kr idag</div>
                         <div style={{ fontSize: '13px', color: 'var(--text-main)', fontWeight: 600, whiteSpace: 'nowrap' }}>→ {fmt(projectedBalance)} kr</div>
                       </div>
                     ) : (
@@ -592,8 +782,15 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
         </div>
 
         {/* Right side: Attachment */}
-        <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-          <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '8px' }}>Underlag</div>
+        <div className="ver-form-attachment" style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>Underlag</div>
+            {ocrStatus === 'scanning' && (
+              <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11.5px', fontWeight: 600, color: 'var(--text-muted)' }}>
+                <ScanLine size={12} style={{ animation: 'spin 1s linear infinite' }} /> {ocrMessage || 'Läser…'}
+              </span>
+            )}
+          </div>
           {/* Ett uppladdat underlag visas i SAMMA visare som kvittovyn i
               Utgifter (shared/DocumentViewer.jsx), inte som en tumnagel i
               släppytan. Skillnaden var påtaglig: en 140px hög bild av ett
@@ -620,6 +817,9 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
                   name={displayAttachmentName}
                 />
                 <div className="ver-doc-actions">
+                  <button type="button" className="ver-doc-btn" disabled={ocrStatus === 'scanning'} onClick={rerunOcr} style={ocrStatus === 'scanning' ? { cursor: 'not-allowed', opacity: 0.6 } : undefined}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><ScanLine size={12} style={{ animation: ocrStatus === 'scanning' ? 'spin 1s linear infinite' : 'none' }} /> {ocrStatus === 'scanning' ? 'Läser…' : 'Läs av igen'}</span>
+                  </button>
                   <button type="button" className="ver-doc-btn" onClick={() => setShowAttachmentLightbox(true)}>Visa i fullstorlek</button>
                   <button type="button" className="ver-doc-btn" onClick={() => fileInputRef.current?.click()}>Byt fil</button>
                   <button type="button" className="ver-doc-btn ver-doc-btn-muted" onClick={() => { setAttachment(null); setExistingAttachment(null); }}>Ta bort</button>
@@ -631,14 +831,19 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
                 style={{ border: `1px dashed ${dragOver ? 'var(--text-main)' : 'var(--border)'}`, borderRadius: '12px', background: dragOver ? 'var(--bg-muted)' : 'var(--bg-card)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '28px', textAlign: 'center', cursor: 'pointer', transition: 'all 0.15s', height: 'clamp(320px, 44vh, 560px)', boxSizing: 'border-box' }}
               >
                 <UploadCloud size={26} color="var(--text-muted)" style={{ marginBottom: '10px' }} />
-                <span style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-main)' }}>Dra och släpp filer här</span>
-                <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>PDF eller bild (max {MAX_ATTACHMENT_MB} MB)</span>
+                <span style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-main)' }}>Dra och släpp kvittot här</span>
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px', maxWidth: '260px' }}>PDF eller bild (max {MAX_ATTACHMENT_MB} MB) — vi läser av datum, belopp och konto automatiskt, granska bara innan du bokför.</span>
               </div>
             )}
           </div>
           {fileError && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '12px', color: 'var(--status-red-text)' }}>
               <AlertCircle size={13} style={{ flexShrink: 0 }} /> {fileError}
+            </div>
+          )}
+          {ocrStatus === 'error' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '12px', color: BRAND.amberText, background: BRAND.amberBg, borderRadius: '8px', padding: '6px 10px' }}>
+              <AlertCircle size={13} style={{ flexShrink: 0 }} /> Kunde inte läsa av kvittot automatiskt — fyll i raderna manuellt.
             </div>
           )}
           {attachmentBusy && (
@@ -761,6 +966,12 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
   // fungerar, på alla listsidor). ListFilterBar ritar den, sidan äger
   // state:t och skär av sin egen lista — se den komponentens JSDoc.
   const [pageSize, setPageSize] = useState(30);
+  // Månadsgruppering (samma mönster/namn som Kvitton, Expenses.jsx): 'all'
+  // grupperar kronologiskt (September 2026, Augusti 2026, …), en specifik
+  // månad ('01'-'12') visar bara DEN kalendermånaden från alla år,
+  // grupperat per år istället. flatView slår av rubrikerna helt.
+  const [monthFilter, setMonthFilter] = useState('all');
+  const [flatView, setFlatView] = useState(false);
 
   // Kontoplan state
   const [accountSearch, setAccountSearch] = useState('');
@@ -832,10 +1043,42 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
     if (dateFrom && v.date < dateFrom) return false;
     if (dateTo && v.date > dateTo) return false;
     if (series !== 'all' && !v.number?.startsWith(series)) return false;
+    if (monthFilter !== 'all' && (v.date || '').slice(5, 7) !== monthFilter) return false;
     return true;
-  }).slice().reverse(); // newest first
+  })
+    // Nyast överst, RIKTIGT datumsorterat (inte bara listans egen
+    // lagringsordning omvänd) — krävs för att månadsgrupperingen nedan ska
+    // få samma månad i följd. Nummer som andra sorteringsnyckel: två
+    // verifikationer med samma datum (vanligt, en rättelse bokförs ofta
+    // samma dag som originalet) håller då ändå en stabil, förutsägbar
+    // ordning i stället för att hoppa om vid varje omrendering.
+    .slice()
+    .sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.number || '').localeCompare(a.number || ''));
 
   const visibleVers = pageSize === 'all' ? filteredVers : filteredVers.slice(0, pageSize);
+
+  // Är ett specifikt kalendermånadsfilter aktivt grupperas det som
+  // återstår per ÅR istället (månaden är redan bestämd) — samma resonemang
+  // som Kvittons Expenses.jsx. flatView returnerar alltid null: ListTable
+  // skjuter då aldrig in någon rubrikrad alls, samma mekanik som "ingen
+  // grupp" — inget särskilt specialfall behövs för det.
+  const groupByYear = monthFilter !== 'all';
+  const verGroupKey = (v) => {
+    if (flatView) return null;
+    return groupByYear ? ((v.date || '').slice(0, 4) || 'okänt') : ((v.date || '').slice(0, 7) || 'okänt');
+  };
+  const renderVerGroupHeader = (key, rowsInGroup) => {
+    const label = key === 'okänt' ? 'Utan datum' : (groupByYear ? key : formatMonthLabel(key));
+    const total = rowsInGroup.reduce((s, v) => s + (v.rows?.reduce((rs, r) => rs + getDebet(r), 0) || v.amount || 0), 0);
+    return (
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '10px' }}>
+        <span style={{ fontSize: '11.5px', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--text-main)' }}>{label}</span>
+        <span style={{ fontSize: '11.5px', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+          {rowsInGroup.length} {rowsInGroup.length === 1 ? 'verifikation' : 'verifikationer'} · {fmtSEK(total)}
+        </span>
+      </div>
+    );
+  };
 
   // Kontoplan grouping
   const getGroupAccounts = (groupCode) => {
@@ -938,7 +1181,7 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
               på en rad i samma h-9-höjd, "Rensa" + levande antalsräknare
               på en egen rad direkt under. */}
           <ListFilterBar
-            onClear={() => { setSearch(''); setDateFrom(''); setDateTo(''); setSeries('all'); }}
+            onClear={() => { setSearch(''); setDateFrom(''); setDateTo(''); setSeries('all'); setMonthFilter('all'); }}
             count={filteredVers.length}
             countLabel="verifikationer"
             pageSize={pageSize}
@@ -957,6 +1200,18 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
               <option value="B">Serie B</option>
               <option value="C">Serie C</option>
             </select>
+            {/* Kundönskemål ("samma som i Kvitton, jag älskar det"): samma
+                månadsväljare + Grupperat/Lista-växel som Expenses.jsx,
+                återanvänder samma .rc-segmented-utseende (index.css) så
+                kontrollen ser likadan ut var den än dyker upp i appen. */}
+            <select value={monthFilter} onChange={e => setMonthFilter(e.target.value)} style={listFilterFieldStyle}>
+              <option value="all">Alla månader</option>
+              {MONTH_NAMES.map(m => <option key={m.v} value={m.v}>{m.label} (alla år)</option>)}
+            </select>
+            <div className="rc-segmented">
+              <button type="button" onClick={() => setFlatView(false)} className={!flatView ? 'active' : ''}>Grupperat</button>
+              <button type="button" onClick={() => setFlatView(true)} className={flatView ? 'active' : ''}>Lista</button>
+            </div>
           </ListFilterBar>
 
           {/* Table */}
@@ -967,6 +1222,8 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
               isExpanded={v => expandedId === v.id}
               emptyMessage="Inga verifikationer bokförda"
               rows={visibleVers}
+              groupBy={verGroupKey}
+              renderGroupHeader={renderVerGroupHeader}
               columns={[
                 {
                   key: 'number', label: 'Verifikation', fontWeight: 700, color: 'var(--text-main)', render: v => (

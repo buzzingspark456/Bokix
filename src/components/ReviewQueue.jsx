@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { CheckCircle2, Check, X, ChevronDown, ChevronUp, ShieldCheck, CreditCard, Landmark, HelpCircle, FileText, Receipt, Info } from 'lucide-react';
+import { CheckCircle2, Check, X, ChevronDown, ChevronUp, ShieldCheck, CreditCard, Landmark, HelpCircle, FileText, Receipt, Info, RotateCcw } from 'lucide-react';
 import { AccountSearch } from './shared/SearchInputs';
 import ListPageHeader from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
@@ -325,7 +325,7 @@ const VAT_RATES = [25, 12, 6, 0];
  *  - allt annat (utländsk valuta, ovanliga typer): "kräver manuell
  *    hantering", bara en kvittera-knapp, ingen automatisk kontering.
  */
-function StripeLedgerCard({ item, accounts, onBookPlatformFee, onBookSale, onMarkHandled, exiting }) {
+function StripeLedgerCard({ item, accounts, onBookPlatformFee, onBookSale, onMarkHandled, exiting, onOpenInvoice }) {
   const [expanded, setExpanded] = useState(false);
   const [vatRate, setVatRate] = useState(25);
   const [saleAccount, setSaleAccount] = useState(REVENUE_ACCOUNTS[25]);
@@ -414,7 +414,25 @@ function StripeLedgerCard({ item, accounts, onBookPlatformFee, onBookSale, onMar
           <div><span style={{ color: 'var(--text-muted)' }}>Datum:</span> {formatDate(item.created_at_stripe)}</div>
           <div><span style={{ color: 'var(--text-muted)' }}>Belopp:</span> {formatMoney(item.amount, item.currency)}</div>
           <div><span style={{ color: 'var(--text-muted)' }}>Valuta:</span> {(item.currency || '').toUpperCase()}</div>
-          {item.matched_invoice_id && <div style={{ gridColumn: '1 / -1' }}><span style={{ color: 'var(--text-muted)' }}>Kopplad faktura:</span> {item.matched_invoice_id} (bästa-försök-matchning på tidsnärhet, inte garanterad)</div>}
+          {item.matched_invoice_id && (
+            <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <span style={{ color: 'var(--text-muted)' }}>Kopplad faktura:</span>
+              {onOpenInvoice ? (
+                // Kundönskemål: "visa fakturan" — tidigare bara fakturans
+                // rå-id som text, ingen väg att faktiskt se den härifrån.
+                // Öppnar samma faktura-visningsläge som Fakturor-sidans
+                // egen radklick (Invoices.jsx: globalAction 'open_invoice').
+                <button
+                  type="button"
+                  onClick={() => onOpenInvoice(item.matched_invoice_id)}
+                  style={{ border: 0, background: 'none', padding: 0, color: 'var(--accent-text)', fontWeight: 700, textDecoration: 'underline', cursor: 'pointer', fontSize: 'inherit', fontFamily: 'inherit' }}
+                >
+                  Visa fakturan
+                </button>
+              ) : item.matched_invoice_id}
+              <span style={{ color: 'var(--text-muted)' }}>(bästa-försök-matchning på tidsnärhet, inte garanterad)</span>
+            </div>
+          )}
           {item.description && <div style={{ gridColumn: '1 / -1' }}><span style={{ color: 'var(--text-muted)' }}>Stripe-beskrivning:</span> {item.description}</div>}
         </div>
       )}
@@ -422,8 +440,119 @@ function StripeLedgerCard({ item, accounts, onBookPlatformFee, onBookSale, onMar
   );
 }
 
-export default function ReviewQueue({ expenses = [], accounts = [], reviewHistory = [], onResolve, user, company, onAddVerification, demoStripeItems }) {
-  const [tab, setTab] = useState('pending'); // 'pending' | 'history'
+const ZETTLE_PAYMENT_LABEL = { IZETTLE_CARD: 'Kortbetalning', CASH: 'Kontant', SPLIT: 'Delad betalning' };
+
+/** Gissar den momssats [25,12,6,0] som ligger närmast förhållandet
+ * vat_amount/amount på en Zettle-rad — Zettle skickar redan momsbeloppet
+ * (till skillnad från Stripe, som inte vet något om svensk moms alls), så
+ * det här är en riktig beräkning, inte en gissning ur tomma intet. Bara
+ * ett startvärde i selecten — användaren kan alltid ändra det. */
+function guessVatRate(item) {
+  const gross = Number(item.amount) || 0;
+  if (gross <= 0) return 25;
+  const ratio = (Number(item.vat_amount) || 0) / gross;
+  let best = 25, bestDiff = Infinity;
+  for (const r of VAT_RATES) {
+    const diff = Math.abs(ratio - r / (100 + r));
+    if (diff < bestDiff) { bestDiff = diff; best = r; }
+  }
+  return best;
+}
+
+/** Ett kort för en Zettle-ledgerrad (public.zettle_ledger_events) — samma
+ * visuella mönster som StripeLedgerCard ovan, men bara TVÅ lägen: Zettle
+ * gör ingen fakturamatchning alls (varje Zettle-köp är en ny, obokförd
+ * kontantförsäljning, aldrig en betalning på en redan bokförd Bokix-
+ * faktura), och det finns ingen Bokix-avgift att bryta ut.
+ *  - 'sale': en försäljning — momssats/intäktskonto föreslagna (guessVatRate),
+ *    användaren godkänner eller ändrar innan bokföring.
+ *  - 'refund': en återbetalning — kräver manuell hantering (att bokföra
+ *    den rätt betyder att hitta och reversera EN specifik tidigare
+ *    försäljning, inget den här vyn kan gissa sig till säkert).
+ */
+function ZettleLedgerCard({ item, accounts, onBookSale, onMarkHandled, exiting }) {
+  const [expanded, setExpanded] = useState(false);
+  const initialVat = guessVatRate(item);
+  const [vatRate, setVatRate] = useState(initialVat);
+  const [saleAccount, setSaleAccount] = useState(REVENUE_ACCOUNTS[initialVat]);
+
+  const category = item.is_refund ? 'refund' : 'sale';
+  const paymentLabel = ZETTLE_PAYMENT_LABEL[item.payment_type] || item.payment_type || 'Okänd betalmetod';
+
+  const view = {
+    sale: {
+      icon: CreditCard, tone: 'amber',
+      note: 'ingen kopplad faktura — all Zettle-försäljning är kontantförsäljning',
+      title: `Bokför försäljning ${formatSEK(item.amount)}${item.purchase_number ? ` — kvitto ${item.purchase_number}` : ''}`,
+      badge: { label: 'Kräver val', tone: 'amber' },
+    },
+    refund: {
+      icon: RotateCcw, tone: 'neutral',
+      note: 'återbetalning — hanteras manuellt',
+      title: `Återbetalning ${formatSEK(item.amount)}${item.purchase_number ? ` — kvitto ${item.purchase_number}` : ''}`,
+      badge: { label: 'Manuell', tone: 'neutral' },
+    },
+  }[category];
+
+  return (
+    <ReviewRowShell
+      icon={view.icon}
+      tone={view.tone}
+      meta={[paymentLabel, view.note, agoLabel(item.created_at_zettle)]}
+      title={view.title}
+      badge={view.badge}
+      exiting={exiting}
+      extra={category === 'sale' && (
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginTop: '12px' }}>
+          <select value={vatRate} onChange={e => { const r = Number(e.target.value); setVatRate(r); setSaleAccount(REVENUE_ACCOUNTS[r]); }} style={{ height: '32px', padding: '0 10px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '12.5px', background: 'var(--bg-card)', color: 'var(--text-main)', fontFamily: 'inherit' }}>
+            {VAT_RATES.map(r => <option key={r} value={r}>{r}% moms</option>)}
+          </select>
+          <div style={{ minWidth: '220px', flex: '1 1 220px' }}>
+            <AccountSearch value={saleAccount} onChange={setSaleAccount} accounts={accounts} placeholder="Intäktskonto..." />
+          </div>
+        </div>
+      )}
+      actions={
+        <>
+          {category === 'sale' && (
+            <button
+              disabled={!saleAccount}
+              onClick={() => onBookSale(item, saleAccount, vatRate)}
+              style={{ ...rowButtonStyle(saleAccount ? 'primary' : 'secondary'), opacity: saleAccount ? 1 : 0.6, cursor: saleAccount ? 'pointer' : 'not-allowed' }}
+            >
+              <Check size={14} /> Bokför försäljning
+            </button>
+          )}
+          {category === 'refund' && (
+            <button onClick={() => onMarkHandled(item)} style={rowButtonStyle('secondary')}>
+              Markera som hanterad
+            </button>
+          )}
+          <button onClick={() => setExpanded(e => !e)} style={{ ...rowButtonStyle('ghost'), marginLeft: 'auto' }}>
+            <Info size={14} /> Visa detaljer {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+          </button>
+        </>
+      }
+    >
+      {expanded && (
+        <div className="form-row-2" style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border-light)', display: 'grid', gap: '10px', fontSize: '13px' }}>
+          <div><span style={{ color: 'var(--text-muted)' }}>Datum:</span> {formatDate(item.created_at_zettle)}</div>
+          <div><span style={{ color: 'var(--text-muted)' }}>Belopp:</span> {formatMoney(item.amount, item.currency)}</div>
+          <div><span style={{ color: 'var(--text-muted)' }}>Moms (från Zettle):</span> {formatMoney(item.vat_amount, item.currency)}</div>
+          <div><span style={{ color: 'var(--text-muted)' }}>Betalmetod:</span> {paymentLabel}</div>
+          {item.purchase_number && <div style={{ gridColumn: '1 / -1' }}><span style={{ color: 'var(--text-muted)' }}>Zettle-kvitto:</span> #{item.purchase_number}</div>}
+        </div>
+      )}
+    </ReviewRowShell>
+  );
+}
+
+// `initialTab`: låter en genväg utifrån (Toast.jsx: "Visa i Granskning"
+// efter en lyckad Stripe/Zettle-anslutning, App.jsx: reviewInitialTab)
+// öppna direkt på rätt flik, i stället för att alltid landa på "Väntar"
+// och tvinga ett extra klick för att hitta de nyss hämtade transaktionerna.
+export default function ReviewQueue({ expenses = [], accounts = [], reviewHistory = [], onResolve, user, company, onAddVerification, demoStripeItems, demoZettleItems, initialTab = 'pending', handleGlobalAction }) {
+  const [tab, setTab] = useState(initialTab); // 'pending' | 'stripe' | 'zettle' | 'history'
   const [exitingIds, setExitingIds] = useState(new Set());
   const [showBulkConfirm, setShowBulkConfirm] = useState(false);
 
@@ -543,6 +672,77 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
     ? Promise.resolve()
     : supabase.from('stripe_ledger_events').update({ reviewed_at: new Date().toISOString() }).eq('id', item.id));
 
+  // ── Zettle-bokföringsunderlag (public.zettle_ledger_events) — samma
+  // självförsörjande mönster som Stripe-blocket ovan. Cronen (api/cron/
+  // reminders.js) loggar rader från kundens anslutna Zettle-konto, den här
+  // komponenten föreslår en kontering, användaren godkänner.
+  // `demoZettleItems` (landningssidans DemoWorkspace) matar in samma rader
+  // som en riktig Supabase-hämtning skulle ge, och stänger av både
+  // hämtningen och reviewed_at-skrivningen nedan — samma isDemo-mönster
+  // som Stripe-blocket.
+  const isZettleDemo = Array.isArray(demoZettleItems);
+  const [zettleItems, setZettleItems] = useState(isZettleDemo ? demoZettleItems : []);
+  const [zettleLoading, setZettleLoading] = useState(!isZettleDemo);
+
+  const loadZettleItems = async () => {
+    if (isZettleDemo) { setZettleLoading(false); return; }
+    if (!user?.id || !company?.id) { setZettleLoading(false); return; }
+    setZettleLoading(true);
+    const { data } = await supabase
+      .from('zettle_ledger_events')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('company_id', company.id)
+      .is('reviewed_at', null)
+      .order('created_at_zettle', { ascending: false });
+    setZettleItems(data || []);
+    setZettleLoading(false);
+  };
+
+  useEffect(() => { loadZettleItems(); }, [user?.id, company?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const visibleZettleItems = zettleItems.filter(i => !exitingIds.has(i.id));
+
+  const finishResolveZettle = (item) => {
+    setExitingIds(prev => new Set(prev).add(item.id));
+    setTimeout(() => {
+      setZettleItems(prev => prev.filter(i => i.id !== item.id));
+      setExitingIds(prev => { const next = new Set(prev); next.delete(item.id); return next; });
+    }, 220);
+  };
+
+  const markZettleReviewed = (item) => (isZettleDemo
+    ? Promise.resolve()
+    : supabase.from('zettle_ledger_events').update({ reviewed_at: new Date().toISOString() }).eq('id', item.id));
+
+  // Ingen fakturamatchning att falla tillbaka på (till skillnad från
+  // handleBookSale/Stripe) — varje Zettle-försäljning bokförs alltid som en
+  // NY intäkt: bank i debet, moms + intäktskonto i kredit.
+  const handleBookZettleSale = (item, account, vatRate) => {
+    if (!account) return;
+    const gross = Math.round(Number(item.amount) || 0);
+    const net = vatRate > 0 ? Math.round(gross / (1 + vatRate / 100)) : gross;
+    const vat = gross - net;
+    const rows = [
+      { account: '1930', debet: gross, kredit: 0 },
+      { account, debet: 0, kredit: net },
+    ];
+    if (vat > 0 && VAT_ACCOUNTS[vatRate]) rows.push({ account: VAT_ACCOUNTS[vatRate], debet: 0, kredit: vat });
+    onAddVerification?.({
+      date: (item.created_at_zettle || '').split('T')[0],
+      description: `Zettle-försäljning${item.purchase_number ? ` — kvitto ${item.purchase_number}` : ''}`,
+      source: 'zettle_ledger', sourceId: item.id,
+      rows,
+    });
+    finishResolveZettle(item);
+    markZettleReviewed(item);
+  };
+
+  const handleMarkZettleHandled = (item) => {
+    finishResolveZettle(item);
+    markZettleReviewed(item);
+  };
+
   const handleBookPlatformFee = (item) => {
     const feeAmount = Math.round(Number(item.platform_fee_amount) || 0);
     if (feeAmount <= 0) return;
@@ -606,7 +806,13 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
         tabs={{
           items: [
             { id: 'pending', label: 'Väntar', badge: pendingItems.length },
-            { id: 'stripe', label: 'Stripe', badge: visibleStripeItems.length },
+            // Kundfeedback (uppföljning): en Stripe/Zettle-flik som bara
+            // leder till "Ingen anslutning ännu" är brus för alla som inte
+            // har kopplat den tjänsten — visas bara när företaget faktiskt
+            // ÄR anslutet (eller i landningssidans demo, som simulerar en
+            // anslutning via demoStripeItems/demoZettleItems).
+            ...(company?.stripeAccountId || isDemo ? [{ id: 'stripe', label: 'Stripe', badge: visibleStripeItems.length }] : []),
+            ...(company?.zettleAccessToken || isZettleDemo ? [{ id: 'zettle', label: 'Zettle', badge: visibleZettleItems.length }] : []),
             { id: 'history', label: 'Historik' },
           ],
           activeId: tab,
@@ -674,6 +880,42 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
                   onBookPlatformFee={handleBookPlatformFee}
                   onBookSale={handleBookSale}
                   onMarkHandled={handleMarkStripeHandled}
+                  exiting={exitingIds.has(item.id)}
+                  onOpenInvoice={handleGlobalAction && (id => handleGlobalAction({ type: 'open_invoice', payload: { id } }, 'invoices'))}
+                />
+              ))}
+            </div>
+          </div>
+        )
+      )}
+
+      {tab === 'zettle' && (
+        !company?.zettleAccessToken ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '50vh', padding: '40px', textAlign: 'center' }}>
+            <div style={{ width: 96, height: 96, borderRadius: '50%', background: 'var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px' }}>
+              <CreditCard size={40} color="var(--text-muted)" strokeWidth={1.5} />
+            </div>
+            <h2 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 10px' }}>Ingen Zettle-anslutning ännu</h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '15px', margin: 0, maxWidth: '420px' }}>Anslut Zettle under Inställningar → Betalning för att få kortförsäljningen hämtad hit som bokföringsunderlag.</p>
+          </div>
+        ) : zettleLoading ? (
+          <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '14px' }}>Läser in...</div>
+        ) : visibleZettleItems.length === 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '50vh', padding: '40px', textAlign: 'center' }}>
+            <div style={{ width: 96, height: 96, borderRadius: '50%', background: 'var(--status-green-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px' }}>
+              <CheckCircle2 size={48} color="var(--status-green-text)" strokeWidth={1.5} />
+            </div>
+            <h2 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 10px' }}>Allt är genomgånget</h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '15px', margin: 0 }}>Ingen Zettle-försäljning väntar på granskning just nu. Nya rader hämtas en gång om dagen.</p>
+          </div>
+        ) : (
+          <div className="rq-list">
+            <div className="rq-card">
+              {visibleZettleItems.map(item => (
+                <ZettleLedgerCard
+                  key={item.id} item={item} accounts={accounts}
+                  onBookSale={handleBookZettleSale}
+                  onMarkHandled={handleMarkZettleHandled}
                   exiting={exitingIds.has(item.id)}
                 />
               ))}

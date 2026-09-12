@@ -29,12 +29,14 @@ import {
   AlertTriangle,
   ShieldCheck,
   Lock,
+  Package,
 } from 'lucide-react';
 import { DEFAULT_ACCOUNTS, VAT_ACCOUNTS, REVENUE_ACCOUNTS } from './components/AccountsData';
 import { getNextInvoiceNumber } from './utils/invoiceNumbering';
 import { createStripeCheckoutSession, createStripeSubscriptionCheckout, cancelStripeSubscription } from './stripeApi';
 import { createEmailDomain, getEmailDomainStatus } from './emailApi';
 import { getDebet, getKredit } from './utils/verificationAmounts';
+import { grossInvoiceAmount } from './utils/reportCalculations';
 import { planFromId } from './utils/plans';
 import { BRAND } from './utils/brandColors';
 import { COMPANY_WRITABLE_FIELDS } from './utils/companyFields.js';
@@ -352,6 +354,7 @@ function PasswordRecoveryScreen({ onSubmit, onCancel }) {
 const Dashboard = lazy(() => import('./components/Dashboard'));
 const Invoices = lazy(() => import('./components/Invoices'));
 const Quotes = lazy(() => import('./components/Quotes'));
+const Articles = lazy(() => import('./components/Articles'));
 const Expenses = lazy(() => import('./components/Expenses'));
 const SupplierInvoices = lazy(() => import('./components/SupplierInvoices'));
 const Contacts = lazy(() => import('./components/Contacts'));
@@ -654,7 +657,14 @@ function createEmptyCompanyData(companyInfo) {
       ufStartedAt: companyInfo.ufStartedAt || '',
       vatNr: '',
       address: '',
-      email: '',
+      // Kundönskemål: "din e-post ska redan stå där" — förifylld från
+      // kontots EGEN e-post vid registreringen (första företaget skapas
+      // alltid direkt efter signUp(), se anropsstället nedan) så
+      // användaren slipper skriva in samma adress två gånger. Fortfarande
+      // fritt redigerbart (t.ex. en egen faktura-e-post istället för
+      // kontoinloggningen) — bara förvalet som ändras, inget nytt
+      // obligatoriskt fält.
+      email: companyInfo.email || '',
       phone: '',
       logoUrl: companyInfo.logoUrl || '',
       fSkatt: 'Innehar F-skattsedel',
@@ -678,6 +688,15 @@ function createEmptyCompanyData(companyInfo) {
       // en egen post i COMPANY_WRITABLE_FIELDS/set_company_field-vitlistan
       // — 'company' är redan skrivbart.
       bankImportProfiles: {},
+      // Flera bankkonton (kundönskemål: "byta bank, namnge kontot, importera
+      // dit, se vilket konto som hör till vilken bokföring"). Tomt = det
+      // gamla enkontsläget: Bank.jsx syntetiserar då själv ETT konto i
+      // minnet (id 'default', kopplat mot 1930) utan att skriva något här,
+      // så en användare som aldrig rör funktionen ser ingen skillnad alls.
+      // Arrayen blir bara verklig (persisteras) första gången ett andra
+      // konto läggs till — se handleSaveBankAccount i Bank.jsx.
+      // Varje post: { id, name, ledgerAccount, isDefault? }.
+      bankAccounts: [],
       defaultVat: 25,
       fiscalYear: `${new Date().getFullYear()}-01-01`,
       vatPeriod: 'quarterly',
@@ -708,10 +727,10 @@ function createEmptyCompanyData(companyInfo) {
     quotes: [],
     expenses: [],
     contacts: [],
-    // Sparade fakturarader (artikelnr/benämning/pris/momssats) att återanvända
-    // i stället för att skriva om samma rad för hand varje gång — se
-    // Invoices.jsx: ArticleRegisterModal + artikelvalet i radernas
-    // avancerade fält.
+    // Sparade produkter/tjänster (artikelnr/benämning/pris/momssats) att
+    // återanvända i stället för att skriva om samma rad för hand varje gång
+    // — egen sida (Articles.jsx), valbara både på fakturor (Invoices.jsx)
+    // och offerter (Quotes.jsx).
     articles: [],
     projects: [],
     timeEntries: [],
@@ -901,6 +920,10 @@ const tabAliases = {
   // 'quotes' måste peka på sig själv för att navmenyn nedan ska kunna
   // länka dit istället för att fastna på fakturasidan.
   quotes:           'quotes',
+  // Produktregistret (profilmenyns "Artikel") — egen sida,
+  // samma company-data-fält (`articles`) som redan användes av det gamla
+  // "Artiklar"-textlänken i Invoices.jsx, se Articles.jsx.
+  articles:         'articles',
   expenses:         'expenses',
   projects:         'projects',
   review:           'review',
@@ -951,7 +974,14 @@ const ALLOWED_SUBSCRIPTION_STATUSES = ['trialing', 'active', 'past_due'];
 // någonstans idag — RLS på user_data/subscriptions är ren ägarskaps-
 // baserad, inte prenumerations-baserad), så en ren e-post-allowlist här
 // räcker, ingen serverändring behövs.
-const FREE_ACCOUNT_EMAILS = ['alwakiabdullah1@gmail.com'];
+// Kundrapport ("det är payment men gör inte så jag måste betala"): det nya
+// dedikerade admin-kontot (abbealwaki08@gmail.com, api/admin/index.js:s
+// ADMIN_EMAILS) är ett BART Supabase-auth-konto utan någon egen
+// bokföring/prenumeration bakom sig — första gången det loggar in i den
+// HÄR appen (t.ex. via lösenordsåterställningslänkens redirect hit)
+// träffade det annars samma betalspärr som en helt ny, obetald kund.
+// Samma undantag som det ordinarie kontot nedan redan har.
+const FREE_ACCOUNT_EMAILS = ['alwakiabdullah1@gmail.com', 'abbealwaki08@gmail.com'];
 // Skiftlägesokänslig jämförelse — Supabase normaliserar INTE nödvändigtvis
 // e-postens skiftläge till gemener, den sparas som inskriven vid signup.
 const isFreeAccountEmail = (email) => FREE_ACCOUNT_EMAILS.includes(String(email || '').trim().toLowerCase());
@@ -1232,6 +1262,12 @@ function App() {
   const verificationsSectionAliases = { verifications: 'verifications', accounts: 'accounts' };
   const [verificationsInitialTab, setVerificationsInitialTab] = useState('verifications');
 
+  // Samma "vilken flik inuti sidan"-mönster som verificationsInitialTab
+  // ovan — vilken Granskning-flik (ReviewQueue.jsx) "Visa i Granskning"-
+  // genvägen i Toast.jsx ska öppna på, satt av stripe_connect/zettle_connect-
+  // useEffects nedan när en anslutning just lyckades.
+  const [reviewInitialTab, setReviewInitialTab] = useState('pending');
+
   // Kundfeedback (två omgångar): "Rapportera fel" öppnade först bara en
   // mailto:-länk — gjorde ingenting alls utan en registrerad mejlklient
   // (vanligast för webbmejl-användare). Kundönskemål efteråt: en riktig,
@@ -1493,8 +1529,21 @@ function App() {
     }
   };
 
+  // Bugkritiskt (kundrapport: "det står företaget är borttaget men finns
+  // fortfarande" — efter Ta bort-knappen i Dina företag). Funktionen
+  // signalerade tidigare ALDRIG misslyckande till den som anropade den —
+  // varje fel (RLS, nätverk, vad som helst utöver de två specialfallen
+  // nedan) fångades här, loggades bara med console.error, och funktionen
+  // returnerade/resolvade som vanligt. En anropare som `await
+  // saveUserDataToSupabase(...)` hade alltså INGEN möjlighet att veta att
+  // skrivningen faktiskt misslyckats — precis det handleDeleteCompany
+  // (nedan) behöver kunna skilja på för att inte visa en falsk "borttaget"-
+  // bekräftelse när ändringen aldrig nådde databasen (och därför kom
+  // tillbaka vid nästa inloggning/synk). Returnerar nu true/false — rent
+  // additivt, de ~20 andra anropsställena som redan ignorerar returvärdet
+  // fortsätter fungera precis som förut.
   const saveUserDataToSupabase = async (stateData, extras = {}) => {
-    if (!user || !supabaseEnabled) return;
+    if (!user || !supabaseEnabled) return false;
 
     const payload = {
       user_id: user.id,
@@ -1509,7 +1558,7 @@ function App() {
     if (error) {
       if (isSupabaseUnavailableError(error)) {
         setSupabaseEnabled(false);
-        return;
+        return false;
       }
 
       const missingColumn = String(error.message || '').toLowerCase().includes('column');
@@ -1518,13 +1567,17 @@ function App() {
           user_id: user.id,
           state: stateData,
         }, { onConflict: 'user_id' });
-        if (fallback.error && isSupabaseUnavailableError(fallback.error)) {
-          setSupabaseEnabled(false);
+        if (fallback.error) {
+          if (isSupabaseUnavailableError(fallback.error)) setSupabaseEnabled(false);
+          console.error('Supabase save error (fallback):', fallback.error);
+          return false;
         }
-      } else {
-        console.error('Supabase save error:', error);
+        return true;
       }
+      console.error('Supabase save error:', error);
+      return false;
     }
+    return true;
   };
 
   // Auth effect
@@ -1876,6 +1929,10 @@ function App() {
           isUf: Boolean(metadata.uf),
           ufSchool: metadata.uf_school || '',
           ufStartedAt: metadata.uf_started_at || '',
+          // Kundönskemål: e-posten som redan finns (kontots inloggnings-
+          // adress) ska stå förifylld på företaget direkt, inte krävas
+          // inskriven en gång till i Inställningar.
+          email: authUser.email || '',
         });
         const initialStore = {
           activeCompanyId: newData.company.id,
@@ -1994,16 +2051,21 @@ function App() {
     if (!status) return;
 
     const messages = {
-      connected: 'Stripe är nu anslutet till Bokix.',
+      connected: 'Stripe är nu anslutet till Bokix. Nya betalningar, utbetalningar och avgifter hämtas hit en gång om dagen.',
       cancelled: 'Anslutningen avbröts, du kan försöka igen när du vill.',
       error: 'Något gick fel vid Stripe-anslutningen. Försök igen, eller kontakta support om felet kvarstår.',
       not_configured: 'Stripe-anslutning är inte konfigurerad ännu. Kontakta support.',
     };
     const variants = { connected: 'success', cancelled: 'info', error: 'error', not_configured: 'info' };
     const debugDetail = params.get('debug'); // temporärt diagnos-fält, se api/stripe/callback.js
+    // Kundönskemål: en lyckad anslutning ska visa VÄGEN till transaktionerna
+    // direkt, inte bara att den lyckades — Granskning (ReviewQueue.jsx) är
+    // där Stripe-raderna faktiskt dyker upp och bokförs.
+    if (status === 'connected') setReviewInitialTab('stripe');
     setToast({
       message: (messages[status] || messages.error) + (debugDetail ? ` (${debugDetail})` : ''),
       variant: variants[status] || 'error',
+      action: status === 'connected' ? { label: 'Visa i Granskning', onClick: () => handleNavTabChange('review') } : undefined,
     });
 
     params.delete('stripe_connect');
@@ -2022,15 +2084,18 @@ function App() {
     if (!status) return;
 
     const messages = {
-      connected: 'Zettle är nu anslutet till Bokix.',
+      connected: 'Zettle är nu anslutet till Bokix. Kortförsäljningen hämtas hit en gång om dagen.',
       cancelled: 'Anslutningen avbröts, du kan försöka igen när du vill.',
       error: 'Något gick fel vid Zettle-anslutningen. Försök igen, eller kontakta support om felet kvarstår.',
     };
     const variants = { connected: 'success', cancelled: 'info', error: 'error' };
     const debugDetail = params.get('debug'); // temporärt diagnos-fält, se api/zettle/callback.js
+    // Se samma resonemang vid stripe_connect-useEffect ovan.
+    if (status === 'connected') setReviewInitialTab('zettle');
     setToast({
       message: (messages[status] || messages.error) + (debugDetail ? ` (${debugDetail})` : ''),
       variant: variants[status] || 'error',
+      action: status === 'connected' ? { label: 'Visa i Granskning', onClick: () => handleNavTabChange('review') } : undefined,
     });
 
     params.delete('zettle_connect');
@@ -2250,13 +2315,42 @@ function App() {
   // blockerar inte själva borttagningen om avslutet skulle misslyckas
   // (företaget ska gå att bli av med även om Stripe strular just då).
   const handleDeleteCompany = async (companyId) => {
+    // Bugkritiskt (kundrapport: "jag kan inte ta bort NÅGOT företag" —
+    // trots 2+ företag på kontot, inte bara det redan kända fallet med ett
+    // enda kvarvarande). Hela funktionens kropp saknade tidigare ett eget
+    // try/catch: om NÅGOT steg kastade ett oväntat fel (t.ex. ett
+    // Supabase-/nätverksfel som inte redan fångas av de inre try/catch-
+    // blocken) sågs det aldrig av användaren — bara ett tyst "Uncaught (in
+    // promise)" i webbläsarkonsolen, medan Settings.jsx:s egen "tar bort…"-
+    // snurra på knappen (se companyList-radens onClick) bara tystnade och
+    // gick tillbaka till en vanlig papperskorg, utan förklaring. Ett riktigt
+    // felmeddelande nu i stället för tystnad — oavsett VAD som faktiskt gick
+    // fel, syns det nu, i stället för att bara "inte funka" utan spår.
+    try {
     const remainingIds = Object.keys(data.companies).filter(id => id !== companyId);
     if (remainingIds.length === 0) {
       setToast({ message: 'Du måste ha minst ett företag kvar på kontot.', variant: 'error' });
       return;
     }
     const target = data.companies[companyId]?.company;
-    if (target?.requiresOwnPayment) {
+    // Bugfix (kundrapport: "ta bort företag funkar inte" — knappen kändes
+    // dödgrävd/långsam): requiresOwnPayment är sant redan när ett tillagt
+    // företag SKAPAS (handleCreateNewCompany), inte först när Stripe-
+    // redirecten faktiskt slutförts — ett företag man aldrig hann betala
+    // för (t.ex. avbröt/stängde Checkout-fliken, precis det här
+    // teströjnings-flödet är till för) har alltså INGEN rad i subscriptions
+    // att avsluta. cancelStripeSubscription anropade ändå alltid Stripe,
+    // fick tillbaka ett 404 ("Ingen prenumeration hittades") — och 404
+    // står i requestStripeApi:s RETRYABLE_STATUSES (tänkt för momentana
+    // infrastrukturglapp, inte "finns inte"), så anropet försökte om SIG
+    // TRE gånger med upp till ~2,4 sekunders fördröjning innan det gav upp
+    // och föll tyst till catch-grenen. Raden såg då ut att hänga sig i
+    // flera sekunder innan den äntligen försvann — kändes trasig även fast
+    // borttagningen till slut gick igenom. subscriptionsMap (redan hämtad,
+    // samma källa som isActiveCompanyPaid använder) vet REDAN om det finns
+    // en riktig prenumeration — inget att fråga Stripe om i onödan när det
+    // inte gör det.
+    if (target?.requiresOwnPayment && subscriptionsMap[companyId]?.status) {
       try {
         await cancelStripeSubscription(companyId);
       } catch (err) {
@@ -2285,12 +2379,40 @@ function App() {
     const nextActiveId = companyId === data.activeCompanyId ? remainingIds[0] : data.activeCompanyId;
     const nextState = { ...data, activeCompanyId: nextActiveId, companies: nextCompanies };
 
+    // Bugkritiskt (kundrapport: "det står företaget är bort men finns
+    // fortfarande"): ordningen var tidigare optimistisk UTAN återställning
+    // — setData(nextState) + en "borttaget"-bekräftelse gick ut direkt,
+    // INNAN (och oavsett om) saveUserDataToSupabase faktiskt lyckades. Den
+    // funktionen svalde tidigare varje databasfel tyst (se dess egen
+    // kommentar, nu åtgärdad att returnera true/false) — så appen påstod
+    // sig ha tagit bort företaget även när skrivningen aldrig nådde
+    // databasen, och nästa inloggning/synk hämtade tillbaka det oförändrat.
+    // Sparningen avvaktas nu FÖRST: lyckas den inte, rullas det lokala
+    // tillståndet tillbaka och ett äkta felmeddelande visas i stället för
+    // en falsk bekräftelse.
     setData(nextState);
+    const saved = await saveUserDataToSupabase(nextState);
+    if (!saved) {
+      setData(data);
+      setToast({ message: `Kunde inte ta bort ${target?.name || 'företaget'} — ändringen sparades inte. Försök igen om en stund, eller kontakta support@bokix.se om det upprepas.`, variant: 'error' });
+      return;
+    }
     if (nextActiveId !== data.activeCompanyId) {
       setActiveTab('dashboard');
       if (typeof window !== 'undefined') window.location.hash = 'dashboard';
     }
-    await saveUserDataToSupabase(nextState);
+    // Kundrapport ("jag kan inte ta bort något företag"): raden försvann
+    // tidigare tyst ur listan utan något som helst kvitto på att det
+    // faktiskt gick igenom — särskilt otydligt när man tar bort ett
+    // företag man INTE just då står på (ingen sidnavigering markerar då
+    // att något hände alls). En riktig bekräftelse nu, samma Toast som
+    // resten av appen redan använder för lyckade åtgärder — och den visas
+    // nu bara EFTER att sparningen ovan faktiskt bekräftats.
+    setToast({ message: `${target?.name || 'Företaget'} borttaget.`, variant: 'success' });
+    } catch (err) {
+      console.error('Kunde inte ta bort företaget:', err);
+      setToast({ message: `Kunde inte ta bort företaget (${err?.message || 'okänt fel'}). Försök igen om en stund, eller kontakta support@bokix.se om det upprepas.`, variant: 'error' });
+    }
   };
 
   // "Lägg till företag" (profilmenyn) — öppnar bara den lätta modalen
@@ -2398,10 +2520,10 @@ function App() {
   // Räkenskapsår/momsperiod/kontoplan sätts inte i formuläret längre —
   // createEmptyCompanyData:s egna förval duger, ändringsbart i
   // Inställningar sen.
-  const handleCreateNewCompany = async ({ companyName, orgNr, address }) => {
+  const handleCreateNewCompany = async ({ companyName, orgNr, address, email }) => {
     setNewCompanyModalSubmitting(true);
     try {
-      const newCompanyData = createEmptyCompanyData({ name: companyName, orgNr });
+      const newCompanyData = createEmptyCompanyData({ name: companyName, orgNr, email: email || user?.email || '' });
       newCompanyData.company.requiresOwnPayment = true;
       if (address) newCompanyData.company.address = address;
       const companyId = newCompanyData.company.id;
@@ -3001,16 +3123,29 @@ function App() {
     return updatedInvoice;
   };
 
-  const invoiceGross = (inv) => inv.rows.reduce((sum, r) => {
-    const lineNet = r.qty * r.unitPrice;
-    return sum + lineNet + lineNet * (r.vatRate / 100);
-  }, 0);
+  // Bugfix (kundrapport: "går inte att markera Obetald/Ej bokförd som
+  // betald"): den här var en EGEN, oskyddad kopia av samma formel som
+  // Invoices.jsx redan importerar via grossOf (utils/reportCalculations.js:
+  // grossInvoiceAmount) — `inv.rows.reduce(...)` utan `|| []`/`|| inv.amount`-
+  // fallbacken. Vilken faktura som helst utan ifyllda rader (t.ex. en som
+  // bara har ett platt `amount`-fält, samma legitima fall grossOf redan
+  // räknar med på visningssidan) fick den här att kasta ett fel inne i
+  // klickhanteraren — status bytte då aldrig till "Betald", helt utan
+  // felmeddelande för användaren. Samma delade, redan defensiva funktion nu
+  // i stället för en andra, glömd kopia som kunde glida isär.
+  const invoiceGross = grossInvoiceAmount;
 
   // Registrera betalning — stödjer delbetalning. Beloppet som faktiskt
   // betalas denna gång bokförs för sig (1930/1510), och fakturan markeras
   // som fullt betald först när det ackumulerade betalda beloppet når hela
   // fakturabeloppet. Kan aldrig ta emot mer än vad som återstår.
-  const handleRegisterInvoicePayment = (invoiceId, amount, date) => {
+  // `bankLedgerAccount` (valfri, default 1930): vilket bankkonto pengarna
+  // faktiskt landade på. Bara Bank.jsx:s matchning mot en importerad
+  // transaktion känner till det (se handleConfirmInvoiceMatch där) — alla
+  // andra anropsställen (snabbknappen i fakturalistan, Stripe-webhooken)
+  // fortsätter oförändrat mot 1930 genom att helt enkelt inte skicka in
+  // parametern, så det här är en additiv ändring, ingen omskrivning.
+  const handleRegisterInvoicePayment = (invoiceId, amount, date, bankLedgerAccount = '1930') => {
     const inv = invoices.find(i => i.id === invoiceId);
     if (!inv || !amount || amount <= 0) return;
 
@@ -3038,7 +3173,7 @@ function App() {
       source: 'invoice_payment',
       sourceId: invoiceId,
       rows: [
-        { account: '1930', debet: Math.round(paymentAmount), kredit: 0 },
+        { account: bankLedgerAccount, debet: Math.round(paymentAmount), kredit: 0 },
         { account: '1510', debet: 0, kredit: Math.round(paymentAmount) },
       ],
     });
@@ -3187,7 +3322,10 @@ function App() {
   // istället bankradens EGNA datum (dagen pengarna faktiskt lämnade
   // kontot) — annars skulle en bankmatchning bokföra betalningen på fel
   // dag bara för att man råkar importera/bekräfta matchningen senare.
-  const handleMarkSupplierInvoicePaid = (expenseId, paymentMethod = 'bank', date = new Date().toISOString().split('T')[0]) => {
+  // `bankLedgerAccount`: samma resonemang som handleRegisterInvoicePayment
+  // ovan — valfri, default 1930, bara Bank.jsx:s matchning skickar in ett
+  // annat konto.
+  const handleMarkSupplierInvoicePaid = (expenseId, paymentMethod = 'bank', date = new Date().toISOString().split('T')[0], bankLedgerAccount = '1930') => {
     const inv = expenses.find(e => e.id === expenseId);
     if (!inv) return;
     setExpenses(prev => prev.map(e => e.id === expenseId ? { ...e, status: 'paid', paidDate: date, paymentMethod } : e));
@@ -3199,7 +3337,7 @@ function App() {
       sourceId: inv.id,
       rows: [
         { account: '2440', debet: Math.round(inv.amount), kredit: 0 },
-        { account: '1930', debet: 0, kredit: Math.round(inv.amount) },
+        { account: bankLedgerAccount, debet: 0, kredit: Math.round(inv.amount) },
       ],
     });
   };
@@ -3540,7 +3678,7 @@ function App() {
   const mobileNavItems = [
     { id: 'dashboard', label: 'Hem',      icon: LayoutDashboard },
     { id: 'invoices',  label: 'Fakturor', icon: FileText },
-    { id: 'expenses',  label: 'Utgifter', icon: Receipt },
+    { id: 'expenses',  label: 'Kvitton', icon: Receipt },
     { id: 'contacts',  label: 'Kunder',   icon: Users },
   ];
   const mobileSheetItems = [
@@ -3736,8 +3874,8 @@ function App() {
             onSaveReceiptDetails={handleSaveReceiptDetails}
             onDeleteExpense={handleDeleteExpense}
             onReverseExpense={handleReverseExpense}
-            pageTitle="Utgifter"
-            pageSubtitle="Alla registrerade utgifter"
+            pageTitle="Kvitton"
+            pageSubtitle="Alla uppladdade kvitton"
           />
         );
       case 'supplier_invoices':
@@ -3760,7 +3898,9 @@ function App() {
           />
         );
       case 'quotes':
-        return <Quotes key={company?.id || data.activeCompanyId} quotes={quotes} setQuotes={setQuotes} onConvert={handleConvertQuoteToInvoice} contacts={contacts} projects={projects} company={company} user={user} globalAction={globalAction} clearGlobalAction={() => setGlobalAction(null)} handleGlobalAction={handleGlobalAction} />;
+        return <Quotes key={company?.id || data.activeCompanyId} quotes={quotes} setQuotes={setQuotes} onConvert={handleConvertQuoteToInvoice} contacts={contacts} projects={projects} company={company} user={user} globalAction={globalAction} clearGlobalAction={() => setGlobalAction(null)} handleGlobalAction={handleGlobalAction} articles={articles} setArticles={setArticles} onNavigate={handleNavTabChange} />;
+      case 'articles':
+        return <Articles key={company?.id || data.activeCompanyId} articles={articles} setArticles={setArticles} accounts={accounts} />;
       case 'projects':
         return (
           <Projects
@@ -3818,6 +3958,8 @@ function App() {
             user={user}
             company={company}
             onAddVerification={handleAddVerification}
+            initialTab={reviewInitialTab}
+            handleGlobalAction={handleGlobalAction}
           />
         );
 
@@ -3846,10 +3988,12 @@ function App() {
           <Bank
             bankTransactions={bankTransactions}
             bankImportProfiles={company?.bankImportProfiles || {}}
+            bankAccounts={company?.bankAccounts || []}
             invoices={invoices}
             expenses={expenses}
             contacts={contacts}
             accounts={accounts}
+            setAccounts={setAccounts}
             verifications={verifications}
             vatPeriods={vatPeriods}
             onSetBankTransactions={setBankTransactions}
@@ -4010,7 +4154,7 @@ function App() {
                 { id: 'contacts', label: 'Kunder' },
                 { id: 'quotes', label: 'Offerter' },
                 { id: 'invoices', label: 'Fakturering' },
-                { id: 'expenses', label: 'Utgifter' },
+                { id: 'expenses', label: 'Kvitton' },
                 { id: 'projects', label: 'Projekt' },
               ],
             },
@@ -4208,6 +4352,10 @@ function App() {
                       topbaren (båda layouterna) och Inställningar →
                       Utseende. Lägg inte tillbaka det här utan att fråga. */}
                   <button onClick={() => { handleNavTabChange('accounts'); setIsProfileMenuOpen(false); }}><FolderTree size={14} /> Kontoplaner</button>
+                  {/* Produkt-/artikelregistret (Articles.jsx) — kundönskemål:
+                      en egen, hittbar sida för produkter/tjänster, valbara
+                      direkt på både fakturor och offerter. */}
+                  <button onClick={() => { handleNavTabChange('articles'); setIsProfileMenuOpen(false); }}><Package size={14} /> Artikel</button>
                   {/* Ingen egen "viktiga datum"-sida finns — Skatt & bokslut är
                       redan där deadlines (momsdeklaration, bokslut) visas, så
                       det är dit den rimligen ska peka istället för att inte
@@ -4328,6 +4476,10 @@ function App() {
                       dolda — samma två rader fanns dubblerat i mobilkopian av
                       den här menyn, borttagna där också. */}
                   <button onClick={() => { handleNavTabChange('accounts'); setIsProfileMenuOpen(false); }}><FolderTree size={14} /> Kontoplaner</button>
+                  {/* Produkt-/artikelregistret (Articles.jsx) — kundönskemål:
+                      en egen, hittbar sida för produkter/tjänster, valbara
+                      direkt på både fakturor och offerter. */}
+                  <button onClick={() => { handleNavTabChange('articles'); setIsProfileMenuOpen(false); }}><Package size={14} /> Artikel</button>
                   <button onClick={() => { handleNavTabChange('taxes'); setIsProfileMenuOpen(false); }}><FileCheck size={14} /> Viktiga datum</button>
                   <button onClick={() => { handleNavTabChange('taxes_yearend'); setIsProfileMenuOpen(false); }}><Shield size={14} /> Bokslut & årsredovisning</button>
                   <button onClick={() => { handleNavTabChange('taxes_vat'); setIsProfileMenuOpen(false); }}><Calculator size={14} /> Momsredovisning</button>
@@ -4462,6 +4614,7 @@ function App() {
         onClose={() => setNewCompanyModalOpen(false)}
         onSubmit={handleCreateNewCompany}
         submitting={newCompanyModalSubmitting}
+        defaultEmail={user?.email || ''}
       />
 
       {/* ── Help Drawer ── */}
@@ -4474,7 +4627,7 @@ function App() {
 
       {/* ── Toast — ersätter blockerande alert() för t.ex. "Stripe är nu
           ansluten", se stripe_connect-useEffect ── */}
-      <Toast message={toast?.message} variant={toast?.variant} onClose={() => setToast(null)} />
+      <Toast message={toast?.message} variant={toast?.variant} action={toast?.action} onClose={() => setToast(null)} />
 
       {/* ── Confirm/prompt-dialog — ersätter native window.confirm()/
           window.prompt() överallt i appen (Quotes/Invoices/Expenses/
@@ -4494,22 +4647,31 @@ function App() {
                 <X size={18} />
               </button>
             </div>
-            <div className="p-6">
-              <p className="text-slate-600 mb-6">Är du säker på att du vill logga ut?</p>
-              <div className="flex justify-end gap-3">
-                <button className="btn btn-secondary" onClick={() => setShowLogoutConfirm(false)}>
-                  Avbryt
-                </button>
-                <button className="btn btn-danger" style={{ backgroundColor: '#ef4444', color: 'white' }} onClick={async () => {
-                  setShowLogoutConfirm(false);
-                  await supabase.auth.signOut();
-                  clearLocalData();
-                  setIsLoggedIn(false);
-                  setShowOnboarding(false);
-                }}>
-                  Logga ut
-                </button>
-              </div>
+            {/* Bugkritiskt (kundrapporterad): den här dialogen byggdes med
+                Tailwind-klasser (text-slate-600, p-6, flex justify-end
+                gap-3) som varken är garanterat laddade på den här sidan
+                (Tailwind v4:s Vite-plugin genererar bara utilities för
+                klasser den ser i filer som faktiskt importerar Tailwinds
+                CSS-ingång — här bara ReportUI/tremor-graferna) eller
+                tema-medvetna (text-slate-600 är en fast grå ton, ingen
+                mörkt-läge-variant) — mörk text på mörk bakgrund i mörkt
+                läge. Samma .modal-content/.modal-footer + CSS-variabler
+                som ConfirmDialogHost (shared/ConfirmDialog.jsx) redan
+                använder korrekt, i stället. */}
+            <p style={{ margin: '0 0 4px', color: 'var(--text-secondary)', fontSize: '14px', lineHeight: 1.5 }}>Är du säker på att du vill logga ut?</p>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setShowLogoutConfirm(false)}>
+                Avbryt
+              </button>
+              <button className="btn btn-danger" style={{ backgroundColor: '#ef4444', color: 'white' }} onClick={async () => {
+                setShowLogoutConfirm(false);
+                await supabase.auth.signOut();
+                clearLocalData();
+                setIsLoggedIn(false);
+                setShowOnboarding(false);
+              }}>
+                Logga ut
+              </button>
             </div>
           </div>
         </div>

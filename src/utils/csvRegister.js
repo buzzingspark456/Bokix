@@ -77,9 +77,16 @@ const SUPPLIER_COLUMNS = [
   ['bankgiro', 'Bankgiro'], ['plusgiro', 'Plusgiro'], ['accountNumber', 'Kontonummer'],
   ['iban', 'IBAN'], ['defaultAccount', 'Standardkonto'], ['notes', 'Anteckningar'],
 ];
+// Artikelnr är numera valfritt (Articles.jsx: Benämning är den riktiga
+// identiteten) — därför står Benämning FÖRE Artikelnr här, och de nya
+// fälten (Typ/Enhet/Inköpspris/EAN/ROT-RUT/Anteckningar/engelsk benämning)
+// är tillagda sist så gamla exporterade CSV-filer (bara de fem första
+// kolumnerna) fortfarande går att importera rakt av.
 const ARTICLE_COLUMNS = [
-  ['articleNumber', 'Artikelnr'], ['description', 'Benämning'], ['unitPrice', 'Pris'],
-  ['vatRate', 'Moms'], ['account', 'Konto'],
+  ['description', 'Benämning'], ['articleNumber', 'Artikelnr'], ['unitPrice', 'Pris'],
+  ['vatRate', 'Moms'], ['account', 'Konto'], ['type', 'Typ'], ['unit', 'Enhet'],
+  ['purchasePrice', 'Inköpspris'], ['ean', 'EAN/streckkod'], ['rotRut', 'ROT/RUT'],
+  ['descriptionEn', 'Benämning (engelska)'], ['notes', 'Anteckningar'],
 ];
 
 const contactColumns = (type) => (type === 'customer' ? CUSTOMER_COLUMNS : SUPPLIER_COLUMNS);
@@ -133,12 +140,20 @@ export function csvToContacts(type, text) {
 export function csvToArticles(text) {
   const objs = rowsToObjects(parseCsv(text), ARTICLE_COLUMNS);
   return objs
-    .filter(o => o.articleNumber)
+    // Benämning är den riktiga identiteten (Articles.jsx) — Artikelnr är
+    // valfritt numera, så kravet flyttades hit från articleNumber.
+    .filter(o => o.description)
     .map(o => {
       // `o.vatRate` är alltid en trimmad sträng här (se rowsToObjects) — en
       // tom cell ska falla tillbaka till 25%, inte tolkas som Number('') === 0
       // och därmed råka bli en "giltig" 0%-rad.
       const vatRate = o.vatRate !== '' && [0, 6, 12, 25].includes(Number(o.vatRate)) ? Number(o.vatRate) : 25;
-      return { ...o, unitPrice: Number(o.unitPrice) || 0, vatRate, account: o.account || '3001' };
+      const type = o.type === 'vara' ? 'vara' : 'tjanst';
+      const rotRut = ['rot', 'rut'].includes(o.rotRut) ? o.rotRut : 'none';
+      return {
+        ...o, unitPrice: Number(o.unitPrice) || 0, vatRate, account: o.account || '3001',
+        type, unit: o.unit || 'st', rotRut,
+        purchasePrice: o.purchasePrice === '' ? '' : Number(o.purchasePrice) || 0,
+      };
     });
 }

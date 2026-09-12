@@ -2,8 +2,9 @@
 import {
   Building2, CreditCard, Shield, Check, Download, Upload,
   Trash2, Mail, Laptop, Lock, KeyRound, Image as ImageIcon,
-  Palette, Landmark, Hash, Calendar, Plus, X, ZoomIn, ZoomOut, Maximize2, Bell, ExternalLink, Sun, Moon,
-  UserRound, FileText, Plug, Users, Database, Cog, ChevronRight, ArrowLeft, LayoutGrid,
+  Palette, Landmark, Hash, Calendar, X, ZoomIn, ZoomOut, Maximize2, Bell, ExternalLink, Sun, Moon,
+  UserRound, FileText, Plug, Users, Database, Cog, ChevronRight, ArrowLeft,
+  Sparkles, CheckCircle2, Camera,
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { sendInvoiceEmail } from '../emailApi';
@@ -118,6 +119,20 @@ const SETTINGS_TABS = [
   { id: 'data', label: 'Din data' },
 ];
 
+// Kundönskemål (skärmdump av en mockup): sidomenyn ska vara grupperad under
+// små rubriker (KONTO/FÖRETAG/SYSTEM i mockupen) i stället för en enda platt
+// lista — samma åtta flikar som SETTINGS_TABS ovan, bara sorterade i tre
+// meningsfulla högar: vem jag är, vad mitt företag är, och hur kontot/
+// systemet fungerar runt omkring. Ren visuell gruppering av redan
+// existerande flikar, inga nya eller omdöpta — SettingsRail nedan filtrerar
+// varje grupp mot `sections` (samma UF-synlighetsspärr som förut) och
+// hoppar bara över en grupp helt om inget i den syns.
+const SETTINGS_GROUPS = [
+  { label: 'Konto', tabIds: ['profile'] },
+  { label: 'Företag', tabIds: ['company', 'invoice', 'integrations'] },
+  { label: 'System', tabIds: ['users', 'subscription', 'appearance', 'data'] },
+];
+
 // ── Inställningarnas ingång ──────────────────────────────────────────────
 // Kundfeedback, upprepad: sidan öppnade alltid i "Min profil" och kastade
 // därmed in en som skulle till något helt annat mitt i ett formulär. Nu
@@ -181,31 +196,43 @@ function SettingsHub({ sections, onPick }) {
  * (SettingsHub) navigeringen i stället, med en väg tillbaka i sidhuvudet.
  */
 function SettingsRail({ sections, activeId, onPick }) {
+  const byId = new Map(sections.map(s => [s.id, s]));
+  // Kundönskemål: "Översikt" (länken till SettingsHub-rutnätet) borttagen
+  // härifrån — på desktop, där den här listan redan visar VARJE flik
+  // grupperad och ett klick bort, var översikten bara ett extra steg innan
+  // man ändå landade på en riktig flik. SettingsHub/activeTab===null lever
+  // kvar oförändrat under 1000px (se .settings-rail { display: none } i
+  // index.css) — DÄR finns ingen sidomeny alls, så rutnätet är fortfarande
+  // den enda navigeringen mobilen har, nåbar via "← Alla inställningar" i
+  // sidhuvudet. Standardfliken vid inloggning är numera 'profile' (se
+  // useState-förvalet), inte längre null/översikten.
   return (
     <nav className="settings-rail" aria-label="Inställningar">
-      <button
-        type="button"
-        className={`settings-rail-item${activeId ? '' : ' settings-rail-item-on'}`}
-        onClick={() => onPick(null)}
-      >
-        <span className="settings-rail-icon"><LayoutGrid size={15} /></span>
-        Översikt
-      </button>
-      <div className="settings-rail-divider" />
-      {sections.map(section => {
-        const Icon = SECTION_META[section.id]?.icon || Cog;
-        const on = activeId === section.id;
+      {SETTINGS_GROUPS.map(group => {
+        // En grupp vars enda flikar är dolda (UF-läget, ufSettingsSections)
+        // ska inte lämna kvar en tom rubrik med ingenting under sig.
+        const groupSections = group.tabIds.map(id => byId.get(id)).filter(Boolean);
+        if (groupSections.length === 0) return null;
         return (
-          <button
-            key={section.id}
-            type="button"
-            className={`settings-rail-item${on ? ' settings-rail-item-on' : ''}`}
-            aria-current={on ? 'page' : undefined}
-            onClick={() => onPick(section.id)}
-          >
-            <span className="settings-rail-icon"><Icon size={15} /></span>
-            {section.label}
-          </button>
+          <div key={group.label} className="settings-rail-group">
+            <div className="settings-rail-group-label">{group.label}</div>
+            {groupSections.map(section => {
+              const Icon = SECTION_META[section.id]?.icon || Cog;
+              const on = activeId === section.id;
+              return (
+                <button
+                  key={section.id}
+                  type="button"
+                  className={`settings-rail-item${on ? ' settings-rail-item-on' : ''}`}
+                  aria-current={on ? 'page' : undefined}
+                  onClick={() => onPick(section.id)}
+                >
+                  <span className="settings-rail-icon"><Icon size={23} /></span>
+                  {section.label}
+                </button>
+              );
+            })}
+          </div>
         );
       })}
     </nav>
@@ -215,8 +242,21 @@ function SettingsRail({ sections, activeId, onPick }) {
 // ── Delade stilar ──
 // Bugkritiskt (Sida 15): varje sektion är ett fullbrett, ljust kort — inte
 // smala vita kort med stor luft runt om.
+// Kundönskemål ("mycket space, gör mindre — ska se ut som en bra
+// settings-sida"): kortets egen padding/marginBottom trimmade ett steg
+// nedåt (16→13px, 12→9px) — samma neddragning som IdentityCard/
+// SettingsSection/FieldGroup nedan fick, så hela sidans rytm blir jämnt
+// tätare i stället för att bara ett enskilt kort krymper.
+// Uppföljning ("emerged, ingen space under eller bredvid"): kortets EGEN
+// marginBottom (9px) var en andra, DOLD marginal ovanpå den som redan
+// finns på containern runt om — SettingsSection har sin egen
+// marginBottom, .settings-split forcerar sin egen via !important, och
+// "Min profil"-rutnätet har sitt eget gap. Samma dubblerade-marginal-bugg
+// som redan fixades för AutoField/grid2 (se den kommentaren) — kortets
+// EGEN marginal borttagen helt, containern äger nu hela mellanrummet
+// ensam i stället för att två lager lägger på var sitt.
 const card = {
-  background: 'var(--bg-card)', borderRadius: '12px', padding: '16px', marginBottom: '12px', width: '100%', boxSizing: 'border-box',
+  background: 'var(--bg-card)', borderRadius: '12px', padding: '13px', width: '100%', boxSizing: 'border-box',
   border: '1px solid #ececef', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
 };
 // Sida 38, punkt 2: kolumnbredden lever i CSS-klassen .form-row-2
@@ -224,7 +264,7 @@ const card = {
 // (@media max-width 768px) kan träffa den — se samma kommentar i
 // Contacts.jsx/EmployeeForm.jsx. Varje användning nedan får
 // className="form-row-2" också.
-const grid2 = { display: 'grid', gap: '12px' };
+const grid2 = { display: 'grid', gap: '10px' };
 // Takbredden på en formulärrad. Kundfeedback ("i helskärm är det så mycket
 // space"): tvåkolumnsraderna stod fast på 672px mitt i ett kort som är
 // dubbelt så brett på en stor skärm, så halva kortet var tomt. 920px låter
@@ -261,6 +301,11 @@ const btnTile = {
   background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border)',
   borderRadius: '999px', fontWeight: 700, fontSize: '12.5px', cursor: 'pointer', fontFamily: 'inherit',
 };
+// Kundönskemål ("gör integrationssidan större"): samma knapp, bara skalad
+// upp till de nu större IntegrationTile-korten — en EGEN variant i
+// stället för att förstora btnTile självt, som även delas av helt andra,
+// oförstorade knappar (Användare-flikens "Markera alla"/"Rensa" m.fl.).
+const btnTileLg = { ...btnTile, padding: '10px 18px', fontSize: '13.5px' };
 
 const btnSecondary = { padding: '9px 18px', background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border)', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer' };
 const btnGhost = { padding: '9px 14px', background: 'transparent', color: 'var(--text-secondary)', border: 'none', fontWeight: 600, fontSize: '13px', cursor: 'pointer' };
@@ -396,9 +441,17 @@ function Badge({ tone = 'warning', children }) {
 // summan av luft — sektionsmarginal plus rubrikmarginal plus kortets egen
 // innerpadding, tre gånger per skärm. Ändra dem här, inte i en enskild
 // flik, annars driver flikarna isär igen.
+// Uppföljning (skärmdump, "mycket space — ska se ut som en bra settings-
+// sida"): 12px var fortfarande för mycket i praktiken (staplat ovanpå
+// SAMMA sorts marginal på varje kort/rubrik under den) — 8px.
+// Ännu en uppföljning ("emerged, ingen space mellan/under/över"): kortets
+// EGEN marginal togs bort helt (se card-kommentaren) så den här är nu den
+// ENDA marginalen kvar mellan två sektioner — pressad till 4px, ett
+// hårfint mellanrum bara till för att nästa rubrik inte ska sitta klistrad
+// mot kortkanten ovanför, inte längre en riktig "luft"-marginal.
 function SettingsSection({ title, description, children, actions }) {
   return (
-    <section style={{ marginBottom: '12px' }}>
+    <section style={{ marginBottom: '4px' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginBottom: '6px' }}>
         <div style={{ minWidth: 0 }}>
           <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.01em' }}>{title}</h2>
@@ -438,7 +491,7 @@ function SettingCard({ title, icon: Icon, tone = 'green', badge, description, ch
           {badge}
         </div>
       )}
-      {children != null && <div style={{ padding: '14px' }}>{children}</div>}
+      {children != null && <div style={{ padding: '12px' }}>{children}</div>}
     </div>
   );
 }
@@ -501,9 +554,9 @@ function LockedField({ label, value }) {
  * separata kort man måste leta mellan. Kundfeedback: exakt den familjen. */
 function FieldGroup({ title, hint, children, first }) {
   return (
-    <div style={{ marginTop: first ? 0 : '16px', paddingTop: first ? 0 : '14px', borderTop: first ? 'none' : '1px solid var(--border-light)' }}>
-      <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: hint ? '4px' : '9px' }}>{title}</div>
-      {hint && <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: '0 0 9px', lineHeight: 1.55 }}>{hint}</p>}
+    <div style={{ marginTop: first ? 0 : '11px', paddingTop: first ? 0 : '10px', borderTop: first ? 'none' : '1px solid var(--border-light)' }}>
+      <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: hint ? '4px' : '7px' }}>{title}</div>
+      {hint && <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: '0 0 7px', lineHeight: 1.55 }}>{hint}</p>}
       {children}
     </div>
   );
@@ -516,9 +569,9 @@ function FieldGroup({ title, hint, children, first }) {
 function IdentityCard({ monogram, logoUrl, name, meta, chips = [], action }) {
   return (
     <div style={{
-      display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap',
+      display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap',
       background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px',
-      padding: '12px 16px', marginBottom: '14px', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
+      padding: '10px 14px', marginBottom: '4px', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
       position: 'relative', overflow: 'hidden',
     }}>
       {/* Tunn färgremsa i varumärkets gröna — sidans enda dekorativa
@@ -576,13 +629,13 @@ function IntegrationTile({ logo, name, tagline, connected, statusLabel, action, 
       style={{
         background: 'var(--bg-card)',
         border: `1px solid ${open ? BRAND.green : 'var(--border)'}`,
-        borderRadius: '14px', padding: '20px 20px 18px', minWidth: 0,
-        display: 'flex', flexDirection: 'column', gap: '14px',
+        borderRadius: '16px', padding: '26px 26px 22px', minWidth: 0,
+        display: 'flex', flexDirection: 'column', gap: '18px',
         cursor: clickable ? 'pointer' : 'default',
         boxShadow: open ? '0 4px 14px rgba(11, 99, 41, 0.12)' : '0 1px 2px rgba(15, 23, 42, 0.04)',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '13px' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
         {/* Vit platta bakom varje logga: flera av dem har vit bakgrund
             inbakad och skulle annars se ut som klistermärken i mörkt läge —
             samma lösning som importguidens programloggor. */}
@@ -591,21 +644,23 @@ function IntegrationTile({ logo, name, tagline, connected, statusLabel, action, 
             (--zettle-logo-filter: brightness(0) invert(1), index.css) till
             och gjorde Zettle-loggan vit på vit platta — alltså osynlig,
             precis det kundfeedbacken pekade på. */}
-        <span style={{ width: 46, height: 46, borderRadius: '12px', background: '#fff', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, '--zettle-logo-filter': 'none' }}>
+        {/* Kundönskemål ("gör den större"): hela kortet skalat upp ett
+            tydligt steg — loggplattan 46→60px, texten och avståndet med. */}
+        <span style={{ width: 60, height: 60, borderRadius: '14px', background: '#fff', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, '--zettle-logo-filter': 'none' }}>
           {logo}
         </span>
         <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ fontWeight: 700, fontSize: '15px', color: 'var(--text-main)', letterSpacing: '-0.01em' }}>{name}</div>
-          <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginTop: '3px', lineHeight: 1.5 }}>{tagline}</div>
+          <div style={{ fontWeight: 700, fontSize: '18px', color: 'var(--text-main)', letterSpacing: '-0.01em' }}>{name}</div>
+          <div style={{ fontSize: '13.5px', color: 'var(--text-secondary)', marginTop: '5px', lineHeight: 1.55 }}>{tagline}</div>
         </div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap', marginTop: 'auto' }}>
         <span style={{
           display: 'inline-flex', alignItems: 'center', gap: '6px',
-          fontSize: '11.5px', fontWeight: 700, letterSpacing: '0.02em',
+          fontSize: '12.5px', fontWeight: 700, letterSpacing: '0.02em',
           color: connected ? BRAND.greenDark : 'var(--text-muted)',
         }}>
-          <span style={{ width: 7, height: 7, borderRadius: '50%', background: connected ? BRAND.green : 'var(--border)' }} />
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: connected ? BRAND.green : 'var(--border)' }} />
           {statusLabel || (connected ? 'Ansluten' : 'Inte ansluten')}
         </span>
         {action && <span onClick={e => e.stopPropagation()}>{action}</span>}
@@ -762,8 +817,11 @@ function AutoField({ label, type = 'text', value, onChange, hint, required, plac
   return (
     // Fältets egen bottenmarginal (kundfeedback om luften på hela
     // inställningssidan): 16px ovanpå rutnätets gap gav nästan 30px mellan
-    // två fältrader. 10px räcker för att fält inte ska klibba ihop.
-    <div style={{ marginBottom: '10px' }}>
+    // två fältrader. Uppföljning (skärmdump, "mycket space" igen): 10px
+    // ovanpå grid2:s EGET gap (samma sorts dubblerad marginal som card/
+    // SettingsSection redan fixades för) gav fortfarande ~22px mellan två
+    // staplade fältrader — 6px räcker, grid-gapet gör resten.
+    <div style={{ marginBottom: '6px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '5px' }}>
         <label style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>
           {label}{required && <span style={{ color: '#ef4444' }}> *</span>}
@@ -853,6 +911,37 @@ function ImageUploadField({ label, value, onChange, uploadPath, bucket, hint, re
       </div>
       {hint && <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '6px' }}>{hint}</div>}
       {error && <div style={{ fontSize: '12px', color: 'var(--status-red-text)', marginTop: '6px' }}>{error}</div>}
+    </div>
+  );
+}
+
+/** Profilbilden i "Min profil" — en cirkel (foto eller initialer, samma
+ * mönster som IdentityCard/sidebar-avataren redan använder på resten av
+ * appen) bredvid ImageUploadField:s vanliga knappar, i stället för att
+ * ImageUploadField (som saknar en egen bildförhandsvisning — den är till
+ * för företagslogotypen, som redan har en egen förhandsvisning bredvid) får
+ * låtsas vara ett avatarfält. Kameraikonen är ren dekoration (klick sker
+ * via de riktiga knapparna intill), samma "peka ut att bilden går att
+ * ändra"-idé som mockupen, bara utan en overlay-knapp som skulle krocka med
+ * knapparna som redan finns. */
+function AvatarUploadRow({ avatarUrl, initials, onChange, uploadPath, readOnly }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginBottom: '10px' }}>
+      <div style={{ position: 'relative', flexShrink: 0 }}>
+        {avatarUrl ? (
+          <img src={avatarUrl} alt="" style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border)' }} />
+        ) : (
+          <div style={{ width: 56, height: 56, borderRadius: '50%', background: BRAND.greenLight, color: BRAND.greenDark, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: 700 }}>
+            {initials}
+          </div>
+        )}
+        <span aria-hidden style={{ position: 'absolute', right: -2, bottom: -2, width: 20, height: 20, borderRadius: '50%', background: 'var(--bg-card)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
+          <Camera size={11} />
+        </span>
+      </div>
+      <div style={{ flex: 1, minWidth: '220px' }}>
+        <ImageUploadField label="Din profilbild" value={avatarUrl} onChange={onChange} uploadPath={uploadPath} bucket="profile" hint="JPG eller PNG, max 3 MB." readOnly={readOnly} />
+      </div>
     </div>
   );
 }
@@ -1032,7 +1121,7 @@ function ReauthCodeStep({ onVerified, onCancel }) {
 // ingenting alls). Reauthentication (ReauthCodeStep ovan) är ett ANDRA,
 // oberoende steg efter det — se filkommentaren i request-password-reset.js:s
 // handleChangePassword för varför bytet själv numera görs server-side.
-function PasswordSection({ user, readOnly = false }) {
+function PasswordSection({ user, readOnly = false, bare = false }) {
   const [currentPw, setCurrentPw] = useState('');
   const [newPw, setNewPw] = useState('');
   const [confirmPw, setConfirmPw] = useState('');
@@ -1040,6 +1129,13 @@ function PasswordSection({ user, readOnly = false }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [showReauth, setShowReauth] = useState(false);
+  // Bara relevant i `bare`-läget (kombinerat "Säkerhet"-kort, kundönskemål
+  // från en mockup): formuläret ligger dolt tills man klickar "Byt
+  // lösenord" på raden, i stället för att alltid stå uppfällt — annars
+  // hade kortet blivit lika högt som förut, bara med en extra rad ovanpå.
+  // I det ICKE-bara läget (kortet ensamt, som förut) är formuläret alltid
+  // synligt, ingen egen vy-växling.
+  const [expanded, setExpanded] = useState(false);
 
   const changedAt = user?.user_metadata?.password_changed_at;
 
@@ -1066,6 +1162,7 @@ function PasswordSection({ user, readOnly = false }) {
       await changePassword({ accessToken: session?.access_token, newPassword: newPw, reauthToken });
       setCurrentPw(''); setNewPw(''); setConfirmPw('');
       setShowReauth(false);
+      setExpanded(false);
       setSuccess(true);
       setTimeout(() => setSuccess(false), 4000);
     } catch (err) {
@@ -1076,14 +1173,10 @@ function PasswordSection({ user, readOnly = false }) {
     }
   };
 
-  return (
-    <div style={card}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '6px' }}>
-        <SectionHeading icon={Lock} tone="blue">Lösenord</SectionHeading>
-        <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
-          {changedAt ? `Senast ändrat ${relativeTimeSv(changedAt)}` : 'Inte spårat ännu — byt lösenord här för att börja spåra det'}
-        </span>
-      </div>
+  const statusText = changedAt ? `Senast ändrat ${relativeTimeSv(changedAt)}` : 'Inte spårat ännu — byt lösenord här för att börja spåra det';
+
+  const form = (
+    <>
       {showReauth ? (
         <ReauthCodeStep onVerified={handleReauthVerified} onCancel={() => setShowReauth(false)} />
       ) : (
@@ -1103,12 +1196,46 @@ function PasswordSection({ user, readOnly = false }) {
             </div>
           </div>
           {error && <div style={{ color: 'var(--status-red-text)', fontSize: '13px', marginTop: '10px' }}>{error}</div>}
-          {success && <div style={{ color: BRAND.greenDark, fontSize: '13px', marginTop: '10px', fontWeight: 600 }}>Lösenordet är uppdaterat.</div>}
-          <button type="submit" disabled={busy || !currentPw || !newPw || !confirmPw} style={{ ...btnPrimary, marginTop: '14px', opacity: (busy || !currentPw || !newPw || !confirmPw) ? 0.5 : 1, cursor: (busy || !currentPw || !newPw || !confirmPw) ? 'not-allowed' : 'pointer' }}>
-            {busy ? 'Kontrollerar...' : 'Byt lösenord'}
-          </button>
+          <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
+            <button type="submit" disabled={busy || !currentPw || !newPw || !confirmPw} style={{ ...btnPrimary, opacity: (busy || !currentPw || !newPw || !confirmPw) ? 0.5 : 1, cursor: (busy || !currentPw || !newPw || !confirmPw) ? 'not-allowed' : 'pointer' }}>
+              {busy ? 'Kontrollerar...' : 'Byt lösenord'}
+            </button>
+            {bare && <button type="button" onClick={() => { setExpanded(false); setError(''); setCurrentPw(''); setNewPw(''); setConfirmPw(''); }} style={btnGhost}>Avbryt</button>}
+          </div>
         </form>
       )}
+    </>
+  );
+
+  if (bare) {
+    // "Säkerhet"-kortets radformat (kundönskemål, mockup): etikett + en
+    // kort statusrad till vänster, en knapp till höger — samma SettingRow
+    // som resten av appen redan använder för den sortens rad. Formuläret
+    // fälls ut UNDER raden (expanded) i stället för att alltid stå synligt
+    // — annars hade "Säkerhet"-kortet bara varit lika högt som förut med
+    // en extra rad ovanpå, inte den kompakta rad-med-knapp mockupen visar.
+    // last={false} alltid: den här raden ligger i praktiken aldrig sist i
+    // "Säkerhet"-kortet — antingen fälls formuläret ut direkt under den,
+    // eller så följer Tvåfaktorsautentisering-raden näst efter. En
+    // bottenkant hör hemma i båda fallen.
+    return (
+      <>
+        <SettingRow label="Lösenord" description={success ? 'Lösenordet är uppdaterat.' : statusText} last={false}>
+          {!expanded && <button type="button" onClick={() => setExpanded(true)} style={btnSecondary}>Byt lösenord</button>}
+        </SettingRow>
+        {expanded && <div style={{ paddingBottom: '14px' }}>{form}</div>}
+      </>
+    );
+  }
+
+  return (
+    <div style={card}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '6px' }}>
+        <SectionHeading icon={Lock} tone="blue">Lösenord</SectionHeading>
+        <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>{statusText}</span>
+      </div>
+      {success && <div style={{ color: BRAND.greenDark, fontSize: '13px', marginBottom: '10px', fontWeight: 600 }}>Lösenordet är uppdaterat.</div>}
+      {form}
     </div>
   );
 }
@@ -1117,7 +1244,7 @@ function PasswordSection({ user, readOnly = false }) {
 // Riktig TOTP-registrering via Supabase Auth MFA (auth.mfa.*) — ingen
 // simulerad på/av-switch. Status läses från faktiskt registrerade,
 // verifierade faktorer på kontot.
-function TwoFactorSection() {
+function TwoFactorSection({ bare = false }) {
   const [factors, setFactors] = useState(null); // null = laddar
   const [error, setError] = useState('');
   const [enrolling, setEnrolling] = useState(null); // { factorId, qrCode, secret }
@@ -1169,6 +1296,42 @@ function TwoFactorSection() {
     loadFactors();
   };
 
+  const enrollPanel = enrolling && (
+    <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border)' }}>
+      <p style={{ fontSize: '13px', color: 'var(--text-main)', margin: '0 0 12px' }}>Skanna koden med din autentiseringsapp, ange sedan den 6-siffriga koden den visar.</p>
+      <img src={enrolling.qrCode} alt="QR-kod för tvåstegsverifiering" style={{ width: 160, height: 160, border: '1px solid var(--border)', borderRadius: '8px', display: 'block', marginBottom: '8px' }} />
+      <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px' }}>Kan du inte skanna? Ange koden manuellt: <code style={{ background: 'var(--border-light)', padding: '2px 6px', borderRadius: '4px' }}>{enrolling.secret}</code></div>
+      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+        <input value={code} onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="123456" style={{ ...inputBase, width: '120px' }} />
+        <button onClick={confirmEnroll} disabled={busy || code.length !== 6} style={{ ...btnPrimary, opacity: (busy || code.length !== 6) ? 0.5 : 1 }}>Bekräfta</button>
+        <button onClick={cancelEnroll} disabled={busy} style={btnGhost}>Avbryt</button>
+      </div>
+    </div>
+  );
+
+  if (bare) {
+    // "Säkerhet"-kortets radformat (kundönskemål, mockup): "Aktiv"-badgen
+    // (samma gröna check-badge som mockupen) i stället för på/av-texten,
+    // Aktivera/Inaktivera-knappen kvar (borttagen hade varit en riktig
+    // funktionsförlust, inte bara en stilfråga) — QR-registreringen fälls
+    // ut under raden precis som lösenordsformuläret ovan.
+    // last={true} alltid: den här är genuint sista raden i "Säkerhet"-
+    // kortet — enrollPanel har sin egen ovankant, ingen dubbel linje.
+    return (
+      <>
+        <SettingRow label="Tvåfaktorsautentisering" description="Aktiverad för extra säkerhet vid inloggning." last>
+          {factors !== null && !enrolling && (
+            verifiedFactor
+              ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}><Badge tone="positive">Aktiv</Badge><button onClick={disable} disabled={busy} style={{ ...btnGhost, padding: '4px 8px', fontSize: '12px' }}>Inaktivera</button></span>
+              : <button onClick={startEnroll} disabled={busy} style={btnSecondary}>Aktivera</button>
+          )}
+        </SettingRow>
+        {error && <div style={{ color: 'var(--status-red-text)', fontSize: '13px', marginTop: '-6px', marginBottom: '10px' }}>{error}</div>}
+        {enrolling && <div style={{ paddingBottom: '14px' }}>{enrollPanel}</div>}
+      </>
+    );
+  }
+
   return (
     <div style={card}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', flexWrap: 'wrap' }}>
@@ -1186,18 +1349,7 @@ function TwoFactorSection() {
         )}
       </div>
       {error && <div style={{ color: 'var(--status-red-text)', fontSize: '13px', marginTop: '10px' }}>{error}</div>}
-      {enrolling && (
-        <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border)' }}>
-          <p style={{ fontSize: '13px', color: 'var(--text-main)', margin: '0 0 12px' }}>Skanna koden med din autentiseringsapp, ange sedan den 6-siffriga koden den visar.</p>
-          <img src={enrolling.qrCode} alt="QR-kod för tvåstegsverifiering" style={{ width: 160, height: 160, border: '1px solid var(--border)', borderRadius: '8px', display: 'block', marginBottom: '8px' }} />
-          <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px' }}>Kan du inte skanna? Ange koden manuellt: <code style={{ background: 'var(--border-light)', padding: '2px 6px', borderRadius: '4px' }}>{enrolling.secret}</code></div>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-            <input value={code} onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="123456" style={{ ...inputBase, width: '120px' }} />
-            <button onClick={confirmEnroll} disabled={busy || code.length !== 6} style={{ ...btnPrimary, opacity: (busy || code.length !== 6) ? 0.5 : 1 }}>Bekräfta</button>
-            <button onClick={cancelEnroll} disabled={busy} style={btnGhost}>Avbryt</button>
-          </div>
-        </div>
-      )}
+      {enrollPanel}
     </div>
   );
 }
@@ -1226,7 +1378,7 @@ function ActiveSessionsSection({ user, readOnly = false }) {
   };
 
   return (
-    <div style={card}>
+    <div style={{ ...card, borderRadius: 0 }}>
       <div style={{ marginBottom: '8px' }}><SectionHeading icon={Laptop} tone="blue">Aktiva sessioner</SectionHeading></div>
       <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 14px', maxWidth: '560px' }}>
         Bokix kan i dagsläget inte visa en lista över dina enskilda inloggade enheter. Du kan däremot logga ut alla andra sessioner än den du sitter på just nu — t.ex. om du glömt logga ut på en delad dator eller en gammal telefon.
@@ -1603,7 +1755,7 @@ function UsersAndAccessSection({ company, user, firstName, lastName, sharedAcces
 
       {isOwner && showInviteForm && (
         <form onSubmit={handleInvite} style={{ ...card, marginBottom: '16px' }}>
-          <div className="form-row-2" style={grid2}>
+          <div className="form-row-2" style={{ ...grid2, maxWidth: FORM_MAX }}>
             <div>
               <label style={labelStyle}>E-postadress</label>
               <input type="email" required autoFocus value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} style={inputBase} placeholder="namn@exempel.se" />
@@ -1884,12 +2036,18 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
               style={{
                 background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '16px',
                 padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '10px',
-                boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
+                boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)', position: 'relative', overflow: 'hidden',
               }}
             >
-              <div>
-                <div style={{ fontFamily: 'var(--font-voice)', fontSize: '20px', fontWeight: 700, color: 'var(--text-main)' }}>{tier.name}</div>
-                <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginTop: '2px' }}>{tier.subtitle}</div>
+              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '4px', background: `linear-gradient(90deg, ${BRAND.green}, #0a4d20)` }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: 34, height: 34, borderRadius: '10px', background: BRAND.greenLight, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                  {tier.includesPayroll ? <Users size={16} style={{ color: BRAND.greenDark }} /> : <Shield size={16} style={{ color: BRAND.greenDark }} />}
+                </div>
+                <div>
+                  <div style={{ fontFamily: 'var(--font-voice)', fontSize: '20px', fontWeight: 700, color: 'var(--text-main)' }}>{tier.name}</div>
+                  <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginTop: '2px' }}>{tier.subtitle}</div>
+                </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '7px' }}>
                 <span style={{ fontSize: '28px', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.02em' }}>{tier.monthlyPrice}</span>
@@ -1931,62 +2089,76 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
 
   return (
     <div style={{ display: 'grid', gap: '16px' }}>
-      {/* Planen som ett riktigt plankort: priset stort, vad som ingår
-          uppräknat, och statusen som ett eget fält — i stället för en rad
-          text där pris, status och förnyelsedatum satt ihopklämda.
-          Kundönskemål: abonnemangen ska se bra ut. */}
+      {/* Planen som ett riktigt plankort — kundönskemål ("gör den mycket
+          mer aptitlig"): den tidigare versionen var ett platt vitt kort,
+          samma yta som varenda annan inställningsrad. Ett mörkgrönt
+          gradient-huvud (samma märkesgrönt som sidopanelen/loggan,
+          BRAND.green) ger planen en egen, firad yta i stället för att
+          smälta in — statusen/priset i vitt ovanpå, funktionerna i ett
+          ljust kort under. */}
       <div style={{
-        background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '16px',
-        overflow: 'hidden', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
+        background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '18px',
+        overflow: 'hidden', boxShadow: '0 4px 20px -8px rgba(11,99,41,0.28)',
       }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '20px', flexWrap: 'wrap', padding: '22px 24px' }}>
-          <div className="settings-main" style={{ minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Din plan</span>
-              <span style={{ padding: '3px 10px', borderRadius: '999px', fontSize: '11.5px', fontWeight: 700, background: statusBadge.bg, color: statusBadge.text }}>{statusBadge.label}</span>
+        <div style={{
+          position: 'relative', overflow: 'hidden',
+          background: `linear-gradient(135deg, ${BRAND.green}, #0a4d20)`,
+          padding: '24px 26px',
+        }}>
+          {/* Dekorativ glow, samma trick som Dashboardens KPI-kort — en
+              ren yta hade känts platt trots gradienten. */}
+          <div style={{ position: 'absolute', top: '-60px', right: '-40px', width: '200px', height: '200px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,0.14), transparent 70%)', pointerEvents: 'none' }} />
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '20px', flexWrap: 'wrap' }}>
+            <div className="settings-main" style={{ minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px', borderRadius: '999px', fontSize: '11px', fontWeight: 700, color: 'white', background: 'rgba(255,255,255,0.16)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+                  <Sparkles size={12} /> Din plan
+                </span>
+                <span style={{ padding: '3px 10px', borderRadius: '999px', fontSize: '11.5px', fontWeight: 700, background: statusBadge.bg, color: statusBadge.text }}>{statusBadge.label}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', flexWrap: 'wrap', marginTop: '10px' }}>
+                <span style={{ fontFamily: 'var(--font-voice)', fontSize: '28px', fontWeight: 700, color: 'white', letterSpacing: '-0.01em' }}>
+                  Bokix{plan ? ' ' + plan.name : ''}
+                </span>
+                <span style={{ fontSize: '16px', fontWeight: 700, color: 'rgba(255,255,255,0.9)' }}>{priceLabel}</span>
+              </div>
+              <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.82)', maxWidth: '520px', marginTop: '8px', lineHeight: 1.6 }}>
+                {sub.cancel_at_period_end
+                  ? <>Avslutas {fmtDateSv(endDate)}. Du har full åtkomst fram till dess, sedan tas inget mer betalt.</>
+                  : isTrialing
+                    ? <>Kostnadsfri provperiod till {fmtDateSv(endDate)}, därefter {priceLabel} automatiskt.</>
+                    : sub.status === 'past_due'
+                      ? <>Senaste betalningen misslyckades. Stripe försöker automatiskt igen — uppdatera kortet om det upprepas.</>
+                      : <>Förnyas automatiskt {fmtDateSv(endDate)}.</>}
+              </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', flexWrap: 'wrap', marginTop: '8px' }}>
-              <span style={{ fontFamily: 'var(--font-voice)', fontSize: '26px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.01em' }}>
-                Bokix{plan ? ' ' + plan.name : ''}
-              </span>
-              <span style={{ fontSize: '15px', fontWeight: 700, color: BRAND.greenDark }}>{priceLabel}</span>
-            </div>
-            <div style={{ fontSize: '13px', color: 'var(--text-secondary)', maxWidth: '520px', marginTop: '8px', lineHeight: 1.6 }}>
-              {sub.cancel_at_period_end
-                ? <>Avslutas {fmtDateSv(endDate)}. Du har full åtkomst fram till dess, sedan tas inget mer betalt.</>
-                : isTrialing
-                  ? <>Kostnadsfri provperiod till {fmtDateSv(endDate)}, därefter {priceLabel} automatiskt.</>
-                  : sub.status === 'past_due'
-                    ? <>Senaste betalningen misslyckades. Stripe försöker automatiskt igen — uppdatera kortet om det upprepas.</>
-                    : <>Förnyas automatiskt {fmtDateSv(endDate)}.</>}
-            </div>
-          </div>
 
-          <div style={{ display: 'flex', gap: '8px', flexShrink: 0, flexWrap: 'wrap' }}>
-            {!sub.cancel_at_period_end && sub.status !== 'canceled' && !confirmCancel && (
-              <button onClick={() => setConfirmCancel(true)} style={btnSecondary}>Avsluta</button>
-            )}
-            {sub.cancel_at_period_end && (
-              <button onClick={handleReactivate} disabled={busy} style={{ ...btnPrimary, opacity: busy ? 0.6 : 1 }}>
-                {busy ? 'Återaktiverar…' : 'Ångra uppsägning'}
-              </button>
-            )}
+            <div style={{ display: 'flex', gap: '8px', flexShrink: 0, flexWrap: 'wrap' }}>
+              {!sub.cancel_at_period_end && sub.status !== 'canceled' && !confirmCancel && (
+                <button onClick={() => setConfirmCancel(true)} style={{ border: '1px solid rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.08)', color: 'white', borderRadius: '10px', padding: '9px 14px', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>Avsluta</button>
+              )}
+              {sub.cancel_at_period_end && (
+                <button onClick={handleReactivate} disabled={busy} style={{ border: 0, background: 'white', color: BRAND.greenDark, borderRadius: '10px', padding: '9px 14px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', opacity: busy ? 0.6 : 1 }}>
+                  {busy ? 'Återaktiverar…' : 'Ångra uppsägning'}
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
         {/* Vad planen ger. Lönemodulen är den enda riktiga skillnaden mellan
             nivåerna (se utils/plans.js), så den står som en egen rad i
             stället för att gömmas i en punktlista alla planer delar. */}
-        <div style={{ borderTop: '1px solid var(--border-light)', background: 'var(--bg-muted)', padding: '16px 24px', display: 'grid', gap: '9px' }}>
+        <div style={{ background: 'var(--bg-card)', padding: '18px 24px', display: 'grid', gap: '10px' }}>
           {[
             { text: 'Bokföring, fakturor, offerter, kvitton och moms', included: true },
             { text: 'Rapporter, bokslutsunderlag och SIE-export', included: true },
             { text: 'Löner och arbetsgivardeklaration', included: plan ? plan.includesPayroll : true },
             { text: 'Upp till tre användare per företag', included: true },
           ].map(row => (
-            <div key={row.text} style={{ display: 'flex', alignItems: 'center', gap: '9px', fontSize: '13px', color: row.included ? 'var(--text-main)' : 'var(--text-muted)' }}>
+            <div key={row.text} style={{ display: 'flex', alignItems: 'center', gap: '9px', fontSize: '13.5px', color: row.included ? 'var(--text-main)' : 'var(--text-muted)' }}>
               {row.included
-                ? <Check size={14} style={{ color: BRAND.green, flexShrink: 0 }} />
+                ? <CheckCircle2 size={16} style={{ color: BRAND.green, flexShrink: 0 }} />
                 : <X size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />}
               <span style={{ textDecoration: row.included ? 'none' : 'line-through' }}>{row.text}</span>
               {!row.included && <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>— ingår i Med personal</span>}
@@ -2020,7 +2192,7 @@ export default function Settings({
   contacts = [], projects = [], onImport, onReset, onBulkImportSie, stripeAccountId, onConnectStripe, onDisconnectStripe,
   zettleConnected = false, onConnectZettle,
   onConnectEmailDomain, onCheckEmailDomainStatus, onDisconnectEmailDomain, user,
-  companyList = [], activeCompanyId, onSwitchCompany, onAddCompany, onDeleteCompany,
+  activeCompanyId,
   // Desktop-scrollbar på/av (Sida: "have in setting users chose to have
   // scroll bar or not in desktop") — state/localStorage/attributet på
   // <html> ägs av App.jsx (samma mönster som `theme`/`toggleTheme`), den
@@ -2050,9 +2222,14 @@ export default function Settings({
   // en inställning.
   theme = 'light', onToggleTheme,
 }) {
-  // `null` = översikten (SettingsHub). Se kommentaren vid SECTION_META
-  // för varför sidan inte längre öppnar mitt i ett formulär.
-  const [activeTab, setActiveTab] = useState(null);
+  // Kundönskemål: "Översikt" är inte längre landningssidan — sidan öppnar
+  // numera direkt på "Min profil", precis som SettingsRail alltid pekar på
+  // en riktig flik nu (se den komponentens kommentar). `null` betyder
+  // fortfarande SettingsHub-rutnätet och lever kvar som mobilens enda
+  // navigering (nås via "← Alla inställningar" i sidhuvudet, se
+  // handleSetTab(null) på ArrowLeft-knappen längre ner) — bara INTE
+  // förvalet någon landar på längre.
+  const [activeTab, setActiveTab] = useState('profile');
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [importBusy, setImportBusy] = useState(false);
   const [importMsg, setImportMsg] = useState('');
@@ -2226,6 +2403,14 @@ export default function Settings({
 
   const firstName = user?.user_metadata?.first_name || '';
   const lastName = user?.user_metadata?.last_name || '';
+  const phone = user?.user_metadata?.phone || '';
+  // Kundönskemål (mockup): en riktig profilbild i "Min profil" — bucketen
+  // ('profile', <uid>/avatar.<ext>, RLS: bara den inloggade själv) fanns
+  // redan förberedd i supabase-setup.sql sedan tidigare, men ingen sida
+  // hade någonsin byggt UI:t för den (samma "backend fanns, aldrig ett
+  // fält" som notifications.* på företaget). avatar_url sparas som
+  // user_metadata, samma mönster som first_name/last_name ovan.
+  const avatarUrl = user?.user_metadata?.avatar_url || '';
   // Bara för toggle-hintens exempeltext nedan — samma tidsberoende hälsning
   // som Startsidan faktiskt visar, inte en hårdkodad "Hej".
   const { greeting: greetingPreview } = getGreeting();
@@ -2346,12 +2531,12 @@ export default function Settings({
       id: 'stripe',
       name: 'Stripe',
       tagline: 'Låt kunden betala fakturan med kort direkt via länken i mejlet.',
-      logo: <StripeLogo height={21} />,
+      logo: <StripeLogo height={27} />,
       connected: Boolean(stripeAccountId),
       detail: true,
       keywords: 'kort betalning checkout',
       action: (
-        <button type="button" onClick={() => setOpenIntegration(openIntegration === 'stripe' ? null : 'stripe')} style={btnTile}>
+        <button type="button" onClick={() => setOpenIntegration(openIntegration === 'stripe' ? null : 'stripe')} style={btnTileLg}>
           {stripeAccountId ? 'Hantera' : 'Anslut'}
         </button>
       ),
@@ -2360,13 +2545,13 @@ export default function Settings({
       id: 'email',
       name: 'Egen e-postdomän',
       tagline: 'Skicka fakturor från din egen adress i stället för en delad Bokix-adress.',
-      logo: <Mail size={24} color="var(--text-secondary)" />,
+      logo: <Mail size={30} color="var(--text-secondary)" />,
       connected: company?.emailDomainStatus === 'verified',
       statusLabel: company?.emailDomainStatus === 'verified' ? 'Verifierad' : (company?.emailDomain ? 'Väntar på DNS' : 'Inte ansluten'),
       detail: true,
       keywords: 'mejl domän dns avsändare',
       action: (
-        <button type="button" onClick={() => setOpenIntegration(openIntegration === 'email' ? null : 'email')} style={btnTile}>
+        <button type="button" onClick={() => setOpenIntegration(openIntegration === 'email' ? null : 'email')} style={btnTileLg}>
           {company?.emailDomain ? 'Hantera' : 'Anslut'}
         </button>
       ),
@@ -2378,14 +2563,14 @@ export default function Settings({
       id: 'zettle',
       name: 'Zettle',
       tagline: 'Dagens kassaförsäljning hämtas in som underlag att granska.',
-      logo: <ZettleLogo height={18} />,
+      logo: <ZettleLogo height={23} />,
       connected: zettleConnected,
       keywords: 'kassa butik paypal',
       action: zettleConnected ? null : (
         <button
           type="button"
           onClick={() => { if (readOnly || !onConnectZettle) { window.alert(DEMO_BLOCKED_MSG); return; } onConnectZettle(); }}
-          style={btnTile}
+          style={btnTileLg}
         >
           Anslut
         </button>
@@ -2395,11 +2580,11 @@ export default function Settings({
       id: 'bank',
       name: 'Din bank',
       tagline: 'Ladda upp kontoutdraget som CSV eller Excel — raderna matchas mot fakturor och kvitton.',
-      logo: <Landmark size={24} color="var(--text-secondary)" />,
+      logo: <Landmark size={30} color="var(--text-secondary)" />,
       connected: true,
       statusLabel: 'Klar att använda',
       keywords: 'bank kontoutdrag csv excel swedbank seb nordea handelsbanken',
-      action: <span style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>Finns under Bank</span>,
+      action: <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Finns under Bank</span>,
     },
   ];
 
@@ -2463,7 +2648,8 @@ export default function Settings({
                 dashboard, som knappen bredvid går till. */}
             {stripeAccountId && (
               <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '6px 0 0', lineHeight: 1.6 }}>
-                Saldo, utbetalningar och avgifter följer du i din Stripe-dashboard.
+                Saldo, utbetalningar och avgifter följer du i din Stripe-dashboard. Betalsidan kunden ser visar ditt eget företagsnamn och din egen logga (inte Bokix) — ställs in under{' '}
+                <a href="https://dashboard.stripe.com/settings/branding" target="_blank" rel="noopener noreferrer" style={{ color: BRAND.green }}>Stripe → Varumärke</a>.
               </p>
             )}
           </div>
@@ -2928,62 +3114,67 @@ export default function Settings({
 
       {/* Bredden begränsas av SPALTERNA, inte av behållaren: varje kort
           hamnar i en spalt på 380–520 px, vilket är den läsbara radlängd
-          det gamla 1180-taket fanns för att skapa. Taket i sig lämnade
-          bara flera hundra tomma pixlar i var kant på en bred skärm
-          (kundrapporterat med skärmbild från en 1674 px-skärm). */}
+          det gamla 1180-taket (senare höjt till 1680px) fanns för att
+          skapa. Ett tak i sig, oavsett siffra, lämnar tomma pixlar i var
+          kant på en tillräckligt bred skärm — kundfeedback (uppföljning,
+          skärmdump): "mycket space i sidorna", fortfarande sant vid
+          1680px, bara vid en bredare brytpunkt. Taget helt borttaget nu
+          i stället för höjt ännu en gång — samma mönster som VARJE annan
+          sida i appen (Kunder, Bokföring, Bank m.fl. via ListPageHeader/
+          ListTable): ingen maxWidth/margin-auto-behållare alls, bara den
+          smala sidopaddingen nedan, full bredd rakt av. */}
       <div className="settings-content" style={{ flex: 1, minWidth: 0, overflowY: 'auto' }}>
-        <div data-tour="page-settings-nav" className="settings-shell" style={{ maxWidth: '1680px', margin: '0 auto', padding: 'clamp(12px, 1.2vw, 18px)' }}>
+        <div data-tour="page-settings-nav" className="settings-shell" style={{ padding: 0 }}>
           <SettingsRail sections={visibleSections} activeId={activeTab} onPick={handleSetTab} />
           <div style={{ minWidth: 0 }}>
           {!activeSection && <SettingsHub sections={visibleSections} onPick={handleSetTab} />}
-          {/* 1. Min profil */}
+          {/* 1. Min profil — kundönskemål (skärmdump av en mockup): tre
+              fullbreda kort staplade under varandra ("Profiluppgifter"/
+              "Säkerhet"/aktiva sessioner), varje kort med en kort
+              gråtonad underrubrik direkt under titeln, i stället för de
+              fyra jämnstora korten i en 2-kolumns-split som låg här förut.
+              Samma FÄRGER som resten av appen (BRAND/var(--...)-tokens)
+              rakt igenom — mockupen var bara en formmall, inte en ny
+              palett. IdentityCard-banderollen (namn+roll+företag i en egen
+              remsa högst upp) togs bort HÄRIFRÅN specifikt: "Profiluppgifter"-
+              kortets egen avatar+namn gör samma jobb nu, en remsa till hade
+              bara upprepat samma namn två gånger på samma skärm.
+              "Aviseringar" (mockupens tredje kort, e-postpåminnelser att
+              slå på/av) finns INTE med — det finns i dagsläget ingen
+              riktig inställning bakom en sådan växel att koppla den till
+              (veckosammanfattning skickas t.ex. inte alls ännu), och en
+              växel som inte gör något hade varit vilseledande snarare än
+              ett format att återanvända. */}
           {activeTab === 'profile' && (
-            <div style={{ animation: 'fadeIn 0.2s ease' }}>
-              
+            <div style={{ animation: 'fadeIn 0.2s ease', display: 'grid', gap: 0 }}>
+              <SettingCard title="Profiluppgifter" icon={UserRound} description="Dina uppgifter visas för kollegor och i det du gör i Bokix." style={{ borderRadius: 0 }}>
+                <AvatarUploadRow
+                  avatarUrl={avatarUrl}
+                  initials={initials}
+                  onChange={(v) => updateUserMeta({ avatar_url: v })}
+                  uploadPath={`${user?.id}/avatar`}
+                  readOnly={readOnly}
+                />
+                <div className="form-row-2" style={{ ...grid2, maxWidth: FORM_MAX }}>
+                  <AutoField label="Förnamn" value={firstName} onChange={(v) => updateUserMeta({ first_name: v })} hint="Det du vill bli kallad." />
+                  <AutoField label="Efternamn" value={lastName} onChange={(v) => updateUserMeta({ last_name: v })} />
+                  <AutoField label="E-post (inloggning)" type="email" value={user?.email || ''} onChange={(v) => { if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; } supabase.auth.updateUser({ email: v }); }} hint="Kräver att du bekräftar via e-post innan ändringen gäller." required />
+                  <AutoField label="Telefon" type="tel" value={phone} onChange={(v) => updateUserMeta({ phone: v })} hint="Valfritt." />
+                </div>
+              </SettingCard>
 
-              {/* Vem är inloggad — samma identitetskort som Företag-fliken
-                  har, så de två flikarna öppnar likadant. */}
-              <IdentityCard
-                monogram={initials}
-                name={[firstName, lastName].filter(Boolean).join(' ') || 'Din profil'}
-                meta={user?.email || ''}
-                chips={[
-                  sharedAccess ? { label: 'Roll', value: sharedAccess.role === 'editor' ? 'Redigerare' : 'Läsare' } : { label: 'Roll', value: 'Ägare' },
-                  company?.name ? { label: 'Företag', value: company.name } : null,
-                ]}
-              />
-
-              {/* FYRA likvärdiga kort, inga rubriker utanför dem.
-                  Tidigare låg korten under egna sektionsrubriker ("Säkerhet"
-                  över ett kort som redan hette "Lösenord") — samma sak sagd
-                  två gånger, och en extra rytmnivå som kostade luft på varje
-                  skärm. Varje kort bär nu sin egen rubrik.
-                  Fyra jämnstora block packar dessutom spalterna mycket bättre
-                  än två block där det ena är dubbelt så högt som det andra —
-                  det var därför högerspalten stod tom halva skärmen. */}
-              <div className="settings-split">
-                <SettingCard title="Dina uppgifter" icon={UserRound} description="E-postadressen är din inloggning.">
-                  <div className="form-row-2" style={grid2}>
-                    <AutoField label="Förnamn" value={firstName} onChange={(v) => updateUserMeta({ first_name: v })} hint="Det du vill bli kallad." />
-                    <AutoField label="Efternamn" value={lastName} onChange={(v) => updateUserMeta({ last_name: v })} />
-                    <div style={{ gridColumn: '1 / -1' }}>
-                      <AutoField label="E-post (inloggning)" type="email" value={user?.email || ''} onChange={(v) => { if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; } supabase.auth.updateUser({ email: v }); }} hint="Kräver att du bekräftar via e-post innan ändringen gäller." required />
-                    </div>
-                  </div>
-                </SettingCard>
-
-                <PasswordSection user={user} readOnly={readOnly} />
-
+              <SettingCard title="Säkerhet" icon={Lock} tone="blue" description="Skydda kontot och håll koll på din inloggning." style={{ borderRadius: 0 }}>
+                <PasswordSection user={user} readOnly={readOnly} bare />
                 {/* readOnly (demo): TwoFactorSection hämtar riktiga
                     MFA-faktorer från Supabase direkt vid mount — hoppas över
                     helt istället för att göra ett Supabase-anrop från en
                     icke-inloggad besökare. */}
-                {readOnly ? (
-                  <SettingCard title="Tvåstegsverifiering" icon={KeyRound} description="Kräver ett riktigt konto att visa och aktivera." />
-                ) : <TwoFactorSection />}
+                {readOnly
+                  ? <SettingRow label="Tvåfaktorsautentisering" description="Kräver ett riktigt konto att visa och aktivera." last />
+                  : <TwoFactorSection bare />}
+              </SettingCard>
 
-                <ActiveSessionsSection user={user} readOnly={readOnly} />
-              </div>
+              <ActiveSessionsSection user={user} readOnly={readOnly} />
             </div>
           )}
 
@@ -2996,7 +3187,15 @@ export default function Settings({
                 logoUrl={company?.logoUrl}
                 monogram={(company?.name || 'F').charAt(0).toUpperCase()}
                 name={company?.name || 'Namnlöst företag'}
-                meta={company?.orgNr ? `Org.nr ${company.orgNr}` : 'Organisationsnummer saknas'}
+                // Kundrapport: "det säger organisationsnummer saknas" för
+                // ett UF-företag — ett UF-företag har oftast inget eget
+                // organisationsnummer alls (bara ägarens personnummer, se
+                // orgType.js), så "saknas" läses som ett fel att åtgärda
+                // trots att det är helt normalt och förväntat. Samma
+                // isUfCompany-koll som companyRegistrationComplete ovan
+                // redan använder för att INTE be UF-företag om ett nummer
+                // de aldrig ska fylla i.
+                meta={company?.orgNr ? `Org.nr ${company.orgNr}` : isUfCompany(company) ? 'UF-företag' : 'Organisationsnummer saknas'}
                 chips={[
                   companyRegDisplayedOrgType ? { label: 'Bolagsform', value: companyRegDisplayedOrgType } : null,
                   { label: 'Räkenskapsår', value: company?.fiscalYearStart || `${new Date().getFullYear()}-01-01` },
@@ -3004,72 +3203,11 @@ export default function Settings({
                 ]}
               />
 
-              {companyList.length > 0 && (
-              <SettingsSection
-                title="Dina företag"
-                description="Varje företag har sin egen bokföring och sin egen prenumeration."
-              >
-                {(
-                <div style={card}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxWidth: '480px', marginBottom: '12px' }}>
-                    {companyList.map(c => (
-                      <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <button
-                          type="button"
-                          onClick={() => onSwitchCompany?.(c.id)}
-                          disabled={c.id === activeCompanyId}
-                          style={{
-                            display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderRadius: '8px',
-                            border: `1.5px solid ${c.id === activeCompanyId ? BRAND.green : 'var(--border)'}`,
-                            background: c.id === activeCompanyId ? BRAND.greenLight : 'var(--bg-card)',
-                            cursor: c.id === activeCompanyId ? 'default' : 'pointer', textAlign: 'left', fontFamily: 'inherit', flex: 1, minWidth: 0, boxSizing: 'border-box',
-                          }}
-                        >
-                          {c.id === activeCompanyId ? <Check size={15} color={BRAND.greenDark} /> : <span style={{ width: 15, flexShrink: 0 }} />}
-                          <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name || 'Namnlöst företag'}</span>
-                        </button>
-                        {/* Kundönskemål: en snabb städknapp — går inte att ta
-                            bort det sista/enda kvarvarande företaget (samma
-                            spärr som App.jsx:s handleDeleteCompany). En enkel
-                            bekräftelsedialog istället för en tyngre "skriv
-                            namnet"-modal (jämför Radera-bokföringsdata-kortet
-                            nedan) — den här tar bort HELA företaget, inte
-                            bara dess data, men efterfrågades uttryckligen
-                            snabb/enkel för att kunna städa bort flera på en
-                            gång. */}
-                        <button
-                          type="button"
-                          title={`Ta bort ${c.name || 'företaget'}`}
-                          disabled={companyList.length <= 1}
-                          onClick={async () => {
-                            if (companyList.length <= 1) return;
-                            if (await confirmDialog(`Ta bort "${c.name || 'Namnlöst företag'}" permanent? All bokföring, alla fakturor och kunder för det företaget försvinner. Går inte att ångra.`, { danger: true })) {
-                              onDeleteCompany?.(c.id);
-                            }
-                          }}
-                          style={{
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, flexShrink: 0,
-                            background: 'none', border: '1.5px solid var(--border)', borderRadius: '8px',
-                            color: companyList.length <= 1 ? 'var(--text-muted)' : 'var(--status-red-text)',
-                            cursor: companyList.length <= 1 ? 'not-allowed' : 'pointer', opacity: companyList.length <= 1 ? 0.5 : 1,
-                          }}
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => onAddCompany?.()}
-                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 14px', background: 'none', border: '1.5px dashed var(--border)', borderRadius: '8px', color: 'var(--text-main)', fontWeight: 600, fontSize: '13.5px', cursor: 'pointer', fontFamily: 'inherit' }}
-                  >
-                    <Plus size={14} /> Lägg till företag
-                  </button>
-                </div>
-                )}
-              </SettingsSection>
-              )}
+              {/* Kundönskemål ("funkar fortfarande inte, ta bara bort den
+                  här sektionen"): företagsväxlaren/bort-knappen tagen bort
+                  helt. Byte av aktivt företag sker fortfarande via
+                  App.jsx:s egna vägar (profilmenyn), bara inte längre
+                  härifrån. */}
 
               <SettingsSection
                 title="Företagsuppgifter"
@@ -3316,35 +3454,23 @@ export default function Settings({
 
               </SettingsSection>
 
-              {/* Skiljelinjen behövs inte längre — sektionsrubriken nedan
-                  säger samma sak tydligare: allt här sparas direkt. */}
-              <SettingsSection
-                title="Bokföringsår, logotyp och påminnelser"
-                description="Sparas direkt."
-              >
-
+              {/* Kundönskemål: sektionsrubriken ("Bokföringsår, logotyp och
+                  påminnelser"/"Sparas direkt.") borttagen — korten under
+                  säger redan var för sig vad de är, en extra rubrikrad
+                  ovanför var bara upprepning. */}
               {/* De autosparande korten i ett rutnät — fyra fullbreda block
                   under varandra gjorde att man skrollade förbi tomma högerhalvor
                   för att hitta nästa inställning (kundfeedback om sidan). */}
               <div className="settings-grid">
-              <div style={card}>
-                <div style={{ marginBottom: '16px' }}><SectionHeading icon={ImageIcon} tone="pink">Logotyp</SectionHeading></div>
-                <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                  <div style={{ flex: 1, minWidth: '260px', maxWidth: '440px' }}>
-                    <ImageUploadField label="Logotyp" value={company?.logoUrl || ''} onChange={(v) => setCompanyInfo({ ...company, logoUrl: v })} uploadPath={`${user?.id}/logo-${company?.id}`} bucket="companylogo" hint="Används överst på dina utgående fakturor. Max 3 MB." readOnly={readOnly} />
-                  </div>
-                  <div style={{ width: '200px', padding: '16px', border: '1px solid var(--border)', borderRadius: '8px', background: 'var(--bg-muted)' }}>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase' }}>Förhandsvisning faktura</div>
-                    {company?.logoUrl ? (
-                      <img src={company.logoUrl} alt="Logotyp" style={{ maxHeight: '40px', maxWidth: '100%', marginBottom: '16px', display: 'block' }} />
-                    ) : (
-                      <div style={{ height: '40px', background: 'var(--border-light)', borderRadius: '4px', marginBottom: '16px' }} />
-                    )}
-                    <div style={{ height: '8px', width: '60%', background: 'var(--border)', borderRadius: '2px', marginBottom: '4px' }} />
-                    <div style={{ height: '8px', width: '40%', background: 'var(--border)', borderRadius: '2px' }} />
-                  </div>
-                </div>
-              </div>
+              {/* Kundönskemål: logotypuppladdningen fanns dubblerad — samma
+                  fält (company.logoUrl), samma "max 3 MB"-gräns, en gång här
+                  och en gång i Fakturor → Mallar → Anpassa mallen
+                  (InvoiceTemplateSection ovan, som dessutom visar den mot en
+                  RIKTIG fakturaförhandsgranskning istället för den här
+                  kortets tre grå skissrader). Den här kortet borttaget helt
+                  — logotypen hör hemma där mallen faktiskt väljs och
+                  förhandsgranskas, inte spridd på två ställen som kan se ut
+                  att vara olika inställningar men skriver till samma fält. */}
 
               {/* Räkenskapsår + momsperiod styr verkliga beräkningar (Taxes,
                   VatDeclaration, Reports, Verifications) — fanns tidigare BARA
@@ -3389,7 +3515,6 @@ export default function Settings({
                 </div>
               </div>
               </div>
-              </SettingsSection>
             </div>
           )}
 

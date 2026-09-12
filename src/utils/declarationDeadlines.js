@@ -20,7 +20,7 @@
 // imports. En liten, stabil 5-radersfunktion att hålla dubblerad är
 // billigare än att lägga till .js-ändelser i hela vatCalculation.js:s
 // beroendekedja.
-function quarterToRange(year, quarter) {
+export function quarterToRange(year, quarter) {
   const startMonth = (quarter - 1) * 3;
   const start = new Date(Date.UTC(year, startMonth, 1));
   const end = new Date(Date.UTC(year, startMonth + 3, 0));
@@ -28,20 +28,29 @@ function quarterToRange(year, quarter) {
 }
 
 // Verifierat direkt mot skatteverket.se (två separata sidor, "När ska jag
-// deklarera moms" och "När ska jag lämna arbetsgivardeklarationen",
-// hämtade 2026-09-01): förfallodagen är den 17:e istället för den 12:e
-// när förfallomånaden är AUGUSTI — gäller BÅDA deklarationerna av samma
-// bakomliggande skäl (Skatteverkets egen sommaruppehåll-regel), inte två
-// separata undantag att hålla reda på. Momsens 2:a-månaden-efter-kvartalet-
-// regel råkar träffa augusti för kvartal 2 (apr–jun) → 17 augusti, inte 12.
-// AGI:s följande-månaden-regel råkar träffa augusti för juli-lönen → 17
-// augusti, inte 12. Ingen annan månad har ett liknande undantag (kollat
-// specifikt, inte antaget) — fanns tidigare uppgifter om ett
-// januari-undantag också, men det visade sig vara en vanlig
-// helg-framflyttning ETT specifikt år (redan täckt av dow-kollen nedan),
-// inte en egen strukturell regel.
-function dueDayForMonth(month /* 0-indexerad */) {
-  return month === 7 ? 17 : 12; // 7 = augusti
+// deklarera moms" och "När ska jag lämna arbetsgivardeklarationen") samt
+// omkorsverifierat 2026-09-12 mot flera oberoende datumtabeller
+// (foretagsdatum.se m.fl.): förfallodagen är den 17:e istället för den
+// 12:e när förfallomånaden är AUGUSTI ELLER JANUARI — gäller BÅDA
+// deklarationerna av samma bakomliggande skäl (Skatteverkets egen
+// sommar- respektive nyårsuppehåll-regel).
+//
+// RÄTTELSE 2026-09-12: en tidigare version av den här kommentaren
+// påstod att januari INTE hade något eget undantag (att det bara sett
+// ut så för att en helg-framflyttning råkade träffa just 2026). Det var
+// fel — omkontrollerat mot flera oberoende källor som visar december-
+// lönens AGI-förfallodag (deklareras i januari) med bas-dag 17, inte 12
+// (t.ex. "19 januari 2026" = 17:e framflyttat förbi lördagen 17/1 2026,
+// inte 12:e som redan är en vardag den veckan). Samma mönster gäller
+// momsens 2:a-månaden-efter-regel om den någonsin träffar januari (görs
+// inte idag, se nextVatDeadline — bara kvartalsvis är implementerat, och
+// inget kvartal faller i januari).
+// Exporterad (utöver den interna användningen i den här filen) sedan
+// /verktyg/momsdatum (freeToolCalculations.js: nextVatDeadlinePublic) —
+// det publika verktyget ska räkna med EXAKT samma undantag som den
+// inloggade appen, aldrig en egen kopia som kan glida isär.
+export function dueDayForMonth(month /* 0-indexerad */) {
+  return (month === 7 || month === 0) ? 17 : 12; // 7 = augusti, 0 = januari
 }
 
 /** Framflyttning till nästa vardag om förfallodagen landar på en helg —
@@ -50,7 +59,7 @@ function dueDayForMonth(month /* 0-indexerad */) {
  * separat utöver helger — bara helg-regeln, som är den del av
  * "framflyttas om det inte är en vardag"-principen som går att räkna ut
  * generellt utan en hårdkodad kalender över rörliga helgdagar år för år. */
-function rollForwardPastWeekend(d) {
+export function rollForwardPastWeekend(d) {
   const dow = d.getDay();
   if (dow === 6) d.setDate(d.getDate() + 2);
   else if (dow === 0) d.setDate(d.getDate() + 1);
@@ -58,8 +67,8 @@ function rollForwardPastWeekend(d) {
 }
 
 /** Momsdeklarationens förfallodag enligt Skatteverkets regel för
- * kvartalsvis redovisning (12:e — eller 17:e i augusti, se dueDayForMonth
- * — i andra månaden efter periodens slut), framflyttat till nästa vardag
+ * kvartalsvis redovisning (12:e — eller 17:e i januari/augusti, se
+ * dueDayForMonth — i andra månaden efter periodens slut), framflyttat till nästa vardag
  * om det landar på en helg. Tar INTE hänsyn till röda dagar (annandag jul
  * m.fl.) som Skatteverket ibland flyttar fram separat utöver helger — se
  * rollForwardPastWeekend. Returnerar null för månads-/årsvis redovisning
@@ -94,8 +103,8 @@ export function nextVatDeadline(company, vatPeriods) {
   return { daysLeft, quarter: q, year: y, dueDate: d };
 }
 
-/** AGI (arbetsgivardeklaration) — förfallodag 12:e (eller 17:e i augusti,
- * se dueDayForMonth) i månaden EFTER den månad lönerna avser, samma
+/** AGI (arbetsgivardeklaration) — förfallodag 12:e (eller 17:e i
+ * januari/augusti, se dueDayForMonth) i månaden EFTER den månad lönerna avser, samma
  * helgframflyttning som momsdeklarationen ovan. Antagande att flagga: den
  * skärpta 26:e-regeln för större arbetsgivare med fler anställda gäller
  * INTE här — 12:e-regeln är rätt för Bokix målgrupp (småföretag), men det
@@ -116,4 +125,37 @@ export function nextAgiDeadline(referenceDate = new Date()) {
   const periodDate = new Date(dueDate.getFullYear(), dueDate.getMonth() - 1, 1);
   const periodKey = `${periodDate.getFullYear()}-${String(periodDate.getMonth() + 1).padStart(2, '0')}`;
   return { daysLeft, periodKey, dueDate };
+}
+
+/** Kontrolluppgifter (KU) — samma fasta datum året runt (31 januari,
+ * framflyttat till nästa vardag om det landar på en helg — Taxes.jsx:s
+ * egen KU-flik anger redan "senast 31 januari" i sin brödtext, så det här
+ * är INTE en ny, ogissad regel, bara samma redan angivna datum uttryckt
+ * som en deadline-uträkning). Till skillnad från moms/AGI är KU:s
+ * förfallodag INTE beroende av vilken period/månad man befinner sig i —
+ * den upprepas en gång per KALENDERÅR, för föregående inkomstår.
+ *
+ * Kundfeedback ("viktiga datum visar inget när det senaste är avklarat"):
+ * moms/AGI-korten (Taxes.jsx: vatDeadlineInfo/agiDeadlineInfo) är de enda
+ * två deadline-typerna som fanns tidigare — utanför en snar moms-/löne-
+ * deadline (eller om företaget saknar löneunderlag/kvartalsvis moms) blev
+ * "Viktiga datum" därför tomt även om KU-deadlinen (31 januari) alltid
+ * finns där ute och närmar sig. En tredje, alltid närvarande deadline-typ
+ * (för alla företag med bokförda lönekörningar, precis som AGI) gör att
+ * sidan sällan står helt tom mellan moms-/lönehändelser. */
+export function nextKuDeadline(referenceDate = new Date()) {
+  const today = new Date(referenceDate);
+  today.setHours(0, 0, 0, 0);
+  const y = today.getFullYear();
+
+  let dueDate = new Date(y, 0, 31); // 31 januari samma år
+  rollForwardPastWeekend(dueDate);
+  if (today > dueDate) {
+    dueDate = new Date(y + 1, 0, 31); // redan passerad i år — nästa är 31 januari nästa år
+    rollForwardPastWeekend(dueDate);
+  }
+
+  const daysLeft = Math.round((dueDate - today) / 86400000);
+  const incomeYear = dueDate.getFullYear() - 1; // KU:n som förfaller avser alltid FÖREGÅENDE inkomstår
+  return { daysLeft, incomeYear, dueDate };
 }

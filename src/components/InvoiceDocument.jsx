@@ -20,7 +20,7 @@ const formatDate = (d) => {
 // mörkare och gladare nyanser som fortfarande går att skilja åt parvis.
 export const INVOICE_TEMPLATES = {
   classic: { id: 'classic', label: 'Klassisk', description: 'Vit bakgrund, djupblå rubrik, rund logotyp uppe till höger.', defaultAccent: '#3730a3' },
-  bold:    { id: 'bold',    label: 'Kraftfull', description: 'Helfärgad header i din accentfärg, vitt i övrigt.', defaultAccent: '#9d174d' },
+  bold:    { id: 'bold',    label: 'Kraftfull', description: 'Helfärgad header i din accentfärg, vitt i övrigt.', defaultAccent: '#04620f' },
   minimal: { id: 'minimal', label: 'Minimal',   description: 'Vänsterställd rubrik, ingen färgad header-yta.', defaultAccent: '#0f766e' },
   grid:    { id: 'grid',    label: 'Rutnät',    description: 'Konturerad tabellstruktur, traditionellt formulär.', defaultAccent: '#b45309' },
 };

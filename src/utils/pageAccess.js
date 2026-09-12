@@ -31,7 +31,7 @@ export const ACCESS_PAGES = [
   { id: 'contacts', label: 'Kunder och leverantörer', fields: ['contacts'] },
   { id: 'quotes', label: 'Offerter', fields: ['quotes'] },
   { id: 'invoices', label: 'Fakturering', fields: ['invoices', 'articles', 'verifications'] },
-  { id: 'expenses', label: 'Utgifter och kvitton', fields: ['expenses', 'verifications'] },
+  { id: 'expenses', label: 'Kvitton', fields: ['expenses', 'verifications'] },
   { id: 'projects', label: 'Projekt och tid', fields: ['projects', 'timeEntries', 'timeReportStatuses', 'billableTimeEntries'] },
   { id: 'review', label: 'Granskning', fields: ['expenses', 'verifications', 'reviewHistory'] },
   { id: 'verifications', label: 'Bokföring', fields: ['verifications', 'accounts', 'verificationTemplates'] },

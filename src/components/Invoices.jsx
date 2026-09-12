@@ -4,7 +4,7 @@ import {
   Plus, X, Send, Check, FileText,
   Search, ChevronRight, ChevronDown,
   RefreshCw, Printer, Eye, CreditCard, Link2,
-  MessageSquare, Tag, Lock, Settings2, Download, Upload, AlertTriangle, Inbox, Trash2,
+  MessageSquare, Tag, Lock, Settings2, Download, AlertTriangle, Inbox, Trash2,
   ZoomIn, ZoomOut, Pencil, Copy, CheckCircle2, Undo2, Sparkles
 } from 'lucide-react';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
@@ -14,7 +14,6 @@ import { sendInvoiceEmail } from '../emailApi';
 import { BRAND } from '../utils/brandColors';
 import { getNextInvoiceNumber } from '../utils/invoiceNumbering';
 import { confirmDialog } from './shared/ConfirmDialog';
-import { articlesToCsv, csvToArticles, downloadCsv } from '../utils/csvRegister';
 import { listHeaderButtonStyle, listSearchInputStyle, listFilterFieldStyle, PAGE_SIZE_OPTIONS } from './shared/ListPageHeader';
 import RowActionMenu from './shared/RowActionMenu';
 import { AccountSearch } from './shared/SearchInputs';
@@ -47,9 +46,18 @@ const isOverdue = (inv) =>
   inv.status !== 'paid' && inv.dueDate && new Date(inv.dueDate) < new Date();
 
 function getRowBg(status) {
-  if (status === 'paid') return BRAND.greenLight;   // betald
-  if (status === 'overdue') return BRAND.redBg;     // förfallen
-  if (status === 'sent') return BRAND.amberBg;      // obetald, inte förfallen än
+  // Kundfeedback ("bakgrunden är inte så gul/röd"): en HEL RADS bakgrund är
+  // mycket mer yta än en liten badge — appens vanliga, medvetet bleka
+  // --status-amber-bg/--status-red-bg (delade av alla andra sidors diskreta
+  // märken) lästes knappt som färgade alls i den skalan. Egna --row-*-bg-
+  // tokens (index.css, tema-medvetna) används bara här, en nivå starkare.
+  // Uppföljning ("för gröna ska vara mer grön"): "Betald" var det enda
+  // statuset som fortfarande återanvände BRAND.greenLight — appens
+  // blekaste generella badge-ton — i stället för en egen, lika mättad
+  // radton som de andra två redan fick. Samma --row-paid-bg-mönster nu.
+  if (status === 'paid') return 'var(--row-paid-bg)'; // betald
+  if (status === 'overdue') return 'var(--row-overdue-bg)'; // förfallen
+  if (status === 'sent') return 'var(--row-unpaid-bg)';     // obetald, inte förfallen än
   if (status === 'draft') return BRAND.grayBg;      // ej bokförd/skickad än
   return '#ffffff';
 }
@@ -57,14 +65,40 @@ function getRowBg(status) {
 // Kundfeedback ("starkare färger för obetald och betald"): de vanliga
 // BRAND.amberBg/greenLight-tonerna är avsiktligt bleka (samma neutrala
 // nyanser som delas av alla andra badges i hela appen, se brandColors.js) —
-// för just de HÄR två statusarna, den enda frågan som faktiskt spelar roll
-// på hela sidan ("har jag fått betalt eller inte?"), ska svaret synas på
-// långt håll, inte gissas fram från en blek pastellton. Egna, mättade
-// heltäckande färger lokalt HÄR (inte i BRAND) så bara Fakturor-sidans
-// badges/knappar påverkas — Bokförings/lönekörningens statusmärken, som
-// delar samma BRAND-tokens, rörs inte.
+// för just de HÄR statusarna, den enda frågan som faktiskt spelar roll på
+// hela sidan ("har jag fått betalt eller inte, och är det försent?"), ska
+// svaret synas på långt håll, inte gissas fram från en blek pastellton.
+// Egna, mättade heltäckande färger lokalt HÄR (inte i BRAND) så bara
+// Fakturor-sidans badges/knappar påverkas — Bokförings/lönekörningens
+// statusmärken, som delar samma BRAND-tokens, rörs inte.
+//
+// Uppföljning (kundfeedback, skärmdump): STRONG_UNPAID var tidigare en
+// orange ton (#d97706) — "obetald" ska läsas som en GUL varning, inte en
+// orange/röd en, så den lätt går att skilja från "förfallen" (verkligt
+// rött, se STRONG_OVERDUE). En riktigt gul bakgrund behöver mörk text för
+// att gå att läsa (vit text på gult är i praktiken alltid för svag kontrast
+// — samma skäl som gula varningsskyltar/etiketter i resten av webben
+// använder mörk text, inte vit).
 const STRONG_PAID = { bg: '#16a34a', text: '#ffffff' };
-const STRONG_UNPAID = { bg: '#d97706', text: '#ffffff' };
+// Kundfeedback (uppföljning): gult "ännu mer gulish" — bytt till en ljusare,
+// renare gul ton (mindre orange i sig) och rött "lite mer" — bytt till en
+// mer mättad, mindre orange-tonad röd.
+//
+// Kundfeedback (uppföljning igen): den ljusa gula (#facc15, literal hex,
+// samma i båda temana) stack ut för mycket mot en VIT sida men lästes helt
+// rätt mot en mörk — `var(--invoice-unpaid-bg)` (index.css) håller mörkt
+// läge oförändrat och dämpar bara ljust lägets ton ett steg.
+const STRONG_UNPAID = { bg: 'var(--invoice-unpaid-bg)', text: '#422006' };
+// Kundfeedback ("lite mer chill, inte så stark"): #e11d1d var en ren,
+// mättad varningsröd — dämpad ett steg (mindre mättnad, samma kulör) i
+// stället för att byta hue helt, så "förfallen" fortfarande entydigt läses
+// som röd/allvarligt, bara inte lika högljutt.
+//
+// Kundfeedback ("måste se bra ut i dark theme också"): var en literal hex,
+// samma i båda temana, till skillnad från STRONG_UNPAID — `var(--invoice-
+// overdue-bg)` (index.css) ger den nu en egen, kontrollerad mörk-läge-ton
+// precis som gult redan hade, i stället för att bara råka funka.
+const STRONG_OVERDUE = { bg: 'var(--invoice-overdue-bg)', text: '#ffffff' };
 
 // Exempelfaktura — Fakturaguiden (utils/invoiceTour.js) pekar på statusmärket
 // och radmenyn, men de flesta konton har inga riktiga fakturor än när de
@@ -287,6 +321,17 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
     const key = (num || '').trim().toLowerCase();
     if (!key) return null;
     return articles.find(a => (a.articleNumber || '').trim().toLowerCase() === key) || null;
+  };
+  // Artikelnr blev valfritt på registret (Articles.jsx: Benämning är den
+  // riktiga identiteten numera) — en artikel utan nummer går alltså inte
+  // att hitta via findArticleByNumber ovan. Samma benämnings-matchning som
+  // Quotes.jsx (QuoteEditor: findArticleByDescription) på det vanliga
+  // Beskrivning-fältet, så registret fortsatt går att välja från fakturan
+  // även för artiklar som aldrig fått ett artikelnr.
+  const findArticleByDescription = (text) => {
+    const key = (text || '').trim().toLowerCase();
+    if (!key) return null;
+    return articles.find(a => (a.description || '').trim().toLowerCase() === key) || null;
   };
   const applyArticleToRow = (i, article) => {
     setRows(r => r.map((row, idx) => idx === i ? {
@@ -1016,7 +1061,12 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
                         ) : (
                           <input
                             value={row.description}
+                            list="article-description-list"
                             onChange={e => updateRow(i, 'description', e.target.value)}
+                            onBlur={e => {
+                              const hit = findArticleByDescription(e.target.value);
+                              if (hit) applyArticleToRow(i, hit);
+                            }}
                             style={inp}
                             placeholder="Beskrivning av tjänst eller produkt"
                           />
@@ -1150,10 +1200,20 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
 
             {/* Delas av alla radernas Artikelnr-fält ovan (HTML5 <datalist>
                 kräver ett enda, delat id) — native webbläsarautocomplete,
-                ingen egen dropdown-komponent behövs. */}
+                ingen egen dropdown-komponent behövs. Artikelnr är valfritt
+                numera (Articles.jsx) — en artikel utan nummer har inget att
+                visa här, hoppas bara över. */}
             <datalist id="article-register-list">
-              {articles.map(a => (
-                <option key={a.articleNumber} value={a.articleNumber}>{a.description}</option>
+              {articles.filter(a => a.articleNumber).map((a, i) => (
+                <option key={a.id || `${a.articleNumber}-${i}`} value={a.articleNumber}>{a.description}</option>
+              ))}
+            </datalist>
+            {/* Samma register, men matchat på Beskrivning (findArticleByDescription
+                ovan) — så artiklar UTAN artikelnr också går att välja, delat med
+                Beskrivning-fältet på varje rad. */}
+            <datalist id="article-description-list">
+              {articles.map((a, i) => (
+                <option key={a.id || `${a.description}-${i}`} value={a.description}>{a.description}</option>
               ))}
             </datalist>
           </div>
@@ -1345,6 +1405,11 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
               </div>
               <div className="invoice-preview-controls" style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
                 <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                  {/* Samma "grönt i alla, inte bara den valda"-mönster som
+                      Quotes.jsx:s motsvarande väljare — grön kant + grön
+                      text på de inaktiva pillren också, i stället för ett
+                      neutralt grå/svart par, så hela gruppen läses som en
+                      sammanhängande grön mallväljare. */}
                   {Object.values(INVOICE_TEMPLATES).map(tpl => {
                     const active = invoiceTemplateSnapshot.templateId === tpl.id;
                     return (
@@ -1353,8 +1418,8 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
                         onClick={() => setInvoiceTemplateSnapshot(s => ({ ...s, templateId: tpl.id }))}
                         style={{
                           padding: '5px 10px', borderRadius: '999px', fontSize: '11.5px', fontWeight: 600, whiteSpace: 'nowrap',
-                          border: `1.5px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
-                          background: active ? 'var(--accent)' : 'var(--bg-card)', color: active ? 'white' : 'var(--text-main)',
+                          border: `1.5px solid var(--accent)`,
+                          background: active ? 'var(--accent)' : 'var(--bg-card)', color: active ? 'white' : 'var(--accent-text)',
                           cursor: isLocked ? 'not-allowed' : 'pointer', opacity: isLocked ? 0.6 : 1,
                         }}
                       >{tpl.label}</button>
@@ -1789,169 +1854,12 @@ function SupplierInvoicesPanel({ expenses, contacts, onMarkPaid, onOpenFull, onO
   );
 }
 
-// ─── Artikelregister ───────────────────────────────────────────────────────
-// Fristående lista/redigering av det sparade artikelregistret (samma
-// `articles` som fylls i via fakturaradernas "Spara"-knapp och <datalist>,
-// se InvoiceForm ovan) — så registret går att bygga upp och städa i utan att
-// först behöva öppna en faktura.
-function ArticleRegisterModal({ articles, setArticles, accounts = [], onClose }) {
-  const empty = { articleNumber: '', description: '', unitPrice: 0, vatRate: 25, account: '3001' };
-  const [editing, setEditing] = useState(null); // null = ingen redigeras, annars ett utkast (nytt eller befintligt)
-  const [importMsg, setImportMsg] = useState(null);
-  const importFileRef = useRef(null);
-
-  const startNew = () => setEditing({ ...empty });
-  const startEdit = (a) => setEditing({ ...a });
-
-  const handleExportCsv = () => downloadCsv(`artiklar_${new Date().toISOString().split('T')[0]}.csv`, articlesToCsv(articles));
-  const handleImportClick = () => importFileRef.current?.click();
-  // Uppdaterar (matchar på artikelnr) om artikeln redan finns, annars lägger
-  // till en ny — samma upsert-princip som "Spara"-knappen på fakturaraden.
-  const handleImportFile = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      try {
-        const imported = csvToArticles(ev.target.result);
-        if (imported.length === 0) throw new Error('Inga giltiga rader hittades (kräver minst ett "Artikelnr").');
-        let added = 0, updated = 0;
-        setArticles(prev => {
-          const next = [...prev];
-          imported.forEach(item => {
-            const key = item.articleNumber.trim().toLowerCase();
-            const idx = next.findIndex(a => (a.articleNumber || '').trim().toLowerCase() === key);
-            if (idx === -1) { next.push(item); added++; }
-            else { next[idx] = item; updated++; }
-          });
-          return next;
-        });
-        setImportMsg({ type: 'success', text: `${added} ny${added === 1 ? '' : 'a'}, ${updated} uppdaterad${updated === 1 ? '' : 'e'}.` });
-      } catch (err) {
-        setImportMsg({ type: 'error', text: `Kunde inte importera: ${err.message}` });
-      }
-      setTimeout(() => setImportMsg(null), 6000);
-    };
-    reader.readAsText(file, 'utf-8');
-    e.target.value = '';
-  };
-
-  const save = () => {
-    const num = (editing.articleNumber || '').trim();
-    if (!num) return;
-    setArticles(prev => {
-      const key = num.toLowerCase();
-      const idx = prev.findIndex(a => (a.articleNumber || '').trim().toLowerCase() === key);
-      const next = { ...editing, articleNumber: num };
-      if (idx === -1) return [...prev, next];
-      return prev.map((a, i) => i === idx ? next : a);
-    });
-    setEditing(null);
-  };
-
-  const remove = async (num) => {
-    if (!(await confirmDialog(`Ta bort artikel "${num}" från registret? Redan sparade fakturor påverkas inte.`, { danger: true }))) return;
-    setArticles(prev => prev.filter(a => a.articleNumber !== num));
-  };
-
-  return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(17, 24, 39, 0.4)', WebkitBackdropFilter: 'blur(4px)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: '20px' }} onClick={onClose}>
-      <div style={{ background: 'var(--bg-card)', borderRadius: '12px', width: '100%', maxWidth: '640px', maxHeight: '80vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.15)' }} onClick={e => e.stopPropagation()}>
-        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--text-main)' }}>Artikelregister</h3>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <button onClick={handleExportCsv} title="Exportera artiklar som CSV" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '5px 10px', background: 'none', border: '1px solid var(--border)', borderRadius: '5px', color: 'var(--text-secondary)', fontWeight: 600, fontSize: '12px', cursor: 'pointer' }}>
-              <Download size={13} /> Exportera
-            </button>
-            <button onClick={handleImportClick} title="Importera artiklar från CSV" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '5px 10px', background: 'none', border: '1px solid var(--border)', borderRadius: '5px', color: 'var(--text-secondary)', fontWeight: 600, fontSize: '12px', cursor: 'pointer' }}>
-              <Upload size={13} /> Importera
-            </button>
-            <input type="file" ref={importFileRef} accept=".csv" style={{ display: 'none' }} onChange={handleImportFile} />
-            <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
-          </div>
-        </div>
-        {importMsg && (
-          <div style={{ margin: '10px 20px 0', padding: '8px 12px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12.5px', background: importMsg.type === 'success' ? 'var(--status-green-bg)' : 'var(--status-red-bg)', color: importMsg.type === 'success' ? 'var(--status-green-text)' : 'var(--status-red-text)' }}>
-            {importMsg.type === 'success' ? <Check size={14} /> : <AlertTriangle size={14} />}
-            {importMsg.text}
-          </div>
-        )}
-
-        <div style={{ overflowY: 'auto', flex: 1, padding: '12px 20px' }}>
-          {editing ? (
-            <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', marginBottom: '16px' }}>
-              <div>
-                <label style={lbl}>Artikelnr</label>
-                <input style={inp} value={editing.articleNumber} onChange={e => setEditing(s => ({ ...s, articleNumber: e.target.value }))} placeholder="t.ex. 1001" />
-              </div>
-              <div>
-                <label style={lbl}>Konto</label>
-                <AccountSearch
-                  value={editing.account}
-                  onChange={code => setEditing(s => ({ ...s, account: code }))}
-                  accounts={accounts}
-                  placeholder="Sök konto…"
-                />
-              </div>
-              <div style={{ gridColumn: '1 / -1' }}>
-                <label style={lbl}>Benämning</label>
-                <input style={inp} value={editing.description} onChange={e => setEditing(s => ({ ...s, description: e.target.value }))} placeholder="Beskrivning av tjänst eller produkt" />
-              </div>
-              <div>
-                <label style={lbl}>Pris (exkl. moms)</label>
-                <input type="number" style={inp} value={editing.unitPrice} onChange={e => setEditing(s => ({ ...s, unitPrice: Number(e.target.value) }))} />
-              </div>
-              <div>
-                <label style={lbl}>Moms</label>
-                <select style={inp} value={editing.vatRate} onChange={e => setEditing(s => ({ ...s, vatRate: Number(e.target.value) }))}>
-                  {[0, 6, 12, 25].map(r => <option key={r} value={r}>{r}%</option>)}
-                </select>
-              </div>
-              <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                <button onClick={() => setEditing(null)} style={{ padding: '6px 14px', border: '1px solid var(--border)', borderRadius: '5px', background: 'none', cursor: 'pointer', fontSize: '13px' }}>Avbryt</button>
-                <button onClick={save} disabled={!editing.articleNumber.trim()} style={{ padding: '6px 14px', border: 'none', borderRadius: '5px', background: 'var(--accent)', color: 'white', fontWeight: 700, cursor: editing.articleNumber.trim() ? 'pointer' : 'not-allowed', fontSize: '13px' }}>Spara</button>
-              </div>
-            </div>
-          ) : (
-            <button onClick={startNew} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 14px', marginBottom: '12px', background: 'var(--accent)', border: 'none', borderRadius: '5px', fontSize: '13px', fontWeight: 700, color: 'white', cursor: 'pointer' }}>
-              <Plus size={14} /> Ny artikel
-            </button>
-          )}
-
-          {articles.length === 0 ? (
-            <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Inga artiklar sparade ännu. Lägg till en här, eller tryck "Spara" på en fakturarad.</p>
-          ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-              <thead>
-                <tr>
-                  <th style={{ textAlign: 'left', padding: '6px 8px', color: 'var(--text-secondary)', fontSize: '11px' }}>Artikelnr</th>
-                  <th style={{ textAlign: 'left', padding: '6px 8px', color: 'var(--text-secondary)', fontSize: '11px' }}>Benämning</th>
-                  <th style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--text-secondary)', fontSize: '11px' }}>Pris</th>
-                  <th style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--text-secondary)', fontSize: '11px' }}>Moms</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {articles.map(a => (
-                  <tr key={a.articleNumber} style={{ borderTop: '1px solid var(--border-light)' }}>
-                    <td style={{ padding: '6px 8px' }}>{a.articleNumber}</td>
-                    <td style={{ padding: '6px 8px' }}>{a.description}</td>
-                    <td style={{ padding: '6px 8px', textAlign: 'right' }}>{fmt(a.unitPrice)}</td>
-                    <td style={{ padding: '6px 8px', textAlign: 'right' }}>{a.vatRate}%</td>
-                    <td style={{ padding: '6px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                      <button onClick={() => startEdit(a)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1565c0', fontSize: '12px', marginRight: '8px' }}>Ändra</button>
-                      <button onClick={() => remove(a.articleNumber)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><Trash2 size={13} /></button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
+// Artikelregistret (list/redigering av `articles`) hade tidigare en egen
+// modal-komponent här (ArticleRegisterModal). Flyttad till en riktig,
+// hittbar sida — se Articles.jsx (nås via profilmenyns "Produkter &
+// tjänster" samt "Artiklar"-länken i verktygsraden ovan, båda via
+// onNavigate('articles')) — istället för att duplicera samma CRUD-logik
+// på två ställen.
 
 /**
  * Kundrapporterad bugg: raden "Skapa betalningslänk" gjorde tidigare
@@ -2176,7 +2084,6 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
   // uteslutande med showForm (se closeForm/openInvoice/viewInvoice nedan).
   const [viewingInvoice, setViewingInvoice] = useState(null);
   const [selected, setSelected] = useState(new Set());
-  const [showArticleRegister, setShowArticleRegister] = useState(false);
 
   // Fakturaguiden (utils/invoiceTour.js) — genvägsknappen längst upp döljs
   // så fort kontot sett guiden en gång (localStorage, samma "sedd"-mönster
@@ -2213,7 +2120,18 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
       setInvoicePrefill(globalAction.payload || null);
       clearGlobalAction?.();
     }
-  }, [globalAction, clearGlobalAction]);
+    // Kundönskemål: Granskningskön (ReviewQueue.jsx) visade en Stripe-
+    // betalnings ihopmatchade faktura bara som ett rått id-textsträng —
+    // ingen väg att faktiskt SE fakturan därifrån. Samma
+    // globalAction-mönster som 'new_invoice' ovan, bara att den öppnar en
+    // BEFINTLIG faktura i visningsläge istället för ett tomt/förifyllt
+    // formulär.
+    if (globalAction?.type === 'open_invoice' && globalAction.payload?.id) {
+      const found = invoices.find(i => i.id === globalAction.payload.id);
+      if (found) { setEditingInvoice(found); setInvoicePrefill(null); setShowForm(true); }
+      clearGlobalAction?.();
+    }
+  }, [globalAction, clearGlobalAction, invoices]);
 
   // Sök-/intervallfilter-ändringar ska nollställa markeringar — annars kan
   // man stå kvar med rader markerade som inte längre syns.
@@ -2540,8 +2458,8 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '999px',
                   fontSize: '12px', fontWeight: 700, cursor: 'pointer', border: 'none',
-                  background: status === 'overdue' ? BRAND.redBg : status === 'draft' ? BRAND.grayBg : STRONG_UNPAID.bg,
-                  color: status === 'overdue' ? BRAND.redText : status === 'draft' ? BRAND.grayText : STRONG_UNPAID.text,
+                  background: status === 'overdue' ? STRONG_OVERDUE.bg : status === 'draft' ? BRAND.grayBg : STRONG_UNPAID.bg,
+                  color: status === 'overdue' ? STRONG_OVERDUE.text : status === 'draft' ? BRAND.grayText : STRONG_UNPAID.text,
                 }}
               >
                 {status === 'overdue' ? 'Förfallen' : status === 'draft' ? 'Ej bokförd' : 'Obetald'}
@@ -2570,7 +2488,7 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
   // som metatext, samma statusfärger som skrivbordskolumnens egen badge.
   const invoiceMobileRow = (inv) => {
     const status = getStatus(inv);
-    const dot = status === 'overdue' ? BRAND.redText : status === 'draft' ? BRAND.grayText : status === 'paid' ? STRONG_PAID.bg : STRONG_UNPAID.bg;
+    const dot = status === 'overdue' ? STRONG_OVERDUE.bg : status === 'draft' ? BRAND.grayText : status === 'paid' ? STRONG_PAID.bg : STRONG_UNPAID.bg;
     const metaDate = status === 'paid' ? `betald ${shortDate(inv.paidDate)}` : status === 'overdue' ? `förföll ${shortDate(inv.dueDate)}` : `förfaller ${shortDate(inv.dueDate)}`;
     // Kundfeedback med skärmdump: på mobilen stod det bara "—" överst på
     // raden. Identitetsraden hämtade kundnamnet, och saknas kunden (utkast
@@ -2591,8 +2509,8 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
       ) : (
         <span style={{
           padding: '2px 8px', borderRadius: '999px', fontSize: '10.5px', fontWeight: 700,
-          background: status === 'overdue' ? BRAND.redBg : status === 'draft' ? BRAND.grayBg : STRONG_UNPAID.bg,
-          color: status === 'overdue' ? BRAND.redText : status === 'draft' ? BRAND.grayText : STRONG_UNPAID.text,
+          background: status === 'overdue' ? STRONG_OVERDUE.bg : status === 'draft' ? BRAND.grayBg : STRONG_UNPAID.bg,
+          color: status === 'overdue' ? STRONG_OVERDUE.text : status === 'draft' ? BRAND.grayText : STRONG_UNPAID.text,
         }}>{status === 'overdue' ? 'Förfallen' : status === 'draft' ? 'Ej bokförd' : 'Obetald'}</span>
       ),
     };
@@ -2685,7 +2603,7 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
     { value: 'all', label: 'Alla' },
     { value: 'draft', label: 'Ej bokförd', bg: BRAND.grayBg, color: BRAND.grayText },
     { value: 'sent', label: 'Obetald', bg: STRONG_UNPAID.bg, color: STRONG_UNPAID.text, strong: true },
-    { value: 'overdue', label: 'Förfallen', bg: BRAND.redBg, color: BRAND.redText },
+    { value: 'overdue', label: 'Förfallen', bg: STRONG_OVERDUE.bg, color: STRONG_OVERDUE.text, strong: true },
     { value: 'paid', label: 'Betald', bg: STRONG_PAID.bg, color: STRONG_PAID.text, strong: true },
   ];
 
@@ -2718,12 +2636,13 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
           </button>
         )}
         <button onClick={() => onNavigate?.('reports')} style={{ padding: '4px 14px 12px', border: 'none', background: 'none', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', cursor: 'pointer' }}>Rapporter</button>
-        <button onClick={() => setShowArticleRegister(true)} style={{ padding: '4px 14px 12px', border: 'none', background: 'none', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', cursor: 'pointer' }}>Artiklar</button>
+        {/* Pekade tidigare på en liten modal (ArticleRegisterModal) här på
+            plats — flyttat till en egen, hittbar sida (Articles.jsx, nås
+            även direkt från profilmenyn: "Artikel") så samma
+            register går att välja från både fakturor och offerter. */}
+        <button onClick={() => onNavigate?.('articles')} style={{ padding: '4px 14px 12px', border: 'none', background: 'none', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', cursor: 'pointer' }}>Artiklar</button>
         <button onClick={() => onNavigate?.('contacts')} style={{ padding: '4px 14px 12px', border: 'none', background: 'none', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', cursor: 'pointer' }}>Kunder ↓</button>
       </div>
-      {showArticleRegister && (
-        <ArticleRegisterModal articles={articles} setArticles={setArticles} accounts={accounts} onClose={() => setShowArticleRegister(false)} />
-      )}
 
     {section === 'kunder' && (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
