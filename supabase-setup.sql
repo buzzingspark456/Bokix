@@ -1001,19 +1001,48 @@ INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_typ
 VALUES ('blogimages', 'blogimages', true, 5242880, ARRAY['image/jpeg', 'image/png', 'image/webp'])
 ON CONFLICT (id) DO UPDATE SET file_size_limit = 5242880, allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/webp'];
 
--- lower() på båda sidor (inte bara på listan) — Supabase normaliserar
--- e-post till gemener vid registrering, men en policy som INTE gör det
--- själv är en potentiell "fungerar inte" om det någonsin skulle skilja
--- sig, för en engångskostnad av två lower()-anrop.
+-- HISTORIK: en tidigare version av de här policyerna jämförde
+-- auth.jwt() ->> 'email' rakt mot admin-listan. VERIFIERAT (2026-09-13,
+-- live-felsökning): kontot alwakiabdullah1@gmail.com stämde exakt mot
+-- auth.users (samma sträng, samma byte-för-byte-jämförelse), ändå
+-- avvisade Storage varje uppladdning med "new row violates row-level
+-- security policy" — auth.jwt()->>'email' är alltså INTE pålitligt i en
+-- storage.objects-policy i det här projektet (troligen beror det på
+-- vilka claims GoTrue faktiskt lägger i access-token-payloaden, som kan
+-- skilja sig från vad PostgREST-policyer ser). auth.uid() däremot
+-- FUNGERAR redan bevisligen i den här filen (profile/companylogo/
+-- bokix-uploads-policyerna ovan använder den), så adminkollen görs nu
+-- via en SECURITY DEFINER-funktion som slår upp e-posten i auth.users
+-- från uid:t istället för att lita på JWT-payloadens innehåll.
+CREATE OR REPLACE FUNCTION public.is_admin_uid(p_uid uuid)
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM auth.users
+    WHERE id = p_uid
+      AND lower(email) = ANY (ARRAY['alwakiabdullah1@gmail.com', 'abbealwaki08@gmail.com'])
+  );
+$$;
+
+-- authenticated FÅR köra den (annars kan ingen policy nedan använda den
+-- alls) — men funktionen avslöjar bara ett booleskt ja/nej för det egna
+-- uid:et, aldrig någon annans e-post eller data, så det är ofarligt.
+REVOKE ALL ON FUNCTION public.is_admin_uid(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.is_admin_uid(uuid) TO authenticated;
+
 DROP POLICY IF EXISTS "Admin-uppladdning i blogimages" ON storage.objects;
 CREATE POLICY "Admin-uppladdning i blogimages"
 ON storage.objects FOR INSERT TO authenticated
-WITH CHECK (bucket_id = 'blogimages' AND lower((SELECT auth.jwt() ->> 'email')) = ANY (ARRAY['alwakiabdullah1@gmail.com', 'abbealwaki08@gmail.com']));
+WITH CHECK (bucket_id = 'blogimages' AND public.is_admin_uid((SELECT auth.uid())));
 
 DROP POLICY IF EXISTS "Admin-radering i blogimages" ON storage.objects;
 CREATE POLICY "Admin-radering i blogimages"
 ON storage.objects FOR DELETE TO authenticated
-USING (bucket_id = 'blogimages' AND lower((SELECT auth.jwt() ->> 'email')) = ANY (ARRAY['alwakiabdullah1@gmail.com', 'abbealwaki08@gmail.com']));
+USING (bucket_id = 'blogimages' AND public.is_admin_uid((SELECT auth.uid())));
 
 -- Bilder INUTI ett blogginlägg (inte bara omslagsbilden) — samma bucket,
 -- samma två policyer ovan täcker redan det, en bild är en bild oavsett
