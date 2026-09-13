@@ -56,7 +56,11 @@ const SIDEBAR_GROUPS = [
   ],
 ];
 
-export default function DemoWorkspace() {
+// `initialTab`: vilken flik demot öppnas på (Sida: "Kvitton läser sig
+// själva"-sektionen på startsidan ska länka till en RIKTIG OCR-demo, inte
+// bara en artikel). Standard 'dashboard' — oförändrat beteende för Hero-
+// knappen "Se demo", som aldrig skickar med något värde.
+export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
   // Kundönskemål: headern ska vara sidomeny-färgad bara i mörkt läge, vit
   // i ljust läge — samma villkor som riktiga appens .desktop-top-bar
   // (index.css :root[data-theme="dark"]), men den regeln kan inte träffa
@@ -91,7 +95,7 @@ export default function DemoWorkspace() {
       ...(drafts.length > 0 ? [{ icon: FileText, tone: 'amber', tab: 'expenses', text: `${drafts.length} utgift${drafts.length > 1 ? 'er' : ''} väntar på hantering` }] : []),
     ];
   })();
-  const [activeDemoTab, setActiveDemoTab] = useState('dashboard');
+  const [activeDemoTab, setActiveDemoTab] = useState(initialTab);
   const [globalAction, setGlobalAction] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   // Notis- och profilmenyn öppnas på riktigt i demon (kundönskemål: man

@@ -299,7 +299,7 @@ const SOFTWARE_SCHEMA = {
  * med ett lokalt exempeldataset — lazy() + Suspense här (inte RevealLazy,
  * som styrs av scrollposition) eftersom synlighet nu helt avgörs av att
  * overlayen är öppen, inte av var i dokumentet man skrollat till. */
-function DemoOverlay({ onClose }) {
+function DemoOverlay({ onClose, initialTab }) {
   const panelRef = useRef(null);
 
   useEffect(() => {
@@ -335,7 +335,7 @@ function DemoOverlay({ onClose }) {
         </div>
         <div className="lp-demo-overlay-body">
           <Suspense fallback={<div style={{ minHeight: '480px' }} />}>
-            <DemoWorkspace />
+            <DemoWorkspace initialTab={initialTab} />
           </Suspense>
         </div>
       </div>
@@ -387,9 +387,13 @@ export default function LandingPage({ onEnterApp }) {
   // Stängs igen via krysset/Esc/bakgrundsklick i overlayen; fokus flyttas
   // tillbaka till knappen som öppnade den (demoTriggerRef) så tangentbords-
   // /skärmläsarnavigeringen inte tappar sin plats.
+  // `showDemo`: false = stängd, annars vilken flik den ska öppnas på —
+  // så samma overlay kan öppnas rakt in på Kvitton-fliken från "Kvitton
+  // läser sig själva"-sektionen, inte bara på Startsidan som Hero-knappen
+  // öppnar den på.
   const [showDemo, setShowDemo] = useState(false);
   const demoTriggerRef = useRef(null);
-  const openDemo = () => setShowDemo(true);
+  const openDemo = (tab = 'dashboard') => setShowDemo(tab);
   const closeDemo = useCallback(() => {
     setShowDemo(false);
     demoTriggerRef.current?.focus();
@@ -441,7 +445,7 @@ export default function LandingPage({ onEnterApp }) {
                 Prova gratis <ArrowRight size={18} />
               </button>
             </span>
-            <button ref={demoTriggerRef} className="lp-btn-secondary" onClick={openDemo} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '9px', padding: '18px 30px', background: 'var(--mkt-card-bg)', border: '1.5px solid var(--mkt-border-soft)', borderRadius: '13px', fontSize: '17px', fontWeight: 600, cursor: 'pointer', color: 'var(--mkt-ink-soft)', fontFamily: 'inherit', minHeight: '48px' }}>
+            <button ref={demoTriggerRef} className="lp-btn-secondary" onClick={() => openDemo()} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '9px', padding: '18px 30px', background: 'var(--mkt-card-bg)', border: '1.5px solid var(--mkt-border-soft)', borderRadius: '13px', fontSize: '17px', fontWeight: 600, cursor: 'pointer', color: 'var(--mkt-ink-soft)', fontFamily: 'inherit', minHeight: '48px' }}>
               Se demo <ChevronRight size={18} />
             </button>
           </div>
@@ -757,7 +761,12 @@ export default function LandingPage({ onEnterApp }) {
           de två "så här funkar det på riktigt"-sektionerna följer på
           varandra: kvittot in, banken in. Animationen bor i
           marketing/ReceiptFlow.jsx, egen fil eftersom den inte delas med
-          någon hjälte-sektion (till skillnad från Bank-/MigrationFlow). ── */}
+          någon hjälte-sektion (till skillnad från Bank-/MigrationFlow).
+          Knappen öppnar den RIKTIGA produktdemon (DemoOverlay/
+          DemoWorkspace, samma överlag som Hero-knappen "Se demo") direkt
+          på Kvitton-fliken i stället för att länka till artikeln —
+          kundönskemål: besökaren ska kunna testa OCR-läsningen själv, inte
+          bara läsa om den. */}
       <section style={{ padding: '76px 24px', background: 'var(--mkt-page-bg)', borderTop: '1px solid var(--mkt-border-soft)', position: 'relative', overflow: 'hidden' }}>
         <div style={{ maxWidth: 'min(92vw, 1240px)', margin: '0 auto', position: 'relative' }}>
           <Reveal style={{ textAlign: 'center', marginBottom: '38px' }}>
@@ -774,12 +783,12 @@ export default function LandingPage({ onEnterApp }) {
           </Reveal>
 
           <Reveal delay={140} style={{ textAlign: 'center', marginTop: '30px' }}>
-            <Link
-              to="/enkel-bokforing"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '13px 24px', background: 'var(--mkt-card-bg)', border: `1.5px solid ${CARD_BORDER}`, borderRadius: '12px', color: INK_SOFT, fontWeight: 700, fontSize: '15px', textDecoration: 'none' }}
+            <button
+              onClick={() => openDemo('expenses')}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '13px 24px', background: 'var(--mkt-card-bg)', border: `1.5px solid ${CARD_BORDER}`, borderRadius: '12px', color: INK_SOFT, fontWeight: 700, fontSize: '15px', cursor: 'pointer', fontFamily: 'inherit' }}
             >
-              Så gör Bokix bokföring enkelt <ArrowRight size={15} />
-            </Link>
+              Testa OCR-läsningen själv <ArrowRight size={15} />
+            </button>
           </Reveal>
         </div>
       </section>
@@ -1110,7 +1119,7 @@ export default function LandingPage({ onEnterApp }) {
 
       {/* Egen fristående yta, inte en sektion i sidflödet ovan — se
           DemoOverlay:s egen kommentar högst upp i filen. */}
-      {showDemo && <DemoOverlay onClose={closeDemo} />}
+      {showDemo && <DemoOverlay onClose={closeDemo} initialTab={showDemo} />}
     </MarketingLayout>
   );
 }
