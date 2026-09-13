@@ -261,18 +261,22 @@ const KNOWN_SUPPLIERS = [
   { re: /notion/i, name: 'Notion', account: '6540', vat: 0 },
   { re: /spotify/i, name: 'Spotify', account: '6990', vat: 25 },
 
-  // Matvaror & representation (12% moms)
-  { re: /coop/i, name: 'Coop', account: '5010', vat: 12 },
-  { re: /ica\b/i, name: 'ICA', account: '5010', vat: 12 },
-  { re: /willys/i, name: 'Willys', account: '5010', vat: 12 },
-  { re: /lidl/i, name: 'Lidl', account: '5010', vat: 12 },
-  { re: /hemk[öo]p/i, name: 'Hemköp', account: '5010', vat: 12 },
-  { re: /espresso house/i, name: 'Espresso House', account: '5010', vat: 12 },
-  { re: /pressbyr[åa]n/i, name: 'Pressbyrån', account: '5010', vat: 12 },
-  { re: /7-eleven|seven eleven/i, name: '7-Eleven', account: '5010', vat: 12 },
-  { re: /mcdonald'?s/i, name: "McDonald's", account: '5010', vat: 12 },
-  { re: /burger king/i, name: 'Burger King', account: '5010', vat: 12 },
-  { re: /max burger|max restauranger/i, name: 'MAX', account: '5010', vat: 12 },
+  // Matvaror & representation (12% moms). Konto 6071 "Representation,
+  // avdragsgill" — RÄTTAT (stod tidigare 5010, som i Bokix egen
+  // kontoplan är "Lokalhyra", se AccountsData.js: en riktig felskrivning,
+  // inte en avsedd genväg. 6071 fanns inte alls i DEFAULT_ACCOUNTS innan
+  // den här rättningen, tillagt i AccountsData.js i samma commit.
+  { re: /coop/i, name: 'Coop', account: '6071', vat: 12 },
+  { re: /ica\b/i, name: 'ICA', account: '6071', vat: 12 },
+  { re: /willys/i, name: 'Willys', account: '6071', vat: 12 },
+  { re: /lidl/i, name: 'Lidl', account: '6071', vat: 12 },
+  { re: /hemk[öo]p/i, name: 'Hemköp', account: '6071', vat: 12 },
+  { re: /espresso house/i, name: 'Espresso House', account: '6071', vat: 12 },
+  { re: /pressbyr[åa]n/i, name: 'Pressbyrån', account: '6071', vat: 12 },
+  { re: /7-eleven|seven eleven/i, name: '7-Eleven', account: '6071', vat: 12 },
+  { re: /mcdonald'?s/i, name: "McDonald's", account: '6071', vat: 12 },
+  { re: /burger king/i, name: 'Burger King', account: '6071', vat: 12 },
+  { re: /max burger|max restauranger/i, name: 'MAX', account: '6071', vat: 12 },
 
   // Drivmedel & fordon (25% moms)
   { re: /circle k/i, name: 'Circle K', account: '5611', vat: 25 },
@@ -538,7 +542,7 @@ export function parseReceiptText(text) {
       { re: /parkering|parking|p-hus|p-avgift/, code: '5612' },
       { re: /tåg|flyg|resa|biljett|sas\b|norwegian/, code: '5810' },
       { re: /hotell|hotel|logi|airbnb|booking\.com/, code: '5410' },
-      { re: /restaurang|lunch|middag|fika|café|cafe|mat|livsmedel|grocery/, code: '5010' },
+      { re: /restaurang|lunch|middag|fika|café|cafe|mat|livsmedel|grocery/, code: '6071' },
       { re: /kontors|papper|penna|bläck|toner|staples/, code: '6110' },
       { re: /porto|frakt|paket|post|fedex|ups/, code: '6230' },
       // OBS: "\b3\b" (fristående siffran 3, operatören "3"/tre.se) — INTE

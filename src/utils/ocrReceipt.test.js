@@ -22,7 +22,7 @@ describe('parseReceiptText', () => {
     expect(result.accountCode).toBe('6540');
   });
 
-  it('extraherar kvitto från ICA med 12% moms och konto 5010', () => {
+  it('extraherar kvitto från ICA med 12% moms och konto 6071', () => {
     const text = `
       ICA Supermarket
       Org.nr: 556000-1234
@@ -38,7 +38,7 @@ describe('parseReceiptText', () => {
     expect(result.amount).toBe(105.4);
     expect(result.vatRate).toBe(12);
     expect(result.supplier).toBe('ICA');
-    expect(result.accountCode).toBe('5010');
+    expect(result.accountCode).toBe('6071');
   });
 
   it('extraherar bensin kvitto från Circle K med 25% moms och konto 5611', () => {

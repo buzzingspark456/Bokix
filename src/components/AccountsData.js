@@ -105,6 +105,7 @@ export const DEFAULT_ACCOUNTS = [
   { code: "5420", name: "Programvaror", type: "kostnad" },
   { code: "5460", name: "Förbrukningsmaterial", type: "kostnad" },
   { code: "5611", name: "Personbilskostnader", type: "kostnad" },
+  { code: "6071", name: "Representation, avdragsgill", type: "kostnad" },
   { code: "6110", name: "Kontorsmaterial", type: "kostnad" },
   { code: "6150", name: "Trycksaker", type: "kostnad" },
   { code: "6211", name: "Telefon", type: "kostnad" },

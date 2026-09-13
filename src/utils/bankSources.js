@@ -136,11 +136,10 @@ export const BANK_SOURCES = [
     // "tjock" som Nordea utan att antingen göra just den här brickan större
     // än de andra eller förvanska det riktiga märket.
     scale: 1.4,
-    // OBS: generisk uppskattad klickväg, INTE kundverifierad som resten av
-    // listan (se filkommentaren högst upp — de andra raderna är kundens
-    // egna, ordagranna uppgifter). Rätta till den riktiga så fort någon
-    // faktiskt loggat in och kollat.
-    path: 'Logga in → Konton → Transaktioner → Exportera (CSV)',
+    // Kundens egen uppdatering (2026-09-13), inte längre den generiska
+    // gissningen som stod här först. Kortad till klickväg-formen samma
+    // sätt som resten av listan.
+    path: 'Logga in → Konton → Kontoöversikt → Välj konto → Välj period → Spara (CSV)',
   },
 ];
 
