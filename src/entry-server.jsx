@@ -27,6 +27,7 @@ import SwitchPage from './components/marketing/SwitchPage.jsx';
 import BankPage from './components/marketing/BankPage.jsx';
 import UfPage from './components/marketing/UfPage.jsx';
 import ToolsHubPage from './components/marketing/tools/ToolsHubPage.jsx';
+import ScanReceiptPage from './components/marketing/tools/ScanReceiptPage.jsx';
 import MomsKalkylatorPage from './components/marketing/tools/MomsKalkylatorPage.jsx';
 import LonekalkylatorPage from './components/marketing/tools/LonekalkylatorPage.jsx';
 import EgenavgifterPage from './components/marketing/tools/EgenavgifterPage.jsx';
@@ -50,7 +51,7 @@ export const PRERENDER_ROUTES = [
   '/', '/funktioner', '/priser', '/om-oss', '/kontakt',
   '/byt-bokforingsprogram', '/koppla-bank', '/uf',
   '/integrationer', '/sakerhet', '/ordlista', '/enkel-bokforing',
-  '/verktyg', '/verktyg/momskalkylator', '/verktyg/lonekalkylator', '/verktyg/egenavgifter',
+  '/verktyg', '/verktyg/skanna-kvitto', '/verktyg/momskalkylator', '/verktyg/lonekalkylator', '/verktyg/egenavgifter',
   '/verktyg/rot-rut', '/verktyg/drojsmalsranta', '/verktyg/utdelning',
   '/verktyg/momsdatum', '/verktyg/arsredovisning',
 ];
@@ -69,6 +70,7 @@ const PAGES = {
   '/ordlista': OrdlistaPage,
   '/enkel-bokforing': EnkelBokforingPage,
   '/verktyg': ToolsHubPage,
+  '/verktyg/skanna-kvitto': ScanReceiptPage,
   '/verktyg/momskalkylator': MomsKalkylatorPage,
   '/verktyg/lonekalkylator': LonekalkylatorPage,
   '/verktyg/egenavgifter': EgenavgifterPage,

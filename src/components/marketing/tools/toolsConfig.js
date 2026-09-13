@@ -1,4 +1,4 @@
-import { Percent, Users, Briefcase, Hammer, AlarmClock, PiggyBank, CalendarClock, FileClock } from 'lucide-react';
+import { Percent, Users, Briefcase, Hammer, AlarmClock, PiggyBank, CalendarClock, FileClock, ScanLine } from 'lucide-react';
 
 // ── EN källa för de fria verktygen ──────────────────────────────────────
 // Listan konsumeras av: sidfoten (MarketingLayout.jsx), verktygsnavet
@@ -14,6 +14,16 @@ import { Percent, Users, Briefcase, Hammer, AlarmClock, PiggyBank, CalendarClock
 // `footerLabel` är kortformen som används där utrymmet är smalt (sidfotens
 // mobilkolumner) — sidans egen titel, meta och h1 påverkas aldrig av den.
 export const TOOLS = [
+  {
+    slug: 'skanna-kvitto',
+    footerLabel: 'Skanna kvitto',
+    path: '/verktyg/skanna-kvitto',
+    icon: ScanLine,
+    accentKey: 'blue',
+    title: 'Skanna kvitto (OCR)',
+    short: 'Läs av ett kvitto direkt',
+    description: 'Ladda upp en bild av ett kvitto — datum, belopp, moms och ett kontoförslag läses av automatiskt, direkt i din webbläsare.',
+  },
   {
     slug: 'momskalkylator',
     footerLabel: 'Momskalkylator',

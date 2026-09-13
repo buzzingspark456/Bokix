@@ -37,6 +37,7 @@ const UfPage = lazy(() => import('./components/marketing/UfPage'));
 // säkerhetssidan — alla publika, alla lazy av samma skäl som ovan: en
 // besökare som bara ska till startsidan ska inte hämta dem.
 const ToolsHubPage = lazy(() => import('./components/marketing/tools/ToolsHubPage'));
+const ScanReceiptPage = lazy(() => import('./components/marketing/tools/ScanReceiptPage'));
 const MomsKalkylatorPage = lazy(() => import('./components/marketing/tools/MomsKalkylatorPage'));
 const LonekalkylatorPage = lazy(() => import('./components/marketing/tools/LonekalkylatorPage'));
 const EgenavgifterPage = lazy(() => import('./components/marketing/tools/EgenavgifterPage'));
@@ -239,6 +240,7 @@ export default function AppRouter() {
             vercel.json — samma tre ställen som varje annan statisk
             marknadssida redan står på. */}
         <Route path="/verktyg" element={<Suspense fallback={<AppLoadingFallback />}><ToolsHubPage /></Suspense>} />
+        <Route path="/verktyg/skanna-kvitto" element={<Suspense fallback={<AppLoadingFallback />}><ScanReceiptPage /></Suspense>} />
         <Route path="/verktyg/momskalkylator" element={<Suspense fallback={<AppLoadingFallback />}><MomsKalkylatorPage /></Suspense>} />
         <Route path="/verktyg/lonekalkylator" element={<Suspense fallback={<AppLoadingFallback />}><LonekalkylatorPage /></Suspense>} />
         <Route path="/verktyg/egenavgifter" element={<Suspense fallback={<AppLoadingFallback />}><EgenavgifterPage /></Suspense>} />

@@ -67,6 +67,10 @@
       "destination": "/verktyg/index.html"
     },
     {
+      "source": "/verktyg/skanna-kvitto",
+      "destination": "/verktyg/skanna-kvitto/index.html"
+    },
+    {
       "source": "/verktyg/momskalkylator",
       "destination": "/verktyg/momskalkylator/index.html"
     },

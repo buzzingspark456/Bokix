@@ -762,11 +762,12 @@ export default function LandingPage({ onEnterApp }) {
           varandra: kvittot in, banken in. Animationen bor i
           marketing/ReceiptFlow.jsx, egen fil eftersom den inte delas med
           någon hjälte-sektion (till skillnad från Bank-/MigrationFlow).
-          Knappen öppnar den RIKTIGA produktdemon (DemoOverlay/
-          DemoWorkspace, samma överlag som Hero-knappen "Se demo") direkt
-          på Kvitton-fliken i stället för att länka till artikeln —
-          kundönskemål: besökaren ska kunna testa OCR-läsningen själv, inte
-          bara läsa om den. */}
+          Knappen länkar till en EGEN sida (/verktyg/skanna-kvitto,
+          ScanReceiptPage.jsx), inte till produktdemon — kundönskemål,
+          uttryckligt: en fristående sida där besökaren laddar upp ett
+          RIKTIGT eget kvitto och får RIKTIGA värden tillbaka, i stället
+          för att öppna hela app-demot med exempeldata. Samma
+          utils/ocrReceipt.js som Expenses.jsx, ingen egen kopia. ── */}
       <section style={{ padding: '76px 24px', background: 'var(--mkt-page-bg)', borderTop: '1px solid var(--mkt-border-soft)', position: 'relative', overflow: 'hidden' }}>
         <div style={{ maxWidth: 'min(92vw, 1240px)', margin: '0 auto', position: 'relative' }}>
           <Reveal style={{ textAlign: 'center', marginBottom: '38px' }}>
@@ -783,12 +784,12 @@ export default function LandingPage({ onEnterApp }) {
           </Reveal>
 
           <Reveal delay={140} style={{ textAlign: 'center', marginTop: '30px' }}>
-            <button
-              onClick={() => openDemo('expenses')}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '13px 24px', background: 'var(--mkt-card-bg)', border: `1.5px solid ${CARD_BORDER}`, borderRadius: '12px', color: INK_SOFT, fontWeight: 700, fontSize: '15px', cursor: 'pointer', fontFamily: 'inherit' }}
+            <Link
+              to="/verktyg/skanna-kvitto"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '13px 24px', background: 'var(--mkt-card-bg)', border: `1.5px solid ${CARD_BORDER}`, borderRadius: '12px', color: INK_SOFT, fontWeight: 700, fontSize: '15px', textDecoration: 'none' }}
             >
               Testa OCR-läsningen själv <ArrowRight size={15} />
-            </button>
+            </Link>
           </Reveal>
         </div>
       </section>
