@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { FileText, BarChart3, CreditCard, ShieldAlert, Users, LogOut, ShieldCheck } from 'lucide-react';
+import { BarChart3, CreditCard, ShieldAlert, Users, LogOut, ShieldCheck } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
 import InternalAuth from './InternalAuth';
-import BlogAdmin from './BlogAdmin';
 import AnalyticsAdmin from './AnalyticsAdmin';
 import PaymentsAdmin from './PaymentsAdmin';
 import SecurityAdmin from './SecurityAdmin';
@@ -15,12 +14,12 @@ import { adminGet } from './adminApi';
 // att den finns, samma "security by not advertising it" som vilken
 // intern verktygssida som helst, ALDRIG den enda spärren i sig (den
 // riktiga spärren är api/admin/index.js:s ADMIN_EMAILS, se den filens
-// kommentar). Alla fem flikar är nu live (Blogg, Analys, Betalningar,
-// Säkerhet, Användare) — `navItems.live` finns kvar som mönster för nästa
-// delsystem som byggs efter dessa, inte för att gråmarkera något idag.
+// kommentar). Fyra flikar är live (Analys, Betalningar, Säkerhet,
+// Användare) — Blogg (admin-CMS) togs bort 2026-09-13, se
+// api/admin/index.js:s kommentar för varför.
 export default function InternalApp() {
   const [status, setStatus] = useState('checking'); // checking | needs-login | needs-mfa | unauthorized | authorized | error
-  const [activeTab, setActiveTab] = useState('blog');
+  const [activeTab, setActiveTab] = useState('analytics');
   const [errorMsg, setErrorMsg] = useState('');
   const [adminEmail, setAdminEmail] = useState('');
 
@@ -30,9 +29,9 @@ export default function InternalApp() {
     if (!session) { setStatus('needs-login'); return; }
     setAdminEmail(session.user?.email || '');
     try {
-      // Samma anrop UI:t ändå behöver göra för att fylla bloggsidan —
+      // Samma anrop UI:t ändå behöver göra för att fylla Analys-fliken —
       // dubbelt syfte, inte ett extra "får jag vara här?"-anrop.
-      await adminGet({ resource: 'blog' });
+      await adminGet({ resource: 'analytics' });
       setStatus('authorized');
     } catch (err) {
       const message = String(err.message || '');
@@ -92,7 +91,6 @@ export default function InternalApp() {
   }
 
   const navItems = [
-    { id: 'blog', label: 'Blogg', icon: FileText, live: true },
     { id: 'analytics', label: 'Analys', icon: BarChart3, live: true },
     { id: 'payments', label: 'Betalningar', icon: CreditCard, live: true },
     { id: 'security', label: 'Säkerhet', icon: ShieldAlert, live: true },
@@ -143,7 +141,6 @@ export default function InternalApp() {
       </aside>
 
       <main style={{ flex: 1, minWidth: 0, overflowY: 'auto' }}>
-        {activeTab === 'blog' && <BlogAdmin />}
         {activeTab === 'analytics' && <AnalyticsAdmin />}
         {activeTab === 'payments' && <PaymentsAdmin />}
         {activeTab === 'security' && <SecurityAdmin />}

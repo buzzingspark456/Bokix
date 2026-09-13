@@ -957,17 +957,16 @@ CREATE TABLE IF NOT EXISTS public.email_senders (
 ALTER TABLE public.email_senders ENABLE ROW LEVEL SECURITY;
 
 -- ══════════════════════════════════════════════════════════════════════
--- BLOGG (admin-CMS, Sida: internt admin-läge på /internal) — api/admin/blog.js
+-- BLOGG — BORTTAGEN UR APPEN (2026-09-13)
 -- ══════════════════════════════════════════════════════════════════════
--- Skrivning (skapa/ändra/radera/publicera) går ALDRIG via klientens egen
--- Supabase-nyckel — bara via api/admin/blog.js med service-role-nyckeln,
--- som själv verifierar att den inloggade användarens e-post finns i en
--- hårdkodad admin-lista (samma "kort, hårdkodad lista, inte en egen
--- roll-tabell för en handfull personer"-avvägning som FREE_ACCOUNT_EMAILS
--- i App.jsx redan gör). RLS här är därför MEDVETET stängd för alla
--- skrivningar oavsett roll — precis som email_senders ovan — och öppen
--- bara för LÄSNING av publicerade inlägg, så den publika bloggsidan kan
--- läsa direkt med anon-nyckeln utan en egen serverfunktion.
+-- Admin-CMS:et (BlogAdmin.jsx), de publika sidorna (BlogListPage/
+-- BlogPostPage) och api/admin/index.js:s blog-resurser är alla borttagna
+-- — RLS på blogimages-bucketen gick aldrig att få stabil (se git-
+-- historiken), och kunden valde att dra ur funktionen. Tabellen och
+-- bucketen nedan lämnas MEDVETET orörda (ingen DROP), bara för att inte
+-- riskera redan publicerat innehåll — ingen kod i src/ eller api/ läser
+-- eller skriver dem längre. Säkert att faktiskt droppa dem den dagen
+-- någon bekräftar att inget innehåll behöver sparas.
 CREATE TABLE IF NOT EXISTS public.blog_posts (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   slug text NOT NULL UNIQUE,

@@ -53,15 +53,6 @@ const UtdelningPage = lazy(() => import('./components/marketing/tools/UtdelningP
 const MomsDatumPage = lazy(() => import('./components/marketing/tools/MomsDatumPage'));
 const ArsredovisningPage = lazy(() => import('./components/marketing/tools/ArsredovisningPage'));
 const OrdlistaPage = lazy(() => import('./components/marketing/OrdlistaPage'));
-// Bloggen — DYNAMISKT innehåll (skrivs/publiceras via /internal, se
-// InternalApp.jsx), till skillnad från varenda annan marknadssida i den
-// här filen. Förrenderas därför INTE (ingen post i entry-server.jsx:s
-// PRERENDER_ROUTES/PAGES eller egen vercel.json-rewrite) — ett nytt
-// inlägg måste synas direkt utan en ny deploy, vilket bara går med rena
-// klient-routes. Faller igenom till app-shell.html:s catch-all-rewrite
-// precis som den inloggade appens egna routes redan gör.
-const BlogListPage = lazy(() => import('./components/marketing/blog/BlogListPage'));
-const BlogPostPage = lazy(() => import('./components/marketing/blog/BlogPostPage'));
 // Det dolda admin-läget — ingen länk till den någonstans i den publika
 // navigeringen, se InternalApp.jsx för behörighetskollen (klient-sidan är
 // bara UI, den riktiga spärren är api/admin/index.js:s ADMIN_EMAILS).
@@ -238,8 +229,6 @@ export default function AppRouter() {
         <Route path="/integrationer" element={<Suspense fallback={<AppLoadingFallback />}><IntegrationsPage /></Suspense>} />
         <Route path="/sakerhet" element={<Suspense fallback={<AppLoadingFallback />}><SecurityPage /></Suspense>} />
         <Route path="/ordlista" element={<Suspense fallback={<AppLoadingFallback />}><OrdlistaPage /></Suspense>} />
-        <Route path="/blogg" element={<Suspense fallback={<AppLoadingFallback />}><BlogListPage /></Suspense>} />
-        <Route path="/blogg/:slug" element={<Suspense fallback={<AppLoadingFallback />}><BlogPostPage /></Suspense>} />
         <Route path="/internal" element={<Suspense fallback={<AppLoadingFallback />}><InternalApp /></Suspense>} />
         {/* Verktygsnavet + räknarna. Sökvägarna måste hållas i
             synk med TOOLS i marketing/tools/toolsConfig.js (sidfoten,

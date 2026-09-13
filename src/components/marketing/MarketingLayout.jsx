@@ -81,7 +81,6 @@ export const MARKETING_PAGES = [
   { label: 'Funktioner', to: '/funktioner' },
   { label: 'Priser', to: '/priser' },
   { label: 'Verktyg', to: '/verktyg' },
-  { label: 'Blogg', to: '/blogg' },
   { label: 'Om oss', to: '/om-oss' },
   { label: 'Kontakt', to: '/kontakt' },
 ];
@@ -926,7 +925,6 @@ const FOOTER_COLUMNS = [
   {
     heading: 'Lär dig',
     links: [
-      { label: 'Blogg', to: '/blogg' },
       { label: 'Bokföringsordlista', to: '/ordlista' },
       { label: 'Byt till Bokix', to: '/byt-bokforingsprogram' },
       { label: 'För UF-företag', to: '/uf' },
