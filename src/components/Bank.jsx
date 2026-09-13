@@ -690,7 +690,7 @@ function BankRowDetail({ row, invoiceCandidates, supplierCandidates, accounts, v
 // /koppla-bank och startsidans animation läser. Låg tidigare som en egen
 // BANK_EXPORT_PATHS-konstant HÄR; två listor hade garanterat glidit isär
 // i samma sekund en bank ändrade sin meny, och en besökare som sett
-// "Skandia" på sajten och sedan inte hittar den i modalen tappar
+// "Danske Bank" på sajten och sedan inte hittar den i modalen tappar
 // förtroendet direkt (exakt samma resonemang som migrationSources.js
 // redan gör för bokföringsprogrammen).
 //

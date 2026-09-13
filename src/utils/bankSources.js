@@ -79,13 +79,6 @@ export const BANK_SOURCES = [
     path: 'Logga in → Konton → Transaktioner → Exportera till fil (CSV)',
   },
   {
-    id: 'skandia',
-    name: 'Skandia',
-    logo: '/logos/banks/skandia.png',
-    ratio: 640 / 114,
-    path: 'Logga in → Konton → Transaktioner → Exportera (CSV)',
-  },
-  {
     // Enda staplade lockupen (symbol ÖVER ordbild) i listan — därav
     // scale > 1: en kvadratisk logga som får samma höjdtak som en ren
     // ordbild ser hälften så stor ut fast den tar lika mycket plats.

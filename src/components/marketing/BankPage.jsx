@@ -61,7 +61,7 @@ const FAQ = [
   },
   {
     q: 'Vilka banker fungerar?',
-    a: 'Alla. Vi har färdiga klickvägar för Nordea, SEB, Swedbank, Handelsbanken, Länsförsäkringar, ICA Banken, Skandia, Lunar och Northmill, men importen är en generell CSV- och Excel-läsare där du kopplar kolumnerna själv. Har du en bank som inte står i listan — eller ett utländskt konto — läses filen på precis samma sätt.',
+    a: 'Alla. Vi har färdiga klickvägar för Nordea, SEB, Swedbank, Handelsbanken, Länsförsäkringar, ICA Banken, Danske Bank, Lunar och Northmill, men importen är en generell CSV- och Excel-läsare där du kopplar kolumnerna själv. Har du en bank som inte står i listan — eller ett utländskt konto — läses filen på precis samma sätt.',
   },
   {
     q: 'Min bank exporterar med engelska rubriker, spelar det roll?',
@@ -168,7 +168,7 @@ export default function BankPage() {
     <MarketingLayout>
       <PageMeta
         title="Koppla banken till bokföringen | Importera kontoutdrag i Bokix"
-        description="Exportera kontoutdraget ur Nordea, Swedbank, Handelsbanken, Länsförsäkringar, ICA Banken, SEB, Skandia, Lunar eller Northmill och läs in det i Bokix. Transaktionerna matchas mot dina fakturor — och vi frågar aldrig efter dina bankuppgifter."
+        description="Exportera kontoutdraget ur Nordea, Swedbank, Handelsbanken, Länsförsäkringar, ICA Banken, SEB, Danske Bank, Lunar eller Northmill och läs in det i Bokix. Transaktionerna matchas mot dina fakturor — och vi frågar aldrig efter dina bankuppgifter."
         path="/koppla-bank"
         type="article"
       />
