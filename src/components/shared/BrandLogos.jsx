@@ -69,11 +69,22 @@ const noSaveStyle = (style) => ({ ...style, WebkitUserDrag: 'none', userSelect: 
 // båda teman utan någon ljus/mörk-variant, samma anledning Zettle/
 // Bolagsverket/Skatteverket INTE gör det (se ThemedLogo-kommentaren nedan).
 export function StripeLogo({ height = 16 }) {
+  // Lighthouse (Prestanda, "Image elements do not have explicit width and
+  // height"): height="clamp(...)" (CSS-sträng, används i "Kopplat till"-
+  // raden på startsidan) gjorde tidigare att INGA bredd/höjd-attribut alls
+  // sattes på <img> — webbläsaren hade ingen aning om bildens proportion
+  // förrän filen hunnit laddas, vilket reserverar fel utrymme och ger ett
+  // hopp när den väl dyker upp (CLS). HTML-attributen nedan sätts nu ALLTID,
+  // med ett referensvärde (100) när `height` är en CSS-sträng — den faktiska
+  // pixelsiffran spelar ingen roll, bara FÖRHÅLLANDET (UA-stilmallens
+  // `aspect-ratio: attr(width)/attr(height)`), som `width:'auto'` i style
+  // nedan sedan räknar den riktiga bredden utifrån.
+  const ratio = 3840 / 1599;
   const numeric = typeof height === 'number';
   return (
     <img
       src="/stripe-wordmark.png" alt="Stripe" loading="lazy"
-      {...(numeric ? { height, width: height * (3840 / 1599) } : {})}
+      width={(numeric ? height : 100) * ratio} height={numeric ? height : 100}
       style={noSaveStyle({ height, width: 'auto', objectFit: 'contain' })}
       {...NO_SAVE_PROPS}
     />
@@ -95,10 +106,13 @@ export function StripeLogo({ height = 16 }) {
 // rundning eller transparens som det tidigare logo.dev-ikonmärket hade) —
 // en egen border-radius mjukar upp hörnen istället.
 export function StripeIconLogo({ height = 16 }) {
+  // Samma CLS-fix som StripeLogo ovan — kvadratiskt märke, så width=height.
+  const numeric = typeof height === 'number';
+  const size = numeric ? height : 100;
   return (
     <img
       src="/stripe-icon-brandfetch.webp" alt="Stripe" loading="lazy"
-      height={typeof height === 'number' ? height : undefined}
+      width={size} height={size}
       style={noSaveStyle({ height, width: 'auto', objectFit: 'contain', borderRadius: '22%' })}
       {...NO_SAVE_PROPS}
     />
@@ -118,8 +132,12 @@ export function StripeIconLogo({ height = 16 }) {
 // färgade detaljer (Zettles lila stripe, Skatteverket/Bolagsverkets gult)
 // lämnas orörda i alla varianter.
 function ThemedLogo({ lightSrc, darkSrc, alt, height, aspectRatio }) {
+  // Samma CLS-fix som StripeLogo/StripeIconLogo ovan (se den kommentaren) —
+  // Bolagsverket/Skatteverket använder clamp()-strängar i "Kopplat till"-
+  // raden, som tidigare gav dem NOLL bredd/höjd-attribut.
   const numeric = typeof height === 'number';
-  const commonProps = numeric ? { height, width: height * aspectRatio } : { height: undefined };
+  const refHeight = numeric ? height : 100;
+  const commonProps = { height: refHeight, width: refHeight * aspectRatio };
   const style = noSaveStyle({ height, width: 'auto', objectFit: 'contain' });
   return (
     <>
@@ -198,14 +216,15 @@ export function SkatteverketLogo({ height = 18 }) {
 // bakgrund och fungerar därför likadant i ljust och mörkt läge, till
 // skillnad från versionen med mörkblå text som krävde en ljus yta under.
 export function GdprLogo({ height = 18 }) {
+  // Samma CLS-fix som StripeLogo (se den kommentaren) — width/height sätts
+  // alltid, med ett referensvärde när `height` är en CSS-sträng.
   const numeric = typeof height === 'number';
-  // Kvadratiskt märke: stjärnringen med ordet i mitten, ingen flaggplatta.
-  const width = numeric ? height : undefined;
+  const size = numeric ? height : 100;
   return (
     <svg
       viewBox="180 30 540 540" role="img" aria-label="GDPR"
-      {...(numeric ? { width, height } : {})}
-      style={noSaveStyle({ height, width: numeric ? width : 'auto', display: 'block' })}
+      width={size} height={size}
+      style={noSaveStyle({ height, width: numeric ? size : 'auto', display: 'block' })}
       {...NO_SAVE_PROPS}
     >
       {/* EU-blå platta bakom hela märket. Rundade hörn, inte en cirkel:
@@ -262,12 +281,14 @@ export function GdprLogo({ height = 18 }) {
 // läser som en ungefärlig flagga, och det är värre än ingen alls.
 // Bandbredd 2 av 16, lodrätt band från x=5, vågrätt från y=4.
 export function BokforingslagLogo({ height = 18 }) {
+  // Samma CLS-fix som StripeLogo (se den kommentaren).
   const numeric = typeof height === 'number';
-  const width = numeric ? Math.round(height * 1.6) : undefined;
+  const refHeight = numeric ? height : 100;
+  const width = Math.round(refHeight * 1.6);
   return (
     <svg
       viewBox="0 0 16 10" role="img" aria-label="Sverige"
-      {...(numeric ? { width, height } : {})}
+      width={width} height={refHeight}
       style={noSaveStyle({ height, width: numeric ? width : 'auto', display: 'block', borderRadius: '7%' })}
       {...NO_SAVE_PROPS}
     >
@@ -286,9 +307,15 @@ export function BokforingslagLogo({ height = 18 }) {
 // Liten originalfil (140×80) med deras egen tagline "inte bara en
 // kontoplan" inbakad i bilden — äkta, bara lågupplöst.
 export function BasLogo({ height = 18 }) {
+  // Samma CLS-fix som StripeLogo ovan — saknade tidigare width-attributet
+  // helt (bara height), så förhållandet gick inte att räkna ut innan filen
+  // laddats. Riktig filstorlek: 140×80 (se filkommentaren ovan).
+  const numeric = typeof height === 'number';
+  const refHeight = numeric ? height : 100;
   return (
     <img
-      src="/bas-logo.jpg" alt="BAS-kontoplan" height={height} loading="lazy"
+      src="/bas-logo.jpg" alt="BAS-kontoplan" loading="lazy"
+      width={Math.round(refHeight * (140 / 80))} height={refHeight}
       style={noSaveStyle({ height, width: 'auto', objectFit: 'contain' })}
       {...NO_SAVE_PROPS}
     />
@@ -345,9 +372,16 @@ export function ProgramLogo({ src, alt, size = 26 }) {
 // för vad det gör och inte gör).
 export function BankLogo({ bank, maxW = 76, maxH = 56 }) {
   const scale = bank.scale || 1;
+  // Samma CLS-fix som övriga loggor i den här filen — hade tidigare INGA
+  // bredd/höjd-attribut alls (ren procentbaserad storlek mot brickan).
+  // `bank.ratio` (bankSources.js, bredd/höjd på den beskurna filen) finns
+  // redan för det optiska vägningsarbetet — samma tal duger som
+  // referensvärde här.
+  const refHeight = 100;
   return (
     <img
       src={bank.logo} alt={bank.name} loading="lazy"
+      width={Math.round(refHeight * bank.ratio)} height={refHeight}
       style={noSaveStyle({
         maxWidth: `${maxW * scale}%`, maxHeight: `${maxH * scale}%`,
         width: 'auto', height: 'auto', objectFit: 'contain', display: 'block',

@@ -81,12 +81,12 @@
     <meta property="og:title" content="Bokix - Smart & Enkel Bokföring online" />
     <meta property="og:description" content="Bokix - Ett modernt, enkelt och kraftfullt bokföringsprogram för svenska företag i alla bolagsformer." />
     <meta property="og:url" content="https://www.bokix.se/" />
-    <meta property="og:image" content="https://www.bokix.se/icon-512.png" />
+    <meta property="og:image" content="https://www.bokix.se/og-image.png" />
     <meta property="og:locale" content="sv_SE" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Bokix - Smart & Enkel Bokföring online" />
     <meta name="twitter:description" content="Bokix - Ett modernt, enkelt och kraftfullt bokföringsprogram för svenska företag i alla bolagsformer." />
-    <meta name="twitter:image" content="https://www.bokix.se/icon-512.png" />
+    <meta name="twitter:image" content="https://www.bokix.se/og-image.png" />
     <!-- BOKIX_SEO_META_END -->
     <!-- Google Fonts som en riktig <link> med crossorigin, INTE ett @import
          i index.css — ett cross-origin @import gör att html2canvas (faktura-
@@ -139,8 +139,17 @@
          konsent-ordningen fortfarande garanterat håller.
 
          Extern fil, inte inline — se public/consent-init.js för varför
-         (Content-Security-Policy, säkerhetsgranskningen). -->
-    <script src="/consent-init.js"></script>
+         (Content-Security-Policy, säkerhetsgranskningen).
+
+         `defer` (Lighthouse, "Undvik renderingsblockerande resurser" —
+         riktig PageSpeed Insights-mätning: 3,9 KiB/~120ms här): scriptet gör
+         bara kö-push-anrop (dataLayer.push/c[a].q.push, se dess egen
+         kommentar) och behöver aldrig blockera HTML-parsningen/första
+         målningen för att hinna köras. Ordningsgarantin ovan håller ändå —
+         en `defer`-tagg och en `type="module"`-tagg (main.jsx nedan) körs
+         BÅDA efter parsningen, i DOKUMENTORDNING sinsemellan, så den här
+         hinner alltid före main.jsx precis som när den var blockerande. -->
+    <script src="/consent-init.js" defer></script>
   </head>
   <body>
     <div id="root"></div>
