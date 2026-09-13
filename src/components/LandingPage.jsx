@@ -590,7 +590,6 @@ export default function LandingPage({ onEnterApp }) {
           <div className="lp-marquee-track">
             {[0, 1, 2, 3].map((copy) => (
               TRUST_POINTS.map((t, i) => {
-                const accent = ACCENT_CYCLE[i % 3];
                 return (
                   <div key={`${t.label}-${copy}`} aria-hidden={copy > 0} className="lp-lux-card" style={{ display: 'flex', alignItems: 'center', gap: '13px', padding: '10px 26px 10px 10px', background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '100px', boxShadow: '0 2px 8px rgba(28,36,32,0.05)', whiteSpace: 'nowrap' }}>
                     {t.logo ? (

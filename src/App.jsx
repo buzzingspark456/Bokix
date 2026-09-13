@@ -393,7 +393,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 const ReviewQueue = lazy(() => import('./components/ReviewQueue'));
 import HelpDrawer from './components/HelpDrawer';
 import Toast from './components/shared/Toast';
-import { ConfirmDialogHost, confirmDialog, promptDialog } from './components/shared/ConfirmDialog';
+import { ConfirmDialogHost, confirmDialog } from './components/shared/ConfirmDialog';
 import PaymentRequiredGate from './components/PaymentRequiredGate';
 // Spärrsidan för funktioner som inte ingår i UF-läget (utils/ufMode.js).
 // Statisk import av samma skäl som PaymentRequiredGate ovan: några rader
@@ -2600,7 +2600,6 @@ function App() {
   // eller kräva att Projekt-fliken filtrerar bort dem — enklare och
   // säkrare att hålla isär dem.
   const billableTimeEntries = currentCompany.billableTimeEntries || [];
-  const recurringTemplates = currentCompany.recurringTemplates || [];
 
   // ── Helpers ──
   // Bugkritiskt: skicka `fn` rakt igenom till updateCompanyField istället för
@@ -2621,7 +2620,6 @@ function App() {
   const setTimeEntries = (fn) => updateCompanyField('timeEntries', fn);
   const setTimeReportStatuses = (fn) => updateCompanyField('timeReportStatuses', fn);
   const setBillableTimeEntries = (fn) => updateCompanyField('billableTimeEntries', fn);
-  const setRecurringTemplates = (fn) => updateCompanyField('recurringTemplates', fn);
   const setBankTransactions = (fn) => updateCompanyField('bankTransactions', (prev) => (typeof fn === 'function' ? fn(prev || []) : fn));
 
   const handleSaveVerificationTemplate = ({ name, description, projectId, costCenter, rows }) => {
