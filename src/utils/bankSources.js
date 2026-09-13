@@ -132,6 +132,17 @@ export const BANK_SOURCES = [
     // rastrering/konvertering behövdes. BankLogo (BrandLogos.jsx) storlekssätter
     // rent via CSS/ratio oavsett filformat, så det är ett drop-in-byte.
     ratio: 1920 / 195,
+    // Mättest (Playwright, se PR/commit): utan scale renderas Danske Bank
+    // EXAKT lika stor som Handelsbanken (~129×13px, samma ordbildsform,
+    // samma 9,7-9,85:1-kvot) — "ser mindre ut"-intrycket är alltså
+    // typsnittets STRECKTJOCKLEK, inte storleken. 1.4 är den praktiska
+    // taket: brickan klipper/krymper bilden tillbaka oavsett hur mycket
+    // högre scale sätts (testat upp till 3, identisk pixelbredd som 1.4).
+    // Danske Banks riktiga logotyp är en lång, smal ordbild precis som
+    // Handelsbanken — INTE Nordeas kompaktare form — och kan inte bli lika
+    // "tjock" som Nordea utan att antingen göra just den här brickan större
+    // än de andra eller förvanska det riktiga märket.
+    scale: 1.4,
     // OBS: generisk uppskattad klickväg, INTE kundverifierad som resten av
     // listan (se filkommentaren högst upp — de andra raderna är kundens
     // egna, ordagranna uppgifter). Rätta till den riktiga så fort någon
