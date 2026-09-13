@@ -38,6 +38,7 @@ import ArsredovisningPage from './components/marketing/tools/ArsredovisningPage.
 import OrdlistaPage from './components/marketing/OrdlistaPage.jsx';
 import IntegrationsPage from './components/marketing/IntegrationsPage.jsx';
 import SecurityPage from './components/marketing/SecurityPage.jsx';
+import EnkelBokforingPage from './components/marketing/EnkelBokforingPage.jsx';
 
 // Verktygssidorna är statiska tills besökaren skriver i ett fält —
 // startvärdena i respektive useState renderas alltså ut som riktig text i
@@ -48,7 +49,7 @@ import SecurityPage from './components/marketing/SecurityPage.jsx';
 export const PRERENDER_ROUTES = [
   '/', '/funktioner', '/priser', '/om-oss', '/kontakt',
   '/byt-bokforingsprogram', '/koppla-bank', '/uf',
-  '/integrationer', '/sakerhet', '/ordlista',
+  '/integrationer', '/sakerhet', '/ordlista', '/enkel-bokforing',
   '/verktyg', '/verktyg/momskalkylator', '/verktyg/lonekalkylator', '/verktyg/egenavgifter',
   '/verktyg/rot-rut', '/verktyg/drojsmalsranta', '/verktyg/utdelning',
   '/verktyg/momsdatum', '/verktyg/arsredovisning',
@@ -66,6 +67,7 @@ const PAGES = {
   '/integrationer': IntegrationsPage,
   '/sakerhet': SecurityPage,
   '/ordlista': OrdlistaPage,
+  '/enkel-bokforing': EnkelBokforingPage,
   '/verktyg': ToolsHubPage,
   '/verktyg/momskalkylator': MomsKalkylatorPage,
   '/verktyg/lonekalkylator': LonekalkylatorPage,

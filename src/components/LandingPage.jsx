@@ -173,7 +173,7 @@ const TRUST_POINTS = [
 // Banken har en egen sektion längre ner på sidan och är därför inte med
 // här — den skulle bli en dubblett två skärmar isär.
 const TOOL_ITEMS = [
-  { motif: 'kvitton', title: 'Utgifter och kvitton', desc: 'Underlaget sitter kvar på verifikationen.' },
+  { motif: 'kvitton', title: 'Utgifter och kvitton', desc: 'Fota eller ladda upp kvittot — OCR läser datum, belopp och moms automatiskt. Underlaget sitter kvar på verifikationen.' },
   { motif: 'offerter', title: 'Offerter', desc: 'Blir faktura med ett klick när kunden tackat ja.' },
   { motif: 'projekt', title: 'Projekt', desc: 'Se vilket uppdrag som faktiskt bär sig.' },
   { motif: 'kunder', title: 'Kunder och kontakter', desc: 'Fylls i från organisationsnumret.' },

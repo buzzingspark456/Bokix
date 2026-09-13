@@ -102,6 +102,11 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://www.bokix.se/enkel-bokforing</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://www.bokix.se/integrationer</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>

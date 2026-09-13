@@ -59,6 +59,10 @@
       "destination": "/ordlista/index.html"
     },
     {
+      "source": "/enkel-bokforing",
+      "destination": "/enkel-bokforing/index.html"
+    },
+    {
       "source": "/verktyg",
       "destination": "/verktyg/index.html"
     },

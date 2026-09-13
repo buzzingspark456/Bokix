@@ -925,6 +925,7 @@ const FOOTER_COLUMNS = [
   {
     heading: 'Lär dig',
     links: [
+      { label: 'Så gör Bokix det enkelt', to: '/enkel-bokforing' },
       { label: 'Bokföringsordlista', to: '/ordlista' },
       { label: 'Byt till Bokix', to: '/byt-bokforingsprogram' },
       { label: 'För UF-företag', to: '/uf' },

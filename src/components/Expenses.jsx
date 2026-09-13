@@ -132,9 +132,13 @@ function EmptyReceiptsState({ text }) {
 // och bokför det — eller, om det redan är bokfört, bara läser uppgifterna
 // i efterhand.
 //
-// Omgjord efter kundfeedback, och hela omgörningen vilar på en enda
-// omständighet: vi tolkar INTE kvittot automatiskt (ingen OCR ännu). Allt
-// fylls i för hand, och då är det två saker som avgör hur snabbt det går.
+// Omgjord efter kundfeedback. Ursprungligen vilade hela omgörningen på
+// att kvittot INTE tolkades automatiskt — det gör det numera (OCR, se
+// runOcr/ocrFile nedan: bild eller PDF läses client-side, fälten fylls i
+// automatiskt och märks med OcrBadge). OCR-tolkningen är ändå aldrig ett
+// tyst facit — allt är fortfarande redigerbart innan bokföring, och två
+// saker avgör hur snabbt det går när något behöver rättas eller fyllas i
+// för hand (t.ex. ett suddigt kvitto OCR inte kunde läsa):
 //
 //  1. Man måste kunna LÄSA kvittot medan man skriver. Dokumentet ligger
 //     därför i en riktig visare bredvid formuläret, i helskärm
