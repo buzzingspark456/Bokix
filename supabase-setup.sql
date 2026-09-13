@@ -1039,6 +1039,22 @@ CREATE POLICY "Admin-uppladdning i blogimages"
 ON storage.objects FOR INSERT TO authenticated
 WITH CHECK (bucket_id = 'blogimages' AND public.is_admin_uid((SELECT auth.uid())));
 
+-- SAKNADES (den faktiska grundorsaken, verifierad 2026-09-13): koden
+-- laddar upp med { upsert: true } (CoverImageField/uploadBlogImage i
+-- BlogAdmin.jsx) — ett upsert-anrop till Storage är en INSERT ... ON
+-- CONFLICT DO UPDATE på databasnivå, och Postgres kräver då att rollen
+-- har EN GILTIG UPDATE-POLICY på tabellen också, inte bara INSERT, annars
+-- nekas hela anropet ("new row violates row-level security policy") —
+-- oavsett hur rätt INSERT-policyns villkor är. Jämför med profile/
+-- companylogo/bokix-uploads-bucketsen ovan: alla tre har redan en egen
+-- UPDATE-policy av exakt det här skälet, blogimages var den enda som
+-- saknade en.
+DROP POLICY IF EXISTS "Admin-uppdatering i blogimages" ON storage.objects;
+CREATE POLICY "Admin-uppdatering i blogimages"
+ON storage.objects FOR UPDATE TO authenticated
+USING (bucket_id = 'blogimages' AND public.is_admin_uid((SELECT auth.uid())))
+WITH CHECK (bucket_id = 'blogimages' AND public.is_admin_uid((SELECT auth.uid())));
+
 DROP POLICY IF EXISTS "Admin-radering i blogimages" ON storage.objects;
 CREATE POLICY "Admin-radering i blogimages"
 ON storage.objects FOR DELETE TO authenticated
