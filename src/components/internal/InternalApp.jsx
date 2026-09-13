@@ -3,6 +3,7 @@ import { FileText, BarChart3, CreditCard, ShieldAlert, Users, LogOut, ShieldChec
 import { supabase } from '../../supabaseClient';
 import InternalAuth from './InternalAuth';
 import BlogAdmin from './BlogAdmin';
+import AnalyticsAdmin from './AnalyticsAdmin';
 import { adminGet } from './adminApi';
 
 // ── /internal — den dolda admin-panelen ─────────────────────────────────
@@ -17,6 +18,7 @@ import { adminGet } from './adminApi';
 // så det är tydligt vad som är på gång och vad som redan fungerar.
 export default function InternalApp() {
   const [status, setStatus] = useState('checking'); // checking | needs-login | unauthorized | authorized | error
+  const [activeTab, setActiveTab] = useState('blog');
   const [errorMsg, setErrorMsg] = useState('');
   const [adminEmail, setAdminEmail] = useState('');
 
@@ -78,7 +80,7 @@ export default function InternalApp() {
 
   const navItems = [
     { id: 'blog', label: 'Blogg', icon: FileText, live: true },
-    { id: 'analytics', label: 'Analys', icon: BarChart3, live: false },
+    { id: 'analytics', label: 'Analys', icon: BarChart3, live: true },
     { id: 'payments', label: 'Betalningar', icon: CreditCard, live: false },
     { id: 'security', label: 'Säkerhet', icon: ShieldAlert, live: false },
     { id: 'users', label: 'Användare', icon: Users, live: false },
@@ -95,23 +97,28 @@ export default function InternalApp() {
         </div>
 
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1 }}>
-          {navItems.map(item => (
-            <div
-              key={item.id}
-              title={item.live ? undefined : 'Kommer snart'}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 10px', borderRadius: '8px',
-                fontSize: '13.5px', fontWeight: 600,
-                background: item.live ? 'rgba(132,204,22,0.12)' : 'transparent',
-                color: item.live ? '#e8ece9' : 'rgba(232,236,233,0.32)',
-                cursor: item.live ? 'default' : 'not-allowed',
-              }}
-            >
-              <item.icon size={15} />
-              {item.label}
-              {!item.live && <span style={{ marginLeft: 'auto', fontSize: '9.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'rgba(232,236,233,0.3)' }}>Snart</span>}
-            </div>
-          ))}
+          {navItems.map(item => {
+            const on = item.live && activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                title={item.live ? undefined : 'Kommer snart'}
+                onClick={() => item.live && setActiveTab(item.id)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 10px', borderRadius: '8px',
+                  fontSize: '13.5px', fontWeight: 600, border: 'none', width: '100%', textAlign: 'left', fontFamily: 'inherit',
+                  background: on ? 'rgba(132,204,22,0.12)' : 'transparent',
+                  color: item.live ? (on ? '#e8ece9' : 'rgba(232,236,233,0.6)') : 'rgba(232,236,233,0.32)',
+                  cursor: item.live ? 'pointer' : 'not-allowed',
+                }}
+              >
+                <item.icon size={15} />
+                {item.label}
+                {!item.live && <span style={{ marginLeft: 'auto', fontSize: '9.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'rgba(232,236,233,0.3)' }}>Snart</span>}
+              </button>
+            );
+          })}
         </nav>
 
         <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '14px', marginTop: '14px' }}>
@@ -123,7 +130,8 @@ export default function InternalApp() {
       </aside>
 
       <main style={{ flex: 1, minWidth: 0, overflowY: 'auto' }}>
-        <BlogAdmin />
+        {activeTab === 'blog' && <BlogAdmin />}
+        {activeTab === 'analytics' && <AnalyticsAdmin />}
       </main>
     </div>
   );

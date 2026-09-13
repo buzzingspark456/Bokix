@@ -150,6 +150,65 @@ async function handleDeletePost(admin, res, body, adminEmail) {
   res.status(200).json({ ok: true });
 }
 
+// ── Analys (resource: 'analytics') ──────────────────────────────────────
+// HONEST scope: det här är kontostatistik Bokix redan äger (Supabase
+// auth.users + public.subscriptions) — VEM registrerar sig, UF eller inte,
+// vem betalar. Det är INTE besökarstatistik (sidvisningar, varifrån
+// trafiken kommer) — det kräver Google Analytics Data API, en egen
+// service-account-nyckel i Google Cloud och en explicit "ge den här
+// tjänsten Viewer-åtkomst till din GA4-egendom"-koppling, inget av det är
+// på plats än (se minnesfilen om Google Cloud-projektet: kunden äger inte
+// själva Cloud-projektet fullt ut). Byggs som ett eget, senare steg den
+// dagen den kopplingen faktiskt finns — den här funktionen låtsas inte
+// ha data den inte har.
+//
+// auth.admin.listUsers() sidindelas (Supabase-gräns, inte en egen
+// optimering) — går igenom alla sidor så totalen/dagsfördelningen är
+// exakt, inte bara första sidan. Ofarligt idag (litet konto-antal); om
+// kontobasen växer mycket är nästa steg att cacha resultatet i stället
+// för att räkna om från scratch varje sidladdning.
+async function handleAnalytics(admin, res) {
+  let allUsers = [];
+  let page = 1;
+  for (;;) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
+    if (error) { res.status(500).json({ error: error.message }); return; }
+    allUsers = allUsers.concat(data.users);
+    if (data.users.length < 1000) break;
+    page++;
+  }
+
+  const ufUsers = allUsers.filter(u => u.user_metadata?.uf).length;
+
+  // 30 dagar bakåt, en post per dag (även dagar med 0 signups) — så
+  // grafen aldrig hoppar över tomma dagar och feltolkar avståndet mellan
+  // två punkter.
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const days = Array.from({ length: 30 }, (_, i) => {
+    const d = new Date(today); d.setDate(d.getDate() - (29 - i));
+    return d.toISOString().slice(0, 10);
+  });
+  const countsByDay = Object.fromEntries(days.map(d => [d, 0]));
+  allUsers.forEach(u => {
+    const day = u.created_at?.slice(0, 10);
+    if (day in countsByDay) countsByDay[day] += 1;
+  });
+
+  const { data: subs, error: subsError } = await admin.from('subscriptions').select('status, plan');
+  if (subsError) { res.status(500).json({ error: subsError.message }); return; }
+  const statusCounts = {};
+  (subs || []).forEach(s => { statusCounts[s.status] = (statusCounts[s.status] || 0) + 1; });
+
+  res.status(200).json({
+    totalUsers: allUsers.length,
+    ufUsers,
+    regularUsers: allUsers.length - ufUsers,
+    signupsLast30Days: allUsers.filter(u => u.created_at >= days[0]).length,
+    signupsByDay: days.map(d => ({ date: d, count: countsByDay[d] })),
+    subscriptions: { total: (subs || []).length, byStatus: statusCounts },
+  });
+}
+
 export default async function handler(req, res) {
   applySecurityHeaders(res);
   if (!checkRateLimit(req, res, { key: 'admin', max: 120 })) return;
@@ -174,6 +233,7 @@ export default async function handler(req, res) {
   try {
     if (req.method === 'GET') {
       const resource = req.query?.resource;
+      if (resource === 'analytics') { await handleAnalytics(admin, res); return; }
       if (resource !== 'blog') { res.status(400).json({ error: 'Okänd resurs.' }); return; }
       if (req.query?.id) await handleGetPost(admin, res, req.query.id);
       else await handleListPosts(admin, res);
