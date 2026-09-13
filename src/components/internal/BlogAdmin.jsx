@@ -34,9 +34,13 @@ async function uploadBlogImage(file, postId) {
   const { error: upErr } = await supabase.storage.from('blogimages').upload(path, file, { upsert: true, cacheControl: '3600' });
   if (upErr) {
     const msg = upErr.message || '';
-    if (/bucket not found/i.test(msg)) throw new Error('Bildlagring är inte konfigurerad — kör blogimages-delen av supabase-setup.sql i Supabase.');
-    if (/row-level security|permission denied|policy/i.test(msg)) throw new Error('Nekad av behörighetsregel (RLS) — kontrollera att blogimages-policyerna i supabase-setup.sql är körda och att din inloggade e-post står med där.');
-    throw new Error(msg || 'Uppladdningen misslyckades.');
+    // Rådata (statusCode + råtext) med i felet, inte bara vår egen tolkning
+    // — en gissad förklaring som råkar vara fel bara döljer vad Supabase
+    // faktiskt svarade.
+    const raw = ` [${upErr.statusCode || upErr.status || '?'}: ${msg}]`;
+    if (/bucket not found/i.test(msg)) throw new Error(`Bildlagring är inte konfigurerad — kör blogimages-delen av supabase-setup.sql i Supabase.${raw}`);
+    if (/row-level security|permission denied|policy/i.test(msg)) throw new Error(`Nekad av behörighetsregel (RLS) — kontrollera att blogimages-policyerna i supabase-setup.sql är körda och att din inloggade e-post står med där.${raw}`);
+    throw new Error(`${msg || 'Uppladdningen misslyckades.'}${raw}`);
   }
   const { data } = supabase.storage.from('blogimages').getPublicUrl(path);
   return `${data.publicUrl}?v=${Date.now()}`;
