@@ -167,6 +167,22 @@ export default function AnalyticsAdmin() {
               {data.subscriptions.total === 0 && <div style={{ fontSize: '13px', color: 'rgba(232,236,233,0.4)' }}>Inga prenumerationer registrerade än.</div>}
             </div>
           </div>
+
+          {data.subscriptions.byTier && (
+            <div style={{ ...cardStyle, marginTop: '20px' }}>
+              <div style={{ fontSize: '13.5px', fontWeight: 700, marginBottom: '14px' }}>Nivåer</div>
+              <div style={{ display: 'grid', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '13px' }}>
+                  <span style={{ color: 'rgba(232,236,233,0.7)' }}>129 kr — Utan personal</span>
+                  <span style={{ fontWeight: 700 }}>{data.subscriptions.byTier.solo || 0}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '13px' }}>
+                  <span style={{ color: 'rgba(232,236,233,0.7)' }}>179 kr — Med personal</span>
+                  <span style={{ fontWeight: 700 }}>{data.subscriptions.byTier.employer || 0}</span>
+                </div>
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>

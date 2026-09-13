@@ -4,6 +4,7 @@ import { requireAuthedUser } from '../_auth.js';
 import { checkRateLimit } from '../_rateLimit.js';
 import { parseJsonBody } from '../stripe/_parseBody.js';
 import { createClient } from '@supabase/supabase-js';
+import { planFromId } from '../../src/utils/plans.js';
 
 // ── Internt admin-API (/internal på klienten) ───────────────────────────
 // EN enda fil för HELA admin-panelen, inte en fil per delsystem —
@@ -308,6 +309,19 @@ async function handleAnalytics(admin, res) {
   const statusCounts = {};
   (subs || []).forEach(s => { statusCounts[s.status] = (statusCounts[s.status] || 0) + 1; });
 
+  // Nivåfördelning (129 kr "Utan personal" vs 179 kr "Med personal") —
+  // tierId håller ihop månads- och årsplan under samma pris-nivå, exakta
+  // kronor (129/109 respektive 179/149) skiljer sig bara på intervallet.
+  // Konton utan sparat `plan` (skapade innan nivåerna fanns) räknas som
+  // "employer" av samma skäl som planIncludesPayroll gör det i plans.js:
+  // de har historiskt betalat 179 kr, alltså full funktionalitet.
+  const tierCounts = { solo: 0, employer: 0 };
+  (subs || []).forEach(s => {
+    const plan = planFromId(s.plan);
+    const tierId = plan?.tierId || 'employer';
+    tierCounts[tierId] = (tierCounts[tierId] || 0) + 1;
+  });
+
   const ga = await fetchGaTraffic();
 
   res.status(200).json({
@@ -316,7 +330,7 @@ async function handleAnalytics(admin, res) {
     regularUsers: allUsers.length - ufUsers,
     signupsLast30Days: allUsers.filter(u => u.created_at >= days[0]).length,
     signupsByDay: days.map(d => ({ date: d, count: countsByDay[d] })),
-    subscriptions: { total: (subs || []).length, byStatus: statusCounts },
+    subscriptions: { total: (subs || []).length, byStatus: statusCounts, byTier: tierCounts },
     ga,
   });
 }
