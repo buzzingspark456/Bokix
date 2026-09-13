@@ -13,11 +13,14 @@ import React from 'react';
 
 export const SITE_URL = 'https://www.bokix.se';
 export const SITE_NAME = 'Bokix';
-// Ingen egen 1200×630-delningsbild finns ännu (bra att ta fram separat,
-// ett designjobb i sig) — kvadratiska app-ikonen är bättre än ingen
-// og:image alls (utan den visar LinkedIn/Facebook/X/Slack ingen
-// förhandsvisning när en Bokix-länk delas).
-export const DEFAULT_OG_IMAGE = `${SITE_URL}/icon-512.png`;
+// 1200×630 (2x, 2400×1260, för skärpa på Retina-förhandsvisningar) —
+// mörk bakgrund, samma gradientordmärke (BokixWordmark) och blobfärger
+// som Hero-sektionen på startsidan, så en delad länk faktiskt visar en
+// riktig bild i stället för den återanvända kvadratiska app-ikonen som
+// låg här tidigare (troligen förklaringen till att Google-bildsök bara
+// visade favicon: ingen sida hade någonsin gett crawlern en riktig
+// fotoformad bild att indexera).
+export const DEFAULT_OG_IMAGE = `${SITE_URL}/og-image.png`;
 
 /** En sidas titel/beskrivning/canonical + Open Graph/Twitter Card-taggar,
  * på en gång — varje marknadssida (LandingPage/FeaturesPage/PricingPage/

@@ -220,6 +220,30 @@ const FAQ_SCHEMA = {
   })),
 };
 
+// Organization-schema (Sida: AI:er/Google blandar ibop Bokix med Bokio i
+// sökningar/svar — se konversationen där det här lades till). Det här är
+// den enda platsen som faktiskt hjälper mot det: en tydlig, komplett
+// entitetspost (namn, logga, beskrivning) är precis det Googles
+// Knowledge Graph och en AI med live-websökning använder för att slå
+// fast VEM Bokix är, i stället för att gissa utifrån brödtexten. En
+// tränad språkmodells egen kunskap går inte att ändra i efterhand — det
+// här hjälper bara sökningar/svar som faktiskt hämtar sidan på nytt.
+//
+// `sameAs` (länkar till LinkedIn/Instagram/Trustpilot/etc., samma
+// mekanism Wikipedia-infoboxar bygger på) SAKNAS ännu — kunden har några
+// profiler men har inte skickat länkarna än. Lägg till dem i arrayen så
+// fort de finns; en tom/utelämnad sameAs är helt ofarlig (schema.org
+// kräver den inte), men gör den här posten svagare än den kunde vara.
+const ORGANIZATION_SCHEMA = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: 'Bokix',
+  url: SITE_URL,
+  logo: `${SITE_URL}/icon-512.png`,
+  description: 'Bokix är ett svenskt bokföringsprogram för småföretag — fakturering, löner, moms och bokslut i ett verktyg. Drivs av två personer som ett UF-företag.',
+  // sameAs: [],
+};
+
 // SoftwareApplication-schema för startsidan — samma produkt som
 // PricingPage.jsx beskriver, men med url satt till startsidan så
 // crawlers/AI-svarsmotorer som landar på "/" (den mest lästa sidan) också
@@ -235,6 +259,9 @@ const SOFTWARE_SCHEMA = {
   operatingSystem: 'Web',
   url: SITE_URL,
   description: 'Bokföring, fakturering, lönehantering och momsredovisning för svenska företag i alla bolagsformer.',
+  // Kopplar ihop de två posterna — samma "vem gör det här" som Google
+  // annars hade fått gissa sig till separat för produkten kontra företaget.
+  provider: { '@type': 'Organization', name: 'Bokix', url: SITE_URL },
   offers: {
     '@type': 'AggregateOffer',
     lowPrice: String(Math.min(...PRICING_TIERS.map((t) => t.price))),
@@ -374,6 +401,7 @@ export default function LandingPage({ onEnterApp }) {
         description="Bokix samlar bokföring, fakturering, löner och moms i ett enda verktyg för svenska företag i alla bolagsformer. Kom igång på minuter, från 129 kr/mån."
         path="/"
       />
+      <JsonLd data={ORGANIZATION_SCHEMA} />
       <JsonLd data={SOFTWARE_SCHEMA} />
       <JsonLd data={FAQ_SCHEMA} />
       <ToolMotifStyles />
