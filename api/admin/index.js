@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { applySecurityHeaders } from '../_security.js';
 import { requireAuthedUser } from '../_auth.js';
 import { checkRateLimit } from '../_rateLimit.js';
@@ -150,17 +151,125 @@ async function handleDeletePost(admin, res, body, adminEmail) {
   res.status(200).json({ ok: true });
 }
 
+// ── GA4 Data API (riktig besöksstatistik) ───────────────────────────────
+// Server-till-server via ett service-konto — inte OAuth-klienten som
+// redan finns för Gmail-inloggning (GOOGLE_OAUTH_CLIENT_ID i api/_gmail.js
+// är en HELT annan koppling, kräver en inloggad ANVÄNDARE). Ett
+// service-konto behöver ingen mänsklig inloggning, bara att kontot fått
+// "Läsbehörig" i GA4-egendomens Åtkomsthantering — gjort 2026-09-13 för
+// service-kontot bakom GA4_SERVICE_ACCOUNT_KEY, egendom "Bokix"
+// (Property ID 550127081, GA4_PROPERTY_ID).
+//
+// Ingen extra npm-paket (@google-analytics/data drar in en hel gRPC-stack)
+// — Node har allt som behövs inbyggt: crypto för att signera en RS256-JWT
+// själv, global fetch för de två HTTP-anropen (token-utbyte +
+// runReport). Samma "inga nya beroenden för något litet"-avvägning som
+// resten av api/-katalogen redan gör.
+function base64url(input) {
+  return Buffer.from(input).toString('base64').replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_');
+}
+
+async function getGaAccessToken() {
+  const raw = process.env.GA4_SERVICE_ACCOUNT_KEY;
+  if (!raw) return null;
+  const key = JSON.parse(raw);
+  const now = Math.floor(Date.now() / 1000);
+  const header = base64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
+  const payload = base64url(JSON.stringify({
+    iss: key.client_email,
+    scope: 'https://www.googleapis.com/auth/analytics.readonly',
+    aud: 'https://oauth2.googleapis.com/token',
+    exp: now + 3600,
+    iat: now,
+  }));
+  const signInput = `${header}.${payload}`;
+  const signature = crypto.createSign('RSA-SHA256').update(signInput).sign(key.private_key, 'base64')
+    .replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_');
+
+  const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+      assertion: `${signInput}.${signature}`,
+    }),
+  });
+  const tokenData = await tokenRes.json();
+  if (!tokenRes.ok) throw new Error(tokenData.error_description || tokenData.error || 'GA-inloggning misslyckades.');
+  return tokenData.access_token;
+}
+
+async function runGaReport(accessToken, propertyId, body) {
+  const res = await fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error?.message || 'GA-rapport misslyckades.');
+  return data;
+}
+
+// yyyymmdd (GA4:s dimensionsformat för "date") → yyyy-mm-dd, samma format
+// signupsByDay redan använder så AnalyticsAdmin.jsx kan rita båda i samma
+// mönster.
+function gaDateToIso(yyyymmdd) {
+  return `${yyyymmdd.slice(0, 4)}-${yyyymmdd.slice(4, 6)}-${yyyymmdd.slice(6, 8)}`;
+}
+
+// null = inte konfigurerat än (visa "sätt upp GA" i UI:t), { error } = en
+// riktig GA-koppling som just nu felar (fel nyckel, indragen åtkomst,
+// fel Property ID) — de två fallen ska INTE se likadana ut för admin.
+async function fetchGaTraffic() {
+  const propertyId = process.env.GA4_PROPERTY_ID;
+  if (!propertyId || !process.env.GA4_SERVICE_ACCOUNT_KEY) return null;
+
+  try {
+    const accessToken = await getGaAccessToken();
+    const [byDayReport, channelsReport] = await Promise.all([
+      runGaReport(accessToken, propertyId, {
+        dateRanges: [{ startDate: '30daysAgo', endDate: 'today' }],
+        dimensions: [{ name: 'date' }],
+        metrics: [{ name: 'screenPageViews' }, { name: 'activeUsers' }, { name: 'sessions' }],
+        orderBys: [{ dimension: { dimensionName: 'date' } }],
+      }),
+      runGaReport(accessToken, propertyId, {
+        dateRanges: [{ startDate: '30daysAgo', endDate: 'today' }],
+        dimensions: [{ name: 'sessionDefaultChannelGroup' }],
+        metrics: [{ name: 'sessions' }],
+        orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
+        limit: 8,
+      }),
+    ]);
+
+    const byDay = (byDayReport.rows || []).map(r => ({
+      date: gaDateToIso(r.dimensionValues[0].value),
+      pageViews: Number(r.metricValues[0].value),
+      users: Number(r.metricValues[1].value),
+      sessions: Number(r.metricValues[2].value),
+    }));
+    const totals = byDay.reduce((acc, d) => ({
+      pageViews: acc.pageViews + d.pageViews,
+      sessions: acc.sessions + d.sessions,
+    }), { pageViews: 0, sessions: 0 });
+    const channels = (channelsReport.rows || []).map(r => ({
+      channel: r.dimensionValues[0].value,
+      sessions: Number(r.metricValues[0].value),
+    }));
+
+    return { byDay, totals, channels };
+  } catch (err) {
+    return { error: err.message };
+  }
+}
+
 // ── Analys (resource: 'analytics') ──────────────────────────────────────
-// HONEST scope: det här är kontostatistik Bokix redan äger (Supabase
-// auth.users + public.subscriptions) — VEM registrerar sig, UF eller inte,
-// vem betalar. Det är INTE besökarstatistik (sidvisningar, varifrån
-// trafiken kommer) — det kräver Google Analytics Data API, en egen
-// service-account-nyckel i Google Cloud och en explicit "ge den här
-// tjänsten Viewer-åtkomst till din GA4-egendom"-koppling, inget av det är
-// på plats än (se minnesfilen om Google Cloud-projektet: kunden äger inte
-// själva Cloud-projektet fullt ut). Byggs som ett eget, senare steg den
-// dagen den kopplingen faktiskt finns — den här funktionen låtsas inte
-// ha data den inte har.
+// Kontostatistik Bokix redan äger (Supabase auth.users + public.
+// subscriptions) — VEM registrerar sig, UF eller inte, vem betalar —
+// PLUS riktig besöksstatistik från GA4 (fetchGaTraffic ovan) när den
+// kopplingen är på plats. De två datakällorna hämtas parallellt och
+// skickas som separata fält i svaret; ett GA-fel ska aldrig få
+// kontostatistiken att också försvinna.
 //
 // auth.admin.listUsers() sidindelas (Supabase-gräns, inte en egen
 // optimering) — går igenom alla sidor så totalen/dagsfördelningen är
@@ -199,6 +308,8 @@ async function handleAnalytics(admin, res) {
   const statusCounts = {};
   (subs || []).forEach(s => { statusCounts[s.status] = (statusCounts[s.status] || 0) + 1; });
 
+  const ga = await fetchGaTraffic();
+
   res.status(200).json({
     totalUsers: allUsers.length,
     ufUsers,
@@ -206,6 +317,7 @@ async function handleAnalytics(admin, res) {
     signupsLast30Days: allUsers.filter(u => u.created_at >= days[0]).length,
     signupsByDay: days.map(d => ({ date: d, count: countsByDay[d] })),
     subscriptions: { total: (subs || []).length, byStatus: statusCounts },
+    ga,
   });
 }
 
