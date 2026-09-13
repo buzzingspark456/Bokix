@@ -15,6 +15,7 @@ import { GRAD, grad, AuroraLayer } from './marketing/aurora';
 import { StripeLogo, StripeIconLogo, ZettleLogo, BolagsverketLogo, SkatteverketLogo, BasLogo, GdprLogo, BokforingslagLogo } from './shared/BrandLogos';
 import MigrationFlow from './marketing/MigrationFlow';
 import BankFlow from './marketing/BankFlow';
+import ReceiptFlow from './marketing/ReceiptFlow';
 import { UF_NAV_IDS, UF_NAV_LABELS, UF_FREE_MONTHS } from '../utils/ufMode';
 import { PRICING_TIERS } from './marketing/pricingTiers';
 import { resolvePlan, YEARLY_MINIMUM_MONTHS } from '../utils/plans';
@@ -746,6 +747,39 @@ export default function LandingPage({ onEnterApp }) {
                 </div>
               );
             })}
+          </Reveal>
+        </div>
+      </section>
+
+      {/* ── KVITTON LÄSER SIG SJÄLVA (kundönskemål, uttryckligt: OCR:n ska
+          synas på startsidan som en egen "super cool" animation, inte bara
+          nämnas i en textrad) — placerad direkt före bankanimationen, så
+          de två "så här funkar det på riktigt"-sektionerna följer på
+          varandra: kvittot in, banken in. Animationen bor i
+          marketing/ReceiptFlow.jsx, egen fil eftersom den inte delas med
+          någon hjälte-sektion (till skillnad från Bank-/MigrationFlow). ── */}
+      <section style={{ padding: '76px 24px', background: 'var(--mkt-page-bg)', borderTop: '1px solid var(--mkt-border-soft)', position: 'relative', overflow: 'hidden' }}>
+        <div style={{ maxWidth: 'min(92vw, 1240px)', margin: '0 auto', position: 'relative' }}>
+          <Reveal style={{ textAlign: 'center', marginBottom: '38px' }}>
+            <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(26px, 4vw, 38px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '12px' }}>
+              Kvitton läser sig själva
+            </h2>
+            <p style={{ fontSize: '16.5px', color: MUTED, lineHeight: 1.65, maxWidth: '620px', margin: '0 auto' }}>
+              Fota kvittot eller ladda upp en bild eller PDF. Datum, belopp, moms och konto föreslås automatiskt — du bekräftar, du gissar aldrig.
+            </p>
+          </Reveal>
+
+          <Reveal scale delay={80}>
+            <ReceiptFlow />
+          </Reveal>
+
+          <Reveal delay={140} style={{ textAlign: 'center', marginTop: '30px' }}>
+            <Link
+              to="/enkel-bokforing"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '13px 24px', background: 'var(--mkt-card-bg)', border: `1.5px solid ${CARD_BORDER}`, borderRadius: '12px', color: INK_SOFT, fontWeight: 700, fontSize: '15px', textDecoration: 'none' }}
+            >
+              Så gör Bokix bokföring enkelt <ArrowRight size={15} />
+            </Link>
           </Reveal>
         </div>
       </section>
