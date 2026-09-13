@@ -19,7 +19,7 @@ import { adminGet } from './adminApi';
 // Säkerhet, Användare) — `navItems.live` finns kvar som mönster för nästa
 // delsystem som byggs efter dessa, inte för att gråmarkera något idag.
 export default function InternalApp() {
-  const [status, setStatus] = useState('checking'); // checking | needs-login | unauthorized | authorized | error
+  const [status, setStatus] = useState('checking'); // checking | needs-login | needs-mfa | unauthorized | authorized | error
   const [activeTab, setActiveTab] = useState('blog');
   const [errorMsg, setErrorMsg] = useState('');
   const [adminEmail, setAdminEmail] = useState('');
@@ -35,7 +35,14 @@ export default function InternalApp() {
       await adminGet({ resource: 'blog' });
       setStatus('authorized');
     } catch (err) {
-      if (String(err.message || '').includes('behörighet')) setStatus('unauthorized');
+      const message = String(err.message || '');
+      // "mfa_required" (api/admin/index.js:s getTokenAal) — en session
+      // finns redan (t.ex. en flik inloggad i den vanliga appen sedan
+      // innan) men har inte klarat tvåfaktorssteget än i den HÄR fliken.
+      // Skiljs från "unauthorized" (fel e-post) — den ena går att fixa med
+      // en kod, den andra inte alls.
+      if (message === 'mfa_required') setStatus('needs-mfa');
+      else if (message.includes('behörighet')) setStatus('unauthorized');
       else { setErrorMsg(err.message); setStatus('error'); }
     }
   };
@@ -53,6 +60,10 @@ export default function InternalApp() {
 
   if (status === 'needs-login') {
     return <InternalAuth onAuthenticated={checkAccess} />;
+  }
+
+  if (status === 'needs-mfa') {
+    return <InternalAuth startInMfaMode onAuthenticated={checkAccess} />;
   }
 
   if (status === 'unauthorized') {
@@ -90,15 +101,15 @@ export default function InternalApp() {
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', background: '#0a0f0c', color: '#e8ece9', fontFamily: "'Inter', sans-serif" }}>
-      <aside style={{ width: 220, flexShrink: 0, borderRight: '1px solid rgba(255,255,255,0.08)', padding: '20px 14px', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '9px', padding: '0 8px', marginBottom: '28px' }}>
-          <div style={{ width: 30, height: 30, borderRadius: '8px', background: 'rgba(11,99,41,0.25)', border: '1px solid rgba(132,204,22,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <ShieldCheck size={14} color="#84cc16" />
+      <aside style={{ width: 236, flexShrink: 0, borderRight: '1px solid rgba(255,255,255,0.08)', padding: '22px 14px', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '0 8px', marginBottom: '30px' }}>
+          <div style={{ width: 32, height: 32, borderRadius: '9px', background: 'rgba(11,99,41,0.25)', border: '1px solid rgba(132,204,22,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <ShieldCheck size={15} color="#84cc16" />
           </div>
-          <div style={{ fontSize: '13.5px', fontWeight: 700 }}>Bokix Internal</div>
+          <div style={{ fontSize: '14.5px', fontWeight: 800, letterSpacing: '-0.01em' }}>Bokix Internal</div>
         </div>
 
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1 }}>
+        <nav style={{ display: 'flex', flexDirection: 'column', gap: '3px', flex: 1 }}>
           {navItems.map(item => {
             const on = item.live && activeTab === item.id;
             return (
@@ -108,9 +119,9 @@ export default function InternalApp() {
                 title={item.live ? undefined : 'Kommer snart'}
                 onClick={() => item.live && setActiveTab(item.id)}
                 style={{
-                  display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 10px', borderRadius: '8px',
-                  fontSize: '13.5px', fontWeight: 600, border: 'none', width: '100%', textAlign: 'left', fontFamily: 'inherit',
-                  background: on ? 'rgba(132,204,22,0.12)' : 'transparent',
+                  display: 'flex', alignItems: 'center', gap: '11px', padding: '10px 11px', borderRadius: '9px',
+                  fontSize: '14px', fontWeight: 600, border: 'none', width: '100%', textAlign: 'left', fontFamily: 'inherit',
+                  background: on ? 'rgba(132,204,22,0.14)' : 'transparent',
                   color: item.live ? (on ? '#e8ece9' : 'rgba(232,236,233,0.6)') : 'rgba(232,236,233,0.32)',
                   cursor: item.live ? 'pointer' : 'not-allowed',
                 }}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ShieldCheck, Lock, ArrowRight, KeyRound } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
 
@@ -12,17 +12,46 @@ import { supabase } from '../../supabaseClient';
 // api/admin/index.js (ADMIN_EMAILS där), oavsett vem som lyckas logga in
 // här. Den här skärmen är alltså bara vägen in, inte behörighetsgränsen.
 //
-// Hanterar samma tvåstegsverifiering (TOTP) som kontot kan ha aktiverat
-// under Inställningar → Min profil — utan den här grenen hade ett konto
-// med 2FA påslaget fastnat efter rätt lösenord, exakt samma mfaChallenge-
-// mönster som App.jsx redan använder efter en vanlig inloggning.
-export default function InternalAuth({ onAuthenticated }) {
+// Tvåfaktor är TVINGAT här, till skillnad från resten av appen där det är
+// valfritt (kundönskemål: "gör det super svårt att komma in"). Ett rätt
+// lösenord utan ett pakopplat TOTP-konto nekas rakt av — se
+// api/admin/index.js:s getTokenAal, den RIKTIGA spärren (server-side, en
+// klient kan aldrig lita på att den här komponenten faktiskt kördes).
+//
+// `startInMfaMode`: InternalApp.jsx sätter den när en Supabase-session
+// redan finns i webbläsaren (t.ex. inloggad i den vanliga appen sedan
+// innan) men den sessionen ännu inte klarat tvåfaktorssteget — går då
+// direkt till kodrutan i stället för att be om lösenordet igen i onödan.
+export default function InternalAuth({ onAuthenticated, startInMfaMode = false }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [mfaChallenge, setMfaChallenge] = useState(null); // { factorId, challengeId } | null
   const [code, setCode] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(startInMfaMode);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!startInMfaMode) return;
+    (async () => {
+      try {
+        const { data: factorsData } = await supabase.auth.mfa.listFactors();
+        const factor = factorsData?.totp?.find(f => f.status === 'verified');
+        if (!factor) {
+          setError('Kontot saknar tvåfaktorsautentisering. Koppla på en autentiseringsapp under Inställningar → Min profil i appen, logga sedan in här igen.');
+          setLoading(false);
+          return;
+        }
+        const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({ factorId: factor.id });
+        if (challengeError) throw challengeError;
+        setMfaChallenge({ factorId: factor.id, challengeId: challenge.id });
+      } catch (err) {
+        setError(err?.message || 'Något gick fel.');
+      } finally {
+        setLoading(false);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -33,16 +62,22 @@ export default function InternalAuth({ onAuthenticated }) {
       if (signInError) throw signInError;
 
       const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-      if (aal && aal.nextLevel === 'aal2' && aal.nextLevel !== aal.currentLevel) {
+      if (aal?.nextLevel !== 'aal2') {
+        // Inget TOTP-konto pakopplat alls — lösenord ensamt räcker aldrig
+        // hit, oavsett hur rätt det är.
+        await supabase.auth.signOut();
+        setError('Det här kontot saknar tvåfaktorsautentisering. Koppla på en autentiseringsapp under Inställningar → Min profil i appen, logga sedan in här igen.');
+        setLoading(false);
+        return;
+      }
+      if (aal.nextLevel !== aal.currentLevel) {
         const { data: factorsData } = await supabase.auth.mfa.listFactors();
-        const factor = factorsData?.totp?.[0];
-        if (factor) {
-          const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({ factorId: factor.id });
-          if (challengeError) throw challengeError;
-          setMfaChallenge({ factorId: factor.id, challengeId: challenge.id });
-          setLoading(false);
-          return;
-        }
+        const factor = factorsData?.totp?.find(f => f.status === 'verified');
+        const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({ factorId: factor.id });
+        if (challengeError) throw challengeError;
+        setMfaChallenge({ factorId: factor.id, challengeId: challenge.id });
+        setLoading(false);
+        return;
       }
       onAuthenticated();
     } catch (err) {
@@ -84,7 +119,11 @@ export default function InternalAuth({ onAuthenticated }) {
         </div>
 
         <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '28px' }}>
-          {!mfaChallenge ? (
+          {startInMfaMode && !mfaChallenge ? (
+            <div style={{ fontSize: '13px', color: error ? '#f87171' : 'rgba(232,236,233,0.6)', lineHeight: 1.6 }}>
+              {error || 'Kontrollerar tvåfaktorsstatus…'}
+            </div>
+          ) : !mfaChallenge ? (
             <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'rgba(232,236,233,0.6)', marginBottom: '6px' }}>E-post</label>

@@ -1001,12 +1001,54 @@ INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_typ
 VALUES ('blogimages', 'blogimages', true, 5242880, ARRAY['image/jpeg', 'image/png', 'image/webp'])
 ON CONFLICT (id) DO UPDATE SET file_size_limit = 5242880, allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/webp'];
 
+-- lower() på båda sidor (inte bara på listan) — Supabase normaliserar
+-- e-post till gemener vid registrering, men en policy som INTE gör det
+-- själv är en potentiell "fungerar inte" om det någonsin skulle skilja
+-- sig, för en engångskostnad av två lower()-anrop.
 DROP POLICY IF EXISTS "Admin-uppladdning i blogimages" ON storage.objects;
 CREATE POLICY "Admin-uppladdning i blogimages"
 ON storage.objects FOR INSERT TO authenticated
-WITH CHECK (bucket_id = 'blogimages' AND (SELECT auth.jwt() ->> 'email') = ANY (ARRAY['alwakiabdullah1@gmail.com', 'abbealwaki08@gmail.com']));
+WITH CHECK (bucket_id = 'blogimages' AND lower((SELECT auth.jwt() ->> 'email')) = ANY (ARRAY['alwakiabdullah1@gmail.com', 'abbealwaki08@gmail.com']));
 
 DROP POLICY IF EXISTS "Admin-radering i blogimages" ON storage.objects;
 CREATE POLICY "Admin-radering i blogimages"
 ON storage.objects FOR DELETE TO authenticated
-USING (bucket_id = 'blogimages' AND (SELECT auth.jwt() ->> 'email') = ANY (ARRAY['alwakiabdullah1@gmail.com', 'abbealwaki08@gmail.com']));
+USING (bucket_id = 'blogimages' AND lower((SELECT auth.jwt() ->> 'email')) = ANY (ARRAY['alwakiabdullah1@gmail.com', 'abbealwaki08@gmail.com']));
+
+-- Bilder INUTI ett blogginlägg (inte bara omslagsbilden) — samma bucket,
+-- samma två policyer ovan täcker redan det, en bild är en bild oavsett
+-- var i inlägget <img>-taggen hamnar. Ingen egen bucket eller policy
+-- behövs för det.
+
+-- ══════════════════════════════════════════════════════════════════════
+-- SÄKERHETSLOGG (resource: 'security' i /internal) — api/admin/index.js
+-- ══════════════════════════════════════════════════════════════════════
+-- Vad som faktiskt går att logga UTAN en ny serverless-funktion (Hobby-
+-- planens 12-funktionstak, se api/admin/index.js:s egen kommentar): allt
+-- som redan passerar GENOM den filen. Ett misslyckat lösenordsförsök på
+-- /internal syns ALDRIG här — det anropet går direkt mot Supabase Auth
+-- från klienten (InternalAuth.jsx), innan något av det här träffas, och
+-- att fånga det hade krävt en egen (olåst, oautentiserad) endpoint bara
+-- för loggning — en ny attackyta, och den trettonde funktionen. Det som
+-- FAKTISKT loggas är därför de två momenten som kräver en redan giltig
+-- Supabase-inloggning: (1) en inloggad person vars e-post INTE står i
+-- ADMIN_EMAILS ändå anropar admin-API:t (admin_denied — betyder att någon
+-- känner till /internal-routen och försöker), och (2) en admin-e-post som
+-- lyckats logga in men inte klarat tvåfaktorssteget (mfa_required —
+-- betyder ett läckt lösenord utan enheten som har koden). Bara service-
+-- role (samma admin-klient som allt annat i api/admin/index.js) skriver
+-- och läser — RLS PÅ men medvetet UTAN en enda policy för authenticated/
+-- anon, exakt samma "ingen policy = ingen åtkomst"-princip som
+-- stripe_payment_events redan förklarar.
+CREATE TABLE IF NOT EXISTS public.security_events (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  type text NOT NULL, -- 'admin_denied' | 'mfa_required' | 'admin_api_error'
+  email text,
+  detail text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS security_events_created_at_idx
+ON public.security_events (created_at DESC);
+
+ALTER TABLE public.security_events ENABLE ROW LEVEL SECURITY;

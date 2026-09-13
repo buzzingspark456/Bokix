@@ -42,6 +42,33 @@ function isAdminEmail(email) {
   return ADMIN_EMAILS.includes(String(email || '').trim().toLowerCase());
 }
 
+// Tvingad tvåfaktorsautentisering för /internal (kundönskemål: "gör det
+// super, super svårt att komma in") — ett läckt eller gissat lösenord
+// ENSAMT ska aldrig räcka hit, till skillnad från resten av appen där 2FA
+// är valfritt. Den RIKTIGA spärren måste ligga HÄR, server-side: en klient
+// som redan har en session (t.ex. en flik inloggad i den vanliga appen)
+// skulle annars kunna hoppa förbi InternalAuth.jsx:s UI helt och anropa
+// det här API:t direkt med en aal1-token.
+//
+// aal (Authenticator Assurance Level) står redan i JWT-payloaden som
+// Supabase signerar — kräver alltså inget extra nätverksanrop, bara att
+// avkoda base64url-delen. Vi verifierar INTE signaturen själva här: det
+// gjorde redan requireAuthedUser ovan (supabase.auth.getUser(token) mot
+// Supabase Auth), den här funktionen bara läser ut en claim ur en token
+// vi redan vet är äkta.
+function getTokenAal(req) {
+  const authHeader = req.headers['authorization'] || req.headers['Authorization'];
+  const token = typeof authHeader === 'string' && authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
+  const part = token?.split('.')[1];
+  if (!part) return null;
+  try {
+    const json = Buffer.from(part.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8');
+    return JSON.parse(json)?.aal || null;
+  } catch {
+    return null;
+  }
+}
+
 function getAdminClient() {
   const supabaseUrl = process.env.VITE_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -221,21 +248,25 @@ function gaDateToIso(yyyymmdd) {
 // null = inte konfigurerat än (visa "sätt upp GA" i UI:t), { error } = en
 // riktig GA-koppling som just nu felar (fel nyckel, indragen åtkomst,
 // fel Property ID) — de två fallen ska INTE se likadana ut för admin.
-async function fetchGaTraffic() {
+// `range` (resolveRange ovan) styr samma period som kontografen — GA4:s
+// API tar explicita YYYY-MM-DD-datum rakt av, inga relativa "30daysAgo"
+// behövs när vi redan räknat ut exakta gränser.
+async function fetchGaTraffic(range) {
   const propertyId = process.env.GA4_PROPERTY_ID;
   if (!propertyId || !process.env.GA4_SERVICE_ACCOUNT_KEY) return null;
 
   try {
     const accessToken = await getGaAccessToken();
+    const dateRanges = [{ startDate: range.startIso, endDate: range.endIso }];
     const [byDayReport, channelsReport] = await Promise.all([
       runGaReport(accessToken, propertyId, {
-        dateRanges: [{ startDate: '30daysAgo', endDate: 'today' }],
+        dateRanges,
         dimensions: [{ name: 'date' }],
         metrics: [{ name: 'screenPageViews' }, { name: 'activeUsers' }, { name: 'sessions' }],
         orderBys: [{ dimension: { dimensionName: 'date' } }],
       }),
       runGaReport(accessToken, propertyId, {
-        dateRanges: [{ startDate: '30daysAgo', endDate: 'today' }],
+        dateRanges,
         dimensions: [{ name: 'sessionDefaultChannelGroup' }],
         metrics: [{ name: 'sessions' }],
         orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
@@ -282,6 +313,29 @@ async function fetchAllUsers(admin) {
   return allUsers;
 }
 
+// Datumintervallet Analys-fliken visar — samma upplösta intervall
+// används av BÅDE kontografen (Supabase) och GA4-grafen, så de två alltid
+// visar samma period. `range` är ett av de fördefinierade snabbvalen;
+// `from`/`to` (YYYY-MM-DD) vinner om båda skickas med, det är UI:ts
+// "Anpassat"-läge. Klämt till max 2 år så ingen kan be om ett orimligt
+// stort GA4-/listUsers-anrop av misstag.
+function resolveRange(query) {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  if (query?.from && query?.to) {
+    const from = new Date(query.from);
+    const to = new Date(query.to);
+    if (!Number.isNaN(from.getTime()) && !Number.isNaN(to.getTime()) && from <= to) {
+      const days = Math.min(730, Math.round((to - from) / 86400000) + 1);
+      const start = new Date(to); start.setDate(start.getDate() - (days - 1));
+      return { startIso: start.toISOString().slice(0, 10), endIso: to.toISOString().slice(0, 10), days };
+    }
+  }
+  const daysByPreset = { '7d': 7, '30d': 30, '90d': 90, year: 365 };
+  const days = daysByPreset[query?.range] || 30;
+  const start = new Date(today); start.setDate(start.getDate() - (days - 1));
+  return { startIso: start.toISOString().slice(0, 10), endIso: today.toISOString().slice(0, 10), days };
+}
+
 // ── Analys (resource: 'analytics') ──────────────────────────────────────
 // Kontostatistik Bokix redan äger (Supabase auth.users + public.
 // subscriptions) — VEM registrerar sig, UF eller inte, vem betalar —
@@ -289,18 +343,20 @@ async function fetchAllUsers(admin) {
 // kopplingen är på plats. De två datakällorna hämtas parallellt och
 // skickas som separata fält i svaret; ett GA-fel ska aldrig få
 // kontostatistiken att också försvinna.
-async function handleAnalytics(admin, res) {
+async function handleAnalytics(admin, res, query) {
   let allUsers;
   try { allUsers = await fetchAllUsers(admin); } catch (err) { res.status(500).json({ error: err.message }); return; }
 
   const ufUsers = allUsers.filter(u => u.user_metadata?.uf).length;
 
-  // 30 dagar bakåt, en post per dag (även dagar med 0 signups) — så
+  const range = resolveRange(query);
+
+  // En post per dag i HELA intervallet (även dagar med 0 signups) — så
   // grafen aldrig hoppar över tomma dagar och feltolkar avståndet mellan
   // två punkter.
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const days = Array.from({ length: 30 }, (_, i) => {
-    const d = new Date(today); d.setDate(d.getDate() - (29 - i));
+  const startDate = new Date(range.startIso);
+  const days = Array.from({ length: range.days }, (_, i) => {
+    const d = new Date(startDate); d.setDate(d.getDate() + i);
     return d.toISOString().slice(0, 10);
   });
   const countsByDay = Object.fromEntries(days.map(d => [d, 0]));
@@ -327,14 +383,15 @@ async function handleAnalytics(admin, res) {
     tierCounts[tierId] = (tierCounts[tierId] || 0) + 1;
   });
 
-  const ga = await fetchGaTraffic();
+  const ga = await fetchGaTraffic(range);
 
   res.status(200).json({
     totalUsers: allUsers.length,
     ufUsers,
     regularUsers: allUsers.length - ufUsers,
-    signupsLast30Days: allUsers.filter(u => u.created_at >= days[0]).length,
+    signupsInRange: allUsers.filter(u => u.created_at >= days[0]).length,
     signupsByDay: days.map(d => ({ date: d, count: countsByDay[d] })),
+    range: { startIso: range.startIso, endIso: range.endIso, days: range.days },
     subscriptions: { total: (subs || []).length, byStatus: statusCounts, byTier: tierCounts },
     ga,
   });
@@ -379,10 +436,37 @@ async function handleUsers(admin, res) {
       subscriptionStatus: sub?.status || null,
       planName: plan?.name || (sub ? 'Med personal (äldre konto)' : null),
       cancelAtPeriodEnd: !!sub?.cancel_at_period_end,
+      // GoTrue sätter banned_until till ett datum långt fram i tiden vid
+      // avstängning (se handleSuspendUser) — vilket datum spelar ingen
+      // roll här, bara att fältet är satt alls.
+      suspended: !!u.banned_until,
+      isAdmin: isAdminEmail(u.email),
     };
   }).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
   res.status(200).json({ users });
+}
+
+// ── Stäng av / återaktivera konto (resource: 'users', POST) ─────────────
+// GoTrues egen ban_duration — inget eget "suspended"-fält att hålla i
+// synk. En VÄLDIGT lång duration ('876000h' ≈ 100 år) i stället för en
+// riktig permanent-flagga, eftersom GoTrue-APIet bara tar en duration,
+// aldrig "för alltid"; 'none' häver avstängningen. Adminkontona själva
+// (ADMIN_EMAILS) går ALDRIG att stänga av härifrån — annars kunde en admin
+// råka låsa ut sig själv (eller den andra admin-adressen) med en
+// missklickad knapp.
+async function handleSuspendUser(admin, res, body, adminEmail, suspend) {
+  const { userId } = body;
+  if (!userId) { res.status(400).json({ error: 'userId krävs.' }); return; }
+
+  const { data: target, error: getError } = await admin.auth.admin.getUserById(userId);
+  if (getError || !target?.user) { res.status(404).json({ error: 'Kontot hittades inte.' }); return; }
+  if (isAdminEmail(target.user.email)) { res.status(400).json({ error: 'Adminkonton kan inte stängas av härifrån.' }); return; }
+
+  const { error } = await admin.auth.admin.updateUserById(userId, { ban_duration: suspend ? '876000h' : 'none' });
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  console.log(`[admin/users] ${adminEmail} ${suspend ? 'stängde av' : 'återaktiverade'} ${target.user.email} (${userId})`);
+  res.status(200).json({ ok: true });
 }
 
 // ── Betalningar (resource: 'payments') ──────────────────────────────────
@@ -430,14 +514,14 @@ async function handlePayments(admin, res) {
 }
 
 // ── Säkerhet (resource: 'security') ─────────────────────────────────────
-// HONEST scope, samma resonemang som Analys hade innan GA kopplades in:
-// det finns ingen separat säkerhetslogg (misslyckade inloggningar, nekade
-// admin-försök) — att bygga en hade krävt en ny tabell och loggning i
-// requireAuthedUser/handler nedan, ett eget beslut senare, inget som följer
-// gratis med. Det den HÄR vyn visar är vad auth.users faktiskt håller —
-// senaste inloggningarna och obekräftade mejladresser — plus den
-// hårdkodade admin-listan, så det syns i UI:t vilka konton som har
-// adminåtkomst utan att läsa källkoden.
+// Tre datakällor: auth.users (senaste inloggningar, obekräftade
+// mejladresser), den hårdkodade admin-listan (så det syns i UI:t vilka
+// konton som HAR adminåtkomst utan att läsa källkoden), och nu även
+// security_events (logSecurityEvent nedan) — nekade admin-försök,
+// misslyckad tvåfaktor och riktiga API-fel. Se supabase-setup.sql:s
+// security_events-kommentar för HONEST scope: ett rent gissat lösenord
+// (fel innan Supabase Auth ens svarar) syns aldrig här, bara det som
+// passerar genom ett redan inloggat anrop till den här filen.
 async function handleSecurity(admin, res) {
   let allUsers;
   try { allUsers = await fetchAllUsers(admin); } catch (err) { res.status(500).json({ error: err.message }); return; }
@@ -452,7 +536,28 @@ async function handleSecurity(admin, res) {
     .filter(u => !u.email_confirmed_at)
     .map(u => ({ email: u.email, createdAt: u.created_at }));
 
-  res.status(200).json({ adminEmails: ADMIN_EMAILS, recentSignIns, unconfirmed });
+  // Senaste 50 händelserna, nyast först — se logSecurityEvent nedan för
+  // vilka två saker som faktiskt kan hamna här och varför inte fler.
+  const { data: events, error: eventsError } = await admin
+    .from('security_events')
+    .select('type, email, detail, created_at')
+    .order('created_at', { ascending: false })
+    .limit(50);
+  if (eventsError) { res.status(500).json({ error: eventsError.message }); return; }
+
+  res.status(200).json({ adminEmails: ADMIN_EMAILS, recentSignIns, unconfirmed, events: events || [] });
+}
+
+// Tyst — ett loggningsfel ska aldrig få den FAKTISKA admin-förfrågan att
+// krascha (den har redan fått sitt riktiga svar, eller är på väg att få
+// ett). Bäst-försök, samma avvägning som stripe_ledger_events cronen gör
+// för sin egen loggning.
+async function logSecurityEvent(admin, type, email, detail) {
+  try {
+    await admin.from('security_events').insert({ type, email: email || null, detail: detail || null });
+  } catch {
+    // se kommentaren ovan
+  }
 }
 
 export default async function handler(req, res) {
@@ -461,14 +566,6 @@ export default async function handler(req, res) {
 
   const user = await requireAuthedUser(req, res);
   if (!user) return;
-  if (!isAdminEmail(user.email)) {
-    // Samma svar oavsett ANLEDNING (fel e-post vs. inget konto alls) —
-    // "403 saknar behörighet" avslöjar inte att just den här e-posten är
-    // inloggad men inte admin, ingen anledning att vara mer specifik mot
-    // en icke-admin än nödvändigt.
-    res.status(403).json({ error: 'Du har inte behörighet till admin-panelen.' });
-    return;
-  }
 
   const admin = getAdminClient();
   if (!admin) {
@@ -476,10 +573,35 @@ export default async function handler(req, res) {
     return;
   }
 
+  if (!isAdminEmail(user.email)) {
+    // Samma svar oavsett ANLEDNING (fel e-post vs. inget konto alls) —
+    // "403 saknar behörighet" avslöjar inte att just den här e-posten är
+    // inloggad men inte admin, ingen anledning att vara mer specifik mot
+    // en icke-admin än nödvändigt. Loggas ändå (den här personen HAR ett
+    // giltigt Supabase-konto, annars hade requireAuthedUser redan stoppat
+    // det ovan) — vem som helst som känner till /internal och försöker.
+    await logSecurityEvent(admin, 'admin_denied', user.email);
+    res.status(403).json({ error: 'Du har inte behörighet till admin-panelen.' });
+    return;
+  }
+  if (getTokenAal(req) !== 'aal2') {
+    // Rätt e-post, rätt lösenord, men ingen klarad tvåfaktorskod — värt
+    // att se i loggen om det upprepas (ett läckt lösenord utan enheten
+    // som har koden), till skillnad från den vanliga "glömde logga in med
+    // 2FA än"-vägen som InternalApp.jsx redan löser i UI:t utan att
+    // användaren märker det som ett fel.
+    await logSecurityEvent(admin, 'mfa_required', user.email);
+    // Samma svarsform som klienten redan vet hantera (se InternalApp.jsx:s
+    // "mfa_required"-gren) — en tydlig, egen felkod i stället för att
+    // klämma in det i det generella 403-svaret ovan.
+    res.status(401).json({ error: 'mfa_required' });
+    return;
+  }
+
   try {
     if (req.method === 'GET') {
       const resource = req.query?.resource;
-      if (resource === 'analytics') { await handleAnalytics(admin, res); return; }
+      if (resource === 'analytics') { await handleAnalytics(admin, res, req.query); return; }
       if (resource === 'users') { await handleUsers(admin, res); return; }
       if (resource === 'payments') { await handlePayments(admin, res); return; }
       if (resource === 'security') { await handleSecurity(admin, res); return; }
@@ -491,6 +613,11 @@ export default async function handler(req, res) {
 
     if (req.method === 'POST') {
       const body = await parseJsonBody(req);
+      if (body.resource === 'users') {
+        if (body.action === 'suspend') { await handleSuspendUser(admin, res, body, user.email, true); return; }
+        if (body.action === 'unsuspend') { await handleSuspendUser(admin, res, body, user.email, false); return; }
+        res.status(400).json({ error: 'Okänd action.' }); return;
+      }
       if (body.resource !== 'blog') { res.status(400).json({ error: 'Okänd resurs.' }); return; }
       switch (body.action) {
         case 'create': await handleCreatePost(admin, res, body, user.email); return;
@@ -505,6 +632,12 @@ export default async function handler(req, res) {
     res.status(405).json({ error: 'Method not allowed' });
   } catch (err) {
     console.error('admin/index error:', err);
+    // En oväntad krasch NÅGONSTANS i admin-panelen — inte en förväntad
+    // 400/403/404 (de har redan sin egen res.status(...) och når aldrig
+    // hit), utan en riktig bugg. Loggas i samma säkerhetshändelse-tabell
+    // Security-fliken redan visar, så ett trasigt admin-API syns där utan
+    // att någon behöver leta i Vercels loggar.
+    await logSecurityEvent(admin, 'admin_api_error', user.email, err.message || String(err));
     if (!res.headersSent) res.status(500).json({ error: err.message || 'Något gick fel.' });
   }
 }
