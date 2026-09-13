@@ -4,6 +4,9 @@ import { supabase } from '../../supabaseClient';
 import InternalAuth from './InternalAuth';
 import BlogAdmin from './BlogAdmin';
 import AnalyticsAdmin from './AnalyticsAdmin';
+import PaymentsAdmin from './PaymentsAdmin';
+import SecurityAdmin from './SecurityAdmin';
+import UsersAdmin from './UsersAdmin';
 import { adminGet } from './adminApi';
 
 // ── /internal — den dolda admin-panelen ─────────────────────────────────
@@ -12,10 +15,9 @@ import { adminGet } from './adminApi';
 // att den finns, samma "security by not advertising it" som vilken
 // intern verktygssida som helst, ALDRIG den enda spärren i sig (den
 // riktiga spärren är api/admin/index.js:s ADMIN_EMAILS, se den filens
-// kommentar). Bygger ut med fler `resource`-flikar i samma mönster när
-// nästa admin-delsystem byggs (betalningar, säkerhetslogg, användare) —
-// se roadmap-flikarna nedan, medvetet gråmarkerade i stället för dolda,
-// så det är tydligt vad som är på gång och vad som redan fungerar.
+// kommentar). Alla fem flikar är nu live (Blogg, Analys, Betalningar,
+// Säkerhet, Användare) — `navItems.live` finns kvar som mönster för nästa
+// delsystem som byggs efter dessa, inte för att gråmarkera något idag.
 export default function InternalApp() {
   const [status, setStatus] = useState('checking'); // checking | needs-login | unauthorized | authorized | error
   const [activeTab, setActiveTab] = useState('blog');
@@ -81,9 +83,9 @@ export default function InternalApp() {
   const navItems = [
     { id: 'blog', label: 'Blogg', icon: FileText, live: true },
     { id: 'analytics', label: 'Analys', icon: BarChart3, live: true },
-    { id: 'payments', label: 'Betalningar', icon: CreditCard, live: false },
-    { id: 'security', label: 'Säkerhet', icon: ShieldAlert, live: false },
-    { id: 'users', label: 'Användare', icon: Users, live: false },
+    { id: 'payments', label: 'Betalningar', icon: CreditCard, live: true },
+    { id: 'security', label: 'Säkerhet', icon: ShieldAlert, live: true },
+    { id: 'users', label: 'Användare', icon: Users, live: true },
   ];
 
   return (
@@ -132,6 +134,9 @@ export default function InternalApp() {
       <main style={{ flex: 1, minWidth: 0, overflowY: 'auto' }}>
         {activeTab === 'blog' && <BlogAdmin />}
         {activeTab === 'analytics' && <AnalyticsAdmin />}
+        {activeTab === 'payments' && <PaymentsAdmin />}
+        {activeTab === 'security' && <SecurityAdmin />}
+        {activeTab === 'users' && <UsersAdmin />}
       </main>
     </div>
   );

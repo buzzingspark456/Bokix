@@ -264,6 +264,24 @@ async function fetchGaTraffic() {
   }
 }
 
+// Delad av Analys, Användare och Säkerhet nedan — samma sidindelnings-
+// logik (Supabase-gräns, inte en egen optimering), ingen anledning att
+// skriva den tre gånger. Ofarligt idag (litet konto-antal); om kontobasen
+// växer mycket är nästa steg att cacha resultatet i stället för att räkna
+// om från scratch varje sidladdning, i alla tre vyerna samtidigt.
+async function fetchAllUsers(admin) {
+  let allUsers = [];
+  let page = 1;
+  for (;;) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
+    if (error) throw new Error(error.message);
+    allUsers = allUsers.concat(data.users);
+    if (data.users.length < 1000) break;
+    page++;
+  }
+  return allUsers;
+}
+
 // ── Analys (resource: 'analytics') ──────────────────────────────────────
 // Kontostatistik Bokix redan äger (Supabase auth.users + public.
 // subscriptions) — VEM registrerar sig, UF eller inte, vem betalar —
@@ -271,22 +289,9 @@ async function fetchGaTraffic() {
 // kopplingen är på plats. De två datakällorna hämtas parallellt och
 // skickas som separata fält i svaret; ett GA-fel ska aldrig få
 // kontostatistiken att också försvinna.
-//
-// auth.admin.listUsers() sidindelas (Supabase-gräns, inte en egen
-// optimering) — går igenom alla sidor så totalen/dagsfördelningen är
-// exakt, inte bara första sidan. Ofarligt idag (litet konto-antal); om
-// kontobasen växer mycket är nästa steg att cacha resultatet i stället
-// för att räkna om från scratch varje sidladdning.
 async function handleAnalytics(admin, res) {
-  let allUsers = [];
-  let page = 1;
-  for (;;) {
-    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
-    if (error) { res.status(500).json({ error: error.message }); return; }
-    allUsers = allUsers.concat(data.users);
-    if (data.users.length < 1000) break;
-    page++;
-  }
+  let allUsers;
+  try { allUsers = await fetchAllUsers(admin); } catch (err) { res.status(500).json({ error: err.message }); return; }
 
   const ufUsers = allUsers.filter(u => u.user_metadata?.uf).length;
 
@@ -335,6 +340,121 @@ async function handleAnalytics(admin, res) {
   });
 }
 
+// ── Användare (resource: 'users') ───────────────────────────────────────
+// En rad per konto: kontostatus (auth.users) + företagsnamn (user_data,
+// fältet för kontots ursprungliga/legacy-företag — company_members
+// hanterar flerföretagsfallet, inte med här) + prenumeration
+// (subscriptions) slås ihop HÄR, på servern, i stället för att klienten
+// gör tre anrop och pusslar ihop dem själv.
+async function handleUsers(admin, res) {
+  let allUsers;
+  try { allUsers = await fetchAllUsers(admin); } catch (err) { res.status(500).json({ error: err.message }); return; }
+
+  const { data: userData, error: userDataError } = await admin
+    .from('user_data')
+    .select('user_id, company_name, company_orgnr, onboarding_completed');
+  if (userDataError) { res.status(500).json({ error: userDataError.message }); return; }
+  const userDataById = Object.fromEntries((userData || []).map(u => [u.user_id, u]));
+
+  const { data: subs, error: subsError } = await admin
+    .from('subscriptions')
+    .select('user_id, status, plan, trial_ends_at, current_period_end, cancel_at_period_end');
+  if (subsError) { res.status(500).json({ error: subsError.message }); return; }
+  const subByUserId = Object.fromEntries((subs || []).map(s => [s.user_id, s]));
+
+  const users = allUsers.map(u => {
+    const ud = userDataById[u.id];
+    const sub = subByUserId[u.id];
+    const plan = planFromId(sub?.plan);
+    return {
+      id: u.id,
+      email: u.email,
+      uf: !!u.user_metadata?.uf,
+      companyName: ud?.company_name || null,
+      companyOrgnr: ud?.company_orgnr || null,
+      onboardingCompleted: !!ud?.onboarding_completed,
+      createdAt: u.created_at,
+      lastSignInAt: u.last_sign_in_at || null,
+      emailConfirmed: !!u.email_confirmed_at,
+      subscriptionStatus: sub?.status || null,
+      planName: plan?.name || (sub ? 'Med personal (äldre konto)' : null),
+      cancelAtPeriodEnd: !!sub?.cancel_at_period_end,
+    };
+  }).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+  res.status(200).json({ users });
+}
+
+// ── Betalningar (resource: 'payments') ──────────────────────────────────
+// Bokix EGEN abonnemangsintäkt (subscriptions-tabellen) — INTE att blanda
+// ihop med stripe_ledger_events/zettle_ledger_events (supabase-setup.sql),
+// som är KUNDERNAS EGNA bokföringsunderlag för DERAS försäljning. Två
+// helt olika Stripe-kopplingar som råkar dela tabellprefix.
+async function handlePayments(admin, res) {
+  const { data: subs, error: subsError } = await admin
+    .from('subscriptions')
+    .select('user_id, status, plan, trial_ends_at, current_period_end, cancel_at_period_end, created_at');
+  if (subsError) { res.status(500).json({ error: subsError.message }); return; }
+
+  let allUsers;
+  try { allUsers = await fetchAllUsers(admin); } catch (err) { res.status(500).json({ error: err.message }); return; }
+  const emailById = Object.fromEntries(allUsers.map(u => [u.id, u.email]));
+
+  const rows = (subs || []).map(s => {
+    const plan = planFromId(s.plan);
+    return {
+      userId: s.user_id,
+      email: emailById[s.user_id] || null,
+      status: s.status,
+      planName: plan?.name || 'Med personal (äldre konto)',
+      planPrice: plan?.price ?? 179,
+      trialEndsAt: s.trial_ends_at,
+      currentPeriodEnd: s.current_period_end,
+      cancelAtPeriodEnd: s.cancel_at_period_end,
+      createdAt: s.created_at,
+    };
+  }).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+  // MRR: bara `active` betalar faktiskt varje månad — `trialing` betalar
+  // ingenting förrän provperioden (TRIAL_DAYS, 30 dagar) tar slut. Räknas
+  // de med hade siffran sett bättre ut än pengarna som faktiskt kommer in.
+  const mrr = rows.filter(r => r.status === 'active').reduce((sum, r) => sum + r.planPrice, 0);
+
+  // "Kräver uppföljning": betalningen har redan fallerat eller kortet är
+  // ogiltigt — den enda statusen där någon (kunden eller Bokix) faktiskt
+  // behöver göra något, till skillnad från trialing/active/canceled som
+  // alla sköter sig själva.
+  const atRisk = rows.filter(r => ['past_due', 'unpaid', 'incomplete'].includes(r.status));
+
+  res.status(200).json({ subscriptions: rows, mrr, atRisk });
+}
+
+// ── Säkerhet (resource: 'security') ─────────────────────────────────────
+// HONEST scope, samma resonemang som Analys hade innan GA kopplades in:
+// det finns ingen separat säkerhetslogg (misslyckade inloggningar, nekade
+// admin-försök) — att bygga en hade krävt en ny tabell och loggning i
+// requireAuthedUser/handler nedan, ett eget beslut senare, inget som följer
+// gratis med. Det den HÄR vyn visar är vad auth.users faktiskt håller —
+// senaste inloggningarna och obekräftade mejladresser — plus den
+// hårdkodade admin-listan, så det syns i UI:t vilka konton som har
+// adminåtkomst utan att läsa källkoden.
+async function handleSecurity(admin, res) {
+  let allUsers;
+  try { allUsers = await fetchAllUsers(admin); } catch (err) { res.status(500).json({ error: err.message }); return; }
+
+  const recentSignIns = allUsers
+    .filter(u => u.last_sign_in_at)
+    .sort((a, b) => new Date(b.last_sign_in_at) - new Date(a.last_sign_in_at))
+    .slice(0, 20)
+    .map(u => ({ email: u.email, lastSignInAt: u.last_sign_in_at }));
+
+  const unconfirmed = allUsers
+    .filter(u => !u.email_confirmed_at)
+    .map(u => ({ email: u.email, createdAt: u.created_at }));
+
+  res.status(200).json({ adminEmails: ADMIN_EMAILS, recentSignIns, unconfirmed });
+}
+
 export default async function handler(req, res) {
   applySecurityHeaders(res);
   if (!checkRateLimit(req, res, { key: 'admin', max: 120 })) return;
@@ -360,6 +480,9 @@ export default async function handler(req, res) {
     if (req.method === 'GET') {
       const resource = req.query?.resource;
       if (resource === 'analytics') { await handleAnalytics(admin, res); return; }
+      if (resource === 'users') { await handleUsers(admin, res); return; }
+      if (resource === 'payments') { await handlePayments(admin, res); return; }
+      if (resource === 'security') { await handleSecurity(admin, res); return; }
       if (resource !== 'blog') { res.status(400).json({ error: 'Okänd resurs.' }); return; }
       if (req.query?.id) await handleGetPost(admin, res, req.query.id);
       else await handleListPosts(admin, res);
