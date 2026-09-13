@@ -122,6 +122,22 @@ export const BANK_SOURCES = [
     scale: 1.3,
     path: 'Logga in → Konto → Transaktioner → Exportera (CSV)',
   },
+  {
+    id: 'danske-bank',
+    name: 'Danske Bank',
+    logo: '/logos/banks/danske-bank.svg',
+    // Ren ordbild, samma kategori som Handelsbanken (9,7:1) — SVG i
+    // stället för PNG (enda i listan): filen kom redan tight beskuren till
+    // sin egen viewBox (0 0 1920 195) från danskebank.com, ingen
+    // rastrering/konvertering behövdes. BankLogo (BrandLogos.jsx) storlekssätter
+    // rent via CSS/ratio oavsett filformat, så det är ett drop-in-byte.
+    ratio: 1920 / 195,
+    // OBS: generisk uppskattad klickväg, INTE kundverifierad som resten av
+    // listan (se filkommentaren högst upp — de andra raderna är kundens
+    // egna, ordagranna uppgifter). Rätta till den riktiga så fort någon
+    // faktiskt loggat in och kollat.
+    path: 'Logga in → Konton → Transaktioner → Exportera (CSV)',
+  },
 ];
 
 // Bankerna som har en bildfil. Just nu ÄR det alla nio, men filtret står
