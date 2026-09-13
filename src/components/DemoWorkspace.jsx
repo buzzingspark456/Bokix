@@ -108,6 +108,18 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
   // live, till skillnad från alla andra skrivåtgärder i demon. Rent lokalt
   // state, rör aldrig Startsidans exempeldata eller någon backend.
   const [settingsCompany, setSettingsCompany] = useState(seed.company);
+  // Bara för Kvitton → OCR-uppladdning (Sida: "Kvitton läser sig själva"-
+  // knappen på startsidan öppnar demot direkt här): ett uppladdat kvitto
+  // måste faktiskt hamna i listan, annars öppnas aldrig detaljvyn som kör
+  // OCR-läsningen (Expenses.jsx:s autoOpenUrl-effekt letar upp kvittot i
+  // just den här arrayen via receiptUrl — med `expenses={seed.expenses}`
+  // och `onAdd={blocked}` fanns det aldrig något att hitta, så OCR:n
+  // syntes aldrig, bara "det här är bara en demo"-varningen). Rent lokalt
+  // state precis som settingsCompany ovan — påverkar aldrig seed-datan
+  // eller någon backend. Det som fortfarande är blockerat är att faktiskt
+  // BOKFÖRA kvittot (onSaveReceiptDetails), inte att ladda upp och se
+  // OCR:n läsa det.
+  const [demoExpenses, setDemoExpenses] = useState(() => seed.expenses);
 
   const balances = useMemo(() => {
     const b = {};
@@ -199,8 +211,10 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
       case 'expenses':
         return (
           <Expenses
-            expenses={seed.expenses} accounts={seed.accounts} verifications={seed.verifications} projects={seed.projects}
-            user={demoUser} onAdd={blocked} onFixExpenseAccount={blocked}
+            expenses={demoExpenses} accounts={seed.accounts} verifications={seed.verifications} projects={seed.projects}
+            user={demoUser}
+            onAdd={(expense) => setDemoExpenses(prev => [...prev, { ...expense, id: `demo_${Date.now()}` }])}
+            onFixExpenseAccount={blocked}
             onSaveReceiptDetails={blocked} onDeleteExpense={blocked} onReverseExpense={blocked}
             pageTitle="Kvitton" pageSubtitle="Alla uppladdade kvitton" uploadFn={demoUploadFn}
           />
