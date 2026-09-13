@@ -57,7 +57,7 @@ export default function CookieBanner() {
           <div style={{ fontSize: '15.5px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '8px' }}>Den här webbplatsen använder cookies</div>
           <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.65 }}>
             Nödvändiga cookies för inloggning och grundfunktion är alltid aktiva. Vi använder också Google Analytics för grundläggande besöksstatistik, men bara om du väljer "Acceptera alla" — inga marknadsförings- eller reklamcookies används oavsett vad du väljer.{' '}
-            <Link to="/cookies" style={{ color: BRAND.green, fontWeight: 600, textDecoration: 'underline' }}>Läs mer i vår cookiepolicy</Link>.
+            <Link to="/cookies" style={{ color: BRAND.greenDark, fontWeight: 600, textDecoration: 'underline' }}>Läs mer i vår cookiepolicy</Link>.
           </p>
         </div>
 
@@ -96,7 +96,7 @@ export default function CookieBanner() {
           <button
             type="button"
             onClick={() => choose(false)}
-            style={{ flex: 1, minWidth: '160px', padding: '11px 16px', background: 'var(--bg-card)', border: `1.5px solid ${BRAND.green}`, borderRadius: '9px', fontWeight: 700, color: BRAND.green, cursor: 'pointer', fontSize: '13.5px' }}
+            style={{ flex: 1, minWidth: '160px', padding: '11px 16px', background: 'var(--bg-card)', border: `1.5px solid ${BRAND.green}`, borderRadius: '9px', fontWeight: 700, color: BRAND.greenDark, cursor: 'pointer', fontSize: '13.5px' }}
           >
             Endast nödvändiga
           </button>

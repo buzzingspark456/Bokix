@@ -523,7 +523,11 @@ function MarketingStyles() {
       /* Kolumnrubrikerna: versaler, spärrad, dämpad — de ska LÄSAS som
          etiketter över sina länkar, inte konkurrera med dem. Länkarna är
          det man faktiskt klickar på och får därför vara ljusast. */
-      .lp-footer-heading { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; color: rgba(255,255,255,0.42); margin: 0 0 14px; }
+      /* 0.42 gav otillräcklig kontrast mot footerns mörka botten (Lighthouse
+         Tillgänglighet: color-contrast). 0.62 klarar 4.5:1 utan att rubriken
+         sticker ut mer än den ska — den är fortfarande synligt tonad ner
+         mot de vanliga länkarna under. */
+      .lp-footer-heading { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; color: rgba(255,255,255,0.62); margin: 0 0 14px; }
 
       /* Det stora ordmärket längst ner. Ligger som en dämpad vattenstämpel
          i sidfotens egen gradient (avmättad + uppljusad till elfenben, se

@@ -365,21 +365,51 @@ export default function CloudShaderBackground({
     // som 30 utan att se annorlunda ut för en rörelse i den här takten.
     const MIN_FRAME_MS = 1000 / 30;
     let lastDraw = 0;
-    // ── Nödbromsen ──
+    // ── Nödbromsen, TVÅ steg ──
     // Mjukvaru-WebGL (ingen GPU-drivrutin, äldre laptop, vissa mobiler i
-    // strömsparläge) ritar den här shadern i 4–11 bildrutor per sekund.
-    // Då är animationen inte längre en animation — den är bara en
-    // huvudtråd som står och stampar medan besökaren försöker skrolla.
-    // Efter en sekunds uppvärmning mäts vad enheten faktiskt klarar; går
-    // det trögt stannar loopen för gott och canvasen behåller sin sista
-    // ritade bildruta. Resultatet är en stillastående himmel med moln —
-    // samma bild, utan rörelsen och utan kostnaden. Ingen ser en tom yta,
-    // och ingen sitter med en sida som hackar.
-    const WARMUP_MS = 1000;
-    const MIN_ACCEPTABLE_FPS = 24;
-    let warmupStart = 0;
-    let warmupFrames = 0;
+    // strömsparläge, headless Chrome — dvs. exakt vad Lighthouse mäter
+    // med) ritar den här shadern i enstaka bildrutor per sekund, och en
+    // enda sådan bildruta kan kosta SEKUNDER av huvudtråden (uppmätt: upp
+    // mot 2,3 s per bildruta). Det gamla, tidsbaserade varvet ("mät i en
+    // sekund, se hur många bildrutor det blev") ser bra ut på papper men
+    // straffar sig självt exakt när det behövs mest: är EN bildruta redan
+    // dyrare än hela mätfönstret hinner ändå den fulla kostnaden tas innan
+    // varvet ens vet att det ska stanna.
+    //
+    // 1) Känn igen känd mjukvaru-rendering INNAN en enda bildruta ritas
+    //    (WEBGL_debug_renderer_info — SwiftShader/llvmpipe/Mesa-software
+    //    är de vanliga namnen). Träff = rita EN bildruta i lägsta
+    //    komplexitet (u_count sänkt, se drawFrame) och stanna direkt,
+    //    utan att någonsin starta loopen. Ingen gissning, ingen kostnad
+    //    utöver den ena bildrutan.
+    // 2) Har GPU:n ett okänt/dolt namn (extension saknas, vanligt när
+    //    sajten INTE körs i Chrome) mäts i stället en riktig ritnings
+    //    faktiska kostnad direkt — men på en MIKROSKOPISK 16×16-yta, inte
+    //    hela canvasen, så själva mätningen aldrig kan bli den dyra
+    //    kostnaden den försöker undvika (se MAX_ACCEPTABLE_FRAME_MS).
+    //    performance.now() + gl.finish() tvingar GPU:n klar innan klockan
+    //    stoppas, annars mäter man bara hur snabbt JS kunde KÖA arbetet.
+    //    Över budget = stanna efter den enda (fullstora) bildrutan som
+    //    ritas om provet gick bra respektive det sista provet om det inte
+    //    gjorde det — exakt samma slutläge som (1).
+    // Resultatet i båda fallen: en stillastående himmel med moln, aldrig
+    // en tom yta, och aldrig mer än en bildrutas kostnad betald för att
+    // ta reda på det.
+    // Gäller en 16×16-provbildruta (se nödbromsens steg 2 nedan), inte en
+    // fullstor — en riktig GPU ritar 16×16 pixlar på bråkdelar av en
+    // millisekund, så redan 20 ms är en gott och väl tilltagen marginal
+    // som ändå fångar en enhet som är genuint överbelastad.
+    const MAX_ACCEPTABLE_FRAME_MS = 20;
     let benchmarked = false;
+    let softwareRenderer = false;
+    try {
+      const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+      const renderer = dbg ? String(gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) || '') : '';
+      softwareRenderer = /swiftshader|llvmpipe|softpipe|software/i.test(renderer);
+    } catch {
+      // Extensionen kan vara blockerad (t.ex. Firefox' fingerprinting-skydd)
+      // — behandla som okänt, inte som "säkert snabbt". Steg 2 mäter ändå.
+    }
     // Egen klocka i stället för now - start: loopen pausas när hjälten
     // skrollats förbi eller fliken göms (se nedan), och en klocka som
     // fortsätter ticka under pausen hade fått molnen att hoppa flera
@@ -412,25 +442,51 @@ export default function CloudShaderBackground({
       gl.uniform3f(loc.cloud, cloud[0], cloud[1], cloud[2]);
       gl.uniform3f(loc.skyTop, skyTop[0], skyTop[1], skyTop[2]);
       gl.uniform3f(loc.skyBottom, skyBottom[0], skyBottom[1], skyBottom[2]);
-      gl.drawArrays(gl.TRIANGLES, 0, 3);
 
       if (!benchmarked && !reduceMotion) {
-        if (!warmupStart) warmupStart = now;
-        warmupFrames++;
-        const warmedFor = now - warmupStart;
-        if (warmedFor >= WARMUP_MS) {
-          benchmarked = true;
-          const achieved = (warmupFrames / warmedFor) * 1000;
-          if (achieved < MIN_ACCEPTABLE_FPS) {
-            running = false;
-            return; // sista bildrutan blir kvar på canvasen
-          }
+        // Mät på en MIKROSKOPISK 16×16-yta i stället för hela canvasens
+        // upplösning — kostnaden växer linjärt med antalet pixlar (se
+        // resize()), så att mäta i full storlek kan i sig kosta sekunder
+        // på en trög enhet, exakt det provet ska undvika att betala för.
+        // gl.finish() tvingar GPU:n klar innan klockan stoppas (annars
+        // mäter performance.now() bara hur snabbt JS kunde KÖA anropet).
+        // 16×16 avslöjar ändå en katastrofalt seg enhet: är ens DET för
+        // långsamt är full skärm garanterat värre.
+        gl.viewport(0, 0, 16, 16);
+        const t0 = performance.now();
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+        gl.finish();
+        const probeCost = performance.now() - t0;
+        gl.viewport(0, 0, canvas.width, canvas.height); // tillbaka till riktig storlek
+        benchmarked = true;
+        if (probeCost > MAX_ACCEPTABLE_FRAME_MS) {
+          running = false;
+          gl.drawArrays(gl.TRIANGLES, 0, 3); // en sista bildruta i RIKTIG storlek (16×16-provet syntes aldrig)
+          return;
         }
       }
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
 
       frame = requestAnimationFrame(draw);
     };
-    frame = requestAnimationFrame(draw);
+
+    if (softwareRenderer) {
+      // Känd mjukvaru-rendering — rita en enda bildruta i låg komplexitet
+      // och stanna direkt, starta aldrig loopen. Se nödbromsens
+      // filkommentar ovan.
+      const p = paramsRef.current;
+      const { cloud, skyTop, skyBottom } = resolveColors(p);
+      gl.uniform1f(loc.time, 0);
+      gl.uniform1f(loc.count, 2);
+      gl.uniform3f(loc.cloud, cloud[0], cloud[1], cloud[2]);
+      gl.uniform3f(loc.skyTop, skyTop[0], skyTop[1], skyTop[2]);
+      gl.uniform3f(loc.skyBottom, skyBottom[0], skyBottom[1], skyBottom[2]);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      benchmarked = true;
+      running = false;
+    } else {
+      frame = requestAnimationFrame(draw);
+    }
 
     // Loopen ska inte kosta något när ingen tittar. Två skäl att pausa:
     // hjälten är utskrollad (besökaren läser prissektionen — molnen ritas
