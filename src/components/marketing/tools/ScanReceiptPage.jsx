@@ -17,6 +17,27 @@ const ACCOUNT_NAME = Object.fromEntries(DEFAULT_ACCOUNTS.map(a => [a.code, a.nam
 
 const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
 
+// Grov, ärlig uppskattning av var i hela läsningen (fil → text → klar) ett
+// givet statusmeddelande från ocrReceipt.js:s onProgress-callback ligger,
+// 0–100. Tesseract-fasen ("Läser av kvitto… NN%") skickar en riktig,
+// mätbar procent — den använder vi rakt av. De andra faserna (hämta filen,
+// ladda modeller, extrahera PDF-text) skickar bara ett meddelande utan
+// tal, så de får en fast platshållarnivå i rätt ordning. Poängen är INTE
+// exakthet (ingen ser skillnad på 24 % och 27 %) — poängen är att strålen
+// nedan alltid rör sig FRAMÅT i takt med var läsningen faktiskt är, aldrig
+// hänger stilla eller hoppar bakåt.
+function stagePctFor(msg) {
+  const text = String(msg || '');
+  const inline = text.match(/(\d{1,3})\s*%\s*$/);
+  if (inline) return Math.min(96, Math.max(30, Number(inline[1])));
+  if (/Läser digital PDF/.test(text)) return 55;
+  if (/Skannad PDF/.test(text)) return 20;
+  if (/Laddar språkmodeller/.test(text)) return 26;
+  if (/Startar OCR-motor|Förbereder OCR/.test(text)) return 18;
+  if (/Hämtar kvittofil/.test(text)) return 8;
+  return 6; // "Startar läsning…" och allt okänt — precis igång
+}
+
 // ── /verktyg/skanna-kvitto ───────────────────────────────────────────────
 // Kundönskemål, uttryckligt: OCR-läsningen ska ha en EGEN sida — inte
 // öppna produktdemot — där vem som helst kan ladda upp ett RIKTIGT kvitto
@@ -36,6 +57,7 @@ export default function ScanReceiptPage() {
   const [result, setResult] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [fileName, setFileName] = useState('');
+  const [beamPct, setBeamPct] = useState(0);
   const inputRef = useRef(null);
   const runIdRef = useRef(0);
 
@@ -49,11 +71,24 @@ export default function ScanReceiptPage() {
     }
     const runId = ++runIdRef.current;
     setFileName(file.name);
+    // Egen React-key per körning (nedan, `key={runId}`) — utan den
+    // ANIMERAR CSS-transitionen strålen från sin FÖREGÅENDE viloläge
+    // (botten, osynlig efter en klar/misslyckad läsning) upp till det
+    // nya startläget, vilket sett ut som att strålen sveper BAKLÄNGES
+    // ett ögonblick innan den riktiga, framåtgående sveparbetet börjar.
+    // Ett nytt key gör att elementet monteras helt nytt vid varje
+    // uppladdning: dess första `top` sätts direkt, ingen transition från
+    // ett gammalt läge att glida bort ifrån.
     setPreviewUrl(prev => { if (prev) URL.revokeObjectURL(prev); return file.type === 'application/pdf' ? null : URL.createObjectURL(file); });
-    setStatus('scanning'); setMessage('Startar läsning…'); setResult(null);
+    setStatus('scanning'); setMessage('Startar läsning…'); setResult(null); setBeamPct(4);
     try {
-      const text = await ocrFile(file, msg => { if (runIdRef.current === runId) setMessage(msg); });
+      const text = await ocrFile(file, msg => {
+        if (runIdRef.current !== runId) return;
+        setMessage(msg);
+        setBeamPct(stagePctFor(msg));
+      });
       if (runIdRef.current !== runId) return;
+      setBeamPct(100);
       setResult(parseReceiptText(text));
       setStatus('done');
     } catch (err) {
@@ -83,6 +118,7 @@ export default function ScanReceiptPage() {
             role="button" tabIndex={0}
             onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') inputRef.current?.click(); }}
             style={{
+              position: 'relative', overflow: 'hidden',
               display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px',
               padding: '30px 20px', borderRadius: '14px', border: `1.5px dashed ${CARD_BORDER}`,
               background: 'var(--mkt-ivory)', cursor: 'pointer', textAlign: 'center', minHeight: '160px',
@@ -101,12 +137,28 @@ export default function ScanReceiptPage() {
               ref={inputRef} type="file" accept={ACCEPTED.join(',')} style={{ display: 'none' }}
               onChange={e => handleFile(e.target.files?.[0])}
             />
+
+            {/* Samma stråle som startsidans "Kvitton läser sig själva"
+                (marketing/ReceiptFlow.jsx) — kundens egna ord: den
+                animationen är "super cool", gör likadan här i stället för
+                en procentsiffra som räknar upp. Skillnaden mot
+                ReceiptFlow: den där loopar på en fast timer med
+                påhittad exempeldata, den här styrs av `top` i EKTA
+                läsframsteg (beamPct, satt från ocrReceipt.js:s riktiga
+                onProgress-meddelanden via stagePctFor ovan) — strålen
+                rör sig alltså i takt med att DIN bild faktiskt läses,
+                svepande hela vägen till botten och tonar bort exakt när
+                resultatet är klart, aldrig innan. */}
+            <span
+              key={runIdRef.current}
+              className="bx-scan-beam" aria-hidden
+              style={{ top: `${status === 'scanning' ? beamPct : 100}%`, opacity: status === 'scanning' ? 1 : 0 }}
+            />
           </div>
 
           {status === 'scanning' && (
-            <p style={{ fontSize: '13px', color: MUTED, marginTop: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span className="bx-scan-spin" aria-hidden style={{ width: 13, height: 13, borderRadius: '50%', border: `2px solid ${CARD_BORDER}`, borderTopColor: BRAND.green, display: 'inline-block' }} />
-              {message}
+            <p style={{ fontSize: '13px', color: MUTED, marginTop: '14px' }}>
+              {message.replace(/\s*\d{1,3}\s*%\s*$/, '')}
             </p>
           )}
           {status === 'error' && (
@@ -115,7 +167,19 @@ export default function ScanReceiptPage() {
             </p>
           )}
 
-          <style>{`@keyframes bxScanSpin { to { transform: rotate(360deg); } } .bx-scan-spin { animation: bxScanSpin 0.7s linear infinite; }`}</style>
+          <style>{`
+            .bx-scan-beam {
+              position: absolute; left: 4%; right: 4%; height: 20px; margin-top: -10px;
+              border-radius: 4px; pointer-events: none;
+              background: linear-gradient(90deg, transparent, rgba(14,165,233,0.55), rgba(20,184,166,0.75), rgba(132,204,22,0.55), transparent);
+              filter: blur(1.5px);
+              box-shadow: 0 0 14px 2px rgba(20,184,166,0.45);
+              transition: top 0.5s cubic-bezier(0.45, 0, 0.55, 1), opacity 0.35s;
+            }
+            @media (prefers-reduced-motion: reduce) {
+              .bx-scan-beam { transition: opacity 0.35s; }
+            }
+          `}</style>
         </>
       }
       result={
@@ -125,13 +189,35 @@ export default function ScanReceiptPage() {
         >
           {status === 'done' && result ? (
             <>
-              <ToolResultRow label="Datum" value={result.date || '—'} unit="" />
-              <ToolResultRow label="Belopp" value={result.amount != null ? result.amount : '—'} decimals={result.amount != null ? 2 : 0} unit={result.amount != null ? (result.currency || 'kr') : ''} />
-              <ToolResultRow label="Moms" value={result.vatRate != null ? result.vatRate : '—'} unit={result.vatRate != null ? '%' : ''} />
-              <ToolResultRow label="Leverantör" value={result.supplier || 'Okänd — fyll i själv'} unit="" />
+              {/* `checked` (grön bock) sätts BARA när fältet faktiskt
+                  lästs av — aldrig för en gissning som råkar se rimlig
+                  ut. Momssatsen har alltid ETT värde (annars vore fältet
+                  oanvändbart i en riktig bokföring), men vatRateGuessed
+                  skiljer "stod på kvittot" från "antog 25 % för att vi var
+                  tvungna att fylla i något" — se ocrReceipt.js. Leverantör
+                  får bara bocken vid en IGENKÄND handlare, inte vid den
+                  råa första-textraden-gissningen. Kundönskemål, uttryckligt:
+                  en säker avläsning ska synas som säker, en gissning ska
+                  aldrig se ut som en. */}
+              <ToolResultRow label="Datum" value={result.date || '—'} unit="" checked={Boolean(result.date)} />
+              <ToolResultRow
+                label="Belopp" value={result.amount != null ? result.amount : '—'}
+                decimals={result.amount != null ? 2 : 0} unit={result.amount != null ? (result.currency || 'kr') : ''}
+                checked={result.amount != null}
+              />
+              <ToolResultRow
+                label="Moms" value={result.vatRate != null ? result.vatRate : '—'} unit={result.vatRate != null ? '%' : ''}
+                checked={result.vatRate != null && !result.vatRateGuessed}
+                note={result.vatRateGuessed ? 'Antagen — stod inte utläsbart på kvittot' : undefined}
+              />
+              <ToolResultRow
+                label="Leverantör" value={result.supplier || 'Okänd — fyll i själv'} unit=""
+                checked={result.supplierMatched}
+              />
               <ToolResultRow
                 label="Föreslaget konto" strong unit=""
-                value={result.accountCode ? `${result.accountCode} ${ACCOUNT_NAME[result.accountCode] || ''}` : 'Inget förslag'}
+                value={result.accountCode ? `${result.accountCode} ${ACCOUNT_NAME[result.accountCode] || ''}` : 'Inget förslag — välj själv'}
+                checked={Boolean(result.accountCode)}
               />
               <div style={{ marginTop: '16px', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '5px 10px', borderRadius: '999px', fontSize: '11px', fontWeight: 800, background: 'rgba(132,204,22,0.18)', color: '#a3e635' }}>
                 <Check size={11} strokeWidth={3} /> Klart på {'<'}10 sekunder

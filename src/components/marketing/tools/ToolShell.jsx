@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, ArrowLeft } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Check } from 'lucide-react';
 import { BRAND } from '../../../utils/brandColors';
 import MarketingLayout, { Reveal } from '../MarketingLayout';
 import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW, CARD_SHADOW_SM, ACCENT } from '../marketingTokens';
@@ -155,8 +155,14 @@ export function ToolSegmented({ options, value, onChange, accent = ACCENT.green 
 }
 
 /** En rad i resultatpanelen. `strong` för summaraden, `muted` för
- * mellansteg som inte är svaret men förklarar hur man kom dit. */
-export function ToolResultRow({ label, value, unit = 'kr', strong, muted, decimals = 0, note }) {
+ * mellansteg som inte är svaret men förklarar hur man kom dit. `checked`
+ * är EGEN, opt-in (ingen av de andra sju verktygen som delar den här
+ * komponenten sätter den, så de påverkas inte): en liten grön bock efter
+ * värdet, bara för fält där det faktiskt LÄSTS AV med tillförsikt — inte
+ * en gissning och inte "—"/"Okänd". Kundönskemål, från samma
+ * referensbild som strålen i ReceiptFlow.jsx: varje avläst fält ska synas
+ * bekräftat för sig, inte bara stå där. */
+export function ToolResultRow({ label, value, unit = 'kr', strong, muted, decimals = 0, note, checked }) {
   return (
     <div style={{
       display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '16px',
@@ -168,9 +174,16 @@ export function ToolResultRow({ label, value, unit = 'kr', strong, muted, decima
         {label}
         {note && <span style={{ display: 'block', fontSize: '11.5px', color: 'rgba(255,255,255,0.45)', fontWeight: 500 }}>{note}</span>}
       </span>
-      <span style={{ fontSize: strong ? '22px' : '15px', fontWeight: strong ? 800 : 700, color: 'white', whiteSpace: 'nowrap', letterSpacing: strong ? '-0.02em' : 0 }}>
-        {typeof value === 'number' ? formatKr(value, decimals) : value}
-        {unit && <span style={{ fontSize: strong ? '13px' : '11.5px', fontWeight: 600, color: 'rgba(255,255,255,0.6)', marginLeft: '4px' }}>{unit}</span>}
+      <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: '7px' }}>
+        <span style={{ fontSize: strong ? '22px' : '15px', fontWeight: strong ? 800 : 700, color: 'white', whiteSpace: 'nowrap', letterSpacing: strong ? '-0.02em' : 0 }}>
+          {typeof value === 'number' ? formatKr(value, decimals) : value}
+          {unit && <span style={{ fontSize: strong ? '13px' : '11.5px', fontWeight: 600, color: 'rgba(255,255,255,0.6)', marginLeft: '4px' }}>{unit}</span>}
+        </span>
+        {checked && (
+          <span aria-hidden style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '16px', height: '16px', borderRadius: '50%', background: 'rgba(132,204,22,0.22)', flexShrink: 0 }}>
+            <Check size={10} strokeWidth={3.5} color="#a3e635" />
+          </span>
+        )}
       </span>
     </div>
   );
