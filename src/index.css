@@ -1624,6 +1624,29 @@ body {
   transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 
+/* Fokusring för sidans egna inputs/selects (Settings.jsx: inputBase är en
+   mjukt ifylld yta med en OSYNLIG kant i vila, se den stilens kommentar) —
+   samma konvention som .form-control:focus redan använder på resten av
+   appen (border-focus/lime-50), i stället för en ny. Innan den här regeln
+   hade nästan alla fält på sidan ingen synlig fokusindikator ALLS
+   (inputBase sätter outline:none, och bara två av de MÅNGA fälten hade en
+   egen onFocus/onBlur som ritade om kanten för hand) — ett riktigt
+   tillgänglighetshål för tangentbordsnavigering. */
+/* !important krävs här: inputBase (Settings.jsx) sätter sin egen
+   border FÄRG som en inline style ("1px solid transparent", för att
+   reservera kantens bredd utan att synas i vila) — en inline style
+   vinner alltid över en extern CSS-regel oavsett selektorspecificitet,
+   så utan !important hade box-shadow-ringen dykt upp men kanten hade
+   förblivit osynlig. Samma mönster som .settings-split/.settings-grid
+   redan använder i den här filen av exakt samma skäl. */
+.settings-content input:focus,
+.settings-content select:focus,
+.settings-content textarea:focus {
+  outline: none;
+  border-color: var(--border-focus) !important;
+  box-shadow: 0 0 0 3px var(--lime-50);
+}
+
 /* Korten har en egen marginBottom (Settings.jsx: card-stilen) för det
    staplade flödet — den ska inte dubblera rutnätets gap. */
 .settings-grid > * {

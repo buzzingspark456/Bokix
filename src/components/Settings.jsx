@@ -225,6 +225,7 @@ function SettingsRail({ sections, activeId, onPick }) {
             <div className="settings-rail-group-label">{group.label}</div>
             {groupSections.map(section => {
               const Icon = SECTION_META[section.id]?.icon || Cog;
+              const tone = SECTION_META[section.id]?.tone || 'green';
               const on = activeId === section.id;
               return (
                 <button
@@ -234,7 +235,16 @@ function SettingsRail({ sections, activeId, onPick }) {
                   aria-current={on ? 'page' : undefined}
                   onClick={() => onPick(section.id)}
                 >
-                  <span className="settings-rail-icon"><Icon size={23} /></span>
+                  {/* Samma tonfärgssystem som SettingsHub-kortens ikonplattor
+                      (SECTION_META.tone) — bara på den AKTIVA raden, så
+                      navigeringen man tittar på hela tiden förblir lugn och
+                      enfärgad (grön pill), men vet man var man är landar
+                      ögat på en tydlig, ämnesfärgad platta i stället för
+                      bara en grön glyf. Samma 40×40-yta oavsett läge så
+                      raden inte hoppar i storlek när man byter flik. */}
+                  <span className="settings-rail-icon" style={on ? { background: SECTION_TONES[tone] || SECTION_TONES.green, color: '#fff', borderRadius: '11px' } : undefined}>
+                    <Icon size={20} />
+                  </span>
                   {section.label}
                 </button>
               );
@@ -262,9 +272,17 @@ function SettingsRail({ sections, activeId, onPick }) {
 // som redan fixades för AutoField/grid2 (se den kommentaren) — kortets
 // EGEN marginal borttagen helt, containern äger nu hela mellanrummet
 // ensam i stället för att två lager lägger på var sitt.
+// Kundönskemål (redesign): rundare hörn (12→16px) och ett djupare, mjukare
+// lyft (en andra, större skugg-lager utöver den ursprungliga hårfina) —
+// samma mått som SettingCard nedan använder nu, så de två kort-varianterna
+// sidan blandar (rena `card`-divs och <SettingCard>) läses som EN
+// konsekvent yta i stället för två snarlika men olika kort-stilar.
+// Bugkritiskt (mörkt läge): kanten stod hårdkodad till en literal hex
+// (#ececef) i stället för var(--border) — syntes knappt mot en mörk
+// kortbakgrund, till skillnad från SettingCard som redan använde variabeln.
 const card = {
-  background: 'var(--bg-card)', borderRadius: '12px', padding: '13px', width: '100%', boxSizing: 'border-box',
-  border: '1px solid #ececef', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
+  background: 'var(--bg-card)', borderRadius: '16px', padding: '13px', width: '100%', boxSizing: 'border-box',
+  border: '1px solid var(--border)', boxShadow: '0 1px 3px rgba(15, 23, 42, 0.05), 0 10px 24px -16px rgba(15, 23, 42, 0.18)',
 };
 // Sida 38, punkt 2: kolumnbredden lever i CSS-klassen .form-row-2
 // (index.css) istället för här, så mobilens 1-kolumns-överskrivning
@@ -292,14 +310,22 @@ const FALLBACK_MAIL_PROVIDERS = [
   { id: 'custom', label: 'Annan leverantör', host: '', port: 465, secure: true, appPasswordUrl: null, help: 'Fyll i serveradress och port från din leverantörs hjälpsidor. Söker du på "SMTP" plus leverantörens namn hittar du dem.' },
 ];
 const labelStyle = { display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' };
+// Kundönskemål (redesign, "ser kodat ut"): fälten var vita rutor med en
+// hård grå kant mot ett vitt kort — knappt urskiljbara från kortets EGEN
+// yta förrän man klickade i dem. En mjuk, ifylld yta (samma bg-muted som
+// LockedField redan använder för LÅSTA fält) läser tydligare som "här kan
+// du skriva" på en snabb titt, utan att låna det låsta fältets kant/lås-
+// ikon-kombination. Kanten är osynlig i vila (transparent, inte borttagen
+// helt — samma boxstorlek kvar) och blir grön vid fokus, se
+// .settings-content input:focus/select:focus/textarea:focus i index.css.
 const inputBase = {
-  width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: '8px',
-  fontSize: '14px', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', transition: 'border-color 0.15s',
+  width: '100%', padding: '10px 13px', border: '1px solid transparent', borderRadius: '10px',
+  fontSize: '14px', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', transition: 'border-color 0.15s, box-shadow 0.15s',
   // Säkerhetsgranskningen/mörkgrön-önskemålet: ingen background/color satt
   // här tidigare alls — inputs föll tillbaka på webbläsarens EGEN vita
   // standardbakgrund oavsett tema, vilket lämnade varje formulärfält vitt
   // mitt i en annars mörk sida.
-  background: 'var(--bg-card)', color: 'var(--text-main)',
+  background: 'var(--bg-muted)', color: 'var(--text-main)',
 };
 const btnPrimary = { padding: '9px 18px', background: BRAND.green, color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer', boxShadow: '0 2px 6px rgba(11, 99, 41, 0.25)' };
 // Knappen i en integrationsbricka — liten, tydlig, samma i alla brickor.
@@ -474,8 +500,8 @@ function SettingCard({ title, icon: Icon, tone = 'green', badge, description, ch
     <div style={{
       background: danger ? 'var(--status-red-bg)' : 'var(--bg-card)',
       border: `1px solid ${danger ? 'transparent' : 'var(--border)'}`,
-      borderRadius: '12px',
-      boxShadow: danger ? 'none' : '0 1px 2px rgba(15, 23, 42, 0.04)',
+      borderRadius: '16px',
+      boxShadow: danger ? 'none' : '0 1px 3px rgba(15, 23, 42, 0.05), 0 10px 24px -16px rgba(15, 23, 42, 0.18)',
       overflow: 'hidden',
       minWidth: 0,
       ...style,
@@ -518,16 +544,25 @@ function SectionHeadingIcon({ icon: Icon, tone = 'green', size = 30, iconSize = 
   );
 }
 
-function SettingRow({ label, description, children, last }) {
+// `icon`/`tone` valfria (förval: ingen ikon, samma rad som förut) — en
+// liten tonfärgad platta framför etiketten, för de rader där den faktiskt
+// hjälper att skanna en LISTA av rader snabbt (t.ex. Säkerhet-kortets
+// Lösenord/Tvåfaktor). Inte satt på varje SettingRow-anrop i appen — en
+// rad utan naturlig ikon (t.ex. en ren av/på-inställning) ska inte tvingas
+// hitta på en.
+function SettingRow({ label, description, children, last, icon: Icon, tone = 'gray' }) {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap',
       padding: '8px 0',
       borderBottom: last ? 'none' : '1px solid var(--border-light)',
     }}>
-      <div style={{ minWidth: '180px', flex: 1 }}>
-        <div style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-main)' }}>{label}</div>
-        {description && <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginTop: '3px', lineHeight: 1.55, maxWidth: '460px' }}>{description}</div>}
+      <div style={{ minWidth: '180px', flex: 1, display: 'flex', alignItems: 'center', gap: '12px' }}>
+        {Icon && <SectionHeadingIcon icon={Icon} tone={tone} />}
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-main)' }}>{label}</div>
+          {description && <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginTop: '3px', lineHeight: 1.55, maxWidth: '460px' }}>{description}</div>}
+        </div>
       </div>
       <div style={{ flexShrink: 0 }}>{children}</div>
     </div>
@@ -845,11 +880,14 @@ function AutoField({ label, type = 'text', value, onChange, hint, required, plac
           </div>
         )}
       </div>
+      {/* Fokuskanten sköts numera av .settings-content input:focus
+          (index.css) för alla fält på sidan enhetligt — den här hade
+          tidigare sin EGEN onFocus/onBlur som bara målade om kanten till
+          grön/grå, vilket (inline style vinner alltid över en CSS-klass)
+          hade blockerat den delade fokusringen just här. */}
       <input
         type={type} value={val} onChange={handleChange} placeholder={placeholder}
         style={inputBase}
-        onFocus={e => e.target.style.borderColor = BRAND.green}
-        onBlur={e => e.target.style.borderColor = 'var(--border)'}
       />
       {hint && <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>{hint}</div>}
     </div>
@@ -929,22 +967,40 @@ function ImageUploadField({ label, value, onChange, uploadPath, bucket, hint, re
  * via de riktiga knapparna intill), samma "peka ut att bilden går att
  * ändra"-idé som mockupen, bara utan en overlay-knapp som skulle krocka med
  * knapparna som redan finns. */
-function AvatarUploadRow({ avatarUrl, initials, onChange, uploadPath, readOnly }) {
+function AvatarUploadRow({ avatarUrl, initials, name, onChange, uploadPath, readOnly }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginBottom: '10px' }}>
+    // Bugkritiskt (visuellt): alignItems:'center' centrerade avataren mot
+    // HELA radens höjd — men textblocket bredvid (namn + "Din profilbild"-
+    // knappen) är högre än själva avatarcirkeln, så avataren hamnade
+    // synligt LÄGRE än namnet i stället för i linje med det. flex-start
+    // linjerar dem båda mot samma topp-kant.
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px', flexWrap: 'wrap', marginBottom: '14px' }}>
       <div style={{ position: 'relative', flexShrink: 0 }}>
+        {/* Kundönskemål (redesign): större avatar (56→64px) med en mjuk
+            ring i samma ljusgröna ton som resten av sidans avatar-cirklar
+            (BRAND.greenLight) — samma platta identitetsfärg, bara satt som
+            en box-shadow-ring i stället för en hård kant, så bilden känns
+            som en riktig profilbild och inte ett formulärfält. */}
         {avatarUrl ? (
-          <img src={avatarUrl} alt="" style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border)' }} />
+          <img src={avatarUrl} alt="" style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover', boxShadow: `0 0 0 4px ${BRAND.greenLight}` }} />
         ) : (
-          <div style={{ width: 56, height: 56, borderRadius: '50%', background: BRAND.greenLight, color: BRAND.greenDark, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: 700 }}>
+          <div style={{ width: 64, height: 64, borderRadius: '50%', background: BRAND.greenLight, color: BRAND.greenDark, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '21px', fontWeight: 700, boxShadow: `0 0 0 4px var(--bg-muted)` }}>
             {initials}
           </div>
         )}
-        <span aria-hidden style={{ position: 'absolute', right: -2, bottom: -2, width: 20, height: 20, borderRadius: '50%', background: 'var(--bg-card)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
-          <Camera size={11} />
+        <span aria-hidden style={{ position: 'absolute', right: -2, bottom: -2, width: 22, height: 22, borderRadius: '50%', background: 'var(--bg-card)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
+          <Camera size={12} />
         </span>
       </div>
       <div style={{ flex: 1, minWidth: '220px' }}>
+        {/* Namnet i röstfonten (--font-voice, samma serif som företagets
+            namn i IdentityCard) — sidans enda andra "designade" moment.
+            Kundönskemål: profilkortet ska kännas som DIN sida, inte bara
+            ännu ett formulär — namnet gör det utan att lägga till en hel
+            ny banderoll (IdentityCard) bara för att upprepa det. */}
+        <div style={{ fontFamily: 'var(--font-voice)', fontSize: '19px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.01em', marginBottom: '8px' }}>
+          {name || 'Ditt konto'}
+        </div>
         <ImageUploadField label="Din profilbild" value={avatarUrl} onChange={onChange} uploadPath={uploadPath} bucket="profile" hint="JPG eller PNG, max 3 MB." readOnly={readOnly} />
       </div>
     </div>
@@ -1226,7 +1282,7 @@ function PasswordSection({ user, readOnly = false }) {
   // bottenkant hör hemma i båda fallen.
   return (
     <>
-      <SettingRow label="Lösenord" description={success ? 'Lösenordet är uppdaterat.' : statusText} last={false}>
+      <SettingRow label="Lösenord" description={success ? 'Lösenordet är uppdaterat.' : statusText} last={false} icon={Lock} tone="blue">
         {!expanded && <button type="button" onClick={() => setExpanded(true)} style={btnSecondary}>Byt lösenord</button>}
       </SettingRow>
       {expanded && <div style={{ paddingBottom: '14px' }}>{form}</div>}
@@ -1316,7 +1372,7 @@ function TwoFactorSection() {
   // kortet — enrollPanel har sin egen ovankant, ingen dubbel linje.
   return (
     <>
-      <SettingRow label="Tvåfaktorsautentisering" description="Aktiverad för extra säkerhet vid inloggning." last>
+      <SettingRow label="Tvåfaktorsautentisering" description="Aktiverad för extra säkerhet vid inloggning." last icon={Shield} tone={verifiedFactor ? 'green' : 'blue'}>
         {factors !== null && !enrolling && (
           verifiedFactor
             ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}><Badge tone="positive">Aktiv</Badge><button onClick={disable} disabled={busy} style={{ ...btnGhost, padding: '4px 8px', fontSize: '12px' }}>Inaktivera</button></span>
@@ -2966,8 +3022,6 @@ export default function Settings({
             <input
               type="text" value={emailDomainInput} onChange={e => { setEmailDomainInput(e.target.value); setEmailDomainError(''); }}
               placeholder="dittforetag.se" style={{ ...inputBase, width: '240px' }}
-              onFocus={e => e.target.style.borderColor = BRAND.green}
-              onBlur={e => e.target.style.borderColor = 'var(--border)'}
             />
             <button onClick={handleConnectDomainClick} disabled={emailDomainBusy} style={{ ...btnPrimary, opacity: emailDomainBusy ? 0.6 : 1, cursor: emailDomainBusy ? 'not-allowed' : 'pointer' }}>
               {emailDomainBusy ? 'Kopplar...' : 'Anslut domän'}
@@ -3151,6 +3205,7 @@ export default function Settings({
                 <AvatarUploadRow
                   avatarUrl={avatarUrl}
                   initials={initials}
+                  name={[firstName, lastName].filter(Boolean).join(' ') || user?.email}
                   onChange={(v) => updateUserMeta({ avatar_url: v })}
                   uploadPath={`${user?.id}/avatar`}
                   readOnly={readOnly}
@@ -3170,7 +3225,7 @@ export default function Settings({
                     helt istället för att göra ett Supabase-anrop från en
                     icke-inloggad besökare. */}
                 {readOnly
-                  ? <SettingRow label="Tvåfaktorsautentisering" description="Kräver ett riktigt konto att visa och aktivera." last />
+                  ? <SettingRow label="Tvåfaktorsautentisering" description="Kräver ett riktigt konto att visa och aktivera." last icon={Shield} tone="blue" />
                   : <TwoFactorSection />}
               </SettingCard>
 
