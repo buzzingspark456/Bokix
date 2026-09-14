@@ -8,8 +8,16 @@
 // summeringskoden.
 //
 // Kontokopplingen (VAT_ACCOUNTS / REVENUE_ACCOUNTS) matchar de konton som
-// redan används i resten av appen (AccountsData.js): 2611/2612/2613 för
+// redan används i resten av appen (AccountsData.js): 2611/2621/2631 för
 // utgående moms, 2641 för ingående, 3001–3004 för försäljning per momssats.
+//
+// Bugfix (kundens egen kontoplansdata avslöjade det): stod tidigare
+// 2611/2612/2613 — 2612/2613 är INTE BAS-kontona för 12/6 % utgående moms,
+// de riktiga är 2621/2631 (BAS hoppar över x2-serien för 25 % eftersom
+// 2611 redan är den, och fortsätter sedan på x21/x31 för 12/6 %, inte på
+// x12/x13). Alla momsbokningar på 12 eller 6 % hamnade alltså på fel
+// konto sedan den här filen skapades — se App.jsx: handleBookVatPeriod,
+// enda stället som faktiskt BOKFÖR mot den här mappningen.
 // ─────────────────────────────────────────────────────────────────────────
 
 // Momssats → ruta för momspliktig försäljning (underlag, exkl. moms).
@@ -36,8 +44,8 @@ export const OUTPUT_VAT_RUTA_BY_RATE = {
 // Momssats → bokföringskonto (samma konton som Invoices/Verifications bokför mot)
 export const OUTPUT_VAT_ACCOUNT_BY_RATE = {
   25: '2611',
-  12: '2612',
-  6: '2613',
+  12: '2621',
+  6: '2631',
 };
 
 export const SALES_ACCOUNT_BY_RATE = {

@@ -334,7 +334,19 @@ export function AccountSearch({ value, onChange, accounts, placeholder = 'Konto.
   // ett val — visa hela listan i stället för det enda konto som "matchar".
   const isPristineSelection = Boolean(selected) && q === accountLabel(selected);
   const query = isPristineSelection ? '' : q;
-  const matches = (accounts || []).filter(a => accountMatches(a, query));
+  // Ett TOMT fält (bara öppnat, ingen sökning skriven än) visar bara de
+  // AKTIVA kontona (se Kontoplanfliken, Verifications.jsx) — annars
+  // dränks den handfull ett företag faktiskt bokför mot i alla ~700-1200
+  // BAS-konton på en gång. Skriver man något alls söks HELA kontoplanen
+  // (oförändrat) — ett konto är alltså aldrig OÅTKOMLIGT här, bara mindre
+  // framträdande innan det aktiverats. Reservfall: en gammal/importerad
+  // kontoplan där inget konto råkar ha `active` satt än (t.ex. innan den
+  // här funktionen fanns) ska visa ALLA konton som förut, inte en tom
+  // lista — annars ser fältet trasigt ut för just den kontoplanen.
+  const activeAccounts = (accounts || []).filter(a => a.active || a.system);
+  const matches = query
+    ? (accounts || []).filter(a => accountMatches(a, query))
+    : (activeAccounts.length > 0 ? activeAccounts : (accounts || []));
 
   useEffect(() => { setHighlight(0); }, [q]);
 

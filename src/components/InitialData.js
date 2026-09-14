@@ -243,7 +243,9 @@ export function generateVerificationsFromData(invoices, expenses) {
 
     // Determine VAT account
     const vatRate = inv.rows[0]?.vatRate || 25;
-    const vatAccount = vatRate === 25 ? "2611" : vatRate === 12 ? "2612" : vatRate === 6 ? "2613" : null;
+    // Bugfix: 2621/2631 (inte 2612/2613) är de riktiga BAS-kontona för
+    // 12/6 % utgående moms, se vatConfig.js.
+    const vatAccount = vatRate === 25 ? "2611" : vatRate === 12 ? "2621" : vatRate === 6 ? "2631" : null;
     const revenueAccount = vatRate === 25 ? "3001" : vatRate === 12 ? "3002" : vatRate === 6 ? "3003" : "3004";
 
     // Invoice booking: Debet 1510, Kredit 3001 + Kredit 2611

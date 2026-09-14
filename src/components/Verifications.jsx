@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Plus, Search, ChevronRight, ChevronDown, X,
   AlertCircle, RotateCcw, RefreshCw,
-  UploadCloud, Tag, LayoutTemplate, Save, Trash2, ScanLine
+  UploadCloud, Tag, LayoutTemplate, Save, Trash2, ScanLine, Lock,
 } from 'lucide-react';
 import { getDebet, getKredit } from '../utils/verificationAmounts';
 import { BRAND } from '../utils/brandColors';
@@ -16,6 +16,7 @@ import { uploadFileToStorage, deleteFileFromStorage } from '../utils/fileUpload'
 import { confirmDialog, promptDialog } from './shared/ConfirmDialog';
 import { ocrFile, parseReceiptText } from '../utils/ocrReceipt';
 import { convertToSek } from '../utils/currencyConversion';
+import { ToggleSwitch } from './Settings';
 
 // Bara för att skriva ut valutavarningen lite snyggare — ingen omräkning
 // görs här, det är enbart kosmetiskt.
@@ -979,9 +980,20 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
 
   // Kontoplan state
   const [accountSearch, setAccountSearch] = useState('');
-  const [expandedGroups, setExpandedGroups] = useState(
-    Object.fromEntries(BAS_GROUPS.map(g => [g.code, parseInt(g.code) <= 3]))
-  );
+  // Kundönskemål, uttryckligt: en väg att se BARA de konton man redan har
+  // (aktiva) och en väg att se HELA kontoplanen, i stället för att alltid
+  // bläddra i alla ~700-1200 på en gång. 'mine' = företagets egna, aktiva
+  // konton — samma urval AccountSearch redan defaultar till (shared/
+  // SearchInputs.jsx) — 'all' = varje konto, aktivt eller ej, för att
+  // hitta och slå på ett nytt (se dammsugar-exemplet).
+  const [accountView, setAccountView] = useState('mine');
+  // Kundönskemål, uttryckligt: klasserna ska INTE fällas ut automatiskt
+  // (stod tidigare öppna på 1-3 direkt vid sidladdning) — man väljer
+  // själv vilken man vill se, i båda vyerna. En sökning fäller fortfarande
+  // upp matchande klasser åt en (se useEffect nedan) — det är inte samma
+  // sak: att SKRIVA en sökning är i sig en begäran om att se resultatet,
+  // olikt en tom sida som bara händer att öppna sig själv.
+  const [expandedGroups, setExpandedGroups] = useState({});
   const [showNewAccountForm, setShowNewAccountForm] = useState(false);
   const [newAccCode, setNewAccCode] = useState('');
   const [newAccName, setNewAccName] = useState('');
@@ -1093,7 +1105,12 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
     // Samma matchning som kontofälten i formulären (utils/accountSearch.js):
     // sökte man "30" här förut fick man inte 4030, eftersom numret måste
     // BÖRJA med det inskrivna. Nu beter sig kontoplanen likadant överallt.
-    }).filter(a => accountMatches(a, accountSearch));
+    }).filter(a => accountMatches(a, accountSearch))
+      // "Mina konton" = precis samma urval som kontofältens tomma
+      // standardvy (active || system) — visar bara de här utan att göra
+      // om urvalslogiken en tredje gång. "Alla konton" visar allt, aktivt
+      // eller ej, för att hitta och slå på ett nytt.
+      .filter(a => accountView === 'all' || a.active || a.system);
   };
 
   const getGroupBalance = (groupCode) => {
@@ -1123,6 +1140,22 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
     const used = verifications.filter(v => v.rows?.some(r => r.account === code)).length;
     if (used > 0) { alert(`Kontot används i ${used} verifikationer och kan inte tas bort. Det kan inaktiveras.`); return; }
     setAccounts(prev => prev.filter(a => a.code !== code));
+  };
+
+  // Kundönskemål, uttryckligt (skärmdump av ett externt kontoplansverktyg
+  // + eget exempel: "ett kvitto på en dammsugare, kunde inte hitta rätt
+  // konto"): kontoplanen ska gå att BLÄDDRA i, klass för klass, och man
+  // ska själv kunna slå på fler konton än den handfull som är aktiva från
+  // start — raden ovan lovade redan "kan inaktiveras" utan att det fanns
+  // någon knapp för det. `active` (AccountsData.js) är den knappen: av/på
+  // per konto, alltid reversibelt (till skillnad från raderingen ovan,
+  // som är permanent och spärrad om kontot redan använts). `system`-
+  // konton (moms, bankkonto m.fl. — se AccountsData.js) går inte att
+  // stänga av här: bokföringen bokför automatiskt mot dem, och ett
+  // avstängt sådant konto skulle bara dyka upp som ett förvirrande fel
+  // längre fram i stället för att synas här och nu.
+  const handleToggleAccountActive = (code) => {
+    setAccounts(prev => prev.map(a => a.code === code ? { ...a, active: !a.active } : a));
   };
 
   // Verifikationsformuläret är en EGEN sida, inte ett kort ovanpå listan
@@ -1409,7 +1442,16 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
               <Search size={13} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
               <input value={accountSearch} onChange={e => setAccountSearch(e.target.value)} placeholder="Sök kontonummer eller namn..." style={{ padding: '5px 8px 5px 26px', border: '1px solid var(--border)', borderRadius: '4px', fontSize: '12px', fontFamily: 'inherit', width: '240px', outline: 'none' }} />
             </div>
-            <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginLeft: 'auto' }}>{accounts.length} konton</span>
+            {/* Kundönskemål, uttryckligt: en vy med bara de konton man
+                redan har (aktiva) och en vy med HELA kontoplanen, i
+                stället för att alltid bläddra i alla samtidigt. */}
+            <div className="rc-segmented">
+              <button onClick={() => setAccountView('mine')} className={accountView === 'mine' ? 'active' : ''}>Mina konton</button>
+              <button onClick={() => setAccountView('all')} className={accountView === 'all' ? 'active' : ''}>Alla konton</button>
+            </div>
+            <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginLeft: 'auto' }}>
+              {accountView === 'mine' ? `${accounts.filter(a => a.active || a.system).length} av ${accounts.length} konton` : `${accounts.length} konton`}
+            </span>
           </div>
 
           {/* New account form */}
@@ -1471,6 +1513,31 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
                             const bal = balances[a.code] || 0;
                             return <span style={{ fontWeight: bal !== 0 ? 700 : 400, color: bal > 0 ? 'var(--status-green-text)' : bal < 0 ? 'var(--status-red-text)' : 'var(--text-muted)' }}>{bal !== 0 ? fmt(bal) : '—'}</span>;
                           },
+                        },
+                        {
+                          // `system: true` (AccountsData.js) = ett kärnkonto bokföringen
+                          // själv bokför mot automatiskt (moms, momsredovisning m.fl.) —
+                          // växeln är låst PÅ för dem, annars kan bokföringen sluta
+                          // fungera utan att felet syns förrän en verifikation redan gått
+                          // snett. Alla andra konton är av som standard tills man själv
+                          // slår på dem, eller tills de redan används (se raden nedan).
+                          key: 'active', label: 'Aktiv', align: 'center', render: a => (
+                            a.system ? (
+                              // En avstängd, disabled växel ser vid en snabb
+                              // blick likadan ut som en påslagen — en tydlig
+                              // låsikon + text är den enda som faktiskt
+                              // säger "det här går inte att röra", inte bara
+                              // "det råkar inte gå att röra just nu".
+                              <span
+                                title="Kärnkonto — bokföringen bokför automatiskt mot det här kontot, det går inte att stänga av"
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}
+                              >
+                                <Lock size={11} /> Alltid på
+                              </span>
+                            ) : (
+                              <ToggleSwitch checked={Boolean(a.active)} onChange={() => handleToggleAccountActive(a.code)} />
+                            )
+                          ),
                         },
                         {
                           key: 'actions', label: '', align: 'center', render: a => {

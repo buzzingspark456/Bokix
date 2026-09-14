@@ -39,9 +39,11 @@ import { getDebet, getKredit } from './utils/verificationAmounts';
 import { grossInvoiceAmount } from './utils/reportCalculations';
 import { planFromId } from './utils/plans';
 import { BRAND } from './utils/brandColors';
+import { OUTPUT_VAT_ACCOUNT_BY_RATE } from './utils/vatConfig';
 import { COMPANY_WRITABLE_FIELDS } from './utils/companyFields.js';
 import { deleteFileFromStorage } from './utils/fileUpload';
 import { collectStorageUrls } from './utils/storageUrls';
+import { computeEmployeePayroll, summarizePayrollRun } from './utils/payrollCalculation';
 import BokixWordmark from './components/shared/BokixWordmark';
 
 // ── Bokix Logo Component (light sidebar) ──
@@ -776,16 +778,77 @@ function splitInvoicesAndQuotes(list) {
   return { invoices, quotes };
 }
 
+// ──────────────────────────────────────────────
+// MIGRERING: kontoplanens `active`/`system`-flaggor efterhandsinsatta
+// ──────────────────────────────────────────────
+// Bugkritiskt (kundfeedback: "Mina konton visar noll för mig"): `active`
+// (Kontoplan-fliken, se Verifications.jsx + AccountsData.js) lades till i
+// DEFAULT_ACCOUNTS efter att befintliga företag redan hade sin EGEN,
+// sparade kopia av kontolistan (tagen vid företagsskapandet, se
+// createEmptyCompanyData ovan — `accounts: [...DEFAULT_ACCOUNTS]` kopierar
+// bara VÄRDET vid den tidpunkten, den följer aldrig med senare ändringar i
+// själva DEFAULT_ACCOUNTS-filen). Ett företag skapat innan den här
+// funktionen fanns har alltså en `accounts`-array helt utan `active`/
+// `system`-fält — "Mina konton" (som filtrerar på just de fälten) visade
+// därför en tom lista, inte de 53 tänkta kontona.
+//
+// Backfillar bara fält som FAKTISKT saknas (`active === undefined`) genom
+// att slå upp samma kontokod i dagens DEFAULT_ACCOUNTS — rör aldrig ett
+// konto som redan har `active` satt (true ELLER false), det är antingen
+// redan migrerat eller ett riktigt, medvetet val användaren gjort via
+// växeln (handleToggleAccountActive slår alltid om till ett riktigt
+// booleskt värde, aldrig tillbaka till undefined). Ett konto som inte
+// finns i DEFAULT_ACCOUNTS alls (t.ex. ett eget tillagt) lämnas orört.
+//
+// Lägger ÄVEN till de `system: true`-konton (appen bokför mot dem själv,
+// t.ex. 2621/2631 för 12/6 % utgående moms) som saknas HELT i ett gammalt
+// företags egen kontolista — inte bara flaggan på ett konto som redan
+// finns. Bugkritiskt eget fynd, samma "kundens egen kontoplansdata avslöjade
+// det"-bugg som vatConfig.js: ett företag skapat innan 2621/2631 fanns i
+// DEFAULT_ACCOUNTS har fortfarande sitt gamla, felaktiga 2612/2613 i sin
+// sparade lista — de tas ALDRIG bort (ingen gissning om att döpa om ett
+// konto med egen bokföringshistorik), men utan den här raden hade en
+// momsbokning på 12/6 % efter bugfixen bokförts mot rätt kod (2621/2631)
+// samtidigt som kontot självt inte fanns i Kontoplanen/Verifikationer för
+// just det företaget — rätt siffra, men ett namnlöst konto i vyn.
+function migrateAccountActiveFlags(accounts) {
+  if (!Array.isArray(accounts) || accounts.length === 0) return accounts;
+  const defaultsByCode = new Map(DEFAULT_ACCOUNTS.map(a => [a.code, a]));
+  // De allra flesta av ~1200 konton får ALDRIG ett `active`-fält (bara den
+  // kurerade delmängden i DEFAULT_ACCOUNTS har ett) — en `.every(active
+  // !== undefined)`-snabbväg (som en första version av den här funktionen
+  // hade) skulle alltså aldrig slå till, och funktionen skulle göra om
+  // HELA .map():et på varenda sidladdning för alltid, även efter att
+  // migreringen redan kört klart en gång. `changed` nedan är den riktiga
+  // frågan: blev NÅGOT konto faktiskt annorlunda? Bara då byggs en ny
+  // array — annars kommer exakt samma referens tillbaka, och anroparen
+  // (normalizeCompanyData) kan då korrekt känna igen "redan migrerat,
+  // inget att skriva".
+  let changed = false;
+  const next = accounts.map(a => {
+    if (a.active !== undefined) return a;
+    const def = defaultsByCode.get(a.code);
+    if (!def || def.active === undefined) return a;
+    changed = true;
+    return { ...a, active: def.active, ...(def.system !== undefined ? { system: def.system } : {}) };
+  });
+  const existingCodes = new Set(next.map(a => a.code));
+  const missingSystemAccounts = DEFAULT_ACCOUNTS.filter(d => d.system && !existingCodes.has(d.code));
+  if (missingSystemAccounts.length > 0) changed = true;
+  return changed ? [...next, ...missingSystemAccounts] : accounts;
+}
+
 function normalizeCompanyData(companyData) {
   if (!companyData) return companyData;
   const { invoices, quotes: strayQuotes } = splitInvoicesAndQuotes(companyData.invoices);
   const quotes = Array.isArray(companyData.quotes)
     ? [...companyData.quotes, ...strayQuotes]
     : strayQuotes;
-  if (invoices.length === (companyData.invoices || []).length && Array.isArray(companyData.quotes)) {
+  const accounts = migrateAccountActiveFlags(companyData.accounts);
+  if (invoices.length === (companyData.invoices || []).length && Array.isArray(companyData.quotes) && accounts === companyData.accounts) {
     return companyData; // redan migrerat, inget att göra
   }
-  return { ...companyData, invoices, quotes };
+  return { ...companyData, invoices, quotes, accounts };
 }
 
 function normalizeStore(store) {
@@ -1156,17 +1219,18 @@ function App() {
   const [newCompanyModalOpen, setNewCompanyModalOpen] = useState(false);
   const [newCompanyModalSubmitting, setNewCompanyModalSubmitting] = useState(false);
 
-  // ── Tema (ljust/mörkt) ── Sparat val vinner; annars OS-inställningen
-  // (prefers-color-scheme) första gången, precis som webbläsaren själv
-  // gör för formulärkontroller etc. `data-theme` sätts på <html> i
-  // effekten nedan — index.css läser den attributen för att slå om hela
-  // CSS-variabelpaletten (se ":root[data-theme='dark']" där).
+  // ── Tema (ljust/mörkt) ── Sparat val vinner; annars mörkt som
+  // standard (appen är byggd för och ser bäst ut i mörkt läge) — inte
+  // OS-inställningen. Varje företag/webbläsare kan ändå själv växla till
+  // ljust läge när som helst, valet sparas då som vanligt. `data-theme`
+  // sätts på <html> i effekten nedan — index.css läser den attributen
+  // för att slå om hela CSS-variabelpaletten (se ":root[data-theme='dark']" där).
   const [theme, setTheme] = useState(() => {
     try {
       const stored = localStorage.getItem('bokix_theme');
       if (stored === 'light' || stored === 'dark') return stored;
-    } catch { /* privat läge/blockerad storage — kör vidare med OS-valet */ }
-    return (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+    } catch { /* privat läge/blockerad storage — kör vidare med standardvalet */ }
+    return 'dark';
   });
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -2586,6 +2650,7 @@ function App() {
   const reviewHistory = currentCompany.reviewHistory || [];
   const employees = currentCompany.employees || [];
   const payrollRuns = currentCompany.payrollRuns || [];
+  const agiReports = currentCompany.agiReports || [];
   // Bank – CSV/Excel-import (Bank.jsx). `|| []`: samma skyddsnät som
   // quotes/articles ovan — konton inloggade sedan innan den här funktionen
   // fanns saknar fältet i sparad data tills de sparar något själva.
@@ -2617,6 +2682,7 @@ function App() {
   const setProjects = (fn) => updateCompanyField('projects', fn);
   const setEmployees = (fn) => updateCompanyField('employees', fn);
   const setPayrollRuns = (fn) => updateCompanyField('payrollRuns', fn);
+  const setAgiReports = (fn) => updateCompanyField('agiReports', (prev) => (typeof fn === 'function' ? fn(prev || []) : fn));
   const setTimeEntries = (fn) => updateCompanyField('timeEntries', fn);
   const setTimeReportStatuses = (fn) => updateCompanyField('timeReportStatuses', fn);
   const setBillableTimeEntries = (fn) => updateCompanyField('billableTimeEntries', fn);
@@ -2634,9 +2700,16 @@ function App() {
   const handleBookVatPeriod = ({ periodKey, periodStart, periodEnd, quarter, year, rounded }) => {
     if (vatPeriods[periodKey]) return; // redan bokförd — förhindrar dubbelklick/dubbelbokföring
     const verRows = [];
+    // Bugkritiskt (kundens egen kontoplansdata avslöjade det): 2612/2613
+    // är INTE de riktiga BAS-kontona för 12/6 % utgående moms — det är
+    // 2621/2631 (2612/2613 finns inte ens i den officiella kontoplanen för
+    // det syftet). En momsbokning på 12 eller 6 % hamnade alltså på fel
+    // konto. Läser nu OUTPUT_VAT_ACCOUNT_BY_RATE (vatConfig.js) i stället
+    // för en egen, lokal kopia av mappningen — den enda källan nu, så den
+    // här sortens fel inte kan smyga sig in igen på ett tredje ställe.
     [25, 12, 6].forEach(rate => {
       const amount = rounded.outputVatByRate[rate];
-      if (amount) verRows.push({ account: { 25: '2611', 12: '2612', 6: '2613' }[rate], debet: Math.round(amount), kredit: 0 });
+      if (amount) verRows.push({ account: OUTPUT_VAT_ACCOUNT_BY_RATE[rate], debet: Math.round(amount), kredit: 0 });
     });
     if (rounded.inputVat) verRows.push({ account: '2641', debet: 0, kredit: Math.round(rounded.inputVat) });
     if (rounded.netToPay > 0) verRows.push({ account: '2650', debet: 0, kredit: Math.round(rounded.netToPay) });
@@ -2909,6 +2982,34 @@ function App() {
       const id = `${Date.now()}_${prev.length}`;
       return [...prev, { ...newVer, id, number }];
     });
+
+    // Ett konto som faktiskt precis bokfördes mot — via OCR-förslaget eller
+    // ett manuellt val, spelar ingen roll vilket — är starkare bevis än
+    // någon förvald "vanliga konton"-lista någonsin kan vara. Utan den här
+    // raden kunde OCR:n läsa av och bokföra rätt konto perfekt, men kontot
+    // stod ändå kvar som AV i Kontoplanen (Verifications.jsx) tills någon
+    // gick dit och slog på det för hand — och syntes inte som förval nästa
+    // gång i kontofältet (shared/SearchInputs.jsx: AccountSearch filtrerar
+    // sin tomma/obeskrivna vy till just de aktiva kontona). Kundönskemål,
+    // ordagrant i sak: "när de har OCR, så vet den automatiskt".
+    // Beräknat UTANFÖR setAccounts-uppdateraren (och därför en tanke
+    // stale mot precis samtidiga skrivningar) av samma skäl som
+    // updateCompanyField-kommentaren ovan varnar för — men eftersom det
+    // här bara SLÅR PÅ en flagga (aldrig av, aldrig skriver över ett
+    // annat fälts värde) kan två sådana skrivningar i rad aldrig radera
+    // varandras resultat, bara i värsta fall behöva en omrendering till
+    // innan båda konton syns som aktiva.
+    const usedCodes = new Set((newVer.rows || []).map(r => r.account).filter(Boolean));
+    if (usedCodes.size > 0) {
+      setAccounts(prev => {
+        let changed = false;
+        const next = prev.map(a => {
+          if (usedCodes.has(a.code) && !a.active) { changed = true; return { ...a, active: true }; }
+          return a;
+        });
+        return changed ? next : prev;
+      });
+    }
   };
 
   // Kundönskemål (SIE4-import, Sida 51): en enda batch-skrivning istället
@@ -3426,6 +3527,7 @@ function App() {
       amount, netAmount, vatAmount, vatRate,
       costAccount: formValues.costAccount,
       projectId: formValues.projectId || undefined,
+      folderId: formValues.folderId || undefined,
       notes: formValues.notes || undefined,
     };
     setExpenses(prev => prev.map(e => e.id === expenseId ? updated : e));
@@ -3443,6 +3545,18 @@ function App() {
       sourceId: updated.id,
       rows: verRows,
     });
+  };
+
+  // Tar bort en kvittomapp (kundönskemål: "de ska kunna namnge vad varje
+  // mapp där kvitton lagras heter", se Expenses.jsx) — mapparna själva
+  // ligger nästlade under 'company' precis som bankImportProfiles
+  // (companyFields.js), så det här är den enda platsen som behöver skriva
+  // till dem OCH städa upp kvitton som pekade på den borttagna mappen.
+  // Kvittona tas aldrig bort, bara mappkopplingen — de hamnar tillbaka
+  // som "osorterade" i mapplistan.
+  const handleDeleteReceiptFolder = (folderId) => {
+    updateCompanyField('company', prev => ({ ...prev, receiptFolders: (prev?.receiptFolders || []).filter(f => f.id !== folderId) }));
+    setExpenses(prev => prev.map(e => e.folderId === folderId ? { ...e, folderId: undefined } : e));
   };
 
   // Tar bort ett kvitto som laddats upp men aldrig bokförts (t.ex. en
@@ -3516,6 +3630,41 @@ function App() {
     }));
     setPayrollRuns(prev => [...prev, { id: runId, period, payDate, completedSteps: [], rows, createdAt: new Date().toISOString() }]);
     return runId;
+  };
+
+  // AGI-översikten (Skatt och bokslut → Arbetsgivardeklaration): en AGI-
+  // rapport per period, fristående från lönekörningen den (om någon)
+  // härstammar från — precis som en lönekörning fryser en ögonblicksbild
+  // av varje anställd, fryser den här ett ögonblicksbild av TOTALERNA, så
+  // en redan skapad/inlämnad AGI-rapport aldrig ändras bakvägen om
+  // lönekörningen den byggde på redigeras i efterhand. Perioder utan
+  // lönekörning ("nolldeklaration", kundönskemål — Skatteverket kräver en
+  // sådan även för månader utan löneutbetalning) får bara nollor.
+  const handleCreateAgiReport = (period) => {
+    const run = payrollRuns.find(r => r.period === period);
+    const totals = run
+      ? summarizePayrollRun(run.rows.map(row => computeEmployeePayroll(row.employeeSnapshot, row)))
+      : { gross: 0, tax: 0, employerFee: 0 };
+    const report = {
+      id: `agi_${period}_${Date.now()}`,
+      period,
+      payrollRunId: run?.id || null,
+      isZero: !run,
+      totals: { gross: totals.gross, tax: totals.tax, employerFee: totals.employerFee },
+      status: 'draft',
+      createdAt: new Date().toISOString(),
+      submittedAt: null,
+    };
+    setAgiReports(prev => [...prev, report]);
+    return report.id;
+  };
+
+  const handleMarkAgiSubmitted = (reportId) => {
+    setAgiReports(prev => prev.map(r => r.id === reportId ? { ...r, status: 'submitted', submittedAt: new Date().toISOString() } : r));
+  };
+
+  const handleDeleteAgiReport = (reportId) => {
+    setAgiReports(prev => prev.filter(r => r.id !== reportId));
   };
 
   const handleUpdateRunRow = (runId, employeeId, patch) => {
@@ -3790,7 +3939,12 @@ function App() {
             expenses={expenses}
             accounts={accounts}
             balances={balances}
+            employees={employees}
             payrollRuns={payrollRuns}
+            agiReports={agiReports}
+            onCreateAgiReport={handleCreateAgiReport}
+            onMarkAgiSubmitted={handleMarkAgiSubmitted}
+            onDeleteAgiReport={handleDeleteAgiReport}
             vatPeriods={vatPeriods}
             onBookVatPeriod={handleBookVatPeriod}
             onNavigateToVerification={handleNavigateToVerification}
@@ -3846,6 +4000,9 @@ function App() {
             setContacts={setContacts}
             projects={projects}
             user={user}
+            company={company}
+            onUpdateCompany={setCompanyInfo}
+            onDeleteReceiptFolder={handleDeleteReceiptFolder}
             onAdd={handleAddExpense}
             onAddSupplierInvoice={handleAddSupplierInvoice}
             onMarkSupplierInvoicePaid={handleMarkSupplierInvoicePaid}
@@ -3867,6 +4024,9 @@ function App() {
             verifications={verifications}
             projects={projects}
             user={user}
+            company={company}
+            onUpdateCompany={setCompanyInfo}
+            onDeleteReceiptFolder={handleDeleteReceiptFolder}
             onAdd={handleAddExpense}
             onFixExpenseAccount={handleFixExpenseAccount}
             onSaveReceiptDetails={handleSaveReceiptDetails}

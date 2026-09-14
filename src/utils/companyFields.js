@@ -21,7 +21,7 @@ export const COMPANY_WRITABLE_FIELDS = [
   'accounts', 'verifications', 'invoices', 'quotes', 'expenses', 'contacts',
   'articles', 'projects', 'timeEntries', 'timeReportStatuses',
   'billableTimeEntries', 'recurringTemplates', 'verificationTemplates',
-  'vatPeriods', 'reviewHistory', 'employees', 'payrollRuns', 'company',
+  'vatPeriods', 'reviewHistory', 'employees', 'payrollRuns', 'agiReports', 'company',
   // Bank – CSV/Excel-import: importerade transaktioner, se Bank.jsx.
   // bankImportProfiles (ihågkommen kolumnmappning per bank) ligger
   // medvetet NÄSTLAD under 'company' istället för som ett eget fält —

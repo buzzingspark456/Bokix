@@ -207,22 +207,19 @@ function DeltaBadge({ current, previous }) {
 
 /** Tabellformatet — samma rader (dag eller månad, beroende på vald
  * period-flik, se PeriodPicker/overviewPeriodBounds) som graferna, som en
- * riktig `<table>` istället för streck/staplar. Kolumnerna anpassar sig
- * efter chartMode så tabellen aldrig visar en tom "Utgifter"-kolumn i
- * Resultat-läget. */
-function ChartDataTable({ data, mode, fmt, hasPrevYearData, comparisonLabel }) {
-  // 'all' visar samma kolumner som Intäkter vs Utgifter plus resultatet —
-  // resultatkolumnen finns redan alltid, så det räcker att öppna de två
-  // första för det nya läget.
-  const showRevExp = mode === 'revenue-expense' || mode === 'all';
+ * riktig `<table>` istället för streck/staplar.
+ *
+ * Kundönskemål: Intäkter- och Utgifter-kolumnerna (som tidigare visades i
+ * "Intäkter vs Utgifter"-läget) togs bort helt — tabellen visar bara
+ * Period + Resultat oavsett vald graf, så beloppen inte "läcker" ut
+ * separat vid sidan av NYCKELTAL-korten ovanför. */
+function ChartDataTable({ data, fmt, hasPrevYearData, comparisonLabel }) {
   return (
     <div style={{ overflowX: 'auto' }}>
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
         <thead>
           <tr style={{ borderBottom: '1px solid var(--border)' }}>
             <th style={{ textAlign: 'left', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600 }}>Period</th>
-            {showRevExp && <th style={{ textAlign: 'right', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600 }}>Intäkter</th>}
-            {showRevExp && <th style={{ textAlign: 'right', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600 }}>Utgifter</th>}
             <th style={{ textAlign: 'right', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600 }}>Resultat</th>
             {hasPrevYearData && <th style={{ textAlign: 'right', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600 }}>Resultat {comparisonLabel}</th>}
             {hasPrevYearData && <th style={{ textAlign: 'right', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600 }}>Förändring</th>}
@@ -232,8 +229,6 @@ function ChartDataTable({ data, mode, fmt, hasPrevYearData, comparisonLabel }) {
           {data.map((row, i) => (
             <tr key={row.name} style={{ borderBottom: '1px solid var(--border-light)', background: i % 2 === 1 ? 'var(--bg-muted)' : 'transparent' }}>
               <td style={{ padding: '7px 10px', color: 'var(--text-main)', fontWeight: 600 }}>{row.name}</td>
-              {showRevExp && <td style={{ textAlign: 'right', padding: '7px 10px', color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>{fmt(row.Intäkter)}</td>}
-              {showRevExp && <td style={{ textAlign: 'right', padding: '7px 10px', color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>{fmt(row.Utgifter)}</td>}
               <td style={{ textAlign: 'right', padding: '7px 10px', color: row.Resultat >= 0 ? BRAND.greenDark : BRAND.redText, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{fmt(row.Resultat)}</td>
               {hasPrevYearData && <td style={{ textAlign: 'right', padding: '7px 10px', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>{fmt(row.PrevResultat)}</td>}
               {hasPrevYearData && <td style={{ textAlign: 'right', padding: '7px 10px' }}><DeltaBadge current={row.Resultat} previous={row.PrevResultat} /></td>}
@@ -318,7 +313,12 @@ function KpiCard({ label, value, sub, icon: Icon, color, bg, positive, onClick, 
     // själva styrs fortfarande av de vanliga inline-stilarna här, oförändrat
     // på desktop.
     <button className="dash-kpi-card" onClick={onClick} style={{
-      background: bold ? `linear-gradient(135deg, ${gradient[0]}, ${gradient[1]})` : 'var(--bg-card)',
+      // Kundönskemål: korten ska vara EN solid, ren färg (blått/grönt/rött)
+      // utan vitt inblandat — inte en lutning mot en ljusare/blekare ton.
+      // `gradient[0]` (basfärgen) räcker; `gradient[1]` (den ljusare
+      // "soft"-tonen) används inte längre här (kvar i grafens egna
+      // serier/legend, bara kortets bakgrund gjordes platt).
+      background: bold ? gradient[0] : 'var(--bg-card)',
       border: bold ? 'none' : (hero ? `1px solid ${color}33` : '1px solid var(--border)'),
       borderRadius: '14px',
       padding: '20px',
@@ -344,17 +344,10 @@ function KpiCard({ label, value, sub, icon: Icon, color, bg, positive, onClick, 
       if (!bold) e.currentTarget.style.borderColor = 'var(--border)';
     }}
     >
-      {/* Kundfeedback ("färgen mycket bättre"): de tre gradientkorten
-          (Intäkter/Kostnader/Resultat) var en platt tvåfärgs-lutning utan
-          djup — samma diskreta glans-highlight som "Att göra idag"-kortet
-          redan använder (VIVID.green-glöden där), fast vit och i hörnet,
-          så gradienten känns som en riktig yta med ljusinfall i stället för
-          en tvådimensionell färgplatta. */}
-      {bold && (
-        <div aria-hidden="true" style={{ position: 'absolute', top: '-40px', right: '-30px', width: '130px', height: '130px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,0.22), transparent 70%)', pointerEvents: 'none' }} />
-      )}
+      {/* Kundönskemål: ingen vit glans-highlight längre — korten ska läsas
+          som en ren, solid färgplatta, inte en yta med vitt ljusinfall. */}
       <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div className="dash-kpi-card-icon" style={{ background: bold ? 'rgba(255,255,255,0.24)' : bg, color: bold ? '#fff' : color, width: 36, height: 36, borderRadius: '9px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: bold ? 'inset 0 0 0 1px rgba(255,255,255,0.3)' : 'none' }}>
+        <div className="dash-kpi-card-icon" style={{ background: bold ? 'rgba(0,0,0,0.16)' : bg, color: bold ? '#fff' : color, width: 36, height: 36, borderRadius: '9px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: 'none' }}>
           <Icon size={16} />
         </div>
         {positive != null && (
@@ -625,7 +618,12 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
       if ((v.status || 'booked') === 'draft') return;
       if (v.date < start || v.date > end) return;
       v.rows.forEach(r => {
-        if (['2611', '2612', '2613'].includes(r.account)) utgaende += (getKredit(r) - getDebet(r));
+        // Bugfix: 2621/2631 är de RIKTIGA BAS-kontona för 12/6 % utgående
+        // moms (2612/2613 var aldrig det, se vatConfig.js) — men befintliga
+        // konton som redan bokfördes mot de gamla, felaktiga koderna innan
+        // fixen ska fortfarande räknas med här, annars försvinner de tyst
+        // ur den här summeringen retroaktivt.
+        if (['2611', '2621', '2631', '2612', '2613'].includes(r.account)) utgaende += (getKredit(r) - getDebet(r));
         else if (r.account === '2641') ingaende += (getDebet(r) - getKredit(r));
       });
     });
@@ -731,7 +729,12 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
   // Rutan ligger kvar tills allt är klart (inte bara tills kontot slutar
   // räknas som "nytt") — men får fira klart sig innan den försvinner av sig
   // själv, precis som texten "rutan försvinner när du är igång" lovar.
-  const showOnboarding = !onboardingDismissed && (!allOnboardingDone || celebrating);
+  //
+  // Kundönskemål: checklistan ("Skapa din första kund/faktura/utgift...")
+  // avstängd tills vidare — `false &&` istället för att riva ut logiken,
+  // så den är ett enda tecken bort från att slås på igen om den kommer
+  // tillbaka i någon form senare.
+  const showOnboarding = false && !onboardingDismissed && (!allOnboardingDone || celebrating);
   const confettiPieces = useMemo(() => {
     if (!celebrating) return [];
     return Array.from({ length: 46 }, (_, i) => ({
@@ -1211,7 +1214,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
             </p>
           </div>
         ) : chartFormat === 'table' ? (
-          <ChartDataTable data={chartData} mode={chartMode} fmt={fmt} hasPrevYearData={hasPrevYearData} comparisonLabel={comparisonLabel} />
+          <ChartDataTable data={chartData} fmt={fmt} hasPrevYearData={hasPrevYearData} comparisonLabel={comparisonLabel} />
         ) : (
           <>
             {/* Bugkritiskt (kundrapporterad: "en massa saker är osynliga,
