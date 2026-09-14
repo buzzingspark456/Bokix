@@ -1209,7 +1209,7 @@ function PasswordSection({ user, readOnly = false }) {
             <button type="submit" disabled={busy || !currentPw || !newPw || !confirmPw} style={{ ...btnPrimary, opacity: (busy || !currentPw || !newPw || !confirmPw) ? 0.5 : 1, cursor: (busy || !currentPw || !newPw || !confirmPw) ? 'not-allowed' : 'pointer' }}>
               {busy ? 'Kontrollerar...' : 'Byt lösenord'}
             </button>
-            {bare && <button type="button" onClick={() => { setExpanded(false); setError(''); setCurrentPw(''); setNewPw(''); setConfirmPw(''); }} style={btnGhost}>Avbryt</button>}
+            <button type="button" onClick={() => { setExpanded(false); setError(''); setCurrentPw(''); setNewPw(''); setConfirmPw(''); }} style={btnGhost}>Avbryt</button>
           </div>
         </form>
       )}
@@ -1711,11 +1711,17 @@ function UsersAndAccessSection({ company, user, firstName, lastName, sharedAcces
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '10px' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginTop: '10px', marginBottom: '10px', flexWrap: 'wrap', gap: '10px' }}>
         {/* Rubriken kommer från SettingsSection ovanför — den här sa samma
             sak en gång till. Knappen ligger ensam till höger; den tomma
             platshållar-diven som höll isär dem är borta (den lade bara till
-            en rad luft mellan rubriken och tabellen). */}
+            en rad luft mellan rubriken och tabellen).
+            Bugkritiskt (mobil): utan egen marginTop satt knappraden bara
+            4–6px under beskrivningstexten ovanför (SettingsSection:s egna,
+            små marginaler) — på smal skärm, där beskrivningen radbryter
+            till två rader och knappen ligger högerställd under en
+            vänsterställd text, såg det ut som att knappen låg klistrad
+            ovanpå/i texten i stället för i en egen rad. */}
         {isOwner && (
           <button
             onClick={() => setShowInviteForm(v => !v)}
@@ -3547,28 +3553,30 @@ export default function Settings({
           {/* Prenumeration */}
           {activeTab === 'subscription' && (
             <div style={{ animation: 'fadeIn 0.2s ease' }}>
-              
-              {/* Plan och kvitton sida vid sida — kvittolistan är oftast en
-                  rad och behöver ingen egen skärmhöjd (kundfeedback: för
-                  mycket tomrum). */}
-              <div className="settings-split">
-                <SettingsSection title="Din plan" description="Vad Bokix kostar för det här företaget.">
-                  {/* UF-konton har ingen prenumerationsrad alls —
-                      registreringen hoppar över Stripe helt (Auth.jsx). Den
-                      vanliga vyn hade laddat, hittat noll rader och visat
-                      "ingen aktiv prenumeration", vilket låter som ett fel
-                      på ett konto som fungerar precis som det ska. */}
-                  {isUfCompany(company)
-                    ? <UfSubscriptionCard company={company} />
-                    : <SubscriptionSection user={user} company={company} sharedAccess={sharedAccess} readOnly={readOnly} />}
-                </SettingsSection>
 
-                <SettingsSection title="Kvitton" description="Dyker upp efter första dragningen.">
-                  <SettingCard>
-                    <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Ingen betalhistorik ännu.</div>
-                  </SettingCard>
-                </SettingsSection>
-              </div>
+              {/* Bugkritiskt ("för mycket space"): stod tidigare sida vid
+                  sida med "Kvitton" i en egen, lika bred spalt — men Kvitton
+                  har INGET innehåll att visa än (ingen betalhistorik-
+                  hämtning finns byggd), så den spalten var permanent en
+                  tom rubrik + ett kort med en enda grå rad, oavsett hur
+                  hög/låg plankortet bredvid var. På en bred skärm blev det
+                  en halv skärmbredd tomt utrymme; staplat på mobil blev det
+                  en hel extra rubrik+kort för ingenting. "Din plan" får nu
+                  hela bredden (kortet var designat för det — se dess egen
+                  gradient-header), och Kvitton är en enda rad text i
+                  stället för att låtsas vara en egen funktion. */}
+              <SettingsSection title="Din plan" description="Vad Bokix kostar för det här företaget.">
+                {/* UF-konton har ingen prenumerationsrad alls —
+                    registreringen hoppar över Stripe helt (Auth.jsx). Den
+                    vanliga vyn hade laddat, hittat noll rader och visat
+                    "ingen aktiv prenumeration", vilket låter som ett fel
+                    på ett konto som fungerar precis som det ska. */}
+                {isUfCompany(company)
+                  ? <UfSubscriptionCard company={company} />
+                  : <SubscriptionSection user={user} company={company} sharedAccess={sharedAccess} readOnly={readOnly} />}
+              </SettingsSection>
+
+              <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '14px 0 0' }}>Kvitton på tidigare dragningar dyker upp här efter den första.</p>
             </div>
           )}
 

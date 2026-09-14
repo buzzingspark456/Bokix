@@ -303,6 +303,14 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
             onConnectStripe={blocked} onDisconnectStripe={blocked}
             onConnectEmailDomain={blocked} onCheckEmailDomainStatus={blocked} onDisconnectEmailDomain={blocked}
             user={demoUser} companyList={[]} activeCompanyId={undefined} onSwitchCompany={blocked} onAddCompany={blocked}
+            // Bugkritiskt: theme/onToggleTheme saknades helt här — Utseende-
+            // flikens Ljust/Mörkt-knappar föll tillbaka på Settings.jsx:s
+            // egna defaultvärden (theme='light', onToggleTheme=undefined),
+            // så "Mörkt" i demot gjorde bokstavligen ingenting när man
+            // klickade den. Samma tema-state (useMarketingTheme ovan) som
+            // redan styr demots egen topbar/sol-måne-ikon, bara även skickat
+            // ner hit så knappen faktiskt gör vad den säger.
+            theme={theme} onToggleTheme={toggleTheme}
           />
         );
       default:
