@@ -405,7 +405,7 @@ function OverviewReport({ verifications, accounts, company, isMobile }) {
             <StatTile
               label="Resultat" value={amount.value(k.resultat)} icon={k.resultat >= 0 ? TrendingUp : TrendingDown}
               tone={k.resultat >= 0 ? palette.profit : palette.cost}
-              accent={k.resultat >= 0 ? 'var(--status-green-text)' : 'var(--status-red-text)'}
+              accent={k.resultat >= 0 ? palette.profit : palette.cost}
               delta={resDelta}
               context={k.vinstmarginal != null ? `marginal ${fmtPct(k.vinstmarginal)}` : resDelta?.context}
             />
@@ -556,7 +556,7 @@ function ResultReport({ verifications, accounts, start, end, prevStart, prevEnd,
         <div className="sheet-span-3" style={cellBg}>
           <StatTile
             label="Resultat" value={amount.value(resultat)} icon={resultat >= 0 ? TrendingUp : TrendingDown}
-            tone={resultat >= 0 ? palette.profit : palette.cost} accent={resultat >= 0 ? 'var(--status-green-text)' : 'var(--status-red-text)'}
+            tone={resultat >= 0 ? palette.profit : palette.cost} accent={resultat >= 0 ? palette.profit : palette.cost}
             delta={formatDelta(resultat, prevResultat)}
           />
         </div>
@@ -958,7 +958,7 @@ function AnnualReport({ verifications, accounts, company, isMobile }) {
         <div className="sheet-span-3" style={cellBg}>
           <StatTile
             label="Resultat" value={amount.value(k.resultat)} icon={k.resultat >= 0 ? TrendingUp : TrendingDown}
-            tone={k.resultat >= 0 ? palette.profit : palette.cost} accent={k.resultat >= 0 ? 'var(--status-green-text)' : 'var(--status-red-text)'}
+            tone={k.resultat >= 0 ? palette.profit : palette.cost} accent={k.resultat >= 0 ? palette.profit : palette.cost}
             delta={formatDelta(k.resultat, prevK.resultat)}
           />
         </div>
@@ -1031,7 +1031,7 @@ function QuarterlyReport({ verifications, accounts, payrollRuns, company }) {
         <div className="sheet-span-6" style={cellBg}>
           <StatTile
             label="Resultat hittills i år" value={amount.value(totalResultat)} icon={totalResultat >= 0 ? TrendingUp : TrendingDown}
-            tone={totalResultat >= 0 ? palette.profit : palette.cost} accent={totalResultat >= 0 ? 'var(--status-green-text)' : 'var(--status-red-text)'}
+            tone={totalResultat >= 0 ? palette.profit : palette.cost} accent={totalResultat >= 0 ? palette.profit : palette.cost}
           />
         </div>
 
@@ -1129,7 +1129,7 @@ function MonthlyReport({ verifications, accounts }) {
         <div className="sheet-span-6" style={cellBg}>
           <StatTile
             label="Resultat senaste månaden" value={amount.value(latest.resultat)} icon={latest.resultat >= 0 ? TrendingUp : TrendingDown}
-            tone={latest.resultat >= 0 ? palette.profit : palette.cost} accent={latest.resultat >= 0 ? 'var(--status-green-text)' : 'var(--status-red-text)'}
+            tone={latest.resultat >= 0 ? palette.profit : palette.cost} accent={latest.resultat >= 0 ? palette.profit : palette.cost}
             delta={resDeviation ? { text: `${resDeviation.up ? '+' : ''}${formatPct(resDeviation.pct, 0)} mot snittet`, good: resDeviation.up } : null}
             context={!resDeviation ? `snitt ${formatSEK(avgPriorResultat)}` : undefined}
           />

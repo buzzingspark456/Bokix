@@ -44,6 +44,16 @@ export const CHART_COLOR_FAMILIES = {
     ramp: ['#1c5c28', '#6aa87f', '#2f7d4f', '#256e33', '#2f8a3a', '#b3bdb4'],
     wash: '#e8f0eb',
   },
+  // Kundönskemål, ordagrant i sak: "Resultat ska vara turkos, eller en
+  // riktigt ljus blå" — samma turkos som redan finns i varumärket på
+  // andra ställen (Bokix-ordmärkets gradient, startsidans "Kvitton läser
+  // sig själva"-stråle), inte en nyuppfunnen ton.
+  teal: {
+    id: 'teal', label: 'Turkos',
+    base: '#0d9488', soft: '#2dd4bf',
+    ramp: ['#134e4a', '#5eead4', '#14b8a6', '#0d9488', '#2dd4bf', '#a7bab6'],
+    wash: '#e0f2f1',
+  },
 };
 
 export const CHART_COLOR_CHOICES = Object.values(CHART_COLOR_FAMILIES);
@@ -55,13 +65,13 @@ export const CHART_ROLES = [
   { id: 'profit', label: 'Resultat', help: 'Det som blir kvar, och marginalerna' },
 ];
 
-// Förvalet: in = grönt, ut = blått, kvar = rött. Kundönskemål, ordagrant i
-// sak: "grönt för intäkter, blått för kostnader — det är faktiskt våra
-// färger". Roterat mellan de tre befintliga familjerna (ingen ny paletthex
-// uppfunnen) — profit tar det tredje, röd, i stället för det gröna den
-// hade innan (grönt är nu upptaget av income). En användare som inte gillar
-// det byter fritt i rapportinställningarna, precis som innan.
-export const DEFAULT_CHART_COLORS = { income: 'green', cost: 'blue', profit: 'red' };
+// Förvalet: in = grönt, ut = blått, kvar = turkos. Kundönskemål, ordagrant
+// i sak: "grönt för intäkter, blått för kostnader" och, en uppföljning,
+// "Resultat ska vara turkos, eller en riktigt ljus blå" — röd (som satt på
+// Resultat en kort sida tillbaka) plockades bort, ingen roll använder den
+// som förval längre. En användare som inte gillar det byter fritt i
+// rapportinställningarna, precis som innan.
+export const DEFAULT_CHART_COLORS = { income: 'green', cost: 'blue', profit: 'teal' };
 
 /** Beloppsenhet. 'auto' är det gamla beteendet (tusental för stora tal,
  * kronor för små) och förblir förvalet — det är rätt för de allra flesta,
