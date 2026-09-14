@@ -12,6 +12,7 @@ import { findLockedVatPeriod } from '../utils/vatCalculation';
 import { BRAND } from '../utils/brandColors';
 import { BankLogo } from './shared/BrandLogos';
 import { BANK_SOURCES, OTHER_BANK_HINT, MAX_BANK_FILE_MB, ACCEPTED_BANK_EXTENSIONS, splitBankPath } from '../utils/bankSources';
+import { guessAccountFromText } from '../utils/accountCategories';
 
 // Bank – CSV/Excel-import. `bankImport.js` (parsning/normalisering/
 // matchningsförslag, statisk import av papaparse+xlsx) laddas BARA lazy
@@ -599,7 +600,18 @@ function BankRowDetail({ row, invoiceCandidates, supplierCandidates, accounts, v
   const [qbDate, setQbDate] = useState(row.date);
   const [qbDesc, setQbDesc] = useState(row.description || '');
   const [qbSeries, setQbSeries] = useState('A');
-  const [qbAccount, setQbAccount] = useState('');
+  // Kundönskemål, ordagrant i sak: "bank thing absolutely can be much
+  // better" — ett förslag på motkonto ur beskrivningen, samma regler och
+  // samma "gissa aldrig om det inte är rimligt"-princip som kvitto-OCR:n
+  // (utils/accountCategories.js, delad med ocrReceipt.js). Bara för
+  // UTFLÖDEN (leverantörssidan) — reglerna är kostnadskonton, en
+  // kundinbetalnings motkonto går inte att gissa ur en beskrivning. Fältet
+  // förblir helt redigerbart och bokförs aldrig utan ett uttryckligt klick
+  // på "Bokför" — samma bekräftelsekrav som redan gäller för raden.
+  const suggestion = !isInflow ? guessAccountFromText(row.description) : null;
+  const suggestedCode = suggestion?.accountCode && accounts.some(a => a.code === suggestion.accountCode) ? suggestion.accountCode : '';
+  const [qbAccount, setQbAccount] = useState(suggestedCode);
+  const [qbAccountIsSuggestion, setQbAccountIsSuggestion] = useState(Boolean(suggestedCode));
 
   const lockedPeriod = findLockedVatPeriod(qbDate, vatPeriods);
 
@@ -668,7 +680,17 @@ function BankRowDetail({ row, invoiceCandidates, supplierCandidates, accounts, v
           <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
             <div style={{ flex: 1 }}>
               <label style={fieldLabel}>{isInflow ? 'Motkonto (kredit)' : 'Motkonto (debet)'} — {ledgerAccount} {isInflow ? 'debiteras' : 'krediteras'} automatiskt med {fmt(Math.abs(row.amount))} kr</label>
-              <AccountSearch value={qbAccount} onChange={setQbAccount} accounts={accounts} placeholder="Sök konto..." />
+              <AccountSearch
+                value={qbAccount}
+                onChange={v => { setQbAccount(v); setQbAccountIsSuggestion(false); }}
+                accounts={accounts}
+                placeholder="Sök konto..."
+              />
+              {qbAccountIsSuggestion && qbAccount && (
+                <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '5px 0 0' }}>
+                  Förslag utifrån beskrivningen — kontrollera innan du bokför.
+                </p>
+              )}
             </div>
             <button
               disabled={!qbAccount || !qbDate}

@@ -11,6 +11,7 @@ import { BRAND } from '../utils/brandColors';
 import { confirmDialog } from './shared/ConfirmDialog';
 import { ocrFile, parseReceiptText } from '../utils/ocrReceipt';
 import { convertToSek } from '../utils/currencyConversion';
+import { RECEIPT_CATEGORIES, categoryForAccountCode } from '../utils/accountCategories';
 
 // ── Formatting ──
 const formatSEK = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
@@ -250,8 +251,26 @@ function ReceiptDetailModal({ receipt, accounts, projects, allReceipts, status, 
         const next = { ...prev };
         if (parsed.date) { next.date = parsed.date; filled.add('date'); }
         if (amountSek) { next.amount = String(amountSek).replace('.', ','); filled.add('amount'); }
-        if (parsed.vatRate !== null && parsed.vatRate !== undefined) { next.vatRate = parsed.vatRate; filled.add('vatRate'); }
-        if (parsed.supplier) { next.supplier = parsed.supplier; filled.add('supplier'); }
+        // vatRate har ALLTID ett värde (parseReceiptText antar 25 % — eller
+        // 0 % för en igenkänd utländsk molntjänst — så fort inget stod
+        // utläsbart på kvittot, se ocrReceipt.js), så fältet går att fylla
+        // i oavsett. Men OCR-badgen (den lilla "vi läste det här åt dig"-
+        // etiketten) ska bara synas när det FAKTISKT stod på kvittot —
+        // annars ser en gissning ut som en bekräftad avläsning. Kundönskemål,
+        // uttryckligt: en gissning som visas som säker är värre än ingen
+        // gissning alls.
+        if (parsed.vatRate !== null && parsed.vatRate !== undefined) {
+          next.vatRate = parsed.vatRate;
+          if (!parsed.vatRateGuessed) filled.add('vatRate');
+        }
+        // Samma sak för leverantören: matchade vi INTE en igenkänd handlare
+        // (parsed.supplierMatched) är det bara den råa första textraden på
+        // kvittot — ofta rätt, ibland en adress eller ett kvittonummer.
+        // Värt att fylla i som utkast, men inte värt att kalla "avläst".
+        if (parsed.supplier) {
+          next.supplier = parsed.supplier;
+          if (parsed.supplierMatched) filled.add('supplier');
+        }
         if (parsed.accountCode) { next.costAccount = parsed.accountCode; filled.add('costAccount'); }
         return next;
       });
@@ -615,6 +634,12 @@ export default function Expenses({
   // years"), grupperat per år istället för per år+månad (se groupReceipts
   // nedan).
   const [monthFilter, setMonthFilter] = useState('all');
+  // Kvitton grupperade efter samma kategorier som bankimporten och
+  // kvitto-OCR:n redan föreslår konton ur (utils/accountCategories.js) —
+  // kundönskemål, ordagrant i sak: "kvitton som sorterar sig själva".
+  // 'other' = kvitton vars konto inte hör till någon av hinkarna (eller
+  // som ännu saknar konto), inte en påhittad kategori.
+  const [categoryFilter, setCategoryFilter] = useState(null); // null | kategori-id | 'other'
   // Kundönskemål: "en vy där de bara ligger under varandra, inte uppdelat
   // per månad" — grupperingen är fin för en lång historik, men ibland vill
   // man bara se allt i en enda lista. Oberoende av monthFilter (man kan
@@ -682,7 +707,17 @@ export default function Expenses({
     booked: monthMatched.filter(r => getReceiptStatus(r, verifications) === 'booked').length,
     reversed: monthMatched.filter(r => getReceiptStatus(r, verifications) === 'reversed').length,
   };
-  const receiptsList = statusFilter ? monthMatched.filter(r => getReceiptStatus(r, verifications) === statusFilter) : monthMatched;
+  const statusMatched = statusFilter ? monthMatched.filter(r => getReceiptStatus(r, verifications) === statusFilter) : monthMatched;
+
+  // Kategori-id för ett kvitto, 'other' om kontot inte hör till någon hink
+  // (eller saknas helt) — se importet av accountCategories.js ovan.
+  const categoryIdOf = (r) => categoryForAccountCode(r.costAccount)?.id || 'other';
+  const categoryCounts = new Map();
+  statusMatched.forEach(r => {
+    const id = categoryIdOf(r);
+    categoryCounts.set(id, (categoryCounts.get(id) || 0) + 1);
+  });
+  const receiptsList = categoryFilter ? statusMatched.filter(r => categoryIdOf(r) === categoryFilter) : statusMatched;
   const detailReceipt = detailReceiptId ? allReceipts.find(r => r.id === detailReceiptId) : null;
 
   // ── Drag & drop / filhantering ──
@@ -941,6 +976,37 @@ export default function Expenses({
                     >
                       {meta.label}
                       <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 16, height: 16, padding: '0 4px', borderRadius: '999px', fontSize: '10px', fontWeight: 700, background: 'var(--status-chip-bg)', color: meta.color }}>{count}</span>
+                    </button>
+                  );
+                })}
+              </>
+            )}
+
+            {/* Kategorikedjan — kvittona "sorterar sig själva" i samma
+                hinkar som bankimportens och OCR:ns kontoförslag redan
+                använder (utils/accountCategories.js). Bara synlig när det
+                faktiskt finns mer än en kategori att välja mellan, annars
+                är den bara brus ovanför en enda hög. */}
+            {categoryCounts.size > 1 && (
+              <>
+                <span className="rc-toolbar-divider" />
+                {[...RECEIPT_CATEGORIES, { id: 'other', label: 'Övrigt' }].map(cat => {
+                  const count = categoryCounts.get(cat.id) || 0;
+                  if (count === 0) return null;
+                  const isActive = categoryFilter === cat.id;
+                  return (
+                    <button
+                      key={cat.id}
+                      onClick={() => setCategoryFilter(f => f === cat.id ? null : cat.id)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 10px',
+                        background: 'var(--bg-muted)', border: `1.5px solid ${isActive ? 'var(--text-main)' : 'transparent'}`,
+                        borderRadius: '999px', fontSize: '12px', fontWeight: 600,
+                        color: 'var(--text-secondary)', cursor: 'pointer', fontFamily: 'inherit',
+                      }}
+                    >
+                      {cat.label}
+                      <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 16, height: 16, padding: '0 4px', borderRadius: '999px', fontSize: '10px', fontWeight: 700, background: 'var(--status-chip-bg)', color: 'var(--text-secondary)' }}>{count}</span>
                     </button>
                   );
                 })}

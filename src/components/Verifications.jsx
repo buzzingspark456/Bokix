@@ -216,7 +216,11 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
       const parsed = parseReceiptText(text);
       const filled = new Set();
       if (parsed.date) { setDate(parsed.date); filled.add('date'); }
-      if (parsed.supplier) { setDesc(parsed.supplier); filled.add('desc'); }
+      // Samma regel som Expenses.jsx: en OCR-badge betyder "vi läste det
+      // här", inte "vi gissade". Utan en igenkänd handlare (supplierMatched)
+      // är parsed.supplier bara den råa första textraden — värt att fylla
+      // i som utkast, inte värt att märka som avläst.
+      if (parsed.supplier) { setDesc(parsed.supplier); if (parsed.supplierMatched) filled.add('desc'); }
 
       // Utländsk valuta — räkna om till kronor med DAGSKURSEN FÖR
       // KÖPDATUMET (Skatteverkets rekommendation) innan raderna byggs.

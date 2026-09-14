@@ -8,7 +8,13 @@
  *    i en Web Worker med realtidsframsteg (0-100%).
  * 3. Smart fältextrahering (parseReceiptText):
  *    Hittar automatiskt datum, totalbelopp, momssats, leverantör och bokföringskonto.
+ *
+ * Leverantörslistan och kontoreglerna (KNOWN_SUPPLIERS/ACCOUNT_KEYWORD_RULES)
+ * flyttade till utils/accountCategories.js — delas nu med bankimporten
+ * (Bank.jsx), som annars hade fått en egen, garanterat framtida-omatchad
+ * kopia av samma regler.
  */
+import { KNOWN_SUPPLIERS, ACCOUNT_KEYWORD_RULES } from './accountCategories';
 
 const MONTHS_MAP = {
   jan: '01', feb: '02', mar: '03', apr: '04', maj: '05', may: '05',
@@ -242,85 +248,11 @@ export async function ocrFile(input, onProgress) {
 }
 
 /**
- * Kända leverantörer och deras typiska bokföringskonton & momssatser.
- */
-const KNOWN_SUPPLIERS = [
-  // Molntjänster & SaaS (utländska = 0% svensk moms, omvänd skattskyldighet)
-  { re: /supabase/i, name: 'Supabase', account: '6540', vat: 0 },
-  { re: /vercel/i, name: 'Vercel', account: '6540', vat: 0 },
-  { re: /github/i, name: 'GitHub', account: '6540', vat: 0 },
-  { re: /openai/i, name: 'OpenAI', account: '6540', vat: 0 },
-  { re: /aws|amazon web services/i, name: 'AWS', account: '6540', vat: 0 },
-  { re: /google(?:\s*cloud|\s*workspace)?/i, name: 'Google', account: '6540', vat: 0 },
-  { re: /adobe/i, name: 'Adobe', account: '5420', vat: 0 },
-  { re: /microsoft/i, name: 'Microsoft', account: '5420', vat: 0 },
-  { re: /apple\b/i, name: 'Apple', account: '5420', vat: 25 },
-  { re: /slack/i, name: 'Slack', account: '6540', vat: 0 },
-  { re: /zoom\b/i, name: 'Zoom', account: '6540', vat: 0 },
-  { re: /figma/i, name: 'Figma', account: '6540', vat: 0 },
-  { re: /notion/i, name: 'Notion', account: '6540', vat: 0 },
-  { re: /spotify/i, name: 'Spotify', account: '6990', vat: 25 },
-
-  // Matvaror & representation (12% moms). Konto 6071 "Representation,
-  // avdragsgill" — RÄTTAT (stod tidigare 5010, som i Bokix egen
-  // kontoplan är "Lokalhyra", se AccountsData.js: en riktig felskrivning,
-  // inte en avsedd genväg. 6071 fanns inte alls i DEFAULT_ACCOUNTS innan
-  // den här rättningen, tillagt i AccountsData.js i samma commit.
-  { re: /coop/i, name: 'Coop', account: '6071', vat: 12 },
-  { re: /ica\b/i, name: 'ICA', account: '6071', vat: 12 },
-  { re: /willys/i, name: 'Willys', account: '6071', vat: 12 },
-  { re: /lidl/i, name: 'Lidl', account: '6071', vat: 12 },
-  { re: /hemk[öo]p/i, name: 'Hemköp', account: '6071', vat: 12 },
-  { re: /espresso house/i, name: 'Espresso House', account: '6071', vat: 12 },
-  { re: /pressbyr[åa]n/i, name: 'Pressbyrån', account: '6071', vat: 12 },
-  { re: /7-eleven|seven eleven/i, name: '7-Eleven', account: '6071', vat: 12 },
-  { re: /mcdonald'?s/i, name: "McDonald's", account: '6071', vat: 12 },
-  { re: /burger king/i, name: 'Burger King', account: '6071', vat: 12 },
-  { re: /max burger|max restauranger/i, name: 'MAX', account: '6071', vat: 12 },
-
-  // Drivmedel & fordon (25% moms)
-  { re: /circle k/i, name: 'Circle K', account: '5611', vat: 25 },
-  { re: /okq8|ok q8/i, name: 'OKQ8', account: '5611', vat: 25 },
-  { re: /preem/i, name: 'Preem', account: '5611', vat: 25 },
-  { re: /st1\b/i, name: 'St1', account: '5611', vat: 25 },
-  { re: /shell/i, name: 'Shell', account: '5611', vat: 25 },
-  { re: /qstar/i, name: 'Qstar', account: '5611', vat: 25 },
-  { re: /ingo\b/i, name: 'INGO', account: '5611', vat: 25 },
-
-  // Kontor, elektronik & verktyg (25% moms)
-  { re: /biltema/i, name: 'Biltema', account: '6110', vat: 25 },
-  { re: /clas ohlson/i, name: 'Clas Ohlson', account: '6110', vat: 25 },
-  { re: /bauhaus/i, name: 'Bauhaus', account: '5400', vat: 25 },
-  { re: /hornbach/i, name: 'Hornbach', account: '5400', vat: 25 },
-  { re: /jula\b/i, name: 'Jula', account: '5400', vat: 25 },
-  { re: /webhallen/i, name: 'Webhallen', account: '5400', vat: 25 },
-  { re: /dustin/i, name: 'Dustin', account: '5400', vat: 25 },
-  { re: /elgiganten/i, name: 'Elgiganten', account: '5400', vat: 25 },
-  { re: /kjell\s*(?:&|och)\s*company/i, name: 'Kjell & Company', account: '5400', vat: 25 },
-  { re: /ikea/i, name: 'IKEA', account: '5410', vat: 25 },
-
-  // Frakt & logistik (25% moms)
-  { re: /postnord/i, name: 'PostNord', account: '6230', vat: 25 },
-  { re: /dhl/i, name: 'DHL', account: '6230', vat: 25 },
-  { re: /ups\b/i, name: 'UPS', account: '6230', vat: 25 },
-  { re: /fedex/i, name: 'FedEx', account: '6230', vat: 25 },
-
-  // Resor & taxi (6% moms)
-  { re: /sj\b/i, name: 'SJ', account: '5810', vat: 6 },
-  { re: /sl\b|storstockholms lokaltrafik/i, name: 'SL', account: '5810', vat: 6 },
-  { re: /v[äa]sttrafik/i, name: 'Västtrafik', account: '5810', vat: 6 },
-  { re: /sk[åa]netrafiken/i, name: 'Skånetrafiken', account: '5810', vat: 6 },
-  { re: /uber/i, name: 'Uber', account: '5810', vat: 6 },
-  { re: /bolt/i, name: 'Bolt', account: '5810', vat: 6 },
-  { re: /taxi kurir|taxi stockholm|taxi g[öo]teborg/i, name: 'Taxi', account: '5810', vat: 6 },
-];
-
-/**
  * Parsar rå OCR-text och extraherar kvittodata med smarta heuristiker.
  */
 export function parseReceiptText(text) {
   if (!text || typeof text !== 'string') {
-    return { date: null, amount: null, vatRate: 25, supplier: null, accountCode: null, currency: null };
+    return { date: null, amount: null, vatRate: 25, vatRateGuessed: true, supplier: null, supplierMatched: false, accountCode: null, currency: null };
   }
 
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
@@ -490,17 +422,30 @@ export function parseReceiptText(text) {
   let supplier = null;
   let accountCode = null;
   let vatRate = null;
+  // supplierMatched/vatRateGuessed: EXTRA, additiv information utöver
+  // själva värdena — skiljer "vi kände igen det här" från "vi gissade
+  // eftersom vi var tvungna att fylla i något". Ingen befintlig anropare
+  // (Expenses.jsx m.fl.) läser de här fälten, så de kan aldrig gå sönder
+  // av det här — de finns för att ScanReceiptPage.jsx ska kunna visa en
+  // bock ENDAST vid faktisk avläsning, aldrig vid en gissning som RÅKAR
+  // se rätt ut. Kundönskemål, uttryckligt: en gissning som visas som om
+  // den vore säker är värre än att lämna fältet tomt.
+  let supplierMatched = false;
 
   for (const s of KNOWN_SUPPLIERS) {
     if (s.re.test(fullText)) {
       supplier = s.name;
       accountCode = s.account;
       if (s.vat !== undefined) vatRate = s.vat;
+      supplierMatched = true;
       break;
     }
   }
 
-  // Om leverantören inte matchade känd lista, använd ren första textrad
+  // Om leverantören inte matchade känd lista, använd ren första textrad —
+  // en RÅ gissning (den första rimliga textraden på kvittot, oftast
+  // butiksnamnet men inte alltid), INTE en igenkänd leverantör.
+  // supplierMatched förblir false här med flit.
   if (!supplier) {
     const skipRe = /^(\d[\d\s/.-]{4,}|\s*|kvitto|receipt|faktura|invoice|org\.?nr|datum|date|order|nr|org)$/i;
     for (const line of lines) {
@@ -531,34 +476,20 @@ export function parseReceiptText(text) {
     }
   }
 
-  if (vatRate === null) {
+  // Bara sant om vatRate INTE hittades någonstans ovan (varken hos en känd
+  // leverantör eller på en "moms NN%"-rad) och därför föll tillbaka på
+  // standardantagandet (25 %, eller 0 % för ett igenkänt utländskt
+  // molntjänstabonnemang) — en förvald siffra, inte en avläst.
+  const vatRateGuessed = vatRate === null;
+  if (vatRateGuessed) {
     vatRate = isForeignService ? 0 : 25;
   }
 
   // ── 5. Fallback kontoregler ───────────────────────────────────────────────
+  // Delad lista (utils/accountCategories.js) — samma regler bankimporten
+  // (Bank.jsx) föreslår konton med.
   if (!accountCode) {
-    const accountRules = [
-      { re: /bensin|diesel|drivmedel|tankst|fuel/, code: '5611' },
-      { re: /parkering|parking|p-hus|p-avgift/, code: '5612' },
-      { re: /tåg|flyg|resa|biljett|sas\b|norwegian/, code: '5810' },
-      { re: /hotell|hotel|logi|airbnb|booking\.com/, code: '5410' },
-      { re: /restaurang|lunch|middag|fika|café|cafe|mat|livsmedel|grocery/, code: '6071' },
-      { re: /kontors|papper|penna|bläck|toner|staples/, code: '6110' },
-      { re: /porto|frakt|paket|post|fedex|ups/, code: '6230' },
-      // OBS: "\b3\b" (fristående siffran 3, operatören "3"/tre.se) — INTE
-      // "3\b", som matchade sista siffran i vilket belopp eller referens-
-      // nummer som helst så fort det råkade sluta på 3 (t.ex. "88213" i ett
-      // ordernummer), och kategoriserade då kvittot fel som telefonkostnad.
-      { re: /telefon|mobil|abonnemang|tele2|telia|\b3\b|comviq|telenor/, code: '6212' },
-      { re: /internet|bredband|fiber|itux|bahnhof/, code: '6212' },
-      { re: /server|hosting|cloud|saas|domän|domain|software|licens/, code: '6540' },
-      { re: /facklitteratur|böcker|tidskrift|bok\b/, code: '6980' },
-      { re: /representation|gåva|present/, code: '6072' },
-      { re: /reklam|annons|marknadsföring|facebook ads|google ads/, code: '6100' },
-      { re: /elräkning|elnät|vattenfall|e\.on|fortum/, code: '5000' },
-      { re: /verktyg|maskin|utrustning/, code: '5400' },
-    ];
-    for (const { re, code } of accountRules) {
+    for (const { re, code } of ACCOUNT_KEYWORD_RULES) {
       if (re.test(fullText)) {
         accountCode = code;
         break;
@@ -566,5 +497,5 @@ export function parseReceiptText(text) {
     }
   }
 
-  return { date, amount, vatRate, supplier, accountCode, currency };
+  return { date, amount, vatRate, vatRateGuessed, supplier, supplierMatched, accountCode, currency };
 }

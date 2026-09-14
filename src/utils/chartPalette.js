@@ -55,8 +55,13 @@ export const CHART_ROLES = [
   { id: 'profit', label: 'Resultat', help: 'Det som blir kvar, och marginalerna' },
 ];
 
-// Förvalet är det semantiska: in = blått, ut = rött, kvar = grönt.
-export const DEFAULT_CHART_COLORS = { income: 'blue', cost: 'red', profit: 'green' };
+// Förvalet: in = grönt, ut = blått, kvar = rött. Kundönskemål, ordagrant i
+// sak: "grönt för intäkter, blått för kostnader — det är faktiskt våra
+// färger". Roterat mellan de tre befintliga familjerna (ingen ny paletthex
+// uppfunnen) — profit tar det tredje, röd, i stället för det gröna den
+// hade innan (grönt är nu upptaget av income). En användare som inte gillar
+// det byter fritt i rapportinställningarna, precis som innan.
+export const DEFAULT_CHART_COLORS = { income: 'green', cost: 'blue', profit: 'red' };
 
 /** Beloppsenhet. 'auto' är det gamla beteendet (tusental för stora tal,
  * kronor för små) och förblir förvalet — det är rätt för de allra flesta,

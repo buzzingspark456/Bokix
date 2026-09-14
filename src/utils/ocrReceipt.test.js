@@ -122,7 +122,9 @@ describe('parseReceiptText', () => {
     expect(result.amount).toBe(245);
     expect(result.vatRate).toBe(25);
     expect(result.supplier).toBe('DHL');
-    expect(result.accountCode).toBe('6230');
+    // 5711 "Fraktkostnader" — rättat, låg tidigare felaktigt på 6230
+    // ("Datakommunikation"), se accountCategories.js:s filkommentar.
+    expect(result.accountCode).toBe('5711');
   });
 
   it('känner fortfarande igen operatören "3" som fristående ord (men inte som en del av ett annat tal)', () => {
