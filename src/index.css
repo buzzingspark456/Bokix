@@ -1665,18 +1665,6 @@ body {
   transform: translateY(-1px);
 }
 
-.settings-hub-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 9px;
-  flex-shrink: 0;
-  background: var(--status-green-bg);
-  color: var(--accent);
-}
-
 
 /* Sektionslistan vid sidan (Settings.jsx: SettingsRail).
    Sektionerna låg tidigare som en flikrad i toppen; kundönskemål att de

@@ -1,7 +1,7 @@
 ﻿import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Building2, CreditCard, Shield, Check, Download, Upload,
-  Trash2, Mail, Laptop, Lock, KeyRound, Image as ImageIcon,
+  Trash2, Mail, Laptop, Lock, Image as ImageIcon,
   Palette, Landmark, Hash, Calendar, X, ZoomIn, ZoomOut, Maximize2, Bell, ExternalLink, Sun, Moon,
   UserRound, FileText, Plug, Users, Database, Cog, ChevronRight, ArrowLeft,
   Sparkles, CheckCircle2, Camera,
@@ -141,15 +141,22 @@ const SETTINGS_GROUPS = [
 //
 // Ikon och beskrivning bor här bredvid etiketten (SETTINGS_TABS ovan bär
 // bara id + label eftersom flikraden inte har plats för mer).
+// `tone` matchar SECTION_TONES/VIVID-paletten längre ner i filen (samma
+// "säkerhet=blått, brand/utseende=rosa, kärnidentitet/pengar=grönt,
+// verktyg=neutral skiffer"-konvention som varje enskilt SectionHeading-
+// anrop inuti flikarna redan följer) — bara aldrig tillämpad på ÖVERSIKTEN
+// själv förrän nu. SettingsHub nedan läser den för att färga varje korts
+// ikonplatta, i stället för att alla åtta kort delade samma platta gröna
+// ikon oavsett ämne (samma platta grönt tidigare, nu borttagen).
 const SECTION_META = {
-  profile: { icon: UserRound, desc: 'Namn, e-post, lösenord och tvåstegsverifiering.' },
-  company: { icon: Building2, desc: 'Företagsuppgifter, adress, räkenskapsår och kontoplan.' },
-  invoice: { icon: FileText, desc: 'Fakturamall, logotyp, betalvillkor och numrering.' },
-  integrations: { icon: Plug, desc: 'Stripe, Zettle och egen avsändardomän för mejl.' },
-  users: { icon: Users, desc: 'Bjud in kollegor och styr vad de får se.' },
-  subscription: { icon: CreditCard, desc: 'Din plan, kvitton och uppsägning.' },
-  appearance: { icon: Palette, desc: 'Ljust eller mörkt, sidomeny och småsaker i gränssnittet.' },
-  data: { icon: Database, desc: 'Exportera, importera SIE, säkerhetskopiera och radera.' },
+  profile: { icon: UserRound, tone: 'blue', desc: 'Namn, e-post, lösenord och tvåstegsverifiering.' },
+  company: { icon: Building2, tone: 'green', desc: 'Företagsuppgifter, adress, räkenskapsår och kontoplan.' },
+  invoice: { icon: FileText, tone: 'pink', desc: 'Fakturamall, logotyp, betalvillkor och numrering.' },
+  integrations: { icon: Plug, tone: 'gray', desc: 'Stripe, Zettle och egen avsändardomän för mejl.' },
+  users: { icon: Users, tone: 'blue', desc: 'Bjud in kollegor och styr vad de får se.' },
+  subscription: { icon: CreditCard, tone: 'green', desc: 'Din plan, kvitton och uppsägning.' },
+  appearance: { icon: Palette, tone: 'pink', desc: 'Ljust eller mörkt, sidomeny och småsaker i gränssnittet.' },
+  data: { icon: Database, tone: 'gray', desc: 'Exportera, importera SIE, säkerhetskopiera och radera.' },
 };
 
 /** Översikten. Ett tätt rutnät som fyller bredden — åtta kort på två rader
@@ -169,7 +176,7 @@ function SettingsHub({ sections, onPick }) {
             className="settings-hub-card"
             onClick={() => onPick(section.id)}
           >
-            <span className="settings-hub-icon"><Icon size={17} /></span>
+            <SectionHeadingIcon icon={Icon} tone={meta.tone || 'green'} size={34} iconSize={17} />
             <span style={{ minWidth: 0, flex: 1 }}>
               <span style={{ display: 'block', fontSize: '14px', fontWeight: 700, color: 'var(--text-main)' }}>{section.label}</span>
               {meta.desc && <span style={{ display: 'block', fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.5, marginTop: '2px' }}>{meta.desc}</span>}
@@ -309,11 +316,6 @@ const btnTileLg = { ...btnTile, padding: '10px 18px', fontSize: '13.5px' };
 
 const btnSecondary = { padding: '9px 18px', background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border)', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer' };
 const btnGhost = { padding: '9px 14px', background: 'transparent', color: 'var(--text-secondary)', border: 'none', fontWeight: 600, fontSize: '13px', cursor: 'pointer' };
-// Säkerhetsförsvagande handling (t.ex. stänga av tvåstegsverifiering) — dämpad
-// varningston (amberBg/amberText), inte samma neutrala grå som vanliga
-// sekundärknappar och inte heller Bokix grönt (det är en primär, positiv
-// handling-färg, fel signal för något som gör kontot mindre skyddat).
-const btnWarning = { padding: '9px 18px', background: BRAND.amberBg, color: BRAND.amberText, border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer' };
 // Sällan använd säkerhetsåtgärd (utloggning av andra enheter) — tydligt röd
 // men ghost/outline, inte en vardaglig spara-knapp.
 const btnDangerGhost = { padding: '9px 18px', background: 'var(--bg-card)', color: 'var(--status-red-text)', border: '1px solid var(--status-red-bg)', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer' };
@@ -496,19 +498,22 @@ function SettingCard({ title, icon: Icon, tone = 'green', badge, description, ch
   );
 }
 
-/** Bara ikonplattan ur SectionHeading — SettingCard ritar sin egen titel. */
-function SectionHeadingIcon({ icon: Icon, tone = 'green' }) {
+/** Bara ikonplattan ur SectionHeading — SettingCard ritar sin egen titel.
+ * `size`/`iconSize` valfria (förval 30/15, SettingCard-kortens mått) —
+ * SettingsHub ovan återanvänder samma platta i sin egen, större storlek
+ * (34/17) i stället för att uppfinna en egen tonfärgad ikonplatta. */
+function SectionHeadingIcon({ icon: Icon, tone = 'green', size = 30, iconSize = 15 }) {
   const tones = {
     green: VIVID.green, blue: VIVID.blue, amber: VIVID.amber,
     pink: VIVID.pink, red: VIVID.red, gray: 'var(--text-muted)',
   };
   return (
     <span style={{
-      width: 30, height: 30, borderRadius: '9px', flexShrink: 0,
+      width: size, height: size, borderRadius: '9px', flexShrink: 0,
       background: tones[tone] || tones.green, color: 'white',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }}>
-      <Icon size={15} />
+      <Icon size={iconSize} />
     </span>
   );
 }
@@ -1121,7 +1126,14 @@ function ReauthCodeStep({ onVerified, onCancel }) {
 // ingenting alls). Reauthentication (ReauthCodeStep ovan) är ett ANDRA,
 // oberoende steg efter det — se filkommentaren i request-password-reset.js:s
 // handleChangePassword för varför bytet själv numera görs server-side.
-function PasswordSection({ user, readOnly = false, bare = false }) {
+// Kodstädning: `bare` var tidigare en växel mellan två helt separata
+// vyer (ett eget fristående kort MED egen rubrik, eller den kompakta
+// raden nedan inuti det gemensamma "Säkerhet"-kortet) — men sedan
+// mockup-ombygget kallas den här komponenten bara på ETT sätt (Min
+// profil → "Säkerhet"-kortet), alltid med bare. Det andra läget hade
+// alltså blivit dött, aldrig nått kod — bortstädat i stället för att
+// stå kvar och se ut som ett riktigt val.
+function PasswordSection({ user, readOnly = false }) {
   const [currentPw, setCurrentPw] = useState('');
   const [newPw, setNewPw] = useState('');
   const [confirmPw, setConfirmPw] = useState('');
@@ -1129,12 +1141,9 @@ function PasswordSection({ user, readOnly = false, bare = false }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [showReauth, setShowReauth] = useState(false);
-  // Bara relevant i `bare`-läget (kombinerat "Säkerhet"-kort, kundönskemål
-  // från en mockup): formuläret ligger dolt tills man klickar "Byt
-  // lösenord" på raden, i stället för att alltid stå uppfällt — annars
-  // hade kortet blivit lika högt som förut, bara med en extra rad ovanpå.
-  // I det ICKE-bara läget (kortet ensamt, som förut) är formuläret alltid
-  // synligt, ingen egen vy-växling.
+  // Formuläret ligger dolt tills man klickar "Byt lösenord" på raden
+  // (kundönskemål, mockup: en kompakt rad i "Säkerhet"-kortet), i stället
+  // för att alltid stå uppfällt.
   const [expanded, setExpanded] = useState(false);
 
   const changedAt = user?.user_metadata?.password_changed_at;
@@ -1207,36 +1216,21 @@ function PasswordSection({ user, readOnly = false, bare = false }) {
     </>
   );
 
-  if (bare) {
-    // "Säkerhet"-kortets radformat (kundönskemål, mockup): etikett + en
-    // kort statusrad till vänster, en knapp till höger — samma SettingRow
-    // som resten av appen redan använder för den sortens rad. Formuläret
-    // fälls ut UNDER raden (expanded) i stället för att alltid stå synligt
-    // — annars hade "Säkerhet"-kortet bara varit lika högt som förut med
-    // en extra rad ovanpå, inte den kompakta rad-med-knapp mockupen visar.
-    // last={false} alltid: den här raden ligger i praktiken aldrig sist i
-    // "Säkerhet"-kortet — antingen fälls formuläret ut direkt under den,
-    // eller så följer Tvåfaktorsautentisering-raden näst efter. En
-    // bottenkant hör hemma i båda fallen.
-    return (
-      <>
-        <SettingRow label="Lösenord" description={success ? 'Lösenordet är uppdaterat.' : statusText} last={false}>
-          {!expanded && <button type="button" onClick={() => setExpanded(true)} style={btnSecondary}>Byt lösenord</button>}
-        </SettingRow>
-        {expanded && <div style={{ paddingBottom: '14px' }}>{form}</div>}
-      </>
-    );
-  }
-
+  // "Säkerhet"-kortets radformat (kundönskemål, mockup): etikett + en
+  // kort statusrad till vänster, en knapp till höger — samma SettingRow
+  // som resten av appen redan använder för den sortens rad. Formuläret
+  // fälls ut UNDER raden (expanded) i stället för att alltid stå synligt.
+  // last={false} alltid: den här raden ligger i praktiken aldrig sist i
+  // "Säkerhet"-kortet — antingen fälls formuläret ut direkt under den,
+  // eller så följer Tvåfaktorsautentisering-raden näst efter. En
+  // bottenkant hör hemma i båda fallen.
   return (
-    <div style={card}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '6px' }}>
-        <SectionHeading icon={Lock} tone="blue">Lösenord</SectionHeading>
-        <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>{statusText}</span>
-      </div>
-      {success && <div style={{ color: BRAND.greenDark, fontSize: '13px', marginBottom: '10px', fontWeight: 600 }}>Lösenordet är uppdaterat.</div>}
-      {form}
-    </div>
+    <>
+      <SettingRow label="Lösenord" description={success ? 'Lösenordet är uppdaterat.' : statusText} last={false}>
+        {!expanded && <button type="button" onClick={() => setExpanded(true)} style={btnSecondary}>Byt lösenord</button>}
+      </SettingRow>
+      {expanded && <div style={{ paddingBottom: '14px' }}>{form}</div>}
+    </>
   );
 }
 
@@ -1244,7 +1238,11 @@ function PasswordSection({ user, readOnly = false, bare = false }) {
 // Riktig TOTP-registrering via Supabase Auth MFA (auth.mfa.*) — ingen
 // simulerad på/av-switch. Status läses från faktiskt registrerade,
 // verifierade faktorer på kontot.
-function TwoFactorSection({ bare = false }) {
+// Kodstädning: samma döda `bare`-växel som PasswordSection ovan hade —
+// bara anropad på ETT sätt (Min profil → "Säkerhet"-kortet) sedan
+// mockup-ombygget, så det andra, "fristående kort"-läget nedan nådde
+// aldrig kod. Bortstädat av samma skäl.
+function TwoFactorSection() {
   const [factors, setFactors] = useState(null); // null = laddar
   const [error, setError] = useState('');
   const [enrolling, setEnrolling] = useState(null); // { factorId, qrCode, secret }
@@ -1309,48 +1307,25 @@ function TwoFactorSection({ bare = false }) {
     </div>
   );
 
-  if (bare) {
-    // "Säkerhet"-kortets radformat (kundönskemål, mockup): "Aktiv"-badgen
-    // (samma gröna check-badge som mockupen) i stället för på/av-texten,
-    // Aktivera/Inaktivera-knappen kvar (borttagen hade varit en riktig
-    // funktionsförlust, inte bara en stilfråga) — QR-registreringen fälls
-    // ut under raden precis som lösenordsformuläret ovan.
-    // last={true} alltid: den här är genuint sista raden i "Säkerhet"-
-    // kortet — enrollPanel har sin egen ovankant, ingen dubbel linje.
-    return (
-      <>
-        <SettingRow label="Tvåfaktorsautentisering" description="Aktiverad för extra säkerhet vid inloggning." last>
-          {factors !== null && !enrolling && (
-            verifiedFactor
-              ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}><Badge tone="positive">Aktiv</Badge><button onClick={disable} disabled={busy} style={{ ...btnGhost, padding: '4px 8px', fontSize: '12px' }}>Inaktivera</button></span>
-              : <button onClick={startEnroll} disabled={busy} style={btnSecondary}>Aktivera</button>
-          )}
-        </SettingRow>
-        {error && <div style={{ color: 'var(--status-red-text)', fontSize: '13px', marginTop: '-6px', marginBottom: '10px' }}>{error}</div>}
-        {enrolling && <div style={{ paddingBottom: '14px' }}>{enrollPanel}</div>}
-      </>
-    );
-  }
-
+  // "Säkerhet"-kortets radformat (kundönskemål, mockup): "Aktiv"-badgen
+  // (samma gröna check-badge som mockupen) i stället för på/av-texten,
+  // Aktivera/Inaktivera-knappen kvar (borttagen hade varit en riktig
+  // funktionsförlust, inte bara en stilfråga) — QR-registreringen fälls
+  // ut under raden precis som lösenordsformuläret ovan.
+  // last={true} alltid: den här är genuint sista raden i "Säkerhet"-
+  // kortet — enrollPanel har sin egen ovankant, ingen dubbel linje.
   return (
-    <div style={card}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', flexWrap: 'wrap' }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
-            <SectionHeading icon={KeyRound} tone={verifiedFactor ? 'green' : 'amber'}>Tvåstegsverifiering</SectionHeading>
-            {factors !== null && <Badge tone={verifiedFactor ? 'positive' : 'warning'}>{verifiedFactor ? 'På' : 'Av'}</Badge>}
-          </div>
-          <div style={{ fontSize: '13px', color: 'var(--text-secondary)', maxWidth: '480px' }}>Kräver en engångskod från en autentiseringsapp (t.ex. Google Authenticator eller Authy) utöver lösenordet vid inloggning.</div>
-        </div>
+    <>
+      <SettingRow label="Tvåfaktorsautentisering" description="Aktiverad för extra säkerhet vid inloggning." last>
         {factors !== null && !enrolling && (
           verifiedFactor
-            ? <button onClick={disable} disabled={busy} style={btnWarning}>Inaktivera</button>
-            : <button onClick={startEnroll} disabled={busy} style={btnPrimary}>Aktivera</button>
+            ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}><Badge tone="positive">Aktiv</Badge><button onClick={disable} disabled={busy} style={{ ...btnGhost, padding: '4px 8px', fontSize: '12px' }}>Inaktivera</button></span>
+            : <button onClick={startEnroll} disabled={busy} style={btnSecondary}>Aktivera</button>
         )}
-      </div>
-      {error && <div style={{ color: 'var(--status-red-text)', fontSize: '13px', marginTop: '10px' }}>{error}</div>}
-      {enrollPanel}
-    </div>
+      </SettingRow>
+      {error && <div style={{ color: 'var(--status-red-text)', fontSize: '13px', marginTop: '-6px', marginBottom: '10px' }}>{error}</div>}
+      {enrolling && <div style={{ paddingBottom: '14px' }}>{enrollPanel}</div>}
+    </>
   );
 }
 
@@ -1396,7 +1371,11 @@ function ActiveSessionsSection({ user, readOnly = false }) {
       <button
         onClick={signOutOthers} disabled={busy}
         onMouseEnter={e => { if (!busy) e.currentTarget.style.background = 'var(--status-red-bg)'; }}
-        onMouseLeave={e => { e.currentTarget.style.background = 'white'; }}
+        // Bugkritiskt (mörkt läge): stod tidigare hårdkodat till 'white' —
+        // btnDangerGhost:s EGEN bakgrund är var(--bg-card), som i mörkt
+        // läge är mörk. Ett musbort satte då knappen till en vit ruta som
+        // aldrig gick tillbaka till kortets faktiska bakgrund.
+        onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-card)'; }}
         style={{ ...btnDangerGhost, opacity: busy ? 0.6 : 1, transition: 'background-color 0.12s' }}
       >{busy ? 'Loggar ut...' : 'Logga ut från alla andra enheter'}</button>
       {done && <div style={{ color: BRAND.greenDark, fontSize: '13px', marginTop: '8px', fontWeight: 600 }}>Klart — alla andra sessioner är utloggade.</div>}
@@ -2109,7 +2088,7 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
               ren yta hade känts platt trots gradienten. */}
           <div style={{ position: 'absolute', top: '-60px', right: '-40px', width: '200px', height: '200px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,0.14), transparent 70%)', pointerEvents: 'none' }} />
           <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '20px', flexWrap: 'wrap' }}>
-            <div className="settings-main" style={{ minWidth: 0 }}>
+            <div style={{ minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px', borderRadius: '999px', fontSize: '11px', fontWeight: 700, color: 'white', background: 'rgba(255,255,255,0.16)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
                   <Sparkles size={12} /> Din plan
@@ -2659,10 +2638,19 @@ export default function Settings({
                 Öppna Stripe-dashboard <ExternalLink size={13} />
               </a>
             )}
+            {/* Bugkritiskt: stod tidigare `onDisconnectStripe?.()`/
+                `onConnectStripe?.()` direkt i readOnly-grenen — alltså
+                anropade den RIKTIGA handlern i stället för att blockera,
+                och "fungerade" bara i demon (DemoWorkspace.jsx) för att
+                den händelsevis skickar in en `blocked()`-attrapp som de
+                propen där. Samma självständiga DEMO_BLOCKED_MSG-koll som
+                VARJE annan knapp på den här sidan använder, i stället för
+                att lita på att anroparen råkar skicka in en ofarlig
+                funktion. */}
             {stripeAccountId
-              ? <button onClick={() => { if (readOnly) { onDisconnectStripe?.(); return; } setStripeReauthAction('disconnect'); }} style={btnGhost}>Koppla från</button>
+              ? <button onClick={() => { if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; } setStripeReauthAction('disconnect'); }} style={btnGhost}>Koppla från</button>
               : (
-                <button onClick={() => { if (readOnly) { onConnectStripe?.(); return; } setStripeReauthAction('connect'); }} style={btnStripeConnect}>
+                <button onClick={() => { if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; } setStripeReauthAction('connect'); }} style={btnStripeConnect}>
                   <StripeLogo height={15} /> Anslut Stripe
                 </button>
               )}
@@ -3067,7 +3055,13 @@ export default function Settings({
             <input
               type="number" value={nextInvoiceNumberInput} onChange={e => { setNextInvoiceNumberInput(e.target.value); setInvoiceNumberError(''); }}
               placeholder={String(maxUsedInvoiceNumber + 1)}
-              style={{ width: '160px', padding: '8px', borderRadius: '6px', border: '1px solid var(--status-red-text)', background: 'var(--bg-card)', color: 'var(--text-secondary)', boxSizing: 'border-box' }}
+              // Bugkritiskt: kanten stod hårdkodad till --status-red-text
+              // OAVSETT om invoiceNumberError faktiskt hade något att
+              // klaga på — fältet visade alltså permanent en felkant, som
+              // om något redan var fel innan man ens skrivit något.
+              // Samma för textfärgen (var(--text-secondary), en dämpad
+              // "läs bara"-nyans) på ett fält man faktiskt ska skriva i.
+              style={{ width: '160px', padding: '8px', borderRadius: '6px', border: `1px solid ${invoiceNumberError ? 'var(--status-red-text)' : 'var(--border)'}`, background: 'var(--bg-card)', color: 'var(--text-main)', boxSizing: 'border-box' }}
             />
           </div>
           <button onClick={saveNextInvoiceNumber} style={{ padding: '8px 16px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 600, cursor: 'pointer' }}>Spara golv</button>
@@ -3164,14 +3158,14 @@ export default function Settings({
               </SettingCard>
 
               <SettingCard title="Säkerhet" icon={Lock} tone="blue" description="Skydda kontot och håll koll på din inloggning." style={{ borderRadius: 0 }}>
-                <PasswordSection user={user} readOnly={readOnly} bare />
+                <PasswordSection user={user} readOnly={readOnly} />
                 {/* readOnly (demo): TwoFactorSection hämtar riktiga
                     MFA-faktorer från Supabase direkt vid mount — hoppas över
                     helt istället för att göra ett Supabase-anrop från en
                     icke-inloggad besökare. */}
                 {readOnly
                   ? <SettingRow label="Tvåfaktorsautentisering" description="Kräver ett riktigt konto att visa och aktivera." last />
-                  : <TwoFactorSection bare />}
+                  : <TwoFactorSection />}
               </SettingCard>
 
               <ActiveSessionsSection user={user} readOnly={readOnly} />
@@ -3775,7 +3769,11 @@ export default function Settings({
                 </label>
                 <input
                   value={deleteConfirmText} onChange={e => setDeleteConfirmText(e.target.value)}
-                  style={{ width: '100%', maxWidth: '340px', padding: '8px 12px', borderRadius: '6px', border: '1px solid #fca5a5', marginBottom: '12px', boxSizing: 'border-box' }}
+                  // Bugkritiskt (mörkt läge, samma buggklass som fixades i
+                  // inputBase — se den kommentaren): fältet saknade helt
+                  // egen background/color och föll då tillbaka på
+                  // webbläsarens vita standard mitt i det mörkröda kortet.
+                  style={{ width: '100%', maxWidth: '340px', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--status-red-text)', background: 'var(--bg-card)', color: 'var(--text-main)', marginBottom: '12px', boxSizing: 'border-box' }}
                 />
                 <div>
                   <button
