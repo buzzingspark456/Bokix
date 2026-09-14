@@ -2191,7 +2191,7 @@ export default function Settings({
   company = {}, setCompanyInfo, accounts = [], verifications = [], invoices = [], quotes = [], expenses = [],
   contacts = [], projects = [], onImport, onReset, onBulkImportSie, stripeAccountId, onConnectStripe, onDisconnectStripe,
   zettleConnected = false, onConnectZettle,
-  onConnectEmailDomain, onCheckEmailDomainStatus, onDisconnectEmailDomain, user,
+  user,
   activeCompanyId,
   // Desktop-scrollbar på/av (Sida: "have in setting users chose to have
   // scroll bar or not in desktop") — state/localStorage/attributet på
@@ -2234,9 +2234,6 @@ export default function Settings({
   const [importBusy, setImportBusy] = useState(false);
   const [importMsg, setImportMsg] = useState('');
   const [showSieImport, setShowSieImport] = useState(false);
-  const [emailDomainInput, setEmailDomainInput] = useState('');
-  const [emailDomainBusy, setEmailDomainBusy] = useState(false);
-  const [emailDomainError, setEmailDomainError] = useState('');
   const [nextInvoiceNumberInput, setNextInvoiceNumberInput] = useState('');
   // Vilken integration som är öppen för inställningar.
   const [openIntegration, setOpenIntegration] = useState(null);
@@ -2437,32 +2434,6 @@ export default function Settings({
     setCompanyInfo({ ...company, nextInvoiceNumber: n });
   };
 
-  // ── E-postavsändare (Sida 33, Steg 2) ──────────────────────────────────
-  const handleConnectDomainClick = async () => {
-    const domain = emailDomainInput.trim().toLowerCase();
-    if (!domain) { setEmailDomainError('Ange en domän, t.ex. nordstromkonsult.se.'); return; }
-    setEmailDomainBusy(true); setEmailDomainError('');
-    try {
-      await onConnectEmailDomain(domain);
-      setEmailDomainInput('');
-    } catch (error) {
-      setEmailDomainError(error.message || 'Kunde inte koppla domänen.');
-    } finally {
-      setEmailDomainBusy(false);
-    }
-  };
-
-  const handleCheckDomainStatusClick = async () => {
-    setEmailDomainBusy(true); setEmailDomainError('');
-    try {
-      await onCheckEmailDomainStatus();
-    } catch (error) {
-      setEmailDomainError(error.message || 'Kunde inte hämta domänstatus.');
-    } finally {
-      setEmailDomainBusy(false);
-    }
-  };
-
   const handleExport = () => {
     const payload = { exportedAt: new Date().toISOString(), company, accounts, verifications, invoices, quotes, expenses, contacts, projects };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
@@ -2521,73 +2492,6 @@ export default function Settings({
   // org.nummer, momsnummer, adress, mejl och bankuppgifterna" som en
   // familj). De autosparar (setCompanyInfo) till skillnad från fälten
   // ovanför dem i samma kort, vilket gruppens hjälptext säger rakt ut.
-  // ── Integrationskatalogen ────────────────────────────────────────────
-  // En post per tjänst som FAKTISKT går att koppla in. Inga platshållare,
-  // inget "kommer snart" — kundfeedback: "ha inte grejer som inte borde
-  // vara där". Listan byggs här (inte i JSX) så sökningen och räknaren
-  // ovanför korten läser exakt samma data som korten själva.
-  const integrationCatalogue = [
-    {
-      id: 'stripe',
-      name: 'Stripe',
-      tagline: 'Låt kunden betala fakturan med kort direkt via länken i mejlet.',
-      logo: <StripeLogo height={27} />,
-      connected: Boolean(stripeAccountId),
-      detail: true,
-      keywords: 'kort betalning checkout',
-      action: (
-        <button type="button" onClick={() => setOpenIntegration(openIntegration === 'stripe' ? null : 'stripe')} style={btnTileLg}>
-          {stripeAccountId ? 'Hantera' : 'Anslut'}
-        </button>
-      ),
-    },
-    {
-      id: 'email',
-      name: 'Egen e-postdomän',
-      tagline: 'Skicka fakturor från din egen adress i stället för en delad Bokix-adress.',
-      logo: <Mail size={30} color="var(--text-secondary)" />,
-      connected: company?.emailDomainStatus === 'verified',
-      statusLabel: company?.emailDomainStatus === 'verified' ? 'Verifierad' : (company?.emailDomain ? 'Väntar på DNS' : 'Inte ansluten'),
-      detail: true,
-      keywords: 'mejl domän dns avsändare',
-      action: (
-        <button type="button" onClick={() => setOpenIntegration(openIntegration === 'email' ? null : 'email')} style={btnTileLg}>
-          {company?.emailDomain ? 'Hantera' : 'Anslut'}
-        </button>
-      ),
-    },
-    {
-      // Zettle visas alltid — kundfeedback: den ska synas. Saknas
-      // inkopplingen (t.ex. i demon) står knappen kvar men säger ifrån
-      // i stället för att kortet försvinner ur katalogen.
-      id: 'zettle',
-      name: 'Zettle',
-      tagline: 'Dagens kassaförsäljning hämtas in som underlag att granska.',
-      logo: <ZettleLogo height={23} />,
-      connected: zettleConnected,
-      keywords: 'kassa butik paypal',
-      action: zettleConnected ? null : (
-        <button
-          type="button"
-          onClick={() => { if (readOnly || !onConnectZettle) { window.alert(DEMO_BLOCKED_MSG); return; } onConnectZettle(); }}
-          style={btnTileLg}
-        >
-          Anslut
-        </button>
-      ),
-    },
-    {
-      id: 'bank',
-      name: 'Din bank',
-      tagline: 'Ladda upp kontoutdraget som CSV eller Excel — raderna matchas mot fakturor och kvitton.',
-      logo: <Landmark size={30} color="var(--text-secondary)" />,
-      connected: true,
-      statusLabel: 'Klar att använda',
-      keywords: 'bank kontoutdrag csv excel swedbank seb nordea handelsbanken',
-      action: <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Finns under Bank</span>,
-    },
-  ];
-
   const bankFieldsGroup = (
     <FieldGroup title="Bank" hint="Visas på fakturan. Sparas direkt.">
       <div className="form-row-2" style={{ ...grid2, maxWidth: FORM_MAX }}>
@@ -2688,7 +2592,6 @@ export default function Settings({
   const [ownSenderLoaded, setOwnSenderLoaded] = useState(false);
   const [ownSenderBusy, setOwnSenderBusy] = useState(false);
   const [ownSenderError, setOwnSenderError] = useState('');
-  const [ownSenderOpen, setOwnSenderOpen] = useState(false);
   const [ownSenderForm, setOwnSenderForm] = useState({
     fromEmail: '', fromName: '', password: '', provider: 'custom', host: '', port: 465, secure: true,
   });
@@ -2794,7 +2697,6 @@ export default function Settings({
         },
       });
       setOwnSender(payload.sender || null);
-      setOwnSenderOpen(false);
       setOwnSenderForm(f => ({ ...f, password: '' }));
     } catch (err) {
       setOwnSenderError(err.message || 'Kunde inte spara avsändaren.');
@@ -2816,23 +2718,97 @@ export default function Settings({
     }
   };
 
-  const ownSenderCard = (
+  // Google (Gmail-konto) och app-lösenordsvägen (verksamhetsmejl hos t.ex.
+  // Outlook eller one.com) delar samma email_senders-rad — bara EN adress
+  // kan vara aktiv sändare åt gången — men visas nu i VARSITT kort i
+  // stället för att den ena döljas bakom en textlänk under den andra. Kund
+  // önskade det tydligt isär: privat Gmail är sin egen koppling, mejl på
+  // den egna verksamhetens domän en annan.
+  const isGoogleSender = ownSender?.provider === 'google';
+  const isManualSender = Boolean(ownSender) && !isGoogleSender;
+
+  const gmailCard = (
     <div style={card}>
       <div style={{ marginBottom: '14px' }}>
-        <SectionHeading icon={Mail} tone={ownSender?.verifiedAt ? 'green' : 'gray'}>
-          Skicka från din egen adress
+        <SectionHeading icon={Mail} tone={isGoogleSender ? 'green' : 'gray'}>
+          Koppla ditt Gmail-konto
         </SectionHeading>
       </div>
 
-      {ownSender ? (
+      {isGoogleSender ? (
         <>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '14px', flexWrap: 'wrap', marginBottom: '12px' }}>
             <div>
               <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)' }}>{ownSender.fromEmail}</div>
               <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                {ownSender.provider === 'google'
-                  ? 'Kopplat med Google. Bokix kan skicka i ditt namn — men inte läsa något i din inkorg.'
-                  : 'Fakturor och offerter skickas härifrån, och hamnar i din egen Skickat-mapp.'}
+                Kopplat med Google. Bokix kan skicka i ditt namn — men inte läsa något i din inkorg.
+              </div>
+            </div>
+            <Badge tone={ownSender.verifiedAt ? 'positive' : 'warning'}>
+              {ownSender.verifiedAt ? 'Ansluten' : 'Ej testad'}
+            </Badge>
+          </div>
+          {ownSender.lastError && (
+            <div style={{ fontSize: '12.5px', color: 'var(--status-red-text)', background: 'var(--status-red-bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '10px 12px', marginBottom: '12px', maxWidth: FORM_MAX }}>
+              Senaste utskicket gick inte via ditt Gmail-konto: {ownSender.lastError} Fakturan skickades via Bokix adress i stället.
+            </div>
+          )}
+          <button onClick={handleOwnSenderRemove} disabled={ownSenderBusy} style={btnGhost}>Koppla från</button>
+        </>
+      ) : (
+        <>
+          <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 16px', maxWidth: '560px' }}>
+            Skicka fakturor från ditt eget Gmail-konto i stället för via Bokix. Kunden ser din Gmail-adress som avsändare, mejlet hamnar i din egen Skickat-mapp, och det kostar ingenting extra.
+          </p>
+
+          {ownSenderStatusError && (
+            <div style={{ fontSize: '12.5px', color: 'var(--status-red-text)', marginBottom: '12px', fontWeight: 600 }}>
+              Kunde inte läsa statusen: {ownSenderStatusError}
+            </div>
+          )}
+
+          {isManualSender && (
+            <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', background: 'var(--bg-hover)', border: '1px solid var(--border)', borderRadius: '8px', padding: '10px 12px', marginBottom: '14px', maxWidth: '560px' }}>
+              Du skickar just nu via {ownSender.fromEmail}. Ansluter du Gmail här ersätts den kopplingen.
+            </div>
+          )}
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', alignItems: 'flex-start', maxWidth: '560px' }}>
+            <button
+              onClick={handleConnectGoogle}
+              disabled={ownSenderBusy || !ownSenderGoogle}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '11px', padding: '13px 20px', borderRadius: '11px', border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-main)', fontWeight: 700, fontSize: '15px', cursor: (ownSenderBusy || !ownSenderGoogle) ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: (ownSenderBusy || !ownSenderGoogle) ? 0.55 : 1, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}
+            >
+              <GoogleGlyph size={19} />
+              {ownSenderBusy ? 'Öppnar Google…' : 'Fortsätt med Google'}
+            </button>
+
+            <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+              {ownSenderGoogle
+                ? 'Google frågar om en enda behörighet: att skicka e-post åt dig. Bokix kan inte läsa, söka i eller radera något i din inkorg — den behörigheten begär vi aldrig.'
+                : 'Google-inloggningen är inte påslagen på servern ännu (GOOGLE_OAUTH_CLIENT_ID och GOOGLE_OAUTH_CLIENT_SECRET saknas).'}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+
+  const businessEmailCard = (
+    <div style={card}>
+      <div style={{ marginBottom: '14px' }}>
+        <SectionHeading icon={Mail} tone={isManualSender ? 'green' : 'gray'}>
+          Skicka från din verksamhets e-post
+        </SectionHeading>
+      </div>
+
+      {isManualSender ? (
+        <>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '14px', flexWrap: 'wrap', marginBottom: '12px' }}>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)' }}>{ownSender.fromEmail}</div>
+              <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                Fakturor och offerter skickas härifrån, och hamnar i din egen Skickat-mapp.
               </div>
             </div>
             <Badge tone={ownSender.verifiedAt ? 'positive' : 'warning'}>
@@ -2849,193 +2825,166 @@ export default function Settings({
       ) : (
         <>
           <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 16px', maxWidth: '560px' }}>
-            Skicka fakturor från adressen du redan har, i stället för via Bokix. Kunden ser din adress som avsändare, mejlet hamnar i din egen Skickat-mapp, och det kostar ingenting extra.
+            Skicka fakturor från din verksamhets mejladress hos t.ex. Outlook, one.com eller en annan leverantör, i stället för via Bokix. Kostar ingenting extra.
           </p>
 
-          {ownSenderStatusError && (
-            <div style={{ fontSize: '12.5px', color: 'var(--status-red-text)', marginBottom: '12px', fontWeight: 600 }}>
-              Kunde inte läsa statusen: {ownSenderStatusError}
+          {isGoogleSender && (
+            <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', background: 'var(--bg-hover)', border: '1px solid var(--border)', borderRadius: '8px', padding: '10px 12px', marginBottom: '14px', maxWidth: FORM_MAX }}>
+              Du skickar just nu via ditt Gmail-konto ({ownSender.fromEmail}). Fyll i nedan för att byta till den här adressen i stället.
             </div>
           )}
 
-          {!ownSenderOpen ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', alignItems: 'flex-start', maxWidth: '560px' }}>
-              {/* Google är HUVUDVÄGEN. Ett klick, en inloggning, klart —
-                  inga serveradresser och inga app-lösenord. Manuella
-                  vägen ligger kvar som en textlänk under, för Outlook,
-                  one.com och egna domäner. */}
-              <button
-                onClick={handleConnectGoogle}
-                disabled={ownSenderBusy || !ownSenderGoogle}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '11px', padding: '13px 20px', borderRadius: '11px', border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-main)', fontWeight: 700, fontSize: '15px', cursor: (ownSenderBusy || !ownSenderGoogle) ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: (ownSenderBusy || !ownSenderGoogle) ? 0.55 : 1, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}
-              >
-                <GoogleGlyph size={19} />
-                {ownSenderBusy ? 'Öppnar Google…' : 'Fortsätt med Google'}
-              </button>
-
-              <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                {ownSenderGoogle
-                  ? 'Google frågar om en enda behörighet: att skicka e-post åt dig. Bokix kan inte läsa, söka i eller radera något i din inkorg — den behörigheten begär vi aldrig.'
-                  : 'Google-inloggningen är inte påslagen på servern ännu (GOOGLE_OAUTH_CLIENT_ID och GOOGLE_OAUTH_CLIENT_SECRET saknas). Använd den manuella vägen så länge.'}
-              </div>
-
-              <button
-                onClick={() => setOwnSenderOpen(true)}
-                style={{ background: 'none', border: 'none', padding: 0, fontFamily: 'inherit', fontSize: '13px', fontWeight: 600, color: 'var(--accent-text)', cursor: 'pointer', textDecoration: 'underline' }}
-              >
-                Använder du inte Gmail? Koppla en annan leverantör
-              </button>
+          <div style={{ maxWidth: FORM_MAX }}>
+            <div className="form-row-stack" style={grid2}>
+              <AutoField label="Din e-postadress" value={ownSenderForm.fromEmail} onChange={handleOwnSenderEmailChange} placeholder="namn@dittforetag.se" />
+              <AutoField label="Avsändarnamn (visas för kunden)" value={ownSenderForm.fromName} onChange={(v) => setOwnSenderForm(f => ({ ...f, fromName: v }))} placeholder={company?.name || 'Ditt företag'} />
             </div>
-          ) : (
-            <div style={{ maxWidth: FORM_MAX }}>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '12px' }}>
-                Koppla med app-lösenord
+
+            <div style={{ marginTop: '12px' }}>
+              <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Leverantör</label>
+              <select
+                value={ownSenderForm.provider}
+                onChange={e => handleOwnSenderProviderChange(e.target.value)}
+                style={{ ...inputBase, width: '100%' }}
+              >
+                {ownSenderProviders.map(pr => <option key={pr.id} value={pr.id}>{pr.label}</option>)}
+              </select>
+            </div>
+
+            {activeProvider?.help && (
+              <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginTop: '10px', lineHeight: 1.55 }}>
+                {activeProvider.help}
+                {activeProvider.appPasswordUrl && (
+                  <> <a href={activeProvider.appPasswordUrl} target="_blank" rel="noopener noreferrer" style={{ color: BRAND.greenDark, fontWeight: 600 }}>Skapa app-lösenord →</a></>
+                )}
               </div>
-              <div className="form-row-stack" style={grid2}>
-                <AutoField label="Din e-postadress" value={ownSenderForm.fromEmail} onChange={handleOwnSenderEmailChange} placeholder="namn@gmail.com" />
-                <AutoField label="Avsändarnamn (visas för kunden)" value={ownSenderForm.fromName} onChange={(v) => setOwnSenderForm(f => ({ ...f, fromName: v }))} placeholder={company?.name || 'Ditt företag'} />
+            )}
+
+            {ownSenderForm.provider === 'custom' && (
+              <div className="form-row-stack" style={{ ...grid2, marginTop: '12px' }}>
+                <AutoField label="Serveradress (SMTP)" value={ownSenderForm.host} onChange={(v) => setOwnSenderForm(f => ({ ...f, host: v }))} placeholder="smtp.leverantor.se" />
+                <AutoField label="Port" type="number" value={String(ownSenderForm.port)} onChange={(v) => setOwnSenderForm(f => ({ ...f, port: Number(v) || 465, secure: Number(v) === 465 }))} />
               </div>
+            )}
 
-              <div style={{ marginTop: '12px' }}>
-                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Leverantör</label>
-                <select
-                  value={ownSenderForm.provider}
-                  onChange={e => handleOwnSenderProviderChange(e.target.value)}
-                  style={{ ...inputBase, width: '100%' }}
-                >
-                  {ownSenderProviders.map(pr => <option key={pr.id} value={pr.id}>{pr.label}</option>)}
-                </select>
-              </div>
-
-              {activeProvider?.help && (
-                <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginTop: '10px', lineHeight: 1.55 }}>
-                  {activeProvider.help}
-                  {activeProvider.appPasswordUrl && (
-                    <> <a href={activeProvider.appPasswordUrl} target="_blank" rel="noopener noreferrer" style={{ color: BRAND.greenDark, fontWeight: 600 }}>Skapa app-lösenord →</a></>
-                  )}
-                </div>
-              )}
-
-              {ownSenderForm.provider === 'custom' && (
-                <div className="form-row-stack" style={{ ...grid2, marginTop: '12px' }}>
-                  <AutoField label="Serveradress (SMTP)" value={ownSenderForm.host} onChange={(v) => setOwnSenderForm(f => ({ ...f, host: v }))} placeholder="smtp.leverantor.se" />
-                  <AutoField label="Port" type="number" value={String(ownSenderForm.port)} onChange={(v) => setOwnSenderForm(f => ({ ...f, port: Number(v) || 465, secure: Number(v) === 465 }))} />
-                </div>
-              )}
-
-              <div style={{ marginTop: '12px' }}>
-                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>App-lösenord</label>
-                <input
-                  type="password"
-                  value={ownSenderForm.password}
-                  onChange={e => { setOwnSenderForm(f => ({ ...f, password: e.target.value })); setOwnSenderError(''); }}
-                  placeholder="Klistra in app-lösenordet"
-                  autoComplete="new-password"
-                  style={{ ...inputBase, width: '100%' }}
-                />
-                <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '6px' }}>
-                  Lösenordet krypteras innan det sparas och visas aldrig igen. Vi testar inloggningen direkt när du sparar.
-                </div>
-              </div>
-
-              {ownSenderError && (
-                <div style={{ color: 'var(--status-red-text)', fontSize: '12.5px', marginTop: '10px', fontWeight: 600 }}>{ownSenderError}</div>
-              )}
-
-              <div style={{ display: 'flex', gap: '10px', marginTop: '14px', flexWrap: 'wrap' }}>
-                <button onClick={handleOwnSenderSave} disabled={ownSenderBusy} style={{ ...btnPrimary, opacity: ownSenderBusy ? 0.6 : 1, cursor: ownSenderBusy ? 'not-allowed' : 'pointer' }}>
-                  {ownSenderBusy ? 'Testar inloggningen…' : 'Testa och spara'}
-                </button>
-                <button onClick={() => { setOwnSenderOpen(false); setOwnSenderError(''); }} style={btnGhost}>Avbryt</button>
+            <div style={{ marginTop: '12px' }}>
+              <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>App-lösenord</label>
+              <input
+                type="password"
+                value={ownSenderForm.password}
+                onChange={e => { setOwnSenderForm(f => ({ ...f, password: e.target.value })); setOwnSenderError(''); }}
+                placeholder="Klistra in app-lösenordet"
+                autoComplete="new-password"
+                style={{ ...inputBase, width: '100%' }}
+              />
+              <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '6px' }}>
+                Lösenordet krypteras innan det sparas och visas aldrig igen. Vi testar inloggningen direkt när du sparar.
               </div>
             </div>
-          )}
+
+            {ownSenderError && (
+              <div style={{ color: 'var(--status-red-text)', fontSize: '12.5px', marginTop: '10px', fontWeight: 600 }}>{ownSenderError}</div>
+            )}
+
+            <div style={{ display: 'flex', gap: '10px', marginTop: '14px', flexWrap: 'wrap' }}>
+              <button onClick={handleOwnSenderSave} disabled={ownSenderBusy} style={{ ...btnPrimary, opacity: ownSenderBusy ? 0.6 : 1, cursor: ownSenderBusy ? 'not-allowed' : 'pointer' }}>
+                {ownSenderBusy ? 'Testar inloggningen…' : 'Testa och spara'}
+              </button>
+            </div>
+          </div>
         </>
       )}
     </div>
   );
 
-  const emailSenderCard = (
-    <div style={card}>
-      <div style={{ marginBottom: '14px' }}>
-        <SectionHeading icon={Mail} tone={company?.emailDomainStatus === 'verified' ? 'green' : (company?.emailDomain ? 'amber' : 'gray')}>
-          E-postavsändare
-        </SectionHeading>
-      </div>
-
-      {!company?.emailDomain ? (
-        <>
-          <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 14px', maxWidth: '520px' }}>
-            Adressen blir <code>faktura@{company?.name ? company.name.toLowerCase().replace(/[^a-z0-9]+/g, '') : 'dittforetag'}.se</code>. Utan en verifierad domän skickas mejlen via Bokix reservadress.
-          </p>
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-            <input
-              type="text" value={emailDomainInput} onChange={e => { setEmailDomainInput(e.target.value); setEmailDomainError(''); }}
-              placeholder="dittforetag.se" style={{ ...inputBase, width: '240px' }}
-              onFocus={e => e.target.style.borderColor = BRAND.green}
-              onBlur={e => e.target.style.borderColor = 'var(--border)'}
-            />
-            <button onClick={handleConnectDomainClick} disabled={emailDomainBusy} style={{ ...btnPrimary, opacity: emailDomainBusy ? 0.6 : 1, cursor: emailDomainBusy ? 'not-allowed' : 'pointer' }}>
-              {emailDomainBusy ? 'Kopplar...' : 'Anslut domän'}
-            </button>
-          </div>
-          {emailDomainError && <div style={{ color: 'var(--status-red-text)', fontSize: '12.5px', marginTop: '8px', fontWeight: 600 }}>{emailDomainError}</div>}
-        </>
-      ) : (
-        <>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '14px', flexWrap: 'wrap', marginBottom: '14px' }}>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)' }}>{company.emailDomain}</div>
-              <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                {company.emailDomainStatus === 'verified'
-                  ? `Fakturor skickas från faktura@${company.emailDomain}`
-                  : `Reservläge just nu — fakturor skickas via Bokix egen adress tills domänen är verifierad`}
-              </div>
-            </div>
-            <Badge tone={company.emailDomainStatus === 'verified' ? 'positive' : 'warning'}>
-              {company.emailDomainStatus === 'verified' ? 'Verifierad' : 'Ej verifierad'}
-            </Badge>
-          </div>
-
-          {company.emailDomainStatus !== 'verified' && company?.emailDomainRecords?.length > 0 && (
-            <div style={{ marginBottom: '14px', maxWidth: '672px' }}>
-              <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: '0 0 10px' }}>
-                Lägg till dessa DNS-poster hos din domänleverantör, samma sätt som för bokix.se:
-              </p>
-              <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: '8px' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12.5px' }}>
-                  <thead>
-                    <tr style={{ background: 'var(--bg-muted)', borderBottom: '1px solid var(--border)' }}>
-                      <th style={{ padding: '8px 10px', textAlign: 'left', color: 'var(--text-secondary)', fontWeight: 600 }}>Typ</th>
-                      <th style={{ padding: '8px 10px', textAlign: 'left', color: 'var(--text-secondary)', fontWeight: 600 }}>Namn</th>
-                      <th style={{ padding: '8px 10px', textAlign: 'left', color: 'var(--text-secondary)', fontWeight: 600 }}>Värde</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {company.emailDomainRecords.map((r, i) => (
-                      <tr key={i} style={{ borderBottom: i < company.emailDomainRecords.length - 1 ? '1px solid var(--border-light)' : 'none' }}>
-                        <td style={{ padding: '8px 10px', fontWeight: 700, color: 'var(--text-main)' }}>{r.type || r.record}</td>
-                        <td style={{ padding: '8px 10px', color: 'var(--text-main)', fontFamily: 'monospace' }}>{r.name}</td>
-                        <td style={{ padding: '8px 10px', color: 'var(--text-main)', fontFamily: 'monospace', wordBreak: 'break-all' }}>{r.value}{r.priority != null ? ` (prio ${r.priority})` : ''}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-            <button onClick={handleCheckDomainStatusClick} disabled={emailDomainBusy} style={{ ...btnSecondary, opacity: emailDomainBusy ? 0.6 : 1, cursor: emailDomainBusy ? 'not-allowed' : 'pointer' }}>
-              {emailDomainBusy ? 'Kontrollerar...' : 'Kontrollera status'}
-            </button>
-            <button onClick={onDisconnectEmailDomain} style={btnGhost}>Koppla från</button>
-          </div>
-          {emailDomainError && <div style={{ color: 'var(--status-red-text)', fontSize: '12.5px', marginTop: '8px', fontWeight: 600 }}>{emailDomainError}</div>}
-        </>
-      )}
-    </div>
-  );
+  // ── Integrationskatalogen ────────────────────────────────────────────
+  // En post per tjänst som FAKTISKT går att koppla in. Inga platshållare,
+  // inget "kommer snart" — kundfeedback: "ha inte grejer som inte borde
+  // vara där". Listan byggs här (inte i JSX) så sökningen och räknaren
+  // ovanför korten läser exakt samma data som korten själva.
+  //
+  // Gmail och verksamhetens egen e-postadress är EGNA rutor här, precis
+  // som Stripe och Zettle — inte en gemensam "e-post"-ruta man öppnar och
+  // hittar båda under. Kundönskemål, ordagrant i sak: de ska inte ligga
+  // under varandra, de ska vara lika separerade som Stripe och Zettle är
+  // från varandra. Den tidigare domän-baserade rutan (verifiera DNS för
+  // en egen domän, "Anslut domän") är borttagen — fungerade inte.
+  const integrationCatalogue = [
+    {
+      id: 'stripe',
+      name: 'Stripe',
+      tagline: 'Låt kunden betala fakturan med kort direkt via länken i mejlet.',
+      logo: <StripeLogo height={27} />,
+      connected: Boolean(stripeAccountId),
+      detail: true,
+      keywords: 'kort betalning checkout',
+      action: (
+        <button type="button" onClick={() => setOpenIntegration(openIntegration === 'stripe' ? null : 'stripe')} style={btnTileLg}>
+          {stripeAccountId ? 'Hantera' : 'Anslut'}
+        </button>
+      ),
+    },
+    {
+      id: 'gmail',
+      name: 'Gmail',
+      tagline: 'Skicka fakturor direkt från ditt eget Gmail-konto.',
+      logo: <GoogleGlyph size={26} />,
+      connected: isGoogleSender,
+      statusLabel: isGoogleSender ? 'Ansluten' : 'Inte ansluten',
+      detail: true,
+      keywords: 'gmail google mejl avsändare',
+      action: (
+        <button type="button" onClick={() => setOpenIntegration(openIntegration === 'gmail' ? null : 'gmail')} style={btnTileLg}>
+          {isGoogleSender ? 'Hantera' : 'Anslut'}
+        </button>
+      ),
+    },
+    {
+      id: 'business-email',
+      name: 'Egen e-postadress',
+      tagline: 'Skicka fakturor från din verksamhets mejladress i stället för en delad Bokix-adress.',
+      logo: <Mail size={30} color="var(--text-secondary)" />,
+      connected: isManualSender,
+      statusLabel: isManualSender ? 'Ansluten' : 'Inte ansluten',
+      detail: true,
+      keywords: 'mejl smtp app-lösenord avsändare outlook',
+      action: (
+        <button type="button" onClick={() => setOpenIntegration(openIntegration === 'business-email' ? null : 'business-email')} style={btnTileLg}>
+          {isManualSender ? 'Hantera' : 'Anslut'}
+        </button>
+      ),
+    },
+    {
+      // Zettle visas alltid — kundfeedback: den ska synas. Saknas
+      // inkopplingen (t.ex. i demon) står knappen kvar men säger ifrån
+      // i stället för att kortet försvinner ur katalogen.
+      id: 'zettle',
+      name: 'Zettle',
+      tagline: 'Dagens kassaförsäljning hämtas in som underlag att granska.',
+      logo: <ZettleLogo height={23} />,
+      connected: zettleConnected,
+      keywords: 'kassa butik paypal',
+      action: zettleConnected ? null : (
+        <button
+          type="button"
+          onClick={() => { if (readOnly || !onConnectZettle) { window.alert(DEMO_BLOCKED_MSG); return; } onConnectZettle(); }}
+          style={btnTileLg}
+        >
+          Anslut
+        </button>
+      ),
+    },
+    {
+      id: 'bank',
+      name: 'Din bank',
+      tagline: 'Ladda upp kontoutdraget som CSV eller Excel — raderna matchas mot fakturor och kvitton.',
+      logo: <Landmark size={30} color="var(--text-secondary)" />,
+      connected: true,
+      statusLabel: 'Klar att använda',
+      keywords: 'bank kontoutdrag csv excel swedbank seb nordea handelsbanken',
+      action: <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Finns under Bank</span>,
+    },
+  ];
 
   const invoiceDefaultsCard = (
     <div style={card}>
@@ -3610,15 +3559,11 @@ export default function Settings({
               {openIntegration === 'stripe' && (
                 <div style={{ marginTop: '18px' }}>{stripeCard}</div>
               )}
-              {openIntegration === 'email' && (
-                <>
-                  {/* Två vägar till samma sak: egen DOMÄN (kräver att man
-                      äger en) och egen ADRESS via sitt befintliga mejlkonto
-                      (kräver ingenting). Den som saknar domän ska inte
-                      behöva leta efter den andra vägen på en annan sida. */}
-                  <div style={{ marginTop: '18px' }}>{emailSenderCard}</div>
-                  <div style={{ marginTop: '18px' }}>{ownSenderCard}</div>
-                </>
+              {openIntegration === 'gmail' && (
+                <div style={{ marginTop: '18px' }}>{gmailCard}</div>
+              )}
+              {openIntegration === 'business-email' && (
+                <div style={{ marginTop: '18px' }}>{businessEmailCard}</div>
               )}
             </div>
           )}
