@@ -8,6 +8,7 @@ import { validateEmailList, isValidIban } from '../utils/validators';
 import { contactsToCsv, csvToContacts, downloadCsv } from '../utils/csvRegister';
 import { useCompanyLookup } from '../hooks/useCompanyLookup';
 import AnchoredDropdown from './shared/AnchoredDropdown';
+import { BRAND } from '../utils/brandColors';
 
 // ─── Delade formulärstilar ─────────────────────────────────────────────────
 const sectionStyle = { background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border)', padding: '20px', marginBottom: '16px' };
@@ -873,8 +874,14 @@ export default function Contacts({ contacts, setContacts, accounts = [], globalA
                 />
               </div>
             ) : (
-              <div style={{ flex: 1, minHeight: '320px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', margin: '24px', padding: '48px 24px', background: 'var(--bg-card)', borderRadius: '12px', border: '1px dashed var(--text-muted)' }}>
-                <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', color: 'var(--text-muted)' }}>
+              // Kundönskemål ("Fakturor är det som ser bra ut"): tomt-läget
+              // svävade tidigare som ett eget litet kort (margin: 24px +
+              // egen kant/rundning), med synligt mellanrum mot filterraden
+              // ovanför och sidorna — till skillnad från Fakturors tomma
+              // läge, som fyller ytan flush utan marginal/kant. Samma
+              // flush-fyllning här nu, ingen egen kant/rundning kvar.
+              <div style={{ flex: 1, minHeight: '320px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '48px 24px', background: 'var(--bg-card)' }}>
+                <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'var(--bg-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', color: BRAND.green }}>
                   {activeTab === 'customer' ? <Users size={32} /> : <Truck size={32} />}
                 </div>
                 <h3 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 8px', color: 'var(--text-main)' }}>

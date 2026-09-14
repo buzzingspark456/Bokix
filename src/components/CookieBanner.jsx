@@ -44,9 +44,19 @@ export default function CookieBanner() {
     <div
       role="dialog"
       aria-label="Cookieinställningar"
-      style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(15,23,42,0.45)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: '20px' }}
+      style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(15,23,42,0.45)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: '20px', overflowY: 'auto' }}
     >
-      <div style={{ width: '100%', maxWidth: '600px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '16px', boxShadow: '0 20px 60px rgba(15,23,42,0.25)', overflow: 'hidden' }}>
+      {/* Kundfeedback (mobil, skärmdump): kortet ligger fast mot botten
+          (alignItems: flex-end) med sin fulla höjd — på en kort synlig
+          viewport (t.ex. Chromes egen "översätt sidan?"-rad äter en bit av
+          höjden ovanpå adressfältet) blev kortet högre än utrymmet under
+          det, och eftersom den yttre ytan aldrig kunde skrolla klipptes
+          toppen (rubriken "Den här webbplatsen använder cookies") helt
+          osynligt OVANFÖR skärmen i stället för att gå att skrolla fram.
+          overflowY: auto på ytan + maxHeight/overflowY på kortet självt
+          gör att HELA kortet går att skrolla fram i stället, oavsett hur
+          mycket riktig höjd webbläsaren faktiskt lämnar kvar. */}
+      <div style={{ width: '100%', maxWidth: '600px', maxHeight: '100%', overflowY: 'auto', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '16px', boxShadow: '0 20px 60px rgba(15,23,42,0.25)' }}>
 
         {/* Header — vårt eget ordmärke, ingen extern leverantörslogga */}
         <div style={{ display: 'flex', alignItems: 'center', padding: '18px 24px', borderBottom: '1px solid var(--border-light)' }}>

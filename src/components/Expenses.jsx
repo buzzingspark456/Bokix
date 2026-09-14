@@ -1,17 +1,17 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import {
-  UploadCloud, FileText, CheckCircle2, AlertCircle, Receipt, X, Clock, Trash2, RotateCcw, Search, ScanLine,
+  UploadCloud, FileText, CheckCircle2, AlertCircle, Receipt, X, Clock, Trash2, RotateCcw, Search, ScanLine, FolderPlus, Pencil,
 } from 'lucide-react';
 import { AccountSearch } from './shared/SearchInputs';
 import { DocumentPane } from './shared/DocumentViewer';
 import { TextSuggestInput } from './shared/SearchInputs';
 import ListPageHeader from './shared/ListPageHeader';
+import AnchoredDropdown, { useDismissOnOutsideClick } from './shared/AnchoredDropdown';
 import { uploadFileToStorage } from '../utils/fileUpload';
 import { BRAND } from '../utils/brandColors';
 import { confirmDialog } from './shared/ConfirmDialog';
 import { ocrFile, parseReceiptText } from '../utils/ocrReceipt';
 import { convertToSek } from '../utils/currencyConversion';
-import { RECEIPT_CATEGORIES, categoryForAccountCode } from '../utils/accountCategories';
 
 // ── Formatting ──
 const formatSEK = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
@@ -183,7 +183,7 @@ function OcrBadge() {
   );
 }
 
-function ReceiptDetailModal({ receipt, accounts, projects, allReceipts, status, onSave, onDelete, onReverse, onClose }) {
+function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allReceipts, status, onSave, onDelete, onReverse, onClose }) {
   // "Rättad" är också ett låst tillstånd — samma skäl som "Bokförd": en
   // rättelseverifikation ändrar inte originalet, så fälten som redan
   // bokfördes ska förbli precis vad de var när det begicks, inte gå att
@@ -196,6 +196,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, allReceipts, status, 
     vatRate: receipt.vatRate ?? 25,
     costAccount: receipt.costAccount || '',
     projectId: receipt.projectId || '',
+    folderId: receipt.folderId || '',
     notes: receipt.notes || '',
   });
   const [errors, setErrors] = useState({});
@@ -355,7 +356,8 @@ function ReceiptDetailModal({ receipt, accounts, projects, allReceipts, status, 
 
     onSave(receipt.id, {
       date: form.date, supplier: form.supplier.trim(), amount, vatRate: Number(form.vatRate),
-      costAccount: form.costAccount, projectId: form.projectId || undefined, notes: form.notes.trim() || undefined,
+      costAccount: form.costAccount, projectId: form.projectId || undefined, folderId: form.folderId || undefined,
+      notes: form.notes.trim() || undefined,
     });
     onClose();
   };
@@ -552,6 +554,20 @@ function ReceiptDetailModal({ receipt, accounts, projects, allReceipts, status, 
                 </div>
               )}
 
+              {/* Mapp — kundens egna namngivna sätt att dela upp kvittona
+                  (skapas/hanteras via mappknappen i verktygsraden, se
+                  Expenses-listan nedanför). Fältet visas bara när det
+                  faktiskt finns någon mapp att lägga kvittot i. */}
+              {folders.length > 0 && (
+                <div className="rc-span">
+                  <label style={labelSt}>Mapp (valfritt)</label>
+                  <select value={form.folderId} onChange={e => setForm(f => ({ ...f, folderId: e.target.value }))} style={{ ...inputSt, background: 'var(--bg-card)' }}>
+                    <option value="">Ingen mapp</option>
+                    {folders.map(fol => <option key={fol.id} value={fol.id}>{fol.name}</option>)}
+                  </select>
+                </div>
+              )}
+
               <div className="rc-span">
                 <label style={labelSt}>Anteckningar (valfritt)</label>
                 <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} placeholder="Vad var det här köpet till?" style={{ ...inputSt, resize: 'vertical', fontFamily: 'inherit' }} />
@@ -605,6 +621,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, allReceipts, status, 
 
 export default function Expenses({
   expenses = [], accounts = [], verifications = [], projects = [], user,
+  company, onUpdateCompany, onDeleteReceiptFolder,
   onAdd, onFixExpenseAccount, onSaveReceiptDetails, onDeleteExpense, onReverseExpense,
   pageTitle, pageSubtitle,
   // Utbytbar uppladdningsfunktion — defaultar till den riktiga Storage-
@@ -634,12 +651,41 @@ export default function Expenses({
   // years"), grupperat per år istället för per år+månad (se groupReceipts
   // nedan).
   const [monthFilter, setMonthFilter] = useState('all');
-  // Kvitton grupperade efter samma kategorier som bankimporten och
-  // kvitto-OCR:n redan föreslår konton ur (utils/accountCategories.js) —
-  // kundönskemål, ordagrant i sak: "kvitton som sorterar sig själva".
-  // 'other' = kvitton vars konto inte hör till någon av hinkarna (eller
-  // som ännu saknar konto), inte en påhittad kategori.
-  const [categoryFilter, setCategoryFilter] = useState(null); // null | kategori-id | 'other'
+  // Mappar — kundens EGNA, namngivna sätt att dela upp kvittona (kundönskemål,
+  // ordagrant i sak: "de ska kunna välja hur de vill dela in dem, och
+  // namnge varje mapp"). Ersätter den tidigare, påtvingade indelningen efter
+  // kontokategori (bankimportens/OCR:ns hinkar, utils/accountCategories.js)
+  // — den var aldrig menad som en filtreringsvy, bara en gissning om konto,
+  // och gick inte att döpa om eller styra själv. Mapparna sparas på
+  // företaget (company.receiptFolders), kvittots egen mappkoppling i
+  // r.folderId — se App.jsx: handleSaveReceiptDetails/handleDeleteReceiptFolder.
+  const folders = company?.receiptFolders || [];
+  const [folderFilter, setFolderFilter] = useState(null); // null | mapp-id | '__unfiled__'
+  const [folderManagerOpen, setFolderManagerOpen] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [editingFolderId, setEditingFolderId] = useState(null);
+  const [editingFolderName, setEditingFolderName] = useState('');
+  const folderManagerAnchorRef = useRef(null);
+  const folderManagerPanelRef = useRef(null);
+  useDismissOnOutsideClick(folderManagerOpen, () => setFolderManagerOpen(false), folderManagerAnchorRef, folderManagerPanelRef);
+
+  const addFolder = () => {
+    const name = newFolderName.trim();
+    if (!name) return;
+    const id = `f_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    onUpdateCompany?.(c => ({ ...c, receiptFolders: [...(c?.receiptFolders || []), { id, name }] }));
+    setNewFolderName('');
+  };
+  const renameFolder = (id, name) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    onUpdateCompany?.(c => ({ ...c, receiptFolders: (c?.receiptFolders || []).map(f => f.id === id ? { ...f, name: trimmed } : f) }));
+  };
+  const removeFolder = async (folder) => {
+    const inUse = expenses.some(e => e.folderId === folder.id);
+    if (inUse && !(await confirmDialog(`Kvitton i "${folder.name}" läggs tillbaka som osorterade. Ta bort mappen?`, { danger: true }))) return;
+    onDeleteReceiptFolder?.(folder.id);
+  };
   // Kundönskemål: "en vy där de bara ligger under varandra, inte uppdelat
   // per månad" — grupperingen är fin för en lång historik, men ibland vill
   // man bara se allt i en enda lista. Oberoende av monthFilter (man kan
@@ -709,15 +755,14 @@ export default function Expenses({
   };
   const statusMatched = statusFilter ? monthMatched.filter(r => getReceiptStatus(r, verifications) === statusFilter) : monthMatched;
 
-  // Kategori-id för ett kvitto, 'other' om kontot inte hör till någon hink
-  // (eller saknas helt) — se importet av accountCategories.js ovan.
-  const categoryIdOf = (r) => categoryForAccountCode(r.costAccount)?.id || 'other';
-  const categoryCounts = new Map();
+  // Mapp-id för ett kvitto, '__unfiled__' om det inte lagts i någon mapp än.
+  const folderIdOf = (r) => r.folderId || '__unfiled__';
+  const folderCounts = new Map();
   statusMatched.forEach(r => {
-    const id = categoryIdOf(r);
-    categoryCounts.set(id, (categoryCounts.get(id) || 0) + 1);
+    const id = folderIdOf(r);
+    folderCounts.set(id, (folderCounts.get(id) || 0) + 1);
   });
-  const receiptsList = categoryFilter ? statusMatched.filter(r => categoryIdOf(r) === categoryFilter) : statusMatched;
+  const receiptsList = folderFilter ? statusMatched.filter(r => folderIdOf(r) === folderFilter) : statusMatched;
   const detailReceipt = detailReceiptId ? allReceipts.find(r => r.id === detailReceiptId) : null;
 
   // ── Drag & drop / filhantering ──
@@ -982,36 +1027,123 @@ export default function Expenses({
               </>
             )}
 
-            {/* Kategorikedjan — kvittona "sorterar sig själva" i samma
-                hinkar som bankimportens och OCR:ns kontoförslag redan
-                använder (utils/accountCategories.js). Bara synlig när det
-                faktiskt finns mer än en kategori att välja mellan, annars
-                är den bara brus ovanför en enda hög. */}
-            {categoryCounts.size > 1 && (
-              <>
-                <span className="rc-toolbar-divider" />
-                {[...RECEIPT_CATEGORIES, { id: 'other', label: 'Övrigt' }].map(cat => {
-                  const count = categoryCounts.get(cat.id) || 0;
-                  if (count === 0) return null;
-                  const isActive = categoryFilter === cat.id;
-                  return (
-                    <button
-                      key={cat.id}
-                      onClick={() => setCategoryFilter(f => f === cat.id ? null : cat.id)}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 10px',
-                        background: 'var(--bg-muted)', border: `1.5px solid ${isActive ? 'var(--text-main)' : 'transparent'}`,
-                        borderRadius: '999px', fontSize: '12px', fontWeight: 600,
-                        color: 'var(--text-secondary)', cursor: 'pointer', fontFamily: 'inherit',
-                      }}
-                    >
-                      {cat.label}
-                      <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 16, height: 16, padding: '0 4px', borderRadius: '999px', fontSize: '10px', fontWeight: 700, background: 'var(--status-chip-bg)', color: 'var(--text-secondary)' }}>{count}</span>
-                    </button>
-                  );
-                })}
-              </>
+            {/* Mappar — kundens egna, namngivna sätt att dela upp kvittona
+                (ersätter den gamla, påtvingade kontokategori-indelningen,
+                se kommentaren vid folders ovan). Mappillren syns bara när
+                det faktiskt finns en mapp att filtrera på; mapp-knappen är
+                alltid synlig men bara EN liten knapp, inte en egen rad —
+                den enda platsen som tar plats när ingen mapp finns än. */}
+            <span className="rc-toolbar-divider" />
+            {folders.map(folder => {
+              const count = folderCounts.get(folder.id) || 0;
+              if (count === 0 && folderFilter !== folder.id) return null;
+              const isActive = folderFilter === folder.id;
+              return (
+                <button
+                  key={folder.id}
+                  onClick={() => setFolderFilter(f => f === folder.id ? null : folder.id)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 10px',
+                    background: 'var(--bg-muted)', border: `1.5px solid ${isActive ? 'var(--text-main)' : 'transparent'}`,
+                    borderRadius: '999px', fontSize: '12px', fontWeight: 600,
+                    color: 'var(--text-secondary)', cursor: 'pointer', fontFamily: 'inherit',
+                  }}
+                >
+                  {folder.name}
+                  <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 16, height: 16, padding: '0 4px', borderRadius: '999px', fontSize: '10px', fontWeight: 700, background: 'var(--status-chip-bg)', color: 'var(--text-secondary)' }}>{count}</span>
+                </button>
+              );
+            })}
+            {folders.length > 0 && (folderCounts.get('__unfiled__') || 0) > 0 && (
+              <button
+                onClick={() => setFolderFilter(f => f === '__unfiled__' ? null : '__unfiled__')}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 10px',
+                  background: 'var(--bg-muted)', border: `1.5px solid ${folderFilter === '__unfiled__' ? 'var(--text-main)' : 'transparent'}`,
+                  borderRadius: '999px', fontSize: '12px', fontWeight: 600,
+                  color: 'var(--text-secondary)', cursor: 'pointer', fontFamily: 'inherit',
+                }}
+              >
+                Osorterat
+                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 16, height: 16, padding: '0 4px', borderRadius: '999px', fontSize: '10px', fontWeight: 700, background: 'var(--status-chip-bg)', color: 'var(--text-secondary)' }}>{folderCounts.get('__unfiled__')}</span>
+              </button>
             )}
+            <button
+              ref={folderManagerAnchorRef}
+              type="button"
+              onClick={() => setFolderManagerOpen(v => !v)}
+              title="Skapa och hantera mappar"
+              style={{
+                display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 10px',
+                background: folderManagerOpen ? 'var(--bg-muted)' : 'none',
+                border: '1.5px dashed var(--border)', borderRadius: '999px', fontSize: '12px', fontWeight: 600,
+                color: 'var(--text-secondary)', cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >
+              <FolderPlus size={13} /> {folders.length === 0 ? 'Skapa en mapp' : 'Mappar'}
+            </button>
+            <AnchoredDropdown anchorRef={folderManagerAnchorRef} panelRef={folderManagerPanelRef} open={folderManagerOpen} minWidth={230} maxHeight={340}>
+              <div style={{ padding: '10px' }}>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '8px' }}>
+                  Mappar
+                </div>
+                {folders.length === 0 ? (
+                  <div style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginBottom: '10px', lineHeight: 1.5 }}>
+                    Ingen mapp än. Skapa en nedan och lägg kvitton i den från kvittots detaljvy.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginBottom: '10px' }}>
+                    {folders.map(folder => (
+                      <div key={folder.id} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        {editingFolderId === folder.id ? (
+                          <input
+                            autoFocus
+                            value={editingFolderName}
+                            onChange={e => setEditingFolderName(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') { renameFolder(folder.id, editingFolderName); setEditingFolderId(null); }
+                              if (e.key === 'Escape') setEditingFolderId(null);
+                            }}
+                            onBlur={() => { renameFolder(folder.id, editingFolderName); setEditingFolderId(null); }}
+                            style={{ flex: 1, padding: '5px 7px', border: '1px solid var(--primary)', borderRadius: '6px', fontSize: '12.5px', fontFamily: 'inherit', background: 'var(--bg-card)', color: 'var(--text-main)' }}
+                          />
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => { setEditingFolderId(folder.id); setEditingFolderName(folder.name); }}
+                            title="Byt namn"
+                            style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '6px', textAlign: 'left', padding: '5px 7px', border: 'none', background: 'none', borderRadius: '6px', fontSize: '12.5px', color: 'var(--text-main)', cursor: 'pointer', fontFamily: 'inherit' }}
+                          >
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{folder.name}</span>
+                            <Pencil size={11} color="var(--text-muted)" style={{ flexShrink: 0 }} />
+                          </button>
+                        )}
+                        <button type="button" onClick={() => removeFolder(folder)} aria-label={`Ta bort mappen ${folder.name}`} title="Ta bort mapp" style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '5px', display: 'flex', flexShrink: 0 }}>
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <input
+                    value={newFolderName}
+                    onChange={e => setNewFolderName(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') addFolder(); }}
+                    placeholder="Ny mapp, t.ex. Resor"
+                    style={{ flex: 1, minWidth: 0, padding: '6px 8px', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '12.5px', fontFamily: 'inherit', background: 'var(--bg-card)', color: 'var(--text-main)' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={addFolder}
+                    disabled={!newFolderName.trim()}
+                    style={{ padding: '6px 10px', background: BRAND.green, border: 'none', borderRadius: '6px', color: 'white', fontWeight: 600, fontSize: '12.5px', fontFamily: 'inherit', cursor: newFolderName.trim() ? 'pointer' : 'default', opacity: newFolderName.trim() ? 1 : 0.5, flexShrink: 0 }}
+                  >
+                    Lägg till
+                  </button>
+                </div>
+              </div>
+            </AnchoredDropdown>
           </div>
 
         </div>
@@ -1064,6 +1196,7 @@ export default function Expenses({
                 {items.map(r => {
                   const status = getReceiptStatus(r, verifications);
                   const categoryName = accounts.find(a => a.code === r.costAccount)?.name;
+                  const folderName = r.folderId ? folders.find(f => f.id === r.folderId)?.name : null;
                   // Vem som laddade upp är bara intressant när det finns fler
                   // än en person att skilja på (samma resonemang som ovan).
                   const uploaderName = showUploaderTabs && effectiveTab === 'all' ? displayUploaderName(r.uploadedBy) : null;
@@ -1089,7 +1222,7 @@ export default function Expenses({
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: '13.5px', fontWeight: 500, color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.supplier || r.description || 'Namnlöst kvitto'}</div>
-                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{formatDate(r.date)}{categoryName ? ` · ${categoryName}` : ''}</div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{formatDate(r.date)}{categoryName ? ` · ${categoryName}` : ''}{folderName ? ` · ${folderName}` : ''}</div>
                         {uploaderName && <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '1px' }}>Uppladdat av {uploaderName}</div>}
                       </div>
                       <div style={{ textAlign: 'right', flexShrink: 0 }}>
@@ -1137,6 +1270,7 @@ export default function Expenses({
           receipt={detailReceipt}
           accounts={accounts}
           projects={projects}
+          folders={folders}
           allReceipts={allReceipts}
           status={getReceiptStatus(detailReceipt, verifications)}
           onSave={(id, values) => onSaveReceiptDetails?.(id, values)}

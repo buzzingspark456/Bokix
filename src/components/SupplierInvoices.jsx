@@ -946,7 +946,20 @@ export default function SupplierInvoices({
           <ListTable
             rowKey={inv => inv.id}
             onRowClick={inv => setViewingInvoice(inv)}
-            emptyMessage={list.length === 0 ? 'Inga leverantörsfakturor registrerade än.' : 'Ingen matchade sökningen.'}
+            emptyMessage={list.length === 0 ? (
+              // Kundönskemål: samma stora ikon/rubrik/knapp-mönster som
+              // Kontakter/Offerter tomma lägen, inte bara en textrad.
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', padding: '20px 0' }}>
+                <div style={{ width: 56, height: 56, borderRadius: '999px', background: 'var(--bg-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: BRAND.green }}>
+                  <FileText size={26} />
+                </div>
+                <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-main)' }}>Inga leverantörsfakturor än</div>
+                <div style={{ fontSize: '13.5px', color: 'var(--text-muted)', maxWidth: '320px' }}>Registrera din första leverantörsfaktura för att komma igång.</div>
+                <button type="button" onClick={() => setShowForm(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '10px 20px', marginTop: '8px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '9px', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}>
+                  <Plus size={16} /> Ny leverantörsfaktura
+                </button>
+              </div>
+            ) : 'Ingen matchade sökningen.'}
             rows={filtered}
             mobileList={inv => {
               const needsReview = !inv.costAccount && !inv.rows?.length;

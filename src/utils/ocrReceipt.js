@@ -157,11 +157,55 @@ async function renderPdfPageToCanvas(blob) {
   return canvas;
 }
 
+// Tesseracts lästid skalar ungefär med ANTALET PIXLAR i bilden, inte med
+// hur skarp/läsbar den är — och en modern mobilkamera fotograferar i
+// 12+ megapixel (3000-4000px på långsidan) rakt av. Den råa bilden gick
+// tidigare oförminskad rakt in i Tesseract: på en dator hann det knappt
+// märkas, men på en telefons mycket svagare CPU (kundfeedback, uttryckligt:
+// "tog typ en minut, jag var generad" — samma sida som annars påstår
+// "klart på <10 sekunder") blev just DEN skillnaden hela problemet.
+// 1800px på långsidan är gott och väl för Tesseracts egen rekommenderade
+// upplösning (~300 DPI för normal kvittotext) — att gå högre kostar bara
+// tid, det gör aldrig avläsningen säkrare.
+const MAX_OCR_DIMENSION = 1800;
+
+/**
+ * Förminskar en bild (Blob/File) eller canvas till max MAX_OCR_DIMENSION på
+ * långsidan innan den går till Tesseract — no-op om den redan är mindre.
+ * `imageOrientation: 'from-image'` läser av EXIF-rotationen på riktiga
+ * kameraforton (annars ritas en stående bild ut liggande på canvasen).
+ * Om createImageBitmap saknas (mycket gamla webbläsare) körs OCR på
+ * originalet precis som innan — aldrig ett hårt fel för det här.
+ */
+async function downscaleForOcr(imageSource) {
+  if (typeof createImageBitmap !== 'function' || typeof document === 'undefined') return imageSource;
+  let bitmap;
+  try {
+    bitmap = await createImageBitmap(imageSource, { imageOrientation: 'from-image' });
+  } catch (err) {
+    console.warn('[OCR] Kunde inte läsa bilden för förminskning, kör OCR på originalet:', err);
+    return imageSource;
+  }
+  try {
+    const longEdge = Math.max(bitmap.width, bitmap.height);
+    if (longEdge <= MAX_OCR_DIMENSION) return imageSource;
+    const scale = MAX_OCR_DIMENSION / longEdge;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+    canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    return canvas;
+  } finally {
+    bitmap.close?.();
+  }
+}
+
 /**
  * Kör Tesseract OCR på en bild eller canvas i webbläsaren.
  */
 async function extractTextFromImage(imageSource, onProgress) {
   onProgress?.('Startar OCR-motor…');
+  const scaled = await downscaleForOcr(imageSource);
   const { createWorker } = await import('tesseract.js');
   const worker = await createWorker(['swe', 'eng'], 1, {
     logger: m => {
@@ -177,7 +221,7 @@ async function extractTextFromImage(imageSource, onProgress) {
   });
 
   try {
-    const { data } = await worker.recognize(imageSource);
+    const { data } = await worker.recognize(scaled);
     return data.text || '';
   } finally {
     await worker.terminate();

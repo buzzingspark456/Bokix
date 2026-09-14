@@ -14,11 +14,11 @@ const sp = (str) => str.replace(/ /g, ' ')
 
 
 describe('resolveChartPalette', () => {
-  it('förvalet: in grönt, ut blått, kvar turkos', () => {
+  it('förvalet: in grönt, ut blått, kvar guld', () => {
     const p = resolveChartPalette()
     expect(p.income).toBe(CHART_COLOR_FAMILIES.green.base)
     expect(p.cost).toBe(CHART_COLOR_FAMILIES.blue.base)
-    expect(p.profit).toBe(CHART_COLOR_FAMILIES.teal.base)
+    expect(p.profit).toBe(CHART_COLOR_FAMILIES.gold.base)
     expect(p.roles).toEqual(DEFAULT_CHART_COLORS)
   })
 
@@ -27,7 +27,7 @@ describe('resolveChartPalette', () => {
     expect(p.income).toBe(CHART_COLOR_FAMILIES.green.base)
     expect(p.cost).toBe(CHART_COLOR_FAMILIES.blue.base)
     expect(p.costRamp).toEqual(CHART_COLOR_FAMILIES.blue.ramp)
-    expect(p.profit).toBe(CHART_COLOR_FAMILIES.teal.base)
+    expect(p.profit).toBe(CHART_COLOR_FAMILIES.gold.base)
   })
 
   // En sparad inställning från en äldre version (eller en handredigerad
@@ -114,11 +114,11 @@ describe('resolveChartPalette i mörkt läge', () => {
   })
 
   it('lyfter marginaltrappans mörkaste ton så den syns mot mörk botten', () => {
-    // profit är turkos som förval (se DEFAULT_CHART_COLORS) — turkosets
+    // profit är guld som förval (se DEFAULT_CHART_COLORS) — guldets
     // mörkaste ramp-ton, inte grönt.
-    expect(light.marginTones[2]).toBe(CHART_COLOR_FAMILIES.teal.ramp[0])
+    expect(light.marginTones[2]).toBe(CHART_COLOR_FAMILIES.gold.ramp[0])
     expect(dark.marginTones[2]).not.toBe(light.marginTones[2])
-    expect(lighten(CHART_COLOR_FAMILIES.teal.ramp[0], 0.5)).toBe(dark.marginTones[2])
+    expect(lighten(CHART_COLOR_FAMILIES.gold.ramp[0], 0.5)).toBe(dark.marginTones[2])
     // De två ljusare stegen är redan läsbara och ska vara oförändrade.
     expect(dark.marginTones.slice(0, 2)).toEqual(light.marginTones.slice(0, 2))
   })

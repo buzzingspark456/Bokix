@@ -491,15 +491,23 @@ export default function LandingPage({ onEnterApp }) {
               i === 0 ? (
                 <Reveal
                   key={f.title} delay={0}
-                  className="lp-lux-card lp-bento-feature-full"
+                  className="lp-lux-card lp-bento-feature-full lp-bento-feature-row"
                   style={{ background: 'var(--mkt-card-bg)', border: '1px solid var(--mkt-card-border)', borderRadius: '20px', overflow: 'hidden', boxShadow: '0 14px 30px -20px rgba(28,36,32,0.26)', display: 'flex', alignItems: 'stretch' }}
                 >
                   {/* Illustrationsspalten och texten storleksökta (kund-
                       önskemål: flaggskeppskortet såg glest ut på breda
                       skärmar — en 300px-bred bild i ett 1600px-brett kort
                       lämnade orimligt mycket tom yta runt en kort
-                      textrad). */}
-                  <div style={{ background: f.g.soft, width: 'min(420px, 42%)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'clamp(20px, 3vw, 32px)' }}>
+                      textrad).
+                      Kundfeedback (mobil, skärmdump): samma rad-layout
+                      kvarstod rakt av på mobilen — bilden klämdes in i en
+                      42%-bred remsa (drygt 160px) bredvid texten, för smalt
+                      för att demots egna rader (ikon + etikett + tagg) ska
+                      få plats, så de klipptes/syntes inte alls. Klassen
+                      lp-bento-feature-row byter till kolumn under 640px
+                      (se @media i MarketingLayout.jsx) — bilden får då HELA
+                      kortets bredd i stället, samma bredd som texten under. */}
+                  <div className="lp-bento-feature-media" style={{ background: f.g.soft, width: 'min(420px, 42%)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'clamp(20px, 3vw, 32px)' }}>
                     <f.demo />
                   </div>
                   <div style={{ padding: '36px 40px 36px 34px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
@@ -700,13 +708,27 @@ export default function LandingPage({ onEnterApp }) {
                   (.lp-flow-line). Kontrollpunkterna ligger på halva
                   vägen horisontellt, vid start- respektive mål-y, vilket
                   ger en S-formad kurva som lämnar/anländer vågrätt. */}
+              {/* Kundfeedback (mobil, uttryckligt: "linjerna är superstunna,
+                  man ser dem knappt"): strokeWidth är satt i viewBox-
+                  koordinater (800×300) och skalades därför NED med
+                  diagrammets egen bredd — på en smal telefon (diagrammet
+                  ~340px brett) blev en 3px-linje under 1,5 riktig skärm-
+                  pixel. vector-effect="non-scaling-stroke" gör att
+                  strokeWidth i stället mäts i riktiga skärmpixlar (via
+                  style, som CSS-stroke-width faktiskt respekterar) oavsett
+                  hur smalt eller brett diagrammet renderas — samma synliga
+                  tjocklek på mobil som på skrivbord. Opaciteten höjd något
+                  (0.55 → 0.7) av samma skäl: en redan tunn gradientlinje
+                  ska inte också vara nästan genomskinlig. */}
               {CONNECTION_POS.map((p, i) => {
                 const midX = (p.x + CONNECTION_CENTER.x) / 2;
                 return (
                   <path
                     key={i} className="lp-flow-line"
                     d={`M ${p.x} ${p.y} C ${midX} ${p.y}, ${midX} ${CONNECTION_CENTER.y}, ${CONNECTION_CENTER.x} ${CONNECTION_CENTER.y}`}
-                    fill="none" stroke="url(#lp-connect-line)" strokeWidth="3" strokeLinecap="round" opacity="0.55"
+                    fill="none" stroke="url(#lp-connect-line)" strokeLinecap="round" opacity="0.7"
+                    vectorEffect="non-scaling-stroke"
+                    style={{ strokeWidth: 'clamp(2px, 0.4vw, 4px)' }}
                   />
                 );
               })}

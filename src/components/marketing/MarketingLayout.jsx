@@ -616,6 +616,15 @@ function MarketingStyles() {
         .lp-cta-group > .lp-moving-border-wrap > button { width: 100%; }
         .lp-bento-grid { grid-template-columns: 1fr; }
         .lp-hide-mobile { display: none !important; }
+        /* Kundfeedback (mobil, skärmdump): flaggskeppskortet ("Bokföring")
+           stod kvar som en sida-vid-sida-rad även när gridet ovan redan
+           staplat de tre andra korten — bilden fick bara ~42% av en redan
+           smal telefonbredd, för trångt för att demots rader skulle synas.
+           Samma brytpunkt som gridet: under den staplas bild-över-text som
+           de tre andra korten redan gör, i stället för att tvinga in en
+           skrivbordslayout på en telefon. */
+        .lp-bento-feature-row { flex-direction: column; }
+        .lp-bento-feature-media { width: 100% !important; }
         /* Produktvisningens demo-kort — istället för att bara försvinna på
            mobil (ingen meny alls) visas samma mobila topbar-mönster som
            riktiga appen faktiskt använder på små skärmar (hamburgerikon +

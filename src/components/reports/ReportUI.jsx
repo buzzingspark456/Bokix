@@ -840,17 +840,13 @@ export function PeriodPicker({ value, onChange, options, icon: Icon = Calendar, 
   );
 }
 
-// Fem flikar (kundönskemål: "hela året, 3 månader, 1 månad, 6 månader,
-// sedan start") — se overviewPeriodBounds i reportCalculations.js för
-// avvägningen bakom just den här uppsättningen. Etiketterna kortas något
-// jämfört med periodens EGEN `label` (t.ex. "3 mån" här mot "Senaste 3
-// månaderna" i sidhuvud/undertexter) — fem flikar i rad tål inte fem långa
-// etiketter, medan sidhuvudena som visar dem bara visar EN i taget och har
-// gott om plats.
+// Tre flikar (kundönskemål, uppföljning: "ta bort 3 mån och 6 mån, bara
+// räkenskapsåret, sedan start och denna månad") — se overviewPeriodBounds
+// i reportCalculations.js, som fortfarande KAN räkna ut 'q3'/'q6' (de
+// grenarna lämnades kvar där, egna tester och allt) även om ingen flik
+// längre exponerar dem här.
 export const OVERVIEW_PERIODS = [
   { id: 'month', label: 'Denna månad' },
-  { id: 'q3', label: '3 mån' },
-  { id: 'q6', label: '6 mån' },
   { id: 'year', label: 'Räkenskapsåret' },
   { id: 'all', label: 'Sedan start' },
 ];

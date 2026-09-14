@@ -207,7 +207,10 @@ function EmptyProjectsState({ onCreate }) {
     { icon: FileText, title: 'Fakturera', text: 'Fakturera direkt från tidrapport' },
   ];
   return (
-    <div style={{ flex: 1, minHeight: '320px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--gray-50)', borderRadius: '12px', padding: '56px 32px', textAlign: 'center', marginTop: '20px' }}>
+    // Kundönskemål ("Fakturor är det som ser bra ut"): ingen egen
+    // marginal/kant/gråbakgrund längre — fyller ytan flush precis under
+    // filterraden, samma gröna kort-bakgrund som övriga tomma lägen.
+    <div style={{ flex: 1, minHeight: '320px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-card)', padding: '56px 32px', textAlign: 'center' }}>
       <div style={{ width: '52px', height: '52px', borderRadius: '999px', background: BRAND.greenLight, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' }}>
         <Briefcase size={22} color={BRAND.greenDark} />
       </div>
@@ -1371,7 +1374,7 @@ export default function Projects({ projects = [], setProjects, contacts = [], se
       {activeTab === 'projects' && (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
           {projects.length === 0 ? (
-            <div style={{ padding: '24px' }}><EmptyProjectsState onCreate={() => openNewProjectForm()} /></div>
+            <EmptyProjectsState onCreate={() => openNewProjectForm()} />
           ) : (
             <>
               {/* EN sida, EN lista — Översikt/Aktiva/Avdelningar/Arkiverade/

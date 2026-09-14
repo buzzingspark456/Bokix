@@ -360,7 +360,7 @@ function SectionHeading({ icon: Icon, tone = 'green', children }) {
 // `label`/`hint` är valfria: inuti en SettingRow står texten redan till
 // vänster om kontrollen, och växeln ska då bara vara växeln — annars får
 // raden två etiketter som säger samma sak.
-function ToggleSwitch({ checked, onChange, label, hint, disabled = false }) {
+export function ToggleSwitch({ checked, onChange, label, hint, disabled = false }) {
   if (!label && !hint) {
     return (
       <label style={{ position: 'relative', display: 'inline-block', flexShrink: 0, width: '40px', height: '22px', cursor: disabled ? 'not-allowed' : 'pointer' }}>

@@ -5,6 +5,7 @@ import EmployeeForm from './EmployeeForm';
 import PayrollRunDetail from './PayrollRunDetail';
 import ListPageHeader, { ListFilterBar, listSearchInputStyle } from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
+import { BRAND } from '../utils/brandColors';
 
 const formatSEK = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
 const inputSt = { width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '14px', outline: 'none', boxSizing: 'border-box' };
@@ -145,8 +146,11 @@ export default function Payroll({
               sig i — samma fix som Quotes.jsx/Contacts.jsx: tomt-läge som
               ett eget flex:1-block istället för en tabellrad. */}
           {filteredEmployees.length === 0 ? (
-            <div style={{ flex: 1, minHeight: '280px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', margin: '24px', padding: '48px 24px', ...panelCard }}>
-              <div style={{ width: 72, height: 72, borderRadius: '20px', background: 'var(--border-light)', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '18px' }}>
+            // Kundönskemål ("Fakturor är det som ser bra ut"): ingen egen
+            // marginal/kant/skugga längre — fyller ytan flush i stället för
+            // att sväva som ett eget litet kort med synligt mellanrum runt om.
+            <div style={{ flex: 1, minHeight: '280px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '48px 24px', background: 'var(--bg-card)' }}>
+              <div style={{ width: 72, height: 72, borderRadius: '20px', background: 'var(--bg-muted)', color: BRAND.green, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '18px' }}>
                 <Users size={30} />
               </div>
               <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '6px' }}>
@@ -202,6 +206,7 @@ export default function Payroll({
           <EmployeeForm
             initial={viewState === 'edit' ? selectedEmployee : null}
             projects={projects}
+            payrollRuns={payrollRuns}
             onSave={handleSaveEmployee}
             onCancel={() => { setViewState('list'); setSelectedEmployee(null); }}
           />
@@ -225,12 +230,6 @@ export default function Payroll({
               direkt under filterraden. Varning/formulär behåller sin egen
               marginal (de är fristående kort, inte tabellen), men
               ListTable nedan är nu flush precis som överallt annars. */}
-          {employees.length === 0 && (
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-amber-bg)', border: '1px solid var(--status-amber-bg)', borderRadius: '8px', padding: '12px 14px', margin: '20px 24px 0', fontSize: '13px', color: 'var(--status-amber-text)' }}>
-              Du behöver lägga till minst en anställd innan du kan skapa en lönekörning. Klicka på "Ny lönekörning" för att komma till formuläret under fliken Anställda.
-            </div>
-          )}
-
           {showNewRun && (
             <div style={{ ...panelCard, padding: '20px', margin: '20px 24px 0' }}>
               <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 700 }}>Ny lönekörning</h3>
@@ -264,7 +263,20 @@ export default function Payroll({
           <ListTable
             rowKey={r => r.id}
             onRowClick={r => setSelectedRunId(r.id)}
-            emptyMessage={sortedRuns.length === 0 ? 'Inga tidigare lönekörningar.' : 'Ingen matchade sökningen.'}
+            // Kundönskemål (uppföljning): varningen om att lägga till en
+            // anställd låg tidigare som en egen ruta OVANFÖR hela fliken —
+            // flyttad hit, UNDER "Inga tidigare lönekörningar", i stället
+            // för att sväva ovanför/före tomt-läget.
+            emptyMessage={sortedRuns.length === 0 ? (
+              <div>
+                <div>Inga tidigare lönekörningar.</div>
+                {employees.length === 0 && (
+                  <div style={{ marginTop: '10px', fontSize: '12.5px', color: 'var(--status-amber-text)' }}>
+                    Du behöver lägga till minst en anställd innan du kan skapa en lönekörning. Klicka på "Ny lönekörning" för att komma till formuläret under fliken Anställda.
+                  </div>
+                )}
+              </div>
+            ) : 'Ingen matchade sökningen.'}
             rows={filteredRuns}
             columns={[
               { key: 'period', label: 'Period', fontWeight: 700, color: 'var(--text-main)', fontSize: '14px', render: r => `Lönekörning ${r.period}` },

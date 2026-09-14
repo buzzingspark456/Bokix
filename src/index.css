@@ -200,13 +200,21 @@
      Ännu en uppföljning ("mer chill, inte för gult"): samma gula
      familj, men mättnaden sänkt ytterligare en bra bit (#d9ac26 →
      #c2a06a) — mot en dämpad khaki/sandton snarare än ett rent gult,
-     som ändå håller ihop med STRONG_UNPAID.text (#422006) i kontrast. */
-  --invoice-unpaid-bg: #c2a06a;
+     som ändå håller ihop med STRONG_UNPAID.text (#422006) i kontrast.
+     Ny uppföljning ("mindre bright, mer mörk"): ett steg mörkare khaki
+     igen (#c2a06a → #ab8f5c) — mörkt läge oförändrat som innan. Botten
+     satt av kontrasten mot STRONG_UNPAID.text (#422006): mörkare än så
+     tappar WCAG AA:s 4.5:1 för brödtext. */
+  --invoice-unpaid-bg: #ab8f5c;
   /* "Förfallen"-märkets bakgrund (Invoices.jsx: STRONG_OVERDUE) var en
      literal hex, samma i båda temana — aldrig gett en egen mörk-läge-ton
      som Obetald ovan fick. Egen token nu, så den är lika kontrollerad i
-     mörkt läge (nedan) som ljust, i stället för att bara råka funka. */
-  --invoice-overdue-bg: #cc4b4b;
+     mörkt läge (nedan) som ljust, i stället för att bara råka funka.
+     Uppföljning ("mindre bright, mer mörk"): ett steg mörkare röd
+     (#cc4b4b → #a33c3c) — vit text ovanpå betyder att kontrasten bara
+     ökar av det, så ingen kontrastrisk som gula ovan. Mörkt läge
+     oförändrat. */
+  --invoice-overdue-bg: #a33c3c;
   /* Kundfeedback (skärmdump, "Ej bokförd" i Fakturor): #f1efe8 var en
      VARM crème-ton — nästan samma familj som --status-amber-bg (#faeeda)
      ovan, så "Ej bokförd" (neutralt, inget har hänt än) lästes som en

@@ -156,10 +156,22 @@ export default function PricingPage() {
           stops={[['rgba(47,138,58,0.14)', '96% -6%'], ['rgba(20,184,166,0.16)', '2% 108%']]}
           blob={{ gradient: grad(GRAD.tealLime), bottom: '-150px', top: 'auto', right: '-110px', left: 'auto', size: '420px', opacity: 0.18, slow: true }}
         />
-        <Reveal scale style={{ maxWidth: 'min(92vw, 1220px)', margin: '0 auto', padding: '0 4px', width: '100%', position: 'relative' }}>
+        {/* Kundfeedback (mobil, uttryckligt: "priset dyker inte upp
+            förrän man skrollat ner, ser trasigt ut"): båda priskorten låg
+            tidigare i EN enda lp-reveal-scale runt hela sektionen (~2450px
+            hög på en telefon, staplade på varandra i enda kolumnen). Skroll-
+            reveal-tröskeln (0.15, se useReveal i MarketingLayout.jsx) räknar
+            andelen av HELA blockets yta som syns — för ett block så mycket
+            högre än själva skärmen krävdes en ovanligt stor, onaturlig
+            skrollsträcka innan tillräckligt stor andel någonsin blev synlig,
+            vilket kändes som "sidan är tom". Varje kort får nu sin EGEN
+            reveal i stället (samma mönster som FEATURE_COLUMNS ovan) — ett
+            enda ~1200px-kort korsar 15%-tröskeln nästan direkt när det rullar
+            in, som avsett. */}
+        <div style={{ maxWidth: 'min(92vw, 1220px)', margin: '0 auto', padding: '0 4px', width: '100%', position: 'relative' }}>
           {/* Betalningsintervall. Årsvis är förvalt AV — den som inte
               aktivt väljer det ska aldrig råka binda upp ett år i förskott. */}
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '34px' }}>
+          <Reveal style={{ display: 'flex', justifyContent: 'center', marginBottom: '34px' }}>
             <div role="group" aria-label="Betalningsintervall" style={{ display: 'inline-flex', gap: '4px', padding: '5px', borderRadius: '999px', background: 'var(--mkt-ivory)', border: `1px solid ${CARD_BORDER}` }}>
               {[
                 { id: 'monthly', label: 'Månadsvis' },
@@ -189,13 +201,14 @@ export default function PricingPage() {
                 );
               })}
             </div>
-          </div>
+          </Reveal>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: '32px', alignItems: 'stretch' }}>
-            {PRICING_TIERS.map((tier) => {
+            {PRICING_TIERS.map((tier, i) => {
               const plan = resolvePlan(tier.key, interval);
               return (
-              <div
+              <Reveal
                 key={tier.key}
+                scale delay={i * 100}
                 className="lp-lux-card"
                 style={{
                   background: 'var(--mkt-card-bg)',
@@ -272,7 +285,7 @@ export default function PricingPage() {
                       : 'Gratis i 30 dagar · avsluta när som helst'}
                   </div>
                 </div>
-              </div>
+              </Reveal>
               );
             })}
           </div>
@@ -285,7 +298,7 @@ export default function PricingPage() {
           <p style={{ textAlign: 'center', fontSize: '13px', color: 'var(--mkt-muted)', margin: '28px auto 0', maxWidth: '520px', lineHeight: 1.65 }}>
             Priserna är i svenska kronor och ingen moms tillkommer — Bokix är inte momsregistrerat, så beloppet du ser är det som dras.
           </p>
-        </Reveal>
+        </div>
       </section>
 
       {/* Kundönskemål: ingen demo på prissidan längre — startsidans "Se

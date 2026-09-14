@@ -1090,21 +1090,30 @@ export default function Quotes({ quotes = [], setQuotes, onConvert, contacts = [
             att tvingas in i en tabellrad, så det centreras i den lediga ytan
             i stället för att kännas som ett trasigt, för glest ifyllt kort. */}
         {filtered.length === 0 ? (
+          // Kundönskemål ("Fakturor är det som ser bra ut"): ingen egen
+          // marginal/kant längre — fyller ytan flush mot filterraden och
+          // sidorna, samma mönster som Fakturors tomma läge. Har nu även en
+          // egen "Ny offert"-knapp (som Kontakters tomma läge) i stället
+          // för att bara peka på knappen i headern ovanför.
           <div style={{
             flex: 1, minHeight: '320px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-            gap: '10px', margin: '24px', padding: '40px', textAlign: 'center',
-            background: searchTerm ? 'var(--bg-card)' : 'var(--bg-cream)',
-            border: '1px solid var(--border)', borderRadius: '14px',
+            gap: '10px', padding: '40px', textAlign: 'center',
+            background: 'var(--bg-card)',
           }}>
-            <div style={{ width: 56, height: 56, borderRadius: '999px', background: searchTerm ? 'var(--border-light)' : 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: searchTerm ? 'var(--text-muted)' : BRAND.green, marginBottom: '4px' }}>
+            <div style={{ width: 56, height: 56, borderRadius: '999px', background: searchTerm ? 'var(--border-light)' : 'var(--bg-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: searchTerm ? 'var(--text-muted)' : BRAND.green, marginBottom: '4px' }}>
               <FileSpreadsheet size={26} />
             </div>
             <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-main)' }}>
               {searchTerm ? 'Inga offerter matchar din sökning' : 'Inga offerter skapade'}
             </div>
             <div style={{ fontSize: '13.5px', color: 'var(--text-muted)', maxWidth: '320px' }}>
-              {searchTerm ? 'Prova att rensa sökningen ovan.' : 'Klicka på "Ny offert" för att komma igång.'}
+              {searchTerm ? 'Prova att rensa sökningen ovan.' : 'Skapa din första offert för att komma igång.'}
             </div>
+            {!searchTerm && (
+              <button type="button" onClick={openNew} style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '10px 20px', marginTop: '8px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '9px', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}>
+                <Plus size={16} /> Ny offert
+              </button>
+            )}
           </div>
         ) : (
         /* Kundfeedback: en populerad (om än kort) lista ska inte centreras

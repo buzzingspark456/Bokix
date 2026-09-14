@@ -5,6 +5,10 @@ import { SWEDISH_MUNICIPALITIES } from '../utils/kommuner';
 import { validatePersonnummer, formatPersonnummerInput } from '../utils/personnummer';
 import { EMPLOYMENT_TYPES, SALARY_FORMS, TAX_FORMS, TAX_TABLE_COLUMNS, VACATION_RULES, MIN_VACATION_DAYS } from '../utils/payrollConfig';
 import { isValidIban } from '../utils/salaryPaymentFile';
+import { summarizeVacation } from '../utils/vacation';
+import { BRAND } from '../utils/brandColors';
+
+const formatSEK = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
 
 const sectionStyle = { background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border)', padding: '20px', marginBottom: '16px' };
 const sectionTitleStyle = { fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 16px', textTransform: 'uppercase', letterSpacing: '0.03em' };
@@ -43,10 +47,16 @@ function emptyEmployee() {
   };
 }
 
-export default function EmployeeForm({ initial, projects = [], onSave, onCancel }) {
+export default function EmployeeForm({ initial, projects = [], payrollRuns = [], onSave, onCancel }) {
   const [form, setForm] = useState(initial ? { ...emptyEmployee(), ...initial, taxTable: { ...emptyEmployee().taxTable, ...(initial.taxTable || {}) } } : emptyEmployee());
   const [errors, setErrors] = useState({});
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  // Kundönskemål: semester-sektionen visade tidigare bara redigerbara fält
+  // (regel/dagar/sparat) utan att någonsin säga var den anställda FAKTISKT
+  // står — samma uträkning som företagets Semester-flik (VacationOverview),
+  // fast för den här enda anställda. Bara för en REDAN sparad anställd
+  // (`initial`) — en ännu osparad har inga lönekörningar att räkna mot.
+  const vacationSummary = initial ? summarizeVacation({ employee: form, payrollRuns }) : null;
   const setTaxTable = (patch) => setForm(f => ({ ...f, taxTable: { ...f.taxTable, ...patch } }));
 
   const validate = () => {
@@ -227,6 +237,38 @@ export default function EmployeeForm({ initial, projects = [], onSave, onCancel 
       </Section>
 
       <Section title="Semester">
+        {vacationSummary && (
+          // Kundönskemål: read-only sammanfattning FÖRST i sektionen —
+          // samma tal som Semester-fliken (VacationOverview) räknar fram
+          // för hela företaget, bara filtrerat till den här anställda, så
+          // man ser var man står innan man ändrar reglerna under.
+          <div style={{
+            display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '12px',
+            padding: '14px 16px', marginBottom: '18px', borderRadius: '10px', background: 'var(--bg-muted)',
+          }}>
+            <div>
+              <div style={helpTextStyle}>Intjänat {vacationSummary.vacationYear}</div>
+              <div style={{ fontSize: '17px', fontWeight: 700, color: 'var(--text-main)' }}>{vacationSummary.earned} dagar</div>
+            </div>
+            <div>
+              <div style={helpTextStyle}>Uttaget</div>
+              <div style={{ fontSize: '17px', fontWeight: 700, color: 'var(--text-main)' }}>{vacationSummary.taken} dagar</div>
+            </div>
+            <div>
+              <div style={helpTextStyle}>Kvar att ta ut</div>
+              <div style={{ fontSize: '17px', fontWeight: 700, color: vacationSummary.overEntitlement ? 'var(--status-red-text)' : BRAND.greenDark }}>{vacationSummary.totalAvailable} dagar</div>
+            </div>
+            <div>
+              <div style={helpTextStyle}>Semesterlöneskuld</div>
+              <div style={{ fontSize: '17px', fontWeight: 700, color: 'var(--text-main)' }}>{formatSEK(vacationSummary.liabilityTotal)}</div>
+            </div>
+            {vacationSummary.overEntitlement && (
+              <div style={{ gridColumn: '1 / -1', fontSize: '12px', color: 'var(--status-red-text)' }}>
+                Fler dagar uttagna än intjänat + sparat — kontrollera lönekörningarna för {vacationSummary.vacationYear}.
+              </div>
+            )}
+          </div>
+        )}
         <div className="form-row-2" style={grid2}>
           <div>
             <label style={labelStyle}>Semesterregel</label>

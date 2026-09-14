@@ -44,15 +44,29 @@ export const CHART_COLOR_FAMILIES = {
     ramp: ['#1c5c28', '#6aa87f', '#2f7d4f', '#256e33', '#2f8a3a', '#b3bdb4'],
     wash: '#e8f0eb',
   },
-  // Kundönskemål, ordagrant i sak: "Resultat ska vara turkos, eller en
-  // riktigt ljus blå" — samma turkos som redan finns i varumärket på
-  // andra ställen (Bokix-ordmärkets gradient, startsidans "Kvitton läser
-  // sig själva"-stråle), inte en nyuppfunnen ton.
+  // Kundönskemål: turkos som ETT valbart alternativ (samma turkos som
+  // redan finns i varumärket: ordmärkets gradient, startsidans "Kvitton
+  // läser sig själva"-stråle) — men INTE längre förvalet för Resultat,
+  // se guld nedan och `teal` kvar orörd i väljaren.
   teal: {
     id: 'teal', label: 'Turkos',
     base: '#0d9488', soft: '#2dd4bf',
     ramp: ['#134e4a', '#5eead4', '#14b8a6', '#0d9488', '#2dd4bf', '#a7bab6'],
     wash: '#e0f2f1',
+  },
+  // Kundfeedback, uppföljning: turkos "kändes fel" på Resultat — och med
+  // rätta. Turkos ligger nästan exakt mitt emellan grönt (~120°) och blått
+  // (~205°) på färghjulet, så bredvid just DE HÄR två färgerna smälter det
+  // in i stället för att sticka ut som en tredje, egen signal. Guld ligger
+  // på motsatt sida av hjulet (~35-40°) från båda — läses direkt som "den
+  // andra, viktiga siffran" i stället för att blanda ihop sig, och bär
+  // rätt känsla för Resultat (den slutgiltiga behållningen) utan rödas
+  // "något är fel"-association när resultatet faktiskt är positivt.
+  gold: {
+    id: 'gold', label: 'Guld',
+    base: '#b45309', soft: '#f59e0b',
+    ramp: ['#78350f', '#fcd34d', '#d97706', '#b45309', '#f59e0b', '#c2b49a'],
+    wash: '#fbf1de',
   },
 };
 
@@ -65,13 +79,13 @@ export const CHART_ROLES = [
   { id: 'profit', label: 'Resultat', help: 'Det som blir kvar, och marginalerna' },
 ];
 
-// Förvalet: in = grönt, ut = blått, kvar = turkos. Kundönskemål, ordagrant
-// i sak: "grönt för intäkter, blått för kostnader" och, en uppföljning,
-// "Resultat ska vara turkos, eller en riktigt ljus blå" — röd (som satt på
-// Resultat en kort sida tillbaka) plockades bort, ingen roll använder den
-// som förval längre. En användare som inte gillar det byter fritt i
-// rapportinställningarna, precis som innan.
-export const DEFAULT_CHART_COLORS = { income: 'green', cost: 'blue', profit: 'teal' };
+// Förvalet: in = grönt, ut = blått, kvar = guld. Grönt/blått är kundens
+// egna, uttryckliga val och rörs inte. Guld ersätter turkos som Resultatets
+// förval efter uppföljningen "det känns fel" — se `gold`-familjens
+// kommentar ovan för färghjuls-resonemanget. En användare som inte gillar
+// det byter fritt i rapportinställningarna, precis som innan (turkos finns
+// kvar där som ett valbart alternativ).
+export const DEFAULT_CHART_COLORS = { income: 'green', cost: 'blue', profit: 'gold' };
 
 /** Beloppsenhet. 'auto' är det gamla beteendet (tusental för stora tal,
  * kronor för små) och förblir förvalet — det är rätt för de allra flesta,

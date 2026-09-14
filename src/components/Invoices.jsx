@@ -79,7 +79,10 @@ function getRowBg(status) {
 // att gå att läsa (vit text på gult är i praktiken alltid för svag kontrast
 // — samma skäl som gula varningsskyltar/etiketter i resten av webben
 // använder mörk text, inte vit).
-const STRONG_PAID = { bg: '#16a34a', text: '#ffffff' };
+// Kundfeedback ("mindre bright, mer mörk"): #16a34a ett steg mörkare
+// (#15803d) — vit text ovanpå betyder att kontrasten bara ökar av det,
+// samma i båda temana precis som innan.
+const STRONG_PAID = { bg: '#15803d', text: '#ffffff' };
 // Kundfeedback (uppföljning): gult "ännu mer gulish" — bytt till en ljusare,
 // renare gul ton (mindre orange i sig) och rött "lite mer" — bytt till en
 // mer mättad, mindre orange-tonad röd.
@@ -1551,7 +1554,10 @@ function InvoiceEmptyState({ isFilteredEmpty, onCreate }) {
     : { title: 'Inga fakturor än', body: 'Skapa din första faktura för att komma igång med fakturering.' };
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px', padding: '40px', background: isFilteredEmpty ? 'var(--bg-card)' : 'var(--bg-cream)', textAlign: 'center' }}>
+    // Kundönskemål: samma gröna kort-bakgrund i båda lägena — inte
+    // krämtonen (var(--bg-cream)) som i mörkt tema läste som brunt i
+    // stället för grönt, till skillnad från t.ex. Kontakters tomt-läge.
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px', padding: '40px', background: 'var(--bg-card)', textAlign: 'center' }}>
       {isFilteredEmpty ? (
         <div style={{ width: 56, height: 56, borderRadius: '999px', background: 'var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', marginBottom: '4px' }}>
           <FileText size={26} />

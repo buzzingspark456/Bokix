@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Clock, Plus, Trash2, Check, X, Briefcase, User, FileText } from 'lucide-react';
 import { PartySearch, EntitySearch, ProjectSearch } from './shared/SearchInputs';
+import { BRAND } from '../utils/brandColors';
 
 const emptyForm = () => ({
   type: 'kund', // 'kund' (fakturerbart) | 'anstalld' (löneunderlag)
@@ -311,7 +312,7 @@ export default function TimeTracking({
               {filteredEntries.length === 0 && (
                 <tr>
                   <td colSpan="8" style={{ padding: '60px 20px', textAlign: 'center' }}>
-                    <div style={{ width: 48, height: 48, borderRadius: '12px', background: 'var(--blue-50)', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                    <div style={{ width: 48, height: 48, borderRadius: '12px', background: 'var(--bg-muted)', color: BRAND.green, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
                       <Clock size={24} />
                     </div>
                     <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '4px' }}>
