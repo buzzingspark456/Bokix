@@ -112,12 +112,10 @@
   /* ── Surfaces ── */
   --bg-page:    #f4f7f5;
   --bg-card:    var(--white);
-  /* Kundfeedback (tre omgångar): #3d7a2e (BRAND.green på den tiden, samma
-     nyans som knappar/loggan hade då) kändes för ljus/klar som en HEL panelyta, trots att
-     den fungerar fint som liten knappfärg. #336524 (BRAND.greenHover) var
-     rätt håll men fel KARAKTÄR — för dov/olivgrön. #0e7a34 (matchad mot en
-     skickad bildreferens) satt rätt i mättnad/karaktär men behövde
-     mörkna ytterligare ett steg. */
+  /* Kundfeedback (många omgångar, olika nyanser/referensbilder testade —
+     ljusare, mörkare, mer turkos, mer ren grön, flaskgrön): landade till
+     slut tillbaka på den ursprungliga #0b6329, samma nyans som --accent
+     (knappar/loggan). */
   --bg-sidebar: #0b6329;
   --bg-muted:   #f4f4f5;
 
@@ -319,6 +317,74 @@
    gör override:en meningslös där ändå. */
 :root:not([data-theme="dark"])[data-sidebar-style="dark"] {
   --bg-sidebar: #0b3d2a;
+}
+
+/* ══ FÄRGTEMA (Inställningar → Utseende → Färgtema) ══
+   Personligt val (user_metadata.accentColor, App.jsx), satt som
+   `data-accent` på <html>. Bara varumärkesIDENTITETEN byter färg — knappar,
+   logga, sidopanel, aktiv menypunkt (BRAND.green/greenHover i
+   brandColors.js pekar på --accent/--accent-hover, se den filens
+   kommentar) — INTE semantiska statusfärger (--status-green-* = "betald"/
+   positivt, orört här) och INTE VIVID-paletten (ämnesfärger i
+   inställningarnas ikonrutnät m.m., orelaterad till varumärkesaccent).
+   Grönt är default och har INGEN egen data-accent="green"-regel här —
+   :root-värdena ovan ÄR redan grönt, så den som aldrig rör inställningen
+   ser exakt samma app som innan den här funktionen fanns. Varje annat val
+   skriver om samma tre lager som grönt redan har: accent-familjen
+   (ljust läge), sidopanelens tre nyanser (ljus/mörk-sidopanel/mörkt tema),
+   och accent-text i mörkt läge (ljusare variant för kontrast/läsbarhet). */
+:root[data-accent="blue"] {
+  --accent: #1d5fa8; --accent-hover: #164a85; --accent-light: #e8f1fb; --accent-border: #a8d1eb; --accent-text: #1d5fa8;
+  --bg-sidebar: #1d5fa8;
+}
+:root:not([data-theme="dark"])[data-accent="blue"][data-sidebar-style="dark"] { --bg-sidebar: #123a67; }
+:root[data-theme="dark"][data-accent="blue"] { --accent-text: #7cc4f0; --bg-sidebar: #0d2740; }
+
+:root[data-accent="purple"] {
+  --accent: #6d28d9; --accent-hover: #5b21b6; --accent-light: #f1eafe; --accent-border: #d8c7f7; --accent-text: #6d28d9;
+  --bg-sidebar: #6d28d9;
+}
+:root:not([data-theme="dark"])[data-accent="purple"][data-sidebar-style="dark"] { --bg-sidebar: #4c1d95; }
+:root[data-theme="dark"][data-accent="purple"] { --accent-text: #c4a6f5; --bg-sidebar: #2e1065; }
+
+:root[data-accent="rose"] {
+  --accent: #9d1055; --accent-hover: #7d0d44; --accent-light: #fdeaf3; --accent-border: #f3c2dd; --accent-text: #9d1055;
+  --bg-sidebar: #9d1055;
+}
+:root:not([data-theme="dark"])[data-accent="rose"][data-sidebar-style="dark"] { --bg-sidebar: #6b0b39; }
+:root[data-theme="dark"][data-accent="rose"] { --accent-text: #f0a8ce; --bg-sidebar: #3d0620; }
+
+:root[data-accent="amber"] {
+  --accent: #b45309; --accent-hover: #92400a; --accent-light: #fef6e7; --accent-border: #fde3a7; --accent-text: #b45309;
+  --bg-sidebar: #b45309;
+}
+:root:not([data-theme="dark"])[data-accent="amber"][data-sidebar-style="dark"] { --bg-sidebar: #7c3a06; }
+:root[data-theme="dark"][data-accent="amber"] { --accent-text: #f0b429; --bg-sidebar: #472102; }
+
+:root[data-accent="slate"] {
+  --accent: #334155; --accent-hover: #1e293b; --accent-light: #eef1f5; --accent-border: #cbd5e1; --accent-text: #334155;
+  --bg-sidebar: #334155;
+}
+:root:not([data-theme="dark"])[data-accent="slate"][data-sidebar-style="dark"] { --bg-sidebar: #1e293b; }
+:root[data-theme="dark"][data-accent="slate"] { --accent-text: #b9c4d4; --bg-sidebar: #111827; }
+
+/* ══ KOMPAKT LAYOUT (Inställningar → Utseende → Kompakt/normal) ══
+   `data-density="compact"` på <html>, personligt val (localStorage, samma
+   mönster som tema). Inline style-objekt (appens genomgående konvention,
+   se brandColors.js-kommentaren) kan INTE styras av ett CSS-attribut-
+   urval direkt — därför refererar den nya, delade rytmen i Settings.jsx
+   (SettingRow/SettingCard/card) de här variablerna i sina style-objekt
+   (`padding: 'var(--density-row-py) 0'` osv) istället för hårdkodade
+   px-tal, så VÄRDET faktiskt kan bytas ut härifrån. Partiell täckning med
+   flit (Inställningar + de tätaste ytorna) — inte varje kort/rad i hela
+   appen i det här steget. */
+:root {
+  --density-row-py: 8px;
+  --density-card-p: 13px;
+}
+[data-density="compact"] {
+  --density-row-py: 4px;
+  --density-card-p: 9px;
 }
 
 :root[data-theme="dark"] {
@@ -1645,24 +1711,74 @@ body {
 
 /* Översikten (Settings.jsx: SettingsHub). Åtta kort som fyller bredden i
    stället för en flikrad + två små rutor och en halv skärm tom yta, vilket
-   var den upprepade kundinvändningen mot den här sidan. */
+   var den upprepade kundinvändningen mot den här sidan.
+   Kundönskemål (skärmdump av en referensbild): stående kort — stor färgad
+   ikonruta högst upp, rubrik och beskrivning under, pil i nedre högra
+   hörnet — i stället för den tidigare liggande raden (ikon-titel-pil på
+   en rad). */
 .settings-hub {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 14px;
+}
+
+/* Kundönskemål ("mycket space på datorn — dela upp i typ två rader så det
+   täcker sidorna, och gör korten stora"): auto-fit ovan lämnade en ojämn,
+   inte fullbredd sista rad på en bred skärm (10 kort, oberoende av hur
+   många som får plats per rad, delar sällan jämnt). Ett fast 5-kolumners
+   rutnät här i stället — EXAKT två fulla rader av fem, kant i kant, ingen
+   ojämn svans — plus märkbart större kort (mer padding, större ikon och
+   rubrik) eftersom en bred skärm har gott om plats att göra dem läsbara på
+   avstånd med, inte bara fler av dem. Under 1100px gäller den flytande
+   auto-fit-regeln ovan som vanligt (mobilen är redan en enda kolumn där). */
+@media (min-width: 1100px) {
+  .settings-hub {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 20px;
+  }
+  .settings-hub-card {
+    min-height: 230px;
+    padding: 32px 52px 32px 32px;
+  }
+  .settings-hub-icon {
+    width: 58px;
+    height: 58px;
+    border-radius: 16px;
+    margin-bottom: 22px;
+  }
+  .settings-hub-icon svg {
+    width: 26px;
+    height: 26px;
+  }
+  .settings-hub-card-arrow {
+    width: 19px;
+    height: 19px;
+  }
+  .settings-hub-card-title {
+    font-size: 17.5px;
+  }
+  .settings-hub-card-desc {
+    font-size: 14.5px;
+  }
+  .settings-hub-card-arrow {
+    right: 22px;
+    bottom: 22px;
+  }
 }
 
 .settings-hub-card {
   display: flex;
+  flex-direction: column;
   align-items: flex-start;
-  gap: 11px;
+  position: relative;
   width: 100%;
-  padding: 14px 15px;
+  min-height: 148px;
+  padding: 20px 44px 20px 20px;
   text-align: left;
   font-family: inherit;
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 14px;
   cursor: pointer;
   transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
@@ -1677,141 +1793,34 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 9px;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
   flex-shrink: 0;
-  background: var(--status-green-bg);
-  color: var(--accent);
+  color: white;
+  margin-bottom: 16px;
 }
 
-
-/* Sektionslistan vid sidan (Settings.jsx: SettingsRail).
-   Sektionerna låg tidigare som en flikrad i toppen; kundönskemål att de
-   ska finnas kvar vid sidan medan man jobbar i ett avsnitt. Listan tar
-   dessutom just det vågräta utrymme som annars stod tomt på en bred
-   skärm. */
-/* Kundönskemål ("bakgrunden ska vara hela vägen ner"): align-items: start
-   lät sidomenyns kolumn bara vara lika hög som sitt EGET innehåll (nav-
-   listan) — align-items: stretch (grid-standarden, ingen egen rad behövs)
-   låter kolumnen i stället bli lika hög som den HÖGRE innehållskolumnen
-   bredvid, så .settings-rail:s bakgrund (nedan) fyller ner till botten
-   i stället för att sluta där listan slutar. */
-/* Kundönskemål ("emerged till headern, ingen space höger/vänster"): ingen
-   padding kvar alls på skalet — sidomenyns bakgrund (.settings-rail) rör
-   nu direkt vid sidhuvudets nederkant och vid vänsterkanten, och
-   innehållskolumnen rör högerkanten. gap: 0 så rail och innehåll rör
-   varandra också, inte bara kanterna. */
-.settings-shell {
-  display: grid;
-  grid-template-columns: 330px minmax(0, 1fr);
-  gap: 0;
-}
-
-/* Kundönskemål (upprepad, skärmdump: "mycket space under Konto"): en
-   bordad/bakgrundsfärgad ruta runt HELA navlistan (som förut) läses som en
-   "behållare" som borde vara ifylld — varje tomt pixel mellan listans
-   faktiska innehåll och rutans egen höjd (t.ex. en kort KONTO-grupp med
-   bara en enda flik) syns då som "utfyllnad" i stället för att bara vara
-   naturlig plats på sidan. Ingen egen ruta längre — samma mönster som den
-   ursprungliga mockupen faktiskt visade (en ren lista direkt på sidans
-   bakgrund, ingen kant runt om). Listan tar nu bara exakt den höjd dess
-   egna rader kräver, ingenting mer att missta för "space". */
-/* Kundönskemål ("ha bakgrund i Konto/Företag/System"): en bakgrundsfärg
-   igen — men bara FÄRGEN, ingen egen kant/skugga den här gången. Kanten
-   (border+box-shadow) var det som tidigare fick rutan att läsas som en
-   "behållare" med tomt utrymme kvar att fylla (se den borttagna
-   kommentaren ovanför denna regel) — en ren bakgrundsplatta utan kant runt
-   om har ingen sådan "ska vara ifylld ända ner"-läsning, den är bara en
-   färgad yta bakom listan, lika hög som listans eget innehåll. */
-/* Kundönskemål ("emerged till headern, ingen space"): rundade hörn passar
-   inte längre nu när rutan rör både sidhuvudet (ovan) och innehållet
-   (höger) rakt av — samma "fyrkantigt där saker möts" som appens andra
-   flush-mönster (ListPageHeader→ListTable m.fl.). */
-.settings-rail {
-  position: sticky;
-  top: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  background: var(--bg-card);
-  border-radius: 0;
-  padding: 8px;
-}
-
-/* Kundönskemål ("gör Konto/Företag/System-listan större"): samma
-   uppskalning som integrationskorten precis fick — större klickyta,
-   större text, större ikonplatta (se .settings-rail-icon nedan). */
-.settings-rail-item {
-  display: flex;
-  align-items: center;
-  gap: 17px;
-  width: 100%;
-  padding: 20px 18px;
-  border: none;
-  border-radius: 14px;
-  background: none;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 21px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  text-align: left;
-  transition: background-color 0.12s ease, color 0.12s ease;
-}
-
-.settings-rail-item:hover { background: var(--bg-muted); color: var(--text-main); }
-
-.settings-rail-item-on {
-  background: var(--status-green-bg);
-  color: var(--accent);
-  font-weight: 700;
-}
-
-.settings-rail-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  flex-shrink: 0;
-  color: inherit;
-}
-
-.settings-rail-divider {
-  height: 1px;
-  margin: 5px 8px;
-  background: var(--border-light);
-}
-
-/* Kundönskemål (mockup): sidomenyns flikar grupperade under små rubriker
-   (KONTO/FÖRETAG/SYSTEM) i stället för en enda platt lista — se
-   SETTINGS_GROUPS/SettingsRail (Settings.jsx). Samma gråa versal-etikett-
-   stil som resten av appen redan använder för den sortens rubrik (t.ex.
-   FieldGroup ovan i samma fil), inte en ny konvention. */
-/* Kundönskemål (uppföljning, skärmdump): grupperna kändes för lösryckta
-   från varandra — den här margin-top:en (10px) OVANPÅ etikettens EGEN
-   top-padding (också 10px) OVANPÅ .settings-rail:s flex-gap (2px) gav
-   ~22px mellan varje grupp, en betydligt större lucka än mellan raderna
-   INOM en grupp (bara 2px). Ingen egen marginal här längre — etikettens
-   padding-top (sänkt till 8px) räcker som enda avstånd, så grupperna
-   sitter tätt ihop ("emerged") i stället för att läsas som separata öar. */
-.settings-rail-group-label {
-  padding: 16px 18px 8px;
+.settings-hub-card-title {
   font-size: 14.5px;
   font-weight: 700;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
+  color: var(--text-main);
 }
 
-/* Under 1000 px finns inget sidoutrymme att lägga listan i. Där är
-   översikten navigeringen i stället — samma innehåll, en form som passar
-   en telefon. */
-@media (max-width: 999px) {
-  .settings-shell { grid-template-columns: 1fr; gap: 0; }
-  .settings-rail { display: none; }
+.settings-hub-card-desc {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  margin-top: 4px;
 }
+
+.settings-hub-card-arrow {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  color: var(--accent);
+}
+
 
 /* Tätheten inne i ett avsnitt.
    Kundinvändningen var inte en enskild siffra utan summan: varje sektion

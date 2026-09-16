@@ -119,7 +119,7 @@ export default function VacationOverview({ employees = [], payrollRuns = [], onS
           unit="dagar"
           hint="Intjänade minus redan uttagna dagar, alla anställda ihop."
         />
-        <div style={{ background: BRAND.green, color: 'white', borderRadius: '14px', padding: '18px 20px', flex: '1 1 260px', minWidth: 0, display: 'flex', gap: '14px', alignItems: 'flex-start', boxShadow: '0 4px 14px rgba(11, 99, 41, 0.22)' }}>
+        <div style={{ background: BRAND.green, color: 'white', borderRadius: '14px', padding: '18px 20px', flex: '1 1 260px', minWidth: 0, display: 'flex', gap: '14px', alignItems: 'flex-start', boxShadow: '0 4px 14px color-mix(in srgb, var(--accent) 22%, transparent)' }}>
           <div style={{ width: 40, height: 40, borderRadius: '11px', background: 'rgba(255,255,255,0.16)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <Wallet size={19} />
           </div>

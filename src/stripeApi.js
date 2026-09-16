@@ -111,3 +111,14 @@ export async function reactivateStripeSubscription(companyId = null) {
   if (!session?.access_token) throw new Error('Du måste vara inloggad för att återaktivera prenumerationen.');
   return requestStripeApi('create-subscription-checkout', { action: 'reactivate', company_id: companyId || undefined }, session.access_token);
 }
+
+// Stripes Billing Portal (Inställningar → Prenumeration → Betalningsuppgifter
+// / Fakturor & kvitton) — samma endpoint/fil igen (Vercel-funktionsgränsen,
+// se filkommentaren i _subscriptionCheckout.js). Returnerar en URL att
+// omdirigera till, inte en session att montera i appen.
+export async function openBillingPortal(companyId = null) {
+  const { data: { session } = {} } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error('Du måste vara inloggad för att öppna betalningsportalen.');
+  const { url } = await requestStripeApi('create-subscription-checkout', { action: 'billing-portal', company_id: companyId || undefined }, session.access_token);
+  return url;
+}

@@ -22,7 +22,6 @@ import { stripeOauthStateCookie } from './_cookies.js';
 import { parseJsonBody } from './_parseBody.js';
 import { requireAuthedUser, loadOwnedCompany } from '../_auth.js';
 import { checkRateLimit } from '../_rateLimit.js';
-import { isRequestFromBot } from '../_botid.js';
 import { verifyReauthGrant } from '../_signedToken.js';
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY || null;
@@ -133,18 +132,10 @@ export default async function handler(req, res) {
   }
   if (!checkRateLimit(req, res, { key: 'stripe-connect', max: 10 })) return;
 
-  // Vercel BotID — routen finns i initBotId()-listan i main.jsx (bytte
-  // namn/väg vid sammanslagningen, se filkommentaren ovan). Gäller nu BÅDA
-  // actionerna — disconnect.js hade redan den här kollen, oauth-start.js
-  // saknade den tidigare (ett förbiseende, inte avsiktligt), så start-
-  // grenen får skyddet på köpet här utan att det är en beteendeändring
-  // någon bad om.
-  const isBot = await isRequestFromBot();
-  if (isBot) {
-    res.status(403).json({ error: 'Åtkomst nekad.' });
-    return;
-  }
-
+  // Ingen BotID-koll längre (main.jsx: initBotId, se filkommentaren där för
+  // hela historiken) — requireAuthedUser + loadOwnedCompany (start) och
+  // dessutom en reauth-kod (disconnect, nedan) är det faktiska, robusta
+  // skyddet, oberoende av klientens skröpliga BotID-inpackning.
   const user = await requireAuthedUser(req, res);
   if (!user) return;
 
@@ -153,18 +144,20 @@ export default async function handler(req, res) {
     // kommentaren vid handleStart ovan.
     const body = await parseJsonBody(req);
 
-    // Reauthentication (App.jsx:s Stripe-anslutningsknappar, se
-    // api/auth/request-password-reset.js:s send-reauth-code/verify-reauth-
-    // code) — koppla till/från kundens Stripe-konto styr var pengarna
-    // hamnar, ett minst lika känsligt ändringssteg som lösenord/
-    // företagsuppgifter. En färsk, nyligen verifierad kod krävs för BÅDA
-    // grenarna (start OCH disconnect), inte bara disconnect.
-    if (!verifyReauthGrant(body?.reauthToken, user.id)) {
-      res.status(403).json({ error: 'Åtkomst nekad.' });
-      return;
-    }
-
     if (body?.action === 'disconnect') {
+      // Reauthentication (App.jsx:s Stripe-anslutningsknappar, se
+      // api/auth/request-password-reset.js:s send-reauth-code/verify-
+      // reauth-code) — bara FRÅNKOPPLING kräver den numera. Kundönskemål
+      // (Inställningar → Integrationer): "Anslut ska gå direkt till
+      // Stripe, inte via en kod" — att ANSLUTA bara skickar iväg
+      // användaren till Stripes EGEN, hostade OAuth-sida (ingen faktisk
+      // ändring sker förrän Stripe själv autentiserat klart och callat
+      // tillbaka, se callback.js), medan FRÅNKOPPLING river en redan
+      // aktiv betalningsväg direkt — mer känsligt, får behålla spärren.
+      if (!verifyReauthGrant(body?.reauthToken, user.id)) {
+        res.status(403).json({ error: 'Åtkomst nekad.' });
+        return;
+      }
       await handleDisconnect(res, user, body);
     } else {
       // Förval 'start' — client skickar alltid action explicit (se

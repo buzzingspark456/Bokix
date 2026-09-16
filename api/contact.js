@@ -1,7 +1,6 @@
 import { applySecurityHeaders } from './_security.js';
 import { parseJsonBody } from './stripe/_parseBody.js';
 import { checkRateLimit, getClientIp } from './_rateLimit.js';
-import { isRequestFromBot } from './_botid.js';
 import { hasRecaptchaSecretKey, verifyRecaptcha } from './_recaptcha.js';
 
 // Kontaktformuläret på den publika marknadssajten (ContactPage.jsx) —
@@ -76,12 +75,10 @@ export default async function handler(req, res) {
   // anonymt, oautentiserat formulär är det mest utsatta målet för spam.
   if (!checkRateLimit(req, res, { key: 'contact', max: 5 })) return;
 
-  const isBot = await isRequestFromBot();
-  if (isBot) {
-    res.status(403).json({ error: 'Åtkomst nekad.' });
-    return;
-  }
-
+  // Ingen BotID-koll längre (main.jsx: initBotId, se filkommentaren där) —
+  // reCAPTCHA nedan (när RECAPTCHA_SECRET_KEY är satt) plus den striktare
+  // rate-limiten ovan (5, mot övriga rutters 10-30) är det faktiska,
+  // robusta skyddet för det här publika, oautentiserade formuläret.
   try {
     const body = await parseJsonBody(req);
     const name = typeof body?.name === 'string' ? body.name.trim() : '';

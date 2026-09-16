@@ -4,7 +4,7 @@ import { isUfCompany, ufPageState, ufInvoiceQuota, ufFreePeriod, UF_NAV_IDS, UF_
 import {
   LayoutDashboard,
   FileText,
-  Receipt,
+  ReceiptText,
   Loader2,
   Users,
   BookOpen,
@@ -30,15 +30,16 @@ import {
   ShieldCheck,
   Lock,
   Package,
+  ClipboardCheck,
 } from 'lucide-react';
 import { DEFAULT_ACCOUNTS, VAT_ACCOUNTS, REVENUE_ACCOUNTS } from './components/AccountsData';
 import { getNextInvoiceNumber } from './utils/invoiceNumbering';
 import { createStripeCheckoutSession, createStripeSubscriptionCheckout, cancelStripeSubscription } from './stripeApi';
-import { createEmailDomain, getEmailDomainStatus } from './emailApi';
+import { createEmailDomain, getEmailDomainStatus, sendInvoiceEmail } from './emailApi';
 import { getDebet, getKredit } from './utils/verificationAmounts';
 import { grossInvoiceAmount } from './utils/reportCalculations';
 import { planFromId } from './utils/plans';
-import { BRAND } from './utils/brandColors';
+import { BRAND, ACCENT_COLORS } from './utils/brandColors';
 import { OUTPUT_VAT_ACCOUNT_BY_RATE } from './utils/vatConfig';
 import { COMPANY_WRITABLE_FIELDS } from './utils/companyFields.js';
 import { deleteFileFromStorage } from './utils/fileUpload';
@@ -197,7 +198,7 @@ function MfaChallengeScreen({ onVerify, onCancel }) {
           width: 56, height: 56, borderRadius: '16px', flexShrink: 0,
           background: `linear-gradient(160deg, ${BRAND.green}, #0e3a2a)`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: `0 8px 20px -6px ${BRAND.green}99`,
+          boxShadow: '0 8px 20px -6px color-mix(in srgb, var(--accent) 60%, transparent)',
         }}>
           <ShieldCheck size={26} color="white" strokeWidth={2.2} />
         </div>
@@ -299,7 +300,7 @@ function PasswordRecoveryScreen({ onSubmit, onCancel }) {
           width: 56, height: 56, borderRadius: '16px', flexShrink: 0,
           background: `linear-gradient(160deg, ${BRAND.green}, #0e3a2a)`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: `0 8px 20px -6px ${BRAND.green}99`,
+          boxShadow: '0 8px 20px -6px color-mix(in srgb, var(--accent) 60%, transparent)',
         }}>
           <Lock size={26} color="white" strokeWidth={2.2} />
         </div>
@@ -391,6 +392,7 @@ import LandingPage from './components/LandingPage';
 import Auth from './components/Auth';
 import OnboardingFlow from './components/OnboardingFlow';
 import { supabase } from './supabaseClient';
+import { detectDevice } from './utils/deviceInfo';
 import { useLocation, useNavigate } from 'react-router-dom';
 const ReviewQueue = lazy(() => import('./components/ReviewQueue'));
 import HelpDrawer from './components/HelpDrawer';
@@ -1219,24 +1221,79 @@ function App() {
   const [newCompanyModalOpen, setNewCompanyModalOpen] = useState(false);
   const [newCompanyModalSubmitting, setNewCompanyModalSubmitting] = useState(false);
 
-  // ── Tema (ljust/mörkt) ── Sparat val vinner; annars mörkt som
+  // ── Tema (ljust/mörkt/system) ── Sparat val vinner; annars mörkt som
   // standard (appen är byggd för och ser bäst ut i mörkt läge) — inte
-  // OS-inställningen. Varje företag/webbläsare kan ändå själv växla till
-  // ljust läge när som helst, valet sparas då som vanligt. `data-theme`
-  // sätts på <html> i effekten nedan — index.css läser den attributen
-  // för att slå om hela CSS-variabelpaletten (se ":root[data-theme='dark']" där).
-  const [theme, setTheme] = useState(() => {
+  // OS-inställningen. `themePreference` är det RÅA valet (kan vara
+  // 'system'); `theme` nedan är det FAKTISKT tillämpade värdet ('light'
+  // eller 'dark') — all befintlig kod i appen (hundratals `theme ===
+  // 'dark'`-jämförelser) fortsätter fungera oförändrat mot `theme`, bara
+  // inställningssidans nya 3-vägsväljare (Utseende) behöver bry sig om
+  // `themePreference`/`setThemePreference`. Vid 'system' tas `data-theme`
+  // helt bort från <html> i effekten nedan i stället för att sättas — då
+  // tar index.css egen "@media (prefers-color-scheme: dark)"-regel
+  // (":root:not([data-theme='light']):not([data-theme='dark'])") över,
+  // som redan fanns där sedan tidigare men aldrig kunde nås eftersom
+  // `data-theme` alltid sattes explicit. `systemPrefersDark` håller JS-sidan
+  // (den här `theme`-variabeln, ikonen i headern m.m.) i synk LIVE om
+  // användaren byter OS-tema medan appen är öppen.
+  const [themePreference, setThemePreference] = useState(() => {
     try {
-      const stored = localStorage.getItem('bokix_theme');
-      if (stored === 'light' || stored === 'dark') return stored;
+      const stored = localStorage.getItem('bokix_theme_pref') || localStorage.getItem('bokix_theme');
+      if (stored === 'light' || stored === 'dark' || stored === 'system') return stored;
     } catch { /* privat läge/blockerad storage — kör vidare med standardvalet */ }
     return 'dark';
   });
+  const [systemPrefersDark, setSystemPrefersDark] = useState(() => (
+    typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)').matches : false
+  ));
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-    try { localStorage.setItem('bokix_theme', theme); } catch { /* samma reservläge som ovan */ }
-  }, [theme]);
-  const toggleTheme = () => setTheme(t => (t === 'dark' ? 'light' : 'dark'));
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const handler = (e) => setSystemPrefersDark(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+  const theme = themePreference === 'system' ? (systemPrefersDark ? 'dark' : 'light') : themePreference;
+  useEffect(() => {
+    if (themePreference === 'system') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', themePreference);
+    try { localStorage.setItem('bokix_theme_pref', themePreference); localStorage.removeItem('bokix_theme'); } catch { /* samma reservläge som ovan */ }
+  }, [themePreference]);
+  // Snabbväxlingen i headern (sol/måne-ikonen): väljer alltid ett EXPLICIT
+  // läge utifrån det just nu tillämpade (aldrig 'system') — att klicka en
+  // ikon med två lägen är inte platsen att förklara ett tredje.
+  const toggleTheme = () => setThemePreference(theme === 'dark' ? 'light' : 'dark');
+
+  // ── Färgtema (Inställningar → Utseende → Färgtema) ── Samma spara-i-
+  // localStorage/sätt-attribut-på-<html>-mönster som temat ovan. 'green'
+  // (Bokix, förvalet) sätter INGET `data-accent`-attribut alls — index.css
+  // :root ÄR redan grönt, så den som aldrig öppnar den här inställningen
+  // ser en helt oförändrad app.
+  const [accentColor, setAccentColorState] = useState(() => {
+    try {
+      const stored = localStorage.getItem('bokix_accent');
+      if (stored && ACCENT_COLORS.some(a => a.id === stored)) return stored;
+    } catch { /* privat läge/blockerad storage — kör vidare med förvalet */ }
+    return 'green';
+  });
+  useEffect(() => {
+    if (accentColor === 'green') document.documentElement.removeAttribute('data-accent');
+    else document.documentElement.setAttribute('data-accent', accentColor);
+    try { localStorage.setItem('bokix_accent', accentColor); } catch { /* samma reservläge som ovan */ }
+  }, [accentColor]);
+  const setAccentColor = (id) => setAccentColorState(ACCENT_COLORS.some(a => a.id === id) ? id : 'green');
+
+  // ── Kompakt/normal layout (Inställningar → Utseende) ── Samma mönster.
+  const [density, setDensityState] = useState(() => {
+    try { return localStorage.getItem('bokix_density') === 'compact' ? 'compact' : 'normal'; }
+    catch { return 'normal'; }
+  });
+  useEffect(() => {
+    if (density === 'compact') document.documentElement.setAttribute('data-density', 'compact');
+    else document.documentElement.removeAttribute('data-density');
+    try { localStorage.setItem('bokix_density', density); } catch { /* samma reservläge som ovan */ }
+  }, [density]);
+  const setDensity = (v) => setDensityState(v === 'compact' ? 'compact' : 'normal');
 
   // ── Scrollbar på/av (desktop) ── Kundönskemål: en Inställningar-växel
   // för att dölja webbläsarens synliga scrollbar på DATORN — mobilen
@@ -1644,6 +1701,24 @@ function App() {
     return true;
   };
 
+  // Inloggningshistorik (Inställningar > Säkerhet > Inloggningshistorik).
+  // Skriver EN rad per faktisk SIGNED_IN-händelse (se onAuthStateChange
+  // nedan) — men supabase-js's SIGNED_IN kan i vissa fall trigga fler
+  // gånger för samma egentliga session (t.ex. en redan inloggad flik som
+  // laddas om), så en enkel klient-dedupe (localStorage, 5 minuter) skyddar
+  // mot att samma inloggning syns som fem rader i listan. Tyst fel med
+  // flit, exakt samma resonemang som logAuditEvent — en misslyckad
+  // loggning ska aldrig stoppa inloggningen.
+  const logLoginEvent = (authUser) => {
+    try {
+      const key = `bokix_last_login_logged_${authUser.id}`;
+      const last = Number(localStorage.getItem(key) || 0);
+      if (Date.now() - last < 5 * 60 * 1000) return;
+      localStorage.setItem(key, String(Date.now()));
+    } catch { /* privat läge/blockerad storage — logga ändå, bara utan dedupe */ }
+    supabase.from('login_events').insert({ user_id: authUser.id, device: detectDevice() }).then(() => {}, () => {});
+  };
+
   // Auth effect
   useEffect(() => {
     // Failsafe: never hang forever on loading screen
@@ -1736,6 +1811,7 @@ function App() {
           window.location.reload();
           return;
         }
+        logLoginEvent(session.user);
         fetchUserData(session.user);
       }
     });
@@ -3276,6 +3352,61 @@ function App() {
         { account: '1510', debet: 0, kredit: Math.round(paymentAmount) },
       ],
     });
+
+    // Inställningar → Notiser: två separata mejl när en faktura blir HELT
+    // betald (inte vid varje delbetalning — annars blir en avbetalnings-
+    // plan en notis i taget), var och en med sin egen kategori-växel:
+    //   "Betalningar"  → till FÖRETAGET självt ("ni har fått betalt")
+    //   "Fakturor"     → ett betalningskvitto till KUNDEN
+    // Plus en gemensam "E-postnotiser"-huvudströmbrytare (emailNotifications
+    // Enabled) ovanför båda — av den stänger alla automatiska notismejl
+    // oavsett kategorivalen, precis som den för Förfallna fakturor/Moms &
+    // deklaration i api/cron/reminders.js.
+    // Träffar både den manuella "Markera som betald"-knappen och Stripe-
+    // betallänkens automatiska väg ovan (samma funktion, ett enda ställe).
+    // Fire-and-forget (samma "best effort"-mönster som betalningslänken i
+    // Invoices.jsx): ett misslyckat notismejl ska aldrig få den redan
+    // registrerade betalningen och bokföringen ovan att se ut som att de
+    // också misslyckades.
+    const emailNotificationsOn = company?.notifications?.emailNotificationsEnabled ?? true;
+    if (isFullyPaid && emailNotificationsOn) {
+      const amountLabel = `${Math.round(newPaid).toLocaleString('sv-SE')} kr`;
+      const dateLabel = new Date(paidDate).toLocaleDateString('sv-SE');
+
+      if ((company?.notifications?.paymentRemindersEnabled ?? true) && company?.email) {
+        sendInvoiceEmail({
+          to: company.email,
+          subject: `Betalning mottagen – faktura ${inv.invoiceNumber}`,
+          html: `
+            <p style="margin:0 0 14px;">Faktura <strong>${inv.invoiceNumber}</strong> är markerad som betald.</p>
+            <p style="margin:0 0 14px;">Belopp: <strong>${amountLabel}</strong> · Betaldatum: ${dateLabel}</p>
+            <p style="margin:22px 0 0;padding-top:14px;border-top:1px solid #e5e7eb;font-size:13px;color:#6b7280;">
+              Automatisk notis från Bokix. Stäng av under Inställningar → Notiser.
+            </p>
+          `,
+          company_id: data.activeCompanyId,
+        }).catch(err => console.error('Betalningsnotis (mejl) misslyckades:', err));
+      }
+
+      if (company?.notifications?.invoiceReceiptsEnabled ?? true) {
+        const customer = contacts.find(c => c.id === inv.customerId);
+        if (customer?.email) {
+          sendInvoiceEmail({
+            to: customer.email,
+            subject: `Kvitto – faktura ${inv.invoiceNumber} betald`,
+            html: `
+              <p style="margin:0 0 14px;">Tack! Vi har registrerat din betalning av faktura <strong>${inv.invoiceNumber}</strong>.</p>
+              <p style="margin:0 0 14px;">Belopp: <strong>${amountLabel}</strong> · Betaldatum: ${dateLabel}</p>
+              <p style="margin:22px 0 0;padding-top:14px;border-top:1px solid #e5e7eb;font-size:13px;color:#6b7280;">
+                Det här kvittot skickas automatiskt av ${(company?.invoiceDisplayName || company?.name) || 'avsändaren'} via Bokix.
+              </p>
+            `,
+            replyTo: company?.email || undefined,
+            company_id: data.activeCompanyId,
+          }).catch(err => console.error('Betalningskvitto (mejl) misslyckades:', err));
+        }
+      }
+    }
   };
 
   // Bekvämlighetsgenväg som betalar hela kvarvarande beloppet idag — det
@@ -3792,7 +3923,7 @@ function App() {
       text: overdueInvoicesForNotif.length === 1 ? '1 faktura har förfallit' : `${overdueInvoicesForNotif.length} fakturor har förfallit`,
     }] : []),
     ...(reviewCount > 0 ? [{
-      icon: Receipt, tone: 'green', tab: 'review',
+      icon: ReceiptText, tone: 'green', tab: 'review',
       text: `${reviewCount} kvitto${reviewCount > 1 ? 'n' : ''} väntar på granskning`,
     }] : []),
     ...(draftOrPendingExpenses.length > 0 ? [{
@@ -3825,7 +3956,7 @@ function App() {
   const mobileNavItems = [
     { id: 'dashboard', label: 'Hem',      icon: LayoutDashboard },
     { id: 'invoices',  label: 'Fakturor', icon: FileText },
-    { id: 'expenses',  label: 'Kvitton', icon: Receipt },
+    { id: 'expenses',  label: 'Kvitton', icon: ReceiptText },
     { id: 'contacts',  label: 'Kunder',   icon: Users },
   ];
   const mobileSheetItems = [
@@ -4209,8 +4340,12 @@ function App() {
             onToggleSidebarStyle={toggleSidebarStyle}
             sharedAccess={currentCompany.__shared || null}
             onBulkImportSie={handleBulkImportVerifications}
-            theme={theme}
-            onToggleTheme={toggleTheme}
+            themePreference={themePreference}
+            onSetThemePreference={setThemePreference}
+            accentColor={accentColor}
+            onSetAccentColor={setAccentColor}
+            density={density}
+            onSetDensity={setDensity}
             initialSection={settingsInitialSection}
           />
         );
@@ -4308,29 +4443,29 @@ function App() {
             {
               // Grupp 1 — det dagliga arbetet
               items: [
-                { id: 'dashboard', label: 'Startsida' },
-                { id: 'contacts', label: 'Kunder' },
-                { id: 'quotes', label: 'Offerter' },
-                { id: 'invoices', label: 'Fakturering' },
-                { id: 'expenses', label: 'Kvitton' },
-                { id: 'projects', label: 'Projekt' },
+                { id: 'dashboard', label: 'Startsida', icon: LayoutDashboard },
+                { id: 'contacts', label: 'Kunder', icon: Users },
+                { id: 'quotes', label: 'Offerter', icon: FileSpreadsheet },
+                { id: 'invoices', label: 'Fakturering', icon: FileText },
+                { id: 'expenses', label: 'Kvitton', icon: ReceiptText },
+                { id: 'projects', label: 'Projekt', icon: Briefcase },
               ],
             },
             {
               // Grupp 2 — bokföring och administration
               items: [
-                { id: 'review', label: 'Granskning', badge: reviewCount },
-                { id: 'verifications', label: 'Bokföring' },
-                { id: 'bank', label: 'Bank' },
-                { id: 'payroll', label: 'Anställda och lön' },
-                { id: 'reports', label: 'Rapport och analys' },
-                { id: 'taxes', label: 'Skatt och bokslut' },
+                { id: 'review', label: 'Granskning', badge: reviewCount, icon: ClipboardCheck },
+                { id: 'verifications', label: 'Bokföring', icon: BookOpen },
+                { id: 'bank', label: 'Bank', icon: Landmark },
+                { id: 'payroll', label: 'Anställda och lön', icon: UsersRound },
+                { id: 'reports', label: 'Rapport och analys', icon: BarChart3 },
+                { id: 'taxes', label: 'Skatt och bokslut', icon: Shield },
               ],
             },
             {
               // Grupp 3 — inställningar, ensam i sin egen grupp
               items: [
-                { id: 'settings', label: 'Inställningar' },
+                { id: 'settings', label: 'Inställningar', icon: SettingsIcon },
               ],
             },
           ].map(group => ({ ...group, items: group.items.filter(item => allowedNavIds === null || item.id === 'settings' || allowedNavIds.includes(item.id)) }))
@@ -4363,7 +4498,10 @@ function App() {
                       flexShrink: 0,
                     }}
                   >
-                    <span>{item.label}</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '11px' }}>
+                      <item.icon size={18} strokeWidth={isActive ? 2.25 : 2} style={{ flexShrink: 0, opacity: isActive ? 1 : 0.85 }} />
+                      <span>{item.label}</span>
+                    </span>
                     {item.badge > 0 && (
                       <span style={{
                         minWidth: '20px', height: '20px', padding: '0 6px', borderRadius: '999px',

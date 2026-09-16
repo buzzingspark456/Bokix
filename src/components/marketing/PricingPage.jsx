@@ -16,6 +16,8 @@ const FAQ = [
   { q: 'Behöver jag ange kortuppgifter för att prova?', a: 'Ja, du lägger in dina betaluppgifter hos Stripe redan vid registreringen, men du debiteras ingenting under de första 30 dagarna. Avslutar du innan dess kostar det dig aldrig något.' },
   { q: 'Kan jag avsluta när som helst?', a: 'På månadsplanen ja — det finns varken uppsägningstid eller bindningstid, du avslutar när du vill. Årsplanen ger ett lägre månadspris mot att den gäller i minst tre månader, därefter avslutar du den lika fritt.' },
   { q: 'Tillkommer moms på priset?', a: 'Nej. Bokix är inte momsregistrerat, så priset du ser är hela beloppet som dras — ingen moms läggs på. Det betyder samtidigt att det inte finns någon ingående moms att dra av på abonnemanget i din egen bokföring.' },
+  { q: 'Tillkommer avgifter per kvitto eller faktura?', a: 'Nej. Priset ovan är hela kostnaden oavsett hur många kvitton du skannar eller fakturor du skickar — inga styckpriser, inga tillägg som dyker upp senare.' },
+  { q: 'Är jag inlåst om jag vill byta bort från Bokix?', a: 'Nej. Du exporterar hela din bokföring som en SIE4-fil eller en fullständig JSON-säkerhetskopia när du vill, direkt i Inställningar — inget att fråga oss om lov för. SIE4 är samma öppna format alla svenska bokföringsprogram läser.' },
   { q: 'Vilka bolagsformer stöds?', a: 'Bokix känner igen enskild firma, aktiebolag, handelsbolag/kommanditbolag och ekonomisk förening utifrån organisationsnumret, och bokför enligt rätt regler för respektive form.' },
   { q: 'Ingår support i priset?', a: 'Ja, support ingår i båda nivåerna. Du når oss på support@bokix.se.' },
 ];
@@ -124,7 +126,7 @@ export default function PricingPage() {
       <JsonLd data={SOFTWARE_SCHEMA} />
       <JsonLd data={FAQ_SCHEMA} />
 
-      <section style={{ padding: '150px 24px 70px', background: IVORY, position: 'relative', overflow: 'hidden' }}>
+      <section style={{ padding: 'clamp(100px, 22vw, 150px) 24px clamp(44px, 9vw, 70px)', background: IVORY, position: 'relative', overflow: 'hidden' }}>
         <AuroraLayer
           stops={[['rgba(14,165,233,0.20)', '4% -8%'], ['rgba(47,138,58,0.16)', '98% 106%']]}
           blob={{ gradient: grad(GRAD.blueTeal), top: '-160px', left: '-110px', size: '460px', opacity: 0.22 }}
@@ -202,7 +204,12 @@ export default function PricingPage() {
               })}
             </div>
           </Reveal>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: '32px', alignItems: 'stretch' }}>
+          {/* Kundfeedback (mobil, samma bugg som startsidans prissektion —
+              se LandingPage.jsx): minmax(380px,1fr) tvingade ett rutnät
+              bredare än en smal telefon-viewport. minmax(min(380px,100%),1fr)
+              krymper golvet till containerns egen bredd i stället — en
+              enda skärmbred kolumn på mobil, oförändrat på desktop. */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(380px, 100%), 1fr))', gap: 'clamp(16px, 5vw, 32px)', alignItems: 'stretch' }}>
             {PRICING_TIERS.map((tier, i) => {
               const plan = resolvePlan(tier.key, interval);
               return (
@@ -225,7 +232,7 @@ export default function PricingPage() {
                     headerns egen overflow:hidden-klippning och kortets
                     rundade mask inte exakt, och gradient-randen fick ett
                     hackigt hörn. */}
-                <div style={{ background: `color-mix(in srgb, ${tier.accent.fg} 7%, var(--mkt-card-bg))`, padding: tier.featured ? '46px 28px 34px' : '38px 28px 28px', textAlign: 'center', position: 'relative', overflow: 'hidden', borderRadius: '26px 26px 0 0', flexShrink: 0 }}>
+                <div style={{ background: `color-mix(in srgb, ${tier.accent.fg} 7%, var(--mkt-card-bg))`, padding: tier.featured ? 'clamp(28px, 9vw, 46px) clamp(18px, 6vw, 28px) clamp(22px, 7vw, 34px)' : 'clamp(24px, 8vw, 38px) clamp(18px, 6vw, 28px) clamp(18px, 6vw, 28px)', textAlign: 'center', position: 'relative', overflow: 'hidden', borderRadius: '26px 26px 0 0', flexShrink: 0 }}>
                   <div aria-hidden style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '5px', backgroundImage: grad(tier.gradient) }} />
                   <div style={{ marginBottom: tier.featured ? '20px' : '16px', position: 'relative' }}>
                     <BokixWordmark height={tier.featured ? 48 : 38} />
@@ -234,9 +241,12 @@ export default function PricingPage() {
                     <div style={{ display: 'inline-flex', padding: '5px 14px', borderRadius: '100px', background: tier.accent.soft, fontSize: tier.featured ? '13.5px' : '12.5px', fontWeight: 700, color: tier.accent.fg, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '14px' }}>{tier.name}</div>
                     {/* Priset räknas ur den delade katalogen (plans.js),
                         samma fil som checkouten debiterar efter — kortet kan
-                        alltså inte visa ett annat belopp än det som dras. */}
+                        alltså inte visa ett annat belopp än det som dras.
+                        clamp() (kundfeedback: "för stort på telefonen") —
+                        58/50px på desktop som förut, mindre på en smal
+                        telefon. */}
                     <div>
-                      <span style={{ fontFamily: SERIF, fontSize: tier.featured ? '58px' : '50px', fontWeight: 700, letterSpacing: '-0.01em', color: INK }}>
+                      <span style={{ fontFamily: SERIF, fontSize: tier.featured ? 'clamp(38px, 11vw, 58px)' : 'clamp(32px, 9.5vw, 50px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK }}>
                         {plan.price} kr
                       </span>
                       <span style={{ fontSize: '15px', color: MUTED }}> /mån</span>
@@ -251,7 +261,7 @@ export default function PricingPage() {
                   </div>
                 </div>
 
-                <div style={{ padding: '28px 24px 26px', display: 'flex', flexDirection: 'column', flex: 1 }}>
+                <div style={{ padding: 'clamp(20px, 6vw, 28px) clamp(16px, 5vw, 24px) clamp(18px, 5vw, 26px)', display: 'flex', flexDirection: 'column', flex: 1 }}>
                   {tier.recommend && (
                     <div style={{ fontSize: '13.5px', color: tier.accent.fg, fontWeight: 600, lineHeight: 1.5, marginBottom: '18px', paddingBottom: '18px', borderBottom: `1px solid ${CARD_BORDER}` }}>
                       {tier.recommend}
@@ -297,6 +307,17 @@ export default function PricingPage() {
               beloppet, och det finns ingen ingående moms att dra av. */}
           <p style={{ textAlign: 'center', fontSize: '13px', color: 'var(--mkt-muted)', margin: '28px auto 0', maxWidth: '520px', lineHeight: 1.65 }}>
             Priserna är i svenska kronor och ingen moms tillkommer — Bokix är inte momsregistrerat, så beloppet du ser är det som dras.
+          </p>
+          {/* Samma logik som momsraden ovan, en egen rad i stället för
+              att klämmas in i samma mening: "inga dolda avgifter" fanns
+              tidigare bara i sidans <meta description> (osynligt för en
+              besökare) — konkurrensbevakning visar att just det här
+              (avgift per skannat kvitto/faktura utöver abonnemanget) är
+              ett återkommande, verkligt klagomål mot flera andra svenska
+              bokföringsprogram. Ärligt och kort, samma ton som resten av
+              sidan — ingen jämförelsetabell, bara vårt eget löfte. */}
+          <p style={{ textAlign: 'center', fontSize: '13px', color: 'var(--mkt-muted)', margin: '10px auto 0', maxWidth: '520px', lineHeight: 1.65 }}>
+            Inga dolda avgifter och inga tillägg per kvitto eller skickad faktura — priset ovan är hela kostnaden, oavsett hur mycket du bokför.
           </p>
         </div>
       </section>

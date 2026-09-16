@@ -61,6 +61,12 @@ function getStripeClient() {
 // (Punkt 4 och 5 ovan är INTE med i den begränsningen — de läser
 // public.subscriptions/public.stripe_ledger_events, riktiga SQL-tabeller
 // med riktade frågor, inte user_data-blobben.)
+// `enabled` är kvar som det GAMLA, gemensamma på/av-fältet — bara som
+// fallback (se invoiceRemindersOn/declarationRemindersOn nedan) för ett
+// företag som sparade sin inställning innan Notiser-fliken delade upp den
+// i "Förfallna fakturor" (invoiceRemindersEnabled) och "Moms & deklaration"
+// (declarationRemindersEnabled), Settings.jsx. Nya företag/sparningar
+// skriver de två nya fälten, aldrig `enabled`.
 const DEFAULT_NOTIFICATIONS = { enabled: true, invoiceReminderDays: 3, declarationReminderDays: 7, agiRemindersSent: {} };
 const SITE_URL = 'https://www.bokix.se';
 // Kundrapporterad brist: ingen påminnelse skickades innan kortet drogs
@@ -265,15 +271,33 @@ export default async function handler(req, res) {
 
         for (const [companyId, companyData] of Object.entries(companies)) {
           const notif = { ...DEFAULT_NOTIFICATIONS, ...(companyData.company?.notifications || {}) };
-          if (!notif.enabled) continue;
+          // Två oberoende kategorier i stället för EN gemensam `enabled`
+          // (Inställningar → Notiser: "Förfallna fakturor"/"Moms &
+          // deklaration"). `?? notif.enabled` är bakåtkompatibiliteten:
+          // ett företag som bara har det gamla `enabled`-fältet sparat
+          // (aldrig rört de nya kategorierna) får samma beteende som förut
+          // på båda — annars hade en gammal `enabled: false` tystnat och
+          // sen plötsligt återuppstått som "på" för kategorier fältet
+          // aldrig visste om.
+          // "E-postnotiser" (emailNotificationsEnabled): huvudströmbrytaren
+          // ovanför alla kategorier — samma fält som App.jsx:s betalnings-
+          // notismejl (handleRegisterInvoicePayment) kollar. Av här stänger
+          // ALLT den här cronen skickar, oavsett vad de enskilda
+          // kategorierna nedan säger.
+          const emailNotificationsOn = notif.emailNotificationsEnabled ?? true;
+          const invoiceRemindersOn = emailNotificationsOn && (notif.invoiceRemindersEnabled ?? notif.enabled);
+          const declarationRemindersOn = emailNotificationsOn && (notif.declarationRemindersEnabled ?? notif.enabled);
+          if (!invoiceRemindersOn && !declarationRemindersOn) continue;
 
           // Samlar vad som FAKTISKT ändrades för DEN HÄR companyn så bara
           // ändrade fält skrivs tillbaka (set_company_field, ett fält i
           // taget) — aldrig ett helblobs-upsert från cronen.
           const changedFields = new Set();
 
-          // ── 1) Fakturapåminnelser till kunden ──
-          const invoices = Array.isArray(companyData.invoices) ? companyData.invoices : [];
+          // ── 1) Fakturapåminnelser till kunden ── gated på invoiceRemindersOn
+          // (tom lista i stället för en if-sats runt hela blocket — for-
+          // loopen nedan itererar då noll gånger, minsta möjliga ändring).
+          const invoices = invoiceRemindersOn && Array.isArray(companyData.invoices) ? companyData.invoices : [];
           for (const inv of invoices) {
             if (inv.status === 'paid' || inv.status === 'draft' || !inv.dueDate) continue;
             const daysOverdue = daysBetween(today, new Date(`${inv.dueDate}T00:00:00`));
@@ -336,7 +360,7 @@ export default async function handler(req, res) {
           // annars göra att daysLeft aldrig träffar exakt N igen för den här
           // perioden och påminnelsen uteblir helt. remindersSent-markören
           // nedan gör ändå att den bara skickas EN gång per period.
-          const vatDeadline = nextVatDeadline(companyData.company, companyData.vatPeriods || {});
+          const vatDeadline = declarationRemindersOn ? nextVatDeadline(companyData.company, companyData.vatPeriods || {}) : null;
           if (vatDeadline && vatDeadline.daysLeft <= notif.declarationReminderDays) {
             const periodKey = `${vatDeadline.year}-Q${vatDeadline.quarter}`;
             const period = (companyData.vatPeriods || {})[periodKey] || {};
@@ -366,8 +390,9 @@ export default async function handler(req, res) {
             }
           }
 
-          // ── 3) AGI-deadline till företaget ──
-          if (Array.isArray(companyData.employees) && companyData.employees.length > 0) {
+          // ── 3) AGI-deadline till företaget ── samma declarationRemindersOn-
+          // spärr som momsdeadlinen ovan (kategorin "Moms & deklaration").
+          if (declarationRemindersOn && Array.isArray(companyData.employees) && companyData.employees.length > 0) {
             const agiDeadline = nextAgiDeadline(today);
             // Samma "<=" istället för "===" som för momsdeadlinen ovan, och
             // av samma skäl — robust mot ett missat cron-pass.

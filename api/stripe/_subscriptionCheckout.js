@@ -4,9 +4,8 @@ import Stripe from 'stripe';
 import { parseJsonBody } from './_parseBody.js';
 import { normalizeAbsoluteUrl, appendQueryParam } from './_urls.js';
 import { checkRateLimit } from '../_rateLimit.js';
-import { isRequestFromBot } from '../_botid.js';
 import { requireAuthedUser } from '../_auth.js';
-import { hasExistingSubscription, getSubscriptionRow, upsertSubscription } from './_subscriptions.js';
+import { hasExistingSubscription, getSubscriptionRow, getStripeCustomerId, upsertSubscription } from './_subscriptions.js';
 
 // Läses INTE in som modul-nivå-konstant — samma gotcha som _resend.js/
 // _signedToken.js/company-access.js:s getForetagsApiKey redan har en
@@ -76,13 +75,11 @@ export default async function handler(req, res) {
   }
   if (!checkRateLimit(req, res, { key: 'create-subscription-checkout', max: 10 })) return;
 
-  // Vercel BotID — se filkommentaren i main.jsx.
-  const isBot = await isRequestFromBot();
-  if (isBot) {
-    res.status(403).json({ error: 'Åtkomst nekad.' });
-    return;
-  }
-
+  // Ingen BotID-koll längre (main.jsx: initBotId, se filkommentaren där) —
+  // avsluta/återaktivera/billing-portal kräver alla requireAuthedUser
+  // (nedan); en helt ny signup skyddas redan av Turnstile på registrerings-
+  // steget precis innan (Auth.jsx) och av Stripes egen Radar-kontroll vid
+  // själva kortdragningen.
   try {
     const body = await parseJsonBody(req);
 
@@ -101,6 +98,32 @@ export default async function handler(req, res) {
     // skickat med company_id), ett riktigt värde bara för "Lägg till
     // företag" (App.jsx). Se _subscriptions.js:s kommentar för hur ''
     // (legacy) vs ett riktigt id hålls isär i databasen.
+    // ── Stripes Billing Portal (Inställningar → Prenumeration →
+    // Betalningsuppgifter / Fakturor & kvitton) — EN hostad Stripe-sida som
+    // redan hanterar BÅDE kortbyte OCH kvitto-/fakturahistorik korrekt, i
+    // stället för att bygga om det i appen (egna Stripe-API-anrop för
+    // betalkort och en egen fakturalista, dubbelt jobb och en yta till att
+    // hålla säker). Kräver alltid en inloggad session — precis som cancel/
+    // reactivate nedan, av samma skäl.
+    if (body.action === 'billing-portal') {
+      const authedUser = await requireAuthedUser(req, res);
+      if (!authedUser) return;
+
+      const stripeCustomerId = await getStripeCustomerId(authedUser.id, body.company_id || null);
+      if (!stripeCustomerId) {
+        res.status(404).json({ error: 'Ingen Stripe-kund hittades för det här företaget.' });
+        return;
+      }
+
+      const returnUrl = normalizeAbsoluteUrl(process.env.STRIPE_SUCCESS_URL, 'http://localhost:5173');
+      const portalSession = await stripe.billingPortal.sessions.create({
+        customer: stripeCustomerId,
+        return_url: returnUrl,
+      });
+      res.status(200).json({ url: portalSession.url });
+      return;
+    }
+
     if (body.action === 'cancel' || body.action === 'reactivate') {
       const authedUser = await requireAuthedUser(req, res);
       if (!authedUser) return; // requireAuthedUser har redan svarat 401

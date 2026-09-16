@@ -370,21 +370,35 @@ export default function Bank({
 
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {bankTransactions.length === 0 ? (
-          // Samma tomt-läge-mönster som Quotes.jsx/Invoices.jsx (facit för
-          // en helt tom listsida): centrerat flex-block, kräm/kort-bakgrund,
-          // rundad ikoncirkel, fet 16px-rubrik, 13.5px undertext — pekar mot
-          // sidhuvudets egen knapp istället för att duplicera en egen CTA.
-          <div style={{
-            flex: 1, minHeight: '320px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-            gap: '10px', margin: '24px', padding: '40px', textAlign: 'center',
-            background: 'var(--bg-cream)', border: '1px solid var(--border)', borderRadius: '14px',
-          }}>
-            <div style={{ width: 56, height: 56, borderRadius: '999px', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: BRAND.green, marginBottom: '4px' }}>
-              <Landmark size={26} />
-            </div>
-            <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-main)' }}>Inga banktransaktioner ännu</div>
-            <div style={{ fontSize: '13.5px', color: 'var(--text-muted)', maxWidth: '320px' }}>
-              Klicka på "Importera transaktioner" ovan för att ladda upp ett kontoutdrag (CSV eller Excel) och komma igång.
+          // Samma kortram som ListTable (bordered=true, samma komponent som
+          // renderar raderna nedan) i stället för en egen flytande, rundad
+          // ruta — rakt upptill, fäst flush mot filterraden ovanför, rundat
+          // bara nedtill, med samma kant/skugga. Tomt och fyllt läge ser nu
+          // ut som SAMMA kort, bara olika innehåll. Ikonrutan rundad kvadrat
+          // (INTE en cirkel) på neutral --bg-muted, med den mörka
+          // varumärkesgröna (BRAND.green/--accent) som ikonfärg — inte en
+          // ljus pastelltoning.
+          <div style={{ background: 'var(--bg-card)', borderRadius: '0 0 12px 12px', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)' }}>
+            <div style={{
+              minHeight: '320px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+              textAlign: 'center', padding: '48px 24px',
+            }}>
+              <div style={{ width: 72, height: 72, borderRadius: '18px', background: 'var(--bg-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px', color: BRAND.green }}>
+                <Landmark size={30} />
+              </div>
+              <h3 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 8px', color: 'var(--text-main)' }}>Inga banktransaktioner ännu</h3>
+              <p style={{ fontSize: '14px', color: 'var(--text-secondary)', maxWidth: '300px', margin: '0 0 24px' }}>
+                Ladda upp ett kontoutdrag (CSV eller Excel) för att komma igång.
+              </p>
+              {/* Inte .btn-primary (index.css: var(--lime-500), en ljusare
+                  grön) — samma mörka varumärkesgröna knapp som Kontakters/
+                  Offerters tomma-läge-knappar, inte en avvikande nyans. */}
+              <button
+                onClick={() => setShowImportModal(true)}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '10px 20px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '9px', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}
+              >
+                <Upload size={15} /> Importera transaktioner
+              </button>
             </div>
           </div>
         ) : (

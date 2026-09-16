@@ -95,7 +95,7 @@ export default function PaymentRequiredGate({ user, company, onSignedOut }) {
         <button
           onClick={handleContinueToPayment}
           disabled={loading}
-          style={{ width: '100%', padding: '14px', background: BRAND.green, border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: 700, color: 'white', cursor: loading ? 'wait' : 'pointer', boxShadow: '0 2px 6px rgba(11,99,41,0.25)', fontFamily: 'inherit', opacity: loading ? 0.7 : 1, marginBottom: '14px' }}
+          style={{ width: '100%', padding: '14px', background: BRAND.green, border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: 700, color: 'white', cursor: loading ? 'wait' : 'pointer', boxShadow: '0 2px 6px color-mix(in srgb, var(--accent) 25%, transparent)', fontFamily: 'inherit', opacity: loading ? 0.7 : 1, marginBottom: '14px' }}
         >
           {loading ? 'Skickar dig till Stripe...' : 'Fortsätt till betalning'}
         </button>

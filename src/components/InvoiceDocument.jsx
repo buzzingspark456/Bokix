@@ -117,8 +117,13 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
         ['OBS', 'Detta är ett prisförslag, inte en faktura eller betalningsuppmaning.'],
       ]
     : [
-        ['Bankgiro', company?.bankgiro || '—'],
-        ['IBAN', company?.iban || '—'],
+        // Inställningar → Fakturor → Betalningsuppgifter på fakturan (av
+        // som standard skulle bryta befintliga fakturor, så förvalet är
+        // PÅ — bara ett uttryckligt `false` döljer raderna).
+        ...(company?.showPaymentDetailsOnInvoice !== false ? [
+          ['Bankgiro', company?.bankgiro || '—'],
+          ['IBAN', company?.iban || '—'],
+        ] : []),
         ['Betalningsvillkor', invoice?.terms || '30 dagar netto'],
         ['Kontakt', company?.email || company?.phone || '—'],
       ];

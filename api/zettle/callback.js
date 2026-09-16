@@ -24,7 +24,6 @@ import { parseCookies, ZETTLE_OAUTH_COOKIE, zettleOauthStateCookie, clearZettleO
 import { parseJsonBody } from '../stripe/_parseBody.js';
 import { requireAuthedUser, loadOwnedCompany } from '../_auth.js';
 import { checkRateLimit } from '../_rateLimit.js';
-import { isRequestFromBot } from '../_botid.js';
 
 const ZETTLE_AUTHORIZE_URL = 'https://oauth.zettle.com/authorize';
 const ZETTLE_TOKEN_URL = 'https://oauth.zettle.com/token';
@@ -211,15 +210,21 @@ export default async function handler(req, res) {
 
   if (!checkRateLimit(req, res, { key: 'zettle-connect', max: 10 })) return;
 
-  // Vercel BotID — se filkommentaren i main.jsx. Gäller bara POST (start):
-  // GET är Zettles egen server-till-server-redirect, inget en användares
-  // webbläsare "fyller i", BotID-skyddet är inte relevant där.
-  const isBot = await isRequestFromBot();
-  if (isBot) {
-    res.status(403).json({ error: 'Åtkomst nekad.' });
-    return;
-  }
-
+  // OBS: ingen BotID-koll här längre (till skillnad från en tidigare
+  // version av den här filen, och från main.jsx:s filkommentar innan den
+  // rättades) — kundrapport, "Kunde inte ansluta Zettle: [object Event]".
+  // Det tomma Event:et är signaturen på att klientens BotID-inpackning
+  // (main.jsx: initBotId) failar STÄNGT, inte öppet, när dess eget
+  // utmaningsskript av någon anledning inte hinner/kan laddas — samma
+  // exakta bugg som redan diagnosticerats och åtgärdats för
+  // api/company-access.js och api/email/domains/index.js (se main.jsx:s
+  // kommentar). POST hit är MEDVETET borttagen ur initBotId-listan i
+  // main.jsx av samma skäl. Utan en client-registrering skickas
+  // x-is-human-headern aldrig, så en kvarbliven serverkoll här hade kunnat
+  // landa i isBot:true för helt vanliga användare (samma "RÄTTELSE"-fynd
+  // som main.jsx redan dokumenterar) — requireAuthedUser + loadOwnedCompany
+  // (bevisat ägarskap) nedan är det faktiska, tillräckliga skyddet för den
+  // här redan autentiserade anslutningen.
   const user = await requireAuthedUser(req, res);
   if (!user) return;
 

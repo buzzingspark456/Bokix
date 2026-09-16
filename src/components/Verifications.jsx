@@ -1,12 +1,11 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+﻿import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  Plus, Search, ChevronRight, ChevronDown, X,
+  Plus, Search, ChevronRight, ChevronDown,
   AlertCircle, RotateCcw, RefreshCw,
-  UploadCloud, Tag, LayoutTemplate, Save, Trash2, ScanLine, Lock,
+  UploadCloud, Tag, LayoutTemplate, Save, Trash2, ScanLine, BookOpen,
 } from 'lucide-react';
 import { getDebet, getKredit } from '../utils/verificationAmounts';
 import { BRAND } from '../utils/brandColors';
-import { accountMatches } from '../utils/accountSearch';
 import { PartySearch, ProjectSearch, AccountSearch } from './shared/SearchInputs';
 import ListPageHeader, { ListFilterBar, listSearchInputStyle, listFilterFieldStyle } from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
@@ -16,7 +15,8 @@ import { uploadFileToStorage, deleteFileFromStorage } from '../utils/fileUpload'
 import { confirmDialog, promptDialog } from './shared/ConfirmDialog';
 import { ocrFile, parseReceiptText } from '../utils/ocrReceipt';
 import { convertToSek } from '../utils/currencyConversion';
-import { ToggleSwitch } from './Settings';
+import { getNextNumber as getNextNumberForSeries } from '../utils/verificationNumbering';
+import AccountsPanel from './shared/AccountsPanel';
 
 // Bara för att skriva ut valutavarningen lite snyggare — ingen omräkning
 // görs här, det är enbart kosmetiskt.
@@ -63,23 +63,6 @@ const MONTH_NAMES = [
   { v: '07', label: 'Juli' }, { v: '08', label: 'Augusti' }, { v: '09', label: 'September' },
   { v: '10', label: 'Oktober' }, { v: '11', label: 'November' }, { v: '12', label: 'December' },
 ];
-
-// ─── BAS Account reference ────────────────────────────────────────────────────
-const BAS_GROUPS = [
-  { range: [1000, 1999], label: '1000–1999 Tillgångar', code: '1' },
-  { range: [2000, 2999], label: '2000–2999 Eget kapital och skulder', code: '2' },
-  { range: [3000, 3999], label: '3000–3999 Intäkter', code: '3' },
-  { range: [4000, 4999], label: '4000–4999 Kostnader, varuinköp', code: '4' },
-  { range: [5000, 5999], label: '5000–5999 Övriga externa kostnader', code: '5' },
-  { range: [6000, 6999], label: '6000–6999 Övriga externa kostnader', code: '6' },
-  { range: [7000, 7999], label: '7000–7999 Personalkostnader', code: '7' },
-  { range: [8000, 8999], label: '8000–8999 Finansiella poster och skatt', code: '8' },
-];
-
-function getGroup(code) {
-  const n = parseInt(code, 10);
-  return BAS_GROUPS.find(g => n >= g.range[0] && n <= g.range[1]);
-}
 
 // ─── De fyra kontoklasserna (verksamt.se) ──────────────────────────────────────
 // Tillgångar (1) och Kostnader (4–8) ökar normalt i debet.
@@ -978,36 +961,16 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
   const [monthFilter, setMonthFilter] = useState('all');
   const [flatView, setFlatView] = useState(false);
 
-  // Kontoplan state
-  const [accountSearch, setAccountSearch] = useState('');
-  // Kundönskemål, uttryckligt: en väg att se BARA de konton man redan har
-  // (aktiva) och en väg att se HELA kontoplanen, i stället för att alltid
-  // bläddra i alla ~700-1200 på en gång. 'mine' = företagets egna, aktiva
-  // konton — samma urval AccountSearch redan defaultar till (shared/
-  // SearchInputs.jsx) — 'all' = varje konto, aktivt eller ej, för att
-  // hitta och slå på ett nytt (se dammsugar-exemplet).
-  const [accountView, setAccountView] = useState('mine');
-  // Kundönskemål, uttryckligt: klasserna ska INTE fällas ut automatiskt
-  // (stod tidigare öppna på 1-3 direkt vid sidladdning) — man väljer
-  // själv vilken man vill se, i båda vyerna. En sökning fäller fortfarande
-  // upp matchande klasser åt en (se useEffect nedan) — det är inte samma
-  // sak: att SKRIVA en sökning är i sig en begäran om att se resultatet,
-  // olikt en tom sida som bara händer att öppna sig själv.
-  const [expandedGroups, setExpandedGroups] = useState({});
-  const [showNewAccountForm, setShowNewAccountForm] = useState(false);
-  const [newAccCode, setNewAccCode] = useState('');
-  const [newAccName, setNewAccName] = useState('');
+  // Kontoplan-fliken är nu en helt självständig komponent (shared/
+  // AccountsPanel.jsx, delad med Inställningar > System > Kontoplan) med
+  // sin egen interna state — inget kvar att deklarera här.
 
-  // Varje serie (A/B/C) har sin egen löpande, oberoende nummerserie.
-  const getNextNumber = (seriesLetter = 'A') => {
-    const max = verifications.reduce((m, v) => {
-      if (!(v.number || '').startsWith(seriesLetter)) return m;
-      const n = parseInt((v.number || '').replace(/\D/g, ''), 10);
-      return !isNaN(n) && n > m ? n : m;
-    }, 0);
-    return `${seriesLetter}${String(max + 1).padStart(3, '0')}`;
-  };
-
+  // Varje serie (A/B/C) har sin egen löpande, oberoende nummerserie —
+  // src/utils/verificationNumbering.js (delad med Inställningar > System >
+  // Verifikationsserier, som visar/validerar samma nummer). Lokal closure
+  // med samma (seriesLetter)-signatur som förut, så VerificationForm-propen
+  // längre ner inte behöver ändras.
+  const getNextNumber = (seriesLetter = 'A') => getNextNumberForSeries(verifications, seriesLetter);
   const nextNumber = getNextNumber('A');
 
   // Hoppa direkt till en specifik verifikation — används av Momsdeklarationens
@@ -1096,67 +1059,8 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
     );
   };
 
-  // Kontoplan grouping
-  const getGroupAccounts = (groupCode) => {
-    return accounts.filter(a => {
-      const n = parseInt(a.code, 10);
-      const g = BAS_GROUPS.find(g => g.code === groupCode);
-      return g && n >= g.range[0] && n <= g.range[1];
-    // Samma matchning som kontofälten i formulären (utils/accountSearch.js):
-    // sökte man "30" här förut fick man inte 4030, eftersom numret måste
-    // BÖRJA med det inskrivna. Nu beter sig kontoplanen likadant överallt.
-    }).filter(a => accountMatches(a, accountSearch))
-      // "Mina konton" = precis samma urval som kontofältens tomma
-      // standardvy (active || system) — visar bara de här utan att göra
-      // om urvalslogiken en tredje gång. "Alla konton" visar allt, aktivt
-      // eller ej, för att hitta och slå på ett nytt.
-      .filter(a => accountView === 'all' || a.active || a.system);
-  };
-
-  const getGroupBalance = (groupCode) => {
-    const g = BAS_GROUPS.find(g => g.code === groupCode);
-    if (!g) return 0;
-    return accounts
-      .filter(a => { const n = parseInt(a.code, 10); return n >= g.range[0] && n <= g.range[1]; })
-      .reduce((sum, a) => sum + (balances[a.code] || 0), 0);
-  };
-
-  useEffect(() => {
-    if (accountSearch) setExpandedGroups(Object.fromEntries(BAS_GROUPS.map(g => [g.code, true])));
-  }, [accountSearch]);
-
-  const handleAddAccount = () => {
-    if (!newAccCode || !newAccName) return;
-    if (accounts.find(a => a.code === newAccCode)) { alert(`Konto ${newAccCode} finns redan.`); return; }
-    // `numeric: true` gör att kontokoder jämförs som TAL, inte tecken för
-    // tecken — annars sorteras t.ex. "1000" före "999" (lexikografisk
-    // jämförelse), fel så fort en tillagd kod har en annan längd än de
-    // befintliga 4-siffriga BAS-koderna.
-    setAccounts(prev => [...prev, { code: newAccCode, name: newAccName }].sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true })));
-    setNewAccCode(''); setNewAccName(''); setShowNewAccountForm(false);
-  };
-
-  const handleDeactivateAccount = (code) => {
-    const used = verifications.filter(v => v.rows?.some(r => r.account === code)).length;
-    if (used > 0) { alert(`Kontot används i ${used} verifikationer och kan inte tas bort. Det kan inaktiveras.`); return; }
-    setAccounts(prev => prev.filter(a => a.code !== code));
-  };
-
-  // Kundönskemål, uttryckligt (skärmdump av ett externt kontoplansverktyg
-  // + eget exempel: "ett kvitto på en dammsugare, kunde inte hitta rätt
-  // konto"): kontoplanen ska gå att BLÄDDRA i, klass för klass, och man
-  // ska själv kunna slå på fler konton än den handfull som är aktiva från
-  // start — raden ovan lovade redan "kan inaktiveras" utan att det fanns
-  // någon knapp för det. `active` (AccountsData.js) är den knappen: av/på
-  // per konto, alltid reversibelt (till skillnad från raderingen ovan,
-  // som är permanent och spärrad om kontot redan använts). `system`-
-  // konton (moms, bankkonto m.fl. — se AccountsData.js) går inte att
-  // stänga av här: bokföringen bokför automatiskt mot dem, och ett
-  // avstängt sådant konto skulle bara dyka upp som ett förvirrande fel
-  // längre fram i stället för att synas här och nu.
-  const handleToggleAccountActive = (code) => {
-    setAccounts(prev => prev.map(a => a.code === code ? { ...a, active: !a.active } : a));
-  };
+  // Kontoplan-logiken (gruppering, lägg till/inaktivera/aktivera konto)
+  // flyttad till shared/AccountsPanel.jsx — se dess kommentar.
 
   // Verifikationsformuläret är en EGEN sida, inte ett kort ovanpå listan
   // (kundfeedback, se VerificationForm:s egen kommentar). Tidig retur enligt
@@ -1200,9 +1104,9 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
           activeTab === 'verifications' ? [
             { key: 'next', type: 'note', label: 'Nästa:', value: nextNumber },
             { key: 'new-ver', label: 'Ny verifikation', icon: Plus, onClick: () => { setEditingVer(null); setShowForm(true); }, variant: 'primary', dataTour: 'page-verifications-cta' },
-          ] : activeTab === 'accounts' ? [
-            { key: 'new-account', label: 'Nytt konto', icon: Plus, onClick: () => setShowNewAccountForm(v => !v), variant: 'primary' },
           ] : []
+          // Kontoplan-fliken har sin egen "Nytt konto"-knapp i AccountsPanel
+          // (shared/AccountsPanel.jsx) numera, inte längre i sidhuvudet här.
         }
         tabs={{
           items: [{ id: 'verifications', label: 'Verifikationer' }, { id: 'accounts', label: 'Kontoplan' }],
@@ -1253,6 +1157,43 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
 
           {/* Table */}
           <div style={{ flex: 1, overflowY: 'auto' }}>
+            {visibleVers.length === 0 ? (
+              // Samma tomt-läge-mönster som Bank/Offerter/Kontakter (facit):
+              // samma kortram som tabellen nedan (flush mot filterraden,
+              // rundat bara nedtill), rundad kvadrat-ikon i mörk
+              // varumärkesgrön, och en egen "Ny verifikation"-knapp — bara
+              // när listan är HELT tom, inte när ett filter bara råkar
+              // träffa noll rader.
+              <div style={{ background: 'var(--bg-card)', borderRadius: '0 0 12px 12px', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)' }}>
+                <div style={{ minHeight: '320px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '48px 24px' }}>
+                  <div style={{
+                    width: 72, height: 72, borderRadius: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px',
+                    background: verifications.length === 0 ? 'var(--bg-muted)' : 'var(--gray-100)',
+                    color: verifications.length === 0 ? BRAND.green : 'var(--text-muted)',
+                  }}>
+                    <BookOpen size={30} />
+                  </div>
+                  <h3 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 8px', color: 'var(--text-main)' }}>
+                    {verifications.length === 0 ? 'Inga verifikationer bokförda' : 'Inga verifikationer matchar filtret'}
+                  </h3>
+                  {verifications.length === 0 ? (
+                    <>
+                      <p style={{ fontSize: '14px', color: 'var(--text-secondary)', maxWidth: '300px', margin: '0 0 24px' }}>
+                        Verifikationer bokförs automatiskt från kvitton, fakturor och bankimport — eller skapas manuellt här.
+                      </p>
+                      <button
+                        onClick={() => { setEditingVer(null); setShowForm(true); }}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '10px 20px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '9px', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}
+                      >
+                        <Plus size={15} /> Ny verifikation
+                      </button>
+                    </>
+                  ) : (
+                    <p style={{ fontSize: '14px', color: 'var(--text-secondary)', maxWidth: '300px', margin: 0 }}>Prova att rensa sökningen eller filtren ovan.</p>
+                  )}
+                </div>
+              </div>
+            ) : (
             <ListTable
               rowKey={v => v.id}
               onRowClick={v => setExpandedId(expandedId === v.id ? null : v.id)}
@@ -1429,137 +1370,17 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
                 };
               }}
             />
+            )}
           </div>
         </div>
       )}
 
-      {/* ── KONTOPLAN TAB ────────────────────────────────────────── */}
+      {/* -- KONTOPLAN TAB -------------------------------------------- */}
+      {/* Sjalvstandig, delad komponent (shared/AccountsPanel.jsx) - samma
+          vy ateranvands oforandrad i Installningar > System > Kontoplan. */}
       {activeTab === 'accounts' && (
-        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-          {/* Search + new account form */}
-          <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '8px 20px', display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0, flexWrap: 'wrap' }}>
-            <div style={{ position: 'relative' }}>
-              <Search size={13} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-              <input value={accountSearch} onChange={e => setAccountSearch(e.target.value)} placeholder="Sök kontonummer eller namn..." style={{ padding: '5px 8px 5px 26px', border: '1px solid var(--border)', borderRadius: '4px', fontSize: '12px', fontFamily: 'inherit', width: '240px', outline: 'none' }} />
-            </div>
-            {/* Kundönskemål, uttryckligt: en vy med bara de konton man
-                redan har (aktiva) och en vy med HELA kontoplanen, i
-                stället för att alltid bläddra i alla samtidigt. */}
-            <div className="rc-segmented">
-              <button onClick={() => setAccountView('mine')} className={accountView === 'mine' ? 'active' : ''}>Mina konton</button>
-              <button onClick={() => setAccountView('all')} className={accountView === 'all' ? 'active' : ''}>Alla konton</button>
-            </div>
-            <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginLeft: 'auto' }}>
-              {accountView === 'mine' ? `${accounts.filter(a => a.active || a.system).length} av ${accounts.length} konton` : `${accounts.length} konton`}
-            </span>
-          </div>
-
-          {/* New account form */}
-          {showNewAccountForm && (
-            <div style={{ background: 'var(--lime-50)', borderBottom: '1px solid var(--border)', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
-              <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--accent-text)' }}>Nytt konto</span>
-              <input value={newAccCode} onChange={e => setNewAccCode(e.target.value)} placeholder="Kontonummer" style={{ padding: '5px 8px', border: '1px solid var(--text-muted)', borderRadius: '3px', fontSize: '12px', fontFamily: 'inherit', width: '110px' }} />
-              <input value={newAccName} onChange={e => setNewAccName(e.target.value)} placeholder="Kontonamn" style={{ padding: '5px 8px', border: '1px solid var(--text-muted)', borderRadius: '3px', fontSize: '12px', fontFamily: 'inherit', width: '260px' }} />
-              <button onClick={handleAddAccount} style={{ padding: '5px 14px', background: 'var(--accent)', border: 'none', borderRadius: '4px', color: 'white', fontWeight: 700, fontSize: '12px', cursor: 'pointer' }}>Spara</button>
-              <button onClick={() => setShowNewAccountForm(false)} style={{ padding: '5px 10px', background: 'none', border: '1px solid var(--text-muted)', borderRadius: '4px', fontSize: '12px', cursor: 'pointer' }}>Avbryt</button>
-              {newAccCode && <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Kontoklass: {getGroup(newAccCode)?.label || '—'}</span>}
-            </div>
-          )}
-
-          {/* Grouped account list */}
-          <div style={{ flex: 1, overflowY: 'auto' }}>
-            {BAS_GROUPS.map(g => {
-              const groupAccs = getGroupAccounts(g.code);
-              const groupBal = getGroupBalance(g.code);
-              const isOpen = expandedGroups[g.code];
-              const hasMatch = !accountSearch || groupAccs.length > 0;
-
-              if (!hasMatch) return null;
-
-              return (
-                <div key={g.code} style={{ borderBottom: '1px solid var(--border)' }}>
-                  {/* Group header */}
-                  {/* Sticky: kontoplanen är 90+ rader lång och kontoklassen
-                      (1000-tal = tillgångar, 2000-tal = skulder …) är det
-                      enda som gör en rad begriplig. Utan den här raden
-                      kvar i toppen tappade man vilken klass man scrollat in
-                      i — kundfeedback: "gör så att man faktiskt kan läsa
-                      allt, nu ligger de bara under varandra". */}
-                  <div
-                    onClick={() => setExpandedGroups(prev => ({ ...prev, [g.code]: !prev[g.code] }))}
-                    style={{ display: 'flex', alignItems: 'center', padding: '10px 20px', background: 'var(--bg-page)', cursor: 'pointer', userSelect: 'none', position: 'sticky', top: 0, zIndex: 2, borderBottom: '1px solid var(--border)' }}
-                    onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-muted)'}
-                    onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-page)'}
-                  >
-                    {isOpen ? <ChevronDown size={15} style={{ marginRight: 8, color: 'var(--text-secondary)' }} /> : <ChevronRight size={15} style={{ marginRight: 8, color: 'var(--text-secondary)' }} />}
-                    <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', flex: 1 }}>{g.label}</span>
-                    <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginRight: 12 }}>{groupAccs.length} konton</span>
-                    <span style={{ fontSize: '13px', fontWeight: 700, color: groupBal >= 0 ? 'var(--status-green-text)' : 'var(--status-red-text)', minWidth: 100, textAlign: 'right' }}>
-                      {fmt(groupBal)}
-                    </span>
-                  </div>
-
-                  {/* Account rows */}
-                  {isOpen && (
-                    <ListTable
-                      rowKey={a => a.code}
-                      emptyMessage="Inga matchande konton"
-                      rows={groupAccs}
-                      columns={[
-                        { key: 'code', label: 'Konto', fontWeight: 700, color: 'var(--text-main)', render: a => a.code },
-                        { key: 'name', label: 'Kontonamn', color: 'var(--text-main)', render: a => a.name },
-                        {
-                          key: 'balance', label: 'Saldo', align: 'right', render: a => {
-                            const bal = balances[a.code] || 0;
-                            return <span style={{ fontWeight: bal !== 0 ? 700 : 400, color: bal > 0 ? 'var(--status-green-text)' : bal < 0 ? 'var(--status-red-text)' : 'var(--text-muted)' }}>{bal !== 0 ? fmt(bal) : '—'}</span>;
-                          },
-                        },
-                        {
-                          // `system: true` (AccountsData.js) = ett kärnkonto bokföringen
-                          // själv bokför mot automatiskt (moms, momsredovisning m.fl.) —
-                          // växeln är låst PÅ för dem, annars kan bokföringen sluta
-                          // fungera utan att felet syns förrän en verifikation redan gått
-                          // snett. Alla andra konton är av som standard tills man själv
-                          // slår på dem, eller tills de redan används (se raden nedan).
-                          key: 'active', label: 'Aktiv', align: 'center', render: a => (
-                            a.system ? (
-                              // En avstängd, disabled växel ser vid en snabb
-                              // blick likadan ut som en påslagen — en tydlig
-                              // låsikon + text är den enda som faktiskt
-                              // säger "det här går inte att röra", inte bara
-                              // "det råkar inte gå att röra just nu".
-                              <span
-                                title="Kärnkonto — bokföringen bokför automatiskt mot det här kontot, det går inte att stänga av"
-                                style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}
-                              >
-                                <Lock size={11} /> Alltid på
-                              </span>
-                            ) : (
-                              <ToggleSwitch checked={Boolean(a.active)} onChange={() => handleToggleAccountActive(a.code)} />
-                            )
-                          ),
-                        },
-                        {
-                          key: 'actions', label: '', align: 'center', render: a => {
-                            const usedInVers = verifications.filter(v => v.rows?.some(r => r.account === a.code)).length;
-                            return (
-                              <button
-                                onClick={() => handleDeactivateAccount(a.code)}
-                                title={usedInVers > 0 ? `Används i ${usedInVers} verifikationer — kan inte tas bort` : 'Ta bort konto'}
-                                style={{ background: 'none', border: 'none', cursor: usedInVers > 0 ? 'not-allowed' : 'pointer', color: usedInVers > 0 ? 'var(--border)' : '#ef4444', padding: '2px' }}
-                              >
-                                <X size={13} />
-                              </button>
-                            );
-                          },
-                        },
-                      ]}
-                    />
-                  )}
-                </div>
-              );
-            })}
-          </div>
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '14px 20px' }}>
+          <AccountsPanel accounts={accounts} balances={balances} verifications={verifications} setAccounts={setAccounts} fmt={fmt} />
         </div>
       )}
     </div>

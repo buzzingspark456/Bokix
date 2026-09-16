@@ -23,84 +23,61 @@ try {
   document.documentElement.setAttribute('data-hide-scrollbar', String(hideScrollbar));
 } catch { /* privat läge/blockerad storage — App.jsx:s egen kopia (om/när den mountas) försöker igen och faller tillbaka på samma sätt där */ }
 
-// Vercel BotID (säkerhetsgranskningen, punkt "Add bot protection") — skyddar
-// våra EGNA känsliga api/*-routes (betalning, mejlutskick, Stripe-frånkoppling,
-// domänregistrering). Kan INTE skydda Supabase-inloggning/registrering
-// (supabase.auth.signUp/signInWithPassword går direkt mot Supabases servrar,
-// aldrig via en av våra Vercel-functions) — det täcks istället av Turnstile
-// i Auth.jsx, som Supabase har inbyggt stöd för. Måste initieras här (innan
-// första renderingen) och listan nedan måste hålla sig i synk med varje
-// checkBotId()-anrop server-side, annars misslyckas den tyst (se BotID-docs).
+// Vercel BotID (säkerhetsgranskningen, punkt "Add bot protection") —
+// AVVECKLAD HELT (2026-09-15), inte bara nedtonad. Bakgrund: BotID:s
+// klient-inpackning av fetch() FAILAR STÄNGT (avvisar hela anropet med ett
+// tomt Event, aldrig ett riktigt Error-objekt) så fort dess eget
+// utmaningsskript av någon anledning inte hinner eller kan laddas —
+// nätverksglapp, annonsblockerare, integritetstillägg, eller bara att
+// Vercels riktiga BotID-infrastruktur inte finns lokalt. Verifierat i
+// produktion, en gång per route, i den ordning kundrapporter kom in:
+//   1. api/company-access.js (lookup-grenen + fältsparning åt inbjudna
+//      användare) — "Hämtar företagsuppgifter…" fastnade för alltid.
+//   2. api/email/domains/index.js ("Anslut domän") — "Kunde inte koppla
+//      domänen", tomt felmeddelande.
+//   3. api/zettle/callback.js (POST, starta anslutningen) — "Kunde inte
+//      ansluta Zettle: [object Event]" (den tomma Event:en syns rakt av
+//      i felmeddelandet här, det tydligaste avtrycket av buggen).
+// Samma mönster, tre gånger — inte tre orelaterade fel. Efter den tredje
+// gjordes en full genomgång av VARJE route som fortfarande stod kvar i
+// listan, i stället för att vänta på fler enskilda kundrapporter:
+// betalningar och mejlutskick är precis den sortens flöde där "tyst
+// blockerad, ingen begriplig felkod" är som dyrast (en förlorad kund/
+// betalning, inte bara en förvirrande skärm). Varje route hade redan en
+// EGEN, robust spärr oberoende av BotID:
+//   · /api/stripe/connect (start OCH disconnect) — requireAuthedUser +
+//     loadOwnedCompany (bevisat ägarskap), plus en reauth-kod för
+//     disconnect specifikt (se den filens kommentar).
+//   · /api/stripe/create-checkout-session (kundens betalningslänk) —
+//     kräver ett REDAN existerande, matchande invoice_id/company_id/
+//     user_id (resolveInvoiceLineItems slår upp och validerar äkta
+//     data, ingen godtycklig charge går att skapa) + rate limit.
+//   · /api/stripe/create-subscription-checkout (ny prenumeration/
+//     avsluta/återaktivera/billing-portal) — avsluta/återaktivera/portal
+//     kräver requireAuthedUser; en helt ny signup skyddas redan av
+//     Turnstile på själva registreringssteget precis innan (Auth.jsx)
+//     samt Stripes egen bedrägerikontroll (Radar) vid själva
+//     kortdragningen — BotID var ett tredje, sköraste lagret ovanpå två
+//     redan riktiga.
+//   · /api/email/send-invoice — requireAuthedUser + ägarskap
+//     (loadOwnedCompany), exakt samma mönster som company-access.js.
+//   · /api/contact (publikt formulär, ingen inloggning finns) — har
+//     REDAN ett eget, robust motsvarande skydd: reCAPTCHA (verifyRecaptcha,
+//     när RECAPTCHA_SECRET_KEY är satt) + en striktare rate-limit (5,
+//     mot övriga rutters 10-30) just för att den är mest utsatt. BotID var
+//     här rent redundant, inte den enda spärren.
+// Kan fortfarande INTE skydda Supabase-inloggning/registrering
+// (supabase.auth.signUp/signInWithPassword går direkt mot Supabases
+// servrar) — det täcks av Turnstile i Auth.jsx, som Supabase har inbyggt
+// stöd för, och rörs inte av det här.
 initBotId({
-  protect: [
-    { path: '/api/stripe/create-checkout-session', method: 'POST' },
-    { path: '/api/stripe/create-subscription-checkout', method: 'POST' },
-    // Tidigare bara /api/stripe/disconnect — oauth-start.js/disconnect.js
-    // slogs ihop till connect.js (action: 'start'/'disconnect') för att
-    // göra plats under Vercels 12-funktionsgräns, se filkommentaren där.
-    // Skyddar nu BÅDA actionerna, inte bara disconnect (oauth-start hade
-    // aldrig BotID-skydd — ett förbiseende, inte avsiktligt).
-    { path: '/api/stripe/connect', method: 'POST' },
-    // api/zettle/callback.js — bara POST (starta anslutningen) skyddas;
-    // GET är Zettles egen redirect tillbaka, ingen användare "fyller i"
-    // något där, samma konvention som company-access.
-    { path: '/api/zettle/callback', method: 'POST' },
-    { path: '/api/email/send-invoice', method: 'POST' },
-    { path: '/api/contact', method: 'POST' },
-    // api/company-access.js POST MEDVETET INTE listad (var det tidigare,
-    // se git-historik) — samma "glömt lösenord"-resonemang som
-    // request-password-reset nedan, av samma faktiska anledning: filen
-    // fick 2026-08-30 en andra, helt oautentiserad gren (action: 'lookup',
-    // FöretagsAPI-uppslag i Kunder/Leverantörer OCH i registreringens
-    // "Ditt företag"-steg — den senare körs INNAN kontot ens finns).
-    // Verifierat lokalt (Playwright, samma metod som redan dokumenterat
-    // nedan): klientens BotID-inpackning HÄNGER på obestämd tid när
-    // utmaningsskriptet inte laddas (404 lokalt, av samma skäl som alltid
-    // — Vercels riktiga BotID-infrastruktur finns bara i produktion), inte
-    // bara i det redan kända "avvisas med ett tomt Event"-fallet — company-
-    // lookup-fetchen löste sig aldrig, varken lyckat eller som fel, precis
-    // det symtomet en kund rapporterade IRL på bokix.se (org.nummer-fältet
-    // fastnade på "Hämtar företagsuppgifter…" för evigt). Ett fel skript-
-    // laddningsförsök (nätverksglapp, annonsblockerare, integritets-
-    // tillägg — exakt vad kommentaren nedan redan varnar för) räcker för
-    // att permanent låsa fältet, även i produktion. Skyddet den här grenen
-    // faktiskt behöver (den sparar ett riktigt fält åt en inbjuden
-    // användare) kommer ändå från requireAuthedUser + loadMemberCompany +
-    // role==='editor' i api/company-access.js — ett Supabase-uträknat
-    // konto med bevisat, aktivt medlemskap i just det företaget, en mycket
-    // starkare spärr än BotID för en redan autentiserad skrivning.
-    // RÄTTELSE (2026-08-30): api/company-access.js:s egen isRequestFromBot()
-    // ansågs tidigare "fail-open, harmless" oavsett — fel. Utan en
-    // client-registrering här skickas x-is-human-headern aldrig alls, och
-    // Vercels riktiga bot-tjänst kan då (utan att kasta något fel — inget
-    // för _botid.js:s fail-open att fånga) landa i isBot:true för vanliga
-    // användare. Det var den faktiska orsaken till "Åtkomst nekad" på
-    // både lookup-grenen och fältsparningen i produktion — servern har
-    // därför INGEN BotID-koll alls längre för den här filen, bara
-    // rate-limit (lookup) respektive requireAuthedUser+loadMemberCompany+
-    // role (fältsparning).
-    //
-    // api/email/domains/index.js POST ("Anslut domän", Inställningar) hade
-    // EXAKT samma bugg och är av samma skäl nu borttagen härifrån (var
-    // tidigare listad, se git-historik): en kund rapporterade "Kunde inte
-    // koppla domänen" — requestEmailApi (emailApi.js) fångade felet och
-    // föll tillbaka på den generiska texten eftersom error.message var
-    // tomt, vilket bara händer om fetch() avvisas med botid/clients
-    // tomma Event istället för ett riktigt Error-objekt (se "avvisas med
-    // ett tomt Event"-noten ovan) — dvs samma klient-inpacknings-krasch,
-    // inte ett verkligt Resend-/serverfel (Resend-kontot och
-    // RESEND_ADMIN_API_KEY verifierade fungera separat). Skyddet den här
-    // grenen faktiskt behöver kommer redan från requireAuthedUser +
-    // rate limit (10/instans) i api/email/domains/index.js, samma
-    // resonemang som company-access.js ovan — server-sidans egen
-    // isRequestFromBot()-anrop där är därför också borttagen (se den
-    // filens kommentar).
-  ],
+  protect: [],
 })
-// "Glömt lösenord?" (api/auth/request-password-reset.js) MEDVETET INTE
-// listad ovan, trots att den (till skillnad från signUp/signInWithPassword)
-// faktiskt går via en av våra Vercel-functions: testat och verifierat att
-// klientens BotID-inpackning FAILAR STÄNGD, inte öppen, om dess egna
+// "Glömt lösenord?" (api/auth/request-password-reset.js) hade av samma
+// skäl som ovan ALDRIG BotID i listan, trots att den (till skillnad från
+// signUp/signInWithPassword) faktiskt går via en av våra Vercel-functions:
+// testat och verifierat tidigast av alla att klientens BotID-inpackning
+// FAILAR STÄNGT, inte öppet, om dess egna
 // utmaningsskript av någon anledning inte hinner/kan laddas (verifierat
 // lokalt — hela fetch()-anropet avvisas då med ett tomt Event istället för
 // att bara hoppa över kollen). Servern (isRequestFromBot i handlern) är

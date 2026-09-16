@@ -205,7 +205,10 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
   // startvärden för en NY faktura — aldrig när `initial` redan pekar på en
   // sparad faktura som redigeras.
   const [customerId, setCustomerId] = useState(initial?.customerId || prefill?.customerId || '');
-  const [invoiceDate, setInvoiceDate] = useState(initial?.date || new Date().toISOString().split('T')[0]);
+  // Inställningar → Fakturor → Fakturadatum: 'blank' (skriv in för hand)
+  // lämnar fältet tomt på en NY faktura i stället för att alltid fylla i
+  // dagens datum — 'today' (default) oförändrat beteende.
+  const [invoiceDate, setInvoiceDate] = useState(initial?.date || (company?.invoiceDateMode === 'blank' ? '' : new Date().toISOString().split('T')[0]));
   const [dueDate, setDueDate] = useState(() => {
     if (initial?.dueDate) return initial.dueDate;
     const d = new Date(); d.setDate(d.getDate() + 30);
@@ -435,7 +438,17 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
   /** Förifylld text. Hälsningen använder kontaktpersonen när den finns,
    *  annars företagsnamnet — samma logik som mejlet hade innan det gick att
    *  redigera. */
+  // Ersätter {{kundnamn}}/{{fakturanummer}}/{{belopp}}/{{förfallodatum}} —
+  // samma fyra taggar som Inställningar → Fakturor → E-postinställningar
+  // dokumenterar. Delad mellan ämnesrad och meddelande nedan.
+  const fillEmailTemplate = (template) => template
+    .replaceAll('{{kundnamn}}', customer?.contactPerson || customer?.name || '')
+    .replaceAll('{{fakturanummer}}', String(nextNum))
+    .replaceAll('{{belopp}}', `${fmt(totals.total)} kr`)
+    .replaceAll('{{förfallodatum}}', formatDate(dueDate));
+
   const defaultEmailMessage = () => {
+    if (company?.invoiceEmailBody) return fillEmailTemplate(company.invoiceEmailBody);
     const hälsning = customer?.contactPerson || customer?.name || '';
     return [
       `Hej${hälsning ? ' ' + hälsning : ''},`,
@@ -496,7 +509,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
     let sparad = '';
     try { sparad = window.localStorage.getItem(messageStorageKey) || ''; } catch { /* privat läge */ }
     setEmailMessage(sparad || defaultEmailMessage());
-    setEmailSubject(`Faktura ${nextNum} från ${(company?.invoiceDisplayName || company?.name) || 'oss'}`);
+    setEmailSubject(company?.invoiceEmailSubject ? fillEmailTemplate(company.invoiceEmailSubject) : `Faktura ${nextNum} från ${(company?.invoiceDisplayName || company?.name) || 'oss'}`);
     setEmailError(''); setEmailSent(false);
     setEmailWarnings(invoiceWarnings());
     setShowEmailCompose(true);
@@ -1557,23 +1570,34 @@ function InvoiceEmptyState({ isFilteredEmpty, onCreate }) {
     // Kundönskemål: samma gröna kort-bakgrund i båda lägena — inte
     // krämtonen (var(--bg-cream)) som i mörkt tema läste som brunt i
     // stället för grönt, till skillnad från t.ex. Kontakters tomt-läge.
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px', padding: '40px', background: 'var(--bg-card)', textAlign: 'center' }}>
-      {isFilteredEmpty ? (
-        <div style={{ width: 56, height: 56, borderRadius: '999px', background: 'var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', marginBottom: '4px' }}>
-          <FileText size={26} />
-        </div>
-      ) : (
-        <div style={{ marginBottom: '4px' }}>
-          <InvoiceDocIllustration />
-        </div>
-      )}
-      <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)' }}>{title}</div>
-      <p style={{ fontSize: '13px', color: 'var(--text-muted)', maxWidth: '340px', margin: 0 }}>{body}</p>
-      {!isFilteredEmpty && (
-        <button onClick={onCreate} className="btn btn-primary" style={{ marginTop: '8px' }}>
-          <Plus size={15} /> Skapa faktura
-        </button>
-      )}
+    // Samma kortram som listan (raden 2811 nedan: rakt upptill, flush mot
+    // filterraden ovanför, rundat bara nedtill) i stället för en egen
+    // flytande ruta — tomt och fyllt läge är nu SAMMA kort.
+    <div style={{ flex: 1, background: 'var(--bg-card)', border: '1px solid var(--border)', borderTop: 'none', borderRadius: '0 0 12px 12px', boxShadow: 'var(--shadow-sm)' }}>
+      <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px', padding: '40px', textAlign: 'center' }}>
+        {isFilteredEmpty ? (
+          <div style={{ width: 56, height: 56, borderRadius: '999px', background: 'var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', marginBottom: '4px' }}>
+            <FileText size={26} />
+          </div>
+        ) : (
+          <div style={{ marginBottom: '4px' }}>
+            <InvoiceDocIllustration />
+          </div>
+        )}
+        <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)' }}>{title}</div>
+        <p style={{ fontSize: '13px', color: 'var(--text-muted)', maxWidth: '340px', margin: 0 }}>{body}</p>
+        {!isFilteredEmpty && (
+          // Inte .btn-primary (index.css: var(--lime-500), en ljusare grön)
+          // — samma mörka varumärkesgröna knapp som Kontakters/Offerters
+          // tomma-läge-knappar.
+          <button
+            onClick={onCreate}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', marginTop: '8px', padding: '10px 20px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '9px', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}
+          >
+            <Plus size={15} /> Skapa faktura
+          </button>
+        )}
+      </div>
     </div>
   );
 }

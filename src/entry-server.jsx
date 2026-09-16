@@ -37,6 +37,7 @@ import UtdelningPage from './components/marketing/tools/UtdelningPage.jsx';
 import MomsDatumPage from './components/marketing/tools/MomsDatumPage.jsx';
 import ArsredovisningPage from './components/marketing/tools/ArsredovisningPage.jsx';
 import OrdlistaPage from './components/marketing/OrdlistaPage.jsx';
+import FaqPage from './components/marketing/FaqPage.jsx';
 import IntegrationsPage from './components/marketing/IntegrationsPage.jsx';
 import SecurityPage from './components/marketing/SecurityPage.jsx';
 import EnkelBokforingPage from './components/marketing/EnkelBokforingPage.jsx';
@@ -50,7 +51,7 @@ import EnkelBokforingPage from './components/marketing/EnkelBokforingPage.jsx';
 export const PRERENDER_ROUTES = [
   '/', '/funktioner', '/priser', '/om-oss', '/kontakt',
   '/byt-bokforingsprogram', '/koppla-bank', '/uf',
-  '/integrationer', '/sakerhet', '/ordlista', '/enkel-bokforing',
+  '/integrationer', '/sakerhet', '/ordlista', '/enkel-bokforing', '/vanliga-fragor',
   '/verktyg', '/verktyg/skanna-kvitto', '/verktyg/momskalkylator', '/verktyg/lonekalkylator', '/verktyg/egenavgifter',
   '/verktyg/rot-rut', '/verktyg/drojsmalsranta', '/verktyg/utdelning',
   '/verktyg/momsdatum', '/verktyg/arsredovisning',
@@ -68,6 +69,7 @@ const PAGES = {
   '/integrationer': IntegrationsPage,
   '/sakerhet': SecurityPage,
   '/ordlista': OrdlistaPage,
+  '/vanliga-fragor': FaqPage,
   '/enkel-bokforing': EnkelBokforingPage,
   '/verktyg': ToolsHubPage,
   '/verktyg/skanna-kvitto': ScanReceiptPage,

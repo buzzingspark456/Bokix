@@ -4,7 +4,6 @@ import { parseJsonBody } from './_parseBody.js';
 import { normalizeAbsoluteUrl } from './_urls.js';
 import { resolveInvoiceLineItems } from './_invoiceLineItems.js';
 import { checkRateLimit } from '../_rateLimit.js';
-import { isRequestFromBot } from '../_botid.js';
 import subscriptionCheckoutHandler from './_subscriptionCheckout.js';
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY || null;
@@ -35,14 +34,10 @@ export default async function handler(req, res) {
   }
   if (!checkRateLimit(req, res, { key: 'create-checkout-session', max: 20 })) return;
 
-  // Vercel BotID — routen finns i initBotId()-listan i main.jsx, annars
-  // misslyckas den här kollen alltid (se filkommentaren där).
-  const isBot = await isRequestFromBot();
-  if (isBot) {
-    res.status(403).json({ error: 'Åtkomst nekad.' });
-    return;
-  }
-
+  // Ingen BotID-koll längre (main.jsx: initBotId, se filkommentaren där) —
+  // resolveInvoiceLineItems nedan kräver ett REDAN existerande, matchande
+  // invoice_id/company_id/user_id (ingen godtycklig charge kan skapas) och
+  // rate-limiten ovan är det faktiska skyddet mot missbruk.
   try {
     const { user_id: userId, company_id: companyId, invoice_id: invoiceId, customer_email: customerEmail, customer_type: customerType } = body || {};
     if (!userId || !companyId || !invoiceId) {

@@ -518,6 +518,16 @@ function MarketingStyles() {
          spalter är sämre än en i en bred. */
       .lp-faq-grid { display: grid; grid-template-columns: 1fr; gap: 0 32px; align-items: start; }
       @media (min-width: 1100px) { .lp-faq-grid { grid-template-columns: 1fr 1fr; } }
+      /* Startsidans FAQ på mobil (kundfeedback, se LandingPage.jsx-
+         kommentaren vid .lp-faq-full): under 720px döljs den fulla
+         accordionen och ett kompakt "Se alla vanliga frågor"-kort som
+         länkar till /vanliga-fragor visas i stället. Samma brytpunkt som
+         footerns egen mobil-omställning nedan. */
+      .lp-faq-mobile-cta { display: none; }
+      @media (max-width: 720px) {
+        .lp-faq-full { display: none; }
+        .lp-faq-mobile-cta { display: block; }
+      }
       .lp-footer-bottom { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px 28px; }
 
       /* Kolumnrubrikerna: versaler, spärrad, dämpad — de ska LÄSAS som
@@ -929,9 +939,16 @@ const FOOTER_COLUMNS = [
     ],
   },
   {
+    // Bara de fyra mest sökta verktygen + "Alla verktyg", inte alla nio.
+    // Kundfeedback ("sidfoten är rörig, saker på fel plats"): den här
+    // kolumnen var dubbelt så lång som sina grannar (alla nio TOOLS +
+    // länken), vilket gjorde att raden bredvid (särskilt mobilens 2-
+    // kolumnsgrid, se @media 720px nedan) fick ett stort, obalanserat
+    // tomrum under sig — resten av verktygen är fortfarande en klick bort
+    // via "Alla verktyg" (TOOLS_HUB_PATH).
     heading: 'Gratis verktyg',
     links: [
-      ...TOOLS.map(t => ({ label: t.footerLabel || t.title, to: t.path })),
+      ...TOOLS.filter(t => ['skanna-kvitto', 'momskalkylator', 'lonekalkylator', 'rot-rut'].includes(t.slug)).map(t => ({ label: t.footerLabel || t.title, to: t.path })),
       { label: 'Alla verktyg', to: TOOLS_HUB_PATH },
     ],
   },
@@ -942,6 +959,7 @@ const FOOTER_COLUMNS = [
       { label: 'Bokföringsordlista', to: '/ordlista' },
       { label: 'Byt till Bokix', to: '/byt-bokforingsprogram' },
       { label: 'För UF-företag', to: '/uf' },
+      { label: 'Vanliga frågor', to: '/vanliga-fragor' },
     ],
   },
   {

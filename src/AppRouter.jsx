@@ -54,6 +54,7 @@ const UtdelningPage = lazy(() => import('./components/marketing/tools/UtdelningP
 const MomsDatumPage = lazy(() => import('./components/marketing/tools/MomsDatumPage'));
 const ArsredovisningPage = lazy(() => import('./components/marketing/tools/ArsredovisningPage'));
 const OrdlistaPage = lazy(() => import('./components/marketing/OrdlistaPage'));
+const FaqPage = lazy(() => import('./components/marketing/FaqPage'));
 const EnkelBokforingPage = lazy(() => import('./components/marketing/EnkelBokforingPage'));
 // Det dolda admin-läget — ingen länk till den någonstans i den publika
 // navigeringen, se InternalApp.jsx för behörighetskollen (klient-sidan är
@@ -231,6 +232,7 @@ export default function AppRouter() {
         <Route path="/integrationer" element={<Suspense fallback={<AppLoadingFallback />}><IntegrationsPage /></Suspense>} />
         <Route path="/sakerhet" element={<Suspense fallback={<AppLoadingFallback />}><SecurityPage /></Suspense>} />
         <Route path="/ordlista" element={<Suspense fallback={<AppLoadingFallback />}><OrdlistaPage /></Suspense>} />
+        <Route path="/vanliga-fragor" element={<Suspense fallback={<AppLoadingFallback />}><FaqPage /></Suspense>} />
         <Route path="/enkel-bokforing" element={<Suspense fallback={<AppLoadingFallback />}><EnkelBokforingPage /></Suspense>} />
         <Route path="/internal" element={<Suspense fallback={<AppLoadingFallback />}><InternalApp /></Suspense>} />
         {/* Verktygsnavet + räknarna. Sökvägarna måste hållas i

@@ -1,0 +1,38 @@
+{
+  "settings": {
+    "tabs": {
+      "company": "Company",
+      "invoice": "Invoicing",
+      "integrations": "Integrations",
+      "system": "System",
+      "users": "Users & Permissions",
+      "subscription": "Subscription",
+      "appearance": "Appearance",
+      "notifications": "Notifications",
+      "security": "Security",
+      "advanced": "Advanced"
+    },
+    "appearance": {
+      "theme": "Theme",
+      "themeHint": "Applies to this browser.",
+      "themeLight": "Light",
+      "themeLightHint": "White background, dark text.",
+      "themeDark": "Dark",
+      "themeDarkHint": "Deep green background, light text.",
+      "themeSystem": "System",
+      "themeSystemHint": "Follows your device's own theme.",
+      "accent": "Accent color",
+      "accentHint": "Changes the accent color of buttons, sidebar and the active menu item — not status colors like \"paid\".",
+      "density": "Layout",
+      "densityHint": "Saved instantly.",
+      "densityNormal": "Normal",
+      "densityNormalHint": "Comfortable spacing between rows.",
+      "densityCompact": "Compact",
+      "densityCompactHint": "Tighter rows, more content per screen.",
+      "language": "Language",
+      "languageHint": "Saved instantly in this browser.",
+      "languageSv": "Swedish",
+      "languageEn": "English"
+    }
+  }
+}

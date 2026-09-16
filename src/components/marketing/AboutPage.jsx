@@ -1,5 +1,4 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
 import { BRAND } from '../../utils/brandColors';
 import MarketingLayout, { Reveal, BokixWordmark } from './MarketingLayout';
 import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW } from './marketingTokens';
@@ -18,20 +17,21 @@ import { PageMeta, JsonLd, SITE_URL } from '../../utils/seo';
 //     varje annan sida har redan sina knappar.
 //   - Funktionskort, principkort, kontaktuppgifter.
 //
-// Kvar: en lockup med de två logotyperna, en rubrik, tre stycken och en
-// signatur. Sidan är byggd som ett brev, inte som en landningssida —
-// därför den smala spalten och den större brödtexten.
+// Kvar: Bokix eget varumärke, en rubrik, två stycken. Sidan är byggd som
+// ett brev, inte som en landningssida — därför den smala spalten och den
+// större brödtexten.
 //
-// FAKTA: Bokix ÄR ett UF-företag, presens. Skriv aldrig om det till
-// dåtid. Grundarna heter Abdullah Alwaki och Siem Embaye — namnen kommer
-// från kunden själv och signerar brevet.
+// UPPDATERAT KUNDÖNSKEMÅL (ersätter det tidigare beslutet nedan): ingen
+// signatur med grundarnas namn längre, ingen mening om det egna priset
+// (129/179 kr — hörde inte hemma i brevet, det står redan på /priser),
+// ingen Ung Företagsamhet-logotyp i hjältesektionen, och ingen mening om
+// varför UF-läget finns i Bokix — bara Bokix eget ordmärke och ETT stycke
+// kvar av brevet. Sätt inte tillbaka något av detta utan att fråga igen.
 //
-// OM UNG FÖRETAGSAMHETS LOGOTYP: samma linje som /uf (se filkommentaren
-// där). Skillnaden här är att logotypen står bredvid vårt EGET varumärke
-// för att säga vad Bokix är för sorts företag. Friskrivningen som stod
-// längst ner är BORTTAGEN på kundens begäran; motsvarande text finns kvar
-// på /uf, som är den sida där ett samarbete faktiskt skulle kunna
-// missförstås. Sätt inte tillbaka den här utan att fråga.
+// FAKTA (fortfarande sant, bara inte längre uppradat i brevet): Bokix ÄR
+// ett UF-företag, presens. Grundarna heter Abdullah Alwaki och Siem
+// Embaye — namnen finns kvar i git-historiken om de behövs igen, bara
+// inte publicerade på sidan längre.
 
 const SCHEMA = {
   '@context': 'https://schema.org',
@@ -39,31 +39,16 @@ const SCHEMA = {
   name: 'Om Bokix',
   url: `${SITE_URL}/om-oss`,
   inLanguage: 'sv-SE',
-  description: 'Bokix drivs av två personer och är ett UF-företag. Vi bygger ett bokföringsprogram som ska vara billigt och gå att förstå.',
+  description: 'Bokix drivs av två personer. Vi bygger ett bokföringsprogram som ska vara billigt och gå att förstå.',
   publisher: { '@type': 'Organization', name: 'Bokix', url: SITE_URL },
 };
-
-/** Ung Företagsamhets egen logotyp. Vit platta bakom av samma skäl som
- *  övriga märken (BrandLogos.jsx): bläcket är mörk marinblå och skulle
- *  försvinna mot sajtens mörka tema. */
-function UfLogo({ height = 52 }) {
-  return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '10px 16px', background: '#fff', border: `1px solid ${CARD_BORDER}`, borderRadius: '14px', boxShadow: CARD_SHADOW }}>
-      <img
-        src="/logos/uf-logo.svg" alt="Ung Företagsamhet"
-        style={{ height, width: 'auto', display: 'block' }}
-        draggable={false} onContextMenu={e => e.preventDefault()} onDragStart={e => e.preventDefault()}
-      />
-    </span>
-  );
-}
 
 export default function AboutPage() {
   return (
     <MarketingLayout>
       <PageMeta
         title="Om oss | Bokix"
-        description="Bokix drivs av två personer och är ett UF-företag. Vi bygger ett bokföringsprogram för svenska småföretag som ska vara billigt och gå att förstå."
+        description="Bokix drivs av två personer. Vi bygger ett bokföringsprogram för svenska småföretag som ska vara billigt och gå att förstå."
         path="/om-oss"
       />
       <JsonLd data={SCHEMA} />
@@ -96,15 +81,13 @@ export default function AboutPage() {
         }
       `}</style>
 
-      {/* ── Hjälte: vilka vi är, i två logotyper ── */}
+      {/* ── Hjälte: vilka vi är ── */}
       <section style={{ padding: '140px 24px 20px', background: IVORY }}>
         <Reveal style={{ maxWidth: '760px', margin: '0 auto', textAlign: 'center' }}>
           <div className="bx-ab-pair" style={{ marginBottom: '30px' }}>
             <span style={{ display: 'inline-flex', alignItems: 'center', padding: '14px 20px', background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '14px', boxShadow: CARD_SHADOW }}>
               <BokixWordmark height={32} />
             </span>
-            <span style={{ fontSize: '19px', fontWeight: 700, color: MUTED }}>är ett</span>
-            <UfLogo height={54} />
           </div>
 
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '11px', padding: '8px 17px', borderRadius: '999px', background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, marginBottom: '24px' }}>
@@ -126,16 +109,7 @@ export default function AboutPage() {
         <Reveal className="bx-ab-letter" style={{ maxWidth: '640px', margin: '0 auto' }}>
           <div className="bx-ab-rule" aria-hidden />
           <p style={{ color: INK_SOFT }}>
-            Vi är två personer, och Bokix är vårt UF-företag. Vi tyckte att bokföringsprogram var dyra för det man fick, och skrivna som om alla som använder dem redan kan bokföring.
-          </p>
-          <p style={{ color: INK_SOFT }}>
-            Så vi gjorde ett eget. 129 kronor i månaden, 179 med lön, och svenska i stället för revisorsvenska.
-          </p>
-          <p style={{ color: MUTED }}>
-            Att vi driver ett UF-företag är också varför <Link to="/uf" style={{ color: BRAND.greenDark, fontWeight: 600 }}>UF-läget</Link> finns i Bokix. Vi vet hur den terminen ser ut, för vi sitter i den.
-          </p>
-          <p style={{ fontFamily: SERIF, fontSize: '17px', color: INK, margin: '30px 0 0', fontStyle: 'italic' }}>
-            — Abdullah Alwaki &amp; Siem Embaye
+            Vi är två personer som tyckte att bokföringsprogram var dyra för det man fick, och skrivna som om alla som använder dem redan kan bokföring.
           </p>
         </Reveal>
       </section>

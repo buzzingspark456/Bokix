@@ -116,13 +116,38 @@ function displayUploaderName(uploadedBy) {
   return uploadedBy.name?.trim() || uploadedBy.email || null;
 }
 
-function EmptyReceiptsState({ text }) {
+// Samma tomt-läge-mönster som Kontakter/Bank (facit): flush mot ytan, ingen
+// egen kant/rundning som får den att sväva som ett separat kort. Ikonrutan
+// rundad kvadrat på neutral --bg-muted med den mörka varumärkesgröna
+// (BRAND.green) som ikonfärg — inte en ljus pastelltoning.
+function EmptyReceiptsState({ text, isFilteredEmpty }) {
   return (
-    <div style={{ padding: '40px 24px', textAlign: 'center', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border)' }}>
-      <div style={{ width: 52, height: 52, borderRadius: '999px', background: 'var(--gray-100)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px', color: 'var(--text-muted)' }}>
-        <Receipt size={22} />
+    <div style={{ flex: 1, minHeight: '320px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '48px 24px', background: 'var(--bg-card)' }}>
+      <div style={{
+        width: 72, height: 72, borderRadius: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px',
+        background: isFilteredEmpty ? 'var(--gray-100)' : 'var(--bg-muted)',
+        color: isFilteredEmpty ? 'var(--text-muted)' : BRAND.green,
+      }}>
+        <Receipt size={30} />
       </div>
-      <p style={{ color: 'var(--text-secondary)', fontSize: '14px', margin: 0 }}>{text || 'Inga kvitton uppladdade ännu. Ladda upp ditt första kvitto ovan för att börja.'}</p>
+      {isFilteredEmpty ? (
+        <p style={{ color: 'var(--text-secondary)', fontSize: '14px', margin: 0 }}>{text}</p>
+      ) : (
+        <>
+          <h3 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 8px', color: 'var(--text-main)' }}>Inga kvitton uppladdade ännu</h3>
+          <p style={{ fontSize: '14px', color: 'var(--text-secondary)', maxWidth: '300px', margin: '0 0 24px' }}>{text || 'Ladda upp ditt första kvitto för att börja.'}</p>
+          {/* Inte .btn-primary (index.css: var(--lime-500), en ljusare
+              grön) — samma mörka varumärkesgröna knapp som Kontakters/
+              Offerters tomma-läge-knappar. */}
+          <button
+            type="button"
+            onClick={() => document.getElementById('receipt-upload').click()}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '10px 20px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '9px', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}
+          >
+            <UploadCloud size={15} /> Ladda upp kvitto
+          </button>
+        </>
+      )}
     </div>
   );
 }
@@ -599,7 +624,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
             <div style={{ display: 'flex', gap: '10px' }}>
               <button type="button" onClick={onClose} style={{ padding: '9px 16px', background: 'var(--border-light)', border: 'none', borderRadius: '9px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer', fontSize: '13px', fontFamily: 'inherit' }}>Stäng</button>
               {status !== 'reversed' && (
-                <button type="button" onClick={handleSave} style={{ padding: '9px 18px', background: BRAND.green, border: 'none', borderRadius: '9px', fontWeight: 600, color: 'white', cursor: 'pointer', fontSize: '13px', fontFamily: 'inherit', boxShadow: '0 2px 8px rgba(11, 99, 41, 0.28)' }}>
+                <button type="button" onClick={handleSave} style={{ padding: '9px 18px', background: BRAND.green, border: 'none', borderRadius: '9px', fontWeight: 600, color: 'white', cursor: 'pointer', fontSize: '13px', fontFamily: 'inherit', boxShadow: '0 2px 8px color-mix(in srgb, var(--accent) 28%, transparent)' }}>
                   {readOnly ? 'Spara ändringar' : 'Spara och bokför'}
                 </button>
               )}
@@ -1154,11 +1179,14 @@ export default function Expenses({
           sidorna") — särskilt toppen, där sidhuvudet redan ger egen luft. */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px 20px' }}>
         {receiptsList.length === 0 ? (
-          <EmptyReceiptsState text={
-            q ? `Inga kvitton matchar "${query.trim()}".`
-              : allReceipts.length > 0 ? 'Inga kvitton matchar det här filtret.'
-                : undefined
-          } />
+          <EmptyReceiptsState
+            isFilteredEmpty={q || allReceipts.length > 0}
+            text={
+              q ? `Inga kvitton matchar "${query.trim()}".`
+                : allReceipts.length > 0 ? 'Inga kvitton matchar det här filtret.'
+                  : undefined
+            }
+          />
         ) : (() => {
           // Gruppera per månad — men bara när listan faktiskt SPÄNNER över
           // fler än en, annars är en ensam "September 2026"-rubrik bara

@@ -20,6 +20,7 @@ import { UF_NAV_IDS, UF_NAV_LABELS, UF_FREE_MONTHS } from '../utils/ufMode';
 import { PRICING_TIERS } from './marketing/pricingTiers';
 import { resolvePlan, YEARLY_MINIMUM_MONTHS } from '../utils/plans';
 import { PageMeta, JsonLd, SITE_URL } from '../utils/seo';
+import { FAQ_ITEMS, FAQ_SCHEMA } from './marketing/faqData';
 // Lazy: DemoWorkspace monterar en RIKTIG kopia av hela den inloggade
 // appens komponentträd (Dashboard, Invoices, Bokföring, Skatt, m.fl.) för
 // den interaktiva produktdemon längre ner på sidan (utanför den första
@@ -190,36 +191,12 @@ const TOOL_ITEMS = [
 // mindre dekoration som inte bär egen information.
 const FAQ_ACCENT = ACCENT.green;
 
-// Kundönskemål ("fler frågor som bör finnas") — två nya rader tillagda
-// (skillnaden mellan nivåerna, support), och prissvaret uppdaterat till de
-// två faktiska nivåerna (129/179 kr) istället för det gamla enda priset.
-const FAQ_ITEMS = [
-  { q: 'Behöver jag kunna bokföring sedan innan?', a: 'Nej. Verifikationer skapas automatiskt utifrån dina kvitton och fakturor. Det enda som kräver din uppmärksamhet hamnar i Granskning, med tydlig anledning till varför. Resten sköts av Bokix.' },
-  { q: 'Fungerar Bokix för min bolagsform?', a: 'Ja. Enskild firma, aktiebolag, handelsbolag/KB, ekonomisk förening och ideell förening/stiftelse: Bokix känner av rätt bolagsform automatiskt utifrån ditt organisationsnummer när du skapar konto.' },
-  { q: 'Vad kostar det, och vad ingår?', a: 'Två priser, beroende på om du har personal: 129 kr/mån utan anställda, 179 kr/mån med. Obegränsat med kund- och leverantörsfakturor, fyra fakturamallar med egen logotyp, löpande bokföring och kortbetalningar via Stripe ingår i båda, ingen bindningstid på månadsplanen. Ingen moms tillkommer — Bokix är inte momsregistrerat.' },
-  { q: 'Vad är skillnaden mellan de två prisnivåerna?', a: 'Samma bokföring och fakturering i båda. Med personal lägger till lönekörning med automatiskt skatteavdrag, AGI- och kontrolluppgiftssammanställningar samt en betalfil klar att ladda upp till banken: allt du behöver den dagen du har någon anställd.' },
-  { q: 'Kan jag ta med mig min bokföring om jag vill byta bort från Bokix senare?', a: 'Ja. Din bokföring går att exportera som SIE4-fil, det standardformat svenska bokföringsprogram och redovisningskonsulter använder för att flytta data mellan system. Din data är aldrig inlåst.' },
-  { q: 'Är Bokix anpassat efter svensk bokföringslag och Skatteverkets regler?', a: 'Ja, det är hela utgångspunkten. BAS-kontoplan, momsdeklaration per kvartal (25/12/6 %), AGI- och kontrolluppgiftssammanställningar samt skatteavdrag enligt Skatteverkets egna skattetabeller vid lönekörning.' },
-  { q: 'Hur fungerar de 30 dagarna gratis?', a: 'Du lägger in dina betaluppgifter hos Stripe när du skapar konto, men debiteras ingenting under de första 30 dagarna. Avslutar du innan dess kostar det dig aldrig något, annars börjar ditt månadspris dras automatiskt.' },
-  { q: 'Ingår support i priset?', a: 'Ja, support ingår i båda nivåerna. Du når oss på support@bokix.se.' },
-];
-
-// FAQPage-schema byggt direkt av FAQ_ITEMS ovan — samma frågor/svar som
-// faktiskt visas i FAQ-sektionen, aldrig en egen dubblettlista som kan
-// glida isär från vad besökaren ser (samma mönster som PricingPage.jsx).
+// FAQ_ITEMS/FAQ_SCHEMA flyttade till egen fil (marketing/faqData.js) —
+// delas nu med den nya /vanliga-fragor-sidan (FaqPage.jsx) i stället för
+// att bara ligga lokalt här.
 // Var listan delas i två spalter på breda skärmar. Udda antal hamnar i
 // den vänstra, som läses först.
 const FAQ_SPLIT = Math.ceil(FAQ_ITEMS.length / 2);
-
-const FAQ_SCHEMA = {
-  '@context': 'https://schema.org',
-  '@type': 'FAQPage',
-  mainEntity: FAQ_ITEMS.map(({ q, a }) => ({
-    '@type': 'Question',
-    name: q,
-    acceptedAnswer: { '@type': 'Answer', text: a },
-  })),
-};
 
 // Organization-schema (Sida: AI:er/Google blandar ibop Bokix med Bokio i
 // sökningar/svar — se konversationen där det här lades till). Det här är
@@ -956,7 +933,18 @@ export default function LandingPage({ onEnterApp }) {
         </Reveal>
 
         <Reveal scale style={{ maxWidth: 'min(92vw, 1220px)', margin: '0 auto', padding: '0 4px', width: '100%', position: 'relative' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: '32px', alignItems: 'stretch' }}>
+          {/* Kundfeedback (mobil, "prissektionen ligger för långt åt höger,
+              går inte att scrolla dit"): minmax(380px, 1fr) tvingade varje
+              kort till minst 380px brett — på en telefon smalare än ~410px
+              blev rutnätet bredare än skärmen, och #lp-root:s overflowX:
+              hidden (MarketingLayout.jsx) klippte båda kanterna i stället
+              för att ge en scrollbar, vilket lästes som "urklippt åt höger".
+              minmax(min(380px,100%), 1fr) låter golvet krympa till
+              containerns EGEN bredd i stället för att tvinga fram ett
+              bredare rutnät än viewporten — kortet blir en enda smal
+              kolumn på mobil, exakt skärmbrett, ingen förändring på
+              desktop där 380px redan får plats. */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(380px, 100%), 1fr))', gap: 'clamp(16px, 5vw, 32px)', alignItems: 'stretch' }}>
             {PRICING_TIERS.map((tier) => {
               const plan = resolvePlan(tier.key, billingInterval);
               return (
@@ -987,7 +975,7 @@ export default function LandingPage({ onEnterApp }) {
                     sedan klipps en gång till av kortets rundade mask, och de
                     två klippningarna möts inte exakt: den tunna gradient-
                     randen fick ett hackigt, "avskuret" hörn. */}
-                <div style={{ background: `color-mix(in srgb, ${tier.accent.fg} 7%, var(--mkt-card-bg))`, padding: tier.featured ? '46px 28px 34px' : '38px 28px 28px', textAlign: 'center', position: 'relative', overflow: 'hidden', borderRadius: '26px 26px 0 0', flexShrink: 0 }}>
+                <div style={{ background: `color-mix(in srgb, ${tier.accent.fg} 7%, var(--mkt-card-bg))`, padding: tier.featured ? 'clamp(28px, 9vw, 46px) clamp(18px, 6vw, 28px) clamp(22px, 7vw, 34px)' : 'clamp(24px, 8vw, 38px) clamp(18px, 6vw, 28px) clamp(18px, 6vw, 28px)', textAlign: 'center', position: 'relative', overflow: 'hidden', borderRadius: '26px 26px 0 0', flexShrink: 0 }}>
                   <div aria-hidden style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '5px', backgroundImage: grad(tier.gradient) }} />
                   <div style={{ marginBottom: tier.featured ? '20px' : '16px', position: 'relative' }}>
                     <BokixWordmark height={tier.featured ? 48 : 38} />
@@ -997,8 +985,12 @@ export default function LandingPage({ onEnterApp }) {
                     <div>
                       {/* Priset kommer ur samma katalog som checkouten
                           debiterar efter (plans.js) — kortet kan inte visa
-                          ett annat belopp än det som dras. */}
-                      <span style={{ fontFamily: SERIF, fontSize: tier.featured ? '58px' : '50px', fontWeight: 700, letterSpacing: '-0.01em', color: INK }}>
+                          ett annat belopp än det som dras. Font-storleken
+                          är nu clamp() (kundfeedback: "för stort på
+                          telefonen") — samma 58/50px på desktop som förut
+                          (vw-delen slår i taket långt innan 1024px), bara
+                          mindre på en smal telefon. */}
+                      <span style={{ fontFamily: SERIF, fontSize: tier.featured ? 'clamp(38px, 11vw, 58px)' : 'clamp(32px, 9.5vw, 50px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK }}>
                         {plan.price} kr
                       </span>
                       <span style={{ fontSize: '15px', color: MUTED }}> /mån</span>
@@ -1013,7 +1005,7 @@ export default function LandingPage({ onEnterApp }) {
                   </div>
                 </div>
 
-                <div style={{ padding: '28px 24px 26px', display: 'flex', flexDirection: 'column', flex: 1 }}>
+                <div style={{ padding: 'clamp(20px, 6vw, 28px) clamp(16px, 5vw, 24px) clamp(18px, 5vw, 26px)', display: 'flex', flexDirection: 'column', flex: 1 }}>
                   {tier.recommend && (
                     <div style={{ fontSize: '13.5px', color: tier.accent.fg, fontWeight: 600, lineHeight: 1.5, marginBottom: '18px', paddingBottom: '18px', borderBottom: `1px solid ${CARD_BORDER}` }}>
                       {tier.recommend}
@@ -1118,7 +1110,16 @@ export default function LandingPage({ onEnterApp }) {
             <p style={{ fontSize: '18px', color: MUTED }}>Det mesta du undrar över innan du sätter igång.</p>
           </Reveal>
 
-          <Reveal scale style={{ background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '22px', padding: '8px 34px', boxShadow: '0 20px 40px -26px rgba(28,36,32,0.22), 0 2px 10px rgba(28,36,32,0.05)' }}>
+          {/* Kundfeedback (mobil, "frågorna innan footern ser dåligt ut"):
+              hela åtta-frågors-accordionen fick tidigare alltid plats här,
+              oavsett skärmbredd — tungt och långt att skrolla igenom på en
+              telefon. Under 720px (samma brytpunkt som footerns egen
+              mobil-omställning nedan) döljs den fulla listan och ersätts av
+              ett kompakt kort som länkar till den nya /vanliga-fragor-sidan
+              i stället (.lp-faq-full / .lp-faq-mobile-cta, MarketingLayout.jsx).
+              Desktop/tablet är oförändrat: samma fulla tvåspaltiga accordion
+              som förut. */}
+          <Reveal scale className="lp-faq-full" style={{ background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '22px', padding: '8px 34px', boxShadow: '0 20px 40px -26px rgba(28,36,32,0.22), 0 2px 10px rgba(28,36,32,0.05)' }}>
             {/* Två spalter först över 1100px (se .lp-faq-grid), och som TVÅ
                 egna staplar — inte ett rutnät med en fråga per cell. I ett
                 rutnät växer hela raden när ett svar fälls ut, så grannfrågan
@@ -1136,6 +1137,18 @@ export default function LandingPage({ onEnterApp }) {
                 </div>
               ))}
             </div>
+          </Reveal>
+
+          <Reveal scale className="lp-faq-mobile-cta">
+            <Link to="/vanliga-fragor" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', padding: '20px 22px', background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '16px', boxShadow: '0 14px 30px -22px rgba(28,36,32,0.22)', textDecoration: 'none' }}>
+              <span>
+                <span style={{ display: 'block', fontSize: '15.5px', fontWeight: 700, color: INK, marginBottom: '3px' }}>Se alla vanliga frågor</span>
+                <span style={{ display: 'block', fontSize: '13px', color: MUTED }}>Pris, bolagsform, support och mer</span>
+              </span>
+              <span style={{ width: 34, height: 34, borderRadius: '50%', background: FAQ_ACCENT.soft, color: FAQ_ACCENT.fg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <ChevronRight size={18} />
+              </span>
+            </Link>
           </Reveal>
         </div>
       </section>

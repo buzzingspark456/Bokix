@@ -240,6 +240,20 @@ function ProgramStep({ onContinue }) {
       <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: '0 0 14px' }}>
         Vilket program bokförde du i tidigare? Vi visar var du hittar SIE-exporten där — importen i sig fungerar likadant oavsett program, SIE4 är samma filstandard.
       </p>
+
+      {/* Konkurrensbevakning + SIE-formatets faktiska begränsning: en
+          SIE-fil innehåller bara konton/verifikationer/saldon — ALDRIG
+          bilagor eller kopplingar. Den vanligaste besvikelsen efter ett
+          programbyte är att upptäcka det EFTER att det gamla programmet
+          redan är uppsagt och kvittobilderna otillgängliga. Visas här,
+          i steget där man fortfarande har kvar (och kan logga in i) det
+          gamla programmet — för sent att vara till nytta ett steg senare. */}
+      <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-amber-bg)', color: 'var(--status-amber-text)', borderRadius: '8px', padding: '10px 12px', marginBottom: '14px', fontSize: '12.5px', lineHeight: 1.6 }}>
+        <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
+        <span>
+          En SIE-fil innehåller konton, verifikationer och saldon — <strong>aldrig</strong> kvittobilder eller bankkopplingar. Ladda ner ditt kvittoarkiv från det gamla programmet innan du säger upp det, annars är det borta.
+        </span>
+      </div>
       {/* Logotypbrickor istället för textpiller: man känner igen sitt eget
           program på loggan snabbare än på ordet, och rutnätet (auto-fill,
           inte fast kolumnantal) klarar både sju leverantörer och den
@@ -312,6 +326,13 @@ function ProgramStep({ onContinue }) {
 function AccountMappingStep({ rows, setRows, existingAccounts }) {
   const matched = rows.filter(r => r.status === 'match');
   const flagged = rows.filter(r => r.status !== 'match');
+  // Momskonton (BAS 26xx) som behöver ett beslut här är den klassiska
+  // fallgropen vid programbyte: olika program lägger momsen på lite olika
+  // kontonummer inom 26xx-serien, så en automatisk 1:1-matchning kan se
+  // rätt ut men ändå ge fel momsdeklaration efteråt. Bara en flagga, inte
+  // en spärr — den faktiska momsberäkningen rör sig aldrig, bara var
+  // saldot hamnar.
+  const hasVatAccounts = flagged.some(r => r.code.startsWith('26'));
 
   const update = (code, patch) => setRows(prev => prev.map(r => r.code === code ? { ...r, ...patch } : r));
 
@@ -320,6 +341,13 @@ function AccountMappingStep({ rows, setRows, existingAccounts }) {
       <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: '0 0 14px' }}>
         {matched.length} konton matchar redan din befintliga kontoplan exakt. {flagged.length > 0 ? `${flagged.length} behöver ett snabbt beslut nedan.` : ''}
       </p>
+
+      {hasVatAccounts && (
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-amber-bg)', color: 'var(--status-amber-text)', borderRadius: '8px', padding: '10px 12px', marginBottom: '14px', fontSize: '12.5px', lineHeight: 1.6 }}>
+          <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
+          <span>Ett eller flera momskonton (26xx) behöver mappas nedan. Olika program lägger moms på olika kontonummer i den serien — kontrollera att din momsdeklaration ser rimlig ut efter importen.</span>
+        </div>
+      )}
 
       {flagged.length === 0 && (
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', padding: '12px 14px', background: 'var(--status-green-bg)', color: 'var(--status-green-text)', borderRadius: '8px', fontSize: '12.5px', fontWeight: 600 }}>

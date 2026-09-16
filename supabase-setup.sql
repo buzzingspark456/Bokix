@@ -1096,3 +1096,98 @@ CREATE INDEX IF NOT EXISTS security_events_created_at_idx
 ON public.security_events (created_at DESC);
 
 ALTER TABLE public.security_events ENABLE ROW LEVEL SECURITY;
+
+-- ═══════════════════════════════════════════════════════════
+-- audit_log: händelselogg för Inställningar (System > Händelselogg) —
+-- vem ändrade vad i ETT företag, och när. Skrivs direkt från klienten
+-- (samma indirekta-inte mönster som company_members: ägaren skriver sin
+-- egen rad direkt, en inbjuden medlem skriver också direkt eftersom detta
+-- bara är en logg, inte själva datan — company-access.js-omvägen behövs
+-- inte här, det finns inget känsligt fält att skydda i en beskrivande
+-- textrad). Ingen UPDATE/DELETE-policy: en logg som går att redigera i
+-- efterhand är ingen logg.
+-- ═══════════════════════════════════════════════════════════
+CREATE TABLE IF NOT EXISTS public.audit_log (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id text NOT NULL,           -- nyckel inuti state.companies, samma som company_members.company_id
+  owner_user_id uuid NOT NULL,        -- vems user_data-rad företaget ligger i (RLS-scoping, samma fält som company_members)
+  actor_user_id uuid NOT NULL,        -- vem som faktiskt gjorde ändringen (ägaren eller en inbjuden medlem)
+  actor_email text NOT NULL,
+  action text NOT NULL,               -- t.ex. 'company.update', 'user.invite', 'subscription.cancel' — se src/utils/auditLog.js
+  description text NOT NULL,          -- färdig, läsbar svensk text, byggd vid insert (inte vid läsning)
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS audit_log_company_id_created_at_idx
+ON public.audit_log (company_id, created_at DESC);
+
+ALTER TABLE public.audit_log ENABLE ROW LEVEL SECURITY;
+
+-- SELECT: ägaren ser hela loggen för sina företag. En inbjuden medlem ser
+-- bara loggen för företag hen faktiskt har aktiv åtkomst till (samma join
+-- som company_members redan använder för att avgöra "delade företag jag
+-- har åtkomst till").
+DROP POLICY IF EXISTS "Se händelselogg för egna/delade företag" ON public.audit_log;
+CREATE POLICY "Se händelselogg för egna/delade företag"
+ON public.audit_log FOR SELECT TO authenticated
+USING (
+  (select auth.uid()) = owner_user_id
+  OR EXISTS (
+    SELECT 1 FROM public.company_members cm
+    WHERE cm.member_user_id = (select auth.uid())
+      AND cm.company_id = audit_log.company_id
+      AND cm.status = 'active'
+  )
+);
+
+-- INSERT: aktören måste vara sig själv (actor_user_id/actor_email kan inte
+-- förfalskas till någon annan), och owner_user_id måste vara antingen
+-- aktören själv (ägaren loggar sin egen ändring) eller ägaren till ett
+-- företag aktören har aktiv medlemsåtkomst till (en inbjuden medlem loggar
+-- en ändring i ägarens företag).
+DROP POLICY IF EXISTS "Logga egen händelse" ON public.audit_log;
+CREATE POLICY "Logga egen händelse"
+ON public.audit_log FOR INSERT TO authenticated
+WITH CHECK (
+  actor_user_id = (select auth.uid())
+  AND lower(actor_email) = lower((select auth.jwt() ->> 'email'))
+  AND (
+    owner_user_id = (select auth.uid())
+    OR EXISTS (
+      SELECT 1 FROM public.company_members cm
+      WHERE cm.member_user_id = (select auth.uid())
+        AND cm.owner_user_id = audit_log.owner_user_id
+        AND cm.company_id = audit_log.company_id
+        AND cm.status = 'active'
+    )
+  )
+);
+
+-- ═══════════════════════════════════════════════════════════
+-- login_events: personlig inloggningshistorik (Säkerhet > Inloggnings-
+-- historik). Helt separat från security_events ovan (den är intern/admin-
+-- bara) — det här är EN användares egna, synliga inloggningar. Ingen
+-- delning: bara du ser dina egna rader, en ägare kan INTE se en inbjuden
+-- medlems inloggningar (privat per person, inte per företag).
+-- ═══════════════════════════════════════════════════════════
+CREATE TABLE IF NOT EXISTS public.login_events (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  device text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS login_events_user_id_created_at_idx
+ON public.login_events (user_id, created_at DESC);
+
+ALTER TABLE public.login_events ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Se egna inloggningar" ON public.login_events;
+CREATE POLICY "Se egna inloggningar"
+ON public.login_events FOR SELECT TO authenticated
+USING ((select auth.uid()) = user_id);
+
+DROP POLICY IF EXISTS "Logga egen inloggning" ON public.login_events;
+CREATE POLICY "Logga egen inloggning"
+ON public.login_events FOR INSERT TO authenticated
+WITH CHECK ((select auth.uid()) = user_id);

@@ -42,8 +42,24 @@ export const ACCESS_PAGES = [
 ];
 
 /** Förvalet för en ny inbjudan: allt utom lönerna, som är den vanligaste
- * saken man INTE vill dela. Ägaren ändrar fritt i formuläret. */
-export function defaultPageAccess(role = 'editor') {
+ * saken man INTE vill dela. Ägaren ändrar fritt i formuläret.
+ *
+ * `template` (Inställningar > Användare & behörigheter > Roller &
+ * behörigheter, company.roleTemplates.<role>) låter ägaren byta ut det
+ * HÅRDKODADE förvalet ovan mot sitt eget, sparat per roll — men bara för
+ * NYA inbjudningar. Redan inbjudna medlemmars page_access rörs aldrig av
+ * att mallen ändras i efterhand. Saknas mallen (de allra flesta företag,
+ * och alla som fanns innan funktionen) gäller exakt samma hårdkodade
+ * förval som innan — noll beteendeförändring för den som aldrig öppnar
+ * den nya inställningen. */
+export function defaultPageAccess(role = 'editor', template = null) {
+  if (template && typeof template === 'object') {
+    return Object.fromEntries(ACCESS_PAGES.map(p => {
+      const level = template[p.id];
+      const valid = level === 'none' || level === 'view' || (level === 'edit' && role === 'editor');
+      return [p.id, valid ? level : (p.id === 'payroll' ? 'none' : (role === 'editor' ? 'edit' : 'view'))];
+    }));
+  }
   const level = role === 'editor' ? 'edit' : 'view';
   return Object.fromEntries(ACCESS_PAGES.map(p => [p.id, p.id === 'payroll' ? 'none' : level]));
 }

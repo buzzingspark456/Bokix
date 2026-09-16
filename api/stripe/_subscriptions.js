@@ -56,6 +56,19 @@ export async function getSubscriptionRow(userId, companyId = null) {
 }
 
 
+/** Bara stripe_customer_id — för Stripes Billing Portal (Inställningar →
+ * Prenumeration → Betalningsuppgifter/Fakturor & kvitton). Egen, smal
+ * funktion i stället för att bredda getSubscriptionRows SELECT ovan —
+ * samma över-hämtnings-försiktighet som den kommentaren redan förklarar. */
+export async function getStripeCustomerId(userId, companyId = null) {
+  const supabaseUrl = process.env.VITE_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceRoleKey) return null;
+  const admin = createClient(supabaseUrl, serviceRoleKey);
+  const { data } = await admin.from('subscriptions').select('stripe_customer_id').eq('user_id', userId).eq('company_id', legacyCompanyId(companyId)).maybeSingle();
+  return data?.stripe_customer_id || null;
+}
+
 export async function upsertSubscription({
   userId,
   companyId = null,

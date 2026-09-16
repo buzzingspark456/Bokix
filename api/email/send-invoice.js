@@ -2,7 +2,6 @@ import { applySecurityHeaders } from '../_security.js';
 import { parseJsonBody } from '../stripe/_parseBody.js';
 import { requireAuthedUser, loadOwnedCompany } from '../_auth.js';
 import { checkRateLimit } from '../_rateLimit.js';
-import { isRequestFromBot } from '../_botid.js';
 import { hasResendApiKey, sendWithFallback } from '../_resend.js';
 import { trySendFromOwnAddress } from '../_smtp.js';
 
@@ -40,13 +39,9 @@ export default async function handler(req, res) {
 
   if (!checkRateLimit(req, res, { key: 'send-invoice', max: 30 })) return;
 
-  // Vercel BotID — se filkommentaren i main.jsx.
-  const isBot = await isRequestFromBot();
-  if (isBot) {
-    res.status(403).json({ error: 'Åtkomst nekad.' });
-    return;
-  }
-
+  // Ingen BotID-koll längre (main.jsx: initBotId, se filkommentaren där) —
+  // requireAuthedUser + ägarskap (loadOwnedCompany, se längre ner) är det
+  // faktiska skyddet, exakt samma mönster som company-access.js.
   const user = await requireAuthedUser(req, res);
   if (!user) return;
 

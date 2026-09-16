@@ -1,0 +1,38 @@
+{
+  "settings": {
+    "tabs": {
+      "company": "Företag",
+      "invoice": "Fakturor",
+      "integrations": "Integrationer",
+      "system": "System",
+      "users": "Användare & behörigheter",
+      "subscription": "Prenumeration",
+      "appearance": "Utseende",
+      "notifications": "Notiser",
+      "security": "Säkerhet",
+      "advanced": "Avancerat"
+    },
+    "appearance": {
+      "theme": "Tema",
+      "themeHint": "Gäller den här webbläsaren.",
+      "themeLight": "Ljust",
+      "themeLightHint": "Vit bakgrund, mörk text.",
+      "themeDark": "Mörkt",
+      "themeDarkHint": "Djupgrön bakgrund, ljus text.",
+      "themeSystem": "System",
+      "themeSystemHint": "Följer enhetens eget tema.",
+      "accent": "Färgtema",
+      "accentHint": "Byter accentfärgen i knappar, sidopanel och aktiv menypunkt — inte statusfärger som \"betald\".",
+      "density": "Layout",
+      "densityHint": "Sparas direkt.",
+      "densityNormal": "Normal",
+      "densityNormalHint": "Bekväm läsavstånd mellan rader.",
+      "densityCompact": "Kompakt",
+      "densityCompactHint": "Tätare rader, mer innehåll per skärm.",
+      "language": "Språk",
+      "languageHint": "Sparas direkt i den här webbläsaren.",
+      "languageSv": "Svenska",
+      "languageEn": "Engelska"
+    }
+  }
+}

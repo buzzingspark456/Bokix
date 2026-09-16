@@ -235,9 +235,9 @@ export function ufFreePeriod(startedAt, now = new Date()) {
  *
  * Bort: 'users' (att bjuda in fler konton hör till ett betalande företag —
  * UF-gruppen delar ett konto under läsåret) och det som rör lön. Kvar:
- * profil, företag, fakturainställningar, integrationer, utseende, data
- * och prenumeration — den sista för att gratisperioden ska gå att se, se
- * Settings.jsx:s UF-gren.
+ * säkerhet, företag, fakturainställningar, integrationer, utseende,
+ * notiser och prenumeration — den sista för att gratisperioden ska gå att
+ * se, se Settings.jsx:s UF-gren.
  */
 export function ufSettingsSections(company, sections) {
   if (!isUfCompany(company)) return sections;
