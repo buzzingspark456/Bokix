@@ -1,6 +1,6 @@
 import { applySecurityHeaders } from '../_security.js';
 import { parseJsonBody } from '../stripe/_parseBody.js';
-import { requireAuthedUser, loadOwnedCompany } from '../_auth.js';
+import { requireAuthedUser, loadOwnedOrMemberCompany } from '../_auth.js';
 import { checkRateLimit } from '../_rateLimit.js';
 import { hasResendApiKey, sendWithFallback } from '../_resend.js';
 import { trySendFromOwnAddress } from '../_smtp.js';
@@ -26,10 +26,12 @@ import { trySendFromOwnAddress } from '../_smtp.js';
 // emot rakt av och skickades via Bokix eget Resend-konto, ett öppet
 // mejl-relä som vem som helst kunde missbruka för spam/nätfiske i Bokix
 // avsändardomän. Kräver nu en verifierad session, och avsändarnamnet
-// (`company`) hämtas nu från den inloggade användarens EGEN sparade
-// företagsdata istället för att lita på ett client-supplied company-
-// objekt — annars kunde man fortfarande skicka "från" ett företagsnamn
-// man inte äger.
+// (`company`) hämtas nu från företagets EGEN sparade data (antingen den
+// inloggade ägarens egen state, eller — för en inbjuden medarbetare på
+// ett delat företag — ägarens state via samma medlemskapskoll som
+// company-access.js, se loadOwnedOrMemberCompany) istället för att lita
+// på ett client-supplied company-objekt — annars kunde man fortfarande
+// skicka "från" ett företagsnamn man inte äger eller är medlem i.
 export default async function handler(req, res) {
   applySecurityHeaders(res);
   if (req.method !== 'POST') {
@@ -40,8 +42,9 @@ export default async function handler(req, res) {
   if (!checkRateLimit(req, res, { key: 'send-invoice', max: 30 })) return;
 
   // Ingen BotID-koll längre (main.jsx: initBotId, se filkommentaren där) —
-  // requireAuthedUser + ägarskap (loadOwnedCompany, se längre ner) är det
-  // faktiska skyddet, exakt samma mönster som company-access.js.
+  // requireAuthedUser + ägarskap/medlemskap (loadOwnedOrMemberCompany, se
+  // längre ner) är det faktiska skyddet, exakt samma mönster som
+  // company-access.js.
   const user = await requireAuthedUser(req, res);
   if (!user) return;
 
@@ -54,7 +57,7 @@ export default async function handler(req, res) {
       return;
     }
 
-    const companyData = await loadOwnedCompany(user.id, companyId, res);
+    const companyData = await loadOwnedOrMemberCompany(user.id, companyId, res);
     if (!companyData) return;
 
     const basePayload = {

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { FileSpreadsheet, Plus, FileText, Check, X, Download, Trash2, Send, Eye, ZoomIn, ZoomOut, Paperclip, Loader2, Search, Package } from 'lucide-react';
+import { FileSpreadsheet, Plus, FileText, Check, X, Download, Trash2, Send, Eye, ZoomIn, ZoomOut, Paperclip, Loader2, Search, Package, ChevronDown, ChevronRight } from 'lucide-react';
 import InvoiceDocument, { DEFAULT_INVOICE_TEMPLATE, INVOICE_TEMPLATES } from './InvoiceDocument';
 import { exportInvoicePdf, getInvoicePdfBase64 } from '../utils/exportInvoicePdf';
 import { sendInvoiceEmail } from '../emailApi';
@@ -88,9 +88,9 @@ const inputStyle = {
 };
 
 const toolbarBtnStyle = (active) => ({
-  display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 12px',
+  display: 'flex', alignItems: 'center', gap: '7px', padding: '10px 16px',
   background: active ? 'var(--status-blue-bg)' : 'var(--bg-card)', border: `1px solid ${active ? 'var(--status-blue-bg)' : 'var(--border)'}`,
-  borderRadius: '8px', fontSize: '12.5px', fontWeight: 600, color: active ? 'var(--status-blue-text)' : 'var(--text-main)',
+  borderRadius: '9px', fontSize: '13.5px', fontWeight: 600, color: active ? 'var(--status-blue-text)' : 'var(--text-main)',
   cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0, transition: 'all 0.15s',
 });
 
@@ -184,6 +184,19 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
   // ett medvetet tomt fält (användaren har raderat all text) inte tyst
   // återställs till standardtexten igen.
   const [otherTerms, setOtherTerms] = useState(quote?.otherTerms ?? DEFAULT_OTHER_TERMS);
+
+  // Kundfeedback: "så mycket grejer, gör det enklare" — de sex sektionerna
+  // nedan (mejlmeddelande, bilagor, ej ingår, betalningsvillkor,
+  // leveransvillkor, övriga villkor) är alla VALFRIA och gjorde en NY offert
+  // till en skrämmande lång sida direkt. Fällda som förval för en ny offert;
+  // öppnas automatiskt om en sparad offert redan har något ifyllt i dem, så
+  // att redigering aldrig gömmer data som faktiskt finns.
+  const [detailsOpen, setDetailsOpen] = useState(() => !!(
+    quote?.emailMessage || (quote?.emailAttachments || []).length > 0 || quote?.notIncluded ||
+    quote?.workStartDate || quote?.workEndDate || quote?.workLocation || quote?.deliveryDescription ||
+    quote?.paymentTermsDays != null || quote?.lateInterestPercent != null ||
+    (quote?.otherTerms != null && quote.otherTerms !== DEFAULT_OTHER_TERMS)
+  ));
 
   // Mallval/accentfärg fryses vid FÖRSTA sparningen (samma regel som
   // fakturor) — men går nu, till skillnad från tidigare, att faktiskt ändra
@@ -288,20 +301,25 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
   const formattedTerms = `${paymentTermsDays || 0} dagar netto`;
   const formattedLateInterest = `${lateInterestPercent || 0}% enligt räntelagen`;
 
+  // Delas av "Spara offert"-knappen och auto-spara-vid-utskick nedan
+  // (handleSendEmail) — samma fält, bara olika `status`-override.
+  const buildSaveData = (overrides = {}) => ({
+    customerId: isOneTimeCustomer ? '' : customerId,
+    customerName: customer?.name || customerName, date, dueDate: dueDate || '',
+    customerEmail, customerAddress, customerOrgNr, customerContactPerson,
+    projectId, ourRef, emailMessage,
+    emailAttachments: attachments.filter(a => a.url && !a.error).map(({ id, name, size, type, url }) => ({ id, name, size, type, url })),
+    rows: previewRows, status, invoiceTemplateSnapshot: templateSnapshot,
+    workStartDate, workEndDate, workLocation, deliveryDescription,
+    paymentTermsDays: Number(paymentTermsDays) || 0, lateInterestPercent: Number(lateInterestPercent) || 0,
+    terms: formattedTerms, lateInterest: formattedLateInterest,
+    notIncluded, otherTerms, currency,
+    ...overrides,
+  });
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSave({
-      customerId: isOneTimeCustomer ? '' : customerId,
-      customerName: customer?.name || customerName, date, dueDate: dueDate || '',
-      customerEmail, customerAddress, customerOrgNr, customerContactPerson,
-      projectId, ourRef, emailMessage,
-      emailAttachments: attachments.filter(a => a.url && !a.error).map(({ id, name, size, type, url }) => ({ id, name, size, type, url })),
-      rows: previewRows, status, invoiceTemplateSnapshot: templateSnapshot,
-      workStartDate, workEndDate, workLocation, deliveryDescription,
-      paymentTermsDays: Number(paymentTermsDays) || 0, lateInterestPercent: Number(lateInterestPercent) || 0,
-      terms: formattedTerms, lateInterest: formattedLateInterest,
-      notIncluded, otherTerms, currency,
-    });
+    onSave(buildSaveData());
   };
 
   const handleDownloadPdf = async () => {
@@ -362,6 +380,14 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
       // Ett utkast som faktiskt skickas till kunden är per definition inte
       // längre ett utkast.
       setStatus('sent');
+      // Kundfeedback: "skicka via post ska funka" — en helt ny, ännu
+      // osparad offert krävde tidigare ett separat "Spara offert"-klick
+      // FÖRST (knappen var disabled med bara en tooltip som förklaring),
+      // annars hände synligt ingenting alls när man klickade Skicka.
+      // Ett lyckat utskick sparar nu offerten automatiskt åt användaren —
+      // men bara om den aldrig sparats än (`!quote`); en redan sparad
+      // offert stannar kvar öppen som förut istället för att stängas.
+      if (!quote) onSave(buildSaveData({ status: 'sent' }));
     } catch (err) {
       console.error(err);
       setEmailError(err.message || 'Kunde inte skicka e-post.');
@@ -448,7 +474,7 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
       </div>
 
       {/* ── Åtgärdsrad: statusflöde, konvertering, e-post, PDF, förhandsgranska ── */}
-      <div className="quote-toolbar" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '10px 24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <div className="quote-toolbar" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '12px 24px', display: 'flex', alignItems: 'center', gap: '10px' }}>
         {quote && (!quote.status || quote.status === 'draft') && (
           <button type="button" onClick={() => setStatus('sent')} style={toolbarBtnStyle(status === 'sent')}>Markera som skickad</button>
         )}
@@ -473,23 +499,22 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
         <input
           type="email" value={emailToInput} onChange={e => { setEmailToInput(e.target.value); setEmailError(''); }}
           placeholder="mottagarens@epost.se" title="Mottagarens e-postadress"
-          disabled={!quote}
-          style={{ ...inputStyle, width: '180px', padding: '6px 10px', fontSize: '12.5px', background: !quote ? 'var(--bg-muted)' : 'white', color: !quote ? '#999' : 'var(--text-main)', flexShrink: 0 }}
+          style={{ ...inputStyle, width: '210px', padding: '9px 12px', fontSize: '13.5px', background: 'white', color: 'var(--text-main)', flexShrink: 0 }}
         />
         <button
           type="button" onClick={handleSendEmail}
-          disabled={emailBusy || !quote || !emailToInput.trim()}
-          title={!quote ? 'Spara offerten först' : (!emailToInput.trim() ? 'Ange en mottagaradress' : `Skicka offert ${previewNumber} till ${emailToInput.trim()}`)}
-          style={{ ...toolbarBtnStyle(false), opacity: (emailBusy || !quote || !emailToInput.trim()) ? 0.5 : 1, cursor: (emailBusy || !quote || !emailToInput.trim()) ? 'not-allowed' : 'pointer' }}
+          disabled={emailBusy || !emailToInput.trim()}
+          title={!emailToInput.trim() ? 'Ange en mottagaradress' : `Skicka offert ${previewNumber} till ${emailToInput.trim()}`}
+          style={{ ...toolbarBtnStyle(false), opacity: (emailBusy || !emailToInput.trim()) ? 0.5 : 1, cursor: (emailBusy || !emailToInput.trim()) ? 'not-allowed' : 'pointer' }}
         >
-          <Send size={13} /> {emailBusy ? 'Skickar…' : 'Skicka via e-post'}
+          <Send size={15} /> {emailBusy ? 'Skickar…' : 'Skicka via e-post'}
         </button>
         {pdfError && <span style={{ fontSize: '11px', color: 'var(--status-red-text)', flexShrink: 0 }}>{pdfError}</span>}
         <button type="button" onClick={handleDownloadPdf} disabled={pdfBusy} style={{ ...toolbarBtnStyle(false), opacity: pdfBusy ? 0.6 : 1 }}>
-          <Download size={13} /> {pdfBusy ? 'Skapar PDF…' : 'Ladda ner PDF'}
+          <Download size={15} /> {pdfBusy ? 'Skapar PDF…' : 'Ladda ner PDF'}
         </button>
         <button type="button" onClick={() => setShowPreview(true)} style={toolbarBtnStyle(showPreview)}>
-          <Eye size={13} /> Förhandsgranska
+          <Eye size={15} /> Förhandsgranska
         </button>
       </div>
 
@@ -612,49 +637,6 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
             </div>
           </div>
 
-          {/* ── Meddelande i mejlet — eget fält, INTE en del av PDF:en. Den
-                 distinktionen måste synas i hjälptexten, annars är det
-                 otydligt för användaren var texten faktiskt hamnar. ── */}
-          <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '4px' }}>Meddelande i mejlet</h3>
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '10px' }}>Visas i följemejlet, inte i PDF:en.</p>
-            <textarea
-              style={{ ...inputStyle, resize: 'vertical', minHeight: '86px', lineHeight: 1.6, fontFamily: 'inherit', maxWidth: '640px' }}
-              value={emailMessage} onChange={e => setEmailMessage(e.target.value)}
-              placeholder="Hej! Bifogat finner du vår offert..."
-            />
-          </div>
-
-          {/* ── Bilagor i mejlet — laddas upp direkt till lagring och skickas
-                 som länkar (se konstanten ATTACHMENT_ACCEPTED_TYPES/kommentaren
-                 vid handleAddFiles för varför). ── */}
-          <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '4px' }}>Bilagor i mejlet</h3>
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '10px' }}>Filerna följer med som bilagor i mejlet tillsammans med offert-PDF:en. Totalt max {MAX_ATTACHMENTS_TOTAL_MB} MB.</p>
-            <input type="file" ref={attachmentsFileInputRef} style={{ display: 'none' }} multiple accept={ATTACHMENT_ACCEPT_ATTR} onChange={e => { handleAddFiles(e.target.files); e.target.value = ''; }} />
-            {attachments.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '10px', maxWidth: '480px' }}>
-                {attachments.map(a => (
-                  <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px', background: 'var(--bg-muted)', border: '1px solid var(--border-light)', borderRadius: '8px', fontSize: '12.5px' }}>
-                    <Paperclip size={13} color="var(--text-muted)" style={{ flexShrink: 0 }} />
-                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: a.error ? 'var(--status-red-text)' : 'var(--text-main)' }}>
-                      {a.name} <span style={{ color: 'var(--text-muted)' }}>({((a.size || 0) / (1024 * 1024)).toFixed(1)} MB)</span>
-                      {a.error && <> — {a.error}</>}
-                    </span>
-                    {a.uploading && <Loader2 size={13} className="spin" color="var(--text-muted)" style={{ animation: 'spin 0.8s linear infinite' }} />}
-                    <button type="button" onClick={() => removeAttachment(a.id)} title="Ta bort" style={{ padding: '2px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444', flexShrink: 0 }}>
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-            {attachmentsError && <div style={{ fontSize: '12px', color: 'var(--status-red-text)', marginBottom: '10px' }}>{attachmentsError}</div>}
-            <button type="button" onClick={() => attachmentsFileInputRef.current?.click()} style={{ ...outlineBtnStyle, padding: '6px 12px', fontSize: '12px' }}>
-              <Paperclip size={13} /> Lägg till fil
-            </button>
-          </div>
-
           <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '12px' }}>
               <h3 style={{ fontSize: '14px', fontWeight: 600, margin: 0 }}>Offertrader</h3>
@@ -743,6 +725,65 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
             </div>
           </div>
 
+          {/* ── Fler detaljer — samlar de sex VALFRIA sektionerna (mejl,
+                 bilagor, ej ingår, betalning, leverans, övriga villkor)
+                 bakom en hopfällbar toggle istället för att alltid visa dem,
+                 se detailsOpen ovan. ── */}
+          <div style={{ padding: '16px 32px', borderBottom: '1px solid var(--border-light)' }}>
+            <button
+              type="button" onClick={() => setDetailsOpen(v => !v)}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: '13px', fontWeight: 600, color: 'var(--accent-text)' }}
+            >
+              {detailsOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+              {detailsOpen ? 'Dölj fler detaljer' : 'Fler detaljer (meddelande, bilagor, villkor)'}
+            </button>
+          </div>
+
+          {detailsOpen && (
+          <>
+          {/* ── Meddelande i mejlet — eget fält, INTE en del av PDF:en. Den
+                 distinktionen måste synas i hjälptexten, annars är det
+                 otydligt för användaren var texten faktiskt hamnar. ── */}
+          <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
+            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '4px' }}>Meddelande i mejlet</h3>
+            <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '10px' }}>Visas i följemejlet, inte i PDF:en.</p>
+            <textarea
+              style={{ ...inputStyle, resize: 'vertical', minHeight: '86px', lineHeight: 1.6, fontFamily: 'inherit', maxWidth: '640px' }}
+              value={emailMessage} onChange={e => setEmailMessage(e.target.value)}
+              placeholder="Hej! Bifogat finner du vår offert..."
+            />
+          </div>
+
+          {/* ── Bilagor i mejlet — laddas upp direkt till lagring och skickas
+                 som länkar (se konstanten ATTACHMENT_ACCEPTED_TYPES/kommentaren
+                 vid handleAddFiles för varför). ── */}
+          <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
+            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '4px' }}>Bilagor i mejlet</h3>
+            <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '10px' }}>Filerna följer med som bilagor i mejlet tillsammans med offert-PDF:en. Totalt max {MAX_ATTACHMENTS_TOTAL_MB} MB.</p>
+            <input type="file" ref={attachmentsFileInputRef} style={{ display: 'none' }} multiple accept={ATTACHMENT_ACCEPT_ATTR} onChange={e => { handleAddFiles(e.target.files); e.target.value = ''; }} />
+            {attachments.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '10px', maxWidth: '480px' }}>
+                {attachments.map(a => (
+                  <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px', background: 'var(--bg-muted)', border: '1px solid var(--border-light)', borderRadius: '8px', fontSize: '12.5px' }}>
+                    <Paperclip size={13} color="var(--text-muted)" style={{ flexShrink: 0 }} />
+                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: a.error ? 'var(--status-red-text)' : 'var(--text-main)' }}>
+                      {a.name} <span style={{ color: 'var(--text-muted)' }}>({((a.size || 0) / (1024 * 1024)).toFixed(1)} MB)</span>
+                      {a.error && <> — {a.error}</>}
+                    </span>
+                    {a.uploading && <Loader2 size={13} className="spin" color="var(--text-muted)" style={{ animation: 'spin 0.8s linear infinite' }} />}
+                    <button type="button" onClick={() => removeAttachment(a.id)} title="Ta bort" style={{ padding: '2px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444', flexShrink: 0 }}>
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {attachmentsError && <div style={{ fontSize: '12px', color: 'var(--status-red-text)', marginBottom: '10px' }}>{attachmentsError}</div>}
+            <button type="button" onClick={() => attachmentsFileInputRef.current?.click()} style={{ ...outlineBtnStyle, padding: '6px 12px', fontSize: '12px' }}>
+              <Paperclip size={13} /> Lägg till fil
+            </button>
+          </div>
+
           {/* ── Vad som inte ingår (valfritt) — skilt från Övriga villkor:
                  det här är projektspecifika avgränsningar, inte generella
                  juridiska standardpunkter. ── */}
@@ -815,6 +856,8 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
               placeholder="En rad per punkt — visas som punktlista på offerten"
             />
           </div>
+          </>
+          )}
         </div>
       </form>
 

@@ -65,6 +65,41 @@ export async function loadOwnedCompany(userId, companyId, res) {
   return companyData;
 }
 
+/** Slår upp företaget oavsett om den inloggade användaren är ÄGARE
+ * (loadOwnedCompany ovan) eller en INBJUDEN MEDLEM (loadMemberCompany
+ * nedan) — samma "prova ägaren först, fall tillbaka till medlemskap"-
+ * mönster som redan etablerat i company-access.js (fältsparningens
+ * ägar-snabbväg). send-invoice.js kollade tidigare BARA ägarskap, vilket
+ * gjorde att en inbjuden medarbetare (t.ex. den andra av Bokix två
+ * grundare, inloggad på ett delat företag) fick "Företaget hittades inte
+ * för den inloggade användaren" och aldrig kunde skicka fakturor/offerter
+ * — trots giltig åtkomst till företaget i appen i övrigt. Kräver ingen
+ * specifik roll (till skillnad från fältsparningens editor-krav): att
+ * skicka ett mejl ändrar aldrig företagets sparade data, så även en
+ * läsare ska kunna skicka en faktura/offert de redan kan se.
+ * Skriver INTE till `res` vid ägarmissar (måste kunna falla tillbaka
+ * tyst till medlemskontrollen) — bara om BÅDA slår fel, via
+ * loadMemberCompany:s egen res.status(...)-hantering. */
+export async function loadOwnedOrMemberCompany(userId, companyId, res) {
+  const supabaseUrl = process.env.VITE_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceRoleKey) {
+    res.status(503).json({ error: 'SUPABASE_SERVICE_ROLE_KEY saknas — kan inte verifiera ägarskap server-side.' });
+    return null;
+  }
+  const admin = createClient(supabaseUrl, serviceRoleKey);
+  const { data: row, error } = await admin.from('user_data').select('state').eq('user_id', userId).maybeSingle();
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return null;
+  }
+  const ownCompanyData = row?.state?.companies?.[companyId];
+  if (ownCompanyData) return ownCompanyData;
+
+  const member = await loadMemberCompany(userId, companyId, res);
+  return member ? member.companyData : null;
+}
+
 /** Samma sorts ägarskapsbevis som loadOwnedCompany ovan, men för en
  * INBJUDEN användare (se supabase-setup.sql: company_members) istället för
  * den bokstavliga raden i user_data. Två uppslag: (1) finns en AKTIV

@@ -23,7 +23,7 @@ import adminHandler from './api/admin/index.js'
 import createSubscriptionCheckoutHandler from './api/stripe/_subscriptionCheckout.js'
 import createCheckoutSessionHandler from './api/stripe/create-checkout-session.js'
 import contactHandler from './api/contact.js'
-import { requireAuthedUser, loadOwnedCompany } from './api/_auth.js'
+import { requireAuthedUser, loadOwnedCompany, loadOwnedOrMemberCompany } from './api/_auth.js'
 import { isRequestFromBot } from './api/_botid.js'
 
 dotenv.config()
@@ -369,8 +369,10 @@ app.post('/api/email/send-invoice', async (req, res) => {
 
   // Säkerhetsfix (se motsvarande kommentar i api/email/send-invoice.js,
   // samma logik speglad här för lokal utveckling): kräver nu en verifierad
-  // inloggad session och bevisar ägarskap av företaget innan något skickas
-  // — annars ett öppet mejl-relä som vem som helst kunde missbruka.
+  // inloggad session och bevisar ägarskap ELLER medlemskap av företaget
+  // (loadOwnedOrMemberCompany — en inbjuden medarbetare ska kunna skicka
+  // precis som ägaren) innan något skickas, annars ett öppet mejl-relä som
+  // vem som helst kunde missbruka.
   const user = await requireAuthedUser(req, res)
   if (!user) return
 
@@ -383,7 +385,7 @@ app.post('/api/email/send-invoice', async (req, res) => {
       return
     }
 
-    const companyData = await loadOwnedCompany(user.id, companyId, res)
+    const companyData = await loadOwnedOrMemberCompany(user.id, companyId, res)
     if (!companyData) return
 
     const { from } = await resolveSenderAddress(companyData.company)
