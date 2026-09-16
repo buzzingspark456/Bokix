@@ -57,8 +57,9 @@ export default async function handler(req, res) {
       return;
     }
 
-    const companyData = await loadOwnedOrMemberCompany(user.id, companyId, res);
-    if (!companyData) return;
+    const owned = await loadOwnedOrMemberCompany(user.id, companyId, res);
+    if (!owned) return;
+    const { companyData, ownerUserId } = owned;
 
     const basePayload = {
       to: [to],
@@ -72,8 +73,9 @@ export default async function handler(req, res) {
     // Har företaget en verifierad SMTP-avsändare (Inställningar →
     // Fakturautskick) går mejlet genom deras eget mejlkonto: rätt
     // avsändare, deras egen Skickat-mapp, och ingen kostnad för oss.
-    // Se api/_smtp.js för hela resonemanget.
-    const own = await trySendFromOwnAddress(user.id, companyId, {
+    // Se api/_smtp.js för hela resonemanget. ownerUserId (inte user.id) —
+    // email_senders är nycklad på ÄGARENS id, se loadOwnedOrMemberCompany.
+    const own = await trySendFromOwnAddress(ownerUserId, companyId, {
       to,
       subject,
       html,

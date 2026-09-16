@@ -22,7 +22,7 @@ import { createClient } from '@supabase/supabase-js';
 import { createSignedState, verifySignedState } from './_oauthState.js';
 import { parseCookies, ZETTLE_OAUTH_COOKIE, zettleOauthStateCookie, clearZettleOauthStateCookie } from './_cookies.js';
 import { parseJsonBody } from '../stripe/_parseBody.js';
-import { requireAuthedUser, loadOwnedCompany } from '../_auth.js';
+import { requireAuthedUser, loadOwnedOrMemberCompany } from '../_auth.js';
 import { checkRateLimit } from '../_rateLimit.js';
 
 const ZETTLE_AUTHORIZE_URL = 'https://oauth.zettle.com/authorize';
@@ -77,12 +77,17 @@ async function handleStart(res, user, body) {
     res.status(400).json({ error: 'company_id krävs.' });
     return;
   }
-  const companyData = await loadOwnedCompany(user.id, companyId, res);
-  if (!companyData) return;
+  // requireEditor: true — en inbjuden läsare ska inte kunna koppla ett
+  // Zettle-konto till hela företaget, se loadOwnedOrMemberCompany.
+  const owned = await loadOwnedOrMemberCompany(user.id, companyId, res, { requireEditor: true });
+  if (!owned) return;
 
   let state;
   try {
-    state = createSignedState({ user_id: user.id, company_id: companyId });
+    // ownerUserId, INTE user.id — samma resonemang som api/stripe/
+    // connect.js: handleCallback nedan körs utan session och litar blint
+    // på state:n för att veta vems user_data-rad tokens ska sparas i.
+    state = createSignedState({ user_id: owned.ownerUserId, company_id: companyId });
   } catch (err) {
     console.error('Zettle OAuth start error:', err);
     res.status(500).json({ error: 'Kunde inte starta Zettle-anslutningen.' });
@@ -222,9 +227,10 @@ export default async function handler(req, res) {
   // main.jsx av samma skäl. Utan en client-registrering skickas
   // x-is-human-headern aldrig, så en kvarbliven serverkoll här hade kunnat
   // landa i isBot:true för helt vanliga användare (samma "RÄTTELSE"-fynd
-  // som main.jsx redan dokumenterar) — requireAuthedUser + loadOwnedCompany
-  // (bevisat ägarskap) nedan är det faktiska, tillräckliga skyddet för den
-  // här redan autentiserade anslutningen.
+  // som main.jsx redan dokumenterar) — requireAuthedUser +
+  // loadOwnedOrMemberCompany (bevisat ägarskap/medlemskap) nedan är det
+  // faktiska, tillräckliga skyddet för den här redan autentiserade
+  // anslutningen.
   const user = await requireAuthedUser(req, res);
   if (!user) return;
 

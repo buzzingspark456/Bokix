@@ -23,7 +23,7 @@ import adminHandler from './api/admin/index.js'
 import createSubscriptionCheckoutHandler from './api/stripe/_subscriptionCheckout.js'
 import createCheckoutSessionHandler from './api/stripe/create-checkout-session.js'
 import contactHandler from './api/contact.js'
-import { requireAuthedUser, loadOwnedCompany, loadOwnedOrMemberCompany } from './api/_auth.js'
+import { requireAuthedUser, loadOwnedOrMemberCompany } from './api/_auth.js'
 import { isRequestFromBot } from './api/_botid.js'
 
 dotenv.config()
@@ -385,8 +385,9 @@ app.post('/api/email/send-invoice', async (req, res) => {
       return
     }
 
-    const companyData = await loadOwnedOrMemberCompany(user.id, companyId, res)
-    if (!companyData) return
+    const owned = await loadOwnedOrMemberCompany(user.id, companyId, res)
+    if (!owned) return
+    const { companyData } = owned
 
     const { from } = await resolveSenderAddress(companyData.company)
 
@@ -649,9 +650,9 @@ app.get('/api/email/domains', async (req, res) => {
       res.status(400).json({ error: 'id och company_id krävs.' })
       return
     }
-    const companyData = await loadOwnedCompany(user.id, companyId, res)
-    if (!companyData) return
-    if (companyData.company?.resendDomainId !== id) {
+    const owned = await loadOwnedOrMemberCompany(user.id, companyId, res)
+    if (!owned) return
+    if (owned.companyData.company?.resendDomainId !== id) {
       res.status(403).json({ error: 'Domänen tillhör inte det här företaget.' })
       return
     }
@@ -735,8 +736,9 @@ app.post('/api/stripe/connect', async (req, res) => {
   if (action === 'disconnect') {
     if (!requireStripe(res)) return
     try {
-      const companyData = await loadOwnedCompany(user.id, companyId, res)
-      if (!companyData) return
+      const owned = await loadOwnedOrMemberCompany(user.id, companyId, res, { requireEditor: true })
+      if (!owned) return
+      const { companyData, ownerUserId } = owned
       const stripeAccountId = companyData.company?.stripeAccountId
       if (!stripeAccountId) {
         return res.status(400).json({ error: 'Inget Stripe-konto är anslutet för det här företaget.' })
@@ -751,7 +753,9 @@ app.post('/api/stripe/connect', async (req, res) => {
         }
       }
 
-      await persistStripeAccountId({ userId: user.id, companyId, stripeAccountId: null })
+      // ownerUserId (inte user.id): RPC:n skriver till public.user_data
+      // WHERE user_id = p_user_id, se loadOwnedOrMemberCompany.
+      await persistStripeAccountId({ userId: ownerUserId, companyId, stripeAccountId: null })
       res.status(200).json({ ok: true })
     } catch (error) {
       handleError(res, error)
@@ -768,12 +772,14 @@ app.post('/api/stripe/connect', async (req, res) => {
     return
   }
 
-  const companyData = await loadOwnedCompany(user.id, companyId, res)
-  if (!companyData) return
+  const owned = await loadOwnedOrMemberCompany(user.id, companyId, res, { requireEditor: true })
+  if (!owned) return
 
   let state
   try {
-    state = createSignedState({ user_id: user.id, company_id: companyId })
+    // ownerUserId, INTE user.id — se motsvarande kommentar i
+    // api/stripe/connect.js (samma fix speglad här för lokal utveckling).
+    state = createSignedState({ user_id: owned.ownerUserId, company_id: companyId })
   } catch (err) {
     console.error('Stripe OAuth start error:', err)
     res.status(500).json({ error: 'Kunde inte starta Stripe-anslutningen.' })
@@ -874,12 +880,14 @@ app.post('/api/zettle/callback', async (req, res) => {
     res.status(400).json({ error: 'company_id krävs.' })
     return
   }
-  const companyData = await loadOwnedCompany(user.id, companyId, res)
-  if (!companyData) return
+  const owned = await loadOwnedOrMemberCompany(user.id, companyId, res, { requireEditor: true })
+  if (!owned) return
 
   let state
   try {
-    state = createZettleSignedState({ user_id: user.id, company_id: companyId })
+    // ownerUserId, INTE user.id — se motsvarande kommentar i
+    // api/zettle/callback.js (samma fix speglad här för lokal utveckling).
+    state = createZettleSignedState({ user_id: owned.ownerUserId, company_id: companyId })
   } catch (err) {
     console.error('Zettle OAuth start error:', err)
     res.status(500).json({ error: 'Kunde inte starta Zettle-anslutningen.' })

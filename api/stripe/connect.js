@@ -20,7 +20,7 @@ import { createClient } from '@supabase/supabase-js';
 import { createSignedState } from './_oauthState.js';
 import { stripeOauthStateCookie } from './_cookies.js';
 import { parseJsonBody } from './_parseBody.js';
-import { requireAuthedUser, loadOwnedCompany } from '../_auth.js';
+import { requireAuthedUser, loadOwnedOrMemberCompany } from '../_auth.js';
 import { checkRateLimit } from '../_rateLimit.js';
 import { verifyReauthGrant } from '../_signedToken.js';
 
@@ -43,14 +43,19 @@ async function handleStart(res, user, body) {
     res.status(400).json({ error: 'company_id krävs.' });
     return;
   }
-  const companyData = await loadOwnedCompany(user.id, companyId, res);
-  if (!companyData) return;
+  // requireEditor: true — en inbjuden läsare ska inte kunna koppla ett
+  // betalningskonto till hela företaget, se loadOwnedOrMemberCompany.
+  const owned = await loadOwnedOrMemberCompany(user.id, companyId, res, { requireEditor: true });
+  if (!owned) return;
 
   let state;
   try {
-    // user.id kommer från den verifierade token:en, inte requesten — går
-    // inte att förfalska vems ID som signeras in i state:n.
-    state = createSignedState({ user_id: user.id, company_id: companyId });
+    // ownerUserId, INTE user.id: callback.js (efter Stripes redirect) körs
+    // helt utan session och litar blint på state:n för att veta VILKEN
+    // user_data-rad kontot ska sparas i — en inbjuden medlem som startar
+    // kopplingen måste ändå signera in ÄGARENS id, annars sparas kontot i
+    // medlemmens egen, tomma rad i stället för det delade företaget.
+    state = createSignedState({ user_id: owned.ownerUserId, company_id: companyId });
   } catch (err) {
     console.error('Stripe OAuth start error:', err);
     res.status(500).json({ error: 'Kunde inte starta Stripe-anslutningen.' });
@@ -81,8 +86,9 @@ async function handleDisconnect(res, user, body) {
     return;
   }
 
-  const companyData = await loadOwnedCompany(user.id, companyId, res);
-  if (!companyData) return;
+  const owned = await loadOwnedOrMemberCompany(user.id, companyId, res, { requireEditor: true });
+  if (!owned) return;
+  const { companyData, ownerUserId } = owned;
 
   // Vilket konto som kopplas från kommer från den verifierade, sparade
   // datan — inte requesten — så ett manipulerat stripe_account_id i
@@ -111,8 +117,10 @@ async function handleDisconnect(res, user, body) {
     return;
   }
   const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
+  // ownerUserId (inte user.id): RPC:n skriver till public.user_data WHERE
+  // user_id = p_user_id, se loadOwnedOrMemberCompany.
   const { error: rpcError } = await supabaseAdmin.rpc('set_company_stripe_account', {
-    p_user_id: user.id,
+    p_user_id: ownerUserId,
     p_company_id: companyId,
     p_stripe_account_id: null,
   });
@@ -133,8 +141,8 @@ export default async function handler(req, res) {
   if (!checkRateLimit(req, res, { key: 'stripe-connect', max: 10 })) return;
 
   // Ingen BotID-koll längre (main.jsx: initBotId, se filkommentaren där för
-  // hela historiken) — requireAuthedUser + loadOwnedCompany (start) och
-  // dessutom en reauth-kod (disconnect, nedan) är det faktiska, robusta
+  // hela historiken) — requireAuthedUser + loadOwnedOrMemberCompany (start)
+  // och dessutom en reauth-kod (disconnect, nedan) är det faktiska, robusta
   // skyddet, oberoende av klientens skröpliga BotID-inpackning.
   const user = await requireAuthedUser(req, res);
   if (!user) return;

@@ -69,18 +69,41 @@ export async function loadOwnedCompany(userId, companyId, res) {
  * (loadOwnedCompany ovan) eller en INBJUDEN MEDLEM (loadMemberCompany
  * nedan) — samma "prova ägaren först, fall tillbaka till medlemskap"-
  * mönster som redan etablerat i company-access.js (fältsparningens
- * ägar-snabbväg). send-invoice.js kollade tidigare BARA ägarskap, vilket
- * gjorde att en inbjuden medarbetare (t.ex. den andra av Bokix två
- * grundare, inloggad på ett delat företag) fick "Företaget hittades inte
- * för den inloggade användaren" och aldrig kunde skicka fakturor/offerter
- * — trots giltig åtkomst till företaget i appen i övrigt. Kräver ingen
- * specifik roll (till skillnad från fältsparningens editor-krav): att
- * skicka ett mejl ändrar aldrig företagets sparade data, så även en
- * läsare ska kunna skicka en faktura/offert de redan kan se.
+ * ägar-snabbväg). Flera endpoints (send-invoice.js, stripe/connect.js,
+ * zettle/callback.js, email/domains/index.js) kollade tidigare BARA
+ * ägarskap, vilket gjorde att en inbjuden medarbetare (t.ex. den andra av
+ * Bokix två grundare, inloggad på ett delat företag) fick "Företaget
+ * hittades inte för den inloggade användaren" och aldrig kunde
+ * skicka/koppla något — trots giltig åtkomst till företaget i appen i
+ * övrigt.
+ *
+ * `requireEditor` (förval false): sätt till true för anrop som ÄNDRAR
+ * företagets sparade data eller kopplingar (Stripe/Zettle-anslutning,
+ * e-postdomän, egen avsändaradress) — samma editor-krav som
+ * company-access.js redan ställer på fältsparning, en läsare ska inte
+ * kunna koppla/koppla från integrationer åt hela företaget. Lämna false
+ * för rena läsningar (statuskoll) eller åtgärder som inte ändrar sparad
+ * data (t.ex. att skicka ett mejl) — en läsare ska kunna göra det de
+ * redan kan se.
+ *
+ * Returnerar `{ companyData, ownerUserId, role }`, INTE bara companyData
+ * rakt av (bugkritiskt, hittades när send-invoice.js/stripe/zettle-
+ * kopplingarna fixades för medlemmar): all företagsdata ligger i ÄGARENS
+ * `user_data`-rad, så varje efterföljande anrop som skriver/läser en rad
+ * NYCKLAD PÅ user_id (email_senders, set_company_stripe_account,
+ * set_company_zettle_tokens, den signerade OAuth-state:n Stripe/Zettles
+ * callback senare litar blint på UTAN session) måste använda
+ * `ownerUserId`, ALDRIG den inloggade anroparens egna `userId` — annars
+ * skriver/läser en inbjuden medlem tyst fel persons rad (eller skapar en
+ * spöklik, aldrig synlig gren i sin EGEN user_data) i stället för att
+ * faktiskt träffa det delade företaget. `role` är `'owner'` för ägaren,
+ * annars `'editor'|'viewer'` från medlemskapsraden.
+ *
  * Skriver INTE till `res` vid ägarmissar (måste kunna falla tillbaka
- * tyst till medlemskontrollen) — bara om BÅDA slår fel, via
- * loadMemberCompany:s egen res.status(...)-hantering. */
-export async function loadOwnedOrMemberCompany(userId, companyId, res) {
+ * tyst till medlemskontrollen) — bara om medlemskontrollen själv slår
+ * fel, via loadMemberCompany:s egen res.status(...)-hantering, eller om
+ * rollen inte räcker. */
+export async function loadOwnedOrMemberCompany(userId, companyId, res, { requireEditor = false } = {}) {
   const supabaseUrl = process.env.VITE_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !serviceRoleKey) {
@@ -94,10 +117,15 @@ export async function loadOwnedOrMemberCompany(userId, companyId, res) {
     return null;
   }
   const ownCompanyData = row?.state?.companies?.[companyId];
-  if (ownCompanyData) return ownCompanyData;
+  if (ownCompanyData) return { companyData: ownCompanyData, ownerUserId: userId, role: 'owner' };
 
   const member = await loadMemberCompany(userId, companyId, res);
-  return member ? member.companyData : null;
+  if (!member) return null;
+  if (requireEditor && member.role !== 'editor') {
+    res.status(403).json({ error: 'Din roll (läsare) tillåter inte den här åtgärden.' });
+    return null;
+  }
+  return { companyData: member.companyData, ownerUserId: member.ownerUserId, role: member.role };
 }
 
 /** Samma sorts ägarskapsbevis som loadOwnedCompany ovan, men för en

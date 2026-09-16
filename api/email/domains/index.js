@@ -1,6 +1,6 @@
 import { applySecurityHeaders } from '../../_security.js';
 import { parseJsonBody } from '../../stripe/_parseBody.js';
-import { requireAuthedUser, loadOwnedCompany } from '../../_auth.js';
+import { requireAuthedUser, loadOwnedOrMemberCompany } from '../../_auth.js';
 import { checkRateLimit } from '../../_rateLimit.js';
 import {
   PROVIDERS, GOOGLE_PROVIDER, guessProvider, publicView, hasEmailSecretKey,
@@ -104,9 +104,9 @@ async function handleStatus(req, res) {
       return;
     }
 
-    const companyData = await loadOwnedCompany(user.id, companyId, res);
-    if (!companyData) return;
-    if (companyData.company?.resendDomainId !== id) {
+    const owned = await loadOwnedOrMemberCompany(user.id, companyId, res);
+    if (!owned) return;
+    if (owned.companyData.company?.resendDomainId !== id) {
       res.status(403).json({ error: 'Domänen tillhör inte det här företaget.' });
       return;
     }
@@ -159,10 +159,12 @@ async function handleSenderStatus(req, res) {
     res.status(400).json({ error: 'company_id krävs.' });
     return;
   }
-  const companyData = await loadOwnedCompany(user.id, companyId, res);
-  if (!companyData) return;
+  const owned = await loadOwnedOrMemberCompany(user.id, companyId, res);
+  if (!owned) return;
 
-  const { row, error, missingTable } = await loadSenderRow(user.id, companyId);
+  // ownerUserId (inte user.id): email_senders är nycklad på ÄGARENS id,
+  // se loadOwnedOrMemberCompany.
+  const { row, error, missingTable } = await loadSenderRow(owned.ownerUserId, companyId);
   if (error) {
     res.status(500).json({ error });
     return;
@@ -203,11 +205,16 @@ async function handleOauthUrl(req, res, body) {
     res.status(400).json({ error: 'company_id krävs.' });
     return;
   }
-  const companyData = await loadOwnedCompany(user.id, companyId, res);
-  if (!companyData) return;
+  // requireEditor: true — en inbjuden läsare ska inte kunna koppla en
+  // egen avsändaradress till hela företaget, se loadOwnedOrMemberCompany.
+  const owned = await loadOwnedOrMemberCompany(user.id, companyId, res, { requireEditor: true });
+  if (!owned) return;
 
   // Origin från requesten, inte hårdkodad: samma kod måste fungera på
-  // localhost, på förhandsvisningar och skarpt.
+  // localhost, på förhandsvisningar och skarpt. `uid` här är BARA en
+  // session-koll (handleOauthExchange nedan kräver samma inloggning
+  // slutför flödet den startade) — inte en databasnyckel, så det ska
+  // förbli den faktiska inloggade anroparens user.id, inte ownerUserId.
   const origin = originOf(req);
   const state = signState({ uid: user.id, cid: companyId });
   res.status(200).json({ url: buildAuthUrl({ state, origin, loginHint: body.loginHint || undefined }) });
@@ -237,8 +244,9 @@ async function handleOauthExchange(req, res, body) {
     return;
   }
   const companyId = claims.cid;
-  const companyData = await loadOwnedCompany(user.id, companyId, res);
-  if (!companyData) return;
+  const owned = await loadOwnedOrMemberCompany(user.id, companyId, res, { requireEditor: true });
+  if (!owned) return;
+  const { companyData, ownerUserId } = owned;
 
   try {
     const { refreshToken, email } = await exchangeCode(code, originOf(req));
@@ -246,7 +254,9 @@ async function handleOauthExchange(req, res, body) {
       res.status(400).json({ error: 'Kunde inte läsa vilken adress som kopplades. Försök igen.' });
       return;
     }
-    const saved = await saveSenderRow(user.id, companyId, {
+    // ownerUserId (inte user.id): email_senders är nycklad på ÄGARENS id,
+    // se loadOwnedOrMemberCompany.
+    const saved = await saveSenderRow(ownerUserId, companyId, {
       provider: GOOGLE_PROVIDER,
       from_email: email,
       from_name: companyData.company?.name || null,
@@ -270,7 +280,7 @@ async function handleOauthExchange(req, res, body) {
       });
       return;
     }
-    const { row } = await loadSenderRow(user.id, companyId);
+    const { row } = await loadSenderRow(ownerUserId, companyId);
     res.status(200).json({ sender: publicView(row) });
   } catch (error) {
     res.status(400).json({ error: error?.message || 'Kunde inte slutföra kopplingen till Google.' });
@@ -306,8 +316,9 @@ async function handleSenderSave(req, res, body) {
     return;
   }
 
-  const companyData = await loadOwnedCompany(user.id, companyId, res);
-  if (!companyData) return;
+  const owned = await loadOwnedOrMemberCompany(user.id, companyId, res, { requireEditor: true });
+  if (!owned) return;
+  const { companyData, ownerUserId } = owned;
 
   // Leverantör: kundens val om det finns, annars gissat ur adressen.
   const providerId = PROVIDERS[body.provider] ? body.provider : guessProvider(fromEmail);
@@ -332,7 +343,9 @@ async function handleSenderSave(req, res, body) {
     return;
   }
 
-  const saved = await saveSenderRow(user.id, companyId, {
+  // ownerUserId (inte user.id): email_senders är nycklad på ÄGARENS id,
+  // se loadOwnedOrMemberCompany.
+  const saved = await saveSenderRow(ownerUserId, companyId, {
     provider: providerId,
     from_email: String(fromEmail).trim(),
     from_name: fromName ? String(fromName).trim() : (companyData.company?.name || null),
@@ -355,7 +368,7 @@ async function handleSenderSave(req, res, body) {
     return;
   }
 
-  const { row } = await loadSenderRow(user.id, companyId);
+  const { row } = await loadSenderRow(ownerUserId, companyId);
   res.status(200).json({ sender: publicView(row) });
 }
 
@@ -370,10 +383,12 @@ async function handleSenderRemove(req, res, body) {
     res.status(400).json({ error: 'company_id krävs.' });
     return;
   }
-  const companyData = await loadOwnedCompany(user.id, companyId, res);
-  if (!companyData) return;
+  const owned = await loadOwnedOrMemberCompany(user.id, companyId, res, { requireEditor: true });
+  if (!owned) return;
 
-  const result = await deleteSenderRow(user.id, companyId);
+  // ownerUserId (inte user.id): email_senders är nycklad på ÄGARENS id,
+  // se loadOwnedOrMemberCompany.
+  const result = await deleteSenderRow(owned.ownerUserId, companyId);
   if (result.error) {
     res.status(500).json({ error: result.error });
     return;
