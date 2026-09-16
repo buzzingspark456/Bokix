@@ -960,17 +960,37 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
                   kopplade affärshändelser, då erbjuds inaktivering istället. */}
               {viewState === 'edit' && selectedContact && (
                 <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
+                  {/* Samma "tonad pill"-look som Aktiv/Inaktiv-badgen i
+                      listan (status-green/status-amber) i stället för en
+                      platt grå knapp — färgen speglar VAD klicket gör:
+                      grön när den ska bli aktiv igen, gulaktig amber när
+                      den ska stängas av. */}
                   <button
                     type="button" onClick={() => handleToggleActive(selectedContact)}
                     title={selectedContact.active === false ? 'Markera som aktiv igen' : 'Inaktivera — går inte längre att välja på nya dokument, men historiken finns kvar'}
-                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 12px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer' }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 12px',
+                      background: selectedContact.active === false ? 'var(--status-green-bg)' : 'var(--status-amber-bg)',
+                      border: 'none', borderRadius: '8px', fontSize: '12.5px', fontWeight: 600,
+                      color: selectedContact.active === false ? 'var(--status-green-text)' : 'var(--status-amber-text)',
+                      cursor: 'pointer', transition: 'opacity 0.15s',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.opacity = '0.8'; }}
+                    onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
                   >
                     <Power size={13} /> {selectedContact.active === false ? 'Aktivera' : 'Inaktivera'}
                   </button>
                   <button
                     type="button" onClick={() => handleDeleteContact(selectedContact)}
                     title="Ta bort"
-                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 12px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '12.5px', fontWeight: 600, color: '#ef4444', cursor: 'pointer' }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 12px',
+                      background: 'var(--status-red-bg)', border: 'none', borderRadius: '8px',
+                      fontSize: '12.5px', fontWeight: 600, color: 'var(--status-red-text)',
+                      cursor: 'pointer', transition: 'opacity 0.15s',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.opacity = '0.8'; }}
+                    onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
                   >
                     <Trash2 size={13} /> Ta bort
                   </button>
