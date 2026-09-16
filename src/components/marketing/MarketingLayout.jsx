@@ -254,7 +254,13 @@ function MarketingStyles() {
          vänlig SVG-egenskap (ingen omritning av hela linjen varje bildruta
          som en background-position-animation på en <div> hade krävt). ── */
       @keyframes lpFlowDash { to { stroke-dashoffset: -24; } }
-      .lp-flow-line { stroke-dasharray: 5 7; animation: lpFlowDash 1.1s linear infinite; }
+      /* Kundfeedback (mobil, "linjerna knappt synliga" — uppföljning, se
+         LandingPage.jsx:s kommentar vid CONNECTION_POS): 5 7 lämnade bara
+         ~42% av linjens längd synlig åt gången, vilket förstärkte det
+         tunna/svaga intrycket ytterligare på en liten skärm. Tätare
+         mönster (6 4, 60% synligt) utan att tappa själva "flödar"-känslan
+         animationen ska ge. */
+      .lp-flow-line { stroke-dasharray: 6 4; animation: lpFlowDash 1.1s linear infinite; }
       /* Samma flöde men för en CSS-gradient-"linje" (div, inte SVG) —
          leverantörsfaktura-pipen mellan de tre stegen. */
       @keyframes lpFlowGradient { 0% { background-position: 0% 0; } 100% { background-position: -200% 0; } }
@@ -518,16 +524,6 @@ function MarketingStyles() {
          spalter är sämre än en i en bred. */
       .lp-faq-grid { display: grid; grid-template-columns: 1fr; gap: 0 32px; align-items: start; }
       @media (min-width: 1100px) { .lp-faq-grid { grid-template-columns: 1fr 1fr; } }
-      /* Startsidans FAQ på mobil (kundfeedback, se LandingPage.jsx-
-         kommentaren vid .lp-faq-full): under 720px döljs den fulla
-         accordionen och ett kompakt "Se alla vanliga frågor"-kort som
-         länkar till /vanliga-fragor visas i stället. Samma brytpunkt som
-         footerns egen mobil-omställning nedan. */
-      .lp-faq-mobile-cta { display: none; }
-      @media (max-width: 720px) {
-        .lp-faq-full { display: none; }
-        .lp-faq-mobile-cta { display: block; }
-      }
       .lp-footer-bottom { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px 28px; }
 
       /* Kolumnrubrikerna: versaler, spärrad, dämpad — de ska LÄSAS som

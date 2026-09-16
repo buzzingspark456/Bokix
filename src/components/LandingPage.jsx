@@ -2,8 +2,7 @@
 import { Link } from 'react-router-dom';
 import {
   BarChart3, Check, X,
-  ArrowRight, ChevronRight, ChevronDown,
-  GraduationCap,
+  ArrowRight, ChevronRight,
 } from 'lucide-react';
 import { BRAND } from '../utils/brandColors';
 import MarketingLayout, { Reveal, BokixWordmark } from './marketing/MarketingLayout';
@@ -16,11 +15,10 @@ import { StripeLogo, StripeIconLogo, ZettleLogo, BolagsverketLogo, SkatteverketL
 import MigrationFlow from './marketing/MigrationFlow';
 import BankFlow from './marketing/BankFlow';
 import ReceiptFlow from './marketing/ReceiptFlow';
-import { UF_NAV_IDS, UF_NAV_LABELS, UF_FREE_MONTHS } from '../utils/ufMode';
 import { PRICING_TIERS } from './marketing/pricingTiers';
 import { resolvePlan, YEARLY_MINIMUM_MONTHS } from '../utils/plans';
 import { PageMeta, JsonLd, SITE_URL } from '../utils/seo';
-import { FAQ_ITEMS, FAQ_SCHEMA } from './marketing/faqData';
+import { FAQ_SCHEMA } from './marketing/faqData';
 // Lazy: DemoWorkspace monterar en RIKTIG kopia av hela den inloggade
 // appens komponentträd (Dashboard, Invoices, Bokföring, Skatt, m.fl.) för
 // den interaktiva produktdemon längre ner på sidan (utanför den första
@@ -191,12 +189,10 @@ const TOOL_ITEMS = [
 // mindre dekoration som inte bär egen information.
 const FAQ_ACCENT = ACCENT.green;
 
-// FAQ_ITEMS/FAQ_SCHEMA flyttade till egen fil (marketing/faqData.js) —
-// delas nu med den nya /vanliga-fragor-sidan (FaqPage.jsx) i stället för
-// att bara ligga lokalt här.
-// Var listan delas i två spalter på breda skärmar. Udda antal hamnar i
-// den vänstra, som läses först.
-const FAQ_SPLIT = Math.ceil(FAQ_ITEMS.length / 2);
+// FAQ_SCHEMA flyttad till egen fil (marketing/faqData.js) — delas nu med
+// den nya /vanliga-fragor-sidan (FaqPage.jsx). FAQ_ITEMS/FaqItem-
+// accordionen renderas inte längre här (se sektionens egen kommentar
+// nedan) — bara schemat (JsonLd, för sökmotorer) är kvar från den filen.
 
 // Organization-schema (Sida: AI:er/Google blandar ibop Bokix med Bokio i
 // sökningar/svar — se konversationen där det här lades till). Det här är
@@ -320,43 +316,12 @@ function DemoOverlay({ onClose, initialTab }) {
   );
 }
 
-// Kundönskemål ("gör FAQ större, en färg") — accent kommer nu in som EN
-// gemensam prop (FAQ_ACCENT) istället för ett per-rad `g`-fält, och
-// siffer-cirkel/fråga/svar är genomgående större.
-function FaqItem({ item, index, isOpen, onToggle, accent }) {
-  return (
-    <div
-      className="lp-faq-item"
-      style={{
-        borderRadius: '16px',
-        background: isOpen ? `color-mix(in srgb, ${accent.fg} 7%, transparent)` : 'transparent',
-        borderLeft: `3px solid ${isOpen ? accent.fg : 'transparent'}`,
-        transition: 'background 0.3s ease, border-color 0.3s ease',
-      }}
-    >
-      <button className="lp-faq-question" onClick={onToggle} aria-expanded={isOpen} style={{ padding: '26px 16px 26px 20px' }}>
-        <span style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
-          <span style={{ width: 38, height: 38, borderRadius: '50%', background: accent.fg, color: 'white', fontSize: '14.5px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{index + 1}</span>
-          <span style={{ fontSize: '19.5px', fontWeight: 700, color: INK }}>{item.q}</span>
-        </span>
-        <ChevronDown size={22} className={`lp-faq-chevron ${isOpen ? 'lp-faq-open' : ''}`} style={{ color: isOpen ? accent.fg : undefined, flexShrink: 0 }} />
-      </button>
-      <div className={`lp-faq-answer ${isOpen ? 'lp-faq-open' : ''}`}>
-        <div>
-          <p style={{ margin: '0 16px 28px 74px', fontSize: '16.5px', color: MUTED, lineHeight: 1.7, maxWidth: '680px' }}>{item.a}</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function LandingPage({ onEnterApp }) {
   // Betalningsintervall i prissektionen. Samma val som /priser, samma
   // katalog (plans.js) — annars kan de två sidorna visa olika pris för
   // samma abonnemang, vilket var precis vad som hände innan katalogen
   // fanns.
   const [billingInterval, setBillingInterval] = useState('monthly');
-  const [openFaq, setOpenFaq] = useState(0);
 
   // Kundönskemål: produktvisningen (DemoWorkspace) ska inte ligga inline i
   // sidflödet längre — bara visas, som en EGEN fristående yta (lightbox,
@@ -694,18 +659,24 @@ export default function LandingPage({ onEnterApp }) {
                   strokeWidth i stället mäts i riktiga skärmpixlar (via
                   style, som CSS-stroke-width faktiskt respekterar) oavsett
                   hur smalt eller brett diagrammet renderas — samma synliga
-                  tjocklek på mobil som på skrivbord. Opaciteten höjd något
-                  (0.55 → 0.7) av samma skäl: en redan tunn gradientlinje
-                  ska inte också vara nästan genomskinlig. */}
+                  tjocklek på mobil som på skrivbord. Fortsatt kundfeedback
+                  efter den fixen (fortfarande knappt synliga på mobil) —
+                  golvet var på mobil alltid PRECIS vid clamp:ens 2px-golv
+                  (0.4vw är bara 1,5px vid 375px bredd, klampas till 2px),
+                  och den streckade linjen (.lp-flow-line, MarketingLayout.jsx)
+                  har bara ~42% av sin längd faktiskt synlig i taget. Höjt
+                  golvet ytterligare (2→2.5px) och opaciteten en gång till
+                  (0.7→0.85); strecktätheten justerad separat, se
+                  .lp-flow-line. */}
               {CONNECTION_POS.map((p, i) => {
                 const midX = (p.x + CONNECTION_CENTER.x) / 2;
                 return (
                   <path
                     key={i} className="lp-flow-line"
                     d={`M ${p.x} ${p.y} C ${midX} ${p.y}, ${midX} ${CONNECTION_CENTER.y}, ${CONNECTION_CENTER.x} ${CONNECTION_CENTER.y}`}
-                    fill="none" stroke="url(#lp-connect-line)" strokeLinecap="round" opacity="0.7"
+                    fill="none" stroke="url(#lp-connect-line)" strokeLinecap="round" opacity="0.85"
                     vectorEffect="non-scaling-stroke"
-                    style={{ strokeWidth: 'clamp(2px, 0.4vw, 4px)' }}
+                    style={{ strokeWidth: 'clamp(2.5px, 0.45vw, 4px)' }}
                   />
                 );
               })}
@@ -1058,88 +1029,24 @@ export default function LandingPage({ onEnterApp }) {
         </Reveal>
       </section>
 
-      {/* ── UF-FÖRETAG (kundönskemål: "en UF-sektion") — står direkt efter
-          priserna med flit: den svarar på invändningen som uppstår i
-          exakt det ögonblicket ("129 kr i månaden har vi inte") för den
-          enda grupp som har ett annat erbjudande. Hela produkten är också
-          en annan för dem, se utils/ufMode.js — sektionen säljer alltså
-          inte samma sak billigare, den pekar på en egen sida.
-          Siffrorna kommer ur ufMode.js, aldrig ur en handskriven text
-          här: startsidan och /uf får inte kunna lova olika saker. ── */}
-      <section style={{ padding: '68px 24px', background: 'var(--mkt-card-bg)', borderTop: '1px solid var(--mkt-border-soft)', position: 'relative', overflow: 'hidden' }}>
-        <Reveal style={{ maxWidth: '760px', margin: '0 auto', textAlign: 'center', position: 'relative' }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '6px 14px', borderRadius: '999px', background: 'var(--mkt-accent-green-soft)', color: BRAND.greenDark, fontSize: '12px', fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: '18px' }}>
-            <GraduationCap size={14} /> För UF-företag
-          </span>
-          <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(24px, 3.6vw, 36px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '14px' }}>
-            Driver ni ett UF-företag? Då är det gratis.
-          </h2>
-          <p style={{ fontSize: '16.5px', color: MUTED, lineHeight: 1.7, maxWidth: '620px', margin: '0 auto 24px' }}>
-            Gratis i {UF_FREE_MONTHS} månader, inget organisationsnummer och inga betaluppgifter. Ni får fakturering, kvitton, bokföring enligt BAS-kontoplanen och ett årsbokslut — men slipper offerter, projekt och löner som ett UF-år ändå aldrig innehåller.
-          </p>
-
-          <div style={{ display: 'flex', gap: '9px', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '26px' }}>
-            {UF_NAV_IDS.filter(id => id !== 'settings' && id !== 'review').map(id => (
-              <span key={id} style={{ padding: '7px 13px', borderRadius: '999px', background: 'var(--mkt-ivory)', border: `1px solid ${CARD_BORDER}`, fontSize: '13px', fontWeight: 600, color: INK_SOFT }}>
-                {UF_NAV_LABELS[id]}
-              </span>
-            ))}
-          </div>
-
-          <Link
-            to="/uf"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '14px 28px', background: BRAND.green, border: 'none', borderRadius: '12px', color: 'white', fontWeight: 700, fontSize: '15.5px', textDecoration: 'none' }}
-          >
-            Läs mer om Bokix för UF <ArrowRight size={16} />
-          </Link>
-        </Reveal>
-      </section>
-
       {/* ── FAQ ── */}
       <section style={{ padding: '76px 24px', background: IVORY, position: 'relative', overflow: 'hidden' }}>
-        {/* En FAQ-lista breddad till 1300px hade blivit löjligt gles
-            (fråga vänsterjusterad, chevron ute vid högerkanten, hav av
-            tomt mellanrum) — accordions är en läslista, hålls kompakta men
-            fluid (min(vw,px)) så den ändå andas mer på ett halv-skärms-
-            fönster än den tidigare fasta 760px gjorde. */}
+        {/* Kundönskemål (uppföljning): den fulla accordionen var tidigare
+            bara dold på mobil (.lp-faq-full/.lp-faq-mobile-cta) — kunden
+            bad om samma kompakta "gå till FAQ"-kort på desktop också, inte
+            bara mobil. Bara det kompakta kortet kvar nu, på alla
+            skärmstorlekar; den fulla accordionen (FaqItem/FAQ_SPLIT/
+            openFaq) togs bort härifrån helt — finns kvar oförändrad på
+            den egna sidan, /vanliga-fragor (FaqPage.jsx). */}
         <div style={{ maxWidth: 'min(92vw, 1240px)', margin: '0 auto', position: 'relative' }}>
-          <Reveal style={{ textAlign: 'center', marginBottom: '48px' }}>
+          <Reveal style={{ textAlign: 'center', marginBottom: '32px' }}>
             <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(28px, 4.4vw, 44px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '12px' }}>
               Vanliga frågor
             </h2>
             <p style={{ fontSize: '18px', color: MUTED }}>Det mesta du undrar över innan du sätter igång.</p>
           </Reveal>
 
-          {/* Kundfeedback (mobil, "frågorna innan footern ser dåligt ut"):
-              hela åtta-frågors-accordionen fick tidigare alltid plats här,
-              oavsett skärmbredd — tungt och långt att skrolla igenom på en
-              telefon. Under 720px (samma brytpunkt som footerns egen
-              mobil-omställning nedan) döljs den fulla listan och ersätts av
-              ett kompakt kort som länkar till den nya /vanliga-fragor-sidan
-              i stället (.lp-faq-full / .lp-faq-mobile-cta, MarketingLayout.jsx).
-              Desktop/tablet är oförändrat: samma fulla tvåspaltiga accordion
-              som förut. */}
-          <Reveal scale className="lp-faq-full" style={{ background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '22px', padding: '8px 34px', boxShadow: '0 20px 40px -26px rgba(28,36,32,0.22), 0 2px 10px rgba(28,36,32,0.05)' }}>
-            {/* Två spalter först över 1100px (se .lp-faq-grid), och som TVÅ
-                egna staplar — inte ett rutnät med en fråga per cell. I ett
-                rutnät växer hela raden när ett svar fälls ut, så grannfrågan
-                får ett tomt hål under sig. Under brytpunkten ligger
-                spalterna på varandra och ordningen blir densamma som förut. */}
-            <div className="lp-faq-grid">
-              {[FAQ_ITEMS.slice(0, FAQ_SPLIT), FAQ_ITEMS.slice(FAQ_SPLIT)].map((column, c) => (
-                <div key={c}>
-                  {column.map((item, j) => {
-                    const i = c === 0 ? j : j + FAQ_SPLIT;
-                    return (
-                      <FaqItem key={item.q} item={item} index={i} isOpen={openFaq === i} onToggle={() => setOpenFaq(openFaq === i ? -1 : i)} accent={FAQ_ACCENT} />
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-          </Reveal>
-
-          <Reveal scale className="lp-faq-mobile-cta">
+          <Reveal scale style={{ maxWidth: '640px', margin: '0 auto' }}>
             <Link to="/vanliga-fragor" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', padding: '20px 22px', background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '16px', boxShadow: '0 14px 30px -22px rgba(28,36,32,0.22)', textDecoration: 'none' }}>
               <span>
                 <span style={{ display: 'block', fontSize: '15.5px', fontWeight: 700, color: INK, marginBottom: '3px' }}>Se alla vanliga frågor</span>
