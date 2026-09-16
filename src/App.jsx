@@ -4213,6 +4213,9 @@ function App() {
             contacts={contacts}
             setContacts={setContacts}
             accounts={accounts}
+            invoices={invoices}
+            quotes={quotes}
+            expenses={expenses}
             globalAction={globalAction}
             clearGlobalAction={() => setGlobalAction(null)}
           />

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, CheckCircle2, XCircle, Users, Truck, ChevronDown, AlertTriangle, Download, Upload, Check, Search, Building2 } from 'lucide-react';
+import { Plus, CheckCircle2, XCircle, Users, Truck, ChevronDown, AlertTriangle, Download, Upload, Check, Search, Building2, Trash2, Power } from 'lucide-react';
 import { AccountSearch } from './shared/SearchInputs';
 import ListPageHeader, { ListFilterBar, listSearchInputStyle } from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
@@ -9,6 +9,7 @@ import { contactsToCsv, csvToContacts, downloadCsv } from '../utils/csvRegister'
 import { useCompanyLookup } from '../hooks/useCompanyLookup';
 import AnchoredDropdown from './shared/AnchoredDropdown';
 import { BRAND } from '../utils/brandColors';
+import { confirmDialog } from './shared/ConfirmDialog';
 
 // ─── Delade formulärstilar ─────────────────────────────────────────────────
 const sectionStyle = { background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border)', padding: '20px', marginBottom: '16px' };
@@ -576,7 +577,7 @@ function FormActions({ onCancel, label }) {
 }
 
 // ─── Huvudkomponent ─────────────────────────────────────────────────────────
-export default function Contacts({ contacts, setContacts, accounts = [], globalAction, clearGlobalAction }) {
+export default function Contacts({ contacts, setContacts, accounts = [], invoices = [], quotes = [], expenses = [], globalAction, clearGlobalAction }) {
   const [activeTab, setActiveTab] = useState('customer'); // 'customer' | 'supplier'
   const [searchTerm, setSearchTerm] = useState('');
   // Kundönskemål: "en knapp där man kan se femton, trettio, femtio" — en
@@ -624,6 +625,52 @@ export default function Contacts({ contacts, setContacts, accounts = [], globalA
   const openDetail = (contact) => {
     setSelectedContact(contact);
     setViewState('edit');
+  };
+
+  // Kundönskemål (Fortnox-paritet): en kontakt med kopplade
+  // affärshändelser (fakturor/offerter/leverantörsfakturor) kan INTE
+  // raderas helt — historiska dokument måste kunna peka på den. Bara en
+  // kontakt UTAN någon sådan koppling kan tas bort permanent, precis
+  // som Fortnox egen regel ("Kunder utan affärshändelser" vs "Kunder med
+  // affärshändelser" i deras support).
+  const hasBusinessHistory = (contact) => (
+    invoices.some(inv => inv.customerId === contact.id) ||
+    quotes.some(q => q.customerId === contact.id) ||
+    expenses.some(e => e.type === 'supplier_invoice' && e.supplierId === contact.id)
+  );
+
+  const handleToggleActive = (contact) => {
+    const nextActive = contact.active === false;
+    setContacts(prev => prev.map(c => c.id === contact.id ? { ...c, active: nextActive } : c));
+    // Formuläret läser sitt startvärde ur selectedContact (se CustomerForm/
+    // SupplierForm: `{ ...empty(), ...initial }`) — utan den här synkade
+    // uppdateringen hade badgen i redigeringsvyn visat det gamla värdet
+    // tills man lämnade och gick tillbaka.
+    setSelectedContact(prev => (prev && prev.id === contact.id) ? { ...prev, active: nextActive } : prev);
+  };
+
+  const handleDeleteContact = async (contact) => {
+    const isCustomer = contact.type === 'customer';
+    if (hasBusinessHistory(contact)) {
+      // Samma väg som Fortnox rekommenderar: förklara VARFÖR det inte går,
+      // och erbjud den faktiska lösningen (inaktivera) direkt i samma
+      // dialog istället för att bara blockera med ett dödläge.
+      const setInactive = await confirmDialog(
+        `${contact.name || (isCustomer ? 'Kunden' : 'Leverantören')} har ${isCustomer ? 'fakturor eller offerter' : 'leverantörsfakturor'} kopplade och kan inte tas bort helt — historiska dokument måste kunna peka på den. Sätt kontakten som inaktiv i stället: den går då inte längre att välja på nya dokument, men historiken finns kvar.`,
+        { title: 'Kan inte tas bort', confirmLabel: 'Sätt som inaktiv', cancelLabel: 'Stäng' }
+      );
+      if (setInactive) {
+        setContacts(prev => prev.map(c => c.id === contact.id ? { ...c, active: false } : c));
+        setViewState('list');
+      }
+      return;
+    }
+    if (!(await confirmDialog(
+      `Ta bort ${contact.name || (isCustomer ? 'kunden' : 'leverantören')} permanent? Det här går inte att ångra.`,
+      { title: isCustomer ? 'Ta bort kund' : 'Ta bort leverantör', confirmLabel: 'Ta bort', danger: true }
+    ))) return;
+    setContacts(prev => prev.filter(c => c.id !== contact.id));
+    setViewState('list');
   };
 
   const handleSaveCustomer = (data) => {
@@ -906,6 +953,29 @@ export default function Contacts({ contacts, setContacts, accounts = [], globalA
                   ? (activeTab === 'customer' ? 'Ny kund' : 'Ny leverantör')
                   : (activeTab === 'customer' ? 'Redigera kund' : 'Redigera leverantör')}
               </h2>
+              {/* Aktivera/inaktivera + Ta bort — bara på en BEFINTLIG kontakt,
+                  inte under "Ny kund/leverantör" (inget att aktivera/ta bort
+                  ännu). Samma Fortnox-paritet som handleDeleteContact ovan:
+                  radering blockeras tyst i den funktionen om kontakten har
+                  kopplade affärshändelser, då erbjuds inaktivering istället. */}
+              {viewState === 'edit' && selectedContact && (
+                <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
+                  <button
+                    type="button" onClick={() => handleToggleActive(selectedContact)}
+                    title={selectedContact.active === false ? 'Markera som aktiv igen' : 'Inaktivera — går inte längre att välja på nya dokument, men historiken finns kvar'}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 12px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer' }}
+                  >
+                    <Power size={13} /> {selectedContact.active === false ? 'Aktivera' : 'Inaktivera'}
+                  </button>
+                  <button
+                    type="button" onClick={() => handleDeleteContact(selectedContact)}
+                    title="Ta bort"
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 12px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '12.5px', fontWeight: 600, color: '#ef4444', cursor: 'pointer' }}
+                  >
+                    <Trash2 size={13} /> Ta bort
+                  </button>
+                </div>
+              )}
             </div>
 
             {activeTab === 'customer' ? (
