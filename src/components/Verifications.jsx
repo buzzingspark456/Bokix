@@ -10,6 +10,7 @@ import { PartySearch, ProjectSearch, AccountSearch } from './shared/SearchInputs
 import ListPageHeader, { ListFilterBar, listSearchInputStyle, listFilterFieldStyle } from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
 import { findLockedVatPeriod } from '../utils/vatCalculation';
+import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { DocumentPane, DocumentLightbox } from './shared/DocumentViewer';
 import { uploadFileToStorage, deleteFileFromStorage } from '../utils/fileUpload';
 import { confirmDialog, promptDialog } from './shared/ConfirmDialog';
@@ -946,7 +947,8 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
   const [expandedId, setExpandedId] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [editingVer, setEditingVer] = useState(null);
-  const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const search = useDebouncedValue(searchInput, 300);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [series, setSeries] = useState('all');
@@ -978,7 +980,7 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
   useEffect(() => {
     if (!highlightVerificationId) return;
     setActiveTab('verifications');
-    setSearch(''); setDateFrom(''); setDateTo(''); setSeries('all');
+    setSearchInput(''); setDateFrom(''); setDateTo(''); setSeries('all');
     setExpandedId(highlightVerificationId);
     const t = setTimeout(() => {
       document.getElementById(`ver-row-${highlightVerificationId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -1122,7 +1124,7 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
               på en rad i samma h-9-höjd, "Rensa" + levande antalsräknare
               på en egen rad direkt under. */}
           <ListFilterBar
-            onClear={() => { setSearch(''); setDateFrom(''); setDateTo(''); setSeries('all'); setMonthFilter('all'); }}
+            onClear={() => { setSearchInput(''); setDateFrom(''); setDateTo(''); setSeries('all'); setMonthFilter('all'); }}
             count={filteredVers.length}
             countLabel="verifikationer"
             pageSize={pageSize}
@@ -1130,7 +1132,7 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
           >
             <div style={{ position: 'relative' }}>
               <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Sök verifikation, text, belopp..." style={{ ...listSearchInputStyle, width: '240px' }} />
+              <input value={searchInput} onChange={e => setSearchInput(e.target.value)} placeholder="Sök verifikation, text, belopp..." style={{ ...listSearchInputStyle, width: '240px' }} />
             </div>
             <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={listFilterFieldStyle} />
             <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>–</span>
