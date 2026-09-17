@@ -14,12 +14,14 @@ export const DEFAULT_LOCALE = 'sv';
 // ska använda (INTE samma sträng som URL-prefixet — dansk hreflang är
 // "da", inte "dk", vilket är en landskod, inte en språkkod), `og` är
 // Open Graph-formatet (språk_LAND).
+// Flaggikonen till varje språk är en riktig SVG i public/flags/<kod>.svg
+// (Wikimedia Commons), inte emoji — se LanguageSwitcher i MarketingLayout.jsx.
 export const LOCALE_META = {
-  sv: { hreflang: 'sv-SE', og: 'sv_SE', label: 'Svenska', flag: '🇸🇪' },
-  en: { hreflang: 'en', og: 'en_US', label: 'English', flag: '🇬🇧' },
-  no: { hreflang: 'nb-NO', og: 'nb_NO', label: 'Norsk', flag: '🇳🇴' },
-  dk: { hreflang: 'da-DK', og: 'da_DK', label: 'Dansk', flag: '🇩🇰' },
-  fi: { hreflang: 'fi-FI', og: 'fi_FI', label: 'Suomi', flag: '🇫🇮' },
+  sv: { hreflang: 'sv-SE', og: 'sv_SE', label: 'Svenska' },
+  en: { hreflang: 'en', og: 'en_US', label: 'English' },
+  no: { hreflang: 'nb-NO', og: 'nb_NO', label: 'Norsk' },
+  dk: { hreflang: 'da-DK', og: 'da_DK', label: 'Dansk' },
+  fi: { hreflang: 'fi-FI', og: 'fi_FI', label: 'Suomi' },
 };
 
 export const LOCALES = Object.keys(LOCALE_META);
