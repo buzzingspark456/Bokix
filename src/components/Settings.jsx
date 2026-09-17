@@ -3358,19 +3358,7 @@ export default function Settings({
         // Ingen flikrad. Sektionerna väljs i översikten (SettingsHub) och
         // en väg tillbaka dit finns i sidhuvudet ("Alla inställningar")
         // när man står i en flik.
-      >
-        {/* Badgen ("Kräver att du sparar") låg tidigare som en egen rad
-            NEDANFÖR hela sidhuvudet, med en egen marginal — kundönskemål:
-            "det är space, ska vara emerged med headern". ListPageHeader:s
-            children-prop är dess egen krok för precis det här (en extra rad
-            INUTI samma bakgrund/ram som titeln, se JSDoc:en i filen) i
-            stället för ett nytt, separat block under. */}
-        {activeTab === 'company' && (
-          <div style={{ marginTop: '10px', display: 'flex', justifyContent: 'flex-end' }}>
-            <Badge tone="warning">Kräver att du sparar</Badge>
-          </div>
-        )}
-      </ListPageHeader>
+      />
 
       {/* Ett maxWidth/margin-auto-tak fanns tidigare inte alls här (se
           git-historik: togs bort medvetet, "ett tak lämnar bara tomma
@@ -3490,10 +3478,16 @@ export default function Settings({
                   ("Grunduppgifter"). De två sista togs bort helt — sidans
                   header räcker, och dess beskrivning fick istället med sig
                   detaljen ("visas på fakturor...") som SettingsSection-
-                  beskrivningen ägde förut. Badgen ("Kräver att du sparar")
-                  flyttad in i sidhuvudet självt (ListPageHeader:s children-
-                  prop ovan) i stället för en egen rad här — se kommentaren
-                  vid ListPageHeader-anropet. */}
+                  beskrivningen ägde förut.
+                  Badgen provade ett tag INUTI sidhuvudet (ListPageHeader:s
+                  children-prop) men kundfeedback ("ser inte bra ut, ge den
+                  lite space") — tillbaka som en egen rad här, bara med ett
+                  litet mellanrum ovanför kortet i stället för sidhuvudets
+                  egen ram/bakgrund. */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
+                <Badge tone="warning">Kräver att du sparar</Badge>
+              </div>
+
               <div style={card}>
                 {/* Kundfeedback ("vet inte vad som händer"): fälten här och i
                     Kontaktuppgifter nedan autosparar INTE (kräver klick på
