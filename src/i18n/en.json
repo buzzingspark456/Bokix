@@ -1,4 +1,130 @@
 {
+  "nav": {
+    "dashboard": "Dashboard",
+    "contacts": "Customers",
+    "quotes": "Quotes",
+    "invoices": "Invoicing",
+    "expenses": "Receipts",
+    "projects": "Projects",
+    "review": "Review",
+    "verifications": "Bookkeeping",
+    "bank": "Bank",
+    "payroll": "Staff & payroll",
+    "reports": "Reports & analysis",
+    "taxes": "Tax & year-end",
+    "settings": "Settings"
+  },
+  "shared": {
+    "listTable": {
+      "emptyMessage": "No records"
+    }
+  },
+  "dashboard": {
+    "greetingFallbackName": "there",
+    "greetingMorning": "Good morning",
+    "greetingAfternoon": "Good afternoon",
+    "greetingEvening": "Good evening",
+    "quickActions": {
+      "title": "Quick actions",
+      "newInvoice": "New invoice",
+      "uploadReceipt": "Upload receipt",
+      "newContact": "New contact",
+      "logTime": "Log time",
+      "runPayroll": "Run payroll"
+    },
+    "today": {
+      "title": "To do today",
+      "countSingular": "item",
+      "countPlural": "items",
+      "dismiss": "Dismiss"
+    },
+    "todos": {
+      "overdueInvoiceYesterday": "1 invoice was due yesterday — {{amount}}",
+      "overdueInvoiceDaysAgo": "1 invoice was due {{days}} days ago — {{amount}}",
+      "overdueInvoicesPlural": "{{count}} invoices are overdue — {{amount}} total",
+      "vatOverdueQuarter": "VAT return for Q{{quarter}} is overdue",
+      "vatDueWhen": "VAT return is due {{when}}",
+      "whenToday": "today",
+      "whenTomorrow": "tomorrow",
+      "whenInDays": "in {{days}} days",
+      "payrollPendingSingle": "Payroll run {{period}} is awaiting approval",
+      "payrollPendingMultiple": "{{count}} payroll runs are awaiting approval",
+      "receiptsWaitingSingle": "1 receipt awaiting review",
+      "receiptsWaitingPlural": "{{count}} receipts awaiting review",
+      "draftInvoicesWaiting": "{{count}} draft invoices waiting"
+    },
+    "onboarding": {
+      "title": "Get started with Bokix",
+      "stepsCompleted": "{{done}} of {{total}} done",
+      "stepCustomer": "Create your first customer",
+      "stepInvoice": "Create your first invoice",
+      "stepExpense": "Add your first expense",
+      "stepSupplier": "Add a supplier",
+      "celebrateTitle": "Congrats, you're up and running!",
+      "celebrateSubtitle": "All the starting steps are done — this box will disappear now.",
+      "contactSupport": "Contact support",
+      "reportBug": "Report a bug",
+      "hideBox": "Hide this box"
+    },
+    "sieImport": {
+      "title": "Have you booked elsewhere before?",
+      "subtitle": "Import your bookkeeping from Fortnox, Spiris or Bokio via an SIE4 file.",
+      "button": "Import bookkeeping",
+      "dismiss": "Dismiss"
+    },
+    "chart": {
+      "modeOverview": "Overview",
+      "modeRevenueExpense": "Revenue vs Expenses",
+      "modeResult": "Result",
+      "formatBars": "Bars",
+      "formatLine": "Line",
+      "formatArea": "Area",
+      "formatTable": "Table",
+      "selectChart": "Select chart",
+      "comparedToSamePeriod": "Compared to the same period {{label}}.",
+      "previousYear": "previous year",
+      "legendIncome": "Revenue",
+      "legendExpense": "Expenses",
+      "legendResult": "Result",
+      "emptyTitle": "No bookkeeping yet",
+      "emptySubtitle": "As soon as you book an invoice or an expense, this chart appears here.",
+      "tablePeriod": "Period",
+      "tableResult": "Result",
+      "tableResultCompared": "Result {{label}}",
+      "tableChange": "Change"
+    },
+    "kpi": {
+      "income": "Revenue",
+      "costs": "Costs",
+      "result": "Result"
+    },
+    "outstanding": {
+      "title": "Outstanding",
+      "allInvoices": "All invoices",
+      "toReceive": "To receive",
+      "toPay": "To pay",
+      "noUnpaidCustomerInvoices": "No unpaid customer invoices",
+      "noUnpaidSupplierInvoices": "No unpaid supplier invoices",
+      "oldestOverdueNote": "oldest was due {{days}} days ago",
+      "invoiceSingular": "invoice",
+      "invoicePlural": "invoices",
+      "overdueSuffixSingular": " · {{count}} overdue",
+      "overdueSuffixPlural": " · {{count}} overdue",
+      "net": "Net"
+    },
+    "vat": {
+      "titleWithPeriod": "VAT {{period}}",
+      "dueDate": "Due {{date}}",
+      "toPay": "to pay",
+      "toReceiveBack": "to get back",
+      "outgoing": "Output",
+      "incoming": "Input",
+      "viewReport": "View VAT report",
+      "title": "VAT",
+      "noUpcoming": "No upcoming VAT return to show.",
+      "goToTaxes": "Go to Tax & VAT"
+    }
+  },
   "settings": {
     "tabs": {
       "company": "Company",

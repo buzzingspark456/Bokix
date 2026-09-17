@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
 import { visiblePages } from './utils/pageAccess';
 import { isUfCompany, ufPageState, ufInvoiceQuota, ufFreePeriod, UF_NAV_IDS, UF_HIDDEN_REPORT_IDS } from './utils/ufMode';
+import { useTranslation } from './i18n';
 import {
   LayoutDashboard,
   FileText,
@@ -1074,6 +1075,7 @@ const isFreeAccountEmail = (email) => FREE_ACCOUNT_EMAILS.includes(String(email 
 // Auth/Onboarding/Dashboard-växlingen nedan) är HELT oförändrad — den vet
 // inte ens att den numera monteras lite senare än förr.
 function App() {
+  const { t } = useTranslation();
   const [data, setData] = useState(loadData);
   const [activeTab, setActiveTab] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -4446,29 +4448,29 @@ function App() {
             {
               // Grupp 1 — det dagliga arbetet
               items: [
-                { id: 'dashboard', label: 'Startsida', icon: LayoutDashboard },
-                { id: 'contacts', label: 'Kunder', icon: Users },
-                { id: 'quotes', label: 'Offerter', icon: FileSpreadsheet },
-                { id: 'invoices', label: 'Fakturering', icon: FileText },
-                { id: 'expenses', label: 'Kvitton', icon: ReceiptText },
-                { id: 'projects', label: 'Projekt', icon: Briefcase },
+                { id: 'dashboard', label: t('nav.dashboard'), icon: LayoutDashboard },
+                { id: 'contacts', label: t('nav.contacts'), icon: Users },
+                { id: 'quotes', label: t('nav.quotes'), icon: FileSpreadsheet },
+                { id: 'invoices', label: t('nav.invoices'), icon: FileText },
+                { id: 'expenses', label: t('nav.expenses'), icon: ReceiptText },
+                { id: 'projects', label: t('nav.projects'), icon: Briefcase },
               ],
             },
             {
               // Grupp 2 — bokföring och administration
               items: [
-                { id: 'review', label: 'Granskning', badge: reviewCount, icon: ClipboardCheck },
-                { id: 'verifications', label: 'Bokföring', icon: BookOpen },
-                { id: 'bank', label: 'Bank', icon: Landmark },
-                { id: 'payroll', label: 'Anställda och lön', icon: UsersRound },
-                { id: 'reports', label: 'Rapport och analys', icon: BarChart3 },
-                { id: 'taxes', label: 'Skatt och bokslut', icon: Shield },
+                { id: 'review', label: t('nav.review'), badge: reviewCount, icon: ClipboardCheck },
+                { id: 'verifications', label: t('nav.verifications'), icon: BookOpen },
+                { id: 'bank', label: t('nav.bank'), icon: Landmark },
+                { id: 'payroll', label: t('nav.payroll'), icon: UsersRound },
+                { id: 'reports', label: t('nav.reports'), icon: BarChart3 },
+                { id: 'taxes', label: t('nav.taxes'), icon: Shield },
               ],
             },
             {
               // Grupp 3 — inställningar, ensam i sin egen grupp
               items: [
-                { id: 'settings', label: 'Inställningar', icon: SettingsIcon },
+                { id: 'settings', label: t('nav.settings'), icon: SettingsIcon },
               ],
             },
           ].map(group => ({ ...group, items: group.items.filter(item => allowedNavIds === null || item.id === 'settings' || allowedNavIds.includes(item.id)) }))

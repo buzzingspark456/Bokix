@@ -1,5 +1,6 @@
 import React from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
+import { useTranslation } from '../../i18n';
 
 // Sida 43 (uppföljning): en enda delad tabell-komponent för listsidornas
 // rader — riktig <table>/<thead>/<tbody>, aldrig fritt staplade <div>:er
@@ -78,7 +79,9 @@ const HEAD_CELL_PADDING = '12px 16px';
  *   cirklig och inte rak". Det som ligger sist i kortet ska bära
  *   rundningen, inte tabellen mitt i.
  */
-export default function ListTable({ columns, rows, rowKey, onRowClick, emptyMessage = 'Inga poster', selectable, isExpanded, renderExpanded, rowStyle, sort, bordered = true, roundedBottom = true, mobileList, groupBy, renderGroupHeader }) {
+export default function ListTable({ columns, rows, rowKey, onRowClick, emptyMessage, selectable, isExpanded, renderExpanded, rowStyle, sort, bordered = true, roundedBottom = true, mobileList, groupBy, renderGroupHeader }) {
+  const { t } = useTranslation();
+  const resolvedEmptyMessage = emptyMessage ?? t('shared.listTable.emptyMessage');
   const colSpan = columns.length + (selectable ? 1 : 0);
 
   // Gruppering (valfri, se groupBy/renderGroupHeader JSDoc ovan): en
@@ -173,7 +176,7 @@ export default function ListTable({ columns, rows, rowKey, onRowClick, emptyMess
           {rows.length === 0 ? (
             <tr>
               <td colSpan={colSpan} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '14px' }}>
-                {emptyMessage}
+                {resolvedEmptyMessage}
               </td>
             </tr>
           ) : rows.map((row, i) => {
@@ -254,7 +257,7 @@ export default function ListTable({ columns, rows, rowKey, onRowClick, emptyMess
       {mobileList && (
         <div className="lt-mobile-list">
           {rows.length === 0 ? (
-            <div className="lt-mobile-empty">{emptyMessage}</div>
+            <div className="lt-mobile-empty">{resolvedEmptyMessage}</div>
           ) : rows.map((row, i) => {
             const key = rowKey(row);
             const expanded = Boolean(isExpanded?.(row));

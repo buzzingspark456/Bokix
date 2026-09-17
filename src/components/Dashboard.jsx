@@ -22,6 +22,7 @@ import SieImportModal from './SieImportModal';
 import { BRAND, VIVID } from '../utils/brandColors';
 import { resolveChartPalette, makeAmountFormatters, CHART_COLOR_FAMILIES } from '../utils/chartPalette';
 import { RevenueExpenseChart, ReportDisplayProvider } from './reports/ReportUI';
+import { useTranslation } from '../i18n';
 // Kundönskemål: samma fem period-flikar (Denna månad/3 mån/6 mån/
 // Räkenskapsåret/Sedan start) som Rapport och analys → Företagsöversikt,
 // på "Intäkter vs Utgifter"-grafen här också — delad komponent/lista och
@@ -143,10 +144,10 @@ const ONBOARD_FOOTER_LINK_STYLE = {
 // in och gick ut, respektive vad blev kvar) — så den som vill se sambandet
 // mellan dem inte tvingades växla fram och tillbaka och hålla den ena
 // kurvan i huvudet.
-const CHART_MODES = [
-  { id: 'all',             label: 'Översikt',              icon: Layers },
-  { id: 'revenue-expense', label: 'Intäkter vs Utgifter', icon: BarChart2 },
-  { id: 'result',          label: 'Resultat',              icon: Minus },
+const chartModes = (t) => [
+  { id: 'all',             label: t('dashboard.chart.modeOverview'),        icon: Layers },
+  { id: 'revenue-expense', label: t('dashboard.chart.modeRevenueExpense'), icon: BarChart2 },
+  { id: 'result',          label: t('dashboard.chart.modeResult'),          icon: Minus },
 ];
 
 // Diagramformat — samma data, tre sätt att läsa den. "Tabell" är inte bara
@@ -168,11 +169,11 @@ const CHART_MODES = [
 // blir då den mindre seriens egen ton mot en nästan genomskinlig bakgrund,
 // inte två färger som blandas. Kundönskemål: "linje och yta på startsidan
 // ska vara samma som i Företagsöversikt".
-const FORMAT_MODES = [
-  { id: 'bars',  label: 'Staplar', icon: BarChart2 },
-  { id: 'line',  label: 'Linje',   icon: LineChartIcon },
-  { id: 'area',  label: 'Yta',     icon: AreaChartIcon },
-  { id: 'table', label: 'Tabell',  icon: Table2 },
+const formatModes = (t) => [
+  { id: 'bars',  label: t('dashboard.chart.formatBars'),  icon: BarChart2 },
+  { id: 'line',  label: t('dashboard.chart.formatLine'),  icon: LineChartIcon },
+  { id: 'area',  label: t('dashboard.chart.formatArea'),  icon: AreaChartIcon },
+  { id: 'table', label: t('dashboard.chart.formatTable'), icon: Table2 },
 ];
 
 /** Liten färgad prick/streck-swatch för handbyggda legender (samma mönster
@@ -214,15 +215,16 @@ function DeltaBadge({ current, previous }) {
  * Period + Resultat oavsett vald graf, så beloppen inte "läcker" ut
  * separat vid sidan av NYCKELTAL-korten ovanför. */
 function ChartDataTable({ data, fmt, hasPrevYearData, comparisonLabel }) {
+  const { t } = useTranslation();
   return (
     <div style={{ overflowX: 'auto' }}>
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
         <thead>
           <tr style={{ borderBottom: '1px solid var(--border)' }}>
-            <th style={{ textAlign: 'left', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600 }}>Period</th>
-            <th style={{ textAlign: 'right', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600 }}>Resultat</th>
-            {hasPrevYearData && <th style={{ textAlign: 'right', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600 }}>Resultat {comparisonLabel}</th>}
-            {hasPrevYearData && <th style={{ textAlign: 'right', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600 }}>Förändring</th>}
+            <th style={{ textAlign: 'left', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600 }}>{t('dashboard.chart.tablePeriod')}</th>
+            <th style={{ textAlign: 'right', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600 }}>{t('dashboard.chart.tableResult')}</th>
+            {hasPrevYearData && <th style={{ textAlign: 'right', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600 }}>{t('dashboard.chart.tableResultCompared', { label: comparisonLabel })}</th>}
+            {hasPrevYearData && <th style={{ textAlign: 'right', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600 }}>{t('dashboard.chart.tableChange')}</th>}
           </tr>
         </thead>
         <tbody>
@@ -251,12 +253,12 @@ function ChartDataTable({ data, fmt, hasPrevYearData, comparisonLabel }) {
 // lönefunktioner den aldrig kommer använda. Villkoret är verkliga
 // anställda, inte vilket abonnemang som köpts — se kommentaren vid
 // `hasStaff` i komponenten för varför.
-const QUICK_ACTIONS = [
-  { label: 'Ny faktura',       icon: FileText, tab: 'invoices', bg: VIVID.green },
-  { label: 'Ladda upp kvitto', icon: Receipt,  tab: 'expenses', bg: VIVID.blue },
-  { label: 'Ny kontakt',       icon: UserPlus, tab: 'contacts', bg: VIVID.pink },
-  { label: 'Rapportera tid',   icon: Clock,    tab: 'projects', bg: VIVID.amber },
-  { label: 'Kör lön',          icon: Users,    tab: 'payroll',  bg: VIVID.red, staffOnly: true },
+const quickActionDefs = (t) => [
+  { label: t('dashboard.quickActions.newInvoice'),     icon: FileText, tab: 'invoices', bg: VIVID.green },
+  { label: t('dashboard.quickActions.uploadReceipt'),  icon: Receipt,  tab: 'expenses', bg: VIVID.blue },
+  { label: t('dashboard.quickActions.newContact'),     icon: UserPlus, tab: 'contacts', bg: VIVID.pink },
+  { label: t('dashboard.quickActions.logTime'),        icon: Clock,    tab: 'projects', bg: VIVID.amber },
+  { label: t('dashboard.quickActions.runPayroll'),     icon: Users,    tab: 'payroll',  bg: VIVID.red, staffOnly: true },
 ];
 
 // Röd/gul/grön — samma BRAND-tokens som statusar i övriga listor i appen
@@ -375,6 +377,7 @@ function KpiCard({ label, value, sub, icon: Icon, color, bg, positive, onClick, 
    (onDismiss) — kundönskemål: man ska kunna ignorera en rad utan att
    känna sig tvingad att agera på den. ── */
 function TodayRow({ item, onClick, onDismiss }) {
+  const { t } = useTranslation();
   const c = SEV[item.sev] || SEV.warning;
   const Icon = item.icon;
   return (
@@ -410,8 +413,8 @@ function TodayRow({ item, onClick, onDismiss }) {
           onClick ovan — två separata knappar, inte en overlay. */}
       <button
         onClick={onDismiss}
-        aria-label="Ignorera"
-        title="Ignorera"
+        aria-label={t('dashboard.today.dismiss')}
+        title={t('dashboard.today.dismiss')}
         style={{
           flexShrink: 0, width: 24, height: 24, marginRight: '10px', borderRadius: '7px',
           border: 'none', background: 'transparent', color: c.text, opacity: 0.5,
@@ -428,13 +431,16 @@ function TodayRow({ item, onClick, onDismiss }) {
 }
 
 export default function Dashboard({ verifications, accounts = [], invoices, expenses, contacts, setActiveTab, company, user, vatPeriods = {}, payrollRuns = [], employees = [], onBulkImportSie }) {
+  const { t, language } = useTranslation();
+  const CHART_MODES = chartModes(t);
+  const FORMAT_MODES = formatModes(t);
   // Har företaget personal? Avgörs på verkliga anställda och lönekörningar,
   // inte på vilket abonnemang som köpts. Nivån GÅR numera att läsa
   // (subscriptions.plan, se src/utils/plans.js) — men faktisk användning är
   // ändå det ärligare villkoret här: den som skaffar sin första anställd
   // får lönegenvägen samma dag, utan att först behöva byta abonnemang.
   const hasStaff = employees.length > 0 || payrollRuns.length > 0;
-  const quickActions = QUICK_ACTIONS.filter(a => !a.staffOnly || hasStaff);
+  const quickActions = quickActionDefs(t).filter(a => !a.staffOnly || hasStaff);
   const [chartMode, setChartMode] = useState('revenue-expense');
   // Företagets egna färg- och beloppsval (samma post som rapportsidan
   // sparar, company.reportDisplay). `useMemo` för att paletten annars
@@ -607,7 +613,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
       const y = today.getFullYear(), m = today.getMonth();
       start = `${y}-${String(m + 1).padStart(2, '0')}-01`;
       end = new Date(y, m + 1, 0).toISOString().split('T')[0];
-      label = today.toLocaleDateString('sv-SE', { month: 'long', year: 'numeric' });
+      label = today.toLocaleDateString(language === 'en' ? 'en-GB' : 'sv-SE', { month: 'long', year: 'numeric' });
     } else { // 'yearly'
       const y = today.getFullYear();
       start = `${y}-01-01`; end = `${y}-12-31`;
@@ -628,7 +634,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
       });
     });
     return { label, utgaende, ingaende, attBetala: utgaende - ingaende, dueDateLabel };
-  }, [vatDeadline, verifications, company?.vatPeriod]);
+  }, [vatDeadline, verifications, company?.vatPeriod, language]);
 
   // Röd: förfallet (passerat förfallodatum). Gul: kommande deadline inom en
   // snar tidsram (~7 dagar). Grön: mindre brådskande, men värt att veta om.
@@ -645,37 +651,41 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
   // ändras, i stället för att vara tyst begravd för gott.
   const rawTodos = [];
   if (overdueInvoices.length > 0) {
-    const whenText = overdueInvoices.length === 1
-      ? (mostOverdueDays <= 1 ? 'förföll igår' : `förföll för ${mostOverdueDays} dagar sedan`)
-      : 'har förfallit';
     rawTodos.push({
       kind: 'overdue_invoices', sev: 'danger', icon: AlertCircle, tab: 'invoices', daysLeft: -mostOverdueDays,
       text: overdueInvoices.length === 1
-        ? `1 faktura ${whenText} — ${fmt(overdueAmount)}`
-        : `${overdueInvoices.length} fakturor ${whenText} — ${fmt(overdueAmount)} totalt`,
+        ? (mostOverdueDays <= 1
+          ? t('dashboard.todos.overdueInvoiceYesterday', { amount: fmt(overdueAmount) })
+          : t('dashboard.todos.overdueInvoiceDaysAgo', { days: mostOverdueDays, amount: fmt(overdueAmount) }))
+        : t('dashboard.todos.overdueInvoicesPlural', { count: overdueInvoices.length, amount: fmt(overdueAmount) }),
     });
   }
   if (vatDeadline) {
     if (vatDeadline.daysLeft < 0) {
-      rawTodos.push({ kind: 'vat_deadline', sev: 'danger', icon: AlertCircle, text: `Momsdeklaration för kvartal ${vatDeadline.quarter} är försenad`, tab: 'taxes', daysLeft: vatDeadline.daysLeft });
+      rawTodos.push({ kind: 'vat_deadline', sev: 'danger', icon: AlertCircle, text: t('dashboard.todos.vatOverdueQuarter', { quarter: vatDeadline.quarter }), tab: 'taxes', daysLeft: vatDeadline.daysLeft });
     } else if (vatDeadline.daysLeft <= 7) {
-      const when = vatDeadline.daysLeft === 0 ? 'idag' : vatDeadline.daysLeft === 1 ? 'imorgon' : `om ${vatDeadline.daysLeft} dagar`;
-      rawTodos.push({ kind: 'vat_deadline', sev: 'warning', icon: Clock, text: `Momsdeklaration ska lämnas ${when}`, tab: 'taxes', daysLeft: vatDeadline.daysLeft });
+      const when = vatDeadline.daysLeft === 0 ? t('dashboard.todos.whenToday') : vatDeadline.daysLeft === 1 ? t('dashboard.todos.whenTomorrow') : t('dashboard.todos.whenInDays', { days: vatDeadline.daysLeft });
+      rawTodos.push({ kind: 'vat_deadline', sev: 'warning', icon: Clock, text: t('dashboard.todos.vatDueWhen', { when }), tab: 'taxes', daysLeft: vatDeadline.daysLeft });
     }
   }
   if (pendingPayrollRuns.length > 0) {
     rawTodos.push({
       kind: 'payroll_pending', sev: 'warning', icon: Users, tab: 'payroll',
       text: pendingPayrollRuns.length === 1
-        ? `Lönekörning ${pendingPayrollRuns[0].period || ''} väntar på godkännande`
-        : `${pendingPayrollRuns.length} lönekörningar väntar på godkännande`,
+        ? t('dashboard.todos.payrollPendingSingle', { period: pendingPayrollRuns[0].period || '' })
+        : t('dashboard.todos.payrollPendingMultiple', { count: pendingPayrollRuns.length }),
     });
   }
   if (unhandledReceipts.length > 0) {
-    rawTodos.push({ kind: 'unhandled_receipts', sev: 'success', icon: Receipt, tab: 'expenses', text: `${unhandledReceipts.length} kvitto${unhandledReceipts.length > 1 ? 'n' : ''} väntar på granskning` });
+    rawTodos.push({
+      kind: 'unhandled_receipts', sev: 'success', icon: Receipt, tab: 'expenses',
+      text: unhandledReceipts.length === 1
+        ? t('dashboard.todos.receiptsWaitingSingle')
+        : t('dashboard.todos.receiptsWaitingPlural', { count: unhandledReceipts.length }),
+    });
   }
   if (draftInvoices.length > 0) {
-    rawTodos.push({ kind: 'draft_invoices', sev: 'success', icon: FileText, tab: 'invoices', text: `${draftInvoices.length} fakturautkast väntar` });
+    rawTodos.push({ kind: 'draft_invoices', sev: 'success', icon: FileText, tab: 'invoices', text: t('dashboard.todos.draftInvoicesWaiting', { count: draftInvoices.length }) });
   }
   // Allvarsgrad först (försenat före kommande), men DÄRINOM det som har
   // minst tid kvar. Utan `daysLeft` som andrahandsnyckel avgjorde
@@ -704,10 +714,10 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
   // effekten kör om av andra skäl medan `allOnboardingDone` redan var sant).
   const allOnboardingDone = hasCustomers && hasInvoices && hasExpenses && hasSuppliers;
   const onboardingSteps = [
-    { done: hasCustomers, label: 'Skapa din första kund',       tab: 'contacts', icon: UserPlus, color: ONBOARD_STEP_COLORS.customer },
-    { done: hasInvoices,  label: 'Skapa din första faktura',    tab: 'invoices', icon: FileText, color: ONBOARD_STEP_COLORS.invoice },
-    { done: hasExpenses,  label: 'Lägg till din första utgift', tab: 'expenses', icon: Receipt,  color: ONBOARD_STEP_COLORS.expense },
-    { done: hasSuppliers, label: 'Lägg till en leverantör',     tab: 'contacts', icon: Users,    color: ONBOARD_STEP_COLORS.supplier },
+    { done: hasCustomers, label: t('dashboard.onboarding.stepCustomer'), tab: 'contacts', icon: UserPlus, color: ONBOARD_STEP_COLORS.customer },
+    { done: hasInvoices,  label: t('dashboard.onboarding.stepInvoice'),  tab: 'invoices', icon: FileText, color: ONBOARD_STEP_COLORS.invoice },
+    { done: hasExpenses,  label: t('dashboard.onboarding.stepExpense'), tab: 'expenses', icon: Receipt,  color: ONBOARD_STEP_COLORS.expense },
+    { done: hasSuppliers, label: t('dashboard.onboarding.stepSupplier'), tab: 'contacts', icon: Users,    color: ONBOARD_STEP_COLORS.supplier },
   ];
   const onboardingDoneCount = onboardingSteps.filter(s => s.done).length;
   useEffect(() => {
@@ -816,6 +826,17 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
   // eftersom jämförelseperioden (prevStart/prevEnd) alltid är EXAKT ett år
   // tidigare oavsett flik.
   const comparisonLabel = 'föregående år';
+  // Ren visningstext, ALDRIG använd för att bygga nyckeln i
+  // comparisonChartData (se useMemo nedan) eller i extraSeries som skickas
+  // till den delade RevenueExpenseChart (ReportUI.jsx, Tremor-baserad) —
+  // den grafens kategorier/dataKeys är fortfarande hårdkodad svenska
+  // (Intäkter/Utgifter, se ReportUI.jsx) och delas med Rapport och analys,
+  // så en halvöversatt nyckel (`Intäkter previous year`) hade tyst slutat
+  // matcha och tappat jämförelselinjen. comparisonLabelDisplay används
+  // bara i JSX-text och i `name=`-proppar på de RÅA Recharts-elementen
+  // (stapel-/resultatformatet längre ner), där `name` redan är frikopplat
+  // från `dataKey` — säkert att översätta där.
+  const comparisonLabelDisplay = t('dashboard.chart.previousYear');
   const periodBounds = useMemo(
     () => overviewPeriodBounds(periodId, { fiscalYearStart: company?.fiscalYear, verifications }),
     [periodId, company?.fiscalYear, verifications],
@@ -867,7 +888,8 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
   const periodResultat = periodOmsattning - periodKostnader;
 
   // ── Hälsning — tidsgränser i delad util, inte inline ──
-  const { greeting } = getGreeting();
+  const { timeOfDay } = getGreeting();
+  const greeting = t(`dashboard.greeting${timeOfDay.charAt(0).toUpperCase()}${timeOfDay.slice(1)}`);
   // Kundönskemål: hälsningen ska visa vad ANVÄNDAREN vill bli kallad (satt
   // under Inställningar → Min profil → Förnamn), inte en gissning baserad
   // på företagsnamnet — en enskild firma "Anna Andersson AB" gav "Anna",
@@ -961,7 +983,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
             den sällan ens behöver det — storleken krymper mjukt med
             fönsterbredden istället för en fast 44px oavsett skärm. */}
         <h1 style={{ fontFamily: 'var(--font-voice)', fontWeight: 700, fontSize: 'clamp(24px, 6vw, 44px)', letterSpacing: '-0.01em', color: 'var(--text-main)', textAlign: 'center', margin: 0, maxWidth: '100%' }}>
-          {greeting}, {firstName || 'Användare'} 👋
+          {greeting}, {firstName || t('dashboard.greetingFallbackName')} 👋
         </h1>
       </div>
       )}
@@ -975,7 +997,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
           undan bakom `isNew` som resten av sidans siffror/grafer. ─── */}
       <div style={{ marginBottom: '18px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
-          <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>Snabbåtgärder</span>
+          <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>{t('dashboard.quickActions.title')}</span>
         </div>
         {/* Kolumnantalet följer hur många genvägar som faktiskt visas (fyra
             utan personal, fem med) — ett fast fyrkolumnsrutnät hade lämnat
@@ -1025,10 +1047,10 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
               <div style={{ width: 34, height: 34, borderRadius: '10px', background: VIVID.blue, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: `0 3px 8px ${VIVID.blue}55` }}>
                 <ClipboardCheck size={17} />
               </div>
-              <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)' }}>Att göra idag</span>
+              <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)' }}>{t('dashboard.today.title')}</span>
             </div>
             <span style={{ fontSize: '11.5px', fontWeight: 700, padding: '4px 11px', borderRadius: '999px', background: 'var(--bg-muted)', color: 'var(--text-main)' }}>
-              {todos.length} {todos.length === 1 ? 'post' : 'poster'}
+              {todos.length} {todos.length === 1 ? t('dashboard.today.countSingular') : t('dashboard.today.countPlural')}
             </span>
           </div>
 
@@ -1079,19 +1101,19 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
             en enda källa till sanning istället för två. ─── */}
         <div className="dash-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '14px', marginBottom: '24px' }}>
           <KpiCard
-            label="Intäkter" value={fmt(periodOmsattning)} sub={periodBounds.label}
+            label={t('dashboard.kpi.income')} value={fmt(periodOmsattning)} sub={periodBounds.label}
             icon={ArrowUpRight} color={BRAND.greenDark} bg={LIME_L} positive={true}
             onClick={() => setActiveTab('reports')}
             gradient={kpiGradIncome}
           />
           <KpiCard
-            label="Kostnader" value={fmt(periodKostnader)} sub={periodBounds.label}
+            label={t('dashboard.kpi.costs')} value={fmt(periodKostnader)} sub={periodBounds.label}
             icon={ArrowDownRight} color={BRAND.redText} bg={RED_L} positive={false}
             onClick={() => setActiveTab('expenses')}
             gradient={kpiGradCost}
           />
           <KpiCard
-            label="Resultat" value={fmt(periodResultat)}
+            label={t('dashboard.kpi.result')} value={fmt(periodResultat)}
             sub={periodBounds.label}
             icon={periodResultat >= 0 ? TrendingUp : TrendingDown}
             color={periodResultat >= 0 ? BRAND.greenDark : BRAND.redText}
@@ -1113,7 +1135,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
                 bara när den FAKTISKT stämmer (hasPrevYearData). */}
             {hasPrevYearData && (
               <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>
-                Jämfört med samma period {comparisonLabel}.
+                {t('dashboard.chart.comparedToSamePeriod', { label: comparisonLabelDisplay })}
               </p>
             )}
             {/* Legenden uppdateras dynamiskt beroende på vald flik — aldrig
@@ -1130,16 +1152,16 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
               <div style={{ display: 'flex', gap: '18px', marginTop: '10px', flexWrap: 'wrap' }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: chartRevenue, fontWeight: 600 }}>
                   <span style={{ width: 10, height: 10, borderRadius: '50%', background: chartRevenue, display: 'inline-block' }} />
-                  Intäkter {fmt(periodOmsattning)}
+                  {t('dashboard.chart.legendIncome')} {fmt(periodOmsattning)}
                 </span>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: chartExpense, fontWeight: 600 }}>
                   <span style={{ width: 10, height: 10, borderRadius: '50%', background: chartExpense, display: 'inline-block' }} />
-                  Utgifter {fmt(periodKostnader)}
+                  {t('dashboard.chart.legendExpense')} {fmt(periodKostnader)}
                 </span>
                 {hasPrevYearData && (
                   <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>
                     {legendSwatch(chartRevenuePrev, true)}{legendSwatch(chartExpensePrev, true)}
-                    Föregående år
+                    {comparisonLabelDisplay}
                   </span>
                 )}
               </div>
@@ -1148,12 +1170,12 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
               <div style={{ display: 'flex', gap: '18px', marginTop: '10px', flexWrap: 'wrap' }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: periodResultat >= 0 ? BRAND.greenDark : BRAND.redText }}>
                   <span style={{ width: 10, height: 10, borderRadius: '50%', background: periodResultat >= 0 ? REVENUE : EXPENSE, display: 'inline-block' }} />
-                  Resultat {fmt(periodResultat)}
+                  {t('dashboard.chart.legendResult')} {fmt(periodResultat)}
                 </span>
                 {hasPrevYearData && (
                   <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>
                     {legendSwatch('var(--text-muted)', true)}
-                    Resultat {comparisonLabel} {fmt(prevYearResultatTotal)}
+                    {t('dashboard.chart.legendResult')} {comparisonLabelDisplay} {fmt(prevYearResultatTotal)}
                   </span>
                 )}
               </div>
@@ -1169,7 +1191,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
             onChange={setChartMode}
             options={CHART_MODES}
             icon={CHART_MODES.find(m => m.id === chartMode)?.icon || BarChart2}
-            ariaLabel="Välj diagram"
+            ariaLabel={t('dashboard.chart.selectChart')}
           />
         </div>
 
@@ -1208,13 +1230,13 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
             <div style={{ width: 44, height: 44, borderRadius: '12px', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: chartRevenue, marginBottom: '2px' }}>
               <BarChart2 size={20} />
             </div>
-            <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>Ingen bokföring ännu</p>
+            <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>{t('dashboard.chart.emptyTitle')}</p>
             <p style={{ fontSize: '12px', color: 'var(--text-muted)', maxWidth: '280px' }}>
-              Så fort du bokfört en faktura eller en utgift dyker den här grafen upp här.
+              {t('dashboard.chart.emptySubtitle')}
             </p>
           </div>
         ) : chartFormat === 'table' ? (
-          <ChartDataTable data={chartData} fmt={fmt} hasPrevYearData={hasPrevYearData} comparisonLabel={comparisonLabel} />
+          <ChartDataTable data={chartData} fmt={fmt} hasPrevYearData={hasPrevYearData} comparisonLabel={comparisonLabelDisplay} />
         ) : (
           <>
             {/* Bugkritiskt (kundrapporterad: "en massa saker är osynliga,
@@ -1287,14 +1309,14 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
                         värdet) — flyttar/håller legenden under diagrammet på
                         mobil istället för att riskera att den kläms in bredvid. */}
                     <Legend iconType="circle" iconSize={7} verticalAlign="bottom" wrapperStyle={{ fontSize: 12, paddingTop: 16 }} />
-                    <Bar dataKey="Intäkter" fill={chartRevenue} radius={[4,4,0,0]} barSize={16} />
-                    <Bar dataKey="Utgifter" fill={chartExpense} radius={[4,4,0,0]} barSize={16} />
+                    <Bar dataKey="Intäkter" name={t('dashboard.chart.legendIncome')} fill={chartRevenue} radius={[4,4,0,0]} barSize={16} />
+                    <Bar dataKey="Utgifter" name={t('dashboard.chart.legendExpense')} fill={chartExpense} radius={[4,4,0,0]} barSize={16} />
                     {/* Föregående års jämförelse ritas som en streckad linje
                         ovanpå de egna årets staplar (samma konvention som
                         Rapport och analys, ReportUI.jsx) — bara när det finns
                         något att jämföra med. */}
-                    {hasPrevYearData && <Line type="monotone" dataKey="PrevIntäkter" name={`Intäkter ${comparisonLabel}`} stroke={chartRevenuePrev} strokeWidth={2} strokeDasharray="4 3" dot={false} legendType="plainline" />}
-                    {hasPrevYearData && <Line type="monotone" dataKey="PrevUtgifter" name={`Utgifter ${comparisonLabel}`} stroke={chartExpensePrev} strokeWidth={2} strokeDasharray="4 3" dot={false} legendType="plainline" />}
+                    {hasPrevYearData && <Line type="monotone" dataKey="PrevIntäkter" name={`${t('dashboard.chart.legendIncome')} ${comparisonLabelDisplay}`} stroke={chartRevenuePrev} strokeWidth={2} strokeDasharray="4 3" dot={false} legendType="plainline" />}
+                    {hasPrevYearData && <Line type="monotone" dataKey="PrevUtgifter" name={`${t('dashboard.chart.legendExpense')} ${comparisonLabelDisplay}`} stroke={chartExpensePrev} strokeWidth={2} strokeDasharray="4 3" dot={false} legendType="plainline" />}
                   </BarChart>
               </ResponsiveContainer>
             )}
@@ -1317,8 +1339,8 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
                         egen korrekta `name`/färg och låta Legend läsa av dem
                         automatiskt, inte att skicka in en egen payload-array. */}
                     {hasPrevYearData && <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 12, paddingTop: 16 }} />}
-                    <Line type={curveType} dataKey="Resultat" name="Resultat" stroke={periodResultat >= 0 ? REVENUE : EXPENSE} strokeWidth={3.5} dot={false} activeDot={{ r: 5 }} />
-                    {hasPrevYearData && <Line type={curveType} dataKey="PrevResultat" name={`Resultat ${comparisonLabel}`} stroke="var(--text-muted)" strokeWidth={2} strokeDasharray="4 3" dot={false} />}
+                    <Line type={curveType} dataKey="Resultat" name={t('dashboard.chart.legendResult')} stroke={periodResultat >= 0 ? REVENUE : EXPENSE} strokeWidth={3.5} dot={false} activeDot={{ r: 5 }} />
+                    {hasPrevYearData && <Line type={curveType} dataKey="PrevResultat" name={`${t('dashboard.chart.legendResult')} ${comparisonLabelDisplay}`} stroke="var(--text-muted)" strokeWidth={2} strokeDasharray="4 3" dot={false} />}
                   </LineChart>
                 ) : (
                   <BarChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
@@ -1338,12 +1360,12 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
                         formatets Legend ovan för varför en manuell `payload`
                         inte fungerar här. */}
                     {hasPrevYearData && <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 12, paddingTop: 16 }} />}
-                    <Bar dataKey="Resultat" name="Resultat" fill={periodResultat >= 0 ? REVENUE : EXPENSE} radius={[4,4,0,0]} barSize={20}>
+                    <Bar dataKey="Resultat" name={t('dashboard.chart.legendResult')} fill={periodResultat >= 0 ? REVENUE : EXPENSE} radius={[4,4,0,0]} barSize={20}>
                       {chartData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.Resultat >= 0 ? REVENUE : EXPENSE} />
                       ))}
                     </Bar>
-                    {hasPrevYearData && <Line type="monotone" dataKey="PrevResultat" name={`Resultat ${comparisonLabel}`} stroke="var(--text-muted)" strokeWidth={2} strokeDasharray="4 3" dot={false} />}
+                    {hasPrevYearData && <Line type="monotone" dataKey="PrevResultat" name={`${t('dashboard.chart.legendResult')} ${comparisonLabelDisplay}`} stroke="var(--text-muted)" strokeWidth={2} strokeDasharray="4 3" dot={false} />}
                   </BarChart>
                 )}
               </ResponsiveContainer>
@@ -1362,26 +1384,26 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
               den här ytan inte längre visar de senaste verifikationerna. */}
           <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--border-light)' }}>
-              <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.01em' }}>Utestående</span>
-              <button onClick={() => setActiveTab('invoices')} className="ds-link-btn sm">Alla fakturor</button>
+              <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.01em' }}>{t('dashboard.outstanding.title')}</span>
+              <button onClick={() => setActiveTab('invoices')} className="ds-link-btn sm">{t('dashboard.outstanding.allInvoices')}</button>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1px', background: 'var(--border-light)', flex: 1 }}>
               {[
                 {
-                  key: 'in', label: 'Att få in', amount: outstanding.receivable,
+                  key: 'in', label: t('dashboard.outstanding.toReceive'), amount: outstanding.receivable,
                   count: outstanding.inCount, overdue: outstanding.overdueInCount,
                   tone: chartRevenue, tab: 'invoices',
-                  empty: 'Inga obetalda kundfakturor',
+                  empty: t('dashboard.outstanding.noUnpaidCustomerInvoices'),
                   note: outstanding.oldestOverdue > 0
-                    ? `äldsta förföll för ${outstanding.oldestOverdue} dagar sedan`
+                    ? t('dashboard.outstanding.oldestOverdueNote', { days: outstanding.oldestOverdue })
                     : null,
                 },
                 {
-                  key: 'out', label: 'Att betala', amount: outstanding.payable,
+                  key: 'out', label: t('dashboard.outstanding.toPay'), amount: outstanding.payable,
                   count: outstanding.outCount, overdue: outstanding.overdueOutCount,
                   tone: chartExpense, tab: 'expenses',
-                  empty: 'Inga obetalda leverantörsfakturor',
+                  empty: t('dashboard.outstanding.noUnpaidSupplierInvoices'),
                   note: null,
                 },
               ].map(box => (
@@ -1403,9 +1425,9 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
                     <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>{box.empty}</span>
                   ) : (
                     <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
-                      {box.count} {box.count === 1 ? 'faktura' : 'fakturor'}
+                      {box.count} {box.count === 1 ? t('dashboard.outstanding.invoiceSingular') : t('dashboard.outstanding.invoicePlural')}
                       {box.overdue > 0 && (
-                        <span style={{ color: 'var(--status-red-text)', fontWeight: 700 }}>{` · ${box.overdue} förfallen${box.overdue === 1 ? '' : 'a'}`}</span>
+                        <span style={{ color: 'var(--status-red-text)', fontWeight: 700 }}>{t(box.overdue === 1 ? 'dashboard.outstanding.overdueSuffixSingular' : 'dashboard.outstanding.overdueSuffixPlural', { count: box.overdue })}</span>
                       )}
                     </span>
                   )}
@@ -1419,7 +1441,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
             {/* Nettot är poängen med att visa de två bredvid varandra: det
                 säger om månaden går ihop, vilket ingen av siffrorna gör ensam. */}
             <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border-light)', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '12px' }}>
-              <span style={{ fontSize: '12.5px', color: 'var(--text-secondary)', fontWeight: 600 }}>Netto</span>
+              <span style={{ fontSize: '12.5px', color: 'var(--text-secondary)', fontWeight: 600 }}>{t('dashboard.outstanding.net')}</span>
               <span style={{ fontSize: '15px', fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: outstanding.net >= 0 ? 'var(--status-green-text)' : 'var(--status-red-text)' }}>
                 {fmt(outstanding.net)}
               </span>
@@ -1431,14 +1453,14 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
             {vatPeriodSummary ? (
               <>
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
-                  <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'capitalize' }}>Moms {vatPeriodSummary.label}</span>
+                  <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'capitalize' }}>{t('dashboard.vat.titleWithPeriod', { period: vatPeriodSummary.label })}</span>
                   {vatPeriodSummary.dueDateLabel && (
-                    <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Förfaller {vatPeriodSummary.dueDateLabel}</span>
+                    <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{t('dashboard.vat.dueDate', { date: vatPeriodSummary.dueDateLabel })}</span>
                   )}
                 </div>
                 <div>
                   <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.03em', lineHeight: 1.1 }}>{fmt(Math.abs(vatPeriodSummary.attBetala))}</div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>{vatPeriodSummary.attBetala >= 0 ? 'att betala' : 'att få tillbaka'}</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>{vatPeriodSummary.attBetala >= 0 ? t('dashboard.vat.toPay') : t('dashboard.vat.toReceiveBack')}</div>
                 </div>
                 <div style={{ height: 6, borderRadius: 999, background: BRAND.amberBg, overflow: 'hidden' }}>
                   <div style={{
@@ -1447,16 +1469,16 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
                   }} />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Utgående {fmt(vatPeriodSummary.utgaende)}</span>
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Ingående {fmt(vatPeriodSummary.ingaende)}</span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{t('dashboard.vat.outgoing')} {fmt(vatPeriodSummary.utgaende)}</span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{t('dashboard.vat.incoming')} {fmt(vatPeriodSummary.ingaende)}</span>
                 </div>
-                <button onClick={() => setActiveTab('taxes')} className="btn btn-secondary btn-sm" style={{ marginTop: 'auto', width: '100%', justifyContent: 'center' }}>Se momsrapport</button>
+                <button onClick={() => setActiveTab('taxes')} className="btn btn-secondary btn-sm" style={{ marginTop: 'auto', width: '100%', justifyContent: 'center' }}>{t('dashboard.vat.viewReport')}</button>
               </>
             ) : (
               <>
-                <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>Moms</span>
-                <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>Ingen kommande momsdeklaration att visa.</p>
-                <button onClick={() => setActiveTab('taxes')} className="btn btn-secondary btn-sm" style={{ marginTop: 'auto', width: '100%', justifyContent: 'center' }}>Till Skatt &amp; Moms</button>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>{t('dashboard.vat.title')}</span>
+                <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>{t('dashboard.vat.noUpcoming')}</p>
+                <button onClick={() => setActiveTab('taxes')} className="btn btn-secondary btn-sm" style={{ marginTop: 'auto', width: '100%', justifyContent: 'center' }}>{t('dashboard.vat.goToTaxes')}</button>
               </>
             )}
           </div>
@@ -1496,15 +1518,15 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
           {celebrating ? (
             <div style={{ textAlign: 'center', padding: '20px 8px', position: 'relative' }}>
               <div style={{ fontSize: '34px', marginBottom: '6px' }}>🎉</div>
-              <h2 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '4px' }}>Grattis, du är igång!</h2>
-              <p style={{ fontSize: '12.5px', color: 'var(--text-muted)' }}>Alla startsteg är klara — den här rutan försvinner nu.</p>
+              <h2 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '4px' }}>{t('dashboard.onboarding.celebrateTitle')}</h2>
+              <p style={{ fontSize: '12.5px', color: 'var(--text-muted)' }}>{t('dashboard.onboarding.celebrateSubtitle')}</p>
             </div>
           ) : (
             <>
               <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '12px' }}>
-                <h2 style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>Kom igång med Bokix</h2>
+                <h2 style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>{t('dashboard.onboarding.title')}</h2>
                 <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', whiteSpace: 'nowrap', flexShrink: 0 }}>
-                  {onboardingDoneCount} av {onboardingSteps.length} klara
+                  {t('dashboard.onboarding.stepsCompleted', { done: onboardingDoneCount, total: onboardingSteps.length })}
                 </span>
               </div>
 
@@ -1569,7 +1591,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
                     onMouseEnter={e => e.currentTarget.style.color = 'var(--text-main)'}
                     onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
                   >
-                    <MessageSquare size={13} /> Kontakta support
+                    <MessageSquare size={13} /> {t('dashboard.onboarding.contactSupport')}
                   </a>
                   <a
                     href="mailto:support@bokix.se?subject=Felrapport%20-%20Bokix"
@@ -1577,7 +1599,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
                     onMouseEnter={e => e.currentTarget.style.color = 'var(--text-main)'}
                     onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
                   >
-                    <AlertCircle size={13} /> Rapportera ett fel
+                    <AlertCircle size={13} /> {t('dashboard.onboarding.reportBug')}
                   </a>
                 </div>
                 <button
@@ -1587,7 +1609,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
                   onMouseEnter={e => e.currentTarget.style.color = 'var(--text-main)'}
                   onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
                 >
-                  <X size={13} /> Dölj rutan
+                  <X size={13} /> {t('dashboard.onboarding.hideBox')}
                 </button>
               </div>
             </>
@@ -1607,15 +1629,15 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
               <Upload size={17} color="var(--status-green-text)" />
             </div>
             <div>
-              <div style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-main)' }}>Har du bokfört någon annanstans innan?</div>
-              <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>Importera din bokföring från Fortnox, Spiris eller Bokio via en SIE4-fil.</div>
+              <div style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-main)' }}>{t('dashboard.sieImport.title')}</div>
+              <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>{t('dashboard.sieImport.subtitle')}</div>
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
             <button type="button" onClick={() => setShowSieImportModal(true)} style={{ padding: '9px 16px', background: BRAND.green, color: 'white', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-              Importera bokföring
+              {t('dashboard.sieImport.button')}
             </button>
-            <button type="button" onClick={dismissSieImportCallout} aria-label="Dölj" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', padding: '4px' }}>
+            <button type="button" onClick={dismissSieImportCallout} aria-label={t('dashboard.sieImport.dismiss')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', padding: '4px' }}>
               <X size={15} />
             </button>
           </div>

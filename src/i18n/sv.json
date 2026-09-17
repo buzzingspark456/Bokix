@@ -1,4 +1,130 @@
 {
+  "nav": {
+    "dashboard": "Startsida",
+    "contacts": "Kunder",
+    "quotes": "Offerter",
+    "invoices": "Fakturering",
+    "expenses": "Kvitton",
+    "projects": "Projekt",
+    "review": "Granskning",
+    "verifications": "Bokföring",
+    "bank": "Bank",
+    "payroll": "Anställda och lön",
+    "reports": "Rapport och analys",
+    "taxes": "Skatt och bokslut",
+    "settings": "Inställningar"
+  },
+  "shared": {
+    "listTable": {
+      "emptyMessage": "Inga poster"
+    }
+  },
+  "dashboard": {
+    "greetingFallbackName": "Användare",
+    "greetingMorning": "God morgon",
+    "greetingAfternoon": "God eftermiddag",
+    "greetingEvening": "God kväll",
+    "quickActions": {
+      "title": "Snabbåtgärder",
+      "newInvoice": "Ny faktura",
+      "uploadReceipt": "Ladda upp kvitto",
+      "newContact": "Ny kontakt",
+      "logTime": "Rapportera tid",
+      "runPayroll": "Kör lön"
+    },
+    "today": {
+      "title": "Att göra idag",
+      "countSingular": "post",
+      "countPlural": "poster",
+      "dismiss": "Ignorera"
+    },
+    "todos": {
+      "overdueInvoiceYesterday": "1 faktura förföll igår — {{amount}}",
+      "overdueInvoiceDaysAgo": "1 faktura förföll för {{days}} dagar sedan — {{amount}}",
+      "overdueInvoicesPlural": "{{count}} fakturor har förfallit — {{amount}} totalt",
+      "vatOverdueQuarter": "Momsdeklaration för kvartal {{quarter}} är försenad",
+      "vatDueWhen": "Momsdeklaration ska lämnas {{when}}",
+      "whenToday": "idag",
+      "whenTomorrow": "imorgon",
+      "whenInDays": "om {{days}} dagar",
+      "payrollPendingSingle": "Lönekörning {{period}} väntar på godkännande",
+      "payrollPendingMultiple": "{{count}} lönekörningar väntar på godkännande",
+      "receiptsWaitingSingle": "1 kvitto väntar på granskning",
+      "receiptsWaitingPlural": "{{count}} kvitton väntar på granskning",
+      "draftInvoicesWaiting": "{{count}} fakturautkast väntar"
+    },
+    "onboarding": {
+      "title": "Kom igång med Bokix",
+      "stepsCompleted": "{{done}} av {{total}} klara",
+      "stepCustomer": "Skapa din första kund",
+      "stepInvoice": "Skapa din första faktura",
+      "stepExpense": "Lägg till din första utgift",
+      "stepSupplier": "Lägg till en leverantör",
+      "celebrateTitle": "Grattis, du är igång!",
+      "celebrateSubtitle": "Alla startsteg är klara — den här rutan försvinner nu.",
+      "contactSupport": "Kontakta support",
+      "reportBug": "Rapportera ett fel",
+      "hideBox": "Dölj rutan"
+    },
+    "sieImport": {
+      "title": "Har du bokfört någon annanstans innan?",
+      "subtitle": "Importera din bokföring från Fortnox, Spiris eller Bokio via en SIE4-fil.",
+      "button": "Importera bokföring",
+      "dismiss": "Dölj"
+    },
+    "chart": {
+      "modeOverview": "Översikt",
+      "modeRevenueExpense": "Intäkter vs Utgifter",
+      "modeResult": "Resultat",
+      "formatBars": "Staplar",
+      "formatLine": "Linje",
+      "formatArea": "Yta",
+      "formatTable": "Tabell",
+      "selectChart": "Välj diagram",
+      "comparedToSamePeriod": "Jämfört med samma period {{label}}.",
+      "previousYear": "föregående år",
+      "legendIncome": "Intäkter",
+      "legendExpense": "Utgifter",
+      "legendResult": "Resultat",
+      "emptyTitle": "Ingen bokföring ännu",
+      "emptySubtitle": "Så fort du bokfört en faktura eller en utgift dyker den här grafen upp här.",
+      "tablePeriod": "Period",
+      "tableResult": "Resultat",
+      "tableResultCompared": "Resultat {{label}}",
+      "tableChange": "Förändring"
+    },
+    "kpi": {
+      "income": "Intäkter",
+      "costs": "Kostnader",
+      "result": "Resultat"
+    },
+    "outstanding": {
+      "title": "Utestående",
+      "allInvoices": "Alla fakturor",
+      "toReceive": "Att få in",
+      "toPay": "Att betala",
+      "noUnpaidCustomerInvoices": "Inga obetalda kundfakturor",
+      "noUnpaidSupplierInvoices": "Inga obetalda leverantörsfakturor",
+      "oldestOverdueNote": "äldsta förföll för {{days}} dagar sedan",
+      "invoiceSingular": "faktura",
+      "invoicePlural": "fakturor",
+      "overdueSuffixSingular": " · {{count}} förfallen",
+      "overdueSuffixPlural": " · {{count}} förfallna",
+      "net": "Netto"
+    },
+    "vat": {
+      "titleWithPeriod": "Moms {{period}}",
+      "dueDate": "Förfaller {{date}}",
+      "toPay": "att betala",
+      "toReceiveBack": "att få tillbaka",
+      "outgoing": "Utgående",
+      "incoming": "Ingående",
+      "viewReport": "Se momsrapport",
+      "title": "Moms",
+      "noUpcoming": "Ingen kommande momsdeklaration att visa.",
+      "goToTaxes": "Till Skatt & Moms"
+    }
+  },
   "settings": {
     "tabs": {
       "company": "Företag",
