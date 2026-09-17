@@ -6,51 +6,45 @@ import MarketingLayout, { Reveal, BokixWordmark } from './MarketingLayout';
 import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW, ACCENT } from './marketingTokens';
 import { GRAD, grad, AuroraLayer } from './aurora';
 import { PRICING_TIERS } from './pricingTiers';
+import { localizedPricingTiers } from '../../content/marketing/pricingTiers';
+import { PRICING_CONTENT } from '../../content/marketing/pricing';
 import { resolvePlan, YEARLY_MINIMUM_MONTHS } from '../../utils/plans';
 import { PageMeta, JsonLd, SITE_URL } from '../../utils/seo';
 
-// Ärliga, konkreta frågor — inga påhittade "99% nöjda kunder"-svar.
-const FAQ = [
-  { q: 'Vilken nivå ska jag välja?', a: 'Har du ingen anställd väljer du Utan personal. Så fort du har eller planerar att ha någon anställd, även deltid, behöver du löne­modulen som ingår i Med personal.' },
-  { q: 'Kan jag byta nivå senare?', a: 'Ja. Anställer du någon senare uppgraderar du till Med personal när du behöver det, direkt i kontot.' },
-  { q: 'Behöver jag ange kortuppgifter för att prova?', a: 'Ja, du lägger in dina betaluppgifter hos Stripe redan vid registreringen, men du debiteras ingenting under de första 30 dagarna. Avslutar du innan dess kostar det dig aldrig något.' },
-  { q: 'Kan jag avsluta när som helst?', a: 'På månadsplanen ja — det finns varken uppsägningstid eller bindningstid, du avslutar när du vill. Årsplanen ger ett lägre månadspris mot att den gäller i minst tre månader, därefter avslutar du den lika fritt.' },
-  { q: 'Tillkommer moms på priset?', a: 'Nej. Bokix är inte momsregistrerat, så priset du ser är hela beloppet som dras — ingen moms läggs på. Det betyder samtidigt att det inte finns någon ingående moms att dra av på abonnemanget i din egen bokföring.' },
-  { q: 'Tillkommer avgifter per kvitto eller faktura?', a: 'Nej. Priset ovan är hela kostnaden oavsett hur många kvitton du skannar eller fakturor du skickar — inga styckpriser, inga tillägg som dyker upp senare.' },
-  { q: 'Är jag inlåst om jag vill byta bort från Bokix?', a: 'Nej. Du exporterar hela din bokföring som en SIE4-fil eller en fullständig JSON-säkerhetskopia när du vill, direkt i Inställningar — inget att fråga oss om lov för. SIE4 är samma öppna format alla svenska bokföringsprogram läser.' },
-  { q: 'Vilka bolagsformer stöds?', a: 'Bokix känner igen enskild firma, aktiebolag, handelsbolag/kommanditbolag och ekonomisk förening utifrån organisationsnumret, och bokför enligt rätt regler för respektive form.' },
-  { q: 'Ingår support i priset?', a: 'Ja, support ingår i båda nivåerna. Du når oss på support@bokix.se.' },
-];
-
-// FAQPage-schema byggt direkt av FAQ ovan — samma fyra frågor/svar som
-// faktiskt visas på sidan, aldrig en egen dubblett-lista som kan glida
-// isär från vad besökaren ser. Google kan visa dessa som en utfällbar
-// FAQ-rich-snippet direkt i sökresultatet, och det är precis den sortens
-// strukturerade fråga/svar-data AI-svarsmotorer (Perplexity/ChatGPT/Claude
-// när de faktiskt läser sidan) helst citerar rakt av.
-const FAQ_SCHEMA = {
-  '@context': 'https://schema.org',
-  '@type': 'FAQPage',
-  mainEntity: FAQ.map(({ q, a }) => ({
-    '@type': 'Question',
-    name: q,
-    acceptedAnswer: { '@type': 'Answer', text: a },
-  })),
-};
+// FAQPage-schema byggt direkt av FAQ:n i content/marketing/pricing.js —
+// samma frågor/svar som faktiskt visas på sidan, aldrig en egen
+// dubblett-lista som kan glida isär från vad besökaren ser, oavsett
+// språk. Google kan visa dessa som en utfällbar FAQ-rich-snippet direkt i
+// sökresultatet, och det är precis den sortens strukturerade fråga/svar-
+// data AI-svarsmotorer (Perplexity/ChatGPT/Claude när de faktiskt läser
+// sidan) helst citerar rakt av.
+function buildFaqSchema(faq) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faq.map(({ q, a }) => ({
+      '@type': 'Question',
+      name: q,
+      acceptedAnswer: { '@type': 'Answer', text: a },
+    })),
+  };
+}
 
 // SoftwareApplication-schema — kundönskemål ("två priser nu, inte ett"):
-// bygger priserna direkt från PRICING_TIERS (pricingTiers.js), samma
+// bygger priserna direkt från PRICING_TIERS (den STRUKTURELLA katalogen,
+// pricingTiers.js — priset i kronor är detsamma oavsett språk), samma
 // princip som FAQ_SCHEMA ovan, så schemat aldrig kan glida isär från vad
 // besökaren faktiskt ser. AggregateOffer (låg/högpris) istället för en
 // enda Offer, eftersom det nu verkligen ÄR ett intervall.
-const SOFTWARE_SCHEMA = {
+function buildSoftwareSchema(description) {
+  return {
   '@context': 'https://schema.org',
   '@type': 'SoftwareApplication',
   name: 'Bokix',
   applicationCategory: 'BusinessApplication',
   operatingSystem: 'Web',
   url: `${SITE_URL}/priser`,
-  description: 'Bokföring, fakturering, lönehantering och momsredovisning för svenska företag i alla bolagsformer.',
+  description,
   offers: {
     '@type': 'AggregateOffer',
     lowPrice: String(Math.min(...PRICING_TIERS.map((t) => t.price))),
@@ -73,7 +67,8 @@ const SOFTWARE_SCHEMA = {
       },
     })),
   },
-};
+  };
+}
 
 // Samma FAQ-stil som startsidan (LandingPage.jsx) — numrerad cirkel, en
 // enda genomgående accentfärg, större text.
@@ -107,8 +102,10 @@ function FaqItem({ q, a, index, open, onToggle }) {
   );
 }
 
-export default function PricingPage() {
+export default function PricingPage({ locale = 'sv' }) {
   const navigate = useNavigate();
+  const c = PRICING_CONTENT[locale] || PRICING_CONTENT.sv;
+  const tiers = localizedPricingTiers(locale);
   // Månadsvis eller årsvis. Valet följer med hela vägen till Stripe
   // (state → App → Auth → checkout), så kunden debiteras exakt det pris
   // som stod på kortet hen klickade på.
@@ -119,12 +116,14 @@ export default function PricingPage() {
   return (
     <MarketingLayout>
       <PageMeta
-        title="Priser: från 129 kr/mån | Bokix"
-        description="Två tydliga priser beroende på om du har personal: 129 kr/mån utan anställda, 179 kr/mån med. Ingen moms tillkommer, inga dolda avgifter, inga funktioner att köpa till."
-        path="/priser"
+        title={c.meta.title}
+        description={c.meta.description}
+        path={locale === 'sv' ? '/priser' : `/${locale}/priser`}
+        basePath="/priser"
+        locale={locale}
       />
-      <JsonLd data={SOFTWARE_SCHEMA} />
-      <JsonLd data={FAQ_SCHEMA} />
+      <JsonLd data={buildSoftwareSchema(c.schemaDescription)} />
+      <JsonLd data={buildFaqSchema(c.faq)} />
 
       <section style={{ padding: 'clamp(100px, 22vw, 150px) 24px clamp(44px, 9vw, 70px)', background: IVORY, position: 'relative', overflow: 'hidden' }}>
         <AuroraLayer
@@ -133,10 +132,10 @@ export default function PricingPage() {
         />
         <Reveal style={{ maxWidth: '640px', margin: '0 auto', textAlign: 'center', position: 'relative' }}>
           <h1 style={{ fontFamily: SERIF, fontSize: 'clamp(32px, 5vw, 52px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '16px', lineHeight: 1.14 }}>
-            Ett pris för din situation
+            {c.hero.title}
           </h1>
           <p style={{ fontSize: '17px', color: MUTED, lineHeight: 1.7 }}>
-            Samma bokföring och fakturering i båda, skillnaden är om du har personal på lönelistan. Inga tillägg att köpa till, ingen bindningstid på månadsplanen.
+            {c.hero.subtitle}
           </p>
         </Reveal>
       </section>
@@ -176,8 +175,8 @@ export default function PricingPage() {
           <Reveal style={{ display: 'flex', justifyContent: 'center', marginBottom: '34px' }}>
             <div role="group" aria-label="Betalningsintervall" style={{ display: 'inline-flex', gap: '4px', padding: '5px', borderRadius: '999px', background: 'var(--mkt-ivory)', border: `1px solid ${CARD_BORDER}` }}>
               {[
-                { id: 'monthly', label: 'Månadsvis' },
-                { id: 'yearly', label: 'Årsplan', badge: 'spara upp till 360 kr/år' },
+                { id: 'monthly', label: c.interval.monthly },
+                { id: 'yearly', label: c.interval.yearly, badge: c.interval.yearlyBadge },
               ].map(opt => {
                 const active = interval === opt.id;
                 return (
@@ -210,7 +209,7 @@ export default function PricingPage() {
               krymper golvet till containerns egen bredd i stället — en
               enda skärmbred kolumn på mobil, oförändrat på desktop. */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(380px, 100%), 1fr))', gap: 'clamp(16px, 5vw, 32px)', alignItems: 'stretch' }}>
-            {PRICING_TIERS.map((tier, i) => {
+            {tiers.map((tier, i) => {
               const plan = resolvePlan(tier.key, interval);
               return (
               <Reveal
@@ -253,10 +252,10 @@ export default function PricingPage() {
                     </div>
                     {interval === 'yearly' ? (
                       <div style={{ fontSize: '13px', color: MUTED, marginTop: '6px', fontWeight: 600 }}>
-                        Dras varje månad · du sparar {plan.savingPerYear} kr per år
+                        {c.yearlySavingsNote(plan.savingPerYear)}
                       </div>
                     ) : (
-                      <div style={{ fontSize: '13px', color: MUTED, marginTop: '6px', fontWeight: 600 }}>{tier.subtitle} · gratis i 30 dagar</div>
+                      <div style={{ fontSize: '13px', color: MUTED, marginTop: '6px', fontWeight: 600 }}>{tier.subtitle} · {c.freeTrialSuffix}</div>
                     )}
                   </div>
                 </div>
@@ -287,12 +286,12 @@ export default function PricingPage() {
                   </div>
 
                   <button className="lp-btn-primary lp-pulse" onClick={() => enterApp(plan.id)} style={{ width: '100%', padding: '16px', borderRadius: '13px', border: 'none', background: BRAND.green, fontSize: '15.5px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', color: 'white', boxShadow: '0 10px 24px -8px rgba(11,99,41,0.35)', minHeight: '48px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                    Kom igång gratis <ArrowRight size={16} />
+                    {c.cta} <ArrowRight size={16} />
                   </button>
                   <div style={{ textAlign: 'center', fontSize: '12.5px', color: 'var(--mkt-muted)', marginTop: '14px' }}>
                     {interval === 'yearly'
-                      ? `Gratis i 30 dagar · samma månadsbetalning som vanligt, bara lägre · minst ${YEARLY_MINIMUM_MONTHS} månader`
-                      : 'Gratis i 30 dagar · avsluta när som helst'}
+                      ? c.yearlyMinimumNote(YEARLY_MINIMUM_MONTHS)
+                      : c.monthlyNote}
                   </div>
                 </div>
               </Reveal>
@@ -306,7 +305,7 @@ export default function PricingPage() {
               Bokix är inte momsregistrerat — priset är därmed hela
               beloppet, och det finns ingen ingående moms att dra av. */}
           <p style={{ textAlign: 'center', fontSize: '13px', color: 'var(--mkt-muted)', margin: '28px auto 0', maxWidth: '520px', lineHeight: 1.65 }}>
-            Priserna är i svenska kronor och ingen moms tillkommer — Bokix är inte momsregistrerat, så beloppet du ser är det som dras.
+            {c.vatNote}
           </p>
           {/* Samma logik som momsraden ovan, en egen rad i stället för
               att klämmas in i samma mening: "inga dolda avgifter" fanns
@@ -317,7 +316,7 @@ export default function PricingPage() {
               bokföringsprogram. Ärligt och kort, samma ton som resten av
               sidan — ingen jämförelsetabell, bara vårt eget löfte. */}
           <p style={{ textAlign: 'center', fontSize: '13px', color: 'var(--mkt-muted)', margin: '10px auto 0', maxWidth: '520px', lineHeight: 1.65 }}>
-            Inga dolda avgifter och inga tillägg per kvitto eller skickad faktura — priset ovan är hela kostnaden, oavsett hur mycket du bokför.
+            {c.noHiddenFeesNote}
           </p>
         </div>
       </section>
@@ -333,10 +332,10 @@ export default function PricingPage() {
         />
         <div style={{ maxWidth: 'min(88vw, 900px)', margin: '0 auto', position: 'relative' }}>
           <Reveal style={{ textAlign: 'center', marginBottom: '44px' }}>
-            <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(28px, 4vw, 40px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK }}>Vanliga frågor</h2>
+            <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(28px, 4vw, 40px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK }}>{c.faqHeading}</h2>
           </Reveal>
           <Reveal delay={100} style={{ background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '22px', padding: '8px 30px', boxShadow: CARD_SHADOW }}>
-            {FAQ.map((item, i) => (
+            {c.faq.map((item, i) => (
               <FaqItem key={item.q} {...item} index={i} open={openFaq === i} onToggle={() => setOpenFaq(openFaq === i ? -1 : i)} />
             ))}
           </Reveal>

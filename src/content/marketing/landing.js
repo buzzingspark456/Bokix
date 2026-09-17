@@ -1,0 +1,455 @@
+// ── Textinnehåll för "/" (LandingPage.jsx) per språk. sv är ordagrant
+// samma text som redan stod hårdkodad i komponenten (ren extraktion).
+// en/no/dk/fi är äkta, varumärkesskrivna texter för läsare som ska driva
+// ett SVENSKT bolag men läser på sitt eget språk — samma produkt/regler/
+// bolagsformer/myndigheter (Bolagsverket, Skatteverket, SIE4, BAS) på
+// alla fem språk, bara orden byts. Bolagsformerna (companyTypes) ger den
+// officiella svenska termen i parentes, eftersom de inte har en exakt
+// motsvarighet i NO/DK/FI lagstiftning. KRÄVER granskning av en
+// modersmålstalare innan lansering för no/dk/fi.
+export const LANDING_CONTENT = {
+  sv: {
+    meta: {
+      title: 'Bokix: Smart & enkel bokföring online för småföretagare',
+      description: 'Bokix samlar bokföring, fakturering, löner och moms i ett enda verktyg för svenska företag i alla bolagsformer. Kom igång på minuter, från 129 kr/mån.',
+    },
+    schema: {
+      orgDescription: 'Bokix är ett svenskt bokföringsprogram för småföretag — fakturering, löner, moms och bokslut i ett verktyg. Drivs av två personer som ett UF-företag.',
+      softwareDescription: 'Bokföring, fakturering, lönehantering och momsredovisning för svenska företag i alla bolagsformer.',
+    },
+    hero: {
+      titlePrefix: 'För att bokföring',
+      titleSuffix: 'ska vara ',
+      titleEm: 'enkelt',
+      subtitle: 'Fakturor, löner, moms och bokslut i ett enda verktyg. Byggt för svenska småföretagare som hellre fokuserar på sin verksamhet än sin bokföring.',
+      ctaPrimary: 'Prova gratis',
+      ctaSecondary: 'Se demo',
+    },
+    companyTypes: ['Enskild firma', 'Aktiebolag (AB)', 'Handelsbolag / KB', 'Ekonomisk förening', 'Ideell förening / stiftelse'],
+    companyTypesHeading: 'Oavsett vad Bolagsverket kallar dig',
+    features: {
+      heading: 'Automatiskt, från kvitto till bokslut',
+      subheading: 'Du lägger in underlaget. Bokix bokför, räknar moms och skatt, och håller koll på vad som behöver din uppmärksamhet. Resten sköts i bakgrunden.',
+      items: [
+        { title: 'Bokföring', desc: 'Kvitton och fakturor blir verifikationer av sig själva. Det osäkra hamnar i Granskning i stället för att gissas.' },
+        { title: 'Fakturering', desc: 'Fyra mallar, din logotyp, kortbetalning via Stripe.' },
+        { title: 'Skatt och bokslut', desc: 'Moms, AGI och ett bokslut som låser året.' },
+        { title: 'Personal', desc: 'Rätt skatteavdrag, lönebesked och betalfil till banken.' },
+      ],
+      allLink: 'Se alla funktioner i detalj',
+    },
+    benefits: {
+      heading: 'Det här får du med Bokix',
+      subheading: 'Sex delar av verktyget. Allt ingår, inget kostar extra.',
+      items: [
+        { title: 'Utgifter och kvitton', desc: 'Fota eller ladda upp kvittot — OCR läser datum, belopp och moms automatiskt. Underlaget sitter kvar på verifikationen.' },
+        { title: 'Offerter', desc: 'Blir faktura med ett klick när kunden tackat ja.' },
+        { title: 'Projekt', desc: 'Se vilket uppdrag som faktiskt bär sig.' },
+        { title: 'Kunder och kontakter', desc: 'Fylls i från organisationsnumret.' },
+        { title: 'Rapport och analys', desc: 'Resultat, balans, kassaflöde, huvudbok, nyckeltal.' },
+        { title: 'Konto och behörighet', desc: 'Tvåfaktor, tre användare, flera företag.' },
+      ],
+    },
+    connections: {
+      heading: 'Kopplat till tjänsterna du redan använder',
+      subheading: 'Betalningar, kassa och myndigheter: Bokix pratar med rätt system istället för att du ska hålla ordning själv.',
+      labels: { stripe: 'Kortbetalningar', zettle: 'Kassaförsäljning', bolagsverket: 'Företagsuppslag', skatteverket: 'Rätt filformat' },
+    },
+    trustPoints: ['Byggt efter svensk bokföringslag', 'GDPR', 'Kortbetalningar via Stripe', 'BAS-kontoplan'],
+    receipts: {
+      heading: 'Kvitton läser sig själva',
+      subheading: 'Fota kvittot eller ladda upp en bild eller PDF. Datum, belopp, moms och konto föreslås automatiskt — du bekräftar, du gissar aldrig.',
+      cta: 'Testa OCR-läsningen själv',
+    },
+    bank: {
+      heading: 'Banken in i bokföringen',
+      subheading: 'Exportera kontoutdraget ur din internetbank och läs in det i Bokix. Inbetalningar matchas mot dina obetalda fakturor, utbetalningar mot leverantörsfakturorna — och du lämnar aldrig ut någon bankinloggning.',
+      cta: 'Se hur bankimporten fungerar',
+    },
+    switchProgram: {
+      heading: 'Ta med dig bokföringen hit',
+      subheading: 'Bokför du i Fortnox, Visma, Spiris, Bokio, Björn Lundén, Wint eller SpeedLedger? Exportera en SIE4-fil därifrån och läs in den i Bokix. Konton, verifikationer och ingående balanser följer med.',
+      cta: 'Se hur bytet går till',
+    },
+    pricing: {
+      heading: 'Ett pris för din situation',
+      subheading: 'Samma bokföring och fakturering i båda, skillnaden är om du har personal på lönelistan.',
+      monthly: 'Månadsvis',
+      yearly: 'Årsplan',
+      yearlyBadge: 'spara upp till 360 kr/år',
+      freeTrialSuffix: 'gratis i 30 dagar',
+      yearlySavingsNote: (kr) => `Dras varje månad · du sparar ${kr} kr per år`,
+      cta: 'Skapa konto gratis',
+      yearlyMinimumNote: (months) => `Dras varje månad som vanligt. Minst ${months} månader, sedan säger du upp när du vill.`,
+      seeAllLink: 'Se allt som ingår →',
+    },
+    faqTeaser: {
+      heading: 'Vanliga frågor',
+      subheading: 'Det mesta du undrar över innan du sätter igång.',
+      cardTitle: 'Se alla vanliga frågor',
+      cardSubtitle: 'Pris, bolagsform, support och mer',
+    },
+    demoOverlay: {
+      ariaLabel: 'Produktdemo',
+      title: 'Så ser det ut: testa på riktigt',
+      sampleData: 'Exempeldata',
+      close: 'Stäng demo',
+    },
+  },
+
+  en: {
+    meta: {
+      title: 'Bokix: Smart, simple bookkeeping for small businesses',
+      description: 'Bokix brings bookkeeping, invoicing, payroll and VAT together in one tool for Swedish companies of every legal form. Get started in minutes, from 129 kr/month.',
+    },
+    schema: {
+      orgDescription: 'Bokix is a Swedish bookkeeping program for small businesses — invoicing, payroll, VAT and year-end close in one tool. Run by two people as a student-run (UF) company.',
+      softwareDescription: 'Bookkeeping, invoicing, payroll and VAT reporting for Swedish companies of every legal form.',
+    },
+    hero: {
+      titlePrefix: 'Because bookkeeping',
+      titleSuffix: 'should be ',
+      titleEm: 'simple',
+      subtitle: 'Invoices, payroll, VAT and year-end close in one single tool. Built for Swedish small business owners who would rather focus on their business than their books.',
+      ctaPrimary: 'Try for free',
+      ctaSecondary: 'Watch demo',
+    },
+    companyTypes: ['Sole trader (enskild firma)', 'Limited company (aktiebolag, AB)', 'Trading/limited partnership (handelsbolag / KB)', 'Economic association (ekonomisk förening)', 'Non-profit association / foundation'],
+    companyTypesHeading: 'Whatever Bolagsverket calls your company',
+    features: {
+      heading: 'Automatic, from receipt to year-end close',
+      subheading: 'You add the source documents. Bokix books them, works out VAT and tax, and flags what actually needs your attention. Everything else runs in the background.',
+      items: [
+        { title: 'Bookkeeping', desc: 'Receipts and invoices turn into entries by themselves. Anything uncertain lands in Review instead of being guessed at.' },
+        { title: 'Invoicing', desc: 'Four templates, your own logo, card payment via Stripe.' },
+        { title: 'Tax and year-end', desc: 'VAT, employer returns (AGI) and a year-end close that locks the year.' },
+        { title: 'Payroll', desc: 'Correct tax deductions, payslips and a payment file for the bank.' },
+      ],
+      allLink: 'See every feature in detail',
+    },
+    benefits: {
+      heading: 'What you get with Bokix',
+      subheading: 'Six parts of the toolkit. Everything included, nothing costs extra.',
+      items: [
+        { title: 'Expenses and receipts', desc: 'Photograph or upload the receipt — OCR reads the date, amount and VAT automatically. The source document stays attached to the entry.' },
+        { title: 'Quotes', desc: 'Becomes an invoice with one click once the customer says yes.' },
+        { title: 'Projects', desc: 'See which job actually pays off.' },
+        { title: 'Customers and contacts', desc: 'Filled in from the organisation number.' },
+        { title: 'Reports and analysis', desc: 'Profit and loss, balance sheet, cash flow, general ledger, key figures.' },
+        { title: 'Account and access', desc: 'Two-factor login, three users, multiple companies.' },
+      ],
+    },
+    connections: {
+      heading: 'Connected to the services you already use',
+      subheading: 'Payments, point of sale and authorities: Bokix talks to the right systems instead of you keeping track yourself.',
+      labels: { stripe: 'Card payments', zettle: 'Point-of-sale sales', bolagsverket: 'Company lookup', skatteverket: 'The right file format' },
+    },
+    trustPoints: ['Built to Swedish bookkeeping law', 'GDPR', 'Card payments via Stripe', 'BAS chart of accounts'],
+    receipts: {
+      heading: 'Receipts read themselves',
+      subheading: 'Photograph the receipt or upload an image or PDF. Date, amount, VAT and account are suggested automatically — you confirm, you never guess.',
+      cta: 'Try the OCR reader yourself',
+    },
+    bank: {
+      heading: 'Your bank, inside your bookkeeping',
+      subheading: 'Export the statement from your online bank and read it into Bokix. Payments in are matched against your unpaid invoices, payments out against your supplier invoices — and you never hand over any bank login.',
+      cta: 'See how bank import works',
+    },
+    switchProgram: {
+      heading: 'Bring your bookkeeping with you',
+      subheading: 'Currently on Fortnox, Visma, Spiris, Bokio, Björn Lundén, Wint or SpeedLedger? Export an SIE4 file from there and read it into Bokix. Accounts, entries and opening balances come with it.',
+      cta: 'See how switching works',
+    },
+    pricing: {
+      heading: 'One price for your situation',
+      subheading: 'The same bookkeeping and invoicing in both tiers — the difference is whether you have staff on payroll.',
+      monthly: 'Monthly',
+      yearly: 'Annual plan',
+      yearlyBadge: 'save up to 360 kr/year',
+      freeTrialSuffix: 'free for 30 days',
+      yearlySavingsNote: (kr) => `Charged monthly · you save ${kr} kr a year`,
+      cta: 'Create a free account',
+      yearlyMinimumNote: (months) => `Charged monthly as usual. Minimum ${months} months, then cancel whenever you like.`,
+      seeAllLink: 'See everything included →',
+    },
+    faqTeaser: {
+      heading: 'Frequently asked questions',
+      subheading: 'Most of what you wonder about before getting started.',
+      cardTitle: 'See all frequently asked questions',
+      cardSubtitle: 'Price, company form, support and more',
+    },
+    demoOverlay: {
+      ariaLabel: 'Product demo',
+      title: 'What it actually looks like — try it for real',
+      sampleData: 'Sample data',
+      close: 'Close demo',
+    },
+  },
+
+  no: {
+    meta: {
+      title: 'Bokix: Smart og enkel bokføring for småbedrifter',
+      description: 'Bokix samler bokføring, fakturering, lønn og moms i ett verktøy for svenske selskaper i alle selskapsformer. Kom i gang på minutter, fra 129 kr/mnd.',
+    },
+    schema: {
+      orgDescription: 'Bokix er et svensk bokføringsprogram for småbedrifter — fakturering, lønn, moms og årsavslutning i ett verktøy. Drives av to personer som et UF-selskap (elevbedrift).',
+      softwareDescription: 'Bokføring, fakturering, lønn og momsrapportering for svenske selskaper i alle selskapsformer.',
+    },
+    hero: {
+      titlePrefix: 'For at bokføring',
+      titleSuffix: 'skal være ',
+      titleEm: 'enkelt',
+      subtitle: 'Fakturaer, lønn, moms og årsavslutning i ett eneste verktøy. Bygget for svenske småbedriftseiere som heller vil fokusere på virksomheten enn på bokføringen.',
+      ctaPrimary: 'Prøv gratis',
+      ctaSecondary: 'Se demo',
+    },
+    companyTypes: ['Enkeltpersonforetak (enskild firma)', 'Aksjeselskap (aktiebolag, AB)', 'Handelsselskap / kommandittselskap (handelsbolag / KB)', 'Økonomisk forening (ekonomisk förening)', 'Ideell forening / stiftelse'],
+    companyTypesHeading: 'Uansett hva Bolagsverket kaller deg',
+    features: {
+      heading: 'Automatisk, fra kvittering til årsavslutning',
+      subheading: 'Du legger inn bilagene. Bokix bokfører, regner ut moms og skatt, og holder styr på det som faktisk trenger din oppmerksomhet. Resten skjer i bakgrunnen.',
+      items: [
+        { title: 'Bokføring', desc: 'Kvitteringer og fakturaer blir bilag av seg selv. Det usikre havner i Gjennomgang i stedet for å bli gjettet på.' },
+        { title: 'Fakturering', desc: 'Fire maler, din egen logo, kortbetaling via Stripe.' },
+        { title: 'Skatt og årsavslutning', desc: 'Moms, arbeidsgiveroppgaver (AGI) og en årsavslutning som låser året.' },
+        { title: 'Ansatte', desc: 'Riktig skattetrekk, lønnsslipp og betalingsfil til banken.' },
+      ],
+      allLink: 'Se alle funksjoner i detalj',
+    },
+    benefits: {
+      heading: 'Dette får du med Bokix',
+      subheading: 'Seks deler av verktøyet. Alt er inkludert, ingenting koster ekstra.',
+      items: [
+        { title: 'Utgifter og kvitteringer', desc: 'Fotografer eller last opp kvitteringen — OCR leser dato, beløp og moms automatisk. Bilaget blir liggende på bokføringen.' },
+        { title: 'Tilbud', desc: 'Blir faktura med ett klikk når kunden har sagt ja.' },
+        { title: 'Prosjekter', desc: 'Se hvilket oppdrag som faktisk lønner seg.' },
+        { title: 'Kunder og kontakter', desc: 'Fylles inn fra organisasjonsnummeret.' },
+        { title: 'Rapport og analyse', desc: 'Resultat, balanse, kontantstrøm, hovedbok, nøkkeltall.' },
+        { title: 'Konto og tilgang', desc: 'Tofaktor, tre brukere, flere selskaper.' },
+      ],
+    },
+    connections: {
+      heading: 'Koblet til tjenestene du allerede bruker',
+      subheading: 'Betalinger, kasse og myndigheter: Bokix snakker med riktig system i stedet for at du må holde styr selv.',
+      labels: { stripe: 'Kortbetalinger', zettle: 'Kassesalg', bolagsverket: 'Firmaoppslag', skatteverket: 'Riktig filformat' },
+    },
+    trustPoints: ['Bygget etter svensk bokføringslov', 'GDPR', 'Kortbetalinger via Stripe', 'BAS-kontoplan'],
+    receipts: {
+      heading: 'Kvitteringer leser seg selv',
+      subheading: 'Fotografer kvitteringen eller last opp et bilde eller en PDF. Dato, beløp, moms og konto foreslås automatisk — du bekrefter, du gjetter aldri.',
+      cta: 'Prøv OCR-lesingen selv',
+    },
+    bank: {
+      heading: 'Banken inn i bokføringen',
+      subheading: 'Eksporter kontoutskriften fra nettbanken din og les den inn i Bokix. Innbetalinger matches mot dine ubetalte fakturaer, utbetalinger mot leverandørfakturaene — og du gir aldri fra deg noen bankinnlogging.',
+      cta: 'Se hvordan bankimporten fungerer',
+    },
+    switchProgram: {
+      heading: 'Ta bokføringen med deg hit',
+      subheading: 'Bokfører du i Fortnox, Visma, Spiris, Bokio, Björn Lundén, Wint eller SpeedLedger? Eksporter en SIE4-fil derfra og les den inn i Bokix. Kontoer, bilag og inngående balanser følger med.',
+      cta: 'Se hvordan bytte fungerer',
+    },
+    pricing: {
+      heading: 'Én pris for din situasjon',
+      subheading: 'Samme bokføring og fakturering i begge nivåer — forskjellen er om du har ansatte på lønningslisten.',
+      monthly: 'Månedlig',
+      yearly: 'Årsplan',
+      yearlyBadge: 'spar opptil 360 kr/år',
+      freeTrialSuffix: 'gratis i 30 dager',
+      yearlySavingsNote: (kr) => `Trekkes hver måned · du sparer ${kr} kr i året`,
+      cta: 'Opprett gratis konto',
+      yearlyMinimumNote: (months) => `Trekkes hver måned som vanlig. Minst ${months} måneder, deretter avslutter du når du vil.`,
+      seeAllLink: 'Se alt som er inkludert →',
+    },
+    faqTeaser: {
+      heading: 'Vanlige spørsmål',
+      subheading: 'Det meste du lurer på før du setter i gang.',
+      cardTitle: 'Se alle vanlige spørsmål',
+      cardSubtitle: 'Pris, selskapsform, support og mer',
+    },
+    demoOverlay: {
+      ariaLabel: 'Produktdemo',
+      title: 'Slik ser det ut: prøv det på ordentlig',
+      sampleData: 'Eksempeldata',
+      close: 'Lukk demo',
+    },
+  },
+
+  dk: {
+    meta: {
+      title: 'Bokix: Smart og enkel bogføring for små virksomheder',
+      description: 'Bokix samler bogføring, fakturering, løn og moms i ét værktøj til svenske virksomheder i alle selskabsformer. Kom i gang på minutter, fra 129 kr/md.',
+    },
+    schema: {
+      orgDescription: 'Bokix er et svensk bogføringsprogram til små virksomheder — fakturering, løn, moms og årsafslutning i ét værktøj. Drives af to personer som en UF-virksomhed (elevfirma).',
+      softwareDescription: 'Bogføring, fakturering, lønhåndtering og momsindberetning for svenske virksomheder i alle selskabsformer.',
+    },
+    hero: {
+      titlePrefix: 'For at bogføring',
+      titleSuffix: 'skal være ',
+      titleEm: 'enkel',
+      subtitle: 'Fakturaer, løn, moms og årsafslutning i ét eneste værktøj. Bygget til svenske selvstændige, der hellere vil fokusere på deres forretning end på deres bogføring.',
+      ctaPrimary: 'Prøv gratis',
+      ctaSecondary: 'Se demo',
+    },
+    companyTypes: ['Enkeltmandsvirksomhed (enskild firma)', 'Aktieselskab (aktiebolag, AB)', 'Interessentskab / kommanditselskab (handelsbolag / KB)', 'Økonomisk forening (ekonomisk förening)', 'Almennyttig forening / fond'],
+    companyTypesHeading: 'Uanset hvad Bolagsverket kalder din virksomhed',
+    features: {
+      heading: 'Automatisk, fra kvittering til årsafslutning',
+      subheading: 'Du lægger bilagene ind. Bokix bogfører, beregner moms og skat og holder styr på det, der faktisk kræver din opmærksomhed. Resten sker i baggrunden.',
+      items: [
+        { title: 'Bogføring', desc: 'Kvitteringer og fakturaer bliver til bilag af sig selv. Det usikre lander i Gennemgang i stedet for at blive gættet.' },
+        { title: 'Fakturering', desc: 'Fire skabeloner, dit eget logo, kortbetaling via Stripe.' },
+        { title: 'Skat og årsafslutning', desc: 'Moms, arbejdsgiveropgørelser (AGI) og en årsafslutning, der låser året.' },
+        { title: 'Ansatte', desc: 'Korrekt skattetræk, lønseddel og betalingsfil til banken.' },
+      ],
+      allLink: 'Se alle funktioner i detaljer',
+    },
+    benefits: {
+      heading: 'Det her får du med Bokix',
+      subheading: 'Seks dele af værktøjet. Alt er inkluderet, intet koster ekstra.',
+      items: [
+        { title: 'Udgifter og kvitteringer', desc: 'Fotografer eller upload kvitteringen — OCR læser dato, beløb og moms automatisk. Bilaget bliver siddende på posteringen.' },
+        { title: 'Tilbud', desc: 'Bliver til faktura med ét klik, når kunden har sagt ja.' },
+        { title: 'Projekter', desc: 'Se hvilken opgave der reelt kan betale sig.' },
+        { title: 'Kunder og kontakter', desc: 'Udfyldes fra CVR-/organisationsnummeret.' },
+        { title: 'Rapport og analyse', desc: 'Resultat, balance, pengestrøm, hovedbog, nøgletal.' },
+        { title: 'Konto og adgang', desc: 'Totrinsbekræftelse, tre brugere, flere virksomheder.' },
+      ],
+    },
+    connections: {
+      heading: 'Forbundet til de services du allerede bruger',
+      subheading: 'Betalinger, kasse og myndigheder: Bokix taler med de rigtige systemer, så du ikke selv skal holde styr på det.',
+      labels: { stripe: 'Kortbetalinger', zettle: 'Kassesalg', bolagsverket: 'Virksomhedsopslag', skatteverket: 'Det rigtige filformat' },
+    },
+    trustPoints: ['Bygget efter svensk bogføringslov', 'GDPR', 'Kortbetalinger via Stripe', 'BAS-kontoplan'],
+    receipts: {
+      heading: 'Kvitteringer læser sig selv',
+      subheading: 'Fotografer kvitteringen, eller upload et billede eller en PDF. Dato, beløb, moms og konto foreslås automatisk — du bekræfter, du gætter aldrig.',
+      cta: 'Prøv OCR-læsningen selv',
+    },
+    bank: {
+      heading: 'Banken ind i bogføringen',
+      subheading: 'Eksportér kontoudtoget fra din netbank, og læs det ind i Bokix. Indbetalinger matches mod dine ubetalte fakturaer, udbetalinger mod leverandørfakturaerne — og du udleverer aldrig noget banklogin.',
+      cta: 'Se hvordan bankimporten fungerer',
+    },
+    switchProgram: {
+      heading: 'Tag din bogføring med herhen',
+      subheading: 'Bogfører du i Fortnox, Visma, Spiris, Bokio, Björn Lundén, Wint eller SpeedLedger? Eksportér en SIE4-fil derfra, og læs den ind i Bokix. Konti, bilag og indgående balancer følger med.',
+      cta: 'Se hvordan skiftet foregår',
+    },
+    pricing: {
+      heading: 'Én pris til din situation',
+      subheading: 'Samme bogføring og fakturering i begge niveauer — forskellen er, om du har ansatte på lønningslisten.',
+      monthly: 'Månedligt',
+      yearly: 'Årsplan',
+      yearlyBadge: 'spar op til 360 kr/år',
+      freeTrialSuffix: 'gratis i 30 dage',
+      yearlySavingsNote: (kr) => `Trækkes hver måned · du sparer ${kr} kr om året`,
+      cta: 'Opret gratis konto',
+      yearlyMinimumNote: (months) => `Trækkes hver måned som normalt. Mindst ${months} måneder, herefter opsiger du når du vil.`,
+      seeAllLink: 'Se alt der er inkluderet →',
+    },
+    faqTeaser: {
+      heading: 'Ofte stillede spørgsmål',
+      subheading: 'Det meste, du undrer dig over, inden du går i gang.',
+      cardTitle: 'Se alle ofte stillede spørgsmål',
+      cardSubtitle: 'Pris, selskabsform, support og mere',
+    },
+    demoOverlay: {
+      ariaLabel: 'Produktdemo',
+      title: 'Sådan ser det ud: prøv det for alvor',
+      sampleData: 'Eksempeldata',
+      close: 'Luk demo',
+    },
+  },
+
+  fi: {
+    meta: {
+      title: 'Bokix: Fiksu ja yksinkertainen kirjanpito pienyrityksille',
+      description: 'Bokix kokoaa kirjanpidon, laskutuksen, palkanlaskennan ja alv:n yhteen työkaluun ruotsalaisille yrityksille kaikissa yhtiömuodoissa. Aloita minuuteissa, alkaen 129 kr/kk.',
+    },
+    schema: {
+      orgDescription: 'Bokix on ruotsalainen kirjanpito-ohjelma pienyrityksille — laskutus, palkanlaskenta, alv ja tilinpäätös yhdessä työkalussa. Kahden hengen pyörittämä UF-yritys (nuorten harjoitusyritys).',
+      softwareDescription: 'Kirjanpito, laskutus, palkanlaskenta ja alv-ilmoitukset ruotsalaisille yrityksille kaikissa yhtiömuodoissa.',
+    },
+    hero: {
+      titlePrefix: 'Koska kirjanpidon',
+      titleSuffix: 'pitäisi olla ',
+      titleEm: 'yksinkertaista',
+      subtitle: 'Laskut, palkat, alv ja tilinpäätös yhdessä ainoassa työkalussa. Rakennettu ruotsalaisille pienyrittäjille, jotka haluavat keskittyä liiketoimintaansa eivätkä kirjanpitoonsa.',
+      ctaPrimary: 'Kokeile ilmaiseksi',
+      ctaSecondary: 'Katso demo',
+    },
+    companyTypes: ['Toiminimi (enskild firma)', 'Osakeyhtiö (aktiebolag, AB)', 'Avoin yhtiö / kommandiittiyhtiö (handelsbolag / KB)', 'Taloudellinen yhdistys (ekonomisk förening)', 'Aatteellinen yhdistys / säätiö'],
+    companyTypesHeading: 'Riippumatta siitä, miksi Bolagsverket yritystäsi kutsuu',
+    features: {
+      heading: 'Automaattista, kuitista tilinpäätökseen',
+      subheading: 'Sinä lisäät tositteet. Bokix kirjaa ne, laskee alv:n ja veron sekä pitää huolen siitä, mikä todella vaatii huomiotasi. Loput hoituvat taustalla.',
+      items: [
+        { title: 'Kirjanpito', desc: 'Kuiteista ja laskuista tulee tositteita itsestään. Epävarmat tapaukset menevät Tarkistukseen sen sijaan, että niitä arvattaisiin.' },
+        { title: 'Laskutus', desc: 'Neljä pohjaa, oma logosi, korttimaksu Stripen kautta.' },
+        { title: 'Vero ja tilinpäätös', desc: 'Alv, työnantajailmoitukset (AGI) ja tilinpäätös, joka lukitsee vuoden.' },
+        { title: 'Henkilöstö', desc: 'Oikeat verovähennykset, palkkalaskelmat ja maksutiedosto pankkiin.' },
+      ],
+      allLink: 'Katso kaikki ominaisuudet tarkemmin',
+    },
+    benefits: {
+      heading: 'Tämän saat Bokixilla',
+      subheading: 'Kuusi osaa työkalusta. Kaikki sisältyy hintaan, mikään ei maksa lisää.',
+      items: [
+        { title: 'Kulut ja kuitit', desc: 'Kuvaa tai lataa kuitti — OCR lukee päivämäärän, summan ja alv:n automaattisesti. Tosite pysyy kirjauksessa mukana.' },
+        { title: 'Tarjoukset', desc: 'Muuttuu laskuksi yhdellä klikkauksella, kun asiakas hyväksyy.' },
+        { title: 'Projektit', desc: 'Näe, mikä toimeksianto todella kannattaa.' },
+        { title: 'Asiakkaat ja yhteystiedot', desc: 'Täyttyvät automaattisesti y-tunnuksesta.' },
+        { title: 'Raportit ja analyysi', desc: 'Tulos, tase, kassavirta, pääkirja, tunnusluvut.' },
+        { title: 'Tili ja käyttöoikeudet', desc: 'Kaksivaiheinen tunnistautuminen, kolme käyttäjää, useita yrityksiä.' },
+      ],
+    },
+    connections: {
+      heading: 'Yhteydessä palveluihin, joita jo käytät',
+      subheading: 'Maksut, kassa ja viranomaiset: Bokix keskustelee oikeiden järjestelmien kanssa, jottet joudu pitämään itse kirjaa.',
+      labels: { stripe: 'Korttimaksut', zettle: 'Kassamyynti', bolagsverket: 'Yrityshaku', skatteverket: 'Oikea tiedostomuoto' },
+    },
+    trustPoints: ['Rakennettu Ruotsin kirjanpitolain mukaan', 'GDPR', 'Korttimaksut Stripen kautta', 'BAS-tilikartta'],
+    receipts: {
+      heading: 'Kuitit lukevat itse itsensä',
+      subheading: 'Kuvaa kuitti tai lataa kuva tai PDF. Päivämäärä, summa, alv ja tili ehdotetaan automaattisesti — sinä vahvistat, et koskaan arvaa.',
+      cta: 'Kokeile OCR-lukijaa itse',
+    },
+    bank: {
+      heading: 'Pankki osaksi kirjanpitoa',
+      subheading: 'Vie tiliote verkkopankistasi ja tuo se Bokixiin. Saapuvat maksut täsmäytetään maksamattomiin laskuihisi, lähtevät maksut toimittajalaskuihin — etkä koskaan luovuta pankkitunnuksiasi.',
+      cta: 'Katso, miten pankkituonti toimii',
+    },
+    switchProgram: {
+      heading: 'Tuo kirjanpitosi tänne',
+      subheading: 'Kirjaatko tällä hetkellä Fortnoxissa, Vismassa, Spiriksessä, Bokiossa, Björn Lundénissa, Wintissä tai SpeedLedgerissä? Vie sieltä SIE4-tiedosto ja tuo se Bokixiin. Tilit, tositteet ja avaavat saldot tulevat mukana.',
+      cta: 'Katso, miten vaihto tapahtuu',
+    },
+    pricing: {
+      heading: 'Yksi hinta tilanteeseesi',
+      subheading: 'Sama kirjanpito ja laskutus molemmissa tasoissa — ero on siinä, onko sinulla henkilöstöä palkkalistalla.',
+      monthly: 'Kuukausittain',
+      yearly: 'Vuosisuunnitelma',
+      yearlyBadge: 'säästä jopa 360 kr/vuosi',
+      freeTrialSuffix: 'ilmainen 30 päivää',
+      yearlySavingsNote: (kr) => `Veloitetaan kuukausittain · säästät ${kr} kr vuodessa`,
+      cta: 'Luo ilmainen tili',
+      yearlyMinimumNote: (months) => `Veloitetaan kuukausittain kuten tavallista. Vähintään ${months} kuukautta, sen jälkeen peruutat milloin haluat.`,
+      seeAllLink: 'Katso kaikki mitä sisältyy →',
+    },
+    faqTeaser: {
+      heading: 'Usein kysytyt kysymykset',
+      subheading: 'Suurin osa siitä, mitä mietit ennen aloittamista.',
+      cardTitle: 'Katso kaikki usein kysytyt kysymykset',
+      cardSubtitle: 'Hinta, yhtiömuoto, tuki ja muuta',
+    },
+    demoOverlay: {
+      ariaLabel: 'Tuotedemo',
+      title: 'Tältä se näyttää: kokeile oikeasti',
+      sampleData: 'Esimerkkidataa',
+      close: 'Sulje demo',
+    },
+  },
+};

@@ -17,6 +17,7 @@ import { renderToString } from 'react-dom/server';
 // bygget kraschade med "'./server' is not exported" innan den här raden
 // ändrades), StaticRouter exporteras nu bara härifrån.
 import { StaticRouter } from 'react-router-dom';
+import { allLocalizedRoutes } from './content/marketing/routes';
 
 import LandingPage from './components/LandingPage.jsx';
 import FeaturesPage from './components/marketing/FeaturesPage.jsx';
@@ -48,16 +49,11 @@ import EnkelBokforingPage from './components/marketing/EnkelBokforingPage.jsx';
 // exempel, inte en tom ruta), och räknaren blir interaktiv först när
 // klientbunten tagit över. Ordlistan förrenderas av samma skäl: femtio
 // definitioner i rå HTML är hela poängen med den sidan.
-export const PRERENDER_ROUTES = [
-  '/', '/funktioner', '/priser', '/om-oss', '/kontakt',
-  '/byt-bokforingsprogram', '/koppla-bank', '/uf',
-  '/integrationer', '/sakerhet', '/ordlista', '/enkel-bokforing', '/vanliga-fragor',
-  '/verktyg', '/verktyg/skanna-kvitto', '/verktyg/momskalkylator', '/verktyg/lonekalkylator', '/verktyg/egenavgifter',
-  '/verktyg/rot-rut', '/verktyg/drojsmalsranta', '/verktyg/utdelning',
-  '/verktyg/momsdatum', '/verktyg/arsredovisning',
-];
-
-const PAGES = {
+// Bassökväg → komponent — samma 24 sidor som förut. Vilka språk var och
+// en faktiskt renderas på styrs helt av content/marketing/routes.js
+// (TRANSLATED_ROUTES); att lägga till ett nytt språk för en sida är alltså
+// EN rad där, aldrig en ändring här.
+const BASE_PAGES = {
   '/': LandingPage,
   '/funktioner': FeaturesPage,
   '/priser': PricingPage,
@@ -83,18 +79,33 @@ const PAGES = {
   '/verktyg/arsredovisning': ArsredovisningPage,
 };
 
+// PRERENDER_ROUTES/PAGES byggda från allLocalizedRoutes() (routes.js) —
+// en rad per route×språk som faktiskt ska finnas (sv alltid, övriga
+// enligt TRANSLATED_ROUTES). En sida utan översättning renderas alltså
+// bara på sin svenska, oprefixerade sökväg precis som innan detta lades
+// till.
+export const PRERENDER_ROUTES = [];
+const PAGES = {};
+for (const { fullPath, locale, basePath } of allLocalizedRoutes()) {
+  PRERENDER_ROUTES.push(fullPath);
+  PAGES[fullPath] = { Component: BASE_PAGES[basePath], locale };
+}
+
 /** Renderar en enda route till en HTML-sträng + de <title>/<meta>/<link>-
  * taggar sidans <PageMeta>/<JsonLd> (src/utils/seo.jsx) satte, samlade var
  * för sig — se prerender.mjs för varför de hanteras separat från
  * kropps-HTML:en istället för att förlita sig på React 19:s klient-bara
  * DOM-hissning (som inte gäller här, renderToString producerar bara text,
- * ingen riktig `document`). */
+ * ingen riktig `document`). `locale` skickas in som prop på sidan, som i
+ * sin tur väljer rätt textinnehåll (se t.ex. LandingPage.jsx/
+ * content/marketing/landing/index.js). */
 export function render(path) {
-  const Page = PAGES[path];
-  if (!Page) return null;
+  const entry = PAGES[path];
+  if (!entry) return null;
+  const { Component, locale } = entry;
   const html = renderToString(
     <StaticRouter location={path}>
-      <Page />
+      <Component locale={locale} />
     </StaticRouter>
   );
   return html;

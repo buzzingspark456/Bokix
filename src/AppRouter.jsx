@@ -2,6 +2,7 @@
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import LandingPage from './components/LandingPage';
 import CookieBanner from './components/CookieBanner';
+import { allLocalizedRoutes } from './content/marketing/routes';
 
 // ── Marknads-/juridiksidorna — flyttade hit rakt av från App.jsx (se
 // kommentaren vid App-komponentens topp där för VARFÖR). Samma lazy()-
@@ -146,7 +147,7 @@ function shouldLoadAppImmediately() {
 // (satt av MarketingHeader/PricingPage m.fl. via `navigate('/', {state:
 // {enterApp:true}}}`) återanvänds rakt av — ingen ny mekanism, bara samma
 // signal lyssnad på från ett steg längre ut.
-function RootRoute() {
+function RootRoute({ locale = 'sv' }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [wantsApp, setWantsApp] = useState(shouldLoadAppImmediately);
@@ -165,6 +166,7 @@ function RootRoute() {
 
   return (
     <LandingPage
+      locale={locale}
       onEnterApp={(mode, plan, options) => {
         // Samma state-flagga som App.jsx:s egen useEffect förväntar sig
         // (och rensar) direkt efter mount, så Auth-skärmen visas direkt
@@ -204,6 +206,15 @@ function ScrollToTop() {
   }, [pathname]);
   return null;
 }
+
+// Bassökväg → element-fabrik för de sidor som har minst en översättning
+// (TRANSLATED_ROUTES i content/marketing/routes.js). Lägg till en rad här
+// när en ny sida får sitt första icke-svenska språk i Fas 2 — routen för
+// varje enskilt språk genereras sedan automatiskt av allLocalizedRoutes().
+const LOCALIZED_PAGE_COMPONENTS = {
+  '/': (locale) => <RootRoute locale={locale} />,
+  '/priser': (locale) => <Suspense fallback={<AppLoadingFallback />}><PricingPage locale={locale} /></Suspense>,
+};
 
 export default function AppRouter() {
   return (
@@ -251,6 +262,20 @@ export default function AppRouter() {
         <Route path="/verktyg/utdelning" element={<Suspense fallback={<AppLoadingFallback />}><UtdelningPage /></Suspense>} />
         <Route path="/verktyg/momsdatum" element={<Suspense fallback={<AppLoadingFallback />}><MomsDatumPage /></Suspense>} />
         <Route path="/verktyg/arsredovisning" element={<Suspense fallback={<AppLoadingFallback />}><ArsredovisningPage /></Suspense>} />
+        {/* Prefixerade EN/NO/DK/FI-varianter (/no/priser osv.) av de sidor
+            som faktiskt har äkta översatt text — se TRANSLATED_ROUTES i
+            content/marketing/routes.js, den enda platsen att utöka när
+            fler sidor får fler språk. LOCALIZED_PAGE_COMPONENTS nedan
+            behöver då en rad till (samma komponent som redan används ovan,
+            bara med `locale` vidareskickad); routen genereras här av
+            allLocalizedRoutes() så den aldrig kan glida isär från
+            entry-server.jsx:s förrendering av samma lista. */}
+        {allLocalizedRoutes()
+          .filter(({ locale }) => locale !== 'sv')
+          .map(({ fullPath, locale, basePath }) => {
+            const element = LOCALIZED_PAGE_COMPONENTS[basePath]?.(locale);
+            return element ? <Route key={fullPath} path={fullPath} element={element} /> : null;
+          })}
         <Route path="/privacy" element={<Suspense fallback={<AppLoadingFallback />}><PrivacyPolicy /></Suspense>} />
         <Route path="/terms" element={<Suspense fallback={<AppLoadingFallback />}><TermsPolicy /></Suspense>} />
         {/* GDPR-innehållet är nu fullt inbakat i den utökade Integritetspolicyn

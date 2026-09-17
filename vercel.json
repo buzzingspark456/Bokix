@@ -107,6 +107,14 @@
       "destination": "/verktyg/arsredovisning/index.html"
     },
     {
+      "source": "/:locale(en|no|dk|fi)",
+      "destination": "/:locale/index.html"
+    },
+    {
+      "source": "/:locale(en|no|dk|fi)/:slug*",
+      "destination": "/:locale/:slug*/index.html"
+    },
+    {
       "source": "/((?!api).*)",
       "destination": "/app-shell.html"
     }

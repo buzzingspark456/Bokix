@@ -18,11 +18,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { MARKETING_ROUTES, DEFAULT_LOCALE, LOCALE_META, availableLocalesFor, localizedPath } from '../src/content/marketing/routes.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, '..');
 const distDir = path.join(root, 'dist');
 const ssrDir = path.join(root, 'dist-ssr');
+const SITE_URL = 'https://www.bokix.se';
 
 const templatePath = path.join(distDir, 'index.html');
 const template = fs.readFileSync(templatePath, 'utf-8');
@@ -60,6 +62,78 @@ function buildPage(render, routePath) {
   return html;
 }
 
+// Samma priority/changefreq som public/sitemap.xml redan hade innan detta
+// lades till (kopierade rakt av, inte omvärderade) — inkluderar fem sidor
+// (boka-genomgang/privacy/terms/cookies/pub) som INTE är i MARKETING_ROUTES
+// (inte förrenderade/SSR:ade, bara statiska route:ar via app-shell.html)
+// och därför aldrig får hreflang-alternates, bara sig själva.
+const SITEMAP_MANIFEST = [
+  { path: '/', changefreq: 'weekly', priority: '1.0' },
+  { path: '/funktioner', changefreq: 'monthly', priority: '0.8' },
+  { path: '/priser', changefreq: 'monthly', priority: '0.8' },
+  { path: '/byt-bokforingsprogram', changefreq: 'monthly', priority: '0.8' },
+  { path: '/koppla-bank', changefreq: 'monthly', priority: '0.8' },
+  { path: '/uf', changefreq: 'monthly', priority: '0.8' },
+  { path: '/om-oss', changefreq: 'monthly', priority: '0.5' },
+  { path: '/kontakt', changefreq: 'monthly', priority: '0.5' },
+  { path: '/boka-genomgang', changefreq: 'monthly', priority: '0.5' },
+  { path: '/verktyg', changefreq: 'monthly', priority: '0.7' },
+  { path: '/verktyg/skanna-kvitto', changefreq: 'monthly', priority: '0.6' },
+  { path: '/verktyg/momskalkylator', changefreq: 'monthly', priority: '0.6' },
+  { path: '/verktyg/lonekalkylator', changefreq: 'monthly', priority: '0.6' },
+  { path: '/verktyg/egenavgifter', changefreq: 'monthly', priority: '0.6' },
+  { path: '/verktyg/rot-rut', changefreq: 'monthly', priority: '0.6' },
+  { path: '/verktyg/drojsmalsranta', changefreq: 'monthly', priority: '0.6' },
+  { path: '/verktyg/utdelning', changefreq: 'monthly', priority: '0.6' },
+  { path: '/verktyg/momsdatum', changefreq: 'monthly', priority: '0.6' },
+  { path: '/verktyg/arsredovisning', changefreq: 'monthly', priority: '0.6' },
+  { path: '/ordlista', changefreq: 'monthly', priority: '0.6' },
+  { path: '/enkel-bokforing', changefreq: 'monthly', priority: '0.6' },
+  { path: '/vanliga-fragor', changefreq: 'monthly', priority: '0.6' },
+  { path: '/integrationer', changefreq: 'monthly', priority: '0.6' },
+  { path: '/sakerhet', changefreq: 'yearly', priority: '0.4' },
+  { path: '/privacy', changefreq: 'yearly', priority: '0.3' },
+  { path: '/terms', changefreq: 'yearly', priority: '0.3' },
+  { path: '/cookies', changefreq: 'yearly', priority: '0.3' },
+  { path: '/pub', changefreq: 'yearly', priority: '0.3' },
+];
+
+/** Skriver dist/sitemap.xml — samma sidor/priority/changefreq som förut,
+ * plus en egen <url> per språkvariant (se TRANSLATED_ROUTES i
+ * content/marketing/routes.js) med <xhtml:link hreflang> till alla sina
+ * systersidor, exakt samma alternates som PageMeta (src/utils/seo.jsx)
+ * redan sätter i <head> på varje sida — de två kan aldrig glida isär
+ * eftersom båda läser samma TRANSLATED_ROUTES/localizedPath(). */
+function generateSitemap() {
+  const urls = [];
+  for (const entry of SITEMAP_MANIFEST) {
+    const isMarketingRoute = MARKETING_ROUTES.includes(entry.path);
+    const locales = isMarketingRoute ? availableLocalesFor(entry.path) : [DEFAULT_LOCALE];
+    for (const locale of locales) {
+      urls.push({
+        loc: `${SITE_URL}${localizedPath(locale, entry.path)}`,
+        changefreq: entry.changefreq,
+        priority: entry.priority,
+        alternates: isMarketingRoute
+          ? [...locales.map((l) => ({ hreflang: LOCALE_META[l].hreflang, href: `${SITE_URL}${localizedPath(l, entry.path)}` })),
+             { hreflang: 'x-default', href: `${SITE_URL}${entry.path}` }]
+          : [],
+      });
+    }
+  }
+
+  const body = urls.map((u) => {
+    const alternateTags = u.alternates.length
+      ? '\n' + u.alternates.map((a) => `    <xhtml:link rel="alternate" hreflang="${a.hreflang}" href="${a.href}" />`).join('\n')
+      : '';
+    return `  <url>\n    <loc>${u.loc}</loc>${alternateTags}\n    <changefreq>${u.changefreq}</changefreq>\n    <priority>${u.priority}</priority>\n  </url>`;
+  }).join('\n');
+
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n${body}\n</urlset>\n`;
+  fs.writeFileSync(path.join(distDir, 'sitemap.xml'), xml);
+  console.log(`✓ sitemap.xml (${urls.length} URL:er, ${urls.filter(u => u.alternates.length).length} med hreflang-alternates)`);
+}
+
 async function main() {
   const entryPath = path.join(ssrDir, 'entry-server.js');
   if (!fs.existsSync(entryPath)) {
@@ -76,6 +150,8 @@ async function main() {
     fs.writeFileSync(outPath, html);
     console.log(`✓ Förrenderade ${route} -> ${path.relative(distDir, outPath) || 'index.html'} (${(html.length / 1024).toFixed(1)} kB)`);
   }
+
+  generateSitemap();
 
   // Engångsbygget behövs inte i den slutliga dist/-mappen som deployas.
   fs.rmSync(ssrDir, { recursive: true, force: true });

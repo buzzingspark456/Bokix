@@ -12,6 +12,7 @@ import { JsonLd, SITE_URL } from '../../utils/seo';
 // './marketing/MarketingLayout'` fortsätta oförändrade.
 import { TOOLS, TOOLS_HUB_PATH } from './tools/toolsConfig';
 import BokixWordmark from '../shared/BokixWordmark';
+import { LOCALE_META, availableLocalesFor, localizedPath, parseLocalizedPath } from '../../content/marketing/routes';
 export { BokixWordmark };
 
 // Organization-schema (schema.org) — samma på VARJE marknadssida (den här
@@ -765,6 +766,39 @@ export function RevealLazy({ children, fallbackMinHeight = 480, style, ...rest }
  * redan har den lokala showLanding-toggeln); undersidor har den inte och
  * navigerar istället till "/" med en state-flagga som App.jsx läser av för
  * att hoppa direkt till inloggning — se MarketingLayout-kommentaren nedan. */
+/** Länkar nuvarande marknadssida till sin egen motsvarighet i de andra
+ * språk just DEN sidan faktiskt har (availableLocalesFor, se
+ * content/marketing/routes.js) — inte en global sv/en/no/dk/fi-växel som
+ * skulle länka till en sida som inte finns. Syns bara på en marknadssida
+ * (parseLocalizedPath returnerar null på t.ex. /privacy) och bara när
+ * sidan faktiskt har mer än ett språk. Native <select>: tangentbords- och
+ * skärmläsartillgängligt utan någon egen dropdown-logik. */
+function LanguageSwitcher({ style }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const parsed = parseLocalizedPath(location.pathname);
+  if (!parsed) return null;
+  const locales = availableLocalesFor(parsed.basePath);
+  if (locales.length < 2) return null;
+  return (
+    <select
+      aria-label="Språk / Language"
+      value={parsed.locale}
+      onChange={(e) => navigate(localizedPath(e.target.value, parsed.basePath))}
+      style={{
+        padding: '10px 12px', background: 'var(--mkt-card-bg)', border: '1px solid var(--mkt-border-soft)',
+        borderRadius: '10px', fontSize: '14px', fontWeight: 600, cursor: 'pointer', color: 'var(--mkt-nav-text)',
+        fontFamily: 'inherit', minHeight: '44px', flexShrink: 0,
+        ...style,
+      }}
+    >
+      {locales.map((l) => (
+        <option key={l} value={l}>{LOCALE_META[l].flag} {LOCALE_META[l].label}</option>
+      ))}
+    </select>
+  );
+}
+
 export function MarketingHeader({ onEnterApp, theme, onToggleTheme }) {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -857,6 +891,7 @@ export function MarketingHeader({ onEnterApp, theme, onToggleTheme }) {
           </div>
 
           <div className="lp-nav-desktop" style={{ gap: '12px', alignItems: 'center' }}>
+            <LanguageSwitcher />
             <button onClick={onToggleTheme} aria-label={theme === 'dark' ? 'Ljust läge' : 'Mörkt läge'} title={theme === 'dark' ? 'Ljust läge' : 'Mörkt läge'} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 48, height: 48, background: 'none', border: '1px solid var(--mkt-border-soft)', borderRadius: '10px', cursor: 'pointer', color: 'var(--mkt-nav-text)', flexShrink: 0 }}>
               {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
             </button>
@@ -899,6 +934,7 @@ export function MarketingHeader({ onEnterApp, theme, onToggleTheme }) {
           })}
         </div>
         <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', paddingTop: '24px' }}>
+          <LanguageSwitcher style={{ width: '100%', textAlign: 'center' }} />
           <button onClick={() => handleEnterApp('login')} style={{ padding: '14px', background: 'transparent', border: '1px solid var(--mkt-border-soft)', borderRadius: '10px', fontSize: '15px', fontWeight: 600, cursor: 'pointer', color: 'var(--mkt-nav-text)', fontFamily: 'inherit' }}>
             Logga in
           </button>

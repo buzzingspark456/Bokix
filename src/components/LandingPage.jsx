@@ -19,6 +19,8 @@ import { PRICING_TIERS } from './marketing/pricingTiers';
 import { resolvePlan, YEARLY_MINIMUM_MONTHS } from '../utils/plans';
 import { PageMeta, JsonLd, SITE_URL } from '../utils/seo';
 import { FAQ_SCHEMA } from './marketing/faqData';
+import { LANDING_CONTENT } from '../content/marketing/landing';
+import { localizedPricingTiers } from '../content/marketing/pricingTiers';
 // Lazy: DemoWorkspace monterar en RIKTIG kopia av hela den inloggade
 // appens komponentträd (Dashboard, Invoices, Bokföring, Skatt, m.fl.) för
 // den interaktiva produktdemon längre ner på sidan (utanför den första
@@ -28,19 +30,11 @@ import { FAQ_SCHEMA } from './marketing/faqData';
 const DemoWorkspace = lazy(() => import('./DemoWorkspace'));
 
 // ── Faktiska bolagsformer Bokix kan identifiera/bokföra för (se
-// src/utils/orgType.js) — inte en påhittad lista. ──
-// Bara namnen. Här satt tidigare en ikon per bolagsform — en person med
-// bock för enskild firma, en portfölj för handelsbolag, ett tempel för
-// ekonomisk förening. Ingen av dem betyder något; de var fem olika sätt
-// att säga "företag" bredvid ett ord som redan sa exakt vilket. Sätt inte
-// tillbaka dem.
-const COMPANY_TYPES = [
-  { label: 'Enskild firma' },
-  { label: 'Aktiebolag (AB)' },
-  { label: 'Handelsbolag / KB' },
-  { label: 'Ekonomisk förening' },
-  { label: 'Ideell förening / stiftelse' },
-];
+// src/utils/orgType.js) — inte en påhittad lista. Själva namnen bor numera
+// per språk i content/marketing/landing.js (companyTypes), eftersom de
+// engelska/norska/danska/finska sidorna beskriver dem med den officiella
+// svenska termen i parentes (t.ex. "Limited company (aktiebolag, AB)")
+// snarare än en 1:1-översättning — se filkommentaren där. ──
 
 // ── Fyra kolumner, matchat mot appens faktiska huvudsektioner (se globala
 // sidomenyn i App.jsx) — varje kort får en egen handritad illustration
@@ -208,15 +202,17 @@ const FAQ_ACCENT = ACCENT.green;
 // profiler men har inte skickat länkarna än. Lägg till dem i arrayen så
 // fort de finns; en tom/utelämnad sameAs är helt ofarlig (schema.org
 // kräver den inte), men gör den här posten svagare än den kunde vara.
-const ORGANIZATION_SCHEMA = {
-  '@context': 'https://schema.org',
-  '@type': 'Organization',
-  name: 'Bokix',
-  url: SITE_URL,
-  logo: `${SITE_URL}/icon-512.png`,
-  description: 'Bokix är ett svenskt bokföringsprogram för småföretag — fakturering, löner, moms och bokslut i ett verktyg. Drivs av två personer som ett UF-företag.',
-  // sameAs: [],
-};
+function buildOrganizationSchema(description) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: 'Bokix',
+    url: SITE_URL,
+    logo: `${SITE_URL}/icon-512.png`,
+    description,
+    // sameAs: [],
+  };
+}
 
 // SoftwareApplication-schema för startsidan — samma produkt som
 // PricingPage.jsx beskriver, men med url satt till startsidan så
@@ -225,14 +221,15 @@ const ORGANIZATION_SCHEMA = {
 // AggregateOffer byggd direkt från PRICING_TIERS (samma mönster som
 // PricingPage.jsx) — stod tidigare som en enda Offer på 179 kr, vilket
 // blev fel/ofullständigt så fort en andra, billigare nivå (129 kr) fanns.
-const SOFTWARE_SCHEMA = {
+function buildSoftwareSchema(description) {
+  return {
   '@context': 'https://schema.org',
   '@type': 'SoftwareApplication',
   name: 'Bokix',
   applicationCategory: 'BusinessApplication',
   operatingSystem: 'Web',
   url: SITE_URL,
-  description: 'Bokföring, fakturering, lönehantering och momsredovisning för svenska företag i alla bolagsformer.',
+  description,
   // Kopplar ihop de två posterna — samma "vem gör det här" som Google
   // annars hade fått gissa sig till separat för produkten kontra företaget.
   provider: { '@type': 'Organization', name: 'Bokix', url: SITE_URL },
@@ -261,7 +258,8 @@ const SOFTWARE_SCHEMA = {
       },
     })),
   },
-};
+  };
+}
 
 /** PRODUKTVISNING som EGEN yta, inte ett skrolla-till-avsnitt i sidflödet
  * (kundönskemål: "visa den som en egen sektion, bara synlig när man
@@ -272,7 +270,9 @@ const SOFTWARE_SCHEMA = {
  * med ett lokalt exempeldataset — lazy() + Suspense här (inte RevealLazy,
  * som styrs av scrollposition) eftersom synlighet nu helt avgörs av att
  * overlayen är öppen, inte av var i dokumentet man skrollat till. */
-function DemoOverlay({ onClose, initialTab }) {
+const SV_DEMO_LABELS = { ariaLabel: 'Produktdemo', title: 'Så ser det ut: testa på riktigt', sampleData: 'Exempeldata', close: 'Stäng demo' };
+
+function DemoOverlay({ onClose, initialTab, labels = SV_DEMO_LABELS }) {
   const panelRef = useRef(null);
 
   useEffect(() => {
@@ -287,13 +287,13 @@ function DemoOverlay({ onClose, initialTab }) {
   }, [onClose]);
 
   return (
-    <div className="lp-demo-overlay" role="dialog" aria-modal="true" aria-label="Produktdemo">
+    <div className="lp-demo-overlay" role="dialog" aria-modal="true" aria-label={labels.ariaLabel}>
       <div className="lp-demo-overlay-backdrop" onClick={onClose} aria-hidden />
       <div className="lp-demo-overlay-panel" ref={panelRef} tabIndex={-1}>
         <div className="lp-demo-overlay-bar">
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
             <BarChart3 size={16} color={BRAND.green} style={{ flexShrink: 0 }} />
-            <span style={{ fontWeight: 700, fontSize: '14.5px', color: 'var(--mkt-heading)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Så ser det ut: testa på riktigt</span>
+            <span style={{ fontWeight: 700, fontSize: '14.5px', color: 'var(--mkt-heading)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{labels.title}</span>
           </div>
           {/* "Exempeldata" satt tidigare inne i demons egen topbar, som en
               rad ovanför varje sidas rubrik — kundönskemål att ta bort den
@@ -301,8 +301,8 @@ function DemoOverlay({ onClose, initialTab }) {
               att siffrorna är en riktig bokföring), så den ligger nu här i
               demons rubrikrad i stället: utanför app-ytan, syns hela tiden,
               stör inget innehåll. */}
-          <span style={{ marginLeft: 'auto', marginRight: '12px', flexShrink: 0, fontSize: '10px', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--mkt-muted)' }}>Exempeldata</span>
-          <button className="lp-demo-overlay-close" onClick={onClose} aria-label="Stäng demo">
+          <span style={{ marginLeft: 'auto', marginRight: '12px', flexShrink: 0, fontSize: '10px', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--mkt-muted)' }}>{labels.sampleData}</span>
+          <button className="lp-demo-overlay-close" onClick={onClose} aria-label={labels.close}>
             <X size={18} />
           </button>
         </div>
@@ -316,7 +316,10 @@ function DemoOverlay({ onClose, initialTab }) {
   );
 }
 
-export default function LandingPage({ onEnterApp }) {
+export default function LandingPage({ onEnterApp, locale = 'sv' }) {
+  const c = LANDING_CONTENT[locale] || LANDING_CONTENT.sv;
+  const tiers = localizedPricingTiers(locale);
+  const priserPath = locale === 'sv' ? '/priser' : `/${locale}/priser`;
   // Betalningsintervall i prissektionen. Samma val som /priser, samma
   // katalog (plans.js) — annars kan de två sidorna visa olika pris för
   // samma abonnemang, vilket var precis vad som hände innan katalogen
@@ -344,13 +347,21 @@ export default function LandingPage({ onEnterApp }) {
   return (
     <MarketingLayout onEnterApp={onEnterApp}>
       <PageMeta
-        title="Bokix: Smart & enkel bokföring online för småföretagare"
-        description="Bokix samlar bokföring, fakturering, löner och moms i ett enda verktyg för svenska företag i alla bolagsformer. Kom igång på minuter, från 129 kr/mån."
-        path="/"
+        title={c.meta.title}
+        description={c.meta.description}
+        path={locale === 'sv' ? '/' : `/${locale}`}
+        basePath="/"
+        locale={locale}
       />
-      <JsonLd data={ORGANIZATION_SCHEMA} />
-      <JsonLd data={SOFTWARE_SCHEMA} />
-      <JsonLd data={FAQ_SCHEMA} />
+      <JsonLd data={buildOrganizationSchema(c.schema.orgDescription)} />
+      <JsonLd data={buildSoftwareSchema(c.schema.softwareDescription)} />
+      {/* FAQ_SCHEMA (faqData.js) är bara skriven på svenska ännu — visas
+          därför bara på den svenska sidan tills /vanliga-fragor själv får
+          en översatt variant (Fas 2, se plan-dokumentet). Ett FAQPage-
+          schema på engelska/norska/danska/finska sidor som i själva verket
+          innehåller svenska frågor vore fel signal till Google/AI-
+          svarsmotorer, värre än att bara utelämna det. */}
+      {locale === 'sv' && <JsonLd data={FAQ_SCHEMA} />}
       <ToolMotifStyles />
       <FeatureDemoStyles />
 
@@ -373,22 +384,22 @@ export default function LandingPage({ onEnterApp }) {
 
         <div style={{ maxWidth: '900px', margin: '0 auto', padding: '0 24px', textAlign: 'center', position: 'relative' }}>
           <h1 className="lp-fadeinup" style={{ fontFamily: 'Georgia, "Times New Roman", serif', fontSize: 'clamp(36px, 7vw, 84px)', fontWeight: 700, lineHeight: 1.1, letterSpacing: '-0.01em', color: 'var(--mkt-ink)', marginBottom: '26px' }}>
-            För att bokföring<br />ska vara{' '}
-            <em className="lp-gradient-text" style={{ fontStyle: 'italic', backgroundImage: 'linear-gradient(90deg, #0ea5e9, #14b8a6, #84cc16, #0ea5e9)' }}>enkelt</em>
+            {c.hero.titlePrefix}<br />{c.hero.titleSuffix}
+            <em className="lp-gradient-text" style={{ fontStyle: 'italic', backgroundImage: 'linear-gradient(90deg, #0ea5e9, #14b8a6, #84cc16, #0ea5e9)' }}>{c.hero.titleEm}</em>
           </h1>
 
           <p className="lp-fadeinup lp-delay-1" style={{ fontSize: 'clamp(18px, 1.6vw, 21px)', color: INK_SOFT, lineHeight: 1.7, maxWidth: '600px', fontWeight: 400, margin: '0 auto 40px' }}>
-            Fakturor, löner, moms och bokslut i ett enda verktyg. Byggt för svenska småföretagare som hellre fokuserar på sin verksamhet än sin bokföring.
+            {c.hero.subtitle}
           </p>
 
           <div className="lp-fadeinup lp-delay-2 lp-cta-group" style={{ display: 'flex', justifyContent: 'center', gap: '14px' }}>
             <span className="lp-moving-border-wrap">
               <button className="lp-btn-primary" onClick={() => onEnterApp('signup')} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '9px', padding: '18px 34px', background: BRAND.green, border: 'none', borderRadius: '13px', fontSize: '17px', fontWeight: 700, cursor: 'pointer', color: 'white', fontFamily: 'inherit', boxShadow: '0 10px 26px -8px rgba(11,99,41,0.5)', minHeight: '48px' }}>
-                Prova gratis <ArrowRight size={18} />
+                {c.hero.ctaPrimary} <ArrowRight size={18} />
               </button>
             </span>
             <button ref={demoTriggerRef} className="lp-btn-secondary" onClick={() => openDemo()} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '9px', padding: '18px 30px', background: 'var(--mkt-card-bg)', border: '1.5px solid var(--mkt-border-soft)', borderRadius: '13px', fontSize: '17px', fontWeight: 600, cursor: 'pointer', color: 'var(--mkt-ink-soft)', fontFamily: 'inherit', minHeight: '48px' }}>
-              Se demo <ChevronRight size={18} />
+              {c.hero.ctaSecondary} <ChevronRight size={18} />
             </button>
           </div>
         </div>
@@ -416,10 +427,10 @@ export default function LandingPage({ onEnterApp }) {
         <div style={{ maxWidth: 'min(92vw, 1600px)', margin: '0 auto', position: 'relative' }}>
           <Reveal style={{ textAlign: 'center', marginBottom: '48px' }}>
             <h2 style={{ fontFamily: 'Georgia, "Times New Roman", serif', fontSize: 'clamp(26px, 4vw, 42px)', fontWeight: 700, letterSpacing: '-0.01em', color: 'var(--mkt-ink)', marginBottom: '16px' }}>
-              Automatiskt, från kvitto till bokslut
+              {c.features.heading}
             </h2>
             <p style={{ fontSize: '17px', color: 'var(--mkt-muted)', maxWidth: '600px', margin: '0 auto', lineHeight: 1.6 }}>
-              Du lägger in underlaget. Bokix bokför, räknar moms och skatt, och håller koll på vad som behöver din uppmärksamhet. Resten sköts i bakgrunden.
+              {c.features.subheading}
             </p>
           </Reveal>
 
@@ -453,8 +464,8 @@ export default function LandingPage({ onEnterApp }) {
                     <f.demo />
                   </div>
                   <div style={{ padding: '36px 40px 36px 34px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                    <h3 style={{ fontSize: '25px', fontWeight: 700, color: 'var(--mkt-ink)', marginBottom: '10px' }}>{f.title}</h3>
-                    <p style={{ fontSize: '16px', color: 'var(--mkt-muted)', lineHeight: 1.65, maxWidth: '560px' }}>{f.desc}</p>
+                    <h3 style={{ fontSize: '25px', fontWeight: 700, color: 'var(--mkt-ink)', marginBottom: '10px' }}>{c.features.items[i]?.title || f.title}</h3>
+                    <p style={{ fontSize: '16px', color: 'var(--mkt-muted)', lineHeight: 1.65, maxWidth: '560px' }}>{c.features.items[i]?.desc || f.desc}</p>
                   </div>
                 </Reveal>
               ) : (
@@ -470,8 +481,8 @@ export default function LandingPage({ onEnterApp }) {
                     <f.demo />
                   </div>
                   <div style={{ padding: '26px 26px 30px' }}>
-                    <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--mkt-ink)', marginBottom: '9px' }}>{f.title}</h3>
-                    <p style={{ fontSize: '14.5px', color: 'var(--mkt-muted)', lineHeight: 1.6 }}>{f.desc}</p>
+                    <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--mkt-ink)', marginBottom: '9px' }}>{c.features.items[i]?.title || f.title}</h3>
+                    <p style={{ fontSize: '14.5px', color: 'var(--mkt-muted)', lineHeight: 1.6 }}>{c.features.items[i]?.desc || f.desc}</p>
                   </div>
                 </Reveal>
               )
@@ -480,7 +491,7 @@ export default function LandingPage({ onEnterApp }) {
 
           <Reveal style={{ textAlign: 'center', marginTop: '40px' }}>
             <Link to="/funktioner" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '14.5px', fontWeight: 700, color: BRAND.green, textDecoration: 'none' }}>
-              Se alla funktioner i detalj <ArrowRight size={15} />
+              {c.features.allLink} <ArrowRight size={15} />
             </Link>
           </Reveal>
         </div>
@@ -499,21 +510,21 @@ export default function LandingPage({ onEnterApp }) {
       <section style={{ padding: '64px 24px 72px', background: IVORY, borderBottom: `1px solid var(--mkt-border-soft)`, position: 'relative', overflow: 'hidden' }}>
         <Reveal style={{ maxWidth: 'min(92vw, 1240px)', margin: '0 auto', textAlign: 'center', position: 'relative' }}>
           <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(22px, 3vw, 28px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '28px' }}>
-            Oavsett vad Bolagsverket kallar dig
+            {c.companyTypesHeading}
           </h2>
         </Reveal>
         <Reveal scale className="lp-marquee" tabIndex={0} aria-label="Bolagsformer Bokix stödjer" style={{ position: 'relative' }}>
           <div className="lp-marquee-track">
             {[0, 1, 2, 3].map((copy) => (
-              COMPANY_TYPES.map((t, i) => {
+              c.companyTypes.map((label, i) => {
                 const accent = ACCENT_CYCLE[i % 3];
                 return (
-                  <div key={`${t.label}-${copy}`} aria-hidden={copy > 0} className="lp-lux-card lp-marquee-badge" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 20px', background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '100px', whiteSpace: 'nowrap' }}>
+                  <div key={`${label}-${copy}`} aria-hidden={copy > 0} className="lp-lux-card lp-marquee-badge" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 20px', background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '100px', whiteSpace: 'nowrap' }}>
                     {/* En liten prick i accentfärgen i stället för en ikon:
                         den håller kvar färgrytmen i raden utan att påstå att
                         en symbol betyder "handelsbolag". */}
                     <span aria-hidden style={{ width: 7, height: 7, borderRadius: '50%', background: accent.fg, flexShrink: 0 }} />
-                    <span className="lp-marquee-badge-label" style={{ fontSize: '14px', fontWeight: 600, color: INK_SOFT }}>{t.label}</span>
+                    <span className="lp-marquee-badge-label" style={{ fontSize: '14px', fontWeight: 600, color: INK_SOFT }}>{label}</span>
                   </div>
                 );
               })
@@ -537,10 +548,10 @@ export default function LandingPage({ onEnterApp }) {
         <div style={{ maxWidth: 'min(92vw, 1600px)', margin: '0 auto', position: 'relative' }}>
           <Reveal style={{ textAlign: 'center', marginBottom: '48px' }}>
             <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(24px, 3.5vw, 38px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '14px' }}>
-              Det här får du med Bokix
+              {c.benefits.heading}
             </h2>
             <p style={{ fontSize: '17px', color: MUTED, maxWidth: '600px', margin: '0 auto', lineHeight: 1.6 }}>
-              Sex delar av verktyget. Allt ingår, inget kostar extra.
+              {c.benefits.subheading}
             </p>
           </Reveal>
 
@@ -551,8 +562,8 @@ export default function LandingPage({ onEnterApp }) {
             {TOOL_ITEMS.map((b, i) => (
               <Reveal key={b.title} delay={i * 70} className="lp-lux-card" style={{ background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '18px', padding: '20px 22px 24px', boxShadow: '0 18px 38px -26px rgba(28,36,32,0.4)' }}>
                 <ToolMotif kind={b.motif} />
-                <h3 style={{ fontSize: '16.5px', fontWeight: 700, color: INK, marginBottom: '7px' }}>{b.title}</h3>
-                <p style={{ fontSize: '14px', color: MUTED, lineHeight: 1.6, margin: 0 }}>{b.desc}</p>
+                <h3 style={{ fontSize: '16.5px', fontWeight: 700, color: INK, marginBottom: '7px' }}>{c.benefits.items[i]?.title || b.title}</h3>
+                <p style={{ fontSize: '14px', color: MUTED, lineHeight: 1.6, margin: 0 }}>{c.benefits.items[i]?.desc || b.desc}</p>
               </Reveal>
             ))}
           </div>
@@ -590,7 +601,7 @@ export default function LandingPage({ onEnterApp }) {
                       // kvar som skydd om någon lägger till en rad utan.
                       <span aria-hidden style={{ width: 14, flexShrink: 0 }} />
                     )}
-                    <span style={{ fontSize: '15px', fontWeight: 700, color: INK_SOFT }}>{t.label}</span>
+                    <span style={{ fontSize: '15px', fontWeight: 700, color: INK_SOFT }}>{c.trustPoints[i] || t.label}</span>
                   </div>
                 );
               })
@@ -628,10 +639,10 @@ export default function LandingPage({ onEnterApp }) {
         <div style={{ maxWidth: 'min(90vw, 1300px)', margin: '0 auto', position: 'relative' }}>
           <Reveal style={{ textAlign: 'center', marginBottom: '40px' }}>
             <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(24px, 3.5vw, 38px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '14px' }}>
-              Kopplat till tjänsterna du redan använder
+              {c.connections.heading}
             </h2>
             <p style={{ fontSize: '17px', color: MUTED, maxWidth: '580px', margin: '0 auto', lineHeight: 1.6 }}>
-              Betalningar, kassa och myndigheter: Bokix pratar med rätt system istället för att du ska hålla ordning själv.
+              {c.connections.subheading}
             </p>
           </Reveal>
 
@@ -710,14 +721,14 @@ export default function LandingPage({ onEnterApp }) {
               </div>
             </div>
 
-            {CONNECTIONS.map((c, i) => {
+            {CONNECTIONS.map((conn, i) => {
               const p = CONNECTION_POS[i];
               return (
-                <div key={c.key} style={{ position: 'absolute', left: `${(p.x / 800) * 100}%`, top: `${(p.y / 300) * 100}%`, transform: 'translate(-50%, -50%)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'clamp(6px, 2vw, 12px)', width: 'clamp(60px, 17vw, 170px)', zIndex: 2 }}>
+                <div key={conn.key} style={{ position: 'absolute', left: `${(p.x / 800) * 100}%`, top: `${(p.y / 300) * 100}%`, transform: 'translate(-50%, -50%)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'clamp(6px, 2vw, 12px)', width: 'clamp(60px, 17vw, 170px)', zIndex: 2 }}>
                   <div style={{ width: 'clamp(56px, 18vw, 130px)', height: 'clamp(56px, 18vw, 130px)', borderRadius: '50%', background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, boxShadow: '0 14px 28px -14px rgba(28,36,32,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
-                    <c.Logo height={c.logoHeight} />
+                    <conn.Logo height={conn.logoHeight} />
                   </div>
-                  <span style={{ fontSize: 'clamp(10px, 2.8vw, 16px)', fontWeight: 600, color: MUTED, textAlign: 'center', lineHeight: 1.35 }}>{c.label}</span>
+                  <span style={{ fontSize: 'clamp(10px, 2.8vw, 16px)', fontWeight: 600, color: MUTED, textAlign: 'center', lineHeight: 1.35 }}>{c.connections.labels[conn.key] || conn.label}</span>
                 </div>
               );
             })}
@@ -742,10 +753,10 @@ export default function LandingPage({ onEnterApp }) {
         <div style={{ maxWidth: 'min(92vw, 1240px)', margin: '0 auto', position: 'relative' }}>
           <Reveal style={{ textAlign: 'center', marginBottom: '38px' }}>
             <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(26px, 4vw, 38px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '12px' }}>
-              Kvitton läser sig själva
+              {c.receipts.heading}
             </h2>
             <p style={{ fontSize: '16.5px', color: MUTED, lineHeight: 1.65, maxWidth: '620px', margin: '0 auto' }}>
-              Fota kvittot eller ladda upp en bild eller PDF. Datum, belopp, moms och konto föreslås automatiskt — du bekräftar, du gissar aldrig.
+              {c.receipts.subheading}
             </p>
           </Reveal>
 
@@ -758,7 +769,7 @@ export default function LandingPage({ onEnterApp }) {
               to="/verktyg/skanna-kvitto"
               style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '13px 24px', background: 'var(--mkt-card-bg)', border: `1.5px solid ${CARD_BORDER}`, borderRadius: '12px', color: INK_SOFT, fontWeight: 700, fontSize: '15px', textDecoration: 'none' }}
             >
-              Testa OCR-läsningen själv <ArrowRight size={15} />
+              {c.receipts.cta} <ArrowRight size={15} />
             </Link>
           </Reveal>
         </div>
@@ -779,14 +790,14 @@ export default function LandingPage({ onEnterApp }) {
         <div style={{ maxWidth: 'min(92vw, 1240px)', margin: '0 auto', position: 'relative' }}>
           <Reveal style={{ textAlign: 'center', marginBottom: '38px' }}>
             <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(26px, 4vw, 38px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '12px' }}>
-              Banken in i bokföringen
+              {c.bank.heading}
             </h2>
-            {/* Formuleringen är avsiktligt exakt: kontoutdraget är en FIL
-                du exporterar, inte en direktkoppling mot banken (se
+            {/* Formuleringen är avsiktligt exakt (på alla språk): kontoutdraget
+                är en FIL du exporterar, inte en direktkoppling mot banken (se
                 filkommentaren i bankSources.js — sajten får aldrig antyda
                 en funktion som inte finns). */}
             <p style={{ fontSize: '16.5px', color: MUTED, lineHeight: 1.65, maxWidth: '620px', margin: '0 auto' }}>
-              Exportera kontoutdraget ur din internetbank och läs in det i Bokix. Inbetalningar matchas mot dina obetalda fakturor, utbetalningar mot leverantörsfakturorna — och du lämnar aldrig ut någon bankinloggning.
+              {c.bank.subheading}
             </p>
           </Reveal>
 
@@ -802,7 +813,7 @@ export default function LandingPage({ onEnterApp }) {
               to="/koppla-bank"
               style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '13px 24px', background: 'var(--mkt-card-bg)', border: `1.5px solid ${CARD_BORDER}`, borderRadius: '12px', color: INK_SOFT, fontWeight: 700, fontSize: '15px', textDecoration: 'none' }}
             >
-              Se hur bankimporten fungerar <ArrowRight size={15} />
+              {c.bank.cta} <ArrowRight size={15} />
             </Link>
           </Reveal>
         </div>
@@ -822,10 +833,10 @@ export default function LandingPage({ onEnterApp }) {
         <div style={{ maxWidth: 'min(92vw, 1180px)', margin: '0 auto', position: 'relative' }}>
           <Reveal style={{ textAlign: 'center', marginBottom: '38px' }}>
             <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(26px, 4vw, 38px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '12px' }}>
-              Ta med dig bokföringen hit
+              {c.switchProgram.heading}
             </h2>
             <p style={{ fontSize: '16.5px', color: MUTED, lineHeight: 1.65, maxWidth: '600px', margin: '0 auto' }}>
-              Bokför du i Fortnox, Visma, Spiris, Bokio, Björn Lundén, Wint eller SpeedLedger? Exportera en SIE4-fil därifrån och läs in den i Bokix. Konton, verifikationer och ingående balanser följer med.
+              {c.switchProgram.subheading}
             </p>
           </Reveal>
 
@@ -838,7 +849,7 @@ export default function LandingPage({ onEnterApp }) {
               to="/byt-bokforingsprogram"
               style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '13px 24px', background: 'var(--mkt-card-bg)', border: `1.5px solid ${CARD_BORDER}`, borderRadius: '12px', color: INK_SOFT, fontWeight: 700, fontSize: '15px', textDecoration: 'none' }}
             >
-              Se hur bytet går till <ArrowRight size={15} />
+              {c.switchProgram.cta} <ArrowRight size={15} />
             </Link>
           </Reveal>
         </div>
@@ -864,9 +875,9 @@ export default function LandingPage({ onEnterApp }) {
 
         <Reveal style={{ textAlign: 'center', marginBottom: '44px', position: 'relative' }}>
           <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(26px, 4vw, 38px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '12px' }}>
-            Ett pris för din situation
+            {c.pricing.heading}
           </h2>
-          <p style={{ fontSize: '17px', color: 'var(--mkt-ink-soft)', fontWeight: 500, maxWidth: '480px', margin: '0 auto' }}>Samma bokföring och fakturering i båda, skillnaden är om du har personal på lönelistan.</p>
+          <p style={{ fontSize: '17px', color: 'var(--mkt-ink-soft)', fontWeight: 500, maxWidth: '480px', margin: '0 auto' }}>{c.pricing.subheading}</p>
         </Reveal>
 
         {/* Månadsvis eller årsvis — samma växlare som prissidan.
@@ -875,8 +886,8 @@ export default function LandingPage({ onEnterApp }) {
         <Reveal style={{ display: 'flex', justifyContent: 'center', marginBottom: '34px', position: 'relative' }}>
           <div role="group" aria-label="Betalningsintervall" style={{ display: 'inline-flex', gap: '4px', padding: '5px', borderRadius: '999px', background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, boxShadow: CARD_SHADOW_SM }}>
             {[
-              { id: 'monthly', label: 'Månadsvis' },
-              { id: 'yearly', label: 'Årsplan', badge: 'spara upp till 360 kr/år' },
+              { id: 'monthly', label: c.pricing.monthly },
+              { id: 'yearly', label: c.pricing.yearly, badge: c.pricing.yearlyBadge },
             ].map(opt => {
               const active = billingInterval === opt.id;
               return (
@@ -916,7 +927,7 @@ export default function LandingPage({ onEnterApp }) {
               kolumn på mobil, exakt skärmbrett, ingen förändring på
               desktop där 380px redan får plats. */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(380px, 100%), 1fr))', gap: 'clamp(16px, 5vw, 32px)', alignItems: 'stretch' }}>
-            {PRICING_TIERS.map((tier) => {
+            {tiers.map((tier) => {
               const plan = resolvePlan(tier.key, billingInterval);
               return (
               <div
@@ -968,10 +979,10 @@ export default function LandingPage({ onEnterApp }) {
                     </div>
                     {billingInterval === 'yearly' ? (
                       <div style={{ fontSize: '13px', color: MUTED, marginTop: '6px', fontWeight: 600 }}>
-                        Dras varje månad · du sparar {plan.savingPerYear} kr per år
+                        {c.pricing.yearlySavingsNote(plan.savingPerYear)}
                       </div>
                     ) : (
-                      <div style={{ fontSize: '13px', color: MUTED, marginTop: '6px', fontWeight: 600 }}>{tier.subtitle} · gratis i 30 dagar</div>
+                      <div style={{ fontSize: '13px', color: MUTED, marginTop: '6px', fontWeight: 600 }}>{tier.subtitle} · {c.pricing.freeTrialSuffix}</div>
                     )}
                   </div>
                 </div>
@@ -1011,15 +1022,15 @@ export default function LandingPage({ onEnterApp }) {
                       på sajten, istället för ett tredje eget färgspråk
                       bara här. */}
                   <button className="lp-btn-primary lp-pulse" onClick={() => onEnterApp('signup', plan.id)} style={{ width: '100%', padding: '16px', borderRadius: '13px', border: 'none', background: BRAND.green, fontSize: '15.5px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', color: 'white', boxShadow: '0 10px 24px -8px rgba(11,99,41,0.35)', minHeight: '48px', marginBottom: '14px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                    Skapa konto gratis <ArrowRight size={16} />
+                    {c.pricing.cta} <ArrowRight size={16} />
                   </button>
                   {billingInterval === 'yearly' && (
                     <div style={{ textAlign: 'center', fontSize: '12px', color: MUTED, marginBottom: '10px', lineHeight: 1.5 }}>
-                      Dras varje månad som vanligt. Minst {YEARLY_MINIMUM_MONTHS} månader, sedan säger du upp när du vill.
+                      {c.pricing.yearlyMinimumNote(YEARLY_MINIMUM_MONTHS)}
                     </div>
                   )}
-                  <Link to="/priser" style={{ display: 'block', textAlign: 'center', fontSize: '13.5px', fontWeight: 600, color: MUTED, textDecoration: 'none' }}>
-                    Se allt som ingår →
+                  <Link to={priserPath} style={{ display: 'block', textAlign: 'center', fontSize: '13.5px', fontWeight: 600, color: MUTED, textDecoration: 'none' }}>
+                    {c.pricing.seeAllLink}
                   </Link>
                 </div>
               </div>
@@ -1041,16 +1052,16 @@ export default function LandingPage({ onEnterApp }) {
         <div style={{ maxWidth: 'min(92vw, 1240px)', margin: '0 auto', position: 'relative' }}>
           <Reveal style={{ textAlign: 'center', marginBottom: '32px' }}>
             <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(28px, 4.4vw, 44px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '12px' }}>
-              Vanliga frågor
+              {c.faqTeaser.heading}
             </h2>
-            <p style={{ fontSize: '18px', color: MUTED }}>Det mesta du undrar över innan du sätter igång.</p>
+            <p style={{ fontSize: '18px', color: MUTED }}>{c.faqTeaser.subheading}</p>
           </Reveal>
 
           <Reveal scale style={{ maxWidth: '640px', margin: '0 auto' }}>
             <Link to="/vanliga-fragor" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', padding: '20px 22px', background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '16px', boxShadow: '0 14px 30px -22px rgba(28,36,32,0.22)', textDecoration: 'none' }}>
               <span>
-                <span style={{ display: 'block', fontSize: '15.5px', fontWeight: 700, color: INK, marginBottom: '3px' }}>Se alla vanliga frågor</span>
-                <span style={{ display: 'block', fontSize: '13px', color: MUTED }}>Pris, bolagsform, support och mer</span>
+                <span style={{ display: 'block', fontSize: '15.5px', fontWeight: 700, color: INK, marginBottom: '3px' }}>{c.faqTeaser.cardTitle}</span>
+                <span style={{ display: 'block', fontSize: '13px', color: MUTED }}>{c.faqTeaser.cardSubtitle}</span>
               </span>
               <span style={{ width: 34, height: 34, borderRadius: '50%', background: FAQ_ACCENT.soft, color: FAQ_ACCENT.fg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <ChevronRight size={18} />
@@ -1062,7 +1073,7 @@ export default function LandingPage({ onEnterApp }) {
 
       {/* Egen fristående yta, inte en sektion i sidflödet ovan — se
           DemoOverlay:s egen kommentar högst upp i filen. */}
-      {showDemo && <DemoOverlay onClose={closeDemo} initialTab={showDemo} />}
+      {showDemo && <DemoOverlay onClose={closeDemo} initialTab={showDemo} labels={c.demoOverlay} />}
     </MarketingLayout>
   );
 }
