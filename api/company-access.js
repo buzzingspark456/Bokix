@@ -5,7 +5,6 @@ import { requireAuthedUser, loadMemberCompany } from './_auth.js';
 import { checkRateLimit } from './_rateLimit.js';
 import { createClient } from '@supabase/supabase-js';
 import { COMPANY_WRITABLE_FIELDS } from '../src/utils/companyFields.js';
-import { verifyReauthGrant } from './_signedToken.js';
 
 // Huvudsakligen till för en INBJUDEN användare (se supabase-setup.sql:
 // company_members — ägare + upp till 2 inbjudna = max 3 per företag) att
@@ -19,19 +18,18 @@ import { verifyReauthGrant } from './_signedToken.js';
 //
 // ÄGAREN sparar normalt sett ALDRIG via den här filen (skriver direkt mot
 // sin egen user_data-rad, RLS räcker där) — MED ETT UNDANTAG: field==='company'
-// (Settings.jsx:s "Spara ändringar"-knapp för Företagsuppgifter, se
-// Reauthentication-kommentaren vid reauthToken nedan) går hit ÄVEN för
-// ägaren, eftersom just den skrivningen måste kunna kräva ett server-
-// verifierat reauthToken — något ett rent klient-anrop aldrig kan göra.
-// POST-grenen provar därför en ägar-snabbväg (egen user_data-rad) FÖRE
-// loadMemberCompany.
+// (Settings.jsx:s "Spara ändringar"-knapp för Företagsuppgifter) går hit
+// ÄVEN för ägaren, eftersom just den skrivningen måste kunna spärra namn/
+// org.nummer server-side (se låset längre ner) — något en ren klient-
+// skrivning mot user_data aldrig kan göra. POST-grenen provar därför en
+// ägar-snabbväg (egen user_data-rad) FÖRE loadMemberCompany.
 //
 // GET  ?company_id=X          → { company: <hela företagets state-gren>, role }
-// POST { company_id, field, value, reauthToken? } → sparar ETT fält via
+// POST { company_id, field, value } → sparar ETT fält via
 //   set_company_field (samma vitlista av tillåtna fält som SQL-funktionen
 //   själv kräver — se supabase-setup.sql). Avvisas med 403 om rollen är
 //   'viewer', eller (bara för field==='company', ägaren själv) om
-//   reauthToken saknas/är ogiltig — se verifyReauthGrant i _signedToken.js.
+//   värdet försöker ändra ett redan låst namn/org.nummer.
 // POST { action: 'lookup', mode: 'orgnr'|'name', query } → se
 //   handleCompanyLookup nedan. En tredje, i grunden orelaterad rutt (slår
 //   upp ett företag i FöretagsAPI:s register, rör aldrig company_members
@@ -230,7 +228,7 @@ export default async function handler(req, res) {
     }
 
     // POST (fältsparning) — postBody parsades redan ovan.
-    const { company_id: companyId, field, value, reauthToken } = postBody || {};
+    const { company_id: companyId, field, value } = postBody || {};
     if (!companyId || !field || value === undefined) {
       res.status(400).json({ error: 'company_id, field och value krävs.' });
       return;
@@ -250,10 +248,9 @@ export default async function handler(req, res) {
     // ingen medlemskapsrad att slå upp). Ägaren sparar annars ALLTID
     // direkt via klientens egen supabase.from('user_data')-anrop
     // (App.jsx:s updateCompanyField) — förutom just 'company'-fältet, som
-    // Settings.jsx numera skickar hit istället EFTERSOM den skrivningen
-    // (Reauthentication, se kommentaren vid reauthToken-kollen nedan)
-    // måste kunna verifieras server-side, vilket ett rent klient-anrop
-    // aldrig kan.
+    // Settings.jsx skickar hit istället EFTERSOM namn/org.nummer-låset
+    // (se nedan) måste kunna verifieras server-side, vilket ett rent
+    // klient-anrop aldrig kan.
     let ownerUserId = null;
     let ownerCompanyData = null;
     {
@@ -267,20 +264,11 @@ export default async function handler(req, res) {
     }
 
     if (ownerUserId) {
-      // Bara 'company' kräver reauth idag (Settings.jsx:s nya "Spara
-      // ändringar"-knapp för Företagsuppgifter) — övriga WRITABLE_FIELDS
-      // sparas aldrig via den här filen för ägaren (se kommentaren ovan),
-      // så grenen är i praktiken bara nådd med field==='company', men
-      // kollen är explicit ändå ifall det ändras senare.
-      if (field === 'company' && !verifyReauthGrant(reauthToken, user.id)) {
-        res.status(403).json({ error: 'Åtkomst nekad.' });
-        return;
-      }
       // Låst registrerat företagsnamn: en gång satt (dvs. orgNr är ifyllt —
       // se Settings.jsx:s kommentar om varför just orgNr är signalen "riktig
       // registrering genomförd", inte en egen flagga) går namnet inte att
-      // ändra härifrån längre, ens med ett giltigt reauthToken — kontakta
-      // support är den enda vägen. Servern är den RIKTIGA spärren (ett rått
+      // ändra härifrån längre — kontakta support är den enda vägen. Servern
+      // är den RIKTIGA spärren (ett rått
       // API-anrop kan aldrig kringgå den), Settings.jsx:s låsta UI är bara
       // återspeglingen av samma regel. Fritt fram att sätta namnet FÖRSTA
       // gången (tomt orgNr = oavslutad registrering, se "Jag har inget
@@ -295,7 +283,7 @@ export default async function handler(req, res) {
       // och AGI:n till Skatteverket, SIE-exporten till revisorn,
       // bolagsuppslagen. Ett ändrat org.nummer på en befintlig bokföring är
       // aldrig en rättelse — det är ett annat företag — så det går inte att
-      // skriva om härifrån, ens med giltig reauth. Fritt fram FÖRSTA gången
+      // skriva om härifrån. Fritt fram FÖRSTA gången
       // (tomt orgNr = oavslutad registrering), precis som namnet ovan.
       if (field === 'company' && ownerCompanyData?.orgNr && value?.orgNr !== ownerCompanyData?.orgNr) {
         res.status(403).json({ error: 'Organisationsnumret är låst efter registreringen. Kontakta support@bokix.se för att ändra det.' });

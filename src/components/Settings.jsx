@@ -166,7 +166,7 @@ const SETTINGS_TABS = [
 // referensbildens färgschema kort för kort (grönt/blått/lila/orange/
 // turkost/rosa/blått/lila), inte en enda upprepad ton som förut.
 const SECTION_META = {
-  company: { icon: Building2, tone: 'green', desc: 'Företagsuppgifter, organisationsnummer och adress.' },
+  company: { icon: Building2, tone: 'green', desc: 'Namn, organisationsnummer, adress och bankuppgifter — visas på fakturor, i e-post och i filer till myndigheter.' },
   invoice: { icon: FileText, tone: 'blue', desc: 'Nummer, datum, påminnelser, mall och e-post.' },
   integrations: { icon: Plug, tone: 'purple', desc: 'Stripe, Zettle och egen avsändardomän för mejl.' },
   system: { icon: Cog, tone: 'gray', desc: 'Moms, kontoplan, verifikationsserier, valuta och export.' },
@@ -2398,7 +2398,6 @@ export default function Settings({
   // session) och accepterat, inte åtgärdat här.
   const [companyDraft, setCompanyDraft] = useState(company);
   useEffect(() => { setCompanyDraft(company); }, [company]);
-  const [showCompanyReauth, setShowCompanyReauth] = useState(false);
   // Stripe-anslutningens eget reauth-läge (Betalning-fliken) — null|'connect'|'disconnect'.
   const [stripeReauthAction, setStripeReauthAction] = useState(null);
   const [companySaveBusy, setCompanySaveBusy] = useState(false);
@@ -2470,7 +2469,7 @@ export default function Settings({
   const companyRegOrgType = detectOrgType(companyDraft?.orgNr);
   const companyRegDisplayedOrgType = (companyRegLegalForm && formatLegalForm(companyRegLegalForm)) || companyRegOrgType;
 
-  const saveCompanyInfo = async (reauthToken) => {
+  const saveCompanyInfo = async () => {
     setCompanySaveBusy(true); setCompanySaveError('');
     try {
       const { data: { session } = {} } = await supabase.auth.getSession();
@@ -2480,16 +2479,14 @@ export default function Settings({
           'Content-Type': 'application/json',
           ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
         },
-        body: JSON.stringify({ company_id: activeCompanyId, field: 'company', value: companyDraft, reauthToken }),
+        body: JSON.stringify({ company_id: activeCompanyId, field: 'company', value: companyDraft }),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload?.error || `Kunde inte spara (${response.status})`);
       setCompanyInfo(companyDraft);
-      setShowCompanyReauth(false);
       setCompanySaveSuccess(true);
       setTimeout(() => setCompanySaveSuccess(false), 4000);
     } catch (err) {
-      setShowCompanyReauth(false);
       setCompanySaveError(err?.message || 'Kunde inte spara ändringarna. Försök igen om en stund.');
     } finally {
       setCompanySaveBusy(false);
@@ -3361,7 +3358,19 @@ export default function Settings({
         // Ingen flikrad. Sektionerna väljs i översikten (SettingsHub) och
         // en väg tillbaka dit finns i sidhuvudet ("Alla inställningar")
         // när man står i en flik.
-      />
+      >
+        {/* Badgen ("Kräver att du sparar") låg tidigare som en egen rad
+            NEDANFÖR hela sidhuvudet, med en egen marginal — kundönskemål:
+            "det är space, ska vara emerged med headern". ListPageHeader:s
+            children-prop är dess egen krok för precis det här (en extra rad
+            INUTI samma bakgrund/ram som titeln, se JSDoc:en i filen) i
+            stället för ett nytt, separat block under. */}
+        {activeTab === 'company' && (
+          <div style={{ marginTop: '10px', display: 'flex', justifyContent: 'flex-end' }}>
+            <Badge tone="warning">Kräver att du sparar</Badge>
+          </div>
+        )}
+      </ListPageHeader>
 
       {/* Ett maxWidth/margin-auto-tak fanns tidigare inte alls här (se
           git-historik: togs bort medvetet, "ett tak lämnar bara tomma
@@ -3473,25 +3482,28 @@ export default function Settings({
                   App.jsx:s egna vägar (profilmenyn), bara inte längre
                   härifrån. */}
 
-              <SettingsSection
-                title="Företagsuppgifter"
-                description="Visas på fakturor, i e-post och i filer till myndigheter."
-              >
-
+              {/* Kundönskemål ("ska vara emerged med headern"): den här
+                  fliken hade rubriken sagd TRE gånger på fyra rader — sidans
+                  egen header ("Företag" + SECTION_META.company.desc), sedan
+                  en SettingsSection till med samma titel ("Företagsuppgifter")
+                  och en egen beskrivning, och INNANFÖR den en tredje rubrik
+                  ("Grunduppgifter"). De två sista togs bort helt — sidans
+                  header räcker, och dess beskrivning fick istället med sig
+                  detaljen ("visas på fakturor...") som SettingsSection-
+                  beskrivningen ägde förut. Badgen ("Kräver att du sparar")
+                  flyttad in i sidhuvudet självt (ListPageHeader:s children-
+                  prop ovan) i stället för en egen rad här — se kommentaren
+                  vid ListPageHeader-anropet. */}
               <div style={card}>
                 {/* Kundfeedback ("vet inte vad som händer"): fälten här och i
                     Kontaktuppgifter nedan autosparar INTE (kräver klick på
-                    "Spara ändringar" + en emailad kod, se reauth-blocket
-                    efter Kontaktuppgifter) — till skillnad från praktiskt
-                    taget alla andra fält på hela sidan. AutoField:s egen
-                    "Sparat ✓" är avstängd på dem (showSaveState=false nedan)
-                    så den inte ljuger om att något redan är sparat, och den
-                    här badgen säger uttryckligen vad som gäller istället för
-                    att bara vara tyst om det. */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}>
-                  <SectionHeading icon={Building2} tone="green">Grunduppgifter</SectionHeading>
-                  <Badge tone="warning">Kräver att du sparar</Badge>
-                </div>
+                    "Spara ändringar", se knappen efter Kontaktuppgifter) —
+                    till skillnad från praktiskt taget alla andra fält på
+                    hela sidan. AutoField:s egen "Sparat ✓" är avstängd på
+                    dem (showSaveState=false nedan) så den inte ljuger om att
+                    något redan är sparat — badgen i sektionsrubriken ovan
+                    säger uttryckligen vad som gäller i stället för att bara
+                    vara tyst om det. */}
                 {!companyRegistrationComplete ? (
                   // "Jag har inget företag än" valdes vid registreringen
                   // (Auth.jsx) — samma org.nummer-uppslag/badge-mönster som
@@ -3688,35 +3700,31 @@ export default function Settings({
               </div>
 
 
-              {/* Reauthentication (se ReauthCodeStep ovan) — Grunduppgifter/
-                  Kontaktuppgifter ovan autosparar INTE längre, de kräver ett
-                  uttryckligt klick här + en emailad kod. Övriga företagsfält
-                  (Logotyp, Räkenskapsår/moms, påminnelser, Bankuppgifter i
-                  Betalning-fliken) är opåverkade, autosparar som förut. */}
+              {/* Grunduppgifter/Kontaktuppgifter ovan autosparar INTE, de
+                  kräver ett uttryckligt klick här — men ingen emailad kod
+                  längre (borttaget, se saveCompanyInfo ovan): namn och
+                  org.nummer är redan låsta oavsett, det är den riktiga
+                  spärren (api/company-access.js), så koden skyddade i
+                  praktiken bara adress/kontakt/momsnummer. Övriga
+                  företagsfält (Logotyp, Räkenskapsår/moms, påminnelser,
+                  Bankuppgifter i Betalning-fliken) är opåverkade, autosparar
+                  som förut. */}
               <div style={{ marginBottom: '28px' }}>
-                {showCompanyReauth ? (
-                  <ReauthCodeStep onVerified={saveCompanyInfo} onCancel={() => setShowCompanyReauth(false)} />
-                ) : (
-                  <>
-                    {/* Uttryckligen vad knappen sparar — utan den här raden
-                        ser den ut som en global "spara hela sidan"-knapp,
-                        trots att den bara gäller de två korten ovanför. */}
-                    <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: '0 0 10px' }}>Sparar uppgifterna ovan. Bankuppgifter sparas direkt.</p>
-                    <button
-                      type="button"
-                      onClick={() => { if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; } setShowCompanyReauth(true); }}
-                      disabled={!companyInfoDirty || companySaveBusy}
-                      style={{ ...btnPrimary, opacity: (!companyInfoDirty || companySaveBusy) ? 0.5 : 1, cursor: (!companyInfoDirty || companySaveBusy) ? 'not-allowed' : 'pointer' }}
-                    >
-                      {companySaveBusy ? 'Sparar...' : 'Spara ändringar'}
-                    </button>
-                    {companySaveError && <div style={{ color: 'var(--status-red-text)', fontSize: '13px', marginTop: '10px' }}>{companySaveError}</div>}
-                    {companySaveSuccess && <div style={{ color: BRAND.greenDark, fontSize: '13px', marginTop: '10px', fontWeight: 600 }}>Företagsuppgifterna är sparade.</div>}
-                  </>
-                )}
+                {/* Uttryckligen vad knappen sparar — utan den här raden
+                    ser den ut som en global "spara hela sidan"-knapp,
+                    trots att den bara gäller de två korten ovanför. */}
+                <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: '0 0 10px' }}>Sparar uppgifterna ovan. Bankuppgifter sparas direkt.</p>
+                <button
+                  type="button"
+                  onClick={() => { if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; } saveCompanyInfo(); }}
+                  disabled={!companyInfoDirty || companySaveBusy}
+                  style={{ ...btnPrimary, opacity: (!companyInfoDirty || companySaveBusy) ? 0.5 : 1, cursor: (!companyInfoDirty || companySaveBusy) ? 'not-allowed' : 'pointer' }}
+                >
+                  {companySaveBusy ? 'Sparar...' : 'Spara ändringar'}
+                </button>
+                {companySaveError && <div style={{ color: 'var(--status-red-text)', fontSize: '13px', marginTop: '10px' }}>{companySaveError}</div>}
+                {companySaveSuccess && <div style={{ color: BRAND.greenDark, fontSize: '13px', marginTop: '10px', fontWeight: 600 }}>Företagsuppgifterna är sparade.</div>}
               </div>
-
-              </SettingsSection>
 
               {/* Kundönskemål: sektionsrubriken ("Bokföringsår, logotyp och
                   påminnelser"/"Sparas direkt.") borttagen — korten under
