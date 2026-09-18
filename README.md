@@ -4,7 +4,7 @@ Bokix är en modern, webbaserad bokförings- och faktureringstjänst anpassad f�
 
 ---
 
-## 🛠 Teknikstack
+##  Teknikstack
 
 - **Frontend:** React 19, Vite, Tailwind CSS, Lucide Icons
 - **Backend / API:** Node.js & Express / Vercel Serverless
@@ -13,7 +13,7 @@ Bokix är en modern, webbaserad bokförings- och faktureringstjänst anpassad f�
 
 ---
 
-## 🚀 Kom igång lokalt
+##  Kom igång lokalt
 
 ### 1. Förutsättningar
 - [Node.js](https://nodejs.org/) (version 18 eller senare)
@@ -46,7 +46,7 @@ Appen öppnas vanligtvis på `http://localhost:5173`.
 
 ---
 
-## 🧪 Skript och kommandon
+##  Skript och kommandon
 
 - `npm run dev` – Startar lokal utvecklingsserver (Vite + backend)
 - `npm test` – Kör hela testsviten med Vitest
