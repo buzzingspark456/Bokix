@@ -1,7 +1,6 @@
-﻿import React, { useState, useEffect, useRef, Suspense } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Menu, X, Sun, Moon, ChevronDown } from 'lucide-react';
-import AnchoredDropdown, { useDismissOnOutsideClick } from '../shared/AnchoredDropdown';
+import { Menu, X, Sun, Moon } from 'lucide-react';
 import { BRAND } from '../../utils/brandColors';
 import { ACCENT_CYCLE, SERIF } from './marketingTokens';
 import { JsonLd, SITE_URL } from '../../utils/seo';
@@ -13,7 +12,6 @@ import { JsonLd, SITE_URL } from '../../utils/seo';
 // './marketing/MarketingLayout'` fortsätta oförändrade.
 import { TOOLS, TOOLS_HUB_PATH } from './tools/toolsConfig';
 import BokixWordmark from '../shared/BokixWordmark';
-import { LOCALE_META, availableLocalesFor, localizedPath, parseLocalizedPath } from '../../content/marketing/routes';
 export { BokixWordmark };
 
 // Organization-schema (schema.org) — samma på VARJE marknadssida (den här
@@ -767,89 +765,7 @@ export function RevealLazy({ children, fallbackMinHeight = 480, style, ...rest }
  * redan har den lokala showLanding-toggeln); undersidor har den inte och
  * navigerar istället till "/" med en state-flagga som App.jsx läser av för
  * att hoppa direkt till inloggning — se MarketingLayout-kommentaren nedan. */
-/** Länkar nuvarande marknadssida till sin egen motsvarighet i de andra
- * språk just DEN sidan faktiskt har (availableLocalesFor, se
- * content/marketing/routes.js) — inte en global sv/en/no/dk/fi-växel som
- * skulle länka till en sida som inte finns. Syns bara på en marknadssida
- * (parseLocalizedPath returnerar null på t.ex. /privacy) och bara när
- * sidan faktiskt har mer än ett språk. Native <select>: tangentbords- och
- * skärmläsartillgängligt utan någon egen dropdown-logik. */
-/** Flaggikonerna är riktiga SVG:er (public/flags/, hämtade från Wikimedia
- * Commons — inte emoji, som kundönskemålet uttryckligen bad om) — en
- * native <select> kan inte visa en bild i sin egen stängda box, bara i
- * <option>-listan i vissa webbläsare, så växlaren är en egen liten
- * knapp+meny byggd på samma AnchoredDropdown/useDismissOnOutsideClick-
- * mönster som resten av appens dropdowns (t.ex. PeriodPicker,
- * reports/ReportUI.jsx) i stället för en <select>. */
-function LanguageSwitcher({ style }) {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const parsed = parseLocalizedPath(location.pathname);
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef(null);
-  const panelRef = useRef(null);
-  useDismissOnOutsideClick(open, () => setOpen(false), rootRef, panelRef);
-  if (!parsed) return null;
-  const locales = availableLocalesFor(parsed.basePath);
-  if (locales.length < 2) return null;
-  const current = LOCALE_META[parsed.locale];
 
-  return (
-    <div ref={rootRef} style={{ position: 'relative', display: 'inline-flex', flexShrink: 0, ...style }}>
-      <button
-        type="button"
-        onClick={() => setOpen(o => !o)}
-        aria-expanded={open}
-        aria-haspopup="menu"
-        aria-label="Språk / Language"
-        style={{
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', width: '100%',
-          padding: '9px 14px', background: 'var(--mkt-card-bg)', border: '1px solid var(--mkt-border-soft)',
-          borderRadius: '10px', fontSize: '14px', fontWeight: 600, cursor: 'pointer', color: 'var(--mkt-nav-text)',
-          fontFamily: 'inherit', minHeight: '44px',
-        }}
-      >
-        <img src={`/flags/${parsed.locale}.svg`} alt="" width="20" height="14" style={{ borderRadius: '3px', flexShrink: 0, objectFit: 'cover', boxShadow: '0 0 0 1px rgba(0,0,0,0.08)' }} />
-        {current.label}
-        <ChevronDown size={14} style={{ flexShrink: 0, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
-      </button>
-      <AnchoredDropdown
-        anchorRef={rootRef}
-        panelRef={panelRef}
-        open={open}
-        align="right"
-        minWidth={180}
-        maxHeight={300}
-        role="menu"
-        style={{ background: 'var(--mkt-card-bg)', border: '1px solid var(--mkt-border-soft)', borderRadius: '10px', padding: '5px', display: 'flex', flexDirection: 'column', gap: '2px' }}
-      >
-        {locales.map((l) => {
-          const active = l === parsed.locale;
-          return (
-            <button
-              key={l}
-              type="button"
-              role="menuitem"
-              onClick={() => { setOpen(false); navigate(localizedPath(l, parsed.basePath)); }}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '10px', width: '100%', textAlign: 'left',
-                padding: '9px 10px', borderRadius: '7px', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-                fontSize: '13.5px', fontWeight: active ? 700 : 500,
-                background: active ? 'var(--mkt-ivory)' : 'transparent',
-                color: 'var(--mkt-nav-text)',
-              }}
-              onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'var(--mkt-ivory)'; }}
-              onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent'; }}
-            >
-              <img src={`/flags/${l}.svg`} alt="" width="20" height="14" style={{ borderRadius: '3px', flexShrink: 0, objectFit: 'cover', boxShadow: '0 0 0 1px rgba(0,0,0,0.08)' }} />
-              {LOCALE_META[l].label}
-            </button>
-          );
-        })}
-      </AnchoredDropdown>
-    </div>
-  );
-}
 
 export function MarketingHeader({ onEnterApp, theme, onToggleTheme }) {
   const [scrolled, setScrolled] = useState(false);
@@ -943,7 +859,6 @@ export function MarketingHeader({ onEnterApp, theme, onToggleTheme }) {
           </div>
 
           <div className="lp-nav-desktop" style={{ gap: '12px', alignItems: 'center' }}>
-            <LanguageSwitcher />
             <button onClick={onToggleTheme} aria-label={theme === 'dark' ? 'Ljust läge' : 'Mörkt läge'} title={theme === 'dark' ? 'Ljust läge' : 'Mörkt läge'} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 48, height: 48, background: 'none', border: '1px solid var(--mkt-border-soft)', borderRadius: '10px', cursor: 'pointer', color: 'var(--mkt-nav-text)', flexShrink: 0 }}>
               {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
             </button>
@@ -986,7 +901,6 @@ export function MarketingHeader({ onEnterApp, theme, onToggleTheme }) {
           })}
         </div>
         <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', paddingTop: '24px' }}>
-          <LanguageSwitcher style={{ width: '100%', textAlign: 'center' }} />
           <button onClick={() => handleEnterApp('login')} style={{ padding: '14px', background: 'transparent', border: '1px solid var(--mkt-border-soft)', borderRadius: '10px', fontSize: '15px', fontWeight: 600, cursor: 'pointer', color: 'var(--mkt-nav-text)', fontFamily: 'inherit' }}>
             Logga in
           </button>
