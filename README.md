@@ -1,114 +1,54 @@
 # Bokix
 
-Bokix är en webbaserad tjänst för enkel och säker bokföring för svenska företag.
+Bokix är en modern, webbaserad bokförings- och faktureringstjänst anpassad för svenska småföretag och entreprenörer.
 
-## Utveckling
+---
 
-Projektet använder React, Vite, Supabase för autentisering och datalagring, samt Vercel för produktion.
+## 🛠 Teknikstack
 
-## Supabase setup
+- **Frontend:** React 19, Vite, Tailwind CSS, Lucide Icons
+- **Backend / API:** Node.js & Express / Vercel Serverless
+- **Databas & Auth:** Supabase (PostgreSQL)
+- **Tester:** Vitest, Playwright
 
-Detta fel betyder att tabellen `public.user_data` saknas i din Supabase-databas.
+---
 
-Kör `supabase-setup.sql` i din Supabase SQL Editor eller via CLI för att skapa tabellen och aktivera RLS.
+## 🚀 Kom igång lokalt
 
-### SQL Editor
-1. Öppna Supabase-projektet.
-2. Gå till SQL Editor.
-3. Klistra in innehållet i `supabase-setup.sql`.
-4. Kör skriptet.
+### 1. Förutsättningar
+- [Node.js](https://nodejs.org/) (version 18 eller senare)
+- npm
 
-### Supabase CLI
-Om du har Supabase CLI installerat kan du köra:
-
-```bash
-supabase db query supabase-setup.sql
-```
-
-När skriptet har kört ska tabellen `user_data` finnas och appen ska kunna läsa/skapa användardata utan 404.
-
-Om du ser `PGRST205` i felsöket, betyder det fortfarande att tabellen saknas eller att Supabase cache inte uppdaterats.
-
-## Stripe Connect
-
-Det finns en Stripe Connect-integration med serverless endpoints under `api/stripe/`.
-
-Konfiguration i Vercel/produktionen:
-
-- `STRIPE_SECRET_KEY` (ska vara din hemliga Stripe-nyckel, börjar med `sk_`)
-- `STRIPE_ONBOARDING_RETURN_URL` (t.ex. `https://din-app.vercel.app`)
-- `STRIPE_ONBOARDING_REFRESH_URL` (t.ex. `https://din-app.vercel.app`)
-- `STRIPE_SUCCESS_URL` (t.ex. `https://din-app.vercel.app/success`)
-- `STRIPE_CANCEL_URL` (t.ex. `https://din-app.vercel.app/cancel`)
-- `STRIPE_WEBHOOK_SECRET` (Stripe webhook secret)
-- `STRIPE_PLATFORM_FEE_PERCENT` (Bokix egen avgift på kundfakturors kortbetalningar, förval `3.5`)
-- `STRIPE_PLATFORM_FEE_FIXED_ORE` (fast del i öre, förval `230` = 2,30 kr — bara adderad för SEK-fakturor)
-
-Bokix avgift är en UPPSKATTNING (Stripes egen kortavgift för ett
-europeiskt kort, 1,5% + 1,80 kr, plus Bokix egen marginal på 2% + 0,50 kr),
-satt i förväg när betalningslänken skapas — Stripes "Platform Pricing
-Tool" (som skulle räknat ut en sann dynamisk avgift efter betalningen)
-stödjer inte den kontotyp Bokix använder (direct charges på Standard-
-konton). Se api/stripe/_invoiceLineItems.js:s kommentar för hela
-resonemanget.
-
-Observera: `pk_`-nyckeln är publicerbar och fungerar inte på servern. Använd `sk_`-nyckeln i Vercel/`.env`.
-
-Lokal utveckling i `.env`:
-
-```env
-VITE_SUPABASE_URL=https://egfsovtwjzmlvggzpizb.supabase.co
-VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-STRIPE_SECRET_KEY=sk_test_xxxxxxxxxxxxxxxxxxxxxxxx
-STRIPE_ONBOARDING_RETURN_URL=http://localhost:5173
-STRIPE_ONBOARDING_REFRESH_URL=http://localhost:5173
-STRIPE_SUCCESS_URL=http://localhost:5173
-STRIPE_CANCEL_URL=http://localhost:5173
-STRIPE_PLATFORM_FEE_PERCENT=3.5
-STRIPE_PLATFORM_FEE_FIXED_ORE=230
-```
-
-Efter att ha lagt till dessa variabler i `.env` kör du:
+### 2. Installation
+Installera projektets beroenden:
 
 ```bash
 npm install
+```
+
+### 3. Miljövariabler
+Kopiera mallen `.env.example` till en ny fil med namnet `.env`:
+
+```bash
+cp .env.example .env
+```
+
+Fyll i nödvändiga lokala utvecklingsnycklar i `.env` vid behov (se `.env.example` för tillgängliga variabler).
+
+### 4. Starta utvecklingsservern
+Starta appen lokalt:
+
+```bash
 npm run dev
 ```
 
-## Supabase Row Level Security (RLS)
+Appen öppnas vanligtvis på `http://localhost:5173`.
 
-För att säkerställa full RLS på Supabase måste tabellen `user_data` ha RLS aktiverat och följande policyer:
+---
 
-1. Aktivera RLS för tabellen `user_data`.
-2. Skapa en policy som tillåter åtkomst endast om raden tillhör den inloggade användaren:
+## 🧪 Skript och kommandon
 
-```sql
--- Allow selects for signed-in users only on their own rows
-CREATE POLICY "Select own user data"
-ON public.user_data
-FOR SELECT
-USING (auth.uid() = user_id);
-
--- Allow inserts by signed-in users with matching user_id
-CREATE POLICY "Insert own user data"
-ON public.user_data
-FOR INSERT
-WITH CHECK (auth.uid() = user_id);
-
--- Allow updates to own rows only
-CREATE POLICY "Update own user data"
-ON public.user_data
-FOR UPDATE
-USING (auth.uid() = user_id)
-WITH CHECK (auth.uid() = user_id);
-
--- Allow deletes of own rows only
-CREATE POLICY "Delete own user data"
-ON public.user_data
-FOR DELETE
-USING (auth.uid() = user_id);
-```
-
-3. Se till att frontenden alltid använder `supabase.auth.getSession()` och filtrerar på `user_id` när data läses eller skrivs.
-
-> Notera: `STRIPE_SECRET_KEY` används endast på servern. Använd `VITE_SUPABASE_ANON_KEY` i frontend, men låt Supabase hantera säkerheten via RLS och policies.
+- `npm run dev` – Startar lokal utvecklingsserver (Vite + backend)
+- `npm test` – Kör hela testsviten med Vitest
+- `npm run lint` – Kör oxlint för snabb kodgranskning
+- `npm run build` – Bygger produktionspaketet
