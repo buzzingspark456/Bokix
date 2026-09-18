@@ -63,4 +63,20 @@ describe('decodeSieBuffer — kodningsdetektering', () => {
     const buf = bufferOf(encodeCp437(text))
     expect(decodeSieBuffer(buf)).toBe(text)
   })
+
+  it('avkodar Windows-1252 (ANSI) filer från Visma/Björn Lundén korrekt', () => {
+    // I Windows-1252: å=0xE5, ä=0xE4, ö=0xF6, Å=0xC5, Ä=0xC4, Ö=0xD6
+    // Text: "#FNAMN \"Åhléns Östra Äng\""
+    const win1252Bytes = new Uint8Array([
+      0x23, 0x46, 0x4E, 0x41, 0x4D, 0x4E, 0x20, 0x22, // #FNAMN "
+      0xC5, 0x68, 0x6C, 0xE9, 0x6E, 0x73, 0x20,       // Åhléns 
+      0xD6, 0x73, 0x74, 0x72, 0x61, 0x20,             // Östra 
+      0xC4, 0x6E, 0x67, 0x22                          // Äng"
+    ])
+    const decoded = decodeSieBuffer(win1252Bytes.buffer)
+    expect(decoded).toContain('Åhl')
+    expect(decoded).toContain('Östra')
+    expect(decoded).toContain('Äng')
+  })
 })
+

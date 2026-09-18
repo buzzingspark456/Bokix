@@ -88,7 +88,6 @@ export default function Payroll({
           — se motsvarande kommentar i Contacts.jsx. */}
       <ListPageHeader
         title="Anställda och lön"
-        subtitle="Hantera dina anställda och kör löner, från bruttolön till bokförd verifikation."
         actions={
           activeTab === 'employees' && viewState === 'list'
             ? [{ key: 'new-employee', label: 'Ny anställd', icon: Plus, onClick: () => { setSelectedEmployee(null); setViewState('new'); }, variant: 'primary' }]

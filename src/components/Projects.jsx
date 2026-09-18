@@ -1239,7 +1239,6 @@ export default function Projects({ projects = [], setProjects, contacts = [], se
           kort-bakgrund + kantlinje, inte flytande text på sidbakgrunden. */}
       <ListPageHeader
         title="Projekt"
-        subtitle="Följs upp lönsamhet, tid och kostnader per projekt"
         actions={[
           { key: 'new', label: 'Nytt projekt', icon: Plus, onClick: () => openNewProjectForm(), variant: 'primary', dataTour: 'page-projects-cta' },
         ]}

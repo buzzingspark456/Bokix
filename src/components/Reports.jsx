@@ -91,12 +91,6 @@ export default function Reports({
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
       <ListPageHeader
         title="Rapport och analys"
-        // Räknar faktiskt synliga rapporter, inte ett hårdkodat "14" —
-        // Lönerapporter (och tills vidare hela Lön & personal-sektionen)
-        // döljs t.ex. helt om företaget inte har några bokförda
-        // lönekörningar, se visibleReportSections. Ett hårdkodat tal här
-        // skulle bli fel så fort en sektion döljs eller läggs till.
-        subtitle={`${sections.reduce((n, s) => n + s.reports.length, 0)} rapporter — öppna en för att se den fullständiga, beräknade vyn`}
       >
         <div className="no-print" style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', marginTop: '10px' }}>
           <select value={period} onChange={e => setPeriod(e.target.value)} style={inputSt}>

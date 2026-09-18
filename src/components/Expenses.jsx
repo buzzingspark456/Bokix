@@ -1174,10 +1174,10 @@ export default function Expenses({
         </div>
       </ListPageHeader>
 
-      {/* Mindre padding än övriga sidor (kundfeedback: "mindre mellanrum
-          mellan sidhuvudet och kvittona, och de får täcka mer från
-          sidorna") — särskilt toppen, där sidhuvudet redan ger egen luft. */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px 20px' }}>
+      {/* Yttre behållaren har ingen padding så tomt-läget (EmptyReceiptsState)
+          sitter flush mot sidhuvudet och sidomenyn, precis som Kontakter/Offerter/
+          Bokföring (facit). När kvitton finns har listan sin egen padding. */}
+      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
         {receiptsList.length === 0 ? (
           <EmptyReceiptsState
             isFilteredEmpty={q || allReceipts.length > 0}
@@ -1187,110 +1187,114 @@ export default function Expenses({
                   : undefined
             }
           />
-        ) : (() => {
-          // Gruppera per månad — men bara när listan faktiskt SPÄNNER över
-          // fler än en, annars är en ensam "September 2026"-rubrik bara
-          // brus ovanför tre kvitton från samma månad. En riktigt lång
-          // lista (flera år av kvitton) är exakt där en sån rubrik hjälper
-          // mest: man skannar efter månaden, inte efter en enskild rad.
-          // Är ett specifikt kalendermånadsfilter aktivt (t.ex. Augusti)
-          // grupperas det som återstår per ÅR istället — månaden är redan
-          // bestämd, det som skiljer raderna åt är vilket år de är från.
-          const groupByYear = monthFilter !== 'all';
-          const groups = new Map();
-          receiptsList.forEach(r => {
-            const key = groupByYear ? ((r.date || '').slice(0, 4) || 'okänt') : ((r.date || '').slice(0, 7) || 'okänt');
-            if (!groups.has(key)) groups.set(key, []);
-            groups.get(key).push(r);
-          });
-          // "Lista"-läget (flatView) slår alltid av rubrikerna, oavsett hur
-          // många grupper det annars hade blivit — allt ligger under
-          // varandra i en enda lista.
-          const showGroups = !flatView && groups.size > 1;
-          const sections = showGroups ? [...groups.entries()] : [[null, receiptsList]];
-          const groupLabel = (key) => key === 'okänt' ? 'Utan datum' : (groupByYear ? key : formatMonthLabel(key));
+        ) : (
+          <div style={{ padding: '10px 14px 20px' }}>
+            {(() => {
+              // Gruppera per månad — men bara när listan faktiskt SPÄNNER över
+              // fler än en, annars är en ensam "September 2026"-rubrik bara
+              // brus ovanför tre kvitton från samma månad. En riktigt lång
+              // lista (flera år av kvitton) är exakt där en sån rubrik hjälper
+              // mest: man skannar efter månaden, inte efter en enskild rad.
+              // Är ett specifikt kalendermånadsfilter aktivt (t.ex. Augusti)
+              // grupperas det som återstår per ÅR istället — månaden är redan
+              // bestämd, det som skiljer raderna åt är vilket år de är från.
+              const groupByYear = monthFilter !== 'all';
+              const groups = new Map();
+              receiptsList.forEach(r => {
+                const key = groupByYear ? ((r.date || '').slice(0, 4) || 'okänt') : ((r.date || '').slice(0, 7) || 'okänt');
+                if (!groups.has(key)) groups.set(key, []);
+                groups.get(key).push(r);
+              });
+              // "Lista"-läget (flatView) slår alltid av rubrikerna, oavsett hur
+              // många grupper det annars hade blivit — allt ligger under
+              // varandra i en enda lista.
+              const showGroups = !flatView && groups.size > 1;
+              const sections = showGroups ? [...groups.entries()] : [[null, receiptsList]];
+              const groupLabel = (key) => key === 'okänt' ? 'Utan datum' : (groupByYear ? key : formatMonthLabel(key));
 
-          return sections.map(([monthKey, items], i) => (
-            <div key={monthKey || 'flat'}>
-              {monthKey && (
-                <div className={`rc-month-head${i === 0 ? ' rc-month-head--first' : ''}`}>
-                  <span>{groupLabel(monthKey)}</span>
-                  <span className="rc-month-total">
-                    {items.length} {items.length === 1 ? 'kvitto' : 'kvitton'} · {formatSEK(items.reduce((s, r) => s + (r.amount || 0), 0))}
-                  </span>
-                </div>
-              )}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: showGroups ? '16px' : 0 }}>
-                {items.map(r => {
-                  const status = getReceiptStatus(r, verifications);
-                  const categoryName = accounts.find(a => a.code === r.costAccount)?.name;
-                  const folderName = r.folderId ? folders.find(f => f.id === r.folderId)?.name : null;
-                  // Vem som laddade upp är bara intressant när det finns fler
-                  // än en person att skilja på (samma resonemang som ovan).
-                  const uploaderName = showUploaderTabs && effectiveTab === 'all' ? displayUploaderName(r.uploadedBy) : null;
-                  const isImage = r.receiptType?.startsWith('image/') && r.receiptUrl;
-                  const isPdf = r.receiptType === 'application/pdf' && r.receiptUrl;
-                  return (
-                    <div
-                      key={r.id}
-                      onClick={() => setDetailReceiptId(r.id)}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDetailReceiptId(r.id); } }}
-                      className="rc-row"
-                    >
-                      <div className="rc-row-thumb">
-                        {isImage ? (
-                          <img src={r.receiptUrl} alt="Kvitto" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.currentTarget.style.display = 'none'; }} />
-                        ) : isPdf ? (
-                          <FileText size={20} color={BRAND.greenDark} />
-                        ) : (
-                          <Receipt size={20} color="var(--text-muted)" />
-                        )}
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: '13.5px', fontWeight: 500, color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.supplier || r.description || 'Namnlöst kvitto'}</div>
-                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{formatDate(r.date)}{categoryName ? ` · ${categoryName}` : ''}{folderName ? ` · ${folderName}` : ''}</div>
-                        {uploaderName && <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '1px' }}>Uppladdat av {uploaderName}</div>}
-                      </div>
-                      <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                        <div style={{ fontSize: '13.5px', fontWeight: 500, color: 'var(--text-main)' }}>{formatSEK(r.amount)}</div>
-                        {status === 'reversed' ? (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end', fontSize: '11.5px', color: BRAND.grayText, fontWeight: 600, marginTop: '2px' }}>
-                            <RotateCcw size={12} /> Rättad
-                          </div>
-                        ) : status === 'booked' ? (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end', fontSize: '11.5px', color: BRAND.greenDark, fontWeight: 600, marginTop: '2px' }}>
-                            <CheckCircle2 size={12} /> Bokförd
-                          </div>
-                        ) : status === 'pending' ? (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end', fontSize: '11.5px', color: BRAND.grayText, fontWeight: 600, marginTop: '2px' }}>
-                            <Clock size={12} /> Pågående
-                          </div>
-                        ) : fixingId === r.id ? (
-                          <div onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
-                            <div style={{ width: 180 }}>
-                              <AccountSearch value={fixAccount} onChange={setFixAccount} accounts={accounts} placeholder="Välj konto..." />
-                            </div>
-                            <button onClick={() => applyFix(r.id)} style={{ padding: '5px 10px', background: BRAND.green, color: 'white', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>Spara</button>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={e => { e.stopPropagation(); setFixingId(r.id); setFixAccount(''); }}
-                            title="Kunde inte bokföras automatiskt — konto saknas"
-                            style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end', background: 'none', border: 'none', color: BRAND.amberText, fontSize: '11.5px', fontWeight: 600, cursor: 'pointer', padding: 0, marginLeft: 'auto', marginTop: '2px' }}
-                          >
-                            <AlertCircle size={12} /> Granska
-                          </button>
-                        )}
-                      </div>
+              return sections.map(([monthKey, items], i) => (
+                <div key={monthKey || 'flat'}>
+                  {monthKey && (
+                    <div className={`rc-month-head${i === 0 ? ' rc-month-head--first' : ''}`}>
+                      <span>{groupLabel(monthKey)}</span>
+                      <span className="rc-month-total">
+                        {items.length} {items.length === 1 ? 'kvitto' : 'kvitton'} · {formatSEK(items.reduce((s, r) => s + (r.amount || 0), 0))}
+                      </span>
                     </div>
-                  );
-                })}
-              </div>
-            </div>
-          ));
-        })()}
+                  )}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: showGroups ? '16px' : 0 }}>
+                    {items.map(r => {
+                      const status = getReceiptStatus(r, verifications);
+                      const categoryName = accounts.find(a => a.code === r.costAccount)?.name;
+                      const folderName = r.folderId ? folders.find(f => f.id === r.folderId)?.name : null;
+                      // Vem som laddade upp är bara intressant när det finns fler
+                      // än en person att skilja på (samma resonemang som ovan).
+                      const uploaderName = showUploaderTabs && effectiveTab === 'all' ? displayUploaderName(r.uploadedBy) : null;
+                      const isImage = r.receiptType?.startsWith('image/') && r.receiptUrl;
+                      const isPdf = r.receiptType === 'application/pdf' && r.receiptUrl;
+                      return (
+                        <div
+                          key={r.id}
+                          onClick={() => setDetailReceiptId(r.id)}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDetailReceiptId(r.id); } }}
+                          className="rc-row"
+                        >
+                          <div className="rc-row-thumb">
+                            {isImage ? (
+                              <img src={r.receiptUrl} alt="Kvitto" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.currentTarget.style.display = 'none'; }} />
+                            ) : isPdf ? (
+                              <FileText size={20} color={BRAND.greenDark} />
+                            ) : (
+                              <Receipt size={20} color="var(--text-muted)" />
+                            )}
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: '13.5px', fontWeight: 500, color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.supplier || r.description || 'Namnlöst kvitto'}</div>
+                            <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{formatDate(r.date)}{categoryName ? ` · ${categoryName}` : ''}{folderName ? ` · ${folderName}` : ''}</div>
+                            {uploaderName && <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '1px' }}>Uppladdat av {uploaderName}</div>}
+                          </div>
+                          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                            <div style={{ fontSize: '13.5px', fontWeight: 500, color: 'var(--text-main)' }}>{formatSEK(r.amount)}</div>
+                            {status === 'reversed' ? (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end', fontSize: '11.5px', color: BRAND.grayText, fontWeight: 600, marginTop: '2px' }}>
+                                <RotateCcw size={12} /> Rättad
+                              </div>
+                            ) : status === 'booked' ? (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end', fontSize: '11.5px', color: BRAND.greenDark, fontWeight: 600, marginTop: '2px' }}>
+                                <CheckCircle2 size={12} /> Bokförd
+                              </div>
+                            ) : status === 'pending' ? (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end', fontSize: '11.5px', color: BRAND.grayText, fontWeight: 600, marginTop: '2px' }}>
+                                <Clock size={12} /> Pågående
+                              </div>
+                            ) : fixingId === r.id ? (
+                              <div onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
+                                <div style={{ width: 180 }}>
+                                  <AccountSearch value={fixAccount} onChange={setFixAccount} accounts={accounts} placeholder="Välj konto..." />
+                                </div>
+                                <button onClick={() => applyFix(r.id)} style={{ padding: '5px 10px', background: BRAND.green, color: 'white', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>Spara</button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={e => { e.stopPropagation(); setFixingId(r.id); setFixAccount(''); }}
+                                title="Kunde inte bokföras automatiskt — konto saknas"
+                                style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end', background: 'none', border: 'none', color: BRAND.amberText, fontSize: '11.5px', fontWeight: 600, cursor: 'pointer', padding: 0, marginLeft: 'auto', marginTop: '2px' }}
+                              >
+                                <AlertCircle size={12} /> Granska
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ));
+            })()}
+          </div>
+        )}
       </div>
 
       {detailReceipt && (

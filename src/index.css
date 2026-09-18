@@ -721,16 +721,6 @@ body {
 
 .app-container {
   display: flex;
-  /* Kundfeedback: "ha liten space mellan menyn och dashbord, jätte lite" —
-     en medveten, mycket liten lucka mellan sidomenyn och innehållet
-     (utöver .sidebar:s egen border-right ovan), INTE samma sak som den
-     gamla display-skalningsbuggen ("ingen space mellan menyn och sidorna",
-     se historisk kommentar vid .sidebar) — den gav en OAVSIKTLIG,
-     inkonsekvent lucka som bara syntes vid vissa skalningsnivåer. Den här
-     är en fast, avsiktlig 6px som alltid syns lika på alla skärmar.
-     Ingen effekt på mobil — sidomenyn ligger där `position:fixed` (se
-     @media 768px), utanför flex-flödet `gap` verkar på. */
-  gap: 6px;
   min-height: 100vh;
   min-height: 100dvh;
 }
@@ -1689,6 +1679,10 @@ body {
    man byter flik, och en hårfin lyftning på kort man kan klicka. Ingen
    effekt för den som bett om mindre rörelse (prefers-reduced-motion
    respekteras av regeln längst ner i den här filen). */
+.settings-content {
+  padding: 24px 20px;
+}
+
 .settings-content [style*="fadeIn"] {
   animation-duration: 0.22s;
 }
@@ -1737,32 +1731,32 @@ body {
     gap: 20px;
   }
   .settings-hub-card {
-    min-height: 230px;
-    padding: 32px 52px 32px 32px;
+    min-height: 154px;
+    padding: 24px 44px 24px 24px;
   }
   .settings-hub-icon {
-    width: 58px;
-    height: 58px;
-    border-radius: 16px;
-    margin-bottom: 22px;
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    margin-bottom: 18px;
   }
   .settings-hub-icon svg {
-    width: 26px;
-    height: 26px;
+    width: 24px;
+    height: 24px;
   }
   .settings-hub-card-arrow {
-    width: 19px;
-    height: 19px;
+    width: 18px;
+    height: 18px;
   }
   .settings-hub-card-title {
-    font-size: 17.5px;
+    font-size: 16px;
   }
   .settings-hub-card-desc {
     font-size: 14.5px;
   }
   .settings-hub-card-arrow {
-    right: 22px;
-    bottom: 22px;
+    right: 20px;
+    bottom: 20px;
   }
 }
 
@@ -1772,8 +1766,8 @@ body {
   align-items: flex-start;
   position: relative;
   width: 100%;
-  min-height: 148px;
-  padding: 20px 44px 20px 20px;
+  min-height: 118px;
+  padding: 18px 36px 18px 18px;
   text-align: left;
   font-family: inherit;
   background: var(--bg-card);

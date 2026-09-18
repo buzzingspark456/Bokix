@@ -1,4 +1,4 @@
-﻿import React, { useMemo, useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import {
   FileText, Receipt, TrendingUp, TrendingDown,
   ChevronRight, ArrowUpRight, ArrowDownRight,
@@ -352,11 +352,6 @@ function KpiCard({ label, value, sub, icon: Icon, color, bg, positive, onClick, 
         <div className="dash-kpi-card-icon" style={{ background: bold ? 'rgba(0,0,0,0.16)' : bg, color: bold ? '#fff' : color, width: 36, height: 36, borderRadius: '9px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: 'none' }}>
           <Icon size={16} />
         </div>
-        {positive != null && (
-          <div style={{ color: bold ? 'rgba(255,255,255,0.9)' : (positive ? BRAND.greenDark : BRAND.redText), fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '2px' }}>
-            {positive ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
-          </div>
-        )}
       </div>
 
       <div style={{ position: 'relative' }}>
@@ -1101,20 +1096,19 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
             en enda källa till sanning istället för två. ─── */}
         <div className="dash-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '14px', marginBottom: '24px' }}>
           <KpiCard
-            label={t('dashboard.kpi.income')} value={fmt(periodOmsattning)} sub={periodBounds.label}
+            label={t('dashboard.kpi.income')} value={fmt(periodOmsattning)}
             icon={ArrowUpRight} color={BRAND.greenDark} bg={LIME_L} positive={true}
             onClick={() => setActiveTab('reports')}
             gradient={kpiGradIncome}
           />
           <KpiCard
-            label={t('dashboard.kpi.costs')} value={fmt(periodKostnader)} sub={periodBounds.label}
+            label={t('dashboard.kpi.costs')} value={fmt(periodKostnader)}
             icon={ArrowDownRight} color={BRAND.redText} bg={RED_L} positive={false}
             onClick={() => setActiveTab('expenses')}
             gradient={kpiGradCost}
           />
           <KpiCard
             label={t('dashboard.kpi.result')} value={fmt(periodResultat)}
-            sub={periodBounds.label}
             icon={periodResultat >= 0 ? TrendingUp : TrendingDown}
             color={periodResultat >= 0 ? BRAND.greenDark : BRAND.redText}
             bg={periodResultat >= 0 ? LIME_L : RED_L}
@@ -1128,7 +1122,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
           <div>
             <h2 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.01em', marginBottom: '4px' }}>
-              {CHART_MODES.find(m => m.id === chartMode)?.label}
+              {t('dashboard.chart.trendTitle')}
             </h2>
             {/* Kort — INTE periodetiketten igen (PeriodHeading ovan visar
                 redan etikett + datum en gång) — bara jämförelsenoten, och
@@ -1138,25 +1132,18 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
                 {t('dashboard.chart.comparedToSamePeriod', { label: comparisonLabelDisplay })}
               </p>
             )}
-            {/* Legenden uppdateras dynamiskt beroende på vald flik — aldrig
-                statisk text som bara passar första vyn. Intäkter/Utgifter-
-                läget använder chartRevenue/chartExpense (blå/rosa) i både
-                punkt och text — samma toner som KPI-korten ovan och ett
-                CVD-säkert par (se konstant-kommentaren). Resultat-läget
-                behåller det klassiska grönt/rött eftersom det är en enda
-                serie vars läge mot nollinjen (inte färgen) bär betydelsen.
-                Föregående års siffror (när de finns) läggs till som en egen,
-                dämpad/streckad post — samma "form, inte färg, bär den andra
-                dimensionen"-princip som graferna längre ner använder. */}
-            {chartMode === 'revenue-expense' && (
+            {/* Visas bara när det faktiskt finns diagramdata. Upprepar INTE
+                totalsummorna från KPI-korten ovanför, utan fungerar som en ren
+                färgförklaring (legend) för serierna. */}
+            {hasChartData && chartMode === 'revenue-expense' && (
               <div style={{ display: 'flex', gap: '18px', marginTop: '10px', flexWrap: 'wrap' }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: chartRevenue, fontWeight: 600 }}>
                   <span style={{ width: 10, height: 10, borderRadius: '50%', background: chartRevenue, display: 'inline-block' }} />
-                  {t('dashboard.chart.legendIncome')} {fmt(periodOmsattning)}
+                  {t('dashboard.chart.legendIncome')}
                 </span>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: chartExpense, fontWeight: 600 }}>
                   <span style={{ width: 10, height: 10, borderRadius: '50%', background: chartExpense, display: 'inline-block' }} />
-                  {t('dashboard.chart.legendExpense')} {fmt(periodKostnader)}
+                  {t('dashboard.chart.legendExpense')}
                 </span>
                 {hasPrevYearData && (
                   <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>
@@ -1166,16 +1153,16 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
                 )}
               </div>
             )}
-            {chartMode === 'result' && (
+            {hasChartData && chartMode === 'result' && (
               <div style={{ display: 'flex', gap: '18px', marginTop: '10px', flexWrap: 'wrap' }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: periodResultat >= 0 ? BRAND.greenDark : BRAND.redText }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: periodResultat >= 0 ? BRAND.greenDark : BRAND.redText, fontWeight: 600 }}>
                   <span style={{ width: 10, height: 10, borderRadius: '50%', background: periodResultat >= 0 ? REVENUE : EXPENSE, display: 'inline-block' }} />
-                  {t('dashboard.chart.legendResult')} {fmt(periodResultat)}
+                  {t('dashboard.chart.legendResult')}
                 </span>
                 {hasPrevYearData && (
                   <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>
                     {legendSwatch('var(--text-muted)', true)}
-                    {t('dashboard.chart.legendResult')} {comparisonLabelDisplay} {fmt(prevYearResultatTotal)}
+                    {t('dashboard.chart.legendResult')} {comparisonLabelDisplay}
                   </span>
                 )}
               </div>

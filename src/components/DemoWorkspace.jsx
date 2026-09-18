@@ -216,7 +216,7 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
             onAdd={(expense) => setDemoExpenses(prev => [...prev, { ...expense, id: `demo_${Date.now()}` }])}
             onFixExpenseAccount={blocked}
             onSaveReceiptDetails={blocked} onDeleteExpense={blocked} onReverseExpense={blocked}
-            pageTitle="Kvitton" pageSubtitle="Alla uppladdade kvitton" uploadFn={demoUploadFn}
+            pageTitle="Kvitton" uploadFn={demoUploadFn}
           />
         );
       case 'projects':

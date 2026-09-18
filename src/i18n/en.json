@@ -73,6 +73,7 @@
       "dismiss": "Dismiss"
     },
     "chart": {
+      "trendTitle": "Development",
       "modeOverview": "Overview",
       "modeRevenueExpense": "Revenue vs Expenses",
       "modeResult": "Result",

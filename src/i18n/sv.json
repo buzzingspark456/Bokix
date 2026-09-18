@@ -73,6 +73,7 @@
       "dismiss": "Dölj"
     },
     "chart": {
+      "trendTitle": "Utveckling",
       "modeOverview": "Översikt",
       "modeRevenueExpense": "Intäkter vs Utgifter",
       "modeResult": "Resultat",

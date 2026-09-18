@@ -212,6 +212,44 @@ describe('parseSieFile — CP437-avkodning i praktiken', () => {
     expect(result.meta.companyName).toBe('Åkeriet i Örebro AB')
     expect(result.accounts[0].name).toBe('Bankkonto för överföring')
   })
+
+  it('en SIE4-fil från Visma eller Björn Lundén i Windows-1252 avkodas och parsas utan trasiga å/ä/ö', () => {
+    // Windows-1252 encoding helper
+    function toWin1252Buffer(str) {
+      const bytes = new Uint8Array(str.length)
+      for (let i = 0; i < str.length; i++) {
+        const c = str.charCodeAt(i)
+        bytes[i] = c <= 0xFF ? c : 0x3F
+      }
+      return bytes.buffer
+    }
+
+    const sieText = [
+      '#FLAGGA 0',
+      '#PROGRAM "Visma Administration" 2026.0',
+      '#FORMAT PC8',
+      '#GEN 20260301',
+      '#SIETYP 4',
+      '#FNAMN "Björn Lundén & Söner AB"',
+      '#ORGNR 556123-4567',
+      '#RAR 0 20260101 20261231',
+      '#KONTO 1930 "Företagskonto / Checkräkning"',
+      '#KONTO 3001 "Försäljning inom Sverige"',
+      '#VER A 1 20260115 "Inbetalning från kund i Örebro"',
+      '{',
+      '\t#TRANS 1930 {} 2500.00',
+      '\t#TRANS 3001 {} -2500.00',
+      '}',
+    ].join('\r\n')
+
+    const buffer = toWin1252Buffer(sieText)
+    const result = parseSieFile(buffer)
+    expect(result.meta.program).toContain('Visma Administration')
+    expect(result.meta.companyName).toBe('Björn Lundén & Söner AB')
+    expect(result.accounts[0].name).toBe('Företagskonto / Checkräkning')
+    expect(result.verifications[0].description).toBe('Inbetalning från kund i Örebro')
+    expect(result.verifications[0].balanced).toBe(true)
+  })
 })
 
 describe('buildOpeningVerification — #IB → verklig öppningsverifikation', () => {

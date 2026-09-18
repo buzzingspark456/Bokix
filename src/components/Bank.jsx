@@ -313,7 +313,6 @@ export default function Bank({
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
       <ListPageHeader
         title="Bank"
-        subtitle="Importera kontoutdrag (CSV/Excel), matcha mot fakturor och bokför"
         actions={[
           // Kundönskemål: flera bankkonton, namngivna, med egen import och
           // eget bokföringskonto. Knappen ligger kvar även med bara ett

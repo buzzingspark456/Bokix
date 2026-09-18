@@ -90,28 +90,58 @@ export function decodeCp437(bytes) {
 /** Avgör bäst-möjliga textkodning för en uppladdad SIE-fil UTAN att lita
  * blint på filens egen `#FORMAT`-deklaration — verkliga exportfiler visar
  * sig ibland vara UTF-8 trots att de säger PC8/CP437 (samma lärdom som
- * bankImport.js:s decodeBankCsvText redan bakade in för CSV-filer).
+ * bankImport.js:s decodeBankCsvText redan bakade in för CSV-filer), och
+ * vissa program (t.ex. Visma, äldre Björn Lundén-installationer eller
+ * filer sparade/redigerade i Windows Anteckningar) är kodade i Windows-1252 /
+ * ISO-8859-1 (ANSI) trots att de har `#FORMAT PC8` i huvudet.
  *
- * Bugkritiskt (hittat under testskrivning, inte bara i teorin): den
- * första versionen av den här funktionen provade CP437 FÖRST och letade
- * efter "trasiga"/ersättningstecken för att avgöra om den skulle falla
- * tillbaka till UTF-8 — men CP437 har en giltig glyf för VARJE byte
- * 0x00–0xFF, så en felaktigt CP437-avkodad UTF-8-fil ger aldrig ett
- * ersättningstecken att upptäcka, bara tyst fel text (mojibake). CP437
- * kan alltså aldrig signalera sin egen felaktighet den vägen.
- *
- * Rätt ordning är den OMVÄNDA: prova STRIKT UTF-8-avkodning först (med
- * `fatal:true`) — riktig UTF-8 har strikta regler för flerbytesekvenser,
- * så en fil som råkar vara giltig UTF-8 (och innehåller faktiska å/ä/ö)
- * är det i praktiken alltid VERKLIGEN, inte av en slump. Misslyckas den
- * strikta UTF-8-avkodningen (kastar), är bytesen med mycket stor
- * säkerhet enkel-byte-data — då litar vi på filens egen PC8-deklaration
- * och CP437-avkodar. */
+ * Rätt prioriteringsordning:
+ * 1. Prova STRIKT UTF-8-avkodning först (med `fatal:true`). Riktig UTF-8 har
+ *    strikta flerbyteregler (å = 0xC3 0x85). Om detta lyckas och är giltigt,
+ *    är filen med mycket stor sannolikhet UTF-8.
+ * 2. Om UTF-8 misslyckas (kastar p.g.a. ogiltiga bytes), är filen en
+ *    enkelbyte-kodning. Då skiljer vi mellan CP437 (DOS PC8, standarden i SIE)
+ *    och Windows-1252 / Latin-1 (ANSI, vanligt från Visma/BL):
+ *    - Svenska tecken i CP437: å (0x86), ä (0x84), ö (0x94), Å (0x8F), Ä (0x8E), Ö (0x99).
+ *    - Svenska tecken i Windows-1252: å (0xE5), ä (0xE4), ö (0xF6), Å (0xC5), Ä (0xC4), Ö (0xD6).
+ *    Genom att räkna förekomsten av dessa tecken i filen avgörs med säkerhet
+ *    om filen är Windows-1252 eller CP437, så att å/ä/ö aldrig blir grekiska
+ *    bokstäver (σ, Σ, ÷) vid import från Visma eller Björn Lundén.
+ */
 export function decodeSieBuffer(arrayBuffer) {
   const bytes = new Uint8Array(arrayBuffer);
   try {
     return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
   } catch {
+    // UTF-8 misslyckades — enkelbyte-kodning. Räkna förekomster av svenska tecken:
+    let cp437Score = 0;
+    let win1252Score = 0;
+    for (let i = 0; i < bytes.length; i++) {
+      const b = bytes[i];
+      // CP437: å (0x86), ä (0x84), ö (0x94), Å (0x8F), Ä (0x8E), Ö (0x99)
+      if (b === 0x86 || b === 0x84 || b === 0x94 || b === 0x8F || b === 0x8E || b === 0x99) {
+        cp437Score++;
+      }
+      // Windows-1252: å (0xE5), ä (0xE4), ö (0xF6), Å (0xC5), Ä (0xC4), Ö (0xD6)
+      else if (b === 0xE5 || b === 0xE4 || b === 0xF6 || b === 0xC5 || b === 0xC4 || b === 0xD6) {
+        win1252Score++;
+      }
+    }
+
+    if (win1252Score > cp437Score) {
+      try {
+        return new TextDecoder('windows-1252').decode(bytes);
+      } catch {
+        // Fallback om windows-1252 decoder saknas i miljön
+        let out = '';
+        for (let i = 0; i < bytes.length; i++) {
+          out += String.fromCharCode(bytes[i]);
+        }
+        return out;
+      }
+    }
+
     return decodeCp437(bytes);
   }
 }
+

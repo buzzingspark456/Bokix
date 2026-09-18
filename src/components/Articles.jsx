@@ -272,7 +272,6 @@ export default function Articles({ articles = [], setArticles, accounts = [] }) 
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
       <ListPageHeader
         title="Artikel"
-        subtitle="Ditt artikelregister — välj samma artiklar direkt på fakturor och offerter"
         actions={[
           { label: 'Exportera', icon: Download, onClick: handleExportCsv, variant: 'secondary' },
           { label: 'Importera', icon: Upload, onClick: handleImportClick, variant: 'secondary' },

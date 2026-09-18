@@ -4166,7 +4166,6 @@ function App() {
             onDeleteExpense={handleDeleteExpense}
             onReverseExpense={handleReverseExpense}
             pageTitle="Kvitton"
-            pageSubtitle="Alla uppladdade kvitton"
           />
         );
       case 'supplier_invoices':

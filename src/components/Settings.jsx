@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Building2, CreditCard, Shield, Check, Download, Upload,
   Trash2, Mail, Laptop, Lock, KeyRound, Image as ImageIcon,
@@ -206,7 +206,6 @@ function SettingsHub({ sections, onPick }) {
               <Icon size={20} strokeWidth={2.2} />
             </span>
             <span className="settings-hub-card-title">{section.label}</span>
-            {meta.desc && <span className="settings-hub-card-desc">{meta.desc}</span>}
             <ArrowRight size={16} className="settings-hub-card-arrow" />
           </button>
         );
@@ -3345,7 +3344,7 @@ export default function Settings({
             Inställningar
           </span>
         )}
-        subtitle={activeSection ? (SECTION_META[activeSection.id]?.desc || '') : 'Välj vad du vill ändra.'}
+        subtitle={activeSection ? (SECTION_META[activeSection.id]?.desc || '') : undefined}
         actions={activeSection
           ? [{ key: 'back', label: 'Alla inställningar', icon: ArrowLeft, onClick: () => handleSetTab(null) }]
           : []}
@@ -3374,7 +3373,7 @@ export default function Settings({
           egen padding runt om — brett nog för läsbart innehåll, smalt
           nog för att faktiskt centrera i stället för att fortsätta
           sträcka sig kant i kant. */}
-      <div data-tour="page-settings-nav" className="settings-content" style={{ flex: 1, minWidth: 0, overflowY: 'auto' }}>
+      <div data-tour="page-settings-nav" className="settings-content" style={{ flex: 1, minWidth: 0, overflowY: 'auto', padding: '24px 20px' }}>
         <div style={activeSection ? { minWidth: 0, maxWidth: '1200px', margin: '0 auto' } : { minWidth: 0 }}>
           {!activeSection && <SettingsHub sections={visibleSections} onPick={handleSetTab} />}
           {/* 1. Säkerhet (hette Min profil) — kundönskemål (skärmdump av en

@@ -775,7 +775,6 @@ export default function Taxes({
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
       <ListPageHeader
         title="Skatt och bokslut"
-        subtitle="Momsredovisning, årsbokslut och inkomstdeklaration"
         tabs={{ items: sectionTabs, activeId: activeSection, onChange: setActiveSection }}
       />
 
