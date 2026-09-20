@@ -97,5 +97,24 @@ if (await greeting.count() > 0) await greeting.evaluate((el) => { el.style.displ
 await page.waitForTimeout(300);
 await shot(null, 'bokix-oversikt-dashboard-uf-dark.png');
 
+// Tillbaka till ljust läge + Inställningar → Säkerhet (/sakerhet). Beskuren
+// (page.screenshot+clip, inte body.screenshot som auto-expanderar till hela
+// scrollhöjden) strax efter tvåfaktorsautentisering, FÖRE "Aktiva
+// sessioner" — den sektionen visar just nu ett "kräver ett riktigt konto"-
+// meddelande i demon, inte en funktion att visa upp på en marknadssida.
+await panel.locator('button[title*="ljust" i]').first().click({ timeout: 5000 });
+await page.waitForTimeout(500);
+await nav('Inställningar');
+await panel.getByText('Säkerhet', { exact: true }).first().click({ timeout: 5000 });
+await page.waitForTimeout(1200);
+{
+  const box = await body.boundingBox();
+  await page.screenshot({
+    path: `${OUT_DIR}/bokix-installningar-sakerhet.png`,
+    clip: { x: box.x, y: box.y, width: box.width, height: 740 },
+  });
+  console.log('✓ bokix-installningar-sakerhet.png');
+}
+
 await browser.close();
 console.log('Klart.');
