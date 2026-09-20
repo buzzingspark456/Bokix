@@ -25,7 +25,6 @@
     "jspdf": "^4.2.1",
     "lucide-react": "^1.28.0",
     "multer": "^2.3.0",
-    "node-tesseract-ocr": "^2.2.1",
     "nodemailer": "^10.0.3",
     "papaparse": "^5.7.0",
     "pdfjs-dist": "^6.3.289",

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Handshake } from 'lucide-react';
+import { Handshake } from './icons';
 import { PolicyLayout, PolicySection, PolicyTable, PolicyCallout, policyP, policyLi, policyUl } from './marketing/PolicyLayout';
 import { ACCENT } from './marketing/marketingTokens';
 
@@ -33,7 +33,7 @@ export default function PersonuppgiftsBitradesAvtal() {
       title="Personuppgiftsbiträdesavtal"
       accent={ACCENT.blue}
       path="/pub"
-      updated="2026-09-07"
+      updated="2026-09-20"
       metaTitle="Personuppgiftsbiträdesavtal (PUB) | Bokix"
       metaDescription="Villkoren för Bokix behandling av personuppgifter för din räkning, enligt artikel 28 i GDPR — gäller automatiskt för alla företagskunder."
       intro="Reglerar Bokix behandling av personuppgifter för din räkning, i enlighet med artikel 28 i EU:s dataskyddsförordning (GDPR)."
@@ -84,7 +84,7 @@ export default function PersonuppgiftsBitradesAvtal() {
 
       <PolicySection n={5} title="Underbiträden">
         <p style={policyP}>
-          Du godkänner härmed generellt att Bokix anlitar följande underbiträden för att leverera tjänsten. Samma lista som <Link to="/privacy" style={{ color: ACCENT.blue.fg, fontWeight: 600 }}>Integritetspolicyns</Link> avsnitt 4 — håll koll där om listan uppdateras.
+          Du godkänner härmed generellt att Bokix anlitar följande underbiträden för att leverera tjänsten. Samma lista som <Link to="/privacy" style={{ color: ACCENT.blue.fg, fontWeight: 600 }}>Integritetspolicyns</Link> avsnitt 4, förutom analysverktygen (se nedan) — håll koll där om listan uppdateras.
         </p>
         <PolicyTable
           head={['Underbiträde', 'Roll']}
@@ -96,6 +96,9 @@ export default function PersonuppgiftsBitradesAvtal() {
             ['Google', 'Endast om du själv kopplat din Gmail-adress som avsändare — utskicket går då genom ditt eget konto. Bokix har enbart behörighet att skicka, aldrig att läsa.'],
           ]}
         />
+        <p style={policyP}>
+          Analysverktygen på webbplatsen (Google Analytics, Microsoft Clarity och PostHog) mäter besök på bokix.se och behandlar inte din bokföringsdata eller dina kunders uppgifter, och är därför inte underbiträden enligt det här avtalet. De redovisas i <Link to="/privacy" style={{ color: ACCENT.blue.fg, fontWeight: 600 }}>Integritetspolicyn</Link> och <Link to="/cookies" style={{ color: ACCENT.blue.fg, fontWeight: 600 }}>Cookiepolicyn</Link>.
+        </p>
         <p style={policyP}>
           Bokix meddelar dig om nya underbiträden läggs till eller byts ut (via ändring av den här sidan och Integritetspolicyn), så du har möjlighet att invända. Bokix ansvarar för att varje underbiträde är bundet av samma dataskyddsåtaganden som gäller enligt det här avtalet.
         </p>

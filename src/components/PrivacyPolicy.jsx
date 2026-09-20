@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ShieldCheck } from 'lucide-react';
+import { ShieldCheck } from './icons';
 import { PolicyLayout, PolicySection, PolicyTable, policyP, policyLi, policyUl } from './marketing/PolicyLayout';
 import { ACCENT } from './marketing/marketingTokens';
 
@@ -23,7 +23,7 @@ export default function PrivacyPolicy() {
       title="Integritetspolicy"
       accent={ACCENT.blue}
       path="/privacy"
-      updated="2026-09-07"
+      updated="2026-09-20"
       metaTitle="Integritetspolicy | Bokix"
       metaDescription="Vilken personuppgiftsinformation Bokix samlar in, varför, hur länge den sparas och vilka rättigheter du har enligt GDPR."
       intro="Vilken personuppgiftsinformation vi samlar in när du använder tjänsten, varför, hur länge den sparas, och vilka rättigheter du har enligt EU:s dataskyddsförordning (GDPR)."
@@ -69,6 +69,7 @@ export default function PrivacyPolicy() {
           <li style={policyLi}><strong>Resend</strong> — e-postleverantör. Skickar fakturor och offerter du väljer att mejla till dina kunder (mottagarens adress, ämnesrad, innehåll och eventuell PDF-bilaga går genom Resend).</li>
           <li style={policyLi}><strong>Vercel</strong> — driftar och hostar hela tjänsten (webbappen och de serverfunktioner som hanterar t.ex. betalningar och e-post). All trafik till Bokix passerar genom Vercels infrastruktur.</li>
           <li style={policyLi}><strong>Vercel BotID</strong> — automatiserad bot-/missbruksdetektering på formulär (t.ex. registrering), en del av Vercel-plattformen ovan.</li>
+          <li style={policyLi}><strong>Analysverktyg, bara med ditt samtycke</strong> — Google Analytics (Google), Microsoft Clarity (Microsoft) och PostHog mäter hur besökare använder Bokix och sätts först efter att du klickat "Acceptera alla" i cookiebannern. PostHog körs i EU-molnet (Frankfurt) och används bara för att räkna sidvisningar. Ingen bokföringsdata, inga kunduppgifter och inga klick eller inmatningar skickas dit. Exakt vilka cookies som sätts står i <a href="/cookies" style={link}>cookiepolicyn</a>.</li>
           <li style={policyLi}><strong>Google</strong> — <em>endast om du själv väljer att koppla din Gmail-adress som avsändare</em> (Inställningar → Fakturautskick). Fakturan skickas då genom ditt eget Google-konto i stället för via Bokix. Se avsnitt 5 nedan för exakt vad det innebär.</li>
         </ul>
         <p style={policyP}>
@@ -105,7 +106,7 @@ export default function PrivacyPolicy() {
           Själva lagringen av din bokföring — databasen och de filer du laddar upp — sker inom EU, i Frankfurt, Tyskland (se avsnitt 4). Kopplar du din egen Gmail-adress (avsnitt 5) hanteras det utskicket av Google, ett amerikanskt bolag, på samma villkor som övriga leverantörer nedan.
         </p>
         <p style={policyP}>
-          Flera av underleverantörerna i avsnitt 4 (bland annat Stripe, Resend och Vercel) är amerikanska bolag och kan behandla uppgifter i, eller från, USA. När det sker gör vi det bara med ett giltigt överföringsverktyg på plats — till exempel att leverantören är ansluten till EU-U.S. Data Privacy Framework, eller att vi har standardavtalsklausuler (SCC) med dem — i enlighet med respektive leverantörs egna dataskyddsvillkor. Vill du se vilket verktyg som gäller för en specifik leverantör, kontakta oss på <a href="mailto:support@bokix.se" style={link}>support@bokix.se</a>.
+          Flera av underleverantörerna i avsnitt 4 (bland annat Stripe, Resend, Vercel och analysverktygen) är amerikanska bolag och kan behandla uppgifter i, eller från, USA. När det sker gör vi det bara med ett giltigt överföringsverktyg på plats — till exempel att leverantören är ansluten till EU-U.S. Data Privacy Framework, eller att vi har standardavtalsklausuler (SCC) med dem — i enlighet med respektive leverantörs egna dataskyddsvillkor. Vill du se vilket verktyg som gäller för en specifik leverantör, kontakta oss på <a href="mailto:support@bokix.se" style={link}>support@bokix.se</a>.
         </p>
       </PolicySection>
 

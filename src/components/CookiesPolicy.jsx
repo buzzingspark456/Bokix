@@ -1,4 +1,4 @@
-import { Cookie } from 'lucide-react';
+import { Cookie } from './icons';
 import { PolicyLayout, PolicySection, PolicyTable, PolicyCode, PolicyCallout, policyP } from './marketing/PolicyLayout';
 import { ACCENT } from './marketing/marketingTokens';
 
@@ -27,14 +27,14 @@ export default function CookiesPolicy() {
       title="Cookiepolicy"
       accent={ACCENT.teal}
       path="/cookies"
-      updated="2026-09-07"
+      updated="2026-09-20"
       metaTitle="Cookiepolicy | Bokix"
       metaDescription="Exakt vilka cookies och liknande lagringstekniker Bokix sätter i din webbläsare, och hur du hanterar ditt samtycke."
       intro="Den här sidan listar exakt vilka cookies och liknande tekniker Bokix faktiskt sätter i din webbläsare — inte en generisk mall."
     >
       <PolicySection n={1} title="Sammanfattning" first>
         <PolicyCallout tone="good">
-          Bokix använder inga marknadsförings- eller reklamcookies. Vi använder Google Analytics och Microsoft Clarity för grundläggande besöksstatistik, men bara om du aktivt godkänt det i cookiebannern — ingen av dem sätts innan du sagt ja.
+          Bokix använder inga marknadsförings- eller reklamcookies. Vi använder Google Analytics, Microsoft Clarity och PostHog för grundläggande besöksstatistik, men bara om du aktivt godkänt det i cookiebannern — ingen av dem sätts innan du sagt ja.
         </PolicyCallout>
         <p style={policyP}>
           De nödvändiga cookies nedan kräver inget samtycke enligt gällande regler (de behövs för att logga in och för att tjänsten ska fungera), men analyscookies gör det, och sätts bara efter att du klickat "Acceptera alla" i cookiebannern som visas vid ditt första besök.
@@ -72,7 +72,10 @@ export default function CookiesPolicy() {
 
       <PolicySection n={5} title="Analys — kräver ditt samtycke">
         <p style={policyP}>
-          Vi använder Google Analytics och Microsoft Clarity för att förstå hur besökare hittar och använder Bokix marknadsföringssidor — Clarity visar oss dessutom var på sidan besökare klickar och scrollar (skärminspelningar och klickkartor), men Microsoft maskerar all text och alla inmatningsfält som kan innehålla personlig eller känslig information innan något sparas. Båda körs via samma princip: mätscripten laddas alltid, men sätts uttryckligen till "nekad" (denied) tills du valt "Acceptera alla" i cookiebannern. Väljer du "Endast nödvändiga" stannar analys-cookies nekade, permanent, tills du själv ändrar dig via "Cookieinställningar" i sidfoten. Vi har inte kopplat något annonskonto till Clarity, så de av Clarity/Microsofts cookies som annars används för annonsering (t.ex. <PolicyCode>MUID</PolicyCode>) sätts aldrig av Bokix.
+          Vi använder Google Analytics, Microsoft Clarity och PostHog för att förstå hur besökare hittar och använder Bokix — Clarity visar oss dessutom var på sidan besökare klickar och scrollar (skärminspelningar och klickkartor), men Microsoft maskerar all text och alla inmatningsfält som kan innehålla personlig eller känslig information innan något sparas. Båda körs via samma princip: mätscripten laddas alltid, men sätts uttryckligen till "nekad" (denied) tills du valt "Acceptera alla" i cookiebannern. Väljer du "Endast nödvändiga" stannar analys-cookies nekade, permanent, tills du själv ändrar dig via "Cookieinställningar" i sidfoten. Vi har inte kopplat något annonskonto till Clarity, så de av Clarity/Microsofts cookies som annars används för annonsering (t.ex. <PolicyCode>MUID</PolicyCode>) sätts aldrig av Bokix.
+        </p>
+        <p style={policyP}>
+          PostHog (EU-molnet, Frankfurt) använder vi bara för att räkna sidvisningar, så att vi ser vilka sidor som besöks. Allt annat PostHog kan göra har vi medvetet stängt av: ingen sessionsinspelning, inga klickkartor, ingen automatisk loggning av vad du klickar på eller skriver, och ingen mätning av felmeddelanden eller sidprestanda. Till skillnad från Google Analytics och Clarity sätter PostHog ingenting alls i din webbläsare förrän du klickat "Acceptera alla" — det enda som sparas dessförinnan är en liten notering om att du sagt nej, så att valet respekteras.
         </p>
         <PolicyTable
           head={['Namn', 'Typ', 'Ändamål', 'Livslängd']}
@@ -83,6 +86,8 @@ export default function CookiesPolicy() {
             [<>
               <PolicyCode>_clck</PolicyCode> / <PolicyCode>_clsk</PolicyCode> / <PolicyCode>CLID</PolicyCode>
             </>, 'Cookie (Microsoft Clarity)', 'Håller isär besökare och kopplar ihop sidvisningar till samma besök, för skärminspelningar och klickstatistik. Sätts bara efter att du klickat "Acceptera alla".', '_clck/CLID: 1 år, _clsk: 1 dag'],
+            [<PolicyCode>ph_*_posthog</PolicyCode>, 'Cookie och localStorage (PostHog)', 'Ger webbläsaren ett slumpat, anonymt id så att sidvisningar från samma besök hänger ihop. Sätts bara efter att du klickat "Acceptera alla".', 'Cookie: 1 år. localStorage: tills du rensar webbläsardata'],
+            [<PolicyCode>__ph_opt_in_out_*</PolicyCode>, 'localStorage (PostHog)', 'Kommer ihåg om du tackat ja eller nej till PostHog, så att valet respekteras vid nästa besök. Innehåller inget id.', 'Tills du rensar webbläsardata'],
             [<PolicyCode>bokix_cookie_consent</PolicyCode>, 'Cookie', 'Kommer ihåg ditt val i cookiebannern (accepterat eller nekat), så bannern inte visas på varje besök.', '12 månader'],
           ]}
         />

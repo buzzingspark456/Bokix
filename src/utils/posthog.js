@@ -44,7 +44,39 @@ export function ensurePosthogInit(granted) {
         // scriptets EGEN uppstart) hade bara räknat den allra första sidan
         // varje besök.
         capture_pageview: false,
+        // Bara sidvisningar (PageviewTracker), inget annat — och det är
+        // exakt det cookiepolicyn/integritetspolicyn lovar. PostHogs
+        // standard är annars autocapture PÅ (loggar varje klick med
+        // elementets text/attribut) och den här init:en körs även inne i
+        // den inloggade bokföringsappen, där ett klick kan vara på ett
+        // kundnamn eller ett belopp. Sessionsinspelning, enkäter och
+        // feature flags används inte alls, så de laddas inte heller
+        // (enkät-scriptet hämtades tidigare ändå, se nätverksloggen).
+        // Samma sak för det PostHog annars slår på via projektets
+        // fjärrkonfiguration (config.js): dead-click-fångst, web vitals,
+        // "conversations"-widgeten och produktturer hämtades ändå efter
+        // att autocapture stängts av (verifierat i nätverksloggen).
+        autocapture: false,
+        capture_dead_clicks: false,
+        capture_heatmaps: false,
+        rageclick: false,
+        capture_exceptions: false,
+        capture_performance: false,
+        disable_session_recording: true,
+        disable_surveys: true,
+        disable_conversations: true,
+        disable_product_tours: true,
+        advanced_disable_feature_flags: true,
         opt_out_capturing_by_default: !granted,
+        // opt_out_capturing_by_default stoppar bara SÄNDNINGEN av händelser,
+        // inte lagringen: utan den här raden satte PostHog ändå sin
+        // besökar-id-cookie (ph_<nyckel>_posthog, 1 år) och ett localStorage-
+        // id direkt vid uppstart, även för den som just valt "Endast
+        // nödvändiga" (verifierat i webbläsare). Ett id lagrat före
+        // samtycke är exakt det ePrivacy förbjuder och det cookiepolicyn
+        // säger inte händer. opt_in_capturing() (consent.js) slår på
+        // lagringen igen först när besökaren faktiskt accepterat.
+        opt_out_persistence_by_default: !granted,
         // PostHogs eget verktygsfält (Toolbar — klicka dig till Actions/
         // Heatmaps direkt på den riktiga sidan, från PostHog-dashboarden)
         // letar efter `window.posthog` och varnar annars rakt i konsolen

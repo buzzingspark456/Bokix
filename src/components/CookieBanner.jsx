@@ -67,7 +67,7 @@ export default function CookieBanner() {
         <div style={{ padding: '22px 24px 6px' }}>
           <div style={{ fontSize: '15.5px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '8px' }}>Den här webbplatsen använder cookies</div>
           <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.65 }}>
-            Nödvändiga cookies för inloggning och grundfunktion är alltid aktiva. Vi använder också Google Analytics för grundläggande besöksstatistik, men bara om du väljer "Acceptera alla" — inga marknadsförings- eller reklamcookies används oavsett vad du väljer.{' '}
+            Nödvändiga cookies för inloggning och grundfunktion är alltid aktiva. Vi använder också Google Analytics, Microsoft Clarity och PostHog för besöksstatistik, men bara om du väljer "Acceptera alla" — inga marknadsförings- eller reklamcookies används oavsett vad du väljer.{' '}
             <Link to="/cookies" style={{ color: BRAND.greenDark, fontWeight: 600, textDecoration: 'underline' }}>Läs mer i vår cookiepolicy</Link>.
           </p>
         </div>
@@ -97,7 +97,7 @@ export default function CookieBanner() {
               <div style={{ position: 'absolute', top: 2, left: statsPreview ? 20 : 2, width: 18, height: 18, borderRadius: '50%', background: 'var(--bg-card)', transition: 'left 0.15s' }} />
             </button>
             {/* Samma kontrastfix som "Alltid aktiva" ovan. */}
-            <div style={{ fontSize: '10.5px', color: 'var(--text-secondary)', marginTop: '6px' }}>Google Analytics</div>
+            <div style={{ fontSize: '10.5px', color: 'var(--text-secondary)', marginTop: '6px' }}>Google Analytics, Clarity, PostHog</div>
           </div>
         </div>
 
