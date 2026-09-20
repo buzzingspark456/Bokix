@@ -11,7 +11,7 @@ import AnchoredDropdown, { useDismissOnOutsideClick } from './shared/AnchoredDro
 import { uploadFileToStorage } from '../utils/fileUpload';
 import { BRAND } from '../utils/brandColors';
 import { confirmDialog } from './shared/ConfirmDialog';
-import { parseReceiptText } from '../utils/ocrReceipt';
+import { parseReceiptText, OCR_DRAFT_VERSION } from '../utils/ocrReceipt';
 import { readDocumentText } from '../utils/ocrCache';
 import { ScanOverlay, OcrChecklist, MIN_SCAN_MS, REVEAL_STEP_MS, CACHED_SCAN_MS } from './shared/ScanExperience';
 import { convertToSek } from '../utils/currencyConversion';
@@ -225,7 +225,9 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
   // avläsning. "Läs av igen" gör en ny. Bara för kvitton som ännu inte är
   // ifyllda på riktigt: ett sparat kvitto har sina egna värden.
   const isUnprocessedAtOpen = !receipt.supplier && (!receipt.amount || Number(receipt.amount) === 0) && !receipt.costAccount;
-  const draft = isUnprocessedAtOpen && !readOnly ? (receipt.ocrDraft || null) : null;
+  // Ett utkast från en äldre tolkning (utan v, eller med lägre v) används inte: se OCR_DRAFT_VERSION.
+  const currentDraft = receipt.ocrDraft && receipt.ocrDraft.v === OCR_DRAFT_VERSION ? receipt.ocrDraft : null;
+  const draft = isUnprocessedAtOpen && !readOnly ? currentDraft : null;
   const [form, setForm] = useState({
     date: draft?.form?.date || receipt.date || new Date().toISOString().split('T')[0],
     supplier: receipt.supplier || draft?.form?.supplier || '',
@@ -404,6 +406,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
         source: foreignInfo.converted ? 'ecb' : 'manual',
       } : null;
       onSaveOcrDraftRef.current?.(receipt.id, {
+        v: OCR_DRAFT_VERSION,
         scannedAt: new Date().toISOString(),
         form: draftForm,
         revealed: draftRevealed,
@@ -462,7 +465,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
   const isUnprocessed = !receipt.supplier && (!receipt.amount || Number(receipt.amount) === 0) && !receipt.costAccount;
   
   useEffect(() => {
-    if (hasReceiptFile && isUnprocessed && !readOnly && !receipt.ocrDraft) {
+    if (hasReceiptFile && isUnprocessed && !readOnly && !currentDraft) {
       runOcr(receipt.receiptUrl);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -631,7 +634,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                   }}
                 >
                   <ScanLine size={14} style={{ animation: ocrStatus === 'scanning' ? 'spin 1s linear infinite' : 'none' }} />
-                  {ocrStatus === 'scanning' ? 'Läser…' : (receipt.ocrDraft || Object.keys(revealed).length > 0 ? 'Läs av igen' : 'Läs av')}
+                  {ocrStatus === 'scanning' ? 'Läser…' : (currentDraft || Object.keys(revealed).length > 0 ? 'Läs av igen' : 'Läs av')}
                 </button>
               )}
               {statusMeta && (

@@ -380,7 +380,7 @@ describe('kvittonummer utan bindestreck', () => {
   });
 });
 
-import { findReceiptNumberDetailed } from './ocrReceipt.js';
+import { findReceiptNumberDetailed, repairNumberLabels } from './ocrReceipt.js';
 
 describe('nummer på kvitton, fakturor och order', () => {
   const kindOf = (lines) => findReceiptNumberDetailed(lines)?.kind ?? null;
@@ -785,5 +785,42 @@ describe('Elgiganten-kvittot, riktig avläsning av fotot', () => {
   })
   it('ett belopp med valuta efter etiketten blir inget nummer', () => {
     expect(findReceiptNumberDetailed(['Ordernummer:', '| SMILLA', '12345 kr'])).toBeNull()
+  })
+})
+
+// Telefonfoton av Elgiganten-kvittot (suddigt, snett, ojämnt ljus). Raderna är
+// de OCR faktiskt gav vid en simulerad fotoserie, utan kundens uppgifter.
+describe('kvittonummer på ett fotat kvitto', () => {
+  it('rättar felstavade etiketter', () => {
+    expect(repairNumberLabels(['Ordermummer: SMILLA', 'Orgernummer 2026', '0rdernummer:', 'Fakturanurnmer 123'])).toEqual(
+      ['Ordernummer: SMILLA', 'Ordernummer 2026', 'Ordernummer:', 'Fakturanummer 123'])
+  })
+  it('rör inte vanliga ord eller ord med många siffror', () => {
+    expect(repairNumberLabels(['Organisationsnummer 556677', 'Kundnummer 12345', 'Kvitto', '2302039269'])).toEqual(
+      ['Organisationsnummer 556677', 'Kundnummer 12345', 'Kvitto', '2302039269'])
+  })
+  it('läser numret trots "Ordermummer" och brus efter numret', () => {
+    const r = findReceiptNumberDetailed(['ELGIGANTEN', 'Kvitto', 'a Ordermummer: SMILLA', '2302039269 Bas EE', 'Take now'])
+    expect(r).toEqual({ number: '2302039269', kind: 'order', label: 'Ordernummer' })
+  })
+  it('datum och tid efter etiketten är inget nummer, även utan bindestreck', () => {
+    expect(findReceiptNumberDetailed(['Ordernummer 20260526 10.34 |', '2302039269 |'])?.number).toBe('2302039269')
+    expect(findReceiptNumberDetailed(['Ordernummer 202605261834 SMILLA', '2302039269 |'])?.number).toBe('2302039269')
+  })
+  it('ett 8-siffrigt fakturanummer utan klockslag är fortfarande ett nummer', () => {
+    expect(findReceiptNumberDetailed(['Fakturanummer 20240117', 'Datum 2024-01-17'])?.number).toBe('20240117')
+  })
+  it('utan läsbar etikett räcker ett nummer som står två gånger', () => {
+    const r = findReceiptNumberDetailed(['Kvitto', 'a 2302039269', 'Totalt 899.00', 'b055ac6-2302039269 Typ:'])
+    expect(r).toEqual({ number: '2302039269', kind: 'unknown', label: 'Nummer' })
+  })
+  it('utan etikett och utan upprepning används en ensam siffersträng högt upp', () => {
+    const r = findReceiptNumberDetailed(['Elgiganten', 'Kvitto', 'ol 2302039269 SMILL', 'Take now', 'Totalt 899.00'])
+    expect(r?.number).toBe('2302039269')
+  })
+  it('kortterminalens referens och telefonnummer blir aldrig kvittonummer', () => {
+    expect(findReceiptNumberDetailed(['Anbud: CN2E001779813220014 referens:', 'G6CD169927149ffa251e656'])).toBeNull()
+    expect(findReceiptNumberDetailed(['Kvitto', '+46705667610', 'Telefon: +46705667610', 'Totalt 899.00'])).toBeNull()
+    expect(findReceiptNumberDetailed(['Kvitto', '0705667610', 'Ordernummer:', 'Kund Anna Andersson', '0705667610'])).toBeNull()
   })
 })

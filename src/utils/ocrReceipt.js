@@ -198,6 +198,85 @@ async function renderPdfPageToCanvas(blob) {
 const MAX_OCR_DIMENSION = 1800;
 
 /**
+ * Gör ett foto lättare för Tesseract att läsa: gråskala, jämnar ut ojämnt ljus
+ * (varje punkt delas med medelvärdet runt omkring, så skuggor och en lampas
+ * ljuspunkt försvinner) och sträcker ut kontrasten. Ett fotat kvitto har
+ * nästan alltid ojämn belysning, och Tesseracts egen tröskling klarar den
+ * dåligt: svag text försvinner i skuggan. Rent pixelarbete i JavaScript, inte
+ * canvas-filter, eftersom filter saknas i äldre Safari. Hoppas över för
+ * mycket stora bilder, och vid minsta fel returneras bilden som den var.
+ */
+function enhanceCanvasForOcr(canvas) {
+  try {
+    const w = canvas.width; const h = canvas.height;
+    if (!w || !h || w * h > 6000000) return canvas;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    const image = ctx.getImageData(0, 0, w, h);
+    const px = image.data;
+    const n = w * h;
+    const gray = new Float32Array(n);
+    for (let i = 0, j = 0; j < n; i += 4, j++) gray[j] = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
+    // Lätt brusreducering (3x3-medel) så kamerabrus inte blir hundratals små
+    // fläckar som Tesseract lägger tid på: både snabbare och säkrare avläsning.
+    const tmp = new Float32Array(n);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const a = x > 0 ? gray[y * w + x - 1] : gray[y * w + x];
+        const c = x < w - 1 ? gray[y * w + x + 1] : gray[y * w + x];
+        tmp[y * w + x] = (a + gray[y * w + x] * 2 + c) / 4;
+      }
+    }
+    for (let y = 0; y < h; y++) {
+      const up = y > 0 ? y - 1 : y; const down = y < h - 1 ? y + 1 : y;
+      for (let x = 0; x < w; x++) gray[y * w + x] = (tmp[up * w + x] + tmp[y * w + x] * 2 + tmp[down * w + x]) / 4;
+    }
+    // Medelvärde i ett fönster via en integralbild (en kolumn extra/rad extra).
+    const iw = w + 1;
+    const integral = new Float64Array(iw * (h + 1));
+    for (let y = 1; y <= h; y++) {
+      let rowSum = 0;
+      for (let x = 1; x <= w; x++) {
+        rowSum += gray[(y - 1) * w + (x - 1)];
+        integral[y * iw + x] = integral[(y - 1) * iw + x] + rowSum;
+      }
+    }
+    const r = Math.max(14, Math.round(Math.min(w, h) / 22));
+    const out = new Float32Array(n);
+    let lo = 255; let hi = 0;
+    for (let y = 0; y < h; y++) {
+      const y0 = Math.max(0, y - r); const y1 = Math.min(h, y + r + 1);
+      for (let x = 0; x < w; x++) {
+        const x0 = Math.max(0, x - r); const x1 = Math.min(w, x + r + 1);
+        const sum = integral[y1 * iw + x1] - integral[y0 * iw + x1] - integral[y1 * iw + x0] + integral[y0 * iw + x0];
+        const mean = sum / ((x1 - x0) * (y1 - y0));
+        const v = Math.min(255, (gray[y * w + x] / (mean + 1)) * 200);
+        out[y * w + x] = v;
+        if (v < lo) lo = v;
+        if (v > hi) hi = v;
+      }
+    }
+    // Kontraststräckning: de mörkaste och ljusaste procenten sätts till svart/vitt.
+    const hist = new Uint32Array(256);
+    for (let j = 0; j < n; j++) hist[Math.max(0, Math.min(255, Math.round(out[j])))]++;
+    let acc = 0; let black = 0; let white = 255;
+    for (let v = 0; v < 256; v++) { acc += hist[v]; if (acc >= n * 0.01) { black = v; break; } }
+    acc = 0;
+    for (let v = 255; v >= 0; v--) { acc += hist[v]; if (acc >= n * 0.35) { white = v; break; } }
+    if (white - black < 40) { black = lo; white = hi; }
+    const span = Math.max(1, white - black);
+    for (let i = 0, j = 0; j < n; i += 4, j++) {
+      const v = Math.max(0, Math.min(255, ((out[j] - black) / span) * 255));
+      px[i] = v; px[i + 1] = v; px[i + 2] = v;
+    }
+    ctx.putImageData(image, 0, 0);
+    return canvas;
+  } catch (err) {
+    console.warn('[OCR] Bildförbättringen misslyckades, kör på originalet:', err);
+    return canvas;
+  }
+}
+
+/**
  * Förminskar en bild (Blob/File) eller canvas till max MAX_OCR_DIMENSION på
  * långsidan innan den går till Tesseract — no-op om den redan är mindre.
  * `imageOrientation: 'from-image'` läser av EXIF-rotationen på riktiga
@@ -222,7 +301,7 @@ async function downscaleForOcr(imageSource) {
     canvas.width = Math.round(bitmap.width * scale);
     canvas.height = Math.round(bitmap.height * scale);
     canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    return canvas;
+    return enhanceCanvasForOcr(canvas);
   } finally {
     bitmap.close?.();
   }
@@ -319,6 +398,14 @@ export async function ocrFile(input, onProgress) {
   return await extractTextFromImage(blob, onProgress);
 }
 
+/**
+ * Version på hur en avläsning tolkas. Ett sparat utkast (ocrDraft) från en äldre
+ * version används inte längre: kvittot tolkas om (av den redan lästa texten om
+ * den finns i cachen, annars läses det om) så att förbättringar i tolkningen,
+ * till exempel av ordernumret, når kvitton som skannades innan de fanns.
+ */
+export const OCR_DRAFT_VERSION = 2;
+
 const round2 = (v) => Math.round(v * 100) / 100;
 const VAT_RATES = [25, 12, 6];
 
@@ -391,7 +478,9 @@ const NUMBER_KINDS = [
   { kind: 'bon', label: 'Bonnummer', re: /bon\s*-?\s*(?:nr|nummer)\.?|nota\s*-?\s*(?:nr|nummer)?\.?|k[oö]p\s*-?\s*(?:nr|nummer|id)\.?/i },
   { kind: 'referens', label: 'Referensnummer', re: /referens\s*-?\s*(?:nr|nummer)?\.?|reference\s*-?\s*(?:no|nr|number)\.?|ref\.?\s*-?\s*(?:nr|nummer|no)\.?/i },
 ];
-const NOT_A_NUMBER_LINE_RE = /org\.?\s*nr|orgnr|\btel\b|telefon|phone|moms(?:reg)?\.?\s*nr|vat\s*(?:no|nr|number|id)|kund\s*-?\s*(?:nr|nummer)|customer\s*(?:no|nr|number|id)|personnummer|bankgiro|plusgiro|\biban\b/i;
+// Kortterminalens rader (Anbud, referens, MID, TID, Streckkod) innehåller långa
+// koder som ser ut som nummer men aldrig är kvittots eget: de hoppas över.
+const NOT_A_NUMBER_LINE_RE = /org\.?\s*nr|orgnr|\btel\b|telefon|phone|moms(?:reg)?\.?\s*nr|vat\s*(?:no|nr|number|id)|kund\s*-?\s*(?:nr|nummer)|customer\s*(?:no|nr|number|id)|personnummer|bankgiro|plusgiro|\biban\b|\banbud\b|streckkod|\bmid\b|\bptid\b|\btid\b|terminal|korttyp/i;
 const NUMBER_TOKEN = '([A-Za-z0-9#][A-Za-z0-9\\-/]{2,29})';
 // Efter numret får inte en valuta, en enhet eller ett procenttecken följa:
 // "Order 250 kr" är ett belopp, inte ett ordernummer.
@@ -403,10 +492,113 @@ function acceptableNumber(token) {
   if (t.length < 3 || !/\d/.test(t)) return null;
   if (/^(?:19|20)\d{2}[-/.]\d{1,2}[-/.]\d{1,2}$/.test(t)) return null;
   if (/^\d{6}-\d{4}$/.test(t)) return null; // org.-/personnummer med bindestreck
+  // Datum och klockslag där OCR tappat tecknen emellan: 2026-05-26 18:34 blir 202605261834.
+  if (/^(?:19|20)\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])(?:[01]\d|2[0-3])[0-5]\d(?:[0-5]\d)?$/.test(t)) return null;
   // En lång hex-sträng med både siffror och bokstäver är en kortterminalens
   // referens eller en hash, inte ett kvittonummer.
   if (/^(?=.*[a-f])(?=.*\d)[0-9a-f]{16,}$/i.test(t)) return null;
   return t;
+}
+
+// ── Felaktigt lästa etiketter ────────────────────────────────────────────
+// OCR på ett foto läser ofta "Ordernummer" som "Ordermummer" (n blir m),
+// "Orgernummer" eller "0rdernummer", och då hittar inte etikettmönstren
+// ovan någonting. Ett ord som ligger högst två tecken från en känd etikett
+// rättas därför till etiketten innan numret letas upp. Bara långa ord
+// (minst 10 tecken) rättas, så ett vanligt ord aldrig av misstag blir en etikett.
+const FUZZY_LABEL_WORDS = ['ordernummer', 'fakturanummer', 'kvittonummer', 'beställningsnummer', 'bestallningsnummer'];
+// Tecken som OCR förväxlar: kostar ingenting att byta mot varandra.
+const OCR_LOOKALIKES = { '0': 'o', '1': 'l', 'i': 'l', '5': 's', '8': 'b', '6': 'g' };
+const fold = (ch) => OCR_LOOKALIKES[ch] || ch;
+
+function labelDistance(word, target, limit) {
+  if (Math.abs(word.length - target.length) > limit) return limit + 1;
+  const prev = Array.from({ length: target.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= word.length; i++) {
+    let last = prev[0];
+    prev[0] = i;
+    let rowMin = prev[0];
+    for (let j = 1; j <= target.length; j++) {
+      const cost = fold(word[i - 1]) === fold(target[j - 1]) ? 0 : 1;
+      const tmp = prev[j];
+      prev[j] = Math.min(prev[j] + 1, prev[j - 1] + 1, last + cost);
+      last = tmp;
+      if (prev[j] < rowMin) rowMin = prev[j];
+    }
+    if (rowMin > limit) return limit + 1;
+  }
+  return prev[target.length];
+}
+
+/** Rättar felstavade etiketter ("Ordermummer") till den riktiga ("Ordernummer"). */
+export function repairNumberLabels(lines) {
+  return (lines || []).map(line => String(line).replace(/[A-Za-zÅÄÖåäö0-9]{10,}/g, (word) => {
+    const lower = word.toLowerCase();
+    if (FUZZY_LABEL_WORDS.includes(lower)) return word;
+    // Ett ord som är mest siffror är ett nummer, inte en etikett.
+    if ((lower.match(/\d/g) || []).length > 2) return word;
+    for (const target of FUZZY_LABEL_WORDS) {
+      if (labelDistance(lower, target, 2) <= 2) return target.charAt(0).toUpperCase() + target.slice(1);
+    }
+    return word;
+  }));
+}
+
+// ── Ett nummer som upprepas ───────────────────────────────────────────────
+// Ordernumret står ofta två gånger: högt upp och sedan igen i kortköpets
+// referens ("...-2302039269"). När etiketten inte gick att läsa är det ett
+// starkt tecken att en lång siffersträng förekommer på minst två rader. Inte
+// telefonnummer, datum, giltiga org.-/personnummer (Luhn) eller kortterminalens
+// rader räknas.
+function luhnValid(digits) {
+  let sum = 0;
+  for (let i = 0; i < digits.length; i++) {
+    let d = Number(digits[i]);
+    if ((digits.length - i) % 2 === 0) { d *= 2; if (d > 9) d -= 9; }
+    sum += d;
+  }
+  return sum % 10 === 0;
+}
+
+function findRepeatedIdentifier(lines) {
+  const seen = new Map(); // siffersträng -> antal rader
+  const order = [];
+  lines.forEach((line) => {
+    if (NOT_A_NUMBER_LINE_RE.test(line) || /^\s*\+/.test(line)) return;
+    const found = new Set();
+    for (const m of String(line).matchAll(/(?<![\d+.,])(\d{8,14})(?![\d.,]\d)(?!\d)/g)) found.add(m[1]);
+    found.forEach((digits) => {
+      if (!seen.has(digits)) { seen.set(digits, 0); order.push(digits); }
+      seen.set(digits, seen.get(digits) + 1);
+    });
+  });
+  for (const digits of order) {
+    if (seen.get(digits) < 2) continue;
+    if (/^(?:07\d{8}|46\d{9,10})$/.test(digits)) continue;              // mobilnummer
+    if (acceptableNumber(digits) === null) continue;                       // datum m.m.
+    if (digits.length === 10 && luhnValid(digits)) continue;               // org.-/personnummer
+    return { number: digits, kind: 'unknown', label: 'Nummer' };
+  }
+  return null;
+}
+
+// Sista utvägen när varken etikett eller upprepning hittades: en rad högt upp
+// som bara består av en lång siffersträng (med högst ett kort brusord bredvid),
+// som "2302039269" under Kvitto-rubriken. Bara de femton första raderna, och
+// aldrig telefonnummer, datum, org.-/personnummer eller kortterminalens rader.
+function findLoneHeaderNumber(lines) {
+  for (let i = 0; i < Math.min(15, lines.length); i++) {
+    const line = String(lines[i]).replace(/^[|~[\]¥\\/\s]+|[|~[\]¥\\/\s]+$/g, '');
+    if (!line || NOT_A_NUMBER_LINE_RE.test(line)) continue;
+    const m = line.match(/^(?:[^\d\s]{1,3}\s+)?(\d{9,14})(?:\s+[^\d\s]{1,7}){0,2}$/);
+    if (!m) continue;
+    const digits = m[1];
+    if (/^(?:07\d{8}|46\d{9,10})$/.test(digits)) continue;
+    if (acceptableNumber(digits) === null) continue;
+    if (digits.length === 10 && luhnValid(digits)) continue;
+    return { number: digits, kind: 'unknown', label: 'Nummer' };
+  }
+  return null;
 }
 
 /**
@@ -418,7 +610,21 @@ function acceptableNumber(token) {
  * raden under (som i tabeller och många PDF-fakturor) läses det därifrån.
  */
 export function findReceiptNumberDetailed(lines) {
-  const list = lines || [];
+  const list = repairNumberLabels(lines || []);
+  const labelled = findLabelledNumber(list);
+  // Ett upprepat nummer går före ett svagt märkt (referens/transaktion): det är
+  // oftast en kortterminals kod, inte kvittots eget nummer.
+  if (!labelled || labelled.kind === 'referens' || labelled.kind === 'transaktion') {
+    // Den ensamma siffersträngen används bara när ingen numeretikett alls gick att
+    // läsa. Finns en etikett men numret bredvid den underkändes (ett datum, en rad
+    // med fler ord emellan) är det ett medvetet nej, inte något att gissa fram.
+    const hasLabel = list.some(line => /(?:order|faktura|kvitto|invoice|receipt|best[aä]llnings?)\s*-?\s*(?:nr|nummer|no|number|id)\b/i.test(line));
+    return findRepeatedIdentifier(list) || labelled || (hasLabel ? null : findLoneHeaderNumber(list));
+  }
+  return labelled;
+}
+
+function findLabelledNumber(list) {
   for (const { kind, label, re } of NUMBER_KINDS) {
     const inline = new RegExp(`\\b(?:${re.source})[\\s:#.\\-]+${NUMBER_TOKEN}${NOT_FOLLOWED_BY_UNIT}`, 'i');
     const lead = new RegExp(`\\b(?:${re.source})[\\s:#.\\-]*`, 'i');
@@ -433,6 +639,11 @@ export function findReceiptNumberDetailed(lines) {
       let inlineNumber = null;
       while (!inlineNumber && (m = scan.exec(line))) {
         inlineNumber = acceptableNumber(m[1]);
+        // 20260526 följt av ett klockslag (10.34) är datum och tid som OCR tappat
+        // bindestrecken i, inte ett nummer. Ett 8-siffrigt fakturanummer som
+        // 20240117 utan klockslag efter sig är däremot ett vanligt nummer.
+        if (inlineNumber && /^(?:19|20)\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])$/.test(inlineNumber)
+          && /^\s*\d{1,2}[.:]\d{2}/.test(line.slice(m.index + m[0].length))) inlineNumber = null;
         scan.lastIndex = m.index + 1;
       }
       if (inlineNumber) return { number: inlineNumber, kind, label };
