@@ -13,6 +13,7 @@ import { generatePayslipPdf } from '../utils/payslipExport';
 import { describeRow } from '../utils/plainBooking';
 import { downloadAgiPdf } from '../utils/agiExport';
 import { downloadAgiXml } from '../utils/agiXml';
+import { AGI_XML_ENABLED } from '../utils/featureFlags';
 import { preloadSkattetabell } from '../utils/skattetabell';
 import { downloadSalaryPaymentFile, getDebtorAccountError } from '../utils/salaryPaymentFile';
 
@@ -804,7 +805,9 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
         <div style={{ ...panelCard, marginTop: '28px', padding: '20px' }}>
           <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 8px' }}>AGI och skatt</h3>
           <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 14px', lineHeight: 1.5 }}>
-            Filen nedan är klar att ladda upp hos Skatteverket: välj "Deklarera via fil" i e-tjänsten Lämna arbetsgivardeklaration, granska och signera med BankID. Skatteverket kräver arbetsgivarens egen signatur, så Bokix skickar inte in den åt dig. Vill du hellre fylla i för hand finns samma uppgifter som PDF.
+            {AGI_XML_ENABLED
+              ? 'Filen nedan är klar att ladda upp hos Skatteverket: välj "Deklarera via fil" i e-tjänsten Lämna arbetsgivardeklaration, granska och signera med BankID. Skatteverket kräver arbetsgivarens egen signatur, så Bokix skickar inte in den åt dig. Vill du hellre fylla i för hand finns samma uppgifter som PDF.'
+              : 'Sammanställning (huvuduppgift + individuppgift per anställd) för arbetsgivardeklarationen (AGI). Skatteverket kräver arbetsgivarens egen BankID-signatur vid inlämning, så Bokix skickar inte in den automatiskt — men underlaget nedan är klart att skriva av.'}
           </p>
           <div className="form-row-2" style={{ display: 'grid', gap: '10px', fontSize: '13.5px', marginBottom: '16px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>Total bruttolön</span><span style={{ fontWeight: 700 }}>{fmt(totals.gross)} kr</span></div>
@@ -813,20 +816,22 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
           </div>
 
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '18px' }}>
-            <button
-              onClick={() => {
-                const result = downloadAgiXml({ company, period: run.period, computedRows }, `agi-${run.period}.xml`);
-                setAgiFileProblems({ errors: result.errors, warnings: result.warnings });
-              }}
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}
-            >
-              <Download size={14} /> Ladda ner AGI-fil för Skatteverket (XML)
-            </button>
+            {AGI_XML_ENABLED && (
+              <button
+                onClick={() => {
+                  const result = downloadAgiXml({ company, period: run.period, computedRows }, `agi-${run.period}.xml`);
+                  setAgiFileProblems({ errors: result.errors, warnings: result.warnings });
+                }}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}
+              >
+                <Download size={14} /> Ladda ner AGI-fil för Skatteverket (XML)
+              </button>
+            )}
             <button
               onClick={() => downloadAgiPdf({ company, period: run.period, computedRows, totals }, `agi-${run.period}.pdf`)}
               style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border)', borderRadius: '8px', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}
             >
-              <Download size={14} /> Sammanställning (PDF)
+              <Download size={14} /> {AGI_XML_ENABLED ? 'Sammanställning (PDF)' : 'Ladda ner AGI-sammanställning (PDF)'}
             </button>
             <a
               href="https://www.skatteverket.se/foretag"

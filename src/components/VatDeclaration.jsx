@@ -6,6 +6,7 @@ import {
 } from '../utils/vatCalculation';
 import { VAT_RUTOR, OUTPUT_VAT_ACCOUNT_BY_RATE, INPUT_VAT_ACCOUNT, VAT_SETTLEMENT_ACCOUNT, REVERSE_OUTPUT_VAT_ACCOUNT_BY_RATE, REVERSE_INPUT_VAT_ACCOUNT } from '../utils/vatConfig';
 import { downloadVatDeclarationPdf, downloadVatDeclarationXml } from '../utils/vatDeclarationExport';
+import { REVERSE_CHARGE_ESKD_VERIFIED } from '../utils/featureFlags';
 
 const fmt = (v) => new Intl.NumberFormat('sv-SE').format(v || 0);
 
@@ -93,6 +94,10 @@ export default function VatDeclaration({
     .filter(r => r.kind === 'net' || (r.value ?? 0) !== 0);
 
   const isRefund = rounded.netToPay < 0;
+  const hasReverseCharge = !REVERSE_CHARGE_ESKD_VERIFIED && (
+    (rounded.reversePurchaseEu || 0) !== 0 || (rounded.reversePurchaseNonEu || 0) !== 0 || (rounded.inputVatReverse || 0) !== 0
+    || [25, 12, 6].some(r => (rounded.reverseVatByRate?.[r] || 0) !== 0)
+  );
 
   const handleBook = () => {
     if (isBooked || bookingRef.current) return;
@@ -363,6 +368,11 @@ export default function VatDeclaration({
                 >
                   <Download size={14} /> Ladda ner fil för uppladdning (XML)
                 </button>
+                {hasReverseCharge && (
+                  <p style={{ fontSize: '12px', color: 'var(--status-amber-text, #92400e)', background: 'var(--status-amber-bg, #fef3c7)', borderRadius: '8px', padding: '9px 11px', margin: 0, lineHeight: 1.5 }}>
+                    Perioden innehåller omvänd skattskyldighet (ruta 20–24 och 30–32). Filen med de rutorna är ännu inte provad hos Skatteverket. Kontrollera värdena i e-tjänsten efter uppladdningen, eller fyll i de rutorna för hand från PDF:en.
+                  </p>
+                )}
                 {xmlError && (
                   <p style={{ fontSize: '12px', color: 'var(--status-red-text)', margin: 0, lineHeight: 1.4 }}>{xmlError}</p>
                 )}
