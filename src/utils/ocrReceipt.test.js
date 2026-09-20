@@ -720,3 +720,58 @@ describe('momstabell utan ordet moms på raden', () => {
     expect(r.vatVerified).toBe(false)
   })
 });
+
+import { pdfItemsToText } from './ocrReceipt.js';
+
+describe('PDF-text med radbrytningar', () => {
+  const item = (str, y, extra = {}) => ({ str, transform: [1, 0, 0, 1, 10, y], ...extra });
+
+  it('delar upp text på y-koordinat och behåller ordningen', () => {
+    const text = pdfItemsToText([
+      item('ICA', 700), item('SUPERMARKET', 700),
+      item('Datum:', 680), item('2026-09-14', 680),
+      item('Mjölk', 660), item('18,90', 660),
+      item('Totalt:', 640), item('135,00 kr', 640),
+    ]);
+    expect(text.split('\n')).toEqual(['ICA SUPERMARKET', 'Datum: 2026-09-14', 'Mjölk 18,90', 'Totalt: 135,00 kr']);
+  });
+
+  it('bryter också vid radslut som pdf.js markerar', () => {
+    const text = pdfItemsToText([item('Rad ett', 700, { hasEOL: true }), item('Rad två', 700)]);
+    expect(text).toBe('Rad ett\nRad två');
+  });
+
+  it('ger rätt belopp och leverantör ur ett kvitto-PDF (var förut allt på en rad)', () => {
+    const text = pdfItemsToText([
+      item('ICA SUPERMARKET', 700), item('Exempelgatan 1', 690), item('Datum: 2026-09-14', 670),
+      item('Mjölk', 650), item('18,90', 650), item('Ost', 640), item('84,10', 640),
+      item('Totalt: 135,00 kr', 620), item('Moms 12 %: 14,46', 610), item('Kortköp Mastercard', 600), item('Kvittonr 48213', 590),
+    ]);
+    const p = parseReceiptText(text);
+    expect(p.amount).toBe(135);
+    expect(p.supplier).toBe('ICA');
+    expect(p.date).toBe('2026-09-14');
+  });
+});
+
+describe('dokument som inte är kvitton', () => {
+  it('ett CV som nämner en butik och ett pris fylls inte i', () => {
+    const p = parseReceiptText('Anna Andersson\nCurriculum Vitae\nArbetslivserfarenhet\n2021-2024 Säljare, Elgiganten, Stockholm. Kampanjer till 359 kr.\nUtbildning\nGymnasieexamen 2020\nKompetenser\nKundservice, Excel');
+    expect(p.notReceipt).toBe(true);
+    expect(p.supplier).toBeNull();
+    expect(p.amount).toBeNull();
+  });
+});
+
+describe('leverantör på fakturor', () => {
+  it('tar namnet, inte en fältrad som Fakturanummer eller Org.nr', () => {
+    const p = parseReceiptText([
+      'Faktura', 'Fakturanummer: 20261042', 'Fakturadatum: 2026-09-10', 'Förfallodatum: 2026-10-10',
+      'Kontorsbolaget AB, Org.nr 556123-4567', 'Bankgiro 123-4567',
+      'Kontorsstol 1 200,00', 'Moms 25 % 300,00', 'Att betala: 1 500,00 kr',
+    ].join('\n'));
+    expect(p.supplier).toBe('Kontorsbolaget AB');
+    expect(p.amount).toBe(1500);
+    expect(p.receiptNumber).toBe('20261042');
+  });
+});

@@ -100,6 +100,35 @@ const ID_LIKE_LINE_RE = /\bref\b|\bnr\b|\border\b|\bnummer\b|\borg\.?\s*nr\b|\bt
 const DATE_LIKE_LINE_RE = /\b(?:20|19)\d{2}[-/.]\d{1,2}[-/.]\d{1,2}\b|\b\d{1,2}[-/.]\d{1,2}[-/.](?:20|19)\d{2}\b/;
 
 /**
+ * Gör om pdf.js textdelar till text med radbrytningar. Delarna kommer i
+ * läsordning med en y-koordinat (transform[5]); en ny rad börjar när y ändras
+ * eller pdf.js markerar radslut. Tidigare slogs allt ihop till EN rad, och då
+ * blev hela dokumentet "leverantör" och belopp, nummer och datum fick byta
+ * plats i tolkningen, som arbetar rad för rad.
+ */
+export function pdfItemsToText(items) {
+  const lines = [];
+  let cur = '';
+  let lastY = null;
+  for (const item of items || []) {
+    if (!item || typeof item.str !== 'string') continue;
+    const y = Array.isArray(item.transform) ? item.transform[5] : null;
+    if (lastY !== null && y !== null && Math.abs(y - lastY) > 3 && cur.trim()) {
+      lines.push(cur.trim());
+      cur = '';
+    }
+    if (item.str) cur += (cur && !cur.endsWith(' ') && !item.str.startsWith(' ') ? ' ' : '') + item.str;
+    if (y !== null) lastY = y;
+    if (item.hasEOL && cur.trim()) {
+      lines.push(cur.trim());
+      cur = '';
+    }
+  }
+  if (cur.trim()) lines.push(cur.trim());
+  return lines.join('\n');
+}
+
+/**
  * Extraherar text ur en digital PDF i webbläsaren med pdfjs-dist.
  */
 async function extractTextFromPdf(blob, onProgress) {
@@ -122,9 +151,7 @@ async function extractTextFromPdf(blob, onProgress) {
     for (let i = 1; i <= maxPages; i++) {
       const page = await pdf.getPage(i);
       const textContent = await page.getTextContent();
-      const pageText = textContent.items
-        .map(item => ('str' in item ? item.str : ''))
-        .join(' ');
+      const pageText = pdfItemsToText(textContent.items);
       fullText += pageText + '\n';
     }
 
@@ -848,13 +875,21 @@ export function parseReceiptText(text) {
   // supplierMatched förblir false här med flit.
   if (!supplier) {
     const skipRe = /^(\d[\d\s/.-]{4,}|\s*|kvitto|receipt|faktura|invoice|org\.?nr|datum|date|order|nr|org)$/i;
+    // Rader som är fält och inte ett namn ("Fakturanummer: 2026104", "Datum",
+    // "Org.nr"). Står etiketten efter ett namn ("Kontorsbolaget AB, Org.nr
+    // 556123-4567") används texten före etiketten.
+    const labelRe = /(?:faktura|kvitto|invoice|receipt)\s*(?:nummer|nr|no\.?|datum|date)|f[öo]rfallo\w*|betalningsvillkor|bankgiro|plusgiro|org\.?\s*nr|organisationsnummer|vat\s*(?:id|no|number)|momsreg\w*|\bdatum\b|\bdate\b|\btotal\w*|att betala|\bsumma\b|\bmoms\b/i;
     for (const line of lines) {
-      if (line.length >= 3 && !skipRe.test(line) && !line.includes('http') && !line.includes('@')) {
-        const clean = line.replace(/[^\w\s&åäöÅÄÖ.,-]/g, '').trim();
-        if (clean.length >= 2 && !/^\d+$/.test(clean)) {
-          supplier = clean;
-          break;
-        }
+      if (line.length < 3 || skipRe.test(line) || line.includes('http') || line.includes('@')) continue;
+      let candidate = line;
+      const label = labelRe.exec(candidate);
+      if (label) candidate = candidate.slice(0, label.index).replace(/[,;:|–-]\s*$/, '').trim();
+      if (candidate.length < 2 || ANY_DATE_RE.test(candidate)) continue;
+      const clean = candidate.replace(/[^\w\s&åäöÅÄÖ.,-]/g, '').trim();
+      const letters = (clean.match(/\p{L}/gu) || []).length;
+      if (clean.length >= 2 && !/^\d+$/.test(clean) && letters / clean.length >= 0.5) {
+        supplier = clean;
+        break;
       }
     }
   }

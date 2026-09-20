@@ -1,11 +1,12 @@
 import React, { useRef, useState } from 'react';
-import { UploadCloud, FileWarning, Check } from '../../icons';
+import { UploadCloud, FileWarning, Check, AlertCircle, Minus } from '../../icons';
 import { INK, MUTED, CARD_BORDER } from '../marketingTokens';
 import { BRAND } from '../../../utils/brandColors';
 import { toolBySlug } from './toolsConfig';
-import ToolShell, { ToolResultPanel, ToolResultRow, ToolNote } from './ToolShell';
+import ToolShell, { ToolResultPanel, ToolNote } from './ToolShell';
 import { ocrFile, parseReceiptText } from '../../../utils/ocrReceipt';
 import { DEFAULT_ACCOUNTS } from '../../AccountsData';
+import { MIN_SCAN_MS, REVEAL_STEP_MS, SCAN_MESSAGES } from '../../shared/ScanExperience';
 
 const tool = toolBySlug('skanna-kvitto');
 
@@ -38,6 +39,59 @@ function stagePctFor(msg) {
   return 6; // "Startar läsning…" och allt okänt — precis igång
 }
 
+// Samma sex fält, samma ordning och samma tre lägen som kvittovyn i appen
+// (Expenses.jsx): "Avläst" när det stod tydligt i dokumentet, "Kontrollera"
+// när det är en rimlig gissning, "Hittades inte" när det saknas. Ett dokument
+// som inte är ett kvitto eller en faktura (ett CV, ett brev) fyller ingenting
+// i, och en tom avläsning gör detsamma. Avläsningen själv, parseReceiptText,
+// är samma funktion som appen kör.
+function fmtAmount(n) {
+  return Number(n).toLocaleString('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function buildFields(parsed, unreadable) {
+  const nr = unreadable || Boolean(parsed.notReceipt);
+  const has = (v) => !nr && v !== null && v !== undefined && v !== '' && v !== false;
+  const currency = parsed.currency && parsed.currency !== 'SEK' ? parsed.currency : 'kr';
+  return [
+    { key: 'supplier', label: 'Leverantör', found: has(parsed.supplier), state: parsed.supplierMatched ? 'found' : 'guess', value: parsed.supplier },
+    { key: 'date', label: 'Datum', found: has(parsed.date), state: 'found', value: parsed.date },
+    { key: 'receiptNumber', label: 'Nummer', found: has(parsed.receiptNumber), state: 'found', value: parsed.receiptNumber, note: parsed.receiptNumberLabel || '' },
+    { key: 'amount', label: 'Belopp', found: has(parsed.amount) && Number(parsed.amount) !== 0, state: parsed.amountGuessed ? 'guess' : 'found', value: parsed.amount != null ? `${fmtAmount(parsed.amount)} ${currency}` : '' },
+    { key: 'vatRate', label: 'Moms', found: has(parsed.vatRate), state: parsed.vatRateGuessed ? 'guess' : 'found', value: parsed.vatRate != null ? `${parsed.vatRate} %` : '', note: parsed.vatRateGuessed ? 'Antagen, stod inte tydligt' : '' },
+    { key: 'costAccount', label: 'Konto', found: has(parsed.accountCode), state: parsed.accountGuessed ? 'guess' : 'found', value: parsed.accountCode ? `${parsed.accountCode} ${ACCOUNT_NAME[parsed.accountCode] || ''}`.trim() : '' },
+  ];
+}
+
+const STATE_TEXT = { found: 'Avläst', guess: 'Kontrollera', missing: 'Hittades inte' };
+const STATE_STYLE = {
+  found: { bg: 'rgba(132,204,22,0.22)', fg: '#a3e635', Icon: Check },
+  guess: { bg: 'rgba(251,191,36,0.2)', fg: '#fbbf24', Icon: AlertCircle },
+  missing: { bg: 'rgba(255,255,255,0.1)', fg: 'rgba(255,255,255,0.5)', Icon: Minus },
+};
+
+function ScanRow({ field, revealed }) {
+  const st = !revealed ? null : (field.found ? field.state : 'missing');
+  const style = st ? STATE_STYLE[st] : null;
+  const Icon = style?.Icon;
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '22px 1fr auto', gap: '12px', alignItems: 'center', padding: '11px 0', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+      <span aria-hidden style={{ width: 20, height: 20, borderRadius: '50%', background: style ? style.bg : 'rgba(255,255,255,0.06)', color: style ? style.fg : 'transparent', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: style ? 'none' : '1.5px dashed rgba(255,255,255,0.25)' }}>
+        {Icon ? <Icon size={11} strokeWidth={3} /> : null}
+      </span>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: '12px', fontWeight: 700, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.02em' }}>
+          {field.label}{revealed && field.found && field.note ? <span style={{ fontWeight: 500, color: 'rgba(255,255,255,0.4)' }}> · {field.note}</span> : null}
+        </div>
+        <div style={{ fontSize: '15.5px', fontWeight: 700, color: st === 'missing' || !st ? 'rgba(255,255,255,0.32)' : 'white', overflowWrap: 'anywhere', marginTop: '1px' }}>
+          {revealed && field.found ? field.value : '—'}
+        </div>
+      </div>
+      <span style={{ fontSize: '11.5px', fontWeight: 800, color: style ? style.fg : 'transparent', whiteSpace: 'nowrap' }}>{st ? STATE_TEXT[st] : ''}</span>
+    </div>
+  );
+}
+
 // ── /verktyg/skanna-kvitto ───────────────────────────────────────────────
 // Kundönskemål, uttryckligt: OCR-läsningen ska ha en EGEN sida — inte
 // öppna produktdemot — där vem som helst kan ladda upp ett RIKTIGT kvitto
@@ -54,7 +108,9 @@ function stagePctFor(msg) {
 export default function ScanReceiptPage() {
   const [status, setStatus] = useState('idle'); // idle | scanning | done | error
   const [message, setMessage] = useState('');
-  const [result, setResult] = useState(null);
+  const [result, setResult] = useState(null); // { fields, notReceipt, unreadable }
+  const [revealedCount, setRevealedCount] = useState(0);
+  const [msgIdx, setMsgIdx] = useState(0);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [fileName, setFileName] = useState('');
   const [beamPct, setBeamPct] = useState(0);
@@ -80,20 +136,42 @@ export default function ScanReceiptPage() {
     // uppladdning: dess första `top` sätts direkt, ingen transition från
     // ett gammalt läge att glida bort ifrån.
     setPreviewUrl(prev => { if (prev) URL.revokeObjectURL(prev); return file.type === 'application/pdf' ? null : URL.createObjectURL(file); });
-    setStatus('scanning'); setMessage('Startar läsning…'); setResult(null); setBeamPct(4);
+    setStatus('scanning'); setMessage('Startar läsning…'); setResult(null); setBeamPct(4); setRevealedCount(0); setMsgIdx(0);
+    const startedAt = Date.now();
+    // Läsningen tar minst lika lång tid som i appen (MIN_SCAN_MS): ett svar
+    // på en tiondels sekund ser ut som en gissning. Strålen och texterna
+    // fortsätter under tiden, så det syns att dokumentet kontrolleras.
+    const ticker = setInterval(() => {
+      if (runIdRef.current !== runId) return;
+      const pct = 30 + 66 * Math.min(1, (Date.now() - startedAt) / MIN_SCAN_MS);
+      setBeamPct(p => Math.max(p, Math.min(96, pct)));
+    }, 200);
+    const msgTicker = setInterval(() => { if (runIdRef.current === runId) setMsgIdx(n => (n + 1) % SCAN_MESSAGES.length); }, 1100);
     try {
       const text = await ocrFile(file, msg => {
         if (runIdRef.current !== runId) return;
         setMessage(msg);
-        setBeamPct(stagePctFor(msg));
+        setBeamPct(p => Math.max(p, stagePctFor(msg)));
       });
       if (runIdRef.current !== runId) return;
+      const wait = MIN_SCAN_MS - (Date.now() - startedAt);
+      if (wait > 0) await new Promise(r => setTimeout(r, wait));
+      if (runIdRef.current !== runId) return;
       setBeamPct(100);
-      setResult(parseReceiptText(text));
+      const unreadable = String(text || '').replace(/\s+/g, '').length < 8;
+      const parsed = parseReceiptText(text);
+      const fields = buildFields(parsed, unreadable);
+      setResult({ fields, notReceipt: !unreadable && Boolean(parsed.notReceipt), unreadable });
       setStatus('done');
+      fields.forEach((_, i) => {
+        setTimeout(() => { if (runIdRef.current === runId) setRevealedCount(i + 1); }, 250 + i * REVEAL_STEP_MS);
+      });
     } catch (err) {
       if (runIdRef.current !== runId) return;
       setStatus('error'); setMessage(err?.message || 'Kunde inte läsa kvittot. Prova en tydligare bild.');
+    } finally {
+      clearInterval(ticker);
+      clearInterval(msgTicker);
     }
   };
 
@@ -158,7 +236,7 @@ export default function ScanReceiptPage() {
 
           {status === 'scanning' && (
             <p style={{ fontSize: '13px', color: MUTED, marginTop: '14px' }}>
-              {message.replace(/\s*\d{1,3}\s*%\s*$/, '')}
+              {SCAN_MESSAGES[msgIdx]}
             </p>
           )}
           {status === 'error' && (
@@ -189,43 +267,32 @@ export default function ScanReceiptPage() {
         >
           {status === 'done' && result ? (
             <>
-              {/* `checked` (grön bock) sätts BARA när fältet faktiskt
-                  lästs av — aldrig för en gissning som råkar se rimlig
-                  ut. Momssatsen har alltid ETT värde (annars vore fältet
-                  oanvändbart i en riktig bokföring), men vatRateGuessed
-                  skiljer "stod på kvittot" från "antog 25 % för att vi var
-                  tvungna att fylla i något" — se ocrReceipt.js. Leverantör
-                  får bara bocken vid en IGENKÄND handlare, inte vid den
-                  råa första-textraden-gissningen. Kundönskemål, uttryckligt:
-                  en säker avläsning ska synas som säker, en gissning ska
-                  aldrig se ut som en. */}
-              <ToolResultRow label="Datum" value={result.date || '—'} unit="" checked={Boolean(result.date)} />
-              <ToolResultRow
-                label="Belopp" value={result.amount != null ? result.amount : '—'}
-                decimals={result.amount != null ? 2 : 0} unit={result.amount != null ? (result.currency || 'kr') : ''}
-                checked={result.amount != null}
-              />
-              <ToolResultRow
-                label="Moms" value={result.vatRate != null ? result.vatRate : '—'} unit={result.vatRate != null ? '%' : ''}
-                checked={result.vatRate != null && !result.vatRateGuessed}
-                note={result.vatRateGuessed ? 'Antagen — stod inte utläsbart på kvittot' : undefined}
-              />
-              <ToolResultRow
-                label="Leverantör" value={result.supplier || 'Okänd — fyll i själv'} unit=""
-                checked={result.supplierMatched}
-              />
-              <ToolResultRow
-                label="Föreslaget konto" strong unit=""
-                value={result.accountCode ? `${result.accountCode} ${ACCOUNT_NAME[result.accountCode] || ''}` : 'Inget förslag — välj själv'}
-                checked={Boolean(result.accountCode)}
-              />
-              <div style={{ marginTop: '16px', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '5px 10px', borderRadius: '999px', fontSize: '11px', fontWeight: 800, background: 'rgba(132,204,22,0.18)', color: '#a3e635' }}>
-                <Check size={11} strokeWidth={3} /> Klart på {'<'}10 sekunder
+              {/* Samma bedömning som appen: en gissning ser aldrig ut som en
+                  säker avläsning, och ett dokument som inte är ett kvitto
+                  fylls aldrig i. */}
+              <div>
+                {result.fields.map((field, i) => (
+                  <ScanRow key={field.key} field={field} revealed={i < revealedCount} />
+                ))}
               </div>
+              {revealedCount >= result.fields.length && (
+                <div style={{ marginTop: '16px' }}>
+                  {(result.notReceipt || result.unreadable) ? (
+                    <p style={{ margin: 0, fontSize: '13px', lineHeight: 1.6, color: '#fbbf24', display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                      <AlertCircle size={15} style={{ flexShrink: 0, marginTop: 2 }} />
+                      <span>{result.unreadable ? 'Ingen text kunde läsas ur filen. Prova en skarpare bild eller en PDF.' : 'Det här ser inte ut som ett kvitto eller en faktura, så inget har fyllts i.'}</span>
+                    </p>
+                  ) : (
+                    <p style={{ margin: 0, fontSize: '12px', lineHeight: 1.6, color: 'rgba(255,255,255,0.5)' }}>
+                      Avläst betyder att det stod tydligt i dokumentet. Kontrollera betyder en rimlig gissning som du bör titta på. Hittades inte lämnas tomt i stället för att gissas.
+                    </p>
+                  )}
+                </div>
+              )}
             </>
           ) : (
             <p style={{ fontSize: '13.5px', color: 'rgba(255,255,255,0.6)', lineHeight: 1.7, margin: 0 }}>
-              Ladda upp ett kvitto till vänster så visas datum, belopp, moms och ett kontoförslag här.
+              Ladda upp ett kvitto eller en faktura till vänster så visas leverantör, datum, nummer, belopp, moms och ett kontoförslag här.
             </p>
           )}
         </ToolResultPanel>
@@ -237,7 +304,7 @@ export default function ScanReceiptPage() {
         },
         {
           title: 'Texten tolkas rad för rad',
-          body: 'Datum, ett totalbelopp och momssatsen hittas genom mönster och nyckelord (”totalt”, ”att betala”, ”moms”) — inte bara det första talet som råkar stå på kvittot.',
+          body: 'Datum, nummer, ett totalbelopp och momssatsen hittas genom mönster och nyckelord (”totalt”, ”att betala”, ”moms”), inte bara det första talet som råkar stå på kvittot. Först kontrolleras att dokumentet överhuvudtaget är ett kvitto eller en faktura.',
         },
         {
           title: 'Kontot föreslås utifrån vem som sålde',
@@ -256,6 +323,10 @@ export default function ScanReceiptPage() {
         {
           q: 'Är avläsningen alltid rätt?',
           a: 'Nej, och det ska den inte låtsas vara. Ett suddigt kvitto eller en ovanlig layout kan ge fel eller tomma fält — precis som i appen är varje värde ett förslag att kontrollera, aldrig ett facit som bokförs blint.',
+        },
+        {
+          q: 'Vad händer om jag laddar upp något som inte är ett kvitto?',
+          a: 'Då fylls ingenting i. Ett CV, ett brev eller en bild utan text ger "Hittades inte" på alla fält, i stället för en gissning som ser ut som ett kvitto.',
         },
         {
           q: 'Bokförs kvittot åt mig här?',
