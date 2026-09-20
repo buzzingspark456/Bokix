@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Check, Landmark } from 'lucide-react';
+import { Check, Landmark } from '../icons';
 import { BRAND } from '../../utils/brandColors';
 import { INK, INK_SOFT, MUTED, CARD_BORDER } from './marketingTokens';
 import BokixWordmark from '../shared/BokixWordmark';

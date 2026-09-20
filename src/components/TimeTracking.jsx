@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Clock, Plus, Trash2, Check, X, Briefcase, User, FileText } from 'lucide-react';
+import { Clock, Plus, Trash2, Check, X, Briefcase, User, FileText } from './icons';
 import { PartySearch, EntitySearch, ProjectSearch } from './shared/SearchInputs';
 import { BRAND } from '../utils/brandColors';
 

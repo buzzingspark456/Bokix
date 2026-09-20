@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, ChevronDown, FileDown, UploadCloud, CheckCircle2, CircleSlash, ShieldCheck, CalendarClock } from 'lucide-react';
+import { ArrowRight, ChevronDown, FileDown, UploadCloud, CheckCircle2, CircleSlash, ShieldCheck, CalendarClock } from '../icons';
 import { BRAND } from '../../utils/brandColors';
 import MarketingLayout, { Reveal } from './MarketingLayout';
 import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW, ACCENT, ACCENT_CYCLE } from './marketingTokens';

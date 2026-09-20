@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Wallet, AlertTriangle, TrendingUp, Users, PiggyBank } from 'lucide-react';
+import { Wallet, AlertTriangle, TrendingUp, Users, PiggyBank } from '../icons';
 import { adminGet } from './adminApi';
 
 const cardStyle = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '22px' };

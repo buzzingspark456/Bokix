@@ -5,7 +5,7 @@ import {
   Palette, Landmark, Hash, Calendar, X, ZoomIn, ZoomOut, Maximize2, Bell, ExternalLink, Sun, Moon,
   UserRound, FileText, Plug, Users, Cog, ArrowLeft, ArrowRight,
   Sparkles, CheckCircle2, Camera,
-} from 'lucide-react';
+} from './icons';
 import { supabase } from '../supabaseClient';
 import { sendInvoiceEmail } from '../emailApi';
 import { cancelStripeSubscription, reactivateStripeSubscription, openBillingPortal } from '../stripeApi';

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import {
   UploadCloud, FileText, CheckCircle2, AlertCircle, Receipt, X, Clock, Trash2, RotateCcw, Search, ScanLine, FolderPlus, Pencil,
-} from 'lucide-react';
+} from './icons';
 import { AccountSearch } from './shared/SearchInputs';
 import { DocumentPane } from './shared/DocumentViewer';
 import { TextSuggestInput } from './shared/SearchInputs';

@@ -10,7 +10,7 @@
 // (flat un-rounded bars via the shape/renderShape trick, legend slider,
 // click-to-isolate a category/bar) are otherwise unchanged from upstream.
 import React from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from '../icons';
 import {
   Bar, CartesianGrid, Label,
   BarChart as RechartsBarChart, Legend as RechartsLegend,

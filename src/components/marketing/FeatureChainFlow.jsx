@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Receipt, BookOpen, BarChart3 } from 'lucide-react';
+import { Receipt, BookOpen, BarChart3 } from '../icons';
 import { BRAND } from '../../utils/brandColors';
 import { INK, INK_SOFT, MUTED } from './marketingTokens';
 

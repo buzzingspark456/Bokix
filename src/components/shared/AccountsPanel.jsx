@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, ChevronDown, ChevronRight, Lock, X } from 'lucide-react';
+import { Search, ChevronDown, ChevronRight, Lock, X } from '../icons';
 import { accountMatches } from '../../utils/accountSearch';
 import ListTable from './ListTable';
 

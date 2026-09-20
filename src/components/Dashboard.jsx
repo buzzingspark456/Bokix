@@ -8,7 +8,7 @@ import {
   // samma namn som redan importeras nedan (två helt olika saker: en ikon
   // kontra en diagramkomponent).
   LineChart as LineChartIcon, AreaChart as AreaChartIcon, Table2, Layers,
-} from 'lucide-react';
+} from './icons';
 import {
   BarChart, Bar, LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip,

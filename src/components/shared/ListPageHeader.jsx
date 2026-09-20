@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, RefreshCw } from 'lucide-react';
+import { Search, RefreshCw } from '../icons';
 
 // Sida 43: en enda delad sidhuvud-komponent för alla listsidor (Kunder,
 // Offerter, Fakturering, Utgifter, Projekt, Granskning, Bokföring,

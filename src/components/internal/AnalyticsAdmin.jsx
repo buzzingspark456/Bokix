@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Users, GraduationCap, CreditCard, TrendingUp, Info, Eye, Globe2, AlertTriangle, Calendar } from 'lucide-react';
+import { Users, GraduationCap, CreditCard, TrendingUp, Info, Eye, Globe2, AlertTriangle, Calendar } from '../icons';
 import { adminGet } from './adminApi';
 
 // GA4:s egna kanalnamn (engelska, tekniska) → svenska etiketter en admin

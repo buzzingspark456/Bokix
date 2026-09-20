@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Check } from 'lucide-react';
+import { Check } from '../icons';
 import { BRAND } from '../../utils/brandColors';
 import { INK, INK_SOFT, MUTED } from './marketingTokens';
 

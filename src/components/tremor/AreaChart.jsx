@@ -16,7 +16,7 @@
 // scoped via src/tremor.css, see that file's own comment for why the rest
 // of the app's hand-styled components are unaffected.
 import React from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from '../icons';
 import {
   Area, CartesianGrid, Dot, Label, Line,
   AreaChart as RechartsAreaChart, Legend as RechartsLegend,

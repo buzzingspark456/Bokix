@@ -32,7 +32,7 @@ import {
   Lock,
   Package,
   ClipboardCheck,
-} from 'lucide-react';
+} from './components/icons';
 import { DEFAULT_ACCOUNTS, VAT_ACCOUNTS, REVENUE_ACCOUNTS } from './components/AccountsData';
 import { getNextInvoiceNumber } from './utils/invoiceNumbering';
 import { createStripeCheckoutSession, createStripeSubscriptionCheckout, cancelStripeSubscription } from './stripeApi';

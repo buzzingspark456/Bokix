@@ -3,7 +3,7 @@ import {
   Upload, UploadCloud, AlertCircle, CheckCircle2, X, ChevronDown, ChevronRight,
   Landmark, ArrowDownCircle, ArrowUpCircle, HelpCircle, Search, Trash2, Undo2,
   Plus, Settings, Pencil, Check,
-} from 'lucide-react';
+} from './icons';
 import ListPageHeader, { ListFilterBar, listSearchInputStyle, listFilterFieldStyle } from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
 import { AccountSearch } from './shared/SearchInputs';

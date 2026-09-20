@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown } from '../icons';
 import MarketingLayout, { Reveal } from './MarketingLayout';
 import { SERIF, INK, MUTED, IVORY, CARD_BORDER, CARD_SHADOW, ACCENT } from './marketingTokens';
 import { AuroraLayer } from './aurora';

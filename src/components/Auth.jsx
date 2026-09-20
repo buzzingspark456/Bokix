@@ -4,7 +4,7 @@ import {
   LogIn, UserPlus, Mail, Lock,
   ArrowRight, ArrowLeft, ShieldCheck, Check, User, Hash,
   RefreshCw, GraduationCap,
-} from 'lucide-react';
+} from './icons';
 import { supabase } from '../supabaseClient';
 import { detectOrgType, formatLegalForm, formatOrgNr } from '../utils/orgType';
 import { useCompanyLookup } from '../hooks/useCompanyLookup';

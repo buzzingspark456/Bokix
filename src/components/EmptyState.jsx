@@ -1,5 +1,5 @@
 import React from 'react';
-import { Inbox } from 'lucide-react';
+import { Inbox } from './icons';
 import { BRAND } from '../utils/brandColors';
 
 /* ── Sida 31: tomma tillstånd delar samma visuella språk i hela appen —

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Rocket, FileText, BookOpen, PieChart } from 'lucide-react';
+import { Rocket, FileText, BookOpen, PieChart } from '../icons';
 import { BRAND } from '../../utils/brandColors';
 import { INK, INK_SOFT, MUTED } from './marketingTokens';
 

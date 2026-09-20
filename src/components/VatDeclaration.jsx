@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { AlertCircle, AlertTriangle, CheckCircle2, ChevronRight, Download, Lock, FileText, ExternalLink } from 'lucide-react';
+import { AlertCircle, AlertTriangle, CheckCircle2, ChevronRight, Download, Lock, FileText, ExternalLink } from './icons';
 import {
   computeVatPeriod, roundedVatPeriod, validateVatPeriod, compareToPreviousPeriod,
   quarterToRange, previousQuarterRange,

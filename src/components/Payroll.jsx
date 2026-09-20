@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, ChevronRight, Users, UserCog, CalendarClock, Search, Palmtree } from 'lucide-react';
+import { Plus, ChevronRight, Users, UserCog, CalendarClock, Search, Palmtree } from './icons';
 import VacationOverview from './VacationOverview';
 import EmployeeForm from './EmployeeForm';
 import PayrollRunDetail from './PayrollRunDetail';

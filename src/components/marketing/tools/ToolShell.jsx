@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, ArrowLeft, Check } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Check } from '../../icons';
 import { BRAND } from '../../../utils/brandColors';
 import MarketingLayout, { Reveal } from '../MarketingLayout';
 import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW, CARD_SHADOW_SM, ACCENT } from '../marketingTokens';

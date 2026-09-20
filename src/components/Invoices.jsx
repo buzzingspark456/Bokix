@@ -6,7 +6,7 @@ import {
   RefreshCw, Printer, Eye, CreditCard, Link2,
   MessageSquare, Tag, Lock, Settings2, Download, AlertTriangle, Inbox, Trash2,
   ZoomIn, ZoomOut, Pencil, Copy, CheckCircle2, Undo2, Sparkles
-} from 'lucide-react';
+} from './icons';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import InvoiceDocument, { DEFAULT_INVOICE_TEMPLATE, INVOICE_TEMPLATES } from './InvoiceDocument';
 import { exportInvoicePdf, getInvoicePdfBase64 } from '../utils/exportInvoicePdf';

@@ -3,7 +3,7 @@ import {
   Plus, Search, ChevronRight, ChevronDown,
   AlertCircle, RotateCcw, RefreshCw,
   UploadCloud, Tag, LayoutTemplate, Save, Trash2, ScanLine, BookOpen,
-} from 'lucide-react';
+} from './icons';
 import { getDebet, getKredit } from '../utils/verificationAmounts';
 import { BRAND } from '../utils/brandColors';
 import { PartySearch, ProjectSearch, AccountSearch } from './shared/SearchInputs';

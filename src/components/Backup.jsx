@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Download, Upload, RotateCcw, AlertTriangle, Check } from 'lucide-react';
+import { Download, Upload, RotateCcw, AlertTriangle, Check } from './icons';
 
 function Backup({ accounts, verifications, onImport, onReset }) {
   const fileInputRef = useRef(null);

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   BarChart3, Check, X,
   ArrowRight, ChevronRight,
-} from 'lucide-react';
+} from './icons';
 import { BRAND } from '../utils/brandColors';
 import MarketingLayout, { Reveal, BokixWordmark } from './marketing/MarketingLayout';
 import ToolMotif, { ToolMotifStyles } from './marketing/toolMotifs';

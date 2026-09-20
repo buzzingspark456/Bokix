@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertCircle, HelpCircle } from 'lucide-react';
+import { AlertCircle, HelpCircle } from './icons';
 
 export default function Moms({ balances }) {
   const formatSEK = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val);

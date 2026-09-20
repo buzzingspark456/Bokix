@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { GraduationCap, Users, UserX, ShieldOff, RotateCcw, Search } from 'lucide-react';
+import { GraduationCap, Users, UserX, ShieldOff, RotateCcw, Search } from '../icons';
 import { adminGet, adminPost } from './adminApi';
 
 const cardStyle = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '22px' };

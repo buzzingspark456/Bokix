@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
+import { ArrowDownToLine, ArrowUpFromLine } from '../icons';
 import { BRAND } from '../../utils/brandColors';
 import { BokixWordmark } from './MarketingLayout';
 import { INK, INK_SOFT } from './marketingTokens';

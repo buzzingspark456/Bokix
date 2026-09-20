@@ -1,5 +1,5 @@
 ﻿import React, { useMemo, useState } from 'react';
-import { Search, Book, Sparkles, FileText, MessageSquare, AlertCircle, ArrowLeft } from 'lucide-react';
+import { Search, Book, Sparkles, FileText, MessageSquare, AlertCircle, ArrowLeft } from './icons';
 import Drawer from './Drawer';
 
 // Egna körvägar i drawern, inte separata modaler — "Ordlista" byter bara

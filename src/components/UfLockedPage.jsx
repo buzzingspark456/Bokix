@@ -1,5 +1,5 @@
 import React from 'react';
-import { Lock, ArrowRight, GraduationCap } from 'lucide-react';
+import { Lock, ArrowRight, GraduationCap } from './icons';
 import { BRAND } from '../utils/brandColors';
 import { ufBlockedPage, UF_NAV_IDS, UF_NAV_LABELS } from '../utils/ufMode';
 

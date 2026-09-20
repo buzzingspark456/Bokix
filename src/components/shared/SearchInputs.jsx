@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, X, ListTree } from 'lucide-react';
+import { Search, X, ListTree } from '../icons';
 import { accountMatches, groupAccountsByClass } from '../../utils/accountSearch';
 import AnchoredDropdown, { useDismissOnOutsideClick } from './AnchoredDropdown';
 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Video, ExternalLink } from 'lucide-react';
+import { Video, ExternalLink } from '../icons';
 import { BRAND } from '../../utils/brandColors';
 import MarketingLayout, { Reveal } from './MarketingLayout';
 import { SERIF, INK, MUTED, IVORY, CARD_BORDER, CARD_SHADOW } from './marketingTokens';

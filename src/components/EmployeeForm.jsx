@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle } from './icons';
 import { EntitySearch, ProjectSearch } from './shared/SearchInputs';
 import { SWEDISH_MUNICIPALITIES } from '../utils/kommuner';
 import { validatePersonnummer, formatPersonnummerInput } from '../utils/personnummer';

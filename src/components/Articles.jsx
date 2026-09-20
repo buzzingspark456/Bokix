@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { Plus, Download, Upload, Trash2, Pencil, Check, AlertTriangle, Search, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, Download, Upload, Trash2, Pencil, Check, AlertTriangle, Search, ChevronDown, ChevronRight } from './icons';
 import ListPageHeader, { ListFilterBar, listSearchInputStyle } from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
 import { AccountSearch } from './shared/SearchInputs';

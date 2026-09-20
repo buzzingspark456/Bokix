@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   CheckCircle2, Clock, Circle, Lock, Calculator, ChevronRight, ExternalLink, Info, Download, Users, Loader2, AlertTriangle, TrendingUp, TrendingDown, Minus, ArrowRight, RotateCcw, ClipboardList, Plus, Trash2,
-} from 'lucide-react';
+} from './icons';
 import VatDeclaration from './VatDeclaration';
 import ListPageHeader from './shared/ListPageHeader';
 import { getDebet, getKredit } from '../utils/verificationAmounts';

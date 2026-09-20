@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Plus, Check, X, AlertCircle, Landmark, CreditCard, UploadCloud, FileText, Trash2,
-} from 'lucide-react';
+} from './icons';
 import { AccountSearch, ProjectSearch } from './shared/SearchInputs';
 import ListPageHeader, { ListSearchRow, listHeaderButtonStyle } from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';

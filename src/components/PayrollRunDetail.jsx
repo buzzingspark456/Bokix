@@ -2,7 +2,7 @@
 import {
   Check, ChevronDown, ChevronUp, AlertTriangle, Download, ChevronLeft, Loader2, ExternalLink, RefreshCw, Landmark, CreditCard, Trash2,
   Wallet, Receipt, Banknote, ShieldCheck,
-} from 'lucide-react';
+} from './icons';
 import CalculationRow from './shared/CalculationRow';
 import ListPageHeader from './shared/ListPageHeader';
 import { BRAND } from '../utils/brandColors';

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ShieldCheck, Lock, ArrowRight, KeyRound } from 'lucide-react';
+import { ShieldCheck, Lock, ArrowRight, KeyRound } from '../icons';
 import { supabase } from '../../supabaseClient';
 
 // ── Inloggningen till /internal ─────────────────────────────────────────

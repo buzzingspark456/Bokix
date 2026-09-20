@@ -1,4 +1,4 @@
-import { Percent, Users, Briefcase, Hammer, AlarmClock, PiggyBank, CalendarClock, FileClock, ScanLine } from 'lucide-react';
+import { Percent, Users, Briefcase, Hammer, AlarmClock, PiggyBank, CalendarClock, FileClock, ScanLine } from '../../icons';
 
 // ── EN källa för de fria verktygen ──────────────────────────────────────
 // Listan konsumeras av: sidfoten (MarketingLayout.jsx), verktygsnavet
