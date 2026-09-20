@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, BookOpen } from 'lucide-react';
+import { ArrowRight, BookOpen } from '../../icons';
 import MarketingLayout, { Reveal } from '../MarketingLayout';
 import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW, ACCENT } from '../marketingTokens';
 import { GRAD, grad, AuroraLayer } from '../aurora';

@@ -1,6 +1,6 @@
 ﻿import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, ChevronDown, Check, X } from 'lucide-react';
+import { ArrowRight, ChevronDown, Check, X } from '../icons';
 import { BRAND } from '../../utils/brandColors';
 import MarketingLayout, { Reveal, BokixWordmark } from './MarketingLayout';
 import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW, ACCENT } from './marketingTokens';

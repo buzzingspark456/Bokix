@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Lock, ShieldCheck, User, Database } from 'lucide-react';
+import { Lock, ShieldCheck, User, Database } from '../icons';
 import { BRAND } from '../../utils/brandColors';
 import { INK, INK_SOFT, MUTED } from './marketingTokens';
 

@@ -1,5 +1,5 @@
 import { getDebet, getKredit } from './verificationAmounts';
-import { isBooked } from './reportCalculations';
+import { isBooked, isClosingEntry } from './reportCalculations';
 
 /**
  * INK2R — Resultaträkningen (rad 3.1–3.27), den andra sidan av samma
@@ -133,7 +133,7 @@ const rowDef = (rowId) => INK2R_RESULT_ROWS.find(r => r.row === rowId);
 export function computeInk2rResultat(verifications, year) {
   const rawByAccount = new Map();
   for (const ver of verifications) {
-    if (!isBooked(ver) || !(ver.date || '').startsWith(String(year))) continue;
+    if (!isBooked(ver) || isClosingEntry(ver) || !(ver.date || '').startsWith(String(year))) continue;
     for (const r of ver.rows || []) {
       const first = String(r.account || '')[0];
       if (!['3', '4', '5', '6', '7', '8'].includes(first)) continue;

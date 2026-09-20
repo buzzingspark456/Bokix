@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Check, AlertCircle, FileText, Landmark } from 'lucide-react';
+import { Check, AlertCircle, FileText, Landmark } from '../icons';
 import { BRAND } from '../../utils/brandColors';
 
 // ── Levande demos för funktionssidans fyra delar ────────────────────────

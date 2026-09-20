@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { UploadCloud, FileWarning, Check } from 'lucide-react';
+import { UploadCloud, FileWarning, Check } from '../../icons';
 import { INK, MUTED, CARD_BORDER } from '../marketingTokens';
 import { BRAND } from '../../../utils/brandColors';
 import { toolBySlug } from './toolsConfig';

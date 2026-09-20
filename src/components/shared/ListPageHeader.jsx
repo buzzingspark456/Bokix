@@ -1,5 +1,5 @@
-import React from 'react';
-import { Search, RefreshCw } from 'lucide-react';
+import React, { useState } from 'react';
+import { Search, RefreshCw, SlidersHorizontal } from '../icons';
 
 // Sida 43: en enda delad sidhuvud-komponent för alla listsidor (Kunder,
 // Offerter, Fakturering, Utgifter, Projekt, Granskning, Bokföring,
@@ -100,14 +100,14 @@ export default function ListPageHeader({ title, subtitle, actions = [], tabs, ch
   const pills = Boolean(hasTabs && tabs.variant === 'pills');
   return (
     <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '0 20px', paddingBottom: hasTabs ? 0 : '16px', flexShrink: 0 }}>
-      <div className="page-header-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0 0', gap: '16px', flexWrap: 'wrap' }}>
+      <div className="page-header-row page-header-top" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0 0', gap: '16px', flexWrap: 'wrap' }}>
         <div>
           {/* Kundfeedback ("luft i sidhuvudet", samma princip som Startsidan):
               2px kändes hopklämt mellan rubrik och undertext — 6px (samma
               rytm som Dashboard.jsx:s hälsningsrader) ger läsbar andrum
               utan att blåsa upp den kompakta verktygsrads-höjden här. */}
           <h1 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: 'var(--text-main)' }}>{title}</h1>
-          {subtitle && <p style={{ margin: '6px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>{subtitle}</p>}
+          {subtitle && <p className="page-header-subtitle" style={{ margin: '6px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>{subtitle}</p>}
         </div>
         {actions.length > 0 && (
           // `page-header-actions`: på telefon läggs knapparna på en egen rad
@@ -115,7 +115,7 @@ export default function ListPageHeader({ title, subtitle, actions = [], tabs, ch
           // skjuta ut över kanten (kundfeedback: "Importera transaktioner"
           // var avklippt på mobilen). Klass, inte inline style, eftersom
           // regeln behöver en mediafråga — se index.css.
-          <div className="page-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div className={'page-header-actions' + (actions.filter(a => a.type !== 'note').length > 1 ? ' page-header-actions--many' : '')} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             {actions.map((a, i) => a.type === 'note' ? (
               <span key={a.key ?? i} style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                 {a.label} {a.value && <strong style={{ color: 'var(--text-main)' }}>{a.value}</strong>}
@@ -203,16 +203,33 @@ export function ListSearchRow({ value, onChange, placeholder, right }) {
  */
 export const PAGE_SIZE_OPTIONS = [15, 30, 50, 100];
 
-export function ListFilterBar({ children, onClear, count, countLabel, pageSize, onPageSizeChange, pageSizeOptions = PAGE_SIZE_OPTIONS }) {
+export function ListFilterBar({ children, onClear, count, countLabel, pageSize, onPageSizeChange, pageSizeOptions = PAGE_SIZE_OPTIONS, activeFilters = 0 }) {
+  const [open, setOpen] = useState(false);
   const hasPageSize = pageSize != null && onPageSizeChange;
   const hasSecondRow = Boolean(onClear) || count != null || hasPageSize;
+  // Första barnet är sökfältet och ligger alltid framme. Resten (datum,
+  // serier, månader, vy) döljs bakom en Filter-knapp på telefon, så att
+  // listan inte trycks ned under fem rader kontroller. På dator är allt
+  // som förut: omslagen är display: contents och påverkar inte layouten.
+  const items = React.Children.toArray(children);
+  const [first, ...rest] = items;
+  const hasMore = rest.length > 0 || Boolean(onClear) || hasPageSize;
   return (
-    <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)', background: 'var(--bg-card)', flexShrink: 0 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: hasSecondRow ? '10px' : 0 }}>
-        {children}
+    <div className="lfb" data-open={open ? 'true' : 'false'} style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)', background: 'var(--bg-card)', flexShrink: 0 }}>
+      <div className="lfb-row" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: hasSecondRow ? '10px' : 0 }}>
+        <div className="lfb-primary">{first}</div>
+        {hasMore && (
+          <button type="button" className="lfb-toggle" onClick={() => setOpen(o => !o)} aria-expanded={open}>
+            <SlidersHorizontal size={16} />
+            Filter
+            {activeFilters > 0 && <span className="lfb-toggle-badge">{activeFilters}</span>}
+          </button>
+        )}
+        <div className="lfb-more">{rest}</div>
       </div>
+      {count != null && <div className="lfb-count-line">{count} {countLabel}</div>}
       {hasSecondRow && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
+        <div className="lfb-second" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
           {onClear ? (
             <button type="button" onClick={onClear} style={listHeaderButtonStyle('secondary')}>
               <RefreshCw size={14} /> Rensa
@@ -220,7 +237,7 @@ export function ListFilterBar({ children, onClear, count, countLabel, pageSize, 
           ) : <span />}
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginLeft: 'auto' }}>
             {count != null && (
-              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{count} {countLabel}</span>
+              <span className="lfb-count" style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{count} {countLabel}</span>
             )}
             {hasPageSize && (
               <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-muted)' }}>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Check } from 'lucide-react';
+import { X, Check } from './icons';
 import { useCompanyLookup } from '../hooks/useCompanyLookup';
 import { formatOrgNr } from '../utils/orgType';
 

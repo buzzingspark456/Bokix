@@ -1,4 +1,4 @@
-import { computeBalanceSheet, isBooked } from './reportCalculations';
+import { computeBalanceSheet, isBooked, isClosingEntry } from './reportCalculations';
 import { getDebet, getKredit } from './verificationAmounts';
 
 /**
@@ -213,7 +213,7 @@ export function computeNeBalanceSuggestions(verifications, accounts, asOfDate) {
 export function computeNeResultSuggestions(verifications, year) {
   const rawByAccount = new Map();
   for (const ver of verifications) {
-    if (!isBooked(ver) || !(ver.date || '').startsWith(String(year))) continue;
+    if (!isBooked(ver) || isClosingEntry(ver) || !(ver.date || '').startsWith(String(year))) continue;
     for (const r of ver.rows || []) {
       const first = String(r.account || '')[0];
       if (!['3', '4', '5', '6', '7', '8'].includes(first)) continue;

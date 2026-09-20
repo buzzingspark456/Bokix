@@ -1,23 +1,31 @@
-﻿import React, { useState, useEffect, useRef, useCallback } from 'react';
+﻿import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Plus, Search, ChevronRight, ChevronDown,
   AlertCircle, RotateCcw, RefreshCw,
-  UploadCloud, Tag, LayoutTemplate, Save, Trash2, ScanLine, BookOpen,
-} from 'lucide-react';
+  UploadCloud, Tag, LayoutTemplate, Save, Trash2, ScanLine, BookOpen, CheckCircle2,
+} from './icons';
 import { getDebet, getKredit } from '../utils/verificationAmounts';
 import { BRAND } from '../utils/brandColors';
 import { PartySearch, ProjectSearch, AccountSearch } from './shared/SearchInputs';
 import ListPageHeader, { ListFilterBar, listSearchInputStyle, listFilterFieldStyle } from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
+import DateField from './shared/DateField';
 import { findLockedVatPeriod } from '../utils/vatCalculation';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { DocumentPane, DocumentLightbox } from './shared/DocumentViewer';
 import { uploadFileToStorage, deleteFileFromStorage } from '../utils/fileUpload';
 import { confirmDialog, promptDialog } from './shared/ConfirmDialog';
-import { ocrFile, parseReceiptText } from '../utils/ocrReceipt';
+import { parseReceiptText } from '../utils/ocrReceipt';
+import { readDocumentText } from '../utils/ocrCache';
+import { historyFromVerifications } from '../utils/receiptHistory';
+import { decidePayAccount } from '../utils/payAccountChoice';
+import { missingReverseChargeRows, withReverseChargeRows } from '../utils/reverseCharge';
+import { ScanOverlay, OcrChecklist, OCR_ITEMS, MIN_SCAN_MS, REVEAL_STEP_MS, CACHED_SCAN_MS } from './shared/ScanExperience';
 import { convertToSek } from '../utils/currencyConversion';
 import { getNextNumber as getNextNumberForSeries } from '../utils/verificationNumbering';
 import AccountsPanel from './shared/AccountsPanel';
+import SimpleBookingPanel from './shared/SimpleBookingPanel';
+import { buildSimpleBooking, describeRow, describeVerification, paymentAccounts, VAT_RATES } from '../utils/plainBooking';
 
 // Bara för att skriva ut valutavarningen lite snyggare — ingen omräkning
 // görs här, det är enbart kosmetiskt.
@@ -69,6 +77,9 @@ const MONTH_NAMES = [
 // Tillgångar (1) och Kostnader (4–8) ökar normalt i debet.
 // Skulder inkl. eget kapital (2) och Intäkter (3) ökar normalt i kredit.
 // Rättelser går giltigt åt andra hållet — därför är detta en varning, aldrig en spärr.
+// Bara intäkts- och kostnadskonton varnar: på balanskonton är båda sidorna
+// vardag (banken krediteras vid varje betalning, ingående moms debiteras vid
+// varje inköp), så en varning där gav falsklarm på de vanligaste bokningarna.
 function getAccountClass(code) {
   const n = parseInt(code, 10);
   if (isNaN(n)) return null;
@@ -90,7 +101,7 @@ function isReskontraAccount(code) {
 function rowSideWarning(row) {
   if (!row.account) return null;
   const cls = getAccountClass(row.account);
-  if (!cls) return null;
+  if (!cls || cls.key === 'tillgang' || cls.key === 'skuld_ek') return null;
   const debit = parseFloat(row.debet) || 0;
   const credit = parseFloat(row.kredit) || 0;
   if (debit <= 0 && credit <= 0) return null;
@@ -106,7 +117,7 @@ function rowSideWarning(row) {
 const MAX_ATTACHMENT_MB = 10;
 const ACCEPTED_ATTACHMENT_TYPES = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
 
-function VerificationForm({ accounts, contacts, projects = [], balances, templates, onSaveTemplate, onSave, onClose, nextNumber, getNextNumber, initial, vatPeriods, user, uploadFn = uploadFileToStorage }) {
+function VerificationForm({ accounts, contacts, projects = [], verifications = [], balances, templates, onSaveTemplate, onSave, onClose, nextNumber, getNextNumber, initial, vatPeriods, user, orgType, uploadFn = uploadFileToStorage }) {
   const [date, setDate] = useState(initial?.date || new Date().toISOString().split('T')[0]);
   const [desc, setDesc] = useState(initial?.description || '');
   const [projectId, setProjectId] = useState(initial?.projectId || '');
@@ -135,6 +146,34 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
           { account: '', accountName: '', debet: '', kredit: '', desc: '' },
         ]
   );
+
+  // Enkelt läge (standard för en ny verifikation): användaren väljer vad som
+  // hänt och fyller i belopp, raderna byggs åt dem (utils/plainBooking.js) —
+  // ingen debet eller kredit att kunna. Avancerat läge är den vanliga
+  // konteringstabellen. En befintlig verifikation (utkast, rättelse) öppnas
+  // alltid i avancerat läge, eftersom dess rader redan finns.
+  const readModePreference = () => {
+    try { return localStorage.getItem('bokix.verificationMode') === 'advanced' ? 'advanced' : 'simple'; } catch { return 'simple'; }
+  };
+  const [mode, setMode] = useState(initial?.rows ? 'advanced' : readModePreference());
+  const modeRef = useRef(mode);
+  const payDefaults = paymentAccounts(accounts);
+  const defaultPay = (payDefaults.find(a => a.code === '1930') || payDefaults[0]).code;
+  const emptySimple = () => ({ kind: 'expense', amount: '', vatRate: 25, account: '', payAccount: defaultPay, payPrivate: false, fromAccount: defaultPay, toAccount: '' });
+  const [simple, setSimple] = useState(emptySimple);
+  const simpleBuilt = useMemo(() => buildSimpleBooking(simple, { orgType }), [simple, orgType]);
+  useEffect(() => {
+    if (mode !== 'simple') return;
+    setRows(simpleBuilt.rows.length > 0
+      ? simpleBuilt.rows.map(r => ({
+          account: r.account,
+          accountName: accounts.find(a => a.code === r.account)?.name || '',
+          debet: r.debet ? r.debet.toFixed(2) : '',
+          kredit: r.kredit ? r.kredit.toFixed(2) : '',
+          desc: '',
+        }))
+      : [{ account: '', accountName: '', debet: '', kredit: '', desc: '' }]);
+  }, [mode, simpleBuilt, accounts]);
 
   const [attachment, setAttachment] = useState(null); // nyvald, ännu ej uppladdad fil
   const [attachmentUrl, setAttachmentUrl] = useState(null); // lokal förhandsvisnings-URL för `attachment`
@@ -176,76 +215,166 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
   // så fort användaren redigerar något av dem själv.
   const [ocrFields, setOcrFields] = useState(new Set());
   // Räknare för att göra körningar avbrytbara: hinner användaren byta fil
-  // eller trycka "Läs av igen" innan en pågående läsning är klar (kvitton
-  // kan ta allt från någon sekund till flera tior sekunder beroende på
-  // storlek), ska bara den SENASTE körningens resultat någonsin skrivas in
-  // — annars kan en långsam, föråldrad körning hinna ikapp och skriva över
-  // ett nyare, redan klart resultat. Samma id jämförs efter varje await.
+  // eller trycka "Läs av igen" innan en pågående läsning är klar, ska bara
+  // den SENASTE körningens resultat någonsin skrivas in. Samma id jämförs
+  // efter varje await.
   const ocrRunIdRef = useRef(0);
   // Ett kvitto i en annan valuta än kronor — { code, amount, converted } |
   // null. `converted` är { sek, rate, date } från convertToSek (utils/
   // currencyConversion.js) — eller null om kursen inte gick att hämta, och
   // då byggs raderna inte alls (se nedan).
   const [ocrForeignCurrency, setOcrForeignCurrency] = useState(null);
+  // Uppvisningen efter läsningen, samma som i kvittovyn (Expenses.jsx): fälten
+  // fylls i ett i taget och checklistan visar vad som hittades, gissades
+  // eller saknades. Verifikationen har inget nummerfält, så "Nummer" utgår.
+  const [revealing, setRevealing] = useState(false);
+  const [revealed, setRevealed] = useState({});
+  const [notReceipt, setNotReceipt] = useState(false);
+  const [ocrVat, setOcrVat] = useState(null);
+  const timersRef = useRef([]);
+  useEffect(() => () => { timersRef.current.forEach(clearTimeout); }, []);
+  const verificationsRef = useRef(verifications);
+  verificationsRef.current = verifications;
+  const VER_OCR_ITEMS = useMemo(() => [...OCR_ITEMS.filter(i => i.key !== 'receiptNumber'), { key: 'payAccount', label: 'Betalkonto' }], []);
+  // Vilket betalkonto som valdes och varför: historik, avläst ur kvittot eller en gissning.
+  const [payInfo, setPayInfo] = useState(null);
+  // Tjänst från utlandet: { region, evidence } (omvänd skattskyldighet) eller { unclear, evidence } när regionen inte gick att avgöra.
+  const [foreignInfo, setForeignInfo] = useState(null);
 
-  const runOcr = useCallback(async (input) => {
+  const runOcr = useCallback(async (input, { force = false } = {}) => {
     if (!input) return;
     const runId = ++ocrRunIdRef.current;
     const isCurrent = () => ocrRunIdRef.current === runId;
+    timersRef.current.forEach(clearTimeout);
+    timersRef.current = [];
+    const startedAt = Date.now();
     setOcrStatus('scanning');
     setOcrMessage('Startar läsning…');
     setOcrForeignCurrency(null);
+    setNotReceipt(false);
+    setOcrVat(null);
+    setPayInfo(null);
+    setForeignInfo(null);
+    setRevealing(false);
+    setRevealed({});
     try {
-      const text = await ocrFile(input, msg => { if (isCurrent()) setOcrMessage(msg); });
+      const { text, cached } = await readDocumentText(input, msg => { if (isCurrent()) setOcrMessage(msg); }, { force });
       if (!isCurrent()) return; // en nyare körning har redan tagit över
       const parsed = parseReceiptText(text);
-      const filled = new Set();
-      if (parsed.date) { setDate(parsed.date); filled.add('date'); }
-      // Samma regel som Expenses.jsx: en OCR-badge betyder "vi läste det
-      // här", inte "vi gissade". Utan en igenkänd handlare (supplierMatched)
-      // är parsed.supplier bara den råa första textraden — värt att fylla
-      // i som utkast, inte värt att märka som avläst.
-      if (parsed.supplier) { setDesc(parsed.supplier); if (parsed.supplierMatched) filled.add('desc'); }
+      const nr = Boolean(parsed.notReceipt);
 
       // Utländsk valuta — räkna om till kronor med DAGSKURSEN FÖR
       // KÖPDATUMET (Skatteverkets rekommendation) innan raderna byggs.
       // Går omräkningen inte att göra fylls raderna INTE i som om talet
       // redan vore kronor — se convertToSek/ocrForeignCurrency.
       let grossSek = parsed.currency ? null : parsed.amount;
-      if (parsed.amount && parsed.currency) {
+      let foreignInfo = null;
+      if (!nr && parsed.amount && parsed.currency) {
         if (isCurrent()) setOcrMessage(`Räknar om ${parsed.currency} till kronor…`);
         const converted = await convertToSek(parsed.amount, parsed.currency, parsed.date);
         if (!isCurrent()) return;
         if (converted) grossSek = converted.sek;
-        setOcrForeignCurrency({ code: parsed.currency, amount: parsed.amount, converted });
+        foreignInfo = { code: parsed.currency, amount: parsed.amount, converted };
       }
 
-      if (grossSek) {
-        const gross = Math.round(grossSek * 100) / 100;
-        const vatRate = parsed.vatRate ?? 25;
+      const remaining = (cached ? CACHED_SCAN_MS : MIN_SCAN_MS) - (Date.now() - startedAt);
+      if (remaining > 0) {
+        await new Promise(resolve => { timersRef.current.push(setTimeout(resolve, remaining)); });
+        if (!isCurrent()) return;
+      }
+
+      // Samma regler som kvittovyn: företagets egen historik för leverantören
+      // (tidigare bokförda verifikationer) slår gissningar ur texten. Något
+      // som bara gissats visas som "Kontrollera", aldrig som avläst.
+      const hist = nr ? null : historyFromVerifications(verificationsRef.current, parsed.supplier);
+      const vatFromHistory = Boolean(hist && parsed.vatRateGuessed && hist.vatRate !== null);
+      // Tjänst från utlandet (omvänd skattskyldighet): kontot och momssatsen
+      // följer av dokumentet, inte av vad som bokförts tidigare. Tidigare
+      // bokningar kan ha gjorts utan omvänd moms och ska inte följas här.
+      const reverse = parsed.reverseCharge;
+      const vatRate = reverse ? 0 : (vatFromHistory ? hist.vatRate : (parsed.vatRate ?? 25));
+      const costAccount = reverse ? parsed.accountCode : (hist?.costAccount || parsed.accountCode || '');
+      const gross = grossSek ? Math.round(grossSek * 100) / 100 : 0;
+      // Betalkontot är inte en gissning när historiken eller kvittot säger något.
+      const pay = decidePayAccount({ history: hist, paymentMethod: parsed.paymentMethod, accounts });
+      const plan = [
+        { key: 'supplier', found: !nr && Boolean(parsed.supplier), state: parsed.supplierMatched ? 'found' : 'guess', apply: () => setDesc(parsed.supplier) },
+        { key: 'date', found: !nr && Boolean(parsed.date), state: 'found', apply: () => setDate(parsed.date) },
+        { key: 'amount', found: !nr && gross > 0, state: parsed.amountGuessed ? 'guess' : 'found', apply: () => {} },
+        {
+          key: 'vatRate', found: !nr && gross > 0 && parsed.vatRate !== null && parsed.vatRate !== undefined,
+          state: reverse ? 'found' : (vatFromHistory ? 'history' : (parsed.vatRateGuessed ? 'guess' : 'found')), apply: () => {},
+        },
+        {
+          key: 'costAccount', found: !nr && gross > 0 && Boolean(costAccount),
+          state: reverse ? 'found' : (hist ? 'history' : (parsed.accountGuessed ? 'guess' : 'found')), apply: () => {},
+        },
+        { key: 'payAccount', found: !nr && gross > 0, state: pay.state, apply: () => {} },
+      ];
+
+      // Raderna byggs när sista fältet visats: kostnadskontot (netto) och
+      // ev. ingående moms (2641) i debet mot ett gissat betalkonto (1930).
+      const buildRows = () => {
         const net = vatRate > 0 ? Math.round((gross / (1 + vatRate / 100)) * 100) / 100 : gross;
         const vat = Math.round((gross - net) * 100) / 100;
-        const costAccount = parsed.accountCode || '';
-        const newRows = [{
-          account: costAccount,
-          accountName: accounts.find(a => a.code === costAccount)?.name || '',
-          debet: net ? net.toFixed(2) : '', kredit: '', desc: parsed.supplier || '',
-        }];
-        if (vat > 0) {
-          newRows.push({ account: '2641', accountName: accounts.find(a => a.code === '2641')?.name || 'Ingående moms', debet: vat.toFixed(2), kredit: '', desc: '' });
+        const nameOf = (code, fallback) => accounts.find(a => a.code === code)?.name || fallback;
+        // Radernas belopp som tal. Vid omvänd skattskyldighet läggs momsraderna
+        // (2645 i debet, 2614 i kredit) till av withReverseChargeRows.
+        let numeric = [{ account: costAccount, debet: net, kredit: 0, desc: parsed.supplier || '' }];
+        if (vat > 0) numeric.push({ account: '2641', debet: vat, kredit: 0, desc: '' });
+        numeric.push({ account: pay.code, debet: 0, kredit: gross, desc: '' });
+        if (reverse) numeric = withReverseChargeRows(numeric);
+        const newRows = numeric.map(r => ({
+          account: r.account,
+          accountName: nameOf(r.account, r.account === '2641' ? 'Ingående moms' : (r.account === pay.code ? 'Företagskonto/bank' : '')),
+          debet: r.debet ? Number(r.debet).toFixed(2) : '', kredit: r.kredit ? Number(r.kredit).toFixed(2) : '', desc: r.desc || '',
+        }));
+        if (modeRef.current === 'simple') {
+          setSimple(prev => ({
+            ...prev, kind: 'expense', amount: gross.toFixed(2), vatRate: VAT_RATES.includes(vatRate) ? vatRate : 25,
+            account: costAccount, payAccount: pay.code, payPrivate: false,
+          }));
+        } else {
+          setRows(newRows);
         }
-        newRows.push({ account: '1930', accountName: accounts.find(a => a.code === '1930')?.name || 'Företagskonto/bank', debet: '', kredit: gross.toFixed(2), desc: '' });
-        setRows(newRows);
-        filled.add('rows');
-      }
-      setOcrFields(filled);
-      setOcrStatus(filled.size > 0 || parsed.currency ? 'done' : 'error');
+      };
+
+      const anyFound = plan.some(step => step.found);
+      setOcrStatus(anyFound || nr || foreignInfo ? 'done' : 'error');
       setOcrMessage('');
+      setRevealing(true);
+      const filled = new Set();
+      plan.forEach((step, i) => {
+        timersRef.current.push(setTimeout(() => {
+          if (!isCurrent()) return;
+          if (step.found) {
+            step.apply();
+            if (step.state === 'found' && (step.key === 'date' || step.key === 'supplier')) filled.add(step.key === 'supplier' ? 'desc' : 'date');
+          }
+          setRevealed(prev => ({ ...prev, [step.key]: step.found ? step.state : 'missing' }));
+        }, 250 + i * REVEAL_STEP_MS));
+      });
+      timersRef.current.push(setTimeout(() => {
+        if (!isCurrent()) return;
+        if (gross > 0 && !nr) {
+          buildRows(); filled.add('rows');
+          setPayInfo({ code: pay.code, name: accounts.find(a => a.code === pay.code)?.name || '', state: pay.state, source: pay.source });
+        }
+        setOcrFields(filled);
+        if (foreignInfo) setOcrForeignCurrency(foreignInfo);
+        setNotReceipt(nr);
+        setForeignInfo(nr ? null : (parsed.reverseCharge
+          ? { region: parsed.reverseCharge.region, evidence: parsed.reverseCharge.evidence }
+          : (parsed.reverseChargeUnclear ? { unclear: true } : null)));
+        setOcrVat(nr ? null : { verified: parsed.vatVerified, mismatch: parsed.vatMismatch, vatAmount: parsed.vatAmount, amountVerified: parsed.amountVerified });
+        setRevealing(false);
+      }, 250 + plan.length * REVEAL_STEP_MS + 150));
     } catch (err) {
       if (!isCurrent()) return;
       console.error('OCR misslyckades:', err);
       setOcrStatus('error');
       setOcrMessage('');
+      setRevealing(false);
     }
   }, [accounts]);
 
@@ -294,7 +423,7 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
   // handling, till skillnad från den tysta auto-körningen ovan.
   const rerunOcr = () => {
     const src = attachment || existingAttachment?.url;
-    if (src) runOcr(src);
+    if (src) runOcr(src, { force: true });
   };
 
   // Mild varning — inte en spärr — om ett reskontrakonto (kundfordringar/
@@ -305,6 +434,23 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
   // Rensar OCR-badgen på raderna så fort användaren rör konteringen själv —
   // samma "försvinner vid redigering"-princip som Datum/Beskrivning nedan.
   const clearRowsOcrBadge = () => setOcrFields(s => { if (!s.has('rows')) return s; const n = new Set(s); n.delete('rows'); return n; });
+
+  const changeMode = async (next) => {
+    if (next === mode) return;
+    if (next === 'simple' && rows.some(r => r.account || r.debet || r.kredit)) {
+      if (!(await confirmDialog('Byta till enkelt läge? Raderna du har skrivit in tas bort.'))) return;
+    }
+    if (next === 'simple') setSimple(emptySimple());
+    modeRef.current = next;
+    setMode(next);
+    try { localStorage.setItem('bokix.verificationMode', next); } catch { /* sparas inte i privat läge */ }
+  };
+
+  const updateSimple = (updater) => {
+    clearRowsOcrBadge();
+    if (ocrForeignCurrency) setOcrForeignCurrency(null);
+    setSimple(updater);
+  };
 
   const updateRow = (i, field, val) => {
     clearRowsOcrBadge();
@@ -433,7 +579,25 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
   const validRowCount = rows.filter(r => r.account && (parseFloat(r.debet) > 0 || parseFloat(r.kredit) > 0)).length;
   const validationMessages = [];
   if (!desc.trim()) validationMessages.push('Ange en beskrivning');
-  if (validRowCount < 2) validationMessages.push('Minst två rader med konto och belopp krävs');
+  if (mode === 'simple') {
+    if (simpleBuilt.errors.length > 0) validationMessages.push(simpleBuilt.errors[0]);
+  } else if (validRowCount < 2) validationMessages.push('Minst två rader med konto och belopp krävs');
+  // Inköp av tjänster från utlandet (4535, 4531 m.fl.) kräver momsraderna för
+  // omvänd skattskyldighet. Saknas de blockeras bokföringen, annars blir
+  // momsdeklarationen fel.
+  const numericRowsForReverse = rows.map(r => ({ account: r.account, debet: parseFloat(r.debet) || 0, kredit: parseFloat(r.kredit) || 0 }));
+  const missingReverseRows = missingReverseChargeRows(numericRowsForReverse);
+  if (missingReverseRows.length > 0) validationMessages.push('Lägg till momsraderna för omvänd skattskyldighet');
+  const addReverseRows = () => {
+    setRows(prev => {
+      const numeric = prev.map(r => ({ account: r.account, debet: parseFloat(r.debet) || 0, kredit: parseFloat(r.kredit) || 0 }));
+      const extra = missingReverseChargeRows(numeric);
+      return [...prev.filter(r => r.account || r.debet || r.kredit), ...extra.map(r => ({
+        account: r.account, accountName: accounts.find(a => a.code === r.account)?.name || '',
+        debet: r.debet ? r.debet.toFixed(2) : '', kredit: r.kredit ? r.kredit.toFixed(2) : '', desc: '',
+      }))];
+    });
+  };
   const canReview = isBalanced && validationMessages.length === 0;
   const title = initial?.number ? `Verifikation ${initial.number}` : 'Ny verifikation';
 
@@ -466,7 +630,7 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
             type="button"
             onClick={() => canReview && setShowReview(true)}
             disabled={!canReview}
-            title={canReview ? undefined : validationMessages.join(' · ') || 'Debet och kredit måste vara lika'}
+            title={canReview ? undefined : validationMessages.join(' · ') || 'Beloppen på raderna går inte ihop'}
             style={{ padding: '9px 18px', background: canReview ? BRAND.green : 'var(--border)', border: 'none', borderRadius: '8px', color: canReview ? 'white' : 'var(--text-muted)', fontSize: '13px', fontWeight: 700, cursor: canReview ? 'pointer' : 'not-allowed' }}
           >
             {initial?.number ? 'Granska & spara' : 'Granska & bokför'}
@@ -475,7 +639,7 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 'clamp(14px, 2vw, 24px)' }}>
-      <div style={{ background: 'var(--bg-card)', borderRadius: '14px', border: '1px solid var(--border)', padding: 'clamp(16px, 2.2vw, 28px)', maxWidth: '1180px', margin: '0 auto', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+      <div className="ver-form-card" style={{ background: 'var(--bg-card)', borderRadius: '14px', border: '1px solid var(--border)', padding: 'clamp(16px, 2.2vw, 28px)', maxWidth: '1180px', margin: '0 auto', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
 
       {/* Datum / Beskrivning / Serie */}
       <div className="ver-form-row" style={{ marginBottom: '10px' }}>
@@ -566,7 +730,17 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
           {ocrFields.has('rows') && (
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '7px', background: BRAND.amberBg, color: BRAND.amberText, borderRadius: '8px', padding: '8px 12px', marginBottom: '12px', fontSize: '12.5px', fontWeight: 600, lineHeight: 1.5 }}>
               <ScanLine size={14} style={{ flexShrink: 0, marginTop: 1 }} />
-              Rader ifyllda automatiskt från kvittot (OCR) — kontrollera konto, moms och betalkonto innan du bokför. Betalkontot är alltid en gissning (1930).
+              <span>
+                Rader ifyllda automatiskt från underlaget (OCR). Kontrollera konto och moms innan du bokför.
+                {payInfo && (
+                  <>
+                    {' '}
+                    {payInfo.state === 'guess'
+                      ? <>{payInfo.source}, så betalkonto <strong>{payInfo.code} {payInfo.name}</strong> är förvalt. Byt om det inte stämmer.</>
+                      : <>Betalkonto <strong>{payInfo.code} {payInfo.name}</strong>: {payInfo.source.charAt(0).toLowerCase() + payInfo.source.slice(1)}.</>}
+                  </>
+                )}
+              </span>
             </div>
           )}
           {/* Utländsk valuta — beloppet ÄR omräknat till kronor med en
@@ -576,6 +750,29 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
               växlingsavgift kan göra att det faktiskt dragna beloppet
               skiljer sig någon procent. Gick kursen inte att hämta byggs
               raderna inte alls, se convertToSek. */}
+          {foreignInfo && !foreignInfo.unclear && (
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '7px', background: BRAND.amberBg, color: BRAND.amberText, borderRadius: '8px', padding: '8px 12px', marginBottom: '12px', fontSize: '12.5px', fontWeight: 600, lineHeight: 1.5 }}>
+              <AlertCircle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
+              <span>
+                Tjänst från {foreignInfo.region === 'eu' ? 'ett annat EU-land' : 'ett land utanför EU'} ({foreignInfo.evidence}). Momsen ska redovisas av dig (omvänd skattskyldighet), därför har momsraderna 2645 och 2614 lagts till. Den syns i ruta {foreignInfo.region === 'eu' ? '21' : '22'}, 30 och 48 i momsdeklarationen.
+              </span>
+            </div>
+          )}
+          {foreignInfo && foreignInfo.unclear && (
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '7px', background: BRAND.amberBg, color: BRAND.amberText, borderRadius: '8px', padding: '8px 12px', marginBottom: '12px', fontSize: '12.5px', fontWeight: 600, lineHeight: 1.5 }}>
+              <AlertCircle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
+              <span>
+                Det här ser ut som ett köp från utlandet, men vi kan inte avgöra om säljaren finns i EU eller utanför. Är det en tjänst ska momsen redovisas av dig (omvänd skattskyldighet): välj konto 4535 (EU) eller 4531 (utanför EU), så läggs momsraderna till. Är det en vara gäller andra regler.
+              </span>
+            </div>
+          )}
+          {mode === 'advanced' && missingReverseRows.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', background: BRAND.amberBg, color: BRAND.amberText, borderRadius: '8px', padding: '8px 12px', marginBottom: '12px', fontSize: '12.5px', fontWeight: 600, lineHeight: 1.5 }}>
+              <AlertCircle size={14} style={{ flexShrink: 0 }} />
+              <span style={{ flex: 1, minWidth: '200px' }}>Inköp av tjänster från utlandet: momsen ska redovisas av dig. Lägg till 2645 Beräknad ingående moms (debet) och 2614 Utgående moms omvänd skattskyldighet (kredit), {fmt(missingReverseRows[0].debet)} kr.</span>
+              <button type="button" onClick={addReverseRows} style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid currentColor', background: 'transparent', color: 'inherit', fontWeight: 700, fontSize: '12.5px', cursor: 'pointer', fontFamily: 'inherit' }}>Lägg till momsraderna</button>
+            </div>
+          )}
           {ocrForeignCurrency && (
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '7px', background: BRAND.amberBg, color: BRAND.amberText, borderRadius: '8px', padding: '8px 12px', marginBottom: '12px', fontSize: '12.5px', fontWeight: 600, lineHeight: 1.5 }}>
               <AlertCircle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
@@ -590,13 +787,27 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
               )}
             </div>
           )}
-          <table style={{ width: '100%', minWidth: '620px', borderCollapse: 'collapse', fontSize: '13px' }}>
+          <div role="tablist" aria-label="Sätt att bokföra" style={{ display: 'inline-flex', padding: '3px', gap: '2px', border: '1px solid var(--border)', borderRadius: '999px', background: 'var(--bg-muted)', marginBottom: '16px' }}>
+            {[['simple', 'Enkelt'], ['advanced', 'Avancerat: debet och kredit']].map(([id, text]) => (
+              <button
+                key={id} type="button" role="tab" aria-selected={mode === id} onClick={() => changeMode(id)}
+                style={{ padding: '6px 14px', borderRadius: '999px', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: '12.5px', fontWeight: 600, background: mode === id ? 'var(--bg-card)' : 'transparent', color: mode === id ? 'var(--text-main)' : 'var(--text-secondary)', boxShadow: mode === id ? '0 1px 2px rgba(0,0,0,0.08)' : 'none' }}
+              >
+                {text}
+              </button>
+            ))}
+          </div>
+          {mode === 'simple' ? (
+            <SimpleBookingPanel fields={simple} setFields={updateSimple} accounts={accounts} orgType={orgType} rows={simpleBuilt.rows} errors={simpleBuilt.errors} />
+          ) : (
+          <>
+          <table className="ver-adv-table" style={{ width: '100%', minWidth: '620px', borderCollapse: 'collapse', fontSize: '13px' }}>
             <thead>
               <tr>
                 <th style={{ padding: '0 8px 8px', textAlign: 'left', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border)', width: 140 }}>KONTO</th>
                 <th style={{ padding: '0 8px 8px', textAlign: 'left', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border)' }}>BESKRIVNING</th>
-                <th style={{ padding: '0 8px 8px', textAlign: 'right', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border)', width: 110 }}>DEBET</th>
-                <th style={{ padding: '0 8px 8px', textAlign: 'right', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border)', width: 110 }}>KREDIT</th>
+                <th style={{ padding: '0 8px 8px', textAlign: 'right', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border)', width: 110 }} title="Här ökar tillgångar och kostnader. Pengar in på banken och inköp bokas till exempel som debet.">DEBET</th>
+                <th style={{ padding: '0 8px 8px', textAlign: 'right', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border)', width: 110 }} title="Här ökar skulder, eget kapital och intäkter. Pengar ut från banken och försäljning bokas till exempel som kredit.">KREDIT</th>
                 <th style={{ padding: '0 8px 8px', textAlign: 'right', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border)', width: 120 }}>
                   SALDO
                   {/* Utan den här raden trodde kunden att beloppet var själva
@@ -618,16 +829,21 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
                 const overrideOpen = expandedRows.has(i);
                 return (
                 <React.Fragment key={i}>
-                <tr style={{ borderBottom: '1px solid var(--border-light)' }}>
-                  <td style={{ padding: '6px 8px 6px 0' }}>
+                <tr className="ver-adv-row" style={{ borderBottom: '1px solid var(--border-light)' }}>
+                  <td className="ver-adv-account" data-label="Konto" style={{ padding: '6px 8px 6px 0' }}>
                     <AccountSearch
                       value={row.account}
                       accounts={accounts}
                       compact
                       onChange={(code, name) => { updateRow(i, 'account', code); updateRow(i, 'accountName', name); }}
                     />
+                    {row.account && ((parseFloat(row.debet) || 0) > 0 || (parseFloat(row.kredit) || 0) > 0) && (
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px', lineHeight: 1.35 }}>
+                        {describeRow({ account: row.account, accountName: row.accountName, debet: parseFloat(row.debet) || 0, kredit: parseFloat(row.kredit) || 0 }, accounts).text}
+                      </div>
+                    )}
                   </td>
-                  <td style={{ padding: '6px 8px', color: 'var(--text-main)', fontSize: '13px' }}>
+                  <td className="ver-adv-desc" data-label="Beskrivning" style={{ padding: '6px 8px', color: 'var(--text-main)', fontSize: '13px' }}>
                     <input
                       value={row.desc || ''}
                       onChange={e => updateRow(i, 'desc', e.target.value)}
@@ -635,9 +851,9 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
                       style={{ ...inp, padding: '9px 12px' }}
                     />
                   </td>
-                  <td style={{ padding: '6px 8px' }}>
+                  <td className="ver-adv-debet" data-label="Debet" style={{ padding: '6px 8px' }}>
                     <input
-                      type="number" min="0" value={row.debet}
+                      type="number" inputMode="decimal" min="0" value={row.debet}
                       onChange={e => updateRow(i, 'debet', e.target.value)}
                       onBlur={() => handleBlurAmount(i)}
                       onKeyDown={e => { if (e.key === 'Enter') handleBlurAmount(i); }}
@@ -645,9 +861,9 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
                       placeholder="0,00"
                     />
                   </td>
-                  <td style={{ padding: '6px 8px' }}>
+                  <td className="ver-adv-kredit" data-label="Kredit" style={{ padding: '6px 8px' }}>
                     <input
-                      type="number" min="0" value={row.kredit}
+                      type="number" inputMode="decimal" min="0" value={row.kredit}
                       onChange={e => updateRow(i, 'kredit', e.target.value)}
                       onBlur={() => handleBlurAmount(i)}
                       onKeyDown={e => { if (e.key === 'Enter') handleBlurAmount(i); }}
@@ -655,7 +871,7 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
                       placeholder="0,00"
                     />
                   </td>
-                  <td style={{ padding: '6px 8px', textAlign: 'right' }} title="Kontots hela bokförda saldo — inte bara den här raden — före och efter att raden bokförs">
+                  <td className="ver-adv-saldo" data-label="Saldo på hela kontot" style={{ padding: '6px 8px', textAlign: 'right' }} title="Kontots hela bokförda saldo — inte bara den här raden — före och efter att raden bokförs">
                     {projectedBalance !== null ? (
                       <div style={{ lineHeight: 1.4 }}>
                         <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{fmt(currentBalance)} kr idag</div>
@@ -665,7 +881,7 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
                       <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>–</span>
                     )}
                   </td>
-                  <td style={{ padding: '6px 4px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                  <td className="ver-adv-actions" style={{ padding: '6px 4px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                     {warning && (
                       <span title={warning} style={{ display: 'inline-flex', color: 'var(--status-amber-text)', cursor: 'help', marginRight: '4px' }}>
                         <AlertCircle size={14} />
@@ -706,7 +922,7 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
                   åtgärda. Ett tomt formulär (0 mot 0) är inte ett fel — men
                   visades ändå med två röda nollor, vilket gjorde att varje ny
                   verifikation började med att se trasig ut. */}
-              <tr style={{ borderTop: '1px solid var(--border)' }}>
+              <tr className="ver-adv-sum" style={{ borderTop: '1px solid var(--border)' }}>
                 <td colSpan={2} style={{ padding: '12px 8px', fontWeight: 700, fontSize: '13px', color: 'var(--text-main)' }}>Summa</td>
                 <td style={{ padding: '12px 8px', textAlign: 'right', fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: hasAmounts && !isBalanced ? 'var(--status-red-text)' : 'var(--text-main)' }}>{fmt(totalDebit)}</td>
                 <td style={{ padding: '12px 8px', textAlign: 'right', fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: hasAmounts && !isBalanced ? 'var(--status-red-text)' : 'var(--text-main)' }}>{fmt(totalCredit)}</td>
@@ -768,6 +984,8 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
               </button>
             )}
           </div>
+          </>
+          )}
         </div>
 
         {/* Right side: Attachment */}
@@ -799,12 +1017,15 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
             <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={e => acceptFile(e.target.files[0])} accept=".pdf,.png,.jpg,.jpeg,.webp" />
             {hasAttachment ? (
               <>
-                <DocumentPane
-                  className="dv-embed"
-                  url={displayAttachmentUrl}
-                  type={displayAttachmentType}
-                  name={displayAttachmentName}
-                />
+                <div style={{ position: 'relative' }}>
+                  <DocumentPane
+                    className="dv-embed"
+                    url={displayAttachmentUrl}
+                    type={displayAttachmentType}
+                    name={displayAttachmentName}
+                  />
+                  {ocrStatus === 'scanning' && <ScanOverlay flush detail={ocrMessage} />}
+                </div>
                 <div className="ver-doc-actions">
                   <button type="button" className="ver-doc-btn" disabled={ocrStatus === 'scanning'} onClick={rerunOcr} style={ocrStatus === 'scanning' ? { cursor: 'not-allowed', opacity: 0.6 } : undefined}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><ScanLine size={12} style={{ animation: ocrStatus === 'scanning' ? 'spin 1s linear infinite' : 'none' }} /> {ocrStatus === 'scanning' ? 'Läser…' : 'Läs av igen'}</span>
@@ -813,10 +1034,37 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
                   <button type="button" className="ver-doc-btn" onClick={() => fileInputRef.current?.click()}>Byt fil</button>
                   <button type="button" className="ver-doc-btn ver-doc-btn-muted" onClick={() => { setAttachment(null); setExistingAttachment(null); }}>Ta bort</button>
                 </div>
+                {(ocrStatus === 'scanning' || revealing || Object.keys(revealed).length > 0) && (
+                  <OcrChecklist scanning={ocrStatus === 'scanning'} revealed={revealed} items={VER_OCR_ITEMS} />
+                )}
+                {!revealing && notReceipt && (
+                  <div className="rc-verify rc-verify-warn">
+                    <AlertCircle size={14} style={{ flexShrink: 0 }} />
+                    <span>Det här ser inte ut som ett kvitto eller en faktura, så inget har fyllts i. Fyll i verifikationen själv, eller byt fil.</span>
+                  </div>
+                )}
+                {!revealing && ocrVat && ocrVat.amountVerified && !ocrVat.verified && (
+                  <div className="rc-verify rc-verify-ok">
+                    <CheckCircle2 size={14} style={{ flexShrink: 0 }} />
+                    <span>Beloppet stämmer: netto plus moms på fakturan blir totalbeloppet.</span>
+                  </div>
+                )}
+                {!revealing && ocrVat && ocrVat.verified && (
+                  <div className="rc-verify rc-verify-ok">
+                    <CheckCircle2 size={14} style={{ flexShrink: 0 }} />
+                    <span>Momsen stämmer mot beloppen på underlaget ({fmt(ocrVat.vatAmount)} kr moms).</span>
+                  </div>
+                )}
+                {!revealing && ocrVat && ocrVat.mismatch && (
+                  <div className="rc-verify rc-verify-warn">
+                    <AlertCircle size={14} style={{ flexShrink: 0 }} />
+                    <span>Momsbeloppet på underlaget ({fmt(ocrVat.vatAmount)} kr) stämmer inte mot någon momssats för det beloppet. Kontrollera belopp och moms.</span>
+                  </div>
+                )}
               </>
             ) : (
               <div
-                onClick={() => fileInputRef.current?.click()}
+                className="ver-drop" onClick={() => fileInputRef.current?.click()}
                 style={{ border: `1px dashed ${dragOver ? 'var(--text-main)' : 'var(--border)'}`, borderRadius: '12px', background: dragOver ? 'var(--bg-muted)' : 'var(--bg-card)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '28px', textAlign: 'center', cursor: 'pointer', transition: 'all 0.15s', height: 'clamp(320px, 44vh, 560px)', boxSizing: 'border-box' }}
               >
                 <UploadCloud size={26} color="var(--text-muted)" style={{ marginBottom: '10px' }} />
@@ -865,6 +1113,7 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
               if (!(await confirmDialog('Rensa formuläret? Ifylld information försvinner.'))) return;
               setDesc(''); setProjectId(''); setCostCenter(''); setInternalNote('');
               setCounterpartyId(''); setOriginalLocation(''); setAttachment(null); setExistingAttachment(null);
+              setSimple(emptySimple());
               setRows([
                 { account: '', accountName: '', debet: '', kredit: '', desc: '' },
                 { account: '', accountName: '', debet: '', kredit: '', desc: '' },
@@ -910,10 +1159,10 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
             <h3 style={{ margin: '0 0 4px', fontSize: '16px', fontWeight: 700, color: 'var(--text-main)' }}>Granska verifikation</h3>
             <p style={{ margin: '0 0 16px', fontSize: '12.5px', color: 'var(--text-secondary)' }}>{date} · Serie {series} · {desc || 'Ingen beskrivning'}</p>
             <div style={{ border: '1px solid var(--border)', borderRadius: '8px', overflow: 'hidden', marginBottom: '16px' }}>
-              {rows.filter(r => r.account && (parseFloat(r.debet) > 0 || parseFloat(r.kredit) > 0)).map((r, i) => (
-                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', fontSize: '13px', borderBottom: '1px solid var(--border-light)' }}>
-                  <span><strong style={{ color: 'var(--text-main)' }}>{r.account}</strong> {r.accountName}</span>
-                  <span style={{ fontWeight: 600, color: r.debet ? 'var(--status-green-text)' : 'var(--status-red-text)' }}>{r.debet ? `D ${fmt(r.debet)}` : `K ${fmt(r.kredit)}`}</span>
+              {describeVerification(rows.filter(r => r.account).map(r => ({ ...r, debet: parseFloat(r.debet) || 0, kredit: parseFloat(r.kredit) || 0 })), accounts).map((p, i) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', padding: '8px 12px', fontSize: '13px', borderBottom: '1px solid var(--border-light)' }}>
+                  <span><strong style={{ color: 'var(--text-main)' }}>{p.account}</strong> {p.text}</span>
+                  <span style={{ fontWeight: 600, color: 'var(--text-main)', whiteSpace: 'nowrap' }}>{fmt(p.amount)} kr</span>
                 </div>
               ))}
               {missingCounterparty && (
@@ -934,7 +1183,7 @@ function VerificationForm({ accounts, contacts, projects = [], balances, templat
 }
 
 // ─── Main Bokföring Component ──────────────────────────────────────────────────
-export default function Bokforing({ verifications = [], accounts = [], balances = {}, contacts = [], projects = [], templates = [], onSaveTemplate, onAdd, setVerifications, setAccounts, highlightVerificationId, onClearHighlight, vatPeriods, user, uploadFn = uploadFileToStorage, initialTab }) {
+export default function Bokforing({ verifications = [], accounts = [], balances = {}, contacts = [], projects = [], templates = [], onSaveTemplate, onAdd, setVerifications, setAccounts, highlightVerificationId, onClearHighlight, vatPeriods, user, orgType, uploadFn = uploadFileToStorage, initialTab }) {
   const [activeTab, setActiveTab] = useState(initialTab || 'verifications');
   // Samma mönster som Taxes.jsx:s initialSection — App.jsx:s
   // verificationsInitialTab (profilmenyns "Kontoplaner" ska landa på
@@ -1080,6 +1329,7 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
         accounts={accounts}
         contacts={contacts}
         projects={projects}
+        verifications={verifications}
         balances={balances}
         templates={templates}
         onSaveTemplate={onSaveTemplate}
@@ -1090,6 +1340,7 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
         onClose={() => { setShowForm(false); setEditingVer(null); }}
         vatPeriods={vatPeriods}
         user={user}
+        orgType={orgType}
         uploadFn={uploadFn}
       />
     );
@@ -1129,14 +1380,17 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
             countLabel="verifikationer"
             pageSize={pageSize}
             onPageSizeChange={setPageSize}
+            activeFilters={(dateFrom ? 1 : 0) + (dateTo ? 1 : 0) + (series !== 'all' ? 1 : 0) + (monthFilter !== 'all' ? 1 : 0)}
           >
             <div style={{ position: 'relative' }}>
               <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
               <input value={searchInput} onChange={e => setSearchInput(e.target.value)} placeholder="Sök verifikation, text, belopp..." style={{ ...listSearchInputStyle, width: '240px' }} />
             </div>
-            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={listFilterFieldStyle} />
-            <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>–</span>
-            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={listFilterFieldStyle} />
+            <div className="lfb-daterange">
+              <DateField value={dateFrom} onChange={e => setDateFrom(e.target.value)} placeholder="Från datum" style={listFilterFieldStyle} />
+              <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>–</span>
+              <DateField value={dateTo} onChange={e => setDateTo(e.target.value)} placeholder="Till datum" style={listFilterFieldStyle} />
+            </div>
             <select value={series} onChange={e => setSeries(e.target.value)} style={listFilterFieldStyle}>
               <option value="all">Alla serier</option>
               <option value="A">Serie A</option>
@@ -1280,6 +1534,15 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
                       32px vänsterindrag) — sidledes skroll på just denna
                       underliggande detaljtabell istället för en kortlist-
                       omgörning, som vore overkill för en sällan uppfälld panel. */}
+                  <div style={{ margin: '10px 0 4px', maxWidth: '560px' }}>
+                    <div style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '4px' }}>Så här bokfördes det</div>
+                    {describeVerification(v.rows.map(r => ({ ...r, debet: getDebet(r), kredit: getKredit(r) })), accounts).map((p, pi) => (
+                      <div key={pi} style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', fontSize: '12.5px', padding: '2px 0', color: 'var(--text-main)' }}>
+                        <span><span style={{ color: 'var(--text-muted)', marginRight: '8px' }}>{p.account}</span>{p.text}</span>
+                        <span style={{ fontWeight: 600, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{fmt(p.amount)} kr</span>
+                      </div>
+                    ))}
+                  </div>
                   <div style={{ overflowX: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', margin: '8px 0' }}>
                       <thead>

@@ -1,10 +1,17 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   CheckCircle2, Clock, Circle, Lock, Calculator, ChevronRight, ExternalLink, Info, Download, Users, Loader2, AlertTriangle, TrendingUp, TrendingDown, Minus, ArrowRight, RotateCcw, ClipboardList, Plus, Trash2,
-} from 'lucide-react';
+} from './icons';
 import VatDeclaration from './VatDeclaration';
+import FixedAssets from './FixedAssets';
+import Accruals from './Accruals';
+import Partners from './Partners';
+import Dividend from './Dividend';
+import { pendingDepreciation } from '../utils/fixedAssets';
+import { isReconciledThrough } from '../utils/reconciliation';
 import ListPageHeader from './shared/ListPageHeader';
-import { getDebet, getKredit } from '../utils/verificationAmounts';
+import { computeYearResult, buildYearEndClosing, buildResultReclassification, legacyLockedYears } from '../utils/yearEnd';
+import { validatePartners } from '../utils/partners';
 import { detectOrgType } from '../utils/orgType';
 import { isUfCompany, UF_TAX_SECTION_IDS } from '../utils/ufMode';
 import { summarizeAnnualPayrollByEmployee, neededTaxTableKeysForYear, downloadKuPdf } from '../utils/kuExport';
@@ -303,7 +310,7 @@ export default function Taxes({
   employees = [], payrollRuns = [], agiReports = [],
   onCreateAgiReport, onMarkAgiSubmitted, onDeleteAgiReport,
   vatPeriods = {}, onBookVatPeriod, onNavigateToVerification,
-  onAddVerification, setCompanyInfo, onNavigateToTab, initialSection,
+  onAddVerification, setCompanyInfo, setAccounts, onNavigateToTab, initialSection,
 }) {
   const currentYear = new Date().getFullYear().toString();
   const orgType = detectOrgType(company?.orgNr);
@@ -451,6 +458,9 @@ export default function Taxes({
   const lockedYears = company?.lockedFiscalYears || {};
   const closing = lockedYears[currentYear];
   const isLocked = Boolean(closing);
+  // Avskrivningar t.o.m. årets sista månad — steg 5 i årsbokslutet och samma
+  // beräkning som fliken Anläggningstillgångar visar.
+  const depreciationPending = pendingDepreciation(company?.fixedAssets || [], verifications, `${currentYear}-12`, Object.keys(lockedYears));
 
   // Steg 2/3: fakturor som fortfarande ligger som utkast (inte bokförda) i år.
   const draftCustomerInvoices = invoices.filter(i => (i.type || 'invoice') !== 'quote' && i.status === 'draft' && (i.date || '').startsWith(currentYear));
@@ -461,18 +471,10 @@ export default function Taxes({
   const decemberRunBooked = runsThisYear.some(r => r.period === `${currentYear}-12` && r.completedSteps?.includes('booked'));
   const anyRunBookedThisYear = runsThisYear.some(r => r.completedSteps?.includes('booked'));
 
-  // Årets resultat — exakt samma beräkning som RÅ Resultat på Startsidan,
-  // så siffran som visas här aldrig kan divergera från den man redan sett.
-  let yearRevenue = 0, yearCosts = 0;
-  verifications.forEach(v => {
-    if ((v.status || 'booked') === 'draft') return;
-    if (!(v.date || '').startsWith(currentYear)) return;
-    v.rows.forEach(r => {
-      if (r.account.startsWith('3')) yearRevenue += (getKredit(r) - getDebet(r));
-      else if (['4', '5', '6', '7'].some(p => r.account.startsWith(p))) yearCosts += (getDebet(r) - getKredit(r));
-    });
-  });
-  const yearResult = isLocked ? closing.result : (yearRevenue - yearCosts);
+  // Årets resultat: intäkter minus kostnader, klass 3–8 (inklusive finansiella
+  // poster och skatt), samma underlag som bokslutstransaktionen bokar.
+  const yearResult = isLocked ? closing.result : computeYearResult(verifications, currentYear);
+  const partnersReady = !isTradingPartnership || validatePartners(company?.partners).length === 0;
 
   // INK2R (balansräkningsdelen av Inkomstdeklaration 2) — bara relevant för
   // aktiebolag/ekonomisk förening m.fl., inte enskild firma. Se ink2r.js
@@ -620,8 +622,11 @@ export default function Taxes({
   const steps = [
     {
       id: 1, kind: 'manual', key: 'bankRecon', title: 'Avstämning bankkonto',
-      status: checklist.bankRecon ? 'Klar' : 'Ej påbörjad',
-      hint: 'Stäm av att bankkontots saldo i Bokix matchar kontoutdraget, markera sedan som klar.',
+      // Klar antingen manuellt, eller automatiskt när en avstämning utan
+      // differens är sparad per bokslutsdagen (Bank > Avstämning).
+      status: (checklist.bankRecon || isReconciledThrough(company?.reconciliations, `${currentYear}-12-31`)) ? 'Klar' : 'Ej påbörjad',
+      hint: 'Stäm av bankkontot och kassan under Bank > Avstämning per bokslutsdagen. En sparad avstämning utan differens markeras automatiskt, annars kan du markera steget som klart själv.',
+      tab: 'bank',
     },
     {
       id: 2, kind: 'auto', title: 'Bokför årets sista kundfakturor',
@@ -642,68 +647,76 @@ export default function Taxes({
       tab: 'payroll',
     },
     {
-      id: 5, kind: 'manual', key: 'inventory', title: 'Inventering och lager (om tillämpligt)',
-      status: checklist.inventory ? 'Klar' : 'Ej påbörjad',
-      hint: 'Räkna och värdera eventuellt varulager per bokslutsdagen, markera sedan som klar. Inte tillämpligt för alla verksamheter.',
+      id: 5, kind: 'auto', title: 'Bokför årets avskrivningar',
+      status: depreciationPending.months.length === 0 ? 'Klar' : 'Pågår',
+      hint: depreciationPending.months.length === 0
+        ? ((company?.fixedAssets || []).length === 0 ? 'Inga anläggningstillgångar i registret.' : 'Alla avskrivningar för året är bokförda.')
+        : `${depreciationPending.months.length} månad${depreciationPending.months.length === 1 ? '' : 'er'} kvar att bokföra, ${fmt(depreciationPending.total)}.`,
+      section: 'assets',
     },
     {
-      id: 6, kind: 'auto', title: 'Beräkna och bokför årets resultat',
+      id: 6, kind: 'manual', key: 'accruals', title: 'Periodisera upplupna och förutbetalda poster',
+      status: checklist.accruals ? 'Klar' : 'Ej påbörjad',
+      hint: 'Hyra, försäkringar, el och annat som hör till en annan period. Markera som klar när du är färdig, eller om inget behöver periodiseras.',
+      section: 'accruals',
+    },
+    {
+      id: 7, kind: 'manual', key: 'inventory', title: 'Inventering och lager (om tillämpligt)',
+      status: checklist.inventory ? 'Klar' : 'Ej påbörjad',
+      hint: 'Räkna och värdera varulagret per bokslutsdagen under Artiklar > Lager, markera sedan som klar. Inte tillämpligt för alla verksamheter.',
+      tab: 'articles',
+    },
+    {
+      id: 8, kind: 'auto', title: 'Beräkna och bokför årets resultat',
       status: isLocked ? 'Klar' : 'Ej påbörjad',
       hint: 'Bokförs automatiskt som en bokslutstransaktion när räkenskapsåret låses nedan.',
     },
     {
-      id: 7, kind: 'auto', title: 'Lås räkenskapsåret',
+      id: 9, kind: 'auto', title: 'Lås räkenskapsåret',
       status: isLocked ? 'Klar' : 'Ej påbörjad',
       hint: isLocked ? `Låst ${new Date(closing.lockedAt).toLocaleDateString('sv-SE')}.` : 'Blir tillgänglig när alla steg ovan är klara.',
     },
   ];
 
-  // Bara steg 1–5 kan bli klara innan låsning — steg 6 ("bokför årets
-  // resultat") och steg 7 ("lås räkenskapsåret") ÄR själva låsningen och
+  // Bara steg 1–7 kan bli klara innan låsning — steg 8 ("bokför årets
+  // resultat") och steg 9 ("lås räkenskapsåret") ÄR själva låsningen och
   // blir Klar som en följd av den, inte en förutsättning för den. Att
-  // kräva steg 6 här skulle göra knappen evigt inaktiv.
-  const stepsBeforeLock = steps.slice(0, 5);
-  const canLock = !isLocked && stepsBeforeLock.every(s => s.status === 'Klar');
+  // kräva steg 8 här skulle göra knappen evigt inaktiv.
+  const stepsBeforeLock = steps.slice(0, 7);
+  // Ett handels-/kommanditbolag måste ha delägarna inlagda innan året kan
+  // låsas — bokslutet fördelar resultatet direkt på dem.
+  const canLock = !isLocked && partnersReady && stepsBeforeLock.every(s => s.status === 'Klar');
+
+  // År som låstes innan bokslutet kände till bolagsformen har resultatet på
+  // 2099. För en enskild firma ska det ligga på 2019, så det flyttas med en ny
+  // verifikation (en bokförd verifikation rättas aldrig genom att skrivas om).
+  const legacyYears = isSoleProp ? legacyLockedYears(company?.lockedFiscalYears) : [];
+  const handleReclassifyYear = ({ year, result }) => {
+    const today = new Date();
+    const date = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const verification = buildResultReclassification({ year, result, date });
+    if (verification) onAddVerification(verification);
+    setCompanyInfo(prev => ({
+      ...prev,
+      lockedFiscalYears: { ...prev.lockedFiscalYears, [year]: { ...prev.lockedFiscalYears?.[year], resultAccount: '2019' } },
+    }));
+  };
 
   const handleLockYear = () => {
     if (!canLock) return;
 
-    // Bokslutstransaktion: nollställ alla resultatkonton (klass 3–7) med
-    // aktivitet i år och för nettot (årets resultat) till 2099. Konstruerad
-    // ur exakt samma radsummor som `yearResult` ovan, så den är per
-    // definition balanserad oavsett avrundningar i enskilda verifikationer.
-    const perAccount = {};
-    verifications.forEach(v => {
-      if ((v.status || 'booked') === 'draft') return;
-      if (!(v.date || '').startsWith(currentYear)) return;
-      v.rows.forEach(r => {
-        if (!['3', '4', '5', '6', '7'].some(p => r.account.startsWith(p))) return;
-        perAccount[r.account] = (perAccount[r.account] || 0) + (getDebet(r) - getKredit(r));
-      });
+    // Bokslutstransaktion: nollställer alla resultatkonton (klass 3–8) med
+    // aktivitet i år och bokar årets resultat på eget kapital — 2099 för
+    // aktiebolag m.fl., 2019 för enskild firma, delägarnas konton för
+    // handels-/kommanditbolag. Balanserad per konstruktion, se utils/yearEnd.js.
+    const { verification, result, destination } = buildYearEndClosing({
+      verifications, year: currentYear, orgType, partners: company?.partners,
     });
-
-    const rows = [];
-    Object.entries(perAccount).forEach(([account, netDebet]) => {
-      if (!netDebet) return;
-      if (netDebet > 0) rows.push({ account, debet: 0, kredit: netDebet });
-      else rows.push({ account, debet: -netDebet, kredit: 0 });
-    });
-    if (yearResult >= 0) rows.push({ account: '2099', debet: 0, kredit: yearResult });
-    else rows.push({ account: '2099', debet: -yearResult, kredit: 0 });
-
-    if (rows.length > 0) {
-      onAddVerification({
-        date: `${currentYear}-12-31`,
-        description: `Bokslutstransaktion ${currentYear}: Årets resultat`,
-        source: 'year_end_close',
-        sourceId: `yearclose_${currentYear}`,
-        rows,
-      });
-    }
+    if (verification) onAddVerification(verification);
 
     setCompanyInfo(prev => ({
       ...prev,
-      lockedFiscalYears: { ...prev.lockedFiscalYears, [currentYear]: { lockedAt: new Date().toISOString(), result: yearResult } },
+      lockedFiscalYears: { ...prev.lockedFiscalYears, [currentYear]: { lockedAt: new Date().toISOString(), result, resultAccount: destination } },
     }));
   };
 
@@ -725,6 +738,12 @@ export default function Taxes({
     { id: 'dates', label: 'Viktiga datum' },
     { id: 'vat', label: 'Moms' },
     { id: 'yearend', label: 'Årsbokslut' },
+    { id: 'assets', label: 'Anläggningstillgångar' },
+    { id: 'accruals', label: 'Periodiseringar' },
+    // Bolagsformsspecifika flikar: delägare/resultatfördelning för HB/KB,
+    // utdelning för AB. Enskild firma har varken eller.
+    ...(isTradingPartnership ? [{ id: 'partners', label: 'Delägare' }] : []),
+    ...(orgType === 'Aktiebolag (AB)' ? [{ id: 'dividend', label: 'Utdelning' }] : []),
     { id: 'ku', label: 'Kontrolluppgifter' },
     // AGI — bara relevant för företag som någon gång haft en anställd
     // (annars finns inget att deklarera, samma "ingen anställd, ingen
@@ -972,9 +991,9 @@ export default function Taxes({
                       </div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                      {step.tab && step.status !== 'Klar' && onNavigateToTab && (
+                      {(step.section || step.tab) && step.status !== 'Klar' && (step.section || onNavigateToTab) && (
                         <button
-                          onClick={(e) => { e.stopPropagation(); onNavigateToTab(step.tab); }}
+                          onClick={(e) => { e.stopPropagation(); if (step.section) setActiveSection(step.section); else onNavigateToTab(step.tab); }}
                           style={{ display: 'flex', alignItems: 'center', gap: '2px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent-text)', fontSize: '12px', fontWeight: 600, fontFamily: 'inherit', padding: '2px' }}
                         >
                           Åtgärda <ChevronRight size={12} />
@@ -1011,6 +1030,18 @@ export default function Taxes({
                 <Lock size={16} /> {isLocked ? 'Räkenskapsår låst' : 'Lås räkenskapsår och skapa bokslut'}
               </button>
             </div>
+            {legacyYears.map(y => (
+              <div key={y.year} style={{ padding: '12px 24px', borderTop: '1px solid var(--border)', background: 'var(--status-amber-bg)', color: 'var(--status-amber-text)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                <span>Resultatet för {y.year} ({fmt(y.result)} kr) ligger på 2099, som är aktiebolagets konto. För en enskild firma ska det ligga på 2019.</span>
+                <button type="button" onClick={() => handleReclassifyYear(y)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontWeight: 700, fontSize: '13px', textDecoration: 'underline', padding: 0 }}>Flytta till 2019</button>
+              </div>
+            ))}
+            {!isLocked && !partnersReady && (
+              <div style={{ padding: '12px 24px', borderTop: '1px solid var(--border)', background: 'var(--status-amber-bg)', color: 'var(--status-amber-text)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                <span>Lägg in delägarna och deras andelar innan du låser året, så att resultatet kan fördelas direkt i bokslutet.</span>
+                <button type="button" onClick={() => setActiveSection('partners')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontWeight: 700, fontSize: '13px', textDecoration: 'underline', padding: 0 }}>Gå till Delägare</button>
+              </div>
+            )}
 
             {/* Bolagsformsspecifik hjälptext + källor — enligt Skatteverkets
                 regler: bokslutet ska innehålla balans- och resultaträkning,
@@ -1054,6 +1085,22 @@ export default function Taxes({
           )}
 
           {/* Kontrolluppgifter (KU) */}
+          {activeSection === 'assets' && (
+            <FixedAssets company={company} accounts={accounts} verifications={verifications} onAddVerification={onAddVerification} setCompanyInfo={setCompanyInfo} />
+          )}
+
+          {activeSection === 'accruals' && (
+            <Accruals company={company} accounts={accounts} verifications={verifications} employees={employees} payrollRuns={payrollRuns} onAddVerification={onAddVerification} setCompanyInfo={setCompanyInfo} />
+          )}
+
+          {activeSection === 'partners' && isTradingPartnership && (
+            <Partners company={company} verifications={verifications} year={currentYear} yearResult={yearResult} onAddVerification={onAddVerification} setCompanyInfo={setCompanyInfo} />
+          )}
+
+          {activeSection === 'dividend' && orgType === 'Aktiebolag (AB)' && (
+            <Dividend company={company} accounts={accounts} verifications={verifications} onAddVerification={onAddVerification} setAccounts={setAccounts} setCompanyInfo={setCompanyInfo} />
+          )}
+
           {activeSection === 'ku' && (
           <div style={{ background: 'var(--bg-card)', borderRadius: '0 0 12px 12px', border: '1px solid var(--border)', overflow: 'hidden' }}>
             <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>

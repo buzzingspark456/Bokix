@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, Loader2 } from './icons';
 import { supabase } from '../supabaseClient';
 import { BRAND } from '../utils/brandColors';
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { BarChart3, CreditCard, ShieldAlert, Users, LogOut, ShieldCheck } from 'lucide-react';
+import { BarChart3, CreditCard, ShieldAlert, Users, LogOut, ShieldCheck } from '../icons';
 import { supabase } from '../../supabaseClient';
 import InternalAuth from './InternalAuth';
 import AnalyticsAdmin from './AnalyticsAdmin';

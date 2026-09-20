@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { HelpCircle, ArrowUpRight, ArrowDownRight, Inbox, Calendar, ChevronDown, Palette } from 'lucide-react';
+import { HelpCircle, ArrowUpRight, ArrowDownRight, Inbox, Calendar, ChevronDown, Palette } from '../icons';
 import {
   BarChart, Bar, LineChart, Line, ComposedChart, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer,

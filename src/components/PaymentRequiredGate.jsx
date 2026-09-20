@@ -1,5 +1,5 @@
 ﻿import React, { useState } from 'react';
-import { CreditCard, LogOut, AlertCircle, Lock } from 'lucide-react';
+import { CreditCard, LogOut, AlertCircle, Lock } from './icons';
 import { BRAND } from '../utils/brandColors';
 import { BokixWordmark } from './marketing/MarketingLayout';
 import { createStripeSubscriptionCheckout } from '../stripeApi';

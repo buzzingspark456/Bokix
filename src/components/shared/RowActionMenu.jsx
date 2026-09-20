@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { MoreVertical } from 'lucide-react';
+import { MoreVertical } from '../icons';
 
 // Delad "⋮"-radmeny — kebab-knapp som öppnar en dropdown med grupperade
 // åtgärder (t.ex. olika åtgärder beroende på en fakturas/offerts status).

@@ -279,7 +279,9 @@
      ger lite marginal utöver de uppmätta ~94px istället för att ligga
      pixel-exakt på gränsen (typsnittsmetrik kan skilja någon pixel
      mellan Android/iOS). */
-  --mobile-nav-height: 100px;
+  /* Kompakt bottenrad (Fortnox/Bokio/Wrebit-storlek): ~64px + hemindikatorn.
+     Var 100px tidigare, vilket åt 15% av skärmen. */
+  --mobile-nav-height: 68px;
 }
 
 /* ══ MÖRKT LÄGE ══
@@ -1838,10 +1840,14 @@ body {
   bottom: 0;
   left: 0;
   right: 0;
-  min-height: var(--mobile-nav-height);
   background: var(--bg-card);
   border-top: 1px solid var(--border);
   z-index: 150;
+  /* Egen lager på iOS Safari: fixed-element utan detta kan hoppa/glida när
+     adressfältet fälls in och ut. */
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  box-sizing: border-box;
   /* Subtil skugga uppåt — lyfter naven från innehållet istället för en platt linje. */
   box-shadow: 0 -2px 8px rgba(0,0,0,0.04);
   padding-bottom: env(safe-area-inset-bottom, 0px);
@@ -1866,8 +1872,8 @@ body {
   display: flex;
   align-items: stretch;
   justify-content: space-around;
-  gap: 6px;
-  padding: 10px 8px;
+  gap: 2px;
+  padding: 6px 6px 4px;
   width: 100%;
   box-sizing: border-box;
 }
@@ -1878,8 +1884,8 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  min-height: 50px;
+  gap: 2px;
+  min-height: 52px;
   /* -webkit-appearance/tap-highlight: utan dessa lägger iOS/Android sin egen
      grå knapp-bakgrund bakom VARJE knapp (inte bara den aktiva) — det var
      det som gjorde bottennaven såg "kantig" och oformaterad ut på en riktig
@@ -1892,10 +1898,11 @@ body {
   outline: none;
   cursor: pointer;
   font-family: var(--font-sans);
-  font-size: 12px;
+  font-size: 11px;
+  line-height: 1.2;
   font-weight: 500;
   color: var(--text-main);
-  padding: 6px 2px;
+  padding: 2px 2px;
   transition: transform 0.12s ease, color 0.18s ease;
 }
 
@@ -1906,11 +1913,12 @@ body {
 }
 
 .mobile-nav-btn .mobile-nav-icon {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 56px;
+  height: 30px;
   border-radius: 999px;
   background: transparent;
   transform: scale(1);
@@ -1926,7 +1934,6 @@ body {
 .mobile-nav-btn.active .mobile-nav-icon {
   background: #eaf3de;
   color: #0b6329;
-  transform: scale(1.08);
 }
 
 /* Kundfeedback: den ljusa krämfärgade cirkeln (#eaf3de) + den nästan
@@ -1973,9 +1980,10 @@ body {
   box-shadow: 0 -8px 30px rgba(0,0,0,0.18);
   transform: translateY(100%);
   transition: transform 0.25s cubic-bezier(0.32, 0.72, 0, 1);
-  padding: 10px 10px calc(12px + env(safe-area-inset-bottom, 0px));
-  max-height: 70vh;
+  padding: 10px 12px calc(12px + env(safe-area-inset-bottom, 0px));
+  max-height: 86vh;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .mobile-sheet.open {
@@ -2050,6 +2058,104 @@ body {
   background: #eaf3de;
   color: #0b6329;
 }
+
+/* Meny-panelen: sidorna som en rutnätsyta med stora tryckytor, sedan hjälp och
+   utloggning. Samma sida ligger aldrig både i en hamburgermeny uppe och i
+   bottenfältet, all navigering på telefon går hit. */
+.mobile-sheet-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px 12px;
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--text-main);
+}
+.mobile-sheet-close {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: none;
+  background: var(--bg-muted);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.mobile-sheet-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding-bottom: 10px;
+}
+.mobile-sheet-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-height: 92px;
+  padding: 14px 6px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-main);
+  text-align: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.1s ease, background-color 0.12s ease;
+}
+.mobile-sheet-tile:active { background: var(--bg-muted); transform: scale(0.97); }
+.mobile-sheet-tile.active { background: var(--status-green-bg); border-color: transparent; color: var(--status-green-text); }
+.mobile-sheet-tile-icon {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--bg-muted);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mobile-sheet-tile.active .mobile-sheet-tile-icon { background: var(--bg-card); color: var(--status-green-text); }
+.mobile-sheet-tile-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #22c55e;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+.mobile-sheet-tile-label { line-height: 1.25; }
+.mobile-sheet-footer { border-top: 1px solid var(--border); padding-top: 8px; }
+.mobile-sheet-item--danger { color: var(--status-red-text); }
+.mobile-sheet-item--danger .mobile-sheet-item-icon { color: inherit; }
+.mobile-nav-dot {
+  position: absolute;
+  top: 0;
+  right: 12px;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #ef4444;
+  border: 2px solid var(--bg-card);
+  box-sizing: border-box;
+}
+.mobile-dropdown-backdrop { display: none; }
 
 
 /* ══════════════════════════════════════════════
@@ -2548,9 +2654,10 @@ textarea.form-control {
    Vyn tar HELA fönstret (kundönskemål) — samma beslut som fakturans
    förhandsgranskning redan tagit en gång: ett kort med mörkt tyg runt om
    gjorde varken dokumentet eller formuläret större, bara båda mindre.
-   Formuläret ligger till VÄNSTER i en fast, läsbar spaltbredd och
-   dokumentet får allt utrymme som blir över — ett kvitto tjänar på varje
-   pixel, ett formulär blir bara svårare att läsa av att bli bredare. */
+   Kvittot ligger till VÄNSTER och får allt utrymme som blir över, och
+   uppgifterna ligger till HÖGER i en fast, läsbar spaltbredd — ett kvitto
+   tjänar på varje pixel, ett formulär blir bara svårare att läsa av att bli
+   bredare. */
 .receipt-modal-overlay {
   align-items: stretch;
   justify-content: stretch;
@@ -2745,10 +2852,20 @@ textarea.form-control {
 .ver-doc-btn:hover { background: var(--bg-muted); }
 .ver-doc-btn-muted { color: var(--text-secondary); }
 
-/* ── Vänster: formuläret ── */
+/* ── Vänster: kvittot (dokumentvisaren + skannern) ── */
+.rc-doc {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  background: #14201a;
+}
+.rc-doc > .dv-doc { flex: 1 1 auto; }
+
+/* ── Höger: uppgifterna ── */
 .rc-form {
-  flex: 0 0 clamp(380px, 34%, 560px);
-  border-right: 1px solid var(--border);
+  flex: 0 0 clamp(400px, 36%, 580px);
+  border-left: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   background: var(--bg-card);
@@ -2756,9 +2873,10 @@ textarea.form-control {
 }
 .rc-form-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px 12px;
   padding: 18px 22px 14px;
   border-bottom: 1px solid var(--border-light);
   flex-shrink: 0;
@@ -2829,6 +2947,235 @@ textarea.form-control {
 }
 .rc-chip:hover { border-color: var(--primary); color: var(--text-main); }
 
+/* ── Skannern (ScanOverlay i Expenses.jsx) ──
+   Ligger ovanpå dokumentets yta, under verktygsraden (44px), medan kvittot
+   läses. En ljus linje sveper uppifrån och ned med en ljussvans efter sig,
+   fyra hörnmarkeringar ramar in kvittot och en kapsel längst ned säger vad
+   som läses. Allt är rent visuellt och klickar igenom (pointer-events). */
+.rc-scan {
+  position: absolute;
+  inset: 44px 0 0 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 3;
+  background: linear-gradient(180deg, rgba(10, 22, 15, 0.12), rgba(10, 22, 15, 0.34));
+  animation: rcScanIn 260ms ease both;
+}
+.rc-scan-line {
+  position: absolute;
+  left: 5%;
+  right: 5%;
+  top: 0;
+  height: 3px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, transparent, #4ade80 14%, #bbf7d0 50%, #4ade80 86%, transparent);
+  box-shadow: 0 0 18px 4px rgba(74, 222, 128, 0.55), 0 0 64px 16px rgba(74, 222, 128, 0.22);
+  animation: rcScanSweep 1.7s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+}
+.rc-scan-line::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: 110px;
+  background: linear-gradient(180deg, transparent, rgba(74, 222, 128, 0.18));
+}
+@keyframes rcScanSweep {
+  0%   { top: 1%;  opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 1; }
+  100% { top: 99%; opacity: 0; }
+}
+@keyframes rcScanIn { from { opacity: 0; } to { opacity: 1; } }
+.rc-scan-corner {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  border: 0 solid #4ade80;
+  border-radius: 3px;
+  opacity: 0.95;
+  animation: rcCornerPulse 1.7s ease-in-out infinite;
+}
+.rc-scan-tl { top: 5%; left: 5%; border-top-width: 3px; border-left-width: 3px; }
+.rc-scan-tr { top: 5%; right: 5%; border-top-width: 3px; border-right-width: 3px; }
+.rc-scan-bl { bottom: 12%; left: 5%; border-bottom-width: 3px; border-left-width: 3px; }
+.rc-scan-br { bottom: 12%; right: 5%; border-bottom-width: 3px; border-right-width: 3px; }
+@keyframes rcCornerPulse {
+  0%, 100% { transform: scale(1); opacity: 0.95; }
+  50% { transform: scale(0.92); opacity: 0.6; }
+}
+.rc-scan-pill {
+  position: absolute;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 250px;
+  max-width: calc(100% - 32px);
+  padding: 11px 18px 12px;
+  border-radius: 14px;
+  background: rgba(10, 22, 15, 0.88);
+  backdrop-filter: blur(8px);
+  color: #fff;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  box-sizing: border-box;
+}
+.rc-scan-pill > svg { color: #4ade80; flex-shrink: 0; }
+.rc-scan-text { min-width: 0; flex: 1; }
+.rc-scan-msg { font-size: 13.5px; font-weight: 700; animation: rcMsgIn 300ms ease both; }
+.rc-scan-detail { font-size: 11.5px; color: rgba(255, 255, 255, 0.6); margin-top: 1px; }
+@keyframes rcMsgIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.rc-scan-bar {
+  height: 3px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.16);
+  margin-top: 8px;
+  overflow: hidden;
+}
+.rc-scan-bar > span {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #4ade80, #bbf7d0);
+  animation: rcScanProgress 5s cubic-bezier(0.25, 0.6, 0.4, 1) forwards;
+}
+@keyframes rcScanProgress { from { width: 0; } to { width: 96%; } }
+
+/* Uppgifterna medan kvittot läses: fälten är låsta och visar en skimrande
+   platta i stället för det som stod där. */
+.rc-scanning input,
+.rc-scanning select,
+.rc-scanning textarea,
+.rc-scanning .rc-split > div,
+.rc-scanning .rc-chip {
+  pointer-events: none;
+  color: transparent !important;
+  background: linear-gradient(90deg, var(--gray-25) 25%, var(--gray-100, #eef1ef) 50%, var(--gray-25) 75%) !important;
+  background-size: 220% 100%;
+  animation: rcShimmer 1.3s linear infinite;
+  border-color: var(--border-light) !important;
+}
+.rc-scanning .rc-split-k, .rc-scanning .rc-split-v { color: transparent; }
+@keyframes rcShimmer { from { background-position: 120% 0; } to { background-position: -120% 0; } }
+
+/* Checklistan över vad som hittades. */
+.rc-ocr-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 14px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  background: var(--gray-25);
+}
+.rc-ocr-item { display: flex; align-items: center; gap: 8px; font-size: 12.5px; min-width: 0; }
+.rc-ocr-icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: var(--border-light);
+  color: var(--text-muted);
+}
+.rc-ocr-label { font-weight: 600; color: var(--text-main); }
+.rc-ocr-state { margin-left: auto; font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+.rc-ocr-found .rc-ocr-icon { background: var(--status-green-bg); color: var(--status-green-text); animation: rcPop 320ms ease both; }
+.rc-ocr-found .rc-ocr-state { color: var(--status-green-text); font-weight: 600; }
+.rc-ocr-guess .rc-ocr-icon { background: var(--status-amber-bg); color: var(--status-amber-text); animation: rcPop 320ms ease both; }
+.rc-ocr-guess .rc-ocr-state { color: var(--status-amber-text); font-weight: 600; }
+.rc-ocr-missing .rc-ocr-icon { animation: rcPop 320ms ease both; }
+.rc-ocr-spin {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  border: 2px solid var(--border);
+  border-top-color: var(--primary, #16a34a);
+  animation: spin 0.8s linear infinite;
+}
+.rc-ocr-wait { width: 6px; height: 6px; border-radius: 999px; background: var(--border); }
+@keyframes rcPop { 0% { transform: scale(0.4); opacity: 0; } 70% { transform: scale(1.15); } 100% { transform: scale(1); opacity: 1; } }
+
+/* Momskontrollen mot beloppen på kvittot. */
+.rc-verify {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.45;
+  animation: rcMsgIn 300ms ease both;
+}
+.rc-verify > svg { margin-top: 2px; }
+.rc-verify-ok { background: var(--status-green-bg); color: var(--status-green-text); }
+.rc-verify-warn { background: var(--status-amber-bg); color: var(--status-amber-text); }
+
+/* Valutarutan: beloppet i valutan, kursen och var kursen kom ifrån. */
+.rc-fx {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  background: var(--gray-25);
+}
+.rc-fx-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.rc-fx-title { font-size: 13px; font-weight: 700; color: var(--text-main); }
+.rc-fx-grid { display: grid; grid-template-columns: 96px minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+.rc-fx-note { font-size: 12px; line-height: 1.5; color: var(--text-secondary); }
+.rc-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--accent-text, var(--primary));
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.rc-hint { font-size: 11.5px; color: var(--text-muted); margin-top: 4px; }
+
+/* Ljusning på ett fält när avläsningen just fyllde i det. */
+.rc-flash input,
+.rc-flash button {
+  animation: rcFlash 1.3s ease-out;
+}
+@keyframes rcFlash {
+  0% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.0); background-color: rgba(74, 222, 128, 0.32); }
+  60% { box-shadow: 0 0 0 4px rgba(74, 222, 128, 0.18); }
+  100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rc-scan-line { animation: none; top: 50%; }
+  .rc-scan-corner, .rc-scanning input, .rc-scanning select, .rc-scanning textarea, .rc-scanning .rc-split > div, .rc-scanning .rc-chip { animation: none; }
+  .rc-scan-bar > span { animation-duration: 0.01s; width: 96%; }
+  .rc-flash input, .rc-flash button { animation: none; }
+}
+
+/* Halv skärm på en bred bildskärm: uppgiftsspalten blir smal, så fältrutnätet
+   och checklistan går över till en kolumn i stället för att trängas. */
+@media (max-width: 1100px) and (min-width: 861px) {
+  .rc-form { flex-basis: clamp(360px, 40%, 460px); }
+  .rc-grid { grid-template-columns: 1fr; }
+  .rc-ocr-list { grid-template-columns: 1fr; }
+  .rc-fx-grid { grid-template-columns: 1fr 1fr; }
+  .rc-fx-grid > div:first-child { grid-column: 1 / -1; }
+}
+
 @media (max-width: 860px) {
   /* Kundfeedback sedan tidigare ("kan man ej skrolla eller se allt"): på
      smal skärm skrollar hela overlayn i stället för två inre ytor som
@@ -2845,22 +3192,25 @@ textarea.form-control {
     height: auto;
     min-height: 100%;
     border-radius: 0;
-    /* -reverse: dokumentet ska ligga överst på en smal skärm, medan
-       DOM-ordningen (formuläret först) är den som ger formuläret vänster
-       spalt på en bred. */
-    flex-direction: column-reverse;
-    justify-content: flex-end;
+    /* Kvittot ligger överst och uppgifterna under, i samma ordning som i
+       DOM:en. */
+    flex-direction: column;
+    justify-content: flex-start;
     overflow: visible;
   }
   /* Visaren får en egen höjd på en smal skärm — den kan inte dela höjden
      med formuläret när de ligger staplade — men en rejäl sådan, annars är
      underlaget oläsbart just på den skärm där det oftast fotades. */
   .dv-doc { flex: 0 0 auto; height: 52vh; min-height: 260px; }
+  .rc-doc { flex: 0 0 auto; height: 52vh; min-height: 260px; }
+  .rc-doc > .dv-doc { flex: 1 1 auto; height: 100%; min-height: 0; }
   .dv-embed { height: 46vh; min-height: 240px; }
-  .rc-form { flex: 0 0 auto; min-width: 0; border-right: none; }
+  .rc-form { flex: 0 0 auto; min-width: 0; border-left: none; border-top: 1px solid var(--border); }
   .rc-form-body { overflow: visible; }
   .rc-form-foot { position: sticky; bottom: 0; box-shadow: 0 -6px 18px rgba(0,0,0,0.06); }
   .rc-grid { grid-template-columns: 1fr; }
+  .rc-fx-grid { grid-template-columns: 1fr 1fr; }
+  .rc-fx-grid > div:first-child { grid-column: 1 / -1; }
 }
 
 
@@ -4233,20 +4583,53 @@ textarea.form-control {
      med dold scrollbar (kundönskemål: "remove scroll bar") eftersom
      profilmenyns elva punkter + huvud annars kan bli högre än korta
      telefoners synfält. */
+  .mobile-dropdown-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.4);
+    z-index: 255;
+  }
+  /* Profil- och notismenyn är en bottenpanel som glider upp, med ett grepp och
+     stora tryckytor, i stället för en ruta som täcker halva skärmen uppifrån. */
   .profile-dropdown {
     position: fixed;
-    top: calc(var(--topbar-height) + 8px);
-    left: 14px;
-    right: 14px;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
     width: auto;
+    z-index: 260;
+    border-radius: 20px 20px 0 0;
+    padding: 12px 12px calc(14px + env(safe-area-inset-bottom, 0px));
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.25);
+    animation: sheetUp 0.24s cubic-bezier(0.32, 0.72, 0, 1) both;
     /* mobile-nav-height med också — annars kan de sista raderna (t.ex.
        "Logga ut") hamna visuellt bakom den fasta bottennaven på korta
        telefoner, även om de fortfarande går att skrolla fram till. */
-    max-height: calc(100vh - var(--topbar-height) - var(--mobile-nav-height) - 20px);
+    max-height: 82vh;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
   }
+  .profile-dropdown::before {
+    content: '';
+    display: block;
+    width: 36px;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--border);
+    margin: 0 auto 12px;
+  }
+  .profile-dropdown > button {
+    min-height: 48px;
+    padding: 12px;
+    font-size: 15px;
+    gap: 12px;
+    border-radius: 10px;
+  }
+  .profile-dropdown > button svg { width: 18px; height: 18px; }
+  @keyframes sheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
   .profile-dropdown::-webkit-scrollbar {
     display: none;
   }
@@ -4259,6 +4642,8 @@ textarea.form-control {
     display: flex;
     justify-content: center;
   }
+  html[data-keyboard="open"] .mobile-bottom-nav { display: none; }
+  html[data-keyboard="open"] .mobile-nav-spacer { display: none; }
 
   /* KPI 2-kolumner */
   .ds-kpi-row {
@@ -4397,32 +4782,28 @@ textarea.form-control {
     justify-content: flex-end !important;
   }
 
-  /* A4 preview */
-  .a4-paper {
-    padding: 12mm 10mm 60mm;
+  /* A4-förhandsgranskning: dokumentet ritas i sin fulla A4-bredd och skalas
+     ned till skärmbredden av PaperFit, så det ser ut som PDF:en. De gamla
+     omstaplande mobilreglerna för .a4-* är borttagna (de gjorde att PDF:er
+     som skapades på telefon såg annorlunda ut än på dator). Här finns bara
+     förhandsgranskningens egen ram kvar. */
+  .a4-document-preview { padding: 0 !important; }
+  .a4-document-preview .modal-header {
+    padding: 10px 12px;
+    border-radius: 0;
+    margin-bottom: 8px;
+    box-shadow: none;
+    border-width: 0 0 1px;
+    position: sticky;
+    top: 0;
   }
-
-  .a4-header-stripe {
-    margin: -12mm -10mm 20px;
-    padding: 20px 16px;
-    flex-direction: column;
-    gap: 16px;
-  }
-
-  .a4-doc-type-badge {
-    text-align: left;
-  }
-
-  .a4-meta-grid {
-    text-align: left;
-  }
-
-  /* position/bottom/left/right behövs inte längre — basregeln ovan är
-     redan i normalt flöde. Bara kolumntätheten kvar att justera här. */
-  .a4-footer {
-    grid-template-columns: repeat(2, 1fr);
-    margin-top: 24px;
-  }
+  .a4-document-preview .preview-zoom-ctl { display: none !important; }
+  .a4-document-preview .quote-preview-controls,
+  .a4-document-preview .invoice-preview-controls { flex-wrap: wrap !important; overflow: visible !important; row-gap: 8px !important; }
+  .a4-document-preview .quote-preview-controls > *,
+  .a4-document-preview .invoice-preview-controls > * { flex-shrink: 1 !important; }
+  .a4-document-preview > div[style*="overflow: auto"] { padding: 0 8px 24px; }
+  .a4-document-preview .a4-paper { box-shadow: 0 2px 10px rgba(0,0,0,0.12); }
 
   /* Form rows */
   .form-row-2,
@@ -5060,3 +5441,691 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
   .payroll-stepper span.step-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .payroll-stepper .step-connector { flex: 0 0 16px !important; max-width: 16px !important; }
 }
+
+/* ══════════════════════════════════════════════
+   TELEFON: filterrad, datumfält, sidhuvud (mobilpasset)
+   Skrivbordet är oförändrat: omslagen är display: contents och
+   Filter-knappen är dold. Se ListFilterBar i shared/ListPageHeader.jsx.
+══════════════════════════════════════════════ */
+.lfb-primary, .lfb-more { display: contents; }
+.lfb-toggle, .lfb-count-line { display: none; }
+.date-field { display: inline-flex; position: relative; min-width: 0; }
+.date-field-ph { display: none; }
+.lfb-daterange { display: inline-flex; align-items: center; gap: 8px; }
+
+@media (max-width: 768px) {
+  /* iOS zoomar in hela sidan när man trycker i ett fält med mindre text än
+     16 px, och zoomar inte ut igen. 16 px i alla fält stoppar det. */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  /* Sidhuvud: rubrik och huvudknapp på samma rad, ingen undertext. En
+     ensam åtgärd ligger till höger om rubriken, flera åtgärder får en egen
+     rad under. */
+  .page-header-row.page-header-top {
+    flex-direction: row !important;
+    align-items: center !important;
+    flex-wrap: wrap !important;
+    justify-content: space-between;
+    gap: 8px 10px !important;
+  }
+  .page-header-row.page-header-top > * { width: auto; }
+  .page-header-top > div:first-child { flex: 1 1 auto; min-width: 0; }
+  .page-header-subtitle { display: none; }
+  .page-header-actions { flex: 0 0 auto; }
+  .page-header-actions > span { display: none; }
+  .page-header-actions > button { height: 40px; padding: 0 14px !important; font-size: 14px !important; }
+  .page-header-actions--many { flex: 1 1 100% !important; width: 100% !important; }
+  .page-header-actions--many > button { flex: 1 1 auto; }
+
+  /* Flikraden skrollar i sidled med en skugga i den kant där det finns mer. */
+  .page-header-tabs {
+    background:
+      linear-gradient(90deg, var(--bg-card) 30%, transparent) left center / 28px 100% no-repeat local,
+      linear-gradient(270deg, var(--bg-card) 30%, transparent) right center / 28px 100% no-repeat local,
+      linear-gradient(90deg, rgba(0, 0, 0, 0.10), transparent) left center / 10px 100% no-repeat scroll,
+      linear-gradient(270deg, rgba(0, 0, 0, 0.10), transparent) right center / 10px 100% no-repeat scroll;
+  }
+
+  /* Filterrad: sökfältet och en Filter-knapp, resten fälls ut. */
+  .lfb { padding: 10px 14px !important; }
+  .lfb-row { flex-wrap: wrap !important; margin-bottom: 0 !important; gap: 8px !important; }
+  .lfb-primary { display: block; flex: 1 1 0; min-width: 0; }
+  .lfb-primary > * { width: 100%; }
+  .lfb-primary input { width: 100% !important; height: 42px !important; }
+  .lfb-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 42px;
+    padding: 0 14px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-card);
+    color: var(--text-main);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    flex-shrink: 0;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .lfb[data-open="true"] .lfb-toggle { background: var(--bg-muted); }
+  .lfb-toggle-badge {
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+  }
+  .lfb-more { display: none; }
+  .lfb[data-open="true"] .lfb-more {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    flex: 1 1 100%;
+    width: 100%;
+    margin-top: 2px;
+  }
+  .lfb-more > * { flex: 1 1 calc(50% - 4px); min-width: 0; }
+  .lfb-more select,
+  .lfb-more input { width: 100%; height: 42px !important; }
+  .lfb-more .rc-segmented { flex: 1 1 100%; }
+  .lfb-daterange { flex: 1 1 100% !important; display: flex !important; gap: 8px; }
+  .lfb-daterange > span:not(.date-field) { display: none; }
+  .lfb-count-line { display: block; font-size: 12px; color: var(--text-muted); margin-top: 8px; }
+  .lfb-second { display: none !important; }
+  .lfb[data-open="true"] .lfb-second { display: flex !important; margin-top: 10px; }
+  .lfb-count { display: none; }
+
+  /* Datumfält: en tom ruta visar en etikett i stället för att vara blank. */
+  .date-field { display: flex; flex: 1 1 0; }
+  .date-field > input { width: 100%; min-width: 0; min-height: 42px; }
+  .date-field:not(.has-value) > input,
+  .date-field:not(.has-value) > input::-webkit-datetime-edit,
+  .date-field:not(.has-value) > input::-webkit-datetime-edit-fields-wrapper {
+    color: transparent !important;
+    -webkit-text-fill-color: transparent;
+  }
+  .date-field-ph {
+    display: block;
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 15px;
+    color: var(--text-muted);
+    pointer-events: none;
+  }
+}
+/* ── Telefon: Fakturor ── */
+@media (max-width: 768px) {
+  /* Flikraden: bara Kund- och Leverantörsfakturor. Genvägarna till Rapporter,
+     Artiklar och Kunder och rundturen ligger annars i Meny och Hjälp, och fyra
+     rader flikar och knappar över listan är för mycket på en telefon. */
+  .inv-tabs { flex-wrap: nowrap !important; overflow-x: auto; scrollbar-width: none; padding: 0 8px !important; }
+  .inv-tabs::-webkit-scrollbar { display: none; }
+  .inv-tabs > button { flex-shrink: 0; }
+  .inv-tabs .inv-tour-pill, .inv-tabs .inv-tab-extra { display: none !important; }
+
+  /* Sökrad: sökfältet över hela bredden, sedan knapparna på en rad med
+     "Skapa faktura" som den stora. */
+  .inv-searchrow { padding: 10px 14px !important; gap: 8px !important; }
+  .inv-search { flex: 1 1 100%; }
+  .inv-search input { width: 100% !important; height: 42px !important; }
+  .inv-searchrow > button { height: 42px !important; }
+  .inv-searchrow > div[style*="flex: 1"] { display: none; }
+  .inv-cta { flex: 1 1 auto; margin-left: auto; }
+
+  .inv-extended { padding: 12px 14px !important; gap: 10px !important; display: grid !important; grid-template-columns: 1fr 1fr; }
+  .inv-extended > div { min-width: 0; }
+  .inv-extended input { width: 100% !important; height: 42px !important; }
+
+  /* Statusfilter: en rad som skrollar i sidled. "Visa N" och skrivar-ikonen
+     hör till datorn. */
+  .inv-pills { flex-wrap: nowrap !important; overflow-x: auto; scrollbar-width: none; padding: 10px 14px !important; gap: 8px !important; }
+  .inv-pills::-webkit-scrollbar { display: none; }
+  .inv-pills > button { flex-shrink: 0; padding: 7px 12px !important; }
+  .inv-pills .inv-pills-spacer, .inv-pills .inv-pills-extra { display: none !important; }
+}
+/* ── Fakturarader ── omslagen är osynliga på dator (display: contents) */
+.inv-cell, .inv-cell-actions { display: contents; }
+
+@media (max-width: 768px) {
+  /* Varje rad blir ett kort: benämning över hela bredden, sedan antal, à-pris
+     och moms med etiketter, summan och radens knappar längst ned. Tidigare
+     låg raden i en 760 px bred tabell som man fick skrolla i sidled. */
+  .inv-rows-min { min-width: 0 !important; }
+  .inv-rows-head { display: none !important; }
+  .inv-row-card {
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--bg-card);
+    margin-bottom: 12px !important;
+  }
+  .inv-row-grid { grid-template-columns: 1fr 1.3fr 1fr !important; gap: 10px !important; align-items: end !important; }
+  .inv-cell { display: block; min-width: 0; }
+  .inv-cell::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .inv-cell[data-label="Benämning"] { grid-column: 1 / -1; }
+  .inv-cell[data-label="Summa"] { grid-column: 1 / 3; }
+  .inv-cell > input, .inv-cell > select, .inv-cell > div { width: 100%; box-sizing: border-box; min-height: 42px; }
+  .inv-cell-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+    grid-column: 3;
+  }
+  .inv-cell-actions > button { min-width: 42px; min-height: 42px; }
+}
+/* ── Telefon: inställningarnas hubb, kvittouppladdning, fakturaformulärets verktygsrad ── */
+@media (max-width: 768px) {
+  /* Inställningar: en rad per avdelning (ikon, rubrik, pil) i stället för
+     en hög ruta per avdelning, så att alla hamnar på en skärm. */
+  .settings-hub { gap: 10px !important; }
+  .settings-hub-card {
+    flex-direction: row !important;
+    align-items: center !important;
+    min-height: 64px !important;
+    padding: 12px 44px 12px 14px !important;
+    gap: 14px;
+  }
+  .settings-hub-icon { margin: 0 !important; width: 40px !important; height: 40px !important; flex-shrink: 0; }
+  .settings-hub-card-arrow { right: 16px !important; top: 50% !important; bottom: auto !important; transform: translateY(-50%); }
+  .settings-hub-card-desc { display: none; }
+
+  /* Kvitton: uppladdningsytan som en smal rad, utan förklaringstext. */
+  .rc-drop { padding: 12px 14px !important; }
+  .rc-drop-hint, .rc-drop-folder { display: none !important; }
+}
+/* ══════════════════════════════════════════════
+   HALV SKÄRM (769-1100 px): sidomenyn som ett smalt ikonfält
+   Innehållet får 184 px mer bredd, så tabeller och flikrader ryms utan att
+   klippas. Namnet visas som hjälptext när man håller över en ikon.
+══════════════════════════════════════════════ */
+.sidebar-monogram { display: none; }
+@media (min-width: 769px) and (max-width: 1100px) {
+  :root { --sidebar-width: 76px; }
+  .sidebar { width: var(--sidebar-width); }
+  .sidebar .logo-container { padding: 16px 0 10px !important; display: flex; justify-content: center; }
+  .sidebar .logo-container .bokix-logo-btn { display: none !important; }
+  .sidebar-monogram {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    border: none;
+    background: rgba(255, 255, 255, 0.14);
+    color: #fff;
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 26px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .sidebar .nav-label { display: none; }
+  .sidebar .nav-item {
+    position: relative;
+    padding: 14px 0 !important;
+    justify-content: center !important;
+  }
+  .sidebar .nav-item > span { justify-content: center; }
+  .sidebar .nav-badge {
+    position: absolute;
+    top: 6px;
+    right: 14px;
+    min-width: 16px !important;
+    height: 16px !important;
+    padding: 0 4px !important;
+    font-size: 10px !important;
+  }
+  .sidebar > div[style*="height: 1px"] { margin-left: 14px !important; margin-right: 14px !important; }
+  .sidebar .nav-item.logout-btn,
+  .sidebar .nav-item { gap: 0 !important; }
+}
+/* ── Hjälp och Logga ut i Inställningar (bara telefon) ── */
+.settings-account-rows { display: none; }
+@media (max-width: 768px) {
+  .settings-account-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px solid var(--border);
+  }
+  .settings-account-row {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    min-height: 56px;
+    padding: 10px 44px 10px 14px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-main);
+    text-align: left;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .settings-account-row:active { background: var(--bg-muted); }
+  .settings-account-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: var(--bg-muted);
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .settings-account-arrow { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
+  .settings-account-row--danger { color: var(--status-red-text); }
+  .settings-account-row--danger .settings-account-icon { background: var(--status-red-bg); color: var(--status-red-text); }
+}
+
+@media (max-width: 768px) {
+  /* Hjälp och support och Logga ut ligger i Inställningar på telefon, så de
+     tas bort ur profilpanelen (samma sak ska inte finnas på två ställen). */
+  .profile-dropdown .profile-item-desktop-only { display: none; }
+  .profile-dropdown .dropdown-divider:nth-last-child(2) { display: none; }
+}
+/* ── Fakturans och offertens åtgärdsrad på telefon ──
+   Ett rutnät med två lika stora knappar per rad i stället för en rad som
+   skrollar i sidled. Ordningen: hantera (betala/kommentera/status), granska
+   och ladda ner, sist mottagare och skicka. Framåt/bakåt-knapparna « ‹ › »
+   döljs på telefon. */
+@media (max-width: 768px) {
+  .record-nav { display: none !important; }
+  .quote-toolbar.doc-toolbar {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px !important;
+    padding: 12px 16px !important;
+    overflow: visible !important;
+    flex-wrap: unset !important;
+  }
+  .quote-toolbar.doc-toolbar > * { min-width: 0; }
+  .quote-toolbar.doc-toolbar .toolbar-spacer { display: none !important; }
+  .quote-toolbar.doc-toolbar button {
+    width: 100%;
+    min-height: 44px;
+    justify-content: center;
+    white-space: normal !important;
+    text-align: center;
+    padding: 8px 10px !important;
+    font-size: 13px !important;
+  }
+  .quote-toolbar.doc-toolbar .toolbar-email-input {
+    grid-column: 1 / -1;
+    order: 5;
+    width: 100% !important;
+    min-height: 44px;
+    box-sizing: border-box;
+    font-size: 16px !important;
+    padding: 8px 12px !important;
+  }
+  .quote-toolbar.doc-toolbar .tb-pay { order: 1; }
+  .quote-toolbar.doc-toolbar .tb-unpay { order: 2; }
+  .quote-toolbar.doc-toolbar .tb-comment { order: 3; }
+  .quote-toolbar.doc-toolbar .tb-status { order: 1; grid-column: 1 / -1; }
+  .quote-toolbar.doc-toolbar .tb-preview { order: 3; grid-column: 1; }
+  .quote-toolbar.doc-toolbar .tb-pdf { order: 4; grid-column: 2; }
+  .quote-toolbar.invoice-toolbar.doc-toolbar .tb-comment { order: 3; grid-column: 1; }
+  .quote-toolbar.invoice-toolbar.doc-toolbar .tb-preview { order: 3; grid-column: 2; }
+  .quote-toolbar.doc-toolbar .tb-send { order: 6; grid-column: 1 / -1; background: var(--accent) !important; border-color: var(--accent) !important; color: #fff !important; }
+  .quote-toolbar.invoice-toolbar.doc-toolbar .tb-send { grid-column: 1; }
+  .quote-toolbar.invoice-toolbar.doc-toolbar .tb-pdf { order: 6; grid-column: 2; }
+  .quote-toolbar.doc-toolbar .tb-send:disabled { background: var(--bg-muted) !important; border-color: var(--border) !important; color: var(--text-muted) !important; }
+  .quote-toolbar.doc-toolbar > span { grid-column: 1 / -1; order: 7; }
+}
+/* Offertrader på telefon: varje rad blir ett kort med etiketterade fält i
+   två kolumner, i stället för en 980 px bred tabell som skrollar i sidled. */
+.qr-cell { display: contents; }
+.qr-lbl { display: none; }
+@media (max-width: 768px) {
+  .quote-rows-scroll { overflow-x: visible !important; }
+  .quote-rows-min { min-width: 0 !important; }
+  .quote-rows-header { display: none !important; }
+  .quote-row {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+    padding: 14px;
+    margin-bottom: 12px !important;
+    background: var(--bg-muted);
+    border: 1px solid var(--border-light);
+    border-radius: 12px;
+    position: relative;
+  }
+  .qr-cell { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .qr-cell > * { min-width: 0; }
+  .qr-lbl { display: block; font-size: 11.5px; font-weight: 600; color: var(--text-secondary); }
+  .qr-desc { grid-column: 1 / -1; }
+  .qr-sum { grid-column: 1 / -1; }
+  .qr-remove { grid-column: 1 / -1; justify-self: end; min-height: 40px; }
+  .quote-row input, .quote-row select { width: 100%; box-sizing: border-box; min-height: 44px; }
+}
+/* Ny verifikation på telefon och halv skärm: underlaget allra först i
+   formuläret (det är det man börjar med: ladda upp, låt avläsningen fylla i),
+   och debet/kredit-tabellen som ett kort per rad i stället för en tabell
+   som sticker ut utanför skärmen. */
+@media (max-width: 1080px) {
+  .ver-form-card { display: flex; flex-direction: column; }
+  .ver-form-grid { display: contents; }
+  .ver-form-attachment { order: -1; margin-bottom: 22px; }
+  .ver-form-rows { overflow-x: visible !important; }
+}
+@media (max-width: 768px) {
+  .ver-adv-table, .ver-adv-table tbody, .ver-adv-table tfoot { display: block; width: 100%; min-width: 0 !important; }
+  .ver-adv-table thead { display: none; }
+  .ver-adv-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    padding: 14px;
+    margin-bottom: 12px;
+    background: var(--bg-muted);
+    border: 1px solid var(--border-light) !important;
+    border-radius: 12px;
+  }
+  .ver-adv-row > td { display: block; padding: 0 !important; min-width: 0; text-align: left !important; }
+  .ver-adv-row > td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 4px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+  .ver-adv-account, .ver-adv-desc, .ver-adv-saldo, .ver-adv-actions { grid-column: 1 / -1; }
+  .ver-adv-actions { display: flex !important; justify-content: flex-end; align-items: center; gap: 6px; }
+  .ver-adv-actions button { min-width: 40px; min-height: 40px; }
+  .ver-adv-row input { width: 100%; box-sizing: border-box; min-height: 44px; font-size: 16px; }
+  .ver-adv-saldo > div { display: flex; gap: 8px; align-items: baseline; justify-content: space-between; }
+  .ver-adv-table tr:not(.ver-adv-row):not(.ver-adv-sum) { display: block; }
+  .ver-adv-table tr:not(.ver-adv-row):not(.ver-adv-sum) > td { display: block; width: auto; padding-left: 0 !important; padding-right: 0 !important; }
+  .ver-adv-sum { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 14px; padding: 6px 0; }
+  .ver-adv-sum > td { display: block; padding: 6px 0 !important; }
+  .ver-adv-sum > td:first-child { flex: 1 1 100%; padding-bottom: 0 !important; }
+  .ver-adv-sum > td:empty { display: none; }
+}
+@media (max-width: 768px) {
+  .ver-drop { height: 190px !important; padding: 16px !important; }
+  .ver-adv-sum > td:nth-child(2)::before { content: "Debet "; font-weight: 500; color: var(--text-secondary); }
+  .ver-adv-sum > td:nth-child(3)::before { content: "Kredit "; font-weight: 500; color: var(--text-secondary); }
+}
+/* Ny leverantörsfaktura på telefon: tätare sidmarginaler, konteringsraderna
+   som kort med etiketter, summan i full bredd. */
+@media (max-width: 768px) {
+  .sup-form [style*="24px 32px"], .sup-form [style*="padding: 24px 32px"] { padding: 18px 16px !important; }
+  .sup-form [style*="max-width: 360px"] { max-width: none !important; }
+  .sup-hidden-label { display: none !important; }
+  .sup-form .form-row-2 { grid-template-columns: 1fr !important; }
+  .sup-form [style*="max-width: 220px"] { max-width: none !important; }
+  .sup-rows-scroll { overflow-x: visible !important; }
+  .sup-rows-min { min-width: 0 !important; }
+  .sup-rows-header { display: none !important; }
+  .sup-row {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+    padding: 14px;
+    margin-bottom: 12px !important;
+    background: var(--bg-muted);
+    border: 1px solid var(--border-light);
+    border-radius: 12px;
+  }
+  .sup-row .qr-cell { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .sup-acct, .sup-desc { grid-column: 1 / -1; }
+  .sup-row input, .sup-row select { width: 100%; box-sizing: border-box; min-height: 44px; font-size: 16px; }
+  .sup-row .qr-remove { grid-column: 1 / -1; justify-self: end; min-height: 40px; }
+}
+
+/* Flikrader på telefon: alla flikar syns samtidigt som knappar som radbryter,
+   i stället för en rad som skrollar i sidled och gömmer de sista flikarna. */
+@media (max-width: 768px) {
+  .page-header-tabs {
+    flex-wrap: wrap !important;
+    overflow: visible !important;
+    gap: 8px !important;
+    padding: 12px 0 14px !important;
+    margin-top: 0 !important;
+    background: none !important;
+  }
+  .page-header-tabs > button {
+    flex: 1 1 auto;
+    flex-shrink: 1;
+    justify-content: center;
+    min-height: 36px;
+    padding: 6px 12px !important;
+    margin: 0 !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 999px;
+    background: var(--bg-muted) !important;
+    color: var(--text-secondary) !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    white-space: normal;
+    text-align: center;
+  }
+  .page-header-tabs > button[aria-current="page"] {
+    background: var(--accent) !important;
+    border-color: var(--accent) !important;
+    color: #fff !important;
+    font-weight: 700 !important;
+  }
+}
+/* Skattetabell: förslag som stora knappar (en tabell per rad på telefon). */
+.tax-table-choices { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+.tax-table-choice {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  min-width: 190px; flex: 1 1 190px; max-width: 320px;
+  padding: 12px 14px; text-align: left; cursor: pointer; font-family: inherit;
+  background: var(--bg-card); border: 1.5px solid var(--border); border-radius: 12px; color: var(--text-main);
+}
+.tax-table-choice:hover { border-color: var(--accent); }
+.tax-table-choice.is-active { border-color: var(--accent); background: var(--status-green-bg); box-shadow: 0 0 0 1px var(--accent) inset; }
+.tax-table-choice-nr { font-size: 15px; font-weight: 700; }
+.tax-table-choice-who { font-size: 12.5px; color: var(--text-secondary); }
+@media (max-width: 768px) {
+  .tax-table-choice { flex: 1 1 100%; max-width: none; min-height: 56px; }
+  .tax-table-choices + select { max-width: none !important; width: 100%; min-height: 44px; font-size: 16px; }
+}
+
+/* Inställningsöversikten på telefon: grupperade listor. Grupperna är
+   display: contents på dator så rutnätet där är oförändrat. */
+.settings-hub-group, .settings-hub-group-list { display: contents; }
+.settings-hub-group-title { display: none; }
+@media (max-width: 768px) {
+  .settings-hub { display: flex !important; flex-direction: column; gap: 18px !important; }
+  .settings-hub-group { display: block; }
+  .settings-hub-group-title {
+    display: block;
+    margin: 0 4px 8px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+  }
+  .settings-hub-group-list {
+    display: block;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+  .settings-hub-group-list .settings-hub-card {
+    width: 100%;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    border-bottom: 1px solid var(--border-light) !important;
+    background: transparent !important;
+    min-height: 60px !important;
+  }
+  .settings-hub-group-list .settings-hub-card:last-child { border-bottom: 0 !important; }
+  .settings-hub-group-list .settings-hub-card:active { background: var(--bg-muted) !important; }
+  .settings-hub-icon { width: 36px !important; height: 36px !important; border-radius: 10px !important; }
+  .settings-account-rows {
+    gap: 0 !important;
+    margin-top: 18px !important;
+    padding-top: 0 !important;
+    border-top: 0 !important;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+  .settings-account-rows .settings-account-row {
+    border: 0 !important;
+    border-radius: 0 !important;
+    border-bottom: 1px solid var(--border-light) !important;
+    background: transparent !important;
+  }
+  .settings-account-rows .settings-account-row:last-child { border-bottom: 0 !important; }
+  .settings-account-icon { width: 36px !important; height: 36px !important; border-radius: 10px !important; }
+}
+
+/* Skannerlinjen över ett underlag utan verktygsrad (verifikationsformuläret). */
+.rc-scan.rc-scan-flush { inset: 0; border-radius: 12px; }
+.ver-form-attachment .rc-ocr-list { margin-top: 12px; }
+.ver-form-attachment .rc-verify { margin-top: 10px; }
+
+@media (max-width: 560px) {
+  .rc-ocr-list { grid-template-columns: 1fr; }
+}
+
+/* Meny-panelen på telefon: en kompakt panel som sitter längst ned med lite
+   avstånd till skärmkanterna (som Fortnox och Bokio), i stället för en hög
+   panel som täcker halva skärmen. Mindre rutor så alla sidor syns utan
+   att man behöver skrolla. */
+@media (max-width: 768px) {
+  .mobile-sheet {
+    left: 8px;
+    right: 8px;
+    bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    border-radius: 24px;
+    padding: 8px 12px 12px;
+    max-height: min(72dvh, 560px);
+    transform: translateY(calc(100% + 32px));
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.22);
+  }
+  .mobile-sheet.open { transform: translateY(0); }
+  .mobile-sheet-handle { margin: 2px auto 8px; }
+  .mobile-sheet-title { padding: 0 2px 8px; font-size: 16px; }
+  .mobile-sheet-close { width: 32px; height: 32px; }
+  .mobile-sheet-grid { gap: 7px; padding-bottom: 2px; }
+  .mobile-sheet-tile { min-height: 76px; padding: 10px 4px 8px; gap: 6px; border-radius: 14px; font-size: 12px; }
+  .mobile-sheet-tile-icon { width: 34px; height: 34px; border-radius: 10px; }
+}
+
+/* ══════════════════════════════════════════════
+   STARTSIDAN PÅ TELEFON: allt på en skärm, ingen skrollning
+   Dashboard.jsx väljer själv en nivå (data-fit på .dash-root), från luftigast
+   till tätast, och går bara ett steg tätare om innehållet annars skulle
+   behöva skrollas:
+     roomy    den vanliga vyn (inga regler här)
+     cozy     nästan samma, men utan de största tomrummen
+     snug     kort på kort, hälsning och lite mindre viktigt undan
+     compact  tätare
+     mini     som compact men utan rubriken Snabbåtgärder
+     tight    tätast, det minst viktiga viker undan
+   En hög skärm får alltså den luftiga vyn och en låg skärm den täta.
+   Genererad ur en tabell, se dash-css-generatorn i historiken.
+══════════════════════════════════════════════ */
+.dash-root[data-fit="cozy"], .dash-root[data-fit="snug"], .dash-root[data-fit="compact"], .dash-root[data-fit="mini"], .dash-root[data-fit="tight"] { min-height: 0 !important; }
+.dash-root[data-fit="snug"], .dash-root[data-fit="compact"], .dash-root[data-fit="mini"], .dash-root[data-fit="tight"] { padding: 8px 12px 6px !important; }
+.dash-root[data-fit="snug"] .dash-greeting, .dash-root[data-fit="compact"] .dash-greeting, .dash-root[data-fit="mini"] .dash-greeting, .dash-root[data-fit="tight"] .dash-greeting { display: none !important; }
+.dash-root[data-fit="snug"] .dash-quick { margin-bottom: 10px !important; }
+.dash-root[data-fit="compact"] .dash-quick, .dash-root[data-fit="mini"] .dash-quick, .dash-root[data-fit="tight"] .dash-quick { margin-bottom: 8px !important; }
+.dash-root[data-fit="snug"] .dash-quick-title, .dash-root[data-fit="compact"] .dash-quick-title, .dash-root[data-fit="mini"] .dash-quick-title, .dash-root[data-fit="tight"] .dash-quick-title { margin-bottom: 6px !important; }
+.dash-root[data-fit="mini"] .dash-quick-title, .dash-root[data-fit="tight"] .dash-quick-title { display: none !important; }
+.dash-root[data-fit="snug"] .dash-quick-actions { gap: 10px !important; }
+.dash-root[data-fit="compact"] .dash-quick-actions, .dash-root[data-fit="mini"] .dash-quick-actions, .dash-root[data-fit="tight"] .dash-quick-actions { gap: 8px !important; }
+.dash-root[data-fit="snug"] .dash-quick-btn { padding: 9px 12px !important; min-height: 52px; }
+.dash-root[data-fit="compact"] .dash-quick-btn, .dash-root[data-fit="mini"] .dash-quick-btn, .dash-root[data-fit="tight"] .dash-quick-btn { padding: 6px 10px !important; min-height: 42px; }
+.dash-root[data-fit="snug"] .dash-quick-ico { width: 32px !important; height: 32px !important; }
+.dash-root[data-fit="compact"] .dash-quick-ico, .dash-root[data-fit="mini"] .dash-quick-ico, .dash-root[data-fit="tight"] .dash-quick-ico { width: 28px !important; height: 28px !important; }
+.dash-root[data-fit="snug"] .dash-todo-card, .dash-root[data-fit="compact"] .dash-todo-card, .dash-root[data-fit="mini"] .dash-todo-card, .dash-root[data-fit="tight"] .dash-todo-card { padding: 9px 11px !important; margin-bottom: 8px !important; border-radius: 12px !important; }
+.dash-root[data-fit="snug"] .dash-todo-head, .dash-root[data-fit="compact"] .dash-todo-head, .dash-root[data-fit="mini"] .dash-todo-head, .dash-root[data-fit="tight"] .dash-todo-head { margin-bottom: 6px !important; }
+.dash-root[data-fit="snug"] .dash-todo-grid, .dash-root[data-fit="compact"] .dash-todo-grid, .dash-root[data-fit="mini"] .dash-todo-grid, .dash-root[data-fit="tight"] .dash-todo-grid { grid-template-columns: minmax(0, 1fr) !important; gap: 5px !important; }
+.dash-root[data-fit="snug"] .dash-todo-grid > *, .dash-root[data-fit="compact"] .dash-todo-grid > *, .dash-root[data-fit="mini"] .dash-todo-grid > *, .dash-root[data-fit="tight"] .dash-todo-grid > * { min-width: 0; }
+.dash-root[data-fit="snug"] .dash-today-btn { padding: 8px 10px !important; gap: 8px !important; }
+.dash-root[data-fit="compact"] .dash-today-btn, .dash-root[data-fit="mini"] .dash-today-btn, .dash-root[data-fit="tight"] .dash-today-btn { padding: 6px 8px !important; gap: 8px !important; }
+.dash-root[data-fit="snug"] .dash-today-text, .dash-root[data-fit="compact"] .dash-today-text, .dash-root[data-fit="mini"] .dash-today-text, .dash-root[data-fit="tight"] .dash-today-text { font-size: 12px !important; line-height: 1.25 !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dash-root[data-fit="snug"] .dash-chart-card { padding: 14px 14px 12px !important; margin-bottom: 10px !important; border-radius: 12px !important; }
+.dash-root[data-fit="compact"] .dash-chart-card, .dash-root[data-fit="mini"] .dash-chart-card, .dash-root[data-fit="tight"] .dash-chart-card { padding: 12px 12px 10px !important; margin-bottom: 8px !important; border-radius: 12px !important; }
+.dash-root[data-fit="cozy"] .dash-chart-card { padding: 16px 18px !important; margin-bottom: 12px !important; }
+.dash-root[data-fit="snug"] .dash-period-row, .dash-root[data-fit="compact"] .dash-period-row, .dash-root[data-fit="mini"] .dash-period-row, .dash-root[data-fit="tight"] .dash-period-row { flex-wrap: nowrap !important; align-items: center !important; gap: 8px !important; }
+.dash-root[data-fit="cozy"] .dash-period-row { margin-bottom: 14px !important; }
+.dash-root[data-fit="snug"] .dash-period-row { margin-bottom: 10px !important; }
+.dash-root[data-fit="compact"] .dash-period-row, .dash-root[data-fit="mini"] .dash-period-row, .dash-root[data-fit="tight"] .dash-period-row { margin-bottom: 8px !important; }
+.dash-root[data-fit="cozy"] .dash-kpi-grid { margin-bottom: 14px !important; }
+.dash-root[data-fit="snug"] .dash-kpi-grid { margin-bottom: 10px !important; }
+.dash-root[data-fit="compact"] .dash-kpi-grid, .dash-root[data-fit="mini"] .dash-kpi-grid, .dash-root[data-fit="tight"] .dash-kpi-grid { margin-bottom: 6px !important; }
+.dash-root[data-fit="snug"] .dash-kpi-card { padding: 9px 10px !important; gap: 4px !important; }
+.dash-root[data-fit="compact"] .dash-kpi-card, .dash-root[data-fit="mini"] .dash-kpi-card, .dash-root[data-fit="tight"] .dash-kpi-card { padding: 7px 9px !important; gap: 4px !important; }
+.dash-root[data-fit="compact"] .dash-kpi-card-icon, .dash-root[data-fit="mini"] .dash-kpi-card-icon, .dash-root[data-fit="tight"] .dash-kpi-card-icon { display: none !important; }
+.dash-root[data-fit="snug"] .dash-chart-head, .dash-root[data-fit="compact"] .dash-chart-head, .dash-root[data-fit="mini"] .dash-chart-head, .dash-root[data-fit="tight"] .dash-chart-head { margin-bottom: 4px !important; flex-wrap: nowrap !important; align-items: center !important; }
+.dash-root[data-fit="snug"] .dash-chart-legend, .dash-root[data-fit="compact"] .dash-chart-legend, .dash-root[data-fit="mini"] .dash-chart-legend, .dash-root[data-fit="tight"] .dash-chart-legend { display: none !important; }
+.dash-root[data-fit="snug"] .dash-format-row, .dash-root[data-fit="compact"] .dash-format-row, .dash-root[data-fit="mini"] .dash-format-row, .dash-root[data-fit="tight"] .dash-format-row { display: none !important; }
+.dash-root[data-fit="cozy"] .dash-chart-empty { height: 140px !important; }
+.dash-root[data-fit="snug"] .dash-chart-empty { height: 110px !important; gap: 3px !important; }
+.dash-root[data-fit="compact"] .dash-chart-empty, .dash-root[data-fit="mini"] .dash-chart-empty, .dash-root[data-fit="tight"] .dash-chart-empty { height: 90px !important; gap: 3px !important; }
+.dash-root[data-fit="cozy"] .dash-chart-empty p:last-child, .dash-root[data-fit="snug"] .dash-chart-empty p:last-child, .dash-root[data-fit="compact"] .dash-chart-empty p:last-child, .dash-root[data-fit="mini"] .dash-chart-empty p:last-child, .dash-root[data-fit="tight"] .dash-chart-empty p:last-child { display: none; }
+.dash-root[data-fit="tight"] .dash-chart-card > *:nth-child(n+3) { display: none !important; }
+.dash-root[data-fit="snug"] .dash-lower-grid, .dash-root[data-fit="compact"] .dash-lower-grid, .dash-root[data-fit="mini"] .dash-lower-grid, .dash-root[data-fit="tight"] .dash-lower-grid { gap: 8px !important; margin-bottom: 8px !important; }
+.dash-root[data-fit="snug"] .dash-vat, .dash-root[data-fit="compact"] .dash-vat, .dash-root[data-fit="mini"] .dash-vat, .dash-root[data-fit="tight"] .dash-vat { display: none !important; }
+.dash-root[data-fit="snug"] .dash-outstanding-head, .dash-root[data-fit="compact"] .dash-outstanding-head, .dash-root[data-fit="mini"] .dash-outstanding-head, .dash-root[data-fit="tight"] .dash-outstanding-head { display: none !important; }
+.dash-root[data-fit="snug"] .dash-outstanding-net, .dash-root[data-fit="compact"] .dash-outstanding-net, .dash-root[data-fit="mini"] .dash-outstanding-net, .dash-root[data-fit="tight"] .dash-outstanding-net { display: none !important; }
+.dash-root[data-fit="snug"] .dash-outstanding > div:nth-child(2) > button, .dash-root[data-fit="compact"] .dash-outstanding > div:nth-child(2) > button, .dash-root[data-fit="mini"] .dash-outstanding > div:nth-child(2) > button, .dash-root[data-fit="tight"] .dash-outstanding > div:nth-child(2) > button { padding: 8px 12px !important; gap: 2px !important; }
+.dash-root[data-fit="snug"] .dash-outstanding > div:nth-child(2) > button span:nth-child(n+3), .dash-root[data-fit="compact"] .dash-outstanding > div:nth-child(2) > button span:nth-child(n+3), .dash-root[data-fit="mini"] .dash-outstanding > div:nth-child(2) > button span:nth-child(n+3), .dash-root[data-fit="tight"] .dash-outstanding > div:nth-child(2) > button span:nth-child(n+3) { display: none; }
+.dash-root[data-fit="tight"] .dash-lower-grid { display: none !important; }
+.dash-root[data-fit="snug"] .dash-quick-title span, .dash-root[data-fit="compact"] .dash-quick-title span, .dash-root[data-fit="mini"] .dash-quick-title span, .dash-root[data-fit="tight"] .dash-quick-title span { font-size: 12px !important; }
+.dash-root[data-fit="snug"] .dash-quick-btn span, .dash-root[data-fit="compact"] .dash-quick-btn span, .dash-root[data-fit="mini"] .dash-quick-btn span, .dash-root[data-fit="tight"] .dash-quick-btn span { font-size: 12.5px !important; }
+.dash-root[data-fit="snug"] .dash-quick-ico svg, .dash-root[data-fit="compact"] .dash-quick-ico svg, .dash-root[data-fit="mini"] .dash-quick-ico svg, .dash-root[data-fit="tight"] .dash-quick-ico svg { width: 17px !important; height: 17px !important; }
+.dash-root[data-fit="snug"] .dash-todo-head > div > div, .dash-root[data-fit="compact"] .dash-todo-head > div > div, .dash-root[data-fit="mini"] .dash-todo-head > div > div, .dash-root[data-fit="tight"] .dash-todo-head > div > div { width: 26px !important; height: 26px !important; border-radius: 8px !important; }
+.dash-root[data-fit="snug"] .dash-todo-head > div > div svg, .dash-root[data-fit="compact"] .dash-todo-head > div > div svg, .dash-root[data-fit="mini"] .dash-todo-head > div > div svg, .dash-root[data-fit="tight"] .dash-todo-head > div > div svg { width: 14px !important; height: 14px !important; }
+.dash-root[data-fit="snug"] .dash-todo-head > div > span, .dash-root[data-fit="compact"] .dash-todo-head > div > span, .dash-root[data-fit="mini"] .dash-todo-head > div > span, .dash-root[data-fit="tight"] .dash-todo-head > div > span { font-size: 13px !important; }
+.dash-root[data-fit="snug"] .dash-todo-head > span, .dash-root[data-fit="compact"] .dash-todo-head > span, .dash-root[data-fit="mini"] .dash-todo-head > span, .dash-root[data-fit="tight"] .dash-todo-head > span { font-size: 11px !important; padding: 2px 9px !important; }
+.dash-root[data-fit="snug"] .dash-today-row, .dash-root[data-fit="compact"] .dash-today-row, .dash-root[data-fit="mini"] .dash-today-row, .dash-root[data-fit="tight"] .dash-today-row { border-radius: 9px !important; }
+.dash-root[data-fit="snug"] .dash-today-btn > div, .dash-root[data-fit="compact"] .dash-today-btn > div, .dash-root[data-fit="mini"] .dash-today-btn > div, .dash-root[data-fit="tight"] .dash-today-btn > div { width: 22px !important; height: 22px !important; border-radius: 6px !important; }
+.dash-root[data-fit="snug"] .dash-today-btn > div svg, .dash-root[data-fit="compact"] .dash-today-btn > div svg, .dash-root[data-fit="mini"] .dash-today-btn > div svg, .dash-root[data-fit="tight"] .dash-today-btn > div svg { width: 12px !important; height: 12px !important; }
+.dash-root[data-fit="snug"] .dash-today-row > button:last-child, .dash-root[data-fit="compact"] .dash-today-row > button:last-child, .dash-root[data-fit="mini"] .dash-today-row > button:last-child, .dash-root[data-fit="tight"] .dash-today-row > button:last-child { width: 22px !important; height: 22px !important; margin-right: 6px !important; }
+.dash-root[data-fit="snug"] .dash-period-row button, .dash-chart-head button, .dash-root[data-fit="compact"] .dash-period-row button, .dash-chart-head button, .dash-root[data-fit="mini"] .dash-period-row button, .dash-chart-head button, .dash-root[data-fit="tight"] .dash-period-row button, .dash-chart-head button { padding: 6px 10px !important; min-height: 34px !important; font-size: 12.5px !important; }
+.dash-root[data-fit="snug"] .dash-period-row > div:first-child > div:first-child, .dash-root[data-fit="compact"] .dash-period-row > div:first-child > div:first-child, .dash-root[data-fit="mini"] .dash-period-row > div:first-child > div:first-child, .dash-root[data-fit="tight"] .dash-period-row > div:first-child > div:first-child { font-size: 14px !important; }
+.dash-root[data-fit="snug"] .dash-period-row > div:first-child > div:last-child, .dash-root[data-fit="compact"] .dash-period-row > div:first-child > div:last-child, .dash-root[data-fit="mini"] .dash-period-row > div:first-child > div:last-child, .dash-root[data-fit="tight"] .dash-period-row > div:first-child > div:last-child { font-size: 11.5px !important; margin-top: 1px !important; }
+.dash-root[data-fit="snug"] .dash-chart-head h2, .dash-root[data-fit="compact"] .dash-chart-head h2, .dash-root[data-fit="mini"] .dash-chart-head h2, .dash-root[data-fit="tight"] .dash-chart-head h2 { font-size: 13.5px !important; margin-bottom: 0 !important; }
+.dash-root[data-fit="compact"] .dash-chart-empty > div, .dash-root[data-fit="mini"] .dash-chart-empty > div, .dash-root[data-fit="tight"] .dash-chart-empty > div { width: 30px !important; height: 30px !important; margin-bottom: 0 !important; }
+.dash-root[data-fit="cozy"] .dash-sie { padding: 12px 14px !important; flex-wrap: nowrap !important; gap: 10px !important; }
+.dash-root[data-fit="snug"] .dash-sie, .dash-root[data-fit="compact"] .dash-sie, .dash-root[data-fit="mini"] .dash-sie, .dash-root[data-fit="tight"] .dash-sie { padding: 9px 12px !important; margin-top: 8px !important; border-radius: 12px !important; flex-wrap: nowrap !important; gap: 8px !important; }
+.dash-root[data-fit="cozy"] .dash-sie > div:first-child, .dash-root[data-fit="snug"] .dash-sie > div:first-child, .dash-root[data-fit="compact"] .dash-sie > div:first-child, .dash-root[data-fit="mini"] .dash-sie > div:first-child, .dash-root[data-fit="tight"] .dash-sie > div:first-child { flex: 1 1 auto; flex-wrap: nowrap !important; min-width: 0; gap: 10px !important; }
+.dash-root[data-fit="cozy"] .dash-sie > div:first-child > div:last-child, .dash-root[data-fit="snug"] .dash-sie > div:first-child > div:last-child, .dash-root[data-fit="compact"] .dash-sie > div:first-child > div:last-child, .dash-root[data-fit="mini"] .dash-sie > div:first-child > div:last-child, .dash-root[data-fit="tight"] .dash-sie > div:first-child > div:last-child { flex: 1 1 auto; min-width: 0; }
+.dash-root[data-fit="cozy"] .dash-sie-sub, .dash-root[data-fit="snug"] .dash-sie-sub, .dash-root[data-fit="compact"] .dash-sie-sub, .dash-root[data-fit="mini"] .dash-sie-sub, .dash-root[data-fit="tight"] .dash-sie-sub { display: none; }
+.dash-root[data-fit="tight"] .dash-sie { display: none !important; }

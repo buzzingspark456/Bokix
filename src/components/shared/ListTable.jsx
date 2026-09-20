@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp } from '../icons';
 import { useTranslation } from '../../i18n';
 
 // Sida 43 (uppföljning): en enda delad tabell-komponent för listsidornas

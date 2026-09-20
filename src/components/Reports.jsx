@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ChevronRight, FileBarChart } from 'lucide-react';
+import { ChevronRight, FileBarChart } from './icons';
 import ListPageHeader from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
 import ReportDetail from './reports/ReportDetail';

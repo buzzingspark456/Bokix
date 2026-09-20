@@ -1,14 +1,15 @@
-import React, { useMemo, useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect, useLayoutEffect, useRef } from 'react';
 import {
   FileText, Receipt, TrendingUp, TrendingDown,
   ChevronRight, ArrowUpRight, ArrowDownRight,
   CheckCircle2, Minus, BarChart2,
   UserPlus, Users, Clock, AlertCircle, X, MessageSquare, ClipboardCheck, Upload,
+  QuickNewInvoiceIcon, QuickUploadReceiptIcon, QuickNewContactIcon, QuickLogTimeIcon, QuickRunPayrollIcon,
   // Aliasat — 'LineChart' krockar annars med recharts-komponenten med
   // samma namn som redan importeras nedan (två helt olika saker: en ikon
   // kontra en diagramkomponent).
   LineChart as LineChartIcon, AreaChart as AreaChartIcon, Table2, Layers,
-} from 'lucide-react';
+} from './icons';
 import {
   BarChart, Bar, LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip,
@@ -254,11 +255,11 @@ function ChartDataTable({ data, fmt, hasPrevYearData, comparisonLabel }) {
 // anställda, inte vilket abonnemang som köpts — se kommentaren vid
 // `hasStaff` i komponenten för varför.
 const quickActionDefs = (t) => [
-  { label: t('dashboard.quickActions.newInvoice'),     icon: FileText, tab: 'invoices', bg: VIVID.green },
-  { label: t('dashboard.quickActions.uploadReceipt'),  icon: Receipt,  tab: 'expenses', bg: VIVID.blue },
-  { label: t('dashboard.quickActions.newContact'),     icon: UserPlus, tab: 'contacts', bg: VIVID.pink },
-  { label: t('dashboard.quickActions.logTime'),        icon: Clock,    tab: 'projects', bg: VIVID.amber },
-  { label: t('dashboard.quickActions.runPayroll'),     icon: Users,    tab: 'payroll',  bg: VIVID.red, staffOnly: true },
+  { label: t('dashboard.quickActions.newInvoice'),     icon: QuickNewInvoiceIcon,   tab: 'invoices', bg: VIVID.green },
+  { label: t('dashboard.quickActions.uploadReceipt'),  icon: QuickUploadReceiptIcon, tab: 'expenses', bg: VIVID.blue },
+  { label: t('dashboard.quickActions.newContact'),     icon: QuickNewContactIcon,   tab: 'contacts', bg: VIVID.pink },
+  { label: t('dashboard.quickActions.logTime'),        icon: QuickLogTimeIcon,      tab: 'projects', bg: VIVID.amber },
+  { label: t('dashboard.quickActions.runPayroll'),     icon: QuickRunPayrollIcon,   tab: 'payroll',  bg: VIVID.red, staffOnly: true },
 ];
 
 // Röd/gul/grön — samma BRAND-tokens som statusar i övriga listor i appen
@@ -377,6 +378,7 @@ function TodayRow({ item, onClick, onDismiss }) {
   const Icon = item.icon;
   return (
     <div
+      className="dash-today-row"
       style={{
         position: 'relative', display: 'flex', alignItems: 'center', gap: '11px', width: '100%',
         background: c.bg, borderRadius: '11px',
@@ -387,6 +389,7 @@ function TodayRow({ item, onClick, onDismiss }) {
     >
       <button
         onClick={onClick}
+        className="dash-today-btn"
         style={{
           display: 'flex', alignItems: 'center', gap: '11px', flex: 1, minWidth: 0,
           padding: '12px 14px', background: 'none', border: 'none',
@@ -397,7 +400,7 @@ function TodayRow({ item, onClick, onDismiss }) {
         <div style={{ width: 28, height: 28, borderRadius: '8px', background: c.icon, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: `0 2px 5px ${c.icon}55` }}>
           <Icon size={14} />
         </div>
-        <span style={{ flex: 1, fontSize: '13px', fontWeight: 600, color: c.text, lineHeight: 1.35 }}>{item.text}</span>
+        <span className="dash-today-text" style={{ flex: 1, fontSize: '13px', fontWeight: 600, color: c.text, lineHeight: 1.35 }}>{item.text}</span>
         {item.tab && <ChevronRight size={14} style={{ color: c.text, opacity: 0.6, flexShrink: 0 }} />}
       </button>
       {/* Kundönskemål: "de kan ignorera det, de behöver inte följa
@@ -423,6 +426,29 @@ function TodayRow({ item, onClick, onDismiss }) {
       </button>
     </div>
   );
+}
+
+// Telefon: startsidan görs så tät att den ryms på en skärm utan att skrolla.
+// Diagrammen får då en lägre höjd, resten styrs av .dash-* i index.css.
+// Nivåerna på telefon, från luftigast till tätast.
+const FIT_LEVELS = ['roomy', 'cozy', 'snug', 'compact', 'mini', 'tight'];
+// Senast valda nivå sparas i minnet, så att en ny visit på startsidan (t.ex. efter
+// en annan flik) börjar på rätt nivå direkt och inte hoppar eller blinkar.
+let lastFit = 'roomy';
+let lastFitReady = false;
+
+function useIsPhone(maxWidth = 640) {
+  const query = `(max-width: ${maxWidth}px)`;
+  const [phone, setPhone] = useState(() => typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia(query).matches);
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return undefined;
+    const mq = window.matchMedia(query);
+    const onChange = (e) => setPhone(e.matches);
+    setPhone(mq.matches);
+    if (mq.addEventListener) mq.addEventListener('change', onChange); else mq.addListener(onChange);
+    return () => { if (mq.removeEventListener) mq.removeEventListener('change', onChange); else mq.removeListener(onChange); };
+  }, [query]);
+  return phone;
 }
 
 export default function Dashboard({ verifications, accounts = [], invoices, expenses, contacts, setActiveTab, company, user, vatPeriods = {}, payrollRuns = [], employees = [], onBulkImportSie }) {
@@ -898,6 +924,65 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
   // hoppas över HELT (inget tomt div kvar som fortfarande tar sin
   // marginBottom) istället för att bara göra texten osynlig.
   const showGreeting = user?.user_metadata?.show_dashboard_greeting !== false;
+  const isPhone = useIsPhone();
+  // Startsidan på telefon väljer själv hur tät den ska vara: den luftiga
+  // layouten först, och bara om den inte ryms utan skrollning (mellan
+  // toppfältet och bottenfältet) går den över till compact och sist tight.
+  // Nivån räknas om när skärmens storlek eller innehållet ändras.
+  const rootRef = useRef(null);
+  const [fit, setFit] = useState(lastFit);
+  const fitSignature = `${isPhone}|${showGreeting}|${isNew}|${todos.length}|${sieImportDismissed}|${quickActions.length}`;
+  // Första gången börjar vi ändå på roomy. Därefter räknas nivån om när innehållet ändras.
+  const firstSignature = useRef(true);
+  useEffect(() => {
+    if (firstSignature.current) { firstSignature.current = false; return; }
+    setFit('roomy');
+  }, [fitSignature]);
+
+  useEffect(() => {
+    if (!isPhone) return undefined;
+    let timer = null;
+    const onResize = () => { clearTimeout(timer); timer = setTimeout(() => setFit('roomy'), 150); };
+    window.addEventListener('resize', onResize);
+    return () => { clearTimeout(timer); window.removeEventListener('resize', onResize); };
+  }, [isPhone]);
+  // Första mätningen döljer sidan tills nivån är vald, så att man inte ser den
+  // hoppa mellan nivåerna. Utan telefon, eller om något saknas, visas den direkt.
+  const [fitReady, setFitReady] = useState(lastFitReady);
+  useEffect(() => { lastFit = fit; }, [fit]);
+  useEffect(() => { if (fitReady) lastFitReady = true; }, [fitReady]);
+  useLayoutEffect(() => {
+    if (!isPhone) return undefined;
+    const root = rootRef.current;
+    const main = root?.closest('.main-wrapper');
+    if (!root || !main) { setFitReady(true); return undefined; }
+    let timer = null;
+    // Mäter först när nivån hunnit ritas klart (diagrammet får sin storlek
+    // efter ritningen), och tar ett steg i taget.
+    const measure = () => {
+      if (main.scrollHeight > main.clientHeight + 1) {
+        setFit(f => FIT_LEVELS[Math.min(FIT_LEVELS.indexOf(f) + 1, FIT_LEVELS.length - 1)]);
+      } else {
+        setFitReady(true);
+      }
+    };
+    const schedule = () => { clearTimeout(timer); timer = setTimeout(measure, 70); };
+    schedule();
+    let observer = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(schedule);
+      observer.observe(root);
+    }
+    return () => { clearTimeout(timer); if (observer) observer.disconnect(); };
+  }, [fit, fitSignature, isPhone, chartData]);
+  useEffect(() => {
+    // Skyddsnät: visa alltid sidan även om mätningen av någon anledning aldrig blir klar.
+    const t = setTimeout(() => setFitReady(true), 1500);
+    return () => clearTimeout(t);
+  }, []);
+  const activeFit = isPhone ? fit : 'roomy';
+  const compactFit = isPhone && ['snug', 'compact', 'mini', 'tight'].includes(activeFit);
+  const chartH = !isPhone ? 260 : ({ roomy: 200, cozy: 150, snug: 120 }[activeFit] || 84);
 
   return (
     // Bugkritiskt: rotdiven hade varken minHeight eller egen bakgrund, bara
@@ -917,7 +1002,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
     // tappade sin egen bakgrund/kant): samma 24px OVANFÖR gav nu, utan en
     // synlig linje som motiverar den, ett stort odifferentierat tomrum
     // innan hälsningen — bara toppen trimmad, sidorna/botten oförändrade.
-    <div style={{ maxWidth: '100%', margin: '0 auto', width: '100%', minHeight: '100%', boxSizing: 'border-box', background: 'var(--bg-page)', padding: '24px', paddingTop: '8px' }}>
+    <div className="dash-root" ref={rootRef} data-fit={activeFit} style={{ visibility: (!isPhone || fitReady) ? 'visible' : 'hidden', maxWidth: '100%', margin: '0 auto', width: '100%', minHeight: isPhone ? 0 : '100%', boxSizing: 'border-box', background: 'var(--bg-page)', padding: '24px', paddingTop: '8px' }}>
       <style>{`
         @media (max-width: 900px) {
           .dash-lower-grid { grid-template-columns: 1fr !important; }
@@ -968,7 +1053,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
           Snabbåtgärder-raden nedanför flyttar upp och tar platsen istället
           för att lämna ett tomt hål. */}
       {showGreeting && (
-      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px', padding: '0 12px' }}>
+      <div className="dash-greeting" style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px', padding: '0 12px' }}>
         {/* Bugkritiskt: display:flex på ett <h1> som bara innehåller löpande
             text (namn + emoji) bröt radbrytningen på smala/halva skärmar —
             "Good evening" och ", Abdullah 👋" hamnade på separata rader på
@@ -990,8 +1075,8 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
           Visas alltid, även på ett helt nytt/tomt konto — de här fyra
           genvägarna ÄR de första stegen man vill ta, så de ska inte gömmas
           undan bakom `isNew` som resten av sidans siffror/grafer. ─── */}
-      <div style={{ marginBottom: '18px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
+      <div className="dash-quick" style={{ marginBottom: '18px' }}>
+        <div className="dash-quick-title" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
           <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>{t('dashboard.quickActions.title')}</span>
         </div>
         {/* Kolumnantalet följer hur många genvägar som faktiskt visas (fyra
@@ -1001,6 +1086,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
           {quickActions.map(a => (
             <button
               key={a.label}
+              className="dash-quick-btn"
               onClick={() => setActiveTab(a.tab)}
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '9px',
@@ -1011,8 +1097,8 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
               onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 20px rgba(0,0,0,0.08)'; }}
               onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04)'; }}
             >
-              <div style={{ width: 32, height: 32, borderRadius: '9px', background: a.bg, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: `0 2px 6px ${a.bg}4d` }}>
-                <a.icon size={15} />
+              <div className="dash-quick-ico" style={{ width: 32, height: 32, borderRadius: '9px', background: a.bg, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: `0 2px 6px ${a.bg}4d` }}>
+                <a.icon size={20} />
               </div>
               <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', lineHeight: 1.2 }}>{a.label}</span>
             </button>
@@ -1036,8 +1122,8 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
         // helvit sida"-princip) lästes bara som "lite beige/smutsig", inte
         // som en avsiktlig accent — ren kortvit (var(--bg-card), samma som
         // resten av sidans kort) istället.
-        <div style={{ position: 'relative', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px', padding: '18px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)', overflow: 'hidden', marginBottom: '20px' }}>
-          <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+        <div className="dash-todo-card" style={{ position: 'relative', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px', padding: '18px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)', overflow: 'hidden', marginBottom: '20px' }}>
+          <div className="dash-todo-head" style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <div style={{ width: 34, height: 34, borderRadius: '10px', background: VIVID.blue, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: `0 3px 8px ${VIVID.blue}55` }}>
                 <ClipboardCheck size={17} />
@@ -1063,7 +1149,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
           Syns alltid (inte bara `!isNew`) — men visar en lugn tomt-läge-vy
           istället för en platt nollstapel-graf tills det finns något att
           rita ut. ─── */}
-      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px', padding: '22px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)', marginBottom: '18px', minWidth: 0 }}>
+      <div className="dash-chart-card" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px', padding: '22px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)', marginBottom: '18px', minWidth: 0 }}>
         {/* Period-väljare (kundönskemål: "ska vara på startsidan också" +
             "det måste visa datumet") — samma PeriodHeading/PeriodPicker/
             OVERVIEW_PERIODS som Rapport och analys → Företagsöversikt
@@ -1075,7 +1161,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
             data, inte fastna i ett tomt läge utan utväg. Egen rad, tydligt
             skild (18px) från graf-rubrikraden under — två separata beslut
             (VILKEN period, VILKEN graf) ska inte läsas ihop till ett. */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', marginBottom: '20px' }}>
+        <div className="dash-period-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', marginBottom: '20px' }}>
           <PeriodHeading label={periodBounds.label} start={periodBounds.start} end={periodBounds.end} />
           <PeriodPicker value={periodId} onChange={setPeriodId} options={OVERVIEW_PERIODS} />
         </div>
@@ -1119,7 +1205,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
         </div>
 
         {/* Chart header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+        <div className="dash-chart-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
           <div>
             <h2 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.01em', marginBottom: '4px' }}>
               {t('dashboard.chart.trendTitle')}
@@ -1128,7 +1214,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
                 redan etikett + datum en gång) — bara jämförelsenoten, och
                 bara när den FAKTISKT stämmer (hasPrevYearData). */}
             {hasPrevYearData && (
-              <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>
+              <p className="dash-chart-legend" style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>
                 {t('dashboard.chart.comparedToSamePeriod', { label: comparisonLabelDisplay })}
               </p>
             )}
@@ -1136,7 +1222,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
                 totalsummorna från KPI-korten ovanför, utan fungerar som en ren
                 färgförklaring (legend) för serierna. */}
             {hasChartData && chartMode === 'revenue-expense' && (
-              <div style={{ display: 'flex', gap: '18px', marginTop: '10px', flexWrap: 'wrap' }}>
+              <div className="dash-chart-legend" style={{ display: 'flex', gap: '18px', marginTop: '10px', flexWrap: 'wrap' }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: chartRevenue, fontWeight: 600 }}>
                   <span style={{ width: 10, height: 10, borderRadius: '50%', background: chartRevenue, display: 'inline-block' }} />
                   {t('dashboard.chart.legendIncome')}
@@ -1154,7 +1240,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
               </div>
             )}
             {hasChartData && chartMode === 'result' && (
-              <div style={{ display: 'flex', gap: '18px', marginTop: '10px', flexWrap: 'wrap' }}>
+              <div className="dash-chart-legend" style={{ display: 'flex', gap: '18px', marginTop: '10px', flexWrap: 'wrap' }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: periodResultat >= 0 ? BRAND.greenDark : BRAND.redText, fontWeight: 600 }}>
                   <span style={{ width: 10, height: 10, borderRadius: '50%', background: periodResultat >= 0 ? REVENUE : EXPENSE, display: 'inline-block' }} />
                   {t('dashboard.chart.legendResult')}
@@ -1189,7 +1275,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
             legend på små skärmar. Döljs i tomt-läge (nedan) — inget att
             växla format PÅ än. */}
         {hasChartData && (
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '14px' }}>
+          <div className="dash-format-row" style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '14px' }}>
             <div style={{ display: 'flex', gap: '4px', background: 'var(--bg-muted)', padding: '3px', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
               {FORMAT_MODES.map(f => (
                 <button key={f.id} onClick={() => setChartFormat(f.id)} title={f.label} style={{
@@ -1213,7 +1299,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
             istället för att bara rita en platt nollinje, så rutan förklarar
             vad som saknas istället för att se trasig/tom ut. */}
         {!hasChartData ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', height: '220px', textAlign: 'center' }}>
+          <div className="dash-chart-empty" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', height: '220px', textAlign: 'center' }}>
             <div style={{ width: 44, height: 44, borderRadius: '12px', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: chartRevenue, marginBottom: '2px' }}>
               <BarChart2 size={20} />
             </div>
@@ -1250,7 +1336,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
                   data={combinedChartData}
                   indexKey="name"
                   variant={chartFormat === 'bars' ? 'combo' : chartFormat}
-                  height={260}
+                  height={chartH}
                   isMobile={false}
                   extraSeries={chartFormat === 'bars' ? [] : [{ label: 'Resultat', color: chart.profit, dashed: false }]}
                 />
@@ -1267,7 +1353,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
                   data={comparisonChartData}
                   indexKey="name"
                   variant={chartFormat}
-                  height={260}
+                  height={chartH}
                   isMobile={false}
                   extraSeries={hasPrevYearData ? [
                     { label: `Intäkter ${comparisonLabel}`, color: chartRevenuePrev },
@@ -1278,7 +1364,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
             )}
 
             {chartMode === 'revenue-expense' && chartFormat === 'bars' && (
-              <ResponsiveContainer width="100%" height={260}>
+              <ResponsiveContainer width="100%" height={chartH}>
                   <BarChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }} barGap={3}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-light)" />
                     {/* `interval="preserveStartEnd"` — recharts väljer själv hur
@@ -1295,7 +1381,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
                     {/* verticalAlign="bottom" (uttryckligt, inte bara standard-
                         värdet) — flyttar/håller legenden under diagrammet på
                         mobil istället för att riskera att den kläms in bredvid. */}
-                    <Legend iconType="circle" iconSize={7} verticalAlign="bottom" wrapperStyle={{ fontSize: 12, paddingTop: 16 }} />
+                    {!compactFit && <Legend iconType="circle" iconSize={7} verticalAlign="bottom" wrapperStyle={{ fontSize: 12, paddingTop: 16 }} />}
                     <Bar dataKey="Intäkter" name={t('dashboard.chart.legendIncome')} fill={chartRevenue} radius={[4,4,0,0]} barSize={16} />
                     <Bar dataKey="Utgifter" name={t('dashboard.chart.legendExpense')} fill={chartExpense} radius={[4,4,0,0]} barSize={16} />
                     {/* Föregående års jämförelse ritas som en streckad linje
@@ -1309,7 +1395,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
             )}
 
             {chartMode === 'result' && (
-              <ResponsiveContainer width="100%" height={260}>
+              <ResponsiveContainer width="100%" height={chartH}>
                 {chartFormat === 'line' ? (
                   <LineChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-light)" />
@@ -1325,7 +1411,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
                         kom ifrån). Rätt fix är alltså att ge varje element sin
                         egen korrekta `name`/färg och låta Legend läsa av dem
                         automatiskt, inte att skicka in en egen payload-array. */}
-                    {hasPrevYearData && <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 12, paddingTop: 16 }} />}
+                    {hasPrevYearData && !compactFit && <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 12, paddingTop: 16 }} />}
                     <Line type={curveType} dataKey="Resultat" name={t('dashboard.chart.legendResult')} stroke={periodResultat >= 0 ? REVENUE : EXPENSE} strokeWidth={3.5} dot={false} activeDot={{ r: 5 }} />
                     {hasPrevYearData && <Line type={curveType} dataKey="PrevResultat" name={`${t('dashboard.chart.legendResult')} ${comparisonLabelDisplay}`} stroke="var(--text-muted)" strokeWidth={2} strokeDasharray="4 3" dot={false} />}
                   </LineChart>
@@ -1346,7 +1432,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
                         ska ha en färg att läsa av; se kommentaren i Linje-
                         formatets Legend ovan för varför en manuell `payload`
                         inte fungerar här. */}
-                    {hasPrevYearData && <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 12, paddingTop: 16 }} />}
+                    {hasPrevYearData && !compactFit && <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 12, paddingTop: 16 }} />}
                     <Bar dataKey="Resultat" name={t('dashboard.chart.legendResult')} fill={periodResultat >= 0 ? REVENUE : EXPENSE} radius={[4,4,0,0]} barSize={20}>
                       {chartData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.Resultat >= 0 ? REVENUE : EXPENSE} />
@@ -1369,8 +1455,8 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
 
           {/* Utestående — se kommentaren vid `outstanding` ovan för varför
               den här ytan inte längre visar de senaste verifikationerna. */}
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--border-light)' }}>
+          <div className="dash-outstanding" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <div className="dash-outstanding-head" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--border-light)' }}>
               <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.01em' }}>{t('dashboard.outstanding.title')}</span>
               <button onClick={() => setActiveTab('invoices')} className="ds-link-btn sm">{t('dashboard.outstanding.allInvoices')}</button>
             </div>
@@ -1427,7 +1513,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
 
             {/* Nettot är poängen med att visa de två bredvid varandra: det
                 säger om månaden går ihop, vilket ingen av siffrorna gör ensam. */}
-            <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border-light)', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '12px' }}>
+            <div className="dash-outstanding-net" style={{ padding: '14px 20px', borderTop: '1px solid var(--border-light)', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '12px' }}>
               <span style={{ fontSize: '12.5px', color: 'var(--text-secondary)', fontWeight: 600 }}>{t('dashboard.outstanding.net')}</span>
               <span style={{ fontSize: '15px', fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: outstanding.net >= 0 ? 'var(--status-green-text)' : 'var(--status-red-text)' }}>
                 {fmt(outstanding.net)}
@@ -1436,7 +1522,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
           </div>
           {/* Moms — nästa (ännu ej inlämnade) momsperiod, räknat från riktiga
               bokförda utgående/ingående moms-rader inom perioden. */}
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px', padding: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div className="dash-vat" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px', padding: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {vatPeriodSummary ? (
               <>
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
@@ -1610,14 +1696,14 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
           isNew-villkor som checklistan ovan, men sitt eget dismiss-state
           så den inte kopplas till checklistans "alla klara"-firande. */}
       {isNew && !sieImportDismissed && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', flexWrap: 'wrap', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px', padding: '16px 20px', marginTop: '10px' }}>
+        <div className="dash-sie" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', flexWrap: 'wrap', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px', padding: '16px 20px', marginTop: '10px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
             <div style={{ width: 38, height: 38, borderRadius: '10px', background: 'var(--status-green-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <Upload size={17} color="var(--status-green-text)" />
             </div>
             <div>
               <div style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-main)' }}>{t('dashboard.sieImport.title')}</div>
-              <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>{t('dashboard.sieImport.subtitle')}</div>
+              <div className="dash-sie-sub" style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>{t('dashboard.sieImport.subtitle')}</div>
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>

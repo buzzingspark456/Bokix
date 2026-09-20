@@ -4,7 +4,7 @@ import {
   Clock, TrendingUp, TrendingDown, FileText, X,
   Zap, AlertTriangle,
   User, Users, Send, ClipboardCheck, CheckCircle2, Undo2, ListChecks,
-} from 'lucide-react';
+} from './icons';
 import { ProjectSearch, EntitySearch } from './shared/SearchInputs';
 import ListPageHeader, { ListFilterBar } from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';

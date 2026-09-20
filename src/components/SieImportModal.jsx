@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { UploadCloud, AlertCircle, AlertTriangle, X, HelpCircle, CheckCircle2, ArrowRight } from 'lucide-react';
+import { UploadCloud, AlertCircle, AlertTriangle, X, HelpCircle, CheckCircle2, ArrowRight } from './icons';
 import { BRAND } from '../utils/brandColors';
 import { AccountSearch } from './shared/SearchInputs';
 import { ProgramLogo } from './shared/BrandLogos';

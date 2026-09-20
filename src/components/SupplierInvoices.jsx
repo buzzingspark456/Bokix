@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
+import DateField from './shared/DateField';
+import { isReverseChargePurchaseAccount } from '../utils/reverseCharge';
 import { useSearchParams } from 'react-router-dom';
 import {
   Plus, Check, X, AlertCircle, Landmark, CreditCard, UploadCloud, FileText, Trash2,
-} from 'lucide-react';
+} from './icons';
 import { AccountSearch, ProjectSearch } from './shared/SearchInputs';
 import ListPageHeader, { ListSearchRow, listHeaderButtonStyle } from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
@@ -349,7 +351,7 @@ function SupplierInvoiceForm({ contacts, setContacts, accounts, projects = [], u
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto' }}>
+      <div className="sup-form" style={{ flex: 1, overflowY: 'auto' }}>
         {/* Kundfeedback: kändes smalare/mindre "rymlig" än Kundfakturans
             InvoiceForm, som stretchar hela bredden. 820px var i smalaste
             laget för ett formulär med flera 2-kolumnsrader (varje fält blev
@@ -391,12 +393,12 @@ function SupplierInvoiceForm({ contacts, setContacts, accounts, projects = [], u
             <div className="form-row-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
               <div>
                 <label style={labelSt}>Fakturadatum *</label>
-                <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStErr(errors.date)} />
+                <DateField value={date} onChange={e => setDate(e.target.value)} placeholder="Välj datum" style={inputStErr(errors.date)} />
                 {errors.date && <div style={errSt}>{errors.date}</div>}
               </div>
               <div>
                 <label style={labelSt}>Förfallodatum</label>
-                <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} style={inputStErr(errors.dueDate)} />
+                <DateField value={dueDate} onChange={e => setDueDate(e.target.value)} placeholder="Välj datum" style={inputStErr(errors.dueDate)} />
                 {errors.dueDate && <div style={errSt}>{errors.dueDate}</div>}
               </div>
             </div>
@@ -405,9 +407,9 @@ function SupplierInvoiceForm({ contacts, setContacts, accounts, projects = [], u
           {/* Kontering */}
           <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
             <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>Kontering *</h3>
-            <div style={{ overflowX: 'auto' }}>
-              <div style={{ minWidth: '680px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 1.6fr 1fr 0.8fr 0.9fr auto', gap: '10px', marginBottom: '8px', padding: '0 2px' }}>
+            <div className="sup-rows-scroll" style={{ overflowX: 'auto' }}>
+              <div className="sup-rows-min" style={{ minWidth: '680px' }}>
+                <div className="sup-rows-header" style={{ display: 'grid', gridTemplateColumns: '1.3fr 1.6fr 1fr 0.8fr 0.9fr auto', gap: '10px', marginBottom: '8px', padding: '0 2px' }}>
                   {['Konto', 'Beskrivning', 'Belopp (exkl.)', 'Momssats', 'Moms', ''].map((h, i) => (
                     <span key={i} style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em', textAlign: (i === 2 || i === 3 || i === 4) ? 'right' : 'left' }}>{h}</span>
                   ))}
@@ -415,10 +417,17 @@ function SupplierInvoiceForm({ contacts, setContacts, accounts, projects = [], u
                 {rows.map((row, i) => {
                   const { vat } = calcRow(row);
                   return (
-                    <div key={row.id} style={{ display: 'grid', gridTemplateColumns: '1.3fr 1.6fr 1fr 0.8fr 0.9fr auto', gap: '10px', alignItems: 'center', marginBottom: '8px' }}>
+                    <div key={row.id} className="sup-row" style={{ display: 'grid', gridTemplateColumns: '1.3fr 1.6fr 1fr 0.8fr 0.9fr auto', gap: '10px', alignItems: 'center', marginBottom: '8px' }}>
+                      <div className="qr-cell sup-acct"><span className="qr-lbl">Konto</span>
                       <AccountSearch value={row.account} onChange={code => updateRow(i, 'account', code)} accounts={accounts} placeholder="Sök konto…" />
+                      </div>
+                      <div className="qr-cell sup-desc"><span className="qr-lbl">Beskrivning</span>
                       <input value={row.description} onChange={e => updateRow(i, 'description', e.target.value)} placeholder="beskrivning" style={inputSt} />
+                      </div>
+                      <div className="qr-cell"><span className="qr-lbl">Belopp exkl. moms</span>
                       <AmountInput value={row.netAmount} onChange={v => updateRow(i, 'netAmount', v)} style={{ ...inputSt, textAlign: 'right' }} />
+                      </div>
+                      <div className="qr-cell"><span className="qr-lbl">Momssats</span>
                       {reverseCharge ? (
                         <div style={{ ...inputSt, textAlign: 'right', color: 'var(--text-muted)' }}>—</div>
                       ) : (
@@ -426,8 +435,11 @@ function SupplierInvoiceForm({ contacts, setContacts, accounts, projects = [], u
                           {VAT_RATES.map(v => <option key={v} value={v}>{v} %</option>)}
                         </select>
                       )}
+                      </div>
+                      <div className="qr-cell"><span className="qr-lbl">Moms</span>
                       <div style={{ ...inputSt, textAlign: 'right', background: 'var(--bg-muted)', color: 'var(--text-secondary)' }}>{reverseCharge ? '—' : fmtNum(vat)}</div>
-                      <button type="button" onClick={() => removeRow(i)} disabled={rows.length === 1} title="Ta bort rad" style={{ padding: '6px', background: 'transparent', border: 'none', cursor: rows.length === 1 ? 'not-allowed' : 'pointer', color: rows.length === 1 ? 'var(--border)' : '#ef4444' }}>
+                      </div>
+                      <button className="qr-remove" type="button" onClick={() => removeRow(i)} disabled={rows.length === 1} title="Ta bort rad" style={{ padding: '6px', background: 'transparent', border: 'none', cursor: rows.length === 1 ? 'not-allowed' : 'pointer', color: rows.length === 1 ? 'var(--border)' : '#ef4444' }}>
                         <Trash2 size={15} />
                       </button>
                     </div>
@@ -454,7 +466,9 @@ function SupplierInvoiceForm({ contacts, setContacts, accounts, projects = [], u
               <ToggleCard
                 checked={reverseCharge} onChange={setReverseCharge}
                 title="Omvänd skattskyldighet"
-                description="Köp inom EU eller byggtjänster: momsen redovisas av köparen. Fakturan bokförs utan moms."
+                description={reverseCharge && !rows.some(r => isReverseChargePurchaseAccount(r.account))
+                  ? 'Tjänst från utlandet: välj konto 4535 (EU) eller 4531 (utanför EU) på konteringsraden, så bokförs momsen automatiskt. Utan det bokförs ingen moms. Byggtjänster i Sverige hanteras inte än.'
+                  : 'Tjänst från utlandet: momsen redovisas av dig. Fakturan bokförs utan moms, och med konto 4535 (EU) eller 4531 (utanför EU) läggs momsraderna till automatiskt.'}
               />
             </div>
           </div>
@@ -470,7 +484,7 @@ function SupplierInvoiceForm({ contacts, setContacts, accounts, projects = [], u
                 {currency !== 'SEK' && <p style={helpSt}>Beloppen ovan bokförs i SEK som de anges — omräkning från annan valuta stöds inte än.</p>}
               </div>
               <div>
-                <label style={{ ...labelSt, visibility: 'hidden' }}>Öresavrundning</label>
+                <label className="sup-hidden-label" style={{ ...labelSt, visibility: 'hidden' }}>Öresavrundning</label>
                 <ToggleCard checked={roundToKrona} onChange={setRoundToKrona} title="Öresavrundning" description="Avrunda fakturatotal till hel krona." />
               </div>
             </div>
@@ -479,7 +493,7 @@ function SupplierInvoiceForm({ contacts, setContacts, accounts, projects = [], u
           {/* Leveransdatum */}
           <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
             <label style={labelSt}>Leveransdatum <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>(ML krav)</span></label>
-            <input type="date" value={deliveryDate} onChange={e => setDeliveryDate(e.target.value)} style={{ ...inputSt, maxWidth: '220px' }} />
+            <DateField value={deliveryDate} onChange={e => setDeliveryDate(e.target.value)} placeholder="Välj leveransdatum" style={{ ...inputSt, maxWidth: '220px' }} />
           </div>
 
           {/* Kostnadsställe/Projekt */}

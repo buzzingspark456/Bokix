@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { FileText, Receipt, X, ZoomIn, ZoomOut, ExternalLink } from 'lucide-react';
+import { FileText, Receipt, X, ZoomIn, ZoomOut, ExternalLink } from '../icons';
 
 // ── Dokumentvisaren ─────────────────────────────────────────────────────
 // EN visare för alla underlag i appen: kvittot i Utgifter (bredvid

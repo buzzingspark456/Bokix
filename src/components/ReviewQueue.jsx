@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { CheckCircle2, Check, X, ChevronDown, ChevronUp, ShieldCheck, CreditCard, Landmark, HelpCircle, FileText, Receipt, Info, RotateCcw } from 'lucide-react';
+import { CheckCircle2, Check, X, ChevronDown, ChevronUp, ShieldCheck, CreditCard, Landmark, HelpCircle, FileText, Receipt, Info, RotateCcw } from './icons';
 import { AccountSearch } from './shared/SearchInputs';
 import ListPageHeader from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';

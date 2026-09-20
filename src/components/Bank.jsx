@@ -3,8 +3,9 @@ import {
   Upload, UploadCloud, AlertCircle, CheckCircle2, X, ChevronDown, ChevronRight,
   Landmark, ArrowDownCircle, ArrowUpCircle, HelpCircle, Search, Trash2, Undo2,
   Plus, Settings, Pencil, Check,
-} from 'lucide-react';
+} from './icons';
 import ListPageHeader, { ListFilterBar, listSearchInputStyle, listFilterFieldStyle } from './shared/ListPageHeader';
+import DateField from './shared/DateField';
 import ListTable from './shared/ListTable';
 import { AccountSearch } from './shared/SearchInputs';
 import { confirmDialog } from './shared/ConfirmDialog';
@@ -13,6 +14,7 @@ import { BRAND } from '../utils/brandColors';
 import { BankLogo } from './shared/BrandLogos';
 import { BANK_SOURCES, OTHER_BANK_HINT, MAX_BANK_FILE_MB, ACCEPTED_BANK_EXTENSIONS, splitBankPath } from '../utils/bankSources';
 import { guessAccountFromText } from '../utils/accountCategories';
+import Reconciliation from './Reconciliation';
 
 // Bank – CSV/Excel-import. `bankImport.js` (parsning/normalisering/
 // matchningsförslag, statisk import av papaparse+xlsx) laddas BARA lazy
@@ -112,6 +114,7 @@ export default function Bank({
   bankTransactions = [],
   bankImportProfiles = {},
   bankAccounts = [],
+  reconciliations = [],
   invoices = [],
   expenses = [],
   contacts = [],
@@ -332,18 +335,20 @@ export default function Bank({
             { id: 'matched', label: 'Matchade', badge: tabCounts.matched },
             { id: 'booked', label: 'Bokförda', badge: tabCounts.booked },
             { id: 'ignored', label: 'Ignorerade', badge: tabCounts.ignored },
+            { id: 'reconcile', label: 'Avstämning' },
           ],
           activeId: activeTab,
           onChange: setActiveTab,
         }}
       />
 
-      <ListFilterBar
+      {activeTab !== 'reconcile' && <ListFilterBar
         onClear={() => { setSearch(''); setDateFrom(''); setDateTo(''); setSelectedAccountId('all'); }}
         count={filtered.length}
         countLabel="transaktioner"
         pageSize={pageSize}
         onPageSizeChange={setPageSize}
+        activeFilters={(dateFrom ? 1 : 0) + (dateTo ? 1 : 0) + (selectedAccountId !== 'all' ? 1 : 0)}
       >
         {/* Samma sökfälts-mönster som Bokförings egen ListFilterBar (facit-
             sidan för den här komponenten) — sökikon + listSearchInputStyle
@@ -353,9 +358,11 @@ export default function Bank({
           <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Sök text, belopp, referens..." style={{ ...listSearchInputStyle, width: '240px' }} />
         </div>
-        <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={listFilterFieldStyle} />
-        <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>–</span>
-        <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={listFilterFieldStyle} />
+        <div className="lfb-daterange">
+          <DateField value={dateFrom} onChange={e => setDateFrom(e.target.value)} placeholder="Från datum" style={listFilterFieldStyle} />
+          <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>–</span>
+          <DateField value={dateTo} onChange={e => setDateTo(e.target.value)} placeholder="Till datum" style={listFilterFieldStyle} />
+        </div>
         {/* Bara synlig med fler än ETT konto — annars är det ett filter som
             aldrig kan göra något, samma princip som Kvittons uppladdar-
             flikar (Expenses.jsx). */}
@@ -365,9 +372,23 @@ export default function Bank({
             {effectiveAccounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select>
         )}
-      </ListFilterBar>
+      </ListFilterBar>}
 
-      <div style={{ flex: 1, overflowY: 'auto' }}>
+      {activeTab === 'reconcile' && (
+        <div style={{ flex: 1, overflowY: 'auto' }}>
+          <Reconciliation
+            bankAccounts={effectiveAccounts}
+            bankTransactions={bankTransactions}
+            verifications={verifications}
+            accounts={accounts}
+            reconciliations={reconciliations}
+            onSave={(rec) => onUpdateCompany?.(c => ({ ...c, reconciliations: [...(c.reconciliations || []), rec] }))}
+            onDelete={(id) => onUpdateCompany?.(c => ({ ...c, reconciliations: (c.reconciliations || []).filter(r => r.id !== id) }))}
+          />
+        </div>
+      )}
+
+      {activeTab !== 'reconcile' && <div style={{ flex: 1, overflowY: 'auto' }}>
         {bankTransactions.length === 0 ? (
           // Samma kortram som ListTable (bordered=true, samma komponent som
           // renderar raderna nedan) i stället för en egen flytande, rundad
@@ -476,7 +497,7 @@ export default function Bank({
             })}
           />
         )}
-      </div>
+      </div>}
 
       {showImportModal && (
         <ImportWizardModal
@@ -692,7 +713,7 @@ function BankRowDetail({ row, invoiceCandidates, supplierCandidates, accounts, v
           </div>
           <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
             <div style={{ flex: 1 }}>
-              <label style={fieldLabel}>{isInflow ? 'Motkonto (kredit)' : 'Motkonto (debet)'} — {ledgerAccount} {isInflow ? 'debiteras' : 'krediteras'} automatiskt med {fmt(Math.abs(row.amount))} kr</label>
+              <label style={fieldLabel}>{isInflow ? 'Vad var det för pengar?' : 'Vad gäller utgiften?'} — {isInflow ? 'pengar in på' : 'pengar ut från'} {ledgerAccount} bokas automatiskt, {fmt(Math.abs(row.amount))} kr</label>
               <AccountSearch
                 value={qbAccount}
                 onChange={v => { setQbAccount(v); setQbAccountIsSuggestion(false); }}

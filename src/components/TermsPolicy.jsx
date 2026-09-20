@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { FileText } from 'lucide-react';
+import { FileText } from './icons';
 import { PolicyLayout, PolicySection, PolicyCallout, policyP, policyLi, policyUl } from './marketing/PolicyLayout';
 import { ACCENT } from './marketing/marketingTokens';
 

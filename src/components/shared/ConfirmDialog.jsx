@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, AlertTriangle } from 'lucide-react';
+import { X, AlertTriangle } from '../icons';
 
 // Ersätter native window.confirm()/window.prompt() — kundfeedback: den
 // bruna/blåa webbläsarrutan ("www.bokix.se says…") ser inte ut som resten

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Info, AlertTriangle, Palmtree, ChevronDown, ChevronUp, Wallet } from 'lucide-react';
+import { Info, AlertTriangle, Palmtree, ChevronDown, ChevronUp, Wallet } from './icons';
 import ListTable from './shared/ListTable';
 import { BRAND } from '../utils/brandColors';
 import { summarizeVacationLiability, VACATION_MODEL_NOTES } from '../utils/vacation';

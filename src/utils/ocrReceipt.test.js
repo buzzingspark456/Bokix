@@ -279,8 +279,444 @@ describe('parseReceiptText', () => {
     const result = parseReceiptText(text);
     expect(result.date).toBe('2024-07-01');
     expect(result.amount).toBe(169);
-    // Ingen känd leverantör eller kontoregel matchar — ska ge null,
-    // aldrig ett hittepåkonto som ser ut som ett facit.
-    expect(result.accountCode).toBeNull();
+    // Ingen känd leverantör eller kontoregel matchar. Det ÄR ett kvitto, så
+    // 6990 Övriga externa kostnader föreslås, men märkt som en gissning
+    // (accountGuessed) så att det visas som "kontrollera", inte som avläst.
+    expect(result.accountCode).toBe('6990');
+    expect(result.accountGuessed).toBe(true);
+    expect(result.accountSource).toBe('fallback');
   });
+});
+
+import { crossCheckVat, findReceiptNumber } from './ocrReceipt.js';
+
+describe('momskontroll mot beloppen', () => {
+  const ica = `
+    ICA Supermarket
+    Datum: 2024-03-15
+    Totalt SEK 105,40
+    Varav moms 12%: 11,29
+  `;
+  it('verifierar momsen när beloppen stämmer mot en svensk sats', () => {
+    const r = parseReceiptText(ica);
+    expect(r.vatAmount).toBe(11.29);
+    expect(r.vatRate).toBe(12);
+    expect(r.vatVerified).toBe(true)
+    expect(r.vatMismatch).toBe(false)
+    expect(r.vatRateGuessed).toBe(false)
+  });
+
+  it('läser satsen ur siffrorna när kvittot inte skriver ut den', () => {
+    const r = parseReceiptText('Kaffebaren\nDatum: 2024-05-02\nTotalt 125,00\nMoms 25,00')
+    expect(r.vatRate).toBe(25)
+    expect(r.vatVerified).toBe(true)
+    expect(r.vatRateGuessed).toBe(false)
+  });
+
+  it('blandade momssatser som inte går ihop flaggas', () => {
+    const r = parseReceiptText('Butiken\nTotalt 106,00\nMoms 6%  6,00\nMoms 25% 6,00')
+    // Två rader ger 12,00 i moms, vilket inte stämmer mot någon sats på 106 kr.
+    expect(r.vatMismatch).toBe(true)
+    expect(r.vatVerified).toBe(false)
+  });
+
+  it('en verklig avvikelse flaggas i stället för att verifieras', () => {
+    const r = parseReceiptText('Butiken\nTotalt 100,00\nMoms 25%: 9,99')
+    expect(r.vatVerified).toBe(false)
+    expect(r.vatMismatch).toBe(true)
+    expect(r.vatRate).toBe(25)
+  });
+
+  it('utan momsrad eller i utländsk valuta kontrolleras inget', () => {
+    const r = parseReceiptText('Butiken\nTotalt 100,00')
+    expect(r.vatVerified).toBe(false)
+    expect(r.vatMismatch).toBe(false)
+    expect(r.vatAmount).toBeNull()
+    expect(crossCheckVat({ lines: ['Moms 5,00'], amount: 50, vatRate: 25, vatRateGuessed: true, currency: 'USD' }).verified).toBe(false)
+  });
+
+  it('en momsrad med bara procent räknas inte som belopp', () => {
+    const r = parseReceiptText('Butiken\nTotalt 100,00\nMoms 25%')
+    expect(r.vatAmount).toBeNull()
+    expect(r.vatRate).toBe(25)
+  });
+
+  it('avrundning per rad inom några ören godkänns', () => {
+    expect(crossCheckVat({ lines: ['Moms 25%: 20,01'], amount: 100, vatRate: 25, vatRateGuessed: false, currency: null }).verified).toBe(true)
+    expect(crossCheckVat({ lines: ['Moms 25%: 20,10'], amount: 100, vatRate: 25, vatRateGuessed: false, currency: null }).verified).toBe(false)
+  });
+});
+
+describe('kvitto- och fakturanummer', () => {
+  it('läser fakturanummer med kolon', () => {
+    expect(findReceiptNumber(['Supabase Inc.', 'Invoice Number: INV-2024-001', 'Date: 2024-05-12'])).toBe('INV-2024-001')
+  });
+  it('läser svenska varianter', () => {
+    expect(findReceiptNumber(['Fakturanummer 100234'])).toBe('100234')
+    expect(findReceiptNumber(['Kvitto nr 45871'])).toBe('45871')
+    expect(findReceiptNumber(['Kvittonr: A-77120'])).toBe('A-77120')
+    expect(findReceiptNumber(['Ordernr 998877'])).toBe('998877')
+  });
+  it('fakturanummer går före ordernummer', () => {
+    expect(findReceiptNumber(['Ordernr 111222', 'Fakturanr 333444'])).toBe('333444')
+  });
+  it('ignorerar datum, org.nr, telefon och ord utan siffror', () => {
+    expect(findReceiptNumber(['Invoice', 'Order 2024-05-12'])).toBeNull()
+    expect(findReceiptNumber(['Org.nr 556016-0680', 'Tel 08-123456'])).toBeNull()
+    expect(findReceiptNumber(['Kvitto tack'])).toBeNull()
+    expect(findReceiptNumber(['Faktura 556016-0680'])).toBeNull()
+  });
+  it('tom text ger null och parse tar med numret', () => {
+    expect(findReceiptNumber([])).toBeNull()
+    expect(findReceiptNumber(undefined)).toBeNull()
+    expect(parseReceiptText('Bolaget\nFaktura nr 20240123\nTotalt 500,00').receiptNumber).toBe('20240123')
+  });
+});
+
+describe('kvittonummer utan bindestreck', () => {
+  it('ett tiosiffrigt kvittonummer är ett kvittonummer, inte ett organisationsnummer', () => {
+    expect(findReceiptNumber(['Kvitto nr 2024051277'])).toBe('2024051277')
+    expect(findReceiptNumber(['Faktura 5560351234'])).toBe('5560351234')
+  });
+});
+
+import { findReceiptNumberDetailed } from './ocrReceipt.js';
+
+describe('nummer på kvitton, fakturor och order', () => {
+  const kindOf = (lines) => findReceiptNumberDetailed(lines)?.kind ?? null;
+
+  it('ett kvitto som bara har ett ordernummer får just det, med rätt benämning', () => {
+    const r = findReceiptNumberDetailed(['Webbshopen AB', 'Ordernummer: 9988776', 'Datum 2024-05-12'])
+    expect(r).toEqual({ number: '9988776', kind: 'order', label: 'Ordernummer' })
+  });
+  it('olika stavningar av ordernummer', () => {
+    for (const line of ['Ordernr 4455667', 'Order nr: 4455667', 'Order-ID 4455667', 'Order #4455667', 'Order number 4455667', 'Beställningsnummer 4455667', 'Best.nr 4455667']) {
+      expect(findReceiptNumberDetailed([line])?.number, line).toBe('4455667')
+    }
+  });
+  it('bokning, transaktion, bon, köp och referens', () => {
+    expect(kindOf(['Bokningsnummer AB12345'])).toBe('bokning')
+    expect(kindOf(['Booking reference: XY778899'])).toBe('bokning')
+    expect(kindOf(['Transaktions-ID 123456789'])).toBe('transaktion')
+    expect(kindOf(['Bonnr 20415'])).toBe('bon')
+    expect(kindOf(['Köpnummer 778812'])).toBe('bon')
+    expect(kindOf(['Referensnummer 5566778'])).toBe('referens')
+  });
+  it('fakturanummer går före kvittonummer, som går före ordernummer och referens', () => {
+    expect(kindOf(['Referens 111222', 'Ordernr 333444', 'Kvitto nr 555666', 'Fakturanr 777888'])).toBe('faktura')
+    expect(kindOf(['Referens 111222', 'Ordernr 333444', 'Kvitto nr 555666'])).toBe('kvitto')
+    expect(kindOf(['Referens 111222', 'Ordernr 333444'])).toBe('order')
+  });
+  it('numret på raden under nyckelordet läses också', () => {
+    expect(findReceiptNumberDetailed(['Fakturanummer', '100234', 'Fakturadatum'])?.number).toBe('100234')
+    expect(findReceiptNumberDetailed(['Ordernummer:', 'A-77120'])?.number).toBe('A-77120')
+  });
+  it('en digital PDF med allt på en rad ger numret direkt efter nyckelordet', () => {
+    expect(findReceiptNumberDetailed(['Faktura Fakturanummer 100234 Fakturadatum 2024-05-12 Förfallodatum 2024-06-11'])?.number).toBe('100234')
+  });
+  it('belopp, datum och kundnummer är inga nummer', () => {
+    expect(findReceiptNumberDetailed(['Order 250 kr'])).toBeNull()
+    expect(findReceiptNumberDetailed(['Order 250 SEK'])).toBeNull()
+    expect(findReceiptNumberDetailed(['Orderdatum 2024-05-12'])).toBeNull()
+    expect(findReceiptNumberDetailed(['Kundnummer 12345'])).toBeNull()
+    expect(findReceiptNumberDetailed(['Order Date: 2024-05-12'])).toBeNull()
+  });
+  it('inget nummer ger null, inte ett hittepå', () => {
+    expect(findReceiptNumberDetailed(['ICA Supermarket', 'Mjölk 18,50', 'Totalt 105,40'])).toBeNull()
+    expect(parseReceiptText('ICA\nTotalt 105,40').receiptNumber).toBeNull()
+    expect(parseReceiptText('ICA\nTotalt 105,40').receiptNumberLabel).toBeNull()
+  });
+  it('parse tar med benämningen', () => {
+    const r = parseReceiptText('Webbshop\nOrdernummer 9988776\nTotalt 500,00')
+    expect(r.receiptNumber).toBe('9988776')
+    expect(r.receiptNumberKind).toBe('order')
+    expect(r.receiptNumberLabel).toBe('Ordernummer')
+  });
+});
+
+describe('utländsk valuta utan tecken på totalraden', () => {
+  it('ett dokument som bara talar om dollar är i dollar', () => {
+    const r = parseReceiptText('Acme Inc.\nInvoice Number: 20240501\nCurrency: USD\nDate: 2024-05-12\nTotal 25.00')
+    expect(r.currency).toBe('USD')
+    expect(r.amount).toBe(25)
+  });
+  it('kronor någonstans i dokumentet betyder kronor', () => {
+    expect(parseReceiptText('Butiken\nPris i USD 10\nTotalt 193,75 kr').currency).toBeNull()
+    expect(parseReceiptText('Butiken\nTotalt 193,75 SEK\nRef $ 12').currency).toBeNull()
+  });
+  it('utan något valutatecken förblir det kronor', () => {
+    expect(parseReceiptText('Butiken\nDatum 2024-05-12\nTotalt 193,75').currency).toBeNull()
+  });
+});
+
+import { classifyDocument } from './ocrReceipt.js';
+
+const CV = `
+  Anna Andersson
+  Curriculum Vitae
+  Telefon: 070-123 45 67
+  anna.andersson@example.se
+  linkedin.com/in/annaandersson
+
+  Arbetslivserfarenhet
+  2019 - 2021  Säljare, Elgiganten, Stockholm
+  2021 - 2024  Butikschef, Clas Ohlson, Uppsala
+  Ansvarade för en omsättning på 12 miljoner kr och 14 medarbetare.
+
+  Utbildning
+  2016 - 2019  Ekonomprogrammet, Uppsala universitet
+  Kompetenser
+  Excel, försäljning, ledarskap
+  Körkort B
+  Språk: svenska, engelska
+`;
+
+describe('dokument som inte är kvitton eller fakturor', () => {
+  it('ett CV som nämner Elgiganten blir inget Elgiganten-kvitto', () => {
+    const r = parseReceiptText(CV)
+    expect(r.notReceipt).toBe(true)
+    expect(r.documentKind).toBe('other')
+    expect(r.supplier).toBeNull()
+    expect(r.amount).toBeNull()
+    expect(r.accountCode).toBeNull()
+    expect(r.date).toBeNull()
+    expect(r.vatAmount).toBeNull()
+    expect(r.receiptNumber).toBeNull()
+  })
+
+  it('classifyDocument ger CV negativ poäng och ett kvitto positiv', () => {
+    expect(classifyDocument(CV).isReceipt).toBe(false)
+    expect(classifyDocument(CV).score).toBeLessThan(2)
+    expect(classifyDocument('Circle K\nDatum: 2024-05-12\nBensin 500,00\nTotalt 500,00\nMoms 25% 100,00').isReceipt).toBe(true)
+  })
+
+  it('ett personligt brev, ett avtal och ren text utan belopp är inga kvitton', () => {
+    expect(parseReceiptText('Hej!\nJag söker tjänsten som säljare hos er. Med vänlig hälsning, Anna').notReceipt).toBe(true)
+    expect(parseReceiptText('Anställningsavtal\nMellan Bolaget AB och Anna Andersson\nAvtalet gäller från 2024-01-01').notReceipt).toBe(true)
+    expect(parseReceiptText('Personligt brev\nJag har arbetat på Elgiganten i tre år och sålt för 400 000 kr').notReceipt).toBe(true)
+  })
+
+  it('en text utan siffror eller belopp är inget kvitto', () => {
+    expect(parseReceiptText('Bara lite text utan några belopp alls').notReceipt).toBe(true)
+  })
+
+  it('tomt gör inget felaktigt, men flaggas inte som "inte ett kvitto"', () => {
+    expect(parseReceiptText('').notReceipt).toBe(false)
+    expect(parseReceiptText(null).amount).toBeNull()
+  })
+});
+
+describe('leverantör och konto', () => {
+  it('en butik som bara nämns längre ned blir inte leverantör', () => {
+    const r = parseReceiptText('Bolagets Kontor AB\nFaktura\nFakturadatum 2024-05-01\nOrg.nr 556000-1234\nBankgiro 999-9999\nBetalningsvillkor 30 dagar\nRabatt vid köp hos Elgiganten\nAtt betala 500,00')
+    expect(r.supplier).not.toBe('Elgiganten')
+    expect(r.supplierMatched).toBe(false)
+  })
+
+  it('ICA inne i ett annat ord ("Africa") är inte ICA', () => {
+    const r = parseReceiptText('Africa Travel AB\nDatum 2024-05-01\nTotalt 900,00\nMoms 6% 50,94')
+    expect(r.supplier).not.toBe('ICA')
+  })
+
+  it('en känd leverantör i huvudet känns fortfarande igen', () => {
+    const r = parseReceiptText('Elgiganten\nOrg.nr 556000-1234\nDatum: 2024-05-12\nTotalt 1 999,00\nMoms 25% 399,80')
+    expect(r.supplier).toBe('Elgiganten')
+    expect(r.supplierMatched).toBe(true)
+    expect(r.accountCode).toBe('5400')
+  })
+
+  it('generiska ord som "mat" i ett annat ord ger inte ett restaurangkonto', () => {
+    const r = parseReceiptText('Bolaget AB\nDatum 2024-05-01\nSystematisk kvalitetsgranskning\nTotalt 500,00\nMoms 25% 100,00')
+    expect(r.accountCode).not.toBe('6071')
+  })
+});
+
+describe('en riktig faktura får ett konto och exakta belopp', () => {
+  const invoice = `
+    Konsultbolaget i Stockholm AB
+    Faktura
+    Fakturanummer 20240117
+    Fakturadatum 2024-05-01
+    Förfallodatum 2024-05-31
+    Org.nr 556123-4567
+    Bankgiro 123-4567
+    Konsulttjänster maj 800,00
+    Summa exkl. moms 800,00
+    Moms 25% 200,00
+    Att betala 1 000,00
+  `;
+  it('läser totalen, momsen, numret och föreslår konto', () => {
+    const r = parseReceiptText(invoice)
+    expect(r.notReceipt).toBe(false)
+    expect(r.documentKind).toBe('invoice')
+    expect(r.amount).toBe(1000)
+    expect(r.vatRate).toBe(25)
+    expect(r.vatVerified).toBe(true)
+    expect(r.amountVerified).toBe(true)
+    expect(r.receiptNumber).toBe('20240117')
+    expect(r.date).toBe('2024-05-01')
+    expect(r.accountCode).toBe('6550')
+    expect(r.accountGuessed).toBe(false)
+    expect(r.accountSource).toBe('keyword')
+  })
+
+  it('en faktura utan någon regel som matchar får 6990 som en märkt gissning', () => {
+    const r = parseReceiptText('Okänt Bolag AB\nFaktura\nFakturanummer 5544\nFakturadatum 2024-05-01\nBankgiro 999-9999\nDiverse\nAtt betala 750,00\nVarav moms 25% 150,00')
+    expect(r.accountCode).toBe('6990')
+    expect(r.accountGuessed).toBe(true)
+    expect(r.amount).toBe(750)
+  })
+
+  it('totalen är inte nettobeloppet eller momsraden', () => {
+    const r = parseReceiptText('Bolaget AB\nFaktura\nFakturadatum 2024-05-01\nBankgiro 999-9999\nSumma exkl. moms 800,00\nMoms 25% 200,00\nTotalt inkl. moms 1 000,00')
+    expect(r.amount).toBe(1000)
+  })
+
+  it('netto + moms = totalt kontrollerar beloppet, och en avvikande total rättas till summan', () => {
+    const r = parseReceiptText('Bolaget AB\nFaktura\nFakturadatum 2024-05-01\nBankgiro 999-9999\nSumma exkl. moms 800,00\nMoms 25% 200,00\nAtt betala 1 000,00')
+    expect(r.amountVerified).toBe(true)
+    // Ett belopp som plockats fel (här "Summa 800,00", nettot) rättas när
+    // summan av netto och moms finns som ett annat belopp i dokumentet.
+    const off = parseReceiptText('Bolaget AB\nFaktura\nFakturadatum 2024-05-01\nBankgiro 999-9999\nNettobelopp 800,00\nMoms 25% 200,00\nSumma 800,00\nBelopp inkl moms 1 000,00')
+    expect(off.amount).toBe(1000)
+    expect(off.amountVerified).toBe(true)
+    // Stämmer inget annat belopp rörs inte totalen.
+    const keep = parseReceiptText('Bolaget AB\nFaktura\nFakturadatum 2024-05-01\nBankgiro 999-9999\nNettobelopp 800,00\nMoms 25% 200,00\nAtt betala 1 234,00')
+    expect(keep.amount).toBe(1234)
+    expect(keep.amountVerified).toBe(false)
+  })
+});
+
+describe('belopp: gissningar märks som gissningar', () => {
+  it('ett belopp utan totalrad är en gissning att kontrollera', () => {
+    const r = parseReceiptText('Kiosken\nDatum 2024-05-12\nGodis 12,50\nTidning 39,00')
+    expect(r.amount).toBe(39)
+    expect(r.amountGuessed).toBe(true)
+  })
+  it('ett belopp på en totalrad är inte en gissning', () => {
+    const r = parseReceiptText('Kiosken\nDatum 2024-05-12\nGodis 12,50\nTotalt 12,50')
+    expect(r.amount).toBe(12.5)
+    expect(r.amountGuessed).toBe(false)
+  })
+  it('hela tal utan valutamarkering plockas inte som belopp', () => {
+    const r = parseReceiptText('Butiken\nDatum 2024-05-12\nKassa 4\nMjölk 18,50\nBrod 32,90\nArtikelnummer 550123')
+    expect(r.amount).toBe(32.9)
+  })
+});
+
+describe('numret på raden under etiketten (Elgiganten-kvittot)', () => {
+  it('etikett med datum och tid på samma rad, numret på nästa', () => {
+    const lines = ['ELGIGANTEN', 'Kvitto', 'Elgiganten Skellefteå', 'Ordernummer: 2026-05-26 18:34 SMILLA', '2302039269', '--------']
+    const r = findReceiptNumberDetailed(lines)
+    expect(r).toEqual({ number: '2302039269', kind: 'order', label: 'Ordernummer' })
+  })
+  it('etikett med bara kolon och numret på nästa rad', () => {
+    expect(findReceiptNumberDetailed(['Ordernummer:', '2302039269'])?.number).toBe('2302039269')
+    expect(findReceiptNumberDetailed(['Fakturanr', '20240117'])?.number).toBe('20240117')
+  })
+  it('hela kvittot som OCR kan läsa det ger ordernumret, totalen och momsen rätt', () => {
+    const text = `ELGIGANTEN
+Kvitto
+Elgiganten Skellefteå
+Varugatan 6
+93176 Skellefteå
+Ordernummer: 2026-05-26 18:34 SMILLA
+2302039269
+Hanna Gotthardsson
+Svannäs 42
+Telefon: +46705667610
+Take now
+26th May 2026
+220282 25% 899.00
+PlayStation 5 (PS5) DualSense trådlös kontroll (vit)
+Totalt inkl. moms 899.00
+Card 899.00
+Betald summa 899.00
+Återstår att betala 0.00
+Moms Belopp Moms Totalt
+25% 719.20 179.80 899.00
+Sum 719.20 179.80 899.00
+Datum: 2026-05-26 Tid: 18:33:40
+Betalningssätt: Swish
+Totalt: SEK 899,00`
+    const r = parseReceiptText(text)
+    expect(r.receiptNumber).toBe('2302039269')
+    expect(r.receiptNumberLabel).toBe('Ordernummer')
+    expect(r.supplier).toBe('Elgiganten')
+    expect(r.accountCode).toBe('5400')
+    expect(r.vatRate).toBe(25)
+  })
+  it('rubriker och belopp på nästa rad blir inget nummer', () => {
+    expect(findReceiptNumberDetailed(['Kvitto', '12345 Storgatan'])).toBeNull()
+    expect(findReceiptNumberDetailed(['Ordernr', '899,00'])).toBeNull()
+    expect(findReceiptNumberDetailed(['Order nr: 2026-05-26', 'Item 12345'])).toBeNull()
+    expect(findReceiptNumberDetailed(['Ordernummer:', '123'])).toBeNull()
+  })
+});
+
+describe('Elgiganten-kvittot såsom OCR faktiskt läser det', () => {
+  const ocr = `Kvitto
+Elgiganten Skellefteå
+Varugatan 6
+93176 Skellefteå
+
+Ordernummer: 2026-05-26 18:34
+
+SMILLA
+2302039269
+Hanna Elisabet Gotthardsson
+Svannas 42
++46705667610
+Take now
+26th May 2026
+220282 25% 899.00
+PlayStation 5 (PS5) DualSense trådlös kontroll (vit)
+Totalt inkl. moms 899.00
+Card 899.00
+Betald summa 899.00
+Återstår att betala 0.00
+Moms Belopp Moms Totalt
+25% 719.20 179.80 899.00
+Sum 719.20 179.80 899.00
+Kortbetalningsinformation
+Datum: 2026-05-26 Tid: 18:33:40 Korttyp:
+Swish Betalningssatt: Swish
+Anbud: CN2E001779813220014 referens:
+d69c9169927149ffa251e656
+b055ac6-2302039269 Typ: VAROR TJÄNSTER Totalt:
+SEK 899,00`
+  it('ordernumret hoppar förbi namnet SMILLA och tas, inte terminalens referens', () => {
+    const r = parseReceiptText(ocr)
+    expect(r.receiptNumber).toBe('2302039269')
+    expect(r.receiptNumberKind).toBe('order')
+    expect(r.supplier).toBe('Elgiganten')
+    expect(r.amount).toBe(899)
+    expect(r.vatRate).toBe(25)
+    expect(r.accountCode).toBe('5400')
+    expect(r.date).toBe('2026-05-26')
+  })
+  it('en kortterminals referens (hex-hash) är inget kvittonummer', () => {
+    expect(findReceiptNumberDetailed(['Anbud: CN2E001779813220014 referens:', 'd69c9169927149ffa251e656'])).toBeNull()
+    expect(findReceiptNumberDetailed(['Referensnummer d69c9169927149ffa251e656'])).toBeNull()
+  })
+  it('rader med siffror eller fler ord mellan etiketten och numret stoppar sökningen', () => {
+    expect(findReceiptNumberDetailed(['Ordernummer:', '2026-05-26 18:34', '2302039269'])).toBeNull()
+    expect(findReceiptNumberDetailed(['Ordernummer:', 'Kund Anna Andersson Stockholm', '2302039269'])).toBeNull()
+    expect(findReceiptNumberDetailed(['Ordernummer:', 'SMILLA', 'KASSA 2', '2302039269'])).toBeNull()
+    expect(findReceiptNumberDetailed(['Ordernummer:', 'SMILLA', 'KASSA', '2302039269'])?.number).toBe('2302039269')
+  })
+});
+
+describe('momstabell utan ordet moms på raden', () => {
+  it('sats, belopp, moms och totalt på en rad verifierar momsen', () => {
+    const r = parseReceiptText('Elgiganten\nKvitto\nDatum 2026-05-26\nTotalt inkl. moms 899.00\nMoms Belopp Moms Totalt\n25% 719.20 179.80 899.00\nSum 719.20 179.80 899.00')
+    expect(r.amount).toBe(899)
+    expect(r.vatAmount).toBe(179.8)
+    expect(r.vatRate).toBe(25)
+    expect(r.vatVerified).toBe(true)
+  })
+  it('en tabellrad som inte går ihop används inte', () => {
+    const r = parseReceiptText('Butiken\nDatum 2026-05-26\nTotalt 899.00\n25% 700.00 179.80 899.00')
+    expect(r.vatVerified).toBe(false)
+  })
 });

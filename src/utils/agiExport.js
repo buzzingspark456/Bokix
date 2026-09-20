@@ -1,13 +1,12 @@
 import jsPDF from 'jspdf';
 
-// Samma försiktighetsprincip som vatDeclarationExport.js: ingen automatisk
-// fil-inlämning mot Skatteverkets AGI-API byggs här. Dels för att den
-// verkliga inlämningen kräver arbetsgivarens egen BankID-signering (går
-// inte att automatisera bort), dels för att vi inte har verifierat
-// filformatet mot Skatteverkets tekniska specifikation. Det här är istället
-// en tydlig sammanställning — huvuduppgift (totaler) + individuppgift
+// Ingen automatisk inlämning mot Skatteverkets AGI-API byggs här: den
+// verkliga inlämningen kräver arbetsgivarens egen BankID-signering. Den här
+// filen är PDF-sammanställningen — huvuduppgift (totaler) + individuppgift
 // (per anställd, med personnummer) — som täcker exakt de fält
-// arbetsgivardeklarationens e-tjänst frågar efter, redo att skriva av.
+// arbetsgivardeklarationens e-tjänst frågar efter, för den som fyller i för
+// hand. Filen som laddas upp i e-tjänsten ("Deklarera via fil") byggs i
+// agiXml.js, efter Skatteverkets tekniska beskrivning och XSD-schema.
 
 const fmtKr = (v) => `${Math.round(v || 0).toLocaleString('sv-SE')} kr`;
 

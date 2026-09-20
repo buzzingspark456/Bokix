@@ -1,5 +1,5 @@
 ﻿import React, { useRef, useState } from 'react';
-import { Mail, LifeBuoy, CreditCard, ShieldCheck, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { Mail, LifeBuoy, CreditCard, ShieldCheck, CheckCircle2, AlertCircle, Loader2 } from '../icons';
 import { BRAND } from '../../utils/brandColors';
 import MarketingLayout, { Reveal } from './MarketingLayout';
 import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW, ACCENT_CYCLE } from './marketingTokens';

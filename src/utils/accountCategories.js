@@ -94,6 +94,50 @@ export const KNOWN_SUPPLIERS = [
  *  "första träff vinner"-princip. Varje `code` verifierad mot
  *  AccountsData.js (se filkommentaren ovan för vilka som rättades). */
 export const ACCOUNT_KEYWORD_RULES = [
+  // ── Specifika regler först ────────────────────────────────────────────
+  // Kravet här är att texten själv säger vad det gäller. Ett ord som kan
+  // betyda flera saker ("reparation", "medlemsavgift", "kaffe") har därför
+  // ingen regel: då blir förslaget "Kontrollera" i stället för ett tyst fel,
+  // eftersom det är användaren som svarar för bokföringen. Varje kod är
+  // slagen upp i AccountsData.js.
+  //
+  // 5061-5065 Städning, sophämtning, snöröjning, trädgård. "Städmaterial" är
+  // förbrukningsmaterial (5460, nedan), inte städning, därför de exakta orden.
+  { re: /städning|städtjänst|städservice|städfirma|storstädning|flyttstädning|lokalvård/, code: '5061' },
+  { re: /sophämtning|renhållningsavgift|avfallshämtning|avfallsavgift/, code: '5062' },
+  { re: /snöröjning|snöskottning|halkbekämpning/, code: '5064' },
+  { re: /trädgårdsskötsel|gräsklippning/, code: '5065' },
+  // 5030 Värme, 5040 Vatten och avlopp.
+  { re: /fjärrvärme|värmeräkning|uppvärmning/, code: '5030' },
+  { re: /vatten och avlopp|vattenavgift|va-avgift/, code: '5040' },
+  // 5460 Förbrukningsmaterial: bara sådant som uttryckligen är material som
+  // förbrukas. Kaffe och fika utelämnas medvetet (personalvård eller
+  // representation, det avgör användaren).
+  { re: /förbrukningsmaterial|städmaterial|städartiklar|rengöringsmedel|diskmedel|hushållspapper|toalettpapper|engångshandskar|skyddshandskar|emballage|förpackningsmaterial|packmaterial/, code: '5460' },
+  // 5613 Reparation och underhåll av personbilar, 5520 av datorer m.m.
+  { re: /bilverkstad|bilservice|bilreparation|däckbyte|däckverkstad|däckhotell|däck/, code: '5613' },
+  { re: /datorreparation|reparation av dator|datorservice|mobilreparation|reparation av mobil/, code: '5520' },
+  // 6250 Porto. Frakt och paket ligger kvar på 5711 längre ned.
+  { re: /porto|frimärke|frimärken|postbefordran/, code: '6250' },
+  // 6211 Fast telefoni. Måste ligga före mobilregeln, som annars tar ordet telefon.
+  { re: /fast telefoni|fasta telefoni|telefonväxel|ip-telefoni|växeltelefoni/, code: '6211' },
+  // 6981 Föreningsavgifter, avdragsgilla: bara uttalade branschorganisationer.
+  // Vanliga "medlemsavgifter" (gym, klubb) är inte avdragsgilla och lämnas åt användaren.
+  { re: /föreningsavgift|branschorganisation|branschförbund|branschförening|handelskammar|företagarna|svenskt näringsliv|almega/, code: '6981' },
+  // 4610 Inköp av tjänster och underentreprenader, 4670 Legoarbeten.
+  { re: /underentreprenör|underentreprenad/, code: '4610' },
+  { re: /legoarbete/, code: '4670' },
+
+  // Tjänster som fakturor oftare än kvitton gäller. Koderna är verifierade mot
+  // AccountsData.js: 6550 Konsultarvoden, 6530 Redovisningstjänster, 6420
+  // Ersättningar till revisor, 6310 Företagsförsäkringar, 5010 Lokalhyra,
+  // 6570 Bankkostnader.
+  { re: /konsult|consulting/, code: '6550' },
+  { re: /redovisning|bokslut|bokf[öo]ringstj[äa]nst|accounting services/, code: '6530' },
+  { re: /revisor|revisionsarvode|revisionsbyr[åa]/, code: '6420' },
+  { re: /f[öo]rs[äa]kring|f[öo]rs[äa]kringsbrev|insurance/, code: '6310' },
+  { re: /lokalhyra|kontorshyra|hyra f[öo]r lokal/, code: '5010' },
+  { re: /bankavgift|kortavgift|transaktionsavgift|kontoavgift/, code: '6570' },
   { re: /bensin|diesel|drivmedel|tankst|fuel/, code: '5611' },
   // RÄTTAT: låg på 5612 ("Försäkring och skatt för personbilar") — en
   // parkeringsavgift är varken en försäkring eller en skatt. 5619
@@ -112,7 +156,9 @@ export const ACCOUNT_KEYWORD_RULES = [
   // nummer som helst så fort det råkade sluta på 3 (t.ex. "88213" i ett
   // ordernummer), och kategoriserade då kvittot fel som telefonkostnad.
   { re: /telefon|mobil|abonnemang|tele2|telia|\b3\b|comviq|telenor/, code: '6212' },
-  { re: /internet|bredband|fiber|itux|bahnhof/, code: '6212' },
+  // RÄTTAT: låg på 6212 (Mobiltelefon). Bredband och internet är 6230
+  // Datakommunikation.
+  { re: /internet|bredband|fiber|itux|bahnhof/, code: '6230' },
   { re: /server|hosting|cloud|saas|domän|domain|software|licens/, code: '6540' },
   // RÄTTAT: låg på 6980 ("Föreningsavgifter", dvs. medlemsavgifter) —
   // 6970 "Tidningar, facklitteratur, m.m." är den faktiska raden.
@@ -161,11 +207,11 @@ export function guessAccountFromText(text) {
 export const RECEIPT_CATEGORIES = [
   { id: 'resor', label: 'Resor', accounts: ['5611', '5619', '5612', '5613', '5615', '5616', '5810', '5820', '5830', '5831', '5832', '5890'] },
   { id: 'mat', label: 'Mat & representation', accounts: ['6071', '6072'] },
-  { id: 'kontor', label: 'Kontor & material', accounts: ['5400', '5410', '6100', '6110'] },
-  { id: 'it', label: 'IT & molntjänster', accounts: ['5420', '6540', '6212', '6230'] },
-  { id: 'frakt', label: 'Frakt & post', accounts: ['5700', '5710', '5711', '5712'] },
+  { id: 'kontor', label: 'Kontor & material', accounts: ['5400', '5410', '5460', '6100', '6110'] },
+  { id: 'it', label: 'IT & molntjänster', accounts: ['5420', '5520', '6540', '6211', '6212', '6230'] },
+  { id: 'frakt', label: 'Frakt & post', accounts: ['5700', '5710', '5711', '5712', '6250'] },
   { id: 'marknad', label: 'Reklam & marknadsföring', accounts: ['5900', '5910', '5920', '5930', '5950', '5960', '5970', '5990'] },
-  { id: 'lokal', label: 'Lokal & el', accounts: ['5000', '5010', '5020', '5030'] },
+  { id: 'lokal', label: 'Lokal & el', accounts: ['5000', '5010', '5020', '5030', '5040', '5060', '5061', '5062', '5064', '5065'] },
 ];
 
 const CATEGORY_BY_ACCOUNT = new Map(

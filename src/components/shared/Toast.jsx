@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Info, X } from '../icons';
 import { BRAND } from '../../utils/brandColors';
 
 const VARIANTS = {

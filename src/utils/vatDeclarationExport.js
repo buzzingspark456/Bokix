@@ -15,12 +15,12 @@ import jsPDF from 'jspdf';
 // moms på inköp i ruta 20–24 (omvänd skattskyldighet). Det har alltså
 // ALDRIG haft med försäljningsunderlag att göra.
 //
-// Bokix bokför i dagsläget inte EU-handel, import eller omvänd
-// skattskyldighet (ruta 20–42, 50, 60–62) — bara inhemsk momspliktig
-// försäljning, utgående moms per sats och avdragsgill ingående moms. De
-// tidigare oklara taggarna behövs alltså inte i den fil vi genererar; vi
-// bygger bara de fält som redan är entydigt bekräftade (och syns rakt av i
-// Skatteverkets eget exempel 1 på ovanstående sida):
+// Bokix bokför inköp av TJÄNSTER från utlandet med omvänd skattskyldighet
+// (ruta 21, 22, 30–32, se utils/reverseCharge.js), men fortfarande inte
+// varuinköp från EU, import, försäljning till utlandet eller omvänd
+// skattskyldighet inom Sverige (ruta 20, 23–24, 35–42, 50, 60–62). Filen
+// bygger bara de fält som är entydigt bekräftade mot Skatteverkets egen
+// beskrivning av filformatet (tagg och ordning):
 //   <OrgNr>            "xxxxxx-xxxx" (10 siffror, med bindestreck)
 //   <Period>           ÅÅÅÅMM — sista månaden i kvartalet för kvartalsvis
 //                       redovisning (t.ex. kvartal 3 2026 → "202609")
@@ -75,6 +75,15 @@ export function generateVatDeclarationXml({ company, year, quarter, rounded }) {
   if (rounded.outputVatByRate[25] !== 0) lines.push(`<MomsUtgHog>${rounded.outputVatByRate[25]}</MomsUtgHog>`);
   if (rounded.outputVatByRate[12] !== 0) lines.push(`<MomsUtgMedel>${rounded.outputVatByRate[12]}</MomsUtgMedel>`);
   if (rounded.outputVatByRate[6] !== 0) lines.push(`<MomsUtgLag>${rounded.outputVatByRate[6]}</MomsUtgLag>`);
+  // Inköp av tjänster från utlandet (omvänd skattskyldighet), ruta 21, 22 och
+  // 30-32. Taggarna och ordningen är hämtade ur Skatteverkets egen beskrivning
+  // av filformatet: rutornas ordning är ordningen i filen.
+  if (rounded.reversePurchaseEu) lines.push(`<InkopTjanstAnnatEg>${rounded.reversePurchaseEu}</InkopTjanstAnnatEg>`);
+  if (rounded.reversePurchaseNonEu) lines.push(`<InkopTjanstUtomEg>${rounded.reversePurchaseNonEu}</InkopTjanstUtomEg>`);
+  const reverseVat = rounded.reverseVatByRate || {};
+  if (reverseVat[25]) lines.push(`<MomsInkopUtgHog>${reverseVat[25]}</MomsInkopUtgHog>`);
+  if (reverseVat[12]) lines.push(`<MomsInkopUtgMedel>${reverseVat[12]}</MomsInkopUtgMedel>`);
+  if (reverseVat[6]) lines.push(`<MomsInkopUtgLag>${reverseVat[6]}</MomsInkopUtgLag>`);
   if (rounded.inputVat !== 0) lines.push(`<MomsIngAvdr>${rounded.inputVat}</MomsIngAvdr>`);
   lines.push(`<MomsBetala>${rounded.netToPay}</MomsBetala>`);
   lines.push('</Moms>', '</eSKDUpload>');
