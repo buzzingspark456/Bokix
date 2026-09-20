@@ -1,0 +1,80 @@
+<!doctype html><html lang="sv"><head><meta charset="utf-8"><link rel="stylesheet" href="shared.css"><style>
+.bg { position: absolute; inset: 0; background:
+  radial-gradient(820px 520px at 0% 0%, #dff1fb 0%, transparent 60%),
+  radial-gradient(820px 520px at 100% 100%, #e1f4d9 0%, transparent 60%),
+  linear-gradient(180deg, #f7faf3, #eef5ee); }
+.dots { position: absolute; inset: 0; background-image: radial-gradient(rgba(28,36,32,0.10) 1.2px, transparent 1.4px); background-size: 26px 26px; mask-image: radial-gradient(ellipse at 50% 45%, #000 25%, transparent 78%); }
+.label { position: absolute; top: 58px; font-size: 15px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #5d6b60; display: flex; align-items: center; gap: 10px; }
+.label b { display: inline-flex; width: 26px; height: 26px; border-radius: 50%; background: #0e2018; color: #fff; font-size: 13px; align-items: center; justify-content: center; letter-spacing: 0; }
+
+.receipt { position: absolute; left: 60px; top: 108px; width: 268px; padding: 22px 22px 34px; background: #fff; border-radius: 6px; box-shadow: 0 30px 50px -28px rgba(20,40,30,0.36), 0 3px 10px rgba(20,40,30,0.08); transform: rotate(-2.2deg); }
+.receipt::after { content: ''; position: absolute; left: 0; right: 0; bottom: -10px; height: 12px; background: linear-gradient(-45deg, transparent 8px, #fff 0) 0 0/16px 12px, linear-gradient(45deg, transparent 8px, #fff 0) 0 0/16px 12px; background-repeat: repeat-x; }
+.receipt h3 { font-size: 16px; font-weight: 800; letter-spacing: 0.06em; text-align: center; color: #1c2420; }
+.receipt .sub { text-align: center; font-size: 12.5px; color: #6b7568; margin: 3px 0 14px; }
+.receipt .l { display: flex; justify-content: space-between; font-size: 14px; color: #33423a; padding: 5px 0; }
+.receipt .sep { border-top: 1.5px dashed #ccd6cd; margin: 9px 0; }
+.receipt .tot { font-weight: 800; font-size: 17px; color: #1c2420; }
+.receipt .vat { font-size: 12.5px; color: #6b7568; }
+.mono { font-family: 'Cascadia Mono', Consolas, monospace; }
+
+.fields { position: absolute; left: 396px; top: 122px; width: 392px; padding: 22px 24px 14px; border-radius: 22px; }
+.fh { display: flex; align-items: center; gap: 10px; font-size: 16.5px; font-weight: 800; margin-bottom: 8px; color: #1c2420; }
+.fh svg { width: 66px; height: auto; }
+.label, .receipt, .fields, .out, svg.arrow { margin-top: 30px; }
+.f { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 13px 0; border-top: 1px solid #e9eee7; }
+.f small { display: block; font-size: 12.5px; color: #6b7568; font-weight: 600; margin-bottom: 2px; }
+.f b { font-size: 18px; font-weight: 800; color: #1c2420; }
+.tag { font-size: 11.5px; font-weight: 800; letter-spacing: 0.05em; padding: 4px 9px; border-radius: 999px; white-space: nowrap; }
+.t-ok { background: #dcf3e3; color: #14663a; } .t-sug { background: #dbeafb; color: #0b5d99; } .t-chk { background: #fbeeb8; color: #7a5b00; }
+
+.out { position: absolute; left: 852px; width: 288px; padding: 18px 20px; border-radius: 20px; }
+.out h4 { font-size: 13px; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase; display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.out h4 i { width: 10px; height: 10px; border-radius: 50%; display: block; }
+.out .row { display: flex; justify-content: space-between; font-size: 15.5px; font-weight: 700; color: #1f2c25; padding: 3px 0; }
+.out p { font-size: 13.5px; color: #5d6b60; margin-top: 6px; line-height: 1.45; }
+svg.arrow { position: absolute; }
+.foot { position: absolute; left: 0; right: 0; bottom: 32px; text-align: center; font-size: 26px; font-weight: 600; color: #22302a; }
+.foot em { font-style: normal; color: #14663a; }
+.ex { position: absolute; right: 60px; bottom: 34px; }
+</style></head><body><div class="art">
+<svg style="position:absolute;width:0;height:0"><defs><linearGradient id="wmgrad" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#0ea5e9"/><stop offset="50%" stop-color="#14b8a6"/><stop offset="100%" stop-color="#84cc16"/></linearGradient></defs></svg>
+<div class="bg"></div><div class="dots"></div>
+
+<div class="label" style="left:60px"><b>1</b>Underlaget</div>
+<div class="receipt mono">
+  <h3>PAPPERSLAGRET</h3>
+  <div class="sub">Exempelgatan 1 · 2026-09-14</div>
+  <div class="l"><span>Anteckn.block 3x</span><span>147,00</span></div>
+  <div class="l"><span>Pennor</span><span>102,00</span></div>
+  <div class="sep"></div>
+  <div class="l tot"><span>TOTALT</span><span>249,00</span></div>
+  <div class="l vat"><span>varav moms 25 %</span><span>49,80</span></div>
+</div>
+
+<svg class="arrow" style="left:330px;top:270px" width="62" height="50" viewBox="0 0 62 50"><path d="M4 25h44" stroke="#0e2018" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 9"/><path d="M42 12l14 13-14 13" fill="none" stroke="#0e2018" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+
+<div class="label" style="left:396px"><b>2</b>Bokix läser av</div>
+<div class="fields card">
+  <div class="fh"><svg viewBox="0 0 125 40"><path d="{{WORDMARK_PATH}}" fill="url(#wmgrad)"/></svg> läste kvittot</div>
+  <div class="f"><div><small>Datum</small><b>2026-09-14</b></div><span class="tag t-ok">AVLÄST</span></div>
+  <div class="f"><div><small>Belopp</small><b>249,00 kr</b></div><span class="tag t-ok">AVLÄST</span></div>
+  <div class="f"><div><small>Moms</small><b>25 % · 49,80 kr</b></div><span class="tag t-ok">AVLÄST</span></div>
+  <div class="f"><div><small>Konto</small><b>6110 Kontorsmaterial</b></div><span class="tag t-sug">FÖRSLAG</span></div>
+</div>
+
+<svg class="arrow" style="left:790px;top:270px" width="62" height="50" viewBox="0 0 62 50"><path d="M4 25h44" stroke="#0e2018" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 9"/><path d="M42 12l14 13-14 13" fill="none" stroke="#0e2018" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+
+<div class="label" style="left:852px"><b>3</b>Resultat</div>
+<div class="out card" style="top:112px">
+  <h4 style="color:#14663a"><i style="background:#14b8a6"></i>Bokförd</h4>
+  <div class="row"><span>Kontorsmaterial</span><span>249,00</span></div>
+  <p>Bokförs åt dig, med rätt konto och moms.</p>
+</div>
+<div class="out card" style="top:298px;background:#fffdf3;border-color:#efe3b0">
+  <h4 style="color:#7a5b00"><i style="background:#e0a800"></i>Granskning</h4>
+  <div class="row"><span>Swish · 500,00 kr</span><span></span></div>
+  <p>Saknar tydlig avsändare. Du bestämmer hur den bokförs.</p>
+</div>
+
+<div class="foot">Det säkra bokförs. <em>Det osäkra stannar hos dig.</em></div>
+</div></body></html>

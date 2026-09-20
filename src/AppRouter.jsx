@@ -1,4 +1,4 @@
-﻿﻿﻿import { lazy, Suspense, useEffect, useState } from 'react';
+﻿﻿﻿﻿import { lazy, Suspense, useEffect, useState } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import LandingPage from './components/LandingPage';
 import CookieBanner from './components/CookieBanner';
@@ -58,7 +58,6 @@ const MomsDatumPage = lazy(() => import('./components/marketing/tools/MomsDatumP
 const ArsredovisningPage = lazy(() => import('./components/marketing/tools/ArsredovisningPage'));
 const OrdlistaPage = lazy(() => import('./components/marketing/OrdlistaPage'));
 const FaqPage = lazy(() => import('./components/marketing/FaqPage'));
-const EnkelBokforingPage = lazy(() => import('./components/marketing/EnkelBokforingPage'));
 const BlogPage = lazy(() => import('./components/marketing/BlogPage'));
 const BlogPostPage = lazy(() => import('./components/marketing/BlogPostPage'));
 // Det dolda admin-läget — ingen länk till den någonstans i den publika
@@ -285,7 +284,6 @@ export default function AppRouter() {
         <Route path="/sakerhet" element={<Suspense fallback={<AppLoadingFallback />}><SecurityPage /></Suspense>} />
         <Route path="/ordlista" element={<Suspense fallback={<AppLoadingFallback />}><OrdlistaPage /></Suspense>} />
         <Route path="/vanliga-fragor" element={<Suspense fallback={<AppLoadingFallback />}><FaqPage /></Suspense>} />
-        <Route path="/enkel-bokforing" element={<Suspense fallback={<AppLoadingFallback />}><EnkelBokforingPage /></Suspense>} />
         <Route path="/blogg" element={<Suspense fallback={<AppLoadingFallback />}><BlogPage /></Suspense>} />
         {/* Artiklar med `body` i blog.js — en route per inlägg, härledd ur listan. */}
         {BLOG_POSTS.filter(p => p.body).map(p => (

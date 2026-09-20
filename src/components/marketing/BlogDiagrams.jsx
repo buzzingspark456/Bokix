@@ -33,6 +33,36 @@ const CSS = `
   .bxd-ph ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
   .bxd-ph li { font-size: 13.5px; line-height: 1.5; color: ${INK_SOFT}; padding-left: 16px; position: relative; }
   .bxd-ph li::before { content: ''; position: absolute; left: 0; top: 0.55em; width: 6px; height: 6px; border-radius: 50%; background: #14b8a6; }
+  .bxd-flow { display: grid; grid-template-columns: 1fr auto 1fr auto 1.15fr; gap: 12px; align-items: center; }
+  .bxd-fb { border-radius: 14px; padding: 15px 16px; border: 1px solid ${CARD_BORDER}; background: var(--mkt-ivory); }
+  .bxd-fb-k { font-size: 11.5px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: ${MUTED}; margin-bottom: 6px; }
+  .bxd-fb-t { font-size: 15.5px; font-weight: 700; color: ${INK}; line-height: 1.35; }
+  .bxd-fb-s { font-size: 13px; color: ${INK_SOFT}; margin-top: 5px; line-height: 1.45; }
+  .bxd-fb.ok { background: var(--mkt-accent-green-soft); border-color: transparent; }
+  .bxd-fb.ok .bxd-fb-k { color: var(--mkt-accent-green-fg); }
+  .bxd-fb.warn { background: #fff8dc; border-color: #ecdca0; }
+  html[data-theme="dark"] .bxd-fb.warn { background: #2f2a12; border-color: #5b5020; }
+  .bxd-fb.warn .bxd-fb-k { color: #8a6a00; }
+  html[data-theme="dark"] .bxd-fb.warn .bxd-fb-k { color: #e6c34d; }
+  .bxd-fcol { display: grid; gap: 10px; }
+  .bxd-arrow { font-size: 22px; color: ${MUTED}; text-align: center; }
+  @media (max-width: 860px) {
+    .bxd-flow { grid-template-columns: 1fr; }
+    .bxd-arrow { transform: rotate(90deg); height: 22px; }
+  }
+
+  .bxd-rq { border: 1px solid ${CARD_BORDER}; border-radius: 14px; overflow: hidden; background: var(--mkt-ivory); }
+  .bxd-rq-h { display: flex; align-items: center; justify-content: space-between; padding: 13px 16px; border-bottom: 1px solid ${CARD_BORDER}; background: var(--mkt-card-bg); }
+  .bxd-rq-h b { font-size: 15.5px; color: ${INK}; }
+  .bxd-rq-tag { font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #6b5a10; background: #fbeeb8; padding: 4px 9px; border-radius: 999px; }
+  .bxd-rq-r { display: grid; grid-template-columns: 12px 1fr auto; gap: 14px; align-items: center; padding: 14px 16px; border-bottom: 1px solid ${CARD_BORDER}; background: var(--mkt-card-bg); }
+  .bxd-rq-r:last-child { border-bottom: 0; }
+  .bxd-rq-d { width: 10px; height: 10px; border-radius: 50%; background: #e0a800; }
+  .bxd-rq-t { font-size: 15.5px; font-weight: 700; color: ${INK}; }
+  .bxd-rq-w { font-size: 13.5px; color: ${MUTED}; margin-top: 2px; }
+  .bxd-rq-b { font-size: 13px; font-weight: 700; color: ${INK}; border: 1px solid ${CARD_BORDER}; border-radius: 9px; padding: 7px 12px; background: var(--mkt-ivory); white-space: nowrap; }
+  @media (max-width: 520px) { .bxd-rq-r { grid-template-columns: 12px 1fr; } .bxd-rq-b { display: none; } }
+
   @media (max-width: 860px) {
     .bxd-year { grid-template-columns: 1fr 1fr; row-gap: 26px; }
     .bxd-year::before { display: none; }
@@ -92,7 +122,66 @@ function UfYear() {
   );
 }
 
-const DIAGRAMS = { 'sie-balance': BalanceEquation, 'uf-year': UfYear };
+function EnkelFlow() {
+  return (
+    <div className="bxd-card">
+      <div className="bxd-flow">
+        <div className="bxd-fb">
+          <div className="bxd-fb-k">Underlag</div>
+          <div className="bxd-fb-t">Kvitto, faktura eller kontoutdrag</div>
+          <div className="bxd-fb-s">Det du fotar, skickar eller läser in.</div>
+        </div>
+        <div className="bxd-arrow" aria-hidden="true">→</div>
+        <div className="bxd-fb">
+          <div className="bxd-fb-k">Bokix läser av</div>
+          <div className="bxd-fb-t">Datum, belopp, moms och konto</div>
+          <div className="bxd-fb-s">Föreslås, aldrig gissat i tysthet.</div>
+        </div>
+        <div className="bxd-arrow" aria-hidden="true">→</div>
+        <div className="bxd-fcol">
+          <div className="bxd-fb ok">
+            <div className="bxd-fb-k">Säkert</div>
+            <div className="bxd-fb-t">Bokförs som verifikation</div>
+            <div className="bxd-fb-s">Vidare till moms och rapporter.</div>
+          </div>
+          <div className="bxd-fb warn">
+            <div className="bxd-fb-k">Osäkert</div>
+            <div className="bxd-fb-t">Stannar i Granskning</div>
+            <div className="bxd-fb-s">Med anledningen utskriven. Du avgör.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const REVIEW_ROWS = [
+  { t: 'Swish, 500,00 kr', w: 'Saknar tydlig avsändare' },
+  { t: 'Kvitto, 11 september', w: 'Kunde inte läsas fullt ut' },
+  { t: 'Leverantörsfaktura 1042', w: 'Summan stämmer inte' },
+];
+
+function ReviewQueue() {
+  return (
+    <div className="bxd-card">
+      <div className="bxd-rq">
+        <div className="bxd-rq-h"><b>Granskning</b><span className="bxd-rq-tag">Exempel</span></div>
+        {REVIEW_ROWS.map(r => (
+          <div className="bxd-rq-r" key={r.t}>
+            <span className="bxd-rq-d" aria-hidden="true" />
+            <div>
+              <div className="bxd-rq-t">{r.t}</div>
+              <div className="bxd-rq-w">{r.w}</div>
+            </div>
+            <span className="bxd-rq-b" aria-hidden="true">Bokför</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const DIAGRAMS = { 'sie-balance': BalanceEquation, 'uf-year': UfYear, 'enkel-flow': EnkelFlow, 'review-queue': ReviewQueue };
 
 export default function BlogDiagram({ id, caption }) {
   const D = DIAGRAMS[id];

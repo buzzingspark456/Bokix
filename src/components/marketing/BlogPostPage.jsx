@@ -311,6 +311,7 @@ const CSS = `
 
   .bxs { list-style: none; margin: 8px 0 28px; padding: 0; display: grid; gap: 14px; counter-reset: none; }
   .bxs > li { display: grid; grid-template-columns: 40px 1fr; gap: 16px; padding: 18px 20px 16px 18px; border: 1px solid ${CARD_BORDER}; border-radius: 16px; background: var(--mkt-card-bg); box-shadow: var(--mkt-card-shadow-sm); margin: 0; }
+  @media (max-width: 520px) { .bxs > li { grid-template-columns: 34px 1fr; gap: 12px; padding: 15px 14px 14px 14px; } .bxs-n { width: 34px !important; height: 34px !important; font-size: 15px !important; } }
   .bxs-n { width: 38px; height: 38px; border-radius: 50%; background: ${BRAND.green}; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; }
   .bxs h3 { font-size: 17.5px; font-weight: 800; color: ${INK}; margin: 6px 0 4px; line-height: 1.3; }
   .bxs p { margin: 0; font-size: 16px; line-height: 1.7; color: ${INK_SOFT}; }

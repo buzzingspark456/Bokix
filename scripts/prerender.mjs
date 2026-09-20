@@ -92,7 +92,6 @@ const SITEMAP_MANIFEST = [
   { path: '/verktyg/momsdatum', changefreq: 'monthly', priority: '0.6' },
   { path: '/verktyg/arsredovisning', changefreq: 'monthly', priority: '0.6' },
   { path: '/ordlista', changefreq: 'monthly', priority: '0.6' },
-  { path: '/enkel-bokforing', changefreq: 'monthly', priority: '0.6' },
   { path: '/blogg', changefreq: 'weekly', priority: '0.6' },
   // Artiklarna härleds ur blog.js, samma lista som routing/förrendering.
   ...BLOG_POSTS.filter(post => post.body).map(post => ({ path: post.path, changefreq: 'monthly', priority: '0.6' })),
