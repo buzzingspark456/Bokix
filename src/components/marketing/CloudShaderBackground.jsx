@@ -211,12 +211,12 @@ function parseHex(color) {
   return [0.95, 0.95, 0.95];
 }
 
-function compile(gl, type, source) {
+function compile(gl, type, source, checkStatus) {
   const shader = gl.createShader(type);
   if (!shader) return null;
   gl.shaderSource(shader, source);
   gl.compileShader(shader);
-  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+  if (checkStatus && !gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
     console.error('CloudShaderBackground: shader compile error', gl.getShaderInfoLog(shader));
     gl.deleteShader(shader);
     return null;
@@ -250,8 +250,6 @@ const PALETTES = {
 // Hur många pixlar shadern faktiskt ritar, som andel av skärmens egna.
 // Se den långa kommentaren i resize() för mätvärdena bakom siffran.
 const RENDER_SCALE = 0.6;
-// Extra nedskalning ovanpå RENDER_SCALE, bara för känd mjukvaru-rendering.
-const SOFTWARE_RENDER_SCALE = 0.2;
 
 const SKY_FALLBACK_CSS = `
   .bx-cloudsky { background: linear-gradient(180deg, ${PALETTES.light.skyTop} 0%, ${PALETTES.light.skyBottom} 100%); }
@@ -278,8 +276,41 @@ export default function CloudShaderBackground({
     const gl = canvas.getContext('webgl', { alpha: false, antialias: false, premultipliedAlpha: false });
     if (!gl) return undefined; // Inget WebGL — Hero visar bara sin egna --mkt-ivory-botten, aldrig trasigt.
 
-    const vert = compile(gl, gl.VERTEX_SHADER, VERT);
-    const frag = compile(gl, gl.FRAGMENT_SHADER, FRAG);
+    // Känd mjukvaru-WebGL (SwiftShader/llvmpipe/softpipe: headless Chrome,
+    // enheter utan GPU-drivrutin): hoppa över shadern helt. Uppmätt med
+    // Lighthouse mobil på startsidan: bara att kompilera och rita EN
+    // bildruta kostade en 3-8 s lång uppgift (TBT 3 400-8 400 ms, poäng
+    // 44-52) mot 320 ms och 82 utan WebGL. Gradienten som redan ligger
+    // under canvasen (SKY_FALLBACK_CSS) är samma himmel utan moln.
+    // Kontrollen sker före compile/link, som är det som kostar.
+    let softwareRenderer = false;
+    try {
+      const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+      const renderer = dbg ? String(gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) || '') : '';
+      softwareRenderer = /swiftshader|llvmpipe|softpipe|software/i.test(renderer);
+    } catch {
+      // Extensionen kan vara blockerad (t.ex. Firefox' fingerprinting-skydd)
+      // — behandla som okänt. Steg 2 i nödbromsen nedan mäter ändå.
+    }
+    if (softwareRenderer) {
+      gl.getExtension('WEBGL_lose_context')?.loseContext();
+      return undefined;
+    }
+
+    // Shaderkompileringen får INTE blockera huvudtråden: getProgram-
+    // Parameter(LINK_STATUS) väntar ut hela drivrutinens kompilering, och
+    // för den här femoktavs-shadern är det uppmätt 1,2 s (Chrome + Direct3D
+    // på en riktig GPU, 4x CPU-strypning) upp till flera sekunder i en
+    // Lighthouse-körning: en enda lång uppgift som ensam gav TBT 3 400-
+    // 8 400 ms. KHR_parallel_shader_compile låter drivrutinen kompilera på
+    // egen tråd och ger en färdig-signal (COMPLETION_STATUS_KHR) som vi
+    // kollar en gång per bildruta; först då frågar vi efter status och
+    // ritar. Saknas extensionen kompileras det synkront som förut.
+    // Canvasen är opacity 0 tills första bildrutan ritats (se reveal),
+    // annars vore den en svart ruta (alpha:false) under väntan.
+    const parallel = gl.getExtension('KHR_parallel_shader_compile');
+    const vert = compile(gl, gl.VERTEX_SHADER, VERT, !parallel);
+    const frag = compile(gl, gl.FRAGMENT_SHADER, FRAG, !parallel);
     if (!vert || !frag) return undefined;
 
     const program = gl.createProgram();
@@ -288,272 +319,270 @@ export default function CloudShaderBackground({
     gl.attachShader(program, frag);
     gl.bindAttribLocation(program, 0, 'a_pos');
     gl.linkProgram(program);
-    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-      console.error('CloudShaderBackground: program link error', gl.getProgramInfoLog(program));
-      return undefined;
-    }
-    gl.useProgram(program);
 
-    const buffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
-    gl.enableVertexAttribArray(0);
-    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    const run = () => {
+      gl.useProgram(program);
 
-    const loc = {
-      res: gl.getUniformLocation(program, 'u_res'),
-      time: gl.getUniformLocation(program, 'u_time'),
-      count: gl.getUniformLocation(program, 'u_count'),
-      cloud: gl.getUniformLocation(program, 'u_cloud'),
-      skyTop: gl.getUniformLocation(program, 'u_skyTop'),
-      skyBottom: gl.getUniformLocation(program, 'u_skyBottom'),
-    };
+      const buffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+      gl.enableVertexAttribArray(0);
+      gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
 
-    let frame = 0;
-    let running = true;
-    // Bara i mjukvaru-läget (se softwareRenderer nedan): ritupplösningen
-    // skalas ner och komplexiteten sänks. Deklareras HÄR, före första
-    // resize()-anropet — annars TDZ-fel, eftersom resize() läser den.
-    let softwareScale = 1;
-    let countOverride = null;
-    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const loc = {
+        res: gl.getUniformLocation(program, 'u_res'),
+        time: gl.getUniformLocation(program, 'u_time'),
+        count: gl.getUniformLocation(program, 'u_count'),
+        cloud: gl.getUniformLocation(program, 'u_cloud'),
+        skyTop: gl.getUniformLocation(program, 'u_skyTop'),
+        skyBottom: gl.getUniformLocation(program, 'u_skyBottom'),
+      };
 
-    const resize = () => {
-      // PRESTANDA. Den här shadern är den dyraste enskilda saken på hela
-      // marknadssajten: en helskärms-fragmentshader med femoktavs billow-
-      // brus per pixel, och kostnaden växer linjärt med antalet pixlar.
-      // Uppmätt i ett headless Chromium (mjukvaru-WebGL, alltså värsta
-      // fallet men samma proportioner som en svag mobil-GPU): 2 336 ms
-      // långa uppgifter och 4 fps med dpr 2 mot 61 ms och 20 fps med
-      // hjälten helt avstängd.
+      let frame = 0;
+      let running = true;
+      let revealed = false;
+      const reveal = () => {
+        if (revealed) return;
+        revealed = true;
+        canvas.style.opacity = '1';
+      };
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      const resize = () => {
+        // PRESTANDA. Den här shadern är den dyraste enskilda saken på hela
+        // marknadssajten: en helskärms-fragmentshader med femoktavs billow-
+        // brus per pixel, och kostnaden växer linjärt med antalet pixlar.
+        // Uppmätt i ett headless Chromium (mjukvaru-WebGL, alltså värsta
+        // fallet men samma proportioner som en svag mobil-GPU): 2 336 ms
+        // långa uppgifter och 4 fps med dpr 2 mot 61 ms och 20 fps med
+        // hjälten helt avstängd.
+        //
+        // dpr 2 × full upplösning = fyra gånger så många pixlar som dpr 1.
+        // Moln är mjuka gradienter utan skarpa kanter — de överlever att
+        // ritas i lägre upplösning och skalas upp av webbläsaren, till
+        // skillnad från text eller en logotyp. RENDER_SCALE 0.6 vid dpr-tak
+        // 1.5 ger ~0.8 enheter per CSS-pixel, alltså knappt en femtedel av
+        // pixlarna mot förut, och skillnaden går inte att se på en himmel.
+        const dpr = Math.min(window.devicePixelRatio || 1, 1.5) * RENDER_SCALE;
+        const width = canvas.clientWidth;
+        const height = canvas.clientHeight;
+        const w = Math.max(1, Math.floor(width * dpr));
+        const h = Math.max(1, Math.floor(height * dpr));
+        if (canvas.width !== w || canvas.height !== h) {
+          canvas.width = w;
+          canvas.height = h;
+        }
+        gl.viewport(0, 0, w, h);
+        gl.uniform2f(loc.res, w, h);
+        // Att sätta canvas.width nollställer ritbufferten. Rullar loopen
+        // fyller nästa bildruta i den igen — gör den inte det (nödbromsen,
+        // pausen, reducerad rörelse) skulle hjälten annars bli tom vid varje
+        // fönsterändring.
+        if (!running && loc.res) drawFrame();
+      };
+      const observer = new ResizeObserver(resize);
+      observer.observe(canvas);
+      resize();
+
+      // VÅRT tillägg: när anroparen inte skickar egna färger, används Bokix
+      // ljus/mörk-palett istället för originalets bokstavligt himmelsblå
+      // förval — samma document.documentElement.dataset.theme-flagga som
+      // useMarketingTheme() (MarketingLayout.jsx) redan sätter.
+      const resolveColors = (p) => {
+        const isDark = document.documentElement.dataset.theme === 'dark';
+        const palette = isDark ? PALETTES.dark : PALETTES.light;
+        return {
+          cloud: parseHex(p.cloudColor || palette.cloud),
+          skyTop: parseHex(p.skyTopColor || palette.skyTop),
+          skyBottom: parseHex(p.skyBottomColor || palette.skyBottom),
+        };
+      };
+
+      // Molnen driver långsamt. 60 bildrutor i sekunden är dubbelt så dyrt
+      // som 30 utan att se annorlunda ut för en rörelse i den här takten.
+      const MIN_FRAME_MS = 1000 / 30;
+      let lastDraw = 0;
+      // ── Nödbromsen, TVÅ steg ──
+      // Mjukvaru-WebGL (ingen GPU-drivrutin, äldre laptop, vissa mobiler i
+      // strömsparläge, headless Chrome — dvs. exakt vad Lighthouse mäter
+      // med) ritar den här shadern i enstaka bildrutor per sekund, och en
+      // enda sådan bildruta kan kosta SEKUNDER av huvudtråden (uppmätt: upp
+      // mot 2,3 s per bildruta). Det gamla, tidsbaserade varvet ("mät i en
+      // sekund, se hur många bildrutor det blev") ser bra ut på papper men
+      // straffar sig självt exakt när det behövs mest: är EN bildruta redan
+      // dyrare än hela mätfönstret hinner ändå den fulla kostnaden tas innan
+      // varvet ens vet att det ska stanna.
       //
-      // dpr 2 × full upplösning = fyra gånger så många pixlar som dpr 1.
-      // Moln är mjuka gradienter utan skarpa kanter — de överlever att
-      // ritas i lägre upplösning och skalas upp av webbläsaren, till
-      // skillnad från text eller en logotyp. RENDER_SCALE 0.6 vid dpr-tak
-      // 1.5 ger ~0.8 enheter per CSS-pixel, alltså knappt en femtedel av
-      // pixlarna mot förut, och skillnaden går inte att se på en himmel.
-      const dpr = Math.min(window.devicePixelRatio || 1, 1.5) * RENDER_SCALE * softwareScale;
-      const width = canvas.clientWidth;
-      const height = canvas.clientHeight;
-      const w = Math.max(1, Math.floor(width * dpr));
-      const h = Math.max(1, Math.floor(height * dpr));
-      if (canvas.width !== w || canvas.height !== h) {
-        canvas.width = w;
-        canvas.height = h;
-      }
-      gl.viewport(0, 0, w, h);
-      gl.uniform2f(loc.res, w, h);
-      // Att sätta canvas.width nollställer ritbufferten. Rullar loopen
-      // fyller nästa bildruta i den igen — gör den inte det (nödbromsen,
-      // pausen, reducerad rörelse) skulle hjälten annars bli tom vid varje
-      // fönsterändring.
-      if (!running && loc.res) drawFrame();
-    };
-    const observer = new ResizeObserver(resize);
-    observer.observe(canvas);
-    resize();
+      // 1) Känn igen känd mjukvaru-rendering (WEBGL_debug_renderer_info)
+      //    INNAN shadern ens kompileras. Träff: ingen shader alls, se
+      //    tidigt undantag ovanför compile().
+      // 2) Har GPU:n ett okänt/dolt namn (extension saknas, vanligt när
+      //    sajten INTE körs i Chrome) mäts i stället en riktig ritnings
+      //    faktiska kostnad direkt — men på en MIKROSKOPISK 16×16-yta, inte
+      //    hela canvasen, så själva mätningen aldrig kan bli den dyra
+      //    kostnaden den försöker undvika (se MAX_ACCEPTABLE_FRAME_MS).
+      //    performance.now() + gl.finish() tvingar GPU:n klar innan klockan
+      //    stoppas, annars mäter man bara hur snabbt JS kunde KÖA arbetet.
+      //    Över budget = stanna efter den enda (fullstora) bildrutan som
+      //    ritas om provet gick bra respektive det sista provet om det inte
+      //    gjorde det — exakt samma slutläge som (1).
+      // Resultatet: en himmel, aldrig en tom yta.
+      // Gäller en 16×16-provbildruta (se nödbromsens steg 2 nedan), inte en
+      // fullstor — en riktig GPU ritar 16×16 pixlar på bråkdelar av en
+      // millisekund, så redan 20 ms är en gott och väl tilltagen marginal
+      // som ändå fångar en enhet som är genuint överbelastad.
+      const MAX_ACCEPTABLE_FRAME_MS = 20;
+      let benchmarked = false;
+      // Egen klocka i stället för now - start: loopen pausas när hjälten
+      // skrollats förbi eller fliken göms (se nedan), och en klocka som
+      // fortsätter ticka under pausen hade fått molnen att hoppa flera
+      // sekunder framåt i samma ögonblick man skrollar tillbaka.
+      let elapsedMs = 0;
+      let prevNow = 0;
+      const drawFrame = () => {
+        const p = paramsRef.current;
+        const { cloud, skyTop, skyBottom } = resolveColors(p);
+        gl.uniform1f(loc.time, reduceMotion ? 0 : (elapsedMs / 1000) * p.speed);
+        gl.uniform1f(loc.count, Math.min(6, Math.max(1, p.count)));
+        gl.uniform3f(loc.cloud, cloud[0], cloud[1], cloud[2]);
+        gl.uniform3f(loc.skyTop, skyTop[0], skyTop[1], skyTop[2]);
+        gl.uniform3f(loc.skyBottom, skyBottom[0], skyBottom[1], skyBottom[2]);
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+        reveal();
+      };
 
-    // VÅRT tillägg: när anroparen inte skickar egna färger, används Bokix
-    // ljus/mörk-palett istället för originalets bokstavligt himmelsblå
-    // förval — samma document.documentElement.dataset.theme-flagga som
-    // useMarketingTheme() (MarketingLayout.jsx) redan sätter.
-    const resolveColors = (p) => {
-      const isDark = document.documentElement.dataset.theme === 'dark';
-      const palette = isDark ? PALETTES.dark : PALETTES.light;
-      return {
-        cloud: parseHex(p.cloudColor || palette.cloud),
-        skyTop: parseHex(p.skyTopColor || palette.skyTop),
-        skyBottom: parseHex(p.skyBottomColor || palette.skyBottom),
+      const draw = (now) => {
+        if (!running) return;
+        if (prevNow && now - lastDraw < MIN_FRAME_MS) { frame = requestAnimationFrame(draw); return; }
+        if (prevNow) elapsedMs += now - prevNow;
+        prevNow = now;
+        lastDraw = now;
+        const p = paramsRef.current;
+        const elapsed = reduceMotion ? 0 : (elapsedMs / 1000) * p.speed;
+        const { cloud, skyTop, skyBottom } = resolveColors(p);
+
+        gl.uniform1f(loc.time, elapsed);
+        gl.uniform1f(loc.count, Math.min(6, Math.max(1, p.count)));
+        gl.uniform3f(loc.cloud, cloud[0], cloud[1], cloud[2]);
+        gl.uniform3f(loc.skyTop, skyTop[0], skyTop[1], skyTop[2]);
+        gl.uniform3f(loc.skyBottom, skyBottom[0], skyBottom[1], skyBottom[2]);
+
+        if (!benchmarked && !reduceMotion) {
+          // Mät på en MIKROSKOPISK 16×16-yta i stället för hela canvasens
+          // upplösning — kostnaden växer linjärt med antalet pixlar (se
+          // resize()), så att mäta i full storlek kan i sig kosta sekunder
+          // på en trög enhet, exakt det provet ska undvika att betala för.
+          // gl.finish() tvingar GPU:n klar innan klockan stoppas (annars
+          // mäter performance.now() bara hur snabbt JS kunde KÖA anropet).
+          // 16×16 avslöjar ändå en katastrofalt seg enhet: är ens DET för
+          // långsamt är full skärm garanterat värre.
+          gl.viewport(0, 0, 16, 16);
+          const t0 = performance.now();
+          gl.drawArrays(gl.TRIANGLES, 0, 3);
+          gl.finish();
+          const probeCost = performance.now() - t0;
+          gl.viewport(0, 0, canvas.width, canvas.height); // tillbaka till riktig storlek
+          benchmarked = true;
+          if (probeCost > MAX_ACCEPTABLE_FRAME_MS) {
+            running = false;
+            gl.drawArrays(gl.TRIANGLES, 0, 3); // en sista bildruta i RIKTIG storlek (16×16-provet syntes aldrig)
+            reveal();
+            return;
+          }
+        }
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+        reveal();
+
+        frame = requestAnimationFrame(draw);
+      };
+
+      frame = requestAnimationFrame(draw);
+
+      // Loopen ska inte kosta något när ingen tittar. Två skäl att pausa:
+      // hjälten är utskrollad (besökaren läser prissektionen — molnen ritas
+      // ändå, varje bildruta, hela sessionen) och fliken är dold. Båda var
+      // ren ren förlust innan: en öppen flik i bakgrunden fortsatte bränna
+      // GPU och batteri på en himmel ingen ser.
+      const setRunning = (next) => {
+        // Har nödbromsen slagit till startar loopen aldrig igen — den här
+        // enheten klarar inte att animera shadern, och det ändras inte av
+        // att man skrollar tillbaka.
+        if (benchmarked && !running) return;
+        if (next === running) return;
+        running = next;
+        if (next) {
+          prevNow = 0; // nollställ deltat, annars räknas hela pausen som en bildruta
+          frame = requestAnimationFrame(draw);
+        } else {
+          cancelAnimationFrame(frame);
+        }
+      };
+      let onScreen = true;
+      const visibility = new IntersectionObserver(([entry]) => {
+        onScreen = entry.isIntersecting;
+        setRunning(onScreen && !document.hidden);
+      }, { threshold: 0 });
+      visibility.observe(canvas);
+      const onVisibilityChange = () => setRunning(onScreen && !document.hidden);
+      document.addEventListener('visibilitychange', onVisibilityChange);
+
+      // Byt om vid temaväxling när loopen INTE ritar av sig själv.
+      //
+      // Bugkritiskt (kundrapporterat: "hjälten är kvar i ljust läge när jag
+      // slår om till mörkt"): villkoret var tidigare bara `reduceMotion`,
+      // vilket stämde så länge loopen alltid rullade i övriga fall. Sedan
+      // nödbromsen och pausen vid utskrollad hjälte tillkom finns det tre
+      // lägen där ingen ny bildruta ritas — reducerad rörelse, pausad, och
+      // permanent stoppad — och i alla tre satt den senast ritade himlen
+      // kvar i FEL tema tills sidan laddades om. Rätt villkor är därför
+      // "ritar loopen inte just nu?", inte "har användaren stängt av
+      // animationer?".
+      const themeObserver = new MutationObserver(() => {
+        if (running) return; // loopen plockar upp färgerna själv nästa bildruta
+        drawFrame();
+      });
+      themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+      return () => {
+        running = false;
+        cancelAnimationFrame(frame);
+        observer.disconnect();
+        visibility.disconnect();
+        document.removeEventListener('visibilitychange', onVisibilityChange);
+        themeObserver.disconnect();
+        gl.deleteBuffer(buffer);
       };
     };
 
-    // Molnen driver långsamt. 60 bildrutor i sekunden är dubbelt så dyrt
-    // som 30 utan att se annorlunda ut för en rörelse i den här takten.
-    const MIN_FRAME_MS = 1000 / 30;
-    let lastDraw = 0;
-    // ── Nödbromsen, TVÅ steg ──
-    // Mjukvaru-WebGL (ingen GPU-drivrutin, äldre laptop, vissa mobiler i
-    // strömsparläge, headless Chrome — dvs. exakt vad Lighthouse mäter
-    // med) ritar den här shadern i enstaka bildrutor per sekund, och en
-    // enda sådan bildruta kan kosta SEKUNDER av huvudtråden (uppmätt: upp
-    // mot 2,3 s per bildruta). Det gamla, tidsbaserade varvet ("mät i en
-    // sekund, se hur många bildrutor det blev") ser bra ut på papper men
-    // straffar sig självt exakt när det behövs mest: är EN bildruta redan
-    // dyrare än hela mätfönstret hinner ändå den fulla kostnaden tas innan
-    // varvet ens vet att det ska stanna.
-    //
-    // 1) Känn igen känd mjukvaru-rendering INNAN en enda bildruta ritas
-    //    (WEBGL_debug_renderer_info — SwiftShader/llvmpipe/Mesa-software
-    //    är de vanliga namnen). Träff = rita EN bildruta i lägsta
-    //    komplexitet (u_count sänkt, se drawFrame) och stanna direkt,
-    //    utan att någonsin starta loopen. Ingen gissning, ingen kostnad
-    //    utöver den ena bildrutan.
-    // 2) Har GPU:n ett okänt/dolt namn (extension saknas, vanligt när
-    //    sajten INTE körs i Chrome) mäts i stället en riktig ritnings
-    //    faktiska kostnad direkt — men på en MIKROSKOPISK 16×16-yta, inte
-    //    hela canvasen, så själva mätningen aldrig kan bli den dyra
-    //    kostnaden den försöker undvika (se MAX_ACCEPTABLE_FRAME_MS).
-    //    performance.now() + gl.finish() tvingar GPU:n klar innan klockan
-    //    stoppas, annars mäter man bara hur snabbt JS kunde KÖA arbetet.
-    //    Över budget = stanna efter den enda (fullstora) bildrutan som
-    //    ritas om provet gick bra respektive det sista provet om det inte
-    //    gjorde det — exakt samma slutläge som (1).
-    // Resultatet i båda fallen: en stillastående himmel med moln, aldrig
-    // en tom yta, och aldrig mer än en bildrutas kostnad betald för att
-    // ta reda på det.
-    // Gäller en 16×16-provbildruta (se nödbromsens steg 2 nedan), inte en
-    // fullstor — en riktig GPU ritar 16×16 pixlar på bråkdelar av en
-    // millisekund, så redan 20 ms är en gott och väl tilltagen marginal
-    // som ändå fångar en enhet som är genuint överbelastad.
-    const MAX_ACCEPTABLE_FRAME_MS = 20;
-    let benchmarked = false;
-    let softwareRenderer = false;
-    try {
-      const dbg = gl.getExtension('WEBGL_debug_renderer_info');
-      const renderer = dbg ? String(gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) || '') : '';
-      softwareRenderer = /swiftshader|llvmpipe|softpipe|software/i.test(renderer);
-    } catch {
-      // Extensionen kan vara blockerad (t.ex. Firefox' fingerprinting-skydd)
-      // — behandla som okänt, inte som "säkert snabbt". Steg 2 mäter ändå.
-    }
-    // Egen klocka i stället för now - start: loopen pausas när hjälten
-    // skrollats förbi eller fliken göms (se nedan), och en klocka som
-    // fortsätter ticka under pausen hade fått molnen att hoppa flera
-    // sekunder framåt i samma ögonblick man skrollar tillbaka.
-    let elapsedMs = 0;
-    let prevNow = 0;
-    const drawFrame = () => {
-      const p = paramsRef.current;
-      const { cloud, skyTop, skyBottom } = resolveColors(p);
-      gl.uniform1f(loc.time, reduceMotion ? 0 : (elapsedMs / 1000) * p.speed);
-      gl.uniform1f(loc.count, countOverride ?? Math.min(6, Math.max(1, p.count)));
-      gl.uniform3f(loc.cloud, cloud[0], cloud[1], cloud[2]);
-      gl.uniform3f(loc.skyTop, skyTop[0], skyTop[1], skyTop[2]);
-      gl.uniform3f(loc.skyBottom, skyBottom[0], skyBottom[1], skyBottom[2]);
-      gl.drawArrays(gl.TRIANGLES, 0, 3);
-    };
-
-    const draw = (now) => {
-      if (!running) return;
-      if (prevNow && now - lastDraw < MIN_FRAME_MS) { frame = requestAnimationFrame(draw); return; }
-      if (prevNow) elapsedMs += now - prevNow;
-      prevNow = now;
-      lastDraw = now;
-      const p = paramsRef.current;
-      const elapsed = reduceMotion ? 0 : (elapsedMs / 1000) * p.speed;
-      const { cloud, skyTop, skyBottom } = resolveColors(p);
-
-      gl.uniform1f(loc.time, elapsed);
-      gl.uniform1f(loc.count, Math.min(6, Math.max(1, p.count)));
-      gl.uniform3f(loc.cloud, cloud[0], cloud[1], cloud[2]);
-      gl.uniform3f(loc.skyTop, skyTop[0], skyTop[1], skyTop[2]);
-      gl.uniform3f(loc.skyBottom, skyBottom[0], skyBottom[1], skyBottom[2]);
-
-      if (!benchmarked && !reduceMotion) {
-        // Mät på en MIKROSKOPISK 16×16-yta i stället för hela canvasens
-        // upplösning — kostnaden växer linjärt med antalet pixlar (se
-        // resize()), så att mäta i full storlek kan i sig kosta sekunder
-        // på en trög enhet, exakt det provet ska undvika att betala för.
-        // gl.finish() tvingar GPU:n klar innan klockan stoppas (annars
-        // mäter performance.now() bara hur snabbt JS kunde KÖA anropet).
-        // 16×16 avslöjar ändå en katastrofalt seg enhet: är ens DET för
-        // långsamt är full skärm garanterat värre.
-        gl.viewport(0, 0, 16, 16);
-        const t0 = performance.now();
-        gl.drawArrays(gl.TRIANGLES, 0, 3);
-        gl.finish();
-        const probeCost = performance.now() - t0;
-        gl.viewport(0, 0, canvas.width, canvas.height); // tillbaka till riktig storlek
-        benchmarked = true;
-        if (probeCost > MAX_ACCEPTABLE_FRAME_MS) {
-          running = false;
-          gl.drawArrays(gl.TRIANGLES, 0, 3); // en sista bildruta i RIKTIG storlek (16×16-provet syntes aldrig)
-          return;
+    let cancelled = false;
+    let pollFrame = 0;
+    let stopRun = () => {};
+    const whenCompiled = () => {
+      if (cancelled) return;
+      if (parallel && !gl.getProgramParameter(program, parallel.COMPLETION_STATUS_KHR)) {
+        pollFrame = requestAnimationFrame(whenCompiled);
+        return;
+      }
+      if (parallel) {
+        for (const sh of [vert, frag]) {
+          if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+            console.error('CloudShaderBackground: shader compile error', gl.getShaderInfoLog(sh));
+            return;
+          }
         }
       }
-      gl.drawArrays(gl.TRIANGLES, 0, 3);
-
-      frame = requestAnimationFrame(draw);
-    };
-
-    if (softwareRenderer) {
-      // Känd mjukvaru-rendering — rita en enda bildruta i låg komplexitet
-      // och stanna direkt, starta aldrig loopen. Se nödbromsens
-      // filkommentar ovan.
-      //
-      // Även EN bildruta i full canvasstorlek kostade sekunder här
-      // (Lighthouse mobil, startsidan: en enda 7,8 s lång uppgift, TBT
-      // 8 410 ms och prestandapoäng 52; utan WebGL 320 ms och 82).
-      // Kostnaden växer med antalet pixlar, och moln är diffusa: rita på
-      // ungefär en femtedel av upplösningen och låt webbläsaren skala upp
-      // bilden mjukt. resize() ritar sedan bildrutan (running är false),
-      // med samma skalfaktor vid varje senare storleksändring — förut
-      // ritades en full bildruta om vid VARJE ResizeObserver-anrop.
-      // Berör bara enheter som redan känts igen som mjukvarurenderade;
-      // en riktig GPU går den vanliga vägen nedan, oförändrad.
-      softwareScale = SOFTWARE_RENDER_SCALE;
-      countOverride = 2;
-      benchmarked = true;
-      running = false;
-      resize();
-    } else {
-      frame = requestAnimationFrame(draw);
-    }
-
-    // Loopen ska inte kosta något när ingen tittar. Två skäl att pausa:
-    // hjälten är utskrollad (besökaren läser prissektionen — molnen ritas
-    // ändå, varje bildruta, hela sessionen) och fliken är dold. Båda var
-    // ren ren förlust innan: en öppen flik i bakgrunden fortsatte bränna
-    // GPU och batteri på en himmel ingen ser.
-    const setRunning = (next) => {
-      // Har nödbromsen slagit till startar loopen aldrig igen — den här
-      // enheten klarar inte att animera shadern, och det ändras inte av
-      // att man skrollar tillbaka.
-      if (benchmarked && !running) return;
-      if (next === running) return;
-      running = next;
-      if (next) {
-        prevNow = 0; // nollställ deltat, annars räknas hela pausen som en bildruta
-        frame = requestAnimationFrame(draw);
-      } else {
-        cancelAnimationFrame(frame);
+      if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+        console.error('CloudShaderBackground: program link error', gl.getProgramInfoLog(program));
+        return;
       }
+      stopRun = run();
     };
-    let onScreen = true;
-    const visibility = new IntersectionObserver(([entry]) => {
-      onScreen = entry.isIntersecting;
-      setRunning(onScreen && !document.hidden);
-    }, { threshold: 0 });
-    visibility.observe(canvas);
-    const onVisibilityChange = () => setRunning(onScreen && !document.hidden);
-    document.addEventListener('visibilitychange', onVisibilityChange);
-
-    // Byt om vid temaväxling när loopen INTE ritar av sig själv.
-    //
-    // Bugkritiskt (kundrapporterat: "hjälten är kvar i ljust läge när jag
-    // slår om till mörkt"): villkoret var tidigare bara `reduceMotion`,
-    // vilket stämde så länge loopen alltid rullade i övriga fall. Sedan
-    // nödbromsen och pausen vid utskrollad hjälte tillkom finns det tre
-    // lägen där ingen ny bildruta ritas — reducerad rörelse, pausad, och
-    // permanent stoppad — och i alla tre satt den senast ritade himlen
-    // kvar i FEL tema tills sidan laddades om. Rätt villkor är därför
-    // "ritar loopen inte just nu?", inte "har användaren stängt av
-    // animationer?".
-    const themeObserver = new MutationObserver(() => {
-      if (running) return; // loopen plockar upp färgerna själv nästa bildruta
-      drawFrame();
-    });
-    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    whenCompiled();
 
     return () => {
-      running = false;
-      cancelAnimationFrame(frame);
-      observer.disconnect();
-      visibility.disconnect();
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-      themeObserver.disconnect();
-      gl.deleteBuffer(buffer);
+      cancelled = true;
+      cancelAnimationFrame(pollFrame);
+      stopRun();
       gl.deleteProgram(program);
       gl.deleteShader(vert);
       gl.deleteShader(frag);
@@ -567,7 +596,7 @@ export default function CloudShaderBackground({
           samma himmel som shadern målar, så det inte finns någon skillnad
           att se mellan förrenderad HTML och första ritade bildrutan. */}
       <style>{SKY_FALLBACK_CSS}</style>
-      <canvas ref={canvasRef} aria-hidden="true" style={{ pointerEvents: 'none', position: 'absolute', inset: 0, width: '100%', height: '100%' }} />
+      <canvas ref={canvasRef} aria-hidden="true" style={{ pointerEvents: 'none', position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0, transition: 'opacity 0.5s ease' }} />
       {children ? (
         <div style={{ position: 'relative', zIndex: 10, display: 'flex', height: '100%', width: '100%', alignItems: 'center', justifyContent: 'center' }}>
           {children}
