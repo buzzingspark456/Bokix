@@ -72,15 +72,15 @@ export function OcrChecklist({ scanning, revealed, items = OCR_ITEMS }) {
       {items.map(item => {
         const st = revealed[item.key];
         return (
-          <div key={item.key} className={`rc-ocr-item${st ? ` rc-ocr-${st === 'history' ? 'found' : st}` : ''}`}>
+          <div key={item.key} className={`rc-ocr-item${st ? ` rc-ocr-${st === 'history' ? 'found' : st === 'suggest' ? 'guess' : st}` : ''}`}>
             <span className="rc-ocr-icon">
               {st === 'found' || st === 'history' ? <Check size={12} strokeWidth={3} />
-                : st === 'guess' ? <AlertCircle size={12} strokeWidth={2.5} />
+                : st === 'guess' || st === 'suggest' ? <AlertCircle size={12} strokeWidth={2.5} />
                   : st === 'missing' ? <Minus size={12} strokeWidth={3} />
                     : <span className={scanning ? 'rc-ocr-spin' : 'rc-ocr-wait'} />}
             </span>
             <span className="rc-ocr-label">{item.label}</span>
-            <span className="rc-ocr-state">{st === 'found' ? 'Avläst' : st === 'history' ? 'Som tidigare' : st === 'guess' ? 'Kontrollera' : st === 'missing' ? 'Hittades inte' : ''}</span>
+            <span className="rc-ocr-state">{st === 'found' ? 'Avläst' : st === 'history' ? 'Som tidigare' : st === 'guess' ? 'Kontrollera' : st === 'suggest' ? 'Förslag' : st === 'missing' ? 'Hittades inte' : ''}</span>
           </div>
         );
       })}

@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import DateField from './shared/DateField';
 import { isReverseChargePurchaseAccount } from '../utils/reverseCharge';
-import { useSearchParams } from 'react-router-dom';
 import {
-  Plus, Check, X, AlertCircle, Landmark, CreditCard, UploadCloud, FileText, Trash2,
+  Plus, Check, X, AlertCircle, Landmark, CreditCard, UploadCloud, FileText, Trash2, Search, RefreshCw, Printer, Eye,
 } from './icons';
 import { AccountSearch, ProjectSearch } from './shared/SearchInputs';
-import ListPageHeader, { ListSearchRow, listHeaderButtonStyle } from './shared/ListPageHeader';
+import ListPageHeader, { listHeaderButtonStyle, listSearchInputStyle, listFilterFieldStyle, PAGE_SIZE_OPTIONS } from './shared/ListPageHeader';
+import RowActionMenu from './shared/RowActionMenu';
+import { STRONG_PAID, STRONG_UNPAID, STRONG_OVERDUE, getRowBg } from './shared/invoiceStatusStyle';
 import ListTable from './shared/ListTable';
 import { uploadFileToStorage } from '../utils/fileUpload';
 import { BRAND } from '../utils/brandColors';
@@ -47,26 +48,16 @@ const labelSt = { display: 'block', fontSize: '13px', fontWeight: 600, color: 'v
 const errSt = { fontSize: '12px', color: 'var(--status-red-text)', marginTop: '4px' };
 const helpSt = { fontSize: '12px', color: 'var(--text-muted)', marginTop: '6px', lineHeight: 1.4 };
 
-// Kundfeedback ("i ljust läge, gör dem mer synliga... jag vet inte om den
-// är grå eller inte"): den här sidans Obetald/Betald-märken använde den
-// bleka --status-amber/-green-pastellen (samma ton som "neutrala, inget
-// hänt än"-badges) — samma sorts svag kontrast mot en ljus sidbakgrund som
-// gjorde dem svåra att skilja åt på håll/för nedsatt syn. Fakturering
-// (Invoices.jsx STRONG_PAID/STRONG_UNPAID) löste redan exakt det här för
-// kundfakturor med en heltäckande, mättad bakgrund + vit text — samma
-// literala, tema-oberoende färger här nu istället, så Leverantörsfakturor
-// och Fakturering ser ut som EN produkt, inte två olika kontrastnivåer.
-const STRONG_PAID = { bg: '#16a34a', text: '#ffffff' };
-const STRONG_UNPAID = { bg: '#d97706', text: '#ffffff' };
-
+// Statusfärgerna kommer från shared/invoiceStatusStyle.js, samma som
+// Kundfakturor, så de två sidorna läses som en produkt.
 function StatusBadge({ status }) {
   const map = {
     paid: { label: 'Betald', bg: STRONG_PAID.bg, color: STRONG_PAID.text },
     unpaid: { label: 'Obetald', bg: STRONG_UNPAID.bg, color: STRONG_UNPAID.text },
-    overdue: { label: 'Förfallen', bg: 'var(--status-red-bg)', color: 'var(--status-red-text)' },
+    overdue: { label: 'Förfallen', bg: STRONG_OVERDUE.bg, color: STRONG_OVERDUE.text },
   };
-  const s = map[status] || map.unpaid;
-  return <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: s.bg, color: s.color }}>{s.label}</span>;
+  const st = map[status] || map.unpaid;
+  return <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 700, background: st.bg, color: st.color }}>{st.label}</span>;
 }
 
 // ── Leverantörskombobox med inline "Lägg till ny leverantör" ────────────────
@@ -831,36 +822,30 @@ export default function SupplierInvoices({
 }) {
   const [showForm, setShowForm] = useState(false);
   const [viewingInvoice, setViewingInvoice] = useState(null);
-  const [openedViaGlobalAction, setOpenedViaGlobalAction] = useState(false);
   const [search, setSearch] = useState('');
   const [optimisticPaid, setOptimisticPaid] = useState({});
   const [payingInvoiceId, setPayingInvoiceId] = useState(null);
   const [fixingId, setFixingId] = useState(null);
   const [fixAccount, setFixAccount] = useState('');
-  const [, setSearchParams] = useSearchParams();
+  // Samma statusfilter, sortering och "Visa N" som Kundfakturor.
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [pageSize, setPageSize] = useState(30);
+  const [sortKey, setSortKey] = useState('date');
+  const [sortDir, setSortDir] = useState('desc');
 
-  // Klick på en leverantörsfaktura-rad var som helst i appen (t.ex. den
-  // kompakta panelen på Faktureringssidan) ska öppna just DEN fakturans
-  // läsläge direkt här — inte bara dumpa användaren på den generella
-  // listan och tvinga dem att leta upp raden igen.
+  // En genväg utifrån ("Ny leverantörsfaktura", en länk till en viss faktura)
+  // öppnar formuläret respektive just DEN fakturans läsläge direkt här, i
+  // stället för att lämna användaren på listan.
   useEffect(() => {
     if (globalAction?.type === 'new_supplier_invoice') {
       setShowForm(true);
       setViewingInvoice(null);
-      setOpenedViaGlobalAction(true);
       clearGlobalAction?.();
     } else if (globalAction?.type === 'view_supplier_invoice') {
       const inv = expenses.find(e => e.id === globalAction.payload?.id && e.type === 'supplier_invoice');
       if (inv) {
         setShowForm(false);
         setViewingInvoice(inv);
-        // Bugkritiskt: saknades helt här (till skillnad från grenen ovan)
-        // — "Tillbaka" i SupplierInvoiceViewer visste därför aldrig att
-        // den här vyn öppnades via en genväg utifrån (t.ex. den inbäddade
-        // panelen på Faktureringssidan) och föll alltid tillbaka på den
-        // HÄR sidans egen lista istället för att ta användaren dit de
-        // faktiskt kom ifrån. Se returnToOrigin nedan.
-        setOpenedViaGlobalAction(true);
       }
       clearGlobalAction?.();
     }
@@ -888,7 +873,6 @@ export default function SupplierInvoices({
     setOptimisticPaid(prev => { const n = { ...prev }; delete n[id]; return n; });
     onUnmarkSupplierInvoicePaid?.(id);
     setViewingInvoice(null);
-    returnToOrigin();
   };
 
   const applyFix = (id) => {
@@ -898,33 +882,256 @@ export default function SupplierInvoices({
     setFixAccount('');
   };
 
-  // Delad "gå tillbaka dit man kom ifrån"-logik — öppnades formuläret/
-  // läsläget via en genväg utifrån (t.ex. den inbäddade Leverantörs-
-  // fakturor-panelen på Faktureringssidan, se handleGlobalAction i
-  // Invoices.jsx), ska Avbryt/Tillbaka OCH en lyckad sparning ta tillbaka
-  // dit — inte bara falla ner till den HÄR sidans egen lista (bugkritiskt:
-  // nästan alltid fel om man kom via genvägen). Användes tidigare bara vid
-  // sparning, och satte då fel underflik ('kunder' istället för
-  // 'leverantorer' — tog en tillbaka till Kundfakturor-fliken i
-  // Fakturering, inte Leverantörsfakturor där man faktiskt var).
-  const returnToOrigin = () => {
-    if (openedViaGlobalAction) {
-      setSearchParams(prev => {
-        const next = new URLSearchParams(prev);
-        next.set('section', 'leverantorer');
-        return next;
-      }, { replace: true });
-      onNavigate?.('invoices');
-    }
-    setOpenedViaGlobalAction(false);
-  };
-
-  const closeForm = () => { setShowForm(false); returnToOrigin(); };
+  // Leverantörsfakturor är en egen sida i Försäljning-menyn: att stänga ett
+  // formulär eller läsläge lämnar en alltid på den här sidans lista.
+  const closeForm = () => { setShowForm(false); };
 
   const handleSave = (data) => {
     onAddSupplierInvoice?.(data);
     closeForm();
   };
+
+  // ── Listan: samma uppbyggnad som Kundfakturor (Invoices.jsx) ──────────────
+  const isPaid = (inv) => inv.status === 'paid' || Boolean(optimisticPaid[inv.id]);
+  const needsReviewOf = (inv) => !inv.costAccount && !inv.rows?.length;
+  const nameOf = (inv) => contacts.find(c => c.id === inv.supplierId)?.name || inv.supplier || '';
+  // 'review' = saknar konto (Granska), annars paid / overdue / sent (obetald).
+  const statusOf = (inv) => {
+    if (needsReviewOf(inv)) return 'review';
+    if (isPaid(inv)) return 'paid';
+    if (inv.dueDate && new Date(inv.dueDate) < new Date()) return 'overdue';
+    return 'sent';
+  };
+  const statusCounts = filtered.reduce((acc, inv) => { const k = statusOf(inv); acc[k] = (acc[k] || 0) + 1; return acc; }, {});
+  const byStatus = statusFilter === 'all' ? filtered : filtered.filter(inv => statusOf(inv) === statusFilter);
+  const sortValue = (inv) => {
+    if (sortKey === 'supplier') return nameOf(inv).toLowerCase();
+    if (sortKey === 'invoiceNumber') return String(inv.invoiceNumber || '').toLowerCase();
+    if (sortKey === 'amount') return Number(inv.amount) || 0;
+    if (sortKey === 'dueDate') return inv.dueDate || '';
+    return inv.date || '';
+  };
+  const sorted = [...byStatus].sort((x, y) => {
+    const a = sortValue(x); const b = sortValue(y);
+    const c = a < b ? -1 : a > b ? 1 : 0;
+    return sortDir === 'asc' ? c : -c;
+  });
+  const visibleRows = pageSize === 'all' ? sorted : sorted.slice(0, pageSize);
+  const sumTotal = sorted.reduce((sum, inv) => sum + (Number(inv.amount) || 0), 0);
+  const toggleSort = (key) => {
+    setSortDir(d => (sortKey === key ? (d === 'asc' ? 'desc' : 'asc') : 'asc'));
+    setSortKey(key);
+  };
+  const statusOptions = [
+    { value: 'all', label: 'Alla' },
+    { value: 'review', label: 'Granska', bg: BRAND.amberBg, color: BRAND.amberText },
+    { value: 'sent', label: 'Obetald', bg: STRONG_UNPAID.bg, color: STRONG_UNPAID.text, strong: true },
+    { value: 'overdue', label: 'Förfallen', bg: STRONG_OVERDUE.bg, color: STRONG_OVERDUE.text, strong: true },
+    { value: 'paid', label: 'Betald', bg: STRONG_PAID.bg, color: STRONG_PAID.text, strong: true },
+  ];
+
+  const renderList = () => (
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, background: 'var(--bg-page)' }}>
+      <ListPageHeader
+        title="Leverantörsfakturor"
+        subtitle="Fakturor du fått från leverantörer och ska betala"
+      />
+
+      <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+        <div className="inv-searchrow" style={{ padding: '12px 20px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <div className="inv-search" style={{ position: 'relative' }}>
+            <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+            <input type="text" placeholder="Fakturanr eller leverantör" value={search} onChange={e => setSearch(e.target.value)} style={{ ...listSearchInputStyle, width: '220px' }} />
+          </div>
+          <button onClick={() => { setSearch(''); setStatusFilter('all'); }} title="Rensa sökning" style={{ ...listHeaderButtonStyle('secondary'), padding: '0 10px' }}><RefreshCw size={14} /></button>
+          <div style={{ flex: 1 }} />
+          <button className="inv-cta" onClick={() => setShowForm(true)} style={listHeaderButtonStyle('primary')}>
+            <Plus size={14} /> Ny leverantörsfaktura
+          </button>
+        </div>
+      </div>
+
+      {/* Statuspiller som riktiga filter, som på Kundfakturor. Raden döljs när
+          det inte finns någon faktura alls, ett filter utan något att filtrera
+          är bara brus på en tom sida. */}
+      {list.length > 0 && (
+        <div className="inv-pills" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0, flexWrap: 'wrap' }}>
+          {statusOptions.map(opt => {
+            const count = opt.value === 'all' ? filtered.length : (statusCounts[opt.value] || 0);
+            // Tomma statusar visas inte, men den valda gömmer sig aldrig så
+            // vägen tillbaka finns kvar.
+            if (count === 0 && opt.value !== statusFilter && opt.value !== 'all') return null;
+            const isActive = statusFilter === opt.value;
+            const neutral = opt.value === 'all';
+            return (
+              <button
+                key={opt.value}
+                onClick={() => setStatusFilter(opt.value)}
+                aria-pressed={isActive}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 10px',
+                  background: neutral ? (isActive ? 'var(--bg-muted)' : 'transparent') : opt.bg,
+                  border: '1.5px solid transparent',
+                  boxShadow: isActive ? '0 0 0 2px var(--bg-card), 0 0 0 3.5px ' + (neutral ? 'var(--text-secondary)' : opt.color) : 'none',
+                  borderRadius: '999px', fontSize: '12px', fontWeight: isActive ? 700 : 600,
+                  color: neutral ? 'var(--text-secondary)' : opt.color, cursor: 'pointer',
+                }}
+              >
+                {opt.label}
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 16, height: 16, padding: '0 4px',
+                  borderRadius: '999px', fontSize: '10px', fontWeight: 700,
+                  background: opt.strong ? 'rgba(255,255,255,0.28)' : 'var(--status-chip-bg)',
+                  color: opt.strong ? '#ffffff' : (neutral ? 'var(--text-secondary)' : opt.color),
+                }}>{count}</span>
+              </button>
+            );
+          })}
+          <div className="inv-pills-spacer" style={{ flex: 1 }} />
+          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-muted)' }}>
+            Visa
+            <select
+              value={pageSize}
+              onChange={e => setPageSize(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+              style={{ ...listFilterFieldStyle, height: '28px', padding: '0 8px', fontSize: '12px' }}
+            >
+              {PAGE_SIZE_OPTIONS.map(n => <option key={n} value={n}>{n}</option>)}
+              <option value="all">Alla</option>
+            </select>
+          </label>
+          <Printer className="inv-pills-extra" size={15} style={{ cursor: 'pointer', color: 'var(--text-secondary)' }} />
+        </div>
+      )}
+
+      {list.length === 0 ? (
+        // Samma stora ikon/rubrik/knapp-mönster som Kunder och Offerter i tomt läge.
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px', padding: '40px 20px', textAlign: 'center' }}>
+          <div style={{ width: 56, height: 56, borderRadius: '999px', background: 'var(--bg-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: BRAND.green }}>
+            <FileText size={26} />
+          </div>
+          <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-main)' }}>Inga leverantörsfakturor än</div>
+          <div style={{ fontSize: '13.5px', color: 'var(--text-muted)', maxWidth: '320px' }}>Registrera din första leverantörsfaktura för att komma igång.</div>
+          <button type="button" onClick={() => setShowForm(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '10px 20px', marginTop: '8px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '9px', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}>
+            <Plus size={16} /> Ny leverantörsfaktura
+          </button>
+        </div>
+      ) : sorted.length === 0 ? (
+        <div style={{ padding: '40px 20px', textAlign: 'center', fontSize: '13.5px', color: 'var(--text-muted)' }}>Ingen faktura matchar sökningen eller filtret.</div>
+      ) : (
+        <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>
+          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderTop: 'none', borderRadius: '0 0 12px 12px', boxShadow: 'var(--shadow-sm)', overflow: 'hidden' }}>
+            <ListTable
+              bordered={false}
+              roundedBottom={false}
+              rowKey={inv => inv.id}
+              onRowClick={inv => setViewingInvoice(inv)}
+              rowStyle={inv => ({ background: getRowBg(statusOf(inv) === 'review' ? 'draft' : statusOf(inv)) })}
+              sort={{ key: sortKey, dir: sortDir, onSort: toggleSort }}
+              rows={visibleRows}
+              mobileList={inv => {
+                const st = statusOf(inv);
+                const dot = st === 'review' ? BRAND.amberText : st === 'overdue' ? STRONG_OVERDUE.bg : st === 'paid' ? STRONG_PAID.bg : STRONG_UNPAID.bg;
+                const dueLabel = st === 'paid' ? 'betald' : st === 'overdue' ? 'förföll' : 'förfaller';
+                // Numret bär identiteten när leverantören saknas, annars blev
+                // raden en anonym "Okänd leverantör". Samma mönster som kundfakturorna.
+                const supplierName = nameOf(inv);
+                return {
+                  dot,
+                  primary: supplierName || `Faktura #${inv.invoiceNumber}`,
+                  amount: formatSEK(inv.amount),
+                  meta: supplierName
+                    ? `#${inv.invoiceNumber} · ${dueLabel} ${formatDate(inv.dueDate)}`
+                    : `Ingen leverantör vald · ${dueLabel} ${formatDate(inv.dueDate)}`,
+                  pill: st === 'review' ? (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', borderRadius: '999px', fontSize: '10.5px', fontWeight: 700, background: BRAND.amberBg, color: BRAND.amberText }}><AlertCircle size={11} /> Granska</span>
+                  ) : <StatusBadge status={st === 'paid' ? 'paid' : st === 'overdue' ? 'overdue' : 'unpaid'} />,
+                };
+              }}
+              columns={[
+                { key: 'supplier', label: 'Leverantör', sortKeyName: 'supplier', fontWeight: 600, color: 'var(--text-main)', fontSize: '14px', wrap: true, render: inv => nameOf(inv) || 'Okänd leverantör' },
+                { key: 'invoiceNumber', label: 'Fakturanr', sortKeyName: 'invoiceNumber', color: 'var(--text-main)', render: inv => `#${inv.invoiceNumber}` },
+                { key: 'date', label: 'Fakturadatum', sortKeyName: 'date', render: inv => formatDate(inv.date) },
+                {
+                  key: 'dueDate', label: 'Förfallodatum', sortKeyName: 'dueDate', render: inv => {
+                    const overdue = statusOf(inv) === 'overdue';
+                    return <span style={{ color: overdue ? 'var(--status-red-text)' : 'var(--text-secondary)', fontWeight: overdue ? 700 : 400 }}>{formatDate(inv.dueDate)}</span>;
+                  },
+                },
+                { key: 'amount', label: 'Belopp', align: 'right', sortKeyName: 'amount', fontWeight: 600, color: 'var(--text-main)', render: inv => formatSEK(inv.amount) },
+                {
+                  key: 'status', label: 'Status', render: inv => {
+                    const st = statusOf(inv);
+                    if (st === 'review') {
+                      return <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 700, background: BRAND.amberBg, color: BRAND.amberText }}><AlertCircle size={12} /> Granska</span>;
+                    }
+                    if (st === 'paid') {
+                      return (
+                        <div>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 700, background: STRONG_PAID.bg, color: STRONG_PAID.text }}>
+                            <Check size={12} /> Betald
+                          </span>
+                          {inv.paymentMethod && <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px' }}>via {inv.paymentMethod === 'bank' ? 'bank' : 'kort'}</div>}
+                        </div>
+                      );
+                    }
+                    // Som statuspillret på Kundfakturor: ett tryck på Obetald/Förfallen betalar.
+                    return (
+                      <button
+                        onClick={e => { e.stopPropagation(); setPayingInvoiceId(inv.id); }}
+                        title="Klicka för att betala"
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '999px',
+                          fontSize: '12px', fontWeight: 700, cursor: 'pointer', border: 'none',
+                          background: st === 'overdue' ? STRONG_OVERDUE.bg : STRONG_UNPAID.bg,
+                          color: st === 'overdue' ? STRONG_OVERDUE.text : STRONG_UNPAID.text,
+                        }}
+                      >
+                        {st === 'overdue' ? 'Förfallen' : 'Obetald'}
+                      </button>
+                    );
+                  },
+                },
+                {
+                  key: 'actions', label: '', align: 'right', render: inv => {
+                    const st = statusOf(inv);
+                    if (fixingId === inv.id) {
+                      return (
+                        <div onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>
+                          <div style={{ width: 180 }}>
+                            <AccountSearch value={fixAccount} onChange={setFixAccount} accounts={accounts} placeholder="Välj konto..." />
+                          </div>
+                          <button onClick={() => applyFix(inv.id)} style={{ padding: '5px 10px', background: BRAND.green, color: 'white', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>Spara</button>
+                          <button onClick={() => { setFixingId(null); setFixAccount(''); }} aria-label="Avbryt" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex' }}><X size={15} /></button>
+                        </div>
+                      );
+                    }
+                    const items = [
+                      { key: 'view', label: 'Visa faktura', icon: Eye, onClick: () => setViewingInvoice(inv) },
+                      ...(st === 'review' ? [{ key: 'account', label: 'Välj konto', icon: FileText, onClick: () => { setFixingId(inv.id); setFixAccount(''); } }] : []),
+                      ...(st === 'sent' || st === 'overdue' ? [{ key: 'pay', label: 'Betala', icon: Check, onClick: () => setPayingInvoiceId(inv.id) }] : []),
+                    ];
+                    return (
+                      <div onClick={e => e.stopPropagation()}>
+                        <RowActionMenu ariaLabel={`Fler åtgärder för faktura ${inv.invoiceNumber}`} items={items} />
+                      </div>
+                    );
+                  },
+                },
+              ]}
+            />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '10px 16px', background: 'var(--bg-muted)', border: '1px solid var(--border)', borderTop: '2px solid var(--border)', borderRadius: '0 0 12px 12px', fontWeight: 700, fontSize: '13px', color: 'var(--text-secondary)', flexWrap: 'wrap', boxShadow: 'var(--shadow-sm)' }}>
+              <span style={{ fontWeight: 500, fontSize: '12px', color: 'var(--text-muted)' }}>
+                {visibleRows.length < sorted.length
+                  ? 'Visar ' + visibleRows.length + ' av ' + sorted.length
+                  : sorted.length + (sorted.length === 1 ? ' faktura' : ' fakturor')}
+              </span>
+              <span>Summa SEK&nbsp;<span style={{ color: 'var(--text-main)', marginLeft: '6px' }}>{formatSEK(sumTotal).replace(/\s*kr$/, '')}</span></span>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
   let mainContent;
   if (showForm) {
@@ -938,127 +1145,13 @@ export default function SupplierInvoices({
     mainContent = (
       <SupplierInvoiceViewer
         invoice={viewingInvoice} contacts={contacts} accounts={accounts} projects={projects}
-        onClose={() => { setViewingInvoice(null); returnToOrigin(); }}
+        onClose={() => { setViewingInvoice(null); }}
         onPay={() => setPayingInvoiceId(viewingInvoice.id)}
         onUnmarkPaid={() => handleUnmarkPaid(viewingInvoice.id)}
       />
     );
   } else {
-    mainContent = (
-      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
-        <ListPageHeader
-          title="Leverantörsfakturor"
-          subtitle="Registrera och håll koll på vad företaget är skyldigt sina leverantörer"
-          actions={[
-            { key: 'new', label: 'Ny leverantörsfaktura', icon: Plus, onClick: () => setShowForm(true), variant: 'primary' },
-          ]}
-        />
-
-        <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column' }}>
-          <ListSearchRow value={search} onChange={e => setSearch(e.target.value)} placeholder="Sök leverantörsfaktura..." />
-
-          <ListTable
-            rowKey={inv => inv.id}
-            onRowClick={inv => setViewingInvoice(inv)}
-            emptyMessage={list.length === 0 ? (
-              // Kundönskemål: samma stora ikon/rubrik/knapp-mönster som
-              // Kontakter/Offerter tomma lägen, inte bara en textrad.
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', padding: '20px 0' }}>
-                <div style={{ width: 56, height: 56, borderRadius: '999px', background: 'var(--bg-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: BRAND.green }}>
-                  <FileText size={26} />
-                </div>
-                <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-main)' }}>Inga leverantörsfakturor än</div>
-                <div style={{ fontSize: '13.5px', color: 'var(--text-muted)', maxWidth: '320px' }}>Registrera din första leverantörsfaktura för att komma igång.</div>
-                <button type="button" onClick={() => setShowForm(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '10px 20px', marginTop: '8px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '9px', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}>
-                  <Plus size={16} /> Ny leverantörsfaktura
-                </button>
-              </div>
-            ) : 'Ingen matchade sökningen.'}
-            rows={filtered}
-            mobileList={inv => {
-              const needsReview = !inv.costAccount && !inv.rows?.length;
-              const effectivelyPaid = inv.status === 'paid' || optimisticPaid[inv.id];
-              const isOverdue = !effectivelyPaid && inv.dueDate && new Date(inv.dueDate) < new Date();
-              const dot = needsReview ? BRAND.amberText : isOverdue ? 'var(--status-red-text)' : effectivelyPaid ? STRONG_PAID.bg : STRONG_UNPAID.bg;
-              const dueLabel = effectivelyPaid ? 'betald' : isOverdue ? 'förföll' : 'förfaller';
-              // Numret bär identiteten när leverantören saknas — annars blev
-              // raden en anonym "Okänd leverantör" utan något som skiljer den
-              // från nästa. Samma mönster som kundfakturorna (Invoices.jsx).
-              const supplierName = contacts.find(c => c.id === inv.supplierId)?.name || inv.supplier;
-              return {
-                dot,
-                primary: supplierName || `Faktura #${inv.invoiceNumber}`,
-                amount: formatSEK(inv.amount),
-                meta: supplierName
-                  ? `#${inv.invoiceNumber} · ${dueLabel} ${formatDate(inv.dueDate)}`
-                  : `Ingen leverantör vald · ${dueLabel} ${formatDate(inv.dueDate)}`,
-                pill: needsReview ? (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', borderRadius: '999px', fontSize: '10.5px', fontWeight: 600, background: BRAND.amberBg, color: BRAND.amberText }}><AlertCircle size={11} /> Granska</span>
-                ) : <StatusBadge status={effectivelyPaid ? 'paid' : (isOverdue ? 'overdue' : 'unpaid')} />,
-              };
-            }}
-            columns={[
-              { key: 'supplier', label: 'Leverantör', fontWeight: 600, color: 'var(--text-main)', fontSize: '14px', wrap: true, render: inv => contacts.find(c => c.id === inv.supplierId)?.name || inv.supplier || 'Okänd leverantör' },
-              { key: 'invoiceNumber', label: 'Fakturanummer', color: 'var(--text-main)', render: inv => `#${inv.invoiceNumber}` },
-              { key: 'date', label: 'Fakturadatum', render: inv => formatDate(inv.date) },
-              {
-                key: 'dueDate', label: 'Förfallodatum', render: inv => {
-                  const effectivelyPaid = inv.status === 'paid' || optimisticPaid[inv.id];
-                  const isOverdue = !effectivelyPaid && inv.dueDate && new Date(inv.dueDate) < new Date();
-                  return <span style={{ color: isOverdue ? '#ef4444' : 'var(--text-secondary)', fontWeight: isOverdue ? 600 : 400 }}>{formatDate(inv.dueDate)}</span>;
-                },
-              },
-              { key: 'amount', label: 'Belopp', fontWeight: 600, color: 'var(--text-main)', render: inv => formatSEK(inv.amount) },
-              {
-                key: 'status', label: 'Status', render: inv => {
-                  const needsReview = !inv.costAccount && !inv.rows?.length;
-                  const effectivelyPaid = inv.status === 'paid' || optimisticPaid[inv.id];
-                  const isOverdue = !effectivelyPaid && inv.dueDate && new Date(inv.dueDate) < new Date();
-                  return needsReview ? (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: BRAND.amberBg, color: BRAND.amberText }}><AlertCircle size={12} /> Granska</span>
-                  ) : (
-                    <>
-                      <StatusBadge status={effectivelyPaid ? 'paid' : (isOverdue ? 'overdue' : 'unpaid')} />
-                      {effectivelyPaid && inv.paymentMethod && (
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px' }}>via {inv.paymentMethod === 'bank' ? 'bank' : 'kort'}</div>
-                      )}
-                    </>
-                  );
-                },
-              },
-              {
-                key: 'actions', label: '', align: 'right', render: inv => {
-                  const needsReview = !inv.costAccount && !inv.rows?.length;
-                  const effectivelyPaid = inv.status === 'paid' || optimisticPaid[inv.id];
-                  return (
-                    <div onClick={e => e.stopPropagation()}>
-                      {needsReview ? (
-                        fixingId === inv.id ? (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>
-                            <div style={{ width: 180 }}>
-                              <AccountSearch value={fixAccount} onChange={setFixAccount} accounts={accounts} placeholder="Välj konto..." />
-                            </div>
-                            <button onClick={() => applyFix(inv.id)} style={{ padding: '5px 10px', background: BRAND.green, color: 'white', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>Spara</button>
-                          </div>
-                        ) : (
-                          <button onClick={() => { setFixingId(inv.id); setFixAccount(''); }} style={{ padding: '5px 10px', background: BRAND.amberBg, color: BRAND.amberText, border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            Välj konto
-                          </button>
-                        )
-                      ) : !effectivelyPaid ? (
-                        <button onClick={() => setPayingInvoiceId(inv.id)} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '5px 10px', background: BRAND.greenLight, color: BRAND.greenDark, border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', marginLeft: 'auto' }}>
-                          <Check size={12} /> Betala nu
-                        </button>
-                      ) : null}
-                    </div>
-                  );
-                },
-              },
-            ]}
-          />
-        </div>
-      </div>
-    );
+    mainContent = renderList();
   }
 
   return (
@@ -1069,7 +1162,7 @@ export default function SupplierInvoices({
           invoice={list.find(inv => inv.id === payingInvoiceId)}
           contacts={contacts}
           onNavigate={onNavigate}
-          onConfirm={(method) => { handleMarkPaid(payingInvoiceId, method); setViewingInvoice(null); returnToOrigin(); }}
+          onConfirm={(method) => { handleMarkPaid(payingInvoiceId, method); setViewingInvoice(null); }}
           onCancel={() => setPayingInvoiceId(null)}
         />
       )}

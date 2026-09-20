@@ -65,3 +65,31 @@ export default function BokixWordmark({ height = 34, style, className }) {
     </svg>
   );
 }
+
+/**
+ * Loggans "B" ensam, för ytor som är för smala för hela ordmärket (sidomenyn i
+ * halvskärm, där den är ett ikonfält). Samma vektorkontur som ordmärket, alltså
+ * varumärkets egen bokstav och inte ett "B" i vilket typsnitt webbläsaren hittar,
+ * beskuret tätt med viewBox så att bara den första bokstaven syns och fyller sin ruta. Gradienten
+ * (himmel, turkos, lime) spänner över bokstaven själv, så märket får hela
+ * varumärkets färgskala i stället för bara ordmärkets blå vänsterkant.
+ */
+export function BokixMark({ height = 30, style, className }) {
+  const gradId = `bokixMarkGrad-${React.useId()}`;
+  return (
+    <svg
+      viewBox="2.5 4 28 34" width={(height * 28) / 34} height={height}
+      xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Bokix"
+      style={style} className={className}
+    >
+      <defs>
+        <linearGradient id={gradId} gradientUnits="userSpaceOnUse" x1="2.9" y1="0" x2="30.2" y2="0">
+          <stop offset="0%" stopColor="#0ea5e9" />
+          <stop offset="50%" stopColor="#14b8a6" />
+          <stop offset="100%" stopColor="#84cc16" />
+        </linearGradient>
+      </defs>
+      <path d={PATH_D} fill={`url(#${gradId})`} />
+    </svg>
+  );
+}

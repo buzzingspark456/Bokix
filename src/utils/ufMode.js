@@ -97,6 +97,11 @@ export const UF_NAV_LABELS = {
  *
  * `instead` pekar på ett riktigt tab-id i appen (resolveTab i App.jsx).
  */
+//
+// Offerter är en undersida under Försäljning i menyn. UF-läget döljer just den
+// raden (App.jsx frågar isNavIdAllowed('quotes'), som bygger på UF_NAV_IDS där
+// 'quotes' medvetet saknas) medan Kundfakturor, Leverantörsfakturor och
+// Artiklar följer 'invoices'.
 export const UF_BLOCKED_PAGES = {
   quotes: {
     label: 'Offerter',

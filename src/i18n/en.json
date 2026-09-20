@@ -3,6 +3,10 @@
     "dashboard": "Dashboard",
     "contacts": "Customers",
     "quotes": "Quotes",
+    "sales": "Sales",
+    "customerInvoices": "Customer invoices",
+    "supplierInvoices": "Supplier invoices",
+    "articles": "Products",
     "invoices": "Invoicing",
     "expenses": "Receipts",
     "projects": "Projects",
@@ -12,6 +16,20 @@
     "payroll": "Staff & payroll",
     "reports": "Reports & analysis",
     "taxes": "Tax & year-end",
+    "settings": "Settings"
+  },
+  "navShort": {
+    "dashboard": "Home",
+    "contacts": "Customers",
+    "sales": "Sales",
+    "expenses": "Receipts",
+    "verifications": "Books",
+    "review": "Review",
+    "projects": "Projects",
+    "bank": "Bank",
+    "payroll": "Payroll",
+    "reports": "Reports",
+    "taxes": "Tax",
     "settings": "Settings"
   },
   "shared": {

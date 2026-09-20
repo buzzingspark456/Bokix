@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  MdMoreTime, MdPayments, MdPersonAddAlt1, MdPostAdd, MdUploadFile,
+  MdOutlineEditNote, MdOutlineStorefront, MdMoreTime, MdPayments, MdPersonAddAlt1, MdPostAdd, MdUploadFile,
   MdOutlineAccessTime, MdOutlineAccountBalance, MdOutlineAccountBalanceWallet, MdOutlineAccountTree,
   MdOutlineAdd, MdOutlineAlarm, MdOutlineApartment,
   MdOutlineAreaChart, MdOutlineArrowBack, MdOutlineArrowCircleDown, MdOutlineArrowCircleUp,
@@ -191,6 +191,18 @@ export const Wallet = make(MdOutlineAccountBalanceWallet, 'Wallet');
 export const Workflow = make(MdOutlineSchema, 'Workflow');
 export const X = make(MdOutlineClose, 'X');
 export const XCircle = make(MdOutlineCancel, 'XCircle');
+// Menyikonerna för Fakturor och Kvitton. De var tidigare varianter av ett
+// dokument (sida med rader, lång kvittorem) och gick knappt att skilja åt i
+// ikonfältet.
+// Försäljning är menygruppen som samlar Offerter, Kundfakturor,
+// Leverantörsfakturor och Artiklar. Ikonerna för de tre dokumenttyperna får
+// vara släkta men har var sin silhuett: en sida med penna för offerten (ett
+// utkast man skriver), ett dollarblad för fakturan (en betalningsbegäran) och
+// ett kvitto med sicksackkant för kvittot.
+export const NavSalesIcon = make(MdOutlineStorefront, 'NavSalesIcon');
+export const NavQuotesIcon = make(MdOutlineEditNote, 'NavQuotesIcon');
+export const NavInvoicesIcon = make(MdOutlineRequestQuote, 'NavInvoicesIcon');
+export const NavReceiptsIcon = make(MdOutlineReceipt, 'NavReceiptsIcon');
 // Snabbåtgärderna på startsidan: fyllda ikoner som syns tydligt vita på en färgad platta.
 export const QuickNewInvoiceIcon = make(MdPostAdd, 'QuickNewInvoiceIcon');
 export const QuickUploadReceiptIcon = make(MdUploadFile, 'QuickUploadReceiptIcon');

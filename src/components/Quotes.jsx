@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { FileSpreadsheet, Plus, FileText, Check, X, Download, Trash2, Send, Eye, ZoomIn, ZoomOut, Paperclip, Loader2, Search, Package, ChevronDown, ChevronRight } from './icons';
+import { FileSpreadsheet, Plus, FileText, Check, X, Download, Trash2, Send, Eye, ZoomIn, ZoomOut, Paperclip, Loader2, Search, ChevronDown, ChevronRight } from './icons';
 import PaperFit from './shared/PaperFit';
 import InvoiceDocument, { DEFAULT_INVOICE_TEMPLATE, INVOICE_TEMPLATES } from './InvoiceDocument';
 import { exportInvoicePdf, getInvoicePdfBase64 } from '../utils/exportInvoicePdf';
@@ -994,7 +994,7 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
   );
 }
 
-export default function Quotes({ quotes = [], setQuotes, onConvert, contacts = [], projects = [], company, user, globalAction, clearGlobalAction, handleGlobalAction, articles = [], onNavigate }) {
+export default function Quotes({ quotes = [], setQuotes, onConvert, contacts = [], projects = [], company, user, globalAction, clearGlobalAction, handleGlobalAction, articles = [] }) {
   const [searchTerm, setSearchTerm] = useState('');
   // Kundönskemål: "en knapp där man kan se femton, trettio, femtio" — samma
   // visa-N-åt-gången-väljare som Kunder/Fakturering (ListFilterBar).
@@ -1115,9 +1115,6 @@ export default function Quotes({ quotes = [], setQuotes, onConvert, contacts = [
         title="Offerter"
         subtitle="Skapa offerter med samma mall som dina fakturor och konvertera till faktura när kunden accepterat"
         actions={[
-          // Samma produktregister som fakturorna (Articles.jsx) — samma
-          // genväg härifrån som Invoices.jsx:s "Artiklar"-länk.
-          { key: 'articles', label: 'Artiklar', icon: Package, onClick: () => onNavigate?.('articles'), variant: 'secondary' },
           { key: 'new', label: 'Ny offert', icon: Plus, onClick: openNew, variant: 'primary' },
         ]}
       />

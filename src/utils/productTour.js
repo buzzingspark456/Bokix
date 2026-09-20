@@ -124,7 +124,7 @@ const STEP_DEFS = [
     element: '[data-tour="page-invoices-field"]',
     closeSelector: '[data-tour="page-invoices-cancel"]',
     popover: {
-      title: 'Fakturering',
+      title: 'Kundfakturor',
       description: 'Välj kund och lägg till rader — Bokix räknar moms och totalsumma automatiskt.',
     },
   },

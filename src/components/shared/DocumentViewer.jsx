@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { FileText, Receipt, X, ZoomIn, ZoomOut, ExternalLink } from '../icons';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { FileText, Receipt, X, ZoomIn, ZoomOut, ExternalLink, Maximize2 } from '../icons';
 
 // ── Dokumentvisaren ─────────────────────────────────────────────────────
 // EN visare för alla underlag i appen: kvittot i Utgifter (bredvid
@@ -23,8 +23,17 @@ import { FileText, Receipt, X, ZoomIn, ZoomOut, ExternalLink } from '../icons';
 // bild spiller ut utanför sin egen låda och blir oåtkomlig i en centrerad
 // flexbox (det går inte att skrolla till kanterna); en bredare bild gör
 // ytan faktiskt skrollbar. Se .dv-* i index.css.
-const ZOOM_STEPS = [0.5, 0.75, 1, 1.5, 2, 3];
-const FIT_ZOOM = 2; // index i ZOOM_STEPS: "passa i rutan"
+//
+// Zoomen går i steg om 10 procentenheter av den passade storleken (1 =
+// "Passa"). Tidigare fasta steg (100 → 150 → 200 %) gjorde att det första
+// trycket på + hoppade ett halvt varv för långt, särskilt på mobilen.
+const FIT_ZOOM = 1;
+const ZOOM_MIN = 0.5;
+const ZOOM_MAX = 4;
+const ZOOM_STEP = 0.1;
+const stepZoom = (z, dir) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round((z + dir * ZOOM_STEP) * 10) / 10));
+// Samma brytpunkt som kvittovyns staplade läge (index.css, max-width: 860px).
+const isNarrowScreen = () => typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 860px)').matches;
 
 /** Filnamnet ur en Storage-URL, utan att fälla vyn på en trasig %-sekvens. */
 function fileNameFromUrl(url, fallback) {
@@ -41,13 +50,34 @@ function fileNameFromUrl(url, fallback) {
  * Saknas den gissar vi på filändelsen i URL:en — ett underlag sparat innan
  * typen började lagras ska inte tappa sin förhandsvisning.
  */
-export function DocumentPane({ url, type, name, emptyText, className = '' }) {
+export function DocumentPane({ url, type, name, emptyText, className = '', expandable = false }) {
   const [zoom, setZoom] = useState(FIT_ZOOM);
   const [imgFailed, setImgFailed] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const imgRef = useRef(null);
+  // Bildens SYNLIGA bredd i "Passa"-läget, så att 110 % blir 10 % större än vad
+  // man ser just nu. Bildelementet fyller hela ytan och ritar motivet med
+  // object-fit: contain, så elementets egen bredd är större än det synliga
+  // kvittot (ett stående kvitto får tomt på sidorna). Mäts elementet direkt
+  // hoppar första zoomsteget långt förbi det man såg. Därför räknas
+  // contain-storleken ut ur bildens egna proportioner.
+  const fitWidthRef = useRef(0);
+  const measureFitWidth = () => {
+    const img = imgRef.current;
+    if (!img) return 0;
+    const box = img.getBoundingClientRect();
+    const { naturalWidth: nw, naturalHeight: nh } = img;
+    if (!nw || !nh || !box.width || !box.height) return box.width;
+    return Math.min(box.width, (box.height * nw) / nh);
+  };
+  const changeZoom = (dir) => {
+    if (zoom === FIT_ZOOM) fitWidthRef.current = measureFitWidth();
+    setZoom(stepZoom(zoom, dir));
+  };
 
   // Ny fil i samma panel: börja om från passa-i-rutan och ge en bild som
   // förut misslyckades en ny chans.
-  useEffect(() => { setZoom(FIT_ZOOM); setImgFailed(false); }, [url]);
+  useEffect(() => { setZoom(FIT_ZOOM); setImgFailed(false); setExpanded(false); }, [url]);
 
   const kind = useMemo(() => {
     if (!url) return 'none';
@@ -72,14 +102,19 @@ export function DocumentPane({ url, type, name, emptyText, className = '' }) {
         <span className="dv-tools">
           {isImage && (
             <>
-              <button type="button" className="dv-btn" onClick={() => setZoom(z => Math.max(0, z - 1))} disabled={zoom === 0} aria-label="Zooma ut" title="Zooma ut">
+              <button type="button" className="dv-btn" onClick={() => changeZoom(-1)} disabled={zoom <= ZOOM_MIN} aria-label="Zooma ut" title="Zooma ut">
                 <ZoomOut size={15} />
               </button>
-              <span className="dv-zoom">{zoom === FIT_ZOOM ? 'Passa' : `${Math.round(ZOOM_STEPS[zoom] * 100)}%`}</span>
-              <button type="button" className="dv-btn" onClick={() => setZoom(z => Math.min(ZOOM_STEPS.length - 1, z + 1))} disabled={zoom === ZOOM_STEPS.length - 1} aria-label="Zooma in" title="Zooma in">
+              <span className="dv-zoom">{zoom === FIT_ZOOM ? 'Passa' : `${Math.round(zoom * 100)}%`}</span>
+              <button type="button" className="dv-btn" onClick={() => changeZoom(1)} disabled={zoom >= ZOOM_MAX} aria-label="Zooma in" title="Zooma in">
                 <ZoomIn size={15} />
               </button>
             </>
+          )}
+          {expandable && url && (
+            <button type="button" className="dv-btn dv-expand" onClick={() => setExpanded(true)} aria-label="Visa i helskärm" title="Visa i helskärm">
+              <Maximize2 size={14} /> Helskärm
+            </button>
           )}
           {url && (
             <a className="dv-btn" href={url} target="_blank" rel="noopener noreferrer" title="Öppna filen i en ny flik">
@@ -92,11 +127,17 @@ export function DocumentPane({ url, type, name, emptyText, className = '' }) {
       <div className="dv-body" style={kind === 'pdf' ? { padding: 0 } : undefined}>
         {isImage ? (
           <img
+            ref={imgRef}
             className={`dv-img${zoom === FIT_ZOOM ? ' dv-img-fit' : ''}`}
             src={url}
             alt={label}
             onError={() => setImgFailed(true)}
-            style={zoom === FIT_ZOOM ? undefined : { width: `${ZOOM_STEPS[zoom] * 100}%`, maxWidth: 'none', maxHeight: 'none' }}
+            // På mobil öppnar ett tryck på kvittot helskärmsvyn, där det går
+            // att zooma och panorera utan att formuläret ligger i vägen.
+            onClick={expandable && zoom === FIT_ZOOM && isNarrowScreen() ? () => setExpanded(true) : undefined}
+            style={zoom === FIT_ZOOM
+              ? (expandable ? { cursor: 'zoom-in' } : undefined)
+              : { width: fitWidthRef.current ? `${Math.round(fitWidthRef.current * zoom)}px` : `${zoom * 100}%`, maxWidth: 'none', maxHeight: 'none' }}
           />
         ) : kind === 'pdf' ? (
           <iframe className="dv-frame" src={url} title={label} />
@@ -113,6 +154,7 @@ export function DocumentPane({ url, type, name, emptyText, className = '' }) {
           </div>
         )}
       </div>
+      {expanded && <DocumentLightbox url={url} type={type} name={name} onClose={() => setExpanded(false)} />}
     </div>
   );
 }

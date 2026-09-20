@@ -1953,6 +1953,30 @@ body {
   color: var(--text-main);
 }
 
+/* Mittenknappen i mobilens bottenmeny (App.jsx, mobileNavItems.hero): en rund grön
+   knapp mitt i raden, som huvudsysslan i en riktig app. Den ligger helt INNE i
+   raden (kundfeedback: inte över kanten) och tar samma höjd som de andra ikonerna
+   (38 - 8 = 30px), så texten under står på samma linje som de andras. */
+.mobile-nav-hero { overflow: visible; }
+.mobile-nav-hero .mobile-nav-hero-circle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  margin-top: -8px;
+  margin-bottom: 0;
+  border-radius: 50%;
+  color: #ffffff;
+  background: linear-gradient(145deg, #1fa34d 0%, #0b6329 100%);
+  box-shadow: 0 3px 8px rgba(11, 99, 41, 0.3);
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.18s ease;
+}
+.mobile-nav-hero.active .mobile-nav-hero-circle {
+  box-shadow: 0 0 0 3px rgba(31, 163, 77, 0.28), 0 3px 8px rgba(11, 99, 41, 0.3);
+}
+.mobile-nav-hero:active .mobile-nav-hero-circle { transform: scale(0.94); }
+
 /* ── "Mer"-bottensheet — glider upp från botten istället för en egen sida. ── */
 .mobile-sheet-overlay {
   display: none;
@@ -2725,6 +2749,9 @@ textarea.form-control {
 }
 .dv-btn:hover:not(:disabled) { background: rgba(255,255,255,0.12); color: #fff; }
 .dv-btn:disabled { opacity: 0.35; cursor: default; }
+/* Helskärmsknappen behövs bara när kvittot ligger ovanför formuläret. */
+.dv-expand { display: none; }
+@media (max-width: 860px) { .dv-expand { display: inline-flex; } }
 .dv-zoom {
   min-width: 46px;
   text-align: center;
@@ -2738,8 +2765,10 @@ textarea.form-control {
   min-height: 0;
   overflow: auto;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  /* Centreringen sker med margin: auto på innehållet, inte med
+     align-/justify-content: center. Det senare klipper bort vänster och övre
+     delen av en bild som är större än ytan (den går inte att skrolla dit),
+     medan auto-marginaler krymper till noll och lämnar hela bilden skrollbar. */
   /* Knapp luft, inte en ram. Underlaget är det man kommit hit för att
      läsa — 18px runt om gjorde en mörk platta av halva panelen. */
   padding: 8px;
@@ -2749,8 +2778,10 @@ textarea.form-control {
    utanför sin egen låda och blir oåtkomlig i en centrerad flexbox (man kan
    inte skrolla till kanterna), medan en bredare bild faktiskt gör ytan
    skrollbar. Grundläget ("Passa") är i stället ren fit-to-box. */
+.dv-body > * { margin: auto; }
 .dv-img {
   display: block;
+  flex-shrink: 0;
   transition: width 160ms var(--ease);
 }
 /* Grundläget FYLLER panelen: object-fit: contain behåller proportionerna
@@ -2799,7 +2830,9 @@ textarea.form-control {
   display: flex;
   background: #14201a;
 }
-.dv-lightbox .dv-doc { flex: 1 1 auto; min-width: 0; }
+/* height/min-height: auto så att den staplade mobilvyns 52vh-höjd på
+   .dv-doc inte gäller i helskärm (då fick kvittot bara halva skärmen). */
+.dv-lightbox .dv-doc { flex: 1 1 auto; min-width: 0; height: auto; min-height: 0; }
 /* Plats åt stängkrysset, som ligger i samma hörn som verktygsraden. */
 .dv-lightbox .dv-bar { padding-right: 50px; }
 .dv-close {
@@ -2946,6 +2979,85 @@ textarea.form-control {
   transition: border-color var(--transition), color var(--transition), background var(--transition);
 }
 .rc-chip:hover { border-color: var(--primary); color: var(--text-main); }
+
+/* ── Kontoväljaren i kvittovyn (shared/AccountInlinePicker.jsx) ──
+   Ligger inline under fältet, aldrig som en flytande ruta: sökfält, snabbval
+   och en scrollbar lista. Valt konto visas som en rad med "Byt konto". */
+.acp { width: 100%; }
+.acp-current {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 46px;
+  padding: 8px 12px; box-sizing: border-box; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--bg-card); color: var(--text-main); cursor: pointer;
+  font-family: inherit; font-size: 14px; text-align: left;
+  transition: border-color var(--transition), background var(--transition);
+}
+.acp-current:hover { border-color: var(--primary); }
+.acp-code { font-weight: 700; font-variant-numeric: tabular-nums; min-width: 44px; flex-shrink: 0; }
+.acp-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.acp-change {
+  display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0;
+  font-size: 12.5px; font-weight: 600; color: var(--accent-text, var(--primary));
+}
+.acp-suggest {
+  display: flex; flex-direction: column; gap: 6px; width: 100%; margin-bottom: 8px; padding: 10px 12px;
+  box-sizing: border-box; border: 1.5px solid var(--primary); border-radius: 10px;
+  background: var(--status-green-bg); color: var(--text-main); cursor: pointer;
+  font-family: inherit; text-align: left;
+}
+.acp-suggest-top { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.acp-suggest-tag {
+  padding: 2px 8px; border-radius: 999px; background: var(--primary); color: #fff;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase;
+}
+.acp-suggest-note { font-size: 12px; color: var(--text-secondary); }
+.acp-suggest-main { display: flex; align-items: center; gap: 10px; font-size: 14.5px; }
+.acp-suggest-use { flex-shrink: 0; font-size: 13px; font-weight: 700; color: var(--status-green-text); }
+.acp-search { position: relative; }
+.acp-search input {
+  width: 100%; box-sizing: border-box; padding: 9px 34px 9px 34px;
+  border: 1px solid var(--border); border-radius: 8px; font-size: 14px; font-family: inherit;
+  background: var(--bg-card); color: var(--text-main); outline: none;
+}
+.acp-search input:focus { border-color: var(--primary); }
+.acp-search-ico { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; }
+.acp-clear {
+  position: absolute; right: 5px; top: 50%; transform: translateY(-50%);
+  display: flex; align-items: center; justify-content: center; width: 30px; height: 30px;
+  border: none; background: none; color: var(--text-muted); border-radius: 6px; cursor: pointer; padding: 0;
+}
+.acp-quick { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; }
+.acp-quick-label { font-size: 11.5px; font-weight: 600; color: var(--text-muted); }
+.acp-list {
+  margin-top: 8px; max-height: 300px; overflow-y: auto; overscroll-behavior: contain;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--bg-card);
+}
+.acp-group {
+  position: sticky; top: 0; z-index: 1; padding: 6px 12px;
+  background: var(--bg-muted); border-bottom: 1px solid var(--border-light);
+  font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted);
+}
+.acp-row {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 12px;
+  background: none; border: none; border-bottom: 1px solid var(--border-light);
+  color: var(--text-main); font-family: inherit; font-size: 13.5px; text-align: left; cursor: pointer;
+}
+.acp-row:last-child { border-bottom: none; }
+.acp-row:hover, .acp-row-hl { background: var(--bg-muted); }
+.acp-row-sel { background: var(--status-green-bg); }
+.acp-row-sel .acp-name { font-weight: 600; }
+.acp-check { color: var(--status-green-text); flex-shrink: 0; }
+.acp-empty { padding: 18px 14px; text-align: center; font-size: 13px; line-height: 1.5; color: var(--text-muted); }
+.acp-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 6px; font-size: 12px; color: var(--text-muted); }
+.acp-foot-actions { display: flex; flex-wrap: wrap; gap: 14px; justify-content: flex-end; }
+.acp-invalid .acp-list, .acp-invalid .acp-search input { border-color: #ef4444; }
+@media (max-width: 860px) {
+  .acp-list { max-height: min(320px, 42vh); }
+  .acp-row { min-height: 48px; padding: 10px 12px; font-size: 15px; }
+  .acp-current { min-height: 52px; font-size: 15px; }
+  .acp-code { min-width: 48px; }
+  .acp-group { font-size: 11.5px; }
+  .acp-foot { font-size: 12.5px; }
+}
 
 /* ── Skannern (ScanOverlay i Expenses.jsx) ──
    Ligger ovanpå dokumentets yta, under verktygsraden (44px), medan kvittot
@@ -3208,9 +3320,33 @@ textarea.form-control {
   .rc-form { flex: 0 0 auto; min-width: 0; border-left: none; border-top: 1px solid var(--border); }
   .rc-form-body { overflow: visible; }
   .rc-form-foot { position: sticky; bottom: 0; box-shadow: 0 -6px 18px rgba(0,0,0,0.06); }
-  .rc-grid { grid-template-columns: 1fr; }
+  .rc-grid { grid-template-columns: minmax(0, 1fr); }
   .rc-fx-grid { grid-template-columns: 1fr 1fr; }
   .rc-fx-grid > div:first-child { grid-column: 1 / -1; }
+
+  /* Fälten i kvittoformuläret på telefon: alla lika höga, lika breda som
+     kolumnen och aldrig bredare än den. minmax(0, 1fr) och min-width: 0 gör
+     att inget fält kan tänja ut rutnätet (ett datumfält har en egen minsta
+     bredd i Safari). Datumfältet får samma utseende och vänsterställda text
+     som textfälten i stället för Safaris egen centrerade ruta. 16px text så
+     att inget fält ser mindre ut än de andra. */
+  .rc-grid > * { min-width: 0; }
+  .rc-form input, .rc-form select, .rc-form textarea {
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+    font-size: 16px !important;
+  }
+  .rc-form input:not([type="checkbox"]):not([type="radio"]), .rc-form select { min-height: 44px; }
+  .rc-form input[type="date"] {
+    -webkit-appearance: none;
+    appearance: none;
+    display: block;
+    width: 100%;
+    text-align: left;
+  }
+  .rc-form input[type="date"]::-webkit-date-and-time-value { text-align: left; min-height: 1.4em; }
+  .rc-form input[type="date"]::-webkit-calendar-picker-indicator { margin: 0; }
 }
 
 
@@ -4138,6 +4274,12 @@ textarea.form-control {
   color: #1a1a1a;
   font-family: 'Inter', sans-serif;
   position: relative;
+}
+/* Fakturans egen sida (Invoices.jsx, InvoiceDetail): på telefon tog 32px
+   luft på var sida bort en femtedel av bredden, så A4-sidan skalades ned till
+   nästan oläsligt. Minimal marginal ger PaperFit så stor sida som möjligt. */
+@media (max-width: 860px) {
+  .doc-detail-scroll { padding: 12px 6px 24px !important; }
 }
 
 /* Ingen bakgrund statiskt här — InvoiceDocument.jsx sätter alltid
@@ -5573,10 +5715,6 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
   /* Flikraden: bara Kund- och Leverantörsfakturor. Genvägarna till Rapporter,
      Artiklar och Kunder och rundturen ligger annars i Meny och Hjälp, och fyra
      rader flikar och knappar över listan är för mycket på en telefon. */
-  .inv-tabs { flex-wrap: nowrap !important; overflow-x: auto; scrollbar-width: none; padding: 0 8px !important; }
-  .inv-tabs::-webkit-scrollbar { display: none; }
-  .inv-tabs > button { flex-shrink: 0; }
-  .inv-tabs .inv-tour-pill, .inv-tabs .inv-tab-extra { display: none !important; }
 
   /* Sökrad: sökfältet över hela bredden, sedan knapparna på en rad med
      "Skapa faktura" som den stora. */
@@ -5663,6 +5801,48 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
    klippas. Namnet visas som hjälptext när man håller över en ikon.
 ══════════════════════════════════════════════ */
 .sidebar-monogram { display: none; }
+.sidebar .nav-short { display: none; }
+/* Linjerna mellan grupperna under Försäljning: Artiklar, Offerter, fakturorna. */
+.nav-child-divider { height: 1px; margin: 2px 24px 2px 53px; background: rgba(255, 255, 255, 0.14); flex-shrink: 0; }
+.sales-flyout-divider { height: 1px; margin: 4px 10px; background: rgba(255, 255, 255, 0.14); }
+/* Försäljningsrutan i halvskärm (App.jsx): ligger bredvid ikonfältet. */
+.sales-flyout {
+  min-width: 230px;
+  padding: 8px;
+  background: var(--bg-sidebar, #0c1f14);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 14px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sales-flyout-title {
+  padding: 6px 10px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+}
+.sales-flyout-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  padding: 11px 12px;
+  border: none;
+  border-radius: 9px;
+  background: none;
+  color: rgba(255, 255, 255, 0.9);
+  font-family: inherit;
+  font-size: 14.5px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+.sales-flyout-item:hover { background: rgba(255, 255, 255, 0.1); }
+.sales-flyout-item.active { background: rgba(255, 255, 255, 0.16); color: #fff; font-weight: 700; }
 @media (min-width: 769px) and (max-width: 1100px) {
   :root { --sidebar-width: 76px; }
   .sidebar { width: var(--sidebar-width); }
@@ -5672,24 +5852,42 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 44px;
-    height: 44px;
-    border-radius: 12px;
-    border: none;
-    background: rgba(255, 255, 255, 0.14);
-    color: #fff;
-    font-family: Georgia, 'Times New Roman', serif;
-    font-size: 26px;
-    font-weight: 700;
+    width: 54px;
+    height: 54px;
+    /* Samma platta som favikonen (public/favicon.svg): mörkgrön (#0c1f14) med
+       rundade hörn (22 %) och B:et i loggans gradient. En tunn ljus kant gör att
+       plattan syns mot en mörk sidomeny också, där den annars smälter in. */
+    border-radius: 22%;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: #0c1f14;
     cursor: pointer;
+    padding: 0;
+    transition: border-color var(--transition), transform var(--transition);
   }
+  .sidebar-monogram:hover { border-color: rgba(255, 255, 255, 0.32); transform: translateY(-1px); }
+  .sidebar-monogram svg { display: block; }
   .sidebar .nav-label { display: none; }
+  /* Text under varje ikon, som i mobilens bottenmeny: det gör att man ser vad
+     varje ikon är utan att hålla musen över den. */
   .sidebar .nav-item {
     position: relative;
-    padding: 14px 0 !important;
+    padding: 9px 0 8px !important;
     justify-content: center !important;
   }
-  .sidebar .nav-item > span { justify-content: center; }
+  .sidebar .nav-item > span { justify-content: center; flex-direction: column; gap: 4px !important; }
+  .sidebar .nav-short {
+    display: block;
+    max-width: 70px;
+    font-size: 10.5px;
+    font-weight: 600;
+    line-height: 1.1;
+    letter-spacing: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  /* Hjälp och Logga ut finns i profilmenyn uppe till höger. */
+  .sidebar .sidebar-footer-actions { display: none; }
   .sidebar .nav-badge {
     position: absolute;
     top: 6px;
@@ -5702,6 +5900,19 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
   .sidebar > div[style*="height: 1px"] { margin-left: 14px !important; margin-right: 14px !important; }
   .sidebar .nav-item.logout-btn,
   .sidebar .nav-item { gap: 0 !important; }
+}
+/* Försäljning i sidomenyn (App.jsx): gruppens undersidor. På en låg skärm blir
+   menyn tätare så att hela listan, inklusive Inställningar, ryms med gruppen
+   uppfälld. I halvskärmens ikonfält (ovan) visas undersidorna som ikoner med en
+   svag bakgrund, så de läses som en grupp under Försäljning. */
+@media (min-width: 1101px) and (max-height: 960px) {
+  .sidebar .nav-item:not(.nav-child) { padding-top: 11px !important; padding-bottom: 11px !important; }
+  .sidebar .nav-child { padding-top: 8px !important; padding-bottom: 8px !important; }
+}
+@media (min-width: 769px) and (max-width: 1100px) {
+  .sidebar .nav-chevron { display: none; }
+  .sidebar .nav-child { background: rgba(0, 0, 0, 0.14); padding: 11px 0 !important; justify-content: center !important; gap: 0 !important; }
+  .sidebar .nav-child.active { background: rgba(255, 255, 255, 0.14); }
 }
 /* ── Hjälp och Logga ut i Inställningar (bara telefon) ── */
 .settings-account-rows { display: none; }
@@ -6129,3 +6340,36 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
 .dash-root[data-fit="cozy"] .dash-sie > div:first-child > div:last-child, .dash-root[data-fit="snug"] .dash-sie > div:first-child > div:last-child, .dash-root[data-fit="compact"] .dash-sie > div:first-child > div:last-child, .dash-root[data-fit="mini"] .dash-sie > div:first-child > div:last-child, .dash-root[data-fit="tight"] .dash-sie > div:first-child > div:last-child { flex: 1 1 auto; min-width: 0; }
 .dash-root[data-fit="cozy"] .dash-sie-sub, .dash-root[data-fit="snug"] .dash-sie-sub, .dash-root[data-fit="compact"] .dash-sie-sub, .dash-root[data-fit="mini"] .dash-sie-sub, .dash-root[data-fit="tight"] .dash-sie-sub { display: none; }
 .dash-root[data-fit="tight"] .dash-sie { display: none !important; }
+/* Snug är nivån de flesta telefoner landar på och den har lite luft över.
+   Räkenskapsårskortet (period, nyckeltal, Utveckling) får därför större text
+   och lite mer höjd här. Compact och tätare behåller sina små mått, eftersom
+   de bara väljs när skärmen inte ryms med snug. */
+.dash-root[data-fit="snug"] .dash-period-row { margin-bottom: 12px !important; }
+.dash-root[data-fit="snug"] .dash-period-row > div:first-child > div:first-child { font-size: 16px !important; }
+.dash-root[data-fit="snug"] .dash-period-row > div:first-child > div:last-child { font-size: 12.5px !important; margin-top: 2px !important; }
+.dash-root[data-fit="snug"] .dash-period-row button, .dash-root[data-fit="snug"] .dash-chart-head button { min-height: 38px !important; font-size: 13px !important; }
+.dash-root[data-fit="snug"] .dash-kpi-grid { margin-bottom: 14px !important; }
+.dash-root[data-fit="snug"] .dash-kpi-card { padding: 12px 10px !important; gap: 6px !important; }
+.dash-root[data-fit="snug"] .dash-kpi-card-label { font-size: 10.5px !important; }
+.dash-root[data-fit="snug"] .dash-kpi-card-value { font-size: 17px !important; }
+.dash-root[data-fit="snug"] .dash-chart-head { margin-bottom: 8px !important; }
+.dash-root[data-fit="snug"] .dash-chart-head h2 { font-size: 19px !important; }
+.dash-root[data-fit="snug"] .dash-chart-empty { height: 160px !important; gap: 6px !important; }
+.dash-root[data-fit="snug"] .dash-chart-empty > div { width: 44px !important; height: 44px !important; }
+.dash-root[data-fit="snug"] .dash-chart-empty p:first-of-type { font-size: 14px !important; }
+@media (max-height: 830px) {
+  .dash-root[data-fit="snug"] .dash-chart-empty { height: 110px !important; }
+}
+/* "Har du bokfört någon annanstans innan?" på telefon: en rad med text och
+   knapp, utan ikon och underrubrik, så frågan inte bryts i tre korta rader
+   bredvid en bred knapp. Texten balanseras om den ändå behöver två rader. */
+@media (max-width: 640px) {
+  .dash-sie { padding: 10px 12px !important; flex-wrap: nowrap !important; gap: 10px !important; }
+  .dash-sie > div:first-child { flex: 1 1 auto !important; min-width: 0; flex-wrap: nowrap !important; gap: 0 !important; }
+  .dash-sie > div:first-child > div:first-child { display: none !important; }
+  .dash-sie > div:first-child > div:last-child { flex: 1 1 auto; min-width: 0; }
+  .dash-sie > div:first-child > div:last-child > div:first-child { font-size: 13px !important; line-height: 1.3; text-wrap: balance; }
+  .dash-sie-sub { display: none !important; }
+  .dash-sie > div:last-child { gap: 6px !important; }
+  .dash-sie > div:last-child button:first-child { padding: 8px 12px !important; font-size: 12.5px !important; }
+}

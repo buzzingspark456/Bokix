@@ -4,7 +4,7 @@ import {
   Plus, X, Send, Check, FileText,
   Search, ChevronRight, ChevronDown,
   RefreshCw, Printer, Eye, CreditCard, Link2,
-  MessageSquare, Tag, Lock, Settings2, Download, AlertTriangle, Inbox, Trash2,
+  MessageSquare, Tag, Lock, Settings2, Download, AlertTriangle, Trash2,
   ZoomIn, ZoomOut, Pencil, Copy, CheckCircle2, Undo2, Sparkles
 } from './icons';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
@@ -15,8 +15,9 @@ import { sendInvoiceEmail } from '../emailApi';
 import { BRAND } from '../utils/brandColors';
 import { getNextInvoiceNumber } from '../utils/invoiceNumbering';
 import { confirmDialog } from './shared/ConfirmDialog';
-import { listHeaderButtonStyle, listSearchInputStyle, listFilterFieldStyle, PAGE_SIZE_OPTIONS } from './shared/ListPageHeader';
+import ListPageHeader, { listHeaderButtonStyle, listSearchInputStyle, listFilterFieldStyle, PAGE_SIZE_OPTIONS } from './shared/ListPageHeader';
 import RowActionMenu from './shared/RowActionMenu';
+import { STRONG_PAID, STRONG_UNPAID, STRONG_OVERDUE, getRowBg } from './shared/invoiceStatusStyle';
 import { AccountSearch } from './shared/SearchInputs';
 import ListTable from './shared/ListTable';
 // Kodgranskning: fanns tidigare som en egen lokal kopia här OCH som
@@ -46,22 +47,6 @@ const formatDate = (d) => {
 const isOverdue = (inv) =>
   inv.status !== 'paid' && inv.dueDate && new Date(inv.dueDate) < new Date();
 
-function getRowBg(status) {
-  // Kundfeedback ("bakgrunden är inte så gul/röd"): en HEL RADS bakgrund är
-  // mycket mer yta än en liten badge — appens vanliga, medvetet bleka
-  // --status-amber-bg/--status-red-bg (delade av alla andra sidors diskreta
-  // märken) lästes knappt som färgade alls i den skalan. Egna --row-*-bg-
-  // tokens (index.css, tema-medvetna) används bara här, en nivå starkare.
-  // Uppföljning ("för gröna ska vara mer grön"): "Betald" var det enda
-  // statuset som fortfarande återanvände BRAND.greenLight — appens
-  // blekaste generella badge-ton — i stället för en egen, lika mättad
-  // radton som de andra två redan fick. Samma --row-paid-bg-mönster nu.
-  if (status === 'paid') return 'var(--row-paid-bg)'; // betald
-  if (status === 'overdue') return 'var(--row-overdue-bg)'; // förfallen
-  if (status === 'sent') return 'var(--row-unpaid-bg)';     // obetald, inte förfallen än
-  if (status === 'draft') return BRAND.grayBg;      // ej bokförd/skickad än
-  return '#ffffff';
-}
 
 // Kundfeedback ("starkare färger för obetald och betald"): de vanliga
 // BRAND.amberBg/greenLight-tonerna är avsiktligt bleka (samma neutrala
@@ -83,26 +68,8 @@ function getRowBg(status) {
 // Kundfeedback ("mindre bright, mer mörk"): #16a34a ett steg mörkare
 // (#15803d) — vit text ovanpå betyder att kontrasten bara ökar av det,
 // samma i båda temana precis som innan.
-const STRONG_PAID = { bg: '#15803d', text: '#ffffff' };
-// Kundfeedback (uppföljning): gult "ännu mer gulish" — bytt till en ljusare,
-// renare gul ton (mindre orange i sig) och rött "lite mer" — bytt till en
-// mer mättad, mindre orange-tonad röd.
-//
-// Kundfeedback (uppföljning igen): den ljusa gula (#facc15, literal hex,
-// samma i båda temana) stack ut för mycket mot en VIT sida men lästes helt
-// rätt mot en mörk — `var(--invoice-unpaid-bg)` (index.css) håller mörkt
-// läge oförändrat och dämpar bara ljust lägets ton ett steg.
-const STRONG_UNPAID = { bg: 'var(--invoice-unpaid-bg)', text: '#422006' };
-// Kundfeedback ("lite mer chill, inte så stark"): #e11d1d var en ren,
-// mättad varningsröd — dämpad ett steg (mindre mättnad, samma kulör) i
-// stället för att byta hue helt, så "förfallen" fortfarande entydigt läses
-// som röd/allvarligt, bara inte lika högljutt.
-//
-// Kundfeedback ("måste se bra ut i dark theme också"): var en literal hex,
-// samma i båda temana, till skillnad från STRONG_UNPAID — `var(--invoice-
-// overdue-bg)` (index.css) ger den nu en egen, kontrollerad mörk-läge-ton
-// precis som gult redan hade, i stället för att bara råka funka.
-const STRONG_OVERDUE = { bg: 'var(--invoice-overdue-bg)', text: '#ffffff' };
+// STRONG_PAID/STRONG_UNPAID/STRONG_OVERDUE och getRowBg bor i shared/invoiceStatusStyle.js.
+
 
 // Exempelfaktura — Fakturaguiden (utils/invoiceTour.js) pekar på statusmärket
 // och radmenyn, men de flesta konton har inga riktiga fakturor än när de
@@ -1687,7 +1654,7 @@ function InvoiceViewer({ invoice, contacts, company, status, onClose, onEdit }) 
       </div>
 
       {/* ── Dokumentet — full bredd, inbäddat direkt i sidan, ingen modal. ── */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '32px', display: 'flex', justifyContent: 'center' }}>
+      <div className="doc-detail-scroll" style={{ flex: 1, overflowY: 'auto', padding: '32px', display: 'flex', justifyContent: 'center' }}>
         <div style={{ width: '100%', maxWidth: '900px' }}>
           <PaperFit><InvoiceDocument {...documentProps} /></PaperFit>
         </div>
@@ -1704,191 +1671,6 @@ function InvoiceViewer({ invoice, contacts, company, status, onClose, onEdit }) 
   );
 }
 
-
-// ─── Höger sektion på Fakturering: Leverantörsfakturor ─────────────────────
-// Riktig data (samma `expenses`-poster som den fristående Leverantörs-
-// fakturor-sidan), inte en förenklad attrapp — men kompakt, utan flerrads-
-// kontering/filuppladdning. "Ny leverantörsfaktura" och "Visa alla" öppnar
-// den fullständiga sidan för det som faktiskt kräver mer plats.
-function SupplierInvoicesPanel({ expenses, contacts, onMarkPaid, onOpenFull, onOpenInvoice, onCreateNew }) {
-  const [statusFilter, setStatusFilter] = useState('all');
-  // Samma "Visa N"-väljare som kundfakturorna och Bokföring (kundönskemål:
-  // den ska finnas och fungera likadant på ALLA listor, inte bara en).
-  const [pageSize, setPageSize] = useState(30);
-  const list = expenses.filter(e => e.type === 'supplier_invoice');
-
-  const getStatus = (inv) => {
-    if (inv.status === 'paid') return 'paid';
-    if (inv.dueDate && new Date(inv.dueDate) < new Date()) return 'overdue';
-    return 'sent'; // "obetald" — leverantörsfakturor har inget eget utkastläge
-  };
-
-  const statusOptions = [
-    { value: 'all', label: 'Alla' },
-    { value: 'sent', label: 'Obetald', bg: BRAND.amberBg, color: BRAND.amberText },
-    { value: 'overdue', label: 'Förfallen', bg: BRAND.redBg, color: BRAND.redText },
-    { value: 'paid', label: 'Betald', bg: BRAND.greenLight, color: BRAND.greenDark },
-  ];
-
-  const statusCounts = {};
-  list.forEach(inv => { const s = getStatus(inv); statusCounts[s] = (statusCounts[s] || 0) + 1; });
-
-  const filtered = statusFilter === 'all' ? list : list.filter(inv => getStatus(inv) === statusFilter);
-  const sorted = [...filtered].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-  const visible = pageSize === 'all' ? sorted : sorted.slice(0, pageSize);
-
-  return (
-    <>
-      <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '14px 16px 0', display: 'flex', alignItems: 'center', flexShrink: 0, flexWrap: 'wrap', gap: '8px' }}>
-        <h1 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <Inbox size={16} /> Leverantörsfakturor
-        </h1>
-        <div style={{ flex: 1 }} />
-        <button onClick={onOpenFull} style={{ padding: '4px 10px 12px', border: 'none', background: 'none', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', cursor: 'pointer' }}>Visa alla</button>
-        <button onClick={onCreateNew} style={{ ...listHeaderButtonStyle('primary'), marginBottom: '10px' }}>
-          <Plus size={13} /> Ny leverantörsfaktura
-        </button>
-      </div>
-
-      {list.length > 0 && (
-      <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '6px 16px', display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0, flexWrap: 'wrap' }}>
-        {statusOptions.map(opt => {
-          const isActive = statusFilter === opt.value;
-          const count = opt.value === 'all' ? list.length : (statusCounts[opt.value] || 0);
-          if (opt.value !== 'all' && count === 0) return null;
-          const isNeutral = opt.value === 'all';
-          return (
-            <button key={opt.value} onClick={() => setStatusFilter(opt.value)} aria-pressed={isActive} style={{
-              display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 10px',
-              background: isNeutral ? (isActive ? 'var(--bg-muted)' : 'transparent') : opt.bg,
-              border: '1.5px solid transparent',
-              // Exakt samma markering av valt piller som kundfakturorna
-              // (ring utanför pillret i dess egen färg) — de två flikarna
-              // ligger bredvid varandra och ska inte se ut som två olika
-              // produkter.
-              boxShadow: isActive ? `0 0 0 2px var(--bg-card), 0 0 0 3.5px ${isNeutral ? 'var(--text-secondary)' : opt.color}` : 'none',
-              borderRadius: '999px', fontSize: '12px', fontWeight: isActive ? 700 : 600,
-              color: isNeutral ? 'var(--text-secondary)' : opt.color, cursor: 'pointer',
-            }}>
-              {opt.label}
-              {count > 0 && (
-                <span style={{
-                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 16, height: 16, padding: '0 4px',
-                  borderRadius: '999px', fontSize: '10px', fontWeight: 700,
-                  background: 'var(--status-chip-bg)',
-                  color: isNeutral ? 'var(--text-secondary)' : opt.color,
-                }}>{count}</span>
-              )}
-            </button>
-          );
-        })}
-        <div style={{ flex: 1 }} />
-        <label className="inv-pills-extra" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-muted)' }}>
-          Visa
-          <select
-            value={pageSize}
-            onChange={e => setPageSize(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-            style={{ ...listFilterFieldStyle, height: '28px', padding: '0 8px', fontSize: '12px' }}
-          >
-            {PAGE_SIZE_OPTIONS.map(n => <option key={n} value={n}>{n}</option>)}
-            <option value="all">Alla</option>
-          </select>
-        </label>
-      </div>
-      )}
-
-      {sorted.length === 0 ? (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '32px', background: 'var(--bg-card)', textAlign: 'center', color: 'var(--text-muted)' }}>
-          <Inbox size={28} style={{ color: 'var(--border)' }} />
-          <div style={{ fontSize: '13.5px' }}>{list.length === 0 ? 'Inga leverantörsfakturor registrerade än.' : 'Inga fakturor i det här filtret.'}</div>
-        </div>
-      ) : (
-        // Bugfix (kundfeedback, skärmdump på mobil/iPad): den här panelen
-        // hade tidigare en egen handrullad <table> som aldrig fick
-        // className="responsive-table" — till skillnad från VARJE annan
-        // lista i appen (Kunder/Offerter/kundfakturasektionerna ovan m.fl.)
-        // föll den då aldrig om till kortläget på en smal skärm, bara
-        // klämde ihop alla sex kolumnerna sida vid sida med avklippt text.
-        // Samma delade ListTable-komponent som resten av appen istället —
-        // får responsiviteten, statusfärgerna och radhöjden gratis, ingen
-        // egen kopia att glömma uppdatera nästa gång de justeras.
-        <div style={{ flex: 1, overflowY: 'auto' }}>
-          <ListTable
-            rowKey={inv => inv.id}
-            onRowClick={inv => onOpenInvoice?.(inv)}
-            rowStyle={inv => ({ background: getRowBg(getStatus(inv) === 'sent' ? 'sent' : getStatus(inv)) })}
-            emptyMessage="Inga fakturor i det här filtret."
-            rows={visible}
-            roundedBottom={false}
-            mobileList={inv => {
-              const status = getStatus(inv);
-              const dot = status === 'overdue' ? BRAND.redText : status === 'paid' ? BRAND.greenDark : BRAND.amberText;
-              // Samma resonemang som kundfakturornas rad: numret bär
-              // identiteten när leverantören saknas, och att den saknas
-              // skrivs ut i klartext.
-              const supplierName = contacts.find(c => c.id === inv.supplierId)?.name;
-              const dueLabel = `${status === 'overdue' ? 'förföll' : status === 'paid' ? 'betald' : 'förfaller'} ${formatDate(inv.dueDate)}`;
-              return {
-                dot,
-                primary: supplierName || `Faktura #${inv.invoiceNumber}`,
-                amount: fmt(inv.amount),
-                meta: supplierName ? `#${inv.invoiceNumber} · ${dueLabel}` : `Ingen leverantör vald · ${dueLabel}`,
-                pill: status === 'paid' ? (
-                  <span style={{ padding: '2px 8px', borderRadius: '999px', fontSize: '10.5px', fontWeight: 600, background: BRAND.greenLight, color: BRAND.greenDark }}>Betald</span>
-                ) : (
-                  <span style={{ padding: '2px 8px', borderRadius: '999px', fontSize: '10.5px', fontWeight: 600, background: status === 'overdue' ? BRAND.redBg : BRAND.amberBg, color: status === 'overdue' ? BRAND.redText : BRAND.amberText }}>
-                    {status === 'overdue' ? 'Förfallen' : 'Obetald'}
-                  </span>
-                ),
-              };
-            }}
-            columns={[
-              {
-                key: 'supplier', label: 'Leverantör', fontWeight: 500, color: 'var(--text-main)', wrap: true,
-                render: inv => contacts.find(c => c.id === inv.supplierId)?.name || 'Okänd leverantör',
-              },
-              { key: 'invoiceNumber', label: 'Fakturanr', render: inv => `#${inv.invoiceNumber}` },
-              { key: 'date', label: 'Fakturadatum', render: inv => formatDate(inv.date) },
-              {
-                key: 'dueDate', label: 'Förfaller',
-                render: inv => {
-                  const status = getStatus(inv);
-                  return <span style={{ color: status === 'overdue' ? BRAND.redText : 'var(--text-secondary)', fontWeight: status === 'overdue' ? 700 : 400 }}>{formatDate(inv.dueDate)}</span>;
-                },
-              },
-              { key: 'amount', label: 'Belopp', align: 'right', fontWeight: 600, color: 'var(--text-main)', render: inv => fmt(inv.amount) },
-              {
-                key: 'actions', label: '', render: inv => {
-                  const status = getStatus(inv);
-                  return status !== 'paid' ? (
-                    <button
-                      onClick={e => { e.stopPropagation(); onMarkPaid?.(inv.id); }}
-                      title="Klicka för att markera som betald"
-                      style={{
-                        padding: '3px 9px', borderRadius: '999px', fontSize: '11px', fontWeight: 600, border: 'none', cursor: 'pointer',
-                        background: status === 'overdue' ? BRAND.redBg : BRAND.amberBg,
-                        color: status === 'overdue' ? BRAND.redText : BRAND.amberText,
-                      }}
-                    >
-                      {status === 'overdue' ? 'Förfallen' : 'Obetald'}
-                    </button>
-                  ) : (
-                    <span style={{ padding: '3px 9px', borderRadius: '999px', fontSize: '11px', fontWeight: 600, background: BRAND.greenLight, color: BRAND.greenDark }}>Betald</span>
-                  );
-                },
-              },
-            ]}
-          />
-          {/* Samma ärliga avskärningsrad som kundfakturorna: en "Visa 30"
-              får aldrig se ut som om det var alla fakturor som fanns. */}
-          <div style={{ padding: '9px 16px', border: '1px solid var(--border)', borderTop: 'none', borderRadius: '0 0 12px 12px', background: 'var(--bg-muted)', fontSize: '12px', color: 'var(--text-muted)', boxShadow: 'var(--shadow-sm)' }}>
-            {visible.length < sorted.length ? `Visar ${visible.length} av ${sorted.length}` : `${sorted.length} ${sorted.length === 1 ? 'faktura' : 'fakturor'}`}
-          </div>
-        </div>
-      )}
-    </>
-  );
-}
 
 // Artikelregistret (list/redigering av `articles`) hade tidigare en egen
 // modal-komponent här (ArticleRegisterModal). Flyttad till en riktig,
@@ -2077,7 +1859,7 @@ function PaymentLinkModal({ invoice, customer, company, onGetPaymentLinkUrl, onC
   );
 }
 
-export default function Invoices({ ufQuota = { limited: false }, invoices, contacts, accounts = [], onAdd, onMarkPaid, onRegisterPayment, onUnmarkPaid, setInvoices, company, globalAction, clearGlobalAction, onNavigate, verifications = [], expenses = [], onMarkSupplierInvoicePaid, handleGlobalAction, onGetPaymentLinkUrl, articles = [], setArticles, uid, projects = [] }) {
+export default function Invoices({ ufQuota = { limited: false }, invoices, contacts, accounts = [], onAdd, onMarkPaid, onRegisterPayment, onUnmarkPaid, setInvoices, company, globalAction, clearGlobalAction, verifications = [], onGetPaymentLinkUrl, articles = [], setArticles, uid, projects = [] }) {
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Två klart avgränsade sektioner, inte en klämd sida-vid-sida-vy — varje
@@ -2085,13 +1867,6 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
   // Leverantörsfakturor-sidan redan gör. Bara två flikar, inte hela den
   // gamla flikraden (Inbetalningar/Påminnelser/Återkommande/Offerter är
   // fortsatt borttagna på användarens uttryckliga begäran).
-  const section = searchParams.get('section') === 'leverantorer' ? 'leverantorer' : 'kunder';
-  const setSection = (s) => setSearchParams(prev => {
-    const next = new URLSearchParams(prev);
-    next.set('section', s);
-    return next;
-  }, { replace: true });
-
   // Vilken faktura PaymentLinkModal (ovan) just nu är öppen för — null när
   // stängd. Håller själva fakturaobjektet (inte bara ett id) så modalen
   // slipper leta rätt på den igen i en lista som kan hinna ändras.
@@ -2645,42 +2420,21 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, background: 'var(--bg-page)' }}>
-      {/* Två tydligt avgränsade sektioner — varje väljs för sig och fyller
-          då hela bredden, inte en sida-vid-sida-klämd vy. Bara dessa två
-          flikar; resten av den gamla flikraden (Inbetalningar/Påminnelser/
-          Återkommande/Offerter) är fortsatt borttagen. */}
-      <div className="inv-tabs" data-inv-tour="tabs" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '0 16px', display: 'flex', alignItems: 'center', flexShrink: 0, flexWrap: 'wrap' }}>
-        {[{ id: 'kunder', label: 'Kundfakturor' }, { id: 'leverantorer', label: 'Leverantörsfakturor' }].map(t => (
-          <button key={t.id} onClick={() => setSection(t.id)} style={{
-            padding: '12px 14px', border: 'none',
-            borderBottom: section === t.id ? '3px solid var(--accent)' : '3px solid transparent',
-            background: 'none', fontSize: '14px', fontWeight: section === t.id ? 700 : 500,
-            color: section === t.id ? 'var(--text-main)' : 'var(--text-secondary)', cursor: 'pointer', whiteSpace: 'nowrap',
-          }}>{t.label}</button>
-        ))}
-        <div style={{ flex: 1 }} />
-        {/* Fakturaguiden — döljs för gott (den här sidladdningen) så fort den
-            stängts en gång, se invoiceTourSeen ovan. Kvar därefter under
-            Hjälp och support (HelpDrawer.jsx → App.jsx:s onStartInvoiceTour). */}
-        {!invoiceTourSeen && (
-          <button className="inv-tour-pill" onClick={handleStartInvoiceTour} style={{
-            display: 'flex', alignItems: 'center', gap: '6px', padding: '5px 12px', margin: '4px 0',
-            borderRadius: '999px', border: '1px solid var(--status-blue-text)', background: 'var(--status-blue-bg)',
-            color: 'var(--status-blue-text)', fontSize: '12.5px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap',
-          }}>
-            <Sparkles size={13} /> Så funkar fakturering
-          </button>
-        )}
-        <button className="inv-tab-extra" onClick={() => onNavigate?.('reports')} style={{ padding: '4px 14px 12px', border: 'none', background: 'none', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', cursor: 'pointer' }}>Rapporter</button>
-        {/* Pekade tidigare på en liten modal (ArticleRegisterModal) här på
-            plats — flyttat till en egen, hittbar sida (Articles.jsx, nås
-            även direkt från profilmenyn: "Artikel") så samma
-            register går att välja från både fakturor och offerter. */}
-        <button className="inv-tab-extra" onClick={() => onNavigate?.('articles')} style={{ padding: '4px 14px 12px', border: 'none', background: 'none', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', cursor: 'pointer' }}>Artiklar</button>
-        <button className="inv-tab-extra" onClick={() => onNavigate?.('contacts')} style={{ padding: '4px 14px 12px', border: 'none', background: 'none', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', cursor: 'pointer' }}>Kunder ↓</button>
+      {/* Sidhuvud. Kundfakturor, Offerter, Leverantörsfakturor och Artiklar nås
+          via Försäljning i sidomenyn, så sidan behöver inga flikar. Fakturaguiden
+          (invoiceTour.js) pekar på wrappern via data-inv-tour="tabs". */}
+      <div data-inv-tour="tabs">
+        <ListPageHeader
+          title="Kundfakturor"
+          subtitle="Fakturor du skickar till dina kunder"
+          actions={!invoiceTourSeen ? [
+            // Fakturaguiden — döljs så fort den stängts en gång, se invoiceTourSeen
+            // ovan. Kvar därefter under Hjälp och support.
+            { key: 'tour', label: 'Så funkar fakturering', icon: Sparkles, onClick: handleStartInvoiceTour, variant: 'secondary' },
+          ] : []}
+        />
       </div>
 
-    {section === 'kunder' && (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
 
       <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
@@ -2869,20 +2623,6 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
         </div>
       )}
     </div>
-    )}
-
-    {section === 'leverantorer' && (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-      <SupplierInvoicesPanel
-        expenses={expenses}
-        contacts={contacts}
-        onMarkPaid={onMarkSupplierInvoicePaid}
-        onOpenFull={() => onNavigate?.('supplier_invoices')}
-        onOpenInvoice={(inv) => handleGlobalAction?.({ type: 'view_supplier_invoice', payload: { id: inv.id } }, 'supplier_invoices')}
-        onCreateNew={() => handleGlobalAction?.({ type: 'new_supplier_invoice' }, 'supplier_invoices')}
-      />
-    </div>
-    )}
 
     {paymentLinkInvoice && onGetPaymentLinkUrl && (
       <PaymentLinkModal

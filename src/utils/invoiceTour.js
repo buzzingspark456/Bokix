@@ -63,8 +63,8 @@ const STEP_DEFS = [
   {
     element: '[data-inv-tour="tabs"]',
     popover: {
-      title: 'Kundfakturor och leverantörsfakturor',
-      description: 'Kundfakturor skickar du till dina egna kunder. Leverantörsfakturor är de du själv tar emot och ska betala — två separata flikar på samma sida.',
+      title: 'Kundfakturor',
+      description: 'Här samlas fakturorna du skickar till dina egna kunder. Offerter, leverantörsfakturor (de du själv ska betala) och artiklar hittar du under Försäljning i menyn.',
     },
   },
   {

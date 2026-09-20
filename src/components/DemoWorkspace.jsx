@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Menu, X, HelpCircle, LogOut, Bell, Sun, Moon, ChevronDown, FolderTree, FileCheck, Shield, Calculator, AlertTriangle, UsersRound, Receipt, FileText,
-  LayoutDashboard, Users, FileSpreadsheet, ReceiptText, Briefcase, ClipboardCheck, BookOpen, Landmark, BarChart3,
+  LayoutDashboard, Users, NavSalesIcon, NavQuotesIcon, NavInvoicesIcon, Inbox, NavReceiptsIcon, Briefcase, ClipboardCheck, BookOpen, Landmark, BarChart3,
   Settings as SettingsIcon,
 } from './icons';
 import { BRAND } from '../utils/brandColors';
@@ -51,15 +51,20 @@ const SIDEBAR_GROUPS = [
   [
     { id: 'dashboard', label: 'Startsida', icon: LayoutDashboard },
     { id: 'contacts', label: 'Kunder', icon: Users },
-    { id: 'quotes', label: 'Offerter', icon: FileSpreadsheet },
-    { id: 'invoices', label: 'Fakturering', icon: FileText },
-    { id: 'expenses', label: 'Kvitton', icon: ReceiptText },
-    { id: 'projects', label: 'Projekt', icon: Briefcase },
+    { id: 'expenses', label: 'Kvitton', icon: NavReceiptsIcon },
+    { id: 'verifications', label: 'Bokföring', icon: BookOpen },
   ],
   [
     { id: 'review', label: 'Granskning', icon: ClipboardCheck },
-    { id: 'verifications', label: 'Bokföring', icon: BookOpen },
+    { id: 'sales', label: 'Försäljning', icon: NavSalesIcon, children: [
+      { id: 'quotes', label: 'Offerter', icon: NavQuotesIcon, group: 1 },
+      { id: 'invoices', label: 'Kundfakturor', icon: NavInvoicesIcon, group: 2 },
+      { id: 'supplier_invoices', label: 'Leverantörsfakturor', icon: Inbox, group: 3 },
+    ] },
+  ],
+  [
     { id: 'bank', label: 'Bank', icon: Landmark },
+    { id: 'projects', label: 'Projekt', icon: Briefcase },
     { id: 'payroll', label: 'Anställda och lön', icon: UsersRound },
     { id: 'reports', label: 'Rapport och analys', icon: BarChart3 },
     { id: 'taxes', label: 'Skatt och bokslut', icon: Shield },
@@ -74,8 +79,9 @@ const SIDEBAR_GROUPS = [
 // med resten, INTE en hamburgermeny uppe i topbaren. Samma fyra id:n/
 // ikoner/etiketter som App.jsx, sheet-listan är övriga SIDEBAR_GROUPS-
 // punkter i samma ordning (utom just de fyra som redan syns i naven).
-const MOBILE_BOTTOM_IDS = ['dashboard', 'invoices', 'expenses', 'contacts'];
-const ALL_SIDEBAR_ITEMS = SIDEBAR_GROUPS.flat();
+const MOBILE_BOTTOM_IDS = ['dashboard', 'verifications', 'expenses', 'reports'];
+// Försäljning är en grupp med undersidor; mobilens sheet listar undersidorna, inte gruppen.
+const ALL_SIDEBAR_ITEMS = SIDEBAR_GROUPS.flat().flatMap(item => (item.children ? item.children : [item]));
 const MOBILE_BOTTOM_ITEMS = MOBILE_BOTTOM_IDS.map(id => ALL_SIDEBAR_ITEMS.find(i => i.id === id));
 const MOBILE_SHEET_ITEMS = ALL_SIDEBAR_ITEMS.filter(i => !MOBILE_BOTTOM_IDS.includes(i.id));
 
@@ -382,6 +388,40 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
             <React.Fragment key={gi}>
               {gi > 0 && <div style={{ height: '1px', background: 'rgba(255,255,255,0.15)', margin: '8px 20px', flexShrink: 0 }} />}
               {group.map(item => {
+                if (item.children) {
+                  const inSales = item.children.some(c => c.id === activeDemoTab);
+                  return (
+                    <React.Fragment key={item.id}>
+                      <button onClick={() => openTab(inSales ? activeDemoTab : 'invoices')} style={{
+                        padding: '13px 24px', width: '100%', textAlign: 'left', background: 'none',
+                        border: 'none', color: inSales ? '#ffffff' : 'rgba(255,255,255,0.88)', fontSize: '15px', fontWeight: inSales ? 700 : 500,
+                        cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexShrink: 0, fontFamily: 'inherit',
+                      }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '11px' }}>
+                          <item.icon size={18} strokeWidth={inSales ? 2.25 : 2} style={{ flexShrink: 0, opacity: inSales ? 1 : 0.85 }} />
+                          <span>{item.label}</span>
+                        </span>
+                        <ChevronDown size={16} style={{ flexShrink: 0, opacity: 0.7, transform: 'rotate(180deg)' }} />
+                      </button>
+                      {item.children.map((child, ci) => {
+                        const childActive = activeDemoTab === child.id;
+                        const newGroup = ci > 0 && item.children[ci - 1].group !== child.group;
+                        return (
+                          <React.Fragment key={child.id}>
+                          {newGroup && <div style={{ height: '1px', margin: '2px 24px 2px 53px', background: 'rgba(255,255,255,0.14)' }} />}
+                          <button onClick={() => openTab(child.id)} style={{
+                            padding: '11px 24px 11px 53px', width: '100%', textAlign: 'left', background: childActive ? 'rgba(255,255,255,0.14)' : 'none',
+                            border: 'none', color: childActive ? '#ffffff' : 'rgba(255,255,255,0.82)', fontSize: '14.5px', fontWeight: childActive ? 700 : 500,
+                            cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0, fontFamily: 'inherit',
+                          }}>
+                            <span>{child.label}</span>
+                          </button>
+                          </React.Fragment>
+                        );
+                      })}
+                    </React.Fragment>
+                  );
+                }
                 const isActive = activeDemoTab === item.id;
                 const badge = item.id === 'review' ? reviewCount : 0;
                 return (
@@ -556,6 +596,17 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
         <nav className="mobile-bottom-nav" style={{ position: 'sticky' }} aria-label="Mobilnavigation">
           <div className="mobile-bottom-nav-inner">
             {MOBILE_BOTTOM_ITEMS.map(item => (
+              item.id === 'expenses' ? (
+                <button
+                  key={item.id}
+                  className={`mobile-nav-btn mobile-nav-hero ${activeDemoTab === item.id ? 'active' : ''}`}
+                  onClick={() => openTab(item.id)}
+                  aria-label={item.label}
+                >
+                  <span className="mobile-nav-hero-circle"><item.icon size={20} strokeWidth={2} /></span>
+                  <span>{item.label}</span>
+                </button>
+              ) : (
               <button
                 key={item.id}
                 className={`mobile-nav-btn ${activeDemoTab === item.id ? 'active' : ''}`}
@@ -564,6 +615,7 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
                 <span className="mobile-nav-icon"><item.icon size={22} /></span>
                 <span>{item.label}</span>
               </button>
+              )
             ))}
             <button
               className={`mobile-nav-btn ${mobileSheetActive ? 'active' : ''}`}

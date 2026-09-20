@@ -452,9 +452,13 @@ export function findReceiptNumberDetailed(lines) {
         // en lång rad, är ett annat fält och stoppar sökningen. Närmaste raden
         // får börja med numret, de två därefter måste bestå av bara numret.
         for (let k = 1; k <= 3 && list[i + k]; k++) {
-          const candidateLine = list[i + k].trim();
+          // OCR lägger ofta streck, tilde eller hakparenteser från kvittots
+          // kanter och ramar runt raderna, och ibland en kort bokstavsbit
+          // efter numret ("2302039269 ES"). Kanttecknen tas bort, och ett
+          // ensamt kort ord utan siffror efter numret får följa med.
+          const candidateLine = list[i + k].trim().replace(/^[|~[\]¥\\/\s]+|[|~[\]¥\\/\s]+$/g, '');
           if (NOT_A_NUMBER_LINE_RE.test(candidateLine)) break;
-          const whole = candidateLine.match(new RegExp(`^${NUMBER_TOKEN}$`));
+          const whole = candidateLine.match(new RegExp(`^${NUMBER_TOKEN}${NOT_FOLLOWED_BY_UNIT}(?:\\s+[^\\d\\s]{1,3})?$`));
           const start = k === 1 ? candidateLine.match(new RegExp(`^${NUMBER_TOKEN}(?![,.]\\d)${NOT_FOLLOWED_BY_UNIT}`)) : null;
           const number = acceptableNumber((whole || start)?.[1]);
           if (number && number.length >= 5) return { number, kind, label };

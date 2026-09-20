@@ -775,3 +775,15 @@ describe('leverantör på fakturor', () => {
     expect(p.receiptNumber).toBe('20261042');
   });
 });
+
+describe('Elgiganten-kvittot, riktig avläsning av fotot', () => {
+  // Texten Tesseract ger för fotot: numret två rader under etiketten (SMILLA
+  // emellan) och med brus efter sig.
+  const lines = ['ELGIGANTEN)', 'Kvitto', '~ Ordernummer: 2026-05-26 18:34', '| SMILLA', '2302039269 ES', 'Hanna Elisabet Gotthardsson |']
+  it('hittar ordernumret trots brus och en rad emellan', () => {
+    expect(findReceiptNumberDetailed(lines)).toEqual({ number: '2302039269', kind: 'order', label: 'Ordernummer' })
+  })
+  it('ett belopp med valuta efter etiketten blir inget nummer', () => {
+    expect(findReceiptNumberDetailed(['Ordernummer:', '| SMILLA', '12345 kr'])).toBeNull()
+  })
+})

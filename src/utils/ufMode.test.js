@@ -43,6 +43,14 @@ describe('ufPageState', () => {
   })
 })
 
+describe('Offerter under Försäljning', () => {
+  it('finns inte i UF-läget, så raden göms', () => {
+    // App.jsx visar Offerter-raden bara om 'quotes' är en tillåten sida.
+    expect(UF_NAV_IDS).not.toContain('quotes')
+    expect(UF_NAV_IDS).toContain('invoices')
+  })
+})
+
 describe('ufBlockedPage', () => {
   it('varje spärrad sida har en förklaring och en väg vidare', () => {
     for (const id of ['quotes', 'projects', 'payroll']) {

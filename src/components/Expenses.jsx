@@ -3,6 +3,7 @@ import {
   UploadCloud, FileText, CheckCircle2, AlertCircle, Receipt, X, Clock, Trash2, RotateCcw, Search, ScanLine, FolderPlus, Pencil,
 } from './icons';
 import { AccountSearch } from './shared/SearchInputs';
+import AccountInlinePicker from './shared/AccountInlinePicker';
 import { DocumentPane } from './shared/DocumentViewer';
 import { TextSuggestInput } from './shared/SearchInputs';
 import ListPageHeader from './shared/ListPageHeader';
@@ -231,7 +232,9 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
     receiptNumber: receipt.receiptNumber || draft?.form?.receiptNumber || '',
     amount: receipt.amount ? amountToInput(receipt.amount) : (draft?.form?.amount || ''),
     vatRate: receipt.vatRate ?? draft?.form?.vatRate ?? 25,
-    costAccount: receipt.costAccount || draft?.form?.costAccount || '',
+    // Ett utkast från en äldre avläsning kan innehålla ett gissat konto
+    // (revealed = 'guess'). Det tas inte med, av samma skäl som i runOcr.
+    costAccount: receipt.costAccount || (draft?.revealed?.costAccount === 'guess' ? '' : draft?.form?.costAccount) || '',
     projectId: receipt.projectId || '',
     folderId: receipt.folderId || '',
     notes: receipt.notes || '',
@@ -261,6 +264,8 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
   const [fxError, setFxError] = useState('');
   // Vad numret på kvittot var: fakturanummer, kvittonummer, ordernummer m.fl.
   const [numberLabel, setNumberLabel] = useState(receipt.receiptNumberLabel || draft?.numberLabel || '');
+  // Kontot avläsningen föreslår men inte fyller i: { code, source } | null.
+  const [suggestedAccount, setSuggestedAccount] = useState(draft?.suggestedAccount || null);
   // Gör körningar avbrytbara: hinner användaren byta fil eller köra om
   // läsningen innan en pågående körning (som nu även väntar in en
   // valutakurs över nätet) är klar, ska bara den SENASTE körningens
@@ -300,6 +305,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
     setFx(null);
     setFxError('');
     setNumberLabel('');
+    setSuggestedAccount(null);
     setNotReceipt(false);
     setOcrFields(new Set());
     setRevealing(false);
@@ -356,9 +362,23 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
           // Tjänst från utlandet: kontot följer av dokumentet (4535 EU, 4531
           // utanför EU), inte av tidigare kvitton som kan vara bokförda utan
           // omvänd moms.
-          key: 'costAccount', found: !nr && Boolean((!reverse && hist?.costAccount) || parsed.accountCode),
-          state: reverse ? 'found' : (hist ? 'history' : (parsed.accountGuessed ? 'guess' : 'found')),
-          patch: { costAccount: reverse ? parsed.accountCode : (hist?.costAccount || parsed.accountCode) },
+          //
+          // Ett konto som avläsningen bara gissat (6990 som reservfall, eller en
+          // utländsk tjänst där regionen är oklar) fylls INTE i. Kundfeedback:
+          // ett gissat konto såg ut som ett riktigt och bokfördes fel. Fältet
+          // lämnas tomt och kontolistan visas i stället, så användaren väljer.
+          //
+          // Kundfeedback, uttryckligt: inga gissningar, och ett tomt konto är
+          // bättre än ett konto avläsningen inte vet. Kontot fylls därför bara i
+          // när det är känt: användaren har själv bokfört samma leverantör förut
+          // (historik), eller det är en utländsk tjänst där omvänd moms ger
+          // kontot. En regel (leverantören eller ett ord på kvittot) är ett
+          // FÖRSLAG som visas överst i kontolistan, inte något som skrivs in.
+          key: 'costAccount', found: !nr && Boolean(reverse ? parsed.accountCode : hist?.costAccount),
+          state: reverse ? 'found' : 'history',
+          patch: { costAccount: reverse ? parsed.accountCode : hist?.costAccount },
+          suggest: (!nr && !reverse && !hist?.costAccount && parsed.accountCode && !parsed.accountGuessed)
+            ? { code: parsed.accountCode, source: parsed.accountSource } : null,
         },
       ];
 
@@ -372,8 +392,9 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
           Object.assign(draftForm, step.patch);
           if (step.state === 'found') draftFields.push(step.key);
         }
-        draftRevealed[step.key] = step.found ? step.state : 'missing';
+        draftRevealed[step.key] = step.found ? step.state : (step.suggest ? 'suggest' : 'missing');
       });
+      const accountSuggestion = plan.find(step => step.key === 'costAccount')?.suggest || null;
       const draftVat = nr ? null : { verified: parsed.vatVerified, mismatch: parsed.vatMismatch, vatAmount: parsed.vatAmount, amountVerified: parsed.amountVerified };
       const draftFx = foreignInfo ? {
         code: foreignInfo.code,
@@ -386,6 +407,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
         scannedAt: new Date().toISOString(),
         form: draftForm,
         revealed: draftRevealed,
+        suggestedAccount: accountSuggestion,
         ocrFields: draftFields,
         numberLabel: parsed.receiptNumber ? (parsed.receiptNumberLabel || '') : '',
         fx: draftFx,
@@ -404,7 +426,8 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
             if (step.state === 'found') setOcrFields(prev => new Set(prev).add(step.key));
             setFlashKey(`${step.key}:${i}`);
           }
-          setRevealed(prev => ({ ...prev, [step.key]: step.found ? step.state : 'missing' }));
+          if (step.suggest) setSuggestedAccount(step.suggest);
+          setRevealed(prev => ({ ...prev, [step.key]: step.found ? step.state : (step.suggest ? 'suggest' : 'missing') }));
         }, 250 + i * REVEAL_STEP_MS));
       });
       timersRef.current.push(setTimeout(() => {
@@ -575,6 +598,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
           <DocumentPane
             url={receipt.receiptUrl}
             type={receipt.receiptType}
+            expandable
             emptyText="Ingen fil är sparad för det här kvittot. Uppgifterna bredvid går att fylla i ändå."
           />
           {ocrStatus === 'scanning' && <ScanOverlay detail={ocrMessage} />}
@@ -806,18 +830,15 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                   </div>
                 ) : (
                   <>
-                    <AccountSearch value={form.costAccount} onChange={code => { setForm(f => ({ ...f, costAccount: code })); setOcrFields(s => { const n = new Set(s); n.delete('costAccount'); return n; }); }} accounts={accounts} placeholder="Sök konto, t.ex. 6110 Kontorsmaterial..." />
+                    <AccountInlinePicker
+                      value={form.costAccount}
+                      onChange={code => { setForm(f => ({ ...f, costAccount: code })); setOcrFields(s => { const n = new Set(s); n.delete('costAccount'); return n; }); }}
+                      accounts={accounts}
+                      quick={frequentAccounts}
+                      suggestion={suggestedAccount && accounts.some(a => a.code === suggestedAccount.code) ? suggestedAccount : null}
+                      invalid={Boolean(errors.costAccount)}
+                    />
                     {errors.costAccount && <div style={errSt}>{errors.costAccount}</div>}
-                    {frequentAccounts.length > 0 && (
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px', alignItems: 'center' }}>
-                        <span style={{ fontSize: '11.5px', color: 'var(--text-muted)', fontWeight: 600 }}>Snabbval:</span>
-                        {frequentAccounts.map(acc => (
-                          <button key={acc.code} type="button" className="rc-chip" onClick={() => setForm(f => ({ ...f, costAccount: acc.code }))} title={acc.name}>
-                            {acc.code}{acc.name ? ` ${acc.name}` : ''}
-                          </button>
-                        ))}
-                      </div>
-                    )}
                   </>
                 )}
               </div>

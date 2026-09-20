@@ -982,7 +982,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
   }, []);
   const activeFit = isPhone ? fit : 'roomy';
   const compactFit = isPhone && ['snug', 'compact', 'mini', 'tight'].includes(activeFit);
-  const chartH = !isPhone ? 260 : ({ roomy: 200, cozy: 150, snug: 120 }[activeFit] || 84);
+  const chartH = !isPhone ? 260 : ({ roomy: 200, cozy: 150, snug: (typeof window !== 'undefined' && window.innerHeight > 830) ? 170 : 120 }[activeFit] || 84);
 
   return (
     // Bugkritiskt: rotdiven hade varken minHeight eller egen bakgrund, bara

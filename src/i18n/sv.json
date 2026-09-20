@@ -3,6 +3,10 @@
     "dashboard": "Startsida",
     "contacts": "Kunder",
     "quotes": "Offerter",
+    "sales": "Försäljning",
+    "customerInvoices": "Kundfakturor",
+    "supplierInvoices": "Leverantörsfakturor",
+    "articles": "Artiklar",
     "invoices": "Fakturering",
     "expenses": "Kvitton",
     "projects": "Projekt",
@@ -13,6 +17,20 @@
     "reports": "Rapport och analys",
     "taxes": "Skatt och bokslut",
     "settings": "Inställningar"
+  },
+  "navShort": {
+    "dashboard": "Startsida",
+    "contacts": "Kunder",
+    "sales": "Försäljning",
+    "expenses": "Kvitton",
+    "verifications": "Bokföring",
+    "review": "Granskning",
+    "projects": "Projekt",
+    "bank": "Bank",
+    "payroll": "Lön",
+    "reports": "Rapport",
+    "taxes": "Skatt",
+    "settings": "Inställn."
   },
   "shared": {
     "listTable": {
