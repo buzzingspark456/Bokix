@@ -66,11 +66,11 @@ function buildPage(render, routePath) {
   return html;
 }
 
-// Samma priority/changefreq som public/sitemap.xml redan hade innan detta
-// lades till (kopierade rakt av, inte omvärderade) — inkluderar fem sidor
-// (boka-genomgang/privacy/terms/cookies/pub) som INTE är i MARKETING_ROUTES
-// (inte förrenderade/SSR:ade, bara statiska route:ar via app-shell.html)
-// och därför aldrig får hreflang-alternates, bara sig själva.
+// Bara sidor som är riktigt förrenderade (egen <h1>, egen canonical) ska stå
+// här. /boka-genomgang, /privacy, /terms, /cookies och /pub levererar bara
+// app-skalet med canonical mot startsidan, så Google ser dem som kopior av
+// startsidan och indexerar dem aldrig; de hålls utanför sitemapen tills de
+// förrenderas.
 const SITEMAP_MANIFEST = [
   { path: '/', changefreq: 'weekly', priority: '1.0' },
   { path: '/funktioner', changefreq: 'monthly', priority: '0.8' },
@@ -80,7 +80,6 @@ const SITEMAP_MANIFEST = [
   { path: '/uf', changefreq: 'monthly', priority: '0.8' },
   { path: '/om-oss', changefreq: 'monthly', priority: '0.5' },
   { path: '/kontakt', changefreq: 'monthly', priority: '0.5' },
-  { path: '/boka-genomgang', changefreq: 'monthly', priority: '0.5' },
   { path: '/verktyg', changefreq: 'monthly', priority: '0.7' },
   { path: '/verktyg/skanna-kvitto', changefreq: 'monthly', priority: '0.6' },
   { path: '/verktyg/momskalkylator', changefreq: 'monthly', priority: '0.6' },
@@ -98,10 +97,6 @@ const SITEMAP_MANIFEST = [
   { path: '/vanliga-fragor', changefreq: 'monthly', priority: '0.6' },
   { path: '/integrationer', changefreq: 'monthly', priority: '0.6' },
   { path: '/sakerhet', changefreq: 'yearly', priority: '0.4' },
-  { path: '/privacy', changefreq: 'yearly', priority: '0.3' },
-  { path: '/terms', changefreq: 'yearly', priority: '0.3' },
-  { path: '/cookies', changefreq: 'yearly', priority: '0.3' },
-  { path: '/pub', changefreq: 'yearly', priority: '0.3' },
 ];
 
 /** Skriver dist/sitemap.xml — samma sidor/priority/changefreq som förut,
