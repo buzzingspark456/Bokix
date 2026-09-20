@@ -4,7 +4,7 @@ import {
   Trash2, Mail, Laptop, Lock, KeyRound, Image as ImageIcon,
   Palette, Landmark, Hash, Calendar, X, ZoomIn, ZoomOut, Maximize2, Bell, ExternalLink, Sun, Moon,
   UserRound, FileText, Plug, Users, Cog, ArrowLeft, ArrowRight,
-  Sparkles, CheckCircle2, Camera,
+  Sparkles, CheckCircle2, Camera, HelpCircle, LogOut,
 } from './icons';
 import { supabase } from '../supabaseClient';
 import { sendInvoiceEmail } from '../emailApi';
@@ -189,27 +189,50 @@ const SECTION_META = {
  * (ikon-titel-pil på en enda rad). Ikonens färg kommer nu från SECTION_
  * META.tone (samma VIVID-paletten som resten av sidans ikonrutor) i
  * stället för en enda upprepad grön ton på alla åtta kort. */
+// Mobilens inställningsöversikt är grupperad (som iOS/Fortnox) i stället för
+// tio lösa kort: rubrik + ett kort per grupp med rader. På dator ligger
+// korten kvar som ett rutnät (grupperna är då display: contents).
+const HUB_GROUPS = [
+  { title: 'Företaget', ids: ['company', 'invoice', 'users'] },
+  { title: 'Kopplingar och system', ids: ['integrations', 'system'] },
+  { title: 'Konto och utseende', ids: ['subscription', 'appearance', 'notifications', 'security'] },
+  { title: 'Övrigt', ids: ['advanced'] },
+];
+
 function SettingsHub({ sections, onPick }) {
+  const placed = new Set(HUB_GROUPS.flatMap(g => g.ids));
+  const groups = HUB_GROUPS
+    .map(g => ({ ...g, items: g.ids.map(id => sections.find(s => s.id === id)).filter(Boolean) }))
+    .filter(g => g.items.length > 0);
+  const rest = sections.filter(s => !placed.has(s.id));
+  if (rest.length > 0) groups.push({ title: 'Övrigt', ids: [], items: rest });
   return (
     <div className="settings-hub">
-      {sections.map(section => {
-        const meta = SECTION_META[section.id] || {};
-        const Icon = meta.icon || Cog;
-        return (
-          <button
-            key={section.id}
-            type="button"
-            className="settings-hub-card"
-            onClick={() => onPick(section.id)}
-          >
-            <span className="settings-hub-icon" style={{ background: SECTION_TONES[meta.tone] || SECTION_TONES.green }}>
-              <Icon size={20} strokeWidth={2.2} />
-            </span>
-            <span className="settings-hub-card-title">{section.label}</span>
-            <ArrowRight size={16} className="settings-hub-card-arrow" />
-          </button>
-        );
-      })}
+      {groups.map(group => (
+        <div key={group.title} className="settings-hub-group">
+          <div className="settings-hub-group-title">{group.title}</div>
+          <div className="settings-hub-group-list">
+            {group.items.map(section => {
+              const meta = SECTION_META[section.id] || {};
+              const Icon = meta.icon || Cog;
+              return (
+                <button
+                  key={section.id}
+                  type="button"
+                  className="settings-hub-card"
+                  onClick={() => onPick(section.id)}
+                >
+                  <span className="settings-hub-icon" style={{ background: SECTION_TONES[meta.tone] || SECTION_TONES.green }}>
+                    <Icon size={20} strokeWidth={2.2} />
+                  </span>
+                  <span className="settings-hub-card-title">{section.label}</span>
+                  <ArrowRight size={16} className="settings-hub-card-arrow" />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -2319,6 +2342,9 @@ export default function Settings({
   contacts = [], projects = [], onImport, onReset, onBulkImportSie, stripeAccountId, onConnectStripe, onDisconnectStripe,
   zettleConnected = false, onConnectZettle,
   user,
+  // Hjälp och Logga ut ligger i Inställningar på telefon (på dator finns de
+  // längst ned i sidomenyn). Skickas inte ned i landningssidans demo.
+  onOpenHelp, onLogout,
   activeCompanyId,
   // Radera företag (Avancerat) — samma handler App.jsx redan underhåller,
   // bara utan en UI som anropar den sedan företagsväxlaren togs bort.
@@ -3376,6 +3402,23 @@ export default function Settings({
       <div data-tour="page-settings-nav" className="settings-content" style={{ flex: 1, minWidth: 0, overflowY: 'auto', padding: '24px 20px' }}>
         <div style={activeSection ? { minWidth: 0, maxWidth: '1200px', margin: '0 auto' } : { minWidth: 0 }}>
           {!activeSection && <SettingsHub sections={visibleSections} onPick={handleSetTab} />}
+          {!activeSection && (onOpenHelp || onLogout) && (
+            <div className="settings-account-rows">
+              {onOpenHelp && (
+                <button type="button" className="settings-account-row" onClick={onOpenHelp}>
+                  <span className="settings-account-icon"><HelpCircle size={20} /></span>
+                  <span className="settings-account-title">Hjälp och support</span>
+                  <ArrowRight size={16} className="settings-account-arrow" />
+                </button>
+              )}
+              {onLogout && (
+                <button type="button" className="settings-account-row settings-account-row--danger" onClick={onLogout}>
+                  <span className="settings-account-icon"><LogOut size={20} /></span>
+                  <span className="settings-account-title">Logga ut</span>
+                </button>
+              )}
+            </div>
+          )}
           {/* 1. Säkerhet (hette Min profil) — kundönskemål (skärmdump av en
               mockup): tre fullbreda kort staplade under varandra
               ("Profiluppgifter"/"Säkerhet"/aktiva sessioner), varje kort

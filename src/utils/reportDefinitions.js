@@ -35,6 +35,17 @@ export const REPORT_SECTIONS = [
     ],
   },
   {
+    id: 'closing',
+    label: 'Bokslut',
+    reports: [
+      // Arbetsbladet binder ihop råbalans, bokslutsjusteringar (avskrivningar,
+      // periodiseringar, lagerjustering) och de två slutrapporterna i en
+      // enda överblick — se utils/worksheet.js.
+      { id: 'worksheet', name: 'Arbetsblad', description: 'Råbalans, bokslutsjusteringar och slutliga resultat- och balanskolumner i en överblick.' },
+      { id: 'equity', name: 'Förändring av eget kapital', description: 'Ingående och utgående eget kapital, med insättningar, uttag och årets resultat.' },
+    ],
+  },
+  {
     id: 'tax',
     label: 'Skatt & moms',
     reports: [

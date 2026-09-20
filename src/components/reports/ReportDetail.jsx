@@ -16,7 +16,9 @@ import {
   computeLedger, computeInvoiceReport, computeKeyFigures, fiscalYearBounds,
   groupCostsByCategory, groupCostsByAccount, overviewPeriodBounds,
 } from '../../utils/reportCalculations';
-import { computeVatPeriod } from '../../utils/vatCalculation';
+import { computeVatPeriod, vatRutaValue } from '../../utils/vatCalculation';
+import { computeWorksheet } from '../../utils/worksheet';
+import { computeEquityStatement } from '../../utils/equity';
 import { VAT_RUTOR } from '../../utils/vatConfig';
 import { getReportMeta } from '../../utils/reportDefinitions';
 import { computeEmployeePayroll } from '../../utils/payrollCalculation';
@@ -201,6 +203,8 @@ export default function ReportDetail({
         {reportId === 'cashflow' && <CashflowReport {...{ verifications, accounts, start, end, prevStart, prevEnd, isMobile }} />}
         {reportId === 'keyfigures' && <KeyFiguresReport {...{ verifications, accounts, start, end }} />}
         {reportId === 'vat' && <VatReport {...{ verifications, start, end }} />}
+        {reportId === 'equity' && <EquityReport {...{ verifications, accounts, start, end }} />}
+        {reportId === 'worksheet' && <WorksheetReport {...{ verifications, accounts, start, end }} />}
         {reportId === 'ledger' && <LedgerReport {...{ verifications, accounts, start, end }} />}
         {reportId === 'invoices' && <InvoiceReport {...{ invoices, contacts, start, end }} />}
         {reportId === 'payroll' && <PayrollReport {...{ payrollRuns, start, end }} />}
@@ -738,20 +742,14 @@ function KeyFiguresReport({ verifications, accounts, start, end }) {
 function VatReport({ verifications, start, end }) {
   const { palette, amount } = useReportDisplay();
   const vat = useMemo(() => computeVatPeriod({ verifications, periodStart: toISO(start), periodEnd: toISO(end) }), [verifications, start, end]);
-  const valueForRuta = (ruta) => {
-    if (ruta.kind === 'salesTotal') return vat.underlagByRate[25] + vat.underlagByRate[12] + vat.underlagByRate[6];
-    if (ruta.kind === 'output') return vat.outputVatByRate[ruta.rate];
-    if (ruta.kind === 'input') return vat.inputVat;
-    if (ruta.kind === 'net') return vat.netToPay;
-    return 0;
-  };
-  const hasActivity = vat.outputVatTotal !== 0 || vat.inputVat !== 0;
+  const valueForRuta = (ruta) => vatRutaValue(ruta, vat) ?? 0;
+  const hasActivity = vat.outputVatTotal !== 0 || vat.inputVat !== 0 || vat.reverseVatTotal !== 0;
   if (!hasActivity) return <ReportSheet><EmptyState text="Ingen momspliktig aktivitet bokförd för denna period." /></ReportSheet>;
   return (
     <ReportSheet>
       <div className="sheet-grid">
         <div className="sheet-span-4" style={cellBg}>
-          <StatTile label="Utgående moms" value={amount.value(vat.outputVatTotal)} icon={ArrowUpRight} tone={palette.income} />
+          <StatTile label="Utgående moms" value={amount.value(vat.outputVatTotal + (vat.reverseVatTotal || 0))} icon={ArrowUpRight} tone={palette.income} />
         </div>
         <div className="sheet-span-4" style={cellBg}>
           <StatTile label="Ingående moms" value={amount.value(vat.inputVat)} icon={ArrowDownRight} tone={palette.cost} />
@@ -770,7 +768,7 @@ function VatReport({ verifications, start, end }) {
                 { key: 'label', label: 'Beskrivning' },
                 { key: 'value', label: 'Belopp', align: 'right', emphasize: true, render: r => formatSEK(r.value) },
               ]}
-              rows={VAT_RUTOR.map(r => ({ ...r, value: valueForRuta(r) }))}
+              rows={VAT_RUTOR.map(r => ({ ...r, value: valueForRuta(r) })).filter(r => !String(r.kind).startsWith('reverse') || r.value !== 0)}
               rowKey={r => r.ruta}
             />
           </SheetPanel>
@@ -812,6 +810,125 @@ function LedgerReport({ verifications, accounts, start, end }) {
           </div>
         ))}
       </div>
+    </ReportSheet>
+  );
+}
+
+// ── Arbetsblad ──────────────────────────────────────────────────────────
+// Sex kolumnpar (debet/kredit): råbalans, justeringar, justerad råbalans,
+// resultaträkning, balansräkning. Räkningen ligger i utils/worksheet.js.
+const wsNum = (v) => (v ? new Intl.NumberFormat('sv-SE', { maximumFractionDigits: 0 }).format(v) : '');
+const WS_GROUPS = [
+  { key: 'raw', label: 'Råbalans' },
+  { key: 'adjustments', label: 'Justeringar' },
+  { key: 'adjusted', label: 'Justerad råbalans' },
+  { key: 'income', label: 'Resultaträkning' },
+  { key: 'balance', label: 'Balansräkning' },
+];
+
+function WorksheetReport({ verifications, accounts, start, end }) {
+  const ws = useMemo(() => computeWorksheet(verifications, accounts, toISO(start), toISO(end)), [verifications, accounts, start, end]);
+  if (ws.rows.length === 0) return <ReportSheet><EmptyState text="Inga bokförda transaktioner för denna period." /></ReportSheet>;
+
+  const th = { padding: '8px 10px', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', textAlign: 'right', whiteSpace: 'nowrap', borderBottom: '1px solid var(--border)' };
+  const td = { padding: '7px 10px', fontSize: '13px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' };
+  const groupBorder = { borderLeft: '1px solid var(--border)' };
+  const resultLabel = ws.yearResult >= 0 ? 'Årets vinst' : 'Årets förlust';
+
+  return (
+    <ReportSheet>
+      <SheetPanel
+        title="Arbetsblad"
+        subtitle={`${ws.hasAdjustments ? 'Justeringarna är avskrivningar, periodiseringar och lagerjusteringar.' : 'Inga bokslutsjusteringar bokförda ännu. Bokför avskrivningar och periodiseringar under Skatt och bokslut.'} Belopp i hela kronor.`}
+      >
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '16px' }}>
+          <StatTile label={resultLabel} value={formatSEK(Math.abs(ws.yearResult))} icon={ws.yearResult >= 0 ? TrendingUp : TrendingDown} tone={ws.yearResult >= 0 ? undefined : 'var(--status-red-text)'} />
+          <StatTile
+            label="Kontroll"
+            value={ws.rawInBalance && ws.balanceInBalance ? 'Stämmer' : 'Stämmer inte'}
+            icon={Scale}
+            context={ws.rawInBalance && ws.balanceInBalance ? 'debet och kredit går ihop i alla kolumner' : 'debet och kredit går inte ihop — kontrollera verifikationerna'}
+            accent={ws.rawInBalance && ws.balanceInBalance ? undefined : 'var(--status-red-text)'}
+          />
+        </div>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: '980px' }}>
+            <thead>
+              <tr>
+                <th rowSpan={2} style={{ ...th, textAlign: 'left' }}>Konto</th>
+                {WS_GROUPS.map(g => <th key={g.key} colSpan={2} style={{ ...th, textAlign: 'center', ...groupBorder }}>{g.label}</th>)}
+              </tr>
+              <tr>
+                {WS_GROUPS.map(g => (
+                  <React.Fragment key={g.key}>
+                    <th style={{ ...th, ...groupBorder }}>Debet</th>
+                    <th style={th}>Kredit</th>
+                  </React.Fragment>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {ws.rows.map(r => (
+                <tr key={r.code} style={{ borderBottom: '1px solid var(--border-light)' }}>
+                  <td style={{ ...td, textAlign: 'left', whiteSpace: 'normal' }}>{r.code} {r.name}</td>
+                  {WS_GROUPS.map(g => (
+                    <React.Fragment key={g.key}>
+                      <td style={{ ...td, ...groupBorder }}>{wsNum(r[g.key].debet)}</td>
+                      <td style={td}>{wsNum(r[g.key].kredit)}</td>
+                    </React.Fragment>
+                  ))}
+                </tr>
+              ))}
+              {(ws.yearResult !== 0 || ws.priorResult !== 0) && (
+                <tr style={{ borderBottom: '1px solid var(--border-light)', fontStyle: 'italic' }}>
+                  <td style={{ ...td, textAlign: 'left' }}>{ws.priorResult !== 0 ? `${resultLabel} och tidigare års resultat` : resultLabel}</td>
+                  <td colSpan={6} style={{ ...td, ...groupBorder }} />
+                  <td style={{ ...td, ...groupBorder }}>{wsNum(ws.incomeBalanced.debet - ws.totals.income.debet)}</td>
+                  <td style={td}>{wsNum(ws.incomeBalanced.kredit - ws.totals.income.kredit)}</td>
+                  <td style={{ ...td, ...groupBorder }}>{wsNum(ws.balanceWithResult.debet - ws.totals.balance.debet)}</td>
+                  <td style={td}>{wsNum(ws.balanceWithResult.kredit - ws.totals.balance.kredit)}</td>
+                </tr>
+              )}
+              <tr style={{ fontWeight: 800, borderTop: '2px solid var(--border)' }}>
+                <td style={{ ...td, textAlign: 'left' }}>Summa</td>
+                {['raw', 'adjustments', 'adjusted'].map(k => (
+                  <React.Fragment key={k}>
+                    <td style={{ ...td, ...groupBorder }}>{wsNum(ws.totals[k].debet)}</td>
+                    <td style={td}>{wsNum(ws.totals[k].kredit)}</td>
+                  </React.Fragment>
+                ))}
+                <td style={{ ...td, ...groupBorder }}>{wsNum(ws.incomeBalanced.debet)}</td>
+                <td style={td}>{wsNum(ws.incomeBalanced.kredit)}</td>
+                <td style={{ ...td, ...groupBorder }}>{wsNum(ws.balanceWithResult.debet)}</td>
+                <td style={td}>{wsNum(ws.balanceWithResult.kredit)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </SheetPanel>
+    </ReportSheet>
+  );
+}
+
+// ── Förändring av eget kapital ──────────────────────────────────────────
+function EquityReport({ verifications, accounts, start, end }) {
+  const eq = useMemo(() => computeEquityStatement(verifications, accounts, toISO(start), toISO(end)), [verifications, accounts, start, end]);
+  const hasData = eq.rows.some(r => !r.synthetic) || eq.yearResult !== 0;
+  if (!hasData) return <ReportSheet><EmptyState text="Inget eget kapital bokfört för denna period." /></ReportSheet>;
+  return (
+    <ReportSheet>
+      <SheetPanel title="Förändring av eget kapital" subtitle="Ingående saldo, förändring under perioden och utgående saldo per konto. Årets resultat visas som en egen rad tills räkenskapsåret är bokslutat.">
+        <DataTable
+          columns={[
+            { key: 'name', label: 'Konto', render: r => (r.code ? `${r.code} ${r.name}` : r.name) },
+            { key: 'opening', label: 'Ingående', align: 'right', render: r => formatSEK(r.opening) },
+            { key: 'movement', label: 'Förändring', align: 'right', render: r => formatSEK(r.movement) },
+            { key: 'closing', label: 'Utgående', align: 'right', emphasize: true, render: r => formatSEK(r.closing) },
+          ]}
+          rows={[...eq.rows, { code: 'total', name: 'Summa eget kapital', opening: eq.totals.opening, movement: eq.totals.movement, closing: eq.totals.closing }]}
+          rowKey={(r, i) => `${r.code}_${i}`}
+        />
+      </SheetPanel>
     </ReportSheet>
   );
 }

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { AlertTriangle } from './icons';
 import { EntitySearch, ProjectSearch } from './shared/SearchInputs';
 import { SWEDISH_MUNICIPALITIES } from '../utils/kommuner';
+import { suggestTaxTables, KOMMUN_SKATTETABELLER_ÅR } from '../utils/kommunSkattetabell';
 import { validatePersonnummer, formatPersonnummerInput } from '../utils/personnummer';
 import { EMPLOYMENT_TYPES, SALARY_FORMS, TAX_FORMS, TAX_TABLE_COLUMNS, VACATION_RULES, MIN_VACATION_DAYS } from '../utils/payrollConfig';
 import { isValidIban } from '../utils/salaryPaymentFile';
@@ -73,7 +74,7 @@ export default function EmployeeForm({ initial, projects = [], payrollRuns = [],
     // helt utan tabellnummer, vilket gjorde att skatteavdraget tyst
     // beräknades som 0 kr först vid en lönekörning — långt efter att
     // misstaget var lätt att upptäcka.
-    if (!form.taxTable.tabellnr) errs.taxTable = 'Ange tabellnummer.';
+    if (!form.taxTable.tabellnr) errs.taxTable = 'Välj skattetabell.';
     if (Number(form.vacationDays) < MIN_VACATION_DAYS) errs.vacationDays = `Minst ${MIN_VACATION_DAYS} semesterdagar krävs enligt semesterlagen.`;
     // IBAN är valfritt att fylla i (samma "kan sparas utan bankuppgifter"-
     // princip som clearing-/kontonummer nedan), men om den FYLLS I ska
@@ -216,15 +217,63 @@ export default function EmployeeForm({ initial, projects = [], payrollRuns = [],
         </div>
 
         <div style={{ marginTop: '16px' }}>
-          <label style={labelStyle}>Skattetabell (tabellnummer) *</label>
-          <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: '0 0 8px' }}>
-            Hittas på den anställdas skattsedel/Skatteverkets tabellsök. Automatisk härledning från kommun är inte byggd ännu (kräver Skatteverkets kommunala skattesatslista) — tabellnumret måste anges här för att skatteavdraget ska kunna beräknas.
-          </p>
-          <input
-            type="text" inputMode="numeric" value={form.taxTable.tabellnr}
-            onChange={e => setTaxTable({ tabellnr: e.target.value.replace(/\D/g, '') })}
-            placeholder="T.ex. 32" style={{ ...inputStyle(errors.taxTable), maxWidth: '160px' }}
-          />
+          <label style={labelStyle}>Skattetabell *</label>
+          {(() => {
+            const chosen = String(form.taxTable.tabellnr || '');
+            const suggestion = suggestTaxTables(form.municipality);
+            // Förslagen: en knapp per tabell som kan gälla i kommunen, med
+            // vem den gäller för. Samma tabell för båda grupperna slås ihop.
+            const choices = [];
+            if (suggestion) {
+              const add = (nr, who) => {
+                const hit = choices.find(c => c.nr === nr);
+                if (hit) hit.who.push(who); else choices.push({ nr, who: [who] });
+              };
+              suggestion.ejMedlem.forEach(nr => add(nr, 'inte medlem i Svenska kyrkan'));
+              suggestion.medlem.forEach(nr => add(nr, 'medlem i Svenska kyrkan'));
+              choices.sort((x, y) => x.nr - y.nr);
+            }
+            const known = new Set(choices.map(c => String(c.nr)));
+            const highest = Math.max(42, ...choices.map(c => c.nr), Number(chosen) || 0);
+            const others = [];
+            for (let nr = 29; nr <= highest; nr++) others.push(nr);
+            if (chosen && !others.includes(Number(chosen))) others.push(Number(chosen));
+            return (
+              <>
+                <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: '0 0 10px', lineHeight: 1.5 }}>
+                  {suggestion
+                    ? `Välj den som stämmer för den anställda i ${form.municipality}. Förslagen bygger på Skatteverkets skattesatser för ${KOMMUN_SKATTETABELLER_ÅR}. Står det en annan tabell på skattsedeln gäller den.`
+                    : 'Välj folkbokföringskommun ovan så föreslår vi tabellen. Du kan också välja själv, det står på den anställdas skattsedel.'}
+                </p>
+                {choices.length > 0 && (
+                  <div className="tax-table-choices" role="radiogroup" aria-label="Skattetabell">
+                    {choices.map(c => (
+                      <button
+                        key={c.nr} type="button" role="radio" aria-checked={chosen === String(c.nr)}
+                        className={'tax-table-choice' + (chosen === String(c.nr) ? ' is-active' : '')}
+                        onClick={() => setTaxTable({ tabellnr: String(c.nr) })}
+                      >
+                        <span className="tax-table-choice-nr">Tabell {c.nr}</span>
+                        <span className="tax-table-choice-who">{c.who.join(' och ').replace(/^./, ch => ch.toUpperCase())}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <select
+                  value={chosen} onChange={e => setTaxTable({ tabellnr: e.target.value })}
+                  style={{ ...inputStyle(errors.taxTable), background: 'var(--bg-card)', maxWidth: '320px' }}
+                  aria-label={choices.length > 0 ? 'Annan skattetabell' : 'Skattetabell'}
+                >
+                  <option value="">{choices.length > 0 ? 'Annan tabell…' : 'Välj tabell…'}</option>
+                  {others.map(nr => (
+                    <option key={nr} value={String(nr)}>
+                      {`Tabell ${nr}`}{known.has(String(nr)) ? ' (föreslagen)' : ''}
+                    </option>
+                  ))}
+                </select>
+              </>
+            );
+          })()}
           {errors.taxTable && <div style={errorTextStyle}>{errors.taxTable}</div>}
         </div>
 

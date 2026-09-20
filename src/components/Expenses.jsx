@@ -10,11 +10,23 @@ import AnchoredDropdown, { useDismissOnOutsideClick } from './shared/AnchoredDro
 import { uploadFileToStorage } from '../utils/fileUpload';
 import { BRAND } from '../utils/brandColors';
 import { confirmDialog } from './shared/ConfirmDialog';
-import { ocrFile, parseReceiptText } from '../utils/ocrReceipt';
+import { parseReceiptText } from '../utils/ocrReceipt';
+import { readDocumentText } from '../utils/ocrCache';
+import { ScanOverlay, OcrChecklist, MIN_SCAN_MS, REVEAL_STEP_MS, CACHED_SCAN_MS } from './shared/ScanExperience';
 import { convertToSek } from '../utils/currencyConversion';
+import { historyForSupplier, historyFromVerifications } from '../utils/receiptHistory';
+import { reverseChargePurchaseInfo } from '../utils/reverseCharge';
+import { CURRENCIES, parseNumber, sekFrom, impliedRate, rateToInput, amountToInput, foreignForSave } from '../utils/foreignCurrency';
 
 // ── Formatting ──
-const formatSEK = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
+// Hela kronor utan decimaler, allt annat med ören: 1,50 kr visas som 1,50 kr och
+// 199,90 kr som 199,90 kr, aldrig avrundat till 1 eller 200.
+const formatSEK = (val) => {
+  const n = Number(val) || 0;
+  const whole = Math.abs(n - Math.round(n)) < 0.005;
+  const digits = whole ? 0 : 2;
+  return new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', minimumFractionDigits: digits, maximumFractionDigits: digits }).format(n);
+};
 const formatDate = (d) => {
   if (!d) return '—';
   try { return new Intl.DateTimeFormat('sv-SE').format(new Date(d)); } catch { return d; }
@@ -186,13 +198,6 @@ const formatSEK2 = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', 
 // räknar flera kvitton). Här handlar det om ETT kvitto.
 const STATUS_SINGULAR = { unhandled: 'Ej hanterad', pending: 'Pågående', booked: 'Bokförd', reversed: 'Rättad' };
 
-// Bara för att skriva ut varningen om utländsk valuta lite snyggare —
-// ingen omräkning görs, det här är enbart kosmetiskt.
-const CURRENCY_SYMBOL = { USD: '$', GBP: '£', EUR: '€', JPY: '¥', CNY: '¥', NOK: 'kr', DKK: 'kr' };
-// Yen (och i praktiken oftast yuan på kvitton) skrivs utan decimaler —
-// "¥5000,00" ser trasigt ut för en valuta som aldrig har ören/fen.
-const formatForeignAmount = (code, amount) => (code === 'JPY' || code === 'CNY') ? String(Math.round(amount)) : amount.toFixed(2);
-
 // Liten badge som visas intill fältets label när OCR fyllt i det.
 // Försvinner så fort användaren redigerar fältet manuellt.
 function OcrBadge() {
@@ -208,18 +213,25 @@ function OcrBadge() {
   );
 }
 
-function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allReceipts, status, onSave, onDelete, onReverse, onClose }) {
+function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allReceipts, verifications = [], status, onSave, onSaveOcrDraft, onDelete, onReverse, onClose }) {
   // "Rättad" är också ett låst tillstånd — samma skäl som "Bokförd": en
   // rättelseverifikation ändrar inte originalet, så fälten som redan
   // bokfördes ska förbli precis vad de var när det begicks, inte gå att
   // smygredigera i efterhand.
   const readOnly = status === 'booked' || status === 'reversed';
+  // Ett kvitto som redan lästs av har sitt resultat sparat (ocrDraft), även
+  // om man stängde det innan man sparade. Då visas det direkt, utan ny
+  // avläsning. "Läs av igen" gör en ny. Bara för kvitton som ännu inte är
+  // ifyllda på riktigt: ett sparat kvitto har sina egna värden.
+  const isUnprocessedAtOpen = !receipt.supplier && (!receipt.amount || Number(receipt.amount) === 0) && !receipt.costAccount;
+  const draft = isUnprocessedAtOpen && !readOnly ? (receipt.ocrDraft || null) : null;
   const [form, setForm] = useState({
-    date: receipt.date || new Date().toISOString().split('T')[0],
-    supplier: receipt.supplier || '',
-    amount: receipt.amount ? String(receipt.amount).replace('.', ',') : '',
-    vatRate: receipt.vatRate ?? 25,
-    costAccount: receipt.costAccount || '',
+    date: draft?.form?.date || receipt.date || new Date().toISOString().split('T')[0],
+    supplier: receipt.supplier || draft?.form?.supplier || '',
+    receiptNumber: receipt.receiptNumber || draft?.form?.receiptNumber || '',
+    amount: receipt.amount ? amountToInput(receipt.amount) : (draft?.form?.amount || ''),
+    vatRate: receipt.vatRate ?? draft?.form?.vatRate ?? 25,
+    costAccount: receipt.costAccount || draft?.form?.costAccount || '',
     projectId: receipt.projectId || '',
     folderId: receipt.folderId || '',
     notes: receipt.notes || '',
@@ -228,41 +240,82 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
 
   // ── OCR ────────────────────────────────────────────────────────────────────
   // ocrStatus: 'idle' | 'scanning' | 'done' | 'error'
-  const [ocrStatus, setOcrStatus] = useState('idle');
+  const [ocrStatus, setOcrStatus] = useState(draft ? 'done' : 'idle');
   const [ocrMessage, setOcrMessage] = useState('');
   // Håller reda på vilka fält som fylldes i av OCR så vi kan visa en badge.
-  const [ocrFields, setOcrFields] = useState(new Set());
+  const [ocrFields, setOcrFields] = useState(new Set(draft?.ocrFields || []));
   // Ett kvitto i en annan valuta än kronor — { code, amount, converted } |
   // null. `converted` är resultatet från convertToSek (utils/
   // currencyConversion.js): { sek, rate, date }, eller null om kursen inte
   // gick att hämta (och då fylls beloppet inte i alls — se nedan).
-  const [ocrForeignCurrency, setOcrForeignCurrency] = useState(null);
+  // Valutaruta: beloppet i valutan, kursen och var kursen kom ifrån. Sparas på
+  // kvittot så att omräkningen går att följa. Se utils/foreignCurrency.js.
+  const [fx, setFx] = useState(() => (receipt.foreignCurrency ? {
+    code: receipt.foreignCurrency.code,
+    amount: amountToInput(receipt.foreignCurrency.amount),
+    rate: rateToInput(receipt.foreignCurrency.rate),
+    rateDate: receipt.foreignCurrency.rateDate || null,
+    source: receipt.foreignCurrency.source || 'manual',
+  } : (draft?.fx || null)));
+  const [fxBusy, setFxBusy] = useState(false);
+  const [fxError, setFxError] = useState('');
+  // Vad numret på kvittot var: fakturanummer, kvittonummer, ordernummer m.fl.
+  const [numberLabel, setNumberLabel] = useState(receipt.receiptNumberLabel || draft?.numberLabel || '');
   // Gör körningar avbrytbara: hinner användaren byta fil eller köra om
   // läsningen innan en pågående körning (som nu även väntar in en
   // valutakurs över nätet) är klar, ska bara den SENASTE körningens
   // resultat någonsin skrivas in i formuläret.
   const ocrRunIdRef = useRef(0);
+  // Uppvisningen efter läsningen: fälten fylls i ett i taget (`revealing`),
+  // `revealed` säger per fält om det hittades, gissades eller saknades, och
+  // `flashKey` är fältet som just fyllts i (ger en kort ljusning). `ocrVat` är
+  // resultatet av momskontrollen mot beloppen på kvittot.
+  const [revealing, setRevealing] = useState(false);
+  const [revealed, setRevealed] = useState(draft?.revealed || {});
+  const [flashKey, setFlashKey] = useState(null);
+  const [ocrVat, setOcrVat] = useState(draft?.ocrVat || null);
+  const timersRef = useRef([]);
+  useEffect(() => () => { timersRef.current.forEach(clearTimeout); }, []);
+  const onSaveOcrDraftRef = useRef(onSaveOcrDraft);
+  onSaveOcrDraftRef.current = onSaveOcrDraft;
+  // Dokumentet var inget kvitto eller någon faktura, så inget fylls i.
+  const [notReceipt, setNotReceipt] = useState(Boolean(draft?.notReceipt));
+  // Företagets egen historik: en leverantör som redan finns på tidigare
+  // kvitton ger samma konto och momssats som oftast förut. Det slår de
+  // allmänna reglerna, eftersom det är så företaget själv bokför.
+  const historyRef = useRef(() => null);
+  historyRef.current = (supplier) => historyForSupplier(allReceipts, supplier, receipt.id) || historyFromVerifications(verifications, supplier);
+  const busy = ocrStatus === 'scanning' || revealing;
+  const flashField = flashKey ? flashKey.split(':')[0] : null;
 
-  const runOcr = useCallback(async (input) => {
+  const runOcr = useCallback(async (input, { force = false } = {}) => {
     if (!input || readOnly) return;
     const runId = ++ocrRunIdRef.current;
     const isCurrent = () => ocrRunIdRef.current === runId;
+    timersRef.current.forEach(clearTimeout);
+    timersRef.current = [];
+    const startedAt = Date.now();
     setOcrStatus('scanning');
     setOcrMessage('Startar läsning…');
-    setOcrForeignCurrency(null);
+    setFx(null);
+    setFxError('');
+    setNumberLabel('');
+    setNotReceipt(false);
+    setOcrFields(new Set());
+    setRevealing(false);
+    setRevealed({});
+    setOcrVat(null);
+    setFlashKey(null);
     try {
-      const text = await ocrFile(input, msg => { if (isCurrent()) setOcrMessage(msg); });
+      const { text, cached } = await readDocumentText(input, msg => { if (isCurrent()) setOcrMessage(msg); }, { force });
       if (!isCurrent()) return;
-      console.log('[OCR] raw text:', text ? text.slice(0, 500) : '(empty)');
       const parsed = parseReceiptText(text);
-      console.log('[OCR] parsed:', parsed);
-      const filled = new Set();
 
       // Utländsk valuta — räkna om till kronor med DAGSKURSEN FÖR
       // KÖPDATUMET (Skatteverkets rekommendation) innan beloppet fylls i.
       // Går omräkningen inte att göra (okänd valutakod, inget nät) fylls
       // beloppet INTE i som om talet redan vore kronor — se
-      // convertToSek/ocrForeignCurrency.
+      // convertToSek.
       let amountSek = parsed.currency ? null : parsed.amount;
       let foreignInfo = null;
       if (parsed.amount && parsed.currency) {
@@ -273,42 +326,111 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
         foreignInfo = { code: parsed.currency, amount: parsed.amount, converted };
       }
 
-      setForm(prev => {
-        const next = { ...prev };
-        if (parsed.date) { next.date = parsed.date; filled.add('date'); }
-        if (amountSek) { next.amount = String(amountSek).replace('.', ','); filled.add('amount'); }
-        // vatRate har ALLTID ett värde (parseReceiptText antar 25 % — eller
-        // 0 % för en igenkänd utländsk molntjänst — så fort inget stod
-        // utläsbart på kvittot, se ocrReceipt.js), så fältet går att fylla
-        // i oavsett. Men OCR-badgen (den lilla "vi läste det här åt dig"-
-        // etiketten) ska bara synas när det FAKTISKT stod på kvittot —
-        // annars ser en gissning ut som en bekräftad avläsning. Kundönskemål,
-        // uttryckligt: en gissning som visas som säker är värre än ingen
-        // gissning alls.
-        if (parsed.vatRate !== null && parsed.vatRate !== undefined) {
-          next.vatRate = parsed.vatRate;
-          if (!parsed.vatRateGuessed) filled.add('vatRate');
+      const remaining = (cached ? CACHED_SCAN_MS : MIN_SCAN_MS) - (Date.now() - startedAt);
+      if (remaining > 0) {
+        await new Promise(resolve => { timersRef.current.push(setTimeout(resolve, remaining)); });
+        if (!isCurrent()) return;
+      }
+
+      // Vad som hittades. `state` säger hur säkert: 'found' = det stod på
+      // kvittot, 'guess' = ett förslag att kontrollera (den första textraden
+      // som leverantör, en momssats som antagits eftersom kvittot inte sa
+      // någon). Ett förslag visas aldrig som en avläsning — kundönskemål,
+      // uttryckligt: en gissning som ser säker ut är värre än ingen gissning.
+      // Inget kvitto eller ingen faktura (ett CV, ett brev): inget fylls i.
+      const nr = Boolean(parsed.notReceipt);
+      const hist = nr ? null : historyRef.current(parsed.supplier);
+      const reverse = parsed.reverseCharge;
+      const vatFromHistory = !reverse && Boolean(hist && parsed.vatRateGuessed && hist.vatRate !== null);
+      const plan = [
+        { key: 'supplier', found: !nr && Boolean(parsed.supplier), state: parsed.supplierMatched ? 'found' : 'guess', patch: { supplier: parsed.supplier || '' } },
+        { key: 'date', found: !nr && Boolean(parsed.date), state: 'found', patch: { date: parsed.date } },
+        { key: 'receiptNumber', found: !nr && Boolean(parsed.receiptNumber), state: 'found', patch: { receiptNumber: parsed.receiptNumber || '' } },
+        { key: 'amount', found: !nr && Boolean(amountSek), state: parsed.amountGuessed ? 'guess' : 'found', patch: { amount: amountToInput(amountSek) } },
+        {
+          key: 'vatRate', found: !nr && parsed.vatRate !== null && parsed.vatRate !== undefined,
+          state: reverse ? 'found' : (vatFromHistory ? 'history' : (parsed.vatRateGuessed ? 'guess' : 'found')),
+          patch: { vatRate: vatFromHistory ? hist.vatRate : parsed.vatRate },
+        },
+        {
+          // Tjänst från utlandet: kontot följer av dokumentet (4535 EU, 4531
+          // utanför EU), inte av tidigare kvitton som kan vara bokförda utan
+          // omvänd moms.
+          key: 'costAccount', found: !nr && Boolean((!reverse && hist?.costAccount) || parsed.accountCode),
+          state: reverse ? 'found' : (hist ? 'history' : (parsed.accountGuessed ? 'guess' : 'found')),
+          patch: { costAccount: reverse ? parsed.accountCode : (hist?.costAccount || parsed.accountCode) },
+        },
+      ];
+
+      // Resultatet sparas på kvittot (som ett utkast, inte som ifyllda fält),
+      // så att en ny öppning visar det direkt i stället för att läsa om.
+      const draftForm = {};
+      const draftRevealed = {};
+      const draftFields = [];
+      plan.forEach(step => {
+        if (step.found) {
+          Object.assign(draftForm, step.patch);
+          if (step.state === 'found') draftFields.push(step.key);
         }
-        // Samma sak för leverantören: matchade vi INTE en igenkänd handlare
-        // (parsed.supplierMatched) är det bara den råa första textraden på
-        // kvittot — ofta rätt, ibland en adress eller ett kvittonummer.
-        // Värt att fylla i som utkast, men inte värt att kalla "avläst".
-        if (parsed.supplier) {
-          next.supplier = parsed.supplier;
-          if (parsed.supplierMatched) filled.add('supplier');
-        }
-        if (parsed.accountCode) { next.costAccount = parsed.accountCode; filled.add('costAccount'); }
-        return next;
+        draftRevealed[step.key] = step.found ? step.state : 'missing';
       });
-      if (foreignInfo) setOcrForeignCurrency(foreignInfo);
-      setOcrFields(filled);
+      const draftVat = nr ? null : { verified: parsed.vatVerified, mismatch: parsed.vatMismatch, vatAmount: parsed.vatAmount, amountVerified: parsed.amountVerified };
+      const draftFx = foreignInfo ? {
+        code: foreignInfo.code,
+        amount: amountToInput(foreignInfo.amount),
+        rate: foreignInfo.converted ? rateToInput(foreignInfo.converted.rate) : '',
+        rateDate: foreignInfo.converted?.date || null,
+        source: foreignInfo.converted ? 'ecb' : 'manual',
+      } : null;
+      onSaveOcrDraftRef.current?.(receipt.id, {
+        scannedAt: new Date().toISOString(),
+        form: draftForm,
+        revealed: draftRevealed,
+        ocrFields: draftFields,
+        numberLabel: parsed.receiptNumber ? (parsed.receiptNumberLabel || '') : '',
+        fx: draftFx,
+        notReceipt: nr,
+        ocrVat: draftVat,
+      });
+
       setOcrStatus('done');
       setOcrMessage('');
+      setRevealing(true);
+      plan.forEach((step, i) => {
+        timersRef.current.push(setTimeout(() => {
+          if (!isCurrent()) return;
+          if (step.found) {
+            setForm(prev => ({ ...prev, ...step.patch }));
+            if (step.state === 'found') setOcrFields(prev => new Set(prev).add(step.key));
+            setFlashKey(`${step.key}:${i}`);
+          }
+          setRevealed(prev => ({ ...prev, [step.key]: step.found ? step.state : 'missing' }));
+        }, 250 + i * REVEAL_STEP_MS));
+      });
+      timersRef.current.push(setTimeout(() => {
+        if (!isCurrent()) return;
+        if (parsed.receiptNumber) setNumberLabel(parsed.receiptNumberLabel || '');
+        if (foreignInfo) {
+          setFx({
+            code: foreignInfo.code,
+            amount: amountToInput(foreignInfo.amount),
+            rate: foreignInfo.converted ? rateToInput(foreignInfo.converted.rate) : '',
+            rateDate: foreignInfo.converted?.date || null,
+            source: foreignInfo.converted ? 'ecb' : 'manual',
+          });
+          if (!foreignInfo.converted) setFxError('Kursen gick inte att hämta automatiskt. Fyll i kursen eller beloppet i kronor själv, helst det som faktiskt drogs på kortet.');
+        }
+        setNotReceipt(nr);
+        setOcrVat(nr ? null : { verified: parsed.vatVerified, mismatch: parsed.vatMismatch, vatAmount: parsed.vatAmount, amountVerified: parsed.amountVerified });
+        setFlashKey(null);
+        setRevealing(false);
+      }, 250 + plan.length * REVEAL_STEP_MS + 150));
     } catch (err) {
       if (!isCurrent()) return;
       console.error('OCR misslyckades:', err);
       setOcrStatus('error');
       setOcrMessage('');
+      setRevealing(false);
     }
   }, [readOnly]);
 
@@ -317,7 +439,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
   const isUnprocessed = !receipt.supplier && (!receipt.amount || Number(receipt.amount) === 0) && !receipt.costAccount;
   
   useEffect(() => {
-    if (hasReceiptFile && isUnprocessed && !readOnly) {
+    if (hasReceiptFile && isUnprocessed && !readOnly && !receipt.ocrDraft) {
       runOcr(receipt.receiptUrl);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -337,7 +459,10 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
   // den blir. Samma räkning som bokföringen gör efteråt, inte en egen.
   const grossAmount = parseAmount(form.amount);
   const hasAmount = !isNaN(grossAmount) && grossAmount > 0;
-  const vatRate = Number(form.vatRate) || 0;
+  // Tjänst från utlandet (omvänd skattskyldighet): ingen svensk moms på kvittot,
+  // hela beloppet är kostnaden. Se utils/reverseCharge.js.
+  const reverseInfo = reverseChargePurchaseInfo(form.costAccount);
+  const vatRate = reverseInfo ? 0 : (Number(form.vatRate) || 0);
   const vatAmount = hasAmount ? grossAmount - grossAmount / (1 + vatRate / 100) : 0;
   const netAmount = hasAmount ? grossAmount - vatAmount : 0;
 
@@ -361,6 +486,42 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
     [...new Set((allReceipts || []).map(r => (r.supplier || '').trim()).filter(Boolean))].slice(0, 50)
   ), [allReceipts]);
 
+  // Valutarutan: beloppet i valutan, kursen och beloppet i kronor hänger ihop.
+  // Ändrar man beloppet eller kursen räknas kronorna om, och skriver man in
+  // ett annat belopp i kronor (det banken faktiskt drog) räknas kursen om.
+  const setSek = (sek) => setForm(f => ({ ...f, amount: amountToInput(sek) }));
+  const onSekEdited = (v) => {
+    if (!fx) return;
+    const r = impliedRate(v, fx.amount);
+    if (r > 0) setFx(prev => ({ ...prev, rate: rateToInput(r), source: 'manual' }));
+  };
+  const onFxAmount = (v) => {
+    setFx(prev => ({ ...prev, amount: v }));
+    const sek = sekFrom(v, fx.rate);
+    if (sek > 0) setSek(sek);
+    setOcrVat(null);
+  };
+  const onFxRate = (v) => {
+    setFx(prev => ({ ...prev, rate: v, source: 'manual' }));
+    const sek = sekFrom(fx.amount, v);
+    if (sek > 0) setSek(sek);
+    setOcrVat(null);
+  };
+  const addFx = () => { setFx({ code: 'USD', amount: '', rate: '', rateDate: null, source: 'manual' }); setFxError(''); };
+  const removeFx = () => { setFx(null); setFxError(''); };
+  const refetchRate = async () => {
+    const amount = parseNumber(fx.amount);
+    if (!(amount > 0)) { setFxError('Fyll i beloppet i valutan först.'); return; }
+    setFxBusy(true);
+    setFxError('');
+    const converted = await convertToSek(amount, fx.code, form.date);
+    setFxBusy(false);
+    if (!converted) { setFxError('Kursen gick inte att hämta. Fyll i den för hand.'); return; }
+    setFx(prev => ({ ...prev, rate: rateToInput(converted.rate), rateDate: converted.date, source: 'ecb' }));
+    setSek(converted.sek);
+    setOcrVat(null);
+  };
+
   const handleSave = async () => {
     const newErrors = {};
     const amount = parseAmount(form.amount);
@@ -368,19 +529,28 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
     if (!form.supplier.trim()) newErrors.supplier = 'Inköpsställe krävs.';
     if (isNaN(amount) || amount <= 0) newErrors.amount = 'Ange ett giltigt belopp.';
     if (!form.costAccount) newErrors.costAccount = 'Välj ett konto.';
+    if (fx && !foreignForSave(fx)) newErrors.fx = 'Fyll i belopp och kurs, eller ta bort valutan.';
     if (Object.keys(newErrors).length > 0) { setErrors(newErrors); return; }
 
     // Samma dublettvarning som tidigare fanns i "Spara och bokför"-flödet —
     // jämför mot alla kvitton UTOM sig själv, annars flaggar ett kvitto sig
     // själv som en dublett så fort man öppnar och sparar det en andra gång.
-    const dup = allReceipts.find(r => r.id !== receipt.id && r.date === form.date && Math.abs((r.amount || 0) - amount) < 0.01 && (r.supplier || '').trim().toLowerCase() === form.supplier.trim().toLowerCase());
+    // Samma leverantör och samma kvitto- eller fakturanummer är också en
+    // dublett, även om datum eller belopp lästs olika av OCR.
+    const number = form.receiptNumber.trim().toLowerCase();
+    const sameSupplier = (r) => (r.supplier || '').trim().toLowerCase() === form.supplier.trim().toLowerCase();
+    const dup = allReceipts.find(r => r.id !== receipt.id && sameSupplier(r) && (
+      (r.date === form.date && Math.abs((r.amount || 0) - amount) < 0.01)
+      || (number && (r.receiptNumber || '').trim().toLowerCase() === number)
+    ));
     if (dup) {
       const ok = await confirmDialog(`Det finns redan ett kvitto från "${dup.supplier}" på ${formatSEK(dup.amount)} samma datum. Vill du spara ändå?`);
       if (!ok) return;
     }
 
     onSave(receipt.id, {
-      date: form.date, supplier: form.supplier.trim(), amount, vatRate: Number(form.vatRate),
+      date: form.date, supplier: form.supplier.trim(), receiptNumber: form.receiptNumber.trim() || undefined, receiptNumberLabel: form.receiptNumber.trim() ? (numberLabel || undefined) : undefined,
+      foreignCurrency: foreignForSave(fx), amount, vatRate: Number(form.vatRate),
       costAccount: form.costAccount, projectId: form.projectId || undefined, folderId: form.folderId || undefined,
       notes: form.notes.trim() || undefined,
     });
@@ -397,13 +567,26 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
     <div className="receipt-modal-overlay" role="dialog" aria-modal="true" aria-label="Kvittodetaljer" style={{ position: 'fixed', inset: 0, zIndex: 1150, display: 'flex' }}>
       <div className="receipt-modal-box">
 
-        {/* ── Vänster: formuläret ── */}
+        {/* ── Vänster: kvittot ──
+            Dokumentet ligger till vänster och uppgifterna till höger, som i
+            de bokföringsprogram där kvittot är själva arbetsytan. Medan
+            kvittot läses ligger skannerlinjen ovanpå (ScanOverlay). */}
+        <div className="rc-doc">
+          <DocumentPane
+            url={receipt.receiptUrl}
+            type={receipt.receiptType}
+            emptyText="Ingen fil är sparad för det här kvittot. Uppgifterna bredvid går att fylla i ändå."
+          />
+          {ocrStatus === 'scanning' && <ScanOverlay detail={ocrMessage} />}
+        </div>
+
+        {/* ── Höger: uppgifterna ── */}
         <div className="rc-form">
           <div className="rc-form-head">
             <div style={{ minWidth: 0 }}>
               <h2 style={{ margin: 0, fontSize: '16.5px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.01em' }}>Kvittodetaljer</h2>
               <p style={{ margin: '3px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>
-                {readOnly ? 'Bokfört underlag' : ocrStatus === 'scanning' ? (ocrMessage || 'Läser kvittot…') : ocrStatus === 'done' ? 'OCR klar — granska och justera' : 'Fyll i uppgifterna från kvittot'}
+                {readOnly ? 'Bokfört underlag' : ocrStatus === 'scanning' ? 'Läser kvittot, det tar några sekunder…' : revealing ? 'Fyller i uppgifterna…' : notReceipt ? 'Det här verkar inte vara ett kvitto eller en faktura' : ocrStatus === 'done' ? 'Avläsningen är klar. Granska och justera.' : 'Fyll i uppgifterna från kvittot'}
               </p>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
@@ -412,8 +595,8 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                 <button
                   type="button"
                   title={ocrStatus === 'scanning' ? (ocrMessage || 'Läser…') : 'Läs av kvittot automatiskt med OCR'}
-                  disabled={ocrStatus === 'scanning'}
-                  onClick={() => runOcr(receipt.receiptUrl)}
+                  disabled={busy}
+                  onClick={() => runOcr(receipt.receiptUrl, { force: true })}
                   style={{
                     display: 'flex', alignItems: 'center', gap: '5px',
                     padding: '6px 12px', borderRadius: '8px', border: '1px solid var(--border)',
@@ -424,7 +607,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                   }}
                 >
                   <ScanLine size={14} style={{ animation: ocrStatus === 'scanning' ? 'spin 1s linear infinite' : 'none' }} />
-                  {ocrStatus === 'scanning' ? (ocrMessage || 'Läser…') : 'Läs av'}
+                  {ocrStatus === 'scanning' ? 'Läser…' : (receipt.ocrDraft || Object.keys(revealed).length > 0 ? 'Läs av igen' : 'Läs av')}
                 </button>
               )}
               {statusMeta && (
@@ -436,7 +619,45 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
             </div>
           </div>
 
-          <div className="rc-form-body">
+          <div className={`rc-form-body${ocrStatus === 'scanning' ? ' rc-scanning' : ''}`}>
+            {!readOnly && (ocrStatus === 'scanning' || revealing || Object.keys(revealed).length > 0) && (
+              <OcrChecklist scanning={ocrStatus === 'scanning'} revealed={revealed} />
+            )}
+
+            {!readOnly && !revealing && reverseInfo && (
+              <div className="rc-verify rc-verify-warn">
+                <AlertCircle size={14} style={{ flexShrink: 0 }} />
+                <span>Tjänst från {reverseInfo.region === 'eu' ? 'ett annat EU-land' : 'ett land utanför EU'}: säljaren tar ingen svensk moms, så hela beloppet är kostnaden. Momsen ska redovisas av dig (omvänd skattskyldighet) och bokförs automatiskt på 2645 och 2614. Den syns i ruta {reverseInfo.region === 'eu' ? '21' : '22'}, 30 och 48 i momsdeklarationen.</span>
+              </div>
+            )}
+            {!readOnly && !revealing && notReceipt && (
+              <div className="rc-verify rc-verify-warn">
+                <AlertCircle size={14} style={{ flexShrink: 0 }} />
+                <span>Det här ser inte ut som ett kvitto eller en faktura, så inget har fyllts i. Fyll i uppgifterna själv, eller ta bort filen om den hamnade här av misstag.</span>
+              </div>
+            )}
+            {!readOnly && !revealing && ocrVat && ocrVat.amountVerified && !ocrVat.verified && (
+              <div className="rc-verify rc-verify-ok">
+                <CheckCircle2 size={14} style={{ flexShrink: 0 }} />
+                <span>Beloppet stämmer: netto plus moms på fakturan blir totalbeloppet.</span>
+              </div>
+            )}
+
+            {/* Momskontrollen mot beloppen på kvittot. Verifierad bara när
+                momsbeloppet på kvittot faktiskt stämmer mot vald sats. */}
+            {!readOnly && !revealing && ocrVat && ocrVat.verified && (
+              <div className="rc-verify rc-verify-ok">
+                <CheckCircle2 size={14} style={{ flexShrink: 0 }} />
+                <span>Momsen stämmer mot beloppen på kvittot ({formatSEK2(ocrVat.vatAmount)} moms, {Number(form.vatRate)} %).</span>
+              </div>
+            )}
+            {!readOnly && !revealing && ocrVat && ocrVat.mismatch && (
+              <div className="rc-verify rc-verify-warn">
+                <AlertCircle size={14} style={{ flexShrink: 0 }} />
+                <span>Momsbeloppet på kvittot ({formatSEK2(ocrVat.vatAmount)}) stämmer inte mot någon momssats för det beloppet. Kontrollera belopp och moms mot kvittot.</span>
+              </div>
+            )}
+
             {status === 'reversed' ? (
               <div style={{ background: BRAND.grayBg, color: BRAND.grayText, borderRadius: '10px', padding: '10px 13px', fontSize: '12.5px', fontWeight: 600, marginBottom: '16px', display: 'flex', alignItems: 'flex-start', gap: '7px', lineHeight: 1.5 }}>
                 <RotateCcw size={14} style={{ flexShrink: 0, marginTop: 2 }} /> Den här bokföringen har rättats med en motverifikation — originalet ändras aldrig i efterhand
@@ -455,43 +676,63 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
               </div>
             )}
 
-            {/* Utländsk valuta — beloppet ÄR omräknat till kronor med en
-                riktig, publicerad kurs (convertToSek, ECB-data för
-                köpdatumet), inte ett hittepåtal. Bandet visar räkningen
-                öppet (kurs + datum) så den går att kontrollera, eftersom
-                bankens egen växlingsavgift gör att det faktiskt dragna
-                beloppet kan skilja någon procent från ECB-kursen. Gick
-                kursen inte att hämta (inget nät, okänd valuta) fylls
-                beloppet inte i alls — se convertToSek. */}
-            {ocrForeignCurrency && (
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '7px', background: BRAND.amberBg, color: BRAND.amberText, borderRadius: '8px', padding: '10px 12px', marginBottom: '12px', fontSize: '12.5px', fontWeight: 600, lineHeight: 1.5 }}>
-                <AlertCircle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
-                <span>
-                  {ocrForeignCurrency.converted ? (
-                    <>
-                      Kvittot var i {ocrForeignCurrency.code} ({CURRENCY_SYMBOL[ocrForeignCurrency.code] || ''}{formatForeignAmount(ocrForeignCurrency.code, ocrForeignCurrency.amount)}) — omräknat till {formatSEK2(ocrForeignCurrency.converted.sek)} med dagskursen {ocrForeignCurrency.converted.rate.toFixed(4)} SEK/{ocrForeignCurrency.code}{ocrForeignCurrency.converted.date ? ` (${ocrForeignCurrency.converted.date})` : ''}. Kontrollera mot kontoutdraget — bankens växlingsavgift kan göra att det faktiska beloppet skiljer sig något.
-                    </>
-                  ) : (
-                    <>
-                      Kvittot verkar vara i {ocrForeignCurrency.code} ({CURRENCY_SYMBOL[ocrForeignCurrency.code] || ''}{formatForeignAmount(ocrForeignCurrency.code, ocrForeignCurrency.amount)}) men kursen gick inte att hämta automatiskt — skriv in beloppet i SEK själv, helst det som faktiskt drogs på kortet.
-                    </>
-                  )}
-                </span>
-              </div>
-            )}
 
             <div className="rc-grid">
-              <div>
+              <div className={flashField === 'date' ? 'rc-flash' : undefined}>
                 <label style={labelSt}>Datum {ocrFields.has('date') && <OcrBadge />}</label>
                 <input type="date" disabled={readOnly} value={form.date} onChange={e => { setForm(f => ({ ...f, date: e.target.value })); setOcrFields(s => { const n = new Set(s); n.delete('date'); return n; }); }} style={inputStErr(errors.date)} />
                 {errors.date && <div style={errSt}>{errors.date}</div>}
               </div>
-              <div>
+              <div className={flashField === 'amount' ? 'rc-flash' : undefined}>
                 <label style={labelSt}>Belopp ink moms (kr) {ocrFields.has('amount') && <OcrBadge />}</label>
-                <AmountInput disabled={readOnly} value={form.amount} onChange={v => { setForm(f => ({ ...f, amount: v })); setOcrFields(s => { const n = new Set(s); n.delete('amount'); return n; }); setOcrForeignCurrency(null); }} style={inputStErr(errors.amount)} />
+                <AmountInput disabled={readOnly} value={form.amount} onChange={v => { setForm(f => ({ ...f, amount: v })); setOcrFields(s => { const n = new Set(s); n.delete('amount'); return n; }); setOcrVat(null); onSekEdited(v); }} style={inputStErr(errors.amount)} />
                 {errors.amount && <div style={errSt}>{errors.amount}</div>}
               </div>
-              <div className="rc-span">
+
+              {fx ? (
+                <div className="rc-span rc-fx">
+                  <div className="rc-fx-head">
+                    <span className="rc-fx-title">Kvittot är i utländsk valuta</span>
+                    {!readOnly && <button type="button" className="rc-link" onClick={removeFx}>Ta bort</button>}
+                  </div>
+                  <div className="rc-fx-grid">
+                    <div>
+                      <label style={labelSt}>Valuta</label>
+                      <select disabled={readOnly} value={fx.code} onChange={e => setFx(prev => ({ ...prev, code: e.target.value }))} style={{ ...inputSt, background: 'var(--bg-card)' }}>
+                        {(CURRENCIES.includes(fx.code) ? CURRENCIES : [fx.code, ...CURRENCIES]).map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={labelSt}>Belopp i {fx.code}</label>
+                      <AmountInput disabled={readOnly} value={fx.amount} onChange={onFxAmount} style={inputSt} />
+                    </div>
+                    <div>
+                      <label style={labelSt}>Kurs (kr per {fx.code})</label>
+                      <input
+                        disabled={readOnly} type="text" inputMode="decimal" value={fx.rate} placeholder="0,0000" style={inputSt}
+                        onChange={e => { const v = e.target.value; if (v === '' || /^\d*[.,]?\d{0,6}$/.test(v)) onFxRate(v); }}
+                      />
+                    </div>
+                  </div>
+                  <div className="rc-fx-note">
+                    {fx.source === 'ecb' && fx.rateDate
+                      ? `Dagskurs från Europeiska centralbanken för ${fx.rateDate}${form.date && fx.rateDate < form.date ? ' (närmast föregående bankdag före köpet)' : ''}.`
+                      : 'Kursen är angiven för hand.'}
+                    {' '}Beloppet i kronor ovan är {fx.amount || '…'} {fx.code} × {fx.rate || '…'}. Ändra kursen eller beloppet i kronor om banken drog ett annat belopp.
+                  </div>
+                  {!readOnly && (
+                    <button type="button" className="rc-chip" onClick={refetchRate} disabled={fxBusy} style={{ alignSelf: 'flex-start' }}>
+                      {fxBusy ? 'Hämtar kursen…' : `Hämta dagskurs för ${form.date || 'köpdatumet'}`}
+                    </button>
+                  )}
+                  {(fxError || errors.fx) && <div style={errSt}>{fxError || errors.fx}</div>}
+                </div>
+              ) : !readOnly && (
+                <div className="rc-span">
+                  <button type="button" className="rc-link" onClick={addFx}>Kvittot är i annan valuta än kronor</button>
+                </div>
+              )}
+              <div className={`rc-span${flashField === 'supplier' ? ' rc-flash' : ''}`}>
                 <label style={labelSt}>Inköpsställe / Leverantör {ocrFields.has('supplier') && <OcrBadge />}</label>
                 <TextSuggestInput
                   disabled={readOnly}
@@ -504,7 +745,19 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                 />
                 {errors.supplier && <div style={errSt}>{errors.supplier}</div>}
               </div>
-              <div className="rc-span">
+              <div className={`rc-span${flashField === 'receiptNumber' ? ' rc-flash' : ''}`}>
+                <label style={labelSt}>Kvitto-, faktura- eller ordernummer (valfritt) {ocrFields.has('receiptNumber') && <OcrBadge />}</label>
+                <input
+                  disabled={readOnly}
+                  value={form.receiptNumber}
+                  onChange={e => { setForm(f => ({ ...f, receiptNumber: e.target.value })); setNumberLabel(''); setOcrFields(s => { const n = new Set(s); n.delete('receiptNumber'); return n; }); }}
+                  placeholder="T.ex. 20240123"
+                  maxLength={40}
+                  style={inputSt}
+                />
+                {numberLabel && form.receiptNumber && <div className="rc-hint">Avläst som {numberLabel.toLowerCase()}</div>}
+              </div>
+              <div className={`rc-span${flashField === 'vatRate' ? ' rc-flash' : ''}`}>
                 <label style={labelSt}>Momssats {ocrFields.has('vatRate') && <OcrBadge />}</label>
                 <div style={{ display: 'flex', gap: '6px' }}>
                   {[25, 12, 6, 0].map(v => {
@@ -512,7 +765,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                     return (
                       <button
                         key={v} type="button" disabled={readOnly}
-                        onClick={() => { setForm(f => ({ ...f, vatRate: v })); setOcrFields(s => { const n = new Set(s); n.delete('vatRate'); return n; }); }}
+                        onClick={() => { setForm(f => ({ ...f, vatRate: v })); setOcrFields(s => { const n = new Set(s); n.delete('vatRate'); return n; }); setOcrVat(null); }}
                         style={{
                           flex: 1, padding: '8px 0', borderRadius: '8px', fontSize: '13px', fontWeight: 700,
                           fontFamily: 'inherit', cursor: readOnly ? 'default' : 'pointer',
@@ -545,7 +798,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                 </div>
               </div>
 
-              <div className="rc-span">
+              <div className={`rc-span${flashField === 'costAccount' ? ' rc-flash' : ''}`}>
                 <label style={labelSt}>Konto {ocrFields.has('costAccount') && <OcrBadge />}</label>
                 {readOnly ? (
                   <div style={{ ...inputSt, background: 'var(--bg-muted)', color: 'var(--text-main)' }}>
@@ -624,20 +877,13 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
             <div style={{ display: 'flex', gap: '10px' }}>
               <button type="button" onClick={onClose} style={{ padding: '9px 16px', background: 'var(--border-light)', border: 'none', borderRadius: '9px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer', fontSize: '13px', fontFamily: 'inherit' }}>Stäng</button>
               {status !== 'reversed' && (
-                <button type="button" onClick={handleSave} style={{ padding: '9px 18px', background: BRAND.green, border: 'none', borderRadius: '9px', fontWeight: 600, color: 'white', cursor: 'pointer', fontSize: '13px', fontFamily: 'inherit', boxShadow: '0 2px 8px color-mix(in srgb, var(--accent) 28%, transparent)' }}>
+                <button type="button" onClick={handleSave} disabled={busy} title={busy ? 'Vänta tills kvittot är avläst' : undefined} style={{ padding: '9px 18px', background: BRAND.green, border: 'none', borderRadius: '9px', fontWeight: 600, color: 'white', cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? 0.55 : 1, fontSize: '13px', fontFamily: 'inherit', boxShadow: '0 2px 8px color-mix(in srgb, var(--accent) 28%, transparent)' }}>
                   {readOnly ? 'Spara ändringar' : 'Spara och bokför'}
                 </button>
               )}
             </div>
           </div>
         </div>
-
-        {/* ── Höger: dokumentet ── */}
-        <DocumentPane
-          url={receipt.receiptUrl}
-          type={receipt.receiptType}
-          emptyText="Ingen fil är sparad för det här kvittot. Uppgifterna bredvid går att fylla i ändå."
-        />
 
       </div>
     </div>
@@ -647,7 +893,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
 export default function Expenses({
   expenses = [], accounts = [], verifications = [], projects = [], user,
   company, onUpdateCompany, onDeleteReceiptFolder,
-  onAdd, onFixExpenseAccount, onSaveReceiptDetails, onDeleteExpense, onReverseExpense,
+  onAdd, onFixExpenseAccount, onSaveReceiptDetails, onSaveOcrDraft, onDeleteExpense, onReverseExpense,
   pageTitle, pageSubtitle,
   // Utbytbar uppladdningsfunktion — defaultar till den riktiga Storage-
   // uppladdningen för den inloggade appen (oförändrat beteende). Landnings-
@@ -1235,6 +1481,7 @@ export default function Expenses({
                       return (
                         <div
                           key={r.id}
+                          data-receipt-id={r.id}
                           onClick={() => setDetailReceiptId(r.id)}
                           role="button"
                           tabIndex={0}
@@ -1257,6 +1504,7 @@ export default function Expenses({
                           </div>
                           <div style={{ textAlign: 'right', flexShrink: 0 }}>
                             <div style={{ fontSize: '13.5px', fontWeight: 500, color: 'var(--text-main)' }}>{formatSEK(r.amount)}</div>
+                            {r.foreignCurrency && <div style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>{amountToInput(r.foreignCurrency.amount)} {r.foreignCurrency.code}</div>}
                             {status === 'reversed' ? (
                               <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end', fontSize: '11.5px', color: BRAND.grayText, fontWeight: 600, marginTop: '2px' }}>
                                 <RotateCcw size={12} /> Rättad
@@ -1304,8 +1552,10 @@ export default function Expenses({
           projects={projects}
           folders={folders}
           allReceipts={allReceipts}
+          verifications={verifications}
           status={getReceiptStatus(detailReceipt, verifications)}
           onSave={(id, values) => onSaveReceiptDetails?.(id, values)}
+          onSaveOcrDraft={(id, draft) => onSaveOcrDraft?.(id, draft)}
           onDelete={(id) => onDeleteExpense?.(id)}
           onReverse={(id) => onReverseExpense?.(id)}
           onClose={() => setDetailReceiptId(null)}

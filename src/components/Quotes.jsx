@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { FileSpreadsheet, Plus, FileText, Check, X, Download, Trash2, Send, Eye, ZoomIn, ZoomOut, Paperclip, Loader2, Search, Package, ChevronDown, ChevronRight } from './icons';
+import PaperFit from './shared/PaperFit';
 import InvoiceDocument, { DEFAULT_INVOICE_TEMPLATE, INVOICE_TEMPLATES } from './InvoiceDocument';
 import { exportInvoicePdf, getInvoicePdfBase64 } from '../utils/exportInvoicePdf';
 import { sendInvoiceEmail } from '../emailApi';
@@ -474,35 +475,35 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
       </div>
 
       {/* ── Åtgärdsrad: statusflöde, konvertering, e-post, PDF, förhandsgranska ── */}
-      <div className="quote-toolbar" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '12px 24px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <div className="quote-toolbar doc-toolbar" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '12px 24px', display: 'flex', alignItems: 'center', gap: '10px' }}>
         {quote && (!quote.status || quote.status === 'draft') && (
-          <button type="button" onClick={() => setStatus('sent')} style={toolbarBtnStyle(status === 'sent')}>Markera som skickad</button>
+          <button type="button" className="tb-status" onClick={() => setStatus('sent')} style={toolbarBtnStyle(status === 'sent')}>Markera som skickad</button>
         )}
         {quote && status === 'sent' && (
           <>
-            <button type="button" onClick={() => setStatus('accepted')} style={{ ...toolbarBtnStyle(false), color: 'var(--status-green-text)', borderColor: 'var(--status-green-bg)' }}>Markera som accepterad</button>
-            <button type="button" onClick={() => setStatus('rejected')} style={{ ...toolbarBtnStyle(false), color: 'var(--status-red-text)', borderColor: 'var(--status-red-bg)' }}>Markera som avvisad</button>
+            <button type="button" className="tb-status" onClick={() => setStatus('accepted')} style={{ ...toolbarBtnStyle(false), color: 'var(--status-green-text)', borderColor: 'var(--status-green-bg)' }}>Markera som accepterad</button>
+            <button type="button" className="tb-status" onClick={() => setStatus('rejected')} style={{ ...toolbarBtnStyle(false), color: 'var(--status-red-text)', borderColor: 'var(--status-red-bg)' }}>Markera som avvisad</button>
           </>
         )}
         {quote && (status === 'accepted' || status === 'rejected') && (
-          <button type="button" onClick={() => setStatus('draft')} style={toolbarBtnStyle(false)}>Återställ till utkast</button>
+          <button type="button" className="tb-status" onClick={() => setStatus('draft')} style={toolbarBtnStyle(false)}>Återställ till utkast</button>
         )}
         {/* Konvertering är alltid tillgänglig oavsett status — se motiveringen
             i Quotes-listan: det är ägarens eget omdöme, inte något appen ska
             gate:a bakom ett visst statusläge. */}
         {quote && onConvert && (
-          <button type="button" onClick={onConvert} style={{ ...toolbarBtnStyle(false), color: 'var(--accent-text)', borderColor: 'var(--status-green-bg)' }}><FileText size={13} /> Konvertera till faktura</button>
+          <button type="button" className="tb-status" onClick={onConvert} style={{ ...toolbarBtnStyle(false), color: 'var(--accent-text)', borderColor: 'var(--status-green-bg)' }}><FileText size={13} /> Konvertera till faktura</button>
         )}
         <div style={{ flex: 1, minWidth: '8px' }} />
         {emailError && <span style={{ fontSize: '11px', color: 'var(--status-red-text)', flexShrink: 0 }}>{emailError}</span>}
         {emailSent && !emailError && <span style={{ fontSize: '11px', color: 'var(--status-green-text)', fontWeight: 600, flexShrink: 0 }}>Skickad ✓</span>}
         <input
-          type="email" value={emailToInput} onChange={e => { setEmailToInput(e.target.value); setEmailError(''); }}
+          type="email" className="toolbar-email-input" value={emailToInput} onChange={e => { setEmailToInput(e.target.value); setEmailError(''); }}
           placeholder="mottagarens@epost.se" title="Mottagarens e-postadress"
           style={{ ...inputStyle, width: '210px', padding: '9px 12px', fontSize: '13.5px', background: 'white', color: 'var(--text-main)', flexShrink: 0 }}
         />
         <button
-          type="button" onClick={handleSendEmail}
+          type="button" className="tb-send" onClick={handleSendEmail}
           disabled={emailBusy || !emailToInput.trim()}
           title={!emailToInput.trim() ? 'Ange en mottagaradress' : `Skicka offert ${previewNumber} till ${emailToInput.trim()}`}
           style={{ ...toolbarBtnStyle(false), opacity: (emailBusy || !emailToInput.trim()) ? 0.5 : 1, cursor: (emailBusy || !emailToInput.trim()) ? 'not-allowed' : 'pointer' }}
@@ -510,10 +511,10 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
           <Send size={15} /> {emailBusy ? 'Skickar…' : 'Skicka via e-post'}
         </button>
         {pdfError && <span style={{ fontSize: '11px', color: 'var(--status-red-text)', flexShrink: 0 }}>{pdfError}</span>}
-        <button type="button" onClick={handleDownloadPdf} disabled={pdfBusy} style={{ ...toolbarBtnStyle(false), opacity: pdfBusy ? 0.6 : 1 }}>
+        <button type="button" className="tb-pdf" onClick={handleDownloadPdf} disabled={pdfBusy} style={{ ...toolbarBtnStyle(false), opacity: pdfBusy ? 0.6 : 1 }}>
           <Download size={15} /> {pdfBusy ? 'Skapar PDF…' : 'Ladda ner PDF'}
         </button>
-        <button type="button" onClick={() => setShowPreview(true)} style={toolbarBtnStyle(showPreview)}>
+        <button type="button" className="tb-preview" onClick={() => setShowPreview(true)} style={toolbarBtnStyle(showPreview)}>
           <Eye size={15} /> Förhandsgranska
         </button>
       </div>
@@ -647,8 +648,8 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
                 — en egen horisontellt skrollbar yta istället för att klämma
                 ihop kolumnerna eller staplas till en orimligt hög lista på
                 smala skärmar, samma princip som listvyns tabell använder. */}
-            <div style={{ overflowX: 'auto' }}>
-              <div style={{ minWidth: '980px' }}>
+            <div className="quote-rows-scroll" style={{ overflowX: 'auto' }}>
+              <div className="quote-rows-min" style={{ minWidth: '980px' }}>
                 <div className="quote-rows-header" style={{ display: 'grid', gridTemplateColumns: '2.2fr 0.8fr 0.8fr 1fr 0.8fr 0.9fr 1.1fr 1fr auto', gap: '10px', marginBottom: '6px', padding: '0 2px' }}>
                   {['Beskrivning', 'Antal', 'Enhet', 'Á-pris', 'Rabatt %', 'Moms %', 'Avdrag', 'Summa', ''].map(h => (
                     <span key={h} style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>{h}</span>
@@ -657,7 +658,8 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
                 {rows.map((row, i) => {
                   const rowSum = (Number(row.qty) || 0) * (Number(row.price) || 0) * (1 - (Number(row.discount) || 0) / 100);
                   return (
-                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '2.2fr 0.8fr 0.8fr 1fr 0.8fr 0.9fr 1.1fr 1fr auto', gap: '10px', marginBottom: '10px', alignItems: 'center' }}>
+                    <div key={i} className="quote-row" style={{ display: 'grid', gridTemplateColumns: '2.2fr 0.8fr 0.8fr 1fr 0.8fr 0.9fr 1.1fr 1fr auto', gap: '10px', marginBottom: '10px', alignItems: 'center' }}>
+                      <label className="qr-cell qr-desc"><span className="qr-lbl">Beskrivning</span>
                       <input type="text" placeholder="Beskrivning" style={inputStyle} value={row.description}
                         list="quote-article-register-list"
                         onChange={e => updateRow(i, 'description', e.target.value)}
@@ -669,23 +671,38 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
                           if (hit) applyArticleToRow(i, hit);
                         }}
                         required />
-                      <input type="number" placeholder="Antal" style={inputStyle} value={row.qty}
+                      </label>
+                      <label className="qr-cell"><span className="qr-lbl">Antal</span>
+                      <input type="number" inputMode="decimal" placeholder="Antal" style={inputStyle} value={row.qty}
                         onChange={e => updateRow(i, 'qty', e.target.value)} />
+                      </label>
+                      <label className="qr-cell"><span className="qr-lbl">Enhet</span>
                       <select style={inputStyle} value={row.unit} onChange={e => updateRow(i, 'unit', e.target.value)}>
                         {ROW_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                       </select>
-                      <input type="number" placeholder="Á-pris" style={inputStyle} value={row.price}
+                      </label>
+                      <label className="qr-cell"><span className="qr-lbl">À-pris</span>
+                      <input type="number" inputMode="decimal" placeholder="Á-pris" style={inputStyle} value={row.price}
                         onChange={e => updateRow(i, 'price', e.target.value)} required />
-                      <input type="number" placeholder="Rabatt %" style={inputStyle} value={row.discount}
+                      </label>
+                      <label className="qr-cell"><span className="qr-lbl">Rabatt %</span>
+                      <input type="number" inputMode="decimal" placeholder="Rabatt %" style={inputStyle} value={row.discount}
                         onChange={e => updateRow(i, 'discount', e.target.value)} />
+                      </label>
+                      <label className="qr-cell"><span className="qr-lbl">Moms</span>
                       <select style={inputStyle} value={row.vat} onChange={e => updateRow(i, 'vat', e.target.value)}>
                         {VAT_RATES.map(v => <option key={v} value={v}>{v}%</option>)}
                       </select>
+                      </label>
+                      <label className="qr-cell"><span className="qr-lbl">Avdrag</span>
                       <select style={inputStyle} value={row.deduction} onChange={e => updateRow(i, 'deduction', e.target.value)}>
                         {DEDUCTION_OPTIONS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
                       </select>
+                      </label>
+                      <div className="qr-cell qr-sum"><span className="qr-lbl">Summa</span>
                       <div style={{ ...inputStyle, background: 'var(--bg-muted)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>{fmtSEK(rowSum)}</div>
-                      <button type="button" onClick={() => removeRow(i)} disabled={rows.length === 1} title="Ta bort rad" style={{ padding: '6px', background: 'transparent', border: 'none', cursor: rows.length === 1 ? 'not-allowed' : 'pointer', color: rows.length === 1 ? 'var(--border)' : '#ef4444' }}>
+                      </div>
+                      <button className="qr-remove" type="button" onClick={() => removeRow(i)} disabled={rows.length === 1} title="Ta bort rad" style={{ padding: '6px', background: 'transparent', border: 'none', cursor: rows.length === 1 ? 'not-allowed' : 'pointer', color: rows.length === 1 ? 'var(--border)' : '#ef4444' }}>
                         <Trash2 size={15} />
                       </button>
                     </div>
@@ -910,7 +927,7 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
                     style={{ width: '32px', height: '24px', padding: '1px', border: '1px solid var(--border)', borderRadius: '4px', cursor: 'pointer', background: 'var(--bg-card)', flexShrink: 0 }}
                   />
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0, border: '1px solid var(--border)', borderRadius: '6px', padding: '2px' }}>
+                <div className="preview-zoom-ctl" style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0, border: '1px solid var(--border)', borderRadius: '6px', padding: '2px' }}>
                   <button
                     type="button" onClick={() => setPreviewZoom(z => Math.max(0.5, Math.round((z - 0.1) * 10) / 10))}
                     disabled={previewZoom <= 0.5} title="Zooma ut"
@@ -932,6 +949,7 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
             {pdfError && <div style={{ fontSize: '12px', color: 'var(--status-red-text)', marginBottom: '10px' }}>{pdfError}</div>}
             <div style={{ overflow: 'auto', touchAction: 'pinch-zoom' }}>
               <div style={{ zoom: previewZoom, transition: 'zoom 0.15s ease' }}>
+                <PaperFit>
                 <InvoiceDocument
                   ref={previewRef}
                   invoice={{ invoiceNumber: previewNumber, date, dueDate, workStartDate, workEndDate, workLocation, deliveryDescription, terms: formattedTerms, lateInterest: formattedLateInterest, notIncluded, otherTerms }}
@@ -947,6 +965,7 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
                   logoUrl={templateSnapshot.logoUrl}
                   footerText={templateSnapshot.footerText}
                 />
+                </PaperFit>
               </div>
             </div>
           </div>

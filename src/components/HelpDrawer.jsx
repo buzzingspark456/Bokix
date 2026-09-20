@@ -30,7 +30,7 @@ const GLOSSARY = [
   { term: 'Balansräkning', def: 'Sammanställning av vad företaget äger (tillgångar) och är skyldigt (skulder och eget kapital) vid en viss tidpunkt.' },
   { term: 'BAS-kontoplan', def: 'Den gemensamma svenska standarden för hur bokföringskonton numreras och grupperas. Bokix använder BAS 2025 som standard.' },
   { term: 'Bokslut', def: 'Avslutningen av räkenskapsåret, då resultat- och balansräkning ställs samman för hela året.' },
-  { term: 'Debet och kredit', def: 'Bokföringens två sidor. Varje verifikation ska ha lika stort belopp i debet som i kredit.' },
+  { term: 'Debet och kredit', def: 'Bokföringens två sidor. Du behöver inte kunna dem: välj Enkelt när du bokför, så väljer du vad som hänt och Bokix sköter resten. Varje verifikation har lika stort belopp på båda sidor.' },
   { term: 'Enskild firma', def: 'En företagsform utan egen juridisk person — du och firman är samma skattesubjekt.' },
   { term: 'F-skatt', def: 'Skattsedeln som visar att företaget själv ansvarar för att betala in sin skatt och sina avgifter.' },
   { term: 'Ingående moms', def: 'Momsen du betalar på det du köper in till företaget. Går oftast att dra av mot den utgående momsen.' },

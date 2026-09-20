@@ -13,6 +13,16 @@ export function isBooked(ver) {
   return (ver?.status || 'booked') !== 'draft';
 }
 
+/** Bokslutsverifikationen (Skatt och bokslut, "Lås räkenskapsåret") flyttar
+ * årets resultat till eget kapital och nollställer alla resultatkonton den
+ * 31 december. Den är en riktig verifikation och ska synas i huvudbok och
+ * balansräkning, men får aldrig räknas med i resultat-, kostnads- och
+ * marginalsummor — då blev ett låst år helt tomt i rapporterna, INK2R och
+ * NE-förslaget. */
+export function isClosingEntry(ver) {
+  return ver?.source === 'year_end_close';
+}
+
 /** BAS-kontoplanens klass avgör kontotyp om kontot saknar ett explicit
  * `type`-fält (t.ex. ett konto en användare lagt till manuellt utan att
  * välja typ). Klass 1 = tillgång, 2 = eget kapital/skuld, 3 = intäkt,
@@ -211,7 +221,7 @@ export function sumFlowByType(verifications, accounts, type, start, end) {
   const byCode = new Map(accounts.map(a => [a.code, a]));
   let total = 0;
   for (const ver of verifications) {
-    if (!isBooked(ver) || !ver.date) continue;
+    if (!isBooked(ver) || isClosingEntry(ver) || !ver.date) continue;
     const d = toDate(ver.date);
     if (d < start || d > end) continue;
     for (const row of ver.rows || []) {
@@ -229,7 +239,7 @@ export function groupCostsByAccount(verifications, accounts, start, end) {
   const byCode = new Map(accounts.map(a => [a.code, a]));
   const sums = new Map();
   for (const ver of verifications) {
-    if (!isBooked(ver) || !ver.date) continue;
+    if (!isBooked(ver) || isClosingEntry(ver) || !ver.date) continue;
     const d = toDate(ver.date);
     if (d < start || d > end) continue;
     for (const row of ver.rows || []) {
@@ -439,7 +449,7 @@ export function buildMarginSeries(verifications, accounts, start, end, granulari
   // fem × antal hinkar separata genomgångar av hela verifikationslistan hade
   // blivit onödigt dyrt på dagsupplösning.
   for (const ver of verifications) {
-    if (!isBooked(ver) || !ver.date) continue;
+    if (!isBooked(ver) || isClosingEntry(ver) || !ver.date) continue;
     const d = toDate(ver.date);
     if (d < start || d > end) continue;
     const idx = indexByKey.get(keyFor(d));
@@ -581,7 +591,8 @@ export function computeLedger(verifications, accounts, start, end) {
  * riktiga kundfakturor räknas (type !== 'quote'), utkast exkluderas — en
  * osparad/obekräftad fakturarad är inte "fakturerat" än. */
 export function grossInvoiceAmount(inv) {
-  return (inv.rows || []).reduce((sum, r) => sum + (Number(r.qty) || 0) * (Number(r.unitPrice) || 0) * (1 + (Number(r.vatRate) || 0) / 100), 0) || inv.amount || 0;
+  // Radrabatten (`discount`, procent) räknas med, som på fakturan kunden ser.
+  return (inv.rows || []).reduce((sum, r) => sum + (Number(r.qty) || 0) * (Number(r.unitPrice) || 0) * (1 - (Number(r.discount) || 0) / 100) * (1 + (Number(r.vatRate) || 0) / 100), 0) || inv.amount || 0;
 }
 
 export function computeInvoiceReport(invoices, contacts, start, end) {

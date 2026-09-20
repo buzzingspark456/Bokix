@@ -5,6 +5,8 @@ import ListTable from './shared/ListTable';
 import { AccountSearch } from './shared/SearchInputs';
 import { confirmDialog } from './shared/ConfirmDialog';
 import { articlesToCsv, csvToArticles, downloadCsv } from '../utils/csvRegister';
+import Inventory from './Inventory';
+import PricingTool from './PricingTool';
 
 const fmt = (val) => new Intl.NumberFormat('sv-SE', { maximumFractionDigits: 2, minimumFractionDigits: 2 }).format(val || 0);
 
@@ -71,7 +73,11 @@ const emptyArticle = () => ({
  * anta att id eller artikelnr finns — funkar därför även för gamla poster
  * som sparades innan `id` fanns.
  */
-export default function Articles({ articles = [], setArticles, accounts = [] }) {
+export default function Articles({ articles = [], setArticles, accounts = [], company, verifications = [], invoices = [], onAddVerification, setCompanyInfo }) {
+  // Flikar: Artiklar (registret), Lager (lagerlogg + värdering) och
+  // Prissättning. De två sista behöver företagsdata och bokföring — utan
+  // dem (t.ex. demoläget) visas bara registret.
+  const [tab, setTab] = useState('articles');
   const [editing, setEditing] = useState(null);
   const [editingOriginal, setEditingOriginal] = useState(null);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -272,7 +278,11 @@ export default function Articles({ articles = [], setArticles, accounts = [] }) 
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
       <ListPageHeader
         title="Artikel"
-        actions={[
+        tabs={setCompanyInfo ? {
+          items: [{ id: 'articles', label: 'Artiklar' }, { id: 'inventory', label: 'Lager' }, { id: 'pricing', label: 'Prissättning' }],
+          activeId: tab, onChange: setTab,
+        } : undefined}
+        actions={tab !== 'articles' ? [] : [
           { label: 'Exportera', icon: Download, onClick: handleExportCsv, variant: 'secondary' },
           { label: 'Importera', icon: Upload, onClick: handleImportClick, variant: 'secondary' },
           { label: 'Ny artikel', icon: Plus, onClick: startNew, variant: 'primary' },
@@ -287,16 +297,27 @@ export default function Articles({ articles = [], setArticles, accounts = [] }) 
       </ListPageHeader>
       <input type="file" ref={importFileRef} accept=".csv" style={{ display: 'none' }} onChange={handleImportFile} />
 
-      <ListFilterBar count={filtered.length} countLabel={filtered.length === 1 ? 'artikel' : 'artiklar'}>
+      {tab === 'inventory' && setCompanyInfo && (
+        <div style={{ flex: 1, overflowY: 'auto' }}>
+          <Inventory articles={articles} invoices={invoices} company={company} verifications={verifications} onAddVerification={onAddVerification} setCompanyInfo={setCompanyInfo} />
+        </div>
+      )}
+      {tab === 'pricing' && setCompanyInfo && (
+        <div style={{ flex: 1, overflowY: 'auto' }}>
+          <PricingTool articles={articles} setArticles={setArticles} company={company} setCompanyInfo={setCompanyInfo} />
+        </div>
+      )}
+
+      {tab === 'articles' && <ListFilterBar count={filtered.length} countLabel={filtered.length === 1 ? 'artikel' : 'artiklar'}>
         <div style={{ position: 'relative' }}>
           <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
           <input type="text" placeholder="Sök benämning, artikelnr eller EAN…" value={search} onChange={e => setSearch(e.target.value)} style={listSearchInputStyle} />
         </div>
-      </ListFilterBar>
+      </ListFilterBar>}
 
       {/* Flush direkt under filterraden, ingen padding — samma "facit" som
           Offerter/Bokföring/Bank. */}
-      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+      {tab === 'articles' && <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
         <ListTable
           rowKey={a => a.id || a.articleNumber}
           rows={filtered}
@@ -323,7 +344,7 @@ export default function Articles({ articles = [], setArticles, accounts = [] }) 
             },
           ]}
         />
-      </div>
+      </div>}
     </div>
   );
 }

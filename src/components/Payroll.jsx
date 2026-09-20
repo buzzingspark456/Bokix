@@ -173,6 +173,21 @@ export default function Payroll({
             rowKey={e => e.id}
             onRowClick={e => { setSelectedEmployee(e); setViewState('edit'); }}
             rows={filteredEmployees}
+            mobileList={e => {
+              const isActive = !e.endDate || e.endDate >= new Date().toISOString().slice(0, 10);
+              const typeLabel = e.employmentType === 'foretagsledare' ? 'Företagsledare' : e.employmentType === 'styrelseledamot' ? 'Styrelseledamot' : 'Anställd';
+              return {
+                dot: isActive ? 'var(--status-green-text)' : 'var(--text-muted)',
+                primary: `${e.firstName} ${e.lastName}`,
+                amount: e.salaryForm === 'timlon' ? `${e.hourlyRate || 0} kr/tim` : formatSEK(e.monthlySalary),
+                meta: `${typeLabel}${e.startDate ? ` · sedan ${e.startDate}` : ''}`,
+                pill: (
+                  <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: isActive ? 'var(--status-green-bg)' : 'var(--border-light)', color: isActive ? 'var(--status-green-text)' : 'var(--text-secondary)' }}>
+                    {isActive ? 'Aktiv' : 'Avslutad'}
+                  </span>
+                ),
+              };
+            }}
             columns={[
               { key: 'name', label: 'Namn', fontWeight: 600, color: 'var(--text-main)', fontSize: '14px', render: e => `${e.firstName} ${e.lastName}` },
               { key: 'type', label: 'Typ', color: 'var(--text-main)', fontSize: '14px', render: e => e.employmentType === 'foretagsledare' ? 'Företagsledare' : e.employmentType === 'styrelseledamot' ? 'Styrelseledamot' : 'Anställd' },
@@ -277,6 +292,16 @@ export default function Payroll({
               </div>
             ) : 'Ingen matchade sökningen.'}
             rows={filteredRuns}
+            mobileList={r => {
+              const status = r.completedSteps.includes('booked') ? 'Bokförd' : (r.completedSteps.includes('calculated') ? 'Beräknad' : 'Utkast');
+              const tone = status === 'Bokförd' ? { bg: 'var(--status-green-bg)', color: 'var(--status-green-text)' } : status === 'Beräknad' ? { bg: 'var(--status-blue-bg)', color: 'var(--status-blue-text)' } : { bg: 'var(--border-light)', color: 'var(--text-secondary)' };
+              return {
+                dot: tone.color,
+                primary: `Lönekörning ${r.period}`,
+                meta: `${r.rows.length} ${r.rows.length === 1 ? 'anställd' : 'anställda'}`,
+                pill: <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: tone.bg, color: tone.color }}>{status}</span>,
+              };
+            }}
             columns={[
               { key: 'period', label: 'Period', fontWeight: 700, color: 'var(--text-main)', fontSize: '14px', render: r => `Lönekörning ${r.period}` },
               { key: 'employees', label: 'Anställda', color: 'var(--text-main)', fontSize: '14px', render: r => r.rows.length },

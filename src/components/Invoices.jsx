@@ -8,6 +8,7 @@ import {
   ZoomIn, ZoomOut, Pencil, Copy, CheckCircle2, Undo2, Sparkles
 } from './icons';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
+import PaperFit from './shared/PaperFit';
 import InvoiceDocument, { DEFAULT_INVOICE_TEMPLATE, INVOICE_TEMPLATES } from './InvoiceDocument';
 import { exportInvoicePdf, getInvoicePdfBase64 } from '../utils/exportInvoicePdf';
 import { sendInvoiceEmail } from '../emailApi';
@@ -389,7 +390,8 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
   // beloppet, dagens datum) varje gång det öppnas.
   useEffect(() => {
     if (showPaymentBox) {
-      setPaymentAmountInput(remainingDue > 0 ? String(Math.round(remainingDue)) : '');
+      // Hela beloppet med ören, som fakturan visar det (373,13 kr fylls i som 373.13).
+      setPaymentAmountInput(remainingDue > 0 ? String(Math.round(remainingDue * 100) / 100) : '');
       setPaymentDateInput(new Date().toISOString().split('T')[0]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -624,8 +626,8 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
   // Samma rundade pill-knapp som QuoteEditor:s toolbarBtnStyle (Quotes.jsx)
   // istället för en text/ikon flytande fritt på raden — egen klickyta med
   // luft och kant runt om, inte bara en tunn linje mot grannknappen.
-  const topBarBtn = (label, icon, onClick, style = {}, disabled = false, title) => (
-    <button onClick={disabled ? undefined : onClick} disabled={disabled} title={title} style={{
+  const topBarBtn = (label, icon, onClick, style = {}, disabled = false, title, cls) => (
+    <button className={cls} onClick={disabled ? undefined : onClick} disabled={disabled} title={title} style={{
       display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 12px',
       background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px',
       fontSize: '12.5px', fontWeight: 600, color: disabled ? 'var(--text-muted)' : 'var(--text-main)', cursor: disabled ? 'not-allowed' : 'pointer',
@@ -660,7 +662,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
         <div style={{ flex: 1, minWidth: '8px' }} />
 
         {/* Navigation — bläddrar genom samma lista man kom ifrån */}
-        <div style={{ display: 'flex', gap: '2px' }}>
+        <div className="record-nav" style={{ display: 'flex', gap: '2px' }}>
           {[
             { s: '«', onClick: nav?.first, enabled: nav?.hasPrev, title: 'Första fakturan' },
             { s: '‹', onClick: nav?.prev, enabled: nav?.hasPrev, title: 'Föregående faktura' },
@@ -691,17 +693,18 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
           Knapparna har nu ett tydligt mellanrum (gap) sinsemellan istället
           för att bara skiljas åt av en tunn kantlinje — annars är det för
           lätt att klicka fel på grannknappen. */}
-      <div className="quote-toolbar invoice-toolbar" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 24px', flexShrink: 0, overflowX: 'auto', position: 'relative' }}>
-        {topBarBtn('Registrera betalning', <CreditCard size={13} />, () => setShowPaymentBox(v => !v), showPaymentBox ? activeToolbarPillStyle : {}, !initial, !initial ? 'Spara fakturan först' : undefined)}
+      <div className="quote-toolbar invoice-toolbar doc-toolbar" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 24px', flexShrink: 0, overflowX: 'auto', position: 'relative' }}>
+        {topBarBtn('Registrera betalning', <CreditCard size={13} />, () => setShowPaymentBox(v => !v), showPaymentBox ? activeToolbarPillStyle : {}, !initial, !initial ? 'Spara fakturan först' : undefined, 'tb-pay')}
         {topBarBtn(
           'Markera som obetald',
           <Tag size={13} />,
           async () => { if (await confirmDialog(`Markera faktura ${nextNum} som obetald? Den registrerade betalningen tas bort.`)) onUnmarkPaid?.(initial.id); },
           {},
           !initial || initial?.status !== 'paid',
-          !initial ? 'Spara fakturan först' : (initial?.status !== 'paid' ? 'Fakturan är inte markerad som betald' : 'Ångrar den registrerade betalningen')
+          !initial ? 'Spara fakturan först' : (initial?.status !== 'paid' ? 'Fakturan är inte markerad som betald' : 'Ångrar den registrerade betalningen'),
+          'tb-unpay'
         )}
-        {topBarBtn('Kommentar', <MessageSquare size={13} />, () => setShowCommentBox(v => !v), showCommentBox ? activeToolbarPillStyle : (commentDraft ? { color: 'var(--status-amber-text)', borderColor: 'var(--status-amber-bg)' } : {}))}
+        {topBarBtn('Kommentar', <MessageSquare size={13} />, () => setShowCommentBox(v => !v), showCommentBox ? activeToolbarPillStyle : (commentDraft ? { color: 'var(--status-amber-text)', borderColor: 'var(--status-amber-bg)' } : {}), false, undefined, 'tb-comment')}
         {/* Mellanrummet som skjuter e-postgruppen åt höger. Klass, inte bara
             inline style: på smala skärmar ska det FÖRSVINNA (se .quote-toolbar
             i index.css) så knapparna står tillsammans i stället för att
@@ -726,11 +729,12 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
           openEmailCompose,
           {},
           emailBusy || !initial || !emailToInput.trim(),
-          !initial ? 'Spara fakturan först' : (!emailToInput.trim() ? 'Ange en mottagaradress' : `Skicka faktura ${nextNum} till ${emailToInput.trim()}`)
+          !initial ? 'Spara fakturan först' : (!emailToInput.trim() ? 'Ange en mottagaradress' : `Skicka faktura ${nextNum} till ${emailToInput.trim()}`),
+          'tb-send'
         )}
         {pdfError && <span style={{ fontSize: '11px', color: '#c00', alignSelf: 'center', marginRight: 8 }}>{pdfError}</span>}
-        {topBarBtn(pdfBusy ? 'Skapar PDF…' : 'Ladda ner PDF', <Download size={13} />, handleDownloadPdf, {}, pdfBusy)}
-        {topBarBtn('Förhandsgranska', <Eye size={13} />, () => setShowPreview(v => !v), showPreview ? activeToolbarPillStyle : {})}
+        {topBarBtn(pdfBusy ? 'Skapar PDF…' : 'Ladda ner PDF', <Download size={13} />, handleDownloadPdf, {}, pdfBusy, undefined, 'tb-pdf')}
+        {topBarBtn('Förhandsgranska', <Eye size={13} />, () => setShowPreview(v => !v), showPreview ? activeToolbarPillStyle : {}, false, undefined, 'tb-preview')}
       </div>
 
       {/* Betalning och Kommentar renderas som riktiga skärmcentrerade modaler
@@ -1059,8 +1063,8 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
               </div>
             </div>
             <div style={{ overflowX: 'auto' }}>
-              <div style={{ minWidth: '760px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '2.4fr 0.7fr 0.9fr 0.7fr 0.9fr auto auto', gap: '10px', marginBottom: '8px', padding: '0 2px' }}>
+              <div className="inv-rows-min" style={{ minWidth: '760px' }}>
+                <div className="inv-rows-head" style={{ display: 'grid', gridTemplateColumns: '2.4fr 0.7fr 0.9fr 0.7fr 0.9fr auto auto', gap: '10px', marginBottom: '8px', padding: '0 2px' }}>
                   {['Benämning', 'Antal', priceInclVat ? 'À-pris (inkl. moms)' : 'À-pris', 'Moms', 'Summa', '', ''].map((h, i) => (
                     <span key={i} style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em', textAlign: i >= 1 && i <= 4 ? 'right' : 'left' }}>{h}</span>
                   ))}
@@ -1070,9 +1074,9 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
                   const { net } = calcRow(row);
                   const advancedOpen = expandedRows.has(row.id);
                   return (
-                    <div key={row.id} style={{ marginBottom: '10px' }}>
-                      <div style={{ display: 'grid', gridTemplateColumns: '2.4fr 0.7fr 0.9fr 0.7fr 0.9fr auto auto', gap: '10px', alignItems: 'center' }}>
-                        {isLocked ? (
+                    <div key={row.id} className="inv-row-card" style={{ marginBottom: '10px' }}>
+                      <div className="inv-row-grid" style={{ display: 'grid', gridTemplateColumns: '2.4fr 0.7fr 0.9fr 0.7fr 0.9fr auto auto', gap: '10px', alignItems: 'center' }}>
+                        <div className="inv-cell" data-label="Benämning">{isLocked ? (
                           <div style={{ ...inp, background: 'var(--bg-muted)', border: '1px solid var(--border-light)' }}>{row.description}</div>
                         ) : (
                           <input
@@ -1086,13 +1090,13 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
                             style={inp}
                             placeholder="Beskrivning av tjänst eller produkt"
                           />
-                        )}
-                        {isLocked ? (
+                        )}</div>
+                        <div className="inv-cell" data-label="Antal">{isLocked ? (
                           <div style={{ ...inp, background: 'var(--bg-muted)', border: '1px solid var(--border-light)', textAlign: 'right' }}>{row.qty}</div>
                         ) : (
                           <input type="number" value={row.qty} onChange={e => updateRow(i, 'qty', Number(e.target.value))} style={{ ...inp, textAlign: 'right' }} />
-                        )}
-                        {isLocked ? (
+                        )}</div>
+                        <div className="inv-cell" data-label="À-pris">{isLocked ? (
                           <div style={{ ...inp, background: 'var(--bg-muted)', border: '1px solid var(--border-light)', textAlign: 'right' }}>{fmt(row.unitPrice)}</div>
                         ) : (
                           <input
@@ -1108,21 +1112,21 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
                             }}
                             style={{ ...inp, textAlign: 'right' }}
                           />
-                        )}
-                        {isLocked ? (
+                        )}</div>
+                        <div className="inv-cell" data-label="Moms">{isLocked ? (
                           <div style={{ ...inp, background: 'var(--bg-muted)', border: '1px solid var(--border-light)', textAlign: 'right' }}>{row.vatRate}%</div>
                         ) : (
                           <select value={row.vatRate} onChange={e => updateRow(i, 'vatRate', Number(e.target.value))} style={inp}>
                             {[0, 6, 12, 25].map(r => <option key={r} value={r}>{r}%</option>)}
                           </select>
-                        )}
-                        <div style={{ ...inp, background: 'var(--bg-muted)', color: 'var(--text-secondary)', border: '1px solid var(--border-light)', textAlign: 'right', fontWeight: 600 }}>{fmt(net)}</div>
-                        <button type="button" onClick={() => toggleRowAdvanced(row.id)} title="Fler fält för raden" style={{ padding: '6px', background: advancedOpen ? 'var(--status-blue-bg)' : 'transparent', borderRadius: '7px', border: 'none', cursor: 'pointer', color: advancedOpen ? 'var(--status-blue-text)' : 'var(--text-muted)' }}>
+                        )}</div>
+                        <div className="inv-cell" data-label="Summa"><div style={{ ...inp, background: 'var(--bg-muted)', color: 'var(--text-secondary)', border: '1px solid var(--border-light)', textAlign: 'right', fontWeight: 600 }}>{fmt(net)}</div></div>
+                        <div className="inv-cell-actions" data-label=""><button type="button" onClick={() => toggleRowAdvanced(row.id)} title="Fler fält för raden" style={{ padding: '6px', background: advancedOpen ? 'var(--status-blue-bg)' : 'transparent', borderRadius: '7px', border: 'none', cursor: 'pointer', color: advancedOpen ? 'var(--status-blue-text)' : 'var(--text-muted)' }}>
                           <Settings2 size={15} />
                         </button>
                         <button type="button" onClick={() => removeRow(i)} disabled={isLocked || rows.length === 1} title="Ta bort rad" style={{ padding: '6px', background: 'transparent', border: 'none', cursor: (isLocked || rows.length === 1) ? 'not-allowed' : 'pointer', color: (isLocked || rows.length === 1) ? 'var(--border)' : '#ef4444' }}>
                           <Trash2 size={15} />
-                        </button>
+                        </button></div>
                       </div>
 
                       {/* Arbete/Material — bara synlig när Husavdrag är
@@ -1455,7 +1459,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
                 {/* Sida 38, punkt 4: +/- zoom som fallback till pinch — samma
                     kontrollrad som mall/accentfärg, så den redan skrollar
                     horisontellt istället för att radbryta på smala skärmar. */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0, border: '1px solid var(--border)', borderRadius: '6px', padding: '2px' }}>
+                <div className="preview-zoom-ctl" style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0, border: '1px solid var(--border)', borderRadius: '6px', padding: '2px' }}>
                   <button
                     type="button" onClick={() => setPreviewZoom(z => Math.max(0.5, Math.round((z - 0.1) * 10) / 10))}
                     disabled={previewZoom <= 0.5} title="Zooma ut"
@@ -1489,6 +1493,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
                   ytan den upptar. Brett stöd i alla moderna motorer sedan
                   några år tillbaka (inklusive Firefox). */}
               <div style={{ zoom: previewZoom, transition: 'zoom 0.15s ease' }}>
+                <PaperFit>
                 <InvoiceDocument
                   ref={previewRef}
                   invoice={{ invoiceNumber: nextNum, date: invoiceDate, dueDate, terms }}
@@ -1504,6 +1509,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
                   footerText={invoiceTemplateSnapshot.footerText}
                   rotRut={rotRutType !== 'none' ? { type: rotRutType, ...rotRut } : null}
                 />
+                </PaperFit>
               </div>
             </div>
           </div>
@@ -1683,7 +1689,7 @@ function InvoiceViewer({ invoice, contacts, company, status, onClose, onEdit }) 
       {/* ── Dokumentet — full bredd, inbäddat direkt i sidan, ingen modal. ── */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '32px', display: 'flex', justifyContent: 'center' }}>
         <div style={{ width: '100%', maxWidth: '900px' }}>
-          <InvoiceDocument {...documentProps} />
+          <PaperFit><InvoiceDocument {...documentProps} /></PaperFit>
         </div>
       </div>
 
@@ -1777,7 +1783,7 @@ function SupplierInvoicesPanel({ expenses, contacts, onMarkPaid, onOpenFull, onO
           );
         })}
         <div style={{ flex: 1 }} />
-        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-muted)' }}>
+        <label className="inv-pills-extra" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-muted)' }}>
           Visa
           <select
             value={pageSize}
@@ -2643,7 +2649,7 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
           då hela bredden, inte en sida-vid-sida-klämd vy. Bara dessa två
           flikar; resten av den gamla flikraden (Inbetalningar/Påminnelser/
           Återkommande/Offerter) är fortsatt borttagen. */}
-      <div data-inv-tour="tabs" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '0 16px', display: 'flex', alignItems: 'center', flexShrink: 0, flexWrap: 'wrap' }}>
+      <div className="inv-tabs" data-inv-tour="tabs" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '0 16px', display: 'flex', alignItems: 'center', flexShrink: 0, flexWrap: 'wrap' }}>
         {[{ id: 'kunder', label: 'Kundfakturor' }, { id: 'leverantorer', label: 'Leverantörsfakturor' }].map(t => (
           <button key={t.id} onClick={() => setSection(t.id)} style={{
             padding: '12px 14px', border: 'none',
@@ -2657,7 +2663,7 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
             stängts en gång, se invoiceTourSeen ovan. Kvar därefter under
             Hjälp och support (HelpDrawer.jsx → App.jsx:s onStartInvoiceTour). */}
         {!invoiceTourSeen && (
-          <button onClick={handleStartInvoiceTour} style={{
+          <button className="inv-tour-pill" onClick={handleStartInvoiceTour} style={{
             display: 'flex', alignItems: 'center', gap: '6px', padding: '5px 12px', margin: '4px 0',
             borderRadius: '999px', border: '1px solid var(--status-blue-text)', background: 'var(--status-blue-bg)',
             color: 'var(--status-blue-text)', fontSize: '12.5px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap',
@@ -2665,21 +2671,21 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
             <Sparkles size={13} /> Så funkar fakturering
           </button>
         )}
-        <button onClick={() => onNavigate?.('reports')} style={{ padding: '4px 14px 12px', border: 'none', background: 'none', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', cursor: 'pointer' }}>Rapporter</button>
+        <button className="inv-tab-extra" onClick={() => onNavigate?.('reports')} style={{ padding: '4px 14px 12px', border: 'none', background: 'none', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', cursor: 'pointer' }}>Rapporter</button>
         {/* Pekade tidigare på en liten modal (ArticleRegisterModal) här på
             plats — flyttat till en egen, hittbar sida (Articles.jsx, nås
             även direkt från profilmenyn: "Artikel") så samma
             register går att välja från både fakturor och offerter. */}
-        <button onClick={() => onNavigate?.('articles')} style={{ padding: '4px 14px 12px', border: 'none', background: 'none', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', cursor: 'pointer' }}>Artiklar</button>
-        <button onClick={() => onNavigate?.('contacts')} style={{ padding: '4px 14px 12px', border: 'none', background: 'none', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', cursor: 'pointer' }}>Kunder ↓</button>
+        <button className="inv-tab-extra" onClick={() => onNavigate?.('articles')} style={{ padding: '4px 14px 12px', border: 'none', background: 'none', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', cursor: 'pointer' }}>Artiklar</button>
+        <button className="inv-tab-extra" onClick={() => onNavigate?.('contacts')} style={{ padding: '4px 14px 12px', border: 'none', background: 'none', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', cursor: 'pointer' }}>Kunder ↓</button>
       </div>
 
     {section === 'kunder' && (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
 
       <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
-        <div style={{ padding: '12px 20px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          <div style={{ position: 'relative' }}>
+        <div className="inv-searchrow" style={{ padding: '12px 20px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <div className="inv-search" style={{ position: 'relative' }}>
             <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
             <input type="text" placeholder="Fakturanr eller kundnamn" value={searchInput} onChange={e => setSearchInput(e.target.value)} style={{ ...listSearchInputStyle, width: '220px' }} />
           </div>
@@ -2702,7 +2708,7 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
             </span>
           )}
           <button
-            data-tour="page-invoices-cta" data-inv-tour="create-cta"
+            className="inv-cta" data-tour="page-invoices-cta" data-inv-tour="create-cta"
             onClick={() => { setShowForm(true); setEditingInvoice(null); setInvoicePrefill(null); }}
             disabled={ufQuota.reached}
             title={ufQuota.reached ? 'Dygnstaket är nått — fler fakturor går att skapa imorgon.' : undefined}
@@ -2712,7 +2718,7 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
           </button>
         </div>
         {showExtendedSearch && (
-          <div style={{ padding: '10px 16px', borderTop: '1px solid var(--border-light)', display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'end', background: 'var(--bg-muted)' }}>
+          <div className="inv-extended" style={{ padding: '10px 16px', borderTop: '1px solid var(--border-light)', display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'end', background: 'var(--bg-muted)' }}>
             <div>
               <label style={lbl}>Datum från</label>
               <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={{ ...listFilterFieldStyle, width: '150px' }} />
@@ -2741,7 +2747,7 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
           (kundönskemål: "har man inga fakturor ska den ej finnas") — en
           filterrad utan något att filtrera är bara brus på en tom sida. */}
       {invoiceList.length > 0 && (
-      <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0, flexWrap: 'wrap' }}>
+      <div className="inv-pills" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0, flexWrap: 'wrap' }}>
         {statusOptions.map(opt => {
           const count = opt.value === 'all' ? allStatusCount : (statusCounts[opt.value] || 0);
           // Tomma statusar visas inte — men den valda gömmer sig aldrig,
@@ -2784,7 +2790,7 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
             </button>
           );
         })}
-        <div style={{ flex: 1 }} />
+        <div className="inv-pills-spacer" style={{ flex: 1 }} />
         {/* Kundönskemål: "en knapp där man kan se femton, trettio, femtio"
             — gäller nu HELA listan (en tabell), inte per statussektion, och
             samma väljare/ordning som ListFilterBar ritar på Bokföring och de
@@ -2800,7 +2806,7 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
             <option value="all">Alla</option>
           </select>
         </label>
-        <Printer size={15} style={{ cursor: 'pointer', color: 'var(--text-secondary)' }} />
+        <Printer className="inv-pills-extra" size={15} style={{ cursor: 'pointer', color: 'var(--text-secondary)' }} />
       </div>
       )}
 

@@ -10,7 +10,9 @@ import { computeEmployeePayroll, summarizePayrollRun } from '../utils/payrollCal
 import { PAY_TYPE_GROUPS, PAY_LINE_KINDS, getPayType, defaultRateFor } from '../utils/payTypes';
 import { PAYROLL_RUN_STEPS, PAYROLL_ACCOUNTS } from '../utils/payrollConfig';
 import { generatePayslipPdf } from '../utils/payslipExport';
+import { describeRow } from '../utils/plainBooking';
 import { downloadAgiPdf } from '../utils/agiExport';
+import { downloadAgiXml } from '../utils/agiXml';
 import { preloadSkattetabell } from '../utils/skattetabell';
 import { downloadSalaryPaymentFile, getDebtorAccountError } from '../utils/salaryPaymentFile';
 
@@ -344,8 +346,13 @@ function EmployeeRow({ row, computed, previousComputed, onUpdateRow, locked }) {
   );
 }
 
-function VerificationBlock({ title, rows, accounts }) {
-  const total = { debet: rows.reduce((s, r) => s + (r.debet || 0), 0), kredit: rows.reduce((s, r) => s + (r.kredit || 0), 0) };
+export function VerificationBlock({ title, rows, accounts }) {
+  // Lönebokföringen visas på vanlig svenska (pengar ut, kostnad, skuld ökar)
+  // i stället för debet- och kreditkolumner — se utils/plainBooking.js.
+  const lines = rows
+    .map(r => ({ ...describeRow(r, accounts), account: r.account, description: r.description }))
+    .filter(l => l.amount > 0);
+  const total = rows.reduce((s, r) => s + (r.debet || 0), 0);
   return (
     <div style={{ marginBottom: '16px' }}>
       <div style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '8px' }}>{title}</div>
@@ -353,27 +360,24 @@ function VerificationBlock({ title, rows, accounts }) {
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
           <thead>
             <tr style={{ background: 'var(--bg-muted)' }}>
-              {['Konto', 'Beskrivning', 'Debet', 'Kredit'].map(h => (
-                <th key={h} style={{ padding: '8px 14px', textAlign: h === 'Konto' || h === 'Beskrivning' ? 'left' : 'right', fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 700 }}>{h}</th>
+              {['Vad som bokförs', 'Belopp'].map(h => (
+                <th key={h} style={{ padding: '8px 14px', textAlign: h === 'Belopp' ? 'right' : 'left', fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 700 }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {rows.map((r, i) => {
-              const accName = accounts.find(a => a.code === r.account)?.name || '';
-              return (
-                <tr key={i} style={{ borderTop: '1px solid var(--border-light)' }}>
-                  <td style={{ padding: '9px 14px' }}>{r.account} {accName}</td>
-                  <td style={{ padding: '9px 14px', color: 'var(--text-secondary)' }}>{r.description}</td>
-                  <td style={{ padding: '9px 14px', textAlign: 'right' }}>{r.debet ? fmt(r.debet) : ''}</td>
-                  <td style={{ padding: '9px 14px', textAlign: 'right' }}>{r.kredit ? fmt(r.kredit) : ''}</td>
-                </tr>
-              );
-            })}
+            {lines.map((l, i) => (
+              <tr key={i} style={{ borderTop: '1px solid var(--border-light)' }}>
+                <td style={{ padding: '9px 14px' }}>
+                  <span style={{ color: 'var(--text-muted)', marginRight: '8px' }}>{l.account}</span>{l.text}
+                  {l.description && <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)' }}>{l.description}</div>}
+                </td>
+                <td style={{ padding: '9px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>{fmt(l.amount)}</td>
+              </tr>
+            ))}
             <tr style={{ borderTop: '1px solid var(--border)', fontWeight: 700 }}>
-              <td colSpan={2} style={{ padding: '9px 14px' }}>Summa</td>
-              <td style={{ padding: '9px 14px', textAlign: 'right' }}>{fmt(total.debet)}</td>
-              <td style={{ padding: '9px 14px', textAlign: 'right' }}>{fmt(total.kredit)}</td>
+              <td style={{ padding: '9px 14px' }}>Summa</td>
+              <td style={{ padding: '9px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>{fmt(total)}</td>
             </tr>
           </tbody>
         </table>
@@ -384,6 +388,7 @@ function VerificationBlock({ title, rows, accounts }) {
 
 export default function PayrollRunDetail({ run, previousRun, accounts, company, onBack, onAdvanceStep, onBookRun, onMarkPaid, onUpdateRow, onRefreshSnapshots }) {
   const [agiConfirmed, setAgiConfirmed] = useState(run.completedSteps.includes('agi'));
+  const [agiFileProblems, setAgiFileProblems] = useState(null); // { errors, warnings } från senaste filförsöket
   const [showBankGuide, setShowBankGuide] = useState(false);
   // Kundfeedback ("man ska kunna göra manuellt om man vill"): Betala-steget
   // gick tidigare BARA att slutföra via en pil-knapp i sidhuvudet som blint
@@ -799,7 +804,7 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
         <div style={{ ...panelCard, marginTop: '28px', padding: '20px' }}>
           <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 8px' }}>AGI och skatt</h3>
           <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 14px', lineHeight: 1.5 }}>
-            Sammanställning (huvuduppgift + individuppgift per anställd) för arbetsgivardeklarationen (AGI). Skatteverket kräver arbetsgivarens egen BankID-signatur vid inlämning, så Bokix skickar inte in den automatiskt — men underlaget nedan är klart att skriva av.
+            Filen nedan är klar att ladda upp hos Skatteverket: välj "Deklarera via fil" i e-tjänsten Lämna arbetsgivardeklaration, granska och signera med BankID. Skatteverket kräver arbetsgivarens egen signatur, så Bokix skickar inte in den åt dig. Vill du hellre fylla i för hand finns samma uppgifter som PDF.
           </p>
           <div className="form-row-2" style={{ display: 'grid', gap: '10px', fontSize: '13.5px', marginBottom: '16px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>Total bruttolön</span><span style={{ fontWeight: 700 }}>{fmt(totals.gross)} kr</span></div>
@@ -809,10 +814,19 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
 
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '18px' }}>
             <button
-              onClick={() => downloadAgiPdf({ company, period: run.period, computedRows, totals }, `agi-${run.period}.pdf`)}
+              onClick={() => {
+                const result = downloadAgiXml({ company, period: run.period, computedRows }, `agi-${run.period}.xml`);
+                setAgiFileProblems({ errors: result.errors, warnings: result.warnings });
+              }}
               style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}
             >
-              <Download size={14} /> Ladda ner AGI-sammanställning (PDF)
+              <Download size={14} /> Ladda ner AGI-fil för Skatteverket (XML)
+            </button>
+            <button
+              onClick={() => downloadAgiPdf({ company, period: run.period, computedRows, totals }, `agi-${run.period}.pdf`)}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border)', borderRadius: '8px', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}
+            >
+              <Download size={14} /> Sammanställning (PDF)
             </button>
             <a
               href="https://www.skatteverket.se/foretag"
@@ -823,6 +837,26 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
               Öppna skatteverket.se <ExternalLink size={13} />
             </a>
           </div>
+
+          {agiFileProblems && agiFileProblems.errors.length > 0 && (
+            <div role="alert" style={{ background: 'var(--status-red-bg)', color: 'var(--status-red-text)', borderRadius: '10px', padding: '12px 14px', fontSize: '13px', lineHeight: 1.5, marginBottom: '16px' }}>
+              <div style={{ fontWeight: 700, marginBottom: '4px' }}>Filen kunde inte skapas än</div>
+              <ul style={{ margin: 0, paddingLeft: '18px' }}>
+                {agiFileProblems.errors.map((e, i) => <li key={i}>{e}</li>)}
+              </ul>
+            </div>
+          )}
+          {agiFileProblems && agiFileProblems.errors.length === 0 && (
+            <div style={{ background: 'var(--status-amber-bg)', color: 'var(--status-amber-text)', borderRadius: '10px', padding: '12px 14px', fontSize: '13px', lineHeight: 1.5, marginBottom: '16px' }}>
+              <div style={{ fontWeight: 700, marginBottom: '4px' }}>Filen är sparad</div>
+              <div>Skatteverket räknar om arbetsgivaravgiften utifrån ålder och särskilda regler (Bokix räknar 31,42 % för alla). Jämför i granskningssteget och lita på Skatteverkets summa om de skiljer sig.</div>
+              {agiFileProblems.warnings.length > 0 && (
+                <ul style={{ margin: '6px 0 0', paddingLeft: '18px' }}>
+                  {agiFileProblems.warnings.map((w, i) => <li key={i}>{w}</li>)}
+                </ul>
+              )}
+            </div>
+          )}
 
           <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13.5px', color: 'var(--text-main)', cursor: 'pointer' }}>
             <input type="checkbox" checked={agiConfirmed} onChange={e => { setAgiConfirmed(e.target.checked); if (e.target.checked) onAdvanceStep(run.id, 'agi'); }} disabled={run.completedSteps.includes('agi')} />

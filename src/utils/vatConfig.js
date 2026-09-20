@@ -56,6 +56,22 @@ export const SALES_ACCOUNT_BY_RATE = {
 };
 
 export const INPUT_VAT_ACCOUNT = '2641';
+
+// Omvänd skattskyldighet: tjänster köpta från utlandet. Köparen redovisar då
+// momsen själv. Kostnaden bokförs på ett konto som anger varifrån tjänsten
+// kommer (EU eller utanför EU) och momssats, och momsen bokförs både som
+// utgående (2614/2624/2634) och som ingående (2645). Det är kontona som
+// styr vilka rutor i momsdeklarationen som fylls i:
+//   ruta 21 = tjänster från annat EU-land, ruta 22 = tjänster från land utanför EU
+//   ruta 30/31/32 = utgående moms 25/12/6 % på inköpen
+//   ruta 48 = ingående moms, inklusive den beräknade momsen på 2645
+export const REVERSE_PURCHASE_ACCOUNTS = {
+  eu: { 25: '4535', 12: '4536', 6: '4537' },
+  nonEu: { 25: '4531', 12: '4532', 6: '4533' },
+};
+export const REVERSE_OUTPUT_VAT_ACCOUNT_BY_RATE = { 25: '2614', 12: '2624', 6: '2634' };
+export const REVERSE_OUTPUT_VAT_RUTA_BY_RATE = { 25: '30', 12: '31', 6: '32' };
+export const REVERSE_INPUT_VAT_ACCOUNT = '2645';
 export const VAT_SETTLEMENT_ACCOUNT = '2650'; // Redovisningskonto för moms
 
 // Rutor i den ordning de ska visas i Steg 2, med etikett och typ (för att
@@ -67,6 +83,11 @@ export const VAT_RUTOR = [
   { ruta: '10', label: 'Utgående moms, 25 %', rate: 25, kind: 'output' },
   { ruta: '11', label: 'Utgående moms, 12 %', rate: 12, kind: 'output' },
   { ruta: '12', label: 'Utgående moms, 6 %', rate: 6, kind: 'output' },
+  { ruta: '21', label: 'Inköp av tjänster från annat EU-land (underlag)', kind: 'reversePurchaseEu' },
+  { ruta: '22', label: 'Inköp av tjänster från land utanför EU (underlag)', kind: 'reversePurchaseNonEu' },
+  { ruta: '30', label: 'Utgående moms på inköp, 25 %', rate: 25, kind: 'reverseOutput' },
+  { ruta: '31', label: 'Utgående moms på inköp, 12 %', rate: 12, kind: 'reverseOutput' },
+  { ruta: '32', label: 'Utgående moms på inköp, 6 %', rate: 6, kind: 'reverseOutput' },
   { ruta: '48', label: 'Ingående moms att dra av', kind: 'input' },
   { ruta: '49', label: 'Moms att betala eller återfå', kind: 'net' },
 ];

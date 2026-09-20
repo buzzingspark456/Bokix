@@ -1,10 +1,10 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { AlertCircle, AlertTriangle, CheckCircle2, ChevronRight, Download, Lock, FileText, ExternalLink } from './icons';
 import {
-  computeVatPeriod, roundedVatPeriod, validateVatPeriod, compareToPreviousPeriod,
+  computeVatPeriod, roundedVatPeriod, validateVatPeriod, compareToPreviousPeriod, vatRutaValue,
   quarterToRange, previousQuarterRange,
 } from '../utils/vatCalculation';
-import { VAT_RUTOR, OUTPUT_VAT_ACCOUNT_BY_RATE, INPUT_VAT_ACCOUNT, VAT_SETTLEMENT_ACCOUNT } from '../utils/vatConfig';
+import { VAT_RUTOR, OUTPUT_VAT_ACCOUNT_BY_RATE, INPUT_VAT_ACCOUNT, VAT_SETTLEMENT_ACCOUNT, REVERSE_OUTPUT_VAT_ACCOUNT_BY_RATE, REVERSE_INPUT_VAT_ACCOUNT } from '../utils/vatConfig';
 import { downloadVatDeclarationPdf, downloadVatDeclarationXml } from '../utils/vatDeclarationExport';
 
 const fmt = (v) => new Intl.NumberFormat('sv-SE').format(v || 0);
@@ -88,14 +88,9 @@ export default function VatDeclaration({
 
   const maxReachedStep = isBooked ? 4 : (validation.canProceed ? 3 : 1);
 
-  const rutorForDisplay = VAT_RUTOR.map(r => {
-    let value = null;
-    if (r.kind === 'salesTotal') value = rounded.underlagByRate[25] + rounded.underlagByRate[12] + rounded.underlagByRate[6];
-    else if (r.kind === 'output') value = rounded.outputVatByRate[r.rate];
-    else if (r.kind === 'input') value = rounded.inputVat;
-    else if (r.kind === 'net') value = rounded.netToPay;
-    return { ...r, value };
-  }).filter(r => r.kind === 'net' || (r.value ?? 0) !== 0);
+  const rutorForDisplay = VAT_RUTOR
+    .map(r => ({ ...r, value: vatRutaValue(r, rounded) }))
+    .filter(r => r.kind === 'net' || (r.value ?? 0) !== 0);
 
   const isRefund = rounded.netToPay < 0;
 
@@ -293,11 +288,25 @@ export default function VatDeclaration({
                           <td style={{ padding: '10px 14px', textAlign: 'right' }}></td>
                         </tr>
                       ))}
-                      {rounded.inputVat !== 0 && (
+                      {[25, 12, 6].filter(r => (rounded.reverseVatByRate?.[r] || 0) !== 0).map(r => (
+                        <tr key={`rev-${r}`} style={{ borderTop: '1px solid var(--border-light)' }}>
+                          <td style={{ padding: '10px 14px' }}>{REVERSE_OUTPUT_VAT_ACCOUNT_BY_RATE[r]} Utgående moms omvänd skattskyldighet, {r}%</td>
+                          <td style={{ padding: '10px 14px', textAlign: 'right' }}>{fmt(rounded.reverseVatByRate[r])}</td>
+                          <td style={{ padding: '10px 14px', textAlign: 'right' }}></td>
+                        </tr>
+                      ))}
+                      {rounded.inputVatDomestic !== 0 && (
                         <tr style={{ borderTop: '1px solid var(--border-light)' }}>
                           <td style={{ padding: '10px 14px' }}>{INPUT_VAT_ACCOUNT} Ingående moms</td>
                           <td style={{ padding: '10px 14px', textAlign: 'right' }}></td>
-                          <td style={{ padding: '10px 14px', textAlign: 'right' }}>{fmt(rounded.inputVat)}</td>
+                          <td style={{ padding: '10px 14px', textAlign: 'right' }}>{fmt(rounded.inputVatDomestic)}</td>
+                        </tr>
+                      )}
+                      {rounded.inputVatReverse !== 0 && (
+                        <tr style={{ borderTop: '1px solid var(--border-light)' }}>
+                          <td style={{ padding: '10px 14px' }}>{REVERSE_INPUT_VAT_ACCOUNT} Beräknad ingående moms på förvärv från utlandet</td>
+                          <td style={{ padding: '10px 14px', textAlign: 'right' }}></td>
+                          <td style={{ padding: '10px 14px', textAlign: 'right' }}>{fmt(rounded.inputVatReverse)}</td>
                         </tr>
                       )}
                       {rounded.netToPay !== 0 && (

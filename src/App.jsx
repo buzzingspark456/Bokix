@@ -37,11 +37,15 @@ import { DEFAULT_ACCOUNTS, VAT_ACCOUNTS, REVENUE_ACCOUNTS } from './components/A
 import { getNextInvoiceNumber } from './utils/invoiceNumbering';
 import { createStripeCheckoutSession, createStripeSubscriptionCheckout, cancelStripeSubscription } from './stripeApi';
 import { createEmailDomain, getEmailDomainStatus, sendInvoiceEmail } from './emailApi';
-import { getDebet, getKredit } from './utils/verificationAmounts';
+import { getDebet, getKredit, withRoundingBalance } from './utils/verificationAmounts';
+import { describeForeign } from './utils/foreignCurrency';
+import { invoiceBookingRows } from './utils/invoiceBooking';
 import { grossInvoiceAmount } from './utils/reportCalculations';
 import { planFromId } from './utils/plans';
+import { detectOrgType } from './utils/orgType';
 import { BRAND, ACCENT_COLORS } from './utils/brandColors';
-import { OUTPUT_VAT_ACCOUNT_BY_RATE } from './utils/vatConfig';
+import { OUTPUT_VAT_ACCOUNT_BY_RATE, REVERSE_OUTPUT_VAT_ACCOUNT_BY_RATE, REVERSE_INPUT_VAT_ACCOUNT } from './utils/vatConfig';
+import { isReverseChargePurchaseAccount, withReverseChargeRows } from './utils/reverseCharge';
 import { COMPANY_WRITABLE_FIELDS } from './utils/companyFields.js';
 import { deleteFileFromStorage } from './utils/fileUpload';
 import { collectStorageUrls } from './utils/storageUrls';
@@ -1096,6 +1100,18 @@ function App() {
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
+  // Bottenraden göms medan ett textfält har fokus. Annars skjuts den upp
+  // ovanför tangentbordet (iOS Safari/Android) och hänger mitt på skärmen.
+  useEffect(() => {
+    const root = document.documentElement;
+    const isField = (el) => !!el && (el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' ||
+      (el.tagName === 'INPUT' && !['checkbox', 'radio', 'button', 'submit', 'file', 'range', 'color'].includes(el.type)));
+    const onIn = (e) => { if (isField(e.target)) root.setAttribute('data-keyboard', 'open'); };
+    const onOut = () => root.removeAttribute('data-keyboard');
+    document.addEventListener('focusin', onIn);
+    document.addEventListener('focusout', onOut);
+    return () => { document.removeEventListener('focusin', onIn); document.removeEventListener('focusout', onOut); root.removeAttribute('data-keyboard'); };
+  }, []);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showLanding, setShowLanding] = useState(true);
   // 'signup' | 'login' — vilken Auth-flik som ska visas när showLanding
@@ -2789,7 +2805,16 @@ function App() {
       const amount = rounded.outputVatByRate[rate];
       if (amount) verRows.push({ account: OUTPUT_VAT_ACCOUNT_BY_RATE[rate], debet: Math.round(amount), kredit: 0 });
     });
-    if (rounded.inputVat) verRows.push({ account: '2641', debet: 0, kredit: Math.round(rounded.inputVat) });
+    // Omvänd skattskyldighet (tjänster från utlandet): den utgående momsen på
+    // 2614/2624/2634 nollställs i debet och den beräknade ingående momsen på
+    // 2645 i kredit, precis som den vanliga momsen.
+    [25, 12, 6].forEach(rate => {
+      const amount = rounded.reverseVatByRate?.[rate];
+      if (amount) verRows.push({ account: REVERSE_OUTPUT_VAT_ACCOUNT_BY_RATE[rate], debet: Math.round(amount), kredit: 0 });
+    });
+    const domesticInput = rounded.inputVatDomestic ?? rounded.inputVat;
+    if (domesticInput) verRows.push({ account: '2641', debet: 0, kredit: Math.round(domesticInput) });
+    if (rounded.inputVatReverse) verRows.push({ account: REVERSE_INPUT_VAT_ACCOUNT, debet: 0, kredit: Math.round(rounded.inputVatReverse) });
     if (rounded.netToPay > 0) verRows.push({ account: '2650', debet: 0, kredit: Math.round(rounded.netToPay) });
     else if (rounded.netToPay < 0) verRows.push({ account: '2650', debet: Math.round(-rounded.netToPay), kredit: 0 });
 
@@ -3058,7 +3083,12 @@ function App() {
       // inom samma millisekund. `prev.length` som suffix räcker för att
       // hålla id:t unikt inom samma synkrona batch.
       const id = `${Date.now()}_${prev.length}`;
-      return [...prev, { ...newVer, id, number }];
+      // Automatiska bokningar (de som har en `source`: fakturor, kvitton,
+      // leverantörsfakturor m.fl.) får en avrundningsdifferens på upp till
+      // 1,50 kr bokad på 3740 i stället för att sparas obalanserade, se
+      // withRoundingBalance. Manuella verifikationer valideras i formuläret.
+      const rows = newVer.source && (newVer.status || 'booked') !== 'draft' ? withRoundingBalance(newVer.rows) : newVer.rows;
+      return [...prev, { ...newVer, rows, id, number }];
     });
 
     // Ett konto som faktiskt precis bokfördes mot — via OCR-förslaget eller
@@ -3180,38 +3210,9 @@ function App() {
 
     if (invType === 'quote') return;
 
-    let totalNet = 0;
-    let vatByRate = {};
-    inv.rows.forEach(r => {
-      const lineNet = r.qty * r.unitPrice;
-      const lineVat = lineNet * (r.vatRate / 100);
-      totalNet += lineNet;
-      if (!vatByRate[r.vatRate]) vatByRate[r.vatRate] = 0;
-      vatByRate[r.vatRate] += lineVat;
-    });
-    const totalGross = totalNet + Object.values(vatByRate).reduce((s, v) => s + v, 0);
-
-    const verRows = [
-      { account: '1510', debet: Math.round(totalGross), kredit: 0 },
-    ];
-
-    inv.rows.forEach(r => {
-      const lineNet = r.qty * r.unitPrice;
-      const revAcc = REVENUE_ACCOUNTS[r.vatRate] || '3001';
-      const existing = verRows.find(vr => vr.account === revAcc && vr.kredit > 0);
-      if (existing) {
-        existing.kredit += Math.round(lineNet);
-      } else {
-        verRows.push({ account: revAcc, debet: 0, kredit: Math.round(lineNet) });
-      }
-    });
-
-    Object.entries(vatByRate).forEach(([rate, amount]) => {
-      const vatAcc = VAT_ACCOUNTS[parseInt(rate)];
-      if (vatAcc && amount > 0) {
-        verRows.push({ account: vatAcc, debet: 0, kredit: Math.round(amount) });
-      }
-    });
+    // Med ören och med radrabatten, se utils/invoiceBooking.js. En avrundnings-
+    // differens på ören bokas av withRoundingBalance i handleAddVerification.
+    const verRows = invoiceBookingRows(inv.rows, { revenueAccounts: REVENUE_ACCOUNTS, vatAccounts: VAT_ACCOUNTS });
 
     handleAddVerification({
       date: inv.date,
@@ -3256,38 +3257,9 @@ function App() {
     setQuotes(prev => prev.filter(q => q.id !== quoteId));
     setInvoices(prev => [...prev, updatedInvoice]);
 
-    let totalNet = 0;
-    let vatByRate = {};
-    updatedInvoice.rows.forEach(r => {
-      const lineNet = r.qty * r.unitPrice;
-      const lineVat = lineNet * (r.vatRate / 100);
-      totalNet += lineNet;
-      if (!vatByRate[r.vatRate]) vatByRate[r.vatRate] = 0;
-      vatByRate[r.vatRate] += lineVat;
-    });
-    const totalGross = totalNet + Object.values(vatByRate).reduce((s, v) => s + v, 0);
-
-    const verRows = [
-      { account: '1510', debet: Math.round(totalGross), kredit: 0 },
-    ];
-
-    updatedInvoice.rows.forEach(r => {
-      const lineNet = r.qty * r.unitPrice;
-      const revAcc = REVENUE_ACCOUNTS[r.vatRate] || '3001';
-      const existing = verRows.find(vr => vr.account === revAcc && vr.kredit > 0);
-      if (existing) {
-        existing.kredit += Math.round(lineNet);
-      } else {
-        verRows.push({ account: revAcc, debet: 0, kredit: Math.round(lineNet) });
-      }
-    });
-
-    Object.entries(vatByRate).forEach(([rate, amount]) => {
-      const vatAcc = VAT_ACCOUNTS[parseInt(rate)];
-      if (vatAcc && amount > 0) {
-        verRows.push({ account: vatAcc, debet: 0, kredit: Math.round(amount) });
-      }
-    });
+    // Med ören och med radrabatten, se utils/invoiceBooking.js. En avrundnings-
+    // differens på ören bokas av withRoundingBalance i handleAddVerification.
+    const verRows = invoiceBookingRows(updatedInvoice.rows, { revenueAccounts: REVENUE_ACCOUNTS, vatAccounts: VAT_ACCOUNTS });
 
     handleAddVerification({
       date: updatedInvoice.date,
@@ -3350,8 +3322,8 @@ function App() {
       source: 'invoice_payment',
       sourceId: invoiceId,
       rows: [
-        { account: bankLedgerAccount, debet: Math.round(paymentAmount), kredit: 0 },
-        { account: '1510', debet: 0, kredit: Math.round(paymentAmount) },
+        { account: bankLedgerAccount, debet: Math.round(paymentAmount * 100) / 100, kredit: 0 },
+        { account: '1510', debet: 0, kredit: Math.round(paymentAmount * 100) / 100 },
       ],
     });
 
@@ -3448,20 +3420,27 @@ function App() {
     setExpenses(prev => [...prev, exp]);
     if (!exp.costAccount) return;
 
+    // Med ören (se handleSaveReceiptDetails): avrundning till hela kronor per
+    // rad kunde ge en verifikation där debet och kredit skilde en krona.
+    const cents = (v) => Math.round((Number(v) || 0) * 100) / 100;
+    // Tjänst från utlandet (omvänd skattskyldighet): leverantören tar ingen
+    // svensk moms, hela beloppet är kostnaden, och momsen bokförs av oss (2645/
+    // 2614) via withReverseChargeRows.
+    const reverse = isReverseChargePurchaseAccount(exp.costAccount);
     const verRows = [
-      { account: exp.costAccount, debet: Math.round(exp.netAmount), kredit: 0 },
+      { account: exp.costAccount, debet: cents(reverse ? exp.amount : exp.netAmount), kredit: 0 },
     ];
-    if (exp.vatAmount > 0) {
-      verRows.push({ account: '2641', debet: Math.round(exp.vatAmount), kredit: 0 });
+    if (!reverse && exp.vatAmount > 0) {
+      verRows.push({ account: '2641', debet: cents(exp.vatAmount), kredit: 0 });
     }
-    verRows.push({ account: '1930', debet: 0, kredit: Math.round(exp.amount) });
+    verRows.push({ account: '1930', debet: 0, kredit: cents(exp.amount) });
 
     handleAddVerification({
       date: exp.date,
       description: exp.description,
       source: 'expense',
       sourceId: exp.id,
-      rows: verRows,
+      rows: withReverseChargeRows(verRows),
     });
   };
 
@@ -3472,10 +3451,9 @@ function App() {
   // bort tyst).
   //
   // Omvänd skattskyldighet: fakturan bokförs utan moms (precis som
-  // leverantörens egen faktura saknar moms i det läget). Den självdeklarerade
-  // momsen som egentligen ska redovisas bokförs INTE automatiskt ännu — det
-  // kräver konton/rutor vi inte har verifierat, så vi gissar hellre inte än
-  // bokför fel. Formuläret varnar om detta innan man sparar.
+  // leverantörens egen faktura saknar moms i det läget). Bokförs den på ett
+  // inköpskonto för tjänster från utlandet (4535/4531 m.fl.) läggs momsraderna
+  // (2645 i debet, 2614 i kredit) till automatiskt, se utils/reverseCharge.js.
   const handleAddSupplierInvoice = (invoice) => {
     const status = invoice.status === 'paid' ? 'paid' : 'unpaid';
     const inv = {
@@ -3518,7 +3496,7 @@ function App() {
       description: inv.description || `Leverantörsfaktura ${inv.invoiceNumber}`,
       source: 'supplier_invoice',
       sourceId: inv.id,
-      rows: verRows,
+      rows: withReverseChargeRows(verRows),
     });
 
     // Har ägaren redan betalat privat är leverantören redan löst (skulden
@@ -3599,16 +3577,18 @@ function App() {
     if (!exp || exp.costAccount) return;
     setExpenses(prev => prev.map(e => e.id === expenseId ? { ...e, costAccount: accountCode } : e));
 
-    const verRows = [{ account: accountCode, debet: Math.round(exp.netAmount || exp.amount), kredit: 0 }];
-    if (exp.vatAmount > 0) verRows.push({ account: '2641', debet: Math.round(exp.vatAmount), kredit: 0 });
-    verRows.push({ account: exp.type === 'supplier_invoice' ? '2440' : '1930', debet: 0, kredit: Math.round(exp.amount) });
+    const cents = (v) => Math.round((Number(v) || 0) * 100) / 100;
+    const reverse = isReverseChargePurchaseAccount(accountCode);
+    const verRows = [{ account: accountCode, debet: cents(reverse ? exp.amount : (exp.netAmount || exp.amount)), kredit: 0 }];
+    if (!reverse && exp.vatAmount > 0) verRows.push({ account: '2641', debet: cents(exp.vatAmount), kredit: 0 });
+    verRows.push({ account: exp.type === 'supplier_invoice' ? '2440' : '1930', debet: 0, kredit: cents(exp.amount) });
 
     handleAddVerification({
       date: new Date().toISOString().split('T')[0],
       description: `Rättad kontering: ${exp.description}`,
       source: 'expense_fix',
       sourceId: exp.id,
-      rows: verRows,
+      rows: withReverseChargeRows(verRows),
     });
 
     const accountName = accounts.find(a => a.code === accountCode)?.name || accountCode;
@@ -3642,13 +3622,22 @@ function App() {
   // uppdateras bara fälten, ingen ny verifikation skapas. Att rätta belopp/
   // konto på ett redan bokfört kvitto i efterhand (och därmed behöva
   // korrigera den befintliga verifikationen) är utanför scope här.
+  // Avläsningen av ett kvitto sparas på kvittot som ett utkast (ocrDraft) så
+  // att det visas direkt nästa gång kvittot öppnas, utan ny avläsning. Det är
+  // inte ifyllda fält: kvittot förblir "ej hanterat" tills man själv sparar.
+  const handleSaveOcrDraft = (expenseId, draft) => {
+    setExpenses(prev => prev.map(e => (e.id === expenseId ? { ...e, ocrDraft: draft } : e)));
+  };
+
   const handleSaveReceiptDetails = (expenseId, formValues) => {
     const exp = expenses.find(e => e.id === expenseId);
     if (!exp) return;
     const alreadyBooked = verifications.some(v => (v.source === 'expense' || v.source === 'expense_fix') && v.sourceId === expenseId);
 
     const amount = formValues.amount;
-    const vatRate = formValues.vatRate;
+    // Ett inköp av tjänster från utlandet har ingen svensk moms på kvittot: hela
+    // beloppet är kostnaden, oavsett vilken momssats som stod i formuläret.
+    const vatRate = isReverseChargePurchaseAccount(formValues.costAccount) ? 0 : formValues.vatRate;
     const netAmount = vatRate > 0 ? Math.round((amount / (1 + vatRate / 100)) * 100) / 100 : amount;
     const vatAmount = Math.round((amount - netAmount) * 100) / 100;
 
@@ -3661,22 +3650,39 @@ function App() {
       costAccount: formValues.costAccount,
       projectId: formValues.projectId || undefined,
       folderId: formValues.folderId || undefined,
+      receiptNumber: formValues.receiptNumber || undefined,
+      receiptNumberLabel: formValues.receiptNumberLabel || undefined,
+      // Kvitto i utländsk valuta: beloppet i valutan, kursen och var den kom
+      // ifrån sparas så att omräkningen till kronor går att följa. Bokföringen
+      // sker i kronor (amount).
+      foreignCurrency: formValues.foreignCurrency || undefined,
       notes: formValues.notes || undefined,
+      // Utkastet från avläsningen behövs inte längre när kvittot är sparat.
+      ocrDraft: undefined,
     };
     setExpenses(prev => prev.map(e => e.id === expenseId ? updated : e));
 
     if (alreadyBooked) return;
 
-    const verRows = [{ account: updated.costAccount, debet: Math.round(updated.netAmount), kredit: 0, projectId: updated.projectId }];
-    if (updated.vatAmount > 0) verRows.push({ account: '2641', debet: Math.round(updated.vatAmount), kredit: 0 });
-    verRows.push({ account: '1930', debet: 0, kredit: Math.round(updated.amount) });
+    // Med ören, inte avrundat till hela kronor: nettot, momsen och totalen
+    // avrundades tidigare var för sig och kunde då skilja en krona åt
+    // (100,50 kr ger 80 + 20 mot 101), vilket gav en verifikation där
+    // debet och kredit inte gick ihop. Momsen är totalen minus nettot, så
+    // raderna summerar alltid exakt till beloppet.
+    const cents = (v) => Math.round((Number(v) || 0) * 100) / 100;
+    // Utländsk valuta står på kostnadsraden ("25,00 USD × kurs 10,4123"), så
+    // att verifikationen visar vad kronbeloppet räknats från.
+    const fxNote = describeForeign(updated.foreignCurrency);
+    const verRows = [{ account: updated.costAccount, debet: cents(updated.netAmount), kredit: 0, projectId: updated.projectId, ...(fxNote ? { desc: fxNote } : {}) }];
+    if (updated.vatAmount > 0) verRows.push({ account: '2641', debet: cents(updated.vatAmount), kredit: 0 });
+    verRows.push({ account: '1930', debet: 0, kredit: cents(updated.amount) });
 
     handleAddVerification({
       date: updated.date,
       description: updated.description,
       source: 'expense',
       sourceId: updated.id,
-      rows: verRows,
+      rows: withReverseChargeRows(verRows),
     });
   };
 
@@ -3964,6 +3970,7 @@ function App() {
   const mobileSheetItems = [
     { id: 'quotes',        label: 'Offerter',            icon: FileSpreadsheet },
     { id: 'projects',      label: 'Projekt',             icon: Briefcase },
+    { id: 'review',        label: 'Granskning',          icon: ClipboardCheck, badge: reviewCount },
     { id: 'verifications', label: 'Bokföring',           icon: BookOpen },
     { id: 'bank',          label: 'Bank',                icon: Landmark },
     { id: 'payroll',       label: 'Anställda och lön',   icon: UsersRound },
@@ -4083,6 +4090,7 @@ function App() {
             onNavigateToVerification={handleNavigateToVerification}
             onAddVerification={handleAddVerification}
             setCompanyInfo={setCompanyInfo}
+            setAccounts={setAccounts}
             onNavigateToTab={handleNavTabChange}
             initialSection={taxesInitialSection}
           />
@@ -4141,6 +4149,7 @@ function App() {
             onMarkSupplierInvoicePaid={handleMarkSupplierInvoicePaid}
             onFixExpenseAccount={handleFixExpenseAccount}
             onSaveReceiptDetails={handleSaveReceiptDetails}
+            onSaveOcrDraft={handleSaveOcrDraft}
             onDeleteExpense={handleDeleteExpense}
             onReverseExpense={handleReverseExpense}
             globalAction={globalAction}
@@ -4163,6 +4172,7 @@ function App() {
             onAdd={handleAddExpense}
             onFixExpenseAccount={handleFixExpenseAccount}
             onSaveReceiptDetails={handleSaveReceiptDetails}
+            onSaveOcrDraft={handleSaveOcrDraft}
             onDeleteExpense={handleDeleteExpense}
             onReverseExpense={handleReverseExpense}
             pageTitle="Kvitton"
@@ -4190,7 +4200,7 @@ function App() {
       case 'quotes':
         return <Quotes key={company?.id || data.activeCompanyId} quotes={quotes} setQuotes={setQuotes} onConvert={handleConvertQuoteToInvoice} contacts={contacts} projects={projects} company={company} user={user} globalAction={globalAction} clearGlobalAction={() => setGlobalAction(null)} handleGlobalAction={handleGlobalAction} articles={articles} setArticles={setArticles} onNavigate={handleNavTabChange} />;
       case 'articles':
-        return <Articles key={company?.id || data.activeCompanyId} articles={articles} setArticles={setArticles} accounts={accounts} />;
+        return <Articles key={company?.id || data.activeCompanyId} articles={articles} setArticles={setArticles} accounts={accounts} company={company} verifications={verifications} invoices={invoices} onAddVerification={handleAddVerification} setCompanyInfo={setCompanyInfo} />;
       case 'projects':
         return (
           <Projects
@@ -4231,6 +4241,7 @@ function App() {
             contacts={contacts}
             projects={projects}
             templates={verificationTemplates}
+            orgType={detectOrgType(company?.orgNr)}
             onSaveTemplate={handleSaveVerificationTemplate}
             onAdd={handleAddVerification}
             setVerifications={setVerifications}
@@ -4266,6 +4277,7 @@ function App() {
             contacts={contacts}
             projects={projects}
             templates={verificationTemplates}
+            orgType={detectOrgType(company?.orgNr)}
             onSaveTemplate={handleSaveVerificationTemplate}
             onAdd={handleAddVerification}
             setVerifications={setVerifications}
@@ -4282,6 +4294,7 @@ function App() {
             bankTransactions={bankTransactions}
             bankImportProfiles={company?.bankImportProfiles || {}}
             bankAccounts={company?.bankAccounts || []}
+            reconciliations={company?.reconciliations || []}
             invoices={invoices}
             expenses={expenses}
             contacts={contacts}
@@ -4313,6 +4326,8 @@ function App() {
       case 'settings':
         return (
           <Settings
+            onOpenHelp={() => setIsHelpDrawerOpen(true)}
+            onLogout={() => setShowLogoutConfirm(true)}
             company={company}
             setCompanyInfo={setCompanyInfo}
             accounts={accounts}
@@ -4431,6 +4446,9 @@ function App() {
             känns avskild från "Startsida" istället för att glida ihop. */}
         <div className="logo-container">
           <BokixLogo onClick={() => handleNavTabChange('dashboard')} />
+          {/* Halv skärm: sidomenyn blir ett smalt ikonfält, och då ersätter
+              monogrammet den breda loggan. Dolt på alla andra bredder. */}
+          <button type="button" className="sidebar-monogram" onClick={() => handleNavTabChange('dashboard')} aria-label="Startsida">B</button>
         </div>
         <div style={{ height: '1px', background: 'rgba(255,255,255,0.15)', margin: '0 20px 8px', flexShrink: 0 }}></div>
 
@@ -4483,6 +4501,7 @@ function App() {
                   <button
                     key={item.id}
                     data-tour={`nav-${item.id}`}
+                    title={item.label}
                     className={`nav-item ${isActive ? 'active' : ''}`}
                     onClick={() => handleNavTabChange(item.id)}
                     style={{
@@ -4504,10 +4523,10 @@ function App() {
                   >
                     <span style={{ display: 'flex', alignItems: 'center', gap: '11px' }}>
                       <item.icon size={18} strokeWidth={isActive ? 2.25 : 2} style={{ flexShrink: 0, opacity: isActive ? 1 : 0.85 }} />
-                      <span>{item.label}</span>
+                      <span className="nav-label">{item.label}</span>
                     </span>
                     {item.badge > 0 && (
-                      <span style={{
+                      <span className="nav-badge" style={{
                         minWidth: '20px', height: '20px', padding: '0 6px', borderRadius: '999px',
                         background: '#22c55e', color: 'white', fontSize: '12px', fontWeight: 700,
                         display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
@@ -4535,7 +4554,7 @@ function App() {
               border: 'none', color: 'rgba(255,255,255,0.7)', fontSize: '15px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px'
             }}
           >
-            <HelpCircle size={17} /> Hjälp och support
+            <HelpCircle size={17} /> <span className="nav-label">Hjälp och support</span>
           </button>
           <button
             className="nav-item logout-btn"
@@ -4545,7 +4564,7 @@ function App() {
               border: 'none', color: '#fca5a5', fontSize: '15px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px'
             }}
           >
-            <LogOut size={17} /> Logga ut
+            <LogOut size={17} /> <span className="nav-label">Logga ut</span>
           </button>
         </div>
       </aside>
@@ -4561,14 +4580,6 @@ function App() {
         {activeTab === 'dashboard' && (
         <div className="desktop-top-bar">
           <div className="desktop-topbar-left" style={{ flex: 1, marginRight: '32px' }}>
-            {/* Hamburger (mobil) */}
-            <button
-              className="hamburger-btn"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              aria-label="Öppna meny"
-            >
-              <Menu size={22} />
-            </button>
             {/* Företagsnamnet i topbaren togs bort på uttrycklig kundönskan
                 (upplevdes som onödig text i huvudet på varje sida). Vilket
                 företag man jobbar i syns fortfarande via profilmenyns
@@ -4668,7 +4679,7 @@ function App() {
                       HelpDrawer.jsx — en riktig kanal istället för att bara
                       stänga menyn utan att göra något. */}
                   <button onClick={() => { setReportErrorModal(true); setIsProfileMenuOpen(false); }}><AlertTriangle size={14} /> Rapportera fel</button>
-                  <button onClick={() => { setIsHelpDrawerOpen(true); setIsProfileMenuOpen(false); }}><HelpCircle size={14} /> Hjälp & support</button>
+                  <button className="profile-item-desktop-only" onClick={() => { setIsHelpDrawerOpen(true); setIsProfileMenuOpen(false); }}><HelpCircle size={14} /> Hjälp & support</button>
                   <div className="dropdown-divider"></div>
                   <button onClick={() => { handleStartNewCompany(); setIsProfileMenuOpen(false); }}><UsersRound size={14} /> Lägg till företag</button>
                   <div className="dropdown-divider"></div>
@@ -4677,7 +4688,7 @@ function App() {
                     clearLocalData();
                     setIsLoggedIn(false);
                     setShowOnboarding(false);
-                  }} className="text-danger"><LogOut size={14} /> Logga ut</button>
+                  }} className="text-danger profile-item-desktop-only"><LogOut size={14} /> Logga ut</button>
                 </div>
               )}
             </div>
@@ -4688,17 +4699,12 @@ function App() {
         {/* Mobile Top Bar */}
         <div className="global-top-bar">
           <div className="topbar-left">
-            <button
-              className="hamburger-btn"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              aria-label="Öppna meny"
-            >
-              <Menu size={22} />
-            </button>
-            {/* Loggan syntes annars bara efter att man öppnat hamburgermenyn
-                — den vanliga sidomenyn ligger dold bakom en CSS-transform på
-                mobil, inte omonterad. Kompakt variant, samma klick till
-                startsidan som i sidomenyn. */}
+            {/* Telefonens toppfält har ingen hamburgermeny: all navigering
+                sker i bottenfältet, där "Meny" öppnar resten av sidorna. Två
+                menyer för samma sak (hamburger uppe, Meny nere) förvirrade,
+                och bottenfältet är det som Fortnox, Bokio och andra
+                bokföringsappar har och som användarna känner igen. Loggan
+                går till startsidan. */}
             <BokixLogo compact onClick={() => handleNavTabChange('dashboard')} />
             {/* topbar-page-title (sidnamnet, t.ex. "Kunder") togs bort här —
                 kundfeedback: det dubblerade sidans egen <h1>-rubrik direkt
@@ -4858,7 +4864,7 @@ function App() {
                 className={`mobile-nav-btn ${isActive ? 'active' : ''}`}
                 onClick={() => handleNavTabChange(item.id)}
               >
-                <span className="mobile-nav-icon"><item.icon size={23} /></span>
+                <span className="mobile-nav-icon"><item.icon size={22} /></span>
                 <span>{item.label}</span>
               </button>
             );
@@ -4877,7 +4883,10 @@ function App() {
             {/* Fortnox-jämförelsen: "Meny" (inte "Mer") med samma
                 hamburgerikon som appens övriga menyknappar, istället för
                 tre prickar — matchar det fjärde navvalet i referensbilden. */}
-            <span className="mobile-nav-icon"><Menu size={23} /></span>
+            <span className="mobile-nav-icon">
+              <Menu size={22} />
+              {reviewCount > 0 && <span className="mobile-nav-dot" aria-label={`${reviewCount} väntar på granskning`} />}
+            </span>
             <span>Meny</span>
           </button>
         </div>
@@ -4886,20 +4895,35 @@ function App() {
       <div className={`mobile-sheet-overlay ${mobileMoreOpen ? 'open' : ''}`} onClick={() => setMobileMoreOpen(false)} />
       <div className={`mobile-sheet ${mobileMoreOpen ? 'open' : ''}`} role="dialog" aria-modal="true" aria-label="Fler sidor">
         <div className="mobile-sheet-handle" />
-        {visibleMobileSheetItems.map(item => {
-          const isActive = resolveNavGroup(activeTab) === resolveTab(item.id);
-          return (
-            <button
-              key={item.id}
-              className={`mobile-sheet-item ${isActive ? 'active' : ''}`}
-              onClick={() => { handleNavTabChange(item.id); setMobileMoreOpen(false); }}
-            >
-              <span className="mobile-sheet-item-icon"><item.icon size={18} /></span>
-              {item.label}
-            </button>
-          );
-        })}
+        <div className="mobile-sheet-title">
+          <span>Meny</span>
+          <button type="button" className="mobile-sheet-close" onClick={() => setMobileMoreOpen(false)} aria-label="Stäng menyn"><X size={18} /></button>
+        </div>
+        <div className="mobile-sheet-grid">
+          {visibleMobileSheetItems.map(item => {
+            const isActive = resolveNavGroup(activeTab) === resolveTab(item.id);
+            return (
+              <button
+                key={item.id}
+                className={`mobile-sheet-tile ${isActive ? 'active' : ''}`}
+                onClick={() => { handleNavTabChange(item.id); setMobileMoreOpen(false); }}
+              >
+                <span className="mobile-sheet-tile-icon">
+                  <item.icon size={22} />
+                  {item.badge > 0 && <span className="mobile-sheet-tile-badge">{item.badge}</span>}
+                </span>
+                <span className="mobile-sheet-tile-label">{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
+
+      {/* Bakgrund bakom profil- och notismenyn på telefon: de ligger som en
+          bottenpanel, och ett tryck utanför stänger dem. Syns inte på dator. */}
+      {(isProfileMenuOpen || isNotifMenuOpen) && (
+        <div className="mobile-dropdown-backdrop" onClick={() => { setIsProfileMenuOpen(false); setIsNotifMenuOpen(false); }} />
+      )}
 
       {/* ── New Company Modal ── */}
       {/* "Lägg till företag" — kundfeedback (två omgångar): först en bar
