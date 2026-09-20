@@ -40,26 +40,47 @@ const ORGANIZATION_SCHEMA = {
 };
 
 // Kundönskemål: en mörkt-läge-option på marknadssidan. Samma localStorage-
-// nyckel som den inloggade appen (App.jsx) — en besökare som redan valt
-// mörkt läge där ska mötas av samma tema på den publika sajten också,
-// istället för att behöva välja två gånger. Egen liten läsfunktion här
-// (inte en delad hook mot App.jsx) eftersom marknadssidan är en helt
-// fristående yta utan tillgång till App.jsx:s theme-state — men EXPORTERAD
-// så DemoWorkspace.jsx kan anropa den en gång till för sitt eget
-// `theme === 'dark'`-villkor (headerns bakgrund ska bara matcha sidomenyn i
-// mörkt läge, se index.css :root[data-theme="dark"] .desktop-top-bar).
-// Ofarligt att anropa två gånger — båda instanserna läser/skriver samma
-// localStorage-nyckel och samma <html data-theme>, aldrig i otakt.
+// nyckel som den inloggade appen (App.jsx: 'bokix_theme_pref', med den
+// gamla 'bokix_theme' kvar som läs-fallback för en besökare som bara någonsin
+// satt den förra nyckeln) — en besökare som redan valt mörkt läge där ska
+// mötas av samma tema på den publika sajten också, istället för att behöva
+// välja två gånger. Egen liten läsfunktion här (inte en delad hook mot
+// App.jsx) eftersom marknadssidan är en helt fristående yta utan tillgång
+// till App.jsx:s theme-state — men EXPORTERAD så DemoWorkspace.jsx kan
+// anropa den en gång till för sitt eget `theme === 'dark'`-villkor
+// (headerns bakgrund ska bara matcha sidomenyn i mörkt läge, se index.css
+// :root[data-theme="dark"] .desktop-top-bar). Ofarligt att anropa två
+// gånger — båda instanserna läser/skriver samma localStorage-nyckel och
+// samma <html data-theme>, aldrig i otakt.
+//
+// INGEN OS-preferens som förval för en helt ny besökare (stod här tidigare,
+// var bakgrunden till en blinkningsbugg): theme-init.js (körs INNAN
+// webbläsaren målar något alls) och App.jsx:s egen useState-initierare
+// defaultar båda till 'dark', oavsett OS-inställning — se motiveringen vid
+// App.jsx:s themePreference. Den här hooken körde tidigare
+// `prefers-color-scheme`-koll i stället för en ny besökare, vilket gjorde
+// att en besökare med ljust OS-tema möttes av en <html> som theme-init.js
+// redan hunnit sätta till 'dark' (innan målning), som sedan bytte till
+// 'light' först efter att React hydrerat och den här useEffect:en hunnit
+// köra — exakt den rapporterade "mörkt, sen ljust"-blinkningen. Måste
+// defaulta till EXAKT samma värde som theme-init.js för en ny besökare,
+// annars finns blinkningen kvar oavsett vilket håll den går.
 export function useMarketingTheme() {
   const [theme, setTheme] = useState(() => {
     try {
-      const stored = localStorage.getItem('bokix_theme');
+      const stored = localStorage.getItem('bokix_theme_pref') || localStorage.getItem('bokix_theme');
       if (stored === 'light' || stored === 'dark') return stored;
-    } catch { /* privat läge/blockerad storage — kör vidare med OS-valet */ }
-    return (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+      if (stored === 'system') {
+        return (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+      }
+    } catch { /* privat läge/blockerad storage — kör vidare med standardvalet */ }
+    return 'dark';
   });
   useEffect(() => {
-    try { localStorage.setItem('bokix_theme', theme); } catch { /* samma reservläge som ovan */ }
+    try {
+      localStorage.setItem('bokix_theme_pref', theme);
+      localStorage.removeItem('bokix_theme'); // samma migrering som App.jsx redan gör
+    } catch { /* samma reservläge som ovan */ }
     // Sätts även på <html> (inte bara #lp-root nedan) — DemoWorkspace.jsx
     // (den inbäddade "såhär ser appen ut"-produktvisningen på startsidan)
     // återanvänder appens EGNA var(--bg-card)/var(--text-main) osv från
