@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Menu, X, Sun, Moon } from 'lucide-react';
+import { Menu, X, Sun, Moon } from '../icons';
 import { BRAND } from '../../utils/brandColors';
-import { ACCENT_CYCLE, SERIF } from './marketingTokens';
+import { SERIF } from './marketingTokens';
 import { JsonLd, SITE_URL } from '../../utils/seo';
 // Ordmärket flyttat till shared/ (delas nu även av App.jsx BokixLogo, se
 // dess egen kommentar för varför). Importerad OCH återexporterad under
@@ -74,15 +74,16 @@ export function useMarketingTheme() {
 // Loggan är alltid en länk till startsidan ("/"), oavsett vilken undersida
 // man står på — se användningarna av <BokixWordmark> nedan.
 
-// Sitemap — varje punkt är en RIKTIG egen sida/URL, inte ett skrolla-till-
-// sektion-på-samma-sida-ankare som tidigare. Loggan är det enda som alltid
-// går till startsidan; de här länkarna går var och en till sin egen sida.
+// Headerns nav — bara de tre sidorna en besökare faktiskt jämför INNAN de
+// bestämmer sig (vad det gör, vad det kostar, vilka verktyg som är gratis).
+// Om oss/Kontakt är inte beslutsstadiet, de är efterslag — de bor i
+// sidfoten (FOOTER_COLUMNS nedan, "Företag"), inte här. Kundfeedback: fem
+// länkar plus två knappar läste som en lista, inte som en huvudmeny —
+// tre är vad en riktig SaaS-header faktiskt visar.
 export const MARKETING_PAGES = [
   { label: 'Funktioner', to: '/funktioner' },
   { label: 'Priser', to: '/priser' },
   { label: 'Verktyg', to: '/verktyg' },
-  { label: 'Om oss', to: '/om-oss' },
-  { label: 'Kontakt', to: '/kontakt' },
 ];
 
 /** Globala stilar + animationer, delade av ALLA marknadssidor — en enda
@@ -180,15 +181,17 @@ function MarketingStyles() {
       .lp-btn-secondary:hover { background: #f9fafb !important; }
       .lp-feature-card { transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
       .lp-feature-card:hover { transform: translateY(-4px); box-shadow: 0 16px 32px -12px rgba(0,0,0,0.14) !important; border-color: transparent !important; }
-      /* ── Varje nav-länk (Funktioner/Priser/Om oss/Kontakt) bär sin egen
-         accentfärg via --nav-accent (satt inline per länk, se MARKETING_PAGES
-         nedan) — samma grönt/blått/rött-triad som resten av sajten,
-         istället för att alla fyra hovrar till samma enfärgade grönt. ── */
+      /* ── En enda accentfärg (BRAND.green) för alla nav-länkar, inte en
+         per länk. Ett rullande grönt/blått/rött per länk (tidigare) kodar
+         ingen verklig skillnad mellan Funktioner/Priser/Verktyg — det är
+         bara dekoration, och gör headern rörigare i stället för att läsa
+         som en avsiktlig varumärkesfärg. Samma logik som gjorde att den
+         randiga linjen under hela navraden togs bort (se <nav> nedan). ── */
       .lp-nav-link { position: relative; }
-      .lp-nav-link:hover, .lp-nav-link.active { color: var(--nav-accent, ${BRAND.green}) !important; }
+      .lp-nav-link:hover, .lp-nav-link.active { color: ${BRAND.green} !important; }
       .lp-nav-link::after {
         content: ''; position: absolute; left: 0; right: 0; bottom: 4px; height: 2px;
-        background: var(--nav-accent, ${BRAND.green}); transform: scaleX(0); transform-origin: center;
+        background: ${BRAND.green}; transform: scaleX(0); transform-origin: center;
         transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
       }
       .lp-nav-link:hover::after, .lp-nav-link.active::after { transform: scaleX(1); }
@@ -544,19 +547,17 @@ function MarketingStyles() {
       .lp-footer-mark { max-width: 1120px; margin: 8px auto 20px; position: relative; line-height: 0; }
       .lp-footer-mark svg { display: block; width: 100%; height: auto; }
 
-      /* Kundfeedback (skärmdump, halvbred skrivbordsyta/tablet, ~640-1024px):
-         den fulla desktop-navraden (logo + fyra länkar + tema-knapp +
-         "Logga in" + "Kom igång", alla med sina fasta 32px/12px-mellanrum)
-         hade inte plats att andas i det här spannet — kändes hopklämd
-         jämfört med både riktig fullskärm (gott om plats) och mobil (egen,
-         glesare hamburgermeny). Brytpunkten höjd 860px → 1024px så samma
-         spann som redan gör bento-gridet ovan tightare (.lp-bento-grid,
-         "min-width: 641px och max-width: 1024px") går över till
-         hamburgermenyn ISTÄLLET FÖR att pressa ihop den fulla navraden —
-         ingen ny cramped mellanzon kvar, bara "gott om plats" eller
-         "hamburgermeny", aldrig något hopklämt däremellan. Fullskärm och
-         ren mobil (redan bra, enligt kunden) helt oförändrade. */
-      @media (max-width: 1024px) {
+      /* Brytpunkten mättes om (headern gick från fem länkar ner till tre,
+         se MARKETING_PAGES ovan) i stället för att gissas: knapparna
+         ("Logga in"/"Kom igång") bryter till två rader någonstans i
+         ~750-820px-spannet (testat med Playwright-skärmdumpar vid 690/750/
+         800/820/840px) — 840px var första bredden utan radbrytning. 860px
+         satt här som brytpunkt ger samma marginal som tidigare (~20px)
+         över den uppmätta gränsen, inte en rund gissning. Under 860px:
+         hamburgermenyn, aldrig en hoppressad navrad däremellan — samma
+         princip som förut (se historiken här), bara med rätt tal för tre
+         länkar i stället för fyra. */
+      @media (max-width: 860px) {
         .lp-nav-desktop { display: none; }
         .lp-hamburger-btn { display: flex; }
         /* Loggan (46px, uppskalad för desktop ovan) håller sig kvar på sin
@@ -816,10 +817,6 @@ export function MarketingHeader({ onEnterApp, theme, onToggleTheme }) {
         padding: '0 24px', transition: 'all 0.3s',
         boxShadow: scrolled ? '0 1px 20px rgba(0,0,0,0.06)' : 'none',
       }}>
-        {/* ── Tunn flerfärgad linje under navraden — samma grönt/blått/rött-
-            triad som nyckeltalskorten (marketingTokens.js ACCENT), så
-            färgerna syns redan i headern, inte bara längre ner. ── */}
-        <div aria-hidden style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '2px', opacity: 0.55, background: `linear-gradient(90deg, ${ACCENT_CYCLE[0].fg}, ${ACCENT_CYCLE[1].fg} 45%, ${ACCENT_CYCLE[2].fg} 75%, ${BRAND.green})` }} />
         {/* Kundfeedback (skärmdump på en bred skärm): max-width:1200px
             centrerat lämnade stora tomma mörka fält på var sida på breda
             skrivbordsskärmar — loggan såg inte ut att sitta till vänster
@@ -842,15 +839,14 @@ export function MarketingHeader({ onEnterApp, theme, onToggleTheme }) {
             <BokixWordmark height={58} />
           </Link>
 
-          <div className="lp-nav-desktop" style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: '32px' }}>
-            {MARKETING_PAGES.map((page, i) => {
-              const accent = ACCENT_CYCLE[i % 3];
+          <div className="lp-nav-desktop" style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: '28px' }}>
+            {MARKETING_PAGES.map((page) => {
               const isActive = location.pathname === page.to;
               return (
                 <Link
                   key={page.to} to={page.to}
                   className={`lp-nav-link ${isActive ? 'active' : ''}`}
-                  style={{ '--nav-accent': accent.fg, fontSize: '17px', fontWeight: 500, color: isActive ? accent.fg : 'var(--mkt-nav-text)', textDecoration: 'none', padding: '10px 0', minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}
+                  style={{ fontSize: '15px', fontWeight: 600, color: isActive ? BRAND.green : 'var(--mkt-nav-text)', textDecoration: 'none', padding: '10px 0', minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}
                 >
                   {page.label}
                 </Link>
@@ -862,10 +858,10 @@ export function MarketingHeader({ onEnterApp, theme, onToggleTheme }) {
             <button onClick={onToggleTheme} aria-label={theme === 'dark' ? 'Ljust läge' : 'Mörkt läge'} title={theme === 'dark' ? 'Ljust läge' : 'Mörkt läge'} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 48, height: 48, background: 'none', border: '1px solid var(--mkt-border-soft)', borderRadius: '10px', cursor: 'pointer', color: 'var(--mkt-nav-text)', flexShrink: 0 }}>
               {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
             </button>
-            <button className="lp-btn-secondary" onClick={() => handleEnterApp('login')} style={{ padding: '14px 22px', background: 'transparent', border: '1px solid var(--mkt-border-soft)', borderRadius: '10px', fontSize: '16px', fontWeight: 600, cursor: 'pointer', color: 'var(--mkt-nav-text)', fontFamily: 'inherit', minHeight: '48px' }}>
+            <button className="lp-btn-secondary" onClick={() => handleEnterApp('login')} style={{ padding: '14px 22px', background: 'transparent', border: '1px solid var(--mkt-border-soft)', borderRadius: '10px', fontSize: '15px', fontWeight: 600, cursor: 'pointer', color: 'var(--mkt-nav-text)', fontFamily: 'inherit', minHeight: '48px' }}>
               Logga in
             </button>
-            <button className="lp-btn-primary" onClick={() => handleEnterApp('signup')} style={{ padding: '14px 24px', background: BRAND.green, border: 'none', borderRadius: '10px', fontSize: '16px', fontWeight: 700, cursor: 'pointer', color: 'white', fontFamily: 'inherit', boxShadow: '0 4px 15px -3px rgba(11,99,41,0.35)', minHeight: '48px' }}>
+            <button className="lp-btn-primary" onClick={() => handleEnterApp('signup')} style={{ padding: '14px 24px', background: BRAND.green, border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: 700, cursor: 'pointer', color: 'white', fontFamily: 'inherit', boxShadow: '0 4px 15px -3px rgba(11,99,41,0.35)', minHeight: '48px' }}>
               Kom igång
             </button>
           </div>
@@ -887,13 +883,12 @@ export function MarketingHeader({ onEnterApp, theme, onToggleTheme }) {
           </button>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          {MARKETING_PAGES.map((page, i) => {
-            const accent = ACCENT_CYCLE[i % 3];
+          {MARKETING_PAGES.map((page) => {
             const isActive = location.pathname === page.to;
             return (
               <Link
                 key={page.to} to={page.to} onClick={() => setMobileMenuOpen(false)}
-                style={{ background: 'none', border: 'none', borderBottom: '1px solid var(--mkt-border-soft)', textAlign: 'left', fontSize: '17px', fontWeight: 600, color: isActive ? accent.fg : 'var(--mkt-heading)', textDecoration: 'none', fontFamily: 'inherit', padding: '16px 4px' }}
+                style={{ background: 'none', border: 'none', borderBottom: '1px solid var(--mkt-border-soft)', textAlign: 'left', fontSize: '17px', fontWeight: 600, color: isActive ? BRAND.green : 'var(--mkt-heading)', textDecoration: 'none', fontFamily: 'inherit', padding: '16px 4px' }}
               >
                 {page.label}
               </Link>
@@ -953,7 +948,7 @@ const FOOTER_COLUMNS = [
   {
     heading: 'Lär dig',
     links: [
-      { label: 'Så gör Bokix det enkelt', to: '/enkel-bokforing' },
+      { label: 'Blogg', to: '/blogg' },
       { label: 'Bokföringsordlista', to: '/ordlista' },
       { label: 'Byt till Bokix', to: '/byt-bokforingsprogram' },
       { label: 'För UF-företag', to: '/uf' },

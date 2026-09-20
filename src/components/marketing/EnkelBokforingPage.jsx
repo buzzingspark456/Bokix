@@ -1,10 +1,16 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight } from '../icons';
 import { BRAND } from '../../utils/brandColors';
 import MarketingLayout, { Reveal } from './MarketingLayout';
 import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER } from './marketingTokens';
 import { PageMeta, JsonLd, SITE_URL } from '../../utils/seo';
+import { BLOG_POSTS } from '../../content/marketing/blog';
+
+// Metadata (titel/datum/bild/ingress) kommer från BLOG_POSTS
+// (content/marketing/blog.js) — samma källa /blogg listar från — så en
+// ändring här och en ändring där kan aldrig glida isär.
+const POST = BLOG_POSTS.find(p => p.slug === 'enkel-bokforing');
 
 // ── "Så gör Bokix bokföring enkelt" (/enkel-bokforing) ──────────────────
 // Artikelformat (Sida: "det ska se ut och läsas som en riktig blogg, inte
@@ -31,16 +37,17 @@ import { PageMeta, JsonLd, SITE_URL } from '../../utils/seo';
 const SCHEMA = {
   '@context': 'https://schema.org',
   '@type': 'BlogPosting',
-  headline: 'Så gör Bokix bokföring enkelt',
-  url: `${SITE_URL}/enkel-bokforing`,
+  headline: POST.title,
+  url: `${SITE_URL}${POST.path}`,
   inLanguage: 'sv-SE',
-  image: `${SITE_URL}/blog/enkel-bokforing-hero.jpg`,
-  datePublished: '2026-09-13',
-  dateModified: '2026-09-13',
+  image: `${SITE_URL}${POST.image}`,
+  datePublished: POST.datePublished,
+  dateModified: POST.dateModified,
   author: { '@type': 'Organization', name: 'Bokix', url: SITE_URL },
   publisher: { '@type': 'Organization', name: 'Bokix', url: SITE_URL, logo: { '@type': 'ImageObject', url: `${SITE_URL}/icon-512.png` } },
-  description: 'Sex konkreta saker Bokix faktiskt gör så att bokföring inte kräver att du kan bokföring: OCR-läsning av kvitton, automatiska verifikationer, en granskningskö för det osäkra, bankimport som matchar sig själv, och moms/löner/bokslut inbyggt.',
-  mainEntityOfPage: { '@type': 'WebPage', '@id': `${SITE_URL}/enkel-bokforing` },
+  description: POST.excerpt,
+  mainEntityOfPage: { '@type': 'WebPage', '@id': `${SITE_URL}${POST.path}` },
+  isPartOf: { '@type': 'Blog', '@id': `${SITE_URL}/blogg`, name: 'Bokix-bloggen' },
 };
 
 export default function EnkelBokforingPage() {
@@ -49,10 +56,10 @@ export default function EnkelBokforingPage() {
   return (
     <MarketingLayout>
       <PageMeta
-        title="Så gör Bokix bokföring enkelt | Bokix"
+        title={`${POST.title} | Bokix`}
         description="OCR-läsning av kvitton, automatiska verifikationer, en granskningskö för det osäkra, bankimport som matchar sig själv, och moms/löner/bokslut inbyggt. Så här jobbar Bokix i praktiken."
-        path="/enkel-bokforing"
-        image={`${SITE_URL}/blog/enkel-bokforing-hero.jpg`}
+        path={POST.path}
+        image={`${SITE_URL}${POST.image}`}
         type="article"
       />
       <JsonLd data={SCHEMA} />
@@ -68,22 +75,23 @@ export default function EnkelBokforingPage() {
       <Reveal>
         <img
           className="bx-ebf-hero-img"
-          src="/blog/enkel-bokforing-hero.jpg"
-          alt="För att bokföring ska vara enkelt — Bokix"
+          src={POST.image}
+          alt={POST.imageAlt}
         />
       </Reveal>
 
-      {/* ── Kicker + rubrik + byline ── */}
+      {/* ── Kicker (länkad till /blogg — den riktiga listan, se BlogPage.jsx)
+          + rubrik + byline ── */}
       <section style={{ padding: '40px 24px 8px', background: IVORY }}>
         <Reveal style={{ maxWidth: '680px', margin: '0 auto', textAlign: 'center' }}>
-          <div style={{ fontSize: '12.5px', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: BRAND.greenDark, marginBottom: '14px' }}>
+          <Link to="/blogg" style={{ display: 'inline-block', fontSize: '12.5px', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: BRAND.greenDark, marginBottom: '14px', textDecoration: 'none' }}>
             Bokix-bloggen
-          </div>
+          </Link>
           <h1 style={{ fontFamily: SERIF, fontSize: 'clamp(28px, 4.6vw, 44px)', fontWeight: 700, letterSpacing: '-0.015em', color: INK, margin: '0 0 16px', lineHeight: 1.15 }}>
-            Så gör Bokix bokföring enkelt
+            {POST.title}
           </h1>
           <div style={{ fontSize: '13.5px', color: MUTED, fontWeight: 600 }}>
-            Bokix-teamet · 13 september 2026 · ~4 min läsning
+            Bokix-teamet · 13 september 2026 · {POST.readTime}
           </div>
         </Reveal>
       </section>
@@ -99,6 +107,14 @@ export default function EnkelBokforingPage() {
           <p>
             Fota kvittot med mobilen eller ladda upp en bild eller PDF. Bokix läser texten direkt i webbläsaren och fyller i datum, belopp och momssats automatiskt. Känner OCR-läsningen igen handlaren — en bensinmack, en matbutik, ett vanligt molntjänstabonnemang — föreslås även rätt bokföringskonto, inte bara siffrorna. Varje fält som fyllts i av OCR:n märks med en liten badge, och försvinner så fort du redigerar fältet för hand: det är alltid ett förslag, aldrig ett påstående.
           </p>
+          <img
+            src="/screenshots/bokix-kvitton-hantering.png"
+            alt="Skärmbild av Kvitton i Bokix: uppladdade kvitton grupperade per månad, med belopp och om de är bokförda eller väntar på granskning"
+            loading="lazy"
+            width="1382"
+            height="813"
+            style={{ width: '100%', height: 'auto', display: 'block', margin: '8px 0 28px', borderRadius: '10px', border: `1px solid ${CARD_BORDER}` }}
+          />
 
           <h2>Fakturor bokförs av sig själva</h2>
           <p>

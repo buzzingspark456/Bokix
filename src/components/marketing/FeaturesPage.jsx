@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, Check } from 'lucide-react';
+import { ArrowRight, Check } from '../icons';
 import { BRAND } from '../../utils/brandColors';
 import MarketingLayout, { Reveal } from './MarketingLayout';
 import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW, ACCENT } from './marketingTokens';
@@ -16,6 +16,12 @@ import { PageMeta, JsonLd } from '../../utils/seo';
 // handritade illustrationer och accentfärger som Startsidans funktionskort
 // (se marketingTokens.js/featureIllustrations.jsx) — större här, eftersom
 // den här sidan ÄR funktionerna, inte en teaser till dem.
+// Riktiga skärmbilder (public/screenshots/, se scripts/tmp-screenshot3.mjs för
+// hur de togs — direkt ur appen med exempeldata, inte mockuper) — kompletterar
+// de handritade illustrationerna (`demo`) i .bx-ft-art. Anledningen: en
+// SVG-illustration räknas aldrig som en bild för Google (ingen <img>, ingen
+// alt-text, inget för bildsöket att indexera), så sidan hade tekniskt sett
+// noll bilder trots att den "visade" produkten fyra gånger.
 const SECTIONS = [
   {
     id: 'bokforing', demo: DemoBokforing, accentKey: 'green', title: 'Bokföring',
@@ -27,6 +33,8 @@ const SECTIONS = [
       'SIE4-import av en befintlig bokföring, och SIE4-export när du vill ta med dig allt',
       'Låsning av räkenskapsår vid bokslut',
     ],
+    screenshot: '/screenshots/bokix-bokforing-verifikationer.png',
+    screenshotAlt: 'Skärmbild av Bokföring i Bokix: automatiskt bokförda verifikationer grupperade per månad, med belopp och status',
   },
   {
     id: 'fakturering', demo: DemoFakturering, accentKey: 'blue', title: 'Fakturering',
@@ -40,6 +48,8 @@ const SECTIONS = [
       'Utskick från din egen e-postdomän, inte en delad avsändaradress',
       'PDF-export som alltid matchar exakt det du ser i förhandsvisningen',
     ],
+    screenshot: '/screenshots/bokix-fakturering-kundfakturor.png',
+    screenshotAlt: 'Skärmbild av Fakturering i Bokix: lista över kundfakturor med förfallodatum, belopp och status (betald, förfallen, obetald)',
   },
   {
     id: 'skatt', demo: DemoSkatt, accentKey: 'red', title: 'Skatt och bokslut',
@@ -52,6 +62,8 @@ const SECTIONS = [
       'Påminnelse i god tid före varje moms- och AGI-deadline',
       'Ett bokslutsflöde som stämmer av och låser räkenskapsåret',
     ],
+    screenshot: '/screenshots/bokix-skatt-momsdeklaration.png',
+    screenshotAlt: 'Skärmbild av momsdeklaration i Bokix: steg-för-steg-flöde med kontroll, granskning och bokföring av perioden',
   },
   {
     id: 'personal', demo: DemoPersonal, accentKey: 'green', title: 'Personal',
@@ -63,6 +75,8 @@ const SECTIONS = [
       'Betalfil till banken för nettolönerna (ISO 20022 pain.001)',
       'Flera anställda i samma lönekörning, en tydlig sammanställning för hela företaget',
     ],
+    screenshot: '/screenshots/bokix-personal-anstallda.png',
+    screenshotAlt: 'Skärmbild av Personal i Bokix: lista över anställda med anställningsdatum, lön och status',
   },
 ];
 
@@ -228,6 +242,14 @@ export default function FeaturesPage() {
                       </div>
                     ))}
                   </div>
+                  <img
+                    src={s.screenshot}
+                    alt={s.screenshotAlt}
+                    loading="lazy"
+                    width="1382"
+                    height="813"
+                    style={{ width: '100%', height: 'auto', display: 'block', marginTop: '20px', borderRadius: '10px', border: `1px solid ${CARD_BORDER}`, boxShadow: CARD_SHADOW }}
+                  />
                 </div>
               </Reveal>
             );

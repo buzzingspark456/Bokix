@@ -2,6 +2,8 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { initBotId } from 'botid/client/core'
+import { schedulePosthogInit } from './utils/posthog.js'
+import { getStoredConsent } from './utils/consent.js'
 import './index.css'
 // AppRouter (inte App.jsx direkt längre) — Prestandafix: App.jsx (hela den
 // inloggade bokföringsappen) laddas numera lazy, bara när den faktiskt
@@ -22,6 +24,12 @@ try {
   const hideScrollbar = localStorage.getItem('bokix_hide_scrollbar') === 'true';
   document.documentElement.setAttribute('data-hide-scrollbar', String(hideScrollbar));
 } catch { /* privat läge/blockerad storage — App.jsx:s egen kopia (om/när den mountas) försöker igen och faller tillbaka på samma sätt där */ }
+
+// PostHog — se utils/posthog.js för hela resonemanget (samtycke, fördröjd
+// uppstart). getStoredConsent() läses här EN gång, vid sidladdning, för en
+// redan återkommande besökare som svarat tidigare — CookieBanner.jsx tar
+// över därifrån (updatePosthogConsent i utils/consent.js) för ett NYTT val.
+schedulePosthogInit(getStoredConsent() === 'granted')
 
 // Vercel BotID (säkerhetsgranskningen, punkt "Add bot protection") —
 // AVVECKLAD HELT (2026-09-15), inte bara nedtonad. Bakgrund: BotID:s

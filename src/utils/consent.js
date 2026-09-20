@@ -3,6 +3,7 @@
 // innan mätscriptet konfigureras — den här filen är den enda platsen som
 // får ändra det efteråt, och bara som en direkt reaktion på ett explicit
 // val i CookieBanner.jsx, aldrig automatiskt.
+import { ensurePosthogInit } from './posthog';
 
 export const CONSENT_COOKIE_NAME = 'bokix_cookie_consent';
 const CONSENT_COOKIE_MAX_AGE_DAYS = 365; // ~12 månader, enligt spec
@@ -49,5 +50,20 @@ export function updateClarityConsent(granted) {
   window.clarity('consentv2', {
     ad_Storage: 'denied',
     analytics_Storage: granted ? 'granted' : 'denied',
+  });
+}
+
+/** Samma sak för PostHog (utils/posthog.js). ensurePosthogInit(granted)
+ * initierar PostHog vid behov — om besökaren svarar i bannern innan den
+ * fördröjda uppstarten (schedulePosthogInit, main.jsx) annars hunnit
+ * ske, med RÄTT startläge direkt (ingen kort "denied trots granted"-
+ * lucka). Redan igång sedan tidigare? Samma anrop är då en no-op, och
+ * opt_in/opt_out_capturing() nedan sätter det nya valet direkt istället. */
+export function updatePosthogConsent(granted) {
+  const initializing = ensurePosthogInit(granted);
+  if (!initializing) return; // ingen VITE_POSTHOG_KEY satt i den här miljön
+  initializing.then((posthog) => {
+    if (granted) posthog.opt_in_capturing();
+    else posthog.opt_out_capturing();
   });
 }

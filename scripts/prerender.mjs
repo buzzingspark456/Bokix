@@ -89,6 +89,7 @@ const SITEMAP_MANIFEST = [
   { path: '/verktyg/arsredovisning', changefreq: 'monthly', priority: '0.6' },
   { path: '/ordlista', changefreq: 'monthly', priority: '0.6' },
   { path: '/enkel-bokforing', changefreq: 'monthly', priority: '0.6' },
+  { path: '/blogg', changefreq: 'weekly', priority: '0.6' },
   { path: '/vanliga-fragor', changefreq: 'monthly', priority: '0.6' },
   { path: '/integrationer', changefreq: 'monthly', priority: '0.6' },
   { path: '/sakerhet', changefreq: 'yearly', priority: '0.4' },

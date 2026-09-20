@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-
 import LandingPage from './components/LandingPage';
 import CookieBanner from './components/CookieBanner';
 import { allLocalizedRoutes } from './content/marketing/routes';
+import { capturePosthogPageview } from './utils/posthog.js';
 
 // ── Marknads-/juridiksidorna — flyttade hit rakt av från App.jsx (se
 // kommentaren vid App-komponentens topp där för VARFÖR). Samma lazy()-
@@ -57,6 +58,7 @@ const ArsredovisningPage = lazy(() => import('./components/marketing/tools/Arsre
 const OrdlistaPage = lazy(() => import('./components/marketing/OrdlistaPage'));
 const FaqPage = lazy(() => import('./components/marketing/FaqPage'));
 const EnkelBokforingPage = lazy(() => import('./components/marketing/EnkelBokforingPage'));
+const BlogPage = lazy(() => import('./components/marketing/BlogPage'));
 // Det dolda admin-läget — ingen länk till den någonstans i den publika
 // navigeringen, se InternalApp.jsx för behörighetskollen (klient-sidan är
 // bara UI, den riktiga spärren är api/admin/index.js:s ADMIN_EMAILS).
@@ -207,6 +209,20 @@ function ScrollToTop() {
   return null;
 }
 
+// PostHog har ingen egen sidladdning att haka autocapture på i en SPA —
+// bara den allra första sidan hade räknats, se capture_pageview:false i
+// utils/posthog.js. Ett eget $pageview per routebyte i stället, samma
+// useLocation-mönster som ScrollToTop ovan. capturePosthogPageview() är
+// själv ett no-op tills PostHog faktiskt är igång (samtycke + fördröjd
+// uppstart, main.jsx), så den här kan monteras ovillkorligt.
+function PageviewTracker() {
+  const location = useLocation();
+  useEffect(() => {
+    capturePosthogPageview();
+  }, [location.pathname, location.search]);
+  return null;
+}
+
 // Bassökväg → element-fabrik för de sidor som har minst en översättning
 // (TRANSLATED_ROUTES i content/marketing/routes.js). Lägg till en rad här
 // när en ny sida får sitt första icke-svenska språk i Fas 2 — routen för
@@ -220,6 +236,7 @@ export default function AppRouter() {
   return (
     <>
       <ScrollToTop />
+      <PageviewTracker />
       <Routes>
         <Route path="/" element={<RootRoute />} />
         {/* Sitemap (Sida 29) — varje marknadssida en egen riktig route/URL,
@@ -245,6 +262,7 @@ export default function AppRouter() {
         <Route path="/ordlista" element={<Suspense fallback={<AppLoadingFallback />}><OrdlistaPage /></Suspense>} />
         <Route path="/vanliga-fragor" element={<Suspense fallback={<AppLoadingFallback />}><FaqPage /></Suspense>} />
         <Route path="/enkel-bokforing" element={<Suspense fallback={<AppLoadingFallback />}><EnkelBokforingPage /></Suspense>} />
+        <Route path="/blogg" element={<Suspense fallback={<AppLoadingFallback />}><BlogPage /></Suspense>} />
         <Route path="/internal" element={<Suspense fallback={<AppLoadingFallback />}><InternalApp /></Suspense>} />
         {/* Verktygsnavet + räknarna. Sökvägarna måste hållas i
             synk med TOOLS i marketing/tools/toolsConfig.js (sidfoten,

@@ -67,6 +67,10 @@
       "destination": "/enkel-bokforing/index.html"
     },
     {
+      "source": "/blogg",
+      "destination": "/blogg/index.html"
+    },
+    {
       "source": "/verktyg",
       "destination": "/verktyg/index.html"
     },

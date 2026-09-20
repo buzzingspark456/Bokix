@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BokixWordmark } from './marketing/MarketingLayout';
 import { BRAND } from '../utils/brandColors';
-import { getStoredConsent, storeConsent, updateGtagConsent, updateClarityConsent } from '../utils/consent';
+import { getStoredConsent, storeConsent, updateGtagConsent, updateClarityConsent, updatePosthogConsent } from '../utils/consent';
 
 // ── Sida 37: cookiebanner ──────────────────────────────────────────────
 // Visas vid första besöket (inget sparat val ännu) och går att öppna igen
@@ -30,6 +30,7 @@ export default function CookieBanner() {
   const choose = (granted) => {
     updateGtagConsent(granted);
     updateClarityConsent(granted);
+    updatePosthogConsent(granted);
     storeConsent(granted ? 'granted' : 'denied');
     setStatsPreview(granted);
     // Kort fördröjning innan bannern stängs, bara så reglaget hinner synas

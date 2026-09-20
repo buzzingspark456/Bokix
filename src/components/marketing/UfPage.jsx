@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
   ArrowRight, ChevronDown, Check, X, Users, FileText, Receipt, BookOpen,
   Landmark, BarChart3, ShieldCheck, CreditCard, LayoutDashboard, ScanLine,
-} from 'lucide-react';
+} from '../icons';
 import { BRAND } from '../../utils/brandColors';
 import MarketingLayout, { Reveal, BokixWordmark } from './MarketingLayout';
 import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW, ACCENT } from './marketingTokens';
@@ -278,6 +278,36 @@ export default function UfPage() {
         <Reveal style={{ maxWidth: '680px', margin: '0 auto', background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '16px', padding: '6px 24px', boxShadow: '0 1px 3px rgba(28,36,32,0.05)' }}>
           {FAQ.map(item => <FaqItem key={item.q} {...item} />)}
         </Reveal>
+      </section>
+
+      {/* ── Skärmbild — sist, direkt före sista knuffen. Mörkt läge, samma
+          app som ovan men riktig <img> i stället för en illustration, se
+          motsvarande resonemang i FeaturesPage.jsx. Just den här UF-menyn
+          (Startsida/Kunder/Fakturering/Kvitton/Granskning/Bokföring/Bank/
+          Rapport och analys/Skatt och bokslut/Inställningar) är dold direkt
+          i den redan renderade demon för skärmbilden — se
+          scripts/capture-marketing-screenshots.mjs — inte via en ändring av
+          den riktiga appens kod. Annars hade sidan visat Offerter/Projekt/
+          Anställda och lön här, precis de tre "Så ser det ut inifrån" ska
+          bevisa är BORTA för ett UF-konto (se sektionen ovan). */}
+      <section style={{ padding: '0 24px 56px', background: IVORY }}>
+        <div style={{ maxWidth: '860px', margin: '0 auto' }}>
+          <Reveal style={{ textAlign: 'center', marginBottom: '26px' }}>
+            <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(23px, 3.2vw, 32px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, margin: 0 }}>
+              Så ser det ut inifrån
+            </h2>
+          </Reveal>
+          <Reveal delay={60}>
+            <img
+              src="/screenshots/bokix-oversikt-dashboard-uf-dark.png"
+              alt="Skärmbild av startsidan i Bokix i mörkt läge för ett UF-konto: intäkter, kostnader och resultat för räkenskapsåret, snabbåtgärder och att göra idag, med en kortare meny utan Offerter, Projekt eller Anställda och lön"
+              loading="lazy"
+              width="1382"
+              height="813"
+              style={{ width: '100%', height: 'auto', display: 'block', borderRadius: '14px', border: `1px solid ${CARD_BORDER}`, boxShadow: CARD_SHADOW }}
+            />
+          </Reveal>
+        </div>
       </section>
 
       {/* ── Sista knuffen ── */}
