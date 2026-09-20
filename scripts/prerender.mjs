@@ -62,7 +62,7 @@ function buildPage(render, routePath) {
   html = html.replace('<div id="root"></div>', `<div id="root">${bodyHtml}</div>`);
   // Marknadssidor får zooma (index.html har user-scalable=no för appen).
   // AppViewportLock i AppRouter.jsx låser den igen när själva appen monteras.
-  html = html.replace(/<meta name="viewport" content="[^"]*" \/>/,'<meta name="viewport" content="width=device-width, initial-scale=1.0" />');
+  html = html.replace(/<meta name="viewport"[^>]*>/, (tag) => tag.replace(/, maximum-scale=1(?:\.0)?/, '').replace(/, user-scalable=no/, ''));
   return html;
 }
 

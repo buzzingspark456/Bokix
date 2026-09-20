@@ -1,4 +1,4 @@
-﻿﻿import { lazy, Suspense, useEffect, useState } from 'react';
+﻿﻿﻿import { lazy, Suspense, useEffect, useState } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import LandingPage from './components/LandingPage';
 import CookieBanner from './components/CookieBanner';
@@ -156,14 +156,16 @@ function shouldLoadAppImmediately() {
 // fält som iOS zoomar in på om de är för små, så den behåller det gamla
 // låset så länge den är monterad och släpper det när man är tillbaka på en
 // marknadssida.
-const VIEWPORT_ZOOMABLE = 'width=device-width, initial-scale=1.0';
-const VIEWPORT_APP = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
+const ZOOM_LOCK = ', maximum-scale=1.0, user-scalable=no';
 function AppViewportLock() {
   useEffect(() => {
     const meta = document.querySelector('meta[name="viewport"]');
     if (!meta) return undefined;
-    meta.setAttribute('content', VIEWPORT_APP);
-    return () => meta.setAttribute('content', VIEWPORT_ZOOMABLE);
+    // Bara zoomlåset läggs till/tas bort; resten av taggen (t.ex.
+    // viewport-fit=cover) lämnas som den är.
+    const base = (meta.getAttribute('content') || '').replace(ZOOM_LOCK, '');
+    meta.setAttribute('content', base + ZOOM_LOCK);
+    return () => meta.setAttribute('content', base);
   }, []);
   return null;
 }
