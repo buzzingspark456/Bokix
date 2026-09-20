@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-
 import LandingPage from './components/LandingPage';
 import CookieBanner from './components/CookieBanner';
 import { allLocalizedRoutes } from './content/marketing/routes';
+import { BLOG_POSTS } from './content/marketing/blog';
 import { capturePosthogPageview } from './utils/posthog.js';
 
 // ── Marknads-/juridiksidorna — flyttade hit rakt av från App.jsx (se
@@ -59,6 +60,7 @@ const OrdlistaPage = lazy(() => import('./components/marketing/OrdlistaPage'));
 const FaqPage = lazy(() => import('./components/marketing/FaqPage'));
 const EnkelBokforingPage = lazy(() => import('./components/marketing/EnkelBokforingPage'));
 const BlogPage = lazy(() => import('./components/marketing/BlogPage'));
+const BlogPostPage = lazy(() => import('./components/marketing/BlogPostPage'));
 // Det dolda admin-läget — ingen länk till den någonstans i den publika
 // navigeringen, se InternalApp.jsx för behörighetskollen (klient-sidan är
 // bara UI, den riktiga spärren är api/admin/index.js:s ADMIN_EMAILS).
@@ -263,6 +265,10 @@ export default function AppRouter() {
         <Route path="/vanliga-fragor" element={<Suspense fallback={<AppLoadingFallback />}><FaqPage /></Suspense>} />
         <Route path="/enkel-bokforing" element={<Suspense fallback={<AppLoadingFallback />}><EnkelBokforingPage /></Suspense>} />
         <Route path="/blogg" element={<Suspense fallback={<AppLoadingFallback />}><BlogPage /></Suspense>} />
+        {/* Artiklar med `body` i blog.js — en route per inlägg, härledd ur listan. */}
+        {BLOG_POSTS.filter(p => p.body).map(p => (
+          <Route key={p.slug} path={p.path} element={<Suspense fallback={<AppLoadingFallback />}><BlogPostPage slug={p.slug} /></Suspense>} />
+        ))}
         <Route path="/internal" element={<Suspense fallback={<AppLoadingFallback />}><InternalApp /></Suspense>} />
         {/* Verktygsnavet + räknarna. Sökvägarna måste hållas i
             synk med TOOLS i marketing/tools/toolsConfig.js (sidfoten,

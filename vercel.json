@@ -71,6 +71,14 @@
       "destination": "/blogg/index.html"
     },
     {
+      "source": "/blogg/sie4-flytta-bokforing",
+      "destination": "/blogg/sie4-flytta-bokforing/index.html"
+    },
+    {
+      "source": "/blogg/bokforing-uf-foretag",
+      "destination": "/blogg/bokforing-uf-foretag/index.html"
+    },
+    {
       "source": "/verktyg",
       "destination": "/verktyg/index.html"
     },

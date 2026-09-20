@@ -98,7 +98,7 @@ export default function EnkelBokforingPage() {
 
       {/* ── Artikeln ── */}
       <section style={{ padding: '32px 24px 90px', background: IVORY }}>
-        <Reveal className="bx-ebf-article" style={{ maxWidth: '680px', margin: '0 auto' }}>
+        <div className="bx-ebf-article" style={{ maxWidth: '680px', margin: '0 auto' }}>
           <p>
             De flesta som startar ett företag är experter på det de faktiskt gör — inte på dubbel bokföring, kontoplaner eller momsrutor. Bokix bygger vi utifrån en enda regel: det du inte kan ska vi göra åt dig, och det som är osäkert ska aldrig gissas fram tyst. Här är sex konkreta saker i verktyget som gör att skillnaden faktiskt märks, inte bara i marknadsföringen.
           </p>
@@ -144,7 +144,7 @@ export default function EnkelBokforingPage() {
           <p style={{ marginTop: '36px' }}>
             Ingenting av det här är komplicerat att sätta upp — det är hela poängen. 30 dagar är gratis, och om du avslutar innan dess har det inte kostat dig något.
           </p>
-        </Reveal>
+        </div>
       </section>
 
       {/* ── Avslutning ── */}

@@ -310,6 +310,13 @@ export default function UfPage() {
         </div>
       </section>
 
+      {/* ── Läs mer — intern länk till artikeln, för läsaren och för sökmotorn ── */}
+      <section style={{ padding: '0 24px 8px', background: IVORY }}>
+        <Reveal style={{ maxWidth: '680px', margin: '0 auto', textAlign: 'center', fontSize: '14px', color: MUTED }}>
+          Vill du veta mer om hur ni håller ordning på bokföringen under året? Läs <Link to="/blogg/bokforing-uf-foretag" style={{ color: BRAND.greenDark, fontWeight: 600 }}>Bokföring för UF-företag: så håller ni ordning under UF-året</Link>.
+        </Reveal>
+      </section>
+
       {/* ── Sista knuffen ── */}
       <section style={{ padding: '24px 24px 96px', background: IVORY, textAlign: 'center' }}>
         <Reveal style={{ maxWidth: '520px', margin: '0 auto' }}>

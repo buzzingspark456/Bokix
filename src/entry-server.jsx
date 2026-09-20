@@ -43,6 +43,7 @@ import IntegrationsPage from './components/marketing/IntegrationsPage.jsx';
 import SecurityPage from './components/marketing/SecurityPage.jsx';
 import EnkelBokforingPage from './components/marketing/EnkelBokforingPage.jsx';
 import BlogPage from './components/marketing/BlogPage.jsx';
+import { BLOG_ARTICLE_PAGES } from './components/marketing/BlogPostPage.jsx';
 
 // Verktygssidorna är statiska tills besökaren skriver i ett fält —
 // startvärdena i respektive useState renderas alltså ut som riktig text i
@@ -69,6 +70,7 @@ const BASE_PAGES = {
   '/vanliga-fragor': FaqPage,
   '/enkel-bokforing': EnkelBokforingPage,
   '/blogg': BlogPage,
+  ...BLOG_ARTICLE_PAGES,
   '/verktyg': ToolsHubPage,
   '/verktyg/skanna-kvitto': ScanReceiptPage,
   '/verktyg/momskalkylator': MomsKalkylatorPage,

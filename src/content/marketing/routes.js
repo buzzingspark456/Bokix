@@ -8,6 +8,8 @@
 // DEFAULT_LOCALE (sv) ligger alltid oprefixerad på sin bassökväg
 // (`/priser`). Övriga språk prefixas (`/no/priser`). Se localizedPath().
 
+import { BLOG_POSTS } from './blog.js';
+
 export const DEFAULT_LOCALE = 'sv';
 
 // Metadata per språk: `hreflang` är ISO-språkkoden <link rel="alternate">
@@ -36,6 +38,9 @@ export const MARKETING_ROUTES = [
   '/verktyg', '/verktyg/skanna-kvitto', '/verktyg/momskalkylator', '/verktyg/lonekalkylator', '/verktyg/egenavgifter',
   '/verktyg/rot-rut', '/verktyg/drojsmalsranta', '/verktyg/utdelning',
   '/verktyg/momsdatum', '/verktyg/arsredovisning',
+  // Bloggartiklarna (BLOG_POSTS med `body`, se blog.js) — härledda, så ett nytt
+  // inlägg dyker upp här av sig självt.
+  ...BLOG_POSTS.filter(p => p.body).map(p => p.path),
 ];
 
 // Vilka av MARKETING_ROUTES som faktiskt har riktig, varumärkesskriven

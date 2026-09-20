@@ -370,7 +370,7 @@ export default function SwitchPage() {
             {FAQ.map(item => <FaqItem key={item.q} {...item} />)}
           </Reveal>
           <Reveal delay={140} style={{ textAlign: 'center', marginTop: '20px', fontSize: '14px', color: MUTED }}>
-            Vill du se vad du får när du väl är här? Läs om <Link to="/funktioner" style={{ color: BRAND.greenDark, fontWeight: 600 }}>allt som ingår</Link>.
+            Vill du se vad du får när du väl är här? Läs om <Link to="/funktioner" style={{ color: BRAND.greenDark, fontWeight: 600 }}>allt som ingår</Link>.{' '}Osäker på vad SIE4 är? Läs <Link to="/blogg/sie4-flytta-bokforing" style={{ color: BRAND.greenDark, fontWeight: 600 }}>SIE4 förklarat: så flyttar du bokföringen</Link>.
           </Reveal>
         </div>
       </section>
