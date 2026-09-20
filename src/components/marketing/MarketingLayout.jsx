@@ -141,7 +141,22 @@ function MarketingStyles() {
         --mkt-section-mint: oklch(97.5% 0.022 165);
         --mkt-section-blue: oklch(97.5% 0.02 245);
       }
-      #lp-root[data-theme="dark"] {
+      /* html[data-theme="dark"] #lp-root (INTE bara #lp-root[data-theme=
+         "dark"]) — se kommentaren vid useMarketingTheme() ovan för hela
+         "varför": theme-init.js sätter <html>:s attribut INNAN webbläsaren
+         målar något alls, men #lp-root:s EGET attribut sätts av React
+         (useEffect, rad ~69) först EFTER hydrering/första målning. En
+         förrenderad sida (entry-server.jsx, byggd i Node utan localStorage)
+         skickar dessutom alltid #lp-root med data-theme="light" hårdkodat.
+         Så länge den här regeln matchade på #lp-root:s EGET attribut var
+         den mörka paletten alltid en studs efter: sidan målades ljus,
+         hydrerade, och bytte SEDAN till mörk — den exakta "ljust, sen
+         mörkt"-blinkningen kundrapporten beskrev, fast på marknadssajten
+         i stället för den inloggade appen (som redan fixades separat via
+         theme-init.js/<html>). Genom att matcha på <html>:s (redan
+         korrekta) attribut i stället appliceras den mörka paletten redan
+         vid FÖRSTA målningen, ingen blinkning kvar. */
+      html[data-theme="dark"] #lp-root {
         --mkt-page-bg: #0f1a13;
         --mkt-header-bg: #0f1a13;
         --mkt-card-bg: #17281c;
@@ -167,15 +182,15 @@ function MarketingStyles() {
         --mkt-section-mint: oklch(21% 0.03 165);
         --mkt-section-blue: oklch(21% 0.03 245);
       }
-      #lp-root[data-theme="dark"] .lp-btn-secondary:hover { background: var(--mkt-ivory) !important; }
+      html[data-theme="dark"] #lp-root .lp-btn-secondary:hover { background: var(--mkt-ivory) !important; }
       /* Kundönskemål: Zettle/Bolagsverket/Skatteverkets loggor (BrandLogos.jsx,
          ThemedLogo) har en ljus- och en mörk-bläck-variant av samma bild —
          den här regeln väljer vilken som visas, styrt av samma
          #lp-root[data-theme]-attribut allt annat mörkt-läge redan använder. */
       .lp-logo-dark { display: none; }
-      #lp-root[data-theme="dark"] .lp-logo-light { display: none; }
-      #lp-root[data-theme="dark"] .lp-logo-dark { display: inline-block; }
-      #lp-root[data-theme="dark"] .lp-mobile-menu.lp-open { background: var(--mkt-page-bg) !important; }
+      html[data-theme="dark"] #lp-root .lp-logo-light { display: none; }
+      html[data-theme="dark"] #lp-root .lp-logo-dark { display: inline-block; }
+      html[data-theme="dark"] #lp-root .lp-mobile-menu.lp-open { background: var(--mkt-page-bg) !important; }
       .lp-btn-primary { transition: all 0.2s !important; }
       .lp-btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 25px -5px rgba(11,99,41,0.4) !important; }
       .lp-btn-secondary:hover { background: #f9fafb !important; }

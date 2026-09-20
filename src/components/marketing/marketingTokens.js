@@ -10,8 +10,11 @@
 // konsumerar INK/IVORY/MUTED/ACCENT osv. blir tema-medvetna utan att någon
 // anropsplats behöver ändras. Själva variablerna (ljust + mörkt värde)
 // definieras i MarketingLayout.jsx:s <MarketingStyles>, scopat under
-// #lp-root[data-theme="dark"] — inte i appens index.css, eftersom
-// marknadssajten är en helt separat yta med sitt eget tema-state.
+// html[data-theme="dark"] #lp-root — inte i appens index.css, eftersom
+// marknadssajten är en helt separat yta med sitt eget tema-state. Matchar
+// på <html>:s attribut (satt av theme-init.js innan första målningen),
+// inte på #lp-root:s eget (satt av React, först efter hydrering) — annars
+// hinner sidan blinka i fel tema, se kommentaren i MarketingLayout.jsx.
 
 export const SERIF = 'Georgia, "Times New Roman", serif';
 
