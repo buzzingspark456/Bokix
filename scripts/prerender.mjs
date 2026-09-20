@@ -60,6 +60,9 @@ function buildPage(render, routePath) {
 
   let html = template.slice(0, headStartIdx) + headTags + template.slice(headEndIdx + HEAD_END.length);
   html = html.replace('<div id="root"></div>', `<div id="root">${bodyHtml}</div>`);
+  // Marknadssidor får zooma (index.html har user-scalable=no för appen).
+  // AppViewportLock i AppRouter.jsx låser den igen när själva appen monteras.
+  html = html.replace(/<meta name="viewport" content="[^"]*" \/>/,'<meta name="viewport" content="width=device-width, initial-scale=1.0" />');
   return html;
 }
 

@@ -1,4 +1,4 @@
-﻿import { lazy, Suspense, useEffect, useState } from 'react';
+﻿﻿import { lazy, Suspense, useEffect, useState } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import LandingPage from './components/LandingPage';
 import CookieBanner from './components/CookieBanner';
@@ -151,6 +151,23 @@ function shouldLoadAppImmediately() {
 // (satt av MarketingHeader/PricingPage m.fl. via `navigate('/', {state:
 // {enterApp:true}}}`) återanvänds rakt av — ingen ny mekanism, bara samma
 // signal lyssnad på från ett steg längre ut.
+// Marknadssidorna får zooma (WCAG 1.4.4: förrenderad HTML har en viewport
+// utan user-scalable=no, se scripts/prerender.mjs). Den inloggade appen har
+// fält som iOS zoomar in på om de är för små, så den behåller det gamla
+// låset så länge den är monterad och släpper det när man är tillbaka på en
+// marknadssida.
+const VIEWPORT_ZOOMABLE = 'width=device-width, initial-scale=1.0';
+const VIEWPORT_APP = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
+function AppViewportLock() {
+  useEffect(() => {
+    const meta = document.querySelector('meta[name="viewport"]');
+    if (!meta) return undefined;
+    meta.setAttribute('content', VIEWPORT_APP);
+    return () => meta.setAttribute('content', VIEWPORT_ZOOMABLE);
+  }, []);
+  return null;
+}
+
 function RootRoute({ locale = 'sv' }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -162,9 +179,12 @@ function RootRoute({ locale = 'sv' }) {
 
   if (wantsApp) {
     return (
-      <Suspense fallback={<AppLoadingFallback />}>
-        <App />
-      </Suspense>
+      <>
+        <AppViewportLock />
+        <Suspense fallback={<AppLoadingFallback />}>
+          <App />
+        </Suspense>
+      </>
     );
   }
 
