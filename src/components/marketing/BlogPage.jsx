@@ -47,7 +47,7 @@ export default function BlogPage() {
       <JsonLd data={SCHEMA} />
       <style>{`
         .bx-blog-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 26px; }
-        .bx-blog-card-img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block; }
+        .bx-blog-card-img { width: 100%; aspect-ratio: 1200 / 630; object-fit: cover; display: block; }
       `}</style>
 
       <section style={{ padding: '140px 24px 20px', background: IVORY }}>
@@ -72,8 +72,9 @@ export default function BlogPage() {
               >
                 <img className="bx-blog-card-img" src={post.image} alt={post.imageAlt} loading="lazy" />
                 <div style={{ padding: '22px 24px 26px' }}>
-                  <div style={{ fontSize: '12.5px', color: MUTED, fontWeight: 600, marginBottom: '9px' }}>
-                    {formatDate(post.datePublished)} · {post.readTime}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px 10px', fontSize: '12.5px', color: MUTED, fontWeight: 600, marginBottom: '11px' }}>
+                    {post.category ? <span style={{ fontSize: '11.5px', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--mkt-accent-green-fg)', background: 'var(--mkt-accent-green-soft)', padding: '3px 10px', borderRadius: '999px' }}>{post.category}</span> : null}
+                    <span>{formatDate(post.datePublished)} · {post.readTime}</span>
                   </div>
                   <h2 style={{ fontFamily: SERIF, fontSize: '20px', fontWeight: 700, letterSpacing: '-0.01em', color: INK, margin: '0 0 9px', lineHeight: 1.25 }}>
                     {post.title}

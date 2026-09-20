@@ -21,6 +21,7 @@ export const BLOG_POSTS = [
     datePublished: '2026-09-13',
     dateModified: '2026-09-13',
     readTime: '~4 min läsning',
+    category: 'Guide',
   },
   // ── Artiklar med `body` renderas av BlogPostPage.jsx på /blogg/<slug> ──
   // Ett inlägg skrivs alltså HÄR, en gång, och får sida, listkort,
@@ -28,91 +29,232 @@ export const BLOG_POSTS = [
   // entry-server.jsx, AppRouter.jsx och prerender.mjs läser alla den här
   // listan). Enda manuella steget är en rewrite-rad i vercel.json.
   //
-  // Blocktyper: h2, p, ul, ol. I text kan [länktext](/sökväg) användas.
+  // Fält utöver de vanliga: category (etikett), tldr (kort svar, lista),
+  // faq ([{ q, a }], blir både synlig FAQ och FAQPage-schema).
+  //
+  // Blocktyper (t):
+  //   h2 (får ankare och hamnar i innehållsförteckningen), h3, p, ul, ol,
+  //   steps  { x: [{ h, p }] }            numrerade stegkort
+  //   checklist { x: [text] }             bockad lista
+  //   callout { kind: info|tips|warn, title, x, logo?, logoAlt? }
+  //   code   { title, x, notes: [{ k, v }] }   kodruta + förklaringslista
+  //   table  { head, rows, caption }
+  //   diagram { id, caption }             se BlogDiagrams.jsx
+  //   programs                            exportguide per program (migrationSources.js)
+  // I text kan [länktext](/sökväg) och **fetstil** användas.
+  //
   // Absolut regel, som på övriga marknadssidor: bara sådant som stämmer
   // med produkten (SwitchPage.jsx, UfPage.jsx, utils/ufMode.js) eller är
-  // allmänt etablerad fakta — inga påhittade siffror eller löften.
+  // allmänt etablerad fakta. Inga påhittade siffror eller löften.
   {
     slug: 'sie4-flytta-bokforing',
     path: '/blogg/sie4-flytta-bokforing',
+    category: 'Byta program',
     title: 'SIE4 förklarat: så flyttar du bokföringen till ett nytt program',
-    excerpt: 'Vad SIE4 är, vad filen innehåller och hur du byter bokföringsprogram utan att tappa historiken. Fyra steg, och en checklista att gå igenom efteråt.',
-    image: '/screenshots/bokix-bokforing-verifikationer.png',
-    imageAlt: 'Skärmbild av Bokföring i Bokix: verifikationer med datum, beskrivning, belopp och status',
+    excerpt: 'Vad SIE4 är, hur filen ser ut inuti och hur du exporterar, läser in och kontrollerar din bokföring när du byter bokföringsprogram, utan att tappa historiken.',
+    image: '/blog/sie4-hero.jpg',
+    imageAlt: 'Illustration: bokföring flyttas från Fortnox, Spiris, Bokio och Björn Lundén via en SIE4-fil till Bokix',
     datePublished: '2026-09-20',
     dateModified: '2026-09-20',
-    readTime: '~5 min läsning',
+    readTime: '~7 min läsning',
+    tldr: [
+      'SIE4 är den svenska standardfilen för att flytta hela bokföringen mellan program: kontoplan, ingående balanser och varje verifikation.',
+      'Exportera SIE typ 4 ur det gamla programmet, läs in filen i det nya, granska kontomappningen och stäm av resultat- och balansräkningen.',
+      'Spara originalfilen. Räkenskapsinformation ska bevaras i sju år.',
+    ],
     body: [
-      { t: 'p', x: 'SIE är den svenska standarden för att flytta bokföring mellan program. Nästan alla svenska bokföringsprogram kan både exportera och läsa in formatet, och det är därför du kan byta program utan att skriva av något för hand. Här är vad du behöver veta innan du gör det.' },
+      { t: 'p', x: 'Att byta bokföringsprogram betyder inte att du behöver skriva in något på nytt. Nästan alla svenska bokföringsprogram kan både skapa och läsa in samma filformat, SIE, och det är därför ett byte tar en eftermiddag i stället för en vecka. Här går vi igenom vad filen är, hur den ser ut inuti, hur du gör bytet steg för steg och hur du kontrollerar att allt kom med.' },
+
       { t: 'h2', x: 'Vad är SIE?' },
-      { t: 'p', x: 'SIE står för Standard Import Export. Det är ett filformat som branschen tagit fram just för att bokföringsdata ska gå att flytta mellan olika program och att lämna över till revisorn. Filen är vanlig text och innehåller bland annat din kontoplan och saldon, och i den fullständiga varianten även varje enskild verifikation.' },
-      { t: 'h2', x: 'Vilken SIE-typ ska du välja?' },
-      { t: 'p', x: 'Det finns fyra typer, och det är typ 4 du vill ha när du byter program:' },
-      { t: 'ul', x: [
-        'Typ 1 innehåller saldon per konto och räkenskapsår.',
-        'Typ 2 lägger till saldon per period, alltså per månad.',
-        'Typ 3 lägger till saldon per objekt, till exempel projekt eller kostnadsställe.',
-        'Typ 4 innehåller kontoplan, ingående och utgående balanser samt varje verifikation med alla konteringsrader. Det är den som gör att historiken följer med i sin helhet.',
+      { t: 'p', x: 'SIE står för **Standard Import Export**. Det är ett filformat som den svenska branschen tagit fram just för att bokföringsdata ska gå att flytta mellan olika program och lämnas över till revisorn. Filen är oberoende av vilket program som skrev den, så en fil från Fortnox går att läsa in i Bokix, och tvärtom.' },
+      { t: 'callout', kind: 'info', title: 'Det är bara text', x: 'En SIE-fil är vanlig textfil, oftast med filändelsen .se. Du kan öppna den i ett textprogram och läsa den. Det är bra för att förstå vad som flyttas, men redigera den inte för hand.' },
+
+      { t: 'h2', x: 'SIE 1 till 4: vilken typ ska du välja?' },
+      { t: 'p', x: 'Det finns fyra typer, och varje typ innehåller allt den föregående gör plus något mer. När du byter program vill du ha **typ 4**, eftersom det är den enda som innehåller själva verifikationerna.' },
+      { t: 'table', caption: 'De fyra SIE-typerna', head: ['Typ', 'Innehåller', 'Passar för'], rows: [
+        ['SIE 1', 'Saldon per konto och räkenskapsår', 'Enkla slutsiffror'],
+        ['SIE 2', 'Typ 1 plus saldon per period, alltså per månad', 'Rapportering månad för månad'],
+        ['SIE 3', 'Typ 2 plus saldon per objekt, till exempel projekt eller kostnadsställe', 'Uppföljning per projekt'],
+        ['**SIE 4**', 'Allt ovan plus **varje verifikation med alla konteringsrader**', '**Byta program: historiken följer med**'],
       ] },
-      { t: 'h2', x: 'Så flyttar du bokföringen i fyra steg' },
-      { t: 'ol', x: [
-        'Exportera en SIE4-fil ur ditt nuvarande program. Välj typ 4 och de räkenskapsår du vill ta med. Exporten brukar ligga under en meny som heter något i stil med Export, Arkiv eller Bokföringsdata, beroende på program.',
-        'Ladda upp filen i Bokix. Under Inställningar finns importen från andra bokföringsprogram. Guiden läser filen och visar vad den hittade: konton, verifikationer och ingående balanser.',
-        'Granska kontomappningen. Konton som saknas i din kontoplan, eller som heter något annat i filen, flaggas var för sig. Ingenting skrivs in i bokföringen förrän du bekräftar i sista steget.',
-        'Bokför vidare. Historiken ligger inne och du fortsätter löpande från den dag du bytte.',
+      { t: 'callout', kind: 'tips', title: 'Möter du 4E eller 4I?', x: 'Beteckningarna 4E och 4I är varianter av typ 4. 4E är exportfilen med hela bokföringen, och det är den du vill ha. 4I är en mindre importfil som bara är avsedd för att lägga in verifikationer i ett program som redan har en bokföring.' },
+
+      { t: 'h2', x: 'Så ser en SIE4-fil ut' },
+      { t: 'p', x: 'Varje rad börjar med ett #-tecken följt av en etikett. Här är en förenklad fil för ett påhittat bolag med två verifikationer: en kundfaktura på 12 500 kr inklusive moms, och betalningen av den.' },
+      { t: 'code', title: 'exempelbolaget.se', x: `#FLAGGA 0
+#PROGRAM "Exempelprogram" 1.0
+#FORMAT PC8
+#GEN 20261231
+#SIETYP 4
+#FNAMN "Exempelbolaget AB"
+#ORGNR 556000-0000
+#RAR 0 20260101 20261231
+#KONTO 1510 "Kundfordringar"
+#KONTO 1930 "Företagskonto"
+#KONTO 2081 "Aktiekapital"
+#KONTO 2611 "Utgående moms på försäljning inom Sverige, 25 %"
+#KONTO 3001 "Försäljning inom Sverige, 25 % moms"
+#IB 0 1930 25000.00
+#IB 0 2081 -25000.00
+#VER "A" "1" 20260105 "Kundfaktura 1001"
+{
+   #TRANS 1510 {} 12500.00
+   #TRANS 3001 {} -10000.00
+   #TRANS 2611 {} -2500.00
+}
+#VER "A" "2" 20260120 "Inbetalning faktura 1001"
+{
+   #TRANS 1930 {} 12500.00
+   #TRANS 1510 {} -12500.00
+}
+#UB 0 1930 37500.00
+#UB 0 2081 -25000.00
+#UB 0 2611 -2500.00
+#RES 0 3001 -10000.00`, notes: [
+        { k: '#FLAGGA', v: 'Anger om filen redan lästs in. 0 betyder att den inte gjort det.' },
+        { k: '#PROGRAM', v: 'Vilket program som skrev filen.' },
+        { k: '#FORMAT PC8', v: 'Teckenuppsättningen. PC8 är den gamla DOS-tabellen som SIE-filer traditionellt använder.' },
+        { k: '#SIETYP 4', v: 'Filen är av typ 4 och innehåller alltså verifikationer.' },
+        { k: '#FNAMN, #ORGNR', v: 'Företagets namn och organisationsnummer.' },
+        { k: '#RAR 0', v: 'Räkenskapsåret. 0 är det aktuella året, -1 är året före.' },
+        { k: '#KONTO', v: 'Kontoplanen: vilka konton som används och vad de heter.' },
+        { k: '#IB, #UB', v: 'Ingående och utgående balans per balanskonto (klass 1 och 2).' },
+        { k: '#RES', v: 'Årets summa per resultatkonto (klass 3 till 8).' },
+        { k: '#VER, #TRANS', v: 'En verifikation med sina konteringsrader mellan klammerparenteserna.' },
       ] },
-      { t: 'p', x: 'Vill du se var exporten brukar ligga i just ditt program finns det en guide här: [Byt bokföringsprogram till Bokix](/byt-bokforingsprogram).' },
-      { t: 'h2', x: 'Kontrollera efter bytet' },
-      { t: 'p', x: 'Lägg tio minuter på att stämma av innan du litar på den nya bokföringen:' },
-      { t: 'ul', x: [
-        'Jämför resultat- och balansräkning för det senaste avslutade räkenskapsåret i det gamla och det nya programmet. Summorna ska vara identiska.',
+      { t: 'p', x: 'Så här läser du den första verifikationen. Samma tre konteringsrader, uppställda som i en vanlig bokföring:' },
+      { t: 'table', caption: 'Verifikation A1 (Kundfaktura 1001) i vanlig bokföringsform', head: ['Konto', 'Namn', 'Debet', 'Kredit'], rows: [
+        ['1510', 'Kundfordringar', '12 500', ''],
+        ['3001', 'Försäljning inom Sverige, 25 % moms', '', '10 000'],
+        ['2611', 'Utgående moms på försäljning', '', '2 500'],
+        ['**Summa**', '', '**12 500**', '**12 500**'],
+      ] },
+      { t: 'p', x: 'Två saker att lägga märke till. För det första står debet som positivt belopp och kredit som negativt, och **varje verifikation summerar till noll**. Det är själva grundregeln i dubbel bokföring. För det andra ligger balanskonton i #IB och #UB, medan resultatkonton ligger i #RES.' },
+      { t: 'diagram', id: 'sie-balance', caption: 'Samma kontroll gör du efter bytet: ingående balans plus årets verifikationer ska ge utgående balans.' },
+      { t: 'callout', kind: 'warn', title: 'Ser å, ä och ö konstiga ut?', x: 'SIE-filer sparas traditionellt i teckentabellen PC8. Öppnar du filen i ett program som antar en annan tabell blir å, ä och ö fel. Det är bara visningen som blir fel, inte filen, och programmet som läser in den känner igen #FORMAT-raden. Spara alltså inte om filen från ett textprogram.' },
+
+      { t: 'h2', x: 'Steg 1: exportera SIE4 ur ditt nuvarande program' },
+      { t: 'p', x: 'Välj **SIE typ 4** och de räkenskapsår du vill ta med. Exakt var exporten ligger skiljer sig mellan programmen, och leverantörerna flyttar runt sina menyer, så se det här som riktning och inte som en exakt vägbeskrivning:' },
+      { t: 'programs' },
+      { t: 'callout', kind: 'tips', title: 'Hittar du ingen SIE-export?', x: 'Sök efter "SIE" eller "Exportera bokföring" i programmets hjälpcenter. Finns ingen export i ditt paket kan supporten ofta ta fram filen åt dig. Bokföringen är din, oavsett vem som skött den. Vill du se en guide per program finns den här: [Byt bokföringsprogram till Bokix](/byt-bokforingsprogram).' },
+
+      { t: 'h2', x: 'Steg 2: läs in filen i Bokix' },
+      { t: 'steps', x: [
+        { h: 'Ladda upp filen', p: 'Under Inställningar finns importen från andra bokföringsprogram. Guiden läser filen och visar vad den hittade: konton, verifikationer och ingående balanser.' },
+        { h: 'Granska kontomappningen', p: 'Konton som saknas i din kontoplan, eller som heter något annat i filen, flaggas var för sig så att du bestämmer var de ska hamna.' },
+        { h: 'Bekräfta importen', p: 'Ingenting skrivs in i bokföringen förrän du bekräftar i sista steget. Fram till dess kan du backa utan att något hänt.' },
+        { h: 'Bokför vidare', p: 'Historiken ligger inne och du fortsätter löpande från den dag du bytte.' },
+      ] },
+
+      { t: 'h2', x: 'Steg 3: kontrollera att allt stämmer' },
+      { t: 'p', x: 'Lägg tio minuter på att stämma av innan du litar på den nya bokföringen och säger upp det gamla programmet:' },
+      { t: 'checklist', x: [
+        'Jämför resultat- och balansräkningen för det senaste avslutade räkenskapsåret i det gamla och det nya programmet. Summorna ska vara identiska.',
         'Kontrollera att ingående balanser för innevarande år stämmer med utgående balanser föregående år.',
         'Titta igenom verifikationslistan: antalet och numreringen ska se rimlig ut.',
-        'Kom ihåg att en SIE-fil flyttar bokföringen, inte de enskilda fakturorna i ditt gamla program. Öppna kund- och leverantörsfakturor behöver du därför ofta stämma av eller lägga in separat.',
+        'Stäm av bankkontot. Saldot på företagskontot vid årsskiftet ska stämma med kontoutdraget.',
       ] },
-      { t: 'h2', x: 'Spara originalet' },
+      { t: 'callout', kind: 'info', title: 'En SIE-fil flyttar bokföringen, inte allt annat', x: 'Filen innehåller konton, balanser och verifikationer. Den innehåller inte kvittobilder, bifogade dokument eller öppna fakturor som fortfarande ligger och väntar på betalning. Kund- och leverantörsfakturor som är obetalda vid bytet behöver du därför ofta stämma av eller lägga in separat.' },
+
+      { t: 'h2', x: 'Vanliga problem och hur du löser dem' },
+      { t: 'h3', x: 'Summorna stämmer inte' },
+      { t: 'p', x: 'Kontrollera först att du exporterade rätt räkenskapsår och typ 4. Titta sedan på ingående balans: den ska vara lika med föregående års utgående balans. Har du fortsatt bokföra i det gamla programmet efter exporten behöver du exportera på nytt.' },
+      { t: 'h3', x: 'Konton saknas eller heter något annat' },
+      { t: 'p', x: 'Det är vanligt. Företag lägger till egna konton, och programmen döper ibland samma konto olika. Importguiden visar dem i kontomappningen så att du väljer var de ska hamna i stället för att de gissas.' },
+      { t: 'h3', x: 'Importen ger ett felmeddelande' },
+      { t: 'p', x: 'Kontrollera att filen verkligen är en SIE-fil av typ 4, och inte en rapport eller en pdf som råkat få fel filändelse. Öppna den i ett textprogram: första raderna ska börja med #FLAGGA och #SIETYP 4.' },
+      { t: 'h3', x: 'Programmet saknar SIE-export' },
+      { t: 'p', x: 'Be supporten om en SIE4-fil för räkenskapsåret. Som fallback kan du spara resultat- och balansräkning och huvudbok som pdf, men då följer inte verifikationerna med som data och du får bygga ingående balanser för hand.' },
+
+      { t: 'h2', x: 'Spara originalet i sju år' },
       { t: 'p', x: 'Enligt bokföringslagen ska räkenskapsinformation, alltså verifikationer, bokföringen och årsredovisningen, bevaras i sju år efter utgången av det kalenderår då räkenskapsåret avslutades. Spara därför SIE-filen och gärna en pdf-kopia av bokföringen innan du säger upp det gamla programmet. Är du osäker på vad som gäller för just ditt företag, fråga din revisor.' },
+
       { t: 'h2', x: 'Ingen inlåsning åt andra hållet heller' },
       { t: 'p', x: 'Samma format fungerar åt båda hållen. I Bokix kan du när som helst exportera hela bokföringen som en SIE4-fil om du vill vidare, utan att fråga oss om lov. Läs mer om vilka filformat Bokix hanterar under [integrationer och filformat](/integrationer).' },
+    ],
+    faq: [
+      { q: 'Vad betyder SIE?', a: 'SIE står för Standard Import Export. Det är ett svenskt filformat för att flytta bokföringsdata mellan bokföringsprogram och lämna över den till en revisor.' },
+      { q: 'Vad är skillnaden mellan SIE4 och de andra SIE-typerna?', a: 'Typ 1 till 3 innehåller saldon, till exempel per konto, period eller objekt. Typ 4 innehåller dessutom varje verifikation med alla konteringsrader, och det är den du behöver när du byter program och vill behålla historiken.' },
+      { q: 'Kan jag öppna en SIE-fil själv?', a: 'Ja, den är en vanlig textfil. Du kan öppna den i ett textprogram för att titta på innehållet. Redigera den inte och spara om den, eftersom teckentabellen kan gå förlorad och å, ä och ö då blir fel.' },
+      { q: 'Vad följer inte med i en SIE-fil?', a: 'Bokföringen följer med: kontoplan, balanser och verifikationer. Kvittobilder, bifogade dokument och inställningar i det gamla programmet ingår inte, och obetalda fakturor behöver ofta stämmas av separat.' },
+      { q: 'Hur länge ska jag spara SIE-filen?', a: 'Räkenskapsinformation ska enligt bokföringslagen bevaras i sju år efter utgången av det kalenderår då räkenskapsåret avslutades. Spara filen tills dess, och fråga din revisor om du är osäker.' },
+      { q: 'Kan jag exportera min bokföring från Bokix?', a: 'Ja. Du kan när som helst exportera hela bokföringen som en SIE4-fil och ta den med till ett annat program.' },
     ],
   },
   {
     slug: 'bokforing-uf-foretag',
     path: '/blogg/bokforing-uf-foretag',
+    category: 'UF-företag',
     title: 'Bokföring för UF-företag: så håller ni ordning under UF-året',
-    excerpt: 'Vad ett UF-företag behöver bokföra, vilka vanor som gör bokslutet enkelt och vilka delar av ett bokföringsprogram ni faktiskt kommer använda.',
-    image: '/screenshots/bokix-oversikt-dashboard-uf-dark.png',
-    imageAlt: 'Skärmbild av Bokix startsida för ett UF-konto med en kortare meny utan offerter, projekt och lön',
+    excerpt: 'Vad ett UF-företag behöver bokföra, en checklista för underlag, fem vanor som gör bokslutet enkelt och de vanligaste misstagen. Med exempel från ett UF-år.',
+    image: '/blog/uf-hero.jpg',
+    imageAlt: 'Illustration: bokföring under UF-året med en tidslinje från start till bokslut och exempel på bokförda händelser i Bokix',
     datePublished: '2026-09-20',
     dateModified: '2026-09-20',
-    readTime: '~4 min läsning',
+    readTime: '~6 min läsning',
+    tldr: [
+      'Bokför allt som rör pengar i företaget och spara ett underlag för varje händelse: faktura, kvitto eller en rad på kontoutdraget.',
+      'Bokför löpande, till exempel en gång i veckan, i stället för allt på en gång i maj.',
+      'Bokix har ett eget UF-konto med bara de delar ett UF-företag använder. Det är gratis i tre månader och kräver inget organisationsnummer.',
+    ],
     body: [
-      { t: 'p', x: 'Ett UF-företag drivs under ett läsår, men bokföringen ska ändå vara i ordning från första kvittot till sista bokslutet. Här är hur ni gör det utan att det tar över hela UF-året.' },
+      { t: 'p', x: 'Ett UF-företag drivs under ett läsår, men bokföringen ska ändå vara i ordning från första kvittot till sista bokslutet. Det som gör skillnad är inte att kunna mycket om bokföring, utan att ha en vana: att aldrig låta något ligga. Här är hur ni gör det utan att det tar över hela UF-året.' },
+      { t: 'diagram', id: 'uf-year', caption: 'UF-året i fyra faser. Bokföringen följer med hela vägen, den är inget som görs först i slutet.' },
+
       { t: 'h2', x: 'Vad behöver ett UF-företag bokföra?' },
-      { t: 'p', x: 'Allt som rör pengar i företaget: försäljning, inköp, kostnader och betalningar. Varje händelse ska ha ett underlag, alltså något som visar vad som hänt. Det kan vara en faktura, ett kvitto eller en rad på kontoutdraget. Det som inte har ett underlag kan ni inte bokföra på ett ordentligt sätt, så det är underlagen ni ska vara noga med redan från början.' },
-      { t: 'p', x: 'Ung Företagsamhet har egna riktlinjer och material för bokföring och bokslut. Följ alltid dem, och fråga er UF-rådgivare om något är oklart. Det här är en allmän guide, inte en ersättning för dem.' },
-      { t: 'h2', x: 'Fem vanor som gör bokslutet enkelt' },
-      { t: 'ol', x: [
-        'Spara varje kvitto. Fota det direkt och lägg upp det, i stället för att låta en hög växa i väskan.',
-        'Bokför löpande. En gång i veckan eller efter varje mässa är bättre än allt på en gång i maj.',
-        'Skriv fakturan när affären är klar och håll ordning på vem som betalat. Skicka påminnelse när förfallodatumet passerat.',
-        'Stäm av mot banken. Gå igenom kontoutdraget och se att varje rad har en motsvarighet i bokföringen.',
-        'Kolla resultatet under året. Ser siffrorna märkliga ut är det enklare att rätta i oktober än i april.',
+      { t: 'p', x: 'Allt som rör pengar i företaget: försäljning, inköp, kostnader och betalningar. Varje händelse ska ha ett **underlag**, alltså något som visar vad som hänt. Det kan vara en faktura, ett kvitto eller en rad på kontoutdraget. En händelse utan underlag går inte att bokföra ordentligt, så det är underlagen ni ska vara noga med redan från början.' },
+      { t: 'callout', kind: 'info', title: 'Följ alltid UF:s egna riktlinjer', logo: '/logos/uf-logo.svg', logoAlt: 'Ung Företagsamhet', x: 'Ung Företagsamhet har egna riktlinjer och material för bokföring och bokslut. Följ alltid dem och fråga er UF-rådgivare om något är oklart. Den här artikeln är en allmän guide, inte en ersättning. Bokix är ett fristående bokföringsprogram och drivs inte av, och är inte i samarbete med, Ung Företagsamhet.' },
+
+      { t: 'h2', x: 'Vanliga händelser i ett UF-företag' },
+      { t: 'p', x: 'De flesta UF-företag har samma handfull händelser hela året. Så här kan underlag och att-tänka-på se ut för dem:' },
+      { t: 'table', caption: 'Händelser, underlag och vad ni ska tänka på', head: ['Händelse', 'Underlag', 'Att tänka på'], rows: [
+        ['Startkapital från de som går in i företaget', 'Lista över vem som betalat in vad, och kontoutdraget', 'Bokför insättningen på företagskontot så att startpengarna syns från dag ett.'],
+        ['Försäljning på mässa eller via Swish', 'Kvitto, kassalista eller Swish-rader på kontoutdraget', 'Skriv ner vad ni sålde och för hur mycket samma dag, inte veckor senare.'],
+        ['Faktura till en kund', 'Fakturan', 'Skriv den när affären är klar och bocka av när den är betald.'],
+        ['Inköp av material', 'Kvittot', 'Fota det direkt. Kvittot ska visa vad som köpts, inte bara summan.'],
+        ['Utlägg med privata pengar', 'Kvitto och en notering om vem som lagt ut', 'Ta reda på i förväg hur ni gör med återbetalning enligt UF:s riktlinjer.'],
+        ['Avgifter från banken', 'Kontoutdraget', 'Syns bara där, och är lätta att glömma tills det inte stämmer.'],
       ] },
+
+      { t: 'h2', x: 'Fem vanor som gör bokslutet enkelt' },
+      { t: 'steps', x: [
+        { h: 'Spara varje kvitto', p: 'Fota det direkt och lägg upp det, i stället för att låta en hög växa i väskan. Ett kvitto som tappats bort går sällan att ersätta.' },
+        { h: 'Bokför löpande', p: 'En gång i veckan eller efter varje mässa är bättre än allt på en gång i maj. Det är också mycket lättare att komma ihåg vad något var för en vecka sedan än för sex månader sedan.' },
+        { h: 'Skriv fakturan när affären är klar', p: 'Håll ordning på vem som betalat och skicka en påminnelse när förfallodatumet passerat.' },
+        { h: 'Stäm av mot banken', p: 'Gå igenom kontoutdraget och se att varje rad har en motsvarighet i bokföringen. Det är så ni hittar avgifter och betalningar ni glömt.' },
+        { h: 'Kolla resultatet under året', p: 'Ser siffrorna märkliga ut är det enklare att rätta i oktober än i april.' },
+      ] },
+
+      { t: 'h2', x: 'Vanliga misstag att undvika' },
+      { t: 'ul', x: [
+        '**Privat och företag blandas.** Betala företagets saker från företagets konto. Blir det ändå ett privat utlägg, notera det direkt.',
+        '**Kvitton utan bild.** Kassakvitton bleknar. Fota dem samma dag.',
+        '**Att vänta till slutet.** Bokslutet blir då ett detektivarbete i stället för en genomgång.',
+        '**Bokföring utan underlag.** Saknas underlaget, skriv ner vad som hände och vem som kan intyga det, så fort ni märker det.',
+        '**Glömda bankavgifter.** De syns bara på kontoutdraget. Läs in det regelbundet.',
+      ] },
+
       { t: 'h2', x: 'Det här kan ni göra i Bokix' },
       { t: 'p', x: 'Bokix har ett eget UF-konto som bara innehåller de delar ett UF-företag använder:' },
       { t: 'ul', x: [
-        'Fakturor: skicka på mejl och håll koll på vem som betalat.',
-        'Kvitton: fota och lägg upp, så läser Bokix av datum, belopp och moms.',
-        'Bokföring: BAS-kontoplanen används automatiskt, så ni behöver inte veta vilka konton som finns.',
-        'Bank: läs in kontoutdraget så matchas raderna mot era fakturor.',
-        'Granskning: fångar det som ser fel ut i stället för att gissa i tysthet.',
-        'Rapporter och årsbokslut: resultat och balans, och ett sätt att stänga året när ni är klara.',
+        '**Fakturor:** skicka på mejl och håll koll på vem som betalat.',
+        '**Kvitton:** fota och lägg upp, så läser Bokix av datum, belopp och moms.',
+        '**Bokföring:** BAS-kontoplanen används automatiskt, så ni behöver inte veta vilka konton som finns.',
+        '**Bank:** läs in kontoutdraget så matchas raderna mot era fakturor.',
+        '**Granskning:** fångar det som ser fel ut i stället för att gissa i tysthet.',
+        '**Rapporter och årsbokslut:** resultat och balans, och ett sätt att stänga året när ni är klara.',
       ] },
       { t: 'p', x: 'Menyn är kortare än i ett vanligt företag. Offerter, projekt och lön finns inte, eftersom ett UF-företag normalt inte har anställda och säljer direkt. Ni skriver fakturan när affären är klar.' },
+
       { t: 'h2', x: 'Vad kostar det?' },
       { t: 'p', x: 'UF-kontot är gratis i tre månader. Ni behöver inget organisationsnummer och lämnar inga betaluppgifter. Upp till fem fakturor per dygn ryms, vilket räcker gott för ett UF-företag. Alla villkor står på sidan [Bokix för UF-företag](/uf).' },
-      { t: 'p', x: 'Bokix är ett fristående bokföringsprogram och drivs inte av, och är inte i samarbete med, Ung Företagsamhet.' },
+    ],
+    faq: [
+      { q: 'Måste ett UF-företag bokföra?', a: 'Bokföring och bokslut är en viktig del av UF-året, och Ung Företagsamhet har egna riktlinjer för hur det ska göras. Följ dem och fråga er UF-rådgivare om något är oklart.' },
+      { q: 'Behöver vi ett organisationsnummer för att använda Bokix?', a: 'Nej. UF-kontot i Bokix kräver inget organisationsnummer och inga betaluppgifter, och det är gratis i tre månader.' },
+      { q: 'Vad är ett underlag?', a: 'Ett underlag är det som visar att en händelse har skett: en faktura, ett kvitto eller en rad på kontoutdraget. Varje bokförd händelse ska ha ett.' },
+      { q: 'Hur ofta ska vi bokföra?', a: 'Ju oftare desto enklare. En gång i veckan, eller efter varje mässa, är en bra vana. Då minns ni vad varje händelse var och bokslutet blir en genomgång i stället för ett detektivarbete.' },
+      { q: 'Kan vi använda ett vanligt bokföringsprogram i stället?', a: 'Ja, men ett vanligt program har många delar ett UF-företag inte använder. Har er skola eller UF-rådgivare särskilda krav på programmet, följ dem.' },
     ],
   },
 ];

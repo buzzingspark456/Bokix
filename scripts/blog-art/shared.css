@@ -1,0 +1,9 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1200px; height: 630px; overflow: hidden; }
+body { font-family: 'Inter', 'Segoe UI', sans-serif; color: #1c2420; -webkit-font-smoothing: antialiased; }
+.serif { font-family: Georgia, 'Times New Roman', serif; }
+.art { position: relative; width: 1200px; height: 630px; overflow: hidden; }
+.card { background: #fff; border-radius: 22px; box-shadow: 0 30px 50px -28px rgba(20, 40, 30, 0.34), 0 3px 10px rgba(20, 40, 30, 0.07); border: 1px solid rgba(28, 36, 32, 0.06); }
+.mono { font-family: 'Cascadia Mono', Consolas, 'SFMono-Regular', Menlo, monospace; }
+.wm { display: block; height: 40px; width: auto; }
