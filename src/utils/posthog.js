@@ -45,6 +45,15 @@ export function ensurePosthogInit(granted) {
         // varje besök.
         capture_pageview: false,
         opt_out_capturing_by_default: !granted,
+        // PostHogs eget verktygsfält (Toolbar — klicka dig till Actions/
+        // Heatmaps direkt på den riktiga sidan, från PostHog-dashboarden)
+        // letar efter `window.posthog` och varnar annars rakt i konsolen
+        // ("PostHog must be added to the window object..."). npm-
+        // installationen (den här filen) sätter INTE det globalt av sig
+        // själv — bara HTML-snuttens variant gör det automatiskt — så det
+        // görs här, i `loaded`-callbacken (samma ställe PostHogs egen
+        // varning pekar mot), efter att klienten faktiskt är klar.
+        loaded: (ph) => { window.posthog = ph; },
       });
       return posthog;
     });
