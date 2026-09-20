@@ -250,6 +250,8 @@ const PALETTES = {
 // Hur många pixlar shadern faktiskt ritar, som andel av skärmens egna.
 // Se den långa kommentaren i resize() för mätvärdena bakom siffran.
 const RENDER_SCALE = 0.6;
+// Extra nedskalning ovanpå RENDER_SCALE, bara för känd mjukvaru-rendering.
+const SOFTWARE_RENDER_SCALE = 0.2;
 
 const SKY_FALLBACK_CSS = `
   .bx-cloudsky { background: linear-gradient(180deg, ${PALETTES.light.skyTop} 0%, ${PALETTES.light.skyBottom} 100%); }
@@ -309,6 +311,11 @@ export default function CloudShaderBackground({
 
     let frame = 0;
     let running = true;
+    // Bara i mjukvaru-läget (se softwareRenderer nedan): ritupplösningen
+    // skalas ner och komplexiteten sänks. Deklareras HÄR, före första
+    // resize()-anropet — annars TDZ-fel, eftersom resize() läser den.
+    let softwareScale = 1;
+    let countOverride = null;
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     const resize = () => {
@@ -326,7 +333,7 @@ export default function CloudShaderBackground({
       // skillnad från text eller en logotyp. RENDER_SCALE 0.6 vid dpr-tak
       // 1.5 ger ~0.8 enheter per CSS-pixel, alltså knappt en femtedel av
       // pixlarna mot förut, och skillnaden går inte att se på en himmel.
-      const dpr = Math.min(window.devicePixelRatio || 1, 1.5) * RENDER_SCALE;
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5) * RENDER_SCALE * softwareScale;
       const width = canvas.clientWidth;
       const height = canvas.clientHeight;
       const w = Math.max(1, Math.floor(width * dpr));
@@ -420,7 +427,7 @@ export default function CloudShaderBackground({
       const p = paramsRef.current;
       const { cloud, skyTop, skyBottom } = resolveColors(p);
       gl.uniform1f(loc.time, reduceMotion ? 0 : (elapsedMs / 1000) * p.speed);
-      gl.uniform1f(loc.count, Math.min(6, Math.max(1, p.count)));
+      gl.uniform1f(loc.count, countOverride ?? Math.min(6, Math.max(1, p.count)));
       gl.uniform3f(loc.cloud, cloud[0], cloud[1], cloud[2]);
       gl.uniform3f(loc.skyTop, skyTop[0], skyTop[1], skyTop[2]);
       gl.uniform3f(loc.skyBottom, skyBottom[0], skyBottom[1], skyBottom[2]);
@@ -474,16 +481,22 @@ export default function CloudShaderBackground({
       // Känd mjukvaru-rendering — rita en enda bildruta i låg komplexitet
       // och stanna direkt, starta aldrig loopen. Se nödbromsens
       // filkommentar ovan.
-      const p = paramsRef.current;
-      const { cloud, skyTop, skyBottom } = resolveColors(p);
-      gl.uniform1f(loc.time, 0);
-      gl.uniform1f(loc.count, 2);
-      gl.uniform3f(loc.cloud, cloud[0], cloud[1], cloud[2]);
-      gl.uniform3f(loc.skyTop, skyTop[0], skyTop[1], skyTop[2]);
-      gl.uniform3f(loc.skyBottom, skyBottom[0], skyBottom[1], skyBottom[2]);
-      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      //
+      // Även EN bildruta i full canvasstorlek kostade sekunder här
+      // (Lighthouse mobil, startsidan: en enda 7,8 s lång uppgift, TBT
+      // 8 410 ms och prestandapoäng 52; utan WebGL 320 ms och 82).
+      // Kostnaden växer med antalet pixlar, och moln är diffusa: rita på
+      // ungefär en femtedel av upplösningen och låt webbläsaren skala upp
+      // bilden mjukt. resize() ritar sedan bildrutan (running är false),
+      // med samma skalfaktor vid varje senare storleksändring — förut
+      // ritades en full bildruta om vid VARJE ResizeObserver-anrop.
+      // Berör bara enheter som redan känts igen som mjukvarurenderade;
+      // en riktig GPU går den vanliga vägen nedan, oförändrad.
+      softwareScale = SOFTWARE_RENDER_SCALE;
+      countOverride = 2;
       benchmarked = true;
       running = false;
+      resize();
     } else {
       frame = requestAnimationFrame(draw);
     }

@@ -147,7 +147,7 @@ export default function FeatureChainFlow() {
               {idx === 1 && (
                 <div className="bx-ch-slip">
                   <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: MUTED, marginBottom: '5px' }}>Verifikation A-42</div>
-                  <table className="bx-ch-ver">
+                  <table className="bx-ch-ver" role="presentation">
                     <tbody>
                       {ROWS.map(r => (
                         <tr key={r.account}>

@@ -1105,7 +1105,7 @@ export function MarketingFooter() {
           {/* Den enda "handlingen" i bottenraden: en riktig, bokningsbar tid
               (/boka-genomgang). Längden är sidans egen uppgift (20–30
               minuter), inte en påhittad siffra. */}
-          <Link to="/boka-genomgang" className="lp-footer-link" style={{ ...footerLegalStyle, display: 'inline' }}>
+          <Link to="/boka-genomgang" className="lp-footer-link" style={{ ...footerLegalStyle, display: 'inline', textDecoration: 'underline' }}>
             Boka en genomgång · 20–30 min
           </Link>
         </div>
