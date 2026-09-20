@@ -1,5 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Menu, X, HelpCircle, LogOut, Bell, Sun, Moon, ChevronDown, FolderTree, FileCheck, Shield, Calculator, AlertTriangle, UsersRound, Receipt, FileText } from 'lucide-react';
+import {
+  Menu, X, HelpCircle, LogOut, Bell, Sun, Moon, ChevronDown, FolderTree, FileCheck, Shield, Calculator, AlertTriangle, UsersRound, Receipt, FileText,
+  LayoutDashboard, Users, FileSpreadsheet, ReceiptText, Briefcase, ClipboardCheck, BookOpen, Landmark, BarChart3,
+  Settings as SettingsIcon,
+} from './icons';
 import { BRAND } from '../utils/brandColors';
 import { BokixWordmark, useMarketingTheme } from './marketing/MarketingLayout';
 import { createDemoSeed } from '../utils/landingDemoData';
@@ -32,29 +36,48 @@ import Settings from './Settings';
 // ingenting som skrivs i demon ska av misstag kunna tolkas som sparat.
 // Inställningar går att klicka runt i på samma sätt (readOnly-prop stänger
 // dessutom av dess enda mount-tids Supabase-anrop, se Settings.jsx).
-const demoUser = { id: 'demo-user', email: 'du@bokix.se', user_metadata: { first_name: 'Du', last_name: '' } };
+// show_dashboard_greeting: false — samma riktiga inställning en användare
+// själv kan slå av (Inställningar → Min profil, Dashboard.jsx:s
+// showGreeting), inte en egen demo-särlösning. Kundönskemål: hälsningen
+// ("God eftermiddag, Exempel 👋" — "Exempel" kommer av att ingen `user`
+// någonsin skickades till <Dashboard> här, den föll tillbaka på
+// företagsnamnet "Exempel AB") gjorde att demot kändes påtagligt falskt
+// jämfört med en riktig inloggning.
+const demoUser = { id: 'demo-user', email: 'du@bokix.se', user_metadata: { first_name: 'Du', last_name: '', show_dashboard_greeting: false } };
 
+// Samma ikoner som App.jsx:s navGroups (rad ~4464 där) — se motsvarande
+// kommentar i sidomeny-renderingen nedan för varför demot inte får sakna dem.
 const SIDEBAR_GROUPS = [
   [
-    { id: 'dashboard', label: 'Startsida' },
-    { id: 'contacts', label: 'Kunder' },
-    { id: 'quotes', label: 'Offerter' },
-    { id: 'invoices', label: 'Fakturering' },
-    { id: 'expenses', label: 'Kvitton' },
-    { id: 'projects', label: 'Projekt' },
+    { id: 'dashboard', label: 'Startsida', icon: LayoutDashboard },
+    { id: 'contacts', label: 'Kunder', icon: Users },
+    { id: 'quotes', label: 'Offerter', icon: FileSpreadsheet },
+    { id: 'invoices', label: 'Fakturering', icon: FileText },
+    { id: 'expenses', label: 'Kvitton', icon: ReceiptText },
+    { id: 'projects', label: 'Projekt', icon: Briefcase },
   ],
   [
-    { id: 'review', label: 'Granskning' },
-    { id: 'verifications', label: 'Bokföring' },
-    { id: 'bank', label: 'Bank' },
-    { id: 'payroll', label: 'Anställda och lön' },
-    { id: 'reports', label: 'Rapport och analys' },
-    { id: 'taxes', label: 'Skatt och bokslut' },
+    { id: 'review', label: 'Granskning', icon: ClipboardCheck },
+    { id: 'verifications', label: 'Bokföring', icon: BookOpen },
+    { id: 'bank', label: 'Bank', icon: Landmark },
+    { id: 'payroll', label: 'Anställda och lön', icon: UsersRound },
+    { id: 'reports', label: 'Rapport och analys', icon: BarChart3 },
+    { id: 'taxes', label: 'Skatt och bokslut', icon: Shield },
   ],
   [
-    { id: 'settings', label: 'Inställningar' },
+    { id: 'settings', label: 'Inställningar', icon: SettingsIcon },
   ],
 ];
+
+// Mobilens bottennav (Sida 26 i riktiga appen, App.jsx:s mobileNavItems/
+// mobileSheetItems) — fyra vanligaste + "Meny" som öppnar en bottensheet
+// med resten, INTE en hamburgermeny uppe i topbaren. Samma fyra id:n/
+// ikoner/etiketter som App.jsx, sheet-listan är övriga SIDEBAR_GROUPS-
+// punkter i samma ordning (utom just de fyra som redan syns i naven).
+const MOBILE_BOTTOM_IDS = ['dashboard', 'invoices', 'expenses', 'contacts'];
+const ALL_SIDEBAR_ITEMS = SIDEBAR_GROUPS.flat();
+const MOBILE_BOTTOM_ITEMS = MOBILE_BOTTOM_IDS.map(id => ALL_SIDEBAR_ITEMS.find(i => i.id === id));
+const MOBILE_SHEET_ITEMS = ALL_SIDEBAR_ITEMS.filter(i => !MOBILE_BOTTOM_IDS.includes(i.id));
 
 // `initialTab`: vilken flik demot öppnas på (Sida: "Kvitton läser sig
 // själva"-sektionen på startsidan ska länka till en RIKTIG OCR-demo, inte
@@ -97,7 +120,10 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
   })();
   const [activeDemoTab, setActiveDemoTab] = useState(initialTab);
   const [globalAction, setGlobalAction] = useState(null);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  // Mobilens "Meny"-bottensheet (Sida 26 i riktiga appen) — ersätter den
+  // gamla hamburgermeny-nedfällningen, se motiveringen vid SIDEBAR_GROUPS/
+  // MOBILE_BOTTOM_ITEMS ovan.
+  const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
   // Notis- och profilmenyn öppnas på riktigt i demon (kundönskemål: man
   // ska kunna titta på dem). Ingen av raderna rör data — de navigerar,
   // byter tema, eller landar i blocked().
@@ -142,9 +168,13 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
   const handleGlobalAction = (action, tab) => {
     setActiveDemoTab(tab);
     setGlobalAction(action);
-    setMobileMenuOpen(false);
+    setMobileSheetOpen(false);
   };
-  const openTab = (id) => { setActiveDemoTab(id); setMobileMenuOpen(false); };
+  const openTab = (id) => { setActiveDemoTab(id); setMobileSheetOpen(false); };
+  // "Meny"-knappen lyser grönt även när man nått en sheet-sida via en länk
+  // inifrån en annan flik, inte bara via sheeten själv — samma
+  // isMobileSheetItemActive-logik som App.jsx.
+  const mobileSheetActive = MOBILE_SHEET_ITEMS.some(item => item.id === activeDemoTab);
 
   // Enda platsen en skrivåtgärd (spara/lägg till/betala/bokför …) landar på
   // för alla flikar utom Startsida — gör ingenting utom att förklara varför,
@@ -174,6 +204,7 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
             setActiveTab={openTab} company={seed.company} profileIncomplete={false}
             onResumeOnboarding={() => openTab('dashboard')}
             vatPeriods={seed.vatPeriods} payrollRuns={seed.payrollRuns}
+            user={demoUser}
           />
         );
       case 'contacts':
@@ -314,48 +345,16 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
     <div className="lp-demo-card" style={{ background: 'var(--bg-card)', borderRadius: '20px', boxShadow: '0 8px 24px rgba(0,0,0,0.10), 0 0 0 1px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
       <div className="lp-demo-body">
       {/* Mobil topbar — bara synlig under 640px, samma mönster som riktiga
-          appens .global-top-bar. Hamburgaren öppnar en nedfälld meny med
-          samma sektioner som skrivbordssidomenyn, så alla funktioner går
-          att nå på mobil också, inte bara Startsida. */}
-      <div className="lp-demo-mobile-topbar" style={{ alignItems: 'center', gap: '12px', padding: '0 16px', height: '52px', background: theme === 'dark' ? 'var(--bg-sidebar)' : 'var(--bg-card)', borderBottom: theme === 'dark' ? '1px solid rgba(255,255,255,0.15)' : '1px solid var(--border)', flexShrink: 0, position: 'relative' }}>
-        <button onClick={() => setMobileMenuOpen(o => !o)} style={{ background: 'none', border: 'none', padding: 0, display: 'flex', cursor: 'pointer' }} aria-label="Meny">
-          {mobileMenuOpen
-            ? <X size={19} color={theme === 'dark' ? 'rgba(255,255,255,0.9)' : 'var(--text-secondary)'} />
-            : <Menu size={19} color={theme === 'dark' ? 'rgba(255,255,255,0.9)' : 'var(--text-secondary)'} />}
+          appens .global-top-bar: ingen hamburgermeny, bara loggan och en
+          tema-knapp. All navigering sker i bottenfältet nedan (samma
+          "Fortnox-jämförelsen" som App.jsx:s egen kommentar vid
+          mobileNavItems — två menyer för samma sak, en uppe och en nere,
+          förvirrade tidigare). */}
+      <div className="lp-demo-mobile-topbar" style={{ alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '0 16px', height: '52px', background: theme === 'dark' ? 'var(--bg-sidebar)' : 'var(--bg-card)', borderBottom: theme === 'dark' ? '1px solid rgba(255,255,255,0.15)' : '1px solid var(--border)', flexShrink: 0 }}>
+        <BokixWordmark height={26} />
+        <button className="topbar-icon-btn" onClick={toggleTheme} title={theme === 'dark' ? 'Ljust läge' : 'Mörkt läge'} style={{ color: theme === 'dark' ? 'rgba(255,255,255,0.9)' : 'var(--text-secondary)' }}>
+          {theme === 'dark' ? <Sun size={21} /> : <Moon size={21} />}
         </button>
-        <span style={{ fontSize: '14px', fontWeight: 600, color: theme === 'dark' ? '#ffffff' : 'var(--text-main)' }}>
-          {[...SIDEBAR_GROUPS[0], ...SIDEBAR_GROUPS[1], ...SIDEBAR_GROUPS[2]].find(i => i.id === activeDemoTab)?.label || 'Dashboard'}
-        </span>
-
-        {mobileMenuOpen && (
-          <div style={{ position: 'absolute', top: '52px', left: 0, right: 0, background: 'var(--bg-sidebar)', padding: '8px 0', zIndex: 10, maxHeight: '60vh', overflowY: 'auto', boxShadow: '0 12px 24px rgba(0,0,0,0.18)' }}>
-            {SIDEBAR_GROUPS.map((group, gi) => (
-              <React.Fragment key={gi}>
-                {gi > 0 && <div style={{ height: '1px', background: 'rgba(255,255,255,0.15)', margin: '8px 20px' }} />}
-                {group.map(item => {
-                  const isActive = activeDemoTab === item.id;
-                  const badge = item.id === 'review' ? reviewCount : 0;
-                  return (
-                    <button key={item.id} onClick={() => openTab(item.id)} style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px',
-                      width: '100%', textAlign: 'left', padding: '13px 24px', border: 'none',
-                      fontSize: '15px', fontWeight: isActive ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit',
-                      color: isActive ? '#ffffff' : 'rgba(255,255,255,0.88)',
-                      background: isActive ? 'rgba(255,255,255,0.14)' : 'none',
-                    }}>
-                      <span>{item.label}</span>
-                      {badge > 0 && (
-                        <span style={{ minWidth: '20px', height: '20px', padding: '0 6px', borderRadius: '999px', background: '#22c55e', color: 'white', fontSize: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                          {badge}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </React.Fragment>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* Skrivbordssidomeny — samma innehåll/ordning som riktiga appens
@@ -391,7 +390,10 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
                     border: 'none', color: isActive ? '#ffffff' : 'rgba(255,255,255,0.88)', fontSize: '15px', fontWeight: isActive ? 700 : 500,
                     cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexShrink: 0, fontFamily: 'inherit',
                   }}>
-                    <span>{item.label}</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '11px' }}>
+                      <item.icon size={18} strokeWidth={isActive ? 2.25 : 2} style={{ flexShrink: 0, opacity: isActive ? 1 : 0.85 }} />
+                      <span>{item.label}</span>
+                    </span>
                     {badge > 0 && (
                       <span style={{ minWidth: '20px', height: '20px', padding: '0 6px', borderRadius: '999px', background: '#22c55e', color: 'white', fontSize: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                         {badge}
@@ -408,7 +410,10 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
             trycker Hjälp/Logga ut längst ner oavsett hur hög panelen är. */}
         <div style={{ flex: 1 }} />
 
-        <div style={{ flexShrink: 0, borderTop: '1px solid rgba(255,255,255,0.15)', marginTop: '18px', paddingTop: '6px' }}>
+        {/* Ingen extra marginTop/paddingTop här (fanns tidigare, en
+            kundrapporterad avvikelse) — bara borderTop, exakt samma som
+            App.jsx:s botten-sektion. */}
+        <div style={{ flexShrink: 0, borderTop: '1px solid rgba(255,255,255,0.15)' }}>
           <button onClick={blocked} style={{ padding: '13px 24px', width: '100%', textAlign: 'left', background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', fontSize: '15px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', fontFamily: 'inherit' }}>
             <HelpCircle size={17} /> Hjälp och support
           </button>
@@ -530,6 +535,84 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
 
           {/* Innehåll — samma riktiga komponent som fliken visar i appen. */}
           {renderContent()}
+        </div>
+
+        {/* ── Mobil bottennav (Sida 26 i riktiga appen) — samma klasser/
+            innehåll som App.jsx:s .mobile-bottom-nav, bara `position`
+            omdefinierad (sticky i stället för fixed). Riktiga appen fyller
+            hela viewporten så fixed pekar rätt av sig självt; demot är ett
+            kort MITT PÅ en marknadssida (.lp-demo-content har dessutom
+            ingen egen scroll på mobil längre, se kommentaren vid
+            @media 640px i MarketingLayout.jsx — hela sidan skrollar i
+            stället), så fixed hade fäst naven vid webbläsarens EGEN
+            nederkant oavsett var kortet råkar stå på sidan. Sticky håller
+            den kvar i sikte medan kortet skrollar förbi, och slutar göra
+            det så fort kortet själv skrollat ur bild — exakt vad en
+            "förhandsvisning av telefonen" faktiskt ska göra. Bara synlig
+            under 640px, av samma skäl som mobiltopbaren (se .lp-hide-mobile
+            i MarketingLayout.jsx: den KLASSEN appliceras inte här, den här
+            naven har ingen desktop-motsvarighet att gömma bakom — index.css
+            döljer .mobile-bottom-nav ovanför 768px på egen hand). */}
+        <nav className="mobile-bottom-nav" style={{ position: 'sticky' }} aria-label="Mobilnavigation">
+          <div className="mobile-bottom-nav-inner">
+            {MOBILE_BOTTOM_ITEMS.map(item => (
+              <button
+                key={item.id}
+                className={`mobile-nav-btn ${activeDemoTab === item.id ? 'active' : ''}`}
+                onClick={() => openTab(item.id)}
+              >
+                <span className="mobile-nav-icon"><item.icon size={22} /></span>
+                <span>{item.label}</span>
+              </button>
+            ))}
+            <button
+              className={`mobile-nav-btn ${mobileSheetActive ? 'active' : ''}`}
+              onClick={() => setMobileSheetOpen(true)}
+              aria-haspopup="true"
+              aria-expanded={mobileSheetOpen}
+            >
+              <span className="mobile-nav-icon">
+                <Menu size={22} />
+                {reviewCount > 0 && <span className="mobile-nav-dot" aria-label={`${reviewCount} väntar på granskning`} />}
+              </span>
+              <span>Meny</span>
+            </button>
+          </div>
+        </nav>
+
+        <div className={`mobile-sheet-overlay ${mobileSheetOpen ? 'open' : ''}`} onClick={() => setMobileSheetOpen(false)} />
+        <div className={`mobile-sheet ${mobileSheetOpen ? 'open' : ''}`} role="dialog" aria-modal="true" aria-label="Fler sidor">
+          <div className="mobile-sheet-handle" />
+          <div className="mobile-sheet-title">
+            <span>Meny</span>
+            <button type="button" className="mobile-sheet-close" onClick={() => setMobileSheetOpen(false)} aria-label="Stäng menyn"><X size={18} /></button>
+          </div>
+          <div className="mobile-sheet-grid">
+            {MOBILE_SHEET_ITEMS.map(item => {
+              const isActive = activeDemoTab === item.id;
+              const badge = item.id === 'review' ? reviewCount : 0;
+              return (
+                <button key={item.id} className={`mobile-sheet-tile ${isActive ? 'active' : ''}`} onClick={() => openTab(item.id)}>
+                  <span className="mobile-sheet-tile-icon">
+                    <item.icon size={22} />
+                    {badge > 0 && <span className="mobile-sheet-tile-badge">{badge}</span>}
+                  </span>
+                  <span className="mobile-sheet-tile-label">{item.label}</span>
+                </button>
+              );
+            })}
+            {/* Hjälp/Logga ut — når man annars via sidomenyns fasta botten
+                (bara synlig på skrivbord, se .lp-hide-mobile ovan). Utan de
+                här två plattorna fanns ingen väg dit alls på mobil. */}
+            <button className="mobile-sheet-tile" onClick={() => { blocked(); setMobileSheetOpen(false); }}>
+              <span className="mobile-sheet-tile-icon"><HelpCircle size={22} /></span>
+              <span className="mobile-sheet-tile-label">Hjälp och support</span>
+            </button>
+            <button className="mobile-sheet-tile" onClick={() => { blocked(); setMobileSheetOpen(false); }}>
+              <span className="mobile-sheet-tile-icon"><LogOut size={22} /></span>
+              <span className="mobile-sheet-tile-label">Logga ut</span>
+            </button>
+          </div>
         </div>
       </div>
       </div>

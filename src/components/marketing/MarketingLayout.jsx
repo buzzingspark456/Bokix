@@ -669,10 +669,12 @@ function MarketingStyles() {
         .lp-bento-feature-row { flex-direction: column; }
         .lp-bento-feature-media { width: 100% !important; }
         /* Produktvisningens demo-kort — istället för att bara försvinna på
-           mobil (ingen meny alls) visas samma mobila topbar-mönster som
-           riktiga appen faktiskt använder på små skärmar (hamburgerikon +
-           sidtitel, se .global-top-bar/.topbar-page-title i index.css),
-           så demon ger en ärlig bild av hur Bokix ser ut på mobilen också. */
+           mobil (ingen meny alls) visas samma mobila navigeringsmönster som
+           riktiga appen faktiskt använder på små skärmar: en enkel topbar
+           (logga + tema, ingen hamburgermeny) och en bottennav med "Meny"-
+           bottensheet (se DemoWorkspace.jsx, samma klasser/mönster som
+           App.jsx:s .mobile-bottom-nav/.mobile-sheet), så demon ger en
+           ärlig bild av hur Bokix ser ut på mobilen också. */
         .lp-demo-body { flex-direction: column; }
         .lp-demo-mobile-topbar { display: flex; }
         /* Bugkritiskt: en fast maxHeight + intern scroll (bra på ett brett
@@ -684,6 +686,24 @@ function MarketingStyles() {
            overflow blir skrollbart (inte dolt) som en säkerhetsventil om
            någon inbäddad komponent ändå råkar bli bredare än skärmen. */
         .lp-demo-content { max-height: none; overflow-y: visible; overflow-x: auto; }
+        /* .lp-demo-card:s overflow:hidden (satt inline, DemoWorkspace.jsx —
+           klipper skrivbordskortets rundade hörn) bryter av samma skäl
+           position:sticky på bottennaven därinne: VILKET overflow-värde
+           som helst annat än "visible" gör sitt element till en egen
+           "scrollcontainer" ur sticky-algoritmens synvinkel, även om det
+           elementet aldrig själv skrollar (kortet växer bara i höjd här,
+           det är SIDAN som skrollar) — naven fick då aldrig något att
+           "fastna" mot, den stod kvar på sin vanliga (osynliga, långt ner)
+           plats. "visible" här (bara på mobil) tar bort den falska
+           scrollcontainern, så sticky räknar mot sidans EGEN scroll i
+           stället, precis som tänkt. Ingen hörn-urklippning behövs kvar på
+           mobil — kortet är i praktiken redan kant-till-kant där. */
+        /* !important krävs: overflow:hidden sätts som React inline style i
+           DemoWorkspace.jsx (klipper skrivbordskortets rundade hörn), och
+           en inline style vinner alltid över en vanlig klass-regel, en
+           media query eller inte — samma skäl .lp-hide-mobile ovan
+           redan är !important. */
+        .lp-demo-card { overflow: visible !important; }
       }
       /* Kundfeedback (skärmdump, halvbred skrivbordsyta/tablet): 2-kolumns-
          brytpunkten nedan lämnade det tredje jämnstora kortet ("Personal")
