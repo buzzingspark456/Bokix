@@ -988,7 +988,9 @@ body {
   cursor: pointer;
   text-align: left;
   width: 100%;
-  transition: all 0.15s ease;
+  /* Bara färger: en övergång på padding/typsnitt skulle göra att sidomenyns självmätning (useFitLevel)
+     ser raderna för höga precis efter ett nivåbyte. */
+  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
   position: relative;
   font-family: var(--font-sans);
 }
@@ -5981,7 +5983,7 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
   /* Fast radhöjd: annars ger webbläsarnas olika fontmått 1-2 px skillnad per rad. */
   .sidebar .nav-item { line-height: 1.25; }
   /* Hjälp och Logga ut som ett eget, något mörkare block med säkert avstånd upp till menyn. */
-  .sidebar .nav-links { margin-bottom: 12px; }
+  .sidebar .nav-links { margin-bottom: 20px; }
   .sidebar .sidebar-footer-actions { background: rgba(0, 0, 0, 0.16); }
   .sidebar .bokix-logo-btn--full { padding: var(--sb-logo-pt) 14px var(--sb-logo-pb); }
   .sidebar .bokix-wordmark--full { width: auto; height: var(--sb-logo-h); }
@@ -6613,4 +6615,83 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
   .dash-root .dash-table th { padding: 8px 4px; font-size: 10.5px; }
   .dash-root .dash-table td { padding: 11px 4px; font-size: 13px; }
   .dash-root .dash-table-prev { display: none; }
+}
+
+/* ══════════════════════════════════════════════
+   SKATT OCH BOKSLUT: Översikt (Att göra + Så lämnar du in)
+══════════════════════════════════════════════ */
+.tax-ov { padding: 24px; display: flex; flex-direction: column; gap: 16px; max-width: 980px; }
+.tax-ov-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 20px 22px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03); }
+.tax-ov-head { margin-bottom: 6px; }
+.tax-ov-title { margin: 0; font-size: 18px; font-weight: 700; letter-spacing: -0.01em; color: var(--text-main); }
+.tax-ov-summary { margin: 4px 0 0; font-size: 14px; color: var(--text-secondary); }
+.tax-todo-list { list-style: none; margin: 0; padding: 0; }
+.tax-todo-row { display: flex; align-items: flex-start; gap: 14px; padding: 16px 0; border-top: 1px solid var(--border-light); }
+.tax-todo-row:first-child { border-top: none; }
+.tax-todo-mark { flex-shrink: 0; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; margin-top: 1px; color: var(--status-green-text); }
+.tax-todo-ring { width: 20px; height: 20px; border: 1.5px solid var(--text-muted); border-radius: 50%; opacity: 0.6; }
+.tax-todo-main { flex: 1; min-width: 0; }
+.tax-todo-title { font-size: 15px; font-weight: 700; color: var(--text-main); }
+.tax-todo-sub { margin-top: 2px; font-size: 13px; color: var(--text-secondary); }
+.tax-todo-status { margin-top: 6px; font-size: 13.5px; color: var(--text-main); line-height: 1.4; }
+.tax-todo-row.done .tax-todo-title { color: var(--text-secondary); }
+.tax-todo-side { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; flex-shrink: 0; }
+.tax-todo-days { font-size: 12.5px; font-weight: 600; color: var(--text-secondary); }
+.tax-todo-days.soon { color: var(--status-amber-text); }
+.tax-todo-days.late { color: var(--status-red-text); }
+.tax-todo-cta {
+  display: inline-flex; align-items: center; gap: 2px; padding: 8px 14px;
+  background: var(--accent); color: #fff; border: none; border-radius: 8px;
+  font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap;
+}
+.tax-todo-row.done .tax-todo-cta { background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border); }
+.tax-todo-link { background: none; border: none; padding: 0; font-family: inherit; font-size: 12.5px; color: var(--text-secondary); text-decoration: underline; cursor: pointer; }
+.tax-todo-link:hover { color: var(--text-main); }
+
+.tax-how-title { margin: 0 0 6px; font-size: 16px; font-weight: 700; color: var(--text-main); }
+.tax-how-lead { margin: 0 0 16px; font-size: 14px; line-height: 1.55; color: var(--text-secondary); max-width: 640px; }
+.tax-how-steps { list-style: none; margin: 0 0 16px; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.tax-how-steps li { display: flex; gap: 12px; align-items: flex-start; }
+.tax-how-num { flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; background: var(--bg-muted); color: var(--text-main); font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.tax-how-steps strong { display: block; font-size: 14px; color: var(--text-main); }
+.tax-how-steps small { display: block; margin-top: 2px; font-size: 12.5px; line-height: 1.5; color: var(--text-secondary); }
+.tax-how-link { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--text-main); text-decoration: none; }
+@media (max-width: 720px) {
+  .tax-ov { padding: 12px; }
+  .tax-ov-card { padding: 16px; border-radius: 14px; }
+  .tax-todo-row { flex-wrap: wrap; }
+  .tax-todo-side { flex-direction: row; align-items: center; justify-content: space-between; width: 100%; margin-left: 38px; width: calc(100% - 38px); flex-wrap: wrap; }
+  .tax-how-steps { grid-template-columns: 1fr; }
+}
+
+/* ══════════════════════════════════════════════
+   SIDOMENYN KRYMPER SJÄLV (data-fit på .sidebar, se useFitLevel.js)
+   Om listan inte ryms utan skroll, till exempel vid hög skärmskalning eller när sidan är
+   inzoomad, går den ett steg tätare tills allt syns, Inställningar och Hjälp och support
+   med luft emellan. Nivå 0 är den vanliga vyn.
+══════════════════════════════════════════════ */
+@media (min-width: 1101px) {
+  .sidebar[data-fit="1"] { --sb-pad: 3.5px; --sb-font: 13px; --sb-icon: 15px; --sb-gap: 3px; --sb-logo-h: 28px; --sb-logo-pt: 4px; --sb-logo-pb: 3px; }
+  .sidebar[data-fit="2"] { --sb-pad: 2px; --sb-font: 12.5px; --sb-icon: 14px; --sb-gap: 2px; --sb-logo-h: 24px; --sb-logo-pt: 3px; --sb-logo-pb: 2px; }
+  .sidebar[data-fit="3"] { --sb-pad: 0.5px; --sb-font: 12px; --sb-icon: 13px; --sb-gap: 1.5px; --sb-logo-h: 20px; --sb-logo-pt: 2px; --sb-logo-pb: 1px; }
+  /* Rubrikerna ersätts av tunna linjer så fort menyn behöver krympa. */
+  .sidebar:not([data-fit="0"]) .nav-group-title { display: none !important; }
+  .sidebar:not([data-fit="0"]) .nav-group-divider { display: block !important; }
+}
+@media (min-width: 769px) and (max-width: 1100px) {
+  .sidebar[data-fit="1"] .nav-item { padding: 3px 0 2px !important; }
+  .sidebar[data-fit="1"] .nav-item > span { gap: 1px !important; }
+  .sidebar[data-fit="1"] .nav-item svg { width: 16px; height: 16px; }
+  .sidebar[data-fit="1"] .nav-short { font-size: 9.5px; }
+  .sidebar[data-fit="1"] .sidebar-monogram { width: 36px; height: 36px; }
+  .sidebar[data-fit="2"] .nav-item { padding: 5px 0 !important; }
+  .sidebar[data-fit="2"] .nav-item svg { width: 18px; height: 18px; }
+  .sidebar[data-fit="2"] .nav-short { display: none; }
+  .sidebar[data-fit="2"] .sidebar-monogram { width: 32px; height: 32px; }
+  .sidebar[data-fit="3"] .nav-item { padding: 3px 0 !important; }
+  .sidebar[data-fit="3"] .nav-item svg { width: 16px; height: 16px; }
+  .sidebar[data-fit="3"] .nav-short { display: none; }
+  .sidebar[data-fit="3"] .sidebar-monogram { width: 28px; height: 28px; }
+  .sidebar[data-fit="3"] .logo-container { padding: 4px 0 2px !important; }
+  .sidebar:not([data-fit="0"]) .nav-group-divider { margin-top: 2px !important; margin-bottom: 2px !important; }
 }

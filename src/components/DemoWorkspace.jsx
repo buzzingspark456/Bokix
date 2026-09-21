@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import useFitLevel from '../utils/useFitLevel';
 import {
   Menu, X, HelpCircle, LogOut, Bell, Sun, Moon, ChevronDown, ChevronRight, FolderTree, FileCheck, Shield, Calculator, AlertTriangle, UsersRound, Receipt, FileText,
   LayoutDashboard, Users, Package, NavHomeIcon, NavQuotesIcon, NavInvoicesIcon, Inbox, NavReceiptsIcon, Briefcase, ClipboardCheck, BookOpen, Landmark, BarChart3,
@@ -103,6 +104,16 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
   // HÄR eftersom headerraderna nedan är inline-stylade, inte CSS-klasser.
   const [theme, toggleTheme] = useMarketingTheme();
   const seed = useMemo(() => createDemoSeed(), []);
+  // Demons sidomeny krymper själv tills alla sidor och Hjälp/Logga ut syns (se useFitLevel.js).
+  const demoNavRef = useRef(null);
+  const navFit = useFitLevel(demoNavRef, 4);
+  const fitStyle = [
+    { pad: 7, font: 14, icon: 17, logo: 40, foot: 9 },
+    { pad: 4.5, font: 13.5, icon: 16, logo: 32, foot: 7 },
+    { pad: 3, font: 13, icon: 15, logo: 26, foot: 5 },
+    { pad: 1.5, font: 12.5, icon: 14, logo: 22, foot: 4 },
+    { pad: 0.5, font: 12, icon: 13, logo: 16, foot: 2 },
+  ][navFit];
   // Appen stänger sina topbar-menyer på klick utanför (document-lyssnare
   // i App.jsx). Samma sak här, annars blir en öppnad meny hängande kvar.
   useEffect(() => {
@@ -391,29 +402,30 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
           eftersom demot är en egen handbyggd klon som inte delar den
           klassen. */}
       <div className="lp-hide-mobile" style={{ width: '212px', flexShrink: 0, maxHeight: 'min(780px, 82vh)', background: 'var(--bg-sidebar)', display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)' }}>
-        <div style={{ padding: '14px 14px 10px', flexShrink: 0 }}>
-          <BokixWordmark height={40} />
+        <div style={{ padding: navFit >= 4 ? '3px 14px 2px' : navFit > 0 ? '6px 14px 4px' : '14px 14px 10px', flexShrink: 0 }}>
+          <BokixWordmark height={fitStyle.logo} />
         </div>
         <div style={{ height: '1px', background: 'rgba(255,255,255,0.15)', margin: '0 20px 4px', flexShrink: 0 }} />
 
         {/* Kompaktare än riktiga appens rader så att alla 15 sidor ryms i demokortet;
             listan skrollar (utan synligt fält) om kortet ändå är lågt. */}
-        <nav className="lp-demo-nav" style={{ display: 'flex', flexDirection: 'column', padding: 0, flex: '0 1 auto', minHeight: 0, overflowY: 'auto' }}>
+        <nav className="lp-demo-nav" ref={demoNavRef} style={{ display: 'flex', flexDirection: 'column', padding: 0, marginBottom: '20px', flex: '0 1 auto', minHeight: 0, overflowY: 'auto' }}>
           {visibleGroups.map((group, gi) => (
             <React.Fragment key={gi}>
-              {group.title && <div className="lp-demo-nav-title">{group.title}</div>}
+              {gi > 0 && navFit >= 2 && <div style={{ height: '1px', background: 'rgba(255,255,255,0.15)', margin: '2px 20px', flexShrink: 0 }} />}
+              {group.title && navFit < 2 && <div className="lp-demo-nav-title">{group.title}</div>}
               {group.items.map(item => {
                 const isActive = activeDemoTab === item.id;
                 const badge = item.id === 'review' ? reviewCount : 0;
                 return (
                   <button key={item.id} onClick={() => openTab(item.id)} style={{
-                    padding: '7px 24px', width: '100%', textAlign: 'left', background: isActive ? 'rgba(255,255,255,0.14)' : 'none',
-                    border: 'none', color: isActive ? '#ffffff' : 'rgba(255,255,255,0.88)', fontSize: '14px', fontWeight: isActive ? 700 : 500, lineHeight: 1.25,
+                    padding: `${fitStyle.pad}px 24px`, width: '100%', textAlign: 'left', background: isActive ? 'rgba(255,255,255,0.14)' : 'none',
+                    border: 'none', color: isActive ? '#ffffff' : 'rgba(255,255,255,0.88)', fontSize: `${fitStyle.font}px`, fontWeight: isActive ? 700 : 500, lineHeight: 1.25,
                     cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexShrink: 0, fontFamily: 'inherit',
                     boxShadow: isActive ? 'inset 3px 0 0 #ffd23f' : 'none',
                   }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '11px' }}>
-                      <item.icon size={17} strokeWidth={isActive ? 2.25 : 2} style={{ flexShrink: 0, opacity: isActive ? 1 : 0.85, color: isActive ? '#ffd23f' : undefined }} />
+                      <item.icon size={fitStyle.icon} strokeWidth={isActive ? 2.25 : 2} style={{ flexShrink: 0, opacity: isActive ? 1 : 0.85, color: isActive ? '#ffd23f' : undefined }} />
                       <span>{item.label}</span>
                     </span>
                     {badge > 0 && (
@@ -430,13 +442,13 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
 
         {/* Flexibelt tomt utrymme, precis som riktiga sidomenyn (App.jsx) —
             trycker Hjälp/Logga ut längst ner oavsett hur hög panelen är. */}
-        <div style={{ flex: 1, minHeight: '8px' }} />
+        <div style={{ flex: 1, minHeight: 0 }} />
 
         <div style={{ flexShrink: 0, borderTop: '1px solid rgba(255,255,255,0.15)', background: 'rgba(0,0,0,0.16)' }}>
-          <button onClick={blocked} style={{ padding: '9px 24px', width: '100%', textAlign: 'left', background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', fontSize: '14px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', fontFamily: 'inherit' }}>
+          <button onClick={blocked} style={{ padding: `${fitStyle.foot}px 24px`, width: '100%', textAlign: 'left', background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', fontSize: `${fitStyle.font}px`, fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', fontFamily: 'inherit' }}>
             <HelpCircle size={17} /> Hjälp och support
           </button>
-          <button onClick={blocked} style={{ padding: '9px 24px', width: '100%', textAlign: 'left', background: 'none', border: 'none', color: '#fca5a5', fontSize: '14px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', fontFamily: 'inherit' }}>
+          <button onClick={blocked} style={{ padding: `${fitStyle.foot}px 24px`, width: '100%', textAlign: 'left', background: 'none', border: 'none', color: '#fca5a5', fontSize: `${fitStyle.font}px`, fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', fontFamily: 'inherit' }}>
             <LogOut size={17} /> Logga ut
           </button>
         </div>

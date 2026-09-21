@@ -74,6 +74,16 @@ export function rollForwardPastWeekend(d) {
  * rollForwardPastWeekend. Returnerar null för månads-/årsvis redovisning
  * — det enda flödet som faktiskt är implementerat är kvartalsvis (se
  * VatDeclaration.jsx). */
+export function vatDueDate(year, quarter) {
+  const [, periodEnd] = quarterToRange(year, quarter);
+  const d = new Date(periodEnd + 'T00:00:00');
+  // setDate(1) först: se kommentaren i nextVatDeadline om överspillet för kvartal 4.
+  d.setDate(1);
+  d.setMonth(d.getMonth() + 2);
+  d.setDate(dueDayForMonth(d.getMonth()));
+  return rollForwardPastWeekend(d);
+}
+
 export function nextVatDeadline(company, vatPeriods) {
   if ((company?.vatPeriod || 'quarterly') !== 'quarterly') return null;
   const today = new Date();

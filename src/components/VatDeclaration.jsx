@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { AlertCircle, AlertTriangle, CheckCircle2, ChevronRight, Download, Lock, FileText, ExternalLink } from './icons';
 import {
   computeVatPeriod, roundedVatPeriod, validateVatPeriod, compareToPreviousPeriod, vatRutaValue,
@@ -24,15 +24,18 @@ const STEPS = [
   { id: 4, label: 'Lämna in' },
 ];
 
-function Stepper({ current, maxReached }) {
+function Stepper({ current, maxReached, isBooked, onSelect }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', marginBottom: '28px' }}>
       {STEPS.map((step, i) => {
-        const isDone = step.id < current || (step.id <= maxReached && step.id !== current);
+        // Klart = ett steg man redan passerat, eller (när perioden är bokförd) stegen 1-3.
+        // Steg som bara går att nå (maxReached) är inte klara: de får ett vanligt nummer.
+        const isDone = step.id !== current && (step.id < current || (isBooked && step.id <= 3));
         const isActive = step.id === current;
+        const reachable = step.id <= maxReached;
         return (
           <React.Fragment key={step.id}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+            <button type="button" disabled={!reachable} onClick={() => onSelect?.(step.id)} aria-current={isActive ? 'step' : undefined} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', background: 'none', border: 'none', padding: 0, fontFamily: 'inherit', cursor: reachable ? 'pointer' : 'default' }}>
               <div style={{
                 width: 32, height: 32, borderRadius: '50%',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -44,7 +47,7 @@ function Stepper({ current, maxReached }) {
                 {isDone ? <CheckCircle2 size={17} /> : step.id}
               </div>
               <span style={{ fontSize: '12.5px', fontWeight: isActive ? 700 : 500, color: isActive ? 'var(--text-main)' : 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{step.label}</span>
-            </div>
+            </button>
             {i < STEPS.length - 1 && (
               <div style={{ flex: 1, height: '2px', background: step.id < current ? 'var(--status-green-bg)' : 'var(--border)', margin: '0 10px 20px' }} />
             )}
@@ -57,7 +60,7 @@ function Stepper({ current, maxReached }) {
 
 export default function VatDeclaration({
   verifications = [], invoices = [], expenses = [], company = {},
-  vatPeriods = {}, onBookPeriod, onNavigateToVerification,
+  vatPeriods = {}, onBookPeriod, onNavigateToVerification, filings = {}, onToggleFiled, focusPeriod,
 }) {
   const today = new Date();
   const defaultQuarter = Math.floor(today.getMonth() / 3) + 1;
@@ -69,6 +72,16 @@ export default function VatDeclaration({
   // Ref, inte state — muteras synkront och skyddar mot dubbelklick även
   // innan React hunnit rendera om (useState-uppdateringar batchas).
   const bookingRef = useRef(false);
+
+  // Översikten (TaxOverview) kan skicka hit ett bestämt kvartal: öppna det, och gå direkt till
+  // "Lämna in" om perioden redan är bokförd.
+  useEffect(() => {
+    if (!focusPeriod) return;
+    setYear(focusPeriod.year);
+    setQuarter(focusPeriod.quarter);
+    setStep(vatPeriods[`${focusPeriod.year}-Q${focusPeriod.quarter}`] ? 4 : 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusPeriod]);
 
   const [periodStart, periodEnd] = useMemo(() => quarterToRange(year, quarter), [year, quarter]);
   const periodKey = `${year}-Q${quarter}`;
@@ -164,7 +177,7 @@ export default function VatDeclaration({
       </div>
 
       <div style={{ padding: '24px' }}>
-        <Stepper current={step} maxReached={maxReachedStep} />
+        <Stepper current={step} maxReached={maxReachedStep} isBooked={isBooked} onSelect={setStep} />
 
         {/* ── Steg 1: Kontrollera ── */}
         {step === 1 && (
@@ -416,6 +429,19 @@ export default function VatDeclaration({
                 Öppna skatteverket.se <ExternalLink size={13} />
               </a>
             </div>
+
+            {onToggleFiled && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginTop: '16px', padding: '14px 16px', border: '1px solid var(--border)', borderRadius: '10px' }}>
+                <div style={{ fontSize: '13.5px', color: 'var(--text-main)', lineHeight: 1.5 }}>
+                  {filings[`vat:${periodKey}`]?.at
+                    ? `Markerad som inlämnad ${new Date(filings[`vat:${periodKey}`].at).toLocaleDateString('sv-SE')}.`
+                    : 'Har du laddat upp deklarationen hos Skatteverket? Markera den som inlämnad så håller Bokix reda på det.'}
+                </div>
+                <button type="button" onClick={() => onToggleFiled(`vat:${periodKey}`)} style={{ padding: '8px 16px', background: filings[`vat:${periodKey}`]?.at ? 'var(--bg-card)' : 'var(--accent)', color: filings[`vat:${periodKey}`]?.at ? 'var(--text-main)' : 'white', border: filings[`vat:${periodKey}`]?.at ? '1px solid var(--border)' : 'none', borderRadius: '8px', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}>
+                  {filings[`vat:${periodKey}`]?.at ? 'Ångra' : 'Markera som inlämnad'}
+                </button>
+              </div>
+            )}
 
             <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: '20px' }}>
               <button onClick={() => setStep(3)} style={{ padding: '10px 18px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer', color: 'var(--text-main)' }}>Tillbaka</button>

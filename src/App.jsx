@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
+import useFitLevel from './utils/useFitLevel';
 import { visiblePages } from './utils/pageAccess';
 import { isUfCompany, ufPageState, ufInvoiceQuota, ufFreePeriod, UF_NAV_IDS, UF_HIDDEN_REPORT_IDS } from './utils/ufMode';
 import { useTranslation } from './i18n';
@@ -1094,6 +1095,10 @@ function App() {
   }, []);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Sidomenyn krymper själv steg för steg (data-fit, index.css) tills hela listan ryms utan
+  // skroll, också i ett riktigt lågt fönster (hög skärmskalning eller inzoomad sida).
+  const sidebarNavRef = useRef(null);
+  const sidebarFit = useFitLevel(sidebarNavRef, 3);
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
   // Bottenraden göms medan ett textfält har fokus. Annars skjuts den upp
   // ovanför tangentbordet (iOS Safari/Android) och hänger mitt på skärmen.
@@ -1379,7 +1384,7 @@ function App() {
   // numera på Taxes.jsx:s egen "Viktiga datum"-flik ('dates') istället för
   // Moms — den fliken existerar nu specifikt för det, se Taxes.jsx.
   const taxesSectionAliases = { taxes: 'dates', taxes_vat: 'vat', taxes_yearend: 'yearend' };
-  const [taxesInitialSection, setTaxesInitialSection] = useState('vat');
+  const [taxesInitialSection, setTaxesInitialSection] = useState('dates');
 
   // Samma bugg, samma fix som taxesSectionAliases ovan: profilmenyns
   // "Kontoplaner" gjorde handleNavTabChange('accounts'), men tabAliases
@@ -4511,7 +4516,7 @@ function App() {
       )}
 
       {/* ── Sidebar ── */}
-      <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`} style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+      <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`} data-fit={sidebarFit} style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
         {/* Logo — klickbar till startsidan, med en tunn linje under (samma
             låg-kontrast-ton som skiljer nav-grupperna åt nedanför) så den
             känns avskild från "Startsida" istället för att glida ihop. */}
@@ -4534,7 +4539,7 @@ function App() {
             visas när fönstret är högt nog (index.css); annars, och i halvskärmens
             ikonfält, skiljs grupperna åt av en tunn linje. Granskning syns bara när
             något väntar, eller när man redan står på sidan. */}
-        <nav className="nav-links" style={{ display: 'flex', flexDirection: 'column', gap: 0, padding: 0, flexShrink: 1, minHeight: 0, overflowY: 'auto' }}>
+        <nav className="nav-links" ref={sidebarNavRef} style={{ display: 'flex', flexDirection: 'column', gap: 0, padding: 0, flexShrink: 1, minHeight: 0, overflowY: 'auto' }}>
           {[
             {
               items: [

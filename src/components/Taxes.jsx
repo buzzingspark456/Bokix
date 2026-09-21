@@ -3,6 +3,7 @@ import {
   CheckCircle2, Clock, Circle, Lock, Calculator, ChevronRight, ExternalLink, Info, Download, Users, Loader2, AlertTriangle, TrendingUp, TrendingDown, Minus, ArrowRight, RotateCcw, ClipboardList, Plus, Trash2,
 } from './icons';
 import VatDeclaration from './VatDeclaration';
+import TaxOverview from './TaxOverview';
 import FixedAssets from './FixedAssets';
 import Accruals from './Accruals';
 import Partners from './Partners';
@@ -24,7 +25,7 @@ import { computeInk2rResultat } from '../utils/ink2rResultat';
 import { computeInk2s } from '../utils/ink2s';
 import { computeNeBalance, computeNeResult, computeNeBalanceSuggestions, computeNeResultSuggestions } from '../utils/ne';
 import { downloadInk2rSru } from '../utils/sruExport';
-import { nextVatDeadline, nextAgiDeadline, nextKuDeadline } from '../utils/declarationDeadlines';
+import { nextVatDeadline, nextAgiDeadline, nextKuDeadline, vatDueDate } from '../utils/declarationDeadlines';
 import { confirmDialog } from './shared/ConfirmDialog';
 
 const fmt = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
@@ -333,7 +334,9 @@ export default function Taxes({
   // oavsett vad man faktiskt kom hit för att göra just idag. Delad i flikar
   // nu (samma ListPageHeader-mönster som Kunder/Anställda/Projekt m.fl.):
   // bara EN del synlig åt gången, mycket mindre att ta in per besök.
-  const [activeSection, setActiveSection] = useState(initialSection || 'vat');
+  const [activeSection, setActiveSection] = useState(initialSection || 'dates');
+  // Vilket momskvartal översikten vill öppna (se openFromOverview).
+  const [vatFocus, setVatFocus] = useState(null);
   // Vilken INK2R-rad som är utfälld och visar kontona bakom sitt belopp.
   const [expandedInk2rRow, setExpandedInk2rRow] = useState(null);
 
@@ -734,26 +737,27 @@ export default function Taxes({
   // i utils/ufMode.js — se den kommentaren för varför Moms är kvar men
   // Kontrolluppgifter och Inkomstdeklaration inte är det). Filtret ligger
   // sist så en flik aldrig kan smyga in genom att läggas till ovanför.
+  const hasPayroll = employees.length > 0 || payrollRuns.length > 0;
   const sectionTabs = [
-    { id: 'dates', label: 'Viktiga datum' },
+    { id: 'dates', label: 'Översikt' },
     { id: 'vat', label: 'Moms' },
+    // AGI och kontrolluppgifter — bara relevant för företag som någon gång haft en anställd
+    // (annars finns inget att deklarera, samma "ingen anställd, ingen AGI-deadline"-princip
+    // som agiDeadlineInfo nedan redan använder).
+    ...(hasPayroll ? [{ id: 'agi', label: 'Arbetsgivardeklaration' }] : []),
+    ...(hasPayroll ? [{ id: 'ku', label: 'Kontrolluppgifter' }] : []),
     { id: 'yearend', label: 'Årsbokslut' },
-    { id: 'assets', label: 'Anläggningstillgångar' },
-    { id: 'accruals', label: 'Periodiseringar' },
-    // Bolagsformsspecifika flikar: delägare/resultatfördelning för HB/KB,
-    // utdelning för AB. Enskild firma har varken eller.
-    ...(isTradingPartnership ? [{ id: 'partners', label: 'Delägare' }] : []),
-    ...(orgType === 'Aktiebolag (AB)' ? [{ id: 'dividend', label: 'Utdelning' }] : []),
-    { id: 'ku', label: 'Kontrolluppgifter' },
-    // AGI — bara relevant för företag som någon gång haft en anställd
-    // (annars finns inget att deklarera, samma "ingen anställd, ingen
-    // AGI-deadline"-princip som agiDeadlineInfo nedan redan använder).
-    ...((employees.length > 0 || payrollRuns.length > 0) ? [{ id: 'agi', label: 'Arbetsgivardeklaration' }] : []),
     ...(!filesOwnIncomeDeclaration ? [{ id: 'ink2', label: 'Inkomstdeklaration' }] : []),
     // NE-bilaga — bara enskild firma. INTE handelsbolag (som också har
     // filesOwnIncomeDeclaration=true men deklarerar sin andel med en N3A/
     // K10-bilaga i stället, se hjälptexten i Årsbokslut-kortet).
     ...(isSoleProp ? [{ id: 'ne', label: 'NE-bilaga' }] : []),
+    // Bolagsformsspecifika flikar: delägare/resultatfördelning för HB/KB,
+    // utdelning för AB. Enskild firma har varken eller.
+    ...(isTradingPartnership ? [{ id: 'partners', label: 'Delägare' }] : []),
+    ...(orgType === 'Aktiebolag (AB)' ? [{ id: 'dividend', label: 'Utdelning' }] : []),
+    { id: 'assets', label: 'Anläggningstillgångar' },
+    { id: 'accruals', label: 'Periodiseringar' },
   ].filter(tab => !isUfCompany(company) || UF_TAX_SECTION_IDS.includes(tab.id));
 
   // ── Viktiga datum ── Kundfeedback (två omgångar): profilmenyns "Viktiga
@@ -784,6 +788,143 @@ export default function Taxes({
     return `om ${daysLeft} dagar`;
   };
 
+  // ── Översikt: vad ska göras, i vilken ordning ──
+  // Bokix kan inte se om något har lämnats in hos Skatteverket, så man markerar det själv
+  // (company.taxFilings, nyckel per uppgift och period). AGI har redan egen status per månad.
+  const filings = company?.taxFilings || {};
+  const filedDate = (key) => (filings[key]?.at ? new Date(filings[key].at).toLocaleDateString('sv-SE') : null);
+  const toggleFiled = (key) => {
+    if (!setCompanyInfo) return;
+    setCompanyInfo(prev => {
+      const next = { ...(prev.taxFilings || {}) };
+      if (next[key]) delete next[key]; else next[key] = { at: new Date().toISOString() };
+      return { ...prev, taxFilings: next };
+    });
+  };
+  const overviewItems = (() => {
+    const hasTab = (id) => sectionTabs.some(t => t.id === id);
+    const list = [];
+
+    if (hasTab('vat')) {
+      const today0 = new Date();
+      today0.setHours(0, 0, 0, 0);
+      const quarterly = (company?.vatPeriod || 'quarterly') === 'quarterly';
+      const vatRow = (year, quarter) => {
+        const periodKey = `${year}-Q${quarter}`;
+        const filedKey = `vat:${periodKey}`;
+        const filedAt = filedDate(filedKey);
+        const booked = Boolean(vatPeriods[periodKey]);
+        const dueDate = vatDueDate(year, quarter);
+        const daysLeft = Math.round((dueDate - today0) / 86400000);
+        return {
+          key: `vat-${periodKey}`, section: 'vat', title: 'Momsdeklaration',
+          subtitle: `Kvartal ${quarter}, ${year}`,
+          dueDate, daysLeft, vatPeriod: { year, quarter },
+          done: Boolean(filedAt),
+          status: filedAt ? `Inlämnad ${filedAt}.` : booked ? 'Perioden är bokförd. Ladda ner filen och lämna in hos Skatteverket.' : 'Inte påbörjad. Bokix kontrollerar och räknar ut rutorna åt dig.',
+          cta: filedAt ? 'Visa' : booked ? 'Lämna in' : 'Gör momsdeklarationen',
+          filedKey, canMark: booked,
+        };
+      };
+      if (!quarterly) {
+        list.push({ key: 'vat', section: 'vat', title: 'Momsdeklaration', subtitle: 'Moms', dueDate: null, daysLeft: null, done: false, status: 'Öppna för att förbereda momsdeklarationen.', cta: 'Öppna moms' });
+      } else {
+        // Bokförda kvartal som ännu inte är markerade som inlämnade får inte försvinna ur listan
+        // (nextVatDeadline hoppar direkt till nästa kvartal när ett är bokfört). Bara de som
+        // förfaller inom 90 dagar bakåt eller framåt, så gamla kvartal inte fyller listan.
+        const bookedRows = Object.keys(vatPeriods)
+          .filter(k => vatPeriods[k] && /^\d{4}-Q[1-4]$/.test(k))
+          .map(k => { const [y, q] = k.split('-Q').map(Number); return vatRow(y, q); })
+          .filter(r => r.daysLeft >= -90);
+        bookedRows.forEach(r => list.push(r));
+        if (vatDeadlineInfo) {
+          const r = vatRow(vatDeadlineInfo.year, vatDeadlineInfo.quarter);
+          const periodEnded = new Date(vatDeadlineInfo.year, vatDeadlineInfo.quarter * 3, 0) <= today0;
+          // Nästa kvartal visas när det är dags (perioden är slut eller deadline inom 60 dagar),
+          // eller när det inte finns något annat momsärende att visa.
+          if (periodEnded || r.daysLeft <= 60 || bookedRows.length === 0) list.push(r);
+        }
+      }
+    }
+
+    if (hasTab('agi')) {
+      const ad = agiDeadlineInfo;
+      const report = ad ? agiReports.find(r => r.period === ad.periodKey) : null;
+      const submitted = report?.status === 'submitted';
+      const n = missingAgiMonths.length;
+      list.push({
+        key: 'agi', section: 'agi', title: 'Arbetsgivardeklaration',
+        subtitle: ad ? `AGI för ${monthLabel(ad.periodKey)}` : 'AGI',
+        dueDate: ad?.dueDate, daysLeft: ad ? ad.daysLeft : null,
+        done: submitted,
+        status: submitted ? 'Inlämnad.' : report ? 'Ett utkast finns. Granska det och lämna in.' : n > 0 ? `${n} månad${n === 1 ? '' : 'er'} saknar AGI-underlag.` : 'Inte påbörjad.',
+        cta: report ? 'Öppna AGI' : 'Skapa AGI',
+      });
+    }
+
+    if (hasTab('ku') && kuDeadlineInfo) {
+      const filedKey = `ku:${kuDeadlineInfo.incomeYear}`;
+      const filedAt = filedDate(filedKey);
+      list.push({
+        key: 'ku', section: 'ku', title: 'Kontrolluppgifter',
+        subtitle: `Inkomståret ${kuDeadlineInfo.incomeYear}`,
+        dueDate: kuDeadlineInfo.dueDate, daysLeft: kuDeadlineInfo.daysLeft,
+        done: Boolean(filedAt),
+        status: filedAt ? `Inlämnad ${filedAt}.` : 'Inte lämnade. Bokix summerar årets löner per anställd.',
+        cta: 'Öppna kontrolluppgifter',
+        filedKey, canMark: true,
+      });
+    }
+
+    if (hasTab('yearend')) {
+      const doneCount = stepsBeforeLock.filter(s => s.status === 'Klar').length;
+      list.push({
+        key: 'yearend', section: 'yearend', title: 'Årsbokslut',
+        subtitle: `Räkenskapsår ${currentYear}`,
+        dueDate: null, daysLeft: null,
+        done: isLocked,
+        status: isLocked ? `Bokslutet är låst ${new Date(closing.lockedAt).toLocaleDateString('sv-SE')}.` : `${doneCount} av ${stepsBeforeLock.length} steg är klara.`,
+        cta: isLocked ? 'Visa bokslutet' : 'Fortsätt bokslutet',
+      });
+    }
+
+    const filingSection = isSoleProp ? 'ne' : (!filesOwnIncomeDeclaration ? 'ink2' : null);
+    if (filingSection && hasTab(filingSection)) {
+      const filedKey = `ink:${currentYear}`;
+      const filedAt = filedDate(filedKey);
+      list.push({
+        key: 'filing', section: filingSection,
+        title: isSoleProp ? 'NE-bilaga' : 'Inkomstdeklaration (INK2)',
+        subtitle: `Inkomståret ${currentYear}`,
+        dueDate: null, daysLeft: null,
+        done: Boolean(filedAt),
+        status: filedAt ? `Inlämnad ${filedAt}.` : isLocked ? 'Bokslutet är klart. Förbered filerna och lämna in hos Skatteverket.' : 'Väntar på att bokslutet blir klart.',
+        cta: isLocked ? 'Förbered deklarationen' : 'Se förhandsvisning',
+        filedKey, canMark: isLocked,
+      });
+    }
+
+    // Det som brådskar mest först, sedan det utan datum, och det som är klart sist.
+    const rank = (i) => (i.done ? 2 : i.daysLeft != null ? 0 : 1);
+    list.sort((a, b) => rank(a) - rank(b) || (a.daysLeft ?? 0) - (b.daysLeft ?? 0));
+    return list.map(i => ({
+      ...i,
+      dueLabel: i.dueDate ? fmtDeadlineDate(i.dueDate) : null,
+      daysLabel: i.daysLeft != null ? daysLeftLabel(i.daysLeft) : null,
+      urgency: i.daysLeft == null ? '' : i.daysLeft < 0 ? 'late' : i.daysLeft <= 7 ? 'soon' : '',
+    }));
+  })();
+  const openFromOverview = (section, item) => {
+    if (item?.vatPeriod) setVatFocus({ ...item.vatPeriod, at: Date.now() });
+    setActiveSection(section);
+  };
+  const nextOverviewItem = overviewItems.find(i => !i.done && i.daysLeft != null);
+  const overviewSummary = nextOverviewItem
+    ? `Nästa: ${nextOverviewItem.title.toLowerCase()} ${nextOverviewItem.daysLabel}, senast ${nextOverviewItem.dueLabel}.`
+    : overviewItems.every(i => i.done) ? 'Allt är inlämnat.' : 'Inget har en deadline just nu.';
+  // Efter ett låst bokslut är nästa steg deklarationen (för de bolagsformer som har en).
+  const nextFilingSection = isSoleProp ? 'ne' : (!filesOwnIncomeDeclaration ? 'ink2' : null);
+
   return (
     // Samma "facit"-mönster som Kunder/Anställda/Projekt m.fl. (ListPageHeader
     // med flikar) istället för den gamla egna, höga rubrik+3-radersbeskrivning-
@@ -808,109 +949,9 @@ export default function Taxes({
       <div data-tour="page-taxes-content" style={{ flex: 1, overflowY: 'auto' }}>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
 
-          {/* Viktiga datum — se filkommentaren vid vatDeadlineInfo ovan. */}
+          {/* Översikt: vad som ska göras och när (se overviewItems ovan). */}
           {activeSection === 'dates' && (
-            // Kundfeedback: föregående version var en smal, lodrät stapel av
-            // 1-2 kort högst upp på en annars tom, full-höjds flik — mycket
-            // tomrum under. Ett rutnät (auto-fit) istället för en stapel gör
-            // att korten faktiskt FYLLER bredden och känns som en avsiktlig
-            // yta, inte en lista som råkar ta slut tidigt. maxWidth borttagen
-            // av samma skäl — begränsade bredden i onödan på bredare skärmar.
-            <div style={{ padding: '24px' }}>
-              <div style={{ marginBottom: '18px' }}>
-                <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '3px' }}>Kommande deadlines</div>
-                <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Automatiskt uträknat utifrån ditt företags momsperiod och lönekörningar.</div>
-              </div>
-
-              {!vatDeadlineInfo && !agiDeadlineInfo && !kuDeadlineInfo ? (
-                <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px', padding: '32px 24px', textAlign: 'center' }}>
-                  <Clock size={26} color="var(--text-muted)" style={{ marginBottom: '10px' }} />
-                  <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '4px' }}>Inga kommande deadlines just nu</div>
-                  <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>Momsredovisningen är inte kvartalsvis, och inga lönekörningar är bokförda ännu (det är det som styr AGI- och kontrolluppgiftsdeadlines).</div>
-                </div>
-              ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px' }}>
-                  {[
-                    vatDeadlineInfo && {
-                      key: 'vat', icon: Calculator,
-                      title: `Momsdeklaration`,
-                      subtitle: `Kvartal ${vatDeadlineInfo.quarter}, ${vatDeadlineInfo.year}`,
-                      detail: `Senast ${fmtDeadlineDate(vatDeadlineInfo.dueDate)}`,
-                      daysLeft: vatDeadlineInfo.daysLeft,
-                      onClick: () => setActiveSection('vat'),
-                    },
-                    agiDeadlineInfo && {
-                      key: 'agi', icon: Users,
-                      title: 'Arbetsgivardeklaration',
-                      subtitle: 'AGI',
-                      detail: `Senast ${fmtDeadlineDate(agiDeadlineInfo.dueDate)}`,
-                      daysLeft: agiDeadlineInfo.daysLeft,
-                      // AGI har numera en egen flik HÄR (samma mönster som
-                      // momskortet ovan) — pekade tidigare bort till
-                      // Lönekörning, från innan den fliken fanns.
-                      onClick: () => setActiveSection('agi'),
-                    },
-                    kuDeadlineInfo && {
-                      key: 'ku', icon: ClipboardList,
-                      title: 'Kontrolluppgifter',
-                      subtitle: `Inkomståret ${kuDeadlineInfo.incomeYear}`,
-                      detail: `Senast ${fmtDeadlineDate(kuDeadlineInfo.dueDate)}`,
-                      daysLeft: kuDeadlineInfo.daysLeft,
-                      onClick: () => setActiveSection('ku'),
-                    },
-                  ]
-                    .filter(Boolean)
-                    // Närmast förfall först. Ordningen var tidigare fast
-                    // (moms, sedan AGI) vilket betydde att en deklaration
-                    // som skulle in om två dagar kunde ligga under en som
-                    // hade sex veckor kvar. Det man ska göra härnäst ska
-                    // stå först — en försenad (negativa dagar) hamnar då
-                    // också överst av sig självt.
-                    .sort((a, b) => a.daysLeft - b.daysLeft)
-                    .map(item => {
-                    const sevBg = item.daysLeft < 0 ? 'var(--status-red-bg)' : item.daysLeft <= 7 ? 'var(--status-amber-bg)' : 'var(--status-gray-bg)';
-                    const sevText = item.daysLeft < 0 ? 'var(--status-red-text)' : item.daysLeft <= 7 ? 'var(--status-amber-text)' : 'var(--status-gray-text)';
-                    return (
-                      <button
-                        key={item.key}
-                        type="button"
-                        onClick={item.onClick}
-                        style={{
-                          display: 'flex', flexDirection: 'column', gap: '14px', textAlign: 'left',
-                          background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px', padding: '18px',
-                          cursor: 'pointer', fontFamily: 'inherit',
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
-                          <div style={{ width: 40, height: 40, borderRadius: '11px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: sevBg, color: sevText }}>
-                            <item.icon size={18} />
-                          </div>
-                          <div style={{ padding: '5px 12px', borderRadius: '999px', background: sevBg, color: sevText, fontSize: '12.5px', fontWeight: 700, flexShrink: 0 }}>
-                            {daysLeftLabel(item.daysLeft)}
-                          </div>
-                        </div>
-                        <div>
-                          <div style={{ fontSize: '14.5px', fontWeight: 700, color: 'var(--text-main)' }}>{item.title}</div>
-                          <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginTop: '2px' }}>{item.subtitle} · {item.detail}</div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Källa/tillförlitlighet — kundkrav: datumen måste vara
-                  garanterat korrekta, inte gissade. Uträkningen (samma
-                  funktioner som Startsidans varningswidget och de
-                  automatiska påminnelsemejlen, aldrig en egen tredje
-                  beräkning) verifierades direkt mot skatteverket.se, senast
-                  omkontrollerad 2026-09-12, inklusive januari- och augusti-
-                  undantaget (17:e istället för 12:e) — se
-                  declarationDeadlines.js. */}
-              <div style={{ marginTop: '18px', fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-                Datumen följer Skatteverkets allmänna regel (12:e i andra månaden efter perioden, med undantag för januari och augusti då det är den 17:e) och flyttas fram till nästa vardag om de landar på en helg. Skatteverket kan i enskilda fall flytta fram ytterligare vid röda dagar.
-              </div>
-            </div>
+            <TaxOverview items={overviewItems} summary={overviewSummary} onOpen={openFromOverview} onToggleFiled={toggleFiled} />
           )}
 
           {/* Momsdeklaration */}
@@ -924,6 +965,9 @@ export default function Taxes({
             vatPeriods={vatPeriods}
             onBookPeriod={onBookVatPeriod}
             onNavigateToVerification={onNavigateToVerification}
+            filings={filings}
+            onToggleFiled={toggleFiled}
+            focusPeriod={vatFocus}
           />
           )}
 
@@ -1030,6 +1074,14 @@ export default function Taxes({
                 <Lock size={16} /> {isLocked ? 'Räkenskapsår låst' : 'Lås räkenskapsår och skapa bokslut'}
               </button>
             </div>
+            {isLocked && nextFilingSection && sectionTabs.some(t => t.id === nextFilingSection) && (
+              <div style={{ padding: '14px 24px', borderTop: '1px solid var(--border)', background: 'var(--status-green-bg)', color: 'var(--status-green-text)', fontSize: '13.5px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                <span><strong>Bokslutet är klart.</strong> Nästa steg är {isSoleProp ? 'NE-bilagan' : 'inkomstdeklarationen'}. Bokix förbereder filerna åt dig.</span>
+                <button type="button" onClick={() => setActiveSection(nextFilingSection)} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '8px 14px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}>
+                  Förbered deklarationen <ChevronRight size={15} />
+                </button>
+              </div>
+            )}
             {legacyYears.map(y => (
               <div key={y.year} style={{ padding: '12px 24px', borderTop: '1px solid var(--border)', background: 'var(--status-amber-bg)', color: 'var(--status-amber-text)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                 <span>Resultatet för {y.year} ({fmt(y.result)} kr) ligger på 2099, som är aktiebolagets konto. För en enskild firma ska det ligga på 2019.</span>

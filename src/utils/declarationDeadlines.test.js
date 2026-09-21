@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { nextVatDeadline, nextAgiDeadline, nextKuDeadline } from './declarationDeadlines'
+import { nextVatDeadline, nextAgiDeadline, nextKuDeadline, vatDueDate } from './declarationDeadlines'
 
 describe('nextVatDeadline', () => {
   it('returns null for non-quarterly reporting', () => {
@@ -60,6 +60,30 @@ describe('nextVatDeadline', () => {
         expect(result.dueDate.getDate()).toBe(expectedDay)
       })
     }
+  })
+})
+
+describe('vatDueDate', () => {
+  const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
+  it('is the 12th of the second month after the quarter (rolled off weekends)', () => {
+    expect(ymd(vatDueDate(2026, 3))).toBe('2026-11-12') // torsdag
+    expect(ymd(vatDueDate(2026, 1))).toBe('2026-05-12') // tisdag
+  })
+
+  it('uses the 17th when the due month is August', () => {
+    // Kvartal 2 slutar i juni, förfaller i augusti: 17 augusti 2026 är en måndag.
+    expect(ymd(vatDueDate(2026, 2))).toBe('2026-08-17')
+  })
+
+  it('handles quarter 4 (due in February of the next year, no month overflow)', () => {
+    // 12 februari 2027 är en fredag.
+    expect(ymd(vatDueDate(2026, 4))).toBe('2027-02-12')
+  })
+
+  it('matches nextVatDeadline for the quarter it returns', () => {
+    const next = nextVatDeadline({ vatPeriod: 'quarterly' }, {})
+    expect(ymd(vatDueDate(next.year, next.quarter))).toBe(ymd(next.dueDate))
   })
 })
 
