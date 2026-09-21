@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { FileSpreadsheet, Plus, FileText, Check, X, Download, Trash2, Send, Eye, ZoomIn, ZoomOut, Paperclip, Loader2, Search, ChevronDown, ChevronRight } from './icons';
+import { NavQuotesIcon, Plus, FileText, Check, X, Download, Trash2, Send, Eye, ZoomIn, ZoomOut, Paperclip, Loader2, Search, ChevronDown, ChevronRight } from './icons';
 import PaperFit from './shared/PaperFit';
 import InvoiceDocument, { DEFAULT_INVOICE_TEMPLATE, INVOICE_TEMPLATES } from './InvoiceDocument';
 import { exportInvoicePdf, getInvoicePdfBase64 } from '../utils/exportInvoicePdf';
@@ -1160,7 +1160,7 @@ export default function Quotes({ quotes = [], setQuotes, onConvert, contacts = [
             background: 'var(--bg-card)',
           }}>
             <div style={{ width: 56, height: 56, borderRadius: '999px', background: searchTerm ? 'var(--border-light)' : 'var(--bg-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: searchTerm ? 'var(--text-muted)' : BRAND.green, marginBottom: '4px' }}>
-              <FileSpreadsheet size={26} />
+              <NavQuotesIcon size={26} />
             </div>
             <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-main)' }}>
               {searchTerm ? 'Inga offerter matchar din sökning' : 'Inga offerter skapade'}
@@ -1226,7 +1226,7 @@ export default function Quotes({ quotes = [], setQuotes, onConvert, contacts = [
             {
               key: 'invoiceNumber', label: 'Offertnr', fontWeight: 600, color: 'var(--text-main)', render: q => (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <FileSpreadsheet size={16} color="var(--text-muted)" /> {q.invoiceNumber || '—'}
+                  <NavQuotesIcon size={16} color="var(--text-muted)" /> {q.invoiceNumber || '—'}
                 </div>
               ),
             },

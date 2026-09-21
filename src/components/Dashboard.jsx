@@ -1,28 +1,21 @@
-import React, { useMemo, useState, useEffect, useLayoutEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import {
   FileText, Receipt, TrendingUp, TrendingDown,
   ChevronRight, ArrowUpRight, ArrowDownRight,
-  CheckCircle2, Minus, BarChart2,
-  UserPlus, Users, Clock, AlertCircle, X, MessageSquare, ClipboardCheck, Upload,
+  CheckCircle2, BarChart2,
+  UserPlus, Users, Clock, AlertCircle, X, MessageSquare, Upload,
   QuickNewInvoiceIcon, QuickUploadReceiptIcon, QuickNewContactIcon, QuickLogTimeIcon, QuickRunPayrollIcon,
   // Aliasat — 'LineChart' krockar annars med recharts-komponenten med
   // samma namn som redan importeras nedan (två helt olika saker: en ikon
   // kontra en diagramkomponent).
-  LineChart as LineChartIcon, AreaChart as AreaChartIcon, Table2, Layers,
+  LineChart as LineChartIcon, AreaChart as AreaChartIcon, Table2,
 } from './icons';
-import {
-  BarChart, Bar, LineChart, Line,
-  XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, Legend, ReferenceLine, Cell
-} from 'recharts';
-import { getDebet, getKredit } from '../utils/verificationAmounts';
-import { quarterToRange } from '../utils/vatCalculation';
 import { nextVatDeadline } from '../utils/declarationDeadlines';
 import { getGreeting } from '../utils/greeting';
 import SieImportModal from './SieImportModal';
 import { BRAND, VIVID } from '../utils/brandColors';
 import { resolveChartPalette, makeAmountFormatters, CHART_COLOR_FAMILIES } from '../utils/chartPalette';
-import { RevenueExpenseChart, ReportDisplayProvider } from './reports/ReportUI';
+import { RevenueExpenseChart, ReportDisplayProvider, useReportDisplay } from './reports/ReportUI';
 import { useTranslation } from '../i18n';
 // Kundönskemål: samma fem period-flikar (Denna månad/3 mån/6 mån/
 // Räkenskapsåret/Sedan start) som Rapport och analys → Företagsöversikt,
@@ -140,17 +133,6 @@ const ONBOARD_FOOTER_LINK_STYLE = {
   textDecoration: 'none', transition: 'color 0.15s',
 };
 
-// Tre sätt att läsa samma period. "Översikt" står först — den samlade
-// bilden före de två avgränsade frågorna den är byggd av (hur mycket kom
-// in och gick ut, respektive vad blev kvar) — så den som vill se sambandet
-// mellan dem inte tvingades växla fram och tillbaka och hålla den ena
-// kurvan i huvudet.
-const chartModes = (t) => [
-  { id: 'all',             label: t('dashboard.chart.modeOverview'),        icon: Layers },
-  { id: 'revenue-expense', label: t('dashboard.chart.modeRevenueExpense'), icon: BarChart2 },
-  { id: 'result',          label: t('dashboard.chart.modeResult'),          icon: Minus },
-];
-
 // Diagramformat — samma data, tre sätt att läsa den. "Tabell" är inte bara
 // en extra vy för smaksak: dataviz-skillens tillgänglighetskrav säger att en
 // tabellvy alltid ska finnas som alternativ till en ren grafisk framställning.
@@ -177,16 +159,17 @@ const formatModes = (t) => [
   { id: 'table', label: t('dashboard.chart.formatTable'), icon: Table2 },
 ];
 
-/** Liten färgad prick/streck-swatch för handbyggda legender (samma mönster
- * som ReportUI.jsx:s `swatch`-hjälpare, men lokal här eftersom Dashboard.jsx
- * inte i övrigt delar presentationsdelar med Rapport och analys). */
-function legendSwatch(color, dashed = false) {
+/** Färgförklaring till den samlade grafen: intäkter, kostnader och resultat. Ligger inuti
+ * ReportDisplayProvider så färgerna alltid är samma som grafens egna. */
+function ChartKey({ variant }) {
+  const { t } = useTranslation();
+  const { palette } = useReportDisplay();
   return (
-    <span style={{
-      width: '13px', height: dashed ? '2px' : '9px', borderRadius: dashed ? 0 : '50%',
-      background: dashed ? 'none' : color, borderTop: dashed ? `2px dashed ${color}` : undefined,
-      display: 'inline-block', flexShrink: 0,
-    }} />
+    <div className="dash-chart-key">
+      <span><i className="dash-chart-key-dot" style={{ background: palette.income }} />{t('dashboard.kpi.income')}</span>
+      <span><i className="dash-chart-key-dot" style={{ background: palette.cost, opacity: variant === 'bars' ? 0.45 : 1 }} />{t('dashboard.kpi.costs')}</span>
+      <span><i className="dash-chart-key-line" style={{ background: palette.profit }} />{t('dashboard.kpi.result')}</span>
+    </div>
   );
 }
 
@@ -207,37 +190,50 @@ function DeltaBadge({ current, previous }) {
   );
 }
 
-/** Tabellformatet — samma rader (dag eller månad, beroende på vald
- * period-flik, se PeriodPicker/overviewPeriodBounds) som graferna, som en
- * riktig `<table>` istället för streck/staplar.
- *
- * Kundönskemål: Intäkter- och Utgifter-kolumnerna (som tidigare visades i
- * "Intäkter vs Utgifter"-läget) togs bort helt — tabellen visar bara
- * Period + Resultat oavsett vald graf, så beloppen inte "läcker" ut
- * separat vid sidan av NYCKELTAL-korten ovanför. */
+/** Tabellformatet — samma rader (dag eller månad, beroende på vald period) som graferna,
+ * med intäkter, kostnader och resultat per rad och en summarad längst ner. Föregående
+ * års resultat och förändringen visas bara när det finns fjolårsdata (och inte på telefon). */
 function ChartDataTable({ data, fmt, hasPrevYearData, comparisonLabel }) {
   const { t } = useTranslation();
+  const total = data.reduce((a, r) => ({
+    income: a.income + r.Intäkter, cost: a.cost + r.Utgifter, result: a.result + r.Resultat, prev: a.prev + r.PrevResultat,
+  }), { income: 0, cost: 0, result: 0, prev: 0 });
+  const neg = (v) => (v < 0 ? 'neg' : '');
   return (
-    <div style={{ overflowX: 'auto' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+    <div className="dash-table-wrap">
+      <table className="dash-table">
         <thead>
-          <tr style={{ borderBottom: '1px solid var(--border)' }}>
-            <th style={{ textAlign: 'left', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600 }}>{t('dashboard.chart.tablePeriod')}</th>
-            <th style={{ textAlign: 'right', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600 }}>{t('dashboard.chart.tableResult')}</th>
-            {hasPrevYearData && <th style={{ textAlign: 'right', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600 }}>{t('dashboard.chart.tableResultCompared', { label: comparisonLabel })}</th>}
-            {hasPrevYearData && <th style={{ textAlign: 'right', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600 }}>{t('dashboard.chart.tableChange')}</th>}
+          <tr>
+            <th>{t('dashboard.chart.tablePeriod')}</th>
+            <th>{t('dashboard.kpi.income')}</th>
+            <th>{t('dashboard.kpi.costs')}</th>
+            <th>{t('dashboard.kpi.result')}</th>
+            {hasPrevYearData && <th className="dash-table-prev">{t('dashboard.chart.tableResultCompared', { label: comparisonLabel })}</th>}
+            {hasPrevYearData && <th className="dash-table-prev">{t('dashboard.chart.tableChange')}</th>}
           </tr>
         </thead>
         <tbody>
-          {data.map((row, i) => (
-            <tr key={row.name} style={{ borderBottom: '1px solid var(--border-light)', background: i % 2 === 1 ? 'var(--bg-muted)' : 'transparent' }}>
-              <td style={{ padding: '7px 10px', color: 'var(--text-main)', fontWeight: 600 }}>{row.name}</td>
-              <td style={{ textAlign: 'right', padding: '7px 10px', color: row.Resultat >= 0 ? BRAND.greenDark : BRAND.redText, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{fmt(row.Resultat)}</td>
-              {hasPrevYearData && <td style={{ textAlign: 'right', padding: '7px 10px', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>{fmt(row.PrevResultat)}</td>}
-              {hasPrevYearData && <td style={{ textAlign: 'right', padding: '7px 10px' }}><DeltaBadge current={row.Resultat} previous={row.PrevResultat} /></td>}
+          {data.map(row => (
+            <tr key={row.name}>
+              <td>{row.name}</td>
+              <td>{fmt(row.Intäkter)}</td>
+              <td>{fmt(row.Utgifter)}</td>
+              <td className={`result ${neg(row.Resultat)}`}>{fmt(row.Resultat)}</td>
+              {hasPrevYearData && <td className="dash-table-prev muted">{fmt(row.PrevResultat)}</td>}
+              {hasPrevYearData && <td className="dash-table-prev"><DeltaBadge current={row.Resultat} previous={row.PrevResultat} /></td>}
             </tr>
           ))}
         </tbody>
+        <tfoot>
+          <tr>
+            <td>{t('dashboard.chart.tableTotal')}</td>
+            <td>{fmt(total.income)}</td>
+            <td>{fmt(total.cost)}</td>
+            <td className={`result ${neg(total.result)}`}>{fmt(total.result)}</td>
+            {hasPrevYearData && <td className="dash-table-prev muted">{fmt(total.prev)}</td>}
+            {hasPrevYearData && <td className="dash-table-prev"><DeltaBadge current={total.result} previous={total.prev} /></td>}
+          </tr>
+        </tfoot>
       </table>
     </div>
   );
@@ -262,44 +258,9 @@ const quickActionDefs = (t) => [
   { label: t('dashboard.quickActions.runPayroll'),     icon: QuickRunPayrollIcon,   tab: 'payroll',  bg: VIVID.red, staffOnly: true },
 ];
 
-// Röd/gul/grön — samma BRAND-tokens som statusar i övriga listor i appen
-// (Bokförd/Granska/Förfallen) för radens BAKGRUND (bg, diskret tint), men en
-// solid VIVID-platta för ikon-chippen (icon) — se QUICK_ACTIONS-kommentaren.
-const SEV = {
-  danger:  { bg: BRAND.redBg,    text: BRAND.redText,   icon: VIVID.red,   rank: 0 },
-  warning: { bg: BRAND.amberBg,  text: BRAND.amberText, icon: VIVID.amber, rank: 1 },
-  success: { bg: BRAND.greenLight, text: BRAND.greenDark, icon: VIVID.green, rank: 2 },
-};
-
-function pad2(n) { return String(n).padStart(2, '0'); }
-function formatISODate(d) { return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; }
-
-/* ── Custom Tooltip ── */
-function ChartTooltip({ active, payload, label, fmt }) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div style={{
-      background: 'var(--bg-card)',
-      border: '1px solid var(--border)',
-      borderRadius: '10px',
-      padding: '10px 14px',
-      boxShadow: '0 8px 24px rgba(0,0,0,0.09)',
-      fontSize: '12.5px',
-      minWidth: '160px',
-    }}>
-      <div style={{ fontWeight: 700, color: 'var(--text-main)', marginBottom: '8px', fontSize: '13px' }}>{label}</div>
-      {payload.map((p, i) => (
-        <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '2px 0' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.color, display: 'inline-block' }} />
-            <span style={{ color: 'var(--text-secondary)' }}>{p.name}</span>
-          </div>
-          <strong style={{ color: 'var(--text-main)' }}>{fmt(p.value)}</strong>
-        </div>
-      ))}
-    </div>
-  );
-}
+// Ordningen i Att göra idag: försenat först, sedan det som närmar sig, sist det som är mindre bråttom.
+// Bara en sorteringsnyckel: raderna visas utan färg.
+const SEV_RANK = { danger: 0, warning: 1, success: 2 };
 
 /* ── KPI Card — med en liten stapel-sparklinje som visar riktning.
    `hero`: Sida 31 punkt 3 — sidans viktigaste enskilda tal (RÅ Resultat,
@@ -364,78 +325,21 @@ function KpiCard({ label, value, sub, icon: Icon, color, bg, positive, onClick, 
   );
 }
 
-/* ── "Idag"-raden — konkreta, klickbara händelser. Röd > gul > grön styr
-   ordningen, aldrig kronologi. Hela sektionen döljs numera i stället om
-   listan är tom (se anropsstället, kundönskemål) — den här komponenten
-   renderas alltså bara när det faktiskt finns något att visa. Varje rad
-   har både en klickbar del (navigerar, riktig hover: lyft + skugga, samma
-   språk som Snabbåtgärder-korten ovanför) och en fristående X-knapp
-   (onDismiss) — kundönskemål: man ska kunna ignorera en rad utan att
-   känna sig tvingad att agera på den. ── */
+/* ── "Idag"-raden — en rad i listan Att göra idag. Ingen färg och inga ikoner: bara texten,
+   en liten ring till vänster som avfärdar raden (som i Påminnelser) och en pil som visar att
+   raden går att klicka på. Ordningen (viktigast först) styrs av todos-listan, inte av färg. ── */
 function TodayRow({ item, onClick, onDismiss }) {
   const { t } = useTranslation();
-  const c = SEV[item.sev] || SEV.warning;
-  const Icon = item.icon;
   return (
-    <div
-      className="dash-today-row"
-      style={{
-        position: 'relative', display: 'flex', alignItems: 'center', gap: '11px', width: '100%',
-        background: c.bg, borderRadius: '11px',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
-      }}
-      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 14px rgba(0,0,0,0.08)'; }}
-      onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,0.03)'; }}
-    >
-      <button
-        onClick={onClick}
-        className="dash-today-btn"
-        style={{
-          display: 'flex', alignItems: 'center', gap: '11px', flex: 1, minWidth: 0,
-          padding: '12px 14px', background: 'none', border: 'none',
-          borderRadius: '11px', cursor: 'pointer',
-          textAlign: 'left', fontFamily: 'inherit',
-        }}
-      >
-        <div style={{ width: 28, height: 28, borderRadius: '8px', background: c.icon, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: `0 2px 5px ${c.icon}55` }}>
-          <Icon size={14} />
-        </div>
-        <span className="dash-today-text" style={{ flex: 1, fontSize: '13px', fontWeight: 600, color: c.text, lineHeight: 1.35 }}>{item.text}</span>
-        {item.tab && <ChevronRight size={14} style={{ color: c.text, opacity: 0.6, flexShrink: 0 }} />}
+    <li className="dash-today-row">
+      <button type="button" className="dash-today-check" onClick={onDismiss} aria-label={t('dashboard.today.dismiss')} title={t('dashboard.today.dismiss')} />
+      <button type="button" className="dash-today-btn" onClick={onClick}>
+        <span className="dash-today-text">{item.text}</span>
+        {item.tab && <ChevronRight size={16} className="dash-today-chevron" />}
       </button>
-      {/* Kundönskemål: "de kan ignorera det, de behöver inte följa
-          allihopa" — en rad man inte tänker agera på ska gå att stänga av
-          utan att behöva klicka in på den (och därmed navigera bort).
-          stopPropagation krävs inte här (egen knapp bredvid, inte inuti,
-          radens klickbara knapp) men onDismiss anropas ändå oberoende av
-          onClick ovan — två separata knappar, inte en overlay. */}
-      <button
-        onClick={onDismiss}
-        aria-label={t('dashboard.today.dismiss')}
-        title={t('dashboard.today.dismiss')}
-        style={{
-          flexShrink: 0, width: 24, height: 24, marginRight: '10px', borderRadius: '7px',
-          border: 'none', background: 'transparent', color: c.text, opacity: 0.5,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-          transition: 'opacity 0.15s, background 0.15s',
-        }}
-        onMouseEnter={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.background = 'rgba(0,0,0,0.06)'; }}
-        onMouseLeave={e => { e.currentTarget.style.opacity = '0.5'; e.currentTarget.style.background = 'transparent'; }}
-      >
-        <X size={13} />
-      </button>
-    </div>
+    </li>
   );
 }
-
-// Telefon: startsidan görs så tät att den ryms på en skärm utan att skrolla.
-// Diagrammen får då en lägre höjd, resten styrs av .dash-* i index.css.
-// Nivåerna på telefon, från luftigast till tätast.
-const FIT_LEVELS = ['roomy', 'cozy', 'snug', 'compact', 'mini', 'tight'];
-// Senast valda nivå sparas i minnet, så att en ny visit på startsidan (t.ex. efter
-// en annan flik) börjar på rätt nivå direkt och inte hoppar eller blinkar.
-let lastFit = 'roomy';
-let lastFitReady = false;
 
 function useIsPhone(maxWidth = 640) {
   const query = `(max-width: ${maxWidth}px)`;
@@ -452,8 +356,7 @@ function useIsPhone(maxWidth = 640) {
 }
 
 export default function Dashboard({ verifications, accounts = [], invoices, expenses, contacts, setActiveTab, company, user, vatPeriods = {}, payrollRuns = [], employees = [], onBulkImportSie }) {
-  const { t, language } = useTranslation();
-  const CHART_MODES = chartModes(t);
+  const { t } = useTranslation();
   const FORMAT_MODES = formatModes(t);
   // Har företaget personal? Avgörs på verkliga anställda och lönekörningar,
   // inte på vilket abonnemang som köpts. Nivån GÅR numera att läsa
@@ -462,7 +365,6 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
   // får lönegenvägen samma dag, utan att först behöva byta abonnemang.
   const hasStaff = employees.length > 0 || payrollRuns.length > 0;
   const quickActions = quickActionDefs(t).filter(a => !a.staffOnly || hasStaff);
-  const [chartMode, setChartMode] = useState('revenue-expense');
   // Företagets egna färg- och beloppsval (samma post som rapportsidan
   // sparar, company.reportDisplay). `useMemo` för att paletten annars
   // skulle byggas om vid varje omritning av startsidan.
@@ -472,8 +374,6 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
   }), [company?.reportDisplay?.colors, company?.reportDisplay?.unit]);
   const chartRevenue = chart.income;
   const chartExpense = chart.cost;
-  const chartRevenuePrev = hexToRgba(chartRevenue, 0.55);
-  const chartExpensePrev = hexToRgba(chartExpense, 0.55);
   // Kundfeedback ("intäkter ska vara blått som i analytics, samma med rött
   // och grönt"): NYCKELTAL-kortens gradient kom tidigare från de STATISKA
   // KPI_GRADIENTS-konstanterna (brandColors.js) — alltid blått/rött/grönt,
@@ -501,10 +401,6 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
   // räkenskapsåret hittills), bara nu en av fem valbara istället för det
   // enda alternativet.
   const [periodId, setPeriodId] = useState('year');
-  // Kundfeedback: linjestil-väljaren (Slät/Rak/Trappa) bort helt — alltid
-  // den släta (monotone) kurvan, samma som var förvalt innan.
-  const curveType = 'monotone';
-
   // ── "Kom igång"-checklistan ── Ska ligga kvar tills ALLA fyra steg är
   // klara (inte bara försvinna så fort kontot inte längre räknas som "nytt",
   // vilket tidigare hände redan efter första kunden/fakturan/utgiften) —
@@ -574,8 +470,6 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
   // "1,2Mkr") — den är byggd för en smal ruta på startsidan, inte för en
   // rapportsida med gott om axelutrymme.
   const explicitUnit = company?.reportDisplay?.unit && company.reportDisplay.unit !== 'auto';
-  const axisTick = explicitUnit ? amount.axis : fmtShort;
-  const axisWidth = explicitUnit ? amount.axisWidth : 52;
 
   // NYCKELTAL-korten (Intäkter/Kostnader/Resultat) hade tidigare en egen,
   // lokal "hela innevarande kalenderår"-uträkning här — borttagen. De läser
@@ -604,58 +498,6 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
   }, 0);
 
   const vatDeadline = useMemo(() => nextVatDeadline(company, vatPeriods), [company, vatPeriods]);
-
-  // ── Moms-kortet — utgående/ingående moms bokförd inom den kommande
-  // (ännu inte inlämnade) perioden. Räknas fram riktigt från bokförda
-  // verifikationsrader, aldrig uppskattat — samma princip som resten av
-  // sidan.
-  //
-  // Kundfeedback ("på Startsidan visar Moms-kortet ingenting"): kortet
-  // byggde tidigare BARA på vatDeadline, som `nextVatDeadline` (declaration-
-  // Deadlines.js) medvetet returnerar null för — dess kommentar säger rakt
-  // ut "det enda flödet som faktiskt är implementerat är kvartalsvis".
-  // Alla företag med Inställningar → company.vatPeriod satt till 'monthly'
-  // eller 'yearly' fick alltså ALLTID det tomma "Ingen kommande moms-
-  // deklaration"-läget, oavsett hur mycket moms som faktiskt var bokfört.
-  // Fixet räknar nu fram RIKTIGA summor för samtliga tre perioder (innevarande
-  // månad/kvartal/år) — men visar bara ett exakt förfallodatum för kvartals-
-  // vis (den enda perioden vars Skatteverket-regel är verifierad, se
-  // declarationDeadlines.js), aldrig ett gissat datum för månads-/årsvis.
-  const vatPeriodSummary = useMemo(() => {
-    const period = company?.vatPeriod || 'quarterly';
-    const today = new Date();
-    let start, end, label, dueDateLabel = null;
-    if (period === 'quarterly') {
-      if (!vatDeadline) return null;
-      [start, end] = quarterToRange(vatDeadline.year, vatDeadline.quarter);
-      label = `Q${vatDeadline.quarter} ${vatDeadline.year}`;
-      dueDateLabel = formatISODate(vatDeadline.dueDate);
-    } else if (period === 'monthly') {
-      const y = today.getFullYear(), m = today.getMonth();
-      start = `${y}-${String(m + 1).padStart(2, '0')}-01`;
-      end = new Date(y, m + 1, 0).toISOString().split('T')[0];
-      label = today.toLocaleDateString(language === 'en' ? 'en-GB' : 'sv-SE', { month: 'long', year: 'numeric' });
-    } else { // 'yearly'
-      const y = today.getFullYear();
-      start = `${y}-01-01`; end = `${y}-12-31`;
-      label = String(y);
-    }
-    let utgaende = 0, ingaende = 0;
-    verifications.forEach(v => {
-      if ((v.status || 'booked') === 'draft') return;
-      if (v.date < start || v.date > end) return;
-      v.rows.forEach(r => {
-        // Bugfix: 2621/2631 är de RIKTIGA BAS-kontona för 12/6 % utgående
-        // moms (2612/2613 var aldrig det, se vatConfig.js) — men befintliga
-        // konton som redan bokfördes mot de gamla, felaktiga koderna innan
-        // fixen ska fortfarande räknas med här, annars försvinner de tyst
-        // ur den här summeringen retroaktivt.
-        if (['2611', '2621', '2631', '2612', '2613'].includes(r.account)) utgaende += (getKredit(r) - getDebet(r));
-        else if (r.account === '2641') ingaende += (getDebet(r) - getKredit(r));
-      });
-    });
-    return { label, utgaende, ingaende, attBetala: utgaende - ingaende, dueDateLabel };
-  }, [vatDeadline, verifications, company?.vatPeriod, language]);
 
   // Röd: förfallet (passerat förfallodatum). Gul: kommande deadline inom en
   // snar tidsram (~7 dagar). Grön: mindre brådskande, men värt att veta om.
@@ -713,7 +555,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
   // insättningsordningen i koden vad som stod överst, vilket inte har
   // något med hur bråttom det är att göra.
   rawTodos.sort((a, b) => {
-    const bySeverity = SEV[a.sev].rank - SEV[b.sev].rank;
+    const bySeverity = SEV_RANK[a.sev] - SEV_RANK[b.sev];
     if (bySeverity !== 0) return bySeverity;
     const aDays = a.daysLeft ?? Number.POSITIVE_INFINITY;
     const bDays = b.daysLeft ?? Number.POSITIVE_INFINITY;
@@ -886,11 +728,6 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
   // bara ett fältnamn som matchar seriens etikett.
   const combinedChartData = useMemo(() => chartData.map(row => ({ ...row, Resultat: row.Resultat })), [chartData]);
 
-  const comparisonChartData = useMemo(() => chartData.map(row => ({
-    ...row,
-    [`Intäkter ${comparisonLabel}`]: row.PrevIntäkter,
-    [`Utgifter ${comparisonLabel}`]: row.PrevUtgifter,
-  })), [chartData, comparisonLabel]);
   const hasChartData = chartData.some(d => d.Intäkter !== 0 || d.Utgifter !== 0);
   // Bara sant om det FAKTISKT finns bokförd fjolårsdata OCH perioden har en
   // meningsfull jämförelse alls (periodBounds.hasComparison — falskt för
@@ -925,64 +762,17 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
   // marginBottom) istället för att bara göra texten osynlig.
   const showGreeting = user?.user_metadata?.show_dashboard_greeting !== false;
   const isPhone = useIsPhone();
-  // Startsidan på telefon väljer själv hur tät den ska vara: den luftiga
-  // layouten först, och bara om den inte ryms utan skrollning (mellan
-  // toppfältet och bottenfältet) går den över till compact och sist tight.
-  // Nivån räknas om när skärmens storlek eller innehållet ändras.
-  const rootRef = useRef(null);
-  const [fit, setFit] = useState(lastFit);
-  const fitSignature = `${isPhone}|${showGreeting}|${isNew}|${todos.length}|${sieImportDismissed}|${quickActions.length}`;
-  // Första gången börjar vi ändå på roomy. Därefter räknas nivån om när innehållet ändras.
-  const firstSignature = useRef(true);
+  // Fönstrets höjd på dator: diagrammet får plats på en laptop utan att man måste skrolla förbi det.
+  const [viewH, setViewH] = useState(() => (typeof window !== 'undefined' ? window.innerHeight : 900));
   useEffect(() => {
-    if (firstSignature.current) { firstSignature.current = false; return; }
-    setFit('roomy');
-  }, [fitSignature]);
-
-  useEffect(() => {
-    if (!isPhone) return undefined;
-    let timer = null;
-    const onResize = () => { clearTimeout(timer); timer = setTimeout(() => setFit('roomy'), 150); };
+    const onResize = () => setViewH(window.innerHeight);
     window.addEventListener('resize', onResize);
-    return () => { clearTimeout(timer); window.removeEventListener('resize', onResize); };
-  }, [isPhone]);
-  // Första mätningen döljer sidan tills nivån är vald, så att man inte ser den
-  // hoppa mellan nivåerna. Utan telefon, eller om något saknas, visas den direkt.
-  const [fitReady, setFitReady] = useState(lastFitReady);
-  useEffect(() => { lastFit = fit; }, [fit]);
-  useEffect(() => { if (fitReady) lastFitReady = true; }, [fitReady]);
-  useLayoutEffect(() => {
-    if (!isPhone) return undefined;
-    const root = rootRef.current;
-    const main = root?.closest('.main-wrapper');
-    if (!root || !main) { setFitReady(true); return undefined; }
-    let timer = null;
-    // Mäter först när nivån hunnit ritas klart (diagrammet får sin storlek
-    // efter ritningen), och tar ett steg i taget.
-    const measure = () => {
-      if (main.scrollHeight > main.clientHeight + 1) {
-        setFit(f => FIT_LEVELS[Math.min(FIT_LEVELS.indexOf(f) + 1, FIT_LEVELS.length - 1)]);
-      } else {
-        setFitReady(true);
-      }
-    };
-    const schedule = () => { clearTimeout(timer); timer = setTimeout(measure, 70); };
-    schedule();
-    let observer = null;
-    if (typeof ResizeObserver !== 'undefined') {
-      observer = new ResizeObserver(schedule);
-      observer.observe(root);
-    }
-    return () => { clearTimeout(timer); if (observer) observer.disconnect(); };
-  }, [fit, fitSignature, isPhone, chartData]);
-  useEffect(() => {
-    // Skyddsnät: visa alltid sidan även om mätningen av någon anledning aldrig blir klar.
-    const t = setTimeout(() => setFitReady(true), 1500);
-    return () => clearTimeout(t);
+    return () => window.removeEventListener('resize', onResize);
   }, []);
-  const activeFit = isPhone ? fit : 'roomy';
-  const compactFit = isPhone && ['snug', 'compact', 'mini', 'tight'].includes(activeFit);
-  const chartH = !isPhone ? 260 : ({ roomy: 200, cozy: 150, snug: (typeof window !== 'undefined' && window.innerHeight > 830) ? 170 : 120 }[activeFit] || 84);
+  // Diagrammet är högre på telefon än förut: startsidan skrollas i stället för att pressas ihop.
+  // Utestående visas bara när det finns obetalda fakturor åt något håll.
+  const hasOutstanding = outstanding.inCount > 0 || outstanding.outCount > 0;
+  const chartH = !isPhone ? Math.max(170, Math.min(340, Math.round(viewH * (viewH < 800 ? 0.28 : 0.34)))) : 240;
 
   return (
     // Bugkritiskt: rotdiven hade varken minHeight eller egen bakgrund, bara
@@ -1002,34 +792,12 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
     // tappade sin egen bakgrund/kant): samma 24px OVANFÖR gav nu, utan en
     // synlig linje som motiverar den, ett stort odifferentierat tomrum
     // innan hälsningen — bara toppen trimmad, sidorna/botten oförändrade.
-    <div className="dash-root" ref={rootRef} data-fit={activeFit} style={{ visibility: (!isPhone || fitReady) ? 'visible' : 'hidden', maxWidth: '100%', margin: '0 auto', width: '100%', minHeight: isPhone ? 0 : '100%', boxSizing: 'border-box', background: 'var(--bg-page)', padding: '24px', paddingTop: '8px' }}>
+    <div className="dash-root" style={{ maxWidth: '100%', margin: '0 auto', width: '100%', minHeight: isPhone ? 0 : '100%', boxSizing: 'border-box', background: 'var(--bg-page)', padding: '24px', paddingTop: '8px' }}>
       <style>{`
         @media (max-width: 900px) {
           .dash-lower-grid { grid-template-columns: 1fr !important; }
         }
         @media (max-width: 640px) {
-          /* Kundfeedback ("på telefonen ska de ligga bredvid varandra som
-             på datorn, inte under"): stod tidigare på 1fr här — tre kort
-             staplade rakt under varandra i stället för sida vid sida.
-             Behåller nu tre kolumner på alla bredder, bara tätare
-             (padding/typsnitt/ikon krympta via dash-kpi-card-* nedan) så de
-             faktiskt får plats utan att klämmas eller radbryta konstigt. */
-          .dash-kpi-grid { gap: 8px !important; }
-          .dash-kpi-card { padding: 12px 10px !important; gap: 8px !important; }
-          .dash-kpi-card-icon { width: 26px !important; height: 26px !important; }
-          .dash-kpi-card-icon svg { width: 13px !important; height: 13px !important; }
-          .dash-kpi-card-label { font-size: 9.5px !important; margin-bottom: 3px !important; }
-          .dash-kpi-card-value { font-size: 14.5px !important; }
-          .dash-kpi-card-sub { font-size: 10px !important; }
-          .dash-quick-actions { grid-template-columns: repeat(2,1fr) !important; }
-          /* Kundfeedback: "på telefonen är det tomt bredvid Kör lön". Med
-             personal visas FEM genvägar, och den femte hamnade ensam på
-             sista raden med en lika stor tom ruta bredvid sig. En udda
-             sista genväg får därför spänna över båda kolumnerna i stället
-             — ingen tom halva, och knappen blir samtidigt en större
-             träffyta. */
-          .dash-quick-actions > :last-child:nth-child(odd) { grid-column: 1 / -1; }
-          .dash-todo-grid { grid-template-columns: 1fr !important; }
           /* En tidigare version hade en egen margin-bottom-regel här på
              .dash-lower-grid, byggd på antagandet att Moms-kortet "ofta"
              var sidans sista kort — trasig så fort showOnboarding-kortet
@@ -1062,7 +830,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
             radbryter normalt om den någonsin behöver, och clamp() gör att
             den sällan ens behöver det — storleken krymper mjukt med
             fönsterbredden istället för en fast 44px oavsett skärm. */}
-        <h1 style={{ fontFamily: 'var(--font-voice)', fontWeight: 700, fontSize: 'clamp(24px, 6vw, 44px)', letterSpacing: '-0.01em', color: 'var(--text-main)', textAlign: 'center', margin: 0, maxWidth: '100%' }}>
+        <h1 style={{ fontFamily: 'var(--font-voice)', fontWeight: 700, fontSize: 'clamp(24px, min(6vw, 4vh), 44px)', letterSpacing: '-0.01em', color: 'var(--text-main)', textAlign: 'center', margin: 0, maxWidth: '100%' }}>
           {greeting}, {firstName || t('dashboard.greetingFallbackName')} 👋
         </h1>
       </div>
@@ -1082,7 +850,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
         {/* Kolumnantalet följer hur många genvägar som faktiskt visas (fyra
             utan personal, fem med) — ett fast fyrkolumnsrutnät hade lämnat
             den femte ensam på en egen rad. */}
-        <div className="dash-quick-actions" style={{ display: 'grid', gridTemplateColumns: `repeat(${quickActions.length},1fr)`, gap: '10px' }}>
+        <div className="dash-quick-actions" data-count={quickActions.length} style={{ display: 'grid', gridTemplateColumns: `repeat(${quickActions.length},1fr)`, gap: '10px' }}>
           {quickActions.map(a => (
             <button
               key={a.label}
@@ -1117,30 +885,22 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
           längre), och varje rad går nu att avfärda för sig (TodayRow:s
           nya X-knapp → dismissTodo) i stället för att vara en obligatorisk
           lista man måste beta av. ─── */}
+      {/* På bred dator (index.css, .dash-body) ligger diagrammet till vänster och
+          Att göra, Utestående och Moms i en smal kolumn till höger, så att hela
+          översikten syns utan att skrolla. Smalare än så staplas allt som förut. */}
+      <div className={`dash-body${isNew || (todos.length === 0 && !hasOutstanding) ? ' dash-body--solo' : (todos.length > 0 ? '' : ' dash-body--no-todo')}`}>
       {!isNew && todos.length > 0 && (
-        // Kundfeedback: cremetonen (var(--bg-cream), Sida 31s "bryt upp en
-        // helvit sida"-princip) lästes bara som "lite beige/smutsig", inte
-        // som en avsiktlig accent — ren kortvit (var(--bg-card), samma som
-        // resten av sidans kort) istället.
-        <div className="dash-todo-card" style={{ position: 'relative', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px', padding: '18px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)', overflow: 'hidden', marginBottom: '20px' }}>
-          <div className="dash-todo-head" style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div style={{ width: 34, height: 34, borderRadius: '10px', background: VIVID.blue, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: `0 3px 8px ${VIVID.blue}55` }}>
-                <ClipboardCheck size={17} />
-              </div>
-              <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)' }}>{t('dashboard.today.title')}</span>
-            </div>
-            <span style={{ fontSize: '11.5px', fontWeight: 700, padding: '4px 11px', borderRadius: '999px', background: 'var(--bg-muted)', color: 'var(--text-main)' }}>
-              {todos.length} {todos.length === 1 ? t('dashboard.today.countSingular') : t('dashboard.today.countPlural')}
-            </span>
+        <section className="dash-todo-card" aria-label={t('dashboard.today.title')}>
+          <div className="dash-todo-head">
+            <h2 className="dash-todo-title">{t('dashboard.today.title')}</h2>
+            <span className="dash-todo-count">{todos.length}</span>
           </div>
-
-          <div className="dash-todo-grid" style={{ position: 'relative', display: 'grid', gridTemplateColumns: todos.length > 1 ? 'repeat(2,1fr)' : '1fr', gap: '8px' }}>
-            {todos.map(t => (
-              <TodayRow key={t.dismissKey} item={t} onClick={() => t.tab && setActiveTab(t.tab)} onDismiss={() => dismissTodo(t.dismissKey)} />
+          <ul className="dash-todo-list">
+            {todos.map(todo => (
+              <TodayRow key={todo.dismissKey} item={todo} onClick={() => todo.tab && setActiveTab(todo.tab)} onDismiss={() => dismissTodo(todo.dismissKey)} />
             ))}
-          </div>
-        </div>
+          </ul>
+        </section>
       )}
 
       {/* ─── GRAF — full bredd. Var tidigare en svag cremeton (Sida 31/32) för
@@ -1204,103 +964,30 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
           />
         </div>
 
-        {/* Chart header */}
-        <div className="dash-chart-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
-          <div>
-            <h2 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.01em', marginBottom: '4px' }}>
-              {t('dashboard.chart.trendTitle')}
-            </h2>
-            {/* Kort — INTE periodetiketten igen (PeriodHeading ovan visar
-                redan etikett + datum en gång) — bara jämförelsenoten, och
-                bara när den FAKTISKT stämmer (hasPrevYearData). */}
-            {hasPrevYearData && (
-              <p className="dash-chart-legend" style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>
-                {t('dashboard.chart.comparedToSamePeriod', { label: comparisonLabelDisplay })}
-              </p>
-            )}
-            {/* Visas bara när det faktiskt finns diagramdata. Upprepar INTE
-                totalsummorna från KPI-korten ovanför, utan fungerar som en ren
-                färgförklaring (legend) för serierna. */}
-            {hasChartData && chartMode === 'revenue-expense' && (
-              <div className="dash-chart-legend" style={{ display: 'flex', gap: '18px', marginTop: '10px', flexWrap: 'wrap' }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: chartRevenue, fontWeight: 600 }}>
-                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: chartRevenue, display: 'inline-block' }} />
-                  {t('dashboard.chart.legendIncome')}
-                </span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: chartExpense, fontWeight: 600 }}>
-                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: chartExpense, display: 'inline-block' }} />
-                  {t('dashboard.chart.legendExpense')}
-                </span>
-                {hasPrevYearData && (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>
-                    {legendSwatch(chartRevenuePrev, true)}{legendSwatch(chartExpensePrev, true)}
-                    {comparisonLabelDisplay}
-                  </span>
-                )}
+        {/* Grafen visar alltid allt samlat: intäkter, kostnader och resultat. Formatet väljs
+            med knapparna (staplar, linje, yta, tabell). */}
+        <div className="dash-chart-head">
+          <h2 className="dash-chart-title">{t('dashboard.chart.trendTitle')}</h2>
+          {hasChartData && (
+            <div className="dash-format-row">
+              <div className="dash-format-seg" role="group" aria-label={t('dashboard.chart.selectChart')}>
+                {FORMAT_MODES.map(f => (
+                  <button key={f.id} type="button" onClick={() => setChartFormat(f.id)} title={f.label} aria-pressed={chartFormat === f.id} className={`dash-format-btn${chartFormat === f.id ? ' active' : ''}`}>
+                    <f.icon size={13} />
+                    <span>{f.label}</span>
+                  </button>
+                ))}
               </div>
-            )}
-            {hasChartData && chartMode === 'result' && (
-              <div className="dash-chart-legend" style={{ display: 'flex', gap: '18px', marginTop: '10px', flexWrap: 'wrap' }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: periodResultat >= 0 ? BRAND.greenDark : BRAND.redText, fontWeight: 600 }}>
-                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: periodResultat >= 0 ? REVENUE : EXPENSE, display: 'inline-block' }} />
-                  {t('dashboard.chart.legendResult')}
-                </span>
-                {hasPrevYearData && (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>
-                    {legendSwatch('var(--text-muted)', true)}
-                    {t('dashboard.chart.legendResult')} {comparisonLabelDisplay}
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-          {/* Samma väljare som perioden ovanför (PeriodPicker, ReportUI.jsx),
-              bara med en annan ikon. Var tidigare en knapprad — med tre lägen
-              och en formatrad under blev det fyra plus fyra knappar som
-              trängdes med rubriken på samma yta. En rullgardin säger dessutom
-              vad som ÄR valt utan att man ska läsa vilken knapp som är fylld. */}
-          <PeriodPicker
-            value={chartMode}
-            onChange={setChartMode}
-            options={CHART_MODES}
-            icon={CHART_MODES.find(m => m.id === chartMode)?.icon || BarChart2}
-            ariaLabel={t('dashboard.chart.selectChart')}
-          />
-        </div>
-
-        {/* Formatväljare (Staplar/Linje/Tabell) — samma data, tre sätt att
-            läsa den (kundönskemål: "olika format"). Egen, mindre rad under
-            huvudväxlaren istället för att klämmas in bredvid den — annars
-            får headerraden fyra knappar att trängas om utrymme med titel +
-            legend på små skärmar. Döljs i tomt-läge (nedan) — inget att
-            växla format PÅ än. */}
-        {hasChartData && (
-          <div className="dash-format-row" style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '14px' }}>
-            <div style={{ display: 'flex', gap: '4px', background: 'var(--bg-muted)', padding: '3px', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
-              {FORMAT_MODES.map(f => (
-                <button key={f.id} onClick={() => setChartFormat(f.id)} title={f.label} style={{
-                  display: 'flex', alignItems: 'center', gap: '5px',
-                  padding: '4px 9px', borderRadius: '5px', border: 'none', cursor: 'pointer',
-                  fontSize: '11.5px', fontWeight: chartFormat === f.id ? 600 : 400,
-                  background: chartFormat === f.id ? 'var(--bg-card)' : 'transparent',
-                  color: chartFormat === f.id ? 'var(--text-main)' : 'var(--text-muted)',
-                  boxShadow: chartFormat === f.id ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
-                  transition: 'all 0.15s', fontFamily: 'inherit',
-                }}>
-                  <f.icon size={11} />
-                  {f.label}
-                </button>
-              ))}
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Tomt läge — inga bokförda verifikationer än. Ett eget litet vyläge
             istället för att bara rita en platt nollinje, så rutan förklarar
             vad som saknas istället för att se trasig/tom ut. */}
         {!hasChartData ? (
           <div className="dash-chart-empty" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', height: '220px', textAlign: 'center' }}>
-            <div style={{ width: 44, height: 44, borderRadius: '12px', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: chartRevenue, marginBottom: '2px' }}>
+            <div style={{ width: 44, height: 44, borderRadius: '12px', background: 'var(--bg-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: chartRevenue, marginBottom: '2px' }}>
               <BarChart2 size={20} />
             </div>
             <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>{t('dashboard.chart.emptyTitle')}</p>
@@ -1311,147 +998,25 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
         ) : chartFormat === 'table' ? (
           <ChartDataTable data={chartData} fmt={fmt} hasPrevYearData={hasPrevYearData} comparisonLabel={comparisonLabelDisplay} />
         ) : (
-          <>
-            {/* Bugkritiskt (kundrapporterad: "en massa saker är osynliga,
-                de ligger utanför"): `margin.left` var tidigare -20 och
-                Y-axelns `width` bara 44 — ett negativt vänstermarginal-värde
-                flyttar HELA ritytan (inklusive Y-axelns etiketter) 20px åt
-                vänster om <svg>:ns egen vänsterkant, och en <svg> klipper
-                per spec allt som hamnar utanför sitt eget koordinatsystem
-                (`overflow: hidden` är webbläsarens default för <svg>-
-                rotelement). Kombinationen klippte routinmässigt den FÖRSTA
-                siffran i en Y-axeletikett ("160k" visades som "l0k") så
-                fort talet blev tillräckligt stort/brett — `margin.left: 0`
-                + `width={52}` ger etiketterna faktiskt utrymme att rymmas
-                innanför SVG:ns vänsterkant istället för att gissa ett
-                negativt tal som råkade fungera för just kortare belopp. */}
-            {/* Översikt. I stapelläget är det kombiformen — fyllda
-                intäktsstaplar, dämpade utgiftsstaplar och resultatet som en
-                linje ovanpå — alltså exakt samma bild som Företagsöversikten
-                ritar. I linje- och ytläget blir resultatet i stället en tredje
-                kurva bredvid de två andra. Samma komponent i båda fallen. */}
-            {chartMode === 'all' && chartFormat !== 'table' && (
-              <ReportDisplayProvider colors={company?.reportDisplay?.colors} unit={company?.reportDisplay?.unit}>
-                <RevenueExpenseChart
-                  data={combinedChartData}
-                  indexKey="name"
-                  variant={chartFormat === 'bars' ? 'combo' : chartFormat}
-                  height={chartH}
-                  isMobile={false}
-                  extraSeries={chartFormat === 'bars' ? [] : [{ label: 'Resultat', color: chart.profit, dashed: false }]}
-                />
-              </ReportDisplayProvider>
-            )}
-
-            {chartMode === 'revenue-expense' && (chartFormat === 'line' || chartFormat === 'area') && (
-              // Samma komponent som Företagsöversikten ritar med — mjuk
-              // monotone-kurva, samma linjetjocklek, punkter i linjeläget och
-              // gradientfylld yta i ytläget. Föregående år följer med som två
-              // streckade serier, samma konvention som stapelläget nedan.
-              <ReportDisplayProvider colors={company?.reportDisplay?.colors} unit={company?.reportDisplay?.unit}>
-                <RevenueExpenseChart
-                  data={comparisonChartData}
-                  indexKey="name"
-                  variant={chartFormat}
-                  height={chartH}
-                  isMobile={false}
-                  extraSeries={hasPrevYearData ? [
-                    { label: `Intäkter ${comparisonLabel}`, color: chartRevenuePrev },
-                    { label: `Utgifter ${comparisonLabel}`, color: chartExpensePrev },
-                  ] : []}
-                />
-              </ReportDisplayProvider>
-            )}
-
-            {chartMode === 'revenue-expense' && chartFormat === 'bars' && (
-              <ResponsiveContainer width="100%" height={chartH}>
-                  <BarChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }} barGap={3}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-light)" />
-                    {/* `interval="preserveStartEnd"` — recharts väljer själv hur
-                        många etiketter som får plats utan att överlappa, istället
-                        för det tidigare hårdkodade "hoppa över var tredje", som
-                        antog exakt tolv kalendermånader. Med period-flikarna
-                        (PeriodPicker ovan) kan `chartData` nu lika gärna vara
-                        31 DAGAR ("Denna månad") som 3/6/12+ månader — ett fast
-                        hopp-tal hade antingen klämt ihop dagsetiketter eller
-                        glesat ut en redan kort månadsserie i onödan. */}
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} dy={6} interval="preserveStartEnd" />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} tickFormatter={axisTick} width={axisWidth} />
-                    <Tooltip content={<ChartTooltip fmt={fmt} />} cursor={{ fill: 'rgba(0,0,0,0.02)' }} />
-                    {/* verticalAlign="bottom" (uttryckligt, inte bara standard-
-                        värdet) — flyttar/håller legenden under diagrammet på
-                        mobil istället för att riskera att den kläms in bredvid. */}
-                    {!compactFit && <Legend iconType="circle" iconSize={7} verticalAlign="bottom" wrapperStyle={{ fontSize: 12, paddingTop: 16 }} />}
-                    <Bar dataKey="Intäkter" name={t('dashboard.chart.legendIncome')} fill={chartRevenue} radius={[4,4,0,0]} barSize={16} />
-                    <Bar dataKey="Utgifter" name={t('dashboard.chart.legendExpense')} fill={chartExpense} radius={[4,4,0,0]} barSize={16} />
-                    {/* Föregående års jämförelse ritas som en streckad linje
-                        ovanpå de egna årets staplar (samma konvention som
-                        Rapport och analys, ReportUI.jsx) — bara när det finns
-                        något att jämföra med. */}
-                    {hasPrevYearData && <Line type="monotone" dataKey="PrevIntäkter" name={`${t('dashboard.chart.legendIncome')} ${comparisonLabelDisplay}`} stroke={chartRevenuePrev} strokeWidth={2} strokeDasharray="4 3" dot={false} legendType="plainline" />}
-                    {hasPrevYearData && <Line type="monotone" dataKey="PrevUtgifter" name={`${t('dashboard.chart.legendExpense')} ${comparisonLabelDisplay}`} stroke={chartExpensePrev} strokeWidth={2} strokeDasharray="4 3" dot={false} legendType="plainline" />}
-                  </BarChart>
-              </ResponsiveContainer>
-            )}
-
-            {chartMode === 'result' && (
-              <ResponsiveContainer width="100%" height={chartH}>
-                {chartFormat === 'line' ? (
-                  <LineChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-light)" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} dy={6} interval="preserveStartEnd" />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} tickFormatter={axisTick} width={axisWidth} />
-                    <Tooltip content={<ChartTooltip fmt={fmt} />} cursor={{ stroke: 'var(--border)', strokeWidth: 1 }} />
-                    <ReferenceLine y={0} stroke="var(--border)" strokeWidth={1.5} />
-                    {/* Recharts (v3 i det här projektet, se package.json) hämtar
-                        <Legend>-innehållet ENBART från en intern context som
-                        varje diagramelement registrerar sig i självt — en
-                        manuellt satt `payload`-prop på <Legend> läses inte
-                        längre (till skillnad från Recharts v2, där mönstret
-                        kom ifrån). Rätt fix är alltså att ge varje element sin
-                        egen korrekta `name`/färg och låta Legend läsa av dem
-                        automatiskt, inte att skicka in en egen payload-array. */}
-                    {hasPrevYearData && !compactFit && <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 12, paddingTop: 16 }} />}
-                    <Line type={curveType} dataKey="Resultat" name={t('dashboard.chart.legendResult')} stroke={periodResultat >= 0 ? REVENUE : EXPENSE} strokeWidth={3.5} dot={false} activeDot={{ r: 5 }} />
-                    {hasPrevYearData && <Line type={curveType} dataKey="PrevResultat" name={`${t('dashboard.chart.legendResult')} ${comparisonLabelDisplay}`} stroke="var(--text-muted)" strokeWidth={2} strokeDasharray="4 3" dot={false} />}
-                  </LineChart>
-                ) : (
-                  <BarChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-light)" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} dy={6} interval="preserveStartEnd" />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} tickFormatter={axisTick} width={axisWidth} />
-                    <Tooltip content={<ChartTooltip fmt={fmt} />} cursor={{ fill: 'rgba(0,0,0,0.02)' }} />
-                    <ReferenceLine y={0} stroke="var(--border)" strokeWidth={1.5} />
-                    {/* Legend bara när det finns en fjolårslinje att förklara —
-                        annars är en enda stapelserie självförklarande via sin
-                        position mot nollinjen (se kommentaren vid CHART_MODES-
-                        legenden ovan), precis som innan denna ändring. Bar-
-                        elementet nedan får därför sitt EGET explicita `fill`
-                        (som annars vore onödigt — färgen sätts annars per
-                        Cell) enbart för att Recharts v3:s auto-legend-context
-                        ska ha en färg att läsa av; se kommentaren i Linje-
-                        formatets Legend ovan för varför en manuell `payload`
-                        inte fungerar här. */}
-                    {hasPrevYearData && !compactFit && <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 12, paddingTop: 16 }} />}
-                    <Bar dataKey="Resultat" name={t('dashboard.chart.legendResult')} fill={periodResultat >= 0 ? REVENUE : EXPENSE} radius={[4,4,0,0]} barSize={20}>
-                      {chartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.Resultat >= 0 ? REVENUE : EXPENSE} />
-                      ))}
-                    </Bar>
-                    {hasPrevYearData && <Line type="monotone" dataKey="PrevResultat" name={`${t('dashboard.chart.legendResult')} ${comparisonLabelDisplay}`} stroke="var(--text-muted)" strokeWidth={2} strokeDasharray="4 3" dot={false} />}
-                  </BarChart>
-                )}
-              </ResponsiveContainer>
-            )}
-          </>
+          <ReportDisplayProvider colors={company?.reportDisplay?.colors} unit={company?.reportDisplay?.unit}>
+            <ChartKey variant={chartFormat} />
+            <RevenueExpenseChart
+              data={combinedChartData}
+              indexKey="name"
+              variant={chartFormat === 'bars' ? 'combo' : chartFormat}
+              height={chartH}
+              isMobile={isPhone}
+              extraSeries={chartFormat === 'bars' ? [] : [{ label: 'Resultat', color: chart.profit, dashed: false }]}
+            />
+          </ReportDisplayProvider>
         )}
       </div>
 
-      {/* ─── UTESTÅENDE + MOMS — sidans två "läge just nu"-rutor, parade
-          i en 2/1-rad längst ner istället för att tävla om samma vikt som
-          Snabbåtgärder/Att göra idag/Nyckeltalen ovanför (Sida 34). ─── */}
-      {!isNew && (
-        <div className="dash-lower-grid" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '14px', marginBottom: '18px', alignItems: 'stretch' }}>
+      {/* ─── UTESTÅENDE — vad som ska komma in och vad som ska betalas. Moms-kortet är
+          borttaget härifrån (kundönskemål): en tom Moms-ruta sa bara "0" och förklarade inget.
+          Påminnelsen om momsdeklarationen finns kvar i Att göra idag. ─── */}
+      {!isNew && hasOutstanding && (
+        <div className="dash-lower-grid" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '14px', marginBottom: '18px', alignItems: 'stretch' }}>
 
           {/* Utestående — se kommentaren vid `outstanding` ovan för varför
               den här ytan inte längre visar de senaste verifikationerna. */}
@@ -1466,7 +1031,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
                 {
                   key: 'in', label: t('dashboard.outstanding.toReceive'), amount: outstanding.receivable,
                   count: outstanding.inCount, overdue: outstanding.overdueInCount,
-                  tone: chartRevenue, tab: 'invoices',
+                  tone: chartRevenue, tab: 'invoices', hint: t('dashboard.outstanding.toReceiveHint'),
                   empty: t('dashboard.outstanding.noUnpaidCustomerInvoices'),
                   note: outstanding.oldestOverdue > 0
                     ? t('dashboard.outstanding.oldestOverdueNote', { days: outstanding.oldestOverdue })
@@ -1475,7 +1040,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
                 {
                   key: 'out', label: t('dashboard.outstanding.toPay'), amount: outstanding.payable,
                   count: outstanding.outCount, overdue: outstanding.overdueOutCount,
-                  tone: chartExpense, tab: 'expenses',
+                  tone: chartExpense, tab: 'expenses', hint: t('dashboard.outstanding.toPayHint'),
                   empty: t('dashboard.outstanding.noUnpaidSupplierInvoices'),
                   note: null,
                 },
@@ -1491,13 +1056,14 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
                     <span style={{ width: 8, height: 8, borderRadius: '50%', background: box.tone }} />
                     {box.label}
                   </span>
-                  <span style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.03em', lineHeight: 1.1 }}>
+                  <span style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.3 }}>{box.hint}</span>
+                  <span style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.03em', lineHeight: 1.1, marginTop: '2px' }}>
                     {fmt(box.amount)}
                   </span>
                   {box.count === 0 ? (
-                    <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>{box.empty}</span>
+                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.35 }}>{box.empty}</span>
                   ) : (
-                    <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
+                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
                       {box.count} {box.count === 1 ? t('dashboard.outstanding.invoiceSingular') : t('dashboard.outstanding.invoicePlural')}
                       {box.overdue > 0 && (
                         <span style={{ color: 'var(--status-red-text)', fontWeight: 700 }}>{t(box.overdue === 1 ? 'dashboard.outstanding.overdueSuffixSingular' : 'dashboard.outstanding.overdueSuffixPlural', { count: box.overdue })}</span>
@@ -1513,50 +1079,18 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
 
             {/* Nettot är poängen med att visa de två bredvid varandra: det
                 säger om månaden går ihop, vilket ingen av siffrorna gör ensam. */}
+            {(outstanding.receivable !== 0 || outstanding.payable !== 0) && (
             <div className="dash-outstanding-net" style={{ padding: '14px 20px', borderTop: '1px solid var(--border-light)', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '12px' }}>
               <span style={{ fontSize: '12.5px', color: 'var(--text-secondary)', fontWeight: 600 }}>{t('dashboard.outstanding.net')}</span>
               <span style={{ fontSize: '15px', fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: outstanding.net >= 0 ? 'var(--status-green-text)' : 'var(--status-red-text)' }}>
                 {fmt(outstanding.net)}
               </span>
             </div>
-          </div>
-          {/* Moms — nästa (ännu ej inlämnade) momsperiod, räknat från riktiga
-              bokförda utgående/ingående moms-rader inom perioden. */}
-          <div className="dash-vat" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px', padding: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {vatPeriodSummary ? (
-              <>
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
-                  <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'capitalize' }}>{t('dashboard.vat.titleWithPeriod', { period: vatPeriodSummary.label })}</span>
-                  {vatPeriodSummary.dueDateLabel && (
-                    <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{t('dashboard.vat.dueDate', { date: vatPeriodSummary.dueDateLabel })}</span>
-                  )}
-                </div>
-                <div>
-                  <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.03em', lineHeight: 1.1 }}>{fmt(Math.abs(vatPeriodSummary.attBetala))}</div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>{vatPeriodSummary.attBetala >= 0 ? t('dashboard.vat.toPay') : t('dashboard.vat.toReceiveBack')}</div>
-                </div>
-                <div style={{ height: 6, borderRadius: 999, background: BRAND.amberBg, overflow: 'hidden' }}>
-                  <div style={{
-                    height: '100%', borderRadius: 999, background: BRAND.green,
-                    width: `${vatPeriodSummary.utgaende > 0 ? Math.min(100, Math.max(0, (vatPeriodSummary.ingaende / vatPeriodSummary.utgaende) * 100)) : 0}%`,
-                  }} />
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{t('dashboard.vat.outgoing')} {fmt(vatPeriodSummary.utgaende)}</span>
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{t('dashboard.vat.incoming')} {fmt(vatPeriodSummary.ingaende)}</span>
-                </div>
-                <button onClick={() => setActiveTab('taxes')} className="btn btn-secondary btn-sm" style={{ marginTop: 'auto', width: '100%', justifyContent: 'center' }}>{t('dashboard.vat.viewReport')}</button>
-              </>
-            ) : (
-              <>
-                <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>{t('dashboard.vat.title')}</span>
-                <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>{t('dashboard.vat.noUpcoming')}</p>
-                <button onClick={() => setActiveTab('taxes')} className="btn btn-secondary btn-sm" style={{ marginTop: 'auto', width: '100%', justifyContent: 'center' }}>{t('dashboard.vat.goToTaxes')}</button>
-              </>
             )}
           </div>
         </div>
       )}
+      </div>
 
       {/* "Företagsprofilen är inte klar..."-panelen (profileIncomplete && !isNew)
           togs bort här på uttrycklig kundönskan — upplevdes som en irriterande

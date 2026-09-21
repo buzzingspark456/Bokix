@@ -16,7 +16,11 @@
     "payroll": "Staff & payroll",
     "reports": "Reports & analysis",
     "taxes": "Tax & year-end",
-    "settings": "Settings"
+    "settings": "Settings",
+    "groupBusiness": "Business",
+    "groupFinance": "Finance",
+    "groupReports": "Reports",
+    "groupAdmin": "Administration"
   },
   "navShort": {
     "dashboard": "Home",
@@ -30,7 +34,11 @@
     "payroll": "Payroll",
     "reports": "Reports",
     "taxes": "Tax",
-    "settings": "Settings"
+    "settings": "Settings",
+    "articles": "Products",
+    "quotes": "Quotes",
+    "invoices": "Invoices",
+    "supplierInvoices": "Bills"
   },
   "shared": {
     "listTable": {
@@ -108,6 +116,7 @@
       "emptyTitle": "No bookkeeping yet",
       "emptySubtitle": "As soon as you book an invoice or an expense, this chart appears here.",
       "tablePeriod": "Period",
+      "tableTotal": "Total",
       "tableResult": "Result",
       "tableResultCompared": "Result {{label}}",
       "tableChange": "Change"
@@ -121,9 +130,11 @@
       "title": "Outstanding",
       "allInvoices": "All invoices",
       "toReceive": "To receive",
+      "toReceiveHint": "Customers who owe you",
       "toPay": "To pay",
-      "noUnpaidCustomerInvoices": "No unpaid customer invoices",
-      "noUnpaidSupplierInvoices": "No unpaid supplier invoices",
+      "toPayHint": "What you owe",
+      "noUnpaidCustomerInvoices": "Nothing to receive right now. An invoice you send will show up here.",
+      "noUnpaidSupplierInvoices": "Nothing to pay right now. New supplier invoices will show up here.",
       "oldestOverdueNote": "oldest was due {{days}} days ago",
       "invoiceSingular": "invoice",
       "invoicePlural": "invoices",

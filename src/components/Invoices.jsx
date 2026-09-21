@@ -1,7 +1,7 @@
 ﻿import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  Plus, X, Send, Check, FileText,
+  Plus, X, Send, Check, NavInvoicesIcon,
   Search, ChevronRight, ChevronDown,
   RefreshCw, Printer, Eye, CreditCard, Link2,
   MessageSquare, Tag, Lock, Settings2, Download, AlertTriangle, Trash2,
@@ -1550,7 +1550,7 @@ function InvoiceEmptyState({ isFilteredEmpty, onCreate }) {
       <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px', padding: '40px', textAlign: 'center' }}>
         {isFilteredEmpty ? (
           <div style={{ width: 56, height: 56, borderRadius: '999px', background: 'var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', marginBottom: '4px' }}>
-            <FileText size={26} />
+            <NavInvoicesIcon size={26} />
           </div>
         ) : (
           <div style={{ marginBottom: '4px' }}>

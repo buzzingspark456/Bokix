@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, ChevronRight, Users, UserCog, CalendarClock, Search, Palmtree } from './icons';
+import { Plus, ChevronRight, UsersRound, UserCog, CalendarClock, Search, Palmtree } from './icons';
 import VacationOverview from './VacationOverview';
 import EmployeeForm from './EmployeeForm';
 import PayrollRunDetail from './PayrollRunDetail';
@@ -150,7 +150,7 @@ export default function Payroll({
             // att sväva som ett eget litet kort med synligt mellanrum runt om.
             <div style={{ flex: 1, minHeight: '280px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '48px 24px', background: 'var(--bg-card)' }}>
               <div style={{ width: 72, height: 72, borderRadius: '20px', background: 'var(--bg-muted)', color: BRAND.green, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '18px' }}>
-                <Users size={30} />
+                <UsersRound size={30} />
               </div>
               <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '6px' }}>
                 {employees.length === 0 ? 'Inga anställda registrerade' : 'Ingen matchade sökningen'}

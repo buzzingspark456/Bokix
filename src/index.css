@@ -2108,6 +2108,90 @@ body {
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
+/* Meny-panelen med grupper: rubrik + en rad-lista per grupp, Granskning överst när något väntar. */
+.mobile-sheet-body { display: flex; flex-direction: column; gap: 14px; padding-bottom: 6px; }
+.mobile-sheet-section-title {
+  padding: 0 4px 6px;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.mobile-sheet-list {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+}
+.mobile-sheet-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 46px;
+  padding: 6px 12px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--border-light);
+  color: var(--text-main);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.mobile-sheet-row:last-child { border-bottom: none; }
+.mobile-sheet-row:active { background: var(--bg-muted); }
+.mobile-sheet-row-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: var(--bg-muted);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.mobile-sheet-row-label { flex: 1; min-width: 0; }
+.mobile-sheet-row-chevron { color: var(--text-muted); flex-shrink: 0; }
+.mobile-sheet-row.active { background: var(--status-green-bg); color: var(--status-green-text); font-weight: 700; }
+.mobile-sheet-row.active .mobile-sheet-row-icon { background: var(--bg-card); color: var(--status-green-text); }
+.mobile-sheet-review {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--status-green-bg);
+  border: 1px solid transparent;
+  border-radius: 16px;
+  color: var(--status-green-text);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.mobile-sheet-review .mobile-sheet-row-icon { background: var(--bg-card); color: var(--status-green-text); }
+.mobile-sheet-review.active { border-color: var(--status-green-text); }
+.mobile-sheet-review-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.mobile-sheet-review-title { font-size: 15px; font-weight: 800; }
+.mobile-sheet-review-sub { font-size: 12.5px; opacity: 0.85; }
+.mobile-sheet-review-badge {
+  min-width: 24px;
+  height: 24px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: #22c55e;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 .mobile-sheet-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -5802,47 +5886,10 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
 ══════════════════════════════════════════════ */
 .sidebar-monogram { display: none; }
 .sidebar .nav-short { display: none; }
-/* Linjerna mellan grupperna under Försäljning: Artiklar, Offerter, fakturorna. */
-.nav-child-divider { height: 1px; margin: 2px 24px 2px 53px; background: rgba(255, 255, 255, 0.14); flex-shrink: 0; }
-.sales-flyout-divider { height: 1px; margin: 4px 10px; background: rgba(255, 255, 255, 0.14); }
-/* Försäljningsrutan i halvskärm (App.jsx): ligger bredvid ikonfältet. */
-.sales-flyout {
-  min-width: 230px;
-  padding: 8px;
-  background: var(--bg-sidebar, #0c1f14);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 14px;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.sales-flyout-title {
-  padding: 6px 10px 8px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.6);
-}
-.sales-flyout-item {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  width: 100%;
-  padding: 11px 12px;
-  border: none;
-  border-radius: 9px;
-  background: none;
-  color: rgba(255, 255, 255, 0.9);
-  font-family: inherit;
-  font-size: 14.5px;
-  font-weight: 500;
-  text-align: left;
-  cursor: pointer;
-}
-.sales-flyout-item:hover { background: rgba(255, 255, 255, 0.1); }
-.sales-flyout-item.active { background: rgba(255, 255, 255, 0.16); color: #fff; font-weight: 700; }
+/* Grupprubrikerna i sidomenyn (Verksamhet, Ekonomi, Rapporter, Administration).
+   Dolda som standard; visas på dator när fönstret är högt nog, se längre ner. */
+.nav-group-title { display: none; }
+.nav-group-items { flex-shrink: 0; }
 @media (min-width: 769px) and (max-width: 1100px) {
   :root { --sidebar-width: 76px; }
   .sidebar { width: var(--sidebar-width); }
@@ -5901,18 +5948,87 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
   .sidebar .nav-item.logout-btn,
   .sidebar .nav-item { gap: 0 !important; }
 }
-/* Försäljning i sidomenyn (App.jsx): gruppens undersidor. På en låg skärm blir
-   menyn tätare så att hela listan, inklusive Inställningar, ryms med gruppen
-   uppfälld. I halvskärmens ikonfält (ovan) visas undersidorna som ikoner med en
-   svag bakgrund, så de läses som en grupp under Försäljning. */
-@media (min-width: 1101px) and (max-height: 960px) {
-  .sidebar .nav-item:not(.nav-child) { padding-top: 11px !important; padding-bottom: 11px !important; }
-  .sidebar .nav-child { padding-top: 8px !important; padding-bottom: 8px !important; }
+/* Ikonfältet på ett lägre fönster: 15 rader med text under varje ikon blir för
+   högt, så raderna packas tätare i två steg (under 900 px och under 760 px). */
+@media (min-width: 769px) and (max-width: 1100px) and (max-height: 900px) {
+  .sidebar .logo-container { padding: 10px 0 6px !important; }
+  .sidebar-monogram { width: 44px; height: 44px; }
+  .sidebar .nav-item { padding: 5px 0 4px !important; }
+  .sidebar .nav-item > span { gap: 2px !important; }
+  .sidebar .nav-group-divider { margin-top: 4px !important; margin-bottom: 4px !important; }
 }
-@media (min-width: 769px) and (max-width: 1100px) {
-  .sidebar .nav-chevron { display: none; }
-  .sidebar .nav-child { background: rgba(0, 0, 0, 0.14); padding: 11px 0 !important; justify-content: center !important; gap: 0 !important; }
-  .sidebar .nav-child.active { background: rgba(255, 255, 255, 0.14); }
+@media (min-width: 769px) and (max-width: 1100px) and (max-height: 760px) {
+  .sidebar .nav-item { padding: 3px 0 3px !important; }
+  .sidebar .nav-item svg { width: 16px; height: 16px; }
+  .sidebar .nav-badge { top: 3px; }
+}
+/* Bärbar dator: samma meny som på en stor skärm, bara utzoomad. Radhöjd, text,
+   ikoner, logga och avstånd följer fönstrets höjd (App.jsx läser variablerna
+   i sina inline-stilar, med de gamla värdena som reserv). Från ca 960 px och
+   uppåt är allt som förut; på lägre fönster krymper allt jämnt så att hela
+   menyn, inklusive Inställningar och Logga ut, syns utan att skrolla. */
+@media (min-width: 1101px) {
+  :root {
+    --sb-pad: clamp(5px, calc(1.86vh - 6.7px), 13px);
+    --sb-font: clamp(13.5px, calc(7px + 0.9vh), 15px);
+    --sb-icon: clamp(16px, calc(8px + 1.05vh), 18px);
+    --sb-gap: clamp(3px, 0.85vh, 8px);
+    --sb-logo-h: clamp(34px, 6.5vh, 62px);
+    --sb-logo-pt: clamp(8px, 2.3vh, 22px);
+    --sb-logo-pb: clamp(6px, 1.9vh, 18px);
+  }
+  .sidebar .nav-item svg { width: var(--sb-icon); height: var(--sb-icon); }
+  /* Fast radhöjd: annars ger webbläsarnas olika fontmått 1-2 px skillnad per rad. */
+  .sidebar .nav-item { line-height: 1.25; }
+  /* Hjälp och Logga ut som ett eget, något mörkare block med säkert avstånd upp till menyn. */
+  .sidebar .nav-links { margin-bottom: 12px; }
+  .sidebar .sidebar-footer-actions { background: rgba(0, 0, 0, 0.16); }
+  .sidebar .bokix-logo-btn--full { padding: var(--sb-logo-pt) 14px var(--sb-logo-pb); }
+  .sidebar .bokix-wordmark--full { width: auto; height: var(--sb-logo-h); }
+}
+/* Grupprubriker när det finns plats (ca 700 px höjd och uppåt, det räcker för en
+   MacBook Air 13). Rubriken ersätter den tunna linjen mellan grupperna, så raderna
+   kan vara något tätare. På lägre
+   fönster och i halvskärmens ikonfält gäller linjerna. */
+@media (min-width: 1101px) and (min-height: 700px) {
+  :root { --sb-pad: clamp(4.5px, calc(1.86vh - 7.6px), 12px); }
+  .sidebar .nav-group-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    flex-shrink: 0;
+    padding: calc(var(--sb-gap) + 2px) 22px 2px 24px;
+    background: none;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.5);
+    transition: color 0.15s;
+  }
+  .sidebar .nav-group-title:hover { color: rgba(255, 255, 255, 0.85); }
+  .sidebar .nav-group-title:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.6); outline-offset: -2px; border-radius: 6px; }
+  .sidebar .nav-group-chevron { flex-shrink: 0; opacity: 0.7; transition: transform 0.15s; }
+  /* En hopfälld grupp döljs bara när rubrikerna syns, så att man alltid kan fälla ut den igen. */
+  .sidebar .nav-group-items.is-collapsed { display: none; }
+  .sidebar .nav-group-divider { display: none !important; }
+}
+/* Riktigt låga fönster (t.ex. 1080p-laptop med 150 % skalning, ca 600 px): lite
+   mer marginal så att hela listan ryms, oavsett
+   webbläsarmotor (radhöjden skiljer någon pixel mellan Chrome, Safari, Firefox). */
+@media (min-width: 1101px) and (max-height: 640px) {
+  :root {
+    --sb-pad: 5.2px;
+    --sb-gap: 3.5px;
+    --sb-logo-h: 34px;
+    --sb-logo-pt: 6px;
+    --sb-logo-pb: 5px;
+  }
 }
 /* ── Hjälp och Logga ut i Inställningar (bara telefon) ── */
 .settings-account-rows { display: none; }
@@ -6232,10 +6348,8 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
   .rc-ocr-list { grid-template-columns: 1fr; }
 }
 
-/* Meny-panelen på telefon: en kompakt panel som sitter längst ned med lite
-   avstånd till skärmkanterna (som Fortnox och Bokio), i stället för en hög
-   panel som täcker halva skärmen. Mindre rutor så alla sidor syns utan
-   att man behöver skrolla. */
+/* Meny-panelen på telefon: en panel som sitter längst ned med lite avstånd till
+   skärmkanterna (som Fortnox och Bokio). Grupperna kan skrollas i panelen. */
 @media (max-width: 768px) {
   .mobile-sheet {
     left: 8px;
@@ -6243,7 +6357,7 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
     bottom: calc(8px + env(safe-area-inset-bottom, 0px));
     border-radius: 24px;
     padding: 8px 12px 12px;
-    max-height: min(72dvh, 560px);
+    max-height: min(90dvh, 780px);
     transform: translateY(calc(100% + 32px));
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.22);
   }
@@ -6257,108 +6371,42 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
 }
 
 /* ══════════════════════════════════════════════
-   STARTSIDAN PÅ TELEFON: allt på en skärm, ingen skrollning
-   Dashboard.jsx väljer själv en nivå (data-fit på .dash-root), från luftigast
-   till tätast, och går bara ett steg tätare om innehållet annars skulle
-   behöva skrollas:
-     roomy    den vanliga vyn (inga regler här)
-     cozy     nästan samma, men utan de största tomrummen
-     snug     kort på kort, hälsning och lite mindre viktigt undan
-     compact  tätare
-     mini     som compact men utan rubriken Snabbåtgärder
-     tight    tätast, det minst viktiga viker undan
-   En hög skärm får alltså den luftiga vyn och en låg skärm den täta.
-   Genererad ur en tabell, se dash-css-generatorn i historiken.
+   STARTSIDAN PÅ TELEFON
+   Sidan skrollas i stället för att pressas ihop till en skärm:
+   - Snabbåtgärder som ikon över text (tre och två i rad, eller fyra i rad)
+   - nyckeltalen som tre vanliga kort i rad
+   - ett högre diagram och formatväljaren i full bredd
 ══════════════════════════════════════════════ */
-.dash-root[data-fit="cozy"], .dash-root[data-fit="snug"], .dash-root[data-fit="compact"], .dash-root[data-fit="mini"], .dash-root[data-fit="tight"] { min-height: 0 !important; }
-.dash-root[data-fit="snug"], .dash-root[data-fit="compact"], .dash-root[data-fit="mini"], .dash-root[data-fit="tight"] { padding: 8px 12px 6px !important; }
-.dash-root[data-fit="snug"] .dash-greeting, .dash-root[data-fit="compact"] .dash-greeting, .dash-root[data-fit="mini"] .dash-greeting, .dash-root[data-fit="tight"] .dash-greeting { display: none !important; }
-.dash-root[data-fit="snug"] .dash-quick { margin-bottom: 10px !important; }
-.dash-root[data-fit="compact"] .dash-quick, .dash-root[data-fit="mini"] .dash-quick, .dash-root[data-fit="tight"] .dash-quick { margin-bottom: 8px !important; }
-.dash-root[data-fit="snug"] .dash-quick-title, .dash-root[data-fit="compact"] .dash-quick-title, .dash-root[data-fit="mini"] .dash-quick-title, .dash-root[data-fit="tight"] .dash-quick-title { margin-bottom: 6px !important; }
-.dash-root[data-fit="mini"] .dash-quick-title, .dash-root[data-fit="tight"] .dash-quick-title { display: none !important; }
-.dash-root[data-fit="snug"] .dash-quick-actions { gap: 10px !important; }
-.dash-root[data-fit="compact"] .dash-quick-actions, .dash-root[data-fit="mini"] .dash-quick-actions, .dash-root[data-fit="tight"] .dash-quick-actions { gap: 8px !important; }
-.dash-root[data-fit="snug"] .dash-quick-btn { padding: 9px 12px !important; min-height: 52px; }
-.dash-root[data-fit="compact"] .dash-quick-btn, .dash-root[data-fit="mini"] .dash-quick-btn, .dash-root[data-fit="tight"] .dash-quick-btn { padding: 6px 10px !important; min-height: 42px; }
-.dash-root[data-fit="snug"] .dash-quick-ico { width: 32px !important; height: 32px !important; }
-.dash-root[data-fit="compact"] .dash-quick-ico, .dash-root[data-fit="mini"] .dash-quick-ico, .dash-root[data-fit="tight"] .dash-quick-ico { width: 28px !important; height: 28px !important; }
-.dash-root[data-fit="snug"] .dash-todo-card, .dash-root[data-fit="compact"] .dash-todo-card, .dash-root[data-fit="mini"] .dash-todo-card, .dash-root[data-fit="tight"] .dash-todo-card { padding: 9px 11px !important; margin-bottom: 8px !important; border-radius: 12px !important; }
-.dash-root[data-fit="snug"] .dash-todo-head, .dash-root[data-fit="compact"] .dash-todo-head, .dash-root[data-fit="mini"] .dash-todo-head, .dash-root[data-fit="tight"] .dash-todo-head { margin-bottom: 6px !important; }
-.dash-root[data-fit="snug"] .dash-todo-grid, .dash-root[data-fit="compact"] .dash-todo-grid, .dash-root[data-fit="mini"] .dash-todo-grid, .dash-root[data-fit="tight"] .dash-todo-grid { grid-template-columns: minmax(0, 1fr) !important; gap: 5px !important; }
-.dash-root[data-fit="snug"] .dash-todo-grid > *, .dash-root[data-fit="compact"] .dash-todo-grid > *, .dash-root[data-fit="mini"] .dash-todo-grid > *, .dash-root[data-fit="tight"] .dash-todo-grid > * { min-width: 0; }
-.dash-root[data-fit="snug"] .dash-today-btn { padding: 8px 10px !important; gap: 8px !important; }
-.dash-root[data-fit="compact"] .dash-today-btn, .dash-root[data-fit="mini"] .dash-today-btn, .dash-root[data-fit="tight"] .dash-today-btn { padding: 6px 8px !important; gap: 8px !important; }
-.dash-root[data-fit="snug"] .dash-today-text, .dash-root[data-fit="compact"] .dash-today-text, .dash-root[data-fit="mini"] .dash-today-text, .dash-root[data-fit="tight"] .dash-today-text { font-size: 12px !important; line-height: 1.25 !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.dash-root[data-fit="snug"] .dash-chart-card { padding: 14px 14px 12px !important; margin-bottom: 10px !important; border-radius: 12px !important; }
-.dash-root[data-fit="compact"] .dash-chart-card, .dash-root[data-fit="mini"] .dash-chart-card, .dash-root[data-fit="tight"] .dash-chart-card { padding: 12px 12px 10px !important; margin-bottom: 8px !important; border-radius: 12px !important; }
-.dash-root[data-fit="cozy"] .dash-chart-card { padding: 16px 18px !important; margin-bottom: 12px !important; }
-.dash-root[data-fit="snug"] .dash-period-row, .dash-root[data-fit="compact"] .dash-period-row, .dash-root[data-fit="mini"] .dash-period-row, .dash-root[data-fit="tight"] .dash-period-row { flex-wrap: nowrap !important; align-items: center !important; gap: 8px !important; }
-.dash-root[data-fit="cozy"] .dash-period-row { margin-bottom: 14px !important; }
-.dash-root[data-fit="snug"] .dash-period-row { margin-bottom: 10px !important; }
-.dash-root[data-fit="compact"] .dash-period-row, .dash-root[data-fit="mini"] .dash-period-row, .dash-root[data-fit="tight"] .dash-period-row { margin-bottom: 8px !important; }
-.dash-root[data-fit="cozy"] .dash-kpi-grid { margin-bottom: 14px !important; }
-.dash-root[data-fit="snug"] .dash-kpi-grid { margin-bottom: 10px !important; }
-.dash-root[data-fit="compact"] .dash-kpi-grid, .dash-root[data-fit="mini"] .dash-kpi-grid, .dash-root[data-fit="tight"] .dash-kpi-grid { margin-bottom: 6px !important; }
-.dash-root[data-fit="snug"] .dash-kpi-card { padding: 9px 10px !important; gap: 4px !important; }
-.dash-root[data-fit="compact"] .dash-kpi-card, .dash-root[data-fit="mini"] .dash-kpi-card, .dash-root[data-fit="tight"] .dash-kpi-card { padding: 7px 9px !important; gap: 4px !important; }
-.dash-root[data-fit="compact"] .dash-kpi-card-icon, .dash-root[data-fit="mini"] .dash-kpi-card-icon, .dash-root[data-fit="tight"] .dash-kpi-card-icon { display: none !important; }
-.dash-root[data-fit="snug"] .dash-chart-head, .dash-root[data-fit="compact"] .dash-chart-head, .dash-root[data-fit="mini"] .dash-chart-head, .dash-root[data-fit="tight"] .dash-chart-head { margin-bottom: 4px !important; flex-wrap: nowrap !important; align-items: center !important; }
-.dash-root[data-fit="snug"] .dash-chart-legend, .dash-root[data-fit="compact"] .dash-chart-legend, .dash-root[data-fit="mini"] .dash-chart-legend, .dash-root[data-fit="tight"] .dash-chart-legend { display: none !important; }
-.dash-root[data-fit="snug"] .dash-format-row, .dash-root[data-fit="compact"] .dash-format-row, .dash-root[data-fit="mini"] .dash-format-row, .dash-root[data-fit="tight"] .dash-format-row { display: none !important; }
-.dash-root[data-fit="cozy"] .dash-chart-empty { height: 140px !important; }
-.dash-root[data-fit="snug"] .dash-chart-empty { height: 110px !important; gap: 3px !important; }
-.dash-root[data-fit="compact"] .dash-chart-empty, .dash-root[data-fit="mini"] .dash-chart-empty, .dash-root[data-fit="tight"] .dash-chart-empty { height: 90px !important; gap: 3px !important; }
-.dash-root[data-fit="cozy"] .dash-chart-empty p:last-child, .dash-root[data-fit="snug"] .dash-chart-empty p:last-child, .dash-root[data-fit="compact"] .dash-chart-empty p:last-child, .dash-root[data-fit="mini"] .dash-chart-empty p:last-child, .dash-root[data-fit="tight"] .dash-chart-empty p:last-child { display: none; }
-.dash-root[data-fit="tight"] .dash-chart-card > *:nth-child(n+3) { display: none !important; }
-.dash-root[data-fit="snug"] .dash-lower-grid, .dash-root[data-fit="compact"] .dash-lower-grid, .dash-root[data-fit="mini"] .dash-lower-grid, .dash-root[data-fit="tight"] .dash-lower-grid { gap: 8px !important; margin-bottom: 8px !important; }
-.dash-root[data-fit="snug"] .dash-vat, .dash-root[data-fit="compact"] .dash-vat, .dash-root[data-fit="mini"] .dash-vat, .dash-root[data-fit="tight"] .dash-vat { display: none !important; }
-.dash-root[data-fit="snug"] .dash-outstanding-head, .dash-root[data-fit="compact"] .dash-outstanding-head, .dash-root[data-fit="mini"] .dash-outstanding-head, .dash-root[data-fit="tight"] .dash-outstanding-head { display: none !important; }
-.dash-root[data-fit="snug"] .dash-outstanding-net, .dash-root[data-fit="compact"] .dash-outstanding-net, .dash-root[data-fit="mini"] .dash-outstanding-net, .dash-root[data-fit="tight"] .dash-outstanding-net { display: none !important; }
-.dash-root[data-fit="snug"] .dash-outstanding > div:nth-child(2) > button, .dash-root[data-fit="compact"] .dash-outstanding > div:nth-child(2) > button, .dash-root[data-fit="mini"] .dash-outstanding > div:nth-child(2) > button, .dash-root[data-fit="tight"] .dash-outstanding > div:nth-child(2) > button { padding: 8px 12px !important; gap: 2px !important; }
-.dash-root[data-fit="snug"] .dash-outstanding > div:nth-child(2) > button span:nth-child(n+3), .dash-root[data-fit="compact"] .dash-outstanding > div:nth-child(2) > button span:nth-child(n+3), .dash-root[data-fit="mini"] .dash-outstanding > div:nth-child(2) > button span:nth-child(n+3), .dash-root[data-fit="tight"] .dash-outstanding > div:nth-child(2) > button span:nth-child(n+3) { display: none; }
-.dash-root[data-fit="tight"] .dash-lower-grid { display: none !important; }
-.dash-root[data-fit="snug"] .dash-quick-title span, .dash-root[data-fit="compact"] .dash-quick-title span, .dash-root[data-fit="mini"] .dash-quick-title span, .dash-root[data-fit="tight"] .dash-quick-title span { font-size: 12px !important; }
-.dash-root[data-fit="snug"] .dash-quick-btn span, .dash-root[data-fit="compact"] .dash-quick-btn span, .dash-root[data-fit="mini"] .dash-quick-btn span, .dash-root[data-fit="tight"] .dash-quick-btn span { font-size: 12.5px !important; }
-.dash-root[data-fit="snug"] .dash-quick-ico svg, .dash-root[data-fit="compact"] .dash-quick-ico svg, .dash-root[data-fit="mini"] .dash-quick-ico svg, .dash-root[data-fit="tight"] .dash-quick-ico svg { width: 17px !important; height: 17px !important; }
-.dash-root[data-fit="snug"] .dash-todo-head > div > div, .dash-root[data-fit="compact"] .dash-todo-head > div > div, .dash-root[data-fit="mini"] .dash-todo-head > div > div, .dash-root[data-fit="tight"] .dash-todo-head > div > div { width: 26px !important; height: 26px !important; border-radius: 8px !important; }
-.dash-root[data-fit="snug"] .dash-todo-head > div > div svg, .dash-root[data-fit="compact"] .dash-todo-head > div > div svg, .dash-root[data-fit="mini"] .dash-todo-head > div > div svg, .dash-root[data-fit="tight"] .dash-todo-head > div > div svg { width: 14px !important; height: 14px !important; }
-.dash-root[data-fit="snug"] .dash-todo-head > div > span, .dash-root[data-fit="compact"] .dash-todo-head > div > span, .dash-root[data-fit="mini"] .dash-todo-head > div > span, .dash-root[data-fit="tight"] .dash-todo-head > div > span { font-size: 13px !important; }
-.dash-root[data-fit="snug"] .dash-todo-head > span, .dash-root[data-fit="compact"] .dash-todo-head > span, .dash-root[data-fit="mini"] .dash-todo-head > span, .dash-root[data-fit="tight"] .dash-todo-head > span { font-size: 11px !important; padding: 2px 9px !important; }
-.dash-root[data-fit="snug"] .dash-today-row, .dash-root[data-fit="compact"] .dash-today-row, .dash-root[data-fit="mini"] .dash-today-row, .dash-root[data-fit="tight"] .dash-today-row { border-radius: 9px !important; }
-.dash-root[data-fit="snug"] .dash-today-btn > div, .dash-root[data-fit="compact"] .dash-today-btn > div, .dash-root[data-fit="mini"] .dash-today-btn > div, .dash-root[data-fit="tight"] .dash-today-btn > div { width: 22px !important; height: 22px !important; border-radius: 6px !important; }
-.dash-root[data-fit="snug"] .dash-today-btn > div svg, .dash-root[data-fit="compact"] .dash-today-btn > div svg, .dash-root[data-fit="mini"] .dash-today-btn > div svg, .dash-root[data-fit="tight"] .dash-today-btn > div svg { width: 12px !important; height: 12px !important; }
-.dash-root[data-fit="snug"] .dash-today-row > button:last-child, .dash-root[data-fit="compact"] .dash-today-row > button:last-child, .dash-root[data-fit="mini"] .dash-today-row > button:last-child, .dash-root[data-fit="tight"] .dash-today-row > button:last-child { width: 22px !important; height: 22px !important; margin-right: 6px !important; }
-.dash-root[data-fit="snug"] .dash-period-row button, .dash-chart-head button, .dash-root[data-fit="compact"] .dash-period-row button, .dash-chart-head button, .dash-root[data-fit="mini"] .dash-period-row button, .dash-chart-head button, .dash-root[data-fit="tight"] .dash-period-row button, .dash-chart-head button { padding: 6px 10px !important; min-height: 34px !important; font-size: 12.5px !important; }
-.dash-root[data-fit="snug"] .dash-period-row > div:first-child > div:first-child, .dash-root[data-fit="compact"] .dash-period-row > div:first-child > div:first-child, .dash-root[data-fit="mini"] .dash-period-row > div:first-child > div:first-child, .dash-root[data-fit="tight"] .dash-period-row > div:first-child > div:first-child { font-size: 14px !important; }
-.dash-root[data-fit="snug"] .dash-period-row > div:first-child > div:last-child, .dash-root[data-fit="compact"] .dash-period-row > div:first-child > div:last-child, .dash-root[data-fit="mini"] .dash-period-row > div:first-child > div:last-child, .dash-root[data-fit="tight"] .dash-period-row > div:first-child > div:last-child { font-size: 11.5px !important; margin-top: 1px !important; }
-.dash-root[data-fit="snug"] .dash-chart-head h2, .dash-root[data-fit="compact"] .dash-chart-head h2, .dash-root[data-fit="mini"] .dash-chart-head h2, .dash-root[data-fit="tight"] .dash-chart-head h2 { font-size: 13.5px !important; margin-bottom: 0 !important; }
-.dash-root[data-fit="compact"] .dash-chart-empty > div, .dash-root[data-fit="mini"] .dash-chart-empty > div, .dash-root[data-fit="tight"] .dash-chart-empty > div { width: 30px !important; height: 30px !important; margin-bottom: 0 !important; }
-.dash-root[data-fit="cozy"] .dash-sie { padding: 12px 14px !important; flex-wrap: nowrap !important; gap: 10px !important; }
-.dash-root[data-fit="snug"] .dash-sie, .dash-root[data-fit="compact"] .dash-sie, .dash-root[data-fit="mini"] .dash-sie, .dash-root[data-fit="tight"] .dash-sie { padding: 9px 12px !important; margin-top: 8px !important; border-radius: 12px !important; flex-wrap: nowrap !important; gap: 8px !important; }
-.dash-root[data-fit="cozy"] .dash-sie > div:first-child, .dash-root[data-fit="snug"] .dash-sie > div:first-child, .dash-root[data-fit="compact"] .dash-sie > div:first-child, .dash-root[data-fit="mini"] .dash-sie > div:first-child, .dash-root[data-fit="tight"] .dash-sie > div:first-child { flex: 1 1 auto; flex-wrap: nowrap !important; min-width: 0; gap: 10px !important; }
-.dash-root[data-fit="cozy"] .dash-sie > div:first-child > div:last-child, .dash-root[data-fit="snug"] .dash-sie > div:first-child > div:last-child, .dash-root[data-fit="compact"] .dash-sie > div:first-child > div:last-child, .dash-root[data-fit="mini"] .dash-sie > div:first-child > div:last-child, .dash-root[data-fit="tight"] .dash-sie > div:first-child > div:last-child { flex: 1 1 auto; min-width: 0; }
-.dash-root[data-fit="cozy"] .dash-sie-sub, .dash-root[data-fit="snug"] .dash-sie-sub, .dash-root[data-fit="compact"] .dash-sie-sub, .dash-root[data-fit="mini"] .dash-sie-sub, .dash-root[data-fit="tight"] .dash-sie-sub { display: none; }
-.dash-root[data-fit="tight"] .dash-sie { display: none !important; }
-/* Snug är nivån de flesta telefoner landar på och den har lite luft över.
-   Räkenskapsårskortet (period, nyckeltal, Utveckling) får därför större text
-   och lite mer höjd här. Compact och tätare behåller sina små mått, eftersom
-   de bara väljs när skärmen inte ryms med snug. */
-.dash-root[data-fit="snug"] .dash-period-row { margin-bottom: 12px !important; }
-.dash-root[data-fit="snug"] .dash-period-row > div:first-child > div:first-child { font-size: 16px !important; }
-.dash-root[data-fit="snug"] .dash-period-row > div:first-child > div:last-child { font-size: 12.5px !important; margin-top: 2px !important; }
-.dash-root[data-fit="snug"] .dash-period-row button, .dash-root[data-fit="snug"] .dash-chart-head button { min-height: 38px !important; font-size: 13px !important; }
-.dash-root[data-fit="snug"] .dash-kpi-grid { margin-bottom: 14px !important; }
-.dash-root[data-fit="snug"] .dash-kpi-card { padding: 12px 10px !important; gap: 6px !important; }
-.dash-root[data-fit="snug"] .dash-kpi-card-label { font-size: 10.5px !important; }
-.dash-root[data-fit="snug"] .dash-kpi-card-value { font-size: 17px !important; }
-.dash-root[data-fit="snug"] .dash-chart-head { margin-bottom: 8px !important; }
-.dash-root[data-fit="snug"] .dash-chart-head h2 { font-size: 19px !important; }
-.dash-root[data-fit="snug"] .dash-chart-empty { height: 160px !important; gap: 6px !important; }
-.dash-root[data-fit="snug"] .dash-chart-empty > div { width: 44px !important; height: 44px !important; }
-.dash-root[data-fit="snug"] .dash-chart-empty p:first-of-type { font-size: 14px !important; }
-@media (max-height: 830px) {
-  .dash-root[data-fit="snug"] .dash-chart-empty { height: 110px !important; }
+@media (max-width: 640px) {
+  .dash-root { padding: 12px 16px 28px !important; min-height: 0 !important; }
+  .dash-root .dash-greeting { margin-bottom: 14px !important; }
+  .dash-root .dash-quick { margin-bottom: 16px !important; }
+  .dash-root .dash-quick-title { margin-bottom: 10px !important; }
+  .dash-root .dash-quick-actions { grid-template-columns: repeat(6, 1fr) !important; gap: 8px !important; }
+  .dash-root .dash-quick-actions > * { grid-column: span 2; }
+  .dash-root .dash-quick-actions[data-count="4"] { grid-template-columns: repeat(4, 1fr) !important; }
+  .dash-root .dash-quick-actions[data-count="4"] > * { grid-column: span 1; }
+  .dash-root .dash-quick-actions[data-count="5"] > :nth-child(4) { grid-column: 2 / span 2; }
+  .dash-root .dash-quick-actions[data-count="5"] > :nth-child(5) { grid-column: 4 / span 2; }
+  .dash-root .dash-quick-btn {
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+    gap: 8px !important;
+    padding: 12px 4px 10px !important;
+    min-height: 88px;
+    text-align: center !important;
+    border-radius: 16px !important;
+  }
+  .dash-root .dash-quick-btn > span { text-align: center; font-size: 12.5px !important; }
+  .dash-root .dash-quick-ico { width: 40px !important; height: 40px !important; border-radius: 12px !important; }
+  .dash-root .dash-chart-card { padding: 18px 16px !important; }
+  .dash-root .dash-period-row { margin-bottom: 16px !important; gap: 12px !important; }
+  .dash-root .dash-kpi-grid { grid-template-columns: repeat(3, 1fr) !important; gap: 8px !important; margin-bottom: 20px !important; }
+  .dash-root .dash-kpi-card { padding: 12px 10px !important; gap: 8px !important; border-radius: 14px !important; }
+  .dash-root .dash-kpi-card-icon { width: 26px !important; height: 26px !important; }
+  .dash-root .dash-kpi-card-icon svg { width: 13px !important; height: 13px !important; }
+  .dash-root .dash-kpi-card-label { font-size: 9.5px !important; margin-bottom: 3px !important; }
+  .dash-root .dash-kpi-card-value { font-size: 14.5px !important; }
 }
 /* "Har du bokfört någon annanstans innan?" på telefon: en rad med text och
    knapp, utan ikon och underrubrik, så frågan inte bryts i tre korta rader
@@ -6372,4 +6420,197 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
   .dash-sie-sub { display: none !important; }
   .dash-sie > div:last-child { gap: 6px !important; }
   .dash-sie > div:last-child button:first-child { padding: 8px 12px !important; font-size: 12.5px !important; }
+}
+
+/* ══════════════════════════════════════════════
+   STARTSIDAN PÅ DATOR / LAPTOP
+   Tätare och tydligare: mindre hälsning, nyckeltalen som låga rader i stället
+   för höga färgplattor, en enda färgförklaring i diagrammet, och på bred skärm
+   en tvåkolumnskropp (diagram till vänster, Att göra + Utestående till höger)
+   så att översikten syns på en skärm. Telefonen har egna regler ovan.
+══════════════════════════════════════════════ */
+@media (min-width: 1101px) {
+  .dash-greeting { margin-bottom: 12px !important; }
+  .dash-quick { margin-bottom: 14px !important; }
+  .dash-quick-title { margin-bottom: 8px !important; }
+  .dash-chart-card { padding: 18px 20px !important; margin-bottom: 16px !important; }
+  .dash-period-row { margin-bottom: 14px !important; }
+  .dash-kpi-grid { gap: 12px !important; margin-bottom: 16px !important; }
+  .dash-kpi-card { flex-direction: row !important; align-items: center !important; gap: 14px !important; padding: 14px 18px !important; }
+  .dash-kpi-card > div { flex: 0 0 auto; }
+  .dash-kpi-card > div:last-child { flex: 1 1 auto; min-width: 0; }
+  .dash-lower-grid { margin-bottom: 16px !important; }
+  .dash-todo-card { margin-bottom: 16px !important; }
+}
+/* Lägre fönster (laptop): allt tätare, och Snabbåtgärder-rubriken utgår (knapparna
+   säger själva vad de gör), så att hela översikten syns. */
+@media (min-width: 1101px) and (max-height: 860px) {
+  .dash-greeting { margin-bottom: 6px !important; }
+  .dash-quick { margin-bottom: 10px !important; }
+  .dash-quick-title { display: none !important; }
+  .dash-quick-btn { padding: 8px 12px !important; }
+  .dash-chart-card { padding: 14px 18px !important; }
+  .dash-period-row { margin-bottom: 10px !important; }
+  .dash-kpi-grid { margin-bottom: 12px !important; }
+  .dash-kpi-card { padding: 10px 16px !important; }
+}
+@media (min-width: 1101px) and (max-height: 700px) {
+  .dash-kpi-card > div:first-child { display: none !important; }
+}
+@media (min-width: 1200px) {
+  .dash-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 340px);
+    grid-template-rows: auto 1fr;
+    column-gap: 16px;
+    align-items: start;
+    margin-bottom: 16px;
+  }
+  /* Utestående är barn i .dash-lower-grid; här får det ligga som en egen ruta i kroppen. */
+  .dash-body .dash-lower-grid { display: contents !important; }
+  .dash-body .dash-chart-card { grid-column: 1; grid-row: 1 / span 2; align-self: stretch; margin-bottom: 0 !important; }
+  .dash-body .dash-todo-card { grid-column: 2; grid-row: 1; margin-bottom: 16px !important; }
+  .dash-body .dash-outstanding { grid-column: 2; grid-row: 2; align-self: start; }
+  .dash-body .dash-outstanding-head { padding: 12px 16px !important; }
+  .dash-body .dash-outstanding > div:nth-child(2) > button { padding: 14px 16px !important; }
+  .dash-body .dash-outstanding-net { padding: 10px 16px !important; }
+  /* Utan Att göra-kort ligger Utestående ensam i högerkolumnen. */
+  .dash-body--no-todo { grid-template-rows: auto; }
+  .dash-body--no-todo .dash-chart-card { grid-row: 1; }
+  .dash-body--no-todo .dash-outstanding { grid-row: 1; margin-bottom: 0; }
+  .dash-body--solo { display: block; }
+  .dash-body--solo .dash-chart-card { margin-bottom: 16px !important; }
+}
+/* Lägre laptopfönster, efter tvåkolumnsreglerna ovan så att de vinner. */
+@media (min-width: 1200px) and (max-height: 800px) {
+  .dash-body .dash-outstanding-head { padding: 9px 14px !important; }
+  .dash-body .dash-outstanding > div:nth-child(2) > button { padding: 10px 14px !important; }
+  .dash-body .dash-outstanding-net { padding: 8px 14px !important; }
+  .dash-quick-btn { padding: 6px 12px !important; }
+  .dash-kpi-card { padding: 8px 14px !important; }
+}
+
+/* ══════════════════════════════════════════════
+   STARTSIDAN: Att göra idag (enkel färglös lista), grafen och tabellen
+══════════════════════════════════════════════ */
+.dash-todo-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 16px 20px 2px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  margin-bottom: 20px;
+}
+.dash-todo-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 2px; }
+.dash-todo-title { margin: 0; font-size: 15px; font-weight: 700; letter-spacing: -0.01em; color: var(--text-main); }
+.dash-todo-count { font-size: 13px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.dash-todo-list { list-style: none; margin: 0; padding: 0; }
+.dash-today-row { display: flex; align-items: center; gap: 14px; border-top: 1px solid var(--border-light); }
+.dash-today-row:first-child { border-top: none; }
+/* Ringen till vänster avfärdar raden. Ett större tryckområde än ringen själv. */
+.dash-today-check {
+  position: relative;
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1.5px solid var(--text-muted);
+  background: transparent;
+  opacity: 0.55;
+  cursor: pointer;
+  transition: opacity 0.15s, background 0.15s;
+}
+.dash-today-check::before { content: ''; position: absolute; inset: -11px; }
+.dash-today-check::after {
+  content: '';
+  position: absolute;
+  left: 6.5px;
+  top: 3px;
+  width: 5px;
+  height: 9px;
+  border: solid var(--text-muted);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.dash-today-check:hover { opacity: 1; background: var(--bg-muted); }
+.dash-today-check:hover::after { opacity: 1; }
+.dash-today-btn {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 0;
+  background: none;
+  border: none;
+  font-family: inherit;
+  text-align: left;
+  color: var(--text-main);
+  cursor: pointer;
+}
+.dash-today-text { flex: 1; min-width: 0; font-size: 14.5px; font-weight: 500; line-height: 1.35; }
+.dash-today-chevron { flex-shrink: 0; color: var(--text-muted); transition: transform 0.15s, color 0.15s; }
+.dash-today-btn:hover .dash-today-chevron { transform: translateX(2px); color: var(--text-main); }
+
+.dash-chart-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+.dash-chart-title { margin: 0; font-size: 16px; font-weight: 700; letter-spacing: -0.01em; color: var(--text-main); }
+.dash-format-seg { display: inline-flex; gap: 2px; padding: 3px; background: var(--bg-muted); border-radius: 10px; }
+.dash-format-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.dash-format-btn.active { background: var(--bg-card); color: var(--text-main); font-weight: 600; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08); }
+.dash-chart-key { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0 0 8px; font-size: 12.5px; color: var(--text-secondary); }
+.dash-chart-key > span { display: inline-flex; align-items: center; gap: 6px; }
+.dash-chart-key-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.dash-chart-key-line { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+
+.dash-table-wrap { overflow-x: auto; }
+.dash-table { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+.dash-table th {
+  padding: 8px 10px;
+  text-align: right;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.dash-table td { padding: 11px 10px; text-align: right; color: var(--text-main); border-bottom: 1px solid var(--border-light); white-space: nowrap; }
+.dash-table th:first-child, .dash-table td:first-child { text-align: left; }
+.dash-table td:first-child { font-weight: 600; }
+.dash-table td.result { font-weight: 700; }
+.dash-table td.neg { color: var(--status-red-text); }
+.dash-table td.muted { color: var(--text-muted); }
+.dash-table tfoot td, .dash-table tfoot td.result { padding-top: 13px; font-weight: 800; border-top: 1px solid var(--border); border-bottom: none; }
+
+@media (min-width: 1101px) and (max-height: 860px) {
+  .dash-today-btn { padding: 10px 0; }
+  .dash-todo-card { padding-top: 12px; }
+  .dash-table td { padding: 8px 10px; }
+}
+@media (max-width: 640px) {
+  .dash-root .dash-chart-head { flex-direction: column; align-items: stretch; gap: 12px; margin-bottom: 12px; }
+  .dash-root .dash-format-seg { display: flex; width: 100%; }
+  .dash-root .dash-format-btn { flex: 1; padding: 8px 4px; }
+  .dash-root .dash-table th { padding: 8px 4px; font-size: 10.5px; }
+  .dash-root .dash-table td { padding: 11px 4px; font-size: 13px; }
+  .dash-root .dash-table-prev { display: none; }
 }

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import DateField from './shared/DateField';
 import { isReverseChargePurchaseAccount } from '../utils/reverseCharge';
 import {
-  Plus, Check, X, AlertCircle, Landmark, CreditCard, UploadCloud, FileText, Trash2, Search, RefreshCw, Printer, Eye,
+  Plus, Check, X, AlertCircle, Landmark, CreditCard, UploadCloud, FileText, Inbox, Trash2, Search, RefreshCw, Printer, Eye,
 } from './icons';
 import { AccountSearch, ProjectSearch } from './shared/SearchInputs';
 import ListPageHeader, { listHeaderButtonStyle, listSearchInputStyle, listFilterFieldStyle, PAGE_SIZE_OPTIONS } from './shared/ListPageHeader';
@@ -1007,7 +1007,7 @@ export default function SupplierInvoices({
         // Samma stora ikon/rubrik/knapp-mönster som Kunder och Offerter i tomt läge.
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px', padding: '40px 20px', textAlign: 'center' }}>
           <div style={{ width: 56, height: 56, borderRadius: '999px', background: 'var(--bg-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: BRAND.green }}>
-            <FileText size={26} />
+            <Inbox size={26} />
           </div>
           <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-main)' }}>Inga leverantörsfakturor än</div>
           <div style={{ fontSize: '13.5px', color: 'var(--text-muted)', maxWidth: '320px' }}>Registrera din första leverantörsfaktura för att komma igång.</div>

@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  MdOutlineEditNote, MdOutlineStorefront, MdMoreTime, MdPayments, MdPersonAddAlt1, MdPostAdd, MdUploadFile,
+  MdOutlineEditNote, MdOutlineHome, MdOutlineStorefront, MdMoreTime, MdPayments, MdPersonAddAlt1, MdPostAdd, MdUploadFile,
   MdOutlineAccessTime, MdOutlineAccountBalance, MdOutlineAccountBalanceWallet, MdOutlineAccountTree,
   MdOutlineAdd, MdOutlineAlarm, MdOutlineApartment,
   MdOutlineAreaChart, MdOutlineArrowBack, MdOutlineArrowCircleDown, MdOutlineArrowCircleUp,
@@ -201,7 +201,35 @@ export const XCircle = make(MdOutlineCancel, 'XCircle');
 // ett kvitto med sicksackkant för kvittot.
 export const NavSalesIcon = make(MdOutlineStorefront, 'NavSalesIcon');
 export const NavQuotesIcon = make(MdOutlineEditNote, 'NavQuotesIcon');
-export const NavInvoicesIcon = make(MdOutlineRequestQuote, 'NavInvoicesIcon');
+// Fakturaikonen är samma teckning som den stora illustrationen när det inte finns några
+// fakturor än (Invoices.jsx, InvoiceDocIllustration): ett dokument med vikt hörn och
+// textrader, och en bock i en ring nere till höger. Ritad med linjer i ikonens färg
+// (currentColor), så den följer menyns aktiva/inaktiva färg som de andra ikonerna.
+export const NavInvoicesIcon = ({ size = 24, className, style, color, strokeWidth: _strokeWidth, absoluteStrokeWidth: _absoluteStrokeWidth, ...rest }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color || 'currentColor'}
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    style={style}
+    aria-hidden="true"
+    {...rest}
+  >
+    <path d="M12.5 20H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6l5 5v4" />
+    <path d="M13 3v4a1 1 0 0 0 1 1h4" />
+    <path d="M8.5 12h5M8.5 15.5h3" />
+    <circle cx="17" cy="17" r="4.5" />
+    <path d="M14.9 17.2l1.5 1.5 2.7-2.9" />
+  </svg>
+);
+NavInvoicesIcon.displayName = 'NavInvoicesIcon';
+// Hem på telefonens bottenrad: ett hus. På datorn heter samma sida Start och har rutnätsikonen.
+export const NavHomeIcon = make(MdOutlineHome, 'NavHomeIcon');
 export const NavReceiptsIcon = make(MdOutlineReceipt, 'NavReceiptsIcon');
 // Snabbåtgärderna på startsidan: fyllda ikoner som syns tydligt vita på en färgad platta.
 export const QuickNewInvoiceIcon = make(MdPostAdd, 'QuickNewInvoiceIcon');

@@ -1,6 +1,6 @@
 {
   "nav": {
-    "dashboard": "Startsida",
+    "dashboard": "Start",
     "contacts": "Kunder",
     "quotes": "Offerter",
     "sales": "Försäljning",
@@ -16,10 +16,14 @@
     "payroll": "Anställda och lön",
     "reports": "Rapport och analys",
     "taxes": "Skatt och bokslut",
-    "settings": "Inställningar"
+    "settings": "Inställningar",
+    "groupBusiness": "Verksamhet",
+    "groupFinance": "Ekonomi",
+    "groupReports": "Rapporter",
+    "groupAdmin": "Administration"
   },
   "navShort": {
-    "dashboard": "Startsida",
+    "dashboard": "Start",
     "contacts": "Kunder",
     "sales": "Försäljning",
     "expenses": "Kvitton",
@@ -30,7 +34,11 @@
     "payroll": "Lön",
     "reports": "Rapport",
     "taxes": "Skatt",
-    "settings": "Inställn."
+    "settings": "Inställn.",
+    "articles": "Artiklar",
+    "quotes": "Offerter",
+    "invoices": "Fakturor",
+    "supplierInvoices": "Lev.fakt."
   },
   "shared": {
     "listTable": {
@@ -108,6 +116,7 @@
       "emptyTitle": "Ingen bokföring ännu",
       "emptySubtitle": "Så fort du bokfört en faktura eller en utgift dyker den här grafen upp här.",
       "tablePeriod": "Period",
+      "tableTotal": "Totalt",
       "tableResult": "Resultat",
       "tableResultCompared": "Resultat {{label}}",
       "tableChange": "Förändring"
@@ -121,9 +130,11 @@
       "title": "Utestående",
       "allInvoices": "Alla fakturor",
       "toReceive": "Att få in",
+      "toReceiveHint": "Kunder som ska betala dig",
       "toPay": "Att betala",
-      "noUnpaidCustomerInvoices": "Inga obetalda kundfakturor",
-      "noUnpaidSupplierInvoices": "Inga obetalda leverantörsfakturor",
+      "toPayHint": "Det du ska betala",
+      "noUnpaidCustomerInvoices": "Inget att få in just nu. Skickar du en faktura syns den här.",
+      "noUnpaidSupplierInvoices": "Inget att betala just nu. Nya leverantörsfakturor syns här.",
       "oldestOverdueNote": "äldsta förföll för {{days}} dagar sedan",
       "invoiceSingular": "faktura",
       "invoicePlural": "fakturor",

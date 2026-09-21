@@ -987,7 +987,17 @@ export function RevenueExpenseChart({ data, isMobile, granularity = 'month', hei
               bakgrund till intäktsstapeln, annars konkurrerar de två om
               samma plats i blicken och linjen försvinner mellan dem. */}
           <Bar dataKey="Utgifter" fill={palette.cost} fillOpacity={0.28} radius={[4, 4, 0, 0]} maxBarSize={CHART_BAR_SIZE} isAnimationActive={false} />
-          <Line type="monotone" dataKey="Resultat" stroke={palette.profit} strokeWidth={CHART_STROKE} dot={false} isAnimationActive={false} />
+          {/* Tunnare än övriga kurvor: den ligger ovanpå staplarna och ska läsas som en linje
+              genom dem, inte som en tjock stapel. Punkter när det är få perioder (månader). */}
+          <Line
+            type="monotone"
+            dataKey="Resultat"
+            stroke={palette.profit}
+            strokeWidth={2.5}
+            dot={comboData.length <= 16 ? { r: 3.5, strokeWidth: 2, stroke: 'var(--bg-card)', fill: palette.profit } : false}
+            activeDot={{ r: 5, strokeWidth: 2, stroke: 'var(--bg-card)' }}
+            isAnimationActive={false}
+          />
         </ComposedChart>
       </ResponsiveContainer>
     );
@@ -1002,11 +1012,13 @@ export function RevenueExpenseChart({ data, isMobile, granularity = 'month', hei
         {...shared}
         fill={effective === 'area' ? 'gradient' : 'none'}
         curveType="monotone"
-        strokeWidth={CHART_STROKE}
+        strokeWidth={isMobile ? 2.75 : CHART_STROKE}
         // Punkter i LINJEläget, inte i ytläget: ytan har redan en tydlig
         // kant mot bakgrunden, och punkter ovanpå en fylld yta blir prickar
         // i ett fält snarare än markörer på en kurva.
-        showDots={effective === 'line'}
+        // På telefon utan punkter: med nio månader på en smal yta blev punkternas vita
+        // kant till glapp i linjen, så den såg streckad ut.
+        showDots={effective === 'line' && !isMobile}
         connectNulls
       />
     );

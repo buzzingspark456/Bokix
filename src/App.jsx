@@ -1,6 +1,4 @@
 import React, { useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
-import { createPortal } from 'react-dom';
-import useMediaQuery from './utils/useMediaQuery';
 import { visiblePages } from './utils/pageAccess';
 import { isUfCompany, ufPageState, ufInvoiceQuota, ufFreePeriod, UF_NAV_IDS, UF_HIDDEN_REPORT_IDS } from './utils/ufMode';
 import { useTranslation } from './i18n';
@@ -16,6 +14,7 @@ import {
   BarChart3,
   Settings as SettingsIcon,
   ChevronDown,
+  ChevronRight,
   X,
   Calculator,
   FileCheck,
@@ -26,7 +25,7 @@ import {
   Bell,
   HelpCircle,
   Briefcase,
-  NavSalesIcon, NavQuotesIcon, NavInvoicesIcon, NavReceiptsIcon, Inbox,
+  NavQuotesIcon, NavInvoicesIcon, NavReceiptsIcon, NavHomeIcon, Inbox,
   LogOut,
   Moon,
   AlertTriangle,
@@ -432,18 +431,19 @@ function RouteLoadingFallback() {
 }
 
 // Sidomenyns grupper/etiketter speglade från den RIKTIGA <nav> längre ner
-// (samma tre grupper, samma ordning) — bara så AppLoadingSkeleton kan visa
+// (samma grupper, samma ordning) — bara så AppLoadingSkeleton kan visa
 // exakt samma radlängder OCH markera rätt rad som aktiv, istället för sex
 // gissade streck utan koppling till vilken sida man faktiskt ska in på.
 const SKELETON_NAV_GROUPS = [
-  ['dashboard', 'contacts', 'expenses', 'verifications'],
-  ['review', 'invoices'],
-  ['projects', 'payroll', 'reports', 'taxes'],
-  ['settings'],
+  ['dashboard'],
+  ['contacts', 'articles', 'quotes', 'invoices'],
+  ['expenses', 'supplier_invoices', 'bank', 'verifications'],
+  ['reports', 'taxes'],
+  ['projects', 'payroll', 'settings'],
 ];
 // Bredd i % per nav-rad (samma etiketter som riktiga <nav>:en, fast som
 // streck) — statiska tal räcker, det är bara en siluett.
-const SKELETON_NAV_WIDTHS = { dashboard: 62, contacts: 50, quotes: 56, invoices: 68, expenses: 58, projects: 52, review: 66, verifications: 60, payroll: 78, reports: 82, taxes: 70, settings: 64 };
+const SKELETON_NAV_WIDTHS = { dashboard: 40, contacts: 50, articles: 52, quotes: 56, invoices: 68, expenses: 58, supplier_invoices: 84, bank: 40, verifications: 60, projects: 52, payroll: 78, reports: 82, taxes: 70, settings: 64 };
 
 // Vilken innehålls-siluett (se DashboardSkeletonContent/ListSkeletonContent/
 // SettingsSkeletonContent nedan) som bäst speglar respektive sidas FAKTISKA
@@ -987,8 +987,7 @@ const tabAliases = {
   dashboard:        'dashboard',
   contacts:         'contacts',
   invoices:         'invoices',
-  // Offerter är en egen sida, nådd via Försäljning i sidomenyn (som också
-  // samlar Kundfakturor, Leverantörsfakturor och Artiklar).
+  // Offerter är en egen sida i sidomenyn, under Verksamhet.
   quotes:           'quotes',
   // Produktregistret (profilmenyns "Artikel") — egen sida,
   // samma company-data-fält (`articles`) som redan användes av det gamla
@@ -1019,13 +1018,10 @@ const resolveTab = (id) => {
   return tabAliases[base] || base;
 };
 // Leverantörsfakturor ('supplier_invoices') och Artiklar ('articles') är egna
-// sidor under Försäljning i sidomenyn. `navAccessId` (nedan) säger att de hör
-// till fakturasidan ('invoices') för behörighet och UF-läget.
-// Försäljning i sidomenyn samlar fyra sidor. De tre som inte är Kundfakturor
-// ('invoices') har egna id:n men samma åtkomst som fakturasidan: en inbjuden
-// medlem eller ett UF-företag som får se fakturor får också se Leverantörs-
-// fakturor och Artiklar. Offerter är en egen behörighet ('quotes').
-const SALES_TABS = ['quotes', 'invoices', 'supplier_invoices', 'articles'];
+// sidor i sidomenyn. `navAccessId` (nedan) säger att de hör till fakturasidan
+// ('invoices') för behörighet och UF-läget: en inbjuden medlem eller ett
+// UF-företag som får se fakturor får också se Leverantörsfakturor och Artiklar.
+// Offerter är en egen behörighet ('quotes').
 const navAccessId = (id) => (id === 'supplier_invoices' || id === 'articles' ? 'invoices' : id);
 const resolveNavGroup = (id) => resolveTab(navAccessId(id));
 
@@ -1098,23 +1094,6 @@ function App() {
   }, []);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  // Försäljning-gruppen i sidomenyn: uppfälld när man står på någon av dess
-  // sidor, annars hopfälld.
-  const [salesOpen, setSalesOpen] = useState(() => SALES_TABS.includes(activeTab));
-  // Halvskärm (769–1100 px): sidomenyn är ett smalt ikonfält. Där fälls Försäljning
-  // inte ut i fältet utan öppnas som en liten ruta bredvid det, med text på varje rad.
-  const isRail = useMediaQuery('(min-width: 769px) and (max-width: 1100px)');
-  const [salesFlyout, setSalesFlyout] = useState(null); // { top, left } | null
-  useEffect(() => { setSalesFlyout(null); }, [activeTab, isRail]);
-  useEffect(() => {
-    if (!salesFlyout) return undefined;
-    const onKey = (e) => { if (e.key === 'Escape') setSalesFlyout(null); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [salesFlyout]);
-  // Fälls ut när man kommer till en av Försäljningens sidor och ihop av sig själv
-  // så fort man lämnar dem (till Kunder, Kvitton osv.).
-  useEffect(() => { setSalesOpen(SALES_TABS.includes(activeTab)); }, [activeTab]);
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
   // Bottenraden göms medan ett textfält har fokus. Annars skjuts den upp
   // ovanför tangentbordet (iOS Safari/Android) och hänger mitt på skärmen.
@@ -2425,6 +2404,51 @@ function App() {
 
     return () => { cancelled = true; };
   }, [user, supabaseEnabled, data.activeCompanyId]);
+
+  // Granskning i sidomenyn visas bara när något väntar. Kvitton utan konto räknas
+  // ur company-datat (reviewCount); Stripe- och Zettle-raderna ligger i egna
+  // tabeller som bara Granskning-sidan läste, så de räknas här (billig count-fråga,
+  // inga rader hämtas). Körs om när man kommer till eller lämnar sidan, så att
+  // menyn följer med när man godkänt det sista. Måste stå INNAN
+  // `if (isLoadingAuth) return ...` (hooks-ordningen).
+  const [integrationReviewCount, setIntegrationReviewCount] = useState(0);
+  const onReviewTab = resolveTab(activeTab) === 'review';
+  useEffect(() => {
+    if (!user?.id || !supabaseEnabled || !data.activeCompanyId) { setIntegrationReviewCount(0); return undefined; }
+    let cancelled = false;
+    const countPending = async (table) => {
+      try {
+        const { count, error } = await supabase
+          .from(table)
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .eq('company_id', data.activeCompanyId)
+          .is('reviewed_at', null);
+        return error ? 0 : (count || 0);
+      } catch {
+        return 0;
+      }
+    };
+    (async () => {
+      const [stripe, zettle] = await Promise.all([countPending('stripe_ledger_events'), countPending('zettle_ledger_events')]);
+      if (!cancelled) setIntegrationReviewCount(stripe + zettle);
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id, supabaseEnabled, data.activeCompanyId, onReviewTab]);
+
+  // Sidomenyns grupper kan fällas ihop genom att klicka på rubriken. Valet sparas
+  // i webbläsaren. Alla grupper är uppfällda som standard, och gruppen som
+  // innehåller sidan man står på är alltid uppfälld (se nav-blocket längre ner).
+  const [collapsedNav, setCollapsedNav] = useState(() => {
+    try {
+      const v = JSON.parse(localStorage.getItem('bokix_nav_collapsed') || '[]');
+      return Array.isArray(v) ? v : [];
+    } catch { return []; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('bokix_nav_collapsed', JSON.stringify(collapsedNav)); } catch { /* privat läge: valet gäller bara den här sessionen */ }
+  }, [collapsedNav]);
+  const toggleNavGroup = (key) => setCollapsedNav(prev => (prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]));
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -3932,6 +3956,9 @@ function App() {
   // Granskningskön (Sida "Granskning") = kvitton/leverantörsfakturor utan
   // kontering — samma underlag som ReviewQueue.jsx faktiskt visar.
   const reviewCount = expenses.filter(e => !e.costAccount).length;
+  // Granskning-sidan har också flikarna Stripe och Zettle. Deras rader räknas
+  // i integrationReviewCount (hämtas högre upp) och ingår i det som menyn visar.
+  const reviewTotal = reviewCount + integrationReviewCount;
   const notificationCount = reviewCount + expenses.filter(e => ['draft', 'pending'].includes(e.status)).length;
 
   // Notis-klockan hade ingen panel bakom sig — bara ett antal, ingen väg att
@@ -3976,7 +4003,7 @@ function App() {
 
   // Mobile bottom nav (4 vanligaste + "Mer") — Sida 26. "Mer" öppnar en
   // bottensheet med resten av huvudpunkterna istället för att själv peka på
-  // en specifik sida, så dess ikon nedan hanteras separat (se mobileSheetItems).
+  // en specifik sida, så dess ikon nedan hanteras separat (se mobileSheetSections).
   // Bottenmenyn har det man tittar i. Att SKAPA faktura, kontakt och kvitto
   // sköts redan av snabbåtgärderna på Hem, så de fick inte en egen plats här
   // (kundfeedback); fakturor och kunder ligger ett tryck bort under Meny.
@@ -3984,43 +4011,58 @@ function App() {
   // Kvitton, eftersom att fota ett kvitto är det man oftast gör på telefonen.
   // Bokföring och Rapport ligger på var sin sida om den, Hem först och Meny sist.
   const mobileNavItems = [
-    { id: 'dashboard',     label: 'Hem',       icon: LayoutDashboard },
+    { id: 'dashboard',     label: 'Hem',       icon: NavHomeIcon },
     { id: 'verifications', label: 'Bokföring', icon: BookOpen },
     { id: 'expenses',      label: 'Kvitton',   icon: NavReceiptsIcon, hero: true },
     { id: 'reports',       label: 'Rapport',   icon: BarChart3 },
   ];
-  const mobileSheetItems = [
-    { id: 'contacts',          label: 'Kunder',              icon: Users },
-    { id: 'articles',          label: 'Artiklar',            icon: Package },
-    { id: 'quotes',            label: 'Offerter',            icon: NavQuotesIcon },
-    { id: 'invoices',          label: 'Kundfakturor',        icon: NavInvoicesIcon },
-    { id: 'supplier_invoices', label: 'Leverantörsfakturor', icon: Inbox },
-    { id: 'review',        label: 'Granskning',          icon: ClipboardCheck, badge: reviewCount },
-    { id: 'bank',          label: 'Bank',                icon: Landmark },
-    { id: 'projects',      label: 'Projekt',             icon: Briefcase },
-    { id: 'payroll',       label: 'Anställda och lön',   icon: UsersRound },
-    { id: 'taxes',         label: 'Skatt och bokslut',   icon: Shield },
-    { id: 'settings',      label: 'Inställningar',       icon: SettingsIcon },
+  // Telefonens Meny har samma grupper som sidomenyn på datorn, utan det som redan
+  // finns i bottenraden (se visibleMobileSheetSections).
+  const mobileSheetSections = [
+    { key: 'business', title: t('nav.groupBusiness'), items: [
+      { id: 'contacts', label: t('nav.contacts'), icon: Users },
+      { id: 'articles', label: t('nav.articles'), icon: Package, exact: true },
+      { id: 'quotes', label: t('nav.quotes'), icon: NavQuotesIcon, exact: true },
+      { id: 'invoices', label: t('nav.customerInvoices'), icon: NavInvoicesIcon, exact: true },
+    ] },
+    { key: 'finance', title: t('nav.groupFinance'), items: [
+      { id: 'expenses', label: t('nav.expenses'), icon: NavReceiptsIcon },
+      { id: 'supplier_invoices', label: t('nav.supplierInvoices'), icon: Inbox, exact: true },
+      { id: 'bank', label: t('nav.bank'), icon: Landmark },
+      { id: 'verifications', label: t('nav.verifications'), icon: BookOpen },
+    ] },
+    { key: 'reports', title: t('nav.groupReports'), items: [
+      { id: 'reports', label: t('nav.reports'), icon: BarChart3 },
+      { id: 'taxes', label: t('nav.taxes'), icon: Shield },
+    ] },
+    { key: 'admin', title: t('nav.groupAdmin'), items: [
+      { id: 'projects', label: t('nav.projects'), icon: Briefcase },
+      { id: 'payroll', label: t('nav.payroll'), icon: UsersRound },
+      { id: 'settings', label: t('nav.settings'), icon: SettingsIcon },
+    ] },
   ];
   // Mobilmenyn måste filtreras på samma sätt som sidomenyn — annars är
   // UF-lägets avstängda sidor (Offerter/Projekt/Lön) borta på desktop men
-  // kvar i mobilens "Mer"-sheet, vilket är sämre än att inte ha filtrerat
+  // kvar i mobilens Meny, vilket är sämre än att inte ha filtrerat
   // alls: samma app säger två olika saker beroende på skärmbredd.
   // allowedNavIds är null för ett vanligt eget företag, så det här är ett
   // no-op där. 'settings' undantas precis som i sidomenyn.
   const isNavIdAllowed = (id) => allowedNavIds === null || id === 'settings' || allowedNavIds.includes(id);
-  // Försäljningens undersidor. Offerter är egen behörighet, resten följer fakturasidan (navAccessId).
-  // En tunn linje mellan varje undersida: Artiklar, Offerter, Kundfakturor och
-  // Leverantörsfakturor. `group` styr var linjerna hamnar.
-  const salesChildren = [
-    { id: 'articles', label: t('nav.articles'), icon: Package, group: 0 },
-    { id: 'quotes', label: t('nav.quotes'), icon: NavQuotesIcon, group: 1 },
-    { id: 'invoices', label: t('nav.customerInvoices'), icon: NavInvoicesIcon, group: 2 },
-    { id: 'supplier_invoices', label: t('nav.supplierInvoices'), icon: Inbox, group: 3 },
-  ].filter(c => isNavIdAllowed(navAccessId(c.id)));
+  // Offerter, Kundfakturor, Artiklar och Leverantörsfakturor markeras bara på sin egen sida.
+  const isNavItemActive = (item) => (item.exact
+    ? resolveTab(activeTab) === item.id
+    : resolveNavGroup(activeTab) === resolveTab(item.id));
   const visibleMobileNavItems = mobileNavItems.filter(item => isNavIdAllowed(item.id));
-  const visibleMobileSheetItems = mobileSheetItems.filter(item => isNavIdAllowed(navAccessId(item.id)));
-  const isMobileSheetItemActive = visibleMobileSheetItems.some(item => activeTab === resolveTab(item.id));
+  // Det som redan finns i bottenraden (Kvitton, Bokföring, Rapport) tas inte med i Meny.
+  const barIds = visibleMobileNavItems.map(item => item.id);
+  const visibleMobileSheetSections = mobileSheetSections
+    .map(sec => ({ ...sec, items: sec.items.filter(item => isNavIdAllowed(navAccessId(item.id)) && !barIds.includes(item.id)) }))
+    .filter(sec => sec.items.length > 0);
+  // Som på datorn: Granskning visas bara när något väntar, eller när man står på sidan.
+  const reviewSheetVisible = isNavIdAllowed('review') && (reviewTotal > 0 || resolveNavGroup(activeTab) === 'review');
+  // "Meny" lyser när sidan man står på finns i panelen.
+  const isMobileSheetItemActive = (reviewSheetVisible && resolveNavGroup(activeTab) === 'review')
+    || visibleMobileSheetSections.some(sec => sec.items.some(isNavItemActive));
 
   const companyList = Object.values(data.companies).map(c => c.company);
 
@@ -4479,7 +4521,7 @@ function App() {
               monogrammet den breda loggan. Dolt på alla andra bredder. */}
           <button type="button" className="sidebar-monogram" onClick={() => handleNavTabChange('dashboard')} aria-label="Startsida" title="Till startsidan"><BokixMark height={40} /></button>
         </div>
-        <div style={{ height: '1px', background: 'rgba(255,255,255,0.15)', margin: '0 20px 8px', flexShrink: 0 }}></div>
+        <div style={{ height: '1px', background: 'rgba(255,255,255,0.15)', margin: '0 20px var(--sb-gap, 8px)', flexShrink: 0 }}></div>
 
         {/* Företagsväxlaren flyttad till Inställningar → Företag (Sida 38) —
             fanns tidigare här som en dropdown i sidomenyn. Byt-företag/
@@ -4487,124 +4529,79 @@ function App() {
             bara UI:t flyttat, se <Settings companyList/activeCompanyId/
             onSwitchCompany/onAddCompany> ovan. */}
 
-        {/* Huvudnavigering — tre grupper, ingen linje mellan rader inom en grupp,
-            bara en tunn låg-kontrast linje mellan grupperna. */}
+        {/* Huvudnavigering — fem grupper: överst Start och Granskning, sedan
+            Verksamhet, Ekonomi, Rapporter och Administration. Grupprubrikerna
+            visas när fönstret är högt nog (index.css); annars, och i halvskärmens
+            ikonfält, skiljs grupperna åt av en tunn linje. Granskning syns bara när
+            något väntar, eller när man redan står på sidan. */}
         <nav className="nav-links" style={{ display: 'flex', flexDirection: 'column', gap: 0, padding: 0, flexShrink: 1, minHeight: 0, overflowY: 'auto' }}>
           {[
             {
-              // Grupp 1 — det dagliga: överblick, kunder, kvitton och bokföring
               items: [
                 { id: 'dashboard', label: t('nav.dashboard'), short: t('navShort.dashboard'), icon: LayoutDashboard },
+                { id: 'review', label: t('nav.review'), short: t('navShort.review'), badge: reviewTotal, icon: ClipboardCheck, hidden: reviewTotal === 0 && resolveNavGroup(activeTab) !== 'review' },
+              ],
+            },
+            {
+              key: 'business',
+              title: t('nav.groupBusiness'),
+              items: [
                 { id: 'contacts', label: t('nav.contacts'), short: t('navShort.contacts'), icon: Users },
+                { id: 'articles', label: t('nav.articles'), short: t('navShort.articles'), icon: Package, exact: true },
+                { id: 'quotes', label: t('nav.quotes'), short: t('navShort.quotes'), icon: NavQuotesIcon, exact: true },
+                { id: 'invoices', label: t('nav.customerInvoices'), short: t('navShort.invoices'), icon: NavInvoicesIcon, exact: true },
+              ],
+            },
+            {
+              key: 'finance',
+              title: t('nav.groupFinance'),
+              items: [
                 { id: 'expenses', label: t('nav.expenses'), short: t('navShort.expenses'), icon: NavReceiptsIcon },
+                { id: 'supplier_invoices', label: t('nav.supplierInvoices'), short: t('navShort.supplierInvoices'), icon: Inbox, exact: true },
+                { id: 'bank', label: t('nav.bank'), short: t('navShort.bank'), icon: Landmark },
                 { id: 'verifications', label: t('nav.verifications'), short: t('navShort.verifications'), icon: BookOpen },
               ],
             },
             {
-              // Grupp 2 — granskning och försäljning
+              key: 'reports',
+              title: t('nav.groupReports'),
               items: [
-                { id: 'review', label: t('nav.review'), short: t('navShort.review'), badge: reviewCount, icon: ClipboardCheck },
-                { id: 'sales', label: t('nav.sales'), short: t('navShort.sales'), icon: NavSalesIcon, children: salesChildren },
-              ],
-            },
-            {
-              // Grupp 3 — resten
-              items: [
-                { id: 'bank', label: t('nav.bank'), short: t('navShort.bank'), icon: Landmark },
-                { id: 'projects', label: t('nav.projects'), short: t('navShort.projects'), icon: Briefcase },
-                { id: 'payroll', label: t('nav.payroll'), short: t('navShort.payroll'), icon: UsersRound },
                 { id: 'reports', label: t('nav.reports'), short: t('navShort.reports'), icon: BarChart3 },
                 { id: 'taxes', label: t('nav.taxes'), short: t('navShort.taxes'), icon: Shield },
               ],
             },
             {
-              // Grupp 4 — inställningar, ensam i sin egen grupp
+              key: 'admin',
+              title: t('nav.groupAdmin'),
               items: [
+                { id: 'projects', label: t('nav.projects'), short: t('navShort.projects'), icon: Briefcase },
+                { id: 'payroll', label: t('nav.payroll'), short: t('navShort.payroll'), icon: UsersRound },
                 { id: 'settings', label: t('nav.settings'), short: t('navShort.settings'), icon: SettingsIcon },
               ],
             },
-          ].map(group => ({ ...group, items: group.items.filter(item => item.children ? item.children.length > 0 : (allowedNavIds === null || item.id === 'settings' || allowedNavIds.includes(item.id))) }))
+          ].map(group => ({ ...group, items: group.items.filter(item => !item.hidden && isNavIdAllowed(navAccessId(item.id))) }))
            .filter(group => group.items.length > 0)
-           .map((group, gi) => (
+           .map((group, gi) => {
+            const isItemActive = (item) => (item.exact
+              ? resolveTab(activeTab) === item.id
+              : resolveNavGroup(activeTab) === resolveTab(item.id));
+            // Gruppen med sidan man står på fälls aldrig ihop, så man ser var man är.
+            const collapsed = Boolean(group.key) && collapsedNav.includes(group.key) && !group.items.some(isItemActive);
+            return (
             <React.Fragment key={gi}>
-              {gi > 0 && <div style={{ height: '1px', background: 'rgba(255,255,255,0.15)', margin: '8px 20px', flexShrink: 0 }}></div>}
+              {gi > 0 && <div className="nav-group-divider" style={{ height: '1px', background: 'rgba(255,255,255,0.15)', margin: 'var(--sb-gap, 8px) 20px', flexShrink: 0 }}></div>}
+              {group.title && (
+                <button type="button" className="nav-group-title" aria-expanded={!collapsed} onClick={() => toggleNavGroup(group.key)}>
+                  <span>{group.title}</span>
+                  <ChevronDown className="nav-group-chevron" size={12} style={{ transform: collapsed ? 'rotate(-90deg)' : 'none' }} />
+                </button>
+              )}
+              <div className={`nav-group-items${collapsed ? ' is-collapsed' : ''}`}>
               {group.items.map((item) => {
-                if (item.children) {
-                  // Försäljning: en grupp som fälls upp och visar sina sidor.
-                  // Står man på en av dem är gruppen uppfälld och just den
-                  // sidan markerad; är gruppen hopfälld markeras gruppen.
-                  const inSales = SALES_TABS.includes(activeTab);
-                  const parentActive = inSales && (isRail || !salesOpen);
-                  const goToSales = (e) => {
-                    if (isRail) {
-                      // Halvskärm: en ruta bredvid fältet i stället för att fälla ut i det.
-                      if (salesFlyout) { setSalesFlyout(null); return; }
-                      const r = e.currentTarget.getBoundingClientRect();
-                      setSalesFlyout({ top: r.top, left: r.right + 8 });
-                      return;
-                    }
-                    if (!inSales) {
-                      setSalesOpen(true);
-                      handleNavTabChange(item.children.find(c => c.id === 'invoices')?.id || item.children[0].id);
-                    } else {
-                      setSalesOpen(open => !open);
-                    }
-                  };
-                  return (
-                    <React.Fragment key={item.id}>
-                      <button
-                        data-tour={`nav-${item.id}`}
-                        title={item.label}
-                        aria-expanded={salesOpen}
-                        className={`nav-item nav-parent ${parentActive ? 'active' : ''}`}
-                        onClick={goToSales}
-                        style={{
-                          padding: '13px 24px', width: '100%', textAlign: 'left',
-                          background: parentActive ? 'rgba(255,255,255,0.14)' : 'none', border: 'none',
-                          color: inSales ? '#ffffff' : 'rgba(255,255,255,0.88)', fontSize: '15px',
-                          fontWeight: inSales ? 700 : 500, cursor: 'pointer', display: 'flex', alignItems: 'center',
-                          justifyContent: 'space-between', gap: '8px', flexShrink: 0,
-                        }}
-                      >
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '11px' }}>
-                          <item.icon size={18} strokeWidth={inSales ? 2.25 : 2} style={{ flexShrink: 0, opacity: inSales ? 1 : 0.85 }} />
-                          <span className="nav-label">{item.label}</span>
-                          <span className="nav-short">{item.short}</span>
-                        </span>
-                        <ChevronDown className="nav-chevron" size={16} style={{ flexShrink: 0, opacity: 0.7, transition: 'transform 0.15s', transform: salesOpen ? 'rotate(180deg)' : 'none' }} />
-                      </button>
-                      {salesOpen && !isRail && item.children.map((child, ci) => {
-                        const childActive = activeTab === child.id;
-                        const newGroup = ci > 0 && item.children[ci - 1].group !== child.group;
-                        return (
-                          <React.Fragment key={child.id}>
-                          {newGroup && <div className="nav-child-divider" />}
-                          <button
-                            key={child.id}
-                            data-tour={`nav-${child.id}`}
-                            title={child.label}
-                            className={`nav-item nav-child ${childActive ? 'active' : ''}`}
-                            onClick={() => handleNavTabChange(child.id)}
-                            style={{
-                              padding: '11px 24px 11px 53px', width: '100%', textAlign: 'left',
-                              background: childActive ? 'rgba(255,255,255,0.14)' : 'none', border: 'none',
-                              color: childActive ? '#ffffff' : 'rgba(255,255,255,0.82)', fontSize: '14.5px',
-                              fontWeight: childActive ? 700 : 500, cursor: 'pointer', display: 'flex', alignItems: 'center',
-                              flexShrink: 0,
-                            }}
-                          >
-                            {/* Ingen ikon i den uppfällda menyn: texten står exakt under
-                                förälderns text, som en ren trappa. Ikonerna finns kvar i
-                                halvskärmens ruta (sales-flyout) och i mobilens Meny. */}
-                            <span className="nav-label">{child.label}</span>
-                          </button>
-                          </React.Fragment>
-                        );
-                      })}
-                    </React.Fragment>
-                  );
-                }
-                const isActive = resolveNavGroup(activeTab) === resolveTab(item.id);
+                // Offerter, Kundfakturor, Artiklar och Leverantörsfakturor är egna
+                // sidor: markeras bara på sin egen sida, inte på alla som delar
+                // fakturasidans åtkomst (resolveNavGroup).
+                const isActive = isItemActive(item);
                 return (
                   <button
                     key={item.id}
@@ -4613,13 +4610,13 @@ function App() {
                     className={`nav-item ${isActive ? 'active' : ''}`}
                     onClick={() => handleNavTabChange(item.id)}
                     style={{
-                      padding: '13px 24px',
+                      padding: 'var(--sb-pad, 13px) 24px',
                       width: '100%',
                       textAlign: 'left',
                       background: isActive ? 'rgba(255,255,255,0.14)' : 'none',
                       border: 'none',
                       color: isActive ? '#ffffff' : 'rgba(255,255,255,0.88)',
-                      fontSize: '15px',
+                      fontSize: 'var(--sb-font, 15px)',
                       fontWeight: isActive ? 700 : 500,
                       cursor: 'pointer',
                       display: 'flex',
@@ -4646,34 +4643,11 @@ function App() {
                   </button>
                 );
               })}
+              </div>
             </React.Fragment>
-          ))}
+            );
+          })}
         </nav>
-
-        {/* Försäljning i halvskärm: en ruta bredvid ikonfältet med text på varje rad. */}
-        {isRail && salesFlyout && createPortal(
-          <>
-            <div onMouseDown={() => setSalesFlyout(null)} style={{ position: 'fixed', inset: 0, zIndex: 1290 }} />
-            <div className="sales-flyout" role="menu" aria-label={t('nav.sales')} style={{ position: 'fixed', top: Math.min(salesFlyout.top, window.innerHeight - 250), left: salesFlyout.left, zIndex: 1300 }}>
-              <div className="sales-flyout-title">{t('nav.sales')}</div>
-              {salesChildren.map((child, ci) => (
-                <React.Fragment key={child.id}>
-                  {ci > 0 && salesChildren[ci - 1].group !== child.group && <div className="sales-flyout-divider" />}
-                  <button
-                    role="menuitem"
-                    data-tour={`nav-${child.id}`}
-                    className={`sales-flyout-item${activeTab === child.id ? ' active' : ''}`}
-                    onClick={() => { handleNavTabChange(child.id); setSalesFlyout(null); }}
-                  >
-                    <child.icon size={17} style={{ flexShrink: 0 }} />
-                    <span>{child.label}</span>
-                  </button>
-                </React.Fragment>
-              ))}
-            </div>
-          </>,
-          document.body,
-        )}
 
         {/* Flexibelt tomt utrymme — trycker botten-sektionen längst ner oavsett skärmhöjd */}
         <div style={{ flex: 1 }}></div>
@@ -4684,8 +4658,8 @@ function App() {
             className="nav-item"
             onClick={() => setIsHelpDrawerOpen(true)}
             style={{
-              padding: '13px 24px', width: '100%', textAlign: 'left', background: 'none',
-              border: 'none', color: 'rgba(255,255,255,0.7)', fontSize: '15px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px'
+              padding: 'var(--sb-pad, 13px) 24px', width: '100%', textAlign: 'left', background: 'none',
+              border: 'none', color: 'rgba(255,255,255,0.7)', fontSize: 'var(--sb-font, 15px)', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px'
             }}
           >
             <HelpCircle size={17} /> <span className="nav-label">Hjälp och support</span>
@@ -4694,8 +4668,8 @@ function App() {
             className="nav-item logout-btn"
             onClick={() => setShowLogoutConfirm(true)}
             style={{
-              padding: '13px 24px', width: '100%', textAlign: 'left', background: 'none',
-              border: 'none', color: '#fca5a5', fontSize: '15px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px'
+              padding: 'var(--sb-pad, 13px) 24px', width: '100%', textAlign: 'left', background: 'none',
+              border: 'none', color: '#fca5a5', fontSize: 'var(--sb-font, 15px)', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px'
             }}
           >
             <LogOut size={17} /> <span className="nav-label">Logga ut</span>
@@ -5032,7 +5006,7 @@ function App() {
                 tre prickar — matchar det fjärde navvalet i referensbilden. */}
             <span className="mobile-nav-icon">
               <Menu size={22} />
-              {reviewCount > 0 && <span className="mobile-nav-dot" aria-label={`${reviewCount} väntar på granskning`} />}
+              {reviewTotal > 0 && <span className="mobile-nav-dot" aria-label={`${reviewTotal} väntar på granskning`} />}
             </span>
             <span>Meny</span>
           </button>
@@ -5046,23 +5020,40 @@ function App() {
           <span>Meny</span>
           <button type="button" className="mobile-sheet-close" onClick={() => setMobileMoreOpen(false)} aria-label="Stäng menyn"><X size={18} /></button>
         </div>
-        <div className="mobile-sheet-grid">
-          {visibleMobileSheetItems.map(item => {
-            const isActive = resolveNavGroup(activeTab) === resolveTab(item.id);
-            return (
-              <button
-                key={item.id}
-                className={`mobile-sheet-tile ${isActive ? 'active' : ''}`}
-                onClick={() => { handleNavTabChange(item.id); setMobileMoreOpen(false); }}
-              >
-                <span className="mobile-sheet-tile-icon">
-                  <item.icon size={22} />
-                  {item.badge > 0 && <span className="mobile-sheet-tile-badge">{item.badge}</span>}
-                </span>
-                <span className="mobile-sheet-tile-label">{item.label}</span>
-              </button>
-            );
-          })}
+        <div className="mobile-sheet-body">
+          {reviewSheetVisible && (
+            <button
+              type="button"
+              className={`mobile-sheet-review${resolveNavGroup(activeTab) === 'review' ? ' active' : ''}`}
+              onClick={() => { handleNavTabChange('review'); setMobileMoreOpen(false); }}
+            >
+              <span className="mobile-sheet-row-icon"><ClipboardCheck size={20} /></span>
+              <span className="mobile-sheet-review-text">
+                <span className="mobile-sheet-review-title">{t('nav.review')}</span>
+                <span className="mobile-sheet-review-sub">{reviewTotal > 0 ? `${reviewTotal} ${reviewTotal === 1 ? 'sak väntar' : 'saker väntar'} på dig` : 'Inget väntar just nu'}</span>
+              </span>
+              {reviewTotal > 0 && <span className="mobile-sheet-review-badge">{reviewTotal}</span>}
+            </button>
+          )}
+          {visibleMobileSheetSections.map(sec => (
+            <div className="mobile-sheet-section" key={sec.key}>
+              <div className="mobile-sheet-section-title">{sec.title}</div>
+              <div className="mobile-sheet-list">
+                {sec.items.map(item => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={`mobile-sheet-row${isNavItemActive(item) ? ' active' : ''}`}
+                    onClick={() => { handleNavTabChange(item.id); setMobileMoreOpen(false); }}
+                  >
+                    <span className="mobile-sheet-row-icon"><item.icon size={20} /></span>
+                    <span className="mobile-sheet-row-label">{item.label}</span>
+                    <ChevronRight size={18} className="mobile-sheet-row-chevron" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
