@@ -566,6 +566,13 @@ export function createDemoSeed() {
     contacts,
     projects,
     quotes,
+    // Ett litet artikelregister så att Artiklar-sidan visar något i demon.
+    articles: [
+      { id: 'demo_art_1', type: 'tjanst', articleNumber: 'K-100', description: 'Konsulttimme', descriptionEn: '', unitPrice: 950, purchasePrice: '', unit: 'tim', vatRate: 25, account: '3001', ean: '', rotRut: 'none', notes: '' },
+      { id: 'demo_art_2', type: 'tjanst', articleNumber: 'W-200', description: 'Webbdesign, fas', descriptionEn: '', unitPrice: 55200, purchasePrice: '', unit: 'st', vatRate: 25, account: '3001', ean: '', rotRut: 'none', notes: '' },
+      { id: 'demo_art_3', type: 'tjanst', articleNumber: 'S-300', description: 'Support, månadsavgift', descriptionEn: '', unitPrice: 4500, purchasePrice: '', unit: 'st', vatRate: 25, account: '3001', ean: '', rotRut: 'none', notes: '' },
+      { id: 'demo_art_4', type: 'vara', articleNumber: 'H-400', description: 'Domän och hosting, år', descriptionEn: '', unitPrice: 1200, purchasePrice: 700, unit: 'st', vatRate: 25, account: '3001', ean: '', rotRut: 'none', notes: '' },
+    ],
     timeEntries,
     bankTransactions,
     stripeLedgerEvents,

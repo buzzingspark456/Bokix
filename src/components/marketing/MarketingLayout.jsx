@@ -652,6 +652,10 @@ function MarketingStyles() {
          skal) — demot ska visa exakt samma kant-till-kant-yta som en
          inloggad användare faktiskt ser, inte en bredare (för smickrande)
          attrapp med egen marginal skalet aldrig har på riktigt. */
+      /* Demons sidomeny: rubriker (Verksamhet, Ekonomi ...) och en lista som skrollar om kortet är lågt. */
+      .lp-demo-nav { scrollbar-width: none; }
+      .lp-demo-nav::-webkit-scrollbar { display: none; }
+      .lp-demo-nav-title { padding: 8px 22px 2px 24px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255, 255, 255, 0.5); }
       .lp-demo-content { flex: 1; min-width: 0; max-height: min(780px, 82vh); overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; background: var(--bg-page); }
       @media (max-width: 640px) {
         .lp-cta-group { flex-direction: column; }
