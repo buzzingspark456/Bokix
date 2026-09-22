@@ -561,8 +561,14 @@ export default function LandingPage({ onEnterApp, locale = 'sv' }) {
           blått kvar alls. Fjärde passet bytte den fasta bakgrundsfärgen till
           vit men lämnade kvar AuroraLayer-tomingen (mjuka blå/turkosa
           glöd-klot i hörnen) som fortfarande läste som "blått i sektionen".
-          Den är nu borttagen — ingen dekor kvar här, bara vitt. ── */}
-      <section style={{ padding: '76px 24px', background: '#ffffff', position: 'relative', overflow: 'hidden' }}>
+          Den är nu borttagen — ingen dekor kvar här, bara vitt.
+          Sjätte passet: bytt från bokstavligt '#ffffff' till
+          var(--mkt-page-bg) — kundönskemål "behöver se bra ut i mörkt
+          tema" också. Ett hårdkodat vitt hade blivit en lysande vit platta
+          mitt i den annars mörkgröna sidan i mörkt läge; page-bg är samma
+          vitt i ljust läge (oförändrat resultat där) men matchar sidans
+          mörkgröna botten i mörkt läge i stället. ── */}
+      <section style={{ padding: '76px 24px', background: 'var(--mkt-page-bg)', position: 'relative', overflow: 'hidden' }}>
         <div style={{ maxWidth: '900px', margin: '0 auto', position: 'relative' }}>
           <Reveal style={{ textAlign: 'center', marginBottom: '48px' }}>
             <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(24px, 3.5vw, 38px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '14px' }}>

@@ -321,8 +321,15 @@ function MarketingStyles() {
          en bar logga direkt på sektionens tonade bakgrund (förra passets
          .lp-conn-logo) läste svagt oavsett pixelhöjd: inget eget stopp för
          ögat. Samma vita, ramade platta som trovärdighetsradens badgar
-         (LandingPage.jsx) ger var logga en egen yta i stället. */
-      .lp-conn-badge { display: flex; align-items: center; justify-content: center; height: 64px; padding: 0 16px; min-width: 64px; border-radius: 14px; background: #ffffff; border: 1px solid var(--mkt-border-soft); box-shadow: 0 2px 8px rgba(28,36,32,0.06); flex-shrink: 0; }
+         (LandingPage.jsx) ger var logga en egen yta i stället.
+         var(--mkt-card-bg), INTE hårdkodat #ffffff (kundönskemål, tredje
+         gången, "behöver se bra ut i mörkt tema"): Zettle/Bolagsverket/
+         Skatteverkets mörka loggvarianter (ThemedLogo, BrandLogos.jsx) är
+         avsiktligt färgade för att synas mot precis den mörkgröna
+         kortbottnen — se den filens egen kommentar ("ljus nog att synas
+         mot den mörkgröna cirkeln"). En kvarvarande vit platta hade gjort
+         de vita loggdetaljerna osynliga i mörkt läge. */
+      .lp-conn-badge { display: flex; align-items: center; justify-content: center; height: 64px; padding: 0 16px; min-width: 64px; border-radius: 14px; background: var(--mkt-card-bg); border: 1px solid var(--mkt-border-soft); box-shadow: 0 2px 8px rgba(28,36,32,0.06); flex-shrink: 0; }
       .lp-conn-name { font-size: 15px; font-weight: 600; color: var(--mkt-ink); }
       @media (min-width: 680px) {
         .lp-conn-grid { grid-template-columns: 1fr 1fr; max-width: 760px; }
