@@ -12,6 +12,7 @@ import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW_SM, ACCENT
 import CloudShaderBackground from './marketing/CloudShaderBackground';
 import { GRAD, grad, AuroraLayer } from './marketing/aurora';
 import { StripeLogo, StripeIconLogo, ZettleLogo, BolagsverketLogo, SkatteverketLogo, BasLogo, GdprLogo, BokforingslagLogo } from './shared/BrandLogos';
+import { BokixMark } from './shared/BokixWordmark';
 import MigrationFlow from './marketing/MigrationFlow';
 import BankFlow from './marketing/BankFlow';
 import ReceiptFlow from './marketing/ReceiptFlow';
@@ -81,11 +82,16 @@ const FEATURE_COLUMNS = [
 // ordningen i den här listan. logoHeight är nu satt för en enkel rad
 // (logga + text i höjd), inte en stor rund badge som förut — mycket
 // jämnare tal, ingen laddad viktning mellan loggorna behövs längre.
+// Kundönskemål (2026-09-22, "gör loggorna större"): alla fyra höjda ca 40%
+// från förra passet, samma inbördes balans mellan breda ordmärken
+// (Stripe/Zettle) och smalare märken (Bolagsverket/Skatteverket) bevarad —
+// se .lp-conn-logo i MarketingLayout.jsx för att bredden på behållaren
+// följde med upp.
 const CONNECTIONS = [
-  { key: 'stripe', kind: 'logo', Logo: StripeLogo, logoHeight: '22px', label: 'Kortbetalningar', group: 'Betalningar' },
-  { key: 'zettle', kind: 'logo', Logo: ZettleLogo, logoHeight: '24px', label: 'Kassaförsäljning', group: 'Betalningar' },
-  { key: 'bolagsverket', kind: 'logo', Logo: BolagsverketLogo, logoHeight: '30px', label: 'Företagsuppslag', group: 'Myndigheter' },
-  { key: 'skatteverket', kind: 'logo', Logo: SkatteverketLogo, logoHeight: '30px', label: 'Rätt filformat', group: 'Myndigheter' },
+  { key: 'stripe', kind: 'logo', Logo: StripeLogo, logoHeight: '30px', label: 'Kortbetalningar', group: 'Betalningar' },
+  { key: 'zettle', kind: 'logo', Logo: ZettleLogo, logoHeight: '34px', label: 'Kassaförsäljning', group: 'Betalningar' },
+  { key: 'bolagsverket', kind: 'logo', Logo: BolagsverketLogo, logoHeight: '42px', label: 'Företagsuppslag', group: 'Myndigheter' },
+  { key: 'skatteverket', kind: 'logo', Logo: SkatteverketLogo, logoHeight: '42px', label: 'Rätt filformat', group: 'Myndigheter' },
 ];
 const CONNECTION_GROUPS = ['Betalningar', 'Myndigheter'];
 
@@ -541,43 +547,33 @@ export default function LandingPage({ onEnterApp, locale = 'sv' }) {
         </div>
       </section>
 
-      {/* ── TROVÄRDIGHETSRAD — kundönskemål: samma oändligt rullande
-          marquee som bolagsformer-raden ("dom rullar ju runt, gör samma
-          där"), inte en stillastående flex-rad längre. Fyra kopior +
-          -25%-translateX, exakt samma teknik som .lp-marquee-track redan
-          etablerat (se kommentaren där). Badgearna fick också en lugnare
-          yta (kundönskemål: "mindre tjock bakgrund") — mjuk, ljus
-          tonad cirkel + accentfärgad ikon istället för en solid, mättad
-          cirkel med vit ikon. ── */}
-      <section style={{ padding: '48px 0 60px', background: IVORY, borderTop: '1px solid var(--mkt-border-soft)', position: 'relative', overflow: 'hidden' }}>
+      {/* ── TROVÄRDIGHETSRAD — kundönskemål (2026-09-22, "mindre AI, gör om
+          den"): den oändligt rullande marqueen (tidigare kundönskemål, se
+          historiken nedan för hur den kom dit) ÄR i sig ett av de mönster
+          som får en sida att läsa som AI-genererad — en självscrollande
+          "som synts i"-karusell av märken, oavsett hur äkta märkena är.
+          Bytt mot en stillastående rad: badgearna är identiska (samma
+          pill, samma loggor, samma etiketter), bara rörelsen och de tre
+          osynliga dubblettkopiorna (kopia 2–4, bara där för
+          scrollillusionen) borttagna. En rad som står still och SÄGER sina
+          fyra saker en gång, i stället för att upprepa sig i evighet. ── */}
+      <section style={{ padding: '48px 24px 60px', background: IVORY, borderTop: '1px solid var(--mkt-border-soft)', position: 'relative', overflow: 'hidden' }}>
         <div aria-hidden style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', width: 'min(420px, 70%)', height: '2px', opacity: 0.5, background: `linear-gradient(90deg, transparent, ${ACCENT.green.fg}, ${ACCENT.blue.fg}, ${ACCENT.teal.fg}, transparent)` }} />
-        <Reveal scale className="lp-marquee" tabIndex={0} aria-label="Bokix i korthet">
-          <div className="lp-marquee-track">
-            {[0, 1, 2, 3].map((copy) => (
-              TRUST_POINTS.map((t, i) => {
-                return (
-                  <div key={`${t.label}-${copy}`} aria-hidden={copy > 0} className="lp-lux-card" style={{ display: 'flex', alignItems: 'center', gap: '13px', padding: '10px 26px 10px 10px', background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '100px', boxShadow: '0 2px 8px rgba(28,36,32,0.05)', whiteSpace: 'nowrap' }}>
-                    {t.logo ? (
-                      // Kundönskemål ("inte för litet", sedan "större logo
-                      // och se bättre") — en ordmärkeslogga (bredare än hög)
-                      // klämd in i en cirkel blev mikroskopisk. En auto-bred
-                      // pill i samma höjd som de andra badgearna ger loggan
-                      // faktisk storlek istället. Höjden per logga kommer
-                      // ur TRUST_POINTS.logoHeight, se kommentaren där.
-                      <div style={{ height: 72, padding: '0 18px', borderRadius: '36px', background: '#ffffff', border: `1px solid ${CARD_BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <t.logo height={t.logoHeight || 28} />
-                      </div>
-                    ) : (
-                      // Alla fyra raderna har ett märke numera. Grenen står
-                      // kvar som skydd om någon lägger till en rad utan.
-                      <span aria-hidden style={{ width: 14, flexShrink: 0 }} />
-                    )}
-                    <span style={{ fontSize: '15px', fontWeight: 700, color: INK_SOFT }}>{c.trustPoints[i] || t.label}</span>
-                  </div>
-                );
-              })
-            ))}
-          </div>
+        <Reveal style={{ maxWidth: 'min(92vw, 900px)', margin: '0 auto', display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '14px', position: 'relative' }}>
+          {TRUST_POINTS.map((t, i) => (
+            <div key={t.label} className="lp-lux-card" style={{ display: 'flex', alignItems: 'center', gap: '13px', padding: '10px 26px 10px 10px', background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '100px', boxShadow: '0 2px 8px rgba(28,36,32,0.05)' }}>
+              {/* Kundönskemål ("inte för litet", sedan "större logo och se
+                  bättre") — en ordmärkeslogga (bredare än hög) klämd in i en
+                  cirkel blev mikroskopisk. En auto-bred pill i samma höjd
+                  som de andra badgearna ger loggan faktisk storlek i
+                  stället. Höjden per logga kommer ur TRUST_POINTS.logoHeight,
+                  se kommentaren där. */}
+              <div style={{ height: 72, padding: '0 18px', borderRadius: '36px', background: '#ffffff', border: `1px solid ${CARD_BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <t.logo height={t.logoHeight || 28} />
+              </div>
+              <span style={{ fontSize: '15px', fontWeight: 700, color: INK_SOFT, whiteSpace: 'nowrap' }}>{c.trustPoints[i] || t.label}</span>
+            </div>
+          ))}
         </Reveal>
       </section>
 
@@ -601,8 +597,19 @@ export default function LandingPage({ onEnterApp, locale = 'sv' }) {
           mellan pengarna som rör sig och papperen som ska stämma.
           Ingen SVG, inget koordinatsystem att hålla i synk — CSS Grid
           faller själv ihop till en spalt på smal skärm (se .lp-conn-grid,
-          MarketingLayout.jsx), ingen egen media query behövs här. ── */}
-      <section style={{ padding: '76px 24px', background: 'var(--mkt-card-bg)', position: 'relative', overflow: 'hidden' }}>
+          MarketingLayout.jsx), ingen egen media query behövs här.
+          Kundönskemål (2026-09-22, "ändra färgen på den här"): sektionen låg
+          på ren kortvit (--mkt-card-bg), som efter förra passets
+          bakgrundsstädning (se IVORY-kommentarerna vid grannsektionerna)
+          gjorde att den flöt ihop med resten av sidan i stället för att
+          märkas ut som sin egen sak. Den blå tonen (--mkt-section-blue) som
+          frigjordes från prissektionen i samma städning återanvänds här
+          i stället för en tredje, ny färg — och passar även tematiskt
+          (samma blå AuroraLayer-toning som redan låg i hörnen). Ett
+          undantag från "allt IVORY", inte en tillbakagång: den här
+          sektionen ÄR tänkt att sticka ut, till skillnad från de två som
+          städades. ── */}
+      <section style={{ padding: '76px 24px', background: 'var(--mkt-section-blue)', position: 'relative', overflow: 'hidden' }}>
         <AuroraLayer
           stops={[['rgba(14,165,233,0.16)', '4% -8%'], ['rgba(20,184,166,0.14)', '96% 108%']]}
           blob={{ gradient: grad(GRAD.blueTeal), top: '-150px', right: '-110px', left: 'auto', size: '420px', opacity: 0.18 }}
@@ -629,6 +636,16 @@ export default function LandingPage({ onEnterApp, locale = 'sv' }) {
                 ))}
               </div>
             ))}
+            {/* Kundönskemål ("bokix i mitten"): en liten, stillastående
+                märkesplatta på skiljelinjen mellan spalterna — Bokix SITTER
+                där, mellan pengarna och papperen, vilket är precis
+                sektionens egen poäng. Medvetet INTE en återgång till det
+                borttagna hub-diagrammet: ingen glöd, ingen puls, inga linjer
+                ut till noderna — bara märket (BokixMark, samma vektor som
+                sidopanelens ikonläge) i en enkel vit platta. Bara synlig i
+                tvåspaltsläget (se @media i .lp-conn-mark, MarketingLayout.jsx)
+                — i en spalt finns ingen linje att sitta på. */}
+            <div className="lp-conn-mark" aria-hidden="true"><BokixMark height={20} /></div>
           </Reveal>
         </div>
       </section>

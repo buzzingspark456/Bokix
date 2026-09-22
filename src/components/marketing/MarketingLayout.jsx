@@ -300,17 +300,32 @@ function MarketingStyles() {
          ersatte 2026-09-22 det gamla hub-diagrammet (glödande mittnod,
          böjda linjer ut) — se filkommentaren i LandingPage.jsx för varför.
          Faller själv ihop till en spalt under 680px, ingen JS behövs. ── */
-      .lp-conn-grid { display: grid; grid-template-columns: 1fr; gap: 8px 56px; max-width: 640px; margin: 0 auto; }
+      .lp-conn-grid { display: grid; grid-template-columns: 1fr; gap: 8px 56px; max-width: 640px; margin: 0 auto; position: relative; }
       .lp-conn-col { display: flex; flex-direction: column; }
       .lp-conn-col + .lp-conn-col { margin-top: 28px; padding-top: 28px; border-top: 1px solid var(--mkt-border-soft); }
       .lp-conn-col-label { font-size: 12px; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; color: var(--mkt-muted); margin-bottom: 6px; }
-      .lp-conn-row { display: flex; align-items: center; gap: 16px; padding: 15px 0; border-top: 1px solid var(--mkt-border-soft); }
+      .lp-conn-row { display: flex; align-items: center; gap: 18px; padding: 16px 0; border-top: 1px solid var(--mkt-border-soft); }
       .lp-conn-row:first-of-type { border-top: none; }
-      .lp-conn-logo { display: flex; align-items: center; justify-content: center; width: 46px; flex-shrink: 0; }
+      /* Kundönskemål ("större loggor") — bredare behållare (46→64px) så de
+         nu större märkena (se CONNECTIONS.logoHeight, LandingPage.jsx) får
+         plats att centreras utan att klippas mot nästa spalt. */
+      .lp-conn-logo { display: flex; align-items: center; justify-content: center; width: 64px; flex-shrink: 0; }
       .lp-conn-name { font-size: 15px; font-weight: 600; color: var(--mkt-ink); }
+      /* Märkesplattan på skiljelinjen mellan spalterna — se JSX-kommentaren
+         vid .lp-conn-grid-användningen (LandingPage.jsx) för varför den
+         finns och varför den INTE är det gamla hub-diagrammet. Dold i
+         enspaltsläget: ingen linje finns då att sitta mitt på. */
+      .lp-conn-mark { display: none; }
       @media (min-width: 680px) {
         .lp-conn-grid { grid-template-columns: 1fr 1fr; max-width: 760px; }
         .lp-conn-col + .lp-conn-col { margin-top: 0; padding-top: 0; border-top: none; padding-left: 56px; border-left: 1px solid var(--mkt-border-soft); }
+        .lp-conn-mark {
+          display: flex; align-items: center; justify-content: center;
+          position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+          width: 44px; height: 44px; border-radius: 50%;
+          background: var(--mkt-card-bg); border: 1px solid var(--mkt-border-soft);
+          box-shadow: 0 2px 8px rgba(28,36,32,0.1);
+        }
       }
       /* Kundönskemål ("denna ska vara moving") — jämförelsetabellens
          Bokix-vinnarkolumn får ett sakta svepande ljus över sin gradient-
