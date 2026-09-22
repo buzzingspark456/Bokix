@@ -1719,6 +1719,39 @@ function App() {
     return true;
   };
 
+  // Skriver hela user_data-bloben till Supabase OMEDELBART — samma logik
+  // som den debouncade "Persist"-useEffecten längre ner (2000 ms), bara
+  // utan väntetiden. Bugkritiskt, hittat 2026-09-22: den debouncade
+  // sparningen startas om vid VARJE ändring av `data` (den ligger i
+  // useEffect-dependencylistan), så skriver eller redigerar man
+  // kontinuerligt (t.ex. fyller i en ny offert) och trycker Skicka innan
+  // det hunnit bli tyst i två hela sekunder, kan Supabase-raden servern
+  // läser fortfarande sakna företaget eller ändringen — ett äkta ägt
+  // företag gav då ett falskt "Du har inte längre åtkomst till det här
+  // företaget." från send-invoice.js:s loadOwnedOrMemberCompany, trots att
+  // ägarskapet var helt korrekt lokalt. Anropas nu (best effort, kastar
+  // aldrig) innan varje åtgärd servern verifierar ägarskap för — just nu
+  // "Skicka via e-post" (Invoices.jsx/Quotes.jsx, onSyncBeforeServerCall).
+  const syncUserDataNow = async () => {
+    if (!user || !isLoggedIn) return;
+    try {
+      const entries = Object.entries(data.companies || {});
+      const sharedEntries = entries.filter(([, c]) => c.__shared);
+      const ownEntries = entries.filter(([, c]) => !c.__shared);
+      await Promise.all(sharedEntries.map(([id, c]) => persistSharedCompanyFields(id, c)));
+      const ownCompanies = {};
+      await Promise.all(ownEntries.map(async ([id, c]) => {
+        ownCompanies[id] = c.__hasActiveMembers ? ((await fetchFreshOwnCompany(id)) || c) : c;
+      }));
+      await saveUserDataToSupabase({ ...data, companies: ownCompanies });
+    } catch (err) {
+      // Best effort — ett misslyckat flush-försök ska aldrig blockera
+      // anroparen (t.ex. e-postutskicket). Den vanliga debouncade
+      // sparningen försöker igen som vanligt.
+      console.warn('Omedelbar synk till Supabase misslyckades:', err?.message || err);
+    }
+  };
+
   // Inloggningshistorik (Inställningar > Säkerhet > Inloggningshistorik).
   // Skriver EN rad per faktisk SIGNED_IN-händelse (se onAuthStateChange
   // nedan) — men supabase-js's SIGNED_IN kan i vissa fall trigga fler
@@ -2343,19 +2376,9 @@ function App() {
     //      set_company_field i supabase-setup.sql för samma resonemang från
     //      andra hållet.
     if (user && isLoggedIn) {
-      timeoutIds.push(setTimeout(async () => {
-        const entries = Object.entries(data.companies || {});
-        const sharedEntries = entries.filter(([, c]) => c.__shared);
-        const ownEntries = entries.filter(([, c]) => !c.__shared);
-
-        await Promise.all(sharedEntries.map(([id, c]) => persistSharedCompanyFields(id, c)));
-
-        const ownCompanies = {};
-        await Promise.all(ownEntries.map(async ([id, c]) => {
-          ownCompanies[id] = c.__hasActiveMembers ? ((await fetchFreshOwnCompany(id)) || c) : c;
-        }));
-        await saveUserDataToSupabase({ ...data, companies: ownCompanies });
-      }, 2000));
+      // Samma synk som syncUserDataNow (definierad ovan, vid
+      // saveUserDataToSupabase) — bara med den vanliga 2-sekundersväntan.
+      timeoutIds.push(setTimeout(() => { syncUserDataNow(); }, 2000));
     }
 
     return () => timeoutIds.forEach(clearTimeout);
@@ -4205,6 +4228,7 @@ function App() {
             clearGlobalAction={() => setGlobalAction(null)}
             uid={user?.id}
             projects={projects}
+            onSyncBeforeServerCall={syncUserDataNow}
           />
         );
       case 'expense_overview':
@@ -4274,7 +4298,7 @@ function App() {
           />
         );
       case 'quotes':
-        return <Quotes key={company?.id || data.activeCompanyId} quotes={quotes} setQuotes={setQuotes} onConvert={handleConvertQuoteToInvoice} contacts={contacts} projects={projects} company={company} user={user} globalAction={globalAction} clearGlobalAction={() => setGlobalAction(null)} handleGlobalAction={handleGlobalAction} articles={articles} setArticles={setArticles} />;
+        return <Quotes key={company?.id || data.activeCompanyId} quotes={quotes} setQuotes={setQuotes} onConvert={handleConvertQuoteToInvoice} contacts={contacts} projects={projects} company={company} user={user} globalAction={globalAction} clearGlobalAction={() => setGlobalAction(null)} handleGlobalAction={handleGlobalAction} articles={articles} setArticles={setArticles} onSyncBeforeServerCall={syncUserDataNow} />;
       case 'articles':
         return <Articles key={company?.id || data.activeCompanyId} articles={articles} setArticles={setArticles} accounts={accounts} company={company} verifications={verifications} invoices={invoices} onAddVerification={handleAddVerification} setCompanyInfo={setCompanyInfo} />;
       case 'projects':

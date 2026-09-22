@@ -23,6 +23,7 @@ import adminHandler from './api/admin/index.js'
 import createSubscriptionCheckoutHandler from './api/stripe/_subscriptionCheckout.js'
 import createCheckoutSessionHandler from './api/stripe/create-checkout-session.js'
 import contactHandler from './api/contact.js'
+import sendInvoiceHandler from './api/email/send-invoice.js'
 import { requireAuthedUser, loadOwnedOrMemberCompany } from './api/_auth.js'
 import { isRequestFromBot } from './api/_botid.js'
 
@@ -64,14 +65,9 @@ if (!stripeSecretKey) {
 //                          obligatorisk för Steg 2, men dess litet anropade
 //                          yta är precis vad som gör den privilegienivån
 //                          försvarbar.
-const resendApiKey = process.env.RESEND_API_KEY || null
 const resendAdminApiKey = process.env.RESEND_ADMIN_API_KEY || null
-// Systemets reservavsändare — används när ett företag inte har en egen
-// verifierad domän än, eller om ett utskick med deras domän oväntat
-// misslyckas (se resolveSenderAddress/sendViaResend nedan).
-const emailFrom = process.env.EMAIL_FROM || 'Bokix <onboarding@resend.dev>'
 
-if (!resendApiKey) {
+if (!process.env.RESEND_API_KEY) {
   console.warn('Resend API key not configured yet. Email routes will return a 503 until RESEND_API_KEY is provided.')
 } else {
   console.log('Loaded Resend API key for local server.')
@@ -82,76 +78,12 @@ if (!resendAdminApiKey) {
   console.log('Loaded Resend admin API key for local server.')
 }
 
-function requireResend(res) {
-  if (!resendApiKey) {
-    res.status(503).json({ error: 'E-post är inte konfigurerat. Sätt RESEND_API_KEY (och valfritt EMAIL_FROM) i miljövariablerna för att kunna skicka fakturor via e-post.' })
-    return false
-  }
-  return true
-}
-
 function requireResendAdmin(res) {
   if (!resendAdminApiKey) {
     res.status(503).json({ error: 'Domänhantering är inte konfigurerat. Sätt RESEND_ADMIN_API_KEY (en Resend-nyckel med Full access) i miljövariablerna.' })
     return false
   }
   return true
-}
-
-/** Namnet före @ i en avsändaradress — samma för alla, oavsett domän. */
-const SENDER_LOCAL_PART = 'faktura'
-
-function fallbackSenderAddress(companyName) {
-  // Om EMAIL_FROM redan är på formen "Namn <adress>" byts bara namndelen ut
-  // mot företagets — annars återanvänds hela EMAIL_FROM oförändrad.
-  const match = /^(.*)<(.+)>$/.exec(emailFrom)
-  if (match && companyName) {
-    return `${companyName} via Bokix <${match[2].trim()}>`
-  }
-  return emailFrom
-}
-
-/** Bugkritiskt (Sida 33): frågar ALLTID Resend live om en domäns status
- * innan ett utskick — aldrig en cachad flagga (t.ex. `emailDomainStatus`
- * som bara är en display-hint för Inställningar-sidan) som hunnit bli
- * inaktuell sedan senaste kontrollen. Faller tyst tillbaka till
- * systemadressen om domänen saknas, inte är verifierad, eller om själva
- * statuskontrollen mot Resend misslyckas — ett utskick ska aldrig stoppas
- * av att avsändaradressen inte gick att avgöra. */
-async function resolveSenderAddress(company) {
-  const fallback = fallbackSenderAddress(company?.name)
-  if (!company?.resendDomainId || !company?.emailDomain || !resendAdminApiKey) {
-    return { from: fallback, usingCustomDomain: false }
-  }
-  try {
-    const domainRes = await fetch(`https://api.resend.com/domains/${company.resendDomainId}`, {
-      headers: { Authorization: `Bearer ${resendAdminApiKey}` },
-    })
-    if (!domainRes.ok) return { from: fallback, usingCustomDomain: false }
-    const domainData = await domainRes.json()
-    if (domainData?.status === 'verified') {
-      return { from: `${company.name} <${SENDER_LOCAL_PART}@${company.emailDomain}>`, usingCustomDomain: true }
-    }
-  } catch (error) {
-    console.error('Resend domain status check failed, falling back:', error)
-  }
-  return { from: fallback, usingCustomDomain: false }
-}
-
-/** Ett enda ställe som faktiskt pratar med Resends /emails-endpoint, så
- * både förstaförsöket och fallback-återförsöket i send-invoice nedan
- * garanterat skickar identisk payload förutom `from`. */
-async function sendViaResend(payload) {
-  const resendRes = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${resendApiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  })
-  const data = await resendRes.json().catch(() => ({}))
-  return { ok: resendRes.ok, status: resendRes.status, data }
 }
 
 const app = express()
@@ -345,84 +277,24 @@ app.post('/api/stripe/create-checkout-session', (req, res) => createCheckoutSess
 // synk för hand.
 app.post('/api/stripe/create-subscription-checkout', (req, res) => createSubscriptionCheckoutHandler(req, res))
 
-// ── E-post (Resend) ──────────────────────────────────────────────────────
+// ── E-post (Resend/SMTP/Gmail) ───────────────────────────────────────────
 // Skickar riktiga mejl till kunder — till skillnad från mailto:-länkarna på
 // klienten (som bara öppnar avsändarens eget mailprogram), går de här
-// faktiskt ut från servern via Resend. `attachmentBase64` är valfri: en
-// PDF-bilaga (t.ex. själva fakturan) kodad som base64 utan "data:"-prefix.
-// `company` (valfri: { name, emailDomain, resendDomainId }) avgör
-// avsändaradressen — se resolveSenderAddress ovan.
+// faktiskt ut från servern: från kundens egen anslutna Gmail/SMTP-adress
+// om en sådan finns (api/_smtp.js/api/_gmail.js), annars via Resend.
 //
-// Namnet är historiskt — rutten bryr sig aldrig om VILKET dokument som
-// skickas, bara to/subject/html/bilaga, så både Invoices.jsx och
-// Quotes.jsx (fakturor OCH offerter) använder den här samma rutten.
-// En egen "send-quote"-rutt vore identisk kod och en onödig extra
-// Vercel-function (se commit om 12-funktionsgränsen).
-app.post('/api/email/send-invoice', async (req, res) => {
-  if (!requireResend(res)) return
-
-  // Vercel BotID — se filkommentaren i main.jsx.
-  if (await isRequestFromBot()) {
-    res.status(403).json({ error: 'Åtkomst nekad.' })
-    return
-  }
-
-  // Säkerhetsfix (se motsvarande kommentar i api/email/send-invoice.js,
-  // samma logik speglad här för lokal utveckling): kräver nu en verifierad
-  // inloggad session och bevisar ägarskap ELLER medlemskap av företaget
-  // (loadOwnedOrMemberCompany — en inbjuden medarbetare ska kunna skicka
-  // precis som ägaren) innan något skickas, annars ett öppet mejl-relä som
-  // vem som helst kunde missbruka.
-  const user = await requireAuthedUser(req, res)
-  if (!user) return
-
-  try {
-    const body = req.body || {}
-    const { to, subject, html, replyTo, attachmentBase64, attachmentFilename, company_id: companyId } = body
-
-    if (!to || !subject || !html || !companyId) {
-      res.status(400).json({ error: 'to, subject, html och company_id krävs.' })
-      return
-    }
-
-    const owned = await loadOwnedOrMemberCompany(user.id, companyId, res)
-    if (!owned) return
-    const { companyData } = owned
-
-    const { from } = await resolveSenderAddress(companyData.company)
-
-    const basePayload = {
-      to: [to],
-      subject,
-      html,
-      ...(replyTo ? { reply_to: replyTo } : {}),
-      ...(attachmentBase64 ? { attachments: [{ filename: attachmentFilename || 'faktura.pdf', content: attachmentBase64 }] } : {}),
-    }
-
-    let result = await sendViaResend({ ...basePayload, from })
-
-    // Bugkritiskt (Sida 33): om utskicket med kundens egen domän misslyckas
-    // — inte bara om den var overifierad, utan om själva sändningen faller,
-    // t.ex. en domän som blivit overifierad efter statuskontrollen ovan
-    // hann köra — försöker vi automatiskt igen med systemadressen istället
-    // för att låta hela utskicket falla.
-    if (!result.ok && from !== fallbackSenderAddress(companyData.company?.name)) {
-      console.warn('Send with custom domain failed, retrying with fallback sender:', result.data)
-      result = await sendViaResend({ ...basePayload, from: fallbackSenderAddress(companyData.company?.name) })
-    }
-
-    if (!result.ok) {
-      console.error('Resend API error:', result.data)
-      res.status(result.status).json({ error: result.data?.message || 'Resend kunde inte skicka e-posten.' })
-      return
-    }
-
-    res.status(200).json({ id: result.data.id })
-  } catch (error) {
-    console.error('Email send error:', error)
-    res.status(500).json({ error: error?.message || 'Kunde inte skicka e-post.' })
-  }
-})
+// Bugkritiskt, hittat 2026-09-22: den här rutten var tidigare en
+// handkopierad lokal-dev-version (samma mönster som redan fixats för
+// company-access.js/admin/index.js/contact.js m.fl., se kommentarerna
+// nedanför) — men till skillnad från de andra hade kopian INTE bara blivit
+// inaktuell, den saknade en HEL FUNKTION: trySendFromOwnAddress (kundens
+// egen Gmail/SMTP-adress) fanns bara i produktionsfilen, aldrig här. Så
+// länge ett företag hade sin egen mejladress kopplad (Inställningar →
+// Fakturautskick) gick alla utskick i lokal utveckling ändå ut via Bokix
+// systemavsändare via Resend, oavsett — kunden trodde de skickade från sin
+// egen Gmail, men gjorde det aldrig. Samma fix som de andra: importera och
+// kör produktionens handler direkt, ingen andra kopia att glida isär från.
+app.post('/api/email/send-invoice', (req, res) => sendInvoiceHandler(req, res))
 
 // GET/POST /api/company-access — kördes tidigare som en handkopierad,
 // egen lokal-dev-version av api/company-access.js. Bugkritiskt mönster

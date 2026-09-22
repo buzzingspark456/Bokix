@@ -164,7 +164,7 @@ const outlineToolbarBtnStyle = {
 };
 
 // ─── Invoice Full Form (Fortnox-inspired) ──────────────────────────────────────
-function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefill, company, invoiceList, onCreateCreditNote, onRegisterPayment, onUnmarkPaid, onUpdateNote, verifications = [], nav, onGetPaymentLinkUrl, articles = [], setArticles, projects = [] }) {
+function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefill, company, invoiceList, onCreateCreditNote, onRegisterPayment, onUnmarkPaid, onUpdateNote, verifications = [], nav, onGetPaymentLinkUrl, articles = [], setArticles, projects = [], onSyncBeforeServerCall }) {
   // En bokförd faktura (allt utom utkast) får inte längre ändra belopp/rader/kund —
   // korrigeringar sker via kreditfaktura. Datum och kommentar går fortfarande att ändra.
   const isLocked = Boolean(initial) && (initial.status || 'draft') !== 'draft';
@@ -560,6 +560,16 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
         </p>
       `;
 
+      // Bugkritiskt: servern verifierar ägarskap mot Supabase (App.jsx:s
+      // debouncade sparning kan ligga upp till två sekunder efter, och
+      // startas om vid varje tangenttryck) — ett nytt eller nyss ändrat
+      // företag kan alltså saknas där ännu, vilket gav ett falskt "Du har
+      // inte längre åtkomst till det här företaget." Tvingar fram en
+      // omedelbar synk (best effort, väntar aldrig längre än ett
+      // misslyckande) innan utskicket, så servern ser samma data som
+      // skärmen visar.
+      await onSyncBeforeServerCall?.();
+
       await sendInvoiceEmail({
         to,
         subject: emailSubject.trim() || `Faktura ${nextNum} från ${(company?.invoiceDisplayName || company?.name) || 'oss'}`,
@@ -695,7 +705,15 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
           <Send size={13} />,
           openEmailCompose,
           {},
-          emailBusy || !initial || !emailToInput.trim(),
+          // Bugkritiskt: bara `!initial` (fakturan måste vara sparad) spärrar
+          // klicket nu. Tidigare spärrade `!emailToInput.trim()` knappen HELT
+          // tyst — ett klick på en tom adress gjorde bokstavligen ingenting,
+          // inget felmeddelande, inget nätverksanrop (bekräftat: noll träffar
+          // mot /api/email/send-invoice i loggarna trots att kunden testat).
+          // openEmailCompose har redan en egen, tydlig felruta för en tom
+          // adress (emailError, raden ovanför) — den ska få köras, inte
+          // hindras av att knappen aldrig går att trycka på.
+          emailBusy || !initial,
           !initial ? 'Spara fakturan först' : (!emailToInput.trim() ? 'Ange en mottagaradress' : `Skicka faktura ${nextNum} till ${emailToInput.trim()}`),
           'tb-send'
         )}
@@ -1362,7 +1380,10 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
 
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => setShowEmailCompose(false)} disabled={emailBusy}>Avbryt</button>
-              <button className="btn btn-primary" onClick={handleSendEmail} disabled={emailBusy || !emailToInput.trim()}>
+              {/* Samma fix som toolbar-knappen ovanför (tb-send): bara emailBusy
+                  spärrar klicket, en tom adress ska ge felrutan ovan (emailError),
+                  inte ett osynligt dött klick. */}
+              <button className="btn btn-primary" onClick={handleSendEmail} disabled={emailBusy}>
                 {emailBusy ? 'Skickar…' : 'Skicka'}
               </button>
             </div>
@@ -1698,7 +1719,7 @@ function InvoiceViewer({ invoice, contacts, company, status, onClose, onEdit }) 
  * komponenten ändrar inget i det flödet, den visar bara den redan
  * skapade länken.
  */
-function PaymentLinkModal({ invoice, customer, company, onGetPaymentLinkUrl, onClose, onMarkSent }) {
+function PaymentLinkModal({ invoice, customer, company, onGetPaymentLinkUrl, onSyncBeforeServerCall, onClose, onMarkSent }) {
   const [url, setUrl] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -1784,6 +1805,9 @@ function PaymentLinkModal({ invoice, customer, company, onGetPaymentLinkUrl, onC
         </p>
         <p>Med vänlig hälsning<br/>${(company?.invoiceDisplayName || company?.name) || ''}</p>
       `;
+      // Se motsvarande kommentar i InvoiceForm:s handleSendEmail ovan —
+      // samma race mot App.jsx:s debouncade Supabase-sparning.
+      await onSyncBeforeServerCall?.();
       await sendInvoiceEmail({
         to,
         subject: `Betalningslänk – faktura ${invoice.invoiceNumber}`,
@@ -1834,9 +1858,11 @@ function PaymentLinkModal({ invoice, customer, company, onGetPaymentLinkUrl, onC
                     placeholder="kund@foretag.se"
                     style={{ flex: 1, padding: '9px 12px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', background: 'var(--bg-card)', color: 'var(--text-main)' }}
                   />
+                  {/* Samma fix som fakturans toolbar-knapp (tb-send): en tom
+                      adress ska ge felrutan nedan, inte ett dött, osynligt klick. */}
                   <button
-                    type="button" onClick={handleSendEmail} disabled={emailBusy || !emailTo.trim()}
-                    style={{ padding: '9px 16px', background: (emailBusy || !emailTo.trim()) ? 'var(--border)' : 'var(--accent)', color: (emailBusy || !emailTo.trim()) ? 'var(--text-muted)' : 'white', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: (emailBusy || !emailTo.trim()) ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}
+                    type="button" onClick={handleSendEmail} disabled={emailBusy}
+                    style={{ padding: '9px 16px', background: emailBusy ? 'var(--border)' : 'var(--accent)', color: emailBusy ? 'var(--text-muted)' : 'white', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: emailBusy ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}
                   >
                     {emailBusy ? 'Skickar...' : 'Skicka'}
                   </button>
@@ -1859,7 +1885,7 @@ function PaymentLinkModal({ invoice, customer, company, onGetPaymentLinkUrl, onC
   );
 }
 
-export default function Invoices({ ufQuota = { limited: false }, invoices, contacts, accounts = [], onAdd, onMarkPaid, onRegisterPayment, onUnmarkPaid, setInvoices, company, globalAction, clearGlobalAction, verifications = [], onGetPaymentLinkUrl, articles = [], setArticles, uid, projects = [] }) {
+export default function Invoices({ ufQuota = { limited: false }, invoices, contacts, accounts = [], onAdd, onMarkPaid, onRegisterPayment, onUnmarkPaid, setInvoices, company, globalAction, clearGlobalAction, verifications = [], onGetPaymentLinkUrl, articles = [], setArticles, uid, projects = [], onSyncBeforeServerCall }) {
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Två klart avgränsade sektioner, inte en klämd sida-vid-sida-vy — varje
@@ -2402,6 +2428,7 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
         invoiceList={invoiceList}
         nav={nav}
         onGetPaymentLinkUrl={onGetPaymentLinkUrl}
+        onSyncBeforeServerCall={onSyncBeforeServerCall}
         onClose={closeForm}
       />
     );
@@ -2630,6 +2657,7 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
         customer={paymentLinkInvoice.customer}
         company={company}
         onGetPaymentLinkUrl={onGetPaymentLinkUrl}
+        onSyncBeforeServerCall={onSyncBeforeServerCall}
         onClose={() => setPaymentLinkInvoice(null)}
         onMarkSent={(id) => setInvoices(prev => prev.map(i => i.id === id ? { ...i, status: 'sent' } : i))}
       />

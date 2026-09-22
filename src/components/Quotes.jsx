@@ -107,7 +107,7 @@ const toolbarBtnStyle = (active) => ({
  * förhandsgranskning som öppnas på begäran. Samma lösning återanvänds här
  * rakt av — samma CSS-klass, samma mönster, samma mobilanpassning.
  */
-function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, articles = [], onSave, onClose, onConvert }) {
+function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, articles = [], onSave, onClose, onConvert, onSyncBeforeServerCall }) {
   const [customerId, setCustomerId] = useState(quote?.customerId || '');
   const [customerName, setCustomerName] = useState(quote?.customerName || '');
   const [date, setDate] = useState(quote?.date || new Date().toISOString().split('T')[0]);
@@ -364,6 +364,13 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
         <p>Hör av dig om du har några frågor.</p>
         <p>Med vänlig hälsning<br/>${(company?.invoiceDisplayName || company?.name) || ''}</p>
       `;
+      // Bugkritiskt: servern verifierar ägarskap mot Supabase, men App.jsx:s
+      // debouncade sparning (2 s, startas om vid varje ändring) kan ligga
+      // efter — ett nytt eller nyss ändrat företag kan då saknas där ännu,
+      // vilket gav ett falskt "Du har inte längre åtkomst till det här
+      // företaget." Tvingar fram en omedelbar synk (best effort) innan
+      // utskicket, så servern ser samma data som skärmen visar.
+      await onSyncBeforeServerCall?.();
       await sendInvoiceEmail({
         to,
         subject: `Offert ${previewNumber} från ${(company?.invoiceDisplayName || company?.name) || 'oss'}`,
@@ -500,13 +507,27 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
         <input
           type="email" className="toolbar-email-input" value={emailToInput} onChange={e => { setEmailToInput(e.target.value); setEmailError(''); }}
           placeholder="mottagarens@epost.se" title="Mottagarens e-postadress"
-          style={{ ...inputStyle, width: '210px', padding: '9px 12px', fontSize: '13.5px', background: 'white', color: 'var(--text-main)', flexShrink: 0 }}
+          // Bugkritiskt: `background: 'white'` var hårdkodat här och
+          // krockade med `color: 'var(--text-main)'` — i mörkt läge är
+          // --text-main nästan vit (#eef3ea, till för mörka bakgrunder),
+          // så texten blev vit på vitt och osynlig. inputStyle sätter redan
+          // rätt temamedvetna bakgrund (var(--bg-card)); den ska inte
+          // skrivas över här.
+          style={{ ...inputStyle, width: '210px', padding: '9px 12px', fontSize: '13.5px', flexShrink: 0 }}
         />
+        {/* Bugkritiskt, samma fel som fakturans motsvarande knapp
+            (Invoices.jsx, tb-send): disabled på !emailToInput.trim() gjorde
+            knappen ett HELT tyst dött klick på en tom adress — inget
+            felmeddelande, inget nätverksanrop alls (bekräftat i Vercels
+            runtime-loggar: noll träffar mot /api/email/send-invoice trots
+            att kunden testat). handleSendEmail har redan sin egen tydliga
+            felruta (emailError, raden ovanför) för en tom adress — bara
+            emailBusy ska spärra klicket, resten sköts av den. */}
         <button
           type="button" className="tb-send" onClick={handleSendEmail}
-          disabled={emailBusy || !emailToInput.trim()}
+          disabled={emailBusy}
           title={!emailToInput.trim() ? 'Ange en mottagaradress' : `Skicka offert ${previewNumber} till ${emailToInput.trim()}`}
-          style={{ ...toolbarBtnStyle(false), opacity: (emailBusy || !emailToInput.trim()) ? 0.5 : 1, cursor: (emailBusy || !emailToInput.trim()) ? 'not-allowed' : 'pointer' }}
+          style={{ ...toolbarBtnStyle(false), opacity: emailBusy ? 0.5 : 1, cursor: emailBusy ? 'not-allowed' : 'pointer' }}
         >
           <Send size={15} /> {emailBusy ? 'Skickar…' : 'Skicka via e-post'}
         </button>
@@ -994,7 +1015,7 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
   );
 }
 
-export default function Quotes({ quotes = [], setQuotes, onConvert, contacts = [], projects = [], company, user, globalAction, clearGlobalAction, handleGlobalAction, articles = [] }) {
+export default function Quotes({ quotes = [], setQuotes, onConvert, contacts = [], projects = [], company, user, globalAction, clearGlobalAction, handleGlobalAction, articles = [], onSyncBeforeServerCall }) {
   const [searchTerm, setSearchTerm] = useState('');
   // Kundönskemål: "en knapp där man kan se femton, trettio, femtio" — samma
   // visa-N-åt-gången-väljare som Kunder/Fakturering (ListFilterBar).
@@ -1101,6 +1122,7 @@ export default function Quotes({ quotes = [], setQuotes, onConvert, contacts = [
         onSave={handleSaveQuote}
         onClose={closeForm}
         onConvert={editingQuote ? (e) => handleConvert(editingQuote, e) : null}
+        onSyncBeforeServerCall={onSyncBeforeServerCall}
       />
     );
   }
