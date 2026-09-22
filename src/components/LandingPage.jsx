@@ -557,14 +557,12 @@ export default function LandingPage({ onEnterApp, locale = 'sv' }) {
           Ingen SVG, inget koordinatsystem att hålla i synk — CSS Grid
           faller själv ihop till en spalt på smal skärm (se .lp-conn-grid,
           MarketingLayout.jsx), ingen egen media query behövs här.
-          Bakgrund (2026-09-22, andra passet): --mkt-section-blue, samma
-          brand-kalla riktning som mint-tonen övriga sektioner fick (se
-          tokenkommentaren i MarketingLayout.jsx) — sky-blått hör dessutom
-          tematiskt till just PENGAR-spalten här (Stripe/Zettle), och
-          AuroraLayer-toningen i hörnen var redan samma blå. En avsiktlig
-          avvikelse från sidans annars enhetliga mint: den här sektionen SKA
-          märkas ut, inte blanda ihop sig med grannarna. ── */}
-      <section style={{ padding: '76px 24px', background: 'var(--mkt-section-blue)', position: 'relative', overflow: 'hidden' }}>
+          Bakgrund (2026-09-22, fjärde passet): kundönskemål, rakt av — vit,
+          samma som resten av sidan nu. Den tonade --mkt-section-blue-
+          bakgrunden (två föregående pass) stack ut på ett sätt kunden inte
+          ville ha när resten av sidan gick över till vitt. Bara
+          bakgrundsfärgen ändrad här, inget annat i sektionen rört. ── */}
+      <section style={{ padding: '76px 24px', background: '#ffffff', position: 'relative', overflow: 'hidden' }}>
         <AuroraLayer
           stops={[['rgba(14,165,233,0.16)', '4% -8%'], ['rgba(20,184,166,0.14)', '96% 108%']]}
           blob={{ gradient: grad(GRAD.blueTeal), top: '-150px', right: '-110px', left: 'auto', size: '420px', opacity: 0.18 }}
