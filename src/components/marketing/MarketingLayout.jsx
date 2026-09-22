@@ -159,20 +159,18 @@ function MarketingStyles() {
         --mkt-nav-text: #374151;
         --mkt-heading: #111827;
         --mkt-section-red-tint: oklch(97% 0.02 25);
-        /* Kundönskemål (2026-09-22, andra passet): startsidans växlande
-           sektioner låg på en varm beige/elfenbenston (--mkt-ivory,
-           #faf9f5) — påpekat som både "matchar inte vårt varumärke" (rätt:
-           loggan är kall blå→turkos→lime, ingen varm ton i den) och "ser
-           AI-genererat ut" (samma sak: en varm cream-botten bakom en serif-
-           rubrik är exakt det generiska AI-sidmönstret). Bytt mot en egen,
-           tydligare ton här i stället — grön/turkos, samma håll som loggans
-           mittfärg, och samtidigt en riktig referens till ämnet: klassiskt
-           bokföringspapper (kolumndagbok) är just den ljusa grönaktiga
-           tonen. Höjd kroma (0.022→0.03) så den faktiskt SYNS som en
-           medveten ton i stället för att nästan vara vit. Blått bredvid: en
-           enda avsiktlig avvikelse (se "Kopplat till"-sektionen), inte en
-           återgång till förra passets slumpmässiga flertoning. */
-        --mkt-section-mint: oklch(96.5% 0.03 158);
+        /* Kundönskemål (2026-09-22, tredje passet): "istället för grönt i
+           ljust läge, ha vitt". Andra passet bytte startsidans beige mot en
+           grön/turkos ton (se git-historiken för det resonemanget — kort:
+           beigen matchade varken det kalla varumärket eller läste som annat
+           än ett generiskt AI-mönster). Kunden vill nu ha ren vit i LJUST
+           läge specifikt i stället — mörka läget är uttryckligen inte i
+           fokus just nu (kundens egna ord, tidigare i samma tråd) och
+           behåller sin gröna ton oförändrad (se html[data-theme="dark"]
+           nedan). Sektionerna som använder token har redan hårfina
+           border-top/bottom mot sina grannar, så rytmen syns ändå utan
+           färgskillnad. */
+        --mkt-section-mint: #ffffff;
         --mkt-section-blue: oklch(96.5% 0.032 242);
       }
       /* html[data-theme="dark"] #lp-root (INTE bara #lp-root[data-theme=

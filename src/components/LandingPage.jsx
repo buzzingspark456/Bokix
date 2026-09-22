@@ -11,7 +11,7 @@ import { FeatureDemoStyles, DemoBokforing, DemoFakturering, DemoSkatt, DemoPerso
 import { SERIF, INK, INK_SOFT, MUTED, CARD_BORDER, CARD_SHADOW_SM, ACCENT, ACCENT_CYCLE } from './marketing/marketingTokens';
 import CloudShaderBackground from './marketing/CloudShaderBackground';
 import { GRAD, grad, AuroraLayer } from './marketing/aurora';
-import { StripeLogo, ZettleLogo, BolagsverketLogo, SkatteverketLogo, BasLogo, GdprLogo, BokforingslagLogo } from './shared/BrandLogos';
+import { StripeLogo, ZettleLogo, BolagsverketLogo, SkatteverketLogo } from './shared/BrandLogos';
 import MigrationFlow from './marketing/MigrationFlow';
 import BankFlow from './marketing/BankFlow';
 import ReceiptFlow from './marketing/ReceiptFlow';
@@ -92,33 +92,10 @@ const CONNECTIONS = [
 ];
 const CONNECTION_GROUPS = ['Betalningar', 'Myndigheter'];
 
-// Kundönskemål ("och stripe logon") — riktiga ordmärken (StripeLogo,
-// BasLogo) på en vit badge där en verklig logga faktiskt finns, `logo` är
-// valfri och faller annars tillbaka på `icon` (se GDPR-raden nedan).
-// GDPR-raden: kundbeslut i andra vändan — badgen visas nu (GdprLogo, se
-// den kommentaren i BrandLogos.jsx för vad sigillet är och inte är), och
-// etiketten kortades samtidigt från "GDPR: din data stannar din" till bara
-// "GDPR". Kortare är dessutom ärligare här: bilden bär redan ordet, och
-// raden slipper låta som ett eget löfte utöver förordningen.
-// `logoHeight` per rad (kundönskemål: "större logo och se bättre") — samma
-// höjd på alla tre hade INTE sett lika stora ut: en cirkel (GDPR) och ett
-// brett ordmärke med inbyggd luft (BAS) läser optiskt mindre än en fylld
-// kvadrat på exakt samma pixelhöjd. Värdena är alltså balanserade mot
-// varandra, inte satta till samma tal.
-// Kundönskemål (2026-09-22, andra passet): Stripe-ikonet togs bort härifrån
-// — tre av raderna är regelefterlevnad (svensk bokföringslag, GDPR,
-// BAS-kontoplan), Stripe är en integration, en annan sorts påstående.
-// Stripes ordmärke finns kvar där det hör hemma: "Kopplat till"-sektionen
-// längre ner (StripeLogo, se CONNECTIONS). StripeIconLogo-importen (kvadrat-
-// ikonet som bara användes här) är därför borttagen ur importlistan också.
-const TRUST_POINTS = [
-  // Ritad flaggbricka, inte en myndighetslogotyp — se BrandLogos.jsx.
-  // Här satt först en klubba ur ett ikonbibliotek (en domstolssymbol, inte
-  // en bokföringssymbol) och sedan ingenting alls.
-  { logo: BokforingslagLogo, logoHeight: 46, label: 'Byggt efter svensk bokföringslag' },
-  { logo: GdprLogo, logoHeight: 56, label: 'GDPR' },
-  { logo: BasLogo, logoHeight: 38, label: 'BAS-kontoplan' },
-];
+// TRUST_POINTS (bokföringslag/GDPR/BAS-badgarna) borttagen härifrån
+// 2026-09-22, tredje passet — se kommentaren vid f.d. TROVÄRDIGHETSRADEN
+// nedan för var påståendena bor i stället. BokforingslagLogo/GdprLogo/
+// BasLogo-komponenterna finns kvar i BrandLogos.jsx om de behövs där.
 
 
 // ── Sex delar av verktyget, med var sin rörelse ─────────────────────────
@@ -550,35 +527,14 @@ export default function LandingPage({ onEnterApp, locale = 'sv' }) {
         </div>
       </section>
 
-      {/* ── TROVÄRDIGHETSRAD — kundönskemål (2026-09-22, "mindre AI, gör om
-          den"): den oändligt rullande marqueen (tidigare kundönskemål, se
-          historiken nedan för hur den kom dit) ÄR i sig ett av de mönster
-          som får en sida att läsa som AI-genererad — en självscrollande
-          "som synts i"-karusell av märken, oavsett hur äkta märkena är.
-          Bytt mot en stillastående rad: badgearna är identiska (samma
-          pill, samma loggor, samma etiketter), bara rörelsen och de tre
-          osynliga dubblettkopiorna (kopia 2–4, bara där för
-          scrollillusionen) borttagna. En rad som står still och SÄGER sina
-          fyra saker en gång, i stället för att upprepa sig i evighet. ── */}
-      <section style={{ padding: '48px 24px 60px', background: 'var(--mkt-section-mint)', borderTop: '1px solid var(--mkt-border-soft)', position: 'relative', overflow: 'hidden' }}>
-        <div aria-hidden style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', width: 'min(420px, 70%)', height: '2px', opacity: 0.5, background: `linear-gradient(90deg, transparent, ${ACCENT.green.fg}, ${ACCENT.blue.fg}, ${ACCENT.teal.fg}, transparent)` }} />
-        <Reveal style={{ maxWidth: 'min(92vw, 900px)', margin: '0 auto', display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '14px', position: 'relative' }}>
-          {TRUST_POINTS.map((t, i) => (
-            <div key={t.label} className="lp-lux-card" style={{ display: 'flex', alignItems: 'center', gap: '13px', padding: '10px 26px 10px 10px', background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '100px', boxShadow: '0 2px 8px rgba(28,36,32,0.05)' }}>
-              {/* Kundönskemål ("inte för litet", sedan "större logo och se
-                  bättre") — en ordmärkeslogga (bredare än hög) klämd in i en
-                  cirkel blev mikroskopisk. En auto-bred pill i samma höjd
-                  som de andra badgearna ger loggan faktisk storlek i
-                  stället. Höjden per logga kommer ur TRUST_POINTS.logoHeight,
-                  se kommentaren där. */}
-              <div style={{ height: 72, padding: '0 18px', borderRadius: '36px', background: '#ffffff', border: `1px solid ${CARD_BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <t.logo height={t.logoHeight || 28} />
-              </div>
-              <span style={{ fontSize: '15px', fontWeight: 700, color: INK_SOFT, whiteSpace: 'nowrap' }}>{c.trustPoints[i] || t.label}</span>
-            </div>
-          ))}
-        </Reveal>
-      </section>
+      {/* ── TROVÄRDIGHETSRADEN TOGS BORT HÄRIFRÅN (2026-09-22, tredje passet)
+          — kundönskemål: "bygg efter svensk bokföringslag / GDPR / BAS-
+          kontoplan" hör hemma någon annanstans, inte på startsidan. Inget
+          flyttades i praktiken — alla tre påståendena finns redan, med mer
+          sammanhang, på sidorna de faktiskt handlar om: BAS-kontoplanen på
+          /funktioner ("Full kontoplan (BAS) med sökbara konton"), GDPR på
+          /sakerhet (PUB-avtal enligt artikel 28), svensk bokföringslag på
+          /byt-bokforingsprogram (arkivering/övergång). ── */}
 
       {/* ── KOPPLAT TILL — bytt ut mot två spalter (2026-09-22).
           Kundfeedback (utomstående: "ser vibe-codat/AI-genererat ut") pekade
