@@ -42,7 +42,7 @@ export const LANDING_CONTENT = {
       heading: 'Det här får du med Bokix',
       subheading: 'Sex delar av verktyget. Allt ingår, inget kostar extra.',
       items: [
-        { title: 'Utgifter och kvitton', desc: 'Fota eller ladda upp kvittot — OCR läser datum, belopp och moms automatiskt. Underlaget sitter kvar på verifikationen.' },
+        { title: 'Utgifter och kvitton', desc: 'Fota eller ladda upp kvittot, så läser OCR:en av datum, belopp och moms åt dig. Underlaget sitter kvar på verifikationen.' },
         { title: 'Offerter', desc: 'Blir faktura med ett klick när kunden tackat ja.' },
         { title: 'Projekt', desc: 'Se vilket uppdrag som faktiskt bär sig.' },
         { title: 'Kunder och kontakter', desc: 'Fylls i från organisationsnumret.' },
@@ -54,16 +54,17 @@ export const LANDING_CONTENT = {
       heading: 'Kopplat till tjänsterna du redan använder',
       subheading: 'Betalningar, kassa och myndigheter: Bokix pratar med rätt system istället för att du ska hålla ordning själv.',
       labels: { stripe: 'Kortbetalningar', zettle: 'Kassaförsäljning', bolagsverket: 'Företagsuppslag', skatteverket: 'Rätt filformat' },
+      groups: { Betalningar: 'Betalningar', Myndigheter: 'Myndigheter' },
     },
     trustPoints: ['Byggt efter svensk bokföringslag', 'GDPR', 'Kortbetalningar via Stripe', 'BAS-kontoplan'],
     receipts: {
       heading: 'Kvitton läser sig själva',
-      subheading: 'Fota kvittot eller ladda upp en bild eller PDF. Datum, belopp, moms och konto föreslås automatiskt — du bekräftar, du gissar aldrig.',
+      subheading: 'Fota kvittot eller ladda upp en bild eller PDF, så föreslår Bokix datum, belopp, moms och konto automatiskt. Du bekräftar dem. Du gissar aldrig.',
       cta: 'Testa OCR-läsningen själv',
     },
     bank: {
       heading: 'Banken in i bokföringen',
-      subheading: 'Exportera kontoutdraget ur din internetbank och läs in det i Bokix. Inbetalningar matchas mot dina obetalda fakturor, utbetalningar mot leverantörsfakturorna — och du lämnar aldrig ut någon bankinloggning.',
+      subheading: 'Exportera kontoutdraget ur din internetbank och läs in det i Bokix. Inbetalningar matchas mot dina obetalda fakturor, utbetalningar mot leverantörsfakturorna. Du lämnar aldrig ut någon bankinloggning.',
       cta: 'Se hur bankimporten fungerar',
     },
     switchProgram: {
@@ -143,6 +144,7 @@ export const LANDING_CONTENT = {
       heading: 'Connected to the services you already use',
       subheading: 'Payments, point of sale and authorities: Bokix talks to the right systems instead of you keeping track yourself.',
       labels: { stripe: 'Card payments', zettle: 'Point-of-sale sales', bolagsverket: 'Company lookup', skatteverket: 'The right file format' },
+      groups: { Betalningar: 'Payments', Myndigheter: 'Authorities' },
     },
     trustPoints: ['Built to Swedish bookkeeping law', 'GDPR', 'Card payments via Stripe', 'BAS chart of accounts'],
     receipts: {
@@ -232,6 +234,7 @@ export const LANDING_CONTENT = {
       heading: 'Koblet til tjenestene du allerede bruker',
       subheading: 'Betalinger, kasse og myndigheter: Bokix snakker med riktig system i stedet for at du må holde styr selv.',
       labels: { stripe: 'Kortbetalinger', zettle: 'Kassesalg', bolagsverket: 'Firmaoppslag', skatteverket: 'Riktig filformat' },
+      groups: { Betalningar: 'Betalinger', Myndigheter: 'Myndigheter' },
     },
     trustPoints: ['Bygget etter svensk bokføringslov', 'GDPR', 'Kortbetalinger via Stripe', 'BAS-kontoplan'],
     receipts: {
@@ -321,6 +324,7 @@ export const LANDING_CONTENT = {
       heading: 'Forbundet til de services du allerede bruger',
       subheading: 'Betalinger, kasse og myndigheder: Bokix taler med de rigtige systemer, så du ikke selv skal holde styr på det.',
       labels: { stripe: 'Kortbetalinger', zettle: 'Kassesalg', bolagsverket: 'Virksomhedsopslag', skatteverket: 'Det rigtige filformat' },
+      groups: { Betalningar: 'Betalinger', Myndigheter: 'Myndigheder' },
     },
     trustPoints: ['Bygget efter svensk bogføringslov', 'GDPR', 'Kortbetalinger via Stripe', 'BAS-kontoplan'],
     receipts: {
@@ -410,6 +414,7 @@ export const LANDING_CONTENT = {
       heading: 'Yhteydessä palveluihin, joita jo käytät',
       subheading: 'Maksut, kassa ja viranomaiset: Bokix keskustelee oikeiden järjestelmien kanssa, jottet joudu pitämään itse kirjaa.',
       labels: { stripe: 'Korttimaksut', zettle: 'Kassamyynti', bolagsverket: 'Yrityshaku', skatteverket: 'Oikea tiedostomuoto' },
+      groups: { Betalningar: 'Maksut', Myndigheter: 'Viranomaiset' },
     },
     trustPoints: ['Rakennettu Ruotsin kirjanpitolain mukaan', 'GDPR', 'Korttimaksut Stripen kautta', 'BAS-tilikartta'],
     receipts: {

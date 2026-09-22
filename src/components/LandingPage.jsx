@@ -75,55 +75,19 @@ const FEATURE_COLUMNS = [
 // avvägningen (antyder det ett officiellt partnerskap?) lagts fram. Kräver
 // att bolagsverket-logo.png/skatteverket-logo.png faktiskt sparas i
 // public/ — se BrandLogos.jsx.
-// Korta etiketter med flit — långa fraser (tidigare t.ex. "Kortbetalningar
-// direkt på fakturan") krockade med Bokix-mittnoden på smala mobilbredder,
-// se kommentaren vid CONNECTION_POS nedan.
-// Kundönskemål ("skatteverket/bolagsverket small på både mobil och
-// dator, zettles 'by PayPal' syns inte bra på mobil") — ALLA fyra loggor
-// fick nu en egen clamp()-höjd istället för ett fast pixeltal. Grundfelet
-// var samma för alla: badgen krymper responsivt (clamp(56px,18vw,130px)),
-// men en FAST loggohöjd gör det INTE — på ett smalt fönster blir loggan
-// proportionellt STÖRRE än sin nu mindre badge (Bolagsverket klipptes rakt
-// av, "olagsverke"; Zettles lilla "by PayPal"-rad hamnade nära/utanför den
-// runda klippningen). Varje loggas clamp() skalar med SAMMA vw-takt som
-// badgen (18vw), bara vid en egen andel av den — stående lockuper
-// (Bolagsverket/Skatteverket, ikon OVANFÖR text) får en högre andel (65%)
-// eftersom de annars ser små ut brevid Stripes/Zettles breda ordmärken;
-// Stripe/Zettle (redan breda, fyller badgen bra) en lägre andel (~30%),
-// höjda en aning från förra passets fasta 39/42px för att Zettles
-// "by PayPal" ska gå att läsa även i den minsta badge-storleken.
+// Två spalter, inte en hub-och-eker (se filkommentaren vid sektionen som
+// använder de här) — "group" är vilken av de två kolumnerna (Betalningar/
+// Myndigheter) kopplingen hör till, ordningen inom varje kolumn är
+// ordningen i den här listan. logoHeight är nu satt för en enkel rad
+// (logga + text i höjd), inte en stor rund badge som förut — mycket
+// jämnare tal, ingen laddad viktning mellan loggorna behövs längre.
 const CONNECTIONS = [
-  { key: 'stripe', kind: 'logo', Logo: StripeLogo, logoHeight: 'clamp(24px, 5.5vw, 40px)', label: 'Kortbetalningar', group: 'Betalningar' },
-  // Zettle/Bolagsverket/Skatteverket renderar numera direkt på den mörka
-  // cirkeln precis som Bokix/Stripe (kundönskemål) — BrandLogos.jsx:s
-  // ThemedLogo hanterar ljust/mörkt bläck internt (två färdiga bildvarianter
-  // + CSS i MarketingLayout.jsx), ingen ljus "chip" runt loggan behövs
-  // längre här.
-  { key: 'zettle', kind: 'logo', Logo: ZettleLogo, logoHeight: 'clamp(26px, 6vw, 44px)', label: 'Kassaförsäljning', group: 'Betalningar' },
-  // Kundönskemål: Bolagsverket/Skatteverket större — andelen av badgens
-  // egen clamp(56px,18vw,130px) höjd upp igen (var 65%, nu ~80%).
-  { key: 'bolagsverket', kind: 'logo', Logo: BolagsverketLogo, logoHeight: 'clamp(46px, 14vw, 104px)', label: 'Företagsuppslag', group: 'Myndigheter' },
-  { key: 'skatteverket', kind: 'logo', Logo: SkatteverketLogo, logoHeight: 'clamp(46px, 14vw, 104px)', label: 'Rätt filformat', group: 'Myndigheter' },
+  { key: 'stripe', kind: 'logo', Logo: StripeLogo, logoHeight: '22px', label: 'Kortbetalningar', group: 'Betalningar' },
+  { key: 'zettle', kind: 'logo', Logo: ZettleLogo, logoHeight: '24px', label: 'Kassaförsäljning', group: 'Betalningar' },
+  { key: 'bolagsverket', kind: 'logo', Logo: BolagsverketLogo, logoHeight: '30px', label: 'Företagsuppslag', group: 'Myndigheter' },
+  { key: 'skatteverket', kind: 'logo', Logo: SkatteverketLogo, logoHeight: '30px', label: 'Rätt filformat', group: 'Myndigheter' },
 ];
-
-// Positioner i diagrammets EGNA koordinatsystem (viewBox 0 0 800 300) —
-// samma koordinater används både för SVG-linjerna och för att räkna ut
-// vänster/topp i procent åt de HTML-positionerade noderna (se sektionen
-// nedan), så de alltid landar exakt på linjernas ändpunkter oavsett hur
-// brett diagrammet faktiskt renderas (aspect-ratio håller proportionen).
-// Kundönskemål ("lite ifrån varandra") — noderna sitter nu nära själva
-// diagramkanten (x=70/730, y=15/285) istället för den försiktigare
-// 110/690-varianten, tydligt mer luft mot Bokix-mittnoden. Inte ända ut
-// till 40/760 (ett tidigare försök) — etikett-bredden (clamp(), se
-// sektionen) klipptes då av sektionens egen overflow:hidden på smala
-// mobilbredder.
-const CONNECTION_CENTER = { x: 400, y: 150 };
-const CONNECTION_POS = [
-  { x: 70, y: 15 },    // Stripe — övre vänster
-  { x: 70, y: 285 },   // Zettle — nedre vänster
-  { x: 730, y: 15 },   // Bolagsverket — övre höger
-  { x: 730, y: 285 },  // Skatteverket — nedre höger
-];
+const CONNECTION_GROUPS = ['Betalningar', 'Myndigheter'];
 
 // Kundönskemål ("och stripe logon") — riktiga ordmärken (StripeLogo,
 // BasLogo) på en vit badge där en verklig logga faktiskt finns, `logo` är
@@ -167,7 +131,7 @@ const TRUST_POINTS = [
 // Banken har en egen sektion längre ner på sidan och är därför inte med
 // här — den skulle bli en dubblett två skärmar isär.
 const TOOL_ITEMS = [
-  { motif: 'kvitton', title: 'Utgifter och kvitton', desc: 'Fota eller ladda upp kvittot — OCR läser datum, belopp och moms automatiskt. Underlaget sitter kvar på verifikationen.' },
+  { motif: 'kvitton', title: 'Utgifter och kvitton', desc: 'Fota eller ladda upp kvittot, så läser OCR:en av datum, belopp och moms åt dig. Underlaget sitter kvar på verifikationen.' },
   { motif: 'offerter', title: 'Offerter', desc: 'Blir faktura med ett klick när kunden tackat ja.' },
   { motif: 'projekt', title: 'Projekt', desc: 'Se vilket uppdrag som faktiskt bär sig.' },
   { motif: 'kunder', title: 'Kunder och kontakter', desc: 'Fylls i från organisationsnumret.' },
@@ -610,34 +574,34 @@ export default function LandingPage({ onEnterApp, locale = 'sv' }) {
         </Reveal>
       </section>
 
-      {/* ── KOPPLAT TILL — Bokix-loggan i mitten, fyra riktiga kopplingar
-          (Stripe/Zettle-loggor, Bolagsverket/Skatteverket som ikon+text,
-          se CONNECTIONS-kommentaren högst upp) med linjer ut till varje.
-          Ren HTML+SVG, inga bibliotek: linjerna ritas i SVG:ns eget
-          koordinatsystem (viewBox 800×300), nodernas HTML-badges
-          positioneras i EXAKT samma koordinater omräknat till procent —
-          aspectRatio på ytterhöljet håller de två lagren i synk oavsett
-          bredd. Kundönskemål: linjerna "rör sig hela tiden" (marscherande
-          streck, .lp-flow-line i MarketingLayout.jsx) och en mjukt
-          pulserande glöd bakom Bokix-noden — känns som att kopplingarna
-          faktiskt är LIVE, inte en stillbild.
-          Kundönskemål (skickade referensbilder på andra sajters "hub"-
-          diagram) — samma äkta fyra kopplingar, INGA påhittade extra
-          integrationer: raka linjer → mjuka Bezier-kurvor, runda noder
-          istället för rundade kvadrater. ── */}
+      {/* ── KOPPLAT TILL — bytt ut mot två spalter (2026-09-22).
+          Kundfeedback (utomstående: "ser vibe-codat/AI-genererat ut") pekade
+          rakt på den här sektionens gamla form: en central logga med en
+          mjukt pulserande glöd och böjda linjer ut till fyra runda noder —
+          det exakta "hub-diagram"-mönstret som numera är själva
+          signaturbilden för en AI-genererad SaaS-sida, oavsett hur äkta
+          kopplingarna bakom är. Formen var dessutom ett tidigare
+          kundönskemål (skickade referensbilder på just den sortens diagram
+          från andra sajter) — bytt nu mot något som kommer ur ämnet
+          självt i stället för ett importerat mönster.
+          De fyra kopplingarna är äkta (Stripe/Zettle-loggor,
+          Bolagsverket/Skatteverket, se CONNECTIONS-kommentaren högst upp)
+          och delar sig redan naturligt i två sorter: PENGAR (Stripe/Zettle)
+          och PAPPER (Bolagsverket/Skatteverket) — exakt bokföringens egen
+          tvåkolumns-idé (debet | kredit, två sidor som ska stämma), inte en
+          gissning. Två spalter med en tunn linje mellan är alltså både
+          enklare att bygga och mer sant mot vad Bokix faktiskt gör: sitter
+          mellan pengarna som rör sig och papperen som ska stämma.
+          Ingen SVG, inget koordinatsystem att hålla i synk — CSS Grid
+          faller själv ihop till en spalt på smal skärm (se .lp-conn-grid,
+          MarketingLayout.jsx), ingen egen media query behövs här. ── */}
       <section style={{ padding: '76px 24px', background: 'var(--mkt-card-bg)', position: 'relative', overflow: 'hidden' }}>
         <AuroraLayer
           stops={[['rgba(14,165,233,0.16)', '4% -8%'], ['rgba(20,184,166,0.14)', '96% 108%']]}
           blob={{ gradient: grad(GRAD.blueTeal), top: '-150px', right: '-110px', left: 'auto', size: '420px', opacity: 0.18 }}
         />
-        {/* Kundönskemål ("för mycket tomt utrymme på helskärm, men bra på
-            halv skärm"): en FAST maxWidth ser bara bra ut vid EN
-            fönsterbredd — min(vw,px) håller diagrammet proportionellt mot
-            fönstret på VARJE bredd istället. Det här var sektionen som
-            kändes mest övergiven på en bred skärm, ett litet diagram i ett
-            stort mörkt hav. */}
-        <div style={{ maxWidth: 'min(90vw, 1300px)', margin: '0 auto', position: 'relative' }}>
-          <Reveal style={{ textAlign: 'center', marginBottom: '40px' }}>
+        <div style={{ maxWidth: '900px', margin: '0 auto', position: 'relative' }}>
+          <Reveal style={{ textAlign: 'center', marginBottom: '48px' }}>
             <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(24px, 3.5vw, 38px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '14px' }}>
               {c.connections.heading}
             </h2>
@@ -646,92 +610,18 @@ export default function LandingPage({ onEnterApp, locale = 'sv' }) {
             </p>
           </Reveal>
 
-          <Reveal scale style={{ position: 'relative', width: '100%', maxWidth: 'min(88vw, 1280px)', margin: '0 auto', aspectRatio: '800 / 300' }}>
-
-            <svg viewBox="0 0 800 300" preserveAspectRatio="none" aria-hidden style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
-              <defs>
-                <linearGradient id="lp-connect-line" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stopColor="#0ea5e9" />
-                  <stop offset="100%" stopColor="#14b8a6" />
-                </linearGradient>
-              </defs>
-              {/* Mjuka Bezier-kurvor istället för raka streck — samma
-                  "kabel som svänger in" känsla som referensbilderna,
-                  fortfarande samma marscherande streck-animation
-                  (.lp-flow-line). Kontrollpunkterna ligger på halva
-                  vägen horisontellt, vid start- respektive mål-y, vilket
-                  ger en S-formad kurva som lämnar/anländer vågrätt. */}
-              {/* Kundfeedback (mobil, uttryckligt: "linjerna är superstunna,
-                  man ser dem knappt"): strokeWidth är satt i viewBox-
-                  koordinater (800×300) och skalades därför NED med
-                  diagrammets egen bredd — på en smal telefon (diagrammet
-                  ~340px brett) blev en 3px-linje under 1,5 riktig skärm-
-                  pixel. vector-effect="non-scaling-stroke" gör att
-                  strokeWidth i stället mäts i riktiga skärmpixlar (via
-                  style, som CSS-stroke-width faktiskt respekterar) oavsett
-                  hur smalt eller brett diagrammet renderas — samma synliga
-                  tjocklek på mobil som på skrivbord. Fortsatt kundfeedback
-                  efter den fixen (fortfarande knappt synliga på mobil) —
-                  golvet var på mobil alltid PRECIS vid clamp:ens 2px-golv
-                  (0.4vw är bara 1,5px vid 375px bredd, klampas till 2px),
-                  och den streckade linjen (.lp-flow-line, MarketingLayout.jsx)
-                  har bara ~42% av sin längd faktiskt synlig i taget. Höjt
-                  golvet ytterligare (2→2.5px) och opaciteten en gång till
-                  (0.7→0.85); strecktätheten justerad separat, se
-                  .lp-flow-line. */}
-              {CONNECTION_POS.map((p, i) => {
-                const midX = (p.x + CONNECTION_CENTER.x) / 2;
-                return (
-                  <path
-                    key={i} className="lp-flow-line"
-                    d={`M ${p.x} ${p.y} C ${midX} ${p.y}, ${midX} ${CONNECTION_CENTER.y}, ${CONNECTION_CENTER.x} ${CONNECTION_CENTER.y}`}
-                    fill="none" stroke="url(#lp-connect-line)" strokeLinecap="round" opacity="0.85"
-                    vectorEffect="non-scaling-stroke"
-                    style={{ strokeWidth: 'clamp(2.5px, 0.45vw, 4px)' }}
-                  />
-                );
-              })}
-            </svg>
-
-            {/* Bokix — mitten. En mjukt pulserande glöd (.lp-hub-pulse)
-                bakom badgen förstärker "allt flödar hit"-känslan.
-                Badge/etikett-storlekar i clamp() (inte fasta px) — vid
-                smala mobilbredder skulle breda etiketter annars svämma
-                över diagrammets egen, då mycket smalare, procent-
-                positionerade bredd. Taket (clamp:ens tredje värde) höjt
-                rejält (156→190) i samma omgång som diagrammet självt fick
-                bli bredare — annars hade klotet fortsatt kapa vid samma
-                pixelstorlek och sett ÄNNU mindre ut i den nu bredare ramen,
-                clamp() räknar mot fönsterbredden, inte diagram-behållarens
-                egen bredd. */}
-            <div style={{ position: 'absolute', left: `${(CONNECTION_CENTER.x / 800) * 100}%`, top: `${(CONNECTION_CENTER.y / 300) * 100}%`, transform: 'translate(-50%, -50%)', width: 'clamp(96px, 26vw, 190px)', height: 'clamp(96px, 26vw, 190px)' }}>
-              <div aria-hidden className="lp-hub-pulse" style={{ position: 'absolute', inset: '-16px', borderRadius: '50%', background: grad(GRAD.blueTeal), opacity: 0.35, filter: 'blur(20px)', zIndex: 0 }} />
-              {/* Kundönskemål: mörk bakgrund i mörkt läge (var alltid vit
-                  oavsett tema) — Bokix-ordmärket är en gradient-fylld SVG
-                  med transparent bakgrund, funkar direkt på var(--mkt-card-bg)
-                  utan någon ljus "chip" runt sig, till skillnad från
-                  loggorna nedan. */}
-              <div style={{ position: 'relative', width: '100%', height: '100%', borderRadius: '50%', background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, boxShadow: '0 20px 40px -16px rgba(28,36,32,0.32)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
-                {/* Kundönskemål: större — var ett FAST 36px oavsett hur stor
-                    den omslutande cirkeln (clamp(96px,26vw,190px)) blev, så
-                    loggan såg liten ut brevid den på breda skärmar. Egen
-                    clamp() nu, samma responsiva princip som CONNECTIONS-
-                    loggorna ovan. */}
-                <BokixWordmark height="clamp(34px, 10vw, 74px)" />
-              </div>
-            </div>
-
-            {CONNECTIONS.map((conn, i) => {
-              const p = CONNECTION_POS[i];
-              return (
-                <div key={conn.key} style={{ position: 'absolute', left: `${(p.x / 800) * 100}%`, top: `${(p.y / 300) * 100}%`, transform: 'translate(-50%, -50%)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'clamp(6px, 2vw, 12px)', width: 'clamp(60px, 17vw, 170px)', zIndex: 2 }}>
-                  <div style={{ width: 'clamp(56px, 18vw, 130px)', height: 'clamp(56px, 18vw, 130px)', borderRadius: '50%', background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, boxShadow: '0 14px 28px -14px rgba(28,36,32,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
-                    <conn.Logo height={conn.logoHeight} />
+          <Reveal delay={80} className="lp-conn-grid">
+            {CONNECTION_GROUPS.map(group => (
+              <div className="lp-conn-col" key={group}>
+                <div className="lp-conn-col-label">{c.connections.groups?.[group] || group}</div>
+                {CONNECTIONS.filter(conn => conn.group === group).map(conn => (
+                  <div className="lp-conn-row" key={conn.key}>
+                    <span className="lp-conn-logo"><conn.Logo height={conn.logoHeight} /></span>
+                    <span className="lp-conn-name">{c.connections.labels[conn.key] || conn.label}</span>
                   </div>
-                  <span style={{ fontSize: 'clamp(10px, 2.8vw, 16px)', fontWeight: 600, color: MUTED, textAlign: 'center', lineHeight: 1.35 }}>{c.connections.labels[conn.key] || conn.label}</span>
-                </div>
-              );
-            })}
+                ))}
+              </div>
+            ))}
           </Reveal>
         </div>
       </section>

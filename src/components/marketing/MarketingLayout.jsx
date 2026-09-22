@@ -292,20 +292,26 @@ function MarketingStyles() {
          två olika lösningar. stroke-dashoffset är en riktig compositor-
          vänlig SVG-egenskap (ingen omritning av hela linjen varje bildruta
          som en background-position-animation på en <div> hade krävt). ── */
-      @keyframes lpFlowDash { to { stroke-dashoffset: -24; } }
-      /* Kundfeedback (mobil, "linjerna knappt synliga" — uppföljning, se
-         LandingPage.jsx:s kommentar vid CONNECTION_POS): 5 7 lämnade bara
-         ~42% av linjens längd synlig åt gången, vilket förstärkte det
-         tunna/svaga intrycket ytterligare på en liten skärm. Tätare
-         mönster (6 4, 60% synligt) utan att tappa själva "flödar"-känslan
-         animationen ska ge. */
-      .lp-flow-line { stroke-dasharray: 6 4; animation: lpFlowDash 1.1s linear infinite; }
       /* Samma flöde men för en CSS-gradient-"linje" (div, inte SVG) —
          leverantörsfaktura-pipen mellan de tre stegen. */
       @keyframes lpFlowGradient { 0% { background-position: 0% 0; } 100% { background-position: -200% 0; } }
       .lp-flow-connector { background-size: 200% 100%; animation: lpFlowGradient 2.4s linear infinite; }
-      @keyframes lpHubPulse { 0%, 100% { transform: scale(1); opacity: 0.5; } 50% { transform: scale(1.12); opacity: 0.9; } }
-      .lp-hub-pulse { animation: lpHubPulse 2.6s ease-in-out infinite; }
+      /* ── "Kopplat till"-sektionen: två spalter (Betalningar/Myndigheter),
+         ersatte 2026-09-22 det gamla hub-diagrammet (glödande mittnod,
+         böjda linjer ut) — se filkommentaren i LandingPage.jsx för varför.
+         Faller själv ihop till en spalt under 680px, ingen JS behövs. ── */
+      .lp-conn-grid { display: grid; grid-template-columns: 1fr; gap: 8px 56px; max-width: 640px; margin: 0 auto; }
+      .lp-conn-col { display: flex; flex-direction: column; }
+      .lp-conn-col + .lp-conn-col { margin-top: 28px; padding-top: 28px; border-top: 1px solid var(--mkt-border-soft); }
+      .lp-conn-col-label { font-size: 12px; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; color: var(--mkt-muted); margin-bottom: 6px; }
+      .lp-conn-row { display: flex; align-items: center; gap: 16px; padding: 15px 0; border-top: 1px solid var(--mkt-border-soft); }
+      .lp-conn-row:first-of-type { border-top: none; }
+      .lp-conn-logo { display: flex; align-items: center; justify-content: center; width: 46px; flex-shrink: 0; }
+      .lp-conn-name { font-size: 15px; font-weight: 600; color: var(--mkt-ink); }
+      @media (min-width: 680px) {
+        .lp-conn-grid { grid-template-columns: 1fr 1fr; max-width: 760px; }
+        .lp-conn-col + .lp-conn-col { margin-top: 0; padding-top: 0; border-top: none; padding-left: 56px; border-left: 1px solid var(--mkt-border-soft); }
+      }
       /* Kundönskemål ("denna ska vara moving") — jämförelsetabellens
          Bokix-vinnarkolumn får ett sakta svepande ljus över sin gradient-
          bakgrund istället för en helt stillastående ton, samma
@@ -314,14 +320,13 @@ function MarketingStyles() {
       @keyframes lpColumnSweep { 0% { background-position: 0% 0; } 100% { background-position: -200% 0; } }
       .lp-column-sweep { background-size: 220% 100%; animation: lpColumnSweep 4.5s linear infinite; }
 
-      /* "Kopplat till"-diagrammets aktivitetskort — en långsam, mjuk
-         guppning så de känns levande utan att bli distraherande, samma
-         princip som .lp-hub-pulse. */
+      /* En långsam, mjuk guppning så aktivitetskort känns levande utan att
+         bli distraherande. */
       @keyframes lpToastFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
       .lp-toast-float { animation: lpToastFloat 4s ease-in-out infinite; }
 
       @media (prefers-reduced-motion: reduce) {
-        .lp-flow-line, .lp-flow-connector, .lp-hub-pulse, .lp-column-sweep, .lp-toast-float { animation: none !important; }
+        .lp-flow-connector, .lp-column-sweep, .lp-toast-float { animation: none !important; }
       }
 
       /* ── Onboarding-flödet ("Igång på tre steg", LandingPage.jsx) — samma
