@@ -70,6 +70,15 @@ const CSS = `
   @media (max-width: 520px) {
     .bxd-year { grid-template-columns: 1fr; }
   }
+
+  .bxd-chain { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 12px; align-items: center; }
+  @media (max-width: 720px) { .bxd-chain { grid-template-columns: 1fr; } .bxd-chain .bxd-arrow { transform: rotate(90deg); height: 20px; } }
+
+  .bxd-split { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .bxd-split-col { display: grid; gap: 10px; }
+  .bxd-split-h { display: flex; align-items: center; gap: 9px; font-size: 15px; font-weight: 800; color: ${INK}; padding-bottom: 8px; border-bottom: 2px solid ${CARD_BORDER}; margin-bottom: 2px; }
+  .bxd-split-h i { width: 9px; height: 9px; border-radius: 50%; display: block; flex-shrink: 0; }
+  @media (max-width: 640px) { .bxd-split { grid-template-columns: 1fr; } }
 `;
 
 function BalanceEquation() {
@@ -181,7 +190,119 @@ function ReviewQueue() {
   );
 }
 
-const DIAGRAMS = { 'sie-balance': BalanceEquation, 'uf-year': UfYear, 'enkel-flow': EnkelFlow, 'review-queue': ReviewQueue };
+const MOMS_STEPS = [
+  { n: 1, h: 'Kontrollera', when: 'Innan du lämnar in', items: ['Alla kvitton och fakturor för perioden är bokförda', 'Inget ligger kvar i Granskning'] },
+  { n: 2, h: 'Granska', when: 'Rutorna', items: ['Utgående och ingående moms stämmer mot verifikationerna', 'Ovanliga rader (omvänd moms, EU-inköp) ser rimliga ut'] },
+  { n: 3, h: 'Bokför', when: 'Momsen själv', items: ['Bokix bokför momsskulden eller -fordran automatiskt', 'Kontot stäms av mot ruta 49'] },
+  { n: 4, h: 'Lämna in', when: 'Hos Skatteverket', items: ['Ladda upp eSKD-filen eller fyll i e-tjänsten för hand', 'Signera med BankID — betalningen ska vara framme samma dag'] },
+];
+
+function MomsSteps() {
+  return (
+    <div className="bxd-card">
+      <div className="bxd-year">
+        {MOMS_STEPS.map(p => (
+          <div className="bxd-ph" key={p.n}>
+            <div className="bxd-ph-n">{p.n}</div>
+            <h4>{p.h}</h4>
+            <div className="bxd-ph-w">{p.when}</div>
+            <ul>{p.items.map(i => <li key={i}>{i}</li>)}</ul>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ReceiptArchive() {
+  return (
+    <div className="bxd-card">
+      <div className="bxd-chain">
+        <div className="bxd-fb">
+          <div className="bxd-fb-k">Kvittot eller fakturan</div>
+          <div className="bxd-fb-t">Fotas eller skannas</div>
+          <div className="bxd-fb-s">Hela, läsbar och oförändrad — det är kravet, inte vilken app du använder.</div>
+        </div>
+        <div className="bxd-arrow" aria-hidden="true">→</div>
+        <div className="bxd-fb ok">
+          <div className="bxd-fb-k">Originalet i papper</div>
+          <div className="bxd-fb-t">Kan slängas direkt</div>
+          <div className="bxd-fb-s">Sedan lagändringen 1 juli 2024 — så fort överföringen är gjord.</div>
+        </div>
+        <div className="bxd-arrow" aria-hidden="true">→</div>
+        <div className="bxd-fb">
+          <div className="bxd-fb-k">Den digitala kopian</div>
+          <div className="bxd-fb-t">Sparas i sju år</div>
+          <div className="bxd-fb-s">Räknat från utgången av det kalenderår räkenskapsåret slutade.</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const PAY_PATH = { title: 'Lön', dot: '#0ea5e9', rows: [
+  { k: 'Bokförs som', t: 'Lönekostnad, varje månad' },
+  { k: 'Kostar företaget', t: 'Bruttolön plus arbetsgivaravgifter' },
+  { k: 'Beskattas hos dig', t: 'Direkt, som inkomst av tjänst' },
+  { k: 'Ger', t: 'Pensionsgrundande och sjukpenninggrundande inkomst' },
+] };
+const DIV_PATH = { title: 'Utdelning', dot: '#84cc16', rows: [
+  { k: 'Bokförs som', t: 'Beslut på bolagsstämman, en gång per år' },
+  { k: 'Kräver', t: 'Utdelningsbara medel i bolaget' },
+  { k: 'Beskattas hos dig', t: 'Olika skattesats inom och utanför gränsbeloppet' },
+  { k: 'Ger', t: 'Ingen pensions- eller sjukpenninggrundande inkomst' },
+] };
+
+function PayOrDividend() {
+  return (
+    <div className="bxd-card">
+      <div className="bxd-split">
+        {[PAY_PATH, DIV_PATH].map(col => (
+          <div className="bxd-split-col" key={col.title}>
+            <div className="bxd-split-h"><i style={{ background: col.dot }} />{col.title}</div>
+            {col.rows.map(r => (
+              <div className="bxd-fb" key={r.k}>
+                <div className="bxd-fb-k">{r.k}</div>
+                <div className="bxd-fb-t">{r.t}</div>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function EnskildFirmaFlow() {
+  return (
+    <div className="bxd-card">
+      <div className="bxd-chain">
+        <div className="bxd-fb">
+          <div className="bxd-fb-k">Kunden betalar</div>
+          <div className="bxd-fb-t">In på företagets konto</div>
+          <div className="bxd-fb-s">Bokförs som intäkt i firman.</div>
+        </div>
+        <div className="bxd-arrow" aria-hidden="true">→</div>
+        <div className="bxd-fb">
+          <div className="bxd-fb-k">Eget uttag</div>
+          <div className="bxd-fb-t">Konto 2013, inget lönebesked</div>
+          <div className="bxd-fb-s">Ingen skatt just då — firman och du är samma person.</div>
+        </div>
+        <div className="bxd-arrow" aria-hidden="true">→</div>
+        <div className="bxd-fb ok">
+          <div className="bxd-fb-k">Din deklaration</div>
+          <div className="bxd-fb-t">NE-bilagan och egenavgifter</div>
+          <div className="bxd-fb-s">Överskottet beskattas här, en gång om året.</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const DIAGRAMS = {
+  'sie-balance': BalanceEquation, 'uf-year': UfYear, 'enkel-flow': EnkelFlow, 'review-queue': ReviewQueue,
+  'moms-steps': MomsSteps, 'receipt-archive': ReceiptArchive, 'pay-or-dividend': PayOrDividend, 'enskild-firma-flow': EnskildFirmaFlow,
+};
 
 export default function BlogDiagram({ id, caption }) {
   const D = DIAGRAMS[id];

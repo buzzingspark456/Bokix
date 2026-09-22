@@ -79,6 +79,26 @@
       "destination": "/blogg/bokforing-uf-foretag/index.html"
     },
     {
+      "source": "/blogg/moms-deklaration-steg-for-steg",
+      "destination": "/blogg/moms-deklaration-steg-for-steg/index.html"
+    },
+    {
+      "source": "/blogg/spara-kvitton-bokforingslagen",
+      "destination": "/blogg/spara-kvitton-bokforingslagen/index.html"
+    },
+    {
+      "source": "/blogg/bokslut-checklista",
+      "destination": "/blogg/bokslut-checklista/index.html"
+    },
+    {
+      "source": "/blogg/lon-eller-utdelning-ab",
+      "destination": "/blogg/lon-eller-utdelning-ab/index.html"
+    },
+    {
+      "source": "/blogg/enskild-firma-bokforing-ne",
+      "destination": "/blogg/enskild-firma-bokforing-ne/index.html"
+    },
+    {
       "source": "/verktyg",
       "destination": "/verktyg/index.html"
     },

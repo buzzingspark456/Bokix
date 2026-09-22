@@ -1,0 +1,71 @@
+<!doctype html><html lang="sv"><head><meta charset="utf-8"><link rel="stylesheet" href="shared.css"><style>
+.bg { position: absolute; inset: 0; background:
+  radial-gradient(900px 500px at 8% 0%, #d7eefb 0%, transparent 60%),
+  radial-gradient(800px 520px at 100% 100%, #dcf3e3 0%, transparent 60%),
+  linear-gradient(180deg, #f6f9f4, #eef5ee); }
+.grid { position: absolute; inset: 0; background-image: linear-gradient(rgba(28,36,32,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(28,36,32,0.045) 1px, transparent 1px); background-size: 40px 40px; mask-image: radial-gradient(ellipse at center, #000 30%, transparent 78%); }
+.label { position: absolute; top: 66px; font-size: 15px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #5d6b60; display: flex; align-items: center; gap: 10px; }
+.label b { display: inline-flex; width: 26px; height: 26px; border-radius: 50%; background: #0e2018; color: #fff; font-size: 13px; align-items: center; justify-content: center; letter-spacing: 0; }
+
+.receipt { position: absolute; left: 60px; top: 118px; width: 272px; padding: 22px 22px 34px; background: #fff; border-radius: 6px; box-shadow: 0 30px 50px -28px rgba(20,40,30,0.36), 0 3px 10px rgba(20,40,30,0.08); transform: rotate(-2.2deg); }
+.receipt::after { content: ''; position: absolute; left: 0; right: 0; bottom: -10px; height: 12px; background: linear-gradient(-45deg, transparent 8px, #fff 0) 0 0/16px 12px, linear-gradient(45deg, transparent 8px, #fff 0) 0 0/16px 12px; background-repeat: repeat-x; }
+.receipt h3 { font-size: 15px; font-weight: 800; text-align: center; color: #1c2420; }
+.receipt .sub { text-align: center; font-size: 12px; color: #6b7568; margin: 3px 0 16px; }
+.receipt .l { display: flex; justify-content: space-between; font-size: 13.5px; color: #33423a; padding: 6px 0; }
+.receipt .sep { border-top: 1.5px dashed #ccd6cd; margin: 8px 0; }
+.receipt .tot { font-weight: 800; font-size: 15px; color: #1c2420; }
+.snap { position: absolute; right: -14px; bottom: 20px; width: 52px; height: 52px; border-radius: 50%; background: #14663a; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 20px rgba(20,60,40,0.3); }
+
+.years { position: absolute; left: 424px; top: 118px; width: 352px; height: 332px; padding: 26px 28px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.years .big { font-family: Georgia, serif; font-size: 84px; font-weight: 700; color: #1c2420; line-height: 1; }
+.years .lbl { font-size: 16px; font-weight: 700; color: #33423a; margin-top: 6px; }
+.years .s { font-size: 13px; color: #6b7568; margin-top: 14px; line-height: 1.55; padding: 0 10px; }
+
+.out { position: absolute; left: 872px; top: 118px; width: 268px; height: 332px; padding: 26px 26px; }
+.out h3 { font-size: 15px; font-weight: 800; color: #1c2420; margin-bottom: 16px; }
+.out ul { list-style: none; display: grid; gap: 13px; }
+.out li { display: flex; align-items: center; gap: 11px; font-size: 14px; font-weight: 600; color: #2d3a31; }
+.out li::before { content: ''; width: 22px; height: 22px; border-radius: 50%; background: #dcf3e3 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6.5 12.5l3.6 3.6 7.4-8' fill='none' stroke='%2314663a' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/100% no-repeat; flex: none; }
+.out .pill { margin-top: 20px; font-size: 12.5px; font-weight: 700; color: #14663a; background: #dcf3e3; border-radius: 10px; padding: 10px 12px; text-align: center; }
+
+svg.arrow { position: absolute; top: 282px; }
+.foot { position: absolute; left: 0; right: 0; bottom: 34px; text-align: center; font-size: 25px; font-weight: 600; color: #22302a; }
+.foot em { font-style: normal; color: #14663a; }
+</style></head><body><div class="art">
+<div class="bg"></div><div class="grid"></div>
+
+<div class="label" style="left:60px"><b>1</b>Ditt kvitto</div>
+<div class="receipt mono">
+  <h3>KONTORET AB</h3>
+  <div class="sub">Exempelgatan 1 · 2026-09-14</div>
+  <div class="l"><span>Skrivarpapper</span><span>149,00</span></div>
+  <div class="l"><span>Pennor</span><span>89,00</span></div>
+  <div class="sep"></div>
+  <div class="l tot"><span>TOTALT</span><span>238,00</span></div>
+</div>
+<div class="snap"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M4 8a2 2 0 012-2h2l1.5-2h5L16 6h2a2 2 0 012 2v9a2 2 0 01-2 2H6a2 2 0 01-2-2V8z" stroke="#fff" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.2" stroke="#fff" stroke-width="2"/></svg></div>
+
+<svg class="arrow" style="left:346px" width="72" height="50" viewBox="0 0 72 50"><path d="M4 25h54" stroke="#0e2018" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 9"/><path d="M52 12l14 13-14 13" fill="none" stroke="#0e2018" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+
+<div class="label" style="left:424px"><b>2</b>Digitalt underlag</div>
+<div class="years card">
+  <div class="big">7</div>
+  <div class="lbl">år sparas det</div>
+  <div class="s">Räknat från utgången av det kalenderår räkenskapsåret avslutades — originalet i papper får du slänga direkt.</div>
+</div>
+
+<svg class="arrow" style="left:788px" width="72" height="50" viewBox="0 0 72 50"><path d="M4 25h54" stroke="#0e2018" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 9"/><path d="M52 12l14 13-14 13" fill="none" stroke="#0e2018" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+
+<div class="label" style="left:872px"><b>3</b>Klart för Bokix</div>
+<div class="out card">
+  <h3>Vad som krävs</h3>
+  <ul>
+    <li>Hela och läsbart</li>
+    <li>Oförändrat efter foto</li>
+    <li>Sökbart när det behövs</li>
+  </ul>
+  <div class="pill">Mobilfoto räcker</div>
+</div>
+
+<div class="foot">Spara kvitton: <em>sju år, inget krångel</em></div>
+</div></body></html>

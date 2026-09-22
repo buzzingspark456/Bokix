@@ -224,31 +224,98 @@ function useActiveHeading(ids) {
   return active;
 }
 
+// Läsprogress som RIDER PÅ linjen i stället för att flyta som en egen
+// bricka uppe i hörnet — kundfeedback: den gamla brickan låg rakt ovanpå
+// "Kom igång"-knappen i headern. Linjen ligger nu direkt UNDER headern
+// (top: HEADER_H, headerns egen höjd i MarketingLayout.jsx) i stället för
+// på rad 0, så den aldrig kan krocka med knappen eller logotypen oavsett
+// hur långt man läst. En liten lysande pigg glider längs linjens framkant
+// och en procentbricka följer med, båda positionerade med samma `left:
+// pct%` mot viewporten (samma gradient som resten av varumärket, ingen ny
+// färg). Vid 100 % byts texten mot en bock — en liten belöning för att
+// faktiskt ha läst klart, inte bara ett tal som försvinner.
+const HEADER_H = 84;
+
 function ReadingProgress({ targetRef }) {
-  const barRef = useRef(null);
+  const fillRef = useRef(null);
+  // Positionen (left: NN%) sätts imperativt på puck/bricka via ref, precis
+  // som fill-stapelns scaleX — en scroll-handler i React state hade
+  // triggat en omrendering per scroll-event, kännbart hackigt på en sida
+  // med tunga bilder/diagram. Bara SIFFRAN och synlighets-/klart-läget
+  // (som faktiskt behöver rendera om text/ikon) ligger i state.
+  const puckRef = useRef(null);
+  const pctElRef = useRef(null);
+  const [pct, setPct] = useState(0);
+  const [visible, setVisible] = useState(false);
+  const [done, setDoneFlag] = useState(false);
   useEffect(() => {
     const onScroll = () => {
       const el = targetRef.current;
-      const bar = barRef.current;
-      if (!el || !bar) return;
+      const fill = fillRef.current;
+      const puck = puckRef.current;
+      const pctEl = pctElRef.current;
+      if (!el || !fill || !puck || !pctEl) return;
       const rect = el.getBoundingClientRect();
       const total = rect.height - window.innerHeight * 0.6;
-      const done = Math.min(1, Math.max(0, (window.innerHeight * 0.2 - rect.top) / Math.max(total, 1)));
-      bar.style.transform = `scaleX(${done})`;
+      const progress = Math.min(1, Math.max(0, (window.innerHeight * 0.2 - rect.top) / Math.max(total, 1)));
+      const leftPct = `${(progress * 100).toFixed(2)}%`;
+      fill.style.transform = `scaleX(${progress})`;
+      puck.style.left = leftPct;
+      pctEl.style.left = leftPct;
+      setPct(Math.round(progress * 100));
+      setVisible(progress > 0.01);
+      setDoneFlag(progress >= 0.985);
     };
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('resize', onScroll);
     return () => { window.removeEventListener('scroll', onScroll); window.removeEventListener('resize', onScroll); };
   }, [targetRef]);
-  return <div className="bxp-progress" aria-hidden="true"><div ref={barRef} /></div>;
+  return (
+    <div className="bxp-progress" aria-hidden="true">
+      <div className="bxp-progress-track"><div ref={fillRef} className="bxp-progress-fill" /></div>
+      <div ref={puckRef} className={`bxp-progress-puck${visible ? ' is-visible' : ''}${done ? ' is-done' : ''}`} />
+      <div ref={pctElRef} className={`bxp-progress-pct${visible ? ' is-visible' : ''}${done ? ' is-done' : ''}`}>
+        {done ? <><Check size={11} strokeWidth={3} /> Klart</> : `${pct} %`}
+      </div>
+    </div>
+  );
 }
 
 const CSS = `
   #lp-root { overflow-x: clip !important; }
 
-  .bxp-progress { position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 1300; pointer-events: none; }
-  .bxp-progress > div { height: 100%; transform: scaleX(0); transform-origin: 0 50%; background: linear-gradient(90deg, #0ea5e9, #14b8a6, #84cc16); }
+  /* Läsprogressen ligger under headern (top: ${HEADER_H}px = MarketingLayout.jsx:s
+     navhöjd), aldrig ovanpå den — se kommentaren vid ReadingProgress. */
+  .bxp-progress { position: fixed; top: ${HEADER_H}px; left: 0; right: 0; height: 0; z-index: 999; pointer-events: none; }
+  .bxp-progress-track { position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--mkt-border-soft, rgba(0,0,0,0.08)); overflow: hidden; }
+  .bxp-progress-fill { height: 100%; transform: scaleX(0); transform-origin: 0 50%; background: linear-gradient(90deg, #0ea5e9, #14b8a6, #84cc16); transition: transform 0.08s linear; }
+
+  .bxp-progress-puck {
+    position: absolute; top: 0; width: 11px; height: 11px; margin: -4px 0 0 -5.5px; border-radius: 50%;
+    background: linear-gradient(135deg, #0ea5e9, #14b8a6, #84cc16);
+    opacity: 0; transition: left 0.08s linear, opacity 0.25s, transform 0.25s;
+    animation: bxpPulse 2.4s ease-in-out infinite;
+  }
+  .bxp-progress-puck.is-visible { opacity: 1; }
+  .bxp-progress-puck.is-done { animation: none; transform: scale(1.15); box-shadow: 0 0 0 5px rgba(20, 184, 166, 0.16); }
+  @keyframes bxpPulse {
+    0%, 100% { box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.14); }
+    50% { box-shadow: 0 0 0 6px rgba(20, 184, 166, 0.22); }
+  }
+
+  .bxp-progress-pct {
+    position: absolute; top: 14px; transform: translateX(-50%) translateY(-4px);
+    display: flex; align-items: center; gap: 4px;
+    font-size: 11.5px; font-weight: 800; letter-spacing: 0.02em; color: ${INK}; white-space: nowrap;
+    background: var(--mkt-card-bg); border: 1px solid ${CARD_BORDER}; box-shadow: ${CARD_SHADOW};
+    padding: 4px 9px; border-radius: 999px; opacity: 0; transition: left 0.08s linear, opacity 0.25s, transform 0.25s;
+    font-variant-numeric: tabular-nums;
+  }
+  .bxp-progress-pct.is-visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .bxp-progress-pct.is-done { color: var(--mkt-accent-green-fg); border-color: transparent; background: var(--mkt-accent-green-soft); }
+  @media (max-width: 560px) { .bxp-progress-pct { font-size: 11px; padding: 3.5px 8px; } }
+  @media (prefers-reduced-motion: reduce) { .bxp-progress-puck { animation: none; } }
 
   .bxp-head { max-width: 800px; margin: 0 auto; }
   .bxp-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; font-size: 13.5px; color: ${MUTED}; margin-bottom: 22px; }

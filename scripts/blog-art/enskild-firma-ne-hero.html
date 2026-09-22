@@ -1,0 +1,58 @@
+<!doctype html><html lang="sv"><head><meta charset="utf-8"><link rel="stylesheet" href="shared.css"><style>
+.bg { position: absolute; inset: 0; background:
+  radial-gradient(900px 500px at 8% 0%, #d7eefb 0%, transparent 60%),
+  radial-gradient(800px 520px at 100% 100%, #dcf3e3 0%, transparent 60%),
+  linear-gradient(180deg, #f6f9f4, #eef5ee); }
+.grid { position: absolute; inset: 0; background-image: linear-gradient(rgba(28,36,32,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(28,36,32,0.045) 1px, transparent 1px); background-size: 40px 40px; mask-image: radial-gradient(ellipse at center, #000 30%, transparent 78%); }
+.label { position: absolute; top: 66px; font-size: 15px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #5d6b60; display: flex; align-items: center; gap: 10px; }
+.label b { display: inline-flex; width: 26px; height: 26px; border-radius: 50%; background: #0e2018; color: #fff; font-size: 13px; align-items: center; justify-content: center; letter-spacing: 0; }
+
+.box { position: absolute; top: 118px; width: 272px; height: 332px; padding: 26px 26px; }
+.box h3 { font-size: 15px; font-weight: 800; color: #1c2420; margin-bottom: 4px; }
+.box .sub { font-size: 12.5px; color: #5d6b60; margin-bottom: 16px; }
+.box .row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-top: 1px solid #eef1ec; font-size: 13px; color: #33423a; }
+.box .row:first-of-type { border-top: 0; }
+.box .row b { color: #1c2420; }
+.box .code { font-family: 'Cascadia Mono', Consolas, monospace; font-size: 12px; font-weight: 800; color: #0b5d99; background: #dbeafb; border-radius: 7px; padding: 3px 8px; }
+.box .pill { margin-top: 18px; font-size: 12px; font-weight: 700; color: #14663a; background: #dcf3e3; border-radius: 10px; padding: 9px 11px; text-align: center; }
+
+svg.arrow { position: absolute; top: 282px; }
+.foot { position: absolute; left: 0; right: 0; bottom: 34px; text-align: center; font-size: 25px; font-weight: 600; color: #22302a; }
+.foot em { font-style: normal; color: #14663a; }
+</style></head><body><div class="art">
+<div class="bg"></div><div class="grid"></div>
+
+<div class="label" style="left:60px"><b>1</b>Kunden betalar</div>
+<div class="box card" style="left:60px">
+  <h3>Firmans konto</h3>
+  <div class="sub">Kundfaktura 1024</div>
+  <div class="row"><span>Uppdraget</span><b>9 500 kr</b></div>
+  <div class="row"><span>Bokförs som</span><b>Intäkt</b></div>
+  <div class="row"><span>Konto</span><span class="code">3001</span></div>
+  <div class="pill">Firman och du är samma person</div>
+</div>
+
+<svg class="arrow" style="left:346px" width="72" height="50" viewBox="0 0 72 50"><path d="M4 25h54" stroke="#0e2018" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 9"/><path d="M52 12l14 13-14 13" fill="none" stroke="#0e2018" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+
+<div class="label" style="left:424px"><b>2</b>Eget uttag</div>
+<div class="box card" style="left:424px;width:352px">
+  <h3>Pengar till dig privat</h3>
+  <div class="sub">Inget lönebesked, ingen skatt just nu</div>
+  <div class="row"><span>Konto</span><span class="code">2013</span></div>
+  <div class="row"><span>Namn</span><b>Övriga egna uttag</b></div>
+  <div class="row"><span>Egen insättning</span><span class="code">2018</span></div>
+  <div class="pill">Motsatsen: sätter du in pengar privat</div>
+</div>
+
+<svg class="arrow" style="left:788px" width="72" height="50" viewBox="0 0 72 50"><path d="M4 25h54" stroke="#0e2018" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 9"/><path d="M52 12l14 13-14 13" fill="none" stroke="#0e2018" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+
+<div class="label" style="left:872px"><b>3</b>En gång om året</div>
+<div class="box card" style="left:872px;width:268px">
+  <h3>Deklarationen</h3>
+  <div class="row"><span>Bilaga</span><b>NE</b></div>
+  <div class="row"><span>Byggd av</span><b>Bokix, från bokföringen</b></div>
+  <div class="row"><span>Du betalar</span><b>Skatt + egenavgifter</b></div>
+</div>
+
+<div class="foot">Enskild firma: <em>från kundfaktura till NE-bilaga</em></div>
+</div></body></html>
