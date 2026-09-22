@@ -158,8 +158,6 @@ export default function ScanReceiptPage() {
       if (wait > 0) await new Promise(r => setTimeout(r, wait));
       if (runIdRef.current !== runId) return;
       setBeamPct(100);
-      // TEMP DEBUG (2026-09-22) — ta bort igen efter felsökningen.
-      console.log('[DEBUG OCR]', { confidence, textLength: text?.length, textSample: String(text || '').slice(0, 200) });
       const parsed = parseReceiptText(text, { confidence });
       // unreadable/notReceipt kommer nu från samma delade logik som appens
       // kvitto- och verifikationsvyer (ocrReceipt.js), i stället för en egen

@@ -897,7 +897,14 @@ const EMPTY_PARSE = {
 // det föreställer) brukar ligga en bra bit över. Ingen exakt vetenskap
 // (Tesseract ger ingen "detta ÄR fel"-signal), bara en rimlig utgångspunkt
 // att justera om felrapporter visar att den träffar fel åt något håll.
-const LOW_OCR_CONFIDENCE = 55;
+//
+// Verifierat mot en riktig avläsning (2026-09-22, live-test mot en
+// avsiktligt kraftigt suddig/mörk/utzoomad bild): Tesseract gav confidence
+// EXAKT 55 för texten "oo\nST\n\n=\n-—\n=E\n- -\n- -\n- oe\n- -\ness\n}" —
+// rent brus, inga riktiga ord. Tröskeln låg då på < 55, så 55 föll precis
+// UTANFÖR och gav fel meddelande ("inte ett kvitto" i stället för
+// "oläsbar"). Höjd till 60 med den datapunkten som facit, inte en gissning.
+const LOW_OCR_CONFIDENCE = 60;
 
 /**
  * Parsar rå OCR-text och extraherar kvittodata med smarta heuristiker.
