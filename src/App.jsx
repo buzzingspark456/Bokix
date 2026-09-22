@@ -650,7 +650,24 @@ function createEmptyCompanyData(companyInfo) {
       // vore gissningsbar inom ett smalt tidsfönster. user_id (en riktig
       // Supabase-UUID) är fortfarande huvudspärren, det här är bara ett extra
       // lager.
-      id: `company_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      //
+      // Bugkritiskt, hittat 2026-09-22: id:t genererades tidigare ALLTID nytt
+      // här, även när anroparen uttryckligen skickade med ett befintligt
+      // (companyInfo.id) — handleResetData ("Radera företagets
+      // bokföringsdata") gör exakt det, för att företaget ska förbli samma
+      // företag, bara tomt. Resultatet var att raden i data.companies
+      // stannade kvar under det GAMLA id:t (det är fortfarande
+      // objektnyckeln, oförändrad), men det NÄSTLADE company.id-fältet —
+      // det som faktiskt skickas som company_id till servern vid varje
+      // e-postutskick, betalningslänk m.m. — tyst blev ett helt NYTT,
+      // aldrig sparat id. Servern letade sedan efter det nya, påhittade
+      // id:t i användarens sparade data, hittade förstås ingenting, och gav
+      // "Du har inte längre åtkomst till det här företaget." trots att
+      // ägarskapet av det RIKTIGA företaget var helt intakt. Faller nu
+      // tillbaka på ett nytt slumpat id bara när inget skickas med, precis
+      // som för en genuint ny signup (de anropsställena skickar aldrig
+      // med id).
+      id: companyInfo.id || `company_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       name: companyInfo.name || 'Nytt företag',
       orgNr: companyInfo.orgNr || '',
       // ── UF-läget (utils/ufMode.js) ──
