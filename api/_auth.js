@@ -117,17 +117,6 @@ export async function loadOwnedOrMemberCompany(userId, companyId, res, { require
     return null;
   }
   const ownCompanyData = row?.state?.companies?.[companyId];
-  // TEMP DEBUG (2026-09-22) — ta bort igen efter felsökningen. Loggar aldrig
-  // hemligheter, bara id:n, för att se exakt varför ownCompanyData blir
-  // null: fel companyId skickat, eller company_id saknas helt i den sparade
-  // datan.
-  if (!ownCompanyData) {
-    console.warn('[DEBUG loadOwnedOrMemberCompany] miss', {
-      userId, requestedCompanyId: companyId,
-      rowFound: Boolean(row), activeCompanyId: row?.state?.activeCompanyId ?? null,
-      ownCompanyIds: Object.keys(row?.state?.companies || {}),
-    });
-  }
   if (ownCompanyData) return { companyData: ownCompanyData, ownerUserId: userId, role: 'owner' };
 
   const member = await loadMemberCompany(userId, companyId, res);
