@@ -8,11 +8,10 @@ import { BRAND } from '../utils/brandColors';
 import MarketingLayout, { Reveal, BokixWordmark } from './marketing/MarketingLayout';
 import ToolMotif, { ToolMotifStyles } from './marketing/toolMotifs';
 import { FeatureDemoStyles, DemoBokforing, DemoFakturering, DemoSkatt, DemoPersonal } from './marketing/featureDemos';
-import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW_SM, ACCENT, ACCENT_CYCLE } from './marketing/marketingTokens';
+import { SERIF, INK, INK_SOFT, MUTED, CARD_BORDER, CARD_SHADOW_SM, ACCENT, ACCENT_CYCLE } from './marketing/marketingTokens';
 import CloudShaderBackground from './marketing/CloudShaderBackground';
 import { GRAD, grad, AuroraLayer } from './marketing/aurora';
-import { StripeLogo, StripeIconLogo, ZettleLogo, BolagsverketLogo, SkatteverketLogo, BasLogo, GdprLogo, BokforingslagLogo } from './shared/BrandLogos';
-import { BokixMark } from './shared/BokixWordmark';
+import { StripeLogo, ZettleLogo, BolagsverketLogo, SkatteverketLogo, BasLogo, GdprLogo, BokforingslagLogo } from './shared/BrandLogos';
 import MigrationFlow from './marketing/MigrationFlow';
 import BankFlow from './marketing/BankFlow';
 import ReceiptFlow from './marketing/ReceiptFlow';
@@ -79,19 +78,17 @@ const FEATURE_COLUMNS = [
 // Två spalter, inte en hub-och-eker (se filkommentaren vid sektionen som
 // använder de här) — "group" är vilken av de två kolumnerna (Betalningar/
 // Myndigheter) kopplingen hör till, ordningen inom varje kolumn är
-// ordningen i den här listan. logoHeight är nu satt för en enkel rad
-// (logga + text i höjd), inte en stor rund badge som förut — mycket
-// jämnare tal, ingen laddad viktning mellan loggorna behövs längre.
-// Kundönskemål (2026-09-22, "gör loggorna större"): alla fyra höjda ca 40%
-// från förra passet, samma inbördes balans mellan breda ordmärken
+// ordningen i den här listan.
+// Kundönskemål (2026-09-22, andra passet, "loggorna ser fortfarande
+// small/svaga ut"): höjda igen (denna gång i en egen vit platta, se
+// .lp-conn-badge) och samma inbördes balans mellan breda ordmärken
 // (Stripe/Zettle) och smalare märken (Bolagsverket/Skatteverket) bevarad —
-// se .lp-conn-logo i MarketingLayout.jsx för att bredden på behållaren
-// följde med upp.
+// höjdtalen är avvägda mot varandra, inte satta till samma tal.
 const CONNECTIONS = [
-  { key: 'stripe', kind: 'logo', Logo: StripeLogo, logoHeight: '30px', label: 'Kortbetalningar', group: 'Betalningar' },
-  { key: 'zettle', kind: 'logo', Logo: ZettleLogo, logoHeight: '34px', label: 'Kassaförsäljning', group: 'Betalningar' },
-  { key: 'bolagsverket', kind: 'logo', Logo: BolagsverketLogo, logoHeight: '42px', label: 'Företagsuppslag', group: 'Myndigheter' },
-  { key: 'skatteverket', kind: 'logo', Logo: SkatteverketLogo, logoHeight: '42px', label: 'Rätt filformat', group: 'Myndigheter' },
+  { key: 'stripe', kind: 'logo', Logo: StripeLogo, logoHeight: '34px', label: 'Kortbetalningar', group: 'Betalningar' },
+  { key: 'zettle', kind: 'logo', Logo: ZettleLogo, logoHeight: '38px', label: 'Kassaförsäljning', group: 'Betalningar' },
+  { key: 'bolagsverket', kind: 'logo', Logo: BolagsverketLogo, logoHeight: '48px', label: 'Företagsuppslag', group: 'Myndigheter' },
+  { key: 'skatteverket', kind: 'logo', Logo: SkatteverketLogo, logoHeight: '48px', label: 'Rätt filformat', group: 'Myndigheter' },
 ];
 const CONNECTION_GROUPS = ['Betalningar', 'Myndigheter'];
 
@@ -106,18 +103,20 @@ const CONNECTION_GROUPS = ['Betalningar', 'Myndigheter'];
 // `logoHeight` per rad (kundönskemål: "större logo och se bättre") — samma
 // höjd på alla tre hade INTE sett lika stora ut: en cirkel (GDPR) och ett
 // brett ordmärke med inbyggd luft (BAS) läser optiskt mindre än en fylld
-// kvadrat (Stripe-ikonen) på exakt samma pixelhöjd. Värdena är alltså
-// balanserade mot varandra, inte satta till samma tal.
+// kvadrat på exakt samma pixelhöjd. Värdena är alltså balanserade mot
+// varandra, inte satta till samma tal.
+// Kundönskemål (2026-09-22, andra passet): Stripe-ikonet togs bort härifrån
+// — tre av raderna är regelefterlevnad (svensk bokföringslag, GDPR,
+// BAS-kontoplan), Stripe är en integration, en annan sorts påstående.
+// Stripes ordmärke finns kvar där det hör hemma: "Kopplat till"-sektionen
+// längre ner (StripeLogo, se CONNECTIONS). StripeIconLogo-importen (kvadrat-
+// ikonet som bara användes här) är därför borttagen ur importlistan också.
 const TRUST_POINTS = [
   // Ritad flaggbricka, inte en myndighetslogotyp — se BrandLogos.jsx.
   // Här satt först en klubba ur ett ikonbibliotek (en domstolssymbol, inte
   // en bokföringssymbol) och sedan ingenting alls.
   { logo: BokforingslagLogo, logoHeight: 46, label: 'Byggt efter svensk bokföringslag' },
   { logo: GdprLogo, logoHeight: 56, label: 'GDPR' },
-  // Kundönskemål: Stripe-ikonet HÄR, inte ordmärket — StripeIconLogo, INTE
-  // StripeLogo (den senare används bara i "Kopplat till"-diagrammet
-  // längre ner och ska uttryckligen förbli oförändrad, se BrandLogos.jsx).
-  { logo: StripeIconLogo, logoHeight: 46, label: 'Kortbetalningar via Stripe' },
   { logo: BasLogo, logoHeight: 38, label: 'BAS-kontoplan' },
 ];
 
@@ -484,7 +483,7 @@ export default function LandingPage({ onEnterApp, locale = 'sv' }) {
           som bara räknar upp bolagsformer — raden är innehållet, resten var
           dekor som konkurrerade med den. Hårfina linjer skiljer sektionerna
           åt i stället. */}
-      <section style={{ padding: '64px 24px 72px', background: IVORY, borderBottom: `1px solid var(--mkt-border-soft)`, position: 'relative', overflow: 'hidden' }}>
+      <section style={{ padding: '64px 24px 72px', background: 'var(--mkt-section-mint)', borderBottom: `1px solid var(--mkt-border-soft)`, position: 'relative', overflow: 'hidden' }}>
         <Reveal style={{ maxWidth: 'min(92vw, 1240px)', margin: '0 auto', textAlign: 'center', position: 'relative' }}>
           <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(22px, 3vw, 28px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '28px' }}>
             {c.companyTypesHeading}
@@ -510,16 +509,20 @@ export default function LandingPage({ onEnterApp, locale = 'sv' }) {
         </Reveal>
       </section>
 
-      {/* ── DET HÄR FÅR DU — kundönskemål: sluta jämföra mot konkurrenter,
+      {/* ── VAD DU FAKTISKT GÖR — kundönskemål: sluta jämföra mot konkurrenter,
           förklara vad man FÅR istället (se BENEFIT_ITEMS-kommentaren högst
           upp för resonemanget). Sex kort i samma lp-lux-card-språk som
-          resten av sidan, ingen "vi vs dem"-tabell längre. ── */}
-      {/* Kundönskemål (2026-09-22): för många olika bakgrundstoner ner för
-          sidan ("enklare, enklare bakgrund") — den här låg tidigare på en
-          egen mint-ton (--mkt-section-mint), en av fyra olika toner sidan
-          växlade mellan (vitt/elfenben/mint/blått). Nu samma elfenben som
-          flera andra sektioner: färre toner totalt, tydligare rytm. */}
-      <section style={{ padding: '84px 24px 92px', background: IVORY, position: 'relative', overflow: 'hidden' }}>
+          resten av sidan, ingen "vi vs dem"-tabell längre.
+          Rubriken bytt (2026-09-22, andra passet) från "Det här får du med
+          Bokix / Sex delar av verktyget" — kundens invändning: numrerings-
+          känslan ("sex delar") och den sälj-vinklade rubriken. Nu en rakare
+          rubrik på vad man FAKTISKT gör i verktyget, samma "hur ser
+          produkten faktiskt ut"-ton som resten av sidan.
+          Bakgrund: --mkt-section-mint, se tokenkommentaren i
+          MarketingLayout.jsx för varför (kort: ersätter en varm beige/
+          elfenbenston som varken matchade det kalla blå/turkos/lime-
+          varumärket eller läste som annat än ett generiskt AI-sidmönster). */}
+      <section style={{ padding: '84px 24px 92px', background: 'var(--mkt-section-mint)', position: 'relative', overflow: 'hidden' }}>
         <div aria-hidden style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', backgroundImage: 'linear-gradient(90deg, #0ea5e9, #14b8a6, #84cc16)', opacity: 0.85 }} />
         <div aria-hidden className="lp-ledger-lines" />
         <div style={{ maxWidth: 'min(92vw, 1600px)', margin: '0 auto', position: 'relative' }}>
@@ -557,7 +560,7 @@ export default function LandingPage({ onEnterApp, locale = 'sv' }) {
           osynliga dubblettkopiorna (kopia 2–4, bara där för
           scrollillusionen) borttagna. En rad som står still och SÄGER sina
           fyra saker en gång, i stället för att upprepa sig i evighet. ── */}
-      <section style={{ padding: '48px 24px 60px', background: IVORY, borderTop: '1px solid var(--mkt-border-soft)', position: 'relative', overflow: 'hidden' }}>
+      <section style={{ padding: '48px 24px 60px', background: 'var(--mkt-section-mint)', borderTop: '1px solid var(--mkt-border-soft)', position: 'relative', overflow: 'hidden' }}>
         <div aria-hidden style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', width: 'min(420px, 70%)', height: '2px', opacity: 0.5, background: `linear-gradient(90deg, transparent, ${ACCENT.green.fg}, ${ACCENT.blue.fg}, ${ACCENT.teal.fg}, transparent)` }} />
         <Reveal style={{ maxWidth: 'min(92vw, 900px)', margin: '0 auto', display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '14px', position: 'relative' }}>
           {TRUST_POINTS.map((t, i) => (
@@ -598,17 +601,13 @@ export default function LandingPage({ onEnterApp, locale = 'sv' }) {
           Ingen SVG, inget koordinatsystem att hålla i synk — CSS Grid
           faller själv ihop till en spalt på smal skärm (se .lp-conn-grid,
           MarketingLayout.jsx), ingen egen media query behövs här.
-          Kundönskemål (2026-09-22, "ändra färgen på den här"): sektionen låg
-          på ren kortvit (--mkt-card-bg), som efter förra passets
-          bakgrundsstädning (se IVORY-kommentarerna vid grannsektionerna)
-          gjorde att den flöt ihop med resten av sidan i stället för att
-          märkas ut som sin egen sak. Den blå tonen (--mkt-section-blue) som
-          frigjordes från prissektionen i samma städning återanvänds här
-          i stället för en tredje, ny färg — och passar även tematiskt
-          (samma blå AuroraLayer-toning som redan låg i hörnen). Ett
-          undantag från "allt IVORY", inte en tillbakagång: den här
-          sektionen ÄR tänkt att sticka ut, till skillnad från de två som
-          städades. ── */}
+          Bakgrund (2026-09-22, andra passet): --mkt-section-blue, samma
+          brand-kalla riktning som mint-tonen övriga sektioner fick (se
+          tokenkommentaren i MarketingLayout.jsx) — sky-blått hör dessutom
+          tematiskt till just PENGAR-spalten här (Stripe/Zettle), och
+          AuroraLayer-toningen i hörnen var redan samma blå. En avsiktlig
+          avvikelse från sidans annars enhetliga mint: den här sektionen SKA
+          märkas ut, inte blanda ihop sig med grannarna. ── */}
       <section style={{ padding: '76px 24px', background: 'var(--mkt-section-blue)', position: 'relative', overflow: 'hidden' }}>
         <AuroraLayer
           stops={[['rgba(14,165,233,0.16)', '4% -8%'], ['rgba(20,184,166,0.14)', '96% 108%']]}
@@ -630,22 +629,21 @@ export default function LandingPage({ onEnterApp, locale = 'sv' }) {
                 <div className="lp-conn-col-label">{c.connections.groups?.[group] || group}</div>
                 {CONNECTIONS.filter(conn => conn.group === group).map(conn => (
                   <div className="lp-conn-row" key={conn.key}>
-                    <span className="lp-conn-logo"><conn.Logo height={conn.logoHeight} /></span>
+                    {/* Kundönskemål (2026-09-22, andra passet): "loggorna är
+                        små, de ser inte bra ut" — trots att förra passet
+                        redan höjde logoHeight ~40%. Roten var inte bara
+                        pixelhöjden: en bar logga direkt på den tonade
+                        bakgrunden hade inget eget stopp för ögat. Samma
+                        vita, ramade platta som trovärdighetsraden redan
+                        fick godkänt för (se den sektionen) ger var logga
+                        en egen yta att stå på i stället — det är plattan,
+                        inte bara storleken, som ger "distinction". */}
+                    <span className="lp-conn-badge"><conn.Logo height={conn.logoHeight} /></span>
                     <span className="lp-conn-name">{c.connections.labels[conn.key] || conn.label}</span>
                   </div>
                 ))}
               </div>
             ))}
-            {/* Kundönskemål ("bokix i mitten"): en liten, stillastående
-                märkesplatta på skiljelinjen mellan spalterna — Bokix SITTER
-                där, mellan pengarna och papperen, vilket är precis
-                sektionens egen poäng. Medvetet INTE en återgång till det
-                borttagna hub-diagrammet: ingen glöd, ingen puls, inga linjer
-                ut till noderna — bara märket (BokixMark, samma vektor som
-                sidopanelens ikonläge) i en enkel vit platta. Bara synlig i
-                tvåspaltsläget (se @media i .lp-conn-mark, MarketingLayout.jsx)
-                — i en spalt finns ingen linje att sitta på. */}
-            <div className="lp-conn-mark" aria-hidden="true"><BokixMark height={20} /></div>
           </Reveal>
         </div>
       </section>
@@ -700,7 +698,7 @@ export default function LandingPage({ onEnterApp, locale = 'sv' }) {
           Ivory mot kortbakgrunden i sektionerna före och efter, så de tre
           flödesanimationerna på sidan inte flyter ihop till ett enda långt
           fält. ── */}
-      <section style={{ padding: '76px 24px', background: IVORY, borderTop: '1px solid var(--mkt-border-soft)', borderBottom: '1px solid var(--mkt-border-soft)', position: 'relative', overflow: 'hidden' }}>
+      <section style={{ padding: '76px 24px', background: 'var(--mkt-section-mint)', borderTop: '1px solid var(--mkt-border-soft)', borderBottom: '1px solid var(--mkt-border-soft)', position: 'relative', overflow: 'hidden' }}>
         <div style={{ maxWidth: 'min(92vw, 1240px)', margin: '0 auto', position: 'relative' }}>
           <Reveal style={{ textAlign: 'center', marginBottom: '38px' }}>
             <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(26px, 4vw, 38px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '12px' }}>
@@ -785,10 +783,11 @@ export default function LandingPage({ onEnterApp, locale = 'sv' }) {
           olika listlängd, och den dyrare nivån ("featured") får mer luft/
           större typsnitt för att kännas som "mer" utan att bli högre än
           sin granne.
-          Kundönskemål (2026-09-22, "enklare bakgrund"): egen blå ton
-          (--mkt-section-blue) bytt mot samma elfenben som övriga sektioner
-          — se samma ändring vid "Det här får du"-sektionen ovan. ── */}
-      <section style={{ padding: '84px 24px', background: IVORY, borderTop: '1px solid var(--mkt-border-soft)', borderBottom: '1px solid var(--mkt-border-soft)', position: 'relative', overflow: 'hidden' }}>
+          Bakgrund: --mkt-section-mint, samma ton som sidans övriga
+          växlande sektioner numera (se tokenkommentaren i
+          MarketingLayout.jsx) — egen blå ton här tidigare, sedan ett
+          mellansteg via beige/elfenben, båda övergivna. ── */}
+      <section style={{ padding: '84px 24px', background: 'var(--mkt-section-mint)', borderTop: '1px solid var(--mkt-border-soft)', borderBottom: '1px solid var(--mkt-border-soft)', position: 'relative', overflow: 'hidden' }}>
 
         <Reveal style={{ textAlign: 'center', marginBottom: '44px', position: 'relative' }}>
           <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(26px, 4vw, 38px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '12px' }}>
@@ -958,7 +957,7 @@ export default function LandingPage({ onEnterApp, locale = 'sv' }) {
       </section>
 
       {/* ── FAQ ── */}
-      <section style={{ padding: '76px 24px', background: IVORY, position: 'relative', overflow: 'hidden' }}>
+      <section style={{ padding: '76px 24px', background: 'var(--mkt-section-mint)', position: 'relative', overflow: 'hidden' }}>
         {/* Kundönskemål (uppföljning): den fulla accordionen var tidigare
             bara dold på mobil (.lp-faq-full/.lp-faq-mobile-cta) — kunden
             bad om samma kompakta "gå till FAQ"-kort på desktop också, inte

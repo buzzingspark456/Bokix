@@ -39,8 +39,8 @@ export const LANDING_CONTENT = {
       allLink: 'Se alla funktioner i detalj',
     },
     benefits: {
-      heading: 'Det här får du med Bokix',
-      subheading: 'Sex delar av verktyget. Allt ingår, inget kostar extra.',
+      heading: 'Vad du faktiskt gör i Bokix',
+      subheading: 'Allt ingår i priset. Inget kostar extra.',
       items: [
         { title: 'Utgifter och kvitton', desc: 'Fota eller ladda upp kvittot, så läser OCR:en av datum, belopp och moms åt dig. Underlaget sitter kvar på verifikationen.' },
         { title: 'Offerter', desc: 'Blir faktura med ett klick när kunden tackat ja.' },
@@ -56,7 +56,7 @@ export const LANDING_CONTENT = {
       labels: { stripe: 'Kortbetalningar', zettle: 'Kassaförsäljning', bolagsverket: 'Företagsuppslag', skatteverket: 'Rätt filformat' },
       groups: { Betalningar: 'Betalningar', Myndigheter: 'Myndigheter' },
     },
-    trustPoints: ['Byggt efter svensk bokföringslag', 'GDPR', 'Kortbetalningar via Stripe', 'BAS-kontoplan'],
+    trustPoints: ['Byggt efter svensk bokföringslag', 'GDPR', 'BAS-kontoplan'],
     receipts: {
       heading: 'Kvitton läser sig själva',
       subheading: 'Fota kvittot eller ladda upp en bild eller PDF, så föreslår Bokix datum, belopp, moms och konto automatiskt. Du bekräftar dem. Du gissar aldrig.',
@@ -129,8 +129,8 @@ export const LANDING_CONTENT = {
       allLink: 'See every feature in detail',
     },
     benefits: {
-      heading: 'What you get with Bokix',
-      subheading: 'Six parts of the toolkit. Everything included, nothing costs extra.',
+      heading: 'What you actually do in Bokix',
+      subheading: "Everything's included in the price. Nothing costs extra.",
       items: [
         { title: 'Expenses and receipts', desc: 'Photograph or upload the receipt — OCR reads the date, amount and VAT automatically. The source document stays attached to the entry.' },
         { title: 'Quotes', desc: 'Becomes an invoice with one click once the customer says yes.' },
@@ -146,7 +146,7 @@ export const LANDING_CONTENT = {
       labels: { stripe: 'Card payments', zettle: 'Point-of-sale sales', bolagsverket: 'Company lookup', skatteverket: 'The right file format' },
       groups: { Betalningar: 'Payments', Myndigheter: 'Authorities' },
     },
-    trustPoints: ['Built to Swedish bookkeeping law', 'GDPR', 'Card payments via Stripe', 'BAS chart of accounts'],
+    trustPoints: ['Built to Swedish bookkeeping law', 'GDPR', 'BAS chart of accounts'],
     receipts: {
       heading: 'Receipts read themselves',
       subheading: 'Photograph the receipt or upload an image or PDF. Date, amount, VAT and account are suggested automatically — you confirm, you never guess.',
@@ -219,8 +219,8 @@ export const LANDING_CONTENT = {
       allLink: 'Se alle funksjoner i detalj',
     },
     benefits: {
-      heading: 'Dette får du med Bokix',
-      subheading: 'Seks deler av verktøyet. Alt er inkludert, ingenting koster ekstra.',
+      heading: 'Det du faktisk gjør i Bokix',
+      subheading: 'Alt er inkludert i prisen. Ingenting koster ekstra.',
       items: [
         { title: 'Utgifter og kvitteringer', desc: 'Fotografer eller last opp kvitteringen — OCR leser dato, beløp og moms automatisk. Bilaget blir liggende på bokføringen.' },
         { title: 'Tilbud', desc: 'Blir faktura med ett klikk når kunden har sagt ja.' },
@@ -236,7 +236,7 @@ export const LANDING_CONTENT = {
       labels: { stripe: 'Kortbetalinger', zettle: 'Kassesalg', bolagsverket: 'Firmaoppslag', skatteverket: 'Riktig filformat' },
       groups: { Betalningar: 'Betalinger', Myndigheter: 'Myndigheter' },
     },
-    trustPoints: ['Bygget etter svensk bokføringslov', 'GDPR', 'Kortbetalinger via Stripe', 'BAS-kontoplan'],
+    trustPoints: ['Bygget etter svensk bokføringslov', 'GDPR', 'BAS-kontoplan'],
     receipts: {
       heading: 'Kvitteringer leser seg selv',
       subheading: 'Fotografer kvitteringen eller last opp et bilde eller en PDF. Dato, beløp, moms og konto foreslås automatisk — du bekrefter, du gjetter aldri.',
@@ -309,8 +309,8 @@ export const LANDING_CONTENT = {
       allLink: 'Se alle funktioner i detaljer',
     },
     benefits: {
-      heading: 'Det her får du med Bokix',
-      subheading: 'Seks dele af værktøjet. Alt er inkluderet, intet koster ekstra.',
+      heading: 'Det du faktisk gør i Bokix',
+      subheading: 'Alt er inkluderet i prisen. Intet koster ekstra.',
       items: [
         { title: 'Udgifter og kvitteringer', desc: 'Fotografer eller upload kvitteringen — OCR læser dato, beløb og moms automatisk. Bilaget bliver siddende på posteringen.' },
         { title: 'Tilbud', desc: 'Bliver til faktura med ét klik, når kunden har sagt ja.' },
@@ -326,7 +326,7 @@ export const LANDING_CONTENT = {
       labels: { stripe: 'Kortbetalinger', zettle: 'Kassesalg', bolagsverket: 'Virksomhedsopslag', skatteverket: 'Det rigtige filformat' },
       groups: { Betalningar: 'Betalinger', Myndigheter: 'Myndigheder' },
     },
-    trustPoints: ['Bygget efter svensk bogføringslov', 'GDPR', 'Kortbetalinger via Stripe', 'BAS-kontoplan'],
+    trustPoints: ['Bygget efter svensk bogføringslov', 'GDPR', 'BAS-kontoplan'],
     receipts: {
       heading: 'Kvitteringer læser sig selv',
       subheading: 'Fotografer kvitteringen, eller upload et billede eller en PDF. Dato, beløb, moms og konto foreslås automatisk — du bekræfter, du gætter aldrig.',
@@ -399,8 +399,8 @@ export const LANDING_CONTENT = {
       allLink: 'Katso kaikki ominaisuudet tarkemmin',
     },
     benefits: {
-      heading: 'Tämän saat Bokixilla',
-      subheading: 'Kuusi osaa työkalusta. Kaikki sisältyy hintaan, mikään ei maksa lisää.',
+      heading: 'Tätä teet Bokixissa',
+      subheading: 'Kaikki sisältyy hintaan. Mikään ei maksa lisää.',
       items: [
         { title: 'Kulut ja kuitit', desc: 'Kuvaa tai lataa kuitti — OCR lukee päivämäärän, summan ja alv:n automaattisesti. Tosite pysyy kirjauksessa mukana.' },
         { title: 'Tarjoukset', desc: 'Muuttuu laskuksi yhdellä klikkauksella, kun asiakas hyväksyy.' },
@@ -416,7 +416,7 @@ export const LANDING_CONTENT = {
       labels: { stripe: 'Korttimaksut', zettle: 'Kassamyynti', bolagsverket: 'Yrityshaku', skatteverket: 'Oikea tiedostomuoto' },
       groups: { Betalningar: 'Maksut', Myndigheter: 'Viranomaiset' },
     },
-    trustPoints: ['Rakennettu Ruotsin kirjanpitolain mukaan', 'GDPR', 'Korttimaksut Stripen kautta', 'BAS-tilikartta'],
+    trustPoints: ['Rakennettu Ruotsin kirjanpitolain mukaan', 'GDPR', 'BAS-tilikartta'],
     receipts: {
       heading: 'Kuitit lukevat itse itsensä',
       subheading: 'Kuvaa kuitti tai lataa kuva tai PDF. Päivämäärä, summa, alv ja tili ehdotetaan automaattisesti — sinä vahvistat, et koskaan arvaa.',
