@@ -42,12 +42,14 @@ describe('ocrCache', () => {
   });
 
   it('läser bara en gång per dokument, men om force är satt', async () => {
-    const reader = vi.fn(async () => 'Texten på kvittot');
+    const reader = vi.fn(async () => ({ text: 'Texten på kvittot', confidence: 88 }));
     const file = { name: 'k.jpg', size: 100, lastModified: 1 };
     const first = await readDocumentText(file, null, { reader });
-    expect(first).toEqual({ text: 'Texten på kvittot', cached: false });
+    expect(first).toEqual({ text: 'Texten på kvittot', confidence: 88, cached: false });
     const second = await readDocumentText(file, null, { reader });
-    expect(second).toEqual({ text: 'Texten på kvittot', cached: true });
+    // En cachad träff sparar bara texten (se filkommentaren i ocrCache.js) —
+    // confidence blir null i stället för att gissa en gammal siffra.
+    expect(second).toEqual({ text: 'Texten på kvittot', confidence: null, cached: true });
     expect(reader).toHaveBeenCalledTimes(1);
     await readDocumentText(file, null, { reader, force: true });
     expect(reader).toHaveBeenCalledTimes(2);
@@ -55,7 +57,7 @@ describe('ocrCache', () => {
 
   it('fungerar utan localStorage', async () => {
     delete globalThis.localStorage;
-    const reader = vi.fn(async () => 'text');
+    const reader = vi.fn(async () => ({ text: 'text', confidence: null }));
     const file = { name: 'z.jpg', size: 7, lastModified: 2 };
     expect((await readDocumentText(file, null, { reader })).text).toBe('text');
   });

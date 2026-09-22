@@ -263,9 +263,9 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
     setRevealing(false);
     setRevealed({});
     try {
-      const { text, cached } = await readDocumentText(input, msg => { if (isCurrent()) setOcrMessage(msg); }, { force });
+      const { text, confidence, cached } = await readDocumentText(input, msg => { if (isCurrent()) setOcrMessage(msg); }, { force });
       if (!isCurrent()) return; // en nyare körning har redan tagit över
-      const parsed = parseReceiptText(text);
+      const parsed = parseReceiptText(text, { confidence });
       const nr = Boolean(parsed.notReceipt);
 
       // Utländsk valuta — räkna om till kronor med DAGSKURSEN FÖR

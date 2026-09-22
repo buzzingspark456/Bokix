@@ -308,7 +308,14 @@ async function downscaleForOcr(imageSource) {
 }
 
 /**
- * Kör Tesseract OCR på en bild eller canvas i webbläsaren.
+ * Kör Tesseract OCR på en bild eller canvas i webbläsaren. Returnerar även
+ * Tesseracts EGEN säkerhet på avläsningen (0–100, `data.confidence`) —
+ * tidigare kastades den bort och bara texten returnerades, vilket gjorde
+ * det omöjligt att skilja en riktig, tydligt läst text som råkar sakna
+ * kvitto-ord (ett kontrakt, ett brev) från en genuint dålig avläsning
+ * (för suddigt, mörkt eller utzoomat foto) som råkade producera lite
+ * sammanhangslöst brus i stället för att bli helt tom. Se classifyDocument/
+ * parseReceiptText nedan, som är just den skillnaden byggd för att fånga.
  */
 async function extractTextFromImage(imageSource, onProgress) {
   onProgress?.('Startar OCR-motor…');
@@ -329,7 +336,7 @@ async function extractTextFromImage(imageSource, onProgress) {
 
   try {
     const { data } = await worker.recognize(scaled);
-    return data.text || '';
+    return { text: data.text || '', confidence: typeof data.confidence === 'number' ? data.confidence : null };
   } finally {
     await worker.terminate();
   }
@@ -339,7 +346,9 @@ async function extractTextFromImage(imageSource, onProgress) {
  * Kör OCR på en kvittofil (URL, Blob eller File) direkt på klienten.
  * @param {File|Blob|string} input — Fil, Blob eller URL till bild/PDF
  * @param {Function} [onProgress] — Callback för statusuppdateringar, t.ex. (msg) => setMsg(msg)
- * @returns {Promise<string>} Extraherad text
+ * @returns {Promise<{text: string, confidence: number|null}>} Extraherad text
+ *   och Tesseracts avläsningssäkerhet (0–100), eller `null` när ingen bild-OCR
+ *   kördes alls (digital PDF-text — exakt, ingen osäkerhet att ange).
  */
 export async function ocrFile(input, onProgress) {
   let blob;
@@ -376,10 +385,11 @@ export async function ocrFile(input, onProgress) {
   }
 
   if (isPdf) {
-    // 1. Snabb direkt-extrahering för digitala PDF-fakturor
+    // 1. Snabb direkt-extrahering för digitala PDF-fakturor — exakt text,
+    // ingen OCR-osäkerhet att ange.
     const text = await extractTextFromPdf(blob, onProgress);
     if (text && text.length >= 15) {
-      return text;
+      return { text, confidence: null };
     }
 
     // 2. Om PDF:en var ett skannat papperskvitto utan textlager, rendera sida 1 och kör OCR
@@ -881,10 +891,22 @@ const EMPTY_PARSE = {
   reverseCharge: null, reverseChargeUnclear: false,
 };
 
+// Tesseracts egen avläsningssäkerhet (0–100) under den här gränsen räknas
+// som opålitlig — ett verkligt suddigt/mörkt/utzoomat foto ger typiskt en
+// medelsäkerhet en bra bit under detta, medan ett klart foto (oavsett vad
+// det föreställer) brukar ligga en bra bit över. Ingen exakt vetenskap
+// (Tesseract ger ingen "detta ÄR fel"-signal), bara en rimlig utgångspunkt
+// att justera om felrapporter visar att den träffar fel åt något håll.
+const LOW_OCR_CONFIDENCE = 55;
+
 /**
  * Parsar rå OCR-text och extraherar kvittodata med smarta heuristiker.
+ * `confidence` (0–100, från ocrFile/extractTextFromImage) är valfri —
+ * `null`/utelämnad betyder "ingen OCR-osäkerhet att ange" (digital PDF-text,
+ * eller en cachad avläsning där siffran inte sparades) och then avgör
+ * innehållet ensamt, som förut.
  */
-export function parseReceiptText(text) {
+export function parseReceiptText(text, { confidence = null } = {}) {
   if (!text || typeof text !== 'string') {
     return { ...EMPTY_PARSE };
   }
@@ -902,11 +924,19 @@ export function parseReceiptText(text) {
   // Ett dokument som inte är ett kvitto eller en faktura fylls aldrig i.
   const doc = classifyDocument(text, lines);
   if (!doc.isReceipt) {
-    // Belopp hittades och inget tydde på ett CV/personligt brev — troligen
-    // ändå ett äkta kvitto eller en faktura, bara läst för dåligt (för
-    // utzoomat, skevt, ojämnt ljus) för att kännas igen med säkerhet. Be om
-    // en tydligare bild i stället för att avfärda dokumentet helt.
-    if (doc.hasMoney && !doc.looksLikeOther) return { ...EMPTY_PARSE, notReceipt: true, unreadable: true, documentKind: 'unreadable' };
+    // Ett uttryckligt CV/personligt brev-ord (doc.looksLikeOther) vinner
+    // ALLTID, oavsett confidence — orden gick tydligt att läsa, så det är
+    // inte en dålig avläsning, bara fel sorts dokument. Saknas det ordet
+    // misstänks i stället en DÅLIG AVLÄSNING snarare än ett äkta
+    // fel-sorts-dokument: antingen var Tesseract själv osäker (låg
+    // confidence — fångar även korta, obegripliga fall som ren
+    // bildbrus-text, där hasMoney inte har något att bita i), eller så
+    // hittades ett belopp (troligen ändå ett äkta kvitto, bara för
+    // utzoomat/skevt/ojämnt ljus för att kännas igen med säkerhet).
+    const lowConfidence = typeof confidence === 'number' && confidence < LOW_OCR_CONFIDENCE;
+    if (!doc.looksLikeOther && (lowConfidence || doc.hasMoney)) {
+      return { ...EMPTY_PARSE, notReceipt: true, unreadable: true, documentKind: 'unreadable' };
+    }
     return { ...EMPTY_PARSE, notReceipt: true, documentKind: 'other' };
   }
   // Leverantören står i dokumentets huvud. En omnämnd butik längre ned (ett

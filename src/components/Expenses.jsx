@@ -321,9 +321,9 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
     setOcrVat(null);
     setFlashKey(null);
     try {
-      const { text, cached } = await readDocumentText(input, msg => { if (isCurrent()) setOcrMessage(msg); }, { force });
+      const { text, confidence, cached } = await readDocumentText(input, msg => { if (isCurrent()) setOcrMessage(msg); }, { force });
       if (!isCurrent()) return;
-      const parsed = parseReceiptText(text);
+      const parsed = parseReceiptText(text, { confidence });
 
       // Utländsk valuta — räkna om till kronor med DAGSKURSEN FÖR
       // KÖPDATUMET (Skatteverkets rekommendation) innan beloppet fylls i.

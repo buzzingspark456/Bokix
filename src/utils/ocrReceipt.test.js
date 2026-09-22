@@ -763,6 +763,37 @@ describe('dokument som inte är kvitton', () => {
   });
 });
 
+describe('confidence skiljer på oläsbart och fel dokumenttyp', () => {
+  // Text som varken har kvitto-ord, belopp eller CV-ord — klassisk
+  // gråzon: kan vara riktig text om något annat, eller brus ur ett dåligt
+  // foto. Låg Tesseract-confidence ska avgöra det åt "oläsbart".
+  const AMBIGUOUS_TEXT = 'xj kfl mno rst pqw abcd efgh ijkl';
+
+  it('låg confidence gör tvetydig text oläsbar, inte "fel dokument"', () => {
+    const p = parseReceiptText(AMBIGUOUS_TEXT, { confidence: 30 });
+    expect(p.notReceipt).toBe(true);
+    expect(p.unreadable).toBe(true);
+  });
+
+  it('hög confidence på samma tvetydiga text ger "fel dokument", inte oläsbart', () => {
+    const p = parseReceiptText(AMBIGUOUS_TEXT, { confidence: 92 });
+    expect(p.notReceipt).toBe(true);
+    expect(p.unreadable).toBe(false);
+  });
+
+  it('utan confidence (digital text, cachad avläsning) avgör innehållet ensamt, som förut', () => {
+    const p = parseReceiptText(AMBIGUOUS_TEXT);
+    expect(p.notReceipt).toBe(true);
+    expect(p.unreadable).toBe(false);
+  });
+
+  it('tydliga CV-ord vinner över låg confidence — en riktig CV-bild ska aldrig kallas oläsbar', () => {
+    const p = parseReceiptText('Curriculum Vitae\nArbetslivserfarenhet\nUtbildning', { confidence: 20 });
+    expect(p.notReceipt).toBe(true);
+    expect(p.unreadable).toBe(false);
+  });
+});
+
 describe('leverantör på fakturor', () => {
   it('tar namnet, inte en fältrad som Fakturanummer eller Org.nr', () => {
     const p = parseReceiptText([
