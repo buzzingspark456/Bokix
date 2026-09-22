@@ -230,6 +230,10 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
   const [revealing, setRevealing] = useState(false);
   const [revealed, setRevealed] = useState({});
   const [notReceipt, setNotReceipt] = useState(false);
+  // Skiljer på "inte ett kvitto/en faktura" och "bilden gick inte att läsa
+  // av" (för suddigt/utzoomat/mörkt) — samma distinktion som kvittovyn, se
+  // isUnreadableText/classifyDocument i ocrReceipt.js.
+  const [unreadable, setUnreadable] = useState(false);
   const [ocrVat, setOcrVat] = useState(null);
   const timersRef = useRef([]);
   useEffect(() => () => { timersRef.current.forEach(clearTimeout); }, []);
@@ -252,6 +256,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
     setOcrMessage('Startar läsning…');
     setOcrForeignCurrency(null);
     setNotReceipt(false);
+    setUnreadable(false);
     setOcrVat(null);
     setPayInfo(null);
     setForeignInfo(null);
@@ -293,7 +298,14 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
       // bokningar kan ha gjorts utan omvänd moms och ska inte följas här.
       const reverse = parsed.reverseCharge;
       const vatRate = reverse ? 0 : (vatFromHistory ? hist.vatRate : (parsed.vatRate ?? 25));
-      const costAccount = reverse ? parsed.accountCode : (hist?.costAccount || parsed.accountCode || '');
+      // Samma regel som kvittovyn (Expenses.jsx): ett konto avläsningen bara
+      // GISSAT (accountGuessed, t.ex. 6990-reservfallet) fylls aldrig i på
+      // raden — kundfeedback, uttryckligt: ett gissat konto som ser äkta ut
+      // är värre än ett tomt fält. Bara historik (samma leverantör bokförd
+      // förut) eller omvänd skattskyldighet (kontot följer av dokumentet,
+      // inte av en gissning) fyller i kostnadskontot. Annars lämnas raden
+      // tom och användaren väljer själv, precis som en ny manuell rad.
+      const costAccount = reverse ? parsed.accountCode : (hist?.costAccount || (parsed.accountCode && !parsed.accountGuessed ? parsed.accountCode : ''));
       const gross = grossSek ? Math.round(grossSek * 100) / 100 : 0;
       // Betalkontot är inte en gissning när historiken eller kvittot säger något.
       const pay = decidePayAccount({ history: hist, paymentMethod: parsed.paymentMethod, accounts });
@@ -307,7 +319,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
         },
         {
           key: 'costAccount', found: !nr && gross > 0 && Boolean(costAccount),
-          state: reverse ? 'found' : (hist ? 'history' : (parsed.accountGuessed ? 'guess' : 'found')), apply: () => {},
+          state: reverse ? 'found' : (hist ? 'history' : 'found'), apply: () => {},
         },
         { key: 'payAccount', found: !nr && gross > 0, state: pay.state, apply: () => {} },
       ];
@@ -363,6 +375,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
         setOcrFields(filled);
         if (foreignInfo) setOcrForeignCurrency(foreignInfo);
         setNotReceipt(nr);
+        setUnreadable(Boolean(parsed.unreadable));
         setForeignInfo(nr ? null : (parsed.reverseCharge
           ? { region: parsed.reverseCharge.region, evidence: parsed.reverseCharge.evidence }
           : (parsed.reverseChargeUnclear ? { unclear: true } : null)));
@@ -1040,7 +1053,11 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
                 {!revealing && notReceipt && (
                   <div className="rc-verify rc-verify-warn">
                     <AlertCircle size={14} style={{ flexShrink: 0 }} />
-                    <span>Det här ser inte ut som ett kvitto eller en faktura, så inget har fyllts i. Fyll i verifikationen själv, eller byt fil.</span>
+                    {unreadable ? (
+                      <span>Bilden gick inte att läsa av, så inget har fyllts i. Ta om fotot — närmre, rakare och med bättre ljus — eller läs av igen när du har en tydligare bild.</span>
+                    ) : (
+                      <span>Det här ser inte ut som ett kvitto eller en faktura, så inget har fyllts i. Fyll i verifikationen själv, eller byt fil.</span>
+                    )}
                   </div>
                 )}
                 {!revealing && ocrVat && ocrVat.amountVerified && !ocrVat.verified && (

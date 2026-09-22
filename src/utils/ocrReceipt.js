@@ -702,7 +702,12 @@ const CURRENCY_MARK_RE = /\b(?:kr|sek|usd|eur|gbp|nok|dkk|jpy|cny|rmb)\b|:-|[$�
 /**
  * Bedömer om en text är ett kvitto eller en faktura. `isReceipt` är falskt
  * när det inte finns ett enda penningbelopp, eller när poängen blir för låg.
- * `isInvoice` säger om det snarare är en faktura än ett kvitto.
+ * `isInvoice` säger om det snarare är en faktura än ett kvitto. `hasMoney` och
+ * `looksLikeOther` (CV/personligt brev-ord hittade) avgör åt anroparen VARFÖR
+ * `isReceipt` är falskt — se `parseReceiptText`, som skiljer på "det här är
+ * nog inte ett kvitto/en faktura alls" (inget belopp, eller tydliga CV-ord)
+ * och "det HAR ett belopp men för lite annat kändes igen" (troligen ett äkta
+ * kvitto som OCR läste dåligt: för utzoomat, oskarpt eller mörkt foto).
  */
 export function classifyDocument(text, lines) {
   const list = lines || String(text || '').split('\n').map(l => l.trim()).filter(Boolean);
@@ -718,7 +723,18 @@ export function classifyDocument(text, lines) {
   if (decimals.length >= 2) score += 1;
   const notWords = new Set((body.match(NOT_A_RECEIPT_RE) || []).map(w => w.toLowerCase()));
   score -= 3 * Math.min(notWords.size, 2);
-  return { isReceipt: hasMoney && score >= 2, score, isInvoice: /faktura|invoice/i.test(body) };
+  return { isReceipt: hasMoney && score >= 2, score, isInvoice: /faktura|invoice/i.test(body), hasMoney, looksLikeOther: notWords.size > 0 };
+}
+
+// En läsning med FÖR LITE text för att bedöma alls (nästan ingenting kom ut ur
+// OCR-motorn) — ett väldigt suddigt, mörkt eller extremt utzoomat foto, inte
+// ett dokument som råkar sakna kvitto-ord. 8 tecken (utan mellanslag) är den
+// gräns skanna-kvitto-verktyget (ScanReceiptPage.jsx) redan använt en tid;
+// samlad här så båda ställena delar exakt samma gräns i stället för att
+// riskera att glida isär.
+const MIN_READABLE_CHARS = 8;
+export function isUnreadableText(text) {
+  return String(text || '').replace(/\s+/g, '').length < MIN_READABLE_CHARS;
 }
 
 // Ett leverantörsnamn ska börja vid ett ordbörjan: "ICA" är ICA, men "Africa"
@@ -861,7 +877,7 @@ const EMPTY_PARSE = {
   vatRate: 25, vatRateGuessed: true, vatAmount: null, vatVerified: false, vatMismatch: false,
   receiptNumber: null, receiptNumberKind: null, receiptNumberLabel: null,
   supplier: null, supplierMatched: false, accountCode: null, accountGuessed: false, accountSource: null,
-  currency: null, notReceipt: false, documentKind: null, paymentMethod: null,
+  currency: null, notReceipt: false, unreadable: false, documentKind: null, paymentMethod: null,
   reverseCharge: null, reverseChargeUnclear: false,
 };
 
@@ -873,12 +889,26 @@ export function parseReceiptText(text) {
     return { ...EMPTY_PARSE };
   }
 
+  // Nästan ingen text alls kom ut ur OCR-motorn — foto för suddigt, mörkt
+  // eller för långt bort för att läsa, inte nödvändigtvis "fel sorts
+  // dokument". Skiljs från notReceipt nedan så användaren får rätt råd:
+  // ta ett bättre foto, i stället för att appen påstår att det inte är ett
+  // kvitto eller en faktura.
+  if (isUnreadableText(text)) return { ...EMPTY_PARSE, notReceipt: true, unreadable: true, documentKind: 'unreadable' };
+
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
   const fullText = text.toLowerCase();
 
   // Ett dokument som inte är ett kvitto eller en faktura fylls aldrig i.
   const doc = classifyDocument(text, lines);
-  if (!doc.isReceipt) return { ...EMPTY_PARSE, notReceipt: true, documentKind: 'other' };
+  if (!doc.isReceipt) {
+    // Belopp hittades och inget tydde på ett CV/personligt brev — troligen
+    // ändå ett äkta kvitto eller en faktura, bara läst för dåligt (för
+    // utzoomat, skevt, ojämnt ljus) för att kännas igen med säkerhet. Be om
+    // en tydligare bild i stället för att avfärda dokumentet helt.
+    if (doc.hasMoney && !doc.looksLikeOther) return { ...EMPTY_PARSE, notReceipt: true, unreadable: true, documentKind: 'unreadable' };
+    return { ...EMPTY_PARSE, notReceipt: true, documentKind: 'other' };
+  }
   // Leverantören står i dokumentets huvud. En omnämnd butik längre ned (ett
   // tidigare jobb i ett CV, en annons på ett kvitto) ska inte bli leverantör.
   const headerText = lines.slice(0, 6).join('\n').toLowerCase();

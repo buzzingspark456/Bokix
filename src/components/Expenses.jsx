@@ -287,6 +287,11 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
   onSaveOcrDraftRef.current = onSaveOcrDraft;
   // Dokumentet var inget kvitto eller någon faktura, så inget fylls i.
   const [notReceipt, setNotReceipt] = useState(Boolean(draft?.notReceipt));
+  // Skiljer på "det här är inte ett kvitto/en faktura" (ovan) och "det HAR
+  // nog ett, men bilden gick inte att läsa" (för suddigt/utzoomat/mörkt) —
+  // olika fel, olika råd till användaren. Se isUnreadableText/classifyDocument
+  // i ocrReceipt.js.
+  const [unreadable, setUnreadable] = useState(Boolean(draft?.unreadable));
   // Företagets egen historik: en leverantör som redan finns på tidigare
   // kvitton ger samma konto och momssats som oftast förut. Det slår de
   // allmänna reglerna, eftersom det är så företaget själv bokför.
@@ -309,6 +314,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
     setNumberLabel('');
     setSuggestedAccount(null);
     setNotReceipt(false);
+    setUnreadable(false);
     setOcrFields(new Set());
     setRevealing(false);
     setRevealed({});
@@ -415,6 +421,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
         numberLabel: parsed.receiptNumber ? (parsed.receiptNumberLabel || '') : '',
         fx: draftFx,
         notReceipt: nr,
+        unreadable: Boolean(parsed.unreadable),
         ocrVat: draftVat,
       });
 
@@ -447,6 +454,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
           if (!foreignInfo.converted) setFxError('Kursen gick inte att hämta automatiskt. Fyll i kursen eller beloppet i kronor själv, helst det som faktiskt drogs på kortet.');
         }
         setNotReceipt(nr);
+        setUnreadable(Boolean(parsed.unreadable));
         setOcrVat(nr ? null : { verified: parsed.vatVerified, mismatch: parsed.vatMismatch, vatAmount: parsed.vatAmount, amountVerified: parsed.amountVerified });
         setFlashKey(null);
         setRevealing(false);
@@ -613,7 +621,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
             <div style={{ minWidth: 0 }}>
               <h2 style={{ margin: 0, fontSize: '16.5px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.01em' }}>Kvittodetaljer</h2>
               <p style={{ margin: '3px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>
-                {readOnly ? 'Bokfört underlag' : ocrStatus === 'scanning' ? 'Läser kvittot, det tar några sekunder…' : revealing ? 'Fyller i uppgifterna…' : notReceipt ? 'Det här verkar inte vara ett kvitto eller en faktura' : ocrStatus === 'done' ? 'Avläsningen är klar. Granska och justera.' : 'Fyll i uppgifterna från kvittot'}
+                {readOnly ? 'Bokfört underlag' : ocrStatus === 'scanning' ? 'Läser kvittot, det tar några sekunder…' : revealing ? 'Fyller i uppgifterna…' : unreadable ? 'Bilden gick inte att läsa av' : notReceipt ? 'Det här verkar inte vara ett kvitto eller en faktura' : ocrStatus === 'done' ? 'Avläsningen är klar. Granska och justera.' : 'Fyll i uppgifterna från kvittot'}
               </p>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
@@ -660,7 +668,11 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
             {!readOnly && !revealing && notReceipt && (
               <div className="rc-verify rc-verify-warn">
                 <AlertCircle size={14} style={{ flexShrink: 0 }} />
-                <span>Det här ser inte ut som ett kvitto eller en faktura, så inget har fyllts i. Fyll i uppgifterna själv, eller ta bort filen om den hamnade här av misstag.</span>
+                {unreadable ? (
+                  <span>Bilden gick inte att läsa av, så inget har fyllts i. Ta om fotot — närmre, rakare och med bättre ljus — eller läs av igen när du har en tydligare bild.</span>
+                ) : (
+                  <span>Det här ser inte ut som ett kvitto eller en faktura, så inget har fyllts i. Fyll i uppgifterna själv, eller ta bort filen om den hamnade här av misstag.</span>
+                )}
               </div>
             )}
             {!readOnly && !revealing && ocrVat && ocrVat.amountVerified && !ocrVat.verified && (

@@ -158,8 +158,11 @@ export default function ScanReceiptPage() {
       if (wait > 0) await new Promise(r => setTimeout(r, wait));
       if (runIdRef.current !== runId) return;
       setBeamPct(100);
-      const unreadable = String(text || '').replace(/\s+/g, '').length < 8;
       const parsed = parseReceiptText(text);
+      // unreadable/notReceipt kommer nu från samma delade logik som appens
+      // kvitto- och verifikationsvyer (ocrReceipt.js), i stället för en egen
+      // kopia av gränsen här — se isUnreadableText/classifyDocument.
+      const unreadable = Boolean(parsed.unreadable);
       const fields = buildFields(parsed, unreadable);
       setResult({ fields, notReceipt: !unreadable && Boolean(parsed.notReceipt), unreadable });
       setStatus('done');

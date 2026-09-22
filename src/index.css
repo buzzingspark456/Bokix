@@ -6018,7 +6018,11 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
   .sidebar .nav-group-chevron { flex-shrink: 0; opacity: 0.7; transition: transform 0.15s; }
   /* En hopfälld grupp döljs bara när rubrikerna syns, så att man alltid kan fälla ut den igen. */
   .sidebar .nav-group-items.is-collapsed { display: none; }
-  .sidebar .nav-group-divider { display: none !important; }
+  /* Tunn linje ovanför varje ny grupp, även när rubriken syns — ett
+     dämpat sträck som markerar var Verksamhet slutar och Ekonomi börjar,
+     i stället för att bara luta sig på radavståndet. Svagare än den
+     kompakta lägets linje (0.15) eftersom rubriken redan gör jobbet här. */
+  .sidebar .nav-group-divider { display: block !important; margin: 4px 20px 0 !important; background: rgba(255, 255, 255, 0.08) !important; }
 }
 /* Riktigt låga fönster (t.ex. 1080p-laptop med 150 % skalning, ca 600 px): lite
    mer marginal så att hela listan ryms, oavsett
