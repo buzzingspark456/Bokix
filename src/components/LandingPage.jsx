@@ -10,7 +10,7 @@ import ToolMotif, { ToolMotifStyles } from './marketing/toolMotifs';
 import { FeatureDemoStyles, DemoBokforing, DemoFakturering, DemoSkatt, DemoPersonal } from './marketing/featureDemos';
 import { SERIF, INK, INK_SOFT, MUTED, CARD_BORDER, CARD_SHADOW_SM, ACCENT, ACCENT_CYCLE } from './marketing/marketingTokens';
 import CloudShaderBackground from './marketing/CloudShaderBackground';
-import { GRAD, grad, AuroraLayer } from './marketing/aurora';
+import { GRAD, grad } from './marketing/aurora';
 import { StripeLogo, ZettleLogo, BolagsverketLogo, SkatteverketLogo } from './shared/BrandLogos';
 import MigrationFlow from './marketing/MigrationFlow';
 import BankFlow from './marketing/BankFlow';
@@ -557,16 +557,12 @@ export default function LandingPage({ onEnterApp, locale = 'sv' }) {
           Ingen SVG, inget koordinatsystem att hålla i synk — CSS Grid
           faller själv ihop till en spalt på smal skärm (se .lp-conn-grid,
           MarketingLayout.jsx), ingen egen media query behövs här.
-          Bakgrund (2026-09-22, fjärde passet): kundönskemål, rakt av — vit,
-          samma som resten av sidan nu. Den tonade --mkt-section-blue-
-          bakgrunden (två föregående pass) stack ut på ett sätt kunden inte
-          ville ha när resten av sidan gick över till vitt. Bara
-          bakgrundsfärgen ändrad här, inget annat i sektionen rört. ── */}
+          Bakgrund (2026-09-22, femte passet): kundönskemål — HELT vit, inget
+          blått kvar alls. Fjärde passet bytte den fasta bakgrundsfärgen till
+          vit men lämnade kvar AuroraLayer-tomingen (mjuka blå/turkosa
+          glöd-klot i hörnen) som fortfarande läste som "blått i sektionen".
+          Den är nu borttagen — ingen dekor kvar här, bara vitt. ── */}
       <section style={{ padding: '76px 24px', background: '#ffffff', position: 'relative', overflow: 'hidden' }}>
-        <AuroraLayer
-          stops={[['rgba(14,165,233,0.16)', '4% -8%'], ['rgba(20,184,166,0.14)', '96% 108%']]}
-          blob={{ gradient: grad(GRAD.blueTeal), top: '-150px', right: '-110px', left: 'auto', size: '420px', opacity: 0.18 }}
-        />
         <div style={{ maxWidth: '900px', margin: '0 auto', position: 'relative' }}>
           <Reveal style={{ textAlign: 'center', marginBottom: '48px' }}>
             <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(24px, 3.5vw, 38px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '14px' }}>
