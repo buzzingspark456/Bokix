@@ -18,7 +18,7 @@ import ReceiptFlow from './marketing/ReceiptFlow';
 import { PRICING_TIERS } from './marketing/pricingTiers';
 import { resolvePlan, YEARLY_MINIMUM_MONTHS } from '../utils/plans';
 import { PageMeta, JsonLd, SITE_URL } from '../utils/seo';
-import { FAQ_SCHEMA } from './marketing/faqData';
+import { FAQ_SCHEMA, FAQ_ITEMS } from './marketing/faqData';
 import { LANDING_CONTENT } from '../content/marketing/landing';
 import { localizedPricingTiers } from '../content/marketing/pricingTiers';
 // Lazy: DemoWorkspace monterar en RIKTIG kopia av hela den inloggade
@@ -151,6 +151,13 @@ const FAQ_ACCENT = ACCENT.green;
 // den nya /vanliga-fragor-sidan (FaqPage.jsx). FAQ_ITEMS/FaqItem-
 // accordionen renderas inte längre här (se sektionens egen kommentar
 // nedan) — bara schemat (JsonLd, för sökmotorer) är kvar från den filen.
+
+// Kundönskemål (2026-09-22): FAQ-sektionen hade bara länken ut, inga
+// frågor syntes. Tre av de mest allmänt relevanta (oro/pris/inlåsning),
+// samma FAQ_ITEMS-text som /vanliga-fragor — index in i den listan, ingen
+// egen kopia av frågetexten. Bara sv (samma begränsning som FAQ_SCHEMA
+// ovan, se dess kommentar).
+const FAQ_TEASER_PREVIEW = [FAQ_ITEMS[0].q, FAQ_ITEMS[2].q, FAQ_ITEMS[4].q];
 
 // Organization-schema (Sida: AI:er/Google blandar ibop Bokix med Bokio i
 // sökningar/svar — se konversationen där det här lades till). Det här är
@@ -501,12 +508,12 @@ export default function LandingPage({ onEnterApp, locale = 'sv' }) {
           förklara vad man FÅR istället (se BENEFIT_ITEMS-kommentaren högst
           upp för resonemanget). Sex kort i samma lp-lux-card-språk som
           resten av sidan, ingen "vi vs dem"-tabell längre. ── */}
-      {/* Egen yta, men i tema-tokens: varm elfenbensbotten med sajtens
-          räkenskapslinjer, en gradientrand överst och ett mjukt ljus i
-          hörnen. Här låg ett fast mörkgrönt band ett tag — det såg likadant
-          ut i ljust och mörkt läge, och kundkravet är att sektionen ska vara
-          genomarbetad i BÅDA teman, inte identisk i båda. */}
-      <section style={{ padding: '84px 24px 92px', background: 'var(--mkt-section-mint)', position: 'relative', overflow: 'hidden' }}>
+      {/* Kundönskemål (2026-09-22): för många olika bakgrundstoner ner för
+          sidan ("enklare, enklare bakgrund") — den här låg tidigare på en
+          egen mint-ton (--mkt-section-mint), en av fyra olika toner sidan
+          växlade mellan (vitt/elfenben/mint/blått). Nu samma elfenben som
+          flera andra sektioner: färre toner totalt, tydligare rytm. */}
+      <section style={{ padding: '84px 24px 92px', background: IVORY, position: 'relative', overflow: 'hidden' }}>
         <div aria-hidden style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', backgroundImage: 'linear-gradient(90deg, #0ea5e9, #14b8a6, #84cc16)', opacity: 0.85 }} />
         <div aria-hidden className="lp-ledger-lines" />
         <div style={{ maxWidth: 'min(92vw, 1600px)', margin: '0 auto', position: 'relative' }}>
@@ -760,8 +767,11 @@ export default function LandingPage({ onEnterApp, locale = 'sv' }) {
           tom yta i sidorna. Båda korten samma höjd (flex stretch) oavsett
           olika listlängd, och den dyrare nivån ("featured") får mer luft/
           större typsnitt för att kännas som "mer" utan att bli högre än
-          sin granne. ── */}
-      <section style={{ padding: '84px 24px', background: 'var(--mkt-section-blue)', borderTop: '1px solid var(--mkt-border-soft)', borderBottom: '1px solid var(--mkt-border-soft)', position: 'relative', overflow: 'hidden' }}>
+          sin granne.
+          Kundönskemål (2026-09-22, "enklare bakgrund"): egen blå ton
+          (--mkt-section-blue) bytt mot samma elfenben som övriga sektioner
+          — se samma ändring vid "Det här får du"-sektionen ovan. ── */}
+      <section style={{ padding: '84px 24px', background: IVORY, borderTop: '1px solid var(--mkt-border-soft)', borderBottom: '1px solid var(--mkt-border-soft)', position: 'relative', overflow: 'hidden' }}>
 
         <Reveal style={{ textAlign: 'center', marginBottom: '44px', position: 'relative' }}>
           <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(26px, 4vw, 38px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '12px' }}>
@@ -946,6 +956,27 @@ export default function LandingPage({ onEnterApp, locale = 'sv' }) {
             </h2>
             <p style={{ fontSize: '18px', color: MUTED }}>{c.faqTeaser.subheading}</p>
           </Reveal>
+
+          {/* Kundönskemål (2026-09-22): kortet nedan var det ENDA som syntes
+              i sektionen — bara en länk ut, inga faktiska frågor. Tre
+              riktiga frågor (samma FAQ_ITEMS som /vanliga-fragor, ingen ny
+              lista) som ren text ovanför, inte en ny mini-accordion — den
+              fulla, klickbara varianten togs bort härifrån med flit i en
+              tidigare omgång (se kommentaren ovan) och ska inte komma
+              tillbaka i förklädnad. Det här är bara en försmak.
+              Bara sv — FAQ_ITEMS text finns bara på svenska, samma
+              begränsning som FAQ_SCHEMA (se den JsonLd-raden ovan). */}
+          {locale === 'sv' && (
+            <Reveal style={{ maxWidth: '640px', margin: '0 auto 22px' }}>
+              <div style={{ background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '16px', overflow: 'hidden' }}>
+                {FAQ_TEASER_PREVIEW.map((q, i) => (
+                  <div key={i} style={{ padding: '17px 22px', fontSize: '15px', fontWeight: 600, color: INK_SOFT, borderTop: i > 0 ? `1px solid ${CARD_BORDER}` : 'none' }}>
+                    {q}
+                  </div>
+                ))}
+              </div>
+            </Reveal>
+          )}
 
           <Reveal scale style={{ maxWidth: '640px', margin: '0 auto' }}>
             <Link to="/vanliga-fragor" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', padding: '20px 22px', background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '16px', boxShadow: '0 14px 30px -22px rgba(28,36,32,0.22)', textDecoration: 'none' }}>
