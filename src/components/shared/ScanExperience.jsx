@@ -29,6 +29,21 @@ export const SCAN_MESSAGES = [
   'Väljer konto…',
 ];
 
+// Rådet om fotot, när bilden är det som sätter gränsen för avläsningen
+// (photoAdvice i utils/ocrReceipt.js mäter skärpa, ljus och hur stor del av
+// bilden kvittot är). Ett konkret råd — vad som är fel och vad man gör åt det —
+// i stället för "kunde inte läsas": det är enda sättet användaren kan få en
+// bättre avläsning på nästa försök.
+export const PHOTO_HINTS = {
+  blurry: 'Bilden är suddig. Håll telefonen stilla, tryck på skärmen så att kameran ställer skärpan på texten, och ta om fotot.',
+  dark: 'Bilden är mörk eller kontrastsvag. Lägg kvittot i bättre ljus, utan skugga över texten, och ta om fotot.',
+  far: 'Kvittot är för litet i bilden. Kom närmare så att kvittot fyller nästan hela rutan, och ta om fotot.',
+};
+
+export function photoHintText(code) {
+  return PHOTO_HINTS[code] || null;
+}
+
 // Fälten som avläsningen försöker fylla i, i den ordning de visas upp.
 export const OCR_ITEMS = [
   { key: 'supplier', label: 'Leverantör' },

@@ -13,7 +13,7 @@ import { BRAND } from '../utils/brandColors';
 import { confirmDialog } from './shared/ConfirmDialog';
 import { parseReceiptText, OCR_DRAFT_VERSION } from '../utils/ocrReceipt';
 import { readDocumentText } from '../utils/ocrCache';
-import { ScanOverlay, OcrChecklist, MIN_SCAN_MS, REVEAL_STEP_MS, CACHED_SCAN_MS } from './shared/ScanExperience';
+import { ScanOverlay, OcrChecklist, photoHintText, MIN_SCAN_MS, REVEAL_STEP_MS, CACHED_SCAN_MS } from './shared/ScanExperience';
 import { convertToSek } from '../utils/currencyConversion';
 import { historyForSupplier, historyFromVerifications } from '../utils/receiptHistory';
 import { reverseChargePurchaseInfo } from '../utils/reverseCharge';
@@ -292,6 +292,11 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
   // olika fel, olika råd till användaren. Se isUnreadableText/classifyDocument
   // i ocrReceipt.js.
   const [unreadable, setUnreadable] = useState(Boolean(draft?.unreadable));
+  // Rådet om fotot ('blurry' | 'dark' | 'far'), satt bara när bilden faktiskt
+  // stod i vägen för avläsningen: inget belopp, ett belopp att kontrollera
+  // eller en moms som inte gick ihop. Ett tydligt foto som lästes rätt får
+  // aldrig en anmärkning om fotot.
+  const [photoHint, setPhotoHint] = useState(draft?.photoHint || null);
   // Företagets egen historik: en leverantör som redan finns på tidigare
   // kvitton ger samma konto och momssats som oftast förut. Det slår de
   // allmänna reglerna, eftersom det är så företaget själv bokför.
@@ -315,15 +320,21 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
     setSuggestedAccount(null);
     setNotReceipt(false);
     setUnreadable(false);
+    setPhotoHint(null);
     setOcrFields(new Set());
     setRevealing(false);
     setRevealed({});
     setOcrVat(null);
     setFlashKey(null);
     try {
-      const { text, confidence, cached } = await readDocumentText(input, msg => { if (isCurrent()) setOcrMessage(msg); }, { force });
+      const { text, confidence, quality, cached } = await readDocumentText(input, msg => { if (isCurrent()) setOcrMessage(msg); }, { force });
       if (!isCurrent()) return;
       const parsed = parseReceiptText(text, { confidence });
+      // Rådet om fotot visas bara när avläsningen inte blev bra: blev beloppet
+      // avläst och kontrollerat mot momsen spelar det ingen roll att bilden
+      // kunde varit skarpare.
+      const hint = (quality?.advice && (parsed.notReceipt || !parsed.amount || parsed.amountGuessed || parsed.vatMismatch))
+        ? quality.advice : null;
 
       // Utländsk valuta — räkna om till kronor med DAGSKURSEN FÖR
       // KÖPDATUMET (Skatteverkets rekommendation) innan beloppet fylls i.
@@ -403,7 +414,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
         draftRevealed[step.key] = step.found ? step.state : (step.suggest ? 'suggest' : 'missing');
       });
       const accountSuggestion = plan.find(step => step.key === 'costAccount')?.suggest || null;
-      const draftVat = nr ? null : { verified: parsed.vatVerified, mismatch: parsed.vatMismatch, vatAmount: parsed.vatAmount, amountVerified: parsed.amountVerified };
+      const draftVat = nr ? null : { verified: parsed.vatVerified, mismatch: parsed.vatMismatch, vatAmount: parsed.vatAmount, amountVerified: parsed.amountVerified, rates: parsed.vatRates, creditNote: parsed.creditNote };
       const draftFx = foreignInfo ? {
         code: foreignInfo.code,
         amount: amountToInput(foreignInfo.amount),
@@ -422,6 +433,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
         fx: draftFx,
         notReceipt: nr,
         unreadable: Boolean(parsed.unreadable),
+        photoHint: hint,
         ocrVat: draftVat,
       });
 
@@ -455,7 +467,8 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
         }
         setNotReceipt(nr);
         setUnreadable(Boolean(parsed.unreadable));
-        setOcrVat(nr ? null : { verified: parsed.vatVerified, mismatch: parsed.vatMismatch, vatAmount: parsed.vatAmount, amountVerified: parsed.amountVerified });
+        setPhotoHint(hint);
+        setOcrVat(nr ? null : { verified: parsed.vatVerified, mismatch: parsed.vatMismatch, vatAmount: parsed.vatAmount, amountVerified: parsed.amountVerified, rates: parsed.vatRates, creditNote: parsed.creditNote });
         setFlashKey(null);
         setRevealing(false);
       }, 250 + plan.length * REVEAL_STEP_MS + 150));
@@ -469,15 +482,18 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
   }, [readOnly]);
 
   const hasReceiptFile = Boolean(receipt.receiptUrl);
-  // Ett kvitto räknas som nytt/obehandlat om varken leverantör, belopp eller konto fyllts i än
-  const isUnprocessed = !receipt.supplier && (!receipt.amount || Number(receipt.amount) === 0) && !receipt.costAccount;
-  
-  useEffect(() => {
-    if (hasReceiptFile && isUnprocessed && !readOnly && !currentDraft) {
-      runOcr(receipt.receiptUrl);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+
+  // Avläsningen startar INTE av sig själv när kvittot öppnas. Användaren
+  // bestämmer: fyll i själv, eller tryck på Läs av. Att öppna ett kvitto och
+  // direkt se fält fyllas i av en maskin är inte det man bad om, och en
+  // avläsning som körde om varje gång man öppnade kvittot skrev över det man
+  // redan rättat. Kundönskemål, uttryckligt: "det ska inte skanna av sig
+  // själv, det ska finnas en knapp".
+  //
+  // Ett redan sparat utkast (ocrDraft) visas däremot direkt — det är resultatet
+  // av en avläsning användaren själv startade tidigare, inte en ny.
+  const canScan = hasReceiptFile && !readOnly;
+  const hasScanned = Boolean(currentDraft) || Object.keys(revealed).length > 0 || ocrStatus !== 'idle';
 
   useEffect(() => {
     const handleEsc = (e) => { if (e.key === 'Escape') onClose(); };
@@ -625,8 +641,9 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
               </p>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-              {/* OCR-knapp: kör om manuellt, bara när det finns en fil */}
-              {!readOnly && hasReceiptFile && (
+              {/* Läs av igen. Den första avläsningen startas från kortet i
+                  formuläret nedan, så knapparna inte säger samma sak två gånger. */}
+              {canScan && hasScanned && (
                 <button
                   type="button"
                   title={ocrStatus === 'scanning' ? (ocrMessage || 'Läser…') : 'Läs av kvittot automatiskt med OCR'}
@@ -655,6 +672,21 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
           </div>
 
           <div className={`rc-form-body${ocrStatus === 'scanning' ? ' rc-scanning' : ''}`}>
+            {/* Erbjudandet om avläsning, en gång, innan den körts. Kvittot läses
+                inte av förrän man trycker här: den som hellre skriver in tre
+                fält själv ska slippa vänta på en maskin. */}
+            {canScan && !hasScanned && (
+              <div className="rc-scan-offer">
+                <div className="rc-scan-offer-text">
+                  <strong>Läs av kvittot åt mig</strong>
+                  <span>Belopp, moms, datum och leverantör fylls i automatiskt. Du granskar innan det bokförs.</span>
+                </div>
+                <button type="button" className="rc-scan-offer-btn" onClick={() => runOcr(receipt.receiptUrl, { force: true })}>
+                  <ScanLine size={15} />
+                  Läs av kvittot
+                </button>
+              </div>
+            )}
             {!readOnly && (ocrStatus === 'scanning' || revealing || Object.keys(revealed).length > 0) && (
               <OcrChecklist scanning={ocrStatus === 'scanning'} revealed={revealed} />
             )}
@@ -669,10 +701,19 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
               <div className="rc-verify rc-verify-warn">
                 <AlertCircle size={14} style={{ flexShrink: 0 }} />
                 {unreadable ? (
-                  <span>Bilden gick inte att läsa av, så inget har fyllts i. Ta om fotot — närmre, rakare och med bättre ljus — eller läs av igen när du har en tydligare bild.</span>
+                  <span>Bilden gick inte att läsa av, så inget har fyllts i. {photoHintText(photoHint) || 'Ta om fotot — närmre, rakare och med bättre ljus — eller läs av igen när du har en tydligare bild.'}</span>
                 ) : (
                   <span>Det här ser inte ut som ett kvitto eller en faktura, så inget har fyllts i. Fyll i uppgifterna själv, eller ta bort filen om den hamnade här av misstag.</span>
                 )}
+              </div>
+            )}
+            {/* Bilden var det som satte gränsen: säg vad som är fel med den och
+                vad som ger en bättre avläsning nästa gång. Visas bara när något
+                fält faktiskt blev osäkert, aldrig på en avläsning som gick bra. */}
+            {!readOnly && !revealing && !notReceipt && photoHint && (
+              <div className="rc-verify rc-verify-warn">
+                <AlertCircle size={14} style={{ flexShrink: 0 }} />
+                <span>{photoHintText(photoHint)} Läs av igen med den nya bilden — eller fyll i fälten själv från kvittot.</span>
               </div>
             )}
             {!readOnly && !revealing && ocrVat && ocrVat.amountVerified && !ocrVat.verified && (
@@ -684,6 +725,25 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
 
             {/* Momskontrollen mot beloppen på kvittot. Verifierad bara när
                 momsbeloppet på kvittot faktiskt stämmer mot vald sats. */}
+            {/* Ett returkvitto ser ut som ett vanligt kvitto men går åt andra
+                hållet. Bokförs det som en kostnad blir både kostnaden och
+                momsen fel, så det sägs rakt ut. */}
+            {!readOnly && !revealing && ocrVat && ocrVat.creditNote && (
+              <div className="rc-verify rc-verify-warn">
+                <AlertCircle size={14} style={{ flexShrink: 0 }} />
+                <span>Det här ser ut som en retur eller en kreditnota — pengar tillbaka, inte en kostnad. Bokför den som en rättelse av det ursprungliga köpet (en verifikation med beloppen åt andra hållet), inte som ett vanligt kvitto.</span>
+              </div>
+            )}
+            {/* Kvittot har moms i flera satser (mat 12 % och hushåll 25 % i
+                samma matbutik). Momsen är avläst och går ihop — den går bara
+                inte att uttrycka som EN sats, och då ska det stå, inte döljas
+                bakom en procentsats som blir fel. */}
+            {!readOnly && !revealing && ocrVat && ocrVat.rates && (
+              <div className="rc-verify rc-verify-warn">
+                <AlertCircle size={14} style={{ flexShrink: 0 }} />
+                <span>Kvittot har moms i flera satser ({ocrVat.rates.map(r => `${r} %`).join(' och ')}), tillsammans {formatSEK2(ocrVat.vatAmount)}. Bokförs hela beloppet med en enda sats blir momsen fel. Välj den sats som gäller det mesta av köpet och rätta momsen efteråt, eller bokför kvittot som en verifikation med en rad per sats.</span>
+              </div>
+            )}
             {!readOnly && !revealing && ocrVat && ocrVat.verified && (
               <div className="rc-verify rc-verify-ok">
                 <CheckCircle2 size={14} style={{ flexShrink: 0 }} />
@@ -693,7 +753,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
             {!readOnly && !revealing && ocrVat && ocrVat.mismatch && (
               <div className="rc-verify rc-verify-warn">
                 <AlertCircle size={14} style={{ flexShrink: 0 }} />
-                <span>Momsbeloppet på kvittot ({formatSEK2(ocrVat.vatAmount)}) stämmer inte mot någon momssats för det beloppet. Kontrollera belopp och moms mot kvittot.</span>
+                <span>Kvittot säger {formatSEK2(ocrVat.vatAmount)} i moms, men det går inte ihop med beloppet {hasAmount ? formatSEK2(grossAmount) : '(tomt)'} och någon svensk momssats. Ett av de två är felläst — kontrollera båda mot kvittot. Rätta du beloppet följer momsen med.</span>
               </div>
             )}
 

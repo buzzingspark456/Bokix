@@ -20,7 +20,7 @@ import { readDocumentText } from '../utils/ocrCache';
 import { historyFromVerifications } from '../utils/receiptHistory';
 import { decidePayAccount } from '../utils/payAccountChoice';
 import { missingReverseChargeRows, withReverseChargeRows } from '../utils/reverseCharge';
-import { ScanOverlay, OcrChecklist, OCR_ITEMS, MIN_SCAN_MS, REVEAL_STEP_MS, CACHED_SCAN_MS } from './shared/ScanExperience';
+import { ScanOverlay, OcrChecklist, OCR_ITEMS, photoHintText, MIN_SCAN_MS, REVEAL_STEP_MS, CACHED_SCAN_MS } from './shared/ScanExperience';
 import { convertToSek } from '../utils/currencyConversion';
 import { getNextNumber as getNextNumberForSeries } from '../utils/verificationNumbering';
 import AccountsPanel from './shared/AccountsPanel';
@@ -234,6 +234,9 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
   // av" (för suddigt/utzoomat/mörkt) — samma distinktion som kvittovyn, se
   // isUnreadableText/classifyDocument i ocrReceipt.js.
   const [unreadable, setUnreadable] = useState(false);
+  // Rådet om fotot ('blurry' | 'dark' | 'far'), satt bara när bilden stod i
+  // vägen för avläsningen. Samma regel som i kvittovyn (Expenses.jsx).
+  const [photoHint, setPhotoHint] = useState(null);
   const [ocrVat, setOcrVat] = useState(null);
   const timersRef = useRef([]);
   useEffect(() => () => { timersRef.current.forEach(clearTimeout); }, []);
@@ -257,16 +260,20 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
     setOcrForeignCurrency(null);
     setNotReceipt(false);
     setUnreadable(false);
+    setPhotoHint(null);
     setOcrVat(null);
     setPayInfo(null);
     setForeignInfo(null);
     setRevealing(false);
     setRevealed({});
     try {
-      const { text, confidence, cached } = await readDocumentText(input, msg => { if (isCurrent()) setOcrMessage(msg); }, { force });
+      const { text, confidence, quality, cached } = await readDocumentText(input, msg => { if (isCurrent()) setOcrMessage(msg); }, { force });
       if (!isCurrent()) return; // en nyare körning har redan tagit över
       const parsed = parseReceiptText(text, { confidence });
       const nr = Boolean(parsed.notReceipt);
+      // Rådet om fotot visas bara när avläsningen inte blev bra.
+      const hint = (quality?.advice && (nr || !parsed.amount || parsed.amountGuessed || parsed.vatMismatch))
+        ? quality.advice : null;
 
       // Utländsk valuta — räkna om till kronor med DAGSKURSEN FÖR
       // KÖPDATUMET (Skatteverkets rekommendation) innan raderna byggs.
@@ -376,10 +383,11 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
         if (foreignInfo) setOcrForeignCurrency(foreignInfo);
         setNotReceipt(nr);
         setUnreadable(Boolean(parsed.unreadable));
+        setPhotoHint(hint);
         setForeignInfo(nr ? null : (parsed.reverseCharge
           ? { region: parsed.reverseCharge.region, evidence: parsed.reverseCharge.evidence }
           : (parsed.reverseChargeUnclear ? { unclear: true } : null)));
-        setOcrVat(nr ? null : { verified: parsed.vatVerified, mismatch: parsed.vatMismatch, vatAmount: parsed.vatAmount, amountVerified: parsed.amountVerified });
+        setOcrVat(nr ? null : { verified: parsed.vatVerified, mismatch: parsed.vatMismatch, vatAmount: parsed.vatAmount, amountVerified: parsed.amountVerified, rates: parsed.vatRates, creditNote: parsed.creditNote });
         setRevealing(false);
       }, 250 + plan.length * REVEAL_STEP_MS + 150));
     } catch (err) {
@@ -390,12 +398,6 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
       setRevealing(false);
     }
   }, [accounts]);
-
-  // Ett formulär räknas som orört om ingen beskrivning och inga rader är
-  // ifyllda ännu — bara då fylls raderna i automatiskt vid uppladdning.
-  // Redan påbörjad kontering ska aldrig skrivas över utan att användaren
-  // bett om det (via "Läs av igen"-knappen).
-  const isPristineForm = () => !desc.trim() && rows.every(r => !r.account && !r.debet && !r.kredit && !(r.desc && r.desc.trim()));
 
   // Ett underlag ska faktiskt kunna ses, inte bara visas som ett filnamn —
   // skapa en object-URL för förhandsvisning och städa upp den när den byts ut.
@@ -426,14 +428,12 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
     }
     setFileError('');
     setAttachment(file);
-    // Automatisk avläsning bara på ett orört formulär (se isPristineForm) —
-    // byter man ut underlaget på en redan ifylld verifikation ska det INTE
-    // skriva över konteringen i tysthet.
-    if (isPristineForm()) runOcr(file);
+    // Ingen avläsning här: att lägga till ett underlag är att lägga till ett
+    // underlag, inte att be om en kontering. Användaren trycker Läs av när
+    // den vill ha hjälp med den. Samma regel som i kvittovyn (Expenses.jsx).
   };
 
-  // Kör om avläsningen manuellt, oavsett formulärets skick — en medveten
-  // handling, till skillnad från den tysta auto-körningen ovan.
+  // Avläsningen körs bara härifrån: ett medvetet tryck på Läs av.
   const rerunOcr = () => {
     const src = attachment || existingAttachment?.url;
     if (src) runOcr(src, { force: true });
@@ -821,14 +821,12 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
                 <th style={{ padding: '0 8px 8px', textAlign: 'left', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border)' }}>BESKRIVNING</th>
                 <th style={{ padding: '0 8px 8px', textAlign: 'right', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border)', width: 110 }} title="Här ökar tillgångar och kostnader. Pengar in på banken och inköp bokas till exempel som debet.">DEBET</th>
                 <th style={{ padding: '0 8px 8px', textAlign: 'right', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border)', width: 110 }} title="Här ökar skulder, eget kapital och intäkter. Pengar ut från banken och försäljning bokas till exempel som kredit.">KREDIT</th>
-                <th style={{ padding: '0 8px 8px', textAlign: 'right', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border)', width: 120 }}>
-                  SALDO
-                  {/* Utan den här raden trodde kunden att beloppet var själva
-                      radens/verifikationens belopp — det är kontots HELA
-                      historiska saldo före/efter denna rad. Stod tidigare
-                      bara i en hover-title, som aldrig syns på mobil/touch. */}
-                  <div style={{ fontWeight: 500, letterSpacing: 'normal', textTransform: 'none', fontSize: '9.5px', color: 'var(--text-muted)', marginTop: '1px' }}>hela kontot</div>
-                </th>
+                {/* Ingen SALDO-kolumn. Kontots hela saldo stod tidigare här,
+                    i en sifferkolumn intill Debet och Kredit, och lästes
+                    därför som radens eget belopp — först trodde en kund att
+                    det var verifikationens belopp, och underrubriken "hela
+                    kontot" räckte inte. Saldot hör till KONTOT, inte till
+                    raden, och står nu under kontonamnet i första kolumnen. */}
                 <th style={{ width: 52, borderBottom: '1px solid var(--border)' }} />
               </tr>
             </thead>
@@ -853,6 +851,13 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
                     {row.account && ((parseFloat(row.debet) || 0) > 0 || (parseFloat(row.kredit) || 0) > 0) && (
                       <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px', lineHeight: 1.35 }}>
                         {describeRow({ account: row.account, accountName: row.accountName, debet: parseFloat(row.debet) || 0, kredit: parseFloat(row.kredit) || 0 }, accounts).text}
+                        {/* Vad bokningen gör med KONTOTS saldo. Här, under
+                            kontot, går det inte att läsa som radens belopp. */}
+                        {projectedBalance !== null && (
+                          <div style={{ marginTop: '1px' }}>
+                            Kontots saldo {fmt(currentBalance)} kr → <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>{fmt(projectedBalance)} kr</span>
+                          </div>
+                        )}
                       </div>
                     )}
                   </td>
@@ -884,16 +889,6 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
                       placeholder="0,00"
                     />
                   </td>
-                  <td className="ver-adv-saldo" data-label="Saldo på hela kontot" style={{ padding: '6px 8px', textAlign: 'right' }} title="Kontots hela bokförda saldo — inte bara den här raden — före och efter att raden bokförs">
-                    {projectedBalance !== null ? (
-                      <div style={{ lineHeight: 1.4 }}>
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{fmt(currentBalance)} kr idag</div>
-                        <div style={{ fontSize: '13px', color: 'var(--text-main)', fontWeight: 600, whiteSpace: 'nowrap' }}>→ {fmt(projectedBalance)} kr</div>
-                      </div>
-                    ) : (
-                      <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>–</span>
-                    )}
-                  </td>
                   <td className="ver-adv-actions" style={{ padding: '6px 4px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                     {warning && (
                       <span title={warning} style={{ display: 'inline-flex', color: 'var(--status-amber-text)', cursor: 'help', marginRight: '4px' }}>
@@ -912,7 +907,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
                 </tr>
                 {overrideOpen && (
                   <tr>
-                    <td colSpan={6} style={{ padding: '2px 8px 12px', background: 'var(--bg-muted)' }}>
+                    <td colSpan={5} style={{ padding: '2px 8px 12px', background: 'var(--bg-muted)' }}>
                       <div style={{ display: 'flex', gap: '10px', paddingTop: '8px' }}>
                         <div style={{ flex: 1 }}>
                           <label style={{ ...fieldLabel, marginBottom: '3px' }}>Kostnadsställe (denna rad)</label>
@@ -939,10 +934,10 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
                 <td colSpan={2} style={{ padding: '12px 8px', fontWeight: 700, fontSize: '13px', color: 'var(--text-main)' }}>Summa</td>
                 <td style={{ padding: '12px 8px', textAlign: 'right', fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: hasAmounts && !isBalanced ? 'var(--status-red-text)' : 'var(--text-main)' }}>{fmt(totalDebit)}</td>
                 <td style={{ padding: '12px 8px', textAlign: 'right', fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: hasAmounts && !isBalanced ? 'var(--status-red-text)' : 'var(--text-main)' }}>{fmt(totalCredit)}</td>
-                <td colSpan={2} />
+                <td colSpan={1} />
               </tr>
               <tr>
-                <td colSpan={6} style={{ padding: '0 8px 10px' }}>
+                <td colSpan={5} style={{ padding: '0 8px 10px' }}>
                   {hasAmounts && !isBalanced ? (
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: 'var(--status-red-text)', background: 'var(--status-red-bg)', borderRadius: '999px', padding: '4px 12px' }}>
                       <AlertCircle size={13} /> Debet och kredit skiljer sig med {fmt(diff)} kr — {totalDebit > totalCredit ? 'lägg till kredit' : 'lägg till debet'} för att kunna bokföra
@@ -1041,7 +1036,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
                 </div>
                 <div className="ver-doc-actions">
                   <button type="button" className="ver-doc-btn" disabled={ocrStatus === 'scanning'} onClick={rerunOcr} style={ocrStatus === 'scanning' ? { cursor: 'not-allowed', opacity: 0.6 } : undefined}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><ScanLine size={12} style={{ animation: ocrStatus === 'scanning' ? 'spin 1s linear infinite' : 'none' }} /> {ocrStatus === 'scanning' ? 'Läser…' : 'Läs av igen'}</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><ScanLine size={12} style={{ animation: ocrStatus === 'scanning' ? 'spin 1s linear infinite' : 'none' }} /> {ocrStatus === 'scanning' ? 'Läser…' : (Object.keys(revealed).length > 0 ? 'Läs av igen' : 'Läs av underlaget')}</span>
                   </button>
                   <button type="button" className="ver-doc-btn" onClick={() => setShowAttachmentLightbox(true)}>Visa i fullstorlek</button>
                   <button type="button" className="ver-doc-btn" onClick={() => fileInputRef.current?.click()}>Byt fil</button>
@@ -1054,16 +1049,39 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
                   <div className="rc-verify rc-verify-warn">
                     <AlertCircle size={14} style={{ flexShrink: 0 }} />
                     {unreadable ? (
-                      <span>Bilden gick inte att läsa av, så inget har fyllts i. Ta om fotot — närmre, rakare och med bättre ljus — eller läs av igen när du har en tydligare bild.</span>
+                      <span>Bilden gick inte att läsa av, så inget har fyllts i. {photoHintText(photoHint) || 'Ta om fotot — närmre, rakare och med bättre ljus — eller läs av igen när du har en tydligare bild.'}</span>
                     ) : (
                       <span>Det här ser inte ut som ett kvitto eller en faktura, så inget har fyllts i. Fyll i verifikationen själv, eller byt fil.</span>
                     )}
+                  </div>
+                )}
+                {/* Bilden satte gränsen för avläsningen: säg vad som är fel med
+                    den. Visas bara när ett fält faktiskt blev osäkert. */}
+                {!revealing && !notReceipt && photoHint && (
+                  <div className="rc-verify rc-verify-warn">
+                    <AlertCircle size={14} style={{ flexShrink: 0 }} />
+                    <span>{photoHintText(photoHint)} Läs av igen med den nya bilden — eller fyll i raderna själv från underlaget.</span>
                   </div>
                 )}
                 {!revealing && ocrVat && ocrVat.amountVerified && !ocrVat.verified && (
                   <div className="rc-verify rc-verify-ok">
                     <CheckCircle2 size={14} style={{ flexShrink: 0 }} />
                     <span>Beloppet stämmer: netto plus moms på fakturan blir totalbeloppet.</span>
+                  </div>
+                )}
+                {/* Retur eller kreditnota: pengarna går åt andra hållet. */}
+                {!revealing && ocrVat && ocrVat.creditNote && (
+                  <div className="rc-verify rc-verify-warn">
+                    <AlertCircle size={14} style={{ flexShrink: 0 }} />
+                    <span>Underlaget ser ut som en retur eller en kreditnota — pengar tillbaka. Vänd debet och kredit mot hur det ursprungliga köpet bokfördes.</span>
+                  </div>
+                )}
+                {/* Flera momssatser på samma underlag: momsen är avläst men är
+                    inte EN sats. Här går det att lösa — en rad per sats. */}
+                {!revealing && ocrVat && ocrVat.rates && (
+                  <div className="rc-verify rc-verify-warn">
+                    <AlertCircle size={14} style={{ flexShrink: 0 }} />
+                    <span>Underlaget har moms i flera satser ({ocrVat.rates.map(r => `${r} %`).join(' och ')}), tillsammans {fmt(ocrVat.vatAmount)} kr. Lägg en rad per momssats i konteringen nedan så blir momsen rätt.</span>
                   </div>
                 )}
                 {!revealing && ocrVat && ocrVat.verified && (

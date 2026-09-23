@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="sv">
+<head><meta charset="utf-8"><title>Förhandsvisning</title>
+<!-- Snabb förhandsvisning av enstaka delar ur appen med appens riktiga CSS.
+     För att titta på en ny ruta utan att logga in i hela appen.
+     Kör:  npx vite --port 5199   och öppna /scripts/ui-preview.html -->
+<link rel="stylesheet" href="/src/index.css">
+<style>
+  body { padding: 24px; background: var(--bg-page, #fff); font-family: inherit; }
+  .wrap { max-width: 860px; } .narrow { max-width: 380px; margin-top: 8px; }
+  h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); margin: 28px 0 10px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h3>Erbjudandet om avläsning (kvittovyn)</h3>
+  <div class="rc-scan-offer">
+    <div class="rc-scan-offer-text">
+      <strong>Läs av kvittot åt mig</strong>
+      <span>Belopp, moms, datum och leverantör fylls i automatiskt. Du granskar innan det bokförs.</span>
+    </div>
+    <button type="button" class="rc-scan-offer-btn">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M3 12h18"/></svg>
+      Läs av kvittot
+    </button>
+  </div>
+
+  <h3>Samma kort i en smal kolumn (380 px)</h3>
+  <div class="narrow">
+    <div class="rc-scan-offer">
+      <div class="rc-scan-offer-text"><strong>Läs av kvittot åt mig</strong><span>Belopp, moms, datum och leverantör fylls i automatiskt. Du granskar innan det bokförs.</span></div>
+      <button type="button" class="rc-scan-offer-btn">Läs av kvittot</button>
+    </div>
+  </div>
+
+  <h3>Verifikationsrader utan saldokolumn</h3>
+  <table class="ver-adv-table" style="width:100%;min-width:620px;border-collapse:collapse;font-size:13px">
+    <thead>
+      <tr>
+        <th style="padding:0 8px 8px;text-align:left;font-weight:700;font-size:11px;letter-spacing:0.03em;color:var(--text-secondary);border-bottom:1px solid var(--border);width:220px">KONTO</th>
+        <th style="padding:0 8px 8px;text-align:left;font-weight:700;font-size:11px;letter-spacing:0.03em;color:var(--text-secondary);border-bottom:1px solid var(--border)">BESKRIVNING</th>
+        <th style="padding:0 8px 8px;text-align:right;font-weight:700;font-size:11px;letter-spacing:0.03em;color:var(--text-secondary);border-bottom:1px solid var(--border);width:110px">DEBET</th>
+        <th style="padding:0 8px 8px;text-align:right;font-weight:700;font-size:11px;letter-spacing:0.03em;color:var(--text-secondary);border-bottom:1px solid var(--border);width:110px">KREDIT</th>
+        <th style="width:52px;border-bottom:1px solid var(--border)"></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="ver-adv-row" style="border-bottom:1px solid var(--border-light)">
+        <td class="ver-adv-account" data-label="Konto" style="padding:6px 8px 6px 0">
+          <div style="padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-muted)">5410 Förbrukningsmaterial</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:3px;line-height:1.35">
+            Kostnaden ökar
+            <div style="margin-top:1px">Kontots saldo 3 200,00 kr → <span style="color:var(--text-secondary);font-weight:600">3 294,11 kr</span></div>
+          </div>
+        </td>
+        <td class="ver-adv-desc" data-label="Beskrivning" style="padding:6px 8px">
+          <div style="padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-muted);color:var(--text-muted)">Kvitto ICA</div>
+        </td>
+        <td class="ver-adv-debet" data-label="Debet" style="padding:6px 8px">
+          <div style="padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-muted);text-align:right">94,11</div>
+        </td>
+        <td class="ver-adv-kredit" data-label="Kredit" style="padding:6px 8px">
+          <div style="padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-muted);text-align:right">0,00</div>
+        </td>
+        <td class="ver-adv-actions" style="padding:6px 4px;text-align:right;color:var(--text-muted)">⋯</td>
+      </tr>
+      <tr class="ver-adv-row" style="border-bottom:1px solid var(--border-light)">
+        <td class="ver-adv-account" data-label="Konto" style="padding:6px 8px 6px 0">
+          <div style="padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-muted)">1930 Företagskonto</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:3px;line-height:1.35">
+            Pengar ut från banken
+            <div style="margin-top:1px">Kontots saldo 12 400,00 kr → <span style="color:var(--text-secondary);font-weight:600">12 294,40 kr</span></div>
+          </div>
+        </td>
+        <td class="ver-adv-desc" data-label="Beskrivning" style="padding:6px 8px">
+          <div style="padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-muted);color:var(--text-muted)">Kvitto ICA</div>
+        </td>
+        <td class="ver-adv-debet" data-label="Debet" style="padding:6px 8px">
+          <div style="padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-muted);text-align:right">0,00</div>
+        </td>
+        <td class="ver-adv-kredit" data-label="Kredit" style="padding:6px 8px">
+          <div style="padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-muted);text-align:right">105,40</div>
+        </td>
+        <td class="ver-adv-actions" style="padding:6px 4px;text-align:right;color:var(--text-muted)">⋯</td>
+      </tr>
+    </tbody>
+    <tfoot>
+      <tr class="ver-adv-sum" style="border-top:1px solid var(--border)">
+        <td colspan="2" style="padding:12px 8px;font-weight:700;font-size:13px;color:var(--text-main)">Summa</td>
+        <td style="padding:12px 8px;text-align:right;font-weight:700">105,40</td>
+        <td style="padding:12px 8px;text-align:right;font-weight:700">105,40</td>
+        <td colspan="1"></td>
+      </tr>
+    </tfoot>
+  </table>
+</div>
+</body>
+</html>

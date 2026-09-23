@@ -6,7 +6,7 @@ import { toolBySlug } from './toolsConfig';
 import ToolShell, { ToolResultPanel, ToolNote } from './ToolShell';
 import { ocrFile, parseReceiptText } from '../../../utils/ocrReceipt';
 import { DEFAULT_ACCOUNTS } from '../../AccountsData';
-import { MIN_SCAN_MS, REVEAL_STEP_MS, SCAN_MESSAGES } from '../../shared/ScanExperience';
+import { MIN_SCAN_MS, REVEAL_STEP_MS, SCAN_MESSAGES, photoHintText } from '../../shared/ScanExperience';
 
 const tool = toolBySlug('skanna-kvitto');
 
@@ -148,7 +148,7 @@ export default function ScanReceiptPage() {
     }, 200);
     const msgTicker = setInterval(() => { if (runIdRef.current === runId) setMsgIdx(n => (n + 1) % SCAN_MESSAGES.length); }, 1100);
     try {
-      const { text, confidence } = await ocrFile(file, msg => {
+      const { text, confidence, quality } = await ocrFile(file, msg => {
         if (runIdRef.current !== runId) return;
         setMessage(msg);
         setBeamPct(p => Math.max(p, stagePctFor(msg)));
@@ -164,7 +164,11 @@ export default function ScanReceiptPage() {
       // kopia av gränsen här — se isUnreadableText/classifyDocument.
       const unreadable = Boolean(parsed.unreadable);
       const fields = buildFields(parsed, unreadable);
-      setResult({ fields, notReceipt: !unreadable && Boolean(parsed.notReceipt), unreadable });
+      // Rådet om fotot (suddigt, mörkt, för långt bort) visas bara när bilden
+      // faktiskt stod i vägen — samma regel som i appens kvittovy.
+      const photoHint = (quality?.advice && (parsed.notReceipt || !parsed.amount || parsed.amountGuessed || parsed.vatMismatch))
+        ? quality.advice : null;
+      setResult({ fields, notReceipt: !unreadable && Boolean(parsed.notReceipt), unreadable, photoHint });
       setStatus('done');
       fields.forEach((_, i) => {
         setTimeout(() => { if (runIdRef.current === runId) setRevealedCount(i + 1); }, 250 + i * REVEAL_STEP_MS);
@@ -280,10 +284,14 @@ export default function ScanReceiptPage() {
               </div>
               {revealedCount >= result.fields.length && (
                 <div style={{ marginTop: '16px' }}>
-                  {(result.notReceipt || result.unreadable) ? (
+                  {(result.notReceipt || result.unreadable || result.photoHint) ? (
                     <p style={{ margin: 0, fontSize: '13px', lineHeight: 1.6, color: '#fbbf24', display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
                       <AlertCircle size={15} style={{ flexShrink: 0, marginTop: 2 }} />
-                      <span>{result.unreadable ? 'Ingen text kunde läsas ur filen. Prova en skarpare bild eller en PDF.' : 'Det här ser inte ut som ett kvitto eller en faktura, så inget har fyllts i.'}</span>
+                      <span>{result.unreadable
+                        ? (photoHintText(result.photoHint) || 'Ingen text kunde läsas ur filen. Prova en skarpare bild eller en PDF.')
+                        : result.notReceipt
+                          ? 'Det här ser inte ut som ett kvitto eller en faktura, så inget har fyllts i.'
+                          : photoHintText(result.photoHint)}</span>
                     </p>
                   ) : (
                     <p style={{ margin: 0, fontSize: '12px', lineHeight: 1.6, color: 'rgba(255,255,255,0.5)' }}>

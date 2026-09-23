@@ -855,3 +855,203 @@ describe('kvittonummer på ett fotat kvitto', () => {
     expect(findReceiptNumberDetailed(['Kvitto', '0705667610', 'Ordernummer:', 'Kund Anna Andersson', '0705667610'])).toBeNull()
   })
 })
+
+import { totalFromVatAmount, photoAdvice } from './ocrReceipt.js';
+
+// Kvitton från butik skriver ofta hela kronor utan decimaler och utan "kr", och
+// momsen på en egen rad utan decimaler. Det gick tidigare sönder på värsta
+// möjliga sätt: totalraden syntes inte alls, och momsbeloppet på raden under
+// fylldes i som totalbelopp (24 kr blev 4,80 kr).
+describe('belopp i hela kronor utan decimaler', () => {
+  it('läser "TOTALT 24" och verifierar mot momsraden', () => {
+    const r = parseReceiptText(['DOLLARSTORE', 'Datum 2026-09-14', 'Skal 12', 'Penna 12', 'TOTALT 24', 'Moms 25% 4,80', 'Kort'].join('\n'))
+    expect(r.amount).toBe(24)
+    expect(r.amountVerified).toBe(true)
+    expect(r.vatRate).toBe(25)
+    expect(r.vatAmount).toBe(4.8)
+    expect(r.vatVerified).toBe(true)
+  })
+
+  it('läser moms utan decimaler: "Moms 25% 3" mot "Totalt 15"', () => {
+    const r = parseReceiptText(['Kiosken', '2026-09-14 14:02', 'Godis 15', 'Totalt 15', 'Moms 25% 3'].join('\n'))
+    expect(r.amount).toBe(15)
+    expect(r.vatAmount).toBe(3)
+    expect(r.vatVerified).toBe(true)
+    expect(r.vatRateGuessed).toBe(false)
+  })
+
+  it('ett kvitto utan en enda decimal är fortfarande ett kvitto', () => {
+    const r = parseReceiptText(['COOP', '2026-09-01', 'Bulle 15', 'SUMMA 15', 'MOMS 3', 'ORG NR 556123-4567'].join('\n'))
+    expect(r.notReceipt).toBe(false)
+    expect(r.amount).toBe(15)
+    expect(r.vatAmount).toBe(3)
+  })
+
+  it('kortnummer och antal artiklar är inte belopp', () => {
+    const r = parseReceiptText(['COOP', 'Kort XXXX XXXX 1234', 'Totalt antal artiklar 3', 'TOTALT 15', 'Moms 3'].join('\n'))
+    expect(r.amount).toBe(15)
+  })
+})
+
+describe('momsbeloppet på kvittot som facit för totalen', () => {
+  it('räknar fram totalen ur momsen när bara en svensk sats ger ett belopp i texten', () => {
+    expect(totalFromVatAmount(4.8, [12, 24, 4.8])).toEqual({ rate: 25, amount: 24 })
+    // Ingen av satserna ger ett belopp som finns i texten: ingen gissning.
+    expect(totalFromVatAmount(7, [30, 7])).toBeNull()
+  })
+
+  it('rättar en felläst totalrad mot momsen ("TOTALT 2h" blir 24)', () => {
+    const r = parseReceiptText(['KIOSK', '2026-09-14', 'Bulle 24,00', 'TOTALT 2h', 'Moms 25% 4,80'].join('\n'))
+    expect(r.amount).toBe(24)
+    expect(r.amountVerified).toBe(true)
+    expect(r.vatRate).toBe(25)
+  })
+
+  it('går momsen inte ihop med beloppet märks BÅDA som något att kontrollera', () => {
+    const r = parseReceiptText(['KIOSK', '2026-09-14', 'TOTALT 30,00', 'Moms 7,00'].join('\n'))
+    expect(r.amount).toBe(30)
+    expect(r.amountGuessed).toBe(true)
+    expect(r.vatMismatch).toBe(true)
+    expect(r.vatRateGuessed).toBe(true)
+    expect(r.vatVerified).toBe(false)
+  })
+
+  it('momsregistreringsnummer är inte ett momsbelopp', () => {
+    const r = parseReceiptText(['Firma AB', 'Momsreg.nr SE556123456701', 'Totalt 100,00', 'Moms 25% 20,00'].join('\n'))
+    expect(r.vatAmount).toBe(20)
+    expect(r.vatVerified).toBe(true)
+  })
+})
+
+describe('råd om fotot', () => {
+  it('mörkt och kontrastsvagt går före oskärpa', () => {
+    expect(photoAdvice({ sharpness: 2, contrast: 120, brightness: 40, cropRatio: 0.8, longEdge: 1500 })).toBe('dark')
+    expect(photoAdvice({ sharpness: 20, contrast: 20, brightness: 150, cropRatio: 0.8, longEdge: 1500 })).toBe('dark')
+  })
+  it('suddigt foto', () => {
+    expect(photoAdvice({ sharpness: 3, contrast: 130, brightness: 200, cropRatio: 0.8, longEdge: 1500 })).toBe('blurry')
+  })
+  it('kvittot litet i bilden OCH litet i pixlar', () => {
+    expect(photoAdvice({ sharpness: 25, contrast: 130, brightness: 200, cropRatio: 0.08, longEdge: 300 })).toBe('far')
+    // Litet i bilden men fortfarande stort i pixlar: inget att klaga på.
+    expect(photoAdvice({ sharpness: 25, contrast: 130, brightness: 200, cropRatio: 0.08, longEdge: 1600 })).toBeNull()
+  })
+  it('en bra bild får inget råd, och utan mätvärden sägs inget', () => {
+    expect(photoAdvice({ sharpness: 20, contrast: 140, brightness: 210, cropRatio: 0.9, longEdge: 1800 })).toBeNull()
+    expect(photoAdvice(null)).toBeNull()
+  })
+})
+
+// Två riktiga kvitton som användaren fotade 2026-09-23 och som blev fel i
+// appen. Texten här är formen kvittona faktiskt har (rätt avläst), så att
+// samma fel inte kan komma tillbaka.
+describe('riktiga butikskvitton', () => {
+  it('Jacks Import: MOMS 1 och TOTAL MOMS är samma tre kronor, inte sex', () => {
+    const r = parseReceiptText([
+      'JACKS IMPORT', '& VARUHUS', 'TELNR: 0910-373 75',
+      'KVITTO#855279 23/09/26 13:30', 'ORG.NR: 5563363893', '*KVITTO*',
+      '1x 15.00 *15.00 A', 'FOTORAM SV 13X18CM',
+      'SUMMA: *15.00',
+      'MOMSBRUTTO1 *15.00', 'MOMS 1 *3.00', 'TOTAL MOMS *3.00',
+      'POSTER 1Q', 'KONTANT *15.00',
+    ].join('\n'))
+    expect(r.amount).toBe(15)
+    expect(r.vatAmount).toBe(3)
+    expect(r.vatRate).toBe(25)
+    expect(r.vatVerified).toBe(true)
+    expect(r.vatMismatch).toBe(false)
+    expect(r.paymentMethod).toBe('cash')
+  })
+
+  it('Dollarstore: momstabellen utan procenttecken ger 6 % och 1,36 kr', () => {
+    const r = parseReceiptText([
+      'DOLLARSTORE', 'Dollarstore', 'Org nr: 556537-1662',
+      'Gymnasievagen 18', '931 57 SKELLEFTEA',
+      '219ks01 Tor', '2026-09-23 13:22', 'Kvitto 2190100884216',
+      'Produkt Ant SEK', 'Red Bull 250ml 1 St. 11,00', '(a 15,00)',
+      'Pant 1 St. 1,00', 'Red Bull 250ml 1 St. 11,00', 'Pant 1 St. 1,00',
+      'Totalt 4 24,00',
+      'Betalt', 'MASTERCARD 24,00', 'Swedbank Pay',
+      'Rabatt', '2 for 22', '8,00',
+      'Moms Belopp Netto Brutto',
+      '6,00 1,36 22,64 24,00',
+    ].join('\n'))
+    expect(r.amount).toBe(24)
+    expect(r.vatRate).toBe(6)
+    expect(r.vatAmount).toBe(1.36)
+    expect(r.vatVerified).toBe(true)
+    expect(r.paymentMethod).toBe('card')
+  })
+
+  it('en momstabell med flera satser summeras fortfarande', () => {
+    const r = parseReceiptText(['Butiken', 'Totalt 106,00', 'Moms 25% 20,00', 'Moms 6% 1,00'].join('\n'))
+    // 20,00 + 1,00 = 21,00, vilket inte är momsen på 106 kr med någon enskild
+    // sats: avvikelsen ska synas i stället för att en av raderna väljs ut.
+    expect(r.vatVerified).toBe(false)
+    expect(r.vatMismatch).toBe(true)
+  })
+
+  it('"TOTAL MOMS" är momsen, aldrig summan att betala', () => {
+    const r = parseReceiptText(['Butiken', 'SUMMA: 15.00', 'TOTAL MOMS 3.00'].join('\n'))
+    expect(r.amount).toBe(15)
+    expect(r.vatAmount).toBe(3)
+  })
+})
+
+describe('datum och konto på butikskvitton', () => {
+  it('läser tvåsiffrigt årtal med snedstreck hela vägen (23/09/26)', () => {
+    const r = parseReceiptText(['JACKS IMPORT', 'KVITTO#855279 23/09/26 13:30', 'SUMMA: 15.00', 'TOTAL MOMS 3.00'].join('\n'))
+    expect(r.date).toBe('2026-09-23')
+  })
+
+  it('butikens telefonnummer i sidhuvudet gör inte kvittot till en telefonkostnad', () => {
+    const r = parseReceiptText(['JACKS IMPORT', 'TELNR: 0910-373 75', 'FOTORAM SV 13X18CM', 'SUMMA: 15.00', 'TOTAL MOMS 3.00'].join('\n'))
+    expect(r.accountCode).toBe('6990')
+    expect(r.accountGuessed).toBe(true)
+  })
+
+  it('villkorstexten längst ned styr inte kontot', () => {
+    const r = parseReceiptText([
+      'DOLLARSTORE', 'Red Bull 250ml 11,00', 'Totalt 4 24,00', 'Moms Belopp Netto Brutto', '6,00 1,36 22,64 24,00',
+      'Inget byte eller öppet köp av livsmedel,', 'hygienartiklar, djurmat och underkläder.',
+    ].join('\n'))
+    expect(r.accountCode).toBe('6990')
+    expect(r.accountGuessed).toBe(true)
+  })
+})
+
+// Exakt den text Tesseract gav för Jacks-kvittot på ett telefonfoto: versalt M
+// blir N eller H, och kvittots stjärna framför beloppen blir ett dollartecken.
+describe('felläst text från ett riktigt telefonfoto', () => {
+  const jacks = [
+    'JACKS IMPORT', '& VARUHUS', 'TELNR: 0910-373 79',
+    'KVI1108855279 — 23/09/26 13:30', '01130556069 — OPERA0007 (0007)',
+    'ORG.NR: 5563753893', 'KVITTO:',
+    '1x 15.00 $15.00 A', 'FOTORAN SV 13X18CH',
+    'SUNMA: +15. 00', 'NONSBRUTTO1 415. 00', 'HONS. 1 43.00', 'TOTAL MONS «3. 00',
+    'POSTER 1Q', 'KONTANT 215. 00',
+  ].join('\n');
+
+  it('"TOTAL MONS" är fortfarande momsen, inte totalen', () => {
+    const r = parseReceiptText(jacks, { confidence: 66 })
+    expect(r.amount).toBe(15)
+    expect(r.vatAmount).toBe(3)
+    expect(r.vatRate).toBe(25)
+    expect(r.vatVerified).toBe(true)
+  })
+
+  it('ett ensamt dollartecken på ett svenskt kvitto är inte dollar', () => {
+    expect(parseReceiptText(jacks, { confidence: 66 }).currency).toBeNull()
+  })
+
+  it('men en uttrycklig valutakod gäller fortfarande', () => {
+    const r = parseReceiptText(['Cloud Inc', 'Invoice', 'Total: USD 25.00', 'VAT 0%'].join('\n'))
+    expect(r.currency).toBe('USD')
+  })
+
+  it('"Simonsson" och liknande namn blir inte momsrader', () => {
+    const r = parseReceiptText(['Simonsson Bygg AB', 'Totalt 125,00', 'Moms 25% 25,00'].join('\n'))
+    expect(r.vatAmount).toBe(25)
+    expect(r.amount).toBe(125)
+  })
+})

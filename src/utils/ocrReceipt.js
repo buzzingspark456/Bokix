@@ -69,7 +69,17 @@ function parseMoneyToken(raw) {
 // Belopp MED decimaler ("48,99", "1.234,56") — i praktiken aldrig ett
 // referens- eller ordernummer, så den här formen är alltid en säker
 // kandidat, på vilken rad som helst.
-const MONEY_DECIMAL_RE = /\d[\d\s]*[,.]\d{1,2}\b/g;
+// Mellanslag får bara vara tusentalsavgränsare, och då i grupper om exakt tre
+// siffror ("1 234,56"). Tidigare dög hur många siffror som helst runt
+// mellanslaget, och en kolumnsatt totalrad ("Totalt   4   24,00", där 4 är
+// antalet varor) lästes som fyrahundratjugofyra kronor.
+// Öretecknen får dessutom ha ETT mellanslag efter decimaltecknet, men bara när
+// exakt två siffror följer: OCR delar ofta "15.00" i "15. 00" och "12 500,00"
+// i "12 500, 00" på ett fotat kvitto. Ett ensamt decimaltal ("1,5 l") får
+// däremot inte delas, annars blir en uppräkning ("12, 50, 90") ett belopp.
+const MONEY_GROUPED = '(?:\\d{1,3}(?:[ \\u00A0]\\d{3})+|\\d+)';
+const MONEY_DECIMAL_SOURCE = `${MONEY_GROUPED}[,.]\\s?\\d{2}\\b|${MONEY_GROUPED}[,.]\\d\\b`;
+const MONEY_DECIMAL_RE = new RegExp(MONEY_DECIMAL_SOURCE, 'g');
 // Rena heltalsbelopp på minst 3 siffror, ev. tusentalsgrupperat ("5,000",
 // "5000") — krävs för valutor utan decimaler (yen, och ofta yuan på större
 // B2B-fakturor). Ett ensamt en/tvåsiffrigt heltal matchas medvetet INTE
@@ -79,14 +89,62 @@ const MONEY_WHOLE_RE = /\b\d{1,3}(?:[.,]\d{3})+\b|\b\d{3,6}\b/g;
 // starkt nyckelord (totalt/summa/att betala/…) — där är ett heltal en
 // säker kandidat också, till skillnad från fallback-sökningen nedan som
 // letar i HELA dokumentet utan någon sån kontext (se idLikeLine där).
-const MONEY_TOKEN_RE = /\d[\d\s]*[,.]\d{1,2}\b|\b\d{1,3}(?:[.,]\d{3})+\b|\b\d{3,6}\b/g;
+const MONEY_TOKEN_RE = new RegExp(`${MONEY_DECIMAL_SOURCE}|\\b\\d{1,3}(?:[.,]\\d{3})+\\b|\\b\\d{3,6}\\b`, 'g');
+
+// Rader där en siffra aldrig är ett belopp: kortnummer och terminalkoder
+// ("XXXX 1234", "AID 123456") och antalsrader ("Antal artiklar 3").
+const NOT_AMOUNT_LINE_RE = /\*{3,}|x{4,}|korttyp|terminal|\banbud\b|\bmid\b|\bptid\b|\baid\b|auth|\bantal\b|artiklar|\bitems\b|kvantitet/i;
+
+/**
+ * Plockar bort det som ser ut som ett belopp men inte är det, innan siffrorna
+ * på en rad läses: momssatsen ("25 %"), klockslag ("14:02"), datum och
+ * antalsuttryck ("2 st", "3 x"). Bara klockslag med kolon tas bort — "15.00"
+ * på ett svenskt kvitto är femton kronor, inte tre på eftermiddagen.
+ */
+function stripNonAmounts(line) {
+  return String(line)
+    .replace(/\d{1,2}(?:[.,]\d+)?\s*%/g, ' ')
+    .replace(/\b\d{1,2}:\d{2}(?::\d{2})?\b/g, ' ')
+    .replace(/\b(?:20|19)\d{2}[-/.]\d{1,2}[-/.]\d{1,2}\b|\b\d{1,2}[-/.]\d{1,2}[-/.](?:20|19)\d{2}\b/g, ' ')
+    .replace(/\b\d{1,3}\s*(?:st|stk|x|×)\b/gi, ' ');
+}
+
+/**
+ * Alla belopp på en rad som REDAN har beloppssammanhang (en totalrad, en
+ * nettorad eller en momsrad). Där är också ett litet heltal ett belopp:
+ * svenska butikskvitton skriver ofta "TOTALT 24" och "Moms 25% 3" utan både
+ * decimaler och kr. Utan det blev "TOTALT 24" osynligt (ett heltal måste ha
+ * minst tre siffror i MONEY_TOKEN_RE, som letar utan sammanhang) och
+ * fallback-sökningen plockade i stället momsbeloppet på raden under som
+ * totalbelopp: ett kvitto på 24 kr fylldes i som 4,80 kr. Ett litet heltal
+ * används bara när raden inte har något starkare belopp alls.
+ */
+function amountsOnLine(line) {
+  if (NOT_AMOUNT_LINE_RE.test(line)) return [];
+  const cleaned = stripNonAmounts(line);
+  const strong = cleaned.match(MONEY_TOKEN_RE);
+  const tokens = (strong && strong.length) ? strong : (cleaned.match(/\b\d{1,2}\b/g) || []);
+  return tokens.map(parseMoneyToken).filter(v => v !== null && v > 0);
+}
 
 /** Sista (störst rimliga) beloppet på en rad, tolkat med parseMoneyToken. */
 function lastAmountOnLine(line) {
-  const matches = line.match(MONEY_TOKEN_RE);
-  if (!matches) return null;
-  const parsed = matches.map(parseMoneyToken).filter(v => v !== null && v > 0);
+  const parsed = amountsOnLine(line);
   return parsed.length ? parsed[parsed.length - 1] : null;
+}
+
+/**
+ * Alla belopp i hela dokumentet — facit när ett enskilt belopp ska kontrolleras
+ * mot texten (se totalFromVatAmount). Rader med referens- eller ordernummer och
+ * rader med datum räknas inte.
+ */
+function allAmountsInText(lines) {
+  const out = [];
+  for (const line of lines || []) {
+    if (ID_LIKE_LINE_RE.test(line) || DATE_LIKE_LINE_RE.test(line)) continue;
+    for (const v of amountsOnLine(line)) if (v < 500000) out.push(v);
+  }
+  return out;
 }
 
 // Rader som ser ut att innehålla ett referens-, order- eller telefonnummer
@@ -276,35 +334,572 @@ function enhanceCanvasForOcr(canvas) {
   }
 }
 
+// Andra försöket läser av en större bild (och som ett enda textblock). Det
+// kostar tid, så det görs bara när det första försöket inte gav ett belopp att
+// lita på — se needsCarefulPass.
+const CAREFUL_OCR_DIMENSION = 2600;
+// Taket innan bilden ens ritas ut en första gång: en 12-megapixelbild som
+// canvas är ~50 MB, och en telefon har inte det att slösa med. 3000 räcker med
+// marginal — den största bild OCR läser är 2600 px på långsidan.
+const MAX_SOURCE_DIMENSION = 3000;
+// Text som blivit för liten går inte att förstora fram, men Tesseract läser
+// mätbart bättre när x-höjden är runt 20-30 px, så en INZOOMAD del av bilden
+// får skalas upp en bit. Mer än så är bara suddig text i större format.
+const MAX_UPSCALE = 2;
+
+/** Gråskalan för en canvas som Float32Array (0–255), i läsordning. */
+function grayscaleOf(canvas) {
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const n = canvas.width * canvas.height;
+  const gray = new Float32Array(n);
+  for (let i = 0, j = 0; j < n; i += 4, j++) gray[j] = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+  return gray;
+}
+
+/** En liten kopia av bilden i gråskala — allt grovarbete görs på den. */
+function smallGray(canvas, target = 240) {
+  const scale = Math.min(1, target / Math.max(canvas.width, canvas.height));
+  const w = Math.max(1, Math.round(canvas.width * scale));
+  const h = Math.max(1, Math.round(canvas.height * scale));
+  const small = document.createElement('canvas');
+  small.width = w;
+  small.height = h;
+  small.getContext('2d').drawImage(canvas, 0, 0, w, h);
+  return { gray: grayscaleOf(small), w, h };
+}
+
+/** Otsus tröskel: den gräns mellan mörkt och ljust som skiljer bäst. */
+function otsuThreshold(gray) {
+  const hist = new Uint32Array(256);
+  for (let i = 0; i < gray.length; i++) hist[Math.max(0, Math.min(255, Math.round(gray[i])))]++;
+  const total = gray.length;
+  let sum = 0;
+  for (let v = 0; v < 256; v++) sum += v * hist[v];
+  let sumB = 0; let wB = 0; let best = 0; let threshold = 128;
+  for (let v = 0; v < 256; v++) {
+    wB += hist[v];
+    if (wB === 0) continue;
+    const wF = total - wB;
+    if (wF === 0) break;
+    sumB += v * hist[v];
+    const between = (wB * wF) * ((sumB / wB) - ((sum - sumB) / wF)) ** 2;
+    if (between > best) { best = between; threshold = v; }
+  }
+  return threshold;
+}
+
+/** Längsta sammanhängande sträcka där andelen ljusa punkter når `frac`. */
+function longestRun(fractions, frac) {
+  let bestStart = -1; let bestLen = 0; let start = -1;
+  for (let i = 0; i <= fractions.length; i++) {
+    const on = i < fractions.length && fractions[i] >= frac;
+    if (on && start < 0) start = i;
+    if (!on && start >= 0) {
+      if (i - start > bestLen) { bestLen = i - start; bestStart = start; }
+      start = -1;
+    }
+  }
+  return bestLen > 0 ? { start: bestStart, end: bestStart + bestLen } : null;
+}
+
 /**
- * Förminskar en bild (Blob/File) eller canvas till max MAX_OCR_DIMENSION på
- * långsidan innan den går till Tesseract — no-op om den redan är mindre.
- * `imageOrientation: 'from-image'` läser av EXIF-rotationen på riktiga
- * kameraforton (annars ritas en stående bild ut liggande på canvasen).
- * Om createImageBitmap saknas (mycket gamla webbläsare) körs OCR på
- * originalet precis som innan — aldrig ett hårt fel för det här.
+ * Hittar kvittot i fotot: papperet är den ljusa ytan, bordet runt om är mörkare.
+ * Returnerar gränserna som andelar av bilden (0–1), eller null när det inte går
+ * att säga — då läses hela bilden som förut.
+ *
+ * Varför: ett kvitto som ligger på ett bord och fotas rakt ovanifrån fyller
+ * kanske en tredjedel av bilden. Hela bilden krymptes förut till 1800 px, så
+ * kvittot fick bara ~600 px och texten blev för liten för att läsa. Att först
+ * klippa ut kvittot och sedan använda hela upplösningen på DET är att zooma in
+ * åt användaren, som frågade efter: "om det är utzoomat, zooma själv".
+ *
+ * Säkerheten ligger i att en tveksam utklippning hoppas över: täcker den nästan
+ * hela bilden finns inget att vinna, är den för liten är det nog inte kvittot,
+ * och saknar ytan text (inga mörka punkter) är det bara ett tomt bord.
  */
-async function downscaleForOcr(imageSource) {
-  if (typeof createImageBitmap !== 'function' || typeof document === 'undefined') return imageSource;
+function documentBounds(canvas) {
+  const { gray, w, h } = smallGray(canvas);
+  if (w < 40 || h < 40) return null;
+  const t = otsuThreshold(gray);
+  const rows = new Float32Array(h);
+  const cols = new Float32Array(w);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (gray[y * w + x] > t) { rows[y] += 1 / w; cols[x] += 1 / h; }
+    }
+  }
+  // Gränsen sätts i förhållande till den ljusaste raden/kolumnen, inte till
+  // bildens bredd: ett smalt butikskvitto på ett stort bord täcker bara en
+  // fjärdedel av varje rad det ligger på, och en fast gräns (0,35 av bredden)
+  // missade då just de foton som behöver klippas mest.
+  const runThreshold = (profile) => Math.max(0.03, 0.4 * Math.max(...profile));
+  const rowRun = longestRun(rows, runThreshold(rows));
+  const colRun = longestRun(cols, runThreshold(cols));
+  if (!rowRun || !colRun) return null;
+  // Två procents marginal, så inte en bokstav vid kanten klipps bort.
+  const mx = Math.round(w * 0.02); const my = Math.round(h * 0.02);
+  const x0 = Math.max(0, colRun.start - mx); const x1 = Math.min(w, colRun.end + mx);
+  const y0 = Math.max(0, rowRun.start - my); const y1 = Math.min(h, rowRun.end + my);
+  const ratio = ((x1 - x0) * (y1 - y0)) / (w * h);
+  // Täcker ytan nästan hela bilden finns inget att vinna. Nedre gränsen är låg
+  // med flit: ett kvitto som bara är några procent av fotot är precis det fall
+  // som behöver klippas ut. Att det verkligen ÄR ett kvitto och inte en ljus
+  // fläck avgörs av textkontrollen nedan.
+  if (ratio > 0.92 || ratio < 0.03) return null;
+  // Finns det text i ytan? En ljus yta helt utan mörka punkter är ett tomt
+  // bord eller en vägg, inte ett kvitto.
+  let dark = 0; let inside = 0;
+  for (let y = y0; y < y1; y++) {
+    for (let x = x0; x < x1; x++) { inside++; if (gray[y * w + x] < t) dark++; }
+  }
+  if (inside === 0 || dark / inside < 0.02) return null;
+  return { x0: x0 / w, y0: y0 / h, x1: x1 / w, y1: y1 / h, ratio };
+}
+
+// ── Kvittots form: hitta hörnen och räta ut papperet ─────────────────────
+// Ett fotat kvitto ligger snett, med bordet runt omkring och ofta i keystone
+// (bredare nedtill än upptill, för att telefonen hölls på lutning). Att bara
+// klippa ut en rektangel runt det tar med bordet i hörnen och lämnar texten
+// lutande — Tesseract läser rader, och en lutande rad är svårare än en rak.
+//
+// Det här hittar papperets FYRA HÖRN och räknar om bilden så att kvittot blir
+// en rak rektangel som fyller hela bilden: bakgrunden försvinner helt, texten
+// blir vågrät och hela upplösningen går åt till kvittot. Det är samma sak som
+// skannerappar gör, och det användaren bad om ("ta formen av kvittot").
+
+/** Största sammanhängande ljusa ytan i masken, som en lista med punkter. */
+function largestBrightComponent(gray, w, h, threshold) {
+  const seen = new Uint8Array(w * h);
+  const stack = new Int32Array(w * h);
+  let best = null;
+  for (let start = 0; start < w * h; start++) {
+    if (seen[start] || gray[start] <= threshold) continue;
+    let top = 0;
+    stack[top++] = start;
+    seen[start] = 1;
+    const points = [];
+    while (top > 0) {
+      const i = stack[--top];
+      points.push(i);
+      const x = i % w; const y = (i / w) | 0;
+      if (x > 0 && !seen[i - 1] && gray[i - 1] > threshold) { seen[i - 1] = 1; stack[top++] = i - 1; }
+      if (x < w - 1 && !seen[i + 1] && gray[i + 1] > threshold) { seen[i + 1] = 1; stack[top++] = i + 1; }
+      if (y > 0 && !seen[i - w] && gray[i - w] > threshold) { seen[i - w] = 1; stack[top++] = i - w; }
+      if (y < h - 1 && !seen[i + w] && gray[i + w] > threshold) { seen[i + w] = 1; stack[top++] = i + w; }
+    }
+    if (!best || points.length > best.length) best = points;
+  }
+  return best;
+}
+
+const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+/** Ytan av en fyrhörning (skolformeln), alltid positiv. */
+function quadArea(q) {
+  let sum = 0;
+  for (let i = 0; i < 4; i++) {
+    const a = q[i]; const b = q[(i + 1) % 4];
+    sum += a.x * b.y - b.x * a.y;
+  }
+  return Math.abs(sum) / 2;
+}
+
+/**
+ * Kvittots fyra hörn i bilden, som andelar (0–1), i ordningen övre vänstra,
+ * övre högra, nedre högra, nedre vänstra — eller null när formen inte
+ * övertygar. Hörnen hittas som ytterpunkterna i x+y och x−y, vilket ger rätt
+ * svar för en fyrhörning oavsett hur den är vriden.
+ *
+ * Kraven finns för att en tveksam form aldrig ska klippas: ytan ska vara stor
+ * nog att vara kvittot men inte hela bilden, den ljusa ytan ska FYLLA sin
+ * fyrhörning (annars är det två saker på bordet, eller en skugga), sidorna ska
+ * vara rimligt långa och motstående sidor ungefär lika långa. Håller det inte
+ * faller avläsningen tillbaka på den vanliga rektangulära utklippningen.
+ */
+function documentQuad(canvas) {
+  const { gray, w, h } = smallGray(canvas, 260);
+  if (w < 40 || h < 40) return null;
+  const t = otsuThreshold(gray);
+  const points = largestBrightComponent(gray, w, h, t);
+  if (!points || points.length < w * h * 0.04) return null;
+
+  let tl = null; let tr = null; let br = null; let bl = null;
+  let minSum = Infinity; let maxSum = -Infinity; let minDiff = Infinity; let maxDiff = -Infinity;
+  for (const i of points) {
+    const x = i % w; const y = (i / w) | 0;
+    const sum = x + y; const diff = x - y;
+    if (sum < minSum) { minSum = sum; tl = { x, y }; }
+    if (sum > maxSum) { maxSum = sum; br = { x, y }; }
+    if (diff > maxDiff) { maxDiff = diff; tr = { x, y }; }
+    if (diff < minDiff) { minDiff = diff; bl = { x, y }; }
+  }
+  const quad = [tl, tr, br, bl];
+  if (quad.some(p => !p)) return null;
+
+  const minSide = Math.min(w, h) * 0.12;
+  const top = dist(tl, tr); const bottom = dist(bl, br);
+  const left = dist(tl, bl); const right = dist(tr, br);
+  if (Math.min(top, bottom, left, right) < minSide) return null;
+  // Motstående sidor: en telefon på lutning ger keystone, och den kan vara
+  // rejäl (nedre kanten halvannan gång den övre) — men inte hur som helst.
+  if (Math.min(top, bottom) / Math.max(top, bottom) < 0.45) return null;
+  if (Math.min(left, right) / Math.max(left, right) < 0.45) return null;
+
+  const area = quadArea(quad);
+  const ratio = area / (w * h);
+  if (ratio < 0.04 || ratio > 0.97) return null;
+  // Fyller den ljusa ytan sin egen fyrhörning? En rektangulär pappersbit gör
+  // det (>85 %); en skugga, ett bord med två papper på eller en ljus fläck med
+  // hål i gör det inte.
+  if (points.length / area < 0.82) return null;
+
+  // Löper den ljusa ytan ut över bildkanten är det inte ett papper på ett bord
+  // utan bakgrunden själv (en ljus bordsskiva, en skärmdump). Ett kvitto som
+  // fotats så nära att det går utanför bilden behöver ingen uträtning ändå.
+  if (borderShare(points, w, h) > 0.35) return null;
+
+  // Finns det en synlig papperskant? Precis innanför kanten ska det vara
+  // papper, precis utanför underlag. Är de lika ljusa är "hörnen" i själva
+  // verket bildens egna, och att räta ut efter dem vrider texten på sned i
+  // stället för att räta den. Mätt: en bild med ljusgrå bakgrund läste klart
+  // SÄMRE efter uträtning — det är det här som stoppar den.
+  if (edgeContrast(gray, w, h, quad) < 15) return null;
+
+  return quad.map(p => ({ x: p.x / w, y: p.y / h }));
+}
+
+/** Hur stor del av bildens kant den ljusa ytan upptar. */
+function borderShare(points, w, h) {
+  const onBorder = new Set();
+  for (const i of points) {
+    const x = i % w; const y = (i / w) | 0;
+    if (x === 0 || y === 0 || x === w - 1 || y === h - 1) onBorder.add(i);
+  }
+  return onBorder.size / (2 * (w + h));
+}
+
+/**
+ * Skillnaden i ljus mellan precis innanför och precis utanför fyrhörningens
+ * kanter — papperets kant mot underlaget, mätt där den ska finnas.
+ */
+function edgeContrast(gray, w, h, quad) {
+  const step = Math.max(2, Math.round(Math.min(w, h) * 0.03));
+  const center = {
+    x: (quad[0].x + quad[1].x + quad[2].x + quad[3].x) / 4,
+    y: (quad[0].y + quad[1].y + quad[2].y + quad[3].y) / 4,
+  };
+  const sample = (x, y) => {
+    const px = Math.max(0, Math.min(w - 1, Math.round(x)));
+    const py = Math.max(0, Math.min(h - 1, Math.round(y)));
+    return gray[py * w + px];
+  };
+  let inside = 0; let outside = 0; let n = 0;
+  for (let e = 0; e < 4; e++) {
+    const a = quad[e]; const b = quad[(e + 1) % 4];
+    for (let t = 0.15; t <= 0.85; t += 0.1) {
+      const mx = a.x + (b.x - a.x) * t;
+      const my = a.y + (b.y - a.y) * t;
+      // Riktningen in mot mitten: innanför kanten åt det hållet, utanför åt
+      // motsatt. Normalen behöver inte räknas ut — mitten räcker.
+      const dx = center.x - mx; const dy = center.y - my;
+      const len = Math.hypot(dx, dy) || 1;
+      inside += sample(mx + (dx / len) * step, my + (dy / len) * step);
+      outside += sample(mx - (dx / len) * step, my - (dy / len) * step);
+      n++;
+    }
+  }
+  return n ? (inside - outside) / n : 0;
+}
+
+
+/**
+ * Löser ett linjärt ekvationssystem (Gauss med partiell pivotering). Används
+ * för de åtta talen i en perspektivtransform.
+ */
+function solveLinearSystem(matrix, rhs) {
+  const n = rhs.length;
+  const m = matrix.map((row, i) => [...row, rhs[i]]);
+  for (let col = 0; col < n; col++) {
+    let pivot = col;
+    for (let r = col + 1; r < n; r++) if (Math.abs(m[r][col]) > Math.abs(m[pivot][col])) pivot = r;
+    if (Math.abs(m[pivot][col]) < 1e-9) return null;
+    [m[col], m[pivot]] = [m[pivot], m[col]];
+    for (let r = 0; r < n; r++) {
+      if (r === col) continue;
+      const factor = m[r][col] / m[col][col];
+      for (let c = col; c <= n; c++) m[r][c] -= factor * m[col][c];
+    }
+  }
+  // Efter eliminationen står lösningen i sista kolumnen, delad med diagonalen.
+  const solution = m.map((row, i) => row[n] / row[i]);
+  return solution.every(Number.isFinite) ? solution : null;
+}
+
+/**
+ * Perspektivtransformen från den räta utbilden till kvittots fyrhörning i
+ * fotot: för varje punkt i den färdiga, raka bilden säger den var i originalet
+ * färgen ska hämtas. Åtta obekanta, fyra hörnpar — precis bestämt.
+ */
+function inverseProjection(quad, outW, outH) {
+  const dst = [{ x: 0, y: 0 }, { x: outW, y: 0 }, { x: outW, y: outH }, { x: 0, y: outH }];
+  const rows = [];
+  const rhs = [];
+  for (let i = 0; i < 4; i++) {
+    const { x: u, y: v } = dst[i];
+    const { x, y } = quad[i];
+    rows.push([u, v, 1, 0, 0, 0, -u * x, -v * x]); rhs.push(x);
+    rows.push([0, 0, 0, u, v, 1, -u * y, -v * y]); rhs.push(y);
+  }
+  const s = solveLinearSystem(rows, rhs);
+  if (!s) return null;
+  const [a, b, c, d, e, f, g, i] = s;
+  return (u, v) => {
+    const denom = g * u + i * v + 1;
+    if (!denom) return null;
+    return { x: (a * u + b * v + c) / denom, y: (d * u + e * v + f) / denom };
+  };
+}
+
+/**
+ * Rätar ut kvittot: klipper bort bakgrunden och gör papperet rektangulärt,
+ * med bilinjär sampling så texten inte blir taggig. Returnerar en ny canvas,
+ * eller null om formen inte gick att räkna om.
+ */
+function warpQuadToCanvas(base, quadFractions, target) {
+  const quad = quadFractions.map(p => ({ x: p.x * base.width, y: p.y * base.height }));
+  const [tl, tr, br, bl] = quad;
+  const srcW = (dist(tl, tr) + dist(bl, br)) / 2;
+  const srcH = (dist(tl, bl) + dist(tr, br)) / 2;
+  if (!(srcW > 8 && srcH > 8)) return null;
+  const scale = Math.min(MAX_UPSCALE, target / Math.max(srcW, srcH));
+  const outW = Math.max(1, Math.round(srcW * scale));
+  const outH = Math.max(1, Math.round(srcH * scale));
+  const project = inverseProjection(quad, outW, outH);
+  if (!project) return null;
+
+  const srcCtx = base.getContext('2d', { willReadFrequently: true });
+  const src = srcCtx.getImageData(0, 0, base.width, base.height);
+  const sd = src.data;
+  const out = document.createElement('canvas');
+  out.width = outW;
+  out.height = outH;
+  const outCtx = out.getContext('2d');
+  const dstImage = outCtx.createImageData(outW, outH);
+  const dd = dstImage.data;
+  const maxX = base.width - 1;
+  const maxY = base.height - 1;
+  for (let v = 0; v < outH; v++) {
+    for (let u = 0; u < outW; u++) {
+      const p = project(u + 0.5, v + 0.5);
+      const di = (v * outW + u) * 4;
+      if (!p || p.x < 0 || p.y < 0 || p.x > maxX || p.y > maxY) {
+        // Utanför papperet: vitt, så en kant aldrig blir ett svart streck
+        // Tesseract tar för text.
+        dd[di] = 255; dd[di + 1] = 255; dd[di + 2] = 255; dd[di + 3] = 255;
+        continue;
+      }
+      const x0 = Math.floor(p.x); const y0 = Math.floor(p.y);
+      const x1 = Math.min(maxX, x0 + 1); const y1 = Math.min(maxY, y0 + 1);
+      const fx = p.x - x0; const fy = p.y - y0;
+      const i00 = (y0 * base.width + x0) * 4; const i10 = (y0 * base.width + x1) * 4;
+      const i01 = (y1 * base.width + x0) * 4; const i11 = (y1 * base.width + x1) * 4;
+      for (let ch = 0; ch < 3; ch++) {
+        const topMix = sd[i00 + ch] * (1 - fx) + sd[i10 + ch] * fx;
+        const bottomMix = sd[i01 + ch] * (1 - fx) + sd[i11 + ch] * fx;
+        dd[di + ch] = topMix * (1 - fy) + bottomMix * fy;
+      }
+      dd[di + 3] = 255;
+    }
+  }
+  outCtx.putImageData(dstImage, 0, 0);
+  // `srcLongEdge`: hur stort kvittot var i originalets pixlar. Det, och inte
+  // storleken efter uppskalning, säger om fotot togs för långt ifrån.
+  return { canvas: out, srcLongEdge: Math.round(Math.max(srcW, srcH)) };
+}
+
+/**
+ * Mäter om bilden går att lita på: skärpa, kontrast och ljus.
+ *
+ * Skärpan mäts på de KRAFTIGASTE kanterna (99:e percentilen av |laplacian|),
+ * delat med kontrasten. Ett medelvärde över alla punkter fungerade inte: ett
+ * kvitto är mest tomt papper, så medelvärdet blev ungefär detsamma för ett
+ * knivskarpt och ett riktigt suddigt foto (mätt: 1,3 mot 1,1 — ingenting att
+ * skilja på). De skarpaste kanterna är däremot just det oskärpan tar bort: en
+ * skarp bokstavskant går från svart till vitt på en punkt, en suddig över fem.
+ * Delningen med kontrasten gör måttet oberoende av exponering, så ett mörkt men
+ * skarpt foto inte döms som suddigt.
+ *
+ * Måtten används bara till två saker: att läsa av en gång till mer noggrant,
+ * och att kunna säga VARFÖR en avläsning inte gick bra. Aldrig till att stoppa
+ * en avläsning som lyckades.
+ */
+function measureQuality(gray, w, h) {
+  const hist = new Uint32Array(256);
+  for (let i = 0; i < gray.length; i++) hist[Math.max(0, Math.min(255, Math.round(gray[i])))]++;
+  const n = gray.length;
+  let sum = 0;
+  for (let v = 0; v < 256; v++) { sum += v * hist[v]; }
+  const brightness = sum / n;
+  // Kontrasten mäts som skillnaden mellan trycksvärtan och papperet: bilden
+  // delas i mörkt och ljust med Otsus tröskel, och medelvärdet i varje del
+  // jämförs. Percentiler fungerade inte — texten är bara några procent av
+  // punkterna på ett kvitto, så den 5:e percentilen låg fortfarande i papperet
+  // och en knivskarp skärmdump fick "låg kontrast" (mätt: 37 av 255).
+  const t = otsuThreshold(gray);
+  let darkSum = 0; let darkN = 0; let lightSum = 0; let lightN = 0;
+  for (let v = 0; v < 256; v++) {
+    if (v <= t) { darkSum += v * hist[v]; darkN += hist[v]; } else { lightSum += v * hist[v]; lightN += hist[v]; }
+  }
+  const contrast = (darkN && lightN) ? Math.max(1, (lightSum / lightN) - (darkSum / darkN)) : 1;
+  // Histogram över kantstyrkan, så percentilen går att läsa utan att spara
+  // varje värde. Över 1020 (fyra gånger full kontrast) kan |laplacian| inte bli.
+  const edges = new Uint32Array(1021);
+  let count = 0;
+  for (let y = 1; y < h - 1; y += 2) {
+    for (let x = 1; x < w - 1; x += 2) {
+      const i = y * w + x;
+      const l = Math.abs(4 * gray[i] - gray[i - 1] - gray[i + 1] - gray[i - w] - gray[i + w]);
+      edges[Math.min(1020, Math.round(l))]++;
+      count++;
+    }
+  }
+  let strongest = 0;
+  if (count) {
+    let seen = 0;
+    for (let v = 1020; v >= 0; v--) { seen += edges[v]; if (seen >= count * 0.01) { strongest = v; break; } }
+  }
+  const sharpness = (strongest / contrast) * 100;
+  return { sharpness: Math.round(sharpness), contrast: Math.round(contrast), brightness: Math.round(brightness) };
+}
+
+// Gränser för när bilden ska klagas på. Mätta mot riktiga avläsningar i
+// webbläsaren — simulerade telefonfoton med oskärpa, snedställning, brus,
+// ojämnt ljus och JPEG-komprimering, se scripts/ocr-photo-check.mjs — inte
+// gissade. Skärpan låg på 24-32 på ett skarpt foto och på en skärmdump, 10 med
+// en punkts oskärpa (lästes ändå rätt) och 4-5 vid två punkters oskärpa och
+// uppåt, där avläsningen till slut gick sönder. Gränsen 6 pekar därför ut de
+// foton där oskärpan är den troliga orsaken, utan att klaga på foton som gick
+// att läsa.
+const BLURRY_SHARPNESS = 6;
+// Ljus och kontrast (trycksvärtan mot papperet): ett normalt foto låg på ljus
+// 190-230 och kontrast 100-126, ett mörkt men fullt läsbart på 92 och 55, och
+// ett riktigt mörkt på 49 och 29 — det sista är det som ska klagas på.
+const DARK_BRIGHTNESS = 70;
+const LOW_CONTRAST = 45;
+// Kvittot tar upp mindre än så av bilden OCH blev ändå litet i pixlar: fotot är
+// taget för långt ifrån, och ingen inzoomning i efterhand räddar det.
+const FAR_CROP_RATIO = 0.2;
+const FAR_LONG_EDGE = 1000;
+
+/**
+ * Ett råd om fotot, eller null när bilden är bra nog: 'blurry', 'dark' eller
+ * 'far'. Texten till användaren sätts där den visas (Expenses.jsx,
+ * ScanReceiptPage.jsx) — här bestäms bara vad som är fel.
+ */
+export function photoAdvice(quality) {
+  if (!quality) return null;
+  if (quality.brightness < DARK_BRIGHTNESS || quality.contrast < LOW_CONTRAST) return 'dark';
+  if (quality.sharpness < BLURRY_SHARPNESS) return 'blurry';
+  if (quality.cropRatio !== null && quality.cropRatio < FAR_CROP_RATIO && quality.longEdge < FAR_LONG_EDGE) return 'far';
+  return null;
+}
+
+/**
+ * Ritar ut bilden en gång, i rimlig storlek, och letar upp kvittot i den.
+ * Resultatet återanvänds av båda avläsningsförsöken, så bilden aldrig behöver
+ * avkodas två gånger.
+ */
+async function stageImage(imageSource) {
+  if (typeof createImageBitmap !== 'function' || typeof document === 'undefined') return null;
   let bitmap;
   try {
     bitmap = await createImageBitmap(imageSource, { imageOrientation: 'from-image' });
   } catch (err) {
-    console.warn('[OCR] Kunde inte läsa bilden för förminskning, kör OCR på originalet:', err);
-    return imageSource;
+    console.warn('[OCR] Kunde inte läsa bilden för förbehandling, kör OCR på originalet:', err);
+    return null;
   }
   try {
     const longEdge = Math.max(bitmap.width, bitmap.height);
-    if (longEdge <= MAX_OCR_DIMENSION) return imageSource;
-    const scale = MAX_OCR_DIMENSION / longEdge;
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.round(bitmap.width * scale);
-    canvas.height = Math.round(bitmap.height * scale);
-    canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    return enhanceCanvasForOcr(canvas);
+    const scale = Math.min(1, MAX_SOURCE_DIMENSION / longEdge);
+    const base = document.createElement('canvas');
+    base.width = Math.max(1, Math.round(bitmap.width * scale));
+    base.height = Math.max(1, Math.round(bitmap.height * scale));
+    base.getContext('2d').drawImage(bitmap, 0, 0, base.width, base.height);
+    let bounds = null;
+    let quad = null;
+    try { quad = documentQuad(base); } catch (err) { console.warn('[OCR] Kunde inte hitta kvittots form:', err); }
+    try { bounds = documentBounds(base); } catch (err) { console.warn('[OCR] Kunde inte hitta kvittot i bilden:', err); }
+    return { base, bounds, quad };
   } finally {
     bitmap.close?.();
   }
+}
+
+/**
+ * Klipper ut kvittot, skalar det till `target` på långsidan (uppskalning högst
+ * MAX_UPSCALE), mäter bildkvaliteten och förbättrar bilden för Tesseract.
+ * Returnerar { source, quality } — `source` är den canvas OCR ska läsa.
+ */
+function renderStage(stage, target) {
+  const { base, bounds, quad } = stage;
+  // Gick kvittots form att hitta rätas papperet ut till en rak rektangel och
+  // bakgrunden försvinner helt. Annars klipps en rektangel runt kvittot ut.
+  if (quad) {
+    try {
+      const warped = warpQuadToCanvas(base, quad, target);
+      // Skyddsnät: blev den uträtade bilden tom (nästan ingen kontrast alls)
+      // har geometrin gått fel, och då läses hellre den vanliga utklippningen
+      // än en vit bild. Ett sånt fel ska aldrig kunna nå Tesseract tyst.
+      if (warped && measureQuality(grayscaleOf(warped.canvas), warped.canvas.width, warped.canvas.height).contrast < 8) {
+        console.warn('[OCR] Uträtningen gav en tom bild, klipper ut i stället.');
+      } else if (warped) {
+        // Hörnen är andelar av bilden (0–1), så fyrhörningens yta ÄR andelen
+        // av fotot som kvittot tar upp.
+        const ratio = quadArea(quad);
+        let quality = null;
+        try {
+          quality = {
+            ...measureQuality(grayscaleOf(warped.canvas), warped.canvas.width, warped.canvas.height),
+            cropped: true,
+            deskewed: true,
+            cropRatio: ratio,
+            longEdge: warped.srcLongEdge,
+          };
+          quality.advice = photoAdvice(quality);
+        } catch (err) {
+          console.warn('[OCR] Kunde inte mäta bildkvaliteten:', err);
+        }
+        return { source: enhanceCanvasForOcr(warped.canvas), quality };
+      }
+    } catch (err) {
+      console.warn('[OCR] Kunde inte räta ut kvittot, klipper ut i stället:', err);
+    }
+  }
+  const sx = bounds ? Math.round(bounds.x0 * base.width) : 0;
+  const sy = bounds ? Math.round(bounds.y0 * base.height) : 0;
+  const sw = bounds ? Math.max(1, Math.round((bounds.x1 - bounds.x0) * base.width)) : base.width;
+  const sh = bounds ? Math.max(1, Math.round((bounds.y1 - bounds.y0) * base.height)) : base.height;
+  const cropLongEdge = Math.max(sw, sh);
+  const scale = Math.min(MAX_UPSCALE, target / cropLongEdge);
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(sw * scale));
+  canvas.height = Math.max(1, Math.round(sh * scale));
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(base, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+  let quality = null;
+  try {
+    quality = {
+      ...measureQuality(grayscaleOf(canvas), canvas.width, canvas.height),
+      cropped: Boolean(bounds),
+      cropRatio: bounds ? bounds.ratio : null,
+      longEdge: cropLongEdge,
+    };
+    quality.advice = photoAdvice(quality);
+  } catch (err) {
+    console.warn('[OCR] Kunde inte mäta bildkvaliteten:', err);
+  }
+  return { source: enhanceCanvasForOcr(canvas), quality };
 }
 
 /**
@@ -317,15 +912,13 @@ async function downscaleForOcr(imageSource) {
  * sammanhangslöst brus i stället för att bli helt tom. Se classifyDocument/
  * parseReceiptText nedan, som är just den skillnaden byggd för att fånga.
  */
-async function extractTextFromImage(imageSource, onProgress) {
-  onProgress?.('Startar OCR-motor…');
-  const scaled = await downscaleForOcr(imageSource);
+async function recognizeWith(source, onProgress, { psm = null, label = 'Läser av kvitto' } = {}) {
   const { createWorker } = await import('tesseract.js');
   const worker = await createWorker(['swe', 'eng'], 1, {
     logger: m => {
       if (m.status === 'recognizing text') {
         const pct = Math.round((m.progress || 0) * 100);
-        onProgress?.(`Läser av kvitto… ${pct}%`);
+        onProgress?.(`${label}… ${pct}%`);
       } else if (m.status === 'loading language traineddata') {
         onProgress?.('Laddar språkmodeller…');
       } else if (m.status === 'loading tesseract core' || m.status === 'initializing tesseract') {
@@ -335,7 +928,10 @@ async function extractTextFromImage(imageSource, onProgress) {
   });
 
   try {
-    const { data } = await worker.recognize(scaled);
+    if (psm) {
+      try { await worker.setParameters({ tessedit_pageseg_mode: psm }); } catch (err) { console.warn('[OCR] Kunde inte sätta sidläge:', err); }
+    }
+    const { data } = await worker.recognize(source);
     return { text: data.text || '', confidence: typeof data.confidence === 'number' ? data.confidence : null };
   } finally {
     await worker.terminate();
@@ -343,12 +939,95 @@ async function extractTextFromImage(imageSource, onProgress) {
 }
 
 /**
+ * Hur mycket en avläsning gav: används för att välja mellan två försök. Ett
+ * belopp som är kontrollerat mot momsen väger tyngst — det är det fältet som
+ * blir fel bokföring om det är fel. Tesseracts egen säkerhet får vara
+ * tungan på vågen när fälten är lika.
+ */
+function readingScore({ text, confidence }) {
+  if (isUnreadableText(text)) return -10;
+  const parsed = parseReceiptText(text, { confidence });
+  if (parsed.notReceipt) return -5 + (confidence || 0) / 1000;
+  let score = 0;
+  if (parsed.amount) score += parsed.amountVerified ? 5 : (parsed.amountGuessed ? 1 : 3);
+  if (parsed.vatVerified) score += 2;
+  if (parsed.date) score += 1;
+  if (parsed.receiptNumber) score += 1;
+  if (parsed.supplierMatched) score += 1;
+  return score + (confidence || 0) / 1000;
+}
+
+/**
+ * Behövs ett andra, noggrannare försök? Bara när det första inte gav något
+ * belopp att lita på — det vanliga fallet (ett tydligt foto) läses av en gång
+ * och tar lika lång tid som förut.
+ */
+function needsCarefulPass({ text, confidence }) {
+  if (isUnreadableText(text)) return true;
+  const parsed = parseReceiptText(text, { confidence });
+  return parsed.notReceipt || !parsed.amount || parsed.amountGuessed || (typeof confidence === 'number' && confidence < 70);
+}
+
+/**
+ * Kör Tesseract OCR på en bild eller canvas i webbläsaren. Returnerar även
+ * Tesseracts EGEN säkerhet på avläsningen (0–100, `data.confidence`) —
+ * tidigare kastades den bort och bara texten returnerades, vilket gjorde
+ * det omöjligt att skilja en riktig, tydligt läst text som råkar sakna
+ * kvitto-ord (ett kontrakt, ett brev) från en genuint dålig avläsning
+ * (för suddigt, mörkt eller utzoomat foto) som råkade producera lite
+ * sammanhangslöst brus i stället för att bli helt tom. Se classifyDocument/
+ * parseReceiptText nedan, som är just den skillnaden byggd för att fånga.
+ *
+ * Dessutom: kvittot klipps ut ur fotot och läses i full upplösning (se
+ * stageImage/renderStage), och gav det första försöket inget belopp att lita på
+ * görs ett andra försök på en större bild som ETT textblock (sidläge 6, som
+ * passar ett smalt kvitto bättre än Tesseracts spaltletande förval). Det bästa
+ * av försöken används, och bildens mätvärden följer med tillbaka (`quality`) så
+ * att appen kan säga varför det inte gick och vad användaren kan göra åt det.
+ */
+async function extractTextFromImage(imageSource, onProgress) {
+  onProgress?.('Startar OCR-motor…');
+  const stage = await stageImage(imageSource);
+  if (!stage) {
+    // Ingen canvas att arbeta med (mycket gammal webbläsare): läs originalet.
+    const only = await recognizeWith(imageSource, onProgress);
+    return { ...only, quality: null };
+  }
+  const first = renderStage(stage, MAX_OCR_DIMENSION);
+  let best = await recognizeWith(first.source, onProgress);
+  let quality = first.quality;
+  if (needsCarefulPass(best)) {
+    onProgress?.('Läser av en gång till, mer noggrant…');
+    const second = renderStage(stage, CAREFUL_OCR_DIMENSION);
+    const retry = await recognizeWith(second.source, onProgress, { psm: '6', label: 'Läser av noggrant' });
+    if (readingScore(retry) > readingScore(best)) {
+      best = retry;
+      quality = second.quality;
+    }
+  }
+  return { ...best, quality };
+}
+
+/**
+ * Bara för felsökning (scripts/ocr-harness.html): bilden som Tesseract faktiskt
+ * får se, efter utklippning, uträtning och förbättring. Att kunna titta på DEN
+ * är skillnaden mellan att gissa varför en avläsning blev fel och att se det.
+ */
+export async function __debugPrepareImage(imageSource, target = MAX_OCR_DIMENSION) {
+  const stage = await stageImage(imageSource);
+  return stage ? renderStage(stage, target).source : null;
+}
+
+/**
  * Kör OCR på en kvittofil (URL, Blob eller File) direkt på klienten.
  * @param {File|Blob|string} input — Fil, Blob eller URL till bild/PDF
  * @param {Function} [onProgress] — Callback för statusuppdateringar, t.ex. (msg) => setMsg(msg)
- * @returns {Promise<{text: string, confidence: number|null}>} Extraherad text
- *   och Tesseracts avläsningssäkerhet (0–100), eller `null` när ingen bild-OCR
- *   kördes alls (digital PDF-text — exakt, ingen osäkerhet att ange).
+ * @returns {Promise<{text: string, confidence: number|null, quality: object|null}>}
+ *   Extraherad text, Tesseracts avläsningssäkerhet (0–100) och bildens
+ *   mätvärden (skärpa, kontrast, ljus, hur stor del av fotot kvittot var, samt
+ *   `advice`: 'blurry' | 'dark' | 'far' | null). Säkerheten och mätvärdena är
+ *   `null` när ingen bild-OCR kördes alls (digital PDF-text — exakt, ingen
+ *   osäkerhet att ange).
  */
 export async function ocrFile(input, onProgress) {
   let blob;
@@ -389,7 +1068,7 @@ export async function ocrFile(input, onProgress) {
     // ingen OCR-osäkerhet att ange.
     const text = await extractTextFromPdf(blob, onProgress);
     if (text && text.length >= 15) {
-      return { text, confidence: null };
+      return { text, confidence: null, quality: null };
     }
 
     // 2. Om PDF:en var ett skannat papperskvitto utan textlager, rendera sida 1 och kör OCR
@@ -430,48 +1109,195 @@ const VAT_RATES = [25, 12, 6];
  * Utländsk valuta och kvitton utan momsrad kontrolleras inte.
  */
 export function crossCheckVat({ lines, amount, vatRate, vatRateGuessed, currency }) {
-  const none = { vatRate: null, vatAmount: null, verified: false, mismatch: false };
-  if (!amount || amount <= 0 || currency) return none;
-
-  const vatLineRe = /moms|merv.rdes|\bvat\b|\bmva\b/i;
-  const found = [];
-  for (const line of lines || []) {
-    if (!vatLineRe.test(line)) continue;
-    // "Summa exkl. moms 800,00" är underlaget, inte momsen.
-    if (/exkl|excl|netto|f[öo]re moms|before tax|subtotal|delsumma|underlag/i.test(line)) continue;
-    // Beloppen på raden, utan procenttalet ("12%").
-    const withoutPct = line.replace(/\d{1,2}(?:[.,]\d+)?\s*%/g, ' ');
-    const money = (withoutPct.match(MONEY_DECIMAL_RE) || [])
-      .map(parseMoneyToken)
-      .filter(v => v !== null && v > 0 && v < amount);
-    if (money.length === 0) continue;
-    // Sista beloppet på raden är momsbeloppet (först kan underlaget ligga).
-    found.push(money[money.length - 1]);
-  }
-  // Momstabell utan ordet "moms" på raden: "25% 719.20 179.80 899.00" är
-  // sats, belopp, moms och totalt. Går raden ihop (belopp + moms = totalt) och
-  // totalen är kvittots belopp är den raden facit för momsen.
-  for (const line of lines || []) {
-    if (!/%/.test(line)) continue;
-    const tokens = (line.replace(/\d{1,2}(?:[.,]\d+)?\s*%/g, ' ').match(MONEY_DECIMAL_RE) || []).map(parseMoneyToken).filter(v => v !== null);
-    let tableVat = null;
-    for (let i = 0; i + 2 < tokens.length && !tableVat; i++) {
-      const [n, v, g] = [tokens[i], tokens[i + 1], tokens[i + 2]];
-      if (v > 0 && Math.abs(round2(n + v) - g) <= 0.02 && Math.abs(g - amount) <= 0.05) tableVat = v;
-    }
-    if (tableVat) { found.length = 0; found.push(tableVat); break; }
-  }
-  if (found.length === 0) return none;
-  const vatAmount = round2(found.reduce((s, v) => s + v, 0));
-  if (vatAmount <= 0 || vatAmount >= amount) return none;
+  const none = { vatRate: null, vatAmount: null, verified: false, mismatch: false, equalsAmount: false };
+  // `amount` får vara tomt: då gick totalraden inte att läsa, och momsbeloppet
+  // hämtas ändå hem så att totalen kan räknas fram ur det (totalFromVatAmount).
+  // Utländsk valuta kontrolleras aldrig — då är momsen inte svensk.
+  if (currency || (amount !== null && amount !== undefined && amount <= 0)) return none;
+  const hasTotal = Boolean(amount);
 
   const expected = (rate) => round2(amount - amount / (1 + rate / 100));
-  // Några ören i tolerans: kvitton avrundar per rad, inte på totalen.
-  const tolerance = Math.max(0.05, 0.005 * found.length);
-  const match = VAT_RATES.find(r => Math.abs(expected(r) - vatAmount) <= tolerance);
-  if (match !== undefined) return { vatRate: match, vatAmount, verified: true, mismatch: false };
+  // Vilken svensk momssats ett momsbelopp svarar mot för kvittots totalbelopp,
+  // eller undefined. Några ören i tolerans: kvitton avrundar per rad, inte på
+  // totalen.
+  const rateFor = (vat, lineCount = 1) => {
+    const tolerance = Math.max(0.05, 0.005 * lineCount);
+    return VAT_RATES.find(r => Math.abs(expected(r) - vat) <= tolerance);
+  };
+
+  // ── 1. Momstabellen ───────────────────────────────────────────────────────
+  // En rad med siffror som GÅR IHOP mot totalen är det starkaste beviset som
+  // finns på ett kvitto, starkare än ordet "moms" på en rad: "6,00 1,36 22,64
+  // 24,00" (sats, moms, netto, brutto på Dollarstores kvitton) eller "25%
+  // 719,20 179,80 899,00" (sats, netto, moms, totalt). Två av talen summerar
+  // till det tredje, och det tredje är kvittots totalbelopp. Momsen är det
+  // MINSTA av de två — netto är alltid störst vid svenska satser — och raden
+  // godtas bara om momsen den ger faktiskt svarar mot en svensk sats, så en
+  // slumpmässig rad som råkar gå ihop inte kan ställa till något.
+  // Varje rad i en momstabell, som { vat, gross, rate }: två tal som summerar
+  // till ett tredje, där momsen (det minsta) svarar mot en svensk sats för det
+  // tredje. Används både för kvitton med EN sats (raden gäller hela kvittot)
+  // och för kvitton med FLERA (raderna delar upp kvittot).
+  const tableRows = [];
+  for (const line of lines || []) {
+    const tokens = (stripNonAmounts(line).match(MONEY_DECIMAL_RE) || []).map(parseMoneyToken).filter(v => v !== null);
+    for (let i = 0; i + 2 < tokens.length; i++) {
+      const [a, b, gross] = [tokens[i], tokens[i + 1], tokens[i + 2]];
+      if (a <= 0 || b <= 0 || gross <= 0) continue;
+      if (Math.abs(round2(a + b) - gross) > 0.02) continue;
+      const vat = Math.min(a, b);
+      const rate = VAT_RATES.find(r => Math.abs(round2(gross - gross / (1 + r / 100)) - vat) <= 0.05);
+      if (rate !== undefined) { tableRows.push({ vat, gross, rate }); break; }
+    }
+  }
+
+  if (hasTotal) {
+    // En rad som gäller hela kvittot: den är facit.
+    const whole = tableRows.find(row => Math.abs(row.gross - amount) <= 0.05);
+    if (whole) return { vatRate: whole.rate, vatAmount: whole.vat, verified: true, mismatch: false, equalsAmount: false };
+
+    // Flera satser på samma kvitto (mat 12 % och hushåll 25 % i samma
+    // matbutik är det vanligaste kvittot som finns). Går tabellens rader ihop
+    // till kvittots totalbelopp är momsen avläst och kontrollerad — den är
+    // bara inte EN sats, och det måste sägas rakt ut i stället för att
+    // avfärdas som en avvikelse: förut flaggades ett helt korrekt Coop-kvitto
+    // som "momsen stämmer inte", vilket är både fel och oroande.
+    if (tableRows.length >= 2) {
+      const grossSum = round2(tableRows.reduce((s, r) => s + r.gross, 0));
+      if (Math.abs(grossSum - amount) <= 0.05) {
+        const rates = [...new Set(tableRows.map(r => r.rate))].sort((a, b) => b - a);
+        const vatSum = round2(tableRows.reduce((s, r) => s + r.vat, 0));
+        if (rates.length > 1) {
+          return {
+            vatRate: null, vatAmount: vatSum, rates, mixed: true,
+            verified: false, mismatch: false, equalsAmount: false,
+          };
+        }
+        return { vatRate: rates[0], vatAmount: vatSum, verified: true, mismatch: false, equalsAmount: false };
+      }
+    }
+  }
+
+  // ── 2. Momsrader ──────────────────────────────────────────────────────────
+  const found = [];
+  for (const line of lines || []) {
+    if (!looksLikeMoms(line) && !/merv.rdes|\bvat\b|\bmva\b/i.test(line)) continue;
+    // "Summa exkl. moms 800,00" är underlaget, inte momsen.
+    if (/exkl|excl|netto|f[öo]re moms|before tax|subtotal|delsumma|underlag/i.test(line)) continue;
+    // "Momsreg.nr SE556…" och "VAT No" är ett registreringsnummer, inte moms.
+    if (/momsreg|moms\s*(?:reg\.?)?\s*nr|vat\s*(?:no|nr|number|id|reg)/i.test(line)) continue;
+    // "MOMSBRUTTO 15,00" och "Totalt inkl. moms 125,00" är beloppet momsen
+    // räknas på respektive hela summan — inte momsen.
+    if (/brutto|underlag|inkl\.?\s*moms|incl\.?\s*(?:vat|tax)|att betala/i.test(line)) continue;
+    // Beloppen på raden, utan procenttalet ("12%"). Heltal räknas med här:
+    // "Moms 25% 3" utan decimaler och utan kr är den vanligaste formen på ett
+    // litet butikskvitto, och gav tidigare ingen momskontroll alls. Momsen får
+    // vara lika stor som beloppet vi läste — då är det BELOPPET som är felläst
+    // (se equalsAmount nedan), inte momsen som är orimlig.
+    const money = amountsOnLine(line).filter(v => !hasTotal || v <= amount);
+    if (money.length === 0) continue;
+    // Sista beloppet på raden är momsbeloppet (först kan underlaget ligga).
+    // Raden sparas med vad den säger om sig själv: är den kvittots SUMMERADE
+    // moms ("TOTAL MOMS"), och vilken sats den i så fall gäller.
+    const rateOnLine = line.match(/(\d{1,2})\s*%/);
+    found.push({
+      value: money[money.length - 1],
+      isTotal: /total|summa/i.test(line),
+      rate: rateOnLine ? parseInt(rateOnLine[1], 10) : null,
+    });
+  }
+  if (found.length === 0) return none;
+
+  // ── 3. Vilket av beloppen är momsen? ──────────────────────────────────────
+  // Ett kvitto skriver ofta SAMMA moms på flera rader: "MOMS 1 3,00" och
+  // "TOTAL MOMS 3,00" är tre kronor, inte sex. Att summera alla momsrader (som
+  // tidigare) dubbelräknade dem — precis det gjorde att ett kvitto på 15 kr med
+  // 3 kr moms visade 6 kr i appen. Samtidigt SKA ett kvitto med flera satser
+  // summeras ("Moms 25% 4,80" + "Moms 12% 1,20" = 6,00). Raderna får därför
+  // avgöra själva:
+  //   • säger en rad att den är kvittots summerade moms ("TOTAL MOMS") är det
+  //     den som gäller, ensam,
+  //   • nämner raderna OLIKA satser är det en momstabell som ska summeras,
+  //   • annars är det samma moms upprepad: lika belopp räknas en gång.
+  const candidates = [];
+  const addCandidate = (v) => { if (v > 0 && !candidates.some(c => Math.abs(c - v) < 0.005)) candidates.push(v); };
+  const totalLine = found.find(f => f.isTotal);
+  const rates = new Set(found.map(f => f.rate).filter(r => r !== null));
+
+  // Flera momssatser utan momstabell: "Moms 25% 25,80" och "Moms 6% 2,21" på
+  // var sin rad. Varje rad säger sin sats, och ur sats och momsbelopp följer
+  // vad den raden gällde ("25,80 med 25 % moms" betyder 129,00 kr av köpet).
+  // Summerar de till kvittots totalbelopp är momsen avläst och stämmer — den
+  // är bara uppdelad. Utan det här såg ett helt korrekt apotekskvitto ut som
+  // en avvikelse.
+  if (hasTotal && rates.size > 1) {
+    const perRate = found.filter(f => f.rate && !f.isTotal);
+    if (perRate.length >= 2) {
+      const grossSum = round2(perRate.reduce((s, f) => s + (f.value * (100 + f.rate)) / f.rate, 0));
+      if (Math.abs(grossSum - amount) <= 0.05 * perRate.length) {
+        return {
+          vatRate: null,
+          vatAmount: round2(perRate.reduce((s, f) => s + f.value, 0)),
+          rates: [...new Set(perRate.map(f => f.rate))].sort((a, b) => b - a),
+          mixed: true, verified: false, mismatch: false, equalsAmount: false,
+        };
+      }
+    }
+  }
+  if (totalLine) {
+    addCandidate(totalLine.value);
+  } else if (rates.size > 1) {
+    addCandidate(round2(found.reduce((s, f) => s + f.value, 0)));
+  } else {
+    const unique = [];
+    found.forEach(f => { if (!unique.some(v => Math.abs(v - f.value) < 0.005)) unique.push(f.value); });
+    addCandidate(round2(unique.reduce((s, v) => s + v, 0)));
+    [...unique].sort((a, b) => b - a).forEach(addCandidate);
+  }
+  if (candidates.length === 0) return none;
+
+  // Ingen total att kontrollera mot: alla kandidater lämnas tillbaka, så att
+  // totalen kan räknas fram ur dem (totalFromVatAmount i parseReceiptText).
+  if (!hasTotal) return { vatRate: null, vatAmount: candidates[0], candidates, verified: false, mismatch: false, equalsAmount: false };
+
+  for (const candidate of candidates) {
+    if (candidate >= amount) continue;
+    const rate = rateFor(candidate, found.length);
+    if (rate !== undefined) return { vatRate: rate, vatAmount: candidate, candidates, verified: true, mismatch: false, equalsAmount: false };
+  }
+
+  // Ingen kandidat går ihop med beloppet. Är momsen till och med lika stor som
+  // "totalen" är det momsraden som lästes som totalbelopp: momsen lämnas
+  // tillbaka så att den riktiga totalen kan räknas fram ur den.
+  const vatAmount = candidates.find(c => c < amount) ?? candidates[0];
+  if (vatAmount >= amount) return { vatRate: null, vatAmount, candidates, verified: false, mismatch: false, equalsAmount: true };
   // Ingen sats stämmer. Har kvittot ändå en uttalad sats är det en avvikelse.
-  return { vatRate: null, vatAmount, verified: false, mismatch: !vatRateGuessed || vatRate !== null };
+  return { vatRate: null, vatAmount, candidates, verified: false, mismatch: !vatRateGuessed || vatRate !== null, equalsAmount: false };
+}
+
+/**
+ * Räknar fram TOTALBELOPPET ur momsbeloppet på kvittot. Momsraden står oftast
+ * tydligt tryckt, och står den rätt går totalen att räkna ut: 3 kr moms med
+ * 25 % betyder 15 kr totalt, med 12 % 28 kr och med 6 % 53 kr. Bara den sats
+ * vars total FAKTISKT finns som ett belopp i texten godtas, och bara när exakt
+ * en sats gör det — annars vore det en gissning, och en gissning fylls inte i
+ * (se parseReceiptText).
+ *
+ * Det här är nätet under en felläst totalrad: "TOTALT 24" som OCR läst som
+ * "TOTALT 2h", eller ett kvitto där totalraden hamnat i ett veck. Momsen på
+ * kvittot blir då facit, i stället för att appen visar en moms som inte står
+ * någonstans på kvittot — kundfeedback, uttryckligt: "kvittot säger 3 kr moms
+ * och appen säger 6".
+ */
+export function totalFromVatAmount(vatAmount, values) {
+  if (!vatAmount || vatAmount <= 0 || !Array.isArray(values)) return null;
+  const hits = [];
+  for (const rate of VAT_RATES) {
+    const implied = round2((vatAmount * (100 + rate)) / rate);
+    const hit = values.find(v => Math.abs(v - implied) <= 0.05);
+    if (hit) hits.push({ rate, amount: hit });
+  }
+  return hits.length === 1 ? hits[0] : null;
 }
 
 // Nyckelord som föregår ett nummer på ett kvitto eller en faktura, i
@@ -747,6 +1573,85 @@ export function isUnreadableText(text) {
   return String(text || '').replace(/\s+/g, '').length < MIN_READABLE_CHARS;
 }
 
+// ── Leverantörens namn ur dokumentets huvud ──────────────────────────────
+// Butikens namn står i en logotyp, och en logotyp är det svåraste OCR läser:
+// breda mellanrum, stiliserade tecken och ramar. Dollarstores logotyp
+// ("DOLLAR$TORE" med ett dollartecken i mitten) blev "(DOLL ARS TORE ;" — och
+// eftersom namnet togs från FÖRSTA rimliga raden hamnade det i leverantörs-
+// fältet precis så. Två rader ned stod "Dollarstore", rent utskrivet.
+//
+// Därför vägs raderna i huvudet mot varandra i stället: sönderdelade ord,
+// siffror och skräptecken drar ned, och står samma namn en gång till (logotyp
+// + namn under, som på nästan varje butikskvitto) vinner den variant som har
+// färst ord — alltså den rätt stavade.
+const NAME_SKIP_RE = /^(\d[\d\s/.-]{4,}|\s*|kvitto|receipt|faktura|invoice|org\.?nr|datum|date|order|nr|org)$/i;
+const NAME_LABEL_RE = /(?:faktura|kvitto|invoice|receipt)\s*(?:nummer|nr|no\.?|datum|date)|f[öo]rfallo\w*|betalningsvillkor|bankgiro|plusgiro|org\.?\s*nr|organisationsnummer|vat\s*(?:id|no|number)|momsreg\w*|\bdatum\b|\bdate\b|\btotal\w*|att betala|\bsumma\b|\bmoms\b/i;
+// Adress- och kontaktrader är inte namnet, hur fint de än står i huvudet.
+const NAME_ADDRESS_RE = /\b(?:gatan|gatu|v[äa]gen|gr[äa]nd|torget|\bbox\b|tel(?:efon)?|telnr|\btfn\b|butik|kassa|\bkvitto\b)\b/i;
+// Bolagsformer och liknande korta ord är inte sönderdelade ord.
+const NAME_SHORT_OK_RE = /^(?:ab|hb|kb|as|a\/s|aps|oy|ltd|inc|llc|co|&|och|the|i|of)$/i;
+
+/** Ett namn utan skräptecken: "(DOLLAR$TORE ;" blir "DOLLARSTORE". */
+export function cleanSupplierName(raw) {
+  return String(raw || '')
+    // Stiliserade logotyper skriver S som ett dollartecken.
+    .replace(/\$/g, 'S')
+    .replace(/[^\p{L}\p{N}\s&.,'’/-]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/^[\s.,'’/-]+/u, '')
+    .replace(/[\s.,:;'’/-]+$/u, '')
+    .trim();
+}
+
+const despace = (s) => String(s).toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+
+/**
+ * Leverantörens namn ur de första raderna, eller null. Se kommentaren ovan för
+ * varför det inte räcker att ta första raden.
+ */
+export function pickSupplierName(lines, headerLines = 8) {
+  const candidates = [];
+  (lines || []).slice(0, headerLines).forEach((line, index) => {
+    if (!line || line.length < 3 || NAME_SKIP_RE.test(line) || line.includes('http') || line.includes('@')) return;
+    let raw = line;
+    const label = NAME_LABEL_RE.exec(raw);
+    if (label) raw = raw.slice(0, label.index);
+    const clean = cleanSupplierName(raw);
+    if (clean.length < 2 || ANY_DATE_RE.test(clean) || NAME_ADDRESS_RE.test(clean)) return;
+    const letters = (clean.match(/\p{L}/gu) || []).length;
+    if (letters < 2 || letters / clean.length < 0.5) return;
+    const tokens = clean.split(/\s+/).filter(Boolean);
+    let score = index < 3 ? 1 : 0;
+    // Siffror i ett butiksnamn är nästan alltid ett organisationsnummer eller
+    // en adress som hakat i.
+    if (/\d/.test(clean)) score -= 2;
+    // Ord på högst tre bokstäver som inte är bolagsformer: ett namn som OCR
+    // delat mitt itu ("DOLL ARS TORE").
+    score -= tokens.filter(t => t.replace(/[^\p{L}]/gu, '').length <= 3 && !NAME_SHORT_OK_RE.test(t)).length;
+    if (tokens.length > 5) score -= 1;
+    if (clean.length > 40) score -= 1;
+    candidates.push({ clean, tokens: tokens.length, index, score, key: despace(clean) });
+  });
+  if (candidates.length === 0) return null;
+
+  // Samma namn två gånger i huvudet (logotyp + utskrivet namn): båda vinner på
+  // upprepningen, och den med färst ord är den rätt stavade.
+  const counts = new Map();
+  candidates.forEach(c => counts.set(c.key, (counts.get(c.key) || 0) + 1));
+  candidates.forEach(c => { if (counts.get(c.key) > 1) c.score += 2; });
+
+  candidates.sort((a, b) => (b.score - a.score) || (a.tokens - b.tokens) || (a.index - b.index));
+  const best = candidates[0];
+
+  // "JACKS IMPORT" följt av "& VARUHUS" är ett namn på två rader.
+  const next = (lines || [])[best.index + 1];
+  const tail = next ? cleanSupplierName(next) : '';
+  if (tail && /^(?:&|och)\s+\p{L}/u.test(tail) && tail.length <= 30) {
+    return `${best.clean} ${tail}`.replace(/\s+/g, ' ').trim();
+  }
+  return best.clean;
+}
+
 // Ett leverantörsnamn ska börja vid ett ordbörjan: "ICA" är ICA, men "Africa"
 // är inte det. Testar varje förekomst, inte bara den första.
 function matchesAtWordStart(re, text) {
@@ -777,14 +1682,32 @@ function strictRule(re) {
   return out;
 }
 
+// Ordet "moms" som OCR faktiskt läser det på ett fotat kassakvitto. Versalt M
+// blir ofta N eller H ("TOTAL MONS", "HONS 1", "NONSBRUTTO1") — mätt på ett
+// riktigt kvitto, där hela momskontrollen föll bort av just det. Bytena är
+// begränsade till de bokstäver som faktiskt förväxlas, och ordet måste börja
+// ett ord, så "Simonsson" aldrig blir en momsrad.
+const MOMS_RE = /(?<![\p{L}])[mnh][o0][mnh][s5]/iu;
+const looksLikeMoms = (line) => MOMS_RE.test(String(line));
+
 // Rader som INTE är totalen: belopp exklusive moms, momsen själv, rabatter,
 // växel. "Totalt inkl. moms" är däremot totalen, trots ordet moms.
 function isNotTotalLine(line) {
   if (/exkl|excl|ex\.?\s*moms|f[öo]re moms|netto|before tax|\bnet\b|rabatt|discount|avrundning|v[äa]xel|tillbaka|\bchange\b/i.test(line)) return true;
-  if (/\bmoms\b|\bvat\b|\btax\b|\bmva\b/i.test(line) && !/inkl|incl|totalt|total|att betala|amount due|brutto|gross/i.test(line)) return true;
+  // En rad med ordet moms är momsen, inte totalen — ÄVEN när den heter "TOTAL
+  // MOMS". Det är summan av momsen på kvittot, inte summan att betala, och
+  // lästes tidigare som totalbelopp: ett kvitto på 15 kr med 3 kr moms fick
+  // beloppet 3 kr. Bara ord som säger att momsen INGÅR i talet ("Totalt inkl.
+  // moms 125,00", "brutto") gör raden till en totalrad.
+  if ((looksLikeMoms(line) || /\bvat\b|\btax\b|\bmva\b/i.test(line)) && !/inkl|incl|ing[åa]r|brutto|gross|amount due/i.test(line)) return true;
   return false;
 }
 const NET_LINE_RE = /exkl\.?\s*moms|excl\.?\s*(?:vat|tax)|netto|f[öo]re moms|before tax|subtotal|delsumma/i;
+
+// Rader som står på varje kvitto från butiken oavsett vad som köptes: villkor,
+// öppettider, kontrolluppgifter och kontaktvägar. De får inte styra vilket
+// konto som föreslås — se keywordText i parseReceiptText.
+const BOILERPLATE_LINE_RE = /[öo]ppet k[öo]p|bytesr[äa]tt|reklamation|villkor|garanti|spara kvittot|kundens ex|v[äa]lkommen|[öo]ppettider|www\.|kontrollkod|kontrollenhe|\btel\.?\s*nr\b|telnr|telefon\s*:|org\.?\s*nr|f[öo]rpackning|hygienartiklar/i;
 
 // Hur det betalades, ur texten på kvittot. En uttrycklig rad ("Betalningssätt:
 // Swish", "Payment method: Card") väger tyngre än ett lösryckt ord någon
@@ -884,10 +1807,10 @@ export function detectForeignPurchase(text, { knownService = false } = {}) {
 
 const EMPTY_PARSE = {
   date: null, amount: null, amountGuessed: false, amountVerified: false,
-  vatRate: 25, vatRateGuessed: true, vatAmount: null, vatVerified: false, vatMismatch: false,
+  vatRate: 25, vatRateGuessed: true, vatAmount: null, vatVerified: false, vatMismatch: false, vatRates: null,
   receiptNumber: null, receiptNumberKind: null, receiptNumberLabel: null,
   supplier: null, supplierMatched: false, accountCode: null, accountGuessed: false, accountSource: null,
-  currency: null, notReceipt: false, unreadable: false, documentKind: null, paymentMethod: null,
+  currency: null, notReceipt: false, unreadable: false, documentKind: null, paymentMethod: null, creditNote: false,
   reverseCharge: null, reverseChargeUnclear: false,
 };
 
@@ -926,7 +1849,16 @@ export function parseReceiptText(text, { confidence = null } = {}) {
   if (isUnreadableText(text)) return { ...EMPTY_PARSE, notReceipt: true, unreadable: true, documentKind: 'unreadable' };
 
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-  const fullText = text.toLowerCase();
+  // Text som kontoreglerna får läsa: kvittots egna rader UTAN finstilt och
+  // kontaktuppgifter. Butikens villkorstext ("Inget byte eller öppet köp av
+  // livsmedel, hygienartiklar, djurmat…") och telefonnumret i sidhuvudet står
+  // på varje kvitto från butiken och säger ingenting om vad som köptes — ändå
+  // föreslog de konto: två läskvitton från Dollarstore blev "6071 Mat och
+  // representation" av ordet livsmedel i villkoren.
+  const keywordText = lines.filter(l => !BOILERPLATE_LINE_RE.test(l)).join('\n').toLowerCase();
+  // Tesseract var själv osäker på det den läste: siffror ur en sån text är inte
+  // värda att fylla i utan att de kan kontrolleras mot något (se längre ned).
+  const lowConfidence = typeof confidence === 'number' && confidence < LOW_OCR_CONFIDENCE;
 
   // Ett dokument som inte är ett kvitto eller en faktura fylls aldrig i.
   const doc = classifyDocument(text, lines);
@@ -940,7 +1872,6 @@ export function parseReceiptText(text, { confidence = null } = {}) {
     // bildbrus-text, där hasMoney inte har något att bita i), eller så
     // hittades ett belopp (troligen ändå ett äkta kvitto, bara för
     // utzoomat/skevt/ojämnt ljus för att kännas igen med säkerhet).
-    const lowConfidence = typeof confidence === 'number' && confidence < LOW_OCR_CONFIDENCE;
     if (!doc.looksLikeOther && (lowConfidence || doc.hasMoney)) {
       return { ...EMPTY_PARSE, notReceipt: true, unreadable: true, documentKind: 'unreadable' };
     }
@@ -988,8 +1919,11 @@ export function parseReceiptText(text, { confidence = null } = {}) {
         break;
       }
     }
-    // DD/MM-YY eller MM/DD-YY (t.ex. "01/06-22" eller "06/01-22")
-    const m3 = line.match(/\b(\d{1,2})[/.-](\d{1,2})[-]([12]\d)\b/);
+    // DD/MM-YY, DD/MM/YY eller MM/DD-YY ("01/06-22", "23/09/26"). Kassakvitton
+    // skriver ofta tvåsiffrigt årtal med snedstreck hela vägen — med bara
+    // bindestreck som sista avgränsare (som förut) fick ett sånt kvitto inget
+    // datum alls.
+    const m3 = line.match(/\b(\d{1,2})[/.-](\d{1,2})[/.-]([12]\d)\b/);
     if (m3) {
       const yr = parseInt(m3[3], 10);
       const fullYear = yr < 70 ? 2000 + yr : 1900 + yr;
@@ -1061,10 +1995,14 @@ export function parseReceiptText(text, { confidence = null } = {}) {
     let max = 0;
     let maxLine = null;
     for (const line of lines) {
+      if (NOT_AMOUNT_LINE_RE.test(line)) continue;
       const skipWhole = ID_LIKE_LINE_RE.test(line) || DATE_LIKE_LINE_RE.test(line) || !CURRENCY_MARK_RE.test(line);
       const matches = [
         ...(line.match(MONEY_DECIMAL_RE) || []),
-        ...(skipWhole ? [] : (line.match(MONEY_WHOLE_RE) || [])),
+        // Ett heltal med en valutamarkering på raden ("15 kr") är ett belopp
+        // även när det är litet — utan det hittades inget belopp alls på ett
+        // kvitto som skriver hela kronor utan decimaler.
+        ...(skipWhole ? [] : (line.match(MONEY_WHOLE_RE) || line.match(/\b\d{1,2}\b/g) || [])),
       ];
       if (matches.length) {
         for (const raw of matches) {
@@ -1088,19 +2026,29 @@ export function parseReceiptText(text, { confidence = null } = {}) {
   // returneras valutakoden istället för att gissa ett kronbelopp — anroparen
   // (Expenses.jsx/Verifications.jsx) ska då lämna beloppsfältet tomt och
   // be användaren skriva in det omräknade SEK-beloppet själv.
+  // Ett svenskt kassakvitto med org.nr, momsrad och "KONTANT" är i kronor.
+  // OCR läser ofta kvittots egna tecken (*, ¤, §) framför beloppen som ett
+  // dollartecken — "1x 15.00 $15.00 A" på ett kvitto från Skellefteå — och då
+  // tolkades hela kvittot som dollar, beloppet lämnades tomt och appen bad om
+  // en valutakurs. Ett ENSAMT dollartecken får därför inte väga tyngre än
+  // kvittots svenska kännetecken; står det USD eller US$ gäller det förstås.
+  const swedishReceipt = lines.some(l => looksLikeMoms(l) || /org\.?\s*nr|organisationsnummer|kvitto|kontant|kassa|bankgiro|plusgiro|swish|kronor|\bkr\b/i.test(l));
   let currency = null;
   if (amountLine) {
     const explicitSek = /\bsek\b|\bkr\b|:-/i.test(amountLine);
+    // Ett ensamt valutatecken på ett svenskt kassakvitto är OCR-brus, inte
+    // en valuta. En uttrycklig kod (USD, EUR …) gäller alltid.
+    const symbolCounts = !(swedishReceipt && !/\b(USD|GBP|EUR|NOK|DKK|CHF|JPY|CNY|RMB|CAD|AUD)\b/i.test(text));
     if (!explicitSek) {
-      if (/\$/.test(amountLine)) currency = 'USD';
-      else if (/£/.test(amountLine)) currency = 'GBP';
-      else if (/€/.test(amountLine)) currency = 'EUR';
+      if (symbolCounts && /\$/.test(amountLine)) currency = 'USD';
+      else if (symbolCounts && /£/.test(amountLine)) currency = 'GBP';
+      else if (symbolCounts && /€/.test(amountLine)) currency = 'EUR';
       // 元 är entydigt kinesiska yuan (RMB) — förekommer aldrig på ett
       // japanskt kvitto. ¥ ensamt är tvetydigt mellan yen och yuan;
       // internationellt är yen den vanligare tolkningen av tecknet utan
       // vidare sammanhang, så det är förvalet.
-      else if (/元/.test(amountLine)) currency = 'CNY';
-      else if (/¥/.test(amountLine)) currency = 'JPY';
+      else if (symbolCounts && /元/.test(amountLine)) currency = 'CNY';
+      else if (symbolCounts && /¥/.test(amountLine)) currency = 'JPY';
       else {
         const codeMatch = amountLine.match(/\b(USD|GBP|EUR|NOK|DKK|CHF|JPY|CNY|RMB|CAD|AUD)\b/i);
         if (codeMatch) {
@@ -1117,7 +2065,7 @@ export function parseReceiptText(text, { confidence = null } = {}) {
   // eller visar bara ett $-tecken vid enhetspriset) men dokumentet inte
   // nämner kronor någonstans, är beloppet ändå i den valutan. Finns "SEK",
   // "kr" eller "kronor" någonstans antas kronor.
-  if (!currency && amount && !/\bsek\b|\bkr\b|kronor|:-/i.test(text)) {
+  if (!currency && amount && !swedishReceipt && !/\bsek\b|\bkr\b|kronor|:-/i.test(text)) {
     if (/\bUSD\b|US\$|\$/.test(text)) currency = 'USD';
     else if (/\bGBP\b|£/.test(text)) currency = 'GBP';
     else if (/\bEUR\b|€/.test(text)) currency = 'EUR';
@@ -1151,30 +2099,10 @@ export function parseReceiptText(text, { confidence = null } = {}) {
     }
   }
 
-  // Om leverantören inte matchade känd lista, använd ren första textrad —
-  // en RÅ gissning (den första rimliga textraden på kvittot, oftast
-  // butiksnamnet men inte alltid), INTE en igenkänd leverantör.
-  // supplierMatched förblir false här med flit.
-  if (!supplier) {
-    const skipRe = /^(\d[\d\s/.-]{4,}|\s*|kvitto|receipt|faktura|invoice|org\.?nr|datum|date|order|nr|org)$/i;
-    // Rader som är fält och inte ett namn ("Fakturanummer: 2026104", "Datum",
-    // "Org.nr"). Står etiketten efter ett namn ("Kontorsbolaget AB, Org.nr
-    // 556123-4567") används texten före etiketten.
-    const labelRe = /(?:faktura|kvitto|invoice|receipt)\s*(?:nummer|nr|no\.?|datum|date)|f[öo]rfallo\w*|betalningsvillkor|bankgiro|plusgiro|org\.?\s*nr|organisationsnummer|vat\s*(?:id|no|number)|momsreg\w*|\bdatum\b|\bdate\b|\btotal\w*|att betala|\bsumma\b|\bmoms\b/i;
-    for (const line of lines) {
-      if (line.length < 3 || skipRe.test(line) || line.includes('http') || line.includes('@')) continue;
-      let candidate = line;
-      const label = labelRe.exec(candidate);
-      if (label) candidate = candidate.slice(0, label.index).replace(/[,;:|–-]\s*$/, '').trim();
-      if (candidate.length < 2 || ANY_DATE_RE.test(candidate)) continue;
-      const clean = candidate.replace(/[^\w\s&åäöÅÄÖ.,-]/g, '').trim();
-      const letters = (clean.match(/\p{L}/gu) || []).length;
-      if (clean.length >= 2 && !/^\d+$/.test(clean) && letters / clean.length >= 0.5) {
-        supplier = clean;
-        break;
-      }
-    }
-  }
+  // Om leverantören inte matchade känd lista: leta upp den BÄSTA raden i
+  // dokumentets huvud, inte den första. Det är en gissning (supplierMatched
+  // förblir false med flit), men den ska åtminstone vara rätt stavad.
+  if (!supplier) supplier = pickSupplierName(lines);
 
   // ── 4. Momssats ──────────────────────────────────────────────────────────
   const isForeignService = /supabase|vercel|stripe|github|\baws\b|amazon web services|google cloud|openai|adobe|digitalocean|heroku|jetbrains|slack|\bzoom\b|figma|notion/i.test(headerText);
@@ -1208,7 +2136,7 @@ export function parseReceiptText(text, { confidence = null } = {}) {
   let accountSource = accountCode ? 'supplier' : null;
   if (!accountCode) {
     for (const { re, code } of ACCOUNT_KEYWORD_RULES) {
-      if (strictRule(re).test(fullText)) {
+      if (strictRule(re).test(keywordText)) {
         accountCode = code;
         accountSource = 'keyword';
         break;
@@ -1246,8 +2174,42 @@ export function parseReceiptText(text, { confidence = null } = {}) {
     accountGuessed = true;
   }
 
+  // ── 5c. Retur eller kreditnota ───────────────────────────────────────────
+  // Ett returkvitto ser ut precis som ett vanligt kvitto, men pengarna går åt
+  // andra hållet: beloppet ska bokföras som en minuspost. Minustecknet tappas
+  // lätt i avläsningen, och ett returkvitto som bokförs som en kostnad blir
+  // fel åt två håll (kostnaden och momsen). Kvittot märks därför, och
+  // användaren får bestämma. "Kreditkort" räknas förstås inte.
+  const creditWordRe = /\bretur(?:er|ert|kvitto)?\b|kreditfaktura|kreditnota|credit note|\bmakulerad\b|\breturnerad\b/i;
+  const creditNote = lines.some(l => creditWordRe.test(l) && !/kreditkort|credit card/i.test(l))
+    || Boolean(amountLine && /-\s*\d|\d\s*-\s*$/.test(amountLine));
+
   // ── 6. Momskontroll och kvittonummer ─────────────────────────────────────
-  const vatCheck = crossCheckVat({ lines, amount, vatRate, vatRateGuessed, currency });
+  let vatCheck = crossCheckVat({ lines, amount, vatRate, vatRateGuessed, currency });
+  // Momsbeloppet på kvittot är facit. Går det inte ihop med totalen vi läste
+  // (eller blev momsraden läst SOM totalen) är det nästan alltid totalen som
+  // är fel: då räknas rätt total fram ur momsen, om den finns i texten.
+  if (!currency && vatCheck.vatAmount && !vatCheck.mixed && (!vatCheck.verified || vatCheck.equalsAmount)) {
+    // Varje momsbelopp kvittot kan ha menat prövas: det som pekar ut ett
+    // totalbelopp som faktiskt står på kvittot är det rätta.
+    const values = allAmountsInText(lines);
+    let repair = null;
+    let repairedVat = null;
+    for (const candidate of (vatCheck.candidates || [vatCheck.vatAmount])) {
+      repair = totalFromVatAmount(candidate, values);
+      if (repair) { repairedVat = candidate; break; }
+    }
+    if (repair && (!amount || Math.abs(repair.amount - amount) > 0.05)) {
+      amount = repair.amount;
+      amountGuessed = false;
+      vatCheck = { vatRate: repair.rate, vatAmount: repairedVat, verified: true, mismatch: false, equalsAmount: false };
+    } else if (vatCheck.equalsAmount) {
+      // Momsen är läst, men vilken total den hör till går inte att visa på
+      // kvittot. Beloppet är då inget att lita på: det märks som något att
+      // kontrollera, och avvikelsen visas för användaren.
+      vatCheck = { ...vatCheck, mismatch: true };
+    }
+  }
   if (vatCheck.vatRate !== null) { vatRate = vatCheck.vatRate; }
   // Netto + moms = totalt. Står både ett belopp exklusive moms och ett
   // momsbelopp på dokumentet ska de summera till totalen. Gör de det är
@@ -1269,12 +2231,30 @@ export function parseReceiptText(text, { confidence = null } = {}) {
     }
   }
   if (!amountVerified && vatCheck.verified) amountVerified = true;
+  // Momsen på kvittot stämmer inte mot beloppet: då är minst ett av de två
+  // felläst, och båda märks som något att kontrollera i stället för avläst.
+  // Hellre två "Kontrollera" än ett belopp och en moms som ser avlästa ut men
+  // motsäger kvittot.
+  if (!amountVerified && vatCheck.mismatch) amountGuessed = true;
+  // Avläsningen var osäker OCH beloppet är bara en gissning: fyll inte i något
+  // belopp alls. Ett tal som plockats ur en dåligt läst bild (ett organisations-
+  // nummer, en del av ett datum) ser ut som ett belopp i fältet och blir fel
+  // bokföring. Tomt fält och ett råd om fotot är ärligare — och beloppet
+  // behålls så fort det går att kontrollera mot momsen (amountVerified).
+  if (lowConfidence && amountGuessed && !amountVerified) {
+    amount = null;
+    amountGuessed = false;
+  }
   const numberFound = findReceiptNumberDetailed(lines);
 
   return {
     date, amount, amountGuessed: amountVerified ? false : amountGuessed, amountVerified, vatRate,
-    vatRateGuessed: vatCheck.verified ? false : vatRateGuessed,
+    vatRateGuessed: vatCheck.verified ? false : (vatRateGuessed || vatCheck.mismatch),
     vatAmount: vatCheck.vatAmount, vatVerified: vatCheck.verified, vatMismatch: vatCheck.mismatch,
+    // Kvittot har moms i flera satser: momsen ÄR avläst och går ihop, men den
+    // kan inte uttryckas som en sats. Anroparen säger det till användaren.
+    vatRates: vatCheck.mixed ? vatCheck.rates : null,
+    creditNote,
     receiptNumber: numberFound?.number ?? null, receiptNumberKind: numberFound?.kind ?? null, receiptNumberLabel: numberFound?.label ?? null,
     supplier, supplierMatched, accountCode, accountGuessed, accountSource, currency,
     notReceipt: false, documentKind: doc.isInvoice ? 'invoice' : 'receipt',

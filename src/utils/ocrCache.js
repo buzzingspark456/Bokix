@@ -82,20 +82,21 @@ export function clearCachedOcrText(key) {
 /**
  * Läser ett dokument, men hoppar över själva avläsningen om samma dokument
  * lästs förut. `force` (knappen "Läs av igen") läser alltid om.
- * Returnerar { text, confidence, cached }. `confidence` (Tesseracts egen
- * avläsningssäkerhet, 0–100, se ocrReceipt.js) är bara `null` för en
- * CACHAD träff — den sparas aldrig (bara råtexten cachas, se filkommentaren
- * överst), så en tidigare framgångsrik avläsning behandlas som "ingen
- * osäkerhet att ange" i stället för att gissa en siffra.
+ * Returnerar { text, confidence, quality, cached }. `confidence` (Tesseracts
+ * egen avläsningssäkerhet, 0–100, se ocrReceipt.js) och `quality` (bildens
+ * mätvärden och ett råd om fotot) är bara `null` för en CACHAD träff — de
+ * sparas aldrig (bara råtexten cachas, se filkommentaren överst), så en
+ * tidigare framgångsrik avläsning behandlas som "ingen osäkerhet att ange" i
+ * stället för att gissa en siffra.
  */
 export async function readDocumentText(input, onProgress, { force = false, reader } = {}) {
   const key = ocrCacheKey(input);
   if (!force) {
     const hit = getCachedOcrText(key);
-    if (hit) return { text: hit, confidence: null, cached: true };
+    if (hit) return { text: hit, confidence: null, quality: null, cached: true };
   }
   const read = reader || (await import('./ocrReceipt')).ocrFile;
-  const { text, confidence } = await read(input, onProgress);
+  const { text, confidence, quality } = await read(input, onProgress);
   setCachedOcrText(key, text);
-  return { text, confidence, cached: false };
+  return { text, confidence, quality: quality || null, cached: false };
 }

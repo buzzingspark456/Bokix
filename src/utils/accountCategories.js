@@ -151,11 +151,12 @@ export const ACCOUNT_KEYWORD_RULES = [
   { re: /kontors|papper|penna|bläck|toner|staples/, code: '6110' },
   // RÄTTAT: låg på 6230 ("Datakommunikation") — se KNOWN_SUPPLIERS ovan.
   { re: /porto|frakt|paket|post|fedex|ups/, code: '5711' },
-  // OBS: "\b3\b" (fristående siffran 3, operatören "3"/tre.se) — INTE
-  // "3\b", som matchade sista siffran i vilket belopp eller referens-
-  // nummer som helst så fort det råkade sluta på 3 (t.ex. "88213" i ett
-  // ordernummer), och kategoriserade då kvittot fel som telefonkostnad.
-  { re: /telefon|mobil|abonnemang|tele2|telia|\b3\b|comviq|telenor/, code: '6212' },
+  // Operatören "3" (Hi3G) kräver sammanhang: "3 Sverige", "tre.se", "Hi3G".
+  // Enbart en fristående trea ("\b3\b") räckte förut, och då blev varje kvitto
+  // med en ensam trea någonstans — "MOMS 1 3,00" på ett butikskvitto — en
+  // telefonkostnad. Innan dess var det ännu lösare ("3\b", sista siffran i
+  // vilket belopp som helst), så regeln har dragits åt två gånger av samma skäl.
+  { re: /telefon|mobil|abonnemang|tele2|telia|hi3g|\b3 sverige\b|\btre\.se\b|comviq|telenor/, code: '6212' },
   // RÄTTAT: låg på 6212 (Mobiltelefon). Bredband och internet är 6230
   // Datakommunikation.
   { re: /internet|bredband|fiber|itux|bahnhof/, code: '6230' },

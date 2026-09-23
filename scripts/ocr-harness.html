@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="sv">
+<head><meta charset="utf-8"><title>OCR-harness</title></head>
+<!--
+  Testsida för kvittoavläsningen. Ligger utanför appen och kommer aldrig med i
+  bygget (vite bygger från index.html). Den ritar kvitton och simulerar
+  telefonfoton av dem, så att OCR-ändringar kan provas mot oskarpa, sneda,
+  mörka och utzoomade bilder i stället för mot en ren skärmdump.
+
+  Kör:  npx vite --port 5199      (i ett fönster)
+        node scripts/ocr-photo-check.mjs
+-->
+
+<body>
+<pre id="log">redo</pre>
+<script type="module">
+  import { ocrFile, parseReceiptText, photoAdvice } from '/src/utils/ocrReceipt.js';
+
+  // Ritar ett kvitto på en canvas: vitt papper, smal kolumn, kassaregisterfont.
+  function drawReceipt(lines, { width = 420, lineHeight = 30 } = {}) {
+    const c = document.createElement('canvas');
+    c.width = width;
+    c.height = lineHeight * (lines.length + 3);
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, c.width, c.height);
+    ctx.fillStyle = '#111';
+    ctx.font = '22px "Courier New", monospace';
+    lines.forEach((line, i) => ctx.fillText(line, 22, lineHeight * (i + 2)));
+    return c;
+  }
+
+  // Simulerar ett telefonfoto av kvittot: kvittot ligger på ett bord, snett,
+  // med oskärpa, ojämnt ljus, brus och JPEG-komprimering.
+  async function fakePhoto(receipt, { fill = 0.8, blur = 0, angle = 0, light = 1, noise = 0, quality = 0.75, frame = 1400, keystone = 0, bg = '#6b6259' } = {}) {
+    const c = document.createElement('canvas');
+    c.width = Math.round(frame * 0.75);
+    c.height = frame;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, c.width, c.height);
+    const scale = (c.height * fill) / receipt.height;
+    const w = receipt.width * scale;
+    const h = receipt.height * scale;
+    ctx.save();
+    ctx.translate(c.width / 2, c.height / 2);
+    ctx.rotate((angle * Math.PI) / 180);
+    if (blur) ctx.filter = `blur(${blur}px)`;
+    if (keystone) {
+      // Telefonen hölls på lutning: kvittot blir bredare nedtill än upptill.
+      // Ritas som tunna vågräta skivor med växande bredd — en enkel men
+      // trovärdig perspektivförvrängning.
+      const slices = 240;
+      for (let i = 0; i < slices; i++) {
+        const t = i / slices;
+        const sliceW = w * (1 - keystone / 2 + keystone * t);
+        ctx.drawImage(
+          receipt,
+          0, (receipt.height * i) / slices, receipt.width, receipt.height / slices,
+          -sliceW / 2, -h / 2 + (h * i) / slices, sliceW, h / slices + 1,
+        );
+      }
+    } else {
+      ctx.drawImage(receipt, -w / 2, -h / 2, w, h);
+    }
+    ctx.restore();
+    // Ojämnt ljus: en ljuskägla från ena hörnet, mörkare i motsatt.
+    const grad = ctx.createLinearGradient(0, 0, c.width, c.height);
+    grad.addColorStop(0, `rgba(255,255,255,${0.10 * light})`);
+    grad.addColorStop(1, 'rgba(0,0,0,0.22)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, c.width, c.height);
+    if (light !== 1) {
+      ctx.globalCompositeOperation = 'multiply';
+      ctx.fillStyle = `rgba(255,255,255,1)`;
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = `rgb(${Math.round(255 * light)},${Math.round(255 * light)},${Math.round(255 * light)})`;
+      ctx.fillRect(0, 0, c.width, c.height);
+      ctx.globalCompositeOperation = 'source-over';
+    }
+    if (noise) {
+      const img = ctx.getImageData(0, 0, c.width, c.height);
+      for (let i = 0; i < img.data.length; i += 4) {
+        const n = (Math.random() - 0.5) * noise;
+        img.data[i] += n; img.data[i + 1] += n; img.data[i + 2] += n;
+      }
+      ctx.putImageData(img, 0, 0);
+    }
+    return await new Promise(res => c.toBlob(res, 'image/jpeg', quality));
+  }
+
+  window.__ocr = { ocrFile, parseReceiptText, photoAdvice, drawReceipt, fakePhoto, debugPrepared };
+
+  // Bilden som Tesseract faktiskt får se (utklippt, uträtad och förbättrad),
+  // som data-URL. Enda vägen att se VAD motorn läser när något blir fel.
+  async function debugPrepared(blob) {
+    const mod = await import('/src/utils/ocrReceipt.js?debug=1');
+    if (!mod.__debugPrepareImage) return null;
+    const canvas = await mod.__debugPrepareImage(blob);
+    return canvas ? canvas.toDataURL('image/png') : null;
+  }
+  document.getElementById('log').textContent = 'klar';
+</script>
+</body>
+</html>

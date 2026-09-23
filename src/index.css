@@ -3301,6 +3301,47 @@ textarea.form-control {
 .rc-ocr-wait { width: 6px; height: 6px; border-radius: 999px; background: var(--border); }
 @keyframes rcPop { 0% { transform: scale(0.4); opacity: 0; } 70% { transform: scale(1.15); } 100% { transform: scale(1); opacity: 1; } }
 
+/* Erbjudandet om avläsning: kvittot läses av först när man trycker här.
+   Ligger överst i formuläret, försvinner när avläsningen är gjord. */
+.rc-scan-offer {
+  display: flex;
+  align-items: center;
+  /* Bryter rad när kolumnen är smal, inte bara när FÖNSTRET är smalt:
+     kvittovyns högerkolumn kan vara 380 px bred på en stor skärm. */
+  flex-wrap: wrap;
+  gap: 12px 14px;
+  padding: 13px 14px;
+  margin-bottom: 16px;
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  background: var(--gray-25);
+}
+.rc-scan-offer-text { display: flex; flex-direction: column; gap: 3px; min-width: 190px; flex: 1 1 190px; }
+.rc-scan-offer-text strong { font-size: 13px; font-weight: 700; color: var(--text-main); letter-spacing: -0.01em; }
+.rc-scan-offer-text span { font-size: 12px; line-height: 1.45; color: var(--text-muted); }
+.rc-scan-offer-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-left: auto;
+  padding: 9px 14px;
+  border: none;
+  border-radius: 9px;
+  background: var(--text-main);
+  color: var(--bg-card);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: opacity 140ms ease;
+}
+.rc-scan-offer-btn:hover { opacity: 0.86; }
+@media (max-width: 560px) {
+  .rc-scan-offer { flex-direction: column; align-items: stretch; gap: 11px; }
+  .rc-scan-offer-btn { margin-left: 0; justify-content: center; }
+}
+
 /* Momskontrollen mot beloppen på kvittot. */
 .rc-verify {
   display: flex;
@@ -6196,11 +6237,10 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
     font-weight: 600;
     color: var(--text-secondary);
   }
-  .ver-adv-account, .ver-adv-desc, .ver-adv-saldo, .ver-adv-actions { grid-column: 1 / -1; }
+  .ver-adv-account, .ver-adv-desc, .ver-adv-actions { grid-column: 1 / -1; }
   .ver-adv-actions { display: flex !important; justify-content: flex-end; align-items: center; gap: 6px; }
   .ver-adv-actions button { min-width: 40px; min-height: 40px; }
   .ver-adv-row input { width: 100%; box-sizing: border-box; min-height: 44px; font-size: 16px; }
-  .ver-adv-saldo > div { display: flex; gap: 8px; align-items: baseline; justify-content: space-between; }
   .ver-adv-table tr:not(.ver-adv-row):not(.ver-adv-sum) { display: block; }
   .ver-adv-table tr:not(.ver-adv-row):not(.ver-adv-sum) > td { display: block; width: auto; padding-left: 0 !important; padding-right: 0 !important; }
   .ver-adv-sum { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 14px; padding: 6px 0; }
