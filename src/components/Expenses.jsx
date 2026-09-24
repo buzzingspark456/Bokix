@@ -1700,6 +1700,7 @@ export default function Expenses({
 
       {detailReceipt && (
         <ReceiptDetailModal
+          key={detailReceipt.id}
           receipt={detailReceipt}
           accounts={accounts}
           projects={projects}
