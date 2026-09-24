@@ -175,9 +175,17 @@ export default function Bank({
     persistAccounts(list => list.map(a => a.id === id ? { ...a, name: name.trim() } : a));
   };
   const handleDeleteAccount = async (account) => {
-    const used = bankTransactions.filter(t => accountIdOf(t) === account.id).length;
-    if (used > 0) { alert(`"${account.name}" har ${used} transaktioner och kan inte tas bort. Ta bort eller vänta med raderna först.`); return; }
-    if (!(await confirmDialog(`Ta bort bankkontot "${account.name}"? Det går inte att ångra.`, { danger: true }))) return;
+    // Kontot och dess rader tas bort i ett steg. Det som redan bokförts
+    // ligger kvar i bokföringen (verifikationerna rörs inte), så man behöver
+    // inte först rensa raderna en och en.
+    const rows = bankTransactions.filter(t => accountIdOf(t) === account.id);
+    const booked = rows.filter(t => t.status === 'booked' || t.status === 'matched').length;
+    const message = rows.length === 0
+      ? `Ta bort bankkontot "${account.name}"?`
+      : `Ta bort bankkontot "${account.name}" och dess ${rows.length} rader i bankvyn?`
+        + (booked ? ` ${booked} av dem är redan bokförda, och de verifikationerna ligger kvar i bokföringen.` : '');
+    if (!(await confirmDialog(message, { danger: true }))) return;
+    if (rows.length) onSetBankTransactions(prev => prev.filter(t => accountIdOf(t) !== account.id));
     persistAccounts(list => list.filter(a => a.id !== account.id));
     if (selectedAccountId === account.id) setSelectedAccountId('all');
   };

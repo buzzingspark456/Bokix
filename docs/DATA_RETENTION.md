@@ -69,9 +69,18 @@ användare kan inte radera sitt eget arkiv.
 
 | Vad | När | Sparas |
 |---|---|---|
-| Företaget som det var + kopior av alla uppladdade filer | Innan Radera data eller Radera företag går igenom. Misslyckas arkiveringen stoppas raderingen. | Till arkivtidens slut (`keepUntil` i filen) |
-| Hela kontot som JSON, dagskopia | Varje natt kontot ändrats (cronen) | 35 dagar |
-| Hela kontot som JSON, månadskopia | Första nattkopian varje månad | Till arkivtidens slut |
+| Det bokförda (legalSubset) + kopior av bara de bokförda filerna, gzip | Innan Radera data eller Radera företag går igenom. Misslyckas arkiveringen stoppas raderingen. Finns inget bokfört skrivs inget. | Till arkivtidens slut, som står i mappnamnet (`-tÅÅÅÅ-MM-DD`); cronen raderar det sedan |
+| Hela kontot, gzip, dagskopia (skydd mot buggar) | De nätter kontot ändrats | 14 dagar |
+| Det bokförda, gzip, månadskopia | Bara när det bokförda ändrats sedan förra | Till arkivtidens slut |
+
+**Bara det lagen kräver sparas.** `legalSubset` i `api/_archive.js` tar med
+verifikationer, fakturor som lämnat utkastläget, bokförda kvitton och
+leverantörsfakturor, bokförda lönekörningar, matchade/bokförda
+banktransaktioner, moms- och AGI-rapporter, samt de konton och kontakter
+de pekar på och företagsuppgifterna utan lösenord och nycklar. Utkast,
+offerter, artiklar, projekt, tid, mallar, anställdas profiler och en
+bankimport man ångrat sparas inte. På riktig data 2026-09-24 blev ett konto
+på 103 kB ett arkiv på 1,5 kB.
 
 Arkivtiden räknas som senaste året i bokföringen (eller i år) plus ett år
 för ett räkenskapsår som kan sluta året efter, plus sju hela år. Det kan ge
@@ -121,9 +130,12 @@ rutinen mitt i blir resultatet ett tomt konto utan data, inte data utan
 
 ## Det som inte är automatiserat än
 
-- **Gallring efter arkivtidens slut.** Månadskopiorna gallras när deras
-  `keepUntil` passerats, men raderingsarkiven och den levande datan gallras
-  inte. Hellre spara för länge än radera för tidigt.
+- **Gallring av den levande datan.** Arkiven gallras när arkivtiden gått ut
+  (`pruneExpiredArchives`), men ett aktivt konto behåller all sin data så
+  länge det finns.
+- **Kontoavslut på begäran** är fortfarande manuellt. En adminknapp som
+  arkiverar och sedan raderar kontot är förberedd som idé men inte byggd:
+  den raderar för gott och kräver ett eget beslut.
 - **Kontoavslut på begäran.** En användare som vill avsluta får i dag mejla
   supporten. Räkenskapsinformationen kan ändå inte raderas före arkivtidens
   slut — det står i integritetspolicyn, men flödet är manuellt.

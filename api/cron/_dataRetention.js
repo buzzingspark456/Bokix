@@ -1,5 +1,5 @@
 import { collectStoragePaths } from '../../src/utils/storageUrls.js';
-import { snapshotAllUsers } from '../_archive.js';
+import { snapshotAllUsers, pruneExpiredArchives } from '../_archive.js';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Datastädning — kör en gång per dygn från api/cron/reminders.js.
@@ -174,6 +174,12 @@ export async function runDataRetention(admin, options = {}) {
     if (result.snapshots.errors.length) result.errors.push(...result.snapshots.errors.slice(0, 5).map(e => `snapshot ${e}`));
   } catch (err) {
     result.errors.push(`snapshots: ${err.message}`);
+  }
+  // Arkiv vars sjuårstid gått ut raderas, så att vi inte betalar för dem.
+  try {
+    result.expiredArchives = await pruneExpiredArchives(admin, options);
+  } catch (err) {
+    result.errors.push(`expiredArchives: ${err.message}`);
   }
   try {
     result.orphanFiles = await cleanOrphanFiles(admin, options);

@@ -1,40 +1,41 @@
 import { createHash } from 'node:crypto';
+import { gzipSync, gunzipSync } from 'node:zlib';
 import { collectStorageUrls, parseStorageUrl } from '../src/utils/storageUrls.js';
 
 // ─────────────────────────────────────────────────────────────────────────
-// Arkivet: det som gör sjuårslöftet verkligt.
+// Arkivet: sjuårslöftet, till nästan ingen kostnad.
 //
-// Bokföringslagen 7 kap. 2 § kräver att räkenskapsinformation sparas till
-// och med det sjunde året efter utgången av det kalenderår då räkenskapsåret
-// avslutades. Appens data ligger som EN JSON-post per användare som skrivs
-// över vid varje sparning, så det som raderas i appen (Radera data, Radera
-// företag) var tidigare borta för alltid, och en bugg som sparade ett
-// trasigt tillstånd hade inget att gå tillbaka till.
+// Bokföringslagen 7 kap. 2 § kräver att RÄKENSKAPSINFORMATION sparas till och
+// med det sjunde året efter utgången av det kalenderår då räkenskapsåret
+// avslutades. Allt annat (utkast, offerter, en bankimport man ångrat,
+// kontakter som aldrig fakturerats) ska INTE sparas: det är
+// personuppgifter utan ändamål (GDPR art. 5.1 e) och kostar lagring.
 //
-// Arkivet ligger i en egen PRIVAT bucket i Supabase Storage (Frankfurt,
-// samma projekt som resten). Den har inga RLS-regler för användare, så bara
-// servern (service role) kan läsa eller skriva den. En användare kan alltså
-// inte radera sitt eget arkiv, varken av misstag eller med flit.
+// Därför sparar arkivet bara det lagen kräver (legalSubset nedan), gzippat.
+// En typisk företagsarkivering blir några kB. Filerna (kvittobilder,
+// underlag) kopieras bara om de hör till något bokfört, och den levande
+// kopian tas bort när företaget raderas, så de betalas bara en gång.
 //
-//   <userId>/<companyId>/<tidpunkt>-<skäl>/bokforing.json   företaget som det
-//   <userId>/<companyId>/<tidpunkt>-<skäl>/filer/...         såg ut + kvitton
-//       Skrivs INNAN Radera data eller Radera företag får gå igenom
-//       (api/archive.js). Går arkiveringen inte, stoppas raderingen.
+// Allt ligger i en PRIVAT bucket i Supabase Storage (Frankfurt, samma
+// projekt). Den har inga RLS-regler för användare: bara servern når den.
 //
-//   <userId>/_kopior/dag-<ÅÅÅÅ-MM-DD>.json    hela kontot, varje natt det
-//                                              ändrats; sparas i 35 dagar
-//   <userId>/_kopior/man-<ÅÅÅÅ-MM>.json       första kopian varje månad;
-//                                              sparas tills arkivtiden gått ut
-//   <userId>/_kopior/index.json               vad som finns och när det får
-//                                              gallras
+//   <userId>/<companyId>/<tid>-<skäl>-t<ÅÅÅÅ-MM-DD>/bokforing.json.gz
+//   <userId>/<companyId>/<tid>-<skäl>-t<ÅÅÅÅ-MM-DD>/filer/...
+//       Skrivs innan Radera data eller Radera företag går
+//       igenom. Datumet i mappnamnet är när arkivet får raderas; cronen
+//       gallrar det sedan utan att behöva öppna filen.
 //
-// Filerna (kvittobilder, underlag) kopieras bara vid radering. Nattkopiorna
-// är bara JSON: ett bokfört kvitto går inte att radera i appen
-// (handleDeleteExpense), så dess fil finns kvar i den vanliga bucketen.
+//   <userId>/_kopior/dag-<ÅÅÅÅ-MM-DD>.json.gz   hela kontot, en säkerhets-
+//       kopia mot buggar, bara de nätter något ändrats; sparas 14 dagar
+//   <userId>/_kopior/man-<ÅÅÅÅ-MM>.json.gz      bara det bokförda, bara när
+//       det bokförda ändrats sedan förra månadskopian; sparas till
+//       arkivtidens slut
+//   <userId>/_kopior/index.json                 vad som finns och när det
+//       får gallras
 // ─────────────────────────────────────────────────────────────────────────
 
 export const ARCHIVE_BUCKET = 'bokix-arkiv';
-export const DAILY_KEEP_DAYS = 35;
+export const DAILY_KEEP_DAYS = 14;
 const DAY_MS = 86400000;
 
 /** Skapar arkivbucketen första gången. Privat, aldrig publik. */
@@ -73,50 +74,133 @@ export function archiveKeepUntil(companyOrState, now = new Date()) {
   return `${latest + 1 + 7}-12-31`;
 }
 
+/** Alla enkla värden (strängar och tal) någonstans i ett värde, som text.
+ * Används för att se vilka konton, kunder och kvitton något bokfört
+ * pekar på, utan att behöva känna till varje fältnamn. */
+function referencedValues(value, out = new Set()) {
+  if (value == null) return out;
+  if (typeof value === 'string' || typeof value === 'number') { out.add(String(value)); return out; }
+  if (typeof value !== 'object') return out;
+  for (const v of Array.isArray(value) ? value : Object.values(value)) referencedValues(v, out);
+  return out;
+}
+
+const SECRET_KEY = /token|secret|password|passwd|smtp|oauth|apikey|api_key|credential/i;
+function withoutSecrets(obj) {
+  if (!obj || typeof obj !== 'object') return obj;
+  return Object.fromEntries(Object.entries(obj).filter(([k]) => !SECRET_KEY.test(k)));
+}
+
+/**
+ * Det av ett företag som är räkenskapsinformation och alltså måste sparas:
+ * verifikationer, fakturor som lämnat utkastläget, kvitton och
+ * leverantörsfakturor som bokförts, bokförda lönekörningar, matchade eller
+ * bokförda banktransaktioner, moms- och arbetsgivardeklarationer. Plus det
+ * som behövs för att kunna läsa dem: företagsuppgifterna, de konton och
+ * kontakter som faktiskt används.
+ *
+ * Utelämnas: utkast, offerter, artiklar, projekt, tidrapporter, mallar,
+ * anställdas profiler (lönekörningen har en egen ögonblicksbild), omatchade
+ * eller ignorerade banktransaktioner, kontakter som ingen bokförd post
+ * pekar på och resten av kontoplanen.
+ */
+export function legalSubset(c) {
+  if (!c) return null;
+  const verifications = c.verifications || [];
+  const verRefs = referencedValues(verifications);
+  const invoices = (c.invoices || []).filter(i => i && i.status !== 'draft');
+  const expenses = (c.expenses || []).filter(e => e && (
+    verRefs.has(String(e.id)) || e.verificationId || ['booked', 'paid'].includes(e.status)
+  ));
+  const payrollRuns = (c.payrollRuns || []).filter(r => (r?.completedSteps || []).includes('booked'));
+  const bankTransactions = (c.bankTransactions || []).filter(t => ['matched', 'booked'].includes(t?.status));
+  const kept = { verifications, invoices, expenses, payrollRuns, bankTransactions };
+  const refs = referencedValues(kept);
+  return {
+    company: withoutSecrets(c.company),
+    accounts: (c.accounts || []).filter(a => refs.has(String(a?.code))),
+    contacts: (c.contacts || []).filter(ct => ct?.id != null && refs.has(String(ct.id))),
+    ...kept,
+    vatPeriods: c.vatPeriods || [],
+    agiReports: c.agiReports || [],
+  };
+}
+
 function stamp(now) {
   return now.toISOString().replace(/[:.]/g, '-');
 }
 
-async function uploadJson(admin, path, value) {
-  const body = Buffer.from(JSON.stringify(value));
-  const { error } = await admin.storage.from(ARCHIVE_BUCKET).upload(path, body, { contentType: 'application/json', upsert: true });
+async function uploadGz(admin, path, value) {
+  const body = gzipSync(Buffer.from(JSON.stringify(value)), { level: 9 });
+  const { error } = await admin.storage.from(ARCHIVE_BUCKET).upload(path, body, { contentType: 'application/gzip', upsert: true });
+  if (error) throw new Error(`Arkivet: kunde inte skriva ${path}: ${error.message}`);
+  return body.length;
+}
+
+async function uploadIndex(admin, path, value) {
+  const { error } = await admin.storage.from(ARCHIVE_BUCKET).upload(path, Buffer.from(JSON.stringify(value)), { contentType: 'application/json', upsert: true });
   if (error) throw new Error(`Arkivet: kunde inte skriva ${path}: ${error.message}`);
 }
 
 async function readJson(admin, path) {
   const { data, error } = await admin.storage.from(ARCHIVE_BUCKET).download(path);
   if (error || !data) return null;
-  try { return JSON.parse(Buffer.from(await data.arrayBuffer()).toString('utf8')); } catch { return null; }
+  try {
+    let buf = Buffer.from(await data.arrayBuffer());
+    if (buf[0] === 0x1f && buf[1] === 0x8b) buf = gunzipSync(buf);
+    return JSON.parse(buf.toString('utf8'));
+  } catch { return null; }
+}
+
+/** Alla objekt under ett prefix, rekursivt (mappar följs, inte raderas). */
+export async function listAllObjects(admin, bucket, prefix, depth = 0) {
+  if (depth > 8) return [];
+  const out = [];
+  for (let offset = 0; ; offset += 1000) {
+    const { data, error } = await admin.storage.from(bucket).list(prefix, { limit: 1000, offset });
+    if (error || !data) break;
+    for (const entry of data) {
+      const path = prefix ? `${prefix}/${entry.name}` : entry.name;
+      if (entry.id) out.push(path);
+      else out.push(...await listAllObjects(admin, bucket, path, depth + 1));
+    }
+    if (data.length < 1000) break;
+  }
+  return out;
 }
 
 /**
- * Arkiverar ett företag innan det töms eller tas bort: bokföringen som
- * JSON och en kopia av varje uppladdad fil det pekar på. Kastar vid fel,
- * så att anroparen kan stoppa raderingen.
+ * Arkiverar ett företag innan det töms eller tas bort:
+ * bara räkenskapsinformationen (legalSubset), gzippad, och kopior av de
+ * filer den pekar på. Kastar vid fel, så att anroparen kan stoppa
+ * raderingen. Finns ingenting bokfört skrivs inget arkiv alls.
  */
 export async function archiveCompany(admin, { userId, companyId, companyData, reason, now = new Date() }) {
+  const subset = legalSubset(companyData);
+  const hasBooks = ['verifications', 'invoices', 'expenses', 'payrollRuns', 'bankTransactions', 'vatPeriods', 'agiReports']
+    .some(k => (subset?.[k]?.length || 0) > 0);
+  if (!hasBooks) return { path: null, keepUntil: null, files: 0, bytes: 0, skipped: true };
+
   await ensureArchiveBucket(admin);
-  const base = `${userId}/${companyId}/${stamp(now)}-${reason}`;
+  const keepUntil = archiveKeepUntil(companyData, now);
+  const base = `${userId}/${companyId}/${stamp(now)}-${reason}-t${keepUntil}`;
   const files = [];
-  for (const url of collectStorageUrls(companyData)) {
+  let bytes = 0;
+  for (const url of collectStorageUrls(subset)) {
     const parsed = parseStorageUrl(url);
     // Bara användarens egna filer. En sökväg utanför det egna prefixet
     // (felaktig data) ska aldrig kunna användas för att läsa någon annans.
     if (!parsed || !parsed.path.startsWith(`${userId}/`)) continue;
     const target = `${base}/filer/${parsed.bucket}/${parsed.path}`;
     const { data: blob, error: dlError } = await admin.storage.from(parsed.bucket).download(parsed.path);
-    if (dlError || !blob) {
-      // Filen är redan borta (t.ex. städad tidigare). Noteras i arkivet i
-      // stället för att stoppa hela arkiveringen.
-      files.push({ url, missing: true });
-      continue;
-    }
-    const { error: upError } = await admin.storage.from(ARCHIVE_BUCKET).upload(target, Buffer.from(await blob.arrayBuffer()), { contentType: blob.type || 'application/octet-stream', upsert: true });
+    if (dlError || !blob) { files.push({ url, missing: true }); continue; }
+    const buf = Buffer.from(await blob.arrayBuffer());
+    const { error: upError } = await admin.storage.from(ARCHIVE_BUCKET).upload(target, buf, { contentType: blob.type || 'application/octet-stream', upsert: true });
     if (upError) throw new Error(`Arkivet: kunde inte kopiera ${parsed.path}: ${upError.message}`);
+    bytes += buf.length;
     files.push({ url, archivedAs: target });
   }
-  const keepUntil = archiveKeepUntil(companyData, now);
-  await uploadJson(admin, `${base}/bokforing.json`, {
+  bytes += await uploadGz(admin, `${base}/bokforing.json.gz`, {
     archivedAt: now.toISOString(),
     reason,
     keepUntil,
@@ -125,9 +209,9 @@ export async function archiveCompany(admin, { userId, companyId, companyData, re
     companyName: companyData?.company?.name || null,
     orgNr: companyData?.company?.orgNr || null,
     files,
-    data: companyData,
+    data: subset,
   });
-  return { path: base, keepUntil, files: files.length };
+  return { path: base, keepUntil, files: files.length, bytes };
 }
 
 function hasBookkeeping(state) {
@@ -137,16 +221,23 @@ function hasBookkeeping(state) {
   ) > 0);
 }
 
+const sha = (value) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
+// Äldre indexposter (före komprimeringen) saknar filnamn.
+const dailyFile = (d) => (typeof d === 'string' ? `dag-${d}.json` : d.file);
+const dailyDate = (d) => (typeof d === 'string' ? d : d.date);
+const monthlyFile = (m) => m.file || `man-${m.month}.json`;
+
 /**
- * Nattkopior av varje konto med bokföring. Skriver bara när innehållet
- * ändrats sedan förra kopian, gallrar dagskopior äldre än DAILY_KEEP_DAYS
- * och månadskopior vars arkivtid gått ut.
+ * Nattkopior av varje konto med bokföring. Dagskopian skrivs bara när
+ * kontot ändrats, månadskopian bara när det BOKFÖRDA ändrats sedan förra
+ * månadskopian. Gallrar dagskopior äldre än DAILY_KEEP_DAYS och
+ * månadskopior vars arkivtid gått ut.
  */
 export async function snapshotAllUsers(admin, { now = new Date(), dryRun = false } = {}) {
   if (!dryRun) await ensureArchiveBucket(admin);
   const today = now.toISOString().slice(0, 10);
   const month = today.slice(0, 7);
-  const summary = { users: 0, written: 0, pruned: 0, errors: [] };
+  const summary = { users: 0, written: 0, monthly: 0, pruned: 0, bytes: 0, errors: [] };
 
   const PAGE = 200;
   for (let from = 0; ; from += PAGE) {
@@ -158,37 +249,43 @@ export async function snapshotAllUsers(admin, { now = new Date(), dryRun = false
       try {
         const dir = `${row.user_id}/_kopior`;
         const index = (await readJson(admin, `${dir}/index.json`)) || { hash: null, daily: [], monthly: [] };
-        const json = JSON.stringify(row.state);
-        const hash = createHash('sha256').update(json).digest('hex');
+        const hash = sha(row.state);
         const keepUntil = archiveKeepUntil(row.state, now);
         const toRemove = [];
 
         if (hash !== index.hash) {
-          const payload = { snapshotAt: now.toISOString(), keepUntil, userId: row.user_id, state: row.state };
-          if (!dryRun) await uploadJson(admin, `${dir}/dag-${today}.json`, payload);
-          index.daily = [...(index.daily || []).filter(d => d !== today), today];
-          if (!(index.monthly || []).some(m => m.month === month)) {
-            if (!dryRun) await uploadJson(admin, `${dir}/man-${month}.json`, payload);
-            index.monthly = [...(index.monthly || []), { month, keepUntil }];
-          }
+          const file = `dag-${today}.json.gz`;
+          if (!dryRun) summary.bytes += await uploadGz(admin, `${dir}/${file}`, { snapshotAt: now.toISOString(), userId: row.user_id, state: row.state });
+          // En äldre kopia från samma dag (t.ex. okomprimerad) ersätts och tas bort.
+          (index.daily || []).filter(d => dailyDate(d) === today && dailyFile(d) !== file).forEach(d => toRemove.push(`${dir}/${dailyFile(d)}`));
+          index.daily = [...(index.daily || []).filter(d => dailyDate(d) !== today), { date: today, file }];
           index.hash = hash;
           summary.written += 1;
         }
-        // Månadskopians arkivtid följer bokföringen: har kontot fått nyare
-        // poster sedan dess gäller det längre datumet.
-        index.monthly = (index.monthly || []).map(m => (m.month === month && keepUntil > m.keepUntil ? { ...m, keepUntil } : m));
+
+        const legal = Object.fromEntries(Object.entries(row.state?.companies || {}).map(([id, c]) => [id, legalSubset(c)]));
+        const legalHash = sha(legal);
+        const monthly = index.monthly || [];
+        const last = monthly[monthly.length - 1];
+        if (!last || last.hash !== legalHash) {
+          const file = `man-${month}.json.gz`;
+          if (!dryRun) summary.bytes += await uploadGz(admin, `${dir}/${file}`, { snapshotAt: now.toISOString(), keepUntil, userId: row.user_id, companies: legal });
+          monthly.filter(m => m.month === month && monthlyFile(m) !== file).forEach(m => toRemove.push(`${dir}/${monthlyFile(m)}`));
+          index.monthly = [...monthly.filter(m => m.month !== month), { month, file, keepUntil, hash: legalHash }];
+          summary.monthly += 1;
+        } else if (keepUntil > last.keepUntil) {
+          // Oförändrad bokföring: den senaste kopian täcker fortfarande, men
+          // arkivtiden följer det senaste året kontot använts.
+          last.keepUntil = keepUntil;
+        }
 
         const cutoff = new Date(now.getTime() - DAILY_KEEP_DAYS * DAY_MS).toISOString().slice(0, 10);
-        const keepDaily = [];
-        for (const d of index.daily || []) (d < cutoff ? toRemove.push(`${dir}/dag-${d}.json`) : keepDaily.push(d));
-        index.daily = keepDaily;
-        const keepMonthly = [];
-        for (const m of index.monthly || []) (m.keepUntil < today ? toRemove.push(`${dir}/man-${m.month}.json`) : keepMonthly.push(m));
-        index.monthly = keepMonthly;
+        index.daily = (index.daily || []).filter(d => (dailyDate(d) < cutoff ? (toRemove.push(`${dir}/${dailyFile(d)}`), false) : true));
+        index.monthly = (index.monthly || []).filter(m => (m.keepUntil < today ? (toRemove.push(`${dir}/${monthlyFile(m)}`), false) : true));
 
         if (!dryRun) {
           if (toRemove.length) await admin.storage.from(ARCHIVE_BUCKET).remove(toRemove);
-          await uploadJson(admin, `${dir}/index.json`, index);
+          await uploadIndex(admin, `${dir}/index.json`, index);
         }
         summary.pruned += toRemove.length;
       } catch (err) {
@@ -196,6 +293,33 @@ export async function snapshotAllUsers(admin, { now = new Date(), dryRun = false
       }
     }
     if (!rows || rows.length < PAGE) break;
+  }
+  return summary;
+}
+
+/**
+ * Raderar arkiv från Radera data och Radera företag vars arkivtid gått ut. Datumet står i
+ * mappnamnet (-tÅÅÅÅ-MM-DD), så inget behöver laddas ner för att avgöra det.
+ */
+export async function pruneExpiredArchives(admin, { now = new Date(), dryRun = false } = {}) {
+  const today = now.toISOString().slice(0, 10);
+  const summary = { expired: 0, removed: 0 };
+  const { data: users } = await admin.storage.from(ARCHIVE_BUCKET).list('', { limit: 1000 });
+  for (const u of users || []) {
+    if (u.id) continue;
+    const { data: companies } = await admin.storage.from(ARCHIVE_BUCKET).list(u.name, { limit: 1000 });
+    for (const c of companies || []) {
+      if (c.id || c.name === '_kopior') continue;
+      const { data: archives } = await admin.storage.from(ARCHIVE_BUCKET).list(`${u.name}/${c.name}`, { limit: 1000 });
+      for (const a of archives || []) {
+        const m = /-t(\d{4}-\d{2}-\d{2})$/.exec(a.name);
+        if (a.id || !m || m[1] >= today) continue;
+        summary.expired += 1;
+        const paths = await listAllObjects(admin, ARCHIVE_BUCKET, `${u.name}/${c.name}/${a.name}`);
+        if (!dryRun && paths.length) await admin.storage.from(ARCHIVE_BUCKET).remove(paths);
+        summary.removed += paths.length;
+      }
+    }
   }
   return summary;
 }
