@@ -249,3 +249,73 @@ describe('guessColumnMapping — engelska och blandade rubriker', () => {
     expect(m.balanceColumn).toBe('Bokfört saldo')
   })
 })
+
+describe('Handelsbankens Excel-export (kontouppgifter ovanför tabellen)', () => {
+  const grid = [
+    ['Kontoutdrag'],
+    ['Konto', 'Företagskonto 6000 123 456 789'],
+    ['Period', '2026-09-01 - 2026-09-24'],
+    [],
+    ['Reskontradatum', 'Transaktionsdatum', 'Text', 'Belopp', 'Saldo'],
+    ['2026-09-03', '2026-09-02', 'KORTKÖP CLAS OHLSON', '-249,00', '10 751,00'],
+    ['2026-09-05', '2026-09-05', 'BG 5050-1055 KUND AB', '12 500,00', '23 251,00'],
+    [],
+  ]
+
+  it('hittar rubrikraden och läser raderna under den', async () => {
+    const { tableFromGrid } = await import('./bankImport')
+    const { headers, rows } = tableFromGrid(grid)
+    expect(headers).toEqual(['Reskontradatum', 'Transaktionsdatum', 'Text', 'Belopp', 'Saldo'])
+    expect(rows).toHaveLength(2)
+    const mapping = guessColumnMapping(headers)
+    expect(mapping).toMatchObject({ date: 'Reskontradatum', description: 'Text', amountColumn: 'Belopp', balanceColumn: 'Saldo' })
+  })
+
+  it('läser en riktig .xlsx-fil med samma upplägg', async () => {
+    const XLSX = await import('xlsx')
+    const { parseBankFile, normalizeRows } = await import('./bankImport')
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(grid), 'Transaktioner')
+    const buf = XLSX.write(wb, { type: 'array', bookType: 'xlsx' })
+    const file = { name: 'Transaktioner.xlsx', arrayBuffer: async () => buf }
+    const { headers, rows } = await parseBankFile(file)
+    const { rows: out, errors } = normalizeRows(rows, guessColumnMapping(headers))
+    expect(errors).toEqual([])
+    expect(out.map(r => [r.date, r.amount])).toEqual([['2026-09-03', -249], ['2026-09-05', 12500]])
+  })
+
+  it('läser en .xls som egentligen är en HTML-tabell (så exporterar flera internetbanker)', async () => {
+    const { parseBankFile, normalizeRows } = await import('./bankImport')
+    const html = `<html><body><table>${grid.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</table></body></html>`
+    const buf = new TextEncoder().encode(html).buffer
+    const { headers, rows } = await parseBankFile({ name: 'export.xls', arrayBuffer: async () => buf })
+    const { rows: out } = normalizeRows(rows, guessColumnMapping(headers))
+    expect(out.map(r => [r.date, r.description, r.amount])).toEqual([['2026-09-03', 'KORTKÖP CLAS OHLSON', -249], ['2026-09-05', 'BG 5050-1055 KUND AB', 12500]])
+  })
+
+  it('en CSV med rader ovanför rubrikerna fungerar också', () => {
+    const csv = 'Kontoutdrag;Företagskonto\nPeriod;2026-09\n\nDatum;Text;Belopp\n2026-09-03;Kaffe;-45,00\n'
+    const { headers, rows } = parseDelimited(csv)
+    expect(headers).toEqual(['Datum', 'Text', 'Belopp'])
+    expect(rows).toHaveLength(1)
+  })
+})
+
+describe('Excel med riktiga datum- och talceller', () => {
+  it('ger rätt dag och belopp oavsett cellformat', async () => {
+    const XLSX = await import('xlsx')
+    const { parseBankFile, normalizeRows } = await import('./bankImport')
+    const ws = XLSX.utils.aoa_to_sheet([
+      ['Kontoutdrag Handelsbanken'],
+      ['Reskontradatum', 'Text', 'Belopp', 'Saldo'],
+      [new Date(2026, 8, 3), 'KORTKÖP', -249, 10751],
+    ], { cellDates: true })
+    ws.A3.z = 'm/d/yy'
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Blad1')
+    const buf = XLSX.write(wb, { type: 'array', bookType: 'xlsx' })
+    const { headers, rows } = await parseBankFile({ name: 'hb.xlsx', arrayBuffer: async () => buf })
+    const { rows: out } = normalizeRows(rows, guessColumnMapping(headers))
+    expect(out[0]).toMatchObject({ date: '2026-09-03', amount: -249, balance: 10751 })
+  })
+})

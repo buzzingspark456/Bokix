@@ -39,12 +39,57 @@ export function decodeBankCsvText(arrayBuffer) {
 // papaparse auto-detekterar avgränsare när `delimiter` utelämnas — täcker
 // både kommatecken- och semikolon-exporter utan att vi behöver gissa själva.
 export function parseDelimited(text) {
-  const result = Papa.parse((text || '').trim(), { header: true, skipEmptyLines: true });
-  return {
-    headers: result.meta?.fields || [],
-    rows: result.data || [],
-    errors: result.errors || [],
-  };
+  const result = Papa.parse((text || '').trim(), { header: false, skipEmptyLines: true });
+  return { ...tableFromGrid(result.data || []), errors: result.errors || [] };
+}
+
+// ── Rubrikraden behöver inte vara första raden ──────────────────────────
+// Flera banker lägger kontouppgifter överst i exporten innan själva
+// tabellen börjar. Handelsbankens Excel-fil börjar till exempel med
+// kontonamn, clearingnummer och period, och rubrikerna (Reskontradatum,
+// Transaktionsdatum, Text, Belopp, Saldo) kommer först några rader ner.
+// Rubrikraden är den första raden där minst två celler ser ut som
+// kända kolumnnamn: ett datum och ett belopp eller en beskrivning.
+function headerScore(cells) {
+  const norm = cells.map(normalizeHeader);
+  const has = (key) => norm.some(h => h && HEADER_DICTIONARY[key].some(c => h === c || h.includes(c)));
+  const date = has('date');
+  const money = has('amount') || has('debit') || has('credit');
+  return date && (money || has('description')) ? 2 : 0;
+}
+
+export function findHeaderRow(grid) {
+  const limit = Math.min(grid.length, 40);
+  for (let i = 0; i < limit; i++) {
+    const cells = (grid[i] || []).map(c => (c ?? '').toString());
+    if (cells.filter(c => c.trim()).length >= 2 && headerScore(cells) >= 2) return i;
+  }
+  return 0;
+}
+
+/** Rader som listor (från CSV eller Excel) till {headers, rows}. Tomma och
+ * dubblerade rubriker får egna namn så att ingen kolumn skriver över en
+ * annan, och helt tomma rader efter tabellen hoppas över. */
+export function tableFromGrid(grid) {
+  const rowsIn = (grid || []).filter(r => Array.isArray(r));
+  if (!rowsIn.length) return { headers: [], rows: [] };
+  const at = findHeaderRow(rowsIn);
+  const seen = new Map();
+  const headers = (rowsIn[at] || []).map((raw, i) => {
+    let h = (raw ?? '').toString().trim() || `Kolumn ${i + 1}`;
+    const n = seen.get(h) || 0;
+    seen.set(h, n + 1);
+    if (n) h = `${h} (${n + 1})`;
+    return h;
+  });
+  const rows = [];
+  for (const r of rowsIn.slice(at + 1)) {
+    if (!r.some(c => (c ?? '').toString().trim() !== '')) continue;
+    const obj = {};
+    headers.forEach((h, i) => { obj[h] = r[i] ?? ''; });
+    rows.push(obj);
+  }
+  return { headers, rows };
 }
 
 // ── Filinläsning (CSV eller Excel) → samma {headers, rows}-form oavsett ──
@@ -52,15 +97,22 @@ export async function parseBankFile(file) {
   const buf = await file.arrayBuffer();
   const name = (file.name || '').toLowerCase();
   if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
-    const workbook = XLSX.read(buf, { type: 'array', cellDates: true });
+    // raw:true gäller bara text-/HTML-baserade filer (många bankers .xls):
+    // cellerna lämnas som text så att svenska decimaler ("-249,00") inte
+    // tolkas med amerikansk tusentalsavgränsare (-24 900). parseAmount tar
+    // hand om texten. Riktiga .xlsx-celler med tal och datum påverkas inte.
+    const workbook = XLSX.read(buf, { type: 'array', cellDates: true, raw: true });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     // defval:'' så saknade celler blir tom sträng, inte `undefined` (skulle
     // annars tysta bort kolumner helt på rader där just den cellen är tom).
     // raw:false formaterar datum/tal enligt cellens eget format istället
     // för Excels interna serienummer.
-    const rows = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false });
-    const headers = rows.length ? Object.keys(rows[0]) : [];
-    return { headers, rows, errors: [] };
+    // header:1 ger raderna som listor, så att rubrikraden kan hittas även
+    // när banken lagt kontouppgifter överst (tableFromGrid).
+    // raw:true: datumceller kommer som Date (cellDates) och belopp som tal,
+    // i stället för cellens visningsformat ("9/3/26" går inte att tolka).
+    const grid = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: true, blankrows: false });
+    return { ...tableFromGrid(grid), errors: [] };
   }
   const text = decodeBankCsvText(buf);
   return parseDelimited(text);
@@ -81,7 +133,7 @@ export async function parseBankFile(file) {
 // term råka fånga fel kolumn i en fil som har båda.
 const HEADER_DICTIONARY = {
   date: [
-    'bokföringsdag', 'transaktionsdag', 'valutadag', 'datum', 'bokfört',
+    'bokföringsdag', 'reskontradatum', 'transaktionsdag', 'transaktionsdatum', 'valutadag', 'datum', 'bokfört',
     'booking date', 'booking_date', 'transaction date', 'transaction_date',
     'value date', 'value_date', 'posting date', 'posted', 'date',
   ],
@@ -158,7 +210,12 @@ export function parseAmount(raw) {
 
 export function parseFlexibleDate(raw) {
   if (!raw) return '';
-  if (raw instanceof Date && !Number.isNaN(raw.getTime())) return raw.toISOString().slice(0, 10);
+  // Lokal tid, inte toISOString: en Excel-dag kl. 00:00 svensk tid är
+  // dagen innan i UTC och hade annars hamnat ett dygn fel.
+  if (raw instanceof Date && !Number.isNaN(raw.getTime())) {
+    const p = (n) => String(n).padStart(2, '0');
+    return `${raw.getFullYear()}-${p(raw.getMonth() + 1)}-${p(raw.getDate())}`;
+  }
   const s = String(raw).trim();
   let m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
   if (m) return `${m[1]}-${m[2]}-${m[3]}`;

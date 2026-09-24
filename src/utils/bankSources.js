@@ -62,7 +62,7 @@ export const BANK_SOURCES = [
     name: 'Handelsbanken',
     logo: '/logos/banks/handelsbanken.png',
     ratio: 640 / 66,
-    path: 'Logga in → Konton → Transaktioner → Ladda ner (CSV)',
+    path: 'Logga in → Konton → Transaktioner → Ladda ner (Excel eller CSV)',
   },
   {
     id: 'lansforsakringar',

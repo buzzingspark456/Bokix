@@ -15,6 +15,7 @@ import { BankLogo } from './shared/BrandLogos';
 import { BANK_SOURCES, OTHER_BANK_HINT, MAX_BANK_FILE_MB, ACCEPTED_BANK_EXTENSIONS, splitBankPath } from '../utils/bankSources';
 import { guessAccountFromText } from '../utils/accountCategories';
 import Reconciliation from './Reconciliation';
+import { bankHeaderLabel } from '../utils/bankHeaderLabels';
 
 // Bank – CSV/Excel-import. `bankImport.js` (parsning/normalisering/
 // matchningsförslag, statisk import av papaparse+xlsx) laddas BARA lazy
@@ -1134,14 +1135,14 @@ function MappingStep({ headers, mapping, setMapping, sampleRow }) {
           <label style={fieldLabel}>Datum</label>
           <select value={mapping.date} onChange={e => set({ date: e.target.value })} style={inp}>
             <option value="">Välj kolumn...</option>
-            {headers.map(h => <option key={h} value={h}>{h}</option>)}
+            {headers.map(h => <option key={h} value={h}>{bankHeaderLabel(h)}</option>)}
           </select>
         </div>
         <div>
           <label style={fieldLabel}>Beskrivning</label>
           <select value={mapping.description} onChange={e => set({ description: e.target.value })} style={inp}>
             <option value="">Välj kolumn...</option>
-            {headers.map(h => <option key={h} value={h}>{h}</option>)}
+            {headers.map(h => <option key={h} value={h}>{bankHeaderLabel(h)}</option>)}
           </select>
         </div>
 
@@ -1158,17 +1159,17 @@ function MappingStep({ headers, mapping, setMapping, sampleRow }) {
           {mapping.amountMode === 'single' ? (
             <select value={mapping.amountColumn} onChange={e => set({ amountColumn: e.target.value })} style={inp}>
               <option value="">Välj kolumn...</option>
-              {headers.map(h => <option key={h} value={h}>{h}</option>)}
+              {headers.map(h => <option key={h} value={h}>{bankHeaderLabel(h)}</option>)}
             </select>
           ) : (
             <div style={{ display: 'flex', gap: '8px' }}>
               <select value={mapping.debitColumn} onChange={e => set({ debitColumn: e.target.value })} style={inp}>
                 <option value="">Uttag-kolumn...</option>
-                {headers.map(h => <option key={h} value={h}>{h}</option>)}
+                {headers.map(h => <option key={h} value={h}>{bankHeaderLabel(h)}</option>)}
               </select>
               <select value={mapping.creditColumn} onChange={e => set({ creditColumn: e.target.value })} style={inp}>
                 <option value="">Insättning-kolumn...</option>
-                {headers.map(h => <option key={h} value={h}>{h}</option>)}
+                {headers.map(h => <option key={h} value={h}>{bankHeaderLabel(h)}</option>)}
               </select>
             </div>
           )}
@@ -1183,7 +1184,7 @@ function MappingStep({ headers, mapping, setMapping, sampleRow }) {
             <label style={fieldLabel}>{f.label}</label>
             <select value={mapping[f.key] || ''} onChange={e => set({ [f.key]: e.target.value })} style={inp}>
               <option value="">Ingen</option>
-              {headers.map(h => <option key={h} value={h}>{h}</option>)}
+              {headers.map(h => <option key={h} value={h}>{bankHeaderLabel(h)}</option>)}
             </select>
           </div>
         ))}
@@ -1192,7 +1193,18 @@ function MappingStep({ headers, mapping, setMapping, sampleRow }) {
       {sampleRow && (
         <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', background: 'var(--bg-muted)', borderRadius: '6px', padding: '8px 10px', display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
           <HelpCircle size={13} style={{ flexShrink: 0, marginTop: 1 }} />
-          <span>Exempel från första raden: {headers.map(h => `${h}=${sampleRow[h]}`).join(', ')}</span>
+          <span>
+            Exempel från första raden:{' '}
+            {[
+              ['Datum', mapping.date],
+              ['Beskrivning', mapping.description],
+              ...(mapping.amountMode === 'split'
+                ? [['Uttag', mapping.debitColumn], ['Insättning', mapping.creditColumn]]
+                : [['Belopp', mapping.amountColumn]]),
+              ['Saldo', mapping.balanceColumn],
+              ['Referens', mapping.referenceColumn],
+            ].filter(([, col]) => col).map(([label, col]) => `${label}: ${String(sampleRow[col] instanceof Date ? sampleRow[col].toLocaleDateString('sv-SE') : (sampleRow[col] ?? '')).trim().replace(/(\d) (\d)/g,'$1 $2') || '(tom)'}`).join(' · ') || 'välj kolumnerna ovan'}
+          </span>
         </div>
       )}
     </div>
