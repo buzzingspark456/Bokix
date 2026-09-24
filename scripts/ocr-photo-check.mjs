@@ -104,15 +104,15 @@ for (const { name, opts, lines: caseLines } of CASES) {
   const out = await page.evaluate(async ({ lines, opts }) => {
     const { ocrFile, parseReceiptText, drawReceipt, fakePhoto } = window.__ocr;
     const photo = await fakePhoto(drawReceipt(lines, opts.width ? { width: opts.width } : {}), opts);
-    const { text, confidence, quality } = await ocrFile(photo, () => {});
-    const parsed = parseReceiptText(text, { confidence });
+    const { text, confidence, weakTokens, quality } = await ocrFile(photo, () => {});
+    const parsed = parseReceiptText(text, { confidence, weakTokens });
     return {
       bytes: photo.size,
       confidence: confidence === null ? null : Math.round(confidence),
       quality,
       amount: parsed.amount, amountGuessed: parsed.amountGuessed, amountVerified: parsed.amountVerified,
       vatRate: parsed.vatRate, vatAmount: parsed.vatAmount, vatVerified: parsed.vatVerified, vatMismatch: parsed.vatMismatch,
-      supplier: parsed.supplier, date: parsed.date, number: parsed.receiptNumber,
+      supplier: parsed.supplier, date: parsed.date, dateGuessed: parsed.dateGuessed, weak: (weakTokens || []).join(' '), number: parsed.receiptNumber,
       notReceipt: parsed.notReceipt, unreadable: parsed.unreadable,
       text: text.replace(/\n+/g, ' | ').slice(0, 220),
     };
@@ -121,7 +121,7 @@ for (const { name, opts, lines: caseLines } of CASES) {
   console.log(`\n── ${name} (${((Date.now() - started) / 1000).toFixed(1)} s, ${Math.round(out.bytes / 1024)} kB)`);
   console.log(`   kvalitet: skarpa ${q.sharpness} kontrast ${q.contrast} ljus ${q.brightness} utklippt ${q.cropped} uträtad ${q.deskewed === true} andel ${q.cropRatio && q.cropRatio.toFixed(2)} langsida ${q.longEdge} rad ${q.advice}`);
   console.log(`   belopp ${out.amount} (gissat ${out.amountGuessed}, kontrollerat ${out.amountVerified})  moms ${out.vatRate}% ${out.vatAmount} (verifierad ${out.vatVerified}, avvikelse ${out.vatMismatch})`);
-  console.log(`   leverantor ${out.supplier}  datum ${out.date}  nummer ${out.number}  ejKvitto ${out.notReceipt} olasbar ${out.unreadable} conf ${out.confidence}`);
+  console.log(`   leverantor ${out.supplier}  datum ${out.date} (kontrollera ${out.dateGuessed}, osäkra: ${out.weak})  nummer ${out.number}  ejKvitto ${out.notReceipt} olasbar ${out.unreadable} conf ${out.confidence}`);
   console.log(`   text: ${out.text}`);
 }
 

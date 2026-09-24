@@ -267,9 +267,9 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
     setRevealing(false);
     setRevealed({});
     try {
-      const { text, confidence, quality, cached } = await readDocumentText(input, msg => { if (isCurrent()) setOcrMessage(msg); }, { force });
+      const { text, confidence, weakTokens, quality, cached } = await readDocumentText(input, msg => { if (isCurrent()) setOcrMessage(msg); }, { force });
       if (!isCurrent()) return; // en nyare körning har redan tagit över
-      const parsed = parseReceiptText(text, { confidence });
+      const parsed = parseReceiptText(text, { confidence, weakTokens });
       const nr = Boolean(parsed.notReceipt);
       // Rådet om fotot visas bara när avläsningen inte blev bra.
       const hint = (quality?.advice && (nr || !parsed.amount || parsed.amountGuessed || parsed.vatMismatch))
@@ -318,7 +318,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
       const pay = decidePayAccount({ history: hist, paymentMethod: parsed.paymentMethod, accounts });
       const plan = [
         { key: 'supplier', found: !nr && Boolean(parsed.supplier), state: parsed.supplierMatched ? 'found' : 'guess', apply: () => setDesc(parsed.supplier) },
-        { key: 'date', found: !nr && Boolean(parsed.date), state: 'found', apply: () => setDate(parsed.date) },
+        { key: 'date', found: !nr && Boolean(parsed.date), state: parsed.dateGuessed ? 'guess' : 'found', apply: () => setDate(parsed.date) },
         { key: 'amount', found: !nr && gross > 0, state: parsed.amountGuessed ? 'guess' : 'found', apply: () => {} },
         {
           key: 'vatRate', found: !nr && gross > 0 && parsed.vatRate !== null && parsed.vatRate !== undefined,

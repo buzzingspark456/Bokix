@@ -1090,3 +1090,47 @@ describe('leverantör trots felstavning', () => {
     expect(r.supplierMatched).toBe(false)
   })
 })
+
+describe('datum som kan vara felläst', () => {
+  const today = new Date(2026, 8, 24)
+  const parse = (lines, opts = {}) => parseReceiptText(lines.join('\n'), { today, ...opts })
+
+  it('ett tydligt datum är avläst', () => {
+    const r = parse(['ICA Nära', '2026-05-26 14:02', 'Totalt 100,00', 'Moms 12% 10,71'])
+    expect(r.date).toBe('2026-05-26')
+    expect(r.dateGuessed).toBe(false)
+  })
+
+  it('ett datum OCR var osäker på märks Kontrollera', () => {
+    const r = parse(['ICA Nära', '2026-08-26 14:02', 'Totalt 100,00', 'Moms 12% 10,71'], { weakTokens: ['2026-08-26'] })
+    expect(r.date).toBe('2026-08-26')
+    expect(r.dateGuessed).toBe(true)
+  })
+
+  it('ett osäkert belopp fäller inte datumet', () => {
+    const r = parse(['ICA Nära', '2026-05-26 14:02', 'Totalt 26,00', 'Moms 12% 2,79'], { weakTokens: ['26,00'] })
+    expect(r.dateGuessed).toBe(false)
+  })
+
+  it('ett datum i framtiden rättas om en förväxlad siffra förklarar det', () => {
+    const r = parse(['ICA Nära', '2026-11-05', 'Totalt 100,00', 'Moms 12% 10,71'])
+    expect(r.date < '2026-09-26').toBe(true)
+    expect(r.dateGuessed).toBe(true)
+  })
+
+  it('kvittot och kortterminalen säger olika datum', () => {
+    const r = parse(['ICA Nära', '2026-08-26', 'Totalt 100,00', 'Moms 12% 10,71', 'KORTKÖP', '2026-05-26'])
+    expect(r.dateGuessed).toBe(true)
+  })
+
+  it('förfallodatum är inte köpdatum', () => {
+    const r = parse(['Konsult AB', 'Faktura', 'Förfallodatum 2026-10-20', 'Fakturadatum 2026-09-20', 'Att betala 1 250,00', 'Moms 25% 250,00'])
+    expect(r.date).toBe('2026-09-20')
+    expect(r.dateGuessed).toBe(false)
+  })
+
+  it('ett datum som inte finns i kalendern används inte', () => {
+    const r = parse(['ICA Nära', '2026-02-30', 'Totalt 100,00', 'Moms 12% 10,71'])
+    expect(r.date).toBeNull()
+  })
+})

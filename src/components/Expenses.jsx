@@ -327,9 +327,9 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
     setOcrVat(null);
     setFlashKey(null);
     try {
-      const { text, confidence, quality, cached } = await readDocumentText(input, msg => { if (isCurrent()) setOcrMessage(msg); }, { force });
+      const { text, confidence, weakTokens, quality, cached } = await readDocumentText(input, msg => { if (isCurrent()) setOcrMessage(msg); }, { force });
       if (!isCurrent()) return;
-      const parsed = parseReceiptText(text, { confidence });
+      const parsed = parseReceiptText(text, { confidence, weakTokens });
       // Rådet om fotot visas bara när avläsningen inte blev bra: blev beloppet
       // avläst och kontrollerat mot momsen spelar det ingen roll att bilden
       // kunde varit skarpare.
@@ -369,7 +369,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
       const vatFromHistory = !reverse && Boolean(hist && parsed.vatRateGuessed && hist.vatRate !== null);
       const plan = [
         { key: 'supplier', found: !nr && Boolean(parsed.supplier), state: parsed.supplierMatched ? 'found' : 'guess', patch: { supplier: parsed.supplier || '' } },
-        { key: 'date', found: !nr && Boolean(parsed.date), state: 'found', patch: { date: parsed.date } },
+        { key: 'date', found: !nr && Boolean(parsed.date), state: parsed.dateGuessed ? 'guess' : 'found', patch: { date: parsed.date } },
         { key: 'receiptNumber', found: !nr && Boolean(parsed.receiptNumber), state: 'found', patch: { receiptNumber: parsed.receiptNumber || '' } },
         { key: 'amount', found: !nr && Boolean(amountSek), state: parsed.amountGuessed ? 'guess' : 'found', patch: { amount: amountToInput(amountSek) } },
         {

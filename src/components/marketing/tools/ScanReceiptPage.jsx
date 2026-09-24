@@ -55,7 +55,7 @@ function buildFields(parsed, unreadable) {
   const currency = parsed.currency && parsed.currency !== 'SEK' ? parsed.currency : 'kr';
   return [
     { key: 'supplier', label: 'Leverantör', found: has(parsed.supplier), state: parsed.supplierMatched ? 'found' : 'guess', value: parsed.supplier },
-    { key: 'date', label: 'Datum', found: has(parsed.date), state: 'found', value: parsed.date },
+    { key: 'date', label: 'Datum', found: has(parsed.date), state: parsed.dateGuessed ? 'guess' : 'found', value: parsed.date },
     { key: 'receiptNumber', label: 'Nummer', found: has(parsed.receiptNumber), state: 'found', value: parsed.receiptNumber, note: parsed.receiptNumberLabel || '' },
     { key: 'amount', label: 'Belopp', found: has(parsed.amount) && Number(parsed.amount) !== 0, state: parsed.amountGuessed ? 'guess' : 'found', value: parsed.amount != null ? `${fmtAmount(parsed.amount)} ${currency}` : '' },
     { key: 'vatRate', label: 'Moms', found: has(parsed.vatRate), state: parsed.vatRateGuessed ? 'guess' : 'found', value: parsed.vatRate != null ? `${parsed.vatRate} %` : '', note: parsed.vatRateGuessed ? 'Antagen, stod inte tydligt' : '' },
@@ -148,7 +148,7 @@ export default function ScanReceiptPage() {
     }, 200);
     const msgTicker = setInterval(() => { if (runIdRef.current === runId) setMsgIdx(n => (n + 1) % SCAN_MESSAGES.length); }, 1100);
     try {
-      const { text, confidence, quality } = await ocrFile(file, msg => {
+      const { text, confidence, weakTokens, quality } = await ocrFile(file, msg => {
         if (runIdRef.current !== runId) return;
         setMessage(msg);
         setBeamPct(p => Math.max(p, stagePctFor(msg)));
@@ -158,7 +158,7 @@ export default function ScanReceiptPage() {
       if (wait > 0) await new Promise(r => setTimeout(r, wait));
       if (runIdRef.current !== runId) return;
       setBeamPct(100);
-      const parsed = parseReceiptText(text, { confidence });
+      const parsed = parseReceiptText(text, { confidence, weakTokens });
       // unreadable/notReceipt kommer nu från samma delade logik som appens
       // kvitto- och verifikationsvyer (ocrReceipt.js), i stället för en egen
       // kopia av gränsen här — se isUnreadableText/classifyDocument.

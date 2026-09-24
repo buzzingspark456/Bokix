@@ -931,8 +931,80 @@ async function recognizeWith(source, onProgress, { psm = null, label = 'Läser a
     if (psm) {
       try { await worker.setParameters({ tessedit_pageseg_mode: psm }); } catch (err) { console.warn('[OCR] Kunde inte sätta sidläge:', err); }
     }
-    const { data } = await worker.recognize(source);
-    return { text: data.text || '', confidence: typeof data.confidence === 'number' ? data.confidence : null };
+    const { data } = await worker.recognize(source, {}, { text: true, blocks: true });
+    return {
+      text: data.text || '',
+      confidence: typeof data.confidence === 'number' ? data.confidence : null,
+      weakTokens: weakDigitWords(data.blocks),
+      digitWords: digitWordsOf(data.blocks),
+      source,
+    };
+  } finally {
+    await worker.terminate();
+  }
+}
+
+// Ord med siffror som Tesseract läste med lägre säkerhet än så här. Ett datum
+// bland dem märks "Kontrollera" (se pickReceiptDate): siffran kan vara en
+// förväxling, och ett fel datum ser precis lika rimligt ut som ett rätt.
+const WEAK_DIGIT_CONFIDENCE = 75;
+
+function digitWordsOf(blocks) {
+  const out = [];
+  (blocks || []).forEach(b => (b.paragraphs || []).forEach(p => (p.lines || []).forEach(l => (l.words || []).forEach((w) => {
+    if (/\d/.test(w.text || '')) out.push({ text: w.text, confidence: w.confidence, bbox: w.bbox });
+  }))));
+  return out;
+}
+
+function weakDigitWords(blocks) {
+  return digitWordsOf(blocks)
+    .filter(w => typeof w.confidence === 'number' && w.confidence < WEAK_DIGIT_CONFIDENCE)
+    .map(w => w.text);
+}
+
+/**
+ * Läser datumet en gång till, för sig. Tesseract kan vara helt säker och ändå
+ * fel: ett suddigt foto gav "2026-09-16" för 2026-09-14 med 99 i säkerhet på
+ * varje siffra. En andra, oberoende läsning av bara datumfältet (förstorat,
+ * bara siffror tillåtna) säger emot när siffrorna är tvetydiga, och då märks
+ * datumet "Kontrollera". Returnerar ordet som ska räknas som osäkert, eller null.
+ */
+async function rereadDate(reading) {
+  const { source, digitWords } = reading;
+  if (!source || typeof document === 'undefined' || !digitWords?.length) return null;
+  const { dateText } = parseReceiptText(reading.text, { confidence: reading.confidence });
+  if (!dateText) return null;
+  const digits = (t) => String(t).replace(/\D/g, '');
+  const wanted = digits(dateText);
+  const word = digitWords.find(w => digits(w.text).length >= 4 && (wanted.includes(digits(w.text)) || digits(w.text).includes(wanted)));
+  if (!word?.bbox) return null;
+  const { x0, y0, x1, y1 } = word.bbox;
+  const h = y1 - y0;
+  const pad = Math.round(h * 0.5);
+  const sx = Math.max(0, x0 - pad), sy = Math.max(0, y0 - pad);
+  const sw = Math.min(source.width - sx, x1 - x0 + pad * 2), sh = Math.min(source.height - sy, h + pad * 2);
+  if (sw <= 0 || sh <= 0) return null;
+  // Förstorat till ungefär 48 px teckenhöjd, som Tesseract läser bäst.
+  const scale = Math.min(4, Math.max(1, 48 / Math.max(1, h)));
+  const crop = document.createElement('canvas');
+  crop.width = Math.round(sw * scale);
+  crop.height = Math.round(sh * scale);
+  const ctx = crop.getContext('2d');
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, crop.width, crop.height);
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(source, sx, sy, sw, sh, 0, 0, crop.width, crop.height);
+  const { createWorker } = await import('tesseract.js');
+  const worker = await createWorker('eng', 1);
+  try {
+    await worker.setParameters({ tessedit_pageseg_mode: '7', tessedit_char_whitelist: '0123456789-/.:' });
+    const { data } = await worker.recognize(crop);
+    const again = digits(data.text);
+    return again.length >= 4 && again !== digits(word.text) ? word.text : null;
+  } catch (err) {
+    console.warn('[OCR] Kunde inte läsa om datumet:', err);
+    return null;
   } finally {
     await worker.terminate();
   }
@@ -990,7 +1062,7 @@ async function extractTextFromImage(imageSource, onProgress) {
   const stage = await stageImage(imageSource);
   if (!stage) {
     // Ingen canvas att arbeta med (mycket gammal webbläsare): läs originalet.
-    const only = await recognizeWith(imageSource, onProgress);
+    const { source: _source, digitWords: _words, ...only } = await recognizeWith(imageSource, onProgress);
     return { ...only, quality: null };
   }
   const first = renderStage(stage, MAX_OCR_DIMENSION);
@@ -1005,7 +1077,10 @@ async function extractTextFromImage(imageSource, onProgress) {
       quality = second.quality;
     }
   }
-  return { ...best, quality };
+  const doubtful = await rereadDate(best);
+  const { source: _source, digitWords: _words, ...result } = best;
+  if (doubtful) result.weakTokens = [...(result.weakTokens || []), doubtful];
+  return { ...result, quality };
 }
 
 /**
@@ -1093,7 +1168,7 @@ export async function ocrFile(input, onProgress) {
  * den finns i cachen, annars läses det om) så att förbättringar i tolkningen,
  * till exempel av ordernumret, når kvitton som skannades innan de fanns.
  */
-export const OCR_DRAFT_VERSION = 2;
+export const OCR_DRAFT_VERSION = 3;
 
 const round2 = (v) => Math.round(v * 100) / 100;
 const VAT_RATES = [25, 12, 6];
@@ -1850,8 +1925,96 @@ export function detectForeignPurchase(text, { knownService = false } = {}) {
   return { foreign: false, region: null, unclear: false, evidence: null };
 }
 
+// ── Datum: rimlighet ─────────────────────────────────────────────────────────
+// En avläst siffra i ett datum är lätt att läsa fel på ett foto: 5 blir 8, 0
+// blir 6 eller 9, 1 blir 7. Resultatet ser ut som ett riktigt datum
+// (2026-08-26 i stället för 2026-05-26) och syntes inte alls i appen, som
+// visade det som avläst. Datumet märks därför "Kontrollera" när något tyder på
+// att det kan vara fel, och ett datum i framtiden — som ett kvitto aldrig kan
+// ha — rättas om en enda feltolkad siffra förklarar det.
+
+// Rader med förfallodatum och liknande: det är inte köpdatumet.
+const DUE_DATE_LINE_RE = /f[öo]rfall|due\b|betalas\s+senast|sista\s+betal|betala\s+senast|betalningsdag|giltig|valid|expires|utg[åa]r/i;
+
+// Siffror som OCR förväxlar med varandra på foton.
+const CONFUSABLE_DIGITS = {
+  0: '689', 1: '74', 2: '7', 3: '85', 4: '1', 5: '6839', 6: '580', 7: '12', 8: '03569', 9: '805',
+};
+
+// Ett kvitto äldre än så här är ovanligt nog att dubbelkolla.
+const OLD_DATE_YEARS = 2;
+
+/** "2026-02-30" är inget datum, "2026-02-28" är det. */
+export function isRealDate(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '');
+  if (!m) return false;
+  const y = +m[1], mo = +m[2], d = +m[3];
+  if (y < 1990 || mo < 1 || mo > 12 || d < 1) return false;
+  return d <= new Date(Date.UTC(y, mo, 0)).getUTCDate();
+}
+
+const isoLocal = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+/** Två datum som bara skiljer sig i siffror OCR brukar förväxla. */
+function confusableDates(a, b) {
+  if (a === b || a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i] && !(CONFUSABLE_DIGITS[a[i]] || '').includes(b[i])) return false;
+  }
+  return true;
+}
+
+/**
+ * Ett datum i framtiden där EN siffra i månad, dag eller årets sista siffra är
+ * feltolkad: det senaste datumet som inte ligger i framtiden vinner, eftersom
+ * ett kvitto man fotar oftast är nytt.
+ */
+function repairFutureDate(iso, limit) {
+  const positions = [3, 5, 6, 8, 9];
+  let best = null;
+  positions.forEach((pos) => {
+    for (const alt of CONFUSABLE_DIGITS[iso[pos]] || '') {
+      const candidate = iso.slice(0, pos) + alt + iso.slice(pos + 1);
+      if (isRealDate(candidate) && candidate <= limit && (!best || candidate > best)) best = candidate;
+    }
+  });
+  return best;
+}
+
+/**
+ * Väljer köpdatumet bland datumen som hittades och säger om det bör
+ * kontrolleras. `weakTokens` är ord med siffror som OCR själv var osäker på
+ * (se recognizeWith); saknas de avgör datumen och `lowConfidence` ensamma.
+ */
+export function pickReceiptDate(candidates, { today = new Date(), weakTokens = null, lowConfidence = false } = {}) {
+  if (!candidates.length) return { date: null, dateGuessed: false };
+  const tomorrow = new Date(today.getTime() + 24 * 3600 * 1000);
+  const limit = isoLocal(tomorrow);
+  const pool = candidates.some(c => !c.due) ? candidates.filter(c => !c.due) : candidates;
+  const primary = pool[0];
+
+  if (primary.date > limit) {
+    const pastInDoc = pool.find(c => c.date <= limit);
+    if (pastInDoc) return { date: pastInDoc.date, dateGuessed: true };
+    const repaired = repairFutureDate(primary.date, limit);
+    return { date: repaired || primary.date, dateGuessed: true };
+  }
+
+  const date = primary.date;
+  const digits = (s) => String(s).replace(/\D/g, '');
+  const rawDigits = digits(primary.raw);
+  // Minst fyra siffror: ett osäkert "26" i ett belopp ska inte fälla datumet.
+  const weak = (weakTokens || []).map(digits).filter(t => t.length >= 4);
+  const shaky = weak.some(t => rawDigits.includes(t) || t.includes(rawDigits));
+  const disagrees = pool.some(c => c.date !== date && confusableDates(c.date, date));
+  const oldLimit = new Date(today);
+  oldLimit.setFullYear(oldLimit.getFullYear() - OLD_DATE_YEARS);
+  const veryOld = date < isoLocal(oldLimit);
+  return { date, dateText: primary.raw, dateGuessed: Boolean(lowConfidence || shaky || disagrees || veryOld) };
+}
+
 const EMPTY_PARSE = {
-  date: null, amount: null, amountGuessed: false, amountVerified: false,
+  date: null, dateGuessed: false, dateText: null, amount: null, amountGuessed: false, amountVerified: false,
   vatRate: 25, vatRateGuessed: true, vatAmount: null, vatVerified: false, vatMismatch: false, vatRates: null,
   receiptNumber: null, receiptNumberKind: null, receiptNumberLabel: null,
   supplier: null, supplierMatched: false, accountCode: null, accountGuessed: false, accountSource: null,
@@ -1881,7 +2044,7 @@ const LOW_OCR_CONFIDENCE = 60;
  * eller en cachad avläsning där siffran inte sparades) och then avgör
  * innehållet ensamt, som förut.
  */
-export function parseReceiptText(text, { confidence = null } = {}) {
+export function parseReceiptText(text, { confidence = null, weakTokens = null, today = new Date() } = {}) {
   if (!text || typeof text !== 'string') {
     return { ...EMPTY_PARSE };
   }
@@ -1946,13 +2109,16 @@ export function parseReceiptText(text, { confidence = null } = {}) {
     return looksAmerican ? { day: nb, month: na } : { day: na, month: nb };
   }
 
-  let date = null;
-  for (const line of lines) {
+  const dateCandidates = [];
+  lines.forEach((line, lineIndex) => {
+    const push = (value, raw) => {
+      if (isRealDate(value)) dateCandidates.push({ date: value, raw, lineIndex, due: DUE_DATE_LINE_RE.test(line) });
+    };
     // YYYY-MM-DD eller YYYY/MM/DD eller YYYY.MM.DD
     const m1 = line.match(/\b(20\d{2})[-/.](\d{1,2})[-/.](\d{1,2})\b/);
     if (m1) {
-      date = `${m1[1]}-${m1[2].padStart(2, '0')}-${m1[3].padStart(2, '0')}`;
-      break;
+      push(`${m1[1]}-${m1[2].padStart(2, '0')}-${m1[3].padStart(2, '0')}`, m1[0]);
+      return;
     }
     // DD/MM/YYYY eller MM/DD/YYYY (- eller . fungerar också) — se
     // resolveDayMonth ovan för vilken tolkning som vinner.
@@ -1960,8 +2126,8 @@ export function parseReceiptText(text, { confidence = null } = {}) {
     if (m2) {
       const { day, month } = resolveDayMonth(m2[1], m2[2]);
       if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-        date = `${m2[3]}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-        break;
+        push(`${m2[3]}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`, m2[0]);
+        return;
       }
     }
     // DD/MM-YY, DD/MM/YY eller MM/DD-YY ("01/06-22", "23/09/26"). Kassakvitton
@@ -1974,8 +2140,8 @@ export function parseReceiptText(text, { confidence = null } = {}) {
       const fullYear = yr < 70 ? 2000 + yr : 1900 + yr;
       const { day, month } = resolveDayMonth(m3[1], m3[2]);
       if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-        date = `${fullYear}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-        break;
+        push(`${fullYear}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`, m3[0]);
+        return;
       }
     }
     // Textdatum: "May 12, 2024" eller "12 maj 2024" eller "12 juni 2023"
@@ -1986,11 +2152,12 @@ export function parseReceiptText(text, { confidence = null } = {}) {
       const day = (m4[1] || m4[3] || '1').padStart(2, '0');
       const year = m4[4];
       if (monthNum) {
-        date = `${year}-${monthNum}-${day}`;
-        break;
+        push(`${year}-${monthNum}-${day}`, m4[0]);
+        return;
       }
     }
-  }
+  });
+  const { date, dateText = null, dateGuessed } = pickReceiptDate(dateCandidates, { today, weakTokens, lowConfidence });
 
   // ── 2. Totalbelopp ────────────────────────────────────────────────────────
   let amount = null;
@@ -2306,7 +2473,7 @@ export function parseReceiptText(text, { confidence = null } = {}) {
   const numberFound = findReceiptNumberDetailed(lines);
 
   return {
-    date, amount, amountGuessed: amountVerified ? false : amountGuessed, amountVerified, vatRate,
+    date, dateGuessed, dateText, amount, amountGuessed: amountVerified ? false : amountGuessed, amountVerified, vatRate,
     vatRateGuessed: vatCheck.verified ? false : (vatRateGuessed || vatCheck.mismatch),
     vatAmount: vatCheck.vatAmount, vatVerified: vatCheck.verified, vatMismatch: vatCheck.mismatch,
     // Kvittot har moms i flera satser: momsen ÄR avläst och går ihop, men den
