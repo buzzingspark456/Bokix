@@ -32,13 +32,13 @@
     "projects": "Projekt",
     "bank": "Bank",
     "payroll": "Lön",
-    "reports": "Rapport",
+    "reports": "Rapporter",
     "taxes": "Skatt",
-    "settings": "Inställn.",
+    "settings": "Inställ\u00adningar",
     "articles": "Artiklar",
     "quotes": "Offerter",
-    "invoices": "Fakturor",
-    "supplierInvoices": "Lev.fakt."
+    "invoices": "Kund\u00adfakturor",
+    "supplierInvoices": "Leverantörs\u00adfakturor"
   },
   "shared": {
     "listTable": {

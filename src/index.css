@@ -5927,8 +5927,8 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
 }
 /* ══════════════════════════════════════════════
    HALV SKÄRM (769-1100 px): sidomenyn som ett smalt ikonfält
-   Innehållet får 184 px mer bredd, så tabeller och flikrader ryms utan att
-   klippas. Namnet visas som hjälptext när man håller över en ikon.
+   Innehållet får 142 px mer bredd, så tabeller och flikrader ryms utan att
+   klippas. Fältet är 88 px så att hela namnen ryms under ikonerna.
 ══════════════════════════════════════════════ */
 .sidebar-monogram { display: none; }
 .sidebar .nav-short { display: none; }
@@ -5937,60 +5937,69 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
 .nav-group-title { display: none; }
 .nav-group-items { flex-shrink: 0; }
 @media (min-width: 769px) and (max-width: 1100px) {
-  :root { --sidebar-width: 76px; }
+  :root { --sidebar-width: 88px; }
   .sidebar { width: var(--sidebar-width); }
-  .sidebar .logo-container { padding: 16px 0 10px !important; display: flex; justify-content: center; }
+  .sidebar .logo-container { padding: 18px 0 12px !important; display: flex; justify-content: center; }
   .sidebar .logo-container .bokix-logo-btn { display: none !important; }
+  /* Bara loggans B, litet och centrerat, utan egen platta: en mörk ruta på den
+     gröna menyn såg tung ut. */
   .sidebar-monogram {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 54px;
-    height: 54px;
-    /* Samma platta som favikonen (public/favicon.svg): mörkgrön (#0c1f14) med
-       rundade hörn (22 %) och B:et i loggans gradient. En tunn ljus kant gör att
-       plattan syns mot en mörk sidomeny också, där den annars smälter in. */
-    border-radius: 22%;
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    background: #0c1f14;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    border: none;
+    background: none;
     cursor: pointer;
     padding: 0;
-    transition: border-color var(--transition), transform var(--transition);
+    transition: background var(--transition);
   }
-  .sidebar-monogram:hover { border-color: rgba(255, 255, 255, 0.32); transform: translateY(-1px); }
-  .sidebar-monogram svg { display: block; }
+  .sidebar-monogram:hover { background: rgba(255, 255, 255, 0.08); }
+  .sidebar-monogram svg { display: block; width: auto; height: 68%; }
   .sidebar .nav-label { display: none; }
-  /* Text under varje ikon, som i mobilens bottenmeny: det gör att man ser vad
-     varje ikon är utan att hålla musen över den. */
+  /* Text under varje ikon, som i mobilens bottenmeny. Hela namnet, på två
+     rader när det behövs (Leverantörs-/fakturor bryts vid ett mjukt
+     bindestreck), inga förkortningar. Vald sida är en rundad platta. */
   .sidebar .nav-item {
     position: relative;
-    padding: 9px 0 8px !important;
+    width: calc(100% - 12px) !important;
+    margin: 1px 6px;
+    border-radius: 12px;
+    padding: 8px 2px 7px !important;
     justify-content: center !important;
   }
+  .sidebar .nav-item.active { box-shadow: none; }
   .sidebar .nav-item > span { justify-content: center; flex-direction: column; gap: 4px !important; }
   .sidebar .nav-short {
-    display: block;
-    max-width: 70px;
-    font-size: 10.5px;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    max-width: 72px;
+    font-size: 11px;
     font-weight: 600;
-    line-height: 1.1;
+    line-height: 1.15;
     letter-spacing: 0;
+    text-align: center;
+    white-space: normal;
+    hyphens: manual;
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
   /* Hjälp och Logga ut finns i profilmenyn uppe till höger. */
   .sidebar .sidebar-footer-actions { display: none; }
   .sidebar .nav-badge {
     position: absolute;
-    top: 6px;
+    top: 5px;
     right: 14px;
     min-width: 16px !important;
     height: 16px !important;
     padding: 0 4px !important;
     font-size: 10px !important;
   }
-  .sidebar > div[style*="height: 1px"] { margin-left: 14px !important; margin-right: 14px !important; }
+  .sidebar > div[style*="height: 1px"] { margin-left: 18px !important; margin-right: 18px !important; }
+  .sidebar .nav-group-divider { margin-left: 18px !important; margin-right: 18px !important; }
   .sidebar .nav-item.logout-btn,
   .sidebar .nav-item { gap: 0 !important; }
 }

@@ -27,7 +27,7 @@
     "contacts": "Customers",
     "sales": "Sales",
     "expenses": "Receipts",
-    "verifications": "Books",
+    "verifications": "Bookkeeping",
     "review": "Review",
     "projects": "Projects",
     "bank": "Bank",
@@ -37,8 +37,8 @@
     "settings": "Settings",
     "articles": "Products",
     "quotes": "Quotes",
-    "invoices": "Invoices",
-    "supplierInvoices": "Bills"
+    "invoices": "Customer invoices",
+    "supplierInvoices": "Supplier invoices"
   },
   "shared": {
     "listTable": {
