@@ -305,6 +305,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
       // bokningar kan ha gjorts utan omvänd moms och ska inte följas här.
       const reverse = parsed.reverseCharge;
       const vatRate = reverse ? 0 : (vatFromHistory ? hist.vatRate : (parsed.vatRate ?? 25));
+      const mixedVat = !nr && !reverse && !parsed.currency && Boolean(parsed.vatRates && parsed.vatAmount);
       // Samma regel som kvittovyn (Expenses.jsx): ett konto avläsningen bara
       // GISSAT (accountGuessed, t.ex. 6990-reservfallet) fylls aldrig i på
       // raden — kundfeedback, uttryckligt: ett gissat konto som ser äkta ut
@@ -334,7 +335,9 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
       // Raderna byggs när sista fältet visats: kostnadskontot (netto) och
       // ev. ingående moms (2641) i debet mot ett gissat betalkonto (1930).
       const buildRows = () => {
-        const net = vatRate > 0 ? Math.round((gross / (1 + vatRate / 100)) * 100) / 100 : gross;
+        // Moms i flera satser: momsbeloppet på kvittot bokförs som det står.
+        const net = mixedVat ? Math.round((gross - parsed.vatAmount) * 100) / 100
+          : vatRate > 0 ? Math.round((gross / (1 + vatRate / 100)) * 100) / 100 : gross;
         const vat = Math.round((gross - net) * 100) / 100;
         const nameOf = (code, fallback) => accounts.find(a => a.code === code)?.name || fallback;
         // Radernas belopp som tal. Vid omvänd skattskyldighet läggs momsraderna
@@ -350,7 +353,8 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
         }));
         if (modeRef.current === 'simple') {
           setSimple(prev => ({
-            ...prev, kind: 'expense', amount: gross.toFixed(2), vatRate: VAT_RATES.includes(vatRate) ? vatRate : 25,
+            ...prev, kind: 'expense', amount: gross.toFixed(2),
+            ...(mixedVat ? { vatRate: 'mixed', vatAmount: parsed.vatAmount.toFixed(2) } : { vatRate: VAT_RATES.includes(vatRate) ? vatRate : 25 }),
             account: costAccount, payAccount: pay.code, payPrivate: false,
           }));
         } else {
@@ -1081,7 +1085,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
                 {!revealing && ocrVat && ocrVat.rates && (
                   <div className="rc-verify rc-verify-warn">
                     <AlertCircle size={14} style={{ flexShrink: 0 }} />
-                    <span>Underlaget har moms i flera satser ({ocrVat.rates.map(r => `${r} %`).join(' och ')}), tillsammans {fmt(ocrVat.vatAmount)} kr. Lägg en rad per momssats i konteringen nedan så blir momsen rätt.</span>
+                    <span>Underlaget har moms i flera satser ({ocrVat.rates.map(r => `${r} %`).join(' och ')}), tillsammans {fmt(ocrVat.vatAmount)} kr. Momsen är ifylld med det beloppet, så den blir rätt utan att du delar upp raderna. Kontrollera att det stämmer med underlaget.</span>
                   </div>
                 )}
                 {!revealing && ocrVat && ocrVat.verified && (

@@ -183,3 +183,20 @@ describe('describeVerification', () => {
     expect(describeVerification(rows, accounts).map(r => r.text)).toEqual(['Kostnad: Förbrukningsmaterial', 'Pengar ut från Företagskonto'])
   })
 })
+
+describe('flera momssatser på samma kvitto', () => {
+  it('bokför momsen i kronor som den står på kvittot', () => {
+    const { rows, errors } = buildSimpleBooking({ kind: 'expense', amount: '342,50', vatRate: 'mixed', vatAmount: '44,20', account: '4010', payAccount: '1930' })
+    expect(errors).toEqual([])
+    expect(rows).toEqual([
+      { account: '4010', debet: 298.3, kredit: 0 },
+      { account: '2641', debet: 44.2, kredit: 0 },
+      { account: '1930', debet: 0, kredit: 342.5 },
+    ])
+  })
+
+  it('kräver en moms som går ihop med beloppet', () => {
+    expect(buildSimpleBooking({ kind: 'expense', amount: '100', vatRate: 'mixed', vatAmount: '', account: '4010' }).rows).toEqual([])
+    expect(buildSimpleBooking({ kind: 'expense', amount: '100', vatRate: 'mixed', vatAmount: '30', account: '4010' }).rows).toEqual([])
+  })
+})

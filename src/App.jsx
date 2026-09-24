@@ -3723,7 +3723,12 @@ function App() {
     // Ett inköp av tjänster från utlandet har ingen svensk moms på kvittot: hela
     // beloppet är kostnaden, oavsett vilken momssats som stod i formuläret.
     const vatRate = isReverseChargePurchaseAccount(formValues.costAccount) ? 0 : formValues.vatRate;
-    const netAmount = vatRate > 0 ? Math.round((amount / (1 + vatRate / 100)) * 100) / 100 : amount;
+    // Flera momssatser på samma kvitto ('mixed'): momsen i kronor kommer från
+    // kvittot. All ingående moms bokförs på 2641, så beloppet räcker.
+    const mixedVat = vatRate === 'mixed' ? Math.round((Number(formValues.vatAmount) || 0) * 100) / 100 : null;
+    const netAmount = mixedVat !== null
+      ? Math.round((amount - mixedVat) * 100) / 100
+      : vatRate > 0 ? Math.round((amount / (1 + vatRate / 100)) * 100) / 100 : amount;
     const vatAmount = Math.round((amount - netAmount) * 100) / 100;
 
     const updated = {

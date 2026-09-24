@@ -47,9 +47,10 @@ export default function SimpleBookingPanel({ fields, setFields, accounts, orgTyp
       {list.map(a => <option key={a.code} value={a.code}>{a.code} {a.name}</option>)}
     </select>
   );
-  const vatSelect = (
-    <select value={fields.vatRate} onChange={e => set({ vatRate: Number(e.target.value) })} style={inp}>
+  const vatSelect = (withMixed) => (
+    <select value={fields.vatRate} onChange={e => set({ vatRate: e.target.value === 'mixed' ? 'mixed' : Number(e.target.value) })} style={inp}>
       {VAT_RATES.map(r => <option key={r} value={r}>{r === 0 ? 'Ingen moms' : `${r} % moms`}</option>)}
+      {withMixed && <option value="mixed">Flera momssatser</option>}
     </select>
   );
   const amountField = (title) => (
@@ -72,7 +73,7 @@ export default function SimpleBookingPanel({ fields, setFields, accounts, orgTyp
             return (
               <button
                 key={k.id} type="button" role="radio" aria-checked={on}
-                onClick={() => set({ kind: k.id })}
+                onClick={() => set({ kind: k.id, ...(k.id !== 'expense' && fields.vatRate === 'mixed' ? { vatRate: 25 } : {}) })}
                 style={{
                   textAlign: 'left', padding: '10px 12px', borderRadius: '10px', cursor: 'pointer', fontFamily: 'inherit',
                   border: `1.5px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
@@ -91,7 +92,16 @@ export default function SimpleBookingPanel({ fields, setFields, accounts, orgTyp
         {kind === 'expense' && (
           <>
             {amountField('Belopp inkl. moms (kr)')}
-            <Field title="Moms på kvittot">{vatSelect}</Field>
+            <Field title="Moms på kvittot">{vatSelect(true)}</Field>
+            {fields.vatRate === 'mixed' && (
+              <Field title="Moms i kronor">
+                <input
+                  type="number" min="0" step="0.01" inputMode="decimal" value={fields.vatAmount ?? ''}
+                  onChange={e => set({ vatAmount: e.target.value })} placeholder="All moms på kvittot"
+                  style={{ ...inp, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
+                />
+              </Field>
+            )}
             <Field title="Vad har du köpt?">
               <AccountSearch value={fields.account} accounts={expenseAccounts} placeholder="Sök, till exempel kontorsmaterial" onChange={code => set({ account: code })} />
             </Field>
@@ -112,7 +122,7 @@ export default function SimpleBookingPanel({ fields, setFields, accounts, orgTyp
         {kind === 'income' && (
           <>
             {amountField('Belopp inkl. moms (kr)')}
-            <Field title="Moms på försäljningen">{vatSelect}</Field>
+            <Field title="Moms på försäljningen">{vatSelect(false)}</Field>
             <Field title="Vad sålde du?">
               <AccountSearch value={fields.account} accounts={incomeAccounts} placeholder="Standard efter momssats" onChange={code => set({ account: code })} />
             </Field>

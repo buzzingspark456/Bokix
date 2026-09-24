@@ -82,7 +82,17 @@ export function buildSimpleBooking(fields, { orgType } = {}) {
     if (isReverseChargePurchaseAccount(f.account)) {
       return { rows: withReverseChargeRows([{ account: f.account, debet: amount, kredit: 0 }, { account: pay, debet: 0, kredit: amount }]), errors };
     }
-    const { net, vat } = splitVat(amount, rate);
+    // Flera momssatser på samma kvitto: momsen i kronor, som den står på kvittot.
+    // All ingående moms går till 2641, så satsen behövs inte.
+    let split;
+    if (f.vatRate === 'mixed') {
+      const vatAmount = num(f.vatAmount);
+      if (!(vatAmount > 0) || vatAmount > round2(amount * 0.2)) return fail('Fyll i momsen från kvittot, högst en femtedel av beloppet.');
+      split = { net: round2(amount - vatAmount), vat: vatAmount };
+    } else {
+      split = splitVat(amount, rate);
+    }
+    const { net, vat } = split;
     const rows = [{ account: f.account, debet: net, kredit: 0 }];
     if (vat > 0) rows.push({ account: INPUT_VAT, debet: vat, kredit: 0 });
     rows.push({ account: pay, debet: 0, kredit: amount });

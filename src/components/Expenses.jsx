@@ -234,6 +234,8 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
     receiptNumber: receipt.receiptNumber || draft?.form?.receiptNumber || '',
     amount: receipt.amount ? amountToInput(receipt.amount) : (draft?.form?.amount || ''),
     vatRate: receipt.vatRate ?? draft?.form?.vatRate ?? 25,
+    // Bara när vatRate är 'mixed': momsen i kronor, summan av kvittots satser.
+    vatAmount: receipt.vatRate === 'mixed' ? amountToInput(receipt.vatAmount) : (draft?.form?.vatAmount || ''),
     // Ett utkast från en äldre avläsning kan innehålla ett gissat konto
     // (revealed = 'guess'). Det tas inte med, av samma skäl som i runOcr.
     costAccount: receipt.costAccount || (draft?.revealed?.costAccount === 'guess' ? '' : draft?.form?.costAccount) || '',
@@ -367,6 +369,9 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
       const hist = nr ? null : historyRef.current(parsed.supplier);
       const reverse = parsed.reverseCharge;
       const vatFromHistory = !reverse && Boolean(hist && parsed.vatRateGuessed && hist.vatRate !== null);
+      // Moms i flera satser (mat 12 % och hushåll 25 %): momsbeloppet på
+      // kvittot bokförs som det står, i stället för en sats som blir fel.
+      const mixedVat = !nr && !reverse && !parsed.currency && Boolean(parsed.vatRates && parsed.vatAmount);
       const plan = [
         { key: 'supplier', found: !nr && Boolean(parsed.supplier), state: parsed.supplierMatched ? 'found' : 'guess', patch: { supplier: parsed.supplier || '' } },
         { key: 'date', found: !nr && Boolean(parsed.date), state: parsed.dateGuessed ? 'guess' : 'found', patch: { date: parsed.date } },
@@ -375,7 +380,9 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
         {
           key: 'vatRate', found: !nr && parsed.vatRate !== null && parsed.vatRate !== undefined,
           state: reverse ? 'found' : (vatFromHistory ? 'history' : (parsed.vatRateGuessed ? 'guess' : 'found')),
-          patch: { vatRate: vatFromHistory ? hist.vatRate : parsed.vatRate },
+          patch: mixedVat
+            ? { vatRate: 'mixed', vatAmount: amountToInput(parsed.vatAmount) }
+            : { vatRate: vatFromHistory ? hist.vatRate : parsed.vatRate },
         },
         {
           // Tjänst från utlandet: kontot följer av dokumentet (4535 EU, 4531
@@ -512,8 +519,14 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
   // Tjänst från utlandet (omvänd skattskyldighet): ingen svensk moms på kvittot,
   // hela beloppet är kostnaden. Se utils/reverseCharge.js.
   const reverseInfo = reverseChargePurchaseInfo(form.costAccount);
-  const vatRate = reverseInfo ? 0 : (Number(form.vatRate) || 0);
-  const vatAmount = hasAmount ? grossAmount - grossAmount / (1 + vatRate / 100) : 0;
+  // Flera momssatser på samma kvitto: momsen skrivs in i kronor. All ingående
+  // moms bokförs på samma konto (2641), så det är beloppet som behövs, inte satsen.
+  const mixedVat = !reverseInfo && form.vatRate === 'mixed';
+  const vatRate = reverseInfo || mixedVat ? 0 : (Number(form.vatRate) || 0);
+  const mixedVatAmount = parseAmount(form.vatAmount);
+  const vatAmount = !hasAmount ? 0
+    : mixedVat ? (mixedVatAmount > 0 ? mixedVatAmount : 0)
+    : grossAmount - grossAmount / (1 + vatRate / 100);
   const netAmount = hasAmount ? grossAmount - vatAmount : 0;
 
   // Snabbval för konto = de konton som redan använts mest på företagets egna
@@ -579,6 +592,10 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
     if (!form.supplier.trim()) newErrors.supplier = 'Inköpsställe krävs.';
     if (isNaN(amount) || amount <= 0) newErrors.amount = 'Ange ett giltigt belopp.';
     if (!form.costAccount) newErrors.costAccount = 'Välj ett konto.';
+    // Moms över 25 % av nettot (20 % av totalen) finns inte i Sverige.
+    if (mixedVat && !(mixedVatAmount > 0 && mixedVatAmount <= amount * 0.2 + 0.005)) {
+      newErrors.vatAmount = 'Skriv in momsen från kvittot. Den kan inte vara mer än en femtedel av beloppet.';
+    }
     if (fx && !foreignForSave(fx)) newErrors.fx = 'Fyll i belopp och kurs, eller ta bort valutan.';
     if (Object.keys(newErrors).length > 0) { setErrors(newErrors); return; }
 
@@ -600,7 +617,9 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
 
     onSave(receipt.id, {
       date: form.date, supplier: form.supplier.trim(), receiptNumber: form.receiptNumber.trim() || undefined, receiptNumberLabel: form.receiptNumber.trim() ? (numberLabel || undefined) : undefined,
-      foreignCurrency: foreignForSave(fx), amount, vatRate: Number(form.vatRate),
+      foreignCurrency: foreignForSave(fx), amount,
+      vatRate: mixedVat ? 'mixed' : Number(form.vatRate) || 0,
+      vatAmount: mixedVat ? Math.round(mixedVatAmount * 100) / 100 : undefined,
       costAccount: form.costAccount, projectId: form.projectId || undefined, folderId: form.folderId || undefined,
       notes: form.notes.trim() || undefined,
     });
@@ -741,7 +760,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
             {!readOnly && !revealing && ocrVat && ocrVat.rates && (
               <div className="rc-verify rc-verify-warn">
                 <AlertCircle size={14} style={{ flexShrink: 0 }} />
-                <span>Kvittot har moms i flera satser ({ocrVat.rates.map(r => `${r} %`).join(' och ')}), tillsammans {formatSEK2(ocrVat.vatAmount)}. Bokförs hela beloppet med en enda sats blir momsen fel. Välj den sats som gäller det mesta av köpet och rätta momsen efteråt, eller bokför kvittot som en verifikation med en rad per sats.</span>
+                <span>Kvittot har moms i flera satser ({ocrVat.rates.map(r => `${r} %`).join(' och ')}), tillsammans {formatSEK2(ocrVat.vatAmount)}. Momsen bokförs med det beloppet, så det blir rätt utan att du delar upp kvittot. Kontrollera att det stämmer med kvittot.</span>
               </div>
             )}
             {!readOnly && !revealing && ocrVat && ocrVat.verified && (
@@ -859,12 +878,17 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
               <div className={`rc-span${flashField === 'vatRate' ? ' rc-flash' : ''}`}>
                 <label style={labelSt}>Momssats {ocrFields.has('vatRate') && <OcrBadge />}</label>
                 <div style={{ display: 'flex', gap: '6px' }}>
-                  {[25, 12, 6, 0].map(v => {
-                    const on = Number(form.vatRate) === v;
+                  {[25, 12, 6, 0, 'mixed'].map(v => {
+                    const on = v === 'mixed' ? form.vatRate === 'mixed' : form.vatRate !== 'mixed' && Number(form.vatRate) === v;
                     return (
                       <button
                         key={v} type="button" disabled={readOnly}
-                        onClick={() => { setForm(f => ({ ...f, vatRate: v })); setOcrFields(s => { const n = new Set(s); n.delete('vatRate'); return n; }); setOcrVat(null); }}
+                        onClick={() => {
+                          // "Flera" tar momsen från kvittot om den är avläst.
+                          setForm(f => ({ ...f, vatRate: v, ...(v === 'mixed' && !f.vatAmount && ocrVat?.vatAmount ? { vatAmount: amountToInput(ocrVat.vatAmount) } : {}) }));
+                          setOcrFields(s => { const n = new Set(s); n.delete('vatRate'); return n; });
+                          if (v !== 'mixed') setOcrVat(null);
+                        }}
                         style={{
                           flex: 1, padding: '8px 0', borderRadius: '8px', fontSize: '13px', fontWeight: 700,
                           fontFamily: 'inherit', cursor: readOnly ? 'default' : 'pointer',
@@ -874,11 +898,24 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                           opacity: readOnly && !on ? 0.5 : 1,
                         }}
                       >
-                        {v}%
+                        {v === 'mixed' ? 'Flera' : `${v}%`}
                       </button>
                     );
                   })}
                 </div>
+                {mixedVat && (
+                  <div style={{ marginTop: '10px' }}>
+                    <label style={labelSt}>Moms i kronor</label>
+                    <AmountInput
+                      disabled={readOnly} value={form.vatAmount}
+                      onChange={v => { setForm(f => ({ ...f, vatAmount: v })); setErrors(e => ({ ...e, vatAmount: undefined })); }}
+                      style={inputStErr(errors.vatAmount)}
+                    />
+                    {errors.vatAmount
+                      ? <div style={errSt}>{errors.vatAmount}</div>
+                      : <div className="rc-hint">Summan av all moms på kvittot, till exempel 12 % på maten och 25 % på resten.</div>}
+                  </div>
+                )}
               </div>
 
               {/* Vad som faktiskt bokförs, medan man skriver. */}
@@ -888,7 +925,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                   <div className="rc-split-v">{hasAmount ? formatSEK2(netAmount) : '—'}</div>
                 </div>
                 <div>
-                  <div className="rc-split-k">Moms {vatRate}%</div>
+                  <div className="rc-split-k">{mixedVat ? 'Moms' : `Moms ${vatRate}%`}</div>
                   <div className="rc-split-v">{hasAmount ? formatSEK2(vatAmount) : '—'}</div>
                 </div>
                 <div>
