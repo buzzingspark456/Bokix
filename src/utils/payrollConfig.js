@@ -22,6 +22,62 @@ export const EMPLOYER_FEE_CATEGORIES = {
   styrelseledamot: { key: 'standard', label: 'Standard (styrelsearvode)', rate: 0.3142 },
 };
 
+// ── Arbetsgivaravgift efter ålder (Skatteverket, kontrollerat 2026-09-24) ──
+// Avgiften beror på den anställdas födelseår och på när lönen betalas ut:
+//   · född 1937 eller tidigare: ingen avgift alls
+//   · fyllt 67 vid årets ingång (2026: född 1938-1958): bara
+//     ålderspensionsavgiften, 10,21 %
+//   · tillfällig nedsättning för unga, utbetalningar 1 april 2026 till
+//     30 september 2027: fyllt 18 men inte 23 vid årets ingång (2026: född
+//     2003-2007) betalar 20,81 % på ersättning upp till 25 000 kr per
+//     kalendermånad, full avgift på resten
+//   · alla andra: 31,42 %
+// Skatteverket räknar själv om avgiften utifrån personnumret i AGI:n; stämmer
+// Bokix summa blir det ingen avvikelse att förklara.
+export const EMPLOYER_FEE_STANDARD = 0.3142;
+export const EMPLOYER_FEE_PENSION_ONLY = 0.1021;
+export const YOUTH_FEE = { rate: 0.2081, monthlyCap: 25000, from: '2026-04', to: '2027-09' };
+
+/** Födelseår ur ett personnummer (10 eller 12 siffror, med eller utan
+ * bindestreck; plustecken betyder fyllda 100). null om det inte går. */
+export function birthYearFromSsn(ssn, referenceYear) {
+  const raw = String(ssn || '').trim();
+  const d = raw.replace(/\D/g, '');
+  if (d.length === 12) return Number(d.slice(0, 4));
+  if (d.length !== 10) return null;
+  const yy = Number(d.slice(0, 2));
+  let year = 2000 + yy > referenceYear ? 1900 + yy : 2000 + yy;
+  if (raw.includes('+')) year -= 100;
+  return year;
+}
+
+/**
+ * Avgiftskategorin för en anställd en viss utbetalningsmånad (ÅÅÅÅ-MM).
+ * Utan läsbart personnummer används standardsatsen, som förut.
+ */
+export function employerFeeFor({ ssn, period }) {
+  const periodStr = /^\d{4}-\d{2}/.test(String(period || '')) ? String(period).slice(0, 7) : new Date().toISOString().slice(0, 7);
+  const year = Number(periodStr.slice(0, 4));
+  const born = birthYearFromSsn(ssn, year);
+  if (born == null) return { key: 'standard', label: 'Standard', rate: EMPLOYER_FEE_STANDARD };
+  if (born <= 1937) return { key: 'none', label: `Född ${born}: ingen arbetsgivaravgift`, rate: 0 };
+  if (born <= year - 68) return { key: 'pension_only', label: `Född ${born}, 67 år eller äldre: bara ålderspensionsavgift`, rate: EMPLOYER_FEE_PENSION_ONLY };
+  const ageAtYearStart = year - born - 1;
+  if (ageAtYearStart >= 18 && ageAtYearStart <= 22 && periodStr >= YOUTH_FEE.from && periodStr <= YOUTH_FEE.to) {
+    return { key: 'youth', label: `Född ${born}: nedsatt avgift för unga upp till ${YOUTH_FEE.monthlyCap.toLocaleString('sv-SE')} kr`, rate: YOUTH_FEE.rate, cap: YOUTH_FEE.monthlyCap, rateAboveCap: EMPLOYER_FEE_STANDARD };
+  }
+  return { key: 'standard', label: 'Standard', rate: EMPLOYER_FEE_STANDARD };
+}
+
+/** Avgiften på ett underlag, med taket för unga. */
+export function employerFeeAmount(base, category) {
+  if (category.cap != null) {
+    const low = Math.min(Math.max(base, 0), category.cap);
+    return low * category.rate + Math.max(0, base - category.cap) * category.rateAboveCap;
+  }
+  return base * category.rate;
+}
+
 export const SALARY_FORMS = [
   { id: 'manadslon', label: 'Månadslön' },
   { id: 'timlon', label: 'Timlön' },

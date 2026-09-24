@@ -1,10 +1,13 @@
 // Funktioner som är byggda men medvetet avstängda tills de provats mot
 // Skatteverkets riktiga tjänster. Slå på genom att ändra värdet här.
 
-// AGI-filen (agiXml.js) är validerad mot Skatteverkets XSD men aldrig
-// uppladdad i e-tjänsten "Lämna arbetsgivardeklaration" (kräver BankID).
-// Ett fel i den filen blir ett fel i en arbetsgivardeklaration.
-export const AGI_XML_ENABLED = false;
+// AGI-filen (agiXml.js) är provad i Skatteverkets testtjänst för
+// arbetsgivardeklaration 2026-09-24: aktiebolag och enskild firma, med
+// förmåner, bilförmån, milersättning, traktamente och alla avgiftsgrupper
+// (standard, 67+, född 1937 eller tidigare, unga) gav "Filen är godkänd",
+// och en fil med ett felaktigt personnummer underkändes som den skulle.
+// Testtjänsten: https://sso.test.skatteverket.se/agd_tt/da_testtjanst_web/login.do?method=test
+export const AGI_XML_ENABLED = true;
 
 // eSKD-fält för omvänd skattskyldighet (ruta 21, 22, 30-32) är inte provade
 // i Skatteverkets e-tjänst. Bokföringen av dem är på, men momsdeklarationen

@@ -119,3 +119,36 @@ describe('summarizePayrollRun', () => {
     expect(summary).toEqual({ gross: 0, tax: 0, net: 0, employerFee: 0, vacationProvision: 0, vacationFee: 0, taxFree: 0, totalCost: 0 })
   })
 })
+
+describe('åldersanpassad arbetsgivaravgift (körningar med feeRules 2)', () => {
+  const emp = (ssn, extra = {}) => ({ ...baseEmployee, ssn, ...extra })
+  const row = (period) => ({ period, feeRules: 2 })
+
+  it('standard 31,42 % för någon född 1990', () => {
+    expect(computeEmployeePayroll(emp('19900101-1234'), row('2026-05')).employerFee).toBe(Math.round(30000 * 0.3142))
+  })
+  it('bara ålderspensionsavgift 10,21 % för någon född 1955', () => {
+    const r = computeEmployeePayroll(emp('19550101-1234'), row('2026-05'))
+    expect(r.employerFee).toBe(Math.round(30000 * 0.1021))
+    expect(r.feeCategory.key).toBe('pension_only')
+  })
+  it('ingen avgift för någon född 1937', () => {
+    expect(computeEmployeePayroll(emp('19370101-1234'), row('2026-05')).employerFee).toBe(0)
+  })
+  it('unga: 20,81 % upp till 25 000 kr och 31,42 % på resten, från april 2026', () => {
+    const r = computeEmployeePayroll(emp('20050101-1234'), row('2026-05'))
+    expect(r.employerFee).toBe(Math.round(25000 * 0.2081 + 5000 * 0.3142))
+  })
+  it('unga före april 2026 betalar full avgift', () => {
+    expect(computeEmployeePayroll(emp('20050101-1234'), row('2026-03')).employerFee).toBe(Math.round(30000 * 0.3142))
+  })
+  it('äldre körningar utan feeRules räknas som förut', () => {
+    expect(computeEmployeePayroll(emp('19550101-1234'), { period: '2026-05' }).employerFee).toBe(Math.round(30000 * 0.3142))
+  })
+  it('F-skatt: ingen skatt och ingen avgift', () => {
+    const r = computeEmployeePayroll(emp('19900101-1234', { taxForm: 'f_skatt' }), row('2026-05'))
+    expect(r.tax).toBe(0)
+    expect(r.employerFee).toBe(0)
+    expect(r.fTax).toBe(true)
+  })
+})

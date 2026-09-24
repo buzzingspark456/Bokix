@@ -1,5 +1,10 @@
 import { lookupSkatteavdrag } from './skattetabell';
-import { EMPLOYER_FEE_CATEGORIES, VACATION_RULES, SECONDARY_INCOME_TAX_RATE } from './payrollConfig';
+import { EMPLOYER_FEE_CATEGORIES, VACATION_RULES, SECONDARY_INCOME_TAX_RATE, employerFeeFor, employerFeeAmount } from './payrollConfig';
+
+// Lönekörningar som skapats med åldersanpassad arbetsgivaravgift har
+// row.feeRules = FEE_RULES_VERSION. Äldre körningar räknas som förut (fast
+// 31,42 %), så att de fortsätter stämma mot det som redan bokförts.
+export const FEE_RULES_VERSION = 2;
 import { summarizePayLines } from './payTypes';
 
 const round = (v) => Math.round(v || 0);
@@ -19,7 +24,17 @@ const round = (v) => Math.round(v || 0);
 export function computeEmployeePayroll(employee, row) {
   const vatRuleId = employee.vacationRule || 'procentregeln';
   const vacationRule = VACATION_RULES.find(r => r.id === vatRuleId) || VACATION_RULES[0];
-  const feeCategory = EMPLOYER_FEE_CATEGORIES[employee.employmentType] || EMPLOYER_FEE_CATEGORIES.anstalld;
+  // F-skatt: mottagaren betalar själv skatt och egenavgifter. Arbetsgivaren
+  // gör varken skatteavdrag eller betalar arbetsgivaravgift, och ersättningen
+  // redovisas inte i arbetsgivardeklarationen.
+  const ageRules = (row?.feeRules || 0) >= FEE_RULES_VERSION;
+  const fTax = ageRules && employee.taxForm === 'f_skatt';
+  const feeCategory = fTax
+    ? { key: 'f_skatt', label: 'F-skatt: ingen arbetsgivaravgift', rate: 0 }
+    : ageRules
+      ? employerFeeFor({ ssn: employee.ssn, period: row.period })
+      : (EMPLOYER_FEE_CATEGORIES[employee.employmentType] || EMPLOYER_FEE_CATEGORIES.anstalld);
+  const feePct = (feeCategory.rate * 100).toFixed(2).replace('.', ',');
 
   const steps = [];
 
@@ -76,7 +91,10 @@ export function computeEmployeePayroll(employee, row) {
 
   // 4. Skatteavdrag
   let tax, taxNote;
-  if (employee.secondaryIncome) {
+  if (fTax) {
+    tax = 0;
+    taxNote = 'F-skatt: mottagaren betalar sin skatt själv, inget skatteavdrag';
+  } else if (employee.secondaryIncome) {
     tax = round(taxableIncome * SECONDARY_INCOME_TAX_RATE);
     taxNote = `Sidoinkomst: ${(SECONDARY_INCOME_TAX_RATE * 100).toFixed(0)}% fast skatteavdrag (fristående beräkningsväg, inte tabellbaserad)`;
   } else if (employee.taxTable?.tabellnr && employee.taxTable?.kolumn) {
@@ -116,11 +134,14 @@ export function computeEmployeePayroll(employee, row) {
   steps.push({ label: 'Nettolön', formula: netFormula, result: round(net) });
 
   // 6. Avgiftskategori
-  steps.push({ label: 'Avgiftskategori', formula: `${feeCategory.label}: ${(feeCategory.rate * 100).toFixed(2)}%`, result: null });
+  steps.push({ label: 'Avgiftskategori', formula: feeCategory.cap != null ? `${feeCategory.label}: ${feePct} %, sedan 31,42 %` : `${feeCategory.label}: ${feePct} %`, result: null });
 
   // 7. Arbetsgivaravgifter
-  const employerFee = taxableIncome * feeCategory.rate;
-  steps.push({ label: 'Arbetsgivaravgifter', formula: `${round(taxableIncome)} (avgiftsunderlag) × ${(feeCategory.rate * 100).toFixed(2)}%`, result: round(employerFee) });
+  const employerFee = employerFeeAmount(taxableIncome, feeCategory);
+  const feeFormula = feeCategory.cap != null && taxableIncome > feeCategory.cap
+    ? `${feeCategory.cap} × ${feePct} % + ${round(taxableIncome - feeCategory.cap)} × 31,42 %`
+    : `${round(taxableIncome)} (avgiftsunderlag) × ${feePct} %`;
+  steps.push({ label: 'Arbetsgivaravgifter', formula: feeFormula, result: round(employerFee) });
 
   // 8. Semesteravsättning
   let vacationProvision = 0;
@@ -134,8 +155,10 @@ export function computeEmployeePayroll(employee, row) {
   steps.push({ label: 'Semesteravsättning', formula: vacationFormula, result: round(vacationProvision) });
 
   // 9. Arbetsgivaravgifter på semesteravsättningen
+  // Semesteravsättningen betalas ut senare; avgiften på den är en
+  // uppskattning med samma sats som månadens (utan taket för unga).
   const vacationFee = vacationProvision * feeCategory.rate;
-  steps.push({ label: 'Arbetsgivaravgifter på semesteravsättning', formula: `${round(vacationProvision)} × ${(feeCategory.rate * 100).toFixed(2)}%`, result: round(vacationFee) });
+  steps.push({ label: 'Arbetsgivaravgifter på semesteravsättning', formula: `${round(vacationProvision)} × ${feePct} %`, result: round(vacationFee) });
 
   // 11. Total arbetsgivarkostnad. Skattefria ersättningar är ingen lön
   // men är pengar som lämnar företaget, så de hör hemma i kostnaden —
@@ -150,7 +173,7 @@ export function computeEmployeePayroll(employee, row) {
     tax: round(tax), net: round(net), employerFee: round(employerFee),
     taxFree: round(taxFree), payLines: payLines.lines,
     vacationProvision: round(vacationProvision), vacationFee: round(vacationFee),
-    totalCost: round(totalCost), feeCategory, vacationRule, steps,
+    totalCost: round(totalCost), feeCategory, fTax, vacationRule, steps,
     hasBankInfo: Boolean(employee.clearingNumber && employee.accountNumber),
     // IBAN/BIC är vad den faktiska betalfilen (ISO 20022 pain.001) kräver —
     // clearing-/kontonummer räcker inte där (se salaryPaymentFile.js).

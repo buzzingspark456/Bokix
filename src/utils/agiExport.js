@@ -70,7 +70,8 @@ export function generateAgiPdf({ company, period, computedRows, totals }) {
   y += 16;
 
   doc.setFont('helvetica', 'normal');
-  computedRows.forEach(({ row, computed }) => {
+  // F-skatt redovisas inte i arbetsgivardeklarationen.
+  computedRows.filter(({ computed }) => !computed.fTax).forEach(({ row, computed }) => {
     if (y > 760) { doc.addPage(); y = 56; }
     const emp = row.employeeSnapshot;
     doc.text(`${emp.firstName || ''} ${emp.lastName || ''}`.trim() || '—', marginX, y);

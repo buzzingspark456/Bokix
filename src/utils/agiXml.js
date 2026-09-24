@@ -15,10 +15,12 @@ import { validatePersonnummer } from './personnummer';
  * Bokix skickar aldrig in filen. Arbetsgivaren laddar upp den själv och
  * signerar med BankID i e-tjänsten.
  *
- * Begränsning: Bokix räknar en fast arbetsgivaravgift på 31,42 % för alla.
- * Skatteverket räknar om avgiften utifrån ålder och särskilda regler
- * (till exempel personer födda 1958 eller tidigare) och visar
- * skillnaden i granskningssteget innan man signerar.
+ * Arbetsgivaravgiften räknas efter ålder i lönekörningar skapade från
+ * 2026-09-24 (payrollConfig.employerFeeFor): ingen avgift för födda 1937
+ * eller tidigare, 10,21 % från 67 år, tillfälligt 20,81 % upp till 25 000 kr
+ * för 19-23-åringar april 2026 till september 2027. Äldre körningar har
+ * fast 31,42 %, och Skatteverket visar då skillnaden i granskningssteget.
+ * Ersättning till någon med F-skatt tas inte med i filen.
  */
 
 const NS_INSTANCE = 'http://xmls.skatteverket.se/se/skatteverket/da/instans/schema/1.1';
@@ -96,6 +98,10 @@ export function buildAgiXml({ company, period, computedRows, now = new Date() })
   (computedRows || []).forEach(({ row, computed }) => {
     const emp = row?.employeeSnapshot || {};
     const name = `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || 'Okänd anställd';
+    if (computed.fTax) {
+      warnings.push(`${name} har F-skatt. Ersättningen redovisas inte i arbetsgivardeklarationen och tas inte med i filen.`);
+      return;
+    }
     const gross = Math.max(0, round(computed.gross));
     const { car, other } = splitBenefits(computed);
     const tax = Math.max(0, round(computed.tax));

@@ -201,3 +201,14 @@ describe('buildAgiXml med riktig lönekörningsdata', () => {
     expect(computed.tax).toBeGreaterThan(0)
   })
 })
+
+describe('buildAgiXml: F-skatt', () => {
+  it('tar inte med någon med F-skatt och varnar om det', () => {
+    const fRow = emp('19830130-2397', 'Bo', 25350, 0)
+    fRow.computed.fTax = true
+    const { xml, warnings, summary } = build({ computedRows: [emp('198202252386', 'Anna', 28500, 9300), fRow] })
+    expect(summary.employees).toBe(1)
+    expect(xml).not.toContain('198301302397')
+    expect(warnings.some(w => w.includes('F-skatt'))).toBe(true)
+  })
+})

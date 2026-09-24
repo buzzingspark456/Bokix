@@ -6,7 +6,7 @@ import {
 import CalculationRow from './shared/CalculationRow';
 import ListPageHeader from './shared/ListPageHeader';
 import { BRAND } from '../utils/brandColors';
-import { computeEmployeePayroll, summarizePayrollRun } from '../utils/payrollCalculation';
+import { computeEmployeePayroll, summarizePayrollRun, FEE_RULES_VERSION } from '../utils/payrollCalculation';
 import { PAY_TYPE_GROUPS, PAY_LINE_KINDS, getPayType, defaultRateFor } from '../utils/payTypes';
 import { PAYROLL_RUN_STEPS, PAYROLL_ACCOUNTS } from '../utils/payrollConfig';
 import { generatePayslipPdf } from '../utils/payslipExport';
@@ -854,7 +854,12 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
           {agiFileProblems && agiFileProblems.errors.length === 0 && (
             <div style={{ background: 'var(--status-amber-bg)', color: 'var(--status-amber-text)', borderRadius: '10px', padding: '12px 14px', fontSize: '13px', lineHeight: 1.5, marginBottom: '16px' }}>
               <div style={{ fontWeight: 700, marginBottom: '4px' }}>Filen är sparad</div>
-              <div>Skatteverket räknar om arbetsgivaravgiften utifrån ålder och särskilda regler (Bokix räknar 31,42 % för alla). Jämför i granskningssteget och lita på Skatteverkets summa om de skiljer sig.</div>
+              <div>
+                {run.rows.every(r => (r.feeRules || 0) >= FEE_RULES_VERSION)
+                  ? 'Arbetsgivaravgiften är räknad efter varje anställds ålder, på samma sätt som Skatteverket gör. Granska summan i e-tjänsten innan du signerar.'
+                  : 'Den här lönekörningen skapades innan Bokix räknade avgiften efter ålder, så den har 31,42 % för alla. Skatteverket räknar om den i granskningssteget; lita på deras summa om de skiljer sig.'}
+                {' '}Deklarationen lämnas och skatten betalas senast den 12:e i månaden efter utbetalningen (den 17:e i januari och, för de flesta företag, i augusti).
+              </div>
               {agiFileProblems.warnings.length > 0 && (
                 <ul style={{ margin: '6px 0 0', paddingLeft: '18px' }}>
                   {agiFileProblems.warnings.map((w, i) => <li key={i}>{w}</li>)}
