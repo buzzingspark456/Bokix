@@ -1464,6 +1464,12 @@ function App() {
     }
   };
 
+  // Kvittoknappen mitt i telefonens bottenmeny öppnar telefonens eget val
+  // (ta foto, bildbibliotek, filer) direkt, i samma tryck. Det valda kvittot
+  // lämnas till Kvitton-sidan, som laddar upp det och öppnar det.
+  const heroFileRef = useRef(null);
+  const [pickedReceiptFiles, setPickedReceiptFiles] = useState(null);
+
   const handleNavTabChange = (tabId) => {
     const rTab = resolveTab(tabId);
     if (taxesSectionAliases[tabId]) setTaxesInitialSection(taxesSectionAliases[tabId]);
@@ -4300,6 +4306,8 @@ function App() {
             onSaveOcrDraft={handleSaveOcrDraft}
             onDeleteExpense={handleDeleteExpense}
             onReverseExpense={handleReverseExpense}
+            pickedFiles={pickedReceiptFiles}
+            onPickedFilesHandled={() => setPickedReceiptFiles(null)}
             pageTitle="Kvitton"
           />
         );
@@ -5016,6 +5024,10 @@ function App() {
       </main>
 
       {/* ── Mobile Bottom Navigation (Sida 26) ── */}
+      <input
+        ref={heroFileRef} type="file" multiple accept="image/*,application/pdf" style={{ display: 'none' }}
+        onChange={e => { if (e.target.files?.length) setPickedReceiptFiles(Array.from(e.target.files)); e.target.value = ''; }}
+      />
       <nav className="mobile-bottom-nav" aria-label="Mobilnavigation">
         <div className="mobile-bottom-nav-inner">
           {visibleMobileNavItems.map(item => {
@@ -5025,7 +5037,7 @@ function App() {
                 <button
                   key={item.id}
                   className={`mobile-nav-btn mobile-nav-hero ${isActive ? 'active' : ''}`}
-                  onClick={() => handleNavTabChange(item.id)}
+                  onClick={() => { handleNavTabChange(item.id); if (item.id === 'expenses') heroFileRef.current?.click(); }}
                   aria-label={item.label}
                 >
                   <span className="mobile-nav-hero-circle"><item.icon size={20} strokeWidth={2} /></span>
