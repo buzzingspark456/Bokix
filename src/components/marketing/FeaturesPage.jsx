@@ -56,7 +56,7 @@ const SECTIONS = [
     desc: 'Det som faktiskt ska in rätt hos Skatteverket, förberett åt dig men aldrig skickat automatiskt utan din signatur.',
     points: [
       'Momsdeklaration ruta för ruta — som PDF, och som eSKD-fil att ladda upp hos Skatteverket',
-      'AGI-sammanställning per lönekörning',
+      'AGI-fil per lönekörning att ladda upp hos Skatteverket, med arbetsgivaravgift efter ålder',
       'Kontrolluppgifter (KU) sammanställda per anställd och år',
       'Inkomstdeklaration 2: räkenskapsschema (INK2R) och skattemässiga justeringar (INK2S), med SRU-filer',
       'Påminnelse i god tid före varje moms- och AGI-deadline',

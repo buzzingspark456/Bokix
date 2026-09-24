@@ -118,7 +118,7 @@ export default function LonekalkylatorPage() {
         },
         {
           q: 'Måste jag rapportera lönen till Skatteverket varje månad?',
-          a: 'Ja, via arbetsgivardeklaration på individnivå (AGI) senast den 12:e månaden efter utbetalningen. Bokix sammanställer underlaget per lönekörning.',
+          a: 'Ja, via arbetsgivardeklaration på individnivå (AGI) senast den 12:e månaden efter utbetalningen. Bokix gör en AGI-fil per lönekörning som du laddar upp i Skatteverkets e-tjänst.',
         },
       ]}
     >
