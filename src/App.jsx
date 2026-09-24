@@ -3764,15 +3764,18 @@ function App() {
     // att verifikationen visar vad kronbeloppet räknats från.
     const fxNote = describeForeign(updated.foreignCurrency);
     const verRows = [{ account: updated.costAccount, debet: cents(updated.netAmount), kredit: 0, projectId: updated.projectId, ...(fxNote ? { desc: fxNote } : {}) }];
-    if (updated.vatAmount > 0) verRows.push({ account: '2641', debet: cents(updated.vatAmount), kredit: 0 });
+    if (updated.vatAmount !== 0) verRows.push({ account: '2641', debet: cents(updated.vatAmount), kredit: 0 });
     verRows.push({ account: '1930', debet: 0, kredit: cents(updated.amount) });
+    // En retur har negativt belopp: varje rad byter sida, så att pengarna
+    // kommer in på 1930 och kostnaden och momsen minskar.
+    const sided = (r) => (r.debet < 0 || r.kredit < 0 ? { ...r, debet: Math.max(0, -r.kredit), kredit: Math.max(0, -r.debet) } : r);
 
     handleAddVerification({
       date: updated.date,
       description: updated.description,
       source: 'expense',
       sourceId: updated.id,
-      rows: withReverseChargeRows(verRows),
+      rows: withReverseChargeRows(verRows).map(sided),
     });
   };
 

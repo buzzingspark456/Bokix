@@ -3386,6 +3386,8 @@ textarea.form-control {
   text-underline-offset: 2px;
 }
 .rc-hint { font-size: 11.5px; color: var(--text-muted); margin-top: 4px; }
+.rc-check { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--text-main); cursor: pointer; }
+.rc-check input { width: 16px; height: 16px; margin: 0; accent-color: var(--primary); cursor: pointer; }
 
 /* Ljusning på ett fält när avläsningen just fyllde i det. */
 .rc-flash input,

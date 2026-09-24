@@ -232,10 +232,12 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
     date: draft?.form?.date || receipt.date || new Date().toISOString().split('T')[0],
     supplier: receipt.supplier || draft?.form?.supplier || '',
     receiptNumber: receipt.receiptNumber || draft?.form?.receiptNumber || '',
-    amount: receipt.amount ? amountToInput(receipt.amount) : (draft?.form?.amount || ''),
+    amount: receipt.amount ? amountToInput(Math.abs(receipt.amount)) : (draft?.form?.amount || ''),
+    // Retur eller återbetalning: beloppet skrivs som på kvittot men sparas negativt.
+    refund: receipt.amount ? receipt.amount < 0 : Boolean(draft?.form?.refund),
     vatRate: receipt.vatRate ?? draft?.form?.vatRate ?? 25,
     // Bara när vatRate är 'mixed': momsen i kronor, summan av kvittots satser.
-    vatAmount: receipt.vatRate === 'mixed' ? amountToInput(receipt.vatAmount) : (draft?.form?.vatAmount || ''),
+    vatAmount: receipt.vatRate === 'mixed' ? amountToInput(Math.abs(receipt.vatAmount)) : (draft?.form?.vatAmount || ''),
     // Ett utkast från en äldre avläsning kan innehålla ett gissat konto
     // (revealed = 'guess'). Det tas inte med, av samma skäl som i runOcr.
     costAccount: receipt.costAccount || (draft?.revealed?.costAccount === 'guess' ? '' : draft?.form?.costAccount) || '',
@@ -376,7 +378,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
         { key: 'supplier', found: !nr && Boolean(parsed.supplier), state: parsed.supplierMatched ? 'found' : 'guess', patch: { supplier: parsed.supplier || '' } },
         { key: 'date', found: !nr && Boolean(parsed.date), state: parsed.dateGuessed ? 'guess' : 'found', patch: { date: parsed.date } },
         { key: 'receiptNumber', found: !nr && Boolean(parsed.receiptNumber), state: 'found', patch: { receiptNumber: parsed.receiptNumber || '' } },
-        { key: 'amount', found: !nr && Boolean(amountSek), state: parsed.amountGuessed ? 'guess' : 'found', patch: { amount: amountToInput(amountSek) } },
+        { key: 'amount', found: !nr && Boolean(amountSek), state: parsed.amountGuessed ? 'guess' : 'found', patch: { amount: amountToInput(amountSek), refund: Boolean(parsed.creditNote) } },
         {
           key: 'vatRate', found: !nr && parsed.vatRate !== null && parsed.vatRate !== undefined,
           state: reverse ? 'found' : (vatFromHistory ? 'history' : (parsed.vatRateGuessed ? 'guess' : 'found')),
@@ -617,9 +619,9 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
 
     onSave(receipt.id, {
       date: form.date, supplier: form.supplier.trim(), receiptNumber: form.receiptNumber.trim() || undefined, receiptNumberLabel: form.receiptNumber.trim() ? (numberLabel || undefined) : undefined,
-      foreignCurrency: foreignForSave(fx), amount,
+      foreignCurrency: foreignForSave(fx), amount: form.refund ? -amount : amount,
       vatRate: mixedVat ? 'mixed' : Number(form.vatRate) || 0,
-      vatAmount: mixedVat ? Math.round(mixedVatAmount * 100) / 100 : undefined,
+      vatAmount: mixedVat ? (form.refund ? -1 : 1) * Math.round(mixedVatAmount * 100) / 100 : undefined,
       costAccount: form.costAccount, projectId: form.projectId || undefined, folderId: form.folderId || undefined,
       notes: form.notes.trim() || undefined,
     });
@@ -750,7 +752,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
             {!readOnly && !revealing && ocrVat && ocrVat.creditNote && (
               <div className="rc-verify rc-verify-warn">
                 <AlertCircle size={14} style={{ flexShrink: 0 }} />
-                <span>Det här ser ut som en retur eller en kreditnota — pengar tillbaka, inte en kostnad. Bokför den som en rättelse av det ursprungliga köpet (en verifikation med beloppen åt andra hållet), inte som ett vanligt kvitto.</span>
+                <span>Det här ser ut som en retur eller en kreditnota, alltså pengar tillbaka. Den är markerad som retur nedan och bokförs åt andra hållet. Stämmer det inte, ta bort markeringen.</span>
               </div>
             )}
             {/* Kvittot har moms i flera satser (mat 12 % och hushåll 25 % i
@@ -850,6 +852,15 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                   <button type="button" className="rc-link" onClick={addFx}>Kvittot är i annan valuta än kronor</button>
                 </div>
               )}
+              {(!readOnly || form.refund) && (
+                <div className="rc-span">
+                  <label className="rc-check">
+                    <input type="checkbox" disabled={readOnly} checked={form.refund} onChange={e => setForm(f => ({ ...f, refund: e.target.checked }))} />
+                    <span>Retur eller återbetalning</span>
+                  </label>
+                  {form.refund && <div className="rc-hint">Pengarna kommer tillbaka: kostnaden och momsen minskar med beloppet.</div>}
+                </div>
+              )}
               <div className={`rc-span${flashField === 'supplier' ? ' rc-flash' : ''}`}>
                 <label style={labelSt}>Inköpsställe / Leverantör {ocrFields.has('supplier') && <OcrBadge />}</label>
                 <TextSuggestInput
@@ -922,15 +933,15 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
               <div className="rc-span rc-split" aria-live="polite">
                 <div>
                   <div className="rc-split-k">Netto</div>
-                  <div className="rc-split-v">{hasAmount ? formatSEK2(netAmount) : '—'}</div>
+                  <div className="rc-split-v">{hasAmount ? formatSEK2(form.refund ? -netAmount : netAmount) : '—'}</div>
                 </div>
                 <div>
                   <div className="rc-split-k">{mixedVat ? 'Moms' : `Moms ${vatRate}%`}</div>
-                  <div className="rc-split-v">{hasAmount ? formatSEK2(vatAmount) : '—'}</div>
+                  <div className="rc-split-v">{hasAmount ? formatSEK2(form.refund ? -vatAmount : vatAmount) : '—'}</div>
                 </div>
                 <div>
                   <div className="rc-split-k">Totalt</div>
-                  <div className="rc-split-v">{hasAmount ? formatSEK2(grossAmount) : '—'}</div>
+                  <div className="rc-split-v">{hasAmount ? formatSEK2(form.refund ? -grossAmount : grossAmount) : '—'}</div>
                 </div>
               </div>
 

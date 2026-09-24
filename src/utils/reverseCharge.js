@@ -51,11 +51,12 @@ export function missingReverseChargeRows(rows) {
   }
   const out = [];
   for (const [rate, net] of byRate) {
-    if (net <= 0) continue;
-    const vat = round2(net * rate / 100);
+    const vat = round2(Math.abs(net) * rate / 100);
     if (vat <= 0) continue;
-    out.push({ account: REVERSE_INPUT_VAT_ACCOUNT, debet: vat, kredit: 0 });
-    out.push({ account: REVERSE_OUTPUT_VAT_ACCOUNT_BY_RATE[rate], debet: 0, kredit: vat });
+    // En retur (inköpet i kredit) vänder momsraderna också.
+    const back = net < 0;
+    out.push({ account: REVERSE_INPUT_VAT_ACCOUNT, debet: back ? 0 : vat, kredit: back ? vat : 0 });
+    out.push({ account: REVERSE_OUTPUT_VAT_ACCOUNT_BY_RATE[rate], debet: back ? vat : 0, kredit: back ? 0 : vat });
   }
   return out;
 }

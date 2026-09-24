@@ -155,3 +155,15 @@ describe('eSKD-filen med omvänd skattskyldighet', () => {
     expect(xml).not.toContain('MomsInkopUtg');
   });
 });
+
+describe('retur av en tjänst från utlandet', () => {
+  it('vänder momsraderna när inköpet står i kredit', () => {
+    expect(missingReverseChargeRows([
+      { account: '4535', debet: 0, kredit: 100 },
+      { account: '1930', debet: 100, kredit: 0 },
+    ])).toEqual([
+      { account: '2645', debet: 0, kredit: 25 },
+      { account: '2614', debet: 25, kredit: 0 },
+    ])
+  })
+})
