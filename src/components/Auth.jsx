@@ -17,6 +17,7 @@ import { createStripeSubscriptionCheckout } from '../stripeApi';
 import { planFromId } from '../utils/plans';
 import { UF_FREE_MONTHS } from '../utils/ufMode';
 import Turnstile from './Turnstile';
+import { TERMS_VERSION } from '../utils/legalVersion';
 
 // ── Litet Stripe-märke — se motsvarande kommentar i PaymentRequiredGate.jsx
 // (samma lokala-kopia-mönster). ──
@@ -141,6 +142,10 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
   const [regPassword2, setRegPassword2] = useState('');
+  // Användarvillkoren och personuppgiftsbiträdesavtalet måste godkännas
+  // uttryckligen. Tidpunkt och version sparas på kontot (user_metadata), så
+  // att det går att visa vad kunden godkände och när.
+  const [regAcceptTerms, setRegAcceptTerms] = useState(false);
 
   // Step 1 – Bekräfta e-post. Kundfeedback: föregående version lät VILKEN
   // e-postadress som helst passera det här steget obekräftad, ända till
@@ -407,6 +412,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
     if (regStep === 3) {
       if (regPassword.length < 8) { setErrorMsg('Lösenordet måste vara minst 8 tecken'); return; }
       if (regPassword !== regPassword2) { setErrorMsg('Lösenorden matchar inte'); return; }
+      if (!regAcceptTerms) { setErrorMsg('Du behöver godkänna användarvillkoren och personuppgiftsbiträdesavtalet.'); return; }
       setLoading(true);
       // Egen flagga (inte bara "kom vi förbi signUp") — annars skulle ett
       // fel i själva Stripe-anropet felaktigt visa "kontot skapades" när
@@ -437,6 +443,8 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
               // inloggningen", som båda kan glida.
               ...(isUfSignup ? { uf: true, uf_school: regUfSchool, uf_started_at: new Date().toISOString() } : {}),
               org_nr: (hasPendingInvite || skipCompany) ? '' : regOrgNr,
+              terms_accepted_at: new Date().toISOString(),
+              terms_version: TERMS_VERSION,
             },
             ...(regCaptchaToken ? { captchaToken: regCaptchaToken } : {}),
           }
@@ -1071,6 +1079,12 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                         : <>Näst skickas du till <StripeBadge /> för att lägga in betalningsuppgifter. 30 dagar gratis, sedan {selectedPlan ? selectedPlan.price : 179} kr/mån — avsluta innan dess så kostar det ingenting.</>}
                     </span>
                   </div>
+                  <label style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={regAcceptTerms} onChange={e => setRegAcceptTerms(e.target.checked)} style={{ width: 18, height: 18, marginTop: 1, flexShrink: 0, accentColor: BRAND.green }} />
+                    <span>
+                      Jag godkänner <Link to="/terms" target="_blank" style={{ color: BRAND.greenDark, fontWeight: 600 }}>användarvillkoren</Link> och <Link to="/pub" target="_blank" style={{ color: BRAND.greenDark, fontWeight: 600 }}>personuppgiftsbiträdesavtalet</Link>, och har läst <Link to="/privacy" target="_blank" style={{ color: BRAND.greenDark, fontWeight: 600 }}>integritetspolicyn</Link>.
+                    </span>
+                  </label>
                   <Turnstile onVerify={setRegCaptchaToken} onExpire={() => setRegCaptchaToken('')} />
                 </div>
               )}
