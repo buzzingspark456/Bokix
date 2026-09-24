@@ -51,7 +51,7 @@ import { isReverseChargePurchaseAccount, withReverseChargeRows } from './utils/r
 import { COMPANY_WRITABLE_FIELDS } from './utils/companyFields.js';
 import { deleteFileFromStorage } from './utils/fileUpload';
 import { collectStorageUrls } from './utils/storageUrls';
-import { computeEmployeePayroll, summarizePayrollRun } from './utils/payrollCalculation';
+import { computeEmployeePayroll, summarizePayrollRun, FEE_RULES_VERSION } from './utils/payrollCalculation';
 import BokixWordmark, { BokixMark } from './components/shared/BokixWordmark';
 
 // ── Bokix Logo Component (light sidebar) ──
@@ -2563,6 +2563,31 @@ function App() {
   // testfirma inte fortsätter dras månadsvis i tysthet — best effort,
   // blockerar inte själva borttagningen om avslutet skulle misslyckas
   // (företaget ska gå att bli av med även om Stripe strular just då).
+  // Sjuårslöftet: innan ett eget företag töms eller tas bort sparas en
+  // arkivkopia på servern (api/archive.js, _archive.js), med bokföringen och
+  // alla uppladdade filer. Den senaste lokala ändringen synkas först, så att
+  // kopian är komplett. Går arkiveringen inte stoppas raderingen: hellre en
+  // radering som får göras om än bokföring som försvinner.
+  const archiveBeforeRemoval = async (companyId, reason) => {
+    if (data.companies?.[companyId]?.__shared) return true;
+    await syncUserDataNow();
+    try {
+      const token = await getAccessToken();
+      const res = await fetch('/api/archive', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ company_id: companyId, reason }),
+      });
+      if (res.ok) return true;
+      const json = await res.json().catch(() => ({}));
+      throw new Error(json?.error || `HTTP ${res.status}`);
+    } catch (err) {
+      console.error('Arkivering före radering misslyckades:', err);
+      setToast({ message: 'Kunde inte spara en arkivkopia av bokföringen, så ingenting raderades. Försök igen om en stund, eller kontakta support@bokix.se.', variant: 'error' });
+      return false;
+    }
+  };
+
   const handleDeleteCompany = async (companyId) => {
     // Bugkritiskt (kundrapport: "jag kan inte ta bort NÅGOT företag" —
     // trots 2+ företag på kontot, inte bara det redan kända fallet med ett
@@ -2582,6 +2607,7 @@ function App() {
       return;
     }
     const target = data.companies[companyId]?.company;
+    if (!(await archiveBeforeRemoval(companyId, 'delete'))) return;
     // Bugfix (kundrapport: "ta bort företag funkar inte" — knappen kändes
     // dödgrävd/långsam): requiresOwnPayment är sant redan när ett tillagt
     // företag SKAPAS (handleCreateNewCompany), inte först när Stripe-
@@ -3865,6 +3891,8 @@ function App() {
       hoursWorked: 0,
       additions: 0, absenceDeduction: 0, grossDeduction: 0, benefits: 0, netDeduction: 0,
       employeeSnapshot: { ...e },
+      // Åldersanpassad arbetsgivaravgift (payrollConfig.employerFeeFor).
+      feeRules: FEE_RULES_VERSION,
     }));
     setPayrollRuns(prev => [...prev, { id: runId, period, payDate, completedSteps: [], rows, createdAt: new Date().toISOString() }]);
     return runId;
@@ -3932,7 +3960,8 @@ function App() {
         ...r,
         rows: r.rows.map(row => {
           const current = (currentEmployees || employees).find(e => e.id === row.employeeId);
-          return current ? { ...row, employeeSnapshot: { ...current } } : row;
+          // En körning som inte räknats än får också de nya avgiftsreglerna.
+          return current ? { ...row, employeeSnapshot: { ...current }, feeRules: FEE_RULES_VERSION } : row;
         }),
       };
     }));
@@ -4000,6 +4029,7 @@ function App() {
 
   const handleResetData = async () => {
     if (await confirmDialog('Är du säker på att du vill återställa all data? Detta tar bort eventuella sparade uppgifter och startar om med tomt företag.', { danger: true })) {
+      if (!(await archiveBeforeRemoval(data.activeCompanyId, 'reset'))) return false;
       const defaultData = createEmptyCompanyData({ id: data.activeCompanyId });
       setData(prev => ({
         ...prev,
@@ -4008,7 +4038,9 @@ function App() {
           [prev.activeCompanyId]: defaultData,
         },
       }));
+      return true;
     }
+    return false;
   };
 
   // Count for review badge (must be before navSections)

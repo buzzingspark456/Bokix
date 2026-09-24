@@ -3957,7 +3957,7 @@ export default function Settings({
               <div style={{ ...card, background: 'var(--status-red-bg)', border: '1px solid var(--status-red-bg)' }}>
                 <div style={{ marginBottom: '10px' }}><SectionHeading icon={Trash2} tone="red">Radera företagets bokföringsdata</SectionHeading></div>
                 <p style={{ fontSize: '13px', color: 'var(--status-red-text)', margin: '0 0 12px', maxWidth: '600px' }}>
-                  Detta raderar all bokföring, alla fakturor, kunder och verifikationer för <strong>{company?.name || 'det här företaget'}</strong> permanent. Det kan inte ångras. Din Bokix-inloggning ({user?.email}) påverkas inte och du loggas inte ut. Företaget självt finns kvar, tomt.
+                  Detta tömmer all bokföring, alla fakturor, kunder och verifikationer för <strong>{company?.name || 'det här företaget'}</strong> i appen. Det kan inte ångras här. Bokföringslagen kräver att räkenskaperna sparas i sju år, så Bokix sparar först en arkivkopia som bara vi kan läsa och som du kan begära ut via support@bokix.se. Din Bokix-inloggning ({user?.email}) påverkas inte och du loggas inte ut. Företaget självt finns kvar, tomt.
                 </p>
                 <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, color: 'var(--status-red-text)', marginBottom: '6px' }}>
                   Skriv företagsnamnet <strong>{company?.name}</strong> för att bekräfta
@@ -3969,7 +3969,7 @@ export default function Settings({
                 <div>
                   <button
                     disabled={!deleteMatches}
-                    onClick={() => { if (deleteMatches) { onReset?.(); setDeleteConfirmText(''); logAuditEvent(supabase, { companyId: activeCompanyId, ownerUserId: user?.id, actorUserId: user?.id, actorEmail: user?.email, action: 'data.delete', description: `Raderade all bokföringsdata för ${company?.name || 'företaget'}.` }); } }}
+                    onClick={async () => { if (deleteMatches && (await onReset?.())) { setDeleteConfirmText(''); logAuditEvent(supabase, { companyId: activeCompanyId, ownerUserId: user?.id, actorUserId: user?.id, actorEmail: user?.email, action: 'data.delete', description: `Raderade all bokföringsdata för ${company?.name || 'företaget'}.` }); } }}
                     style={{ padding: '9px 18px', background: deleteMatches ? '#ef4444' : '#fca5a5', color: 'white', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600, cursor: deleteMatches ? 'pointer' : 'not-allowed' }}
                   >
                     <Trash2 size={14} style={{ verticalAlign: 'middle', marginRight: '6px' }} /> Radera permanent
@@ -3992,7 +3992,7 @@ export default function Settings({
                   <div style={{ ...card, background: 'var(--status-red-bg)', border: '1px solid var(--status-red-bg)' }}>
                     <div style={{ marginBottom: '10px' }}><SectionHeading icon={Trash2} tone="red">Radera {company?.name || 'det här företaget'}</SectionHeading></div>
                     <p style={{ fontSize: '13px', color: 'var(--status-red-text)', margin: '0 0 12px', maxWidth: '600px' }}>
-                      Företaget försvinner helt från ditt konto och en eventuell prenumeration avslutas. Din Bokix-inloggning ({user?.email}) påverkas inte, men du måste ha minst ett företag kvar.
+                      Företaget försvinner helt från ditt konto och en eventuell prenumeration avslutas. Bokix sparar först en arkivkopia av bokföringen och underlagen i sju år, som lagen kräver, och du kan begära ut den via support@bokix.se. Din Bokix-inloggning ({user?.email}) påverkas inte, men du måste ha minst ett företag kvar.
                     </p>
                     <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, color: 'var(--status-red-text)', marginBottom: '6px' }}>
                       Skriv företagsnamnet <strong>{company?.name}</strong> för att bekräfta

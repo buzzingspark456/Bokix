@@ -29,10 +29,10 @@ leverantörsfakturor, lönekörningar, momsunderlag och de importerade
 banktransaktioner som ligger till grund för bokförda poster.
 
 **Formen.** Information ska bevaras i den form den hade när den kom till
-företaget (7 kap. 1 §). Ett kvitto som kommit på papper och skannats in får
-enligt 7 kap. 6 § förstöras i original först från och med det fjärde året
-efter räkenskapsårets utgång — den digitala kopian måste ändå sparas hela
-arkivtiden.
+företaget (7 kap. 1 §). Sedan 1 juli 2024 får ett papperskvitto förstöras
+direkt när det fotograferats eller skannats, om överföringen inte innebär
+risk att uppgifter ändras eller försvinner (7 kap. 6 §). Bilden måste då
+sparas hela arkivtiden.
 
 > **Att stämma av mot lagtexten.** Reglerna om förvaring utomlands (7 kap.
 > 3 a–4 §§) har ändrats de senaste åren och är den punkt jag är minst säker
@@ -57,6 +57,33 @@ arkivtiden.
 de normaliserade transaktionsraderna, inte filen. Tas de bort i bankvyn —
 en rad eller hela importomgången — är de borta ur databasen vid nästa
 sparning. Det finns alltså ingenting kvar att städa efteråt.
+
+---
+
+## Arkivet (sjuårslöftet)
+
+Kod: `api/_archive.js`, `api/archive.js`. Allt ligger i den privata bucketen
+`bokix-arkiv` i samma Supabase-projekt (Frankfurt). Bucketen har inga
+RLS-regler för användare, så bara servern kan läsa och skriva den; en
+användare kan inte radera sitt eget arkiv.
+
+| Vad | När | Sparas |
+|---|---|---|
+| Företaget som det var + kopior av alla uppladdade filer | Innan Radera data eller Radera företag går igenom. Misslyckas arkiveringen stoppas raderingen. | Till arkivtidens slut (`keepUntil` i filen) |
+| Hela kontot som JSON, dagskopia | Varje natt kontot ändrats (cronen) | 35 dagar |
+| Hela kontot som JSON, månadskopia | Första nattkopian varje månad | Till arkivtidens slut |
+
+Arkivtiden räknas som senaste året i bokföringen (eller i år) plus ett år
+för ett räkenskapsår som kan sluta året efter, plus sju hela år. Det kan ge
+ett år för mycket, aldrig för lite.
+
+En kund som slutat betala ser betalspärren, men den visar också "Din
+bokföring finns kvar" med SIE4 och JSON per företag, så ingen stängs ute
+från sina egna räkenskaper. Kvitton och underlag lämnas ut via support ur
+arkivet eller den vanliga bucketen.
+
+Att hämta ut ett arkiv i dag: Supabase Dashboard > Storage > bokix-arkiv >
+`<user_id>/`. Det finns inget gränssnitt för det än.
 
 ---
 
@@ -94,9 +121,9 @@ rutinen mitt i blir resultatet ett tomt konto utan data, inte data utan
 
 ## Det som inte är automatiserat än
 
-- **Gallring efter arkivtidens slut.** Ingen raderar data som passerat sju
-  år. Det är rätt ordning att bygga det i: hellre spara för länge än att
-  radera för tidigt. Men det är nästa steg om lagringen ska hållas nere.
+- **Gallring efter arkivtidens slut.** Månadskopiorna gallras när deras
+  `keepUntil` passerats, men raderingsarkiven och den levande datan gallras
+  inte. Hellre spara för länge än radera för tidigt.
 - **Kontoavslut på begäran.** En användare som vill avsluta får i dag mejla
   supporten. Räkenskapsinformationen kan ändå inte raderas före arkivtidens
   slut — det står i integritetspolicyn, men flödet är manuellt.

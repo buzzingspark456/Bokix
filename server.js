@@ -19,6 +19,7 @@ import {
 import { hasGoogleOAuth, buildAuthUrl, exchangeCode, signState, verifyState } from './api/_gmail.js'
 import requestPasswordResetHandler from './api/auth/request-password-reset.js'
 import companyAccessHandler from './api/company-access.js'
+import archiveHandler from './api/archive.js'
 import adminHandler from './api/admin/index.js'
 import createSubscriptionCheckoutHandler from './api/stripe/_subscriptionCheckout.js'
 import createCheckoutSessionHandler from './api/stripe/create-checkout-session.js'
@@ -307,6 +308,8 @@ app.post('/api/email/send-invoice', (req, res) => sendInvoiceHandler(req, res))
 // handler direkt (samma mönster som redan finns för /api/cron/reminders)
 // istället för att hålla en andra kopia i synk för hand.
 app.all('/api/company-access', (req, res) => companyAccessHandler(req, res))
+app.use('/api/archive', sensitiveLimiter)
+app.all('/api/archive', (req, res) => archiveHandler(req, res))
 
 // GET/POST /api/admin — samma "importera produktionens handler rakt av"-
 // mönster som company-access.js ovan, av samma skäl: en handkopierad

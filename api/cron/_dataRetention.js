@@ -1,4 +1,5 @@
 import { collectStoragePaths } from '../../src/utils/storageUrls.js';
+import { snapshotAllUsers } from '../_archive.js';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Datastädning — kör en gång per dygn från api/cron/reminders.js.
@@ -166,7 +167,14 @@ export async function cleanAbandonedSignups(admin, { now = new Date(), dryRun = 
 /** Båda jobben, som cronen anropar dem. Fel loggas men får aldrig fälla
  * hela cron-körningen: påminnelseutskicken är viktigare än städningen. */
 export async function runDataRetention(admin, options = {}) {
-  const result = { orphanFiles: null, abandonedSignups: null, errors: [] };
+  const result = { snapshots: null, orphanFiles: null, abandonedSignups: null, errors: [] };
+  // Nattkopiorna först: de ska finnas innan något städas (se _archive.js).
+  try {
+    result.snapshots = await snapshotAllUsers(admin, options);
+    if (result.snapshots.errors.length) result.errors.push(...result.snapshots.errors.slice(0, 5).map(e => `snapshot ${e}`));
+  } catch (err) {
+    result.errors.push(`snapshots: ${err.message}`);
+  }
   try {
     result.orphanFiles = await cleanOrphanFiles(admin, options);
   } catch (err) {

@@ -1,5 +1,6 @@
-﻿import React, { useState } from 'react';
-import { CreditCard, LogOut, AlertCircle, Lock } from './icons';
+﻿import React, { useEffect, useState } from 'react';
+import { CreditCard, LogOut, AlertCircle, Lock, Download } from './icons';
+import { downloadSie4 } from '../utils/sieExport';
 import { BRAND } from '../utils/brandColors';
 import { BokixWordmark } from './marketing/MarketingLayout';
 import { createStripeSubscriptionCheckout } from '../stripeApi';
@@ -35,6 +36,38 @@ export default function PaymentRequiredGate({ user, company, onSignedOut }) {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const forCompany = Boolean(company?.requiresOwnPayment);
+  // Den som slutat betala äger fortfarande sin bokföring och måste enligt
+  // bokföringslagen kunna visa upp den i sju år. Betalspärren får därför
+  // aldrig stänga ute någon från sina egna räkenskaper: har kontot bokföring
+  // visas en nedladdning här, utan att man behöver betala först.
+  const [ownCompanies, setOwnCompanies] = useState([]);
+  useEffect(() => {
+    if (!user?.id) return undefined;
+    let cancelled = false;
+    supabase.from('user_data').select('state').eq('user_id', user.id).maybeSingle().then(({ data }) => {
+      if (cancelled) return;
+      const list = Object.values(data?.state?.companies || {}).filter(c => (
+        (c?.verifications?.length || 0) + (c?.invoices?.length || 0) + (c?.expenses?.length || 0)
+      ) > 0);
+      setOwnCompanies(list);
+    });
+    return () => { cancelled = true; };
+  }, [user?.id]);
+
+  // Har kontot bokföring är det en tidigare kund, inte en ny registrering.
+  const returning = !forCompany && ownCompanies.length > 0;
+
+  const downloadBackup = (c) => {
+    const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), ...c }, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `bokix-export-${(c.company?.name || 'foretag').replace(/\s+/g, '_')}-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
 
   const handleContinueToPayment = async () => {
     setErrorMsg('');
@@ -78,12 +111,14 @@ export default function PaymentRequiredGate({ user, company, onSignedOut }) {
         </div>
 
         <h1 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '10px', letterSpacing: '-0.01em' }}>
-          {forCompany ? 'Slutför betalningen för det här företaget' : 'Slutför din betalning för att fortsätta'}
+          {forCompany ? 'Slutför betalningen för det här företaget' : returning ? 'Din prenumeration är inte aktiv' : 'Slutför din betalning för att fortsätta'}
         </h1>
         <p style={{ fontSize: '14.5px', color: 'var(--text-secondary)', lineHeight: 1.65, marginBottom: '28px' }}>
           {forCompany
             ? <>Varje företag i Bokix betalas för sig — <strong>{company?.name || 'det här företaget'}</strong> väntar fortfarande på betalningsuppgifter hos Stripe. 30 dagar gratis, sedan 179 kr/mån — avsluta innan dess så kostar det ingenting.</>
-            : <>Ditt konto ({user?.email}) är skapat, men du har inte lagt in betalningsuppgifter hos Stripe än. 30 dagar gratis, sedan 179 kr/mån — avsluta innan dess så kostar det ingenting.</>}
+            : returning
+              ? <>Kontot {user?.email} har ingen aktiv prenumeration. Starta den igen för att fortsätta bokföra. Din bokföring finns kvar och kan laddas ner här nedanför.</>
+              : <>Ditt konto ({user?.email}) är skapat, men du har inte lagt in betalningsuppgifter hos Stripe än. 30 dagar gratis, sedan 179 kr/mån — avsluta innan dess så kostar det ingenting.</>}
         </p>
 
         {errorMsg && (
@@ -103,6 +138,28 @@ export default function PaymentRequiredGate({ user, company, onSignedOut }) {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '12.5px', color: 'var(--text-muted)', marginBottom: '20px' }}>
           <Lock size={12} /> Säker betalning via <StripeBadge />
         </div>
+
+        {ownCompanies.length > 0 && (
+          <div style={{ textAlign: 'left', borderTop: '1px solid var(--border)', paddingTop: '18px', marginBottom: '18px' }}>
+            <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '4px' }}>Din bokföring finns kvar</div>
+            <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.55, margin: '0 0 12px' }}>
+              Du kan ladda ner den utan att betala. SIE4 läses av alla svenska bokföringsprogram och av din revisor. Kvitton och underlag kan du begära ut via support@bokix.se.
+            </p>
+            {ownCompanies.map(c => (
+              <div key={c.company?.id || c.company?.name} style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', padding: '8px 0' }}>
+                <span style={{ flex: '1 1 140px', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>{c.company?.name || 'Företag'}</span>
+                <span style={{ display: 'flex', gap: '8px' }}>
+                <button type="button" onClick={() => downloadSie4(c.company, c.accounts, c.verifications)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 11px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer', fontFamily: 'inherit' }}>
+                  <Download size={13} /> SIE4
+                </button>
+                <button type="button" onClick={() => downloadBackup(c)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 11px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer', fontFamily: 'inherit' }}>
+                  <Download size={13} /> Allt (JSON)
+                </button>
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
 
         <button
           onClick={handleSignOut}
