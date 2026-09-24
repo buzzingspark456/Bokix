@@ -238,6 +238,8 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
   // vägen för avläsningen. Samma regel som i kvittovyn (Expenses.jsx).
   const [photoHint, setPhotoHint] = useState(null);
   const [ocrVat, setOcrVat] = useState(null);
+  // Kontoförslag från avläsningen (en regel, inte historik): visas med en knapp, fylls inte i.
+  const [accountSuggestion, setAccountSuggestion] = useState(null);
   const timersRef = useRef([]);
   useEffect(() => () => { timersRef.current.forEach(clearTimeout); }, []);
   const verificationsRef = useRef(verifications);
@@ -262,6 +264,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
     setUnreadable(false);
     setPhotoHint(null);
     setOcrVat(null);
+    setAccountSuggestion(null);
     setPayInfo(null);
     setForeignInfo(null);
     setRevealing(false);
@@ -306,14 +309,16 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
       const reverse = parsed.reverseCharge;
       const vatRate = reverse ? 0 : (vatFromHistory ? hist.vatRate : (parsed.vatRate ?? 25));
       const mixedVat = !nr && !reverse && !parsed.currency && Boolean(parsed.vatRates && parsed.vatAmount);
-      // Samma regel som kvittovyn (Expenses.jsx): ett konto avläsningen bara
-      // GISSAT (accountGuessed, t.ex. 6990-reservfallet) fylls aldrig i på
-      // raden — kundfeedback, uttryckligt: ett gissat konto som ser äkta ut
-      // är värre än ett tomt fält. Bara historik (samma leverantör bokförd
-      // förut) eller omvänd skattskyldighet (kontot följer av dokumentet,
-      // inte av en gissning) fyller i kostnadskontot. Annars lämnas raden
-      // tom och användaren väljer själv, precis som en ny manuell rad.
-      const costAccount = reverse ? parsed.accountCode : (hist?.costAccount || (parsed.accountCode && !parsed.accountGuessed ? parsed.accountCode : ''));
+      // Samma regel som kvittovyn (Expenses.jsx): kostnadskontot fylls bara i
+      // när det är känt — samma leverantör bokförd förut (historik), eller
+      // omvänd skattskyldighet där kontot följer av dokumentet. Ett konto från
+      // en regel (leverantören eller ett ord på kvittot) är ett FÖRSLAG som
+      // användaren tar med en knapp, aldrig något som skrivs in och ser avläst
+      // ut. Kundfeedback, uttryckligt: ett konto som ser säkert ut men är en
+      // gissning är värre än ett tomt fält.
+      const costAccount = reverse ? parsed.accountCode : (hist?.costAccount || '');
+      const suggestion = !nr && !costAccount && parsed.accountCode && !parsed.accountGuessed && accounts.some(a => a.code === parsed.accountCode)
+        ? parsed.accountCode : null;
       const gross = grossSek ? Math.round(grossSek * 100) / 100 : 0;
       // Betalkontot är inte en gissning när historiken eller kvittot säger något.
       const pay = decidePayAccount({ history: hist, paymentMethod: parsed.paymentMethod, accounts });
@@ -327,7 +332,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
         },
         {
           key: 'costAccount', found: !nr && gross > 0 && Boolean(costAccount),
-          state: reverse ? 'found' : (hist ? 'history' : 'found'), apply: () => {},
+          state: reverse ? 'found' : 'history', suggest: Boolean(suggestion), apply: () => {},
         },
         { key: 'payAccount', found: !nr && gross > 0, state: pay.state, apply: () => {} },
       ];
@@ -374,7 +379,8 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
             step.apply();
             if (step.state === 'found' && (step.key === 'date' || step.key === 'supplier')) filled.add(step.key === 'supplier' ? 'desc' : 'date');
           }
-          setRevealed(prev => ({ ...prev, [step.key]: step.found ? step.state : 'missing' }));
+          setRevealed(prev => ({ ...prev, [step.key]: step.found ? step.state : (step.suggest ? 'suggest' : 'missing') }));
+          if (step.key === 'costAccount') setAccountSuggestion(suggestion);
         }, 250 + i * REVEAL_STEP_MS));
       });
       timersRef.current.push(setTimeout(() => {
@@ -451,6 +457,23 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
   // Rensar OCR-badgen på raderna så fort användaren rör konteringen själv —
   // samma "försvinner vid redigering"-princip som Datum/Beskrivning nedan.
   const clearRowsOcrBadge = () => setOcrFields(s => { if (!s.has('rows')) return s; const n = new Set(s); n.delete('rows'); return n; });
+
+  // Användaren tar kontoförslaget: det hamnar på kostnadsraden (den första
+  // raden utan konto som har ett belopp i debet), eller i enkelt läge som köpet.
+  const applyAccountSuggestion = () => {
+    const code = accountSuggestion;
+    if (!code) return;
+    if (modeRef.current === 'simple') {
+      setSimple(prev => ({ ...prev, account: code }));
+    } else {
+      const name = accounts.find(a => a.code === code)?.name || '';
+      setRows(prev => {
+        const i = prev.findIndex(r => !r.account && Number(String(r.debet).replace(',', '.')) > 0);
+        return i < 0 ? prev : prev.map((r, j) => (j === i ? { ...r, account: code, accountName: name } : r));
+      });
+    }
+    setAccountSuggestion(null);
+  };
 
   const changeMode = async (next) => {
     if (next === mode) return;
@@ -1048,6 +1071,12 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
                 </div>
                 {(ocrStatus === 'scanning' || revealing || Object.keys(revealed).length > 0) && (
                   <OcrChecklist scanning={ocrStatus === 'scanning'} revealed={revealed} items={VER_OCR_ITEMS} />
+                )}
+                {!revealing && accountSuggestion && (
+                  <div className="rc-verify rc-verify-suggest">
+                    <span>Förslag på konto: <strong>{accountSuggestion} {accounts.find(a => a.code === accountSuggestion)?.name || ''}</strong></span>
+                    <button type="button" className="rc-link" onClick={applyAccountSuggestion}>Använd</button>
+                  </div>
                 )}
                 {!revealing && notReceipt && (
                   <div className="rc-verify rc-verify-warn">

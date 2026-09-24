@@ -3358,6 +3358,7 @@ textarea.form-control {
 .rc-verify > svg { margin-top: 2px; }
 .rc-verify-ok { background: var(--status-green-bg); color: var(--status-green-text); }
 .rc-verify-warn { background: var(--status-amber-bg); color: var(--status-amber-text); }
+.rc-verify-suggest { align-items: center; justify-content: space-between; background: var(--bg-muted); color: var(--text-main); font-weight: 500; }
 
 /* Valutarutan: beloppet i valutan, kursen och var kursen kom ifrån. */
 .rc-fx {
