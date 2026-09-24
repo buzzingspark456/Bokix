@@ -1055,3 +1055,38 @@ describe('felläst text från ett riktigt telefonfoto', () => {
     expect(r.amount).toBe(125)
   })
 })
+
+describe('leverantör trots felstavning', () => {
+  const supplierOf = (lines) => parseReceiptText(lines.join('\n'))
+
+  it.each([
+    ['C00P KONSUM', 'Coop'],
+    ['1CA Supermarket Vasastan', 'ICA'],
+    ['HEMKOP', 'Hemköp'],
+    ['PRE5SBYRAN Centralen', 'Pressbyrån'],
+    ['CLAS OHL SON', 'Clas Ohlson'],
+    ['C1RCLE K Solna', 'Circle K'],
+    ['E1giganten Kungens Kurva', 'Elgiganten'],
+  ])('%s blir %s', (head, name) => {
+    const r = supplierOf([head, 'Totalt 100,00', 'Moms 25% 20,00'])
+    expect(r.supplier).toBe(name)
+    expect(r.supplierMatched).toBe(true)
+  })
+
+  it('gissar inte en kedja för en okänd butik', () => {
+    const r = supplierOf(['Blomsterhandeln Pärlan AB', 'Totalt 249,00', 'Moms 25% 49,80'])
+    expect(r.supplier).toBe('Blomsterhandeln Pärlan AB')
+    expect(r.supplierMatched).toBe(false)
+  })
+
+  it('MAT blir inte MAX', () => {
+    const r = supplierOf(['MAT & DRYCK AB', 'Totalt 100,00', 'Moms 12% 10,71'])
+    expect(r.supplierMatched).toBe(false)
+  })
+
+  it('en gatuadress med kedjenamn är ingen kedja', () => {
+    const r = supplierOf(['Bygg & Fix AB', 'Lidlvagen 4', 'Totalt 100,00', 'Moms 25% 20,00'])
+    expect(r.supplier).toBe('Bygg & Fix AB')
+    expect(r.supplierMatched).toBe(false)
+  })
+})

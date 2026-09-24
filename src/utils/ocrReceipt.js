@@ -1591,6 +1591,47 @@ const NAME_ADDRESS_RE = /\b(?:gatan|gatu|v[äa]gen|gr[äa]nd|torget|\bbox\b|tel(
 // Bolagsformer och liknande korta ord är inte sönderdelade ord.
 const NAME_SHORT_OK_RE = /^(?:ab|hb|kb|as|a\/s|aps|oy|ltd|inc|llc|co|&|och|the|i|of)$/i;
 
+// Kedjenamn som OCR stavat fel. Prickarna och de klassiska teckenförväxlingarna
+// viks ihop innan jämförelsen, så "C00P", "1CA" och "HEMKOP" hittar Coop, ICA
+// och Hemköp utan att någon lista över felstavningar behöver underhållas.
+// Jämförelsen är avsiktligt snål: korta namn måste stämma exakt efter vikningen
+// (annars skulle "MAX" matcha "MAT"), och bara längre namn får skilja sig med
+// ett eller två tecken.
+const ACCENT_FOLD = { 'ö': 'o', 'ä': 'a', 'å': 'a', 'é': 'e', 'è': 'e', 'ü': 'u', 'ø': 'o', 'æ': 'a' };
+const foldSupplier = (s) => String(s || '').toLowerCase()
+  .split('').map(c => ACCENT_FOLD[c] || c).join('')
+  .replace(/[^a-z0-9]/g, '');
+
+/**
+ * Känd leverantör trots felstavning i avläsningen. Prövar varje ord i
+ * dokumentets huvud, och även två ord ihop ("Clas Ohlson", "Circle K") samt
+ * hela raden utan mellanslag (en logotyp som lästs i bitar).
+ */
+export function matchKnownSupplierFuzzy(lines, headerLines = 8) {
+  const candidates = new Set();
+  (lines || []).slice(0, headerLines).forEach((line) => {
+    const words = String(line).split(/\s+/).map(foldSupplier).filter(w => w.length >= 3);
+    words.forEach((w, i) => {
+      candidates.add(w);
+      if (words[i + 1]) candidates.add(w + words[i + 1]);
+    });
+    const whole = foldSupplier(line);
+    if (whole.length >= 4 && whole.length <= 24) candidates.add(whole);
+  });
+  if (candidates.size === 0) return null;
+
+  for (const supplier of KNOWN_SUPPLIERS) {
+    const target = foldSupplier(supplier.name);
+    if (target.length < 3) continue;
+    const limit = target.length >= 8 ? 2 : target.length >= 5 ? 1 : 0;
+    for (const candidate of candidates) {
+      if (Math.abs(candidate.length - target.length) > limit) continue;
+      if (labelDistance(candidate, target, limit) <= limit) return supplier;
+    }
+  }
+  return null;
+}
+
 /** Ett namn utan skräptecken: "(DOLLAR$TORE ;" blir "DOLLARSTORE". */
 export function cleanSupplierName(raw) {
   return String(raw || '')
@@ -1652,14 +1693,18 @@ export function pickSupplierName(lines, headerLines = 8) {
   return best.clean;
 }
 
-// Ett leverantörsnamn ska börja vid ett ordbörjan: "ICA" är ICA, men "Africa"
-// är inte det. Testar varje förekomst, inte bara den första.
+// Ett leverantörsnamn ska vara ett helt ord: "ICA" är ICA, men "Africa" är det
+// inte — och "Lidlvägen 4" är en adress, inte ett kvitto från Lidl. Kravet
+// gäller åt båda håll, och varje förekomst prövas, inte bara den första.
 function matchesAtWordStart(re, text) {
   const g = new RegExp(re.source, 'gi');
   let m;
   while ((m = g.exec(text))) {
     const before = text[m.index - 1];
-    if (!before || !/[\p{L}\d]/u.test(before)) return true;
+    const after = text[m.index + m[0].length];
+    const startsWord = !before || !/[\p{L}\d]/u.test(before);
+    const endsWord = !after || !/[\p{L}]/u.test(after);
+    if (startsWord && endsWord) return true;
     if (g.lastIndex === m.index) g.lastIndex++;
   }
   return false;
@@ -2099,9 +2144,22 @@ export function parseReceiptText(text, { confidence = null } = {}) {
     }
   }
 
-  // Om leverantören inte matchade känd lista: leta upp den BÄSTA raden i
-  // dokumentets huvud, inte den första. Det är en gissning (supplierMatched
-  // förblir false med flit), men den ska åtminstone vara rätt stavad.
+  // Samma lista en gång till, men tålig mot felstavning: ett fotat kvitto ger
+  // ofta "C00P KONSUM" eller "HEMKOP", och då ska det ändå bli Coop och
+  // Hemköp — med kedjans riktiga namn och konto, inte en halvläst rad.
+  if (!supplier) {
+    const fuzzy = matchKnownSupplierFuzzy(lines, 6);
+    if (fuzzy) {
+      supplier = fuzzy.name;
+      accountCode = fuzzy.account;
+      if (fuzzy.vat !== undefined) vatRate = fuzzy.vat;
+      supplierMatched = true;
+    }
+  }
+
+  // Ingen känd kedja: leta upp den BÄSTA raden i dokumentets huvud, inte den
+  // första. Det är en gissning (supplierMatched förblir false med flit), men
+  // den ska åtminstone vara rätt stavad.
   if (!supplier) supplier = pickSupplierName(lines);
 
   // ── 4. Momssats ──────────────────────────────────────────────────────────
