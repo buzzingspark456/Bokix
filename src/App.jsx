@@ -1059,16 +1059,37 @@ const ALLOWED_SUBSCRIPTION_STATUSES = ['trialing', 'active', 'past_due'];
 // baserad, inte prenumerations-baserad), så en ren e-post-allowlist här
 // räcker, ingen serverändring behövs.
 // Kundrapport ("det är payment men gör inte så jag måste betala"): det nya
-// dedikerade admin-kontot (abbealwaki08@gmail.com, api/admin/index.js:s
-// ADMIN_EMAILS) är ett BART Supabase-auth-konto utan någon egen
-// bokföring/prenumeration bakom sig — första gången det loggar in i den
-// HÄR appen (t.ex. via lösenordsåterställningslänkens redirect hit)
-// träffade det annars samma betalspärr som en helt ny, obetald kund.
-// Samma undantag som det ordinarie kontot nedan redan har.
-const FREE_ACCOUNT_EMAILS = ['alwakiabdullah1@gmail.com', 'abbealwaki08@gmail.com'];
+// dedikerade admin-kontot (api/admin/index.js:s ADMIN_EMAILS) är ett BART
+// Supabase-auth-konto utan någon egen bokföring/prenumeration bakom sig —
+// första gången det loggar in i den HÄR appen (t.ex. via lösenords-
+// återställningslänkens redirect hit) träffade det annars samma betalspärr
+// som en helt ny, obetald kund.
+//
+// Listan innehåller HASHAR (cyrb53) av de två adresserna i ADMIN_EMAILS,
+// inte adresserna själva: den här filen hamnar i den publika JS-bunten, och
+// klartext-adresserna där talade om för vem som helst med devtools vilka
+// konton som är admin (ett färdigt mål för nätfiske och lösenordsgissning).
+// Ny adress: node -e "<cyrb53 nedan>; console.log(cyrb53('adress'))".
+const FREE_ACCOUNT_EMAIL_HASHES = ['1hingei7r5i', '6smdptanhd'];
+const cyrb53 = (str, seed = 0) => {
+  let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
+  for (let i = 0; i < str.length; i++) {
+    const ch = str.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507);
+  h1 ^= Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507);
+  h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
+};
 // Skiftlägesokänslig jämförelse — Supabase normaliserar INTE nödvändigtvis
 // e-postens skiftläge till gemener, den sparas som inskriven vid signup.
-const isFreeAccountEmail = (email) => FREE_ACCOUNT_EMAILS.includes(String(email || '').trim().toLowerCase());
+const isFreeAccountEmail = (email) => {
+  const normalized = String(email || '').trim().toLowerCase();
+  return Boolean(normalized) && FREE_ACCOUNT_EMAIL_HASHES.includes(cyrb53(normalized));
+};
 
 // ──────────────────────────────────────────────
 // APP COMPONENT
