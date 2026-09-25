@@ -34,7 +34,7 @@ export const LOCALES = Object.keys(LOCALE_META);
 export const MARKETING_ROUTES = [
   '/', '/funktioner', '/priser', '/om-oss', '/kontakt',
   '/byt-bokforingsprogram', '/koppla-bank', '/uf',
-  '/integrationer', '/sakerhet', '/ordlista', '/vanliga-fragor', '/blogg', '/nyheter',
+  '/integrationer', '/sakerhet', '/lon', '/ordlista', '/vanliga-fragor', '/blogg', '/nyheter',
   '/verktyg', '/verktyg/skanna-kvitto', '/verktyg/momskalkylator', '/verktyg/lonekalkylator', '/verktyg/egenavgifter',
   '/verktyg/rot-rut', '/verktyg/drojsmalsranta', '/verktyg/utdelning',
   '/verktyg/momsdatum', '/verktyg/arsredovisning',

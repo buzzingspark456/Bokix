@@ -41,6 +41,7 @@ import OrdlistaPage from './components/marketing/OrdlistaPage.jsx';
 import FaqPage from './components/marketing/FaqPage.jsx';
 import IntegrationsPage from './components/marketing/IntegrationsPage.jsx';
 import SecurityPage from './components/marketing/SecurityPage.jsx';
+import PayrollPage from './components/marketing/PayrollPage.jsx';
 import BlogPage from './components/marketing/BlogPage.jsx';
 import NewsPage from './components/marketing/NewsPage.jsx';
 import { BLOG_ARTICLE_PAGES } from './components/marketing/BlogPostPage.jsx';
@@ -66,6 +67,7 @@ const BASE_PAGES = {
   '/uf': UfPage,
   '/integrationer': IntegrationsPage,
   '/sakerhet': SecurityPage,
+  '/lon': PayrollPage,
   '/ordlista': OrdlistaPage,
   '/vanliga-fragor': FaqPage,
   '/blogg': BlogPage,

@@ -1,6 +1,12 @@
 import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Menu, X, Sun, Moon } from '../icons';
+import {
+  Menu, X, Sun, Moon, ChevronDown, ChevronRight, ArrowRight, Check,
+  Sparkles, Landmark, Plug, RotateCcw, ShieldCheck,
+  GraduationCap, ScanLine, Percent, Users, Briefcase,
+  Hammer, Clock, AlarmClock, CalendarClock, FileClock, PiggyBank,
+  BookOpen, FileText, HelpCircle, MessageSquare, Rocket,
+} from '../icons';
 import { BRAND } from '../../utils/brandColors';
 import { SERIF } from './marketingTokens';
 import { JsonLd, SITE_URL } from '../../utils/seo';
@@ -107,6 +113,231 @@ export const MARKETING_PAGES = [
   { label: 'Verktyg', to: '/verktyg' },
 ];
 
+export const NAV_MENUS = [
+  {
+    key: 'features',
+    label: 'Funktioner',
+    to: '/funktioner',
+    dropdownWidth: 600,
+    sections: [
+      {
+        title: 'Bokföring',
+        items: [
+          {
+            title: 'Automatisk bokföring',
+            to: '/funktioner',
+            icon: Sparkles,
+            color: '#10b981',
+            bgColor: 'rgba(16, 185, 129, 0.12)',
+            badge: 'AI',
+            badgeColor: '#059669',
+          },
+          {
+            title: 'Koppla banken',
+            to: '/koppla-bank',
+            icon: Landmark,
+            color: '#0ea5e9',
+            bgColor: 'rgba(14, 165, 233, 0.12)',
+            badge: 'Realtid',
+            badgeColor: '#0284c7',
+          },
+          {
+            title: 'Fakturering & Betalning',
+            to: '/funktioner',
+            icon: FileText,
+            color: '#0d9488',
+            bgColor: 'rgba(13, 148, 136, 0.12)',
+          },
+        ],
+      },
+      {
+        title: 'Administration',
+        items: [
+          {
+            title: 'Lön & Arbetsgivare',
+            to: '/lon',
+            icon: Users,
+            color: '#7c3aed',
+            bgColor: 'rgba(124, 58, 237, 0.12)',
+          },
+          {
+            title: 'Integrationer',
+            to: '/integrationer',
+            icon: Plug,
+            color: '#6366f1',
+            bgColor: 'rgba(99, 102, 241, 0.12)',
+          },
+          {
+            title: 'Säkerhet',
+            to: '/sakerhet',
+            icon: ShieldCheck,
+            color: '#16a34a',
+            bgColor: 'rgba(22, 163, 74, 0.12)',
+          },
+          {
+            title: 'Byt till Bokix',
+            to: '/byt-bokforingsprogram',
+            icon: RotateCcw,
+            color: '#0284c7',
+            bgColor: 'rgba(14, 165, 233, 0.12)',
+          },
+        ],
+      },
+    ],
+    get items() {
+      return this.sections.flatMap(s => s.items);
+    },
+    footer: {
+      label: 'Se alla funktioner och möjligheter',
+      to: '/funktioner',
+    },
+  },
+  {
+    key: 'tools',
+    label: 'Verktyg',
+    to: '/verktyg',
+    dropdownWidth: 600,
+    sections: [
+      {
+        title: 'Kalkylatorer',
+        items: [
+          {
+            title: 'Momskalkylator',
+            to: '/verktyg/momskalkylator',
+            icon: Percent,
+            color: '#059669',
+            bgColor: 'rgba(16, 185, 129, 0.12)',
+            badge: 'Populär',
+            badgeColor: '#059669',
+          },
+          {
+            title: 'Lönekalkylator',
+            to: '/verktyg/lonekalkylator',
+            icon: Users,
+            color: '#0d9488',
+            bgColor: 'rgba(13, 148, 136, 0.12)',
+          },
+          {
+            title: 'Egenavgifter',
+            to: '/verktyg/egenavgifter',
+            icon: Briefcase,
+            color: '#7c3aed',
+            bgColor: 'rgba(124, 58, 237, 0.12)',
+          },
+        ],
+      },
+      {
+        title: 'Verktyg',
+        items: [
+          {
+            title: 'Skanna kvitto (OCR)',
+            to: '/verktyg/skanna-kvitto',
+            icon: ScanLine,
+            color: '#8b5cf6',
+            bgColor: 'rgba(139, 92, 246, 0.12)',
+            badge: 'Gratis',
+            badgeColor: '#8b5cf6',
+          },
+          {
+            title: 'Utdelningskalkylator (3:12)',
+            to: '/verktyg/utdelning',
+            icon: PiggyBank,
+            color: '#0284c7',
+            bgColor: 'rgba(14, 165, 233, 0.12)',
+            badge: '2026',
+            badgeColor: '#0284c7',
+          },
+          {
+            title: 'ROT- & RUT-avdrag',
+            to: '/verktyg/rot-rut',
+            icon: Hammer,
+            color: '#d97706',
+            bgColor: 'rgba(217, 119, 6, 0.12)',
+          },
+        ],
+      },
+    ],
+    get items() {
+      return this.sections.flatMap(s => s.items);
+    },
+    footer: {
+      label: 'Utforska alla gratis verktyg',
+      to: '/verktyg',
+    },
+  },
+  {
+    key: 'pricing',
+    label: 'Priser',
+    to: '/priser',
+  },
+  {
+    key: 'resources',
+    label: 'Resurser',
+    to: '/nyheter',
+    dropdownWidth: 560,
+    sections: [
+      {
+        title: 'Kunskap & Guider',
+        items: [
+          {
+            title: 'Blogg & Guider',
+            to: '/blogg',
+            icon: BookOpen,
+            color: '#059669',
+            bgColor: 'rgba(16, 185, 129, 0.12)',
+            badge: 'Tips',
+            badgeColor: '#059669',
+          },
+          {
+            title: 'Ekonomisk ordlista',
+            to: '/ordlista',
+            icon: FileText,
+            color: '#7c3aed',
+            bgColor: 'rgba(124, 58, 237, 0.12)',
+            badge: 'A–Ö',
+            badgeColor: '#7c3aed',
+          },
+        ],
+      },
+      {
+        title: 'Hjälp & Nyheter',
+        items: [
+          {
+            title: 'Vanliga frågor (FAQ)',
+            to: '/vanliga-fragor',
+            icon: HelpCircle,
+            color: '#d97706',
+            bgColor: 'rgba(217, 119, 6, 0.12)',
+          },
+          {
+            title: 'Nyheter & Uppdateringar',
+            to: '/nyheter',
+            icon: Sparkles,
+            color: '#0284c7',
+            bgColor: 'rgba(14, 165, 233, 0.12)',
+            badge: 'Nytt',
+            badgeColor: '#0284c7',
+          },
+          {
+            title: 'Kundservice & Kontakt',
+            to: '/kontakt',
+            icon: MessageSquare,
+            color: '#0ea5e9',
+            bgColor: 'rgba(14, 165, 233, 0.12)',
+          },
+        ],
+      },
+    ],
+    get items() {
+      return this.sections.flatMap(s => s.items);
+    },
+    footer: {
+      label: 'Gå till kundservice & kontakt',
+      to: '/kontakt',
+    },
+  },
+];
+
 /** Globala stilar + animationer, delade av ALLA marknadssidor — en enda
  * källa så knappar/kort/skroll-reveal aldrig kan divergera mellan sidorna. */
 function MarketingStyles() {
@@ -156,6 +387,7 @@ function MarketingStyles() {
         --mkt-accent-red-fg: oklch(55% 0.19 25);
         --mkt-accent-red-soft: oklch(93% 0.05 25);
         --mkt-border-soft: #e5e7eb;
+        --mkt-btn-border: #9ca3af;
         --mkt-nav-text: #374151;
         --mkt-heading: #111827;
         --mkt-section-red-tint: oklch(97% 0.02 25);
@@ -208,7 +440,8 @@ function MarketingStyles() {
         --mkt-accent-red-fg: oklch(73% 0.16 25);
         --mkt-accent-red-soft: oklch(30% 0.06 25);
         --mkt-border-soft: #2a3d2c;
-        --mkt-nav-text: #c3d0bd;
+        --mkt-btn-border: #415944;
+        --mkt-nav-text: #e8efe5;
         --mkt-heading: #eef3ea;
         --mkt-section-red-tint: oklch(20% 0.03 25);
         --mkt-section-mint: oklch(21% 0.03 165);
@@ -225,7 +458,11 @@ function MarketingStyles() {
       html[data-theme="dark"] #lp-root .lp-mobile-menu.lp-open { background: var(--mkt-page-bg) !important; }
       .lp-btn-primary { transition: all 0.2s !important; }
       .lp-btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 25px -5px rgba(11,99,41,0.4) !important; }
-      .lp-btn-secondary:hover { background: #f9fafb !important; }
+      .lp-btn-secondary { transition: all 0.2s !important; }
+      .lp-btn-secondary:hover { background: #f9fafb !important; border-color: var(--mkt-nav-text) !important; }
+      .lp-theme-toggle { transition: all 0.2s !important; }
+      .lp-theme-toggle:hover { background: #f9fafb !important; border-color: var(--mkt-nav-text) !important; }
+      html[data-theme="dark"] #lp-root .lp-theme-toggle:hover { background: var(--mkt-ivory) !important; border-color: var(--mkt-nav-text) !important; }
       .lp-feature-card { transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
       .lp-feature-card:hover { transform: translateY(-4px); box-shadow: 0 16px 32px -12px rgba(0,0,0,0.14) !important; border-color: transparent !important; }
       /* ── En enda accentfärg (BRAND.green) för alla nav-länkar, inte en
@@ -236,12 +473,125 @@ function MarketingStyles() {
          randiga linjen under hela navraden togs bort (se <nav> nedan). ── */
       .lp-nav-link { position: relative; }
       .lp-nav-link:hover, .lp-nav-link.active { color: ${BRAND.green} !important; }
+      html[data-theme="dark"] #lp-root .lp-nav-link:hover,
+      html[data-theme="dark"] #lp-root .lp-nav-link.active { color: #ffffff !important; }
       .lp-nav-link::after {
         content: ''; position: absolute; left: 0; right: 0; bottom: 4px; height: 2px;
         background: ${BRAND.green}; transform: scaleX(0); transform-origin: center;
         transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
       }
+      html[data-theme="dark"] #lp-root .lp-nav-link::after { background: #ffffff; }
       .lp-nav-link:hover::after, .lp-nav-link.active::after { transform: scaleX(1); }
+
+      /* ── Megamenu dropdowns ── */
+      .lp-nav-trigger {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: transparent;
+        border: none;
+        font-family: inherit;
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+        padding: 9px 14px;
+        min-height: 42px;
+        border-radius: 10px;
+        color: var(--mkt-nav-text);
+        transition: color 0.15s ease, background 0.15s ease;
+      }
+      .lp-nav-trigger:hover, .lp-nav-trigger.active {
+        color: ${BRAND.green} !important;
+        background: var(--mkt-ivory);
+      }
+      .lp-nav-trigger .chevron {
+        transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+        color: var(--mkt-muted);
+      }
+      .lp-nav-trigger:hover .chevron, .lp-nav-trigger.active .chevron {
+        color: ${BRAND.green};
+      }
+      .lp-nav-trigger .chevron.open {
+        transform: rotate(180deg);
+      }
+      html[data-theme="dark"] #lp-root .lp-nav-trigger:hover,
+      html[data-theme="dark"] #lp-root .lp-nav-trigger.active {
+        color: #ffffff !important;
+        background: rgba(255, 255, 255, 0.05);
+      }
+      html[data-theme="dark"] #lp-root .lp-nav-trigger:hover .chevron,
+      html[data-theme="dark"] #lp-root .lp-nav-trigger.active .chevron {
+        color: #ffffff !important;
+      }
+
+      /* Megamenu Panel */
+      .lp-megamenu-panel {
+        position: absolute;
+        top: calc(100% + 6px);
+        background: var(--mkt-card-bg);
+        border: 1px solid var(--mkt-border-soft);
+        border-radius: 16px;
+        box-shadow: 0 20px 50px -12px rgba(15, 23, 42, 0.16), 0 0 1px 1px rgba(15, 23, 42, 0.05);
+        z-index: 1050;
+        overflow: hidden;
+        animation: lpMegamenuIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      html[data-theme="dark"] #lp-root .lp-megamenu-panel {
+        background: #142218;
+        border-color: #273b2d;
+        box-shadow: 0 24px 60px -15px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.08);
+      }
+      @keyframes lpMegamenuIn {
+        from {
+          opacity: 0;
+          transform: translate(-50%, -6px) scale(0.99);
+        }
+        to {
+          opacity: 1;
+          transform: translate(-50%, 0) scale(1);
+        }
+      }
+
+      /* Menu item links (compact, no descriptions) */
+      .lp-megamenu-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 7px 10px;
+        border-radius: 10px;
+        text-decoration: none;
+        transition: all 0.15s ease;
+        position: relative;
+      }
+      .lp-megamenu-item:hover {
+        background: var(--mkt-ivory);
+        transform: translateY(-1px);
+      }
+      html[data-theme="dark"] #lp-root .lp-megamenu-item:hover {
+        background: rgba(255, 255, 255, 0.06);
+      }
+      .lp-megamenu-item .item-icon {
+        transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      .lp-megamenu-item:hover .item-icon {
+        transform: scale(1.08);
+      }
+      .lp-megamenu-item .item-title {
+        transition: color 0.15s ease;
+      }
+      .lp-megamenu-item:hover .item-title {
+        color: ${BRAND.green} !important;
+      }
+      .lp-megamenu-item .item-arrow {
+        opacity: 0;
+        transform: translateX(-4px);
+        transition: all 0.2s ease;
+        color: ${BRAND.green};
+      }
+      .lp-megamenu-item:hover .item-arrow {
+        opacity: 1;
+        transform: translateX(0);
+      }
       .lp-footer-link:hover { color: white !important; }
       .lp-card-hover { transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease; }
       .lp-card-hover:hover { transform: translateY(-3px); }
@@ -621,9 +971,9 @@ function MarketingStyles() {
          hamburgermenyn, aldrig en hoppressad navrad däremellan — samma
          princip som förut (se historiken här), bara med rätt tal för tre
          länkar i stället för fyra. */
-      @media (max-width: 860px) {
-        .lp-nav-desktop { display: none; }
-        .lp-hamburger-btn { display: flex; }
+      @media (max-width: 960px) {
+        .lp-nav-desktop { display: none !important; }
+        .lp-hamburger-btn { display: flex !important; }
         /* Loggan (46px, uppskalad för desktop ovan) håller sig kvar på sin
            tidigare, mer kompakta mobilstorlek istället för att svälla i
            den smala mobil-headern tillsammans med hamburgerknappen. */
@@ -859,6 +1209,10 @@ export function RevealLazy({ children, fallbackMinHeight = 480, style, ...rest }
 export function MarketingHeader({ onEnterApp, theme, onToggleTheme }) {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [openDropdown, setOpenDropdown] = useState(null);
+  const [mobileExpanded, setMobileExpanded] = useState({ features: true });
+
+  const navRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -874,30 +1228,47 @@ export function MarketingHeader({ onEnterApp, theme, onToggleTheme }) {
     return () => { document.body.style.overflow = ''; };
   }, [mobileMenuOpen]);
 
-  // mode: 'login' | 'signup' — vilken Auth-flik som ska visas när man
-  // landar där (kundönskemål: "Skapa konto gratis" ska INTE gå till
-  // inloggning). "Logga in" och "Kom igång" delade tidigare samma
-  // parameterlösa handler, så båda alltid öppnade samma (hårdkodade
-  // login-)flik oavsett vilken knapp man klickade.
+  // Stäng dropdown vid sidnavigering
+  useEffect(() => {
+    setOpenDropdown(null);
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
+
+  // Stäng dropdown vid klick utanför nav eller vid Escape
+  useEffect(() => {
+    const onMouseDown = (e) => {
+      if (navRef.current && !navRef.current.contains(e.target)) {
+        setOpenDropdown(null);
+      }
+    };
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setOpenDropdown(null);
+      }
+    };
+    document.addEventListener('mousedown', onMouseDown);
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onMouseDown);
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, []);
+
+
+
   const handleEnterApp = (mode) => {
     setMobileMenuOpen(false);
+    setOpenDropdown(null);
     if (onEnterApp) onEnterApp(mode);
     else navigate('/', { state: { enterApp: true, authMode: mode } });
   };
 
+  const activeMenu = NAV_MENUS.find(m => m.key === openDropdown && m.sections?.length);
+
   return (
     <>
-      <nav style={{
+      <nav ref={navRef} style={{
         position: 'fixed', top: 0, left: 0, right: 0, zIndex: 1000,
-        // Kundfeedback: loggan/knapparna gick knappt att se ovanpå Heros
-        // molnbakgrund (CloudShaderBackground) i ljust läge, riktigt mörkt
-        // läge var okej men fortfarande på marginalen. En helt genomskinlig
-        // nav (tidigare) litade på att BAKGRUNDEN alltid var mörk/ljus nog
-        // — funkar mot en stillastående ivory-yta, inte mot en levande
-        // himmel. Ett dämpat frostat glas (halvgenomskinlig
-        // header-bg-ton + blur) istället för helt transparent innan man
-        // skrollar: garanterad kontrast mot VILKEN bakgrund som helst
-        // (moln, blobbar, framtida bilder), utan att gissa scenens färg.
         background: scrolled ? 'var(--mkt-header-bg)' : 'color-mix(in srgb, var(--mkt-header-bg) 55%, transparent)',
         backdropFilter: scrolled ? undefined : 'blur(14px)',
         WebkitBackdropFilter: scrolled ? undefined : 'blur(14px)',
@@ -905,48 +1276,189 @@ export function MarketingHeader({ onEnterApp, theme, onToggleTheme }) {
         padding: '0 24px', transition: 'all 0.3s',
         boxShadow: scrolled ? '0 1px 20px rgba(0,0,0,0.06)' : 'none',
       }}>
-        {/* Kundfeedback (skärmdump på en bred skärm): max-width:1200px
-            centrerat lämnade stora tomma mörka fält på var sida på breda
-            skrivbordsskärmar — loggan såg inte ut att sitta till vänster
-            alls, bara mitt i en ö av innehåll mitt på skärmen. Ingen
-            maxWidth/margin:auto längre — raden fyller hela bredden (samma
-            24px sidopadding som <nav> redan hade), så loggan/knapparna
-            landar på de FAKTISKA kanterna oavsett skärmbredd. Navlänkarna
-            (justifyContent:center) håller sig ändå kompakta i mitten,
-            sträcks inte ut bara för att raden är bredare. */}
         <div style={{ display: 'flex', alignItems: 'center', height: '84px', gap: '32px' }}>
-          {/* Kundönskemål: loggan ska alltid ta dig till Hero-sektionen —
-              <Link to="/"> ensam är ett no-op om man redan står på
-              startsidan (samma bugg som Auth.jsx:s logga hade, se
-              kommentaren där), t.ex. efter att ha scrollat ner till FAQ
-              eller priser. scrollTo körs alltid vid klick: no-op-fallet
-              scrollar upp till Hero, och när en faktisk sidnavigering sker
-              (från en annan sida) är den ändå ofarlig — den nya sidan
-              monteras redan scrollad högst upp. */}
           <Link to="/" className="lp-logo-glow" style={{ alignItems: 'center', flexShrink: 0 }} aria-label="Till startsidan" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
             <BokixWordmark height={58} />
           </Link>
 
-          <div className="lp-nav-desktop" style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: '28px' }}>
-            {MARKETING_PAGES.map((page) => {
-              const isActive = location.pathname === page.to;
+          <div
+            className="lp-nav-desktop"
+            style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: '8px', position: 'relative' }}
+          >
+            {NAV_MENUS.map((menu) => {
+              const hasDropdown = Boolean(menu.sections?.length);
+              const allItems = hasDropdown ? menu.sections.flatMap(s => s.items) : [];
+              const isCurrentRouteActive = hasDropdown
+                ? (location.pathname === menu.to || allItems.some(it => location.pathname === it.to))
+                : location.pathname === menu.to;
+              const isOpen = openDropdown === menu.key;
+
+              if (!hasDropdown) {
+                return (
+                  <Link
+                    key={menu.key}
+                    to={menu.to}
+                    className={`lp-nav-link ${isCurrentRouteActive ? 'active' : ''}`}
+                    style={{
+                      fontSize: '15px',
+                      fontWeight: 600,
+                      color: 'var(--mkt-nav-text)',
+                      textDecoration: 'none',
+                      padding: '10px 14px',
+                      minHeight: '44px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      borderRadius: '8px',
+                    }}
+                  >
+                    {menu.label}
+                  </Link>
+                );
+              }
+
               return (
-                <Link
-                  key={page.to} to={page.to}
-                  className={`lp-nav-link ${isActive ? 'active' : ''}`}
-                  style={{ fontSize: '15px', fontWeight: 600, color: isActive ? BRAND.green : 'var(--mkt-nav-text)', textDecoration: 'none', padding: '10px 0', minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}
+                <div
+                  key={menu.key}
                 >
-                  {page.label}
-                </Link>
+                  <button
+                    type="button"
+                    className={`lp-nav-trigger ${isOpen || isCurrentRouteActive ? 'active' : ''}`}
+                    onClick={() => setOpenDropdown(isOpen ? null : menu.key)}
+                    style={{ }}
+                    aria-expanded={isOpen}
+                    aria-haspopup="true"
+                  >
+                    {menu.label}
+                    <ChevronDown size={14} className={`chevron ${isOpen ? 'open' : ''}`} />
+                  </button>
+                </div>
               );
             })}
+
+            {/* Active Mega Menu Panel — click-only, no hover */}
+            {activeMenu && (
+              <div
+                className="lp-megamenu-panel"
+                style={{
+                  width: activeMenu.dropdownWidth || 600,
+                  maxWidth: 'calc(100vw - 32px)',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  top: 'calc(100% + 6px)',
+                }}
+              >
+                <div style={{ padding: '20px 18px 12px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                    {activeMenu.sections.map((section, sIdx) => (
+                      <div key={sIdx} style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                        <div style={{
+                          fontSize: '11px',
+                          fontWeight: 800,
+                          letterSpacing: '0.08em',
+                          textTransform: 'uppercase',
+                          color: 'var(--mkt-muted)',
+                          marginBottom: '6px',
+                          paddingLeft: '10px',
+                        }}>
+                          {section.title}
+                        </div>
+                        {section.items.map((item) => {
+                          const Icon = item.icon;
+                          const isItemActive = location.pathname === item.to;
+                          return (
+                            <Link
+                              key={item.to + item.title}
+                              to={item.to}
+                              className="lp-megamenu-item"
+                              onClick={() => setOpenDropdown(null)}
+                              style={{
+                                background: isItemActive ? 'var(--mkt-ivory)' : undefined,
+                              }}
+                            >
+                              <div
+                                className="item-icon"
+                                style={{
+                                  width: 34,
+                                  height: 34,
+                                  borderRadius: '9px',
+                                  background: item.bgColor,
+                                  color: item.color,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  flexShrink: 0,
+                                }}
+                              >
+                                {Icon && <Icon size={17} />}
+                              </div>
+                              <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '7px' }}>
+                                <span className="item-title" style={{ fontSize: '14px', fontWeight: 600, color: 'var(--mkt-heading)', lineHeight: 1.3 }}>
+                                  {item.title}
+                                </span>
+                                {item.badge && (
+                                  <span style={{
+                                    fontSize: '10px',
+                                    fontWeight: 700,
+                                    padding: '1.5px 6px',
+                                    borderRadius: '9999px',
+                                    background: item.bgColor,
+                                    color: item.badgeColor || item.color,
+                                    letterSpacing: '0.02em',
+                                    lineHeight: 1.3,
+                                    flexShrink: 0,
+                                  }}>
+                                    {item.badge}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="item-arrow" style={{ alignSelf: 'center', flexShrink: 0 }}>
+                                <ChevronRight size={14} />
+                              </div>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Footer bar */}
+                {activeMenu.footer && (
+                  <div style={{
+                    padding: '10px 20px',
+                    background: 'color-mix(in srgb, var(--mkt-ivory) 80%, transparent)',
+                    borderTop: '1px solid var(--mkt-border-soft)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                    <Link
+                      to={activeMenu.footer.to}
+                      onClick={() => setOpenDropdown(null)}
+                      style={{
+                        fontSize: '13px',
+                        fontWeight: 700,
+                        color: BRAND.green,
+                        textDecoration: 'none',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                      }}
+                    >
+                      <span>{activeMenu.footer.label}</span>
+                      <ArrowRight size={14} />
+                    </Link>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="lp-nav-desktop" style={{ gap: '12px', alignItems: 'center' }}>
-            <button onClick={onToggleTheme} aria-label={theme === 'dark' ? 'Ljust läge' : 'Mörkt läge'} title={theme === 'dark' ? 'Ljust läge' : 'Mörkt läge'} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 48, height: 48, background: 'none', border: '1px solid var(--mkt-border-soft)', borderRadius: '10px', cursor: 'pointer', color: 'var(--mkt-nav-text)', flexShrink: 0 }}>
+            <button onClick={onToggleTheme} aria-label={theme === 'dark' ? 'Ljust läge' : 'Mörkt läge'} title={theme === 'dark' ? 'Ljust läge' : 'Mörkt läge'} className="lp-theme-toggle" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 48, height: 48, background: 'none', border: '1.5px solid var(--mkt-btn-border)', borderRadius: '10px', cursor: 'pointer', color: 'var(--mkt-nav-text)', flexShrink: 0 }}>
               {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
             </button>
-            <button className="lp-btn-secondary" onClick={() => handleEnterApp('login')} style={{ padding: '14px 22px', background: 'transparent', border: '1px solid var(--mkt-border-soft)', borderRadius: '10px', fontSize: '15px', fontWeight: 600, cursor: 'pointer', color: 'var(--mkt-nav-text)', fontFamily: 'inherit', minHeight: '48px' }}>
+            <button className="lp-btn-secondary" onClick={() => handleEnterApp('login')} style={{ padding: '14px 22px', background: 'transparent', border: '1.5px solid var(--mkt-btn-border)', borderRadius: '10px', fontSize: '15px', fontWeight: 600, cursor: 'pointer', color: 'var(--mkt-nav-text)', fontFamily: 'inherit', minHeight: '48px' }}>
               Logga in
             </button>
             <button className="lp-btn-primary" onClick={() => handleEnterApp('signup')} style={{ padding: '14px 24px', background: BRAND.green, border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: 700, cursor: 'pointer', color: 'white', fontFamily: 'inherit', boxShadow: '0 4px 15px -3px rgba(11,99,41,0.35)', minHeight: '48px' }}>
@@ -964,27 +1476,191 @@ export function MarketingHeader({ onEnterApp, theme, onToggleTheme }) {
       </nav>
 
       <div className={`lp-mobile-menu ${mobileMenuOpen ? 'lp-open' : ''}`}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
           <Link to="/" onClick={() => { setMobileMenuOpen(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="lp-logo-glow" aria-label="Till startsidan"><BokixWordmark height={32} /></Link>
           <button onClick={() => setMobileMenuOpen(false)} aria-label="Stäng meny" style={{ background: 'none', border: 'none', cursor: 'pointer', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--mkt-nav-text)' }}>
             <X size={24} />
           </button>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          {MARKETING_PAGES.map((page) => {
-            const isActive = location.pathname === page.to;
+
+        <div style={{ display: 'flex', flexDirection: 'column', overflowY: 'auto', maxHeight: 'calc(100vh - 200px)' }}>
+          {NAV_MENUS.map((menu) => {
+            const hasDropdown = Boolean(menu.sections?.length);
+            const isExpanded = Boolean(mobileExpanded[menu.key]);
+            const allItems = hasDropdown ? menu.sections.flatMap(s => s.items) : [];
+            const isCurrentRouteActive = hasDropdown
+              ? (location.pathname === menu.to || allItems.some(it => location.pathname === it.to))
+              : location.pathname === menu.to;
+
+            const activeColor = theme === 'dark' ? '#ffffff' : BRAND.green;
+
+            if (!hasDropdown) {
+              return (
+                <Link
+                  key={menu.key}
+                  to={menu.to}
+                  onClick={() => setMobileMenuOpen(false)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    borderBottom: '1px solid var(--mkt-border-soft)',
+                    textAlign: 'left',
+                    fontSize: '17px',
+                    fontWeight: 600,
+                    color: isCurrentRouteActive ? activeColor : 'var(--mkt-heading)',
+                    textDecoration: 'none',
+                    fontFamily: 'inherit',
+                    padding: '14px 4px',
+                  }}
+                >
+                  {menu.label}
+                </Link>
+              );
+            }
+
+            const totalItemsCount = allItems.length;
+
             return (
-              <Link
-                key={page.to} to={page.to} onClick={() => setMobileMenuOpen(false)}
-                style={{ background: 'none', border: 'none', borderBottom: '1px solid var(--mkt-border-soft)', textAlign: 'left', fontSize: '17px', fontWeight: 600, color: isActive ? BRAND.green : 'var(--mkt-heading)', textDecoration: 'none', fontFamily: 'inherit', padding: '16px 4px' }}
-              >
-                {page.label}
-              </Link>
+              <div key={menu.key} style={{ borderBottom: '1px solid var(--mkt-border-soft)' }}>
+                <button
+                  type="button"
+                  onClick={() => setMobileExpanded(prev => ({ ...prev, [menu.key]: !prev[menu.key] }))}
+                  style={{
+                    width: '100%',
+                    background: 'none',
+                    border: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    fontSize: '17px',
+                    fontWeight: 600,
+                    color: isCurrentRouteActive ? activeColor : 'var(--mkt-heading)',
+                    fontFamily: 'inherit',
+                    padding: '14px 4px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span>{menu.label}</span>
+                    <span style={{
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      padding: '2px 7px',
+                      borderRadius: '9999px',
+                      background: 'var(--mkt-ivory)',
+                      color: 'var(--mkt-muted)',
+                      border: '1px solid var(--mkt-border-soft)',
+                    }}>
+                      {totalItemsCount}
+                    </span>
+                  </div>
+                  <ChevronDown
+                    size={18}
+                    style={{
+                      transform: isExpanded ? 'rotate(180deg)' : 'none',
+                      transition: 'transform 0.25s ease',
+                      color: 'var(--mkt-muted)',
+                    }}
+                  />
+                </button>
+
+                {isExpanded && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '4px 0 16px 4px' }}>
+                    {menu.sections.map((section, sIdx) => (
+                      <div key={sIdx} style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                        <div style={{
+                          fontSize: '10.5px',
+                          fontWeight: 800,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.08em',
+                          color: 'var(--mkt-muted)',
+                          padding: '4px 8px',
+                        }}>
+                          {section.title}
+                        </div>
+                        {section.items.map((item) => {
+                          const Icon = item.icon;
+                          const isItemActive = location.pathname === item.to;
+                          return (
+                            <Link
+                              key={item.to + item.title}
+                              to={item.to}
+                              onClick={() => setMobileMenuOpen(false)}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px',
+                                padding: '8px 10px',
+                                borderRadius: '10px',
+                                textDecoration: 'none',
+                                background: isItemActive ? 'var(--mkt-ivory)' : 'transparent',
+                              }}
+                            >
+                              <div style={{
+                                width: 30,
+                                height: 30,
+                                borderRadius: '8px',
+                                background: item.bgColor,
+                                color: item.color,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexShrink: 0,
+                              }}>
+                                {Icon && <Icon size={16} />}
+                              </div>
+                              <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span style={{ fontSize: '14.5px', fontWeight: 500, color: isItemActive ? BRAND.green : 'var(--mkt-nav-text)' }}>
+                                  {item.title}
+                                </span>
+                                {item.badge && (
+                                  <span style={{
+                                    fontSize: '9.5px',
+                                    fontWeight: 700,
+                                    padding: '1px 5px',
+                                    borderRadius: '9999px',
+                                    background: item.bgColor,
+                                    color: item.badgeColor || item.color,
+                                  }}>
+                                    {item.badge}
+                                  </span>
+                                )}
+                              </div>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    ))}
+
+                    {menu.footer && (
+                      <Link
+                        to={menu.footer.to}
+                        onClick={() => setMobileMenuOpen(false)}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          fontSize: '13px',
+                          fontWeight: 700,
+                          color: BRAND.green,
+                          textDecoration: 'none',
+                          padding: '8px 10px',
+                          marginTop: '4px',
+                        }}
+                      >
+                        <span>{menu.footer.label}</span>
+                        <ArrowRight size={14} />
+                      </Link>
+                    )}
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>
-        <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', paddingTop: '24px' }}>
-          <button onClick={() => handleEnterApp('login')} style={{ padding: '14px', background: 'transparent', border: '1px solid var(--mkt-border-soft)', borderRadius: '10px', fontSize: '15px', fontWeight: 600, cursor: 'pointer', color: 'var(--mkt-nav-text)', fontFamily: 'inherit' }}>
+
+        <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', paddingTop: '20px' }}>
+          <button className="lp-btn-secondary" onClick={() => handleEnterApp('login')} style={{ padding: '14px', background: 'transparent', border: '1.5px solid var(--mkt-btn-border)', borderRadius: '10px', fontSize: '15px', fontWeight: 600, cursor: 'pointer', color: 'var(--mkt-nav-text)', fontFamily: 'inherit' }}>
             Logga in
           </button>
           <button onClick={() => handleEnterApp('signup')} style={{ padding: '14px', background: BRAND.green, border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: 700, cursor: 'pointer', color: 'white', fontFamily: 'inherit' }}>
@@ -1014,6 +1690,7 @@ const FOOTER_COLUMNS = [
     links: [
       { label: 'Funktioner', to: '/funktioner' },
       { label: 'Priser', to: '/priser' },
+      { label: 'Lön & Arbetsgivare', to: '/lon' },
       { label: 'Integrationer', to: '/integrationer' },
       { label: 'Koppla banken', to: '/koppla-bank' },
       { label: 'Säkerhet', to: '/sakerhet' },

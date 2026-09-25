@@ -66,7 +66,7 @@ const SECTIONS = [
     screenshotAlt: 'Skärmbild av momsdeklaration i Bokix: steg-för-steg-flöde med kontroll, granskning och bokföring av perioden',
   },
   {
-    id: 'personal', demo: DemoPersonal, accentKey: 'green', title: 'Personal',
+    id: 'personal', aliasId: 'lon', demo: DemoPersonal, accentKey: 'green', title: 'Lön & personal',
     desc: 'Lönekörning med rätt skatteavdrag från start, inte en gissning som rättas i efterhand.',
     points: [
       'Automatiskt skatteavdrag enligt Skatteverkets skattetabeller',
@@ -220,14 +220,16 @@ export default function FeaturesPage() {
           {SECTIONS.map((s, i) => {
             const accent = ACCENT[s.accentKey];
             return (
-              <Reveal
-                key={s.title} id={s.id} delay={i * 80}
-                className={`lp-card-hover bx-ft-row${i % 2 ? ' bx-ft-row-flip' : ''}`}
-                style={{
-                  background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '20px', overflow: 'hidden',
-                  boxShadow: CARD_SHADOW, scrollMarginTop: '96px',
-                }}
-              >
+              <React.Fragment key={s.title}>
+                {s.aliasId && <div id={s.aliasId} style={{ scrollMarginTop: '96px' }} />}
+                <Reveal
+                  id={s.id} delay={i * 80}
+                  className={`lp-card-hover bx-ft-row${i % 2 ? ' bx-ft-row-flip' : ''}`}
+                  style={{
+                    background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '20px', overflow: 'hidden',
+                    boxShadow: CARD_SHADOW, scrollMarginTop: '96px',
+                  }}
+                >
                 <div className="bx-ft-art" style={{ background: accent.soft }}>
                   <s.demo />
                 </div>
@@ -252,8 +254,9 @@ export default function FeaturesPage() {
                   />
                 </div>
               </Reveal>
-            );
-          })}
+            </React.Fragment>
+          );
+        })}
         </div>
       </section>
 

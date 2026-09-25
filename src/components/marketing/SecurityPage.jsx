@@ -109,31 +109,8 @@ export default function SecurityPage() {
         </Reveal>
       </section>
 
-      {/* ── Skärmbild — riktig <img> av Inställningar → Säkerhet, inte bara
-          SecurityFlow-diagrammet ovan (en illustration av mekanismen, inte
-          av gränssnittet). Beskuren strax efter tvåfaktorsautentisering,
-          före "Aktiva sessioner" — den sistnämnda visar just nu ett känt
-          "kräver ett riktigt konto"-läge i demon, inte en färdig funktion
-          att visa upp här. */}
-      <section style={{ padding: '10px 24px 68px', background: IVORY }}>
-        <div style={{ maxWidth: '860px', margin: '0 auto' }}>
-          <Reveal style={{ textAlign: 'center', marginBottom: '26px' }}>
-            <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(23px, 3.2vw, 32px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, margin: 0 }}>
-              Så ser det ut i Bokix
-            </h2>
-          </Reveal>
-          <Reveal delay={60}>
-            <img
-              src="/screenshots/bokix-installningar-sakerhet.png"
-              alt="Skärmbild av Säkerhetsinställningar i Bokix: lösenord och tvåfaktorsautentisering under Inställningar"
-              loading="lazy"
-              width="1382"
-              height="740"
-              style={{ width: '100%', height: 'auto', display: 'block', borderRadius: '14px', border: `1px solid ${CARD_BORDER}`, boxShadow: CARD_SHADOW }}
-            />
-          </Reveal>
-        </div>
-      </section>
+
+
 
       {/* ── Sex rader, en mening var ── */}
       <section style={{ padding: '64px 24px', background: 'var(--mkt-page-bg)', borderTop: `1px solid var(--mkt-border-soft)` }}>

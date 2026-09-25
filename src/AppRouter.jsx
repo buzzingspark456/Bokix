@@ -1,4 +1,4 @@
-﻿﻿﻿﻿import { lazy, Suspense, useEffect, useState } from 'react';
+﻿﻿﻿import { lazy, Suspense, useEffect, useState } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import LandingPage from './components/LandingPage';
 import CookieBanner from './components/CookieBanner';
@@ -58,6 +58,7 @@ const MomsDatumPage = lazy(() => import('./components/marketing/tools/MomsDatumP
 const ArsredovisningPage = lazy(() => import('./components/marketing/tools/ArsredovisningPage'));
 const OrdlistaPage = lazy(() => import('./components/marketing/OrdlistaPage'));
 const FaqPage = lazy(() => import('./components/marketing/FaqPage'));
+const PayrollPage = lazy(() => import('./components/marketing/PayrollPage'));
 const BlogPage = lazy(() => import('./components/marketing/BlogPage'));
 const BlogPostPage = lazy(() => import('./components/marketing/BlogPostPage'));
 const NewsPage = lazy(() => import('./components/marketing/NewsPage'));
@@ -226,10 +227,18 @@ function RootRoute({ locale = 'sv' }) {
 // scroll vid klick på samma sida (MarketingLayout.jsx), som är en annan,
 // avsiktligt mjukare animation för ett annat fall (redan på sidan).
 function ScrollToTop() {
-  const { pathname } = useLocation();
+  const { pathname, hash } = useLocation();
   useEffect(() => {
+    if (hash) {
+      const id = hash.replace('#', '');
+      const el = document.getElementById(id);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth' });
+        return;
+      }
+    }
     window.scrollTo(0, 0);
-  }, [pathname]);
+  }, [pathname, hash]);
   return null;
 }
 
@@ -283,6 +292,8 @@ export default function AppRouter() {
         <Route path="/uf" element={<Suspense fallback={<AppLoadingFallback />}><UfPage /></Suspense>} />
         <Route path="/integrationer" element={<Suspense fallback={<AppLoadingFallback />}><IntegrationsPage /></Suspense>} />
         <Route path="/sakerhet" element={<Suspense fallback={<AppLoadingFallback />}><SecurityPage /></Suspense>} />
+        <Route path="/lon" element={<Suspense fallback={<AppLoadingFallback />}><PayrollPage /></Suspense>} />
+        <Route path="/lon-arbetsgivare" element={<Navigate to="/lon" replace />} />
         <Route path="/ordlista" element={<Suspense fallback={<AppLoadingFallback />}><OrdlistaPage /></Suspense>} />
         <Route path="/vanliga-fragor" element={<Suspense fallback={<AppLoadingFallback />}><FaqPage /></Suspense>} />
         <Route path="/blogg" element={<Suspense fallback={<AppLoadingFallback />}><BlogPage /></Suspense>} />
