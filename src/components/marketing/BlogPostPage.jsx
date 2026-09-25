@@ -7,13 +7,14 @@ import MarketingLayout, { Reveal } from './MarketingLayout';
 import BlogDiagram from './BlogDiagrams';
 import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW } from './marketingTokens';
 import { PageMeta, JsonLd, SITE_URL } from '../../utils/seo';
-import { BLOG_POSTS } from '../../content/marketing/blog';
+import { ALL_ARTICLES } from '../../content/marketing/news';
 import { MIGRATION_SOURCES } from '../../utils/migrationSources';
 
 // ── En bloggartikel (/blogg/<slug>) ─────────────────────────────────────
 // Renderar ett inlägg ur BLOG_POSTS (content/marketing/blog.js) som har ett
 // `body`. Ett nytt inlägg behöver ingen ny komponent: lägg till det i
-// blog.js (blocktyperna står beskrivna där).
+// blog.js (blocktyperna står beskrivna där). Nyheter (news.js, /nyheter/<slug>)
+// använder samma mall; `news: true` byter brödsmulor, schema och "Fler".
 //
 // Mallen är gjord för att läsas: kort svar överst, innehållsförteckning
 // (sidokolumn på dator, hopfällbar på mobil), stegkort, faktarutor, tabell,
@@ -447,7 +448,7 @@ const CSS = `
 export default function BlogPostPage({ slug }) {
   const navigate = useNavigate();
   const articleRef = useRef(null);
-  const post = BLOG_POSTS.find(p => p.slug === slug && p.body);
+  const post = ALL_ARTICLES.find(p => p.slug === slug && p.body);
 
   const h2Ids = post ? post.body.filter(b => b.t === 'h2').map(b => slugify(b.x)) : [];
   const tocItems = post ? [
@@ -457,14 +458,18 @@ export default function BlogPostPage({ slug }) {
   const active = useActiveHeading(tocItems.map(t => t.id));
 
   if (!post) return null;
-  const others = BLOG_POSTS.filter(p => p.slug !== slug);
+  const isNews = Boolean(post.news);
+  const section = isNews
+    ? { name: 'Nyheter', path: '/nyheter', schema: { '@type': 'CollectionPage', '@id': `${SITE_URL}/nyheter`, name: 'Nyheter från Bokix' } }
+    : { name: 'Blogg', path: '/blogg', schema: { '@type': 'Blog', '@id': `${SITE_URL}/blogg`, name: 'Bokix-bloggen' } };
+  const others = ALL_ARTICLES.filter(p => p.slug !== slug && Boolean(p.news) === isNews);
   const startSignup = () => navigate('/', { state: { enterApp: true, authMode: 'signup' } });
   let h2i = 0;
 
   const schema = [
     {
       '@context': 'https://schema.org',
-      '@type': 'BlogPosting',
+      '@type': isNews ? 'NewsArticle' : 'BlogPosting',
       headline: post.title,
       url: `${SITE_URL}${post.path}`,
       inLanguage: 'sv-SE',
@@ -477,14 +482,14 @@ export default function BlogPostPage({ slug }) {
       publisher: { '@type': 'Organization', name: 'Bokix', url: SITE_URL, logo: { '@type': 'ImageObject', url: `${SITE_URL}/icon-512.png` } },
       description: post.excerpt,
       mainEntityOfPage: { '@type': 'WebPage', '@id': `${SITE_URL}${post.path}` },
-      isPartOf: { '@type': 'Blog', '@id': `${SITE_URL}/blogg`, name: 'Bokix-bloggen' },
+      isPartOf: section.schema,
     },
     {
       '@context': 'https://schema.org',
       '@type': 'BreadcrumbList',
       itemListElement: [
         { '@type': 'ListItem', position: 1, name: 'Bokix', item: SITE_URL },
-        { '@type': 'ListItem', position: 2, name: 'Blogg', item: `${SITE_URL}/blogg` },
+        { '@type': 'ListItem', position: 2, name: section.name, item: `${SITE_URL}${section.path}` },
         { '@type': 'ListItem', position: 3, name: post.title, item: `${SITE_URL}${post.path}` },
       ],
     },
@@ -512,10 +517,10 @@ export default function BlogPostPage({ slug }) {
         <div className="bxp-head">
           <nav className="bxp-crumbs" aria-label="Brödsmulor">
             <Link to="/">Bokix</Link><span aria-hidden="true">/</span>
-            <Link to="/blogg">Blogg</Link><span aria-hidden="true">/</span>
+            <Link to={section.path}>{section.name}</Link><span aria-hidden="true">/</span>
             <span>{post.category}</span>
           </nav>
-          <Link to="/blogg" className="bxp-cat">{post.category}</Link>
+          <Link to={section.path} className="bxp-cat">{post.category}</Link>
           <h1 className="bxp-h1">{post.title}</h1>
           <p className="bxp-lede">{post.excerpt}</p>
           <div className="bxp-meta">
@@ -538,8 +543,8 @@ export default function BlogPostPage({ slug }) {
         <div className="bxp-layout">
           <article className="bxp-main" ref={articleRef}>
             {post.tldr ? (
-              <section className="bxp-tldr" aria-label="Kort svar">
-                <div className="bxp-tldr-t"><Sparkles size={15} /> Kort svar</div>
+              <section className="bxp-tldr" aria-label={isNews ? 'I korthet' : 'Kort svar'}>
+                <div className="bxp-tldr-t"><Sparkles size={15} /> {isNews ? 'I korthet' : 'Kort svar'}</div>
                 <ul>{post.tldr.map((t, i) => <li key={i}>{t}</li>)}</ul>
               </section>
             ) : null}
@@ -592,7 +597,7 @@ export default function BlogPostPage({ slug }) {
         <section style={{ padding: '30px 24px 64px', background: IVORY }}>
           <Reveal style={{ maxWidth: '1040px', margin: '0 auto', borderTop: `1px solid ${CARD_BORDER}`, paddingTop: '36px' }}>
             <div style={{ fontSize: '12.5px', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: MUTED, marginBottom: '16px' }}>
-              Fler artiklar
+              {isNews ? 'Fler nyheter' : 'Fler artiklar'}
             </div>
             <div className="bxp-rel">
               {others.map(o => (
@@ -635,5 +640,5 @@ export default function BlogPostPage({ slug }) {
 // (förrendering) och AppRouter.jsx (klientroutes), så en ny artikel i
 // blog.js får båda utan att de filerna behöver ändras.
 export const BLOG_ARTICLE_PAGES = Object.fromEntries(
-  BLOG_POSTS.filter(p => p.body).map(p => [p.path, () => <BlogPostPage slug={p.slug} />])
+  ALL_ARTICLES.filter(p => p.body).map(p => [p.path, () => <BlogPostPage slug={p.slug} />])
 );

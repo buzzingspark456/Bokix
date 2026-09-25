@@ -3,7 +3,7 @@ import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-
 import LandingPage from './components/LandingPage';
 import CookieBanner from './components/CookieBanner';
 import { allLocalizedRoutes } from './content/marketing/routes';
-import { BLOG_POSTS } from './content/marketing/blog';
+import { ALL_ARTICLES } from './content/marketing/news';
 import { capturePosthogPageview } from './utils/posthog.js';
 
 // ── Marknads-/juridiksidorna — flyttade hit rakt av från App.jsx (se
@@ -60,6 +60,7 @@ const OrdlistaPage = lazy(() => import('./components/marketing/OrdlistaPage'));
 const FaqPage = lazy(() => import('./components/marketing/FaqPage'));
 const BlogPage = lazy(() => import('./components/marketing/BlogPage'));
 const BlogPostPage = lazy(() => import('./components/marketing/BlogPostPage'));
+const NewsPage = lazy(() => import('./components/marketing/NewsPage'));
 // Det dolda admin-läget — ingen länk till den någonstans i den publika
 // navigeringen, se InternalApp.jsx för behörighetskollen (klient-sidan är
 // bara UI, den riktiga spärren är api/admin/index.js:s ADMIN_EMAILS).
@@ -285,8 +286,9 @@ export default function AppRouter() {
         <Route path="/ordlista" element={<Suspense fallback={<AppLoadingFallback />}><OrdlistaPage /></Suspense>} />
         <Route path="/vanliga-fragor" element={<Suspense fallback={<AppLoadingFallback />}><FaqPage /></Suspense>} />
         <Route path="/blogg" element={<Suspense fallback={<AppLoadingFallback />}><BlogPage /></Suspense>} />
-        {/* Artiklar med `body` i blog.js — en route per inlägg, härledd ur listan. */}
-        {BLOG_POSTS.filter(p => p.body).map(p => (
+        <Route path="/nyheter" element={<Suspense fallback={<AppLoadingFallback />}><NewsPage /></Suspense>} />
+        {/* Artiklar med `body` i blog.js och news.js — en route per inlägg, härledd ur listan. */}
+        {ALL_ARTICLES.filter(p => p.body).map(p => (
           <Route key={p.slug} path={p.path} element={<Suspense fallback={<AppLoadingFallback />}><BlogPostPage slug={p.slug} /></Suspense>} />
         ))}
         <Route path="/internal" element={<Suspense fallback={<AppLoadingFallback />}><InternalApp /></Suspense>} />

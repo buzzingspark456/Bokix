@@ -1,0 +1,62 @@
+<!doctype html><html lang="sv"><head><meta charset="utf-8"><link rel="stylesheet" href="shared.css"><style>
+.bg { position: absolute; inset: 0; background:
+  radial-gradient(900px 500px at 8% 0%, #d7eefb 0%, transparent 60%),
+  radial-gradient(800px 520px at 100% 100%, #dcf3e3 0%, transparent 60%),
+  linear-gradient(180deg, #f6f9f4, #eef5ee); }
+.grid { position: absolute; inset: 0; background-image: linear-gradient(rgba(28,36,32,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(28,36,32,0.045) 1px, transparent 1px); background-size: 40px 40px; mask-image: radial-gradient(ellipse at center, #000 30%, transparent 78%); }
+.label { position: absolute; top: 60px; font-size: 15px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #5d6b60; display: flex; align-items: center; gap: 10px; }
+.label b { display: inline-flex; width: 26px; height: 26px; border-radius: 50%; background: #0e2018; color: #fff; font-size: 13px; align-items: center; justify-content: center; letter-spacing: 0; }
+
+.receipt { position: absolute; left: 70px; top: 108px; width: 330px; padding: 22px 24px 30px; background: #fff; border-radius: 6px; box-shadow: 0 30px 50px -28px rgba(20,40,30,0.36), 0 3px 10px rgba(20,40,30,0.08); transform: rotate(-2deg); }
+.receipt::after { content: ''; position: absolute; left: 0; right: 0; bottom: -10px; height: 12px; background: linear-gradient(-45deg, transparent 8px, #fff 0) 0 0/16px 12px, linear-gradient(45deg, transparent 8px, #fff 0) 0 0/16px 12px; background-repeat: repeat-x; }
+.receipt h3 { font-size: 15px; font-weight: 800; text-align: center; color: #1c2420; }
+.receipt .sub { text-align: center; font-size: 12px; color: #6b7568; margin: 3px 0 12px; }
+.receipt .l { display: flex; justify-content: space-between; font-size: 13px; color: #33423a; padding: 4px 0; }
+.receipt .sep { border-top: 1.5px dashed #ccd6cd; margin: 7px 0; }
+.receipt .tot { font-weight: 800; font-size: 14.5px; color: #1c2420; }
+.receipt .v { font-size: 12.5px; color: #5d6b60; }
+
+.res { position: absolute; left: 560px; top: 108px; width: 580px; height: 362px; padding: 26px 30px; }
+.res h3 { font-size: 17px; font-weight: 800; color: #1c2420; margin-bottom: 16px; }
+.f { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-top: 1px solid #e6ece6; font-size: 15px; }
+.f span { color: #5d6b60; font-weight: 600; }
+.f b { color: #1c2420; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+.tag { font-size: 12px; font-weight: 800; padding: 4px 10px; border-radius: 999px; }
+.tag.ok { background: #dcf3e3; color: #14663a; }
+.tag.warn { background: #fdf1d8; color: #8a5a00; }
+.rates { display: flex; gap: 8px; }
+.rates i { font-style: normal; font-size: 13px; font-weight: 800; background: #eef5ee; color: #14663a; padding: 4px 10px; border-radius: 8px; }
+
+svg.arrow { position: absolute; top: 262px; }
+.foot { position: absolute; left: 0; right: 0; bottom: 36px; text-align: center; font-size: 25px; font-weight: 600; color: #22302a; }
+.foot em { font-style: normal; color: #14663a; }
+</style></head><body><div class="art">
+<div class="bg"></div><div class="grid"></div>
+
+<div class="label" style="left:70px"><b>1</b>Matkvittot</div>
+<div class="receipt mono">
+  <h3>MATBUTIKEN</h3>
+  <div class="sub">Exempelgatan 1 · 2026-09-23</div>
+  <div class="l"><span>Mjölk 2 st</span><span>35,80</span></div>
+  <div class="l"><span>Bröd</span><span>32,90</span></div>
+  <div class="l"><span>Diskmedel</span><span>39,90</span></div>
+  <div class="sep"></div>
+  <div class="l tot"><span>TOTALT</span><span>108,60</span></div>
+  <div class="sep"></div>
+  <div class="l v"><span>Moms 12 %</span><span>7,36</span></div>
+  <div class="l v"><span>Moms 25 %</span><span>7,98</span></div>
+</div>
+
+<svg class="arrow" style="left:448px" width="72" height="50" viewBox="0 0 72 50"><path d="M4 25h54" stroke="#0e2018" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 9"/><path d="M52 12l14 13-14 13" fill="none" stroke="#0e2018" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+
+<div class="label" style="left:560px"><b>2</b>Bokix läser av</div>
+<div class="res card">
+  <h3>Avläst kvitto</h3>
+  <div class="f"><span>Belopp</span><b>108,60 kr <em class="tag ok" style="font-style:normal">Avläst</em></b></div>
+  <div class="f"><span>Momssatser</span><b><span class="rates"><i>12 %</i><i>25 %</i></span></b></div>
+  <div class="f"><span>Moms totalt</span><b>15,34 kr <em class="tag ok" style="font-style:normal">Stämmer</em></b></div>
+  <div class="f"><span>Datum</span><b>2026-09-23 <em class="tag warn" style="font-style:normal">Kontrollera</em></b></div>
+</div>
+
+<div class="foot">Flera momssatser, <em>rätt bokförda</em></div>
+</div></body></html>

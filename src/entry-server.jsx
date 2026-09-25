@@ -42,6 +42,7 @@ import FaqPage from './components/marketing/FaqPage.jsx';
 import IntegrationsPage from './components/marketing/IntegrationsPage.jsx';
 import SecurityPage from './components/marketing/SecurityPage.jsx';
 import BlogPage from './components/marketing/BlogPage.jsx';
+import NewsPage from './components/marketing/NewsPage.jsx';
 import { BLOG_ARTICLE_PAGES } from './components/marketing/BlogPostPage.jsx';
 
 // Verktygssidorna är statiska tills besökaren skriver i ett fält —
@@ -68,6 +69,7 @@ const BASE_PAGES = {
   '/ordlista': OrdlistaPage,
   '/vanliga-fragor': FaqPage,
   '/blogg': BlogPage,
+  '/nyheter': NewsPage,
   ...BLOG_ARTICLE_PAGES,
   '/verktyg': ToolsHubPage,
   '/verktyg/skanna-kvitto': ScanReceiptPage,

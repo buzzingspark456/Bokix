@@ -1047,6 +1047,7 @@ const FOOTER_COLUMNS = [
     heading: 'Företag',
     links: [
       { label: 'Om oss', to: '/om-oss' },
+      { label: 'Nyheter', to: '/nyheter' },
       { label: 'Kontakt', to: '/kontakt' },
     ],
   },

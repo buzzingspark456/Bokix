@@ -8,7 +8,7 @@
 // DEFAULT_LOCALE (sv) ligger alltid oprefixerad på sin bassökväg
 // (`/priser`). Övriga språk prefixas (`/no/priser`). Se localizedPath().
 
-import { BLOG_POSTS } from './blog.js';
+import { ALL_ARTICLES } from './news.js';
 
 export const DEFAULT_LOCALE = 'sv';
 
@@ -34,13 +34,13 @@ export const LOCALES = Object.keys(LOCALE_META);
 export const MARKETING_ROUTES = [
   '/', '/funktioner', '/priser', '/om-oss', '/kontakt',
   '/byt-bokforingsprogram', '/koppla-bank', '/uf',
-  '/integrationer', '/sakerhet', '/ordlista', '/vanliga-fragor', '/blogg',
+  '/integrationer', '/sakerhet', '/ordlista', '/vanliga-fragor', '/blogg', '/nyheter',
   '/verktyg', '/verktyg/skanna-kvitto', '/verktyg/momskalkylator', '/verktyg/lonekalkylator', '/verktyg/egenavgifter',
   '/verktyg/rot-rut', '/verktyg/drojsmalsranta', '/verktyg/utdelning',
   '/verktyg/momsdatum', '/verktyg/arsredovisning',
-  // Bloggartiklarna (BLOG_POSTS med `body`, se blog.js) — härledda, så ett nytt
-  // inlägg dyker upp här av sig självt.
-  ...BLOG_POSTS.filter(p => p.body).map(p => p.path),
+  // Blogg- och nyhetsartiklarna (med `body`, se blog.js och news.js) —
+  // härledda, så ett nytt inlägg dyker upp här av sig självt.
+  ...ALL_ARTICLES.filter(p => p.body).map(p => p.path),
 ];
 
 // Vilka av MARKETING_ROUTES som faktiskt har riktig, varumärkesskriven

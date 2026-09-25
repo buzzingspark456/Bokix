@@ -99,6 +99,22 @@
       "destination": "/blogg/enskild-firma-bokforing-ne/index.html"
     },
     {
+      "source": "/nyheter",
+      "destination": "/nyheter/index.html"
+    },
+    {
+      "source": "/nyheter/agi-fil-och-arbetsgivaravgift-efter-alder",
+      "destination": "/nyheter/agi-fil-och-arbetsgivaravgift-efter-alder/index.html"
+    },
+    {
+      "source": "/nyheter/bokforingen-sparas-i-sju-ar",
+      "destination": "/nyheter/bokforingen-sparas-i-sju-ar/index.html"
+    },
+    {
+      "source": "/nyheter/kvittoavlasning-flera-momssatser-och-returer",
+      "destination": "/nyheter/kvittoavlasning-flera-momssatser-och-returer/index.html"
+    },
+    {
       "source": "/verktyg",
       "destination": "/verktyg/index.html"
     },

@@ -18,7 +18,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { BLOG_POSTS } from '../src/content/marketing/blog.js';
+import { ALL_ARTICLES } from '../src/content/marketing/news.js';
 import { MARKETING_ROUTES, DEFAULT_LOCALE, LOCALE_META, availableLocalesFor, localizedPath } from '../src/content/marketing/routes.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -92,8 +92,9 @@ const SITEMAP_MANIFEST = [
   { path: '/verktyg/arsredovisning', changefreq: 'monthly', priority: '0.6' },
   { path: '/ordlista', changefreq: 'monthly', priority: '0.6' },
   { path: '/blogg', changefreq: 'weekly', priority: '0.6' },
-  // Artiklarna härleds ur blog.js, samma lista som routing/förrendering.
-  ...BLOG_POSTS.filter(post => post.body).map(post => ({ path: post.path, changefreq: 'monthly', priority: '0.6' })),
+  { path: '/nyheter', changefreq: 'weekly', priority: '0.6' },
+  // Artiklarna härleds ur blog.js och news.js, samma lista som routing/förrendering.
+  ...ALL_ARTICLES.filter(post => post.body).map(post => ({ path: post.path, changefreq: 'monthly', priority: '0.6' })),
   { path: '/vanliga-fragor', changefreq: 'monthly', priority: '0.6' },
   { path: '/integrationer', changefreq: 'monthly', priority: '0.6' },
   { path: '/sakerhet', changefreq: 'yearly', priority: '0.4' },

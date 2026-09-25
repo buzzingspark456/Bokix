@@ -1,0 +1,56 @@
+<!doctype html><html lang="sv"><head><meta charset="utf-8"><link rel="stylesheet" href="shared.css"><style>
+.bg { position: absolute; inset: 0; background:
+  radial-gradient(900px 500px at 8% 0%, #d7eefb 0%, transparent 60%),
+  radial-gradient(800px 520px at 100% 100%, #dcf3e3 0%, transparent 60%),
+  linear-gradient(180deg, #f6f9f4, #eef5ee); }
+.grid { position: absolute; inset: 0; background-image: linear-gradient(rgba(28,36,32,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(28,36,32,0.045) 1px, transparent 1px); background-size: 40px 40px; mask-image: radial-gradient(ellipse at center, #000 30%, transparent 78%); }
+.label { position: absolute; top: 66px; font-size: 15px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #5d6b60; display: flex; align-items: center; gap: 10px; }
+.label b { display: inline-flex; width: 26px; height: 26px; border-radius: 50%; background: #0e2018; color: #fff; font-size: 13px; align-items: center; justify-content: center; letter-spacing: 0; }
+
+.run { position: absolute; left: 60px; top: 118px; width: 520px; height: 352px; padding: 26px 28px; }
+.run h3 { font-size: 17px; font-weight: 800; color: #1c2420; }
+.run .sub { font-size: 13px; color: #6b7568; margin: 3px 0 18px; }
+.row { display: flex; align-items: center; gap: 14px; padding: 13px 0; border-top: 1px solid #e6ece6; }
+.av { width: 38px; height: 38px; border-radius: 50%; background: #eef5ee; color: #14663a; font-weight: 800; font-size: 15px; display: flex; align-items: center; justify-content: center; flex: none; }
+.who { flex: 1; }
+.who b { display: block; font-size: 15px; color: #1c2420; }
+.who span { font-size: 12.5px; color: #6b7568; }
+.fee { font-size: 12.5px; font-weight: 700; padding: 5px 11px; border-radius: 999px; background: #eef2ee; color: #33423a; white-space: nowrap; }
+.fee.g { background: #dcf3e3; color: #14663a; }
+.fee.b { background: #dbeefa; color: #0b6a9a; }
+
+.file { position: absolute; left: 700px; top: 118px; width: 440px; height: 352px; padding: 30px 32px; }
+.file::before { content: ''; position: absolute; top: 0; right: 0; width: 60px; height: 60px; background: linear-gradient(225deg, #eef5ee 50%, #d5e2d6 50%); border-bottom-left-radius: 16px; box-shadow: -3px 3px 8px rgba(20,40,30,0.08); }
+.badge { display: inline-block; font-size: 15px; font-weight: 800; color: #14663a; background: #dcf3e3; padding: 5px 12px; border-radius: 999px; }
+.file h2 { font-size: 72px; font-weight: 700; letter-spacing: -0.02em; line-height: 1; margin: 18px 0 8px; }
+.file p { font-size: 15.5px; color: #5d6b60; }
+.ok { margin-top: 30px; display: flex; align-items: center; gap: 12px; font-size: 15.5px; font-weight: 700; color: #14663a; background: #f1f8f2; border-radius: 12px; padding: 14px 16px; }
+.ok i { width: 26px; height: 26px; border-radius: 50%; background: #14663a url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6.5 12.5l3.6 3.6 7.4-8' fill='none' stroke='%23fff' stroke-width='2.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/100% no-repeat; flex: none; }
+
+svg.arrow { position: absolute; top: 270px; }
+.foot { position: absolute; left: 0; right: 0; bottom: 38px; text-align: center; font-size: 25px; font-weight: 600; color: #22302a; }
+.foot em { font-style: normal; color: #14663a; }
+</style></head><body><div class="art">
+<div class="bg"></div><div class="grid"></div>
+
+<div class="label" style="left:60px"><b>1</b>Lönekörning</div>
+<div class="run card">
+  <h3>Lön september 2026</h3>
+  <div class="sub">Avgiften väljs per anställd</div>
+  <div class="row"><div class="av">S</div><div class="who"><b>Sara</b><span>Född 1990</span></div><span class="fee">Full avgift</span></div>
+  <div class="row"><div class="av">E</div><div class="who"><b>Erik</b><span>Född 2005</span></div><span class="fee b">Nedsatt för unga</span></div>
+  <div class="row"><div class="av">A</div><div class="who"><b>Anna</b><span>Född 1957</span></div><span class="fee g">Bara ålderspension</span></div>
+</div>
+
+<svg class="arrow" style="left:604px" width="72" height="50" viewBox="0 0 72 50"><path d="M4 25h54" stroke="#0e2018" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 9"/><path d="M52 12l14 13-14 13" fill="none" stroke="#0e2018" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+
+<div class="label" style="left:700px"><b>2</b>Fil till Skatteverket</div>
+<div class="file card">
+  <span class="badge mono">.xml</span>
+  <h2 class="serif">AGI</h2>
+  <p>Arbetsgivardeklaration på individnivå</p>
+  <div class="ok"><i></i>Godkänd i Skatteverkets testtjänst</div>
+</div>
+
+<div class="foot">Nytt i Bokix: <em>AGI-filen</em> och avgift efter ålder</div>
+</div></body></html>
