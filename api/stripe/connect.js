@@ -20,7 +20,7 @@ import { createClient } from '@supabase/supabase-js';
 import { createSignedState } from './_oauthState.js';
 import { stripeOauthStateCookie } from './_cookies.js';
 import { parseJsonBody } from './_parseBody.js';
-import { requireAuthedUser, loadOwnedOrMemberCompany } from '../_auth.js';
+import { requireAuthedUser, loadOwnedOrMemberCompany, requireActiveSubscription } from '../_auth.js';
 import { checkRateLimit } from '../_rateLimit.js';
 import { verifyReauthGrant } from '../_signedToken.js';
 
@@ -146,6 +146,7 @@ export default async function handler(req, res) {
   // skyddet, oberoende av klientens skröpliga BotID-inpackning.
   const user = await requireAuthedUser(req, res);
   if (!user) return;
+  if (!await requireActiveSubscription(user, res)) return;
 
   try {
     // Läses EN gång här — req:ns ström kan bara konsumeras en gång, se

@@ -16,6 +16,7 @@
  */
 import { KNOWN_SUPPLIERS, ACCOUNT_KEYWORD_RULES } from './accountCategories';
 import { REVERSE_PURCHASE_ACCOUNTS } from './vatConfig';
+import { getSignedStorageUrl } from './signedUrls';
 
 const MONTHS_MAP = {
   jan: '01', feb: '02', mar: '03', apr: '04', maj: '05', may: '05',
@@ -1119,7 +1120,8 @@ export async function ocrFile(input, onProgress) {
     } else {
       // Hämta via URL (t.ex. från Supabase Storage)
       onProgress?.('Hämtar kvittofil…');
-      const res = await fetch(input);
+      const fetchUrl = await getSignedStorageUrl(input);
+      const res = await fetch(fetchUrl);
       if (!res.ok) throw new Error(`Kunde inte hämta kvittot (${res.status})`);
       blob = await res.blob();
     }

@@ -1,6 +1,6 @@
 import { applySecurityHeaders } from '../_security.js';
 import { parseJsonBody } from '../stripe/_parseBody.js';
-import { requireAuthedUser, loadOwnedOrMemberCompany } from '../_auth.js';
+import { requireAuthedUser, loadOwnedOrMemberCompany, requireActiveSubscription } from '../_auth.js';
 import { checkRateLimit } from '../_rateLimit.js';
 import { hasResendApiKey, sendWithFallback } from '../_resend.js';
 import { trySendFromOwnAddress } from '../_smtp.js';
@@ -47,6 +47,7 @@ export default async function handler(req, res) {
   // company-access.js.
   const user = await requireAuthedUser(req, res);
   if (!user) return;
+  if (!await requireActiveSubscription(user, res)) return;
 
   try {
     const body = await parseJsonBody(req);

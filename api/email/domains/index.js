@@ -1,6 +1,6 @@
 import { applySecurityHeaders } from '../../_security.js';
 import { parseJsonBody } from '../../stripe/_parseBody.js';
-import { requireAuthedUser, loadOwnedOrMemberCompany } from '../../_auth.js';
+import { requireAuthedUser, loadOwnedOrMemberCompany, requireActiveSubscription } from '../../_auth.js';
 import { checkRateLimit } from '../../_rateLimit.js';
 import {
   PROVIDERS, GOOGLE_PROVIDER, guessProvider, publicView, hasEmailSecretKey,
@@ -47,6 +47,7 @@ async function handleCreate(req, res, parsedBody) {
   // requireAuthedUser nedan + rate-limiten ovan är det faktiska skyddet.
   const user = await requireAuthedUser(req, res);
   if (!user) return;
+  if (!await requireActiveSubscription(user, res)) return;
 
   try {
     const body = parsedBody || {};
@@ -195,6 +196,7 @@ async function handleOauthUrl(req, res, body) {
 
   const user = await requireAuthedUser(req, res);
   if (!user) return;
+  if (!await requireActiveSubscription(user, res)) return;
 
   if (!hasEmailSecretKey() || !hasGoogleOAuth()) {
     res.status(503).json({ error: 'Google-inloggning är inte konfigurerad på servern.' });
@@ -225,6 +227,7 @@ async function handleOauthExchange(req, res, body) {
 
   const user = await requireAuthedUser(req, res);
   if (!user) return;
+  if (!await requireActiveSubscription(user, res)) return;
 
   const { code, state } = body || {};
   if (!code || !state) {
@@ -300,6 +303,7 @@ async function handleSenderSave(req, res, body) {
 
   const user = await requireAuthedUser(req, res);
   if (!user) return;
+  if (!await requireActiveSubscription(user, res)) return;
 
   if (!hasEmailSecretKey()) {
     res.status(503).json({ error: 'Servern saknar EMAIL_SECRET_KEY och kan därför inte spara e-postlösenord säkert.' });

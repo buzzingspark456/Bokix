@@ -10,6 +10,7 @@ import RowActionMenu from './shared/RowActionMenu';
 import { STRONG_PAID, STRONG_UNPAID, STRONG_OVERDUE, getRowBg } from './shared/invoiceStatusStyle';
 import ListTable from './shared/ListTable';
 import { uploadFileToStorage } from '../utils/fileUpload';
+import { useSignedUrl } from '../utils/signedUrls';
 import { BRAND } from '../utils/brandColors';
 import { confirmDialog } from './shared/ConfirmDialog';
 
@@ -22,6 +23,23 @@ const formatDate = (d) => {
 // formatSEK ovan, som avrundar till hel krona och lägger till "kr" — de
 // visar summeringens FÄRDIGA, avrundade totalsumma, inte enskilda rader).
 const fmtNum = (n) => new Intl.NumberFormat('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n || 0);
+
+function SupplierInvoiceAttachment({ url, name, isImage, isPdf }) {
+  const activeUrl = useSignedUrl(url);
+  if (!activeUrl) return null;
+  return (
+    <>
+      <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>Underlag</h3>
+      {isImage ? (
+        <img src={activeUrl} alt={name || 'Underlag'} style={{ maxWidth: '100%', maxHeight: '320px', borderRadius: '8px', objectFit: 'contain', boxShadow: '0 1px 4px rgba(0,0,0,0.12)' }} />
+      ) : (
+        <a href={activeUrl} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: BRAND.green, fontWeight: 600, fontSize: '13px', textDecoration: 'none' }}>
+          <FileText size={18} /> {isPdf ? 'Öppna PDF-underlag' : (name || 'Öppna underlag')}
+        </a>
+      )}
+    </>
+  );
+}
 
 const AMOUNT_RE = /^\d*[.,]?\d{0,2}$/;
 function AmountInput({ value, onChange, style, placeholder, autoFocus }) {
@@ -615,14 +633,7 @@ function SupplierInvoiceViewer({ invoice, contacts, accounts, projects, onClose,
 
           {invoice.attachmentUrl && (
             <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
-              <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>Underlag</h3>
-              {attachmentIsImage ? (
-                <img src={invoice.attachmentUrl} alt={invoice.attachmentName || 'Underlag'} style={{ maxWidth: '100%', maxHeight: '320px', borderRadius: '8px', objectFit: 'contain', boxShadow: '0 1px 4px rgba(0,0,0,0.12)' }} />
-              ) : (
-                <a href={invoice.attachmentUrl} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: BRAND.green, fontWeight: 600, fontSize: '13px', textDecoration: 'none' }}>
-                  <FileText size={18} /> {attachmentIsPdf ? 'Öppna PDF-underlag' : (invoice.attachmentName || 'Öppna underlag')}
-                </a>
-              )}
+              <SupplierInvoiceAttachment url={invoice.attachmentUrl} name={invoice.attachmentName} isImage={attachmentIsImage} isPdf={attachmentIsPdf} />
             </div>
           )}
 

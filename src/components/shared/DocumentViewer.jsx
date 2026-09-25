@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { FileText, Receipt, X, ZoomIn, ZoomOut, ExternalLink, Maximize2 } from '../icons';
+import { useSignedUrl } from '../../utils/signedUrls';
 
 // ── Dokumentvisaren ─────────────────────────────────────────────────────
 // EN visare för alla underlag i appen: kvittot i Utgifter (bredvid
@@ -51,6 +52,7 @@ function fileNameFromUrl(url, fallback) {
  * typen började lagras ska inte tappa sin förhandsvisning.
  */
 export function DocumentPane({ url, type, name, emptyText, className = '', expandable = false }) {
+  const activeUrl = useSignedUrl(url);
   const [zoom, setZoom] = useState(FIT_ZOOM);
   const [imgFailed, setImgFailed] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -116,8 +118,8 @@ export function DocumentPane({ url, type, name, emptyText, className = '', expan
               <Maximize2 size={14} /> Helskärm
             </button>
           )}
-          {url && (
-            <a className="dv-btn" href={url} target="_blank" rel="noopener noreferrer" title="Öppna filen i en ny flik">
+          {activeUrl && (
+            <a className="dv-btn" href={activeUrl} target="_blank" rel="noopener noreferrer" title="Öppna filen i en ny flik">
               <ExternalLink size={14} /> Öppna
             </a>
           )}
@@ -129,7 +131,7 @@ export function DocumentPane({ url, type, name, emptyText, className = '', expan
           <img
             ref={imgRef}
             className={`dv-img${zoom === FIT_ZOOM ? ' dv-img-fit' : ''}`}
-            src={url}
+            src={activeUrl}
             alt={label}
             onError={() => setImgFailed(true)}
             // På mobil öppnar ett tryck på kvittot helskärmsvyn, där det går
@@ -140,7 +142,7 @@ export function DocumentPane({ url, type, name, emptyText, className = '', expan
               : { width: fitWidthRef.current ? `${Math.round(fitWidthRef.current * zoom)}px` : `${zoom * 100}%`, maxWidth: 'none', maxHeight: 'none' }}
           />
         ) : kind === 'pdf' ? (
-          <iframe className="dv-frame" src={url} title={label} />
+          <iframe className="dv-frame" src={activeUrl} title={label} />
         ) : (
           <div className="dv-empty">
             <Receipt size={38} strokeWidth={1.5} />

@@ -1,7 +1,7 @@
 import { applySecurityHeaders } from './_security.js';
 import { canWriteField } from '../src/utils/pageAccess.js';
 import { parseJsonBody } from './stripe/_parseBody.js';
-import { requireAuthedUser, loadMemberCompany } from './_auth.js';
+import { requireAuthedUser, loadMemberCompany, requireActiveSubscription, isFreeEmail } from './_auth.js';
 import { checkRateLimit } from './_rateLimit.js';
 import { createClient } from '@supabase/supabase-js';
 import { COMPANY_WRITABLE_FIELDS } from '../src/utils/companyFields.js';
@@ -227,7 +227,51 @@ export default async function handler(req, res) {
       return;
     }
 
+    // POST — Signerade URL:er för privata filer (bokix-uploads).
+    // Även utgångna prenumerationer har laglig rätt att läsa sina sparade filer (7 år).
+    if (postBody?.action === 'signed_url') {
+      const { path, bucket = 'bokix-uploads' } = postBody;
+      if (!path || typeof path !== 'string') {
+        res.status(400).json({ error: 'path krävs.' });
+        return;
+      }
+      const supabaseUrl = process.env.VITE_SUPABASE_URL;
+      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      if (!supabaseUrl || !serviceRoleKey) {
+        res.status(503).json({ error: 'Lagring är inte konfigurerad på servern.' });
+        return;
+      }
+      const admin = createClient(supabaseUrl, serviceRoleKey);
+
+      // Verifiera att anroparen äger sökvägen, är aktiv medlem i ägarens företag, eller är admin
+      const pathOwnerId = path.split('/')[0];
+      const isOwner = pathOwnerId === user.id;
+      let isAllowed = isOwner || isFreeEmail(user.email);
+      if (!isAllowed) {
+        const { data: member } = await admin
+          .from('company_members')
+          .select('id')
+          .eq('member_user_id', user.id)
+          .eq('owner_user_id', pathOwnerId)
+          .eq('status', 'active')
+          .maybeSingle();
+        if (member) isAllowed = true;
+      }
+      if (!isAllowed) {
+        res.status(403).json({ error: 'Åtkomst nekad till denna fil.' });
+        return;
+      }
+      const { data, error } = await admin.storage.from(bucket).createSignedUrl(path, 3600);
+      if (error) {
+        res.status(500).json({ error: error.message });
+        return;
+      }
+      res.status(200).json({ signedUrl: data.signedUrl });
+      return;
+    }
+
     // POST (fältsparning) — postBody parsades redan ovan.
+    if (!await requireActiveSubscription(user, res)) return;
     const { company_id: companyId, field, value } = postBody || {};
     if (!companyId || !field || value === undefined) {
       res.status(400).json({ error: 'company_id, field och value krävs.' });

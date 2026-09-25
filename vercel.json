@@ -115,6 +115,14 @@
       "destination": "/nyheter/kvittoavlasning-flera-momssatser-och-returer/index.html"
     },
     {
+      "source": "/nyheter/ta-betalt-med-kort-och-stripe",
+      "destination": "/nyheter/ta-betalt-med-kort-och-stripe/index.html"
+    },
+    {
+      "source": "/nyheter/kassaforsaljning-och-dagsavslut-med-zettle",
+      "destination": "/nyheter/kassaforsaljning-och-dagsavslut-med-zettle/index.html"
+    },
+    {
       "source": "/verktyg",
       "destination": "/verktyg/index.html"
     },

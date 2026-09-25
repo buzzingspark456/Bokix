@@ -124,8 +124,99 @@ export const NEWS_POSTS = [
       { t: 'p', x: 'Vill du se avläsningen utan att skapa konto kan du prova den gratis: [Skanna kvitto](/verktyg/skanna-kvitto).' },
     ],
   },
+  {
+    news: true,
+    slug: 'ta-betalt-med-kort-och-stripe',
+    path: '/nyheter/ta-betalt-med-kort-och-stripe',
+    category: 'Betalningar',
+    title: 'Bokix + Stripe: Ta betalt med kort på fakturan',
+    excerpt: 'Låt dina kunder betala fakturor direkt med kort, Apple Pay och Google Pay via Stripe. Bokix prickar av betalningen och bokför automatiskt intäkt, moms och transaktionsavgifter.',
+    image: '/blog/nyhet-stripe.jpg',
+    imageAlt: 'Illustration: Bokix och Stripe i samarbete för kortbetalningar och automatisk bokföring',
+    datePublished: '2026-09-25',
+    dateModified: '2026-09-25',
+    readTime: '~3 min läsning',
+    tldr: [
+      'Kunder kan betala fakturan direkt med betalkort, Apple Pay eller Google Pay via en säker betallänk och QR-kod.',
+      'Bokix bokför automatiskt: fakturan prickas av, momsen landar rätt och transaktionsavgiften hamnar på konto 6570.',
+      'Anslut ditt konto på under två minuter under Inställningar, utan krångliga inlösenavtal eller bindningstider.',
+    ],
+    body: [
+      { t: 'p', x: 'Sena fakturabetalningar är ett av de vanligaste irritationsmomenten för småföretagare. När en kund måste logga in på sin internetbank, leta upp OCR-nummer, ange bankgironummer och kontrollera beloppet blir fakturan ofta liggande till helgen – eller glöms bort helt. Med kopplingen mellan **Bokix och Stripe** kan dina kunder nu betala direkt på sekunder med Visa, Mastercard, Apple Pay eller Google Pay.' },
+
+      { t: 'h2', x: 'Betala snabbare och slipp jaga förfallna fakturor' },
+      { t: 'p', x: 'När du skickar en faktura från Bokix med Stripe aktiverat inkluderas en smidig länk och en QR-kod. Kunden öppnar länken på sin telefon eller dator och slutför köpet på samma sätt som i vilken modern webbutik som helst.' },
+      { t: 'ul', x: [
+        '**Tre gånger snabbare betalning.** Fakturor med direkt betallänk betalas i snitt tre gånger snabbare än traditionella bankgirofakturor.',
+        '**Apple Pay & Google Pay.** Kunden godkänner betalningen med Face ID eller Touch ID direkt i mobilen utan att behöva plocka fram plånboken.',
+        '**Smidigt för utländska kunder.** Säljer du till kunder i Norden, Europa eller USA slipper de krångliga internationella IBAN- och banköverföringar.',
+      ] },
+
+      { t: 'h2', x: 'Automatisk bokföring av kortavgiften – slipp manuella differenser' },
+      { t: 'p', x: 'Den stora huvudvärken med kortbetalningar brukar annars vara bokföringen: Stripe drar en liten transaktionsavgift vid varje köp. Det betyder att om du fakturerar 10 000 kr betalar kunden 10 000 kr, men beloppet som överförs till ditt bankkonto är något lägre. I traditionella bokföringsprogram tvingas du räkna ut mellanskillnaden själv och skapa separata manuella verifikationer för att inte få differens i avstämningen.' },
+      { t: 'p', x: 'Bokix tar hand om hela kedjan helt automatiskt:' },
+      { t: 'steps', x: [
+        { h: 'Kunden betalar', p: 'Fakturan flaggas omedelbart som betald i Bokix och kundfordran (konto 1510) nollställs.' },
+        { h: 'Avgiften bokförs', p: 'Stripes transaktionsavgift bokförs automatiskt som en finansiell kostnad på konto 6570 (Bank- och kortavgifter).' },
+        { h: 'Utbetalningen prickas av', p: 'Nettobeloppet läggs på avräkningskontot (1580) och matchas direkt mot företagskontot (1930) när pengarna landar på din bank.' },
+      ] },
+
+      { t: 'h2', x: 'Full kontroll i Granskning' },
+      { t: 'p', x: 'Inkommande Stripe-betalningar samlas under fliken **Stripe** i Granskning. Där ser du vad kunden betalat, exakt vad avgiften var och hur verifikationen ser ut. Ett klick räcker för att godkänna, och allting är spårbart.' },
+      { t: 'callout', kind: 'tips', title: 'Kom igång på två minuter', x: 'Öppna Inställningar i Bokix, scrolla till Betalningar och klicka på "Anslut Stripe". Följ instruktionerna för att koppla ditt befintliga konto eller skapa ett nytt kostnadsfritt. Inga startavgifter eller fasta månadskostnader tillkommer.' },
+
+      { t: 'p', x: 'Vill du veta mer om hur Bokix förenklar faktureringen för ditt företag? Läs mer på [Funktioner](/funktioner) eller jämför paket på [Priser](/priser).' },
+    ],
+  },
+  {
+    news: true,
+    slug: 'kassaforsaljning-och-dagsavslut-med-zettle',
+    path: '/nyheter/kassaforsaljning-och-dagsavslut-med-zettle',
+    category: 'Kassa & Butik',
+    title: 'Bokix + Zettle: Automatisk butiksbokföring',
+    excerpt: 'Tar du betalt med Zettle i butiken, caféet eller salongen? Nu hämtar Bokix dagens försäljning automatiskt och skapar färdiga dagsavslut med rätt momssatser och avgifter.',
+    image: '/blog/nyhet-zettle.jpg',
+    imageAlt: 'Illustration: Bokix och Zettle by PayPal i samarbete för automatisk kassa- och kortförsäljning',
+    datePublished: '2026-09-25',
+    dateModified: '2026-09-25',
+    readTime: '~3 min läsning',
+    tldr: [
+      'Dagens kortbetalningar och försäljning hämtas automatiskt från Zettle till Bokix varje natt.',
+      'Flera momssatser (25 %, 12 % och 6 %) delas upp korrekt på separata konton utan manuell huvudräkning.',
+      'Dagsavslutet landar färdigt i Granskning där du godkänner det på några sekunder.',
+    ],
+    body: [
+      { t: 'p', x: 'För företag med fysisk försäljning – som butiker, frisörsalonger, caféer, food trucks och hantverkare – är Zettle by PayPal (tidigare iZettle) ett av Sveriges mest populära kassasystem. Men att stå kvar efter stängning, skriva ut dagsrapporter, slå på miniräknare och mata in dagens försäljning rad för rad i bokföringen är varken roligt eller tidseffektivt.' },
+      { t: 'p', x: 'Med den nya kopplingen mellan **Bokix och Zettle** sköts dagsavsluten med automatik direkt från kassan till bokföringen.' },
+
+      { t: 'h2', x: 'Hur automatiskt dagsavslut fungerar' },
+      { t: 'p', x: 'När du har kopplat ihop ditt Zettle-konto hämtar Bokix gårdagens försäljning en gång per dygn. Systemet sammanställer en komplett verifikation för dagens kassa:' },
+      { t: 'ul', x: [
+        '**Kortförsäljning:** All kortomsättning summeras och stäms av.',
+        '**Kontantförsäljning:** Har kunden betalat kontant bokförs det mot företagets handkassa (konto 1910).',
+        '**Inlösenavgifter:** Zettles transaktionsavgift dras och bokförs automatiskt på konto 6570.',
+        '**Dricks och avrundning:** Hanteras automatiskt enligt god redovisningssed.',
+      ] },
+
+      { t: 'h2', x: 'Rätt moms på mat, prylar och tjänster' },
+      { t: 'p', x: 'Att hålla reda på olika momssatser är en av de vanligaste orsakerna till fel i momsdeklarationen. Säljer ett café en kaffe med bulle (12 % moms) och en tygpåse (25 % moms), eller säljer en frisör en klippning (25 %) och en tidning (6 %), måste varje del redovisas på rätt momskonto hos Skatteverket.' },
+      { t: 'p', x: 'Bokix läser artikel- och momsspecifikationen direkt från Zettle och fördelar omsättningen på rätt konton:' },
+      { t: 'table', caption: 'Så delas momsen upp automatiskt', head: ['Momssats', 'Försäljningskonto', 'Utgående moms'], rows: [
+        ['25 % (Tjänster och varor)', 'Konto 3001', 'Konto 2611 (Utgående moms 25 %)'],
+        ['12 % (Livsmedel och restaurang)', 'Konto 3002', 'Konto 2621 (Utgående moms 12 %)'],
+        ['6 % (Böcker, tidskrifter, kultur)', 'Konto 3003', 'Konto 2631 (Utgående moms 6 %)'],
+      ] },
+
+      { t: 'h2', x: 'Ett klick i Granskning varje morgon' },
+      { t: 'p', x: 'I stället för att gissa eller binda upp bokföringen i förväg hamnar dagsavslutet under fliken **Zettle** i Granskning. Du ser gårdagens totala omsättning, momsbeloppen och Zettle-avgiften tydligt uppställda. Klicka på **Godkänn**, så är gårdagens bokföring avslutad och klar.' },
+      { t: 'callout', kind: 'info', title: 'Säker och godkänd koppling', x: 'Kopplingen använder Zettles officiella och säkra API. Du kan när som helst koppla bort tjänsten under Inställningar om du önskar.' },
+
+      { t: 'p', x: 'Vill du prova hur smidigt det är att driva butik och café med Bokix? Skapa ett konto och anslut Zettle under Inställningar, eller läs mer om våra integrationer på [Integrationer](/integrationer).' },
+    ],
+  },
 ];
 
 // Allt som får en egen artikelsida: bloggen och nyheterna. Routing,
 // förrendering och sitemap läser den här listan.
 export const ALL_ARTICLES = [...BLOG_POSTS, ...NEWS_POSTS];
+

@@ -58,27 +58,75 @@ ON public.user_data
 FOR SELECT
 USING ((select auth.uid()) = user_id);
 
--- Policy: insert only own rows
+-- ── Server-side betalningsspärr för skrivningar (RLS) ─────────────
+-- Speglar klientspärren i App.jsx (ALLOWED_SUBSCRIPTION_STATUSES,
+-- FREE_ACCOUNT_EMAILS, UF-provperiod och delad åtkomst via company_members).
+-- LÄSNING (SELECT ovan) förblir ALLTID tillåten för ägaren så att böcker
+-- och SIE4-arkiv kan laddas ner i 7 år enligt lag (PaymentRequiredGate).
+-- SKRIVNING (INSERT/UPDATE/DELETE) kräver aktiv prenumeration eller undantag.
+CREATE OR REPLACE FUNCTION public.can_write_user_data(target_user_id uuid)
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+AS $$
+  SELECT (
+    -- 1. Måste vara ägaren själv
+    (SELECT auth.uid()) = target_user_id
+    AND (
+      -- 2. Admin- / gratis-e-postkonton (samma som FREE_EMAILS i _auth.js)
+      lower(coalesce((SELECT auth.jwt() ->> 'email'), '')) IN ('alwakiabdullah1@gmail.com', 'abbealwaki08@gmail.com')
+      -- 3. UF-provperiod (3 månader)
+      OR (
+        (SELECT auth.jwt() -> 'user_metadata' ->> 'uf') = 'true'
+        AND (
+          (SELECT auth.jwt() -> 'user_metadata' ->> 'uf_started_at') IS NULL
+          OR (SELECT auth.jwt() -> 'user_metadata' ->> 'uf_started_at') = ''
+          OR (
+            CASE
+              WHEN (SELECT auth.jwt() -> 'user_metadata' ->> 'uf_started_at') ~ '^\d{4}-\d{2}-\d{2}'
+              THEN ((SELECT auth.jwt() -> 'user_metadata' ->> 'uf_started_at'))::timestamptz + interval '3 months' > now()
+              ELSE true
+            END
+          )
+        )
+      )
+      -- 4. Delad åtkomst: medlem i minst ett aktivt företag (ägaren betalar)
+      OR EXISTS (
+        SELECT 1 FROM public.company_members
+        WHERE member_user_id = target_user_id AND status = 'active'
+      )
+      -- 5. Aktiv prenumeration i subscriptions-tabellen
+      OR EXISTS (
+        SELECT 1 FROM public.subscriptions
+        WHERE user_id = target_user_id
+          AND status IN ('trialing', 'active', 'past_due')
+      )
+    )
+  );
+$$;
+
+-- Policy: insert only own rows when subscription/access is valid
 DROP POLICY IF EXISTS "Insert own user data" ON public.user_data;
 CREATE POLICY "Insert own user data"
 ON public.user_data
 FOR INSERT
-WITH CHECK ((select auth.uid()) = user_id);
+WITH CHECK (public.can_write_user_data(user_id));
 
--- Policy: update only own rows
+-- Policy: update only own rows when subscription/access is valid
 DROP POLICY IF EXISTS "Update own user data" ON public.user_data;
 CREATE POLICY "Update own user data"
 ON public.user_data
 FOR UPDATE
 USING ((select auth.uid()) = user_id)
-WITH CHECK ((select auth.uid()) = user_id);
+WITH CHECK (public.can_write_user_data(user_id));
 
--- Policy: delete only own rows
+-- Policy: delete only own rows when subscription/access is valid
 DROP POLICY IF EXISTS "Delete own user data" ON public.user_data;
 CREATE POLICY "Delete own user data"
 ON public.user_data
 FOR DELETE
-USING ((select auth.uid()) = user_id);
+USING (public.can_write_user_data(user_id));
 
 -- ═══════════════════════════════════════════════════════════
 -- Stripe Connect OAuth: server-side skrivning av stripeAccountId
@@ -586,9 +634,13 @@ USING (bucket_id = 'companylogo' AND (storage.foldername(name))[1] = (SELECT aut
 -- SELECT-policyn nedan är därför inskränkt till egen mapp, precis som
 -- INSERT/UPDATE/DELETE, för den dagen appen faktiskt behöver lista eller
 -- ladda ner egna filer via Storage-API:et.
+-- Säkerhetsfix: bokix-uploads är PRIVATE (public: false) så att kvitton
+-- och verifikationsunderlag ALDRIG kan läsas via permanenta publika länkar.
+-- Åtkomst sker via tidsbegränsade signerade URL:er (createSignedUrl).
+-- SELECT tillåts för ägaren och för aktiva inbjudna medlemmar (company_members).
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-VALUES ('bokix-uploads', 'bokix-uploads', true, 10485760, ARRAY['image/jpeg', 'image/png', 'image/webp', 'application/pdf'])
-ON CONFLICT (id) DO UPDATE SET file_size_limit = 10485760, allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+VALUES ('bokix-uploads', 'bokix-uploads', false, 10485760, ARRAY['image/jpeg', 'image/png', 'image/webp', 'application/pdf'])
+ON CONFLICT (id) DO UPDATE SET public = false, file_size_limit = 10485760, allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
 
 -- Tre DROP:ar för samma sak här — "Publik läsning" var namnet i den allra
 -- första versionen av den här sektionen, "Egen läsning av bokix-uploads"
@@ -602,7 +654,17 @@ DROP POLICY IF EXISTS "Egen läsning av bokix-uploads" ON storage.objects;
 DROP POLICY IF EXISTS "Egen läsning i bokix-uploads" ON storage.objects;
 CREATE POLICY "Egen läsning i bokix-uploads"
 ON storage.objects FOR SELECT TO authenticated
-USING (bucket_id = 'bokix-uploads' AND (storage.foldername(name))[1] = (SELECT auth.uid()::text));
+USING (
+  bucket_id = 'bokix-uploads' AND (
+    (storage.foldername(name))[1] = (SELECT auth.uid()::text)
+    OR EXISTS (
+      SELECT 1 FROM public.company_members
+      WHERE member_user_id = (SELECT auth.uid())
+        AND owner_user_id::text = (storage.foldername(name))[1]
+        AND status = 'active'
+    )
+  )
+);
 
 DROP POLICY IF EXISTS "Egen uppladdning i bokix-uploads" ON storage.objects;
 CREATE POLICY "Egen uppladdning i bokix-uploads"

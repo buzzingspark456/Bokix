@@ -184,3 +184,93 @@ export async function loadMemberCompany(userId, companyId, res) {
   }
   return { companyData, role: membership.role, pageAccess: membership.page_access || null, ownerUserId: membership.owner_user_id };
 }
+
+// ── Server-side payment enforcement ─────────────────────────────────────
+// Mirrors the client-side gate in App.jsx (ALLOWED_SUBSCRIPTION_STATUSES,
+// FREE_ACCOUNT_EMAILS, UF free period, shared access) but as a real
+// security boundary. The client gate is product UX; this is the lock.
+//
+// Call AFTER requireAuthedUser — needs the verified user object.
+// Returns true if the user may proceed, false if res has already been
+// written (402 Payment Required).
+//
+// Exempt callers (subscription checkout, archive download, webhook, cron,
+// password reset) must NOT call this — they handle their own auth.
+
+const ALLOWED_SUBSCRIPTION_STATUSES = ['trialing', 'active', 'past_due'];
+
+// Same two admin/owner emails as App.jsx FREE_ACCOUNT_EMAIL_HASHES and
+// admin/index.js ADMIN_EMAILS — but server-side we can use plaintext
+// (never in a client bundle). Kept in sync manually; a mismatch only
+// means one side is more generous, never less safe.
+const FREE_EMAILS = ['alwakiabdullah1@gmail.com', 'abbealwaki08@gmail.com'];
+
+export function isFreeEmail(email) {
+  return FREE_EMAILS.includes(String(email || '').trim().toLowerCase());
+}
+
+/** UF free period check — same logic as ufFreePeriod in src/utils/ufMode.js.
+ *  Duplicated here to avoid importing client-side modules into the API. */
+const UF_FREE_MONTHS = 3;
+function isWithinUfFreePeriod(userMetadata) {
+  if (!userMetadata?.uf) return false;
+  const startedAt = userMetadata.uf_started_at;
+  if (!startedAt) return true; // unknown start → don't lock out
+  const start = new Date(startedAt);
+  if (Number.isNaN(start.getTime())) return true;
+  const endsAt = new Date(start.getTime());
+  endsAt.setMonth(endsAt.getMonth() + UF_FREE_MONTHS);
+  return new Date() < endsAt;
+}
+
+/**
+ * Verifies that `user` has an active Bokix subscription.
+ *
+ * Returns `true` → caller may proceed.
+ * Returns `false` → res already written (402), caller must `return`.
+ *
+ * @param {object} user  Verified Supabase user from requireAuthedUser
+ * @param {object} res   Express/Vercel response
+ */
+export async function requireActiveSubscription(user, res) {
+  // 1. Admin / free accounts — always allowed
+  if (isFreeEmail(user.email)) return true;
+
+  // 2. UF free period
+  if (isWithinUfFreePeriod(user.user_metadata)) return true;
+
+  // 3. Shared access (invited member) — the OWNER pays, not the member.
+  //    If the user has ANY active membership they're let through; the
+  //    owner's own subscription status is the owner's problem.
+  const supabaseUrl = process.env.VITE_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceRoleKey) {
+    // Can't check → fail open with a warning (same philosophy as
+    // hasExistingSubscription in _subscriptions.js).
+    console.warn('requireActiveSubscription: SUPABASE_SERVICE_ROLE_KEY missing, skipping check.');
+    return true;
+  }
+  const admin = createClient(supabaseUrl, serviceRoleKey);
+
+  const { data: membership } = await admin
+    .from('company_members')
+    .select('id')
+    .eq('member_user_id', user.id)
+    .eq('status', 'active')
+    .limit(1)
+    .maybeSingle();
+  if (membership) return true;
+
+  // 4. Check the subscriptions table — ANY row with an allowed status
+  //    (legacy '' company_id or a real per-company one) counts.
+  const { data: subs } = await admin
+    .from('subscriptions')
+    .select('status')
+    .eq('user_id', user.id);
+  const hasActive = (subs || []).some(s => ALLOWED_SUBSCRIPTION_STATUSES.includes(s.status));
+  if (hasActive) return true;
+
+  // No valid subscription found.
+  res.status(402).json({ error: 'Ingen aktiv prenumeration. Gå till betalningssidan.' });
+  return false;
+}

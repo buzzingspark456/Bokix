@@ -9,6 +9,7 @@ import { TextSuggestInput } from './shared/SearchInputs';
 import ListPageHeader from './shared/ListPageHeader';
 import AnchoredDropdown, { useDismissOnOutsideClick } from './shared/AnchoredDropdown';
 import { uploadFileToStorage } from '../utils/fileUpload';
+import { useSignedUrl } from '../utils/signedUrls';
 import { BRAND } from '../utils/brandColors';
 import { confirmDialog } from './shared/ConfirmDialog';
 import { parseReceiptText, OCR_DRAFT_VERSION } from '../utils/ocrReceipt';
@@ -1034,6 +1035,14 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
   );
 }
 
+function ReceiptThumbImg({ url }) {
+  const activeUrl = useSignedUrl(url);
+  if (!activeUrl) return null;
+  return (
+    <img src={activeUrl} alt="Kvitto" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.currentTarget.style.display = 'none'; }} />
+  );
+}
+
 export default function Expenses({
   expenses = [], accounts = [], verifications = [], projects = [], user,
   company, onUpdateCompany, onDeleteReceiptFolder,
@@ -1643,7 +1652,7 @@ export default function Expenses({
                         >
                           <div className="rc-row-thumb">
                             {isImage ? (
-                              <img src={r.receiptUrl} alt="Kvitto" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.currentTarget.style.display = 'none'; }} />
+                              <ReceiptThumbImg url={r.receiptUrl} />
                             ) : isPdf ? (
                               <FileText size={20} color={BRAND.greenDark} />
                             ) : (

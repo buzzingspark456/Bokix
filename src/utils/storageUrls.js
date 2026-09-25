@@ -15,9 +15,9 @@
 // nytt fält kräver då ingen ändring här.
 // ─────────────────────────────────────────────────────────────────────────
 
-/** Supabase Storage publika URL:er: .../storage/v1/object/public/<bucket>/<path>
- * Cachebustern (?v=…) som Settings.jsx lägger på ingår inte i sökvägen. */
-export const STORAGE_URL_PATTERN = /\/storage\/v1\/object\/public\/([^/?"'\s]+)\/([^?"'\s]+)/;
+/** Supabase Storage URL:er: .../storage/v1/object/(public|sign)/<bucket>/<path>
+ * Cachebustern (?v=…) eller token (?token=…) ingår inte i sökvägen. */
+export const STORAGE_URL_PATTERN = /\/storage\/v1\/object\/(?:public|sign)\/([^/?"'\s]+)\/([^?"'\s]+)/;
 
 /** Delar upp en publik URL i bucket + sökväg. `null` om det inte är en
  * Storage-URL alls (t.ex. en extern bildlänk någon klistrat in). */
