@@ -802,6 +802,17 @@ body {
   padding: 0;
 }
 
+/* Kundönskemål 2026-09-26: i ljust läge ett mörkare fält bakom loggan, så
+   den blågröna loggan syns bättre mot den gröna menyn. Samma genomskinliga
+   mörkning som Hjälp/Logga ut-blocket längst ner, så det fungerar med alla
+   färgteman. Den tunna linjen under behövs inte när fältet redan avgränsar. */
+:root:not([data-theme="dark"]) .sidebar .logo-container {
+  background: rgba(0, 0, 0, 0.22);
+}
+:root:not([data-theme="dark"]) .sidebar .logo-container + div {
+  background: transparent !important;
+}
+
 /* Bokix-loggan (App.jsx: BokixLogo) — base-stilarna för de två varianterna,
    flyttade hit FRÅN inline style specifikt så storlek/padding kan svara på
    @media-brytpunkter nedan (en riktig inline style vinner alltid över CSS,

@@ -464,10 +464,11 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
           eftersom demot är en egen handbyggd klon som inte delar den
           klassen. */}
       <div className="lp-hide-mobile" style={{ width: '212px', flexShrink: 0, maxHeight: 'min(780px, 82vh)', background: 'var(--bg-sidebar)', display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)' }}>
-        <div style={{ padding: navFit >= 4 ? '3px 14px 2px' : navFit > 0 ? '6px 14px 4px' : '14px 14px 10px', flexShrink: 0 }}>
+        {/* Som appen (index.css, .logo-container): mörkare fält bakom loggan i ljust läge, då utan linjen under. */}
+        <div style={{ padding: navFit >= 4 ? '3px 14px 2px' : navFit > 0 ? '6px 14px 4px' : '14px 14px 10px', flexShrink: 0, background: theme === 'dark' ? 'none' : 'rgba(0, 0, 0, 0.22)' }}>
           <BokixWordmark height={fitStyle.logo} />
         </div>
-        <div style={{ height: '1px', background: 'rgba(255,255,255,0.15)', margin: '0 20px 4px', flexShrink: 0 }} />
+        <div style={{ height: '1px', background: theme === 'dark' ? 'rgba(255,255,255,0.15)' : 'transparent', margin: '0 20px 4px', flexShrink: 0 }} />
 
         {/* Kompaktare än riktiga appens rader så att alla 15 sidor ryms i demokortet;
             listan skrollar (utan synligt fält) om kortet ändå är lågt. */}
