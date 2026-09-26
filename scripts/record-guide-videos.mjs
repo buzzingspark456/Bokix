@@ -232,6 +232,57 @@ const GUIDES = {
     await d.wait(2000);
   },
 
+  'skicka-faktura': async ({ d, panel }) => {
+    const { nav, btn } = helpers(panel);
+    await d.caption(1, 'Gå till Kundfakturor');
+    await d.click(nav('Kundfakturor'));
+    await d.caption(2, 'Öppna fakturan');
+    await d.click(panel.getByText('1012', { exact: true }).first());
+    await d.caption(3, 'Förhandsgranska');
+    await d.click(btn('Förhandsgranska'));
+    await d.caption(4, 'Välj bland fyra mallar');
+    const preview = panel.locator('.a4-preview-overlay');
+    for (const name of ['Kraftfull', 'Minimal', 'Rutnät', 'Klassisk']) {
+      await d.click(preview.getByRole('button', { name, exact: true }));
+      await d.wait(900);
+    }
+    await d.click(preview.locator('.modal-close').first());
+    await d.caption(5, 'Skicka med e-post');
+    await d.click(btn(/Skicka via e-post/));
+    await d.caption(6, 'Lägg med en Betala nu-knapp via Stripe');
+    const pay = panel.getByText(/Betala nu/).first();
+    await d.hover(pay);
+    const box = panel.locator('input[type="checkbox"]').filter({ visible: true }).last();
+    if (!(await box.isChecked())) await d.click(box);
+    await d.wait(1200);
+    await d.caption(7, 'Skicka');
+    await d.click(panel.locator('.modal-footer').getByRole('button', { name: 'Skicka', exact: true }));
+    await d.wait(1500);
+    await d.caption(null, 'Klart! Kunden får fakturan som PDF och kan betala med kort.');
+    await d.wait(2200);
+  },
+
+  'registrera-betalning': async ({ d, panel }) => {
+    const { nav, btn } = helpers(panel);
+    const statusBtn = (nr) => panel.locator('tr', { hasText: nr }).locator('[data-inv-tour="row-status"] button').first();
+    await d.caption(1, 'Gå till Kundfakturor');
+    await d.click(nav('Kundfakturor'));
+    await d.caption(2, 'Betalt? Tryck på Obetald så markeras den som betald');
+    await d.click(statusBtn('1010'));
+    await d.wait(1300);
+    await d.caption(3, 'Delbetalning? Öppna fakturan');
+    await d.click(panel.getByText('1009', { exact: true }).first());
+    await d.caption(4, 'Tryck på Registrera betalning');
+    await d.click(btn('Registrera betalning'));
+    await d.caption(5, 'Skriv beloppet och datumet');
+    const amount = panel.locator('.modal-content input[type="number"]').first();
+    await d.replace(amount, '20000');
+    await d.click(panel.locator('.modal-content').getByRole('button', { name: 'Registrera betalning' }));
+    await d.wait(900);
+    await d.caption(null, 'Betalar kunden med kort via Stripe hamnar betalningen i Granskning.');
+    await d.wait(2600);
+  },
+
   'skapa-offert': async ({ d, panel }) => {
     const { nav, btn } = helpers(panel);
     await d.caption(1, 'Gå till Offerter');
@@ -390,6 +441,8 @@ async function record(browser, name, run, theme) {
   await sleep(1800);
   // Uppslaget mot FöretagsAPI kräver inloggning; i filmen svarar det tomt.
   await page.route('**/api/company-access', route => route.fulfill({ json: { companies: [] } }));
+  // Utskicket av fakturor går inte iväg från filmen; servern svarar som vid ett lyckat utskick.
+  await page.route('**/api/email/**', route => route.fulfill({ json: { id: 'demo', ok: true } }));
   // Själva appkortet, utan overlayens ljusa kant runt om.
   const box = await page.locator('.lp-demo-card').boundingBox();
   await installOverlay(page, box);

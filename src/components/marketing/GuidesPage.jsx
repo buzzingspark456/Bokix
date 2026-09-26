@@ -18,6 +18,8 @@ const GROUPS = [
     guides: [
       { slug: 'lagg-upp-kund', title: 'Lägg upp en kund', lead: 'Namn, e-post och organisationsnummer.', duration: 'PT26S' },
       { slug: 'skapa-faktura', title: 'Skapa en faktura', lead: 'Välj kund, skriv vad du sålt. Momsen räknas ut.', duration: 'PT33S' },
+      { slug: 'skicka-faktura', title: 'Skicka en faktura', lead: 'Välj mall, skicka med e-post och en Betala nu-knapp via Stripe.', duration: 'PT46S' },
+      { slug: 'registrera-betalning', title: 'Registrera en betalning', lead: 'Markera som betald med ett klick, eller registrera en delbetalning.', duration: 'PT25S' },
       { slug: 'skapa-offert', title: 'Skapa en offert', lead: 'Blir det ja gör du om den till en faktura.', duration: 'PT25S' },
       { slug: 'ny-artikel', title: 'Spara en artikel', lead: 'Det du säljer ofta, klart att välja på fakturan.', duration: 'PT19S' },
     ],

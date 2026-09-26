@@ -9,6 +9,7 @@ import { BRAND } from '../utils/brandColors';
 import { BokixWordmark, useMarketingTheme } from './marketing/MarketingLayout';
 import { createDemoSeed } from '../utils/landingDemoData';
 import { getDebet, getKredit } from '../utils/verificationAmounts';
+import { grossInvoiceAmount } from '../utils/reportCalculations';
 
 import Dashboard from './Dashboard';
 import Contacts from './Contacts';
@@ -203,6 +204,26 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
       ? prev.map(e => e.id === employeeId ? { ...e, ...data } : e)
       : [...prev, { ...data, id: `emp_demo_${Date.now()}` }]);
   };
+  // Betalningar på kundfakturor, också lokalt (videoguiden "Registrera
+  // betalning"). Samma fält som App.jsx sätter, utan verifikationen.
+  const today = () => new Date().toISOString().split('T')[0];
+  const markDemoInvoicePaid = (invoiceId) => {
+    setDemoInvoices(prev => prev.map(i => i.id === invoiceId
+      ? { ...i, status: 'paid', paidDate: today(), paidAmount: grossInvoiceAmount(i) }
+      : i));
+  };
+  const registerDemoInvoicePayment = (invoiceId, amount, date) => {
+    setDemoInvoices(prev => prev.map(i => {
+      if (i.id !== invoiceId) return i;
+      const paidAmount = (i.paidAmount || 0) + Number(amount || 0);
+      const full = paidAmount >= grossInvoiceAmount(i) - 0.005;
+      return { ...i, paidAmount, status: full ? 'paid' : i.status, paidDate: full ? (date || today()) : i.paidDate };
+    }));
+  };
+  // Demoföretaget visas med Stripe kopplat, så att "Betala nu"-valet syns
+  // när man skickar en faktura. Ingen riktig länk skapas (null), och
+  // själva utskicket kräver inloggning precis som förut.
+  const invoiceCompany = useMemo(() => ({ ...seed.company, stripeAccountId: 'acct_demo' }), [seed.company]);
   const addDemoInvoice = (invoice) => {
     setDemoInvoices(prev => [...prev, {
       ...invoice,
@@ -293,10 +314,10 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
         return (
           <Invoices
             invoices={demoInvoices} contacts={demoContacts} verifications={demoVerifications} expenses={seed.expenses}
-            onAdd={addDemoInvoice} onMarkPaid={blocked} onRegisterPayment={blocked}
+            onAdd={addDemoInvoice} onMarkPaid={markDemoInvoicePaid} onRegisterPayment={registerDemoInvoicePayment}
             onUnmarkPaid={blocked} onMarkSupplierInvoicePaid={blocked}
-            handleGlobalAction={handleGlobalAction} onGetPaymentLinkUrl={blocked}
-            stripeAccountId={undefined} setInvoices={setDemoInvoices} company={seed.company}
+            handleGlobalAction={handleGlobalAction} onGetPaymentLinkUrl={async () => null}
+            stripeAccountId={undefined} setInvoices={setDemoInvoices} company={invoiceCompany}
             globalAction={globalAction} clearGlobalAction={clearGlobalAction} onNavigate={openTab}
           />
         );
