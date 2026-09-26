@@ -3,8 +3,8 @@ import { closeUfAccount, deleteClosedUfAccounts, hasNonUfBookkeeping, ufDeleteAf
 
 // Minimal låtsasadmin. `users` = konton i auth, `rows` = user_data per
 // användare, `subs` = prenumerationsstatusar per användare.
-function makeAdmin({ users = [], rows = {}, subs = {} } = {}) {
-  const calls = { deletedUsers: [], deletedRows: [], removed: [], updated: [], tableDeletes: [] };
+function makeAdmin({ users = [], rows = {}, subs = {}, uploadFails = false } = {}) {
+  const calls = { deletedUsers: [], deletedRows: [], removed: [], updated: [], tableDeletes: [], uploaded: [] };
   const table = (name) => {
     const filters = {};
     const chain = {
@@ -31,7 +31,11 @@ function makeAdmin({ users = [], rows = {}, subs = {} } = {}) {
     calls,
     from: table,
     storage: {
+      getBucket: async () => ({ data: { id: 'bokix-arkiv' }, error: null }),
+      createBucket: async () => ({ error: null }),
       from: (bucket) => ({
+        upload: async (path) => { if (uploadFails) return { error: { message: 'nere' } }; calls.uploaded.push(`${bucket}:${path}`); return { error: null }; },
+        download: async () => ({ data: null, error: { message: 'saknas' } }),
         list: async (prefix) => ({ data: prefix && !prefix.includes('/') ? [{ id: 'f', name: 'fil.jpg' }] : [], error: null }),
         remove: async (paths) => { calls.removed.push(...paths.map(pth => `${bucket}:${pth}`)); return { error: null }; },
       }),
@@ -85,13 +89,27 @@ describe('Radering av avslutade UF-konton', () => {
   const now = new Date('2027-01-10T03:00:00Z');
   const closed = (id, until, extra = {}) => ({ id, user_metadata: { uf: true }, app_metadata: { uf_closed_at: '2026-09-26', uf_delete_after: until }, ...extra });
 
-  it('raderar ett konto vars tre månader gått ut, med filer och data', async () => {
+  it('arkiverar bokföringen i sju år och stänger sedan kontot', async () => {
     const admin = makeAdmin({ users: [closed('u1', '2026-12-26')], rows: { u1: { companies: { a: ufCompany } } } });
     const s = await deleteClosedUfAccounts(admin, { now });
+    expect(s.archived).toBe(1);
     expect(s.deleted).toBe(1);
+    // Skatteverket: verifikationerna ska sparas i sju år, även för UF.
+    const archive = admin.calls.uploaded.find(u => u.endsWith('/bokforing.json.gz'));
+    expect(archive).toMatch(/^bokix-arkiv:u1\/a\/.*-uf-avslut-t\d{4}-12-31\/bokforing\.json\.gz$/);
+    expect(Number(archive.match(/-t(\d{4})-12-31/)[1])).toBeGreaterThanOrEqual(2034);
     expect(admin.calls.deletedUsers).toEqual(['u1']);
     expect(admin.calls.deletedRows).toEqual(['u1']);
-    expect(admin.calls.removed.some(r => r.startsWith('bokix-arkiv:u1/'))).toBe(true);
+  });
+
+  it('tar inte bort något om arkiveringen misslyckas', async () => {
+    const admin = makeAdmin({ users: [closed('u9', '2026-12-26')], rows: { u9: { companies: { a: ufCompany } } }, uploadFails: true });
+    const s = await deleteClosedUfAccounts(admin, { now });
+    expect(s.deleted).toBe(0);
+    expect(s.errors).toHaveLength(1);
+    expect(admin.calls.deletedUsers).toHaveLength(0);
+    expect(admin.calls.deletedRows).toHaveLength(0);
+    expect(admin.calls.removed).toHaveLength(0);
   });
 
   it('rör inte ett konto vars datum inte passerats, eller som aldrig avslutats', async () => {

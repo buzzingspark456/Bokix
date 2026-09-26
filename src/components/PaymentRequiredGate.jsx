@@ -38,8 +38,8 @@ export default function PaymentRequiredGate({ user, company, onSignedOut }) {
   const [errorMsg, setErrorMsg] = useState('');
   const forCompany = Boolean(company?.requiresOwnPayment);
   // UF-konto vars gratisperiod är slut (eller som avslutat UF-året): två val,
-  // fortsätta och betala, eller avsluta. UF omfattas inte av bokföringslagen,
-  // så ett avslutat konto sparas i tre månader och raderas sedan (se
+  // fortsätta och betala, eller avsluta. Ett avslutat konto går att läsa i
+  // tre månader och stängs sedan; bokföringen sparas i sju år i arkivet (se
   // utils/ufClose.js och api/_ufAccount.js).
   const isUf = !forCompany && Boolean(user?.user_metadata?.uf);
   const [ufClosed, setUfClosed] = useState(() => ufClosedInfo(user));
@@ -136,8 +136,8 @@ export default function PaymentRequiredGate({ user, company, onSignedOut }) {
         <p style={{ fontSize: '14.5px', color: 'var(--text-secondary)', lineHeight: 1.65, marginBottom: '28px' }}>
           {isUf
             ? (ufClosed
-              ? <>Kontot är skrivskyddat. Allt raderas den <strong>{ufClosed.deleteLabel}</strong>, så ladda ner det ni behöver innan dess. Ångrar ni er kan ni fortsätta med Bokix fram till dess.</>
-              : <>Gratisperioden är slut. Vill ni driva företaget vidare fortsätter ni med Bokix. Är ni klara avslutar ni UF-året: allt ligger kvar i tre månader så att ni hinner ladda ner det, sedan raderas det. Ett UF-företag omfattas inte av bokföringslagen, så inget behöver sparas längre än så.</>)
+              ? <>Kontot är skrivskyddat och stängs den <strong>{ufClosed.deleteLabel}</strong>. Ladda ner det ni behöver innan dess. Bokföringen och underlagen sparas ändå i sju år, som Skatteverket kräver, och kan begäras ut via support@bokix.se. Ångrar ni er kan ni fortsätta med Bokix fram till dess.</>
+              : <>Gratisperioden är slut. Vill ni driva företaget vidare fortsätter ni med Bokix. Är ni klara avslutar ni UF-året: ni kan ladda ner allt i tre månader, sedan stängs kontot. Bokföringen sparas i sju år, som Skatteverket kräver även för UF-företag.</>)
             : forCompany
             ? <>Varje företag i Bokix betalas för sig — <strong>{company?.name || 'det här företaget'}</strong> väntar fortfarande på betalningsuppgifter hos Stripe. 30 dagar gratis, sedan 179 kr/mån — avsluta innan dess så kostar det ingenting.</>
             : returning
@@ -176,7 +176,7 @@ export default function PaymentRequiredGate({ user, company, onSignedOut }) {
 
         {ownCompanies.length > 0 && (
           <div style={{ textAlign: 'left', borderTop: '1px solid var(--border)', paddingTop: '18px', marginBottom: '18px' }}>
-            <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '4px' }}>{ufClosed ? `Finns kvar till ${ufClosed.deleteLabel}` : 'Din bokföring finns kvar'}</div>
+            <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '4px' }}>{ufClosed ? `Kan laddas ner till ${ufClosed.deleteLabel}` : 'Din bokföring finns kvar'}</div>
             <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.55, margin: '0 0 12px' }}>
               {isUf
                 ? 'Ladda ner den utan att betala, till exempel som underlag för årsredovisningen hos Ung Företagsamhet. Kvitton och underlag kan ni begära ut via support@bokix.se.'

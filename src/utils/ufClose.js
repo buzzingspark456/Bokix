@@ -3,8 +3,8 @@ import { confirmDialog } from '../components/shared/ConfirmDialog';
 
 // ── Avsluta UF-året (klientsidan). Servern gör jobbet, se api/_ufAccount.js:
 // kontot blir skrivskyddat, ligger kvar i tre månader så att gruppen hinner
-// ladda ner allt, och raderas sedan helt. UF omfattas inte av
-// bokföringslagen, så sjuårsarkivet gäller inte här.
+// ladda ner allt, och stängs sedan. Bokföringen och underlagen sparas ändå i
+// sju år i arkivet, som Skatteverket kräver även för UF-företag.
 
 const DATE_FMT = new Intl.DateTimeFormat('sv-SE', { day: 'numeric', month: 'long', year: 'numeric' });
 
@@ -34,7 +34,7 @@ function deleteLabelFromNow() {
  */
 export async function closeUfYear() {
   const ok = await confirmDialog(
-    `Kontot blir skrivskyddat direkt. Allt ligger kvar till ${deleteLabelFromNow()} så att ni hinner ladda ner bokföringen, sedan raderas kontot och all data för gott. Vill ni fortsätta med Bokix senare går det att betala när som helst innan dess.`,
+    `Kontot blir skrivskyddat direkt. Ni kan logga in och ladda ner allt till ${deleteLabelFromNow()}, sedan stängs kontot. Bokföringen och underlagen sparas ändå i sju år, som Skatteverket kräver, och kan begäras ut via support@bokix.se. Vill ni fortsätta med Bokix går det att betala när som helst innan dess.`,
     { title: 'Avsluta UF-året?', confirmLabel: 'Avsluta UF-året', cancelLabel: 'Inte nu', danger: true },
   );
   if (!ok) return null;

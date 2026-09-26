@@ -2101,7 +2101,7 @@ function UfSubscriptionCard({ company, canClose = true }) {
         <div style={{ marginTop: '16px', paddingTop: '14px', borderTop: '1px solid var(--border-light)' }}>
           <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '4px' }}>Klara med UF-året?</div>
           <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.6, margin: '0 0 10px' }}>
-            Avsluta kontot när ni är klara. Allt ligger kvar i tre månader så att ni hinner ladda ner bokföringen, sedan raderas det. Ett UF-företag omfattas inte av bokföringslagen, så inget behöver sparas längre.
+            Avsluta kontot när ni är klara. Ni kan ladda ner allt i tre månader, sedan stängs kontot. Bokföringen och underlagen sparas i sju år, som Skatteverket kräver även för UF-företag.
           </p>
           <button type="button" className="btn btn-secondary" onClick={handleClose} disabled={closing}>
             {closing ? 'Avslutar…' : 'Avsluta UF-året'}

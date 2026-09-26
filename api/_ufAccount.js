@@ -1,27 +1,31 @@
-import { ARCHIVE_BUCKET, listAllObjects } from './_archive.js';
+import { ARCHIVE_BUCKET, listAllObjects, archiveCompany } from './_archive.js';
 
 // ─────────────────────────────────────────────────────────────────────────
-// UF-konton: avsluta UF-året, och radera kontot tre månader efteråt.
+// UF-konton: avsluta UF-året, och stäng kontot tre månader efteråt.
 //
-// Ett UF-företag är ingen juridisk person och omfattas inte av
-// bokföringslagen, så sjuårsarkivet (_archive.js) gäller inte för det. När
-// gruppen är klar med sitt UF-år kan de antingen betala och fortsätta, eller
-// avsluta. Avslutar de ligger allt kvar i tre månader (så att de hinner
-// ladda ner SIE4 och underlag till årsredovisningen hos Ung Företagsamhet),
-// sedan raderas kontot helt: data, filer, arkivkopior och inloggningen.
+// Skatteverket kräver att ett UF-företag sparar sin bokföring och alla
+// verifikationer (kvitton, fakturor) i sju år, precis som andra. Därför
+// gäller sjuårsarkivet (_archive.js) även här. Det som INTE behöver sparas
+// är kontot i sig: inloggningen, utkast, kontakter som aldrig använts och
+// annat som inte är räkenskapsinformation (GDPR art. 5.1 e).
+//
+// När gruppen är klar kan de betala och fortsätta, eller avsluta. Avslutar
+// de blir kontot skrivskyddat och ligger kvar i tre månader så att de hinner
+// ladda ner allt. Sedan flyttar nattjobbet bokföringen och underlagen till
+// arkivet (sju år) och tar bort kontot och allt annat.
 //
 // Avslutet sparas i app_metadata (uf_closed_at, uf_delete_after), inte i
 // user_metadata: app_metadata kan bara servern skriva, så ingen kan skjuta
-// upp sin radering eller låtsas vara avslutad åt någon annan.
+// upp sin stängning eller låtsas vara avslutad åt någon annan.
 //
 // Ett konto som ÄVEN har ett vanligt företag med bokföring kan inte avslutas
-// här: det företaget omfattas av bokföringslagen och ska sparas i sju år.
-// Kontrollen görs både när man avslutar och igen precis innan radering.
+// här: det företaget drivs vidare och ska inte stängas med UF-året.
 // ─────────────────────────────────────────────────────────────────────────
 
 export const UF_KEEP_AFTER_CLOSE_MONTHS = 3;
 const ALLOWED_SUBSCRIPTION_STATUSES = ['trialing', 'active', 'past_due'];
-const USER_BUCKETS = ['bokix-uploads', 'companylogo', 'profile', ARCHIVE_BUCKET];
+// Levande filer. Arkivbucketen rörs inte, utom kontots nattkopior (se nedan).
+const USER_BUCKETS = ['bokix-uploads', 'companylogo', 'profile'];
 // Tabeller med kontots rader. email_senders raderas av sig själv när
 // inloggningen tas bort (ON DELETE CASCADE mot auth.users).
 const USER_TABLES = [
@@ -70,7 +74,7 @@ export async function closeUfAccount(admin, user, { now = new Date() } = {}) {
   if (hasNonUfBookkeeping(row?.state)) {
     return {
       status: 409,
-      body: { error: 'Kontot har också ett vanligt företag med bokföring. Den måste sparas i sju år enligt bokföringslagen, så kontot kan inte avslutas härifrån. Hör av er till support@bokix.se.' },
+      body: { error: 'Kontot har också ett vanligt företag med bokföring, så det kan inte stängas med UF-året. Hör av er till support@bokix.se.' },
     };
   }
 
@@ -93,13 +97,15 @@ async function removeAll(admin, bucket, prefix) {
 }
 
 /**
- * Cronjobbet: raderar avslutade UF-konton vars tre månader gått ut.
- * Ordningen är filer först, sedan databasen, sist inloggningen, så att en
- * avbruten körning lämnar ett tomt konto kvar och inte data utan ägare.
+ * Cronjobbet: stänger avslutade UF-konton vars tre månader gått ut.
+ * Först arkiveras bokföringen och underlagen (sju år, samma arkiv som när
+ * ett vanligt företag raderas). Misslyckas det rörs ingenting. Sedan tas
+ * filer, databasrader och sist inloggningen bort, så att en avbruten
+ * körning lämnar ett tomt konto kvar och inte data utan ägare.
  */
 export async function deleteClosedUfAccounts(admin, { now = new Date(), dryRun = false } = {}) {
   const today = now.toISOString().slice(0, 10);
-  const summary = { due: 0, deleted: 0, reopened: 0, kept: 0, files: 0, errors: [] };
+  const summary = { due: 0, deleted: 0, archived: 0, reopened: 0, kept: 0, files: 0, errors: [] };
 
   for (let page = 1; page < 100; page += 1) {
     const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
@@ -127,6 +133,15 @@ export async function deleteClosedUfAccounts(admin, { now = new Date(), dryRun =
         if (hasNonUfBookkeeping(row?.state)) { summary.kept += 1; continue; }
         if (dryRun) continue;
 
+        // 1. Bokföringen till sjuårsarkivet. Kastar vid fel, då raderas inget.
+        for (const [companyId, companyData] of Object.entries(row?.state?.companies || {})) {
+          const result = await archiveCompany(admin, { userId: u.id, companyId, companyData, reason: 'uf-avslut', now });
+          if (result.path) summary.archived += 1;
+        }
+        // 2. Nattkopiorna av hela kontot (med utkast och kontaktuppgifter)
+        //    behövs inte längre: arkivet ovan har det lagen kräver.
+        summary.files += await removeAll(admin, ARCHIVE_BUCKET, `${u.id}/_kopior`);
+        // 3. Allt levande.
         for (const bucket of USER_BUCKETS) summary.files += await removeAll(admin, bucket, u.id);
         await admin.from('company_members').delete().or(`owner_user_id.eq.${u.id},member_user_id.eq.${u.id}`);
         for (const [table, column] of USER_TABLES) {

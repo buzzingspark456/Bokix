@@ -5,8 +5,9 @@
 -- Ett UF-konto som avslutat sitt UF-år (app_metadata.uf_closed_at, satt av
 -- api/archive.js action uf_close) räknas inte längre som gratis: kontot
 -- blir skrivskyddat men går att läsa och ladda ner i tre månader, sedan
--- raderar nattjobbet det (api/_ufAccount.js). UF omfattas inte av
--- bokföringslagen, så sjuårsarkivet gäller inte.
+-- stänger nattjobbet kontot (api/_ufAccount.js). Bokföringen och
+-- underlagen flyttas först till sjuårsarkivet, som Skatteverket kräver
+-- även för UF-företag.
 -- ═══════════════════════════════════════════════════════════════════════
 
 CREATE OR REPLACE FUNCTION public.has_paid_access(target_user_id uuid)
