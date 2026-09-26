@@ -802,15 +802,13 @@ body {
   padding: 0;
 }
 
-/* Kundönskemål 2026-09-26: i ljust läge ett mörkare fält bakom loggan, så
-   den blågröna loggan syns bättre mot den gröna menyn. Samma genomskinliga
-   mörkning som Hjälp/Logga ut-blocket längst ner, så det fungerar med alla
-   färgteman. Den tunna linjen under behövs inte när fältet redan avgränsar. */
-:root:not([data-theme="dark"]) .sidebar .logo-container {
-  background: rgba(0, 0, 0, 0.22);
-}
-:root:not([data-theme="dark"]) .sidebar .logo-container + div {
-  background: transparent !important;
+/* Kundönskemål 2026-09-26: i ljust läge är hela sidomenyn mörkare, så den
+   blågröna loggan syns bättre (först bara ett fält bakom loggan, sedan
+   "täck hela menyn"). En genomskinlig mörkning ovanpå --bg-sidebar i
+   stället för en ny färg, så det fungerar med alla färgteman. Inte med
+   "Mörk sidomeny", som redan är mörk. */
+:root:not([data-theme="dark"]):not([data-sidebar-style="dark"]) .sidebar {
+  background-image: linear-gradient(rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0.22));
 }
 
 /* Bokix-loggan (App.jsx: BokixLogo) — base-stilarna för de två varianterna,
