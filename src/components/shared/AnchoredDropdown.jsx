@@ -91,11 +91,15 @@ export default function AnchoredDropdown({
     { align, minWidth, maxHeight },
   );
 
+  // Startsidans demo (.lp-demo-overlay, z-index 3000) ligger över allt annat
+  // på sidan; där måste listan upp över den, annars syns den inte alls.
+  const layer = anchorRef.current?.closest('.lp-demo-overlay') ? Math.max(zIndex, 3100) : zIndex;
+
   return createPortal(
     <div
       ref={setRefs}
       style={{
-        position: 'fixed', zIndex, left, width,
+        position: 'fixed', zIndex: layer, left, width,
         ...(dropUp ? { bottom } : { top }),
         maxHeight: height, overflowY: 'auto',
         background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px',

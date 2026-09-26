@@ -25,7 +25,7 @@ const STEP_MS = 4600;
 const ROWS = [
   { id: 'r1', mine: true, label: 'Faktura 2026-114', sum: '12 400 kr' },
   { id: 'r2', mine: false, label: 'Faktura 2026-088', sum: '4 900 kr' },
-  { id: 'r3', mine: true, label: 'Kvitto, Circle K', sum: '712 kr' },
+  { id: 'r3', mine: true, label: 'Kvitto, Exempelmacken', sum: '712 kr' },
   { id: 'r4', mine: false, label: 'Lönekörning mars', sum: '38 200 kr' },
   { id: 'r5', mine: true, label: 'Verifikation A-42', sum: '2 150 kr' },
 ];

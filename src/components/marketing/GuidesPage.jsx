@@ -1,29 +1,47 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MarketingLayout, { Reveal } from './MarketingLayout';
 import { KitStyles, KitCta, PrimaryButton, GhostLink } from './subpageKit';
 import { PageMeta, JsonLd, SITE_URL } from '../../utils/seo';
 
 // ── Videoguider (/guider) ───────────────────────────────────────────────
-// Riktiga skärminspelningar av appen (startsidans demo med exempeldata),
-// inte animationer. Filmerna spelas in med scripts/record-guide-videos.mjs
-// och ligger i public/videos/ (namn.mp4 + namn.jpg som affisch). Nytt flöde:
-// lägg till det i GUIDES i skriptet, spela in, lägg till en rad här.
+// Riktiga skärminspelningar av appen (startsidans demo med påhittade
+// exempelföretag), inte animationer. Filmerna spelas in med
+// scripts/record-guide-videos.mjs och ligger i public/videos/: namn.mp4 och
+// namn-dark.mp4, med namn.jpg / namn-dark.jpg som affischbild. Sidan visar
+// den mörka filmen när sajten står i mörkt läge. Ny guide: lägg till den i
+// GUIDES i skriptet, spela in, lägg till en rad här.
 
-const GUIDES = [
+const GROUPS = [
   {
-    slug: 'lagg-upp-kund',
-    title: 'Lägg upp en kund',
-    lead: 'Från tom lista till en kund du kan fakturera, på en dryg minut.',
-    duration: 'PT1M15S',
-    steps: ['Gå till Kunder', 'Tryck på Ny kund', 'Fyll i namn och kontakt', 'Adress och org.nummer', 'Spara'],
+    title: 'Sälja och fakturera',
+    guides: [
+      { slug: 'lagg-upp-kund', title: 'Lägg upp en kund', lead: 'Namn, e-post och organisationsnummer.', duration: 'PT26S' },
+      { slug: 'skapa-faktura', title: 'Skapa en faktura', lead: 'Välj kund, skriv vad du sålt. Momsen räknas ut.', duration: 'PT33S' },
+      { slug: 'skapa-offert', title: 'Skapa en offert', lead: 'Blir det ja gör du om den till en faktura.', duration: 'PT25S' },
+      { slug: 'ny-artikel', title: 'Spara en artikel', lead: 'Det du säljer ofta, klart att välja på fakturan.', duration: 'PT19S' },
+    ],
   },
   {
-    slug: 'skapa-faktura',
-    title: 'Skapa en faktura',
-    lead: 'Välj kund, skriv vad du sålt. Moms och summa räknas ut åt dig.',
-    duration: 'PT1M20S',
-    steps: ['Gå till Kundfakturor', 'Tryck på Skapa faktura', 'Välj kund', 'Rader med antal och pris', 'Skapa faktura'],
+    title: 'Kostnader och bokföring',
+    guides: [
+      { slug: 'ladda-upp-kvitto', title: 'Ladda upp ett kvitto', lead: 'Datum, belopp och moms läses av åt dig.', duration: 'PT22S' },
+      { slug: 'ny-verifikation', title: 'Bokför ett köp', lead: 'Utan debet och kredit. Bokix sköter kontona.', duration: 'PT32S' },
+    ],
+  },
+  {
+    title: 'Personal och projekt',
+    guides: [
+      { slug: 'ny-anstalld', title: 'Lägg till en anställd', lead: 'Lön, kommun och skattetabell, sedan kan du köra lön.', duration: 'PT40S' },
+      { slug: 'nytt-projekt', title: 'Starta ett projekt', lead: 'Samla tid och fakturor per uppdrag.', duration: 'PT18S' },
+    ],
+  },
+  {
+    title: 'Moms och rapporter',
+    guides: [
+      { slug: 'momsdeklaration', title: 'Gör momsdeklarationen', lead: 'Rutorna till Skatteverket räknas ut från bokföringen.', duration: 'PT18S' },
+      { slug: 'rapporter', title: 'Se resultatet', lead: 'Intäkter och kostnader, alltid uppdaterat.', duration: 'PT13S' },
+    ],
   },
 ];
 
@@ -36,7 +54,7 @@ const SCHEMA = {
   name: 'Videoguider för Bokix',
   url: `${SITE_URL}/guider`,
   inLanguage: 'sv-SE',
-  hasPart: GUIDES.map(g => ({
+  hasPart: GROUPS.flatMap(g => g.guides).map(g => ({
     '@type': 'VideoObject',
     name: g.title,
     description: g.lead,
@@ -48,66 +66,97 @@ const SCHEMA = {
   })),
 };
 
+// Sajtens tema sitter på <html data-theme>, och kan bytas medan man står på
+// sidan. Förrenderingen och första renderingen visar alltid ljust, sedan
+// byts det efter montering, så hydreringen blir densamma.
+function useSiteTheme() {
+  const [theme, setTheme] = useState('light');
+  useEffect(() => {
+    const root = document.documentElement;
+    const read = () => setTheme(root.dataset.theme === 'dark' ? 'dark' : 'light');
+    read();
+    const obs = new MutationObserver(read);
+    obs.observe(root, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => obs.disconnect();
+  }, []);
+  return theme;
+}
+
+function GuideVideo({ slug, title, theme }) {
+  const file = theme === 'dark' ? `${slug}-dark` : slug;
+  return (
+    <video
+      key={file}
+      className="gd-video"
+      src={`/videos/${file}.mp4`}
+      poster={`/videos/${file}.jpg`}
+      controls
+      playsInline
+      preload="none"
+      width="1600"
+      height="880"
+      aria-label={`Video: ${title}`}
+    />
+  );
+}
+
 export default function GuidesPage() {
   const navigate = useNavigate();
+  const theme = useSiteTheme();
   return (
     <MarketingLayout>
       <PageMeta
         title="Videoguider | Bokix"
-        description="Korta videoguider som visar hur du gör i Bokix: lägg upp en kund, skapa en faktura och mer, steg för steg."
+        description="Korta videoguider som visar hur du gör i Bokix: kunder, fakturor, offerter, kvitton, bokföring, lön, moms och rapporter."
         path="/guider"
       />
       <JsonLd data={SCHEMA} />
       <KitStyles />
       <style>{`
-        .gd-list { max-width: 1040px; margin: 0 auto; display: grid; gap: 88px; }
-        .gd-head { max-width: 640px; margin: 0 0 22px; }
-        .gd-h2 { font-size: clamp(23px, 2.8vw, 30px); }
-        .gd-video { display: block; width: 100%; height: auto; aspect-ratio: 1600 / 880; border-radius: 16px; border: 1px solid var(--mkt-border-soft); background: #eef2ef; box-shadow: 0 30px 60px -36px rgba(15, 40, 25, 0.35); }
-        .gd-steps { list-style: none; counter-reset: gd; display: flex; flex-wrap: wrap; gap: 8px 20px; margin: 20px 0 0; padding: 0; }
-        .gd-steps li { counter-increment: gd; display: flex; align-items: center; gap: 8px; font-size: 14.5px; color: var(--mkt-ink-soft, inherit); }
-        .gd-steps li::before { content: counter(gd); display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #16803a; color: #fff; font-size: 12.5px; font-weight: 700; }
+        .gd-wrap { max-width: 1120px; margin: 0 auto; }
+        .gd-group + .gd-group { margin-top: 72px; }
+        .gd-group-title { margin: 0 0 22px; }
+        .gd-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px 32px; }
+        .gd-video { display: block; width: 100%; height: auto; aspect-ratio: 1600 / 880; border-radius: 14px; border: 1px solid var(--mkt-border-soft); background: #eef2ef; box-shadow: 0 24px 50px -34px rgba(15, 40, 25, 0.35); }
+        html[data-theme="dark"] #lp-root .gd-video { background: #0f1a13; box-shadow: none; }
+        .gd-title { font-size: 17px; font-weight: 700; margin: 16px 0 4px; }
+        .gd-lead { font-size: 15px; line-height: 1.55; margin: 0; }
+        @media (max-width: 760px) {
+          .gd-grid { grid-template-columns: 1fr; gap: 36px; }
+        }
       `}</style>
 
       <section style={{ padding: '140px 24px 56px', background: 'var(--mkt-page-bg)' }}>
         <Reveal style={{ maxWidth: '680px', margin: '0 auto', textAlign: 'center' }}>
           <h1 className="kx-h1">Videoguider</h1>
           <p className="kx-lead" style={{ margin: '0 auto' }}>
-            Se hur det går till i Bokix, steg för steg. Inspelat i appen, med exempeldata.
+            Se hur det går till i Bokix. Korta filmer, inspelade i appen med påhittade exempelföretag.
           </p>
         </Reveal>
       </section>
 
       <section style={{ padding: '24px 24px 110px', background: 'var(--mkt-page-bg)' }}>
-        <div className="gd-list">
-          {GUIDES.map(g => (
-            <Reveal key={g.slug}>
-              <article id={g.slug}>
-                <div className="gd-head">
-                  <h2 className="kx-h2 gd-h2">{g.title}</h2>
-                  <p className="kx-sub">{g.lead}</p>
-                </div>
-                <video
-                  className="gd-video"
-                  src={`/videos/${g.slug}.mp4`}
-                  poster={`/videos/${g.slug}.jpg`}
-                  controls
-                  playsInline
-                  preload="none"
-                  width="1600"
-                  height="880"
-                  aria-label={`Video: ${g.title}`}
-                />
-                <ol className="gd-steps">
-                  {g.steps.map(s => <li key={s}>{s}</li>)}
-                </ol>
-              </article>
-            </Reveal>
+        <div className="gd-wrap">
+          {GROUPS.map(group => (
+            <div key={group.title} className="gd-group">
+              <h2 className="kx-h2 gd-group-title">{group.title}</h2>
+              <div className="gd-grid">
+                {group.guides.map(g => (
+                  <Reveal key={g.slug}>
+                    <article id={g.slug}>
+                      <GuideVideo slug={g.slug} title={g.title} theme={theme} />
+                      <h3 className="kx-row-title gd-title">{g.title}</h3>
+                      <p className="kx-sub gd-lead">{g.lead}</p>
+                    </article>
+                  </Reveal>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       </section>
 
-      <KitCta title="Prova själv" lead="Samma steg fungerar i ditt eget konto. Skapa ett och testa.">
+      <KitCta title="Prova själv" lead="Samma steg fungerar i ditt eget konto.">
         <PrimaryButton onClick={() => navigate('/', { state: { enterApp: true, authMode: 'signup' } })}>Prova gratis</PrimaryButton>
         <GhostLink to="/funktioner">Se alla funktioner</GhostLink>
       </KitCta>

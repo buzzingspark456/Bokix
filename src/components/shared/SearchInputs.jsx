@@ -237,7 +237,8 @@ export function AccountPickerModal({ accounts = [], initialQuery = '', onPick, o
     <div
       onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}
       style={{
-        position: 'fixed', inset: 0, zIndex: 1100, background: 'rgba(0,0,0,0.45)',
+        // Över startsidans demo (z-index 3000) när kontoplanen öppnas i den.
+        position: 'fixed', inset: 0, zIndex: document.querySelector('.lp-demo-overlay') ? 3100 : 1100, background: 'rgba(0,0,0,0.45)',
         display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '48px 16px',
       }}
     >

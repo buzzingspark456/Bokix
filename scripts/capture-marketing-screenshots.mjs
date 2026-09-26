@@ -15,7 +15,8 @@
 import { chromium } from 'playwright';
 import fs from 'node:fs';
 
-const DEV_URL = 'http://localhost:5173/';
+// CAPTURE_URL=http://localhost:4789/ för en `vite preview` i stället.
+const DEV_URL = process.env.CAPTURE_URL || 'http://localhost:5173/';
 const OUT_DIR = 'public/screenshots';
 
 fs.mkdirSync(OUT_DIR, { recursive: true });

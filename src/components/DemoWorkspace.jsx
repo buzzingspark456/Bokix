@@ -170,12 +170,29 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
   // BOKFÖRA kvittot (onSaveReceiptDetails), inte att ladda upp och se
   // OCR:n läsa det.
   const [demoExpenses, setDemoExpenses] = useState(() => seed.expenses);
-  // Kunder och nya fakturor, också rent lokalt: en kund man lägger upp ska
-  // synas i listan och gå att välja på en faktura (videoguiderna på /guider
-  // visar just det flödet). Försvinner när demon stängs. Betalningar och
-  // allt annat som bokför på riktigt är fortfarande blocked().
+  // Kunder, fakturor, offerter, artiklar, projekt, tid, verifikationer och
+  // anställda, också rent lokalt: det man lägger upp ska synas i listan
+  // (videoguiderna på /guider visar just de flödena). Försvinner när demon
+  // stängs. Betalningar, lönekörningar och allt som går mot en bank eller
+  // Skatteverket är fortfarande blocked().
   const [demoContacts, setDemoContacts] = useState(() => seed.contacts);
   const [demoInvoices, setDemoInvoices] = useState(() => seed.invoices);
+  const [demoQuotes, setDemoQuotes] = useState(() => seed.quotes);
+  const [demoArticles, setDemoArticles] = useState(() => seed.articles);
+  const [demoProjects, setDemoProjects] = useState(() => seed.projects);
+  const [demoTimeEntries, setDemoTimeEntries] = useState(() => seed.timeEntries);
+  const [demoVerifications, setDemoVerifications] = useState(() => seed.verifications);
+  const [demoEmployees, setDemoEmployees] = useState(() => seed.employees);
+  // Samma numrering som App.jsx:s handleAddVerification, utan dess
+  // bokföringssidoeffekter.
+  const addDemoVerification = (ver) => {
+    setDemoVerifications(prev => [...prev, { ...ver, id: `ver_demo_${Date.now()}_${prev.length}`, number: ver.number || `V${prev.length + 1}` }]);
+  };
+  const saveDemoEmployee = (employeeId, data) => {
+    setDemoEmployees(prev => employeeId
+      ? prev.map(e => e.id === employeeId ? { ...e, ...data } : e)
+      : [...prev, { ...data, id: `emp_demo_${Date.now()}` }]);
+  };
   const addDemoInvoice = (invoice) => {
     setDemoInvoices(prev => [...prev, {
       ...invoice,
@@ -188,7 +205,7 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
   const balances = useMemo(() => {
     const b = {};
     seed.accounts.forEach(a => { b[a.code] = 0; });
-    seed.verifications.forEach(v => {
+    demoVerifications.forEach(v => {
       if ((v.status || 'booked') === 'draft') return;
       v.rows.forEach(r => {
         const val = getDebet(r) - getKredit(r);
@@ -196,7 +213,7 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
       });
     });
     return b;
-  }, [seed.accounts, seed.verifications]);
+  }, [seed.accounts, demoVerifications]);
 
   const clearGlobalAction = () => setGlobalAction(null);
   // Navigation (och en formulär-prefill via globalAction) är inte
@@ -241,7 +258,7 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
       case 'dashboard':
         return (
           <Dashboard
-            verifications={seed.verifications} balances={balances} accounts={seed.accounts}
+            verifications={demoVerifications} balances={balances} accounts={seed.accounts}
             invoices={demoInvoices} expenses={seed.expenses} contacts={demoContacts}
             setActiveTab={openTab} company={seed.company} profileIncomplete={false}
             onResumeOnboarding={() => openTab('dashboard')}
@@ -252,12 +269,12 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
       case 'contacts':
         return <Contacts contacts={demoContacts} setContacts={setDemoContacts} accounts={seed.accounts} globalAction={globalAction} clearGlobalAction={clearGlobalAction} />;
       case 'articles':
-        return <Articles articles={seed.articles} setArticles={blocked} accounts={seed.accounts} />;
+        return <Articles articles={demoArticles} setArticles={setDemoArticles} accounts={seed.accounts} />;
       case 'quotes':
         return (
           <Quotes
-            quotes={seed.quotes} setQuotes={noop} onConvert={blocked}
-            contacts={demoContacts} projects={seed.projects}
+            quotes={demoQuotes} setQuotes={setDemoQuotes} onConvert={blocked}
+            contacts={demoContacts} projects={demoProjects}
             company={settingsCompany} user={demoUser}
             globalAction={globalAction} clearGlobalAction={clearGlobalAction}
           />
@@ -265,7 +282,7 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
       case 'invoices':
         return (
           <Invoices
-            invoices={demoInvoices} contacts={demoContacts} verifications={seed.verifications} expenses={seed.expenses}
+            invoices={demoInvoices} contacts={demoContacts} verifications={demoVerifications} expenses={seed.expenses}
             onAdd={addDemoInvoice} onMarkPaid={blocked} onRegisterPayment={blocked}
             onUnmarkPaid={blocked} onMarkSupplierInvoicePaid={blocked}
             handleGlobalAction={handleGlobalAction} onGetPaymentLinkUrl={blocked}
@@ -277,7 +294,7 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
         return (
           <SupplierInvoices
             expenses={seed.expenses} accounts={seed.accounts} contacts={demoContacts} setContacts={noop}
-            projects={seed.projects} user={demoUser}
+            projects={demoProjects} user={demoUser}
             onAddSupplierInvoice={blocked} onMarkSupplierInvoicePaid={blocked} onUnmarkSupplierInvoicePaid={blocked}
             onFixExpenseAccount={blocked} globalAction={globalAction} clearGlobalAction={clearGlobalAction}
             onNavigate={openTab} uploadFn={demoUploadFn}
@@ -286,7 +303,7 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
       case 'expenses':
         return (
           <Expenses
-            expenses={demoExpenses} accounts={seed.accounts} verifications={seed.verifications} projects={seed.projects}
+            expenses={demoExpenses} accounts={seed.accounts} verifications={demoVerifications} projects={demoProjects}
             user={demoUser}
             onAdd={(expense) => setDemoExpenses(prev => [...prev, { ...expense, id: `demo_${Date.now()}` }])}
             onFixExpenseAccount={blocked}
@@ -297,8 +314,8 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
       case 'projects':
         return (
           <Projects
-            projects={seed.projects} setProjects={noop} contacts={demoContacts} setContacts={noop}
-            timeEntries={seed.timeEntries} setTimeEntries={noop} globalAction={globalAction} clearGlobalAction={clearGlobalAction}
+            projects={demoProjects} setProjects={setDemoProjects} contacts={demoContacts} setContacts={noop}
+            timeEntries={demoTimeEntries} setTimeEntries={setDemoTimeEntries} globalAction={globalAction} clearGlobalAction={clearGlobalAction}
           />
         );
       case 'review':
@@ -319,7 +336,7 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
           <Bank
             bankTransactions={seed.bankTransactions} bankImportProfiles={{}}
             invoices={demoInvoices} expenses={seed.expenses} contacts={demoContacts}
-            accounts={seed.accounts} verifications={seed.verifications} vatPeriods={seed.vatPeriods}
+            accounts={seed.accounts} verifications={demoVerifications} vatPeriods={seed.vatPeriods}
             onSetBankTransactions={noop} onUpdateCompany={noop}
             onRegisterInvoicePayment={blocked} onMarkSupplierInvoicePaid={blocked} onAddVerification={blocked}
           />
@@ -327,18 +344,18 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
       case 'verifications':
         return (
           <Verifications
-            user={demoUser} verifications={seed.verifications} accounts={seed.accounts} balances={balances}
-            contacts={demoContacts} projects={seed.projects} templates={seed.verificationTemplates}
-            onSaveTemplate={blocked} onAdd={blocked}
-            setVerifications={noop} setAccounts={noop} vatPeriods={seed.vatPeriods}
+            user={demoUser} verifications={demoVerifications} accounts={seed.accounts} balances={balances}
+            contacts={demoContacts} projects={demoProjects} templates={seed.verificationTemplates}
+            onSaveTemplate={blocked} onAdd={addDemoVerification}
+            setVerifications={setDemoVerifications} setAccounts={noop} vatPeriods={seed.vatPeriods}
             highlightVerificationId={null} onClearHighlight={noop} uploadFn={demoUploadFn}
           />
         );
       case 'payroll':
         return (
           <Payroll
-            company={seed.company} employees={seed.employees} onSaveEmployee={blocked}
-            accounts={seed.accounts} projects={seed.projects} payrollRuns={seed.payrollRuns}
+            company={seed.company} employees={demoEmployees} onSaveEmployee={saveDemoEmployee}
+            accounts={seed.accounts} projects={demoProjects} payrollRuns={seed.payrollRuns}
             onCreateRun={blocked} onUpdateRunRow={noop} onAdvanceRunStep={blocked}
             onBookRun={blocked} onMarkRunPaid={blocked} onRefreshRunSnapshots={noop}
           />
@@ -346,7 +363,7 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
       case 'taxes':
         return (
           <Taxes
-            company={seed.company} verifications={seed.verifications} invoices={demoInvoices} expenses={seed.expenses}
+            company={seed.company} verifications={demoVerifications} invoices={demoInvoices} expenses={seed.expenses}
             accounts={seed.accounts} payrollRuns={seed.payrollRuns} vatPeriods={seed.vatPeriods}
             onBookVatPeriod={blocked} onNavigateToVerification={() => openTab('verifications')}
             onAddVerification={blocked} setCompanyInfo={noop} onNavigateToTab={openTab}
@@ -355,7 +372,7 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
       case 'reports':
         return (
           <Reports
-            accounts={seed.accounts} verifications={seed.verifications} invoices={demoInvoices}
+            accounts={seed.accounts} verifications={demoVerifications} invoices={demoInvoices}
             payrollRuns={seed.payrollRuns} contacts={demoContacts}
             company={settingsCompany} setCompanyInfo={setSettingsCompany}
             onNavigate={openTab}

@@ -92,15 +92,15 @@ export function createDemoSeed() {
 
   const contacts = [
     {
-      id: 'demo_c1', type: 'customer', customerType: 'se_company', name: 'Almbring Bygg AB',
-      customerNumber: '1001', contactPerson: 'Erik Almbring', email: 'erik@almbringbygg.se',
+      id: 'demo_c1', type: 'customer', customerType: 'se_company', name: 'Exempelbygg AB',
+      customerNumber: '1001', contactPerson: 'Erik Exempel', email: 'erik@exempelbygg.se',
       phone: '070-123 45 67', address: 'Kungsgatan 12', postalCode: '111 22', city: 'Stockholm',
       country: 'Sverige', orgNr: '556234-5678', vatNumber: '', paymentTerms: 30, invoiceLanguage: 'sv',
       notes: '', active: true,
     },
     {
-      id: 'demo_c2', type: 'customer', customerType: 'se_company', name: 'Sjöstrand Design',
-      customerNumber: '1002', contactPerson: 'Maria Sjöstrand', email: 'maria@sjostranddesign.se',
+      id: 'demo_c2', type: 'customer', customerType: 'se_company', name: 'Testdesign AB',
+      customerNumber: '1002', contactPerson: 'Maria Test', email: 'maria@testdesign.se',
       phone: '073-987 65 43', address: 'Vasagatan 4', postalCode: '411 24', city: 'Göteborg',
       country: 'Sverige', orgNr: '556890-1234', vatNumber: '', paymentTerms: 30, invoiceLanguage: 'sv',
       notes: '', active: true,
@@ -114,37 +114,37 @@ export function createDemoSeed() {
     // aldrig Startsidans belopp, bara gör kundlistan lika fylld som
     // resten av demot.
     {
-      id: 'demo_c4', type: 'customer', customerType: 'se_company', name: 'Norrqvist Redovisning AB',
-      customerNumber: '1003', contactPerson: 'Johan Norrqvist', email: 'johan@norrqvistredovisning.se',
+      id: 'demo_c4', type: 'customer', customerType: 'se_company', name: 'Exempelredovisning AB',
+      customerNumber: '1003', contactPerson: 'Johan Exempel', email: 'johan@exempelredovisning.se',
       phone: '070-234 56 78', address: 'Drottninggatan 22', postalCode: '702 10', city: 'Örebro',
       country: 'Sverige', orgNr: '556112-3344', vatNumber: '', paymentTerms: 30, invoiceLanguage: 'sv',
       notes: '', active: true,
     },
     {
-      id: 'demo_c5', type: 'customer', customerType: 'se_company', name: 'Lindgren Fastigheter AB',
-      customerNumber: '1004', contactPerson: 'Anna Lindgren', email: 'anna@lindgrenfastigheter.se',
+      id: 'demo_c5', type: 'customer', customerType: 'se_company', name: 'Testfastigheter AB',
+      customerNumber: '1004', contactPerson: 'Anna Test', email: 'anna@testfastigheter.se',
       phone: '072-345 67 89', address: 'Storgatan 15', postalCode: '211 34', city: 'Malmö',
       country: 'Sverige', orgNr: '556778-9012', vatNumber: '', paymentTerms: 20, invoiceLanguage: 'sv',
       notes: '', active: true,
     },
     {
-      id: 'demo_c6', type: 'customer', customerType: 'se_company', name: 'Ekström Konsult AB',
-      customerNumber: '1005', contactPerson: 'Peter Ekström', email: 'peter@ekstromkonsult.se',
+      id: 'demo_c6', type: 'customer', customerType: 'se_company', name: 'Exempelkonsult AB',
+      customerNumber: '1005', contactPerson: 'Peter Prov', email: 'peter@exempelkonsult.se',
       phone: '076-456 78 90', address: 'Karlavägen 6', postalCode: '114 31', city: 'Stockholm',
       country: 'Sverige', orgNr: '556334-5566', vatNumber: '', paymentTerms: 30, invoiceLanguage: 'sv',
       notes: '', active: true,
     },
     {
-      id: 'demo_c3', type: 'supplier', supplierType: 'se_company', name: 'Kontorsmax AB',
-      contactPerson: 'Kundtjänst', email: 'faktura@kontorsmax.se', phone: '08-555 12 34',
+      id: 'demo_c3', type: 'supplier', supplierType: 'se_company', name: 'Exempelkontor AB',
+      contactPerson: 'Kundtjänst', email: 'faktura@exempelkontor.se', phone: '08-555 12 34',
       address: 'Industrivägen 8', postalCode: '171 48', city: 'Solna', country: 'Sverige',
       orgNr: '556456-7890', vatNumber: '',
       bankgiro: '123-4567', plusgiro: '', clearingNumber: '', accountNumber: '', iban: '', swift: '',
       showMorePayment: false, defaultAccount: '6110', defaultCurrency: 'SEK', notes: '', active: true,
     },
     {
-      id: 'demo_c7', type: 'supplier', supplierType: 'se_company', name: 'Nordisk Kontorsservice AB',
-      contactPerson: 'Kundtjänst', email: 'faktura@nordiskkontorsservice.se', phone: '08-444 21 09',
+      id: 'demo_c7', type: 'supplier', supplierType: 'se_company', name: 'Testleverantören AB',
+      contactPerson: 'Kundtjänst', email: 'faktura@testleverantoren.se', phone: '08-444 21 09',
       address: 'Lagervägen 3', postalCode: '162 29', city: 'Vällingby', country: 'Sverige',
       orgNr: '556223-4455', vatNumber: '',
       bankgiro: '234-5678', plusgiro: '', clearingNumber: '', accountNumber: '', iban: '', swift: '',
@@ -243,21 +243,21 @@ export function createDemoSeed() {
   // grafens kostnadsstapel ska inte heller vara tom för pågående månad.
   expenses.push({
     id: 'demo_exp_current', type: 'receipt', date: daysFromToday(-4),
-    description: 'Lokalhyra', supplier: 'Hyresvärden Fastighets AB', amount: 45000,
+    description: 'Lokalhyra', supplier: 'Exempelvärden AB', amount: 45000,
     netAmount: 36000, vatAmount: 9000, vatRate: 25, costAccount: '5010',
     receiptUrl: '', receiptType: '', uploadedBy: null,
   });
   // Obehandlat — inget konto valt än, dyker upp i Granskning.
   expenses.push({
     id: 'demo_exp_unhandled', type: 'receipt', date: daysFromToday(-2),
-    description: '', supplier: 'Circle K', amount: 890, netAmount: 712, vatAmount: 178, vatRate: 25,
+    description: '', supplier: 'Exempelmacken', amount: 890, netAmount: 712, vatAmount: 178, vatRate: 25,
     costAccount: '', receiptUrl: '', receiptType: '', uploadedBy: null,
   });
   // Obetald leverantörsfaktura — bokförd (skuld mot 2440), inte reglerad än.
   expenses.push({
     id: 'demo_exp_supplier1', type: 'supplier_invoice', invoiceNumber: 'KM-3381',
     date: daysFromToday(-11), dueDate: daysFromToday(19), description: 'Kontorsmaterial',
-    supplier: 'Kontorsmax AB', supplierId: 'demo_c3', status: 'unpaid',
+    supplier: 'Exempelkontor AB', supplierId: 'demo_c3', status: 'unpaid',
     amount: 4250, netAmount: 3400, vatAmount: 850, vatRate: 25, costAccount: '6110',
   });
 
@@ -323,7 +323,7 @@ export function createDemoSeed() {
   // i stället som en rekrytering, och kostnaderna fortsätter växa månad
   // för månad.
   //
-  // Två syften utöver kurvan: bankraden 'Lön Johanna Ek' ovan ska ha en
+  // Två syften utöver kurvan: bankraden 'Lön Johanna Exempel' ovan ska ha en
   // motsvarighet i bokföringen (nettot nedan är exakt bankradens belopp),
   // och Kostnadsfördelningen (ring/paj/staplar i Företagsöversikten) får
   // en Personal-kategori. Utan den fanns i princip bara 'Övriga externa
@@ -335,7 +335,7 @@ export function createDemoSeed() {
   for (const payDate of [monthsAgo(2, 25), monthsAgo(1, 25), daysFromToday(-4)]) {
     verifications.push({
       date: payDate,
-      description: 'Lön Johanna Ek',
+      description: 'Lön Johanna Exempel',
       source: 'payroll', sourceId: `demo_payroll_${payDate}`,
       rows: [
         { account: '7010', debet: payrollGross, kredit: 0 },
@@ -381,11 +381,11 @@ export function createDemoSeed() {
   const bankTransactions = [
     ...bankPaid.map(bankInvoiceRow),
    {
-      id: 'demo_bt_2', date: daysFromToday(-6), description: 'Kortköp CIRCLE K',
+      id: 'demo_bt_2', date: daysFromToday(-6), description: 'Kortköp EXEMPELMACKEN',
       reference: '', amount: -890, status: 'unmatched', importBatchId: 'demo_batch_1',
     },
     {
-      id: 'demo_bt_3', date: daysFromToday(-9), description: 'Kontorsmax AB',
+      id: 'demo_bt_3', date: daysFromToday(-9), description: 'Exempelkontor AB',
       reference: 'KM-3381', amount: -4250, status: 'matched',
       matchedType: 'supplier_invoice', matchedId: 'demo_exp_supplier1', importBatchId: 'demo_batch_1',
     },
@@ -394,11 +394,11 @@ export function createDemoSeed() {
       reference: 'Utbetalning', amount: 24300, status: 'unmatched', importBatchId: 'demo_batch_1',
     },
     {
-      id: 'demo_bt_6', date: daysFromToday(-18), description: 'Lön Johanna Ek',
+      id: 'demo_bt_6', date: daysFromToday(-18), description: 'Lön Johanna Exempel',
       reference: 'Löneutbetalning', amount: -29800, status: 'booked', importBatchId: 'demo_batch_1',
     },
     {
-      id: 'demo_bt_7', date: daysFromToday(-21), description: 'Hyresvärden Fastighets AB',
+      id: 'demo_bt_7', date: daysFromToday(-21), description: 'Exempelvärden AB',
       reference: 'Lokalhyra', amount: -43000, status: 'booked', importBatchId: 'demo_batch_1',
     },
     {
@@ -508,7 +508,7 @@ export function createDemoSeed() {
 
   const employees = [
     {
-      id: 'demo_e1', firstName: 'Johanna', lastName: 'Ek', ssn: '199003011234',
+      id: 'demo_e1', firstName: 'Johanna', lastName: 'Exempel', ssn: '199003011234',
       email: 'johanna@nordstromkonsult.se', phone: '070-234 56 78',
       address: 'Ringvägen 2', postalCode: '118 26', city: 'Stockholm',
       employmentType: 'anstalld', startDate: monthsAgo(18, 1), endDate: '',
@@ -522,7 +522,7 @@ export function createDemoSeed() {
       clearingNumber: '8398', accountNumber: '2574667', iban: 'SE1850000000058398257467', bic: 'HANDSESS', active: true,
     },
     {
-      id: 'demo_e2', firstName: 'Oskar', lastName: 'Lind', ssn: '198711052345',
+      id: 'demo_e2', firstName: 'Oskar', lastName: 'Test', ssn: '198711052345',
       email: 'oskar@nordstromkonsult.se', phone: '073-345 67 89',
       address: 'Bergsgatan 9', postalCode: '112 23', city: 'Stockholm',
       employmentType: 'anstalld', startDate: monthsAgo(30, 1), endDate: '',
@@ -585,17 +585,17 @@ export function createDemoSeed() {
     // sparar VEM som konterade vad, inte bara att det blev gjort).
     reviewHistory: [
       {
-        id: 'demo_rh_1', title: 'Kvitto Circle K', amount: 645, account: '5611',
+        id: 'demo_rh_1', title: 'Kvitto Exempelmacken', amount: 645, account: '5611',
         accountName: 'Drivmedel personbilar', resolvedBy: 'Du', resolvedAt: `${daysFromToday(-6)}T08:41:00Z`,
         method: 'suggestion',
       },
       {
-        id: 'demo_rh_2', title: 'Kvitto Kontorsmax AB', amount: 1890, account: '6110',
+        id: 'demo_rh_2', title: 'Kvitto Exempelkontor AB', amount: 1890, account: '6110',
         accountName: 'Kontorsmaterial', resolvedBy: 'Du', resolvedAt: `${daysFromToday(-13)}T15:02:00Z`,
         method: 'manual',
       },
       {
-        id: 'demo_rh_3', title: 'Kvitto Circle K tankning', amount: 1245, account: '5611',
+        id: 'demo_rh_3', title: 'Kvitto Exempelmacken tankning', amount: 1245, account: '5611',
         accountName: 'Personbilskostnader', resolvedBy: 'Du', resolvedAt: `${daysFromToday(-20)}T11:18:00Z`,
         method: 'bulk',
       },

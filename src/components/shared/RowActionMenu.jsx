@@ -104,7 +104,8 @@ export default function RowActionMenu({ items, ariaLabel = 'Fler åtgärder', tr
           role="menu"
           onClick={e => e.stopPropagation()}
           style={{
-            position: 'fixed', ...pos, zIndex: 1000, minWidth: '230px', maxHeight: '70vh', overflowY: 'auto',
+            // Över startsidans demo (z-index 3000) när menyn öppnas i den.
+            position: 'fixed', ...pos, zIndex: document.querySelector('.lp-demo-overlay') ? 3100 : 1000, minWidth: '230px', maxHeight: '70vh', overflowY: 'auto',
             background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '10px',
             boxShadow: '0 8px 24px rgba(15, 23, 42, 0.14), 0 0 0 1px rgba(15, 23, 42, 0.03)',
             padding: '6px', display: 'flex', flexDirection: 'column',

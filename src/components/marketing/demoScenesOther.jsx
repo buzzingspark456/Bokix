@@ -43,7 +43,7 @@ const BankExport = (
           <span className="ax-btn-ghost ax-click" style={c(0.9)}><Download size={11} /> Exportera <ChevronDown size={10} /></span>
         </div>
         <div className="ax-tr ax-th" style={{ ...BANK_COLS, padding: '0 8px' }}><span>Datum</span><span>Text</span><span className="ax-num">Belopp</span><span className="ax-num ax-hide-sm">Saldo</span></div>
-        {[['2026-09-26', 'Swish Linné Arkitekter', '+15 000,00', '184 320,55'], ['2026-09-24', 'Kortköp CIRCLE K', '−890,00', '169 320,55'], ['2026-09-22', 'Lokalhyra september', '−45 000,00', '170 210,55'], ['2026-09-18', 'Bg-bet Kontorsmax AB', '−4 250,00', '215 210,55']].map(r => (
+        {[['2026-09-26', 'Swish Testkunden AB', '+15 000,00', '184 320,55'], ['2026-09-24', 'Kortköp EXEMPELMACKEN', '−890,00', '169 320,55'], ['2026-09-22', 'Lokalhyra september', '−45 000,00', '170 210,55'], ['2026-09-18', 'Bg-bet Exempelkontor AB', '−4 250,00', '215 210,55']].map(r => (
           <div key={r[1]} className="ax-tr" style={{ ...BANK_COLS, padding: '0 8px' }}><span className="ax-s">{r[0]}</span><span>{r[1]}</span><span className="ax-num ax-b">{r[2]}</span><span className="ax-num ax-s ax-hide-sm">{r[3]}</span></div>
         ))}
         <div className="ax-card dp-pop" style={{ ...d(1.1), position: 'absolute', right: 16, top: 50, width: 150, boxShadow: '0 12px 30px -10px rgba(0,0,0,0.3)', overflow: 'hidden', zIndex: 3 }}>
@@ -104,7 +104,7 @@ const BankColumns = (
                 </div>
               ))}
             </div>
-            {[['2026-09-26', 'Swish Linné Arkitekter', '15000,00'], ['2026-09-24', 'Kortköp CIRCLE K', '-890,00'], ['2026-09-22', 'Lokalhyra september', '-45000,00']].map(r => (
+            {[['2026-09-26', 'Swish Testkunden AB', '15000,00'], ['2026-09-24', 'Kortköp EXEMPELMACKEN', '-890,00'], ['2026-09-22', 'Lokalhyra september', '-45000,00']].map(r => (
               <div key={r[1]} style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr 1fr', fontSize: 11, borderTop: '1px solid var(--ax-border)' }}>
                 {r.map((x, i) => <span key={i} style={{ padding: '6px 9px' }} className={i === 2 ? 'ax-num' : ''}>{x}</span>)}
               </div>
@@ -122,17 +122,17 @@ const BankMatch = (
   <Shell active="bank" review={1}>
     <Top title="Bank" action={<span className="ax-btn"><UploadCloud size={11} /> Importera transaktioner</span>} tabs={['Alla · 8', 'Ej hanterade · 2', 'Matchade · 1', 'Bokförda · 4', 'Avstämning']} on="Ej hanterade · 2" />
     <div className="ax-tr ax-th m-bank" style={BANK_COLS}><span className="ax-hide-sm">Datum</span><span>Beskrivning</span><span className="ax-num">Belopp</span><span>Status</span></div>
-    <div className="ax-tr m-bank" style={BANK_COLS}><span className="ax-s ax-hide-sm">2026-09-26</span><span>Swish Linné Arkitekter<span className="ax-m" style={{ display: 'block', fontSize: 10 }}>Ref: Faktura 1013</span></span><span className="ax-num ax-b" style={{ color: 'var(--ax-g-tx)' }}>+15 000,00</span><Swap from={<Pill kind="warn">Ej hanterad</Pill>} to={<Pill>Matchad</Pill>} at={1.8} /></div>
+    <div className="ax-tr m-bank" style={BANK_COLS}><span className="ax-s ax-hide-sm">2026-09-26</span><span>Swish Testkunden AB<span className="ax-m" style={{ display: 'block', fontSize: 10 }}>Ref: Faktura 1013</span></span><span className="ax-num ax-b" style={{ color: 'var(--ax-g-tx)' }}>+15 000,00</span><Swap from={<Pill kind="warn">Ej hanterad</Pill>} to={<Pill>Matchad</Pill>} at={1.8} /></div>
     <div className="dp-collapse" style={{ ...d(2.2), '--h': '80px', padding: '8px 18px 10px', background: 'var(--ax-g-bg)', borderBottom: '1px solid var(--ax-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, fontSize: 11.5 }}>
-      <span><b>Förslag:</b> Faktura 1013 · Linné Arkitekter AB · 15 000,00 kr</span>
+      <span><b>Förslag:</b> Faktura 1013 · Testkunden AB · 15 000,00 kr</span>
       <span className="ax-btn ax-click" style={c(1.5)}>Matcha</span>
     </div>
-    <div className="ax-tr m-bank" style={BANK_COLS}><span className="ax-s ax-hide-sm">2026-09-24</span><span>Kortköp CIRCLE K</span><span className="ax-num ax-b">−890,00</span><Swap from={<Pill kind="warn">Ej hanterad</Pill>} to={<Pill>Bokförd 5611</Pill>} at={3.4} /></div>
+    <div className="ax-tr m-bank" style={BANK_COLS}><span className="ax-s ax-hide-sm">2026-09-24</span><span>Kortköp EXEMPELMACKEN</span><span className="ax-num ax-b">−890,00</span><Swap from={<Pill kind="warn">Ej hanterad</Pill>} to={<Pill>Bokförd 5611</Pill>} at={3.4} /></div>
     <div className="dp-in" style={{ ...d(2.5), padding: '8px 18px', display: 'flex', alignItems: 'center', gap: 8, fontSize: 11.5, borderBottom: '1px solid var(--ax-border)' }}>
       <span className="ax-m">Snabbokför på</span><span className="ax-field" style={{ minHeight: 24, padding: '3px 8px' }}>5611 Drivmedel</span><span className="ax-btn ax-click" style={c(3.2)}>Bokför</span>
     </div>
     <div className="ax-tr m-bank" style={BANK_COLS}><span className="ax-s ax-hide-sm">2026-09-22</span><span>Lokalhyra september</span><span className="ax-num ax-b">−45 000,00</span><Pill>Bokförd</Pill></div>
-    <div className="ax-tr m-bank" style={BANK_COLS}><span className="ax-s ax-hide-sm">2026-09-18</span><span>Bg-bet Kontorsmax AB</span><span className="ax-num ax-b">−4 250,00</span><Pill>Matchad</Pill></div>
+    <div className="ax-tr m-bank" style={BANK_COLS}><span className="ax-s ax-hide-sm">2026-09-18</span><span>Bg-bet Exempelkontor AB</span><span className="ax-num ax-b">−4 250,00</span><Pill>Matchad</Pill></div>
   </Shell>
 );
 
@@ -174,10 +174,10 @@ const StripeScene = (
         <Top title="Granskning" tabs={['Väntar · 0', 'Stripe · 4', 'Zettle · 3', 'Historik']} on="Stripe · 4" />
         <div className="ax-tr ax-th" style={{ gridTemplateColumns: '1fr 90px 90px' }}><span>Betalning</span><span className="ax-num">Belopp</span><span>Status</span></div>
         <div className="ax-tr dp-flash" style={{ gridTemplateColumns: '1fr 90px 90px', ...d(3.2), minHeight: 44 }}>
-          <span><b>Kortbetalning · Faktura 1013</b><span className="ax-m" style={{ display: 'block', fontSize: 10 }}>Linné Arkitekter AB · Stripe-avgift bokförd separat</span></span>
+          <span><b>Kortbetalning · Faktura 1013</b><span className="ax-m" style={{ display: 'block', fontSize: 10 }}>Testkunden AB · Stripe-avgift bokförd separat</span></span>
           <span className="ax-num ax-b">15 000,00</span><Pill className="dp-pop" style={d(3.5)}><Check strokeWidth={3} />Bokförd</Pill>
         </div>
-        <div className="ax-tr" style={{ gridTemplateColumns: '1fr 90px 90px', minHeight: 44 }}><span><b>Kortbetalning · Faktura 1011</b><span className="ax-m" style={{ display: 'block', fontSize: 10 }}>Lindgren Fastigheter AB</span></span><span className="ax-num ax-b">72 500,00</span><Pill>Bokförd</Pill></div>
+        <div className="ax-tr" style={{ gridTemplateColumns: '1fr 90px 90px', minHeight: 44 }}><span><b>Kortbetalning · Faktura 1011</b><span className="ax-m" style={{ display: 'block', fontSize: 10 }}>Testfastigheter AB</span></span><span className="ax-num ax-b">72 500,00</span><Pill>Bokförd</Pill></div>
       </Shell>
     </div>
   </div>
@@ -221,7 +221,7 @@ const BolagsverketScene = (
         <span className="ax-btn ax-click" style={c(1.3)}>Hämta</span>
       </div>
       <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {[['Företagsnamn', 'Linné Arkitekter AB'], ['Bolagsform', 'Aktiebolag'], ['Adress', 'Linnégatan 12, 413 04 Göteborg']].map(([k, v], i) => (
+        {[['Företagsnamn', 'Testkunden AB'], ['Bolagsform', 'Aktiebolag'], ['Adress', 'Linnégatan 12, 413 04 Göteborg']].map(([k, v], i) => (
           <div key={k} className="dp-in" style={{ ...d(1.8 + i * 0.25), display: 'flex', justifyContent: 'space-between', gap: 10, padding: '6px 0', borderBottom: '1px solid var(--ax-border)', fontSize: 11.5 }}><span className="ax-m">{k}</span><span className="ax-b">{v}</span></div>
         ))}
       </div>
@@ -233,7 +233,7 @@ const BolagsverketScene = (
 const SkatteverketScene = (
   <Browser url="skatteverket.se/e-tjanster/moms">
     <div className="ax" style={{ position: 'absolute', flexDirection: 'column' }}>
-      <SiteHead name="E-tjänst: Momsdeklaration" right="Linné Arkitekter AB" />
+      <SiteHead name="E-tjänst: Momsdeklaration" right="Testkunden AB" />
       <div style={{ flex: 1, padding: '16px 18px', background: 'var(--ax-card)', position: 'relative' }}>
         <div className="ax-b" style={{ fontSize: 13.5 }}>Lämna momsdeklaration via fil</div>
         <div className="ax-m" style={{ fontSize: 11, marginBottom: 10 }}>Period: juli – september 2026</div>
@@ -412,7 +412,7 @@ const SecEncrypt = (
   <Browser url="www.bokix.se">
     <div className="ax" style={{ position: 'absolute' }}>
       <Shell active="dashboard" review={1}>
-        <Top title="Hej Linné Arkitekter" sub="Räkenskapsår 2026" />
+        <Top title="Hej Testkunden AB" sub="Räkenskapsår 2026" />
         <div className="ax-body" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, alignContent: 'start' }}>
           {[['Intäkter', '1 284 500 kr'], ['Kostnader', '812 300 kr'], ['Resultat', '472 200 kr']].map(([k, v]) => (
             <div key={k} className="ax-card" style={{ padding: '10px 12px' }}><div className="ax-m" style={{ fontSize: 10.5 }}>{k}</div><div className="ax-b" style={{ fontSize: 15 }}>{v}</div></div>

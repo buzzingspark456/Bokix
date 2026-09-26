@@ -49,7 +49,7 @@ const KvittoScene = (
         <div className="axk-photo-head"><Doc /> IMG_4821.jpg</div>
         <div className="axk-photo-body">
           <div className="ax-receipt dp-in" style={d(0.1)}>
-            <div style={{ textAlign: 'center', fontWeight: 700, fontSize: 12 }}><span className="ax-receipt-hl" style={d(2.1)}>CIRCLE K</span></div>
+            <div style={{ textAlign: 'center', fontWeight: 700, fontSize: 12 }}><span className="ax-receipt-hl" style={d(2.1)}>EXEMPELMACKEN</span></div>
             <div style={{ textAlign: 'center', fontSize: 9 }}>Kungsgatan 12, Göteborg</div>
             <div style={{ marginTop: 6 }}><span className="ax-receipt-hl" style={d(1.5)}>2026-09-24</span> 14:12</div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Diesel 38,2 l</span><span>890,00</span></div>
@@ -71,7 +71,7 @@ const KvittoScene = (
             <div><div className="ax-label">Datum</div><div className="ax-field"><Typed text="2026-09-24" at={1.6} /></div></div>
             <div><div className="ax-label">Belopp ink moms (kr)</div><div className="ax-field"><Typed text="890,00" at={1.9} dur={0.4} /></div></div>
           </div>
-          <div><div className="ax-label">Inköpsställe / Leverantör</div><div className="ax-field"><Typed text="Circle K" at={2.2} dur={0.4} /></div></div>
+          <div><div className="ax-label">Inköpsställe / Leverantör</div><div className="ax-field"><Typed text="Exempelmacken" at={2.2} dur={0.4} /></div></div>
           <div>
             <div className="ax-label">Momssats</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 5 }}>
@@ -123,7 +123,7 @@ const BokforingScene = (
     <div className="ax-month"><span>September 2026</span><span>8 verifikationer</span></div>
     <div className="dp-slide dp-flash" style={d(0.6)}>
       <div className="ax-tr m-ver" style={{ ...VER_COLS, background: 'var(--ax-g-bg)' }}>
-        <ChevronDown size={11} className="dp-in" style={d(1.6)} /><span className="ax-b">A034</span><span className="ax-s ax-hide-sm">2026-09-24</span><span>Circle K</span><span className="ax-num ax-b">890,00</span><Pill className="ax-hide-sm">Bokförd</Pill>
+        <ChevronDown size={11} className="dp-in" style={d(1.6)} /><span className="ax-b">A034</span><span className="ax-s ax-hide-sm">2026-09-24</span><span>Exempelmacken</span><span className="ax-num ax-b">890,00</span><Pill className="ax-hide-sm">Bokförd</Pill>
       </div>
       <div className="dp-in" style={{ ...d(1.8), padding: '6px 18px 10px 42px', borderBottom: '1px solid var(--ax-border)', background: 'var(--ax-card)' }}>
         <div className="ax-tr ax-th" style={{ gridTemplateColumns: '1fr 70px 70px', padding: '0 10px', minHeight: 22 }}><span>Konto</span><span className="ax-num">Debet</span><span className="ax-num">Kredit</span></div>
@@ -135,7 +135,7 @@ const BokforingScene = (
     </div>
     <VerRow v="A033" date="2026-09-22" text="Betalning faktura 1008" amount="72 500,00" />
     <VerRow v="A032" date="2026-09-18" text="Lokalhyra" amount="45 000,00" />
-    <VerRow v="A031" date="2026-09-16" text="Lön Johanna Ek" amount="23 656,00" />
+    <VerRow v="A031" date="2026-09-16" text="Lön Johanna Exempel" amount="23 656,00" />
   </Shell>
 );
 
@@ -198,7 +198,7 @@ const EditorScene = (
     <div className="ax-body">
       <div className="axf">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9, minWidth: 0 }}>
-          <div><div className="ax-label">Kund</div><div className="ax-field"><Typed text="Linné Arkitekter AB" at={0.4} dur={0.8} /></div></div>
+          <div><div className="ax-label">Kund</div><div className="ax-field"><Typed text="Testkunden AB AB" at={0.4} dur={0.8} /></div></div>
           <div className="dp-in" style={{ ...d(1.3), display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             <div><div className="ax-label">Fakturadatum</div><div className="ax-field">2026-09-26</div></div>
             <div><div className="ax-label">Förfallodatum</div><div className="ax-field">2026-10-26</div></div>
@@ -220,7 +220,7 @@ const EditorScene = (
               <span style={{ fontWeight: 800, fontSize: 12, color: '#0b6329' }}>Ditt Företag AB</span>
               <span style={{ textAlign: 'right' }}><b style={{ fontSize: 11 }}>FAKTURA</b><br />Nr 1013</span>
             </div>
-            <div style={{ marginBottom: 10, minHeight: 26 }}><span style={{ color: '#888' }}>Till</span><br /><b className="dp-in" style={d(1.2)}>Linné Arkitekter AB</b></div>
+            <div style={{ marginBottom: 10, minHeight: 26 }}><span style={{ color: '#888' }}>Till</span><br /><b className="dp-in" style={d(1.2)}>Testkunden AB AB</b></div>
             <div className="axf-prow" style={{ color: '#888', fontWeight: 700 }}><span>Beskrivning</span><span style={{ textAlign: 'right' }}>Antal</span><span style={{ textAlign: 'right' }}>Belopp</span></div>
             <div className="axf-prow dp-in" style={d(2)}><span>Konsulttimmar</span><span style={{ textAlign: 'right' }}>12</span><span style={{ textAlign: 'right' }}>11 400,00</span></div>
             <div className="axf-prow dp-in" style={d(2.8)}><span>Resa till kund</span><span style={{ textAlign: 'right' }}>1</span><span style={{ textAlign: 'right' }}>600,00</span></div>
@@ -252,12 +252,12 @@ const SendScene = (
     <InvFilters />
     <InvHead />
     <style>{`@keyframes axToUnpaid { from { background: transparent; } to { background: var(--ax-row-unpaid); } } .ax-tounpaid { animation: axToUnpaid 0.6s ease var(--d) both; }`}</style>
-    <InvRow nr="1013" kund="Linné Arkitekter AB" due="2026-10-26" amount="15 000,00" className="ax-tounpaid" style={d(3.8)}><span className="dp-swap" style={{ justifyItems: 'start' }}><Pill kind="gray" className="dp-gone" style={d(3.6)}>Ej skickad</Pill><Pill kind="unpaid" className="dp-pop" style={d(3.8)}>Obetald</Pill></span></InvRow>
-    <InvRow nr="1012" kund="Almbring Bygg AB" due="2026-10-22" amount="75 000,00" tint="unpaid"><Pill kind="unpaid">Obetald</Pill></InvRow>
-    <InvRow nr="1011" kund="Lindgren Fastigheter AB" due="2026-10-15" amount="72 500,00" tint="paid"><Pill kind="paid"><Check strokeWidth={3} />Betald</Pill></InvRow>
-    <InvRow nr="1010" kund="Sjöstrand Design" due="2026-10-23" amount="69 000,00" tint="unpaid"><Pill kind="unpaid">Obetald</Pill></InvRow>
-    <InvRow nr="1009" kund="Almbring Bygg AB" due="2026-09-20" amount="47 500,00" tint="late"><Pill kind="late">Förfallen</Pill></InvRow>
-    <InvRow nr="1008" kund="Sjöstrand Design" due="2026-09-26" amount="72 500,00" tint="paid"><Pill kind="paid"><Check strokeWidth={3} />Betald</Pill></InvRow>
+    <InvRow nr="1013" kund="Testkunden AB AB" due="2026-10-26" amount="15 000,00" className="ax-tounpaid" style={d(3.8)}><span className="dp-swap" style={{ justifyItems: 'start' }}><Pill kind="gray" className="dp-gone" style={d(3.6)}>Ej skickad</Pill><Pill kind="unpaid" className="dp-pop" style={d(3.8)}>Obetald</Pill></span></InvRow>
+    <InvRow nr="1012" kund="Exempelbygg AB" due="2026-10-22" amount="75 000,00" tint="unpaid"><Pill kind="unpaid">Obetald</Pill></InvRow>
+    <InvRow nr="1011" kund="Testfastigheter AB" due="2026-10-15" amount="72 500,00" tint="paid"><Pill kind="paid"><Check strokeWidth={3} />Betald</Pill></InvRow>
+    <InvRow nr="1010" kund="Testdesign AB" due="2026-10-23" amount="69 000,00" tint="unpaid"><Pill kind="unpaid">Obetald</Pill></InvRow>
+    <InvRow nr="1009" kund="Exempelbygg AB" due="2026-09-20" amount="47 500,00" tint="late"><Pill kind="late">Förfallen</Pill></InvRow>
+    <InvRow nr="1008" kund="Testdesign AB" due="2026-09-26" amount="72 500,00" tint="paid"><Pill kind="paid"><Check strokeWidth={3} />Betald</Pill></InvRow>
     <div className="ax-scrim dp-gone" style={d(3.3)}>
       <div className="ax-modal dp-pop" style={d(0.2)}>
         <div className="ax-modal-head">Skicka faktura 1013<span className="ax-m" style={{ fontWeight: 400 }}>✕</span></div>
@@ -273,7 +273,7 @@ const SendScene = (
         <div className="ax-modal-foot"><span className="ax-btn-ghost">Avbryt</span><span className="ax-btn ax-click" style={c(2.8)}>Skicka</span></div>
       </div>
     </div>
-    <Toast delay={3.5}>Faktura 1013 skickad till Linné Arkitekter AB</Toast>
+    <Toast delay={3.5}>Faktura 1013 skickad till Testkunden AB AB</Toast>
   </Shell>
 );
 
@@ -283,16 +283,16 @@ const PaidScene = (
     <Top title="Kundfakturor" sub="Fakturor du skickar till dina kunder" action={<span className="ax-btn"><Plus size={11} /> Skapa faktura</span>} />
     <InvFilters />
     <InvHead />
-    <InvRow nr="1013" kund="Linné Arkitekter AB" due="2026-10-26" amount="15 000,00" className="ax-topaid" style={d(3)}>
+    <InvRow nr="1013" kund="Testkunden AB AB" due="2026-10-26" amount="15 000,00" className="ax-topaid" style={d(3)}>
       <span className="dp-swap" style={{ justifyItems: 'start' }}><Pill kind="unpaid" className="dp-gone" style={d(3)}>Obetald</Pill><Pill kind="paid" className="dp-pop" style={d(3.1)}><Check strokeWidth={3} />Betald 2026-10-02</Pill></span>
     </InvRow>
-    <InvRow nr="1010" kund="Sjöstrand Design" due="2026-10-23" amount="69 000,00" tint="unpaid"><Pill kind="unpaid">Obetald</Pill></InvRow>
-    <InvRow nr="1009" kund="Almbring Bygg AB" due="2026-09-20" amount="47 500,00" tint="late">
+    <InvRow nr="1010" kund="Testdesign AB" due="2026-10-23" amount="69 000,00" tint="unpaid"><Pill kind="unpaid">Obetald</Pill></InvRow>
+    <InvRow nr="1009" kund="Exempelbygg AB" due="2026-09-20" amount="47 500,00" tint="late">
       <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}><Pill kind="late">Förfallen</Pill><span className="ax-m dp-in" style={{ ...d(1.1), fontSize: 9.5 }}>Påminnelse skickad</span></span>
     </InvRow>
-    <InvRow nr="1008" kund="Sjöstrand Design" due="2026-09-26" amount="72 500,00" tint="paid"><Pill kind="paid"><Check strokeWidth={3} />Betald 2026-10-01</Pill></InvRow>
-    <InvRow nr="1007" kund="Almbring Bygg AB" due="2026-08-27" amount="107 500,00" tint="paid"><Pill kind="paid"><Check strokeWidth={3} />Betald 2026-09-01</Pill></InvRow>
-    <InvRow nr="1006" kund="Sjöstrand Design" due="2026-07-28" amount="98 750,00" tint="paid"><Pill kind="paid"><Check strokeWidth={3} />Betald 2026-08-02</Pill></InvRow>
+    <InvRow nr="1008" kund="Testdesign AB" due="2026-09-26" amount="72 500,00" tint="paid"><Pill kind="paid"><Check strokeWidth={3} />Betald 2026-10-01</Pill></InvRow>
+    <InvRow nr="1007" kund="Exempelbygg AB" due="2026-08-27" amount="107 500,00" tint="paid"><Pill kind="paid"><Check strokeWidth={3} />Betald 2026-09-01</Pill></InvRow>
+    <InvRow nr="1006" kund="Testdesign AB" due="2026-07-28" amount="98 750,00" tint="paid"><Pill kind="paid"><Check strokeWidth={3} />Betald 2026-08-02</Pill></InvRow>
     <div className="ax-toast dp-in" style={{ ...d(1.2), bottom: 58 }}><Check strokeWidth={3} />Påminnelse skickad för faktura 1009</div>
     <Toast delay={3.4}>Kortbetalning mottagen · 15 000 kr</Toast>
   </Shell>
@@ -418,7 +418,7 @@ const KorningScene = (
           <Pill kind="gray">Utkast</Pill>
         </div>
         <div className="ax-tr ax-th m-pay" style={PAY_COLS}><span>Anställd</span><span className="ax-num">Brutto</span><span className="ax-num">Skatt</span><span className="ax-num">Netto</span></div>
-        {[['Johanna Ek', '38 500', '−9 468', '29 032'], ['Oskar Lind', '42 000', '−10 332', '31 668']].map(([n, b, s, ne], i) => (
+        {[['Johanna Exempel', '38 500', '−9 468', '29 032'], ['Oskar Test', '42 000', '−10 332', '31 668']].map(([n, b, s, ne], i) => (
           <div key={n} className="ax-tr m-pay" style={PAY_COLS}>
             <span className="ax-b">{n}</span><span className="ax-num">{b}</span>
             <span className="ax-num ax-s dp-in" style={d(1.8 + i * 0.3)}>{s}</span><span className="ax-num ax-b dp-in" style={d(2.2 + i * 0.3)}>{ne}</span>
@@ -437,7 +437,7 @@ const LonebeskedScene = (
     <div className="ax-body" style={{ display: 'flex', justifyContent: 'center' }}>
       <div className="dp-pop" style={{ ...d(0.2), background: '#fff', color: '#1c1c1c', width: 'min(100%, 340px)', borderRadius: 4, boxShadow: '0 14px 36px -14px rgba(0,0,0,0.4)', padding: '16px 18px', fontSize: 10.5 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}><b style={{ color: '#0b6329', fontSize: 12 }}>Ditt Företag AB</b><span style={{ textAlign: 'right' }}><b>LÖNEBESKED</b><br />September 2026</span></div>
-        <div style={{ marginBottom: 10 }}><b>Johanna Ek</b><br /><span style={{ color: '#777' }}>Utbetalning 2026-09-25</span></div>
+        <div style={{ marginBottom: 10 }}><b>Johanna Exempel</b><br /><span style={{ color: '#777' }}>Utbetalning 2026-09-25</span></div>
         {[['Månadslön', '38 500,00', 0.7], ['Skatteavdrag enligt tabell', '−9 468,00', 1.1], ['Semesterdagar kvar', '18', 1.5]].map(([k, v, t]) => (
           <div key={k} className="dp-in" style={{ ...d(t), display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #eee' }}><span>{k}</span><span>{v}</span></div>
         ))}
