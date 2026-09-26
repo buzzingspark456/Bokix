@@ -189,7 +189,6 @@ export const NAV_MENUS = [
       {
         title: 'Lär dig',
         items: [
-          { title: 'Videoguider', desc: 'Se hur du gör i Bokix', to: '/guider' },
           { title: 'Blogg & guider', desc: 'Bokföring förklarad steg för steg', to: '/blogg' },
           { title: 'Ordlista', desc: 'Ekonomiska begrepp från A till Ö', to: '/ordlista' },
           { title: 'Vanliga frågor', desc: 'Snabba svar om Bokix', to: '/vanliga-fragor' },
