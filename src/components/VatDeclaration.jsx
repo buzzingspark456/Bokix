@@ -251,7 +251,7 @@ export default function VatDeclaration({
                   {rutorForDisplay.map((r) => {
                     const isNet = r.kind === 'net';
                     return (
-                      <tr key={r.ruta} style={{ borderTop: '1px solid var(--border-light)', background: isNet ? 'var(--bg-muted)' : 'white' }}>
+                      <tr key={r.ruta} style={{ borderTop: '1px solid var(--border-light)', background: isNet ? 'var(--bg-muted)' : 'var(--bg-card)' }}>
                         <td style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--text-main)' }}>{r.ruta}</td>
                         <td style={{ padding: '12px 16px', color: 'var(--text-main)' }}>
                           {isNet ? (isRefund ? 'Moms att återfå' : 'Moms att betala') : r.label}

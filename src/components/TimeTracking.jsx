@@ -338,10 +338,10 @@ export default function TimeTracking({
 
             <form onSubmit={handleSubmit} style={{ padding: '24px' }}>
               <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', background: 'var(--border-light)', padding: '4px', borderRadius: '10px' }}>
-                <button type="button" onClick={() => setForm(f => ({ ...f, type: 'kund' }))} style={{ flex: 1, padding: '8px', borderRadius: '8px', border: 'none', fontSize: '13px', fontWeight: 600, cursor: 'pointer', background: form.type === 'kund' ? 'white' : 'transparent', color: form.type === 'kund' ? 'var(--text-main)' : 'var(--text-secondary)', boxShadow: form.type === 'kund' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', transition: 'all 0.15s' }}>
+                <button type="button" onClick={() => setForm(f => ({ ...f, type: 'kund' }))} style={{ flex: 1, padding: '8px', borderRadius: '8px', border: 'none', fontSize: '13px', fontWeight: 600, cursor: 'pointer', background: form.type === 'kund' ? 'var(--bg-card)' : 'transparent', color: form.type === 'kund' ? 'var(--text-main)' : 'var(--text-secondary)', boxShadow: form.type === 'kund' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', transition: 'all 0.15s' }}>
                   Fakturering (Kund)
                 </button>
-                <button type="button" onClick={() => setForm(f => ({ ...f, type: 'anstalld' }))} style={{ flex: 1, padding: '8px', borderRadius: '8px', border: 'none', fontSize: '13px', fontWeight: 600, cursor: 'pointer', background: form.type === 'anstalld' ? 'white' : 'transparent', color: form.type === 'anstalld' ? 'var(--text-main)' : 'var(--text-secondary)', boxShadow: form.type === 'anstalld' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', transition: 'all 0.15s' }}>
+                <button type="button" onClick={() => setForm(f => ({ ...f, type: 'anstalld' }))} style={{ flex: 1, padding: '8px', borderRadius: '8px', border: 'none', fontSize: '13px', fontWeight: 600, cursor: 'pointer', background: form.type === 'anstalld' ? 'var(--bg-card)' : 'transparent', color: form.type === 'anstalld' ? 'var(--text-main)' : 'var(--text-secondary)', boxShadow: form.type === 'anstalld' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', transition: 'all 0.15s' }}>
                   Löneunderlag (Anställd)
                 </button>
               </div>
