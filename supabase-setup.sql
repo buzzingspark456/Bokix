@@ -87,6 +87,8 @@ AS $$
           OR (
             (u.raw_user_meta_data ->> 'uf') = 'true'
             AND u.created_at + interval '3 months' > now()
+            -- Avslutat UF-år (app_metadata, bara servern skriver) = inte gratis längre.
+            AND (u.raw_app_meta_data ->> 'uf_closed_at') IS NULL
           )
         )
     )

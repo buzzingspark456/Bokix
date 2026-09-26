@@ -46,6 +46,13 @@ export async function ensureArchiveBucket(admin) {
   if (error && !/already exists/i.test(error.message || '')) throw error;
 }
 
+/** Tre månader fram, för UF-företag (ingen bokföringslag). */
+export function ufArchiveKeepUntil(now = new Date()) {
+  const d = new Date(now.getTime());
+  d.setMonth(d.getMonth() + 3);
+  return d.toISOString().slice(0, 10);
+}
+
 function yearOf(value) {
   if (typeof value !== 'string') return null;
   const m = /^(\d{4})-\d{2}-\d{2}/.exec(value);
@@ -182,7 +189,9 @@ export async function archiveCompany(admin, { userId, companyId, companyData, re
   if (!hasBooks) return { path: null, keepUntil: null, files: 0, bytes: 0, skipped: true };
 
   await ensureArchiveBucket(admin);
-  const keepUntil = archiveKeepUntil(companyData, now);
+  // Ett UF-företag omfattas inte av bokföringslagen: arkivet sparas tre
+  // månader (samma tid som ett avslutat UF-konto, se _ufAccount.js), inte sju år.
+  const keepUntil = companyData?.company?.isUf ? ufArchiveKeepUntil(now) : archiveKeepUntil(companyData, now);
   const base = `${userId}/${companyId}/${stamp(now)}-${reason}-t${keepUntil}`;
   const files = [];
   let bytes = 0;

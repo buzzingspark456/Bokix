@@ -1,5 +1,6 @@
 import { collectStoragePaths } from '../../src/utils/storageUrls.js';
 import { snapshotAllUsers, pruneExpiredArchives } from '../_archive.js';
+import { deleteClosedUfAccounts } from '../_ufAccount.js';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Datastädning — kör en gång per dygn från api/cron/reminders.js.
@@ -185,6 +186,13 @@ export async function runDataRetention(admin, options = {}) {
     result.orphanFiles = await cleanOrphanFiles(admin, options);
   } catch (err) {
     result.errors.push(`orphanFiles: ${err.message}`);
+  }
+  // Avslutade UF-konton vars tre månader gått ut (ingen bokföringslag för UF).
+  try {
+    result.closedUfAccounts = await deleteClosedUfAccounts(admin, options);
+    if (result.closedUfAccounts.errors.length) result.errors.push(...result.closedUfAccounts.errors.slice(0, 5).map(e => `ufClose ${e}`));
+  } catch (err) {
+    result.errors.push(`closedUfAccounts: ${err.message}`);
   }
   try {
     result.abandonedSignups = await cleanAbandonedSignups(admin, options);

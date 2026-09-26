@@ -2048,7 +2048,8 @@ function App() {
       // riktiga spärren — det här är bara så appen och databasen är överens.
       const ufMeta = authUser.user_metadata || {};
       const ufFree = ufMeta.uf ? ufFreePeriod(authUser.created_at) : null;
-      const withinUfFreePeriod = Boolean(ufFree && !ufFree.expired);
+      // Ett avslutat UF-år (app_metadata, se utils/ufClose.js) räknas som slut.
+      const withinUfFreePeriod = Boolean(ufFree && !ufFree.expired) && !authUser.app_metadata?.uf_closed_at;
 
       if (!hasSharedAccess && !withinUfFreePeriod && !isFreeAccountEmail(authUser.email) && (!subRow || !ALLOWED_SUBSCRIPTION_STATUSES.includes(subRow.status))) {
         setSubscriptionGate('blocked');

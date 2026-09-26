@@ -4,8 +4,10 @@ import { parseJsonBody } from './stripe/_parseBody.js';
 import { requireAuthedUser, loadOwnedCompany } from './_auth.js';
 import { checkRateLimit } from './_rateLimit.js';
 import { archiveCompany } from './_archive.js';
+import { closeUfAccount } from './_ufAccount.js';
 
 // POST /api/archive { company_id, reason: 'reset' | 'delete' }
+// POST /api/archive { action: 'uf_close' }  avslutar UF-året, se _ufAccount.js
 //
 // Anropas av appen INNAN ett företag töms (Radera data) eller tas bort
 // (Radera företag). Företaget läses från databasen här på servern, inte från
@@ -26,6 +28,14 @@ export default async function handler(req, res) {
   if (!user) return;
 
   const body = await parseJsonBody(req);
+
+  if (body?.action === 'uf_close') {
+    const admin = createClient(process.env.VITE_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+    const result = await closeUfAccount(admin, user);
+    res.status(result.status).json(result.body);
+    return;
+  }
+
   const companyId = body?.company_id;
   const reason = body?.reason;
   if (!companyId || !REASONS.has(reason)) {

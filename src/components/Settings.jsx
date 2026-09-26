@@ -23,6 +23,7 @@ import { downloadSie4 } from '../utils/sieExport';
 import { planFromId, PLAN_TIERS } from '../utils/plans';
 import { ACCESS_PAGES, ACCESS_LEVELS, defaultPageAccess, accessForPage } from '../utils/pageAccess';
 import { isUfCompany, ufSettingsSections, ufFreePeriod, UF_FREE_MONTHS } from '../utils/ufMode';
+import { closeUfYear } from '../utils/ufClose';
 import SieImportModal from './SieImportModal';
 import { ProgramLogo } from './shared/BrandLogos';
 import { MIGRATION_SOURCES } from '../utils/migrationSources';
@@ -2056,8 +2057,25 @@ function UsageCard({ invoices, verifications, contacts, expenses }) {
 // samma uträkning som betalspärren vid inloggning använder, så kortet
 // aldrig kan säga "12 dagar kvar" om spärren redan tycker att perioden
 // löpt ut.
-function UfSubscriptionCard({ company }) {
+function UfSubscriptionCard({ company, canClose = true }) {
   const period = ufFreePeriod(company?.ufStartedAt);
+  const [closing, setClosing] = useState(false);
+  const [closeError, setCloseError] = useState('');
+  // Klara med UF-året före gratisperiodens slut? Samma avslut som i
+  // betalspärren (utils/ufClose.js). Efteråt laddas appen om, så att den
+  // skrivskyddade vyn med raderingsdatumet visas.
+  const handleClose = async () => {
+    setCloseError('');
+    setClosing(true);
+    try {
+      const result = await closeUfYear();
+      if (result) window.location.reload();
+      else setClosing(false);
+    } catch (err) {
+      setCloseError(err.message);
+      setClosing(false);
+    }
+  };
   const endsLabel = period.endsAt
     ? new Intl.DateTimeFormat('sv-SE', { day: 'numeric', month: 'long', year: 'numeric' }).format(period.endsAt)
     : null;
@@ -2072,13 +2090,25 @@ function UfSubscriptionCard({ company }) {
       </div>
       <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.7 }}>
         {period.expired ? (
-          <>Gratisperioden på {UF_FREE_MONTHS} månader tog slut {endsLabel}. Bokföringen ligger kvar — hör av er till support@bokix.se så löser vi fortsättningen.</>
+          <>Gratisperioden på {UF_FREE_MONTHS} månader tog slut {endsLabel}. Vill ni fortsätta väljer ni en prenumeration, annars kan ni avsluta UF-året här nedanför.</>
         ) : period.known ? (
           <>Gratis till och med <strong style={{ color: 'var(--text-main)' }}>{endsLabel}</strong>{daysLabel}. Inga betaluppgifter är registrerade, och ingenting börjar kosta automatiskt när perioden tar slut.</>
         ) : (
           <>Kontot är gratis i {UF_FREE_MONTHS} månader. Inga betaluppgifter är registrerade, och ingenting börjar kosta automatiskt.</>
         )}
       </div>
+      {canClose && (
+        <div style={{ marginTop: '16px', paddingTop: '14px', borderTop: '1px solid var(--border-light)' }}>
+          <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '4px' }}>Klara med UF-året?</div>
+          <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.6, margin: '0 0 10px' }}>
+            Avsluta kontot när ni är klara. Allt ligger kvar i tre månader så att ni hinner ladda ner bokföringen, sedan raderas det. Ett UF-företag omfattas inte av bokföringslagen, så inget behöver sparas längre.
+          </p>
+          <button type="button" className="btn btn-secondary" onClick={handleClose} disabled={closing}>
+            {closing ? 'Avslutar…' : 'Avsluta UF-året'}
+          </button>
+          {closeError && <div style={{ fontSize: '12.5px', color: 'var(--status-red-text)', fontWeight: 600, marginTop: '8px' }}>{closeError}</div>}
+        </div>
+      )}
     </SettingCard>
   );
 }
@@ -4076,7 +4106,7 @@ export default function Settings({
                       "ingen aktiv prenumeration", vilket låter som ett fel
                       på ett konto som fungerar precis som det ska. */}
                   {isUfCompany(company)
-                    ? <UfSubscriptionCard company={company} />
+                    ? <UfSubscriptionCard company={company} canClose={!sharedAccess && !readOnly} />
                     : <SubscriptionSection user={user} company={company} sharedAccess={sharedAccess} readOnly={readOnly} />}
                 </SettingsSection>
 

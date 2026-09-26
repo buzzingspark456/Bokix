@@ -218,6 +218,8 @@ export function isFreeEmail(email) {
 const UF_FREE_MONTHS = 3;
 export function isWithinUfFreePeriod(user) {
   if (!user?.user_metadata?.uf) return false;
+  // Avslutat UF-år (app_metadata, bara servern kan skriva) = perioden är slut.
+  if (user.app_metadata?.uf_closed_at) return false;
   const created = new Date(user.created_at);
   if (Number.isNaN(created.getTime())) return false;
   const endsAt = new Date(created.getTime());

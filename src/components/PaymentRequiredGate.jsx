@@ -5,6 +5,7 @@ import { BRAND } from '../utils/brandColors';
 import { BokixWordmark } from './marketing/MarketingLayout';
 import { createStripeSubscriptionCheckout } from '../stripeApi';
 import { supabase } from '../supabaseClient';
+import { closeUfYear, ufClosedInfo } from '../utils/ufClose';
 
 // ── Litet Stripe-märke — inte loggans exakta glyf (för riskabelt att
 // pixel-återskapa träffsäkert som SVG-path), utan samma konvention som
@@ -36,6 +37,25 @@ export default function PaymentRequiredGate({ user, company, onSignedOut }) {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const forCompany = Boolean(company?.requiresOwnPayment);
+  // UF-konto vars gratisperiod är slut (eller som avslutat UF-året): två val,
+  // fortsätta och betala, eller avsluta. UF omfattas inte av bokföringslagen,
+  // så ett avslutat konto sparas i tre månader och raderas sedan (se
+  // utils/ufClose.js och api/_ufAccount.js).
+  const isUf = !forCompany && Boolean(user?.user_metadata?.uf);
+  const [ufClosed, setUfClosed] = useState(() => ufClosedInfo(user));
+  const [closing, setClosing] = useState(false);
+  const handleCloseUf = async () => {
+    setErrorMsg('');
+    setClosing(true);
+    try {
+      const result = await closeUfYear();
+      if (result) setUfClosed(result);
+    } catch (err) {
+      setErrorMsg(err.message);
+    } finally {
+      setClosing(false);
+    }
+  };
   // Den som slutat betala äger fortfarande sin bokföring och måste enligt
   // bokföringslagen kunna visa upp den i sju år. Betalspärren får därför
   // aldrig stänga ute någon från sina egna räkenskaper: har kontot bokföring
@@ -111,10 +131,14 @@ export default function PaymentRequiredGate({ user, company, onSignedOut }) {
         </div>
 
         <h1 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '10px', letterSpacing: '-0.01em' }}>
-          {forCompany ? 'Slutför betalningen för det här företaget' : returning ? 'Din prenumeration är inte aktiv' : 'Slutför din betalning för att fortsätta'}
+          {isUf ? (ufClosed ? 'UF-året är avslutat' : 'Ert UF-år är slut') : forCompany ? 'Slutför betalningen för det här företaget' : returning ? 'Din prenumeration är inte aktiv' : 'Slutför din betalning för att fortsätta'}
         </h1>
         <p style={{ fontSize: '14.5px', color: 'var(--text-secondary)', lineHeight: 1.65, marginBottom: '28px' }}>
-          {forCompany
+          {isUf
+            ? (ufClosed
+              ? <>Kontot är skrivskyddat. Allt raderas den <strong>{ufClosed.deleteLabel}</strong>, så ladda ner det ni behöver innan dess. Ångrar ni er kan ni fortsätta med Bokix fram till dess.</>
+              : <>Gratisperioden är slut. Vill ni driva företaget vidare fortsätter ni med Bokix. Är ni klara avslutar ni UF-året: allt ligger kvar i tre månader så att ni hinner ladda ner det, sedan raderas det. Ett UF-företag omfattas inte av bokföringslagen, så inget behöver sparas längre än så.</>)
+            : forCompany
             ? <>Varje företag i Bokix betalas för sig — <strong>{company?.name || 'det här företaget'}</strong> väntar fortfarande på betalningsuppgifter hos Stripe. 30 dagar gratis, sedan 179 kr/mån — avsluta innan dess så kostar det ingenting.</>
             : returning
               ? <>Kontot {user?.email} har ingen aktiv prenumeration. Starta den igen för att fortsätta bokföra. Din bokföring finns kvar och kan laddas ner här nedanför.</>
@@ -132,8 +156,19 @@ export default function PaymentRequiredGate({ user, company, onSignedOut }) {
           disabled={loading}
           style={{ width: '100%', padding: '14px', background: BRAND.green, border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: 700, color: 'white', cursor: loading ? 'wait' : 'pointer', boxShadow: '0 2px 6px color-mix(in srgb, var(--accent) 25%, transparent)', fontFamily: 'inherit', opacity: loading ? 0.7 : 1, marginBottom: '14px' }}
         >
-          {loading ? 'Skickar dig till Stripe...' : 'Fortsätt till betalning'}
+          {loading ? 'Skickar dig till Stripe...' : isUf ? 'Fortsätt med Bokix' : 'Fortsätt till betalning'}
         </button>
+
+        {isUf && !ufClosed && (
+          <button
+            type="button"
+            onClick={handleCloseUf}
+            disabled={closing}
+            style={{ width: '100%', padding: '13px', background: 'transparent', border: '1.5px solid var(--border)', borderRadius: '10px', fontSize: '14.5px', fontWeight: 700, color: 'var(--text-main)', cursor: closing ? 'wait' : 'pointer', fontFamily: 'inherit', marginBottom: '14px' }}
+          >
+            {closing ? 'Avslutar…' : 'Avsluta UF-året'}
+          </button>
+        )}
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '12.5px', color: 'var(--text-muted)', marginBottom: '20px' }}>
           <Lock size={12} /> Säker betalning via <StripeBadge />
@@ -141,9 +176,11 @@ export default function PaymentRequiredGate({ user, company, onSignedOut }) {
 
         {ownCompanies.length > 0 && (
           <div style={{ textAlign: 'left', borderTop: '1px solid var(--border)', paddingTop: '18px', marginBottom: '18px' }}>
-            <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '4px' }}>Din bokföring finns kvar</div>
+            <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '4px' }}>{ufClosed ? `Finns kvar till ${ufClosed.deleteLabel}` : 'Din bokföring finns kvar'}</div>
             <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.55, margin: '0 0 12px' }}>
-              Du kan ladda ner den utan att betala. SIE4 läses av alla svenska bokföringsprogram och av din revisor. Kvitton och underlag kan du begära ut via support@bokix.se.
+              {isUf
+                ? 'Ladda ner den utan att betala, till exempel som underlag för årsredovisningen hos Ung Företagsamhet. Kvitton och underlag kan ni begära ut via support@bokix.se.'
+                : 'Du kan ladda ner den utan att betala. SIE4 läses av alla svenska bokföringsprogram och av din revisor. Kvitton och underlag kan du begära ut via support@bokix.se.'}
             </p>
             {ownCompanies.map(c => (
               <div key={c.company?.id || c.company?.name} style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', padding: '8px 0' }}>

@@ -68,6 +68,11 @@ describe('_auth betalningsspärr', () => {
     expect(isWithinUfFreePeriod(user)).toBe(false);
   });
 
+  it('ett avslutat UF-år räknas inte som gratisperiod', () => {
+    const user = { created_at: daysAgo(10), user_metadata: { uf: true }, app_metadata: { uf_closed_at: new Date().toISOString() } };
+    expect(isWithinUfFreePeriod(user)).toBe(false);
+  });
+
   it('blockerar konton utan prenumeration med 402', async () => {
     const res = createMockRes();
     db.subscriptions.u1 = ['canceled'];
