@@ -185,92 +185,128 @@ export async function loadMemberCompany(userId, companyId, res) {
   return { companyData, role: membership.role, pageAccess: membership.page_access || null, ownerUserId: membership.owner_user_id };
 }
 
-// ── Server-side payment enforcement ─────────────────────────────────────
-// Mirrors the client-side gate in App.jsx (ALLOWED_SUBSCRIPTION_STATUSES,
-// FREE_ACCOUNT_EMAILS, UF free period, shared access) but as a real
-// security boundary. The client gate is product UX; this is the lock.
+// ── Server-side betalningsspärr ────────────────────────────────────────
+// Speglar klientspärren i App.jsx (ALLOWED_SUBSCRIPTION_STATUSES,
+// FREE_ACCOUNT_EMAILS, UF-gratisperiod, delad åtkomst), men som en riktig
+// säkerhetsgräns. Klientspärren är produktens UX, det här är låset.
+// Samma regler finns i databasen: public.has_paid_access() i
+// supabase-setup.sql. Ändras en regel här ska den ändras där också.
 //
-// Call AFTER requireAuthedUser — needs the verified user object.
-// Returns true if the user may proceed, false if res has already been
-// written (402 Payment Required).
-//
-// Exempt callers (subscription checkout, archive download, webhook, cron,
-// password reset) must NOT call this — they handle their own auth.
+// Undantagna anrop (prenumerationskassan, arkivnedladdningen, webhook,
+// cron, lösenordsåterställning, signed_url för läsning) ska INTE anropa
+// det här — läsrätten finns kvar i sju år även utan prenumeration.
 
 const ALLOWED_SUBSCRIPTION_STATUSES = ['trialing', 'active', 'past_due'];
 
-// Same two admin/owner emails as App.jsx FREE_ACCOUNT_EMAIL_HASHES and
-// admin/index.js ADMIN_EMAILS — but server-side we can use plaintext
-// (never in a client bundle). Kept in sync manually; a mismatch only
-// means one side is more generous, never less safe.
+// Samma två konton som App.jsx FREE_ACCOUNT_EMAIL_HASHES och
+// admin/index.js ADMIN_EMAILS. Klartext går bra här: serverkod hamnar
+// aldrig i den publika JS-bunten, och repot är privat.
 const FREE_EMAILS = ['alwakiabdullah1@gmail.com', 'abbealwaki08@gmail.com'];
 
 export function isFreeEmail(email) {
   return FREE_EMAILS.includes(String(email || '').trim().toLowerCase());
 }
 
-/** UF free period check — same logic as ufFreePeriod in src/utils/ufMode.js.
- *  Duplicated here to avoid importing client-side modules into the API. */
+/** UF-gratisperioden, räknad från KONTOTS skapelsedatum (auth.users.created_at).
+ *  Medvetet INTE från user_metadata.uf_started_at: user_metadata kan varje
+ *  inloggad användare skriva om själv (supabase.auth.updateUser), så ett
+ *  datum därifrån gick att flytta fram för evigt gratis. uf_started_at sätts
+ *  ändå vid registreringen (Auth.jsx), så för ett riktigt UF-konto är de två
+ *  samma tidpunkt. Flaggan `uf` ligger kvar i user_metadata — den går att
+ *  sätta själv, men ger då högst tre månader från registreringen, samma
+ *  sak som en provperiod. */
 const UF_FREE_MONTHS = 3;
-function isWithinUfFreePeriod(userMetadata) {
-  if (!userMetadata?.uf) return false;
-  const startedAt = userMetadata.uf_started_at;
-  if (!startedAt) return true; // unknown start → don't lock out
-  const start = new Date(startedAt);
-  if (Number.isNaN(start.getTime())) return true;
-  const endsAt = new Date(start.getTime());
+export function isWithinUfFreePeriod(user) {
+  if (!user?.user_metadata?.uf) return false;
+  const created = new Date(user.created_at);
+  if (Number.isNaN(created.getTime())) return false;
+  const endsAt = new Date(created.getTime());
   endsAt.setMonth(endsAt.getMonth() + UF_FREE_MONTHS);
   return new Date() < endsAt;
 }
 
-/**
- * Verifies that `user` has an active Bokix subscription.
- *
- * Returns `true` → caller may proceed.
- * Returns `false` → res already written (402), caller must `return`.
- *
- * @param {object} user  Verified Supabase user from requireAuthedUser
- * @param {object} res   Express/Vercel response
- */
-export async function requireActiveSubscription(user, res) {
-  // 1. Admin / free accounts — always allowed
-  if (isFreeEmail(user.email)) return true;
-
-  // 2. UF free period
-  if (isWithinUfFreePeriod(user.user_metadata)) return true;
-
-  // 3. Shared access (invited member) — the OWNER pays, not the member.
-  //    If the user has ANY active membership they're let through; the
-  //    owner's own subscription status is the owner's problem.
+function adminClient() {
   const supabaseUrl = process.env.VITE_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!supabaseUrl || !serviceRoleKey) {
-    // Can't check → fail open with a warning (same philosophy as
-    // hasExistingSubscription in _subscriptions.js).
-    console.warn('requireActiveSubscription: SUPABASE_SERVICE_ROLE_KEY missing, skipping check.');
-    return true;
+  if (!supabaseUrl || !serviceRoleKey) return null;
+  return createClient(supabaseUrl, serviceRoleKey);
+}
+
+/** Har kontot `userId` själv rätt att använda Bokix (egen prenumeration,
+ *  gratiskonto eller UF-period)? `knownUser` = redan verifierad användare,
+ *  annars slås kontot upp. Vid databasfel släpps kontot igenom (loggas):
+ *  en betalande kund ska aldrig låsas ute av ett tillfälligt fel. */
+export async function hasPaidAccess(admin, userId, knownUser = null) {
+  let user = knownUser;
+  if (!user) {
+    const { data, error } = await admin.auth.admin.getUserById(userId);
+    if (error) {
+      console.warn('hasPaidAccess: kunde inte läsa kontot, släpper igenom.', error.message);
+      return true;
+    }
+    user = data?.user || null;
   }
-  const admin = createClient(supabaseUrl, serviceRoleKey);
+  if (user && isFreeEmail(user.email)) return true;
+  if (user && isWithinUfFreePeriod(user)) return true;
 
-  const { data: membership } = await admin
-    .from('company_members')
-    .select('id')
-    .eq('member_user_id', user.id)
-    .eq('status', 'active')
-    .limit(1)
-    .maybeSingle();
-  if (membership) return true;
-
-  // 4. Check the subscriptions table — ANY row with an allowed status
-  //    (legacy '' company_id or a real per-company one) counts.
-  const { data: subs } = await admin
+  const { data: subs, error } = await admin
     .from('subscriptions')
     .select('status')
-    .eq('user_id', user.id);
-  const hasActive = (subs || []).some(s => ALLOWED_SUBSCRIPTION_STATUSES.includes(s.status));
-  if (hasActive) return true;
+    .eq('user_id', userId);
+  if (error) {
+    console.warn('hasPaidAccess: kunde inte läsa subscriptions, släpper igenom.', error.message);
+    return true;
+  }
+  return (subs || []).some(s => ALLOWED_SUBSCRIPTION_STATUSES.includes(s.status));
+}
 
-  // No valid subscription found.
-  res.status(402).json({ error: 'Ingen aktiv prenumeration. Gå till betalningssidan.' });
+function paymentRequired(res, message = 'Ingen aktiv prenumeration. Gå till betalningssidan.') {
+  res.status(402).json({ error: message });
   return false;
+}
+
+/**
+ * Får `user` använda betalda funktioner? Egen prenumeration, gratiskonto,
+ * UF-period — eller aktivt medlemskap i ett företag vars ÄGARE har betald
+ * åtkomst. Ett medlemskap hos en ägare som slutat betala räcker inte: annars
+ * kunde ett obetalt konto bjuda in sin egen andra e-postadress och fortsätta
+ * gratis via den.
+ *
+ * Returnerar true om anroparen får fortsätta, annars false (402 redan skickat).
+ */
+export async function requireActiveSubscription(user, res) {
+  if (isFreeEmail(user.email)) return true;
+  if (isWithinUfFreePeriod(user)) return true;
+
+  const admin = adminClient();
+  if (!admin) {
+    console.warn('requireActiveSubscription: SUPABASE_SERVICE_ROLE_KEY saknas, hoppar över kontrollen.');
+    return true;
+  }
+
+  if (await hasPaidAccess(admin, user.id, user)) return true;
+
+  const { data: memberships, error } = await admin
+    .from('company_members')
+    .select('owner_user_id')
+    .eq('member_user_id', user.id)
+    .eq('status', 'active');
+  if (error) {
+    console.warn('requireActiveSubscription: kunde inte läsa medlemskap, släpper igenom.', error.message);
+    return true;
+  }
+  const owners = [...new Set((memberships || []).map(m => m.owner_user_id))];
+  for (const ownerId of owners) {
+    if (await hasPaidAccess(admin, ownerId)) return true;
+  }
+  return paymentRequired(res);
+}
+
+/** För en inbjuden medlem som skriver i ägarens företag: det är ÄGAREN som
+ *  ska ha betald åtkomst, inte medlemmen. */
+export async function requireOwnerPaidAccess(ownerUserId, res) {
+  const admin = adminClient();
+  if (!admin) return true;
+  if (await hasPaidAccess(admin, ownerUserId)) return true;
+  return paymentRequired(res, 'Företagets ägare har ingen aktiv prenumeration. Ändringar kan inte sparas just nu.');
 }

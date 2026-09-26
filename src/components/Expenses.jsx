@@ -1039,7 +1039,7 @@ function ReceiptThumbImg({ url }) {
   const activeUrl = useSignedUrl(url);
   if (!activeUrl) return null;
   return (
-    <img src={activeUrl} alt="Kvitto" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.currentTarget.style.display = 'none'; }} />
+    <img key={activeUrl} src={activeUrl} alt="Kvitto" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.currentTarget.style.display = 'none'; }} />
   );
 }
 

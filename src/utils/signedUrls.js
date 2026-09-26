@@ -89,17 +89,36 @@ export async function getSignedStorageUrl(urlOrPath) {
 }
 
 /**
- * React hook to automatically resolve and cache signed URLs for document rendering.
+ * Synkront: vad en komponent ska visa INNAN signeringen är klar. För en
+ * privat fil (bokix-uploads) är svaret null — den gamla publika länken
+ * fungerar inte längre sedan bucketen blev privat, och att rendera den gav
+ * en misslyckad bildladdning som markerade bilden som trasig (onError) innan
+ * den giltiga länken hann komma. Finns en giltig länk i cachen används den
+ * direkt. Allt annat (blob:, data:, publika buckets) visas som det är.
+ */
+export function initialSignedUrl(url) {
+  if (!url || typeof url !== 'string') return url;
+  if (url.startsWith('blob:') || url.startsWith('data:')) return url;
+  if (url.includes('/object/sign/') && url.includes('token=')) return url;
+  const parsed = parseStorageUrl(url);
+  if (!parsed || parsed.bucket !== 'bokix-uploads') return url;
+  const cached = signedUrlCache.get(`${parsed.bucket}/${parsed.path}`);
+  if (cached && cached.expiresAt > Date.now() + 60000) return cached.signedUrl;
+  return null;
+}
+
+/**
+ * React-hook som ger en visningsbar länk. Returnerar null medan en privat
+ * fil signeras (se initialSignedUrl) — komponenten ska då vänta, inte
+ * rendera något som kan misslyckas.
  */
 export function useSignedUrl(url) {
-  const [resolvedUrl, setResolvedUrl] = useState(url);
+  const [resolvedUrl, setResolvedUrl] = useState(() => initialSignedUrl(url));
 
   useEffect(() => {
     let active = true;
-    if (!url) {
-      setResolvedUrl(url);
-      return;
-    }
+    setResolvedUrl(initialSignedUrl(url));
+    if (!url) return undefined;
 
     getSignedStorageUrl(url).then(signed => {
       if (active) setResolvedUrl(signed);

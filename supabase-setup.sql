@@ -59,61 +59,79 @@ FOR SELECT
 USING ((select auth.uid()) = user_id);
 
 -- ── Server-side betalningsspärr för skrivningar (RLS) ─────────────
--- Speglar klientspärren i App.jsx (ALLOWED_SUBSCRIPTION_STATUSES,
--- FREE_ACCOUNT_EMAILS, UF-provperiod och delad åtkomst via company_members).
--- LÄSNING (SELECT ovan) förblir ALLTID tillåten för ägaren så att böcker
--- och SIE4-arkiv kan laddas ner i 7 år enligt lag (PaymentRequiredGate).
--- SKRIVNING (INSERT/UPDATE/DELETE) kräver aktiv prenumeration eller undantag.
+-- Speglar spärren i App.jsx och api/_auth.js. LÄSNING (SELECT ovan) är
+-- alltid tillåten för ägaren så att böckerna kan laddas ner i 7 år.
+-- SKRIVNING kräver betald åtkomst. Rättad 2026-09-26, se
+-- supabase-2026-09-26-betalsparr-fix.sql för vad som ändrades och varför.
+-- company_members och subscriptions skapas längre ner i den här filen.
+-- Utan raden nedan stoppar Postgres på en tom databas, eftersom
+-- SQL-funktioner annars kontrolleras mot tabellerna när de skapas.
+SET check_function_bodies = off;
+
+-- Har kontot betald åtkomst på egen hand? Gratiskonto, UF-period (tre
+-- månader från registreringen) eller en prenumeration med giltig status.
+-- Samma regler som hasPaidAccess i api/_auth.js.
+CREATE OR REPLACE FUNCTION public.has_paid_access(target_user_id uuid)
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public, pg_temp
+AS $$
+  SELECT
+    EXISTS (
+      SELECT 1 FROM auth.users u
+      WHERE u.id = target_user_id
+        AND (
+          lower(coalesce(u.email, '')) IN ('alwakiabdullah1@gmail.com', 'abbealwaki08@gmail.com')
+          OR (
+            (u.raw_user_meta_data ->> 'uf') = 'true'
+            AND u.created_at + interval '3 months' > now()
+          )
+        )
+    )
+    OR EXISTS (
+      SELECT 1 FROM public.subscriptions s
+      WHERE s.user_id = target_user_id
+        AND s.status IN ('trialing', 'active', 'past_due')
+    );
+$$;
+
+-- Ingen ska kunna fråga databasen om ett ANNAT kontos betalstatus via
+-- RPC. Funktionen används bara inifrån can_write_user_data nedan (som
+-- körs som ägaren av funktionerna och därför fortfarande får anropa den).
+REVOKE EXECUTE ON FUNCTION public.has_paid_access(uuid) FROM PUBLIC, anon, authenticated;
+
+-- Får den inloggade användaren skriva i sin egen user_data-rad?
+-- Egen betald åtkomst, eller aktiv medlem i ett företag vars ägare har det.
 CREATE OR REPLACE FUNCTION public.can_write_user_data(target_user_id uuid)
 RETURNS boolean
 LANGUAGE sql
 SECURITY DEFINER
 STABLE
+SET search_path = public, pg_temp
 AS $$
-  SELECT (
-    -- 1. Måste vara ägaren själv
+  SELECT
     (SELECT auth.uid()) = target_user_id
     AND (
-      -- 2. Admin- / gratis-e-postkonton (samma som FREE_EMAILS i _auth.js)
-      lower(coalesce((SELECT auth.jwt() ->> 'email'), '')) IN ('alwakiabdullah1@gmail.com', 'abbealwaki08@gmail.com')
-      -- 3. UF-provperiod (3 månader)
-      OR (
-        (SELECT auth.jwt() -> 'user_metadata' ->> 'uf') = 'true'
-        AND (
-          (SELECT auth.jwt() -> 'user_metadata' ->> 'uf_started_at') IS NULL
-          OR (SELECT auth.jwt() -> 'user_metadata' ->> 'uf_started_at') = ''
-          OR (
-            CASE
-              WHEN (SELECT auth.jwt() -> 'user_metadata' ->> 'uf_started_at') ~ '^\d{4}-\d{2}-\d{2}'
-              THEN ((SELECT auth.jwt() -> 'user_metadata' ->> 'uf_started_at'))::timestamptz + interval '3 months' > now()
-              ELSE true
-            END
-          )
-        )
-      )
-      -- 4. Delad åtkomst: medlem i minst ett aktivt företag (ägaren betalar)
+      public.has_paid_access(target_user_id)
       OR EXISTS (
-        SELECT 1 FROM public.company_members
-        WHERE member_user_id = target_user_id AND status = 'active'
+        SELECT 1 FROM public.company_members cm
+        WHERE cm.member_user_id = target_user_id
+          AND cm.status = 'active'
+          AND public.has_paid_access(cm.owner_user_id)
       )
-      -- 5. Aktiv prenumeration i subscriptions-tabellen
-      OR EXISTS (
-        SELECT 1 FROM public.subscriptions
-        WHERE user_id = target_user_id
-          AND status IN ('trialing', 'active', 'past_due')
-      )
-    )
-  );
+    );
 $$;
 
--- Policy: insert only own rows when subscription/access is valid
+-- Skrivpolicyerna på user_data (samma som i går, pekar på funktionen ovan).
+-- Läsning (SELECT) är orörd: ägaren får alltid läsa sina böcker i sju år.
 DROP POLICY IF EXISTS "Insert own user data" ON public.user_data;
 CREATE POLICY "Insert own user data"
 ON public.user_data
 FOR INSERT
 WITH CHECK (public.can_write_user_data(user_id));
 
--- Policy: update only own rows when subscription/access is valid
 DROP POLICY IF EXISTS "Update own user data" ON public.user_data;
 CREATE POLICY "Update own user data"
 ON public.user_data
@@ -121,7 +139,6 @@ FOR UPDATE
 USING ((select auth.uid()) = user_id)
 WITH CHECK (public.can_write_user_data(user_id));
 
--- Policy: delete only own rows when subscription/access is valid
 DROP POLICY IF EXISTS "Delete own user data" ON public.user_data;
 CREATE POLICY "Delete own user data"
 ON public.user_data
@@ -807,6 +824,9 @@ CREATE POLICY "Ägare skapar inbjudan"
 ON public.company_members FOR INSERT TO authenticated
 WITH CHECK (
   owner_user_id = (select auth.uid())
+  -- Bara den som själv får skriva (betalar) kan bjuda in. Annars kunde ett
+  -- obetalt konto bjuda in sin egen andra adress och fortsätta gratis.
+  AND public.can_write_user_data((select auth.uid()))
   AND (
     SELECT count(*) FROM public.company_members cm
     WHERE cm.owner_user_id = (select auth.uid())

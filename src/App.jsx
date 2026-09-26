@@ -2041,11 +2041,13 @@ function App() {
       // siffror). När perioden löpt ut faller kontot tillbaka på den
       // vanliga spärren nedan och får betalskärmen som alla andra.
       //
-      // Samma sorts klientspärr som FREE_ACCOUNT_EMAILS ovan, med samma
-      // förbehåll: prenumerationsstatus styr ingen server-side-behörighet
-      // idag, så det här är produktlogik, inte en säkerhetsgräns.
+      // Perioden räknas från kontots registrering (authUser.created_at),
+      // inte från user_metadata.uf_started_at: metadatan kan användaren
+      // skriva om själv. Samma regel som servern (api/_auth.js) och
+      // databasen (public.has_paid_access i supabase-setup.sql), som är den
+      // riktiga spärren — det här är bara så appen och databasen är överens.
       const ufMeta = authUser.user_metadata || {};
-      const ufFree = ufMeta.uf ? ufFreePeriod(ufMeta.uf_started_at) : null;
+      const ufFree = ufMeta.uf ? ufFreePeriod(authUser.created_at) : null;
       const withinUfFreePeriod = Boolean(ufFree && !ufFree.expired);
 
       if (!hasSharedAccess && !withinUfFreePeriod && !isFreeAccountEmail(authUser.email) && (!subRow || !ALLOWED_SUBSCRIPTION_STATUSES.includes(subRow.status))) {

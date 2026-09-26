@@ -1,7 +1,7 @@
 import { applySecurityHeaders } from './_security.js';
 import { canWriteField } from '../src/utils/pageAccess.js';
 import { parseJsonBody } from './stripe/_parseBody.js';
-import { requireAuthedUser, loadMemberCompany, requireActiveSubscription, isFreeEmail } from './_auth.js';
+import { requireAuthedUser, loadMemberCompany, requireActiveSubscription, requireOwnerPaidAccess, isFreeEmail } from './_auth.js';
 import { checkRateLimit } from './_rateLimit.js';
 import { createClient } from '@supabase/supabase-js';
 import { COMPANY_WRITABLE_FIELDS } from '../src/utils/companyFields.js';
@@ -230,9 +230,16 @@ export default async function handler(req, res) {
     // POST — Signerade URL:er för privata filer (bokix-uploads).
     // Även utgångna prenumerationer har laglig rätt att läsa sina sparade filer (7 år).
     if (postBody?.action === 'signed_url') {
-      const { path, bucket = 'bokix-uploads' } = postBody;
-      if (!path || typeof path !== 'string') {
-        res.status(400).json({ error: 'path krävs.' });
+      const { path } = postBody;
+      // Bara den privata underlagsbucketen. Arkivet (bokix-arkiv) och andra
+      // buckets har egna regler och ska aldrig kunna signeras härifrån.
+      const bucket = 'bokix-uploads';
+      if (postBody.bucket && postBody.bucket !== bucket) {
+        res.status(400).json({ error: 'Ogiltig bucket.' });
+        return;
+      }
+      if (!path || typeof path !== 'string' || path.includes('..') || path.startsWith('/')) {
+        res.status(400).json({ error: 'Ogiltig sökväg.' });
         return;
       }
       const supabaseUrl = process.env.VITE_SUPABASE_URL;
@@ -270,8 +277,9 @@ export default async function handler(req, res) {
       return;
     }
 
-    // POST (fältsparning) — postBody parsades redan ovan.
-    if (!await requireActiveSubscription(user, res)) return;
+    // POST (fältsparning) — postBody parsades redan ovan. Betalkontrollen
+    // görs längre ner, när vi vet om anroparen är ägaren (egen prenumeration)
+    // eller en inbjuden medlem (ägarens prenumeration).
     const { company_id: companyId, field, value } = postBody || {};
     if (!companyId || !field || value === undefined) {
       res.status(400).json({ error: 'company_id, field och value krävs.' });
@@ -308,6 +316,7 @@ export default async function handler(req, res) {
     }
 
     if (ownerUserId) {
+      if (!await requireActiveSubscription(user, res)) return;
       // Låst registrerat företagsnamn: en gång satt (dvs. orgNr är ifyllt —
       // se Settings.jsx:s kommentar om varför just orgNr är signalen "riktig
       // registrering genomförd", inte en egen flagga) går namnet inte att
@@ -340,6 +349,7 @@ export default async function handler(req, res) {
         res.status(403).json({ error: 'Din roll (läsare) tillåter inte att spara ändringar.' });
         return;
       }
+      if (!await requireOwnerPaidAccess(member.ownerUserId, res)) return;
       // Sidbehörigheter (company_members.page_access): kontrollen som gör
       // dem verkliga. Klienten döljer sidor, men det är HÄR skrivningen
       // faktiskt stoppas — en dold meny är ingen behörighet. Saknas listan

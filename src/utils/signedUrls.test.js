@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { getSignedStorageUrl } from './signedUrls';
+import { getSignedStorageUrl, initialSignedUrl } from './signedUrls';
 import { supabase } from '../supabaseClient';
 
 vi.mock('../supabaseClient', () => ({
@@ -56,5 +56,22 @@ describe('signedUrls', () => {
     const second = await getSignedStorageUrl(raw);
     expect(second).toBe(first);
     expect(createSignedUrl).toHaveBeenCalledTimes(1);
+  });
+
+  it('initialSignedUrl visar inte den gamla publika länken till en privat fil', () => {
+    // Den publika länken fungerar inte sedan bucketen blev privat; renderas
+    // den ändå misslyckas bilden och markeras som trasig.
+    expect(initialSignedUrl('https://abc.supabase.co/storage/v1/object/public/bokix-uploads/u9/files/ny.jpg')).toBe(null);
+    expect(initialSignedUrl('https://abc.supabase.co/storage/v1/object/public/companylogo/u1/logo.png')).toContain('companylogo');
+    expect(initialSignedUrl('blob:http://localhost/1')).toBe('blob:http://localhost/1');
+    expect(initialSignedUrl(null)).toBe(null);
+  });
+
+  it('initialSignedUrl använder en redan signerad länk ur cachen direkt', async () => {
+    const createSignedUrl = vi.fn().mockResolvedValue({ data: { signedUrl: 'https://abc.supabase.co/storage/v1/object/sign/bokix-uploads/u8/a.jpg?token=t8' }, error: null });
+    supabase.storage.from.mockReturnValue({ createSignedUrl });
+    const raw = 'https://abc.supabase.co/storage/v1/object/public/bokix-uploads/u8/a.jpg';
+    await getSignedStorageUrl(raw);
+    expect(initialSignedUrl(raw)).toContain('token=t8');
   });
 });

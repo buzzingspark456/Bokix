@@ -8,6 +8,7 @@ import { buildInvoiceReminderHtml, buildVatDeadlineHtml, buildAgiDeadlineHtml, b
 import { nextVatDeadline, nextAgiDeadline } from '../../src/utils/declarationDeadlines.js';
 import { planFromId } from '../../src/utils/plans.js';
 import { runDataRetention } from './_dataRetention.js';
+import { hasPaidAccess } from '../_auth.js';
 import { refreshZettleToken, fetchZettlePurchases } from '../zettle/_client.js';
 
 // Bugkritiskt (lokal utveckling, samma orsak/fix som api/_resend.js): måste
@@ -148,7 +149,7 @@ export default async function handler(req, res) {
   // skarp körning skulle ha gjort.
   const dryRun = req.query?.dryRun === 'true' || req.query?.dryRun === '1';
 
-  const summary = { dryRun, usersScanned: 0, invoiceReminders: 0, vatReminders: 0, agiReminders: 0, trialReminders: 0, stripeLedgerEvents: 0, zettleLedgerEvents: 0, errors: [], wouldSend: [] };
+  const summary = { dryRun, usersScanned: 0, invoiceReminders: 0, vatReminders: 0, agiReminders: 0, trialReminders: 0, stripeLedgerEvents: 0, zettleLedgerEvents: 0, skippedUnpaid: 0, errors: [], wouldSend: [] };
 
   try {
     const today = startOfToday();
@@ -248,6 +249,16 @@ export default async function handler(req, res) {
     let lastCompletedUserId = cursor;
     let completedFullPass = true;
 
+    // Påminnelser, Stripe- och Zettle-underlag är betalda funktioner: ett
+    // konto som slutat betala ska inte få dem skickade eller synkade i det
+    // tysta. Hämtar alla betalande konton i EN fråga; bara de som inte finns
+    // där (gratiskonton, UF, eller om frågan misslyckas) slås upp var för sig.
+    const { data: paidRows, error: paidError } = await admin
+      .from('subscriptions')
+      .select('user_id')
+      .in('status', ['trialing', 'active', 'past_due']);
+    const paidUserIds = paidError ? null : new Set((paidRows || []).map(r => r.user_id));
+
     pageLoop:
     for (let from = 0; ; from += PAGE_SIZE) {
       if (Date.now() - startTime > TIME_BUDGET_MS) { completedFullPass = false; break; }
@@ -267,6 +278,11 @@ export default async function handler(req, res) {
       for (const row of page) {
         if (Date.now() - startTime > TIME_BUDGET_MS) { completedFullPass = false; break pageLoop; }
         summary.usersScanned += 1;
+        if (!paidUserIds?.has(row.user_id) && !(await hasPaidAccess(admin, row.user_id))) {
+          summary.skippedUnpaid += 1;
+          lastCompletedUserId = row.user_id;
+          continue;
+        }
         const companies = row.state?.companies || {};
 
         for (const [companyId, companyData] of Object.entries(companies)) {

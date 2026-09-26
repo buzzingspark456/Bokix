@@ -80,6 +80,11 @@ export function DocumentPane({ url, type, name, emptyText, className = '', expan
   // Ny fil i samma panel: börja om från passa-i-rutan och ge en bild som
   // förut misslyckades en ny chans.
   useEffect(() => { setZoom(FIT_ZOOM); setImgFailed(false); setExpanded(false); }, [url]);
+  // Den signerade länken kommer strax efter `url` (se useSignedUrl). Ett
+  // fel på en tidigare länk ska inte fastna när den giltiga väl är här.
+  useEffect(() => { setImgFailed(false); }, [activeUrl]);
+  // Privat fil som fortfarande signeras: visa ingenting som kan misslyckas.
+  const pending = Boolean(url) && !activeUrl;
 
   const kind = useMemo(() => {
     if (!url) return 'none';
@@ -127,7 +132,9 @@ export function DocumentPane({ url, type, name, emptyText, className = '', expan
       </div>
 
       <div className="dv-body" style={kind === 'pdf' ? { padding: 0 } : undefined}>
-        {isImage ? (
+        {pending ? (
+          <div className="dv-empty"><span>Hämtar underlaget…</span></div>
+        ) : isImage ? (
           <img
             ref={imgRef}
             className={`dv-img${zoom === FIT_ZOOM ? ' dv-img-fit' : ''}`}
