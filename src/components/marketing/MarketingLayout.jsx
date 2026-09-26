@@ -339,8 +339,8 @@ function MarketingStyles() {
       }
       .lp-login { background: #f2f8ef; color: #0b6329; font-weight: 700; border: 1.5px solid color-mix(in srgb, #0b6329 55%, transparent); }
       .lp-login:hover { background: #eaf3de; border-color: #0b6329; }
-      html[data-theme="dark"] #lp-root .lp-login { color: #8fd67a; border-color: color-mix(in srgb, #8fd67a 38%, transparent); }
-      html[data-theme="dark"] #lp-root .lp-login:hover { background: rgba(143, 214, 122, 0.1); border-color: #8fd67a; }
+      html[data-theme="dark"] #lp-root .lp-login { background: rgba(143, 214, 122, 0.06); color: #8fd67a; border-color: color-mix(in srgb, #8fd67a 38%, transparent); }
+      html[data-theme="dark"] #lp-root .lp-login:hover { background: rgba(143, 214, 122, 0.14); border-color: #8fd67a; }
       .lp-signup { background: #0b6329; color: #fff; font-weight: 700; border: none; box-shadow: 0 6px 18px -6px rgba(11, 99, 41, 0.55); }
       .lp-signup svg { transition: transform 0.2s ease; }
       .lp-signup:hover { background: #0a5523; }
