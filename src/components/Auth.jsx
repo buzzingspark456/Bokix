@@ -12,7 +12,6 @@ import { sendSignupCode, verifySignupCode } from '../utils/signupVerification';
 import { translateSupabaseAuthError } from '../utils/translateAuthError';
 import { BRAND } from '../utils/brandColors';
 import { BokixWordmark } from './marketing/MarketingLayout';
-import CloudShaderBackground from './marketing/CloudShaderBackground';
 import { createStripeSubscriptionCheckout } from '../stripeApi';
 import { planFromId } from '../utils/plans';
 import { UF_FREE_MONTHS } from '../utils/ufMode';
@@ -510,7 +509,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
   };
 
   return (
-    <div id="auth-root" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Inter', sans-serif", padding: '48px 20px', position: 'relative', overflow: 'hidden', background: 'var(--mkt-ivory)' }}>
+    <div id="auth-root" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Inter', sans-serif", padding: '48px 20px', position: 'relative', overflow: 'hidden' }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,500;0,600;0,700;1,500&display=swap');
         #auth-root, #auth-root *, #auth-root *::before, #auth-root *::after { box-sizing: border-box; }
@@ -545,14 +544,6 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
            färg — vänder sig alltså rätt automatiskt i båda lägena, och ger
            loggans egna klara blå/turkos/limegröna gradient en lugn, neutral
            yta att synas mot ("bright", inte grumlig). */
-        .auth-logo-chip {
-          display: inline-flex; align-items: center; justify-content: center;
-          padding: 22px 44px; border-radius: 20px;
-          background: color-mix(in srgb, var(--mkt-header-bg) 74%, transparent);
-          backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-          border: 1px solid color-mix(in srgb, var(--mkt-header-bg) 45%, transparent);
-          box-shadow: 0 10px 30px -12px rgba(0,0,0,0.28);
-        }
         @keyframes authSpin { to { transform: rotate(360deg); } }
         .auth-spin { animation: authSpin 1s linear infinite; }
 
@@ -573,10 +564,6 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
            en "saldorad", inte en generisk dekorstrimma. Enda djärva detaljen
            på sidan; allt annat runt den hålls medvetet lugnt. */
         .auth-card { position: relative; }
-        .auth-card::before {
-          content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
-          background: linear-gradient(90deg, #0ea5e9, #14b8a6, #84cc16);
-        }
 
         .auth-input { transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease; }
         .auth-input:hover { border-color: var(--text-muted); }
@@ -591,7 +578,26 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
           outline: 2px solid #0b6329; outline-offset: 2px;
         }
 
-        .auth-tab { transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease; }
+        /* Solida ytor i appens gröna ton (kundönskemål 2026-09-27: inloggningen
+           ska se bra ut i mörkt läge; startsidans blå himmel bakom ett grönt
+           kort krockade). Ljust: ljus grågrön sida, vitt kort. Mörkt: samma
+           djupgröna som appen, kortet ett steg ljusare. */
+        #auth-root { background: #f4f7f5; }
+        #auth-root .auth-card { border: 1px solid #e3e8e4; box-shadow: 0 24px 60px -30px rgba(15, 40, 25, 0.28); }
+        :root[data-theme="dark"] #auth-root { background: #0f1a13; }
+        :root[data-theme="dark"] #auth-root .auth-card { border-color: #243a2a; box-shadow: 0 30px 70px -30px rgba(0, 0, 0, 0.7); }
+
+        .auth-tabs { background: #eef2ef; }
+        .auth-tab { background: transparent; color: var(--text-secondary); transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease; }
+        .auth-tab:hover { color: var(--text-main); }
+        .auth-tab.on { background: #ffffff; color: var(--text-main); box-shadow: 0 1px 3px rgba(15, 23, 42, 0.1); }
+        :root[data-theme="dark"] .auth-tabs { background: #0f1a13; }
+        :root[data-theme="dark"] .auth-tab.on { background: #243a2a; color: #eef3ea; box-shadow: none; }
+
+        .auth-link { color: #0b6329; }
+        :root[data-theme="dark"] .auth-link { color: #8fd67a; }
+        :root[data-theme="dark"] .auth-input:focus { border-color: #8fd67a; box-shadow: 0 0 0 3px rgba(143, 214, 122, 0.18); }
+        :root[data-theme="dark"] .auth-btn-primary { background: #16803a !important; }
 
         @keyframes authStepIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
         .auth-step-fade { animation: authStepIn 0.28s ease both; }
@@ -607,8 +613,6 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
           .auth-form-panel { padding: 40px 26px !important; }
         }
       `}</style>
-
-      <CloudShaderBackground style={{ position: 'absolute', inset: 0, minHeight: 0, zIndex: 0 }} />
 
       <div className="auth-column">
       {/* Kundfeedback: den tidigare tvåkolumns-layouten (varumärkespanel med
@@ -647,7 +651,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
             aldrig krockar. */}
         <Link
           to="/"
-          className="auth-logo-link auth-logo-chip"
+          className="auth-logo-link"
           aria-label="Till startsidan"
           onClick={(e) => { if (onBackToLanding) { e.preventDefault(); onBackToLanding(); } }}
         >
@@ -655,7 +659,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
         </Link>
       </div>
 
-      <div style={{ width: '100%', background: 'var(--bg-card)', borderRadius: '22px', overflow: 'hidden', boxShadow: '0 20px 50px -12px rgba(0,0,0,0.45), 0 0 0 1px rgba(238,243,234,0.06)' }} className="auth-card">
+      <div style={{ width: '100%', background: 'var(--bg-card)', borderRadius: '22px', overflow: 'hidden' }} className="auth-card">
         <div className="auth-form-panel" style={{ padding: '64px 64px 60px' }}>
 
         {/* Mode tabs — bugkritiskt (kundfeedback, med skärmdump): den aktiva
@@ -666,11 +670,11 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
             tidigare, t.ex. innan utloggning) var mörkt. `var(--bg-card)`
             istället: vit i ljust läge (ingen synlig skillnad där) men
             korrekt mörk i mörkt läge, matchar texten igen. */}
-        <div style={{ display: 'flex', background: 'var(--border-light)', borderRadius: '14px', padding: '5px', marginBottom: '36px' }}>
-          <button className="auth-tab" onClick={() => switchMode(true)} style={{ flex: 1, padding: '14px 0', border: 'none', borderRadius: '10px', background: isLogin ? 'var(--bg-card)' : 'transparent', color: isLogin ? 'var(--text-main)' : 'var(--text-secondary)', fontWeight: 600, fontSize: '16px', cursor: 'pointer', boxShadow: isLogin ? '0 2px 4px rgba(0,0,0,0.04)' : 'none', fontFamily: 'inherit', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '9px' }}>
+        <div className="auth-tabs" style={{ display: 'flex', borderRadius: '14px', padding: '5px', marginBottom: '36px' }}>
+          <button className={`auth-tab${isLogin ? ' on' : ''}`} onClick={() => switchMode(true)} style={{ flex: 1, padding: '14px 0', border: 'none', borderRadius: '10px', fontWeight: 600, fontSize: '16px', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '9px' }}>
             <LogIn size={19} /> Logga in
           </button>
-          <button className="auth-tab" onClick={() => switchMode(false)} style={{ flex: 1, padding: '14px 0', border: 'none', borderRadius: '10px', background: !isLogin ? 'var(--bg-card)' : 'transparent', color: !isLogin ? 'var(--text-main)' : 'var(--text-secondary)', fontWeight: 600, fontSize: '16px', cursor: 'pointer', boxShadow: !isLogin ? '0 2px 4px rgba(0,0,0,0.04)' : 'none', fontFamily: 'inherit', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '9px' }}>
+          <button className={`auth-tab${!isLogin ? ' on' : ''}`} onClick={() => switchMode(false)} style={{ flex: 1, padding: '14px 0', border: 'none', borderRadius: '10px', fontWeight: 600, fontSize: '16px', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '9px' }}>
             <UserPlus size={19} /> Nytt konto
           </button>
         </div>
@@ -734,7 +738,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                   <label style={labelStyle}>Lösenord</label>
-                  <button type="button" onClick={() => { setShowForgotPassword(true); setErrorMsg(''); setForgotEmail(loginEmail); }} style={{ background: 'none', border: 'none', color: BRAND.green, fontWeight: 600, fontSize: '12.5px', cursor: 'pointer', fontFamily: 'inherit', marginBottom: '6px' }}>
+                  <button type="button" onClick={() => { setShowForgotPassword(true); setErrorMsg(''); setForgotEmail(loginEmail); }} className="auth-link" style={{ background: 'none', border: 'none', fontWeight: 600, fontSize: '12.5px', cursor: 'pointer', fontFamily: 'inherit', marginBottom: '6px' }}>
                     Glömt lösenord?
                   </button>
                 </div>
@@ -760,7 +764,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                 {REGISTER_STEPS.map((s, i) => (
                   <div key={s} style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '7px' }}>
                     <div style={{ position: 'relative', height: '4px', borderRadius: '2px', background: 'var(--border)', overflow: 'hidden' }}>
-                      <div style={{ position: 'absolute', inset: 0, borderRadius: '2px', background: 'linear-gradient(90deg, #0b6329, #84cc16)', transform: `scaleX(${i <= regStep ? 1 : 0})`, transformOrigin: 'left', transition: 'transform 0.35s ease' }} />
+                      <div style={{ position: 'absolute', inset: 0, borderRadius: '2px', background: '#0b6329', transform: `scaleX(${i <= regStep ? 1 : 0})`, transformOrigin: 'left', transition: 'transform 0.35s ease' }} />
                     </div>
                     <span style={{ fontSize: '13px', fontWeight: i === regStep ? 700 : 500, color: i <= regStep ? BRAND.greenDark : 'var(--text-muted)' }}>{s}</span>
                   </div>
