@@ -60,19 +60,19 @@ export default function AboutPage() {
            tre stycken, och då ska de styckena bära sidan. */
         .bx-ab-letter p { font-size: clamp(16.5px, 2.1vw, 19px); line-height: 1.85; margin: 0 0 20px; }
 
-        /* Ett tunt streck i loggans gradient som avslutning på brevet.
+        /* Ett tunt grönt streck som avslutning på brevet.
            Växer fram när det kommer i bild — sidans enda rörelse utöver
            prickarna, och den räcker. */
         .bx-ab-rule {
           height: 3px; width: 0; border-radius: 3px; margin: 8px 0 22px;
-          background-image: linear-gradient(90deg, #0ea5e9, #14b8a6, #84cc16);
+          background: ${BRAND.green};
           transition: width 1.1s cubic-bezier(0.22, 1, 0.36, 1) 0.2s;
         }
         .lp-in .bx-ab-rule { width: 120px; }
 
         .bx-ab-dots { display: inline-flex; align-items: center; gap: 7px; }
         .bx-ab-dot { width: 9px; height: 9px; border-radius: 50%; background: ${BRAND.green}; animation: bx-ab-pulse 2.8s ease-in-out infinite; }
-        .bx-ab-dot:nth-child(2) { background: #14b8a6; animation-delay: 1.4s; }
+        .bx-ab-dot:nth-child(2) { background: ${BRAND.green}; opacity: 0.55; animation-delay: 1.4s; }
         @keyframes bx-ab-pulse { 0%, 100% { transform: scale(1); opacity: 0.85; } 50% { transform: scale(1.35); opacity: 1; } }
 
         @media (prefers-reduced-motion: reduce) {

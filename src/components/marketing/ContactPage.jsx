@@ -136,13 +136,9 @@ export default function ContactPage() {
         <div style={{ maxWidth: 'min(92vw, 1100px)', margin: '0 auto', display: 'grid', gridTemplateColumns: 'minmax(260px, 380px) 1fr', gap: '40px', alignItems: 'start', position: 'relative' }} className="contact-layout-grid">
 
           <Reveal style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-            {TOPICS.map((t, i) => {
-              const accent = ACCENT_CYCLE[i % 3];
+            {TOPICS.map((t) => {
               return (
-                <div key={t.value} style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
-                  <div style={{ width: 42, height: 42, borderRadius: '12px', background: accent.soft, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <t.icon size={19} color={accent.fg} />
-                  </div>
+                <div key={t.value} style={{ paddingLeft: '14px', borderLeft: '2px solid var(--mkt-border-soft)' }}>
                   <div>
                     <div style={{ fontSize: '15px', fontWeight: 700, color: INK, marginBottom: '3px' }}>{t.value}</div>
                     <div style={{ fontSize: '13.5px', color: MUTED, lineHeight: 1.55 }}>{t.desc}</div>

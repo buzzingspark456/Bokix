@@ -1,13 +1,10 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import {
-  Users, Check, ArrowRight, FileText, Download, Landmark,
-  ShieldCheck, Calculator, Sparkles, CheckCircle2
-} from '../icons';
+import { Check, ArrowRight } from '../icons';
 import { BRAND } from '../../utils/brandColors';
 import MarketingLayout, { Reveal } from './MarketingLayout';
-import { SERIF, INK, MUTED, IVORY, CARD_BORDER, CARD_SHADOW } from './marketingTokens';
-import { GRAD, grad, AuroraLayer } from './aurora';
+import { SERIF, INK, MUTED, IVORY, CARD_BORDER, CARD_SHADOW, ACCENT } from './marketingTokens';
+import PayrollFlow from './PayrollFlow';
 import { PageMeta, JsonLd, SITE_URL } from '../../utils/seo';
 
 // ── Lön & Arbetsgivare (/lon) ──────────────────────────────────────────
@@ -21,44 +18,26 @@ import { PageMeta, JsonLd, SITE_URL } from '../../utils/seo';
 
 const FEATURES = [
   {
-    icon: Sparkles,
-    color: '#10b981',
-    bgColor: 'rgba(16, 185, 129, 0.12)',
     title: 'Automatisk tabellskatt',
     body: 'Skatteavdrag beräknas exakt enligt Skatteverkets officiella tabellskatter (tabell 29–40). Du väljer bara tabell och kolumn – Bokix sköter resten.',
   },
   {
-    icon: FileText,
-    color: '#6366f1',
-    bgColor: 'rgba(99, 102, 241, 0.12)',
     title: 'AGI-fil till Skatteverket',
     body: 'Efter varje lönekörning får du en färdig AGI-fil (arbetsgivardeklaration på individnivå) i godkänt XML-format. Ladda upp direkt på skatteverket.se utan att knappa in siffror för hand.',
   },
   {
-    icon: Landmark,
-    color: '#0ea5e9',
-    bgColor: 'rgba(14, 165, 233, 0.12)',
     title: 'Betalfil till banken (ISO 20022)',
     body: 'Ladda ner en ISO 20022 (pain.001) betalfil och läs in i din internetbank. Alla nettolöner betalas ut på samma dag med ett enda klick.',
   },
   {
-    icon: Users,
-    color: '#8b5cf6',
-    bgColor: 'rgba(139, 92, 246, 0.12)',
     title: 'Åldersanpassad arbetsgivaravgift',
     body: 'Bokix läser födelseåret ur personnumret och sätter rätt arbetsgivaravgift automatiskt: full avgift (31,42%), pensionär/äldre (10,21%) eller ungdomsrabatt.',
   },
   {
-    icon: Download,
-    color: '#059669',
-    bgColor: 'rgba(5, 150, 105, 0.12)',
     title: 'Lönebesked som PDF',
     body: 'Snygga, tydliga lönebesked med företagets logotyp, bruttolön, skatteavdrag, semesterdagar och nettolön. Redo att mejlas eller laddas ner med ett klick.',
   },
   {
-    icon: ShieldCheck,
-    color: '#d97706',
-    bgColor: 'rgba(217, 119, 6, 0.12)',
     title: 'Bokförs automatiskt i BAS',
     body: 'När du godkänner lönekörningen skapas verifikationen direkt: bruttolön (7010/7210), personalskatt (2710), arbetsgivaravgifter (2731/7510) och nettolön (1930/2820). Inga differenser.',
   },
@@ -121,90 +100,44 @@ export default function PayrollPage() {
       <style>{`
         .bx-pay-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
         .bx-pay-split { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; }
+        .bx-pay-hero { display: grid; grid-template-columns: 1.05fr 1fr; gap: 56px; align-items: center; }
         @media (max-width: 900px) {
           .bx-pay-grid { grid-template-columns: repeat(2, 1fr); }
           .bx-pay-split { grid-template-columns: 1fr; }
+          .bx-pay-hero { grid-template-columns: 1fr; gap: 40px; }
         }
         @media (max-width: 640px) {
           .bx-pay-grid { grid-template-columns: 1fr; }
         }
       `}</style>
 
-      {/* ── Hjälte ── */}
-      <section style={{ padding: '140px 24px 64px', background: IVORY, position: 'relative', overflow: 'hidden' }}>
-        <AuroraLayer
-          stops={[['rgba(139, 92, 246, 0.15)', '6% -6%'], ['rgba(16, 185, 129, 0.14)', '94% 104%']]}
-          blob={{ gradient: grad(GRAD.blueTeal), top: '-140px', right: '-80px', size: '420px', opacity: 0.25 }}
-        />
-        <Reveal style={{ maxWidth: '800px', margin: '0 auto', textAlign: 'center', position: 'relative' }}>
-          <div style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '6px 14px',
-            borderRadius: '9999px',
-            background: 'rgba(124, 58, 237, 0.08)',
-            border: '1px solid rgba(124, 58, 237, 0.2)',
-            color: '#7c3aed',
-            fontSize: '12.5px',
-            fontWeight: 700,
-            letterSpacing: '0.04em',
-            textTransform: 'uppercase',
-            marginBottom: '20px',
-          }}>
-            <Users size={14} />
-            Lön & Arbetsgivare
-          </div>
-          <h1 style={{ fontFamily: SERIF, fontSize: 'clamp(32px, 5.2vw, 54px)', fontWeight: 700, letterSpacing: '-0.02em', color: INK, marginBottom: '18px', lineHeight: 1.12 }}>
-            Lönekörning som sköter skatten, filerna och bokföringen
-          </h1>
-          <p style={{ fontSize: '18px', color: MUTED, lineHeight: 1.65, margin: '0 0 32px', maxWidth: '640px', marginLeft: 'auto', marginRight: 'auto' }}>
-            Kör lön med rätt tabellskatt, ladda upp den färdiga AGI-filen till Skatteverket och skicka betalfilen till din bank. Allt bokförs automatiskt på rätt konton.
-          </p>
-          <div style={{ display: 'flex', gap: '14px', justifyContent: 'center', flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              onClick={enterApp}
-              className="lp-btn-primary"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '13px 26px',
-                borderRadius: '12px',
-                background: BRAND.green,
-                color: '#fff',
-                fontWeight: 600,
-                fontSize: '15px',
-                border: 'none',
-                cursor: 'pointer',
-              }}
-            >
-              Kom igång gratis
-              <ArrowRight size={16} />
-            </button>
-            <Link
-              to="/verktyg/lonekalkylator"
-              className="lp-btn-secondary"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '13px 24px',
-                borderRadius: '12px',
-                background: 'var(--mkt-card-bg)',
-                color: INK,
-                fontWeight: 600,
-                fontSize: '15px',
-                textDecoration: 'none',
-                border: `1px solid ${CARD_BORDER}`,
-              }}
-            >
-              <Calculator size={16} />
-              Öppna lönekalkylatorn
-            </Link>
-          </div>
-        </Reveal>
+      {/* ── Hjälte: text till vänster, en lönekörning som går klart till höger ── */}
+      <section style={{ padding: '140px 24px 72px', background: 'var(--mkt-page-bg)' }}>
+        <div className="bx-pay-hero" style={{ maxWidth: '1100px', margin: '0 auto' }}>
+          <Reveal>
+            <div style={{ fontSize: '12.5px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: MUTED, marginBottom: '16px' }}>
+              Lön & arbetsgivare
+            </div>
+            <h1 style={{ fontFamily: SERIF, fontSize: 'clamp(32px, 4.8vw, 52px)', fontWeight: 700, letterSpacing: '-0.02em', color: INK, marginBottom: '18px', lineHeight: 1.1 }}>
+              Lönekörning som sköter skatten, filerna och bokföringen
+            </h1>
+            <p style={{ fontSize: '17.5px', color: MUTED, lineHeight: 1.65, margin: '0 0 30px', maxWidth: '520px' }}>
+              Kör lön med rätt tabellskatt, ladda upp den färdiga AGI-filen till Skatteverket och skicka betalfilen till din bank. Allt bokförs automatiskt på rätt konton.
+            </p>
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+              <button type="button" onClick={enterApp} className="lp-btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '13px 26px', borderRadius: '12px', background: BRAND.green, color: '#fff', fontWeight: 600, fontSize: '15px', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+                Kom igång gratis
+                <ArrowRight size={16} />
+              </button>
+              <Link to="/verktyg/lonekalkylator" className="lp-btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', padding: '13px 24px', borderRadius: '12px', background: 'transparent', color: INK, fontWeight: 600, fontSize: '15px', textDecoration: 'none', border: '1.5px solid var(--mkt-btn-border)' }}>
+                Öppna lönekalkylatorn
+              </Link>
+            </div>
+          </Reveal>
+          <Reveal delay={120}>
+            <PayrollFlow />
+          </Reveal>
+        </div>
       </section>
 
       {/* ── Interaktiv Löneberäknings-demonstration ── */}
@@ -250,13 +183,13 @@ export default function PayrollPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', borderTop: `1px solid var(--mkt-border-soft)`, paddingTop: '20px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '14.5px' }}>
                   <span style={{ color: MUTED }}>Skatteavdrag (tabell 31)</span>
-                  <span style={{ color: '#dc2626', fontWeight: 600, fontFamily: 'monospace' }}>
+                  <span style={{ color: ACCENT.red.fg, fontWeight: 600, fontFamily: 'monospace' }}>
                     - {taxAmount.toLocaleString('sv-SE')} kr
                   </span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '16px', fontWeight: 700 }}>
                   <span style={{ color: INK }}>Nettolön till anställd</span>
-                  <span style={{ color: '#16a34a', fontFamily: 'monospace' }}>
+                  <span style={{ color: ACCENT.green.fg, fontFamily: 'monospace' }}>
                     {netAmount.toLocaleString('sv-SE')} kr
                   </span>
                 </div>
@@ -274,8 +207,7 @@ export default function PayrollPage() {
                   fontWeight: 700,
                   padding: '14px 16px',
                   borderRadius: '10px',
-                  background: 'rgba(16, 185, 129, 0.08)',
-                  border: '1px solid rgba(16, 185, 129, 0.2)',
+                  background: ACCENT.green.soft,
                   marginTop: '4px',
                 }}>
                   <span style={{ color: INK }}>Företagets totalkostnad</span>
@@ -298,9 +230,6 @@ export default function PayrollPage() {
                 gap: '16px',
                 alignItems: 'flex-start',
               }}>
-                <div style={{ width: 40, height: 40, borderRadius: '10px', background: 'rgba(99, 102, 241, 0.12)', color: '#6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <FileText size={20} />
-                </div>
                 <div>
                   <h3 style={{ fontSize: '16px', fontWeight: 700, color: INK, margin: '0 0 4px' }}>AGI-fil (XML) redo för Skatteverket</h3>
                   <p style={{ fontSize: '13.5px', color: MUTED, margin: 0, lineHeight: 1.5 }}>
@@ -319,9 +248,6 @@ export default function PayrollPage() {
                 gap: '16px',
                 alignItems: 'flex-start',
               }}>
-                <div style={{ width: 40, height: 40, borderRadius: '10px', background: 'rgba(14, 165, 233, 0.12)', color: '#0ea5e9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <Landmark size={20} />
-                </div>
                 <div>
                   <h3 style={{ fontSize: '16px', fontWeight: 700, color: INK, margin: '0 0 4px' }}>ISO 20022 Betalfil till nätbanken</h3>
                   <p style={{ fontSize: '13.5px', color: MUTED, margin: 0, lineHeight: 1.5 }}>
@@ -340,9 +266,6 @@ export default function PayrollPage() {
                 gap: '16px',
                 alignItems: 'flex-start',
               }}>
-                <div style={{ width: 40, height: 40, borderRadius: '10px', background: 'rgba(16, 185, 129, 0.12)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <CheckCircle2 size={20} />
-                </div>
                 <div>
                   <h3 style={{ fontSize: '16px', fontWeight: 700, color: INK, margin: '0 0 4px' }}>Automatisk BAS-verifikation</h3>
                   <p style={{ fontSize: '13.5px', color: MUTED, margin: 0, lineHeight: 1.5 }}>
@@ -383,19 +306,6 @@ export default function PayrollPage() {
                   gap: '14px',
                 }}
               >
-                <div style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: '12px',
-                  background: feat.bgColor,
-                  color: feat.color,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0,
-                }}>
-                  <feat.icon size={22} />
-                </div>
                 <h3 style={{ fontSize: '18px', fontWeight: 700, color: INK, margin: 0 }}>
                   {feat.title}
                 </h3>
@@ -413,12 +323,12 @@ export default function PayrollPage() {
         <div style={{ maxWidth: '860px', margin: '0 auto', textAlign: 'center' }}>
           <Reveal>
             <div style={{
-              background: 'linear-gradient(135deg, rgba(124, 58, 237, 0.06), rgba(16, 185, 129, 0.06))',
-              border: '1px solid rgba(124, 58, 237, 0.16)',
+              background: 'var(--mkt-card-bg)',
+              border: `1px solid ${CARD_BORDER}`,
               borderRadius: '24px',
               padding: '40px 32px',
             }}>
-              <span style={{ fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#7c3aed' }}>
+              <span style={{ fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: MUTED }}>
                 Fast pris utan överraskningar
               </span>
               <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(24px, 3.4vw, 34px)', fontWeight: 700, color: INK, margin: '12px 0 14px' }}>
@@ -433,7 +343,7 @@ export default function PayrollPage() {
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '6px',
-                  color: BRAND.green,
+                  color: ACCENT.green.fg,
                   fontWeight: 700,
                   fontSize: '15px',
                   textDecoration: 'none',

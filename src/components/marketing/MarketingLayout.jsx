@@ -1,12 +1,6 @@
 import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import {
-  Menu, X, Sun, Moon, ChevronDown, ChevronRight, ArrowRight, Check,
-  Sparkles, Landmark, Plug, RotateCcw, ShieldCheck,
-  GraduationCap, ScanLine, Percent, Users, Briefcase,
-  Hammer, Clock, AlarmClock, CalendarClock, FileClock, PiggyBank,
-  BookOpen, FileText, HelpCircle, MessageSquare, Rocket,
-} from '../icons';
+import { Menu, X, Sun, Moon, ChevronDown, ArrowRight } from '../icons';
 import { BRAND } from '../../utils/brandColors';
 import { SERIF } from './marketingTokens';
 import { JsonLd, SITE_URL } from '../../utils/seo';
@@ -113,157 +107,73 @@ export const MARKETING_PAGES = [
   { label: 'Verktyg', to: '/verktyg' },
 ];
 
+// Ren textmeny utan ikoner (kundönskemål, Apple-likt): varje rad är en
+// titel plus en kort rad om vad sidan ger. Verktygens rad hämtas ur
+// toolsConfig (`short`) så menyn och sidfoten aldrig säger olika saker.
+const toolItem = (slug, title) => {
+  const tool = TOOLS.find(t => t.slug === slug);
+  return { title: title || tool.footerLabel, desc: tool.short, to: tool.path };
+};
+
 export const NAV_MENUS = [
   {
     key: 'features',
     label: 'Funktioner',
     to: '/funktioner',
-    dropdownWidth: 600,
+    dropdownWidth: 580,
     sections: [
       {
-        title: 'Bokföring',
+        title: 'Produkten',
         items: [
-          {
-            title: 'Automatisk bokföring',
-            to: '/funktioner',
-            icon: Sparkles,
-            color: '#10b981',
-            bgColor: 'rgba(16, 185, 129, 0.12)',
-            badge: 'AI',
-            badgeColor: '#059669',
-          },
-          {
-            title: 'Koppla banken',
-            to: '/koppla-bank',
-            icon: Landmark,
-            color: '#0ea5e9',
-            bgColor: 'rgba(14, 165, 233, 0.12)',
-            badge: 'Realtid',
-            badgeColor: '#0284c7',
-          },
-          {
-            title: 'Fakturering & Betalning',
-            to: '/funktioner',
-            icon: FileText,
-            color: '#0d9488',
-            bgColor: 'rgba(13, 148, 136, 0.12)',
-          },
+          { title: 'Bokföring & fakturering', desc: 'Kvitton, fakturor, moms och bokslut', to: '/funktioner' },
+          { title: 'Lön & arbetsgivare', desc: 'Lönebesked, skatteavdrag och AGI-fil', to: '/lon' },
+          { title: 'Koppla banken', desc: 'Läs in kontoutdraget från din bank', to: '/koppla-bank' },
+          { title: 'Integrationer', desc: 'Stripe, Zettle och filformat', to: '/integrationer' },
         ],
       },
       {
-        title: 'Administration',
+        title: 'Kom igång',
         items: [
-          {
-            title: 'Lön & Arbetsgivare',
-            to: '/lon',
-            icon: Users,
-            color: '#7c3aed',
-            bgColor: 'rgba(124, 58, 237, 0.12)',
-          },
-          {
-            title: 'Integrationer',
-            to: '/integrationer',
-            icon: Plug,
-            color: '#6366f1',
-            bgColor: 'rgba(99, 102, 241, 0.12)',
-          },
-          {
-            title: 'Säkerhet',
-            to: '/sakerhet',
-            icon: ShieldCheck,
-            color: '#16a34a',
-            bgColor: 'rgba(22, 163, 74, 0.12)',
-          },
-          {
-            title: 'Byt till Bokix',
-            to: '/byt-bokforingsprogram',
-            icon: RotateCcw,
-            color: '#0284c7',
-            bgColor: 'rgba(14, 165, 233, 0.12)',
-          },
+          { title: 'Byt till Bokix', desc: 'Flytta bokföringen med en SIE4-fil', to: '/byt-bokforingsprogram' },
+          { title: 'Säkerhet', desc: 'Så skyddas din bokföring', to: '/sakerhet' },
+          { title: 'Bokix för UF', desc: 'Bokföring för UF-företag', to: '/uf' },
         ],
       },
     ],
-    get items() {
-      return this.sections.flatMap(s => s.items);
-    },
-    footer: {
-      label: 'Se alla funktioner och möjligheter',
-      to: '/funktioner',
-    },
+    footer: { label: 'Se alla funktioner', to: '/funktioner' },
   },
   {
     key: 'tools',
     label: 'Verktyg',
-    to: '/verktyg',
-    dropdownWidth: 600,
+    to: TOOLS_HUB_PATH,
+    dropdownWidth: 780,
     sections: [
       {
-        title: 'Kalkylatorer',
+        title: 'Moms & skatt',
         items: [
-          {
-            title: 'Momskalkylator',
-            to: '/verktyg/momskalkylator',
-            icon: Percent,
-            color: '#059669',
-            bgColor: 'rgba(16, 185, 129, 0.12)',
-            badge: 'Populär',
-            badgeColor: '#059669',
-          },
-          {
-            title: 'Lönekalkylator',
-            to: '/verktyg/lonekalkylator',
-            icon: Users,
-            color: '#0d9488',
-            bgColor: 'rgba(13, 148, 136, 0.12)',
-          },
-          {
-            title: 'Egenavgifter',
-            to: '/verktyg/egenavgifter',
-            icon: Briefcase,
-            color: '#7c3aed',
-            bgColor: 'rgba(124, 58, 237, 0.12)',
-          },
+          toolItem('momskalkylator'),
+          toolItem('egenavgifter'),
+          toolItem('utdelning'),
+          toolItem('rot-rut', 'ROT- och RUT-avdrag'),
         ],
       },
       {
-        title: 'Verktyg',
+        title: 'Lön & fakturor',
         items: [
-          {
-            title: 'Skanna kvitto (OCR)',
-            to: '/verktyg/skanna-kvitto',
-            icon: ScanLine,
-            color: '#8b5cf6',
-            bgColor: 'rgba(139, 92, 246, 0.12)',
-            badge: 'Gratis',
-            badgeColor: '#8b5cf6',
-          },
-          {
-            title: 'Utdelningskalkylator (3:12)',
-            to: '/verktyg/utdelning',
-            icon: PiggyBank,
-            color: '#0284c7',
-            bgColor: 'rgba(14, 165, 233, 0.12)',
-            badge: '2026',
-            badgeColor: '#0284c7',
-          },
-          {
-            title: 'ROT- & RUT-avdrag',
-            to: '/verktyg/rot-rut',
-            icon: Hammer,
-            color: '#d97706',
-            bgColor: 'rgba(217, 119, 6, 0.12)',
-          },
+          toolItem('lonekalkylator'),
+          toolItem('drojsmalsranta'),
+          toolItem('skanna-kvitto'),
+        ],
+      },
+      {
+        title: 'Datum & frister',
+        items: [
+          toolItem('momsdatum', 'Momsdeklaration'),
+          toolItem('arsredovisning', 'Årsredovisning'),
         ],
       },
     ],
-    get items() {
-      return this.sections.flatMap(s => s.items);
-    },
-    footer: {
-      label: 'Utforska alla gratis verktyg',
-      to: '/verktyg',
-    },
+    footer: { label: 'Alla gratis verktyg', to: TOOLS_HUB_PATH },
   },
   {
     key: 'pricing',
@@ -274,67 +184,25 @@ export const NAV_MENUS = [
     key: 'resources',
     label: 'Resurser',
     to: '/nyheter',
-    dropdownWidth: 560,
+    dropdownWidth: 540,
     sections: [
       {
-        title: 'Kunskap & Guider',
+        title: 'Lär dig',
         items: [
-          {
-            title: 'Blogg & Guider',
-            to: '/blogg',
-            icon: BookOpen,
-            color: '#059669',
-            bgColor: 'rgba(16, 185, 129, 0.12)',
-            badge: 'Tips',
-            badgeColor: '#059669',
-          },
-          {
-            title: 'Ekonomisk ordlista',
-            to: '/ordlista',
-            icon: FileText,
-            color: '#7c3aed',
-            bgColor: 'rgba(124, 58, 237, 0.12)',
-            badge: 'A–Ö',
-            badgeColor: '#7c3aed',
-          },
+          { title: 'Blogg & guider', desc: 'Bokföring förklarad steg för steg', to: '/blogg' },
+          { title: 'Ordlista', desc: 'Ekonomiska begrepp från A till Ö', to: '/ordlista' },
+          { title: 'Vanliga frågor', desc: 'Snabba svar om Bokix', to: '/vanliga-fragor' },
         ],
       },
       {
-        title: 'Hjälp & Nyheter',
+        title: 'Bokix',
         items: [
-          {
-            title: 'Vanliga frågor (FAQ)',
-            to: '/vanliga-fragor',
-            icon: HelpCircle,
-            color: '#d97706',
-            bgColor: 'rgba(217, 119, 6, 0.12)',
-          },
-          {
-            title: 'Nyheter & Uppdateringar',
-            to: '/nyheter',
-            icon: Sparkles,
-            color: '#0284c7',
-            bgColor: 'rgba(14, 165, 233, 0.12)',
-            badge: 'Nytt',
-            badgeColor: '#0284c7',
-          },
-          {
-            title: 'Kundservice & Kontakt',
-            to: '/kontakt',
-            icon: MessageSquare,
-            color: '#0ea5e9',
-            bgColor: 'rgba(14, 165, 233, 0.12)',
-          },
+          { title: 'Nyheter', desc: 'Det senaste i Bokix', to: '/nyheter' },
+          { title: 'Om oss', desc: 'Vilka som bygger Bokix', to: '/om-oss' },
+          { title: 'Kontakt', desc: 'Hör av dig till oss', to: '/kontakt' },
         ],
       },
     ],
-    get items() {
-      return this.sections.flatMap(s => s.items);
-    },
-    footer: {
-      label: 'Gå till kundservice & kontakt',
-      to: '/kontakt',
-    },
   },
 ];
 
@@ -460,6 +328,34 @@ function MarketingStyles() {
       .lp-btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 25px -5px rgba(11,99,41,0.4) !important; }
       .lp-btn-secondary { transition: all 0.2s !important; }
       .lp-btn-secondary:hover { background: #f9fafb !important; border-color: var(--mkt-nav-text) !important; }
+      /* ── Sidhuvudets knappar (kundönskemål 2026-09-26: Logga in grön,
+         tydligare ljus/mörk-val). Samma höjd och radie på alla tre. ── */
+      .lp-login, .lp-signup {
+        display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+        min-height: 46px; padding: 0 22px; border-radius: 12px; font-family: inherit;
+        font-size: 15px; cursor: pointer; white-space: nowrap;
+        transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+      }
+      .lp-login { background: #f2f8ef; color: #0b6329; font-weight: 700; border: 1.5px solid color-mix(in srgb, #0b6329 55%, transparent); }
+      .lp-login:hover { background: #eaf3de; border-color: #0b6329; }
+      html[data-theme="dark"] #lp-root .lp-login { color: #8fd67a; border-color: color-mix(in srgb, #8fd67a 38%, transparent); }
+      html[data-theme="dark"] #lp-root .lp-login:hover { background: rgba(143, 214, 122, 0.1); border-color: #8fd67a; }
+      .lp-signup { background: #0b6329; color: #fff; font-weight: 700; border: none; box-shadow: 0 6px 18px -6px rgba(11, 99, 41, 0.55); }
+      .lp-signup svg { transition: transform 0.2s ease; }
+      .lp-signup:hover { background: #0a5523; }
+      .lp-signup:hover svg { transform: translateX(3px); }
+      html[data-theme="dark"] #lp-root .lp-signup { background: #16803a; box-shadow: 0 6px 22px -6px rgba(34, 197, 94, 0.45); }
+      html[data-theme="dark"] #lp-root .lp-signup:hover { background: #1a9244; }
+      .lp-hdr-sep { width: 1px; height: 24px; background: var(--mkt-border-soft); margin: 0 4px; }
+
+      .lp-theme-switch { display: inline-flex; padding: 3px; gap: 2px; border-radius: 999px; background: #eef3ec; border: 1px solid rgba(11, 99, 41, 0.12); }
+      html[data-theme="dark"] #lp-root .lp-theme-switch { background: rgba(255, 255, 255, 0.05); border-color: rgba(255, 255, 255, 0.08); }
+      .lp-theme-opt { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 36px; min-width: 36px; padding: 0 10px; border-radius: 999px; border: none; background: transparent; color: var(--mkt-muted); cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 600; transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease; }
+      .lp-theme-opt:hover { color: var(--mkt-nav-text); }
+      .lp-theme-opt.on { background: #fff; color: #0b6329; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12), 0 0 0 1px rgba(11, 99, 41, 0.08); }
+      html[data-theme="dark"] #lp-root .lp-theme-opt.on { background: #1f3a26; color: #8fd67a; box-shadow: 0 0 0 1px rgba(143, 214, 122, 0.25); }
+      .lp-theme-mini { width: 40px; height: 40px; border-radius: 999px; border: 1px solid rgba(11, 99, 41, 0.14); background: #eef3ec; color: #0b6329; cursor: pointer; align-items: center; justify-content: center; }
+      html[data-theme="dark"] #lp-root .lp-theme-mini { background: rgba(255, 255, 255, 0.05); border-color: rgba(255, 255, 255, 0.1); color: #8fd67a; }
       .lp-theme-toggle { transition: all 0.2s !important; }
       .lp-theme-toggle:hover { background: #f9fafb !important; border-color: var(--mkt-nav-text) !important; }
       html[data-theme="dark"] #lp-root .lp-theme-toggle:hover { background: var(--mkt-ivory) !important; border-color: var(--mkt-nav-text) !important; }
@@ -552,46 +448,103 @@ function MarketingStyles() {
         }
       }
 
-      /* Menu item links (compact, no descriptions) */
+      /* Panelens innehåll — ren text, inga ikoner. Kolumner per sektion
+         med en tunn skiljelinje, rubrik i versaler, titel + kort rad. */
+      .lp-mega-grid { display: grid; padding: 22px 14px 14px; }
+      .lp-mega-col { display: flex; flex-direction: column; gap: 2px; padding: 0 8px; min-width: 0; }
+      .lp-mega-col + .lp-mega-col { border-left: 1px solid var(--mkt-border-soft); padding-left: 16px; }
+      html[data-theme="dark"] #lp-root .lp-mega-col + .lp-mega-col { border-left-color: #273b2d; }
+      .lp-mega-heading {
+        font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+        color: var(--mkt-muted); padding: 0 10px; margin-bottom: 8px;
+      }
       .lp-megamenu-item {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 7px 10px;
-        border-radius: 10px;
-        text-decoration: none;
-        transition: all 0.15s ease;
-        position: relative;
-      }
-      .lp-megamenu-item:hover {
-        background: var(--mkt-ivory);
-        transform: translateY(-1px);
-      }
-      html[data-theme="dark"] #lp-root .lp-megamenu-item:hover {
-        background: rgba(255, 255, 255, 0.06);
-      }
-      .lp-megamenu-item .item-icon {
-        transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-      }
-      .lp-megamenu-item:hover .item-icon {
-        transform: scale(1.08);
+        display: flex; flex-direction: column; gap: 2px;
+        padding: 9px 10px; border-radius: 10px; text-decoration: none;
+        transition: background 0.15s ease;
       }
       .lp-megamenu-item .item-title {
-        transition: color 0.15s ease;
+        font-size: 14.5px; font-weight: 600; line-height: 1.3; color: var(--mkt-heading);
+        display: inline-flex; align-items: center; gap: 6px; transition: color 0.15s ease;
       }
-      .lp-megamenu-item:hover .item-title {
-        color: ${BRAND.green} !important;
-      }
+      .lp-megamenu-item .item-desc { font-size: 13px; line-height: 1.35; color: var(--mkt-muted); }
       .lp-megamenu-item .item-arrow {
-        opacity: 0;
-        transform: translateX(-4px);
-        transition: all 0.2s ease;
-        color: ${BRAND.green};
+        opacity: 0; transform: translateX(-3px); transition: opacity 0.15s ease, transform 0.2s ease;
       }
-      .lp-megamenu-item:hover .item-arrow {
-        opacity: 1;
-        transform: translateX(0);
+      .lp-megamenu-item:hover, .lp-megamenu-item:focus-visible, .lp-megamenu-item.is-active { background: var(--mkt-ivory); }
+      .lp-megamenu-item:hover .item-title, .lp-megamenu-item.is-active .item-title { color: ${BRAND.green}; }
+      .lp-megamenu-item:hover .item-arrow { opacity: 1; transform: translateX(0); }
+      html[data-theme="dark"] #lp-root .lp-megamenu-item:hover,
+      html[data-theme="dark"] #lp-root .lp-megamenu-item:focus-visible,
+      html[data-theme="dark"] #lp-root .lp-megamenu-item.is-active { background: rgba(255, 255, 255, 0.06); }
+      html[data-theme="dark"] #lp-root .lp-megamenu-item:hover .item-title,
+      html[data-theme="dark"] #lp-root .lp-megamenu-item.is-active .item-title { color: #ffffff; }
+      .lp-mega-footer {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 12px 24px; border-top: 1px solid var(--mkt-border-soft);
+        background: color-mix(in srgb, var(--mkt-ivory) 70%, transparent);
       }
+      html[data-theme="dark"] #lp-root .lp-mega-footer { border-top-color: #273b2d; background: rgba(255, 255, 255, 0.03); }
+      .lp-mega-footer a {
+        font-size: 13.5px; font-weight: 700; color: ${BRAND.green}; text-decoration: none;
+        display: inline-flex; align-items: center; gap: 6px;
+      }
+      .lp-mega-footer a svg { transition: transform 0.2s ease; }
+      .lp-mega-footer a:hover svg { transform: translateX(3px); }
+      html[data-theme="dark"] #lp-root .lp-mega-footer a { color: #ffffff; }
+
+      /* Mobilmenyns dragspel — allt stängt från början, bara en sektion
+         öppen åt gången. Höjden animeras med grid-rows 0fr → 1fr. */
+      .lp-macc { border-bottom: 1px solid var(--mkt-border-soft); }
+      .lp-macc-head {
+        width: 100%; display: flex; align-items: center; justify-content: space-between;
+        background: none; border: none; cursor: pointer; font-family: inherit;
+        font-size: 19px; font-weight: 600; letter-spacing: -0.01em; color: var(--mkt-heading);
+        padding: 17px 2px; text-align: left; text-decoration: none;
+      }
+      .lp-macc-head.is-current { color: ${BRAND.green}; }
+      html[data-theme="dark"] #lp-root .lp-macc-head.is-current { color: #ffffff; }
+      .lp-macc-head .chevron { color: var(--mkt-muted); transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+      .lp-macc.is-open .lp-macc-head .chevron { transform: rotate(180deg); }
+      .lp-macc-body {
+        display: grid; grid-template-rows: 0fr;
+        transition: grid-template-rows 0.32s cubic-bezier(0.16, 1, 0.3, 1), visibility 0s linear 0.32s;
+        visibility: hidden;
+      }
+      .lp-macc.is-open .lp-macc-body {
+        grid-template-rows: 1fr; visibility: visible;
+        transition: grid-template-rows 0.32s cubic-bezier(0.16, 1, 0.3, 1), visibility 0s;
+      }
+      .lp-macc-inner { overflow: hidden; min-height: 0; }
+      .lp-macc-content {
+        display: flex; flex-direction: column; gap: 18px; padding: 2px 2px 20px;
+        opacity: 0; transform: translateY(-4px); transition: opacity 0.2s ease, transform 0.3s ease;
+      }
+      .lp-macc.is-open .lp-macc-content { opacity: 1; transform: none; transition-delay: 0.06s; }
+      .lp-macc-heading {
+        font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+        color: var(--mkt-muted); margin-bottom: 4px;
+      }
+      .lp-macc-link {
+        display: block; padding: 9px 0; font-size: 16px; font-weight: 500;
+        color: var(--mkt-nav-text); text-decoration: none;
+      }
+      .lp-macc-link.is-active { color: ${BRAND.green}; font-weight: 600; }
+      html[data-theme="dark"] #lp-root .lp-macc-link.is-active { color: #ffffff; }
+      .lp-macc-all {
+        display: inline-flex; align-items: center; gap: 6px; align-self: flex-start;
+        font-size: 14px; font-weight: 700; color: ${BRAND.green}; text-decoration: none; padding: 4px 0;
+      }
+      html[data-theme="dark"] #lp-root .lp-macc-all { color: #ffffff; }
+      /* Undersidorna: en accent (grönt) i stället för grönt/blått/turkos
+         om vartannat. Rött står kvar, det betyder kostnad/skatt. */
+      #lp-root.lp-sub, html[data-theme="dark"] #lp-root.lp-sub {
+        --mkt-accent-blue-fg: var(--mkt-accent-green-fg);
+        --mkt-accent-blue-soft: var(--mkt-accent-green-soft);
+        --mkt-accent-teal-fg: var(--mkt-accent-green-fg);
+        --mkt-accent-teal-soft: var(--mkt-accent-green-soft);
+      }
+      #lp-root.lp-sub .lp-footer-rule { background-image: none !important; background-color: var(--mkt-border-soft); height: 1px !important; }
       .lp-footer-link:hover { color: white !important; }
       .lp-card-hover { transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease; }
       .lp-card-hover:hover { transform: translateY(-3px); }
@@ -1206,11 +1159,33 @@ export function RevealLazy({ children, fallbackMinHeight = 480, style, ...rest }
  * att hoppa direkt till inloggning — se MarketingLayout-kommentaren nedan. */
 
 
+/** Ljust/mörkt som två synliga val i stället för en ensam ikon: man ser
+ * direkt vilka lägen som finns och vilket som är valt. */
+function ThemeSwitch({ theme, onToggleTheme, labels = false }) {
+  const opts = [
+    { id: 'light', label: 'Ljust', Icon: Sun },
+    { id: 'dark', label: 'Mörkt', Icon: Moon },
+  ];
+  return (
+    <div className="lp-theme-switch" role="group" aria-label="Utseende">
+      {opts.map(({ id, label, Icon }) => (
+        <button
+          key={id} type="button" aria-pressed={theme === id} title={`${label} läge`} aria-label={`${label} läge`}
+          className={`lp-theme-opt${theme === id ? ' on' : ''}`}
+          onClick={() => { if (theme !== id) onToggleTheme(); }}
+        >
+          <Icon size={16} />{labels && label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function MarketingHeader({ onEnterApp, theme, onToggleTheme }) {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState(null);
-  const [mobileExpanded, setMobileExpanded] = useState({ features: true });
+  const [mobileOpenKey, setMobileOpenKey] = useState(null);
 
   const navRef = useRef(null);
   const navigate = useNavigate();
@@ -1347,105 +1322,32 @@ export function MarketingHeader({ onEnterApp, theme, onToggleTheme }) {
                   top: 'calc(100% + 6px)',
                 }}
               >
-                <div style={{ padding: '20px 18px 12px' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                    {activeMenu.sections.map((section, sIdx) => (
-                      <div key={sIdx} style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                        <div style={{
-                          fontSize: '11px',
-                          fontWeight: 800,
-                          letterSpacing: '0.08em',
-                          textTransform: 'uppercase',
-                          color: 'var(--mkt-muted)',
-                          marginBottom: '6px',
-                          paddingLeft: '10px',
-                        }}>
-                          {section.title}
-                        </div>
-                        {section.items.map((item) => {
-                          const Icon = item.icon;
-                          const isItemActive = location.pathname === item.to;
-                          return (
-                            <Link
-                              key={item.to + item.title}
-                              to={item.to}
-                              className="lp-megamenu-item"
-                              onClick={() => setOpenDropdown(null)}
-                              style={{
-                                background: isItemActive ? 'var(--mkt-ivory)' : undefined,
-                              }}
-                            >
-                              <div
-                                className="item-icon"
-                                style={{
-                                  width: 34,
-                                  height: 34,
-                                  borderRadius: '9px',
-                                  background: item.bgColor,
-                                  color: item.color,
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  flexShrink: 0,
-                                }}
-                              >
-                                {Icon && <Icon size={17} />}
-                              </div>
-                              <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '7px' }}>
-                                <span className="item-title" style={{ fontSize: '14px', fontWeight: 600, color: 'var(--mkt-heading)', lineHeight: 1.3 }}>
-                                  {item.title}
-                                </span>
-                                {item.badge && (
-                                  <span style={{
-                                    fontSize: '10px',
-                                    fontWeight: 700,
-                                    padding: '1.5px 6px',
-                                    borderRadius: '9999px',
-                                    background: item.bgColor,
-                                    color: item.badgeColor || item.color,
-                                    letterSpacing: '0.02em',
-                                    lineHeight: 1.3,
-                                    flexShrink: 0,
-                                  }}>
-                                    {item.badge}
-                                  </span>
-                                )}
-                              </div>
-                              <div className="item-arrow" style={{ alignSelf: 'center', flexShrink: 0 }}>
-                                <ChevronRight size={14} />
-                              </div>
-                            </Link>
-                          );
-                        })}
-                      </div>
-                    ))}
-                  </div>
+                <div className="lp-mega-grid" style={{ gridTemplateColumns: `repeat(${activeMenu.sections.length}, minmax(0, 1fr))` }}>
+                  {activeMenu.sections.map((section) => (
+                    <div key={section.title} className="lp-mega-col">
+                      <div className="lp-mega-heading">{section.title}</div>
+                      {section.items.map((item) => (
+                        <Link
+                          key={item.to + item.title}
+                          to={item.to}
+                          className={`lp-megamenu-item ${location.pathname === item.to ? 'is-active' : ''}`}
+                          onClick={() => setOpenDropdown(null)}
+                        >
+                          <span className="item-title">
+                            {item.title}
+                            <ArrowRight size={13} className="item-arrow" />
+                          </span>
+                          {item.desc && <span className="item-desc">{item.desc}</span>}
+                        </Link>
+                      ))}
+                    </div>
+                  ))}
                 </div>
 
-                {/* Footer bar */}
                 {activeMenu.footer && (
-                  <div style={{
-                    padding: '10px 20px',
-                    background: 'color-mix(in srgb, var(--mkt-ivory) 80%, transparent)',
-                    borderTop: '1px solid var(--mkt-border-soft)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}>
-                    <Link
-                      to={activeMenu.footer.to}
-                      onClick={() => setOpenDropdown(null)}
-                      style={{
-                        fontSize: '13px',
-                        fontWeight: 700,
-                        color: BRAND.green,
-                        textDecoration: 'none',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '5px',
-                      }}
-                    >
-                      <span>{activeMenu.footer.label}</span>
+                  <div className="lp-mega-footer">
+                    <Link to={activeMenu.footer.to} onClick={() => setOpenDropdown(null)}>
+                      {activeMenu.footer.label}
                       <ArrowRight size={14} />
                     </Link>
                   </div>
@@ -1454,22 +1356,21 @@ export function MarketingHeader({ onEnterApp, theme, onToggleTheme }) {
             )}
           </div>
 
-          <div className="lp-nav-desktop" style={{ gap: '12px', alignItems: 'center' }}>
-            <button onClick={onToggleTheme} aria-label={theme === 'dark' ? 'Ljust läge' : 'Mörkt läge'} title={theme === 'dark' ? 'Ljust läge' : 'Mörkt läge'} className="lp-theme-toggle" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 48, height: 48, background: 'none', border: '1.5px solid var(--mkt-btn-border)', borderRadius: '10px', cursor: 'pointer', color: 'var(--mkt-nav-text)', flexShrink: 0 }}>
-              {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
-            </button>
-            <button className="lp-btn-secondary" onClick={() => handleEnterApp('login')} style={{ padding: '14px 22px', background: 'transparent', border: '1.5px solid var(--mkt-btn-border)', borderRadius: '10px', fontSize: '15px', fontWeight: 600, cursor: 'pointer', color: 'var(--mkt-nav-text)', fontFamily: 'inherit', minHeight: '48px' }}>
+          <div className="lp-nav-desktop" style={{ gap: '10px', alignItems: 'center' }}>
+            <ThemeSwitch theme={theme} onToggleTheme={onToggleTheme} />
+            <span className="lp-hdr-sep" aria-hidden />
+            <button type="button" className="lp-login" onClick={() => handleEnterApp('login')}>
               Logga in
             </button>
-            <button className="lp-btn-primary" onClick={() => handleEnterApp('signup')} style={{ padding: '14px 24px', background: BRAND.green, border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: 700, cursor: 'pointer', color: 'white', fontFamily: 'inherit', boxShadow: '0 4px 15px -3px rgba(11,99,41,0.35)', minHeight: '48px' }}>
-              Kom igång
+            <button type="button" className="lp-btn-primary lp-signup" onClick={() => handleEnterApp('signup')}>
+              Kom igång <ArrowRight size={16} />
             </button>
           </div>
 
-          <button onClick={onToggleTheme} aria-label={theme === 'dark' ? 'Ljust läge' : 'Mörkt läge'} title={theme === 'dark' ? 'Ljust läge' : 'Mörkt läge'} className="lp-hamburger-btn" style={{ background: 'none', border: 'none', cursor: 'pointer', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, marginLeft: 'auto', color: 'var(--mkt-nav-text)' }}>
+          <button onClick={onToggleTheme} aria-label={theme === 'dark' ? 'Ljust läge' : 'Mörkt läge'} title={theme === 'dark' ? 'Ljust läge' : 'Mörkt läge'} className="lp-hamburger-btn lp-theme-mini" style={{ marginLeft: 'auto' }}>
             {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
           </button>
-          <button className="lp-hamburger-btn" onClick={() => setMobileMenuOpen(true)} aria-label="Öppna meny" style={{ background: 'none', border: 'none', cursor: 'pointer', alignItems: 'center', justifyContent: 'center', width: 44, height: 44, color: 'var(--mkt-nav-text)' }}>
+          <button className="lp-hamburger-btn" onClick={() => { setMobileOpenKey(null); setMobileMenuOpen(true); }} aria-label="Öppna meny" style={{ background: 'none', border: 'none', cursor: 'pointer', alignItems: 'center', justifyContent: 'center', width: 44, height: 44, color: 'var(--mkt-nav-text)' }}>
             <Menu size={24} />
           </button>
         </div>
@@ -1483,188 +1384,84 @@ export function MarketingHeader({ onEnterApp, theme, onToggleTheme }) {
           </button>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', overflowY: 'auto', maxHeight: 'calc(100vh - 200px)' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', overflowY: 'auto', flex: 1, minHeight: 0 }}>
           {NAV_MENUS.map((menu) => {
             const hasDropdown = Boolean(menu.sections?.length);
-            const isExpanded = Boolean(mobileExpanded[menu.key]);
             const allItems = hasDropdown ? menu.sections.flatMap(s => s.items) : [];
-            const isCurrentRouteActive = hasDropdown
-              ? (location.pathname === menu.to || allItems.some(it => location.pathname === it.to))
-              : location.pathname === menu.to;
-
-            const activeColor = theme === 'dark' ? '#ffffff' : BRAND.green;
+            const isCurrent = location.pathname === menu.to || allItems.some(it => location.pathname === it.to);
 
             if (!hasDropdown) {
               return (
-                <Link
-                  key={menu.key}
-                  to={menu.to}
-                  onClick={() => setMobileMenuOpen(false)}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    borderBottom: '1px solid var(--mkt-border-soft)',
-                    textAlign: 'left',
-                    fontSize: '17px',
-                    fontWeight: 600,
-                    color: isCurrentRouteActive ? activeColor : 'var(--mkt-heading)',
-                    textDecoration: 'none',
-                    fontFamily: 'inherit',
-                    padding: '14px 4px',
-                  }}
-                >
-                  {menu.label}
-                </Link>
+                <div key={menu.key} className="lp-macc">
+                  <Link
+                    to={menu.to}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`lp-macc-head ${isCurrent ? 'is-current' : ''}`}
+                  >
+                    {menu.label}
+                  </Link>
+                </div>
               );
             }
 
-            const totalItemsCount = allItems.length;
-
+            // Bara en sektion öppen åt gången: ett tryck på Verktyg
+            // fäller ihop Funktioner och öppnar Verktyg.
+            const isOpen = mobileOpenKey === menu.key;
+            const panelId = `lp-macc-${menu.key}`;
             return (
-              <div key={menu.key} style={{ borderBottom: '1px solid var(--mkt-border-soft)' }}>
+              <div key={menu.key} className={`lp-macc ${isOpen ? 'is-open' : ''}`}>
                 <button
                   type="button"
-                  onClick={() => setMobileExpanded(prev => ({ ...prev, [menu.key]: !prev[menu.key] }))}
-                  style={{
-                    width: '100%',
-                    background: 'none',
-                    border: 'none',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    fontSize: '17px',
-                    fontWeight: 600,
-                    color: isCurrentRouteActive ? activeColor : 'var(--mkt-heading)',
-                    fontFamily: 'inherit',
-                    padding: '14px 4px',
-                    cursor: 'pointer',
-                  }}
+                  className={`lp-macc-head ${isCurrent ? 'is-current' : ''}`}
+                  onClick={() => setMobileOpenKey(isOpen ? null : menu.key)}
+                  aria-expanded={isOpen}
+                  aria-controls={panelId}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span>{menu.label}</span>
-                    <span style={{
-                      fontSize: '11px',
-                      fontWeight: 700,
-                      padding: '2px 7px',
-                      borderRadius: '9999px',
-                      background: 'var(--mkt-ivory)',
-                      color: 'var(--mkt-muted)',
-                      border: '1px solid var(--mkt-border-soft)',
-                    }}>
-                      {totalItemsCount}
-                    </span>
-                  </div>
-                  <ChevronDown
-                    size={18}
-                    style={{
-                      transform: isExpanded ? 'rotate(180deg)' : 'none',
-                      transition: 'transform 0.25s ease',
-                      color: 'var(--mkt-muted)',
-                    }}
-                  />
+                  {menu.label}
+                  <ChevronDown size={20} className="chevron" />
                 </button>
-
-                {isExpanded && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '4px 0 16px 4px' }}>
-                    {menu.sections.map((section, sIdx) => (
-                      <div key={sIdx} style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                        <div style={{
-                          fontSize: '10.5px',
-                          fontWeight: 800,
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.08em',
-                          color: 'var(--mkt-muted)',
-                          padding: '4px 8px',
-                        }}>
-                          {section.title}
-                        </div>
-                        {section.items.map((item) => {
-                          const Icon = item.icon;
-                          const isItemActive = location.pathname === item.to;
-                          return (
+                <div className="lp-macc-body" id={panelId}>
+                  <div className="lp-macc-inner">
+                    <div className="lp-macc-content">
+                      {menu.sections.map((section) => (
+                        <div key={section.title}>
+                          <div className="lp-macc-heading">{section.title}</div>
+                          {section.items.map((item) => (
                             <Link
                               key={item.to + item.title}
                               to={item.to}
                               onClick={() => setMobileMenuOpen(false)}
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '10px',
-                                padding: '8px 10px',
-                                borderRadius: '10px',
-                                textDecoration: 'none',
-                                background: isItemActive ? 'var(--mkt-ivory)' : 'transparent',
-                              }}
+                              className={`lp-macc-link ${location.pathname === item.to ? 'is-active' : ''}`}
                             >
-                              <div style={{
-                                width: 30,
-                                height: 30,
-                                borderRadius: '8px',
-                                background: item.bgColor,
-                                color: item.color,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                flexShrink: 0,
-                              }}>
-                                {Icon && <Icon size={16} />}
-                              </div>
-                              <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <span style={{ fontSize: '14.5px', fontWeight: 500, color: isItemActive ? BRAND.green : 'var(--mkt-nav-text)' }}>
-                                  {item.title}
-                                </span>
-                                {item.badge && (
-                                  <span style={{
-                                    fontSize: '9.5px',
-                                    fontWeight: 700,
-                                    padding: '1px 5px',
-                                    borderRadius: '9999px',
-                                    background: item.bgColor,
-                                    color: item.badgeColor || item.color,
-                                  }}>
-                                    {item.badge}
-                                  </span>
-                                )}
-                              </div>
+                              {item.title}
                             </Link>
-                          );
-                        })}
-                      </div>
-                    ))}
-
-                    {menu.footer && (
-                      <Link
-                        to={menu.footer.to}
-                        onClick={() => setMobileMenuOpen(false)}
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          fontSize: '13px',
-                          fontWeight: 700,
-                          color: BRAND.green,
-                          textDecoration: 'none',
-                          padding: '8px 10px',
-                          marginTop: '4px',
-                        }}
-                      >
-                        <span>{menu.footer.label}</span>
-                        <ArrowRight size={14} />
-                      </Link>
-                    )}
+                          ))}
+                        </div>
+                      ))}
+                      {menu.footer && (
+                        <Link to={menu.footer.to} onClick={() => setMobileMenuOpen(false)} className="lp-macc-all">
+                          {menu.footer.label}
+                          <ArrowRight size={14} />
+                        </Link>
+                      )}
+                    </div>
                   </div>
-                )}
+                </div>
               </div>
             );
           })}
         </div>
 
         <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', paddingTop: '20px' }}>
-          <button className="lp-btn-secondary" onClick={() => handleEnterApp('login')} style={{ padding: '14px', background: 'transparent', border: '1.5px solid var(--mkt-btn-border)', borderRadius: '10px', fontSize: '15px', fontWeight: 600, cursor: 'pointer', color: 'var(--mkt-nav-text)', fontFamily: 'inherit' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '8px' }}>
+            <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--mkt-muted)' }}>Utseende</span>
+            <ThemeSwitch theme={theme} onToggleTheme={onToggleTheme} labels />
+          </div>
+          <button type="button" className="lp-login" style={{ width: '100%', minHeight: '50px' }} onClick={() => handleEnterApp('login')}>
             Logga in
           </button>
-          <button onClick={() => handleEnterApp('signup')} style={{ padding: '14px', background: BRAND.green, border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: 700, cursor: 'pointer', color: 'white', fontFamily: 'inherit' }}>
-            Kom igång
+          <button type="button" className="lp-btn-primary lp-signup" style={{ width: '100%', minHeight: '50px' }} onClick={() => handleEnterApp('signup')}>
+            Kom igång <ArrowRight size={16} />
           </button>
         </div>
       </div>
@@ -1751,7 +1548,7 @@ export function MarketingFooter() {
   const year = new Date().getFullYear();
   return (
     <footer style={{ background: '#0e2018', padding: '52px 24px 26px', color: 'rgba(255,255,255,0.6)', position: 'relative', overflow: 'hidden' }}>
-      <div aria-hidden style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', backgroundImage: 'linear-gradient(90deg, #0ea5e9, #14b8a6, #84cc16)' }} />
+      <div aria-hidden className="lp-footer-rule" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', backgroundImage: 'linear-gradient(90deg, #0ea5e9, #14b8a6, #84cc16)' }} />
       <div aria-hidden className="lp-blob lp-blob-slower" style={{ position: 'absolute', bottom: '-200px', left: '50%', transform: 'translateX(-50%)', width: '600px', height: '400px', borderRadius: '50%', background: 'linear-gradient(135deg, #0ea5e9, #14b8a6)', opacity: 0.06, filter: 'blur(100px)', pointerEvents: 'none' }} />
 
       {/* Varumärkesblocket är tre rader totalt — logga, löfte,
@@ -1854,8 +1651,12 @@ export function MarketingFooter() {
  * vilken sida man klickade från. */
 export default function MarketingLayout({ onEnterApp, children }) {
   const [theme, toggleTheme] = useMarketingTheme();
+  const { pathname } = useLocation();
+  // Undersidorna (allt utom startsidan) kör en accentfärg och solida ytor,
+  // se .lp-sub i MarketingStyles.
+  const isHome = /^\/(en|no|dk|fi)?\/?$/.test(pathname);
   return (
-    <div id="lp-root" data-theme={theme} style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", color: 'var(--mkt-heading)', background: 'var(--mkt-page-bg)', overflowX: 'hidden' }}>
+    <div id="lp-root" className={isHome ? undefined : 'lp-sub'} data-theme={theme} style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", color: 'var(--mkt-heading)', background: 'var(--mkt-page-bg)', overflowX: 'hidden' }}>
       <JsonLd data={ORGANIZATION_SCHEMA} />
       <MarketingStyles />
       <MarketingHeader onEnterApp={onEnterApp} theme={theme} onToggleTheme={toggleTheme} />

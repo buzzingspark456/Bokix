@@ -1,10 +1,10 @@
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, FileSpreadsheet, XCircle } from '../icons';
-import { BRAND } from '../../utils/brandColors';
+import { useNavigate } from 'react-router-dom';
 import MarketingLayout, { Reveal } from './MarketingLayout';
-import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW, ACCENT } from './marketingTokens';
-import { AuroraLayer } from './aurora';
+import { KitStyles, SubHero, KitSection, CenterSection, SpecList, KitCta, PrimaryButton, GhostLink } from './subpageKit';
+import IntegrationFeed from './IntegrationFeed';
+import DemoPlayer, { DemoStyles } from './DemoPlayer';
+import { makeIntegrationDemo } from './demoScenesOther';
 import { StripeIconLogo, ZettleLogo, BolagsverketLogo, SkatteverketLogo, BasLogo } from '../shared/BrandLogos';
 import FormatExchange from './FormatExchange';
 import { PageMeta, JsonLd } from '../../utils/seo';
@@ -30,7 +30,6 @@ const CONNECTIONS = [
     logoHeight: 26,
     name: 'Stripe',
     kind: 'Betalningar',
-    accentKey: 'blue',
     body: 'Anslut ditt Stripe-konto och låt kunden betala fakturan med kort direkt från fakturalänken. Betalningen matchas mot rätt faktura och bokförs, med Stripes avgift som en egen kostnadspost i stället för en oförklarad differens.',
   },
   {
@@ -39,7 +38,6 @@ const CONNECTIONS = [
     logoHeight: 22,
     name: 'Zettle by PayPal',
     kind: 'Kassaförsäljning',
-    accentKey: 'green',
     body: 'Säljer du i butik, på marknad eller i mässmontern kopplas kassaförsäljningen in i samma bokföring som fakturorna, i stället för att bokföras separat i efterhand.',
   },
   {
@@ -48,7 +46,6 @@ const CONNECTIONS = [
     logoHeight: 34,
     name: 'Bolagsverket',
     kind: 'Företagsuppgifter',
-    accentKey: 'teal',
     body: 'Företagsnamn, bolagsform, adress och registreringsuppgifter hämtas automatiskt från organisationsnumret när du skapar ditt konto. Bolagsformen avgör i sin tur vilka bokföringsregler som gäller — du slipper välja regelverk själv.',
   },
   {
@@ -57,7 +54,6 @@ const CONNECTIONS = [
     logoHeight: 34,
     name: 'Skatteverket',
     kind: 'Deklarationsunderlag',
-    accentKey: 'red',
     body: 'Bokix bygger Skatteverkets egna filformat: eSKD för momsdeklarationen och SRU för inkomstdeklarationens räkenskapsscheman. Filerna laddar du själv upp och signerar hos Skatteverket — ingenting skickas i ditt namn automatiskt.',
   },
   {
@@ -66,10 +62,11 @@ const CONNECTIONS = [
     logoHeight: 30,
     name: 'BAS-kontoplanen',
     kind: 'Standard',
-    accentKey: 'green',
     body: 'Hela den svenska BAS-kontoplanen ligger inbyggd och sökbar. Det är samma kontoplan din revisor, din bank och nästa bokföringsprogram utgår från, vilket är förutsättningen för att en SIE-fil ska betyda samma sak överallt.',
   },
 ];
+
+const INTEGRATION_DEMO = makeIntegrationDemo(CONNECTIONS);
 
 const IMPORTS = [
   {
@@ -148,10 +145,6 @@ const NOT_YET = [
     body: 'Bokix bygger filerna, men skickar dem aldrig i ditt namn. Uppladdning och signering gör du själv i Skatteverkets e-tjänst — en deklaration ska aldrig lämnas in utan att någon faktiskt tittat på den.',
   },
   {
-    title: 'Kvittotolkning med AI (OCR)',
-    body: 'Kvitton laddas upp och kopplas till posten, men beloppen läses inte av automatiskt ur bilden ännu.',
-  },
-  {
     title: 'Öppet API',
     body: 'Det finns inget publikt API att bygga egna integrationer mot i dag. SIE- och CSV-exporterna är vägen ut för den som vill flytta data till ett eget system.',
   },
@@ -171,6 +164,7 @@ const SCHEMA = {
 
 export default function IntegrationsPage() {
   const navigate = useNavigate();
+  const enterApp = () => navigate('/', { state: { enterApp: true, authMode: 'signup' } });
 
   return (
     <MarketingLayout>
@@ -180,60 +174,29 @@ export default function IntegrationsPage() {
         path="/integrationer"
       />
       <JsonLd data={SCHEMA} />
-      <style>{`
-        .bx-int-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
-        @media (max-width: 860px) { .bx-int-grid { grid-template-columns: 1fr; gap: 18px; } }
-      `}</style>
+      <KitStyles />
+      <DemoStyles />
 
-      <section style={{ padding: '150px 24px 60px', background: IVORY, position: 'relative', overflow: 'hidden' }}>
-        <AuroraLayer stops={[['rgba(14,165,233,0.16)', '3% -8%'], ['rgba(20,184,166,0.14)', '98% 106%']]} />
-        <Reveal style={{ maxWidth: '740px', margin: '0 auto', textAlign: 'center', position: 'relative' }}>
-          <h1 style={{ fontFamily: SERIF, fontSize: 'clamp(30px, 4.6vw, 48px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '16px', lineHeight: 1.15 }}>
-            Kopplat till det du redan använder
-          </h1>
-          <p style={{ fontSize: '16.5px', color: MUTED, lineHeight: 1.7, margin: 0 }}>
-            Betalningar, myndigheter och de filformat svensk bokföring faktiskt bygger på — plus en ärlig lista över det vi ännu inte har.
-          </p>
-        </Reveal>
-      </section>
+      <SubHero
+        eyebrow="Integrationer"
+        title="Kopplat till det du redan använder"
+        lead="Betalningar, myndigheter och de filformat svensk bokföring faktiskt bygger på. Plus en ärlig lista över det vi ännu inte har."
+        actions={<>
+          <PrimaryButton onClick={enterApp}>Prova gratis</PrimaryButton>
+          <GhostLink href="#inte">Det här har vi inte</GhostLink>
+        </>}
+        visual={<IntegrationFeed />}
+      />
 
-      {/* ── Riktiga kopplingar ── */}
-      <section style={{ padding: '0 24px 20px', background: 'var(--mkt-page-bg)' }}>
-        <div className="bx-int-grid" style={{ maxWidth: '900px', margin: '0 auto' }}>
-          {CONNECTIONS.map((c, i) => {
-            const accent = ACCENT[c.accentKey] || ACCENT.green;
-            return (
-              <Reveal key={c.key} delay={i * 60} className="lp-card-hover" style={{
-                background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '18px',
-                padding: '24px 26px', boxShadow: CARD_SHADOW,
-                gridColumn: i === CONNECTIONS.length - 1 && CONNECTIONS.length % 2 === 1 ? '1 / -1' : undefined,
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', marginBottom: '14px' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', height: 38 }}>
-                    <c.Logo height={c.logoHeight} />
-                  </span>
-                  <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: accent.fg, background: accent.soft, padding: '5px 10px', borderRadius: '7px', whiteSpace: 'nowrap' }}>
-                    {c.kind}
-                  </span>
-                </div>
-                <h2 style={{ fontSize: '17px', fontWeight: 700, color: INK, margin: '0 0 7px', letterSpacing: '-0.01em' }}>{c.name}</h2>
-                <p style={{ fontSize: '14px', color: INK_SOFT, lineHeight: 1.7, margin: 0 }}>{c.body}</p>
-              </Reveal>
-            );
-          })}
-        </div>
-      </section>
+      <CenterSection title="Kopplingar" lead="Fem saker Bokix pratar med. Så här ser det ut när de gör sitt jobb.">
+        <DemoPlayer steps={INTEGRATION_DEMO} label="Demo: Bokix kopplingar" />
+      </CenterSection>
 
-      {/* ── In och ut ── */}
-      <section style={{ padding: '70px 24px', background: IVORY, borderTop: `1px solid var(--mkt-border-soft)`, marginTop: '50px' }}>
+      <section className="kx-section" style={{ background: 'var(--mkt-ivory)' }}>
         <div style={{ maxWidth: '940px', margin: '0 auto' }}>
-          <Reveal style={{ textAlign: 'center', marginBottom: '30px' }}>
-            <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(23px, 3.2vw, 32px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, margin: '0 0 9px' }}>
-              Tio filformat, in och ut
-            </h2>
-            <p style={{ fontSize: '15.5px', color: MUTED, lineHeight: 1.6, margin: 0, maxWidth: '540px', marginLeft: 'auto', marginRight: 'auto' }}>
-              Välj ett så står det vad det är och vad det används till.
-            </p>
+          <Reveal style={{ textAlign: 'center', marginBottom: '34px' }}>
+            <h2 className="kx-h2">Tio filformat, in och ut</h2>
+            <p className="kx-sub">Välj ett så står det vad det är och vad det används till.</p>
           </Reveal>
           <Reveal scale delay={60}>
             <FormatExchange imports={IMPORTS} exports={EXPORTS} />
@@ -241,51 +204,14 @@ export default function IntegrationsPage() {
         </div>
       </section>
 
-      {/* ── Ärlighetsavsnittet ── */}
-      <section style={{ padding: '70px 24px', background: 'var(--mkt-page-bg)', borderTop: `1px solid var(--mkt-border-soft)` }}>
-        <Reveal style={{ maxWidth: '900px', margin: '0 auto', background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '22px', padding: 'clamp(26px, 4.5vw, 40px)', boxShadow: CARD_SHADOW }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
-            <span style={{ width: 38, height: 38, borderRadius: '11px', background: ACCENT.red.soft, color: ACCENT.red.fg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <XCircle size={18} />
-            </span>
-            <h2 style={{ fontSize: '20px', fontWeight: 700, color: INK, margin: 0, letterSpacing: '-0.01em' }}>Det här har vi inte</h2>
-          </div>
-          <p style={{ fontSize: '14.5px', color: MUTED, lineHeight: 1.65, margin: '0 0 22px' }}>
-            Fyra saker konkurrenter har som Bokix inte har. Du ska kunna välja bort oss på rätt grund, inte upptäcka det efter att du flyttat in din bokföring.
-          </p>
-          <div className="bx-int-grid">
-            {NOT_YET.map(item => (
-              <div key={item.title} style={{ background: IVORY, border: `1px solid ${CARD_BORDER}`, borderRadius: '14px', padding: '18px 20px' }}>
-                <h3 style={{ fontSize: '15px', fontWeight: 700, color: INK, margin: '0 0 6px' }}>{item.title}</h3>
-                <p style={{ fontSize: '13.5px', color: INK_SOFT, lineHeight: 1.7, margin: 0 }}>{item.body}</p>
-              </div>
-            ))}
-          </div>
-        </Reveal>
-      </section>
+      <KitSection id="inte" title="Det här har vi inte" lead="Du ska kunna välja bort oss på rätt grund, inte upptäcka det efter att du flyttat in din bokföring.">
+        <SpecList items={NOT_YET} />
+      </KitSection>
 
-      {/* ── Byta program ── */}
-      <section style={{ padding: '70px 24px 100px', background: IVORY, borderTop: `1px solid var(--mkt-border-soft)` }}>
-        <Reveal scale style={{ maxWidth: '900px', margin: '0 auto', background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '22px', padding: 'clamp(28px, 5vw, 46px)', textAlign: 'center', boxShadow: CARD_SHADOW }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginBottom: '18px', padding: '8px 15px', borderRadius: '999px', background: ACCENT.blue.soft, color: ACCENT.blue.fg, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace', fontSize: '13px', fontWeight: 700 }}>
-            <FileSpreadsheet size={15} /> bokforing-2026.se
-          </div>
-          <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(23px, 3.4vw, 32px)', fontWeight: 700, color: INK, margin: '0 0 12px', letterSpacing: '-0.01em' }}>
-            Byter du från ett annat program?
-          </h2>
-          <p style={{ fontSize: '15.5px', color: MUTED, lineHeight: 1.7, margin: '0 auto 26px', maxWidth: '560px' }}>
-            Exportera en SIE4-fil ur ditt nuvarande program och läs in den i Bokix. Kontoplan, verifikationer och ingående saldon följer med — du börjar inte om från noll mitt i ett räkenskapsår.
-          </p>
-          <div className="lp-cta-group" style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
-            <button onClick={() => navigate('/', { state: { enterApp: true, authMode: 'signup' } })} style={{ padding: '14px 28px', background: BRAND.green, border: 'none', borderRadius: '12px', color: 'white', fontWeight: 700, fontSize: '15px', cursor: 'pointer', fontFamily: 'inherit' }}>
-              Prova gratis
-            </button>
-            <Link to="/byt-bokforingsprogram" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '14px 24px', background: 'var(--mkt-card-bg)', border: `1.5px solid ${CARD_BORDER}`, borderRadius: '12px', color: INK_SOFT, fontWeight: 600, fontSize: '15px', textDecoration: 'none' }}>
-              Så går bytet till <ArrowRight size={15} />
-            </Link>
-          </div>
-        </Reveal>
-      </section>
+      <KitCta title="Byter du från ett annat program?" lead="Exportera en SIE4-fil ur ditt nuvarande program och läs in den i Bokix. Kontoplan, verifikationer och ingående saldon följer med.">
+        <PrimaryButton onClick={enterApp}>Prova gratis</PrimaryButton>
+        <GhostLink to="/byt-bokforingsprogram">Så går bytet till</GhostLink>
+      </KitCta>
     </MarketingLayout>
   );
 }

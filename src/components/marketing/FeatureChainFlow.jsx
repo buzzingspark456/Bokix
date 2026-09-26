@@ -92,7 +92,7 @@ export default function FeatureChainFlow() {
         /* Ledningen mellan leden. Fylls i takt med att kedjan går framåt,
            så man ser att det är ETT förlopp och inte tre fristående kort. */
         .bx-ch-wire { position: relative; align-self: center; height: 2px; background: var(--mkt-card-border); border-radius: 2px; overflow: hidden; }
-        .bx-ch-wire-fill { position: absolute; inset: 0; background: linear-gradient(90deg, ${BRAND.green}, #14b8a6); transform-origin: left; transform: scaleX(0); transition: transform 0.6s cubic-bezier(0.22,1,0.36,1); }
+        .bx-ch-wire-fill { position: absolute; inset: 0; background: ${BRAND.green}; transform-origin: left; transform: scaleX(0); transition: transform 0.6s cubic-bezier(0.22,1,0.36,1); }
         .bx-ch-wire-on .bx-ch-wire-fill { transform: scaleX(1); }
         @media (max-width: 860px) {
           .bx-ch-wire { width: 2px; height: 22px; justify-self: center; }

@@ -8,6 +8,8 @@ import MarketingLayout, { Reveal } from './MarketingLayout';
 import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW, ACCENT_CYCLE } from './marketingTokens';
 import { PageMeta, JsonLd, SITE_URL } from '../../utils/seo';
 import BankFlow from './BankFlow';
+import DemoPlayer, { DemoStyles } from './DemoPlayer';
+import { makeBankDemo } from './demoScenesOther';
 import { BankLogo } from '../shared/BrandLogos';
 import { BANK_SOURCES, OTHER_BANK_HINT, MAX_BANK_FILE_MB, splitBankPath } from '../../utils/bankSources';
 
@@ -53,6 +55,8 @@ const STEPS = [
     body: 'Varje rad hamnar som "ej hanterad" tills du gör något med den. Inbetalningar föreslås mot dina obetalda kundfakturor, utbetalningar mot leverantörsfakturor, och resten kan du snabbokföra på ett konto direkt i listan.',
   },
 ];
+
+const BANK_DEMO = makeBankDemo(STEPS);
 
 const FAQ = [
   {
@@ -300,35 +304,18 @@ export default function BankPage() {
         </div>
       </section>
 
-      {/* ── Fyra steg ── */}
-      <section style={{ padding: '60px 24px', background: IVORY }}>
-        <div style={{ maxWidth: '780px', margin: '0 auto' }}>
-          <Reveal style={{ textAlign: 'center', marginBottom: '32px' }}>
-            <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(22px, 3vw, 30px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '10px' }}>Så går det till</h2>
-            <p style={{ fontSize: '14.5px', color: MUTED, maxWidth: '540px', margin: '0 auto', lineHeight: 1.65 }}>
-              Första gången tar ett par minuter. Sedan är det en fil att dra in, ungefär lika ofta som du vill ha bokföringen uppdaterad.
-            </p>
-          </Reveal>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            {STEPS.map((s, i) => {
-              const accent = ACCENT_CYCLE[i % 3];
-              return (
-                <Reveal key={s.title} delay={i * 60} className="lp-card-hover" style={{
-                  display: 'flex', gap: '16px', alignItems: 'flex-start', background: 'var(--mkt-card-bg)',
-                  border: `1px solid ${CARD_BORDER}`, borderRadius: '14px', padding: '20px 22px', boxShadow: CARD_SHADOW,
-                }}>
-                  <div style={{ width: 38, height: 38, borderRadius: '10px', background: accent.soft, color: accent.fg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <s.icon size={18} />
-                  </div>
-                  <div>
-                    <h3 style={{ fontSize: '15px', fontWeight: 700, color: INK, margin: '0 0 6px' }}>{i + 1}. {s.title}</h3>
-                    <p style={{ fontSize: '13.5px', color: INK_SOFT, lineHeight: 1.65, margin: 0 }}>{s.body}</p>
-                  </div>
-                </Reveal>
-              );
-            })}
-          </div>
-        </div>
+      {/* ── Fyra steg, uppspelade (DemoPlayer) ── */}
+      <DemoStyles />
+      <section style={{ padding: '84px 24px', background: IVORY, borderTop: '1px solid var(--mkt-border-soft)' }}>
+        <Reveal style={{ textAlign: 'center', maxWidth: '620px', margin: '0 auto 40px' }}>
+          <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(28px, 4vw, 42px)', fontWeight: 700, letterSpacing: '-0.015em', color: INK, margin: '0 0 12px' }}>Så går det till</h2>
+          <p style={{ fontSize: '17px', color: MUTED, margin: 0, lineHeight: 1.65 }}>
+            Första gången tar ett par minuter. Sedan är det en fil att dra in, ungefär lika ofta som du vill ha bokföringen uppdaterad.
+          </p>
+        </Reveal>
+        <Reveal scale delay={60}>
+          <DemoPlayer steps={BANK_DEMO} label="Demo: så kommer kontoutdraget in i Bokix" />
+        </Reveal>
       </section>
 
       {/* ── FAQ ── */}

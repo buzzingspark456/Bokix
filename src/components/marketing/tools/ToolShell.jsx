@@ -197,7 +197,7 @@ export function ToolResultPanel({ title, children, footnote }) {
     // I MÖRKT läge ligger kortets egen bakgrund nära panelens djupgröna
     // ton — utan den tunna kanten flöt de två halvorna ihop till en enda yta.
     <div style={{ background: '#0e2018', padding: 'clamp(24px, 4vw, 32px)', display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden', borderLeft: '1px solid rgba(255,255,255,0.09)' }}>
-      <div aria-hidden style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', backgroundImage: 'linear-gradient(90deg, #0ea5e9, #14b8a6, #84cc16)' }} />
+      <div aria-hidden style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: BRAND.green }} />
       <h2 style={{ fontSize: '12.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'rgba(255,255,255,0.5)', margin: '0 0 16px' }}>{title}</h2>
       <div style={{ flex: 1 }}>{children}</div>
       {footnote && (
@@ -262,7 +262,6 @@ export function ToolNote({ tone = 'neutral', title, children }) {
 export default function ToolShell({ tool, metaTitle, metaDescription, intro, calculator, result, steps, faq, children }) {
   const navigate = useNavigate();
   const accent = ACCENT[tool.accentKey] || ACCENT.green;
-  const Icon = tool.icon;
   const related = TOOLS.filter(t => t.slug !== tool.slug);
 
   // SoftwareApplication-schema för själva verktyget (inte för Bokix som
@@ -307,9 +306,6 @@ export default function ToolShell({ tool, metaTitle, metaDescription, intro, cal
           <Link to={TOOLS_HUB_PATH} style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '7px 15px', borderRadius: '999px', background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, fontSize: '12.5px', fontWeight: 700, color: accent.fg, marginBottom: '20px', textDecoration: 'none' }}>
             <ArrowLeft size={13} /> Gratis verktyg
           </Link>
-          <div style={{ width: 54, height: 54, borderRadius: '16px', background: accent.soft, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' }}>
-            <Icon size={25} color={accent.fg} />
-          </div>
           <h1 style={{ fontFamily: SERIF, fontSize: 'clamp(30px, 4.6vw, 46px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '16px', lineHeight: 1.15 }}>
             {tool.title}
           </h1>
@@ -370,16 +366,12 @@ export default function ToolShell({ tool, metaTitle, metaDescription, intro, cal
           <div className="bx-tool-related">
             {related.map(t => {
               const a = ACCENT[t.accentKey] || ACCENT.green;
-              const TIcon = t.icon;
               return (
                 <Link key={t.slug} to={t.path} className="lp-card-hover" style={{
                   display: 'flex', gap: '13px', alignItems: 'center', textDecoration: 'none',
                   background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '14px',
                   padding: '15px 17px', boxShadow: CARD_SHADOW_SM,
                 }}>
-                  <span style={{ width: 34, height: 34, borderRadius: '10px', background: a.soft, color: a.fg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <TIcon size={16} />
-                  </span>
                   <span style={{ minWidth: 0 }}>
                     <span style={{ display: 'block', fontSize: '14.5px', fontWeight: 700, color: INK }}>{t.title}</span>
                     <span style={{ display: 'block', fontSize: '12.5px', color: MUTED }}>{t.short}</span>

@@ -102,7 +102,7 @@ export default function UfYearFlow() {
            som växer fram till den aktiva. Bredden animeras (inte transform)
            eftersom den ska sluta exakt vid en punkt, inte skalas. */
         .bx-uy-rail { position: absolute; left: clamp(6px, 3vw, 18px); right: clamp(6px, 3vw, 18px); top: clamp(21px, 4.6vw, 27px); height: 3px; border-radius: 3px; background: var(--mkt-card-border); }
-        .bx-uy-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: linear-gradient(90deg, ${BRAND.green}, #14b8a6); transition: width 0.7s cubic-bezier(0.22, 1, 0.36, 1); }
+        .bx-uy-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: ${BRAND.green}; transition: width 0.7s cubic-bezier(0.22, 1, 0.36, 1); }
 
         .bx-uy-stops { position: relative; display: flex; justify-content: space-between; }
         .bx-uy-stop { display: flex; flex-direction: column; align-items: center; gap: 9px; background: none; border: none; padding: 0; cursor: pointer; font-family: inherit; flex: 1 1 0; min-width: 0; }

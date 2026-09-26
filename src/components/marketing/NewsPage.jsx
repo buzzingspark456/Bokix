@@ -14,7 +14,12 @@ function formatDate(iso) {
   return new Date(`${iso}T00:00:00`).toLocaleDateString('sv-SE', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
-const POSTS = [...NEWS_POSTS].sort((a, b) => b.datePublished.localeCompare(a.datePublished));
+// Senaste först. Samma datum: den som står längre ner i news.js är nyast
+// (nya nyheter läggs till sist i listan), så den hamnar överst.
+const POSTS = NEWS_POSTS
+  .map((post, i) => ({ post, i }))
+  .sort((a, b) => b.post.datePublished.localeCompare(a.post.datePublished) || b.i - a.i)
+  .map(({ post }) => post);
 
 const SCHEMA = {
   '@context': 'https://schema.org',

@@ -1,10 +1,9 @@
 ﻿import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, ChevronDown, Check, X } from '../icons';
+import { ArrowRight, ChevronDown, Check } from '../icons';
 import { BRAND } from '../../utils/brandColors';
-import MarketingLayout, { Reveal, BokixWordmark } from './MarketingLayout';
+import MarketingLayout, { Reveal } from './MarketingLayout';
 import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW, ACCENT } from './marketingTokens';
-import { GRAD, grad, AuroraLayer } from './aurora';
 import { PRICING_TIERS } from './pricingTiers';
 import { localizedPricingTiers } from '../../content/marketing/pricingTiers';
 import { PRICING_CONTENT } from '../../content/marketing/pricing';
@@ -102,6 +101,14 @@ function FaqItem({ q, a, index, open, onToggle }) {
   );
 }
 
+const COMPARE_HEADING = {
+  sv: 'Jämför vad som ingår',
+  en: 'Compare what’s included',
+  no: 'Sammenlign hva som er inkludert',
+  dk: 'Sammenlign hvad der er inkluderet',
+  fi: 'Vertaa mitä sisältyy',
+};
+
 export default function PricingPage({ locale = 'sv' }) {
   const navigate = useNavigate();
   const c = PRICING_CONTENT[locale] || PRICING_CONTENT.sv;
@@ -112,6 +119,7 @@ export default function PricingPage({ locale = 'sv' }) {
   const [interval, setInterval] = useState('monthly');
   const enterApp = (planId = 'employer_monthly') => navigate('/', { state: { enterApp: true, authMode: 'signup', plan: planId } });
   const [openFaq, setOpenFaq] = useState(0);
+  const compareRows = tiers.reduce((all, t) => (t.features.length > all.length ? t.features : all), []);
 
   return (
     <MarketingLayout>
@@ -125,11 +133,7 @@ export default function PricingPage({ locale = 'sv' }) {
       <JsonLd data={buildSoftwareSchema(c.schemaDescription)} />
       <JsonLd data={buildFaqSchema(c.faq)} />
 
-      <section style={{ padding: 'clamp(100px, 22vw, 150px) 24px clamp(44px, 9vw, 70px)', background: IVORY, position: 'relative', overflow: 'hidden' }}>
-        <AuroraLayer
-          stops={[['rgba(14,165,233,0.20)', '4% -8%'], ['rgba(47,138,58,0.16)', '98% 106%']]}
-          blob={{ gradient: grad(GRAD.blueTeal), top: '-160px', left: '-110px', size: '460px', opacity: 0.22 }}
-        />
+      <section style={{ padding: 'clamp(110px, 22vw, 150px) 24px clamp(36px, 7vw, 56px)', background: 'var(--mkt-page-bg)' }}>
         <Reveal style={{ maxWidth: '640px', margin: '0 auto', textAlign: 'center', position: 'relative' }}>
           <h1 style={{ fontFamily: SERIF, fontSize: 'clamp(32px, 5vw, 52px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '16px', lineHeight: 1.14 }}>
             {c.hero.title}
@@ -140,39 +144,42 @@ export default function PricingPage({ locale = 'sv' }) {
         </Reveal>
       </section>
 
-      {/* Två prisnivåer, samma kort-mönster som prissektionen på
-          startsidan (LandingPage.jsx) — delad data från PRICING_TIERS
-          (pricingTiers.js) så de två sidorna aldrig kan glida isär.
-          Kundönskemål ("vårt riktiga logo, andra färger, mindre space,
-          större") — headern var en helfärgad gradient med loggan tvingad
-          vit via CSS-filter. Nu en ljus, svagt tonad header (tier.accent
-          vid låg opacitet + en tunn 5px gradient-rand överst) så det
-          RIKTIGA flerfärgade ordmärket syns i sina egna färger, större.
-          Sektionen/korten breddade så det inte blir onödig tom yta i
-          sidorna. Båda korten samma höjd (flex stretch) oavsett olika
-          listlängd, och den dyrare nivån ("featured") får mer luft/större
-          typsnitt. */}
-      <section style={{ padding: '0 24px 60px', background: 'var(--mkt-page-bg)', position: 'relative', overflow: 'hidden' }}>
-        <AuroraLayer
-          stops={[['rgba(47,138,58,0.14)', '96% -6%'], ['rgba(20,184,166,0.16)', '2% 108%']]}
-          blob={{ gradient: grad(GRAD.tealLime), bottom: '-150px', top: 'auto', right: '-110px', left: 'auto', size: '420px', opacity: 0.18, slow: true }}
-        />
-        {/* Kundfeedback (mobil, uttryckligt: "priset dyker inte upp
-            förrän man skrollat ner, ser trasigt ut"): båda priskorten låg
-            tidigare i EN enda lp-reveal-scale runt hela sektionen (~2450px
-            hög på en telefon, staplade på varandra i enda kolumnen). Skroll-
-            reveal-tröskeln (0.15, se useReveal i MarketingLayout.jsx) räknar
-            andelen av HELA blockets yta som syns — för ett block så mycket
-            högre än själva skärmen krävdes en ovanligt stor, onaturlig
-            skrollsträcka innan tillräckligt stor andel någonsin blev synlig,
-            vilket kändes som "sidan är tom". Varje kort får nu sin EGEN
-            reveal i stället (samma mönster som FEATURE_COLUMNS ovan) — ett
-            enda ~1200px-kort korsar 15%-tröskeln nästan direkt när det rullar
-            in, som avsett. */}
-        <div style={{ maxWidth: 'min(92vw, 1220px)', margin: '0 auto', padding: '0 4px', width: '100%', position: 'relative' }}>
+      {/* Två prisnivåer (kundönskemål 2026-09-26): korta kort sida vid
+          sida, även på telefonen, med bara pris, vem nivån passar och
+          knappen. Vad som ingår står EN gång i jämförelsetabellen under,
+          i stället för samma sju rader upprepade i båda korten. Data från
+          PRICING_TIERS (pricingTiers.js), priset ur plans.js — samma
+          källa som checkouten debiterar efter. */}
+      <section style={{ padding: '0 16px 20px', background: 'var(--mkt-page-bg)' }}>
+        <style>{`
+          .bx-pr-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(10px, 3vw, 24px); max-width: 860px; margin: 0 auto; }
+          .bx-pr-card { background: var(--mkt-card-bg); border: 1px solid var(--mkt-card-border); border-radius: 22px; padding: clamp(18px, 4vw, 32px); display: flex; flex-direction: column; box-shadow: var(--mkt-card-shadow); }
+          .bx-pr-card.featured { border: 2px solid ${BRAND.green}; }
+          html[data-theme="dark"] #lp-root .bx-pr-card.featured { border-color: var(--mkt-accent-green-fg); }
+          .bx-pr-name { font-size: clamp(12px, 2.8vw, 13.5px); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: ${MUTED}; }
+          .bx-pr-price { font-family: ${SERIF}; font-size: clamp(34px, 9vw, 56px); font-weight: 700; letter-spacing: -0.02em; color: ${INK}; line-height: 1.05; margin: 10px 0 6px; white-space: nowrap; }
+          .bx-pr-price small { font-family: inherit; font-size: 0.3em; font-weight: 500; color: ${MUTED}; letter-spacing: 0; }
+          .bx-pr-note { font-size: clamp(12px, 2.8vw, 13.5px); color: ${MUTED}; line-height: 1.5; margin: 0 0 18px; flex: 1; }
+          .bx-pr-cta { width: 100%; min-height: 48px; padding: 14px; border-radius: 12px; border: none; background: ${BRAND.green}; color: #fff; font-family: inherit; font-size: clamp(13.5px, 3.2vw, 15px); font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+          .bx-pr-sub { text-align: center; font-size: 12px; color: ${MUTED}; margin-top: 10px; line-height: 1.45; }
+          .bx-pr-recommend { display: block; }
+          @media (max-width: 520px) { .bx-pr-recommend { display: none; } .bx-pr-cta svg { display: none; } }
+
+          .bx-pr-table { max-width: 860px; margin: 0 auto; border-top: 1px solid var(--mkt-border-soft); }
+          .bx-pr-row { display: grid; grid-template-columns: minmax(0, 1fr) clamp(76px, 18vw, 150px) clamp(76px, 18vw, 150px); align-items: center; border-bottom: 1px solid var(--mkt-border-soft); }
+          .bx-pr-row > * { padding: 15px 8px; }
+          .bx-pr-row > :first-child { padding-left: 0; font-size: clamp(13.5px, 3.4vw, 15px); color: ${INK_SOFT}; line-height: 1.45; }
+          .bx-pr-cell { display: flex; justify-content: center; }
+          .bx-pr-head { position: sticky; top: 84px; z-index: 2; background: var(--mkt-page-bg); }
+          .bx-pr-head > * { font-size: clamp(11px, 2.6vw, 12.5px); font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: ${MUTED}; text-align: center; }
+          .bx-pr-group > * { padding-top: 26px; font-size: 12.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: ${MUTED}; }
+          .bx-pr-yes { width: 24px; height: 24px; border-radius: 50%; background: ${ACCENT.green.soft}; display: flex; align-items: center; justify-content: center; }
+          .bx-pr-no { width: 14px; height: 2px; border-radius: 2px; background: var(--mkt-card-border); }
+        `}</style>
+        <div style={{ maxWidth: '860px', margin: '0 auto' }}>
           {/* Betalningsintervall. Årsvis är förvalt AV — den som inte
               aktivt väljer det ska aldrig råka binda upp ett år i förskott. */}
-          <Reveal style={{ display: 'flex', justifyContent: 'center', marginBottom: '34px' }}>
+          <Reveal style={{ display: 'flex', justifyContent: 'center', marginBottom: '28px' }}>
             <div role="group" aria-label="Betalningsintervall" style={{ display: 'inline-flex', gap: '4px', padding: '5px', borderRadius: '999px', background: 'var(--mkt-ivory)', border: `1px solid ${CARD_BORDER}` }}>
               {[
                 { id: 'monthly', label: c.interval.monthly },
@@ -184,7 +191,7 @@ export default function PricingPage({ locale = 'sv' }) {
                     key={opt.id} type="button" onClick={() => setInterval(opt.id)} aria-pressed={active}
                     style={{
                       display: 'inline-flex', alignItems: 'center', gap: '8px',
-                      padding: '11px 22px', borderRadius: '999px', cursor: 'pointer', fontFamily: 'inherit',
+                      padding: '11px 20px', borderRadius: '999px', cursor: 'pointer', fontFamily: 'inherit',
                       fontSize: '14.5px', fontWeight: 700, border: 'none',
                       background: active ? 'var(--mkt-card-bg)' : 'transparent',
                       color: active ? INK : MUTED,
@@ -203,133 +210,70 @@ export default function PricingPage({ locale = 'sv' }) {
               })}
             </div>
           </Reveal>
-          {/* Kundfeedback (mobil, samma bugg som startsidans prissektion —
-              se LandingPage.jsx): minmax(380px,1fr) tvingade ett rutnät
-              bredare än en smal telefon-viewport. minmax(min(380px,100%),1fr)
-              krymper golvet till containerns egen bredd i stället — en
-              enda skärmbred kolumn på mobil, oförändrat på desktop. */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(380px, 100%), 1fr))', gap: 'clamp(16px, 5vw, 32px)', alignItems: 'stretch' }}>
-            {tiers.map((tier, i) => {
-              const plan = resolvePlan(tier.key, interval);
-              return (
-              <Reveal
-                key={tier.key}
-                scale delay={i * 100}
-                className="lp-lux-card"
-                style={{
-                  background: 'var(--mkt-card-bg)',
-                  border: tier.featured ? `2px solid ${tier.accent.fg}` : '1px solid var(--mkt-card-border)',
-                  borderRadius: '26px',
-                  boxShadow: tier.featured ? '0 44px 76px -28px rgba(20,140,90,0.38), 0 4px 14px rgba(28,36,32,0.08)' : '0 32px 60px -30px rgba(28,36,32,0.32), 0 2px 8px rgba(28,36,32,0.05)',
-                  width: '100%', height: '100%', boxSizing: 'border-box', position: 'relative', overflow: 'hidden',
-                  display: 'flex', flexDirection: 'column',
-                }}
-              >
-                {/* Ingen translateY-lyft — gjorde att korten inte låg i
-                    linje längst upp, syntes som "avskuret".
-                    borderRadius matchar kortets EGNA 26px — annars möts
-                    headerns egen overflow:hidden-klippning och kortets
-                    rundade mask inte exakt, och gradient-randen fick ett
-                    hackigt hörn. */}
-                <div style={{ background: `color-mix(in srgb, ${tier.accent.fg} 7%, var(--mkt-card-bg))`, padding: tier.featured ? 'clamp(28px, 9vw, 46px) clamp(18px, 6vw, 28px) clamp(22px, 7vw, 34px)' : 'clamp(24px, 8vw, 38px) clamp(18px, 6vw, 28px) clamp(18px, 6vw, 28px)', textAlign: 'center', position: 'relative', overflow: 'hidden', borderRadius: '26px 26px 0 0', flexShrink: 0 }}>
-                  <div aria-hidden style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '5px', backgroundImage: grad(tier.gradient) }} />
-                  <div style={{ marginBottom: tier.featured ? '20px' : '16px', position: 'relative' }}>
-                    <BokixWordmark height={tier.featured ? 48 : 38} />
-                  </div>
-                  <div style={{ position: 'relative' }}>
-                    <div style={{ display: 'inline-flex', padding: '5px 14px', borderRadius: '100px', background: tier.accent.soft, fontSize: tier.featured ? '13.5px' : '12.5px', fontWeight: 700, color: tier.accent.fg, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '14px' }}>{tier.name}</div>
-                    {/* Priset räknas ur den delade katalogen (plans.js),
-                        samma fil som checkouten debiterar efter — kortet kan
-                        alltså inte visa ett annat belopp än det som dras.
-                        clamp() (kundfeedback: "för stort på telefonen") —
-                        58/50px på desktop som förut, mindre på en smal
-                        telefon. */}
-                    <div>
-                      <span style={{ fontFamily: SERIF, fontSize: tier.featured ? 'clamp(38px, 11vw, 58px)' : 'clamp(32px, 9.5vw, 50px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK }}>
-                        {plan.price} kr
-                      </span>
-                      <span style={{ fontSize: '15px', color: MUTED }}> /mån</span>
-                    </div>
-                    {interval === 'yearly' ? (
-                      <div style={{ fontSize: '13px', color: MUTED, marginTop: '6px', fontWeight: 600 }}>
-                        {c.yearlySavingsNote(plan.savingPerYear)}
-                      </div>
-                    ) : (
-                      <div style={{ fontSize: '13px', color: MUTED, marginTop: '6px', fontWeight: 600 }}>{tier.subtitle} · {c.freeTrialSuffix}</div>
-                    )}
-                  </div>
-                </div>
+        </div>
 
-                <div style={{ padding: 'clamp(20px, 6vw, 28px) clamp(16px, 5vw, 24px) clamp(18px, 5vw, 26px)', display: 'flex', flexDirection: 'column', flex: 1 }}>
-                  {tier.recommend && (
-                    <div style={{ fontSize: '13.5px', color: tier.accent.fg, fontWeight: 600, lineHeight: 1.5, marginBottom: '18px', paddingBottom: '18px', borderBottom: `1px solid ${CARD_BORDER}` }}>
-                      {tier.recommend}
-                    </div>
-                  )}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '9px', marginBottom: '22px', flex: 1 }}>
-                    {tier.features.map((f) => (
-                      <div key={f} style={{ display: 'flex', alignItems: 'center', gap: '11px', padding: '11px 12px', background: 'var(--mkt-ivory)', border: `1px solid ${CARD_BORDER}`, borderRadius: '11px' }}>
-                        <div style={{ width: 20, height: 20, borderRadius: '50%', background: tier.accent.soft, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                          <Check size={11} color={tier.accent.fg} strokeWidth={3} />
-                        </div>
-                        <span style={{ fontSize: '14px', color: INK_SOFT, fontWeight: 500, lineHeight: 1.4 }}>{f}</span>
-                      </div>
-                    ))}
-                    {tier.missing?.map((f) => (
-                      <div key={f} style={{ display: 'flex', alignItems: 'center', gap: '11px', padding: '11px 12px', opacity: 0.55 }}>
-                        <div style={{ width: 20, height: 20, borderRadius: '50%', border: `1.5px solid ${MUTED}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                          <X size={11} color={MUTED} strokeWidth={3} />
-                        </div>
-                        <span style={{ fontSize: '14px', color: MUTED, fontWeight: 500, lineHeight: 1.4, textDecoration: 'line-through' }}>{f}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  <button className="lp-btn-primary lp-pulse" onClick={() => enterApp(plan.id)} style={{ width: '100%', padding: '16px', borderRadius: '13px', border: 'none', background: BRAND.green, fontSize: '15.5px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', color: 'white', boxShadow: '0 10px 24px -8px rgba(11,99,41,0.35)', minHeight: '48px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                    {c.cta} <ArrowRight size={16} />
-                  </button>
-                  <div style={{ textAlign: 'center', fontSize: '12.5px', color: 'var(--mkt-muted)', marginTop: '14px' }}>
-                    {interval === 'yearly'
-                      ? c.yearlyMinimumNote(YEARLY_MINIMUM_MONTHS)
-                      : c.monthlyNote}
-                  </div>
+        <div className="bx-pr-cards">
+          {tiers.map((tier, i) => {
+            const plan = resolvePlan(tier.key, interval);
+            return (
+              <Reveal key={tier.key} delay={i * 80} className={`bx-pr-card${tier.featured ? ' featured' : ''}`}>
+                <div className="bx-pr-name">{tier.name}</div>
+                <div className="bx-pr-price">{plan.price} kr<small> /mån</small></div>
+                <p className="bx-pr-note">
+                  {interval === 'yearly' ? c.yearlySavingsNote(plan.savingPerYear) : `${tier.subtitle} · ${c.freeTrialSuffix}`}
+                  {tier.recommend && <span className="bx-pr-recommend" style={{ marginTop: '10px' }}>{tier.recommend}</span>}
+                </p>
+                <button type="button" className="bx-pr-cta lp-btn-primary" onClick={() => enterApp(plan.id)}>
+                  {c.cta} <ArrowRight size={16} />
+                </button>
+                <div className="bx-pr-sub">
+                  {interval === 'yearly' ? c.yearlyMinimumNote(YEARLY_MINIMUM_MONTHS) : c.monthlyNote}
                 </div>
               </Reveal>
-              );
-            })}
-          </div>
-          {/* Momsraden står här, direkt under beloppen, och inte bara i
-              FAQ:n längre ner: "tillkommer det moms?" är frågan en
-              företagare ställer i samma sekund som hen ser priset, och ett
-              svar som kräver att man skrollar är ett svar för sent.
-              Bokix är inte momsregistrerat — priset är därmed hela
-              beloppet, och det finns ingen ingående moms att dra av. */}
-          <p style={{ textAlign: 'center', fontSize: '13px', color: 'var(--mkt-muted)', margin: '28px auto 0', maxWidth: '520px', lineHeight: 1.65 }}>
-            {c.vatNote}
-          </p>
-          {/* Samma logik som momsraden ovan, en egen rad i stället för
-              att klämmas in i samma mening: "inga dolda avgifter" fanns
-              tidigare bara i sidans <meta description> (osynligt för en
-              besökare) — konkurrensbevakning visar att just det här
-              (avgift per skannat kvitto/faktura utöver abonnemanget) är
-              ett återkommande, verkligt klagomål mot flera andra svenska
-              bokföringsprogram. Ärligt och kort, samma ton som resten av
-              sidan — ingen jämförelsetabell, bara vårt eget löfte. */}
-          <p style={{ textAlign: 'center', fontSize: '13px', color: 'var(--mkt-muted)', margin: '10px auto 0', maxWidth: '520px', lineHeight: 1.65 }}>
-            {c.noHiddenFeesNote}
-          </p>
+            );
+          })}
         </div>
+
+        {/* Momsraden direkt under beloppen: "tillkommer det moms?" är
+            frågan man ställer i samma sekund som man ser priset. Bokix är
+            inte momsregistrerat — priset är hela beloppet. */}
+        <p style={{ textAlign: 'center', fontSize: '13px', color: 'var(--mkt-muted)', margin: '24px auto 0', maxWidth: '520px', lineHeight: 1.65 }}>
+          {c.vatNote} {c.noHiddenFeesNote}
+        </p>
+      </section>
+
+      {/* ── Jämförelsen: varje funktion en gång, en bock per nivå ── */}
+      <section style={{ padding: '56px 16px 90px', background: 'var(--mkt-page-bg)' }}>
+        <Reveal style={{ textAlign: 'center', marginBottom: '28px' }}>
+          <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(26px, 3.6vw, 36px)', fontWeight: 700, letterSpacing: '-0.015em', color: INK, margin: 0 }}>
+            {COMPARE_HEADING[locale] || COMPARE_HEADING.sv}
+          </h2>
+        </Reveal>
+        <Reveal delay={60} className="bx-pr-table">
+          <div className="bx-pr-row bx-pr-head">
+            <span />
+            {tiers.map(t => <span key={t.key}>{t.name}</span>)}
+          </div>
+          {compareRows.map(f => (
+            <div key={f} className="bx-pr-row">
+              <span>{f}</span>
+              {tiers.map(t => (
+                <span key={t.key} className="bx-pr-cell">
+                  {t.features.includes(f)
+                    ? <span className="bx-pr-yes" aria-label="Ingår"><Check size={13} color={ACCENT.green.fg} strokeWidth={3} /></span>
+                    : <span className="bx-pr-no" aria-label="Ingår inte" />}
+                </span>
+              ))}
+            </div>
+          ))}
+        </Reveal>
       </section>
 
       {/* Kundönskemål: ingen demo på prissidan längre — startsidans "Se
           demo" i Hero (DemoOverlay, se LandingPage.jsx) är nu den ENDA
           platsen för den riktiga, klickbara produktvisningen. */}
 
-      <section style={{ padding: '90px 24px 100px', background: IVORY, position: 'relative', overflow: 'hidden' }}>
-        <AuroraLayer
-          stops={[['rgba(132,204,22,0.14)', '2% 106%'], ['rgba(14,165,233,0.14)', '98% -8%']]}
-          blob={{ gradient: grad(GRAD.green), top: '-140px', bottom: 'auto', right: '-100px', left: 'auto', size: '380px', opacity: 0.18 }}
-        />
+      <section style={{ padding: '90px 24px 100px', background: IVORY, borderTop: '1px solid var(--mkt-border-soft)' }}>
         <div style={{ maxWidth: 'min(88vw, 900px)', margin: '0 auto', position: 'relative' }}>
           <Reveal style={{ textAlign: 'center', marginBottom: '44px' }}>
             <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(28px, 4vw, 40px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK }}>{c.faqHeading}</h2>

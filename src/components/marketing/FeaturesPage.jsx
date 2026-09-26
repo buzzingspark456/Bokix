@@ -1,30 +1,22 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, Check } from '../icons';
-import { BRAND } from '../../utils/brandColors';
 import MarketingLayout, { Reveal } from './MarketingLayout';
-import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW, ACCENT } from './marketingTokens';
-import { GRAD, grad, AuroraLayer } from './aurora';
 import FeatureChainFlow from './FeatureChainFlow';
-import { FeatureDemoStyles, DemoBokforing, DemoFakturering, DemoSkatt, DemoPersonal } from './featureDemos';
-import ToolMotif, { ToolMotifStyles } from './toolMotifs';
+import InvoiceFlow from './InvoiceFlow';
+import DemoPlayer, { DemoStyles } from './DemoPlayer';
+import { BOKFORING_DEMO, FAKTURERING_DEMO, SKATT_DEMO, LON_DEMO } from './demoScenesFeatures';
+import { KitStyles, SubHero, KitSection, SpecList, PointList, KitCta, PrimaryButton, GhostLink } from './subpageKit';
 import { PageMeta, JsonLd } from '../../utils/seo';
 
-// Fördjupad version av startsidans fyra kolumner — samma fyra riktiga
-// huvudsektioner (se globala sidomenyn i App.jsx), nu med de faktiska
-// delfunktionerna under varje, inte bara en rad sammanfattning. Samma
-// handritade illustrationer och accentfärger som Startsidans funktionskort
-// (se marketingTokens.js/featureIllustrations.jsx) — större här, eftersom
-// den här sidan ÄR funktionerna, inte en teaser till dem.
-// Riktiga skärmbilder (public/screenshots/, se scripts/tmp-screenshot3.mjs för
-// hur de togs — direkt ur appen med exempeldata, inte mockuper) — kompletterar
-// de handritade illustrationerna (`demo`) i .bx-ft-art. Anledningen: en
-// SVG-illustration räknas aldrig som en bild för Google (ingen <img>, ingen
-// alt-text, inget för bildsöket att indexera), så sidan hade tekniskt sett
-// noll bilder trots att den "visade" produkten fyra gånger.
+// Bokföring & fakturering (/funktioner). Omgjord 2026-09-26 (kundönskemål:
+// solida ytor, inga ikoner, en egen animation per sida): hjälten visar en
+// faktura som betalas och bokförs (InvoiceFlow), sedan en tvåspaltig rad per
+// huvuddel (subpageKit.jsx). Skärmbilderna är riktiga, tagna ur appen med
+// exempeldata. Sedan 2026-09-26 visar varje del en demo (DemoPlayer +
+// demoScenesFeatures.jsx) i stället för en skärmbild, på kundens begäran.
 const SECTIONS = [
   {
-    id: 'bokforing', demo: DemoBokforing, accentKey: 'green', title: 'Bokföring',
+    id: 'bokforing', demo: BOKFORING_DEMO, title: 'Bokföring',
     desc: 'Löpande bokföring som sköter sig själv när den kan, och flaggar tydligt när den inte kan.',
     points: [
       'Verifikationer bokförs automatiskt utifrån kvitton, fakturor och lönekörningar',
@@ -33,11 +25,9 @@ const SECTIONS = [
       'SIE4-import av en befintlig bokföring, och SIE4-export när du vill ta med dig allt',
       'Låsning av räkenskapsår vid bokslut',
     ],
-    screenshot: '/screenshots/bokix-bokforing-verifikationer.png',
-    screenshotAlt: 'Skärmbild av Bokföring i Bokix: automatiskt bokförda verifikationer grupperade per månad, med belopp och status',
   },
   {
-    id: 'fakturering', demo: DemoFakturering, accentKey: 'blue', title: 'Fakturering',
+    id: 'fakturering', demo: FAKTURERING_DEMO, title: 'Fakturering',
     desc: 'Kund- och leverantörsfakturor i samma flöde, med ditt eget varumärke på fakturan.',
     points: [
       'Fyra fakturamallar (Klassisk, Kraftfull, Minimal, Rutnät) med egen logotyp och accentfärg',
@@ -48,11 +38,9 @@ const SECTIONS = [
       'Utskick från din egen e-postdomän, inte en delad avsändaradress',
       'PDF-export som alltid matchar exakt det du ser i förhandsvisningen',
     ],
-    screenshot: '/screenshots/bokix-fakturering-kundfakturor.png',
-    screenshotAlt: 'Skärmbild av Fakturering i Bokix: lista över kundfakturor med förfallodatum, belopp och status (betald, förfallen, obetald)',
   },
   {
-    id: 'skatt', demo: DemoSkatt, accentKey: 'red', title: 'Skatt och bokslut',
+    id: 'skatt', demo: SKATT_DEMO, title: 'Skatt och bokslut',
     desc: 'Det som faktiskt ska in rätt hos Skatteverket, förberett åt dig men aldrig skickat automatiskt utan din signatur.',
     points: [
       'Momsdeklaration ruta för ruta — som PDF, och som eSKD-fil att ladda upp hos Skatteverket',
@@ -62,11 +50,9 @@ const SECTIONS = [
       'Påminnelse i god tid före varje moms- och AGI-deadline',
       'Ett bokslutsflöde som stämmer av och låser räkenskapsåret',
     ],
-    screenshot: '/screenshots/bokix-skatt-momsdeklaration.png',
-    screenshotAlt: 'Skärmbild av momsdeklaration i Bokix: steg-för-steg-flöde med kontroll, granskning och bokföring av perioden',
   },
   {
-    id: 'personal', aliasId: 'lon', demo: DemoPersonal, accentKey: 'green', title: 'Lön & personal',
+    id: 'personal', aliasId: 'lon', demo: LON_DEMO, title: 'Lön & personal',
     desc: 'Lönekörning med rätt skatteavdrag från start, inte en gissning som rättas i efterhand.',
     points: [
       'Automatiskt skatteavdrag enligt Skatteverkets skattetabeller',
@@ -75,8 +61,6 @@ const SECTIONS = [
       'Betalfil till banken för nettolönerna (ISO 20022 pain.001)',
       'Flera anställda i samma lönekörning, en tydlig sammanställning för hela företaget',
     ],
-    screenshot: '/screenshots/bokix-personal-anstallda.png',
-    screenshotAlt: 'Skärmbild av Personal i Bokix: lista över anställda med anställningsdatum, lön och status',
   },
 ];
 
@@ -99,7 +83,7 @@ const MORE = [
   { motif: 'rapporter', title: 'Rapport och analys', body: 'Resultat, balans, kassaflöde, huvudbok, nyckeltal.' },
   { motif: 'konto', title: 'Konto och behörighet', body: 'Tvåfaktor, tre användare, flera företag.' },
   { motif: 'format', title: 'Filformat och export', body: 'SIE4, eSKD, SRU, ISO 20022, PDF och CSV.', to: '/integrationer' },
-];;
+];
 
 // ItemList-schema byggt direkt av SECTIONS + MORE ovan — exakt det sidan
 // visar, aldrig en egen dubblettlista. Ger Google/AI-svarsmotorer en
@@ -130,77 +114,31 @@ export default function FeaturesPage() {
         path="/funktioner"
       />
       <JsonLd data={FEATURE_LIST_SCHEMA} />
-      <FeatureDemoStyles />
-      <ToolMotifStyles />
+      <KitStyles />
+      <DemoStyles />
       <style>{`
-        /* Sektionsraden: illustrationsplattan och texten. Byter sida
-           varannan sektion (.bx-ft-row-flip) — en lång sida med fyra
-           identiska rader läser som ett formulär, samma sida med växlande
-           tyngdpunkt läser som en genomgång. Under 720px staplas de, vilket
-           den gamla fasta 164px-kolumnen aldrig gjorde. */
-        .bx-ft-row { display: grid; grid-template-columns: minmax(0, 300px) 1fr; align-items: stretch; }
-        .bx-ft-row-flip { grid-template-columns: 1fr minmax(0, 300px); }
-        .bx-ft-art { display: flex; align-items: center; justify-content: center; padding: 20px; min-width: 0; }
-        .bx-ft-row-flip .bx-ft-art { order: 2; }
-        .bx-ft-body { padding: 32px; }
-        .bx-ft-points { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px 24px; }
-        @media (max-width: 720px) {
-          .bx-ft-row, .bx-ft-row-flip { grid-template-columns: 1fr; }
-          .bx-ft-art { padding: 22px; }
-          .bx-ft-row-flip .bx-ft-art { order: 0; }
-          .bx-ft-body { padding: 24px; }
-        }
-
-        /* Ankarraden under hjälten. Ger den långa sidan en ryggrad: man ser
-           direkt vad den innehåller och kan hoppa dit, i stället för att
-           skrolla förbi tre sektioner för att hitta lönedelen. */
-        .bx-ft-jump { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; row-gap: 10px; }
-        .bx-ft-chip {
-          display: inline-flex; align-items: center; gap: 8px; padding: 0 clamp(12px, 2.4vw, 20px);
-          color: var(--mkt-muted); text-decoration: none;
-          font-size: clamp(11px, 2.2vw, 12.5px); font-weight: 800;
-          letter-spacing: 0.08em; text-transform: uppercase;
-          transition: color 0.25s;
-        }
-        .bx-ft-chip + .bx-ft-chip { border-left: 1px solid var(--mkt-card-border); }
-        .bx-ft-chip:hover { color: var(--mkt-ink); }
-        /* Pricken bär sektionens egen accentfärg — samma färg som möter
-           en när man landat där nere. */
-        .bx-ft-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; transition: transform 0.25s cubic-bezier(0.22,1,0.36,1); }
-        .bx-ft-chip:hover .bx-ft-dot { transform: scale(1.45); }
+        .bx-ft-points { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 40px; max-width: 820px; margin: 44px auto 0; }
+        @media (max-width: 700px) { .bx-ft-points { grid-template-columns: 1fr; } .bx-ft-points .kx-list + .kx-list { border-top: none; } }
       `}</style>
-      <section style={{ padding: '150px 24px 56px', background: IVORY, position: 'relative', overflow: 'hidden' }}>
-        <AuroraLayer
-          stops={[['rgba(14,165,233,0.18)', '4% -8%'], ['rgba(132,204,22,0.16)', '98% 108%']]}
-          blob={{ gradient: grad(GRAD.blueTeal), top: '-160px', left: '-110px', size: '460px', opacity: 0.2 }}
-        />
-        <Reveal style={{ maxWidth: '720px', margin: '0 auto', textAlign: 'center', position: 'relative' }}>
-          <h1 style={{ fontFamily: SERIF, fontSize: 'clamp(32px, 5vw, 50px)', fontWeight: 700, letterSpacing: '-0.015em', color: INK, marginBottom: '16px', lineHeight: 1.12 }}>
-            Allt ett företag gör varje månad
-          </h1>
-          <p style={{ fontSize: '17px', color: MUTED, lineHeight: 1.65, margin: '0 0 34px' }}>
-            Fyra delar, ett verktyg, ett pris.
-          </p>
-          <div className="bx-ft-jump">
-            {SECTIONS.map(s => (
-              <a key={s.id} href={`#${s.id}`} className="bx-ft-chip">
-                <span className="bx-ft-dot" aria-hidden style={{ background: ACCENT[s.accentKey].fg }} />
-                {s.title}
-              </a>
-            ))}
-          </div>
-        </Reveal>
-      </section>
 
-      {/* ── Sambandet, före uppräkningen ── */}
-      <section style={{ padding: '10px 24px 74px', background: IVORY }}>
+      <SubHero
+        eyebrow="Bokföring & fakturering"
+        title="Du fakturerar. Bokföringen följer med."
+        lead="Kvitton, fakturor, moms och bokslut i ett och samma verktyg. Det som går att bokföra automatiskt gör det, och det som är osäkert hamnar i Granskning med ett förslag i stället för en gissning."
+        actions={<>
+          <PrimaryButton onClick={enterApp}>Prova gratis</PrimaryButton>
+          <GhostLink to="/priser">Se priser</GhostLink>
+        </>}
+        visual={<InvoiceFlow />}
+      />
+
+      {/* ── Sambandet: en händelse, tre ställen ── */}
+      <section className="kx-section" style={{ background: 'var(--mkt-ivory)' }}>
         <div style={{ maxWidth: '1020px', margin: '0 auto' }}>
-          <Reveal style={{ textAlign: 'center', marginBottom: '30px' }}>
-            <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(23px, 3.2vw, 32px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, margin: '0 0 9px' }}>
-              Allt hänger ihop bakåt
-            </h2>
-            <p style={{ fontSize: '15.5px', color: MUTED, lineHeight: 1.6, margin: 0, maxWidth: '560px', marginLeft: 'auto', marginRight: 'auto' }}>
-              Det är därför det är ett verktyg och inte fyra. Du gör en sak — resten följer med.
+          <Reveal style={{ textAlign: 'center', marginBottom: '36px' }}>
+            <h2 className="kx-h2">Allt hänger ihop</h2>
+            <p className="kx-sub" style={{ maxWidth: '520px', margin: '0 auto' }}>
+              Det är därför det är ett verktyg och inte fyra. Du gör en sak, resten följer med.
             </p>
           </Reveal>
           <Reveal scale delay={60}>
@@ -209,118 +147,39 @@ export default function FeaturesPage() {
         </div>
       </section>
 
-      {/* ── De fyra delarna i sin helhet ── */}
-      <section style={{ padding: '74px 24px 90px', background: 'var(--mkt-page-bg)', borderTop: `1px solid var(--mkt-border-soft)` }}>
-        <div style={{ maxWidth: '980px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '28px' }}>
-          <Reveal style={{ textAlign: 'center', marginBottom: '6px' }}>
-            <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(23px, 3.2vw, 32px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, margin: 0 }}>
-              De fyra delarna
-            </h2>
+      {SECTIONS.map((sec, i) => (
+        <section key={sec.id} id={sec.id} className="kx-section" style={{ background: i % 2 ? 'var(--mkt-ivory)' : 'var(--mkt-page-bg)', scrollMarginTop: '84px' }}>
+          {sec.aliasId && <div id={sec.aliasId} />}
+          <Reveal style={{ textAlign: 'center', maxWidth: '640px', margin: '0 auto 40px' }}>
+            <h2 className="kx-h2" style={{ fontSize: 'clamp(28px, 4vw, 42px)' }}>{sec.title}</h2>
+            <p className="kx-sub" style={{ fontSize: '17px' }}>{sec.desc}</p>
           </Reveal>
-          {SECTIONS.map((s, i) => {
-            const accent = ACCENT[s.accentKey];
-            return (
-              <React.Fragment key={s.title}>
-                {s.aliasId && <div id={s.aliasId} style={{ scrollMarginTop: '96px' }} />}
-                <Reveal
-                  id={s.id} delay={i * 80}
-                  className={`lp-card-hover bx-ft-row${i % 2 ? ' bx-ft-row-flip' : ''}`}
-                  style={{
-                    background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '20px', overflow: 'hidden',
-                    boxShadow: CARD_SHADOW, scrollMarginTop: '96px',
-                  }}
-                >
-                <div className="bx-ft-art" style={{ background: accent.soft }}>
-                  <s.demo />
-                </div>
-                <div className="bx-ft-body">
-                  <h3 style={{ fontSize: '21px', fontWeight: 700, color: INK, margin: '0 0 6px', letterSpacing: '-0.01em' }}>{s.title}</h3>
-                  <p style={{ fontSize: '14.5px', color: MUTED, margin: '0 0 18px', lineHeight: 1.6 }}>{s.desc}</p>
-                  <div className="bx-ft-points">
-                    {s.points.map(point => (
-                      <div key={point} style={{ display: 'flex', gap: '9px', alignItems: 'flex-start', fontSize: '13.5px', color: INK_SOFT, lineHeight: 1.55 }}>
-                        <Check size={14} color={accent.fg} style={{ flexShrink: 0, marginTop: '3px' }} />
-                        <span>{point}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <img
-                    src={s.screenshot}
-                    alt={s.screenshotAlt}
-                    loading="lazy"
-                    width="1382"
-                    height="813"
-                    style={{ width: '100%', height: 'auto', display: 'block', marginTop: '20px', borderRadius: '10px', border: `1px solid ${CARD_BORDER}`, boxShadow: CARD_SHADOW }}
-                  />
-                </div>
-              </Reveal>
-            </React.Fragment>
-          );
-        })}
-        </div>
-      </section>
-
-      {/* Resten av verktyget — se kommentaren vid MORE. */}
-      <section style={{ padding: '74px 24px 90px', background: IVORY, borderTop: '1px solid var(--mkt-border-soft)' }}>
-        <div style={{ maxWidth: '980px', margin: '0 auto' }}>
-          <Reveal>
-            <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(22px, 3vw, 30px)', fontWeight: 700, color: INK, margin: '0 0 10px', letterSpacing: '-0.01em' }}>
-              Och resten av verktyget
-            </h2>
-            <p style={{ fontSize: '15px', color: MUTED, lineHeight: 1.7, margin: '0 0 26px', maxWidth: '640px' }}>
-              Samma pris, inget tillägg. Allt nedan finns i appen i dag.
+          <Reveal scale delay={60}>
+            <DemoPlayer steps={sec.demo} stepMs={7000} label={`Demo: ${sec.title}`} />
+          </Reveal>
+          <Reveal delay={80} className="bx-ft-points">
+            <PointList items={sec.points.slice(0, Math.ceil(sec.points.length / 2))} />
+            <PointList items={sec.points.slice(Math.ceil(sec.points.length / 2))} />
+          </Reveal>
+          {sec.id === 'personal' && (
+            <p style={{ textAlign: 'center', marginTop: '24px' }}>
+              <Link to="/lon" style={{ color: 'var(--mkt-accent-green-fg)', fontWeight: 700, textDecoration: 'none' }}>Mer om lön och arbetsgivare →</Link>
             </p>
-          </Reveal>
-          <div className="bx-tool-grid bx-tool-grid-4">
-            {MORE.map((m, i) => {
-              const card = (
-                <>
-                  <ToolMotif kind={m.motif} />
-                  <h3 style={{ fontSize: '15.5px', fontWeight: 700, color: INK, margin: '0 0 6px', letterSpacing: '-0.005em' }}>
-                    {m.title}
-                  </h3>
-                  <p style={{ fontSize: '13.5px', color: INK_SOFT, lineHeight: 1.6, margin: 0 }}>{m.body}</p>
-                  {m.to && (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', marginTop: '12px', fontSize: '13px', fontWeight: 600, color: BRAND.greenDark }}>
-                      Se alla filformat <ArrowRight size={14} />
-                    </span>
-                  )}
-                </>
-              );
-              const style = {
-                display: 'block', background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`,
-                borderRadius: '16px', padding: '22px 24px', textDecoration: 'none', boxShadow: CARD_SHADOW,
-              };
-              return (
-                <Reveal key={m.title} delay={i * 40} className="lp-card-hover" style={style}>
-                  {m.to ? <Link to={m.to} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>{card}</Link> : card}
-                </Reveal>
-              );
-            })}
-          </div>
-        </div>
-      </section>
+          )}
+        </section>
+      ))}
 
-      <section style={{ padding: '80px 24px 96px', background: 'var(--mkt-page-bg)', textAlign: 'center', position: 'relative', overflow: 'hidden', borderTop: '1px solid var(--mkt-border-soft)' }}>
-        <AuroraLayer
-          stops={[['rgba(14,165,233,0.14)', '96% 100%'], ['rgba(20,184,166,0.16)', '4% 0%']]}
-          blob={{ gradient: grad(GRAD.tealLime), bottom: '-140px', top: 'auto', right: '-100px', left: 'auto', size: '380px', opacity: 0.18, slow: true }}
-        />
-        <Reveal style={{ position: 'relative' }}>
-          <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(24px, 3.5vw, 32px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '14px' }}>
-            Allt ovan ingår
-          </h2>
-          <p style={{ fontSize: '15.5px', color: MUTED, marginBottom: '28px' }}>
-            Inga tillägg per funktion. Två priser, beroende på om du har personal på lönelistan — lönedelen är det enda som skiljer nivåerna åt.
-          </p>
-          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
-            <button onClick={enterApp} style={{ padding: '14px 28px', background: BRAND.green, border: 'none', borderRadius: '12px', color: 'white', fontWeight: 700, fontSize: '15px', cursor: 'pointer' }}>Prova gratis</button>
-            <Link to="/priser" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '14px 24px', background: 'var(--mkt-card-bg)', border: `1.5px solid ${CARD_BORDER}`, borderRadius: '12px', color: INK_SOFT, fontWeight: 600, fontSize: '15px', textDecoration: 'none' }}>
-              Se prissättning <ArrowRight size={15} />
-            </Link>
-          </div>
-        </Reveal>
-      </section>
+      <KitSection title="Och resten av verktyget" lead="Samma pris, inget tillägg. Allt nedan finns i appen i dag." alt>
+        <SpecList items={MORE.map(m => ({ title: m.title, body: m.body }))} />
+        <p className="kx-row-body" style={{ marginTop: '18px' }}>
+          <Link to="/integrationer" style={{ color: 'var(--mkt-accent-green-fg)', fontWeight: 700, textDecoration: 'none' }}>Se alla filformat och kopplingar →</Link>
+        </p>
+      </KitSection>
+
+      <KitCta title="Allt ovan ingår" lead="Inga tillägg per funktion. Två priser, beroende på om du har personal på lönelistan.">
+        <PrimaryButton onClick={enterApp}>Prova gratis</PrimaryButton>
+        <GhostLink to="/priser">Se priser</GhostLink>
+      </KitCta>
     </MarketingLayout>
   );
 }

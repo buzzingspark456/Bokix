@@ -8,6 +8,9 @@
 // Samma regel som i bloggen, och strängare: en nyhet beskriver något som
 // faktiskt har hänt i produkten, med datum. Inga påhittade kunder, citat,
 // siffror eller pressomnämnanden.
+//
+// Lägg nya nyheter SIST i listan. /nyheter sorterar på datum, och vid samma
+// datum visas den som står längst ner först (se NewsPage.jsx).
 import { BLOG_POSTS } from './blog.js';
 
 export const NEWS_POSTS = [

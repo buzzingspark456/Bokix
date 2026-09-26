@@ -32,13 +32,9 @@ export const grad = (c, deg = 135) => `linear-gradient(${deg}deg, ${c[0]}, ${c[1
  * innehållswrapper fått position:'relative' (positionerat innehåll målas
  * efter positionerad bakgrund i DOM-ordning — samma mönster Hero/
  * prissektionen redan byggde på). */
-export function AuroraLayer({ stops, blob }) {
-  return (
-    <>
-      <div aria-hidden style={{ position: 'absolute', inset: 0, pointerEvents: 'none', backgroundImage: stops.map(([color, pos, size]) => `radial-gradient(${size || '680px'} circle at ${pos}, ${color}, transparent 62%)`).join(', ') }} />
-      {blob && (
-        <div aria-hidden className={`lp-blob ${blob.slow ? 'lp-blob-slower' : 'lp-blob-slow'}`} style={{ position: 'absolute', top: blob.top, bottom: blob.bottom, left: blob.left, right: blob.right, width: blob.size || '460px', height: blob.size || '460px', borderRadius: '50%', background: blob.gradient, opacity: blob.opacity ?? 0.22, filter: 'blur(90px)', pointerEvents: 'none' }} />
-      )}
-    </>
-  );
+// Kundönskemål 2026-09-26: solida bakgrunder på undersidorna, inte blå,
+// turkos och beige tonade in i samma yta. Lagret renderar därför ingenting
+// längre; anropen får stå kvar så ingen sida behöver byggas om för det.
+export function AuroraLayer() {
+  return null;
 }

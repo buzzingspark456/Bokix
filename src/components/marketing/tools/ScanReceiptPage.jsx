@@ -256,9 +256,9 @@ export default function ScanReceiptPage() {
             .bx-scan-beam {
               position: absolute; left: 4%; right: 4%; height: 20px; margin-top: -10px;
               border-radius: 4px; pointer-events: none;
-              background: linear-gradient(90deg, transparent, rgba(14,165,233,0.55), rgba(20,184,166,0.75), rgba(132,204,22,0.55), transparent);
+              background: linear-gradient(90deg, transparent, ${BRAND.green}, transparent);
               filter: blur(1.5px);
-              box-shadow: 0 0 14px 2px rgba(20,184,166,0.45);
+              box-shadow: 0 0 14px 2px rgba(11,99,41,0.4);
               transition: top 0.5s cubic-bezier(0.45, 0, 0.55, 1), opacity 0.35s;
             }
             @media (prefers-reduced-motion: reduce) {

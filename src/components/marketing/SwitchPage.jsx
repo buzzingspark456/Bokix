@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, ChevronDown, FileDown, UploadCloud, CheckCircle2, CircleSlash, ShieldCheck, CalendarClock } from '../icons';
 import { BRAND } from '../../utils/brandColors';
-import MarketingLayout, { Reveal } from './MarketingLayout';
-import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW, ACCENT, ACCENT_CYCLE } from './marketingTokens';
+import MarketingLayout from './MarketingLayout';
+import { INK_SOFT, MUTED, CARD_BORDER, CARD_SHADOW } from './marketingTokens';
+import { KitStyles, SubHero, KitSection, CenterSection, KitFaq, KitCta, PrimaryButton, GhostLink } from './subpageKit';
 import { PageMeta, JsonLd, SITE_URL } from '../../utils/seo';
 import MigrationFlow from './MigrationFlow';
+import DemoPlayer, { DemoStyles, PlayOnView } from './DemoPlayer';
+import { makeSwitchDemo } from './demoScenesOther';
 import { ProgramLogo } from '../shared/BrandLogos';
 import { MIGRATION_SOURCES, OTHER_PROGRAM_HINT, MENU_MOVED_HINT } from '../../utils/migrationSources';
 
@@ -32,19 +34,19 @@ import { MIGRATION_SOURCES, OTHER_PROGRAM_HINT, MENU_MOVED_HINT } from '../../ut
 // bekräftelse, och det ska sidan säga rakt ut.
 const SWITCH_STEPS = [
   {
-    icon: FileDown, title: 'Exportera en SIE4-fil ur ditt nuvarande program',
+    title: 'Exportera en SIE4-fil ur ditt nuvarande program',
     body: 'Alla svenska bokföringsprogram kan exportera SIE — det är branschstandarden och din data är din. Välj ditt program ovan så visar vi var exporten brukar ligga.',
   },
   {
-    icon: UploadCloud, title: 'Ladda upp filen i Bokix',
-    body: 'Inställningar → Data → Importera från annat bokföringsprogram. Guiden läser filen och visar vad den hittade: konton, verifikationer och ingående balanser.',
+    title: 'Ladda upp filen i Bokix',
+    body: 'Inställningar → Avancerat → Importera SIE4-fil. Guiden läser filen och visar vad den hittade: konton, verifikationer och ingående balanser.',
   },
   {
-    icon: CheckCircle2, title: 'Granska kontomappningen och bekräfta',
+    title: 'Granska kontomappningen och bekräfta',
     body: 'Konton som saknas i din kontoplan, eller heter något annat än i filen, flaggas var för sig. Ingenting skrivs in i bokföringen förrän du bekräftar i sista steget.',
   },
   {
-    icon: CalendarClock, title: 'Bokför vidare i Bokix',
+    title: 'Bokför vidare i Bokix',
     body: 'Historiken ligger inne, du fortsätter löpande härifrån. Och du kan när som helst exportera allt till SIE4 igen om du vill vidare — samma öppna format, ingen inlåsning.',
   },
 ];
@@ -54,6 +56,8 @@ const SWITCH_STEPS = [
 // INTE bli en önskelista: en besökare som tror att kundregistret följer
 // med och upptäcker motsatsen efter bytet är ett värre problem än en
 // besökare som visste det i förväg.
+const SWITCH_DEMO = makeSwitchDemo(SWITCH_STEPS);
+
 const INCLUDED = [
   'Hela kontoplanen med kontonamn',
   'Verifikationer med alla konteringsrader',
@@ -70,7 +74,7 @@ const NOT_INCLUDED = [
 const FAQ = [
   {
     q: 'Kan jag flytta min bokföring från Fortnox, Visma eller Bokio till Bokix?',
-    a: 'Ja. Exportera en SIE4-fil ur det program du använder idag och läs in den i Bokix under Inställningar → Data. Importen är en generell SIE4-läsare, inte en integration per leverantör, så den fungerar likadant oavsett vilket program som skapade filen.',
+    a: 'Ja. Exportera en SIE4-fil ur det program du använder idag och läs in den i Bokix under Inställningar → Avancerat. Importen är en generell SIE4-läsare, inte en integration per leverantör, så den fungerar likadant oavsett vilket program som skapade filen.',
   },
   {
     q: 'Vad händer om ett konto i filen inte finns i Bokix kontoplan?',
@@ -119,24 +123,6 @@ const HOWTO_SCHEMA = {
   })),
 };
 
-function FaqItem({ q, a }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div style={{ borderBottom: `1px solid ${CARD_BORDER}` }}>
-      <button
-        onClick={() => setOpen(o => !o)}
-        style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', padding: '20px 4px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}
-      >
-        <span style={{ fontSize: '15px', fontWeight: 700, color: INK }}>{q}</span>
-        <ChevronDown size={18} color={MUTED} style={{ flexShrink: 0, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
-      </button>
-      <div style={{ maxHeight: open ? '340px' : '0px', overflow: 'hidden', transition: 'max-height 0.3s ease' }}>
-        <p style={{ fontSize: '14px', color: MUTED, lineHeight: 1.65, padding: '0 4px 20px', margin: 0 }}>{a}</p>
-      </div>
-    </div>
-  );
-}
-
 // Vit platta bakom varje logotyp: flera av bildfilerna (Visma,
 // SpeedLedger, Björn Lundén) har egen vit bakgrund inbakad och skulle se
 // ut som klistermärken mot marknadssidans mörka tema. Samma lösning som
@@ -168,6 +154,15 @@ export default function SwitchPage() {
     mainEntityOfPage: `${SITE_URL}/byt-bokforingsprogram`,
   };
 
+  const pickerButton = (on) => ({
+    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '9px',
+    padding: '16px 8px', borderRadius: '14px', cursor: 'pointer', fontFamily: 'inherit',
+    fontSize: '13px', fontWeight: 700, color: on ? 'var(--mkt-accent-green-fg)' : INK_SOFT,
+    background: 'var(--mkt-card-bg)',
+    border: `1.5px solid ${on ? BRAND.green : CARD_BORDER}`,
+    transition: 'border-color 0.15s',
+  });
+
   return (
     <MarketingLayout>
       <PageMeta
@@ -179,218 +174,104 @@ export default function SwitchPage() {
       <JsonLd data={articleSchema} />
       <JsonLd data={HOWTO_SCHEMA} />
       <JsonLd data={FAQ_SCHEMA} />
-
+      <KitStyles />
+      <DemoStyles />
       <style>{`
-        /* Programväljaren nedan (hjältens loggflöde bor i MigrationFlow.jsx
-           och har sina egna stilar). */
-        .bx-switch-picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 10px; }
-        @media (max-width: 560px) {
-          .bx-switch-picker { grid-template-columns: repeat(auto-fill, minmax(102px, 1fr)); }
-        }
+        .bx-switch-picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); gap: 10px; }
+        .bx-switch-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px; }
+        @media (max-width: 620px) { .bx-switch-cols { grid-template-columns: 1fr; gap: 24px; } }
       `}</style>
 
-      {/* ── Hjälte: därifrån → hit ── */}
-      <section style={{ padding: '150px 24px 60px', background: IVORY, position: 'relative', overflow: 'hidden' }}>
-        <Reveal style={{ maxWidth: '780px', margin: '0 auto', textAlign: 'center', position: 'relative' }}>
-          <h1 style={{ fontFamily: SERIF, fontSize: 'clamp(29px, 4.6vw, 46px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '18px', lineHeight: 1.15 }}>
-            Byt till Bokix — ta med dig hela bokföringen
-          </h1>
-          <p style={{ fontSize: '17px', color: MUTED, lineHeight: 1.7, margin: '0 0 34px' }}>
-            Bokför du i Fortnox, Visma, Spiris, Bokio, Björn Lundén, Wint eller SpeedLedger idag? Exportera en SIE4-fil därifrån och läs in den i Bokix. Konton, verifikationer och ingående balanser följer med.
-          </p>
+      <SubHero
+        eyebrow="Byt till Bokix"
+        title="Ta med dig hela bokföringen"
+        lead="Bokför du i Fortnox, Visma, Spiris, Bokio, Björn Lundén, Wint eller SpeedLedger i dag? Exportera en SIE4-fil därifrån och läs in den i Bokix. Konton, verifikationer och ingående balanser följer med."
+        actions={<>
+          <PrimaryButton onClick={enterApp}>Kom igång gratis</PrimaryButton>
+          <GhostLink to="/boka-genomgang">Boka hjälp med bytet</GhostLink>
+        </>}
+        visual={<MigrationFlow note={false} />}
+      />
 
-          {/* Samma animerade flöde som startsidans bytessektion — en
-              komponent, två placeringar (se MigrationFlow.jsx). "Något
-              annat program?"-raden är avstängd här: sidans egen
-              programväljare längre ner har en egen, utförligare
-              "Annat program"-bricka. */}
-          <MigrationFlow note={false} />
-        </Reveal>
-      </section>
-
-      {/* ── Välj program → var ligger SIE-exporten där? ── */}
-      <section style={{ padding: '56px 24px 20px', background: 'var(--mkt-page-bg)' }}>
-        <div style={{ maxWidth: '820px', margin: '0 auto' }}>
-          <Reveal style={{ textAlign: 'center', marginBottom: '28px' }}>
-            <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(22px, 3vw, 30px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '10px' }}>
-              Vad bokför du i idag?
-            </h2>
-            <p style={{ fontSize: '14.5px', color: MUTED, maxWidth: '560px', margin: '0 auto', lineHeight: 1.65 }}>
-              Välj ditt program så visar vi var SIE-exporten brukar ligga. Själva importen fungerar likadant oavsett program — SIE4 är samma filstandard för alla.
-            </p>
-          </Reveal>
-
-          <Reveal className="bx-switch-picker" style={{ marginBottom: '18px' }}>
-            {MIGRATION_SOURCES.map(p => {
-              const on = selected === p.id;
-              return (
-                <button
-                  key={p.id} onClick={() => setSelected(p.id)} aria-pressed={on}
-                  style={{
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '9px',
-                    padding: '16px 8px', borderRadius: '14px', cursor: 'pointer', fontFamily: 'inherit',
-                    fontSize: '13px', fontWeight: 700, color: on ? BRAND.greenDark : INK_SOFT,
-                    background: on ? 'var(--mkt-accent-green-soft)' : 'var(--mkt-card-bg)',
-                    border: `1.5px solid ${on ? BRAND.green : CARD_BORDER}`,
-                    boxShadow: on ? 'none' : CARD_SHADOW, transition: 'border-color 0.15s, background 0.15s',
-                  }}
-                >
-                  <LogoTile src={p.logo} alt={p.name} size={28} box={46} style={{ boxShadow: 'none' }} />
-                  {p.name}
-                </button>
-              );
-            })}
-            <button
-              onClick={() => setSelected('other')} aria-pressed={selected === 'other'}
-              style={{
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '9px',
-                padding: '16px 8px', borderRadius: '14px', cursor: 'pointer', fontFamily: 'inherit',
-                fontSize: '13px', fontWeight: 700, color: selected === 'other' ? BRAND.greenDark : INK_SOFT,
-                background: selected === 'other' ? 'var(--mkt-accent-green-soft)' : 'var(--mkt-card-bg)',
-                border: `1.5px solid ${selected === 'other' ? BRAND.green : CARD_BORDER}`,
-                boxShadow: selected === 'other' ? 'none' : CARD_SHADOW,
-              }}
-            >
-              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 46, height: 46, borderRadius: '13px', background: IVORY, border: `1px solid ${CARD_BORDER}`, color: MUTED, fontSize: '19px', fontWeight: 700 }}>?</span>
-              Annat program
+      <KitSection title="Vad bokför du i dag?" lead="Välj ditt program så visar vi var SIE-exporten brukar ligga. Själva importen fungerar likadant oavsett program.">
+        <div className="bx-switch-picker" style={{ marginBottom: '24px' }}>
+          {MIGRATION_SOURCES.map(p => (
+            <button key={p.id} type="button" onClick={() => setSelected(p.id)} aria-pressed={selected === p.id} style={pickerButton(selected === p.id)}>
+              <LogoTile src={p.logo} alt={p.name} size={28} box={46} style={{ boxShadow: 'none' }} />
+              {p.name}
             </button>
-          </Reveal>
-
-          <Reveal delay={80} style={{ background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '16px', padding: '24px 26px', boxShadow: CARD_SHADOW }}>
-            {active ? (
-              <>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
-                  <LogoTile src={active.logo} alt={active.name} size={26} box={44} style={{ boxShadow: 'none' }} />
-                  <div>
-                    <h3 style={{ fontSize: '16px', fontWeight: 700, color: INK, margin: 0, letterSpacing: '-0.01em' }}>
-                      Så exporterar du SIE4 ur {active.name}
-                    </h3>
-                    {active.note && <div style={{ fontSize: '12.5px', color: MUTED, marginTop: '2px' }}>{active.note}</div>}
-                  </div>
-                </div>
-                <ol style={{ margin: 0, paddingLeft: '20px', fontSize: '14px', color: INK_SOFT, lineHeight: 1.8 }}>
-                  {active.steps.map((s, i) => <li key={i}>{s}</li>)}
-                </ol>
-                <p style={{ margin: '14px 0 0', fontSize: '12.5px', color: MUTED, lineHeight: 1.6 }}>
-                  {MENU_MOVED_HINT}
-                </p>
-              </>
-            ) : (
-              <>
-                <h3 style={{ fontSize: '16px', fontWeight: 700, color: INK, margin: '0 0 10px', letterSpacing: '-0.01em' }}>Ditt program står inte i listan</h3>
-                <p style={{ fontSize: '14px', color: INK_SOFT, lineHeight: 1.7, margin: 0 }}>
-                  {OTHER_PROGRAM_HINT} Bokix läser SIE4-filen oavsett vilket program som skapade den — importen är en generell läsare av filstandarden, inte en integration mot varje enskild leverantör.
-                </p>
-              </>
-            )}
-          </Reveal>
+          ))}
+          <button type="button" onClick={() => setSelected('other')} aria-pressed={selected === 'other'} style={pickerButton(selected === 'other')}>
+            <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 46, height: 46, borderRadius: '13px', border: `1px solid ${CARD_BORDER}`, color: MUTED, fontSize: '19px', fontWeight: 700 }}>?</span>
+            Annat program
+          </button>
         </div>
-      </section>
-
-      {/* ── Fyra steg ── */}
-      <section style={{ padding: '60px 24px', background: IVORY }}>
-        <div style={{ maxWidth: '760px', margin: '0 auto' }}>
-          <Reveal style={{ textAlign: 'center', marginBottom: '32px' }}>
-            <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(22px, 3vw, 30px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '10px' }}>Så går bytet till</h2>
-            <p style={{ fontSize: '14.5px', color: MUTED, maxWidth: '520px', margin: '0 auto', lineHeight: 1.65 }}>
-              De flesta är klara på en kvart. Ingenting bokförs förrän du sett vad som kommer in och tryckt på bekräfta.
-            </p>
-          </Reveal>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            {SWITCH_STEPS.map((s, i) => {
-              const accent = ACCENT_CYCLE[i % 3];
-              return (
-                <Reveal key={s.title} delay={i * 60} className="lp-card-hover" style={{
-                  display: 'flex', gap: '16px', alignItems: 'flex-start', background: 'var(--mkt-card-bg)',
-                  border: `1px solid ${CARD_BORDER}`, borderRadius: '14px', padding: '20px 22px', boxShadow: CARD_SHADOW,
-                }}>
-                  <div style={{ width: 38, height: 38, borderRadius: '10px', background: accent.soft, color: accent.fg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <s.icon size={18} />
-                  </div>
-                  <div>
-                    <h3 style={{ fontSize: '15px', fontWeight: 700, color: INK, margin: '0 0 6px' }}>{i + 1}. {s.title}</h3>
-                    <p style={{ fontSize: '13.5px', color: INK_SOFT, lineHeight: 1.65, margin: 0 }}>{s.body}</p>
-                  </div>
-                </Reveal>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* ── Vad följer med, och vad gör det inte ── */}
-      <section style={{ padding: '60px 24px 20px', background: 'var(--mkt-page-bg)' }}>
-        <div style={{ maxWidth: '820px', margin: '0 auto' }}>
-          <Reveal style={{ textAlign: 'center', marginBottom: '28px' }}>
-            <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(22px, 3vw, 30px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '10px' }}>Vad följer med i filen</h2>
-            <p style={{ fontSize: '14.5px', color: MUTED, maxWidth: '540px', margin: '0 auto', lineHeight: 1.65 }}>
-              En SIE4-fil är bokföringen, inte hela det gamla systemet. Bättre att veta det nu än efter bytet.
-            </p>
-          </Reveal>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '18px' }}>
-            <Reveal className="lp-card-hover" style={{ background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '16px', padding: '24px 26px', boxShadow: CARD_SHADOW }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
-                <span style={{ width: 34, height: 34, borderRadius: '9px', background: ACCENT.green.soft, color: ACCENT.green.fg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><CheckCircle2 size={17} /></span>
-                <h3 style={{ fontSize: '15.5px', fontWeight: 700, color: INK, margin: 0 }}>Följer med</h3>
+        <div className="kx-list" style={{ paddingTop: '20px' }}>
+          {active ? (
+            <>
+              <div className="kx-row-title" style={{ marginBottom: '10px' }}>
+                Så exporterar du SIE4 ur {active.name}
+                {active.note && <span className="kx-row-meta">{active.note}</span>}
               </div>
-              <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '13.5px', color: INK_SOFT, lineHeight: 1.9 }}>
-                {INCLUDED.map(x => <li key={x}>{x}</li>)}
-              </ul>
-            </Reveal>
-            <Reveal delay={80} className="lp-card-hover" style={{ background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '16px', padding: '24px 26px', boxShadow: CARD_SHADOW }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
-                <span style={{ width: 34, height: 34, borderRadius: '9px', background: ACCENT.red.soft, color: ACCENT.red.fg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><CircleSlash size={17} /></span>
-                <h3 style={{ fontSize: '15.5px', fontWeight: 700, color: INK, margin: 0 }}>Följer inte med</h3>
-              </div>
-              <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '13.5px', color: INK_SOFT, lineHeight: 1.9 }}>
-                {NOT_INCLUDED.map(x => <li key={x}>{x}</li>)}
-              </ul>
-              <p style={{ margin: '12px 0 0', fontSize: '12.5px', color: MUTED, lineHeight: 1.6 }}>
-                Kunder och leverantörer lägger du upp i Bokix, eller så skapas de när du fakturerar första gången.
+              <ol className="kx-row-body" style={{ margin: 0, paddingLeft: '20px', lineHeight: 1.85 }}>
+                {active.steps.map((st, i) => <li key={i}>{st}</li>)}
+              </ol>
+              <p style={{ margin: '14px 0 0', fontSize: '13px', color: MUTED, lineHeight: 1.6 }}>{MENU_MOVED_HINT}</p>
+            </>
+          ) : (
+            <>
+              <div className="kx-row-title" style={{ marginBottom: '10px' }}>Ditt program står inte i listan</div>
+              <p className="kx-row-body">
+                {OTHER_PROGRAM_HINT} Bokix läser SIE4-filen oavsett vilket program som skapade den — importen är en generell läsare av filstandarden, inte en integration mot varje enskild leverantör.
               </p>
-            </Reveal>
-          </div>
-
-          <Reveal delay={120} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', marginTop: '18px', background: IVORY, border: `1px solid ${CARD_BORDER}`, borderRadius: '14px', padding: '18px 22px' }}>
-            <ShieldCheck size={18} color={BRAND.greenDark} style={{ flexShrink: 0, marginTop: 1 }} />
-            <p style={{ fontSize: '13.5px', color: INK_SOFT, lineHeight: 1.7, margin: 0 }}>
-              Spara SIE-filen och det gamla systemets underlag även efter bytet. Bokföringslagen kräver att räkenskapsinformationen bevaras till och med det sjunde året efter utgången av det kalenderår då räkenskapsåret avslutades, oavsett vilket program den skapades i.
-            </p>
-          </Reveal>
+            </>
+          )}
         </div>
-      </section>
+      </KitSection>
 
-      {/* ── FAQ ── */}
-      <section style={{ padding: '70px 24px 30px', background: 'var(--mkt-page-bg)' }}>
-        <div style={{ maxWidth: '720px', margin: '0 auto' }}>
-          <Reveal style={{ textAlign: 'center', marginBottom: '24px' }}>
-            <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(22px, 3vw, 28px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK }}>Vanliga frågor om att byta</h2>
-          </Reveal>
-          <Reveal delay={100} style={{ background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '16px', padding: '8px 24px', boxShadow: '0 1px 3px rgba(28,36,32,0.05)' }}>
-            {FAQ.map(item => <FaqItem key={item.q} {...item} />)}
-          </Reveal>
-          <Reveal delay={140} style={{ textAlign: 'center', marginTop: '20px', fontSize: '14px', color: MUTED }}>
-            Vill du se vad du får när du väl är här? Läs om <Link to="/funktioner" style={{ color: BRAND.greenDark, fontWeight: 600 }}>allt som ingår</Link>.{' '}Osäker på vad SIE4 är? Läs <Link to="/blogg/sie4-flytta-bokforing" style={{ color: BRAND.greenDark, fontWeight: 600 }}>SIE4 förklarat: så flyttar du bokföringen</Link>.
-          </Reveal>
-        </div>
-      </section>
+      <CenterSection title="Så går bytet till" lead="De flesta är klara på en kvart. Ingenting bokförs förrän du sett vad som kommer in och tryckt på bekräfta." alt>
+        <DemoPlayer steps={SWITCH_DEMO} label="Demo: så flyttar du bokföringen till Bokix" />
+      </CenterSection>
 
-      <section style={{ padding: '30px 24px 100px', background: 'var(--mkt-page-bg)', textAlign: 'center' }}>
-        <Reveal style={{ maxWidth: '560px', margin: '0 auto' }}>
-          <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(24px, 3.5vw, 32px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '14px' }}>
-            Ta med dig bokföringen hit
-          </h2>
-          <p style={{ fontSize: '15.5px', color: MUTED, marginBottom: '28px', lineHeight: 1.65 }}>
-            Skapa kontot, importera din SIE4-fil och se hela historiken på plats. 30 dagar kostnadsfritt, ingen bindningstid på månadsplanen.
-          </p>
-          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
-            <button onClick={enterApp} style={{ padding: '14px 28px', background: BRAND.green, border: 'none', borderRadius: '12px', color: 'white', fontWeight: 700, fontSize: '15px', cursor: 'pointer' }}>Kom igång gratis</button>
-            <Link to="/boka-genomgang" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '14px 24px', background: 'var(--mkt-card-bg)', border: `1.5px solid ${CARD_BORDER}`, borderRadius: '12px', color: INK_SOFT, fontWeight: 600, fontSize: '15px', textDecoration: 'none' }}>
-              Boka hjälp med bytet <ArrowRight size={15} />
-            </Link>
+      <KitSection title="Vad följer med i filen" lead="En SIE4-fil är bokföringen, inte hela det gamla systemet. Bättre att veta det nu än efter bytet.">
+        <PlayOnView minHeight={260}>
+          <div className="bx-switch-cols">
+            <div>
+              <div className="kx-eyebrow" style={{ marginBottom: '8px' }}>Följer med</div>
+              <div className="kx-list">
+                {INCLUDED.map((x, i) => (
+                  <p key={x} className="kx-row-body dp-slide" style={{ '--d': `${0.2 + i * 0.25}s`, padding: '14px 0', borderBottom: '1px solid var(--mkt-border-soft)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                    {x}<span className="dp-ok dp-pop" style={{ '--d': `${0.5 + i * 0.25}s` }}>Följer med</span>
+                  </p>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div className="kx-eyebrow" style={{ marginBottom: '8px' }}>Följer inte med</div>
+              <div className="kx-list">
+                {NOT_INCLUDED.map((x, i) => (
+                  <p key={x} className="kx-row-body dp-in" style={{ '--d': `${1.3 + i * 0.25}s`, padding: '14px 0', borderBottom: '1px solid var(--mkt-border-soft)', color: MUTED }}>{x}</p>
+                ))}
+              </div>
+            </div>
           </div>
-        </Reveal>
-      </section>
+        </PlayOnView>
+        <p className="kx-row-body" style={{ marginTop: '24px', color: MUTED, fontSize: '14px' }}>
+          Kunder och leverantörer lägger du upp i Bokix, eller så skapas de när du fakturerar första gången. Spara SIE-filen och det gamla systemets underlag även efter bytet: bokföringslagen kräver att räkenskapsinformationen bevaras till och med det sjunde året efter utgången av det kalenderår då räkenskapsåret avslutades.
+        </p>
+      </KitSection>
+
+      <KitSection title="Vanliga frågor om att byta" alt>
+        <KitFaq items={FAQ} />
+        <p className="kx-row-body" style={{ marginTop: '20px', fontSize: '14px', color: MUTED }}>
+          Osäker på vad SIE4 är? Läs <Link to="/blogg/sie4-flytta-bokforing" style={{ color: 'var(--mkt-accent-green-fg)', fontWeight: 600 }}>SIE4 förklarat: så flyttar du bokföringen</Link>.
+        </p>
+      </KitSection>
+
+      <KitCta title="Ta med dig bokföringen hit" lead="Skapa kontot, importera din SIE4-fil och se hela historiken på plats. 30 dagar kostnadsfritt, ingen bindningstid på månadsplanen.">
+        <PrimaryButton onClick={enterApp}>Kom igång gratis</PrimaryButton>
+        <GhostLink to="/boka-genomgang">Boka hjälp med bytet</GhostLink>
+      </KitCta>
     </MarketingLayout>
   );
 }

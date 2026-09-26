@@ -63,15 +63,11 @@ export default function ToolsHubPage() {
         <div className="bx-hub-grid" style={{ maxWidth: '900px', margin: '0 auto' }}>
           {TOOLS.map((t, i) => {
             const accent = ACCENT[t.accentKey] || ACCENT.green;
-            const Icon = t.icon;
             return (
               <Reveal key={t.slug} delay={i * 60} as={Link} to={t.path} className="lp-card-hover" style={{
                 display: 'block', textDecoration: 'none', background: 'var(--mkt-card-bg)',
                 border: `1px solid ${CARD_BORDER}`, borderRadius: '18px', padding: '26px 26px 24px', boxShadow: CARD_SHADOW,
               }}>
-                <div style={{ width: 42, height: 42, borderRadius: '12px', background: accent.soft, color: accent.fg, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px' }}>
-                  <Icon size={19} />
-                </div>
                 <h2 style={{ fontSize: '18px', fontWeight: 700, color: INK, margin: '0 0 7px', letterSpacing: '-0.01em' }}>{t.title}</h2>
                 <p style={{ fontSize: '14px', color: INK_SOFT, lineHeight: 1.65, margin: '0 0 14px' }}>{t.description}</p>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '13.5px', fontWeight: 700, color: accent.fg }}>
@@ -88,9 +84,6 @@ export default function ToolsHubPage() {
             display: 'block', textDecoration: 'none', background: IVORY,
             border: `1px solid ${CARD_BORDER}`, borderRadius: '18px', padding: '26px 26px 24px', boxShadow: CARD_SHADOW,
           }}>
-            <div style={{ width: 42, height: 42, borderRadius: '12px', background: ACCENT.blue.soft, color: ACCENT.blue.fg, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px' }}>
-              <BookOpen size={19} />
-            </div>
             <h2 style={{ fontSize: '18px', fontWeight: 700, color: INK, margin: '0 0 7px', letterSpacing: '-0.01em' }}>Bokföringsordlista</h2>
             <p style={{ fontSize: '14px', color: INK_SOFT, lineHeight: 1.65, margin: '0 0 14px' }}>
               Vad betyder verifikation, periodisering, AGI och K2? Ett uppslagsverk på svenska, utan revisorsprosa.
