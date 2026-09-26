@@ -178,7 +178,8 @@ export default function PricingPage({ locale = 'sv' }) {
         .bx-pr-card.featured .bx-pr-points { border-top-color: rgba(255, 255, 255, .16); }
         .bx-pr-card.featured .bx-pr-points li { color: rgba(255, 255, 255, .9); }
         html[data-theme="dark"] #lp-root .bx-pr-card { box-shadow: none; }
-        html[data-theme="dark"] #lp-root .bx-pr-card.featured { background: #14532d; border-color: #1f7a42; }
+        html[data-theme="dark"] #lp-root .bx-pr-card.featured { background: linear-gradient(180deg, #17482c 0%, #0f2e1c 100%); border-color: rgba(63, 192, 99, .45); box-shadow: 0 0 0 1px rgba(63, 192, 99, .12), 0 40px 90px -50px rgba(63, 192, 99, .45); }
+        html[data-theme="dark"] #lp-root .bx-pr-card.featured .bx-pr-points { border-top-color: rgba(143, 214, 122, .16); }
         html[data-theme="dark"] #lp-root .bx-pr-cta { color: #3fc063; border-color: #1f9a4a; }
         /* Med personal-knappen (kortet och pelaren): vit, mörkgrön text, mjuk skugga. Samma i båda teman. */
         #lp-root .bx-pr-cta.light, html[data-theme="dark"] #lp-root .bx-pr-cta.light { background: #fff; border: 2px solid #3fc063; color: #0b3d2a; box-shadow: 0 0 0 4px rgba(63, 192, 99, .18), 0 12px 26px -12px rgba(0, 0, 0, .5); }
@@ -197,7 +198,7 @@ export default function PricingPage({ locale = 'sv' }) {
         .bx-cmp-item { --pillar: clamp(92px, 20vw, 210px); --gap: clamp(6px, 1.4vw, 16px); background: linear-gradient(var(--mkt-border-soft), var(--mkt-border-soft)) no-repeat left bottom / calc(100% - var(--pillar) - var(--gap)) 1px; }
         .bx-cmp-t.pro { background: #0b3d2a; }
         .bx-cmp-item .bx-cmp-t.pro { box-shadow: inset 0 -1px 0 rgba(255, 255, 255, .09); }
-        html[data-theme="dark"] #lp-root .bx-cmp-t.pro { background: #14532d; }
+        html[data-theme="dark"] #lp-root .bx-cmp-t.pro { background: #133b24; }
         .bx-cmp-no { width: 16px; height: 2px; border-radius: 2px; background: var(--mkt-card-border); }
 
         .bx-cmp-head > * { border-bottom: none; }
