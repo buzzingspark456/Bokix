@@ -192,10 +192,6 @@ export default function FeaturesPage() {
       </KitSection>
 
       <section className="kx-section" style={{ background: 'var(--mkt-page-bg)' }}>
-        <Reveal style={{ textAlign: 'center', maxWidth: '640px', margin: '0 auto 40px' }}>
-          <h2 className="kx-h2" style={{ fontSize: 'clamp(28px, 4vw, 42px)' }}>Så ser det ut i appen</h2>
-          <p className="kx-sub" style={{ fontSize: '17px' }}>Skärmbilder ur Bokix, med exempeldata.</p>
-        </Reveal>
         <div className="bx-ft-shots">
           {SCREENSHOTS.map((shot, i) => (
             <Reveal key={shot.src} delay={i * 60} as="figure" className="bx-ft-shot" style={{ margin: 0 }}>
