@@ -177,18 +177,22 @@ export default function PricingPage({ locale = 'sv' }) {
         .bx-pr-card.featured .bx-pr-for, .bx-pr-card.featured .bx-pr-note, .bx-pr-card.featured .bx-pr-sub, .bx-pr-card.featured .bx-pr-price small { color: rgba(255, 255, 255, .72); }
         .bx-pr-card.featured .bx-pr-points { border-top-color: rgba(255, 255, 255, .16); }
         .bx-pr-card.featured .bx-pr-points li { color: rgba(255, 255, 255, .9); }
-        .bx-pr-card.featured .bx-pr-cta { background: #fff; border-color: #fff; color: #0b3d2a; }
-        .bx-pr-card.featured .bx-pr-cta:hover { background: #eef5ee; }
         html[data-theme="dark"] #lp-root .bx-pr-card { box-shadow: none; }
         html[data-theme="dark"] #lp-root .bx-pr-card.featured { background: #14532d; border-color: #1f7a42; }
         html[data-theme="dark"] #lp-root .bx-pr-cta { color: #3fc063; border-color: #1f9a4a; }
-        html[data-theme="dark"] #lp-root .bx-pr-card.featured .bx-pr-cta { background: #fff; border-color: #fff; color: #0b3d2a; }
+        /* Med personal-knappen (kortet och pelaren): vit, mörkgrön text, mjuk skugga. Samma i båda teman. */
+        #lp-root .bx-pr-cta.light, html[data-theme="dark"] #lp-root .bx-pr-cta.light { background: #fff; border-color: #fff; color: #0b3d2a; box-shadow: 0 12px 26px -12px rgba(0, 0, 0, .55), inset 0 -2px 0 rgba(11, 61, 42, .08); }
+        #lp-root .bx-pr-cta.light:hover, html[data-theme="dark"] #lp-root .bx-pr-cta.light:hover { background: #f1f8f1; transform: translateY(-1px); }
+        .bx-pr-cta.light svg { transition: transform .15s; }
+        .bx-pr-cta.light:hover svg { transform: translateX(3px); }
 
-        .bx-cmp { max-width: 1000px; margin: 0 auto; }
-        .bx-cmp-row { display: grid; grid-template-columns: minmax(0, 1fr) clamp(92px, 20vw, 210px) clamp(92px, 20vw, 210px); column-gap: clamp(6px, 1.4vw, 16px); }
+        /* Funktionerna i mitten, Utan personal till vänster och Med personal-pelaren till höger (kundönskemål: "i mitten, inte i sidan"). Ordningen sätts med order, raden i DOM:en är oförändrad. */
+        .bx-cmp { max-width: 960px; margin: 0 auto; }
+        .bx-cmp-row { display: grid; grid-template-columns: clamp(92px, 20vw, 210px) minmax(0, 1fr) clamp(92px, 20vw, 210px); column-gap: clamp(6px, 1.4vw, 16px); }
         .bx-cmp-row > * { display: flex; align-items: center; padding: clamp(15px, 2.2vw, 21px) clamp(6px, 1.4vw, 12px); }
-        .bx-cmp-f { padding-left: 0 !important; font-size: clamp(14px, 3.3vw, 17px); line-height: 1.45; color: ${INK}; min-width: 0; overflow-wrap: anywhere; hyphens: auto; }
-        .bx-cmp-t { justify-content: center; }
+        .bx-cmp-f { order: 2; justify-content: center; text-align: center; font-size: clamp(14px, 3.3vw, 17px); line-height: 1.45; color: ${INK}; min-width: 0; overflow-wrap: anywhere; hyphens: auto; }
+        .bx-cmp-t { order: 1; justify-content: center; }
+        .bx-cmp-t.pro { order: 3; }
         /* Radlinjen går obruten under de två första kolumnerna; pelaren har sin egen, svagare. */
         .bx-cmp-item { --pillar: clamp(92px, 20vw, 210px); --gap: clamp(6px, 1.4vw, 16px); background: linear-gradient(var(--mkt-border-soft), var(--mkt-border-soft)) no-repeat left bottom / calc(100% - var(--pillar) - var(--gap)) 1px; }
         .bx-cmp-t.pro { background: #0b3d2a; }
@@ -212,7 +216,6 @@ export default function PricingPage({ locale = 'sv' }) {
         .bx-cmp-foot > * { border-bottom: none; padding-top: clamp(20px, 3vw, 28px); padding-bottom: clamp(20px, 3vw, 28px); }
         .bx-cmp-foot .bx-cmp-t.pro { border-radius: 0 0 24px 24px; }
         .bx-cmp-foot .bx-pr-cta { min-height: 46px; padding: 10px 8px; font-size: clamp(12px, 2.6vw, 14.5px); border-radius: 12px; }
-        .bx-cmp-t.pro .bx-pr-cta { background: #fff; border-color: #fff; color: #0b3d2a; }
 
         .bx-pr-faq .kx-faq-q { font-size: clamp(16px, 3.4vw, 18px); padding: 24px 0; }
         .bx-pr-faq .kx-row-body { font-size: 16px; }
@@ -273,7 +276,7 @@ export default function PricingPage({ locale = 'sv' }) {
                   {/* Månadsvis: nivåns korta beskrivning, bara på telefonen där raden ovanför är dold. */}
                   {interval === 'yearly' ? c.yearlySavingsNote(plan.savingPerYear) : <span className="bx-pr-mob">{tier.subtitle}</span>}
                 </p>
-                <button type="button" className="bx-pr-cta" onClick={() => enterApp(plan.id)}>
+                <button type="button" className={`bx-pr-cta${tier.featured ? ' light' : ''}`} onClick={() => enterApp(plan.id)}>
                   {c.cta} <ArrowRight size={17} />
                 </button>
                 <div className="bx-pr-sub">
@@ -327,7 +330,7 @@ export default function PricingPage({ locale = 'sv' }) {
               const plan = resolvePlan(t.key, interval);
               return (
                 <span key={t.key} className={tierCell(t)}>
-                  <button type="button" className="bx-pr-cta" onClick={() => enterApp(plan.id)}>{c.cta}</button>
+                  <button type="button" className={`bx-pr-cta${t.featured ? ' light' : ''}`} onClick={() => enterApp(plan.id)}>{c.cta}{t.featured && <ArrowRight size={15} />}</button>
                 </span>
               );
             })}
