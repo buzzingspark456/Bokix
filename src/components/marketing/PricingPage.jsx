@@ -181,8 +181,8 @@ export default function PricingPage({ locale = 'sv' }) {
         html[data-theme="dark"] #lp-root .bx-pr-card.featured { background: #14532d; border-color: #1f7a42; }
         html[data-theme="dark"] #lp-root .bx-pr-cta { color: #3fc063; border-color: #1f9a4a; }
         /* Med personal-knappen (kortet och pelaren): vit, mörkgrön text, mjuk skugga. Samma i båda teman. */
-        #lp-root .bx-pr-cta.light, html[data-theme="dark"] #lp-root .bx-pr-cta.light { background: #fff; border-color: #fff; color: #0b3d2a; box-shadow: 0 12px 26px -12px rgba(0, 0, 0, .55), inset 0 -2px 0 rgba(11, 61, 42, .08); }
-        #lp-root .bx-pr-cta.light:hover, html[data-theme="dark"] #lp-root .bx-pr-cta.light:hover { background: #f1f8f1; transform: translateY(-1px); }
+        #lp-root .bx-pr-cta.light, html[data-theme="dark"] #lp-root .bx-pr-cta.light { background: #fff; border: 2px solid #3fc063; color: #0b3d2a; box-shadow: 0 0 0 4px rgba(63, 192, 99, .18), 0 12px 26px -12px rgba(0, 0, 0, .5); }
+        #lp-root .bx-pr-cta.light:hover, html[data-theme="dark"] #lp-root .bx-pr-cta.light:hover { background: #f1f8f1; border-color: #5fd37f; transform: translateY(-1px); }
         .bx-pr-cta.light svg { transition: transform .15s; }
         .bx-pr-cta.light:hover svg { transform: translateX(3px); }
 
