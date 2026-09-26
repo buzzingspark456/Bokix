@@ -124,3 +124,31 @@ describe('computeInk2r: konton bakom varje rad', () => {
     expect(obalans.difference).toBe(5000)
   })
 })
+
+describe('computeInk2r före bokslut', () => {
+  const asOf = new Date('2026-12-31T23:59:59')
+  const withAccounts = [...accounts, { code: '3001', name: 'Försäljning' }, { code: '5010', name: 'Lokalhyra' }, { code: '8999', name: 'Årets resultat' }, { code: '2099', name: 'Årets resultat' }]
+
+  it('räknar in årets resultat i fritt eget kapital så att det balanserar', () => {
+    const vers = [
+      ver([{ account: '1930', debet: 1000, kredit: 0 }, { account: '3001', debet: 0, kredit: 1000 }]),
+      ver([{ account: '5010', debet: 300, kredit: 0 }, { account: '1930', debet: 0, kredit: 300 }]),
+    ]
+    const r = computeInk2r(vers, withAccounts, asOf)
+    expect(r.unclosedResult).toBe(700)
+    expect(r.balanced).toBe(true)
+    expect(r.rows.find(x => x.row === '2.28')).toMatchObject({ amount: 700 })
+    expect(r.rows.find(x => x.row === '2.28').accounts[0]).toMatchObject({ code: '2099', name: expect.stringContaining('Årets resultat') })
+  })
+
+  it('räknar inte resultatet två gånger när bokslutet är bokfört', () => {
+    const vers = [
+      ver([{ account: '1930', debet: 1000, kredit: 0 }, { account: '3001', debet: 0, kredit: 1000 }]),
+      ver([{ account: '8999', debet: 1000, kredit: 0 }, { account: '2099', debet: 0, kredit: 1000 }], { date: '2026-12-31' }),
+    ]
+    const r = computeInk2r(vers, withAccounts, asOf)
+    expect(r.unclosedResult).toBe(0)
+    expect(r.balanced).toBe(true)
+    expect(r.rows.find(x => x.row === '2.28')).toMatchObject({ amount: 1000 })
+  })
+})

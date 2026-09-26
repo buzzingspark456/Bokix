@@ -72,10 +72,33 @@ function endOfMonth(d) { return new Date(d.getFullYear(), d.getMonth() + 1, 0); 
 function startOfQuarter(d) { const q = Math.floor(d.getMonth() / 3); return new Date(d.getFullYear(), q * 3, 1); }
 function endOfQuarter(d) { const q = Math.floor(d.getMonth() / 3); return new Date(d.getFullYear(), q * 3 + 3, 0); }
 
+/** Företagets räkenskapsårsinställning för fiscalYearBounds och
+ * periodfunktionerna nedan, inklusive ett avvikande första år. */
+export function companyFiscalYearSetting(company) {
+  if (!company) return undefined;
+  return company.firstFiscalYear ? { fiscalYear: company.fiscalYear, firstFiscalYear: company.firstFiscalYear } : company.fiscalYear;
+}
+
 /** Räkenskapsårets start baseras på företagets faktiska inställning
  * (company.fiscalYear lagrar räkenskapsårets startdatum — bara
  * månad/dag används här för att hitta INNEVARANDE räkenskapsår). */
-export function fiscalYearBounds(fiscalYearStr, referenceDate) {
+export function fiscalYearBounds(setting, referenceDate) {
+  // `setting` är antingen company.fiscalYear (en datumsträng, som förut) eller
+  // companyFiscalYearSetting(company). Med det senare gäller ett förlängt
+  // eller förkortat första räkenskapsår (company.firstFiscalYear) för datum
+  // inom det; därefter följer åren company.fiscalYear som vanligt.
+  let fiscalYearStr = setting;
+  if (setting && typeof setting === 'object') {
+    const first = setting.firstFiscalYear;
+    if (first?.start && first?.end) {
+      const fs = toDate(first.start);
+      const fe = toDate(first.end);
+      if (referenceDate >= fs && referenceDate <= new Date(fe.getFullYear(), fe.getMonth(), fe.getDate(), 23, 59, 59)) {
+        return { start: fs, end: fe };
+      }
+    }
+    fiscalYearStr = setting.fiscalYear;
+  }
   const configured = fiscalYearStr ? toDate(fiscalYearStr) : new Date(referenceDate.getFullYear(), 0, 1);
   const month = configured.getMonth();
   const day = configured.getDate();

@@ -4,7 +4,7 @@ import {
   Trash2, Mail, Laptop, Lock, KeyRound, Image as ImageIcon,
   Palette, Landmark, Hash, Calendar, X, ZoomIn, ZoomOut, Maximize2, Bell, ExternalLink, Sun, Moon,
   UserRound, FileText, Plug, Users, Cog, ArrowLeft, ArrowRight,
-  Sparkles, CheckCircle2, Camera, HelpCircle, LogOut,
+  Sparkles, CheckCircle2, Camera, HelpCircle, LogOut, Paperclip,
 } from './icons';
 import { supabase } from '../supabaseClient';
 import { sendInvoiceEmail } from '../emailApi';
@@ -25,6 +25,8 @@ import { ACCESS_PAGES, ACCESS_LEVELS, defaultPageAccess, accessForPage } from '.
 import { isUfCompany, ufSettingsSections, ufFreePeriod, UF_FREE_MONTHS } from '../utils/ufMode';
 import { closeUfYear } from '../utils/ufClose';
 import SieImportModal from './SieImportModal';
+import SkattekontoImportModal from './SkattekontoImportModal';
+import SieAttachmentsModal from './SieAttachmentsModal';
 import { ProgramLogo } from './shared/BrandLogos';
 import { MIGRATION_SOURCES } from '../utils/migrationSources';
 import { VERIFICATION_SERIES, getMaxUsedNumber } from '../utils/verificationNumbering';
@@ -2369,7 +2371,7 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
 
 export default function Settings({
   company = {}, setCompanyInfo, accounts = [], verifications = [], invoices = [], quotes = [], expenses = [],
-  contacts = [], projects = [], onImport, onReset, onBulkImportSie, stripeAccountId, onConnectStripe, onDisconnectStripe,
+  contacts = [], projects = [], onImport, onReset, onBulkImportSie, onAttachVerificationFiles, stripeAccountId, onConnectStripe, onDisconnectStripe,
   zettleConnected = false, onConnectZettle,
   user,
   // Hjälp och Logga ut ligger i Inställningar på telefon (på dator finns de
@@ -2431,6 +2433,8 @@ export default function Settings({
   const [importBusy, setImportBusy] = useState(false);
   const [importMsg, setImportMsg] = useState('');
   const [showSieImport, setShowSieImport] = useState(false);
+  const [showSkattekontoImport, setShowSkattekontoImport] = useState(false);
+  const [showSieAttachments, setShowSieAttachments] = useState(false);
   const [nextInvoiceNumberInput, setNextInvoiceNumberInput] = useState('');
   // Vilken integration som är öppen för inställningar.
   const [openIntegration, setOpenIntegration] = useState(null);
@@ -3820,6 +3824,11 @@ export default function Settings({
                 <div style={{ maxWidth: '320px' }}>
                   <AutoField label="Räkenskapsår startar" type="date" value={company?.fiscalYear || ''} onChange={(v) => setCompanyInfo({ ...company, fiscalYear: v })} />
                 </div>
+                {company?.firstFiscalYear?.start && (
+                  <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: '10px 0 0' }}>
+                    Första räkenskapsåret: {company.firstFiscalYear.start} – {company.firstFiscalYear.end}.
+                  </p>
+                )}
               </div>
 
               </div>
@@ -3852,6 +3861,18 @@ export default function Settings({
               <SettingsSection title="Bokföring" description="Regler bokföringen själv räknar efter.">
                 <div className="settings-grid" style={{ gap: '14px' }}>
                   <SettingCard title="Moms" icon={Calendar} tone="amber" description="Hur ofta du redovisar moms.">
+                    <label style={labelStyle}>Momsregistrerat</label>
+                    <select
+                      value={company?.vatRegistered === true ? 'yes' : company?.vatRegistered === false ? 'no' : ''}
+                      onChange={e => setCompanyInfo({ ...company, vatRegistered: e.target.value === '' ? null : e.target.value === 'yes' })}
+                      disabled={readOnly}
+                      style={{ ...inputBase, background: 'var(--bg-card)', maxWidth: '260px', marginBottom: '14px' }}
+                    >
+                      <option value="">Inte angivet</option>
+                      <option value="yes">Ja</option>
+                      <option value="no">Nej</option>
+                    </select>
+                    {company?.vatRegistered !== false && <>
                     <label style={labelStyle}>Momsperiod</label>
                     <select
                       value={company?.vatPeriod || 'quarterly'}
@@ -3862,6 +3883,12 @@ export default function Settings({
                       <option value="quarterly">Kvartalsvis</option>
                       <option value="yearly">Helårlig</option>
                     </select>
+                    </>}
+                    {company?.vatRegistered === false && (
+                      <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6 }}>
+                        Ingen moms på fakturor, momsen på inköp bokförs som en del av kostnaden och ingen momsdeklaration visas.
+                      </p>
+                    )}
                   </SettingCard>
 
                   <SettingCard title="Verifikationsserier" icon={Hash} tone="purple" description="Nästa nummer per serie (A001, B014, ...).">
@@ -3975,6 +4002,31 @@ export default function Settings({
                   </div>
                   <button onClick={() => setShowSieImport(true)} style={{ ...btnSecondary, background: BRAND.greenLight, color: BRAND.greenDark, border: 'none' }}>
                     <Upload size={15} style={{ verticalAlign: 'middle', marginRight: '7px' }} />Importera SIE4-fil
+                  </button>
+                </SettingCard>
+              </div>
+              </SettingsSection>
+
+              <SettingsSection
+                title="Importera"
+                description="Läs in underlag som redan finns någon annanstans."
+              >
+              <div className="settings-grid" style={{ gap: '14px' }}>
+                <SettingCard title="Skattekontoutdrag" icon={Landmark} tone="blue" description="Kontohändelserna från Skatteverket.">
+                  <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 14px', lineHeight: 1.6 }}>
+                    Bokför preliminärskatt, moms, räntor och inbetalningar på skattekontot. Det som redan är bokfört hoppas över.
+                  </p>
+                  <button onClick={() => setShowSkattekontoImport(true)} disabled={readOnly} style={btnSecondary}>
+                    <Upload size={15} style={{ verticalAlign: 'middle', marginRight: '7px' }} />Ladda upp kontoutdrag
+                  </button>
+                </SettingCard>
+
+                <SettingCard title="Underlag till SIE-import" icon={Paperclip} tone="green" description="Kvitton och fakturor från ditt gamla program.">
+                  <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 14px', lineHeight: 1.6 }}>
+                    Filer som heter som verifikatet, till exempel A31.pdf, kopplas till rätt verifikation. Välj filer eller en hel mapp.
+                  </p>
+                  <button onClick={() => setShowSieAttachments(true)} disabled={readOnly} style={btnSecondary}>
+                    <Paperclip size={15} style={{ verticalAlign: 'middle', marginRight: '7px' }} />Koppla underlag
                   </button>
                 </SettingCard>
               </div>
@@ -4468,6 +4520,26 @@ export default function Settings({
           )}
         </div>
       </div>
+
+      {showSkattekontoImport && (
+        <SkattekontoImportModal
+          company={company}
+          accounts={accounts}
+          verifications={verifications}
+          onImport={(newVerifications, newAccounts, sourceTag) => onBulkImportSie?.(newVerifications, newAccounts, sourceTag)}
+          onClose={() => setShowSkattekontoImport(false)}
+        />
+      )}
+
+      {showSieAttachments && (
+        <SieAttachmentsModal
+          company={company}
+          verifications={verifications}
+          user={user}
+          onAttach={(updates) => onAttachVerificationFiles?.(updates)}
+          onClose={() => setShowSieAttachments(false)}
+        />
+      )}
 
       {showSieImport && (
         <SieImportModal

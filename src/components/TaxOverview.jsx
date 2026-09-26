@@ -8,7 +8,7 @@ import { CheckCircle2, ChevronRight, ExternalLink } from './icons';
 //
 // `items` byggs i Taxes.jsx (overviewItems): { key, section, title, subtitle, dueLabel,
 // daysLabel, urgency, done, status, cta, filedKey, canMark }.
-export default function TaxOverview({ items, summary, onOpen, onToggleFiled }) {
+export default function TaxOverview({ items, summary, onOpen, onToggleFiled, vatExempt = false }) {
   return (
     <div className="tax-ov">
       <section className="tax-ov-card" aria-label="Att göra">
@@ -65,7 +65,7 @@ export default function TaxOverview({ items, summary, onOpen, onToggleFiled }) {
             <span className="tax-how-num">2</span>
             <div>
               <strong>Ladda ner filen</strong>
-              <small>Moms som XML-fil, inkomstdeklaration som SRU-filer, arbetsgivardeklaration som underlag.</small>
+              <small>{vatExempt ? 'Inkomstdeklaration som SRU-filer, arbetsgivardeklaration som underlag.' : 'Moms som XML-fil, inkomstdeklaration som SRU-filer, arbetsgivardeklaration som underlag.'}</small>
             </div>
           </li>
           <li>

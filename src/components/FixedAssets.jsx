@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { lockedPeriodFor } from '../utils/fiscalYear';
 import { Plus, Trash2, Pencil, ArrowLeft, CheckCircle2, AlertTriangle, PackageMinus } from './icons';
 import ListTable from './shared/ListTable';
 import { AccountSearch } from './shared/SearchInputs';
@@ -43,7 +44,8 @@ const emptyAsset = () => {
  */
 export default function FixedAssets({ company, accounts = [], verifications = [], onAddVerification, setCompanyInfo }) {
   const assets = useMemo(() => company?.fixedAssets || [], [company?.fixedAssets]);
-  const lockedYears = useMemo(() => Object.keys(company?.lockedFiscalYears || {}), [company?.lockedFiscalYears]);
+  // Vilket låst räkenskapsår datumet ligger i (null om inget), se utils/fiscalYear.js.
+  const lockedFor = (date) => lockedPeriodFor(date, company?.lockedFiscalYears);
   const [editing, setEditing] = useState(null);
   const [isNew, setIsNew] = useState(false);
   const [disposing, setDisposing] = useState(null);
@@ -54,7 +56,7 @@ export default function FixedAssets({ company, accounts = [], verifications = []
   const bookedMap = useMemo(() => bookedDepreciationMap(verifications), [verifications]);
   const hasBooked = (assetId) => [...bookedMap.values()].some(set => set.has(assetId));
 
-  const pending = useMemo(() => pendingDepreciation(assets, verifications, untilMonth, lockedYears), [assets, verifications, untilMonth, lockedYears]);
+  const pending = useMemo(() => pendingDepreciation(assets, verifications, untilMonth, company?.lockedFiscalYears), [assets, verifications, untilMonth, company?.lockedFiscalYears]);
   const suggestions = useMemo(() => unregisteredAcquisitions(verifications, assets), [verifications, assets]);
   const summary = useMemo(() => registerSummary(assets, monthKey(new Date())), [assets]);
 
@@ -109,7 +111,7 @@ export default function FixedAssets({ company, accounts = [], verifications = []
     const conflict = [...bookedMap.entries()].some(([month, ids]) => ids.has(asset.id) && month >= disposalMonth);
     if (conflict) return setError('Avskrivningar är redan bokförda för månaden då tillgången avyttras eller senare. Ta bort dem i Bokföring först.');
     if (date < asset.acquisitionDate) return setError('Avyttringsdatum kan inte vara före anskaffningsdatum.');
-    if (lockedYears.includes(date.slice(0, 4))) return setError(`Räkenskapsåret ${date.slice(0, 4)} är låst.`);
+    if (lockedFor(date)) return setError(`Räkenskapsåret ${lockedFor(date)} är låst.`);
     const pricing = Number(proceeds) || 0;
     onAddVerification(buildDisposalVerification(asset, { date, proceeds: pricing }));
     saveAssets(assets.map(a => (a.id === asset.id ? { ...a, disposedDate: date, disposalProceeds: pricing } : a)));

@@ -107,11 +107,16 @@ export default function SieImportModal({ accounts = [], verifications = [], onIm
     const remapAccount = (code) => codeRemap[code] || code;
     const accountsByCode = new Map([...accounts, ...accountsToAdd].map(a => [a.code, a]));
 
+    // Räkenskapsåret sparas per verifikation: det gamla programmets
+    // verifikatnummer börjar om varje år, så underlagskopplingen
+    // (SieAttachmentsModal) måste veta vilket år "A31" hör till.
+    const fiscalYearOf = (date) => parsed.fiscalYears.find(fy => fy.start <= date && date <= fy.end);
     const importVerifications = parsed.verifications.map(v => ({
       series: v.series,
       date: v.date,
       description: v.description,
       sieNumber: v.sieNumber,
+      ...(fiscalYearOf(v.date) ? { sieFiscalYearStart: fiscalYearOf(v.date).start, sieFiscalYearEnd: fiscalYearOf(v.date).end } : {}),
       rows: v.rows.map(r => ({ ...r, account: remapAccount(r.account), accountName: accountsByCode.get(remapAccount(r.account))?.name || r.account })),
     }));
 

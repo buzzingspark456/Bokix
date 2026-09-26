@@ -24,7 +24,7 @@ const btn = (primary) => ({
  * Delägare och resultatfördelning för handels- och kommanditbolag — flik i
  * Skatt och bokslut. Räkningen ligger i utils/partners.js.
  */
-export default function Partners({ company, verifications = [], year, yearResult, onAddVerification, setCompanyInfo }) {
+export default function Partners({ company, verifications = [], year, period, yearResult, onAddVerification, setCompanyInfo }) {
   const saved = useMemo(() => company?.partners || [], [company?.partners]);
   const [draft, setDraft] = useState(null);
   const [error, setError] = useState('');
@@ -38,8 +38,9 @@ export default function Partners({ company, verifications = [], year, yearResult
   const allocatedAtClose = locked?.resultAccount === 'partners';
   const allocationBooked = allocatedAtClose || isAllocationBooked(verifications, year);
 
-  const start = `${year}-01-01`;
-  const end = `${year}-12-31`;
+  // Räkenskapsårets datum när Taxes skickar dem, annars kalenderåret.
+  const start = period?.start || `${year}-01-01`;
+  const end = period?.end || `${year}-12-31`;
   const statement = useMemo(
     () => (validatePartners(saved).length === 0 ? computePartnerStatement(verifications, saved, start, end, lockedResult ?? yearResult) : []),
     [saved, verifications, start, end, lockedResult, yearResult],
@@ -58,7 +59,7 @@ export default function Partners({ company, verifications = [], year, yearResult
 
   const bookAllocation = async () => {
     if (!(await confirmDialog(`Bokför resultatfördelning för ${year}? Resultatet ${fmt(lockedResult)} kr fördelas på delägarna efter andel.`))) return;
-    onAddVerification(buildAllocationVerification(year, lockedResult, saved));
+    onAddVerification(buildAllocationVerification(year, lockedResult, saved, end));
   };
 
   const valid = validatePartners(saved).length === 0;

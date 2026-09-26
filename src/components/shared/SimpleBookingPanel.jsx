@@ -30,7 +30,7 @@ function Field({ title, children }) {
  *
  * `rows` är de byggda raderna (tal), `errors` det som saknas.
  */
-export default function SimpleBookingPanel({ fields, setFields, accounts, orgType, rows, errors }) {
+export default function SimpleBookingPanel({ fields, setFields, accounts, orgType, rows, errors, vatExempt = false }) {
   const set = (patch) => setFields(prev => ({ ...prev, ...patch }));
   const kinds = simpleKindsFor(orgType);
   const payments = paymentAccounts(accounts);
@@ -91,9 +91,9 @@ export default function SimpleBookingPanel({ fields, setFields, accounts, orgTyp
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '12px' }}>
         {kind === 'expense' && (
           <>
-            {amountField('Belopp inkl. moms (kr)')}
-            <Field title="Moms på kvittot">{vatSelect(true)}</Field>
-            {fields.vatRate === 'mixed' && (
+            {amountField(vatExempt ? 'Belopp (kr)' : 'Belopp inkl. moms (kr)')}
+            {!vatExempt && <Field title="Moms på kvittot">{vatSelect(true)}</Field>}
+            {!vatExempt && fields.vatRate === 'mixed' && (
               <Field title="Moms i kronor">
                 <input
                   type="number" min="0" step="0.01" inputMode="decimal" value={fields.vatAmount ?? ''}
@@ -121,8 +121,8 @@ export default function SimpleBookingPanel({ fields, setFields, accounts, orgTyp
 
         {kind === 'income' && (
           <>
-            {amountField('Belopp inkl. moms (kr)')}
-            <Field title="Moms på försäljningen">{vatSelect(false)}</Field>
+            {amountField(vatExempt ? 'Belopp (kr)' : 'Belopp inkl. moms (kr)')}
+            {!vatExempt && <Field title="Moms på försäljningen">{vatSelect(false)}</Field>}
             <Field title="Vad sålde du?">
               <AccountSearch value={fields.account} accounts={incomeAccounts} placeholder="Standard efter momssats" onChange={code => set({ account: code })} />
             </Field>

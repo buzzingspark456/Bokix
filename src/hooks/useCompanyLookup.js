@@ -29,6 +29,10 @@ export function useCompanyLookup(set) {
   const [orgLookup, setOrgLookup] = useState({ status: 'idle', message: '' }); // idle|loading|done|error|firma
   const [nameResults, setNameResults] = useState([]);
   const [nameSearch, setNameSearch] = useState({ status: 'idle', message: '' });
+  // Hela träffen som senast fylldes i (registreringsdatum, senaste
+  // årsredovisningens räkenskapsår m.m.), för formulär som vill mer än
+  // namn och adress, se FiscalYearVatFields.jsx.
+  const [lastCompany, setLastCompany] = useState(null);
 
   // nameRequestSeq förhindrar en kapplöpning utan extra state-omrenderingar:
   // ignorerar ett SVAR som hinner komma tillbaka efter ett senare, mer
@@ -46,6 +50,7 @@ export function useCompanyLookup(set) {
 
   const applyCompany = useCallback((company) => {
     if (!company) return;
+    setLastCompany(company);
     set('name', company.name || '');
     set('orgNr', company.orgNumber || '');
     if (company.street) set('address', company.street);
@@ -166,6 +171,6 @@ export function useCompanyLookup(set) {
   return {
     orgLookup, lookupByOrgNr, handleOrgNrChange,
     nameResults, nameSearch, searchByName, queueNameSearch,
-    applyCompany, clearNameResults,
+    applyCompany, clearNameResults, lastCompany,
   };
 }

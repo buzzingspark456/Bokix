@@ -80,3 +80,14 @@ export async function searchCompaniesByName(name, limit = 5) {
   const { companies } = await requestCompanyLookup({ mode: 'name', query, limit });
   return companies || [];
 }
+
+/** Är företaget momsregistrerat? Kontrolleras mot EU:s VIES via backend
+ * (se api/company-access.js, handleVatLookup). Returnerar
+ * `{ registered, vatNr }`, eller null om numret inte är 10 siffror. Kastar
+ * om registret inte går att nå; då ska användaren svara själv. */
+export async function checkVatRegistration(orgNumber) {
+  const digits = String(orgNumber || '').replace(/\D/g, '');
+  if (digits.length !== 10) return null;
+  const { registered, vatNr } = await requestCompanyLookup({ mode: 'vat', query: digits });
+  return { registered: Boolean(registered), vatNr: vatNr || `SE${digits}01` };
+}

@@ -46,7 +46,7 @@ const SECTIONS = [
       'Momsdeklaration ruta för ruta — som PDF, och som eSKD-fil att ladda upp hos Skatteverket',
       'AGI-fil per lönekörning att ladda upp hos Skatteverket, med arbetsgivaravgift efter ålder',
       'Kontrolluppgifter (KU) sammanställda per anställd och år',
-      'Inkomstdeklaration 2: räkenskapsschema (INK2R) och skattemässiga justeringar (INK2S), med SRU-filer',
+      'Inkomstdeklaration 2: räkenskapsschema (INK2R) ifyllt ur bokföringen, med SRU-filer',
       'Påminnelse i god tid före varje moms- och AGI-deadline',
       'Ett bokslutsflöde som stämmer av och låser räkenskapsåret',
     ],

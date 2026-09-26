@@ -1,4 +1,5 @@
 import { getDebet, getKredit } from './verificationAmounts';
+import { lockedPeriodFor } from './fiscalYear';
 
 /**
  * Anläggningsregister och avskrivningar.
@@ -148,7 +149,12 @@ export function bookedDepreciationMap(verifications) {
  */
 export function pendingDepreciation(assets, verifications, untilMonth, lockedYears = []) {
   const booked = bookedDepreciationMap(verifications);
-  const locked = new Set((lockedYears || []).map(String));
+  // Låsen kommer antingen som en lista kalenderår (äldre anrop) eller som
+  // company.lockedFiscalYears, där ett brutet år har start och slut.
+  const lockedList = new Set((Array.isArray(lockedYears) ? lockedYears : []).map(String));
+  const isLocked = Array.isArray(lockedYears)
+    ? (month) => lockedList.has(month.slice(0, 4))
+    : (month) => Boolean(lockedPeriodFor(lastDayOfMonth(month), lockedYears));
   const byMonth = new Map();
   let blockedByLock = 0;
 
@@ -159,7 +165,7 @@ export function pendingDepreciation(assets, verifications, untilMonth, lockedYea
       const amount = depreciationForMonth(asset, month);
       if (amount <= 0) continue;
       if (booked.get(month)?.has(asset.id)) continue;
-      if (locked.has(month.slice(0, 4))) { blockedByLock += 1; continue; }
+      if (isLocked(month)) { blockedByLock += 1; continue; }
       if (!byMonth.has(month)) byMonth.set(month, []);
       byMonth.get(month).push({ asset, amount });
     }

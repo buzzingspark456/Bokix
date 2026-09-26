@@ -1,5 +1,6 @@
 ﻿import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { isVatExempt } from '../utils/vatRegistration';
 import {
   Plus, X, Send, Check, NavInvoicesIcon,
   Search, ChevronRight, ChevronDown,
@@ -182,8 +183,13 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
     const d = new Date(); d.setDate(d.getDate() + 30);
     return d.toISOString().split('T')[0];
   });
-  const [rows, setRows] = useState(() => withRowIds(initial?.rows || prefill?.rows || [
-    { description: '', qty: 1, unitPrice: 0, vatRate: 25, discount: 0, account: '3001', articleNumber: '', rotRutLabor: true }
+  // Inte momsregistrerat: ingen moms på fakturan, försäljningen bokförs på
+  // 3004 (momsfri). Momsvalet på raderna är då låst till 0 %.
+  const vatExempt = isVatExempt(company);
+  const defaultVatRate = vatExempt ? 0 : 25;
+  const defaultRevenueAccount = vatExempt ? '3004' : '3001';
+  const [rows, setRows] = useState(() => withRowIds(initial?.rows || (prefill?.rows && vatExempt ? prefill.rows.map(r => ({ ...r, vatRate: 0, account: defaultRevenueAccount })) : prefill?.rows) || [
+    { description: '', qty: 1, unitPrice: 0, vatRate: defaultVatRate, discount: 0, account: defaultRevenueAccount, articleNumber: '', rotRutLabor: true }
   ]));
   const [expandedRows, setExpandedRows] = useState(new Set());
   const toggleRowAdvanced = (id) => setExpandedRows(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -283,7 +289,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
   const nextNum = initial?.invoiceNumber || getNextInvoiceNumber(invoiceList, company);
   const ocr = nextNum.padStart(7, '0');
 
-  const addRow = () => setRows(r => [...r, { id: newRowId(), description: '', qty: 1, unitPrice: 0, vatRate: 25, discount: 0, account: '3001', articleNumber: '', rotRutLabor: true }]);
+  const addRow = () => setRows(r => [...r, { id: newRowId(), description: '', qty: 1, unitPrice: 0, vatRate: defaultVatRate, discount: 0, account: defaultRevenueAccount, articleNumber: '', rotRutLabor: true }]);
   const updateRow = (i, field, val) => setRows(r => r.map((row, idx) => idx === i ? { ...row, [field]: val } : row));
   const removeRow = (i) => setRows(r => r.filter((_, idx) => idx !== i));
 
@@ -313,8 +319,8 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
       articleNumber: article.articleNumber,
       description: article.description || row.description,
       unitPrice: article.unitPrice ?? row.unitPrice,
-      vatRate: article.vatRate ?? row.vatRate,
-      account: article.account || row.account,
+      vatRate: vatExempt ? 0 : (article.vatRate ?? row.vatRate),
+      account: vatExempt ? defaultRevenueAccount : (article.account || row.account),
     } : row));
   };
   // Sparar (eller uppdaterar, om samma artikelnr redan finns) raden som en
@@ -1098,8 +1104,8 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
                             style={{ ...inp, textAlign: 'right' }}
                           />
                         )}</div>
-                        <div className="inv-cell" data-label="Moms">{isLocked ? (
-                          <div style={{ ...inp, background: 'var(--bg-muted)', border: '1px solid var(--border-light)', textAlign: 'right' }}>{row.vatRate}%</div>
+                        <div className="inv-cell" data-label="Moms">{(isLocked || vatExempt) ? (
+                          <div title={vatExempt ? 'Företaget är inte momsregistrerat' : undefined} style={{ ...inp, background: 'var(--bg-muted)', border: '1px solid var(--border-light)', textAlign: 'right' }}>{vatExempt ? 0 : row.vatRate}%</div>
                         ) : (
                           <select value={row.vatRate} onChange={e => updateRow(i, 'vatRate', Number(e.target.value))} style={inp}>
                             {[0, 6, 12, 25].map(r => <option key={r} value={r}>{r}%</option>)}
@@ -1168,12 +1174,12 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
                               )}
                             </div>
                           </div>
-                          <div>
+                          {!vatExempt && <div>
                             <label style={lbl}>Tjänst (momsfri)</label>
                             <select disabled={isLocked} value={row.vatRate === 0 ? 'Ja' : 'Nej'} onChange={e => updateRow(i, 'vatRate', e.target.value === 'Ja' ? 0 : 25)} style={inp}>
                               <option>Ja</option><option>Nej</option>
                             </select>
-                          </div>
+                          </div>}
                           <div>
                             <label style={lbl}>Rabatt %</label>
                             <input disabled={isLocked} type="number" min="0" max="100" value={row.discount || 0} onChange={e => updateRow(i, 'discount', Number(e.target.value))} style={inp} />

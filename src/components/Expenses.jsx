@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { isVatExempt } from '../utils/vatRegistration';
 import {
   UploadCloud, FileText, CheckCircle2, AlertCircle, Receipt, X, Clock, Trash2, RotateCcw, Search, ScanLine, FolderPlus, Pencil,
 } from './icons';
@@ -215,7 +216,7 @@ function OcrBadge() {
   );
 }
 
-function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allReceipts, verifications = [], status, onSave, onSaveOcrDraft, onDelete, onReverse, onClose }) {
+function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allReceipts, verifications = [], status, onSave, onSaveOcrDraft, onDelete, onReverse, onClose, vatExempt = false }) {
   // "Rättad" är också ett låst tillstånd — samma skäl som "Bokförd": en
   // rättelseverifikation ändrar inte originalet, så fälten som redan
   // bokfördes ska förbli precis vad de var när det begicks, inte gå att
@@ -524,8 +525,9 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
   const reverseInfo = reverseChargePurchaseInfo(form.costAccount);
   // Flera momssatser på samma kvitto: momsen skrivs in i kronor. All ingående
   // moms bokförs på samma konto (2641), så det är beloppet som behövs, inte satsen.
-  const mixedVat = !reverseInfo && form.vatRate === 'mixed';
-  const vatRate = reverseInfo || mixedVat ? 0 : (Number(form.vatRate) || 0);
+  // Inte momsregistrerat: momsen får inte dras av, hela beloppet är kostnad.
+  const mixedVat = !vatExempt && !reverseInfo && form.vatRate === 'mixed';
+  const vatRate = vatExempt || reverseInfo || mixedVat ? 0 : (Number(form.vatRate) || 0);
   const mixedVatAmount = parseAmount(form.vatAmount);
   const vatAmount = !hasAmount ? 0
     : mixedVat ? (mixedVatAmount > 0 ? mixedVatAmount : 0)
@@ -621,7 +623,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
     onSave(receipt.id, {
       date: form.date, supplier: form.supplier.trim(), receiptNumber: form.receiptNumber.trim() || undefined, receiptNumberLabel: form.receiptNumber.trim() ? (numberLabel || undefined) : undefined,
       foreignCurrency: foreignForSave(fx), amount: form.refund ? -amount : amount,
-      vatRate: mixedVat ? 'mixed' : Number(form.vatRate) || 0,
+      vatRate: vatExempt ? 0 : mixedVat ? 'mixed' : Number(form.vatRate) || 0,
       vatAmount: mixedVat ? (form.refund ? -1 : 1) * Math.round(mixedVatAmount * 100) / 100 : undefined,
       costAccount: form.costAccount, projectId: form.projectId || undefined, folderId: form.folderId || undefined,
       notes: form.notes.trim() || undefined,
@@ -760,19 +762,19 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                 samma matbutik). Momsen är avläst och går ihop — den går bara
                 inte att uttrycka som EN sats, och då ska det stå, inte döljas
                 bakom en procentsats som blir fel. */}
-            {!readOnly && !revealing && ocrVat && ocrVat.rates && (
+            {!vatExempt && !readOnly && !revealing && ocrVat && ocrVat.rates && (
               <div className="rc-verify rc-verify-warn">
                 <AlertCircle size={14} style={{ flexShrink: 0 }} />
                 <span>Kvittot har moms i flera satser ({ocrVat.rates.map(r => `${r} %`).join(' och ')}), tillsammans {formatSEK2(ocrVat.vatAmount)}. Momsen bokförs med det beloppet, så det blir rätt utan att du delar upp kvittot. Kontrollera att det stämmer med kvittot.</span>
               </div>
             )}
-            {!readOnly && !revealing && ocrVat && ocrVat.verified && (
+            {!vatExempt && !readOnly && !revealing && ocrVat && ocrVat.verified && (
               <div className="rc-verify rc-verify-ok">
                 <CheckCircle2 size={14} style={{ flexShrink: 0 }} />
                 <span>Momsen stämmer mot beloppen på kvittot ({formatSEK2(ocrVat.vatAmount)} moms, {Number(form.vatRate)} %).</span>
               </div>
             )}
-            {!readOnly && !revealing && ocrVat && ocrVat.mismatch && (
+            {!vatExempt && !readOnly && !revealing && ocrVat && ocrVat.mismatch && (
               <div className="rc-verify rc-verify-warn">
                 <AlertCircle size={14} style={{ flexShrink: 0 }} />
                 <span>Kvittot säger {formatSEK2(ocrVat.vatAmount)} i moms, men det går inte ihop med beloppet {hasAmount ? formatSEK2(grossAmount) : '(tomt)'} och någon svensk momssats. Ett av de två är felläst — kontrollera båda mot kvittot. Rätta du beloppet följer momsen med.</span>
@@ -887,6 +889,11 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                 />
                 {numberLabel && form.receiptNumber && <div className="rc-hint">Avläst som {numberLabel.toLowerCase()}</div>}
               </div>
+              {vatExempt ? (
+                <div className="rc-span rc-hint" style={{ marginTop: 0 }}>
+                  Företaget är inte momsregistrerat, så momsen på kvittot kan inte dras av. Hela beloppet bokförs som kostnad.
+                </div>
+              ) : (
               <div className={`rc-span${flashField === 'vatRate' ? ' rc-flash' : ''}`}>
                 <label style={labelSt}>Momssats {ocrFields.has('vatRate') && <OcrBadge />}</label>
                 <div style={{ display: 'flex', gap: '6px' }}>
@@ -929,6 +936,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                   </div>
                 )}
               </div>
+              )}
 
               {/* Vad som faktiskt bokförs, medan man skriver. */}
               <div className="rc-span rc-split" aria-live="polite">
@@ -936,10 +944,10 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                   <div className="rc-split-k">Netto</div>
                   <div className="rc-split-v">{hasAmount ? formatSEK2(form.refund ? -netAmount : netAmount) : '—'}</div>
                 </div>
-                <div>
+                {!vatExempt && <div>
                   <div className="rc-split-k">{mixedVat ? 'Moms' : `Moms ${vatRate}%`}</div>
                   <div className="rc-split-v">{hasAmount ? formatSEK2(form.refund ? -vatAmount : vatAmount) : '—'}</div>
-                </div>
+                </div>}
                 <div>
                   <div className="rc-split-k">Totalt</div>
                   <div className="rc-split-v">{hasAmount ? formatSEK2(form.refund ? -grossAmount : grossAmount) : '—'}</div>
@@ -1709,6 +1717,7 @@ export default function Expenses({
 
       {detailReceipt && (
         <ReceiptDetailModal
+          vatExempt={isVatExempt(company)}
           key={detailReceipt.id}
           receipt={detailReceipt}
           accounts={accounts}

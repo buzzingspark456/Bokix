@@ -10,7 +10,7 @@ import {
   MdOutlineBugReport, MdOutlineCalculate, MdOutlineCalendarToday, MdOutlineCancel,
   MdOutlineChatBubbleOutline, MdOutlineCheck, MdOutlineCheckCircle, MdOutlineChecklist,
   MdOutlineCircle, MdOutlineClose, MdOutlineCloudUpload, MdOutlineConstruction,
-  MdOutlineContentCopy, MdOutlineCookie, MdOutlineCreateNewFolder, MdOutlineCreditCard,
+  MdOutlineContentCopy, MdOutlineCookie, MdOutlineCreateNewFolder, MdOutlineCreditCard, MdOutlineFolder,
   MdOutlineDarkMode, MdOutlineDashboard, MdOutlineDashboardCustomize, MdOutlineDelete,
   MdOutlineDeleteSweep, MdOutlineDescription, MdOutlineDns, MdOutlineDoNotDisturb, MdOutlineDocumentScanner,
   MdOutlineEdit, MdOutlineErrorOutline, MdOutlineEvent, MdOutlineFactCheck,
@@ -102,6 +102,7 @@ export const FileDown = make(MdOutlineFileDownload, 'FileDown');
 export const FileSpreadsheet = make(MdOutlineRequestQuote, 'FileSpreadsheet');
 export const FileText = make(MdOutlineDescription, 'FileText');
 export const FileWarning = make(MdOutlineReportProblem, 'FileWarning');
+export const Folder = make(MdOutlineFolder, 'Folder');
 export const FolderPlus = make(MdOutlineCreateNewFolder, 'FolderPlus');
 export const FolderTree = make(MdOutlineAccountTree, 'FolderTree');
 export const Globe = make(MdOutlinePublic, 'Globe');

@@ -85,6 +85,8 @@ export function vatDueDate(year, quarter) {
 }
 
 export function nextVatDeadline(company, vatPeriods) {
+  // Inte momsregistrerat (vatRegistered === false): ingen momsdeklaration.
+  if (company?.vatRegistered === false) return null;
   if ((company?.vatPeriod || 'quarterly') !== 'quarterly') return null;
   const today = new Date();
   today.setHours(0, 0, 0, 0);

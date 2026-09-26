@@ -14,7 +14,7 @@ import {
 import {
   sumFlowByType, buildResultSeries, buildMarginSeries, buildCashflowSeries, computeBalanceSheet,
   computeLedger, computeInvoiceReport, computeKeyFigures, fiscalYearBounds,
-  groupCostsByCategory, groupCostsByAccount, overviewPeriodBounds,
+  groupCostsByCategory, groupCostsByAccount, overviewPeriodBounds, companyFiscalYearSetting,
 } from '../../utils/reportCalculations';
 import { computeVatPeriod, vatRutaValue } from '../../utils/vatCalculation';
 import { computeWorksheet } from '../../utils/worksheet';
@@ -278,7 +278,7 @@ function OverviewReport({ verifications, accounts, company, isMobile }) {
   const mainH = isMobile ? 240 : CHART_H_MAIN;
   const sideH = isMobile ? 210 : CHART_H_SIDE;
 
-  const bounds = useMemo(() => overviewPeriodBounds(periodId, { fiscalYearStart: company?.fiscalYear, verifications }), [periodId, company?.fiscalYear, verifications]);
+  const bounds = useMemo(() => overviewPeriodBounds(periodId, { fiscalYearStart: companyFiscalYearSetting(company), verifications }), [periodId, company?.fiscalYear, verifications]);
   const { start, end, prevStart, prevEnd, granularity, label: periodLabel, hasComparison } = bounds;
 
   const k = useMemo(() => computeKeyFigures(verifications, accounts, start, end), [verifications, accounts, start, end]);
@@ -1039,7 +1039,7 @@ function AnnualReport({ verifications, accounts, company, isMobile }) {
   // (som innan) räkna ut samma sak för hand igen här.
   const { fyStart, fyEnd, prevStart, prevEnd } = useMemo(() => {
     const now = new Date();
-    const { start: fyStart, end: fyNaturalEnd } = fiscalYearBounds(company?.fiscalYear, now);
+    const { start: fyStart, end: fyNaturalEnd } = fiscalYearBounds(companyFiscalYearSetting(company), now);
     const fyEnd = fyNaturalEnd < now ? fyNaturalEnd : now;
     const prevStart = new Date(fyStart.getFullYear() - 1, fyStart.getMonth(), fyStart.getDate());
     const prevEnd = new Date(fyEnd.getFullYear() - 1, fyEnd.getMonth(), fyEnd.getDate());
@@ -1109,7 +1109,7 @@ function QuarterlyReport({ verifications, accounts, payrollRuns, company }) {
   // handuträknad igen.
   const { fyStart, now } = useMemo(() => {
     const now = new Date();
-    const { start: fyStart } = fiscalYearBounds(company?.fiscalYear, now);
+    const { start: fyStart } = fiscalYearBounds(companyFiscalYearSetting(company), now);
     return { fyStart, now };
   }, [company?.fiscalYear]);
 

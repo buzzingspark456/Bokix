@@ -1,13 +1,16 @@
-﻿import React, { useMemo, useState } from 'react';
+﻿import React, { useMemo, useRef, useState } from 'react';
 import { ArrowRight, Building2, Workflow, Check } from './icons';
 import { BRAND } from '../utils/brandColors';
 import { useCompanyLookup } from '../hooks/useCompanyLookup';
 import { formatOrgNr } from '../utils/orgType';
+import CompanyLookupResults from './shared/CompanyLookupResults';
+import FiscalYearVatFields, { EMPTY_COMPANY_SETUP, companySetupComplete, companySetupToCompany } from './shared/FiscalYearVatFields';
+import { describeFiscalYear } from '../utils/fiscalYearSetup';
 
 const steps = [
   { title: 'Välkommen', description: 'Skapa din företagsprofil och börja bokföra med Bokix.' },
   { title: 'Företagsuppgifter', description: 'Lägg in organisationsnummer, adress och kontaktinformation.' },
-  { title: 'Bokföringsinställningar', description: 'Välj räkenskapsår, momsperiod och BAS 2025.' },
+  { title: 'Bokföringsinställningar', description: 'Räkenskapsår, moms och kontoplan.' },
   { title: 'Klart', description: 'Bekräfta din information och gå vidare till dashboarden.' },
 ];
 
@@ -19,7 +22,16 @@ export default function OnboardingFlow({ onComplete, onSkip, initialCompanyName,
   const [address, setAddress] = useState(initialCompanyData?.company?.address || '');
   const [email, setEmail] = useState(initialCompanyData?.company?.email || '');
   const [phone, setPhone] = useState(initialCompanyData?.company?.phone || '');
-  const [fiscalYear, setFiscalYear] = useState(initialCompanyData?.company?.fiscalYear || `${new Date().getFullYear()}-01-01`);
+  // Räkenskapsår och momsregistrering, samma frågor som vid registreringen.
+  const [companySetup, setCompanySetup] = useState(() => {
+    const c = initialCompanyData?.company || {};
+    return {
+      ...EMPTY_COMPANY_SETUP,
+      vatRegistered: typeof c.vatRegistered === 'boolean' ? c.vatRegistered : null,
+      vatNr: c.vatNr || '',
+      vatSource: typeof c.vatRegistered === 'boolean' ? 'user' : '',
+    };
+  });
   const [vatPeriod, setVatPeriod] = useState(initialCompanyData?.company?.vatPeriod || 'quarterly');
   const [chartPlan, setChartPlan] = useState(initialCompanyData?.company?.chartPlan || 'bas2025');
 
@@ -34,11 +46,13 @@ export default function OnboardingFlow({ onComplete, onSkip, initialCompanyName,
     else if (key === 'address') setAddress(value);
   });
 
+  const nameFieldRef = useRef(null);
   const progress = useMemo(() => ((step + 1) / steps.length) * 100, [step]);
 
   const handleNext = () => {
     if (step === steps.length - 1) {
-      onComplete({ companyName, logoUrl, orgNr, address, email, phone, fiscalYear, vatPeriod, chartPlan });
+      const setup = companySetupToCompany(companySetup, orgNr);
+      onComplete({ companyName, logoUrl, orgNr, address, email, phone, fiscalYear: setup.fiscalYear, vatPeriod, chartPlan, setup });
       return;
     }
     setStep((prev) => prev + 1);
@@ -49,14 +63,16 @@ export default function OnboardingFlow({ onComplete, onSkip, initialCompanyName,
       case 0:
         return (
           <div style={{ display: 'grid', gap: '14px' }}>
-            <div>
+            <div ref={nameFieldRef}>
               <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px' }}>Företagsnamn</label>
               <input
                 value={companyName}
-                onChange={(e) => setCompanyName(e.target.value)}
+                onChange={(e) => { setCompanyName(e.target.value); if (!orgNr.replace(/\D/g, '')) companyLookup.queueNameSearch(e.target.value); }}
                 placeholder="Bokix AB"
                 style={{ width: '100%', border: '1px solid var(--border)', borderRadius: '12px', padding: '12px 14px', fontSize: '14px' }}
               />
+              {companyLookup.nameSearch.status === 'loading' && <div style={{ fontSize: '12px', marginTop: '6px', color: 'var(--text-secondary)' }}>Söker i företagsregistret…</div>}
+              <CompanyLookupResults results={companyLookup.nameResults} onPick={companyLookup.applyCompany} anchorRef={nameFieldRef} />
             </div>
             <div>
               <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px' }}>Logotyp (bildlänk)</label>
@@ -131,16 +147,8 @@ export default function OnboardingFlow({ onComplete, onSkip, initialCompanyName,
       case 2:
         return (
           <div style={{ display: 'grid', gap: '14px' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px' }}>Bokföringsår</label>
-              <input
-                value={fiscalYear}
-                onChange={(e) => setFiscalYear(e.target.value)}
-                placeholder="2026-01-01"
-                style={{ width: '100%', border: '1px solid var(--border)', borderRadius: '12px', padding: '12px 14px', fontSize: '14px' }}
-              />
-            </div>
-            <div>
+            <FiscalYearVatFields value={companySetup} onChange={setCompanySetup} orgNr={orgNr} registry={companyLookup.lastCompany} />
+            {companySetup.vatRegistered !== false && <div>
               <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px' }}>Momsperiod</label>
               <select
                 value={vatPeriod}
@@ -151,7 +159,7 @@ export default function OnboardingFlow({ onComplete, onSkip, initialCompanyName,
                 <option value="quarterly">Kvartalsvis</option>
                 <option value="yearly">Årsvis</option>
               </select>
-            </div>
+            </div>}
             <div>
               <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px' }}>Kontoplan</label>
               <select
@@ -175,8 +183,8 @@ export default function OnboardingFlow({ onComplete, onSkip, initialCompanyName,
                 <div><strong>Organisationsnummer:</strong> {orgNr || 'Ej angivet'}</div>
                 <div><strong>Adress:</strong> {address || 'Ej angivet'}</div>
                 <div><strong>Kontakt:</strong> {email || 'Ej angivet'} · {phone || 'Ej angivet'}</div>
-                <div><strong>Bokföringsår:</strong> {fiscalYear}</div>
-                <div><strong>Momsperiod:</strong> {vatPeriod}</div>
+                <div><strong>Räkenskapsår:</strong> {describeFiscalYear(companySetup) || 'Ej angivet'}</div>
+                <div><strong>Moms:</strong> {companySetup.vatRegistered ? `Momsregistrerat, ${{ monthly: 'månadsvis', quarterly: 'kvartalsvis', yearly: 'årsvis' }[vatPeriod]}` : 'Inte momsregistrerat'}</div>
                 <div><strong>Kontoplan:</strong> {chartPlan === 'bas2025' ? 'BAS 2025' : 'BAS 2015'}</div>
               </div>
             </div>
@@ -190,7 +198,7 @@ export default function OnboardingFlow({ onComplete, onSkip, initialCompanyName,
   const currentStepValid = () => {
     if (step === 0) return companyName.trim();
     if (step === 1) return orgNr.trim() && address.trim() && email.trim();
-    if (step === 2) return fiscalYear.trim() && vatPeriod && chartPlan;
+    if (step === 2) return companySetupComplete(companySetup) && vatPeriod && chartPlan;
     return true;
   };
 

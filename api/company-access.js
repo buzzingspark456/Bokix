@@ -85,7 +85,53 @@ function toCompanySummary(c) {
     postalCode: c?.postalAddress?.postalCode || '',
     city: c?.postalAddress?.city || '',
     active: !c?.deregistrationDate,
+    // För förslaget på räkenskapsår när ett företag läggs upp
+    // (FiscalYearVatFields.jsx): senaste årsredovisningens period, och
+    // registreringsdatumet för ett nytt företag utan årsredovisning än.
+    registrationDate: c?.registrationDate || '',
+    fiscalYearStart: c?.financials?.fiscalYearStart || '',
+    fiscalYearEnd: c?.financials?.fiscalYearEnd || '',
   };
+}
+
+// Momsregistrering: FöretagsAPI har inte uppgiften, men Skatteverket
+// rapporterar svenska momsregistreringsnummer (SE + org.nr + 01) till EU:s
+// VIES, som har ett öppet REST-API utan nyckel. Bara VALID/INVALID räknas
+// som svar; allt annat (medlemslandets tjänst nere, timeout) blir ett fel
+// så att klienten frågar användaren i stället för att gissa "inte registrerat".
+const VIES_URL = 'https://ec.europa.eu/taxation_customs/vies/rest-api/ms/SE/vat/';
+
+async function handleVatLookup(body, res) {
+  const digits = String(body?.query || '').replace(/\D/g, '');
+  if (digits.length !== 10) {
+    res.status(400).json({ error: 'Organisationsnumret måste vara 10 siffror.' });
+    return;
+  }
+  const vatNr = `SE${digits}01`;
+  // VIES svarar ibland tillfälligt MS_UNAVAILABLE eller
+  // MS_MAX_CONCURRENT_REQ; ett andra försök räcker oftast.
+  let data;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    try {
+      const response = await fetch(`${VIES_URL}${digits}01`, { signal: controller.signal, headers: { Accept: 'application/json' } });
+      data = await response.json().catch(() => ({}));
+    } catch (error) {
+      console.error('VIES-anrop misslyckades:', error?.name || error);
+      data = null;
+    } finally {
+      clearTimeout(timeout);
+    }
+    if (data?.userError === 'VALID' || data?.userError === 'INVALID') break;
+    if (attempt === 0) await new Promise(r => setTimeout(r, 600));
+  }
+  if (data?.userError !== 'VALID' && data?.userError !== 'INVALID') {
+    console.error('VIES gav inget svar:', data?.userError);
+    res.status(502).json({ error: 'Momsregistret går inte att nå just nu.' });
+    return;
+  }
+  res.status(200).json({ registered: data.isValid === true, vatNr, name: data.isValid ? (data.name || '') : '' });
 }
 
 /** POST { action: 'lookup' }-grenen. `mode: 'orgnr'` slår upp exakt (1 träff
@@ -93,6 +139,10 @@ function toCompanySummary(c) {
  * mellan i UI:t). Skriver själv res.status(...) och returnerar — samma
  * anropsmönster som requireAuthedUser m.fl. i _auth.js. */
 async function handleCompanyLookup(body, res) {
+  if (body?.mode === 'vat') {
+    await handleVatLookup(body, res);
+    return;
+  }
   const foretagsApiKey = getForetagsApiKey();
   if (!foretagsApiKey) {
     res.status(503).json({ error: 'Företagsuppslag är inte konfigurerat (FORETAGSAPI_KEY saknas).' });

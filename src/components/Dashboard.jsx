@@ -23,7 +23,7 @@ import { useTranslation } from '../i18n';
 // delad datumberäkning istället för en andra, lokal implementation som kan
 // glida isär (se PeriodPicker/OVERVIEW_PERIODS-kommentaren i ReportUI.jsx).
 import { PeriodPicker, PeriodHeading, OVERVIEW_PERIODS } from './reports/ReportUI';
-import { overviewPeriodBounds, buildResultSeries } from '../utils/reportCalculations';
+import { overviewPeriodBounds, buildResultSeries, companyFiscalYearSetting } from '../utils/reportCalculations';
 
 /* ── Färger (Sida 30): grönt för positivt/rött för negativt, konsekvent i
    hela appen. Två nyanser per färg: en ljusare "grafisk" ton för linjer/
@@ -701,7 +701,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
   // från `dataKey` — säkert att översätta där.
   const comparisonLabelDisplay = t('dashboard.chart.previousYear');
   const periodBounds = useMemo(
-    () => overviewPeriodBounds(periodId, { fiscalYearStart: company?.fiscalYear, verifications }),
+    () => overviewPeriodBounds(periodId, { fiscalYearStart: companyFiscalYearSetting(company), verifications }),
     [periodId, company?.fiscalYear, verifications],
   );
   const chartData = useMemo(() => {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, CheckCircle2, XCircle, Users, Truck, ChevronDown, AlertTriangle, Download, Upload, Check, Search, Building2, Trash2, Power } from './icons';
+import { Plus, CheckCircle2, XCircle, Users, Truck, ChevronDown, AlertTriangle, Download, Upload, Check, Search, Trash2, Power } from './icons';
 import { AccountSearch } from './shared/SearchInputs';
 import ListPageHeader, { ListFilterBar, listSearchInputStyle } from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
@@ -7,7 +7,7 @@ import { getCountryOptions, getDefaultCountry, SWEDEN } from '../utils/countries
 import { validateEmailList, isValidIban } from '../utils/validators';
 import { contactsToCsv, csvToContacts, downloadCsv } from '../utils/csvRegister';
 import { useCompanyLookup } from '../hooks/useCompanyLookup';
-import AnchoredDropdown from './shared/AnchoredDropdown';
+import CompanyLookupResults from './shared/CompanyLookupResults';
 import { BRAND } from '../utils/brandColors';
 import { confirmDialog } from './shared/ConfirmDialog';
 
@@ -43,23 +43,6 @@ const lookupButtonStyle = {
   borderRadius: '8px', background: 'var(--bg-card)', color: 'var(--text-secondary)',
   cursor: 'pointer',
 };
-// Panelens egna stilar; placeringen sköter AnchoredDropdown (portal +
-// fixed). Låg tidigare `position: absolute` inuti formuläret och klipptes
-// därför av modalens scrollande body så fort fältet låg en bit ner —
-// samma fel som sökrutan i tidrapporteringen hade.
-const lookupDropdownStyle = { borderRadius: '8px', boxShadow: '0 8px 24px rgba(17,24,39,0.14)' };
-const lookupResultItemStyle = {
-  display: 'flex', alignItems: 'center', gap: '10px', width: '100%', textAlign: 'left',
-  padding: '9px 12px', border: 'none', borderTop: '1px solid var(--border)', background: 'transparent',
-  cursor: 'pointer', fontFamily: 'inherit', minWidth: 0,
-};
-const lookupResultIconStyle = {
-  width: '28px', height: '28px', borderRadius: '7px', background: 'var(--bg-muted)',
-  color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-};
-const lookupResultTextStyle = { minWidth: 0, flex: 1 };
-const lookupResultNameStyle = { fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
-const lookupResultMetaStyle = { fontSize: '11.5px', color: 'var(--text-secondary)', marginTop: '1px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
 const lookupStatusStyle = { fontSize: '12px', marginTop: '6px', lineHeight: 1.5 };
 
 function Section({ title, children }) {
@@ -68,30 +51,6 @@ function Section({ title, children }) {
       {title && <h3 style={sectionTitleStyle}>{title}</h3>}
       {children}
     </div>
-  );
-}
-
-// Kandidatlistan som faller ut under Namn-fältet efter en namnsökning —
-// delad mellan CustomerForm och SupplierForm istället för dubblerad JSX.
-function CompanyLookupResults({ results, onPick, anchorRef }) {
-  return (
-    <AnchoredDropdown
-      anchorRef={anchorRef}
-      open={results.length > 0}
-      maxHeight={260}
-      className="company-lookup-dropdown"
-      style={lookupDropdownStyle}
-    >
-      {results.map(c => (
-        <button key={c.orgNumber || c.name} type="button" onClick={() => onPick(c)} className="company-lookup-result" style={lookupResultItemStyle}>
-          <div style={lookupResultIconStyle}><Building2 size={14} /></div>
-          <div style={lookupResultTextStyle}>
-            <div style={lookupResultNameStyle}>{c.name}</div>
-            <div style={lookupResultMetaStyle}>{c.orgNumber || '—'}{c.city ? ` · ${c.city}` : ''}</div>
-          </div>
-        </button>
-      ))}
-    </AnchoredDropdown>
   );
 }
 

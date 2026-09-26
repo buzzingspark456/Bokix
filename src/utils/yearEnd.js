@@ -1,6 +1,7 @@
 import { getDebet, getKredit } from './verificationAmounts';
 import { round2 } from './fixedAssets';
 import { allocateResult, partnerAccounts, validatePartners } from './partners';
+import { inPeriod, periodEnd, periodLabel } from './fiscalYear';
 
 /**
  * Bokslutstransaktionen: årets resultat flyttas från resultatkontona (klass
@@ -34,7 +35,7 @@ export function resultAccountNets(verifications, year) {
   const nets = {};
   (verifications || []).forEach(v => {
     if ((v.status || 'booked') === 'draft' || v.source === 'year_end_close') return;
-    if (!(v.date || '').startsWith(String(year))) return;
+    if (!inPeriod(v.date, year)) return;
     (v.rows || []).forEach(r => {
       const account = String(r.account || '');
       if (!RESULT_CLASSES.includes(account[0])) return;
@@ -82,10 +83,10 @@ export function buildYearEndClosing({ verifications, year, orgType, partners }) 
   if (rows.length === 0) return { verification: null, result, destination };
   return {
     verification: {
-      date: `${year}-12-31`,
-      description: `Bokslutstransaktion ${year}: Årets resultat`,
+      date: periodEnd(year),
+      description: `Bokslutstransaktion ${periodLabel(year)}: Årets resultat`,
       source: 'year_end_close',
-      sourceId: `yearclose_${year}`,
+      sourceId: `yearclose_${periodLabel(year)}`,
       rows: [...rows, ...equityRows],
     },
     result,

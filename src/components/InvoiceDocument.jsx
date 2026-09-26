@@ -1,6 +1,7 @@
 import React, { forwardRef } from 'react';
 import { formatCompanyAddress } from '../utils/companyAddress';
 import { ROT_RUT_RATES } from '../utils/rotRutConfig';
+import { isVatExempt } from '../utils/vatRegistration';
 
 const fmt = (val) =>
   new Intl.NumberFormat('sv-SE', { maximumFractionDigits: 2, minimumFractionDigits: 2 }).format(val || 0);
@@ -54,6 +55,9 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
   // med en tydlig markering om att beskrivningen saknas.
   const hasAmount = (r) => Number(r.qty) || Number(r.unitPrice) || Number(r.amount);
   const visibleRows = rows.filter(r => r.description || hasAmount(r));
+  // Bara när dokumentet verkligen saknar moms: en äldre faktura med moms,
+  // från innan företaget avregistrerades, visas som den skickades.
+  const noVat = isVatExempt(company) && !Number(totals?.vat);
   const isGrid = template === 'grid';
   const isBold = template === 'bold';
   const isClassic = template === 'classic';
@@ -265,17 +269,19 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
         <div style={{ fontSize: 11.5, color: '#52525b', marginBottom: 20 }}>{invoiceText}</div>
       )}
 
+      {/* Inte momsregistrerat och ingen moms på fakturan: ingen momskolumn
+          eller momsrad alls, i stället för en rad nollor. */}
       <table className="a4-table" style={isGrid ? { borderCollapse: 'collapse', ...cellBorder } : undefined}>
         <thead>
           <tr>
-            {['Beskrivning', 'Antal', 'À-pris', 'Moms', 'Belopp'].map((h, i) => (
+            {(noVat ? ['Beskrivning', 'Antal', 'À-pris', 'Belopp'] : ['Beskrivning', 'Antal', 'À-pris', 'Moms', 'Belopp']).map((h, i) => (
               <th key={h} style={{ textAlign: i > 0 ? 'right' : 'left', ...tableHeaderStyle }}>{h}</th>
             ))}
           </tr>
         </thead>
         <tbody>
           {visibleRows.length === 0 ? (
-            <tr><td colSpan={5} style={{ padding: '16px 12px', color: '#9ca3af', textAlign: 'center', ...cellBorder }}>Inga rader tillagda än</td></tr>
+            <tr><td colSpan={noVat ? 4 : 5} style={{ padding: '16px 12px', color: '#9ca3af', textAlign: 'center', ...cellBorder }}>Inga rader tillagda än</td></tr>
           ) : visibleRows.map((r, i) => {
             const net = r.qty * r.unitPrice * (1 - (r.discount || 0) / 100);
             // Avdragsmärkning (Sida 40) trycks som en liten tagg efter
@@ -298,7 +304,7 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
                 </td>
                 <td style={{ textAlign: 'right', ...cellBorder }}>{r.qty}{r.unit && r.unit !== 'st' ? ` ${r.unit}` : ''}</td>
                 <td style={{ textAlign: 'right', ...cellBorder }}>{fmt(r.unitPrice)}</td>
-                <td style={{ textAlign: 'right', ...cellBorder }}>{r.vatRate}%</td>
+                {!noVat && <td style={{ textAlign: 'right', ...cellBorder }}>{r.vatRate}%</td>}
                 <td style={{ textAlign: 'right', ...cellBorder }}>{fmt(net)} {currency}</td>
               </tr>
             );
@@ -309,7 +315,7 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
       <div className="a4-totals-container">
         <div className="a4-totals" style={isGrid ? { border: '1.5px solid #18181b', borderRadius: 0, background: 'white' } : undefined}>
           <div className="a4-total-row"><span>Netto</span><span>{fmt(totals?.net)} {currency}</span></div>
-          <div className="a4-total-row"><span>Moms</span><span>{fmt(totals?.vat)} {currency}</span></div>
+          {!noVat && <div className="a4-total-row"><span>Moms</span><span>{fmt(totals?.vat)} {currency}</span></div>}
           {rotRut?.deduction > 0 && (
             <>
               <div className="a4-total-row"><span>Fakturerat belopp</span><span>{fmt(totals?.total)} {currency}</span></div>

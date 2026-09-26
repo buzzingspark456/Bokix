@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { lockedPeriodFor } from '../utils/fiscalYear';
 import { Plus, Trash2, CheckCircle2, AlertTriangle } from './icons';
 import ListTable from './shared/ListTable';
 import { confirmDialog } from './shared/ConfirmDialog';
@@ -45,7 +46,8 @@ export default function Inventory({ articles = [], invoices = [], company, verif
     [settings.stockFromInvoices, settings.stockFromInvoicesSince, invoices, articles, manualMovements],
   );
   const movements = useMemo(() => [...manualMovements, ...invoiceMovements], [manualMovements, invoiceMovements]);
-  const lockedYears = Object.keys(company?.lockedFiscalYears || {});
+  // Vilket låst räkenskapsår datumet ligger i (null om inget), se utils/fiscalYear.js.
+  const lockedFor = (date) => lockedPeriodFor(date, company?.lockedFiscalYears);
   const goods = articles.filter(a => a.type === 'vara' && a.id);
 
   const [form, setForm] = useState(null);
@@ -91,7 +93,7 @@ export default function Inventory({ articles = [], invoices = [], company, verif
 
   const bookClosing = async () => {
     if (!closing) return;
-    if (lockedYears.includes(closingDate.slice(0, 4))) return setMessage(`Räkenskapsåret ${closingDate.slice(0, 4)} är låst.`);
+    if (lockedFor(closingDate)) return setMessage(`Räkenskapsåret ${lockedFor(closingDate)} är låst.`);
     if (!(await confirmDialog(`Bokför lagerjustering ${closing.rows[0].debet ? '+' : '−'}${fmt(Math.abs(diff))} kr på ${kind.stockAccount}?`))) return;
     onAddVerification(closing);
     setMessage('Lagerjusteringen är bokförd.');

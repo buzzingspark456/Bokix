@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Check } from './icons';
 import { useCompanyLookup } from '../hooks/useCompanyLookup';
 import { formatOrgNr } from '../utils/orgType';
+import CompanyLookupResults from './shared/CompanyLookupResults';
+import FiscalYearVatFields, { EMPTY_COMPANY_SETUP, companySetupComplete, companySetupToCompany } from './shared/FiscalYearVatFields';
 
 // Kundfeedback: "Lägg till företag" återanvände tidigare hela
 // <OnboardingFlow> (samma fyrstegs-guide med progressbar/Tillbaka/
@@ -10,10 +12,9 @@ import { formatOrgNr } from '../utils/orgType';
 // här är istället en vanlig, enkel modal (samma .modal-overlay/
 // .modal-content/.form-group-mönster som "Rapportera fel", App.jsx) —
 // två fält, org.nummerslagningen (samma hook som Kunder/registreringen)
-// autofyller resten. Räkenskapsår/momsperiod/kontoplan väljs INTE här
-// längre — samma förnuftiga förval som createEmptyCompanyData redan
-// sätter, ändringsbart i Inställningar sen, precis som kontots första
-// företag redan tillåter.
+// autofyller resten. Räkenskapsår och momsregistrering frågas här (samma
+// frågor som vid registreringen, se FiscalYearVatFields.jsx); momsperiod
+// och kontoplan får createEmptyCompanyData:s förval, ändringsbara sen.
 export default function AddCompanyModal({ isOpen, onClose, onSubmit, submitting, defaultEmail = '' }) {
   const [companyName, setCompanyName] = useState('');
   const [orgNr, setOrgNr] = useState('');
@@ -25,6 +26,8 @@ export default function AddCompanyModal({ isOpen, onClose, onSubmit, submitting,
   // eget, synligt och redigerbart fält, inte gömt.
   const [email, setEmail] = useState(defaultEmail);
   useEffect(() => { if (isOpen) setEmail(defaultEmail); }, [isOpen, defaultEmail]);
+  const [setup, setSetup] = useState(EMPTY_COMPANY_SETUP);
+  const nameFieldRef = useRef(null);
 
   const companyLookup = useCompanyLookup((key, value) => {
     if (key === 'name') setCompanyName(value);
@@ -40,6 +43,7 @@ export default function AddCompanyModal({ isOpen, onClose, onSubmit, submitting,
     setOrgNr('');
     setAddress('');
     setEmail(defaultEmail);
+    setSetup(EMPTY_COMPANY_SETUP);
     companyLookup.clearNameResults();
     onClose();
   };
@@ -52,17 +56,17 @@ export default function AddCompanyModal({ isOpen, onClose, onSubmit, submitting,
   // TILLAGT företag, en lucka det ursprungliga registreringsflödet aldrig
   // hade.
   const orgNrValid = orgNr.replace(/\D/g, '').length >= 10;
-  const canSubmit = Boolean(companyName.trim()) && orgNrValid && !submitting;
+  const canSubmit = Boolean(companyName.trim()) && orgNrValid && companySetupComplete(setup) && !submitting;
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!canSubmit) return;
-    onSubmit({ companyName: companyName.trim(), orgNr, address, email: email.trim() });
+    onSubmit({ companyName: companyName.trim(), orgNr, address, email: email.trim(), setup: companySetupToCompany(setup, orgNr) });
   };
 
   return (
     <div className="modal-overlay" onClick={handleClose}>
-      <div className="modal-content" style={{ maxWidth: '440px' }} onClick={e => e.stopPropagation()}>
+      <div className="modal-content" style={{ maxWidth: '520px' }} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h2 className="modal-title">Lägg till företag</h2>
           <button className="modal-close" onClick={handleClose} disabled={submitting}>
@@ -108,15 +112,20 @@ export default function AddCompanyModal({ isOpen, onClose, onSubmit, submitting,
               </span>
             )}
           </div>
-          <div className="form-group">
+          <div className="form-group" ref={nameFieldRef}>
             <label className="form-label">Företagsnamn</label>
             <input
               className="form-control"
               value={companyName}
-              onChange={e => setCompanyName(e.target.value)}
+              onChange={e => { setCompanyName(e.target.value); if (!orgNr.replace(/\D/g, '')) companyLookup.queueNameSearch(e.target.value); }}
               placeholder="Bokix AB"
               required
             />
+            {companyLookup.nameSearch.status === 'loading' && <span className="form-hint">Söker i företagsregistret…</span>}
+            <CompanyLookupResults results={companyLookup.nameResults} onPick={companyLookup.applyCompany} anchorRef={nameFieldRef} />
+          </div>
+          <div className="form-group">
+            <FiscalYearVatFields value={setup} onChange={setSetup} orgNr={orgNr} registry={companyLookup.lastCompany} />
           </div>
           {/* Frivilligt — förvalt till kontots egen e-post (kundönskemål:
               inte bara tyst i bakgrunden), men ett vanligt, redigerbart

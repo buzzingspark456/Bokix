@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { isVatExempt } from '../utils/vatRegistration';
 import { NavQuotesIcon, Plus, FileText, Check, X, Download, Trash2, Send, Eye, ZoomIn, ZoomOut, Paperclip, Loader2, Search, ChevronDown, ChevronRight } from './icons';
 import PaperFit from './shared/PaperFit';
 import InvoiceDocument, { DEFAULT_INVOICE_TEMPLATE, INVOICE_TEMPLATES } from './InvoiceDocument';
@@ -14,7 +15,10 @@ const fmtSEK = (val) => new Intl.NumberFormat('sv-SE', { maximumFractionDigits: 
 const fmtDateSv = (d) => { if (!d) return '—'; try { return new Intl.DateTimeFormat('sv-SE').format(new Date(d)); } catch { return d; } };
 const escapeHtml = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-const emptyRow = () => ({ description: '', price: '', qty: 1, unit: 'st', vat: 25, discount: 0, deduction: 'none' });
+const emptyRow = (vat = 25) => ({ description: '', price: '', qty: 1, unit: 'st', vat, discount: 0, deduction: 'none' });
+// Momssats ur en rad. Bugkritiskt: tidigare "Number(r.vat) || 25", som gjorde
+// en momsfri rad (0 %) till 25 %.
+const rowVatRate = (vat) => (vat === '' || vat == null || !Number.isFinite(Number(vat)) ? 25 : Number(vat));
 
 // Sida 40: Enhet-dropdown på offertrader — vanligast förekommande enheter i
 // svensk fakturering/offerering, "st" som förval.
@@ -116,12 +120,14 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
     const d = new Date(); d.setDate(d.getDate() + 30);
     return d.toISOString().split('T')[0];
   });
+  // Inte momsregistrerat: offerten har ingen moms (se utils/vatRegistration.js).
+  const vatExempt = isVatExempt(company);
   const [rows, setRows] = useState(() => (quote?.rows && quote.rows.length > 0)
     ? quote.rows.map(r => ({
         description: r.description || '', price: r.unitPrice ?? '', qty: r.qty ?? 1, unit: r.unit || 'st',
         vat: r.vatRate ?? 25, discount: r.discount ?? 0, deduction: r.deduction || 'none',
       }))
-    : [emptyRow()]);
+    : [emptyRow(vatExempt ? 0 : 25)]);
   const [status, setStatus] = useState(quote?.status || 'draft');
   const [currency, setCurrency] = useState(quote?.currency || 'SEK');
   // Engångskund — en offert till någon som inte (ännu) är en sparad kund,
@@ -255,7 +261,7 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
   const previewNumber = quote?.invoiceNumber || getNextQuoteNumber(quotes);
   const previewRows = rows.map(r => ({
     description: r.description, qty: Number(r.qty) || 1, unit: r.unit || 'st', unitPrice: Number(r.price) || 0,
-    vatRate: Number(r.vat) || 25, discount: Number(r.discount) || 0, deduction: r.deduction && r.deduction !== 'none' ? r.deduction : undefined,
+    vatRate: vatExempt ? 0 : rowVatRate(r.vat), discount: Number(r.discount) || 0, deduction: r.deduction && r.deduction !== 'none' ? r.deduction : undefined,
   }));
   const totals = previewRows.reduce((acc, r) => {
     const net = r.qty * r.unitPrice * (1 - (r.discount || 0) / 100);
@@ -271,7 +277,7 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
     return acc;
   }, {})).sort((a, b) => Number(b[0]) - Number(a[0]));
 
-  const addRow = () => setRows(r => [...r, emptyRow()]);
+  const addRow = () => setRows(r => [...r, emptyRow(vatExempt ? 0 : 25)]);
   const removeRow = (i) => setRows(r => r.filter((_, idx) => idx !== i));
   const updateRow = (i, field, val) => setRows(r => r.map((row, idx) => idx === i ? { ...row, [field]: val } : row));
 
@@ -291,7 +297,7 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
       ...row,
       description: article.description || row.description,
       price: article.unitPrice ?? row.price,
-      vat: article.vatRate ?? row.vat,
+      vat: vatExempt ? 0 : (article.vatRate ?? row.vat),
     } : row));
   };
 
@@ -711,9 +717,13 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
                         onChange={e => updateRow(i, 'discount', e.target.value)} />
                       </label>
                       <label className="qr-cell"><span className="qr-lbl">Moms</span>
+                      {vatExempt ? (
+                        <div style={{ ...inputStyle, background: 'var(--bg-muted)', color: 'var(--text-muted)' }} title="Företaget är inte momsregistrerat">Ingen moms</div>
+                      ) : (
                       <select style={inputStyle} value={row.vat} onChange={e => updateRow(i, 'vat', e.target.value)}>
                         {VAT_RATES.map(v => <option key={v} value={v}>{v}%</option>)}
                       </select>
+                      )}
                       </label>
                       <label className="qr-cell"><span className="qr-lbl">Avdrag</span>
                       <select style={inputStyle} value={row.deduction} onChange={e => updateRow(i, 'deduction', e.target.value)}>
@@ -753,9 +763,9 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
                   <span>Moms {rate}%</span><span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{fmtSEK(amount)} {currency}</span>
                 </div>
               ))}
-              <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
+              {!vatExempt && <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
                 <span>Total moms</span><span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{fmtSEK(totals.vat)} {currency}</span>
-              </div>
+              </div>}
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '8px', marginTop: '4px', borderTop: '1px solid var(--border)' }}>
                 <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>Offertsumma</span>
                 <span style={{ fontWeight: 800, fontSize: '16px', color: 'var(--text-main)' }}>{fmtSEK(totals.total)} {currency}</span>

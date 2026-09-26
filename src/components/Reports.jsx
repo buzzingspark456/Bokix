@@ -3,7 +3,7 @@ import { ChevronRight, FileBarChart } from './icons';
 import ListPageHeader from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
 import ReportDetail from './reports/ReportDetail';
-import { getPeriodBounds } from '../utils/reportCalculations';
+import { getPeriodBounds, companyFiscalYearSetting } from '../utils/reportCalculations';
 import { visibleReportSections } from '../utils/reportDefinitions';
 import { useIsMobileViewport } from '../hooks/useIsMobileViewport';
 
@@ -47,7 +47,7 @@ export default function Reports({
   const [openReportId, setOpenReportId] = useState(null);
 
   const bounds = useMemo(() => getPeriodBounds(period, {
-    fiscalYearStart: company?.fiscalYear, customStart, customEnd,
+    fiscalYearStart: companyFiscalYearSetting(company), customStart, customEnd,
   }), [period, customStart, customEnd, company?.fiscalYear]);
 
   const hasPayrollData = useMemo(() => (payrollRuns || []).some(r => r.completedSteps?.includes('booked')), [payrollRuns]);

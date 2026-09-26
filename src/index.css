@@ -5185,16 +5185,6 @@ textarea.form-control {
     display: none;
   }
 
-  /* INK2S-sammanfattningen (Taxes.jsx): två resultatkort med en pil
-     emellan. På mobil radbryter korten under varandra (flex-wrap) och
-     pilen — tänkt att peka höger, mellan två kort sida vid sida — hamnar
-     då liggande för sig själv mellan två staplade kort, vilket bara ser
-     ut som ett feltryckt tecken. Döljs på mobil, ordningen (resultat
-     följt av över-/underskott) räcker som förklaring i sig. */
-  .ink2s-arrow {
-    display: none;
-  }
-
   /* Samma feedback: .page-shell hade en FAST header + en oberoende inre
      skrollyta (.page-shell-scroll) — bra för korta headers (Fakturor/
      Kontakter, som INTE fick den här klassen), men en hög header som

@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import {
   LogIn, UserPlus, Mail, Lock,
@@ -17,6 +17,8 @@ import { planFromId } from '../utils/plans';
 import { UF_FREE_MONTHS } from '../utils/ufMode';
 import Turnstile from './Turnstile';
 import { TERMS_VERSION } from '../utils/legalVersion';
+import CompanyLookupResults from './shared/CompanyLookupResults';
+import FiscalYearVatFields, { EMPTY_COMPANY_SETUP, companySetupComplete, companySetupToCompany } from './shared/FiscalYearVatFields';
 
 // ── Litet Stripe-märke — se motsvarande kommentar i PaymentRequiredGate.jsx
 // (samma lokala-kopia-mönster). ──
@@ -215,6 +217,9 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
   // "Jag har inget företag än" — se knappen i steg 2 och handleNextStep:s
   // regStep===2-gren för hela resonemanget.
   const [skipCompany, setSkipCompany] = useState(false);
+  // Räkenskapsår och momsregistrering (FiscalYearVatFields.jsx). Skickas med
+  // i user_metadata och sätts på första företaget i App.jsx.
+  const [regSetup, setRegSetup] = useState(EMPTY_COMPANY_SETUP);
 
   // ── UF-registrering (utils/ufMode.js) ──
   // Ett UF-företag har oftast inget organisationsnummer att slå upp, inga
@@ -251,6 +256,8 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
     else if (key === 'legalForm') setRegLegalForm(value);
   };
   const companyLookup = useCompanyLookup(handleLookupField);
+  // Ankare för träfflistan när man söker på företagsnamnet.
+  const regCompanyFieldRef = useRef(null);
 
   // Switch between login/register and reset step
   const switchMode = (login) => {
@@ -403,6 +410,10 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
           setErrorMsg('Ange företagsnamnet.');
           return;
         }
+        if (!companySetupComplete(regSetup)) {
+          setErrorMsg('Svara på vilket räkenskapsår ni har och om företaget är momsregistrerat.');
+          return;
+        }
       }
       setRegStep(3);
       return;
@@ -442,6 +453,15 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
               // inloggningen", som båda kan glida.
               ...(isUfSignup ? { uf: true, uf_school: regUfSchool, uf_started_at: new Date().toISOString() } : {}),
               org_nr: (hasPendingInvite || skipCompany) ? '' : regOrgNr,
+              ...((hasPendingInvite || skipCompany || isUfSignup) ? {} : (() => {
+                const setup = companySetupToCompany(regSetup, regOrgNr);
+                return {
+                  fiscal_year: setup.fiscalYear,
+                  ...(setup.firstFiscalYear ? { first_fiscal_year_start: setup.firstFiscalYear.start, first_fiscal_year_end: setup.firstFiscalYear.end } : {}),
+                  vat_registered: setup.vatRegistered,
+                  vat_nr: setup.vatNr,
+                };
+              })()),
               terms_accepted_at: new Date().toISOString(),
               terms_version: TERMS_VERSION,
             },
@@ -983,17 +1003,21 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                         )}
                       </div>
 
-                      <div>
+                      <div ref={regCompanyFieldRef}>
                         <label style={labelStyle}>Företagsnamn</label>
+                        {/* Går också att söka på: en träff fyller i org.nr och
+                            förväljer räkenskapsår och moms nedanför. */}
                         <input
                           className="auth-input"
                           type="text"
                           style={inputStyle}
                           placeholder="Ex. Mitt Företag AB"
                           value={regCompany}
-                          onChange={e => setRegCompany(e.target.value)}
+                          onChange={e => { setRegCompany(e.target.value); if (!regOrgNr.replace(/\D/g, '')) companyLookup.queueNameSearch(e.target.value); }}
                           required
                         />
+                        {companyLookup.nameSearch.status === 'loading' && <div style={{ fontSize: '12.5px', marginTop: '6px', color: 'var(--text-secondary)' }}>Söker i företagsregistret…</div>}
+                        <CompanyLookupResults results={companyLookup.nameResults} onPick={companyLookup.applyCompany} anchorRef={regCompanyFieldRef} />
                         {/* Kort, flyktig bekräftelse direkt efter ett lyckat
                             uppslag — fältet ovan är annars identiskt oavsett om
                             namnet kom från registret eller skrevs in för hand;
@@ -1009,6 +1033,8 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                           </div>
                         )}
                       </div>
+
+                      <FiscalYearVatFields value={regSetup} onChange={setRegSetup} orgNr={regOrgNr} registry={companyLookup.lastCompany} />
 
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-start' }}>
                         <button

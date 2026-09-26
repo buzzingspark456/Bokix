@@ -398,6 +398,7 @@ const Taxes = lazy(() => import('./components/Taxes'));
 import LandingPage from './components/LandingPage';
 import Auth from './components/Auth';
 import OnboardingFlow from './components/OnboardingFlow';
+import { isVatExempt, stripVatRows } from './utils/vatRegistration';
 import { supabase } from './supabaseClient';
 import { detectDevice } from './utils/deviceInfo';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -685,7 +686,11 @@ function createEmptyCompanyData(companyInfo) {
       // user_metadata.uf_started_at så appen kan visa "X dagar kvar" utan
       // att läsa auth-metadata i varje komponent.
       ufStartedAt: companyInfo.ufStartedAt || '',
-      vatNr: '',
+      vatNr: companyInfo.vatNr || '',
+      // Momsregistrerat? true/false från frågan när företaget läggs upp
+      // (förvalt ur EU:s momsregister, se FiscalYearVatFields.jsx), null
+      // när det aldrig besvarats (äldre företag).
+      vatRegistered: typeof companyInfo.vatRegistered === 'boolean' ? companyInfo.vatRegistered : null,
       address: '',
       // Kundönskemål: "din e-post ska redan stå där" — förifylld från
       // kontots EGEN e-post vid registreringen (första företaget skapas
@@ -728,7 +733,10 @@ function createEmptyCompanyData(companyInfo) {
       // Varje post: { id, name, ledgerAccount, isDefault? }.
       bankAccounts: [],
       defaultVat: 25,
-      fiscalYear: `${new Date().getFullYear()}-01-01`,
+      fiscalYear: companyInfo.fiscalYear || `${new Date().getFullYear()}-01-01`,
+      // Företagets första räkenskapsår om det avviker ({ start, end }),
+      // annars null. De vanliga åren följer fiscalYear.
+      firstFiscalYear: companyInfo.firstFiscalYear || null,
       vatPeriod: 'quarterly',
       chartPlan: 'bas2025',
       // Automatiska påminnelser (api/cron/reminders.js) — inga inställningar
@@ -2172,6 +2180,12 @@ function App() {
           // ska inte heta "Mitt Företag AB".
           name: metadata.company_name || (metadata.uf ? 'Mitt UF-företag' : 'Mitt Företag AB'),
           orgNr: metadata.org_nr || '',
+          fiscalYear: metadata.fiscal_year || '',
+          firstFiscalYear: metadata.first_fiscal_year_start && metadata.first_fiscal_year_end
+            ? { start: metadata.first_fiscal_year_start, end: metadata.first_fiscal_year_end }
+            : null,
+          vatRegistered: typeof metadata.vat_registered === 'boolean' ? metadata.vat_registered : null,
+          vatNr: metadata.vat_nr || '',
           isUf: Boolean(metadata.uf),
           ufSchool: metadata.uf_school || '',
           ufStartedAt: metadata.uf_started_at || '',
@@ -2773,6 +2787,11 @@ function App() {
             phone: profile.phone || data.companies[data.activeCompanyId].company.phone,
             logoUrl: profile.logoUrl || data.companies[data.activeCompanyId].company.logoUrl,
             fiscalYear: profile.fiscalYear || data.companies[data.activeCompanyId].company.fiscalYear,
+            ...(profile.setup ? {
+              firstFiscalYear: profile.setup.firstFiscalYear,
+              vatRegistered: profile.setup.vatRegistered,
+              vatNr: profile.setup.vatNr || data.companies[data.activeCompanyId].company.vatNr || '',
+            } : {}),
             vatPeriod: profile.vatPeriod || data.companies[data.activeCompanyId].company.vatPeriod,
             chartPlan: profile.chartPlan || data.companies[data.activeCompanyId].company.chartPlan || 'bas2025',
           },
@@ -2827,10 +2846,10 @@ function App() {
   // Räkenskapsår/momsperiod/kontoplan sätts inte i formuläret längre —
   // createEmptyCompanyData:s egna förval duger, ändringsbart i
   // Inställningar sen.
-  const handleCreateNewCompany = async ({ companyName, orgNr, address, email }) => {
+  const handleCreateNewCompany = async ({ companyName, orgNr, address, email, setup }) => {
     setNewCompanyModalSubmitting(true);
     try {
-      const newCompanyData = createEmptyCompanyData({ name: companyName, orgNr, email: email || user?.email || '' });
+      const newCompanyData = createEmptyCompanyData({ name: companyName, orgNr, email: email || user?.email || '', ...(setup || {}) });
       newCompanyData.company.requiresOwnPayment = true;
       if (address) newCompanyData.company.address = address;
       const companyId = newCompanyData.company.id;
@@ -3213,7 +3232,16 @@ function App() {
   };
 
   // Add (or continue-update) a verification.
-  const handleAddVerification = (newVer) => {
+  const handleAddVerification = (incomingVer) => {
+    // Företag utan momsregistrering: automatiska bokningar (kvitton,
+    // fakturor, leverantörsfakturor, bank) får ingen moms. Ingående moms blir
+    // en del av kostnaden och utgående moms en del av intäkten, se
+    // utils/vatRegistration.js. Manuella verifikationer (ingen source) och
+    // importerad historik lämnas som de är.
+    const stripVat = isVatExempt(company) && incomingVer?.source
+      && !String(incomingVer.source).startsWith('sie_import')
+      && !['year_end_close', 'skattekonto_import', 'equity_reclass'].includes(incomingVer.source);
+    const newVer = stripVat ? { ...incomingVer, rows: stripVatRows(incomingVer.rows) } : incomingVer;
     setVerifications(prev => {
       // Bugkritiskt: "Fortsätt redigera utkastet" i Verifications.jsx skickar
       // med sitt EGET id (bara en verifikation som redan hade ett tilldelat
@@ -3330,6 +3358,17 @@ function App() {
       });
       return [...prev, ...withNumbers];
     });
+  };
+
+  // Underlag som kopplats i efterhand (SIE-importens underlag). Rör bara
+  // underlagsfälten, aldrig konteringen, så det är tillåtet även i ett låst år.
+  const handleAttachVerificationFiles = (updates) => {
+    const byId = new Map(updates.map(u => [u.id, u]));
+    updateCompanyField('verifications', prev => prev.map(v => {
+      const u = byId.get(v.id);
+      if (!u) return v;
+      return { ...v, attachmentUrl: u.attachmentUrl, attachmentName: u.attachmentName, attachmentType: u.attachmentType, extraAttachments: u.extraAttachments };
+    }));
   };
 
   // Auto-book invoice creation
@@ -4445,6 +4484,7 @@ function App() {
             projects={projects}
             templates={verificationTemplates}
             orgType={detectOrgType(company?.orgNr)}
+            vatExempt={isVatExempt(company)}
             onSaveTemplate={handleSaveVerificationTemplate}
             onAdd={handleAddVerification}
             setVerifications={setVerifications}
@@ -4481,6 +4521,7 @@ function App() {
             projects={projects}
             templates={verificationTemplates}
             orgType={detectOrgType(company?.orgNr)}
+            vatExempt={isVatExempt(company)}
             onSaveTemplate={handleSaveVerificationTemplate}
             onAdd={handleAddVerification}
             setVerifications={setVerifications}
@@ -4562,6 +4603,7 @@ function App() {
             onToggleSidebarStyle={toggleSidebarStyle}
             sharedAccess={currentCompany.__shared || null}
             onBulkImportSie={handleBulkImportVerifications}
+            onAttachVerificationFiles={handleAttachVerificationFiles}
             themePreference={themePreference}
             onSetThemePreference={setThemePreference}
             accentColor={accentColor}

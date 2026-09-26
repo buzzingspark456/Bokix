@@ -55,7 +55,7 @@ export function allocateResult(result, partners) {
 }
 
 /** Bokslutets resultat (2099) fördelas på delägarnas resultatkonton. */
-export function buildAllocationVerification(year, result, partners) {
+export function buildAllocationVerification(year, result, partners, date = `${year}-12-31`) {
   const shares = allocateResult(result, partners);
   const rows = [];
   if (result >= 0) rows.push({ account: '2099', debet: round2(result), kredit: 0 });
@@ -67,7 +67,7 @@ export function buildAllocationVerification(year, result, partners) {
     else rows.push({ account, debet: -s.amount, kredit: 0 });
   });
   return {
-    date: `${year}-12-31`,
+    date,
     description: `Resultatfördelning ${year}`,
     source: 'partner_allocation',
     sourceId: `partner_allocation_${year}`,

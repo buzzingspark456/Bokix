@@ -1,4 +1,24 @@
-import { computeBalanceSheet } from './reportCalculations';
+import { computeBalanceSheet, isBooked } from './reportCalculations';
+import { getDebet, getKredit } from './verificationAmounts';
+
+/**
+ * Resultat som ännu inte förts över till eget kapital: nettot på alla
+ * resultatkonton (klass 3–8) till och med datumet. Efter ett bokfört
+ * bokslut (8999 mot 2099) är det noll. Innan dess saknas just det här
+ * beloppet i eget kapital, och balansräkningen går inte ihop — trots att
+ * bokföringen är rätt. Positivt = vinst.
+ */
+export function unclosedResult(verifications, asOfDate) {
+  let sum = 0;
+  for (const ver of verifications) {
+    if (!isBooked(ver) || !ver.date || new Date(`${ver.date}T00:00:00`) > asOfDate) continue;
+    for (const row of ver.rows || []) {
+      const n = Number(row.account);
+      if (n >= 3000 && n <= 8999) sum += getKredit(row) - getDebet(row);
+    }
+  }
+  return Math.round(sum * 100) / 100;
+}
 
 /**
  * INK2R — Räkenskapsschema, balansräkningsdelen (rad 2.1–2.50) av
@@ -171,7 +191,14 @@ export function ink2rRowForAccount(code) {
  * så saldona per definition alltid stämmer överens med resten av appen.
  */
 export function computeInk2r(verifications, accounts, asOfDate) {
-  const { assets, equityAndLiabilities, totalAssets, totalEquityAndLiabilities } = computeBalanceSheet(verifications, accounts, asOfDate);
+  const { assets, equityAndLiabilities: bookedEquityAndLiabilities, totalAssets, totalEquityAndLiabilities: bookedTotal } = computeBalanceSheet(verifications, accounts, asOfDate);
+  // På blanketten ingår årets resultat i fritt eget kapital (2.28), oavsett
+  // om bokslutet är bokfört. Läggs till som en egen post så den syns när
+  // raden fälls ut, i stället för att tyst ändra ett kontos saldo.
+  const result = unclosedResult(verifications, asOfDate);
+  const resultEntry = Math.abs(result) > 0.5 ? [{ code: '2099', name: 'Årets resultat (inte bokfört i bokslut än)', amount: result, computed: true }] : [];
+  const equityAndLiabilities = [...bookedEquityAndLiabilities, ...resultEntry];
+  const totalEquityAndLiabilities = bookedTotal + (resultEntry[0]?.amount || 0);
   const sums = new Map();
   // Vilka KONTON som byggde upp varje rad. Kundfeedback om den här sidan:
   // "man vet inte riktigt vad man ska göra, visa vad som ligger bakom" — en
@@ -200,6 +227,7 @@ export function computeInk2r(verifications, accounts, asOfDate) {
   const difference = totalAssets - totalEquityAndLiabilities;
   return {
     rows,
+    unclosedResult: result,
     totalAssets,
     totalEquityAndLiabilities,
     balanced: Math.abs(difference) < 1,

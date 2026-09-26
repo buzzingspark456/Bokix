@@ -2,7 +2,7 @@
 import {
   Plus, Search, ChevronRight, ChevronDown,
   AlertCircle, RotateCcw, RefreshCw,
-  UploadCloud, Tag, LayoutTemplate, Save, Trash2, ScanLine, BookOpen, CheckCircle2,
+  UploadCloud, Tag, LayoutTemplate, Save, Trash2, ScanLine, BookOpen, CheckCircle2, Paperclip,
 } from './icons';
 import { getDebet, getKredit } from '../utils/verificationAmounts';
 import { BRAND } from '../utils/brandColors';
@@ -117,7 +117,7 @@ function rowSideWarning(row) {
 const MAX_ATTACHMENT_MB = 10;
 const ACCEPTED_ATTACHMENT_TYPES = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
 
-function VerificationForm({ accounts, contacts, projects = [], verifications = [], balances, templates, onSaveTemplate, onSave, onClose, nextNumber, getNextNumber, initial, vatPeriods, user, orgType, uploadFn = uploadFileToStorage }) {
+function VerificationForm({ accounts, contacts, projects = [], verifications = [], balances, templates, onSaveTemplate, onSave, onClose, nextNumber, getNextNumber, initial, vatPeriods, user, orgType, uploadFn = uploadFileToStorage, vatExempt = false }) {
   const [date, setDate] = useState(initial?.date || new Date().toISOString().split('T')[0]);
   const [desc, setDesc] = useState(initial?.description || '');
   const [projectId, setProjectId] = useState(initial?.projectId || '');
@@ -161,7 +161,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
   const defaultPay = (payDefaults.find(a => a.code === '1930') || payDefaults[0]).code;
   const emptySimple = () => ({ kind: 'expense', amount: '', vatRate: 25, account: '', payAccount: defaultPay, payPrivate: false, fromAccount: defaultPay, toAccount: '' });
   const [simple, setSimple] = useState(emptySimple);
-  const simpleBuilt = useMemo(() => buildSimpleBooking(simple, { orgType }), [simple, orgType]);
+  const simpleBuilt = useMemo(() => buildSimpleBooking(simple, { orgType, vatExempt }), [simple, orgType, vatExempt]);
   useEffect(() => {
     if (mode !== 'simple') return;
     setRows(simpleBuilt.rows.length > 0
@@ -341,7 +341,8 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
       // ev. ingående moms (2641) i debet mot ett gissat betalkonto (1930).
       const buildRows = () => {
         // Moms i flera satser: momsbeloppet på kvittot bokförs som det står.
-        const net = mixedVat ? Math.round((gross - parsed.vatAmount) * 100) / 100
+        // Inte momsregistrerat: momsen får inte dras av, hela beloppet är kostnad.
+        const net = vatExempt ? gross : mixedVat ? Math.round((gross - parsed.vatAmount) * 100) / 100
           : vatRate > 0 ? Math.round((gross / (1 + vatRate / 100)) * 100) / 100 : gross;
         const vat = Math.round((gross - net) * 100) / 100;
         const nameOf = (code, fallback) => accounts.find(a => a.code === code)?.name || fallback;
@@ -838,7 +839,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
             ))}
           </div>
           {mode === 'simple' ? (
-            <SimpleBookingPanel fields={simple} setFields={updateSimple} accounts={accounts} orgType={orgType} rows={simpleBuilt.rows} errors={simpleBuilt.errors} />
+            <SimpleBookingPanel fields={simple} setFields={updateSimple} accounts={accounts} orgType={orgType} rows={simpleBuilt.rows} errors={simpleBuilt.errors} vatExempt={vatExempt} />
           ) : (
           <>
           <table className="ver-adv-table" style={{ width: '100%', minWidth: '620px', borderCollapse: 'collapse', fontSize: '13px' }}>
@@ -1251,7 +1252,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
 }
 
 // ─── Main Bokföring Component ──────────────────────────────────────────────────
-export default function Bokforing({ verifications = [], accounts = [], balances = {}, contacts = [], projects = [], templates = [], onSaveTemplate, onAdd, setVerifications, setAccounts, highlightVerificationId, onClearHighlight, vatPeriods, user, orgType, uploadFn = uploadFileToStorage, initialTab }) {
+export default function Bokforing({ verifications = [], accounts = [], balances = {}, contacts = [], projects = [], templates = [], onSaveTemplate, onAdd, setVerifications, setAccounts, highlightVerificationId, onClearHighlight, vatPeriods, user, orgType, uploadFn = uploadFileToStorage, initialTab, vatExempt = false }) {
   const [activeTab, setActiveTab] = useState(initialTab || 'verifications');
   // Samma mönster som Taxes.jsx:s initialSection — App.jsx:s
   // verificationsInitialTab (profilmenyns "Kontoplaner" ska landa på
@@ -1262,6 +1263,7 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
     if (initialTab) setActiveTab(initialTab);
   }, [initialTab]);
   const [expandedId, setExpandedId] = useState(null);
+  const [openDocument, setOpenDocument] = useState(null); // underlag i fullstorlek från listan
   const [showForm, setShowForm] = useState(false);
   const [editingVer, setEditingVer] = useState(null);
   const [searchInput, setSearchInput] = useState('');
@@ -1410,6 +1412,7 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
         user={user}
         orgType={orgType}
         uploadFn={uploadFn}
+        vatExempt={vatExempt}
       />
     );
   }
@@ -1598,6 +1601,23 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
                     <span>Upprättad: <strong style={{ color: 'var(--text-main)' }}>{v.createdAt ? new Intl.DateTimeFormat('sv-SE', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(v.createdAt)) : '—'}</strong></span>
                     {v.originalLocation && <span>Original förvaras: <strong style={{ color: 'var(--text-main)' }}>{v.originalLocation}</strong></span>}
                   </div>
+                  {/* Underlaget syntes tidigare bara inne i formuläret, så en
+                      bokförd verifikation (och underlag kopplade i efterhand
+                      till en SIE-import) gick inte att se alls. */}
+                  {(v.attachmentUrl || v.extraAttachments?.length > 0) && (
+                    <div onClick={e => e.stopPropagation()} style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center', margin: '8px 0 2px' }}>
+                      <span style={{ fontSize: '11.5px', color: 'var(--text-secondary)' }}>Underlag:</span>
+                      {[v.attachmentUrl && { url: v.attachmentUrl, name: v.attachmentName, type: v.attachmentType }, ...(v.extraAttachments || [])].filter(Boolean).map((doc, di) => (
+                        <button
+                          key={doc.url} type="button" onClick={() => setOpenDocument(doc)}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', maxWidth: '220px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '999px', cursor: 'pointer', padding: '3px 10px', fontSize: '11.5px', fontWeight: 600, color: 'var(--text-main)', fontFamily: 'inherit' }}
+                        >
+                          <Paperclip size={11} style={{ flexShrink: 0 }} />
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.name || `Underlag ${di + 1}`}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   {/* overflow-x:auto (mobil): 4 kolumner i 311px (efter
                       32px vänsterindrag) — sidledes skroll på just denna
                       underliggande detaljtabell istället för en kortlist-
@@ -1706,6 +1726,10 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
             )}
           </div>
         </div>
+      )}
+
+      {openDocument && (
+        <DocumentLightbox url={openDocument.url} type={openDocument.type} name={openDocument.name} onClose={() => setOpenDocument(null)} />
       )}
 
       {/* -- KONTOPLAN TAB -------------------------------------------- */}

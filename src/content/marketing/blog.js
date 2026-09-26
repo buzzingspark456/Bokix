@@ -81,7 +81,7 @@ export const BLOG_POSTS = [
       { t: 'h3', x: 'Lön och personal' },
       { t: 'p', x: 'Har du anställda räknar lönekörningen skatteavdrag enligt Skatteverkets skattetabeller, ger lönebesked som pdf per anställd, beräknar semesteravsättning och arbetsgivaravgifter efter varje anställds ålder, och ger en AGI-fil att ladda upp hos Skatteverket samt en betalfil till banken. Lön ingår i nivån med personal.' },
       { t: 'h3', x: 'Bokslut' },
-      { t: 'p', x: 'Ett bokslutsflöde stämmer av och låser räkenskapsåret. För aktiebolag förbereds också inkomstdeklaration 2 med räkenskapsschema (INK2R), skattemässiga justeringar (INK2S) och SRU-filer.' },
+      { t: 'p', x: 'Ett bokslutsflöde stämmer av och låser räkenskapsåret. För aktiebolag förbereds också inkomstdeklaration 2 med räkenskapsschema (INK2R) och SRU-filer.' },
       { t: 'callout', kind: 'tips', title: 'Aldrig skickat utan din signatur', x: 'Allt som ska in hos Skatteverket förbereds åt dig, men skickas aldrig automatiskt. Du kontrollerar och lämnar in själv.' },
 
       { t: 'h2', x: 'För vilka passar Bokix?' },

@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { lockedPeriodFor } from '../utils/fiscalYear';
 import { Plus, CheckCircle2, AlertTriangle } from './icons';
 import ListTable from './shared/ListTable';
 import { confirmDialog } from './shared/ConfirmDialog';
@@ -31,7 +32,8 @@ const btn = (primary) => ({
  */
 export default function Dividend({ company, accounts = [], verifications = [], onAddVerification, setAccounts, setCompanyInfo }) {
   const dividends = useMemo(() => company?.dividends || [], [company?.dividends]);
-  const lockedYears = useMemo(() => Object.keys(company?.lockedFiscalYears || {}), [company?.lockedFiscalYears]);
+  // Vilket låst räkenskapsår datumet ligger i (null om inget), se utils/fiscalYear.js.
+  const lockedFor = (date) => lockedPeriodFor(date, company?.lockedFiscalYears);
   const [form, setForm] = useState(null);
   const [error, setError] = useState('');
   const [paying, setPaying] = useState(null);
@@ -56,7 +58,7 @@ export default function Dividend({ company, accounts = [], verifications = [], o
     const amount = Number(form.amount);
     if (!(amount > 0)) return setError('Ange ett belopp större än 0.');
     if (!form.date) return setError('Ange datum för stämmobeslutet.');
-    if (lockedYears.includes(form.date.slice(0, 4))) return setError(`Räkenskapsåret ${form.date.slice(0, 4)} är låst.`);
+    if (lockedFor(form.date)) return setError(`Räkenskapsåret ${lockedFor(form.date)} är låst.`);
     if (!check.withinFreeEquity) return setError(`Utdelningen får inte överstiga det fria egna kapitalet (${fmt(check.maxDividend)} kr).`);
     ensureLiabilityAccount();
     const dividend = { id: newId(), date: form.date, amount, sourceAccount: form.sourceAccount, shares: Number(form.shares) || 0, note: form.note.trim() };
@@ -66,7 +68,7 @@ export default function Dividend({ company, accounts = [], verifications = [], o
   };
 
   const pay = async (dividend, date) => {
-    if (lockedYears.includes(date.slice(0, 4))) return setError(`Räkenskapsåret ${date.slice(0, 4)} är låst.`);
+    if (lockedFor(date)) return setError(`Räkenskapsåret ${lockedFor(date)} är låst.`);
     if (date < dividend.date) return setError('Utbetalningen kan inte vara före beslutet.');
     if (!(await confirmDialog(`Bokför utbetalning av ${fmt(dividend.amount)} kr den ${date}?`))) return;
     onAddVerification(buildDividendPayment(dividend, { date }));

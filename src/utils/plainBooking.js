@@ -62,8 +62,10 @@ const num = (v) => round2(Number(String(v ?? '').replace(',', '.')) || 0);
  * fields: kind, amount (inklusive moms), vatRate, account, payAccount,
  * fromAccount, toAccount, payPrivate (enskild firma betalade med egna pengar).
  */
-export function buildSimpleBooking(fields, { orgType } = {}) {
-  const f = fields || {};
+export function buildSimpleBooking(fields, { orgType, vatExempt = false } = {}) {
+  // Inte momsregistrerat: ingen moms, varken på köp (momsen blir en del av
+  // kostnaden) eller försäljning (bokförs på 3004, momsfri).
+  const f = vatExempt ? { ...(fields || {}), vatRate: 0 } : (fields || {});
   const amount = num(f.amount);
   const errors = [];
   const fail = (msg) => { errors.push(msg); return { rows: [], errors }; };

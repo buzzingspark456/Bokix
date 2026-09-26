@@ -1,6 +1,6 @@
 import { getDebet, getKredit } from './verificationAmounts';
 import { encodeCp437 } from './sieCharset';
-import { computeLedger, fiscalYearBounds } from './reportCalculations';
+import { computeLedger, fiscalYearBounds, companyFiscalYearSetting } from './reportCalculations';
 
 // Bugkritiskt (kodgranskning, se git-historiken): den här filen var
 // tidigare aldrig faktiskt kopplad till en knapp någonstans i appen —
@@ -33,7 +33,7 @@ export function generateSIE4(company, accounts, verifications) {
   // Räkenskapsår — företagets EGNA fiscalYear (samma helper som resten av
   // appens rapporter redan använder för att räkna ut aktuellt
   // räkenskapsårs start/slut), inte alltid innevarande kalenderår.
-  const { start: rarStart, end: rarEnd } = fiscalYearBounds(company?.fiscalYear, new Date());
+  const { start: rarStart, end: rarEnd } = fiscalYearBounds(companyFiscalYearSetting(company), new Date());
   const fmt = (d) => `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
   sieString += `#RAR 0 ${fmt(rarStart)} ${fmt(rarEnd)}\r\n`;
 

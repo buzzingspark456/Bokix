@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { lockedPeriodFor } from '../utils/fiscalYear';
 import { Plus, AlertTriangle, CheckCircle2, Trash2 } from './icons';
 import ListTable from './shared/ListTable';
 import { AccountSearch } from './shared/SearchInputs';
@@ -34,7 +35,7 @@ const emptyForm = () => ({ kind: 'prepaid_expense', description: '', date: yearE
  * Periodiseringar — upplupna och förutbetalda poster vid bokslut, med
  * automatisk återföring. Logiken ligger i utils/accruals.js.
  */
-function VacationLiabilityCard({ employees, payrollRuns, verifications, lockedYears, onAddVerification }) {
+function VacationLiabilityCard({ employees, payrollRuns, verifications, lockedFor, onAddVerification }) {
   const [date, setDate] = useState(yearEnd());
   const [message, setMessage] = useState('');
   const adjustment = useMemo(() => {
@@ -43,11 +44,11 @@ function VacationLiabilityCard({ employees, payrollRuns, verifications, lockedYe
   }, [employees, payrollRuns, verifications, date]);
   const verification = buildVacationLiabilityVerification({ date, ...adjustment });
   const booked = isVacationAdjustmentBooked(verifications, date);
-  const locked = lockedYears.includes(date.slice(0, 4));
+  const locked = lockedFor(date);
 
   const book = async () => {
     if (!verification) return;
-    if (locked) return setMessage(`Räkenskapsåret ${date.slice(0, 4)} är låst.`);
+    if (locked) return setMessage(`Räkenskapsåret ${lockedFor(date)} är låst.`);
     if (!(await confirmDialog('Bokför justering av semesterlöneskulden?'))) return;
     onAddVerification(verification);
     setMessage('Justeringen är bokförd.');
@@ -88,7 +89,8 @@ function VacationLiabilityCard({ employees, payrollRuns, verifications, lockedYe
 
 export default function Accruals({ company, accounts = [], verifications = [], employees = [], payrollRuns = [], onAddVerification, setCompanyInfo }) {
   const accruals = useMemo(() => company?.accruals || [], [company?.accruals]);
-  const lockedYears = useMemo(() => Object.keys(company?.lockedFiscalYears || {}), [company?.lockedFiscalYears]);
+  // Vilket låst räkenskapsår datumet ligger i (null om inget), se utils/fiscalYear.js.
+  const lockedFor = (date) => lockedPeriodFor(date, company?.lockedFiscalYears);
   const [form, setForm] = useState(null);
   const [error, setError] = useState('');
 
@@ -104,7 +106,7 @@ export default function Accruals({ company, accounts = [], verifications = [], e
     if (!form.description.trim()) return setError('Beskriv vad periodiseringen avser.');
     if (!(amount > 0)) return setError('Beloppet måste vara större än 0.');
     if (!form.date) return setError('Ange datum.');
-    if (lockedYears.includes(form.date.slice(0, 4))) return setError(`Räkenskapsåret ${form.date.slice(0, 4)} är låst.`);
+    if (lockedFor(form.date)) return setError(`Räkenskapsåret ${lockedFor(form.date)} är låst.`);
     if (!accounts.some(a => a.code === form.counterAccount)) return setError(`Kontot ${form.counterAccount} finns inte i kontoplanen.`);
     const accrual = { id: newId(), ...form, description: form.description.trim(), amount, reversalDate: reversalDateFor(form.date) };
     saveAccruals([...accruals, accrual]);
@@ -115,7 +117,7 @@ export default function Accruals({ company, accounts = [], verifications = [], e
   const bookDueReversals = async () => {
     if (!(await confirmDialog(`Bokför ${due.length} ${due.length === 1 ? 'återföring' : 'återföringar'}?`))) return;
     due.forEach(a => {
-      if (lockedYears.includes((a.reversalDate || reversalDateFor(a.date)).slice(0, 4))) return;
+      if (lockedFor(a.reversalDate || reversalDateFor(a.date))) return;
       onAddVerification(buildReversalVerification(a));
     });
   };
@@ -144,7 +146,7 @@ export default function Accruals({ company, accounts = [], verifications = [], e
       )}
 
       {employees.length > 0 && (
-        <VacationLiabilityCard employees={employees} payrollRuns={payrollRuns} verifications={verifications} lockedYears={lockedYears} onAddVerification={onAddVerification} />
+        <VacationLiabilityCard employees={employees} payrollRuns={payrollRuns} verifications={verifications} lockedFor={lockedFor} onAddVerification={onAddVerification} />
       )}
 
       {form ? (
