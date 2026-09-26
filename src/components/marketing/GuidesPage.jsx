@@ -39,7 +39,7 @@ const GROUPS = [
   {
     title: 'Moms och rapporter',
     guides: [
-      { slug: 'momsdeklaration', title: 'Gör momsdeklarationen', lead: 'Rutorna till Skatteverket räknas ut från bokföringen.', duration: 'PT18S' },
+      { slug: 'momsdeklaration', title: 'Gör momsdeklarationen', lead: 'Kontrollera, granska, bokför och lämna in.', duration: 'PT38S' },
       { slug: 'rapporter', title: 'Se resultatet', lead: 'Intäkter och kostnader, alltid uppdaterat.', duration: 'PT13S' },
     ],
   },

@@ -347,8 +347,20 @@ const GUIDES = {
     await d.click(btn(/Gå vidare till Granska/));
     await d.caption(4, 'Rutorna till Skatteverket är uträknade');
     await d.hover(panel.getByText('Moms att betala', { exact: true }).first());
-    await d.wait(1800);
-    await d.caption(null, 'Bokför, ladda ner filen och lämna in hos Skatteverket.');
+    await d.wait(1500);
+    await d.click(btn(/Gå vidare till Bokför/));
+    await d.caption(5, 'Bokför, momskontona nollställs');
+    await d.hover(panel.getByText(/Redovisningskonto för moms/).last());
+    await d.wait(1300);
+    await d.click(btn(/^Bokför$/));
+    await d.caption(6, 'Ladda ner filen till Skatteverket');
+    await d.click(btn(/Ladda ner fil för uppladdning/));
+    await d.wait(700);
+    await d.caption(7, 'Logga in hos Skatteverket med BankID och ladda upp filen');
+    await d.wait(2200);
+    await d.caption(8, 'Markera som inlämnad');
+    await d.click(btn('Markera som inlämnad'));
+    await d.caption(null, 'Klart! Bokix håller reda på att momsen är inlämnad.');
     await d.wait(2200);
   },
 

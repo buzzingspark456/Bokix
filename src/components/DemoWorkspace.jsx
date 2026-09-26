@@ -183,6 +183,16 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
   const [demoTimeEntries, setDemoTimeEntries] = useState(() => seed.timeEntries);
   const [demoVerifications, setDemoVerifications] = useState(() => seed.verifications);
   const [demoEmployees, setDemoEmployees] = useState(() => seed.employees);
+  // Momsdeklarationen kan bokföras och markeras som inlämnad i demon (bara
+  // perioden noteras, ingen verifikation skapas). Inlämnad-markeringen
+  // hamnar i settingsCompany.taxFilings, precis som i appen.
+  const [demoVatPeriods, setDemoVatPeriods] = useState(() => seed.vatPeriods);
+  const bookDemoVatPeriod = ({ periodKey, periodStart, periodEnd, quarter, year, rounded }) => {
+    setDemoVatPeriods(prev => (prev[periodKey] ? prev : {
+      ...prev,
+      [periodKey]: { periodStart, periodEnd, quarter, year, bookedAt: new Date().toISOString(), netToPay: rounded.netToPay },
+    }));
+  };
   // Samma numrering som App.jsx:s handleAddVerification, utan dess
   // bokföringssidoeffekter.
   const addDemoVerification = (ver) => {
@@ -262,7 +272,7 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
             invoices={demoInvoices} expenses={seed.expenses} contacts={demoContacts}
             setActiveTab={openTab} company={seed.company} profileIncomplete={false}
             onResumeOnboarding={() => openTab('dashboard')}
-            vatPeriods={seed.vatPeriods} payrollRuns={seed.payrollRuns}
+            vatPeriods={demoVatPeriods} payrollRuns={seed.payrollRuns}
             user={demoUser}
           />
         );
@@ -336,7 +346,7 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
           <Bank
             bankTransactions={seed.bankTransactions} bankImportProfiles={{}}
             invoices={demoInvoices} expenses={seed.expenses} contacts={demoContacts}
-            accounts={seed.accounts} verifications={demoVerifications} vatPeriods={seed.vatPeriods}
+            accounts={seed.accounts} verifications={demoVerifications} vatPeriods={demoVatPeriods}
             onSetBankTransactions={noop} onUpdateCompany={noop}
             onRegisterInvoicePayment={blocked} onMarkSupplierInvoicePaid={blocked} onAddVerification={blocked}
           />
@@ -347,7 +357,7 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
             user={demoUser} verifications={demoVerifications} accounts={seed.accounts} balances={balances}
             contacts={demoContacts} projects={demoProjects} templates={seed.verificationTemplates}
             onSaveTemplate={blocked} onAdd={addDemoVerification}
-            setVerifications={setDemoVerifications} setAccounts={noop} vatPeriods={seed.vatPeriods}
+            setVerifications={setDemoVerifications} setAccounts={noop} vatPeriods={demoVatPeriods}
             highlightVerificationId={null} onClearHighlight={noop} uploadFn={demoUploadFn}
           />
         );
@@ -363,10 +373,10 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
       case 'taxes':
         return (
           <Taxes
-            company={seed.company} verifications={demoVerifications} invoices={demoInvoices} expenses={seed.expenses}
-            accounts={seed.accounts} payrollRuns={seed.payrollRuns} vatPeriods={seed.vatPeriods}
-            onBookVatPeriod={blocked} onNavigateToVerification={() => openTab('verifications')}
-            onAddVerification={blocked} setCompanyInfo={noop} onNavigateToTab={openTab}
+            company={settingsCompany} verifications={demoVerifications} invoices={demoInvoices} expenses={seed.expenses}
+            accounts={seed.accounts} payrollRuns={seed.payrollRuns} vatPeriods={demoVatPeriods}
+            onBookVatPeriod={bookDemoVatPeriod} onNavigateToVerification={() => openTab('verifications')}
+            onAddVerification={blocked} setCompanyInfo={setSettingsCompany} onNavigateToTab={openTab}
           />
         );
       case 'reports':
