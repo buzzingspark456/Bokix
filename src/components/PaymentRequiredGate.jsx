@@ -33,15 +33,19 @@ function StripeBadge() {
 // betalningsuppgifter lades in, eller om webhooken (customer.subscription.*)
 // av någon anledning inte hunnit skriva statusen än. Aldrig ett silent-block:
 // alltid en tydlig väg vidare till Stripe, eller ut igen. ──
-export default function PaymentRequiredGate({ user, company, onSignedOut }) {
+export default function PaymentRequiredGate({ user, company, onSignedOut, ownerUnpaid = false, onSwitchCompany }) {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const forCompany = Boolean(company?.requiresOwnPayment);
+  // Inbjuden medlem vars företagsägare slutat betala. Medlemmen kan inte
+  // betala åt ägaren, så ingen betalknapp: bara förklaringen, ett byte till
+  // ett företag som fungerar (om det finns) och utloggning.
+  const memberLocked = Boolean(ownerUnpaid);
+  const forCompany = !memberLocked && Boolean(company?.requiresOwnPayment);
   // UF-konto vars gratisperiod är slut (eller som avslutat UF-året): två val,
   // fortsätta och betala, eller avsluta. Ett avslutat konto går att läsa i
   // tre månader och stängs sedan; bokföringen sparas i sju år i arkivet (se
   // utils/ufClose.js och api/_ufAccount.js).
-  const isUf = !forCompany && Boolean(user?.user_metadata?.uf);
+  const isUf = !forCompany && !memberLocked && Boolean(user?.user_metadata?.uf);
   const [ufClosed, setUfClosed] = useState(() => ufClosedInfo(user));
   const [closing, setClosing] = useState(false);
   const handleCloseUf = async () => {
@@ -131,10 +135,12 @@ export default function PaymentRequiredGate({ user, company, onSignedOut }) {
         </div>
 
         <h1 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '10px', letterSpacing: '-0.01em' }}>
-          {isUf ? (ufClosed ? 'UF-året är avslutat' : 'Ert UF-år är slut') : forCompany ? 'Slutför betalningen för det här företaget' : returning ? 'Din prenumeration är inte aktiv' : 'Slutför din betalning för att fortsätta'}
+          {memberLocked ? 'Företaget är låst just nu' : isUf ? (ufClosed ? 'UF-året är avslutat' : 'Ert UF-år är slut') : forCompany ? 'Slutför betalningen för det här företaget' : returning ? 'Din prenumeration är inte aktiv' : 'Slutför din betalning för att fortsätta'}
         </h1>
         <p style={{ fontSize: '14.5px', color: 'var(--text-secondary)', lineHeight: 1.65, marginBottom: '28px' }}>
-          {isUf
+          {memberLocked
+            ? <>{company?.name ? <><strong>{company.name}</strong> delas</> : 'Företagen du är inbjuden till delas'} med dig av företagets ägare, och ägarens prenumeration är inte aktiv just nu. Allt finns kvar och går att använda igen så fort ägaren startar prenumerationen. Hör av dig till ägaren.</>
+            : isUf
             ? (ufClosed
               ? <>Kontot är skrivskyddat och stängs den <strong>{ufClosed.deleteLabel}</strong>. Ladda ner det ni behöver innan dess. Bokföringen och underlagen sparas ändå i sju år, som Skatteverket kräver, och kan begäras ut via support@bokix.se. Ångrar ni er kan ni fortsätta med Bokix fram till dess.</>
               : <>Gratisperioden är slut. Vill ni driva företaget vidare fortsätter ni med Bokix. Är ni klara avslutar ni UF-året: ni kan ladda ner allt i tre månader, sedan stängs kontot. Bokföringen sparas i sju år, som Skatteverket kräver även för UF-företag.{ufAutoCloseLabel(user) && <> Väljer ni inget stängs kontot <strong>{ufAutoCloseLabel(user)}</strong>.</>}</>)
@@ -151,6 +157,17 @@ export default function PaymentRequiredGate({ user, company, onSignedOut }) {
           </div>
         )}
 
+        {memberLocked && onSwitchCompany && (
+          <button
+            type="button"
+            onClick={onSwitchCompany}
+            style={{ width: '100%', padding: '14px', background: BRAND.green, border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: 700, color: 'white', cursor: 'pointer', fontFamily: 'inherit', marginBottom: '14px' }}
+          >
+            Byt till ett annat företag
+          </button>
+        )}
+
+        {!memberLocked && (<>
         <button
           onClick={handleContinueToPayment}
           disabled={loading}
@@ -173,6 +190,7 @@ export default function PaymentRequiredGate({ user, company, onSignedOut }) {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '12.5px', color: 'var(--text-muted)', marginBottom: '20px' }}>
           <Lock size={12} /> Säker betalning via <StripeBadge />
         </div>
+        </>)}
 
         {ownCompanies.length > 0 && (
           <div style={{ textAlign: 'left', borderTop: '1px solid var(--border)', paddingTop: '18px', marginBottom: '18px' }}>

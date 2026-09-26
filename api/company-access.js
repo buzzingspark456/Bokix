@@ -1,7 +1,7 @@
 import { applySecurityHeaders } from './_security.js';
 import { canWriteField } from '../src/utils/pageAccess.js';
 import { parseJsonBody } from './stripe/_parseBody.js';
-import { requireAuthedUser, loadMemberCompany, requireActiveSubscription, requireOwnerPaidAccess, isFreeEmail } from './_auth.js';
+import { requireAuthedUser, loadMemberCompany, requireActiveSubscription, requireOwnerPaidAccess, hasPaidAccess, isFreeEmail } from './_auth.js';
 import { checkRateLimit } from './_rateLimit.js';
 import { createClient } from '@supabase/supabase-js';
 import { COMPANY_WRITABLE_FIELDS } from '../src/utils/companyFields.js';
@@ -223,7 +223,14 @@ export default async function handler(req, res) {
       }
       const member = await loadMemberCompany(user.id, companyId, res);
       if (!member) return;
-      res.status(200).json({ company: member.companyData, role: member.role, pageAccess: member.pageAccess || null });
+      // Betalar ägaren? Annars låser appen företaget för medlemmen direkt, i
+      // stället för att låta hen redigera och sedan få sparfel (databasen
+      // stoppar skrivningar när ägaren inte betalar, se has_paid_access).
+      // Kan det inte avgöras räknas ägaren som betalande (hasPaidAccess).
+      const url = process.env.VITE_SUPABASE_URL;
+      const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      const ownerPaid = url && key ? await hasPaidAccess(createClient(url, key), member.ownerUserId) : true;
+      res.status(200).json({ company: member.companyData, role: member.role, pageAccess: member.pageAccess || null, ownerPaid });
       return;
     }
 

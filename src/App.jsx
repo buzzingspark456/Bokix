@@ -1169,6 +1169,10 @@ function App() {
   // active/past_due) — se PaymentRequiredGate.jsx. Satt i fetchUserData,
   // FÖRE isLoggedIn(true), så appen aldrig hinner visas ens ett ögonblick.
   const [subscriptionGate, setSubscriptionGate] = useState(null);
+  // Spärrad för att ägaren till företagen man är inbjuden till slutat
+  // betala (inte för att man själv saknar prenumeration). Styr texten i
+  // PaymentRequiredGate.
+  const [sharedOwnerUnpaid, setSharedOwnerUnpaid] = useState(false);
   // Betala-per-företag (kundkrav): ALLA prenumerationsrader för kontot,
   // keyed på company_id ('' = legacy, se supabase-setup.sql:s kommentar
   // vid public.subscriptions) — hämtad EN gång i fetchUserData (direkt
@@ -1635,7 +1639,7 @@ function App() {
           // __shared markerar företaget som INTE mitt eget — se
           // persist-effekten längre ner, som aldrig får skriva in det här i
           // min egen user_data-rad, bara via set_company_field.
-          results[m.company_id] = { ...json.company, __shared: { ownerUserId: m.owner_user_id, role: json.role, pageAccess: json.pageAccess || null } };
+          results[m.company_id] = { ...json.company, __shared: { ownerUserId: m.owner_user_id, role: json.role, pageAccess: json.pageAccess || null, ownerPaid: json.ownerPaid !== false } };
         }
       } catch (err) {
         console.error('Kunde inte hämta delat företag', m.company_id, err);
@@ -1967,7 +1971,9 @@ function App() {
       const sharedCompanies = supabaseEnabled
         ? await fetchSharedCompanies(authUser.id, sessionForAccessToken?.access_token)
         : {};
-      const hasSharedAccess = Object.keys(sharedCompanies).length > 0;
+      // Bara företag vars ägare betalar ger åtkomst. Ett företag vars ägare
+      // slutat betala finns kvar i listan men är låst (isActiveCompanyPaid).
+      const hasSharedAccess = Object.values(sharedCompanies).some(c => c.__shared?.ownerPaid !== false);
 
       // ── Betalspärr: en inloggad Supabase-användare får bara in i appen med
       // en giltig prenumeration på kontots LEGACY-rad (trialing/active/
@@ -2052,10 +2058,12 @@ function App() {
       const withinUfFreePeriod = Boolean(ufFree && !ufFree.expired) && !authUser.app_metadata?.uf_closed_at;
 
       if (!hasSharedAccess && !withinUfFreePeriod && !isFreeAccountEmail(authUser.email) && (!subRow || !ALLOWED_SUBSCRIPTION_STATUSES.includes(subRow.status))) {
+        setSharedOwnerUnpaid(Object.keys(sharedCompanies).length > 0);
         setSubscriptionGate('blocked');
         setIsLoadingAuth(false);
         return;
       }
+      setSharedOwnerUnpaid(false);
       setSubscriptionGate(null);
 
       // Mina EGNA företag som JAG delar med andra (company_members,
@@ -2150,7 +2158,7 @@ function App() {
         // behöver inget eget företag bara för att logga in och redigera
         // det de blivit inbjudna till, och en spurious tom user_data-rad
         // hade bara varit förvirrande om de senare skapar sitt EGET företag.
-        const firstSharedId = Object.keys(sharedCompanies)[0];
+        const firstSharedId = Object.keys(sharedCompanies).find(id => sharedCompanies[id].__shared?.ownerPaid !== false) || Object.keys(sharedCompanies)[0];
         setData({ activeCompanyId: firstSharedId, companies: sharedCompanies });
         setHasCompletedOnboarding(true);
         setHasSkippedOnboarding(true);
@@ -2865,9 +2873,15 @@ function App() {
   // requiresOwnPayment-företag kollas mot SIN EGNA rad i subscriptionsMap
   // (satt i fetchUserData, se den kommentaren) — omräknas automatiskt vid
   // varje företagsbyte eftersom `company` då ändras.
-  const isActiveCompanyPaid = isFreeAccountEmail(user?.email)
+  // Delat företag vars ägare slutat betala: låst för medlemmen, med en
+  // egen förklaring i betalspärren (det är ägaren som ska betala).
+  const activeSharedLocked = data.companies?.[data.activeCompanyId]?.__shared?.ownerPaid === false;
+  const unlockedCompanyId = activeSharedLocked
+    ? Object.keys(data.companies || {}).find(id => id !== data.activeCompanyId && data.companies[id]?.__shared?.ownerPaid !== false)
+    : null;
+  const isActiveCompanyPaid = !activeSharedLocked && (isFreeAccountEmail(user?.email)
     || !company?.requiresOwnPayment
-    || ALLOWED_SUBSCRIPTION_STATUSES.includes(subscriptionsMap[company.id]?.status);
+    || ALLOWED_SUBSCRIPTION_STATUSES.includes(subscriptionsMap[company.id]?.status));
   const accounts = currentCompany.accounts;
   const verifications = currentCompany.verifications;
   const invoices = currentCompany.invoices;
@@ -4580,7 +4594,7 @@ function App() {
               // återställa lösenordet för att komma in och betala).
               <PasswordRecoveryScreen onSubmit={handleSetNewPassword} onCancel={handlePasswordRecoveryCancel} />
             ) : subscriptionGate === 'blocked' ? (
-              <PaymentRequiredGate user={user} />
+              <PaymentRequiredGate user={user} ownerUnpaid={sharedOwnerUnpaid} />
             ) : mfaChallenge ? (
               // Rätt lösenord, men 2FA aktiverad och koden inte verifierad
               // än — se kommentaren vid mfaChallenge-state:t och
@@ -4615,7 +4629,12 @@ function App() {
               // subscriptionGate==='blocked' ovan (kontots ORIGINALspärr,
               // kollad före all datainhämtning) — den här kan bara avgöras
               // EFTER att data.activeCompanyId/company är kända.
-              <PaymentRequiredGate user={user} company={company} />
+              <PaymentRequiredGate
+                user={user}
+                company={company}
+                ownerUnpaid={activeSharedLocked}
+                onSwitchCompany={unlockedCompanyId ? () => handleSwitchCompany(unlockedCompanyId) : undefined}
+              />
             ) : (
             <div className="app-container">
 
