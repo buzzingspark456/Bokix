@@ -1,6 +1,26 @@
 import { collectStoragePaths } from '../../src/utils/storageUrls.js';
 import { snapshotAllUsers, pruneExpiredArchives } from '../_archive.js';
 import { deleteClosedUfAccounts } from '../_ufAccount.js';
+import { hasResendApiKey, sendWithFallback } from '../_resend.js';
+import { buildUfClosingHtml } from '../_emailTemplates.js';
+
+// Varningsmejlen till UF-konton som inte valt något (se _ufAccount.js).
+// Utan Resend-nyckel skickas inga mejl, och då stängs inget automatiskt.
+const UF_MAIL_SUBJECTS = {
+  ended: 'Ert UF-konto: gratisperioden är slut',
+  month: 'Ert UF-konto stängs om en månad',
+  week: 'Ert UF-konto stängs om en vecka',
+};
+function ufMailer() {
+  if (!hasResendApiKey()) return {};
+  return {
+    sendMail: async ({ to, subject, html }) => (await sendWithFallback({ to: [to], subject, html })).ok,
+    buildMail: ({ stage, closeDate }) => ({
+      subject: UF_MAIL_SUBJECTS[stage],
+      html: buildUfClosingHtml({ stage, closeDate, siteUrl: 'https://www.bokix.se' }),
+    }),
+  };
+}
 
 // ─────────────────────────────────────────────────────────────────────────
 // Datastädning — kör en gång per dygn från api/cron/reminders.js.
@@ -187,9 +207,10 @@ export async function runDataRetention(admin, options = {}) {
   } catch (err) {
     result.errors.push(`orphanFiles: ${err.message}`);
   }
-  // Avslutade UF-konton vars tre månader gått ut (ingen bokföringslag för UF).
+  // UF-konton: avslutade vars tre månader gått ut, och konton som inte valt
+  // något (varningsmejl, sedan stängning). Bokföringen arkiveras i sju år först.
   try {
-    result.closedUfAccounts = await deleteClosedUfAccounts(admin, options);
+    result.closedUfAccounts = await deleteClosedUfAccounts(admin, { ...options, ...ufMailer() });
     if (result.closedUfAccounts.errors.length) result.errors.push(...result.closedUfAccounts.errors.slice(0, 5).map(e => `ufClose ${e}`));
   } catch (err) {
     result.errors.push(`closedUfAccounts: ${err.message}`);

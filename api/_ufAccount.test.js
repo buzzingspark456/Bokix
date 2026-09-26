@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { closeUfAccount, deleteClosedUfAccounts, hasNonUfBookkeeping, ufDeleteAfter } from './_ufAccount.js';
+import { closeUfAccount, deleteClosedUfAccounts, hasNonUfBookkeeping, ufDeleteAfter, ufAutoCloseDate, ufMailDue } from './_ufAccount.js';
 
 // Minimal låtsasadmin. `users` = konton i auth, `rows` = user_data per
 // användare, `subs` = prenumerationsstatusar per användare.
@@ -140,5 +140,80 @@ describe('Radering av avslutade UF-konton', () => {
     expect(s.due).toBe(1);
     expect(admin.calls.deletedUsers).toHaveLength(0);
     expect(admin.calls.removed).toHaveLength(0);
+  });
+});
+
+describe('UF-konton som inte valt något', () => {
+  const now = new Date('2027-01-10T03:00:00Z');
+  const mailer = () => {
+    const sent = [];
+    return { sent, sendMail: async (m) => { sent.push(m); return true; }, buildMail: ({ stage, closeDate }) => ({ subject: stage, html: closeDate }) };
+  };
+  const unchosen = (id, createdAt, appMeta = {}) => ({ id, email: `${id}@skola.se`, created_at: createdAt, user_metadata: { uf: true }, app_metadata: appMeta });
+
+  it('stängningsdatumet är sex månader efter gratisperiodens slut', () => {
+    expect(ufAutoCloseDate({ created_at: '2026-01-10T09:00:00Z' })).toBe('2026-10-10');
+    expect(ufAutoCloseDate({ created_at: '2026-01-10T09:00:00Z', app_metadata: { uf_close_not_before: '2027-01-17' } })).toBe('2027-01-17');
+  });
+
+  it('mejlen kommer i ordning: när perioden tar slut, en månad före, en vecka före', () => {
+    const u = { created_at: '2026-06-01T00:00:00Z', app_metadata: {} }; // stängs 2027-03-01
+    expect(ufMailDue(u, new Date('2026-09-02T00:00:00Z'))).toBe('ended');
+    expect(ufMailDue({ ...u, app_metadata: { uf_mail: { ended: '2026-09-02' } } }, new Date('2026-12-01T00:00:00Z'))).toBe(null);
+    expect(ufMailDue({ ...u, app_metadata: { uf_mail: { ended: '2026-09-02' } } }, new Date('2027-02-01T00:00:00Z'))).toBe('month');
+    expect(ufMailDue({ ...u, app_metadata: { uf_mail: { ended: 'x', month: 'y' } } }, new Date('2027-02-23T00:00:00Z'))).toBe('week');
+    expect(ufMailDue({ ...u, app_metadata: { uf_mail: { ended: 'x', month: 'y', week: 'z' } } }, new Date('2027-02-23T00:00:00Z'))).toBe(null);
+  });
+
+  it('ett konto vars period gick ut för länge sedan får hela varselkedjan, inte bara en vecka', async () => {
+    const m = mailer();
+    const admin = makeAdmin({ users: [unchosen('g1', '2025-01-01T00:00:00Z')], rows: { g1: { companies: { a: ufCompany } } } });
+    const s = await deleteClosedUfAccounts(admin, { now, sendMail: m.sendMail, buildMail: m.buildMail });
+    expect(m.sent.map(x => x.subject)).toEqual(['ended']);
+    expect(m.sent[0].html).toBe('2027-02-16'); // 37 dagar fram: hinner få månads- och veckomejlet också
+    expect(s.deleted).toBe(0);
+    expect(admin.calls.deletedUsers).toHaveLength(0);
+  });
+
+  it('stängs en vecka efter sista varningen, med bokföringen i arkivet', async () => {
+    const m = mailer();
+    const admin = makeAdmin({
+      users: [unchosen('g2', '2025-01-01T00:00:00Z', { uf_close_not_before: '2027-01-09', uf_mail: { week: '2027-01-02' } })],
+      rows: { g2: { companies: { a: ufCompany } } },
+    });
+    const s = await deleteClosedUfAccounts(admin, { now, sendMail: m.sendMail, buildMail: m.buildMail });
+    expect(s.autoClosed).toBe(1);
+    expect(s.archived).toBe(1);
+    expect(admin.calls.uploaded.some(x => x.includes('-uf-stangt-t'))).toBe(true);
+    expect(admin.calls.deletedUsers).toEqual(['g2']);
+  });
+
+  it('stängs inte om veckovarningen skickades för mindre än sju dagar sedan', async () => {
+    const m = mailer();
+    const admin = makeAdmin({ users: [unchosen('g3', '2025-01-01T00:00:00Z', { uf_close_not_before: '2027-01-09', uf_mail: { week: '2027-01-07' } })], rows: { g3: { companies: { a: ufCompany } } } });
+    const s = await deleteClosedUfAccounts(admin, { now, sendMail: m.sendMail, buildMail: m.buildMail });
+    expect(s.deleted).toBe(0);
+  });
+
+  it('utan mejlutskick stängs ingenting', async () => {
+    const admin = makeAdmin({ users: [unchosen('g4', '2025-01-01T00:00:00Z')], rows: { g4: { companies: { a: ufCompany } } } });
+    const s = await deleteClosedUfAccounts(admin, { now });
+    expect(s.mails).toBe(0);
+    expect(s.deleted).toBe(0);
+  });
+
+  it('ett konto som betalar rörs inte', async () => {
+    const m = mailer();
+    const admin = makeAdmin({ users: [unchosen('g5', '2025-01-01T00:00:00Z')], subs: { g5: ['active'] } });
+    await deleteClosedUfAccounts(admin, { now, sendMail: m.sendMail, buildMail: m.buildMail });
+    expect(m.sent).toHaveLength(0);
+    expect(admin.calls.deletedUsers).toHaveLength(0);
+  });
+
+  it('ett konto inom gratisperioden rörs inte', async () => {
+    const m = mailer();
+    const admin = makeAdmin({ users: [unchosen('g6', '2026-12-01T00:00:00Z')] });
+    await deleteClosedUfAccounts(admin, { now, sendMail: m.sendMail, buildMail: m.buildMail });
+    expect(m.sent).toHaveLength(0);
   });
 });

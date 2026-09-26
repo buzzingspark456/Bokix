@@ -68,6 +68,28 @@ export function buildTrialEndingHtml({ trialEndsAt, monthlyPrice = 179, siteUrl 
   `;
 }
 
+/** UF-konto vars gratisperiod är slut och som varken betalat eller
+ * avslutat (api/_ufAccount.js). Tre utskick: när perioden tar slut, en
+ * månad före och en vecka före den automatiska stängningen. Bokföringen
+ * sparas i sju år oavsett (Skatteverket kräver det även för UF-företag),
+ * det är kontot som stängs. */
+export function buildUfClosingHtml({ stage, closeDate, siteUrl }) {
+  const date = formatDate(closeDate);
+  const intro = stage === 'week'
+    ? `<p>Om en vecka, <strong>${date}</strong>, stängs ert UF-konto hos Bokix.</p>`
+    : stage === 'month'
+      ? `<p>Om en månad, <strong>${date}</strong>, stängs ert UF-konto hos Bokix.</p>`
+      : `<p>Gratisperioden för ert UF-konto hos Bokix är slut. Kontot är skrivskyddat, och om ni inte väljer något stängs det <strong>${date}</strong>.</p>`;
+  return `
+    <p>Hej,</p>
+    ${intro}
+    <p>Vill ni driva företaget vidare fortsätter ni med Bokix. Är ni klara kan ni logga in och ladda ner bokföringen fram till dess, till exempel som underlag för årsredovisningen hos Ung Företagsamhet.</p>
+    <p>Bokföringen och underlagen sparas i sju år även efter att kontot stängts, som Skatteverket kräver för UF-företag. Ni kan begära ut dem via support@bokix.se.</p>
+    ${siteUrl ? ctaButton(`${siteUrl}/`, 'Logga in och välj') : ''}
+    <p>Med vänlig hälsning<br/>Bokix</p>
+  `;
+}
+
 /** Engångskoden i registreringens "Bekräfta e-post"-steg (Auth.jsx) — se
  * api/auth/request-password-reset.js:s send-signup-code-gren. Koden visas
  * stort och glesspatierat, samma idé som alla andra tjänsters e-post-OTP,

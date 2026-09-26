@@ -5,7 +5,7 @@ import { BRAND } from '../utils/brandColors';
 import { BokixWordmark } from './marketing/MarketingLayout';
 import { createStripeSubscriptionCheckout } from '../stripeApi';
 import { supabase } from '../supabaseClient';
-import { closeUfYear, ufClosedInfo } from '../utils/ufClose';
+import { closeUfYear, ufClosedInfo, ufAutoCloseLabel } from '../utils/ufClose';
 
 // ── Litet Stripe-märke — inte loggans exakta glyf (för riskabelt att
 // pixel-återskapa träffsäkert som SVG-path), utan samma konvention som
@@ -137,7 +137,7 @@ export default function PaymentRequiredGate({ user, company, onSignedOut }) {
           {isUf
             ? (ufClosed
               ? <>Kontot är skrivskyddat och stängs den <strong>{ufClosed.deleteLabel}</strong>. Ladda ner det ni behöver innan dess. Bokföringen och underlagen sparas ändå i sju år, som Skatteverket kräver, och kan begäras ut via support@bokix.se. Ångrar ni er kan ni fortsätta med Bokix fram till dess.</>
-              : <>Gratisperioden är slut. Vill ni driva företaget vidare fortsätter ni med Bokix. Är ni klara avslutar ni UF-året: ni kan ladda ner allt i tre månader, sedan stängs kontot. Bokföringen sparas i sju år, som Skatteverket kräver även för UF-företag.</>)
+              : <>Gratisperioden är slut. Vill ni driva företaget vidare fortsätter ni med Bokix. Är ni klara avslutar ni UF-året: ni kan ladda ner allt i tre månader, sedan stängs kontot. Bokföringen sparas i sju år, som Skatteverket kräver även för UF-företag.{ufAutoCloseLabel(user) && <> Väljer ni inget stängs kontot <strong>{ufAutoCloseLabel(user)}</strong>.</>}</>)
             : forCompany
             ? <>Varje företag i Bokix betalas för sig — <strong>{company?.name || 'det här företaget'}</strong> väntar fortfarande på betalningsuppgifter hos Stripe. 30 dagar gratis, sedan 179 kr/mån — avsluta innan dess så kostar det ingenting.</>
             : returning

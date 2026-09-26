@@ -20,6 +20,23 @@ export function ufClosedInfo(user) {
   };
 }
 
+/**
+ * Väljer gruppen inget stängs kontot sex månader efter att gratisperioden
+ * (registreringen + tre månader) tog slut, aldrig tidigare än en vecka efter
+ * sista varningsmejlet. Samma uträkning som ufAutoCloseDate i
+ * api/_ufAccount.js. Returnerar text, eller null om det inte går att räkna.
+ */
+export function ufAutoCloseLabel(user) {
+  const created = new Date(user?.created_at);
+  if (Number.isNaN(created.getTime())) return null;
+  const d = new Date(created.getTime());
+  d.setMonth(d.getMonth() + 3 + 6);
+  let iso = d.toISOString().slice(0, 10);
+  const notBefore = user?.app_metadata?.uf_close_not_before;
+  if (notBefore && notBefore > iso) iso = notBefore;
+  return DATE_FMT.format(new Date(`${iso}T12:00:00`));
+}
+
 /** Datumet tre månader fram, som text, för bekräftelsedialogen. */
 function deleteLabelFromNow() {
   const d = new Date();

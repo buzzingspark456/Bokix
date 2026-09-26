@@ -2090,7 +2090,7 @@ function UfSubscriptionCard({ company, canClose = true }) {
       </div>
       <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.7 }}>
         {period.expired ? (
-          <>Gratisperioden på {UF_FREE_MONTHS} månader tog slut {endsLabel}. Vill ni fortsätta väljer ni en prenumeration, annars kan ni avsluta UF-året här nedanför.</>
+          <>Gratisperioden på {UF_FREE_MONTHS} månader tog slut {endsLabel}. Vill ni fortsätta väljer ni en prenumeration, annars kan ni avsluta UF-året här nedanför. Väljer ni inget stängs kontot sex månader efter att perioden tog slut. Bokföringen sparas i sju år oavsett.</>
         ) : period.known ? (
           <>Gratis till och med <strong style={{ color: 'var(--text-main)' }}>{endsLabel}</strong>{daysLabel}. Inga betaluppgifter är registrerade, och ingenting börjar kosta automatiskt när perioden tar slut.</>
         ) : (

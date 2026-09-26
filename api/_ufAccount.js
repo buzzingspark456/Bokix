@@ -18,11 +18,21 @@ import { ARCHIVE_BUCKET, listAllObjects, archiveCompany } from './_archive.js';
 // user_metadata: app_metadata kan bara servern skriva, så ingen kan skjuta
 // upp sin stängning eller låtsas vara avslutad åt någon annan.
 //
+// Väljer gruppen inget alls (varken betalar eller avslutar) stängs kontot
+// sex månader efter att gratisperioden tog slut, efter tre varningsmejl:
+// när perioden tar slut, en månad före och en vecka före. Inget konto
+// stängs automatiskt utan att veckovarningen gått fram minst sju dagar
+// innan, så konton vars period gick ut innan regeln fanns får samma varsel.
+//
 // Ett konto som ÄVEN har ett vanligt företag med bokföring kan inte avslutas
-// här: det företaget drivs vidare och ska inte stängas med UF-året.
+// eller stängas här: det företaget drivs vidare och ska inte stängas med UF-året.
 // ─────────────────────────────────────────────────────────────────────────
 
 export const UF_KEEP_AFTER_CLOSE_MONTHS = 3;
+export const UF_FREE_MONTHS = 3;
+// Väljer gruppen varken att betala eller avsluta stängs kontot så här
+// länge efter att gratisperioden tog slut (efter tre varningsmejl).
+export const UF_AUTO_CLOSE_AFTER_MONTHS = 6;
 const ALLOWED_SUBSCRIPTION_STATUSES = ['trialing', 'active', 'past_due'];
 // Levande filer. Arkivbucketen rörs inte, utom kontots nattkopior (se nedan).
 const USER_BUCKETS = ['bokix-uploads', 'companylogo', 'profile'];
@@ -96,16 +106,98 @@ async function removeAll(admin, bucket, prefix) {
   return paths.length;
 }
 
+// ── Automatisk stängning (gruppen valde varken att betala eller avsluta) ──
+
+const DAY_MS = 86400000;
+// Minst så här många dagar mellan första varningen och stängningen, så att
+// även ett gammalt konto hinner få alla tre mejlen (slut, månad, vecka).
+const FIRST_MAIL_LEAD_DAYS = 37;
+const addMonths = (date, n) => { const d = new Date(date.getTime()); d.setMonth(d.getMonth() + n); return d; };
+const isoDay = (date) => date.toISOString().slice(0, 10);
+
+/** När UF-kontots gratisperiod tog slut (registreringen + tre månader). */
+export function ufPeriodEnd(user) {
+  const created = new Date(user?.created_at);
+  return Number.isNaN(created.getTime()) ? null : addMonths(created, UF_FREE_MONTHS);
+}
+
 /**
- * Cronjobbet: stänger avslutade UF-konton vars tre månader gått ut.
- * Först arkiveras bokföringen och underlagen (sju år, samma arkiv som när
- * ett vanligt företag raderas). Misslyckas det rörs ingenting. Sedan tas
- * filer, databasrader och sist inloggningen bort, så att en avbruten
- * körning lämnar ett tomt konto kvar och inte data utan ägare.
+ * Dagen då kontot stängs om gruppen inte väljer något: sex månader efter
+ * att gratisperioden tog slut, men aldrig tidigare än en vecka efter det
+ * sista varningsmejlet (app_metadata.uf_close_not_before). Det skyddar
+ * konton vars period gick ut långt innan den här regeln fanns.
  */
-export async function deleteClosedUfAccounts(admin, { now = new Date(), dryRun = false } = {}) {
-  const today = now.toISOString().slice(0, 10);
-  const summary = { due: 0, deleted: 0, archived: 0, reopened: 0, kept: 0, files: 0, errors: [] };
+export function ufAutoCloseDate(user) {
+  const end = ufPeriodEnd(user);
+  if (!end) return null;
+  const planned = isoDay(addMonths(end, UF_AUTO_CLOSE_AFTER_MONTHS));
+  const notBefore = user?.app_metadata?.uf_close_not_before;
+  return notBefore && notBefore > planned ? notBefore : planned;
+}
+
+/** Vilket varningsmejl som är på tur i dag, eller null. Ett per natt. */
+export function ufMailDue(user, now = new Date()) {
+  const closeDate = ufAutoCloseDate(user);
+  if (!closeDate) return null;
+  const sent = user?.app_metadata?.uf_mail || {};
+  const daysLeft = Math.ceil((new Date(`${closeDate}T00:00:00Z`).getTime() - now.getTime()) / DAY_MS);
+  // Första mejlet är alltid "gratisperioden är slut", även för ett konto
+  // vars period gick ut långt innan regeln fanns (se FIRST_MAIL_LEAD_DAYS).
+  if (!sent.ended && !sent.month && !sent.week) return 'ended';
+  if (daysLeft <= 7 && !sent.week) return 'week';
+  if (daysLeft <= 31 && !sent.month && !sent.week) return 'month';
+  return null;
+}
+
+async function patchAppMetadata(admin, user, patch) {
+  const next = { ...(user.app_metadata || {}), ...patch };
+  const { error } = await admin.auth.admin.updateUserById(user.id, { app_metadata: next });
+  if (error) throw new Error(`app_metadata: ${error.message}`);
+  user.app_metadata = next;
+}
+
+/**
+ * Stänger kontot: bokföringen till sjuårsarkivet först (kastar vid fel, då
+ * rörs inget), sedan filer, databasrader och sist inloggningen, så att en
+ * avbruten körning lämnar ett tomt konto kvar och inte data utan ägare.
+ */
+async function closeAccountNow(admin, u, state, reason, now, summary) {
+  for (const [companyId, companyData] of Object.entries(state?.companies || {})) {
+    const result = await archiveCompany(admin, { userId: u.id, companyId, companyData, reason, now });
+    if (result.path) summary.archived += 1;
+  }
+  // Nattkopiorna av hela kontot (med utkast och kontaktuppgifter) behövs
+  // inte längre: arkivet ovan har det lagen kräver.
+  summary.files += await removeAll(admin, ARCHIVE_BUCKET, `${u.id}/_kopior`);
+  for (const bucket of USER_BUCKETS) summary.files += await removeAll(admin, bucket, u.id);
+  await admin.from('company_members').delete().or(`owner_user_id.eq.${u.id},member_user_id.eq.${u.id}`);
+  for (const [table, column] of USER_TABLES) {
+    const { error: delError } = await admin.from(table).delete().eq(column, u.id);
+    if (delError) throw new Error(`${table}: ${delError.message}`);
+  }
+  const { error: delRowError } = await admin.from('user_data').delete().eq('user_id', u.id);
+  if (delRowError) throw delRowError;
+  const { error: delUserError } = await admin.auth.admin.deleteUser(u.id);
+  if (delUserError) throw delUserError;
+  summary.deleted += 1;
+}
+
+/**
+ * Cronjobbet, en gång per natt. Två sorters UF-konton:
+ *  1. Avslutade (uf_closed_at) vars tre månader gått ut: stängs.
+ *  2. Gratisperioden slut, varken betalt eller avslutat: tre varningsmejl
+ *     (när perioden tar slut, en månad och en vecka före), sedan stängs
+ *     kontot sex månader efter periodens slut.
+ * Betalar kontot rörs det inte. Har kontot ett vanligt företag med
+ * bokföring rörs det inte heller.
+ *
+ * `sendMail({ to, subject, html })` skickar ett mejl och returnerar true/
+ * false. Saknas den skickas inga mejl, och då stängs heller inget konto
+ * automatiskt (inget stängs utan att varningen gått fram).
+ */
+export async function deleteClosedUfAccounts(admin, { now = new Date(), dryRun = false, sendMail = null, buildMail = null } = {}) {
+  const today = isoDay(now);
+  const summary = { due: 0, deleted: 0, archived: 0, reopened: 0, kept: 0, files: 0, mails: 0, autoClosed: 0, errors: [] };
 
   for (let page = 1; page < 100; page += 1) {
     const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
@@ -113,46 +205,69 @@ export async function deleteClosedUfAccounts(admin, { now = new Date(), dryRun =
     const users = data?.users || [];
 
     for (const u of users) {
-      const until = u.app_metadata?.uf_delete_after;
-      if (!u.user_metadata?.uf || !u.app_metadata?.uf_closed_at || !until || until >= today) continue;
-      summary.due += 1;
+      if (!u.user_metadata?.uf) continue;
+      const meta = u.app_metadata || {};
+      const closedDue = meta.uf_closed_at && meta.uf_delete_after && meta.uf_delete_after < today;
+      const periodEnd = ufPeriodEnd(u);
+      const unchosen = !meta.uf_closed_at && periodEnd && periodEnd <= now;
+      if (!closedDue && !unchosen) continue;
+
       try {
-        // Började de betala efter avslutet fortsätter kontot som vanligt.
+        // Betalar kontot fortsätter det som vanligt (ett gammalt avslut tas bort).
         const { data: subs, error: subError } = await admin.from('subscriptions').select('status').eq('user_id', u.id);
         if (subError) throw subError;
         if ((subs || []).some(s => ALLOWED_SUBSCRIPTION_STATUSES.includes(s.status))) {
-          summary.reopened += 1;
-          if (!dryRun) {
-            const { uf_closed_at: _c, uf_delete_after: _d, ...rest } = u.app_metadata || {};
-            await admin.auth.admin.updateUserById(u.id, { app_metadata: rest });
+          if (closedDue) {
+            summary.reopened += 1;
+            if (!dryRun) {
+              const { uf_closed_at: _c, uf_delete_after: _d, ...rest } = meta;
+              await admin.auth.admin.updateUserById(u.id, { app_metadata: rest });
+            }
           }
           continue;
         }
         const { data: row, error: rowError } = await admin.from('user_data').select('state').eq('user_id', u.id).maybeSingle();
         if (rowError) throw rowError;
         if (hasNonUfBookkeeping(row?.state)) { summary.kept += 1; continue; }
-        if (dryRun) continue;
 
-        // 1. Bokföringen till sjuårsarkivet. Kastar vid fel, då raderas inget.
-        for (const [companyId, companyData] of Object.entries(row?.state?.companies || {})) {
-          const result = await archiveCompany(admin, { userId: u.id, companyId, companyData, reason: 'uf-avslut', now });
-          if (result.path) summary.archived += 1;
+        if (closedDue) {
+          summary.due += 1;
+          if (!dryRun) await closeAccountNow(admin, u, row?.state, 'uf-avslut', now, summary);
+          continue;
         }
-        // 2. Nattkopiorna av hela kontot (med utkast och kontaktuppgifter)
-        //    behövs inte längre: arkivet ovan har det lagen kräver.
-        summary.files += await removeAll(admin, ARCHIVE_BUCKET, `${u.id}/_kopior`);
-        // 3. Allt levande.
-        for (const bucket of USER_BUCKETS) summary.files += await removeAll(admin, bucket, u.id);
-        await admin.from('company_members').delete().or(`owner_user_id.eq.${u.id},member_user_id.eq.${u.id}`);
-        for (const [table, column] of USER_TABLES) {
-          const { error: delError } = await admin.from(table).delete().eq(column, u.id);
-          if (delError) throw new Error(`${table}: ${delError.message}`);
+
+        // Gruppen har inte valt. Först varningarna, sedan stängningen.
+        const stage = ufMailDue(u, now);
+        if (stage) {
+          if (!sendMail || !buildMail || !u.email) continue;
+          if (stage === 'ended') {
+            const earliest = isoDay(new Date(now.getTime() + FIRST_MAIL_LEAD_DAYS * DAY_MS));
+            if (!dryRun && ufAutoCloseDate(u) < earliest) await patchAppMetadata(admin, u, { uf_close_not_before: earliest });
+          }
+          if (stage === 'week') {
+            // Minst en vecka mellan sista varningen och stängningen.
+            const weekFromNow = isoDay(new Date(now.getTime() + 7 * DAY_MS));
+            if (!dryRun && ufAutoCloseDate(u) < weekFromNow) await patchAppMetadata(admin, u, { uf_close_not_before: weekFromNow });
+          }
+          const closeDate = ufAutoCloseDate(u);
+          if (dryRun) { summary.mails += 1; continue; }
+          const ok = await sendMail({ to: u.email, ...buildMail({ stage, closeDate }) });
+          if (!ok) throw new Error(`mejl ${stage} gick inte fram`);
+          await patchAppMetadata(admin, u, { uf_mail: { ...(u.app_metadata?.uf_mail || {}), [stage]: today } });
+          summary.mails += 1;
+          continue;
         }
-        const { error: delRowError } = await admin.from('user_data').delete().eq('user_id', u.id);
-        if (delRowError) throw delRowError;
-        const { error: delUserError } = await admin.auth.admin.deleteUser(u.id);
-        if (delUserError) throw delUserError;
-        summary.deleted += 1;
+
+        const closeDate = ufAutoCloseDate(u);
+        const weekSent = u.app_metadata?.uf_mail?.week;
+        if (!weekSent || !closeDate || closeDate >= today) continue;
+        const daysSinceWarning = (new Date(`${today}T00:00:00Z`) - new Date(`${weekSent}T00:00:00Z`)) / DAY_MS;
+        if (daysSinceWarning < 7) continue;
+        summary.due += 1;
+        if (!dryRun) {
+          await closeAccountNow(admin, u, row?.state, 'uf-stangt', now, summary);
+          summary.autoClosed += 1;
+        }
       } catch (err) {
         summary.errors.push(`${u.id}: ${err.message}`);
       }
