@@ -112,14 +112,18 @@ export default function PricingPage({ locale = 'sv' }) {
   const baseRows = allRows.filter(f => baseTier.features.includes(f));
   const extraRows = allRows.filter(f => !baseTier.features.includes(f));
 
+  // Jämförelsen är ett rutnät där Med personal är en sammanhängande
+  // mörkgrön pelare: varje rad har en cell per nivå, och den utvalda
+  // nivåns celler får pelarens färg (rundad överst och nederst).
+  const tierCell = (t, extra = '') => `bx-cmp-t${t.featured ? ' pro' : ''}${extra}`;
   const renderRow = (f) => (
-    <div key={f} className="bx-pr-row">
-      <span>{f}</span>
+    <div key={f} className="bx-cmp-row bx-cmp-item">
+      <span className="bx-cmp-f">{f}</span>
       {tiers.map(t => (
-        <span key={t.key} className="bx-pr-cell">
+        <span key={t.key} className={tierCell(t)}>
           {t.features.includes(f)
-            ? <span className="bx-pr-yes" aria-label="Ingår"><Check size={15} color={ACCENT.green.fg} strokeWidth={3} /></span>
-            : <span className="bx-pr-no" aria-label="Ingår inte" />}
+            ? <Check size={20} color={t.featured ? '#8fd67a' : ACCENT.green.fg} strokeWidth={2.6} aria-label="Ingår" />
+            : <span className="bx-cmp-no" aria-label="Ingår inte" />}
         </span>
       ))}
     </div>
@@ -180,26 +184,35 @@ export default function PricingPage({ locale = 'sv' }) {
         html[data-theme="dark"] #lp-root .bx-pr-cta { color: #3fc063; border-color: #1f9a4a; }
         html[data-theme="dark"] #lp-root .bx-pr-card.featured .bx-pr-cta { background: #fff; border-color: #fff; color: #0b3d2a; }
 
-        .bx-pr-compare { max-width: 1060px; margin: 0 auto; border: 1px solid var(--mkt-card-border); border-radius: 28px; background: var(--mkt-card-bg); overflow: hidden; }
-        .bx-pr-row { display: grid; grid-template-columns: minmax(0, 1fr) clamp(86px, 21vw, 200px) clamp(86px, 21vw, 200px); align-items: center; border-top: 1px solid var(--mkt-border-soft); }
-        .bx-pr-row > * { padding: clamp(14px, 2.2vw, 20px) 10px; }
-        .bx-pr-row > :first-child { padding-left: clamp(16px, 3.6vw, 36px); font-size: clamp(14px, 3.3vw, 16.5px); color: ${INK}; line-height: 1.45; }
-        .bx-pr-row:not(.bx-pr-group) > :last-child { background: color-mix(in srgb, ${BRAND.green} 6%, transparent); align-self: stretch; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        html[data-theme="dark"] #lp-root .bx-pr-row:not(.bx-pr-group) > :last-child { background: rgba(63, 192, 99, 0.07); }
-        .bx-pr-head { border-top: none; }
-        .bx-pr-head > * { padding-top: clamp(20px, 3vw, 32px); padding-bottom: clamp(18px, 2.6vw, 28px); text-align: center; }
-        .bx-pr-head-name { display: block; font-size: clamp(12.5px, 2.9vw, 16px); font-weight: 700; color: ${INK}; }
-        .bx-pr-head-price { display: block; font-family: ${SERIF}; font-size: clamp(20px, 4.4vw, 34px); font-weight: 700; letter-spacing: -0.02em; color: ${INK}; margin-top: 4px; }
-        .bx-pr-head-price small { font-family: inherit; font-size: .45em; font-weight: 500; color: ${MUTED}; }
-        .bx-pr-group > * { padding-top: clamp(22px, 3vw, 30px); padding-bottom: 10px; font-size: 12.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: ${MUTED}; grid-column: 1 / -1; }
-        .bx-pr-group + .bx-pr-row { border-top: none; }
-        .bx-pr-cell { display: flex; justify-content: center; }
-        .bx-pr-yes { width: 30px; height: 30px; border-radius: 50%; background: ${ACCENT.green.soft}; display: flex; align-items: center; justify-content: center; }
-        .bx-pr-no { width: 16px; height: 2px; border-radius: 2px; background: var(--mkt-card-border); }
-        .bx-pr-foot > * { padding-top: 22px; padding-bottom: 26px; }
-        .bx-pr-foot .bx-pr-cta { min-height: 46px; padding: 10px 8px; font-size: 14.5px; border-radius: 12px; }
-        .bx-pr-foot .bx-pr-cta.solid { background: ${BRAND.green}; color: #fff; }
-        html[data-theme="dark"] #lp-root .bx-pr-foot .bx-pr-cta.solid { background: #1f9a4a; border-color: #1f9a4a; color: #fff; }
+        .bx-cmp { max-width: 1000px; margin: 0 auto; }
+        .bx-cmp-row { display: grid; grid-template-columns: minmax(0, 1fr) clamp(92px, 20vw, 210px) clamp(92px, 20vw, 210px); column-gap: clamp(6px, 1.4vw, 16px); }
+        .bx-cmp-row > * { display: flex; align-items: center; padding: clamp(15px, 2.2vw, 21px) clamp(6px, 1.4vw, 12px); }
+        .bx-cmp-f { padding-left: 0 !important; font-size: clamp(14px, 3.3vw, 17px); line-height: 1.45; color: ${INK}; min-width: 0; overflow-wrap: anywhere; hyphens: auto; }
+        .bx-cmp-t { justify-content: center; }
+        /* Radlinjen går obruten under de två första kolumnerna; pelaren har sin egen, svagare. */
+        .bx-cmp-item { --pillar: clamp(92px, 20vw, 210px); --gap: clamp(6px, 1.4vw, 16px); background: linear-gradient(var(--mkt-border-soft), var(--mkt-border-soft)) no-repeat left bottom / calc(100% - var(--pillar) - var(--gap)) 1px; }
+        .bx-cmp-t.pro { background: #0b3d2a; }
+        .bx-cmp-item .bx-cmp-t.pro { box-shadow: inset 0 -1px 0 rgba(255, 255, 255, .09); }
+        html[data-theme="dark"] #lp-root .bx-cmp-t.pro { background: #14532d; }
+        .bx-cmp-no { width: 16px; height: 2px; border-radius: 2px; background: var(--mkt-card-border); }
+
+        .bx-cmp-head > * { border-bottom: none; }
+        .bx-cmp-head .bx-cmp-t { flex-direction: column; gap: 6px; padding-top: clamp(22px, 3.4vw, 34px); padding-bottom: clamp(20px, 3vw, 30px); }
+        .bx-cmp-head .bx-cmp-t.pro { border-radius: 24px 24px 0 0; }
+        .bx-cmp-name { font-size: clamp(11px, 2.5vw, 13px); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: ${MUTED}; text-align: center; }
+        .bx-cmp-price { font-family: ${SERIF}; font-size: clamp(24px, 5vw, 42px); font-weight: 700; letter-spacing: -.03em; line-height: 1; color: ${INK}; white-space: nowrap; }
+        .bx-cmp-price small { font-family: inherit; font-size: .38em; font-weight: 500; letter-spacing: 0; color: ${MUTED}; }
+        .bx-cmp-t.pro .bx-cmp-name, .bx-cmp-t.pro .bx-cmp-price small { color: rgba(255, 255, 255, .7); }
+        .bx-cmp-t.pro .bx-cmp-price { color: #fff; }
+
+        .bx-cmp-group > * { border-bottom: none; padding-top: clamp(30px, 4vw, 42px); padding-bottom: 12px; }
+        .bx-cmp-group .bx-cmp-f { font-size: 12.5px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: ${MUTED}; }
+        .bx-cmp-group:first-of-type > * { padding-top: 14px; }
+
+        .bx-cmp-foot > * { border-bottom: none; padding-top: clamp(20px, 3vw, 28px); padding-bottom: clamp(20px, 3vw, 28px); }
+        .bx-cmp-foot .bx-cmp-t.pro { border-radius: 0 0 24px 24px; }
+        .bx-cmp-foot .bx-pr-cta { min-height: 46px; padding: 10px 8px; font-size: clamp(12px, 2.6vw, 14.5px); border-radius: 12px; }
+        .bx-cmp-t.pro .bx-pr-cta { background: #fff; border-color: #fff; color: #0b3d2a; }
 
         .bx-pr-faq .kx-faq-q { font-size: clamp(16px, 3.4vw, 18px); padding: 24px 0; }
         .bx-pr-faq .kx-row-body { font-size: 16px; }
@@ -215,11 +228,10 @@ export default function PricingPage({ locale = 'sv' }) {
           .bx-pr-toggle .bx-pr-badge { display: none; }
           .bx-pr-badge-mob { display: inline-block; }
           .bx-pr-price small { display: block; font-size: 13px; margin-top: 6px; }
-          .bx-pr-head-price small { display: block; }
+          .bx-cmp-price small { display: block; margin-top: 4px; }
           .bx-pr-cta { min-height: 50px; }
           .bx-pr-cta svg { display: none; }
-          .bx-pr-foot { display: none; }
-          .bx-pr-compare { border-radius: 20px; }
+          .bx-cmp-foot .bx-pr-cta { min-height: 42px; padding: 8px 4px; }
         }
       `}</style>
 
@@ -289,27 +301,33 @@ export default function PricingPage({ locale = 'sv' }) {
             {COMPARE_HEADING[locale] || COMPARE_HEADING.sv}
           </h2>
         </Reveal>
-        <Reveal delay={60} className="bx-pr-compare">
-          <div className="bx-pr-row bx-pr-head">
-            <span />
+        <Reveal delay={60} className="bx-cmp">
+          <div className="bx-cmp-row bx-cmp-head">
+            <span className="bx-cmp-f" />
             {tiers.map(t => (
-              <span key={t.key}>
-                <span className="bx-pr-head-name">{t.name}</span>
-                <span className="bx-pr-head-price">{resolvePlan(t.key, interval).price} kr<small> /mån</small></span>
+              <span key={t.key} className={tierCell(t)}>
+                <span className="bx-cmp-name">{t.name}</span>
+                <span className="bx-cmp-price">{resolvePlan(t.key, interval).price} kr<small> /mån</small></span>
               </span>
             ))}
           </div>
-          <div className="bx-pr-row bx-pr-group"><span>{groups.base}</span></div>
+          <div className="bx-cmp-row bx-cmp-group">
+            <span className="bx-cmp-f">{groups.base}</span>
+            {tiers.map(t => <span key={t.key} className={tierCell(t)} />)}
+          </div>
           {baseRows.map(renderRow)}
-          <div className="bx-pr-row bx-pr-group"><span>{groups.payroll}</span></div>
+          <div className="bx-cmp-row bx-cmp-group">
+            <span className="bx-cmp-f">{groups.payroll}</span>
+            {tiers.map(t => <span key={t.key} className={tierCell(t)} />)}
+          </div>
           {extraRows.map(renderRow)}
-          <div className="bx-pr-row bx-pr-foot">
-            <span />
+          <div className="bx-cmp-row bx-cmp-foot">
+            <span className="bx-cmp-f" />
             {tiers.map(t => {
               const plan = resolvePlan(t.key, interval);
               return (
-                <span key={t.key}>
-                  <button type="button" className={`bx-pr-cta${t.featured ? ' solid' : ''}`} onClick={() => enterApp(plan.id)}>{c.cta}</button>
+                <span key={t.key} className={tierCell(t)}>
+                  <button type="button" className="bx-pr-cta" onClick={() => enterApp(plan.id)}>{c.cta}</button>
                 </span>
               );
             })}

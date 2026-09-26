@@ -1,7 +1,7 @@
 ﻿import React, { useState, useEffect, useRef, useCallback, Suspense, lazy } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  BarChart3, Check, X,
+  BarChart3, X,
   ArrowRight, ChevronRight,
 } from './icons';
 import { BRAND } from '../utils/brandColors';
@@ -16,11 +16,9 @@ import MigrationFlow from './marketing/MigrationFlow';
 import BankFlow from './marketing/BankFlow';
 import ReceiptFlow from './marketing/ReceiptFlow';
 import { PRICING_TIERS } from './marketing/pricingTiers';
-import { resolvePlan, YEARLY_MINIMUM_MONTHS } from '../utils/plans';
 import { PageMeta, JsonLd, SITE_URL } from '../utils/seo';
 import { FAQ_SCHEMA, FAQ_ITEMS } from './marketing/faqData';
 import { LANDING_CONTENT } from '../content/marketing/landing';
-import { localizedPricingTiers } from '../content/marketing/pricingTiers';
 // Lazy: DemoWorkspace monterar en RIKTIG kopia av hela den inloggade
 // appens komponentträd (Dashboard, Invoices, Bokföring, Skatt, m.fl.) för
 // den interaktiva produktdemon längre ner på sidan (utanför den första
@@ -271,13 +269,6 @@ function DemoOverlay({ onClose, initialTab, labels = SV_DEMO_LABELS }) {
 
 export default function LandingPage({ onEnterApp, locale = 'sv' }) {
   const c = LANDING_CONTENT[locale] || LANDING_CONTENT.sv;
-  const tiers = localizedPricingTiers(locale);
-  const priserPath = locale === 'sv' ? '/priser' : `/${locale}/priser`;
-  // Betalningsintervall i prissektionen. Samma val som /priser, samma
-  // katalog (plans.js) — annars kan de två sidorna visa olika pris för
-  // samma abonnemang, vilket var precis vad som hände innan katalogen
-  // fanns.
-  const [billingInterval, setBillingInterval] = useState('monthly');
 
   // Kundönskemål: produktvisningen (DemoWorkspace) ska inte ligga inline i
   // sidflödet längre — bara visas, som en EGEN fristående yta (lightbox,
@@ -723,194 +714,7 @@ export default function LandingPage({ onEnterApp, locale = 'sv' }) {
         </div>
       </section>
 
-      {/* ── PRISSEKTION — kundönskemål: två prisnivåer ("folk vill
-          jämföra"), flyttad hit UNDER "Igång på tre steg" (var innan
-          Kopplat till-diagrammet). Axeln (har du anställda eller inte,
-          se PRICING_TIERS-kommentaren högst upp) och 129 kr-priset är
-          genomgångna med kunden, inte gissade.
-          Kundönskemål ("vårt riktiga logo, andra färger, mindre space,
-          större") — headern var tidigare en helfärgad gradient med
-          loggan tvingad vit via CSS-filter. Bytt till en ljus, svagt
-          färgtonad header (gradientens andra färg vid låg opacitet, en
-          tunn 5px gradient-rand överst) så det RIKTIGA flerfärgade
-          ordmärket syns i sina egna färger, stort. Sektionen och korten
-          breddade (1020→1220px, 340→380px min) så det inte blir onödig
-          tom yta i sidorna. Båda korten samma höjd (flex stretch) oavsett
-          olika listlängd, och den dyrare nivån ("featured") får mer luft/
-          större typsnitt för att kännas som "mer" utan att bli högre än
-          sin granne.
-          Bakgrund: --mkt-section-mint, samma ton som sidans övriga
-          växlande sektioner numera (se tokenkommentaren i
-          MarketingLayout.jsx) — egen blå ton här tidigare, sedan ett
-          mellansteg via beige/elfenben, båda övergivna. ── */}
-      <section style={{ padding: '84px 24px', background: 'var(--mkt-section-mint)', borderTop: '1px solid var(--mkt-border-soft)', borderBottom: '1px solid var(--mkt-border-soft)', position: 'relative', overflow: 'hidden' }}>
-
-        <Reveal style={{ textAlign: 'center', marginBottom: '44px', position: 'relative' }}>
-          <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(26px, 4vw, 38px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '12px' }}>
-            {c.pricing.heading}
-          </h2>
-          <p style={{ fontSize: '17px', color: 'var(--mkt-ink-soft)', fontWeight: 500, maxWidth: '480px', margin: '0 auto' }}>{c.pricing.subheading}</p>
-        </Reveal>
-
-        {/* Månadsvis eller årsvis — samma växlare som prissidan.
-            Månadsvis är förvalt: den som inte aktivt väljer årsvis ska
-            aldrig råka betala ett år i förskott. */}
-        <Reveal style={{ display: 'flex', justifyContent: 'center', marginBottom: '34px', position: 'relative' }}>
-          <div role="group" aria-label="Betalningsintervall" style={{ display: 'inline-flex', gap: '4px', padding: '5px', borderRadius: '999px', background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, boxShadow: CARD_SHADOW_SM }}>
-            {[
-              { id: 'monthly', label: c.pricing.monthly },
-              { id: 'yearly', label: c.pricing.yearly, badge: c.pricing.yearlyBadge },
-            ].map(opt => {
-              const active = billingInterval === opt.id;
-              return (
-                <button
-                  key={opt.id} type="button" onClick={() => setBillingInterval(opt.id)} aria-pressed={active}
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: '8px',
-                    padding: '11px 22px', borderRadius: '999px', cursor: 'pointer', fontFamily: 'inherit',
-                    fontSize: '14.5px', fontWeight: 700, border: 'none',
-                    background: active ? 'var(--mkt-ivory)' : 'transparent',
-                    color: active ? INK : MUTED,
-                    transition: 'background 0.15s, color 0.15s',
-                  }}
-                >
-                  {opt.label}
-                  {opt.badge && (
-                    <span style={{ fontSize: '11.5px', fontWeight: 700, padding: '3px 9px', borderRadius: '999px', background: ACCENT.green.soft, color: ACCENT.green.fg }}>
-                      {opt.badge}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </Reveal>
-
-        <Reveal scale style={{ maxWidth: 'min(92vw, 1220px)', margin: '0 auto', padding: '0 4px', width: '100%', position: 'relative' }}>
-          {/* Kundfeedback (mobil, "prissektionen ligger för långt åt höger,
-              går inte att scrolla dit"): minmax(380px, 1fr) tvingade varje
-              kort till minst 380px brett — på en telefon smalare än ~410px
-              blev rutnätet bredare än skärmen, och #lp-root:s overflowX:
-              hidden (MarketingLayout.jsx) klippte båda kanterna i stället
-              för att ge en scrollbar, vilket lästes som "urklippt åt höger".
-              minmax(min(380px,100%), 1fr) låter golvet krympa till
-              containerns EGEN bredd i stället för att tvinga fram ett
-              bredare rutnät än viewporten — kortet blir en enda smal
-              kolumn på mobil, exakt skärmbrett, ingen förändring på
-              desktop där 380px redan får plats. */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(380px, 100%), 1fr))', gap: 'clamp(16px, 5vw, 32px)', alignItems: 'stretch' }}>
-            {tiers.map((tier) => {
-              const plan = resolvePlan(tier.key, billingInterval);
-              return (
-              <div
-                key={tier.key}
-                className="lp-lux-card"
-                style={{
-                  background: 'var(--mkt-card-bg)',
-                  // Kundönskemål: 129-kortet ska ha SAMMA kant/outline-
-                  // behandling som 179 (var tunnare/generisk innan) — båda
-                  // får nu en 2px kant i sin egen accentfärg, "featured"
-                  // känns ändå som "mer" via skuggan/paddingen nedan.
-                  border: `2px solid ${tier.accent.fg}`,
-                  borderRadius: '26px',
-                  boxShadow: tier.featured ? '0 44px 76px -28px rgba(20,140,90,0.38), 0 4px 14px rgba(28,36,32,0.08)' : '0 32px 60px -30px rgba(28,36,32,0.32), 0 2px 8px rgba(28,36,32,0.05)',
-                  width: '100%', height: '100%', boxSizing: 'border-box', position: 'relative', overflow: 'hidden',
-                  display: 'flex', flexDirection: 'column',
-                }}
-              >
-                {/* Ingen translateY-lyft längre — kundfeedback: den fick de
-                    två kortens toppar att inte ligga i linje, vilket lästes
-                    som "avskuret" istället för "höjt". Den dyrare nivån
-                    känns fortfarande som "mer" via tjockare kant, skugga,
-                    och mer luft/större typsnitt i headern nedan — bara inte
-                    en fysisk förskjutning som bryter linjen mellan korten.
-                    borderRadius matchar kortets EGNA 26px — utan den klipper
-                    headerns egen overflow:hidden till ett rakt hörn, som
-                    sedan klipps en gång till av kortets rundade mask, och de
-                    två klippningarna möts inte exakt: den tunna gradient-
-                    randen fick ett hackigt, "avskuret" hörn. */}
-                <div style={{ background: `color-mix(in srgb, ${tier.accent.fg} 7%, var(--mkt-card-bg))`, padding: tier.featured ? 'clamp(28px, 9vw, 46px) clamp(18px, 6vw, 28px) clamp(22px, 7vw, 34px)' : 'clamp(24px, 8vw, 38px) clamp(18px, 6vw, 28px) clamp(18px, 6vw, 28px)', textAlign: 'center', position: 'relative', overflow: 'hidden', borderRadius: '26px 26px 0 0', flexShrink: 0 }}>
-                  <div aria-hidden style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '5px', backgroundImage: grad(tier.gradient) }} />
-                  <div style={{ marginBottom: tier.featured ? '20px' : '16px', position: 'relative' }}>
-                    <BokixWordmark height={tier.featured ? 48 : 38} />
-                  </div>
-                  <div style={{ position: 'relative' }}>
-                    <div style={{ display: 'inline-flex', padding: '5px 14px', borderRadius: '100px', background: tier.accent.soft, fontSize: tier.featured ? '13.5px' : '12.5px', fontWeight: 700, color: tier.accent.fg, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '14px' }}>{tier.name}</div>
-                    <div>
-                      {/* Priset kommer ur samma katalog som checkouten
-                          debiterar efter (plans.js) — kortet kan inte visa
-                          ett annat belopp än det som dras. Font-storleken
-                          är nu clamp() (kundfeedback: "för stort på
-                          telefonen") — samma 58/50px på desktop som förut
-                          (vw-delen slår i taket långt innan 1024px), bara
-                          mindre på en smal telefon. */}
-                      <span style={{ fontFamily: SERIF, fontSize: tier.featured ? 'clamp(38px, 11vw, 58px)' : 'clamp(32px, 9.5vw, 50px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK }}>
-                        {plan.price} kr
-                      </span>
-                      <span style={{ fontSize: '15px', color: MUTED }}> /mån</span>
-                    </div>
-                    {billingInterval === 'yearly' ? (
-                      <div style={{ fontSize: '13px', color: MUTED, marginTop: '6px', fontWeight: 600 }}>
-                        {c.pricing.yearlySavingsNote(plan.savingPerYear)}
-                      </div>
-                    ) : (
-                      <div style={{ fontSize: '13px', color: MUTED, marginTop: '6px', fontWeight: 600 }}>{tier.subtitle} · {c.pricing.freeTrialSuffix}</div>
-                    )}
-                  </div>
-                </div>
-
-                <div style={{ padding: 'clamp(20px, 6vw, 28px) clamp(16px, 5vw, 24px) clamp(18px, 5vw, 26px)', display: 'flex', flexDirection: 'column', flex: 1 }}>
-                  {tier.recommend && (
-                    <div style={{ fontSize: '13.5px', color: tier.accent.fg, fontWeight: 600, lineHeight: 1.5, marginBottom: '18px', paddingBottom: '18px', borderBottom: `1px solid ${CARD_BORDER}` }}>
-                      {tier.recommend}
-                    </div>
-                  )}
-                  {/* flex:1 — trycker knappen till samma vertikala position
-                      i båda korten oavsett att listorna har olika längd. */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '9px', marginBottom: '22px', flex: 1 }}>
-                    {tier.features.map((f) => (
-                      <div key={f} style={{ display: 'flex', alignItems: 'center', gap: '11px', padding: '11px 12px', background: 'var(--mkt-ivory)', border: `1px solid ${CARD_BORDER}`, borderRadius: '11px' }}>
-                        <div style={{ width: 20, height: 20, borderRadius: '50%', background: tier.accent.soft, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                          <Check size={11} color={tier.accent.fg} strokeWidth={3} />
-                        </div>
-                        <span style={{ fontSize: '14px', color: INK_SOFT, fontWeight: 500, lineHeight: 1.4 }}>{f}</span>
-                      </div>
-                    ))}
-                    {/* Kundönskemål ("med den billigare ska man känna att
-                        man missar något") — samma rader, gråtonade med ett
-                        kryss istället för bock. */}
-                    {tier.missing?.map((f) => (
-                      <div key={f} style={{ display: 'flex', alignItems: 'center', gap: '11px', padding: '11px 12px', opacity: 0.55 }}>
-                        <div style={{ width: 20, height: 20, borderRadius: '50%', border: `1.5px solid ${MUTED}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                          <X size={11} color={MUTED} strokeWidth={3} />
-                        </div>
-                        <span style={{ fontSize: '14px', color: MUTED, fontWeight: 500, lineHeight: 1.4, textDecoration: 'line-through' }}>{f}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Solid BRAND.green, not the tier gradient — samma
-                      knappfärg som "Kom igång" i navigation/CTA överallt
-                      på sajten, istället för ett tredje eget färgspråk
-                      bara här. */}
-                  <button className="lp-btn-primary lp-pulse" onClick={() => onEnterApp('signup', plan.id)} style={{ width: '100%', padding: '16px', borderRadius: '13px', border: 'none', background: BRAND.green, fontSize: '15.5px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', color: 'white', boxShadow: '0 10px 24px -8px rgba(11,99,41,0.35)', minHeight: '48px', marginBottom: '14px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                    {c.pricing.cta} <ArrowRight size={16} />
-                  </button>
-                  {billingInterval === 'yearly' && (
-                    <div style={{ textAlign: 'center', fontSize: '12px', color: MUTED, marginBottom: '10px', lineHeight: 1.5 }}>
-                      {c.pricing.yearlyMinimumNote(YEARLY_MINIMUM_MONTHS)}
-                    </div>
-                  )}
-                  <Link to={priserPath} style={{ display: 'block', textAlign: 'center', fontSize: '13.5px', fontWeight: 600, color: MUTED, textDecoration: 'none' }}>
-                    {c.pricing.seeAllLink}
-                  </Link>
-                </div>
-              </div>
-              );
-            })}
-          </div>
-        </Reveal>
-      </section>
+      {/* Prissektionen är borttagen från startsidan (kundönskemål 2026-09-26: priset ska inte synas här). Priserna finns på /priser. */}
 
       {/* ── FAQ ── */}
       <section style={{ padding: '76px 24px', background: 'var(--mkt-section-mint)', position: 'relative', overflow: 'hidden' }}>
