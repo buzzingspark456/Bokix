@@ -38,6 +38,7 @@ import UtdelningPage from './components/marketing/tools/UtdelningPage.jsx';
 import MomsDatumPage from './components/marketing/tools/MomsDatumPage.jsx';
 import ArsredovisningPage from './components/marketing/tools/ArsredovisningPage.jsx';
 import OrdlistaPage from './components/marketing/OrdlistaPage.jsx';
+import GuidesPage from './components/marketing/GuidesPage.jsx';
 import FaqPage from './components/marketing/FaqPage.jsx';
 import IntegrationsPage from './components/marketing/IntegrationsPage.jsx';
 import SecurityPage from './components/marketing/SecurityPage.jsx';
@@ -69,6 +70,7 @@ const BASE_PAGES = {
   '/sakerhet': SecurityPage,
   '/lon': PayrollPage,
   '/ordlista': OrdlistaPage,
+  '/guider': GuidesPage,
   '/vanliga-fragor': FaqPage,
   '/blogg': BlogPage,
   '/nyheter': NewsPage,

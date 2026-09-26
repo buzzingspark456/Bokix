@@ -59,6 +59,10 @@
       "destination": "/ordlista/index.html"
     },
     {
+      "source": "/guider",
+      "destination": "/guider/index.html"
+    },
+    {
       "source": "/vanliga-fragor",
       "destination": "/vanliga-fragor/index.html"
     },

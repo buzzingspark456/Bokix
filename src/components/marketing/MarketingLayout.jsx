@@ -189,6 +189,7 @@ export const NAV_MENUS = [
       {
         title: 'Lär dig',
         items: [
+          { title: 'Videoguider', desc: 'Se hur du gör i Bokix', to: '/guider' },
           { title: 'Blogg & guider', desc: 'Bokföring förklarad steg för steg', to: '/blogg' },
           { title: 'Ordlista', desc: 'Ekonomiska begrepp från A till Ö', to: '/ordlista' },
           { title: 'Vanliga frågor', desc: 'Snabba svar om Bokix', to: '/vanliga-fragor' },
@@ -943,7 +944,7 @@ function MarketingStyles() {
          efteråt. Se DemoOverlay i LandingPage.jsx. */
       .lp-demo-overlay { position: fixed; inset: 0; z-index: 3000; display: flex; align-items: center; justify-content: center; padding: 28px; }
       .lp-demo-overlay-backdrop { position: absolute; inset: 0; background: rgba(9,20,14,0.6); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); animation: lpFadeIn 0.22s ease both; }
-      .lp-demo-overlay-panel { position: relative; width: min(1440px, 100%); max-height: min(880px, 92vh); display: flex; flex-direction: column; background: var(--mkt-ivory); border: 1px solid var(--mkt-card-border); border-radius: 20px; overflow: hidden; box-shadow: 0 50px 110px -24px rgba(0,0,0,0.55); animation: lpDemoIn 0.32s cubic-bezier(0.16,1,0.3,1) both; }
+      .lp-demo-overlay-panel { position: relative; width: min(1440px, 100%); height: min(880px, 92vh); display: flex; flex-direction: column; background: var(--mkt-ivory); border: 1px solid var(--mkt-card-border); border-radius: 20px; overflow: hidden; box-shadow: 0 50px 110px -24px rgba(0,0,0,0.55); animation: lpDemoIn 0.32s cubic-bezier(0.16,1,0.3,1) both; }
       .lp-demo-overlay-bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 18px; background: var(--mkt-card-bg); border-bottom: 1px solid var(--mkt-border-soft); flex-shrink: 0; }
       .lp-demo-overlay-close { width: 36px; height: 36px; border-radius: 9px; border: 1px solid var(--mkt-border-soft); background: none; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--mkt-nav-text); flex-shrink: 0; transition: background 0.15s ease; }
       .lp-demo-overlay-close:hover { background: var(--mkt-ivory); }
@@ -1515,6 +1516,7 @@ const FOOTER_COLUMNS = [
       { label: 'Byt till Bokix', to: '/byt-bokforingsprogram' },
       { label: 'För UF-företag', to: '/uf' },
       { label: 'Vanliga frågor', to: '/vanliga-fragor' },
+      { label: 'Videoguider', to: '/guider' },
     ],
   },
   {

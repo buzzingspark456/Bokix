@@ -57,6 +57,7 @@ const UtdelningPage = lazy(() => import('./components/marketing/tools/UtdelningP
 const MomsDatumPage = lazy(() => import('./components/marketing/tools/MomsDatumPage'));
 const ArsredovisningPage = lazy(() => import('./components/marketing/tools/ArsredovisningPage'));
 const OrdlistaPage = lazy(() => import('./components/marketing/OrdlistaPage'));
+const GuidesPage = lazy(() => import('./components/marketing/GuidesPage'));
 const FaqPage = lazy(() => import('./components/marketing/FaqPage'));
 const PayrollPage = lazy(() => import('./components/marketing/PayrollPage'));
 const BlogPage = lazy(() => import('./components/marketing/BlogPage'));
@@ -295,6 +296,7 @@ export default function AppRouter() {
         <Route path="/lon" element={<Suspense fallback={<AppLoadingFallback />}><PayrollPage /></Suspense>} />
         <Route path="/lon-arbetsgivare" element={<Navigate to="/lon" replace />} />
         <Route path="/ordlista" element={<Suspense fallback={<AppLoadingFallback />}><OrdlistaPage /></Suspense>} />
+        <Route path="/guider" element={<Suspense fallback={<AppLoadingFallback />}><GuidesPage /></Suspense>} />
         <Route path="/vanliga-fragor" element={<Suspense fallback={<AppLoadingFallback />}><FaqPage /></Suspense>} />
         <Route path="/blogg" element={<Suspense fallback={<AppLoadingFallback />}><BlogPage /></Suspense>} />
         <Route path="/nyheter" element={<Suspense fallback={<AppLoadingFallback />}><NewsPage /></Suspense>} />

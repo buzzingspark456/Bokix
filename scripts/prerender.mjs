@@ -91,6 +91,7 @@ const SITEMAP_MANIFEST = [
   { path: '/verktyg/momsdatum', changefreq: 'monthly', priority: '0.6' },
   { path: '/verktyg/arsredovisning', changefreq: 'monthly', priority: '0.6' },
   { path: '/ordlista', changefreq: 'monthly', priority: '0.6' },
+  { path: '/guider', changefreq: 'monthly', priority: '0.6' },
   { path: '/blogg', changefreq: 'weekly', priority: '0.6' },
   { path: '/nyheter', changefreq: 'weekly', priority: '0.6' },
   // Artiklarna härleds ur blog.js och news.js, samma lista som routing/förrendering.
