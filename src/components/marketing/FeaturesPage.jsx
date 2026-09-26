@@ -74,6 +74,17 @@ const SECTIONS = [
 //
 // Varje rad nedan motsvarar en RIKTIG sida eller funktion i appen
 // (App.jsx:s meny) — inget som "planeras".
+// Riktiga skärmbilder ur appen (public/screenshots/, tagna med
+// scripts/capture-marketing-screenshots.mjs ur startsidans demo med
+// exempeldata). Demona ovan visar hur det fungerar; bilderna här är sidans
+// riktiga <img> med alt-text, så att Googles bildsök har något att visa.
+const SCREENSHOTS = [
+  { src: '/screenshots/bokix-bokforing-verifikationer.png', title: 'Bokföring', alt: 'Skärmbild av Bokföring i Bokix: verifikationer grupperade per månad, med belopp och status' },
+  { src: '/screenshots/bokix-fakturering-kundfakturor.png', title: 'Kundfakturor', alt: 'Skärmbild av Kundfakturor i Bokix: fakturor med förfallodatum, belopp och status betald, obetald eller förfallen' },
+  { src: '/screenshots/bokix-skatt-momsdeklaration.png', title: 'Momsdeklaration', alt: 'Skärmbild av momsdeklarationen i Bokix: kontrollera, granska, bokför och lämna in, steg för steg' },
+  { src: '/screenshots/bokix-personal-anstallda.png', title: 'Anställda och lön', alt: 'Skärmbild av Anställda och lön i Bokix: anställda med anställningsdatum, lön och status' },
+];
+
 const MORE = [
   { motif: 'bank', title: 'Bank', body: 'Läs in kontoutdraget, matcha raderna, bokför.' },
   { motif: 'kvitton', title: 'Utgifter och kvitton', body: 'Underlaget sitter kvar på verifikationen.' },
@@ -117,6 +128,10 @@ export default function FeaturesPage() {
       <KitStyles />
       <DemoStyles />
       <style>{`
+        .bx-ft-shots { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; max-width: 1080px; margin: 0 auto; }
+        .bx-ft-shot img { width: 100%; height: auto; display: block; border-radius: 12px; border: 1px solid var(--mkt-card-border); box-shadow: var(--mkt-card-shadow); }
+        .bx-ft-shot figcaption { font-size: 14px; font-weight: 600; color: var(--mkt-muted); margin-top: 10px; }
+        @media (max-width: 700px) { .bx-ft-shots { grid-template-columns: 1fr; } }
         .bx-ft-points { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 40px; max-width: 820px; margin: 44px auto 0; }
         @media (max-width: 700px) { .bx-ft-points { grid-template-columns: 1fr; } .bx-ft-points .kx-list + .kx-list { border-top: none; } }
       `}</style>
@@ -175,6 +190,21 @@ export default function FeaturesPage() {
           <Link to="/integrationer" style={{ color: 'var(--mkt-accent-green-fg)', fontWeight: 700, textDecoration: 'none' }}>Se alla filformat och kopplingar →</Link>
         </p>
       </KitSection>
+
+      <section className="kx-section" style={{ background: 'var(--mkt-page-bg)' }}>
+        <Reveal style={{ textAlign: 'center', maxWidth: '640px', margin: '0 auto 40px' }}>
+          <h2 className="kx-h2" style={{ fontSize: 'clamp(28px, 4vw, 42px)' }}>Så ser det ut i appen</h2>
+          <p className="kx-sub" style={{ fontSize: '17px' }}>Skärmbilder ur Bokix, med exempeldata.</p>
+        </Reveal>
+        <div className="bx-ft-shots">
+          {SCREENSHOTS.map((shot, i) => (
+            <Reveal key={shot.src} delay={i * 60} as="figure" className="bx-ft-shot" style={{ margin: 0 }}>
+              <img src={shot.src} alt={shot.alt} loading="lazy" width="1382" height="813" />
+              <figcaption>{shot.title}</figcaption>
+            </Reveal>
+          ))}
+        </div>
+      </section>
 
       <KitCta title="Allt ovan ingår" lead="Inga tillägg per funktion. Två priser, beroende på om du har personal på lönelistan.">
         <PrimaryButton onClick={enterApp}>Prova gratis</PrimaryButton>
