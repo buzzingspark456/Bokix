@@ -1,3 +1,4 @@
+import { VERIFICATION_SERIES } from '../utils/verificationNumbering';
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   Upload, UploadCloud, AlertCircle, CheckCircle2, X, ChevronDown, ChevronRight,
@@ -65,23 +66,6 @@ const STATUS_META = {
 function StatusBadge({ status }) {
   const m = STATUS_META[status] || STATUS_META.unmatched;
   return <span style={{ padding: '2px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, background: m.bg, color: m.text, whiteSpace: 'nowrap' }}>{m.label}</span>;
-}
-
-// Samma löpande-nummer-per-serie-logik som Verifications.jsx:709
-// (getNextNumber) — en avsiktlig, liten dubblering: "Bokför direkt" är ett
-// genuint manuellt bokföringstillfälle (till skillnad från de återanvända
-// betalnings-handlarna, som redan får ett fallback-nummer gratis via
-// handleAddVerification i App.jsx) och förtjänar samma riktiga A/B/C-
-// serienummer som en vanlig manuell verifikation. Om logiken någonsin
-// ändras där bör den brytas ut till en delad util istället för att synkas
-// för hand på två ställen.
-function getNextSeriesNumber(verifications, seriesLetter = 'A') {
-  const max = (verifications || []).reduce((m, v) => {
-    if (!(v.number || '').startsWith(seriesLetter)) return m;
-    const n = parseInt((v.number || '').replace(/\D/g, ''), 10);
-    return !isNaN(n) && n > m ? n : m;
-  }, 0);
-  return `${seriesLetter}${String(max + 1).padStart(3, '0')}`;
 }
 
 // ── Matchningskandidater (fullständig lista, inte bara "bästa gissning") ──
@@ -304,14 +288,13 @@ export default function Bank({
   };
 
   const handleQuickBook = (row, { date, description, series, counterAccount }) => {
-    const number = getNextSeriesNumber(verifications, series);
     const amount = Math.round(Math.abs(row.amount));
     const isInflow = row.amount > 0;
     // Vilket bankkonto raden faktiskt kom ifrån (flera bankkonton,
     // kundönskemål) — inte längre alltid 1930.
     const bankLedgerAccount = accountById(accountIdOf(row)).ledgerAccount;
     onAddVerification({
-      number,
+      series: series || 'A',
       date,
       description,
       source: 'bank_import',
@@ -719,7 +702,7 @@ function BankRowDetail({ row, invoiceCandidates, supplierCandidates, accounts, v
             <div><label style={fieldLabel}>{tr('ui.beskrivning')}</label><input value={qbDesc} onChange={e => setQbDesc(e.target.value)} style={inp} /></div>
             <div><label style={fieldLabel}>{tr('ui.serie')}</label>
               <select value={qbSeries} onChange={e => setQbSeries(e.target.value)} style={{ ...inp, textAlign: 'center' }}>
-                {['A', 'B', 'C'].map(s => <option key={s} value={s}>{s}</option>)}
+                {VERIFICATION_SERIES.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
           </div>

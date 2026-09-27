@@ -54,6 +54,7 @@ import { deleteFileFromStorage } from './utils/fileUpload';
 import { collectStorageUrls } from './utils/storageUrls';
 import { computeEmployeePayroll, summarizePayrollRun, FEE_RULES_VERSION } from './utils/payrollCalculation';
 import BokixWordmark, { BokixMark } from './components/shared/BokixWordmark';
+import { seriesForSource, getNextNumber as getNextVerificationNumber } from './utils/verificationNumbering';
 
 // ── Bokix Logo Component (light sidebar) ──
 // Klickbar — tar till startsidan precis som varumärkeslogotyper brukar göra.
@@ -3252,10 +3253,13 @@ function App() {
           return updated;
         }
       }
-      // Respektera ett nummer som redan beräknats (t.ex. med rätt serie från
-      // "Ny verifikation"-formuläret) — bygg bara ett eget som fallback för
-      // auto-bokförda verifikationer från fakturor/utgifter, som inte skickar med ett.
-      const number = newVer.number || `V${prev.length + 1}`;
+      // Serie och nummer (utils/verificationNumbering.js): en given serie
+      // (Ny verifikation, Bank) eller den serie bokningens källa hör till
+      // (fakturor B, inbetalningar C, leverantörsfakturor D ...). Numret räknas
+      // här, mot listan som den ser ut just nu, så flera bokningar i samma
+      // batch (t.ex. lönekörningen) får varsitt nummer i obruten följd.
+      const series = newVer.series || seriesForSource(newVer.source);
+      const number = newVer.number || getNextVerificationNumber(prev, series, company?.verificationSeriesFloor?.[series]);
       // `Date.now()` ensam krockar när flera verifikationer skapas synkront
       // efter varandra (t.ex. lönekörningens tre block) — de hamnar lätt
       // inom samma millisekund. `prev.length` som suffix räcker för att
@@ -3266,7 +3270,7 @@ function App() {
       // 1,50 kr bokad på 3740 i stället för att sparas obalanserade, se
       // withRoundingBalance. Manuella verifikationer valideras i formuläret.
       const rows = newVer.source && (newVer.status || 'booked') !== 'draft' ? withRoundingBalance(newVer.rows) : newVer.rows;
-      return [...prev, { ...newVer, rows, id, number }];
+      return [...prev, { ...newVer, rows, id, number, series }];
     });
 
     // Ett konto som faktiskt precis bokfördes mot — via OCR-förslaget eller
@@ -4501,6 +4505,7 @@ function App() {
         return (
           <Verifications
             user={user}
+            seriesNames={company?.verificationSeriesNames}
             verifications={verifications}
             accounts={accounts}
             balances={balances}
@@ -4538,6 +4543,7 @@ function App() {
         return (
           <Verifications
             user={user}
+            seriesNames={company?.verificationSeriesNames}
             verifications={verifications}
             accounts={accounts}
             balances={balances}

@@ -1318,55 +1318,46 @@ function ActiveSessionsSection({ user, readOnly = false }) {
   );
 }
 
-// ── Verifikationsserie: golv för nästa nummer (System > Verifikationsserier) ──
-// Exakt samma mönster som fakturanummer-golvet (saveNextInvoiceNumber ovan i
-// komponentkroppen) — går bara att höja, aldrig sätta under det som redan
-// är använt, så två verifikationer aldrig kan få samma nummer.
-function VerificationSeriesFloorField({ letter, verifications, value, onChange, row = false, last = false }) {
-  const maxUsed = useMemo(() => getMaxUsedNumber(verifications, letter), [verifications, letter]);
-  const [input, setInput] = useState(String(value || maxUsed + 1));
-  const [error, setError] = useState('');
-
-  useEffect(() => { setInput(String(value || maxUsed + 1)); }, [value, maxUsed]);
-
+// ── Verifikationsserier (Allmänt) ── En rad per serie: namnet går att
+// ändra, och till höger står senaste använda nummer. Serierna och vilka
+// bokningar som hamnar i vilken står i utils/verificationNumbering.js.
+function VerificationSeriesList({ company, setCompanyInfo, verifications, readOnly }) {
+  const saved = company?.verificationSeriesNames || {};
+  const [names, setNames] = useState(saved);
+  useEffect(() => { setNames(company?.verificationSeriesNames || {}); }, [company?.verificationSeriesNames]);
+  const dirty = VERIFICATION_SERIES.some(l => (names[l] || '').trim() !== (saved[l] || '').trim());
   const save = () => {
-    const n = Number(input);
-    if (!input || !Number.isInteger(n) || n <= 0) { setError(tr('ui.ange_ett_positivt_heltal')); return; }
-    if (n <= maxUsed) { setError(tr('ui.maste_vara_hogre_an_hogsta_anvanda_numret_i_seri', { letter, maxUsed })); return; }
-    setError('');
-    onChange(n);
+    if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; }
+    const cleaned = Object.fromEntries(VERIFICATION_SERIES.map(l => [l, (names[l] || '').trim()]).filter(([, v]) => v));
+    setCompanyInfo({ ...company, verificationSeriesNames: cleaned });
   };
-
-  // Radform (Allmänt): etikett och senast använda nummer till vänster,
-  // fältet och Spara till höger.
-  if (row) {
-    return (
-      <SettingRow
-        label={`${tr('ui.serie')} ${letter}`}
-        description={<>
-          {tr('ui.hogsta_anvanda')} {letter}{String(maxUsed).padStart(3, '0')}
-          {error && <span style={{ display: 'block', color: 'var(--status-red-text)', marginTop: '2px' }}>{error}</span>}
-        </>}
-        last={last}
-      >
-        <div style={{ display: 'flex', gap: '6px' }}>
-          <input type="number" min={maxUsed + 1} value={input} onChange={e => setInput(e.target.value)} aria-label={`${tr('ui.serie')} ${letter} ${tr('ui.nasta_nummer')}`} style={{ ...inputBase, width: '96px' }} />
-          <button type="button" onClick={save} style={btnTile}>{tr('ui.spara')}</button>
-        </div>
-      </SettingRow>
-    );
-  }
-
   return (
-    <div style={{ minWidth: '160px' }}>
-      <label style={labelStyle}>{tr('ui.serie')} {letter} {tr('ui.nasta_nummer')}</label>
-      <div style={{ display: 'flex', gap: '6px' }}>
-        <input type="number" min={maxUsed + 1} value={input} onChange={e => setInput(e.target.value)} style={{ ...inputBase, width: '100px' }} />
-        <button type="button" onClick={save} style={btnTile}>{tr('ui.spara')}</button>
+    <>
+      {VERIFICATION_SERIES.map((letter, i) => {
+        const latest = getMaxUsedNumber(verifications, letter);
+        return (
+          <SettingRow key={letter} label={`${tr('ui.serie')} ${letter}`} last={i === VERIFICATION_SERIES.length - 1}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <input
+                value={names[letter] || ''}
+                onChange={e => setNames(n => ({ ...n, [letter]: e.target.value }))}
+                placeholder={tr(`ui.serienamn_${letter}`)}
+                aria-label={`${tr('ui.serie')} ${letter}`}
+                style={{ ...inputBase, width: '240px' }}
+              />
+              <span style={{ width: '130px', textAlign: 'right', fontSize: '12.5px', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+                {latest > 0 ? tr('ui.senaste_nr', { n: latest }) : tr('ui.inga_verifikat_annu')}
+              </span>
+            </div>
+          </SettingRow>
+        );
+      })}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '12px' }}>
+        <button type="button" onClick={save} disabled={!dirty} style={{ ...btnPrimary, opacity: dirty ? 1 : 0.45, cursor: dirty ? 'pointer' : 'not-allowed' }}>
+          {tr('ui.spara_namn')}
+        </button>
       </div>
-      <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '4px' }}>{tr('ui.hogsta_anvanda')} {letter}{String(maxUsed).padStart(3, '0')}</div>
-      {error && <div style={{ fontSize: '11.5px', color: 'var(--status-red-text)', marginTop: '4px' }}>{error}</div>}
-    </div>
+    </>
   );
 }
 
@@ -3938,18 +3929,8 @@ export default function Settings({
                 )}
               </SettingCard>
 
-              <SettingCard title={tr('ui.verifikationsserier')} description={tr('ui.gar_bara_att_hoja_golvet_aldrig_under_ett_nummer')}>
-                {VERIFICATION_SERIES.map((letter, i) => (
-                  <VerificationSeriesFloorField
-                    key={letter}
-                    row
-                    last={i === VERIFICATION_SERIES.length - 1}
-                    letter={letter}
-                    verifications={verifications}
-                    value={company?.verificationSeriesFloor?.[letter]}
-                    onChange={(next) => setCompanyInfo({ ...company, verificationSeriesFloor: { ...(company?.verificationSeriesFloor || {}), [letter]: next } })}
-                  />
-                ))}
+              <SettingCard title={tr('ui.verifikationsserier')}>
+                <VerificationSeriesList company={company} setCompanyInfo={setCompanyInfo} verifications={verifications} readOnly={readOnly} />
               </SettingCard>
 
               <SettingCard title={tr('ui.valuta_och_datum')}>
@@ -3994,7 +3975,7 @@ export default function Settings({
                   <span className="settings-link-chips">
                     {MIGRATION_SOURCES.map(p => (
                       <span key={p.id} className="settings-link-chip" title={p.note ? p.name + ' — ' + p.note : p.name}>
-                        <ProgramLogo src={p.logo} alt="" size={16} /> {p.name}
+                        <span className="settings-link-chip-logo"><ProgramLogo src={p.logo} alt="" size={14} /></span> {p.name}
                       </span>
                     ))}
                   </span>

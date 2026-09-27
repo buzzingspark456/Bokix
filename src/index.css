@@ -1845,6 +1845,12 @@ body {
   .settings-content > div > div > .settings-block:first-child > .settings-block-head,
   .settings-content > div > div > section:first-child > .settings-block-head { padding-top: 8px; }
 }
+/* Programloggorna i Importera: alltid på vit platta, annars försvinner mörka
+   loggor (Fortnox) mot mörkt tema. */
+.settings-link-chip-logo {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; border-radius: 5px; background: #fff; flex-shrink: 0;
+}
 .settings-back {
   display: inline-flex; align-items: center; gap: 6px; margin: 0 0 10px; padding: 4px 8px 4px 4px;
   border: none; border-radius: 7px; background: transparent; cursor: pointer;

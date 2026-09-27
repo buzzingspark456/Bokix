@@ -22,7 +22,7 @@ import { decidePayAccount } from '../utils/payAccountChoice';
 import { missingReverseChargeRows, withReverseChargeRows } from '../utils/reverseCharge';
 import { ScanOverlay, OcrChecklist, OCR_ITEMS, photoHintText, MIN_SCAN_MS, REVEAL_STEP_MS, CACHED_SCAN_MS } from './shared/ScanExperience';
 import { convertToSek } from '../utils/currencyConversion';
-import { getNextNumber as getNextNumberForSeries } from '../utils/verificationNumbering';
+import { getNextNumber as getNextNumberForSeries, VERIFICATION_SERIES } from '../utils/verificationNumbering';
 import AccountsPanel from './shared/AccountsPanel';
 import SimpleBookingPanel from './shared/SimpleBookingPanel';
 import { buildSimpleBooking, describeRow, describeVerification, paymentAccounts, VAT_RATES } from '../utils/plainBooking';
@@ -118,7 +118,7 @@ function rowSideWarning(row) {
 const MAX_ATTACHMENT_MB = 10;
 const ACCEPTED_ATTACHMENT_TYPES = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
 
-function VerificationForm({ accounts, contacts, projects = [], verifications = [], balances, templates, onSaveTemplate, onSave, onClose, nextNumber, getNextNumber, initial, vatPeriods, user, orgType, uploadFn = uploadFileToStorage, vatExempt = false }) {
+function VerificationForm({ accounts, contacts, projects = [], verifications = [], balances, templates, onSaveTemplate, onSave, onClose, nextNumber, getNextNumber, initial, vatPeriods, user, orgType, uploadFn = uploadFileToStorage, vatExempt = false, seriesNames }) {
   const [date, setDate] = useState(initial?.date || new Date().toISOString().split('T')[0]);
   const [desc, setDesc] = useState(initial?.description || '');
   const [projectId, setProjectId] = useState(initial?.projectId || '');
@@ -693,10 +693,10 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
           <label style={fieldLabel}>{tr('ui.beskrivning')} {ocrFields.has('desc') && <OcrBadge />}</label>
           <input data-tour="page-verifications-field" value={desc} onChange={e => { setDesc(e.target.value); setOcrFields(s => { const n = new Set(s); n.delete('desc'); return n; }); }} placeholder={tr('ui.verifikationstext')} style={inp} autoFocus />
         </div>
-        <div style={{ width: '90px' }}>
+        <div style={{ width: '200px' }}>
           <label style={fieldLabel}>{tr('ui.serie')}</label>
-          <select value={series} onChange={e => setSeries(e.target.value)} style={{ ...inp, background: 'var(--bg-card)', textAlign: 'center' }}>
-            {['A', 'B', 'C'].map(s => <option key={s} value={s}>{s}</option>)}
+          <select value={series} onChange={e => setSeries(e.target.value)} style={{ ...inp, background: 'var(--bg-card)' }}>
+            {VERIFICATION_SERIES.map(s => <option key={s} value={s}>{s} · {seriesNames?.[s] || tr(`ui.serienamn_${s}`)}</option>)}
           </select>
         </div>
       </div>
@@ -1253,7 +1253,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
 }
 
 // ─── Main Bokföring Component ──────────────────────────────────────────────────
-export default function Bokforing({ verifications = [], accounts = [], balances = {}, contacts = [], projects = [], templates = [], onSaveTemplate, onAdd, setVerifications, setAccounts, highlightVerificationId, onClearHighlight, vatPeriods, user, orgType, uploadFn = uploadFileToStorage, initialTab, vatExempt = false, extraTabs = [] }) {
+export default function Bokforing({ seriesNames, verifications = [], accounts = [], balances = {}, contacts = [], projects = [], templates = [], onSaveTemplate, onAdd, setVerifications, setAccounts, highlightVerificationId, onClearHighlight, vatPeriods, user, orgType, uploadFn = uploadFileToStorage, initialTab, vatExempt = false, extraTabs = [] }) {
   const [activeTab, setActiveTab] = useState(() => (initialTab && ['verifications', 'accounts', ...extraTabs.map(tab => tab.id)].includes(initialTab) ? initialTab : 'verifications'));
   // Samma mönster som Taxes.jsx:s initialSection — App.jsx:s
   // verificationsInitialTab (profilmenyns "Kontoplaner" ska landa på
@@ -1316,8 +1316,9 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
   const handleSaveVerification = (data) => {
     // Fortsätter man ett sparat utkast, behåller det sitt redan tilldelade
     // nummer. En ny verifikation eller en rättelse får ett nytt, i rätt serie.
-    const number = editingVer?.number || getNextNumber(data.series || 'A');
-    onAdd({ number, ...data });
+    // Ett fortsatt utkast behåller sitt nummer. En ny verifikation får sitt
+    // nummer när den bokförs (App.jsx), i den serie som valts här.
+    onAdd({ ...(editingVer?.number ? { number: editingVer.number } : {}), ...data, series: data.series || 'A' });
     setShowForm(false);
     setEditingVer(null);
   };
@@ -1410,6 +1411,7 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
         onSaveTemplate={onSaveTemplate}
         nextNumber={nextNumber}
         getNextNumber={getNextNumber}
+        seriesNames={seriesNames}
         initial={editingVer}
         onSave={handleSaveVerification}
         onClose={() => { setShowForm(false); setEditingVer(null); }}
@@ -1469,9 +1471,7 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
             </div>
             <select value={series} onChange={e => setSeries(e.target.value)} style={listFilterFieldStyle}>
               <option value="all">{tr('ui.alla_serier')}</option>
-              <option value="A">{tr('ui.serie_a')}</option>
-              <option value="B">{tr('ui.serie_b')}</option>
-              <option value="C">{tr('ui.serie_c')}</option>
+              {VERIFICATION_SERIES.map(s => <option key={s} value={s}>{s} · {seriesNames?.[s] || tr(`ui.serienamn_${s}`)}</option>)}
             </select>
             {/* Kundönskemål ("samma som i Kvitton, jag älskar det"): samma
                 månadsväljare + Grupperat/Lista-växel som Expenses.jsx,

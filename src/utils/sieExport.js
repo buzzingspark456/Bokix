@@ -1,3 +1,4 @@
+import { seriesOfVerification } from './verificationNumbering.js';
 import { getDebet, getKredit } from './verificationAmounts';
 import { encodeCp437 } from './sieCharset';
 import { computeLedger, fiscalYearBounds, companyFiscalYearSetting } from './reportCalculations';
@@ -64,7 +65,7 @@ export function generateSIE4(company, accounts, verifications) {
     if ((ver.status || 'booked') === 'draft') return; // utkast är inte bokförda och exporteras inte
     const verDate = ver.date.replace(/-/g, '');
     const vNum = ver.number.replace(/\D/g, ''); // Extract numeric part of ver number
-    const series = ver.series || 'A';
+    const series = seriesOfVerification(ver);
 
     sieString += `#VER ${series} ${vNum} ${verDate} "${ver.description}"\r\n`;
     sieString += '{\r\n';

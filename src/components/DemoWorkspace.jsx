@@ -1,3 +1,4 @@
+import { seriesForSource, getNextNumber as getNextVerificationNumber } from '../utils/verificationNumbering';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import useFitLevel from '../utils/useFitLevel';
 import {
@@ -197,7 +198,9 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
   // Samma numrering som App.jsx:s handleAddVerification, utan dess
   // bokföringssidoeffekter.
   const addDemoVerification = (ver) => {
-    setDemoVerifications(prev => [...prev, { ...ver, id: `ver_demo_${Date.now()}_${prev.length}`, number: ver.number || `V${prev.length + 1}` }]);
+    // Samma serie och numrering som den riktiga bokföringen (App.jsx).
+    const series = ver.series || seriesForSource(ver.source);
+    setDemoVerifications(prev => [...prev, { ...ver, series, id: `ver_demo_${Date.now()}_${prev.length}`, number: ver.number || getNextVerificationNumber(prev, series) }]);
   };
   const saveDemoEmployee = (employeeId, data) => {
     setDemoEmployees(prev => employeeId
