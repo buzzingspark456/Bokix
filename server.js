@@ -20,6 +20,7 @@ import { hasGoogleOAuth, buildAuthUrl, exchangeCode, signState, verifyState } fr
 import requestPasswordResetHandler from './api/auth/request-password-reset.js'
 import companyAccessHandler from './api/company-access.js'
 import archiveHandler from './api/archive.js'
+import calendarHandler from './api/calendar.js'
 import adminHandler from './api/admin/index.js'
 import createSubscriptionCheckoutHandler from './api/stripe/_subscriptionCheckout.js'
 import createCheckoutSessionHandler from './api/stripe/create-checkout-session.js'
@@ -310,6 +311,8 @@ app.post('/api/email/send-invoice', (req, res) => sendInvoiceHandler(req, res))
 app.all('/api/company-access', (req, res) => companyAccessHandler(req, res))
 app.use('/api/archive', sensitiveLimiter)
 app.all('/api/archive', (req, res) => archiveHandler(req, res))
+// Kalenderlänken (.ics), samma handler som i produktion.
+app.all('/api/calendar', (req, res) => calendarHandler(req, res))
 
 // GET/POST /api/admin — samma "importera produktionens handler rakt av"-
 // mönster som company-access.js ovan, av samma skäl: en handkopierad

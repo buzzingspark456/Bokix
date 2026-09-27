@@ -7,7 +7,7 @@ import {
 import { AccountSearch, ProjectSearch } from './shared/SearchInputs';
 import ListPageHeader, { listHeaderButtonStyle, listSearchInputStyle, listFilterFieldStyle, PAGE_SIZE_OPTIONS } from './shared/ListPageHeader';
 import RowActionMenu from './shared/RowActionMenu';
-import { STRONG_PAID, STRONG_UNPAID, STRONG_OVERDUE, getRowBg } from './shared/invoiceStatusStyle';
+import { STRONG_PAID, STRONG_UNPAID, STRONG_OVERDUE, getRowBg, STATUS_PILL } from './shared/invoiceStatusStyle';
 import ListTable from './shared/ListTable';
 import { uploadFileToStorage } from '../utils/fileUpload';
 import { useSignedUrl } from '../utils/signedUrls';
@@ -1074,12 +1074,12 @@ export default function SupplierInvoices({
                   key: 'status', label: t('ui.status'), render: inv => {
                     const st = statusOf(inv);
                     if (st === 'review') {
-                      return <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 700, background: BRAND.amberBg, color: BRAND.amberText }}><AlertCircle size={12} /> {t('ui.granska')}</span>;
+                      return <span style={{ ...STATUS_PILL, background: BRAND.amberBg, color: BRAND.amberText }}><AlertCircle size={12} /> {t('ui.granska')}</span>;
                     }
                     if (st === 'paid') {
                       return (
                         <div>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 700, background: STRONG_PAID.bg, color: STRONG_PAID.text }}>
+                          <span style={{ ...STATUS_PILL, background: STRONG_PAID.bg, color: STRONG_PAID.text }}>
                             <Check size={12} /> {t('ui.betald')}
                           </span>
                           {inv.paymentMethod && <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px' }}>{t('ui.via_2')} {inv.paymentMethod === 'bank' ? 'bank' : 'kort'}</div>}
@@ -1092,8 +1092,7 @@ export default function SupplierInvoices({
                         onClick={e => { e.stopPropagation(); setPayingInvoiceId(inv.id); }}
                         title={t('ui.klicka_for_att_betala')}
                         style={{
-                          display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '999px',
-                          fontSize: '12px', fontWeight: 700, cursor: 'pointer', border: 'none',
+                          ...STATUS_PILL, cursor: 'pointer',
                           background: st === 'overdue' ? STRONG_OVERDUE.bg : STRONG_UNPAID.bg,
                           color: st === 'overdue' ? STRONG_OVERDUE.text : STRONG_UNPAID.text,
                         }}

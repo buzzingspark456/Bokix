@@ -20,7 +20,7 @@ import { getNextInvoiceNumber } from '../utils/invoiceNumbering';
 import { confirmDialog } from './shared/ConfirmDialog';
 import ListPageHeader, { listHeaderButtonStyle, listSearchInputStyle, listFilterFieldStyle, PAGE_SIZE_OPTIONS } from './shared/ListPageHeader';
 import RowActionMenu from './shared/RowActionMenu';
-import { STRONG_PAID, STRONG_UNPAID, STRONG_OVERDUE, getRowBg } from './shared/invoiceStatusStyle';
+import { STRONG_PAID, STRONG_UNPAID, STRONG_OVERDUE, STRONG_DRAFT, STATUS_PILL, getRowBg } from './shared/invoiceStatusStyle';
 import { AccountSearch } from './shared/SearchInputs';
 import ListTable from './shared/ListTable';
 // Kodgranskning: fanns tidigare som en egen lokal kopia här OCH som
@@ -2357,18 +2357,17 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
         return (
           <div data-inv-tour="row-status" onClick={e => e.stopPropagation()}>
             {status === 'paid' ? (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 700, background: STRONG_PAID.bg, color: STRONG_PAID.text }}>
-                <Check size={12} /> {tr('ui.betald')}{inv.paidDate ? ` ${formatDate(inv.paidDate)}` : ''}
+              <span title={inv.paidDate ? `${tr('ui.betald')} ${formatDate(inv.paidDate)}` : undefined} style={{ ...STATUS_PILL, background: STRONG_PAID.bg, color: STRONG_PAID.text }}>
+                <Check size={12} /> {tr('ui.betald')}
               </span>
             ) : (
               <button
                 onClick={e => { e.stopPropagation(); if (!inv.isDemo) onMarkPaid(inv.id); }}
                 title={inv.isDemo ? tr('ui.exempelfaktura_bara_for_visning') : tr('ui.klicka_for_att_markera_som_betald')}
                 style={{
-                  display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '999px',
-                  fontSize: '12px', fontWeight: 700, cursor: 'pointer', border: 'none',
-                  background: status === 'overdue' ? STRONG_OVERDUE.bg : status === 'draft' ? BRAND.grayBg : STRONG_UNPAID.bg,
-                  color: status === 'overdue' ? STRONG_OVERDUE.text : status === 'draft' ? BRAND.grayText : STRONG_UNPAID.text,
+                  ...STATUS_PILL, cursor: 'pointer', border: status === 'draft' ? STRONG_DRAFT.border : STATUS_PILL.border,
+                  background: status === 'overdue' ? STRONG_OVERDUE.bg : status === 'draft' ? STRONG_DRAFT.bg : STRONG_UNPAID.bg,
+                  color: status === 'overdue' ? STRONG_OVERDUE.text : status === 'draft' ? STRONG_DRAFT.text : STRONG_UNPAID.text,
                 }}
               >
                 {status === 'overdue' ? tr('ui.forfallen') : status === 'draft' ? tr('ui.ej_bokford') : tr('ui.obetald')}
@@ -2418,8 +2417,9 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
       ) : (
         <span style={{
           padding: '2px 8px', borderRadius: '999px', fontSize: '10.5px', fontWeight: 700,
-          background: status === 'overdue' ? STRONG_OVERDUE.bg : status === 'draft' ? BRAND.grayBg : STRONG_UNPAID.bg,
-          color: status === 'overdue' ? STRONG_OVERDUE.text : status === 'draft' ? BRAND.grayText : STRONG_UNPAID.text,
+          border: status === 'draft' ? STRONG_DRAFT.border : 'none',
+          background: status === 'overdue' ? STRONG_OVERDUE.bg : status === 'draft' ? STRONG_DRAFT.bg : STRONG_UNPAID.bg,
+          color: status === 'overdue' ? STRONG_OVERDUE.text : status === 'draft' ? STRONG_DRAFT.text : STRONG_UNPAID.text,
         }}>{status === 'overdue' ? tr('ui.forfallen') : status === 'draft' ? tr('ui.ej_bokford') : tr('ui.obetald')}</span>
       ),
     };
@@ -2511,7 +2511,7 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
   // mönster som Granskning-sidans badges: räknaren syns bara om > 0.
   const statusOptions = [
     { value: 'all', label: tr('ui.alla') },
-    { value: 'draft', label: tr('ui.ej_bokford'), bg: BRAND.grayBg, color: BRAND.grayText },
+    { value: 'draft', label: tr('ui.ej_bokford'), bg: STRONG_DRAFT.bg, color: STRONG_DRAFT.text, border: STRONG_DRAFT.border },
     { value: 'sent', label: tr('ui.obetald'), bg: STRONG_UNPAID.bg, color: STRONG_UNPAID.text, strong: true },
     { value: 'overdue', label: tr('ui.forfallen'), bg: STRONG_OVERDUE.bg, color: STRONG_OVERDUE.text, strong: true },
     { value: 'paid', label: tr('ui.betald'), bg: STRONG_PAID.bg, color: STRONG_PAID.text, strong: true },
@@ -2600,7 +2600,7 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
           (kundönskemål: "har man inga fakturor ska den ej finnas") — en
           filterrad utan något att filtrera är bara brus på en tom sida. */}
       {invoiceList.length > 0 && (
-      <div className="inv-pills" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0, flexWrap: 'wrap' }}>
+      <div className="inv-pills" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0, flexWrap: 'wrap' }}>
         {statusOptions.map(opt => {
           const count = opt.value === 'all' ? allStatusCount : (statusCounts[opt.value] || 0);
           // Tomma statusar visas inte — men den valda gömmer sig aldrig,
@@ -2615,9 +2615,9 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
               onClick={() => setStatusFilter(opt.value)}
               aria-pressed={isActive}
               style={{
-                display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 10px',
+                display: 'flex', alignItems: 'center', gap: '7px', padding: '4px 12px', minHeight: '30px', boxSizing: 'border-box', whiteSpace: 'nowrap',
                 background: neutral ? (isActive ? 'var(--bg-muted)' : 'transparent') : opt.bg,
-                border: '1.5px solid transparent',
+                border: opt.border || '1px solid transparent',
                 // Vald status: en tydlig ring UTANFÖR pillret i dess egen färg
                 // (via en dubbel box-shadow med kortbakgrunden emellan) —
                 // en inre kantlinje syntes knappt mot de mättade
@@ -2637,8 +2637,9 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
               <span style={{
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 16, height: 16, padding: '0 4px',
                 borderRadius: '999px', fontSize: '10px', fontWeight: 700,
-                background: opt.strong ? 'rgba(255,255,255,0.28)' : 'var(--status-chip-bg)',
-                color: opt.strong ? '#ffffff' : (neutral ? 'var(--text-secondary)' : opt.color),
+                // Siffran i chipets egen textfärg, så den går att läsa även på gult.
+                background: opt.color === '#ffffff' ? 'rgba(255,255,255,0.26)' : 'rgba(0,0,0,0.08)',
+                color: neutral ? 'var(--text-secondary)' : opt.color,
               }}>{count}</span>
             </button>
           );

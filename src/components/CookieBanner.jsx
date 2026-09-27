@@ -14,8 +14,10 @@ import { getStoredConsent, storeConsent, updateGtagConsent, updateClarityConsent
 //
 // Bara två riktiga kategorier (Nödvändiga, Statistik) — Bokix har varken
 // Preferences- eller Marketing-cookies. Statistik-reglaget är av som
-// standard tills besökaren aktivt väljer "Acceptera alla"; ett förikryssat
-// reglage för icke-nödvändiga cookies är ogiltigt samtycke (Planet49).
+// standard; ett förikryssat reglage för icke-nödvändiga cookies är ogiltigt
+// samtycke (Planet49). Reglaget avgör valet (2026-09-27): den gröna knappen
+// sätter på statistik bara om reglaget är på, och heter då Acceptera alla,
+// annars Spara val.
 export default function CookieBanner() {
   const [visible, setVisible] = useState(false);
   const [statsPreview, setStatsPreview] = useState(false);
@@ -91,7 +93,6 @@ export default function CookieBanner() {
               type="button"
               onClick={() => setStatsPreview(v => !v)}
               aria-pressed={statsPreview}
-              title="Förhandsvisning — knapparna nedan avgör det faktiska valet"
               style={{ width: 40, height: 22, borderRadius: '999px', background: statsPreview ? BRAND.green : 'var(--border)', margin: '0 auto', position: 'relative', border: 'none', cursor: 'pointer', padding: 0, display: 'block', transition: 'background 0.15s' }}
             >
               <div style={{ position: 'absolute', top: 2, left: statsPreview ? 20 : 2, width: 18, height: 18, borderRadius: '50%', background: 'var(--bg-card)', transition: 'left 0.15s' }} />
@@ -101,8 +102,6 @@ export default function CookieBanner() {
           </div>
         </div>
 
-        {/* Utfallet avgörs alltid av knapparna, aldrig av reglagets läge när
-            man klickar — se kommentaren högst upp i filen. */}
         <div style={{ display: 'flex', gap: '10px', padding: '18px 24px', borderTop: '1px solid var(--border-light)', flexWrap: 'wrap' }}>
           <button
             type="button"
@@ -113,10 +112,10 @@ export default function CookieBanner() {
           </button>
           <button
             type="button"
-            onClick={() => choose(true)}
+            onClick={() => choose(statsPreview)}
             style={{ flex: 1, minWidth: '160px', padding: '11px 16px', background: BRAND.green, border: 'none', borderRadius: '9px', fontWeight: 700, color: 'white', cursor: 'pointer', fontSize: '13.5px' }}
           >
-            Acceptera alla
+            {statsPreview ? 'Acceptera alla' : 'Spara val'}
           </button>
         </div>
       </div>

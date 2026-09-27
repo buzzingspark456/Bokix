@@ -177,8 +177,9 @@
      ren, ljus smörgul — sänkt mättnad mot en dämpad khaki-ton
      (samma riktning som --invoice-unpaid-bg nedan), fortfarande synlig
      som en hel rads bakgrund men inte "gul" i sig. */
-  --row-unpaid-bg:  #ecdfb2;
-  --row-overdue-bg: #fecaca;
+  /* 2026-09-27: khakin lästes som brun. Tillbaka till gul, men mjuk och varm. */
+  --row-unpaid-bg:  #fcefbd;
+  --row-overdue-bg: #fbd3d3;
   /* Kundfeedback ("för gröna ska vara mer grön"): "Betald"-raden (Invoices.jsx:
      getRowBg) hade INGEN egen radton som obetald/förfallen ovan fick — den
      återanvände fortfarande den blekaste generiska badge-tonen i hela appen
@@ -203,7 +204,11 @@
      igen (#c2a06a → #ab8f5c) — mörkt läge oförändrat som innan. Botten
      satt av kontrasten mot STRONG_UNPAID.text (#422006): mörkare än så
      tappar WCAG AA:s 4.5:1 för brödtext. */
-  --invoice-unpaid-bg: #ab8f5c;
+  --invoice-unpaid-bg: #f6cb45;
+  /* Ej bokförd: raden är redan grå, så märket får en egen vit ruta med kant. */
+  --invoice-draft-bg: #ffffff;
+  --invoice-draft-border: #cfd3d8;
+  --invoice-draft-text: #374151;
   /* "Förfallen"-märkets bakgrund (Invoices.jsx: STRONG_OVERDUE) var en
      literal hex, samma i båda temana — aldrig gett en egen mörk-läge-ton
      som Obetald ovan fick. Egen token nu, så den är lika kontrollerad i
@@ -212,7 +217,8 @@
      (#cc4b4b → #a33c3c) — vit text ovanpå betyder att kontrasten bara
      ökar av det, så ingen kontrastrisk som gula ovan. Mörkt läge
      oförändrat. */
-  --invoice-overdue-bg: #a33c3c;
+  /* 2026-09-27: klart röd, inte rosa, men inte skrikig. */
+  --invoice-overdue-bg: #cf3b3b;
   /* Kundfeedback (skärmdump, "Ej bokförd" i Fakturor): #f1efe8 var en
      VARM crème-ton — nästan samma familj som --status-amber-bg (#faeeda)
      ovan, så "Ej bokförd" (neutralt, inget har hänt än) lästes som en
@@ -458,7 +464,7 @@
      opacitet (0.32 mot badge-tonernas 0.2) så den syns tydligt mot den
      mörka kortytan istället för att försvinna i den. */
   --row-unpaid-bg:  rgba(245, 158, 11, 0.32);
-  --row-overdue-bg: rgba(244, 63, 94, 0.32);
+  --row-overdue-bg: rgba(239, 68, 68, 0.30);
   --row-paid-bg:    rgba(34, 197, 94, 0.32);
   /* Se kommentaren vid :root ovan — mörkt läge oförändrat, kundfeedbacken
      gällde bara ljust läge. */
@@ -466,7 +472,9 @@
   /* En nyans mer levande än ljust lägets #cc4b4b — samma "mörkt läge får
      en aning ljusare/mättad ton"-princip som gula ovan, så röd fortfarande
      syns tydligt mot den mörka kortytan i stället för att dö bort. */
-  --invoice-overdue-bg: #dc4545;
+  --invoice-overdue-bg: #e04848;
+  --invoice-draft-bg: rgba(255, 255, 255, 0.08);
+  --invoice-draft-border: rgba(255, 255, 255, 0.22); --invoice-draft-text: #d1d5db;
 
   /* Bleka färgtoner (badge-/varnings-bakgrunder) — halvtransparenta
      färgtvättar över den mörka ytan istället för de nästan vita tonerna
@@ -532,10 +540,12 @@
     --status-pink-text: #ec9dc4;
     --status-chip-bg: rgba(0,0,0,0.28);
     --row-unpaid-bg:  rgba(245, 158, 11, 0.32);
-    --row-overdue-bg: rgba(244, 63, 94, 0.32);
+    --row-overdue-bg: rgba(239, 68, 68, 0.30);
     --row-paid-bg:    rgba(34, 197, 94, 0.32);
     --invoice-unpaid-bg: #facc15;
-    --invoice-overdue-bg: #dc4545;
+    --invoice-overdue-bg: #e04848;
+    --invoice-draft-bg: rgba(255, 255, 255, 0.08);
+    --invoice-draft-border: rgba(255, 255, 255, 0.22); --invoice-draft-text: #d1d5db;
     --lime-50:  rgba(91, 168, 90, 0.16);
     --lime-100: rgba(91, 168, 90, 0.26);
     --green-50:  var(--lime-50);
@@ -1711,6 +1721,140 @@ body {
   margin-bottom: 0 !important;
 }
 
+
+/* ══════════════════════════════════════════════
+   INSTÄLLNINGAR — vänstermeny och platta avsnitt (Accounted-stil, 2026-09-27)
+   Dator: grupperad meny till vänster, innehållet på vit yta till höger.
+   Avsnitten är inga lådor: liten versal rubrik, hårfin linje, innehåll.
+   Telefon (under 769px) har ingen meny, där är listan (SettingsHub) ingången.
+══════════════════════════════════════════════ */
+.settings-shell { flex: 1; min-height: 0; display: flex; }
+.settings-shell.has-nav { background: var(--bg-card); }
+.settings-nav {
+  width: 228px; flex-shrink: 0; box-sizing: border-box;
+  padding: 16px 12px 28px; overflow-y: auto;
+  border-right: 1px solid var(--border-light);
+}
+.settings-nav-search {
+  display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 10px; margin-bottom: 16px;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--bg-card); color: var(--text-muted);
+}
+.settings-nav-search:focus-within { border-color: var(--accent); }
+.settings-nav-search input {
+  flex: 1; min-width: 0; border: none; outline: none; background: transparent;
+  font: inherit; font-size: 13px; color: var(--text-main);
+}
+.settings-nav-group + .settings-nav-group { margin-top: 16px; }
+.settings-nav-group-title {
+  padding: 0 10px 5px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.07em;
+  text-transform: uppercase; color: var(--text-muted);
+}
+.settings-nav-item {
+  display: block; width: 100%; padding: 7px 10px; border: none; border-radius: 8px;
+  background: transparent; text-align: left; cursor: pointer;
+  font: inherit; font-size: 13.5px; color: var(--text-secondary);
+}
+.settings-nav-item:hover { background: var(--bg-muted); color: var(--text-main); }
+.settings-nav-item.is-active { background: var(--bg-muted); color: var(--text-main); font-weight: 600; }
+.settings-nav-empty { padding: 6px 10px; font-size: 13px; color: var(--text-muted); }
+.settings-shell.has-nav .settings-content { padding: 0; background: var(--bg-card); }
+.settings-body { max-width: 980px; margin: 0 auto; padding: 30px 44px 56px; box-sizing: border-box; }
+.settings-title { margin-bottom: 14px; }
+/* Första avsnittet börjar direkt under sidrubriken, utan dubbel luft. */
+.settings-title + div > :first-child { padding-top: 0 !important; }
+.settings-title + div > .settings-block:first-child > .settings-block-head,
+.settings-title + div > section:first-child > .settings-block-head,
+.settings-title + div > :first-child > .settings-block:first-child > .settings-block-head { padding-top: 6px; }
+/* En spalt, som Accounted: avsnitten under varandra i stället för bredvid. */
+.settings-body .settings-split { columns: 1 !important; }
+.settings-body .settings-grid { grid-template-columns: 1fr !important; gap: 0 !important; }
+.settings-title h1 {
+  margin: 0; font-family: var(--font-voice); font-size: 30px; font-weight: 400;
+  letter-spacing: -0.01em; color: var(--text-main);
+}
+.settings-title p { margin: 5px 0 0; font-size: 13px; color: var(--text-secondary); }
+.settings-block-head {
+  display: flex; align-items: flex-end; gap: 10px; padding: 24px 0 8px;
+  border-bottom: 1px solid var(--border-light);
+}
+.settings-block-title {
+  font-size: 11.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.settings-block-desc { margin-top: 3px; font-size: 12.5px; line-height: 1.5; color: var(--text-muted); }
+.settings-block-body { padding: 14px 0 6px; }
+/* Listrader som leder vidare (Settings.jsx: SettingsLinkRow), som Accounteds
+   import- och kopplingslistor. */
+.settings-block-body.is-flush { padding: 0; }
+.settings-link-row {
+  display: flex; align-items: center; gap: 14px; box-sizing: border-box;
+  padding: 14px 10px; margin: 0 -10px; width: calc(100% + 20px);
+  border-bottom: 1px solid var(--border-light); border-radius: 0;
+  text-align: left; background: transparent;
+}
+.settings-link-row.is-clickable { cursor: pointer; }
+.settings-link-row.is-clickable:hover { background: var(--bg-muted); }
+.settings-link-row.is-clickable:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.settings-link-logo {
+  --zettle-logo-filter: none;
+  width: 44px; height: 44px; flex-shrink: 0; border-radius: 11px; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  background: #fff; border: 1px solid var(--border-light);
+}
+.settings-link-logo svg, .settings-link-logo img { max-width: 30px; max-height: 24px; width: auto; }
+.settings-link-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.settings-link-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14px; font-weight: 600; color: var(--text-main); }
+.settings-link-desc { font-size: 12.5px; line-height: 1.5; color: var(--text-secondary); }
+.settings-link-status {
+  display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px;
+  background: var(--bg-muted); white-space: nowrap;
+  font-size: 12px; font-weight: 600; color: var(--text-secondary);
+}
+.settings-link-aside { flex-shrink: 0; display: flex; align-items: center; }
+.settings-link-status::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--border); }
+.settings-link-status.is-on { background: var(--status-green-bg); color: var(--status-green-text); }
+.settings-link-status.is-on::before { background: currentColor; }
+.settings-link-right { flex-shrink: 0; display: flex; align-items: center; }
+.settings-link-chevron { flex-shrink: 0; color: var(--text-muted); }
+.settings-link-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.settings-link-chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px;
+  border: 1px solid var(--border-light); border-radius: 7px; background: var(--bg-card);
+  font-size: 11.5px; font-weight: 500; color: var(--text-secondary);
+}
+/* Kopplingar: större loggor i listan. */
+.settings-link-logo.is-large { width: 60px; height: 60px; border-radius: 14px; }
+.settings-link-logo.is-large svg, .settings-link-logo.is-large img { max-width: 48px; max-height: 34px; }
+.settings-link-row:has(.settings-link-logo.is-large) { padding-top: 16px; padding-bottom: 16px; gap: 16px; }
+.settings-link-row:has(.settings-link-logo.is-large) .settings-link-title { font-size: 15px; }
+@media (min-width: 1600px) { .settings-body { max-width: 1160px; } }
+/* Kopplingar: statusen står till höger på dator, vid namnet på telefon. */
+.settings-link-status-inline { display: none; }
+@media (max-width: 768px) {
+  .settings-link-status-inline { display: inline-flex; }
+  .settings-link-aside { display: none; }
+  .settings-link-logo.is-large { width: 46px; height: 46px; border-radius: 12px; }
+  .settings-link-logo.is-large svg, .settings-link-logo.is-large img { max-width: 36px; max-height: 26px; }
+  .settings-link-row:has(.settings-link-logo.is-large) { gap: 12px; }
+}
+/* Telefon: samma start som på dator, första avsnittet direkt under sidhuvudet. */
+@media (max-width: 768px) {
+  .settings-content { padding-top: 8px !important; }
+  .settings-content > div > div > :first-child { padding-top: 0 !important; }
+  .settings-content > div > div > :first-child > .settings-block:first-child > .settings-block-head,
+  .settings-content > div > div > .settings-block:first-child > .settings-block-head,
+  .settings-content > div > div > section:first-child > .settings-block-head { padding-top: 8px; }
+}
+.settings-back {
+  display: inline-flex; align-items: center; gap: 6px; margin: 0 0 10px; padding: 4px 8px 4px 4px;
+  border: none; border-radius: 7px; background: transparent; cursor: pointer;
+  font: inherit; font-size: 13px; font-weight: 500; color: var(--text-secondary);
+}
+.settings-back:hover { background: var(--bg-muted); color: var(--text-main); }
+@media (max-width: 1000px) {
+  .settings-nav { width: 196px; }
+  .settings-body { padding: 24px 24px 48px; }
+}
 
 /* ══════════════════════════════════════════════
    INSTÄLLNINGAR — översikten och tätheten

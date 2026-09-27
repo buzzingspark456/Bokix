@@ -4,7 +4,7 @@ import {
   Trash2, Mail, Laptop, Lock, KeyRound, Image as ImageIcon,
   Palette, Landmark, Hash, Calendar, X, ZoomIn, ZoomOut, Maximize2, Bell, ExternalLink, Sun, Moon,
   UserRound, FileText, Plug, Users, Cog, ArrowLeft, ArrowRight,
-  Sparkles, CheckCircle2, Camera, HelpCircle, LogOut, Paperclip,
+  Sparkles, CheckCircle2, HelpCircle, LogOut, Paperclip, Search, ChevronRight, CalendarFilled, MailFilled, BankFilled,
 } from './icons';
 import { supabase } from '../supabaseClient';
 import { sendInvoiceEmail } from '../emailApi';
@@ -19,6 +19,7 @@ import { useCompanyLookup } from '../hooks/useCompanyLookup';
 import { detectOrgType, formatLegalForm, formatOrgNr } from '../utils/orgType';
 import { getGreeting } from '../utils/greeting';
 import { confirmDialog } from './shared/ConfirmDialog';
+import { newCalendarKey, calendarFeedUrl, calendarChoices } from '../utils/calendarFeed';
 import { downloadSie4 } from '../utils/sieExport';
 import { planFromId, PLAN_TIERS } from '../utils/plans';
 import { ACCESS_PAGES, ACCESS_LEVELS, defaultPageAccess, accessForPage } from '../utils/pageAccess';
@@ -63,13 +64,18 @@ function StripeLogo({ height = 16 }) {
 // Knapp i Stripes egen stil för "Anslut X"-flöden (vit botten, deras logga
 // + egen call-to-action-text) istället för en generisk enfärgad knapp —
 // samma mönster som t.ex. "Logga in med Google" använder.
-const btnStripeConnect = {
-  display: 'inline-flex', alignItems: 'center', gap: '9px', padding: '9px 18px 9px 16px',
-  // Var hårdkodad #0a2540 (Stripes mörkblå) — osynlig mot det mörka
-  // kortet i mörkt läge, samma sorts fel som resten av mörklägesronden.
-  background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border)', borderRadius: '8px',
-  fontWeight: 600, fontSize: '14px', cursor: 'pointer', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.06)',
+// Alla knappar på inställningssidan utgår från samma form (kundönskemål
+// 2026-09-27: "knapparna ska se likadana ut överallt"): samma höjd, hörn,
+// textstorlek och vikt. Ansluta/skapa = vit med kant, spara = grön,
+// radera = röd.
+const BTN = {
+  display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '7px',
+  height: '36px', padding: '0 16px', boxSizing: 'border-box', borderRadius: '9px',
+  fontFamily: 'inherit', fontSize: '13.5px', fontWeight: 600, lineHeight: 1,
+  whiteSpace: 'nowrap', textDecoration: 'none', cursor: 'pointer', border: '1px solid transparent',
 };
+const BTN_OUTLINE = { ...BTN, background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border)' };
+const btnStripeConnect = BTN_OUTLINE;
 
 // Zettles eget kombinerade ordmärke ("Zettle" + "by PayPal") — en riktig
 // rasterbild (public/zettle-logo.png, hämtad rakt av från Zettles egen
@@ -83,11 +89,11 @@ const btnStripeConnect = {
 // (`brightness(0) invert(1)`) istället för fill på enskilda paths, eftersom
 // en rasterbild inte har separata, färgbara delar.
 function ZettleLogo({ height = 18 }) {
-  const width = height * (3626 / 1612);
+  const width = height * (320 / 144);
   return (
     <img
-      src="/zettle-logo.png" alt={tr('ui.zettle_by_paypal')} height={height} width={width}
-      style={{ height, width, objectFit: 'contain', filter: 'var(--zettle-logo-filter, none)' }}
+      src="/zettle-official-cropped.png" alt={tr('ui.zettle_by_paypal')} height={height} width={width}
+      style={{ height, width, objectFit: 'contain' }}
     />
   );
 }
@@ -145,6 +151,7 @@ function GmailLogo({ height = 18 }) {
 // datum, förfallodagar, påminnelser, betalningsuppgifter, e-post) på en
 // gång, inte bara mallen. "Användare" blev "Användare & behörigheter".
 const SETTINGS_TABS = [
+  { id: 'profile', label: tr('ui.profil') },
   { id: 'company', label: tr('ui.foretag') },
   { id: 'invoice', label: tr('ui.fakturor') },
   { id: 'integrations', label: tr('ui.integrationer') },
@@ -169,6 +176,7 @@ const SETTINGS_TABS = [
 // referensbildens färgschema kort för kort (grönt/blått/lila/orange/
 // turkost/rosa/blått/lila), inte en enda upprepad ton som förut.
 const SECTION_META = {
+  profile: { icon: UserRound, tone: 'green', desc: tr('ui.namn_bild_och_kontaktuppgifter') },
   company: { icon: Building2, tone: 'green', desc: tr('ui.namn_organisationsnummer_adress_och_bankuppgifte') },
   invoice: { icon: FileText, tone: 'blue', desc: tr('ui.nummer_datum_paminnelser_mall_och_e_post') },
   integrations: { icon: Plug, tone: 'purple', desc: tr('ui.stripe_zettle_och_egen_avsandardoman_for_mejl') },
@@ -195,12 +203,49 @@ const SECTION_META = {
 // Mobilens inställningsöversikt är grupperad (som iOS/Fortnox) i stället för
 // tio lösa kort: rubrik + ett kort per grupp med rader. På dator ligger
 // korten kvar som ett rutnät (grupperna är då display: contents).
+// Samma grupper i datorns vänstermeny (SettingsNav) och telefonens lista.
 const HUB_GROUPS = [
-  { title: tr('ui.foretaget'), ids: ['company', 'invoice', 'users'] },
-  { title: tr('ui.kopplingar_och_system'), ids: ['integrations', 'system'] },
-  { title: tr('ui.konto_och_utseende'), ids: ['subscription', 'appearance', 'notifications', 'security'] },
-  { title: tr('ui.ovrigt'), ids: ['advanced'] },
+  { title: tr('ui.sg_du'), ids: ['profile', 'security', 'appearance', 'notifications'] },
+  { title: tr('ui.sg_foretaget'), ids: ['company', 'users', 'subscription'] },
+  { title: tr('ui.sg_bokforing'), ids: ['system', 'advanced'] },
+  { title: tr('ui.sg_forsaljning'), ids: ['invoice', 'integrations'] },
 ];
+
+// Vänstermenyn på dator, som Accounted: grupprubriker, en rad per avsnitt,
+// sökfält överst. Inga ikoner, den valda raden får en dämpad bakgrund.
+function SettingsNav({ sections, activeId, onPick }) {
+  const [query, setQuery] = useState('');
+  const q = query.trim().toLowerCase();
+  const matches = (s) => !q || s.label.toLowerCase().includes(q) || (SECTION_META[s.id]?.desc || '').toLowerCase().includes(q);
+  const groups = HUB_GROUPS
+    .map(g => ({ ...g, items: g.ids.map(id => sections.find(s => s.id === id)).filter(s => s && matches(s)) }))
+    .filter(g => g.items.length > 0);
+  return (
+    <nav className="settings-nav" aria-label={tr('ui.installningar')}>
+      <div className="settings-nav-search">
+        <Search size={15} />
+        <input type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder={tr('ui.sok_installning')} aria-label={tr('ui.sok_installning')} />
+      </div>
+      {groups.map(group => (
+        <div key={group.title} className="settings-nav-group">
+          <div className="settings-nav-group-title">{group.title}</div>
+          {group.items.map(s => (
+            <button
+              key={s.id}
+              type="button"
+              className={`settings-nav-item${s.id === activeId ? ' is-active' : ''}`}
+              aria-current={s.id === activeId ? 'page' : undefined}
+              onClick={() => onPick(s.id)}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+      ))}
+      {groups.length === 0 && <div className="settings-nav-empty">{tr('ui.inga_traffar')}</div>}
+    </nav>
+  );
+}
 
 function SettingsHub({ sections, onPick }) {
   const placed = new Set(HUB_GROUPS.flatMap(g => g.ids));
@@ -260,9 +305,10 @@ function SettingsHub({ sections, onPick }) {
 // index.css definierar --density-card-p (13px normalt, 9px under
 // [data-density="compact"], se Inställningar → Utseende → Kompakt/normal)
 // så EN CSS-variabel styr rytmen i stället för att dubblera värdet här.
+// Accounted-stil (2026-09-27): ingen låda, bara en linje under avsnittet.
 const card = {
-  background: 'var(--bg-card)', borderRadius: '12px', padding: 'var(--density-card-p, 13px)', width: '100%', boxSizing: 'border-box',
-  border: '1px solid #ececef', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
+  padding: '18px 0 14px', width: '100%', boxSizing: 'border-box',
+  borderBottom: '1px solid var(--border-light)',
 };
 // Sida 38, punkt 2: kolumnbredden lever i CSS-klassen .form-row-2
 // (index.css) istället för här, så mobilens 1-kolumns-överskrivning
@@ -299,29 +345,26 @@ const inputBase = {
   // mitt i en annars mörk sida.
   background: 'var(--bg-card)', color: 'var(--text-main)',
 };
-const btnPrimary = { padding: '9px 18px', background: BRAND.green, color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer', boxShadow: '0 2px 6px color-mix(in srgb, var(--accent) 25%, transparent)' };
+const btnPrimary = { ...BTN, background: BRAND.green, color: 'white' };
 // Knappen i en integrationsbricka — liten, tydlig, samma i alla brickor.
-const btnTile = {
-  display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 14px',
-  background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border)',
-  borderRadius: '999px', fontWeight: 700, fontSize: '12.5px', cursor: 'pointer', fontFamily: 'inherit',
-};
+const btnTile = BTN_OUTLINE;
 // Kundönskemål ("gör integrationssidan större"): samma knapp, bara skalad
 // upp till de nu större IntegrationTile-korten — en EGEN variant i
 // stället för att förstora btnTile självt, som även delas av helt andra,
 // oförstorade knappar (Användare-flikens "Markera alla"/"Rensa" m.fl.).
-const btnTileLg = { ...btnTile, padding: '10px 18px', fontSize: '13.5px' };
+const btnTileLg = BTN_OUTLINE;
 
-const btnSecondary = { padding: '9px 18px', background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border)', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer' };
-const btnGhost = { padding: '9px 14px', background: 'transparent', color: 'var(--text-secondary)', border: 'none', fontWeight: 600, fontSize: '13px', cursor: 'pointer' };
+const btnSecondary = BTN_OUTLINE;
+const btnGhost = { ...BTN, padding: '0 12px', background: 'transparent', color: 'var(--text-secondary)' };
+const btnDanger = { ...BTN, background: '#dc2626', color: 'white' };
 // Säkerhetsförsvagande handling (t.ex. stänga av tvåstegsverifiering) — dämpad
 // varningston (amberBg/amberText), inte samma neutrala grå som vanliga
 // sekundärknappar och inte heller Bokix grönt (det är en primär, positiv
 // handling-färg, fel signal för något som gör kontot mindre skyddat).
-const btnWarning = { padding: '9px 18px', background: BRAND.amberBg, color: BRAND.amberText, border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer' };
+const btnWarning = { ...BTN, background: BRAND.amberBg, color: BRAND.amberText };
 // Sällan använd säkerhetsåtgärd (utloggning av andra enheter) — tydligt röd
 // men ghost/outline, inte en vardaglig spara-knapp.
-const btnDangerGhost = { padding: '9px 18px', background: 'var(--bg-card)', color: 'var(--status-red-text)', border: '1px solid var(--status-red-bg)', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer' };
+const btnDangerGhost = { ...BTN, background: 'var(--bg-card)', color: 'var(--status-red-text)', border: '1px solid var(--status-red-bg)' };
 
 // Färgad ikon-i-cirkel framför ett kortnamn — gör varje sektion visuellt
 // identifierbar på en snabb blick istället för en lång lista av likadana
@@ -346,16 +389,9 @@ const SECTION_TONES = {
   teal:   VIVID.teal,
   gray:   '#64748b', // Neutral skiffer (verktyg/integrationer) — medvetet INTE en VIVID-brandkulör.
 };
-function SectionHeading({ icon: Icon, tone = 'green', children }) {
-  const bg = SECTION_TONES[tone] || SECTION_TONES.green;
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-      <div style={{ width: 34, height: 34, borderRadius: '10px', background: bg, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: `0 2px 6px ${bg}4d` }}>
-        <Icon size={17} strokeWidth={2.3} />
-      </div>
-      <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>{children}</h3>
-    </div>
-  );
+// Samma lilla versala rubrik som SettingCard (Accounted-stil), utan ikon.
+function SectionHeading({ children }) {
+  return <h3 className="settings-block-title" style={{ margin: 0 }}>{children}</h3>;
 }
 
 // ── Av/på-växel ── Egen liten switch istället för en vanlig kryssruta —
@@ -458,48 +494,36 @@ function Badge({ tone = 'warning', children }) {
 // mot kortkanten ovanför, inte längre en riktig "luft"-marginal.
 function SettingsSection({ title, description, children, actions }) {
   return (
-    <section style={{ marginBottom: '4px' }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginBottom: '6px' }}>
-        <div style={{ minWidth: 0 }}>
-          <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.01em' }}>{title}</h2>
-          {description && (
-            <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.55, maxWidth: '620px' }}>{description}</p>
-          )}
+    <section style={{ marginBottom: '8px' }}>
+      {(title || actions) && (
+        <div className="settings-block-head">
+          <h2 className="settings-block-title" style={{ margin: 0, flex: 1, minWidth: 0 }}>{title}</h2>
+          {actions}
         </div>
-        {actions}
-      </div>
+      )}
       {children}
     </section>
   );
 }
 
-function SettingCard({ title, icon: Icon, tone = 'green', badge, description, children, danger, style }) {
-  const toneColor = danger ? 'var(--status-red-text)' : undefined;
+// 2026-09-27, Accounted-stil: inga lådor och inga färgade ikonplattor.
+// Ett avsnitt är en liten versal rubrik med en hårfin linje under, och
+// innehållet står direkt på sidan. `icon`/`tone` tas fortfarande emot så
+// anropen inte behöver ändras, men ritas inte.
+function SettingCard({ title, badge, description, children, danger, style, flush = false }) {
+  const { borderRadius: _ignored, ...rest } = style || {};
   return (
-    <div style={{
-      background: danger ? 'var(--status-red-bg)' : 'var(--bg-card)',
-      border: `1px solid ${danger ? 'transparent' : 'var(--border)'}`,
-      borderRadius: '12px',
-      boxShadow: danger ? 'none' : '0 1px 2px rgba(15, 23, 42, 0.04)',
-      overflow: 'hidden',
-      minWidth: 0,
-      ...style,
-    }}>
+    <section className="settings-block" style={{ minWidth: 0, ...rest }}>
       {(title || badge) && (
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 13px',
-          borderBottom: '1px solid var(--border-light)',
-        }}>
-          {Icon && <SectionHeadingIcon icon={Icon} tone={danger ? 'red' : tone} />}
+        <div className="settings-block-head">
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ fontSize: '14px', fontWeight: 700, color: toneColor || 'var(--text-main)' }}>{title}</div>
-            {description && <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginTop: '2px', lineHeight: 1.5 }}>{description}</div>}
+            <div className="settings-block-title" style={danger ? { color: 'var(--status-red-text)' } : undefined}>{title}</div>
           </div>
           {badge}
         </div>
       )}
-      {children != null && <div style={{ padding: '12px' }}>{children}</div>}
-    </div>
+      {children != null && <div className={flush ? 'settings-block-body is-flush' : 'settings-block-body'}>{children}</div>}
+    </section>
   );
 }
 
@@ -525,16 +549,52 @@ function SettingRow({ label, description, children, last }) {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap',
-      padding: 'var(--density-row-py, 8px) 0',
+      padding: 'calc(var(--density-row-py, 8px) + 4px) 0',
       borderBottom: last ? 'none' : '1px solid var(--border-light)',
     }}>
       <div style={{ minWidth: '180px', flex: 1 }}>
-        <div style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-main)' }}>{label}</div>
+        <div style={{ fontSize: '13.5px', fontWeight: 500, color: 'var(--text-main)' }}>{label}</div>
         {description && <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginTop: '3px', lineHeight: 1.55, maxWidth: '460px' }}>{description}</div>}
       </div>
       <div style={{ flexShrink: 0 }}>{children}</div>
     </div>
   );
+}
+
+/** En rad i en lista som leder vidare, som Accounteds import- och
+ * kopplingslistor: logga, titel (med valfri status), en rad om vad det är,
+ * och en pil. Hela raden är klickbar. `right` ersätter pilen med en egen
+ * kontroll (t.ex. Anslut) när raden inte leder till en egen sida. */
+function SettingsLinkRow({ logo, logoLarge = false, title, status, aside, description, onClick, right, danger, children }) {
+  const clickable = Boolean(onClick);
+  // En div med knapproll, inte en <button>: raden kan bära en egen knapp
+  // (Anslut), och knappar får inte ligga i varandra.
+  return (
+    <div
+      className={`settings-link-row${clickable ? ' is-clickable' : ''}`}
+      onClick={onClick}
+      role={clickable ? 'button' : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      onKeyDown={clickable ? (e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onClick(); } } : undefined}
+    >
+      {logo && <span className={logoLarge ? 'settings-link-logo is-large' : 'settings-link-logo'}>{logo}</span>}
+      <span className="settings-link-text">
+        <span className="settings-link-title" style={danger ? { color: 'var(--status-red-text)' } : undefined}>
+          {title}
+          {status}
+        </span>
+        {description && <span className="settings-link-desc">{description}</span>}
+        {children}
+      </span>
+      {aside && <span className="settings-link-aside">{aside}</span>}
+      {right != null ? <span className="settings-link-right" onClick={e => e.stopPropagation()}>{right}</span> : clickable && <ChevronRight size={18} className="settings-link-chevron" />}
+    </div>
+  );
+}
+
+/** Liten statusmarkering bredvid titeln i en SettingsLinkRow. */
+function LinkStatus({ on, children }) {
+  return <span className={`settings-link-status${on ? ' is-on' : ''}`}>{children}</span>;
 }
 
 /** Ett fält som visar en uppgift man inte får ändra — ser ut som ett
@@ -560,69 +620,12 @@ function LockedField({ label, value }) {
 /** Underrubrik INUTI ett kort — det som gör att företagsuppgifterna kan
  * ligga som EN familj (grunduppgifter, kontakt, bank) i stället för tre
  * separata kort man måste leta mellan. Kundfeedback: exakt den familjen. */
-function FieldGroup({ title, hint, children, first }) {
+function FieldGroup({ title, children }) {
   return (
-    <div style={{ marginTop: first ? 0 : '11px', paddingTop: first ? 0 : '10px', borderTop: first ? 'none' : '1px solid var(--border-light)' }}>
-      <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: hint ? '4px' : '7px' }}>{title}</div>
-      {hint && <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: '0 0 7px', lineHeight: 1.55 }}>{hint}</p>}
-      {children}
-    </div>
-  );
-}
-
-/** En bricka i integrationskatalogen: logotypen stor nog att kännas igen,
- * namnet, en rad om vad tjänsten gör, statusen och en knapp. Hela brickan
- * är klickbar när det finns inställningar att öppna — kundönskemål med en
- * referensbild på just den formen (sökbar katalog, ett kort per tjänst). */
-function IntegrationTile({ logo, name, tagline, connected, statusLabel, action, onOpen, open }) {
-  const clickable = Boolean(onOpen);
-  return (
-    <div
-      onClick={clickable ? onOpen : undefined}
-      role={clickable ? 'button' : undefined}
-      tabIndex={clickable ? 0 : undefined}
-      onKeyDown={clickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } } : undefined}
-      className={clickable ? 'lp-card-hover' : undefined}
-      style={{
-        background: 'var(--bg-card)',
-        border: `1px solid ${open ? BRAND.green : 'var(--border)'}`,
-        borderRadius: '16px', padding: '26px 26px 22px', minWidth: 0,
-        display: 'flex', flexDirection: 'column', gap: '18px',
-        cursor: clickable ? 'pointer' : 'default',
-        boxShadow: open ? '0 4px 14px color-mix(in srgb, var(--accent) 12%, transparent)' : '0 1px 2px rgba(15, 23, 42, 0.04)',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
-        {/* Vit platta bakom varje logga: flera av dem har vit bakgrund
-            inbakad och skulle annars se ut som klistermärken i mörkt läge —
-            samma lösning som importguidens programloggor. */}
-        {/* Plattan är alltid vit, så loggan måste alltid vara sin
-            ljusa variant. Utan nollställningen nedan slog mörklägesfiltret
-            (--zettle-logo-filter: brightness(0) invert(1), index.css) till
-            och gjorde Zettle-loggan vit på vit platta — alltså osynlig,
-            precis det kundfeedbacken pekade på. */}
-        {/* Kundönskemål ("gör den större"): hela kortet skalat upp ett
-            tydligt steg — loggplattan 46→60px, texten och avståndet med. */}
-        <span style={{ width: 60, height: 60, borderRadius: '14px', background: '#fff', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, '--zettle-logo-filter': 'none' }}>
-          {logo}
-        </span>
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ fontWeight: 700, fontSize: '18px', color: 'var(--text-main)', letterSpacing: '-0.01em' }}>{name}</div>
-          <div style={{ fontSize: '13.5px', color: 'var(--text-secondary)', marginTop: '5px', lineHeight: 1.55 }}>{tagline}</div>
-        </div>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap', marginTop: 'auto' }}>
-        <span style={{
-          display: 'inline-flex', alignItems: 'center', gap: '6px',
-          fontSize: '12.5px', fontWeight: 700, letterSpacing: '0.02em',
-          color: connected ? BRAND.greenDark : 'var(--text-muted)',
-        }}>
-          <span style={{ width: 8, height: 8, borderRadius: '50%', background: connected ? BRAND.green : 'var(--border)' }} />
-          {statusLabel || (connected ? tr('ui.ansluten') : tr('ui.inte_ansluten'))}
-        </span>
-        {action && <span onClick={e => e.stopPropagation()}>{action}</span>}
-      </div>
-    </div>
+    <section className="settings-block">
+      <div className="settings-block-head"><div className="settings-block-title">{title}</div></div>
+      <div className="settings-block-body">{children}</div>
+    </section>
   );
 }
 
@@ -856,37 +859,6 @@ function ImageUploadField({ label, value, onChange, uploadPath, bucket, hint, re
   );
 }
 
-/** Profilbilden i "Min profil" — en cirkel (foto eller initialer, samma
- * mönster som IdentityCard/sidebar-avataren redan använder på resten av
- * appen) bredvid ImageUploadField:s vanliga knappar, i stället för att
- * ImageUploadField (som saknar en egen bildförhandsvisning — den är till
- * för företagslogotypen, som redan har en egen förhandsvisning bredvid) får
- * låtsas vara ett avatarfält. Kameraikonen är ren dekoration (klick sker
- * via de riktiga knapparna intill), samma "peka ut att bilden går att
- * ändra"-idé som mockupen, bara utan en overlay-knapp som skulle krocka med
- * knapparna som redan finns. */
-function AvatarUploadRow({ avatarUrl, initials, onChange, uploadPath, readOnly }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginBottom: '10px' }}>
-      <div style={{ position: 'relative', flexShrink: 0 }}>
-        {avatarUrl ? (
-          <img src={avatarUrl} alt="" style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border)' }} />
-        ) : (
-          <div style={{ width: 56, height: 56, borderRadius: '50%', background: BRAND.greenLight, color: BRAND.greenDark, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: 700 }}>
-            {initials}
-          </div>
-        )}
-        <span aria-hidden style={{ position: 'absolute', right: -2, bottom: -2, width: 20, height: 20, borderRadius: '50%', background: 'var(--bg-card)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
-          <Camera size={11} />
-        </span>
-      </div>
-      <div style={{ flex: 1, minWidth: '220px' }}>
-        <ImageUploadField label={tr('ui.din_profilbild')} value={avatarUrl} onChange={onChange} uploadPath={uploadPath} bucket="profile" hint={tr('ui.jpg_eller_png_max_3_mb')} readOnly={readOnly} />
-      </div>
-    </div>
-  );
-}
-
 // ── Fakturamall (Sida 24) ──
 // Exempeldata bara för förhandsvisningen/mallkorten här i Inställningar —
 // samma InvoiceDocument-komponent som fångas för den riktiga PDF-exporten
@@ -1114,7 +1086,7 @@ function PasswordSection({ user, readOnly = false, bare = false }) {
     }
   };
 
-  const statusText = changedAt ? tr('ui.senast_andrat', { v0: relativeTimeSv(changedAt) }) : tr('ui.inte_sparat_annu_byt_losenord_har_for_att_borja');
+  const statusText = changedAt ? tr('ui.senast_andrat', { v0: relativeTimeSv(changedAt) }) : null;
 
   const form = (
     <>
@@ -1260,10 +1232,10 @@ function TwoFactorSection({ bare = false }) {
     // kortet — enrollPanel har sin egen ovankant, ingen dubbel linje.
     return (
       <>
-        <SettingRow label={tr('ui.tvafaktorsautentisering')} description={tr('ui.aktiverad_for_extra_sakerhet_vid_inloggning')} last>
+        <SettingRow label={tr('ui.tvafaktorsautentisering')} last>
           {factors !== null && !enrolling && (
             verifiedFactor
-              ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}><Badge tone="positive">{tr('ui.aktiv')}</Badge><button onClick={disable} disabled={busy} style={{ ...btnGhost, padding: '4px 8px', fontSize: '12px' }}>{tr('ui.inaktivera')}</button></span>
+              ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}><Badge tone="positive">{tr('ui.aktiv')}</Badge><button onClick={disable} disabled={busy} style={btnGhost}>{tr('ui.inaktivera')}</button></span>
               : <button onClick={startEnroll} disabled={busy} style={btnSecondary}>{tr('ui.aktivera')}</button>
           )}
         </SettingRow>
@@ -1346,61 +1318,11 @@ function ActiveSessionsSection({ user, readOnly = false }) {
   );
 }
 
-// ── Inloggningshistorik ── (Säkerhet). Egna, verkliga rader (login_events,
-// supabase-setup.sql) skrivna av App.jsx vid varje SIGNED_IN — till
-// skillnad från ActiveSessionsSection ovan (som bara kan visa NUVARANDE
-// enhet, Supabase Auth ger ingen lista) är det här en riktig historik,
-// bara inte en spärr mot att logga ut andra sessioner.
-function LoginHistorySection({ user, readOnly = false }) {
-  const [events, setEvents] = useState(null);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    if (readOnly || !user?.id) { setEvents([]); return; }
-    let cancelled = false;
-    supabase
-      .from('login_events')
-      .select('id, device, created_at')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(20)
-      .then(({ data, error: err }) => {
-        if (cancelled) return;
-        if (err) setError(err.message);
-        setEvents(data || []);
-      });
-    return () => { cancelled = true; };
-  }, [user?.id, readOnly]);
-
-  return (
-    <div style={{ ...card, borderRadius: 0 }}>
-      <div style={{ marginBottom: '8px' }}><SectionHeading icon={Laptop} tone="blue">{tr('ui.inloggningshistorik')}</SectionHeading></div>
-      <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 12px', maxWidth: '560px' }}>
-        {tr('ui.de_senaste_20_gangerna_du_loggat_in_pa_det_har_k')}
-      </p>
-      {error && <div style={{ fontSize: '13px', color: 'var(--status-red-text)' }}>{error}</div>}
-      {events === null ? (
-        <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{tr('ui.laser_in_2')}</div>
-      ) : events.length === 0 ? (
-        <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{tr('ui.ingen_historik_annu')}</div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-          {events.map((e, i) => (
-            <SettingRow key={e.id} label={e.device} description={new Intl.DateTimeFormat('sv-SE', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(e.created_at))} last={i === events.length - 1}>
-              {i === 0 && <Badge tone="positive">{tr('ui.senast')}</Badge>}
-            </SettingRow>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ── Verifikationsserie: golv för nästa nummer (System > Verifikationsserier) ──
 // Exakt samma mönster som fakturanummer-golvet (saveNextInvoiceNumber ovan i
 // komponentkroppen) — går bara att höja, aldrig sätta under det som redan
 // är använt, så två verifikationer aldrig kan få samma nummer.
-function VerificationSeriesFloorField({ letter, verifications, value, onChange }) {
+function VerificationSeriesFloorField({ letter, verifications, value, onChange, row = false, last = false }) {
   const maxUsed = useMemo(() => getMaxUsedNumber(verifications, letter), [verifications, letter]);
   const [input, setInput] = useState(String(value || maxUsed + 1));
   const [error, setError] = useState('');
@@ -1414,6 +1336,26 @@ function VerificationSeriesFloorField({ letter, verifications, value, onChange }
     setError('');
     onChange(n);
   };
+
+  // Radform (Allmänt): etikett och senast använda nummer till vänster,
+  // fältet och Spara till höger.
+  if (row) {
+    return (
+      <SettingRow
+        label={`${tr('ui.serie')} ${letter}`}
+        description={<>
+          {tr('ui.hogsta_anvanda')} {letter}{String(maxUsed).padStart(3, '0')}
+          {error && <span style={{ display: 'block', color: 'var(--status-red-text)', marginTop: '2px' }}>{error}</span>}
+        </>}
+        last={last}
+      >
+        <div style={{ display: 'flex', gap: '6px' }}>
+          <input type="number" min={maxUsed + 1} value={input} onChange={e => setInput(e.target.value)} aria-label={`${tr('ui.serie')} ${letter} ${tr('ui.nasta_nummer')}`} style={{ ...inputBase, width: '96px' }} />
+          <button type="button" onClick={save} style={btnTile}>{tr('ui.spara')}</button>
+        </div>
+      </SettingRow>
+    );
+  }
 
   return (
     <div style={{ minWidth: '160px' }}>
@@ -1454,7 +1396,7 @@ function AuditLogCard({ company, readOnly = false }) {
   }, [company?.id, readOnly]);
 
   return (
-    <div style={card}>
+    <div>
       {error && <div style={{ fontSize: '13px', color: 'var(--status-red-text)', marginBottom: '10px' }}>{error}</div>}
       {events === null ? (
         <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{tr('ui.laser_in_2')}</div>
@@ -1904,7 +1846,7 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
               <button
                 type="button"
                 onClick={() => setEditingAccessId(editingAccessId === row.id ? null : row.id)}
-                style={{ ...btnTile, padding: '5px 11px' }}
+                style={btnTile}
               >
                 {editingAccessId === row.id ? tr('ui.dolj') : tr('ui.andra')}
               </button>
@@ -2356,7 +2298,7 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
             {tr('ui.du_behaller_full_atkomst_till_och_med')} {fmtDateSv(endDate)}{tr('ui.redan_betald_tid_aterbetalas_inte_men_inget_mer')}
           </div>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            <button onClick={handleCancel} disabled={busy} style={{ ...btnPrimary, background: '#dc2626', boxShadow: 'none', opacity: busy ? 0.6 : 1 }}>
+            <button onClick={handleCancel} disabled={busy} style={{ ...btnDanger, opacity: busy ? 0.6 : 1 }}>
               {busy ? tr('ui.avslutar') : tr('ui.ja_avsluta')}
             </button>
             <button onClick={() => setConfirmCancel(false)} disabled={busy} style={btnGhost}>{tr('ui.behall_prenumerationen')}</button>
@@ -2421,7 +2363,11 @@ export default function Settings({
   // Företag-genväg, eller ett #settings/<flik>-hash) fortsätter hoppa
   // förbi hubben rakt till rätt flik — se de två useEffects nedan, ingen
   // av dem ändrad.
-  const [activeTab, setActiveTab] = useState(null);
+  const [pickedTab, setActiveTab] = useState(null);
+  // Dator: vänstermenyn syns alltid, så sidan öppnar direkt på Profil i
+  // stället för en översikt. Telefon: listan (SettingsHub) är ingången.
+  const isPhone = useIsMobileViewport();
+  const activeTab = pickedTab ?? (isPhone ? null : 'profile');
   const { t, language, setLanguage } = useTranslation();
   const [dateFormatPref, setDateFormatPref] = useState(getDateFormatPreference());
   const saveDateFormatPref = (fmt) => { setDateFormatPreference(fmt); setDateFormatPref(fmt); };
@@ -2438,6 +2384,11 @@ export default function Settings({
   const [nextInvoiceNumberInput, setNextInvoiceNumberInput] = useState('');
   // Vilken integration som är öppen för inställningar.
   const [openIntegration, setOpenIntegration] = useState(null);
+  // Undersida i Import och export (radera data / radera företag), samma
+  // idé som openIntegration: listan först, en egen sida när man valt.
+  const [advancedView, setAdvancedView] = useState(null);
+  const [calendarCopied, setCalendarCopied] = useState(false);
+  const backupInputRef = useRef(null);
   const [invoiceNumberError, setInvoiceNumberError] = useState('');
 
   // ── Företagsuppgifter: "Spara ändringar" + Reauthentication ──
@@ -2583,6 +2534,8 @@ export default function Settings({
 
   const handleSetTab = (tab) => {
     setActiveTab(tab);
+    setOpenIntegration(null);
+    setAdvancedView(null);
     // Se kommentaren vid hash-avläsningen ovan för varför den är
     // namnrymdad. `null` = tillbaka till översikten, som inte har något
     // eget avsnitt att peka ut.
@@ -2598,6 +2551,13 @@ export default function Settings({
   // `null` när man står på översikten. Styr sidhuvudet, flikraden och
   // vilken vy som renderas — ETT värde, inte tre villkor som kan glida isär.
   const activeSection = visibleSections.find(t => t.id === activeTab) || null;
+  // Undersidor (en koppling, eller radering i Import och export): egen
+  // rubrik och en väg tillbaka till listan.
+  const subPage = activeTab === 'integrations' && openIntegration
+    ? { title: ({ stripe: 'Stripe', zettle: 'Zettle', calendar: tr('ui.kalender'), gmail: 'Gmail', 'business-email': tr('ui.egen_e_postadress'), bank: tr('ui.din_bank') })[openIntegration] || '', back: () => setOpenIntegration(null) }
+    : activeTab === 'advanced' && advancedView
+      ? { title: advancedView === 'delete-data' ? tr('ui.radera_foretagets_bokforingsdata') : tr('ui.radera_foretag'), back: () => setAdvancedView(null) }
+      : null;
 
   // Notiser-fliken: huvudströmbrytaren, läst en gång här (samma fält som
   // api/cron/reminders.js och App.jsx:s handleRegisterInvoicePayment
@@ -2608,17 +2568,9 @@ export default function Settings({
   const firstName = user?.user_metadata?.first_name || '';
   const lastName = user?.user_metadata?.last_name || '';
   const phone = user?.user_metadata?.phone || '';
-  // Kundönskemål (mockup): en riktig profilbild i "Min profil" — bucketen
-  // ('profile', <uid>/avatar.<ext>, RLS: bara den inloggade själv) fanns
-  // redan förberedd i supabase-setup.sql sedan tidigare, men ingen sida
-  // hade någonsin byggt UI:t för den (samma "backend fanns, aldrig ett
-  // fält" som notifications.* på företaget). avatar_url sparas som
-  // user_metadata, samma mönster som first_name/last_name ovan.
-  const avatarUrl = user?.user_metadata?.avatar_url || '';
   // Bara för toggle-hintens exempeltext nedan — samma tidsberoende hälsning
   // som Startsidan faktiskt visar, inte en hårdkodad "Hej".
   const { greeting: greetingPreview } = getGreeting();
-  const initials = ((firstName[0] || user?.email?.[0] || '?') + (lastName[0] || '')).toUpperCase();
 
   const updateUserMeta = (patch) => {
     if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; }
@@ -2701,7 +2653,7 @@ export default function Settings({
   // familj). De autosparar (setCompanyInfo) till skillnad från fälten
   // ovanför dem i samma kort, vilket gruppens hjälptext säger rakt ut.
   const bankFieldsGroup = (
-    <FieldGroup title={tr('ui.bank')} hint={tr('ui.visas_pa_fakturan_sparas_direkt')}>
+    <FieldGroup title={tr('ui.bank')}>
       <div className="form-row-2" style={{ ...grid2, maxWidth: FORM_MAX }}>
         <AutoField label={tr('ui.bankgiro')} value={company?.bankgiro || ''} onChange={(v) => setCompanyInfo({ ...company, bankgiro: v })} />
         <AutoField label={tr('ui.plusgiro')} value={company?.plusgiro || ''} onChange={(v) => setCompanyInfo({ ...company, plusgiro: v })} />
@@ -2718,21 +2670,91 @@ export default function Settings({
   // för ett duplicerat fält-par som kan glida isär). #bank som href (inte
   // en ny prop genom App.jsx) — samma hashchange-routing appen redan
   // lyssnar på för alla andra sidbyten.
-  const bankDetailsCard = (
+  // Zettle: egen sida som de andra kopplingarna (kundönskemål), i stället
+  // för en Anslut-knapp direkt i listan.
+  // Kalenderlänken (.ics, api/calendar.js). Ingen Google-inloggning: Google
+  // Kalender, Apple och Outlook prenumererar på länken och hämtar den själva.
+  const calendarSettings = company?.calendar || {};
+  const calendarChoicesNow = calendarChoices(calendarSettings);
+  const calendarUrl = calendarSettings.key && typeof window !== 'undefined'
+    ? calendarFeedUrl(window.location.origin, sharedAccess?.ownerUserId || user?.id, activeCompanyId, calendarSettings.key)
+    : '';
+  const calendarWebcal = calendarUrl.replace(/^https?:/, 'webcal:');
+  const saveCalendar = (patch) => {
+    if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; }
+    setCompanyInfo({ ...company, calendar: { ...calendarSettings, ...patch } });
+  };
+  const copyCalendarUrl = async () => {
+    try { await navigator.clipboard.writeText(calendarUrl); setCalendarCopied(true); setTimeout(() => setCalendarCopied(false), 2000); } catch { /* urklipp blockerat, fältet går att markera */ }
+  };
+  const calendarCard = !calendarSettings.key ? (
     <div style={card}>
-      <div style={{ marginBottom: '14px' }}><SectionHeading icon={Landmark} tone="green">{tr('ui.dina_betaluppgifter')}</SectionHeading></div>
-      <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 14px', maxWidth: FORM_MAX }}>
-        {tr('ui.det_har_ar_vad_kunden_ser_pa_fakturan_betalnings')}
-      </p>
-      {bankFieldsGroup}
-      <div style={{ marginTop: '16px', paddingTop: '14px', borderTop: '1px solid var(--border-light)' }}>
-        <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '6px' }}>{tr('ui.importera_kontoutdrag')}</div>
-        <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: '0 0 10px', maxWidth: FORM_MAX }}>
-          {tr('ui.ladda_upp_en_csv_excel_fil_fran_din_bank_raderna')}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+        <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0, maxWidth: '480px' }}>{tr('ui.kalender_intro')}</p>
+        <button type="button" onClick={() => saveCalendar({ key: newCalendarKey() })} style={btnSecondary}>{tr('ui.skapa_kalenderlank')}</button>
+      </div>
+    </div>
+  ) : (
+    <>
+      <SettingCard title={tr('ui.lagg_till_i_kalendern')}>
+        <SettingRow label="Google Kalender">
+          <a href={`https://calendar.google.com/calendar/r?cid=${encodeURIComponent(calendarWebcal)}`} target="_blank" rel="noopener noreferrer" style={btnSecondary}>
+            {tr('ui.lagg_till')} <ExternalLink size={13} />
+          </a>
+        </SettingRow>
+        <SettingRow label={tr('ui.apple_kalender')}>
+          <a href={calendarWebcal} style={btnSecondary}>{tr('ui.lagg_till')}</a>
+        </SettingRow>
+        <SettingRow label={tr('ui.kalenderlank_ovriga')} description={tr('ui.kalender_google_uppdaterar')} last>
+          <div style={{ display: 'flex', gap: '6px' }}>
+            <input readOnly value={calendarUrl} onFocus={e => e.target.select()} aria-label={tr('ui.kalenderlank_ovriga')} style={{ ...inputBase, width: '220px', fontFamily: 'ui-monospace, monospace', fontSize: '12px' }} />
+            <button type="button" onClick={copyCalendarUrl} style={btnTile}>{calendarCopied ? tr('ui.kopierad') : tr('ui.kopiera')}</button>
+          </div>
+        </SettingRow>
+      </SettingCard>
+      <SettingCard title={tr('ui.innehall_i_kalendern')}>
+        {[
+          { id: 'vat', label: tr('ui.momsdeklaration'), description: tr('ui.kal_moms_desc') },
+          { id: 'agi', label: tr('ui.arbetsgivardeklaration'), description: tr('ui.kal_agi_desc') },
+          { id: 'ku', label: tr('ui.kontrolluppgifter'), description: tr('ui.kal_ku_desc') },
+          { id: 'invoices', label: tr('ui.kundfakturor'), description: tr('ui.nar_obetalda_fakturor_forfaller') },
+          { id: 'supplierInvoices', label: tr('ui.leverantorsfakturor_stor'), description: tr('ui.kal_lev_desc') },
+        ].map((row, i, all) => (
+          <SettingRow key={row.id} label={row.label} description={row.description} last={i === all.length - 1}>
+            <ToggleSwitch checked={calendarChoicesNow[row.id]} onChange={() => saveCalendar({ ...calendarChoicesNow, [row.id]: !calendarChoicesNow[row.id] })} />
+          </SettingRow>
+        ))}
+      </SettingCard>
+      <SettingCard>
+        <SettingRow label={tr('ui.skapa_ny_lank')} description={tr('ui.den_gamla_lanken_slutar_fungera')} last>
+          <button
+            type="button"
+            onClick={async () => { if (await confirmDialog(tr('ui.skapa_ny_kalenderlank_fraga'))) saveCalendar({ key: newCalendarKey() }); }}
+            style={btnSecondary}
+          >
+            {tr('ui.skapa_ny_lank')}
+          </button>
+        </SettingRow>
+      </SettingCard>
+    </>
+  );
+
+  const zettleCard = (
+    <div style={card}>
+      <div style={{ marginBottom: '14px' }}><SectionHeading>{tr('ui.kassaforsaljning')}</SectionHeading></div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+        <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0, maxWidth: '480px' }}>
+          {zettleConnected ? tr('ui.zettle_ansluten_text') : tr('ui.dagens_kassaforsaljning_hamtas_in_som_underlag_a')}
         </p>
-        <a href="#bank" style={{ ...btnSecondary, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-          {tr('ui.oppna_bank')} <ExternalLink size={13} />
-        </a>
+        {!zettleConnected && (
+          <button
+            type="button"
+            onClick={() => { if (readOnly || !onConnectZettle) { window.alert(DEMO_BLOCKED_MSG); return; } onConnectZettle(); }}
+            style={btnSecondary}
+          >
+            {tr('ui.anslut_zettle')}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -2794,7 +2816,7 @@ export default function Settings({
           </div>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             {stripeAccountId && (
-              <a href="https://dashboard.stripe.com/" target="_blank" rel="noopener noreferrer" style={{ ...btnSecondary, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <a href="https://dashboard.stripe.com/" target="_blank" rel="noopener noreferrer" style={btnSecondary}>
                 {tr('ui.oppna_stripe_dashboard')} <ExternalLink size={13} />
               </a>
             )}
@@ -3012,9 +3034,9 @@ export default function Settings({
             <button
               onClick={handleConnectGoogle}
               disabled={ownSenderBusy || !ownSenderGoogle}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '11px', padding: '13px 20px', borderRadius: '11px', border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-main)', fontWeight: 700, fontSize: '15px', cursor: (ownSenderBusy || !ownSenderGoogle) ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: (ownSenderBusy || !ownSenderGoogle) ? 0.55 : 1, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}
+              style={{ ...btnSecondary, cursor: (ownSenderBusy || !ownSenderGoogle) ? 'not-allowed' : 'pointer', opacity: (ownSenderBusy || !ownSenderGoogle) ? 0.55 : 1 }}
             >
-              <GoogleGlyph size={19} />
+              <GoogleGlyph size={16} />
               {ownSenderBusy ? tr('ui.oppnar_google') : tr('ui.fortsatt_med_google')}
             </button>
 
@@ -3074,20 +3096,19 @@ export default function Settings({
               <AutoField label={tr('ui.din_e_postadress')} value={ownSenderForm.fromEmail} onChange={handleOwnSenderEmailChange} placeholder={tr('ui.namn_dittforetag_se')} />
               <AutoField label={tr('ui.avsandarnamn_visas_for_kunden')} value={ownSenderForm.fromName} onChange={(v) => setOwnSenderForm(f => ({ ...f, fromName: v }))} placeholder={company?.name || tr('ui.ditt_foretag')} />
             </div>
-
-            <div style={{ marginTop: '12px' }}>
+            <div style={{ marginTop: '14px' }}>
               <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>{tr('ui.leverantor')}</label>
               <select
                 value={ownSenderForm.provider}
                 onChange={e => handleOwnSenderProviderChange(e.target.value)}
-                style={{ ...inputBase, width: '100%' }}
+                style={{ ...inputBase, width: '100%', maxWidth: '360px' }}
               >
                 {ownSenderProviders.map(pr => <option key={pr.id} value={pr.id}>{pr.label}</option>)}
               </select>
             </div>
 
             {activeProvider?.help && (
-              <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginTop: '10px', lineHeight: 1.55 }}>
+              <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.55, maxWidth: '620px' }}>
                 {activeProvider.help}
                 {activeProvider.appPasswordUrl && (
                   <> <a href={activeProvider.appPasswordUrl} target="_blank" rel="noopener noreferrer" style={{ color: BRAND.greenDark, fontWeight: 600 }}>{tr('ui.skapa_app_losenord')}</a></>
@@ -3096,19 +3117,19 @@ export default function Settings({
             )}
 
             {ownSenderForm.provider === 'custom' && (
-              <div className="form-row-stack" style={{ ...grid2, marginTop: '12px' }}>
+              <div className="form-row-stack" style={{ ...grid2, gridTemplateColumns: '3fr 1fr', marginTop: '12px' }}>
                 <AutoField label={tr('ui.serveradress_smtp')} value={ownSenderForm.host} onChange={(v) => setOwnSenderForm(f => ({ ...f, host: v }))} placeholder="smtp.leverantor.se" />
                 <AutoField label={tr('ui.port')} type="number" value={String(ownSenderForm.port)} onChange={(v) => setOwnSenderForm(f => ({ ...f, port: Number(v) || 465, secure: Number(v) === 465 }))} />
               </div>
             )}
 
             <div style={{ marginTop: '12px' }}>
-              <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>{tr('ui.app_losenord')}</label>
+              <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>{activeProvider?.appPasswordUrl ? tr('ui.app_losenord') : tr('ui.losenord')}</label>
               <input
                 type="password"
                 value={ownSenderForm.password}
                 onChange={e => { setOwnSenderForm(f => ({ ...f, password: e.target.value })); setOwnSenderError(''); }}
-                placeholder={tr('ui.klistra_in_app_losenordet')}
+                placeholder={activeProvider?.appPasswordUrl ? tr('ui.klistra_in_app_losenordet') : tr('ui.losenordet_till_din_e_post')}
                 autoComplete="new-password"
                 style={{ ...inputBase, width: '100%' }}
               />
@@ -3149,7 +3170,7 @@ export default function Settings({
       id: 'stripe',
       name: 'Stripe',
       tagline: tr('ui.lat_kunden_betala_fakturan_med_kort_direkt_via_l'),
-      logo: <StripeLogo height={27} />,
+      logo: <StripeLogo height={30} />,
       connected: Boolean(stripeAccountId),
       detail: true,
       keywords: 'kort betalning checkout',
@@ -3185,9 +3206,10 @@ export default function Settings({
       id: 'gmail',
       name: 'Gmail',
       tagline: tr('ui.skicka_fakturor_direkt_fran_ditt_eget_gmail_kont'),
-      logo: <GmailLogo height={26} />,
+      logo: <GmailLogo height={32} />,
       connected: isGoogleSender,
-      statusLabel: isGoogleSender ? 'Ansluten' : 'Inte ansluten',
+      connectedAs: isGoogleSender && ownSender?.fromEmail ? tr('ui.skickar_fran', { v: ownSender.fromEmail }) : null,
+      statusLabel: isGoogleSender ? tr('ui.ansluten') : tr('ui.inte_ansluten'),
       detail: true,
       keywords: 'gmail google mejl avsändare',
       // Samma "ett klick, inte två"-fix som Stripe ovan: en oansluten
@@ -3218,15 +3240,16 @@ export default function Settings({
     },
     {
       id: 'business-email',
-      name: 'Egen e-postadress',
+      name: tr('ui.egen_e_postadress'),
       tagline: tr('ui.skicka_fakturor_fran_din_verksamhets_mejladress'),
-      logo: <Mail size={30} color="var(--text-secondary)" />,
+      logo: <MailFilled size={30} color="#1f2937" />,
       connected: isManualSender,
-      statusLabel: isManualSender ? 'Ansluten' : 'Inte ansluten',
+      connectedAs: isManualSender && ownSender?.fromEmail ? tr('ui.skickar_fran', { v: ownSender.fromEmail }) : null,
+      statusLabel: isManualSender ? tr('ui.ansluten') : tr('ui.inte_ansluten'),
       detail: true,
       keywords: 'mejl smtp app-lösenord avsändare outlook',
       action: (
-        <button type="button" onClick={() => setOpenIntegration(openIntegration === 'business-email' ? null : 'business-email')} style={btnTileLg}>
+        <button type="button" onClick={() => setOpenIntegration('business-email')} style={btnTileLg}>
           {isManualSender ? tr('ui.hantera') : tr('ui.anslut')}
         </button>
       ),
@@ -3238,8 +3261,9 @@ export default function Settings({
       id: 'zettle',
       name: 'Zettle',
       tagline: tr('ui.dagens_kassaforsaljning_hamtas_in_som_underlag_a'),
-      logo: <ZettleLogo height={23} />,
+      logo: <ZettleLogo height={22} />,
       connected: zettleConnected,
+      detail: true,
       keywords: 'kassa butik paypal',
       action: zettleConnected ? null : (
         <button
@@ -3252,16 +3276,26 @@ export default function Settings({
       ),
     },
     {
+      id: 'calendar',
+      name: tr('ui.kalender'),
+      tagline: tr('ui.kalender_tagline'),
+      logo: <CalendarFilled size={30} color="#1f2937" />,
+      connected: Boolean(company?.calendar?.key),
+      statusLabel: company?.calendar?.key ? tr('ui.pa') : tr('ui.status_av'),
+      detail: true,
+    },
+    {
       id: 'bank',
-      name: 'Din bank',
+      name: tr('ui.din_bank'),
       tagline: tr('ui.betaluppgifter_pa_fakturan_och_kontoutdrag_som_u'),
-      logo: <Landmark size={30} color="var(--text-secondary)" />,
+      logo: <BankFilled size={30} color="#1f2937" />,
       connected: Boolean(company?.bankgiro || company?.plusgiro || company?.iban),
-      statusLabel: (company?.bankgiro || company?.plusgiro || company?.iban) ? 'Ifyllt' : 'Inte ifyllt',
+      connectedAs: company?.bankgiro ? 'Bankgiro ' + company.bankgiro : company?.plusgiro ? 'Plusgiro ' + company.plusgiro : company?.iban ? 'IBAN ' + company.iban : null,
+      statusLabel: (company?.bankgiro || company?.plusgiro || company?.iban) ? tr('ui.ifyllt') : tr('ui.inte_ifyllt'),
       detail: true,
       keywords: 'bank kontoutdrag csv excel swedbank seb nordea handelsbanken bankgiro plusgiro iban betaluppgifter',
       action: (
-        <button type="button" onClick={() => setOpenIntegration(openIntegration === 'bank' ? null : 'bank')} style={btnTileLg}>
+        <button type="button" onClick={() => setOpenIntegration('bank')} style={btnTileLg}>
           {tr('ui.oppna')}
         </button>
       ),
@@ -3270,7 +3304,6 @@ export default function Settings({
 
   const invoiceDefaultsCard = (
     <div style={card}>
-      <div style={{ marginBottom: '14px' }}><SectionHeading icon={Hash} tone="green">{tr('ui.standardinstallningar_for_nya_fakturor')}</SectionHeading></div>
       {/* Två fält på en rad i stället för under varandra: betalnings-
           villkoret är tre tecken brett och behöver ingen egen rad över
           hela kortet (kundfeedback om luften på inställningssidan). */}
@@ -3298,10 +3331,10 @@ export default function Settings({
             <input
               type="number" value={nextInvoiceNumberInput} onChange={e => { setNextInvoiceNumberInput(e.target.value); setInvoiceNumberError(''); }}
               placeholder={String(maxUsedInvoiceNumber + 1)}
-              style={{ width: '160px', padding: '8px', borderRadius: '6px', border: '1px solid var(--status-red-text)', background: 'var(--bg-card)', color: 'var(--text-secondary)', boxSizing: 'border-box' }}
+              style={{ ...inputBase, width: '160px' }}
             />
           </div>
-          <button onClick={saveNextInvoiceNumber} style={{ padding: '8px 16px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 600, cursor: 'pointer' }}>{tr('ui.spara_golv')}</button>
+          <button onClick={saveNextInvoiceNumber} style={btnPrimary}>{tr('ui.spara_golv')}</button>
           <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
             {company?.nextInvoiceNumber ? tr('ui.aktivt_golv', { nextInvoiceNumber: company.nextInvoiceNumber }) : ''}{tr('ui.hogsta_anvanda_fakturanummer_just_nu')} {maxUsedInvoiceNumber || '—'}.
           </span>
@@ -3339,7 +3372,6 @@ export default function Settings({
   // ny sparväg behövs.
   const invoiceReminderCard = (
     <div style={card}>
-      <div style={{ marginBottom: '10px' }}><SectionHeading icon={Bell} tone="amber">{tr('ui.paminnelser')}</SectionHeading></div>
       <div className="form-row-2" style={{ ...grid2, maxWidth: FORM_MAX }}>
         <AutoField
           label={tr('ui.paminnelse_efter_forfallodatum_dagar')} type="number"
@@ -3395,8 +3427,9 @@ export default function Settings({
           att ändra ListPageHeader självt. Ingen annan sida i appen
           påverkas, och den gamla stora ikonplattan/sidomenyn kommer
           inte tillbaka — bara en 34px badge inline med rubriktexten. */}
+      {isPhone ? (
       <ListPageHeader
-        title={activeSection ? activeSection.label : (
+        title={activeSection ? (subPage ? subPage.title : activeSection.label) : (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '10px' }}>
             <span style={{ width: 34, height: 34, borderRadius: '10px', background: 'var(--bg-sidebar)', color: 'white', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <Cog size={18} />
@@ -3418,6 +3451,9 @@ export default function Settings({
         // en väg tillbaka dit finns i sidhuvudet ("Alla inställningar")
         // när man står i en flik.
       />
+      ) : (
+        <ListPageHeader title={tr('ui.installningar')} />
+      )}
 
       {/* Ett maxWidth/margin-auto-tak fanns tidigare inte alls här (se
           git-historik: togs bort medvetet, "ett tak lämnar bara tomma
@@ -3433,8 +3469,20 @@ export default function Settings({
           egen padding runt om — brett nog för läsbart innehåll, smalt
           nog för att faktiskt centrera i stället för att fortsätta
           sträcka sig kant i kant. */}
-      <div data-tour="page-settings-nav" className="settings-content" style={{ flex: 1, minWidth: 0, overflowY: 'auto', padding: '24px 20px' }}>
-        <div style={activeSection ? { minWidth: 0, maxWidth: '1200px', margin: '0 auto' } : { minWidth: 0 }}>
+      <div className={isPhone ? 'settings-shell' : 'settings-shell has-nav'}>
+      {!isPhone && <SettingsNav sections={visibleSections} activeId={activeSection?.id} onPick={handleSetTab} />}
+      <div data-tour="page-settings-nav" className="settings-content" style={{ flex: 1, minWidth: 0, overflowY: 'auto' }}>
+        <div className={isPhone ? undefined : 'settings-body'} style={{ minWidth: 0 }}>
+          {subPage && (
+            <button type="button" className="settings-back" onClick={subPage.back}>
+              <ArrowLeft size={15} /> {activeSection.label}
+            </button>
+          )}
+          {!isPhone && activeSection && (
+            <header className="settings-title">
+              <h1>{subPage ? subPage.title : activeSection.label}</h1>
+            </header>
+          )}
           {!activeSection && <SettingsHub sections={visibleSections} onPick={handleSetTab} />}
           {!activeSection && (onOpenHelp || onLogout) && (
             <div className="settings-account-rows">
@@ -3478,16 +3526,9 @@ export default function Settings({
               något eget "profil"-kort — se SETTINGS_TABS-kommentaren högre
               upp i filen. Innehållet (Profiluppgifter/Säkerhet/sessioner)
               är oförändrat, bara flikens namn och plats i rutnätet. */}
-          {activeTab === 'security' && (
+          {activeTab === 'profile' && (
             <div style={{ animation: 'fadeIn 0.2s ease', display: 'grid', gap: 0 }}>
               <SettingCard title={tr('ui.profiluppgifter')} icon={UserRound} description={tr('ui.dina_uppgifter_visas_for_kollegor_och_i_det_du_g')} style={{ borderRadius: 0 }}>
-                <AvatarUploadRow
-                  avatarUrl={avatarUrl}
-                  initials={initials}
-                  onChange={(v) => updateUserMeta({ avatar_url: v })}
-                  uploadPath={`${user?.id}/avatar`}
-                  readOnly={readOnly}
-                />
                 <div className="form-row-2" style={{ ...grid2, maxWidth: FORM_MAX }}>
                   <AutoField label={tr('ui.fornamn')} value={firstName} onChange={(v) => updateUserMeta({ first_name: v })} hint={tr('ui.det_du_vill_bli_kallad')} />
                   <AutoField label={tr('ui.efternamn')} value={lastName} onChange={(v) => updateUserMeta({ last_name: v })} />
@@ -3495,8 +3536,12 @@ export default function Settings({
                   <AutoField label={tr('ui.telefon')} type="tel" value={phone} onChange={(v) => updateUserMeta({ phone: v })} hint={tr('ui.valfritt_2')} />
                 </div>
               </SettingCard>
+            </div>
+          )}
 
-              <SettingCard title={tr('ui.sakerhet')} icon={Lock} tone="blue" description={tr('ui.skydda_kontot_och_hall_koll_pa_din_inloggning')} style={{ borderRadius: 0 }}>
+          {activeTab === 'security' && (
+            <div style={{ animation: 'fadeIn 0.2s ease', display: 'grid', gap: 0 }}>
+              <SettingCard title={tr('ui.inloggning')} icon={Lock} tone="blue" description={tr('ui.skydda_kontot_och_hall_koll_pa_din_inloggning')} style={{ borderRadius: 0 }}>
                 <PasswordSection user={user} readOnly={readOnly} bare />
                 {/* readOnly (demo): TwoFactorSection hämtar riktiga
                     MFA-faktorer från Supabase direkt vid mount — hoppas över
@@ -3508,7 +3553,6 @@ export default function Settings({
               </SettingCard>
 
               <ActiveSessionsSection user={user} readOnly={readOnly} />
-              <LoginHistorySection user={user} readOnly={readOnly} />
 
               {/* Säkerhetsinställningar — bara ägaren (inte en inbjuden
                   medlem, sharedAccess) sätter policyn för HELA företaget. */}
@@ -3560,9 +3604,6 @@ export default function Settings({
                   lite space") — tillbaka som en egen rad här, bara med ett
                   litet mellanrum ovanför kortet i stället för sidhuvudets
                   egen ram/bakgrund. */}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
-                <Badge tone="warning">{tr('ui.kraver_att_du_sparar')}</Badge>
-              </div>
 
               <div style={card}>
                 {/* Kundfeedback ("vet inte vad som händer"): fälten här och i
@@ -3670,6 +3711,7 @@ export default function Settings({
                         api/company-access.js (servern vägrar skrivningen även
                         med ett giltigt reauthToken); det här är bara
                         återspeglingen av samma regel. */}
+                    <FieldGroup title={tr('ui.foretag')}>
                     <div className="form-row-2" style={{ ...grid2, maxWidth: FORM_MAX }}>
                       <LockedField label={tr('ui.foretagsnamn')} value={company?.name || '—'} />
                       <LockedField label={tr('ui.organisationsnummer')} value={company?.orgNr || '—'} />
@@ -3687,15 +3729,13 @@ export default function Settings({
                       <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', flex: '1 1 300px', minWidth: 0, lineHeight: 1.55 }}>
                         {tr('ui.foretagets_registrerade_uppgifter_de_sparades_au')} <a href="mailto:support@bokix.se" style={{ color: BRAND.green }}>{tr('ui.support_bokix_se')}</a> {tr('ui.om_nagot_blivit_fel')}
                       </div>
-                      <div style={{ flexShrink: 0 }}>
+                      {(!(companyDraft?.address && companyDraft?.postalCode && companyDraft?.city) || ['loading', 'done', 'error', 'firma'].includes(companyDetailsLookup.orgLookup.status)) && <div style={{ flexShrink: 0 }}>
                         <button
                           type="button"
                           onClick={handleFetchCompanyDetails}
                           disabled={String(companyDraft?.orgNr || '').replace(/\D/g, '').length !== 10 || companyDetailsLookup.orgLookup.status === 'loading'}
                           style={{
-                            display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '8px 14px', borderRadius: '8px',
-                            border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-main)',
-                            fontSize: '13px', fontWeight: 600, fontFamily: 'inherit',
+                            ...btnSecondary,
                             cursor: String(companyDraft?.orgNr || '').replace(/\D/g, '').length === 10 ? 'pointer' : 'not-allowed',
                             opacity: String(companyDraft?.orgNr || '').replace(/\D/g, '').length === 10 ? 1 : 0.55,
                           }}
@@ -3711,7 +3751,7 @@ export default function Settings({
                         {(companyDetailsLookup.orgLookup.status === 'error' || companyDetailsLookup.orgLookup.status === 'firma') && (
                           <div style={{ fontSize: '12px', marginTop: '8px', color: 'var(--text-secondary)' }}>{companyDetailsLookup.orgLookup.message}</div>
                         )}
-                      </div>
+                      </div>}
                     </div>
                     <div className="form-row-2" style={{ ...grid2, maxWidth: FORM_MAX }}>
                       <AutoField label={tr('ui.momsregistreringsnummer')} value={companyDraft?.vatNr || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, vatNr: v })} showSaveState={false} hint={tr('ui.se_organisationsnumret_01')} />
@@ -3735,16 +3775,6 @@ export default function Settings({
                         uppgift, en tredjedel av höjden, och kortets bredd
                         används i stället för att stå tom till höger.
                         .form-row-stack staplar dem på mobil. */}
-                    <div className="form-row-stack" style={{ ...grid2, gridTemplateColumns: '2fr 1fr 1fr', maxWidth: FORM_MAX }}>
-                      <AutoField label={tr('ui.gatuadress')} value={companyDraft?.address || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, address: v })} showSaveState={false} />
-                      <AutoField label={tr('ui.postnummer')} value={companyDraft?.postalCode || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, postalCode: v })} showSaveState={false} />
-                      <AutoField label={tr('ui.ort')} value={companyDraft?.city || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, city: v })} showSaveState={false} />
-                    </div>
-                    {/* F-skattsedel skrivs ut på varenda faktura/offert (se InvoiceDocument)
-                        men gick tidigare inte att ändra någonstans — den föll tillbaka på
-                        en hårdkodad text ("Innehar F-skattsedel") som INTE nödvändigtvis
-                        stämmer för alla företagsformer. Görs redigerbar här istället för
-                        att tyst påstå något om företaget som kanske inte är sant. */}
                     <div className="form-row-2" style={{ ...grid2, maxWidth: FORM_MAX }}>
                       <AutoField
                         label={tr('ui.f_skattsedel_text_pa_faktura')} value={companyDraft?.fSkatt || 'Innehar F-skattsedel'}
@@ -3753,11 +3783,26 @@ export default function Settings({
                         showSaveState={false}
                       />
                     </div>
+                    </FieldGroup>
+
+                    <FieldGroup title={tr('ui.adress_2')}>
+                    <div className="form-row-stack" style={{ ...grid2, gridTemplateColumns: '2fr 1fr 1fr', maxWidth: FORM_MAX }}>
+                      <AutoField label={tr('ui.gatuadress')} value={companyDraft?.address || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, address: v })} showSaveState={false} />
+                      <AutoField label={tr('ui.postnummer')} value={companyDraft?.postalCode || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, postalCode: v })} showSaveState={false} />
+                      <AutoField label={tr('ui.ort')} value={companyDraft?.city || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, city: v })} showSaveState={false} />
+                    </div>
+                    </FieldGroup>
+                    {/* F-skattsedel skrivs ut på varenda faktura/offert (se InvoiceDocument)
+                        men gick tidigare inte att ändra någonstans — den föll tillbaka på
+                        en hårdkodad text ("Innehar F-skattsedel") som INTE nödvändigtvis
+                        stämmer för alla företagsformer. Görs redigerbar här istället för
+                        att tyst påstå något om företaget som kanske inte är sant. */}
+
 
                     {/* Kontakt och bank i SAMMA kort som grunduppgifterna —
                         kundfeedback: det ska vara en familj, inte tre kort
                         man letar mellan. */}
-                    <FieldGroup title={tr('ui.kontakt_2')} hint={tr('ui.visas_langst_ner_pa_fakturor')}>
+                    <FieldGroup title={tr('ui.kontakt_2')}>
                       <div className="form-row-2" style={{ ...grid2, maxWidth: FORM_MAX }}>
                         <AutoField label={tr('ui.e_post')} type="email" value={companyDraft?.email || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, email: v })} showSaveState={false} />
                         <AutoField label={tr('ui.telefon')} type="tel" value={companyDraft?.phone || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, phone: v })} showSaveState={false} />
@@ -3783,7 +3828,6 @@ export default function Settings({
                 {/* Uttryckligen vad knappen sparar — utan den här raden
                     ser den ut som en global "spara hela sidan"-knapp,
                     trots att den bara gäller de två korten ovanför. */}
-                <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: '0 0 10px' }}>{tr('ui.sparar_uppgifterna_ovan_bankuppgifter_sparas_dir')}</p>
                 <button
                   type="button"
                   onClick={() => { if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; } saveCompanyInfo(); }}
@@ -3792,6 +3836,7 @@ export default function Settings({
                 >
                   {companySaveBusy ? tr('ui.sparar_2') : tr('ui.spara_andringar')}
                 </button>
+                {companyInfoDirty && !companySaveBusy && <span style={{ marginLeft: '12px' }}><Badge tone="warning">{tr('ui.osparade_andringar')}</Badge></span>}
                 {companySaveError && <div style={{ color: 'var(--status-red-text)', fontSize: '13px', marginTop: '10px' }}>{companySaveError}</div>}
                 {companySaveSuccess && <div style={{ color: BRAND.greenDark, fontSize: '13px', marginTop: '10px', fontWeight: 600 }}>{tr('ui.foretagsuppgifterna_ar_sparade')}</div>}
               </div>
@@ -3820,7 +3865,6 @@ export default function Settings({
                   company.vatPeriod, bara ett annat kort. */}
               <div style={card}>
                 <div style={{ marginBottom: '4px' }}><SectionHeading icon={Calendar} tone="amber">{tr('ui.rakenskapsar')}</SectionHeading></div>
-                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 16px', maxWidth: '672px' }}>{tr('ui.styr_periodiseringen_i_rapporter_momsdeklaration')}</p>
                 <div style={{ maxWidth: '320px' }}>
                   <AutoField label={tr('ui.rakenskapsar_startar')} type="date" value={company?.fiscalYear || ''} onChange={(v) => setCompanyInfo({ ...company, fiscalYear: v })} />
                 </div>
@@ -3858,92 +3902,77 @@ export default function Settings({
               finns redan i sidhuvudets flikrad. */}
           {activeTab === 'system' && (
             <div style={{ animation: 'fadeIn 0.2s ease' }}>
-              <SettingsSection title={tr('ui.bokforing')} description={tr('ui.regler_bokforingen_sjalv_raknar_efter')}>
-                <div className="settings-grid" style={{ gap: '14px' }}>
-                  <SettingCard title={tr('ui.moms')} icon={Calendar} tone="amber" description={tr('ui.hur_ofta_du_redovisar_moms')}>
-                    <label style={labelStyle}>{tr('ui.momsregistrerat_2')}</label>
-                    <select
-                      value={company?.vatRegistered === true ? 'yes' : company?.vatRegistered === false ? 'no' : ''}
-                      onChange={e => setCompanyInfo({ ...company, vatRegistered: e.target.value === '' ? null : e.target.value === 'yes' })}
-                      disabled={readOnly}
-                      style={{ ...inputBase, background: 'var(--bg-card)', maxWidth: '260px', marginBottom: '14px' }}
-                    >
-                      <option value="">{tr('ui.inte_angivet')}</option>
-                      <option value="yes">{tr('ui.ja')}</option>
-                      <option value="no">{tr('ui.nej')}</option>
-                    </select>
-                    {company?.vatRegistered !== false && <>
-                    <label style={labelStyle}>{tr('ui.momsperiod')}</label>
+              {/* Accounted-stil: en rad per inställning, etiketten till vänster
+                  och kontrollen till höger. */}
+              <SettingCard title={tr('ui.moms')} description={tr('ui.hur_ofta_du_redovisar_moms')}>
+                <SettingRow label={tr('ui.momsregistrerat_2')} last={company?.vatRegistered === false}>
+                  <select
+                    value={company?.vatRegistered === true ? 'yes' : company?.vatRegistered === false ? 'no' : ''}
+                    onChange={e => setCompanyInfo({ ...company, vatRegistered: e.target.value === '' ? null : e.target.value === 'yes' })}
+                    disabled={readOnly}
+                    aria-label={tr('ui.momsregistrerat_2')}
+                    style={{ ...inputBase, background: 'var(--bg-card)', width: '220px' }}
+                  >
+                    <option value="">{tr('ui.inte_angivet')}</option>
+                    <option value="yes">{tr('ui.ja')}</option>
+                    <option value="no">{tr('ui.nej')}</option>
+                  </select>
+                </SettingRow>
+                {company?.vatRegistered !== false ? (
+                  <SettingRow label={tr('ui.momsperiod')} last>
                     <select
                       value={company?.vatPeriod || 'quarterly'}
                       onChange={e => setCompanyInfo({ ...company, vatPeriod: e.target.value })}
-                      style={{ ...inputBase, background: 'var(--bg-card)', maxWidth: '260px' }}
+                      aria-label={tr('ui.momsperiod')}
+                      style={{ ...inputBase, background: 'var(--bg-card)', width: '220px' }}
                     >
                       <option value="monthly">{tr('ui.manadsvis')}</option>
                       <option value="quarterly">{tr('ui.kvartalsvis')}</option>
                       <option value="yearly">{tr('ui.helarlig')}</option>
                     </select>
-                    </>}
-                    {company?.vatRegistered === false && (
-                      <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6 }}>
-                        {tr('ui.ingen_moms_pa_fakturor_momsen_pa_inkop_bokfors_s')}
-                      </p>
-                    )}
-                  </SettingCard>
+                  </SettingRow>
+                ) : (
+                  <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: '10px 0 0', lineHeight: 1.6 }}>
+                    {tr('ui.ingen_moms_pa_fakturor_momsen_pa_inkop_bokfors_s')}
+                  </p>
+                )}
+              </SettingCard>
 
-                  <SettingCard title={tr('ui.verifikationsserier')} icon={Hash} tone="purple" description={tr('ui.nasta_nummer_per_serie_a001_b014')}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      {VERIFICATION_SERIES.map(letter => (
-                        <VerificationSeriesFloorField
-                          key={letter}
-                          letter={letter}
-                          verifications={verifications}
-                          value={company?.verificationSeriesFloor?.[letter]}
-                          onChange={(next) => setCompanyInfo({ ...company, verificationSeriesFloor: { ...(company?.verificationSeriesFloor || {}), [letter]: next } })}
-                        />
-                      ))}
-                    </div>
-                    <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', margin: '10px 0 0', lineHeight: 1.55 }}>{tr('ui.gar_bara_att_hoja_golvet_aldrig_under_ett_nummer')}</p>
-                  </SettingCard>
-                </div>
-              </SettingsSection>
+              <SettingCard title={tr('ui.verifikationsserier')} description={tr('ui.gar_bara_att_hoja_golvet_aldrig_under_ett_nummer')}>
+                {VERIFICATION_SERIES.map((letter, i) => (
+                  <VerificationSeriesFloorField
+                    key={letter}
+                    row
+                    last={i === VERIFICATION_SERIES.length - 1}
+                    letter={letter}
+                    verifications={verifications}
+                    value={company?.verificationSeriesFloor?.[letter]}
+                    onChange={(next) => setCompanyInfo({ ...company, verificationSeriesFloor: { ...(company?.verificationSeriesFloor || {}), [letter]: next } })}
+                  />
+                ))}
+              </SettingCard>
 
-              <SettingsSection title={tr('ui.region_och_format')} description={tr('ui.rena_visningsval_paverkar_ingen_bokforingslogik')}>
-                <div className="settings-grid" style={{ gap: '14px' }}>
-                  <SettingCard title={tr('ui.valuta')} icon={Landmark} tone="green" description={tr('ui.bokforingslagen_kraver_svenska_kronor')}>
-                    <label style={labelStyle}>{tr('ui.redovisningsvaluta')}</label>
-                    <select value="SEK" disabled style={{ ...inputBase, background: 'var(--bg-muted)', color: 'var(--text-secondary)', maxWidth: '260px', cursor: 'not-allowed' }}>
-                      <option value="SEK">{tr('ui.svenska_kronor_sek')}</option>
-                      <option value="EUR" disabled>{tr('ui.euro_kraver_dispens')}</option>
-                      <option value="USD" disabled>{tr('ui.us_dollar_kraver_dispens')}</option>
-                    </select>
-                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '8px 0 0', lineHeight: 1.55 }}>
-                      {tr('ui.bokforingslagen_4_kap_6_kraver_att_bokforingen_f')}
-                    </p>
-                  </SettingCard>
+              <SettingCard title={tr('ui.valuta_och_datum')}>
+                <SettingRow label={tr('ui.redovisningsvaluta')}>
+                  <select value="SEK" disabled aria-label={tr('ui.redovisningsvaluta')} style={{ ...inputBase, background: 'var(--bg-muted)', color: 'var(--text-secondary)', width: '220px', cursor: 'not-allowed' }}>
+                    <option value="SEK">{tr('ui.svenska_kronor_sek')}</option>
+                  </select>
+                </SettingRow>
+                <SettingRow label={tr('ui.datumformat')} last>
+                  <select
+                    value={dateFormatPref}
+                    onChange={e => saveDateFormatPref(e.target.value)}
+                    aria-label={tr('ui.datumformat')}
+                    style={{ ...inputBase, background: 'var(--bg-card)', width: '220px' }}
+                  >
+                    {DATE_FORMATS.map(f => <option key={f.id} value={f.id}>{f.label} {tr('ui.t_ex')} {f.example})</option>)}
+                  </select>
+                </SettingRow>
+              </SettingCard>
 
-                  <SettingCard title={tr('ui.datumformat')} icon={Calendar} tone="blue" description={tr('ui.hur_datum_visas_i_hela_appen')}>
-                    <label style={labelStyle}>{tr('ui.format')}</label>
-                    <select
-                      value={dateFormatPref}
-                      onChange={e => saveDateFormatPref(e.target.value)}
-                      style={{ ...inputBase, background: 'var(--bg-card)', maxWidth: '260px' }}
-                    >
-                      {DATE_FORMATS.map(f => <option key={f.id} value={f.id}>{f.label} {tr('ui.t_ex')} {f.example})</option>)}
-                    </select>
-                  </SettingCard>
-                </div>
-              </SettingsSection>
-
-              {/* Kontoplan MEDVETET inte här (kundönskemål): den hör hemma
-                  under Bokföring → Kontoplan, dit den redan flyttades in
-                  ursprungligen (shared/AccountsPanel.jsx) — att visa den
-                  en gång till här dubblerade bara samma tunga, tabell-
-                  tunga verktyg mitt bland små inställningskort. */}
-
-              <SettingsSection title={tr('ui.handelselogg')} description={tr('ui.vem_andrade_vad_i_foretaget_och_nar')}>
+              <SettingCard title={tr('ui.handelselogg')} description={tr('ui.vem_andrade_vad_i_foretaget_och_nar')}>
                 <AuditLogCard company={company} readOnly={readOnly} />
-              </SettingsSection>
+              </SettingCard>
             </div>
           )}
 
@@ -3951,137 +3980,116 @@ export default function Settings({
               flik nu (referensbildens "🗑️ Avancerat") eftersom det är sällan
               använda, hög-blast-radius-handlingar som inte hör hemma bredvid
               vardagliga fält som adress och telefonnummer. */}
-          {activeTab === 'advanced' && (
+          {/* Import och export (hette Avancerat). Accounted-stil: en lista där
+              varje rad gör en sak, och radering på en egen undersida. */}
+          {activeTab === 'advanced' && !advancedView && (
             <div style={{ animation: 'fadeIn 0.2s ease' }}>
-              <SettingsSection
-                title={tr('ui.ta_med_dig_din_bokforing')}
-                description={tr('ui.din_bokforing_ar_din_ladda_ner_den_nar_du_vill')}
-              >
-              <div className="settings-grid" style={{ gap: '14px' }}>
-                <SettingCard title={tr('ui.sakerhetskopia')} icon={Download} tone="blue" description={tr('ui.allt_i_en_json_fil')}>
-                  <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 14px', lineHeight: 1.6 }}>
-                    {tr('ui.konton_verifikationer_fakturor_kvitton_och_konta')}
-                  </p>
-                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-                    <button onClick={handleExport} style={btnSecondary}>
-                      <Download size={15} style={{ verticalAlign: 'middle', marginRight: '7px' }} />{tr('ui.ladda_ner')}
-                    </button>
-                    <label style={{ ...btnSecondary, display: 'inline-flex', alignItems: 'center', gap: '7px', cursor: importBusy ? 'not-allowed' : 'pointer', opacity: importBusy ? 0.6 : 1 }}>
-                      <Upload size={15} /> {importBusy ? tr('ui.importerar') : tr('ui.las_in_fil')}
-                      <input type="file" accept="application/json" onChange={handleImportFile} disabled={importBusy} style={{ display: 'none' }} />
-                    </label>
-                  </div>
-                  {importMsg && (
-                    <div style={{ fontSize: '12.5px', marginTop: '10px', fontWeight: 600, color: importMsg.startsWith('Kunde inte') ? 'var(--status-red-text)' : BRAND.greenDark }}>{importMsg}</div>
-                  )}
-                </SettingCard>
-
-                <SettingCard title="SIE4" icon={Download} tone="green" description={tr('ui.formatet_alla_svenska_bokforingsprogram_laser')}>
-                  <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 14px', lineHeight: 1.6 }}>
-                    {tr('ui.ge_filen_till_din_revisor_eller_ta_med_bokforing')}
-                  </p>
-                  <button onClick={handleExportSie} style={btnSecondary}>
-                    <Download size={15} style={{ verticalAlign: 'middle', marginRight: '7px' }} />{tr('ui.ladda_ner_sie4')}
-                  </button>
-                </SettingCard>
-
-                <SettingCard title={tr('ui.flytta_hit_bokforingen')} icon={Upload} tone="amber" description={tr('ui.fran_ett_annat_program_via_sie4')}>
-                  {/* Loggorna svarar på "gäller det här mitt program?" utan att
-                      man först måste öppna guiden. Vit platta bakom varje —
-                      flera filer har vit bakgrund inbakad. */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '14px' }}>
+              <input ref={backupInputRef} type="file" accept="application/json" onChange={handleImportFile} disabled={importBusy} style={{ display: 'none' }} />
+              <SettingCard title={tr('ui.importera')} flush>
+                <SettingsLinkRow
+                  title={tr('ui.flytta_hit_bokforingen')}
+                  description={tr('ui.fran_ett_annat_program_via_sie4')}
+                  onClick={() => setShowSieImport(true)}
+                >
+                  <span className="settings-link-chips">
                     {MIGRATION_SOURCES.map(p => (
-                      <span
-                        key={p.id} title={p.note ? p.name + ' — ' + p.note : p.name}
-                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 34, height: 34, borderRadius: '8px', background: '#fff', border: '1px solid var(--border-light)' }}
-                      >
-                        <ProgramLogo src={p.logo} alt={p.name} size={22} />
+                      <span key={p.id} className="settings-link-chip" title={p.note ? p.name + ' — ' + p.note : p.name}>
+                        <ProgramLogo src={p.logo} alt="" size={16} /> {p.name}
                       </span>
                     ))}
-                    <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{tr('ui.med_flera')}</span>
-                  </div>
-                  <button onClick={() => setShowSieImport(true)} style={{ ...btnSecondary, background: BRAND.greenLight, color: BRAND.greenDark, border: 'none' }}>
-                    <Upload size={15} style={{ verticalAlign: 'middle', marginRight: '7px' }} />{tr('ui.importera_sie4_fil')}
-                  </button>
-                </SettingCard>
-              </div>
-              </SettingsSection>
+                  </span>
+                </SettingsLinkRow>
+                <SettingsLinkRow
+                  title={tr('ui.skattekontoutdrag')}
+                  description={tr('ui.bokfor_preliminarskatt_moms_rantor_och_inbetalni')}
+                  onClick={readOnly ? undefined : () => setShowSkattekontoImport(true)}
+                />
+                <SettingsLinkRow
+                  title={tr('ui.underlag_till_sie_import')}
+                  description={tr('ui.filer_som_heter_som_verifikatet_till_exempel_a31')}
+                  onClick={readOnly ? undefined : () => setShowSieAttachments(true)}
+                />
+                <SettingsLinkRow
+                  title={importBusy ? tr('ui.importerar') : tr('ui.las_in_sakerhetskopia')}
+                  description={tr('ui.las_in_sakerhetskopia_desc')}
+                  onClick={importBusy ? undefined : () => backupInputRef.current?.click()}
+                />
+              </SettingCard>
+              {importMsg && (
+                <div style={{ fontSize: '12.5px', margin: '10px 0 0', fontWeight: 600, color: importMsg.startsWith('Kunde inte') ? 'var(--status-red-text)' : BRAND.greenDark }}>{importMsg}</div>
+              )}
 
-              <SettingsSection
-                title={tr('ui.importera')}
-                description={tr('ui.las_in_underlag_som_redan_finns_nagon_annanstans')}
-              >
-              <div className="settings-grid" style={{ gap: '14px' }}>
-                <SettingCard title={tr('ui.skattekontoutdrag')} icon={Landmark} tone="blue" description={tr('ui.kontohandelserna_fran_skatteverket')}>
-                  <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 14px', lineHeight: 1.6 }}>
-                    {tr('ui.bokfor_preliminarskatt_moms_rantor_och_inbetalni')}
-                  </p>
-                  <button onClick={() => setShowSkattekontoImport(true)} disabled={readOnly} style={btnSecondary}>
-                    <Upload size={15} style={{ verticalAlign: 'middle', marginRight: '7px' }} />{tr('ui.ladda_upp_kontoutdrag')}
-                  </button>
-                </SettingCard>
+              <SettingCard title={tr('ui.exportera')} flush>
+                <SettingsLinkRow
+                  title={tr('ui.sie4_fil')}
+                  description={tr('ui.ge_filen_till_din_revisor_eller_ta_med_bokforing')}
+                  onClick={handleExportSie}
+                  right={<Download size={18} className="settings-link-chevron" />}
+                />
+                <SettingsLinkRow
+                  title={tr('ui.sakerhetskopia')}
+                  description={tr('ui.konton_verifikationer_fakturor_kvitton_och_konta')}
+                  onClick={handleExport}
+                  right={<Download size={18} className="settings-link-chevron" />}
+                />
+              </SettingCard>
 
-                <SettingCard title={tr('ui.underlag_till_sie_import')} icon={Paperclip} tone="green" description={tr('ui.kvitton_och_fakturor_fran_ditt_gamla_program')}>
-                  <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 14px', lineHeight: 1.6 }}>
-                    {tr('ui.filer_som_heter_som_verifikatet_till_exempel_a31')}
-                  </p>
-                  <button onClick={() => setShowSieAttachments(true)} disabled={readOnly} style={btnSecondary}>
-                    <Paperclip size={15} style={{ verticalAlign: 'middle', marginRight: '7px' }} />{tr('ui.koppla_underlag')}
-                  </button>
-                </SettingCard>
-              </div>
-              </SettingsSection>
+              <SettingCard title={tr('ui.radera')} flush>
+                <SettingsLinkRow
+                  danger
+                  title={tr('ui.radera_foretagets_bokforingsdata')}
+                  description={tr('ui.gar_inte_att_angra_ladda_ner_en_kopia_forst')}
+                  onClick={() => setAdvancedView('delete-data')}
+                />
+                {onDeleteCompany && (
+                  <SettingsLinkRow
+                    danger
+                    title={tr('ui.radera_foretag')}
+                    description={tr('ui.tar_bort_hela_foretaget_inklusive_dess_prenumera')}
+                    onClick={() => setAdvancedView('delete-company')}
+                  />
+                )}
+              </SettingCard>
+            </div>
+          )}
 
-              <SettingsSection
-                title={tr('ui.radera_data')}
-                description={tr('ui.gar_inte_att_angra_ladda_ner_en_kopia_forst')}
-              >
-              <div style={{ ...card, background: 'var(--status-red-bg)', border: '1px solid var(--status-red-bg)' }}>
-                <div style={{ marginBottom: '10px' }}><SectionHeading icon={Trash2} tone="red">{tr('ui.radera_foretagets_bokforingsdata')}</SectionHeading></div>
-                <p style={{ fontSize: '13px', color: 'var(--status-red-text)', margin: '0 0 12px', maxWidth: '600px' }}>
+          {activeTab === 'advanced' && advancedView === 'delete-data' && (
+            <div style={{ animation: 'fadeIn 0.2s ease', paddingTop: '14px' }}>
+                <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)', margin: '0 0 18px', maxWidth: '600px', lineHeight: 1.6 }}>
                   {tr('ui.detta_tommer_all_bokforing_alla_fakturor_kunder')} <strong>{company?.name || tr('ui.det_har_foretaget')}</strong> {tr('ui.i_appen_det_kan_inte_angras_har_bokforingslagen')}{user?.email}{tr('ui.paverkas_inte_och_du_loggas_inte_ut_foretaget_sj')}
                 </p>
-                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, color: 'var(--status-red-text)', marginBottom: '6px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>
                   {tr('ui.skriv_foretagsnamnet')} <strong>{company?.name}</strong> {tr('ui.for_att_bekrafta')}
                 </label>
                 <input
                   value={deleteConfirmText} onChange={e => setDeleteConfirmText(e.target.value)}
-                  style={{ width: '100%', maxWidth: '340px', padding: '8px 12px', borderRadius: '6px', border: '1px solid #fca5a5', marginBottom: '12px', boxSizing: 'border-box' }}
+                  style={{ ...inputBase, width: '100%', maxWidth: '340px', marginBottom: '12px' }}
                 />
                 <div>
                   <button
                     disabled={!deleteMatches}
                     onClick={async () => { if (deleteMatches && (await onReset?.())) { setDeleteConfirmText(''); logAuditEvent(supabase, { companyId: activeCompanyId, ownerUserId: user?.id, actorUserId: user?.id, actorEmail: user?.email, action: 'data.delete', description: tr('ui.raderade_all_bokforingsdata_for', { v0: company?.name || 'företaget' }) }); } }}
-                    style={{ padding: '9px 18px', background: deleteMatches ? '#ef4444' : '#fca5a5', color: 'white', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600, cursor: deleteMatches ? 'pointer' : 'not-allowed' }}
+                    style={{ ...btnDanger, opacity: deleteMatches ? 1 : 0.45, cursor: deleteMatches ? 'pointer' : 'not-allowed' }}
                   >
-                    <Trash2 size={14} style={{ verticalAlign: 'middle', marginRight: '6px' }} /> {tr('ui.radera_permanent')}
+                    <Trash2 size={14} /> {tr('ui.radera_permanent')}
                   </button>
                 </div>
-              </div>
-              </SettingsSection>
+            </div>
+          )}
 
-              {/* Radera företag — skild från "Radera data" ovan: den
-                  handlingen tömmer bokföringen men BEHÅLLER företaget; den
-                  här tar bort företaget självt (och avslutar dess
-                  prenumeration). Samma onDeleteCompany/handleDeleteCompany
-                  som redan finns och underhålls i App.jsx — bara UI:t för
-                  att nå den saknades sedan företagsväxlaren togs bort. */}
-              {onDeleteCompany && (
-                <SettingsSection
-                  title={tr('ui.radera_foretag')}
-                  description={tr('ui.tar_bort_hela_foretaget_inklusive_dess_prenumera')}
-                >
-                  <div style={{ ...card, background: 'var(--status-red-bg)', border: '1px solid var(--status-red-bg)' }}>
-                    <div style={{ marginBottom: '10px' }}><SectionHeading icon={Trash2} tone="red">{tr('ui.radera')} {company?.name || tr('ui.det_har_foretaget')}</SectionHeading></div>
-                    <p style={{ fontSize: '13px', color: 'var(--status-red-text)', margin: '0 0 12px', maxWidth: '600px' }}>
+          {/* Radera företag — skild från Radera data: den här tar bort
+              företaget självt (och avslutar dess prenumeration). */}
+          {activeTab === 'advanced' && advancedView === 'delete-company' && onDeleteCompany && (
+            <div style={{ animation: 'fadeIn 0.2s ease', paddingTop: '14px' }}>
+                    <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)', margin: '0 0 18px', maxWidth: '600px', lineHeight: 1.6 }}>
                       {tr('ui.foretaget_forsvinner_helt_fran_ditt_konto_och_en')}{user?.email}{tr('ui.paverkas_inte_men_du_maste_ha_minst_ett_foretag')}
                     </p>
-                    <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, color: 'var(--status-red-text)', marginBottom: '6px' }}>
+                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>
                       {tr('ui.skriv_foretagsnamnet')} <strong>{company?.name}</strong> {tr('ui.for_att_bekrafta')}
                     </label>
                     <input
                       value={deleteCompanyConfirmText} onChange={e => setDeleteCompanyConfirmText(e.target.value)}
-                      style={{ width: '100%', maxWidth: '340px', padding: '8px 12px', borderRadius: '6px', border: '1px solid #fca5a5', marginBottom: '12px', boxSizing: 'border-box' }}
+                      style={{ ...inputBase, width: '100%', maxWidth: '340px', marginBottom: '12px' }}
                     />
                     <div>
                       <button
@@ -4093,14 +4101,12 @@ export default function Settings({
                           onDeleteCompany(activeCompanyId);
                           setDeleteCompanyConfirmText('');
                         }}
-                        style={{ padding: '9px 18px', background: deleteCompanyMatches ? '#ef4444' : '#fca5a5', color: 'white', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600, cursor: deleteCompanyMatches ? 'pointer' : 'not-allowed' }}
+                        style={{ ...btnDanger, opacity: deleteCompanyMatches ? 1 : 0.45, cursor: deleteCompanyMatches ? 'pointer' : 'not-allowed' }}
                       >
-                        <Trash2 size={14} style={{ verticalAlign: 'middle', marginRight: '6px' }} /> {tr('ui.radera_foretaget_permanent')}
+                        <Trash2 size={14} /> {tr('ui.radera_foretaget_permanent')}
                       </button>
                     </div>
-                  </div>
-                </SettingsSection>
-              )}
+
             </div>
           )}
 
@@ -4193,41 +4199,37 @@ export default function Settings({
               kort längst ner under Data, medan Stripe och e-postdomänen låg
               på en tredje flik (Betalning) — tre ställen för samma fråga:
               vad är kopplat till mitt Bokix? */}
-          {activeTab === 'integrations' && (
+          {/* Kopplingar: en lista, och varje koppling öppnar en egen sida
+              (kundönskemål: inte fälla ut detaljerna under listan). Anslut
+              ligger kvar på raden för det som inte är anslutet ännu, så
+              det fortfarande går att ansluta med ett klick. */}
+          {activeTab === 'integrations' && !openIntegration && (
             <div style={{ animation: 'fadeIn 0.2s ease' }}>
-              {/* Ett kort per tjänst, stora nog att loggan syns. Sökfältet är
-                  borttaget (kundönskemål) — det fanns fyra tjänster, och en
-                  sökruta över fyra kort är en kontroll som bara tar plats. */}
-              <div className="integration-grid">
-                {integrationCatalogue.map(item => (
-                  <IntegrationTile
+              <SettingCard flush>
+                {['stripe', 'zettle', 'gmail', 'business-email', 'calendar'].map(id => integrationCatalogue.find(i => i.id === id)).filter(Boolean).map(item => (
+                  <SettingsLinkRow
                     key={item.id}
                     logo={item.logo}
-                    name={item.name}
-                    tagline={item.tagline}
-                    connected={item.connected}
-                    statusLabel={item.statusLabel}
-                    action={item.action}
-                    onOpen={item.detail ? () => setOpenIntegration(openIntegration === item.id ? null : item.id) : undefined}
-                    open={openIntegration === item.id}
+                    logoLarge
+                    title={item.name}
+                    status={<span className="settings-link-status-inline"><LinkStatus on={item.connected}>{item.statusLabel || (item.connected ? tr('ui.ansluten') : tr('ui.inte_ansluten'))}</LinkStatus></span>}
+                    description={item.connectedAs || item.tagline}
+                    aside={<LinkStatus on={item.connected}>{item.statusLabel || (item.connected ? tr('ui.ansluten') : tr('ui.inte_ansluten'))}</LinkStatus>}
+                    onClick={item.detail ? () => setOpenIntegration(item.id) : undefined}
+                    right={item.detail ? undefined : item.action}
                   />
                 ))}
-              </div>
+              </SettingCard>
+            </div>
+          )}
 
-              {/* Detaljerna för den tjänst man öppnat: hela inkopplingen,
-                  inte en genväg till en annan flik. */}
-              {openIntegration === 'stripe' && (
-                <div style={{ marginTop: '18px' }}>{stripeCard}</div>
-              )}
-              {openIntegration === 'gmail' && (
-                <div style={{ marginTop: '18px' }}>{gmailCard}</div>
-              )}
-              {openIntegration === 'business-email' && (
-                <div style={{ marginTop: '18px' }}>{businessEmailCard}</div>
-              )}
-              {openIntegration === 'bank' && (
-                <div style={{ marginTop: '18px' }}>{bankDetailsCard}</div>
-              )}
+          {activeTab === 'integrations' && openIntegration && (
+            <div style={{ animation: 'fadeIn 0.2s ease' }}>
+              {openIntegration === 'stripe' && stripeCard}
+              {openIntegration === 'zettle' && zettleCard}
+              {openIntegration === 'calendar' && calendarCard}
+              {openIntegration === 'gmail' && gmailCard}
+              {openIntegration === 'business-email' && businessEmailCard}
             </div>
           )}
 
@@ -4462,7 +4464,7 @@ export default function Settings({
                 title={tr('ui.automatiska_paminnelser')}
                 description={tr('ui.e_postnotiser_styr_alla_kategorier_nedan_gemensa')}
               >
-              <SettingCard title={tr('ui.notiser')} icon={Bell} tone="blue">
+              <SettingCard>
                 <SettingRow
                   label={tr('ui.e_postnotiser')}
                   description={tr('ui.huvudstrombrytare_av_stanger_alla_kategorier_ned')}
@@ -4525,6 +4527,7 @@ export default function Settings({
             </div>
           )}
         </div>
+      </div>
       </div>
 
       {showSkattekontoImport && (

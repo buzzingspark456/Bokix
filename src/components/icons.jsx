@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  MdCalendarMonth, MdEmail, MdAccountBalance,
   MdOutlineEditNote, MdOutlineHome, MdOutlineStorefront, MdMoreTime, MdPayments, MdPersonAddAlt1, MdPostAdd, MdUploadFile,
   MdOutlineAccessTime, MdOutlineAccountBalance, MdOutlineAccountBalanceWallet, MdOutlineAccountTree,
   MdOutlineAdd, MdOutlineAlarm, MdOutlineApartment,
@@ -51,6 +52,10 @@ function make(Icon, name) {
 }
 
 export const AlarmClock = make(MdOutlineAlarm, 'AlarmClock');
+// Fyllda varianter, för loggplattorna i Inställningar → Kopplingar.
+export const CalendarFilled = make(MdCalendarMonth, 'CalendarFilled');
+export const MailFilled = make(MdEmail, 'MailFilled');
+export const BankFilled = make(MdAccountBalance, 'BankFilled');
 export const AlertCircle = make(MdOutlineErrorOutline, 'AlertCircle');
 export const AlertTriangle = make(MdOutlineWarningAmber, 'AlertTriangle');
 export const AreaChart = make(MdOutlineAreaChart, 'AreaChart');

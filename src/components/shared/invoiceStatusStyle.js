@@ -15,7 +15,7 @@ export const STRONG_PAID = { bg: '#15803d', text: '#ffffff' };
 // samma i båda temana) stack ut för mycket mot en VIT sida men lästes helt
 // rätt mot en mörk — `var(--invoice-unpaid-bg)` (index.css) håller mörkt
 // läge oförändrat och dämpar bara ljust lägets ton ett steg.
-export const STRONG_UNPAID = { bg: 'var(--invoice-unpaid-bg)', text: '#422006' };
+export const STRONG_UNPAID = { bg: 'var(--invoice-unpaid-bg)', text: '#3d2e00' };
 // Kundfeedback ("lite mer chill, inte så stark"): #e11d1d var en ren,
 // mättad varningsröd — dämpad ett steg (mindre mättnad, samma kulör) i
 // stället för att byta hue helt, så "förfallen" fortfarande entydigt läses
@@ -26,6 +26,17 @@ export const STRONG_UNPAID = { bg: 'var(--invoice-unpaid-bg)', text: '#422006' }
 // overdue-bg)` (index.css) ger den nu en egen, kontrollerad mörk-läge-ton
 // precis som gult redan hade, i stället för att bara råka funka.
 export const STRONG_OVERDUE = { bg: 'var(--invoice-overdue-bg)', text: '#ffffff' };
+
+// Ej bokförd: raden är grå, så märket får en egen vit ruta med kant för att synas.
+export const STRONG_DRAFT = { bg: 'var(--invoice-draft-bg)', text: 'var(--invoice-draft-text)', border: '1px solid var(--invoice-draft-border)' };
+
+// Statusmärket i listornas statuskolumn: alla lika breda och lika höga, så de
+// hamnar rakt under varandra oavsett text.
+export const STATUS_PILL = {
+  display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
+  minWidth: '96px', height: '24px', padding: '0 10px', boxSizing: 'border-box',
+  borderRadius: '999px', fontSize: '12px', fontWeight: 700, border: '1px solid transparent', whiteSpace: 'nowrap',
+};
 
 export function getRowBg(status) {
   // Kundfeedback ("bakgrunden är inte så gul/röd"): en HEL RADS bakgrund är
