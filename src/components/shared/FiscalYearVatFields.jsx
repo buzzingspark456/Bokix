@@ -3,6 +3,7 @@ import { Check, Loader2 } from '../icons';
 import { BRAND } from '../../utils/brandColors';
 import { checkVatRegistration } from '../../utils/companyLookup';
 import { MONTHS, firstYearEndOptions, defaultFirstYearEnd, formatSvDate, todayIso, fiscalYearFields, suggestFiscalYear } from '../../utils/fiscalYearSetup';
+import { t } from '../../i18n';
 
 // Två frågor som ställs där ett företag läggs upp (registreringen, Lägg
 // till företag och onboardingen): vilket räkenskapsår, och om företaget är
@@ -92,34 +93,34 @@ export default function FiscalYearVatFields({ value, onChange, orgNr, registry }
   return (
     <div style={{ display: 'grid', gap: '20px' }}>
       <div>
-        <span style={labelStyle}>Vilket räkenskapsår har ni?</span>
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }} role="radiogroup" aria-label="Räkenskapsår">
-          {[['calendar', 'Kalenderår'], ['other', 'Annat räkenskapsår'], ['first', 'Det är vårt första år']].map(([id, label]) => (
+        <span style={labelStyle}>{t('ui.vilket_rakenskapsar_har_ni')}</span>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }} role="radiogroup" aria-label={t('ui.rakenskapsar')}>
+          {[['calendar', t('ui.kalenderar')], ['other', t('ui.annat_rakenskapsar')], ['first', t('ui.vart_forsta_ar')]].map(([id, label]) => (
             <button key={id} type="button" role="radio" aria-checked={v.mode === id} onClick={() => chooseMode(id)} style={pill(v.mode === id)}>{label}</button>
           ))}
         </div>
 
         {v.fySource === 'registry' && v.fyNote && (
           <div style={{ ...hintStyle, display: 'flex', alignItems: 'flex-start', gap: '6px', color: BRAND.greenDark, fontWeight: 600 }}>
-            <Check size={13} style={{ flexShrink: 0, marginTop: '2px' }} /> <span>{v.fyNote} Ändra om det inte stämmer.</span>
+            <Check size={13} style={{ flexShrink: 0, marginTop: '2px' }} /> <span>{v.fyNote} {t('ui.andra_om_det_inte_stammer')}</span>
           </div>
         )}
-        {v.mode === 'calendar' && v.fySource !== 'registry' && <div style={hintStyle}>1 januari – 31 december. Det vanligaste.</div>}
+        {v.mode === 'calendar' && v.fySource !== 'registry' && <div style={hintStyle}>{t('ui.n1_januari_31_december_det_vanligaste')}</div>}
 
         {v.mode === 'other' && (
           <div style={{ marginTop: '12px' }}>
-            <label style={{ ...labelStyle, fontWeight: 600, fontSize: '12.5px', color: 'var(--text-secondary)', marginBottom: '6px' }} htmlFor="fy-start-month">Räkenskapsåret börjar</label>
+            <label style={{ ...labelStyle, fontWeight: 600, fontSize: '12.5px', color: 'var(--text-secondary)', marginBottom: '6px' }} htmlFor="fy-start-month">{t('ui.rakenskapsaret_borjar')}</label>
             <select id="fy-start-month" value={v.startMonth} onChange={e => set({ startMonth: Number(e.target.value), fySource: 'user' })} style={{ ...selectStyle, maxWidth: '260px' }}>
               {MONTHS.map((name, i) => i > 0 && <option key={name} value={i + 1}>1 {name}</option>)}
             </select>
-            <div style={hintStyle}>Står i bolagsordningen, eller på Bolagsverket och Skatteverket.</div>
+            <div style={hintStyle}>{t('ui.star_i_bolagsordningen_eller_pa_bolagsverket_och')}</div>
           </div>
         )}
 
         {v.mode === 'first' && (
           <div style={{ marginTop: '12px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
             <div>
-              <label style={{ ...labelStyle, fontWeight: 600, fontSize: '12.5px', color: 'var(--text-secondary)', marginBottom: '6px' }} htmlFor="fy-first-start">Första året börjar</label>
+              <label style={{ ...labelStyle, fontWeight: 600, fontSize: '12.5px', color: 'var(--text-secondary)', marginBottom: '6px' }} htmlFor="fy-first-start">{t('ui.forsta_aret_borjar')}</label>
               <input
                 id="fy-first-start" type="date" value={v.firstStart}
                 onChange={e => { const start = e.target.value; set({ firstStart: start, firstEnd: firstYearEndOptions(start).includes(v.firstEnd) ? v.firstEnd : defaultFirstYearEnd(start), fySource: 'user' }); }}
@@ -127,21 +128,21 @@ export default function FiscalYearVatFields({ value, onChange, orgNr, registry }
               />
             </div>
             <div>
-              <label style={{ ...labelStyle, fontWeight: 600, fontSize: '12.5px', color: 'var(--text-secondary)', marginBottom: '6px' }} htmlFor="fy-first-end">och slutar</label>
+              <label style={{ ...labelStyle, fontWeight: 600, fontSize: '12.5px', color: 'var(--text-secondary)', marginBottom: '6px' }} htmlFor="fy-first-end">{t('ui.och_slutar')}</label>
               <select id="fy-first-end" value={v.firstEnd} onChange={e => set({ firstEnd: e.target.value, fySource: 'user' })} style={selectStyle} disabled={endOptions.length === 0}>
                 {endOptions.map(d => <option key={d} value={d}>{formatSvDate(d)}</option>)}
               </select>
             </div>
             <div style={{ ...hintStyle, marginTop: 0, gridColumn: '1 / -1' }}>
-              Första året får vara kortare eller upp till 18 månader. Oftast från registreringen till 31 december.
+              {t('ui.forsta_aret_far_vara_kortare_eller_upp_till_18_m')}
             </div>
           </div>
         )}
       </div>
 
       <div>
-        <span style={labelStyle}>Är företaget momsregistrerat?</span>
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }} role="radiogroup" aria-label="Momsregistrerat">
+        <span style={labelStyle}>{t('ui.ar_foretaget_momsregistrerat')}</span>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }} role="radiogroup" aria-label={t('ui.momsregistrerat_2')}>
           {[[true, 'Ja'], [false, 'Nej']].map(([val, label]) => (
             <button
               key={label} type="button" role="radio" aria-checked={v.vatRegistered === val}
@@ -154,17 +155,17 @@ export default function FiscalYearVatFields({ value, onChange, orgNr, registry }
         </div>
         {vatCheck === 'checking' && (
           <div style={{ ...hintStyle, display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Kollar i EU:s momsregister…
+            <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> {t('ui.kollar_i_eu_s_momsregister')}
           </div>
         )}
         {vatCheck === 'done' && v.vatSource === 'vies' && (
           <div style={{ ...hintStyle, display: 'flex', alignItems: 'flex-start', gap: '6px', color: BRAND.greenDark, fontWeight: 600 }}>
             <Check size={13} style={{ flexShrink: 0, marginTop: '2px' }} />
-            <span>{v.vatRegistered ? `Momsregistrerat med ${v.vatNr} enligt EU:s momsregister.` : 'Hittades inte i EU:s momsregister. Är ni nyregistrerade, ändra till Ja.'}</span>
+            <span>{v.vatRegistered ? t('ui.momsregistrerat_med_enligt_eu_s_momsregister', { vatNr: v.vatNr }) : t('ui.hittades_inte_i_eu_s_momsregister_ar_ni_nyregist')}</span>
           </div>
         )}
-        {vatCheck === 'error' && <div style={hintStyle}>Momsregistret gick inte att nå. Svara själv, det går att ändra senare.</div>}
-        {vatCheck === 'idle' && digits.length !== 10 && <div style={hintStyle}>Vi kollar automatiskt när organisationsnumret är ifyllt.</div>}
+        {vatCheck === 'error' && <div style={hintStyle}>{t('ui.momsregistret_gick_inte_att_na_svara_sjalv_det_g')}</div>}
+        {vatCheck === 'idle' && digits.length !== 10 && <div style={hintStyle}>{t('ui.vi_kollar_automatiskt_nar_organisationsnumret_ar')}</div>}
       </div>
     </div>
   );

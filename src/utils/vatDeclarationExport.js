@@ -15,12 +15,11 @@ import jsPDF from 'jspdf';
 // moms på inköp i ruta 20–24 (omvänd skattskyldighet). Det har alltså
 // ALDRIG haft med försäljningsunderlag att göra.
 //
-// Bokix bokför inköp av TJÄNSTER från utlandet med omvänd skattskyldighet
-// (ruta 21, 22, 30–32, se utils/reverseCharge.js), men fortfarande inte
-// varuinköp från EU, import, försäljning till utlandet eller omvänd
-// skattskyldighet inom Sverige (ruta 20, 23–24, 35–42, 50, 60–62). Filen
-// bygger bara de fält som är entydigt bekräftade mot Skatteverkets egen
-// beskrivning av filformatet (tagg och ordning):
+// Sedan 2026-09-27 skriver filen alla rutor Bokix räknar fram: omvänd
+// skattskyldighet (20-24, 30-32), försäljning utan svensk moms (35-42) och
+// import (50, 60-62). Taggarna och deras ordning är kontrollerade mot
+// Skatteverkets sida "Lämna momsdeklaration via fil i e-tjänsten" samma dag
+// (se ESKD_TAGS nedan). Grundfälten:
 //   <OrgNr>            "xxxxxx-xxxx" (10 siffror, med bindestreck)
 //   <Period>           ÅÅÅÅMM — sista månaden i kvartalet för kvartalsvis
 //                       redovisning (t.ex. kvartal 3 2026 → "202609")
@@ -30,13 +29,42 @@ import jsPDF from 'jspdf';
 //   <MomsIngAvdr>      ruta 48 — ingående moms att dra av
 //   <MomsBetala>       ruta 49 — moms att betala (+) eller återfå (minus
 //                       direkt före beloppet, inget mellanslag)
-// Om Bokix i framtiden börjar bokföra EU-handel/import måste ruta 20–42/
-// 50/60–62 läggas till här (nu bekräftade ovan) INNAN de tas med i filen.
 //
 // Övriga bekräftade formatregler: ISO-8859-1, rotelement
 // <eSKDUpload Version="6.0">, inget xmlns, inget DOCTYPE krävs, belopp som
 // heltal utan tusentalsavgränsare eller decimaler.
 // ─────────────────────────────────────────────────────────────────────────
+
+// Taggarna i den ordning Skatteverket anger dem, med rutan de hör till.
+// Ruta 49 (MomsBetala) skrivs sist, separat.
+const ESKD_TAGS = [
+  ['ForsMomsEjAnnan', '05'],
+  ['MomsUtgHog', '10'], ['MomsUtgMedel', '11'], ['MomsUtgLag', '12'],
+  ['InkopVaruAnnatEg', '20'], ['InkopTjanstAnnatEg', '21'], ['InkopTjanstUtomEg', '22'],
+  ['InkopVaruSverige', '23'], ['InkopTjanstSverige', '24'],
+  ['MomsInkopUtgHog', '30'], ['MomsInkopUtgMedel', '31'], ['MomsInkopUtgLag', '32'],
+  ['ForsVaruAnnatEg', '35'], ['ForsVaruUtomEg', '36'],
+  ['ForsTjSkskAnnatEg', '39'], ['ForsTjOvrUtomEg', '40'], ['ForsKopareSkskSverige', '41'], ['ForsOvrigt', '42'],
+  ['MomsUlagImport', '50'],
+  ['MomsImportUtgHog', '60'], ['MomsImportUtgMedel', '61'], ['MomsImportUtgLag', '62'],
+  ['MomsIngAvdr', '48'],
+];
+
+// Värdet för en ruta ur det avrundade resultatet (roundedVatPeriod). Tål
+// äldre objekt som bara har reversePurchaseEu/NonEu i stället för purchaseByRuta.
+function eskdValue(ruta, r) {
+  const rate = { 10: 25, 11: 12, 12: 6, 30: 25, 31: 12, 32: 6, 60: 25, 61: 12, 62: 6 }[ruta];
+  switch (ruta) {
+    case '05': return r.underlagByRate[25] + r.underlagByRate[12] + r.underlagByRate[6];
+    case '10': case '11': case '12': return r.outputVatByRate[rate];
+    case '30': case '31': case '32': return (r.reverseVatByRate || {})[rate] || 0;
+    case '60': case '61': case '62': return (r.importVatByRate || {})[rate] || 0;
+    case '21': return r.purchaseByRuta?.['21'] ?? r.reversePurchaseEu ?? 0;
+    case '22': return r.purchaseByRuta?.['22'] ?? r.reversePurchaseNonEu ?? 0;
+    case '48': return r.inputVat;
+    default: return r.purchaseByRuta?.[ruta] ?? r.exemptSalesByRuta?.[ruta] ?? 0;
+  }
+}
 
 /** ÅÅÅÅMM — sista månaden i kvartalet, det format Skatteverkets eSKD-fil
  * kräver för kvartalsvis momsredovisning. */
@@ -63,7 +91,6 @@ export function generateVatDeclarationXml({ company, year, quarter, rounded }) {
     throw new Error('Företaget saknar ett giltigt organisationsnummer (10 siffror) — lägg till det i Inställningar innan XML-filen kan skapas.');
   }
 
-  const salesTotal = rounded.underlagByRate[25] + rounded.underlagByRate[12] + rounded.underlagByRate[6];
   const lines = [
     '<?xml version="1.0" encoding="ISO-8859-1"?>',
     '<eSKDUpload Version="6.0">',
@@ -71,20 +98,11 @@ export function generateVatDeclarationXml({ company, year, quarter, rounded }) {
     '<Moms>',
     `<Period>${eskdPeriod(year, quarter)}</Period>`,
   ];
-  if (salesTotal !== 0) lines.push(`<ForsMomsEjAnnan>${salesTotal}</ForsMomsEjAnnan>`);
-  if (rounded.outputVatByRate[25] !== 0) lines.push(`<MomsUtgHog>${rounded.outputVatByRate[25]}</MomsUtgHog>`);
-  if (rounded.outputVatByRate[12] !== 0) lines.push(`<MomsUtgMedel>${rounded.outputVatByRate[12]}</MomsUtgMedel>`);
-  if (rounded.outputVatByRate[6] !== 0) lines.push(`<MomsUtgLag>${rounded.outputVatByRate[6]}</MomsUtgLag>`);
-  // Inköp av tjänster från utlandet (omvänd skattskyldighet), ruta 21, 22 och
-  // 30-32. Taggarna och ordningen är hämtade ur Skatteverkets egen beskrivning
-  // av filformatet: rutornas ordning är ordningen i filen.
-  if (rounded.reversePurchaseEu) lines.push(`<InkopTjanstAnnatEg>${rounded.reversePurchaseEu}</InkopTjanstAnnatEg>`);
-  if (rounded.reversePurchaseNonEu) lines.push(`<InkopTjanstUtomEg>${rounded.reversePurchaseNonEu}</InkopTjanstUtomEg>`);
-  const reverseVat = rounded.reverseVatByRate || {};
-  if (reverseVat[25]) lines.push(`<MomsInkopUtgHog>${reverseVat[25]}</MomsInkopUtgHog>`);
-  if (reverseVat[12]) lines.push(`<MomsInkopUtgMedel>${reverseVat[12]}</MomsInkopUtgMedel>`);
-  if (reverseVat[6]) lines.push(`<MomsInkopUtgLag>${reverseVat[6]}</MomsInkopUtgLag>`);
-  if (rounded.inputVat !== 0) lines.push(`<MomsIngAvdr>${rounded.inputVat}</MomsIngAvdr>`);
+  // Rutor med värdet 0 utelämnas; ruta 49 skrivs alltid.
+  for (const [tag, ruta] of ESKD_TAGS) {
+    const value = eskdValue(ruta, rounded);
+    if (value) lines.push(`<${tag}>${value}</${tag}>`);
+  }
   lines.push(`<MomsBetala>${rounded.netToPay}</MomsBetala>`);
   lines.push('</Moms>', '</eSKDUpload>');
 

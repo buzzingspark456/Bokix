@@ -4,6 +4,7 @@ import ListTable from './shared/ListTable';
 import { BRAND } from '../utils/brandColors';
 import { summarizeVacationLiability, VACATION_MODEL_NOTES } from '../utils/vacation';
 import { EMPLOYER_FEE_CATEGORIES } from '../utils/payrollConfig';
+import { t } from '../i18n';
 
 // Semesteröversikten. Fram till nu kunde lönemodulen räkna fram
 // semesterskulden i KRONOR (12 % av bruttolönen varje månad, bokfört mot
@@ -23,8 +24,8 @@ const panelCard = { background: 'var(--bg-card)', borderRadius: '14px', border: 
 // ANSTÄLLNINGSFORM den hör till är det. Den formella termen finns kvar,
 // bara nedtonad, inte borttagen.
 const RULE_LABEL = {
-  sammaloneregeln: { primary: 'Månadslön', formal: 'Sammalöneregeln' },
-  procentregeln: { primary: 'Timlön/rörlig', formal: 'Procentregeln' },
+  sammaloneregeln: { primary: t('ui.manadslon'), formal: 'Sammalöneregeln' },
+  procentregeln: { primary: t('ui.timlon_rorlig'), formal: 'Procentregeln' },
 };
 
 // Kundfeedback: "semesterdelen under Anställda och lön — jag förstår inte
@@ -80,9 +81,9 @@ export default function VacationOverview({ employees = [], payrollRuns = [], onS
         <div style={{ width: 72, height: 72, borderRadius: '20px', background: 'var(--bg-muted)', color: BRAND.green, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '18px' }}>
           <Palmtree size={30} />
         </div>
-        <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '6px' }}>Inga anställda att räkna semester för</div>
+        <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '6px' }}>{t('ui.inga_anstallda_att_rakna_semester_for')}</div>
         <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)', maxWidth: '340px', margin: 0 }}>
-          Lägg till en anställd, så räknas intjänade och uttagna semesterdagar fram automatiskt.
+          {t('ui.lagg_till_en_anstalld_sa_raknas_intjanade_och_ut')}
         </p>
       </div>
     );
@@ -96,11 +97,10 @@ export default function VacationOverview({ employees = [], payrollRuns = [], onS
         </div>
         <div>
           <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '4px' }}>
-            Semesteråret {summary.vacationYear.label}
+            {t('ui.semesteraret')} {summary.vacationYear.label}
           </div>
           <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6, maxWidth: '640px' }}>
-            Intjänade och uttagna semesterdagar per anställd, och vad de dagar som är kvar kostar när de tas ut.
-            Räknas fram automatiskt — du fyller inte i något här.
+            {t('ui.intjanade_och_uttagna_semesterdagar_per_anstalld')}
           </p>
         </div>
       </div>
@@ -114,22 +114,22 @@ export default function VacationOverview({ employees = [], payrollRuns = [], onS
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: '14px', alignItems: 'stretch' }}>
         <SummaryCard
           icon={Palmtree}
-          label="Dagar kvar att ta ut"
+          label={t('ui.dagar_kvar_att_ta_ut')}
           value={fmt(summary.totalDays)}
           unit="dagar"
-          hint="Intjänade minus redan uttagna dagar, alla anställda ihop."
+          hint={t('ui.intjanade_minus_redan_uttagna_dagar_alla_anstall')}
         />
         <div style={{ background: BRAND.green, color: 'white', borderRadius: '14px', padding: '18px 20px', flex: '1 1 260px', minWidth: 0, display: 'flex', gap: '14px', alignItems: 'flex-start', boxShadow: '0 4px 14px color-mix(in srgb, var(--accent) 22%, transparent)' }}>
           <div style={{ width: 40, height: 40, borderRadius: '11px', background: 'rgba(255,255,255,0.16)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <Wallet size={19} />
           </div>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: '12px', fontWeight: 600, color: 'rgba(255,255,255,0.85)', marginBottom: '4px' }}>Vad de dagarna kostar</div>
+            <div style={{ fontSize: '12px', fontWeight: 600, color: 'rgba(255,255,255,0.85)', marginBottom: '4px' }}>{t('ui.vad_de_dagarna_kostar')}</div>
             <div style={{ fontSize: '24px', fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.15 }}>
-              {fmt(summary.totalLiability + summary.totalLiabilityFee)} <span style={{ fontSize: '13px', fontWeight: 600, color: 'rgba(255,255,255,0.85)' }}>kr</span>
+              {fmt(summary.totalLiability + summary.totalLiabilityFee)} <span style={{ fontSize: '13px', fontWeight: 600, color: 'rgba(255,255,255,0.85)' }}>{t('ui.kr')}</span>
             </div>
             <div style={{ fontSize: '11.5px', color: 'rgba(255,255,255,0.85)', marginTop: '5px', lineHeight: 1.5 }}>
-              Semesterlön {fmt(summary.totalLiability)} kr + arbetsgivaravgift {fmt(summary.totalLiabilityFee)} kr. Ska stämma mot konto 2920 + 2940 i balansräkningen.
+              {t('ui.semesterlon')} {fmt(summary.totalLiability)} {t('ui.kr_arbetsgivaravgift')} {fmt(summary.totalLiabilityFee)} {t('ui.kr_ska_stamma_mot_konto_2920_2940_i_balansraknin')}
             </div>
           </div>
         </div>
@@ -147,18 +147,18 @@ export default function VacationOverview({ employees = [], payrollRuns = [], onS
           mobileList={r => ({
             dot: r.overEntitlement ? 'var(--status-amber-text)' : 'var(--status-green-text)',
             primary: `${r.employee.firstName} ${r.employee.lastName}`,
-            amount: `${fmt(r.remaining)} d kvar`,
-            meta: `Intjänat ${fmt(r.earned)} d · uttaget ${fmt(r.taken)} d${r.saved ? ` · sparade ${fmt(r.saved)} d` : ''}`,
-            meta2: `Kostar ${fmt(r.liabilityTotal)} kr när de tas ut${r.payPerDay ? ` · ${fmt(r.payPerDay)} kr per dag` : ''}`,
+            amount: t('ui.d_kvar', { v: fmt(r.remaining) }),
+            meta: t('ui.intjanat_d_uttaget_d', { v0: fmt(r.earned), v1: fmt(r.taken), v2: r.saved ? ` · sparade ${fmt(r.saved)} d` : '' }),
+            meta2: t('ui.kostar_nar_de_tas_ut', { v: fmt(r.liabilityTotal) }) + (r.payPerDay ? t('ui.kr_per_dag', { v: fmt(r.payPerDay) }) : ''),
           })}
           columns={[
             {
-              key: 'name', label: 'Anställd', fontWeight: 600, color: 'var(--text-main)', fontSize: '14px',
+              key: 'name', label: t('ui.anstalld'), fontWeight: 600, color: 'var(--text-main)', fontSize: '14px',
               render: r => `${r.employee.firstName} ${r.employee.lastName}`,
             },
             {
-              key: 'rule', label: 'Anställningsform',
-              help: 'Hur semesterlönen räknas för den anställda. Månadslön (sammalöneregeln): månadslönen plus ett tillägg per dag — normalt för fast månadslön. Timlön/rörlig (procentregeln): en andel av föregående års lön — normalt för timlön eller rörlig lön.',
+              key: 'rule', label: t('ui.anstallningsform'),
+              help: t('ui.hur_semesterlonen_raknas_for_den_anstallda_manad'),
               render: r => {
                 const label = RULE_LABEL[r.rule];
                 if (!label) return '—';
@@ -170,29 +170,29 @@ export default function VacationOverview({ employees = [], payrollRuns = [], onS
                 );
               },
             },
-            { key: 'earned', label: 'Intjänat', align: 'right', help: 'Semesterdagar den anställda har tjänat ihop under intjänandeåret.', render: r => `${fmt(r.earned)} d` },
-            { key: 'taken', label: 'Uttaget', align: 'right', help: 'Semesterdagar som redan tagits ut, hämtat ur lönekörningarna.', render: r => `${fmt(r.taken)} d` },
+            { key: 'earned', label: t('ui.intjanat'), align: 'right', help: t('ui.semesterdagar_den_anstallda_har_tjanat_ihop_unde'), render: r => `${fmt(r.earned)} d` },
+            { key: 'taken', label: t('ui.uttaget'), align: 'right', help: t('ui.semesterdagar_som_redan_tagits_ut_hamtat_ur_lone'), render: r => `${fmt(r.taken)} d` },
             {
-              key: 'remaining', label: 'Kvar', align: 'right', fontWeight: 700, color: 'var(--text-main)',
-              help: 'Intjänat minus uttaget — dagarna den anställda fortfarande har rätt att ta ut.',
+              key: 'remaining', label: t('ui.kvar'), align: 'right', fontWeight: 700, color: 'var(--text-main)',
+              help: t('ui.intjanat_minus_uttaget_dagarna_den_anstallda_for'),
               render: r => (
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>
                   {r.overEntitlement && (
-                    <AlertTriangle size={13} color="var(--status-amber-text)" aria-label="Fler uttagna dagar än intjänade" />
+                    <AlertTriangle size={13} color="var(--status-amber-text)" aria-label={t('ui.fler_uttagna_dagar_an_intjanade')} />
                   )}
-                  {fmt(r.remaining)} d
+                  {fmt(r.remaining)} {t('ui.d')}
                 </span>
               ),
             },
-            { key: 'saved', label: 'Sparade', align: 'right', help: 'Dagar som flyttats med från tidigare semesterår. Man får spara högst fem dagar per år i upp till fem år.', render: r => (r.saved ? `${fmt(r.saved)} d` : '—') },
+            { key: 'saved', label: t('ui.sparade'), align: 'right', help: t('ui.dagar_som_flyttats_med_fran_tidigare_semesterar'), render: r => (r.saved ? `${fmt(r.saved)} d` : '—') },
             {
-              key: 'perDay', label: 'Per dag', align: 'right',
-              help: 'Vad EN semesterdag kostar i lön för den här anställda.',
+              key: 'perDay', label: t('ui.per_dag'), align: 'right',
+              help: t('ui.vad_en_semesterdag_kostar_i_lon_for_den_har_anst'),
               render: r => (r.payPerDay ? `${fmt(r.payPerDay)} kr` : '—'),
             },
             {
-              key: 'liability', label: 'Total kostnad', align: 'right', fontWeight: 600, color: 'var(--text-main)',
-              help: 'Kvarvarande dagar × dagvärdet, plus arbetsgivaravgift. Det här är vad den anställdas sparade semester kostar dig när den tas ut.',
+              key: 'liability', label: t('ui.total_kostnad'), align: 'right', fontWeight: 600, color: 'var(--text-main)',
+              help: t('ui.kvarvarande_dagar_dagvardet_plus_arbetsgivaravgi'),
               render: r => `${fmt(r.liabilityTotal)} kr`,
             },
           ]}
@@ -213,7 +213,7 @@ export default function VacationOverview({ employees = [], payrollRuns = [], onS
         >
           <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Info size={15} color="var(--text-secondary)" />
-            <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>Hur räknas det?</span>
+            <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>{t('ui.hur_raknas_det')}</span>
           </span>
           {showRules ? <ChevronUp size={15} color="var(--text-muted)" /> : <ChevronDown size={15} color="var(--text-muted)" />}
         </button>
@@ -221,13 +221,13 @@ export default function VacationOverview({ employees = [], payrollRuns = [], onS
           <div style={{ padding: '0 18px 18px' }}>
             <ul style={{ margin: 0, paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <li style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                Semesteråret löper 1 april {summary.vacationYear.start.getFullYear()} – 31 mars {summary.vacationYear.end.getFullYear()}. Dagarna tjänades in under de tolv månaderna dessförinnan (intjänandeåret).
+                {t('ui.semesteraret_loper_1_april')} {summary.vacationYear.start.getFullYear()} {t('ui.n31_mars')} {summary.vacationYear.end.getFullYear()}{t('ui.dagarna_tjanades_in_under_de_tolv_manaderna_dess')}
               </li>
               <li style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                Intjänade dagar: anställningstid under intjänandeåret delat med 365, gånger antalet semesterdagar, avrundat uppåt (semesterlagen § 7).
+                {t('ui.intjanade_dagar_anstallningstid_under_intjanande')}
               </li>
               <li style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                Dagvärde: sammalöneregeln (Månadslön) ger semestertillägg 0,43 % av månadslönen per dag (§ 16 a), procentregeln (Timlön/rörlig) 0,48 % av intjänandeårets lön per dag (§ 16 b).
+                {t('ui.dagvarde_sammaloneregeln_manadslon_ger_semestert')}
               </li>
               {VACATION_MODEL_NOTES.map(note => (
                 <li key={note} style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>{note}</li>

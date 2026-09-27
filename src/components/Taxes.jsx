@@ -4,10 +4,12 @@ import {
 } from './icons';
 import VatDeclaration from './VatDeclaration';
 import TaxOverview from './TaxOverview';
-import FixedAssets from './FixedAssets';
-import Accruals from './Accruals';
 import Partners from './Partners';
 import Dividend from './Dividend';
+import AnnualReport from './AnnualReport';
+import EcSalesList from './EcSalesList';
+import { computeEcSalesList, ecPeriod, ecDeadline } from '../utils/ecSalesList';
+import { previousFiscalYear, annualReportDeadline } from '../utils/annualReport';
 import { pendingDepreciation } from '../utils/fixedAssets';
 import { isReconciledThrough } from '../utils/reconciliation';
 import ListPageHeader from './shared/ListPageHeader';
@@ -27,6 +29,7 @@ import { downloadInk2rSru, sruMissingFields } from '../utils/sruExport';
 import { nextVatDeadline, nextAgiDeadline, nextKuDeadline, vatDueDate } from '../utils/declarationDeadlines';
 import { confirmDialog } from './shared/ConfirmDialog';
 import { activeFiscalYear, inPeriod } from '../utils/fiscalYear';
+import { t as tr, dateLocale } from '../i18n';
 
 const fmt = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
 
@@ -36,7 +39,7 @@ const fmt = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currenc
 // gratis här till skillnad från vissa Intl-vägar som ger gemener).
 function monthLabel(period, { withYear = true } = {}) {
   const [year, month] = period.split('-').map(Number);
-  const label = new Date(year, month - 1, 1).toLocaleDateString('sv-SE', { month: 'long' });
+  const label = new Date(year, month - 1, 1).toLocaleDateString(dateLocale(), { month: 'long' });
   const capitalized = label.charAt(0).toUpperCase() + label.slice(1);
   return withYear ? `${capitalized} ${year}` : capitalized;
 }
@@ -195,7 +198,7 @@ function Ink2FormField({ row, open, onToggle, fmt }) {
   return (
     <div
       onClick={onToggle}
-      title={`Fältkod ${row.fieldCode} · klicka för att se kontona bakom beloppet`}
+      title={tr('ui.faltkod_klicka_for_att_se_kontona_bakom_beloppet', { fieldCode: row.fieldCode })}
       style={{
         border: '1px solid var(--border)', borderRadius: '10px', padding: '10px 12px',
         cursor: 'pointer', background: open ? 'var(--bg-muted)' : 'var(--bg-card)',
@@ -208,9 +211,9 @@ function Ink2FormField({ row, open, onToggle, fmt }) {
       <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginTop: '2px', lineHeight: 1.4 }}>{row.label}</div>
       {open && (
         <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid var(--border-light)' }} onClick={e => e.stopPropagation()}>
-          <div style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '5px' }}>Konton bakom raden</div>
+          <div style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '5px' }}>{tr('ui.konton_bakom_raden')}</div>
           {row.accounts.length === 0 ? (
-            <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Inga konton med saldo.</div>
+            <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{tr('ui.inga_konton_med_saldo')}</div>
           ) : row.accounts.map(a => (
             <div key={a.code} style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', fontSize: '12px', padding: '2px 0', color: 'var(--text-secondary)' }}>
               <span><strong style={{ color: 'var(--text-main)' }}>{a.code}</strong> {a.name}</span>
@@ -265,7 +268,7 @@ function NeFormField({ row, value, onChange, disabled, isSuggested, last }) {
       {row.sign && <SignBadge sign={row.sign} />}
       <span style={{ flex: 1, fontSize: '13px', color: 'var(--text-main)', lineHeight: 1.4, minWidth: 0 }}>{row.label}</span>
       {isSuggested && value && (
-        <span style={{ flexShrink: 0, fontSize: '10px', fontWeight: 700, color: 'var(--status-blue-text)', background: 'var(--status-blue-bg)', padding: '1px 6px', borderRadius: '999px' }}>Förslag</span>
+        <span style={{ flexShrink: 0, fontSize: '10px', fontWeight: 700, color: 'var(--status-blue-text)', background: 'var(--status-blue-bg)', padding: '1px 6px', borderRadius: '999px' }}>{tr('ui.forslag')}</span>
       )}
       <Ink2sAmountInput value={value ?? ''} onChange={onChange} disabled={disabled} />
     </div>
@@ -307,7 +310,7 @@ function NeFormColumn({ title, groups, values, onChange, disabled, derived, sugg
 }
 
 export default function Taxes({
-  company, verifications = [], invoices = [], expenses = [], accounts = [],
+  company, verifications = [], invoices = [], expenses = [], accounts = [], contacts = [],
   employees = [], payrollRuns = [], agiReports = [],
   onCreateAgiReport, onMarkAgiSubmitted, onDeleteAgiReport,
   vatPeriods = {}, onBookVatPeriod, onNavigateToVerification,
@@ -517,8 +520,8 @@ export default function Taxes({
   const sruMissing = sruMissingFields(company);
   const canDownloadSru = ink2r.balanced && sruMissing.length === 0;
   const ink2Warnings = [
-    !isLocked && 'Räkenskapsåret är inte låst ännu. Siffrorna går att ladda ner, men kan ändras om du bokför mer.',
-    !hasBookingsThisYear && `Inga bokförda transaktioner hittades för räkenskapsåret ${fy.label}.`,
+    !isLocked && tr('ui.rakenskapsaret_ar_inte_last_siffrorna_kan_andras'),
+    !hasBookingsThisYear && tr('ui.inga_bokforda_transaktioner_for_rakenskapsaret', { label: fy.label }),
   ].filter(Boolean);
 
   // NE-bilaga — bara enskild firma (inte handelsbolag, som deklarerar sin
@@ -580,7 +583,7 @@ export default function Taxes({
     .some(v => v !== '' && v != null);
   const resetNeValues = async () => {
     if (isLocked || !hasAnyNeValue) return;
-    if (!(await confirmDialog(`Rensa alla egna ändringar av NE-beloppen för ${fy.label} och gå tillbaka till förslagen ur bokföringen? Det går inte att ångra.`, { danger: true }))) return;
+    if (!(await confirmDialog(tr('ui.rensa_alla_egna_andringar_av_ne_beloppen_for_och', { label: fy.label }), { danger: true }))) return;
     setCompanyInfo(prev => {
       const next = { ...(prev.ne || {}) };
       delete next[fyKey];
@@ -617,60 +620,60 @@ export default function Taxes({
 
   const steps = [
     {
-      id: 1, kind: 'manual', key: 'bankRecon', title: 'Avstämning bankkonto',
+      id: 1, kind: 'manual', key: 'bankRecon', title: tr('ui.avstamning_bankkonto'),
       // Klar antingen manuellt, eller automatiskt när en avstämning utan
       // differens är sparad per bokslutsdagen (Bank > Avstämning).
-      status: (checklist.bankRecon || isReconciledThrough(company?.reconciliations, fy.end)) ? 'Klar' : 'Ej påbörjad',
-      hint: 'Stäm av bankkontot och kassan under Bank > Avstämning per bokslutsdagen. En sparad avstämning utan differens markeras automatiskt, annars kan du markera steget som klart själv.',
+      status: (checklist.bankRecon || isReconciledThrough(company?.reconciliations, fy.end)) ? 'Klar' : tr('ui.ej_paborjad'),
+      hint: tr('ui.stam_av_bankkontot_och_kassan_under_bank_avstamn'),
       tab: 'bank',
     },
     {
-      id: 2, kind: 'auto', title: 'Bokför årets sista kundfakturor',
+      id: 2, kind: 'auto', title: tr('ui.bokfor_arets_sista_kundfakturor'),
       status: draftCustomerInvoices.length === 0 ? 'Klar' : 'Pågår',
-      hint: draftCustomerInvoices.length > 0 ? `${draftCustomerInvoices.length} obokförd${draftCustomerInvoices.length === 1 ? '' : 'a'} kundfaktura${draftCustomerInvoices.length === 1 ? '' : 'r'} kvar.` : 'Inga obokförda kundfakturor i år.',
+      hint: draftCustomerInvoices.length > 0 ? tr('ui.obokford_kundfaktura_kvar', { length: draftCustomerInvoices.length, v1: draftCustomerInvoices.length === 1 ? '' : 'a', v2: draftCustomerInvoices.length === 1 ? '' : 'r' }) : tr('ui.inga_obokforda_kundfakturor_i_ar'),
       tab: 'invoices',
     },
     {
-      id: 3, kind: 'auto', title: 'Bokför årets sista leverantörsfakturor',
+      id: 3, kind: 'auto', title: tr('ui.bokfor_arets_sista_leverantorsfakturor'),
       status: draftSupplierInvoices.length === 0 ? 'Klar' : 'Pågår',
-      hint: draftSupplierInvoices.length > 0 ? `${draftSupplierInvoices.length} obokförd${draftSupplierInvoices.length === 1 ? '' : 'a'} leverantörsfaktura${draftSupplierInvoices.length === 1 ? '' : 'r'} kvar.` : 'Inga obokförda leverantörsfakturor i år.',
+      hint: draftSupplierInvoices.length > 0 ? tr('ui.obokford_leverantorsfaktura_kvar', { length: draftSupplierInvoices.length, v1: draftSupplierInvoices.length === 1 ? '' : 'a', v2: draftSupplierInvoices.length === 1 ? '' : 'r' }) : tr('ui.inga_obokforda_leverantorsfakturor_i_ar'),
       tab: 'expenses',
     },
     {
-      id: 4, kind: 'auto', title: 'Gör årets sista lönekörning',
-      status: decemberRunBooked ? 'Klar' : (anyRunBookedThisYear || runsThisYear.length > 0) ? 'Pågår' : 'Ej påbörjad',
-      hint: decemberRunBooked ? `${monthLabel(fy.end.slice(0, 7), { withYear: false })}lönen är bokförd.` : `Kör och bokför lönekörningen för ${monthLabel(fy.end.slice(0, 7), { withYear: false }).toLowerCase()}, räkenskapsårets sista månad, innan året stängs.`,
+      id: 4, kind: 'auto', title: tr('ui.gor_arets_sista_lonekorning'),
+      status: decemberRunBooked ? 'Klar' : (anyRunBookedThisYear || runsThisYear.length > 0) ? 'Pågår' : tr('ui.ej_paborjad'),
+      hint: decemberRunBooked ? tr('ui.lonen_ar_bokford', { v0: monthLabel(fy.end.slice(0, 7), { withYear: false }) }) : tr('ui.kor_och_bokfor_lonekorningen_for_rakenskapsarets', { v0: monthLabel(fy.end.slice(0, 7), { withYear: false }).toLowerCase() }),
       tab: 'payroll',
     },
     {
-      id: 5, kind: 'auto', title: 'Bokför årets avskrivningar',
+      id: 5, kind: 'auto', title: tr('ui.bokfor_arets_avskrivningar'),
       status: depreciationPending.months.length === 0 ? 'Klar' : 'Pågår',
       hint: depreciationPending.months.length === 0
-        ? ((company?.fixedAssets || []).length === 0 ? 'Inga anläggningstillgångar i registret.' : 'Alla avskrivningar för året är bokförda.')
-        : `${depreciationPending.months.length} månad${depreciationPending.months.length === 1 ? '' : 'er'} kvar att bokföra, ${fmt(depreciationPending.total)}.`,
-      section: 'assets',
+        ? ((company?.fixedAssets || []).length === 0 ? tr('ui.inga_anlaggningstillgangar_i_registret') : tr('ui.alla_avskrivningar_for_aret_ar_bokforda'))
+        : tr('ui.manad_kvar_att_bokfora', { length: depreciationPending.months.length, v1: depreciationPending.months.length === 1 ? '' : 'er', v2: fmt(depreciationPending.total) }),
+      tab: 'fixed_assets',
     },
     {
-      id: 6, kind: 'manual', key: 'accruals', title: 'Periodisera upplupna och förutbetalda poster',
-      status: checklist.accruals ? 'Klar' : 'Ej påbörjad',
-      hint: 'Hyra, försäkringar, el och annat som hör till en annan period. Markera som klar när du är färdig, eller om inget behöver periodiseras.',
-      section: 'accruals',
+      id: 6, kind: 'manual', key: 'accruals', title: tr('ui.periodisera_upplupna_och_forutbetalda_poster'),
+      status: checklist.accruals ? 'Klar' : tr('ui.ej_paborjad'),
+      hint: tr('ui.hyra_forsakringar_el_och_annat_som_hor_till_en_a'),
+      tab: 'accruals',
     },
     {
-      id: 7, kind: 'manual', key: 'inventory', title: 'Inventering och lager (om tillämpligt)',
-      status: checklist.inventory ? 'Klar' : 'Ej påbörjad',
-      hint: 'Räkna och värdera varulagret per bokslutsdagen under Artiklar > Lager, markera sedan som klar. Inte tillämpligt för alla verksamheter.',
+      id: 7, kind: 'manual', key: 'inventory', title: tr('ui.inventering_och_lager_om_tillampligt'),
+      status: checklist.inventory ? 'Klar' : tr('ui.ej_paborjad'),
+      hint: tr('ui.rakna_och_vardera_varulagret_per_bokslutsdagen_u'),
       tab: 'articles',
     },
     {
-      id: 8, kind: 'auto', title: 'Beräkna och bokför årets resultat',
-      status: isLocked ? 'Klar' : 'Ej påbörjad',
-      hint: 'Bokförs automatiskt som en bokslutstransaktion när räkenskapsåret låses nedan.',
+      id: 8, kind: 'auto', title: tr('ui.berakna_och_bokfor_arets_resultat'),
+      status: isLocked ? 'Klar' : tr('ui.ej_paborjad'),
+      hint: tr('ui.bokfors_automatiskt_som_en_bokslutstransaktion_n'),
     },
     {
-      id: 9, kind: 'auto', title: 'Lås räkenskapsåret',
-      status: isLocked ? 'Klar' : 'Ej påbörjad',
-      hint: isLocked ? `Låst ${new Date(closing.lockedAt).toLocaleDateString('sv-SE')}.` : 'Blir tillgänglig när alla steg ovan är klara.',
+      id: 9, kind: 'auto', title: tr('ui.las_rakenskapsaret'),
+      status: isLocked ? 'Klar' : tr('ui.ej_paborjad'),
+      hint: isLocked ? tr('ui.last', { v0: new Date(closing.lockedAt).toLocaleDateString('sv-SE') }) : tr('ui.blir_tillganglig_nar_alla_steg_ovan_ar_klara'),
     },
   ];
 
@@ -681,6 +684,8 @@ export default function Taxes({
   const stepsBeforeLock = steps.slice(0, 7);
   // Ett handels-/kommanditbolag måste ha delägarna inlagda innan året kan
   // låsas — bokslutet fördelar resultatet direkt på dem.
+  // Statusen jämförs i koden på svenska ('Klar', 'Pågår'); bara visningen översätts.
+  const stepStatusLabel = (status) => ({ Klar: tr('ui.klar'), 'Pågår': tr('ui.pagar') }[status] || status);
   const canLock = !isLocked && partnersReady && stepsBeforeLock.every(s => s.status === 'Klar');
 
   // År som låstes innan bokslutet kände till bolagsformen har resultatet på
@@ -731,27 +736,30 @@ export default function Taxes({
   // Kontrolluppgifter och Inkomstdeklaration inte är det). Filtret ligger
   // sist så en flik aldrig kan smyga in genom att läggas till ovanför.
   const hasPayroll = employees.length > 0 || payrollRuns.length > 0;
+  const hasEuCustomers = contacts.some(c => c.customerType === 'eu_company' && String(c.vatNumber || '').trim());
   const sectionTabs = [
-    { id: 'dates', label: 'Översikt' },
+    { id: 'dates', label: tr('ui.oversikt') },
     // Inte momsregistrerat: ingen momsdeklaration att lämna.
-    ...(company?.vatRegistered === false ? [] : [{ id: 'vat', label: 'Moms' }]),
+    ...(company?.vatRegistered === false ? [] : [{ id: 'vat', label: tr('ui.moms') }]),
     // AGI och kontrolluppgifter — bara relevant för företag som någon gång haft en anställd
     // (annars finns inget att deklarera, samma "ingen anställd, ingen AGI-deadline"-princip
     // som agiDeadlineInfo nedan redan använder).
-    ...(hasPayroll ? [{ id: 'agi', label: 'Arbetsgivardeklaration' }] : []),
-    ...(hasPayroll ? [{ id: 'ku', label: 'Kontrolluppgifter' }] : []),
-    { id: 'yearend', label: 'Årsbokslut' },
-    ...(!filesOwnIncomeDeclaration ? [{ id: 'ink2', label: 'Inkomstdeklaration' }] : []),
+    ...(hasPayroll ? [{ id: 'agi', label: tr('ui.arbetsgivardeklaration') }] : []),
+    ...(hasPayroll ? [{ id: 'ku', label: tr('ui.kontrolluppgifter') }] : []),
+    // Periodisk sammanställning, när företaget har kunder i andra EU-länder.
+    ...(company?.vatRegistered !== false && hasEuCustomers ? [{ id: 'ecsales', label: tr('ui.periodisk_sammanstallning') }] : []),
+    { id: 'yearend', label: tr('ui.arsbokslut') },
+    // Årsredovisning till Bolagsverket, bara aktiebolag.
+    ...(orgType === 'Aktiebolag (AB)' ? [{ id: 'annual', label: tr('ui.arsredovisning') }] : []),
+    ...(!filesOwnIncomeDeclaration ? [{ id: 'ink2', label: tr('ui.inkomstdeklaration') }] : []),
     // NE-bilaga — bara enskild firma. INTE handelsbolag (som också har
     // filesOwnIncomeDeclaration=true men deklarerar sin andel med en N3A/
     // K10-bilaga i stället, se hjälptexten i Årsbokslut-kortet).
-    ...(isSoleProp ? [{ id: 'ne', label: 'NE-bilaga' }] : []),
+    ...(isSoleProp ? [{ id: 'ne', label: tr('ui.ne_bilaga') }] : []),
     // Bolagsformsspecifika flikar: delägare/resultatfördelning för HB/KB,
     // utdelning för AB. Enskild firma har varken eller.
-    ...(isTradingPartnership ? [{ id: 'partners', label: 'Delägare' }] : []),
-    ...(orgType === 'Aktiebolag (AB)' ? [{ id: 'dividend', label: 'Utdelning' }] : []),
-    { id: 'assets', label: 'Anläggningstillgångar' },
-    { id: 'accruals', label: 'Periodiseringar' },
+    ...(isTradingPartnership ? [{ id: 'partners', label: tr('ui.delagare') }] : []),
+    ...(orgType === 'Aktiebolag (AB)' ? [{ id: 'dividend', label: tr('ui.utdelning') }] : []),
   ].filter(tab => !isUfCompany(company) || UF_TAX_SECTION_IDS.includes(tab.id));
 
   // ── Viktiga datum ── Kundfeedback (två omgångar): profilmenyns "Viktiga
@@ -774,12 +782,12 @@ export default function Taxes({
   // alltid ligger där ute. Samma "bara om det finns löneunderlag"-villkor
   // som AGI ovan — ingen anställd, ingen KU att lämna in.
   const kuDeadlineInfo = useMemo(() => (payrollRuns.length > 0 ? nextKuDeadline() : null), [payrollRuns.length]);
-  const fmtDeadlineDate = (d) => new Intl.DateTimeFormat('sv-SE', { day: 'numeric', month: 'short', year: 'numeric' }).format(d);
+  const fmtDeadlineDate = (d) => new Intl.DateTimeFormat(dateLocale(), { day: 'numeric', month: 'short', year: 'numeric' }).format(d);
   const daysLeftLabel = (daysLeft) => {
-    if (daysLeft < 0) return 'försenad';
-    if (daysLeft === 0) return 'idag';
-    if (daysLeft === 1) return 'imorgon';
-    return `om ${daysLeft} dagar`;
+    if (daysLeft < 0) return tr('ui.forsenad');
+    if (daysLeft === 0) return tr('ui.idag_2');
+    if (daysLeft === 1) return tr('ui.imorgon');
+    return tr('ui.om_dagar', { daysLeft });
   };
 
   // ── Översikt: vad ska göras, i vilken ordning ──
@@ -811,17 +819,17 @@ export default function Taxes({
         const dueDate = vatDueDate(year, quarter);
         const daysLeft = Math.round((dueDate - today0) / 86400000);
         return {
-          key: `vat-${periodKey}`, section: 'vat', title: 'Momsdeklaration',
-          subtitle: `Kvartal ${quarter}, ${year}`,
+          key: `vat-${periodKey}`, section: 'vat', title: tr('ui.momsdeklaration'),
+          subtitle: tr('ui.kvartal_3', { quarter, year }),
           dueDate, daysLeft, vatPeriod: { year, quarter },
           done: Boolean(filedAt),
-          status: filedAt ? `Inlämnad ${filedAt}.` : booked ? 'Perioden är bokförd. Ladda ner filen och lämna in hos Skatteverket.' : 'Inte påbörjad. Bokix kontrollerar och räknar ut rutorna åt dig.',
-          cta: filedAt ? 'Visa' : booked ? 'Lämna in' : 'Gör momsdeklarationen',
+          status: filedAt ? tr('ui.inlamnad_datum', { filedAt }) : booked ? tr('ui.perioden_ar_bokford_ladda_ner_filen_och_lamna_in') : tr('ui.inte_paborjad_bokix_kontrollerar_och_raknar_ut_r'),
+          cta: filedAt ? tr('ui.visa') : booked ? tr('ui.lamna_in') : tr('ui.gor_momsdeklarationen'),
           filedKey, canMark: booked,
         };
       };
       if (!quarterly) {
-        list.push({ key: 'vat', section: 'vat', title: 'Momsdeklaration', subtitle: 'Moms', dueDate: null, daysLeft: null, done: false, status: 'Öppna för att förbereda momsdeklarationen.', cta: 'Öppna moms' });
+        list.push({ key: 'vat', section: 'vat', title: tr('ui.momsdeklaration'), subtitle: tr('ui.moms'), dueDate: null, daysLeft: null, done: false, status: tr('ui.oppna_for_att_forbereda_momsdeklarationen'), cta: tr('ui.oppna_moms') });
       } else {
         // Bokförda kvartal som ännu inte är markerade som inlämnade får inte försvinna ur listan
         // (nextVatDeadline hoppar direkt till nästa kvartal när ett är bokfört). Bara de som
@@ -847,12 +855,12 @@ export default function Taxes({
       const submitted = report?.status === 'submitted';
       const n = missingAgiMonths.length;
       list.push({
-        key: 'agi', section: 'agi', title: 'Arbetsgivardeklaration',
-        subtitle: ad ? `AGI för ${monthLabel(ad.periodKey)}` : 'AGI',
+        key: 'agi', section: 'agi', title: tr('ui.arbetsgivardeklaration'),
+        subtitle: ad ? tr('ui.agi_for', { v0: monthLabel(ad.periodKey) }) : 'AGI',
         dueDate: ad?.dueDate, daysLeft: ad ? ad.daysLeft : null,
         done: submitted,
-        status: submitted ? 'Inlämnad.' : report ? 'Ett utkast finns. Granska det och lämna in.' : n > 0 ? `${n} månad${n === 1 ? '' : 'er'} saknar AGI-underlag.` : 'Inte påbörjad.',
-        cta: report ? 'Öppna AGI' : 'Skapa AGI',
+        status: submitted ? tr('ui.inlamnad_2') : report ? tr('ui.ett_utkast_finns_granska_det_och_lamna_in') : n > 0 ? tr('ui.manad_saknar_agi_underlag', { n, v1: n === 1 ? '' : 'er' }) : tr('ui.inte_paborjad'),
+        cta: report ? tr('ui.oppna_agi') : tr('ui.skapa_agi'),
       });
     }
 
@@ -860,12 +868,12 @@ export default function Taxes({
       const filedKey = `ku:${kuDeadlineInfo.incomeYear}`;
       const filedAt = filedDate(filedKey);
       list.push({
-        key: 'ku', section: 'ku', title: 'Kontrolluppgifter',
-        subtitle: `Inkomståret ${kuDeadlineInfo.incomeYear}`,
+        key: 'ku', section: 'ku', title: tr('ui.kontrolluppgifter'),
+        subtitle: tr('ui.inkomstaret', { incomeYear: kuDeadlineInfo.incomeYear }),
         dueDate: kuDeadlineInfo.dueDate, daysLeft: kuDeadlineInfo.daysLeft,
         done: Boolean(filedAt),
-        status: filedAt ? `Inlämnad ${filedAt}.` : 'Inte lämnade. Bokix summerar årets löner per anställd.',
-        cta: 'Öppna kontrolluppgifter',
+        status: filedAt ? tr('ui.inlamnad_datum', { filedAt }) : tr('ui.inte_lamnade_bokix_summerar_arets_loner_per_anst'),
+        cta: tr('ui.oppna_kontrolluppgifter'),
         filedKey, canMark: true,
       });
     }
@@ -873,13 +881,65 @@ export default function Taxes({
     if (hasTab('yearend')) {
       const doneCount = stepsBeforeLock.filter(s => s.status === 'Klar').length;
       list.push({
-        key: 'yearend', section: 'yearend', title: 'Årsbokslut',
-        subtitle: `Räkenskapsår ${fy.label}`,
+        key: 'yearend', section: 'yearend', title: tr('ui.arsbokslut'),
+        subtitle: tr('ui.rakenskapsar_3', { label: fy.label }),
         dueDate: null, daysLeft: null,
         done: isLocked,
-        status: isLocked ? `Bokslutet är låst ${new Date(closing.lockedAt).toLocaleDateString('sv-SE')}.` : `${doneCount} av ${stepsBeforeLock.length} steg är klara.`,
-        cta: isLocked ? 'Visa bokslutet' : 'Fortsätt bokslutet',
+        status: isLocked ? tr('ui.bokslutet_ar_last_datum', { v0: new Date(closing.lockedAt).toLocaleDateString('sv-SE') }) : tr('ui.av_steg_ar_klara', { doneCount, length: stepsBeforeLock.length }),
+        cta: isLocked ? tr('ui.visa_bokslutet') : tr('ui.fortsatt_bokslutet'),
       });
+    }
+
+    // Periodisk sammanställning för det senaste avslutade kvartalet, när det
+    // fanns försäljning till EU-företag.
+    if (hasTab('ecsales')) {
+      const now = new Date();
+      let q = Math.floor(now.getMonth() / 3);
+      let y = now.getFullYear();
+      if (q === 0) { q = 4; y -= 1; }
+      const period = ecPeriod(y, `Q${q}`);
+      const ec = computeEcSalesList({ invoices, contacts, period });
+      if (ec.rows.length > 0) {
+        const today0 = new Date();
+        today0.setHours(0, 0, 0, 0);
+        const dueDate = new Date(`${ecDeadline(period)}T00:00:00`);
+        const filedKey = `ps:${period.code}`;
+        const filedAt = filedDate(filedKey);
+        list.push({
+          key: 'ecsales', section: 'ecsales', title: tr('ui.periodisk_sammanstallning'),
+          subtitle: period.label,
+          dueDate, daysLeft: Math.round((dueDate - today0) / 86400000),
+          done: Boolean(filedAt),
+          status: filedAt ? tr('ui.inlamnad_datum', { filedAt }) : tr('ui.kopare_i_eu_ladda_ner_filen_och_lamna_den_hos_sk', { length: ec.rows.length }),
+          cta: filedAt ? tr('ui.visa') : tr('ui.oppna'),
+          filedKey, canMark: true,
+        });
+      }
+    }
+
+    // Årsredovisningen för det senast avslutade räkenskapsåret, med
+    // Bolagsverkets frist (sju månader). Visas från årets slut tills den
+    // markerats inlämnad eller fristen passerat med mer än 90 dagar.
+    if (hasTab('annual')) {
+      const today0 = new Date();
+      today0.setHours(0, 0, 0, 0);
+      const prevFy = previousFiscalYear(fy, company);
+      const dueDate = new Date(`${annualReportDeadline(prevFy.end)}T00:00:00`);
+      const daysLeft = Math.round((dueDate - today0) / 86400000);
+      const hasPrevBookings = verifications.some(v => v.date >= prevFy.start && v.date <= prevFy.end);
+      if (hasPrevBookings && daysLeft >= -90) {
+        const filedKey = `ar:${prevFy.key}`;
+        const filedAt = filedDate(filedKey);
+        list.push({
+          key: 'annual', section: 'annual', title: tr('ui.arsredovisning'),
+          subtitle: tr('ui.rakenskapsar_till_bolagsverket', { label: prevFy.label }),
+          dueDate, daysLeft,
+          done: Boolean(filedAt),
+          status: filedAt ? tr('ui.inlamnad_datum', { filedAt }) : tr('ui.ladda_ner_skriv_under_efter_arsstamman_och_skick'),
+          cta: filedAt ? tr('ui.visa') : tr('ui.gor_arsredovisningen'),
+          filedKey, canMark: true,
+        });
+      }
     }
 
     const filingSection = isSoleProp ? 'ne' : (!filesOwnIncomeDeclaration ? 'ink2' : null);
@@ -888,12 +948,12 @@ export default function Taxes({
       const filedAt = filedDate(filedKey);
       list.push({
         key: 'filing', section: filingSection,
-        title: isSoleProp ? 'NE-bilaga' : 'Inkomstdeklaration (INK2)',
-        subtitle: `Räkenskapsår ${fy.label}`,
+        title: isSoleProp ? tr('ui.ne_bilaga') : tr('ui.inkomstdeklaration_ink2'),
+        subtitle: tr('ui.rakenskapsar_3', { label: fy.label }),
         dueDate: null, daysLeft: null,
         done: Boolean(filedAt),
-        status: filedAt ? `Inlämnad ${filedAt}.` : isLocked ? 'Bokslutet är klart. Förbered filerna och lämna in hos Skatteverket.' : 'Väntar på att bokslutet blir klart.',
-        cta: isLocked ? 'Förbered deklarationen' : 'Se förhandsvisning',
+        status: filedAt ? tr('ui.inlamnad_datum', { filedAt }) : isLocked ? tr('ui.bokslutet_ar_klart_forbered_filerna_och_lamna_in') : tr('ui.vantar_pa_att_bokslutet_blir_klart'),
+        cta: isLocked ? tr('ui.forbered_deklarationen') : tr('ui.se_forhandsvisning'),
         filedKey, canMark: isLocked,
       });
     }
@@ -914,8 +974,8 @@ export default function Taxes({
   };
   const nextOverviewItem = overviewItems.find(i => !i.done && i.daysLeft != null);
   const overviewSummary = nextOverviewItem
-    ? `Nästa: ${nextOverviewItem.title.toLowerCase()} ${nextOverviewItem.daysLabel}, senast ${nextOverviewItem.dueLabel}.`
-    : overviewItems.every(i => i.done) ? 'Allt är inlämnat.' : 'Inget har en deadline just nu.';
+    ? tr('ui.nasta_senast', { v0: nextOverviewItem.title.toLowerCase(), daysLabel: nextOverviewItem.daysLabel, dueLabel: nextOverviewItem.dueLabel })
+    : overviewItems.every(i => i.done) ? tr('ui.allt_ar_inlamnat') : tr('ui.inget_har_en_deadline_just_nu');
   // Efter ett låst bokslut är nästa steg deklarationen (för de bolagsformer som har en).
   const nextFilingSection = isSoleProp ? 'ne' : (!filesOwnIncomeDeclaration ? 'ink2' : null);
 
@@ -928,7 +988,7 @@ export default function Taxes({
     // annars i appen).
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
       <ListPageHeader
-        title="Skatt och bokslut"
+        title={tr('ui.skatt_och_bokslut')}
         tabs={{ items: sectionTabs, activeId: activeSection, onChange: setActiveSection }}
       />
 
@@ -970,15 +1030,15 @@ export default function Taxes({
           <div style={{ background: 'var(--bg-card)', borderRadius: '0 0 12px 12px', border: '1px solid var(--border)', overflow: 'hidden' }}>
             <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)' }}>
               <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                Årsbokslut {fy.label}
+                {tr('ui.arsbokslut')} {fy.label}
                 {isLocked && (
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 10px', borderRadius: '999px', background: 'var(--border-light)', color: 'var(--text-secondary)', fontSize: '12px', fontWeight: 600 }}>
-                    <Lock size={12} /> Räkenskapsår låst
+                    <Lock size={12} /> {tr('ui.rakenskapsar_last')}
                   </span>
                 )}
               </h2>
               <p style={{ margin: '8px 0 0', fontSize: '14px', color: 'var(--text-secondary)' }}>
-                Följ stegen nedan för att stänga räkenskapsåret. När alla steg är klara kan du låsa året och generera bokslutet.
+                {tr('ui.folj_stegen_nedan_for_att_stanga_rakenskapsaret')}
               </p>
             </div>
 
@@ -1034,7 +1094,7 @@ export default function Taxes({
                           onClick={(e) => { e.stopPropagation(); if (step.section) setActiveSection(step.section); else onNavigateToTab(step.tab); }}
                           style={{ display: 'flex', alignItems: 'center', gap: '2px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent-text)', fontSize: '12px', fontWeight: 600, fontFamily: 'inherit', padding: '2px' }}
                         >
-                          Åtgärda <ChevronRight size={12} />
+                          {tr('ui.atgarda')} <ChevronRight size={12} />
                         </button>
                       )}
                       <div style={{
@@ -1043,7 +1103,7 @@ export default function Taxes({
                         background: getStatusBg(step.status), color: getStatusColor(step.status),
                       }}>
                         {getStatusIcon(step.status)}
-                        {step.status}
+                        {stepStatusLabel(step.status)}
                       </div>
                     </div>
                   </div>
@@ -1053,7 +1113,7 @@ export default function Taxes({
 
             <div style={{ padding: '20px 24px', background: 'var(--bg-muted)', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)', fontSize: '13px' }}>
-                <Calculator size={16} /> {isLocked ? 'Bokfört resultat' : 'Beräknat resultat'}: <strong style={{ color: yearResult >= 0 ? 'var(--status-green-text)' : 'var(--status-red-text)' }}>{fmt(yearResult)}</strong>
+                <Calculator size={16} /> {isLocked ? tr('ui.bokfort_resultat') : tr('ui.beraknat_resultat')}: <strong style={{ color: yearResult >= 0 ? 'var(--status-green-text)' : 'var(--status-red-text)' }}>{fmt(yearResult)}</strong>
               </div>
               <button
                 onClick={handleLockYear}
@@ -1065,27 +1125,27 @@ export default function Taxes({
                   cursor: canLock ? 'pointer' : 'not-allowed',
                 }}
               >
-                <Lock size={16} /> {isLocked ? 'Räkenskapsår låst' : 'Lås räkenskapsår och skapa bokslut'}
+                <Lock size={16} /> {isLocked ? tr('ui.rakenskapsar_last') : tr('ui.las_rakenskapsar_och_skapa_bokslut')}
               </button>
             </div>
             {isLocked && nextFilingSection && sectionTabs.some(t => t.id === nextFilingSection) && (
               <div style={{ padding: '14px 24px', borderTop: '1px solid var(--border)', background: 'var(--status-green-bg)', color: 'var(--status-green-text)', fontSize: '13.5px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
-                <span><strong>Bokslutet är klart.</strong> Nästa steg är {isSoleProp ? 'NE-bilagan' : 'inkomstdeklarationen'}. Bokix förbereder filerna åt dig.</span>
+                <span><strong>{tr('ui.bokslutet_ar_klart')}</strong> {tr('ui.nasta_steg_ar')} {isSoleProp ? tr('ui.ne_bilagan') : 'inkomstdeklarationen'}{tr('ui.bokix_forbereder_filerna_at_dig')}</span>
                 <button type="button" onClick={() => setActiveSection(nextFilingSection)} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '8px 14px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}>
-                  Förbered deklarationen <ChevronRight size={15} />
+                  {tr('ui.forbered_deklarationen')} <ChevronRight size={15} />
                 </button>
               </div>
             )}
             {legacyYears.map(y => (
               <div key={y.year} style={{ padding: '12px 24px', borderTop: '1px solid var(--border)', background: 'var(--status-amber-bg)', color: 'var(--status-amber-text)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                <span>Resultatet för {y.year} ({fmt(y.result)} kr) ligger på 2099, som är aktiebolagets konto. För en enskild firma ska det ligga på 2019.</span>
-                <button type="button" onClick={() => handleReclassifyYear(y)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontWeight: 700, fontSize: '13px', textDecoration: 'underline', padding: 0 }}>Flytta till 2019</button>
+                <span>{tr('ui.resultatet_for')} {y.year} ({fmt(y.result)} {tr('ui.kr_ligger_pa_2099_som_ar_aktiebolagets_konto_for')}</span>
+                <button type="button" onClick={() => handleReclassifyYear(y)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontWeight: 700, fontSize: '13px', textDecoration: 'underline', padding: 0 }}>{tr('ui.flytta_till_2019')}</button>
               </div>
             ))}
             {!isLocked && !partnersReady && (
               <div style={{ padding: '12px 24px', borderTop: '1px solid var(--border)', background: 'var(--status-amber-bg)', color: 'var(--status-amber-text)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                <span>Lägg in delägarna och deras andelar innan du låser året, så att resultatet kan fördelas direkt i bokslutet.</span>
-                <button type="button" onClick={() => setActiveSection('partners')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontWeight: 700, fontSize: '13px', textDecoration: 'underline', padding: 0 }}>Gå till Delägare</button>
+                <span>{tr('ui.lagg_in_delagarna_och_deras_andelar_innan_du_las')}</span>
+                <button type="button" onClick={() => setActiveSection('partners')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontWeight: 700, fontSize: '13px', textDecoration: 'underline', padding: 0 }}>{tr('ui.ga_till_delagare')}</button>
               </div>
             )}
 
@@ -1106,18 +1166,18 @@ export default function Taxes({
                 <Info size={15} style={{ flexShrink: 0, marginTop: 1, color: 'var(--text-muted)' }} />
                 <div>
                   {isSoleProp ? (
-                    <span>Som enskild firma deklarerar du resultatet vidare med en <strong>NE-bilaga</strong> i din inkomstdeklaration, efter att bokslutet är klart.</span>
+                    <span>{tr('ui.som_enskild_firma_deklarerar_du_resultatet_vidar')} <strong>{tr('ui.ne_bilaga')}</strong> {tr('ui.i_din_inkomstdeklaration_efter_att_bokslutet_ar')}</span>
                   ) : isTradingPartnership ? (
-                    <span>Som handels-/kommanditbolag betalar bolaget ingen egen bolagsskatt — resultatet fördelas på delägarna, som var och en deklarerar sin andel med en <strong>N3A-bilaga</strong> (eller K10 vid fåmansföretagsförhållanden) i sin egen inkomstdeklaration, efter att bokslutet är klart.</span>
+                    <span>{tr('ui.som_handels_kommanditbolag_betalar_bolaget_ingen')} <strong>{tr('ui.n3a_bilaga')}</strong> {tr('ui.eller_k10_vid_famansforetagsforhallanden_i_sin_e')}</span>
                   ) : (
-                    <span>Bokslutet ska innehålla en balans- och resultaträkning. Förenklat årsbokslut kan användas om nettoomsättningen normalt inte överstiger 3 miljoner kr per år — annars krävs ett fullständigt årsbokslut/årsredovisning enligt bokföringslagen.</span>
+                    <span>{tr('ui.bokslutet_ska_innehalla_en_balans_och_resultatra')}</span>
                   )}
-                  {' '}Bokix hjälper dig strukturera underlaget men ersätter inte rådgivning för din specifika situation.
+                  {' '}{tr('ui.bokix_hjalper_dig_strukturera_underlaget_men_ers')}
                   <div style={{ display: 'flex', gap: '14px', marginTop: '8px', flexWrap: 'wrap' }}>
                     {[
-                      ['Moms', 'https://www.skatteverket.se/foretag/moms'],
-                      ['Bokföring och bokslut', 'https://www.skatteverket.se/foretag/drivaforetag/bokforingochbokslut.4.58d555751259e4d661680006527.html'],
-                      ['Enskild näringsverksamhet', 'https://www.skatteverket.se/foretag/drivaforetag/foretagsformer/enskildnaringsverksamhet/bokforingochdeklaration.4.361dc8c15312eff6fd2c99f.html'],
+                      [tr('ui.moms'), 'https://www.skatteverket.se/foretag/moms'],
+                      [tr('ui.bokforing_och_bokslut'), 'https://www.skatteverket.se/foretag/drivaforetag/bokforingochbokslut.4.58d555751259e4d661680006527.html'],
+                      [tr('ui.enskild_naringsverksamhet'), 'https://www.skatteverket.se/foretag/drivaforetag/foretagsformer/enskildnaringsverksamhet/bokforingochdeklaration.4.361dc8c15312eff6fd2c99f.html'],
                     ].map(([label, url]) => (
                       <a key={url} href={url} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--accent-text)', fontWeight: 600, textDecoration: 'none' }}>
                         {label} <ExternalLink size={11} />
@@ -1131,16 +1191,16 @@ export default function Taxes({
           )}
 
           {/* Kontrolluppgifter (KU) */}
-          {activeSection === 'assets' && (
-            <FixedAssets company={company} accounts={accounts} verifications={verifications} onAddVerification={onAddVerification} setCompanyInfo={setCompanyInfo} />
-          )}
-
-          {activeSection === 'accruals' && (
-            <Accruals company={company} accounts={accounts} verifications={verifications} employees={employees} payrollRuns={payrollRuns} onAddVerification={onAddVerification} setCompanyInfo={setCompanyInfo} />
-          )}
-
           {activeSection === 'partners' && isTradingPartnership && (
             <Partners company={company} verifications={verifications} year={fyKey} period={{ start: fy.start, end: fy.end }} yearResult={yearResult} onAddVerification={onAddVerification} setCompanyInfo={setCompanyInfo} />
+          )}
+
+          {activeSection === 'ecsales' && (
+            <EcSalesList company={company} invoices={invoices} contacts={contacts} setCompanyInfo={setCompanyInfo} />
+          )}
+
+          {activeSection === 'annual' && orgType === 'Aktiebolag (AB)' && (
+            <AnnualReport company={company} verifications={verifications} accounts={accounts} payrollRuns={payrollRuns} setCompanyInfo={setCompanyInfo} />
           )}
 
           {activeSection === 'dividend' && orgType === 'Aktiebolag (AB)' && (
@@ -1151,9 +1211,9 @@ export default function Taxes({
           <div style={{ background: 'var(--bg-card)', borderRadius: '0 0 12px 12px', border: '1px solid var(--border)', overflow: 'hidden' }}>
             <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
               <div>
-                <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>Kontrolluppgifter (KU)</h2>
+                <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>{tr('ui.kontrolluppgifter_ku')}</h2>
                 <p style={{ margin: '8px 0 0', fontSize: '14px', color: 'var(--text-secondary)', maxWidth: '540px' }}>
-                  Årssammanställning per anställd — kontant bruttolön och avdragen skatt, summerat över bokförda lönekörningar. Lämnas in på skatteverket.se med BankID, senast 31 januari.
+                  {tr('ui.arssammanstallning_per_anstalld_kontant_bruttolo')}
                 </p>
               </div>
               <select value={kuYear} onChange={e => setKuYear(e.target.value)} style={{ padding: '8px 12px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', background: 'var(--bg-card)', color: 'var(--text-main)' }}>
@@ -1166,21 +1226,21 @@ export default function Taxes({
             <div style={{ padding: '20px 24px' }}>
               {!kuTablesReady ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-muted)', fontSize: '13.5px', padding: '8px 0' }}>
-                  <Loader2 size={16} className="spin" style={{ animation: 'spin 0.8s linear infinite' }} /> Läser in skattetabeller…
+                  <Loader2 size={16} className="spin" style={{ animation: 'spin 0.8s linear infinite' }} /> {tr('ui.laser_in_skattetabeller')}
                 </div>
               ) : kuEmployeeTotals.length === 0 ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-muted)', fontSize: '13.5px', padding: '8px 0' }}>
-                  <Users size={16} /> Inga bokförda lönekörningar för {kuYear} ännu.
+                  <Users size={16} /> {tr('ui.inga_bokforda_lonekorningar_for')} {kuYear} {tr('ui.annu')}
                 </div>
               ) : (
                 <div style={{ overflowX: 'auto', marginBottom: '18px' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13.5px' }}>
                     <thead>
                       <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                        <th style={{ textAlign: 'left', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600 }}>Namn</th>
-                        <th style={{ textAlign: 'left', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600 }}>Personnummer</th>
-                        <th style={{ textAlign: 'right', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600 }}>Kontant bruttolön</th>
-                        <th style={{ textAlign: 'right', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600 }}>Avdragen skatt</th>
+                        <th style={{ textAlign: 'left', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600 }}>{tr('ui.namn')}</th>
+                        <th style={{ textAlign: 'left', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600 }}>{tr('ui.personnummer_2')}</th>
+                        <th style={{ textAlign: 'right', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600 }}>{tr('ui.kontant_bruttolon')}</th>
+                        <th style={{ textAlign: 'right', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600 }}>{tr('ui.avdragen_skatt')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1203,7 +1263,7 @@ export default function Taxes({
                   onClick={() => downloadKuPdf({ company, year: kuYear, employeeTotals: kuEmployeeTotals }, `kontrolluppgifter-${kuYear}.pdf`)}
                   style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: (!kuTablesReady || kuEmployeeTotals.length === 0) ? 'var(--text-muted)' : 'var(--accent)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '13px', cursor: (!kuTablesReady || kuEmployeeTotals.length === 0) ? 'not-allowed' : 'pointer' }}
                 >
-                  <Download size={14} /> Ladda ner sammanställning (PDF)
+                  <Download size={14} /> {tr('ui.ladda_ner_sammanstallning_pdf')}
                 </button>
                 <a
                   href="https://www.skatteverket.se/foretag"
@@ -1211,7 +1271,7 @@ export default function Taxes({
                   rel="noopener noreferrer"
                   style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontWeight: 600, fontSize: '13px', color: 'var(--text-main)', textDecoration: 'none' }}
                 >
-                  Öppna skatteverket.se <ExternalLink size={13} />
+                  {tr('ui.oppna_skatteverket_se')} <ExternalLink size={13} />
                 </a>
               </div>
             </div>
@@ -1226,8 +1286,8 @@ export default function Taxes({
           {activeSection === 'agi' && (
             <div style={{ background: 'var(--bg-card)', borderRadius: '0 0 12px 12px', border: '1px solid var(--border)', overflow: 'hidden' }}>
               <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)' }}>
-                <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>Arbetsgivardeklaration (AGI)</h2>
-                <p style={{ margin: '6px 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>Månadsvis, på individnivå.</p>
+                <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>{tr('ui.arbetsgivardeklaration_agi')}</h2>
+                <p style={{ margin: '6px 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>{tr('ui.manadsvis_pa_individniva')}</p>
               </div>
 
               <div style={{ padding: '20px 24px' }}>
@@ -1236,10 +1296,10 @@ export default function Taxes({
                     <AlertTriangle size={16} color="var(--status-amber-text)" style={{ flexShrink: 0, marginTop: '1px' }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--status-amber-text)', marginBottom: '2px' }}>
-                        Saknar deklaration: {missingAgiMonths.map(p => monthLabel(p, { withYear: false })).join(', ')}
+                        {tr('ui.saknar_deklaration')} {missingAgiMonths.map(p => monthLabel(p, { withYear: false })).join(', ')}
                       </div>
                       <div style={{ fontSize: '12.5px', color: 'var(--status-amber-text)' }}>
-                        Även månader utan löneutbetalning kräver en nolldeklaration.
+                        {tr('ui.aven_manader_utan_loneutbetalning_kraver_en_noll')}
                       </div>
                     </div>
                     <button
@@ -1248,20 +1308,20 @@ export default function Taxes({
                       style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '13px', cursor: agiBulkBusy ? 'default' : 'pointer', opacity: agiBulkBusy ? 0.7 : 1 }}
                     >
                       {agiBulkBusy ? <Loader2 size={14} className="spin" style={{ animation: 'spin 0.8s linear infinite' }} /> : <Plus size={14} />}
-                      Skapa AGI-underlag
+                      {tr('ui.skapa_agi_underlag')}
                     </button>
                   </div>
                 )}
 
                 <div style={{ display: 'flex', alignItems: 'flex-end', gap: '10px', flexWrap: 'wrap', marginBottom: '24px' }}>
                   <div>
-                    <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>År</label>
+                    <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>{tr('ui.ar')}</label>
                     <select value={agiYear} onChange={e => setAgiYear(e.target.value)} style={{ padding: '8px 12px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', background: 'var(--bg-card)', color: 'var(--text-main)' }}>
                       {[Number(currentYear) - 1, Number(currentYear)].map(y => <option key={y} value={y}>{y}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>Månad</label>
+                    <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>{tr('ui.manad')}</label>
                     <select value={agiMonth} onChange={e => setAgiMonth(e.target.value)} style={{ padding: '8px 12px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', background: 'var(--bg-card)', color: 'var(--text-main)' }}>
                       {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0')).map(m => (
                         <option key={m} value={m}>{monthLabel(`${agiYear}-${m}`, { withYear: false })}</option>
@@ -1278,14 +1338,14 @@ export default function Taxes({
                       cursor: agiReports.some(r => r.period === `${agiYear}-${agiMonth}`) ? 'not-allowed' : 'pointer',
                     }}
                   >
-                    <Plus size={14} /> Skapa AGI
+                    <Plus size={14} /> {tr('ui.skapa_agi')}
                   </button>
                 </div>
 
-                <h3 style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 10px' }}>AGI per månad</h3>
+                <h3 style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 10px' }}>{tr('ui.agi_per_manad')}</h3>
                 {agiReports.length === 0 ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-muted)', fontSize: '13.5px', padding: '8px 0 20px' }}>
-                    <Users size={16} /> Inga AGI-rapporter ännu.
+                    <Users size={16} /> {tr('ui.inga_agi_rapporter_annu')}
                   </div>
                 ) : (
                   <div style={{ display: 'grid', gap: '8px', marginBottom: '24px' }}>
@@ -1295,17 +1355,17 @@ export default function Taxes({
                         <div key={report.id} style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', padding: '12px 14px', background: 'var(--bg-muted)', borderRadius: '10px' }}>
                           <div style={{ minWidth: '140px', fontWeight: 700, fontSize: '13.5px', color: 'var(--text-main)' }}>{monthLabel(report.period)}</div>
                           <span style={{ padding: '3px 9px', borderRadius: '999px', fontSize: '11px', fontWeight: 600, background: report.isZero ? 'var(--border-light)' : 'var(--status-blue-bg)', color: report.isZero ? 'var(--text-secondary)' : 'var(--status-blue-text)' }}>
-                            {report.isZero ? 'Nolldeklaration' : 'Från lönekörning'}
+                            {report.isZero ? tr('ui.nolldeklaration') : tr('ui.fran_lonekorning')}
                           </span>
                           <div style={{ fontSize: '13px', color: 'var(--text-secondary)', flex: 1, minWidth: '160px' }}>
-                            {fmt(report.totals.tax)} skatt · {fmt(report.totals.employerFee)} avgifter
+                            {fmt(report.totals.tax)} {tr('ui.skatt_2')} {fmt(report.totals.employerFee)} {tr('ui.avgifter_2')}
                           </div>
                           <span style={{ padding: '3px 9px', borderRadius: '999px', fontSize: '11px', fontWeight: 700, background: report.status === 'submitted' ? 'var(--status-green-bg)' : 'var(--status-amber-bg)', color: report.status === 'submitted' ? 'var(--status-green-text)' : 'var(--status-amber-text)' }}>
-                            {report.status === 'submitted' ? 'Inlämnad' : 'Utkast'}
+                            {report.status === 'submitted' ? tr('ui.inlamnad') : tr('ui.utkast')}
                           </span>
                           <div style={{ display: 'flex', gap: '6px' }}>
                             <button
-                              title="Ladda ner PDF"
+                              title={tr('ui.ladda_ner_pdf')}
                               onClick={() => {
                                 const computedRows = run ? run.rows.map(row => ({ row, computed: computeEmployeePayroll(row.employeeSnapshot, row) })) : [];
                                 downloadAgiPdf({ company, period: report.period, computedRows, totals: report.totals }, `agi-${report.period}.pdf`);
@@ -1316,7 +1376,7 @@ export default function Taxes({
                             </button>
                             {report.status !== 'submitted' && (
                               <button
-                                title="Markera inlämnad"
+                                title={tr('ui.markera_inlamnad')}
                                 onClick={() => onMarkAgiSubmitted?.(report.id)}
                                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '7px', color: 'var(--status-green-text)', cursor: 'pointer' }}
                               >
@@ -1325,8 +1385,8 @@ export default function Taxes({
                             )}
                             {onDeleteAgiReport && (
                               <button
-                                title="Ta bort"
-                                onClick={async () => { if (await confirmDialog(`Ta bort AGI-rapporten för ${monthLabel(report.period)}?`, { danger: true })) onDeleteAgiReport(report.id); }}
+                                title={tr('ui.ta_bort')}
+                                onClick={async () => { if (await confirmDialog(tr('ui.ta_bort_agi_rapporten_for', { v0: monthLabel(report.period) }), { danger: true })) onDeleteAgiReport(report.id); }}
                                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '7px', color: 'var(--status-red-text)', cursor: 'pointer' }}
                               >
                                 <Trash2 size={14} />
@@ -1351,11 +1411,11 @@ export default function Taxes({
                     en egen rad när chippen bröts av under den. */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap', paddingTop: '18px', borderTop: '1px solid var(--border-light)' }}>
                   {[
-                    { n: 1, label: 'Lönekörning', icon: Users },
-                    { n: 2, label: 'Skapa AGI', icon: Plus },
-                    { n: 3, label: 'Granska', icon: ClipboardList },
-                    { n: 4, label: 'Ladda upp på SKV', icon: Download },
-                    { n: 5, label: 'Markera inlämnad', icon: CheckCircle2 },
+                    { n: 1, label: tr('ui.lonekorning_2'), icon: Users },
+                    { n: 2, label: tr('ui.skapa_agi'), icon: Plus },
+                    { n: 3, label: tr('ui.granska'), icon: ClipboardList },
+                    { n: 4, label: tr('ui.ladda_upp_pa_skv'), icon: Download },
+                    { n: 5, label: tr('ui.markera_inlamnad'), icon: CheckCircle2 },
                   ].map((step, i, arr) => (
                     <div key={step.n} style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '4px 10px 4px 4px', borderRadius: '999px', background: 'var(--status-blue-bg)' }}>
@@ -1381,15 +1441,15 @@ export default function Taxes({
             <div style={{ background: 'var(--bg-card)', borderRadius: '0 0 12px 12px', border: '1px solid var(--border)', overflow: 'hidden' }}>
               <div style={{ padding: '22px 24px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', flexWrap: 'wrap' }}>
                 <div style={{ minWidth: 0 }}>
-                  <h2 style={{ fontSize: '20px', fontWeight: 700, margin: 0, color: 'var(--text-main)', letterSpacing: '-0.01em' }}>Inkomstdeklaration 2</h2>
+                  <h2 style={{ fontSize: '20px', fontWeight: 700, margin: 0, color: 'var(--text-main)', letterSpacing: '-0.01em' }}>{tr('ui.inkomstdeklaration_2')}</h2>
                   <p style={{ margin: '5px 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                    {[company?.name, `Räkenskapsår ${fy.label}`, company?.orgNr && `Org.nr ${company.orgNr}`].filter(Boolean).map((part, i) => (
+                    {[company?.name, tr('ui.rakenskapsar_label', { label: fy.label }), company?.orgNr && tr('ui.org_nr_value', { orgNr: company.orgNr })].filter(Boolean).map((part, i) => (
                       <React.Fragment key={part}>{i > 0 && ' · '}<span style={{ whiteSpace: 'nowrap' }}>{part}</span></React.Fragment>
                     ))}
                   </p>
                 </div>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '5px 11px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: isLocked ? 'var(--status-green-bg)' : 'var(--bg-muted)', color: isLocked ? 'var(--status-green-text)' : 'var(--text-secondary)', border: isLocked ? 'none' : '1px solid var(--border)', flexShrink: 0 }}>
-                  {isLocked ? <><CheckCircle2 size={13} /> Bokslutet är låst</> : <><Clock size={13} /> Förhandsvisning</>}
+                  {isLocked ? <><CheckCircle2 size={13} /> {tr('ui.bokslutet_ar_last_2')}</> : <><Clock size={13} /> {tr('ui.forhandsvisning')}</>}
                 </span>
               </div>
 
@@ -1404,19 +1464,18 @@ export default function Taxes({
                 <Ink2Step
                   n={1}
                   done={ink2r.balanced && ink2r.rows.length > 0}
-                  title="Kontrollera att balansräkningen stämmer"
+                  title={tr('ui.kontrollera_att_balansrakningen_stammer')}
                 >
                   {ink2r.rows.length === 0 ? (
-                    <span style={{ color: 'var(--text-secondary)' }}>Inga bokförda balanskonton ännu för räkenskapsåret {fy.label}. Bokför året först.</span>
+                    <span style={{ color: 'var(--text-secondary)' }}>{tr('ui.inga_bokforda_balanskonton_annu_for_rakenskapsar')} {fy.label}{tr('ui.bokfor_aret_forst')}</span>
                   ) : ink2r.balanced ? (
                     <span style={{ color: 'var(--text-secondary)' }}>
-                      Tillgångar {fmt(ink2r.totalAssets)} = eget kapital och skulder {fmt(ink2r.totalEquityAndLiabilities)}. Klart att lämna in.
+                      {tr('ui.tillgangar')} {fmt(ink2r.totalAssets)} {tr('ui.eget_kapital_och_skulder_2')} {fmt(ink2r.totalEquityAndLiabilities)}{tr('ui.klart_att_lamna_in')}
                     </span>
                   ) : (
                     <span style={{ color: 'var(--text-secondary)' }}>
-                      <strong style={{ color: 'var(--status-red-text)' }}>Skillnad {fmt(Math.abs(ink2r.difference))} kr.</strong>{' '}
-                      Tillgångarna är {ink2r.difference > 0 ? 'större' : 'mindre'} än eget kapital och skulder. Årets resultat är redan medräknat,
-                      så skillnaden sitter någon annanstans, oftast en verifikation som inte balanserar eller ett konto som saknas i kontoplanen.
+                      <strong style={{ color: 'var(--status-red-text)' }}>{tr('ui.skillnad_2')} {fmt(Math.abs(ink2r.difference))} {tr('ui.kr_2')}</strong>{' '}
+                      {tr('ui.tillgangarna_ar')} {ink2r.difference > 0 ? tr('ui.storre') : 'mindre'} {tr('ui.an_eget_kapital_och_skulder_arets_resultat_ar_re')}
                       {onNavigateToTab && (
                         <>
                           {' '}
@@ -1425,47 +1484,47 @@ export default function Taxes({
                             onClick={() => onNavigateToTab('reports')}
                             style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', color: 'var(--accent-text)', fontWeight: 700, cursor: 'pointer', textDecoration: 'underline' }}
                           >
-                            Öppna balansräkningen
+                            {tr('ui.oppna_balansrakningen')}
                           </button>
-                          {' '}för att se var differensen sitter.
+                          {' '}{tr('ui.for_att_se_var_differensen_sitter')}
                         </>
                       )}
                     </span>
                   )}
                 </Ink2Step>
 
-                <Ink2Step n={2} title="Ladda ner SRU-filerna">
+                <Ink2Step n={2} title={tr('ui.ladda_ner_sru_filerna')}>
                   <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
                     <button
                       disabled={!canDownloadSru}
                       onClick={() => downloadInk2rSru(company, ink2r, ink2rResultat.rows, { start: fy.start, end: fy.end })}
                       style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: canDownloadSru ? 'var(--accent)' : 'var(--border)', color: canDownloadSru ? 'white' : 'var(--text-muted)', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '13px', fontFamily: 'inherit', cursor: canDownloadSru ? 'pointer' : 'not-allowed' }}
                     >
-                      <Download size={14} /> Ladda ner SRU-filerna
+                      <Download size={14} /> {tr('ui.ladda_ner_sru_filerna')}
                     </button>
                     <span style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>
                       {sruMissing.length > 0 ? (
                         <>
-                          Skatteverket kräver {sruMissing.join(', ').replace(/, ([^,]*)$/, ' och $1')} i filen. Fyll i det under Inställningar, Företag.
+                          {tr('ui.skatteverket_kraver')} {sruMissing.join(', ').replace(/, ([^,]*)$/, ' och $1')} {tr('ui.i_filen_fyll_i_det_under_installningar_foretag')}
                           {onNavigateToTab && (
                             <>
                               {' '}
                               <button type="button" onClick={() => onNavigateToTab('settings')} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', color: 'var(--accent-text)', fontWeight: 700, cursor: 'pointer', textDecoration: 'underline' }}>
-                                Öppna Inställningar
+                                {tr('ui.oppna_installningar')}
                               </button>
                             </>
                           )}
                         </>
                       ) : !ink2r.balanced ? (
-                        'Går att ladda ner när balansräkningen stämmer.'
+                        tr('ui.gar_att_ladda_ner_nar_balansrakningen_stammer')
                       ) : (
-                        'En zip-fil med INFO.SRU och BLANKETTER.SRU. Packa upp den innan du laddar upp filerna.'
+                        tr('ui.en_zip_fil_med_info_sru_och_blanketter_sru_packa')
                       )}
                     </span>
                   </div>
                 </Ink2Step>
 
-                <Ink2Step n={3} title="Lämna in hos Skatteverket" last>
+                <Ink2Step n={3} title={tr('ui.lamna_in_hos_skatteverket')} last>
                   <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
                     <a
                       href="https://sso.skatteverket.se/fv_ext/fv_web/login.do"
@@ -1473,11 +1532,10 @@ export default function Taxes({
                       rel="noopener noreferrer"
                       style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontWeight: 600, fontSize: '13px', color: 'var(--text-main)', textDecoration: 'none' }}
                     >
-                      Öppna Skatteverket <ExternalLink size={13} />
+                      {tr('ui.oppna_skatteverket')} <ExternalLink size={13} />
                     </a>
                     <span style={{ fontSize: '12.5px', color: 'var(--text-secondary)', maxWidth: '620px' }}>
-                      Logga in med BankID som företag → e-tjänsten <em>Filöverföring</em> → filtyp <em>Inkomstdeklaration</em> → ladda upp INFO.SRU och BLANKETTER.SRU. Där fyller du också i de skattemässiga justeringarna och skriver under.
-                      Bokix skickar aldrig in något åt dig; inloggningen sker alltid direkt hos Skatteverket.
+                      {tr('ui.logga_in_med_bankid_som_foretag_e_tjansten')} <em>{tr('ui.filoverforing')}</em> {tr('ui.filtyp')} <em>{tr('ui.inkomstdeklaration')}</em> {tr('ui.ladda_upp_info_sru_och_blanketter_sru_dar_fyller')}
                     </span>
                   </div>
                 </Ink2Step>
@@ -1487,7 +1545,7 @@ export default function Taxes({
                 {ink2Warnings.length > 0 && (
                   <div style={{ marginBottom: '20px', padding: '14px 16px', borderRadius: '10px', background: 'var(--status-amber-bg)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 700, color: 'var(--status-amber-text)', marginBottom: '6px' }}>
-                      <AlertTriangle size={15} /> {ink2Warnings.length === 1 ? '1 sak att känna till' : `${ink2Warnings.length} saker att känna till`}
+                      <AlertTriangle size={15} /> {ink2Warnings.length === 1 ? tr('ui.n1_sak_att_kanna_till') : tr('ui.saker_att_kanna_till', { length: ink2Warnings.length })}
                     </div>
                     <ul style={{ margin: 0, paddingLeft: '23px', fontSize: '13px', lineHeight: 1.6, color: 'var(--text-main)' }}>
                       {ink2Warnings.map(w => <li key={w}>{w}</li>)}
@@ -1500,10 +1558,10 @@ export default function Taxes({
                     (varje rad, klickbar till kontona) ligger under. */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1px', background: 'var(--border-light)', border: '1px solid var(--border-light)', borderRadius: '12px', overflow: 'hidden', marginBottom: '24px' }}>
                   {[
-                    { label: 'Summa tillgångar', amount: ink2r.totalAssets },
-                    { label: 'Eget kapital och skulder', amount: ink2r.totalEquityAndLiabilities, note: ink2r.rows.length === 0 ? null : ink2r.balanced ? 'Balanserar' : `Skillnad ${fmt(Math.abs(ink2r.difference))}`, ok: ink2r.balanced },
-                    { label: 'Rörelseresultat', amount: ink2OperatingResult },
-                    { label: 'Årets resultat', amount: ink2rResultat.total, strong: true },
+                    { label: tr('ui.summa_tillgangar'), amount: ink2r.totalAssets },
+                    { label: tr('ui.eget_kapital_och_skulder'), amount: ink2r.totalEquityAndLiabilities, note: ink2r.rows.length === 0 ? null : ink2r.balanced ? tr('ui.balanserar') : tr('ui.skillnad', { v0: fmt(Math.abs(ink2r.difference)) }), ok: ink2r.balanced },
+                    { label: tr('ui.rorelseresultat'), amount: ink2OperatingResult },
+                    { label: tr('ui.arets_resultat'), amount: ink2rResultat.total, strong: true },
                   ].map(t => (
                     <div key={t.label} style={{ background: 'var(--bg-card)', padding: '14px 16px' }}>
                       <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>{t.label}</div>
@@ -1517,10 +1575,10 @@ export default function Taxes({
                   ))}
                 </div>
 
-                <h3 style={{ fontSize: '14px', fontWeight: 700, margin: '0 0 12px', color: 'var(--text-main)' }}>Balansräkning (rad 2.1–2.50)</h3>
+                <h3 style={{ fontSize: '14px', fontWeight: 700, margin: '0 0 12px', color: 'var(--text-main)' }}>{tr('ui.balansrakning_rad_2_1_2_50')}</h3>
                 {ink2r.rows.length === 0 ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-muted)', fontSize: '13px', padding: '14px 16px', background: 'var(--bg-muted)', borderRadius: '10px' }}>
-                    <Info size={15} /> Inga bokförda balanskonton ännu för räkenskapsåret {fy.label}. Raderna fylls i automatiskt när du bokför.
+                    <Info size={15} /> {tr('ui.inga_bokforda_balanskonton_annu_for_rakenskapsar')} {fy.label}{tr('ui.raderna_fylls_i_automatiskt_nar_du_bokfor')}
                   </div>
                 ) : (
                   <div
@@ -1531,8 +1589,8 @@ export default function Taxes({
                       const { assets, equityAndLiabilities } = splitInk2rColumns(ink2r.rows);
                       return (
                         <>
-                          <Ink2FormColumn title="Tillgångar" groups={assets} expandedRow={expandedInk2rRow} setExpandedRow={setExpandedInk2rRow} fmt={fmt} />
-                          <Ink2FormColumn title="Eget kapital och skulder" groups={equityAndLiabilities} expandedRow={expandedInk2rRow} setExpandedRow={setExpandedInk2rRow} fmt={fmt} />
+                          <Ink2FormColumn title={tr('ui.tillgangar')} groups={assets} expandedRow={expandedInk2rRow} setExpandedRow={setExpandedInk2rRow} fmt={fmt} />
+                          <Ink2FormColumn title={tr('ui.eget_kapital_och_skulder')} groups={equityAndLiabilities} expandedRow={expandedInk2rRow} setExpandedRow={setExpandedInk2rRow} fmt={fmt} />
                         </>
                       );
                     })()}
@@ -1543,14 +1601,14 @@ export default function Taxes({
                     i SRU-filen (se ink2rResultat.js och disclaimern nedan). */}
                 {ink2rResultat.rows.length > 0 && (
                   <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid var(--border)' }}>
-                    <h3 style={{ fontSize: '14px', fontWeight: 700, margin: '0 0 12px', color: 'var(--text-main)' }}>Resultaträkning (rad 3.1–3.27)</h3>
+                    <h3 style={{ fontSize: '14px', fontWeight: 700, margin: '0 0 12px', color: 'var(--text-main)' }}>{tr('ui.resultatrakning_rad_3_1_3_27')}</h3>
                     <div style={{ overflowX: 'auto', marginBottom: '12px' }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13.5px' }}>
                         <thead>
                           <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                            <th style={{ textAlign: 'left', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600, width: '52px' }}>Rad</th>
-                            <th style={{ textAlign: 'left', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600 }}>Benämning</th>
-                            <th style={{ textAlign: 'right', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600 }}>Belopp</th>
+                            <th style={{ textAlign: 'left', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600, width: '52px' }}>{tr('ui.rad')}</th>
+                            <th style={{ textAlign: 'left', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600 }}>{tr('ui.benamning')}</th>
+                            <th style={{ textAlign: 'right', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600 }}>{tr('ui.belopp')}</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1574,7 +1632,7 @@ export default function Taxes({
                 <div style={{ display: 'flex', gap: '10px', fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.6, marginTop: '10px', padding: '12px 14px', background: 'var(--bg-muted)', borderRadius: '8px' }}>
                   <Info size={15} style={{ flexShrink: 0, marginTop: 1, color: 'var(--text-muted)' }} />
                   <div>
-                    Fältkoder från <a href="https://www.bas.se/kontoplaner/sru/" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', fontWeight: 600 }}>bas.se</a>s officiella kopplingstabell. Skattemässiga justeringar (INK2S) fyller du i hos Skatteverket, se nedan.
+                    {tr('ui.faltkoder_fran')} <a href="https://www.bas.se/kontoplaner/sru/" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', fontWeight: 600 }}>{tr('ui.bas_se')}</a>{tr('ui.s_officiella_kopplingstabell_skattemassiga_juste')}
                   </div>
                 </div>
               </div>
@@ -1590,31 +1648,31 @@ export default function Taxes({
           {!filesOwnIncomeDeclaration && activeSection === 'ink2' && (
             <div style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border)', overflow: 'hidden', marginTop: '16px' }}>
               <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)' }}>
-                <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>Skattemässiga justeringar (INK2S)</h2>
+                <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>{tr('ui.skattemassiga_justeringar_ink2s')}</h2>
                 <p style={{ margin: '6px 0 0', fontSize: '13px', color: 'var(--text-secondary)', maxWidth: '620px', lineHeight: 1.6 }}>
-                  Fylls i direkt hos Skatteverket när du lämnar in deklarationen. Där börjar du med årets resultat nedan.
+                  {tr('ui.fylls_i_direkt_hos_skatteverket_nar_du_lamnar_in')}
                 </p>
               </div>
               <div style={{ padding: '20px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
                 <div>
                   <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>
-                    {ink2rResultat.total < 0 ? '4.2 Årets resultat, förlust' : '4.1 Årets resultat, vinst'}
+                    {ink2rResultat.total < 0 ? tr('ui.n4_2_arets_resultat_forlust') : tr('ui.n4_1_arets_resultat_vinst')}
                   </div>
                   <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-main)', fontVariantNumeric: 'tabular-nums', marginTop: '2px' }}>{fmt(Math.abs(ink2rResultat.total))}</div>
-                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>Samma belopp som rad {ink2rResultat.total < 0 ? '3.27' : '3.26'} i resultaträkningen ovan.</div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>{tr('ui.samma_belopp_som_rad')} {ink2rResultat.total < 0 ? '3.27' : '3.26'} {tr('ui.i_resultatrakningen_ovan')}</div>
                 </div>
                 <a
                   href="https://sso.skatteverket.se/fv_ext/fv_web/login.do"
                   target="_blank" rel="noopener noreferrer"
                   style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontWeight: 600, fontSize: '13px', color: 'var(--text-main)', textDecoration: 'none' }}
                 >
-                  Öppna Skatteverket <ExternalLink size={13} />
+                  {tr('ui.oppna_skatteverket')} <ExternalLink size={13} />
                 </a>
               </div>
               <div style={{ display: 'flex', gap: '10px', fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.6, margin: '0 24px 20px', padding: '12px 14px', background: 'var(--bg-muted)', borderRadius: '8px' }}>
                 <Info size={15} style={{ flexShrink: 0, marginTop: 1, color: 'var(--text-muted)' }} />
                 <div>
-                  Vanliga justeringar är ej avdragsgilla kostnader (4.3 c), skattefria intäkter (4.5 c), schablonintäkt på periodiseringsfonder (4.6 a) och underskott från förra året (4.14 a). Är du osäker, fråga din redovisningskonsult.
+                  {tr('ui.vanliga_justeringar_ar_ej_avdragsgilla_kostnader')}
                 </div>
               </div>
             </div>
@@ -1643,8 +1701,8 @@ export default function Taxes({
             <div style={{ background: 'var(--bg-card)', borderRadius: '0 0 12px 12px', border: '1px solid var(--border)', overflow: 'hidden' }}>
               <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', flexWrap: 'wrap' }}>
                 <div>
-                  <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>NE-bilaga — Inkomst av näringsverksamhet</h2>
-                  <p style={{ margin: '6px 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>Förifyllt ur bokföringen — kontrollera och ändra vid behov.</p>
+                  <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>{tr('ui.ne_bilaga_inkomst_av_naringsverksamhet')}</h2>
+                  <p style={{ margin: '6px 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>{tr('ui.forifyllt_ur_bokforingen_kontrollera_och_andra_v')}</p>
                 </div>
                 {hasAnyNeValue && !isLocked && (
                   <button
@@ -1652,32 +1710,32 @@ export default function Taxes({
                     onClick={resetNeValues}
                     style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontWeight: 600, fontSize: '12.5px', color: 'var(--status-red-text)', cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}
                   >
-                    <RotateCcw size={13} /> Nollställ alla
+                    <RotateCcw size={13} /> {tr('ui.nollstall_alla')}
                   </button>
                 )}
               </div>
 
               <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--border)', background: 'var(--bg-muted)', display: 'grid', gap: 0 }}>
-                <Ink2Step n={1} done={neFilledCount > 0} title="Kontrollera uppgifterna nedan">
+                <Ink2Step n={1} done={neFilledCount > 0} title={tr('ui.kontrollera_uppgifterna_nedan')}>
                   <span style={{ color: 'var(--text-secondary)' }}>
                     {neFilledCount === 0
-                      ? `${neTotalFields} fält, ${verifications.length === 0 ? 'inget bokfört ännu' : 'inget att fylla i ur bokföringen ännu'} — fyll bara i det som gäller din verksamhet.`
-                      : `${neFilledCount} av ${neTotalFields} fält ifyllda, mestadels föreslagna ur bokföringen. Skriv över ett fält om det är fel.`}
+                      ? tr('ui.falt_fyll_bara_i_det_som_galler_din_verksamhet', { neTotalFields, v1: verifications.length === 0 ? 'inget bokfört ännu' : 'inget att fylla i ur bokföringen ännu' })
+                      : tr('ui.av_falt_ifyllda_mestadels_foreslagna_ur_bokforin', { neFilledCount, neTotalFields })}
                   </span>
                 </Ink2Step>
-                <Ink2Step n={2} title="Ladda ner en sammanställning">
+                <Ink2Step n={2} title={tr('ui.ladda_ner_en_sammanstallning')}>
                   <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
                     <button
                       disabled={neFilledCount === 0}
                       onClick={() => downloadNePdf({ company, year: fy.label, balanceRows: neBalance.rows, resultRows: neResult.rows, equity: neBalance.equity, result: neResult.total }, `ne-bilaga-${fyKey.replace('/', '-')}.pdf`)}
                       style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: neFilledCount === 0 ? 'var(--border)' : 'var(--accent)', color: neFilledCount === 0 ? 'var(--text-muted)' : 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '13px', cursor: neFilledCount === 0 ? 'not-allowed' : 'pointer' }}
                     >
-                      <Download size={14} /> Ladda ner PDF
+                      <Download size={14} /> {tr('ui.ladda_ner_pdf')}
                     </button>
-                    <span style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>Bara en renskrift av det du fyllt i här — inte själva blanketten.</span>
+                    <span style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>{tr('ui.bara_en_renskrift_av_det_du_fyllt_i_har_inte_sja')}</span>
                   </div>
                 </Ink2Step>
-                <Ink2Step n={3} title="Fyll i NE-bilagan hos Skatteverket" last>
+                <Ink2Step n={3} title={tr('ui.fyll_i_ne_bilagan_hos_skatteverket')} last>
                   <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
                     <a
                       href="https://www.skatteverket.se/privat"
@@ -1685,32 +1743,32 @@ export default function Taxes({
                       rel="noopener noreferrer"
                       style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontWeight: 600, fontSize: '13px', color: 'var(--text-main)', textDecoration: 'none' }}
                     >
-                      Öppna Skatteverket <ExternalLink size={13} />
+                      {tr('ui.oppna_skatteverket')} <ExternalLink size={13} />
                     </a>
                     <span style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>
-                      Logga in privat med BankID (inte som företag) → Inkomstdeklaration 1 → fliken Bilagor → Enskild näringsverksamhet (NE) → skriv av siffrorna från PDF:en ovan. Bokix skapar ingen SRU-fil att importera här ännu (osäkert på det exakta blankettformatet) — bara PDF:en att skriva av för hand.
+                      {tr('ui.logga_in_privat_med_bankid_inte_som_foretag_inko')}
                     </span>
                   </div>
                 </Ink2Step>
               </div>
 
               <div style={{ padding: '20px 24px' }}>
-                <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 12px' }}>Balansräkning/räkenskapsschema</div>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 12px' }}>{tr('ui.balansrakning_rakenskapsschema')}</div>
                 <div className="form-row-2" style={{ display: 'grid', gap: '20px', gridTemplateColumns: '1fr 1fr', marginBottom: '24px' }}>
                   <NeFormColumn
-                    title="Tillgångar" groups={neBalanceByColumn.assets}
+                    title={tr('ui.tillgangar')} groups={neBalanceByColumn.assets}
                     values={neValues.balance} disabled={isLocked}
                     onChange={(key, v) => updateNeValue('balance', key, v)}
                     suggestedKeys={neSuggestedKeys}
                   />
                   <NeFormColumn
-                    title="Eget kapital och skulder" groups={neBalanceByColumn.liabilities}
+                    title={tr('ui.eget_kapital_och_skulder')} groups={neBalanceByColumn.liabilities}
                     values={neValues.balance} disabled={isLocked}
                     onChange={(key, v) => updateNeValue('balance', key, v)}
                     suggestedKeys={neSuggestedKeys}
                     derived={
                       <Ink2sStatTile
-                        label="B10 Eget kapital (tillgångar − skulder)"
+                        label={tr('ui.b10_eget_kapital_tillgangar_skulder')}
                         amount={neBalance.equity}
                         tone={neBalance.equity >= 0 ? 'green' : 'red'}
                         Icon={neBalance.equity >= 0 ? TrendingUp : TrendingDown}
@@ -1719,7 +1777,7 @@ export default function Taxes({
                   />
                 </div>
 
-                <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 12px', paddingTop: '20px', borderTop: '1px solid var(--border)' }}>Resultaträkning/räkenskapsschema</div>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 12px', paddingTop: '20px', borderTop: '1px solid var(--border)' }}>{tr('ui.resultatrakning_rakenskapsschema')}</div>
                 <div style={{ maxWidth: '620px' }}>
                   <NeFormColumn
                     groups={neResultByGroup}
@@ -1728,7 +1786,7 @@ export default function Taxes({
                     suggestedKeys={neSuggestedKeys}
                     derived={
                       <Ink2sStatTile
-                        label="R11 Bokfört resultat (förs över till sidan 2, R12)"
+                        label={tr('ui.r11_bokfort_resultat_fors_over_till_sidan_2_r12')}
                         amount={neResult.total}
                         tone={neResult.total >= 0 ? 'green' : 'red'}
                         Icon={neResult.total >= 0 ? TrendingUp : TrendingDown}

@@ -10,6 +10,7 @@ import ListPageHeader, { ListFilterBar } from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
 import { useIsMobileViewport } from '../hooks/useIsMobileViewport';
 import { BRAND } from '../utils/brandColors';
+import { t as tr, dateLocale } from '../i18n';
 
 const formatSEK = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
 
@@ -32,7 +33,7 @@ function formatHours(h) { return (Math.round(h * 4) / 4).toString().replace('.',
 
 function formatWeekRange(weekDates) {
   const start = weekDates[0], end = weekDates[6];
-  const monthName = (d) => d.toLocaleDateString('sv-SE', { month: 'long' });
+  const monthName = (d) => d.toLocaleDateString(dateLocale(), { month: 'long' });
   if (start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear()) {
     return `${start.getDate()}–${end.getDate()} ${monthName(end)} ${end.getFullYear()}`;
   }
@@ -66,23 +67,23 @@ const SELF_PERSON_ID = '__self__';
 function getPersonList(employees) {
   return [
     { id: SELF_PERSON_ID, name: 'Jag' },
-    ...employees.map(e => ({ id: e.id, name: `${e.firstName || ''} ${e.lastName || ''}`.trim() || 'Namnlös' })),
+    ...employees.map(e => ({ id: e.id, name: `${e.firstName || ''} ${e.lastName || ''}`.trim() || tr('ui.namnlos') })),
   ];
 }
 
 const TIME_REPORT_STAGES = ['pending', 'submitted', 'attested', 'approved'];
 const TIME_REPORT_STATUS = {
-  pending: { label: 'Pågående', bg: 'var(--gray-200)', color: 'var(--text-main)' },
-  submitted: { label: 'Inskickad', bg: 'var(--status-amber-bg)', color: 'var(--status-amber-text)' },
-  attested: { label: 'Attesterad', bg: BRAND.blueBg, color: BRAND.blueText },
-  approved: { label: 'Godkänd', bg: BRAND.greenLight, color: BRAND.greenDark },
+  pending: { label: tr('ui.pagaende'), bg: 'var(--gray-200)', color: 'var(--text-main)' },
+  submitted: { label: tr('ui.inskickad'), bg: 'var(--status-amber-bg)', color: 'var(--status-amber-text)' },
+  attested: { label: tr('ui.attesterad'), bg: BRAND.blueBg, color: BRAND.blueText },
+  approved: { label: tr('ui.godkand'), bg: BRAND.greenLight, color: BRAND.greenDark },
 };
 
 function getMonthKey(dateStr) { return (dateStr || '').slice(0, 7); } // 'YYYY-MM'
 function formatMonthLabel(monthKey) {
   const [y, m] = (monthKey || '').split('-').map(Number);
   if (!y || !m) return monthKey || '—';
-  return new Date(y, m - 1, 1).toLocaleDateString('sv-SE', { month: 'long', year: 'numeric' });
+  return new Date(y, m - 1, 1).toLocaleDateString(dateLocale(), { month: 'long', year: 'numeric' });
 }
 function reportKey(personId, monthKey, customerId) { return `${personId}|${monthKey}|${customerId || 'none'}`; }
 function shiftMonthKey(monthKey, delta) {
@@ -202,9 +203,9 @@ function SectionEmptyState({ icon: Icon = Search, title }) {
 // ── Sida 16: tomt läge — säljande, inte bara en rubrik och en knapp ──
 function EmptyProjectsState({ onCreate }) {
   const valueProps = [
-    { icon: Clock, title: 'Tidrapportering', text: 'Logga timmar per projekt' },
-    { icon: TrendingUp, title: 'Lönsamhet', text: 'Se intäkt mot kostnad live' },
-    { icon: FileText, title: 'Fakturera', text: 'Fakturera direkt från tidrapport' },
+    { icon: Clock, title: tr('ui.tidrapportering'), text: tr('ui.logga_timmar_per_projekt') },
+    { icon: TrendingUp, title: tr('ui.lonsamhet'), text: tr('ui.se_intakt_mot_kostnad_live') },
+    { icon: FileText, title: tr('ui.fakturera'), text: tr('ui.fakturera_direkt_fran_tidrapport') },
   ];
   return (
     // Kundönskemål ("Fakturor är det som ser bra ut"): ingen egen
@@ -214,12 +215,12 @@ function EmptyProjectsState({ onCreate }) {
       <div style={{ width: '52px', height: '52px', borderRadius: '999px', background: BRAND.greenLight, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' }}>
         <Briefcase size={22} color={BRAND.greenDark} />
       </div>
-      <h3 style={{ fontSize: '16px', fontWeight: 500, margin: '0 0 8px', color: 'var(--text-main)' }}>Skapa ditt första projekt</h3>
+      <h3 style={{ fontSize: '16px', fontWeight: 500, margin: '0 0 8px', color: 'var(--text-main)' }}>{tr('ui.skapa_ditt_forsta_projekt')}</h3>
       <p style={{ color: 'var(--text-secondary)', fontSize: '14px', margin: '0 auto 22px', maxWidth: '360px', lineHeight: 1.5 }}>
-        Följ upp tid och lönsamhet genom att skapa ditt första projekt och börja tidrapportera.
+        {tr('ui.folj_upp_tid_och_lonsamhet_genom_att_skapa_ditt')}
       </p>
       <button onClick={onCreate} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: BRAND.green, color: 'white', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 500, cursor: 'pointer' }}>
-        <Plus size={16} /> Nytt projekt
+        <Plus size={16} /> {tr('ui.nytt_projekt')}
       </button>
 
       <div style={{ borderTop: '0.5px solid var(--border)', marginTop: '32px', paddingTop: '24px', display: 'flex', justifyContent: 'center', gap: '28px', flexWrap: 'wrap' }}>
@@ -276,7 +277,7 @@ function TimeCellPopover({ hours: initialHours, description: initialDescription,
 
   const handleSave = () => {
     const h = Number(hours);
-    if (!h || h <= 0) { setError('Ange fler än 0 timmar.'); return; }
+    if (!h || h <= 0) { setError(tr('ui.ange_fler_an_0_timmar')); return; }
     onSave({ hours: h, description });
   };
 
@@ -309,7 +310,7 @@ function TimeCellPopover({ hours: initialHours, description: initialDescription,
       onClick={e => e.stopPropagation()}
     >
       <div style={{ marginBottom: '8px' }}>
-        <label style={labelStyle}>Timmar</label>
+        <label style={labelStyle}>{tr('ui.timmar')}</label>
         <input
           type="number" step="0.25" min="0" autoFocus value={hours} onChange={e => { setHours(e.target.value); setError(''); }}
           onKeyDown={handleKeyDown}
@@ -317,27 +318,27 @@ function TimeCellPopover({ hours: initialHours, description: initialDescription,
         />
       </div>
       <div style={{ marginBottom: '8px' }}>
-        <label style={labelStyle}>Beskrivning</label>
+        <label style={labelStyle}>{tr('ui.beskrivning')}</label>
         <input
-          type="text" value={description} onChange={e => setDescription(e.target.value)} placeholder="Vad jobbade du med?"
+          type="text" value={description} onChange={e => setDescription(e.target.value)} placeholder={tr('ui.vad_jobbade_du_med')}
           onKeyDown={handleKeyDown}
           style={inputStyle}
         />
       </div>
       {showOverageWarning && (
-        <div style={{ color: 'var(--status-amber-text)', fontSize: '11px', marginBottom: '8px', lineHeight: 1.4 }}>Ovanligt mycket tid registrerad denna dag, stämmer det?</div>
+        <div style={{ color: 'var(--status-amber-text)', fontSize: '11px', marginBottom: '8px', lineHeight: 1.4 }}>{tr('ui.ovanligt_mycket_tid_registrerad_denna_dag_stamme')}</div>
       )}
       {error && <div style={{ color: 'var(--status-red-text)', fontSize: '11px', marginBottom: '8px' }}>{error}</div>}
       <div style={{ display: 'flex', gap: '6px' }}>
-        <button onClick={handleSave} style={{ flex: 1, padding: '7px', background: BRAND.green, color: 'white', border: 'none', borderRadius: '6px', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer' }}>Spara</button>
+        <button onClick={handleSave} style={{ flex: 1, padding: '7px', background: BRAND.green, color: 'white', border: 'none', borderRadius: '6px', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer' }}>{tr('ui.spara')}</button>
         {isEditing && (
-          <button onClick={onDelete} title="Ta bort" style={{ padding: '7px 9px', background: BRAND.redBg, color: BRAND.redText, border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex' }}>
+          <button onClick={onDelete} title={tr('ui.ta_bort')} style={{ padding: '7px 9px', background: BRAND.redBg, color: BRAND.redText, border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex' }}>
             <X size={13} />
           </button>
         )}
-        <button onClick={onClose} style={{ padding: '7px 10px', background: 'var(--gray-100)', color: 'var(--text-secondary)', border: 'none', borderRadius: '6px', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer' }}>Avbryt</button>
+        <button onClick={onClose} style={{ padding: '7px 10px', background: 'var(--gray-100)', color: 'var(--text-secondary)', border: 'none', borderRadius: '6px', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer' }}>{tr('ui.avbryt')}</button>
       </div>
-      <div style={{ marginTop: '8px', fontSize: '10.5px', color: 'var(--text-muted)' }}>Enter för att spara · Esc för att stänga</div>
+      <div style={{ marginTop: '8px', fontSize: '10.5px', color: 'var(--text-muted)' }}>{tr('ui.enter_for_att_spara_esc_for_att_stanga')}</div>
     </div>
   );
 }
@@ -493,7 +494,7 @@ function TimeTrackingTab({ projects, timeEntries, setTimeEntries, setProjects, p
           <div style={{ width: 44, height: 44, borderRadius: '999px', background: 'var(--gray-100)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
             <Clock size={19} color="var(--text-muted)" />
           </div>
-          <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '16px' }}>Ingen tid registrerad ännu denna vecka.</div>
+          <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '16px' }}>{tr('ui.ingen_tid_registrerad_annu_denna_vecka')}</div>
           {showAddRow ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', maxWidth: '280px', margin: '0 auto' }}>
               <div style={{ flex: 1 }}>
@@ -503,7 +504,7 @@ function TimeTrackingTab({ projects, timeEntries, setTimeEntries, setProjects, p
                   projects={addableProjects}
                 />
               </div>
-              <button onClick={() => setShowAddRow(false)} title="Avbryt" style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '6px', display: 'flex' }}>
+              <button onClick={() => setShowAddRow(false)} title={tr('ui.avbryt')} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '6px', display: 'flex' }}>
                 <X size={16} />
               </button>
             </div>
@@ -513,7 +514,7 @@ function TimeTrackingTab({ projects, timeEntries, setTimeEntries, setProjects, p
                 onClick={() => setShowAddRow(true)}
                 style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: BRAND.green, color: 'white', border: 'none', borderRadius: '8px', padding: '9px 18px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
               >
-                <Plus size={14} /> Lägg till projekt
+                <Plus size={14} /> {tr('ui.lagg_till_projekt')}
               </button>
             )
           )}
@@ -546,9 +547,9 @@ function TimeTrackingTab({ projects, timeEntries, setTimeEntries, setProjects, p
         <>
         <div style={{ marginBottom: '14px', flexShrink: 0 }}>
           <ProjectKpiStrip items={[
-            { icon: Clock, label: 'Timmar denna vecka', value: `${formatHours(weekTotal)} h` },
-            { icon: Zap, label: 'Projekt', value: String(rows.length) },
-            { icon: TrendingUp, label: 'Snitt per arbetsdag', value: loggedDayCount > 0 ? `${formatHours(avgPerLoggedDay)} h` : '–', sub: loggedDayCount > 0 ? `${loggedDayCount} ${loggedDayCount === 1 ? 'dag' : 'dagar'} loggade` : 'Ingen tid loggad än' },
+            { icon: Clock, label: tr('ui.timmar_denna_vecka'), value: `${formatHours(weekTotal)} h` },
+            { icon: Zap, label: tr('ui.projekt'), value: String(rows.length) },
+            { icon: TrendingUp, label: tr('ui.snitt_per_arbetsdag'), value: loggedDayCount > 0 ? `${formatHours(avgPerLoggedDay)} h` : '–', sub: loggedDayCount > 0 ? `${loggedDayCount} ${loggedDayCount === 1 ? 'dag' : 'dagar'} loggade` : tr('ui.ingen_tid_loggad_an') },
           ]} />
         </div>
         <div style={{ ...cardBase, border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)', flex: 1, minHeight: 0, overflow: 'auto' }}>
@@ -575,7 +576,7 @@ function TimeTrackingTab({ projects, timeEntries, setTimeEntries, setProjects, p
                       border: `1px solid ${isActive ? BRAND.green : 'var(--border)'}`,
                     }}
                   >
-                    <div style={{ fontSize: '10.5px', fontWeight: 600, textTransform: 'capitalize', opacity: 0.85 }}>{date.toLocaleDateString('sv-SE', { weekday: 'short' })}</div>
+                    <div style={{ fontSize: '10.5px', fontWeight: 600, textTransform: 'capitalize', opacity: 0.85 }}>{date.toLocaleDateString(dateLocale(), { weekday: 'short' })}</div>
                     <div style={{ fontSize: '15px', fontWeight: 700 }}>{date.getDate()}</div>
                     <div style={{ fontSize: '10px', fontWeight: 600, opacity: total > 0 ? 0.95 : 0.5 }}>{total > 0 ? `${formatHours(total)} h` : '–'}</div>
                   </button>
@@ -587,20 +588,20 @@ function TimeTrackingTab({ projects, timeEntries, setTimeEntries, setProjects, p
             <thead>
               <tr>
                 <th style={{ textAlign: 'left', padding: '16px 20px', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, left: 0, zIndex: 3, background: 'var(--bg-card)', minWidth: isNarrow ? '120px' : '200px' }}>
-                  Projekt
+                  {tr('ui.projekt')}
                 </th>
                 {visibleDates.map((date) => {
                   const dateStr = getISODate(date);
                   const isToday = dateStr === todayStr;
                   return (
                     <th key={dateStr} style={{ padding: '14px 8px', textAlign: 'center', width: '104px', borderBottom: `1px solid ${isToday ? BRAND.green : 'var(--border)'}`, borderLeft: '1px solid var(--border-light)', background: isToday ? BRAND.greenLight : 'var(--bg-card)', position: 'sticky', top: 0, zIndex: 2 }}>
-                      <div style={{ fontSize: '12.5px', fontWeight: 600, color: isToday ? BRAND.greenDark : 'var(--text-secondary)', textTransform: 'capitalize' }}>{date.toLocaleDateString('sv-SE', { weekday: 'short' })}</div>
+                      <div style={{ fontSize: '12.5px', fontWeight: 600, color: isToday ? BRAND.greenDark : 'var(--text-secondary)', textTransform: 'capitalize' }}>{date.toLocaleDateString(dateLocale(), { weekday: 'short' })}</div>
                       <div style={{ fontSize: '20px', fontWeight: 700, color: isToday ? BRAND.greenDark : 'var(--text-main)', marginTop: '4px' }}>{date.getDate()}</div>
                     </th>
                   );
                 })}
                 <th style={{ padding: '16px 20px', textAlign: 'right', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border-light)', position: 'sticky', top: 0, zIndex: 2, background: 'var(--bg-card)' }}>
-                  Totalt
+                  {tr('ui.totalt')}
                 </th>
               </tr>
             </thead>
@@ -649,7 +650,7 @@ function TimeTrackingTab({ projects, timeEntries, setTimeEntries, setProjects, p
             </tbody>
             <tfoot>
               <tr>
-                <td style={{ padding: '16px 20px', fontWeight: 700, fontSize: '12px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', borderTop: '1px solid var(--border)', position: 'sticky', left: 0, zIndex: 1, background: 'var(--bg-card)' }}>Totalt</td>
+                <td style={{ padding: '16px 20px', fontWeight: 700, fontSize: '12px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', borderTop: '1px solid var(--border)', position: 'sticky', left: 0, zIndex: 1, background: 'var(--bg-card)' }}>{tr('ui.totalt')}</td>
                 {visibleDates.map(date => {
                   const dateStr = getISODate(date);
                   const total = dayTotal(dateStr);
@@ -660,7 +661,7 @@ function TimeTrackingTab({ projects, timeEntries, setTimeEntries, setProjects, p
                   );
                 })}
                 <td style={{ padding: '16px 20px', textAlign: 'right', fontWeight: 700, fontSize: '16px', color: BRAND.greenDark, borderLeft: '1px solid var(--border-light)', borderTop: '1px solid var(--border)' }}>
-                  {formatHours(weekTotal)} h
+                  {formatHours(weekTotal)} {tr('ui.h')}
                 </td>
               </tr>
             </tfoot>
@@ -685,7 +686,7 @@ function TimeTrackingTab({ projects, timeEntries, setTimeEntries, setProjects, p
                   projects={addableProjects}
                 />
               </div>
-              <button onClick={() => setShowAddRow(false)} title="Avbryt" style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '6px', display: 'flex' }}>
+              <button onClick={() => setShowAddRow(false)} title={tr('ui.avbryt')} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '6px', display: 'flex' }}>
                 <X size={16} />
               </button>
             </div>
@@ -695,7 +696,7 @@ function TimeTrackingTab({ projects, timeEntries, setTimeEntries, setProjects, p
                 onClick={() => setShowAddRow(true)}
                 style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'none', border: '1px dashed var(--gray-300)', borderRadius: '8px', padding: '8px 14px', fontSize: '12.5px', color: 'var(--text-secondary)', cursor: 'pointer' }}
               >
-                <Plus size={13} /> Lägg till projekt
+                <Plus size={13} /> {tr('ui.lagg_till_projekt')}
               </button>
             )
           )}
@@ -754,7 +755,7 @@ function TimeReportsView({ timeEntries, employees, timeReportStatuses, setTimeRe
   const advance = (r) => setStatus(r.person.id, r.monthKey, TIME_REPORT_STAGES[Math.min(TIME_REPORT_STAGES.indexOf(r.status) + 1, TIME_REPORT_STAGES.length - 1)]);
   const revert = (r) => setStatus(r.person.id, r.monthKey, TIME_REPORT_STAGES[Math.max(TIME_REPORT_STAGES.indexOf(r.status) - 1, 0)]);
 
-  const ACTION_LABEL = { pending: 'Skicka in', submitted: 'Attestera', attested: 'Godkänn' };
+  const ACTION_LABEL = { pending: tr('ui.skicka_in'), submitted: tr('ui.attestera'), attested: tr('ui.godkann_slutligt') };
   const ACTION_ICON = { pending: Send, submitted: ClipboardCheck, attested: CheckCircle2 };
 
   // ── Bulk-attestera/godkänn — kundönskemål ("automation based... det
@@ -787,7 +788,7 @@ function TimeReportsView({ timeEntries, employees, timeReportStatuses, setTimeRe
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
       {reports.length === 0 ? (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', margin: '0 20px' }}><SectionEmptyState icon={ListChecks} title="Ingen tid loggad denna månad ännu." /></div>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', margin: '0 20px' }}><SectionEmptyState icon={ListChecks} title={tr('ui.ingen_tid_loggad_denna_manad_annu')} /></div>
       ) : (
         <>
           {/* Samma merge-med-headern-princip som Projekt-fliken (ProjectKpiStrip)
@@ -798,21 +799,21 @@ function TimeReportsView({ timeEntries, employees, timeReportStatuses, setTimeRe
               finns något att driva framåt. */}
           <div style={{ padding: '18px 20px 14px' }}>
             <ProjectKpiStrip items={[
-              { icon: Users, label: 'Personer', value: String(reports.length) },
-              { icon: Clock, label: 'Totalt loggat', value: `${formatHours(monthTotalHours)} h` },
-              { icon: Send, label: 'Väntar attest', value: String(submittedReports.length), tone: submittedReports.length > 0 ? 'negative' : 'neutral' },
-              { icon: ClipboardCheck, label: 'Väntar godkännande', value: String(attestedReports.length), tone: attestedReports.length > 0 ? 'negative' : 'neutral' },
+              { icon: Users, label: tr('ui.personer'), value: String(reports.length) },
+              { icon: Clock, label: tr('ui.totalt_loggat'), value: `${formatHours(monthTotalHours)} h` },
+              { icon: Send, label: tr('ui.vantar_attest'), value: String(submittedReports.length), tone: submittedReports.length > 0 ? 'negative' : 'neutral' },
+              { icon: ClipboardCheck, label: tr('ui.vantar_godkannande'), value: String(attestedReports.length), tone: attestedReports.length > 0 ? 'negative' : 'neutral' },
             ]} />
             {(submittedReports.length > 0 || attestedReports.length > 0) && (
               <div style={{ display: 'flex', gap: '8px', marginTop: '12px', flexWrap: 'wrap' }}>
                 {submittedReports.length > 0 && (
                   <button onClick={() => bulkAdvance('submitted')} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 14px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer' }}>
-                    <ClipboardCheck size={14} /> Attestera alla inskickade ({submittedReports.length})
+                    <ClipboardCheck size={14} /> {tr('ui.attestera_alla_inskickade')}{submittedReports.length})
                   </button>
                 )}
                 {attestedReports.length > 0 && (
                   <button onClick={() => bulkAdvance('attested')} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 14px', background: BRAND.green, border: 'none', borderRadius: '8px', fontSize: '12.5px', fontWeight: 600, color: 'white', cursor: 'pointer' }}>
-                    <CheckCircle2 size={14} /> Godkänn alla attesterade ({attestedReports.length})
+                    <CheckCircle2 size={14} /> {tr('ui.godkann_alla_attesterade')}{attestedReports.length})
                   </button>
                 )}
               </div>
@@ -831,7 +832,7 @@ function TimeReportsView({ timeEntries, employees, timeReportStatuses, setTimeRe
           rows={reports}
           columns={[
             {
-              key: 'person', label: 'Person', render: r => (
+              key: 'person', label: tr('ui.person'), render: r => (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <div style={{ width: 30, height: 30, borderRadius: '999px', background: 'var(--gray-100)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', flexShrink: 0 }}>
                     {r.person.id === SELF_PERSON_ID ? <User size={14} /> : <Users size={14} />}
@@ -840,10 +841,10 @@ function TimeReportsView({ timeEntries, employees, timeReportStatuses, setTimeRe
                 </div>
               ),
             },
-            { key: 'entries', label: 'Registreringar', align: 'right', render: r => r.entries.length },
-            { key: 'hours', label: 'Timmar', align: 'right', fontWeight: 700, color: 'var(--text-main)', render: r => `${formatHours(r.hours)} h` },
+            { key: 'entries', label: tr('ui.registreringar'), align: 'right', render: r => r.entries.length },
+            { key: 'hours', label: tr('ui.timmar'), align: 'right', fontWeight: 700, color: 'var(--text-main)', render: r => `${formatHours(r.hours)} h` },
             {
-              key: 'status', label: 'Status', render: r => {
+              key: 'status', label: tr('ui.status'), render: r => {
                 const statusMeta = TIME_REPORT_STATUS[r.status];
                 return <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', fontWeight: 600, background: statusMeta.bg, color: statusMeta.color, whiteSpace: 'nowrap' }}>{statusMeta.label}</span>;
               },
@@ -855,7 +856,7 @@ function TimeReportsView({ timeEntries, employees, timeReportStatuses, setTimeRe
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
                     {r.status !== 'pending' && (
                       <button
-                        onClick={(e) => { e.stopPropagation(); revert(r); }} title="Skicka tillbaka ett steg"
+                        onClick={(e) => { e.stopPropagation(); revert(r); }} title={tr('ui.skicka_tillbaka_ett_steg')}
                         style={{ background: 'none', border: 'none', padding: '7px', borderRadius: '8px', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', flexShrink: 0 }}
                       >
                         <Undo2 size={14} />
@@ -911,27 +912,27 @@ function TimeReportDetailModal({ report, onClose, onAdvance, onRevert, actionLab
           </div>
 
           {sorted.length === 0 ? (
-            <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Ingen tid registrerad.</div>
+            <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{tr('ui.ingen_tid_registrerad')}</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '320px', overflowY: 'auto' }}>
               {sorted.map(entry => (
                 <div key={entry.id} style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', fontSize: '13px', padding: '6px 0', borderBottom: '1px solid var(--border-light)' }}>
                   <span style={{ color: 'var(--text-main)' }}>{entry.date} {entry.description ? `— ${entry.description}` : ''}</span>
-                  <span style={{ fontWeight: 600, color: 'var(--text-main)', flexShrink: 0 }}>{formatHours(entry.hours)} h</span>
+                  <span style={{ fontWeight: 600, color: 'var(--text-main)', flexShrink: 0 }}>{formatHours(entry.hours)} {tr('ui.h')}</span>
                 </div>
               ))}
             </div>
           )}
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', marginTop: '14px', paddingTop: '14px' }}>
-            <span style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-main)' }}>Totalt</span>
-            <span style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-main)' }}>{formatHours(report.hours)} h</span>
+            <span style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-main)' }}>{tr('ui.totalt')}</span>
+            <span style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-main)' }}>{formatHours(report.hours)} {tr('ui.h')}</span>
           </div>
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', padding: '0 20px 20px' }}>
           {report.status !== 'pending' && (
             <button onClick={onRevert} style={{ padding: '9px 14px', background: 'var(--gray-100)', color: 'var(--text-secondary)', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
-              Skicka tillbaka
+              {tr('ui.skicka_tillbaka')}
             </button>
           )}
           {ActionIcon && (
@@ -966,7 +967,7 @@ function ProjectsListTable({ list, contacts, timeEntries, expandedProjectId, set
       rowStyle={p => (p.status === 'finished' ? { opacity: 0.7 } : {})}
       columns={[
         {
-          key: 'project', label: 'Projekt', render: p => {
+          key: 'project', label: tr('ui.projekt'), render: p => {
             const isFinished = p.status === 'finished';
             const isExpanded = expandedProjectId === p.id;
             return (
@@ -991,9 +992,9 @@ function ProjectsListTable({ list, contacts, timeEntries, expandedProjectId, set
                     )}
                     <span style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-main)' }}>{p.name}</span>
                     {isFinished ? (
-                      <span style={{ fontSize: '11px', padding: '2px 8px', background: 'var(--gray-100)', color: 'var(--text-secondary)', borderRadius: '999px', fontWeight: 600 }}>Avslutat</span>
+                      <span style={{ fontSize: '11px', padding: '2px 8px', background: 'var(--gray-100)', color: 'var(--text-secondary)', borderRadius: '999px', fontWeight: 600 }}>{tr('ui.avslutat')}</span>
                     ) : (
-                      <span style={{ fontSize: '11px', padding: '2px 8px', background: BRAND.greenLight, color: BRAND.greenDark, borderRadius: '999px', fontWeight: 600 }}>Pågår</span>
+                      <span style={{ fontSize: '11px', padding: '2px 8px', background: BRAND.greenLight, color: BRAND.greenDark, borderRadius: '999px', fontWeight: 600 }}>{tr('ui.pagar')}</span>
                     )}
                     {p.department && (
                       <span style={{ fontSize: '11px', padding: '2px 8px', background: 'var(--gray-100)', color: 'var(--text-secondary)', borderRadius: '999px', fontWeight: 500 }}>{p.department}</span>
@@ -1004,16 +1005,16 @@ function ProjectsListTable({ list, contacts, timeEntries, expandedProjectId, set
             );
           },
         },
-        { key: 'customer', label: 'Kund', render: p => contacts.find(c => c.id === p.customerId)?.name || 'Okänd kund' },
+        { key: 'customer', label: tr('ui.kund'), render: p => contacts.find(c => c.id === p.customerId)?.name || tr('ui.okand_kund') },
         {
-          key: 'time', label: 'Tid', width: 150, render: p => {
+          key: 'time', label: tr('ui.tid'), width: 150, render: p => {
             const pct = p.budgetHours ? Math.min((p.timeSpent / p.budgetHours) * 100, 100) : 0;
             let barColor = '#16a34a';
             if (pct > 100) barColor = '#ef4444';
             else if (pct >= 80) barColor = '#f59e0b';
             return (
               <div>
-                <div style={{ fontSize: '12.5px', color: 'var(--text-main)', marginBottom: '4px' }}>{formatHours(p.timeSpent || 0)} av {p.budgetHours || 0} h</div>
+                <div style={{ fontSize: '12.5px', color: 'var(--text-main)', marginBottom: '4px' }}>{formatHours(p.timeSpent || 0)} {tr('ui.av')} {p.budgetHours || 0} {tr('ui.h')}</div>
                 <div style={{ height: '6px', background: 'var(--gray-200)', borderRadius: '3px', overflow: 'hidden' }}>
                   <div style={{ height: '100%', width: `${pct}%`, background: barColor }} />
                 </div>
@@ -1022,7 +1023,7 @@ function ProjectsListTable({ list, contacts, timeEntries, expandedProjectId, set
           },
         },
         {
-          key: 'profit', label: 'Lönsamhet', align: 'right', fontWeight: 700, render: p => {
+          key: 'profit', label: tr('ui.lonsamhet'), align: 'right', fontWeight: 700, render: p => {
             const profit = (p.revenue || 0) - (p.cost || 0);
             return <span style={{ color: profit >= 0 ? 'var(--text-main)' : 'var(--status-red-text)' }}>{formatSEK(profit)}</span>;
           },
@@ -1033,7 +1034,7 @@ function ProjectsListTable({ list, contacts, timeEntries, expandedProjectId, set
         return (
           <div style={{ background: 'var(--status-green-bg)' }}>
             <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border)', padding: '0 20px 0 44px' }}>
-              {[{ id: 'time', label: 'Tidrapporter' }, { id: 'costs', label: 'Kostnader' }, { id: 'invoiced', label: 'Fakturerat' }].map(t => (
+              {[{ id: 'time', label: tr('ui.tidrapporter') }, { id: 'costs', label: tr('ui.kostnader') }, { id: 'invoiced', label: tr('ui.fakturerat') }].map(t => (
                 <button
                   key={t.id}
                   onClick={(e) => { e.stopPropagation(); setDetailTab(t.id); }}
@@ -1058,20 +1059,20 @@ function ProjectsListTable({ list, contacts, timeEntries, expandedProjectId, set
             <div style={{ padding: '22px 20px 22px 44px' }}>
               {detailTab === 'time' && (
                 projectEntries.length === 0 ? (
-                  <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Ingen tid registrerad på projektet ännu.</div>
+                  <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{tr('ui.ingen_tid_registrerad_pa_projektet_annu')}</div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     {projectEntries.slice(0, 8).map(entry => (
                       <div key={entry.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', padding: '6px 0', borderBottom: '1px solid var(--border-light)' }}>
                         <span style={{ color: 'var(--text-main)' }}>{entry.date} {entry.description ? `— ${entry.description}` : ''}</span>
-                        <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{formatHours(entry.hours)} h</span>
+                        <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{formatHours(entry.hours)} {tr('ui.h')}</span>
                       </div>
                     ))}
                   </div>
                 )
               )}
-              {detailTab === 'costs' && <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Inga registrerade kostnader (utlägg/leverantörsfakturor) ännu.</div>}
-              {detailTab === 'invoiced' && <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Inget fakturerat på detta projekt ännu.</div>}
+              {detailTab === 'costs' && <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{tr('ui.inga_registrerade_kostnader_utlagg_leverantorsfa')}</div>}
+              {detailTab === 'invoiced' && <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{tr('ui.inget_fakturerat_pa_detta_projekt_annu')}</div>}
             </div>
           </div>
         );
@@ -1238,12 +1239,12 @@ export default function Projects({ projects = [], setProjects, contacts = [], se
       {/* Header i samma mönster som Kunder/Anställda och lön/Bokföring —
           kort-bakgrund + kantlinje, inte flytande text på sidbakgrunden. */}
       <ListPageHeader
-        title="Projekt"
+        title={tr('ui.projekt')}
         actions={[
-          { key: 'new', label: 'Nytt projekt', icon: Plus, onClick: () => openNewProjectForm(), variant: 'primary', dataTour: 'page-projects-cta' },
+          { key: 'new', label: tr('ui.nytt_projekt'), icon: Plus, onClick: () => openNewProjectForm(), variant: 'primary', dataTour: 'page-projects-cta' },
         ]}
         tabs={{
-          items: [{ id: 'projects', label: 'Projekt' }, { id: 'time', label: 'Tidrapportering' }],
+          items: [{ id: 'projects', label: tr('ui.projekt') }, { id: 'time', label: tr('ui.tidrapportering') }],
           activeId: activeTab,
           onChange: handleSetTab,
         }}
@@ -1261,7 +1262,7 @@ export default function Projects({ projects = [], setProjects, contacts = [], se
       {activeTab === 'projects' && projects.length > 0 && (
         <ListFilterBar>
           <div style={{ display: 'inline-flex', border: '1px solid var(--border)', borderRadius: '999px', padding: '2px', background: 'var(--bg-page)', flexShrink: 0 }}>
-            {[{ id: 'active', label: 'Aktiva' }, { id: 'all', label: 'Alla' }, { id: 'archived', label: 'Arkiverade' }].map(f => (
+            {[{ id: 'active', label: tr('ui.aktiva') }, { id: 'all', label: tr('ui.alla') }, { id: 'archived', label: tr('ui.arkiverade') }].map(f => (
               <button key={f.id} onClick={() => setStatusFilter(f.id)} style={{
                 padding: '6px 14px', border: 'none', borderRadius: '999px', cursor: 'pointer', fontSize: '12.5px', fontWeight: 600,
                 background: statusFilter === f.id ? BRAND.green : 'transparent',
@@ -1273,7 +1274,7 @@ export default function Projects({ projects = [], setProjects, contacts = [], se
 
           {departmentNames.length > 0 && (
             <select value={departmentFilter} onChange={e => setDepartmentFilter(e.target.value)} style={{ padding: '7px 12px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', background: 'var(--bg-card)', color: 'var(--text-main)', flexShrink: 0 }}>
-              <option value="">Alla avdelningar</option>
+              <option value="">{tr('ui.alla_avdelningar')}</option>
               {departmentNames.map(d => <option key={d} value={d}>{d}</option>)}
             </select>
           )}
@@ -1281,7 +1282,7 @@ export default function Projects({ projects = [], setProjects, contacts = [], se
           <div style={{ position: 'relative', flex: '1 1 200px', minWidth: '180px', maxWidth: '320px' }}>
             <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
             <input
-              type="text" placeholder="Sök projekt eller kund..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+              type="text" placeholder={tr('ui.sok_projekt_eller_kund')} value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
               style={{ width: '100%', padding: '7px 10px 7px 32px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', outline: 'none', background: 'var(--bg-card)', boxSizing: 'border-box' }}
             />
           </div>
@@ -1302,7 +1303,7 @@ export default function Projects({ projects = [], setProjects, contacts = [], se
       {activeTab === 'time' && (
         <ListFilterBar>
           <div style={{ display: 'inline-flex', border: '1px solid var(--border)', borderRadius: '999px', padding: '2px', background: 'var(--bg-page)', flexShrink: 0 }}>
-            {[{ id: 'week', label: 'Vecka' }, { id: 'reports', label: 'Rapporter' }].map(t => (
+            {[{ id: 'week', label: tr('ui.vecka') }, { id: 'reports', label: tr('ui.rapporter') }].map(t => (
               <button key={t.id} onClick={() => setTimeSubTab(t.id)} style={{
                 padding: '6px 14px', border: 'none', borderRadius: '999px', cursor: 'pointer', fontSize: '12.5px', fontWeight: 600,
                 background: timeSubTab === t.id ? BRAND.green : 'transparent',
@@ -1333,14 +1334,14 @@ export default function Projects({ projects = [], setProjects, contacts = [], se
                 </button>
                 <span style={{ width: '1px', height: '16px', background: 'var(--border)', margin: '0 2px' }} />
                 <button onClick={() => setTimeWeekStart(getStartOfWeek(new Date()))} style={{ ...timeNavBtnStyle, padding: '6px 10px', fontSize: '12.5px', color: BRAND.green, fontWeight: 700 }}>
-                  Idag
+                  {tr('ui.idag')}
                 </button>
                 <span style={{ width: '1px', height: '16px', background: 'var(--border)', margin: '0 2px' }} />
                 <span style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px 6px 4px', fontSize: '13px', color: 'var(--text-secondary)' }}>
                   <Clock size={14} color="var(--text-muted)" />
-                  Denna vecka <strong style={{ color: 'var(--text-main)', fontWeight: 700 }}>{formatHours(timeWeekTotal)} h</strong>
+                  {tr('ui.denna_vecka')} <strong style={{ color: 'var(--text-main)', fontWeight: 700 }}>{formatHours(timeWeekTotal)} {tr('ui.h')}</strong>
                   {timeShowComparison && timeDiff !== 0 && (
-                    <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>({timeDiff > 0 ? '+' : '−'}{formatHours(Math.abs(timeDiff))} h mot förra veckan)</span>
+                    <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>({timeDiff > 0 ? '+' : '−'}{formatHours(Math.abs(timeDiff))} {tr('ui.h_mot_forra_veckan')}</span>
                   )}
                 </span>
               </div>
@@ -1356,12 +1357,12 @@ export default function Projects({ projects = [], setProjects, contacts = [], se
               </button>
               <span style={{ width: '1px', height: '16px', background: 'var(--border)', margin: '0 2px' }} />
               <button onClick={() => setTimeMonth(getMonthKey(getISODate(new Date())))} style={{ ...timeNavBtnStyle, padding: '6px 10px', fontSize: '12.5px', color: BRAND.green, fontWeight: 700 }}>
-                Denna månad
+                {tr('ui.denna_manad')}
               </button>
               <span style={{ width: '1px', height: '16px', background: 'var(--border)', margin: '0 2px' }} />
               <span style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px 6px 4px', fontSize: '13px', color: 'var(--text-secondary)' }}>
                 <Clock size={14} color="var(--text-muted)" />
-                Totalt <strong style={{ color: 'var(--text-main)', fontWeight: 700 }}>{formatHours(timeMonthTotal)} h</strong>
+                {tr('ui.totalt')} <strong style={{ color: 'var(--text-main)', fontWeight: 700 }}>{formatHours(timeMonthTotal)} {tr('ui.h')}</strong>
               </span>
             </div>
           )}
@@ -1389,14 +1390,14 @@ export default function Projects({ projects = [], setProjects, contacts = [], se
                   tabellen under (ingen varningsrad emellan) i stället för
                   att sväva som ett eget avrundat kort med luft runt om. */}
               <ProjectKpiStrip flush items={[
-                { icon: Zap, label: 'Aktiva projekt', value: String(activeProjects.length) },
+                { icon: Zap, label: tr('ui.aktiva_projekt'), value: String(activeProjects.length) },
                 {
-                  icon: Clock, label: 'Nedlagd tid',
+                  icon: Clock, label: tr('ui.nedlagd_tid'),
                   value: `${formatHours(totalActiveTimeSpent)} h`,
-                  sub: totalActiveBudgetHours ? `av ${totalActiveBudgetHours} h budgeterat` : 'Ingen budget satt',
+                  sub: totalActiveBudgetHours ? tr('ui.av_h_budgeterat', { totalActiveBudgetHours }) : tr('ui.ingen_budget_satt'),
                 },
                 {
-                  icon: totalActiveProfit >= 0 ? TrendingUp : TrendingDown, label: 'Lönsamhet',
+                  icon: totalActiveProfit >= 0 ? TrendingUp : TrendingDown, label: tr('ui.lonsamhet'),
                   value: formatSEK(totalActiveProfit), tone: totalActiveProfit < 0 ? 'negative' : 'neutral',
                 },
               ]} />
@@ -1410,7 +1411,7 @@ export default function Projects({ projects = [], setProjects, contacts = [], se
               {atRiskProjects.length > 0 && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', background: BRAND.redBg, color: BRAND.redText, borderRadius: '8px', fontSize: '13px', margin: '18px 20px 0' }}>
                   <AlertTriangle size={15} style={{ flexShrink: 0 }} />
-                  <span><strong>{atRiskProjects.length} {atRiskProjects.length === 1 ? 'projekt' : 'projekt'}</strong> nära eller över budgeterad tid: {atRiskProjects.map(p => p.name).join(', ')}</span>
+                  <span><strong>{atRiskProjects.length} {atRiskProjects.length === 1 ? tr('ui.projekt_2') : tr('ui.projekt_2')}</strong> {tr('ui.nara_eller_over_budgeterad_tid')} {atRiskProjects.map(p => p.name).join(', ')}</span>
                 </div>
               )}
 
@@ -1420,10 +1421,10 @@ export default function Projects({ projects = [], setProjects, contacts = [], se
                   expandedProjectId={expandedProjectId} setExpandedProjectId={setExpandedProjectId}
                   detailTab={detailTab} setDetailTab={setDetailTab}
                   emptyMessage={
-                    searchTerm || departmentFilter ? 'Inga projekt hittades med de filtren.'
-                      : statusFilter === 'archived' ? 'Inga arkiverade projekt ännu.'
-                        : statusFilter === 'active' ? 'Inga aktiva projekt just nu.'
-                          : 'Inga projekt ännu.'
+                    searchTerm || departmentFilter ? tr('ui.inga_projekt_hittades_med_de_filtren')
+                      : statusFilter === 'archived' ? tr('ui.inga_arkiverade_projekt_annu')
+                        : statusFilter === 'active' ? tr('ui.inga_aktiva_projekt_just_nu')
+                          : tr('ui.inga_projekt_annu')
                   }
                 />
               </div>
@@ -1456,32 +1457,32 @@ export default function Projects({ projects = [], setProjects, contacts = [], se
         <div className="modal-overlay" onClick={() => setShowNewProjectForm(false)}>
           <div className="modal-content" style={{ maxWidth: '480px' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h2 className="modal-title">Nytt projekt</h2>
+              <h2 className="modal-title">{tr('ui.nytt_projekt')}</h2>
               <button className="modal-close" data-tour="page-projects-cancel" onClick={() => setShowNewProjectForm(false)}><X size={18} /></button>
             </div>
 
             <form onSubmit={handleSaveProject} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div>
-                <label style={labelSt}>Namn *</label>
-                <input data-tour="page-projects-field" type="text" value={projectForm.name} onChange={e => setProjectForm({ ...projectForm, name: e.target.value })} style={inputSt} placeholder="t.ex. Kontorsrenovering 2026" required autoFocus />
-                <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)', marginTop: '4px' }}>Projektnumret tilldelas automatiskt (P-001, P-002 …)</div>
+                <label style={labelSt}>{tr('ui.namn_2')}</label>
+                <input data-tour="page-projects-field" type="text" value={projectForm.name} onChange={e => setProjectForm({ ...projectForm, name: e.target.value })} style={inputSt} placeholder={tr('ui.t_ex_kontorsrenovering_2026')} required autoFocus />
+                <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)', marginTop: '4px' }}>{tr('ui.projektnumret_tilldelas_automatiskt_p_001_p_002')}</div>
               </div>
 
               <div className="form-row-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '14px' }}>
                 <div>
-                  <label style={labelSt}>Status</label>
+                  <label style={labelSt}>{tr('ui.status')}</label>
                   <select value={projectForm.status} onChange={e => setProjectForm({ ...projectForm, status: e.target.value })} style={inputSt}>
-                    <option value="active">Aktivt</option>
-                    <option value="finished">Avslutat</option>
+                    <option value="active">{tr('ui.aktivt')}</option>
+                    <option value="finished">{tr('ui.avslutat')}</option>
                   </select>
                 </div>
                 <div>
-                  <label style={labelSt}>Kund</label>
+                  <label style={labelSt}>{tr('ui.kund')}</label>
                   <EntitySearch
                     value={projectForm.customerId}
                     onChange={id => setProjectForm({ ...projectForm, customerId: id })}
                     items={contacts.filter(c => c.type === 'customer' || !c.type)}
-                    placeholder="— Ingen —"
+                    placeholder={tr('ui.ingen_2')}
                     onCreateNew={handleCreateCustomerInline}
                     createLabel="Skapa ny kund"
                     inputStyle={inputSt}
@@ -1491,13 +1492,13 @@ export default function Projects({ projects = [], setProjects, contacts = [], se
 
               <div className="form-row-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '14px' }}>
                 <div>
-                  <label style={labelSt}>Avdelning</label>
+                  <label style={labelSt}>{tr('ui.avdelning')}</label>
                   {isAddingDepartment ? (
                     <input
                       type="text" autoFocus value={projectForm.department}
                       onChange={e => setProjectForm({ ...projectForm, department: e.target.value })}
                       onBlur={() => { if (!projectForm.department) setIsAddingDepartment(false); }}
-                      style={inputSt} placeholder="Namnge avdelningen"
+                      style={inputSt} placeholder={tr('ui.namnge_avdelningen')}
                     />
                   ) : (
                     <select
@@ -1508,39 +1509,39 @@ export default function Projects({ projects = [], setProjects, contacts = [], se
                       }}
                       style={inputSt}
                     >
-                      <option value="">— Ingen —</option>
+                      <option value="">{tr('ui.ingen_2')}</option>
                       {departmentNames.map(d => <option key={d} value={d}>{d}</option>)}
-                      <option value="__new__">+ Ny avdelning…</option>
+                      <option value="__new__">{tr('ui.ny_avdelning')}</option>
                     </select>
                   )}
                 </div>
                 <div>
-                  <label style={labelSt}>Startdatum</label>
+                  <label style={labelSt}>{tr('ui.startdatum')}</label>
                   <input type="date" value={projectForm.startDate} onChange={e => setProjectForm({ ...projectForm, startDate: e.target.value })} style={inputSt} />
                 </div>
               </div>
 
               <div>
-                <label style={labelSt}>Slutdatum</label>
+                <label style={labelSt}>{tr('ui.slutdatum')}</label>
                 <input type="date" value={projectForm.endDate} onChange={e => setProjectForm({ ...projectForm, endDate: e.target.value })} style={{ ...inputSt, maxWidth: '220px' }} />
               </div>
 
               <div>
-                <label style={labelSt}>Beskrivning</label>
+                <label style={labelSt}>{tr('ui.beskrivning')}</label>
                 <textarea
                   value={projectForm.description} onChange={e => setProjectForm({ ...projectForm, description: e.target.value })}
                   style={{ ...inputSt, resize: 'vertical', minHeight: '70px', lineHeight: 1.5 }}
-                  placeholder="Kort om vad projektet handlar om (valfritt)"
+                  placeholder={tr('ui.kort_om_vad_projektet_handlar_om_valfritt')}
                 />
               </div>
 
               <div>
-                <label style={labelSt}>Färg</label>
+                <label style={labelSt}>{tr('ui.farg')}</label>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   {PROJECT_COLORS.map(c => (
                     <button
                       key={c} type="button" onClick={() => setProjectForm({ ...projectForm, color: c })}
-                      aria-label={`Välj färgen ${c}`} title={c}
+                      aria-label={tr('ui.valj_fargen', { c })} title={c}
                       style={{
                         width: 28, height: 28, borderRadius: '999px', background: c, cursor: 'pointer', padding: 0,
                         border: projectForm.color === c ? '2px solid white' : '2px solid transparent',
@@ -1563,22 +1564,22 @@ export default function Projects({ projects = [], setProjects, contacts = [], se
                 style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'none', border: 'none', padding: '4px 0', cursor: 'pointer', color: BRAND.greenDark, fontSize: '13px', fontWeight: 600, alignSelf: 'flex-start' }}
               >
                 <ChevronDown size={14} style={{ transform: showMoreProjectOptions ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
-                Fler alternativ (budget, fakturering)
+                {tr('ui.fler_alternativ_budget_fakturering')}
               </button>
 
               {showMoreProjectOptions && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '14px', background: 'var(--gray-50)', border: '1px solid var(--border)', borderRadius: '10px' }}>
                   <div className="form-row-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px' }}>
                     <div>
-                      <label style={labelSt}>Budgeterad tid (h)</label>
+                      <label style={labelSt}>{tr('ui.budgeterad_tid_h')}</label>
                       <input type="number" min="0" value={projectForm.budgetHours} onChange={e => setProjectForm({ ...projectForm, budgetHours: e.target.value })} style={inputSt} />
                     </div>
                     <div>
-                      <label style={labelSt}>Timpris (kr)</label>
+                      <label style={labelSt}>{tr('ui.timpris_kr')}</label>
                       <input type="number" min="0" value={projectForm.hourlyRate} onChange={e => setProjectForm({ ...projectForm, hourlyRate: e.target.value })} style={inputSt} />
                     </div>
                     <div>
-                      <label style={labelSt}>Budgeterat värde</label>
+                      <label style={labelSt}>{tr('ui.budgeterat_varde')}</label>
                       <div style={{ ...inputSt, background: 'var(--gray-50)', display: 'flex', alignItems: 'center', color: 'var(--text-secondary)', fontWeight: 600 }}>
                         {formatSEK(budgetedValue)}
                       </div>
@@ -1601,17 +1602,17 @@ export default function Projects({ projects = [], setProjects, contacts = [], se
                       }} />
                     </button>
                     <div>
-                      <div style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-main)' }}>Fakturera automatiskt utifrån tidrapporter</div>
-                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Kopplar projektets tidrapporter direkt till fakturaunderlag.</div>
+                      <div style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-main)' }}>{tr('ui.fakturera_automatiskt_utifran_tidrapporter')}</div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{tr('ui.kopplar_projektets_tidrapporter_direkt_till_fakt')}</div>
                     </div>
                   </div>
                 </div>
               )}
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '18px', marginTop: '4px' }}>
-                <button type="button" onClick={() => setShowNewProjectForm(false)} style={{ background: 'none', border: 'none', padding: 0, fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '14px' }}>Avbryt</button>
+                <button type="button" onClick={() => setShowNewProjectForm(false)} style={{ background: 'none', border: 'none', padding: 0, fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '14px' }}>{tr('ui.avbryt')}</button>
                 <button type="submit" disabled={isSavingProject} style={{ padding: '10px 22px', background: BRAND.green, border: 'none', borderRadius: '999px', fontWeight: 700, color: 'white', cursor: isSavingProject ? 'default' : 'pointer', opacity: isSavingProject ? 0.6 : 1, fontSize: '14px' }}>
-                  {isSavingProject ? 'Sparar…' : 'Skapa projekt'}
+                  {isSavingProject ? tr('ui.sparar') : tr('ui.skapa_projekt')}
                 </button>
               </div>
             </form>

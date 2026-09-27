@@ -1,3 +1,4 @@
+import { logSystemEvent } from './_systemEvents.js';
 import crypto from 'node:crypto';
 import nodemailer from 'nodemailer';
 import { createClient } from '@supabase/supabase-js';
@@ -332,6 +333,7 @@ export async function trySendFromOwnAddress(userId, companyId, payload) {
       ? friendlyGoogleError(err?.message || err)
       : friendlySmtpError(err);
     await updateSenderRow(userId, companyId, { last_error: message });
+    await logSystemEvent('email_fallback', `Egen avsändare (${row.provider || 'smtp'}) misslyckades, systemadressen användes: ${message}`);
     return { used: true, ok: false, error: message };
   }
 }

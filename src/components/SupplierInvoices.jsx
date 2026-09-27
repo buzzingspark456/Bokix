@@ -13,6 +13,7 @@ import { uploadFileToStorage } from '../utils/fileUpload';
 import { useSignedUrl } from '../utils/signedUrls';
 import { BRAND } from '../utils/brandColors';
 import { confirmDialog } from './shared/ConfirmDialog';
+import { t } from '../i18n';
 
 const formatSEK = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
 const formatDate = (d) => {
@@ -29,12 +30,12 @@ function SupplierInvoiceAttachment({ url, name, isImage, isPdf }) {
   if (!activeUrl) return null;
   return (
     <>
-      <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>Underlag</h3>
+      <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>{t('ui.underlag')}</h3>
       {isImage ? (
-        <img src={activeUrl} alt={name || 'Underlag'} style={{ maxWidth: '100%', maxHeight: '320px', borderRadius: '8px', objectFit: 'contain', boxShadow: '0 1px 4px rgba(0,0,0,0.12)' }} />
+        <img src={activeUrl} alt={name || t('ui.underlag')} style={{ maxWidth: '100%', maxHeight: '320px', borderRadius: '8px', objectFit: 'contain', boxShadow: '0 1px 4px rgba(0,0,0,0.12)' }} />
       ) : (
         <a href={activeUrl} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: BRAND.green, fontWeight: 600, fontSize: '13px', textDecoration: 'none' }}>
-          <FileText size={18} /> {isPdf ? 'Öppna PDF-underlag' : (name || 'Öppna underlag')}
+          <FileText size={18} /> {isPdf ? t('ui.oppna_pdf_underlag') : (name || t('ui.oppna_underlag'))}
         </a>
       )}
     </>
@@ -70,9 +71,9 @@ const helpSt = { fontSize: '12px', color: 'var(--text-muted)', marginTop: '6px',
 // Kundfakturor, så de två sidorna läses som en produkt.
 function StatusBadge({ status }) {
   const map = {
-    paid: { label: 'Betald', bg: STRONG_PAID.bg, color: STRONG_PAID.text },
-    unpaid: { label: 'Obetald', bg: STRONG_UNPAID.bg, color: STRONG_UNPAID.text },
-    overdue: { label: 'Förfallen', bg: STRONG_OVERDUE.bg, color: STRONG_OVERDUE.text },
+    paid: { label: t('ui.betald'), bg: STRONG_PAID.bg, color: STRONG_PAID.text },
+    unpaid: { label: t('ui.obetald'), bg: STRONG_UNPAID.bg, color: STRONG_UNPAID.text },
+    overdue: { label: t('ui.forfallen'), bg: STRONG_OVERDUE.bg, color: STRONG_OVERDUE.text },
   };
   const st = map[status] || map.unpaid;
   return <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 700, background: st.bg, color: st.color }}>{st.label}</span>;
@@ -87,9 +88,9 @@ function SupplierCombo({ value, onChange, contacts, setContacts }) {
   if (creating) {
     return (
       <div style={{ border: '1px dashed var(--text-muted)', borderRadius: '8px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <input autoFocus value={newName} onChange={e => setNewName(e.target.value)} placeholder="Leverantörens namn" style={inputSt} />
+        <input autoFocus value={newName} onChange={e => setNewName(e.target.value)} placeholder={t('ui.leverantorens_namn')} style={inputSt} />
         <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-          <button type="button" onClick={() => { setCreating(false); setNewName(''); }} style={{ padding: '6px 12px', background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '13px', cursor: 'pointer' }}>Avbryt</button>
+          <button type="button" onClick={() => { setCreating(false); setNewName(''); }} style={{ padding: '6px 12px', background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '13px', cursor: 'pointer' }}>{t('ui.avbryt')}</button>
           <button
             type="button" disabled={!newName.trim()}
             onClick={() => {
@@ -103,7 +104,7 @@ function SupplierCombo({ value, onChange, contacts, setContacts }) {
               setCreating(false); setNewName('');
             }}
             style={{ padding: '6px 14px', background: newName.trim() ? BRAND.green : 'var(--border)', border: 'none', borderRadius: '6px', color: newName.trim() ? 'white' : 'var(--text-muted)', fontSize: '13px', fontWeight: 600, cursor: newName.trim() ? 'pointer' : 'not-allowed' }}
-          >Lägg till</button>
+          >{t('ui.lagg_till')}</button>
         </div>
       </div>
     );
@@ -111,9 +112,9 @@ function SupplierCombo({ value, onChange, contacts, setContacts }) {
 
   return (
     <select value={value} onChange={e => e.target.value === '__new__' ? setCreating(true) : onChange(e.target.value)} style={{ ...inputSt, background: 'var(--bg-card)' }}>
-      <option value="">Välj leverantör...</option>
+      <option value="">{t('ui.valj_leverantor')}</option>
       {suppliers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-      <option value="__new__">+ Lägg till ny leverantör...</option>
+      <option value="__new__">{t('ui.lagg_till_ny_leverantor')}</option>
     </select>
   );
 }
@@ -185,21 +186,21 @@ function AttachmentField({ file, previewUrl, onSelect, onRemove, error, busy }) 
               <FileText size={28} color="var(--text-main)" />
             ) : null}
             <span style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text-main)', wordBreak: 'break-all' }}>{file.name}</span>
-            <button type="button" onClick={e => { e.stopPropagation(); onRemove(); }} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '999px', padding: '4px 14px', fontSize: '12px', cursor: 'pointer', color: 'var(--text-secondary)' }}>Ta bort</button>
+            <button type="button" onClick={e => { e.stopPropagation(); onRemove(); }} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '999px', padding: '4px 14px', fontSize: '12px', cursor: 'pointer', color: 'var(--text-secondary)' }}>{t('ui.ta_bort')}</button>
           </div>
         ) : (
           <>
             <UploadCloud size={22} color="var(--text-muted)" style={{ marginBottom: '8px' }} />
-            <div style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-main)' }}>Bifoga fakturan</div>
-            <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>Dra hit eller klicka — PDF, JPG, PNG eller WEBP, max {MAX_ATTACHMENT_MB} MB</div>
+            <div style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-main)' }}>{t('ui.bifoga_fakturan')}</div>
+            <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>{t('ui.dra_hit_eller_klicka_pdf_jpg_png_eller_webp_max')} {MAX_ATTACHMENT_MB} {t('ui.mb_3')}</div>
           </>
         )}
       </div>
       {error && (
         <div style={errSt}><AlertCircle size={12} style={{ verticalAlign: '-1px', marginRight: '4px' }} />{error}</div>
       )}
-      {busy && <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '6px' }}>Laddar upp underlag…</div>}
-      <p style={helpSt}>Sparas tillsammans med registreringen och går att öppna igen från listan senare. Leverantör, datum och belopp fylls i manuellt nedan.</p>
+      {busy && <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '6px' }}>{t('ui.laddar_upp_underlag')}</div>}
+      <p style={helpSt}>{t('ui.sparas_tillsammans_med_registreringen_och_gar_at')}</p>
     </div>
   );
 }
@@ -246,8 +247,8 @@ function SupplierInvoiceForm({ contacts, setContacts, accounts, projects = [], u
   }, [onClose]);
 
   const selectAttachment = (file) => {
-    if (!ACCEPTED_ATTACHMENT_TYPES.includes(file.type)) { setAttachmentError(`"${file.name}" är inte en PDF eller bild.`); return; }
-    if (file.size > MAX_ATTACHMENT_MB * 1024 * 1024) { setAttachmentError(`"${file.name}" är för stor (max ${MAX_ATTACHMENT_MB} MB).`); return; }
+    if (!ACCEPTED_ATTACHMENT_TYPES.includes(file.type)) { setAttachmentError(t('ui.ar_inte_en_pdf_eller_bild', { name: file.name })); return; }
+    if (file.size > MAX_ATTACHMENT_MB * 1024 * 1024) { setAttachmentError(t('ui.ar_for_stor_max_mb_2', { name: file.name, MAX_ATTACHMENT_MB })); return; }
     setAttachmentError('');
     setAttachment(file);
   };
@@ -278,12 +279,12 @@ function SupplierInvoiceForm({ contacts, setContacts, accounts, projects = [], u
 
   const validate = () => {
     const errs = {};
-    if (!supplierId) errs.supplierId = 'Välj en leverantör.';
-    if (!invoiceNumber.trim()) errs.invoiceNumber = 'Fakturanummer krävs.';
-    if (!date) errs.date = 'Fakturadatum krävs.';
-    if (dueDate && date && dueDate < date) errs.dueDate = 'Förfallodatum kan inte vara före fakturadatum.';
+    if (!supplierId) errs.supplierId = t('ui.valj_en_leverantor');
+    if (!invoiceNumber.trim()) errs.invoiceNumber = t('ui.fakturanummer_kravs');
+    if (!date) errs.date = t('ui.fakturadatum_kravs');
+    if (dueDate && date && dueDate < date) errs.dueDate = t('ui.forfallodatum_fore_fakturadatum');
     const validRows = rows.filter(r => r.account && parseAmount(r.netAmount) > 0);
-    if (validRows.length === 0) errs.rows = 'Lägg till minst en konteringsrad med konto och belopp.';
+    if (validRows.length === 0) errs.rows = t('ui.minst_en_konteringsrad');
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -293,7 +294,7 @@ function SupplierInvoiceForm({ contacts, setContacts, accounts, projects = [], u
 
     let attachmentUrl, attachmentName, attachmentType;
     if (attachment) {
-      if (!user?.id) { setAttachmentError('Kunde inte ladda upp underlaget — inte inloggad.'); return; }
+      if (!user?.id) { setAttachmentError(t('ui.kunde_inte_ladda_upp_underlaget_inte_inloggad')); return; }
       setAttachmentBusy(true); setAttachmentError('');
       try {
         attachmentUrl = await uploadFn(user.id, attachment, 'supplier-invoices');
@@ -302,8 +303,8 @@ function SupplierInvoiceForm({ contacts, setContacts, accounts, projects = [], u
       } catch (err) {
         setAttachmentBusy(false);
         setAttachmentError(/bucket not found/i.test(err.message || '')
-          ? 'Bildlagring är inte konfigurerad i Supabase-projektet ännu (se supabase-setup.sql).'
-          : `Kunde inte ladda upp underlaget (${err.message || 'okänt fel'}).`);
+          ? t('ui.bildlagring_ar_inte_konfigurerad_i_supabase_proj_3')
+          : t('ui.kunde_inte_ladda_upp_underlaget', { v0: err.message || 'okänt fel' }));
         return;
       }
       setAttachmentBusy(false);
@@ -348,14 +349,14 @@ function SupplierInvoiceForm({ contacts, setContacts, accounts, projects = [], u
       {/* ── Top bar — samma mönster som Kundfakturans InvoiceForm. ── */}
       <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '16px 24px', display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', position: 'sticky', top: 0, zIndex: 10 }}>
         <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-main)', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-          ← Tillbaka
+          {t('ui.tillbaka')}
         </button>
-        <h1 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>Ny leverantörsfaktura</h1>
+        <h1 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>{t('ui.ny_leverantorsfaktura')}</h1>
         <div style={{ flex: 1, minWidth: '8px' }} />
         <div style={{ display: 'flex', gap: '8px' }}>
-          <button type="button" onClick={onClose} style={listHeaderButtonStyle('secondary')}>Avbryt</button>
+          <button type="button" onClick={onClose} style={listHeaderButtonStyle('secondary')}>{t('ui.avbryt')}</button>
           <button type="button" onClick={submit} disabled={attachmentBusy} style={{ ...listHeaderButtonStyle('primary'), opacity: attachmentBusy ? 0.6 : 1 }}>
-            <Check size={14} /> {attachmentBusy ? 'Laddar upp…' : 'Registrera faktura'}
+            <Check size={14} /> {attachmentBusy ? t('ui.laddar_upp_3') : t('ui.registrera_faktura')}
           </button>
         </div>
       </div>
@@ -374,40 +375,40 @@ function SupplierInvoiceForm({ contacts, setContacts, accounts, projects = [], u
 
           {/* Underlag */}
           <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 600, margin: '0 0 12px' }}>Underlag <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>(rekommenderas)</span></h3>
+            <h3 style={{ fontSize: '14px', fontWeight: 600, margin: '0 0 12px' }}>{t('ui.underlag')} <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>{t('ui.rekommenderas')}</span></h3>
             <AttachmentField file={attachment} previewUrl={attachmentPreviewUrl} onSelect={selectAttachment} onRemove={() => setAttachment(null)} error={attachmentError} busy={attachmentBusy} />
           </div>
 
           {/* Leverantör */}
           <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>Leverantör *</h3>
+            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>{t('ui.leverantor_2')}</h3>
             <SupplierCombo value={supplierId} onChange={setSupplierId} contacts={contacts} setContacts={setContacts} />
             {errors.supplierId && <div style={errSt}>{errors.supplierId}</div>}
           </div>
 
           {/* Fakturauppgifter */}
           <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>Fakturauppgifter</h3>
+            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>{t('ui.fakturauppgifter')}</h3>
             <div className="form-row-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
               <div>
-                <label style={labelSt}>Leverantörens fakturanummer *</label>
-                <input value={invoiceNumber} onChange={e => setInvoiceNumber(e.target.value)} placeholder="Fakturanr från leverantören" style={inputStErr(errors.invoiceNumber)} />
+                <label style={labelSt}>{t('ui.leverantorens_fakturanummer')}</label>
+                <input value={invoiceNumber} onChange={e => setInvoiceNumber(e.target.value)} placeholder={t('ui.fakturanr_fran_leverantoren')} style={inputStErr(errors.invoiceNumber)} />
                 {errors.invoiceNumber && <div style={errSt}>{errors.invoiceNumber}</div>}
               </div>
               <div>
-                <label style={labelSt}>OCR / Betalningsreferens</label>
-                <input value={ocrNumber} onChange={e => setOcrNumber(e.target.value)} placeholder="OCR-nummer" style={inputSt} />
+                <label style={labelSt}>{t('ui.ocr_betalningsreferens_2')}</label>
+                <input value={ocrNumber} onChange={e => setOcrNumber(e.target.value)} placeholder={t('ui.ocr_nummer')} style={inputSt} />
               </div>
             </div>
             <div className="form-row-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
               <div>
-                <label style={labelSt}>Fakturadatum *</label>
-                <DateField value={date} onChange={e => setDate(e.target.value)} placeholder="Välj datum" style={inputStErr(errors.date)} />
+                <label style={labelSt}>{t('ui.fakturadatum_2')}</label>
+                <DateField value={date} onChange={e => setDate(e.target.value)} placeholder={t('ui.valj_datum')} style={inputStErr(errors.date)} />
                 {errors.date && <div style={errSt}>{errors.date}</div>}
               </div>
               <div>
-                <label style={labelSt}>Förfallodatum</label>
-                <DateField value={dueDate} onChange={e => setDueDate(e.target.value)} placeholder="Välj datum" style={inputStErr(errors.dueDate)} />
+                <label style={labelSt}>{t('ui.forfallodatum')}</label>
+                <DateField value={dueDate} onChange={e => setDueDate(e.target.value)} placeholder={t('ui.valj_datum')} style={inputStErr(errors.dueDate)} />
                 {errors.dueDate && <div style={errSt}>{errors.dueDate}</div>}
               </div>
             </div>
@@ -415,7 +416,7 @@ function SupplierInvoiceForm({ contacts, setContacts, accounts, projects = [], u
 
           {/* Kontering */}
           <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>Kontering *</h3>
+            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>{t('ui.kontering_2')}</h3>
             <div className="sup-rows-scroll" style={{ overflowX: 'auto' }}>
               <div className="sup-rows-min" style={{ minWidth: '680px' }}>
                 <div className="sup-rows-header" style={{ display: 'grid', gridTemplateColumns: '1.3fr 1.6fr 1fr 0.8fr 0.9fr auto', gap: '10px', marginBottom: '8px', padding: '0 2px' }}>
@@ -427,16 +428,16 @@ function SupplierInvoiceForm({ contacts, setContacts, accounts, projects = [], u
                   const { vat } = calcRow(row);
                   return (
                     <div key={row.id} className="sup-row" style={{ display: 'grid', gridTemplateColumns: '1.3fr 1.6fr 1fr 0.8fr 0.9fr auto', gap: '10px', alignItems: 'center', marginBottom: '8px' }}>
-                      <div className="qr-cell sup-acct"><span className="qr-lbl">Konto</span>
-                      <AccountSearch value={row.account} onChange={code => updateRow(i, 'account', code)} accounts={accounts} placeholder="Sök konto…" />
+                      <div className="qr-cell sup-acct"><span className="qr-lbl">{t('ui.konto_2')}</span>
+                      <AccountSearch value={row.account} onChange={code => updateRow(i, 'account', code)} accounts={accounts} placeholder={t('ui.sok_konto')} />
                       </div>
-                      <div className="qr-cell sup-desc"><span className="qr-lbl">Beskrivning</span>
+                      <div className="qr-cell sup-desc"><span className="qr-lbl">{t('ui.beskrivning')}</span>
                       <input value={row.description} onChange={e => updateRow(i, 'description', e.target.value)} placeholder="beskrivning" style={inputSt} />
                       </div>
-                      <div className="qr-cell"><span className="qr-lbl">Belopp exkl. moms</span>
+                      <div className="qr-cell"><span className="qr-lbl">{t('ui.belopp_exkl_moms')}</span>
                       <AmountInput value={row.netAmount} onChange={v => updateRow(i, 'netAmount', v)} style={{ ...inputSt, textAlign: 'right' }} />
                       </div>
-                      <div className="qr-cell"><span className="qr-lbl">Momssats</span>
+                      <div className="qr-cell"><span className="qr-lbl">{t('ui.momssats')}</span>
                       {reverseCharge ? (
                         <div style={{ ...inputSt, textAlign: 'right', color: 'var(--text-muted)' }}>—</div>
                       ) : (
@@ -445,10 +446,10 @@ function SupplierInvoiceForm({ contacts, setContacts, accounts, projects = [], u
                         </select>
                       )}
                       </div>
-                      <div className="qr-cell"><span className="qr-lbl">Moms</span>
+                      <div className="qr-cell"><span className="qr-lbl">{t('ui.moms')}</span>
                       <div style={{ ...inputSt, textAlign: 'right', background: 'var(--bg-muted)', color: 'var(--text-secondary)' }}>{reverseCharge ? '—' : fmtNum(vat)}</div>
                       </div>
-                      <button className="qr-remove" type="button" onClick={() => removeRow(i)} disabled={rows.length === 1} title="Ta bort rad" style={{ padding: '6px', background: 'transparent', border: 'none', cursor: rows.length === 1 ? 'not-allowed' : 'pointer', color: rows.length === 1 ? 'var(--border)' : '#ef4444' }}>
+                      <button className="qr-remove" type="button" onClick={() => removeRow(i)} disabled={rows.length === 1} title={t('ui.ta_bort_rad')} style={{ padding: '6px', background: 'transparent', border: 'none', cursor: rows.length === 1 ? 'not-allowed' : 'pointer', color: rows.length === 1 ? 'var(--border)' : '#ef4444' }}>
                         <Trash2 size={15} />
                       </button>
                     </div>
@@ -457,27 +458,27 @@ function SupplierInvoiceForm({ contacts, setContacts, accounts, projects = [], u
               </div>
             </div>
             <button type="button" onClick={addRow} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 12px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '9px', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer', marginTop: '4px' }}>
-              <Plus size={14} /> Lägg till rad
+              <Plus size={14} /> {t('ui.lagg_till_rad')}
             </button>
             {errors.rows && <div style={{ ...errSt, marginTop: '8px' }}>{errors.rows}</div>}
           </div>
 
           {/* Förval */}
           <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '4px' }}>Förval</h3>
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '0 0 12px' }}>Bokförs vid registrering.</p>
+            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '4px' }}>{t('ui.forval')}</h3>
+            <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '0 0 12px' }}>{t('ui.bokfors_vid_registrering')}</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <ToggleCard
                 checked={paidByOwnerPrivately} onChange={setPaidByOwnerPrivately}
-                title="Jag har betalat detta privat"
-                description="Bokförs som skuld från bolaget till dig (2018 Egen insättning). Återbetalas senare manuellt från företagskontot."
+                title={t('ui.jag_har_betalat_detta_privat')}
+                description={t('ui.bokfors_som_skuld_fran_bolaget_till_dig_2018_ege')}
               />
               <ToggleCard
                 checked={reverseCharge} onChange={setReverseCharge}
-                title="Omvänd skattskyldighet"
+                title={t('ui.omvand_skattskyldighet')}
                 description={reverseCharge && !rows.some(r => isReverseChargePurchaseAccount(r.account))
-                  ? 'Tjänst från utlandet: välj konto 4535 (EU) eller 4531 (utanför EU) på konteringsraden, så bokförs momsen automatiskt. Utan det bokförs ingen moms. Byggtjänster i Sverige hanteras inte än.'
-                  : 'Tjänst från utlandet: momsen redovisas av dig. Fakturan bokförs utan moms, och med konto 4535 (EU) eller 4531 (utanför EU) läggs momsraderna till automatiskt.'}
+                  ? t('ui.tjanst_fran_utlandet_valj_konto_4535_eu_eller_45')
+                  : t('ui.tjanst_fran_utlandet_momsen_redovisas_av_dig_fak')}
               />
             </div>
           </div>
@@ -486,35 +487,35 @@ function SupplierInvoiceForm({ contacts, setContacts, accounts, projects = [], u
           <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
             <div className="form-row-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', alignItems: 'start' }}>
               <div>
-                <label style={labelSt}>Valuta</label>
+                <label style={labelSt}>{t('ui.valuta')}</label>
                 <select value={currency} onChange={e => setCurrency(e.target.value)} style={inputSt}>
                   {CURRENCIES.map(c => <option key={c}>{c}</option>)}
                 </select>
-                {currency !== 'SEK' && <p style={helpSt}>Beloppen ovan bokförs i SEK som de anges — omräkning från annan valuta stöds inte än.</p>}
+                {currency !== 'SEK' && <p style={helpSt}>{t('ui.beloppen_ovan_bokfors_i_sek_som_de_anges_omrakni')}</p>}
               </div>
               <div>
-                <label className="sup-hidden-label" style={{ ...labelSt, visibility: 'hidden' }}>Öresavrundning</label>
-                <ToggleCard checked={roundToKrona} onChange={setRoundToKrona} title="Öresavrundning" description="Avrunda fakturatotal till hel krona." />
+                <label className="sup-hidden-label" style={{ ...labelSt, visibility: 'hidden' }}>{t('ui.oresavrundning')}</label>
+                <ToggleCard checked={roundToKrona} onChange={setRoundToKrona} title={t('ui.oresavrundning')} description={t('ui.avrunda_fakturatotal_till_hel_krona')} />
               </div>
             </div>
           </div>
 
           {/* Leveransdatum */}
           <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
-            <label style={labelSt}>Leveransdatum <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>(ML krav)</span></label>
-            <DateField value={deliveryDate} onChange={e => setDeliveryDate(e.target.value)} placeholder="Välj leveransdatum" style={{ ...inputSt, maxWidth: '220px' }} />
+            <label style={labelSt}>{t('ui.leveransdatum')} <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>{t('ui.ml_krav')}</span></label>
+            <DateField value={deliveryDate} onChange={e => setDeliveryDate(e.target.value)} placeholder={t('ui.valj_leveransdatum')} style={{ ...inputSt, maxWidth: '220px' }} />
           </div>
 
           {/* Kostnadsställe/Projekt */}
           <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>Kostnadsställe/Projekt</h3>
+            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>{t('ui.kostnadsstalle_projekt_2')}</h3>
             <div className="form-row-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
               <div>
-                <label style={labelSt}>Kostnadsställe</label>
-                <input value={costCenter} onChange={e => setCostCenter(e.target.value)} placeholder="Ange kostnadsställe" style={inputSt} />
+                <label style={labelSt}>{t('ui.kostnadsstalle')}</label>
+                <input value={costCenter} onChange={e => setCostCenter(e.target.value)} placeholder={t('ui.ange_kostnadsstalle')} style={inputSt} />
               </div>
               <div>
-                <label style={labelSt}>Projekt</label>
+                <label style={labelSt}>{t('ui.projekt')}</label>
                 <ProjectSearch value={projectId} onChange={setProjectId} projects={projects} />
               </div>
             </div>
@@ -522,30 +523,30 @@ function SupplierInvoiceForm({ contacts, setContacts, accounts, projects = [], u
 
           {/* Anteckningar */}
           <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
-            <label style={labelSt}>Anteckningar</label>
-            <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} placeholder="Interna anteckningar om denna faktura..." style={{ ...inputSt, resize: 'vertical' }} />
+            <label style={labelSt}>{t('ui.anteckningar')}</label>
+            <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} placeholder={t('ui.interna_anteckningar_om_denna_faktura')} style={{ ...inputSt, resize: 'vertical' }} />
           </div>
 
           {/* Summering */}
           <div style={{ padding: '24px 32px' }}>
             <div style={{ background: 'var(--bg-muted)', border: '1px solid var(--border-light)', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '4px', maxWidth: '360px', marginLeft: 'auto', fontSize: '13px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
-                <span>Netto (exkl. moms)</span><span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{formatSEK(totals.net)}</span>
+                <span>{t('ui.netto_exkl_moms')}</span><span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{formatSEK(totals.net)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
-                <span>Moms</span><span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{formatSEK(totals.vat)}</span>
+                <span>{t('ui.moms')}</span><span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{formatSEK(totals.vat)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '8px', marginTop: '4px', borderTop: '1px solid var(--border)' }}>
-                <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>Totalt att betala</span>
+                <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>{t('ui.totalt_att_betala')}</span>
                 <span style={{ fontWeight: 800, fontSize: '16px', color: 'var(--text-main)' }}>{formatSEK(roundedGross)}</span>
               </div>
             </div>
             <div style={{ maxWidth: '360px', marginLeft: 'auto', marginTop: '14px' }}>
-              <label style={labelSt}>Totalt enligt fakturan <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>(valfritt)</span></label>
+              <label style={labelSt}>{t('ui.totalt_enligt_fakturan')} <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>{t('ui.valfritt_3')}</span></label>
               <AmountInput value={statedTotal} onChange={setStatedTotal} placeholder="0,00" style={inputSt} />
               {showTotalMismatch && (
                 <div style={{ ...errSt, color: BRAND.amberText }}>
-                  Skiljer sig {formatSEK(Math.abs(statedTotalNum - gross))} från konteringens summa — kontrollera raderna innan du sparar.
+                  {t('ui.skiljer_sig')} {formatSEK(Math.abs(statedTotalNum - gross))} {t('ui.fran_konteringens_summa_kontrollera_raderna_inna')}
                 </div>
               )}
             </div>
@@ -591,24 +592,24 @@ function SupplierInvoiceViewer({ invoice, contacts, accounts, projects, onClose,
     <div style={{ flex: 1, minHeight: 0, background: 'var(--bg-page)', display: 'flex', flexDirection: 'column', animation: 'fadeIn 0.15s ease' }}>
       <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '16px 24px', display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', position: 'sticky', top: 0, zIndex: 10 }}>
         <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-main)', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-          ← Tillbaka
+          {t('ui.tillbaka')}
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-          <h1 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>Leverantörsfaktura #{invoice.invoiceNumber}</h1>
+          <h1 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>{t('ui.leverantorsfaktura')}{invoice.invoiceNumber}</h1>
           <StatusBadge status={statusLabel} />
         </div>
         <div style={{ flex: 1, minWidth: '8px' }} />
         {invoice.status === 'paid' ? (
           <button
             type="button"
-            onClick={async () => { if (await confirmDialog('Markera fakturan som obetald igen? Betalningsverifikationen tas bort.')) onUnmarkPaid?.(); }}
+            onClick={async () => { if (await confirmDialog(t('ui.markera_fakturan_som_obetald_igen_betalningsveri'))) onUnmarkPaid?.(); }}
             style={listHeaderButtonStyle('secondary')}
           >
-            Markera som obetald
+            {t('ui.markera_som_obetald')}
           </button>
         ) : !needsReview && (
           <button type="button" onClick={onPay} style={listHeaderButtonStyle('primary')}>
-            <Check size={14} /> Betala nu
+            <Check size={14} /> {t('ui.betala_nu')}
           </button>
         )}
       </div>
@@ -627,7 +628,7 @@ function SupplierInvoiceViewer({ invoice, contacts, accounts, projects, onClose,
 
           {needsReview && (
             <div style={{ margin: '24px 32px 0', background: BRAND.amberBg, color: BRAND.amberText, borderRadius: '8px', padding: '10px 14px', fontSize: '12.5px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <AlertCircle size={14} /> Den här fakturan saknar kontering — välj konto i listan för att bokföra den.
+              <AlertCircle size={14} /> {t('ui.den_har_fakturan_saknar_kontering_valj_konto_i_l')}
             </div>
           )}
 
@@ -638,20 +639,20 @@ function SupplierInvoiceViewer({ invoice, contacts, accounts, projects, onClose,
           )}
 
           <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>Fakturauppgifter</h3>
+            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>{t('ui.fakturauppgifter')}</h3>
             <div className="form-row-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', fontSize: '13.5px' }}>
-              <div><span style={{ color: 'var(--text-muted)' }}>Leverantör</span><div style={{ fontWeight: 600, color: 'var(--text-main)' }}>{supplier?.name || invoice.supplier || 'Okänd leverantör'}</div></div>
-              <div><span style={{ color: 'var(--text-muted)' }}>Fakturanummer</span><div style={{ fontWeight: 600, color: 'var(--text-main)' }}>#{invoice.invoiceNumber}</div></div>
-              <div><span style={{ color: 'var(--text-muted)' }}>Fakturadatum</span><div style={{ fontWeight: 600, color: 'var(--text-main)' }}>{formatDate(invoice.date)}</div></div>
-              <div><span style={{ color: 'var(--text-muted)' }}>Förfallodatum</span><div style={{ fontWeight: 600, color: isOverdue ? '#ef4444' : 'var(--text-main)' }}>{formatDate(invoice.dueDate)}</div></div>
-              {invoice.ocrNumber && <div><span style={{ color: 'var(--text-muted)' }}>OCR/Betalningsreferens</span><div style={{ fontWeight: 600, color: 'var(--text-main)' }}>{invoice.ocrNumber}</div></div>}
-              {invoice.deliveryDate && <div><span style={{ color: 'var(--text-muted)' }}>Leveransdatum</span><div style={{ fontWeight: 600, color: 'var(--text-main)' }}>{formatDate(invoice.deliveryDate)}</div></div>}
+              <div><span style={{ color: 'var(--text-muted)' }}>{t('ui.leverantor')}</span><div style={{ fontWeight: 600, color: 'var(--text-main)' }}>{supplier?.name || invoice.supplier || t('ui.okand_leverantor')}</div></div>
+              <div><span style={{ color: 'var(--text-muted)' }}>{t('ui.fakturanummer')}</span><div style={{ fontWeight: 600, color: 'var(--text-main)' }}>#{invoice.invoiceNumber}</div></div>
+              <div><span style={{ color: 'var(--text-muted)' }}>{t('ui.fakturadatum')}</span><div style={{ fontWeight: 600, color: 'var(--text-main)' }}>{formatDate(invoice.date)}</div></div>
+              <div><span style={{ color: 'var(--text-muted)' }}>{t('ui.forfallodatum')}</span><div style={{ fontWeight: 600, color: isOverdue ? '#ef4444' : 'var(--text-main)' }}>{formatDate(invoice.dueDate)}</div></div>
+              {invoice.ocrNumber && <div><span style={{ color: 'var(--text-muted)' }}>{t('ui.ocr_betalningsreferens')}</span><div style={{ fontWeight: 600, color: 'var(--text-main)' }}>{invoice.ocrNumber}</div></div>}
+              {invoice.deliveryDate && <div><span style={{ color: 'var(--text-muted)' }}>{t('ui.leveransdatum')}</span><div style={{ fontWeight: 600, color: 'var(--text-main)' }}>{formatDate(invoice.deliveryDate)}</div></div>}
             </div>
           </div>
 
           {!needsReview && (
             <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
-              <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>Kontering</h3>
+              <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>{t('ui.kontering')}</h3>
               <div style={{ overflowX: 'auto' }}>
                 <div style={{ minWidth: '520px' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 1fr 1fr', gap: '10px', marginBottom: '8px', padding: '0 2px' }}>
@@ -677,25 +678,25 @@ function SupplierInvoiceViewer({ invoice, contacts, accounts, projects, onClose,
 
           {(invoice.paidByOwnerPrivately || invoice.reverseCharge || invoice.roundToKrona) && (
             <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-              {invoice.paidByOwnerPrivately && <span style={{ padding: '4px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: BRAND.grayBg, color: BRAND.grayText }}>Betald privat (2018 Egen insättning)</span>}
-              {invoice.reverseCharge && <span style={{ padding: '4px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: BRAND.grayBg, color: BRAND.grayText }}>Omvänd skattskyldighet</span>}
-              {invoice.roundToKrona && <span style={{ padding: '4px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: BRAND.grayBg, color: BRAND.grayText }}>Öresavrundad</span>}
+              {invoice.paidByOwnerPrivately && <span style={{ padding: '4px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: BRAND.grayBg, color: BRAND.grayText }}>{t('ui.betald_privat_2018_egen_insattning')}</span>}
+              {invoice.reverseCharge && <span style={{ padding: '4px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: BRAND.grayBg, color: BRAND.grayText }}>{t('ui.omvand_skattskyldighet')}</span>}
+              {invoice.roundToKrona && <span style={{ padding: '4px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: BRAND.grayBg, color: BRAND.grayText }}>{t('ui.oresavrundad')}</span>}
             </div>
           )}
 
           {(invoice.costCenter || project) && (
             <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
-              <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>Kostnadsställe/Projekt</h3>
+              <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>{t('ui.kostnadsstalle_projekt_2')}</h3>
               <div className="form-row-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', fontSize: '13.5px' }}>
-                {invoice.costCenter && <div><span style={{ color: 'var(--text-muted)' }}>Kostnadsställe</span><div style={{ fontWeight: 600, color: 'var(--text-main)' }}>{invoice.costCenter}</div></div>}
-                {project && <div><span style={{ color: 'var(--text-muted)' }}>Projekt</span><div style={{ fontWeight: 600, color: 'var(--text-main)' }}>{project.name}</div></div>}
+                {invoice.costCenter && <div><span style={{ color: 'var(--text-muted)' }}>{t('ui.kostnadsstalle')}</span><div style={{ fontWeight: 600, color: 'var(--text-main)' }}>{invoice.costCenter}</div></div>}
+                {project && <div><span style={{ color: 'var(--text-muted)' }}>{t('ui.projekt')}</span><div style={{ fontWeight: 600, color: 'var(--text-main)' }}>{project.name}</div></div>}
               </div>
             </div>
           )}
 
           {invoice.notes && (
             <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
-              <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '8px' }}>Anteckningar</h3>
+              <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '8px' }}>{t('ui.anteckningar')}</h3>
               <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)', margin: 0, whiteSpace: 'pre-wrap' }}>{invoice.notes}</p>
             </div>
           )}
@@ -704,13 +705,13 @@ function SupplierInvoiceViewer({ invoice, contacts, accounts, projects, onClose,
             <div style={{ padding: '24px 32px' }}>
               <div style={{ background: 'var(--bg-muted)', border: '1px solid var(--border-light)', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '4px', maxWidth: '360px', marginLeft: 'auto', fontSize: '13px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
-                  <span>Netto (exkl. moms)</span><span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{formatSEK(netTotal)}</span>
+                  <span>{t('ui.netto_exkl_moms')}</span><span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{formatSEK(netTotal)}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
-                  <span>Moms</span><span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{formatSEK(vatTotal)}</span>
+                  <span>{t('ui.moms')}</span><span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{formatSEK(vatTotal)}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '8px', marginTop: '4px', borderTop: '1px solid var(--border)' }}>
-                  <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>Totalt att betala</span>
+                  <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>{t('ui.totalt_att_betala')}</span>
                   <span style={{ fontWeight: 800, fontSize: '16px', color: 'var(--text-main)' }}>{formatSEK(invoice.amount)}</span>
                 </div>
               </div>
@@ -756,25 +757,25 @@ function PaySupplierInvoiceModal({ invoice, contacts, onNavigate, onConfirm, onC
             skulle klämma in en oönskad avdelare mellan titeln och
             underraden direkt under, som är tänkta att höra ihop visuellt. */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-          <h2 className="modal-title" style={{ margin: 0 }}>Betala faktura #{invoice.invoiceNumber}</h2>
+          <h2 className="modal-title" style={{ margin: 0 }}>{t('ui.betala_faktura')}{invoice.invoiceNumber}</h2>
           <button className="modal-close" onClick={onCancel}><X size={18} /></button>
         </div>
-        <p style={{ margin: '0 0 20px', fontSize: '13px', color: 'var(--text-secondary)' }}>{supplier?.name || invoice.supplier || 'Okänd leverantör'} · {formatSEK(invoice.amount)}</p>
+        <p style={{ margin: '0 0 20px', fontSize: '13px', color: 'var(--text-secondary)' }}>{supplier?.name || invoice.supplier || t('ui.okand_leverantor')} · {formatSEK(invoice.amount)}</p>
 
         <div className="form-row-2" style={{ display: 'grid', gap: '16px' }}>
           {/* Bank — fungerar */}
           <div style={{ border: '1px solid var(--border)', borderRadius: '10px', padding: '18px', display: 'flex', flexDirection: 'column' }}>
             <Landmark size={20} color={BRAND.greenDark} />
-            <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)', margin: '10px 0 12px' }}>Bank</div>
+            <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)', margin: '10px 0 12px' }}>{t('ui.bank')}</div>
             {!hasBankDetails ? (
               <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.5, flex: 1 }}>
-                Inga betalningsuppgifter sparade för den här leverantören.{' '}
+                {t('ui.inga_betalningsuppgifter_sparade_for_den_har_lev')}{' '}
                 <button
                   type="button"
                   onClick={() => { onCancel(); onNavigate?.('contacts'); }}
                   style={{ background: 'none', border: 'none', color: BRAND.green, fontWeight: 600, cursor: 'pointer', padding: 0, textDecoration: 'underline', fontSize: 'inherit', fontFamily: 'inherit' }}
                 >
-                  Lägg till under Kontakter
+                  {t('ui.lagg_till_under_kontakter')}
                 </button>
               </p>
             ) : (
@@ -786,11 +787,11 @@ function PaySupplierInvoiceModal({ invoice, contacts, onNavigate, onConfirm, onC
                   </div>
                 ))}
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px' }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>Referens</span>
+                  <span style={{ color: 'var(--text-secondary)' }}>{t('ui.referens')}</span>
                   <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{reference}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px' }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>Belopp</span>
+                  <span style={{ color: 'var(--text-secondary)' }}>{t('ui.belopp')}</span>
                   <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{formatSEK(invoice.amount)}</span>
                 </div>
               </div>
@@ -800,19 +801,19 @@ function PaySupplierInvoiceModal({ invoice, contacts, onNavigate, onConfirm, onC
               onClick={() => onConfirm('bank')}
               style={{ width: '100%', padding: '9px 12px', background: BRAND.green, border: 'none', borderRadius: '8px', fontWeight: 600, color: 'white', fontSize: '13px', cursor: 'pointer', marginTop: '4px' }}
             >
-              Markera som betald (bank)
+              {t('ui.markera_som_betald_bank')}
             </button>
           </div>
 
           {/* Kort (Stripe) — Kommer snart, se kommentar ovanför komponenten */}
           <div style={{ border: '1px solid var(--border)', borderRadius: '10px', padding: '18px', opacity: 0.6, display: 'flex', flexDirection: 'column' }}>
             <CreditCard size={20} color="var(--text-muted)" />
-            <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)', margin: '10px 0 8px' }}>Kort (Stripe)</div>
+            <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)', margin: '10px 0 8px' }}>{t('ui.kort_stripe')}</div>
             <p style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.5, margin: '0 0 16px', flex: 1 }}>
-              Kräver en annan Stripe-produkt (utbetalningar till leverantörer) än den som redan tar emot kortbetalningar från era kunder — inte byggt ännu.
+              {t('ui.kraver_en_annan_stripe_produkt_utbetalningar_til')}
             </p>
             <button disabled style={{ width: '100%', padding: '9px 12px', background: 'var(--border-light)', color: 'var(--text-muted)', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '13px', cursor: 'not-allowed' }}>
-              Kommer snart
+              {t('ui.kommer_snart')}
             </button>
           </div>
         </div>
@@ -934,30 +935,30 @@ export default function SupplierInvoices({
     setSortKey(key);
   };
   const statusOptions = [
-    { value: 'all', label: 'Alla' },
-    { value: 'review', label: 'Granska', bg: BRAND.amberBg, color: BRAND.amberText },
-    { value: 'sent', label: 'Obetald', bg: STRONG_UNPAID.bg, color: STRONG_UNPAID.text, strong: true },
-    { value: 'overdue', label: 'Förfallen', bg: STRONG_OVERDUE.bg, color: STRONG_OVERDUE.text, strong: true },
-    { value: 'paid', label: 'Betald', bg: STRONG_PAID.bg, color: STRONG_PAID.text, strong: true },
+    { value: 'all', label: t('ui.alla') },
+    { value: 'review', label: t('ui.granska'), bg: BRAND.amberBg, color: BRAND.amberText },
+    { value: 'sent', label: t('ui.obetald'), bg: STRONG_UNPAID.bg, color: STRONG_UNPAID.text, strong: true },
+    { value: 'overdue', label: t('ui.forfallen'), bg: STRONG_OVERDUE.bg, color: STRONG_OVERDUE.text, strong: true },
+    { value: 'paid', label: t('ui.betald'), bg: STRONG_PAID.bg, color: STRONG_PAID.text, strong: true },
   ];
 
   const renderList = () => (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, background: 'var(--bg-page)' }}>
       <ListPageHeader
-        title="Leverantörsfakturor"
-        subtitle="Fakturor du fått från leverantörer och ska betala"
+        title={t('ui.leverantorsfakturor')}
+        subtitle={t('ui.fakturor_du_fatt_fran_leverantorer_och_ska_betal')}
       />
 
       <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
         <div className="inv-searchrow" style={{ padding: '12px 20px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           <div className="inv-search" style={{ position: 'relative' }}>
             <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-            <input type="text" placeholder="Fakturanr eller leverantör" value={search} onChange={e => setSearch(e.target.value)} style={{ ...listSearchInputStyle, width: '220px' }} />
+            <input type="text" placeholder={t('ui.fakturanr_eller_leverantor')} value={search} onChange={e => setSearch(e.target.value)} style={{ ...listSearchInputStyle, width: '220px' }} />
           </div>
-          <button onClick={() => { setSearch(''); setStatusFilter('all'); }} title="Rensa sökning" style={{ ...listHeaderButtonStyle('secondary'), padding: '0 10px' }}><RefreshCw size={14} /></button>
+          <button onClick={() => { setSearch(''); setStatusFilter('all'); }} title={t('ui.rensa_sokning')} style={{ ...listHeaderButtonStyle('secondary'), padding: '0 10px' }}><RefreshCw size={14} /></button>
           <div style={{ flex: 1 }} />
           <button className="inv-cta" onClick={() => setShowForm(true)} style={listHeaderButtonStyle('primary')}>
-            <Plus size={14} /> Ny leverantörsfaktura
+            <Plus size={14} /> {t('ui.ny_leverantorsfaktura')}
           </button>
         </div>
       </div>
@@ -1000,14 +1001,14 @@ export default function SupplierInvoices({
           })}
           <div className="inv-pills-spacer" style={{ flex: 1 }} />
           <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-muted)' }}>
-            Visa
+            {t('ui.visa')}
             <select
               value={pageSize}
               onChange={e => setPageSize(e.target.value === 'all' ? 'all' : Number(e.target.value))}
               style={{ ...listFilterFieldStyle, height: '28px', padding: '0 8px', fontSize: '12px' }}
             >
               {PAGE_SIZE_OPTIONS.map(n => <option key={n} value={n}>{n}</option>)}
-              <option value="all">Alla</option>
+              <option value="all">{t('ui.alla')}</option>
             </select>
           </label>
           <Printer className="inv-pills-extra" size={15} style={{ cursor: 'pointer', color: 'var(--text-secondary)' }} />
@@ -1020,14 +1021,14 @@ export default function SupplierInvoices({
           <div style={{ width: 56, height: 56, borderRadius: '999px', background: 'var(--bg-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: BRAND.green }}>
             <Inbox size={26} />
           </div>
-          <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-main)' }}>Inga leverantörsfakturor än</div>
-          <div style={{ fontSize: '13.5px', color: 'var(--text-muted)', maxWidth: '320px' }}>Registrera din första leverantörsfaktura för att komma igång.</div>
+          <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-main)' }}>{t('ui.inga_leverantorsfakturor_an')}</div>
+          <div style={{ fontSize: '13.5px', color: 'var(--text-muted)', maxWidth: '320px' }}>{t('ui.registrera_din_forsta_leverantorsfaktura_for_att')}</div>
           <button type="button" onClick={() => setShowForm(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '10px 20px', marginTop: '8px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '9px', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}>
-            <Plus size={16} /> Ny leverantörsfaktura
+            <Plus size={16} /> {t('ui.ny_leverantorsfaktura')}
           </button>
         </div>
       ) : sorted.length === 0 ? (
-        <div style={{ padding: '40px 20px', textAlign: 'center', fontSize: '13.5px', color: 'var(--text-muted)' }}>Ingen faktura matchar sökningen eller filtret.</div>
+        <div style={{ padding: '40px 20px', textAlign: 'center', fontSize: '13.5px', color: 'var(--text-muted)' }}>{t('ui.ingen_faktura_matchar_sokningen_eller_filtret')}</div>
       ) : (
         <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>
           <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderTop: 'none', borderRadius: '0 0 12px 12px', boxShadow: 'var(--shadow-sm)', overflow: 'hidden' }}>
@@ -1042,46 +1043,46 @@ export default function SupplierInvoices({
               mobileList={inv => {
                 const st = statusOf(inv);
                 const dot = st === 'review' ? BRAND.amberText : st === 'overdue' ? STRONG_OVERDUE.bg : st === 'paid' ? STRONG_PAID.bg : STRONG_UNPAID.bg;
-                const dueLabel = st === 'paid' ? 'betald' : st === 'overdue' ? 'förföll' : 'förfaller';
+                const dueLabel = st === 'paid' ? 'betald' : st === 'overdue' ? t('ui.forfoll_2') : t('ui.forfaller_2');
                 // Numret bär identiteten när leverantören saknas, annars blev
                 // raden en anonym "Okänd leverantör". Samma mönster som kundfakturorna.
                 const supplierName = nameOf(inv);
                 return {
                   dot,
-                  primary: supplierName || `Faktura #${inv.invoiceNumber}`,
+                  primary: supplierName || t('ui.faktura_2', { invoiceNumber: inv.invoiceNumber }),
                   amount: formatSEK(inv.amount),
                   meta: supplierName
                     ? `#${inv.invoiceNumber} · ${dueLabel} ${formatDate(inv.dueDate)}`
-                    : `Ingen leverantör vald · ${dueLabel} ${formatDate(inv.dueDate)}`,
+                    : t('ui.ingen_leverantor_vald', { dueLabel, v1: formatDate(inv.dueDate) }),
                   pill: st === 'review' ? (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', borderRadius: '999px', fontSize: '10.5px', fontWeight: 700, background: BRAND.amberBg, color: BRAND.amberText }}><AlertCircle size={11} /> Granska</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', borderRadius: '999px', fontSize: '10.5px', fontWeight: 700, background: BRAND.amberBg, color: BRAND.amberText }}><AlertCircle size={11} /> {t('ui.granska')}</span>
                   ) : <StatusBadge status={st === 'paid' ? 'paid' : st === 'overdue' ? 'overdue' : 'unpaid'} />,
                 };
               }}
               columns={[
-                { key: 'supplier', label: 'Leverantör', sortKeyName: 'supplier', fontWeight: 600, color: 'var(--text-main)', fontSize: '14px', wrap: true, render: inv => nameOf(inv) || 'Okänd leverantör' },
-                { key: 'invoiceNumber', label: 'Fakturanr', sortKeyName: 'invoiceNumber', color: 'var(--text-main)', render: inv => `#${inv.invoiceNumber}` },
-                { key: 'date', label: 'Fakturadatum', sortKeyName: 'date', render: inv => formatDate(inv.date) },
+                { key: 'supplier', label: t('ui.leverantor'), sortKeyName: 'supplier', fontWeight: 600, color: 'var(--text-main)', fontSize: '14px', wrap: true, render: inv => nameOf(inv) || t('ui.okand_leverantor') },
+                { key: 'invoiceNumber', label: t('ui.fakturanr'), sortKeyName: 'invoiceNumber', color: 'var(--text-main)', render: inv => `#${inv.invoiceNumber}` },
+                { key: 'date', label: t('ui.fakturadatum'), sortKeyName: 'date', render: inv => formatDate(inv.date) },
                 {
-                  key: 'dueDate', label: 'Förfallodatum', sortKeyName: 'dueDate', render: inv => {
+                  key: 'dueDate', label: t('ui.forfallodatum'), sortKeyName: 'dueDate', render: inv => {
                     const overdue = statusOf(inv) === 'overdue';
                     return <span style={{ color: overdue ? 'var(--status-red-text)' : 'var(--text-secondary)', fontWeight: overdue ? 700 : 400 }}>{formatDate(inv.dueDate)}</span>;
                   },
                 },
-                { key: 'amount', label: 'Belopp', align: 'right', sortKeyName: 'amount', fontWeight: 600, color: 'var(--text-main)', render: inv => formatSEK(inv.amount) },
+                { key: 'amount', label: t('ui.belopp'), align: 'right', sortKeyName: 'amount', fontWeight: 600, color: 'var(--text-main)', render: inv => formatSEK(inv.amount) },
                 {
-                  key: 'status', label: 'Status', render: inv => {
+                  key: 'status', label: t('ui.status'), render: inv => {
                     const st = statusOf(inv);
                     if (st === 'review') {
-                      return <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 700, background: BRAND.amberBg, color: BRAND.amberText }}><AlertCircle size={12} /> Granska</span>;
+                      return <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 700, background: BRAND.amberBg, color: BRAND.amberText }}><AlertCircle size={12} /> {t('ui.granska')}</span>;
                     }
                     if (st === 'paid') {
                       return (
                         <div>
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 700, background: STRONG_PAID.bg, color: STRONG_PAID.text }}>
-                            <Check size={12} /> Betald
+                            <Check size={12} /> {t('ui.betald')}
                           </span>
-                          {inv.paymentMethod && <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px' }}>via {inv.paymentMethod === 'bank' ? 'bank' : 'kort'}</div>}
+                          {inv.paymentMethod && <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px' }}>{t('ui.via_2')} {inv.paymentMethod === 'bank' ? 'bank' : 'kort'}</div>}
                         </div>
                       );
                     }
@@ -1089,7 +1090,7 @@ export default function SupplierInvoices({
                     return (
                       <button
                         onClick={e => { e.stopPropagation(); setPayingInvoiceId(inv.id); }}
-                        title="Klicka för att betala"
+                        title={t('ui.klicka_for_att_betala')}
                         style={{
                           display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '999px',
                           fontSize: '12px', fontWeight: 700, cursor: 'pointer', border: 'none',
@@ -1097,7 +1098,7 @@ export default function SupplierInvoices({
                           color: st === 'overdue' ? STRONG_OVERDUE.text : STRONG_UNPAID.text,
                         }}
                       >
-                        {st === 'overdue' ? 'Förfallen' : 'Obetald'}
+                        {st === 'overdue' ? t('ui.forfallen') : t('ui.obetald')}
                       </button>
                     );
                   },
@@ -1109,21 +1110,21 @@ export default function SupplierInvoices({
                       return (
                         <div onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>
                           <div style={{ width: 180 }}>
-                            <AccountSearch value={fixAccount} onChange={setFixAccount} accounts={accounts} placeholder="Välj konto..." />
+                            <AccountSearch value={fixAccount} onChange={setFixAccount} accounts={accounts} placeholder={t('ui.valj_konto')} />
                           </div>
-                          <button onClick={() => applyFix(inv.id)} style={{ padding: '5px 10px', background: BRAND.green, color: 'white', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>Spara</button>
-                          <button onClick={() => { setFixingId(null); setFixAccount(''); }} aria-label="Avbryt" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex' }}><X size={15} /></button>
+                          <button onClick={() => applyFix(inv.id)} style={{ padding: '5px 10px', background: BRAND.green, color: 'white', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>{t('ui.spara')}</button>
+                          <button onClick={() => { setFixingId(null); setFixAccount(''); }} aria-label={t('ui.avbryt')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex' }}><X size={15} /></button>
                         </div>
                       );
                     }
                     const items = [
-                      { key: 'view', label: 'Visa faktura', icon: Eye, onClick: () => setViewingInvoice(inv) },
-                      ...(st === 'review' ? [{ key: 'account', label: 'Välj konto', icon: FileText, onClick: () => { setFixingId(inv.id); setFixAccount(''); } }] : []),
-                      ...(st === 'sent' || st === 'overdue' ? [{ key: 'pay', label: 'Betala', icon: Check, onClick: () => setPayingInvoiceId(inv.id) }] : []),
+                      { key: 'view', label: t('ui.visa_faktura'), icon: Eye, onClick: () => setViewingInvoice(inv) },
+                      ...(st === 'review' ? [{ key: 'account', label: t('ui.valj_konto_2'), icon: FileText, onClick: () => { setFixingId(inv.id); setFixAccount(''); } }] : []),
+                      ...(st === 'sent' || st === 'overdue' ? [{ key: 'pay', label: t('ui.betala'), icon: Check, onClick: () => setPayingInvoiceId(inv.id) }] : []),
                     ];
                     return (
                       <div onClick={e => e.stopPropagation()}>
-                        <RowActionMenu ariaLabel={`Fler åtgärder för faktura ${inv.invoiceNumber}`} items={items} />
+                        <RowActionMenu ariaLabel={t('ui.fler_atgarder_faktura', { n: inv.invoiceNumber })} items={items} />
                       </div>
                     );
                   },

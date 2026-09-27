@@ -464,8 +464,17 @@ export const DEFAULT_ACCOUNTS = [
   { code: "2614", name: "Utgående moms omvänd skattskyldighet, 25%", type: "skuld_kapital", system: true },
   { code: "2624", name: "Utgående moms omvänd skattskyldighet, 12%", type: "skuld_kapital", system: true },
   { code: "2634", name: "Utgående moms omvänd skattskyldighet, 6%", type: "skuld_kapital", system: true },
+  // Import av varor (ruta 60-62) och omvänd skattskyldighet inom Sverige,
+  // t.ex. byggtjänster (ruta 30-32 via 2617/2627/2637, ingående på 2647).
+  { code: "2615", name: "Utgående moms import av varor, 25%", type: "skuld_kapital", system: true },
+  { code: "2625", name: "Utgående moms import av varor, 12%", type: "skuld_kapital", system: true },
+  { code: "2635", name: "Utgående moms import av varor, 6%", type: "skuld_kapital", system: true },
+  { code: "2617", name: "Utgående moms omvänd skattskyldighet varor och tjänster i Sverige, 25%", type: "skuld_kapital", system: true },
+  { code: "2627", name: "Utgående moms omvänd skattskyldighet varor och tjänster i Sverige, 12%", type: "skuld_kapital", system: true },
+  { code: "2637", name: "Utgående moms omvänd skattskyldighet varor och tjänster i Sverige, 6%", type: "skuld_kapital", system: true },
   { code: "2641", name: "Ingående moms", type: "skuld_kapital", active: true, system: true },
   { code: "2645", name: "Beräknad ingående moms på förvärv från utlandet", type: "skuld_kapital", system: true },
+  { code: "2647", name: "Ingående moms omvänd skattskyldighet varor och tjänster i Sverige", type: "skuld_kapital", system: true },
   { code: "2650", name: "Redovisningskonto för moms", type: "skuld_kapital", active: true, system: true },
   { code: "2710", name: "Personalskatt", type: "skuld_kapital", active: true, system: true },
   { code: "2731", name: "Avräkning socialavgifter", type: "skuld_kapital", active: true, system: true },
@@ -670,6 +679,9 @@ export const DEFAULT_ACCOUNTS = [
   { code: "4545", name: "Import av råvaror och material, 25% moms", type: "kostnad" },
   { code: "4546", name: "Import av råvaror och material, 12% moms", type: "kostnad" },
   { code: "4547", name: "Import av råvaror och material, 6% moms", type: "kostnad" },
+  // Motkonto när beskattningsunderlaget för importmomsen (ruta 50) bokförs
+  // på 4545-4547 separat från själva varukostnaden.
+  { code: "4549", name: "Motkonto beskattningsunderlag import", type: "kostnad", system: true },
 
   // 4600 – Underentreprenader och legoarbeten
   { code: "4600", name: "Inköp av tjänster, underentreprenader och legoarbeten i Sverige (gruppkonto)", type: "kostnad" },

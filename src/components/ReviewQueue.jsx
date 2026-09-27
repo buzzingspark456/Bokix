@@ -5,6 +5,7 @@ import ListPageHeader from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
 import { supabase } from '../supabaseClient';
 import { VAT_ACCOUNTS, REVENUE_ACCOUNTS } from './AccountsData';
+import { t } from '../i18n';
 
 const formatSEK = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
 const formatMoney = (val, currency) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: (currency || 'sek').toUpperCase(), maximumFractionDigits: 2 }).format(val || 0);
@@ -17,8 +18,8 @@ const formatDateTime = (iso) => {
   try { return new Intl.DateTimeFormat('sv-SE', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso)); } catch { return iso; }
 };
 
-const KIND_LABEL = { receipt: 'kvitto', supplier_invoice: 'leverantörsfaktura' };
-const KIND_LABEL_PLURAL = { receipt: 'kvitton', supplier_invoice: 'leverantörsfakturor' };
+const KIND_LABEL = { receipt: t('ui.kvitto_2'), supplier_invoice: t('ui.leverantorsfaktura_liten') };
+const KIND_LABEL_PLURAL = { receipt: t('ui.kvitton_2'), supplier_invoice: t('ui.leverantorsfakturor_liten') };
 
 /** "2 dagar sedan" till metaraden. Ett datum säger vilken dag posten är
  * från; ålder säger hur länge den legat och väntat — det är det senare man
@@ -28,11 +29,11 @@ const agoLabel = (d) => {
   const then = new Date(d);
   if (Number.isNaN(then.getTime())) return null;
   const days = Math.floor((Date.now() - then.getTime()) / 86400000);
-  if (days <= 0) return 'i dag';
-  if (days === 1) return '1 dag sedan';
-  if (days < 30) return `${days} dagar sedan`;
+  if (days <= 0) return t('ui.i_dag');
+  if (days === 1) return t('ui.n1_dag_sedan');
+  if (days < 30) return t('ui.dagar_sedan', { days });
   const months = Math.floor(days / 30);
-  return months === 1 ? '1 månad sedan' : `${months} månader sedan`;
+  return months === 1 ? t('ui.n1_manad_sedan') : t('ui.manader_sedan', { months });
 };
 
 // ── Radlayouten för granskningslistan ───────────────────────────────────
@@ -126,8 +127,8 @@ function ReviewRowShell({
           checked={selected}
           disabled={!selectable}
           onChange={onToggleSelect}
-          title={selectable ? 'Markera för att godkänna flera på en gång' : selectHint}
-          aria-label={selectable ? `Markera: ${title}` : selectHint}
+          title={selectable ? t('ui.markera_for_att_godkanna_flera_pa_en_gang') : selectHint}
+          aria-label={selectable ? t('ui.markera', { title }) : selectHint}
           style={{ width: '16px', height: '16px', marginTop: '9px', accentColor: 'var(--accent)', cursor: selectable ? 'pointer' : 'not-allowed', flexShrink: 0 }}
         />
       )}
@@ -166,8 +167,8 @@ function ReviewRowShell({
 // princip som SUBSCRIPTION_STATUS_LABELS i Settings.jsx — ingen omkodning
 // av själva datan, bara UI-text).
 const STRIPE_TYPE_LABEL = {
-  transfer: 'Överföring från Bokix', payout: 'Utbetalning till bank', charge: 'Betalning', payment: 'Betalning',
-  refund: 'Återbetalning', adjustment: 'Justering', stripe_fee: 'Stripe-avgift',
+  transfer: t('ui.stripe_overforing'), payout: t('ui.stripe_utbetalning'), charge: t('ui.stripe_betalning'), payment: t('ui.stripe_betalning'),
+  refund: t('ui.stripe_aterbetalning'), adjustment: t('ui.stripe_justering'), stripe_fee: t('ui.stripe_avgift'),
 };
 
 /** Avgör vilket av de tre kortlägena en Stripe-ledgerrad ska visas som —
@@ -220,26 +221,26 @@ function ReviewCard({ item, accounts, onApprove, onReject, exiting, selected, on
   const [manualAccount, setManualAccount] = useState('');
 
   const isSupplierInvoice = item.type === 'supplier_invoice';
-  const kindLabel = KIND_LABEL[item.type] || 'post';
+  const kindLabel = KIND_LABEL[item.type] || t('ui.post_liten');
   const suggestedAccountObj = accounts.find(a => a.code === item.account);
-  const who = item.supplier || item.description || 'okänt inköpsställe';
+  const who = item.supplier || item.description || t('ui.okant_inkopsstalle');
 
   // "Föreslaget ur tidigare konteringar" är ordagrant vad suggestAccount
   // gör (samma leverantör, samma konto förra gången) — aldrig "föreslaget
   // av AI", som hade varit ett påstående koden inte kan backa upp.
   const meta = [
-    isSupplierInvoice ? 'Leverantörsfaktura' : 'Kvitto',
-    item.account ? 'föreslaget ur tidigare konteringar' : 'ingen tidigare matchning',
+    isSupplierInvoice ? t('ui.leverantorsfaktura_stor') : t('ui.kvitto'),
+    item.account ? t('ui.foreslaget_ur_tidigare') : t('ui.ingen_tidigare_matchning'),
     agoLabel(item.date),
   ];
 
   const title = item.account
     ? `Kontera ${who} ${formatSEK(item.amount)} som ${item.account} ${suggestedAccountObj?.name || ''}`.trim()
-    : `Ange konto för ${who} ${formatSEK(item.amount)}`;
+    : t('ui.ange_konto_for', { who, v1: formatSEK(item.amount) });
 
   const badge = item.account
-    ? (item.confident ? { label: 'Säkert förslag', tone: 'green' } : { label: 'Osäkert förslag', tone: 'amber' })
-    : { label: 'Konto saknas', tone: 'neutral' };
+    ? (item.confident ? { label: t('ui.sakert_forslag'), tone: 'green' } : { label: t('ui.osakert_forslag'), tone: 'amber' })
+    : { label: t('ui.konto_saknas'), tone: 'neutral' };
 
   return (
     <ReviewRowShell
@@ -252,22 +253,22 @@ function ReviewCard({ item, accounts, onApprove, onReject, exiting, selected, on
       selectable={Boolean(item.account)}
       selected={selected}
       onToggleSelect={onToggleSelect}
-      selectHint="Posten saknar konto — ange ett konto innan den kan godkännas."
+      selectHint={t('ui.posten_saknar_konto')}
       actions={
         <>
           {item.account && (
             <button onClick={() => onApprove(item)} style={rowButtonStyle('primary')}>
-              <Check size={14} /> Godkänn
+              <Check size={14} /> {t('ui.godkann')}
             </button>
           )}
           <button
             onClick={() => setRejecting(r => !r)}
             style={rowButtonStyle(item.account ? 'danger' : 'primary')}
           >
-            {item.account ? <><X size={14} /> Avvisa</> : 'Ange konto'}
+            {item.account ? <><X size={14} /> {t('ui.avvisa')}</> : t('ui.ange_konto_2')}
           </button>
           <button onClick={() => setExpanded(e => !e)} style={{ ...rowButtonStyle('ghost'), marginLeft: 'auto' }}>
-            <Info size={14} /> Visa detaljer {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+            <Info size={14} /> {t('ui.visa_detaljer')} {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
           </button>
         </>
       }
@@ -275,34 +276,34 @@ function ReviewCard({ item, accounts, onApprove, onReject, exiting, selected, on
       {rejecting && (
         <div style={{ marginTop: '12px', padding: '14px', background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: '10px' }}>
           <div style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '8px' }}>
-            {item.account ? 'Fel förslag — ange rätt konto:' : 'Ange konto:'}
+            {item.account ? t('ui.fel_forslag_ange_ratt_konto') : t('ui.ange_konto')}
           </div>
           <div className="rq-account-picker" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <AccountSearch value={manualAccount} onChange={setManualAccount} accounts={accounts} placeholder="Sök konto..." />
+              <AccountSearch value={manualAccount} onChange={setManualAccount} accounts={accounts} placeholder={t('ui.sok_konto_2')} />
             </div>
             <button
               disabled={!manualAccount}
               onClick={() => onReject(item, manualAccount)}
               style={{ ...rowButtonStyle(manualAccount ? 'primary' : 'secondary'), opacity: manualAccount ? 1 : 0.6, cursor: manualAccount ? 'pointer' : 'not-allowed' }}
             >
-              Bokför med detta konto
+              {t('ui.bokfor_med_detta_konto')}
             </button>
           </div>
           <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', margin: '8px 0 0' }}>
-            Posten bokförs direkt med kontot du väljer — den försvinner aldrig obokförd.
+            {t('ui.posten_bokfors_direkt_med_kontot_du_valjer_den_f')}
           </p>
         </div>
       )}
 
       {expanded && (
         <div className="form-row-2" style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border-light)', display: 'grid', gap: '10px', fontSize: '13px' }}>
-          <div><span style={{ color: 'var(--text-muted)' }}>Typ:</span> {kindLabel}</div>
-          <div><span style={{ color: 'var(--text-muted)' }}>Datum:</span> {formatDate(item.date)}</div>
-          <div><span style={{ color: 'var(--text-muted)' }}>Belopp:</span> {formatSEK(item.amount)}</div>
-          <div><span style={{ color: 'var(--text-muted)' }}>Moms:</span> {item.vatAmount ? formatSEK(item.vatAmount) : '—'}</div>
-          <div style={{ gridColumn: '1 / -1' }}><span style={{ color: 'var(--text-muted)' }}>Inköpsställe/leverantör:</span> {item.supplier || '—'}</div>
-          <div style={{ gridColumn: '1 / -1' }}><span style={{ color: 'var(--text-muted)' }}>Underlag:</span> Inget bifogat underlag är sparat för denna post.</div>
+          <div><span style={{ color: 'var(--text-muted)' }}>{t('ui.typ_2')}</span> {kindLabel}</div>
+          <div><span style={{ color: 'var(--text-muted)' }}>{t('ui.datum_2')}</span> {formatDate(item.date)}</div>
+          <div><span style={{ color: 'var(--text-muted)' }}>{t('ui.belopp_3')}</span> {formatSEK(item.amount)}</div>
+          <div><span style={{ color: 'var(--text-muted)' }}>{t('ui.moms_5')}</span> {item.vatAmount ? formatSEK(item.vatAmount) : '—'}</div>
+          <div style={{ gridColumn: '1 / -1' }}><span style={{ color: 'var(--text-muted)' }}>{t('ui.inkopsstalle_leverantor_2')}</span> {item.supplier || '—'}</div>
+          <div style={{ gridColumn: '1 / -1' }}><span style={{ color: 'var(--text-muted)' }}>{t('ui.underlag_2')}</span> {t('ui.inget_bifogat_underlag_ar_sparat_for_denna_post')}</div>
         </div>
       )}
     </ReviewRowShell>
@@ -339,27 +340,27 @@ function StripeLedgerCard({ item, accounts, onBookPlatformFee, onBookSale, onMar
   const view = {
     platform_fee: {
       icon: ShieldCheck, tone: 'green',
-      note: 'beräknad ur fakturans bokförda belopp',
-      title: `Bokför Bokix plattformsavgift ${formatSEK(item.platform_fee_amount)} mot 6570 Bankkostnader`,
-      badge: { label: 'Beräknad avgift', tone: 'green' },
+      note: t('ui.beraknad_ur_fakturans_bokforda_belopp'),
+      title: t('ui.bokfor_bokix_plattformsavgift_mot_6570_bankkostn', { v0: formatSEK(item.platform_fee_amount) }),
+      badge: { label: t('ui.beraknad_avgift'), tone: 'green' },
     },
     payout: {
       icon: Landmark, tone: 'blue',
-      note: 'inget att bokföra här',
-      title: `Utbetalning till bank ${formatMoney(item.amount, item.currency)} — jämför mot ditt bankkontoutdrag`,
-      badge: { label: 'Avstämning', tone: 'blue' },
+      note: t('ui.inget_att_bokfora_har'),
+      title: t('ui.utbetalning_till_bank_jamfor_mot_ditt_bankkontou', { v0: formatMoney(item.amount, item.currency) }),
+      badge: { label: t('ui.avstamning'), tone: 'blue' },
     },
     unmatched_sale: {
       icon: CreditCard, tone: 'amber',
-      note: 'ingen matchande faktura',
-      title: `Bokför betalning ${formatSEK(item.amount)} — välj momssats och intäktskonto`,
-      badge: { label: 'Kräver val', tone: 'amber' },
+      note: t('ui.ingen_matchande_faktura'),
+      title: t('ui.bokfor_betalning_valj_momssats_och_intaktskonto', { v0: formatSEK(item.amount) }),
+      badge: { label: t('ui.kraver_val'), tone: 'amber' },
     },
     manual: {
       icon: HelpCircle, tone: 'neutral',
-      note: isForeign ? 'utländsk valuta' : 'ingen automatisk kontering ännu',
-      title: `${typeLabel} ${formatMoney(item.amount, item.currency)} — hanteras manuellt`,
-      badge: { label: 'Manuell', tone: 'neutral' },
+      note: isForeign ? t('ui.utlandsk_valuta') : t('ui.ingen_automatisk_kontering_annu'),
+      title: t('ui.hanteras_manuellt', { typeLabel, v1: formatMoney(item.amount, item.currency) }),
+      badge: { label: t('ui.manuell'), tone: 'neutral' },
     },
   }[category];
 
@@ -374,10 +375,10 @@ function StripeLedgerCard({ item, accounts, onBookPlatformFee, onBookSale, onMar
       extra={category === 'unmatched_sale' && (
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginTop: '12px' }}>
           <select value={vatRate} onChange={e => { const r = Number(e.target.value); setVatRate(r); setSaleAccount(REVENUE_ACCOUNTS[r]); }} style={{ height: '32px', padding: '0 10px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '12.5px', background: 'var(--bg-card)', color: 'var(--text-main)', fontFamily: 'inherit' }}>
-            {VAT_RATES.map(r => <option key={r} value={r}>{r}% moms</option>)}
+            {VAT_RATES.map(r => <option key={r} value={r}>{r}{t('ui.moms_6')}</option>)}
           </select>
           <div style={{ minWidth: '220px', flex: '1 1 220px' }}>
-            <AccountSearch value={saleAccount} onChange={setSaleAccount} accounts={accounts} placeholder="Intäktskonto..." />
+            <AccountSearch value={saleAccount} onChange={setSaleAccount} accounts={accounts} placeholder={t('ui.intaktskonto')} />
           </div>
         </div>
       )}
@@ -385,7 +386,7 @@ function StripeLedgerCard({ item, accounts, onBookPlatformFee, onBookSale, onMar
         <>
           {category === 'platform_fee' && (
             <button onClick={() => onBookPlatformFee(item)} style={rowButtonStyle('primary')}>
-              <Check size={14} /> Bokför avgift
+              <Check size={14} /> {t('ui.bokfor_avgift')}
             </button>
           )}
           {category === 'unmatched_sale' && (
@@ -394,29 +395,29 @@ function StripeLedgerCard({ item, accounts, onBookPlatformFee, onBookSale, onMar
               onClick={() => onBookSale(item, saleAccount, vatRate)}
               style={{ ...rowButtonStyle(saleAccount ? 'primary' : 'secondary'), opacity: saleAccount ? 1 : 0.6, cursor: saleAccount ? 'pointer' : 'not-allowed' }}
             >
-              <Check size={14} /> Bokför försäljning
+              <Check size={14} /> {t('ui.bokfor_forsaljning')}
             </button>
           )}
           {(category === 'payout' || category === 'manual') && (
             <button onClick={() => onMarkHandled(item)} style={rowButtonStyle('secondary')}>
-              Markera som hanterad
+              {t('ui.markera_som_hanterad')}
             </button>
           )}
           <button onClick={() => setExpanded(e => !e)} style={{ ...rowButtonStyle('ghost'), marginLeft: 'auto' }}>
-            <Info size={14} /> Visa detaljer {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+            <Info size={14} /> {t('ui.visa_detaljer')} {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
           </button>
         </>
       }
     >
       {expanded && (
         <div className="form-row-2" style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border-light)', display: 'grid', gap: '10px', fontSize: '13px' }}>
-          <div><span style={{ color: 'var(--text-muted)' }}>Typ:</span> {typeLabel} ({item.type})</div>
-          <div><span style={{ color: 'var(--text-muted)' }}>Datum:</span> {formatDate(item.created_at_stripe)}</div>
-          <div><span style={{ color: 'var(--text-muted)' }}>Belopp:</span> {formatMoney(item.amount, item.currency)}</div>
-          <div><span style={{ color: 'var(--text-muted)' }}>Valuta:</span> {(item.currency || '').toUpperCase()}</div>
+          <div><span style={{ color: 'var(--text-muted)' }}>{t('ui.typ_2')}</span> {typeLabel} ({item.type})</div>
+          <div><span style={{ color: 'var(--text-muted)' }}>{t('ui.datum_2')}</span> {formatDate(item.created_at_stripe)}</div>
+          <div><span style={{ color: 'var(--text-muted)' }}>{t('ui.belopp_3')}</span> {formatMoney(item.amount, item.currency)}</div>
+          <div><span style={{ color: 'var(--text-muted)' }}>{t('ui.valuta_2')}</span> {(item.currency || '').toUpperCase()}</div>
           {item.matched_invoice_id && (
             <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              <span style={{ color: 'var(--text-muted)' }}>Kopplad faktura:</span>
+              <span style={{ color: 'var(--text-muted)' }}>{t('ui.kopplad_faktura')}</span>
               {onOpenInvoice ? (
                 // Kundönskemål: "visa fakturan" — tidigare bara fakturans
                 // rå-id som text, ingen väg att faktiskt se den härifrån.
@@ -427,13 +428,13 @@ function StripeLedgerCard({ item, accounts, onBookPlatformFee, onBookSale, onMar
                   onClick={() => onOpenInvoice(item.matched_invoice_id)}
                   style={{ border: 0, background: 'none', padding: 0, color: 'var(--accent-text)', fontWeight: 700, textDecoration: 'underline', cursor: 'pointer', fontSize: 'inherit', fontFamily: 'inherit' }}
                 >
-                  Visa fakturan
+                  {t('ui.visa_fakturan')}
                 </button>
               ) : item.matched_invoice_id}
-              <span style={{ color: 'var(--text-muted)' }}>(bästa-försök-matchning på tidsnärhet, inte garanterad)</span>
+              <span style={{ color: 'var(--text-muted)' }}>{t('ui.basta_forsok_matchning_pa_tidsnarhet_inte_garant')}</span>
             </div>
           )}
-          {item.description && <div style={{ gridColumn: '1 / -1' }}><span style={{ color: 'var(--text-muted)' }}>Stripe-beskrivning:</span> {item.description}</div>}
+          {item.description && <div style={{ gridColumn: '1 / -1' }}><span style={{ color: 'var(--text-muted)' }}>{t('ui.stripe_beskrivning')}</span> {item.description}</div>}
         </div>
       )}
     </ReviewRowShell>
@@ -477,20 +478,20 @@ function ZettleLedgerCard({ item, accounts, onBookSale, onMarkHandled, exiting }
   const [saleAccount, setSaleAccount] = useState(REVENUE_ACCOUNTS[initialVat]);
 
   const category = item.is_refund ? 'refund' : 'sale';
-  const paymentLabel = ZETTLE_PAYMENT_LABEL[item.payment_type] || item.payment_type || 'Okänd betalmetod';
+  const paymentLabel = ZETTLE_PAYMENT_LABEL[item.payment_type] || item.payment_type || t('ui.okand_betalmetod');
 
   const view = {
     sale: {
       icon: CreditCard, tone: 'amber',
-      note: 'ingen kopplad faktura — all Zettle-försäljning är kontantförsäljning',
-      title: `Bokför försäljning ${formatSEK(item.amount)}${item.purchase_number ? ` — kvitto ${item.purchase_number}` : ''}`,
-      badge: { label: 'Kräver val', tone: 'amber' },
+      note: t('ui.ingen_kopplad_faktura_all_zettle_forsaljning_ar'),
+      title: t('ui.bokfor_forsaljning_2', { v0: formatSEK(item.amount), v1: item.purchase_number ? ` — kvitto ${item.purchase_number}` : '' }),
+      badge: { label: t('ui.kraver_val'), tone: 'amber' },
     },
     refund: {
       icon: RotateCcw, tone: 'neutral',
-      note: 'återbetalning — hanteras manuellt',
-      title: `Återbetalning ${formatSEK(item.amount)}${item.purchase_number ? ` — kvitto ${item.purchase_number}` : ''}`,
-      badge: { label: 'Manuell', tone: 'neutral' },
+      note: t('ui.aterbetalning_hanteras_manuellt'),
+      title: t('ui.aterbetalning', { v0: formatSEK(item.amount), v1: item.purchase_number ? ` — kvitto ${item.purchase_number}` : '' }),
+      badge: { label: t('ui.manuell'), tone: 'neutral' },
     },
   }[category];
 
@@ -505,10 +506,10 @@ function ZettleLedgerCard({ item, accounts, onBookSale, onMarkHandled, exiting }
       extra={category === 'sale' && (
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginTop: '12px' }}>
           <select value={vatRate} onChange={e => { const r = Number(e.target.value); setVatRate(r); setSaleAccount(REVENUE_ACCOUNTS[r]); }} style={{ height: '32px', padding: '0 10px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '12.5px', background: 'var(--bg-card)', color: 'var(--text-main)', fontFamily: 'inherit' }}>
-            {VAT_RATES.map(r => <option key={r} value={r}>{r}% moms</option>)}
+            {VAT_RATES.map(r => <option key={r} value={r}>{r}{t('ui.moms_6')}</option>)}
           </select>
           <div style={{ minWidth: '220px', flex: '1 1 220px' }}>
-            <AccountSearch value={saleAccount} onChange={setSaleAccount} accounts={accounts} placeholder="Intäktskonto..." />
+            <AccountSearch value={saleAccount} onChange={setSaleAccount} accounts={accounts} placeholder={t('ui.intaktskonto')} />
           </div>
         </div>
       )}
@@ -520,27 +521,27 @@ function ZettleLedgerCard({ item, accounts, onBookSale, onMarkHandled, exiting }
               onClick={() => onBookSale(item, saleAccount, vatRate)}
               style={{ ...rowButtonStyle(saleAccount ? 'primary' : 'secondary'), opacity: saleAccount ? 1 : 0.6, cursor: saleAccount ? 'pointer' : 'not-allowed' }}
             >
-              <Check size={14} /> Bokför försäljning
+              <Check size={14} /> {t('ui.bokfor_forsaljning')}
             </button>
           )}
           {category === 'refund' && (
             <button onClick={() => onMarkHandled(item)} style={rowButtonStyle('secondary')}>
-              Markera som hanterad
+              {t('ui.markera_som_hanterad')}
             </button>
           )}
           <button onClick={() => setExpanded(e => !e)} style={{ ...rowButtonStyle('ghost'), marginLeft: 'auto' }}>
-            <Info size={14} /> Visa detaljer {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+            <Info size={14} /> {t('ui.visa_detaljer')} {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
           </button>
         </>
       }
     >
       {expanded && (
         <div className="form-row-2" style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border-light)', display: 'grid', gap: '10px', fontSize: '13px' }}>
-          <div><span style={{ color: 'var(--text-muted)' }}>Datum:</span> {formatDate(item.created_at_zettle)}</div>
-          <div><span style={{ color: 'var(--text-muted)' }}>Belopp:</span> {formatMoney(item.amount, item.currency)}</div>
-          <div><span style={{ color: 'var(--text-muted)' }}>Moms (från Zettle):</span> {formatMoney(item.vat_amount, item.currency)}</div>
-          <div><span style={{ color: 'var(--text-muted)' }}>Betalmetod:</span> {paymentLabel}</div>
-          {item.purchase_number && <div style={{ gridColumn: '1 / -1' }}><span style={{ color: 'var(--text-muted)' }}>Zettle-kvitto:</span> #{item.purchase_number}</div>}
+          <div><span style={{ color: 'var(--text-muted)' }}>{t('ui.datum_2')}</span> {formatDate(item.created_at_zettle)}</div>
+          <div><span style={{ color: 'var(--text-muted)' }}>{t('ui.belopp_3')}</span> {formatMoney(item.amount, item.currency)}</div>
+          <div><span style={{ color: 'var(--text-muted)' }}>{t('ui.moms_fran_zettle')}</span> {formatMoney(item.vat_amount, item.currency)}</div>
+          <div><span style={{ color: 'var(--text-muted)' }}>{t('ui.betalmetod')}</span> {paymentLabel}</div>
+          {item.purchase_number && <div style={{ gridColumn: '1 / -1' }}><span style={{ color: 'var(--text-muted)' }}>{t('ui.zettle_kvitto')}</span> #{item.purchase_number}</div>}
         </div>
       )}
     </ReviewRowShell>
@@ -609,9 +610,9 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
     const parts = Object.entries(groups).map(([key, count]) => {
       const [type, accName] = key.split('|');
       const label = count === 1 ? KIND_LABEL[type] : KIND_LABEL_PLURAL[type];
-      return `${count} ${label} kategoriseras som ${accName}`;
+      return t('ui.kategoriseras_som', { count, label, accName });
     });
-    return `Detta godkänner ${bulkTargets.length} ${bulkTargets.length === 1 ? 'post' : 'poster'}: ${parts.join(', ')}.`;
+    return t('ui.detta_godkanner', { length: bulkTargets.length, v1: bulkTargets.length === 1 ? 'post' : 'poster', v2: parts.join(', ') });
   }, [bulkTargets, accounts]);
 
   const handleBulkApprove = () => {
@@ -793,27 +794,27 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
       <style>{REVIEW_LIST_CSS}</style>
       {/* Header i samma mönster som Kunder/Anställda och lön/Projekt/Bokföring. */}
       <ListPageHeader
-        title="Granskning"
+        title={t('ui.granskning')}
         // Antalet står i knappen, inte bara i bekräftelserutan: hur många
         // poster ett klick omfattar ska gå att se INNAN man klickar.
         actions={tab === 'pending' && bulkTargets.length > 0 ? [
           {
             key: 'bulk-approve',
-            label: `${bulkIsSelection ? 'Godkänn markerade' : 'Godkänn alla'} (${bulkTargets.length})`,
+            label: t(bulkIsSelection ? 'ui.godkann_markerade_n' : 'ui.godkann_alla_n', { n: bulkTargets.length }),
             icon: CheckCircle2, onClick: () => setShowBulkConfirm(true), variant: 'primary',
           },
         ] : []}
         tabs={{
           items: [
-            { id: 'pending', label: 'Väntar', badge: pendingItems.length },
+            { id: 'pending', label: t('ui.vantar'), badge: pendingItems.length },
             // Kundfeedback (uppföljning): en Stripe/Zettle-flik som bara
             // leder till "Ingen anslutning ännu" är brus för alla som inte
             // har kopplat den tjänsten — visas bara när företaget faktiskt
             // ÄR anslutet (eller i landningssidans demo, som simulerar en
             // anslutning via demoStripeItems/demoZettleItems).
-            ...(company?.stripeAccountId || isDemo ? [{ id: 'stripe', label: 'Stripe', badge: visibleStripeItems.length }] : []),
-            ...(company?.zettleAccessToken || isZettleDemo ? [{ id: 'zettle', label: 'Zettle', badge: visibleZettleItems.length }] : []),
-            { id: 'history', label: 'Historik' },
+            ...(company?.stripeAccountId || isDemo ? [{ id: 'stripe', label: t('ui.stripe'), badge: visibleStripeItems.length }] : []),
+            ...(company?.zettleAccessToken || isZettleDemo ? [{ id: 'zettle', label: t('ui.zettle'), badge: visibleZettleItems.length }] : []),
+            { id: 'history', label: t('ui.historik') },
           ],
           activeId: tab,
           onChange: setTab,
@@ -832,8 +833,8 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
             <div style={{ width: 96, height: 96, borderRadius: '50%', background: 'var(--status-green-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px' }}>
               <CheckCircle2 size={48} color="var(--status-green-text)" strokeWidth={1.5} />
             </div>
-            <h2 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 10px' }}>Allt är genomgånget</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '15px', margin: 0 }}>Det finns inga poster kvar att granska just nu.</p>
+            <h2 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 10px' }}>{t('ui.allt_ar_genomganget')}</h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '15px', margin: 0 }}>{t('ui.det_finns_inga_poster_kvar_att_granska_just_nu')}</p>
           </div>
         ) : (
           <div className="rq-list">
@@ -858,18 +859,18 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
             <div style={{ width: 96, height: 96, borderRadius: '50%', background: 'var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px' }}>
               <CreditCard size={40} color="var(--text-muted)" strokeWidth={1.5} />
             </div>
-            <h2 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 10px' }}>Ingen Stripe-anslutning ännu</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '15px', margin: 0, maxWidth: '420px' }}>Anslut Stripe under Inställningar → Betalning för att få betalningar, utbetalningar och avgifter hämtade hit som bokföringsunderlag.</p>
+            <h2 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 10px' }}>{t('ui.ingen_stripe_anslutning_annu')}</h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '15px', margin: 0, maxWidth: '420px' }}>{t('ui.anslut_stripe_under_installningar_betalning_for')}</p>
           </div>
         ) : stripeLoading ? (
-          <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '14px' }}>Läser in...</div>
+          <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '14px' }}>{t('ui.laser_in')}</div>
         ) : visibleStripeItems.length === 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '50vh', padding: '40px', textAlign: 'center' }}>
             <div style={{ width: 96, height: 96, borderRadius: '50%', background: 'var(--status-green-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px' }}>
               <CheckCircle2 size={48} color="var(--status-green-text)" strokeWidth={1.5} />
             </div>
-            <h2 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 10px' }}>Allt är genomgånget</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '15px', margin: 0 }}>Inga Stripe-transaktioner väntar på granskning just nu. Nya rader hämtas en gång om dagen.</p>
+            <h2 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 10px' }}>{t('ui.allt_ar_genomganget')}</h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '15px', margin: 0 }}>{t('ui.inga_stripe_transaktioner_vantar_pa_granskning_j')}</p>
           </div>
         ) : (
           <div className="rq-list">
@@ -895,18 +896,18 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
             <div style={{ width: 96, height: 96, borderRadius: '50%', background: 'var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px' }}>
               <CreditCard size={40} color="var(--text-muted)" strokeWidth={1.5} />
             </div>
-            <h2 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 10px' }}>Ingen Zettle-anslutning ännu</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '15px', margin: 0, maxWidth: '420px' }}>Anslut Zettle under Inställningar → Betalning för att få kortförsäljningen hämtad hit som bokföringsunderlag.</p>
+            <h2 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 10px' }}>{t('ui.ingen_zettle_anslutning_annu')}</h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '15px', margin: 0, maxWidth: '420px' }}>{t('ui.anslut_zettle_under_installningar_betalning_for')}</p>
           </div>
         ) : zettleLoading ? (
-          <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '14px' }}>Läser in...</div>
+          <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '14px' }}>{t('ui.laser_in')}</div>
         ) : visibleZettleItems.length === 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '50vh', padding: '40px', textAlign: 'center' }}>
             <div style={{ width: 96, height: 96, borderRadius: '50%', background: 'var(--status-green-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px' }}>
               <CheckCircle2 size={48} color="var(--status-green-text)" strokeWidth={1.5} />
             </div>
-            <h2 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 10px' }}>Allt är genomgånget</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '15px', margin: 0 }}>Ingen Zettle-försäljning väntar på granskning just nu. Nya rader hämtas en gång om dagen.</p>
+            <h2 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 10px' }}>{t('ui.allt_ar_genomganget')}</h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '15px', margin: 0 }}>{t('ui.ingen_zettle_forsaljning_vantar_pa_granskning_ju')}</p>
           </div>
         ) : (
           <div className="rq-list">
@@ -927,21 +928,21 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
       {tab === 'history' && (
         <ListTable
           rowKey={h => h.id}
-          emptyMessage="Inget har hanterats än."
+          emptyMessage={t('ui.inget_har_hanterats_an')}
           rows={reviewHistory}
           columns={[
-            { key: 'post', label: 'Post', fontWeight: 600, color: 'var(--text-main)', render: h => `${h.title} · ${formatSEK(h.amount)}` },
-            { key: 'account', label: 'Konto', color: 'var(--text-main)', render: h => `${h.account} ${h.accountName}` },
-            { key: 'resolvedBy', label: 'Hanterad av', color: 'var(--text-main)', render: h => h.resolvedBy },
-            { key: 'resolvedAt', label: 'När', render: h => formatDateTime(h.resolvedAt) },
+            { key: 'post', label: t('ui.post'), fontWeight: 600, color: 'var(--text-main)', render: h => `${h.title} · ${formatSEK(h.amount)}` },
+            { key: 'account', label: t('ui.konto_2'), color: 'var(--text-main)', render: h => `${h.account} ${h.accountName}` },
+            { key: 'resolvedBy', label: t('ui.hanterad_av'), color: 'var(--text-main)', render: h => h.resolvedBy },
+            { key: 'resolvedAt', label: t('ui.nar'), render: h => formatDateTime(h.resolvedAt) },
             {
-              key: 'method', label: 'Metod', render: h => (
+              key: 'method', label: t('ui.metod'), render: h => (
                 <span style={{
                   padding: '3px 9px', borderRadius: '999px', fontSize: '11.5px', fontWeight: 600,
                   background: h.method === 'manual' ? 'var(--border-light)' : 'var(--status-green-bg)',
                   color: h.method === 'manual' ? 'var(--text-main)' : 'var(--status-green-text)',
                 }}>
-                  {h.method === 'bulk' ? 'Godkänd i klump' : h.method === 'manual' ? 'Manuellt vald' : 'Förslag godkänt'}
+                  {h.method === 'bulk' ? t('ui.godkand_i_klump') : h.method === 'manual' ? t('ui.manuellt_vald') : t('ui.forslag_godkant')}
                 </span>
               ),
             },
@@ -954,19 +955,19 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
         <div className="modal-overlay" onClick={() => setShowBulkConfirm(false)}>
           <div className="modal-content" style={{ maxWidth: '440px' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h2 className="modal-title">{bulkIsSelection ? 'Godkänn markerade?' : 'Godkänn alla?'}</h2>
+              <h2 className="modal-title">{bulkIsSelection ? t('ui.godkann_markerade') : t('ui.godkann_alla')}</h2>
               <button className="modal-close" onClick={() => setShowBulkConfirm(false)}><X size={18} /></button>
             </div>
             <div style={{ padding: '20px 24px' }}>
               <p style={{ fontSize: '14px', color: 'var(--text-main)', lineHeight: 1.6, margin: '0 0 8px' }}>{bulkSummary}</p>
               <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: '0 0 20px' }}>
                 {bulkIsSelection
-                  ? 'Bara de poster du markerat ingår. Poster utan konto går inte att markera — de behöver ett konto först.'
-                  : 'Poster med osäkra förslag ingår inte — de kräver individuell hantering under Väntar.'}
+                  ? t('ui.bara_de_poster_du_markerat_ingar_poster_utan_kon')
+                  : t('ui.poster_med_osakra_forslag_ingar_inte_de_kraver_i')}
               </p>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                <button onClick={() => setShowBulkConfirm(false)} style={{ padding: '9px 18px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer', color: 'var(--text-main)' }}>Avbryt</button>
-                <button onClick={handleBulkApprove} style={{ padding: '9px 18px', background: 'var(--accent)', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer', color: 'white' }}>Fortsätt</button>
+                <button onClick={() => setShowBulkConfirm(false)} style={{ padding: '9px 18px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer', color: 'var(--text-main)' }}>{t('ui.avbryt')}</button>
+                <button onClick={handleBulkApprove} style={{ padding: '9px 18px', background: 'var(--accent)', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer', color: 'white' }}>{t('ui.fortsatt')}</button>
               </div>
             </div>
           </div>

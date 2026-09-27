@@ -1,6 +1,7 @@
 ﻿import React, { useMemo, useState } from 'react';
 import { Search, Book, Sparkles, FileText, MessageSquare, AlertCircle, ArrowLeft } from './icons';
 import Drawer from './Drawer';
+import { t } from '../i18n';
 
 // Egna körvägar i drawern, inte separata modaler — "Ordlista" byter bara
 // innehållet i SAMMA drawer (view-state nedan) istället för att öppna ännu
@@ -12,12 +13,12 @@ const SHORTCUTS = [
   // Samma rundtur (driver.js, se utils/productTour.js) som visas
   // automatiskt första gången ett konto loggar in — den här genvägen är
   // den enda vägen tillbaka till den efteråt, se onStartTour/App.jsx.
-  { icon: Sparkles, color: 'var(--status-amber-text)', bg: 'var(--status-amber-bg)', label: 'Starta rundtur', action: 'tour' },
+  { icon: Sparkles, color: 'var(--status-amber-text)', bg: 'var(--status-amber-bg)', label: t('ui.starta_rundtur'), action: 'tour' },
   // Fakturor-sidans egen, kortare guide (utils/invoiceTour.js) — döljs där
   // efter första visningen, den här genvägen är den enda vägen tillbaka,
   // se onStartInvoiceTour/App.jsx.
-  { icon: FileText, color: 'var(--status-green-text)', bg: 'var(--status-green-bg)', label: 'Fakturaguide', action: 'invoice-tour' },
-  { icon: Book, color: 'var(--status-pink-text)', bg: 'var(--status-pink-bg)', label: 'Ordlista', action: 'glossary' },
+  { icon: FileText, color: 'var(--status-green-text)', bg: 'var(--status-green-bg)', label: t('ui.fakturaguide'), action: 'invoice-tour' },
+  { icon: Book, color: 'var(--status-pink-text)', bg: 'var(--status-pink-bg)', label: t('ui.ordlista'), action: 'glossary' },
 ];
 
 // En första, enkel ordlista över de bokföringstermer som faktiskt
@@ -26,24 +27,24 @@ const SHORTCUTS = [
 // ("vardagliga etiketter, inte bokföringsjargong", se Dashboard.jsx).
 // Kan byggas ut senare, men täcker det en ny användare stöter på först.
 const GLOSSARY = [
-  { term: 'Avskrivning', def: 'Att en dyrare tillgångs kostnad delas upp och bokförs över flera år istället för direkt vid köpet.' },
-  { term: 'Balansräkning', def: 'Sammanställning av vad företaget äger (tillgångar) och är skyldigt (skulder och eget kapital) vid en viss tidpunkt.' },
-  { term: 'BAS-kontoplan', def: 'Den gemensamma svenska standarden för hur bokföringskonton numreras och grupperas. Bokix använder BAS 2025 som standard.' },
-  { term: 'Bokslut', def: 'Avslutningen av räkenskapsåret, då resultat- och balansräkning ställs samman för hela året.' },
-  { term: 'Debet och kredit', def: 'Bokföringens två sidor. Du behöver inte kunna dem: välj Enkelt när du bokför, så väljer du vad som hänt och Bokix sköter resten. Varje verifikation har lika stort belopp på båda sidor.' },
-  { term: 'Enskild firma', def: 'En företagsform utan egen juridisk person — du och firman är samma skattesubjekt.' },
-  { term: 'F-skatt', def: 'Skattsedeln som visar att företaget själv ansvarar för att betala in sin skatt och sina avgifter.' },
-  { term: 'Ingående moms', def: 'Momsen du betalar på det du köper in till företaget. Går oftast att dra av mot den utgående momsen.' },
-  { term: 'Kontoplan', def: 'Listan över alla konton ett företag bokför sina affärshändelser mot.' },
-  { term: 'Kontrolluppgift (KU)', def: 'Årlig rapport till Skatteverket, bland annat om utbetald lön till anställda.' },
-  { term: 'Kundfaktura', def: 'Fakturan du skickar till en kund för sålda varor eller tjänster.' },
-  { term: 'Leverantörsfaktura', def: 'Fakturan du tar emot och ska betala, för det du själv köpt in.' },
-  { term: 'Momsdeklaration', def: 'Den periodiska rapporten till Skatteverket som visar utgående minus ingående moms — mellanskillnaden betalas in eller får tillbaka.' },
-  { term: 'Räkenskapsår', def: 'Den tolvmånadersperiod som bokföringen och bokslutet följer, för de flesta samma som kalenderåret.' },
-  { term: 'Resultaträkning', def: 'Sammanställning av intäkter minus kostnader under en period — visar om det blev vinst eller förlust.' },
-  { term: 'Utgående moms', def: 'Momsen du tar ut av dina kunder när du säljer. Betalas in till Skatteverket, med avdrag för ingående moms.' },
-  { term: 'Verifikation', def: 'Det bokförda underlaget för en affärshändelse — datum, belopp och vilka konton som påverkas.' },
-  { term: 'Årsredovisning', def: 'Det formella dokument som sammanfattar bokslutet och (för bland annat aktiebolag) lämnas in till Bolagsverket.' },
+  { term: t('glossary.g01.term'), def: t('glossary.g01.def') },
+  { term: t('glossary.g02.term'), def: t('glossary.g02.def') },
+  { term: t('glossary.g03.term'), def: t('glossary.g03.def') },
+  { term: t('glossary.g04.term'), def: t('glossary.g04.def') },
+  { term: t('glossary.g05.term'), def: t('glossary.g05.def') },
+  { term: t('glossary.g06.term'), def: t('glossary.g06.def') },
+  { term: t('glossary.g07.term'), def: t('glossary.g07.def') },
+  { term: t('glossary.g08.term'), def: t('glossary.g08.def') },
+  { term: t('glossary.g09.term'), def: t('glossary.g09.def') },
+  { term: t('glossary.g10.term'), def: t('glossary.g10.def') },
+  { term: t('glossary.g11.term'), def: t('glossary.g11.def') },
+  { term: t('glossary.g12.term'), def: t('glossary.g12.def') },
+  { term: t('glossary.g13.term'), def: t('glossary.g13.def') },
+  { term: t('glossary.g14.term'), def: t('glossary.g14.def') },
+  { term: t('glossary.g15.term'), def: t('glossary.g15.def') },
+  { term: t('glossary.g16.term'), def: t('glossary.g16.def') },
+  { term: t('glossary.g17.term'), def: t('glossary.g17.def') },
+  { term: t('glossary.g18.term'), def: t('glossary.g18.def') },
 ];
 
 const shortcutBtnStyle = {
@@ -79,21 +80,21 @@ const HelpDrawer = ({ isOpen, onClose, onStartTour, onStartInvoiceTour }) => {
   const handleClose = () => { setView('menu'); setSearch(''); onClose(); };
 
   return (
-    <Drawer isOpen={isOpen} onClose={handleClose} title={view === 'glossary' ? 'Ordlista' : 'Hjälp och support'}>
+    <Drawer isOpen={isOpen} onClose={handleClose} title={view === 'glossary' ? t('ui.ordlista') : t('ui.hjalp_och_support')}>
       {view === 'glossary' ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
           <button
             onClick={() => { setView('menu'); setSearch(''); }}
             style={{ display: 'flex', alignItems: 'center', gap: '6px', alignSelf: 'flex-start', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-sans)', padding: 0 }}
           >
-            <ArrowLeft size={15} /> Tillbaka
+            <ArrowLeft size={15} /> {t('ui.tillbaka_2')}
           </button>
 
           <div style={{ position: 'relative' }}>
             <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
             <input
               type="text"
-              placeholder="Sök term, t.ex. moms"
+              placeholder={t('ui.sok_term_t_ex_moms')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="form-control"
@@ -104,7 +105,7 @@ const HelpDrawer = ({ isOpen, onClose, onStartTour, onStartInvoiceTour }) => {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             {filteredGlossary.length === 0 ? (
-              <p style={{ fontSize: '13px', color: 'var(--text-muted)', textAlign: 'center', padding: '20px 0' }}>Inga termer matchar "{search}".</p>
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)', textAlign: 'center', padding: '20px 0' }}>{t('ui.inga_termer_matchar')}{search}".</p>
             ) : filteredGlossary.map(({ term, def }) => (
               <div key={term} style={{ padding: '12px 0', borderBottom: '1px solid var(--border-light)' }}>
                 <div style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '3px' }}>{term}</div>
@@ -119,7 +120,7 @@ const HelpDrawer = ({ isOpen, onClose, onStartTour, onStartInvoiceTour }) => {
             <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
             <input
               type="text"
-              placeholder="Vad behöver du hjälp med?"
+              placeholder={t('ui.vad_behover_du_hjalp_med')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="form-control"
@@ -128,9 +129,9 @@ const HelpDrawer = ({ isOpen, onClose, onStartTour, onStartInvoiceTour }) => {
           </div>
 
           <div>
-            <h3 style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '10px' }}>Genvägar</h3>
+            <h3 style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '10px' }}>{t('ui.genvagar')}</h3>
             {filteredShortcuts.length === 0 ? (
-              <p style={{ fontSize: '13px', color: 'var(--text-muted)', padding: '4px 0' }}>Inga genvägar matchar "{search}".</p>
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)', padding: '4px 0' }}>{t('ui.inga_genvagar_matchar')}{search}".</p>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {filteredShortcuts.map(({ icon: Icon, color, bg, label, action }) => (
@@ -157,7 +158,7 @@ const HelpDrawer = ({ isOpen, onClose, onStartTour, onStartInvoiceTour }) => {
               className="btn btn-primary"
               style={{ width: '100%' }}
             >
-              <MessageSquare size={16} /> Kontakta support
+              <MessageSquare size={16} /> {t('ui.kontakta_support')}
             </a>
             <a
               href="mailto:support@bokix.se?subject=Felrapport%20-%20Bokix"
@@ -165,7 +166,7 @@ const HelpDrawer = ({ isOpen, onClose, onStartTour, onStartInvoiceTour }) => {
               onMouseEnter={e => e.currentTarget.style.color = 'var(--text-main)'}
               onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
             >
-              <AlertCircle size={15} /> Rapportera ett fel
+              <AlertCircle size={15} /> {t('ui.rapportera_ett_fel')}
             </a>
           </div>
         </div>

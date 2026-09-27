@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Check, AlertCircle, Minus, ScanLine } from '../icons';
+import { t as tr } from '../../i18n';
 
 // Avläsningsupplevelsen som kvitton och verifikationer delar: skannerlinjen
 // över dokumentet och checklistan över vad som hittades. Här ligger också
@@ -21,12 +22,12 @@ export const CACHED_SCAN_MS = 900;
 // Vad skannern säger medan den läser. De beskriver vad avläsningen faktiskt
 // gör i tur och ordning, och byts var 1,1 sekund.
 export const SCAN_MESSAGES = [
-  'Läser texten på kvittot…',
-  'Letar efter leverantören…',
-  'Läser datum och nummer…',
-  'Läser beloppet…',
-  'Kontrollerar momsen mot beloppen…',
-  'Väljer konto…',
+  tr('ui.scan_texten'),
+  tr('ui.scan_leverantor'),
+  tr('ui.scan_datum'),
+  tr('ui.scan_belopp'),
+  tr('ui.scan_moms'),
+  tr('ui.scan_konto'),
 ];
 
 // Rådet om fotot, när bilden är det som sätter gränsen för avläsningen
@@ -35,9 +36,9 @@ export const SCAN_MESSAGES = [
 // i stället för "kunde inte läsas": det är enda sättet användaren kan få en
 // bättre avläsning på nästa försök.
 export const PHOTO_HINTS = {
-  blurry: 'Bilden är suddig. Håll telefonen stilla, tryck på skärmen så att kameran ställer skärpan på texten, och ta om fotot.',
-  dark: 'Bilden är mörk eller kontrastsvag. Lägg kvittot i bättre ljus, utan skugga över texten, och ta om fotot.',
-  far: 'Kvittot är för litet i bilden. Kom närmare så att kvittot fyller nästan hela rutan, och ta om fotot.',
+  blurry: tr('ui.foto_suddig'),
+  dark: tr('ui.foto_mork'),
+  far: tr('ui.foto_langt'),
 };
 
 export function photoHintText(code) {
@@ -46,12 +47,12 @@ export function photoHintText(code) {
 
 // Fälten som avläsningen försöker fylla i, i den ordning de visas upp.
 export const OCR_ITEMS = [
-  { key: 'supplier', label: 'Leverantör' },
-  { key: 'date', label: 'Datum' },
-  { key: 'receiptNumber', label: 'Nummer' },
-  { key: 'amount', label: 'Belopp' },
-  { key: 'vatRate', label: 'Moms' },
-  { key: 'costAccount', label: 'Konto' },
+  { key: 'supplier', label: tr('ui.leverantor') },
+  { key: 'date', label: tr('ui.datum') },
+  { key: 'receiptNumber', label: tr('ui.nummer') },
+  { key: 'amount', label: tr('ui.belopp') },
+  { key: 'vatRate', label: tr('ui.moms') },
+  { key: 'costAccount', label: tr('ui.konto_2') },
 ];
 
 /** Skannerlinjen som sveper uppifrån och ned över dokumentet medan det läses. */
@@ -95,7 +96,7 @@ export function OcrChecklist({ scanning, revealed, items = OCR_ITEMS }) {
                     : <span className={scanning ? 'rc-ocr-spin' : 'rc-ocr-wait'} />}
             </span>
             <span className="rc-ocr-label">{item.label}</span>
-            <span className="rc-ocr-state">{st === 'found' ? 'Avläst' : st === 'history' ? 'Som tidigare' : st === 'guess' ? 'Kontrollera' : st === 'suggest' ? 'Förslag' : st === 'missing' ? 'Hittades inte' : ''}</span>
+            <span className="rc-ocr-state">{st === 'found' ? tr('ui.avlast') : st === 'history' ? tr('ui.som_tidigare') : st === 'guess' ? tr('ui.kontrollera') : st === 'suggest' ? tr('ui.forslag') : st === 'missing' ? tr('ui.hittades_inte') : ''}</span>
           </div>
         );
       })}

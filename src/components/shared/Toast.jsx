@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { CheckCircle2, AlertCircle, Info, X } from '../icons';
 import { BRAND } from '../../utils/brandColors';
+import { t } from '../../i18n';
 
 const VARIANTS = {
   success: { bg: BRAND.greenLight, color: BRAND.greenDark, Icon: CheckCircle2 },
@@ -65,7 +66,7 @@ export default function Toast({ message, variant = 'success', action, onClose, d
       </div>
       <button
         onClick={onClose}
-        aria-label="Stäng"
+        aria-label={t('ui.stang')}
         style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '4px', marginTop: '2px', flexShrink: 0 }}
       >
         <X size={15} />

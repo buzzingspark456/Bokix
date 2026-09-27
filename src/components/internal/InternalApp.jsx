@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { BarChart3, CreditCard, ShieldAlert, Users, LogOut, ShieldCheck } from '../icons';
+import { BarChart3, CreditCard, ShieldAlert, Users, LogOut, ShieldCheck, Server, Inbox } from '../icons';
 import { supabase } from '../../supabaseClient';
 import InternalAuth from './InternalAuth';
 import AnalyticsAdmin from './AnalyticsAdmin';
 import PaymentsAdmin from './PaymentsAdmin';
 import SecurityAdmin from './SecurityAdmin';
 import UsersAdmin from './UsersAdmin';
+import SystemAdmin from './SystemAdmin';
+import InboxAdmin from './InboxAdmin';
 import { adminGet } from './adminApi';
 
 // ── /internal — den dolda admin-panelen ─────────────────────────────────
@@ -14,8 +16,8 @@ import { adminGet } from './adminApi';
 // att den finns, samma "security by not advertising it" som vilken
 // intern verktygssida som helst, ALDRIG den enda spärren i sig (den
 // riktiga spärren är api/admin/index.js:s ADMIN_EMAILS, se den filens
-// kommentar). Fyra flikar är live (Analys, Betalningar, Säkerhet,
-// Användare) — Blogg (admin-CMS) togs bort 2026-09-13, se
+// kommentar). Sex flikar: Analys, Betalningar, Säkerhet, Användare,
+// Inkorg (kontaktformulären) och Systemstatus (2026-09-27) — Blogg (admin-CMS) togs bort 2026-09-13, se
 // api/admin/index.js:s kommentar för varför.
 export default function InternalApp() {
   const [status, setStatus] = useState('checking'); // checking | needs-login | needs-mfa | unauthorized | authorized | error
@@ -95,6 +97,8 @@ export default function InternalApp() {
     { id: 'payments', label: 'Betalningar', icon: CreditCard, live: true },
     { id: 'security', label: 'Säkerhet', icon: ShieldAlert, live: true },
     { id: 'users', label: 'Användare', icon: Users, live: true },
+    { id: 'inbox', label: 'Inkorg', icon: Inbox, live: true },
+    { id: 'system', label: 'Systemstatus', icon: Server, live: true },
   ];
 
   return (
@@ -145,6 +149,8 @@ export default function InternalApp() {
         {activeTab === 'payments' && <PaymentsAdmin />}
         {activeTab === 'security' && <SecurityAdmin />}
         {activeTab === 'users' && <UsersAdmin />}
+        {activeTab === 'inbox' && <InboxAdmin />}
+        {activeTab === 'system' && <SystemAdmin onOpenTab={setActiveTab} />}
       </main>
     </div>
   );

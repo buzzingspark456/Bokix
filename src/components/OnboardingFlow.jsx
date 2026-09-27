@@ -6,12 +6,13 @@ import { formatOrgNr } from '../utils/orgType';
 import CompanyLookupResults from './shared/CompanyLookupResults';
 import FiscalYearVatFields, { EMPTY_COMPANY_SETUP, companySetupComplete, companySetupToCompany } from './shared/FiscalYearVatFields';
 import { describeFiscalYear } from '../utils/fiscalYearSetup';
+import { t } from '../i18n';
 
 const steps = [
-  { title: 'Välkommen', description: 'Skapa din företagsprofil och börja bokföra med Bokix.' },
-  { title: 'Företagsuppgifter', description: 'Lägg in organisationsnummer, adress och kontaktinformation.' },
-  { title: 'Bokföringsinställningar', description: 'Räkenskapsår, moms och kontoplan.' },
-  { title: 'Klart', description: 'Bekräfta din information och gå vidare till dashboarden.' },
+  { title: t('ui.valkommen'), description: t('ui.skapa_din_foretagsprofil_och_borja_bokfora_med_b') },
+  { title: t('ui.foretagsuppgifter'), description: t('ui.lagg_in_organisationsnummer_adress_och_kontaktin') },
+  { title: t('ui.bokforingsinstallningar'), description: t('ui.rakenskapsar_moms_och_kontoplan') },
+  { title: t('ui.klart'), description: t('ui.bekrafta_din_information_och_ga_vidare_till_dash') },
 ];
 
 export default function OnboardingFlow({ onComplete, onSkip, initialCompanyName, initialCompanyData }) {
@@ -64,18 +65,18 @@ export default function OnboardingFlow({ onComplete, onSkip, initialCompanyName,
         return (
           <div style={{ display: 'grid', gap: '14px' }}>
             <div ref={nameFieldRef}>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px' }}>Företagsnamn</label>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('ui.foretagsnamn')}</label>
               <input
                 value={companyName}
                 onChange={(e) => { setCompanyName(e.target.value); if (!orgNr.replace(/\D/g, '')) companyLookup.queueNameSearch(e.target.value); }}
-                placeholder="Bokix AB"
+                placeholder={t('ui.bokix_ab')}
                 style={{ width: '100%', border: '1px solid var(--border)', borderRadius: '12px', padding: '12px 14px', fontSize: '14px' }}
               />
-              {companyLookup.nameSearch.status === 'loading' && <div style={{ fontSize: '12px', marginTop: '6px', color: 'var(--text-secondary)' }}>Söker i företagsregistret…</div>}
+              {companyLookup.nameSearch.status === 'loading' && <div style={{ fontSize: '12px', marginTop: '6px', color: 'var(--text-secondary)' }}>{t('ui.soker_i_foretagsregistret')}</div>}
               <CompanyLookupResults results={companyLookup.nameResults} onPick={companyLookup.applyCompany} anchorRef={nameFieldRef} />
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px' }}>Logotyp (bildlänk)</label>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('ui.logotyp_bildlank')}</label>
               <input
                 value={logoUrl}
                 onChange={(e) => setLogoUrl(e.target.value)}
@@ -89,7 +90,7 @@ export default function OnboardingFlow({ onComplete, onSkip, initialCompanyName,
         return (
           <div style={{ display: 'grid', gap: '14px' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px' }}>Organisationsnummer</label>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('ui.organisationsnummer')}</label>
               <input
                 value={orgNr}
                 onChange={(e) => {
@@ -100,7 +101,7 @@ export default function OnboardingFlow({ onComplete, onSkip, initialCompanyName,
                 placeholder="556123-4567"
                 style={{ width: '100%', border: '1px solid var(--border)', borderRadius: '12px', padding: '12px 14px', fontSize: '14px' }}
               />
-              {companyLookup.orgLookup.status === 'loading' && <div style={{ fontSize: '12px', marginTop: '6px', color: 'var(--text-secondary)' }}>Hämtar företagsuppgifter…</div>}
+              {companyLookup.orgLookup.status === 'loading' && <div style={{ fontSize: '12px', marginTop: '6px', color: 'var(--text-secondary)' }}>{t('ui.hamtar_foretagsuppgifter')}</div>}
               {companyLookup.orgLookup.status === 'error' && <div style={{ fontSize: '12px', marginTop: '6px', color: 'var(--text-secondary)' }}>{companyLookup.orgLookup.message}</div>}
               {companyLookup.orgLookup.status === 'firma' && (
                 <div style={{ fontSize: '12px', marginTop: '6px', display: 'flex', alignItems: 'flex-start', gap: '5px', color: BRAND.greenDark, fontWeight: 600 }}>
@@ -109,31 +110,31 @@ export default function OnboardingFlow({ onComplete, onSkip, initialCompanyName,
               )}
               {companyLookup.orgLookup.status === 'done' && (
                 <div style={{ fontSize: '12px', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '5px', color: BRAND.greenDark, fontWeight: 600 }}>
-                  <Check size={12} /> Hämtat från bolagsregistret — ändra gärna om något stämmer bättre.
+                  <Check size={12} /> {t('ui.hamtat_fran_bolagsregistret_andra_garna_om_nagot')}
                 </div>
               )}
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px' }}>Adress</label>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('ui.adress_2')}</label>
               <input
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
-                placeholder="Gatufält 1, 123 45 Stockholm"
+                placeholder={t('ui.gatufalt_1_123_45_stockholm')}
                 style={{ width: '100%', border: '1px solid var(--border)', borderRadius: '12px', padding: '12px 14px', fontSize: '14px' }}
               />
             </div>
             <div className="form-row-2" style={{ display: 'grid', gap: '14px' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px' }}>E-post</label>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('ui.e_post')}</label>
                 <input
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="example@bokix.se"
+                  placeholder={t('ui.example_bokix_se')}
                   style={{ width: '100%', border: '1px solid var(--border)', borderRadius: '12px', padding: '12px 14px', fontSize: '14px' }}
                 />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px' }}>Telefon</label>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('ui.telefon')}</label>
                 <input
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
@@ -149,26 +150,26 @@ export default function OnboardingFlow({ onComplete, onSkip, initialCompanyName,
           <div style={{ display: 'grid', gap: '14px' }}>
             <FiscalYearVatFields value={companySetup} onChange={setCompanySetup} orgNr={orgNr} registry={companyLookup.lastCompany} />
             {companySetup.vatRegistered !== false && <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px' }}>Momsperiod</label>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('ui.momsperiod')}</label>
               <select
                 value={vatPeriod}
                 onChange={(e) => setVatPeriod(e.target.value)}
                 style={{ width: '100%', border: '1px solid var(--border)', borderRadius: '12px', padding: '12px 14px', fontSize: '14px', background: 'var(--bg-card)' }}
               >
-                <option value="monthly">Månadsvis</option>
-                <option value="quarterly">Kvartalsvis</option>
-                <option value="yearly">Årsvis</option>
+                <option value="monthly">{t('ui.manadsvis')}</option>
+                <option value="quarterly">{t('ui.kvartalsvis')}</option>
+                <option value="yearly">{t('ui.arsvis')}</option>
               </select>
             </div>}
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px' }}>Kontoplan</label>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('ui.kontoplan_2')}</label>
               <select
                 value={chartPlan}
                 onChange={(e) => setChartPlan(e.target.value)}
                 style={{ width: '100%', border: '1px solid var(--border)', borderRadius: '12px', padding: '12px 14px', fontSize: '14px', background: 'var(--bg-card)' }}
               >
-                <option value="bas2025">BAS 2025</option>
-                <option value="bas2015">BAS 2015</option>
+                <option value="bas2025">{t('ui.bas_2025')}</option>
+                <option value="bas2015">{t('ui.bas_2015')}</option>
               </select>
             </div>
           </div>
@@ -177,15 +178,15 @@ export default function OnboardingFlow({ onComplete, onSkip, initialCompanyName,
         return (
           <div style={{ padding: '20px', borderRadius: '18px', background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
             <div style={{ display: 'grid', gap: '12px' }}>
-              <div style={{ fontWeight: 800, color: 'var(--text-main)', fontSize: '18px' }}>Sammanfattning</div>
+              <div style={{ fontWeight: 800, color: 'var(--text-main)', fontSize: '18px' }}>{t('ui.sammanfattning')}</div>
               <div style={{ display: 'grid', gap: '10px', fontSize: '14px', color: 'var(--text-secondary)' }}>
-                <div><strong>Företagsnamn:</strong> {companyName || 'Ej angivet'}</div>
-                <div><strong>Organisationsnummer:</strong> {orgNr || 'Ej angivet'}</div>
-                <div><strong>Adress:</strong> {address || 'Ej angivet'}</div>
-                <div><strong>Kontakt:</strong> {email || 'Ej angivet'} · {phone || 'Ej angivet'}</div>
-                <div><strong>Räkenskapsår:</strong> {describeFiscalYear(companySetup) || 'Ej angivet'}</div>
-                <div><strong>Moms:</strong> {companySetup.vatRegistered ? `Momsregistrerat, ${{ monthly: 'månadsvis', quarterly: 'kvartalsvis', yearly: 'årsvis' }[vatPeriod]}` : 'Inte momsregistrerat'}</div>
-                <div><strong>Kontoplan:</strong> {chartPlan === 'bas2025' ? 'BAS 2025' : 'BAS 2015'}</div>
+                <div><strong>{t('ui.foretagsnamn_2')}</strong> {companyName || t('ui.ej_angivet')}</div>
+                <div><strong>{t('ui.organisationsnummer_2')}</strong> {orgNr || t('ui.ej_angivet')}</div>
+                <div><strong>{t('ui.adress')}</strong> {address || t('ui.ej_angivet')}</div>
+                <div><strong>{t('ui.kontakt')}</strong> {email || t('ui.ej_angivet')} · {phone || t('ui.ej_angivet')}</div>
+                <div><strong>{t('ui.rakenskapsar_2')}</strong> {describeFiscalYear(companySetup) || t('ui.ej_angivet')}</div>
+                <div><strong>{t('ui.moms_5')}</strong> {companySetup.vatRegistered ? t('ui.momsregistrerat', { v0: { monthly: 'månadsvis', quarterly: 'kvartalsvis', yearly: 'årsvis' }[vatPeriod] }) : t('ui.inte_momsregistrerat')}</div>
+                <div><strong>{t('ui.kontoplan')}</strong> {chartPlan === 'bas2025' ? 'BAS 2025' : 'BAS 2015'}</div>
               </div>
             </div>
           </div>
@@ -212,11 +213,11 @@ export default function OnboardingFlow({ onComplete, onSkip, initialCompanyName,
                 <Building2 size={18} />
               </div>
               <div>
-                <div style={{ fontWeight: 800, color: 'var(--text-main)' }}>Bokix onboarding</div>
-                <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Slutför din företagsprofil och börja bokföra direkt.</div>
+                <div style={{ fontWeight: 800, color: 'var(--text-main)' }}>{t('ui.bokix_onboarding')}</div>
+                <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{t('ui.slutfor_din_foretagsprofil_och_borja_bokfora_dir')}</div>
               </div>
             </div>
-            <button onClick={onSkip} style={{ border: 0, background: 'transparent', color: 'var(--text-secondary)', fontWeight: 700, cursor: 'pointer' }}>Hoppa över</button>
+            <button onClick={onSkip} style={{ border: 0, background: 'transparent', color: 'var(--text-secondary)', fontWeight: 700, cursor: 'pointer' }}>{t('ui.hoppa_over')}</button>
           </div>
 
           <div style={{ height: '8px', borderRadius: '999px', background: 'var(--bg-muted)', overflow: 'hidden', marginBottom: '24px' }}>
@@ -244,14 +245,14 @@ export default function OnboardingFlow({ onComplete, onSkip, initialCompanyName,
                 style={{ border: 0, background: 'transparent', color: 'var(--text-secondary)', fontWeight: 700, cursor: step === 0 ? 'default' : 'pointer', opacity: step === 0 ? 0.6 : 1 }}
                 disabled={step === 0}
               >
-                Tillbaka
+                {t('ui.tillbaka_2')}
               </button>
               <button
                 onClick={handleNext}
                 disabled={!currentStepValid()}
                 style={{ border: 0, borderRadius: '999px', padding: '11px 16px', background: BRAND.green, color: 'white', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
               >
-                {step === steps.length - 1 ? 'Gå till dashboard' : 'Fortsätt'} <ArrowRight size={15} />
+                {step === steps.length - 1 ? t('ui.ga_till_dashboard') : t('ui.fortsatt')} <ArrowRight size={15} />
               </button>
             </div>
           </div>

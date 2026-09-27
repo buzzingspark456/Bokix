@@ -10,6 +10,7 @@ import { BRAND } from '../utils/brandColors';
 import ListPageHeader, { ListFilterBar, listSearchInputStyle } from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
 import { confirmDialog } from './shared/ConfirmDialog';
+import { t } from '../i18n';
 
 const fmtSEK = (val) => new Intl.NumberFormat('sv-SE', { maximumFractionDigits: 2, minimumFractionDigits: 2 }).format(val || 0);
 const fmtDateSv = (d) => { if (!d) return '—'; try { return new Intl.DateTimeFormat('sv-SE').format(new Date(d)); } catch { return d; } };
@@ -25,10 +26,10 @@ const rowVatRate = (vat) => (vat === '' || vat == null || !Number.isFinite(Numbe
 const ROW_UNITS = ['st', 'tim', 'kr', 'm', 'm²', 'kg', 'dag'];
 const VAT_RATES = [25, 12, 6, 0];
 const DEDUCTION_OPTIONS = [
-  { value: 'none', label: 'Inget avdrag' },
+  { value: 'none', label: t('ui.inget_avdrag') },
   { value: 'rot', label: 'ROT' },
   { value: 'rut', label: 'RUT' },
-  { value: 'green', label: 'Grönt avdrag' },
+  { value: 'green', label: t('ui.gront_avdrag') },
 ];
 
 // Bilagor i mejlet (Sida 40) — samma godkända filtyper som redan etablerat
@@ -68,11 +69,11 @@ const getDisplayStatus = (q) => {
 
 const getStatusStyle = (status) => {
   switch (status) {
-    case 'accepted': return { bg: 'var(--status-green-bg)', color: 'var(--status-green-text)', label: 'Accepterad' };
-    case 'sent': return { bg: 'var(--status-blue-bg)', color: 'var(--status-blue-text)', label: 'Skickad' };
-    case 'rejected': return { bg: 'var(--status-red-bg)', color: 'var(--status-red-text)', label: 'Avvisad' };
-    case 'expired': return { bg: 'var(--status-amber-bg)', color: 'var(--status-amber-text)', label: 'Förfallen' };
-    default: return { bg: 'var(--border-light)', color: 'var(--text-secondary)', label: 'Utkast' };
+    case 'accepted': return { bg: 'var(--status-green-bg)', color: 'var(--status-green-text)', label: t('ui.accepterad') };
+    case 'sent': return { bg: 'var(--status-blue-bg)', color: 'var(--status-blue-text)', label: t('ui.skickad_2') };
+    case 'rejected': return { bg: 'var(--status-red-bg)', color: 'var(--status-red-text)', label: t('ui.avvisad') };
+    case 'expired': return { bg: 'var(--status-amber-bg)', color: 'var(--status-amber-text)', label: t('ui.forfallen') };
+    default: return { bg: 'var(--border-light)', color: 'var(--text-secondary)', label: t('ui.utkast') };
   }
 };
 
@@ -305,8 +306,8 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
   // `lateInterest`-fält som fakturans mall redan läser, byggda av de
   // strukturerade formulärfälten istället för att formuläret matar in
   // färdig text direkt.
-  const formattedTerms = `${paymentTermsDays || 0} dagar netto`;
-  const formattedLateInterest = `${lateInterestPercent || 0}% enligt räntelagen`;
+  const formattedTerms = t('ui.dagar_netto', { v0: paymentTermsDays || 0 });
+  const formattedLateInterest = t('ui.enligt_rantelagen', { v0: lateInterestPercent || 0 });
 
   // Delas av "Spara offert"-knappen och auto-spara-vid-utskick nedan
   // (handleSendEmail) — samma fält, bara olika `status`-override.
@@ -335,7 +336,7 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
       await exportInvoicePdf(captureRef.current, `offert-${previewNumber}.pdf`);
     } catch (err) {
       console.error(err);
-      setPdfError('Kunde inte skapa PDF. Försök igen.');
+      setPdfError(t('ui.kunde_inte_skapa_pdf_forsok_igen'));
     } finally {
       setPdfBusy(false);
     }
@@ -345,8 +346,8 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
   // bryr sig aldrig om vilket dokument som skickas.
   const handleSendEmail = async () => {
     const to = emailToInput.trim();
-    if (!to) { setEmailError('Ange en mottagaradress.'); return; }
-    if (!/^\S+@\S+\.\S+$/.test(to)) { setEmailError('Det där ser inte ut som en giltig e-postadress.'); return; }
+    if (!to) { setEmailError(t('ui.ange_en_mottagaradress')); return; }
+    if (!/^\S+@\S+\.\S+$/.test(to)) { setEmailError(t('ui.det_dar_ser_inte_ut_som_en_giltig_e_postadress')); return; }
     setEmailBusy(true); setEmailError(''); setEmailSent(false);
     try {
       const attachmentBase64 = await getInvoicePdfBase64(captureRef.current);
@@ -404,7 +405,7 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
       if (!quote) onSave(buildSaveData({ status: 'sent' }));
     } catch (err) {
       console.error(err);
-      setEmailError(err.message || 'Kunde inte skicka e-post.');
+      setEmailError(err.message || t('ui.kunde_inte_skicka_e_post'));
     } finally {
       setEmailBusy(false);
     }
@@ -423,11 +424,11 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
     const toUpload = [];
     files.forEach(f => {
       if (!ATTACHMENT_ACCEPTED_TYPES.includes(f.type)) {
-        errors.push(`${f.name}: filformatet stöds inte (endast JPG, PNG, WEBP, HEIC och PDF).`);
+        errors.push(t('ui.filformatet_stods_inte_endast_jpg_png_webp_heic', { name: f.name }));
         return;
       }
       if (runningTotal + f.size > MAX_ATTACHMENTS_TOTAL_MB * 1024 * 1024) {
-        errors.push(`${f.name}: skulle göra bilagorna större än totalt ${MAX_ATTACHMENTS_TOTAL_MB} MB.`);
+        errors.push(t('ui.skulle_gora_bilagorna_storre_an_totalt_mb', { name: f.name, MAX_ATTACHMENTS_TOTAL_MB }));
         return;
       }
       runningTotal += f.size;
@@ -435,7 +436,7 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
     });
     setAttachmentsError(errors.join(' '));
     if (toUpload.length === 0) return;
-    if (!user?.id) { setAttachmentsError('Du måste vara inloggad för att lägga till bilagor.'); return; }
+    if (!user?.id) { setAttachmentsError(t('ui.du_maste_vara_inloggad_for_att_lagga_till_bilago')); return; }
     toUpload.forEach(file => {
       const id = `att_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
       setAttachments(prev => [...prev, { id, name: file.name, size: file.size, type: file.type, url: '', uploading: true, error: '' }]);
@@ -443,8 +444,8 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
         .then(url => setAttachments(prev => prev.map(a => a.id === id ? { ...a, url, uploading: false } : a)))
         .catch(err => {
           const msg = /bucket not found/i.test(err.message || '')
-            ? 'bildlagring är inte konfigurerad i Supabase-projektet ännu (se supabase-setup.sql).'
-            : `kunde inte laddas upp (${err.message}).`;
+            ? t('ui.bildlagring_ar_inte_konfigurerad_i_supabase_proj_2')
+            : t('ui.kunde_inte_laddas_upp_2', { message: err.message });
           setAttachments(prev => prev.map(a => a.id === id ? { ...a, uploading: false, error: msg } : a));
         });
     });
@@ -474,45 +475,45 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
       {/* ── Top bar ── */}
       <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '16px 24px', display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', position: 'sticky', top: 0, zIndex: 10 }}>
         <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-main)', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-          ← Tillbaka
+          {t('ui.tillbaka')}
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-          <h1 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>{quote ? `Offert ${previewNumber}` : 'Ny offert'}</h1>
+          <h1 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>{quote ? t('ui.offert', { previewNumber }) : t('ui.ny_offert')}</h1>
           <span style={{ padding: '4px 10px', background: statusStyle.bg, color: statusStyle.color, borderRadius: '20px', fontSize: '11px', fontWeight: 600 }}>{statusStyle.label}</span>
         </div>
         <div style={{ flex: 1, minWidth: '8px' }} />
         <div style={{ display: 'flex', gap: '8px' }}>
-          <button type="button" onClick={onClose} style={outlineBtnStyle}>Avbryt</button>
-          <button type="button" onClick={handleSubmit} style={buttonStyle}><Check size={14} /> {quote ? 'Spara ändringar' : 'Spara offert'}</button>
+          <button type="button" onClick={onClose} style={outlineBtnStyle}>{t('ui.avbryt')}</button>
+          <button type="button" onClick={handleSubmit} style={buttonStyle}><Check size={14} /> {quote ? t('ui.spara_andringar') : t('ui.spara_offert')}</button>
         </div>
       </div>
 
       {/* ── Åtgärdsrad: statusflöde, konvertering, e-post, PDF, förhandsgranska ── */}
       <div className="quote-toolbar doc-toolbar" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '12px 24px', display: 'flex', alignItems: 'center', gap: '10px' }}>
         {quote && (!quote.status || quote.status === 'draft') && (
-          <button type="button" className="tb-status" onClick={() => setStatus('sent')} style={toolbarBtnStyle(status === 'sent')}>Markera som skickad</button>
+          <button type="button" className="tb-status" onClick={() => setStatus('sent')} style={toolbarBtnStyle(status === 'sent')}>{t('ui.markera_som_skickad')}</button>
         )}
         {quote && status === 'sent' && (
           <>
-            <button type="button" className="tb-status" onClick={() => setStatus('accepted')} style={{ ...toolbarBtnStyle(false), color: 'var(--status-green-text)', borderColor: 'var(--status-green-bg)' }}>Markera som accepterad</button>
-            <button type="button" className="tb-status" onClick={() => setStatus('rejected')} style={{ ...toolbarBtnStyle(false), color: 'var(--status-red-text)', borderColor: 'var(--status-red-bg)' }}>Markera som avvisad</button>
+            <button type="button" className="tb-status" onClick={() => setStatus('accepted')} style={{ ...toolbarBtnStyle(false), color: 'var(--status-green-text)', borderColor: 'var(--status-green-bg)' }}>{t('ui.markera_som_accepterad')}</button>
+            <button type="button" className="tb-status" onClick={() => setStatus('rejected')} style={{ ...toolbarBtnStyle(false), color: 'var(--status-red-text)', borderColor: 'var(--status-red-bg)' }}>{t('ui.markera_som_avvisad')}</button>
           </>
         )}
         {quote && (status === 'accepted' || status === 'rejected') && (
-          <button type="button" className="tb-status" onClick={() => setStatus('draft')} style={toolbarBtnStyle(false)}>Återställ till utkast</button>
+          <button type="button" className="tb-status" onClick={() => setStatus('draft')} style={toolbarBtnStyle(false)}>{t('ui.aterstall_till_utkast')}</button>
         )}
         {/* Konvertering är alltid tillgänglig oavsett status — se motiveringen
             i Quotes-listan: det är ägarens eget omdöme, inte något appen ska
             gate:a bakom ett visst statusläge. */}
         {quote && onConvert && (
-          <button type="button" className="tb-status" onClick={onConvert} style={{ ...toolbarBtnStyle(false), color: 'var(--accent-text)', borderColor: 'var(--status-green-bg)' }}><FileText size={13} /> Konvertera till faktura</button>
+          <button type="button" className="tb-status" onClick={onConvert} style={{ ...toolbarBtnStyle(false), color: 'var(--accent-text)', borderColor: 'var(--status-green-bg)' }}><FileText size={13} /> {t('ui.konvertera_till_faktura')}</button>
         )}
         <div style={{ flex: 1, minWidth: '8px' }} />
         {emailError && <span style={{ fontSize: '11px', color: 'var(--status-red-text)', flexShrink: 0 }}>{emailError}</span>}
-        {emailSent && !emailError && <span style={{ fontSize: '11px', color: 'var(--status-green-text)', fontWeight: 600, flexShrink: 0 }}>Skickad ✓</span>}
+        {emailSent && !emailError && <span style={{ fontSize: '11px', color: 'var(--status-green-text)', fontWeight: 600, flexShrink: 0 }}>{t('ui.skickad')}</span>}
         <input
           type="email" className="toolbar-email-input" value={emailToInput} onChange={e => { setEmailToInput(e.target.value); setEmailError(''); }}
-          placeholder="mottagarens@epost.se" title="Mottagarens e-postadress"
+          placeholder={t('ui.mottagarens_epost_se')} title={t('ui.mottagarens_e_postadress')}
           // Bugkritiskt: `background: 'white'` var hårdkodat här och
           // krockade med `color: 'var(--text-main)'` — i mörkt läge är
           // --text-main nästan vit (#eef3ea, till för mörka bakgrunder),
@@ -532,17 +533,17 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
         <button
           type="button" className="tb-send" onClick={handleSendEmail}
           disabled={emailBusy}
-          title={!emailToInput.trim() ? 'Ange en mottagaradress' : `Skicka offert ${previewNumber} till ${emailToInput.trim()}`}
+          title={!emailToInput.trim() ? t('ui.ange_en_mottagaradress_2') : t('ui.skicka_offert_till', { previewNumber, v1: emailToInput.trim() })}
           style={{ ...toolbarBtnStyle(false), opacity: emailBusy ? 0.5 : 1, cursor: emailBusy ? 'not-allowed' : 'pointer' }}
         >
-          <Send size={15} /> {emailBusy ? 'Skickar…' : 'Skicka via e-post'}
+          <Send size={15} /> {emailBusy ? t('ui.skickar_2') : t('ui.skicka_via_e_post')}
         </button>
         {pdfError && <span style={{ fontSize: '11px', color: 'var(--status-red-text)', flexShrink: 0 }}>{pdfError}</span>}
         <button type="button" className="tb-pdf" onClick={handleDownloadPdf} disabled={pdfBusy} style={{ ...toolbarBtnStyle(false), opacity: pdfBusy ? 0.6 : 1 }}>
-          <Download size={15} /> {pdfBusy ? 'Skapar PDF…' : 'Ladda ner PDF'}
+          <Download size={15} /> {pdfBusy ? t('ui.skapar_pdf') : t('ui.ladda_ner_pdf')}
         </button>
         <button type="button" className="tb-preview" onClick={() => setShowPreview(true)} style={toolbarBtnStyle(showPreview)}>
-          <Eye size={15} /> Förhandsgranska
+          <Eye size={15} /> {t('ui.forhandsgranska')}
         </button>
       </div>
 
@@ -561,11 +562,11 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
               in alla fyra fälten på en rad även på en telefonskärm. */}
           {/* ── Kundinformation ── */}
           <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>Kundinformation</h3>
+            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>{t('ui.kundinformation')}</h3>
 
             {contacts.length > 0 && (
               <div style={{ display: 'inline-flex', border: '1px solid var(--border)', borderRadius: '8px', overflow: 'hidden', marginBottom: '16px' }}>
-                {[{ id: false, label: 'Välj kund' }, { id: true, label: 'Engångskund' }].map(opt => (
+                {[{ id: false, label: t('ui.valj_kund_2') }, { id: true, label: t('ui.engangskund') }].map(opt => (
                   <button
                     key={String(opt.id)} type="button"
                     onClick={() => setIsOneTimeCustomer(opt.id)}
@@ -583,42 +584,42 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
               <div>
                 {(!isOneTimeCustomer && contacts.length > 0) ? (
                   <>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>Välj kund</label>
+                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>{t('ui.valj_kund_2')}</label>
                     <select
                       style={inputStyle}
                       value={customerId}
                       onChange={e => setCustomerId(e.target.value)}
                     >
-                      <option value="">Välj kund...</option>
+                      <option value="">{t('ui.valj_kund')}</option>
                       {contacts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
                   </>
                 ) : (
                   <>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>Kundnamn *</label>
-                    <input type="text" style={inputStyle} value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="Företagsnamn AB" required />
+                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>{t('ui.kundnamn')}</label>
+                    <input type="text" style={inputStyle} value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder={t('ui.foretagsnamn_ab')} required />
                   </>
                 )}
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>E-postadress</label>
-                <input type="email" style={inputStyle} value={customerEmail} onChange={e => setCustomerEmail(e.target.value)} placeholder="kund@foretag.se" />
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>{t('ui.e_postadress')}</label>
+                <input type="email" style={inputStyle} value={customerEmail} onChange={e => setCustomerEmail(e.target.value)} placeholder={t('ui.kund_foretag_se')} />
               </div>
             </div>
 
             <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>Adress</label>
-                <input type="text" style={inputStyle} value={customerAddress} onChange={e => setCustomerAddress(e.target.value)} placeholder="Gatuadress, postnummer, ort" />
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>{t('ui.adress_2')}</label>
+                <input type="text" style={inputStyle} value={customerAddress} onChange={e => setCustomerAddress(e.target.value)} placeholder={t('ui.gatuadress_postnummer_ort')} />
               </div>
               <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>Organisationsnummer</label>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>{t('ui.organisationsnummer')}</label>
                   <input type="text" style={inputStyle} value={customerOrgNr} onChange={e => setCustomerOrgNr(e.target.value)} placeholder="556123-4567" />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>Kundens kontaktperson</label>
-                  <input type="text" style={inputStyle} value={customerContactPerson} onChange={e => setCustomerContactPerson(e.target.value)} placeholder="Anna Andersson" />
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>{t('ui.kundens_kontaktperson')}</label>
+                  <input type="text" style={inputStyle} value={customerContactPerson} onChange={e => setCustomerContactPerson(e.target.value)} placeholder={t('ui.anna_andersson')} />
                 </div>
               </div>
             </div>
@@ -626,38 +627,38 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
 
           {/* ── Offertinformation ── */}
           <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>Offertinformation</h3>
+            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>{t('ui.offertinformation')}</h3>
             <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '16px' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>Offertnummer</label>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>{t('ui.offertnummer')}</label>
                 <div style={{ ...inputStyle, background: 'var(--bg-muted)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center' }}>{previewNumber}</div>
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>Referens / Projekt</label>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>{t('ui.referens_projekt')}</label>
                 <select style={inputStyle} value={projectId} onChange={e => setProjectId(e.target.value)}>
-                  <option value="">Inget projekt</option>
+                  <option value="">{t('ui.inget_projekt')}</option>
                   {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
                 {legacyProjectRef && (
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>Tidigare värde (fritext): {legacyProjectRef}</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>{t('ui.tidigare_varde_fritext')} {legacyProjectRef}</div>
                 )}
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>Vår kontaktperson / referens</label>
-                <input type="text" style={inputStyle} value={ourRef} onChange={e => setOurRef(e.target.value)} placeholder="Erik Eriksson" />
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>{t('ui.var_kontaktperson_referens')}</label>
+                <input type="text" style={inputStyle} value={ourRef} onChange={e => setOurRef(e.target.value)} placeholder={t('ui.erik_eriksson')} />
               </div>
             </div>
             <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>Offertdatum</label>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>{t('ui.offertdatum')}</label>
                 <input type="date" style={inputStyle} value={date} onChange={e => setDate(e.target.value)} required />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>Giltig till</label>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>{t('ui.giltig_till')}</label>
                 <input type="date" style={inputStyle} value={dueDate} onChange={e => setDueDate(e.target.value)} />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>Valuta</label>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>{t('ui.valuta')}</label>
                 <select style={inputStyle} value={currency} onChange={e => setCurrency(e.target.value)}>
                   {['SEK', 'NOK', 'EUR', 'USD', 'GBP'].map(c => <option key={c}>{c}</option>)}
                 </select>
@@ -667,9 +668,9 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
 
           <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '12px' }}>
-              <h3 style={{ fontSize: '14px', fontWeight: 600, margin: 0 }}>Offertrader</h3>
+              <h3 style={{ fontSize: '14px', fontWeight: 600, margin: 0 }}>{t('ui.offertrader')}</h3>
               {/* Radräknare — uppdateras dynamiskt i takt med Lägg till/Ta bort rad. */}
-              <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>{rows.length} {rows.length === 1 ? 'rad' : 'rader'}</span>
+              <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>{rows.length} {rows.length === 1 ? t('ui.rad_2') : t('ui.rader')}</span>
             </div>
             {/* Tabellen har fått fler kolumner (enhet, avdrag, beräknad summa)
                 — en egen horisontellt skrollbar yta istället för att klämma
@@ -678,7 +679,7 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
             <div className="quote-rows-scroll" style={{ overflowX: 'auto' }}>
               <div className="quote-rows-min" style={{ minWidth: '980px' }}>
                 <div className="quote-rows-header" style={{ display: 'grid', gridTemplateColumns: '2.2fr 0.8fr 0.8fr 1fr 0.8fr 0.9fr 1.1fr 1fr auto', gap: '10px', marginBottom: '6px', padding: '0 2px' }}>
-                  {['Beskrivning', 'Antal', 'Enhet', 'Á-pris', 'Rabatt %', 'Moms %', 'Avdrag', 'Summa', ''].map(h => (
+                  {[t('ui.beskrivning'), t('ui.antal'), t('ui.enhet'), t('ui.pris_5'), t('ui.rabatt'), t('ui.moms_procent'), t('ui.avdrag_2'), t('ui.summa'), ''].map(h => (
                     <span key={h} style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>{h}</span>
                   ))}
                 </div>
@@ -686,8 +687,8 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
                   const rowSum = (Number(row.qty) || 0) * (Number(row.price) || 0) * (1 - (Number(row.discount) || 0) / 100);
                   return (
                     <div key={i} className="quote-row" style={{ display: 'grid', gridTemplateColumns: '2.2fr 0.8fr 0.8fr 1fr 0.8fr 0.9fr 1.1fr 1fr auto', gap: '10px', marginBottom: '10px', alignItems: 'center' }}>
-                      <label className="qr-cell qr-desc"><span className="qr-lbl">Beskrivning</span>
-                      <input type="text" placeholder="Beskrivning" style={inputStyle} value={row.description}
+                      <label className="qr-cell qr-desc"><span className="qr-lbl">{t('ui.beskrivning')}</span>
+                      <input type="text" placeholder={t('ui.beskrivning')} style={inputStyle} value={row.description}
                         list="quote-article-register-list"
                         onChange={e => updateRow(i, 'description', e.target.value)}
                         // Väljs en BEFINTLIG artikel ur <datalist>-listan (blur = klart
@@ -699,41 +700,41 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
                         }}
                         required />
                       </label>
-                      <label className="qr-cell"><span className="qr-lbl">Antal</span>
-                      <input type="number" inputMode="decimal" placeholder="Antal" style={inputStyle} value={row.qty}
+                      <label className="qr-cell"><span className="qr-lbl">{t('ui.antal')}</span>
+                      <input type="number" inputMode="decimal" placeholder={t('ui.antal')} style={inputStyle} value={row.qty}
                         onChange={e => updateRow(i, 'qty', e.target.value)} />
                       </label>
-                      <label className="qr-cell"><span className="qr-lbl">Enhet</span>
+                      <label className="qr-cell"><span className="qr-lbl">{t('ui.enhet')}</span>
                       <select style={inputStyle} value={row.unit} onChange={e => updateRow(i, 'unit', e.target.value)}>
                         {ROW_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                       </select>
                       </label>
-                      <label className="qr-cell"><span className="qr-lbl">À-pris</span>
-                      <input type="number" inputMode="decimal" placeholder="Á-pris" style={inputStyle} value={row.price}
+                      <label className="qr-cell"><span className="qr-lbl">{t('ui.pris_2')}</span>
+                      <input type="number" inputMode="decimal" placeholder={t('ui.pris_5')} style={inputStyle} value={row.price}
                         onChange={e => updateRow(i, 'price', e.target.value)} required />
                       </label>
-                      <label className="qr-cell"><span className="qr-lbl">Rabatt %</span>
-                      <input type="number" inputMode="decimal" placeholder="Rabatt %" style={inputStyle} value={row.discount}
+                      <label className="qr-cell"><span className="qr-lbl">{t('ui.rabatt')}</span>
+                      <input type="number" inputMode="decimal" placeholder={t('ui.rabatt')} style={inputStyle} value={row.discount}
                         onChange={e => updateRow(i, 'discount', e.target.value)} />
                       </label>
-                      <label className="qr-cell"><span className="qr-lbl">Moms</span>
+                      <label className="qr-cell"><span className="qr-lbl">{t('ui.moms')}</span>
                       {vatExempt ? (
-                        <div style={{ ...inputStyle, background: 'var(--bg-muted)', color: 'var(--text-muted)' }} title="Företaget är inte momsregistrerat">Ingen moms</div>
+                        <div style={{ ...inputStyle, background: 'var(--bg-muted)', color: 'var(--text-muted)' }} title={t('ui.foretaget_ar_inte_momsregistrerat')}>{t('ui.ingen_moms')}</div>
                       ) : (
                       <select style={inputStyle} value={row.vat} onChange={e => updateRow(i, 'vat', e.target.value)}>
                         {VAT_RATES.map(v => <option key={v} value={v}>{v}%</option>)}
                       </select>
                       )}
                       </label>
-                      <label className="qr-cell"><span className="qr-lbl">Avdrag</span>
+                      <label className="qr-cell"><span className="qr-lbl">{t('ui.avdrag_2')}</span>
                       <select style={inputStyle} value={row.deduction} onChange={e => updateRow(i, 'deduction', e.target.value)}>
                         {DEDUCTION_OPTIONS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
                       </select>
                       </label>
-                      <div className="qr-cell qr-sum"><span className="qr-lbl">Summa</span>
+                      <div className="qr-cell qr-sum"><span className="qr-lbl">{t('ui.summa')}</span>
                       <div style={{ ...inputStyle, background: 'var(--bg-muted)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>{fmtSEK(rowSum)}</div>
                       </div>
-                      <button className="qr-remove" type="button" onClick={() => removeRow(i)} disabled={rows.length === 1} title="Ta bort rad" style={{ padding: '6px', background: 'transparent', border: 'none', cursor: rows.length === 1 ? 'not-allowed' : 'pointer', color: rows.length === 1 ? 'var(--border)' : '#ef4444' }}>
+                      <button className="qr-remove" type="button" onClick={() => removeRow(i)} disabled={rows.length === 1} title={t('ui.ta_bort_rad')} style={{ padding: '6px', background: 'transparent', border: 'none', cursor: rows.length === 1 ? 'not-allowed' : 'pointer', color: rows.length === 1 ? 'var(--border)' : '#ef4444' }}>
                         <Trash2 size={15} />
                       </button>
                     </div>
@@ -741,7 +742,7 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
                 })}
               </div>
             </div>
-            <button type="button" onClick={addRow} style={{ ...outlineBtnStyle, padding: '6px 12px', fontSize: '12px', marginTop: '4px', marginBottom: '16px' }}>+ Lägg till rad</button>
+            <button type="button" onClick={addRow} style={{ ...outlineBtnStyle, padding: '6px 12px', fontSize: '12px', marginTop: '4px', marginBottom: '16px' }}>{t('ui.lagg_till_rad_2')}</button>
 
             {/* Delas av alla radernas Beskrivning-fält ovan (HTML5 <datalist>
                 kräver ett enda, delat id) — samma produktregister som
@@ -756,18 +757,18 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
                 etablerat för fakturans sammanställningsbox (Invoices.jsx). */}
             <div style={{ background: 'var(--bg-muted)', border: '1px solid var(--border-light)', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '4px', maxWidth: '360px', marginLeft: 'auto', fontSize: '13px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
-                <span>Netto (exkl. moms)</span><span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{fmtSEK(totals.net)} {currency}</span>
+                <span>{t('ui.netto_exkl_moms')}</span><span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{fmtSEK(totals.net)} {currency}</span>
               </div>
               {vatBreakdown.map(([rate, amount]) => (
                 <div key={rate} style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
-                  <span>Moms {rate}%</span><span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{fmtSEK(amount)} {currency}</span>
+                  <span>{t('ui.moms')} {rate}%</span><span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{fmtSEK(amount)} {currency}</span>
                 </div>
               ))}
               {!vatExempt && <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
-                <span>Total moms</span><span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{fmtSEK(totals.vat)} {currency}</span>
+                <span>{t('ui.total_moms')}</span><span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{fmtSEK(totals.vat)} {currency}</span>
               </div>}
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '8px', marginTop: '4px', borderTop: '1px solid var(--border)' }}>
-                <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>Offertsumma</span>
+                <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>{t('ui.offertsumma')}</span>
                 <span style={{ fontWeight: 800, fontSize: '16px', color: 'var(--text-main)' }}>{fmtSEK(totals.total)} {currency}</span>
               </div>
             </div>
@@ -783,7 +784,7 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
               style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: '13px', fontWeight: 600, color: 'var(--accent-text)' }}
             >
               {detailsOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
-              {detailsOpen ? 'Dölj fler detaljer' : 'Fler detaljer (meddelande, bilagor, villkor)'}
+              {detailsOpen ? t('ui.dolj_fler_detaljer') : t('ui.fler_detaljer_meddelande_bilagor_villkor')}
             </button>
           </div>
 
@@ -793,12 +794,12 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
                  distinktionen måste synas i hjälptexten, annars är det
                  otydligt för användaren var texten faktiskt hamnar. ── */}
           <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '4px' }}>Meddelande i mejlet</h3>
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '10px' }}>Visas i följemejlet, inte i PDF:en.</p>
+            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '4px' }}>{t('ui.meddelande_i_mejlet')}</h3>
+            <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '10px' }}>{t('ui.visas_i_foljemejlet_inte_i_pdf_en')}</p>
             <textarea
               style={{ ...inputStyle, resize: 'vertical', minHeight: '86px', lineHeight: 1.6, fontFamily: 'inherit', maxWidth: '640px' }}
               value={emailMessage} onChange={e => setEmailMessage(e.target.value)}
-              placeholder="Hej! Bifogat finner du vår offert..."
+              placeholder={t('ui.hej_bifogat_finner_du_var_offert')}
             />
           </div>
 
@@ -806,8 +807,8 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
                  som länkar (se konstanten ATTACHMENT_ACCEPTED_TYPES/kommentaren
                  vid handleAddFiles för varför). ── */}
           <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '4px' }}>Bilagor i mejlet</h3>
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '10px' }}>Filerna följer med som bilagor i mejlet tillsammans med offert-PDF:en. Totalt max {MAX_ATTACHMENTS_TOTAL_MB} MB.</p>
+            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '4px' }}>{t('ui.bilagor_i_mejlet')}</h3>
+            <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '10px' }}>{t('ui.filerna_foljer_med_som_bilagor_i_mejlet_tillsamm')} {MAX_ATTACHMENTS_TOTAL_MB} {t('ui.mb')}</p>
             <input type="file" ref={attachmentsFileInputRef} style={{ display: 'none' }} multiple accept={ATTACHMENT_ACCEPT_ATTR} onChange={e => { handleAddFiles(e.target.files); e.target.value = ''; }} />
             {attachments.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '10px', maxWidth: '480px' }}>
@@ -815,11 +816,11 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
                   <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px', background: 'var(--bg-muted)', border: '1px solid var(--border-light)', borderRadius: '8px', fontSize: '12.5px' }}>
                     <Paperclip size={13} color="var(--text-muted)" style={{ flexShrink: 0 }} />
                     <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: a.error ? 'var(--status-red-text)' : 'var(--text-main)' }}>
-                      {a.name} <span style={{ color: 'var(--text-muted)' }}>({((a.size || 0) / (1024 * 1024)).toFixed(1)} MB)</span>
+                      {a.name} <span style={{ color: 'var(--text-muted)' }}>({((a.size || 0) / (1024 * 1024)).toFixed(1)} {t('ui.mb_2')}</span>
                       {a.error && <> — {a.error}</>}
                     </span>
                     {a.uploading && <Loader2 size={13} className="spin" color="var(--text-muted)" style={{ animation: 'spin 0.8s linear infinite' }} />}
-                    <button type="button" onClick={() => removeAttachment(a.id)} title="Ta bort" style={{ padding: '2px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444', flexShrink: 0 }}>
+                    <button type="button" onClick={() => removeAttachment(a.id)} title={t('ui.ta_bort')} style={{ padding: '2px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444', flexShrink: 0 }}>
                       <Trash2 size={13} />
                     </button>
                   </div>
@@ -828,7 +829,7 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
             )}
             {attachmentsError && <div style={{ fontSize: '12px', color: 'var(--status-red-text)', marginBottom: '10px' }}>{attachmentsError}</div>}
             <button type="button" onClick={() => attachmentsFileInputRef.current?.click()} style={{ ...outlineBtnStyle, padding: '6px 12px', fontSize: '12px' }}>
-              <Paperclip size={13} /> Lägg till fil
+              <Paperclip size={13} /> {t('ui.lagg_till_fil')}
             </button>
           </div>
 
@@ -836,11 +837,11 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
                  det här är projektspecifika avgränsningar, inte generella
                  juridiska standardpunkter. ── */}
           <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>Vad som inte ingår (valfritt)</label>
+            <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>{t('ui.vad_som_inte_ingar_valfritt')}</label>
             <textarea
               style={{ ...inputStyle, resize: 'vertical', minHeight: '70px', lineHeight: 1.6, fontFamily: 'inherit', maxWidth: '640px' }}
               value={notIncluded} onChange={e => setNotIncluded(e.target.value)}
-              placeholder="T.ex. Håltagning, målning, bortforsling av material"
+              placeholder={t('ui.t_ex_haltagning_malning_bortforsling_av_material')}
             />
           </div>
 
@@ -848,14 +849,14 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
                  (förval 30, Sida 5) och dröjsmålsränta som rent procenttal,
                  inte längre fri text. ── */}
           <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>Betalningsvillkor</h3>
+            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>{t('ui.betalningsvillkor')}</h3>
             <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>Betalningstid (dagar)</label>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>{t('ui.betalningstid_dagar')}</label>
                 <input type="number" min="0" style={inputStyle} value={paymentTermsDays} onChange={e => setPaymentTermsDays(e.target.value)} placeholder="30" />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>Dröjsmålsränta (%)</label>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>{t('ui.drojsmalsranta')}</label>
                 <input type="number" min="0" step="0.1" style={inputStyle} value={lateInterestPercent} onChange={e => setLateInterestPercent(e.target.value)} placeholder="10" />
               </div>
             </div>
@@ -864,33 +865,33 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
           {/* ── Leveransvillkor / Utförande — VAR och NÄR arbetet utförs,
                  skilt från betalningsvillkoren ovan. ── */}
           <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>Leveransvillkor / Utförande</h3>
+            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>{t('ui.leveransvillkor_utforande')}</h3>
             <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '16px' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>Startdatum</label>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>{t('ui.startdatum')}</label>
                 <input type="date" style={inputStyle} value={workStartDate} onChange={e => setWorkStartDate(e.target.value)} />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>Slutdatum</label>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>{t('ui.slutdatum')}</label>
                 <input type="date" style={inputStyle} value={workEndDate} onChange={e => setWorkEndDate(e.target.value)} />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>Plats för arbete</label>
-                <input type="text" style={inputStyle} value={workLocation} onChange={e => setWorkLocation(e.target.value)} placeholder="Gatuadress, ort" />
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>{t('ui.plats_for_arbete')}</label>
+                <input type="text" style={inputStyle} value={workLocation} onChange={e => setWorkLocation(e.target.value)} placeholder={t('ui.gatuadress_ort')} />
               </div>
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>Leveransbeskrivning</label>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>{t('ui.leveransbeskrivning')}</label>
               <textarea
                 style={{ ...inputStyle, resize: 'vertical', minHeight: '70px', lineHeight: 1.6, fontFamily: 'inherit', maxWidth: '640px' }}
                 value={deliveryDescription} onChange={e => setDeliveryDescription(e.target.value)}
-                placeholder="T.ex. Leverans inom 2–3 veckor från accepterad offert"
+                placeholder={t('ui.t_ex_leverans_inom_2_3_veckor_fran_accepterad_of')}
               />
             </div>
           </div>
 
           <div style={{ padding: '24px 32px' }}>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>Övriga villkor</label>
+            <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>{t('ui.ovriga_villkor')}</label>
             {/* Kundfeedback: "man ser knappt vad som står i Övriga villkor"
                 — DEFAULT_OTHER_TERMS fyller fältet med FYRA rader text
                 (giltighetstid, ansvarsbegränsning m.m.) redan från start,
@@ -901,7 +902,7 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
             <textarea
               style={{ ...inputStyle, resize: 'vertical', minHeight: '120px', lineHeight: 1.6, fontFamily: 'inherit', maxWidth: '640px' }}
               value={otherTerms} onChange={e => setOtherTerms(e.target.value)}
-              placeholder="En rad per punkt — visas som punktlista på offerten"
+              placeholder={t('ui.en_rad_per_punkt_visas_som_punktlista_pa_offerte')}
             />
           </div>
           </>
@@ -919,7 +920,7 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
           <div className="modal-content a4-document-preview" onClick={e => e.stopPropagation()}>
             <div className="modal-header" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '10px', position: 'sticky', top: 0, zIndex: 5, background: 'var(--bg-card)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
-                <h2 className="modal-title" style={{ fontSize: '14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Förhandsgranskning · Offert {previewNumber}</h2>
+                <h2 className="modal-title" style={{ fontSize: '14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t('ui.forhandsgranskning_offert')} {previewNumber}</h2>
                 <button className="modal-close" onClick={() => setShowPreview(false)} style={{ flexShrink: 0 }}><X size={18} /></button>
               </div>
               <div className="quote-preview-controls" style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
@@ -950,7 +951,7 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
                   })}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                  <span style={{ fontSize: '11px', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>Accentfärg</span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{t('ui.accentfarg')}</span>
                   <input
                     type="color"
                     value={templateSnapshot.accentColor || INVOICE_TEMPLATES[templateSnapshot.templateId]?.defaultAccent || '#000000'}
@@ -961,19 +962,19 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
                 <div className="preview-zoom-ctl" style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0, border: '1px solid var(--border)', borderRadius: '6px', padding: '2px' }}>
                   <button
                     type="button" onClick={() => setPreviewZoom(z => Math.max(0.5, Math.round((z - 0.1) * 10) / 10))}
-                    disabled={previewZoom <= 0.5} title="Zooma ut"
+                    disabled={previewZoom <= 0.5} title={t('ui.zooma_ut')}
                     style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '26px', height: '26px', background: 'none', border: 'none', borderRadius: '4px', color: previewZoom <= 0.5 ? 'var(--border)' : 'var(--text-main)', cursor: previewZoom <= 0.5 ? 'not-allowed' : 'pointer' }}
                   ><ZoomOut size={14} /></button>
                   <span style={{ fontSize: '11px', color: 'var(--text-secondary)', width: '38px', textAlign: 'center', flexShrink: 0 }}>{Math.round(previewZoom * 100)}%</span>
                   <button
                     type="button" onClick={() => setPreviewZoom(z => Math.min(2, Math.round((z + 0.1) * 10) / 10))}
-                    disabled={previewZoom >= 2} title="Zooma in"
+                    disabled={previewZoom >= 2} title={t('ui.zooma_in')}
                     style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '26px', height: '26px', background: 'none', border: 'none', borderRadius: '4px', color: previewZoom >= 2 ? 'var(--border)' : 'var(--text-main)', cursor: previewZoom >= 2 ? 'not-allowed' : 'pointer' }}
                   ><ZoomIn size={14} /></button>
                 </div>
                 <div style={{ flex: 1, minWidth: '8px' }} />
                 <button onClick={handleDownloadPdf} disabled={pdfBusy} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '7px 12px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '12px', fontWeight: 600, color: 'var(--text-main)', cursor: pdfBusy ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
-                  <Download size={13} /> {pdfBusy ? 'Skapar PDF…' : 'Ladda ner PDF'}
+                  <Download size={13} /> {pdfBusy ? t('ui.skapar_pdf') : t('ui.ladda_ner_pdf')}
                 </button>
               </div>
             </div>
@@ -1051,7 +1052,7 @@ export default function Quotes({ quotes = [], setQuotes, onConvert, contacts = [
 
   const handleDelete = async (id, e) => {
     e?.stopPropagation();
-    if (!(await confirmDialog('Vill du ta bort denna offert?', { title: 'Ta bort offert', confirmLabel: 'Ta bort', danger: true }))) return;
+    if (!(await confirmDialog(t('ui.vill_du_ta_bort_denna_offert'), { title: t('ui.ta_bort_offert'), confirmLabel: t('ui.ta_bort'), danger: true }))) return;
     if (setQuotes) setQuotes(prev => prev.filter(q => q.id !== id));
   };
 
@@ -1065,7 +1066,7 @@ export default function Quotes({ quotes = [], setQuotes, onConvert, contacts = [
   // tillgänglig oavsett status — ägarens eget omdöme, inte appens.
   const handleConvert = async (quote, e) => {
     e?.stopPropagation();
-    if (!(await confirmDialog('Konvertera denna offert till en faktura?', { title: 'Konvertera till faktura', confirmLabel: 'Konvertera' }))) return;
+    if (!(await confirmDialog(t('ui.konvertera_denna_offert_till_en_faktura'), { title: t('ui.konvertera_till_faktura'), confirmLabel: t('ui.konvertera') }))) return;
     if (!onConvert) return;
     onConvert(quote.id);
     setIsFormOpen(false);
@@ -1144,10 +1145,10 @@ export default function Quotes({ quotes = [], setQuotes, onConvert, contacts = [
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
       <ListPageHeader
-        title="Offerter"
-        subtitle="Skapa offerter med samma mall som dina fakturor och konvertera till faktura när kunden accepterat"
+        title={t('ui.offerter')}
+        subtitle={t('ui.skapa_offerter_med_samma_mall_som_dina_fakturor')}
         actions={[
-          { key: 'new', label: 'Ny offert', icon: Plus, onClick: openNew, variant: 'primary' },
+          { key: 'new', label: t('ui.ny_offert'), icon: Plus, onClick: openNew, variant: 'primary' },
         ]}
       />
       {/* Sökfältet ligger kvar i sidhuvudets kort (ListFilterBar, samma
@@ -1155,13 +1156,13 @@ export default function Quotes({ quotes = [], setQuotes, onConvert, contacts = [
           ovanför tabellen på sidbakgrunden. */}
       <ListFilterBar
         count={filtered.length}
-        countLabel={filtered.length === 1 ? 'offert' : 'offerter'}
+        countLabel={filtered.length === 1 ? t('ui.offert_2') : t('ui.offerter_2')}
         pageSize={pageSize}
         onPageSizeChange={setPageSize}
       >
         <div style={{ position: 'relative' }}>
           <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-          <input type="text" placeholder="Sök offert eller kund..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={listSearchInputStyle} />
+          <input type="text" placeholder={t('ui.sok_offert_eller_kund')} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={listSearchInputStyle} />
         </div>
       </ListFilterBar>
 
@@ -1195,14 +1196,14 @@ export default function Quotes({ quotes = [], setQuotes, onConvert, contacts = [
               <NavQuotesIcon size={26} />
             </div>
             <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-main)' }}>
-              {searchTerm ? 'Inga offerter matchar din sökning' : 'Inga offerter skapade'}
+              {searchTerm ? t('ui.inga_offerter_matchar_din_sokning') : t('ui.inga_offerter_skapade')}
             </div>
             <div style={{ fontSize: '13.5px', color: 'var(--text-muted)', maxWidth: '320px' }}>
-              {searchTerm ? 'Prova att rensa sökningen ovan.' : 'Skapa din första offert för att komma igång.'}
+              {searchTerm ? t('ui.prova_att_rensa_sokningen_ovan') : t('ui.skapa_din_forsta_offert_for_att_komma_igang')}
             </div>
             {!searchTerm && (
               <button type="button" onClick={openNew} style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '10px 20px', marginTop: '8px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '9px', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}>
-                <Plus size={16} /> Ny offert
+                <Plus size={16} /> {t('ui.ny_offert')}
               </button>
             )}
           </div>
@@ -1227,7 +1228,7 @@ export default function Quotes({ quotes = [], setQuotes, onConvert, contacts = [
               amount: `${getTotal(q).toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr`,
               meta: customerName
                 ? `${q.invoiceNumber || '—'} · ${metaRest}`
-                : `Ingen kund vald · ${metaRest}`,
+                : t('ui.ingen_kund_vald_2', { metaRest }),
               pill: <span style={{ padding: '2px 8px', background: s.bg, color: s.color, borderRadius: '999px', fontSize: '10.5px', fontWeight: 700 }}>{s.label}</span>,
               // Åtgärdskolumnen (skapa faktura / ta bort) fanns bara i
               // desktoptabellen — på telefonen gick en offert därför att läsa
@@ -1241,14 +1242,14 @@ export default function Quotes({ quotes = [], setQuotes, onConvert, contacts = [
                     onClick={(e) => handleConvert(q, e)}
                     style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 10px', background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: '999px', fontSize: '11.5px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer', fontFamily: 'inherit' }}
                   >
-                    <FileText size={12} /> Skapa faktura
+                    <FileText size={12} /> {t('ui.skapa_faktura')}
                   </button>
                   <button
                     type="button"
                     onClick={(e) => handleDelete(q.id, e)}
                     style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 10px', background: 'none', border: '1px solid var(--border)', borderRadius: '999px', fontSize: '11.5px', fontWeight: 600, color: 'var(--status-red-text)', cursor: 'pointer', fontFamily: 'inherit' }}
                   >
-                    <Trash2 size={12} /> Ta bort
+                    <Trash2 size={12} /> {t('ui.ta_bort')}
                   </button>
                 </span>
               ),
@@ -1256,33 +1257,33 @@ export default function Quotes({ quotes = [], setQuotes, onConvert, contacts = [
           }}
           columns={[
             {
-              key: 'invoiceNumber', label: 'Offertnr', fontWeight: 600, color: 'var(--text-main)', render: q => (
+              key: 'invoiceNumber', label: t('ui.offertnr'), fontWeight: 600, color: 'var(--text-main)', render: q => (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <NavQuotesIcon size={16} color="var(--text-muted)" /> {q.invoiceNumber || '—'}
                 </div>
               ),
             },
-            { key: 'customer', label: 'Kund', fontWeight: 500, wrap: true, render: q => contacts.find(c => c.id === q.customerId)?.name || q.customerName || '—' },
-            { key: 'date', label: 'Datum', render: q => q.date },
+            { key: 'customer', label: t('ui.kund'), fontWeight: 500, wrap: true, render: q => contacts.find(c => c.id === q.customerId)?.name || q.customerName || '—' },
+            { key: 'date', label: t('ui.datum'), render: q => q.date },
             {
-              key: 'status', label: 'Status', render: q => {
+              key: 'status', label: t('ui.status'), render: q => {
                 const s = getStatusStyle(getDisplayStatus(q));
                 return <span style={{ padding: '4px 10px', background: s.bg, color: s.color, borderRadius: '20px', fontSize: '11px', fontWeight: 600 }}>{s.label}</span>;
               },
             },
-            { key: 'total', label: 'Belopp', align: 'right', fontWeight: 500, render: q => `${getTotal(q).toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr` },
+            { key: 'total', label: t('ui.belopp'), align: 'right', fontWeight: 500, render: q => `${getTotal(q).toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr` },
             {
-              key: 'actions', label: 'Åtgärder', align: 'right', render: q => (
+              key: 'actions', label: t('ui.atgarder'), align: 'right', render: q => (
                 <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                   {/* Alltid tillgänglig oavsett status (utkast/skickad/accepterad/
                       avvisad/förfallen) — det är ägarens eget omdöme om en kund
                       faktiskt vill ha en faktura, inte något appen ska hindra
                       baserat på var i statusflödet offerten råkar stå. Se samma
                       resonemang vid motsvarande knapp i QuoteEditor ovan. */}
-                  <button onClick={(e) => handleConvert(q, e)} title="Konvertera till faktura" style={{ padding: '6px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--accent-text)' }}>
+                  <button onClick={(e) => handleConvert(q, e)} title={t('ui.konvertera_till_faktura')} style={{ padding: '6px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--accent-text)' }}>
                     <FileText size={16} />
                   </button>
-                  <button onClick={(e) => handleDelete(q.id, e)} title="Ta bort" style={{ padding: '6px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444' }}>
+                  <button onClick={(e) => handleDelete(q.id, e)} title={t('ui.ta_bort')} style={{ padding: '6px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444' }}>
                     <Trash2 size={16} />
                   </button>
                 </div>

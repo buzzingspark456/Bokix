@@ -1,4 +1,5 @@
 import { getDebet, getKredit } from './verificationAmounts';
+import { t, dateLocale } from '../i18n';
 
 /**
  * Rapport och analys (Sida 14) ska ALDRIG visa påhittad eller hårdkodad
@@ -196,7 +197,7 @@ export function overviewPeriodBounds(periodId, { fiscalYearStart, referenceDate 
     return {
       start, end,
       prevStart: addYears(start, -1), prevEnd: addYears(end, -1),
-      granularity: 'day', label: 'Denna månad', hasComparison: true,
+      granularity: 'day', label: t('ui.denna_manad'), hasComparison: true,
     };
   }
   if (periodId === 'q3') {
@@ -205,7 +206,7 @@ export function overviewPeriodBounds(periodId, { fiscalYearStart, referenceDate 
     return {
       start, end,
       prevStart: addYears(start, -1), prevEnd: addYears(end, -1),
-      granularity: 'month', label: 'Senaste 3 månaderna', hasComparison: true,
+      granularity: 'month', label: t('ui.senaste_3_manaderna'), hasComparison: true,
     };
   }
   if (periodId === 'q6') {
@@ -214,7 +215,7 @@ export function overviewPeriodBounds(periodId, { fiscalYearStart, referenceDate 
     return {
       start, end,
       prevStart: addYears(start, -1), prevEnd: addYears(end, -1),
-      granularity: 'month', label: 'Senaste 6 månaderna', hasComparison: true,
+      granularity: 'month', label: t('ui.senaste_6_manaderna'), hasComparison: true,
     };
   }
   if (periodId === 'all') {
@@ -224,7 +225,7 @@ export function overviewPeriodBounds(periodId, { fiscalYearStart, referenceDate 
       // Nollängdsintervall (inte "ett år tidigare") — det finns ingen
       // meningsfull jämförelseperiod före starten, se hasComparison nedan.
       prevStart: start, prevEnd: start,
-      granularity: 'month', label: 'Sedan start', hasComparison: false,
+      granularity: 'month', label: t('ui.sedan_start'), hasComparison: false,
     };
   }
   // 'year' (default) — hela innevarande räkenskapsår, kapat vid dagens datum.
@@ -233,7 +234,7 @@ export function overviewPeriodBounds(periodId, { fiscalYearStart, referenceDate 
   return {
     start: fyStart, end,
     prevStart: addYears(fyStart, -1), prevEnd: addYears(end, -1),
-    granularity: 'month', label: 'Räkenskapsåret', hasComparison: true,
+    granularity: 'month', label: t('ui.rakenskapsaret_period'), hasComparison: true,
   };
 }
 
@@ -299,13 +300,13 @@ const COST_CATEGORIES = ['Personal', 'Lokal', 'Marknadsföring', 'Varor och mate
 
 function categoryForAccount(code) {
   const n = Number(code);
-  if (!Number.isFinite(n)) return 'Övrigt';
-  if (n >= 4000 && n < 5000) return 'Varor och material';
+  if (!Number.isFinite(n)) return t('ui.ovrigt');
+  if (n >= 4000 && n < 5000) return t('ui.varor_och_material');
   if (n >= 5000 && n < 5200) return 'Lokal';
-  if (n >= 5900 && n < 6000) return 'Marknadsföring';
-  if (n >= 5200 && n < 7000) return 'Övriga externa kostnader'; // inkl. 6xxx (6110 m.fl.)
+  if (n >= 5900 && n < 6000) return t('ui.marknadsforing');
+  if (n >= 5200 && n < 7000) return t('ui.ovriga_externa_kostnader'); // inkl. 6xxx (6110 m.fl.)
   if (n >= 7000 && n < 7700) return 'Personal';
-  return 'Övrigt'; // 77xx–79xx av-/nedskrivningar, 8xxx finansiellt, okända koder
+  return t('ui.ovrigt'); // 77xx–79xx av-/nedskrivningar, 8xxx finansiellt, okända koder
 }
 
 /** Kostnadsfördelning i fyra kategorier (för ringdiagrammet) istället för
@@ -405,7 +406,7 @@ export function buildResultSeries(verifications, accounts, start, end, granulari
     const monthStart = cursor < start ? start : cursor;
     const monthEnd = endOfMonth(cursor) > end ? end : endOfMonth(cursor);
     months.push({
-      label: new Intl.DateTimeFormat('sv-SE', { month: 'short' }).format(cursor),
+      label: new Intl.DateTimeFormat(dateLocale(), { month: 'short' }).format(cursor),
       intakt: sumFlowByType(verifications, accounts, 'intakt', monthStart, monthEnd),
       kostnad: sumFlowByType(verifications, accounts, 'kostnad', monthStart, monthEnd),
     });
@@ -462,7 +463,7 @@ export function buildMarginSeries(verifications, accounts, start, end, granulari
   } else {
     let cursor = startOfMonth(start);
     while (cursor <= end) {
-      pushBucket(cursor, new Intl.DateTimeFormat('sv-SE', { month: 'short' }).format(cursor));
+      pushBucket(cursor, new Intl.DateTimeFormat(dateLocale(), { month: 'short' }).format(cursor));
       cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
     }
   }
@@ -630,7 +631,7 @@ export function computeInvoiceReport(invoices, contacts, start, end) {
 
   const byCustomer = new Map();
   for (const inv of inRange) {
-    const key = inv.customerId || inv.customerName || 'okänd';
+    const key = inv.customerId || inv.customerName || t('ui.okand');
     const gross = grossInvoiceAmount(inv);
     const paid = inv.status === 'paid' ? gross : (Number(inv.paidAmount) || 0);
     if (!byCustomer.has(key)) {

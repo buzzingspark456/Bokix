@@ -1,3 +1,4 @@
+import { logSystemEvent } from '../_systemEvents.js';
 import { applySecurityHeaders } from '../_security.js';
 import { parseJsonBody } from '../stripe/_parseBody.js';
 import { requireAuthedUser, loadOwnedOrMemberCompany, requireActiveSubscription } from '../_auth.js';
@@ -110,6 +111,7 @@ export default async function handler(req, res) {
 
     if (!result.ok) {
       console.error('Resend API error:', result.data);
+      await logSystemEvent('email_failed', `Faktura/påminnelse: ${result.data?.message || `Resend svarade ${result.status}`}`);
       res.status(result.status).json({ error: result.data?.message || 'Resend kunde inte skicka e-posten.' });
       return;
     }
@@ -117,6 +119,7 @@ export default async function handler(req, res) {
     res.status(200).json({ id: result.data.id, sentFrom: 'bokix' });
   } catch (error) {
     console.error('Email send error:', error);
+    await logSystemEvent('email_failed', `Faktura/påminnelse: ${error?.message || error}`);
     res.status(500).json({ error: error?.message || 'Kunde inte skicka e-post.' });
   }
 }

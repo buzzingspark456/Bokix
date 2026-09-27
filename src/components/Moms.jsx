@@ -1,5 +1,6 @@
 import React from 'react';
 import { AlertCircle, HelpCircle } from './icons';
+import { t } from '../i18n';
 
 export default function Moms({ balances }) {
   const formatSEK = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val);
@@ -22,26 +23,26 @@ export default function Moms({ balances }) {
         {/* Main report */}
         <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03)' }}>
           <div style={{ padding: '32px 32px 24px 32px', borderBottom: '1px solid var(--border)' }}>
-            <h2 style={{ fontSize: '20px', fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--text-main)', margin: '0 0 4px 0' }}>Momsrapport</h2>
-            <p style={{ margin: 0, fontSize: '14px', color: 'var(--text-secondary)' }}>Underlag för momsdeklaration till Skatteverket</p>
+            <h2 style={{ fontSize: '20px', fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--text-main)', margin: '0 0 4px 0' }}>{t('ui.momsrapport')}</h2>
+            <p style={{ margin: 0, fontSize: '14px', color: 'var(--text-secondary)' }}>{t('ui.underlag_for_momsdeklaration_till_skatteverket')}</p>
           </div>
           
           <div style={{ padding: '32px' }}>
             <div style={{ marginBottom: '32px' }}>
-              <div style={{ ...rowStyle0, marginBottom: '8px' }}>Momsöversikt</div>
+              <div style={{ ...rowStyle0, marginBottom: '8px' }}>{t('ui.momsoversikt')}</div>
               
               <div style={rowStyle2}>
                 <div>
-                  <strong style={{ display: 'block', fontSize: '14.5px', color: 'var(--text-main)', marginBottom: '4px' }}>Utgående moms (25%)</strong>
-                  <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Beräknat underlag: ca {formatSEK(estimatedSalesBase)}</span>
+                  <strong style={{ display: 'block', fontSize: '14.5px', color: 'var(--text-main)', marginBottom: '4px' }}>{t('ui.utgaende_moms_25')}</strong>
+                  <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{t('ui.beraknat_underlag_ca')} {formatSEK(estimatedSalesBase)}</span>
                 </div>
                 <span style={{ fontWeight: 700, color: 'var(--status-red-text)', fontSize: '16px', letterSpacing: '-0.02em' }}>{formatSEK(outputMoms)}</span>
               </div>
 
               <div style={{ ...rowStyle2, borderBottom: 'none' }}>
                 <div>
-                  <strong style={{ display: 'block', fontSize: '14.5px', color: 'var(--text-main)', marginBottom: '4px' }}>Ingående moms</strong>
-                  <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Avdragsgill moms på inköp, underlag ca {formatSEK(estimatedPurchaseBase)}</span>
+                  <strong style={{ display: 'block', fontSize: '14.5px', color: 'var(--text-main)', marginBottom: '4px' }}>{t('ui.ingaende_moms')}</strong>
+                  <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{t('ui.avdragsgill_moms_pa_inkop_underlag_ca')} {formatSEK(estimatedPurchaseBase)}</span>
                 </div>
                 <span style={{ fontWeight: 700, color: '#16a34a', fontSize: '16px', letterSpacing: '-0.02em' }}>{formatSEK(inputMoms)}</span>
               </div>
@@ -50,9 +51,9 @@ export default function Moms({ balances }) {
             <div style={{ ...rowStyleTotal, background: netMoms >= 0 ? 'var(--status-green-bg)' : 'var(--status-red-bg)', borderColor: netMoms >= 0 ? 'var(--status-green-text)' : 'var(--status-red-text)' }}>
               <div>
                 <strong style={{ display: 'block', fontSize: '16px', marginBottom: '2px' }}>
-                  {netMoms >= 0 ? 'Moms att betala' : 'Moms att få tillbaka'}
+                  {netMoms >= 0 ? t('ui.moms_att_betala') : t('ui.moms_att_fa_tillbaka')}
                 </strong>
-                <span style={{ fontSize: '13px', color: netMoms >= 0 ? 'var(--status-green-text)' : 'var(--status-red-text)', fontWeight: 500 }}>Netto skatteskuld / skattefordran</span>
+                <span style={{ fontSize: '13px', color: netMoms >= 0 ? 'var(--status-green-text)' : 'var(--status-red-text)', fontWeight: 500 }}>{t('ui.netto_skatteskuld_skattefordran')}</span>
               </div>
               <span style={{ color: netMoms >= 0 ? 'var(--status-green-text)' : 'var(--status-red-text)', fontSize: '24px', letterSpacing: '-0.03em' }}>
                 {formatSEK(Math.abs(netMoms))}
@@ -62,9 +63,9 @@ export default function Moms({ balances }) {
             <div style={{ marginTop: '32px', padding: '16px 20px', background: 'var(--status-blue-bg)', borderRadius: '12px', border: '1px solid var(--status-blue-bg)', display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
               <AlertCircle size={20} style={{ color: 'var(--status-blue-text)', flexShrink: 0, marginTop: '2px' }} />
               <div>
-                <strong style={{ color: 'var(--status-blue-text)', display: 'block', marginBottom: '4px', fontSize: '14px' }}>Deklarera moms</strong>
+                <strong style={{ color: 'var(--status-blue-text)', display: 'block', marginBottom: '4px', fontSize: '14px' }}>{t('ui.deklarera_moms')}</strong>
                 <span style={{ color: 'var(--status-blue-text)', fontSize: '13px', lineHeight: 1.5, display: 'block' }}>
-                  När du deklarerar momsen till Skatteverket anger du utgående moms i ruta 10-12 (momsbeloppet i ruta 30-32) och ingående moms i ruta 48. Netto redovisas i ruta 49.
+                  {t('ui.nar_du_deklarerar_momsen_till_skatteverket_anger')}
                 </span>
               </div>
             </div>
@@ -75,22 +76,22 @@ export default function Moms({ balances }) {
         <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '16px', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
             <HelpCircle size={20} style={{ color: '#2563eb' }} />
-            <h3 style={{ fontWeight: 800, fontSize: '16px', color: 'var(--text-main)', margin: 0 }}>Hjälp & info</h3>
+            <h3 style={{ fontWeight: 800, fontSize: '16px', color: 'var(--text-main)', margin: 0 }}>{t('ui.hjalp_info')}</h3>
           </div>
           <div style={{ fontSize: '13.5px', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '20px', lineHeight: 1.6 }}>
             <div>
-              <strong style={{ color: 'var(--text-main)', display: 'block', marginBottom: '4px' }}>Vad är utgående moms?</strong>
-              Momsen du lägger på dina varor eller tjänster när du säljer till kunder. Detta är en skuld till staten tills den deklarerats.
+              <strong style={{ color: 'var(--text-main)', display: 'block', marginBottom: '4px' }}>{t('ui.vad_ar_utgaende_moms')}</strong>
+              {t('ui.momsen_du_lagger_pa_dina_varor_eller_tjanster_na')}
             </div>
             <div style={{ height: '1px', background: 'var(--border-light)' }}></div>
             <div>
-              <strong style={{ color: 'var(--text-main)', display: 'block', marginBottom: '4px' }}>Vad är ingående moms?</strong>
-              Momsen du betalar när du köper in varor eller tjänster till ditt företag. Den är avdragsgill och dras av mot den utgående momsen.
+              <strong style={{ color: 'var(--text-main)', display: 'block', marginBottom: '4px' }}>{t('ui.vad_ar_ingaende_moms')}</strong>
+              {t('ui.momsen_du_betalar_nar_du_koper_in_varor_eller_tj')}
             </div>
             <div style={{ height: '1px', background: 'var(--border-light)' }}></div>
             <div>
-              <strong style={{ color: 'var(--text-main)', display: 'block', marginBottom: '4px' }}>Hur bokförs momsredovisningen?</strong>
-              Vid momsredovisning töms kontona 2611 och 2641 och nettot bokförs mot 2650 (momsredovisningskonto) eller direkt mot skattekontot 1630.
+              <strong style={{ color: 'var(--text-main)', display: 'block', marginBottom: '4px' }}>{t('ui.hur_bokfors_momsredovisningen')}</strong>
+              {t('ui.vid_momsredovisning_toms_kontona_2611_och_2641_o')}
             </div>
           </div>
         </div>

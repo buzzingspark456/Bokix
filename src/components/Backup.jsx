@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { Download, Upload, RotateCcw, AlertTriangle, Check } from './icons';
+import { t } from '../i18n';
 
 function Backup({ accounts, verifications, onImport, onReset }) {
   const fileInputRef = useRef(null);
@@ -40,7 +41,7 @@ function Backup({ accounts, verifications, onImport, onReset }) {
         
         // Simple validation
         if (!data.accounts || !data.verifications) {
-          throw new Error('Filen saknar kontoplan eller verifikationer.');
+          throw new Error(t('ui.filen_saknar_kontoplan_eller_verifikationer'));
         }
 
         onImport(data.accounts, data.verifications);
@@ -48,7 +49,7 @@ function Backup({ accounts, verifications, onImport, onReset }) {
         setImportError('');
         setTimeout(() => setImportSuccess(false), 3000);
       } catch (err) {
-        setImportError(`Kunde inte läsa in filen: ${err.message}`);
+        setImportError(t('ui.kunde_inte_lasa_in_filen', { message: err.message }));
         setImportSuccess(false);
       }
     };
@@ -61,8 +62,8 @@ function Backup({ accounts, verifications, onImport, onReset }) {
     <div style={{ maxWidth: '600px', margin: '0 auto' }}>
       <div className="header-container">
         <div>
-          <h1 className="page-title">Säkerhetskopia & Import</h1>
-          <p className="page-subtitle">Hantera och skydda din bokföringsdata</p>
+          <h1 className="page-title">{t('ui.sakerhetskopia_import')}</h1>
+          <p className="page-subtitle">{t('ui.hantera_och_skydda_din_bokforingsdata')}</p>
         </div>
       </div>
 
@@ -70,18 +71,18 @@ function Backup({ accounts, verifications, onImport, onReset }) {
         
         {/* Export / Import Box */}
         <div className="card">
-          <h3 style={{ marginBottom: '1rem', fontWeight: 700 }}>Exportera & Importera data</h3>
+          <h3 style={{ marginBottom: '1rem', fontWeight: 700 }}>{t('ui.exportera_importera_data')}</h3>
           <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
-            All din data sparas automatiskt i din webbläsares lokala minne (localStorage). För säkerhets skull rekommenderas att regelbundet ladda ner en säkerhetskopia.
+            {t('ui.all_din_data_sparas_automatiskt_i_din_webblasare')}
           </p>
 
           <div style={{ display: 'flex', gap: '1rem' }}>
             <button className="btn btn-primary" onClick={handleExport}>
-              <Download size={16} /> Exportera till fil (.json)
+              <Download size={16} /> {t('ui.exportera_till_fil_json')}
             </button>
             
             <button className="btn btn-secondary" onClick={handleImportClick}>
-              <Upload size={16} /> Importera från fil (.json)
+              <Upload size={16} /> {t('ui.importera_fran_fil_json')}
             </button>
             <input 
               type="file" 
@@ -95,7 +96,7 @@ function Backup({ accounts, verifications, onImport, onReset }) {
           {importSuccess && (
             <div className="success-box" style={{ marginTop: '1.25rem' }}>
               <Check size={16} />
-              <span>Datan har importerats framgångsrikt!</span>
+              <span>{t('ui.datan_har_importerats_framgangsrikt')}</span>
             </div>
           )}
 
@@ -109,13 +110,13 @@ function Backup({ accounts, verifications, onImport, onReset }) {
 
         {/* Danger zone / reset */}
         <div className="card" style={{ borderColor: 'rgba(244, 63, 94, 0.2)' }}>
-          <h3 style={{ marginBottom: '0.5rem', fontWeight: 700, color: 'var(--danger)' }}>Fara</h3>
+          <h3 style={{ marginBottom: '0.5rem', fontWeight: 700, color: 'var(--danger)' }}>{t('ui.fara')}</h3>
           <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
-            Detta kommer att radera alla ändringar du gjort och återställa systemet med demonstrationsdatan.
+            {t('ui.detta_kommer_att_radera_alla_andringar_du_gjort')}
           </p>
 
           <button className="btn btn-danger" onClick={onReset}>
-            <RotateCcw size={16} /> Återställ systemet
+            <RotateCcw size={16} /> {t('ui.aterstall_systemet')}
           </button>
         </div>
 

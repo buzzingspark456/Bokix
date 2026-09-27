@@ -1,5 +1,6 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
 import { ZoomIn, ZoomOut } from '../icons';
+import { t } from '../../i18n';
 
 // A4 vid 96 dpi, samma mått som .a4-paper i index.css (210 mm).
 const PAPER_WIDTH = 794;
@@ -77,13 +78,13 @@ export default function PaperFit({ children }) {
       )}
       {narrow && (
         <div style={{ position: 'fixed', left: '50%', transform: 'translateX(-50%)', bottom: 'calc(var(--mobile-nav-height, 0px) + env(safe-area-inset-bottom, 0px) + 12px)', zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', padding: '6px 10px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '999px', boxShadow: '0 4px 14px rgba(0,0,0,0.18)' }}>
-          <button type="button" onClick={() => zoomBy(-1)} disabled={!zoomedIn} aria-label="Zooma ut" title="Zooma ut" style={btn(!zoomedIn)}>
+          <button type="button" onClick={() => zoomBy(-1)} disabled={!zoomedIn} aria-label={t('ui.zooma_ut')} title={t('ui.zooma_ut')} style={btn(!zoomedIn)}>
             <ZoomOut size={16} />
           </button>
           <span style={{ minWidth: '64px', textAlign: 'center', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>
             {Math.round(scale * 100)}%
           </span>
-          <button type="button" onClick={() => zoomBy(1)} disabled={scale >= MAX_SCALE} aria-label="Zooma in" title="Zooma in" style={btn(scale >= MAX_SCALE)}>
+          <button type="button" onClick={() => zoomBy(1)} disabled={scale >= MAX_SCALE} aria-label={t('ui.zooma_in')} title={t('ui.zooma_in')} style={btn(scale >= MAX_SCALE)}>
             <ZoomIn size={16} />
           </button>
         </div>

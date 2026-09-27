@@ -1,5 +1,6 @@
 import React from 'react';
 import { CheckCircle2, ChevronRight, ExternalLink } from './icons';
+import { t } from '../i18n';
 
 // Översikten i Skatt och bokslut: allt man behöver göra, i den ordning det brådskar, med en
 // tydlig knapp för varje sak. Bokix har ingen koppling till Skatteverket, så varje rad leder
@@ -11,9 +12,9 @@ import { CheckCircle2, ChevronRight, ExternalLink } from './icons';
 export default function TaxOverview({ items, summary, onOpen, onToggleFiled, vatExempt = false }) {
   return (
     <div className="tax-ov">
-      <section className="tax-ov-card" aria-label="Att göra">
+      <section className="tax-ov-card" aria-label={t('ui.att_gora')}>
         <div className="tax-ov-head">
-          <h2 className="tax-ov-title">Att göra</h2>
+          <h2 className="tax-ov-title">{t('ui.att_gora')}</h2>
           <p className="tax-ov-summary">{summary}</p>
         </div>
         <ul className="tax-todo-list">
@@ -25,7 +26,7 @@ export default function TaxOverview({ items, summary, onOpen, onToggleFiled, vat
               <div className="tax-todo-main">
                 <div className="tax-todo-title">{item.title}</div>
                 <div className="tax-todo-sub">
-                  {item.subtitle}{item.dueLabel ? ` · senast ${item.dueLabel}` : ''}
+                  {item.subtitle}{item.dueLabel ? t('ui.senast_2', { dueLabel: item.dueLabel }) : ''}
                 </div>
                 <div className="tax-todo-status">{item.status}</div>
               </div>
@@ -38,7 +39,7 @@ export default function TaxOverview({ items, summary, onOpen, onToggleFiled, vat
                 </button>
                 {item.filedKey && (item.canMark || item.done) && (
                   <button type="button" className="tax-todo-link" onClick={() => onToggleFiled(item.filedKey)}>
-                    {item.done ? 'Ångra inlämnad' : 'Markera som inlämnad'}
+                    {item.done ? t('ui.angra_inlamnad') : t('ui.markera_som_inlamnad')}
                   </button>
                 )}
               </div>
@@ -47,37 +48,36 @@ export default function TaxOverview({ items, summary, onOpen, onToggleFiled, vat
         </ul>
       </section>
 
-      <section className="tax-ov-card tax-how" aria-label="Så lämnar du in">
-        <h3 className="tax-how-title">Så lämnar du in</h3>
+      <section className="tax-ov-card tax-how" aria-label={t('ui.sa_lamnar_du_in')}>
+        <h3 className="tax-how-title">{t('ui.sa_lamnar_du_in')}</h3>
         <p className="tax-how-lead">
-          Bokix skickar inte in åt dig. Vi räknar ut och förbereder allt, och du laddar upp filen hos
-          Skatteverket med ditt BankID. Det tar några minuter.
+          {t('ui.bokix_skickar_inte_in_at_dig_vi_raknar_ut_och_fo')}
         </p>
         <ol className="tax-how-steps">
           <li>
             <span className="tax-how-num">1</span>
             <div>
-              <strong>Förbered i Bokix</strong>
-              <small>Öppna uppgiften ovan. Bokix kontrollerar bokföringen och fyller i beloppen.</small>
+              <strong>{t('ui.forbered_i_bokix')}</strong>
+              <small>{t('ui.oppna_uppgiften_ovan_bokix_kontrollerar_bokforin')}</small>
             </div>
           </li>
           <li>
             <span className="tax-how-num">2</span>
             <div>
-              <strong>Ladda ner filen</strong>
-              <small>{vatExempt ? 'Inkomstdeklaration som SRU-filer, arbetsgivardeklaration som underlag.' : 'Moms som XML-fil, inkomstdeklaration som SRU-filer, arbetsgivardeklaration som underlag.'}</small>
+              <strong>{t('ui.ladda_ner_filen')}</strong>
+              <small>{vatExempt ? t('ui.inkomstdeklaration_som_sru_filer_arbetsgivardekl') : t('ui.moms_som_xml_fil_inkomstdeklaration_som_sru_file')}</small>
             </div>
           </li>
           <li>
             <span className="tax-how-num">3</span>
             <div>
-              <strong>Ladda upp hos Skatteverket</strong>
-              <small>Logga in med BankID, välj att deklarera via fil, granska och signera.</small>
+              <strong>{t('ui.ladda_upp_hos_skatteverket')}</strong>
+              <small>{t('ui.logga_in_med_bankid_valj_att_deklarera_via_fil_g')}</small>
             </div>
           </li>
         </ol>
         <a className="tax-how-link" href="https://www.skatteverket.se/foretag" target="_blank" rel="noopener noreferrer">
-          Öppna skatteverket.se <ExternalLink size={13} />
+          {t('ui.oppna_skatteverket_se')} <ExternalLink size={13} />
         </a>
       </section>
     </div>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, AlertTriangle } from '../icons';
+import { t as tr } from '../../i18n';
 
 // Ersätter native window.confirm()/window.prompt() — kundfeedback: den
 // bruna/blåa webbläsarrutan ("www.bokix.se says…") ser inte ut som resten
@@ -74,7 +75,7 @@ export function ConfirmDialogHost() {
         <div className="modal-header">
           <h2 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             {state.danger && <AlertTriangle size={17} style={{ color: 'var(--red-500)', flexShrink: 0 }} />}
-            {state.title || (isPrompt ? 'Ange text' : 'Bekräfta')}
+            {state.title || (isPrompt ? tr('ui.ange_text') : tr('ui.bekrafta'))}
           </h2>
           <button className="modal-close" onClick={() => close(cancelValue)}>
             <X size={18} />
@@ -102,7 +103,7 @@ export function ConfirmDialogHost() {
 
         <div className="modal-footer">
           <button className="btn btn-secondary" onClick={() => close(cancelValue)}>
-            {state.cancelLabel || 'Avbryt'}
+            {state.cancelLabel || tr('ui.avbryt')}
           </button>
           <button
             className={`btn ${state.danger ? 'btn-danger' : 'btn-primary'}`}
@@ -110,7 +111,7 @@ export function ConfirmDialogHost() {
             onClick={() => close(isPrompt ? inputValue : true)}
             autoFocus={!isPrompt}
           >
-            {state.confirmLabel || (isPrompt ? 'OK' : 'Bekräfta')}
+            {state.confirmLabel || (isPrompt ? 'OK' : tr('ui.bekrafta'))}
           </button>
         </div>
       </div>

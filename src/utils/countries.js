@@ -42,3 +42,24 @@ export function getDefaultCountry(type) {
   if (type === 'non_eu_company') return NON_EU_COUNTRIES[0];
   return SWEDEN;
 }
+
+// Landskoder för de svenska namnen ovan. Namnet är det som sparas på kunden;
+// koden används bara för att visa landet på användarens språk.
+const COUNTRY_CODES = {
+  Sverige: 'SE', Belgien: 'BE', Bulgarien: 'BG', Cypern: 'CY', Danmark: 'DK', Estland: 'EE', Finland: 'FI',
+  Frankrike: 'FR', Grekland: 'GR', Irland: 'IE', Italien: 'IT', Kroatien: 'HR', Lettland: 'LV', Litauen: 'LT',
+  Luxemburg: 'LU', Malta: 'MT', Nederländerna: 'NL', Polen: 'PL', Portugal: 'PT', Rumänien: 'RO', Slovakien: 'SK',
+  Slovenien: 'SI', Spanien: 'ES', Tjeckien: 'CZ', Tyskland: 'DE', Ungern: 'HU', Österrike: 'AT',
+  Norge: 'NO', Island: 'IS', Schweiz: 'CH', Storbritannien: 'GB', USA: 'US', Kanada: 'CA', Kina: 'CN', Japan: 'JP',
+  Sydkorea: 'KR', Indien: 'IN', Australien: 'AU', 'Nya Zeeland': 'NZ', Brasilien: 'BR', Mexiko: 'MX',
+  Sydafrika: 'ZA', 'Förenade Arabemiraten': 'AE', Turkiet: 'TR', Ryssland: 'RU', Singapore: 'SG',
+};
+
+/** Landets namn på `language` ('sv' visar det sparade namnet). */
+export function countryLabel(name, language) {
+  if (language === 'sv' || !name) return name;
+  if (name === 'Övrigt') return 'Other';
+  const code = COUNTRY_CODES[name];
+  if (!code || typeof Intl === 'undefined' || !Intl.DisplayNames) return name;
+  try { return new Intl.DisplayNames([language], { type: 'region' }).of(code) || name; } catch { return name; }
+}

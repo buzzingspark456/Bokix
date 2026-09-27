@@ -22,6 +22,7 @@ import { useIsDarkTheme } from '../../hooks/useIsDarkTheme';
 // som sidoeffekt här, laddas en gång oavsett hur många ställen som
 // importerar ReportUI.jsx.
 import '../../tremor.css';
+import { t, dateLocale } from '../../i18n';
 
 // Delade presentationsdelar för Rapport och analys — flyttade hit oförändrade
 // från Reports.jsx (Sida 14c) när sidan byggdes om till en rapportportal
@@ -174,7 +175,7 @@ export function DisplaySettingsMenu({ colors, unit, onChange }) {
         type="button" onClick={() => setOpen(o => !o)} aria-expanded={open} aria-haspopup="dialog"
         style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '8px 14px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-secondary)', fontFamily: 'inherit', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
       >
-        <Palette size={14} /> Utseende
+        <Palette size={14} /> {t('ui.utseende')}
       </button>
       <AnchoredDropdown
           anchorRef={ref}
@@ -184,10 +185,10 @@ export function DisplaySettingsMenu({ colors, unit, onChange }) {
           minWidth={286}
           maxHeight={420}
           zIndex={1090}
-          role="dialog" aria-label="Utseende"
+          role="dialog" aria-label={t('ui.utseende')}
           style={{ width: '286px', borderRadius: '12px', boxShadow: 'var(--shadow-lg)', padding: '16px' }}
         >
-          <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-muted)', marginBottom: '10px' }}>Färger</div>
+          <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-muted)', marginBottom: '10px' }}>{t('ui.farger')}</div>
           {CHART_ROLES.map(role => (
             <div key={role.id} style={{ marginBottom: '12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
@@ -215,7 +216,7 @@ export function DisplaySettingsMenu({ colors, unit, onChange }) {
           ))}
 
           <div style={{ borderTop: '1px solid var(--border-light)', margin: '14px 0 12px' }} />
-          <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-muted)', marginBottom: '10px' }}>Belopp</div>
+          <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-muted)', marginBottom: '10px' }}>{t('ui.belopp')}</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             {AMOUNT_UNITS.map(u => {
               const active = (unit || DEFAULT_AMOUNT_UNIT) === u.id;
@@ -337,20 +338,20 @@ export function ChartTypeToggle({ value, onChange, options, label = 'Diagramtyp'
 // Standarduppsättningarna. Ligger här och inte i ReportDetail.jsx så att
 // alla paneler som visar samma SORTS data också erbjuder samma former.
 export const TREND_CHART_TYPES = [
-  { id: 'bar', label: 'Staplar' },
-  { id: 'line', label: 'Linje' },
-  { id: 'area', label: 'Yta' },
-  { id: 'combo', label: 'Kombi' },
+  { id: 'bar', label: t('ui.staplar') },
+  { id: 'line', label: t('ui.linje') },
+  { id: 'area', label: t('ui.yta') },
+  { id: 'combo', label: t('ui.kombi') },
 ];
 export const FLOW_CHART_TYPES = [
-  { id: 'area', label: 'Yta' },
-  { id: 'line', label: 'Linje' },
-  { id: 'bar', label: 'Staplar' },
+  { id: 'area', label: t('ui.yta') },
+  { id: 'line', label: t('ui.linje') },
+  { id: 'bar', label: t('ui.staplar') },
 ];
 export const SHARE_CHART_TYPES = [
-  { id: 'donut', label: 'Ring' },
-  { id: 'pie', label: 'Paj' },
-  { id: 'bar', label: 'Staplar' },
+  { id: 'donut', label: t('ui.ring') },
+  { id: 'pie', label: t('ui.paj') },
+  { id: 'bar', label: t('ui.staplar') },
 ];
 /** `controls` är panelens egen växlare (ChartTypeToggle ovan) och ligger i
  * rubrikraden till höger, medan `legend` flyttar ner under rubriken när
@@ -449,8 +450,8 @@ export const formatPct = (val, decimals = 1) => (
     ? '—'
     : `${new Intl.NumberFormat('sv-SE', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(Number(val))} %`
 );
-export const fmtDate = (d) => new Intl.DateTimeFormat('sv-SE', { day: 'numeric', month: 'short' }).format(d instanceof Date ? d : new Date(d));
-export const fmtMonthYear = (d) => new Intl.DateTimeFormat('sv-SE', { month: 'long', year: 'numeric' }).format(d);
+export const fmtDate = (d) => new Intl.DateTimeFormat(dateLocale(), { day: 'numeric', month: 'short' }).format(d instanceof Date ? d : new Date(d));
+export const fmtMonthYear = (d) => new Intl.DateTimeFormat(dateLocale(), { month: 'long', year: 'numeric' }).format(d);
 // Kundfeedback: "det måste visa datumet — om det är den här månaden ska
 // den visa från den första till den sista". PeriodTabs (Företagsöversikten/
 // Dashboard.jsx) bytte tidigare bara en ordetikett ("Denna månad"), utan
@@ -461,7 +462,7 @@ export const fmtMonthYear = (d) => new Intl.DateTimeFormat('sv-SE', { month: 'lo
 // (t.ex. "18 nov. 2025 – 5 sep. 2026", vilket "Senaste 6 månaderna" och
 // "Sedan start" båda kan göra) — helt automatiskt, ingen egen sträng-
 // hopslagning att hålla koll på för det specialfallet.
-export const fmtDateRange = (start, end) => new Intl.DateTimeFormat('sv-SE', { day: 'numeric', month: 'short', year: 'numeric' }).formatRange(start, end);
+export const fmtDateRange = (start, end) => new Intl.DateTimeFormat(dateLocale(), { day: 'numeric', month: 'short', year: 'numeric' }).formatRange(start, end);
 export const toISO = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 export function formatDelta(current, previous, invert = false) {
@@ -472,7 +473,7 @@ export function formatDelta(current, previous, invert = false) {
     // Den tidigare hela meningen ("Ingen bokföring under samma period förra
     // året") radbröts till tre rader, sköt korten olika höga och tog mer
     // plats än talet den beskrev.
-    return { text: 'Ingen data förra året', short: null, context: 'Ingen data förra året', good: null };
+    return { text: t('ui.ingen_data_forra_aret'), short: null, context: 'Ingen data förra året', good: null };
   }
   const pct = ((current - previous) / Math.abs(previous)) * 100;
   const rising = pct >= 0;
@@ -481,9 +482,9 @@ export function formatDelta(current, previous, invert = false) {
   // (DeltaPill) bär själva talet, den dämpade texten bredvid bär jämförelsen.
   // Svensk decimalkomma och ett hårt mellanslag före %, som i utkastet.
   return {
-    text: `${rising ? '+' : ''}${formatPct(pct, 0)} mot samma period föregående år`,
+    text: t('ui.mot_samma_period_foregaende_ar', { v0: rising ? '+' : '', v1: formatPct(pct, 0) }),
     short: `${rising ? '+' : '−'}${formatPct(Math.abs(pct))}`,
-    context: 'mot föregående år',
+    context: t('ui.mot_foregaende_ar'),
     good,
   };
 }
@@ -666,7 +667,7 @@ export function ChartTooltip({ active, payload, label, valueFormatter = formatSE
         ))}
         {derived != null && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '18px', marginTop: '8px', paddingTop: '8px', borderTop: '1px dashed var(--border)' }}>
-            <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Resultat</span>
+            <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{t('ui.resultat')}</span>
             <span style={{ fontWeight: 800, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', color: derived >= 0 ? 'var(--status-green-text)' : 'var(--status-red-text)' }}>
               {valueFormatter(derived)}
             </span>
@@ -713,7 +714,7 @@ export function ResultBarChart({ data, isMobile }) {
         <Bar dataKey="resultat" radius={[4, 4, 0, 0]} maxBarSize={CHART_BAR_SIZE} name="Resultat">
           {tickData.map((d, i) => <Cell key={i} fill={d.resultat >= 0 ? palette.profit : palette.cost} />)}
         </Bar>
-        <Line dataKey="prevResultat" stroke="var(--text-muted)" strokeWidth={2.5} strokeDasharray="4 3" dot={false} name="Föregående period" />
+        <Line dataKey="prevResultat" stroke="var(--text-muted)" strokeWidth={2.5} strokeDasharray="4 3" dot={false} name={t('ui.foregaende_period')} />
       </BarChart>
     </ResponsiveContainer>
   );
@@ -738,7 +739,7 @@ export function CashflowLineChart({ data, isMobile }) {
             kassaflödet i Företagsöversikten — inte i appens generella
             accentfärg, som inte betyder något särskilt i ett diagram. */}
         <Line dataKey="balance" stroke={palette.cash} strokeWidth={CHART_STROKE} dot={false} name="Saldo" />
-        <Line dataKey="prevBalance" stroke="var(--text-muted)" strokeWidth={2.5} strokeDasharray="4 3" dot={false} name="Föregående period" />
+        <Line dataKey="prevBalance" stroke="var(--text-muted)" strokeWidth={2.5} strokeDasharray="4 3" dot={false} name={t('ui.foregaende_period')} />
       </LineChart>
     </ResponsiveContainer>
   );
@@ -846,9 +847,9 @@ export function PeriodPicker({ value, onChange, options, icon: Icon = Calendar, 
 // grenarna lämnades kvar där, egna tester och allt) även om ingen flik
 // längre exponerar dem här.
 export const OVERVIEW_PERIODS = [
-  { id: 'month', label: 'Denna månad' },
-  { id: 'year', label: 'Räkenskapsåret' },
-  { id: 'all', label: 'Sedan start' },
+  { id: 'month', label: t('ui.denna_manad') },
+  { id: 'year', label: t('ui.rakenskapsaret_2') },
+  { id: 'all', label: t('ui.sedan_start') },
 ];
 
 /** Rubrikrad ovanför PeriodTabs — kundfeedback: en flik som bara heter
@@ -1234,9 +1235,9 @@ export function CashflowComparisonChart({ data, currentLabel, previousLabel, hei
 // ljusaste, vinstmarginalen är den som faktiskt blir kvar och därför den
 // mörkaste. Ordningen i färgen speglar ordningen i beräkningen.
 export const MARGIN_SERIES = [
-  { key: 'brutto', label: 'Bruttomarginal', color: KPI_GRADIENTS.positive[1] },
-  { key: 'rorelse', label: 'Rörelsemarginal', color: KPI_GRADIENTS.positive[0] },
-  { key: 'vinst', label: 'Vinstmarginal', color: '#1c5c28' },
+  { key: 'brutto', label: t('ui.bruttomarginal'), color: KPI_GRADIENTS.positive[1] },
+  { key: 'rorelse', label: t('ui.rorelsemarginal'), color: KPI_GRADIENTS.positive[0] },
+  { key: 'vinst', label: t('ui.vinstmarginal'), color: '#1c5c28' },
 ];
 
 /** `series` låter anroparen visa en DELMÄNGD av trappan — se
@@ -1412,7 +1413,7 @@ export function CostRankingList({ rows, total }) {
       ))}
       {rows.length > top.length && (
         <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', margin: '2px 0 0' }}>
-          + {rows.length - top.length} till konto, {formatSEK(restTotal)} totalt
+          + {rows.length - top.length} {t('ui.till_konto')} {formatSEK(restTotal)} {t('ui.totalt_3')}
         </p>
       )}
     </div>
@@ -1440,7 +1441,7 @@ export function CostRankingList({ rows, total }) {
  * i mitten, där den inte kan missförstås. */
 export function KeyFigureGauge({ figures }) {
   const rows = (figures || []).filter(f => f.value != null);
-  if (!rows.length) return <EmptyState text="Saknar underlag för nyckeltal." />;
+  if (!rows.length) return <EmptyState text={t('ui.saknar_underlag_for_nyckeltal')} />;
   const size = 108;
   const center = size / 2;
   const radius = center - 9;
@@ -1479,7 +1480,7 @@ export function KeyFigureGauge({ figures }) {
                 huruvida ringen är klippt. Den som ligger över 100 % får det
                 utskrivet i stället för att undra varför ringen är full. */}
             {!missing && f.value > 100 && (
-              <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginTop: '2px' }}>ringen visar 100 %</div>
+              <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginTop: '2px' }}>{t('ui.ringen_visar_100')}</div>
             )}
           </div>
         );
@@ -1497,7 +1498,7 @@ export function BalanceSheetTable({ rows, total }) {
   return (
     <div>
       {rows.length === 0 ? (
-        <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>Inga bokförda saldon</div>
+        <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>{t('ui.inga_bokforda_saldon')}</div>
       ) : rows.map(r => (
         <div
           key={r.code}
@@ -1508,7 +1509,7 @@ export function BalanceSheetTable({ rows, total }) {
         </div>
       ))}
       <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0 0', fontWeight: 800, fontSize: '14px', color: 'var(--text-main)' }}>
-        <span>Summa</span><span style={{ fontVariantNumeric: 'tabular-nums' }}>{formatSEK(total)}</span>
+        <span>{t('ui.summa')}</span><span style={{ fontVariantNumeric: 'tabular-nums' }}>{formatSEK(total)}</span>
       </div>
     </div>
   );

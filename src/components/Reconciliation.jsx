@@ -3,6 +3,7 @@ import { CheckCircle2, AlertTriangle, Trash2 } from './icons';
 import ListTable from './shared/ListTable';
 import { confirmDialog } from './shared/ConfirmDialog';
 import { reconcileBank, reconcileCash, latestReconciliations } from '../utils/reconciliation';
+import { t as tr } from '../i18n';
 
 const fmt = (v) => new Intl.NumberFormat('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0);
 const pad = (n) => String(n).padStart(2, '0');
@@ -63,11 +64,11 @@ export default function Reconciliation({ bankAccounts = [], bankTransactions = [
       ledgerBalance: result.ledgerBalance, pending: result.pendingNet || 0, difference: result.difference,
       note: note.trim(), createdAt: new Date().toISOString(),
     });
-    setAmount(''); setNote(''); setMessage(result.reconciled ? 'Avstämningen är sparad.' : 'Avstämningen är sparad med differens.');
+    setAmount(''); setNote(''); setMessage(result.reconciled ? tr('ui.avstamningen_ar_sparad') : tr('ui.avstamningen_ar_sparad_med_differens'));
   };
 
   const remove = async (r) => {
-    if (!(await confirmDialog('Ta bort avstämningen ur historiken?'))) return;
+    if (!(await confirmDialog(tr('ui.ta_bort_avstamningen_ur_historiken')))) return;
     onDelete(r.id);
   };
 
@@ -77,7 +78,7 @@ export default function Reconciliation({ bankAccounts = [], bankTransactions = [
   return (
     <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
       <p style={{ margin: 0, fontSize: '13.5px', color: 'var(--text-secondary)', maxWidth: '680px' }}>
-        Stäm av att saldot på kontoutdraget stämmer med bokföringen. Det som redan ligger på kontoutdraget men ännu inte är bokfört räknas bort automatiskt, och det som blir över är en differens som ska förklaras.
+        {tr('ui.stam_av_att_saldot_pa_kontoutdraget_stammer_med')}
       </p>
 
       {targets.length > 1 && (
@@ -92,7 +93,7 @@ export default function Reconciliation({ bankAccounts = [], bankTransactions = [
               >
                 <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)' }}>{t.name} <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>({t.ledgerAccount})</span></div>
                 <div style={{ fontSize: '12.5px', marginTop: '4px', color: ok ? 'var(--status-green-text)' : 'var(--text-secondary)' }}>
-                  {last ? `Senast avstämd ${last.date}${ok ? '' : `, differens ${fmt(last.difference)} kr`}` : 'Aldrig avstämd'}
+                  {last ? tr('ui.senast_avstamd', { date: last.date, v1: ok ? '' : `, differens ${fmt(last.difference)} kr` }) : tr('ui.aldrig_avstamd')}
                 </div>
               </button>
             );
@@ -102,25 +103,25 @@ export default function Reconciliation({ bankAccounts = [], bankTransactions = [
 
       {target && (
         <div style={card}>
-          <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 700 }}>Stäm av {target.name} ({target.ledgerAccount})</h3>
+          <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 700 }}>{tr('ui.stam_av')} {target.name} ({target.ledgerAccount})</h3>
           <div className="form-row-2" style={{ display: 'grid', gap: '16px' }}>
             <div>
-              <label style={lbl}>Datum</label>
+              <label style={lbl}>{tr('ui.datum')}</label>
               <input type="date" style={inp} value={date} onChange={e => e.target.value && setDate(e.target.value)} />
             </div>
             <div>
-              <label style={lbl}>{isCash ? 'Räknade kontanter (kr)' : 'Saldo enligt kontoutdraget (kr)'}</label>
+              <label style={lbl}>{isCash ? tr('ui.raknade_kontanter_kr') : tr('ui.saldo_enligt_kontoutdraget_kr')}</label>
               <input type="number" step="0.01" style={inp} value={amount} onChange={e => setAmount(e.target.value)} placeholder="0,00" />
             </div>
           </div>
 
           {result && (
             <div style={{ marginTop: '18px' }}>
-              <Line label={isCash ? 'Räknade kontanter' : 'Saldo enligt kontoutdrag'} value={`${fmt(isCash ? result.countedAmount : result.statementBalance)} kr`} />
-              <Line label={`Bokfört saldo på ${target.ledgerAccount}`} value={`${fmt(result.ledgerBalance)} kr`} />
-              {!isCash && <Line label={`Ej hanterade transaktioner (${result.pendingCount} st)`} value={`${result.pendingNet > 0 ? '+' : ''}${fmt(result.pendingNet)} kr`} />}
+              <Line label={isCash ? tr('ui.raknade_kontanter') : tr('ui.saldo_enligt_kontoutdrag')} value={`${fmt(isCash ? result.countedAmount : result.statementBalance)} kr`} />
+              <Line label={tr('ui.bokfort_saldo_pa', { ledgerAccount: target.ledgerAccount })} value={`${fmt(result.ledgerBalance)} kr`} />
+              {!isCash && <Line label={tr('ui.ej_hanterade_transaktioner_st', { pendingCount: result.pendingCount })} value={`${result.pendingNet > 0 ? '+' : ''}${fmt(result.pendingNet)} kr`} />}
               <Line
-                label={result.reconciled ? 'Avstämt' : 'Oförklarad differens'}
+                label={result.reconciled ? tr('ui.avstamt') : tr('ui.oforklarad_differens')}
                 value={`${fmt(result.difference)} kr`} strong
                 tone={result.reconciled ? 'var(--status-green-text)' : 'var(--status-red-text)'}
               />
@@ -128,20 +129,20 @@ export default function Reconciliation({ bankAccounts = [], bankTransactions = [
                 {result.reconciled ? <CheckCircle2 size={18} color="var(--status-green-text)" style={{ flexShrink: 0 }} /> : <AlertTriangle size={18} color="var(--status-amber-text)" style={{ flexShrink: 0 }} />}
                 <span>
                   {result.reconciled
-                    ? 'Kontot stämmer. Spara avstämningen som underlag inför bokslutet.'
+                    ? tr('ui.kontot_stammer_spara_avstamningen_som_underlag_i')
                     : isCash
-                      ? 'Kassan stämmer inte mot bokföringen. Kontrollera dagens kassaverifikationer, eller bokför skillnaden som kassadifferens (konto 6991) om den inte går att förklara.'
+                      ? tr('ui.kassan_stammer_inte_mot_bokforingen_kontrollera')
                       : result.difference > 0
-                        ? 'Banken har mer pengar än bokföringen förväntar sig. Det saknas en insättning i bokföringen, eller så är en utbetalning bokförd med för högt belopp.'
-                        : 'Banken har mindre pengar än bokföringen förväntar sig. Det saknas en utbetalning i bokföringen, eller så är en insättning bokförd med för högt belopp.'}
+                        ? tr('ui.banken_har_mer_pengar_an_bokforingen_forvantar_s')
+                        : tr('ui.banken_har_mindre_pengar_an_bokforingen_forvanta')}
                 </span>
               </div>
               <div style={{ marginTop: '16px' }}>
-                <label style={lbl}>Anteckning (valfri)</label>
-                <input style={inp} value={note} onChange={e => setNote(e.target.value)} placeholder="t.ex. Differensen är en obokförd bankavgift" />
+                <label style={lbl}>{tr('ui.anteckning_valfri')}</label>
+                <input style={inp} value={note} onChange={e => setNote(e.target.value)} placeholder={tr('ui.t_ex_differensen_ar_en_obokford_bankavgift')} />
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
-                <button type="button" style={primaryBtn} onClick={save}>Spara avstämning</button>
+                <button type="button" style={primaryBtn} onClick={save}>{tr('ui.spara_avstamning')}</button>
               </div>
             </div>
           )}
@@ -153,21 +154,21 @@ export default function Reconciliation({ bankAccounts = [], bankTransactions = [
         <ListTable
           rowKey={r => r.id}
           rows={history}
-          emptyMessage="Inga sparade avstämningar ännu."
+          emptyMessage={tr('ui.inga_sparade_avstamningar_annu')}
           mobileList={r => ({ primary: r.accountName, amount: `${fmt(r.difference)} kr`, meta: `${r.date}${r.note ? ` · ${r.note}` : ''}` })}
           columns={[
-            { key: 'date', label: 'Datum', render: r => r.date },
-            { key: 'accountName', label: 'Konto', fontWeight: 600, color: 'var(--text-main)', render: r => `${r.accountName} (${r.ledgerAccount})` },
-            { key: 'statementBalance', label: 'Kontoutdrag', align: 'right', render: r => `${fmt(r.statementBalance)} kr` },
-            { key: 'ledgerBalance', label: 'Bokfört', align: 'right', render: r => `${fmt(r.ledgerBalance)} kr` },
+            { key: 'date', label: tr('ui.datum'), render: r => r.date },
+            { key: 'accountName', label: tr('ui.konto_2'), fontWeight: 600, color: 'var(--text-main)', render: r => `${r.accountName} (${r.ledgerAccount})` },
+            { key: 'statementBalance', label: tr('ui.kontoutdrag'), align: 'right', render: r => `${fmt(r.statementBalance)} kr` },
+            { key: 'ledgerBalance', label: tr('ui.bokfort_2'), align: 'right', render: r => `${fmt(r.ledgerBalance)} kr` },
             {
-              key: 'difference', label: 'Differens', align: 'right',
-              render: r => <span style={{ color: Math.abs(r.difference) < 0.005 ? 'var(--status-green-text)' : 'var(--status-red-text)', fontWeight: 600 }}>{Math.abs(r.difference) < 0.005 ? 'Avstämt' : `${fmt(r.difference)} kr`}</span>,
+              key: 'difference', label: tr('ui.differens'), align: 'right',
+              render: r => <span style={{ color: Math.abs(r.difference) < 0.005 ? 'var(--status-green-text)' : 'var(--status-red-text)', fontWeight: 600 }}>{Math.abs(r.difference) < 0.005 ? tr('ui.avstamt') : `${fmt(r.difference)} kr`}</span>,
             },
-            { key: 'note', label: 'Anteckning', wrap: true, render: r => r.note || '' },
+            { key: 'note', label: tr('ui.anteckning'), wrap: true, render: r => r.note || '' },
             {
               key: 'actions', label: '', align: 'right', width: 50,
-              render: r => <button type="button" title="Ta bort" onClick={() => remove(r)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '2px' }}><Trash2 size={14} /></button>,
+              render: r => <button type="button" title={tr('ui.ta_bort')} onClick={() => remove(r)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '2px' }}><Trash2 size={14} /></button>,
             },
           ]}
         />

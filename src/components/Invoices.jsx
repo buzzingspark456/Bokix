@@ -1,6 +1,8 @@
 ﻿import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { isVatExempt } from '../utils/vatRegistration';
+import { foreignSaleRegion, rowsForCustomer } from '../utils/foreignSales';
+import { convertToSek } from '../utils/currencyConversion';
 import {
   Plus, X, Send, Check, NavInvoicesIcon,
   Search, ChevronRight, ChevronDown,
@@ -32,6 +34,7 @@ import { grossInvoiceAmount as grossOf } from '../utils/reportCalculations';
 import { hasSeenInvoiceTour, startInvoiceTour } from '../utils/invoiceTour';
 import { waitForElement } from '../utils/productTour';
 import { ROT_RUT_RATES, ROT_RUT_COMBINED_CAP, calcRotRutDeduction } from '../utils/rotRutConfig';
+import { t as tr, dateLocale } from '../i18n';
 
 const newRowId = () => (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `row_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 const withRowIds = (rows) => rows.map(r => ({ id: r.id || newRowId(), ...r }));
@@ -222,6 +225,24 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
   // och öppnades på nytt, eller när en betalningslänk skapades (som därför
   // alltid hårdkodade 'sek' oavsett vad som stod här).
   const [currency, setCurrency] = useState(initial?.currency || 'SEK');
+  // Växelkursen (SEK per en enhet av valutan) som fakturan bokförs med.
+  // Bokföringen ska vara i kronor, så en faktura i EUR bokförs med beloppet
+  // gånger kursen. Hämtas för fakturadatumet (ECB:s referenskurs, se
+  // utils/currencyConversion.js) och går att ändra för hand.
+  const [fxRate, setFxRate] = useState(initial?.fxRate ? String(initial.fxRate) : '');
+  const [fxRateManual, setFxRateManual] = useState(Boolean(initial?.fxRate));
+  const [fxStatus, setFxStatus] = useState('');
+  useEffect(() => {
+    if (initial || currency === 'SEK' || fxRateManual) return undefined;
+    let cancelled = false;
+    setFxStatus(tr('ui.hamtar_kurs'));
+    convertToSek(1, currency, invoiceDate || undefined).then(res => {
+      if (cancelled) return;
+      if (res?.rate) { setFxRate(String(Math.round(res.rate * 10000) / 10000)); setFxStatus(`ECB:s kurs ${res.date || ''}`.trim()); }
+      else setFxStatus(tr('ui.kursen_kunde_inte_hamtas_fyll_i_den_for_hand'));
+    });
+    return () => { cancelled = true; };
+  }, [currency, invoiceDate, fxRateManual, initial]);
   const [invoiceText, setInvoiceText] = useState('');
   const [showPreview, setShowPreview] = useState(false);
   // Sida 38, punkt 4: explicit +/- zoom som fallback till det äkta
@@ -272,6 +293,9 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
   const [showPaymentBox, setShowPaymentBox] = useState(false);
   const [paymentAmountInput, setPaymentAmountInput] = useState('');
   const [paymentDateInput, setPaymentDateInput] = useState(() => new Date().toISOString().split('T')[0]);
+  // Faktura i annan valuta: vad som kom in på kontot i kronor (valfritt).
+  const [paymentSekInput, setPaymentSekInput] = useState('');
+  const payCurrency = initial?.currency && initial.currency !== 'SEK' ? initial.currency : 'kr';
 
   const customers = contacts.filter(c => c.type === 'customer' || !c.type);
   const customer = customers.find(c => c.id === customerId);
@@ -470,17 +494,17 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
    *  användarens faktura — men det ska inte gå att missa. */
   const invoiceWarnings = () => {
     const varningar = [];
-    if (!customer) varningar.push('Ingen kund är vald, så fakturan saknar mottagaruppgifter.');
+    if (!customer) varningar.push(tr('ui.ingen_kund_vald_varning'));
     const utanText = rows.filter(r => !r.description && (Number(r.qty) || Number(r.unitPrice)));
-    if (utanText.length) varningar.push(`${utanText.length === 1 ? 'En rad saknar' : `${utanText.length} rader saknar`} beskrivning — kunden ser bara ett belopp.`);
-    if (!rows.some(r => r.description || Number(r.qty) || Number(r.unitPrice))) varningar.push('Fakturan har inga rader.');
+    if (utanText.length) varningar.push(utanText.length === 1 ? tr('ui.en_rad_saknar_beskrivning') : tr('ui.rader_saknar_beskrivning', { n: utanText.length }));
+    if (!rows.some(r => r.description || Number(r.qty) || Number(r.unitPrice))) varningar.push(tr('ui.fakturan_har_inga_rader'));
     return varningar;
   };
 
   const openEmailCompose = () => {
     const to = emailToInput.trim();
-    if (!to) { setEmailError('Ange en mottagaradress.'); return; }
-    if (!/^\S+@\S+\.\S+$/.test(to)) { setEmailError('Det där ser inte ut som en giltig e-postadress.'); return; }
+    if (!to) { setEmailError(tr('ui.ange_en_mottagaradress')); return; }
+    if (!/^\S+@\S+\.\S+$/.test(to)) { setEmailError(tr('ui.det_dar_ser_inte_ut_som_en_giltig_e_postadress')); return; }
     let sparad = '';
     try { sparad = window.localStorage.getItem(messageStorageKey) || ''; } catch { /* privat läge */ }
     setEmailMessage(sparad || defaultEmailMessage());
@@ -495,11 +519,16 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
   };
 
   const handleSave = (status = 'draft') => {
+    const rate = Number(String(fxRate).replace(',', '.'));
+    if (currency !== 'SEK' && !(rate > 0)) {
+      setFxStatus(tr('ui.fyll_i_vaxelkursen_for_fakturan_bokfors_i_kronor', { currency }));
+      return;
+    }
     // internalNote skickas alltid med här (inte bara via popoverns egen
     // "Spara"-knapp) så en kommentar man skrivit på en NY, ännu osparad
     // faktura faktiskt följer med — annars gick den förlorad eftersom
     // Kommentar-knappen tidigare var helt avstängd innan första sparningen.
-    onSave({ customerId, date: invoiceDate, dueDate, rows, status, type: 'invoice', invoiceNumber: nextNum, ourRef, theirRef, ourOrderNr, projectId: projectId || undefined, priceInclVat, rotRutType: rotRutType !== 'none' ? rotRutType : undefined, internalNote: commentDraft, invoiceTemplateSnapshot, currency });
+    onSave({ customerId, date: invoiceDate, dueDate, rows, status, type: 'invoice', invoiceNumber: nextNum, ourRef, theirRef, ourOrderNr, projectId: projectId || undefined, priceInclVat, rotRutType: rotRutType !== 'none' ? rotRutType : undefined, internalNote: commentDraft, invoiceTemplateSnapshot, currency, fxRate: currency !== 'SEK' ? rate : undefined });
   };
 
   const handleDownloadPdf = async () => {
@@ -508,7 +537,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
       await exportInvoicePdf(captureRef.current, `faktura-${nextNum}.pdf`);
     } catch (err) {
       console.error(err);
-      setPdfError('Kunde inte skapa PDF. Försök igen.');
+      setPdfError(tr('ui.kunde_inte_skapa_pdf_forsok_igen'));
     } finally {
       setPdfBusy(false);
     }
@@ -520,8 +549,8 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
   // öppna och trycka skicka i sitt eget mailprogram.
   const handleSendEmail = async () => {
     const to = emailToInput.trim();
-    if (!to) { setEmailError('Ange en mottagaradress.'); return; }
-    if (!/^\S+@\S+\.\S+$/.test(to)) { setEmailError('Det där ser inte ut som en giltig e-postadress.'); return; }
+    if (!to) { setEmailError(tr('ui.ange_en_mottagaradress')); return; }
+    if (!/^\S+@\S+\.\S+$/.test(to)) { setEmailError(tr('ui.det_dar_ser_inte_ut_som_en_giltig_e_postadress')); return; }
     setEmailBusy(true); setEmailError(''); setEmailSent(false);
     try {
       // Förberett när fönstret öppnades (se prepareEmailAttachments).
@@ -533,7 +562,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
       // knapp som står och snurrar för alltid.
       const medTidsgräns = (löfte, ms) => Promise.race([
         löfte,
-        new Promise((_, avvisa) => setTimeout(() => avvisa(new Error('PDF-tidsgräns')), ms)),
+        new Promise((_, avvisa) => setTimeout(() => avvisa(new Error(tr('ui.pdf_tidsgrans'))), ms)),
       ]);
 
       let attachmentBase64 = null;
@@ -543,7 +572,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
           : await medTidsgräns(getInvoicePdfBase64(captureRef.current), 20000);
       } catch (pdfErr) {
         console.error('PDF till mejlet misslyckades:', pdfErr);
-        throw new Error('Kunde inte skapa PDF:en till mejlet. Prova Förhandsgranska först, eller ladda ner PDF:en och bifoga den manuellt.');
+        throw new Error(tr('ui.kunde_inte_skapa_pdf_en_till_mejlet_prova_forhan'));
       }
 
       // Betalningslänken är best effort: misslyckas den (t.ex. ogiltiga
@@ -600,7 +629,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
       if ((initial?.status || 'draft') === 'draft') handleSave('sent');
     } catch (err) {
       console.error(err);
-      setEmailError(err.message || 'Kunde inte skicka e-post.');
+      setEmailError(err.message || tr('ui.kunde_inte_skicka_e_post'));
     } finally {
       setEmailBusy(false);
     }
@@ -630,14 +659,14 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
           istället för en tät rad med KUNDFAKTURA/OCR/VER.NR i versaler. ── */}
       <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '16px 24px', display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', position: 'sticky', top: 0, zIndex: 10 }}>
         <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-main)', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-          ← Tillbaka
+          {tr('ui.tillbaka')}
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-          <h1 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>{initial ? `Faktura ${nextNum}` : 'Ny faktura'}</h1>
-          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>OCR: {ocr}* · VER.NR: {linkedVerification?.number || '—'}</span>
+          <h1 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>{initial ? tr('ui.faktura_4', { nextNum }) : tr('ui.ny_faktura')}</h1>
+          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{tr('ui.ocr_2')} {ocr}{tr('ui.ver_nr')} {linkedVerification?.number || '—'}</span>
           {isLocked && (
             <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'var(--status-amber-text)', background: 'var(--status-amber-bg)', border: '1px solid var(--status-amber-bg)', borderRadius: '20px', padding: '4px 10px', fontWeight: 600 }}>
-              <Lock size={11} /> Bokförd
+              <Lock size={11} /> {tr('ui.bokford')}
             </span>
           )}
         </div>
@@ -647,10 +676,10 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
         {/* Navigation — bläddrar genom samma lista man kom ifrån */}
         <div className="record-nav" style={{ display: 'flex', gap: '2px' }}>
           {[
-            { s: '«', onClick: nav?.first, enabled: nav?.hasPrev, title: 'Första fakturan' },
-            { s: '‹', onClick: nav?.prev, enabled: nav?.hasPrev, title: 'Föregående faktura' },
-            { s: '›', onClick: nav?.next, enabled: nav?.hasNext, title: 'Nästa faktura' },
-            { s: '»', onClick: nav?.last, enabled: nav?.hasNext, title: 'Sista fakturan' },
+            { s: '«', onClick: nav?.first, enabled: nav?.hasPrev, title: tr('ui.forsta_fakturan') },
+            { s: '‹', onClick: nav?.prev, enabled: nav?.hasPrev, title: tr('ui.foregaende_faktura') },
+            { s: '›', onClick: nav?.next, enabled: nav?.hasNext, title: tr('ui.nasta_faktura') },
+            { s: '»', onClick: nav?.last, enabled: nav?.hasNext, title: tr('ui.sista_fakturan') },
           ].map(({ s, onClick, enabled, title }) => (
             <button
               key={s} type="button" disabled={!enabled} onClick={onClick} title={title}
@@ -660,9 +689,9 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
         </div>
 
         <div style={{ display: 'flex', gap: '8px' }}>
-          <button type="button" data-tour="page-invoices-cancel" data-inv-tour="form-cancel" onClick={onClose} style={listHeaderButtonStyle('secondary')}>Avbryt</button>
+          <button type="button" data-tour="page-invoices-cancel" data-inv-tour="form-cancel" onClick={onClose} style={listHeaderButtonStyle('secondary')}>{tr('ui.avbryt')}</button>
           <button type="button" onClick={() => handleSave('sent')} style={listHeaderButtonStyle('primary')}>
-            <Check size={14} /> {initial ? 'Spara ändringar' : 'Skapa faktura'}
+            <Check size={14} /> {initial ? tr('ui.spara_andringar') : tr('ui.skapa_faktura')}
           </button>
         </div>
       </div>
@@ -677,14 +706,14 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
           för att bara skiljas åt av en tunn kantlinje — annars är det för
           lätt att klicka fel på grannknappen. */}
       <div className="quote-toolbar invoice-toolbar doc-toolbar" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 24px', flexShrink: 0, overflowX: 'auto', position: 'relative' }}>
-        {topBarBtn('Registrera betalning', <CreditCard size={13} />, () => setShowPaymentBox(v => !v), showPaymentBox ? activeToolbarPillStyle : {}, !initial, !initial ? 'Spara fakturan först' : undefined, 'tb-pay')}
+        {topBarBtn(tr('ui.registrera_betalning'), <CreditCard size={13} />, () => setShowPaymentBox(v => !v), showPaymentBox ? activeToolbarPillStyle : {}, !initial, !initial ? tr('ui.spara_fakturan_forst') : undefined, 'tb-pay')}
         {topBarBtn(
           'Markera som obetald',
           <Tag size={13} />,
-          async () => { if (await confirmDialog(`Markera faktura ${nextNum} som obetald? Den registrerade betalningen tas bort.`)) onUnmarkPaid?.(initial.id); },
+          async () => { if (await confirmDialog(tr('ui.markera_faktura_som_obetald_den_registrerade_bet', { nextNum }))) onUnmarkPaid?.(initial.id); },
           {},
           !initial || initial?.status !== 'paid',
-          !initial ? 'Spara fakturan först' : (initial?.status !== 'paid' ? 'Fakturan är inte markerad som betald' : 'Ångrar den registrerade betalningen'),
+          !initial ? tr('ui.spara_fakturan_forst') : (initial?.status !== 'paid' ? tr('ui.fakturan_ej_betald') : tr('ui.angrar_betalningen')),
           'tb-unpay'
         )}
         {topBarBtn('Kommentar', <MessageSquare size={13} />, () => setShowCommentBox(v => !v), showCommentBox ? activeToolbarPillStyle : (commentDraft ? { color: 'var(--status-amber-text)', borderColor: 'var(--status-amber-bg)' } : {}), false, undefined, 'tb-comment')}
@@ -694,10 +723,10 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
             hamna utanför skärmkanten bakom en sidledsscroll. */}
         <div className="toolbar-spacer" style={{ flex: 1, minWidth: '8px' }} />
         {emailError && <span style={{ fontSize: '11px', color: '#c00', alignSelf: 'center', marginRight: 8 }}>{emailError}</span>}
-        {emailSent && !emailError && <span style={{ fontSize: '11px', color: 'var(--status-green-text)', alignSelf: 'center', marginRight: 8 }}>Skickad ✓</span>}
+        {emailSent && !emailError && <span style={{ fontSize: '11px', color: 'var(--status-green-text)', alignSelf: 'center', marginRight: 8 }}>{tr('ui.skickad')}</span>}
         <input
           type="email" value={emailToInput} onChange={e => { setEmailToInput(e.target.value); setEmailError(''); }}
-          placeholder="mottagarens@epost.se" title="Mottagarens e-postadress — förifylld från kundkortet om det finns en, men går att ändra eller fylla i här"
+          placeholder={tr('ui.mottagarens_epost_se')} title={tr('ui.mottagarens_e_postadress_forifylld_fran_kundkort')}
           disabled={!initial}
           className="toolbar-email-input"
           style={{
@@ -720,12 +749,12 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
           // adress (emailError, raden ovanför) — den ska få köras, inte
           // hindras av att knappen aldrig går att trycka på.
           emailBusy || !initial,
-          !initial ? 'Spara fakturan först' : (!emailToInput.trim() ? 'Ange en mottagaradress' : `Skicka faktura ${nextNum} till ${emailToInput.trim()}`),
+          !initial ? tr('ui.spara_fakturan_forst') : (!emailToInput.trim() ? tr('ui.ange_en_mottagaradress') : tr('ui.skicka_faktura_till', { n: nextNum, to: emailToInput.trim() })),
           'tb-send'
         )}
         {pdfError && <span style={{ fontSize: '11px', color: '#c00', alignSelf: 'center', marginRight: 8 }}>{pdfError}</span>}
         {topBarBtn(pdfBusy ? 'Skapar PDF…' : 'Ladda ner PDF', <Download size={13} />, handleDownloadPdf, {}, pdfBusy, undefined, 'tb-pdf')}
-        {topBarBtn('Förhandsgranska', <Eye size={13} />, () => setShowPreview(v => !v), showPreview ? activeToolbarPillStyle : {}, false, undefined, 'tb-preview')}
+        {topBarBtn(tr('ui.forhandsgranska'), <Eye size={13} />, () => setShowPreview(v => !v), showPreview ? activeToolbarPillStyle : {}, false, undefined, 'tb-preview')}
       </div>
 
       {/* Betalning och Kommentar renderas som riktiga skärmcentrerade modaler
@@ -740,29 +769,41 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
         <div className="modal-overlay" onClick={() => setShowPaymentBox(false)}>
           <div className="modal-content" style={{ maxWidth: '360px' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h2 className="modal-title">Registrera betalning</h2>
+              <h2 className="modal-title">{tr('ui.registrera_betalning')}</h2>
               <button className="modal-close" onClick={() => setShowPaymentBox(false)}><X size={18} /></button>
             </div>
             <div style={{ padding: '0 4px' }}>
               {(initial.status === 'paid') ? (
                 <div style={{ fontSize: '13px', color: 'var(--status-green-text)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Check size={14} /> Betald {initial.paidDate ? formatDate(initial.paidDate) : ''}
+                  <Check size={14} /> {tr('ui.betald')} {initial.paidDate ? formatDate(initial.paidDate) : ''}
                 </div>
               ) : (
                 <>
-                  <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Totalt: {fmt(totals.total)} kr</div>
+                  <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '4px' }}>{tr('ui.totalt_2')} {fmt(totals.total)} {payCurrency}</div>
                   {alreadyPaid > 0 && (
-                    <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Redan betalt: {fmt(alreadyPaid)} kr</div>
+                    <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '4px' }}>{tr('ui.redan_betalt')} {fmt(alreadyPaid)} {payCurrency}</div>
                   )}
-                  <div style={{ fontSize: '13px', color: 'var(--status-amber-text)', fontWeight: 600, marginBottom: '14px' }}>Kvar att betala: {fmt(remainingDue)} kr</div>
+                  <div style={{ fontSize: '13px', color: 'var(--status-amber-text)', fontWeight: 600, marginBottom: '14px' }}>{tr('ui.kvar_att_betala')} {fmt(remainingDue)} {payCurrency}</div>
 
-                  <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Belopp (kr)</label>
+                  <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>{tr('ui.belopp_2')}{payCurrency})</label>
                   <input
                     type="number" min="0" max={remainingDue} step="0.01"
                     value={paymentAmountInput} onChange={e => setPaymentAmountInput(e.target.value)}
                     style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--text-muted)', borderRadius: '6px', fontSize: '14px', color: 'var(--text-main)', marginBottom: '10px', boxSizing: 'border-box', fontFamily: 'inherit' }}
                   />
-                  <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Datum</label>
+                  {payCurrency !== 'kr' && (
+                    <>
+                      <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>{tr('ui.insatt_pa_kontot_kr')}</label>
+                      <input
+                        type="number" min="0" step="0.01"
+                        value={paymentSekInput} onChange={e => setPaymentSekInput(e.target.value)}
+                        placeholder={initial.fxRate && paymentAmountInput ? String(Math.round(Number(paymentAmountInput) * initial.fxRate * 100) / 100) : ''}
+                        style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--text-muted)', borderRadius: '6px', fontSize: '14px', color: 'var(--text-main)', marginBottom: '4px', boxSizing: 'border-box', fontFamily: 'inherit' }}
+                      />
+                      <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginBottom: '10px' }}>{tr('ui.skillnaden_mot_fakturans_kurs_bokfors_som_valuta')}</div>
+                    </>
+                  )}
+                  <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>{tr('ui.datum')}</label>
                   <input
                     type="date"
                     value={paymentDateInput} onChange={e => setPaymentDateInput(e.target.value)}
@@ -773,7 +814,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
                     onClick={() => {
                       const amount = parseFloat(paymentAmountInput);
                       if (!amount || amount <= 0) return;
-                      onRegisterPayment?.(initial.id, amount, paymentDateInput);
+                      onRegisterPayment?.(initial.id, amount, paymentDateInput, undefined, { sekReceived: Number(paymentSekInput) || undefined });
                       setShowPaymentBox(false);
                     }}
                     disabled={!paymentAmountInput || Number(paymentAmountInput) <= 0}
@@ -783,10 +824,10 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
                       cursor: (!paymentAmountInput || Number(paymentAmountInput) <= 0) ? 'not-allowed' : 'pointer',
                     }}
                   >
-                    Registrera betalning
+                    {tr('ui.registrera_betalning')}
                   </button>
                   {Number(paymentAmountInput) > 0 && Number(paymentAmountInput) < remainingDue && (
-                    <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '10px' }}>Detta bokförs som en delbetalning — fakturan blir inte markerad som helt betald.</div>
+                    <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '10px' }}>{tr('ui.detta_bokfors_som_en_delbetalning_fakturan_blir')}</div>
                   )}
                 </>
               )}
@@ -799,7 +840,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
         <div className="modal-overlay" onClick={() => setShowCommentBox(false)}>
           <div className="modal-content" style={{ maxWidth: '440px' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h2 className="modal-title">Intern kommentar</h2>
+              <h2 className="modal-title">{tr('ui.intern_kommentar')}</h2>
               <button className="modal-close" onClick={() => setShowCommentBox(false)}><X size={18} /></button>
             </div>
             <div style={{ padding: '0 4px' }}>
@@ -812,17 +853,17 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
                 autoFocus
                 className="invoice-comment-textarea"
                 value={commentDraft} onChange={e => setCommentDraft(e.target.value)}
-                placeholder="Syns bara internt, inte för kunden."
+                placeholder={tr('ui.syns_bara_internt_inte_for_kunden')}
                 style={{ width: '100%', minHeight: '140px', padding: '10px 12px', border: '1px solid var(--text-muted)', borderRadius: '6px', fontSize: '14px', lineHeight: 1.5, outline: 'none', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box', color: 'var(--text-main)', background: 'var(--bg-card)' }}
               />
-              {!initial && <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '6px' }}>Sparas tillsammans med fakturan.</div>}
+              {!initial && <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '6px' }}>{tr('ui.sparas_tillsammans_med_fakturan')}</div>}
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '14px' }}>
-                <button onClick={() => setShowCommentBox(false)} style={{ padding: '8px 14px', background: 'none', border: '1px solid var(--border)', borderRadius: '6px', color: 'var(--text-main)', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>Stäng</button>
+                <button onClick={() => setShowCommentBox(false)} style={{ padding: '8px 14px', background: 'none', border: '1px solid var(--border)', borderRadius: '6px', color: 'var(--text-main)', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>{tr('ui.stang')}</button>
                 <button
                   onClick={() => { if (initial) onUpdateNote?.(initial.id, commentDraft); setShowCommentBox(false); }}
                   style={{ padding: '8px 16px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}
                 >
-                  {initial ? 'Spara kommentar' : 'Klart'}
+                  {initial ? tr('ui.spara_kommentar') : tr('ui.klart')}
                 </button>
               </div>
             </div>
@@ -834,9 +875,9 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
         <div style={{ background: 'var(--status-amber-bg)', borderBottom: '1px solid var(--border)', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '12.5px', color: '#7c4a03', flexShrink: 0 }}>
           <AlertTriangle size={16} style={{ flexShrink: 0 }} />
           <span>
-            Den här fakturan är bokförd — kund, belopp och rader kan inte längre ändras. Behöver du korrigera ett fel?{' '}
-            <button onClick={async () => { if (await confirmDialog(`Skapa en kreditfaktura som motsvarar faktura ${nextNum}?`)) onCreateCreditNote?.(initial); }} style={{ background: 'none', border: 'none', color: 'var(--status-amber-text)', fontWeight: 700, textDecoration: 'underline', cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>Skapa en kreditfaktura</button>
-            {' '}istället. Datum och kommentar går fortfarande att uppdatera.
+            {tr('ui.den_har_fakturan_ar_bokford_kund_belopp_och_rade')}{' '}
+            <button onClick={async () => { if (await confirmDialog(tr('ui.skapa_en_kreditfaktura_som_motsvarar_faktura', { nextNum }))) onCreateCreditNote?.(initial); }} style={{ background: 'none', border: 'none', color: 'var(--status-amber-text)', fontWeight: 700, textDecoration: 'underline', cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>{tr('ui.skapa_en_kreditfaktura')}</button>
+            {' '}{tr('ui.istallet_datum_och_kommentar_gar_fortfarande_att')}
           </span>
         </div>
       )}
@@ -856,28 +897,42 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
               yta med generös padding, istället för två-tre tätt staplade
               tunna kortremsor. */}
           <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>Fakturauppgifter</h3>
+            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>{tr('ui.fakturauppgifter')}</h3>
             {/* form-row-stack (Sida 38, punkt 2): kolumnbredden är ojämn
                 (2fr 1fr 1fr 1fr) så den kan inte återanvända .form-row-2/-3,
                 men ska ändå bli en kolumn på mobil. */}
             <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '16px', alignItems: 'end', marginBottom: '16px' }}>
               <div>
-                <label style={lbl}>Kund</label>
-                <select data-tour="page-invoices-field" data-inv-tour="form-customer" value={customerId} onChange={e => setCustomerId(e.target.value)} disabled={isLocked} style={{ ...inp, background: isLocked ? 'var(--border-light)' : 'var(--bg-card)' }}>
-                  <option value="">Välj kund...</option>
+                <label style={lbl}>{tr('ui.kund')}</label>
+                <select data-tour="page-invoices-field" data-inv-tour="form-customer" value={customerId} onChange={e => {
+                  const id = e.target.value;
+                  setCustomerId(id);
+                  // Kund utomlands: 0 % moms och rätt intäktskonto på raderna
+                  // (utils/foreignSales.js), och tillbaka vid byte till svensk kund.
+                  if (!vatExempt) setRows(r => rowsForCustomer(r, customers.find(c => c.id === id)));
+                }} disabled={isLocked} style={{ ...inp, background: isLocked ? 'var(--border-light)' : 'var(--bg-card)' }}>
+                  <option value="">{tr('ui.valj_kund')}</option>
                   {customers.map(c => <option key={c.id} value={c.id}>{c.id?.slice(-3)} – {c.name}</option>)}
                 </select>
+                {!vatExempt && foreignSaleRegion(customer) && (
+                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '6px', lineHeight: 1.45 }}>
+                    {foreignSaleRegion(customer) === 'eu'
+                      ? tr('ui.eu_foretag_ingen_svensk_moms_och_fakturan_far_te')
+                      : tr('ui.foretag_utanfor_eu_ingen_svensk_moms_tjanster_bo')}
+                    {' '}{tr('ui.byt_konto_pa_raden_om_det_ar_varor')}
+                  </div>
+                )}
               </div>
               <div>
-                <label style={lbl}>Fakturadatum</label>
+                <label style={lbl}>{tr('ui.fakturadatum')}</label>
                 <input type="date" value={invoiceDate} onChange={e => setInvoiceDate(e.target.value)} style={inp} />
               </div>
               <div>
-                <label style={lbl}>Förfallodatum *</label>
+                <label style={lbl}>{tr('ui.forfallodatum_2')}</label>
                 <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} style={inp} />
               </div>
               <div>
-                <label style={lbl}>Fakturatyp</label>
+                <label style={lbl}>{tr('ui.fakturatyp')}</label>
                 <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: '9px', overflow: 'hidden', opacity: isLocked ? 0.6 : 1 }}>
                   {['Faktura', 'Kontantfaktura'].map(t => (
                     <button key={t} disabled={isLocked} onClick={() => setInvoiceType(t)} style={{
@@ -892,18 +947,18 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
 
             <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
               <div>
-                <label style={lbl}>Betalningsvillkor</label>
+                <label style={lbl}>{tr('ui.betalningsvillkor')}</label>
                 <select value={terms} onChange={e => setTerms(e.target.value)} style={inp}>
                   {['0 dagar', '10 dagar', '20 dagar', '30 dagar', '60 dagar'].map(t => <option key={t}>{t}</option>)}
                 </select>
               </div>
               <div>
-                <label style={lbl}>Vår referens</label>
-                <input value={ourRef} onChange={e => setOurRef(e.target.value)} style={inp} placeholder="Emma Johansson" />
+                <label style={lbl}>{tr('ui.var_referens')}</label>
+                <input value={ourRef} onChange={e => setOurRef(e.target.value)} style={inp} placeholder={tr('ui.emma_johansson')} />
               </div>
               <div>
-                <label style={lbl}>Er referens</label>
-                <input value={theirRef} onChange={e => setTheirRef(e.target.value)} style={inp} placeholder="Johan Svensson" />
+                <label style={lbl}>{tr('ui.er_referens')}</label>
+                <input value={theirRef} onChange={e => setTheirRef(e.target.value)} style={inp} placeholder={tr('ui.johan_svensson')} />
               </div>
             </div>
 
@@ -925,19 +980,30 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
                 eller strunta i dem helt. */}
             <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginTop: '16px' }}>
               <div>
-                <label style={lbl}>Ert ordernummer</label>
-                <input value={ourOrderNr} onChange={e => setOurOrderNr(e.target.value)} style={inp} placeholder="Valfritt" />
+                <label style={lbl}>{tr('ui.ert_ordernummer')}</label>
+                <input value={ourOrderNr} onChange={e => setOurOrderNr(e.target.value)} style={inp} placeholder={tr('ui.valfritt')} />
               </div>
               <div>
-                <label style={lbl}>Valuta</label>
-                <select value={currency} onChange={e => setCurrency(e.target.value)} style={inp}>
+                <label style={lbl}>{tr('ui.valuta')}</label>
+                <select value={currency} onChange={e => setCurrency(e.target.value)} disabled={isLocked} style={inp}>
                   {['SEK', 'NOK', 'EUR', 'USD', 'GBP'].map(c => <option key={c}>{c}</option>)}
                 </select>
+                {currency !== 'SEK' && (
+                  <div style={{ marginTop: '8px' }}>
+                    <label style={{ ...lbl, fontSize: '12px' }}>{tr('ui.kurs_sek_per')} {currency}</label>
+                    <input
+                      inputMode="decimal" value={fxRate} disabled={isLocked}
+                      onChange={e => { setFxRate(e.target.value); setFxRateManual(true); setFxStatus(''); }}
+                      style={inp} placeholder="11,50"
+                    />
+                    {fxStatus && <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)', marginTop: '4px' }}>{fxStatus}</div>}
+                  </div>
+                )}
               </div>
               <div>
-                <label style={lbl}>Projekt</label>
+                <label style={lbl}>{tr('ui.projekt')}</label>
                 <select value={projectId} onChange={e => setProjectId(e.target.value)} style={inp}>
-                  <option value="">Inget projekt</option>
+                  <option value="">{tr('ui.inget_projekt')}</option>
                   {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
               </div>
@@ -948,7 +1014,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
                 för att visas gråad/förklaras varför den inte går att välja. */}
             {customerIsIndividual && (
               <div style={{ marginTop: '16px' }}>
-                <label style={lbl}>Husavdrag</label>
+                <label style={lbl}>{tr('ui.husavdrag')}</label>
                 <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: '9px', overflow: 'hidden', maxWidth: '300px' }}>
                   {[{ v: 'none', l: 'Inget' }, { v: 'rot', l: `ROT (${ROT_RUT_RATES.rot.percent}%)` }, { v: 'rut', l: `RUT (${ROT_RUT_RATES.rut.percent}%)` }].map(({ v, l }) => (
                     <button key={v} type="button" onClick={() => setRotRutType(v)} style={{
@@ -962,11 +1028,11 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
                   <div style={{ marginTop: '8px', fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.5, maxWidth: '460px' }}>
                     {!customerHasPersonnummer && (
                       <p style={{ margin: '0 0 4px', color: 'var(--status-red-text)', fontWeight: 600 }}>
-                        Kunden saknar personnummer — krävs för en {ROT_RUT_RATES[rotRutType].label}-begäran hos Skatteverket. Lägg till det under Kontakter.
+                        {tr('ui.kunden_saknar_personnummer_kravs_for_en')} {ROT_RUT_RATES[rotRutType].label}{tr('ui.begaran_hos_skatteverket_lagg_till_det_under_kon')}
                       </p>
                     )}
                     <p style={{ margin: 0 }}>
-                      Avdraget räknas bara på rader märkta "Arbete" nedan, aldrig material. {ROT_RUT_RATES[rotRutType].label} och eventuellt andra husavdrag delar samma tak på {new Intl.NumberFormat('sv-SE').format(ROT_RUT_COMBINED_CAP)} kr per person och år — Bokix håller idag inte reda på hur mycket av taket kunden redan använt över tidigare fakturor.
+                      {tr('ui.avdraget_raknas_bara_pa_rader_markta_arbete_neda')} {ROT_RUT_RATES[rotRutType].label} {tr('ui.och_eventuellt_andra_husavdrag_delar_samma_tak_p')} {new Intl.NumberFormat('sv-SE').format(ROT_RUT_COMBINED_CAP)} {tr('ui.kr_per_person_och_ar_bokix_haller_idag_inte_reda')}
                     </p>
                   </div>
                 )}
@@ -976,39 +1042,39 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
 
           {/* Kunduppgifter */}
           {customer && (
-            <Section title="Kunduppgifter" defaultOpen={false}>
+            <Section title={tr('ui.kunduppgifter')} defaultOpen={false}>
               <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
                 <div>
-                  <label style={lbl}>Namn</label>
+                  <label style={lbl}>{tr('ui.namn')}</label>
                   <input defaultValue={customer.name} style={inp} />
                 </div>
                 <div>
-                  <label style={lbl}>Fakturaadress</label>
+                  <label style={lbl}>{tr('ui.fakturaadress')}</label>
                   <input defaultValue={customer.address || ''} style={inp} />
                 </div>
                 <div>
-                  <label style={lbl}>Postnr</label>
+                  <label style={lbl}>{tr('ui.postnr')}</label>
                   <input style={inp} />
                 </div>
                 <div>
-                  <label style={lbl}>Ort</label>
+                  <label style={lbl}>{tr('ui.ort')}</label>
                   <input style={inp} />
                 </div>
                 <div>
-                  <label style={lbl}>Organisationsnummer</label>
+                  <label style={lbl}>{tr('ui.organisationsnummer')}</label>
                   <input defaultValue={customer.orgNr || ''} style={inp} />
                 </div>
                 <div>
-                  <label style={lbl}>Telefon</label>
+                  <label style={lbl}>{tr('ui.telefon')}</label>
                   <input defaultValue={customer.phone || ''} style={inp} />
                 </div>
                 <div>
-                  <label style={lbl}>Land</label>
-                  <select style={inp}><option>Sverige</option><option>Norge</option><option>Danmark</option></select>
+                  <label style={lbl}>{tr('ui.land')}</label>
+                  <select style={inp}><option>{tr('ui.sverige')}</option><option>{tr('ui.norge')}</option><option>{tr('ui.danmark')}</option></select>
                 </div>
                 <div style={{ paddingTop: '18px' }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', cursor: 'pointer', color: 'var(--text-main)' }}>
-                    <input type="checkbox" /> Export
+                    <input type="checkbox" /> {tr('ui.export')}
                   </label>
                 </div>
               </div>
@@ -1016,12 +1082,12 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
           )}
 
           {/* Leveransuppgifter */}
-          <Section title="Leveransuppgifter" defaultOpen={false}>
+          <Section title={tr('ui.leveransuppgifter')} defaultOpen={false}>
             <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
-              <div><label style={lbl}>Leveransadress</label><input style={inp} /></div>
-              <div><label style={lbl}>Leveransort</label><input style={inp} /></div>
-              <div><label style={lbl}>Leveransdatum</label><input type="date" style={inp} /></div>
-              <div><label style={lbl}>Leveranssätt</label><input style={inp} /></div>
+              <div><label style={lbl}>{tr('ui.leveransadress')}</label><input style={inp} /></div>
+              <div><label style={lbl}>{tr('ui.leveransort')}</label><input style={inp} /></div>
+              <div><label style={lbl}>{tr('ui.leveransdatum')}</label><input type="date" style={inp} /></div>
+              <div><label style={lbl}>{tr('ui.leveranssatt')}</label><input style={inp} /></div>
             </div>
           </Section>
 
@@ -1032,7 +1098,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
               kugghjulet, precis som förut — bara paketeringen är ny. */}
           <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
-              <h3 style={{ fontSize: '14px', fontWeight: 600, margin: 0 }}>Fakturarader</h3>
+              <h3 style={{ fontSize: '14px', fontWeight: 600, margin: 0 }}>{tr('ui.fakturarader')}</h3>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 {/* Pris inkl. moms — påverkar bara hur À-pris-fältet
                     tolkar det du skriver, se priceInclVat-kommentaren
@@ -1050,13 +1116,13 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
                     >{l}</button>
                   ))}
                 </div>
-                <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>{rows.length} {rows.length === 1 ? 'rad' : 'rader'}</span>
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>{rows.length} {rows.length === 1 ? tr('ui.rad_2') : tr('ui.rader')}</span>
               </div>
             </div>
             <div style={{ overflowX: 'auto' }}>
               <div className="inv-rows-min" style={{ minWidth: '760px' }}>
                 <div className="inv-rows-head" style={{ display: 'grid', gridTemplateColumns: '2.4fr 0.7fr 0.9fr 0.7fr 0.9fr auto auto', gap: '10px', marginBottom: '8px', padding: '0 2px' }}>
-                  {['Benämning', 'Antal', priceInclVat ? 'À-pris (inkl. moms)' : 'À-pris', 'Moms', 'Summa', '', ''].map((h, i) => (
+                  {[tr('ui.benamning'), tr('ui.antal'), priceInclVat ? tr('ui.a_pris_inkl_moms') : tr('ui.pris_2'), tr('ui.moms'), tr('ui.summa'), '', ''].map((h, i) => (
                     <span key={i} style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em', textAlign: i >= 1 && i <= 4 ? 'right' : 'left' }}>{h}</span>
                   ))}
                 </div>
@@ -1067,7 +1133,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
                   return (
                     <div key={row.id} className="inv-row-card" style={{ marginBottom: '10px' }}>
                       <div className="inv-row-grid" style={{ display: 'grid', gridTemplateColumns: '2.4fr 0.7fr 0.9fr 0.7fr 0.9fr auto auto', gap: '10px', alignItems: 'center' }}>
-                        <div className="inv-cell" data-label="Benämning">{isLocked ? (
+                        <div className="inv-cell" data-label={tr('ui.benamning')}>{isLocked ? (
                           <div style={{ ...inp, background: 'var(--bg-muted)', border: '1px solid var(--border-light)' }}>{row.description}</div>
                         ) : (
                           <input
@@ -1079,7 +1145,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
                               if (hit) applyArticleToRow(i, hit);
                             }}
                             style={inp}
-                            placeholder="Beskrivning av tjänst eller produkt"
+                            placeholder={tr('ui.beskrivning_av_tjanst_eller_produkt')}
                           />
                         )}</div>
                         <div className="inv-cell" data-label="Antal">{isLocked ? (
@@ -1087,7 +1153,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
                         ) : (
                           <input type="number" value={row.qty} onChange={e => updateRow(i, 'qty', Number(e.target.value))} style={{ ...inp, textAlign: 'right' }} />
                         )}</div>
-                        <div className="inv-cell" data-label="À-pris">{isLocked ? (
+                        <div className="inv-cell" data-label={tr('ui.pris_2')}>{isLocked ? (
                           <div style={{ ...inp, background: 'var(--bg-muted)', border: '1px solid var(--border-light)', textAlign: 'right' }}>{fmt(row.unitPrice)}</div>
                         ) : (
                           <input
@@ -1105,17 +1171,17 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
                           />
                         )}</div>
                         <div className="inv-cell" data-label="Moms">{(isLocked || vatExempt) ? (
-                          <div title={vatExempt ? 'Företaget är inte momsregistrerat' : undefined} style={{ ...inp, background: 'var(--bg-muted)', border: '1px solid var(--border-light)', textAlign: 'right' }}>{vatExempt ? 0 : row.vatRate}%</div>
+                          <div title={vatExempt ? tr('ui.foretaget_ar_inte_momsregistrerat') : undefined} style={{ ...inp, background: 'var(--bg-muted)', border: '1px solid var(--border-light)', textAlign: 'right' }}>{vatExempt ? 0 : row.vatRate}%</div>
                         ) : (
                           <select value={row.vatRate} onChange={e => updateRow(i, 'vatRate', Number(e.target.value))} style={inp}>
                             {[0, 6, 12, 25].map(r => <option key={r} value={r}>{r}%</option>)}
                           </select>
                         )}</div>
                         <div className="inv-cell" data-label="Summa"><div style={{ ...inp, background: 'var(--bg-muted)', color: 'var(--text-secondary)', border: '1px solid var(--border-light)', textAlign: 'right', fontWeight: 600 }}>{fmt(net)}</div></div>
-                        <div className="inv-cell-actions" data-label=""><button type="button" onClick={() => toggleRowAdvanced(row.id)} title="Fler fält för raden" style={{ padding: '6px', background: advancedOpen ? 'var(--status-blue-bg)' : 'transparent', borderRadius: '7px', border: 'none', cursor: 'pointer', color: advancedOpen ? 'var(--status-blue-text)' : 'var(--text-muted)' }}>
+                        <div className="inv-cell-actions" data-label=""><button type="button" onClick={() => toggleRowAdvanced(row.id)} title={tr('ui.fler_falt_for_raden')} style={{ padding: '6px', background: advancedOpen ? 'var(--status-blue-bg)' : 'transparent', borderRadius: '7px', border: 'none', cursor: 'pointer', color: advancedOpen ? 'var(--status-blue-text)' : 'var(--text-muted)' }}>
                           <Settings2 size={15} />
                         </button>
-                        <button type="button" onClick={() => removeRow(i)} disabled={isLocked || rows.length === 1} title="Ta bort rad" style={{ padding: '6px', background: 'transparent', border: 'none', cursor: (isLocked || rows.length === 1) ? 'not-allowed' : 'pointer', color: (isLocked || rows.length === 1) ? 'var(--border)' : '#ef4444' }}>
+                        <button type="button" onClick={() => removeRow(i)} disabled={isLocked || rows.length === 1} title={tr('ui.ta_bort_rad')} style={{ padding: '6px', background: 'transparent', border: 'none', cursor: (isLocked || rows.length === 1) ? 'not-allowed' : 'pointer', color: (isLocked || rows.length === 1) ? 'var(--border)' : '#ef4444' }}>
                           <Trash2 size={15} />
                         </button></div>
                       </div>
@@ -1125,7 +1191,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
                           bara på rader märkta "Arbete", aldrig material. */}
                       {rotRutType !== 'none' && !isLocked && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px' }}>
-                          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Rad avser:</span>
+                          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{tr('ui.rad_avser')}</span>
                           {[{ v: true, l: 'Arbete' }, { v: false, l: 'Material' }].map(({ v, l }) => (
                             <button
                               key={l} type="button" onClick={() => updateRow(i, 'rotRutLabor', v)}
@@ -1143,12 +1209,12 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
                       {advancedOpen && (
                         <div className="form-row-stack" style={{ marginTop: '8px', padding: '14px', background: 'var(--bg-muted)', borderRadius: '10px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
                           <div>
-                            <label style={lbl}>Artikelnr</label>
+                            <label style={lbl}>{tr('ui.artikelnr')}</label>
                             <div style={{ display: 'flex', gap: '6px' }}>
                               <input
                                 disabled={isLocked}
                                 style={inp}
-                                placeholder="Artnr"
+                                placeholder={tr('ui.artnr')}
                                 value={row.articleNumber || ''}
                                 list="article-register-list"
                                 onChange={e => updateRow(i, 'articleNumber', e.target.value)}
@@ -1166,26 +1232,26 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
                                   type="button"
                                   onClick={() => saveRowAsArticle(row)}
                                   disabled={!(row.articleNumber || '').trim()}
-                                  title="Spara radens artikelnr/benämning/pris/moms i artikelregistret för återanvändning"
+                                  title={tr('ui.spara_radens_artikelnr_benamning_pris_moms_i_art')}
                                   style={{ flexShrink: 0, padding: '0 10px', border: '1px solid var(--border)', borderRadius: '8px', background: 'var(--bg-card)', cursor: (row.articleNumber || '').trim() ? 'pointer' : 'not-allowed', color: 'var(--text-main)', fontSize: '12.5px', fontWeight: 600 }}
                                 >
-                                  Spara
+                                  {tr('ui.spara')}
                                 </button>
                               )}
                             </div>
                           </div>
                           {!vatExempt && <div>
-                            <label style={lbl}>Tjänst (momsfri)</label>
+                            <label style={lbl}>{tr('ui.tjanst_momsfri')}</label>
                             <select disabled={isLocked} value={row.vatRate === 0 ? 'Ja' : 'Nej'} onChange={e => updateRow(i, 'vatRate', e.target.value === 'Ja' ? 0 : 25)} style={inp}>
-                              <option>Ja</option><option>Nej</option>
+                              <option>{tr('ui.ja')}</option><option>{tr('ui.nej')}</option>
                             </select>
                           </div>}
                           <div>
-                            <label style={lbl}>Rabatt %</label>
+                            <label style={lbl}>{tr('ui.rabatt')}</label>
                             <input disabled={isLocked} type="number" min="0" max="100" value={row.discount || 0} onChange={e => updateRow(i, 'discount', Number(e.target.value))} style={inp} />
                           </div>
                           <div>
-                            <label style={lbl}>Konto</label>
+                            <label style={lbl}>{tr('ui.konto_2')}</label>
                             {/* Var ett tomt textfält där man förväntades kunna
                                 fyra siffror utantill. Samma sökbara kontoväljare
                                 som resten av appen använder, med hela kontoplanen
@@ -1193,7 +1259,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
                                 väljare — fältet ska inte gå att ändra då. */}
                             {isLocked
                               ? <input disabled value={row.account || '3001'} style={inp} />
-                              : <AccountSearch value={row.account || '3001'} onChange={code => updateRow(i, 'account', code)} accounts={accounts} placeholder="Sök konto…" />}
+                              : <AccountSearch value={row.account || '3001'} onChange={code => updateRow(i, 'account', code)} accounts={accounts} placeholder={tr('ui.sok_konto')} />}
                           </div>
                         </div>
                       )}
@@ -1205,7 +1271,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
 
             {!isLocked && (
               <button type="button" onClick={addRow} style={{ ...outlineToolbarBtnStyle, marginTop: '4px' }}>
-                <Plus size={14} /> Lägg till rad
+                <Plus size={14} /> {tr('ui.lagg_till_rad')}
               </button>
             )}
 
@@ -1238,35 +1304,35 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
               istället för att stå kvar och antyda en uträkning som aldrig
               faktiskt skedde. */}
           <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>Fakturatext</h3>
+            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>{tr('ui.fakturatext')}</h3>
             <textarea
               value={invoiceText} onChange={e => setInvoiceText(e.target.value)}
               style={{ ...inp, minHeight: '70px', resize: 'vertical', lineHeight: 1.6, maxWidth: '640px', marginBottom: '20px' }}
-              placeholder="Hej! Tack för ditt köp hos oss."
+              placeholder={tr('ui.hej_tack_for_ditt_kop_hos_oss')}
             />
 
             <div style={{ background: 'var(--bg-muted)', border: '1px solid var(--border-light)', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '4px', maxWidth: '360px', marginLeft: 'auto', fontSize: '13px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
-                <span>Netto (exkl. moms)</span><span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{fmt(totals.net)} {currency}</span>
+                <span>{tr('ui.netto_exkl_moms')}</span><span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{fmt(totals.net)} {currency}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
-                <span>Moms</span><span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{fmt(totals.vat)} {currency}</span>
+                <span>{tr('ui.moms')}</span><span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{fmt(totals.vat)} {currency}</span>
               </div>
               {rotRutType === 'none' ? (
                 <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '8px', marginTop: '4px', borderTop: '1px solid var(--border)' }}>
-                  <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>Att betala</span>
+                  <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>{tr('ui.att_betala')}</span>
                   <span style={{ fontWeight: 800, fontSize: '16px', color: 'var(--text-main)' }}>{fmt(totals.total)} {currency}</span>
                 </div>
               ) : (
                 <>
                   <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '8px', marginTop: '4px', borderTop: '1px solid var(--border)', color: 'var(--text-secondary)' }}>
-                    <span>Fakturerat belopp</span><span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{fmt(totals.total)} {currency}</span>
+                    <span>{tr('ui.fakturerat_belopp')}</span><span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{fmt(totals.total)} {currency}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--status-red-text)' }}>
-                    <span>{ROT_RUT_RATES[rotRutType].label}-avdrag ({rotRut.rate}%)</span><span style={{ fontWeight: 600 }}>−{fmt(rotRut.deduction)} {currency}</span>
+                    <span>{ROT_RUT_RATES[rotRutType].label}{tr('ui.avdrag')}{rotRut.rate}%)</span><span style={{ fontWeight: 600 }}>−{fmt(rotRut.deduction)} {currency}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '8px', marginTop: '4px', borderTop: '1px solid var(--border)' }}>
-                    <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>Att betala</span>
+                    <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>{tr('ui.att_betala')}</span>
                     <span style={{ fontWeight: 800, fontSize: '16px', color: 'var(--text-main)' }}>{fmt(amountAfterRotRut)} {currency}</span>
                   </div>
                 </>
@@ -1278,10 +1344,10 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
               knappstil som QuoteEditor:s "Avbryt/Spara offert". */}
           <div style={{ padding: '20px 32px', display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
             <button type="button" onClick={() => handleSave('draft')} style={outlineToolbarBtnStyle}>
-              Spara som utkast
+              {tr('ui.spara_som_utkast')}
             </button>
             <button type="button" onClick={() => handleSave('sent')} style={listHeaderButtonStyle('primary')}>
-              <Check size={14} /> Bokför
+              <Check size={14} /> {tr('ui.bokfor_2')}
             </button>
           </div>
         </div>
@@ -1304,7 +1370,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
         <div className="modal-overlay" onClick={() => !emailBusy && setShowEmailCompose(false)}>
           <div className="modal-content" style={{ maxWidth: '620px' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h2 className="modal-title">Skicka faktura {nextNum}</h2>
+              <h2 className="modal-title">{tr('ui.skicka_faktura')} {nextNum}</h2>
               <button className="modal-close" onClick={() => setShowEmailCompose(false)} disabled={emailBusy}>
                 <X size={18} />
               </button>
@@ -1312,17 +1378,17 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Till</label>
+                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>{tr('ui.till_2')}</label>
                 <input
                   className="form-control"
                   value={emailToInput}
                   onChange={e => setEmailToInput(e.target.value)}
-                  placeholder="mottagarens@epost.se"
+                  placeholder={tr('ui.mottagarens_epost_se')}
                 />
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Ämne</label>
+                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>{tr('ui.amne')}</label>
                 <input
                   className="form-control"
                   value={emailSubject}
@@ -1332,13 +1398,13 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
 
               <div>
                 <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '10px', marginBottom: '6px' }}>
-                  <label style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text-secondary)' }}>Meddelande</label>
+                  <label style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text-secondary)' }}>{tr('ui.meddelande')}</label>
                   <button
                     type="button"
                     onClick={() => setEmailMessage(defaultEmailMessage())}
                     style={{ background: 'none', border: 'none', padding: 0, fontFamily: 'inherit', fontSize: '12px', fontWeight: 600, color: 'var(--accent-text)', cursor: 'pointer' }}
                   >
-                    Återställ standardtexten
+                    {tr('ui.aterstall_standardtexten')}
                   </button>
                 </div>
                 <textarea
@@ -1347,14 +1413,14 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
                   onChange={e => setEmailMessage(e.target.value)}
                   rows={9}
                   style={{ resize: 'vertical', lineHeight: 1.6 }}
-                  placeholder="Hej! Här kommer fakturan för…"
+                  placeholder={tr('ui.hej_har_kommer_fakturan_for')}
                 />
               </div>
 
               {emailWarnings.length > 0 && (
                 <div style={{ background: 'var(--status-amber-bg)', border: '1px solid var(--status-amber-bg)', borderRadius: '10px', padding: '12px 14px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '7px', fontSize: '12.5px', fontWeight: 700, color: 'var(--status-amber-text)', marginBottom: '6px' }}>
-                    <AlertTriangle size={14} /> Kontrollera fakturan först
+                    <AlertTriangle size={14} /> {tr('ui.kontrollera_fakturan_forst')}
                   </div>
                   <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '12.5px', color: 'var(--status-amber-text)', lineHeight: 1.6 }}>
                     {emailWarnings.map(v => <li key={v}>{v}</li>)}
@@ -1365,7 +1431,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
               {/* Det som alltid följer med, sagt rakt ut så ingen skriver
                   "se bifogad faktura" i tron att den inte finns. */}
               <div style={{ background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: '10px', padding: '12px 14px', fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                Följer med automatiskt: fakturan som PDF och en rad med fakturanummer, belopp och förfallodatum.
+                {tr('ui.foljer_med_automatiskt_fakturan_som_pdf_och_en_r')}
                 {company?.stripeAccountId && (
                   <label style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginTop: '10px', cursor: 'pointer', color: 'var(--text-main)' }}>
                     <input
@@ -1374,7 +1440,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
                       onChange={e => setEmailWithPaymentLink(e.target.checked)}
                       style={{ marginTop: '2px', cursor: 'pointer' }}
                     />
-                    <span>Lägg med en <strong>Betala nu</strong>-knapp (kortbetalning via Stripe). Avmarkera om kunden ska betala mot bankgiro i stället.</span>
+                    <span>{tr('ui.lagg_med_en')} <strong>{tr('ui.betala_nu')}</strong>{tr('ui.knapp_kortbetalning_via_stripe_avmarkera_om_kund')}</span>
                   </label>
                 )}
               </div>
@@ -1385,12 +1451,12 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
             </div>
 
             <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={() => setShowEmailCompose(false)} disabled={emailBusy}>Avbryt</button>
+              <button className="btn btn-secondary" onClick={() => setShowEmailCompose(false)} disabled={emailBusy}>{tr('ui.avbryt')}</button>
               {/* Samma fix som toolbar-knappen ovanför (tb-send): bara emailBusy
                   spärrar klicket, en tom adress ska ge felrutan ovan (emailError),
                   inte ett osynligt dött klick. */}
               <button className="btn btn-primary" onClick={handleSendEmail} disabled={emailBusy}>
-                {emailBusy ? 'Skickar…' : 'Skicka'}
+                {emailBusy ? tr('ui.skickar_2') : tr('ui.skicka')}
               </button>
             </div>
           </div>
@@ -1414,7 +1480,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
             `}</style>
             <div className="modal-header" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '10px', position: 'sticky', top: 0, zIndex: 5, background: 'var(--bg-card)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
-                <h2 className="modal-title" style={{ fontSize: '14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Förhandsgranskning · Faktura {nextNum}</h2>
+                <h2 className="modal-title" style={{ fontSize: '14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tr('ui.forhandsgranskning_faktura')} {nextNum}</h2>
                 <button className="modal-close" onClick={() => setShowPreview(false)} style={{ flexShrink: 0 }}><X size={18} /></button>
               </div>
               <div className="invoice-preview-controls" style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
@@ -1441,14 +1507,14 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
                   })}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                  <span style={{ fontSize: '11px', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>Accentfärg</span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{tr('ui.accentfarg')}</span>
                   <input
                     type="color" disabled={isLocked}
                     value={invoiceTemplateSnapshot.accentColor || INVOICE_TEMPLATES[invoiceTemplateSnapshot.templateId]?.defaultAccent || '#000000'}
                     onChange={e => setInvoiceTemplateSnapshot(s => ({ ...s, accentColor: e.target.value }))}
                     style={{ width: '32px', height: '24px', padding: '1px', border: '1px solid var(--border)', borderRadius: '4px', cursor: isLocked ? 'not-allowed' : 'pointer', background: 'var(--bg-card)', flexShrink: 0 }}
                   />
-                  {isLocked && <span style={{ fontSize: '11px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Låst — redan skickad</span>}
+                  {isLocked && <span style={{ fontSize: '11px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{tr('ui.last_redan_skickad')}</span>}
                 </div>
                 {/* Sida 38, punkt 4: +/- zoom som fallback till pinch — samma
                     kontrollrad som mall/accentfärg, så den redan skrollar
@@ -1456,19 +1522,19 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
                 <div className="preview-zoom-ctl" style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0, border: '1px solid var(--border)', borderRadius: '6px', padding: '2px' }}>
                   <button
                     type="button" onClick={() => setPreviewZoom(z => Math.max(0.5, Math.round((z - 0.1) * 10) / 10))}
-                    disabled={previewZoom <= 0.5} title="Zooma ut"
+                    disabled={previewZoom <= 0.5} title={tr('ui.zooma_ut')}
                     style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '26px', height: '26px', background: 'none', border: 'none', borderRadius: '4px', color: previewZoom <= 0.5 ? 'var(--border)' : 'var(--text-main)', cursor: previewZoom <= 0.5 ? 'not-allowed' : 'pointer' }}
                   ><ZoomOut size={14} /></button>
                   <span style={{ fontSize: '11px', color: 'var(--text-secondary)', width: '38px', textAlign: 'center', flexShrink: 0 }}>{Math.round(previewZoom * 100)}%</span>
                   <button
                     type="button" onClick={() => setPreviewZoom(z => Math.min(2, Math.round((z + 0.1) * 10) / 10))}
-                    disabled={previewZoom >= 2} title="Zooma in"
+                    disabled={previewZoom >= 2} title={tr('ui.zooma_in')}
                     style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '26px', height: '26px', background: 'none', border: 'none', borderRadius: '4px', color: previewZoom >= 2 ? 'var(--border)' : 'var(--text-main)', cursor: previewZoom >= 2 ? 'not-allowed' : 'pointer' }}
                   ><ZoomIn size={14} /></button>
                 </div>
                 <div style={{ flex: 1, minWidth: '8px' }} />
                 <button onClick={handleDownloadPdf} disabled={pdfBusy} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '7px 12px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '12px', fontWeight: 600, color: 'var(--text-main)', cursor: pdfBusy ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
-                  <Download size={13} /> {pdfBusy ? 'Skapar PDF…' : 'Ladda ner PDF'}
+                  <Download size={13} /> {pdfBusy ? tr('ui.skapar_pdf') : tr('ui.ladda_ner_pdf')}
                 </button>
               </div>
             </div>
@@ -1563,8 +1629,8 @@ function InvoiceDocIllustration() {
 
 function InvoiceEmptyState({ isFilteredEmpty, onCreate }) {
   const { title, body } = isFilteredEmpty
-    ? { title: 'Inga fakturor matchar din sökning', body: 'Prova att rensa sökningen eller filtren ovan.' }
-    : { title: 'Inga fakturor än', body: 'Skapa din första faktura för att komma igång med fakturering.' };
+    ? { title: tr('ui.inga_fakturor_matchar_din_sokning'), body: tr('ui.prova_att_rensa_sokningen_eller_filtren_ovan') }
+    : { title: tr('ui.inga_fakturor_an'), body: tr('ui.skapa_din_forsta_faktura_for_att_komma_igang_med') };
 
   return (
     // Kundönskemål: samma gröna kort-bakgrund i båda lägena — inte
@@ -1594,7 +1660,7 @@ function InvoiceEmptyState({ isFilteredEmpty, onCreate }) {
             onClick={onCreate}
             style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', marginTop: '8px', padding: '10px 20px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '9px', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}
           >
-            <Plus size={15} /> Skapa faktura
+            <Plus size={15} /> {tr('ui.skapa_faktura')}
           </button>
         )}
       </div>
@@ -1625,11 +1691,11 @@ function InvoiceViewer({ invoice, contacts, company, status, onClose, onEdit }) 
   const rotRut = calcRotRutDeduction(invoice.rotRutType, rows);
 
   const statusStyle = {
-    paid: { bg: BRAND.greenLight, color: BRAND.greenDark, label: 'Betald' },
-    overdue: { bg: BRAND.redBg, color: BRAND.redText, label: 'Förfallen' },
-    sent: { bg: BRAND.amberBg, color: BRAND.amberText, label: 'Obetald' },
-    draft: { bg: BRAND.grayBg, color: BRAND.grayText, label: 'Ej bokförd' },
-  }[status] || { bg: BRAND.grayBg, color: BRAND.grayText, label: 'Ej bokförd' };
+    paid: { bg: BRAND.greenLight, color: BRAND.greenDark, label: tr('ui.betald') },
+    overdue: { bg: BRAND.redBg, color: BRAND.redText, label: tr('ui.forfallen') },
+    sent: { bg: BRAND.amberBg, color: BRAND.amberText, label: tr('ui.obetald') },
+    draft: { bg: BRAND.grayBg, color: BRAND.grayText, label: tr('ui.ej_bokford') },
+  }[status] || { bg: BRAND.grayBg, color: BRAND.grayText, label: tr('ui.ej_bokford') };
 
   const tpl = invoice.invoiceTemplateSnapshot || {};
   const documentProps = {
@@ -1650,7 +1716,7 @@ function InvoiceViewer({ invoice, contacts, company, status, onClose, onEdit }) 
     try {
       await exportInvoicePdf(captureRef.current, `Faktura-${invoice.invoiceNumber}.pdf`);
     } catch {
-      setPdfError('Kunde inte skapa PDF. Försök igen.');
+      setPdfError(tr('ui.kunde_inte_skapa_pdf_forsok_igen'));
     } finally {
       setPdfBusy(false);
     }
@@ -1662,20 +1728,20 @@ function InvoiceViewer({ invoice, contacts, company, status, onClose, onEdit }) 
           statusmärke till vänster, åtgärder till höger. ── */}
       <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '16px 24px', display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', position: 'sticky', top: 0, zIndex: 10 }}>
         <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-main)', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-          ← Tillbaka
+          {tr('ui.tillbaka')}
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-          <h1 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>Faktura {invoice.invoiceNumber}</h1>
+          <h1 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>{tr('ui.faktura_3')} {invoice.invoiceNumber}</h1>
           <span style={{ padding: '4px 10px', background: statusStyle.bg, color: statusStyle.color, borderRadius: '20px', fontSize: '11px', fontWeight: 600 }}>{statusStyle.label}</span>
         </div>
         <div style={{ flex: 1, minWidth: '8px' }} />
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           {pdfError && <span style={{ fontSize: '11px', color: 'var(--status-red-text)' }}>{pdfError}</span>}
           <button type="button" onClick={handleDownloadPdf} disabled={pdfBusy} style={{ ...listHeaderButtonStyle('secondary'), opacity: pdfBusy ? 0.6 : 1 }}>
-            <Download size={14} /> {pdfBusy ? 'Skapar PDF…' : 'Ladda ner PDF'}
+            <Download size={14} /> {pdfBusy ? tr('ui.skapar_pdf') : tr('ui.ladda_ner_pdf')}
           </button>
           <button type="button" onClick={onEdit} style={listHeaderButtonStyle('primary')}>
-            <Pencil size={14} /> Redigera
+            <Pencil size={14} /> {tr('ui.redigera')}
           </button>
         </div>
       </div>
@@ -1765,7 +1831,7 @@ function PaymentLinkModal({ invoice, customer, company, onGetPaymentLinkUrl, onS
         setUrl(generatedUrl);
         onMarkSent?.(invoice.id);
       } catch (err) {
-        if (!cancelled) setError(err.message || 'Kunde inte skapa betalningslänk.');
+        if (!cancelled) setError(err.message || tr('ui.kunde_inte_skapa_betalningslank'));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -1789,8 +1855,8 @@ function PaymentLinkModal({ invoice, customer, company, onGetPaymentLinkUrl, onS
 
   const handleSendEmail = async () => {
     const to = emailTo.trim();
-    if (!to) { setEmailError('Ange en mottagaradress.'); return; }
-    if (!/^\S+@\S+\.\S+$/.test(to)) { setEmailError('Det där ser inte ut som en giltig e-postadress.'); return; }
+    if (!to) { setEmailError(tr('ui.ange_en_mottagaradress')); return; }
+    if (!/^\S+@\S+\.\S+$/.test(to)) { setEmailError(tr('ui.det_dar_ser_inte_ut_som_en_giltig_e_postadress')); return; }
     setEmailBusy(true); setEmailError(''); setEmailSent(false);
     try {
       // Best effort — misslyckas PDF-genereringen (t.ex. ett konstigt
@@ -1824,7 +1890,7 @@ function PaymentLinkModal({ invoice, customer, company, onGetPaymentLinkUrl, onS
       });
       setEmailSent(true);
     } catch (err) {
-      setEmailError(err.message || 'Kunde inte skicka e-post.');
+      setEmailError(err.message || tr('ui.kunde_inte_skicka_e_post'));
     } finally {
       setEmailBusy(false);
     }
@@ -1834,17 +1900,17 @@ function PaymentLinkModal({ invoice, customer, company, onGetPaymentLinkUrl, onS
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" style={{ maxWidth: '460px' }} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <h2 className="modal-title">Betalningslänk — faktura {invoice.invoiceNumber}</h2>
+          <h2 className="modal-title">{tr('ui.betalningslank_faktura')} {invoice.invoiceNumber}</h2>
           <button className="modal-close" onClick={onClose}><X size={18} /></button>
         </div>
         <div style={{ padding: '20px 24px' }}>
           {loading ? (
-            <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: '14px' }}>Skapar länk...</div>
+            <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: '14px' }}>{tr('ui.skapar_lank')}</div>
           ) : error ? (
             <div style={{ fontSize: '13px', color: 'var(--status-red-text)', fontWeight: 600 }}>{error}</div>
           ) : (
             <>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>Länk</label>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>{tr('ui.lank')}</label>
               <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
                 <input
                   type="text" readOnly value={url || ''}
@@ -1852,16 +1918,16 @@ function PaymentLinkModal({ invoice, customer, company, onGetPaymentLinkUrl, onS
                   style={{ flex: 1, padding: '9px 12px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', background: 'var(--bg-muted)', color: 'var(--text-main)' }}
                 />
                 <button type="button" onClick={handleCopy} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 14px', background: copied ? 'var(--status-green-bg)' : 'var(--accent)', color: copied ? 'var(--status-green-text)' : 'white', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                  {copied ? <><Check size={14} /> Kopierad!</> : <><Copy size={14} /> Kopiera</>}
+                  {copied ? <><Check size={14} /> {tr('ui.kopierad')}</> : <><Copy size={14} /> {tr('ui.kopiera')}</>}
                 </button>
               </div>
 
               <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: '16px' }}>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '8px' }}>Skicka med e-post (valfritt)</div>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '8px' }}>{tr('ui.skicka_med_e_post_valfritt')}</div>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                   <input
                     type="email" value={emailTo} onChange={e => { setEmailTo(e.target.value); setEmailError(''); }}
-                    placeholder="kund@foretag.se"
+                    placeholder={tr('ui.kund_foretag_se')}
                     style={{ flex: 1, padding: '9px 12px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', background: 'var(--bg-card)', color: 'var(--text-main)' }}
                   />
                   {/* Samma fix som fakturans toolbar-knapp (tb-send): en tom
@@ -1870,12 +1936,12 @@ function PaymentLinkModal({ invoice, customer, company, onGetPaymentLinkUrl, onS
                     type="button" onClick={handleSendEmail} disabled={emailBusy}
                     style={{ padding: '9px 16px', background: emailBusy ? 'var(--border)' : 'var(--accent)', color: emailBusy ? 'var(--text-muted)' : 'white', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: emailBusy ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}
                   >
-                    {emailBusy ? 'Skickar...' : 'Skicka'}
+                    {emailBusy ? tr('ui.skickar') : tr('ui.skicka')}
                   </button>
                 </div>
-                <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '6px' }}>Fakturan bifogas automatiskt som PDF.</div>
+                <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '6px' }}>{tr('ui.fakturan_bifogas_automatiskt_som_pdf')}</div>
                 {emailError && <div style={{ fontSize: '12px', color: 'var(--status-red-text)', marginTop: '8px' }}>{emailError}</div>}
-                {emailSent && !emailError && <div style={{ fontSize: '12px', color: 'var(--status-green-text)', fontWeight: 600, marginTop: '8px' }}>Skickad ✓</div>}
+                {emailSent && !emailError && <div style={{ fontSize: '12px', color: 'var(--status-green-text)', fontWeight: 600, marginTop: '8px' }}>{tr('ui.skickad')}</div>}
               </div>
             </>
           )}
@@ -1988,7 +2054,7 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
     return inv.status || 'draft';
   };
 
-  const getCustomerName = (id) => id === DEMO_CUSTOMER_ID ? 'Exempelkund AB' : (contacts.find(c => c.id === id)?.name || '—');
+  const getCustomerName = (id) => id === DEMO_CUSTOMER_ID ? tr('ui.exempelkund_ab') : (contacts.find(c => c.id === id)?.name || '—');
 
   const matchesSearchAndRange = (inv) => {
     if (search) {
@@ -2159,7 +2225,7 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
   // Ett utkast har ingen sådan koppling än, så det går att bara ta bort.
   const handleDeleteInvoice = async (inv, e) => {
     e?.stopPropagation();
-    if (!(await confirmDialog(`Ta bort utkastet ${inv.invoiceNumber}? Det går inte att ångra.`, { danger: true }))) return;
+    if (!(await confirmDialog(tr('ui.ta_bort_utkastet_det_gar_inte_att_angra', { invoiceNumber: inv.invoiceNumber }), { danger: true }))) return;
     setInvoices(prev => prev.filter(i => i.id !== inv.id));
   };
 
@@ -2189,29 +2255,29 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
     if (inv.isDemo) {
       const noop = () => {};
       return [
-        { key: 'view', label: 'Visa faktura', icon: Eye, onClick: noop },
-        { key: 'edit', label: 'Redigera', icon: Pencil, onClick: noop },
-        { key: 'mark-paid', label: 'Markera som betald', icon: CheckCircle2, onClick: noop },
-        { key: 'link-transaction', label: 'Koppla till transaktion', icon: Link2, onClick: noop },
-        { key: 'payment-link', label: 'Skapa betalningslänk', icon: CreditCard, onClick: noop },
-        { key: 'duplicate', label: 'Kopiera faktura', icon: Copy, onClick: noop },
+        { key: 'view', label: tr('ui.visa_faktura'), icon: Eye, onClick: noop },
+        { key: 'edit', label: tr('ui.redigera'), icon: Pencil, onClick: noop },
+        { key: 'mark-paid', label: tr('ui.markera_som_betald'), icon: CheckCircle2, onClick: noop },
+        { key: 'link-transaction', label: tr('ui.koppla_till_transaktion'), icon: Link2, onClick: noop },
+        { key: 'payment-link', label: tr('ui.skapa_betalningslank'), icon: CreditCard, onClick: noop },
+        { key: 'duplicate', label: tr('ui.kopiera_faktura'), icon: Copy, onClick: noop },
         { divider: true },
-        { key: 'mark-sent', label: 'Markera som skickad', icon: Send, onClick: noop },
+        { key: 'mark-sent', label: tr('ui.markera_som_skickad'), icon: Send, onClick: noop },
         { divider: true },
-        { key: 'delete', label: 'Ta bort', icon: Trash2, variant: 'danger', onClick: noop },
+        { key: 'delete', label: tr('ui.ta_bort'), icon: Trash2, variant: 'danger', onClick: noop },
       ];
     }
     const items = [
-      { key: 'view', label: 'Visa faktura', icon: Eye, onClick: () => viewInvoice(inv) },
+      { key: 'view', label: tr('ui.visa_faktura'), icon: Eye, onClick: () => viewInvoice(inv) },
     ];
     if (status !== 'paid') {
-      items.push({ key: 'edit', label: 'Redigera', icon: Pencil, onClick: () => openInvoice(inv) });
-      items.push({ key: 'mark-paid', label: 'Markera som betald', icon: CheckCircle2, onClick: () => onMarkPaid(inv.id) });
+      items.push({ key: 'edit', label: tr('ui.redigera'), icon: Pencil, onClick: () => openInvoice(inv) });
+      items.push({ key: 'mark-paid', label: tr('ui.markera_som_betald'), icon: CheckCircle2, onClick: () => onMarkPaid(inv.id) });
     }
     // "Registrera betalning" (koppling mot en verifikation/inbetalning)
     // sköts redan inne i fakturaformuläret — den här raden öppnar dit
     // istället för att duplicera det flödet i menyn.
-    items.push({ key: 'link-transaction', label: 'Koppla till transaktion', icon: Link2, onClick: () => openInvoice(inv) });
+    items.push({ key: 'link-transaction', label: tr('ui.koppla_till_transaktion'), icon: Link2, onClick: () => openInvoice(inv) });
     if (status !== 'paid' && onGetPaymentLinkUrl) {
       // Bugfix (kundrapport: "Skapa betalningslänk funkar inte" — knappen
       // grå trots att Stripe var anslutet): krävde tidigare att kunden
@@ -2225,17 +2291,17 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
       // direkt — se den komponentens filkommentar för varför.
       const canCreateLink = Boolean(company?.stripeAccountId);
       items.push({
-        key: 'payment-link', label: 'Skapa betalningslänk', icon: CreditCard,
+        key: 'payment-link', label: tr('ui.skapa_betalningslank'), icon: CreditCard,
         onClick: () => setPaymentLinkInvoice({ invoice: inv, customer }),
         disabled: !canCreateLink,
-        title: !canCreateLink ? 'Anslut Stripe under Inställningar för att låta kunder betala med kort' : undefined,
+        title: !canCreateLink ? tr('ui.anslut_stripe_under_installningar_for_att_lata_k') : undefined,
       });
     }
-    items.push({ key: 'duplicate', label: 'Kopiera faktura', icon: Copy, onClick: () => handleDuplicateInvoice(inv) });
+    items.push({ key: 'duplicate', label: tr('ui.kopiera_faktura'), icon: Copy, onClick: () => handleDuplicateInvoice(inv) });
 
     if (status === 'draft') {
       items.push({ divider: true });
-      items.push({ key: 'mark-sent', label: 'Markera som skickad', icon: Send, onClick: (e) => handleMarkSent(inv, e) });
+      items.push({ key: 'mark-sent', label: tr('ui.markera_som_skickad'), icon: Send, onClick: (e) => handleMarkSent(inv, e) });
     } else if (status !== 'paid') {
       items.push({ divider: true });
       // Bugfix (kodgranskning): tappade isOverdue-kollen som fanns innan
@@ -2244,21 +2310,21 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
       // förfallit än, inte bara faktiskt förfallna.
       if (isOverdue(inv)) {
         items.push({
-          key: 'remind', label: 'Skicka påminnelse', icon: Send,
+          key: 'remind', label: tr('ui.skicka_paminnelse'), icon: Send,
           onClick: () => { window.location.href = buildReminderMailto(inv, customer); },
           disabled: !customer?.email,
-          title: !customer?.email ? 'Lägg till kundens e-post under Kunder för att kunna skicka en påminnelse' : undefined,
+          title: !customer?.email ? tr('ui.lagg_till_kundens_e_post_under_kunder_for_att_ku') : undefined,
         });
       }
-      items.push({ key: 'credit', label: 'Kreditera faktura', icon: Undo2, onClick: () => handleCreateCreditNote(inv) });
+      items.push({ key: 'credit', label: tr('ui.kreditera_faktura'), icon: Undo2, onClick: () => handleCreateCreditNote(inv) });
     } else {
       items.push({ divider: true });
-      items.push({ key: 'credit', label: 'Kreditera faktura', icon: Undo2, onClick: () => handleCreateCreditNote(inv) });
+      items.push({ key: 'credit', label: tr('ui.kreditera_faktura'), icon: Undo2, onClick: () => handleCreateCreditNote(inv) });
     }
 
     if (status === 'draft') {
       items.push({ divider: true });
-      items.push({ key: 'delete', label: 'Ta bort', icon: Trash2, variant: 'danger', onClick: (e) => handleDeleteInvoice(inv, e) });
+      items.push({ key: 'delete', label: tr('ui.ta_bort'), icon: Trash2, variant: 'danger', onClick: (e) => handleDeleteInvoice(inv, e) });
     }
     return items;
   };
@@ -2270,34 +2336,34 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
   // rubrik, `sortKeyName` på de tre som redan gick att sortera på.
   const invoiceColumns = [
     {
-      key: 'invoiceNumber', label: 'Fakturanr', sortKeyName: 'invoiceNumber', fontWeight: 700, color: 'var(--text-main)',
+      key: 'invoiceNumber', label: tr('ui.fakturanr'), sortKeyName: 'invoiceNumber', fontWeight: 700, color: 'var(--text-main)',
       render: inv => inv.isDemo ? (
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
           {inv.invoiceNumber}
-          <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 7px', borderRadius: '999px', background: 'var(--status-blue-bg)', color: 'var(--status-blue-text)' }}>Exempel</span>
+          <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 7px', borderRadius: '999px', background: 'var(--status-blue-bg)', color: 'var(--status-blue-text)' }}>{tr('ui.exempel')}</span>
         </span>
       ) : inv.invoiceNumber,
     },
-    { key: 'customer', label: 'Kund', fontWeight: 500, color: 'var(--text-main)', wrap: true, render: inv => getCustomerName(inv.customerId) },
-    { key: 'date', label: 'Fakturadatum', sortKeyName: 'date', render: inv => formatDate(inv.date) },
+    { key: 'customer', label: tr('ui.kund'), fontWeight: 500, color: 'var(--text-main)', wrap: true, render: inv => getCustomerName(inv.customerId) },
+    { key: 'date', label: tr('ui.fakturadatum'), sortKeyName: 'date', render: inv => formatDate(inv.date) },
     {
-      key: 'dueDate', label: 'Förfallodatum', sortKeyName: 'dueDate',
+      key: 'dueDate', label: tr('ui.forfallodatum'), sortKeyName: 'dueDate',
       render: inv => <span style={{ color: isOverdue(inv) ? 'var(--status-red-text)' : 'var(--text-secondary)', fontWeight: isOverdue(inv) ? 700 : 400 }}>{formatDate(inv.dueDate)}</span>,
     },
-    { key: 'amount', label: 'Belopp', align: 'right', sortKeyName: 'amount', fontWeight: 600, color: 'var(--text-main)', render: inv => fmt(grossOf(inv)) },
+    { key: 'amount', label: tr('ui.belopp'), align: 'right', sortKeyName: 'amount', fontWeight: 600, color: 'var(--text-main)', render: inv => fmt(grossOf(inv)) },
     {
-      key: 'status', label: 'Status', render: inv => {
+      key: 'status', label: tr('ui.status'), render: inv => {
         const status = getStatus(inv);
         return (
           <div data-inv-tour="row-status" onClick={e => e.stopPropagation()}>
             {status === 'paid' ? (
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 700, background: STRONG_PAID.bg, color: STRONG_PAID.text }}>
-                <Check size={12} /> Betald{inv.paidDate ? ` ${formatDate(inv.paidDate)}` : ''}
+                <Check size={12} /> {tr('ui.betald')}{inv.paidDate ? ` ${formatDate(inv.paidDate)}` : ''}
               </span>
             ) : (
               <button
                 onClick={e => { e.stopPropagation(); if (!inv.isDemo) onMarkPaid(inv.id); }}
-                title={inv.isDemo ? 'Exempelfaktura — bara för visning' : 'Klicka för att markera som betald'}
+                title={inv.isDemo ? tr('ui.exempelfaktura_bara_for_visning') : tr('ui.klicka_for_att_markera_som_betald')}
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '999px',
                   fontSize: '12px', fontWeight: 700, cursor: 'pointer', border: 'none',
@@ -2305,7 +2371,7 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
                   color: status === 'overdue' ? STRONG_OVERDUE.text : status === 'draft' ? BRAND.grayText : STRONG_UNPAID.text,
                 }}
               >
-                {status === 'overdue' ? 'Förfallen' : status === 'draft' ? 'Ej bokförd' : 'Obetald'}
+                {status === 'overdue' ? tr('ui.forfallen') : status === 'draft' ? tr('ui.ej_bokford') : tr('ui.obetald')}
               </button>
             )}
           </div>
@@ -2315,7 +2381,7 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
     {
       key: 'actions', label: '', align: 'right', render: inv => (
         <div onClick={e => e.stopPropagation()}>
-          <RowActionMenu ariaLabel={`Fler åtgärder för faktura ${inv.invoiceNumber}`} items={buildInvoiceRowMenuItems(inv, getStatus(inv), contacts.find(c => c.id === inv.customerId))} triggerProps={{ 'data-inv-tour': 'row-menu' }} />
+          <RowActionMenu ariaLabel={tr('ui.fler_atgarder_faktura', { n: inv.invoiceNumber })} items={buildInvoiceRowMenuItems(inv, getStatus(inv), contacts.find(c => c.id === inv.customerId))} triggerProps={{ 'data-inv-tour': 'row-menu' }} />
         </div>
       ),
     },
@@ -2324,7 +2390,7 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
   // Kort dag+månad ("24 sep"), samma Intl-mönster som redan används i
   // Reports.jsx — bara för listradens metatext (rad 2), inte för själva
   // fakturadatafälten (som fortfarande visar hela ISO-datumet på desktop).
-  const shortDate = (d) => { try { return new Intl.DateTimeFormat('sv-SE', { day: 'numeric', month: 'short' }).format(new Date(d)); } catch { return d; } };
+  const shortDate = (d) => { try { return new Intl.DateTimeFormat(dateLocale(), { day: 'numeric', month: 'short' }).format(new Date(d)); } catch { return d; } };
 
   // Listradsläget (ListTable `mobileList`, se dess JSDoc) för kundfakturor
   // under 900px — kund som identitet, förfallo-/betaldatum och fakturanr
@@ -2332,7 +2398,7 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
   const invoiceMobileRow = (inv) => {
     const status = getStatus(inv);
     const dot = status === 'overdue' ? STRONG_OVERDUE.bg : status === 'draft' ? BRAND.grayText : status === 'paid' ? STRONG_PAID.bg : STRONG_UNPAID.bg;
-    const metaDate = status === 'paid' ? `betald ${shortDate(inv.paidDate)}` : status === 'overdue' ? `förföll ${shortDate(inv.dueDate)}` : `förfaller ${shortDate(inv.dueDate)}`;
+    const metaDate = status === 'paid' ? `betald ${shortDate(inv.paidDate)}` : status === 'overdue' ? tr('ui.forfoll', { v0: shortDate(inv.dueDate) }) : tr('ui.forfaller', { v0: shortDate(inv.dueDate) });
     // Kundfeedback med skärmdump: på mobilen stod det bara "—" överst på
     // raden. Identitetsraden hämtade kundnamnet, och saknas kunden (utkast
     // där ingen valts än, eller en kund som tagits bort) blev hela raden
@@ -2344,17 +2410,17 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
     const hasCustomer = Boolean(customerName) && customerName !== '—';
     return {
       dot,
-      primary: hasCustomer ? customerName : `Faktura #${inv.invoiceNumber}`,
+      primary: hasCustomer ? customerName : tr('ui.faktura_2', { invoiceNumber: inv.invoiceNumber }),
       amount: fmt(grossOf(inv)),
-      meta: hasCustomer ? `#${inv.invoiceNumber} · ${metaDate}` : `Ingen kund vald · ${metaDate}`,
+      meta: hasCustomer ? `#${inv.invoiceNumber} · ${metaDate}` : tr('ui.ingen_kund_vald', { metaDate }),
       pill: status === 'paid' ? (
-        <span style={{ padding: '2px 8px', borderRadius: '999px', fontSize: '10.5px', fontWeight: 700, background: STRONG_PAID.bg, color: STRONG_PAID.text }}>Betald</span>
+        <span style={{ padding: '2px 8px', borderRadius: '999px', fontSize: '10.5px', fontWeight: 700, background: STRONG_PAID.bg, color: STRONG_PAID.text }}>{tr('ui.betald')}</span>
       ) : (
         <span style={{
           padding: '2px 8px', borderRadius: '999px', fontSize: '10.5px', fontWeight: 700,
           background: status === 'overdue' ? STRONG_OVERDUE.bg : status === 'draft' ? BRAND.grayBg : STRONG_UNPAID.bg,
           color: status === 'overdue' ? STRONG_OVERDUE.text : status === 'draft' ? BRAND.grayText : STRONG_UNPAID.text,
-        }}>{status === 'overdue' ? 'Förfallen' : status === 'draft' ? 'Ej bokförd' : 'Obetald'}</span>
+        }}>{status === 'overdue' ? tr('ui.forfallen') : status === 'draft' ? tr('ui.ej_bokford') : tr('ui.obetald')}</span>
       ),
     };
   };
@@ -2444,11 +2510,11 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
   // samma bg/text-färgpar här som på radernas egna statusmärken, och samma
   // mönster som Granskning-sidans badges: räknaren syns bara om > 0.
   const statusOptions = [
-    { value: 'all', label: 'Alla' },
-    { value: 'draft', label: 'Ej bokförd', bg: BRAND.grayBg, color: BRAND.grayText },
-    { value: 'sent', label: 'Obetald', bg: STRONG_UNPAID.bg, color: STRONG_UNPAID.text, strong: true },
-    { value: 'overdue', label: 'Förfallen', bg: STRONG_OVERDUE.bg, color: STRONG_OVERDUE.text, strong: true },
-    { value: 'paid', label: 'Betald', bg: STRONG_PAID.bg, color: STRONG_PAID.text, strong: true },
+    { value: 'all', label: tr('ui.alla') },
+    { value: 'draft', label: tr('ui.ej_bokford'), bg: BRAND.grayBg, color: BRAND.grayText },
+    { value: 'sent', label: tr('ui.obetald'), bg: STRONG_UNPAID.bg, color: STRONG_UNPAID.text, strong: true },
+    { value: 'overdue', label: tr('ui.forfallen'), bg: STRONG_OVERDUE.bg, color: STRONG_OVERDUE.text, strong: true },
+    { value: 'paid', label: tr('ui.betald'), bg: STRONG_PAID.bg, color: STRONG_PAID.text, strong: true },
   ];
 
   return (
@@ -2458,12 +2524,12 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
           (invoiceTour.js) pekar på wrappern via data-inv-tour="tabs". */}
       <div data-inv-tour="tabs">
         <ListPageHeader
-          title="Kundfakturor"
-          subtitle="Fakturor du skickar till dina kunder"
+          title={tr('ui.kundfakturor')}
+          subtitle={tr('ui.fakturor_du_skickar_till_dina_kunder')}
           actions={!invoiceTourSeen ? [
             // Fakturaguiden — döljs så fort den stängts en gång, se invoiceTourSeen
             // ovan. Kvar därefter under Hjälp och support.
-            { key: 'tour', label: 'Så funkar fakturering', icon: Sparkles, onClick: handleStartInvoiceTour, variant: 'secondary' },
+            { key: 'tour', label: tr('ui.sa_funkar_fakturering'), icon: Sparkles, onClick: handleStartInvoiceTour, variant: 'secondary' },
           ] : []}
         />
       </div>
@@ -2474,14 +2540,14 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
         <div className="inv-searchrow" style={{ padding: '12px 20px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           <div className="inv-search" style={{ position: 'relative' }}>
             <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-            <input type="text" placeholder="Fakturanr eller kundnamn" value={searchInput} onChange={e => setSearchInput(e.target.value)} style={{ ...listSearchInputStyle, width: '220px' }} />
+            <input type="text" placeholder={tr('ui.fakturanr_eller_kundnamn')} value={searchInput} onChange={e => setSearchInput(e.target.value)} style={{ ...listSearchInputStyle, width: '220px' }} />
           </div>
-          <button onClick={() => setShowExtendedSearch(v => !v)} style={{ ...listHeaderButtonStyle('secondary'), ...(showExtendedSearch ? { background: 'var(--status-blue-bg)', borderColor: 'var(--status-blue-bg)', color: 'var(--status-blue-text)' } : {}) }}>Utökad sökning</button>
-          <button onClick={() => { setSearchInput(''); setDateFrom(''); setDateTo(''); setAmountMin(''); setAmountMax(''); }} title="Rensa sökning" style={{ ...listHeaderButtonStyle('secondary'), padding: '0 10px' }}><RefreshCw size={14} /></button>
+          <button onClick={() => setShowExtendedSearch(v => !v)} style={{ ...listHeaderButtonStyle('secondary'), ...(showExtendedSearch ? { background: 'var(--status-blue-bg)', borderColor: 'var(--status-blue-bg)', color: 'var(--status-blue-text)' } : {}) }}>{tr('ui.utokad_sokning')}</button>
+          <button onClick={() => { setSearchInput(''); setDateFrom(''); setDateTo(''); setAmountMin(''); setAmountMax(''); }} title={tr('ui.rensa_sokning')} style={{ ...listHeaderButtonStyle('secondary'), padding: '0 10px' }}><RefreshCw size={14} /></button>
           <div style={{ flex: 1 }} />
           {ufQuota.limited && (
             <span
-              title={`Gratiskontot för UF får skapa ${ufQuota.limit} fakturor per dygn.`}
+              title={tr('ui.gratiskontot_for_uf_far_skapa_fakturor_per_dygn', { limit: ufQuota.limit })}
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '5px 10px', borderRadius: '999px',
                 background: ufQuota.reached ? 'var(--status-amber-bg)' : 'var(--bg-muted)',
@@ -2490,36 +2556,36 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
               }}
             >
               {ufQuota.reached
-                ? `Dagens ${ufQuota.limit} fakturor är skapade`
-                : `${ufQuota.remaining} av ${ufQuota.limit} fakturor kvar idag`}
+                ? tr('ui.dagens_fakturor_ar_skapade', { limit: ufQuota.limit })
+                : tr('ui.av_fakturor_kvar_idag', { remaining: ufQuota.remaining, limit: ufQuota.limit })}
             </span>
           )}
           <button
             className="inv-cta" data-tour="page-invoices-cta" data-inv-tour="create-cta"
             onClick={() => { setShowForm(true); setEditingInvoice(null); setInvoicePrefill(null); }}
             disabled={ufQuota.reached}
-            title={ufQuota.reached ? 'Dygnstaket är nått — fler fakturor går att skapa imorgon.' : undefined}
+            title={ufQuota.reached ? tr('ui.dygnstaket_ar_natt_fler_fakturor_gar_att_skapa_i') : undefined}
             style={{ ...listHeaderButtonStyle('primary'), ...(ufQuota.reached ? { opacity: 0.5, cursor: 'not-allowed' } : {}) }}
           >
-            <Plus size={14} /> Skapa faktura
+            <Plus size={14} /> {tr('ui.skapa_faktura')}
           </button>
         </div>
         {showExtendedSearch && (
           <div className="inv-extended" style={{ padding: '10px 16px', borderTop: '1px solid var(--border-light)', display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'end', background: 'var(--bg-muted)' }}>
             <div>
-              <label style={lbl}>Datum från</label>
+              <label style={lbl}>{tr('ui.datum_fran')}</label>
               <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={{ ...listFilterFieldStyle, width: '150px' }} />
             </div>
             <div>
-              <label style={lbl}>Datum till</label>
+              <label style={lbl}>{tr('ui.datum_till')}</label>
               <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={{ ...listFilterFieldStyle, width: '150px' }} />
             </div>
             <div>
-              <label style={lbl}>Belopp från</label>
+              <label style={lbl}>{tr('ui.belopp_fran')}</label>
               <input type="number" value={amountMin} onChange={e => setAmountMin(e.target.value)} placeholder="0" style={{ ...listFilterFieldStyle, width: '110px' }} />
             </div>
             <div>
-              <label style={lbl}>Belopp till</label>
+              <label style={lbl}>{tr('ui.belopp_till')}</label>
               <input type="number" value={amountMax} onChange={e => setAmountMax(e.target.value)} placeholder="—" style={{ ...listFilterFieldStyle, width: '110px' }} />
             </div>
           </div>
@@ -2583,14 +2649,14 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
             samma väljare/ordning som ListFilterBar ritar på Bokföring och de
             andra listsidorna. */}
         <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-muted)' }}>
-          Visa
+          {tr('ui.visa')}
           <select
             value={pageSize}
             onChange={e => setPageSize(e.target.value === 'all' ? 'all' : Number(e.target.value))}
             style={{ ...listFilterFieldStyle, height: '28px', padding: '0 8px', fontSize: '12px' }}
           >
             {PAGE_SIZE_OPTIONS.map(n => <option key={n} value={n}>{n}</option>)}
-            <option value="all">Alla</option>
+            <option value="all">{tr('ui.alla')}</option>
           </select>
         </label>
         <Printer className="inv-pills-extra" size={15} style={{ cursor: 'pointer', color: 'var(--text-secondary)' }} />
@@ -2648,9 +2714,9 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
       {/* Bottom action bar (when rows selected) */}
       {selected.size > 0 && (
         <div style={{ background: 'var(--accent)', padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
-          <span style={{ color: 'white', fontSize: '13px', fontWeight: 600 }}>({selected.size} markerade)</span>
+          <span style={{ color: 'white', fontSize: '13px', fontWeight: 600 }}>({selected.size} {tr('ui.markerade')}</span>
           <button onClick={() => { selected.forEach(id => onMarkPaid(id)); setSelected(new Set()); }} style={{ padding: '6px 16px', background: '#22c55e', border: 'none', borderRadius: '5px', color: 'white', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}>
-            Markera som betalda
+            {tr('ui.markera_som_betalda')}
           </button>
           <button onClick={() => setSelected(new Set())} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', marginLeft: 'auto' }}><X size={18} /></button>
         </div>

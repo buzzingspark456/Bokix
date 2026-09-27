@@ -4,6 +4,7 @@ import { AccountSearch } from './SearchInputs';
 import {
   VAT_RATES, simpleKindsFor, paymentAccounts, transferAccounts, describeVerification,
 } from '../../utils/plainBooking';
+import { t } from '../../i18n';
 
 const fmt = (v) => new Intl.NumberFormat('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0);
 
@@ -49,8 +50,8 @@ export default function SimpleBookingPanel({ fields, setFields, accounts, orgTyp
   );
   const vatSelect = (withMixed) => (
     <select value={fields.vatRate} onChange={e => set({ vatRate: e.target.value === 'mixed' ? 'mixed' : Number(e.target.value) })} style={inp}>
-      {VAT_RATES.map(r => <option key={r} value={r}>{r === 0 ? 'Ingen moms' : `${r} % moms`}</option>)}
-      {withMixed && <option value="mixed">Flera momssatser</option>}
+      {VAT_RATES.map(r => <option key={r} value={r}>{r === 0 ? t('ui.ingen_moms') : t('ui.moms_7', { r })}</option>)}
+      {withMixed && <option value="mixed">{t('ui.flera_momssatser')}</option>}
     </select>
   );
   const amountField = (title) => (
@@ -66,8 +67,8 @@ export default function SimpleBookingPanel({ fields, setFields, accounts, orgTyp
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
       <div>
-        <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '8px' }}>Vad har hänt?</div>
-        <div role="radiogroup" aria-label="Vad har hänt?" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '8px' }}>
+        <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '8px' }}>{t('ui.vad_har_hant')}</div>
+        <div role="radiogroup" aria-label={t('ui.vad_har_hant')} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '8px' }}>
           {kinds.map(k => {
             const on = kind === k.id;
             return (
@@ -92,28 +93,28 @@ export default function SimpleBookingPanel({ fields, setFields, accounts, orgTyp
         {kind === 'expense' && (
           <>
             {amountField(vatExempt ? 'Belopp (kr)' : 'Belopp inkl. moms (kr)')}
-            {!vatExempt && <Field title="Moms på kvittot">{vatSelect(true)}</Field>}
+            {!vatExempt && <Field title={t('ui.moms_pa_kvittot')}>{vatSelect(true)}</Field>}
             {!vatExempt && fields.vatRate === 'mixed' && (
-              <Field title="Moms i kronor">
+              <Field title={t('ui.moms_i_kronor')}>
                 <input
                   type="number" min="0" step="0.01" inputMode="decimal" value={fields.vatAmount ?? ''}
-                  onChange={e => set({ vatAmount: e.target.value })} placeholder="All moms på kvittot"
+                  onChange={e => set({ vatAmount: e.target.value })} placeholder={t('ui.all_moms_pa_kvittot')}
                   style={{ ...inp, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
                 />
               </Field>
             )}
-            <Field title="Vad har du köpt?">
-              <AccountSearch value={fields.account} accounts={expenseAccounts} placeholder="Sök, till exempel kontorsmaterial" onChange={code => set({ account: code })} />
+            <Field title={t('ui.vad_har_du_kopt')}>
+              <AccountSearch value={fields.account} accounts={expenseAccounts} placeholder={t('ui.sok_till_exempel_kontorsmaterial')} onChange={code => set({ account: code })} />
             </Field>
-            <Field title="Hur betalade du?">
+            <Field title={t('ui.hur_betalade_du')}>
               <select
                 value={fields.payPrivate && isSoleProp ? 'private' : fields.payAccount}
                 onChange={e => (e.target.value === 'private' ? set({ payPrivate: true }) : set({ payPrivate: false, payAccount: e.target.value }))}
                 style={inp}
               >
                 {payments.map(a => <option key={a.code} value={a.code}>{a.name}</option>)}
-                {(accounts || []).some(a => String(a.code) === '2440') && <option value="2440">Ännu inte betalt (leverantörsskuld)</option>}
-                {isSoleProp && <option value="private">Med egna pengar (privat)</option>}
+                {(accounts || []).some(a => String(a.code) === '2440') && <option value="2440">{t('ui.annu_inte_betalt_leverantorsskuld')}</option>}
+                {isSoleProp && <option value="private">{t('ui.med_egna_pengar_privat')}</option>}
               </select>
             </Field>
           </>
@@ -122,21 +123,21 @@ export default function SimpleBookingPanel({ fields, setFields, accounts, orgTyp
         {kind === 'income' && (
           <>
             {amountField(vatExempt ? 'Belopp (kr)' : 'Belopp inkl. moms (kr)')}
-            {!vatExempt && <Field title="Moms på försäljningen">{vatSelect(false)}</Field>}
-            <Field title="Vad sålde du?">
-              <AccountSearch value={fields.account} accounts={incomeAccounts} placeholder="Standard efter momssats" onChange={code => set({ account: code })} />
+            {!vatExempt && <Field title={t('ui.moms_pa_forsaljningen')}>{vatSelect(false)}</Field>}
+            <Field title={t('ui.vad_salde_du')}>
+              <AccountSearch value={fields.account} accounts={incomeAccounts} placeholder={t('ui.standard_efter_momssats')} onChange={code => set({ account: code })} />
             </Field>
-            <Field title="Vart kom pengarna?">{accountSelect(fields.payAccount, v => set({ payAccount: v }), payments)}</Field>
+            <Field title={t('ui.vart_kom_pengarna')}>{accountSelect(fields.payAccount, v => set({ payAccount: v }), payments)}</Field>
           </>
         )}
 
         {kind === 'transfer' && (
           <>
             {amountField('Belopp (kr)')}
-            <Field title="Från">{accountSelect(fields.fromAccount, v => set({ fromAccount: v }), transfers)}</Field>
-            <Field title="Till">
+            <Field title={t('ui.fran')}>{accountSelect(fields.fromAccount, v => set({ fromAccount: v }), transfers)}</Field>
+            <Field title={t('ui.till_2')}>
               <select value={fields.toAccount} onChange={e => set({ toAccount: e.target.value })} style={inp}>
-                <option value="">Välj konto</option>
+                <option value="">{t('ui.valj_konto_2')}</option>
                 {transfers.map(a => <option key={a.code} value={a.code}>{a.code} {a.name}</option>)}
               </select>
             </Field>
@@ -146,7 +147,7 @@ export default function SimpleBookingPanel({ fields, setFields, accounts, orgTyp
         {(kind === 'owner_in' || kind === 'owner_out') && (
           <>
             {amountField('Belopp (kr)')}
-            <Field title={kind === 'owner_in' ? 'Vart satte du in pengarna?' : 'Från vilket konto togs pengarna?'}>
+            <Field title={kind === 'owner_in' ? t('ui.vart_satte_du_in_pengarna') : t('ui.fran_vilket_konto_togs_pengarna')}>
               {accountSelect(fields.payAccount, v => set({ payAccount: v }), payments)}
             </Field>
           </>
@@ -155,20 +156,20 @@ export default function SimpleBookingPanel({ fields, setFields, accounts, orgTyp
 
       <div style={{ border: '1px solid var(--border)', borderRadius: '12px', overflow: 'hidden', background: 'var(--bg-muted)' }}>
         <div style={{ padding: '10px 14px', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', letterSpacing: '0.02em', borderBottom: '1px solid var(--border)' }}>
-          SÅ HÄR BOKFÖRS DET
+          {t('ui.sa_har_bokfors_det')}
         </div>
         {preview.length === 0 ? (
-          <div style={{ padding: '14px', fontSize: '13px', color: 'var(--text-muted)' }}>{errors[0] || 'Fyll i uppgifterna ovan så visas bokföringen här.'}</div>
+          <div style={{ padding: '14px', fontSize: '13px', color: 'var(--text-muted)' }}>{errors[0] || t('ui.fyll_i_uppgifterna_ovan_sa_visas_bokforingen_har')}</div>
         ) : (
           <>
             {preview.map((p, i) => (
               <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', padding: '9px 14px', fontSize: '13px', borderBottom: '1px solid var(--border-light)', background: 'var(--bg-card)' }}>
                 <span style={{ color: 'var(--text-main)' }}><span style={{ color: 'var(--text-muted)', marginRight: '8px' }}>{p.account}</span>{p.text}</span>
-                <span style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', color: 'var(--text-main)' }}>{fmt(p.amount)} kr</span>
+                <span style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', color: 'var(--text-main)' }}>{fmt(p.amount)} {t('ui.kr')}</span>
               </div>
             ))}
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 14px', fontSize: '12.5px', fontWeight: 600, color: 'var(--status-green-text)', background: 'var(--status-green-bg)' }}>
-              <CheckCircle2 size={14} /> Det går ihop ({fmt(total)} kr)
+              <CheckCircle2 size={14} /> {t('ui.det_gar_ihop')}{fmt(total)} {t('ui.kr_5')}
             </div>
           </>
         )}

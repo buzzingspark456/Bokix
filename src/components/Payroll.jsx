@@ -6,6 +6,7 @@ import PayrollRunDetail from './PayrollRunDetail';
 import ListPageHeader, { ListFilterBar, listSearchInputStyle } from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
 import { BRAND } from '../utils/brandColors';
+import { t } from '../i18n';
 
 const formatSEK = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
 const inputSt = { width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '14px', outline: 'none', boxSizing: 'border-box' };
@@ -87,26 +88,26 @@ export default function Payroll({
           (kort-bakgrund + kantlinje, inte flytande text på sidbakgrunden)
           — se motsvarande kommentar i Contacts.jsx. */}
       <ListPageHeader
-        title="Anställda och lön"
+        title={t('ui.anstallda_och_lon')}
         actions={
           activeTab === 'employees' && viewState === 'list'
-            ? [{ key: 'new-employee', label: 'Ny anställd', icon: Plus, onClick: () => { setSelectedEmployee(null); setViewState('new'); }, variant: 'primary' }]
+            ? [{ key: 'new-employee', label: t('ui.ny_anstalld'), icon: Plus, onClick: () => { setSelectedEmployee(null); setViewState('new'); }, variant: 'primary' }]
             : activeTab === 'runs'
               ? [{
-                  key: 'new-run', label: 'Ny lönekörning', icon: Plus, variant: 'primary',
+                  key: 'new-run', label: t('ui.ny_lonekorning'), icon: Plus, variant: 'primary',
                   onClick: () => { if (employees.length === 0) { setActiveTab('employees'); setViewState('new'); } else setShowNewRun(true); },
-                  title: employees.length === 0 ? 'Lägg till en anställd först' : undefined,
+                  title: employees.length === 0 ? t('ui.lagg_till_en_anstalld_forst') : undefined,
                 }]
               : []
         }
         tabs={{
           items: [
-            { id: 'employees', label: 'Anställda', icon: UserCog },
-            { id: 'runs', label: 'Lönekörningar', icon: CalendarClock },
+            { id: 'employees', label: t('ui.anstallda'), icon: UserCog },
+            { id: 'runs', label: t('ui.lonekorningar'), icon: CalendarClock },
             // Semestersaldon hör hemma bredvid lönekörningarna och inte inne
             // i en enskild anställd: frågan "hur mycket semester ligger vi på"
             // är en företagsfråga (och en balanspost), inte en personalfråga.
-            { id: 'vacation', label: 'Semester', icon: Palmtree },
+            { id: 'vacation', label: t('ui.semester'), icon: Palmtree },
           ],
           activeId: activeTab,
           onChange: (id) => { setActiveTab(id); setViewState('list'); setSelectedEmployee(null); },
@@ -123,9 +124,9 @@ export default function Payroll({
           <div style={{ position: 'relative' }}>
             <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
             {activeTab === 'employees' ? (
-              <input type="text" placeholder="Sök anställd..." value={search} onChange={e => setSearch(e.target.value)} style={listSearchInputStyle} />
+              <input type="text" placeholder={t('ui.sok_anstalld')} value={search} onChange={e => setSearch(e.target.value)} style={listSearchInputStyle} />
             ) : (
-              <input type="text" placeholder="Sök period, t.ex. 2026-08..." value={runSearch} onChange={e => setRunSearch(e.target.value)} style={listSearchInputStyle} />
+              <input type="text" placeholder={t('ui.sok_period_t_ex_2026_08')} value={runSearch} onChange={e => setRunSearch(e.target.value)} style={listSearchInputStyle} />
             )}
           </div>
         </ListFilterBar>
@@ -153,16 +154,16 @@ export default function Payroll({
                 <UsersRound size={30} />
               </div>
               <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '6px' }}>
-                {employees.length === 0 ? 'Inga anställda registrerade' : 'Ingen matchade sökningen'}
+                {employees.length === 0 ? t('ui.inga_anstallda_registrerade') : t('ui.ingen_matchade_sokningen_2')}
               </div>
               {employees.length === 0 && (
                 <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)', maxWidth: '320px', margin: '0 0 18px' }}>
-                  Lägg till din första anställd för att kunna köra löner.
+                  {t('ui.lagg_till_din_forsta_anstalld_for_att_kunna_kora')}
                 </p>
               )}
               {employees.length === 0 && (
                 <button onClick={() => { setSelectedEmployee(null); setViewState('new'); }} style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '10px 20px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '9px', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}>
-                  <Plus size={16} /> Ny anställd
+                  <Plus size={16} /> {t('ui.ny_anstalld')}
                 </button>
               )}
             </div>
@@ -175,7 +176,7 @@ export default function Payroll({
             rows={filteredEmployees}
             mobileList={e => {
               const isActive = !e.endDate || e.endDate >= new Date().toISOString().slice(0, 10);
-              const typeLabel = e.employmentType === 'foretagsledare' ? 'Företagsledare' : e.employmentType === 'styrelseledamot' ? 'Styrelseledamot' : 'Anställd';
+              const typeLabel = e.employmentType === 'foretagsledare' ? t('ui.foretagsledare') : e.employmentType === 'styrelseledamot' ? 'Styrelseledamot' : t('ui.anstalld');
               return {
                 dot: isActive ? 'var(--status-green-text)' : 'var(--text-muted)',
                 primary: `${e.firstName} ${e.lastName}`,
@@ -183,22 +184,22 @@ export default function Payroll({
                 meta: `${typeLabel}${e.startDate ? ` · sedan ${e.startDate}` : ''}`,
                 pill: (
                   <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: isActive ? 'var(--status-green-bg)' : 'var(--border-light)', color: isActive ? 'var(--status-green-text)' : 'var(--text-secondary)' }}>
-                    {isActive ? 'Aktiv' : 'Avslutad'}
+                    {isActive ? t('ui.aktiv') : t('ui.avslutad')}
                   </span>
                 ),
               };
             }}
             columns={[
-              { key: 'name', label: 'Namn', fontWeight: 600, color: 'var(--text-main)', fontSize: '14px', render: e => `${e.firstName} ${e.lastName}` },
-              { key: 'type', label: 'Typ', color: 'var(--text-main)', fontSize: '14px', render: e => e.employmentType === 'foretagsledare' ? 'Företagsledare' : e.employmentType === 'styrelseledamot' ? 'Styrelseledamot' : 'Anställd' },
-              { key: 'startDate', label: 'Anställningsdatum', render: e => e.startDate },
-              { key: 'salary', label: 'Lön', fontWeight: 600, color: 'var(--text-main)', render: e => e.salaryForm === 'timlon' ? `${e.hourlyRate || 0} kr/tim` : formatSEK(e.monthlySalary) },
+              { key: 'name', label: t('ui.namn'), fontWeight: 600, color: 'var(--text-main)', fontSize: '14px', render: e => `${e.firstName} ${e.lastName}` },
+              { key: 'type', label: t('ui.typ'), color: 'var(--text-main)', fontSize: '14px', render: e => e.employmentType === 'foretagsledare' ? t('ui.foretagsledare') : e.employmentType === 'styrelseledamot' ? 'Styrelseledamot' : t('ui.anstalld') },
+              { key: 'startDate', label: t('ui.anstallningsdatum_2'), render: e => e.startDate },
+              { key: 'salary', label: t('ui.lon'), fontWeight: 600, color: 'var(--text-main)', render: e => e.salaryForm === 'timlon' ? `${e.hourlyRate || 0} kr/tim` : formatSEK(e.monthlySalary) },
               {
-                key: 'status', label: 'Status', render: e => {
+                key: 'status', label: t('ui.status'), render: e => {
                   const isActive = !e.endDate || e.endDate >= new Date().toISOString().slice(0, 10);
                   return (
                     <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: isActive ? 'var(--status-green-bg)' : 'var(--border-light)', color: isActive ? 'var(--status-green-text)' : 'var(--text-secondary)' }}>
-                      {isActive ? 'Aktiv' : 'Avslutad'}
+                      {isActive ? t('ui.aktiv') : t('ui.avslutad')}
                     </span>
                   );
                 },
@@ -213,9 +214,9 @@ export default function Payroll({
       {activeTab === 'employees' && viewState !== 'list' && (
         <div style={{ padding: '24px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-            <button onClick={() => { setViewState('list'); setSelectedEmployee(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '13px', padding: 0 }}>← Tillbaka</button>
+            <button onClick={() => { setViewState('list'); setSelectedEmployee(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '13px', padding: 0 }}>{t('ui.tillbaka')}</button>
             <span style={{ color: 'var(--border)' }}>|</span>
-            <h2 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>{viewState === 'new' ? 'Ny anställd' : 'Redigera anställd'}</h2>
+            <h2 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>{viewState === 'new' ? t('ui.ny_anstalld') : t('ui.redigera_anstalld')}</h2>
           </div>
           <EmployeeForm
             initial={viewState === 'edit' ? selectedEmployee : null}
@@ -246,30 +247,30 @@ export default function Payroll({
               ListTable nedan är nu flush precis som överallt annars. */}
           {showNewRun && (
             <div style={{ ...panelCard, padding: '20px', margin: '20px 24px 0' }}>
-              <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 700 }}>Ny lönekörning</h3>
+              <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 700 }}>{t('ui.ny_lonekorning')}</h3>
               <div style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
                 <div>
-                  <label style={labelSt}>Period</label>
+                  <label style={labelSt}>{t('ui.period')}</label>
                   <input type="month" value={newRunPeriod} onChange={e => setNewRunPeriod(e.target.value)} style={{ ...inputSt, width: '180px' }} />
                 </div>
                 <div>
-                  <label style={labelSt}>Utbetalningsdatum</label>
+                  <label style={labelSt}>{t('ui.utbetalningsdatum')}</label>
                   <input type="date" value={newRunPayDate} onChange={e => setNewRunPayDate(e.target.value)} style={{ ...inputSt, width: '180px' }} />
                 </div>
               </div>
               <div style={{ fontSize: '13px', color: activeEmployeesForPeriod.length === 0 ? 'var(--status-red-text)' : 'var(--text-secondary)', marginBottom: '14px' }}>
                 {activeEmployeesForPeriod.length === 0
-                  ? 'Ingen anställd är aktiv under vald period (kontrollera anställnings-/slutdatum under Anställda). Körningen kan inte skapas förrän minst en anställd matchar perioden.'
-                  : `${activeEmployeesForPeriod.length} ${activeEmployeesForPeriod.length === 1 ? 'anställd' : 'anställda'} kommer att inkluderas i denna körning.`}
+                  ? t('ui.ingen_anstalld_ar_aktiv_under_vald_period_kontro')
+                  : t('ui.kommer_att_inkluderas_i_denna_korning', { length: activeEmployeesForPeriod.length, v1: activeEmployeesForPeriod.length === 1 ? 'anställd' : 'anställda' })}
               </div>
               {existingRunForPeriod && (
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-amber-bg)', border: '1px solid var(--status-amber-bg)', borderRadius: '8px', padding: '10px 12px', marginBottom: '14px', fontSize: '12.5px', color: 'var(--status-amber-text)' }}>
-                  Det finns redan en lönekörning för {newRunPeriod} ({existingRunForPeriod.completedSteps.includes('booked') ? 'bokförd' : existingRunForPeriod.completedSteps.includes('calculated') ? 'beräknad' : 'utkast'}). Fortsätt bara om du medvetet vill skapa en till, t.ex. en rättelse.
+                  {t('ui.det_finns_redan_en_lonekorning_for')} {newRunPeriod} ({existingRunForPeriod.completedSteps.includes('booked') ? t('ui.bokford_2') : existingRunForPeriod.completedSteps.includes('calculated') ? t('ui.beraknad') : t('ui.utkast_2')}{t('ui.fortsatt_bara_om_du_medvetet_vill_skapa_en_till')}
                 </div>
               )}
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                <button onClick={() => setShowNewRun(false)} style={{ padding: '9px 18px', background: 'var(--border-light)', border: 'none', borderRadius: '8px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer' }}>Avbryt</button>
-                <button onClick={handleCreateRun} disabled={activeEmployeesForPeriod.length === 0} style={{ padding: '9px 18px', background: activeEmployeesForPeriod.length ? 'var(--accent)' : 'var(--border)', color: activeEmployeesForPeriod.length ? 'white' : 'var(--text-muted)', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: activeEmployeesForPeriod.length ? 'pointer' : 'not-allowed' }}>Skapa</button>
+                <button onClick={() => setShowNewRun(false)} style={{ padding: '9px 18px', background: 'var(--border-light)', border: 'none', borderRadius: '8px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer' }}>{t('ui.avbryt')}</button>
+                <button onClick={handleCreateRun} disabled={activeEmployeesForPeriod.length === 0} style={{ padding: '9px 18px', background: activeEmployeesForPeriod.length ? 'var(--accent)' : 'var(--border)', color: activeEmployeesForPeriod.length ? 'white' : 'var(--text-muted)', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: activeEmployeesForPeriod.length ? 'pointer' : 'not-allowed' }}>{t('ui.skapa')}</button>
               </div>
             </div>
           )}
@@ -283,32 +284,32 @@ export default function Payroll({
             // för att sväva ovanför/före tomt-läget.
             emptyMessage={sortedRuns.length === 0 ? (
               <div>
-                <div>Inga tidigare lönekörningar.</div>
+                <div>{t('ui.inga_tidigare_lonekorningar')}</div>
                 {employees.length === 0 && (
                   <div style={{ marginTop: '10px', fontSize: '12.5px', color: 'var(--status-amber-text)' }}>
-                    Du behöver lägga till minst en anställd innan du kan skapa en lönekörning. Klicka på "Ny lönekörning" för att komma till formuläret under fliken Anställda.
+                    {t('ui.du_behover_lagga_till_minst_en_anstalld_innan_du')}
                   </div>
                 )}
               </div>
-            ) : 'Ingen matchade sökningen.'}
+            ) : t('ui.ingen_matchade_sokningen')}
             rows={filteredRuns}
             mobileList={r => {
-              const status = r.completedSteps.includes('booked') ? 'Bokförd' : (r.completedSteps.includes('calculated') ? 'Beräknad' : 'Utkast');
-              const tone = status === 'Bokförd' ? { bg: 'var(--status-green-bg)', color: 'var(--status-green-text)' } : status === 'Beräknad' ? { bg: 'var(--status-blue-bg)', color: 'var(--status-blue-text)' } : { bg: 'var(--border-light)', color: 'var(--text-secondary)' };
+              const status = r.completedSteps.includes('booked') ? t('ui.bokford') : (r.completedSteps.includes('calculated') ? t('ui.bokforda_status_berakn') : t('ui.utkast'));
+              const tone = status === t('ui.bokford') ? { bg: 'var(--status-green-bg)', color: 'var(--status-green-text)' } : status === t('ui.bokforda_status_berakn') ? { bg: 'var(--status-blue-bg)', color: 'var(--status-blue-text)' } : { bg: 'var(--border-light)', color: 'var(--text-secondary)' };
               return {
                 dot: tone.color,
-                primary: `Lönekörning ${r.period}`,
-                meta: `${r.rows.length} ${r.rows.length === 1 ? 'anställd' : 'anställda'}`,
+                primary: t('ui.lonekorning', { period: r.period }),
+                meta: `${r.rows.length} ${r.rows.length === 1 ? t('ui.anstalld_2') : t('ui.anstallda_2')}`,
                 pill: <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: tone.bg, color: tone.color }}>{status}</span>,
               };
             }}
             columns={[
-              { key: 'period', label: 'Period', fontWeight: 700, color: 'var(--text-main)', fontSize: '14px', render: r => `Lönekörning ${r.period}` },
-              { key: 'employees', label: 'Anställda', color: 'var(--text-main)', fontSize: '14px', render: r => r.rows.length },
+              { key: 'period', label: t('ui.period'), fontWeight: 700, color: 'var(--text-main)', fontSize: '14px', render: r => t('ui.lonekorning', { period: r.period }) },
+              { key: 'employees', label: t('ui.anstallda'), color: 'var(--text-main)', fontSize: '14px', render: r => r.rows.length },
               {
-                key: 'status', label: 'Status', render: r => {
-                  const status = r.completedSteps.includes('booked') ? 'Bokförd' : (r.completedSteps.includes('calculated') ? 'Beräknad' : 'Utkast');
-                  const statusColor = status === 'Bokförd' ? { bg: 'var(--status-green-bg)', color: 'var(--status-green-text)' } : status === 'Beräknad' ? { bg: 'var(--status-blue-bg)', color: 'var(--status-blue-text)' } : { bg: 'var(--border-light)', color: 'var(--text-secondary)' };
+                key: 'status', label: t('ui.status'), render: r => {
+                  const status = r.completedSteps.includes('booked') ? t('ui.bokford') : (r.completedSteps.includes('calculated') ? t('ui.bokforda_status_berakn') : t('ui.utkast'));
+                  const statusColor = status === t('ui.bokford') ? { bg: 'var(--status-green-bg)', color: 'var(--status-green-text)' } : status === t('ui.bokforda_status_berakn') ? { bg: 'var(--status-blue-bg)', color: 'var(--status-blue-text)' } : { bg: 'var(--border-light)', color: 'var(--text-secondary)' };
                   return <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: statusColor.bg, color: statusColor.color }}>{status}</span>;
                 },
               },

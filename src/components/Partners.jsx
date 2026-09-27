@@ -5,6 +5,7 @@ import { confirmDialog } from './shared/ConfirmDialog';
 import {
   MAX_PARTNERS, validatePartners, buildAllocationVerification, isAllocationBooked, computePartnerStatement,
 } from '../utils/partners';
+import { t } from '../i18n';
 
 const fmt = (v) => new Intl.NumberFormat('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0);
 const newId = () => (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `partner_${Date.now()}_${Math.random().toString(36).slice(2)}`);
@@ -58,7 +59,7 @@ export default function Partners({ company, verifications = [], year, period, ye
   };
 
   const bookAllocation = async () => {
-    if (!(await confirmDialog(`Bokför resultatfördelning för ${year}? Resultatet ${fmt(lockedResult)} kr fördelas på delägarna efter andel.`))) return;
+    if (!(await confirmDialog(t('ui.bokfor_resultatfordelning_for_resultatet_kr_ford', { year, v1: fmt(lockedResult) })))) return;
     onAddVerification(buildAllocationVerification(year, lockedResult, saved, end));
   };
 
@@ -67,24 +68,24 @@ export default function Partners({ company, verifications = [], year, period, ye
   return (
     <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
       <p style={{ margin: 0, fontSize: '13.5px', color: 'var(--text-secondary)', maxWidth: '700px' }}>
-        Ett handelsbolag betalar ingen egen bolagsskatt. Resultatet fördelas på delägarna, som deklarerar sin andel i sin egen inkomstdeklaration. Varje delägare får en egen kontoserie (2010–2019, 2020–2029 och så vidare).
+        {t('ui.ett_handelsbolag_betalar_ingen_egen_bolagsskatt')}
       </p>
 
       <div style={card}>
-        <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '12px' }}>Delägare</div>
-        {list.length === 0 && <p style={{ margin: '0 0 12px', fontSize: '13px', color: 'var(--text-secondary)' }}>Inga delägare inlagda ännu.</p>}
+        <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '12px' }}>{t('ui.delagare')}</div>
+        {list.length === 0 && <p style={{ margin: '0 0 12px', fontSize: '13px', color: 'var(--text-secondary)' }}>{t('ui.inga_delagare_inlagda_annu')}</p>}
         {list.map((p, i) => (
           <div key={p.id} style={{ display: 'grid', gridTemplateColumns: 'minmax(140px, 2fr) minmax(120px, 1.4fr) 90px 36px', gap: '10px', alignItems: 'center', marginBottom: '10px' }}>
-            <input style={inp} value={p.name} placeholder={`Delägare ${i + 1}`} onChange={e => patch(p.id, { name: e.target.value })} />
-            <input style={inp} value={p.personnummer || ''} placeholder="Person-/org.nr" onChange={e => patch(p.id, { personnummer: e.target.value })} />
-            <input style={inp} type="number" step="0.01" value={p.sharePct} onChange={e => patch(p.id, { sharePct: e.target.value })} aria-label="Andel i procent" />
-            <button type="button" title="Ta bort" onClick={() => removePartner(p.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444' }}><Trash2 size={15} /></button>
+            <input style={inp} value={p.name} placeholder={t('ui.delagare_2', { v0: i + 1 })} onChange={e => patch(p.id, { name: e.target.value })} />
+            <input style={inp} value={p.personnummer || ''} placeholder={t('ui.person_org_nr')} onChange={e => patch(p.id, { personnummer: e.target.value })} />
+            <input style={inp} type="number" step="0.01" value={p.sharePct} onChange={e => patch(p.id, { sharePct: e.target.value })} aria-label={t('ui.andel_i_procent')} />
+            <button type="button" title={t('ui.ta_bort')} onClick={() => removePartner(p.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444' }}><Trash2 size={15} /></button>
           </div>
         ))}
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', marginTop: '6px' }}>
-          {list.length < MAX_PARTNERS && <button type="button" style={btn(false)} onClick={addPartner}><Plus size={14} /> Lägg till delägare</button>}
-          {draft && <button type="button" style={btn(true)} onClick={savePartners}>Spara delägare</button>}
-          {draft && <button type="button" style={btn(false)} onClick={() => { setDraft(null); setError(''); }}>Avbryt</button>}
+          {list.length < MAX_PARTNERS && <button type="button" style={btn(false)} onClick={addPartner}><Plus size={14} /> {t('ui.lagg_till_delagare')}</button>}
+          {draft && <button type="button" style={btn(true)} onClick={savePartners}>{t('ui.spara_delagare')}</button>}
+          {draft && <button type="button" style={btn(false)} onClick={() => { setDraft(null); setError(''); }}>{t('ui.avbryt')}</button>}
         </div>
         {(error || (draft && errors.length > 0)) && <p style={{ margin: '12px 0 0', fontSize: '13px', color: 'var(--status-red-text)' }}>{error || errors[0]}</p>}
       </div>
@@ -95,34 +96,34 @@ export default function Partners({ company, verifications = [], year, period, ye
             {allocationBooked ? <CheckCircle2 size={18} color="var(--status-green-text)" /> : <AlertTriangle size={18} color={locked ? 'var(--status-amber-text)' : 'var(--text-muted)'} />}
             <div>
               <div style={{ fontWeight: 700, fontSize: '14px' }}>
-                {allocationBooked ? `Resultatfördelningen för ${year} är bokförd` : locked ? `Resultatet för ${year} (${fmt(lockedResult)} kr) är inte fördelat` : `Resultatet för ${year} kan fördelas när året är låst`}
+                {allocationBooked ? t('ui.resultatfordelningen_for_ar_bokford', { year }) : locked ? t('ui.resultatet_for_kr_ar_inte_fordelat', { year, v1: fmt(lockedResult) }) : t('ui.resultatet_for_kan_fordelas_nar_aret_ar_last', { year })}
               </div>
               <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>
                 {allocatedAtClose
-                  ? 'Fördelades på varje delägares resultatkonto när året låstes.'
+                  ? t('ui.fordelades_pa_varje_delagares_resultatkonto_nar')
                   : locked
-                    ? 'Bokförs från 2099 Årets resultat till varje delägares resultatkonto.'
-                    : 'Bokslutet bokar resultatet direkt på varje delägares resultatkonto.'}
+                    ? t('ui.bokfors_fran_2099_arets_resultat_till_varje_dela')
+                    : t('ui.bokslutet_bokar_resultatet_direkt_pa_varje_delag')}
               </div>
             </div>
           </div>
-          {locked && !allocationBooked && <button type="button" style={btn(true)} onClick={bookAllocation}>Bokför resultatfördelning</button>}
+          {locked && !allocationBooked && <button type="button" style={btn(true)} onClick={bookAllocation}>{t('ui.bokfor_resultatfordelning')}</button>}
         </div>
       )}
 
       {statement.length > 0 && (
         <div style={{ border: '1px solid var(--border)', borderRadius: '12px', overflow: 'hidden', background: 'var(--bg-card)' }}>
-          <div style={{ padding: '16px 20px', fontWeight: 700, fontSize: '14px' }}>Underlag för N3A {year}</div>
+          <div style={{ padding: '16px 20px', fontWeight: 700, fontSize: '14px' }}>{t('ui.underlag_for_n3a')} {year}</div>
           <ListTable
             rowKey={s => s.partner.id}
             rows={statement}
-            mobileList={s => ({ primary: s.partner.name, amount: `${fmt(s.share)} kr`, meta: `${s.partner.sharePct} % · uttag ${fmt(s.uttag)} kr` })}
+            mobileList={s => ({ primary: s.partner.name, amount: `${fmt(s.share)} kr`, meta: t('ui.uttag_kr', { sharePct: s.partner.sharePct, v1: fmt(s.uttag) }) })}
             columns={[
-              { key: 'name', label: 'Delägare', fontWeight: 600, color: 'var(--text-main)', render: s => s.partner.name },
-              { key: 'sharePct', label: 'Andel', align: 'right', render: s => `${s.partner.sharePct} %` },
-              { key: 'share', label: locked ? 'Andel av resultatet' : 'Andel av resultatet hittills', align: 'right', color: 'var(--text-main)', render: s => `${fmt(s.share)} kr` },
-              { key: 'insattningar', label: 'Insättningar', align: 'right', render: s => `${fmt(s.insattningar)} kr` },
-              { key: 'uttag', label: 'Uttag', align: 'right', render: s => `${fmt(s.uttag)} kr` },
+              { key: 'name', label: t('ui.delagare'), fontWeight: 600, color: 'var(--text-main)', render: s => s.partner.name },
+              { key: 'sharePct', label: t('ui.andel'), align: 'right', render: s => `${s.partner.sharePct} %` },
+              { key: 'share', label: locked ? t('ui.andel_av_resultatet') : t('ui.andel_av_resultatet_hittills'), align: 'right', color: 'var(--text-main)', render: s => `${fmt(s.share)} kr` },
+              { key: 'insattningar', label: t('ui.insattningar'), align: 'right', render: s => `${fmt(s.insattningar)} kr` },
+              { key: 'uttag', label: t('ui.uttag'), align: 'right', render: s => `${fmt(s.uttag)} kr` },
             ]}
           />
         </div>

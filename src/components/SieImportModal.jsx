@@ -4,6 +4,7 @@ import { BRAND } from '../utils/brandColors';
 import { AccountSearch } from './shared/SearchInputs';
 import { ProgramLogo } from './shared/BrandLogos';
 import { MIGRATION_SOURCES, OTHER_PROGRAM_HINT, MENU_MOVED_HINT } from '../utils/migrationSources';
+import { t } from '../i18n';
 
 // ── SIE4-import — ladda upp fil → kontomappning → förhandsgranskning →
 // commit. Samma fyrstegsstruktur (modal-overlay/-content/-footer, steg-
@@ -16,7 +17,7 @@ import { MIGRATION_SOURCES, OTHER_PROGRAM_HINT, MENU_MOVED_HINT } from '../utils
 // KRITISKT säkerhetskrav (se planen/kravspecen): INGA skrivningar sker
 // förrän användaren uttryckligen bekräftar i sista steget. Allt fram
 // tills dess är bara parsning/visning i lokalt state.
-const STEP_LABELS = ['Program', 'Fil', 'Kontomappning', 'Förhandsgranskning'];
+const STEP_LABELS = [t('ui.steg_program'), t('ui.steg_fil'), t('ui.steg_kontomappning'), t('ui.steg_forhandsgranskning')];
 
 // Programlistan (namn, logotyp och den medvetet hedgade exportvägledningen)
 // bor i src/utils/migrationSources.js — samma lista som Settings-fliken och
@@ -62,7 +63,7 @@ export default function SieImportModal({ accounts = [], verifications = [], onIm
       const buffer = await file.arrayBuffer();
       const result = mod.parseSieFile(buffer);
       if (result.accounts.length === 0 && result.verifications.length === 0) {
-        throw new Error('Hittade varken konton eller verifikationer i filen. Kontrollera att det är en giltig SIE4-fil.');
+        throw new Error(t('ui.hittade_varken_konton_eller_verifikationer_i_fil'));
       }
       setFileName(file.name);
       setParsed(result);
@@ -79,7 +80,7 @@ export default function SieImportModal({ accounts = [], verifications = [], onIm
       setAccountRows(rows);
       setStep(2);
     } catch (e) {
-      setError(e.message || 'Kunde inte läsa eller tolka filen.');
+      setError(e.message || t('ui.kunde_inte_lasa_eller_tolka_filen'));
     } finally {
       setBusy(false);
     }
@@ -165,7 +166,7 @@ export default function SieImportModal({ accounts = [], verifications = [], onIm
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" style={{ maxWidth: '760px' }} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <span className="modal-title">Importera bokföring (SIE4)</span>
+          <span className="modal-title">{t('ui.importera_bokforing_sie4')}</span>
           <button className="modal-close" onClick={onClose}><X size={18} /></button>
         </div>
 
@@ -203,10 +204,10 @@ export default function SieImportModal({ accounts = [], verifications = [], onIm
               <UploadCloud size={20} color={BRAND.greenDark} />
             </div>
             <h3 style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-main)', margin: '0 0 4px' }}>
-              {busy ? 'Läser filen...' : 'Ladda upp SIE4-fil'}
+              {busy ? t('ui.laser_filen') : t('ui.ladda_upp_sie4_fil')}
             </h3>
-            <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: '0 0 6px' }}>Dra och släpp filen här, eller klicka för att välja</p>
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>.SI, .SE eller .SIE — exporterat från ditt tidigare bokföringsprogram</p>
+            <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: '0 0 6px' }}>{t('ui.dra_och_slapp_filen_har_eller_klicka_for_att_val')}</p>
+            <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>{t('ui.si_se_eller_sie_exporterat_fran_ditt_tidigare_bo')}</p>
           </div>
         )}
 
@@ -219,17 +220,17 @@ export default function SieImportModal({ accounts = [], verifications = [], onIm
         )}
 
         <div className="modal-footer">
-          {step > 1 && <button onClick={() => setStep(s => s - 1)} style={{ padding: '9px 16px', background: 'none', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}>Tillbaka</button>}
+          {step > 1 && <button onClick={() => setStep(s => s - 1)} style={{ padding: '9px 16px', background: 'none', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}>{t('ui.tillbaka_2')}</button>}
           <span style={{ flex: 1 }} />
-          <button onClick={onClose} style={{ padding: '9px 16px', background: 'none', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}>Avbryt</button>
+          <button onClick={onClose} style={{ padding: '9px 16px', background: 'none', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}>{t('ui.avbryt')}</button>
           {step === 2 && (
             <button disabled={hasIncompleteMapping} onClick={() => setStep(3)} style={{ padding: '9px 18px', background: hasIncompleteMapping ? 'var(--gray-300)' : BRAND.green, color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: 700, cursor: hasIncompleteMapping ? 'not-allowed' : 'pointer' }}>
-              Förhandsgranska
+              {t('ui.forhandsgranska')}
             </button>
           )}
           {step === 3 && (
             <button disabled={busy || !canCommit} onClick={handleCommit} style={{ padding: '9px 18px', background: canCommit ? BRAND.green : 'var(--gray-300)', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: 700, cursor: (busy || !canCommit) ? 'not-allowed' : 'pointer' }}>
-              Importera {preview.verificationsToImport.length + (preview.openingVerification ? 1 : 0)} verifikationer
+              {t('ui.importera')} {preview.verificationsToImport.length + (preview.openingVerification ? 1 : 0)} {t('ui.verifikationer')}
             </button>
           )}
         </div>
@@ -243,7 +244,7 @@ function ProgramStep({ onContinue }) {
   return (
     <div>
       <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: '0 0 14px' }}>
-        Vilket program bokförde du i tidigare? Vi visar var du hittar SIE-exporten där — importen i sig fungerar likadant oavsett program, SIE4 är samma filstandard.
+        {t('ui.vilket_program_bokforde_du_i_tidigare_vi_visar_v')}
       </p>
 
       {/* Konkurrensbevakning + SIE-formatets faktiska begränsning: en
@@ -256,7 +257,7 @@ function ProgramStep({ onContinue }) {
       <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-amber-bg)', color: 'var(--status-amber-text)', borderRadius: '8px', padding: '10px 12px', marginBottom: '14px', fontSize: '12.5px', lineHeight: 1.6 }}>
         <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
         <span>
-          En SIE-fil innehåller konton, verifikationer och saldon — <strong>aldrig</strong> kvittobilder eller bankkopplingar. Ladda ner ditt kvittoarkiv från det gamla programmet innan du säger upp det, annars är det borta.
+          {t('ui.en_sie_fil_innehaller_konton_verifikationer_och')} <strong>{t('ui.aldrig')}</strong> {t('ui.kvittobilder_eller_bankkopplingar_ladda_ner_ditt')}
         </span>
       </div>
       {/* Logotypbrickor istället för textpiller: man känner igen sitt eget
@@ -297,7 +298,7 @@ function ProgramStep({ onContinue }) {
           <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, borderRadius: '9px', background: 'var(--bg-muted)', border: '1px solid var(--border-light)', color: 'var(--text-muted)' }}>
             <HelpCircle size={20} />
           </span>
-          Annat program
+          {t('ui.annat_program')}
         </button>
       </div>
 
@@ -322,7 +323,7 @@ function ProgramStep({ onContinue }) {
         onClick={onContinue}
         style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 20px', background: BRAND.green, color: 'white', border: 'none', borderRadius: '8px', fontSize: '13.5px', fontWeight: 700, cursor: 'pointer' }}
       >
-        Jag har filen, fortsätt <ArrowRight size={15} />
+        {t('ui.jag_har_filen_fortsatt')} <ArrowRight size={15} />
       </button>
     </div>
   );
@@ -344,19 +345,19 @@ function AccountMappingStep({ rows, setRows, existingAccounts }) {
   return (
     <div>
       <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: '0 0 14px' }}>
-        {matched.length} konton matchar redan din befintliga kontoplan exakt. {flagged.length > 0 ? `${flagged.length} behöver ett snabbt beslut nedan.` : ''}
+        {matched.length} {t('ui.konton_matchar_redan_din_befintliga_kontoplan_ex')} {flagged.length > 0 ? t('ui.behover_ett_snabbt_beslut_nedan', { length: flagged.length }) : ''}
       </p>
 
       {hasVatAccounts && (
         <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-amber-bg)', color: 'var(--status-amber-text)', borderRadius: '8px', padding: '10px 12px', marginBottom: '14px', fontSize: '12.5px', lineHeight: 1.6 }}>
           <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
-          <span>Ett eller flera momskonton (26xx) behöver mappas nedan. Olika program lägger moms på olika kontonummer i den serien — kontrollera att din momsdeklaration ser rimlig ut efter importen.</span>
+          <span>{t('ui.ett_eller_flera_momskonton_26xx_behover_mappas_n')}</span>
         </div>
       )}
 
       {flagged.length === 0 && (
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', padding: '12px 14px', background: 'var(--status-green-bg)', color: 'var(--status-green-text)', borderRadius: '8px', fontSize: '12.5px', fontWeight: 600 }}>
-          <CheckCircle2 size={15} /> Alla konton matchar redan — inget att mappa.
+          <CheckCircle2 size={15} /> {t('ui.alla_konton_matchar_redan_inget_att_mappa')}
         </div>
       )}
 
@@ -365,30 +366,30 @@ function AccountMappingStep({ rows, setRows, existingAccounts }) {
           <div key={row.code} style={{ border: '1px solid var(--border)', borderRadius: '8px', padding: '10px 12px', background: 'var(--bg-card)' }}>
             {row.status === 'name-conflict' ? (
               <div style={{ fontSize: '12.5px', color: 'var(--text-main)' }}>
-                <strong>{row.code}</strong> finns redan som "<strong>{row.existingName}</strong>" — importfilen kallar det "{row.importedName}". Det befintliga namnet behålls (kontonamnet ändras inte automatiskt).
+                <strong>{row.code}</strong> {t('ui.finns_redan_som')}<strong>{row.existingName}</strong>{t('ui.importfilen_kallar_det')}{row.importedName}{t('ui.det_befintliga_namnet_behalls_kontonamnet_andras')}
               </div>
             ) : (
               <div>
                 <div style={{ fontSize: '12.5px', color: 'var(--text-main)', marginBottom: '8px' }}>
-                  <strong>{row.code}</strong> "{row.importedName}" finns inte i din kontoplan.
+                  <strong>{row.code}</strong> "{row.importedName}{t('ui.finns_inte_i_din_kontoplan')}
                 </div>
                 <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap', alignItems: 'center' }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', color: 'var(--text-secondary)', cursor: 'pointer' }}>
                     <input type="radio" checked={row.add} onChange={() => update(row.code, { add: true, remapTo: '' })} />
-                    Lägg till som nytt konto
+                    {t('ui.lagg_till_som_nytt_konto')}
                   </label>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', color: 'var(--text-secondary)', cursor: 'pointer' }}>
                     <input type="radio" checked={!row.add} onChange={() => update(row.code, { add: false })} />
-                    Bokför istället på ett befintligt konto:
+                    {t('ui.bokfor_istallet_pa_ett_befintligt_konto')}
                   </label>
                   {!row.add && (
                     <div style={{ minWidth: '220px' }}>
-                      <AccountSearch value={row.remapTo} onChange={(code) => update(row.code, { remapTo: code })} accounts={existingAccounts} placeholder="Sök konto..." compact />
+                      <AccountSearch value={row.remapTo} onChange={(code) => update(row.code, { remapTo: code })} accounts={existingAccounts} placeholder={t('ui.sok_konto_2')} compact />
                     </div>
                   )}
                 </div>
                 {!row.add && !row.remapTo && (
-                  <div style={{ fontSize: '11.5px', color: 'var(--status-amber-text)', marginTop: '6px' }}>Välj ett konto att mappa till innan du fortsätter.</div>
+                  <div style={{ fontSize: '11.5px', color: 'var(--status-amber-text)', marginTop: '6px' }}>{t('ui.valj_ett_konto_att_mappa_till_innan_du_fortsatte')}</div>
                 )}
               </div>
             )}
@@ -406,37 +407,37 @@ function SiePreviewStep({ preview, meta }) {
   return (
     <div>
       {meta?.program && (
-        <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '0 0 10px' }}>Importerad från: {meta.program}</p>
+        <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '0 0 10px' }}>{t('ui.importerad_fran')} {meta.program}</p>
       )}
 
       {alreadyImported && (
         <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-amber-bg)', color: 'var(--status-amber-text)', borderRadius: '8px', padding: '10px 12px', marginBottom: '12px', fontSize: '12.5px' }}>
           <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
-          <span>Den här filen verkar redan ha importerats tidigare. Fortsätter du ändå bokförs allt en gång till.</span>
+          <span>{t('ui.den_har_filen_verkar_redan_ha_importerats_tidiga')}</span>
         </div>
       )}
 
       {unbalanced.length > 0 && (
         <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-red-bg)', color: 'var(--status-red-text)', borderRadius: '8px', padding: '10px 12px', marginBottom: '12px', fontSize: '12.5px' }}>
           <AlertCircle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
-          <span>{unbalanced.length} verifikation(er) balanserar inte (debet ≠ kredit) — importen är blockerad tills det är rättat i källfilen.</span>
+          <span>{unbalanced.length} {t('ui.verifikation_er_balanserar_inte_debet_kredit_imp')}</span>
         </div>
       )}
 
       <div style={{ display: 'flex', gap: '10px', marginBottom: '14px', flexWrap: 'wrap' }}>
-        <span style={{ fontSize: '12.5px', padding: '4px 10px', borderRadius: '999px', background: 'var(--status-green-bg)', color: 'var(--status-green-text)', fontWeight: 700 }}>{accountsToAdd.length} nya konton</span>
-        <span style={{ fontSize: '12.5px', padding: '4px 10px', borderRadius: '999px', background: 'var(--status-green-bg)', color: 'var(--status-green-text)', fontWeight: 700 }}>{verificationsToImport.length} verifikationer</span>
-        {openingVerification && <span style={{ fontSize: '12.5px', padding: '4px 10px', borderRadius: '999px', background: openingVerification.balanced ? 'var(--status-green-bg)' : 'var(--status-red-bg)', color: openingVerification.balanced ? 'var(--status-green-text)' : 'var(--status-red-text)', fontWeight: 700 }}>1 ingående balans-verifikation</span>}
-        {warnings.length > 0 && <span style={{ fontSize: '12.5px', padding: '4px 10px', borderRadius: '999px', background: 'var(--status-amber-bg)', color: 'var(--status-amber-text)', fontWeight: 700 }}>{warnings.length} varningar</span>}
+        <span style={{ fontSize: '12.5px', padding: '4px 10px', borderRadius: '999px', background: 'var(--status-green-bg)', color: 'var(--status-green-text)', fontWeight: 700 }}>{accountsToAdd.length} {t('ui.nya_konton')}</span>
+        <span style={{ fontSize: '12.5px', padding: '4px 10px', borderRadius: '999px', background: 'var(--status-green-bg)', color: 'var(--status-green-text)', fontWeight: 700 }}>{verificationsToImport.length} {t('ui.verifikationer')}</span>
+        {openingVerification && <span style={{ fontSize: '12.5px', padding: '4px 10px', borderRadius: '999px', background: openingVerification.balanced ? 'var(--status-green-bg)' : 'var(--status-red-bg)', color: openingVerification.balanced ? 'var(--status-green-text)' : 'var(--status-red-text)', fontWeight: 700 }}>{t('ui.n1_ingaende_balans_verifikation')}</span>}
+        {warnings.length > 0 && <span style={{ fontSize: '12.5px', padding: '4px 10px', borderRadius: '999px', background: 'var(--status-amber-bg)', color: 'var(--status-amber-text)', fontWeight: 700 }}>{warnings.length} {t('ui.varningar')}</span>}
       </div>
 
       <div style={{ maxHeight: '280px', overflowY: 'auto', border: '1px solid var(--border)', borderRadius: '8px', marginBottom: warnings.length ? '12px' : 0 }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12.5px' }}>
           <thead>
             <tr style={{ background: 'var(--bg-muted)', position: 'sticky', top: 0 }}>
-              <th style={{ textAlign: 'left', padding: '8px 10px' }}>Datum</th>
-              <th style={{ textAlign: 'left', padding: '8px 10px' }}>Beskrivning</th>
-              <th style={{ textAlign: 'left', padding: '8px 10px' }}>Serie</th>
+              <th style={{ textAlign: 'left', padding: '8px 10px' }}>{t('ui.datum')}</th>
+              <th style={{ textAlign: 'left', padding: '8px 10px' }}>{t('ui.beskrivning')}</th>
+              <th style={{ textAlign: 'left', padding: '8px 10px' }}>{t('ui.serie')}</th>
             </tr>
           </thead>
           <tbody>
@@ -449,7 +450,7 @@ function SiePreviewStep({ preview, meta }) {
             ))}
           </tbody>
         </table>
-        {allRows.length > 200 && <div style={{ padding: '8px 10px', fontSize: '12px', color: 'var(--text-muted)' }}>+ {allRows.length - 200} till...</div>}
+        {allRows.length > 200 && <div style={{ padding: '8px 10px', fontSize: '12px', color: 'var(--text-muted)' }}>+ {allRows.length - 200} {t('ui.till')}</div>}
       </div>
 
       {warnings.length > 0 && (

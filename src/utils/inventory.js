@@ -1,5 +1,6 @@
 import { getDebet, getKredit } from './verificationAmounts';
 import { round2 } from './fixedAssets';
+import { t } from '../i18n';
 
 /**
  * Varulager och lagervärdering.
@@ -21,14 +22,14 @@ import { round2 } from './fixedAssets';
  */
 
 export const STOCK_METHODS = [
-  { id: 'avg', label: 'Vägt genomsnitt' },
-  { id: 'fifo', label: 'FIFO (först in, först ut)' },
+  { id: 'avg', label: t('ui.vagt_genomsnitt') },
+  { id: 'fifo', label: t('ui.fifo_forst_in_forst_ut') },
 ];
 
 export const STOCK_ACCOUNT_KINDS = [
-  { id: 'handelsvaror', label: 'Handelsvaror', stockAccount: '1460', changeAccount: '4960' },
-  { id: 'ravaror', label: 'Råvaror och material', stockAccount: '1410', changeAccount: '4910' },
-  { id: 'fardiga', label: 'Färdiga varor', stockAccount: '1450', changeAccount: '4950' },
+  { id: 'handelsvaror', label: t('ui.handelsvaror'), stockAccount: '1460', changeAccount: '4960' },
+  { id: 'ravaror', label: t('ui.ravaror_och_material'), stockAccount: '1410', changeAccount: '4910' },
+  { id: 'fardiga', label: t('ui.fardiga_varor'), stockAccount: '1450', changeAccount: '4950' },
 ];
 
 const num = (v) => Number(v) || 0;

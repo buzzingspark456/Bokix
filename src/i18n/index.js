@@ -61,3 +61,9 @@ export function useTranslation() {
   }, []);
   return { t, language, setLanguage };
 }
+
+// Språkinställning för datum med månads- och veckodagsnamn (Intl). Belopp
+// formateras fortfarande med sv-SE, eftersom kronor skrivs likadant.
+export function dateLocale() {
+  return language === 'en' ? 'en-GB' : 'sv-SE';
+}

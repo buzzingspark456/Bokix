@@ -18,8 +18,9 @@ import { readDocumentText } from '../utils/ocrCache';
 import { ScanOverlay, OcrChecklist, photoHintText, MIN_SCAN_MS, REVEAL_STEP_MS, CACHED_SCAN_MS } from './shared/ScanExperience';
 import { convertToSek } from '../utils/currencyConversion';
 import { historyForSupplier, historyFromVerifications } from '../utils/receiptHistory';
-import { reverseChargePurchaseInfo } from '../utils/reverseCharge';
+import { reverseChargePurchaseInfo, describeReverseCharge } from '../utils/reverseCharge';
 import { CURRENCIES, parseNumber, sekFrom, impliedRate, rateToInput, amountToInput, foreignForSave } from '../utils/foreignCurrency';
+import { t as tr, dateLocale } from '../i18n';
 
 // ── Formatting ──
 // Hela kronor utan decimaler, allt annat med ören: 1,50 kr visas som 1,50 kr och
@@ -38,17 +39,17 @@ const formatDate = (d) => {
 // gemener ("september 2026"), så första bokstaven versaliseras för hand.
 const formatMonthLabel = (yearMonth) => {
   const [y, m] = yearMonth.split('-').map(Number);
-  const label = new Intl.DateTimeFormat('sv-SE', { month: 'long', year: 'numeric' }).format(new Date(y, (m || 1) - 1, 1));
+  const label = new Intl.DateTimeFormat(dateLocale(), { month: 'long', year: 'numeric' }).format(new Date(y, (m || 1) - 1, 1));
   return label.charAt(0).toUpperCase() + label.slice(1);
 };
 // Kalendermånaderna för månadsväljaren i verktygsraden ('01'-'12' som
 // value, matchar date.slice(5,7)) — väljer man t.ex. Augusti visas alla
 // augustikvitton oavsett år, grupperat per år istället för år+månad.
 const MONTH_NAMES = [
-  { v: '01', label: 'Januari' }, { v: '02', label: 'Februari' }, { v: '03', label: 'Mars' },
-  { v: '04', label: 'April' }, { v: '05', label: 'Maj' }, { v: '06', label: 'Juni' },
-  { v: '07', label: 'Juli' }, { v: '08', label: 'Augusti' }, { v: '09', label: 'September' },
-  { v: '10', label: 'Oktober' }, { v: '11', label: 'November' }, { v: '12', label: 'December' },
+  { v: '01', label: tr('ui.januari') }, { v: '02', label: tr('ui.februari') }, { v: '03', label: tr('ui.mars') },
+  { v: '04', label: tr('ui.april') }, { v: '05', label: tr('ui.maj') }, { v: '06', label: tr('ui.juni') },
+  { v: '07', label: tr('ui.juli') }, { v: '08', label: tr('ui.augusti') }, { v: '09', label: tr('ui.september') },
+  { v: '10', label: tr('ui.oktober') }, { v: '11', label: tr('ui.november') }, { v: '12', label: tr('ui.december') },
 ];
 
 // SEK-belopp skrivs ofta med komma som decimaltecken i Sverige. type="number"
@@ -119,10 +120,10 @@ function getReceiptStatus(receipt, verifications) {
 }
 
 const STATUS_META = {
-  unhandled: { label: 'Ej hanterade', bg: BRAND.amberBg, color: BRAND.amberText },
-  pending: { label: 'Pågående', bg: BRAND.grayBg, color: BRAND.grayText },
-  booked: { label: 'Bokförda', bg: BRAND.greenLight, color: BRAND.greenDark },
-  reversed: { label: 'Rättade', bg: BRAND.grayBg, color: BRAND.grayText },
+  unhandled: { label: tr('ui.ej_hanterade'), bg: BRAND.amberBg, color: BRAND.amberText },
+  pending: { label: tr('ui.pagaende'), bg: BRAND.grayBg, color: BRAND.grayText },
+  booked: { label: tr('ui.bokforda'), bg: BRAND.greenLight, color: BRAND.greenDark },
+  reversed: { label: tr('ui.rattade'), bg: BRAND.grayBg, color: BRAND.grayText },
 };
 
 /** Bästa tillgängliga visningsnamn för den som laddade upp kvittot. */
@@ -149,8 +150,8 @@ function EmptyReceiptsState({ text, isFilteredEmpty }) {
         <p style={{ color: 'var(--text-secondary)', fontSize: '14px', margin: 0 }}>{text}</p>
       ) : (
         <>
-          <h3 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 8px', color: 'var(--text-main)' }}>Inga kvitton uppladdade ännu</h3>
-          <p style={{ fontSize: '14px', color: 'var(--text-secondary)', maxWidth: '300px', margin: '0 0 24px' }}>{text || 'Ladda upp ditt första kvitto för att börja.'}</p>
+          <h3 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 8px', color: 'var(--text-main)' }}>{tr('ui.inga_kvitton_uppladdade_annu')}</h3>
+          <p style={{ fontSize: '14px', color: 'var(--text-secondary)', maxWidth: '300px', margin: '0 0 24px' }}>{text || tr('ui.ladda_upp_ditt_forsta_kvitto_for_att_borja')}</p>
           {/* Inte .btn-primary (index.css: var(--lime-500), en ljusare
               grön) — samma mörka varumärkesgröna knapp som Kontakters/
               Offerters tomma-läge-knappar. */}
@@ -159,7 +160,7 @@ function EmptyReceiptsState({ text, isFilteredEmpty }) {
             onClick={() => document.getElementById('receipt-upload').click()}
             style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '10px 20px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '9px', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}
           >
-            <UploadCloud size={15} /> Ladda upp kvitto
+            <UploadCloud size={15} /> {tr('ui.ladda_upp_kvitto')}
           </button>
         </>
       )}
@@ -199,7 +200,7 @@ const formatSEK2 = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', 
 
 // Statusetiketterna i STATUS_META är plural (de sitter på filterpillren som
 // räknar flera kvitton). Här handlar det om ETT kvitto.
-const STATUS_SINGULAR = { unhandled: 'Ej hanterad', pending: 'Pågående', booked: 'Bokförd', reversed: 'Rättad' };
+const STATUS_SINGULAR = { unhandled: tr('ui.ej_hanterad'), pending: tr('ui.pagaende'), booked: tr('ui.bokford'), reversed: tr('ui.rattad') };
 
 // Liten badge som visas intill fältets label när OCR fyllt i det.
 // Försvinner så fort användaren redigerar fältet manuellt.
@@ -211,7 +212,7 @@ function OcrBadge() {
       padding: '1px 6px', borderRadius: '999px', verticalAlign: 'middle', marginLeft: '5px',
       background: '#e0f2fe', color: '#0369a1',
     }}>
-      <ScanLine size={10} /> OCR
+      <ScanLine size={10} /> {tr('ui.ocr')}
     </span>
   );
 }
@@ -319,7 +320,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
     timersRef.current = [];
     const startedAt = Date.now();
     setOcrStatus('scanning');
-    setOcrMessage('Startar läsning…');
+    setOcrMessage(tr('ui.startar_lasning'));
     setFx(null);
     setFxError('');
     setNumberLabel('');
@@ -350,7 +351,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
       let amountSek = parsed.currency ? null : parsed.amount;
       let foreignInfo = null;
       if (parsed.amount && parsed.currency) {
-        setOcrMessage(`Räknar om ${parsed.currency} till kronor…`);
+        setOcrMessage(tr('ui.raknar_om_till_kronor', { currency: parsed.currency }));
         const converted = await convertToSek(parsed.amount, parsed.currency, parsed.date);
         if (!isCurrent()) return;
         if (converted) amountSek = converted.sek;
@@ -474,7 +475,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
             rateDate: foreignInfo.converted?.date || null,
             source: foreignInfo.converted ? 'ecb' : 'manual',
           });
-          if (!foreignInfo.converted) setFxError('Kursen gick inte att hämta automatiskt. Fyll i kursen eller beloppet i kronor själv, helst det som faktiskt drogs på kortet.');
+          if (!foreignInfo.converted) setFxError(tr('ui.kursen_gick_inte_att_hamta_automatiskt_fyll_i_ku'));
         }
         setNotReceipt(nr);
         setUnreadable(Boolean(parsed.unreadable));
@@ -579,12 +580,12 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
   const removeFx = () => { setFx(null); setFxError(''); };
   const refetchRate = async () => {
     const amount = parseNumber(fx.amount);
-    if (!(amount > 0)) { setFxError('Fyll i beloppet i valutan först.'); return; }
+    if (!(amount > 0)) { setFxError(tr('ui.fyll_i_beloppet_i_valutan_forst')); return; }
     setFxBusy(true);
     setFxError('');
     const converted = await convertToSek(amount, fx.code, form.date);
     setFxBusy(false);
-    if (!converted) { setFxError('Kursen gick inte att hämta. Fyll i den för hand.'); return; }
+    if (!converted) { setFxError(tr('ui.kursen_gick_inte_att_hamta_fyll_i_den_for_hand')); return; }
     setFx(prev => ({ ...prev, rate: rateToInput(converted.rate), rateDate: converted.date, source: 'ecb' }));
     setSek(converted.sek);
     setOcrVat(null);
@@ -593,13 +594,13 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
   const handleSave = async () => {
     const newErrors = {};
     const amount = parseAmount(form.amount);
-    if (!form.date) newErrors.date = 'Datum krävs.';
-    if (!form.supplier.trim()) newErrors.supplier = 'Inköpsställe krävs.';
+    if (!form.date) newErrors.date = tr('ui.datum_kravs');
+    if (!form.supplier.trim()) newErrors.supplier = tr('ui.inkopsstalle_kravs');
     if (isNaN(amount) || amount <= 0) newErrors.amount = 'Ange ett giltigt belopp.';
-    if (!form.costAccount) newErrors.costAccount = 'Välj ett konto.';
+    if (!form.costAccount) newErrors.costAccount = tr('ui.valj_ett_konto');
     // Moms över 25 % av nettot (20 % av totalen) finns inte i Sverige.
     if (mixedVat && !(mixedVatAmount > 0 && mixedVatAmount <= amount * 0.2 + 0.005)) {
-      newErrors.vatAmount = 'Skriv in momsen från kvittot. Den kan inte vara mer än en femtedel av beloppet.';
+      newErrors.vatAmount = tr('ui.moms_for_hog');
     }
     if (fx && !foreignForSave(fx)) newErrors.fx = 'Fyll i belopp och kurs, eller ta bort valutan.';
     if (Object.keys(newErrors).length > 0) { setErrors(newErrors); return; }
@@ -616,7 +617,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
       || (number && (r.receiptNumber || '').trim().toLowerCase() === number)
     ));
     if (dup) {
-      const ok = await confirmDialog(`Det finns redan ett kvitto från "${dup.supplier}" på ${formatSEK(dup.amount)} samma datum. Vill du spara ändå?`);
+      const ok = await confirmDialog(tr('ui.det_finns_redan_ett_kvitto_fran_pa_samma_datum_v', { supplier: dup.supplier, v1: formatSEK(dup.amount) }));
       if (!ok) return;
     }
 
@@ -638,7 +639,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
     // man håller på med det. Overlayen är därför opak (det finns inget
     // bakom att skymta) och stängs inte längre av ett bakgrundsklick —
     // det finns ingen bakgrund att klicka på. Esc och Stäng gäller.
-    <div className="receipt-modal-overlay" role="dialog" aria-modal="true" aria-label="Kvittodetaljer" style={{ position: 'fixed', inset: 0, zIndex: 1150, display: 'flex' }}>
+    <div className="receipt-modal-overlay" role="dialog" aria-modal="true" aria-label={tr('ui.kvittodetaljer')} style={{ position: 'fixed', inset: 0, zIndex: 1150, display: 'flex' }}>
       <div className="receipt-modal-box">
 
         {/* ── Vänster: kvittot ──
@@ -650,7 +651,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
             url={receipt.receiptUrl}
             type={receipt.receiptType}
             expandable
-            emptyText="Ingen fil är sparad för det här kvittot. Uppgifterna bredvid går att fylla i ändå."
+            emptyText={tr('ui.ingen_fil_ar_sparad_for_det_har_kvittot_uppgifte')}
           />
           {ocrStatus === 'scanning' && <ScanOverlay detail={ocrMessage} />}
         </div>
@@ -659,9 +660,9 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
         <div className="rc-form">
           <div className="rc-form-head">
             <div style={{ minWidth: 0 }}>
-              <h2 style={{ margin: 0, fontSize: '16.5px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.01em' }}>Kvittodetaljer</h2>
+              <h2 style={{ margin: 0, fontSize: '16.5px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.01em' }}>{tr('ui.kvittodetaljer')}</h2>
               <p style={{ margin: '3px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>
-                {readOnly ? 'Bokfört underlag' : ocrStatus === 'scanning' ? 'Läser kvittot, det tar några sekunder…' : revealing ? 'Fyller i uppgifterna…' : unreadable ? 'Bilden gick inte att läsa av' : notReceipt ? 'Det här verkar inte vara ett kvitto eller en faktura' : ocrStatus === 'done' ? 'Avläsningen är klar. Granska och justera.' : 'Fyll i uppgifterna från kvittot'}
+                {readOnly ? tr('ui.bokfort_underlag') : ocrStatus === 'scanning' ? tr('ui.laser_kvittot_det_tar_nagra_sekunder') : revealing ? tr('ui.fyller_i_uppgifterna') : unreadable ? tr('ui.bilden_gick_inte_att_lasa_av') : notReceipt ? tr('ui.det_har_verkar_inte_vara_ett_kvitto_eller_en_fak') : ocrStatus === 'done' ? tr('ui.avlasningen_ar_klar_granska_och_justera') : tr('ui.fyll_i_uppgifterna_fran_kvittot')}
               </p>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
@@ -670,7 +671,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
               {canScan && hasScanned && (
                 <button
                   type="button"
-                  title={ocrStatus === 'scanning' ? (ocrMessage || 'Läser…') : 'Läs av kvittot automatiskt med OCR'}
+                  title={ocrStatus === 'scanning' ? (ocrMessage || tr('ui.laser')) : tr('ui.las_av_kvittot_automatiskt_med_ocr')}
                   disabled={busy}
                   onClick={() => runOcr(receipt.receiptUrl, { force: true })}
                   style={{
@@ -683,7 +684,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                   }}
                 >
                   <ScanLine size={14} style={{ animation: ocrStatus === 'scanning' ? 'spin 1s linear infinite' : 'none' }} />
-                  {ocrStatus === 'scanning' ? 'Läser…' : (currentDraft || Object.keys(revealed).length > 0 ? 'Läs av igen' : 'Läs av')}
+                  {ocrStatus === 'scanning' ? tr('ui.laser') : (currentDraft || Object.keys(revealed).length > 0 ? tr('ui.las_av_igen') : tr('ui.las_av'))}
                 </button>
               )}
               {statusMeta && (
@@ -691,7 +692,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                   {STATUS_SINGULAR[status] || statusMeta.label}
                 </span>
               )}
-              <button onClick={onClose} aria-label="Stäng" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, display: 'flex' }}><X size={18} /></button>
+              <button onClick={onClose} aria-label={tr('ui.stang')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, display: 'flex' }}><X size={18} /></button>
             </div>
           </div>
 
@@ -702,12 +703,12 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
             {canScan && !hasScanned && (
               <div className="rc-scan-offer">
                 <div className="rc-scan-offer-text">
-                  <strong>Läs av kvittot åt mig</strong>
-                  <span>Belopp, moms, datum och leverantör fylls i automatiskt. Du granskar innan det bokförs.</span>
+                  <strong>{tr('ui.las_av_kvittot_at_mig')}</strong>
+                  <span>{tr('ui.belopp_moms_datum_och_leverantor_fylls_i_automat')}</span>
                 </div>
                 <button type="button" className="rc-scan-offer-btn" onClick={() => runOcr(receipt.receiptUrl, { force: true })}>
                   <ScanLine size={15} />
-                  Läs av kvittot
+                  {tr('ui.las_av_kvittot')}
                 </button>
               </div>
             )}
@@ -718,16 +719,16 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
             {!readOnly && !revealing && reverseInfo && (
               <div className="rc-verify rc-verify-warn">
                 <AlertCircle size={14} style={{ flexShrink: 0 }} />
-                <span>Tjänst från {reverseInfo.region === 'eu' ? 'ett annat EU-land' : 'ett land utanför EU'}: säljaren tar ingen svensk moms, så hela beloppet är kostnaden. Momsen ska redovisas av dig (omvänd skattskyldighet) och bokförs automatiskt på 2645 och 2614. Den syns i ruta {reverseInfo.region === 'eu' ? '21' : '22'}, 30 och 48 i momsdeklarationen.</span>
+                <span>{describeReverseCharge(reverseInfo)}</span>
               </div>
             )}
             {!readOnly && !revealing && notReceipt && (
               <div className="rc-verify rc-verify-warn">
                 <AlertCircle size={14} style={{ flexShrink: 0 }} />
                 {unreadable ? (
-                  <span>Bilden gick inte att läsa av, så inget har fyllts i. {photoHintText(photoHint) || 'Ta om fotot — närmre, rakare och med bättre ljus — eller läs av igen när du har en tydligare bild.'}</span>
+                  <span>{tr('ui.bilden_gick_inte_att_lasa_av_sa_inget_har_fyllts')} {photoHintText(photoHint) || tr('ui.ta_om_fotot_narmre_rakare_och_med_battre_ljus_el')}</span>
                 ) : (
-                  <span>Det här ser inte ut som ett kvitto eller en faktura, så inget har fyllts i. Fyll i uppgifterna själv, eller ta bort filen om den hamnade här av misstag.</span>
+                  <span>{tr('ui.det_har_ser_inte_ut_som_ett_kvitto_eller_en_fakt')}</span>
                 )}
               </div>
             )}
@@ -737,13 +738,13 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
             {!readOnly && !revealing && !notReceipt && photoHint && (
               <div className="rc-verify rc-verify-warn">
                 <AlertCircle size={14} style={{ flexShrink: 0 }} />
-                <span>{photoHintText(photoHint)} Läs av igen med den nya bilden — eller fyll i fälten själv från kvittot.</span>
+                <span>{photoHintText(photoHint)} {tr('ui.las_av_igen_med_den_nya_bilden_eller_fyll_i_falt')}</span>
               </div>
             )}
             {!readOnly && !revealing && ocrVat && ocrVat.amountVerified && !ocrVat.verified && (
               <div className="rc-verify rc-verify-ok">
                 <CheckCircle2 size={14} style={{ flexShrink: 0 }} />
-                <span>Beloppet stämmer: netto plus moms på fakturan blir totalbeloppet.</span>
+                <span>{tr('ui.beloppet_stammer_netto_plus_moms_pa_fakturan_bli')}</span>
               </div>
             )}
 
@@ -755,7 +756,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
             {!readOnly && !revealing && ocrVat && ocrVat.creditNote && (
               <div className="rc-verify rc-verify-warn">
                 <AlertCircle size={14} style={{ flexShrink: 0 }} />
-                <span>Det här ser ut som en retur eller en kreditnota, alltså pengar tillbaka. Den är markerad som retur nedan och bokförs åt andra hållet. Stämmer det inte, ta bort markeringen.</span>
+                <span>{tr('ui.det_har_ser_ut_som_en_retur_eller_en_kreditnota')}</span>
               </div>
             )}
             {/* Kvittot har moms i flera satser (mat 12 % och hushåll 25 % i
@@ -765,29 +766,29 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
             {!vatExempt && !readOnly && !revealing && ocrVat && ocrVat.rates && (
               <div className="rc-verify rc-verify-warn">
                 <AlertCircle size={14} style={{ flexShrink: 0 }} />
-                <span>Kvittot har moms i flera satser ({ocrVat.rates.map(r => `${r} %`).join(' och ')}), tillsammans {formatSEK2(ocrVat.vatAmount)}. Momsen bokförs med det beloppet, så det blir rätt utan att du delar upp kvittot. Kontrollera att det stämmer med kvittot.</span>
+                <span>{tr('ui.kvittot_har_moms_i_flera_satser')}{ocrVat.rates.map(r => `${r} %`).join(' och ')}{tr('ui.tillsammans')} {formatSEK2(ocrVat.vatAmount)}{tr('ui.momsen_bokfors_med_det_beloppet_sa_det_blir_ratt')}</span>
               </div>
             )}
             {!vatExempt && !readOnly && !revealing && ocrVat && ocrVat.verified && (
               <div className="rc-verify rc-verify-ok">
                 <CheckCircle2 size={14} style={{ flexShrink: 0 }} />
-                <span>Momsen stämmer mot beloppen på kvittot ({formatSEK2(ocrVat.vatAmount)} moms, {Number(form.vatRate)} %).</span>
+                <span>{tr('ui.momsen_stammer_mot_beloppen_pa_kvittot')}{formatSEK2(ocrVat.vatAmount)} {tr('ui.moms_4')} {Number(form.vatRate)} %).</span>
               </div>
             )}
             {!vatExempt && !readOnly && !revealing && ocrVat && ocrVat.mismatch && (
               <div className="rc-verify rc-verify-warn">
                 <AlertCircle size={14} style={{ flexShrink: 0 }} />
-                <span>Kvittot säger {formatSEK2(ocrVat.vatAmount)} i moms, men det går inte ihop med beloppet {hasAmount ? formatSEK2(grossAmount) : '(tomt)'} och någon svensk momssats. Ett av de två är felläst — kontrollera båda mot kvittot. Rätta du beloppet följer momsen med.</span>
+                <span>{tr('ui.kvittot_sager')} {formatSEK2(ocrVat.vatAmount)} {tr('ui.i_moms_men_det_gar_inte_ihop_med_beloppet')} {hasAmount ? formatSEK2(grossAmount) : tr('ui.tomt')} {tr('ui.och_nagon_svensk_momssats_ett_av_de_tva_ar_fella')}</span>
               </div>
             )}
 
             {status === 'reversed' ? (
               <div style={{ background: BRAND.grayBg, color: BRAND.grayText, borderRadius: '10px', padding: '10px 13px', fontSize: '12.5px', fontWeight: 600, marginBottom: '16px', display: 'flex', alignItems: 'flex-start', gap: '7px', lineHeight: 1.5 }}>
-                <RotateCcw size={14} style={{ flexShrink: 0, marginTop: 2 }} /> Den här bokföringen har rättats med en motverifikation — originalet ändras aldrig i efterhand
+                <RotateCcw size={14} style={{ flexShrink: 0, marginTop: 2 }} /> {tr('ui.den_har_bokforingen_har_rattats_med_en_motverifi')}
               </div>
             ) : readOnly && (
               <div style={{ background: BRAND.greenLight, color: BRAND.greenDark, borderRadius: '10px', padding: '10px 13px', fontSize: '12.5px', fontWeight: 600, marginBottom: '16px', display: 'flex', alignItems: 'flex-start', gap: '7px', lineHeight: 1.5 }}>
-                <CheckCircle2 size={14} style={{ flexShrink: 0, marginTop: 2 }} /> Redan bokfört — belopp och konto kan inte ändras här
+                <CheckCircle2 size={14} style={{ flexShrink: 0, marginTop: 2 }} /> {tr('ui.redan_bokfort_belopp_och_konto_kan_inte_andras_h')}
               </div>
             )}
 
@@ -795,19 +796,19 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
             {ocrStatus === 'error' && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '7px', background: BRAND.amberBg, color: BRAND.amberText, borderRadius: '8px', padding: '8px 12px', marginBottom: '12px', fontSize: '12.5px', fontWeight: 600 }}>
                 <AlertCircle size={14} />
-                Kunde inte läsa av kvittot automatiskt — fyll i uppgifterna manuellt.
+                {tr('ui.kunde_inte_lasa_av_kvittot_automatiskt_fyll_i_up')}
               </div>
             )}
 
 
             <div className="rc-grid">
               <div className={flashField === 'date' ? 'rc-flash' : undefined}>
-                <label style={labelSt}>Datum {ocrFields.has('date') && <OcrBadge />}</label>
+                <label style={labelSt}>{tr('ui.datum')} {ocrFields.has('date') && <OcrBadge />}</label>
                 <input type="date" disabled={readOnly} value={form.date} onChange={e => { setForm(f => ({ ...f, date: e.target.value })); setOcrFields(s => { const n = new Set(s); n.delete('date'); return n; }); }} style={inputStErr(errors.date)} />
                 {errors.date && <div style={errSt}>{errors.date}</div>}
               </div>
               <div className={flashField === 'amount' ? 'rc-flash' : undefined}>
-                <label style={labelSt}>Belopp ink moms (kr) {ocrFields.has('amount') && <OcrBadge />}</label>
+                <label style={labelSt}>{tr('ui.belopp_ink_moms_kr')} {ocrFields.has('amount') && <OcrBadge />}</label>
                 <AmountInput disabled={readOnly} value={form.amount} onChange={v => { setForm(f => ({ ...f, amount: v })); setOcrFields(s => { const n = new Set(s); n.delete('amount'); return n; }); setOcrVat(null); onSekEdited(v); }} style={inputStErr(errors.amount)} />
                 {errors.amount && <div style={errSt}>{errors.amount}</div>}
               </div>
@@ -815,22 +816,22 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
               {fx ? (
                 <div className="rc-span rc-fx">
                   <div className="rc-fx-head">
-                    <span className="rc-fx-title">Kvittot är i utländsk valuta</span>
-                    {!readOnly && <button type="button" className="rc-link" onClick={removeFx}>Ta bort</button>}
+                    <span className="rc-fx-title">{tr('ui.kvittot_ar_i_utlandsk_valuta')}</span>
+                    {!readOnly && <button type="button" className="rc-link" onClick={removeFx}>{tr('ui.ta_bort')}</button>}
                   </div>
                   <div className="rc-fx-grid">
                     <div>
-                      <label style={labelSt}>Valuta</label>
+                      <label style={labelSt}>{tr('ui.valuta')}</label>
                       <select disabled={readOnly} value={fx.code} onChange={e => setFx(prev => ({ ...prev, code: e.target.value }))} style={{ ...inputSt, background: 'var(--bg-card)' }}>
                         {(CURRENCIES.includes(fx.code) ? CURRENCIES : [fx.code, ...CURRENCIES]).map(c => <option key={c} value={c}>{c}</option>)}
                       </select>
                     </div>
                     <div>
-                      <label style={labelSt}>Belopp i {fx.code}</label>
+                      <label style={labelSt}>{tr('ui.belopp_i')} {fx.code}</label>
                       <AmountInput disabled={readOnly} value={fx.amount} onChange={onFxAmount} style={inputSt} />
                     </div>
                     <div>
-                      <label style={labelSt}>Kurs (kr per {fx.code})</label>
+                      <label style={labelSt}>{tr('ui.kurs_kr_per')} {fx.code})</label>
                       <input
                         disabled={readOnly} type="text" inputMode="decimal" value={fx.rate} placeholder="0,0000" style={inputSt}
                         onChange={e => { const v = e.target.value; if (v === '' || /^\d*[.,]?\d{0,6}$/.test(v)) onFxRate(v); }}
@@ -839,63 +840,63 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                   </div>
                   <div className="rc-fx-note">
                     {fx.source === 'ecb' && fx.rateDate
-                      ? `Dagskurs från Europeiska centralbanken för ${fx.rateDate}${form.date && fx.rateDate < form.date ? ' (närmast föregående bankdag före köpet)' : ''}.`
-                      : 'Kursen är angiven för hand.'}
-                    {' '}Beloppet i kronor ovan är {fx.amount || '…'} {fx.code} × {fx.rate || '…'}. Ändra kursen eller beloppet i kronor om banken drog ett annat belopp.
+                      ? tr('ui.dagskurs_fran_europeiska_centralbanken_for', { rateDate: fx.rateDate, v1: form.date && fx.rateDate < form.date ? ' (närmast föregående bankdag före köpet)' : '' })
+                      : tr('ui.kursen_ar_angiven_for_hand')}
+                    {' '}{tr('ui.beloppet_i_kronor_ovan_ar')} {fx.amount || '…'} {fx.code} × {fx.rate || '…'}{tr('ui.andra_kursen_eller_beloppet_i_kronor_om_banken_d')}
                   </div>
                   {!readOnly && (
                     <button type="button" className="rc-chip" onClick={refetchRate} disabled={fxBusy} style={{ alignSelf: 'flex-start' }}>
-                      {fxBusy ? 'Hämtar kursen…' : `Hämta dagskurs för ${form.date || 'köpdatumet'}`}
+                      {fxBusy ? tr('ui.hamtar_kursen') : tr('ui.hamta_dagskurs_for', { v0: form.date || 'köpdatumet' })}
                     </button>
                   )}
                   {(fxError || errors.fx) && <div style={errSt}>{fxError || errors.fx}</div>}
                 </div>
               ) : !readOnly && (
                 <div className="rc-span">
-                  <button type="button" className="rc-link" onClick={addFx}>Kvittot är i annan valuta än kronor</button>
+                  <button type="button" className="rc-link" onClick={addFx}>{tr('ui.kvittot_ar_i_annan_valuta_an_kronor')}</button>
                 </div>
               )}
               {(!readOnly || form.refund) && (
                 <div className="rc-span">
                   <label className="rc-check">
                     <input type="checkbox" disabled={readOnly} checked={form.refund} onChange={e => setForm(f => ({ ...f, refund: e.target.checked }))} />
-                    <span>Retur eller återbetalning</span>
+                    <span>{tr('ui.retur_eller_aterbetalning')}</span>
                   </label>
-                  {form.refund && <div className="rc-hint">Pengarna kommer tillbaka: kostnaden och momsen minskar med beloppet.</div>}
+                  {form.refund && <div className="rc-hint">{tr('ui.pengarna_kommer_tillbaka_kostnaden_och_momsen_mi')}</div>}
                 </div>
               )}
               <div className={`rc-span${flashField === 'supplier' ? ' rc-flash' : ''}`}>
-                <label style={labelSt}>Inköpsställe / Leverantör {ocrFields.has('supplier') && <OcrBadge />}</label>
+                <label style={labelSt}>{tr('ui.inkopsstalle_leverantor')} {ocrFields.has('supplier') && <OcrBadge />}</label>
                 <TextSuggestInput
                   disabled={readOnly}
                   value={form.supplier}
                   onChange={v => { setForm(f => ({ ...f, supplier: v })); setOcrFields(s => { const n = new Set(s); n.delete('supplier'); return n; }); }}
                   suggestions={supplierSuggestions}
-                  placeholder="T.ex. Circle K, Clas Ohlson…"
+                  placeholder={tr('ui.t_ex_circle_k_clas_ohlson')}
                   style={inputStErr(errors.supplier)}
-                  emptyHint="Ställen du skriver in här dyker upp som förslag nästa gång."
+                  emptyHint={tr('ui.stallen_dyker_upp')}
                 />
                 {errors.supplier && <div style={errSt}>{errors.supplier}</div>}
               </div>
               <div className={`rc-span${flashField === 'receiptNumber' ? ' rc-flash' : ''}`}>
-                <label style={labelSt}>Kvitto-, faktura- eller ordernummer (valfritt) {ocrFields.has('receiptNumber') && <OcrBadge />}</label>
+                <label style={labelSt}>{tr('ui.kvitto_faktura_eller_ordernummer_valfritt')} {ocrFields.has('receiptNumber') && <OcrBadge />}</label>
                 <input
                   disabled={readOnly}
                   value={form.receiptNumber}
                   onChange={e => { setForm(f => ({ ...f, receiptNumber: e.target.value })); setNumberLabel(''); setOcrFields(s => { const n = new Set(s); n.delete('receiptNumber'); return n; }); }}
-                  placeholder="T.ex. 20240123"
+                  placeholder={tr('ui.t_ex_20240123')}
                   maxLength={40}
                   style={inputSt}
                 />
-                {numberLabel && form.receiptNumber && <div className="rc-hint">Avläst som {numberLabel.toLowerCase()}</div>}
+                {numberLabel && form.receiptNumber && <div className="rc-hint">{tr('ui.avlast_som')} {numberLabel.toLowerCase()}</div>}
               </div>
               {vatExempt ? (
                 <div className="rc-span rc-hint" style={{ marginTop: 0 }}>
-                  Företaget är inte momsregistrerat, så momsen på kvittot kan inte dras av. Hela beloppet bokförs som kostnad.
+                  {tr('ui.foretaget_ar_inte_momsregistrerat_sa_momsen_pa_k')}
                 </div>
               ) : (
               <div className={`rc-span${flashField === 'vatRate' ? ' rc-flash' : ''}`}>
-                <label style={labelSt}>Momssats {ocrFields.has('vatRate') && <OcrBadge />}</label>
+                <label style={labelSt}>{tr('ui.momssats')} {ocrFields.has('vatRate') && <OcrBadge />}</label>
                 <div style={{ display: 'flex', gap: '6px' }}>
                   {[25, 12, 6, 0, 'mixed'].map(v => {
                     const on = v === 'mixed' ? form.vatRate === 'mixed' : form.vatRate !== 'mixed' && Number(form.vatRate) === v;
@@ -917,14 +918,14 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                           opacity: readOnly && !on ? 0.5 : 1,
                         }}
                       >
-                        {v === 'mixed' ? 'Flera' : `${v}%`}
+                        {v === 'mixed' ? tr('ui.flera') : `${v}%`}
                       </button>
                     );
                   })}
                 </div>
                 {mixedVat && (
                   <div style={{ marginTop: '10px' }}>
-                    <label style={labelSt}>Moms i kronor</label>
+                    <label style={labelSt}>{tr('ui.moms_i_kronor')}</label>
                     <AmountInput
                       disabled={readOnly} value={form.vatAmount}
                       onChange={v => { setForm(f => ({ ...f, vatAmount: v })); setErrors(e => ({ ...e, vatAmount: undefined })); }}
@@ -932,7 +933,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                     />
                     {errors.vatAmount
                       ? <div style={errSt}>{errors.vatAmount}</div>
-                      : <div className="rc-hint">Summan av all moms på kvittot, till exempel 12 % på maten och 25 % på resten.</div>}
+                      : <div className="rc-hint">{tr('ui.summan_av_all_moms_pa_kvittot_till_exempel_12_pa')}</div>}
                   </div>
                 )}
               </div>
@@ -941,21 +942,21 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
               {/* Vad som faktiskt bokförs, medan man skriver. */}
               <div className="rc-span rc-split" aria-live="polite">
                 <div>
-                  <div className="rc-split-k">Netto</div>
+                  <div className="rc-split-k">{tr('ui.netto')}</div>
                   <div className="rc-split-v">{hasAmount ? formatSEK2(form.refund ? -netAmount : netAmount) : '—'}</div>
                 </div>
                 {!vatExempt && <div>
-                  <div className="rc-split-k">{mixedVat ? 'Moms' : `Moms ${vatRate}%`}</div>
+                  <div className="rc-split-k">{mixedVat ? tr('ui.moms') : tr('ui.moms_2', { vatRate })}</div>
                   <div className="rc-split-v">{hasAmount ? formatSEK2(form.refund ? -vatAmount : vatAmount) : '—'}</div>
                 </div>}
                 <div>
-                  <div className="rc-split-k">Totalt</div>
+                  <div className="rc-split-k">{tr('ui.totalt')}</div>
                   <div className="rc-split-v">{hasAmount ? formatSEK2(form.refund ? -grossAmount : grossAmount) : '—'}</div>
                 </div>
               </div>
 
               <div className={`rc-span${flashField === 'costAccount' ? ' rc-flash' : ''}`}>
-                <label style={labelSt}>Konto {ocrFields.has('costAccount') && <OcrBadge />}</label>
+                <label style={labelSt}>{tr('ui.konto_2')} {ocrFields.has('costAccount') && <OcrBadge />}</label>
                 {readOnly ? (
                   <div style={{ ...inputSt, background: 'var(--bg-muted)', color: 'var(--text-main)' }}>
                     {accountLabel ? `${accountLabel.code} – ${accountLabel.name}` : form.costAccount || '—'}
@@ -977,9 +978,9 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
 
               {projects.length > 0 && (
                 <div className="rc-span">
-                  <label style={labelSt}>Projekt (valfritt)</label>
+                  <label style={labelSt}>{tr('ui.projekt_valfritt')}</label>
                   <select value={form.projectId} onChange={e => setForm(f => ({ ...f, projectId: e.target.value }))} style={{ ...inputSt, background: 'var(--bg-card)' }}>
-                    <option value="">Inget projekt</option>
+                    <option value="">{tr('ui.inget_projekt')}</option>
                     {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
                 </div>
@@ -991,17 +992,17 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                   faktiskt finns någon mapp att lägga kvittot i. */}
               {folders.length > 0 && (
                 <div className="rc-span">
-                  <label style={labelSt}>Mapp (valfritt)</label>
+                  <label style={labelSt}>{tr('ui.mapp_valfritt')}</label>
                   <select value={form.folderId} onChange={e => setForm(f => ({ ...f, folderId: e.target.value }))} style={{ ...inputSt, background: 'var(--bg-card)' }}>
-                    <option value="">Ingen mapp</option>
+                    <option value="">{tr('ui.ingen_mapp')}</option>
                     {folders.map(fol => <option key={fol.id} value={fol.id}>{fol.name}</option>)}
                   </select>
                 </div>
               )}
 
               <div className="rc-span">
-                <label style={labelSt}>Anteckningar (valfritt)</label>
-                <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} placeholder="Vad var det här köpet till?" style={{ ...inputSt, resize: 'vertical', fontFamily: 'inherit' }} />
+                <label style={labelSt}>{tr('ui.anteckningar_valfritt')}</label>
+                <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} placeholder={tr('ui.vad_var_det_har_kopet_till')} style={{ ...inputSt, resize: 'vertical', fontFamily: 'inherit' }} />
               </div>
             </div>
           </div>
@@ -1013,25 +1014,25 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
               // samma princip som fakturors "Skapa en kreditfaktura".
               <button
                 type="button"
-                onClick={async () => { if (await confirmDialog('Skapa en rättelseverifikation som nollar ut kontering och belopp för det här kvittot? Originalbokföringen finns kvar i historiken, bara raderas eller ändras aldrig.')) { onReverse(receipt.id); onClose(); } }}
+                onClick={async () => { if (await confirmDialog(tr('ui.skapa_en_rattelseverifikation_som_nollar_ut_kont'))) { onReverse(receipt.id); onClose(); } }}
                 style={{ display: 'flex', alignItems: 'center', gap: '5px', background: 'none', border: 'none', color: BRAND.amberText, fontSize: '13px', fontWeight: 600, cursor: 'pointer', padding: '8px 4px' }}
               >
-                <RotateCcw size={14} /> Rätta bokföring
+                <RotateCcw size={14} /> {tr('ui.ratta_bokforing')}
               </button>
             ) : status !== 'reversed' ? (
               <button
                 type="button"
-                onClick={async () => { if (await confirmDialog('Ta bort det här kvittot? Det går inte att ångra.', { danger: true })) { onDelete(receipt.id); onClose(); } }}
+                onClick={async () => { if (await confirmDialog(tr('ui.ta_bort_det_har_kvittot_det_gar_inte_att_angra'), { danger: true })) { onDelete(receipt.id); onClose(); } }}
                 style={{ display: 'flex', alignItems: 'center', gap: '5px', background: 'none', border: 'none', color: BRAND.redText, fontSize: '13px', fontWeight: 600, cursor: 'pointer', padding: '8px 4px' }}
               >
-                <Trash2 size={14} /> Ta bort
+                <Trash2 size={14} /> {tr('ui.ta_bort')}
               </button>
             ) : <span />}
             <div style={{ display: 'flex', gap: '10px' }}>
-              <button type="button" onClick={onClose} style={{ padding: '9px 16px', background: 'var(--border-light)', border: 'none', borderRadius: '9px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer', fontSize: '13px', fontFamily: 'inherit' }}>Stäng</button>
+              <button type="button" onClick={onClose} style={{ padding: '9px 16px', background: 'var(--border-light)', border: 'none', borderRadius: '9px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer', fontSize: '13px', fontFamily: 'inherit' }}>{tr('ui.stang')}</button>
               {status !== 'reversed' && (
-                <button type="button" onClick={handleSave} disabled={busy} title={busy ? 'Vänta tills kvittot är avläst' : undefined} style={{ padding: '9px 18px', background: BRAND.green, border: 'none', borderRadius: '9px', fontWeight: 600, color: 'white', cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? 0.55 : 1, fontSize: '13px', fontFamily: 'inherit', boxShadow: '0 2px 8px color-mix(in srgb, var(--accent) 28%, transparent)' }}>
-                  {readOnly ? 'Spara ändringar' : 'Spara och bokför'}
+                <button type="button" onClick={handleSave} disabled={busy} title={busy ? tr('ui.vanta_tills_kvittot_ar_avlast') : undefined} style={{ padding: '9px 18px', background: BRAND.green, border: 'none', borderRadius: '9px', fontWeight: 600, color: 'white', cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? 0.55 : 1, fontSize: '13px', fontFamily: 'inherit', boxShadow: '0 2px 8px color-mix(in srgb, var(--accent) 28%, transparent)' }}>
+                  {readOnly ? tr('ui.spara_andringar') : tr('ui.spara_och_bokfor')}
                 </button>
               )}
             </div>
@@ -1047,7 +1048,7 @@ function ReceiptThumbImg({ url }) {
   const activeUrl = useSignedUrl(url);
   if (!activeUrl) return null;
   return (
-    <img key={activeUrl} src={activeUrl} alt="Kvitto" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.currentTarget.style.display = 'none'; }} />
+    <img key={activeUrl} src={activeUrl} alt={tr('ui.kvitto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.currentTarget.style.display = 'none'; }} />
   );
 }
 
@@ -1117,7 +1118,7 @@ export default function Expenses({
   };
   const removeFolder = async (folder) => {
     const inUse = expenses.some(e => e.folderId === folder.id);
-    if (inUse && !(await confirmDialog(`Kvitton i "${folder.name}" läggs tillbaka som osorterade. Ta bort mappen?`, { danger: true }))) return;
+    if (inUse && !(await confirmDialog(tr('ui.kvitton_i_laggs_tillbaka_som_osorterade_ta_bort', { name: folder.name }), { danger: true }))) return;
     onDeleteReceiptFolder?.(folder.id);
   };
   // Kundönskemål: "en vy där de bara ligger under varandra, inte uppdelat
@@ -1263,8 +1264,8 @@ export default function Expenses({
       .catch(err => {
         finish();
         const msg = /bucket not found/i.test(err.message || '')
-          ? `${file.name}: bildlagring är inte konfigurerad i Supabase-projektet ännu (se supabase-setup.sql).`
-          : `${file.name}: kunde inte laddas upp (${err.message}).`;
+          ? tr('ui.bildlagring_ar_inte_konfigurerad_i_supabase_proj', { name: file.name })
+          : tr('ui.kunde_inte_laddas_upp', { name: file.name, message: err.message });
         setFileErrors(prev => [...prev, msg]);
       });
   };
@@ -1272,22 +1273,22 @@ export default function Expenses({
   const handleFiles = (files) => {
     const errors = [];
     if (files.length > MAX_FILES) {
-      errors.push(`Max ${MAX_FILES} filer åt gången — bara de första ${MAX_FILES} laddas upp.`);
+      errors.push(tr('ui.max_filer_at_gangen_bara_de_forsta_laddas_upp', { MAX_FILES, MAX_FILES1: MAX_FILES }));
     }
     const toProcess = files.slice(0, MAX_FILES);
     const valid = [];
     toProcess.forEach(f => {
       if (!ACCEPTED_TYPES.includes(f.type)) {
-        errors.push(`${f.name}: filformatet stöds inte (endast JPG, PNG, WEBP, HEIC och PDF).`);
+        errors.push(tr('ui.filformatet_stods_inte_endast_jpg_png_webp_heic', { name: f.name }));
       } else if (f.size > MAX_FILE_MB * 1024 * 1024) {
-        errors.push(`${f.name}: filen är för stor (max ${MAX_FILE_MB} MB).`);
+        errors.push(tr('ui.filen_ar_for_stor_max_mb', { name: f.name, MAX_FILE_MB }));
       } else {
         valid.push(f);
       }
     });
     setFileErrors(errors);
     if (valid.length === 0) return;
-    if (!user?.id) { setFileErrors(prev => [...prev, 'Du måste vara inloggad för att ladda upp kvitton.']); return; }
+    if (!user?.id) { setFileErrors(prev => [...prev, tr('ui.inloggad_for_kvitton')]); return; }
     // En hel mapp med kvitton ska inte kasta upp en modal per fil — då är
     // man i "tömma telefonen"-läget och vill se listan växa. Ett ensamt
     // kvitto är däremot alltid ett kvitto man tänkt fylla i på en gång.
@@ -1323,7 +1324,7 @@ export default function Expenses({
           med listan direkt istället för att kliva genom fyra separata
           block (rubrik, uppladdning, sökrad, filterrad) innan man ens ser
           ett kvitto. */}
-      <ListPageHeader title={pageTitle || 'Kvitton'} subtitle={pageSubtitle}>
+      <ListPageHeader title={pageTitle || tr('ui.kvitton')} subtitle={pageSubtitle}>
         <div style={{ marginTop: '14px' }}>
           {/* Uppladdningszonen — en enda yta för både enskilda filer och en
               hel mapp (Sida 34), istället för separata konkurrerande ytor. */}
@@ -1341,9 +1342,9 @@ export default function Expenses({
             <input type="file" id="receipt-upload-folder" style={{ display: 'none' }} multiple webkitdirectory="" directory="" onChange={handleFileInput} />
             <span className="rc-drop-icon"><UploadCloud size={19} color={BRAND.greenDark} /></span>
             <span className="rc-drop-text">
-              <span className="rc-drop-title">{isDragging ? 'Släpp filerna här' : 'Ladda upp kvitton'}</span>
+              <span className="rc-drop-title">{isDragging ? tr('ui.slapp_filerna_har') : tr('ui.ladda_upp_kvitton')}</span>
               <span className="rc-drop-hint">
-                Dra och släpp, eller klicka för att välja. PDF, JPG, PNG eller HEIC — max {MAX_FILE_MB} MB.
+                {tr('ui.dra_och_slapp_eller_klicka_for_att_valja_pdf_jpg')} {MAX_FILE_MB} {tr('ui.mb')}
               </span>
             </span>
             <button
@@ -1351,7 +1352,7 @@ export default function Expenses({
               className="rc-drop-folder"
               onClick={e => { e.stopPropagation(); document.getElementById('receipt-upload-folder').click(); }}
             >
-              Välj en hel mapp
+              {tr('ui.valj_en_hel_mapp')}
             </button>
           </div>
 
@@ -1396,11 +1397,11 @@ export default function Expenses({
                 type="search"
                 value={query}
                 onChange={e => setQuery(e.target.value)}
-                placeholder="Sök leverantör, konto eller belopp…"
-                aria-label="Sök bland kvitton"
+                placeholder={tr('ui.sok_leverantor_konto_eller_belopp')}
+                aria-label={tr('ui.sok_bland_kvitton')}
               />
               {query && (
-                <button type="button" onClick={() => setQuery('')} aria-label="Rensa sökning" className="rc-search-clear">
+                <button type="button" onClick={() => setQuery('')} aria-label={tr('ui.rensa_sokning')} className="rc-search-clear">
                   <X size={13} />
                 </button>
               )}
@@ -1408,7 +1409,7 @@ export default function Expenses({
 
             {showUploaderTabs && (
               <div className="rc-segmented">
-                {[{ id: 'all', label: 'Alla' }, { id: 'mine', label: 'Mina' }].map(t => (
+                {[{ id: 'all', label: tr('ui.alla') }, { id: 'mine', label: tr('ui.mina') }].map(t => (
                   <button
                     key={t.id}
                     onClick={() => setViewTab(t.id)}
@@ -1428,18 +1429,18 @@ export default function Expenses({
             <select
               value={monthFilter}
               onChange={e => setMonthFilter(e.target.value)}
-              aria-label="Filtrera på månad"
+              aria-label={tr('ui.filtrera_pa_manad')}
               style={{ height: '34px', padding: '0 10px', border: '1px solid var(--border)', borderRadius: '9px', background: 'var(--bg-card)', color: 'var(--text-main)', fontSize: '12.5px', fontWeight: 600, fontFamily: 'inherit', flexShrink: 0 }}
             >
-              <option value="all">Alla månader</option>
-              {MONTH_NAMES.map(m => <option key={m.v} value={m.v}>{m.label} (alla år)</option>)}
+              <option value="all">{tr('ui.alla_manader')}</option>
+              {MONTH_NAMES.map(m => <option key={m.v} value={m.v}>{m.label} {tr('ui.alla_ar')}</option>)}
             </select>
 
             {/* Grupperat (rubriker per månad/år) kontra en enda platt lista
                 — oberoende av månadsfiltret ovan. */}
             <div className="rc-segmented">
-              <button onClick={() => setFlatView(false)} className={!flatView ? 'active' : ''}>Grupperat</button>
-              <button onClick={() => setFlatView(true)} className={flatView ? 'active' : ''}>Lista</button>
+              <button onClick={() => setFlatView(false)} className={!flatView ? 'active' : ''}>{tr('ui.grupperat')}</button>
+              <button onClick={() => setFlatView(true)} className={flatView ? 'active' : ''}>{tr('ui.lista')}</button>
             </div>
 
             {Object.values(statusCounts).some(c => c > 0) && (
@@ -1505,7 +1506,7 @@ export default function Expenses({
                   color: 'var(--text-secondary)', cursor: 'pointer', fontFamily: 'inherit',
                 }}
               >
-                Osorterat
+                {tr('ui.osorterat')}
                 <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 16, height: 16, padding: '0 4px', borderRadius: '999px', fontSize: '10px', fontWeight: 700, background: 'var(--status-chip-bg)', color: 'var(--text-secondary)' }}>{folderCounts.get('__unfiled__')}</span>
               </button>
             )}
@@ -1513,7 +1514,7 @@ export default function Expenses({
               ref={folderManagerAnchorRef}
               type="button"
               onClick={() => setFolderManagerOpen(v => !v)}
-              title="Skapa och hantera mappar"
+              title={tr('ui.skapa_och_hantera_mappar')}
               style={{
                 display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 10px',
                 background: folderManagerOpen ? 'var(--bg-muted)' : 'none',
@@ -1521,16 +1522,16 @@ export default function Expenses({
                 color: 'var(--text-secondary)', cursor: 'pointer', fontFamily: 'inherit',
               }}
             >
-              <FolderPlus size={13} /> {folders.length === 0 ? 'Skapa en mapp' : 'Mappar'}
+              <FolderPlus size={13} /> {folders.length === 0 ? tr('ui.skapa_en_mapp') : tr('ui.mappar')}
             </button>
             <AnchoredDropdown anchorRef={folderManagerAnchorRef} panelRef={folderManagerPanelRef} open={folderManagerOpen} minWidth={230} maxHeight={340}>
               <div style={{ padding: '10px' }}>
                 <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '8px' }}>
-                  Mappar
+                  {tr('ui.mappar')}
                 </div>
                 {folders.length === 0 ? (
                   <div style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginBottom: '10px', lineHeight: 1.5 }}>
-                    Ingen mapp än. Skapa en nedan och lägg kvitton i den från kvittots detaljvy.
+                    {tr('ui.ingen_mapp_an_skapa_en_nedan_och_lagg_kvitton_i')}
                   </div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginBottom: '10px' }}>
@@ -1552,14 +1553,14 @@ export default function Expenses({
                           <button
                             type="button"
                             onClick={() => { setEditingFolderId(folder.id); setEditingFolderName(folder.name); }}
-                            title="Byt namn"
+                            title={tr('ui.byt_namn')}
                             style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '6px', textAlign: 'left', padding: '5px 7px', border: 'none', background: 'none', borderRadius: '6px', fontSize: '12.5px', color: 'var(--text-main)', cursor: 'pointer', fontFamily: 'inherit' }}
                           >
                             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{folder.name}</span>
                             <Pencil size={11} color="var(--text-muted)" style={{ flexShrink: 0 }} />
                           </button>
                         )}
-                        <button type="button" onClick={() => removeFolder(folder)} aria-label={`Ta bort mappen ${folder.name}`} title="Ta bort mapp" style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '5px', display: 'flex', flexShrink: 0 }}>
+                        <button type="button" onClick={() => removeFolder(folder)} aria-label={tr('ui.ta_bort_mappen', { name: folder.name })} title={tr('ui.ta_bort_mapp')} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '5px', display: 'flex', flexShrink: 0 }}>
                           <Trash2 size={13} />
                         </button>
                       </div>
@@ -1571,7 +1572,7 @@ export default function Expenses({
                     value={newFolderName}
                     onChange={e => setNewFolderName(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') addFolder(); }}
-                    placeholder="Ny mapp, t.ex. Resor"
+                    placeholder={tr('ui.ny_mapp_t_ex_resor')}
                     style={{ flex: 1, minWidth: 0, padding: '6px 8px', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '12.5px', fontFamily: 'inherit', background: 'var(--bg-card)', color: 'var(--text-main)' }}
                   />
                   <button
@@ -1580,7 +1581,7 @@ export default function Expenses({
                     disabled={!newFolderName.trim()}
                     style={{ padding: '6px 10px', background: BRAND.green, border: 'none', borderRadius: '6px', color: 'white', fontWeight: 600, fontSize: '12.5px', fontFamily: 'inherit', cursor: newFolderName.trim() ? 'pointer' : 'default', opacity: newFolderName.trim() ? 1 : 0.5, flexShrink: 0 }}
                   >
-                    Lägg till
+                    {tr('ui.lagg_till')}
                   </button>
                 </div>
               </div>
@@ -1598,8 +1599,8 @@ export default function Expenses({
           <EmptyReceiptsState
             isFilteredEmpty={q || allReceipts.length > 0}
             text={
-              q ? `Inga kvitton matchar "${query.trim()}".`
-                : allReceipts.length > 0 ? 'Inga kvitton matchar det här filtret.'
+              q ? tr('ui.inga_kvitton_matchar', { v0: query.trim() })
+                : allReceipts.length > 0 ? tr('ui.inga_kvitton_matchar_det_har_filtret')
                   : undefined
             }
           />
@@ -1617,7 +1618,7 @@ export default function Expenses({
               const groupByYear = monthFilter !== 'all';
               const groups = new Map();
               receiptsList.forEach(r => {
-                const key = groupByYear ? ((r.date || '').slice(0, 4) || 'okänt') : ((r.date || '').slice(0, 7) || 'okänt');
+                const key = groupByYear ? ((r.date || '').slice(0, 4) || tr('ui.okant')) : ((r.date || '').slice(0, 7) || tr('ui.okant'));
                 if (!groups.has(key)) groups.set(key, []);
                 groups.get(key).push(r);
               });
@@ -1626,7 +1627,7 @@ export default function Expenses({
               // varandra i en enda lista.
               const showGroups = !flatView && groups.size > 1;
               const sections = showGroups ? [...groups.entries()] : [[null, receiptsList]];
-              const groupLabel = (key) => key === 'okänt' ? 'Utan datum' : (groupByYear ? key : formatMonthLabel(key));
+              const groupLabel = (key) => key === 'okänt' ? tr('ui.utan_datum') : (groupByYear ? key : formatMonthLabel(key));
 
               return sections.map(([monthKey, items], i) => (
                 <div key={monthKey || 'flat'}>
@@ -1634,7 +1635,7 @@ export default function Expenses({
                     <div className={`rc-month-head${i === 0 ? ' rc-month-head--first' : ''}`}>
                       <span>{groupLabel(monthKey)}</span>
                       <span className="rc-month-total">
-                        {items.length} {items.length === 1 ? 'kvitto' : 'kvitton'} · {formatSEK(items.reduce((s, r) => s + (r.amount || 0), 0))}
+                        {items.length} {items.length === 1 ? tr('ui.kvitto_2') : tr('ui.kvitton_2')} · {formatSEK(items.reduce((s, r) => s + (r.amount || 0), 0))}
                       </span>
                     </div>
                   )}
@@ -1668,39 +1669,39 @@ export default function Expenses({
                             )}
                           </div>
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: '13.5px', fontWeight: 500, color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.supplier || r.description || 'Namnlöst kvitto'}</div>
+                            <div style={{ fontSize: '13.5px', fontWeight: 500, color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.supplier || r.description || tr('ui.namnlost_kvitto')}</div>
                             <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{formatDate(r.date)}{categoryName ? ` · ${categoryName}` : ''}{folderName ? ` · ${folderName}` : ''}</div>
-                            {uploaderName && <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '1px' }}>Uppladdat av {uploaderName}</div>}
+                            {uploaderName && <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '1px' }}>{tr('ui.uppladdat_av')} {uploaderName}</div>}
                           </div>
                           <div style={{ textAlign: 'right', flexShrink: 0 }}>
                             <div style={{ fontSize: '13.5px', fontWeight: 500, color: 'var(--text-main)' }}>{formatSEK(r.amount)}</div>
                             {r.foreignCurrency && <div style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>{amountToInput(r.foreignCurrency.amount)} {r.foreignCurrency.code}</div>}
                             {status === 'reversed' ? (
                               <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end', fontSize: '11.5px', color: BRAND.grayText, fontWeight: 600, marginTop: '2px' }}>
-                                <RotateCcw size={12} /> Rättad
+                                <RotateCcw size={12} /> {tr('ui.rattad')}
                               </div>
                             ) : status === 'booked' ? (
                               <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end', fontSize: '11.5px', color: BRAND.greenDark, fontWeight: 600, marginTop: '2px' }}>
-                                <CheckCircle2 size={12} /> Bokförd
+                                <CheckCircle2 size={12} /> {tr('ui.bokford')}
                               </div>
                             ) : status === 'pending' ? (
                               <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end', fontSize: '11.5px', color: BRAND.grayText, fontWeight: 600, marginTop: '2px' }}>
-                                <Clock size={12} /> Pågående
+                                <Clock size={12} /> {tr('ui.pagaende')}
                               </div>
                             ) : fixingId === r.id ? (
                               <div onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
                                 <div style={{ width: 180 }}>
-                                  <AccountSearch value={fixAccount} onChange={setFixAccount} accounts={accounts} placeholder="Välj konto..." />
+                                  <AccountSearch value={fixAccount} onChange={setFixAccount} accounts={accounts} placeholder={tr('ui.valj_konto')} />
                                 </div>
-                                <button onClick={() => applyFix(r.id)} style={{ padding: '5px 10px', background: BRAND.green, color: 'white', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>Spara</button>
+                                <button onClick={() => applyFix(r.id)} style={{ padding: '5px 10px', background: BRAND.green, color: 'white', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>{tr('ui.spara')}</button>
                               </div>
                             ) : (
                               <button
                                 onClick={e => { e.stopPropagation(); setFixingId(r.id); setFixAccount(''); }}
-                                title="Kunde inte bokföras automatiskt — konto saknas"
+                                title={tr('ui.kunde_inte_bokforas_automatiskt_konto_saknas')}
                                 style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end', background: 'none', border: 'none', color: BRAND.amberText, fontSize: '11.5px', fontWeight: 600, cursor: 'pointer', padding: 0, marginLeft: 'auto', marginTop: '2px' }}
                               >
-                                <AlertCircle size={12} /> Granska
+                                <AlertCircle size={12} /> {tr('ui.granska')}
                               </button>
                             )}
                           </div>

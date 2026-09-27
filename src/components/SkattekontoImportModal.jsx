@@ -8,22 +8,23 @@ import {
   decodeSkattekontoFile, parseSkattekontoFile, buildSkattekontoPreview, buildSkattekontoVerification,
   taxAccountBalance, SKATTEKONTO_ACCOUNT_NAMES,
 } from '../utils/skattekontoImport';
+import { t } from '../i18n';
 
 // Skattekontoutdrag → verifikationer mot 1630. Samma tre steg och samma
 // grundregel som SIE-importen: ingenting skrivs förrän användaren trycker
 // Bokför i förhandsgranskningen. Tolkningen och kontoförslagen bor i
 // utils/skattekontoImport.js.
-const STEPS = ['Ladda upp', 'Förhandsgranskning', 'Resultat'];
+const STEPS = [t('ui.steg_ladda_upp'), t('ui.steg_forhandsgranskning'), t('ui.resultat')];
 
 const fmt = (n) => new Intl.NumberFormat('sv-SE', { maximumFractionDigits: 2 }).format(n || 0) + ' kr';
 const normalizeOrgNr = (s) => String(s || '').replace(/\D/g, '').slice(-10);
 
 const STATUS = {
-  ready: { label: 'Klar', bg: 'var(--status-green-bg)', fg: 'var(--status-green-text)' },
-  check: { label: 'Kontrollera', bg: 'var(--status-amber-bg)', fg: 'var(--status-amber-text)' },
-  booked: { label: 'Redan bokförd', bg: 'var(--bg-muted)', fg: 'var(--text-muted)' },
-  imported: { label: 'Redan importerad', bg: 'var(--bg-muted)', fg: 'var(--text-muted)' },
-  locked: { label: 'Låst år', bg: 'var(--bg-muted)', fg: 'var(--text-muted)' },
+  ready: { label: t('ui.klar'), bg: 'var(--status-green-bg)', fg: 'var(--status-green-text)' },
+  check: { label: t('ui.kontrollera'), bg: 'var(--status-amber-bg)', fg: 'var(--status-amber-text)' },
+  booked: { label: t('ui.redan_bokford'), bg: 'var(--bg-muted)', fg: 'var(--text-muted)' },
+  imported: { label: t('ui.redan_importerad'), bg: 'var(--bg-muted)', fg: 'var(--text-muted)' },
+  locked: { label: t('ui.last_ar'), bg: 'var(--bg-muted)', fg: 'var(--text-muted)' },
 };
 
 export function StepPills({ steps, step }) {
@@ -72,14 +73,14 @@ export default function SkattekontoImportModal({ company, accounts = [], verific
     try {
       const text = decodeSkattekontoFile(await file.arrayBuffer());
       const p = parseSkattekontoFile(text);
-      if (p.events.length === 0) throw new Error('Hittade inga kontohändelser i filen. Kontrollera att det är kontoutdraget från Skattekonto (.csv eller .skv).');
+      if (p.events.length === 0) throw new Error(t('ui.hittade_inga_kontohandelser_i_filen_kontrollera'));
       setParsed({ ...p, fileName: file.name });
       setRows(buildSkattekontoPreview(p.events, verifications, { orgType }).map(r => (
         lockedPeriodFor(r.date, lockedYears) && r.include ? { ...r, status: 'locked', include: false } : r
       )));
       setStep(1);
     } catch (e) {
-      setError(e.message || 'Kunde inte läsa filen.');
+      setError(e.message || t('ui.kunde_inte_lasa_filen'));
     }
   };
 
@@ -115,8 +116,8 @@ export default function SkattekontoImportModal({ company, accounts = [], verific
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" style={{ maxWidth: '760px' }} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <span className="modal-title">Importera skattekontoutdrag</span>
-          <button className="modal-close" onClick={onClose} aria-label="Stäng"><X size={18} /></button>
+          <span className="modal-title">{t('ui.importera_skattekontoutdrag')}</span>
+          <button className="modal-close" onClick={onClose} aria-label={t('ui.stang')}><X size={18} /></button>
         </div>
 
         <StepPills steps={STEPS} step={step} />
@@ -125,7 +126,7 @@ export default function SkattekontoImportModal({ company, accounts = [], verific
         {step === 0 && (
           <div>
             <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 14px', lineHeight: 1.6 }}>
-              Ladda ner kontohändelserna från Skatteverkets e-tjänst Skattekonto och ladda upp filen här. Bokix föreslår konto för varje händelse och hoppar över det som redan är bokfört.
+              {t('ui.ladda_ner_kontohandelserna_fran_skatteverkets_e')}
             </p>
             <label
               onDragOver={e => { e.preventDefault(); setDragging(true); }}
@@ -137,20 +138,20 @@ export default function SkattekontoImportModal({ company, accounts = [], verific
               <div style={{ width: 44, height: 44, borderRadius: '999px', background: BRAND.greenLight, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
                 <UploadCloud size={20} color={BRAND.greenDark} />
               </div>
-              <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '4px' }}>Ladda upp skattekontoutdrag</div>
-              <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>Dra och släpp filen här, eller klicka för att välja</div>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '6px' }}>.csv från nya e-tjänsten, eller äldre .skv-filer</div>
+              <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '4px' }}>{t('ui.ladda_upp_skattekontoutdrag')}</div>
+              <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>{t('ui.dra_och_slapp_filen_har_eller_klicka_for_att_val')}</div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '6px' }}>{t('ui.csv_fran_nya_e_tjansten_eller_aldre_skv_filer')}</div>
             </label>
 
             <div style={{ marginTop: '16px', border: '1px solid var(--border)', borderRadius: '10px', padding: '14px 16px' }}>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '8px' }}>Så hämtar du kontoutdraget</div>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '8px' }}>{t('ui.sa_hamtar_du_kontoutdraget')}</div>
               <ol style={{ margin: 0, paddingLeft: '18px', fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.8 }}>
-                <li>Logga in på skatteverket.se med BankID och gå till Mina sidor.</li>
-                <li>Öppna Skattekonto och sedan Kontohändelser.</li>
-                <li>Välj period och tryck Ladda ner.</li>
+                <li>{t('ui.logga_in_pa_skatteverket_se_med_bankid_och_ga_ti')}</li>
+                <li>{t('ui.oppna_skattekonto_och_sedan_kontohandelser')}</li>
+                <li>{t('ui.valj_period_och_tryck_ladda_ner')}</li>
               </ol>
               <a href="https://www7.skatteverket.se/portal/skattekonto" target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', marginTop: '10px', fontSize: '12.5px', fontWeight: 600, color: 'var(--accent-text)' }}>
-                Öppna Skattekonto hos Skatteverket <ExternalLink size={12} />
+                {t('ui.oppna_skattekonto_hos_skatteverket')} <ExternalLink size={12} />
               </a>
             </div>
           </div>
@@ -165,9 +166,9 @@ export default function SkattekontoImportModal({ company, accounts = [], verific
             </p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '1px', background: 'var(--border-light)', border: '1px solid var(--border-light)', borderRadius: '10px', overflow: 'hidden', marginBottom: '14px' }}>
               {[
-                ['Ingående saldo', parsed.openingBalance === null ? '—' : fmt(parsed.openingBalance)],
-                ['Utgående saldo', parsed.closingBalance === null ? '—' : fmt(parsed.closingBalance)],
-                ['Händelser', String(rows.length)],
+                [t('ui.ingaende_saldo'), parsed.openingBalance === null ? '—' : fmt(parsed.openingBalance)],
+                [t('ui.utgaende_saldo'), parsed.closingBalance === null ? '—' : fmt(parsed.closingBalance)],
+                [t('ui.handelser_2'), String(rows.length)],
               ].map(([label, value]) => (
                 <div key={label} style={{ background: 'var(--bg-card)', padding: '10px 12px' }}>
                   <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', fontWeight: 600 }}>{label}</div>
@@ -176,9 +177,9 @@ export default function SkattekontoImportModal({ company, accounts = [], verific
               ))}
             </div>
 
-            {orgMismatch && <Notice tone="red">Filen gäller org.nr {parsed.orgNr}, men företaget har {company.orgNr}. Kontrollera att du laddat ner rätt företags kontoutdrag.</Notice>}
-            {parsed.sumOk === false && <Notice>Ingående saldo plus händelserna stämmer inte med utgående saldo (skillnad {fmt(parsed.sumDifference)}). Filen kan vara ofullständig; ladda gärna ner den på nytt.</Notice>}
-            {counts.check > 0 && <Notice>{counts.check === 1 ? '1 händelse' : `${counts.check} händelser`} behöver ett konto. Bokix gissar inte när texten inte säger säkert vad det är.</Notice>}
+            {orgMismatch && <Notice tone="red">{t('ui.filen_galler_org_nr')} {parsed.orgNr}{t('ui.men_foretaget_har')} {company.orgNr}{t('ui.kontrollera_att_du_laddat_ner_ratt_foretags_kont')}</Notice>}
+            {parsed.sumOk === false && <Notice>{t('ui.ingaende_saldo_plus_handelserna_stammer_inte_med')} {fmt(parsed.sumDifference)}{t('ui.filen_kan_vara_ofullstandig_ladda_garna_ner_den')}</Notice>}
+            {counts.check > 0 && <Notice>{counts.check === 1 ? t('ui.n1_handelse') : t('ui.handelser', { check: counts.check })} {t('ui.behover_ett_konto_bokix_gissar_inte_nar_texten_i')}</Notice>}
 
             <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '10px' }}>
               {Object.entries(STATUS).filter(([k]) => counts[k]).map(([k, s]) => (
@@ -195,7 +196,7 @@ export default function SkattekontoImportModal({ company, accounts = [], verific
                     <input
                       type="checkbox" checked={r.include} disabled={!canPick}
                       onChange={e => update(r.key, { include: e.target.checked })}
-                      aria-label={`Bokför ${r.description}`}
+                      aria-label={t('ui.bokfor_4', { description: r.description })}
                       style={{ marginTop: '3px', flexShrink: 0 }}
                     />
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -212,9 +213,9 @@ export default function SkattekontoImportModal({ company, accounts = [], verific
                       </div>
                       {canPick && r.include && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
-                          <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Motkonto</span>
+                          <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{t('ui.motkonto')}</span>
                           <div style={{ minWidth: '220px', flex: '0 1 300px' }}>
-                            <AccountSearch value={r.account || ''} onChange={code => update(r.key, { account: code, status: code ? 'ready' : 'check' })} accounts={pickerAccounts} placeholder="Välj konto…" compact />
+                            <AccountSearch value={r.account || ''} onChange={code => update(r.key, { account: code, status: code ? 'ready' : 'check' })} accounts={pickerAccounts} placeholder={t('ui.valj_konto_3')} compact />
                           </div>
                         </div>
                       )}
@@ -237,19 +238,19 @@ export default function SkattekontoImportModal({ company, accounts = [], verific
               <CheckCircle2 size={24} />
             </div>
             <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-main)' }}>
-              {result.count === 1 ? '1 händelse bokförd' : `${result.count} händelser bokförda`}
+              {result.count === 1 ? t('ui.n1_handelse_bokford') : t('ui.handelser_bokforda', { count: result.count })}
             </div>
             <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '6px auto 16px', maxWidth: '460px', lineHeight: 1.6 }}>
-              {result.skipped > 0 ? `${result.skipped} hoppades över. ` : ''}Verifikationerna ligger i Bokföring med texten "Skattekonto".
+              {result.skipped > 0 ? t('ui.hoppades_over', { skipped: result.skipped }) : ''}{t('ui.verifikationerna_ligger_i_bokforing_med_texten_s')}
             </p>
             {parsed.closingBalance !== null && (
               <div style={{ display: 'inline-block', textAlign: 'left', border: '1px solid var(--border)', borderRadius: '10px', padding: '12px 16px', fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.8 }}>
-                <div>Saldo enligt Skatteverket {parsed.dateTo}: <strong style={{ color: 'var(--text-main)' }}>{fmt(parsed.closingBalance)}</strong></div>
-                <div>Konto 1630 i bokföringen samma dag: <strong style={{ color: 'var(--text-main)' }}>{fmt(result.balanceAfter)}</strong></div>
+                <div>{t('ui.saldo_enligt_skatteverket')} {parsed.dateTo}: <strong style={{ color: 'var(--text-main)' }}>{fmt(parsed.closingBalance)}</strong></div>
+                <div>{t('ui.konto_1630_i_bokforingen_samma_dag')} <strong style={{ color: 'var(--text-main)' }}>{fmt(result.balanceAfter)}</strong></div>
                 <div style={{ fontWeight: 700, color: Math.abs(result.balanceAfter - parsed.closingBalance) < 0.005 ? 'var(--status-green-text)' : 'var(--status-amber-text)' }}>
                   {Math.abs(result.balanceAfter - parsed.closingBalance) < 0.005
-                    ? 'Skattekontot stämmer.'
-                    : `Skiljer ${fmt(result.balanceAfter - parsed.closingBalance)}. Vanligt om bokföringen började efter utdragets start.`}
+                    ? t('ui.skattekontot_stammer')
+                    : t('ui.skiljer_vanligt_om_bokforingen_borjade_efter_utd', { v0: fmt(result.balanceAfter - parsed.closingBalance) })}
                 </div>
               </div>
             )}
@@ -257,16 +258,16 @@ export default function SkattekontoImportModal({ company, accounts = [], verific
         )}
 
         <div className="modal-footer">
-          {step === 1 && <button style={btn} onClick={() => { setStep(0); setParsed(null); setRows([]); }}>Tillbaka</button>}
+          {step === 1 && <button style={btn} onClick={() => { setStep(0); setParsed(null); setRows([]); }}>{t('ui.tillbaka_2')}</button>}
           <span style={{ flex: 1 }} />
-          {step < 2 && <button style={btn} onClick={onClose}>Avbryt</button>}
+          {step < 2 && <button style={btn} onClick={onClose}>{t('ui.avbryt')}</button>}
           {step === 1 && (
             <button style={primaryBtn(chosen.length > 0 && missingAccount.length === 0)} disabled={chosen.length === 0 || missingAccount.length > 0} onClick={handleCommit}>
-              {missingAccount.length > 0 ? `Välj konto för ${missingAccount.length} till` : `Bokför ${chosen.length} ${chosen.length === 1 ? 'händelse' : 'händelser'}`}
+              {missingAccount.length > 0 ? t('ui.valj_konto_for_till', { length: missingAccount.length }) : t('ui.bokfor_3', { length: chosen.length, v1: chosen.length === 1 ? 'händelse' : 'händelser' })}
             </button>
           )}
-          {step === 2 && onOpenBookkeeping && <button style={btn} onClick={() => { onClose(); onOpenBookkeeping(); }}>Visa i Bokföring</button>}
-          {step === 2 && <button style={primaryBtn(true)} onClick={onClose}>Klar</button>}
+          {step === 2 && onOpenBookkeeping && <button style={btn} onClick={() => { onClose(); onOpenBookkeeping(); }}>{t('ui.visa_i_bokforing')}</button>}
+          {step === 2 && <button style={primaryBtn(true)} onClick={onClose}>{t('ui.klar')}</button>}
         </div>
       </div>
     </div>

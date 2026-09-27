@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, Suspense, lazy } from 
 import useFitLevel from './utils/useFitLevel';
 import { visiblePages } from './utils/pageAccess';
 import { isUfCompany, ufPageState, ufInvoiceQuota, ufFreePeriod, UF_NAV_IDS, UF_HIDDEN_REPORT_IDS } from './utils/ufMode';
-import { useTranslation } from './i18n';
+import { t as tr, useTranslation } from './i18n';
 import {
   LayoutDashboard,
   FileText,
@@ -41,12 +41,13 @@ import { createStripeCheckoutSession, createStripeSubscriptionCheckout, cancelSt
 import { createEmailDomain, getEmailDomainStatus, sendInvoiceEmail } from './emailApi';
 import { getDebet, getKredit, withRoundingBalance } from './utils/verificationAmounts';
 import { describeForeign } from './utils/foreignCurrency';
+import { convertToSek } from './utils/currencyConversion';
 import { invoiceBookingRows } from './utils/invoiceBooking';
 import { grossInvoiceAmount } from './utils/reportCalculations';
 import { planFromId } from './utils/plans';
 import { detectOrgType } from './utils/orgType';
 import { BRAND, ACCENT_COLORS } from './utils/brandColors';
-import { OUTPUT_VAT_ACCOUNT_BY_RATE, REVERSE_OUTPUT_VAT_ACCOUNT_BY_RATE, REVERSE_INPUT_VAT_ACCOUNT } from './utils/vatConfig';
+import { vatSettlementRows } from './utils/vatCalculation';
 import { isReverseChargePurchaseAccount, withReverseChargeRows } from './utils/reverseCharge';
 import { COMPANY_WRITABLE_FIELDS } from './utils/companyFields.js';
 import { deleteFileFromStorage } from './utils/fileUpload';
@@ -71,7 +72,7 @@ function BokixLogo({ onClick, compact = false }) {
   return (
     <button
       onClick={onClick}
-      title="Till startsidan"
+      title={tr('ui.till_startsidan')}
       // Kundfeedback ("den ska vara i mitten, inte for mycket at hoger eller
       // vanster"): loggan satt vansterjusterad i sin fullbredds-ruta
       // (flex-column utan alignItems stracker BARNET, men en SVG har egen
@@ -129,7 +130,7 @@ function MfaChallengeScreen({ onVerify, onCancel }) {
     try {
       await onVerify(code);
     } catch (err) {
-      setError(err.message || 'Fel kod. Försök igen.');
+      setError(err.message || tr('ui.fel_kod_forsok_igen'));
       setDigits(['', '', '', '', '', '']);
       inputRefs.current[0]?.focus();
     } finally {
@@ -211,8 +212,8 @@ function MfaChallengeScreen({ onVerify, onCancel }) {
         </div>
 
         <div style={{ textAlign: 'center' }}>
-          <h2 style={{ fontSize: '21px', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 6px', letterSpacing: '-0.02em' }}>Tvåstegsverifiering</h2>
-          <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)', lineHeight: 1.5, margin: 0 }}>Ange den 6-siffriga koden från din autentiseringsapp.</p>
+          <h2 style={{ fontSize: '21px', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 6px', letterSpacing: '-0.02em' }}>{tr('ui.tvastegsverifiering')}</h2>
+          <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)', lineHeight: 1.5, margin: 0 }}>{tr('ui.ange_den_6_siffriga_koden_fran_din_autentisering')}</p>
         </div>
 
         <div style={{ display: 'flex', gap: '9px' }} onPaste={handlePaste}>
@@ -229,7 +230,7 @@ function MfaChallengeScreen({ onVerify, onCancel }) {
               onChange={e => handleChange(i, e.target.value)}
               onKeyDown={e => handleKeyDown(i, e)}
               onFocus={e => e.target.select()}
-              aria-label={`Siffra ${i + 1} av 6`}
+              aria-label={tr('ui.siffra_av_6', { v0: i + 1 })}
               style={{
                 width: '44px', height: '54px', textAlign: 'center', fontSize: '22px', fontWeight: 700,
                 fontFamily: 'monospace', color: 'var(--text-main)', background: 'var(--bg-muted)',
@@ -248,7 +249,7 @@ function MfaChallengeScreen({ onVerify, onCancel }) {
           loading && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '7px', fontSize: '13px', color: 'var(--text-secondary)' }}>
               <div style={{ width: 14, height: 14, border: '2px solid var(--border)', borderTopColor: BRAND.green, borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
-              Verifierar...
+              {tr('ui.verifierar')}
             </div>
           )
         )}
@@ -262,10 +263,10 @@ function MfaChallengeScreen({ onVerify, onCancel }) {
           disabled={loading || code.length !== 6}
           style={{ width: '100%', padding: '13px', background: BRAND.green, border: 'none', borderRadius: '10px', color: 'white', fontWeight: 700, fontSize: '15px', cursor: loading || code.length !== 6 ? 'default' : 'pointer', opacity: loading || code.length !== 6 ? 0.5 : 1, fontFamily: 'inherit', transition: 'opacity 0.15s' }}
         >
-          Verifiera
+          {tr('ui.verifiera')}
         </button>
         <button type="button" onClick={onCancel} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '13px', cursor: 'pointer', textAlign: 'center', fontFamily: 'inherit' }}>
-          Avbryt och logga ut
+          {tr('ui.avbryt_och_logga_ut')}
         </button>
       </form>
     </div>
@@ -287,14 +288,14 @@ function PasswordRecoveryScreen({ onSubmit, onCancel }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (password.length < 8) { setError('Lösenordet måste vara minst 8 tecken.'); return; }
-    if (password !== password2) { setError('Lösenorden matchar inte.'); return; }
+    if (password.length < 8) { setError(tr('ui.losenordet_maste_vara_minst_8_tecken')); return; }
+    if (password !== password2) { setError(tr('ui.losenorden_matchar_inte')); return; }
     setError('');
     setLoading(true);
     try {
       await onSubmit(password);
     } catch (err) {
-      setError(err.message || 'Kunde inte uppdatera lösenordet. Försök igen.');
+      setError(err.message || tr('ui.kunde_inte_uppdatera_losenordet_forsok_igen'));
     } finally {
       setLoading(false);
     }
@@ -313,18 +314,18 @@ function PasswordRecoveryScreen({ onSubmit, onCancel }) {
         </div>
 
         <div style={{ textAlign: 'center' }}>
-          <h2 style={{ fontSize: '21px', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 6px', letterSpacing: '-0.02em' }}>Skapa nytt lösenord</h2>
-          <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)', lineHeight: 1.5, margin: 0 }}>Ange ett nytt lösenord för ditt konto.</p>
+          <h2 style={{ fontSize: '21px', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 6px', letterSpacing: '-0.02em' }}>{tr('ui.skapa_nytt_losenord')}</h2>
+          <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)', lineHeight: 1.5, margin: 0 }}>{tr('ui.ange_ett_nytt_losenord_for_ditt_konto')}</p>
         </div>
 
         <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <input
-            type="password" autoFocus autoComplete="new-password" placeholder="Nytt lösenord (minst 8 tecken)"
+            type="password" autoFocus autoComplete="new-password" placeholder={tr('ui.nytt_losenord_minst_8_tecken')}
             value={password} onChange={e => setPassword(e.target.value)} disabled={loading} minLength={8} required
             style={{ width: '100%', padding: '12px 14px', border: '1px solid var(--border)', borderRadius: '10px', fontSize: '14.5px', color: 'var(--text-main)', background: 'var(--bg-muted)', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}
           />
           <input
-            type="password" autoComplete="new-password" placeholder="Upprepa nytt lösenord"
+            type="password" autoComplete="new-password" placeholder={tr('ui.upprepa_nytt_losenord')}
             value={password2} onChange={e => setPassword2(e.target.value)} disabled={loading} required
             style={{ width: '100%', padding: '12px 14px', border: '1px solid var(--border)', borderRadius: '10px', fontSize: '14.5px', color: 'var(--text-main)', background: 'var(--bg-muted)', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}
           />
@@ -341,10 +342,10 @@ function PasswordRecoveryScreen({ onSubmit, onCancel }) {
           disabled={loading}
           style={{ width: '100%', padding: '13px', background: BRAND.green, border: 'none', borderRadius: '10px', color: 'white', fontWeight: 700, fontSize: '15px', cursor: loading ? 'wait' : 'pointer', opacity: loading ? 0.7 : 1, fontFamily: 'inherit', transition: 'opacity 0.15s' }}
         >
-          {loading ? 'Uppdaterar...' : 'Uppdatera lösenord'}
+          {loading ? tr('ui.uppdaterar') : tr('ui.uppdatera_losenord')}
         </button>
         <button type="button" onClick={onCancel} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '13px', cursor: 'pointer', textAlign: 'center', fontFamily: 'inherit' }}>
-          Avbryt och logga ut
+          {tr('ui.avbryt_och_logga_ut')}
         </button>
       </form>
     </div>
@@ -376,6 +377,8 @@ const Projects = lazy(() => import('./components/Projects'));
 const TimeTracking = lazy(() => import('./components/TimeTracking'));
 const Payroll = lazy(() => import('./components/Payroll'));
 const Taxes = lazy(() => import('./components/Taxes'));
+const FixedAssets = lazy(() => import('./components/FixedAssets'));
+const Accruals = lazy(() => import('./components/Accruals'));
 // Alla ANDRA marknads-/juridiksidor (FeaturesPage/PricingPage/AboutPage/
 // ContactPage/PrivacyPolicy/TermsPolicy/
 // CookiesPolicy/PersonuppgiftsBitradesAvtal) flyttade till AppRouter.jsx
@@ -585,7 +588,7 @@ function AppLoadingSkeleton({ tab }) {
   const ContentSkeleton = SKELETON_CONTENT_BY_VARIANT[skeletonVariantForTab(tab)];
 
   return (
-    <div className="app-container" aria-busy="true" aria-label="Laddar Bokix…">
+    <div className="app-container" aria-busy="true" aria-label={tr('ui.laddar_bokix')}>
       <aside className="sidebar" style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
         <div className="logo-container" style={{ padding: '22px 24px 18px' }}>
           <div className="skeleton-shape--on-sidebar" style={{ width: '104px', height: '26px' }} />
@@ -1005,6 +1008,9 @@ const tabAliases = {
   taxes_yearend:    'taxes',
   time:             'projects',
   accounts:         'verifications',
+  // Periodiseringar och Anläggningstillgångar är flikar på Bokföring-sidan.
+  accruals:         'verifications',
+  fixed_assets:     'verifications',
   revenue:          'invoices',
   expense_overview: 'expenses',
   receipts:         'expenses',
@@ -1134,7 +1140,10 @@ function App() {
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.replace('#', '');
-      if (hash) setActiveTab(resolveTab(hash));
+      if (!hash) return;
+      setActiveTab(resolveTab(hash));
+      const base = hash.split(/[/?]/)[0];
+      if (['verifications', 'accounts', 'accruals', 'fixed_assets'].includes(base)) setVerificationsInitialTab(base);
     };
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
@@ -1448,8 +1457,13 @@ function App() {
   // 'verifications' innan switchen körs) — borttagen tillsammans med sin
   // lazy-import av <Accounts>, se den filens kommentar om varför filen
   // ändå får ligga kvar orörd.
-  const verificationsSectionAliases = { verifications: 'verifications', accounts: 'accounts' };
-  const [verificationsInitialTab, setVerificationsInitialTab] = useState('verifications');
+  const verificationsSectionAliases = { verifications: 'verifications', accounts: 'accounts', accruals: 'accruals', fixed_assets: 'fixed_assets' };
+  // Läses också ur adressen, så att en omladdning på #accounts, #accruals
+  // eller #fixed_assets landar på rätt flik.
+  const [verificationsInitialTab, setVerificationsInitialTab] = useState(() => {
+    const base = typeof window !== 'undefined' ? window.location.hash.replace('#', '').split(/[/?]/)[0] : '';
+    return ['accounts', 'accruals', 'fixed_assets'].includes(base) ? base : 'verifications';
+  });
 
   // Samma "vilken flik inuti sidan"-mönster som verificationsInitialTab
   // ovan — vilken Granskning-flik (ReviewQueue.jsx) "Visa i Granskning"-
@@ -1479,19 +1493,19 @@ function App() {
     try {
       const senderName = [user?.user_metadata?.first_name, user?.user_metadata?.last_name].filter(Boolean).join(' ').trim()
         || company?.name
-        || 'Bokix-användare';
+        || tr('ui.bokix_anvandare');
       const res = await fetch('/api/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: senderName, email: user?.email || '', topic: 'Felrapport', message }),
       });
       const payload = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(payload?.error || `Kunde inte skicka (${res.status})`);
+      if (!res.ok) throw new Error(payload?.error || tr('ui.kunde_inte_skicka', { status: res.status }));
       setReportErrorModal(false);
       setReportErrorText('');
-      setToast({ message: 'Tack! Felrapporten är skickad till oss.', variant: 'success' });
+      setToast({ message: tr('ui.tack_felrapporten_ar_skickad_till_oss'), variant: 'success' });
     } catch (err) {
-      setToast({ message: err.message || 'Kunde inte skicka felrapporten. Försök igen om en stund.', variant: 'error' });
+      setToast({ message: err.message || tr('ui.kunde_inte_skicka_felrapporten_forsok_igen_om_en'), variant: 'error' });
     } finally {
       setReportErrorBusy(false);
     }
@@ -1508,7 +1522,9 @@ function App() {
     if (taxesSectionAliases[tabId]) setTaxesInitialSection(taxesSectionAliases[tabId]);
     if (verificationsSectionAliases[tabId]) setVerificationsInitialTab(verificationsSectionAliases[tabId]);
     setActiveTab(rTab);
-    if (typeof window !== 'undefined') window.location.hash = rTab;
+    // Bokföring-sidans flikar får sitt eget id i adressen (#accruals), så att
+    // en omladdning landar på fliken och inte bara på sidan.
+    if (typeof window !== 'undefined') window.location.hash = verificationsSectionAliases[tabId] && tabId !== 'verifications' ? tabId : rTab;
     setSidebarOpen(false);
   };
 
@@ -1586,7 +1602,7 @@ function App() {
       }
       if (new Date(invite.expires_at) <= new Date()) {
         sessionStorage.removeItem(PENDING_INVITE_KEY);
-        setToast({ message: 'Inbjudan har gått ut. Be den som bjöd in dig att skicka en ny.', variant: 'error' });
+        setToast({ message: tr('ui.inbjudan_har_gatt_ut_be_den_som_bjod_in_dig_att'), variant: 'error' });
         return;
       }
       // .select('id') efter UPDATE så vi kan se OM raden faktiskt träffades
@@ -1601,15 +1617,15 @@ function App() {
       sessionStorage.removeItem(PENDING_INVITE_KEY);
       if (redeemError) {
         console.error('Kunde inte lösa in inbjudan:', redeemError);
-        setToast({ message: 'Kunde inte lösa in inbjudan. Kontakta den som bjöd in dig, eller att din inloggade e-postadress matchar den inbjudan skickades till.', variant: 'error' });
+        setToast({ message: tr('ui.kunde_inte_losa_in_inbjudan_kontakta_den_som_bjo'), variant: 'error' });
         return;
       }
       if (!redeemedRows || redeemedRows.length === 0) {
         console.error('Inlösen av inbjudan matchade ingen rad (fel inloggad e-post?)');
-        setToast({ message: 'Kunde inte lösa in inbjudan. Kontrollera att du är inloggad med samma e-postadress som inbjudan skickades till.', variant: 'error' });
+        setToast({ message: tr('ui.kunde_inte_losa_in_inbjudan_kontrollera_att_du_a'), variant: 'error' });
         return;
       }
-      setToast({ message: 'Inbjudan accepterad — du har nu åtkomst till företaget.', variant: 'success' });
+      setToast({ message: tr('ui.inbjudan_accepterad_du_har_nu_atkomst_till_foret'), variant: 'success' });
     } catch (err) {
       console.error('Fel vid inlösen av inbjudan:', err);
       sessionStorage.removeItem(PENDING_INVITE_KEY);
@@ -2243,7 +2259,7 @@ function App() {
     if (error) {
       const { data: retry } = await supabase.auth.mfa.challenge({ factorId: mfaChallenge.factorId });
       if (retry) setMfaChallenge({ factorId: mfaChallenge.factorId, challengeId: retry.id });
-      throw new Error('Fel kod. Försök igen.');
+      throw new Error(tr('ui.fel_kod_forsok_igen'));
     }
     // Bugkritiskt (kundfeedback): mellan att `mfaChallenge` nollställs här
     // och att `fetchUserData` nedan hinner sätta `isLoggedIn(true)` fanns
@@ -2313,7 +2329,7 @@ function App() {
     const messages = {
       connected: 'Stripe är nu anslutet till Bokix. Nya betalningar, utbetalningar och avgifter hämtas hit en gång om dagen.',
       cancelled: 'Anslutningen avbröts, du kan försöka igen när du vill.',
-      error: 'Något gick fel vid Stripe-anslutningen. Försök igen, eller kontakta support om felet kvarstår.',
+      error: tr('ui.nagot_gick_fel_vid_stripe_anslutningen_forsok_ig'),
       not_configured: 'Stripe-anslutning är inte konfigurerad ännu. Kontakta support.',
     };
     const variants = { connected: 'success', cancelled: 'info', error: 'error', not_configured: 'info' };
@@ -2325,7 +2341,7 @@ function App() {
     setToast({
       message: (messages[status] || messages.error) + (debugDetail ? ` (${debugDetail})` : ''),
       variant: variants[status] || 'error',
-      action: status === 'connected' ? { label: 'Visa i Granskning', onClick: () => handleNavTabChange('review') } : undefined,
+      action: status === 'connected' ? { label: tr('ui.visa_i_granskning'), onClick: () => handleNavTabChange('review') } : undefined,
     });
 
     params.delete('stripe_connect');
@@ -2346,7 +2362,7 @@ function App() {
     const messages = {
       connected: 'Zettle är nu anslutet till Bokix. Kortförsäljningen hämtas hit en gång om dagen.',
       cancelled: 'Anslutningen avbröts, du kan försöka igen när du vill.',
-      error: 'Något gick fel vid Zettle-anslutningen. Försök igen, eller kontakta support om felet kvarstår.',
+      error: tr('ui.nagot_gick_fel_vid_zettle_anslutningen_forsok_ig'),
     };
     const variants = { connected: 'success', cancelled: 'info', error: 'error' };
     const debugDetail = params.get('debug'); // temporärt diagnos-fält, se api/zettle/callback.js
@@ -2355,7 +2371,7 @@ function App() {
     setToast({
       message: (messages[status] || messages.error) + (debugDetail ? ` (${debugDetail})` : ''),
       variant: variants[status] || 'error',
-      action: status === 'connected' ? { label: 'Visa i Granskning', onClick: () => handleNavTabChange('review') } : undefined,
+      action: status === 'connected' ? { label: tr('ui.visa_i_granskning'), onClick: () => handleNavTabChange('review') } : undefined,
     });
 
     params.delete('zettle_connect');
@@ -2386,7 +2402,7 @@ function App() {
     // "Med personal, månadsvis"; 179 kvarstår som fallback för länkar utan
     // parametern, samma nivå som servern själv faller tillbaka på.
     const checkoutPlan = planFromId(params.get('plan'));
-    const priceLabel = `${checkoutPlan ? checkoutPlan.price : 179} kr/mån`;
+    const priceLabel = tr('ui.kr_man', { v0: checkoutPlan ? checkoutPlan.price : 179 });
 
     const messages = forCompany
       ? {
@@ -2629,7 +2645,7 @@ function App() {
       throw new Error(json?.error || `HTTP ${res.status}`);
     } catch (err) {
       console.error('Arkivering före radering misslyckades:', err);
-      setToast({ message: 'Kunde inte spara en arkivkopia av bokföringen, så ingenting raderades. Försök igen om en stund, eller kontakta support@bokix.se.', variant: 'error' });
+      setToast({ message: tr('ui.kunde_inte_spara_en_arkivkopia_av_bokforingen_sa'), variant: 'error' });
       return false;
     }
   };
@@ -2649,7 +2665,7 @@ function App() {
     try {
     const remainingIds = Object.keys(data.companies).filter(id => id !== companyId);
     if (remainingIds.length === 0) {
-      setToast({ message: 'Du måste ha minst ett företag kvar på kontot.', variant: 'error' });
+      setToast({ message: tr('ui.du_maste_ha_minst_ett_foretag_kvar_pa_kontot'), variant: 'error' });
       return;
     }
     const target = data.companies[companyId]?.company;
@@ -2715,7 +2731,7 @@ function App() {
     const saved = await saveUserDataToSupabase(nextState);
     if (!saved) {
       setData(data);
-      setToast({ message: `Kunde inte ta bort ${target?.name || 'företaget'} — ändringen sparades inte. Försök igen om en stund, eller kontakta support@bokix.se om det upprepas.`, variant: 'error' });
+      setToast({ message: tr('ui.kunde_inte_ta_bort_andringen_sparades_inte_forso', { v0: target?.name || 'företaget' }), variant: 'error' });
       return;
     }
     if (nextActiveId !== data.activeCompanyId) {
@@ -2732,7 +2748,7 @@ function App() {
     setToast({ message: `${target?.name || 'Företaget'} borttaget.`, variant: 'success' });
     } catch (err) {
       console.error('Kunde inte ta bort företaget:', err);
-      setToast({ message: `Kunde inte ta bort företaget (${err?.message || 'okänt fel'}). Försök igen om en stund, eller kontakta support@bokix.se om det upprepas.`, variant: 'error' });
+      setToast({ message: tr('ui.kunde_inte_ta_bort_foretaget_forsok_igen_om_en_s', { v0: err?.message || 'okänt fel' }), variant: 'error' });
     }
   };
 
@@ -2756,14 +2772,14 @@ function App() {
         customer_email: user.email,
         company_id: companyId,
       });
-      if (!session?.url) throw new Error('Ingen betalningslänk mottogs från Stripe.');
+      if (!session?.url) throw new Error(tr('ui.ingen_betalningslank_mottogs_fran_stripe'));
       window.location.href = session.url;
     } catch (err) {
       const stripeIssue = /^Stripe API error \(\d+\)$/.test(err.message)
-        ? 'kunde inte nå betalningstjänsten just nu'
+        ? tr('ui.kunde_inte_na_betalningstjansten_just_nu')
         : err.message;
       setToast({
-        message: `Företaget skapades, men vi kunde inte skicka dig vidare till betalning (${stripeIssue}). Öppna Inställningar → Prenumeration för att försöka igen.`,
+        message: tr('ui.foretaget_skapades_men_vi_kunde_inte_skicka_dig', { stripeIssue }),
         variant: 'error',
       });
       setActiveTab('dashboard');
@@ -2771,7 +2787,7 @@ function App() {
   };
 
   const handleOnboardingComplete = async (profile) => {
-    const name = profile.companyName?.trim() || company.name || 'Mitt Företag AB';
+    const name = profile.companyName?.trim() || company.name || tr('ui.mitt_foretag_ab');
     const nextState = {
       ...data,
       companies: {
@@ -2967,30 +2983,9 @@ function App() {
   // dubbelbokföring — om perioden redan finns i vatPeriods görs ingenting.
   const handleBookVatPeriod = ({ periodKey, periodStart, periodEnd, quarter, year, rounded }) => {
     if (vatPeriods[periodKey]) return; // redan bokförd — förhindrar dubbelklick/dubbelbokföring
-    const verRows = [];
-    // Bugkritiskt (kundens egen kontoplansdata avslöjade det): 2612/2613
-    // är INTE de riktiga BAS-kontona för 12/6 % utgående moms — det är
-    // 2621/2631 (2612/2613 finns inte ens i den officiella kontoplanen för
-    // det syftet). En momsbokning på 12 eller 6 % hamnade alltså på fel
-    // konto. Läser nu OUTPUT_VAT_ACCOUNT_BY_RATE (vatConfig.js) i stället
-    // för en egen, lokal kopia av mappningen — den enda källan nu, så den
-    // här sortens fel inte kan smyga sig in igen på ett tredje ställe.
-    [25, 12, 6].forEach(rate => {
-      const amount = rounded.outputVatByRate[rate];
-      if (amount) verRows.push({ account: OUTPUT_VAT_ACCOUNT_BY_RATE[rate], debet: Math.round(amount), kredit: 0 });
-    });
-    // Omvänd skattskyldighet (tjänster från utlandet): den utgående momsen på
-    // 2614/2624/2634 nollställs i debet och den beräknade ingående momsen på
-    // 2645 i kredit, precis som den vanliga momsen.
-    [25, 12, 6].forEach(rate => {
-      const amount = rounded.reverseVatByRate?.[rate];
-      if (amount) verRows.push({ account: REVERSE_OUTPUT_VAT_ACCOUNT_BY_RATE[rate], debet: Math.round(amount), kredit: 0 });
-    });
-    const domesticInput = rounded.inputVatDomestic ?? rounded.inputVat;
-    if (domesticInput) verRows.push({ account: '2641', debet: 0, kredit: Math.round(domesticInput) });
-    if (rounded.inputVatReverse) verRows.push({ account: REVERSE_INPUT_VAT_ACCOUNT, debet: 0, kredit: Math.round(rounded.inputVatReverse) });
-    if (rounded.netToPay > 0) verRows.push({ account: '2650', debet: 0, kredit: Math.round(rounded.netToPay) });
-    else if (rounded.netToPay < 0) verRows.push({ account: '2650', debet: Math.round(-rounded.netToPay), kredit: 0 });
+    // Samma rader som Steg 3 visar (vatSettlementRows): varje momskonto,
+    // även omvänd skattskyldighet och import, nollställs mot 2650.
+    const verRows = vatSettlementRows(rounded);
 
     const verId = `ver_vat_${periodKey}_${Date.now()}`;
     handleAddVerification({
@@ -3059,7 +3054,7 @@ function App() {
   // token:en saknas/är ogiltig, se verifyReauthGrant i _signedToken.js.
   const handleOpenStripeOnboarding = async (reauthToken) => {
     if (!user) {
-      alert('Logga in för att ansluta Stripe.');
+      alert(tr('ui.logga_in_for_att_ansluta_stripe'));
       return;
     }
     if (company.stripeAccountId) return; // redan anslutet — inget att göra
@@ -3074,11 +3069,11 @@ function App() {
         body: JSON.stringify({ company_id: data.activeCompanyId, action: 'start', reauthToken }),
       });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok || !payload?.url) throw new Error(payload?.error || `Kunde inte starta Stripe-anslutningen (${response.status})`);
+      if (!response.ok || !payload?.url) throw new Error(payload?.error || tr('ui.kunde_inte_starta_stripe_anslutningen', { status: response.status }));
       window.location.href = payload.url;
     } catch (error) {
       console.error(error);
-      alert(`Kunde inte ansluta Stripe: ${error.message || error}`);
+      alert(tr('ui.kunde_inte_ansluta_stripe', { v0: error.message || error }));
     }
   };
 
@@ -3086,7 +3081,7 @@ function App() {
   // resonemang gäller frånkoppling.
   const handleDisconnectStripe = async (reauthToken) => {
     if (!company.stripeAccountId) return;
-    if (!(await confirmDialog('Koppla från Stripe? Bokix kan då inte längre ta emot kortbetalningar till det här kontot.'))) return;
+    if (!(await confirmDialog(tr('ui.koppla_fran_stripe_bokix_kan_da_inte_langre_ta_e')))) return;
 
     try {
       // Säkerhetsfix: user_id och stripe_account_id skickas inte längre med
@@ -3105,11 +3100,11 @@ function App() {
         body: JSON.stringify({ company_id: data.activeCompanyId, action: 'disconnect', reauthToken }),
       });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload?.error || `Frånkoppling misslyckades (${response.status})`);
+      if (!response.ok) throw new Error(payload?.error || tr('ui.frankoppling_misslyckades', { status: response.status }));
       setCompanyInfo({ ...company, stripeAccountId: '' });
     } catch (error) {
       console.error(error);
-      alert(`Kunde inte koppla från Stripe: ${error.message || error}`);
+      alert(tr('ui.kunde_inte_koppla_fran_stripe', { v0: error.message || error }));
     }
   };
 
@@ -3121,7 +3116,7 @@ function App() {
   // reserverat för Zettles egen redirect tillbaka.
   const handleOpenZettleOnboarding = async () => {
     if (!user) {
-      alert('Logga in för att ansluta Zettle.');
+      alert(tr('ui.logga_in_for_att_ansluta_zettle'));
       return;
     }
     if (company.zettleAccessToken) return; // redan anslutet — inget att göra
@@ -3136,11 +3131,11 @@ function App() {
         body: JSON.stringify({ company_id: data.activeCompanyId }),
       });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok || !payload?.url) throw new Error(payload?.error || `Kunde inte starta Zettle-anslutningen (${response.status})`);
+      if (!response.ok || !payload?.url) throw new Error(payload?.error || tr('ui.kunde_inte_starta_zettle_anslutningen', { status: response.status }));
       window.location.href = payload.url;
     } catch (error) {
       console.error(error);
-      alert(`Kunde inte ansluta Zettle: ${error.message || error}`);
+      alert(tr('ui.kunde_inte_ansluta_zettle', { v0: error.message || error }));
     }
   };
 
@@ -3175,7 +3170,7 @@ function App() {
   };
 
   const handleDisconnectEmailDomain = async () => {
-    if (!(await confirmDialog('Koppla från den här avsändardomänen? Fakturor skickas via Bokix reservadress igen tills en ny domän kopplas och verifieras.'))) return;
+    if (!(await confirmDialog(tr('ui.koppla_fran_den_har_avsandardomanen_fakturor_ski')))) return;
     setCompanyInfo({ ...company, emailDomain: '', resendDomainId: '', emailDomainStatus: '', emailDomainRecords: [] });
   };
 
@@ -3187,8 +3182,8 @@ function App() {
   // dels handleSendEmail (lägger samma länk direkt i fakturamejlet).
   const getInvoicePaymentLinkUrl = async (invoiceId) => {
     const invoice = invoices.find(i => i.id === invoiceId);
-    if (!invoice) throw new Error('Fakturan kunde inte hittas.');
-    if (!company.stripeAccountId) throw new Error('Stripe är inte anslutet.');
+    if (!invoice) throw new Error(tr('ui.fakturan_kunde_inte_hittas'));
+    if (!company.stripeAccountId) throw new Error(tr('ui.stripe_ar_inte_anslutet'));
 
     const customer = contacts.find(c => c.id === invoice.customerId);
     // Bugfix (kundrapport: "Skapa betalningslänk funkar inte" — knappen var
@@ -3227,7 +3222,7 @@ function App() {
       invoice_id: invoiceId,
     });
 
-    if (!session?.url) throw new Error('Betalningslänk skapad, men ingen länk mottogs.');
+    if (!session?.url) throw new Error(tr('ui.betalningslank_skapad_men_ingen_lank_mottogs'));
     return session.url;
   };
 
@@ -3381,7 +3376,7 @@ function App() {
     const quota = ufInvoiceQuota(company, invoices);
     if (quota.reached) {
       setToast({
-        message: `Ni har skapat ${quota.limit} fakturor idag — fler går att skapa imorgon. Gratiskontot för UF har ett dygnstak.`,
+        message: tr('ui.ni_har_skapat_fakturor_idag_fler_gar_att_skapa_i', { limit: quota.limit }),
         variant: 'error',
       });
       return;
@@ -3406,7 +3401,8 @@ function App() {
 
     // Med ören och med radrabatten, se utils/invoiceBooking.js. En avrundnings-
     // differens på ören bokas av withRoundingBalance i handleAddVerification.
-    const verRows = invoiceBookingRows(inv.rows, { revenueAccounts: REVENUE_ACCOUNTS, vatAccounts: VAT_ACCOUNTS });
+    // En faktura i annan valuta bokförs i kronor med fakturans kurs (fxRate).
+    const verRows = invoiceBookingRows(inv.rows, { revenueAccounts: REVENUE_ACCOUNTS, vatAccounts: VAT_ACCOUNTS, rate: invoiceFxRate(inv) });
 
     handleAddVerification({
       date: inv.date,
@@ -3453,15 +3449,26 @@ function App() {
 
     // Med ören och med radrabatten, se utils/invoiceBooking.js. En avrundnings-
     // differens på ören bokas av withRoundingBalance i handleAddVerification.
-    const verRows = invoiceBookingRows(updatedInvoice.rows, { revenueAccounts: REVENUE_ACCOUNTS, vatAccounts: VAT_ACCOUNTS });
-
-    handleAddVerification({
+    const book = (rate) => handleAddVerification({
       date: updatedInvoice.date,
       description: `Faktura ${updatedInvoice.invoiceNumber}`,
       source: 'invoice',
       sourceId: updatedInvoice.id,
-      rows: verRows,
+      rows: invoiceBookingRows(updatedInvoice.rows, { revenueAccounts: REVENUE_ACCOUNTS, vatAccounts: VAT_ACCOUNTS, rate }),
     });
+    // En offert i annan valuta får dagens kurs när den blir faktura.
+    if (updatedInvoice.currency && updatedInvoice.currency !== 'SEK' && !(Number(updatedInvoice.fxRate) > 0)) {
+      convertToSek(1, updatedInvoice.currency, updatedInvoice.date).then(res => {
+        if (!res?.rate) {
+          setToast({ message: tr('ui.fakturan_ar_skapad_men_inte_bokford_vaxelkursen', { currency: updatedInvoice.currency }), variant: 'error' });
+          return;
+        }
+        setInvoices(prev => prev.map(i => (i.id === updatedInvoice.id ? { ...i, fxRate: res.rate } : i)));
+        book(res.rate);
+      });
+    } else {
+      book(invoiceFxRate(updatedInvoice));
+    }
 
     return updatedInvoice;
   };
@@ -3477,6 +3484,9 @@ function App() {
   // felmeddelande för användaren. Samma delade, redan defensiva funktion nu
   // i stället för en andra, glömd kopia som kunde glida isär.
   const invoiceGross = grossInvoiceAmount;
+  // Kursen en faktura bokfördes med. Äldre fakturor i annan valuta saknar
+  // kurs och bokfördes med beloppet rakt av, så de räknas med 1 även här.
+  const invoiceFxRate = (inv) => (inv?.currency && inv.currency !== 'SEK' && Number(inv.fxRate) > 0 ? Number(inv.fxRate) : 1);
 
   // Registrera betalning — stödjer delbetalning. Beloppet som faktiskt
   // betalas denna gång bokförs för sig (1930/1510), och fakturan markeras
@@ -3488,15 +3498,26 @@ function App() {
   // andra anropsställen (snabbknappen i fakturalistan, Stripe-webhooken)
   // fortsätter oförändrat mot 1930 genom att helt enkelt inte skicka in
   // parametern, så det här är en additiv ändring, ingen omskrivning.
-  const handleRegisterInvoicePayment = (invoiceId, amount, date, bankLedgerAccount = '1930') => {
+  // `amount` är i fakturans valuta. För en faktura i annan valuta kan
+  // `sekReceived` ange vad som kom in på kontot i kronor (bankmatchningen
+  // skickar `amountIsSek` i stället, då är beloppet kronorna och betalningen
+  // antas reglera det som är kvar). Skillnaden mot fordran i kronor bokförs
+  // som valutakursvinst (3960) eller -förlust (7960).
+  const handleRegisterInvoicePayment = (invoiceId, amount, date, bankLedgerAccount = '1930', { sekReceived, amountIsSek = false } = {}) => {
     const inv = invoices.find(i => i.id === invoiceId);
     if (!inv || !amount || amount <= 0) return;
+    const fx = invoiceFxRate(inv);
+    const foreign = fx !== 1;
 
     const totalGross = invoiceGross(inv);
     const alreadyPaid = inv.paidAmount || 0;
     const remaining = Math.max(0, totalGross - alreadyPaid);
-    const paymentAmount = Math.min(amount, remaining);
+    const paymentAmount = foreign && amountIsSek ? remaining : Math.min(amount, remaining);
     if (paymentAmount <= 0) return;
+    const round2 = (v) => Math.round(v * 100) / 100;
+    const receivableSek = round2(paymentAmount * fx);
+    const bankSek = foreign ? round2(amountIsSek ? amount : (Number(sekReceived) > 0 ? Number(sekReceived) : receivableSek)) : receivableSek;
+    const fxDiff = round2(bankSek - receivableSek);
 
     const newPaid = alreadyPaid + paymentAmount;
     const isFullyPaid = newPaid >= totalGross - 0.5; // avrundningsmarginal (öre)
@@ -3516,8 +3537,10 @@ function App() {
       source: 'invoice_payment',
       sourceId: invoiceId,
       rows: [
-        { account: bankLedgerAccount, debet: Math.round(paymentAmount * 100) / 100, kredit: 0 },
-        { account: '1510', debet: 0, kredit: Math.round(paymentAmount * 100) / 100 },
+        { account: bankLedgerAccount, debet: bankSek, kredit: 0 },
+        { account: '1510', debet: 0, kredit: receivableSek },
+        ...(fxDiff > 0 ? [{ account: '3960', debet: 0, kredit: fxDiff }] : []),
+        ...(fxDiff < 0 ? [{ account: '7960', debet: -fxDiff, kredit: 0 }] : []),
       ],
     });
 
@@ -3538,7 +3561,7 @@ function App() {
     // också misslyckades.
     const emailNotificationsOn = company?.notifications?.emailNotificationsEnabled ?? true;
     if (isFullyPaid && emailNotificationsOn) {
-      const amountLabel = `${Math.round(newPaid).toLocaleString('sv-SE')} kr`;
+      const amountLabel = `${Math.round(newPaid).toLocaleString('sv-SE')} ${foreign ? inv.currency : 'kr'}`;
       const dateLabel = new Date(paidDate).toLocaleDateString('sv-SE');
 
       if ((company?.notifications?.paymentRemindersEnabled ?? true) && company?.email) {
@@ -4105,7 +4128,7 @@ function App() {
   };
 
   const handleResetData = async () => {
-    if (await confirmDialog('Är du säker på att du vill återställa all data? Detta tar bort eventuella sparade uppgifter och startar om med tomt företag.', { danger: true })) {
+    if (await confirmDialog(tr('ui.ar_du_saker_pa_att_du_vill_aterstalla_all_data_d'), { danger: true })) {
       if (!(await archiveBeforeRemoval(data.activeCompanyId, 'reset'))) return false;
       const defaultData = createEmptyCompanyData({ id: data.activeCompanyId });
       setData(prev => ({
@@ -4139,15 +4162,15 @@ function App() {
   const notifications = [
     ...(overdueInvoicesForNotif.length > 0 ? [{
       icon: AlertTriangle, tone: 'red', tab: 'invoices',
-      text: overdueInvoicesForNotif.length === 1 ? '1 faktura har förfallit' : `${overdueInvoicesForNotif.length} fakturor har förfallit`,
+      text: overdueInvoicesForNotif.length === 1 ? tr('ui.n1_faktura_har_forfallit') : tr('ui.fakturor_har_forfallit', { length: overdueInvoicesForNotif.length }),
     }] : []),
     ...(reviewCount > 0 ? [{
       icon: ReceiptText, tone: 'green', tab: 'review',
-      text: `${reviewCount} kvitto${reviewCount > 1 ? 'n' : ''} väntar på granskning`,
+      text: tr('ui.kvitto_vantar_pa_granskning', { reviewCount, v1: reviewCount > 1 ? 'n' : '' }),
     }] : []),
     ...(draftOrPendingExpenses.length > 0 ? [{
       icon: FileText, tone: 'amber', tab: 'expenses',
-      text: `${draftOrPendingExpenses.length} utgift${draftOrPendingExpenses.length > 1 ? 'er' : ''} väntar på hantering`,
+      text: tr('ui.utgift_vantar_pa_hantering', { length: draftOrPendingExpenses.length, v1: draftOrPendingExpenses.length > 1 ? 'er' : '' }),
     }] : []),
   ];
 
@@ -4179,10 +4202,10 @@ function App() {
   // Kvitton, eftersom att fota ett kvitto är det man oftast gör på telefonen.
   // Bokföring och Rapport ligger på var sin sida om den, Hem först och Meny sist.
   const mobileNavItems = [
-    { id: 'dashboard',     label: 'Hem',       icon: NavHomeIcon },
-    { id: 'verifications', label: 'Bokföring', icon: BookOpen },
-    { id: 'expenses',      label: 'Kvitton',   icon: NavReceiptsIcon, hero: true },
-    { id: 'reports',       label: 'Rapport',   icon: BarChart3 },
+    { id: 'dashboard',     label: tr('ui.hem'),       icon: NavHomeIcon },
+    { id: 'verifications', label: tr('ui.bokforing'), icon: BookOpen },
+    { id: 'expenses',      label: tr('ui.kvitton'),   icon: NavReceiptsIcon, hero: true },
+    { id: 'reports',       label: tr('ui.rapport'),   icon: BarChart3 },
   ];
   // Telefonens Meny har samma grupper som sidomenyn på datorn, utan det som redan
   // finns i bottenraden (se visibleMobileSheetSections).
@@ -4336,6 +4359,7 @@ function App() {
             setAccounts={setAccounts}
             onNavigateToTab={handleNavTabChange}
             initialSection={taxesInitialSection}
+            contacts={contacts}
           />
         );
       case 'invoices':
@@ -4394,8 +4418,8 @@ function App() {
             onReverseExpense={handleReverseExpense}
             globalAction={globalAction}
             clearGlobalAction={() => setGlobalAction(null)}
-            pageTitle="Kostnader"
-            pageSubtitle="Registrera och följ företagets kostnader"
+            pageTitle={tr('ui.kostnader')}
+            pageSubtitle={tr('ui.registrera_och_folj_foretagets_kostnader')}
           />
         );
       case 'expenses':
@@ -4417,7 +4441,7 @@ function App() {
             onReverseExpense={handleReverseExpense}
             pickedFiles={pickedReceiptFiles}
             onPickedFilesHandled={() => setPickedReceiptFiles(null)}
-            pageTitle="Kvitton"
+            pageTitle={tr('ui.kvitton')}
           />
         );
       case 'supplier_invoices':
@@ -4488,8 +4512,8 @@ function App() {
             onSaveTemplate={handleSaveVerificationTemplate}
             onAdd={handleAddVerification}
             setVerifications={setVerifications}
-            pageTitle="Överföringar"
-            pageSubtitle="Hantera kontoöverföringar och transaktioner"
+            pageTitle={tr('ui.overforingar')}
+            pageSubtitle={tr('ui.hantera_kontooverforingar_och_transaktioner')}
             vatPeriods={vatPeriods}
             highlightVerificationId={highlightVerificationId}
             onClearHighlight={() => setHighlightVerificationId(null)}
@@ -4530,6 +4554,10 @@ function App() {
             highlightVerificationId={highlightVerificationId}
             onClearHighlight={() => setHighlightVerificationId(null)}
             initialTab={verificationsInitialTab}
+            extraTabs={isUfCompany(company) ? [] : [
+              { id: 'accruals', label: tr('ui.periodiseringar'), content: <Accruals company={company} accounts={accounts} verifications={verifications} employees={employees} payrollRuns={payrollRuns} onAddVerification={handleAddVerification} setCompanyInfo={setCompanyInfo} /> },
+              { id: 'fixed_assets', label: tr('ui.anlaggningstillgangar'), content: <FixedAssets company={company} accounts={accounts} verifications={verifications} onAddVerification={handleAddVerification} setCompanyInfo={setCompanyInfo} /> },
+            ]}
           />
         );
       case 'bank':
@@ -4698,7 +4726,7 @@ function App() {
           <BokixLogo onClick={() => handleNavTabChange('dashboard')} />
           {/* Halv skärm: sidomenyn blir ett smalt ikonfält, och då ersätter
               monogrammet den breda loggan. Dolt på alla andra bredder. */}
-          <button type="button" className="sidebar-monogram" onClick={() => handleNavTabChange('dashboard')} aria-label="Startsida" title="Till startsidan"><BokixMark height={40} /></button>
+          <button type="button" className="sidebar-monogram" onClick={() => handleNavTabChange('dashboard')} aria-label={tr('ui.startsida')} title={tr('ui.till_startsidan')}><BokixMark height={40} /></button>
         </div>
         <div style={{ height: '1px', background: 'rgba(255,255,255,0.15)', margin: '0 20px var(--sb-gap, 8px)', flexShrink: 0 }}></div>
 
@@ -4841,7 +4869,7 @@ function App() {
               border: 'none', color: 'rgba(255,255,255,0.7)', fontSize: 'var(--sb-font, 15px)', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px'
             }}
           >
-            <HelpCircle size={17} /> <span className="nav-label">Hjälp och support</span>
+            <HelpCircle size={17} /> <span className="nav-label">{t('nav.help')}</span>
           </button>
           <button
             className="nav-item logout-btn"
@@ -4851,7 +4879,7 @@ function App() {
               border: 'none', color: '#fca5a5', fontSize: 'var(--sb-font, 15px)', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px'
             }}
           >
-            <LogOut size={17} /> <span className="nav-label">Logga ut</span>
+            <LogOut size={17} /> <span className="nav-label">{t('nav.logout')}</span>
           </button>
         </div>
       </aside>
@@ -4876,14 +4904,14 @@ function App() {
           </div>
 
           <div className="desktop-topbar-right">
-            <button data-tour="topbar-help" className="topbar-icon-btn" title="Hjälp & support" onClick={() => setIsHelpDrawerOpen(true)}>
+            <button data-tour="topbar-help" className="topbar-icon-btn" title={tr('ui.hjalp_support')} onClick={() => setIsHelpDrawerOpen(true)}>
               <HelpCircle size={23} />
             </button>
-            <button className="topbar-icon-btn" title={theme === 'dark' ? 'Ljust läge' : 'Mörkt läge'} onClick={toggleTheme}>
+            <button className="topbar-icon-btn" title={theme === 'dark' ? tr('ui.ljust_lage') : tr('ui.morkt_lage')} onClick={toggleTheme}>
               {theme === 'dark' ? <Sun size={23} /> : <Moon size={23} />}
             </button>
             <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
-              <button className="topbar-icon-btn" title="Notiser" onClick={() => setIsNotifMenuOpen(!isNotifMenuOpen)}>
+              <button className="topbar-icon-btn" title={tr('ui.notiser')} onClick={() => setIsNotifMenuOpen(!isNotifMenuOpen)}>
                 <Bell size={23} />
               </button>
               {notificationCount > 0 && (
@@ -4894,11 +4922,11 @@ function App() {
               {isNotifMenuOpen && (
                 <div className="profile-dropdown notif-dropdown">
                   <div className="profile-header" style={{ paddingBottom: 4 }}>
-                    <div className="profile-name">Notiser</div>
+                    <div className="profile-name">{tr('ui.notiser')}</div>
                   </div>
                   <div className="dropdown-divider"></div>
                   {notifications.length === 0 ? (
-                    <div style={{ padding: '18px 12px', textAlign: 'center', fontSize: '13px', color: 'var(--text-muted)' }}>Inget nytt just nu</div>
+                    <div style={{ padding: '18px 12px', textAlign: 'center', fontSize: '13px', color: 'var(--text-muted)' }}>{tr('ui.inget_nytt_just_nu')}</div>
                   ) : notifications.map((n, i) => (
                     <button key={i} onClick={() => { handleNavTabChange(n.tab); setIsNotifMenuOpen(false); }}>
                       <span style={{ width: 26, height: 26, borderRadius: '7px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: `var(--status-${n.tone}-bg)`, color: `var(--status-${n.tone}-text)` }}>
@@ -4918,7 +4946,7 @@ function App() {
                 onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
                 style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', padding: '4px', borderRadius: '8px' }}
               >
-                <div className="topbar-avatar" title={user?.email || 'Profil'}>
+                <div className="topbar-avatar" title={user?.email || tr('ui.profil')}>
                   {(company?.name || user?.email || 'A').charAt(0).toUpperCase()}
                 </div>
                 <ChevronDown size={18} style={{ color: theme === 'dark' ? 'rgba(255,255,255,0.75)' : 'var(--text-secondary)' }} />
@@ -4932,8 +4960,8 @@ function App() {
                         {(company?.name || user?.email || 'A').charAt(0).toUpperCase()}
                       </div>
                       <div>
-                        <div className="profile-name">{company?.name || 'Mitt Företag'}</div>
-                        <div className="profile-role">{user?.email || 'användare@bokix.se'}</div>
+                        <div className="profile-name">{company?.name || tr('ui.mitt_foretag')}</div>
+                        <div className="profile-role">{user?.email || tr('ui.anvandare_bokix_se')}</div>
                       </div>
                     </div>
                   </div>
@@ -4949,33 +4977,33 @@ function App() {
                       det finns kvar på två ställen: sol/måne-ikonen i
                       topbaren (båda layouterna) och Inställningar →
                       Utseende. Lägg inte tillbaka det här utan att fråga. */}
-                  <button onClick={() => { handleNavTabChange('accounts'); setIsProfileMenuOpen(false); }}><FolderTree size={14} /> Kontoplaner</button>
+                  <button onClick={() => { handleNavTabChange('accounts'); setIsProfileMenuOpen(false); }}><FolderTree size={14} /> {tr('ui.kontoplaner')}</button>
                   {/* Produkt-/artikelregistret (Articles.jsx) — kundönskemål:
                       en egen, hittbar sida för produkter/tjänster, valbara
                       direkt på både fakturor och offerter. */}
-                  <button onClick={() => { handleNavTabChange('articles'); setIsProfileMenuOpen(false); }}><Package size={14} /> Artikel</button>
+                  <button onClick={() => { handleNavTabChange('articles'); setIsProfileMenuOpen(false); }}><Package size={14} /> {tr('ui.artikel')}</button>
                   {/* Ingen egen "viktiga datum"-sida finns — Skatt & bokslut är
                       redan där deadlines (momsdeklaration, bokslut) visas, så
                       det är dit den rimligen ska peka istället för att inte
                       göra något alls. */}
-                  <button onClick={() => { handleNavTabChange('taxes'); setIsProfileMenuOpen(false); }}><FileCheck size={14} /> Viktiga datum</button>
-                  <button onClick={() => { handleNavTabChange('taxes_yearend'); setIsProfileMenuOpen(false); }}><Shield size={14} /> Bokslut & årsredovisning</button>
-                  <button onClick={() => { handleNavTabChange('taxes_vat'); setIsProfileMenuOpen(false); }}><Calculator size={14} /> Momsredovisning</button>
+                  <button onClick={() => { handleNavTabChange('taxes'); setIsProfileMenuOpen(false); }}><FileCheck size={14} /> {tr('ui.viktiga_datum')}</button>
+                  <button onClick={() => { handleNavTabChange('taxes_yearend'); setIsProfileMenuOpen(false); }}><Shield size={14} /> {tr('ui.bokslut_arsredovisning')}</button>
+                  <button onClick={() => { handleNavTabChange('taxes_vat'); setIsProfileMenuOpen(false); }}><Calculator size={14} /> {tr('ui.momsredovisning')}</button>
                   <div className="dropdown-divider"></div>
                   {/* Samma mejladress/ämnesrad som felrapport-länken i
                       HelpDrawer.jsx — en riktig kanal istället för att bara
                       stänga menyn utan att göra något. */}
-                  <button onClick={() => { setReportErrorModal(true); setIsProfileMenuOpen(false); }}><AlertTriangle size={14} /> Rapportera fel</button>
-                  <button className="profile-item-desktop-only" onClick={() => { setIsHelpDrawerOpen(true); setIsProfileMenuOpen(false); }}><HelpCircle size={14} /> Hjälp & support</button>
+                  <button onClick={() => { setReportErrorModal(true); setIsProfileMenuOpen(false); }}><AlertTriangle size={14} /> {tr('ui.rapportera_fel')}</button>
+                  <button className="profile-item-desktop-only" onClick={() => { setIsHelpDrawerOpen(true); setIsProfileMenuOpen(false); }}><HelpCircle size={14} /> {tr('ui.hjalp_support')}</button>
                   <div className="dropdown-divider"></div>
-                  <button onClick={() => { handleStartNewCompany(); setIsProfileMenuOpen(false); }}><UsersRound size={14} /> Lägg till företag</button>
+                  <button onClick={() => { handleStartNewCompany(); setIsProfileMenuOpen(false); }}><UsersRound size={14} /> {tr('ui.lagg_till_foretag')}</button>
                   <div className="dropdown-divider"></div>
                   <button onClick={async () => {
                     await supabase.auth.signOut();
                     clearLocalData();
                     setIsLoggedIn(false);
                     setShowOnboarding(false);
-                  }} className="text-danger profile-item-desktop-only"><LogOut size={14} /> Logga ut</button>
+                  }} className="text-danger profile-item-desktop-only"><LogOut size={14} /> {tr('ui.logga_ut')}</button>
                 </div>
               )}
             </div>
@@ -5006,11 +5034,11 @@ function App() {
                 punkter (Profil/Inställningar/Kontoplaner m.fl.) nås via
                 samma avatar-knapp och .profile-dropdown som på desktop —
                 se den mobilanpassade positioneringen i index.css. */}
-            <button className="topbar-icon-btn" title={theme === 'dark' ? 'Ljust läge' : 'Mörkt läge'} onClick={toggleTheme}>
+            <button className="topbar-icon-btn" title={theme === 'dark' ? tr('ui.ljust_lage') : tr('ui.morkt_lage')} onClick={toggleTheme}>
               {theme === 'dark' ? <Sun size={23} /> : <Moon size={23} />}
             </button>
             <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
-              <button className="topbar-icon-btn" title="Notiser" onClick={() => setIsNotifMenuOpen(!isNotifMenuOpen)}>
+              <button className="topbar-icon-btn" title={tr('ui.notiser')} onClick={() => setIsNotifMenuOpen(!isNotifMenuOpen)}>
                 <Bell size={23} />
               </button>
               {notificationCount > 0 && (
@@ -5021,11 +5049,11 @@ function App() {
               {isNotifMenuOpen && (
                 <div className="profile-dropdown notif-dropdown">
                   <div className="profile-header" style={{ paddingBottom: 4 }}>
-                    <div className="profile-name">Notiser</div>
+                    <div className="profile-name">{tr('ui.notiser')}</div>
                   </div>
                   <div className="dropdown-divider"></div>
                   {notifications.length === 0 ? (
-                    <div style={{ padding: '18px 12px', textAlign: 'center', fontSize: '13px', color: 'var(--text-muted)' }}>Inget nytt just nu</div>
+                    <div style={{ padding: '18px 12px', textAlign: 'center', fontSize: '13px', color: 'var(--text-muted)' }}>{tr('ui.inget_nytt_just_nu')}</div>
                   ) : notifications.map((n, i) => (
                     <button key={i} onClick={() => { handleNavTabChange(n.tab); setIsNotifMenuOpen(false); }}>
                       <span style={{ width: 26, height: 26, borderRadius: '7px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: `var(--status-${n.tone}-bg)`, color: `var(--status-${n.tone}-text)` }}>
@@ -5043,7 +5071,7 @@ function App() {
                 onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
                 style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', padding: '4px', borderRadius: '8px' }}
               >
-                <div className="topbar-avatar" title={user?.email || 'Profil'}>
+                <div className="topbar-avatar" title={user?.email || tr('ui.profil')}>
                   {(company?.name || user?.email || 'A').charAt(0).toUpperCase()}
                 </div>
               </div>
@@ -5055,8 +5083,8 @@ function App() {
                         {(company?.name || user?.email || 'A').charAt(0).toUpperCase()}
                       </div>
                       <div>
-                        <div className="profile-name">{company?.name || 'Mitt Företag'}</div>
-                        <div className="profile-role">{user?.email || 'användare@bokix.se'}</div>
+                        <div className="profile-name">{company?.name || tr('ui.mitt_foretag')}</div>
+                        <div className="profile-role">{user?.email || tr('ui.anvandare_bokix_se')}</div>
                       </div>
                     </div>
                   </div>
@@ -5068,26 +5096,26 @@ function App() {
                       profil"), inte en egen destination. Borttagna, inte bara
                       dolda — samma två rader fanns dubblerat i mobilkopian av
                       den här menyn, borttagna där också. */}
-                  <button onClick={() => { handleNavTabChange('accounts'); setIsProfileMenuOpen(false); }}><FolderTree size={14} /> Kontoplaner</button>
+                  <button onClick={() => { handleNavTabChange('accounts'); setIsProfileMenuOpen(false); }}><FolderTree size={14} /> {tr('ui.kontoplaner')}</button>
                   {/* Produkt-/artikelregistret (Articles.jsx) — kundönskemål:
                       en egen, hittbar sida för produkter/tjänster, valbara
                       direkt på både fakturor och offerter. */}
-                  <button onClick={() => { handleNavTabChange('articles'); setIsProfileMenuOpen(false); }}><Package size={14} /> Artikel</button>
-                  <button onClick={() => { handleNavTabChange('taxes'); setIsProfileMenuOpen(false); }}><FileCheck size={14} /> Viktiga datum</button>
-                  <button onClick={() => { handleNavTabChange('taxes_yearend'); setIsProfileMenuOpen(false); }}><Shield size={14} /> Bokslut & årsredovisning</button>
-                  <button onClick={() => { handleNavTabChange('taxes_vat'); setIsProfileMenuOpen(false); }}><Calculator size={14} /> Momsredovisning</button>
+                  <button onClick={() => { handleNavTabChange('articles'); setIsProfileMenuOpen(false); }}><Package size={14} /> {tr('ui.artikel')}</button>
+                  <button onClick={() => { handleNavTabChange('taxes'); setIsProfileMenuOpen(false); }}><FileCheck size={14} /> {tr('ui.viktiga_datum')}</button>
+                  <button onClick={() => { handleNavTabChange('taxes_yearend'); setIsProfileMenuOpen(false); }}><Shield size={14} /> {tr('ui.bokslut_arsredovisning')}</button>
+                  <button onClick={() => { handleNavTabChange('taxes_vat'); setIsProfileMenuOpen(false); }}><Calculator size={14} /> {tr('ui.momsredovisning')}</button>
                   <div className="dropdown-divider"></div>
-                  <button onClick={() => { setReportErrorModal(true); setIsProfileMenuOpen(false); }}><AlertTriangle size={14} /> Rapportera fel</button>
-                  <button onClick={() => { setIsHelpDrawerOpen(true); setIsProfileMenuOpen(false); }}><HelpCircle size={14} /> Hjälp & support</button>
+                  <button onClick={() => { setReportErrorModal(true); setIsProfileMenuOpen(false); }}><AlertTriangle size={14} /> {tr('ui.rapportera_fel')}</button>
+                  <button onClick={() => { setIsHelpDrawerOpen(true); setIsProfileMenuOpen(false); }}><HelpCircle size={14} /> {tr('ui.hjalp_support')}</button>
                   <div className="dropdown-divider"></div>
-                  <button onClick={() => { handleStartNewCompany(); setIsProfileMenuOpen(false); }}><UsersRound size={14} /> Lägg till företag</button>
+                  <button onClick={() => { handleStartNewCompany(); setIsProfileMenuOpen(false); }}><UsersRound size={14} /> {tr('ui.lagg_till_foretag')}</button>
                   <div className="dropdown-divider"></div>
                   <button onClick={async () => {
                     await supabase.auth.signOut();
                     clearLocalData();
                     setIsLoggedIn(false);
                     setShowOnboarding(false);
-                  }} className="text-danger"><LogOut size={14} /> Logga ut</button>
+                  }} className="text-danger"><LogOut size={14} /> {tr('ui.logga_ut')}</button>
                 </div>
               )}
             </div>
@@ -5145,7 +5173,7 @@ function App() {
         ref={heroFileRef} type="file" multiple accept="image/*,application/pdf" style={{ display: 'none' }}
         onChange={e => { if (e.target.files?.length) setPickedReceiptFiles(Array.from(e.target.files)); e.target.value = ''; }}
       />
-      <nav className="mobile-bottom-nav" aria-label="Mobilnavigation">
+      <nav className="mobile-bottom-nav" aria-label={tr('ui.mobilnavigation')}>
         <div className="mobile-bottom-nav-inner">
           {visibleMobileNavItems.map(item => {
             const isActive = resolveNavGroup(activeTab) === resolveTab(item.id);
@@ -5189,19 +5217,19 @@ function App() {
                 tre prickar — matchar det fjärde navvalet i referensbilden. */}
             <span className="mobile-nav-icon">
               <Menu size={22} />
-              {reviewTotal > 0 && <span className="mobile-nav-dot" aria-label={`${reviewTotal} väntar på granskning`} />}
+              {reviewTotal > 0 && <span className="mobile-nav-dot" aria-label={tr('ui.vantar_pa_granskning', { reviewTotal })} />}
             </span>
-            <span>Meny</span>
+            <span>{tr('ui.meny')}</span>
           </button>
         </div>
       </nav>
 
       <div className={`mobile-sheet-overlay ${mobileMoreOpen ? 'open' : ''}`} onClick={() => setMobileMoreOpen(false)} />
-      <div className={`mobile-sheet ${mobileMoreOpen ? 'open' : ''}`} role="dialog" aria-modal="true" aria-label="Fler sidor">
+      <div className={`mobile-sheet ${mobileMoreOpen ? 'open' : ''}`} role="dialog" aria-modal="true" aria-label={tr('ui.fler_sidor')}>
         <div className="mobile-sheet-handle" />
         <div className="mobile-sheet-title">
-          <span>Meny</span>
-          <button type="button" className="mobile-sheet-close" onClick={() => setMobileMoreOpen(false)} aria-label="Stäng menyn"><X size={18} /></button>
+          <span>{tr('ui.meny')}</span>
+          <button type="button" className="mobile-sheet-close" onClick={() => setMobileMoreOpen(false)} aria-label={tr('ui.stang_menyn')}><X size={18} /></button>
         </div>
         <div className="mobile-sheet-body">
           {reviewSheetVisible && (
@@ -5213,7 +5241,7 @@ function App() {
               <span className="mobile-sheet-row-icon"><ClipboardCheck size={20} /></span>
               <span className="mobile-sheet-review-text">
                 <span className="mobile-sheet-review-title">{t('nav.review')}</span>
-                <span className="mobile-sheet-review-sub">{reviewTotal > 0 ? `${reviewTotal} ${reviewTotal === 1 ? 'sak väntar' : 'saker väntar'} på dig` : 'Inget väntar just nu'}</span>
+                <span className="mobile-sheet-review-sub">{reviewTotal > 0 ? tr('ui.pa_dig', { reviewTotal, v1: reviewTotal === 1 ? 'sak väntar' : 'saker väntar' }) : tr('ui.inget_vantar_just_nu')}</span>
               </span>
               {reviewTotal > 0 && <span className="mobile-sheet-review-badge">{reviewTotal}</span>}
             </button>
@@ -5287,7 +5315,7 @@ function App() {
         <div className="modal-overlay" onClick={() => setShowLogoutConfirm(false)}>
           <div className="modal-content" style={{ maxWidth: '400px' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h2 className="modal-title">Logga ut</h2>
+              <h2 className="modal-title">{tr('ui.logga_ut')}</h2>
               <button className="modal-close" onClick={() => setShowLogoutConfirm(false)}>
                 <X size={18} />
               </button>
@@ -5303,10 +5331,10 @@ function App() {
                 läge. Samma .modal-content/.modal-footer + CSS-variabler
                 som ConfirmDialogHost (shared/ConfirmDialog.jsx) redan
                 använder korrekt, i stället. */}
-            <p style={{ margin: '0 0 4px', color: 'var(--text-secondary)', fontSize: '14px', lineHeight: 1.5 }}>Är du säker på att du vill logga ut?</p>
+            <p style={{ margin: '0 0 4px', color: 'var(--text-secondary)', fontSize: '14px', lineHeight: 1.5 }}>{tr('ui.ar_du_saker_pa_att_du_vill_logga_ut')}</p>
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => setShowLogoutConfirm(false)}>
-                Avbryt
+                {tr('ui.avbryt')}
               </button>
               <button className="btn btn-danger" style={{ backgroundColor: '#ef4444', color: 'white' }} onClick={async () => {
                 setShowLogoutConfirm(false);
@@ -5315,7 +5343,7 @@ function App() {
                 setIsLoggedIn(false);
                 setShowOnboarding(false);
               }}>
-                Logga ut
+                {tr('ui.logga_ut')}
               </button>
             </div>
           </div>
@@ -5330,31 +5358,31 @@ function App() {
         <div className="modal-overlay" onClick={() => { if (!reportErrorBusy) setReportErrorModal(false); }}>
           <div className="modal-content" style={{ maxWidth: '440px' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h2 className="modal-title">Rapportera fel</h2>
+              <h2 className="modal-title">{tr('ui.rapportera_fel')}</h2>
               <button className="modal-close" onClick={() => setReportErrorModal(false)}>
                 <X size={18} />
               </button>
             </div>
             <form onSubmit={(e) => { e.preventDefault(); handleSubmitErrorReport(); }}>
               <div className="form-group">
-                <label className="form-label">Vad gick fel?</label>
+                <label className="form-label">{tr('ui.vad_gick_fel')}</label>
                 <textarea
                   className="form-control"
                   rows={5}
-                  placeholder="Beskriv vad som hände — gärna vilken sida du var på och vad du klickade på."
+                  placeholder={tr('ui.beskriv_vad_som_hande_garna_vilken_sida_du_var_p')}
                   value={reportErrorText}
                   onChange={e => setReportErrorText(e.target.value)}
                   autoFocus
                   required
                 />
-                <span className="form-hint">Skickas till support@bokix.se.</span>
+                <span className="form-hint">{tr('ui.skickas_till_support_bokix_se')}</span>
               </div>
               <div className="modal-footer">
                 <button type="button" className="btn btn-secondary" onClick={() => setReportErrorModal(false)} disabled={reportErrorBusy}>
-                  Avbryt
+                  {tr('ui.avbryt')}
                 </button>
                 <button type="submit" className="btn btn-primary" disabled={reportErrorBusy || !reportErrorText.trim()}>
-                  {reportErrorBusy ? 'Skickar...' : 'Skicka'}
+                  {reportErrorBusy ? tr('ui.skickar') : tr('ui.skicka')}
                 </button>
               </div>
             </form>

@@ -1,12 +1,13 @@
 import { supabase } from '../supabaseClient';
 import { confirmDialog } from '../components/shared/ConfirmDialog';
+import { dateLocale } from '../i18n';
 
 // ── Avsluta UF-året (klientsidan). Servern gör jobbet, se api/_ufAccount.js:
 // kontot blir skrivskyddat, ligger kvar i tre månader så att gruppen hinner
 // ladda ner allt, och stängs sedan. Bokföringen och underlagen sparas ändå i
 // sju år i arkivet, som Skatteverket kräver även för UF-företag.
 
-const DATE_FMT = new Intl.DateTimeFormat('sv-SE', { day: 'numeric', month: 'long', year: 'numeric' });
+const DATE_FMT = new Intl.DateTimeFormat(dateLocale(), { day: 'numeric', month: 'long', year: 'numeric' });
 
 /** Avslutat? Läser app_metadata, som bara servern kan skriva. */
 export function ufClosedInfo(user) {

@@ -2,9 +2,16 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { AlertCircle, AlertTriangle, CheckCircle2, ChevronRight, Download, Lock, FileText, ExternalLink } from './icons';
 import {
   computeVatPeriod, roundedVatPeriod, validateVatPeriod, compareToPreviousPeriod, vatRutaValue,
-  quarterToRange, previousQuarterRange,
+  quarterToRange, previousQuarterRange, vatSettlementRows,
 } from '../utils/vatCalculation';
-import { VAT_RUTOR, OUTPUT_VAT_ACCOUNT_BY_RATE, INPUT_VAT_ACCOUNT, VAT_SETTLEMENT_ACCOUNT, REVERSE_OUTPUT_VAT_ACCOUNT_BY_RATE, REVERSE_INPUT_VAT_ACCOUNT } from '../utils/vatConfig';
+import { VAT_RUTOR, VAT_SETTLEMENT_ACCOUNT } from '../utils/vatConfig';
+import { DEFAULT_ACCOUNTS } from './AccountsData';
+import { t, dateLocale } from '../i18n';
+
+// Kontonamnen i Steg 3:s bokföringsförslag.
+const ACCOUNT_NAME = Object.fromEntries(DEFAULT_ACCOUNTS.map(a => [a.code, a.name]));
+// Rutorna som filen alltid har haft och som är provade i e-tjänsten.
+const VERIFIED_RUTOR = new Set(['05', '10', '11', '12', '48', '49']);
 import { downloadVatDeclarationPdf, downloadVatDeclarationXml } from '../utils/vatDeclarationExport';
 import { REVERSE_CHARGE_ESKD_VERIFIED } from '../utils/featureFlags';
 
@@ -18,10 +25,10 @@ const fmt = (v) => new Intl.NumberFormat('sv-SE').format(v || 0);
 const QUARTER_MONTH_LABEL = { 1: 'jan–mar', 2: 'apr–jun', 3: 'jul–sep', 4: 'okt–dec' };
 
 const STEPS = [
-  { id: 1, label: 'Kontrollera' },
-  { id: 2, label: 'Granska' },
-  { id: 3, label: 'Bokför' },
-  { id: 4, label: 'Lämna in' },
+  { id: 1, label: t('ui.kontrollera') },
+  { id: 2, label: t('ui.granska') },
+  { id: 3, label: t('ui.bokfor_2') },
+  { id: 4, label: t('ui.lamna_in') },
 ];
 
 function Stepper({ current, maxReached, isBooked, onSelect }) {
@@ -107,10 +114,11 @@ export default function VatDeclaration({
     .filter(r => r.kind === 'net' || (r.value ?? 0) !== 0);
 
   const isRefund = rounded.netToPay < 0;
-  const hasReverseCharge = !REVERSE_CHARGE_ESKD_VERIFIED && (
-    (rounded.reversePurchaseEu || 0) !== 0 || (rounded.reversePurchaseNonEu || 0) !== 0 || (rounded.inputVatReverse || 0) !== 0
-    || [25, 12, 6].some(r => (rounded.reverseVatByRate?.[r] || 0) !== 0)
-  );
+  // Rutor utöver 05, 10-12, 48 och 49 (omvänd skattskyldighet, import och
+  // försäljning utan svensk moms) är ännu inte provade i Skatteverkets e-tjänst.
+  const unverifiedRutor = REVERSE_CHARGE_ESKD_VERIFIED ? [] : rutorForDisplay.filter(r => !VERIFIED_RUTOR.has(r.ruta)).map(r => r.ruta);
+  const hasReverseCharge = unverifiedRutor.length > 0 || (!REVERSE_CHARGE_ESKD_VERIFIED && (rounded.inputVatReverse || 0) !== 0);
+  const settlementRows = vatSettlementRows(rounded);
 
   const handleBook = () => {
     if (isBooked || bookingRef.current) return;
@@ -138,11 +146,11 @@ export default function VatDeclaration({
     }
   };
 
-  const periodLabel = `Kvartal ${quarter} (${periodStart} till ${periodEnd})`;
+  const periodLabel = t('ui.kvartal_till', { quarter, periodStart, periodEnd });
   // Läsbart datumspann istället för råa ISO-datum (2026-07-01) i sidhuvudet
   // — samma "förklara vad det är, datumet"-feedback som dropdownens
   // månadsintervall ovan löser, bara för den redan valda perioden.
-  const fmtPeriodDate = (iso) => new Date(iso).toLocaleDateString('sv-SE', { day: 'numeric', month: 'long' });
+  const fmtPeriodDate = (iso) => new Date(iso).toLocaleDateString(dateLocale(), { day: 'numeric', month: 'long' });
   const periodDateRange = `${fmtPeriodDate(periodStart)} – ${fmtPeriodDate(periodEnd)} ${year}`;
 
   // borderRadius top-hörn fyrkantiga (inte 12px runt om): sitter numera
@@ -155,21 +163,21 @@ export default function VatDeclaration({
       <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
           <div>
-            <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>Momsdeklaration</h2>
+            <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>{t('ui.momsdeklaration')}</h2>
             <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-              {periodDateRange} · {transactionCount} {transactionCount === 1 ? 'underliggande transaktion' : 'underliggande transaktioner'}
+              {periodDateRange} · {transactionCount} {transactionCount === 1 ? t('ui.underliggande_transaktion') : t('ui.underliggande_transaktioner')}
             </div>
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <select value={quarter} onChange={e => { setQuarter(Number(e.target.value)); setStep(1); }} disabled={isBooked} style={{ padding: '7px 10px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', background: 'var(--bg-card)', color: 'var(--text-main)' }}>
-              {[1, 2, 3, 4].map(q => <option key={q} value={q}>Kvartal {q} ({QUARTER_MONTH_LABEL[q]})</option>)}
+              {[1, 2, 3, 4].map(q => <option key={q} value={q}>{t('ui.kvartal')} {q} ({QUARTER_MONTH_LABEL[q]})</option>)}
             </select>
             <select value={year} onChange={e => { setYear(Number(e.target.value)); setStep(1); }} disabled={isBooked} style={{ padding: '7px 10px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', background: 'var(--bg-card)', color: 'var(--text-main)' }}>
               {[today.getFullYear() - 1, today.getFullYear(), today.getFullYear() + 1].map(y => <option key={y} value={y}>{y}</option>)}
             </select>
             {isBooked && (
               <span style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 10px', background: 'var(--status-green-bg)', color: 'var(--status-green-text)', borderRadius: '999px', fontSize: '12px', fontWeight: 600 }}>
-                <Lock size={12} /> Bokförd
+                <Lock size={12} /> {t('ui.bokford')}
               </span>
             )}
           </div>
@@ -185,7 +193,7 @@ export default function VatDeclaration({
             {validation.errors.length > 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--status-red-text)', fontWeight: 700, fontSize: '14px' }}>
-                  <AlertCircle size={18} /> {validation.errors.length} {validation.errors.length === 1 ? 'fel måste åtgärdas' : 'fel måste åtgärdas'} innan du kan gå vidare
+                  <AlertCircle size={18} /> {validation.errors.length} {validation.errors.length === 1 ? t('ui.fel_maste_atgardas') : t('ui.fel_maste_atgardas')} {t('ui.innan_du_kan_ga_vidare')}
                 </div>
                 {validation.errors.map((err, i) => (
                   <button
@@ -205,7 +213,7 @@ export default function VatDeclaration({
               </div>
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '14px 16px', background: 'var(--status-green-bg)', border: '1px solid var(--status-green-bg)', borderRadius: '8px', color: 'var(--status-green-text)', fontWeight: 600, fontSize: '14px', marginBottom: '16px' }}>
-                <CheckCircle2 size={18} /> Inga blockerande fel hittades för perioden.
+                <CheckCircle2 size={18} /> {t('ui.inga_blockerande_fel_hittades_for_perioden')}
               </div>
             )}
 
@@ -229,7 +237,7 @@ export default function VatDeclaration({
                   border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: validation.canProceed ? 'pointer' : 'not-allowed',
                 }}
               >
-                Gå vidare till Granska <ChevronRight size={16} />
+                {t('ui.ga_vidare_till_granska')} <ChevronRight size={16} />
               </button>
             </div>
           </div>
@@ -242,9 +250,9 @@ export default function VatDeclaration({
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
                 <thead>
                   <tr style={{ background: 'var(--bg-muted)' }}>
-                    <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>Ruta</th>
-                    <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>Betydelse</th>
-                    <th style={{ padding: '10px 16px', textAlign: 'right', fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>Belopp</th>
+                    <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>{t('ui.ruta')}</th>
+                    <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>{t('ui.betydelse')}</th>
+                    <th style={{ padding: '10px 16px', textAlign: 'right', fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>{t('ui.belopp')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -254,10 +262,10 @@ export default function VatDeclaration({
                       <tr key={r.ruta} style={{ borderTop: '1px solid var(--border-light)', background: isNet ? 'var(--bg-muted)' : 'var(--bg-card)' }}>
                         <td style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--text-main)' }}>{r.ruta}</td>
                         <td style={{ padding: '12px 16px', color: 'var(--text-main)' }}>
-                          {isNet ? (isRefund ? 'Moms att återfå' : 'Moms att betala') : r.label}
+                          {isNet ? (isRefund ? t('ui.moms_att_aterfa') : t('ui.moms_att_betala')) : r.label}
                         </td>
                         <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: isNet ? 800 : 600, fontSize: isNet ? '16px' : '14px', color: isNet ? (isRefund ? 'var(--status-green-text)' : 'var(--status-red-text)') : 'var(--text-main)' }}>
-                          {fmt(Math.abs(r.value))} kr
+                          {fmt(Math.abs(r.value))} {t('ui.kr')}
                         </td>
                       </tr>
                     );
@@ -266,12 +274,12 @@ export default function VatDeclaration({
               </table>
             </div>
             <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '20px' }}>
-              Alla belopp är avrundade till hela kronor (standard matematisk avrundning) — samma avrundade belopp används i bokföringen i Steg 3 och i exporten i Steg 4.
+              {t('ui.alla_belopp_ar_avrundade_till_hela_kronor_standa')}
             </p>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <button onClick={() => setStep(1)} style={{ padding: '10px 18px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer', color: 'var(--text-main)' }}>Tillbaka</button>
+              <button onClick={() => setStep(1)} style={{ padding: '10px 18px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer', color: 'var(--text-main)' }}>{t('ui.tillbaka_2')}</button>
               <button onClick={() => setStep(3)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 20px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer' }}>
-                Gå vidare till Bokför <ChevronRight size={16} />
+                {t('ui.ga_vidare_till_bokfor')} <ChevronRight size={16} />
               </button>
             </div>
           </div>
@@ -282,68 +290,40 @@ export default function VatDeclaration({
           <div>
             {isBooked ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '14px 16px', background: 'var(--status-green-bg)', border: '1px solid var(--status-green-bg)', borderRadius: '8px', color: 'var(--status-green-text)', fontWeight: 600, fontSize: '14px', marginBottom: '20px' }}>
-                <CheckCircle2 size={18} /> Perioden är redan bokförd ({bookedInfo?.bookedAt ? new Date(bookedInfo.bookedAt).toLocaleDateString('sv-SE') : ''}). En ny bokföring skapas inte igen.
+                <CheckCircle2 size={18} /> {t('ui.perioden_ar_redan_bokford')}{bookedInfo?.bookedAt ? new Date(bookedInfo.bookedAt).toLocaleDateString('sv-SE') : ''}{t('ui.en_ny_bokforing_skapas_inte_igen')}
               </div>
             ) : (
               <>
                 <p style={{ fontSize: '14px', color: 'var(--text-main)', marginBottom: '16px' }}>
-                  Vid bokföring nollställs periodens moms-konton mot <strong>{VAT_SETTLEMENT_ACCOUNT} Redovisningskonto för moms</strong>:
+                  {t('ui.vid_bokforing_nollstalls_periodens_moms_konton_m')} <strong>{VAT_SETTLEMENT_ACCOUNT} {t('ui.redovisningskonto_for_moms')}</strong>:
                 </p>
                 <div style={{ border: '1px solid var(--border)', borderRadius: '10px', overflow: 'hidden', marginBottom: '20px' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                     <thead>
                       <tr style={{ background: 'var(--bg-muted)' }}>
-                        <th style={{ padding: '8px 14px', textAlign: 'left', fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 700 }}>KONTO</th>
-                        <th style={{ padding: '8px 14px', textAlign: 'right', fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 700 }}>DEBET</th>
-                        <th style={{ padding: '8px 14px', textAlign: 'right', fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 700 }}>KREDIT</th>
+                        <th style={{ padding: '8px 14px', textAlign: 'left', fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 700 }}>{t('ui.konto_3')}</th>
+                        <th style={{ padding: '8px 14px', textAlign: 'right', fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 700 }}>{t('ui.debet_2')}</th>
+                        <th style={{ padding: '8px 14px', textAlign: 'right', fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 700 }}>{t('ui.kredit_2')}</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {[25, 12, 6].filter(r => rounded.outputVatByRate[r] !== 0).map(r => (
-                        <tr key={r} style={{ borderTop: '1px solid var(--border-light)' }}>
-                          <td style={{ padding: '10px 14px' }}>{OUTPUT_VAT_ACCOUNT_BY_RATE[r]} Utgående moms, {r}%</td>
-                          <td style={{ padding: '10px 14px', textAlign: 'right' }}>{fmt(rounded.outputVatByRate[r])}</td>
-                          <td style={{ padding: '10px 14px', textAlign: 'right' }}></td>
+                      {settlementRows.map(row => (
+                        <tr key={row.account} style={{ borderTop: '1px solid var(--border-light)', fontWeight: row.account === VAT_SETTLEMENT_ACCOUNT ? 700 : undefined }}>
+                          <td style={{ padding: '10px 14px' }}>{row.account} {ACCOUNT_NAME[row.account] || ''}</td>
+                          <td style={{ padding: '10px 14px', textAlign: 'right' }}>{row.debet ? fmt(row.debet) : ''}</td>
+                          <td style={{ padding: '10px 14px', textAlign: 'right' }}>{row.kredit ? fmt(row.kredit) : ''}</td>
                         </tr>
                       ))}
-                      {[25, 12, 6].filter(r => (rounded.reverseVatByRate?.[r] || 0) !== 0).map(r => (
-                        <tr key={`rev-${r}`} style={{ borderTop: '1px solid var(--border-light)' }}>
-                          <td style={{ padding: '10px 14px' }}>{REVERSE_OUTPUT_VAT_ACCOUNT_BY_RATE[r]} Utgående moms omvänd skattskyldighet, {r}%</td>
-                          <td style={{ padding: '10px 14px', textAlign: 'right' }}>{fmt(rounded.reverseVatByRate[r])}</td>
-                          <td style={{ padding: '10px 14px', textAlign: 'right' }}></td>
-                        </tr>
-                      ))}
-                      {rounded.inputVatDomestic !== 0 && (
-                        <tr style={{ borderTop: '1px solid var(--border-light)' }}>
-                          <td style={{ padding: '10px 14px' }}>{INPUT_VAT_ACCOUNT} Ingående moms</td>
-                          <td style={{ padding: '10px 14px', textAlign: 'right' }}></td>
-                          <td style={{ padding: '10px 14px', textAlign: 'right' }}>{fmt(rounded.inputVatDomestic)}</td>
-                        </tr>
-                      )}
-                      {rounded.inputVatReverse !== 0 && (
-                        <tr style={{ borderTop: '1px solid var(--border-light)' }}>
-                          <td style={{ padding: '10px 14px' }}>{REVERSE_INPUT_VAT_ACCOUNT} Beräknad ingående moms på förvärv från utlandet</td>
-                          <td style={{ padding: '10px 14px', textAlign: 'right' }}></td>
-                          <td style={{ padding: '10px 14px', textAlign: 'right' }}>{fmt(rounded.inputVatReverse)}</td>
-                        </tr>
-                      )}
-                      {rounded.netToPay !== 0 && (
-                        <tr style={{ borderTop: '1px solid var(--border-light)', fontWeight: 700 }}>
-                          <td style={{ padding: '10px 14px' }}>{VAT_SETTLEMENT_ACCOUNT} Redovisningskonto för moms</td>
-                          <td style={{ padding: '10px 14px', textAlign: 'right' }}>{isRefund ? fmt(Math.abs(rounded.netToPay)) : ''}</td>
-                          <td style={{ padding: '10px 14px', textAlign: 'right' }}>{!isRefund ? fmt(rounded.netToPay) : ''}</td>
-                        </tr>
-                      )}
                     </tbody>
                   </table>
                 </div>
               </>
             )}
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <button onClick={() => setStep(2)} style={{ padding: '10px 18px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer', color: 'var(--text-main)' }}>Tillbaka</button>
+              <button onClick={() => setStep(2)} style={{ padding: '10px 18px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer', color: 'var(--text-main)' }}>{t('ui.tillbaka_2')}</button>
               {isBooked ? (
                 <button onClick={() => setStep(4)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 20px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer' }}>
-                  Gå vidare till Lämna in <ChevronRight size={16} />
+                  {t('ui.ga_vidare_till_lamna_in')} <ChevronRight size={16} />
                 </button>
               ) : (
                 <button
@@ -351,7 +331,7 @@ export default function VatDeclaration({
                   disabled={booking}
                   style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 20px', background: booking ? 'var(--text-muted)' : 'var(--accent)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: booking ? 'not-allowed' : 'pointer' }}
                 >
-                  <Lock size={16} /> Bokför
+                  <Lock size={16} /> {t('ui.bokfor_2')}
                 </button>
               )}
             </div>
@@ -364,26 +344,26 @@ export default function VatDeclaration({
             {!isBooked && (
               <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', padding: '12px 14px', background: 'var(--status-amber-bg)', border: '1px solid var(--status-amber-bg)', borderRadius: '8px', color: 'var(--status-amber-text)', fontSize: '13px', marginBottom: '20px' }}>
                 <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 1 }} />
-                <span>Perioden är inte bokförd än. Beloppen nedan bygger på nuvarande bokföring men kan ändras fram tills du bokför i Steg 3.</span>
+                <span>{t('ui.perioden_ar_inte_bokford_an_beloppen_nedan_bygge')}</span>
               </div>
             )}
 
             <div className="form-row-2" style={{ display: 'grid', gap: '16px', marginBottom: '20px' }}>
               <div style={{ border: '1px solid var(--border)', borderRadius: '10px', padding: '20px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '10px' }}>
                 <FileText size={22} color="var(--accent)" />
-                <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)' }}>Ladda ner fil för uppladdning (XML)</div>
+                <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)' }}>{t('ui.ladda_ner_fil_for_uppladdning_xml')}</div>
                 <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
-                  Filen du laddar upp under Deklarera via fil hos Skatteverket — innehåller samma avrundade belopp som PDF:en.
+                  {t('ui.filen_du_laddar_upp_under_deklarera_via_fil_hos')}
                 </p>
                 <button
                   onClick={handleDownloadXml}
                   style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}
                 >
-                  <Download size={14} /> Ladda ner fil för uppladdning (XML)
+                  <Download size={14} /> {t('ui.ladda_ner_fil_for_uppladdning_xml')}
                 </button>
                 {hasReverseCharge && (
                   <p style={{ fontSize: '12px', color: 'var(--status-amber-text, #92400e)', background: 'var(--status-amber-bg, #fef3c7)', borderRadius: '8px', padding: '9px 11px', margin: 0, lineHeight: 1.5 }}>
-                    Perioden innehåller omvänd skattskyldighet (ruta 20–24 och 30–32). Filen med de rutorna är ännu inte provad hos Skatteverket. Kontrollera värdena i e-tjänsten efter uppladdningen, eller fyll i de rutorna för hand från PDF:en.
+                    {t('ui.perioden_har_belopp_i_ruta')} {unverifiedRutor.join(', ')}{t('ui.filen_med_de_rutorna_ar_annu_inte_provad_hos_ska')}
                   </p>
                 )}
                 {xmlError && (
@@ -393,9 +373,9 @@ export default function VatDeclaration({
 
               <div style={{ border: '1px solid var(--border)', borderRadius: '10px', padding: '20px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '10px' }}>
                 <Download size={22} color="var(--accent)" />
-                <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)' }}>Ladda ner momsdeklaration (PDF)</div>
+                <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)' }}>{t('ui.ladda_ner_momsdeklaration_pdf')}</div>
                 <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
-                  Sammanställning med Skatteverkets rutnummer och avrundade belopp, redo att skriva av för hand.
+                  {t('ui.sammanstallning_med_skatteverkets_rutnummer_och')}
                 </p>
                 <button
                   onClick={() => downloadVatDeclarationPdf(
@@ -404,21 +384,21 @@ export default function VatDeclaration({
                   )}
                   style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}
                 >
-                  <Download size={14} /> Ladda ner momsdeklaration (PDF)
+                  <Download size={14} /> {t('ui.ladda_ner_momsdeklaration_pdf')}
                 </button>
               </div>
             </div>
 
             <div style={{ background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: '10px', padding: '20px' }}>
-              <div style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-main)', marginBottom: '10px' }}>Så här lämnar du in hos Skatteverket</div>
+              <div style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-main)', marginBottom: '10px' }}>{t('ui.sa_har_lamnar_du_in_hos_skatteverket')}</div>
               <ol style={{ margin: 0, paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13.5px', color: 'var(--text-main)', lineHeight: 1.5 }}>
-                <li>Ladda ner XML-filen ovan.</li>
-                <li>Logga in på skatteverket.se med BankID.</li>
-                <li>Öppna Moms- och arbetsgivardeklarationer och välj Deklarera via fil.</li>
-                <li>Ladda upp filen, granska och signera.</li>
+                <li>{t('ui.ladda_ner_xml_filen_ovan')}</li>
+                <li>{t('ui.logga_in_pa_skatteverket_se_med_bankid')}</li>
+                <li>{t('ui.oppna_moms_och_arbetsgivardeklarationer_och_valj')}</li>
+                <li>{t('ui.ladda_upp_filen_granska_och_signera')}</li>
               </ol>
               <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: '12px 0 16px' }}>
-                Vill du hellre fylla i rutorna för hand laddar du ner PDF:en och skriver av beloppen (i hela kronor).
+                {t('ui.vill_du_hellre_fylla_i_rutorna_for_hand_laddar_d')}
               </p>
               <a
                 href="https://www.skatteverket.se/foretag"
@@ -426,7 +406,7 @@ export default function VatDeclaration({
                 rel="noopener noreferrer"
                 style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontWeight: 600, fontSize: '13px', color: 'var(--text-main)', textDecoration: 'none' }}
               >
-                Öppna skatteverket.se <ExternalLink size={13} />
+                {t('ui.oppna_skatteverket_se')} <ExternalLink size={13} />
               </a>
             </div>
 
@@ -434,17 +414,17 @@ export default function VatDeclaration({
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginTop: '16px', padding: '14px 16px', border: '1px solid var(--border)', borderRadius: '10px' }}>
                 <div style={{ fontSize: '13.5px', color: 'var(--text-main)', lineHeight: 1.5 }}>
                   {filings[`vat:${periodKey}`]?.at
-                    ? `Markerad som inlämnad ${new Date(filings[`vat:${periodKey}`].at).toLocaleDateString('sv-SE')}.`
-                    : 'Har du laddat upp deklarationen hos Skatteverket? Markera den som inlämnad så håller Bokix reda på det.'}
+                    ? t('ui.markerad_som_inlamnad', { v0: new Date(filings[`vat:${periodKey}`].at).toLocaleDateString('sv-SE') })
+                    : t('ui.har_du_laddat_upp_deklarationen_hos_skatteverket')}
                 </div>
                 <button type="button" onClick={() => onToggleFiled(`vat:${periodKey}`)} style={{ padding: '8px 16px', background: filings[`vat:${periodKey}`]?.at ? 'var(--bg-card)' : 'var(--accent)', color: filings[`vat:${periodKey}`]?.at ? 'var(--text-main)' : 'white', border: filings[`vat:${periodKey}`]?.at ? '1px solid var(--border)' : 'none', borderRadius: '8px', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}>
-                  {filings[`vat:${periodKey}`]?.at ? 'Ångra' : 'Markera som inlämnad'}
+                  {filings[`vat:${periodKey}`]?.at ? t('ui.angra') : t('ui.markera_som_inlamnad')}
                 </button>
               </div>
             )}
 
             <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: '20px' }}>
-              <button onClick={() => setStep(3)} style={{ padding: '10px 18px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer', color: 'var(--text-main)' }}>Tillbaka</button>
+              <button onClick={() => setStep(3)} style={{ padding: '10px 18px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer', color: 'var(--text-main)' }}>{t('ui.tillbaka_2')}</button>
             </div>
           </div>
         )}

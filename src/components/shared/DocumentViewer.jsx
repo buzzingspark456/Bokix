@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { FileText, Receipt, X, ZoomIn, ZoomOut, ExternalLink, Maximize2 } from '../icons';
 import { useSignedUrl } from '../../utils/signedUrls';
+import { t } from '../../i18n';
 
 // ── Dokumentvisaren ─────────────────────────────────────────────────────
 // EN visare för alla underlag i appen: kvittot i Utgifter (bredvid
@@ -104,28 +105,28 @@ export function DocumentPane({ url, type, name, emptyText, className = '', expan
       <div className="dv-bar">
         <span className="dv-name" title={label}>
           <FileText size={14} style={{ flexShrink: 0, opacity: 0.7 }} />
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{url ? label : 'Inget underlag'}</span>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{url ? label : t('ui.inget_underlag')}</span>
         </span>
         <span className="dv-tools">
           {isImage && (
             <>
-              <button type="button" className="dv-btn" onClick={() => changeZoom(-1)} disabled={zoom <= ZOOM_MIN} aria-label="Zooma ut" title="Zooma ut">
+              <button type="button" className="dv-btn" onClick={() => changeZoom(-1)} disabled={zoom <= ZOOM_MIN} aria-label={t('ui.zooma_ut')} title={t('ui.zooma_ut')}>
                 <ZoomOut size={15} />
               </button>
-              <span className="dv-zoom">{zoom === FIT_ZOOM ? 'Passa' : `${Math.round(zoom * 100)}%`}</span>
-              <button type="button" className="dv-btn" onClick={() => changeZoom(1)} disabled={zoom >= ZOOM_MAX} aria-label="Zooma in" title="Zooma in">
+              <span className="dv-zoom">{zoom === FIT_ZOOM ? t('ui.passa') : `${Math.round(zoom * 100)}%`}</span>
+              <button type="button" className="dv-btn" onClick={() => changeZoom(1)} disabled={zoom >= ZOOM_MAX} aria-label={t('ui.zooma_in')} title={t('ui.zooma_in')}>
                 <ZoomIn size={15} />
               </button>
             </>
           )}
           {expandable && url && (
-            <button type="button" className="dv-btn dv-expand" onClick={() => setExpanded(true)} aria-label="Visa i helskärm" title="Visa i helskärm">
-              <Maximize2 size={14} /> Helskärm
+            <button type="button" className="dv-btn dv-expand" onClick={() => setExpanded(true)} aria-label={t('ui.visa_i_helskarm')} title={t('ui.visa_i_helskarm')}>
+              <Maximize2 size={14} /> {t('ui.helskarm')}
             </button>
           )}
           {activeUrl && (
-            <a className="dv-btn" href={activeUrl} target="_blank" rel="noopener noreferrer" title="Öppna filen i en ny flik">
-              <ExternalLink size={14} /> Öppna
+            <a className="dv-btn" href={activeUrl} target="_blank" rel="noopener noreferrer" title={t('ui.oppna_filen_i_en_ny_flik')}>
+              <ExternalLink size={14} /> {t('ui.oppna')}
             </a>
           )}
         </span>
@@ -133,7 +134,7 @@ export function DocumentPane({ url, type, name, emptyText, className = '', expan
 
       <div className="dv-body" style={kind === 'pdf' ? { padding: 0 } : undefined}>
         {pending ? (
-          <div className="dv-empty"><span>Hämtar underlaget…</span></div>
+          <div className="dv-empty"><span>{t('ui.hamtar_underlaget')}</span></div>
         ) : isImage ? (
           <img
             ref={imgRef}
@@ -155,10 +156,10 @@ export function DocumentPane({ url, type, name, emptyText, className = '', expan
             <Receipt size={38} strokeWidth={1.5} />
             <span>
               {imgFailed
-                ? 'Bilden går inte att visa i den här webbläsaren (t.ex. HEIC från iPhone). Filen är sparad — öppna den i en ny flik.'
+                ? t('ui.bilden_gar_inte_att_visa_i_den_har_webblasaren_t')
                 : url
-                  ? 'Filformatet går inte att förhandsvisa här. Öppna filen i en ny flik.'
-                  : emptyText || 'Inget underlag är sparat här ännu.'}
+                  ? t('ui.filformatet_gar_inte_att_forhandsvisa_har_oppna')
+                  : emptyText || t('ui.inget_underlag_ar_sparat_har_annu')}
             </span>
           </div>
         )}
@@ -181,9 +182,9 @@ export function DocumentLightbox({ url, type, name, onClose }) {
   }, [onClose]);
 
   return (
-    <div className="dv-lightbox" role="dialog" aria-modal="true" aria-label={name || 'Underlag'}>
+    <div className="dv-lightbox" role="dialog" aria-modal="true" aria-label={name || t('ui.underlag')}>
       <DocumentPane url={url} type={type} name={name} />
-      <button type="button" className="dv-close" onClick={onClose} aria-label="Stäng">
+      <button type="button" className="dv-close" onClick={onClose} aria-label={t('ui.stang')}>
         <X size={18} />
       </button>
     </div>

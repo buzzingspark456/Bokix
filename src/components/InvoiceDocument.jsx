@@ -2,6 +2,7 @@ import React, { forwardRef } from 'react';
 import { formatCompanyAddress } from '../utils/companyAddress';
 import { ROT_RUT_RATES } from '../utils/rotRutConfig';
 import { isVatExempt } from '../utils/vatRegistration';
+import { foreignSaleNote } from '../utils/foreignSales';
 
 const fmt = (val) =>
   new Intl.NumberFormat('sv-SE', { maximumFractionDigits: 2, minimumFractionDigits: 2 }).format(val || 0);
@@ -55,6 +56,7 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
   // med en tydlig markering om att beskrivningen saknas.
   const hasAmount = (r) => Number(r.qty) || Number(r.unitPrice) || Number(r.amount);
   const visibleRows = rows.filter(r => r.description || hasAmount(r));
+  const foreignNote = isVatExempt(company) ? null : foreignSaleNote(customer, visibleRows);
   // Bara när dokumentet verkligen saknar moms: en äldre faktura med moms,
   // från innan företaget avregistrerades, visas som den skickades.
   const noVat = isVatExempt(company) && !Number(totals?.vat);
@@ -261,12 +263,19 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
           {customer?.contactPerson ? <>Att: {customer.contactPerson}<br /></> : null}
           {customer?.address || ''}{customer?.address ? <br /> : null}
           {customer?.orgNr ? <>Org.nr {customer.orgNr}<br /></> : null}
+          {customer?.vatNumber ? <>VAT {customer.vatNumber}<br /></> : null}
           {customer?.email || ''}
         </div>
       </div>
 
       {invoiceText && (
         <div style={{ fontSize: 11.5, color: '#52525b', marginBottom: 20 }}>{invoiceText}</div>
+      )}
+
+      {/* Kund utomlands utan svensk moms: texten lagen kräver på fakturan
+          (utils/foreignSales.js). Momsregistreringsnumren står ovan. */}
+      {foreignNote && (
+        <div style={{ fontSize: 11.5, color: '#111', fontWeight: 600, marginBottom: 20 }}>{foreignNote}</div>
       )}
 
       {/* Inte momsregistrerat och ingen moms på fakturan: ingen momskolumn

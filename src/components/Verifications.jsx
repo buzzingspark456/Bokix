@@ -26,6 +26,7 @@ import { getNextNumber as getNextNumberForSeries } from '../utils/verificationNu
 import AccountsPanel from './shared/AccountsPanel';
 import SimpleBookingPanel from './shared/SimpleBookingPanel';
 import { buildSimpleBooking, describeRow, describeVerification, paymentAccounts, VAT_RATES } from '../utils/plainBooking';
+import { t as tr, dateLocale } from '../i18n';
 
 // Bara för att skriva ut valutavarningen lite snyggare — ingen omräkning
 // görs här, det är enbart kosmetiskt.
@@ -45,7 +46,7 @@ function OcrBadge() {
       padding: '1px 6px', borderRadius: '999px', verticalAlign: 'middle', marginLeft: '5px',
       background: '#e0f2fe', color: '#0369a1',
     }}>
-      <ScanLine size={10} /> OCR
+      <ScanLine size={10} /> {tr('ui.ocr')}
     </span>
   );
 }
@@ -63,14 +64,14 @@ const fmtSEK = (v) => new Intl.NumberFormat('sv-SE', { style: 'currency', curren
 // för Kvittons egna platta kort.
 const formatMonthLabel = (yearMonth) => {
   const [y, m] = yearMonth.split('-').map(Number);
-  const label = new Intl.DateTimeFormat('sv-SE', { month: 'long', year: 'numeric' }).format(new Date(y, (m || 1) - 1, 1));
+  const label = new Intl.DateTimeFormat(dateLocale(), { month: 'long', year: 'numeric' }).format(new Date(y, (m || 1) - 1, 1));
   return label.charAt(0).toUpperCase() + label.slice(1);
 };
 const MONTH_NAMES = [
-  { v: '01', label: 'Januari' }, { v: '02', label: 'Februari' }, { v: '03', label: 'Mars' },
-  { v: '04', label: 'April' }, { v: '05', label: 'Maj' }, { v: '06', label: 'Juni' },
-  { v: '07', label: 'Juli' }, { v: '08', label: 'Augusti' }, { v: '09', label: 'September' },
-  { v: '10', label: 'Oktober' }, { v: '11', label: 'November' }, { v: '12', label: 'December' },
+  { v: '01', label: tr('ui.januari') }, { v: '02', label: tr('ui.februari') }, { v: '03', label: tr('ui.mars') },
+  { v: '04', label: tr('ui.april') }, { v: '05', label: tr('ui.maj') }, { v: '06', label: tr('ui.juni') },
+  { v: '07', label: tr('ui.juli') }, { v: '08', label: tr('ui.augusti') }, { v: '09', label: tr('ui.september') },
+  { v: '10', label: tr('ui.oktober') }, { v: '11', label: tr('ui.november') }, { v: '12', label: tr('ui.december') },
 ];
 
 // ─── De fyra kontoklasserna (verksamt.se) ──────────────────────────────────────
@@ -83,10 +84,10 @@ const MONTH_NAMES = [
 function getAccountClass(code) {
   const n = parseInt(code, 10);
   if (isNaN(n)) return null;
-  if (n >= 1000 && n <= 1999) return { key: 'tillgang', label: 'tillgång', normalSide: 'debet' };
-  if (n >= 2000 && n <= 2999) return { key: 'skuld_ek', label: 'skuld/eget kapital', normalSide: 'kredit' };
-  if (n >= 3000 && n <= 3999) return { key: 'intakt', label: 'intäkt', normalSide: 'kredit' };
-  if (n >= 4000 && n <= 8999) return { key: 'kostnad', label: 'kostnad', normalSide: 'debet' };
+  if (n >= 1000 && n <= 1999) return { key: 'tillgang', label: tr('ui.tillgang_2'), normalSide: 'debet' };
+  if (n >= 2000 && n <= 2999) return { key: 'skuld_ek', label: tr('ui.skuld_eget_kapital'), normalSide: 'kredit' };
+  if (n >= 3000 && n <= 3999) return { key: 'intakt', label: tr('ui.intakt'), normalSide: 'kredit' };
+  if (n >= 4000 && n <= 8999) return { key: 'kostnad', label: tr('ui.kostnad'), normalSide: 'debet' };
   return null;
 }
 
@@ -107,7 +108,7 @@ function rowSideWarning(row) {
   if (debit <= 0 && credit <= 0) return null;
   const bookedSide = debit > 0 ? 'debet' : 'kredit';
   if (bookedSide === cls.normalSide) return null;
-  return `Ovanligt: en ${cls.label} ökar normalt i ${cls.normalSide}. Det här är okej vid en rättelse — annars, dubbelkolla kontot.`;
+  return tr('ui.ovanligt_en_okar_normalt_i_det_har_ar_okej_vid_e', { label: cls.label, normalSide: cls.normalSide });
 }
 
 // PartySearch/ProjectSearch/AccountSearch delas nu från ./shared/SearchInputs
@@ -244,7 +245,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
   useEffect(() => () => { timersRef.current.forEach(clearTimeout); }, []);
   const verificationsRef = useRef(verifications);
   verificationsRef.current = verifications;
-  const VER_OCR_ITEMS = useMemo(() => [...OCR_ITEMS.filter(i => i.key !== 'receiptNumber'), { key: 'payAccount', label: 'Betalkonto' }], []);
+  const VER_OCR_ITEMS = useMemo(() => [...OCR_ITEMS.filter(i => i.key !== 'receiptNumber'), { key: 'payAccount', label: tr('ui.betalkonto') }], []);
   // Vilket betalkonto som valdes och varför: historik, avläst ur kvittot eller en gissning.
   const [payInfo, setPayInfo] = useState(null);
   // Tjänst från utlandet: { region, evidence } (omvänd skattskyldighet) eller { unclear, evidence } när regionen inte gick att avgöra.
@@ -258,7 +259,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
     timersRef.current = [];
     const startedAt = Date.now();
     setOcrStatus('scanning');
-    setOcrMessage('Startar läsning…');
+    setOcrMessage(tr('ui.startar_lasning'));
     setOcrForeignCurrency(null);
     setNotReceipt(false);
     setUnreadable(false);
@@ -285,7 +286,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
       let grossSek = parsed.currency ? null : parsed.amount;
       let foreignInfo = null;
       if (!nr && parsed.amount && parsed.currency) {
-        if (isCurrent()) setOcrMessage(`Räknar om ${parsed.currency} till kronor…`);
+        if (isCurrent()) setOcrMessage(tr('ui.raknar_om_till_kronor', { currency: parsed.currency }));
         const converted = await convertToSek(parsed.amount, parsed.currency, parsed.date);
         if (!isCurrent()) return;
         if (converted) grossSek = converted.sek;
@@ -354,7 +355,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
         if (reverse) numeric = withReverseChargeRows(numeric);
         const newRows = numeric.map(r => ({
           account: r.account,
-          accountName: nameOf(r.account, r.account === '2641' ? 'Ingående moms' : (r.account === pay.code ? 'Företagskonto/bank' : '')),
+          accountName: nameOf(r.account, r.account === '2641' ? tr('ui.ingaende_moms') : (r.account === pay.code ? tr('ui.foretagskonto_bank') : '')),
           debet: r.debet ? Number(r.debet).toFixed(2) : '', kredit: r.kredit ? Number(r.kredit).toFixed(2) : '', desc: r.desc || '',
         }));
         if (modeRef.current === 'simple') {
@@ -430,11 +431,11 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
   const acceptFile = (file) => {
     if (!file) return;
     if (!ACCEPTED_ATTACHMENT_TYPES.includes(file.type)) {
-      setFileError(`"${file.name}" är inte en PDF eller bild och kunde inte läggas till.`);
+      setFileError(tr('ui.ar_inte_en_pdf_eller_bild_och_kunde_inte_laggas', { name: file.name }));
       return;
     }
     if (file.size > MAX_ATTACHMENT_MB * 1024 * 1024) {
-      setFileError(`"${file.name}" är för stor (max ${MAX_ATTACHMENT_MB} MB).`);
+      setFileError(tr('ui.ar_for_stor_max_mb_2', { name: file.name, MAX_ATTACHMENT_MB }));
       return;
     }
     setFileError('');
@@ -479,7 +480,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
   const changeMode = async (next) => {
     if (next === mode) return;
     if (next === 'simple' && rows.some(r => r.account || r.debet || r.kredit)) {
-      if (!(await confirmDialog('Byta till enkelt läge? Raderna du har skrivit in tas bort.'))) return;
+      if (!(await confirmDialog(tr('ui.byta_till_enkelt_lage_raderna_du_har_skrivit_in')))) return;
     }
     if (next === 'simple') setSimple(emptySimple());
     modeRef.current = next;
@@ -564,7 +565,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
     let attachmentTypeToSave = existingAttachment?.type || null;
     if (attachment) {
       if (!user?.id) {
-        setAttachmentError('Kunde inte ladda upp underlaget — inte inloggad.');
+        setAttachmentError(tr('ui.kunde_inte_ladda_upp_underlaget_inte_inloggad'));
         return;
       }
       setAttachmentBusy(true); setAttachmentError('');
@@ -581,8 +582,8 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
         setAttachmentBusy(false);
         const notConfigured = /bucket not found/i.test(err.message || '');
         setAttachmentError(notConfigured
-          ? 'Bildlagring är inte konfigurerad i Supabase-projektet ännu (kör storage-delen av supabase-setup.sql).'
-          : `Kunde inte ladda upp underlaget (${err.message || 'okänt fel'}).`);
+          ? tr('ui.bildlagring_ar_inte_konfigurerad_i_supabase_proj_4')
+          : tr('ui.kunde_inte_ladda_upp_underlaget', { v0: err.message || 'okänt fel' }));
         return;
       }
       setAttachmentBusy(false);
@@ -622,13 +623,13 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
   if (!desc.trim()) validationMessages.push('Ange en beskrivning');
   if (mode === 'simple') {
     if (simpleBuilt.errors.length > 0) validationMessages.push(simpleBuilt.errors[0]);
-  } else if (validRowCount < 2) validationMessages.push('Minst två rader med konto och belopp krävs');
+  } else if (validRowCount < 2) validationMessages.push(tr('ui.minst_tva_rader'));
   // Inköp av tjänster från utlandet (4535, 4531 m.fl.) kräver momsraderna för
   // omvänd skattskyldighet. Saknas de blockeras bokföringen, annars blir
   // momsdeklarationen fel.
   const numericRowsForReverse = rows.map(r => ({ account: r.account, debet: parseFloat(r.debet) || 0, kredit: parseFloat(r.kredit) || 0 }));
   const missingReverseRows = missingReverseChargeRows(numericRowsForReverse);
-  if (missingReverseRows.length > 0) validationMessages.push('Lägg till momsraderna för omvänd skattskyldighet');
+  if (missingReverseRows.length > 0) validationMessages.push(tr('ui.lagg_till_momsrader_omvand'));
   const addReverseRows = () => {
     setRows(prev => {
       const numeric = prev.map(r => ({ account: r.account, debet: parseFloat(r.debet) || 0, kredit: parseFloat(r.kredit) || 0 }));
@@ -640,7 +641,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
     });
   };
   const canReview = isBalanced && validationMessages.length === 0;
-  const title = initial?.number ? `Verifikation ${initial.number}` : 'Ny verifikation';
+  const title = initial?.number ? tr('ui.verifikation_2', { number: initial.number }) : tr('ui.ny_verifikation');
 
   return (
     // Kundfeedback: "jag vill ha en riktig sida för att göra en
@@ -653,28 +654,28 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
     <div style={{ flex: 1, minHeight: 0, background: 'var(--bg-muted)', display: 'flex', flexDirection: 'column', animation: 'fadeIn 0.15s ease' }}>
       <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '14px 24px', display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', position: 'sticky', top: 0, zIndex: 10 }}>
         <button type="button" data-tour="page-verifications-cancel" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-main)', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-          ← Tillbaka
+          {tr('ui.tillbaka')}
         </button>
         {/* En rättelseverifikation (`initial` fylld men `number` medvetet
             tömd, se "Rätta"-knappen nedan) ska visas och beskrivas som en
             NY verifikation — den ärver bara text/rader, aldrig originalets
             nummer eller "redigera befintlig"-språket. */}
         <h1 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.01em' }}>{title}</h1>
-        <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>Serie {series} · {previewNumber}</span>
+        <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>{tr('ui.serie')} {series} · {previewNumber}</span>
         <div style={{ flex: 1, minWidth: '8px' }} />
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          <button type="button" onClick={onClose} style={{ padding: '9px 16px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer' }}>Avbryt</button>
+          <button type="button" onClick={onClose} style={{ padding: '9px 16px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer' }}>{tr('ui.avbryt')}</button>
           <button type="button" onClick={() => handleSave('draft')} disabled={attachmentBusy} style={{ padding: '9px 16px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', cursor: attachmentBusy ? 'not-allowed' : 'pointer', opacity: attachmentBusy ? 0.6 : 1 }}>
-            {attachmentBusy ? 'Laddar upp…' : 'Spara som utkast'}
+            {attachmentBusy ? tr('ui.laddar_upp_3') : tr('ui.spara_som_utkast')}
           </button>
           <button
             type="button"
             onClick={() => canReview && setShowReview(true)}
             disabled={!canReview}
-            title={canReview ? undefined : validationMessages.join(' · ') || 'Beloppen på raderna går inte ihop'}
+            title={canReview ? undefined : validationMessages.join(' · ') || tr('ui.beloppen_pa_raderna_gar_inte_ihop')}
             style={{ padding: '9px 18px', background: canReview ? BRAND.green : 'var(--border)', border: 'none', borderRadius: '8px', color: canReview ? 'white' : 'var(--text-muted)', fontSize: '13px', fontWeight: 700, cursor: canReview ? 'pointer' : 'not-allowed' }}
           >
-            {initial?.number ? 'Granska & spara' : 'Granska & bokför'}
+            {initial?.number ? tr('ui.granska_spara') : tr('ui.granska_bokfor')}
           </button>
         </div>
       </div>
@@ -685,15 +686,15 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
       {/* Datum / Beskrivning / Serie */}
       <div className="ver-form-row" style={{ marginBottom: '10px' }}>
         <div style={{ flex: 1 }}>
-          <label style={fieldLabel}>Datum {ocrFields.has('date') && <OcrBadge />}</label>
+          <label style={fieldLabel}>{tr('ui.datum')} {ocrFields.has('date') && <OcrBadge />}</label>
           <input type="date" value={date} onChange={e => { setDate(e.target.value); setOcrFields(s => { const n = new Set(s); n.delete('date'); return n; }); }} style={inp} />
         </div>
         <div style={{ flex: 3 }}>
-          <label style={fieldLabel}>Beskrivning {ocrFields.has('desc') && <OcrBadge />}</label>
-          <input data-tour="page-verifications-field" value={desc} onChange={e => { setDesc(e.target.value); setOcrFields(s => { const n = new Set(s); n.delete('desc'); return n; }); }} placeholder="Verifikationstext..." style={inp} autoFocus />
+          <label style={fieldLabel}>{tr('ui.beskrivning')} {ocrFields.has('desc') && <OcrBadge />}</label>
+          <input data-tour="page-verifications-field" value={desc} onChange={e => { setDesc(e.target.value); setOcrFields(s => { const n = new Set(s); n.delete('desc'); return n; }); }} placeholder={tr('ui.verifikationstext')} style={inp} autoFocus />
         </div>
         <div style={{ width: '90px' }}>
-          <label style={fieldLabel}>Serie</label>
+          <label style={fieldLabel}>{tr('ui.serie')}</label>
           <select value={series} onChange={e => setSeries(e.target.value)} style={{ ...inp, background: 'var(--bg-card)', textAlign: 'center' }}>
             {['A', 'B', 'C'].map(s => <option key={s} value={s}>{s}</option>)}
           </select>
@@ -706,28 +707,28 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
         return (
           <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-amber-bg)', border: '1px solid var(--status-amber-bg)', borderRadius: '8px', padding: '10px 12px', marginBottom: '10px', fontSize: '12.5px', color: 'var(--status-amber-text)', lineHeight: 1.5 }}>
             <AlertCircle size={15} style={{ flexShrink: 0, marginTop: 1 }} />
-            <span>Denna period är redan momsredovisad. Ändringar här påverkar inte den redan inlämnade deklarationen och kräver en separat rättelse hos Skatteverket.</span>
+            <span>{tr('ui.denna_period_ar_redan_momsredovisad_andringar_ha_2')}</span>
           </div>
         );
       })()}
 
       {/* Räkenskapsår + nästa nummer + valuta, som en informationsrad */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '18px', fontSize: '12.5px', color: 'var(--text-secondary)', marginBottom: '18px', flexWrap: 'wrap' }}>
-        <span>Räkenskapsår: <strong style={{ color: 'var(--text-main)' }}>Räkenskapsår {(date || '').slice(0, 4) || new Date().getFullYear()}</strong> <strong style={{ color: 'var(--text-main)' }}>{previewNumber}</strong></span>
+        <span>{tr('ui.rakenskapsar_2')} <strong style={{ color: 'var(--text-main)' }}>{tr('ui.rakenskapsar')} {(date || '').slice(0, 4) || new Date().getFullYear()}</strong> <strong style={{ color: 'var(--text-main)' }}>{previewNumber}</strong></span>
         <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          Valuta
-          <select disabled title="Bokix stödjer i dagsläget bara SEK — ingen valutaomräkning görs på andra valutor" style={{ padding: '3px 8px', border: '1px solid var(--border)', borderRadius: '999px', fontSize: '12px', color: 'var(--text-main)', background: 'var(--bg-muted)', fontFamily: 'inherit' }}>
-            <option>SEK</option>
+          {tr('ui.valuta')}
+          <select disabled title={tr('ui.bokix_stodjer_i_dagslaget_bara_sek_ingen_valutao')} style={{ padding: '3px 8px', border: '1px solid var(--border)', borderRadius: '999px', fontSize: '12px', color: 'var(--text-main)', background: 'var(--bg-muted)', fontFamily: 'inherit' }}>
+            <option>{tr('ui.sek')}</option>
           </select>
         </span>
       </div>
 
       <div style={{ marginBottom: '18px' }}>
-        <label style={fieldLabel}>Intern anteckning (valfritt)</label>
+        <label style={fieldLabel}>{tr('ui.intern_anteckning_valfritt')}</label>
         <textarea
           value={internalNote}
           onChange={e => setInternalNote(e.target.value)}
-          placeholder="T.ex. anledning till bokning, referens till mejl, etc."
+          placeholder={tr('ui.t_ex_anledning_till_bokning_referens_till_mejl_e')}
           rows={2}
           style={{ ...inp, resize: 'vertical', minHeight: '54px', fontFamily: 'inherit' }}
         />
@@ -735,24 +736,24 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
 
       <div className="ver-form-row" style={{ marginBottom: '6px' }}>
         <div style={{ flex: 1 }}>
-          <label style={fieldLabel}>Kostnadsställe</label>
-          <input value={costCenter} onChange={e => setCostCenter(e.target.value)} placeholder="Ange kostnadsställe" style={inp} />
+          <label style={fieldLabel}>{tr('ui.kostnadsstalle')}</label>
+          <input value={costCenter} onChange={e => setCostCenter(e.target.value)} placeholder={tr('ui.ange_kostnadsstalle')} style={inp} />
         </div>
         <div style={{ flex: 1 }}>
-          <label style={fieldLabel}>Projekt</label>
+          <label style={fieldLabel}>{tr('ui.projekt')}</label>
           <ProjectSearch value={projectId} onChange={setProjectId} projects={projects} />
         </div>
         <div style={{ flex: 1 }}>
-          <label style={fieldLabel}>Motpart</label>
+          <label style={fieldLabel}>{tr('ui.motpart_2')}</label>
           <PartySearch value={counterpartyId} onChange={setCounterpartyId} contacts={contacts} />
         </div>
       </div>
-      <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '0', marginBottom: '20px' }}>Gäller alla rader utan egen märkning.</p>
+      <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '0', marginBottom: '20px' }}>{tr('ui.galler_alla_rader_utan_egen_markning')}</p>
 
       {missingCounterparty && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--status-amber-bg)', border: '1px solid var(--status-amber-bg)', borderRadius: '6px', padding: '8px 12px', marginBottom: '20px', fontSize: '12.5px', color: 'var(--status-amber-text)' }}>
           <AlertCircle size={14} style={{ flexShrink: 0 }} />
-          Ett reskontrakonto (kundfordringar/leverantörsskulder) är använt — ange motparten så det syns vem affärshändelsen gäller.
+          {tr('ui.ett_reskontrakonto_kundfordringar_leverantorssku')}
         </div>
       )}
 
@@ -772,13 +773,13 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '7px', background: BRAND.amberBg, color: BRAND.amberText, borderRadius: '8px', padding: '8px 12px', marginBottom: '12px', fontSize: '12.5px', fontWeight: 600, lineHeight: 1.5 }}>
               <ScanLine size={14} style={{ flexShrink: 0, marginTop: 1 }} />
               <span>
-                Rader ifyllda automatiskt från underlaget (OCR). Kontrollera konto och moms innan du bokför.
+                {tr('ui.rader_ifyllda_automatiskt_fran_underlaget_ocr_ko')}
                 {payInfo && (
                   <>
                     {' '}
                     {payInfo.state === 'guess'
-                      ? <>{payInfo.source}, så betalkonto <strong>{payInfo.code} {payInfo.name}</strong> är förvalt. Byt om det inte stämmer.</>
-                      : <>Betalkonto <strong>{payInfo.code} {payInfo.name}</strong>: {payInfo.source.charAt(0).toLowerCase() + payInfo.source.slice(1)}.</>}
+                      ? <>{payInfo.source}{tr('ui.sa_betalkonto')} <strong>{payInfo.code} {payInfo.name}</strong> {tr('ui.ar_forvalt_byt_om_det_inte_stammer')}</>
+                      : <>{tr('ui.betalkonto')} <strong>{payInfo.code} {payInfo.name}</strong>: {payInfo.source.charAt(0).toLowerCase() + payInfo.source.slice(1)}.</>}
                   </>
                 )}
               </span>
@@ -795,7 +796,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '7px', background: BRAND.amberBg, color: BRAND.amberText, borderRadius: '8px', padding: '8px 12px', marginBottom: '12px', fontSize: '12.5px', fontWeight: 600, lineHeight: 1.5 }}>
               <AlertCircle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
               <span>
-                Tjänst från {foreignInfo.region === 'eu' ? 'ett annat EU-land' : 'ett land utanför EU'} ({foreignInfo.evidence}). Momsen ska redovisas av dig (omvänd skattskyldighet), därför har momsraderna 2645 och 2614 lagts till. Den syns i ruta {foreignInfo.region === 'eu' ? '21' : '22'}, 30 och 48 i momsdeklarationen.
+                {tr('ui.tjanst_fran')} {foreignInfo.region === 'eu' ? tr('ui.ett_annat_eu_land') : tr('ui.ett_land_utanfor_eu')} ({foreignInfo.evidence}{tr('ui.momsen_ska_redovisas_av_dig_omvand_skattskyldigh')} {foreignInfo.region === 'eu' ? '21' : '22'}{tr('ui.n30_och_48_i_momsdeklarationen')}
               </span>
             </div>
           )}
@@ -803,15 +804,15 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '7px', background: BRAND.amberBg, color: BRAND.amberText, borderRadius: '8px', padding: '8px 12px', marginBottom: '12px', fontSize: '12.5px', fontWeight: 600, lineHeight: 1.5 }}>
               <AlertCircle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
               <span>
-                Det här ser ut som ett köp från utlandet, men vi kan inte avgöra om säljaren finns i EU eller utanför. Är det en tjänst ska momsen redovisas av dig (omvänd skattskyldighet): välj konto 4535 (EU) eller 4531 (utanför EU), så läggs momsraderna till. Är det en vara gäller andra regler.
+                {tr('ui.det_har_ser_ut_som_ett_kop_fran_utlandet_men_vi')}
               </span>
             </div>
           )}
           {mode === 'advanced' && missingReverseRows.length > 0 && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', background: BRAND.amberBg, color: BRAND.amberText, borderRadius: '8px', padding: '8px 12px', marginBottom: '12px', fontSize: '12.5px', fontWeight: 600, lineHeight: 1.5 }}>
               <AlertCircle size={14} style={{ flexShrink: 0 }} />
-              <span style={{ flex: 1, minWidth: '200px' }}>Inköp av tjänster från utlandet: momsen ska redovisas av dig. Lägg till 2645 Beräknad ingående moms (debet) och 2614 Utgående moms omvänd skattskyldighet (kredit), {fmt(missingReverseRows[0].debet)} kr.</span>
-              <button type="button" onClick={addReverseRows} style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid currentColor', background: 'transparent', color: 'inherit', fontWeight: 700, fontSize: '12.5px', cursor: 'pointer', fontFamily: 'inherit' }}>Lägg till momsraderna</button>
+              <span style={{ flex: 1, minWidth: '200px' }}>{tr('ui.inkop_av_tjanster_fran_utlandet_momsen_ska_redov')} {fmt(missingReverseRows[0].debet)} {tr('ui.kr_2')}</span>
+              <button type="button" onClick={addReverseRows} style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid currentColor', background: 'transparent', color: 'inherit', fontWeight: 700, fontSize: '12.5px', cursor: 'pointer', fontFamily: 'inherit' }}>{tr('ui.lagg_till_momsraderna')}</button>
             </div>
           )}
           {ocrForeignCurrency && (
@@ -819,16 +820,16 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
               <AlertCircle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
               {ocrForeignCurrency.converted ? (
                 <span>
-                  Kvittot var i {ocrForeignCurrency.code} ({CURRENCY_SYMBOL[ocrForeignCurrency.code] || ''}{formatForeignAmount(ocrForeignCurrency.code, ocrForeignCurrency.amount)}) — raderna är byggda med {fmt(ocrForeignCurrency.converted.sek)} kr, omräknat med dagskursen {ocrForeignCurrency.converted.rate.toFixed(4)} SEK/{ocrForeignCurrency.code}{ocrForeignCurrency.converted.date ? ` (${ocrForeignCurrency.converted.date})` : ''}. Kontrollera mot kontoutdraget — bankens växlingsavgift kan göra att det skiljer sig något.
+                  {tr('ui.kvittot_var_i')} {ocrForeignCurrency.code} ({CURRENCY_SYMBOL[ocrForeignCurrency.code] || ''}{formatForeignAmount(ocrForeignCurrency.code, ocrForeignCurrency.amount)}{tr('ui.raderna_ar_byggda_med')} {fmt(ocrForeignCurrency.converted.sek)} {tr('ui.kr_omraknat_med_dagskursen')} {ocrForeignCurrency.converted.rate.toFixed(4)} {tr('ui.sek_2')}{ocrForeignCurrency.code}{ocrForeignCurrency.converted.date ? ` (${ocrForeignCurrency.converted.date})` : ''}{tr('ui.kontrollera_mot_kontoutdraget_bankens_vaxlingsav')}
                 </span>
               ) : (
                 <span>
-                  Kvittot verkar vara i {ocrForeignCurrency.code} ({CURRENCY_SYMBOL[ocrForeignCurrency.code] || ''}{formatForeignAmount(ocrForeignCurrency.code, ocrForeignCurrency.amount)}) men kursen gick inte att hämta automatiskt — fyll i raderna med beloppet i SEK själv, helst det som faktiskt drogs på kortet.
+                  {tr('ui.kvittot_verkar_vara_i')} {ocrForeignCurrency.code} ({CURRENCY_SYMBOL[ocrForeignCurrency.code] || ''}{formatForeignAmount(ocrForeignCurrency.code, ocrForeignCurrency.amount)}{tr('ui.men_kursen_gick_inte_att_hamta_automatiskt_fyll')}
                 </span>
               )}
             </div>
           )}
-          <div role="tablist" aria-label="Sätt att bokföra" style={{ display: 'inline-flex', padding: '3px', gap: '2px', border: '1px solid var(--border)', borderRadius: '999px', background: 'var(--bg-muted)', marginBottom: '16px' }}>
+          <div role="tablist" aria-label={tr('ui.satt_att_bokfora')} style={{ display: 'inline-flex', padding: '3px', gap: '2px', border: '1px solid var(--border)', borderRadius: '999px', background: 'var(--bg-muted)', marginBottom: '16px' }}>
             {[['simple', 'Enkelt'], ['advanced', 'Avancerat: debet och kredit']].map(([id, text]) => (
               <button
                 key={id} type="button" role="tab" aria-selected={mode === id} onClick={() => changeMode(id)}
@@ -845,10 +846,10 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
           <table className="ver-adv-table" style={{ width: '100%', minWidth: '620px', borderCollapse: 'collapse', fontSize: '13px' }}>
             <thead>
               <tr>
-                <th style={{ padding: '0 8px 8px', textAlign: 'left', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border)', width: 140 }}>KONTO</th>
-                <th style={{ padding: '0 8px 8px', textAlign: 'left', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border)' }}>BESKRIVNING</th>
-                <th style={{ padding: '0 8px 8px', textAlign: 'right', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border)', width: 110 }} title="Här ökar tillgångar och kostnader. Pengar in på banken och inköp bokas till exempel som debet.">DEBET</th>
-                <th style={{ padding: '0 8px 8px', textAlign: 'right', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border)', width: 110 }} title="Här ökar skulder, eget kapital och intäkter. Pengar ut från banken och försäljning bokas till exempel som kredit.">KREDIT</th>
+                <th style={{ padding: '0 8px 8px', textAlign: 'left', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border)', width: 140 }}>{tr('ui.konto_3')}</th>
+                <th style={{ padding: '0 8px 8px', textAlign: 'left', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border)' }}>{tr('ui.beskrivning_2')}</th>
+                <th style={{ padding: '0 8px 8px', textAlign: 'right', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border)', width: 110 }} title={tr('ui.har_okar_tillgangar_och_kostnader_pengar_in_pa_b')}>{tr('ui.debet_2')}</th>
+                <th style={{ padding: '0 8px 8px', textAlign: 'right', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border)', width: 110 }} title={tr('ui.har_okar_skulder_eget_kapital_och_intakter_penga')}>{tr('ui.kredit_2')}</th>
                 {/* Ingen SALDO-kolumn. Kontots hela saldo stod tidigare här,
                     i en sifferkolumn intill Debet och Kredit, och lästes
                     därför som radens eget belopp — först trodde en kund att
@@ -883,7 +884,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
                             kontot, går det inte att läsa som radens belopp. */}
                         {projectedBalance !== null && (
                           <div style={{ marginTop: '1px' }}>
-                            Kontots saldo {fmt(currentBalance)} kr → <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>{fmt(projectedBalance)} kr</span>
+                            {tr('ui.kontots_saldo')} {fmt(currentBalance)} {tr('ui.kr_7')} <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>{fmt(projectedBalance)} {tr('ui.kr')}</span>
                           </div>
                         )}
                       </div>
@@ -893,7 +894,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
                     <input
                       value={row.desc || ''}
                       onChange={e => updateRow(i, 'desc', e.target.value)}
-                      placeholder="Radtext..."
+                      placeholder={tr('ui.radtext')}
                       style={{ ...inp, padding: '9px 12px' }}
                     />
                   </td>
@@ -923,7 +924,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
                         <AlertCircle size={14} />
                       </span>
                     )}
-                    <button onClick={() => toggleRowOverride(i)} title="Egen kostnadsställe/projekt för denna rad" style={{ background: 'none', border: 'none', cursor: 'pointer', color: hasOverride || overrideOpen ? 'var(--text-main)' : 'var(--text-muted)', padding: '2px', marginRight: '2px' }}>
+                    <button onClick={() => toggleRowOverride(i)} title={tr('ui.egen_kostnadsstalle_projekt_for_denna_rad')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: hasOverride || overrideOpen ? 'var(--text-main)' : 'var(--text-muted)', padding: '2px', marginRight: '2px' }}>
                       <Tag size={15} />
                     </button>
                     {rows.length > 1 && (
@@ -938,11 +939,11 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
                     <td colSpan={5} style={{ padding: '2px 8px 12px', background: 'var(--bg-muted)' }}>
                       <div style={{ display: 'flex', gap: '10px', paddingTop: '8px' }}>
                         <div style={{ flex: 1 }}>
-                          <label style={{ ...fieldLabel, marginBottom: '3px' }}>Kostnadsställe (denna rad)</label>
-                          <input value={row.costCenter || ''} onChange={e => updateRow(i, 'costCenter', e.target.value)} placeholder={costCenter || 'Ärver från verifikationen'} style={{ ...inp, padding: '6px 10px', fontSize: '12.5px' }} />
+                          <label style={{ ...fieldLabel, marginBottom: '3px' }}>{tr('ui.kostnadsstalle_denna_rad')}</label>
+                          <input value={row.costCenter || ''} onChange={e => updateRow(i, 'costCenter', e.target.value)} placeholder={costCenter || tr('ui.arver_fran_verifikationen')} style={{ ...inp, padding: '6px 10px', fontSize: '12.5px' }} />
                         </div>
                         <div style={{ flex: 1 }}>
-                          <label style={{ ...fieldLabel, marginBottom: '3px' }}>Projekt (denna rad)</label>
+                          <label style={{ ...fieldLabel, marginBottom: '3px' }}>{tr('ui.projekt_denna_rad')}</label>
                           <ProjectSearch value={row.projectId} onChange={v => updateRow(i, 'projectId', v)} projects={projects} />
                         </div>
                       </div>
@@ -959,7 +960,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
                   visades ändå med två röda nollor, vilket gjorde att varje ny
                   verifikation började med att se trasig ut. */}
               <tr className="ver-adv-sum" style={{ borderTop: '1px solid var(--border)' }}>
-                <td colSpan={2} style={{ padding: '12px 8px', fontWeight: 700, fontSize: '13px', color: 'var(--text-main)' }}>Summa</td>
+                <td colSpan={2} style={{ padding: '12px 8px', fontWeight: 700, fontSize: '13px', color: 'var(--text-main)' }}>{tr('ui.summa')}</td>
                 <td style={{ padding: '12px 8px', textAlign: 'right', fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: hasAmounts && !isBalanced ? 'var(--status-red-text)' : 'var(--text-main)' }}>{fmt(totalDebit)}</td>
                 <td style={{ padding: '12px 8px', textAlign: 'right', fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: hasAmounts && !isBalanced ? 'var(--status-red-text)' : 'var(--text-main)' }}>{fmt(totalCredit)}</td>
                 <td colSpan={1} />
@@ -968,14 +969,14 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
                 <td colSpan={5} style={{ padding: '0 8px 10px' }}>
                   {hasAmounts && !isBalanced ? (
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: 'var(--status-red-text)', background: 'var(--status-red-bg)', borderRadius: '999px', padding: '4px 12px' }}>
-                      <AlertCircle size={13} /> Debet och kredit skiljer sig med {fmt(diff)} kr — {totalDebit > totalCredit ? 'lägg till kredit' : 'lägg till debet'} för att kunna bokföra
+                      <AlertCircle size={13} /> {tr('ui.debet_och_kredit_skiljer_sig_med')} {fmt(diff)} {tr('ui.kr_6')} {totalDebit > totalCredit ? tr('ui.lagg_till_kredit') : tr('ui.lagg_till_debet')} {tr('ui.for_att_kunna_bokfora')}
                     </span>
                   ) : hasAmounts ? (
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: 'var(--status-green-text)', background: 'var(--status-green-bg)', borderRadius: '999px', padding: '4px 12px' }}>
-                      Balanserar — debet = kredit
+                      {tr('ui.balanserar_debet_kredit')}
                     </span>
                   ) : (
-                    <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Fyll i minst två rader: en debet och en kredit på samma belopp.</span>
+                    <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{tr('ui.fyll_i_minst_tva_rader_en_debet_och_en_kredit_pa')}</span>
                   )}
                 </td>
               </tr>
@@ -983,7 +984,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
           </table>
           <div style={{ display: 'flex', gap: '8px', marginTop: '14px', flexWrap: 'wrap' }}>
             <button onClick={addRow} style={{ display: 'flex', alignItems: 'center', gap: '5px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '999px', padding: '7px 14px', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer', fontFamily: 'inherit' }}>
-              <Plus size={13} /> Lägg till rad
+              <Plus size={13} /> {tr('ui.lagg_till_rad')}
             </button>
             {templates && templates.length > 0 && (
               <div style={{ position: 'relative', display: 'flex', alignItems: 'center', border: '1px solid var(--border)', borderRadius: '999px', background: 'var(--bg-card)' }}>
@@ -994,7 +995,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
                     const tpl = templates.find(t => t.id === e.target.value);
                     if (!tpl) return;
                     if (rows.some(r => r.account || r.debet || r.kredit)) {
-                      if (!(await confirmDialog('Ersätt raderna i formuläret med mallens rader?'))) return;
+                      if (!(await confirmDialog(tr('ui.ersatt_raderna_i_formularet_med_mallens_rader')))) return;
                     }
                     setDesc(tpl.description || '');
                     setProjectId(tpl.projectId || '');
@@ -1003,7 +1004,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
                   }}
                   style={{ padding: '7px 14px 7px 30px', border: 'none', borderRadius: '999px', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-main)', fontFamily: 'inherit', background: 'transparent', appearance: 'none' }}
                 >
-                  <option value="">Använd mall</option>
+                  <option value="">{tr('ui.anvand_mall')}</option>
                   {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                 </select>
               </div>
@@ -1011,12 +1012,12 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
             {onSaveTemplate && (
               <button
                 onClick={async () => {
-                  const name = await promptDialog('Namn på mallen:', { defaultValue: desc || '', placeholder: 'T.ex. Kontorsmaterial' });
+                  const name = await promptDialog('Namn på mallen:', { defaultValue: desc || '', placeholder: tr('ui.t_ex_kontorsmaterial') });
                   if (name && name.trim()) onSaveTemplate({ name: name.trim(), description: desc, projectId, costCenter, rows });
                 }}
                 style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '7px 14px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '999px', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer', fontFamily: 'inherit' }}
               >
-                <Save size={13} /> Spara som mall
+                <Save size={13} /> {tr('ui.spara_som_mall')}
               </button>
             )}
           </div>
@@ -1027,10 +1028,10 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
         {/* Right side: Attachment */}
         <div className="ver-form-attachment" style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
-            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>Underlag</div>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>{tr('ui.underlag')}</div>
             {ocrStatus === 'scanning' && (
               <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11.5px', fontWeight: 600, color: 'var(--text-muted)' }}>
-                <ScanLine size={12} style={{ animation: 'spin 1s linear infinite' }} /> {ocrMessage || 'Läser…'}
+                <ScanLine size={12} style={{ animation: 'spin 1s linear infinite' }} /> {ocrMessage || tr('ui.laser')}
               </span>
             )}
           </div>
@@ -1064,28 +1065,28 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
                 </div>
                 <div className="ver-doc-actions">
                   <button type="button" className="ver-doc-btn" disabled={ocrStatus === 'scanning'} onClick={rerunOcr} style={ocrStatus === 'scanning' ? { cursor: 'not-allowed', opacity: 0.6 } : undefined}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><ScanLine size={12} style={{ animation: ocrStatus === 'scanning' ? 'spin 1s linear infinite' : 'none' }} /> {ocrStatus === 'scanning' ? 'Läser…' : (Object.keys(revealed).length > 0 ? 'Läs av igen' : 'Läs av underlaget')}</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><ScanLine size={12} style={{ animation: ocrStatus === 'scanning' ? 'spin 1s linear infinite' : 'none' }} /> {ocrStatus === 'scanning' ? tr('ui.laser') : (Object.keys(revealed).length > 0 ? tr('ui.las_av_igen') : tr('ui.las_av_underlaget'))}</span>
                   </button>
-                  <button type="button" className="ver-doc-btn" onClick={() => setShowAttachmentLightbox(true)}>Visa i fullstorlek</button>
-                  <button type="button" className="ver-doc-btn" onClick={() => fileInputRef.current?.click()}>Byt fil</button>
-                  <button type="button" className="ver-doc-btn ver-doc-btn-muted" onClick={() => { setAttachment(null); setExistingAttachment(null); }}>Ta bort</button>
+                  <button type="button" className="ver-doc-btn" onClick={() => setShowAttachmentLightbox(true)}>{tr('ui.visa_i_fullstorlek')}</button>
+                  <button type="button" className="ver-doc-btn" onClick={() => fileInputRef.current?.click()}>{tr('ui.byt_fil')}</button>
+                  <button type="button" className="ver-doc-btn ver-doc-btn-muted" onClick={() => { setAttachment(null); setExistingAttachment(null); }}>{tr('ui.ta_bort')}</button>
                 </div>
                 {(ocrStatus === 'scanning' || revealing || Object.keys(revealed).length > 0) && (
                   <OcrChecklist scanning={ocrStatus === 'scanning'} revealed={revealed} items={VER_OCR_ITEMS} />
                 )}
                 {!revealing && accountSuggestion && (
                   <div className="rc-verify rc-verify-suggest">
-                    <span>Förslag på konto: <strong>{accountSuggestion} {accounts.find(a => a.code === accountSuggestion)?.name || ''}</strong></span>
-                    <button type="button" className="rc-link" onClick={applyAccountSuggestion}>Använd</button>
+                    <span>{tr('ui.forslag_pa_konto')} <strong>{accountSuggestion} {accounts.find(a => a.code === accountSuggestion)?.name || ''}</strong></span>
+                    <button type="button" className="rc-link" onClick={applyAccountSuggestion}>{tr('ui.anvand')}</button>
                   </div>
                 )}
                 {!revealing && notReceipt && (
                   <div className="rc-verify rc-verify-warn">
                     <AlertCircle size={14} style={{ flexShrink: 0 }} />
                     {unreadable ? (
-                      <span>Bilden gick inte att läsa av, så inget har fyllts i. {photoHintText(photoHint) || 'Ta om fotot — närmre, rakare och med bättre ljus — eller läs av igen när du har en tydligare bild.'}</span>
+                      <span>{tr('ui.bilden_gick_inte_att_lasa_av_sa_inget_har_fyllts')} {photoHintText(photoHint) || tr('ui.ta_om_fotot_narmre_rakare_och_med_battre_ljus_el')}</span>
                     ) : (
-                      <span>Det här ser inte ut som ett kvitto eller en faktura, så inget har fyllts i. Fyll i verifikationen själv, eller byt fil.</span>
+                      <span>{tr('ui.det_har_ser_inte_ut_som_ett_kvitto_eller_en_fakt_2')}</span>
                     )}
                   </div>
                 )}
@@ -1094,20 +1095,20 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
                 {!revealing && !notReceipt && photoHint && (
                   <div className="rc-verify rc-verify-warn">
                     <AlertCircle size={14} style={{ flexShrink: 0 }} />
-                    <span>{photoHintText(photoHint)} Läs av igen med den nya bilden — eller fyll i raderna själv från underlaget.</span>
+                    <span>{photoHintText(photoHint)} {tr('ui.las_av_igen_med_den_nya_bilden_eller_fyll_i_rade')}</span>
                   </div>
                 )}
                 {!revealing && ocrVat && ocrVat.amountVerified && !ocrVat.verified && (
                   <div className="rc-verify rc-verify-ok">
                     <CheckCircle2 size={14} style={{ flexShrink: 0 }} />
-                    <span>Beloppet stämmer: netto plus moms på fakturan blir totalbeloppet.</span>
+                    <span>{tr('ui.beloppet_stammer_netto_plus_moms_pa_fakturan_bli')}</span>
                   </div>
                 )}
                 {/* Retur eller kreditnota: pengarna går åt andra hållet. */}
                 {!revealing && ocrVat && ocrVat.creditNote && (
                   <div className="rc-verify rc-verify-warn">
                     <AlertCircle size={14} style={{ flexShrink: 0 }} />
-                    <span>Underlaget ser ut som en retur eller en kreditnota — pengar tillbaka. Vänd debet och kredit mot hur det ursprungliga köpet bokfördes.</span>
+                    <span>{tr('ui.underlaget_ser_ut_som_en_retur_eller_en_kreditno')}</span>
                   </div>
                 )}
                 {/* Flera momssatser på samma underlag: momsen är avläst men är
@@ -1115,19 +1116,19 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
                 {!revealing && ocrVat && ocrVat.rates && (
                   <div className="rc-verify rc-verify-warn">
                     <AlertCircle size={14} style={{ flexShrink: 0 }} />
-                    <span>Underlaget har moms i flera satser ({ocrVat.rates.map(r => `${r} %`).join(' och ')}), tillsammans {fmt(ocrVat.vatAmount)} kr. Momsen är ifylld med det beloppet, så den blir rätt utan att du delar upp raderna. Kontrollera att det stämmer med underlaget.</span>
+                    <span>{tr('ui.underlaget_har_moms_i_flera_satser')}{ocrVat.rates.map(r => `${r} %`).join(' och ')}{tr('ui.tillsammans')} {fmt(ocrVat.vatAmount)} {tr('ui.kr_momsen_ar_ifylld_med_det_beloppet_sa_den_blir')}</span>
                   </div>
                 )}
                 {!revealing && ocrVat && ocrVat.verified && (
                   <div className="rc-verify rc-verify-ok">
                     <CheckCircle2 size={14} style={{ flexShrink: 0 }} />
-                    <span>Momsen stämmer mot beloppen på underlaget ({fmt(ocrVat.vatAmount)} kr moms).</span>
+                    <span>{tr('ui.momsen_stammer_mot_beloppen_pa_underlaget')}{fmt(ocrVat.vatAmount)} {tr('ui.kr_moms')}</span>
                   </div>
                 )}
                 {!revealing && ocrVat && ocrVat.mismatch && (
                   <div className="rc-verify rc-verify-warn">
                     <AlertCircle size={14} style={{ flexShrink: 0 }} />
-                    <span>Momsbeloppet på underlaget ({fmt(ocrVat.vatAmount)} kr) stämmer inte mot någon momssats för det beloppet. Kontrollera belopp och moms.</span>
+                    <span>{tr('ui.momsbeloppet_pa_underlaget')}{fmt(ocrVat.vatAmount)} {tr('ui.kr_stammer_inte_mot_nagon_momssats_for_det_belop')}</span>
                   </div>
                 )}
               </>
@@ -1137,8 +1138,8 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
                 style={{ border: `1px dashed ${dragOver ? 'var(--text-main)' : 'var(--border)'}`, borderRadius: '12px', background: dragOver ? 'var(--bg-muted)' : 'var(--bg-card)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '28px', textAlign: 'center', cursor: 'pointer', transition: 'all 0.15s', height: 'clamp(320px, 44vh, 560px)', boxSizing: 'border-box' }}
               >
                 <UploadCloud size={26} color="var(--text-muted)" style={{ marginBottom: '10px' }} />
-                <span style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-main)' }}>Dra och släpp kvittot här</span>
-                <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px', maxWidth: '260px' }}>PDF eller bild (max {MAX_ATTACHMENT_MB} MB) — vi läser av datum, belopp och konto automatiskt, granska bara innan du bokför.</span>
+                <span style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-main)' }}>{tr('ui.dra_och_slapp_kvittot_har')}</span>
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px', maxWidth: '260px' }}>{tr('ui.pdf_eller_bild_max')} {MAX_ATTACHMENT_MB} {tr('ui.mb_vi_laser_av_datum_belopp_och_konto_automatisk')}</span>
               </div>
             )}
           </div>
@@ -1149,11 +1150,11 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
           )}
           {ocrStatus === 'error' && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '12px', color: BRAND.amberText, background: BRAND.amberBg, borderRadius: '8px', padding: '6px 10px' }}>
-              <AlertCircle size={13} style={{ flexShrink: 0 }} /> Kunde inte läsa av kvittot automatiskt — fyll i raderna manuellt.
+              <AlertCircle size={13} style={{ flexShrink: 0 }} /> {tr('ui.kunde_inte_lasa_av_kvittot_automatiskt_fyll_i_ra')}
             </div>
           )}
           {attachmentBusy && (
-            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '8px' }}>Laddar upp underlag…</div>
+            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '8px' }}>{tr('ui.laddar_upp_underlag')}</div>
           )}
           {attachmentError && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '12px', color: 'var(--status-red-text)' }}>
@@ -1162,14 +1163,14 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
           )}
           {!hasAttachment && (
             <div style={{ marginTop: '12px' }} onClick={e => e.stopPropagation()}>
-              <label style={labelStyle}>Var förvaras originalet?</label>
+              <label style={labelStyle}>{tr('ui.var_forvaras_originalet')}</label>
               <input
                 value={originalLocation}
                 onChange={e => setOriginalLocation(e.target.value)}
-                placeholder="T.ex. pärm 2026 nr 14, eller e-post 2026-08-12"
+                placeholder={tr('ui.t_ex_parm_2026_nr_14_eller_e_post_2026_08_12')}
                 style={inp}
               />
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>Frivilligt, men bra att fylla i när inget underlag är uppladdat här.</span>
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>{tr('ui.frivilligt_men_bra_att_fylla_i_nar_inget_underla')}</span>
             </div>
           )}
         </div>
@@ -1179,7 +1180,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '10px' }}>
           <button
             onClick={async () => {
-              if (!(await confirmDialog('Rensa formuläret? Ifylld information försvinner.'))) return;
+              if (!(await confirmDialog(tr('ui.rensa_formularet_ifylld_information_forsvinner')))) return;
               setDesc(''); setProjectId(''); setCostCenter(''); setInternalNote('');
               setCounterpartyId(''); setOriginalLocation(''); setAttachment(null); setExistingAttachment(null);
               setSimple(emptySimple());
@@ -1189,7 +1190,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
               ]);
             }}
             style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '9px 14px', background: 'none', border: 'none', borderRadius: '8px', fontSize: '13.5px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', marginRight: 'auto' }}
-          ><RefreshCw size={13} /> Rensa</button>
+          ><RefreshCw size={13} /> {tr('ui.rensa')}</button>
           {/* Spara-knapparna satt tidigare BÅDE här och i rubrikraden. Nu
               bara i rubrikraden, som är sticky och därmed alltid nåbar —
               samma sak två gånger på samma sida är precis den sortens
@@ -1225,23 +1226,23 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
       {showReview && (
         <div onClick={() => setShowReview(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500, padding: 20 }}>
           <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card)', borderRadius: '12px', padding: '24px', width: '100%', maxWidth: '480px', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
-            <h3 style={{ margin: '0 0 4px', fontSize: '16px', fontWeight: 700, color: 'var(--text-main)' }}>Granska verifikation</h3>
-            <p style={{ margin: '0 0 16px', fontSize: '12.5px', color: 'var(--text-secondary)' }}>{date} · Serie {series} · {desc || 'Ingen beskrivning'}</p>
+            <h3 style={{ margin: '0 0 4px', fontSize: '16px', fontWeight: 700, color: 'var(--text-main)' }}>{tr('ui.granska_verifikation')}</h3>
+            <p style={{ margin: '0 0 16px', fontSize: '12.5px', color: 'var(--text-secondary)' }}>{date} {tr('ui.serie_2')} {series} · {desc || tr('ui.ingen_beskrivning')}</p>
             <div style={{ border: '1px solid var(--border)', borderRadius: '8px', overflow: 'hidden', marginBottom: '16px' }}>
               {describeVerification(rows.filter(r => r.account).map(r => ({ ...r, debet: parseFloat(r.debet) || 0, kredit: parseFloat(r.kredit) || 0 })), accounts).map((p, i) => (
                 <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', padding: '8px 12px', fontSize: '13px', borderBottom: '1px solid var(--border-light)' }}>
                   <span><strong style={{ color: 'var(--text-main)' }}>{p.account}</strong> {p.text}</span>
-                  <span style={{ fontWeight: 600, color: 'var(--text-main)', whiteSpace: 'nowrap' }}>{fmt(p.amount)} kr</span>
+                  <span style={{ fontWeight: 600, color: 'var(--text-main)', whiteSpace: 'nowrap' }}>{fmt(p.amount)} {tr('ui.kr')}</span>
                 </div>
               ))}
               {missingCounterparty && (
-                <div style={{ padding: '8px 12px', fontSize: '12px', color: 'var(--status-amber-text)', background: 'var(--status-amber-bg)' }}>Observera: reskontrakonto utan motpart.</div>
+                <div style={{ padding: '8px 12px', fontSize: '12px', color: 'var(--status-amber-text)', background: 'var(--status-amber-bg)' }}>{tr('ui.observera_reskontrakonto_utan_motpart')}</div>
               )}
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-              <button onClick={() => setShowReview(false)} style={{ padding: '9px 16px', background: 'var(--bg-card)', border: '1px solid var(--text-muted)', borderRadius: '8px', fontSize: '13.5px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer' }}>Tillbaka och ändra</button>
+              <button onClick={() => setShowReview(false)} style={{ padding: '9px 16px', background: 'var(--bg-card)', border: '1px solid var(--text-muted)', borderRadius: '8px', fontSize: '13.5px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer' }}>{tr('ui.tillbaka_och_andra')}</button>
               <button onClick={() => { handleSave('booked'); setShowReview(false); }} style={{ padding: '9px 20px', background: '#16a34a', border: 'none', borderRadius: '8px', color: 'white', fontWeight: 700, fontSize: '13.5px', cursor: 'pointer' }}>
-                {initial?.number ? 'Spara ändringar' : 'Bokför'}
+                {initial?.number ? tr('ui.spara_andringar') : tr('ui.bokfor_2')}
               </button>
             </div>
           </div>
@@ -1252,15 +1253,19 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
 }
 
 // ─── Main Bokföring Component ──────────────────────────────────────────────────
-export default function Bokforing({ verifications = [], accounts = [], balances = {}, contacts = [], projects = [], templates = [], onSaveTemplate, onAdd, setVerifications, setAccounts, highlightVerificationId, onClearHighlight, vatPeriods, user, orgType, uploadFn = uploadFileToStorage, initialTab, vatExempt = false }) {
-  const [activeTab, setActiveTab] = useState(initialTab || 'verifications');
+export default function Bokforing({ verifications = [], accounts = [], balances = {}, contacts = [], projects = [], templates = [], onSaveTemplate, onAdd, setVerifications, setAccounts, highlightVerificationId, onClearHighlight, vatPeriods, user, orgType, uploadFn = uploadFileToStorage, initialTab, vatExempt = false, extraTabs = [] }) {
+  const [activeTab, setActiveTab] = useState(() => (initialTab && ['verifications', 'accounts', ...extraTabs.map(tab => tab.id)].includes(initialTab) ? initialTab : 'verifications'));
   // Samma mönster som Taxes.jsx:s initialSection — App.jsx:s
   // verificationsInitialTab (profilmenyns "Kontoplaner" ska landa på
   // Kontoplan-fliken här, inte Verifikationer, se dess egen kommentar)
   // ändras efter att den här komponenten redan monterats en gång, så
   // bara useState:s förvalsvärde ovan räcker inte.
+  // En flik som inte finns här (t.ex. Periodiseringar för ett UF-företag,
+  // som saknar den) visar Verifikationer i stället för en tom sida.
+  const knownTab = (id) => ['verifications', 'accounts', ...extraTabs.map(tab => tab.id)].includes(id);
   useEffect(() => {
-    if (initialTab) setActiveTab(initialTab);
+    if (initialTab) setActiveTab(knownTab(initialTab) ? initialTab : 'verifications');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialTab]);
   const [expandedId, setExpandedId] = useState(null);
   const [openDocument, setOpenDocument] = useState(null); // underlag i fullstorlek från listan
@@ -1324,7 +1329,7 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
   // verifikation, som aldrig raderas — bara rättas, se Rätta-knappen), så
   // en hård radering är säker här.
   const handleDeleteDraft = async (v) => {
-    if (!(await confirmDialog(`Ta bort utkastet ${v.number}? Det går inte att ångra.`, { title: 'Ta bort utkast', confirmLabel: 'Ta bort', danger: true }))) return;
+    if (!(await confirmDialog(tr('ui.ta_bort_utkastet_det_gar_inte_att_angra_2', { number: v.number }), { title: tr('ui.ta_bort_utkast'), confirmLabel: tr('ui.ta_bort'), danger: true }))) return;
     setVerifications?.(prev => prev.filter(x => x.id !== v.id));
   };
 
@@ -1365,16 +1370,16 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
   const groupByYear = monthFilter !== 'all';
   const verGroupKey = (v) => {
     if (flatView) return null;
-    return groupByYear ? ((v.date || '').slice(0, 4) || 'okänt') : ((v.date || '').slice(0, 7) || 'okänt');
+    return groupByYear ? ((v.date || '').slice(0, 4) || tr('ui.okant')) : ((v.date || '').slice(0, 7) || tr('ui.okant'));
   };
   const renderVerGroupHeader = (key, rowsInGroup) => {
-    const label = key === 'okänt' ? 'Utan datum' : (groupByYear ? key : formatMonthLabel(key));
+    const label = key === 'okänt' ? tr('ui.utan_datum') : (groupByYear ? key : formatMonthLabel(key));
     const total = rowsInGroup.reduce((s, v) => s + (v.rows?.reduce((rs, r) => rs + getDebet(r), 0) || v.amount || 0), 0);
     return (
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '10px' }}>
         <span style={{ fontSize: '11.5px', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--text-main)' }}>{label}</span>
         <span style={{ fontSize: '11.5px', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-          {rowsInGroup.length} {rowsInGroup.length === 1 ? 'verifikation' : 'verifikationer'} · {fmtSEK(total)}
+          {rowsInGroup.length} {rowsInGroup.length === 1 ? tr('ui.verifikation_3') : tr('ui.verifikationer')} · {fmtSEK(total)}
         </span>
       </div>
     );
@@ -1422,18 +1427,18 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
 
       {/* ── Top section: title + tabs ─────────────────────────── */}
       <ListPageHeader
-        title="Bokföring"
-        subtitle="Verifikationer, kontoplan och bokföringsposter"
+        title={tr('ui.bokforing')}
+        subtitle={tr('ui.verifikationer_kontoplan_och_bokforingsposter')}
         actions={
           activeTab === 'verifications' ? [
-            { key: 'next', type: 'note', label: 'Nästa:', value: nextNumber },
-            { key: 'new-ver', label: 'Ny verifikation', icon: Plus, onClick: () => { setEditingVer(null); setShowForm(true); }, variant: 'primary', dataTour: 'page-verifications-cta' },
+            { key: 'next', type: 'note', label: tr('ui.nasta'), value: nextNumber },
+            { key: 'new-ver', label: tr('ui.ny_verifikation'), icon: Plus, onClick: () => { setEditingVer(null); setShowForm(true); }, variant: 'primary', dataTour: 'page-verifications-cta' },
           ] : []
           // Kontoplan-fliken har sin egen "Nytt konto"-knapp i AccountsPanel
           // (shared/AccountsPanel.jsx) numera, inte längre i sidhuvudet här.
         }
         tabs={{
-          items: [{ id: 'verifications', label: 'Verifikationer' }, { id: 'accounts', label: 'Kontoplan' }],
+          items: [{ id: 'verifications', label: tr('ui.verifikationer_2') }, { id: 'accounts', label: tr('ui.kontoplan_2') }, ...extraTabs.map(({ id, label }) => ({ id, label }))],
           activeId: activeTab,
           onChange: setActiveTab,
         }}
@@ -1448,37 +1453,37 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
           <ListFilterBar
             onClear={() => { setSearchInput(''); setDateFrom(''); setDateTo(''); setSeries('all'); setMonthFilter('all'); }}
             count={filteredVers.length}
-            countLabel="verifikationer"
+            countLabel={tr('ui.verifikationer')}
             pageSize={pageSize}
             onPageSizeChange={setPageSize}
             activeFilters={(dateFrom ? 1 : 0) + (dateTo ? 1 : 0) + (series !== 'all' ? 1 : 0) + (monthFilter !== 'all' ? 1 : 0)}
           >
             <div style={{ position: 'relative' }}>
               <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-              <input value={searchInput} onChange={e => setSearchInput(e.target.value)} placeholder="Sök verifikation, text, belopp..." style={{ ...listSearchInputStyle, width: '240px' }} />
+              <input value={searchInput} onChange={e => setSearchInput(e.target.value)} placeholder={tr('ui.sok_verifikation_text_belopp')} style={{ ...listSearchInputStyle, width: '240px' }} />
             </div>
             <div className="lfb-daterange">
-              <DateField value={dateFrom} onChange={e => setDateFrom(e.target.value)} placeholder="Från datum" style={listFilterFieldStyle} />
+              <DateField value={dateFrom} onChange={e => setDateFrom(e.target.value)} placeholder={tr('ui.fran_datum')} style={listFilterFieldStyle} />
               <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>–</span>
-              <DateField value={dateTo} onChange={e => setDateTo(e.target.value)} placeholder="Till datum" style={listFilterFieldStyle} />
+              <DateField value={dateTo} onChange={e => setDateTo(e.target.value)} placeholder={tr('ui.till_datum')} style={listFilterFieldStyle} />
             </div>
             <select value={series} onChange={e => setSeries(e.target.value)} style={listFilterFieldStyle}>
-              <option value="all">Alla serier</option>
-              <option value="A">Serie A</option>
-              <option value="B">Serie B</option>
-              <option value="C">Serie C</option>
+              <option value="all">{tr('ui.alla_serier')}</option>
+              <option value="A">{tr('ui.serie_a')}</option>
+              <option value="B">{tr('ui.serie_b')}</option>
+              <option value="C">{tr('ui.serie_c')}</option>
             </select>
             {/* Kundönskemål ("samma som i Kvitton, jag älskar det"): samma
                 månadsväljare + Grupperat/Lista-växel som Expenses.jsx,
                 återanvänder samma .rc-segmented-utseende (index.css) så
                 kontrollen ser likadan ut var den än dyker upp i appen. */}
             <select value={monthFilter} onChange={e => setMonthFilter(e.target.value)} style={listFilterFieldStyle}>
-              <option value="all">Alla månader</option>
-              {MONTH_NAMES.map(m => <option key={m.v} value={m.v}>{m.label} (alla år)</option>)}
+              <option value="all">{tr('ui.alla_manader')}</option>
+              {MONTH_NAMES.map(m => <option key={m.v} value={m.v}>{m.label} {tr('ui.alla_ar')}</option>)}
             </select>
             <div className="rc-segmented">
-              <button type="button" onClick={() => setFlatView(false)} className={!flatView ? 'active' : ''}>Grupperat</button>
-              <button type="button" onClick={() => setFlatView(true)} className={flatView ? 'active' : ''}>Lista</button>
+              <button type="button" onClick={() => setFlatView(false)} className={!flatView ? 'active' : ''}>{tr('ui.grupperat')}</button>
+              <button type="button" onClick={() => setFlatView(true)} className={flatView ? 'active' : ''}>{tr('ui.lista')}</button>
             </div>
           </ListFilterBar>
 
@@ -1501,22 +1506,22 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
                     <BookOpen size={30} />
                   </div>
                   <h3 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 8px', color: 'var(--text-main)' }}>
-                    {verifications.length === 0 ? 'Inga verifikationer bokförda' : 'Inga verifikationer matchar filtret'}
+                    {verifications.length === 0 ? tr('ui.inga_verifikationer_bokforda') : tr('ui.inga_verifikationer_matchar_filtret')}
                   </h3>
                   {verifications.length === 0 ? (
                     <>
                       <p style={{ fontSize: '14px', color: 'var(--text-secondary)', maxWidth: '300px', margin: '0 0 24px' }}>
-                        Verifikationer bokförs automatiskt från kvitton, fakturor och bankimport — eller skapas manuellt här.
+                        {tr('ui.verifikationer_bokfors_automatiskt_fran_kvitton')}
                       </p>
                       <button
                         onClick={() => { setEditingVer(null); setShowForm(true); }}
                         style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '10px 20px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '9px', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}
                       >
-                        <Plus size={15} /> Ny verifikation
+                        <Plus size={15} /> {tr('ui.ny_verifikation')}
                       </button>
                     </>
                   ) : (
-                    <p style={{ fontSize: '14px', color: 'var(--text-secondary)', maxWidth: '300px', margin: 0 }}>Prova att rensa sökningen eller filtren ovan.</p>
+                    <p style={{ fontSize: '14px', color: 'var(--text-secondary)', maxWidth: '300px', margin: 0 }}>{tr('ui.prova_att_rensa_sokningen_eller_filtren_ovan')}</p>
                   )}
                 </div>
               </div>
@@ -1525,32 +1530,32 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
               rowKey={v => v.id}
               onRowClick={v => setExpandedId(expandedId === v.id ? null : v.id)}
               isExpanded={v => expandedId === v.id}
-              emptyMessage="Inga verifikationer bokförda"
+              emptyMessage={tr('ui.inga_verifikationer_bokforda')}
               rows={visibleVers}
               groupBy={verGroupKey}
               renderGroupHeader={renderVerGroupHeader}
               columns={[
                 {
-                  key: 'number', label: 'Verifikation', fontWeight: 700, color: 'var(--text-main)', render: v => (
+                  key: 'number', label: tr('ui.verifikation'), fontWeight: 700, color: 'var(--text-main)', render: v => (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }} id={`ver-row-${v.id}`}>
                       {expandedId === v.id ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                       {v.number}
                     </div>
                   ),
                 },
-                { key: 'date', label: 'Datum', render: v => v.date },
-                { key: 'description', label: 'Beskrivning', color: 'var(--text-main)', wrap: true, render: v => v.description },
+                { key: 'date', label: tr('ui.datum'), render: v => v.date },
+                { key: 'description', label: tr('ui.beskrivning'), color: 'var(--text-main)', wrap: true, render: v => v.description },
                 {
-                  key: 'amount', label: 'Belopp', align: 'right', fontWeight: 600, color: 'var(--text-main)',
+                  key: 'amount', label: tr('ui.belopp'), align: 'right', fontWeight: 600, color: 'var(--text-main)',
                   render: v => fmt(v.rows?.reduce((s, r) => s + getDebet(r), 0) || v.amount || 0),
                 },
                 {
-                  key: 'status', label: 'Status', align: 'center', render: v => {
+                  key: 'status', label: tr('ui.status'), align: 'center', render: v => {
                     const isDraft = (v.status || 'booked') === 'draft';
                     return isDraft ? (
-                      <span style={{ padding: '2px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, background: 'var(--status-amber-bg)', color: 'var(--status-amber-text)' }}>Utkast</span>
+                      <span style={{ padding: '2px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, background: 'var(--status-amber-bg)', color: 'var(--status-amber-text)' }}>{tr('ui.utkast')}</span>
                     ) : (
-                      <span style={{ padding: '2px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, background: 'var(--status-green-bg)', color: 'var(--status-green-text)' }}>Bokförd</span>
+                      <span style={{ padding: '2px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, background: 'var(--status-green-bg)', color: 'var(--status-green-text)' }}>{tr('ui.bokford')}</span>
                     );
                   },
                 },
@@ -1563,14 +1568,14 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
                           <>
                             <button
                               onClick={() => { setEditingVer(v); setShowForm(true); }}
-                              title="Fortsätt redigera utkastet"
+                              title={tr('ui.fortsatt_redigera_utkastet')}
                               style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '4px', cursor: 'pointer', padding: '3px 8px', fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}
                             >
-                              Fortsätt
+                              {tr('ui.fortsatt')}
                             </button>
                             <button
                               onClick={() => handleDeleteDraft(v)}
-                              title="Ta bort utkastet"
+                              title={tr('ui.ta_bort_utkastet')}
                               style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '4px', cursor: 'pointer', padding: '3px 8px', fontSize: '11px', color: 'var(--status-red-text)', display: 'flex', alignItems: 'center', gap: '4px' }}
                             >
                               <Trash2 size={11} />
@@ -1583,10 +1588,10 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
                               setEditingVer({ ...v, description: `Rätta: ${v.number} – ${v.description}`, rows: newRows, number: undefined, status: 'booked', createdAt: undefined });
                               setShowForm(true);
                             }}
-                            title="Skapa rättelseverifikation"
+                            title={tr('ui.skapa_rattelseverifikation')}
                             style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '4px', cursor: 'pointer', padding: '3px 8px', fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}
                           >
-                            <RotateCcw size={11} /> Rätta
+                            <RotateCcw size={11} /> {tr('ui.ratta')}
                           </button>
                         )}
                       </div>
@@ -1597,23 +1602,23 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
               renderExpanded={v => !v.rows ? null : (
                 <div style={{ padding: '10px 8px 12px 32px' }}>
                   <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', marginBottom: '4px', fontSize: '11.5px', color: 'var(--text-secondary)' }}>
-                    <span>Motpart: <strong style={{ color: 'var(--text-main)' }}>{contacts.find(c => c.id === v.counterpartyId)?.name || '—'}</strong></span>
-                    <span>Upprättad: <strong style={{ color: 'var(--text-main)' }}>{v.createdAt ? new Intl.DateTimeFormat('sv-SE', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(v.createdAt)) : '—'}</strong></span>
-                    {v.originalLocation && <span>Original förvaras: <strong style={{ color: 'var(--text-main)' }}>{v.originalLocation}</strong></span>}
+                    <span>{tr('ui.motpart')} <strong style={{ color: 'var(--text-main)' }}>{contacts.find(c => c.id === v.counterpartyId)?.name || '—'}</strong></span>
+                    <span>{tr('ui.upprattad')} <strong style={{ color: 'var(--text-main)' }}>{v.createdAt ? new Intl.DateTimeFormat('sv-SE', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(v.createdAt)) : '—'}</strong></span>
+                    {v.originalLocation && <span>{tr('ui.original_forvaras')} <strong style={{ color: 'var(--text-main)' }}>{v.originalLocation}</strong></span>}
                   </div>
                   {/* Underlaget syntes tidigare bara inne i formuläret, så en
                       bokförd verifikation (och underlag kopplade i efterhand
                       till en SIE-import) gick inte att se alls. */}
                   {(v.attachmentUrl || v.extraAttachments?.length > 0) && (
                     <div onClick={e => e.stopPropagation()} style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center', margin: '8px 0 2px' }}>
-                      <span style={{ fontSize: '11.5px', color: 'var(--text-secondary)' }}>Underlag:</span>
+                      <span style={{ fontSize: '11.5px', color: 'var(--text-secondary)' }}>{tr('ui.underlag_2')}</span>
                       {[v.attachmentUrl && { url: v.attachmentUrl, name: v.attachmentName, type: v.attachmentType }, ...(v.extraAttachments || [])].filter(Boolean).map((doc, di) => (
                         <button
                           key={doc.url} type="button" onClick={() => setOpenDocument(doc)}
                           style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', maxWidth: '220px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '999px', cursor: 'pointer', padding: '3px 10px', fontSize: '11.5px', fontWeight: 600, color: 'var(--text-main)', fontFamily: 'inherit' }}
                         >
                           <Paperclip size={11} style={{ flexShrink: 0 }} />
-                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.name || `Underlag ${di + 1}`}</span>
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.name || tr('ui.underlag_3', { v0: di + 1 })}</span>
                         </button>
                       ))}
                     </div>
@@ -1623,11 +1628,11 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
                       underliggande detaljtabell istället för en kortlist-
                       omgörning, som vore overkill för en sällan uppfälld panel. */}
                   <div style={{ margin: '10px 0 4px', maxWidth: '560px' }}>
-                    <div style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '4px' }}>Så här bokfördes det</div>
+                    <div style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '4px' }}>{tr('ui.sa_har_bokfordes_det')}</div>
                     {describeVerification(v.rows.map(r => ({ ...r, debet: getDebet(r), kredit: getKredit(r) })), accounts).map((p, pi) => (
                       <div key={pi} style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', fontSize: '12.5px', padding: '2px 0', color: 'var(--text-main)' }}>
                         <span><span style={{ color: 'var(--text-muted)', marginRight: '8px' }}>{p.account}</span>{p.text}</span>
-                        <span style={{ fontWeight: 600, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{fmt(p.amount)} kr</span>
+                        <span style={{ fontWeight: 600, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{fmt(p.amount)} {tr('ui.kr')}</span>
                       </div>
                     ))}
                   </div>
@@ -1660,7 +1665,7 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
                           );
                         })}
                         <tr style={{ background: 'var(--status-green-bg)', borderTop: '1px solid var(--status-green-bg)' }}>
-                          <td colSpan={2} style={{ padding: '5px 8px', fontWeight: 700, fontSize: '12px', color: 'var(--status-green-text)', whiteSpace: 'nowrap' }}>Summa</td>
+                          <td colSpan={2} style={{ padding: '5px 8px', fontWeight: 700, fontSize: '12px', color: 'var(--status-green-text)', whiteSpace: 'nowrap' }}>{tr('ui.summa')}</td>
                           <td style={{ padding: '5px 8px', textAlign: 'right', fontWeight: 700, whiteSpace: 'nowrap' }}>{fmt(v.rows.reduce((s, r) => s + getDebet(r), 0))}</td>
                           <td style={{ padding: '5px 8px', textAlign: 'right', fontWeight: 700, whiteSpace: 'nowrap' }}>{fmt(v.rows.reduce((s, r) => s + getKredit(r), 0))}</td>
                         </tr>
@@ -1681,13 +1686,13 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
                           onClick={() => { setEditingVer(v); setShowForm(true); }}
                           style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '4px', cursor: 'pointer', padding: '4px 10px', fontSize: '11.5px', color: 'var(--text-secondary)' }}
                         >
-                          Fortsätt
+                          {tr('ui.fortsatt')}
                         </button>
                         <button
                           onClick={() => handleDeleteDraft(v)}
                           style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '4px', cursor: 'pointer', padding: '4px 10px', fontSize: '11.5px', color: 'var(--status-red-text)', display: 'flex', alignItems: 'center', gap: '4px' }}
                         >
-                          <Trash2 size={11} /> Ta bort
+                          <Trash2 size={11} /> {tr('ui.ta_bort')}
                         </button>
                       </>
                     ) : (
@@ -1699,7 +1704,7 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
                         }}
                         style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '4px', cursor: 'pointer', padding: '4px 10px', fontSize: '11.5px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}
                       >
-                        <RotateCcw size={11} /> Rätta
+                        <RotateCcw size={11} /> {tr('ui.ratta')}
                       </button>
                     )}
                   </div>
@@ -1712,12 +1717,12 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
                   dot: isDraft ? 'var(--status-amber-text)' : 'var(--status-green-text)',
                   // Utan beskrivning stod det bara '—' överst på raden på
                   // mobilen; verifikationsnumret bär identiteten i stället.
-                  primary: v.description || `Verifikation ${v.number}`,
+                  primary: v.description || tr('ui.verifikation_2', { number: v.number }),
                   amount: total,
                   meta: `${v.number} · ${v.date}`,
                   pill: (
                     <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '10.5px', fontWeight: 700, background: isDraft ? 'var(--status-amber-bg)' : 'var(--status-green-bg)', color: isDraft ? 'var(--status-amber-text)' : 'var(--status-green-text)' }}>
-                      {isDraft ? 'Utkast' : 'Bokförd'}
+                      {isDraft ? tr('ui.utkast') : tr('ui.bokford')}
                     </span>
                   ),
                 };
@@ -1740,6 +1745,12 @@ export default function Bokforing({ verifications = [], accounts = [], balances 
           <AccountsPanel accounts={accounts} balances={balances} verifications={verifications} setAccounts={setAccounts} fmt={fmt} />
         </div>
       )}
+
+      {/* Periodiseringar och Anläggningstillgångar (App.jsx:s extraTabs). Låg
+          tidigare under Skatt och bokslut, men hör till den löpande bokföringen. */}
+      {extraTabs.map(tab => activeTab === tab.id && (
+        <div key={tab.id} style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>{tab.content}</div>
+      ))}
     </div>
   );
 }

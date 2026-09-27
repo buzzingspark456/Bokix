@@ -1,3 +1,5 @@
+import { createClient } from '@supabase/supabase-js';
+import { logSystemEvent } from './_systemEvents.js';
 import { applySecurityHeaders } from './_security.js';
 import { parseJsonBody } from './stripe/_parseBody.js';
 import { checkRateLimit, getClientIp } from './_rateLimit.js';
@@ -43,6 +45,28 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // namn/e-post redan ifyllda istället för att behöva skriva dem.
 const ALLOWED_TOPICS = ['Support', 'Fakturering & pris', 'Säkerhet & integritet', 'Felrapport', 'Övrigt'];
 
+function adminClient() {
+  const url = process.env.VITE_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  return url && key ? createClient(url, key) : null;
+}
+
+// Id för det sparade meddelandet, eller null om det inte gick att spara.
+async function saveContactMessage(row) {
+  try {
+    const client = adminClient();
+    if (!client) return null;
+    const { data, error } = await client.from('contact_messages').insert(row).select('id').single();
+    return error ? null : data.id;
+  } catch {
+    return null;
+  }
+}
+
+async function markContactEmailSent(id) {
+  try { await adminClient()?.from('contact_messages').update({ email_sent: true }).eq('id', id); } catch { /* bara en markering */ }
+}
+
 function esc(value) {
   return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
@@ -67,10 +91,6 @@ export default async function handler(req, res) {
   }
 
   const resendApiKey = getResendApiKey();
-  if (!resendApiKey) {
-    res.status(503).json({ error: 'E-post är inte konfigurerat. Sätt RESEND_API_KEY i Vercels miljövariabler för att kunna ta emot kontaktformulär.' });
-    return;
-  }
   // Striktare gräns än övriga e-postrutter (default max 20) — ett
   // anonymt, oautentiserat formulär är det mest utsatta målet för spam.
   if (!checkRateLimit(req, res, { key: 'contact', max: 5 })) return;
@@ -108,6 +128,17 @@ export default async function handler(req, res) {
       }
     }
 
+    // Sparas först i admin-panelens Inkorg (contact_messages), så att inget
+    // meddelande försvinner om mejlet inte går iväg. Saknas tabellen eller
+    // nyckeln fortsätter det som förut, med bara mejlet.
+    const saved = await saveContactMessage({ name, email, topic, message });
+
+    if (!resendApiKey) {
+      if (saved) { res.status(200).json({ id: saved }); return; }
+      res.status(503).json({ error: 'E-post är inte konfigurerat. Sätt RESEND_API_KEY i Vercels miljövariabler för att kunna ta emot kontaktformulär.' });
+      return;
+    }
+
     const result = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
@@ -126,10 +157,14 @@ export default async function handler(req, res) {
 
     if (!result.ok) {
       console.error('Resend API error (contact):', data);
+      await logSystemEvent('contact_email_failed', data?.message || `Resend svarade ${result.status}`);
+      // Meddelandet finns i Inkorgen, så för avsändaren har det gått fram.
+      if (saved) { res.status(200).json({ id: saved }); return; }
       res.status(result.status).json({ error: data?.message || 'Resend kunde inte skicka e-posten.' });
       return;
     }
 
+    if (saved) await markContactEmailSent(saved);
     res.status(200).json({ id: data.id });
   } catch (error) {
     console.error('Contact form send error:', error);

@@ -16,6 +16,7 @@ import { downloadAgiXml } from '../utils/agiXml';
 import { AGI_XML_ENABLED } from '../utils/featureFlags';
 import { preloadSkattetabell } from '../utils/skattetabell';
 import { downloadSalaryPaymentFile, getDebtorAccountError } from '../utils/salaryPaymentFile';
+import { t as tr } from '../i18n';
 
 const fmt = (v) => new Intl.NumberFormat('sv-SE').format(Math.round(v || 0));
 const fmtSigned = (v) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${new Intl.NumberFormat('sv-SE').format(Math.round(Math.abs(v || 0)))} kr`;
@@ -23,9 +24,9 @@ const panelCard = { background: 'var(--bg-card)', borderRadius: '14px', border: 
 
 function StatusBadge({ status }) {
   const map = {
-    booked: { label: 'Bokförd', bg: 'var(--status-green-bg)', color: 'var(--status-green-text)' },
-    calculated: { label: 'Beräknad', bg: 'var(--status-blue-bg)', color: 'var(--status-blue-text)' },
-    draft: { label: 'Utkast', bg: 'var(--border-light)', color: 'var(--text-secondary)' },
+    booked: { label: tr('ui.bokford'), bg: 'var(--status-green-bg)', color: 'var(--status-green-text)' },
+    calculated: { label: tr('ui.beraknad_2'), bg: 'var(--status-blue-bg)', color: 'var(--status-blue-text)' },
+    draft: { label: tr('ui.utkast'), bg: 'var(--border-light)', color: 'var(--text-secondary)' },
   };
   const s = map[status] || map.draft;
   return <span style={{ padding: '4px 12px', borderRadius: '999px', fontSize: '12.5px', fontWeight: 700, background: s.bg, color: s.color }}>{s.label}</span>;
@@ -63,7 +64,7 @@ function StepButtons({ completedSteps, onAdvance, canBook }) {
                     animation: 'bokix-step-bounce 1s ease-in-out infinite', pointerEvents: 'none',
                   }}
                 >
-                  <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--accent-text)', whiteSpace: 'nowrap' }}>Klicka här</span>
+                  <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--accent-text)', whiteSpace: 'nowrap' }}>{tr('ui.klicka_har')}</span>
                   <ChevronDown size={13} color="var(--accent)" style={{ marginTop: '-2px' }} />
                 </div>
               )}
@@ -110,10 +111,10 @@ function StepButtons({ completedSteps, onAdvance, canBook }) {
 // TALET.
 function SummaryCards({ totals }) {
   const cards = [
-    { label: 'Brutto', value: totals.gross, color: 'var(--text-main)', icon: Wallet },
-    { label: 'Skatt', value: totals.tax, color: 'var(--status-red-text)', icon: Receipt },
-    { label: 'Netto', value: totals.net, color: 'var(--status-green-text)', icon: Banknote },
-    { label: 'Avgifter', value: totals.employerFee + totals.vacationFee, color: 'var(--text-main)', icon: ShieldCheck },
+    { label: tr('ui.brutto'), value: totals.gross, color: 'var(--text-main)', icon: Wallet },
+    { label: tr('ui.skatt'), value: totals.tax, color: 'var(--status-red-text)', icon: Receipt },
+    { label: tr('ui.netto'), value: totals.net, color: 'var(--status-green-text)', icon: Banknote },
+    { label: tr('ui.avgifter'), value: totals.employerFee + totals.vacationFee, color: 'var(--text-main)', icon: ShieldCheck },
   ];
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 190px), 1fr))', gap: '12px', marginBottom: '12px' }}>
@@ -124,7 +125,7 @@ function SummaryCards({ totals }) {
           </div>
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '5px' }}>{c.label}</div>
-            <div style={{ fontSize: '20px', fontWeight: 800, color: c.color }}>{fmt(c.value)} kr</div>
+            <div style={{ fontSize: '20px', fontWeight: 800, color: c.color }}>{fmt(c.value)} {tr('ui.kr')}</div>
           </div>
         </div>
       ))}
@@ -177,15 +178,15 @@ function PayLinesEditor({ row, computed, onUpdateRow, locked }) {
   return (
     <div style={{ marginTop: '14px', paddingTop: '14px', borderTop: '1px dashed var(--border)' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: lines.length ? '10px' : '6px', flexWrap: 'wrap' }}>
-        <span style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--text-main)' }}>Lönearter</span>
+        <span style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--text-main)' }}>{tr('ui.lonearter')}</span>
         {!locked && (
           <select
             value={adding}
             onChange={e => addLine(e.target.value)}
             style={{ ...cellInput, width: 'auto', minWidth: '190px', cursor: 'pointer' }}
-            aria-label="Lägg till löneart"
+            aria-label={tr('ui.lagg_till_loneart_2')}
           >
-            <option value="">+ Lägg till löneart…</option>
+            <option value="">{tr('ui.lagg_till_loneart')}</option>
             {PAY_TYPE_GROUPS.map(g => (
               <optgroup key={g.label} label={g.label}>
                 {g.ids.map(id => <option key={id} value={id}>{getPayType(id)?.name}</option>)}
@@ -197,7 +198,7 @@ function PayLinesEditor({ row, computed, onUpdateRow, locked }) {
 
       {lines.length === 0 ? (
         <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, lineHeight: 1.6 }}>
-          Inga lönearter på den här raden — bara grundlönen. Lägg till övertid, OB, jour, frånvaro, förmåner, milersättning eller avdrag ovan.
+          {tr('ui.inga_lonearter_pa_den_har_raden_bara_grundlonen')}
         </p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -217,28 +218,28 @@ function PayLinesEditor({ row, computed, onUpdateRow, locked }) {
                     type="number" step="0.01" min="0" value={line.quantity}
                     disabled={locked}
                     onChange={e => patchLine(line.id, { quantity: e.target.value })}
-                    style={{ ...cellInput, textAlign: 'right' }} aria-label={`Antal ${type.unit}`}
+                    style={{ ...cellInput, textAlign: 'right' }} aria-label={tr('ui.antal_2', { unit: type.unit })}
                   />
                   <input
                     type="number" step="0.01" value={line.rate}
                     disabled={locked}
-                    placeholder="à-pris"
+                    placeholder={tr('ui.pris_4')}
                     onChange={e => patchLine(line.id, { rate: e.target.value })}
-                    style={{ ...cellInput, textAlign: 'right' }} aria-label="À-pris i kronor"
+                    style={{ ...cellInput, textAlign: 'right' }} aria-label={tr('ui.pris_i_kronor')}
                   />
                   <input
                     type="text" value={line.note || ''}
                     disabled={locked}
-                    placeholder="Anteckning (valfri)"
+                    placeholder={tr('ui.anteckning_valfri')}
                     onChange={e => patchLine(line.id, { note: e.target.value })}
                     style={cellInput}
                   />
                   <div style={{ fontSize: '13px', fontWeight: 800, textAlign: 'right', color: kind.sign < 0 ? 'var(--status-red-text)' : 'var(--text-main)', whiteSpace: 'nowrap' }}>
-                    {kind.sign < 0 ? '−' : ''}{fmt(calc ? calc.amount : (Number(line.quantity) || 0) * (Number(line.rate) || 0))} kr
+                    {kind.sign < 0 ? '−' : ''}{fmt(calc ? calc.amount : (Number(line.quantity) || 0) * (Number(line.rate) || 0))} {tr('ui.kr')}
                   </div>
                   {!locked ? (
                     <button
-                      type="button" onClick={() => removeLine(line.id)} aria-label={`Ta bort ${type.name}`}
+                      type="button" onClick={() => removeLine(line.id)} aria-label={tr('ui.ta_bort_3', { name: type.name })}
                       style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '4px', lineHeight: 0 }}
                     >
                       <Trash2 size={14} />
@@ -246,7 +247,7 @@ function PayLinesEditor({ row, computed, onUpdateRow, locked }) {
                   ) : <span />}
                 </div>
                 <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px', lineHeight: 1.5 }}>
-                  {type.unit} × à-pris. {type.help}
+                  {type.unit} {tr('ui.pris_3')} {type.help}
                 </div>
               </div>
             );
@@ -277,7 +278,7 @@ function EmployeeRow({ row, computed, previousComputed, onUpdateRow, locked }) {
           <div style={{ fontWeight: 700, fontSize: '14.5px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
             {row.employeeSnapshot.firstName} {row.employeeSnapshot.lastName}
             {diff !== null && Math.abs(diff) > 1 && (
-              <span title={`${fmtSigned(diff)} jämfört med föregående lönekörning`} style={{ fontSize: '12px', fontWeight: 700, color: diff < 0 ? 'var(--status-red-text)' : 'var(--status-green-text)', cursor: 'help' }}>
+              <span title={tr('ui.jamfort_med_foregaende_lonekorning', { v0: fmtSigned(diff) })} style={{ fontSize: '12px', fontWeight: 700, color: diff < 0 ? 'var(--status-red-text)' : 'var(--status-green-text)', cursor: 'help' }}>
                 {fmtSigned(diff)}
               </span>
             )}
@@ -291,21 +292,21 @@ function EmployeeRow({ row, computed, previousComputed, onUpdateRow, locked }) {
                   tidrapporter. Se payrollCalculation.js: Grundlön-formeln
                   för en månadsanställd är "monthlySalary × employmentRate%",
                   helt skild från timanställdas "hourlyRate × hoursWorked". */}
-              <span>{isHourly ? 'Inga tidrapporter registrerade för denna period' : 'Ingen månadslön angiven — kontrollera lön/anställningsgrad under Anställda'}</span>
+              <span>{isHourly ? tr('ui.inga_tidrapporter_registrerade_for_denna_period') : tr('ui.ingen_manadslon_angiven_kontrollera_lon_anstalln')}</span>
               {isHourly && !locked && (
                 <span onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <input
-                    type="number" min="0" placeholder="Timmar" value={row.hoursWorked || ''}
+                    type="number" min="0" placeholder={tr('ui.timmar')} value={row.hoursWorked || ''}
                     onChange={e => onUpdateRow(row.employeeId, { hoursWorked: e.target.value })}
                     style={{ width: '70px', padding: '3px 6px', border: '1px solid var(--border)', borderRadius: '5px', fontSize: '12px' }}
                   />
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>timmar denna period</span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{tr('ui.timmar_denna_period')}</span>
                 </span>
               )}
             </div>
           ) : (
             <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span>Skatt {fmt(computed.tax)} kr · Netto {fmt(computed.net)} kr · Avgifter {fmt(computed.employerFee)} kr · Semester {fmt(computed.vacationProvision)} kr</span>
+              <span>{tr('ui.skatt')} {fmt(computed.tax)} {tr('ui.kr_netto')} {fmt(computed.net)} {tr('ui.kr_avgifter')} {fmt(computed.employerFee)} {tr('ui.kr_semester')} {fmt(computed.vacationProvision)} {tr('ui.kr')}</span>
               {isHourly && !locked && (
                 <span onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <input
@@ -313,19 +314,19 @@ function EmployeeRow({ row, computed, previousComputed, onUpdateRow, locked }) {
                     onChange={e => onUpdateRow(row.employeeId, { hoursWorked: e.target.value })}
                     style={{ width: '60px', padding: '3px 6px', border: '1px solid var(--border)', borderRadius: '5px', fontSize: '12px' }}
                   />
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>tim</span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{tr('ui.tim')}</span>
                 </span>
               )}
             </div>
           )}
           {!computed.hasBankInfo && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: 'var(--status-red-text)', marginTop: '4px' }}>
-              <AlertTriangle size={12} /> Saknar bankkontouppgifter — kan inte inkluderas i betalfilen
+              <AlertTriangle size={12} /> {tr('ui.saknar_bankkontouppgifter_kan_inte_inkluderas_i')}
             </div>
           )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div style={{ fontWeight: 800, fontSize: '17px', color: 'var(--text-main)' }}>{fmt(computed.gross)} kr</div>
+          <div style={{ fontWeight: 800, fontSize: '17px', color: 'var(--text-main)' }}>{fmt(computed.gross)} {tr('ui.kr')}</div>
           {expanded ? <ChevronUp size={16} color="var(--text-muted)" /> : <ChevronDown size={16} color="var(--text-muted)" />}
         </div>
       </div>
@@ -338,7 +339,7 @@ function EmployeeRow({ row, computed, previousComputed, onUpdateRow, locked }) {
               onClick={(e) => { e.stopPropagation(); generatePayslipPdf({ employee: row.employeeSnapshot, computed, period: row.period }).save(`lonebesked-${row.employeeSnapshot.lastName}-${row.period}.pdf`); }}
               style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px', background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer' }}
             >
-              <Download size={13} /> Ladda ner lönebesked (PDF)
+              <Download size={13} /> {tr('ui.ladda_ner_lonebesked_pdf')}
             </button>
           </div>
         </div>
@@ -361,7 +362,7 @@ export function VerificationBlock({ title, rows, accounts }) {
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
           <thead>
             <tr style={{ background: 'var(--bg-muted)' }}>
-              {['Vad som bokförs', 'Belopp'].map(h => (
+              {[tr('ui.vad_som_bokfors'), tr('ui.belopp')].map(h => (
                 <th key={h} style={{ padding: '8px 14px', textAlign: h === 'Belopp' ? 'right' : 'left', fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 700 }}>{h}</th>
               ))}
             </tr>
@@ -377,7 +378,7 @@ export function VerificationBlock({ title, rows, accounts }) {
               </tr>
             ))}
             <tr style={{ borderTop: '1px solid var(--border)', fontWeight: 700 }}>
-              <td style={{ padding: '9px 14px' }}>Summa</td>
+              <td style={{ padding: '9px 14px' }}>{tr('ui.summa')}</td>
               <td style={{ padding: '9px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>{fmt(total)}</td>
             </tr>
           </tbody>
@@ -453,7 +454,7 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
       const result = downloadSalaryPaymentFile({ company, run, computedRows });
       setPayFileResult({ eligible: result.eligible.length, excluded: result.excluded });
     } catch (err) {
-      setPayFileError(err.message || 'Kunde inte skapa betalfilen.');
+      setPayFileError(err.message || tr('ui.kunde_inte_skapa_betalfilen'));
     } finally {
       setPayFileBusy(false);
     }
@@ -521,7 +522,7 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
     return (
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', color: 'var(--text-secondary)', background: 'var(--bg-page)' }}>
         <Loader2 size={24} className="spin" style={{ animation: 'spin 0.8s linear infinite' }} />
-        <span style={{ fontSize: '13.5px' }}>Hämtar skattetabeller från Skatteverket…</span>
+        <span style={{ fontSize: '13.5px' }}>{tr('ui.hamtar_skattetabeller_fran_skatteverket')}</span>
       </div>
     );
   }
@@ -537,7 +538,7 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
   // för att scrolla bort tillsammans med resten.
   const subtitleParts = [
     `Utbetalningsdatum: ${run.payDate || '—'}`,
-    `${run.rows.length} ${run.rows.length === 1 ? 'anställd' : 'anställda'}`,
+    `${run.rows.length} ${run.rows.length === 1 ? tr('ui.anstalld_2') : tr('ui.anstallda_2')}`,
   ];
   // Bugfix (samma kundrapport som betalsektionen nedan): antog tidigare att
   // allt som inte var 'bank' måste vara 'kort' — en binär gissning som blev
@@ -551,11 +552,11 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
       <ListPageHeader
         title={
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '10px' }}>
-            Lönekörning {run.period} <StatusBadge status={displayStatus} />
+            {tr('ui.lonekorning_2')} {run.period} <StatusBadge status={displayStatus} />
           </span>
         }
         subtitle={subtitleParts.join(' · ')}
-        actions={[{ key: 'back', label: 'Tillbaka till lönekörningar', icon: ChevronLeft, onClick: onBack }]}
+        actions={[{ key: 'back', label: tr('ui.tillbaka_till_lonekorningar'), icon: ChevronLeft, onClick: onBack }]}
       >
         <div style={{ padding: '14px 0 16px' }}>
           <StepButtons completedSteps={run.completedSteps} onAdvance={handleAdvance} canBook={canBook} />
@@ -568,21 +569,21 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
           <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 1 }} />
           <div style={{ flex: 1 }}>
             <div>
-              {missingTaxTable.length === 1 ? 'En anställd saknar' : `${missingTaxTable.length} anställda saknar`} skattetabell ({missingTaxTable.map(r => `${r.employeeSnapshot?.firstName || ''} ${r.employeeSnapshot?.lastName || ''}`.trim()).join(', ')}) — skatteavdraget visas som 0 kr tills detta åtgärdas.
+              {missingTaxTable.length === 1 ? tr('ui.en_anstalld_saknar') : tr('ui.anstallda_saknar_2', { length: missingTaxTable.length })} {tr('ui.skattetabell_3')}{missingTaxTable.map(r => `${r.employeeSnapshot?.firstName || ''} ${r.employeeSnapshot?.lastName || ''}`.trim()).join(', ')}{tr('ui.skatteavdraget_visas_som_0_kr_tills_detta_atgard')}
             </div>
             {isDraftRun ? (
               <div style={{ marginTop: '8px' }}>
-                1. Fyll i tabellnummer på den anställda under Anställda. 2. Klicka sedan:{' '}
+                {tr('ui.n1_fyll_i_tabellnummer_pa_den_anstallda_under_ans')}{' '}
                 <button
                   onClick={onRefreshSnapshots}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '5px 12px', background: '#991b1b', color: 'white', border: 'none', borderRadius: '6px', fontSize: '12.5px', fontWeight: 700, cursor: 'pointer' }}
                 >
-                  <RefreshCw size={12} /> Uppdatera anställdas uppgifter i utkastet
+                  <RefreshCw size={12} /> {tr('ui.uppdatera_anstalldas_uppgifter_i_utkastet')}
                 </button>
               </div>
             ) : (
               <div style={{ marginTop: '4px', fontWeight: 600 }}>
-                Körningen är redan beräknad/bokförd — dess ögonblicksbild kan inte längre ändras. Rätta den anställdas skattetabell för framtida körningar.
+                {tr('ui.korningen_ar_redan_beraknad_bokford_dess_ogonbli')}
               </div>
             )}
           </div>
@@ -592,14 +593,14 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
       {missingBankInfo.length > 0 && (
         <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-red-bg)', border: '1px solid var(--status-red-bg)', borderRadius: '8px', padding: '12px 14px', marginBottom: '20px', fontSize: '13px', color: 'var(--status-red-text)' }}>
           <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 1 }} />
-          <span>{missingBankInfo.length} {missingBankInfo.length === 1 ? 'anställd saknar' : 'anställda saknar'} clearing-/kontonummer och kommer inte att inkluderas i betalfilen. Komplettera under Anställda innan Betala-steget.</span>
+          <span>{missingBankInfo.length} {missingBankInfo.length === 1 ? tr('ui.anstalld_saknar') : tr('ui.anstallda_saknar')} {tr('ui.clearing_kontonummer_och_kommer_inte_att_inklude')}</span>
         </div>
       )}
 
       {tablesError && (
         <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-amber-bg)', border: '1px solid var(--status-amber-bg)', borderRadius: '8px', padding: '12px 14px', marginBottom: '20px', fontSize: '13px', color: 'var(--status-amber-text)' }}>
           <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 1 }} />
-          <span>Kunde inte hämta skattetabellen från Skatteverket ({tablesError}). Skatteavdrag kan inte beräknas korrekt förrän detta lyckas — kontrollera internetuppkopplingen och öppna körningen igen.</span>
+          <span>{tr('ui.kunde_inte_hamta_skattetabellen_fran_skatteverke')}{tablesError}{tr('ui.skatteavdrag_kan_inte_beraknas_korrekt_forran_de')}</span>
         </div>
       )}
 
@@ -611,11 +612,11 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
           vilket är samma mönster som knappar i resten av appen använder
           för accentfärgad yta med vit text. */}
       <div style={{ background: 'var(--accent)', color: 'white', borderRadius: '14px', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px', boxShadow: '0 4px 14px color-mix(in srgb, var(--accent) 25%, transparent)' }}>
-        <span style={{ fontWeight: 600, fontSize: '14px' }}>Total kostnad</span>
-        <span style={{ fontWeight: 800, fontSize: '22px' }}>{fmt(totals.totalCost)} kr</span>
+        <span style={{ fontWeight: 600, fontSize: '14px' }}>{tr('ui.total_kostnad')}</span>
+        <span style={{ fontWeight: 800, fontSize: '22px' }}>{fmt(totals.totalCost)} {tr('ui.kr')}</span>
       </div>
 
-      <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 12px' }}>Anställda i körningen</h3>
+      <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 12px' }}>{tr('ui.anstallda_i_korningen')}</h3>
       {computedRows.map(({ row, computed }) => (
         <EmployeeRow
           key={row.employeeId} row={row} computed={computed}
@@ -627,17 +628,17 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
 
       {run.completedSteps.includes('approved') && (
         <div style={{ marginTop: '28px' }}>
-          <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 4px' }}>Förhandsgranskning — verifikationer</h3>
-          <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: '0 0 16px' }}>Genereras och bokförs som tre separata verifikationer, summerade över samtliga anställda — inte en per anställd.</p>
-          <VerificationBlock title="Block 1 — Lön" rows={verBlocks.block1} accounts={accounts} />
-          <VerificationBlock title="Block 2 — Arbetsgivaravgifter" rows={verBlocks.block2} accounts={accounts} />
-          <VerificationBlock title="Block 3 — Semesteravsättning" rows={verBlocks.block3} accounts={accounts} />
+          <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 4px' }}>{tr('ui.forhandsgranskning_verifikationer')}</h3>
+          <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: '0 0 16px' }}>{tr('ui.genereras_och_bokfors_som_tre_separata_verifikat')}</p>
+          <VerificationBlock title={tr('ui.block_1_lon')} rows={verBlocks.block1} accounts={accounts} />
+          <VerificationBlock title={tr('ui.block_2_arbetsgivaravgifter')} rows={verBlocks.block2} accounts={accounts} />
+          <VerificationBlock title={tr('ui.block_3_semesteravsattning')} rows={verBlocks.block3} accounts={accounts} />
         </div>
       )}
 
       {run.completedSteps.includes('approved') && (
         <div style={{ marginTop: '28px' }}>
-          <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 12px' }}>Betalningsmetod</h3>
+          <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 12px' }}>{tr('ui.betalningsmetod')}</h3>
 
           {/* Kundfeedback ("all information", "hela stilen är inte så bra"):
               en redan betald körning visade tidigare exakt samma formulär
@@ -652,10 +653,10 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
               </div>
               <div>
                 <div style={{ fontWeight: 700, fontSize: '14.5px', color: 'var(--text-main)' }}>
-                  Betald {run.paidAt ? new Date(run.paidAt).toLocaleDateString('sv-SE') : ''}
+                  {tr('ui.betald')} {run.paidAt ? new Date(run.paidAt).toLocaleDateString('sv-SE') : ''}
                 </div>
                 <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-                  Via {PAYMENT_METHOD_LABELS[run.paymentMethod] || run.paymentMethod || 'okänt sätt'} · {fmt(totals.net)} kr nettolön till {computedRows.length} {computedRows.length === 1 ? 'anställd' : 'anställda'}
+                  {tr('ui.via')} {PAYMENT_METHOD_LABELS[run.paymentMethod] || run.paymentMethod || tr('ui.okant_satt')} · {fmt(totals.net)} {tr('ui.kr_nettolon_till')} {computedRows.length} {computedRows.length === 1 ? tr('ui.anstalld_2') : tr('ui.anstallda_2')}
                 </div>
               </div>
             </div>
@@ -663,18 +664,18 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
             <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.6fr) minmax(0, 1fr)', gap: '16px', alignItems: 'stretch' }}>
               <div style={{ ...panelCard, padding: '20px', display: 'flex', flexDirection: 'column' }}>
                 <h4 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Landmark size={16} color="var(--accent)" /> Bank — Betalfil
+                  <Landmark size={16} color="var(--accent)" /> {tr('ui.bank_betalfil')}
                 </h4>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>Format</label>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>{tr('ui.format')}</label>
                 <select disabled style={{ width: '100%', maxWidth: '360px', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '14px', background: 'var(--bg-muted)', color: 'var(--text-secondary)', marginBottom: '6px' }}>
-                  <option>ISO 20022 pain.001 (XML)</option>
+                  <option>{tr('ui.iso_20022_pain_001_xml')}</option>
                 </select>
                 <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '14px', lineHeight: 1.5 }}>
-                  ISO 20022, standarden för betalfiler. Kräver oftast filkommunikationsavtal med banken: flera internetbanker tar inte emot pain.001 via vanlig filuppladdning.
+                  {tr('ui.iso_20022_standarden_for_betalfiler_kraver_oftas')}
                 </p>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-amber-bg)', border: '1px solid var(--status-amber-bg)', borderRadius: '8px', padding: '12px 14px', marginBottom: '16px', fontSize: '12.5px', color: 'var(--status-amber-text)', lineHeight: 1.5 }}>
                   <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 1 }} />
-                  <span>pain.001 skickas normalt via filkommunikationsavtal eller bankgirokoppling, inte genom att laddas upp i internetbanken. Kontrollera att din bank tar emot filen den vägen i god tid före utbetalningsdagen — filen skickas aldrig automatiskt någonstans, du laddar upp den själv.</span>
+                  <span>{tr('ui.pain_001_skickas_normalt_via_filkommunikationsav')}</span>
                 </div>
 
                 {debtorAccountError && (
@@ -688,7 +689,7 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 14px', marginBottom: '14px', fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
                     <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 1, color: 'var(--text-muted)' }} />
                     <span>
-                      {missingIbanInfo.length} {missingIbanInfo.length === 1 ? 'anställd saknar' : 'anställda saknar'} IBAN/BIC ({missingIbanInfo.map(r => `${r.row.employeeSnapshot?.firstName || ''} ${r.row.employeeSnapshot?.lastName || ''}`.trim()).join(', ')}) och exkluderas från betalfilen om du laddar ner den nu. Komplettera under Anställda.
+                      {missingIbanInfo.length} {missingIbanInfo.length === 1 ? tr('ui.anstalld_saknar') : tr('ui.anstallda_saknar')} {tr('ui.iban_bic')}{missingIbanInfo.map(r => `${r.row.employeeSnapshot?.firstName || ''} ${r.row.employeeSnapshot?.lastName || ''}`.trim()).join(', ')}{tr('ui.och_exkluderas_fran_betalfilen_om_du_laddar_ner')}
                     </span>
                   </div>
                 )}
@@ -698,8 +699,8 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
                 )}
                 {payFileResult && (
                   <div style={{ fontSize: '12.5px', color: 'var(--status-green-text)', marginBottom: '12px', fontWeight: 600 }}>
-                    Betalfil nedladdad — {payFileResult.eligible} {payFileResult.eligible === 1 ? 'anställd' : 'anställda'} inkluderade
-                    {payFileResult.excluded.length > 0 ? `, ${payFileResult.excluded.length} exkluderade (saknar IBAN/BIC).` : '.'}
+                    {tr('ui.betalfil_nedladdad')} {payFileResult.eligible} {payFileResult.eligible === 1 ? tr('ui.anstalld_2') : tr('ui.anstallda_2')} {tr('ui.inkluderade')}
+                    {payFileResult.excluded.length > 0 ? tr('ui.exkluderade_saknar_iban_bic', { length: payFileResult.excluded.length }) : '.'}
                   </div>
                 )}
 
@@ -714,15 +715,15 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
                       cursor: (payFileBusy || debtorAccountError || missingIbanInfo.length === computedRows.length) ? 'not-allowed' : 'pointer',
                     }}
                   >
-                    <Download size={15} /> {payFileBusy ? 'Skapar fil…' : 'Ladda ner betalfil'}
+                    <Download size={15} /> {payFileBusy ? tr('ui.skapar_fil') : tr('ui.ladda_ner_betalfil')}
                   </button>
                   <button type="button" onClick={() => setShowBankGuide(s => !s)} style={{ background: 'none', border: 'none', color: 'var(--text-main)', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
-                    Så importerar du filen i din bank {showBankGuide ? <ChevronUp size={13} style={{ verticalAlign: 'middle' }} /> : <ChevronDown size={13} style={{ verticalAlign: 'middle' }} />}
+                    {tr('ui.sa_importerar_du_filen_i_din_bank')} {showBankGuide ? <ChevronUp size={13} style={{ verticalAlign: 'middle' }} /> : <ChevronDown size={13} style={{ verticalAlign: 'middle' }} />}
                   </button>
                 </div>
                 {showBankGuide && (
                   <div style={{ marginTop: '12px', padding: '14px', background: 'var(--bg-muted)', borderRadius: '8px', fontSize: '13px', color: 'var(--text-main)', lineHeight: 1.6 }}>
-                    I de flesta internetbanker: logga in på företagets internetbank, sök upp "Filöverföring" eller "Leverantörsbetalningar" i menyn, välj rätt filformat (pain.001/ISO 20022) och ladda upp filen där. Vissa banker kräver ett separat filkommunikationsavtal som tecknas i förväg — kontakta din bank om alternativet inte syns. Sök efter din banks egen dokumentation för exakta steg, eftersom detta skiljer sig mellan banker.
+                    {tr('ui.i_de_flesta_internetbanker_logga_in_pa_foretaget')}
                   </div>
                 )}
 
@@ -737,10 +738,10 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
                     onClick={() => onMarkPaid(run.id, 'bank')}
                     style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '10px 20px', background: 'var(--status-green-text)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 700, fontSize: '13.5px', cursor: 'pointer' }}
                   >
-                    <Check size={15} /> Markera som betald
+                    <Check size={15} /> {tr('ui.markera_som_betald')}
                   </button>
                   <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', margin: '8px 0 0' }}>
-                    Klicka när lönerna faktiskt är utbetalda — t.ex. efter att du laddat upp betalfilen i banken. Bokix kan inte se det själv.
+                    {tr('ui.klicka_nar_lonerna_faktiskt_ar_utbetalda_t_ex_ef')}
                   </p>
                 </div>
               </div>
@@ -748,13 +749,13 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <div style={{ ...panelCard, padding: '20px', opacity: 0.6 }}>
                   <h4 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <CreditCard size={16} color="var(--text-muted)" /> Kort (Stripe)
+                    <CreditCard size={16} color="var(--text-muted)" /> {tr('ui.kort_stripe')}
                   </h4>
                   <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', lineHeight: 1.6, margin: '0 0 18px' }}>
-                    Lämpligt för enstaka mindre utbetalningar, men kräver en annan Stripe-produkt (utbetalningar till anställda) än den som redan tar emot kortbetalningar från era kunder — inte byggt ännu.
+                    {tr('ui.lampligt_for_enstaka_mindre_utbetalningar_men_kr')}
                   </p>
                   <button disabled style={{ width: '100%', padding: '9px 12px', background: 'var(--border-light)', color: 'var(--text-muted)', border: 'none', borderRadius: '8px', fontWeight: 700, fontSize: '13px', cursor: 'not-allowed' }}>
-                    Kommer snart
+                    {tr('ui.kommer_snart')}
                   </button>
                 </div>
 
@@ -769,19 +770,19 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
                     type="button" onClick={() => setShowManualPay(s => !s)}
                     style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--text-main)', fontSize: '13px', fontWeight: 600 }}
                   >
-                    Betalade du på ett annat sätt?
+                    {tr('ui.betalade_du_pa_ett_annat_satt')}
                     {showManualPay ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                   </button>
                   {showManualPay && (
                     <div style={{ marginTop: '12px' }}>
                       <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '0 0 12px', lineHeight: 1.5 }}>
-                        T.ex. Swish, kontant eller en separat överföring du redan gjort. Bokix bokför samma verifikationer oavsett — det här styr bara vad som visas som betalningssätt.
+                        {tr('ui.t_ex_swish_kontant_eller_en_separat_overforing_d')}
                       </p>
                       <button
                         onClick={() => onMarkPaid(run.id, 'manual')}
                         style={{ width: '100%', padding: '9px 12px', background: 'var(--bg-muted)', color: 'var(--text-main)', border: '1px solid var(--border)', borderRadius: '8px', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}
                       >
-                        Markera som betald manuellt
+                        {tr('ui.markera_som_betald_manuellt')}
                       </button>
                     </div>
                   )}
@@ -803,16 +804,16 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
           steg grönt/klart medan ett TIDIGARE fortfarande stod grått). */}
       {run.completedSteps.includes('booked') && (
         <div style={{ ...panelCard, marginTop: '28px', padding: '20px' }}>
-          <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 8px' }}>AGI och skatt</h3>
+          <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 8px' }}>{tr('ui.agi_och_skatt')}</h3>
           <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 14px', lineHeight: 1.5 }}>
             {AGI_XML_ENABLED
-              ? 'Filen nedan är klar att ladda upp hos Skatteverket: välj "Deklarera via fil" i e-tjänsten Lämna arbetsgivardeklaration, granska och signera med BankID. Skatteverket kräver arbetsgivarens egen signatur, så Bokix skickar inte in den åt dig. Vill du hellre fylla i för hand finns samma uppgifter som PDF.'
-              : 'Sammanställning (huvuduppgift + individuppgift per anställd) för arbetsgivardeklarationen (AGI). Skatteverket kräver arbetsgivarens egen BankID-signatur vid inlämning, så Bokix skickar inte in den automatiskt — men underlaget nedan är klart att skriva av.'}
+              ? tr('ui.filen_nedan_ar_klar_att_ladda_upp_hos_skatteverk')
+              : tr('ui.sammanstallning_huvuduppgift_individuppgift_per')}
           </p>
           <div className="form-row-2" style={{ display: 'grid', gap: '10px', fontSize: '13.5px', marginBottom: '16px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>Total bruttolön</span><span style={{ fontWeight: 700 }}>{fmt(totals.gross)} kr</span></div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>Avdragen skatt</span><span style={{ fontWeight: 700 }}>{fmt(totals.tax)} kr</span></div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>Arbetsgivaravgifter</span><span style={{ fontWeight: 700 }}>{fmt(totals.employerFee)} kr</span></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>{tr('ui.total_bruttolon')}</span><span style={{ fontWeight: 700 }}>{fmt(totals.gross)} {tr('ui.kr')}</span></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>{tr('ui.avdragen_skatt')}</span><span style={{ fontWeight: 700 }}>{fmt(totals.tax)} {tr('ui.kr')}</span></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>{tr('ui.arbetsgivaravgifter')}</span><span style={{ fontWeight: 700 }}>{fmt(totals.employerFee)} {tr('ui.kr')}</span></div>
           </div>
 
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '18px' }}>
@@ -824,14 +825,14 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
                 }}
                 style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}
               >
-                <Download size={14} /> Ladda ner AGI-fil för Skatteverket (XML)
+                <Download size={14} /> {tr('ui.ladda_ner_agi_fil_for_skatteverket_xml')}
               </button>
             )}
             <button
               onClick={() => downloadAgiPdf({ company, period: run.period, computedRows, totals }, `agi-${run.period}.pdf`)}
               style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border)', borderRadius: '8px', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}
             >
-              <Download size={14} /> {AGI_XML_ENABLED ? 'Sammanställning (PDF)' : 'Ladda ner AGI-sammanställning (PDF)'}
+              <Download size={14} /> {AGI_XML_ENABLED ? tr('ui.sammanstallning_pdf') : tr('ui.ladda_ner_agi_sammanstallning_pdf')}
             </button>
             <a
               href="https://www.skatteverket.se/foretag"
@@ -839,13 +840,13 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
               rel="noopener noreferrer"
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontWeight: 600, fontSize: '13px', color: 'var(--text-main)', textDecoration: 'none' }}
             >
-              Öppna skatteverket.se <ExternalLink size={13} />
+              {tr('ui.oppna_skatteverket_se')} <ExternalLink size={13} />
             </a>
           </div>
 
           {agiFileProblems && agiFileProblems.errors.length > 0 && (
             <div role="alert" style={{ background: 'var(--status-red-bg)', color: 'var(--status-red-text)', borderRadius: '10px', padding: '12px 14px', fontSize: '13px', lineHeight: 1.5, marginBottom: '16px' }}>
-              <div style={{ fontWeight: 700, marginBottom: '4px' }}>Filen kunde inte skapas än</div>
+              <div style={{ fontWeight: 700, marginBottom: '4px' }}>{tr('ui.filen_kunde_inte_skapas_an')}</div>
               <ul style={{ margin: 0, paddingLeft: '18px' }}>
                 {agiFileProblems.errors.map((e, i) => <li key={i}>{e}</li>)}
               </ul>
@@ -853,12 +854,12 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
           )}
           {agiFileProblems && agiFileProblems.errors.length === 0 && (
             <div style={{ background: 'var(--status-amber-bg)', color: 'var(--status-amber-text)', borderRadius: '10px', padding: '12px 14px', fontSize: '13px', lineHeight: 1.5, marginBottom: '16px' }}>
-              <div style={{ fontWeight: 700, marginBottom: '4px' }}>Filen är sparad</div>
+              <div style={{ fontWeight: 700, marginBottom: '4px' }}>{tr('ui.filen_ar_sparad')}</div>
               <div>
                 {run.rows.every(r => (r.feeRules || 0) >= FEE_RULES_VERSION)
-                  ? 'Arbetsgivaravgiften är räknad efter varje anställds ålder, på samma sätt som Skatteverket gör. Granska summan i e-tjänsten innan du signerar.'
-                  : 'Den här lönekörningen skapades innan Bokix räknade avgiften efter ålder, så den har 31,42 % för alla. Skatteverket räknar om den i granskningssteget; lita på deras summa om de skiljer sig.'}
-                {' '}Deklarationen lämnas och skatten betalas senast den 12:e i månaden efter utbetalningen (den 17:e i januari och, för de flesta företag, i augusti).
+                  ? tr('ui.arbetsgivaravgiften_ar_raknad_efter_varje_anstal')
+                  : tr('ui.den_har_lonekorningen_skapades_innan_bokix_rakna')}
+                {' '}{tr('ui.deklarationen_lamnas_och_skatten_betalas_senast')}
               </div>
               {agiFileProblems.warnings.length > 0 && (
                 <ul style={{ margin: '6px 0 0', paddingLeft: '18px' }}>
@@ -870,7 +871,7 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
 
           <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13.5px', color: 'var(--text-main)', cursor: 'pointer' }}>
             <input type="checkbox" checked={agiConfirmed} onChange={e => { setAgiConfirmed(e.target.checked); if (e.target.checked) onAdvanceStep(run.id, 'agi'); }} disabled={run.completedSteps.includes('agi')} />
-            Jag har lämnat in arbetsgivardeklarationen (AGI) hos Skatteverket för denna period
+            {tr('ui.jag_har_lamnat_in_arbetsgivardeklarationen_agi_h')}
           </label>
         </div>
       )}

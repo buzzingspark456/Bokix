@@ -9,7 +9,8 @@
 // Testtjänsten: https://sso.test.skatteverket.se/agd_tt/da_testtjanst_web/login.do?method=test
 export const AGI_XML_ENABLED = true;
 
-// eSKD-fält för omvänd skattskyldighet (ruta 21, 22, 30-32) är inte provade
+// eSKD-fält för omvänd skattskyldighet, import och momsfri försäljning
+// (ruta 20-24, 30-32, 35-42, 50, 60-62) är inte provade
 // i Skatteverkets e-tjänst. Bokföringen av dem är på, men momsdeklarationen
 // varnar när perioden innehåller sådana belopp.
 export const REVERSE_CHARGE_ESKD_VERIFIED = false;

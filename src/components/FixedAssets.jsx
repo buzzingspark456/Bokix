@@ -9,6 +9,7 @@ import {
   pendingDepreciation, buildDepreciationVerification, buildDisposalVerification,
   bookedDepreciationMap, unregisteredAcquisitions, registerSummary, round2,
 } from '../utils/fixedAssets';
+import { t } from '../i18n';
 
 const fmt = (v) => new Intl.NumberFormat('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0);
 const pad = (n) => String(n).padStart(2, '0');
@@ -83,11 +84,11 @@ export default function FixedAssets({ company, accounts = [], verifications = []
     e.preventDefault();
     const cost = Number(editing.cost);
     const life = Math.round(Number(editing.usefulLifeMonths));
-    if (!editing.name.trim()) return setError('Ange ett namn på tillgången.');
-    if (!(cost > 0)) return setError('Anskaffningsvärdet måste vara större än 0.');
-    if (!(life >= 1)) return setError('Livslängden måste vara minst 1 månad.');
-    if (Number(editing.residualValue) >= cost) return setError('Restvärdet måste vara lägre än anskaffningsvärdet.');
-    if (!editing.acquisitionDate) return setError('Ange anskaffningsdatum.');
+    if (!editing.name.trim()) return setError(t('ui.ange_ett_namn_pa_tillgangen'));
+    if (!(cost > 0)) return setError(t('ui.anskaffningsvardet_maste_vara_storre_an_0'));
+    if (!(life >= 1)) return setError(t('ui.livslangden_maste_vara_minst_1_manad'));
+    if (Number(editing.residualValue) >= cost) return setError(t('ui.restvardet_maste_vara_lagre_an_anskaffningsvarde'));
+    if (!editing.acquisitionDate) return setError(t('ui.ange_anskaffningsdatum'));
     const clean = { ...editing, name: editing.name.trim(), cost, usefulLifeMonths: life, residualValue: Number(editing.residualValue) || 0 };
     saveAssets(isNew ? [...assets, clean] : assets.map(a => (a.id === clean.id ? clean : a)));
     setEditing(null);
@@ -95,23 +96,23 @@ export default function FixedAssets({ company, accounts = [], verifications = []
 
   const handleDelete = async (asset) => {
     if (hasBooked(asset.id)) return;
-    if (!(await confirmDialog(`Ta bort "${asset.name}" ur registret?`))) return;
+    if (!(await confirmDialog(t('ui.ta_bort_ur_registret', { name: asset.name })))) return;
     saveAssets(assets.filter(a => a.id !== asset.id));
   };
 
   const bookPending = async () => {
     if (pending.months.length === 0) return;
     const n = pending.months.length;
-    if (!(await confirmDialog(`Bokför avskrivningar för ${n} ${n === 1 ? 'månad' : 'månader'}, totalt ${fmt(pending.total)} kr?`))) return;
+    if (!(await confirmDialog(t('ui.bokfor_avskrivningar_for_totalt_kr', { n, v1: n === 1 ? 'månad' : 'månader', v2: fmt(pending.total) })))) return;
     pending.months.forEach(m => onAddVerification(buildDepreciationVerification(m.month, m.items)));
   };
 
   const handleDispose = async (asset, { date, proceeds }) => {
     const disposalMonth = date.slice(0, 7);
     const conflict = [...bookedMap.entries()].some(([month, ids]) => ids.has(asset.id) && month >= disposalMonth);
-    if (conflict) return setError('Avskrivningar är redan bokförda för månaden då tillgången avyttras eller senare. Ta bort dem i Bokföring först.');
-    if (date < asset.acquisitionDate) return setError('Avyttringsdatum kan inte vara före anskaffningsdatum.');
-    if (lockedFor(date)) return setError(`Räkenskapsåret ${lockedFor(date)} är låst.`);
+    if (conflict) return setError(t('ui.avskrivningar_ar_redan_bokforda_for_manaden_da_t'));
+    if (date < asset.acquisitionDate) return setError(t('ui.avyttringsdatum_kan_inte_vara_fore_anskaffningsd'));
+    if (lockedFor(date)) return setError(t('ui.rakenskapsaret_ar_last', { v0: lockedFor(date) }));
     const pricing = Number(proceeds) || 0;
     onAddVerification(buildDisposalVerification(asset, { date, proceeds: pricing }));
     saveAssets(assets.map(a => (a.id === asset.id ? { ...a, disposedDate: date, disposalProceeds: pricing } : a)));
@@ -128,67 +129,67 @@ export default function FixedAssets({ company, accounts = [], verifications = []
     return (
       <div style={{ padding: '24px', maxWidth: '760px' }}>
         <button type="button" onClick={() => setEditing(null)} style={{ ...btn(false), border: 'none', padding: 0, marginBottom: '16px', color: 'var(--text-secondary)' }}>
-          <ArrowLeft size={14} /> Tillbaka
+          <ArrowLeft size={14} /> {t('ui.tillbaka_2')}
         </button>
         <form onSubmit={handleSave}>
           <div style={{ ...card, marginBottom: '16px' }}>
-            <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 700 }}>{isNew ? 'Ny anläggningstillgång' : 'Ändra tillgång'}</h3>
+            <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 700 }}>{isNew ? t('ui.ny_anlaggningstillgang') : t('ui.andra_tillgang')}</h3>
             {locked && (
               <p style={{ margin: '0 0 14px', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                Avskrivningar är redan bokförda, så värde, datum och livslängd är låsta. Namn och anteckning går att ändra.
+                {t('ui.avskrivningar_ar_redan_bokforda_sa_varde_datum_o')}
               </p>
             )}
             <div className="form-row-2" style={{ display: 'grid', gap: '16px' }}>
               <div style={{ gridColumn: '1 / -1' }}>
-                <label style={lbl}>Namn *</label>
-                <input style={inp} value={editing.name} onChange={e => setEditing(s => ({ ...s, name: e.target.value }))} placeholder="t.ex. MacBook Pro 14" />
+                <label style={lbl}>{t('ui.namn_2')}</label>
+                <input style={inp} value={editing.name} onChange={e => setEditing(s => ({ ...s, name: e.target.value }))} placeholder={t('ui.t_ex_macbook_pro_14')} />
               </div>
               <div>
-                <label style={lbl}>Kategori</label>
+                <label style={lbl}>{t('ui.kategori')}</label>
                 <select style={inp} disabled={locked} value={editing.category} onChange={e => changeCategory(e.target.value)}>
                   {ASSET_CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
                 </select>
               </div>
               <div>
-                <label style={lbl}>Anskaffningsdatum *</label>
+                <label style={lbl}>{t('ui.anskaffningsdatum')}</label>
                 <input type="date" style={inp} disabled={locked} value={editing.acquisitionDate} onChange={e => setEditing(s => ({ ...s, acquisitionDate: e.target.value }))} />
               </div>
               <div>
-                <label style={lbl}>Anskaffningsvärde (kr, exkl. moms) *</label>
+                <label style={lbl}>{t('ui.anskaffningsvarde_kr_exkl_moms')}</label>
                 <input type="number" step="0.01" style={inp} disabled={locked} value={editing.cost} onChange={e => setEditing(s => ({ ...s, cost: e.target.value }))} />
               </div>
               <div>
-                <label style={lbl}>Beräknat restvärde (kr)</label>
+                <label style={lbl}>{t('ui.beraknat_restvarde_kr')}</label>
                 <input type="number" step="0.01" style={inp} disabled={locked} value={editing.residualValue} onChange={e => setEditing(s => ({ ...s, residualValue: e.target.value }))} />
               </div>
               <div>
-                <label style={lbl}>Livslängd (månader) *</label>
+                <label style={lbl}>{t('ui.livslangd_manader')}</label>
                 <input type="number" style={inp} disabled={locked} value={editing.usefulLifeMonths} onChange={e => setEditing(s => ({ ...s, usefulLifeMonths: e.target.value }))} />
               </div>
               <div>
-                <label style={lbl}>Avskrivning per månad</label>
-                <div style={{ ...inp, background: 'var(--bg-muted)' }}>{fmt(monthlyAmount(preview))} kr</div>
+                <label style={lbl}>{t('ui.avskrivning_per_manad')}</label>
+                <div style={{ ...inp, background: 'var(--bg-muted)' }}>{fmt(monthlyAmount(preview))} {t('ui.kr')}</div>
               </div>
             </div>
           </div>
 
           <div style={{ ...card, marginBottom: '16px' }}>
-            <h3 style={{ margin: '0 0 16px', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em' }}>Bokföringskonton</h3>
+            <h3 style={{ margin: '0 0 16px', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em' }}>{t('ui.bokforingskonton')}</h3>
             <div className="form-row-2" style={{ display: 'grid', gap: '16px' }}>
-              <div><label style={lbl}>Tillgångskonto</label><AccountSearch value={editing.assetAccount} onChange={c => setEditing(s => ({ ...s, assetAccount: c }))} accounts={accounts} placeholder="Sök konto…" /></div>
-              <div><label style={lbl}>Ackumulerade avskrivningar</label><AccountSearch value={editing.accumulatedAccount} onChange={c => setEditing(s => ({ ...s, accumulatedAccount: c }))} accounts={accounts} placeholder="Sök konto…" /></div>
-              <div><label style={lbl}>Avskrivningskostnad</label><AccountSearch value={editing.expenseAccount} onChange={c => setEditing(s => ({ ...s, expenseAccount: c }))} accounts={accounts} placeholder="Sök konto…" /></div>
+              <div><label style={lbl}>{t('ui.tillgangskonto')}</label><AccountSearch value={editing.assetAccount} onChange={c => setEditing(s => ({ ...s, assetAccount: c }))} accounts={accounts} placeholder={t('ui.sok_konto')} /></div>
+              <div><label style={lbl}>{t('ui.ackumulerade_avskrivningar')}</label><AccountSearch value={editing.accumulatedAccount} onChange={c => setEditing(s => ({ ...s, accumulatedAccount: c }))} accounts={accounts} placeholder={t('ui.sok_konto')} /></div>
+              <div><label style={lbl}>{t('ui.avskrivningskostnad')}</label><AccountSearch value={editing.expenseAccount} onChange={c => setEditing(s => ({ ...s, expenseAccount: c }))} accounts={accounts} placeholder={t('ui.sok_konto')} /></div>
             </div>
           </div>
 
           {Object.keys(yearly).length > 0 && (
             <div style={{ ...card, marginBottom: '16px' }}>
-              <h3 style={{ margin: '0 0 12px', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em' }}>Avskrivningsplan per år</h3>
+              <h3 style={{ margin: '0 0 12px', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em' }}>{t('ui.avskrivningsplan_per_ar')}</h3>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '8px' }}>
                 {Object.entries(yearly).map(([y, amount]) => (
                   <div key={y} style={{ background: 'var(--bg-muted)', borderRadius: '8px', padding: '8px 12px', fontSize: '13px' }}>
                     <div style={{ color: 'var(--text-secondary)' }}>{y}</div>
-                    <div style={{ fontWeight: 700 }}>{fmt(amount)} kr</div>
+                    <div style={{ fontWeight: 700 }}>{fmt(amount)} {t('ui.kr')}</div>
                   </div>
                 ))}
               </div>
@@ -196,14 +197,14 @@ export default function FixedAssets({ company, accounts = [], verifications = []
           )}
 
           <div style={{ ...card, marginBottom: '16px' }}>
-            <label style={lbl}>Anteckning</label>
+            <label style={lbl}>{t('ui.anteckning')}</label>
             <textarea style={{ ...inp, minHeight: '56px', resize: 'vertical' }} value={editing.note || ''} onChange={e => setEditing(s => ({ ...s, note: e.target.value }))} />
           </div>
 
           {error && <p style={{ color: 'var(--status-red-text)', fontSize: '13px', margin: '0 0 12px' }}>{error}</p>}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-            <button type="button" style={btn(false)} onClick={() => setEditing(null)}>Avbryt</button>
-            <button type="submit" style={btn(true)}>Spara tillgång</button>
+            <button type="button" style={btn(false)} onClick={() => setEditing(null)}>{t('ui.avbryt')}</button>
+            <button type="submit" style={btn(true)}>{t('ui.spara_tillgang')}</button>
           </div>
         </form>
       </div>
@@ -214,10 +215,10 @@ export default function FixedAssets({ company, accounts = [], verifications = []
   return (
     <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
-        {[['Anskaffningsvärde', summary.cost], ['Ackumulerade avskrivningar', summary.accumulated], ['Bokfört värde', summary.bookValue]].map(([label, value]) => (
+        {[[t('ui.anskaffningsvarde'), summary.cost], [t('ui.ackumulerade_avskrivningar'), summary.accumulated], [t('ui.bokfort_varde'), summary.bookValue]].map(([label, value]) => (
           <div key={label} style={card}>
             <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', fontWeight: 600 }}>{label}</div>
-            <div style={{ fontSize: '22px', fontWeight: 800, marginTop: '4px' }}>{fmt(value)} kr</div>
+            <div style={{ fontSize: '22px', fontWeight: 800, marginTop: '4px' }}>{fmt(value)} {t('ui.kr')}</div>
           </div>
         ))}
       </div>
@@ -229,31 +230,31 @@ export default function FixedAssets({ company, accounts = [], verifications = []
             <div>
               <div style={{ fontWeight: 700, fontSize: '14px' }}>
                 {pending.months.length
-                  ? `${pending.months.length} ${pending.months.length === 1 ? 'månad' : 'månader'} med obokförda avskrivningar · ${fmt(pending.total)} kr`
-                  : 'Alla avskrivningar är bokförda'}
+                  ? t('ui.med_obokforda_avskrivningar_kr', { length: pending.months.length, v1: pending.months.length === 1 ? 'månad' : 'månader', v2: fmt(pending.total) })
+                  : t('ui.alla_avskrivningar_ar_bokforda')}
               </div>
               <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>
-                Fram till och med{' '}
+                {t('ui.fram_till_och_med')}{' '}
                 <input type="month" value={untilMonth} max={`${Number(thisMonth.slice(0, 4)) + 1}-12`} onChange={e => e.target.value && setUntilMonth(e.target.value)} style={{ border: 'none', background: 'none', color: 'inherit', fontFamily: 'inherit', fontSize: 'inherit' }} />
-                {pending.blockedByLock > 0 && ` · ${pending.blockedByLock} i låsta år hoppas över`}
+                {pending.blockedByLock > 0 && t('ui.i_lasta_ar_hoppas_over', { blockedByLock: pending.blockedByLock })}
               </div>
             </div>
           </div>
-          {pending.months.length > 0 && <button type="button" style={btn(true)} onClick={bookPending}>Bokför avskrivningar</button>}
+          {pending.months.length > 0 && <button type="button" style={btn(true)} onClick={bookPending}>{t('ui.bokfor_avskrivningar')}</button>}
         </div>
       )}
 
       {suggestions.length > 0 && (
         <div style={card}>
-          <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '4px' }}>Inköp som kan vara anläggningstillgångar</div>
+          <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '4px' }}>{t('ui.inkop_som_kan_vara_anlaggningstillgangar')}</div>
           <p style={{ margin: '0 0 12px', fontSize: '12.5px', color: 'var(--text-secondary)' }}>
-            Dessa är bokförda på ett tillgångskonto men finns inte i registret, så de skrivs inte av.
+            {t('ui.dessa_ar_bokforda_pa_ett_tillgangskonto_men_finn')}
           </p>
           {suggestions.slice(0, 6).map(s => (
             <div key={`${s.verificationId}_${s.account}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', padding: '8px 0', borderTop: '1px solid var(--border)', fontSize: '13.5px' }}>
-              <span>{s.date} · {s.description || 'Verifikation'} · {s.account} · <b>{fmt(s.amount)} kr</b></span>
+              <span>{s.date} · {s.description || t('ui.verifikation')} · {s.account} · <b>{fmt(s.amount)} {t('ui.kr')}</b></span>
               <button type="button" style={btn(false)} onClick={() => startNew({ name: s.description, acquisitionDate: s.date, cost: s.amount, category: s.category, assetAccount: s.account, sourceVerificationId: s.verificationId })}>
-                Lägg i registret
+                {t('ui.lagg_i_registret')}
               </button>
             </div>
           ))}
@@ -262,9 +263,9 @@ export default function FixedAssets({ company, accounts = [], verifications = []
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
         <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)', maxWidth: '560px' }}>
-          Inventarier med livslängd över tre år och ett värde över ett halvt prisbasbelopp ska tas upp som tillgång och skrivas av. Mindre inköp får kostnadsföras direkt.
+          {t('ui.inventarier_med_livslangd_over_tre_ar_och_ett_va')}
         </p>
-        <button type="button" style={btn(true)} onClick={() => startNew()}><Plus size={14} /> Ny tillgång</button>
+        <button type="button" style={btn(true)} onClick={() => startNew()}><Plus size={14} /> {t('ui.ny_tillgang')}</button>
       </div>
 
       {error && <p style={{ color: 'var(--status-red-text)', fontSize: '13px', margin: 0 }}>{error}</p>}
@@ -278,22 +279,22 @@ export default function FixedAssets({ company, accounts = [], verifications = []
           rowKey={a => a.id}
           rows={assets}
           onRowClick={(a) => { setEditing({ ...a }); setIsNew(false); setError(''); }}
-          emptyMessage="Inga anläggningstillgångar i registret ännu. Lägg till en dator, en bil eller ett inventarium så sköter Bokix avskrivningarna."
+          emptyMessage={t('ui.inga_anlaggningstillgangar_i_registret_annu_lagg')}
           mobileList={a => ({ primary: a.name, amount: `${fmt(bookValueAt(a, thisMonth))} kr`, meta: `${categoryById(a.category).label}${a.disposedDate ? ' · avyttrad' : ''}` })}
           columns={[
-            { key: 'name', label: 'Tillgång', fontWeight: 600, color: 'var(--text-main)', render: a => a.name },
-            { key: 'category', label: 'Kategori', render: a => categoryById(a.category).label },
-            { key: 'acquisitionDate', label: 'Anskaffad', render: a => a.acquisitionDate },
-            { key: 'cost', label: 'Anskaffningsvärde', align: 'right', render: a => `${fmt(a.cost)} kr` },
-            { key: 'acc', label: 'Ack. avskrivn.', align: 'right', render: a => `${fmt(accumulatedThrough(a, thisMonth))} kr` },
-            { key: 'bv', label: 'Bokfört värde', align: 'right', color: 'var(--text-main)', render: a => (a.disposedDate ? 'Avyttrad' : `${fmt(bookValueAt(a, thisMonth))} kr`) },
+            { key: 'name', label: t('ui.tillgang'), fontWeight: 600, color: 'var(--text-main)', render: a => a.name },
+            { key: 'category', label: t('ui.kategori'), render: a => categoryById(a.category).label },
+            { key: 'acquisitionDate', label: t('ui.anskaffad'), render: a => a.acquisitionDate },
+            { key: 'cost', label: t('ui.anskaffningsvarde'), align: 'right', render: a => `${fmt(a.cost)} kr` },
+            { key: 'acc', label: t('ui.ack_avskrivn'), align: 'right', render: a => `${fmt(accumulatedThrough(a, thisMonth))} kr` },
+            { key: 'bv', label: t('ui.bokfort_varde'), align: 'right', color: 'var(--text-main)', render: a => (a.disposedDate ? 'Avyttrad' : `${fmt(bookValueAt(a, thisMonth))} kr`) },
             {
               key: 'actions', label: '', align: 'right', width: 110,
               render: a => (
                 <span onClick={e => e.stopPropagation()} style={{ display: 'inline-flex', gap: '10px' }}>
-                  {!a.disposedDate && <button type="button" title="Avyttra eller utrangera" onClick={() => { setDisposing(a); setError(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '2px' }}><PackageMinus size={14} /></button>}
-                  <button type="button" title="Ändra" onClick={() => { setEditing({ ...a }); setIsNew(false); setError(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '2px' }}><Pencil size={14} /></button>
-                  {!hasBooked(a.id) && <button type="button" title="Ta bort" onClick={() => handleDelete(a)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '2px' }}><Trash2 size={14} /></button>}
+                  {!a.disposedDate && <button type="button" title={t('ui.avyttra_eller_utrangera_2')} onClick={() => { setDisposing(a); setError(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '2px' }}><PackageMinus size={14} /></button>}
+                  <button type="button" title={t('ui.andra')} onClick={() => { setEditing({ ...a }); setIsNew(false); setError(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '2px' }}><Pencil size={14} /></button>
+                  {!hasBooked(a.id) && <button type="button" title={t('ui.ta_bort')} onClick={() => handleDelete(a)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '2px' }}><Trash2 size={14} /></button>}
                 </span>
               ),
             },
@@ -311,17 +312,17 @@ function DisposePanel({ asset, onCancel, onConfirm }) {
   const result = preview.rows.find(r => r.account === '3973')?.kredit || -(preview.rows.find(r => r.account === '7970')?.debet || 0);
   return (
     <div style={card}>
-      <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '12px' }}>Avyttra eller utrangera: {asset.name}</div>
+      <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '12px' }}>{t('ui.avyttra_eller_utrangera')} {asset.name}</div>
       <div className="form-row-2" style={{ display: 'grid', gap: '16px', maxWidth: '520px' }}>
-        <div><label style={lbl}>Datum</label><input type="date" style={inp} value={date} onChange={e => setDate(e.target.value)} /></div>
-        <div><label style={lbl}>Försäljningspris exkl. moms (0 = utrangering)</label><input type="number" step="0.01" style={inp} value={proceeds} onChange={e => setProceeds(e.target.value)} /></div>
+        <div><label style={lbl}>{t('ui.datum')}</label><input type="date" style={inp} value={date} onChange={e => setDate(e.target.value)} /></div>
+        <div><label style={lbl}>{t('ui.forsaljningspris_exkl_moms_0_utrangering')}</label><input type="number" step="0.01" style={inp} value={proceeds} onChange={e => setProceeds(e.target.value)} /></div>
       </div>
       <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '12px 0' }}>
-        {result > 0 ? `Vinst vid avyttring: ${fmt(result)} kr` : result < 0 ? `Förlust vid avyttring: ${fmt(-result)} kr` : 'Ingen vinst eller förlust.'} Avskrivning sker till och med månaden före avyttringen. Momsen på en försäljning bokför du separat.
+        {result > 0 ? t('ui.vinst_vid_avyttring_kr', { v0: fmt(result) }) : result < 0 ? t('ui.forlust_vid_avyttring_kr', { v0: fmt(-result) }) : t('ui.ingen_vinst_eller_forlust')} {t('ui.avskrivning_sker_till_och_med_manaden_fore_avytt')}
       </p>
       <div style={{ display: 'flex', gap: '12px' }}>
-        <button type="button" style={btn(true)} onClick={() => onConfirm({ date, proceeds })}>Bokför</button>
-        <button type="button" style={btn(false)} onClick={onCancel}>Avbryt</button>
+        <button type="button" style={btn(true)} onClick={() => onConfirm({ date, proceeds })}>{t('ui.bokfor_2')}</button>
+        <button type="button" style={btn(false)} onClick={onCancel}>{t('ui.avbryt')}</button>
       </div>
     </div>
   );

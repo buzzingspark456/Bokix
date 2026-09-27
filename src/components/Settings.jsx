@@ -33,12 +33,12 @@ import { VERIFICATION_SERIES, getMaxUsedNumber } from '../utils/verificationNumb
 import { DATE_FORMATS, getDateFormatPreference, setDateFormatPreference } from '../utils/dateFormat';
 import { logAuditEvent } from '../utils/auditLog';
 import { detectDevice } from '../utils/deviceInfo';
-import { useTranslation } from '../i18n';
+import { t as tr, useTranslation, getLanguage, dateLocale } from '../i18n';
 
 // Visas istället för att faktiskt anropa Supabase när `readOnly` (Sida
 // landningssidans demo, se DemoWorkspace.jsx) — samma text överallt i den
 // här filen, en enda plats att ändra den på.
-const DEMO_BLOCKED_MSG = 'Det här är bara en demo — skapa ett gratis konto för att göra det här på riktigt.';
+const DEMO_BLOCKED_MSG = tr('ui.det_har_ar_bara_en_demo_skapa_ett_gratis_konto_f');
 
 // Stripes eget ordmärke ("stripe"-texten, inte S-monogrammet) — vektorpaths
 // hämtade rakt av från Stripes egen Wikimedia Commons-fil (deras officiella
@@ -48,7 +48,7 @@ const DEMO_BLOCKED_MSG = 'Det här är bara en demo — skapa ett gratis konto f
 function StripeLogo({ height = 16 }) {
   const width = (height * 360.02) / 149.84;
   return (
-    <svg viewBox="54 36 360.02 149.84" width={width} height={height} xmlns="http://www.w3.org/2000/svg" aria-label="Stripe">
+    <svg viewBox="54 36 360.02 149.84" width={width} height={height} xmlns="http://www.w3.org/2000/svg" aria-label={tr('ui.stripe')}>
       <path fill="#635BFF" fillRule="evenodd" clipRule="evenodd" d="M414,113.4c0-25.6-12.4-45.8-36.1-45.8c-23.8,0-38.2,20.2-38.2,45.6c0,30.1,17,45.3,41.4,45.3c11.9,0,20.9-2.7,27.7-6.5v-20c-6.8,3.4-14.6,5.5-24.5,5.5c-9.7,0-18.3-3.4-19.4-15.2h48.9C413.8,121,414,115.8,414,113.4z M364.6,103.9c0-11.3,6.9-16,13.2-16c6.1,0,12.6,4.7,12.6,16H364.6z" />
       <path fill="#635BFF" fillRule="evenodd" clipRule="evenodd" d="M301.1,67.6c-9.8,0-16.1,4.6-19.6,7.8l-1.3-6.2h-22v116.6l25-5.3l0.1-28.3c3.6,2.6,8.9,6.3,17.7,6.3c17.9,0,34.2-14.4,34.2-46.1C335.1,83.4,318.6,67.6,301.1,67.6z M295.1,136.5c-5.9,0-9.4-2.1-11.8-4.7l-0.1-37.1c2.6-2.9,6.2-4.9,11.9-4.9c9.1,0,15.4,10.2,15.4,23.3C310.5,126.5,304.3,136.5,295.1,136.5z" />
       <polygon fill="#635BFF" fillRule="evenodd" clipRule="evenodd" points="223.8,61.7 248.9,56.3 248.9,36 223.8,41.3" />
@@ -86,7 +86,7 @@ function ZettleLogo({ height = 18 }) {
   const width = height * (3626 / 1612);
   return (
     <img
-      src="/zettle-logo.png" alt="Zettle by PayPal" height={height} width={width}
+      src="/zettle-logo.png" alt={tr('ui.zettle_by_paypal')} height={height} width={width}
       style={{ height, width, objectFit: 'contain', filter: 'var(--zettle-logo-filter, none)' }}
     />
   );
@@ -106,7 +106,7 @@ function GmailLogo({ height = 18 }) {
   const width = height * (3840 / 2880);
   return (
     <img
-      src="/gmail-icon.png" alt="Gmail" height={height} width={width}
+      src="/gmail-icon.png" alt={tr('ui.gmail')} height={height} width={width}
       style={{ height, width, objectFit: 'contain' }}
     />
   );
@@ -145,16 +145,16 @@ function GmailLogo({ height = 18 }) {
 // datum, förfallodagar, påminnelser, betalningsuppgifter, e-post) på en
 // gång, inte bara mallen. "Användare" blev "Användare & behörigheter".
 const SETTINGS_TABS = [
-  { id: 'company', label: 'Företag' },
-  { id: 'invoice', label: 'Fakturor' },
-  { id: 'integrations', label: 'Integrationer' },
-  { id: 'system', label: 'System' },
-  { id: 'users', label: 'Användare & behörigheter' },
-  { id: 'subscription', label: 'Prenumeration' },
-  { id: 'appearance', label: 'Utseende' },
-  { id: 'notifications', label: 'Notiser' },
-  { id: 'security', label: 'Säkerhet' },
-  { id: 'advanced', label: 'Avancerat' },
+  { id: 'company', label: tr('ui.foretag') },
+  { id: 'invoice', label: tr('ui.fakturor') },
+  { id: 'integrations', label: tr('ui.integrationer') },
+  { id: 'system', label: tr('ui.system') },
+  { id: 'users', label: tr('ui.anvandare_behorigheter') },
+  { id: 'subscription', label: tr('ui.prenumeration') },
+  { id: 'appearance', label: tr('ui.utseende') },
+  { id: 'notifications', label: tr('ui.notiser') },
+  { id: 'security', label: tr('ui.sakerhet') },
+  { id: 'advanced', label: tr('ui.avancerat') },
 ];
 
 // ── Inställningarnas ingång ──────────────────────────────────────────────
@@ -169,16 +169,16 @@ const SETTINGS_TABS = [
 // referensbildens färgschema kort för kort (grönt/blått/lila/orange/
 // turkost/rosa/blått/lila), inte en enda upprepad ton som förut.
 const SECTION_META = {
-  company: { icon: Building2, tone: 'green', desc: 'Namn, organisationsnummer, adress och bankuppgifter — visas på fakturor, i e-post och i filer till myndigheter.' },
-  invoice: { icon: FileText, tone: 'blue', desc: 'Nummer, datum, påminnelser, mall och e-post.' },
-  integrations: { icon: Plug, tone: 'purple', desc: 'Stripe, Zettle och egen avsändardomän för mejl.' },
-  system: { icon: Cog, tone: 'gray', desc: 'Moms, kontoplan, verifikationsserier, valuta och export.' },
-  users: { icon: Users, tone: 'teal', desc: 'Lägg till användare, roller och behörigheter.' },
-  subscription: { icon: CreditCard, tone: 'amber', desc: 'Plan, betalningar och kvitton.' },
-  appearance: { icon: Palette, tone: 'pink', desc: 'Tema, färgtema, layout och språk.' },
-  notifications: { icon: Bell, tone: 'blue', desc: 'Kvitton, betalningar, påminnelser och deklarationer.' },
-  security: { icon: Shield, tone: 'purple', desc: 'Lösenord, tvåstegsverifiering och inloggningshistorik.' },
-  advanced: { icon: Trash2, tone: 'red', desc: 'Importera, exportera eller radera din bokföring.' },
+  company: { icon: Building2, tone: 'green', desc: tr('ui.namn_organisationsnummer_adress_och_bankuppgifte') },
+  invoice: { icon: FileText, tone: 'blue', desc: tr('ui.nummer_datum_paminnelser_mall_och_e_post') },
+  integrations: { icon: Plug, tone: 'purple', desc: tr('ui.stripe_zettle_och_egen_avsandardoman_for_mejl') },
+  system: { icon: Cog, tone: 'gray', desc: tr('ui.moms_kontoplan_verifikationsserier_valuta_och_ex') },
+  users: { icon: Users, tone: 'teal', desc: tr('ui.lagg_till_anvandare_roller_och_behorigheter') },
+  subscription: { icon: CreditCard, tone: 'amber', desc: tr('ui.plan_betalningar_och_kvitton') },
+  appearance: { icon: Palette, tone: 'pink', desc: tr('ui.tema_fargtema_layout_och_sprak') },
+  notifications: { icon: Bell, tone: 'blue', desc: tr('ui.kvitton_betalningar_paminnelser_och_deklaratione') },
+  security: { icon: Shield, tone: 'purple', desc: tr('ui.losenord_tvastegsverifiering_och_inloggningshist') },
+  advanced: { icon: Trash2, tone: 'red', desc: tr('ui.importera_exportera_eller_radera_din_bokforing') },
 };
 
 /** Översikten. Ett tätt rutnät som fyller bredden — åtta kort på två rader
@@ -196,10 +196,10 @@ const SECTION_META = {
 // tio lösa kort: rubrik + ett kort per grupp med rader. På dator ligger
 // korten kvar som ett rutnät (grupperna är då display: contents).
 const HUB_GROUPS = [
-  { title: 'Företaget', ids: ['company', 'invoice', 'users'] },
-  { title: 'Kopplingar och system', ids: ['integrations', 'system'] },
-  { title: 'Konto och utseende', ids: ['subscription', 'appearance', 'notifications', 'security'] },
-  { title: 'Övrigt', ids: ['advanced'] },
+  { title: tr('ui.foretaget'), ids: ['company', 'invoice', 'users'] },
+  { title: tr('ui.kopplingar_och_system'), ids: ['integrations', 'system'] },
+  { title: tr('ui.konto_och_utseende'), ids: ['subscription', 'appearance', 'notifications', 'security'] },
+  { title: tr('ui.ovrigt'), ids: ['advanced'] },
 ];
 
 function SettingsHub({ sections, onPick }) {
@@ -208,7 +208,7 @@ function SettingsHub({ sections, onPick }) {
     .map(g => ({ ...g, items: g.ids.map(id => sections.find(s => s.id === id)).filter(Boolean) }))
     .filter(g => g.items.length > 0);
   const rest = sections.filter(s => !placed.has(s.id));
-  if (rest.length > 0) groups.push({ title: 'Övrigt', ids: [], items: rest });
+  if (rest.length > 0) groups.push({ title: tr('ui.ovrigt'), ids: [], items: rest });
   return (
     <div className="settings-hub">
       {groups.map(group => (
@@ -283,11 +283,11 @@ const FORM_MAX = '920px';
 // rullgardin och kunde inte fylla i formuläret alls — precis det som
 // rapporterades. Servern vinner alltid när svaret kommer fram.
 const FALLBACK_MAIL_PROVIDERS = [
-  { id: 'gmail', label: 'Gmail / Google Workspace', host: 'smtp.gmail.com', port: 465, secure: true, appPasswordUrl: 'https://myaccount.google.com/apppasswords', help: 'Kräver tvåstegsverifiering på Google-kontot. Skapa ett app-lösenord (16 tecken) och klistra in det här — inte ditt vanliga lösenord.' },
-  { id: 'outlook', label: 'Outlook / Hotmail / Microsoft 365', host: 'smtp-mail.outlook.com', port: 587, secure: false, appPasswordUrl: 'https://account.microsoft.com/security', help: 'Kräver tvåstegsverifiering. Skapa ett app-lösenord under Säkerhet och klistra in det här.' },
-  { id: 'onecom', label: 'one.com', host: 'send.one.com', port: 465, secure: true, appPasswordUrl: null, help: 'Använd samma lösenord som till webbmejlen hos one.com.' },
-  { id: 'loopia', label: 'Loopia', host: 'mailcluster.loopia.se', port: 465, secure: true, appPasswordUrl: null, help: 'Använd samma lösenord som till webbmejlen hos Loopia.' },
-  { id: 'custom', label: 'Annan leverantör', host: '', port: 465, secure: true, appPasswordUrl: null, help: 'Fyll i serveradress och port från din leverantörs hjälpsidor. Söker du på "SMTP" plus leverantörens namn hittar du dem.' },
+  { id: 'gmail', label: tr('ui.gmail_google_workspace'), host: 'smtp.gmail.com', port: 465, secure: true, appPasswordUrl: 'https://myaccount.google.com/apppasswords', help: tr('ui.kraver_tvastegsverifiering_pa_google_kontot_skap') },
+  { id: 'outlook', label: tr('ui.outlook_hotmail_microsoft_365'), host: 'smtp-mail.outlook.com', port: 587, secure: false, appPasswordUrl: 'https://account.microsoft.com/security', help: tr('ui.kraver_tvastegsverifiering_skapa_ett_app_losenor') },
+  { id: 'onecom', label: 'one.com', host: 'send.one.com', port: 465, secure: true, appPasswordUrl: null, help: tr('ui.anvand_samma_losenord_som_till_webbmejlen_hos_on') },
+  { id: 'loopia', label: tr('ui.loopia'), host: 'mailcluster.loopia.se', port: 465, secure: true, appPasswordUrl: null, help: tr('ui.anvand_samma_losenord_som_till_webbmejlen_hos_lo') },
+  { id: 'custom', label: tr('ui.annan_leverantor'), host: '', port: 465, secure: true, appPasswordUrl: null, help: tr('ui.fyll_i_serveradress_och_port_fran_din_leverantor') },
 ];
 const labelStyle = { display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' };
 const inputBase = {
@@ -618,7 +618,7 @@ function IntegrationTile({ logo, name, tagline, connected, statusLabel, action, 
           color: connected ? BRAND.greenDark : 'var(--text-muted)',
         }}>
           <span style={{ width: 8, height: 8, borderRadius: '50%', background: connected ? BRAND.green : 'var(--border)' }} />
-          {statusLabel || (connected ? 'Ansluten' : 'Inte ansluten')}
+          {statusLabel || (connected ? tr('ui.ansluten') : tr('ui.inte_ansluten'))}
         </span>
         {action && <span onClick={e => e.stopPropagation()}>{action}</span>}
       </div>
@@ -647,12 +647,12 @@ function PageAccessPicker({ value, role = 'editor', onChange, compact }) {
     <div>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginBottom: '10px' }}>
         <div>
-          <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>Sidor</div>
-          <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginTop: '2px' }}>Vad personen ser och får ändra.</div>
+          <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>{tr('ui.sidor')}</div>
+          <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginTop: '2px' }}>{tr('ui.vad_personen_ser_och_far_andra')}</div>
         </div>
         <div style={{ display: 'flex', gap: '6px' }}>
-          <button type="button" onClick={() => setAll(role === 'editor' ? 'edit' : 'view')} style={btnTile}>Markera alla</button>
-          <button type="button" onClick={() => setAll('none')} style={btnTile}>Rensa</button>
+          <button type="button" onClick={() => setAll(role === 'editor' ? 'edit' : 'view')} style={btnTile}>{tr('ui.markera_alla')}</button>
+          <button type="button" onClick={() => setAll('none')} style={btnTile}>{tr('ui.rensa')}</button>
         </div>
       </div>
 
@@ -698,7 +698,7 @@ function PageAccessPicker({ value, role = 'editor', onChange, compact }) {
       </div>
 
       <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', margin: '9px 0 0', lineHeight: 1.6 }}>
-        Den som får redigera fakturor, utgifter eller bank kan skapa verifikationer även med Bokföring stängd.
+        {tr('ui.den_som_far_redigera_fakturor_utgifter_eller_ban')}
       </p>
     </div>
   );
@@ -708,16 +708,16 @@ function relativeTimeSv(iso) {
   if (!iso) return null;
   const diffMs = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diffMs / 60000);
-  if (mins < 1) return 'just nu';
-  if (mins < 60) return `för ${mins} ${mins === 1 ? 'minut' : 'minuter'} sedan`;
+  if (mins < 1) return tr('ui.just_nu');
+  if (mins < 60) return tr('ui.for_sedan_5', { mins, v1: mins === 1 ? 'minut' : 'minuter' });
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `för ${hours} ${hours === 1 ? 'timme' : 'timmar'} sedan`;
+  if (hours < 24) return tr('ui.for_sedan_4', { hours, v1: hours === 1 ? 'timme' : 'timmar' });
   const days = Math.floor(hours / 24);
-  if (days < 30) return `för ${days} ${days === 1 ? 'dag' : 'dagar'} sedan`;
+  if (days < 30) return tr('ui.for_sedan_3', { days, v1: days === 1 ? 'dag' : 'dagar' });
   const months = Math.floor(days / 30);
-  if (months < 12) return `för ${months} ${months === 1 ? 'månad' : 'månader'} sedan`;
+  if (months < 12) return tr('ui.for_sedan_2', { months, v1: months === 1 ? 'månad' : 'månader' });
   const years = Math.floor(months / 12);
-  return `för ${years} ${years === 1 ? 'år' : 'år'} sedan`;
+  return tr('ui.for_sedan', { years, v1: years === 1 ? 'år' : 'år' });
 }
 
 // detectDevice flyttad till ../utils/deviceInfo.js (importerad ovan) — delad
@@ -776,8 +776,8 @@ function AutoField({ label, type = 'text', value, onChange, hint, required, plac
             sparknappen har sin egen busy/success-text. */}
         {showSaveState && (
           <div style={{ fontSize: '12px', minHeight: '18px', display: 'flex', alignItems: 'center' }}>
-            {isSaving && <span style={{ color: 'var(--text-muted)' }}>Sparar...</span>}
-            {isSaved && <span style={{ color: BRAND.greenDark, display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 500 }}><Check size={12} /> Sparat</span>}
+            {isSaving && <span style={{ color: 'var(--text-muted)' }}>{tr('ui.sparar_2')}</span>}
+            {isSaved && <span style={{ color: BRAND.greenDark, display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 500 }}><Check size={12} /> {tr('ui.sparat')}</span>}
           </div>
         )}
       </div>
@@ -814,8 +814,8 @@ function ImageUploadField({ label, value, onChange, uploadPath, bucket, hint, re
     const file = e.target.files?.[0];
     if (!file) return;
     if (readOnly) { window.alert(DEMO_BLOCKED_MSG); if (inputRef.current) inputRef.current.value = ''; return; }
-    if (!ALLOWED_TYPES.includes(file.type)) { setError('Filen måste vara JPG eller PNG.'); return; }
-    if (file.size > 3 * 1024 * 1024) { setError('Bilden får vara max 3 MB.'); return; }
+    if (!ALLOWED_TYPES.includes(file.type)) { setError(tr('ui.filen_maste_vara_jpg_eller_png')); return; }
+    if (file.size > 3 * 1024 * 1024) { setError(tr('ui.bilden_far_vara_max_3_mb')); return; }
     setBusy(true); setError('');
     try {
       // Säkerhetsfix (säkerhetsgranskningen): sanera filändelsen — se
@@ -829,10 +829,10 @@ function ImageUploadField({ label, value, onChange, uploadPath, bucket, hint, re
       onChange(`${data.publicUrl}?v=${Date.now()}`); // cache-bust så en ny bild syns direkt, inte den gamla från webbläsarcachen
     } catch (err) {
       const msg = err.message || '';
-      let friendly = msg || 'Uppladdningen misslyckades.';
+      let friendly = msg || tr('ui.uppladdningen_misslyckades');
       if (/bucket not found/i.test(msg)) friendly = `Bildlagring är inte konfigurerad ännu (bucket "${bucket}" saknas — kör storage-delen av supabase-setup.sql).`;
-      else if (/mime type/i.test(msg)) friendly = 'Filen måste vara JPG eller PNG.';
-      else if (/exceeded the maximum allowed size/i.test(msg)) friendly = 'Bilden får vara max 3 MB.';
+      else if (/mime type/i.test(msg)) friendly = tr('ui.filen_jpg_png');
+      else if (/exceeded the maximum allowed size/i.test(msg)) friendly = tr('ui.bilden_max_3mb');
       setError(friendly);
     } finally {
       setBusy(false);
@@ -845,10 +845,10 @@ function ImageUploadField({ label, value, onChange, uploadPath, bucket, hint, re
       <label style={labelStyle}>{label}</label>
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
         <label style={{ ...btnSecondary, display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? 0.6 : 1 }}>
-          <Upload size={14} /> {busy ? 'Laddar upp...' : value ? 'Byt bild' : 'Ladda upp bild'}
+          <Upload size={14} /> {busy ? tr('ui.laddar_upp') : value ? tr('ui.byt_bild') : tr('ui.ladda_upp_bild')}
           <input ref={inputRef} type="file" accept="image/jpeg,image/png" onChange={handleFile} disabled={busy} style={{ display: 'none' }} />
         </label>
-        {value && <button type="button" onClick={() => onChange('')} disabled={busy} style={btnGhost}>Ta bort</button>}
+        {value && <button type="button" onClick={() => onChange('')} disabled={busy} style={btnGhost}>{tr('ui.ta_bort')}</button>}
       </div>
       {hint && <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '6px' }}>{hint}</div>}
       {error && <div style={{ fontSize: '12px', color: 'var(--status-red-text)', marginTop: '6px' }}>{error}</div>}
@@ -881,7 +881,7 @@ function AvatarUploadRow({ avatarUrl, initials, onChange, uploadPath, readOnly }
         </span>
       </div>
       <div style={{ flex: 1, minWidth: '220px' }}>
-        <ImageUploadField label="Din profilbild" value={avatarUrl} onChange={onChange} uploadPath={uploadPath} bucket="profile" hint="JPG eller PNG, max 3 MB." readOnly={readOnly} />
+        <ImageUploadField label={tr('ui.din_profilbild')} value={avatarUrl} onChange={onChange} uploadPath={uploadPath} bucket="profile" hint={tr('ui.jpg_eller_png_max_3_mb')} readOnly={readOnly} />
       </div>
     </div>
   );
@@ -892,9 +892,9 @@ function AvatarUploadRow({ avatarUrl, initials, onChange, uploadPath, readOnly }
 // samma InvoiceDocument-komponent som fångas för den riktiga PDF-exporten
 // (se Invoices.jsx), aldrig en förenklad egen mockup.
 const SAMPLE_ROWS = [
-  { id: 'sample-1', description: 'Konsultation, webbutveckling', qty: 14, unitPrice: 950, vatRate: 25, discount: 0 },
-  { id: 'sample-2', description: 'Programvarulicens, årsavgift', qty: 1, unitPrice: 3200, vatRate: 25, discount: 0 },
-  { id: 'sample-3', description: 'Resekostnader', qty: 1, unitPrice: 640, vatRate: 25, discount: 0 },
+  { id: 'sample-1', description: tr('ui.konsultation_webbutveckling'), qty: 14, unitPrice: 950, vatRate: 25, discount: 0 },
+  { id: 'sample-2', description: tr('ui.programvarulicens_arsavgift'), qty: 1, unitPrice: 3200, vatRate: 25, discount: 0 },
+  { id: 'sample-3', description: tr('ui.resekostnader'), qty: 1, unitPrice: 640, vatRate: 25, discount: 0 },
 ];
 const SAMPLE_NET = SAMPLE_ROWS.reduce((s, r) => s + r.qty * r.unitPrice, 0);
 const SAMPLE_TOTALS = { net: SAMPLE_NET, vat: SAMPLE_NET * 0.25, total: SAMPLE_NET * 1.25 };
@@ -996,7 +996,7 @@ function ReauthCodeStep({ onVerified, onCancel }) {
       setCode('');
       setResendCooldown(30);
     } catch (err) {
-      setError(err?.message || 'Kunde inte skicka koden just nu. Försök igen om en stund.');
+      setError(err?.message || tr('ui.kunde_inte_skicka_koden_just_nu_forsok_igen_om_e'));
     } finally {
       setStatus('idle');
     }
@@ -1012,23 +1012,23 @@ function ReauthCodeStep({ onVerified, onCancel }) {
   }, [resendCooldown]);
 
   const verify = async () => {
-    if (!/^\d{6}$/.test(code)) { setError('Ange den sexsiffriga koden från mejlet.'); return; }
+    if (!/^\d{6}$/.test(code)) { setError(tr('ui.ange_den_sexsiffriga_koden_fran_mejlet')); return; }
     setStatus('verifying'); setError('');
     try {
       const { data: { session } = {} } = await supabase.auth.getSession();
       const reauthToken = await verifyReauthCode({ accessToken: session?.access_token, code, token: otpToken });
       onVerified(reauthToken);
     } catch (err) {
-      setError(err?.message || 'Fel kod. Försök igen.');
+      setError(err?.message || tr('ui.fel_kod_forsok_igen'));
       setStatus('idle');
     }
   };
 
   return (
     <div style={{ background: 'var(--status-green-bg)', border: '1px solid var(--status-green-bg)', borderRadius: '12px', padding: '18px', maxWidth: '360px', textAlign: 'center' }}>
-      <div style={{ fontWeight: 700, fontSize: '14.5px', color: 'var(--text-main)', marginBottom: '6px' }}>Bekräfta med kod</div>
+      <div style={{ fontWeight: 700, fontSize: '14.5px', color: 'var(--text-main)', marginBottom: '6px' }}>{tr('ui.bekrafta_med_kod')}</div>
       <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '14px' }}>
-        Vi skickade en sexsiffrig kod till din e-post — skriv in den för att bekräfta ändringen.
+        {tr('ui.vi_skickade_en_sexsiffrig_kod_till_din_e_post_sk')}
       </div>
       <input
         type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="000000"
@@ -1037,19 +1037,19 @@ function ReauthCodeStep({ onVerified, onCancel }) {
       />
       {error && <div style={{ color: 'var(--status-red-text)', fontSize: '12.5px', marginTop: '10px' }}>{error}</div>}
       <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginTop: '14px' }}>
-        <button type="button" onClick={onCancel} style={btnGhost}>Avbryt</button>
+        <button type="button" onClick={onCancel} style={btnGhost}>{tr('ui.avbryt')}</button>
         <button
           type="button" onClick={verify} disabled={status === 'verifying' || code.length !== 6}
           style={{ ...btnPrimary, opacity: (status === 'verifying' || code.length !== 6) ? 0.5 : 1, cursor: (status === 'verifying' || code.length !== 6) ? 'not-allowed' : 'pointer' }}
         >
-          {status === 'verifying' ? 'Bekräftar...' : 'Bekräfta'}
+          {status === 'verifying' ? tr('ui.bekraftar') : tr('ui.bekrafta')}
         </button>
       </div>
       <button
         type="button" onClick={send} disabled={resendCooldown > 0 || status === 'sending'}
         style={{ marginTop: '10px', background: 'none', border: 'none', borderRadius: '8px', padding: '4px 8px', color: resendCooldown > 0 ? 'var(--text-muted)' : BRAND.green, fontWeight: 700, fontSize: '12px', cursor: resendCooldown > 0 ? 'default' : 'pointer', fontFamily: 'inherit' }}
       >
-        {status === 'sending' ? 'Skickar…' : resendCooldown > 0 ? `Skicka koden igen (${resendCooldown}s)` : 'Fick du ingen kod? Skicka igen'}
+        {status === 'sending' ? tr('ui.skickar_2') : resendCooldown > 0 ? tr('ui.skicka_koden_igen_s', { resendCooldown }) : tr('ui.fick_du_ingen_kod_skicka_igen')}
       </button>
     </div>
   );
@@ -1084,13 +1084,13 @@ function PasswordSection({ user, readOnly = false, bare = false }) {
     e.preventDefault();
     setError(''); setSuccess(false);
     if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; }
-    if (newPw.length < 8) { setError('Nytt lösenord måste vara minst 8 tecken.'); return; }
-    if (newPw !== confirmPw) { setError('Lösenorden matchar inte varandra.'); return; }
+    if (newPw.length < 8) { setError(tr('ui.nytt_losenord_maste_vara_minst_8_tecken')); return; }
+    if (newPw !== confirmPw) { setError(tr('ui.losenorden_matchar_inte_varandra')); return; }
     setBusy(true);
     const { error: reauthError } = await supabase.auth.signInWithPassword({ email: user.email, password: currentPw });
     setBusy(false);
     if (reauthError) {
-      setError('Nuvarande lösenord stämmer inte.');
+      setError(tr('ui.nuvarande_losenord_stammer_inte'));
       return;
     }
     setShowReauth(true);
@@ -1108,13 +1108,13 @@ function PasswordSection({ user, readOnly = false, bare = false }) {
       setTimeout(() => setSuccess(false), 4000);
     } catch (err) {
       setShowReauth(false);
-      setError(err?.message || 'Kunde inte byta lösenord. Försök igen om en stund.');
+      setError(err?.message || tr('ui.kunde_inte_byta_losenord_forsok_igen_om_en_stund'));
     } finally {
       setBusy(false);
     }
   };
 
-  const statusText = changedAt ? `Senast ändrat ${relativeTimeSv(changedAt)}` : 'Inte spårat ännu — byt lösenord här för att börja spåra det';
+  const statusText = changedAt ? tr('ui.senast_andrat', { v0: relativeTimeSv(changedAt) }) : tr('ui.inte_sparat_annu_byt_losenord_har_for_att_borja');
 
   const form = (
     <>
@@ -1123,25 +1123,25 @@ function PasswordSection({ user, readOnly = false, bare = false }) {
       ) : (
         <form onSubmit={submit}>
           <div style={{ marginBottom: '14px' }}>
-            <label style={labelStyle}>Nuvarande lösenord</label>
+            <label style={labelStyle}>{tr('ui.nuvarande_losenord')}</label>
             <input type="password" value={currentPw} onChange={e => setCurrentPw(e.target.value)} style={{ ...inputBase, maxWidth: '340px' }} autoComplete="current-password" required />
           </div>
           <div className="form-row-2" style={{ ...grid2, maxWidth: FORM_MAX }}>
             <div>
-              <label style={labelStyle}>Nytt lösenord</label>
+              <label style={labelStyle}>{tr('ui.nytt_losenord')}</label>
               <input type="password" value={newPw} onChange={e => setNewPw(e.target.value)} style={inputBase} autoComplete="new-password" minLength={8} required />
             </div>
             <div>
-              <label style={labelStyle}>Bekräfta nytt lösenord</label>
+              <label style={labelStyle}>{tr('ui.bekrafta_nytt_losenord')}</label>
               <input type="password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} style={inputBase} autoComplete="new-password" minLength={8} required />
             </div>
           </div>
           {error && <div style={{ color: 'var(--status-red-text)', fontSize: '13px', marginTop: '10px' }}>{error}</div>}
           <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
             <button type="submit" disabled={busy || !currentPw || !newPw || !confirmPw} style={{ ...btnPrimary, opacity: (busy || !currentPw || !newPw || !confirmPw) ? 0.5 : 1, cursor: (busy || !currentPw || !newPw || !confirmPw) ? 'not-allowed' : 'pointer' }}>
-              {busy ? 'Kontrollerar...' : 'Byt lösenord'}
+              {busy ? tr('ui.kontrollerar') : tr('ui.byt_losenord')}
             </button>
-            {bare && <button type="button" onClick={() => { setExpanded(false); setError(''); setCurrentPw(''); setNewPw(''); setConfirmPw(''); }} style={btnGhost}>Avbryt</button>}
+            {bare && <button type="button" onClick={() => { setExpanded(false); setError(''); setCurrentPw(''); setNewPw(''); setConfirmPw(''); }} style={btnGhost}>{tr('ui.avbryt')}</button>}
           </div>
         </form>
       )}
@@ -1161,8 +1161,8 @@ function PasswordSection({ user, readOnly = false, bare = false }) {
     // bottenkant hör hemma i båda fallen.
     return (
       <>
-        <SettingRow label="Lösenord" description={success ? 'Lösenordet är uppdaterat.' : statusText} last={false}>
-          {!expanded && <button type="button" onClick={() => setExpanded(true)} style={btnSecondary}>Byt lösenord</button>}
+        <SettingRow label={tr('ui.losenord')} description={success ? tr('ui.losenordet_ar_uppdaterat') : statusText} last={false}>
+          {!expanded && <button type="button" onClick={() => setExpanded(true)} style={btnSecondary}>{tr('ui.byt_losenord')}</button>}
         </SettingRow>
         {expanded && <div style={{ paddingBottom: '14px' }}>{form}</div>}
       </>
@@ -1172,10 +1172,10 @@ function PasswordSection({ user, readOnly = false, bare = false }) {
   return (
     <div style={card}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '6px' }}>
-        <SectionHeading icon={Lock} tone="blue">Lösenord</SectionHeading>
+        <SectionHeading icon={Lock} tone="blue">{tr('ui.losenord')}</SectionHeading>
         <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>{statusText}</span>
       </div>
-      {success && <div style={{ color: BRAND.greenDark, fontSize: '13px', marginBottom: '10px', fontWeight: 600 }}>Lösenordet är uppdaterat.</div>}
+      {success && <div style={{ color: BRAND.greenDark, fontSize: '13px', marginBottom: '10px', fontWeight: 600 }}>{tr('ui.losenordet_ar_uppdaterat')}</div>}
       {form}
     </div>
   );
@@ -1217,7 +1217,7 @@ function TwoFactorSection({ bare = false }) {
     if (chErr) { setBusy(false); setError(chErr.message); return; }
     const { error: vErr } = await supabase.auth.mfa.verify({ factorId: enrolling.factorId, challengeId: challenge.id, code });
     setBusy(false);
-    if (vErr) { setError('Fel kod. Kontrollera att klockan i autentiseringsappen är rätt inställd och försök igen.'); return; }
+    if (vErr) { setError(tr('ui.fel_kod_kontrollera_att_klockan_i_autentiserings')); return; }
     setEnrolling(null); setCode('');
     loadFactors();
   };
@@ -1229,7 +1229,7 @@ function TwoFactorSection({ bare = false }) {
 
   const disable = async () => {
     if (!verifiedFactor) return;
-    if (!(await confirmDialog('Inaktivera tvåstegsverifiering? Kontot blir skyddat av enbart lösenord igen.', { danger: true }))) return;
+    if (!(await confirmDialog(tr('ui.inaktivera_tvastegsverifiering_kontot_blir_skydd'), { danger: true }))) return;
     setBusy(true);
     const { error } = await supabase.auth.mfa.unenroll({ factorId: verifiedFactor.id });
     setBusy(false);
@@ -1239,13 +1239,13 @@ function TwoFactorSection({ bare = false }) {
 
   const enrollPanel = enrolling && (
     <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border)' }}>
-      <p style={{ fontSize: '13px', color: 'var(--text-main)', margin: '0 0 12px' }}>Skanna koden med din autentiseringsapp, ange sedan den 6-siffriga koden den visar.</p>
-      <img src={enrolling.qrCode} alt="QR-kod för tvåstegsverifiering" style={{ width: 160, height: 160, border: '1px solid var(--border)', borderRadius: '8px', display: 'block', marginBottom: '8px' }} />
-      <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px' }}>Kan du inte skanna? Ange koden manuellt: <code style={{ background: 'var(--border-light)', padding: '2px 6px', borderRadius: '4px' }}>{enrolling.secret}</code></div>
+      <p style={{ fontSize: '13px', color: 'var(--text-main)', margin: '0 0 12px' }}>{tr('ui.skanna_koden_med_din_autentiseringsapp_ange_seda')}</p>
+      <img src={enrolling.qrCode} alt={tr('ui.qr_kod_for_tvastegsverifiering')} style={{ width: 160, height: 160, border: '1px solid var(--border)', borderRadius: '8px', display: 'block', marginBottom: '8px' }} />
+      <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px' }}>{tr('ui.kan_du_inte_skanna_ange_koden_manuellt')} <code style={{ background: 'var(--border-light)', padding: '2px 6px', borderRadius: '4px' }}>{enrolling.secret}</code></div>
       <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
         <input value={code} onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="123456" style={{ ...inputBase, width: '120px' }} />
-        <button onClick={confirmEnroll} disabled={busy || code.length !== 6} style={{ ...btnPrimary, opacity: (busy || code.length !== 6) ? 0.5 : 1 }}>Bekräfta</button>
-        <button onClick={cancelEnroll} disabled={busy} style={btnGhost}>Avbryt</button>
+        <button onClick={confirmEnroll} disabled={busy || code.length !== 6} style={{ ...btnPrimary, opacity: (busy || code.length !== 6) ? 0.5 : 1 }}>{tr('ui.bekrafta')}</button>
+        <button onClick={cancelEnroll} disabled={busy} style={btnGhost}>{tr('ui.avbryt')}</button>
       </div>
     </div>
   );
@@ -1260,11 +1260,11 @@ function TwoFactorSection({ bare = false }) {
     // kortet — enrollPanel har sin egen ovankant, ingen dubbel linje.
     return (
       <>
-        <SettingRow label="Tvåfaktorsautentisering" description="Aktiverad för extra säkerhet vid inloggning." last>
+        <SettingRow label={tr('ui.tvafaktorsautentisering')} description={tr('ui.aktiverad_for_extra_sakerhet_vid_inloggning')} last>
           {factors !== null && !enrolling && (
             verifiedFactor
-              ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}><Badge tone="positive">Aktiv</Badge><button onClick={disable} disabled={busy} style={{ ...btnGhost, padding: '4px 8px', fontSize: '12px' }}>Inaktivera</button></span>
-              : <button onClick={startEnroll} disabled={busy} style={btnSecondary}>Aktivera</button>
+              ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}><Badge tone="positive">{tr('ui.aktiv')}</Badge><button onClick={disable} disabled={busy} style={{ ...btnGhost, padding: '4px 8px', fontSize: '12px' }}>{tr('ui.inaktivera')}</button></span>
+              : <button onClick={startEnroll} disabled={busy} style={btnSecondary}>{tr('ui.aktivera')}</button>
           )}
         </SettingRow>
         {error && <div style={{ color: 'var(--status-red-text)', fontSize: '13px', marginTop: '-6px', marginBottom: '10px' }}>{error}</div>}
@@ -1278,15 +1278,15 @@ function TwoFactorSection({ bare = false }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', flexWrap: 'wrap' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
-            <SectionHeading icon={KeyRound} tone={verifiedFactor ? 'green' : 'amber'}>Tvåstegsverifiering</SectionHeading>
-            {factors !== null && <Badge tone={verifiedFactor ? 'positive' : 'warning'}>{verifiedFactor ? 'På' : 'Av'}</Badge>}
+            <SectionHeading icon={KeyRound} tone={verifiedFactor ? 'green' : 'amber'}>{tr('ui.tvastegsverifiering')}</SectionHeading>
+            {factors !== null && <Badge tone={verifiedFactor ? 'positive' : 'warning'}>{verifiedFactor ? tr('ui.pa') : tr('ui.av_2')}</Badge>}
           </div>
-          <div style={{ fontSize: '13px', color: 'var(--text-secondary)', maxWidth: '480px' }}>Kräver en engångskod från en autentiseringsapp (t.ex. Google Authenticator eller Authy) utöver lösenordet vid inloggning.</div>
+          <div style={{ fontSize: '13px', color: 'var(--text-secondary)', maxWidth: '480px' }}>{tr('ui.kraver_en_engangskod_fran_en_autentiseringsapp_t')}</div>
         </div>
         {factors !== null && !enrolling && (
           verifiedFactor
-            ? <button onClick={disable} disabled={busy} style={btnWarning}>Inaktivera</button>
-            : <button onClick={startEnroll} disabled={busy} style={btnPrimary}>Aktivera</button>
+            ? <button onClick={disable} disabled={busy} style={btnWarning}>{tr('ui.inaktivera')}</button>
+            : <button onClick={startEnroll} disabled={busy} style={btnPrimary}>{tr('ui.aktivera')}</button>
         )}
       </div>
       {error && <div style={{ color: 'var(--status-red-text)', fontSize: '13px', marginTop: '10px' }}>{error}</div>}
@@ -1320,9 +1320,9 @@ function ActiveSessionsSection({ user, readOnly = false }) {
 
   return (
     <div style={{ ...card, borderRadius: 0 }}>
-      <div style={{ marginBottom: '8px' }}><SectionHeading icon={Laptop} tone="blue">Aktiva sessioner</SectionHeading></div>
+      <div style={{ marginBottom: '8px' }}><SectionHeading icon={Laptop} tone="blue">{tr('ui.aktiva_sessioner')}</SectionHeading></div>
       <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 14px', maxWidth: '560px' }}>
-        Bokix kan i dagsläget inte visa en lista över dina enskilda inloggade enheter. Du kan däremot logga ut alla andra sessioner än den du sitter på just nu — t.ex. om du glömt logga ut på en delad dator eller en gammal telefon.
+        {tr('ui.bokix_kan_i_dagslaget_inte_visa_en_lista_over_di')}
       </p>
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: '10px', marginBottom: '14px' }}>
         <div style={{ width: 38, height: 38, borderRadius: '50%', background: BRAND.greenLight, color: BRAND.greenDark, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -1332,15 +1332,15 @@ function ActiveSessionsSection({ user, readOnly = false }) {
           <div style={{ fontWeight: 600, fontSize: '13.5px', color: 'var(--text-main)' }}>{device}</div>
           <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{user?.email}</div>
         </div>
-        <Badge tone="positive">Denna enhet</Badge>
+        <Badge tone="positive">{tr('ui.denna_enhet')}</Badge>
       </div>
       <button
         onClick={signOutOthers} disabled={busy}
         onMouseEnter={e => { if (!busy) e.currentTarget.style.background = 'var(--status-red-bg)'; }}
         onMouseLeave={e => { e.currentTarget.style.background = 'white'; }}
         style={{ ...btnDangerGhost, opacity: busy ? 0.6 : 1, transition: 'background-color 0.12s' }}
-      >{busy ? 'Loggar ut...' : 'Logga ut från alla andra enheter'}</button>
-      {done && <div style={{ color: BRAND.greenDark, fontSize: '13px', marginTop: '8px', fontWeight: 600 }}>Klart — alla andra sessioner är utloggade.</div>}
+      >{busy ? tr('ui.loggar_ut') : tr('ui.logga_ut_fran_alla_andra_enheter')}</button>
+      {done && <div style={{ color: BRAND.greenDark, fontSize: '13px', marginTop: '8px', fontWeight: 600 }}>{tr('ui.klart_alla_andra_sessioner_ar_utloggade')}</div>}
       {error && <div style={{ color: 'var(--status-red-text)', fontSize: '13px', marginTop: '8px' }}>{error}</div>}
     </div>
   );
@@ -1374,20 +1374,20 @@ function LoginHistorySection({ user, readOnly = false }) {
 
   return (
     <div style={{ ...card, borderRadius: 0 }}>
-      <div style={{ marginBottom: '8px' }}><SectionHeading icon={Laptop} tone="blue">Inloggningshistorik</SectionHeading></div>
+      <div style={{ marginBottom: '8px' }}><SectionHeading icon={Laptop} tone="blue">{tr('ui.inloggningshistorik')}</SectionHeading></div>
       <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 12px', maxWidth: '560px' }}>
-        De senaste 20 gångerna du loggat in på det här kontot.
+        {tr('ui.de_senaste_20_gangerna_du_loggat_in_pa_det_har_k')}
       </p>
       {error && <div style={{ fontSize: '13px', color: 'var(--status-red-text)' }}>{error}</div>}
       {events === null ? (
-        <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Läser in…</div>
+        <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{tr('ui.laser_in_2')}</div>
       ) : events.length === 0 ? (
-        <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Ingen historik ännu.</div>
+        <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{tr('ui.ingen_historik_annu')}</div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
           {events.map((e, i) => (
             <SettingRow key={e.id} label={e.device} description={new Intl.DateTimeFormat('sv-SE', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(e.created_at))} last={i === events.length - 1}>
-              {i === 0 && <Badge tone="positive">Senast</Badge>}
+              {i === 0 && <Badge tone="positive">{tr('ui.senast')}</Badge>}
             </SettingRow>
           ))}
         </div>
@@ -1409,20 +1409,20 @@ function VerificationSeriesFloorField({ letter, verifications, value, onChange }
 
   const save = () => {
     const n = Number(input);
-    if (!input || !Number.isInteger(n) || n <= 0) { setError('Ange ett positivt heltal.'); return; }
-    if (n <= maxUsed) { setError(`Måste vara högre än högsta använda numret i serie ${letter} (${maxUsed}).`); return; }
+    if (!input || !Number.isInteger(n) || n <= 0) { setError(tr('ui.ange_ett_positivt_heltal')); return; }
+    if (n <= maxUsed) { setError(tr('ui.maste_vara_hogre_an_hogsta_anvanda_numret_i_seri', { letter, maxUsed })); return; }
     setError('');
     onChange(n);
   };
 
   return (
     <div style={{ minWidth: '160px' }}>
-      <label style={labelStyle}>Serie {letter} — nästa nummer</label>
+      <label style={labelStyle}>{tr('ui.serie')} {letter} {tr('ui.nasta_nummer')}</label>
       <div style={{ display: 'flex', gap: '6px' }}>
         <input type="number" min={maxUsed + 1} value={input} onChange={e => setInput(e.target.value)} style={{ ...inputBase, width: '100px' }} />
-        <button type="button" onClick={save} style={btnTile}>Spara</button>
+        <button type="button" onClick={save} style={btnTile}>{tr('ui.spara')}</button>
       </div>
-      <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '4px' }}>Högsta använda: {letter}{String(maxUsed).padStart(3, '0')}</div>
+      <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '4px' }}>{tr('ui.hogsta_anvanda')} {letter}{String(maxUsed).padStart(3, '0')}</div>
       {error && <div style={{ fontSize: '11.5px', color: 'var(--status-red-text)', marginTop: '4px' }}>{error}</div>}
     </div>
   );
@@ -1457,9 +1457,9 @@ function AuditLogCard({ company, readOnly = false }) {
     <div style={card}>
       {error && <div style={{ fontSize: '13px', color: 'var(--status-red-text)', marginBottom: '10px' }}>{error}</div>}
       {events === null ? (
-        <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Läser in…</div>
+        <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{tr('ui.laser_in_2')}</div>
       ) : events.length === 0 ? (
-        <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Inga händelser loggade ännu.</div>
+        <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{tr('ui.inga_handelser_loggade_annu')}</div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           {events.map((e, i) => (
@@ -1511,9 +1511,9 @@ function InvoiceTemplateSection({ company, setCompanyInfo, user, readOnly = fals
   return (
     <>
       <div style={card}>
-        <div style={{ marginBottom: '6px' }}><SectionHeading icon={Palette} tone="pink">Välj mall</SectionHeading></div>
+        <div style={{ marginBottom: '6px' }}><SectionHeading icon={Palette} tone="pink">{tr('ui.valj_mall')}</SectionHeading></div>
         <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 16px', maxWidth: '672px' }}>
-          Välj utseendet på dina utgående kund- och leverantörsfakturor. Redan skickade fakturor behåller sitt utseende — bara nya fakturor använder mallen du väljer här.
+          {tr('ui.valj_utseendet_pa_dina_utgaende_kund_och_leveran')}
         </p>
         {/* Bugkritiskt: satt tidigare fast till exakt 2 kolumner (`.form-row-2`)
             inom ett `maxWidth: 720px`-tak — på en bred skärm lämnade det ett
@@ -1535,16 +1535,16 @@ function InvoiceTemplateSection({ company, setCompanyInfo, user, readOnly = fals
       </div>
 
       <div style={card}>
-        <div style={{ marginBottom: '16px' }}><SectionHeading icon={ImageIcon} tone="pink">Anpassa mallen</SectionHeading></div>
+        <div style={{ marginBottom: '16px' }}><SectionHeading icon={ImageIcon} tone="pink">{tr('ui.anpassa_mallen')}</SectionHeading></div>
         <div style={{ display: 'flex', gap: '28px', flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: '260px', maxWidth: '380px' }}>
             <div style={{ marginBottom: '18px' }}>
-              <ImageUploadField label="Logotyp" value={company?.logoUrl || ''} onChange={(v) => setCompanyInfo({ ...company, logoUrl: v })} uploadPath={`${user?.id}/logo-${company?.id}`} bucket="companylogo" hint="JPG eller PNG, max 3 MB." readOnly={readOnly} />
+              <ImageUploadField label={tr('ui.logotyp')} value={company?.logoUrl || ''} onChange={(v) => setCompanyInfo({ ...company, logoUrl: v })} uploadPath={`${user?.id}/logo-${company?.id}`} bucket="companylogo" hint={tr('ui.jpg_eller_png_max_3_mb')} readOnly={readOnly} />
             </div>
 
             <div style={{ marginBottom: '18px' }}>
-              <label style={labelStyle}>Accentfärg</label>
-              <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '0 0 8px' }}>Din egen varumärkesfärg på fakturan — fritt val, inte begränsat till Bokix grönt.</p>
+              <label style={labelStyle}>{tr('ui.accentfarg')}</label>
+              <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '0 0 8px' }}>{tr('ui.din_egen_varumarkesfarg_pa_fakturan_fritt_val_in')}</p>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <input
                   type="color" value={accentColor}
@@ -1554,15 +1554,15 @@ function InvoiceTemplateSection({ company, setCompanyInfo, user, readOnly = fals
                 <span style={{ fontSize: '13px', color: 'var(--text-main)', fontFamily: 'monospace' }}>{accentColor}</span>
                 <button
                   type="button" onClick={() => setCompanyInfo({ ...company, invoiceAccentColor: BRAND.green })}
-                  title="Använd Bokix grönt som accentfärg"
+                  title={tr('ui.anvand_bokix_gront_som_accentfarg')}
                   style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '999px', fontSize: '12px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer' }}
                 >
-                  <span style={{ width: 12, height: 12, borderRadius: '50%', background: BRAND.green, display: 'inline-block' }} /> Bokix grönt
+                  <span style={{ width: 12, height: 12, borderRadius: '50%', background: BRAND.green, display: 'inline-block' }} /> {tr('ui.bokix_gront')}
                 </button>
               </div>
             </div>
 
-            <AutoField label="Tilläggsinformation / fottext" value={company?.invoiceFooterText || ''} onChange={(v) => setCompanyInfo({ ...company, invoiceFooterText: v })} hint="Visas längst ner på fakturan, t.ex. betalningsvillkor eller en hälsning." />
+            <AutoField label={tr('ui.tillaggsinformation_fottext')} value={company?.invoiceFooterText || ''} onChange={(v) => setCompanyInfo({ ...company, invoiceFooterText: v })} hint={tr('ui.visas_langst_ner_pa_fakturan_t_ex_betalningsvill')} />
           </div>
 
           {/* minWidth 300px (mobil: 0) — annars vann minWidth-golvet över
@@ -1570,12 +1570,12 @@ function InvoiceTemplateSection({ company, setCompanyInfo, user, readOnly = fals
               lika brett-överskuret som gallerikorten ovan gjorde. */}
           <div style={{ flex: 1, minWidth: isMobile ? 0 : '300px', maxWidth: '500px', width: isMobile ? '100%' : undefined }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Live-förhandsvisning</div>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{tr('ui.live_forhandsvisning')}</div>
               <button
                 type="button" onClick={() => setShowFullPreview(true)}
                 style={{ display: 'flex', alignItems: 'center', gap: '5px', background: 'none', border: 'none', cursor: 'pointer', color: BRAND.greenDark, fontSize: '11.5px', fontWeight: 700, padding: '2px' }}
               >
-                <Maximize2 size={12} /> Förhandsgranska
+                <Maximize2 size={12} /> {tr('ui.forhandsgranska')}
               </button>
             </div>
             {/* Tumnageln öppnar samma fullskärmsvy — en genväg för den som
@@ -1600,22 +1600,22 @@ function InvoiceTemplateSection({ company, setCompanyInfo, user, readOnly = fals
           <div className="modal-content a4-document-preview" onClick={e => e.stopPropagation()}>
             <div className="modal-header" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '10px', position: 'sticky', top: 0, zIndex: 5, background: 'var(--bg-card)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
-                <h2 className="modal-title" style={{ margin: 0, fontSize: '14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Förhandsgranskning · {activeTpl.label}</h2>
+                <h2 className="modal-title" style={{ margin: 0, fontSize: '14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tr('ui.forhandsgranskning')} {activeTpl.label}</h2>
                 <button className="modal-close" onClick={() => setShowFullPreview(false)} style={{ flexShrink: 0 }}><X size={18} /></button>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Exempeldata — så här ser mallen ut, inte en riktig faktura.</span>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{tr('ui.exempeldata_sa_har_ser_mallen_ut_inte_en_riktig')}</span>
                 <div style={{ flex: 1, minWidth: '8px' }} />
                 <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0, border: '1px solid var(--border)', borderRadius: '6px', padding: '2px' }}>
                   <button
                     type="button" onClick={() => setPreviewZoom(z => Math.max(0.5, Math.round((z - 0.1) * 10) / 10))}
-                    disabled={previewZoom <= 0.5} title="Zooma ut"
+                    disabled={previewZoom <= 0.5} title={tr('ui.zooma_ut')}
                     style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '26px', height: '26px', background: 'none', border: 'none', borderRadius: '4px', color: previewZoom <= 0.5 ? 'var(--border)' : 'var(--text-main)', cursor: previewZoom <= 0.5 ? 'not-allowed' : 'pointer' }}
                   ><ZoomOut size={14} /></button>
                   <span style={{ fontSize: '11px', color: 'var(--text-secondary)', width: '38px', textAlign: 'center', flexShrink: 0 }}>{Math.round(previewZoom * 100)}%</span>
                   <button
                     type="button" onClick={() => setPreviewZoom(z => Math.min(2, Math.round((z + 0.1) * 10) / 10))}
-                    disabled={previewZoom >= 2} title="Zooma in"
+                    disabled={previewZoom >= 2} title={tr('ui.zooma_in')}
                     style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '26px', height: '26px', background: 'none', border: 'none', borderRadius: '4px', color: previewZoom >= 2 ? 'var(--border)' : 'var(--text-main)', cursor: previewZoom >= 2 ? 'not-allowed' : 'pointer' }}
                   ><ZoomIn size={14} /></button>
                 </div>
@@ -1651,9 +1651,9 @@ function escHtml(value) {
 // Bygger inbjudningsmejlets HTML — samma "Hej ... Med vänlig hälsning"-ton
 // som fakturautskicket (Invoices.jsx), grönt CTA-knapp i samma märkesfärg.
 function buildInviteEmailHtml({ companyName, inviterName, inviteUrl, role }) {
-  const roleLabel = role === 'editor' ? 'redigera' : 'se (läsbehörighet)';
-  const safeInviter = escHtml(inviterName) || 'Någon';
-  const safeCompany = escHtml(companyName) || 'sitt företag';
+  const roleLabel = role === 'editor' ? 'redigera' : tr('ui.se_lasbehorighet');
+  const safeInviter = escHtml(inviterName) || tr('ui.nagon');
+  const safeCompany = escHtml(companyName) || tr('ui.sitt_foretag');
   return `
     <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; color: #1a1a1a;">
       <p>Hej,</p>
@@ -1667,8 +1667,8 @@ function buildInviteEmailHtml({ companyName, inviterName, inviteUrl, role }) {
   `;
 }
 
-const ROLE_LABELS = { editor: 'Kan redigera', viewer: 'Kan bara läsa' };
-const STATUS_LABELS = { pending: 'Väntar på svar', active: 'Aktiv', revoked: 'Återkallad' };
+const ROLE_LABELS = { editor: tr('ui.kan_redigera'), viewer: tr('ui.kan_bara_lasa') };
+const STATUS_LABELS = { pending: tr('ui.vantar_pa_svar'), active: tr('ui.aktiv'), revoked: tr('ui.aterkallad') };
 const STATUS_COLORS = {
   pending: { bg: BRAND.amberBg, text: BRAND.amberText },
   active: { bg: BRAND.greenLight, text: BRAND.greenDark },
@@ -1731,7 +1731,7 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
     if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; }
     setInviteError(''); setInviteSuccess('');
     const email = inviteEmail.trim().toLowerCase();
-    if (!email || !email.includes('@')) { setInviteError('Ange en giltig e-postadress.'); return; }
+    if (!email || !email.includes('@')) { setInviteError(tr('ui.ange_en_giltig_e_postadress_2')); return; }
     setInviteBusy(true);
     try {
       const { data: inserted, error } = await supabase
@@ -1762,7 +1762,7 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
         });
       } catch (sendErr) {
         console.error('Kunde inte skicka inbjudningsmejlet:', sendErr);
-        setInviteSuccess(`Inbjudan skapad, men mejlet kunde inte skickas. Dela länken manuellt: ${inviteUrl}`);
+        setInviteSuccess(tr('ui.inbjudan_mejl_misslyckades', { url: inviteUrl }));
         setInviteEmail('');
         setShowInviteForm(false);
         loadMembers();
@@ -1775,7 +1775,7 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
       loadMembers();
     } catch (err) {
       const isDuplicate = err?.code === '23505';
-      setInviteError(isDuplicate ? 'Den här personen är redan inbjuden till företaget.' : (err?.message || 'Kunde inte skicka inbjudan.'));
+      setInviteError(isDuplicate ? tr('ui.den_har_personen_ar_redan_inbjuden_till_foretage') : (err?.message || tr('ui.kunde_inte_skicka_inbjudan')));
     } finally {
       setInviteBusy(false);
     }
@@ -1795,7 +1795,7 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
 
   const handleRevoke = async (memberId) => {
     if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; }
-    if (!(await confirmDialog('Återkalla den här personens åtkomst till företaget?', { danger: true }))) return;
+    if (!(await confirmDialog(tr('ui.aterkalla_den_har_personens_atkomst_till_foretag'), { danger: true }))) return;
     await supabase.from('company_members').update({ status: 'revoked' }).eq('id', memberId);
     loadMembers();
   };
@@ -1811,34 +1811,34 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
           <button
             onClick={() => setShowInviteForm(v => !v)}
             disabled={atCap && !showInviteForm}
-            title={atCap ? 'Max 3 användare per företag (ägare + 2 inbjudna) — återkalla någon för att bjuda in en ny.' : undefined}
+            title={atCap ? tr('ui.max_3_anvandare_per_foretag_agare_2_inbjudna_ate') : undefined}
             style={atCap ? { display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: 'var(--border)', color: 'var(--text-muted)', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'not-allowed' } : btnPrimary}
           >
-            <Mail size={16} style={{ marginRight: 6, verticalAlign: '-3px' }} /> {showInviteForm ? 'Avbryt' : 'Bjud in användare'}
+            <Mail size={16} style={{ marginRight: 6, verticalAlign: '-3px' }} /> {showInviteForm ? tr('ui.avbryt') : tr('ui.bjud_in_anvandare')}
           </button>
         )}
       </div>
 
       {isOwner && atCap && !showInviteForm && (
-        <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginBottom: '14px' }}>Max 3 användare per företag är nått (du + 2 inbjudna). Återkalla någon nedan för att bjuda in en ny.</p>
+        <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginBottom: '14px' }}>{tr('ui.max_3_anvandare_per_foretag_ar_natt_du_2_inbjudn')}</p>
       )}
 
       {isOwner && showInviteForm && (
         <form onSubmit={handleInvite} style={{ ...card, marginBottom: '16px' }}>
           <div className="form-row-2" style={{ ...grid2, maxWidth: FORM_MAX }}>
             <div>
-              <label style={labelStyle}>E-postadress</label>
-              <input type="email" required autoFocus value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} style={inputBase} placeholder="namn@exempel.se" />
+              <label style={labelStyle}>{tr('ui.e_postadress')}</label>
+              <input type="email" required autoFocus value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} style={inputBase} placeholder={tr('ui.namn_exempel_se')} />
             </div>
             <div>
-              <label style={labelStyle}>Roll</label>
+              <label style={labelStyle}>{tr('ui.roll')}</label>
               <select
                 value={inviteRole}
                 onChange={e => { setInviteRole(e.target.value); setInvitePages(defaultPageAccess(e.target.value, company?.roleTemplates?.[e.target.value])); }}
                 style={inputBase}
               >
-                <option value="editor">Kan redigera</option>
-                <option value="viewer">Kan bara läsa</option>
+                <option value="editor">{tr('ui.kan_redigera')}</option>
+                <option value="viewer">{tr('ui.kan_bara_lasa')}</option>
               </select>
             </div>
           </div>
@@ -1854,8 +1854,8 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
           </div>
           {inviteError && <p style={{ color: BRAND.redText, fontSize: '13px', marginTop: '10px' }}>{inviteError}</p>}
           <div style={{ marginTop: '16px', display: 'flex', gap: '10px' }}>
-            <button type="submit" disabled={inviteBusy} style={{ ...btnPrimary, opacity: inviteBusy ? 0.6 : 1 }}>{inviteBusy ? 'Skickar…' : 'Skicka inbjudan'}</button>
-            <button type="button" onClick={() => setShowInviteForm(false)} style={btnSecondary}>Avbryt</button>
+            <button type="submit" disabled={inviteBusy} style={{ ...btnPrimary, opacity: inviteBusy ? 0.6 : 1 }}>{inviteBusy ? tr('ui.skickar_2') : tr('ui.skicka_inbjudan')}</button>
+            <button type="button" onClick={() => setShowInviteForm(false)} style={btnSecondary}>{tr('ui.avbryt')}</button>
           </div>
         </form>
       )}
@@ -1871,9 +1871,9 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
         rows={[{ id: '__owner__', isOwnerRow: true }, ...members]}
         columns={[
           {
-            key: 'user', label: 'Användare', wrap: true, render: row => row.isOwnerRow ? (
+            key: 'user', label: tr('ui.anvandare'), wrap: true, render: row => row.isOwnerRow ? (
               <div>
-                <div style={{ fontWeight: 600, color: 'var(--text-main)' }}>{isOwner ? ([firstName, lastName].filter(Boolean).join(' ') || 'Ditt konto') : 'Ägare'}</div>
+                <div style={{ fontWeight: 600, color: 'var(--text-main)' }}>{isOwner ? ([firstName, lastName].filter(Boolean).join(' ') || tr('ui.ditt_konto_2')) : tr('ui.agare')}</div>
                 {isOwner && <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{user?.email}</div>}
               </div>
             ) : (
@@ -1881,18 +1881,18 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
             ),
           },
           {
-            key: 'role', label: 'Roll', render: row => row.isOwnerRow ? 'Administratör' : (
+            key: 'role', label: tr('ui.roll'), render: row => row.isOwnerRow ? tr('ui.administrator') : (
               isOwner && row.status !== 'revoked' ? (
                 <select value={row.role} onChange={e => handleRoleChange(row.id, e.target.value)} style={{ ...inputBase, width: 'auto', padding: '4px 8px', fontSize: '13px' }}>
-                  <option value="editor">Kan redigera</option>
-                  <option value="viewer">Kan bara läsa</option>
+                  <option value="editor">{tr('ui.kan_redigera')}</option>
+                  <option value="viewer">{tr('ui.kan_bara_lasa')}</option>
                 </select>
               ) : ROLE_LABELS[row.role] || row.role
             ),
           },
           {
-            key: 'status', label: 'Status', render: row => row.isOwnerRow ? (
-              <span style={{ padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: BRAND.greenLight, color: BRAND.greenDark }}>Aktiv</span>
+            key: 'status', label: tr('ui.status'), render: row => row.isOwnerRow ? (
+              <span style={{ padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: BRAND.greenLight, color: BRAND.greenDark }}>{tr('ui.aktiv')}</span>
             ) : (
               <span style={{ padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: STATUS_COLORS[row.status]?.bg, color: STATUS_COLORS[row.status]?.text }}>
                 {STATUS_LABELS[row.status] || row.status}
@@ -1900,19 +1900,19 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
             ),
           },
           ...(isOwner ? [{
-            key: 'access', label: 'Sidor', align: 'right', render: row => (!row.isOwnerRow && row.status !== 'revoked') ? (
+            key: 'access', label: tr('ui.sidor'), align: 'right', render: row => (!row.isOwnerRow && row.status !== 'revoked') ? (
               <button
                 type="button"
                 onClick={() => setEditingAccessId(editingAccessId === row.id ? null : row.id)}
                 style={{ ...btnTile, padding: '5px 11px' }}
               >
-                {editingAccessId === row.id ? 'Dölj' : 'Ändra'}
+                {editingAccessId === row.id ? tr('ui.dolj') : tr('ui.andra')}
               </button>
             ) : null,
           }] : []),
           ...(isOwner ? [{
             key: 'actions', label: '', align: 'right', render: row => (!row.isOwnerRow && row.status !== 'revoked') ? (
-              <button onClick={() => handleRevoke(row.id)} title="Återkalla åtkomst" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
+              <button onClick={() => handleRevoke(row.id)} title={tr('ui.aterkalla_atkomst')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
                 <Trash2 size={15} />
               </button>
             ) : null,
@@ -1927,7 +1927,7 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
         return (
           <div style={{ marginTop: '14px', padding: '16px 18px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px' }}>
             <div style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '12px' }}>
-              Sidor för {member.invited_email}
+              {tr('ui.sidor_for')} {member.invited_email}
             </div>
             <PageAccessPicker
               value={member.page_access}
@@ -1936,19 +1936,19 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
               compact
             />
             <div style={{ marginTop: '12px' }}>
-              <button type="button" onClick={() => setEditingAccessId(null)} style={btnSecondary}>Klar</button>
+              <button type="button" onClick={() => setEditingAccessId(null)} style={btnSecondary}>{tr('ui.klar')}</button>
             </div>
           </div>
         );
       })()}
 
       {!loading && members.length === 0 && isOwner && (
-        <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginTop: '10px' }}>Inga andra användare inbjudna ännu.</p>
+        <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginTop: '10px' }}>{tr('ui.inga_andra_anvandare_inbjudna_annu')}</p>
       )}
       {isOwner ? (
-        <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginTop: '10px', maxWidth: '560px' }}>Max 3 användare per företag (du + 2 inbjudna). Rollen sätter taket — "Kan bara läsa" kan aldrig spara något — och under Sidor väljer du exakt vilka delar personen ser och får ändra.</p>
+        <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginTop: '10px', maxWidth: '560px' }}>{tr('ui.max_3_anvandare_per_foretag_du_2_inbjudna_rollen')}</p>
       ) : (
-        <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginTop: '10px', maxWidth: '560px' }}>Du har blivit inbjuden till det här företaget av ägaren ({ROLE_LABELS[sharedAccess.role] || sharedAccess.role}-behörighet).</p>
+        <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginTop: '10px', maxWidth: '560px' }}>{tr('ui.du_har_blivit_inbjuden_till_det_har_foretaget_av')}{ROLE_LABELS[sharedAccess.role] || sharedAccess.role}{tr('ui.behorighet')}</p>
       )}
 
       {/* Roller & behörigheter — sparar FÖRVALET för NYA inbjudningar, inte
@@ -1957,8 +1957,8 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
       {isOwner && (
         <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--border-light)' }}>
           <div style={{ marginBottom: '10px' }}>
-            <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)' }}>Roller & behörigheter</div>
-            <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: '3px 0 0', maxWidth: '560px' }}>Sätt vilka sidor en NY inbjudan får som förval, per roll. Ändrar inte redan inbjudna personers behörigheter.</p>
+            <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)' }}>{tr('ui.roller_behorigheter')}</div>
+            <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: '3px 0 0', maxWidth: '560px' }}>{tr('ui.satt_vilka_sidor_en_ny_inbjudan_far_som_forval_p')}</p>
           </div>
           {editingRoleTemplate ? (
             <div>
@@ -1968,14 +1968,14 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
                 onChange={(next) => setCompanyInfo({ ...company, roleTemplates: { ...(company?.roleTemplates || {}), [editingRoleTemplate]: next } })}
               />
               <div style={{ marginTop: '12px' }}>
-                <button type="button" onClick={() => setEditingRoleTemplate(null)} style={btnSecondary}>Klar</button>
+                <button type="button" onClick={() => setEditingRoleTemplate(null)} style={btnSecondary}>{tr('ui.klar')}</button>
               </div>
             </div>
           ) : (
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
               {['editor', 'viewer'].map(role => (
                 <button key={role} type="button" onClick={() => setEditingRoleTemplate(role)} style={btnTile}>
-                  {ROLE_LABELS[role]} — ändra förval
+                  {ROLE_LABELS[role]} {tr('ui.andra_forval')}
                 </button>
               ))}
             </div>
@@ -1988,12 +1988,12 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
 
 const fmtDateSv = (d) => {
   if (!d) return '—';
-  try { return new Intl.DateTimeFormat('sv-SE', { year: 'numeric', month: 'long', day: 'numeric' }).format(new Date(d)); } catch { return d; }
+  try { return new Intl.DateTimeFormat(dateLocale(), { year: 'numeric', month: 'long', day: 'numeric' }).format(new Date(d)); } catch { return d; }
 };
 
 const SUBSCRIPTION_STATUS_LABELS = {
-  trialing: 'Provperiod', active: 'Aktiv', past_due: 'Betalning misslyckades — försöker igen',
-  canceled: 'Avslutad', unpaid: 'Obetald', incomplete: 'Ofullständig', incomplete_expired: 'Utgången',
+  trialing: tr('ui.provperiod'), active: tr('ui.aktiv'), past_due: tr('ui.betalning_misslyckades_forsoker'),
+  canceled: tr('ui.avslutad'), unpaid: tr('ui.obetald'), incomplete: tr('ui.ofullstandig'), incomplete_expired: tr('ui.utgangen'),
 };
 
 /** Betalningsuppgifter / Fakturor & kvitton (Prenumeration) — EN knapp som
@@ -2009,7 +2009,7 @@ function BillingPortalButton({ companyId, label }) {
       const url = await openBillingPortal(companyId);
       window.open(url, '_blank', 'noopener,noreferrer');
     } catch (err) {
-      setError(err.message || 'Kunde inte öppna betalningsportalen.');
+      setError(err.message || tr('ui.kunde_inte_oppna_betalningsportalen'));
     } finally {
       setBusy(false);
     }
@@ -2017,7 +2017,7 @@ function BillingPortalButton({ companyId, label }) {
   return (
     <div>
       <button type="button" onClick={open} disabled={busy} style={{ ...btnSecondary, opacity: busy ? 0.6 : 1 }}>
-        <ExternalLink size={14} style={{ verticalAlign: 'middle', marginRight: '7px' }} />{busy ? 'Öppnar…' : label}
+        <ExternalLink size={14} style={{ verticalAlign: 'middle', marginRight: '7px' }} />{busy ? tr('ui.oppnar') : label}
       </button>
       {error && <div style={{ fontSize: '12px', color: 'var(--status-red-text)', marginTop: '6px' }}>{error}</div>}
     </div>
@@ -2030,11 +2030,11 @@ function UsageCard({ invoices, verifications, contacts, expenses }) {
   const thisMonth = new Date().toISOString().slice(0, 7);
   const countThisMonth = (list, dateField) => list.filter(x => (x?.[dateField] || '').startsWith(thisMonth)).length;
   const rows = [
-    { label: 'Fakturor skapade denna månad', value: countThisMonth(invoices, 'date') },
-    { label: 'Fakturor totalt', value: invoices.length },
-    { label: 'Bokförda verifikationer totalt', value: verifications.length },
-    { label: 'Kvitton/underlag totalt', value: expenses.length },
-    { label: 'Kunder och leverantörer', value: contacts.length },
+    { label: tr('ui.fakturor_skapade_denna_manad'), value: countThisMonth(invoices, 'date') },
+    { label: tr('ui.fakturor_totalt'), value: invoices.length },
+    { label: tr('ui.bokforda_verifikationer_totalt'), value: verifications.length },
+    { label: tr('ui.kvitton_underlag_totalt'), value: expenses.length },
+    { label: tr('ui.kunder_och_leverantorer'), value: contacts.length },
   ];
   return (
     <SettingCard>
@@ -2079,34 +2079,34 @@ function UfSubscriptionCard({ company, canClose = true }) {
     }
   };
   const endsLabel = period.endsAt
-    ? new Intl.DateTimeFormat('sv-SE', { day: 'numeric', month: 'long', year: 'numeric' }).format(period.endsAt)
+    ? new Intl.DateTimeFormat(dateLocale(), { day: 'numeric', month: 'long', year: 'numeric' }).format(period.endsAt)
     : null;
   const daysLabel = typeof period.daysLeft === 'number' ? ' (' + period.daysLeft + ' dagar kvar)' : '';
   return (
     <SettingCard>
       <div style={{ display: 'flex', alignItems: 'center', gap: '9px', marginBottom: '10px' }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 10px', borderRadius: '999px', background: BRAND.greenLight, color: BRAND.greenDark, fontSize: '11.5px', fontWeight: 800, letterSpacing: '0.03em', textTransform: 'uppercase' }}>
-          UF-konto
+          {tr('ui.uf_konto')}
         </span>
-        <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)' }}>Gratis</span>
+        <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)' }}>{tr('ui.gratis')}</span>
       </div>
       <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.7 }}>
         {period.expired ? (
-          <>Gratisperioden på {UF_FREE_MONTHS} månader tog slut {endsLabel}. Vill ni fortsätta väljer ni en prenumeration, annars kan ni avsluta UF-året här nedanför. Väljer ni inget stängs kontot sex månader efter att perioden tog slut. Bokföringen sparas i sju år oavsett.</>
+          <>{tr('ui.gratisperioden_pa')} {UF_FREE_MONTHS} {tr('ui.manader_tog_slut')} {endsLabel}{tr('ui.vill_ni_fortsatta_valjer_ni_en_prenumeration_ann')}</>
         ) : period.known ? (
-          <>Gratis till och med <strong style={{ color: 'var(--text-main)' }}>{endsLabel}</strong>{daysLabel}. Inga betaluppgifter är registrerade, och ingenting börjar kosta automatiskt när perioden tar slut.</>
+          <>{tr('ui.gratis_till_och_med')} <strong style={{ color: 'var(--text-main)' }}>{endsLabel}</strong>{daysLabel}{tr('ui.inga_betaluppgifter_ar_registrerade_och_ingentin')}</>
         ) : (
-          <>Kontot är gratis i {UF_FREE_MONTHS} månader. Inga betaluppgifter är registrerade, och ingenting börjar kosta automatiskt.</>
+          <>{tr('ui.kontot_ar_gratis_i')} {UF_FREE_MONTHS} {tr('ui.manader_inga_betaluppgifter_ar_registrerade_och')}</>
         )}
       </div>
       {canClose && (
         <div style={{ marginTop: '16px', paddingTop: '14px', borderTop: '1px solid var(--border-light)' }}>
-          <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '4px' }}>Klara med UF-året?</div>
+          <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '4px' }}>{tr('ui.klara_med_uf_aret')}</div>
           <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.6, margin: '0 0 10px' }}>
-            Avsluta kontot när ni är klara. Ni kan ladda ner allt i tre månader, sedan stängs kontot. Bokföringen och underlagen sparas i sju år, som Skatteverket kräver även för UF-företag.
+            {tr('ui.avsluta_kontot_nar_ni_ar_klara_ni_kan_ladda_ner')}
           </p>
           <button type="button" className="btn btn-secondary" onClick={handleClose} disabled={closing}>
-            {closing ? 'Avslutar…' : 'Avsluta UF-året'}
+            {closing ? tr('ui.avslutar') : tr('ui.avsluta_uf_aret')}
           </button>
           {closeError && <div style={{ fontSize: '12.5px', color: 'var(--status-red-text)', fontWeight: 600, marginTop: '8px' }}>{closeError}</div>}
         </div>
@@ -2160,7 +2160,7 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
       await loadSubscription();
       setConfirmCancel(false);
     } catch (err) {
-      setError(err.message || 'Kunde inte avsluta prenumerationen. Försök igen om en stund.');
+      setError(err.message || tr('ui.kunde_inte_avsluta_prenumerationen_forsok_igen_o'));
     } finally {
       setBusy(false);
     }
@@ -2173,7 +2173,7 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
       await reactivateStripeSubscription(companyId || null);
       await loadSubscription();
     } catch (err) {
-      setError(err.message || 'Kunde inte återaktivera prenumerationen. Försök igen om en stund.');
+      setError(err.message || tr('ui.kunde_inte_ateraktivera_prenumerationen_forsok_i'));
     } finally {
       setBusy(false);
     }
@@ -2185,7 +2185,7 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
           <Shield size={20} style={{ color: BRAND.green, flexShrink: 0, marginTop: '2px' }} />
           <div style={{ fontSize: '13px', color: 'var(--text-secondary)', maxWidth: '520px' }}>
-            Du har åtkomst till det här företaget via en inbjudan från ägaren — det finns ingen egen prenumeration att hantera här. Frågor om fakturering går till den som bjöd in dig.
+            {tr('ui.du_har_atkomst_till_det_har_foretaget_via_en_inb')}
           </div>
         </div>
       </div>
@@ -2193,7 +2193,7 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
   }
 
   if (loading) {
-    return <div style={card}><div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Läser in...</div></div>;
+    return <div style={card}><div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{tr('ui.laser_in')}</div></div>;
   }
 
   if (!sub) {
@@ -2205,7 +2205,7 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '16px 18px', background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: '14px' }}>
           <Shield size={18} style={{ color: BRAND.green, flexShrink: 0, marginTop: '2px' }} />
           <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-            Ingen betald plan är kopplad till det här företaget ännu. Så här ser nivåerna ut.
+            {tr('ui.ingen_betald_plan_ar_kopplad_till_det_har_foreta')}
           </div>
         </div>
         {/* Egen, smalare kolumnbredd än settings-grid: nivåkorten ligger i
@@ -2233,14 +2233,14 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
               </div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '7px' }}>
                 <span style={{ fontSize: '28px', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.02em' }}>{tier.monthlyPrice}</span>
-                <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>kr/mån</span>
-                <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginLeft: '4px' }}>· {tier.yearlyMonthlyPrice} kr/mån på årsplan</span>
+                <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{tr('ui.kr_man_2')}</span>
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginLeft: '4px' }}>· {tier.yearlyMonthlyPrice} {tr('ui.kr_man_pa_arsplan')}</span>
               </div>
               <div style={{ display: 'grid', gap: '7px' }}>
                 {[
-                  'Bokföring, fakturor, offerter, kvitton och moms',
-                  'Rapporter, bokslutsunderlag och SIE-export',
-                  tier.includesPayroll ? 'Löner och arbetsgivardeklaration' : null,
+                  tr('ui.plan_rad_bokforing'),
+                  tr('ui.plan_rad_rapporter'),
+                  tier.includesPayroll ? tr('ui.loner_och_arbetsgivardeklaration') : null,
                 ].filter(Boolean).map(row => (
                   <div key={row} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12.5px', color: 'var(--text-secondary)' }}>
                     <Check size={13} style={{ color: BRAND.green, flexShrink: 0 }} /> {row}
@@ -2262,9 +2262,9 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
   // (konton som skapades innan nivåerna fanns) gäller 179 kr, av exakt
   // samma skäl som planIncludesPayroll ger dem full funktionalitet.
   const plan = planFromId(sub.plan);
-  const priceLabel = `${plan ? plan.price : 179} kr/mån`;
+  const priceLabel = tr('ui.kr_man', { v0: plan ? plan.price : 179 });
   const statusBadge = sub.cancel_at_period_end
-    ? { bg: 'var(--status-amber-bg)', text: 'var(--status-amber-text)', label: 'Avslutas' }
+    ? { bg: 'var(--status-amber-bg)', text: 'var(--status-amber-text)', label: tr('ui.avslutas') }
     : (sub.status === 'active' || sub.status === 'trialing')
       ? { bg: 'var(--status-green-bg)', text: 'var(--status-green-text)', label: SUBSCRIPTION_STATUS_LABELS[sub.status] || sub.status }
       : { bg: 'var(--status-red-bg)', text: 'var(--status-red-text)', label: SUBSCRIPTION_STATUS_LABELS[sub.status] || sub.status };
@@ -2294,34 +2294,34 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
             <div className="settings-main" style={{ minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px', borderRadius: '999px', fontSize: '11px', fontWeight: 700, color: 'white', background: 'rgba(255,255,255,0.16)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-                  <Sparkles size={12} /> Din plan
+                  <Sparkles size={12} /> {tr('ui.din_plan')}
                 </span>
                 <span style={{ padding: '3px 10px', borderRadius: '999px', fontSize: '11.5px', fontWeight: 700, background: statusBadge.bg, color: statusBadge.text }}>{statusBadge.label}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', flexWrap: 'wrap', marginTop: '10px' }}>
                 <span style={{ fontFamily: 'var(--font-voice)', fontSize: '28px', fontWeight: 700, color: 'white', letterSpacing: '-0.01em' }}>
-                  Bokix{plan ? ' ' + plan.name : ''}
+                  {tr('ui.bokix')}{plan ? ' ' + plan.name : ''}
                 </span>
                 <span style={{ fontSize: '16px', fontWeight: 700, color: 'rgba(255,255,255,0.9)' }}>{priceLabel}</span>
               </div>
               <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.82)', maxWidth: '520px', marginTop: '8px', lineHeight: 1.6 }}>
                 {sub.cancel_at_period_end
-                  ? <>Avslutas {fmtDateSv(endDate)}. Du har full åtkomst fram till dess, sedan tas inget mer betalt.</>
+                  ? <>{tr('ui.avslutas')} {fmtDateSv(endDate)}{tr('ui.du_har_full_atkomst_fram_till_dess_sedan_tas_ing')}</>
                   : isTrialing
-                    ? <>Kostnadsfri provperiod till {fmtDateSv(endDate)}, därefter {priceLabel} automatiskt.</>
+                    ? <>{tr('ui.kostnadsfri_provperiod_till')} {fmtDateSv(endDate)}{tr('ui.darefter')} {priceLabel} {tr('ui.automatiskt_2')}</>
                     : sub.status === 'past_due'
-                      ? <>Senaste betalningen misslyckades. Stripe försöker automatiskt igen — uppdatera kortet om det upprepas.</>
-                      : <>Förnyas automatiskt {fmtDateSv(endDate)}.</>}
+                      ? <>{tr('ui.senaste_betalningen_misslyckades_stripe_forsoker')}</>
+                      : <>{tr('ui.fornyas_automatiskt')} {fmtDateSv(endDate)}.</>}
               </div>
             </div>
 
             <div style={{ display: 'flex', gap: '8px', flexShrink: 0, flexWrap: 'wrap' }}>
               {!sub.cancel_at_period_end && sub.status !== 'canceled' && !confirmCancel && (
-                <button onClick={() => setConfirmCancel(true)} style={{ border: '1px solid rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.08)', color: 'white', borderRadius: '10px', padding: '9px 14px', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>Avsluta</button>
+                <button onClick={() => setConfirmCancel(true)} style={{ border: '1px solid rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.08)', color: 'white', borderRadius: '10px', padding: '9px 14px', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>{tr('ui.avsluta')}</button>
               )}
               {sub.cancel_at_period_end && (
                 <button onClick={handleReactivate} disabled={busy} style={{ border: 0, background: 'white', color: BRAND.greenDark, borderRadius: '10px', padding: '9px 14px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', opacity: busy ? 0.6 : 1 }}>
-                  {busy ? 'Återaktiverar…' : 'Ångra uppsägning'}
+                  {busy ? tr('ui.ateraktiverar') : tr('ui.angra_uppsagning')}
                 </button>
               )}
             </div>
@@ -2333,17 +2333,17 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
             stället för att gömmas i en punktlista alla planer delar. */}
         <div style={{ background: 'var(--bg-card)', padding: '18px 24px', display: 'grid', gap: '10px' }}>
           {[
-            { text: 'Bokföring, fakturor, offerter, kvitton och moms', included: true },
-            { text: 'Rapporter, bokslutsunderlag och SIE-export', included: true },
-            { text: 'Löner och arbetsgivardeklaration', included: plan ? plan.includesPayroll : true },
-            { text: 'Upp till tre användare per företag', included: true },
+            { text: tr('ui.plan_rad_bokforing'), included: true },
+            { text: tr('ui.plan_rad_rapporter'), included: true },
+            { text: tr('ui.loner_och_arbetsgivardeklaration'), included: plan ? plan.includesPayroll : true },
+            { text: tr('ui.upp_till_tre_anvandare_per_foretag'), included: true },
           ].map(row => (
             <div key={row.text} style={{ display: 'flex', alignItems: 'center', gap: '9px', fontSize: '13.5px', color: row.included ? 'var(--text-main)' : 'var(--text-muted)' }}>
               {row.included
                 ? <CheckCircle2 size={16} style={{ color: BRAND.green, flexShrink: 0 }} />
                 : <X size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />}
               <span style={{ textDecoration: row.included ? 'none' : 'line-through' }}>{row.text}</span>
-              {!row.included && <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>— ingår i Med personal</span>}
+              {!row.included && <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>{tr('ui.ingar_i_med_personal')}</span>}
             </div>
           ))}
         </div>
@@ -2351,15 +2351,15 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
 
       {confirmCancel && (
         <div style={{ padding: '16px 18px', background: 'var(--status-red-bg)', borderRadius: '14px' }}>
-          <div style={{ fontSize: '13.5px', color: 'var(--status-red-text)', fontWeight: 700, marginBottom: '4px' }}>Avsluta prenumerationen?</div>
+          <div style={{ fontSize: '13.5px', color: 'var(--status-red-text)', fontWeight: 700, marginBottom: '4px' }}>{tr('ui.avsluta_prenumerationen')}</div>
           <div style={{ fontSize: '12.5px', color: 'var(--status-red-text)', marginBottom: '12px', lineHeight: 1.6 }}>
-            Du behåller full åtkomst till och med {fmtDateSv(endDate)}. Redan betald tid återbetalas inte, men inget mer dras efter det. Din bokföring ligger kvar och går att ladda ner.
+            {tr('ui.du_behaller_full_atkomst_till_och_med')} {fmtDateSv(endDate)}{tr('ui.redan_betald_tid_aterbetalas_inte_men_inget_mer')}
           </div>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             <button onClick={handleCancel} disabled={busy} style={{ ...btnPrimary, background: '#dc2626', boxShadow: 'none', opacity: busy ? 0.6 : 1 }}>
-              {busy ? 'Avslutar…' : 'Ja, avsluta'}
+              {busy ? tr('ui.avslutar') : tr('ui.ja_avsluta')}
             </button>
-            <button onClick={() => setConfirmCancel(false)} disabled={busy} style={btnGhost}>Behåll prenumerationen</button>
+            <button onClick={() => setConfirmCancel(false)} disabled={busy} style={btnGhost}>{tr('ui.behall_prenumerationen')}</button>
           </div>
         </div>
       )}
@@ -2541,12 +2541,12 @@ export default function Settings({
         body: JSON.stringify({ company_id: activeCompanyId, field: 'company', value: companyDraft }),
       });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload?.error || `Kunde inte spara (${response.status})`);
+      if (!response.ok) throw new Error(payload?.error || tr('ui.kunde_inte_spara', { status: response.status }));
       setCompanyInfo(companyDraft);
       setCompanySaveSuccess(true);
       setTimeout(() => setCompanySaveSuccess(false), 4000);
     } catch (err) {
-      setCompanySaveError(err?.message || 'Kunde inte spara ändringarna. Försök igen om en stund.');
+      setCompanySaveError(err?.message || tr('ui.kunde_inte_spara_andringarna_forsok_igen_om_en_s'));
     } finally {
       setCompanySaveBusy(false);
     }
@@ -2630,11 +2630,11 @@ export default function Settings({
   const saveNextInvoiceNumber = () => {
     const n = Number(nextInvoiceNumberInput);
     if (!nextInvoiceNumberInput || !Number.isInteger(n) || n <= 0) {
-      setInvoiceNumberError('Ange ett positivt heltal.');
+      setInvoiceNumberError(tr('ui.ange_ett_positivt_heltal'));
       return;
     }
     if (n <= maxUsedInvoiceNumber) {
-      setInvoiceNumberError(`Måste vara högre än högsta redan använda fakturanummer (${maxUsedInvoiceNumber}) — annars riskerar två fakturor att få samma nummer.`);
+      setInvoiceNumberError(tr('ui.maste_vara_hogre_an_hogsta_redan_anvanda_faktura', { maxUsedInvoiceNumber }));
       return;
     }
     setInvoiceNumberError('');
@@ -2673,15 +2673,15 @@ export default function Settings({
       try {
         const parsed = JSON.parse(reader.result);
         onImport?.(parsed);
-        setImportMsg('Data importerad.');
+        setImportMsg(tr('ui.data_importerad'));
       } catch (err) {
-        setImportMsg(`Kunde inte läsa filen: ${err.message}`);
+        setImportMsg(tr('ui.kunde_inte_lasa_filen_2', { message: err.message }));
       } finally {
         setImportBusy(false);
         e.target.value = '';
       }
     };
-    reader.onerror = () => { setImportMsg('Kunde inte läsa filen.'); setImportBusy(false); };
+    reader.onerror = () => { setImportMsg(tr('ui.kunde_inte_lasa_filen')); setImportBusy(false); };
     reader.readAsText(file);
   };
 
@@ -2701,10 +2701,10 @@ export default function Settings({
   // familj). De autosparar (setCompanyInfo) till skillnad från fälten
   // ovanför dem i samma kort, vilket gruppens hjälptext säger rakt ut.
   const bankFieldsGroup = (
-    <FieldGroup title="Bank" hint="Visas på fakturan. Sparas direkt.">
+    <FieldGroup title={tr('ui.bank')} hint={tr('ui.visas_pa_fakturan_sparas_direkt')}>
       <div className="form-row-2" style={{ ...grid2, maxWidth: FORM_MAX }}>
-        <AutoField label="Bankgiro" value={company?.bankgiro || ''} onChange={(v) => setCompanyInfo({ ...company, bankgiro: v })} />
-        <AutoField label="Plusgiro" value={company?.plusgiro || ''} onChange={(v) => setCompanyInfo({ ...company, plusgiro: v })} />
+        <AutoField label={tr('ui.bankgiro')} value={company?.bankgiro || ''} onChange={(v) => setCompanyInfo({ ...company, bankgiro: v })} />
+        <AutoField label={tr('ui.plusgiro')} value={company?.plusgiro || ''} onChange={(v) => setCompanyInfo({ ...company, plusgiro: v })} />
         <AutoField label="IBAN" value={company?.iban || ''} onChange={(v) => setCompanyInfo({ ...company, iban: v })} />
         <AutoField label="BIC/SWIFT" value={company?.bic || ''} onChange={(v) => setCompanyInfo({ ...company, bic: v })} />
       </div>
@@ -2720,18 +2720,18 @@ export default function Settings({
   // lyssnar på för alla andra sidbyten.
   const bankDetailsCard = (
     <div style={card}>
-      <div style={{ marginBottom: '14px' }}><SectionHeading icon={Landmark} tone="green">Dina betaluppgifter</SectionHeading></div>
+      <div style={{ marginBottom: '14px' }}><SectionHeading icon={Landmark} tone="green">{tr('ui.dina_betaluppgifter')}</SectionHeading></div>
       <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 14px', maxWidth: FORM_MAX }}>
-        Det här är vad kunden ser på fakturan (Betalningsuppgifter, om den är påslagen under Fakturor) — inte en bankkoppling i sig.
+        {tr('ui.det_har_ar_vad_kunden_ser_pa_fakturan_betalnings')}
       </p>
       {bankFieldsGroup}
       <div style={{ marginTop: '16px', paddingTop: '14px', borderTop: '1px solid var(--border-light)' }}>
-        <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '6px' }}>Importera kontoutdrag</div>
+        <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '6px' }}>{tr('ui.importera_kontoutdrag')}</div>
         <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: '0 0 10px', maxWidth: FORM_MAX }}>
-          Ladda upp en CSV/Excel-fil från din bank — raderna matchas mot fakturor och kvitton, på Bank-sidan.
+          {tr('ui.ladda_upp_en_csv_excel_fil_fran_din_bank_raderna')}
         </p>
         <a href="#bank" style={{ ...btnSecondary, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-          Öppna Bank <ExternalLink size={13} />
+          {tr('ui.oppna_bank')} <ExternalLink size={13} />
         </a>
       </div>
     </div>
@@ -2739,7 +2739,7 @@ export default function Settings({
 
   const stripeCard = (
     <div style={card}>
-      <div style={{ marginBottom: '14px' }}><SectionHeading icon={CreditCard} tone={stripeAccountId ? 'green' : 'amber'}>Ta emot kortbetalningar</SectionHeading></div>
+      <div style={{ marginBottom: '14px' }}><SectionHeading icon={CreditCard} tone={stripeAccountId ? 'green' : 'amber'}>{tr('ui.ta_emot_kortbetalningar')}</SectionHeading></div>
       {/* Reauthentication (se ReauthCodeStep ovan) — koppla till/från
           ett Stripe-konto styr var pengarna hamnar, minst lika
           känsligt som lösenord/företagsuppgifter. onConnectStripe/
@@ -2762,8 +2762,8 @@ export default function Settings({
           <div style={{ maxWidth: '480px' }}>
             <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>
               {stripeAccountId
-                ? 'Stripe är anslutet — kunder kan betala dina fakturor med kort direkt online.'
-                : 'Anslut Stripe för att låta kunder betala fakturor med kort direkt online.'}
+                ? tr('ui.stripe_ar_anslutet_kunder_kan_betala_dina_faktur')
+                : tr('ui.anslut_stripe_for_att_lata_kunder_betala_fakturo')}
             </p>
             {/* Kundbeslut: Bokix egen avgift = Stripes EGEN avgift
                 (beror på korttyp, känd först efter betalningen)
@@ -2787,22 +2787,22 @@ export default function Settings({
                 dashboard, som knappen bredvid går till. */}
             {stripeAccountId && (
               <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '6px 0 0', lineHeight: 1.6 }}>
-                Saldo, utbetalningar och avgifter följer du i din Stripe-dashboard. Betalsidan kunden ser visar ditt eget företagsnamn och din egen logga (inte Bokix) — ställs in under{' '}
-                <a href="https://dashboard.stripe.com/settings/branding" target="_blank" rel="noopener noreferrer" style={{ color: BRAND.green }}>Stripe → Varumärke</a>.
+                {tr('ui.saldo_utbetalningar_och_avgifter_foljer_du_i_din')}{' '}
+                <a href="https://dashboard.stripe.com/settings/branding" target="_blank" rel="noopener noreferrer" style={{ color: BRAND.green }}>{tr('ui.stripe_varumarke')}</a>.
               </p>
             )}
           </div>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             {stripeAccountId && (
               <a href="https://dashboard.stripe.com/" target="_blank" rel="noopener noreferrer" style={{ ...btnSecondary, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                Öppna Stripe-dashboard <ExternalLink size={13} />
+                {tr('ui.oppna_stripe_dashboard')} <ExternalLink size={13} />
               </a>
             )}
             {stripeAccountId
-              ? <button onClick={() => { if (readOnly) { onDisconnectStripe?.(); return; } setStripeReauthAction('disconnect'); }} style={btnGhost}>Koppla från</button>
+              ? <button onClick={() => { if (readOnly) { onDisconnectStripe?.(); return; } setStripeReauthAction('disconnect'); }} style={btnGhost}>{tr('ui.koppla_fran')}</button>
               : (
                 <button onClick={() => onConnectStripe?.()} style={btnStripeConnect}>
-                  <StripeLogo height={15} /> Anslut Stripe
+                  <StripeLogo height={15} /> {tr('ui.anslut_stripe')}
                 </button>
               )}
           </div>
@@ -2840,7 +2840,7 @@ export default function Settings({
       ...(init.body ? { body: JSON.stringify(init.body) } : {}),
     });
     const payload = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(payload?.error || `Något gick fel (${res.status})`);
+    if (!res.ok) throw new Error(payload?.error || tr('ui.nagot_gick_fel', { status: res.status }));
     return payload;
   };
 
@@ -2856,7 +2856,7 @@ export default function Settings({
         setOwnSenderReady(payload.configured !== false && !payload.missingTable);
         setOwnSenderGoogle(Boolean(payload.googleAvailable));
       } catch (err) {
-        if (!cancelled) setOwnSenderStatusError(err.message || 'Kunde inte hämta status.');
+        if (!cancelled) setOwnSenderStatusError(err.message || tr('ui.kunde_inte_hamta_status'));
       } finally {
         if (!cancelled) setOwnSenderLoaded(true);
       }
@@ -2905,10 +2905,10 @@ export default function Settings({
         method: 'POST',
         body: { resource: 'sender', action: 'oauth-url', company_id: activeCompanyId },
       });
-      if (!payload?.url) throw new Error('Fick ingen inloggningsadress från servern.');
+      if (!payload?.url) throw new Error(tr('ui.fick_ingen_inloggningsadress_fran_servern'));
       window.location.href = payload.url;
     } catch (err) {
-      setOwnSenderError(err.message || 'Kunde inte starta inloggningen mot Google.');
+      setOwnSenderError(err.message || tr('ui.kunde_inte_starta_inloggningen_mot_google'));
       setOwnSenderBusy(false);
     }
   };
@@ -2934,20 +2934,20 @@ export default function Settings({
       setOwnSender(payload.sender || null);
       setOwnSenderForm(f => ({ ...f, password: '' }));
     } catch (err) {
-      setOwnSenderError(err.message || 'Kunde inte spara avsändaren.');
+      setOwnSenderError(err.message || tr('ui.kunde_inte_spara_avsandaren'));
     } finally {
       setOwnSenderBusy(false);
     }
   };
 
   const handleOwnSenderRemove = async () => {
-    if (!(await confirmDialog('Koppla från din egen avsändaradress? Fakturor skickas då via Bokix adress igen.'))) return;
+    if (!(await confirmDialog(tr('ui.koppla_fran_din_egen_avsandaradress_fakturor_ski')))) return;
     setOwnSenderBusy(true); setOwnSenderError('');
     try {
       await senderApi({ url: '/api/email/domains', method: 'POST', body: { resource: 'sender', action: 'remove', company_id: activeCompanyId } });
       setOwnSender(null);
     } catch (err) {
-      setOwnSenderError(err.message || 'Kunde inte koppla från.');
+      setOwnSenderError(err.message || tr('ui.kunde_inte_koppla_fran'));
     } finally {
       setOwnSenderBusy(false);
     }
@@ -2966,7 +2966,7 @@ export default function Settings({
     <div style={card}>
       <div style={{ marginBottom: '14px' }}>
         <SectionHeading icon={Mail} tone={isGoogleSender ? 'green' : 'gray'}>
-          Koppla ditt Gmail-konto
+          {tr('ui.koppla_ditt_gmail_konto')}
         </SectionHeading>
       </div>
 
@@ -2976,35 +2976,35 @@ export default function Settings({
             <div>
               <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)' }}>{ownSender.fromEmail}</div>
               <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                Kopplat med Google. Bokix kan skicka i ditt namn — men inte läsa något i din inkorg.
+                {tr('ui.kopplat_med_google_bokix_kan_skicka_i_ditt_namn')}
               </div>
             </div>
             <Badge tone={ownSender.verifiedAt ? 'positive' : 'warning'}>
-              {ownSender.verifiedAt ? 'Ansluten' : 'Ej testad'}
+              {ownSender.verifiedAt ? tr('ui.ansluten') : tr('ui.ej_testad')}
             </Badge>
           </div>
           {ownSender.lastError && (
             <div style={{ fontSize: '12.5px', color: 'var(--status-red-text)', background: 'var(--status-red-bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '10px 12px', marginBottom: '12px', maxWidth: FORM_MAX }}>
-              Senaste utskicket gick inte via ditt Gmail-konto: {ownSender.lastError} Fakturan skickades via Bokix adress i stället.
+              {tr('ui.senaste_utskicket_gick_inte_via_ditt_gmail_konto')} {ownSender.lastError} {tr('ui.fakturan_skickades_via_bokix_adress_i_stallet')}
             </div>
           )}
-          <button onClick={handleOwnSenderRemove} disabled={ownSenderBusy} style={btnGhost}>Koppla från</button>
+          <button onClick={handleOwnSenderRemove} disabled={ownSenderBusy} style={btnGhost}>{tr('ui.koppla_fran')}</button>
         </>
       ) : (
         <>
           <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 16px', maxWidth: '560px' }}>
-            Skicka fakturor från ditt eget Gmail-konto i stället för via Bokix. Kunden ser din Gmail-adress som avsändare, mejlet hamnar i din egen Skickat-mapp, och det kostar ingenting extra.
+            {tr('ui.skicka_fakturor_fran_ditt_eget_gmail_konto_i_sta')}
           </p>
 
           {ownSenderStatusError && (
             <div style={{ fontSize: '12.5px', color: 'var(--status-red-text)', marginBottom: '12px', fontWeight: 600 }}>
-              Kunde inte läsa statusen: {ownSenderStatusError}
+              {tr('ui.kunde_inte_lasa_statusen')} {ownSenderStatusError}
             </div>
           )}
 
           {isManualSender && (
             <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', background: 'var(--bg-hover)', border: '1px solid var(--border)', borderRadius: '8px', padding: '10px 12px', marginBottom: '14px', maxWidth: '560px' }}>
-              Du skickar just nu via {ownSender.fromEmail}. Ansluter du Gmail här ersätts den kopplingen.
+              {tr('ui.du_skickar_just_nu_via')} {ownSender.fromEmail}{tr('ui.ansluter_du_gmail_har_ersatts_den_kopplingen')}
             </div>
           )}
 
@@ -3015,13 +3015,13 @@ export default function Settings({
               style={{ display: 'inline-flex', alignItems: 'center', gap: '11px', padding: '13px 20px', borderRadius: '11px', border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-main)', fontWeight: 700, fontSize: '15px', cursor: (ownSenderBusy || !ownSenderGoogle) ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: (ownSenderBusy || !ownSenderGoogle) ? 0.55 : 1, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}
             >
               <GoogleGlyph size={19} />
-              {ownSenderBusy ? 'Öppnar Google…' : 'Fortsätt med Google'}
+              {ownSenderBusy ? tr('ui.oppnar_google') : tr('ui.fortsatt_med_google')}
             </button>
 
             <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
               {ownSenderGoogle
-                ? 'Google frågar om en enda behörighet: att skicka e-post åt dig. Bokix kan inte läsa, söka i eller radera något i din inkorg — den behörigheten begär vi aldrig.'
-                : 'Google-inloggningen är inte påslagen på servern ännu (GOOGLE_OAUTH_CLIENT_ID och GOOGLE_OAUTH_CLIENT_SECRET saknas).'}
+                ? tr('ui.google_fragar_om_en_enda_behorighet_att_skicka_e')
+                : tr('ui.google_inloggningen_ar_inte_paslagen_pa_servern')}
             </div>
           </div>
         </>
@@ -3033,7 +3033,7 @@ export default function Settings({
     <div style={card}>
       <div style={{ marginBottom: '14px' }}>
         <SectionHeading icon={Mail} tone={isManualSender ? 'green' : 'gray'}>
-          Skicka från din verksamhets e-post
+          {tr('ui.skicka_fran_din_verksamhets_e_post')}
         </SectionHeading>
       </div>
 
@@ -3043,40 +3043,40 @@ export default function Settings({
             <div>
               <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)' }}>{ownSender.fromEmail}</div>
               <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                Fakturor och offerter skickas härifrån, och hamnar i din egen Skickat-mapp.
+                {tr('ui.fakturor_och_offerter_skickas_harifran_och_hamna')}
               </div>
             </div>
             <Badge tone={ownSender.verifiedAt ? 'positive' : 'warning'}>
-              {ownSender.verifiedAt ? 'Ansluten' : 'Ej testad'}
+              {ownSender.verifiedAt ? tr('ui.ansluten') : tr('ui.ej_testad')}
             </Badge>
           </div>
           {ownSender.lastError && (
             <div style={{ fontSize: '12.5px', color: 'var(--status-red-text)', background: 'var(--status-red-bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '10px 12px', marginBottom: '12px', maxWidth: FORM_MAX }}>
-              Senaste utskicket gick inte via din adress: {ownSender.lastError} Fakturan skickades via Bokix adress i stället.
+              {tr('ui.senaste_utskicket_gick_inte_via_din_adress')} {ownSender.lastError} {tr('ui.fakturan_skickades_via_bokix_adress_i_stallet')}
             </div>
           )}
-          <button onClick={handleOwnSenderRemove} disabled={ownSenderBusy} style={btnGhost}>Koppla från</button>
+          <button onClick={handleOwnSenderRemove} disabled={ownSenderBusy} style={btnGhost}>{tr('ui.koppla_fran')}</button>
         </>
       ) : (
         <>
           <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 16px', maxWidth: '560px' }}>
-            Skicka fakturor från din verksamhets mejladress hos t.ex. Outlook, one.com eller en annan leverantör, i stället för via Bokix. Kostar ingenting extra.
+            {tr('ui.skicka_fakturor_fran_din_verksamhets_mejladress_2')}
           </p>
 
           {isGoogleSender && (
             <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', background: 'var(--bg-hover)', border: '1px solid var(--border)', borderRadius: '8px', padding: '10px 12px', marginBottom: '14px', maxWidth: FORM_MAX }}>
-              Du skickar just nu via ditt Gmail-konto ({ownSender.fromEmail}). Fyll i nedan för att byta till den här adressen i stället.
+              {tr('ui.du_skickar_just_nu_via_ditt_gmail_konto')}{ownSender.fromEmail}{tr('ui.fyll_i_nedan_for_att_byta_till_den_har_adressen')}
             </div>
           )}
 
           <div style={{ maxWidth: FORM_MAX }}>
             <div className="form-row-stack" style={grid2}>
-              <AutoField label="Din e-postadress" value={ownSenderForm.fromEmail} onChange={handleOwnSenderEmailChange} placeholder="namn@dittforetag.se" />
-              <AutoField label="Avsändarnamn (visas för kunden)" value={ownSenderForm.fromName} onChange={(v) => setOwnSenderForm(f => ({ ...f, fromName: v }))} placeholder={company?.name || 'Ditt företag'} />
+              <AutoField label={tr('ui.din_e_postadress')} value={ownSenderForm.fromEmail} onChange={handleOwnSenderEmailChange} placeholder={tr('ui.namn_dittforetag_se')} />
+              <AutoField label={tr('ui.avsandarnamn_visas_for_kunden')} value={ownSenderForm.fromName} onChange={(v) => setOwnSenderForm(f => ({ ...f, fromName: v }))} placeholder={company?.name || tr('ui.ditt_foretag')} />
             </div>
 
             <div style={{ marginTop: '12px' }}>
-              <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Leverantör</label>
+              <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>{tr('ui.leverantor')}</label>
               <select
                 value={ownSenderForm.provider}
                 onChange={e => handleOwnSenderProviderChange(e.target.value)}
@@ -3090,30 +3090,30 @@ export default function Settings({
               <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginTop: '10px', lineHeight: 1.55 }}>
                 {activeProvider.help}
                 {activeProvider.appPasswordUrl && (
-                  <> <a href={activeProvider.appPasswordUrl} target="_blank" rel="noopener noreferrer" style={{ color: BRAND.greenDark, fontWeight: 600 }}>Skapa app-lösenord →</a></>
+                  <> <a href={activeProvider.appPasswordUrl} target="_blank" rel="noopener noreferrer" style={{ color: BRAND.greenDark, fontWeight: 600 }}>{tr('ui.skapa_app_losenord')}</a></>
                 )}
               </div>
             )}
 
             {ownSenderForm.provider === 'custom' && (
               <div className="form-row-stack" style={{ ...grid2, marginTop: '12px' }}>
-                <AutoField label="Serveradress (SMTP)" value={ownSenderForm.host} onChange={(v) => setOwnSenderForm(f => ({ ...f, host: v }))} placeholder="smtp.leverantor.se" />
-                <AutoField label="Port" type="number" value={String(ownSenderForm.port)} onChange={(v) => setOwnSenderForm(f => ({ ...f, port: Number(v) || 465, secure: Number(v) === 465 }))} />
+                <AutoField label={tr('ui.serveradress_smtp')} value={ownSenderForm.host} onChange={(v) => setOwnSenderForm(f => ({ ...f, host: v }))} placeholder="smtp.leverantor.se" />
+                <AutoField label={tr('ui.port')} type="number" value={String(ownSenderForm.port)} onChange={(v) => setOwnSenderForm(f => ({ ...f, port: Number(v) || 465, secure: Number(v) === 465 }))} />
               </div>
             )}
 
             <div style={{ marginTop: '12px' }}>
-              <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>App-lösenord</label>
+              <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>{tr('ui.app_losenord')}</label>
               <input
                 type="password"
                 value={ownSenderForm.password}
                 onChange={e => { setOwnSenderForm(f => ({ ...f, password: e.target.value })); setOwnSenderError(''); }}
-                placeholder="Klistra in app-lösenordet"
+                placeholder={tr('ui.klistra_in_app_losenordet')}
                 autoComplete="new-password"
                 style={{ ...inputBase, width: '100%' }}
               />
               <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '6px' }}>
-                Lösenordet krypteras innan det sparas och visas aldrig igen. Vi testar inloggningen direkt när du sparar.
+                {tr('ui.losenordet_krypteras_innan_det_sparas_och_visas')}
               </div>
             </div>
 
@@ -3123,7 +3123,7 @@ export default function Settings({
 
             <div style={{ display: 'flex', gap: '10px', marginTop: '14px', flexWrap: 'wrap' }}>
               <button onClick={handleOwnSenderSave} disabled={ownSenderBusy} style={{ ...btnPrimary, opacity: ownSenderBusy ? 0.6 : 1, cursor: ownSenderBusy ? 'not-allowed' : 'pointer' }}>
-                {ownSenderBusy ? 'Testar inloggningen…' : 'Testa och spara'}
+                {ownSenderBusy ? tr('ui.testar_inloggningen') : tr('ui.testa_och_spara')}
               </button>
             </div>
           </div>
@@ -3148,7 +3148,7 @@ export default function Settings({
     {
       id: 'stripe',
       name: 'Stripe',
-      tagline: 'Låt kunden betala fakturan med kort direkt via länken i mejlet.',
+      tagline: tr('ui.lat_kunden_betala_fakturan_med_kort_direkt_via_l'),
       logo: <StripeLogo height={27} />,
       connected: Boolean(stripeAccountId),
       detail: true,
@@ -3177,14 +3177,14 @@ export default function Settings({
           }}
           style={btnTileLg}
         >
-          {stripeAccountId ? 'Hantera' : 'Anslut'}
+          {stripeAccountId ? tr('ui.hantera') : tr('ui.anslut')}
         </button>
       ),
     },
     {
       id: 'gmail',
       name: 'Gmail',
-      tagline: 'Skicka fakturor direkt från ditt eget Gmail-konto.',
+      tagline: tr('ui.skicka_fakturor_direkt_fran_ditt_eget_gmail_kont'),
       logo: <GmailLogo height={26} />,
       connected: isGoogleSender,
       statusLabel: isGoogleSender ? 'Ansluten' : 'Inte ansluten',
@@ -3212,14 +3212,14 @@ export default function Settings({
           }}
           style={btnTileLg}
         >
-          {isGoogleSender ? 'Hantera' : 'Anslut'}
+          {isGoogleSender ? tr('ui.hantera') : tr('ui.anslut')}
         </button>
       ),
     },
     {
       id: 'business-email',
       name: 'Egen e-postadress',
-      tagline: 'Skicka fakturor från din verksamhets mejladress i stället för en delad Bokix-adress.',
+      tagline: tr('ui.skicka_fakturor_fran_din_verksamhets_mejladress'),
       logo: <Mail size={30} color="var(--text-secondary)" />,
       connected: isManualSender,
       statusLabel: isManualSender ? 'Ansluten' : 'Inte ansluten',
@@ -3227,7 +3227,7 @@ export default function Settings({
       keywords: 'mejl smtp app-lösenord avsändare outlook',
       action: (
         <button type="button" onClick={() => setOpenIntegration(openIntegration === 'business-email' ? null : 'business-email')} style={btnTileLg}>
-          {isManualSender ? 'Hantera' : 'Anslut'}
+          {isManualSender ? tr('ui.hantera') : tr('ui.anslut')}
         </button>
       ),
     },
@@ -3237,7 +3237,7 @@ export default function Settings({
       // i stället för att kortet försvinner ur katalogen.
       id: 'zettle',
       name: 'Zettle',
-      tagline: 'Dagens kassaförsäljning hämtas in som underlag att granska.',
+      tagline: tr('ui.dagens_kassaforsaljning_hamtas_in_som_underlag_a'),
       logo: <ZettleLogo height={23} />,
       connected: zettleConnected,
       keywords: 'kassa butik paypal',
@@ -3247,14 +3247,14 @@ export default function Settings({
           onClick={() => { if (readOnly || !onConnectZettle) { window.alert(DEMO_BLOCKED_MSG); return; } onConnectZettle(); }}
           style={btnTileLg}
         >
-          Anslut
+          {tr('ui.anslut')}
         </button>
       ),
     },
     {
       id: 'bank',
       name: 'Din bank',
-      tagline: 'Betaluppgifter på fakturan, och kontoutdrag som underlag i Bokföring.',
+      tagline: tr('ui.betaluppgifter_pa_fakturan_och_kontoutdrag_som_u'),
       logo: <Landmark size={30} color="var(--text-secondary)" />,
       connected: Boolean(company?.bankgiro || company?.plusgiro || company?.iban),
       statusLabel: (company?.bankgiro || company?.plusgiro || company?.iban) ? 'Ifyllt' : 'Inte ifyllt',
@@ -3262,7 +3262,7 @@ export default function Settings({
       keywords: 'bank kontoutdrag csv excel swedbank seb nordea handelsbanken bankgiro plusgiro iban betaluppgifter',
       action: (
         <button type="button" onClick={() => setOpenIntegration(openIntegration === 'bank' ? null : 'bank')} style={btnTileLg}>
-          Öppna
+          {tr('ui.oppna')}
         </button>
       ),
     },
@@ -3270,13 +3270,13 @@ export default function Settings({
 
   const invoiceDefaultsCard = (
     <div style={card}>
-      <div style={{ marginBottom: '14px' }}><SectionHeading icon={Hash} tone="green">Standardinställningar för nya fakturor</SectionHeading></div>
+      <div style={{ marginBottom: '14px' }}><SectionHeading icon={Hash} tone="green">{tr('ui.standardinstallningar_for_nya_fakturor')}</SectionHeading></div>
       {/* Två fält på en rad i stället för under varandra: betalnings-
           villkoret är tre tecken brett och behöver ingen egen rad över
           hela kortet (kundfeedback om luften på inställningssidan). */}
       <div className="form-row-stack" style={{ ...grid2, gridTemplateColumns: '1fr 2fr', maxWidth: FORM_MAX }}>
-        <AutoField label="Betalningsvillkor (dagar)" type="number" value={company?.paymentTermsDays ?? '30'} onChange={(v) => setCompanyInfo({ ...company, paymentTermsDays: Number(v) || 30 })} />
-        <AutoField label="Standardtext på faktura" value={company?.invoiceFooterText || 'Tack för er affär! Dröjsmålsränta debiteras enligt räntelagen.'} onChange={(v) => setCompanyInfo({ ...company, invoiceFooterText: v })} />
+        <AutoField label={tr('ui.betalningsvillkor_dagar')} type="number" value={company?.paymentTermsDays ?? '30'} onChange={(v) => setCompanyInfo({ ...company, paymentTermsDays: Number(v) || 30 })} />
+        <AutoField label={tr('ui.standardtext_pa_faktura')} value={company?.invoiceFooterText || 'Tack för er affär! Dröjsmålsränta debiteras enligt räntelagen.'} onChange={(v) => setCompanyInfo({ ...company, invoiceFooterText: v })} />
       </div>
 
       {/* Bugkritiskt (mörkt läge): hela den här varningsrutan använde
@@ -3287,23 +3287,23 @@ export default function Settings({
           tema-variabler som resten av sidan överallt nu istället. */}
       <div style={{ marginTop: '14px', padding: '14px', background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: '10px', maxWidth: FORM_MAX }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-main)', fontWeight: 700, marginBottom: '8px' }}>
-          <Hash size={16} /> Numreringsserie
+          <Hash size={16} /> {tr('ui.numreringsserie')}
         </div>
         <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '12px' }}>
-          Nästa fakturanummer räknas normalt automatiskt fram (högsta använda + 1). Detta fält höjer bara ett golv — det kan aldrig sättas till eller under ett nummer som redan använts, så det kan inte skapa krockar i bokföringen.
+          {tr('ui.nasta_fakturanummer_raknas_normalt_automatiskt_f')}
         </div>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
           <div>
-            <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>Golv för nästa fakturanummer</label>
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>{tr('ui.golv_for_nasta_fakturanummer')}</label>
             <input
               type="number" value={nextInvoiceNumberInput} onChange={e => { setNextInvoiceNumberInput(e.target.value); setInvoiceNumberError(''); }}
               placeholder={String(maxUsedInvoiceNumber + 1)}
               style={{ width: '160px', padding: '8px', borderRadius: '6px', border: '1px solid var(--status-red-text)', background: 'var(--bg-card)', color: 'var(--text-secondary)', boxSizing: 'border-box' }}
             />
           </div>
-          <button onClick={saveNextInvoiceNumber} style={{ padding: '8px 16px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 600, cursor: 'pointer' }}>Spara golv</button>
+          <button onClick={saveNextInvoiceNumber} style={{ padding: '8px 16px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 600, cursor: 'pointer' }}>{tr('ui.spara_golv')}</button>
           <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-            {company?.nextInvoiceNumber ? `Aktivt golv: ${company.nextInvoiceNumber}. ` : ''}Högsta använda fakturanummer just nu: {maxUsedInvoiceNumber || '—'}.
+            {company?.nextInvoiceNumber ? tr('ui.aktivt_golv', { nextInvoiceNumber: company.nextInvoiceNumber }) : ''}{tr('ui.hogsta_anvanda_fakturanummer_just_nu')} {maxUsedInvoiceNumber || '—'}.
           </span>
         </div>
         {invoiceNumberError && <div style={{ color: 'var(--text-secondary)', fontSize: '12.5px', marginTop: '8px', fontWeight: 600 }}>{invoiceNumberError}</div>}
@@ -3311,22 +3311,22 @@ export default function Settings({
 
       <div className="form-row-2" style={{ ...grid2, maxWidth: FORM_MAX, marginTop: '14px' }}>
         <div style={{ marginBottom: '10px' }}>
-          <label style={labelStyle}>Fakturadatum på nya fakturor</label>
+          <label style={labelStyle}>{tr('ui.fakturadatum_pa_nya_fakturor')}</label>
           <select
             value={company?.invoiceDateMode || 'today'}
             onChange={e => setCompanyInfo({ ...company, invoiceDateMode: e.target.value })}
             style={{ ...inputBase, background: 'var(--bg-card)' }}
           >
-            <option value="today">Dagens datum</option>
-            <option value="blank">Tomt — fylls i för hand</option>
+            <option value="today">{tr('ui.dagens_datum')}</option>
+            <option value="blank">{tr('ui.tomt_fylls_i_for_hand')}</option>
           </select>
         </div>
         <div style={{ marginBottom: '10px' }}>
-          <label style={labelStyle}>Betalningsuppgifter på fakturan</label>
+          <label style={labelStyle}>{tr('ui.betalningsuppgifter_pa_fakturan')}</label>
           <ToggleSwitch
             checked={company?.showPaymentDetailsOnInvoice !== false}
             onChange={() => setCompanyInfo({ ...company, showPaymentDetailsOnInvoice: !(company?.showPaymentDetailsOnInvoice !== false) })}
-            label="Visa bankgiro/plusgiro/IBAN på fakturan"
+            label={tr('ui.visa_bankgiro_plusgiro_iban_pa_fakturan')}
           />
         </div>
       </div>
@@ -3339,28 +3339,28 @@ export default function Settings({
   // ny sparväg behövs.
   const invoiceReminderCard = (
     <div style={card}>
-      <div style={{ marginBottom: '10px' }}><SectionHeading icon={Bell} tone="amber">Påminnelser</SectionHeading></div>
+      <div style={{ marginBottom: '10px' }}><SectionHeading icon={Bell} tone="amber">{tr('ui.paminnelser')}</SectionHeading></div>
       <div className="form-row-2" style={{ ...grid2, maxWidth: FORM_MAX }}>
         <AutoField
-          label="Påminnelse efter förfallodatum (dagar)" type="number"
+          label={tr('ui.paminnelse_efter_forfallodatum_dagar')} type="number"
           value={company?.notifications?.invoiceReminderDays ?? 3}
           onChange={(v) => setCompanyInfo({ ...company, notifications: { ...(company?.notifications || {}), invoiceReminderDays: Number(v) || 3 } })}
         />
         <AutoField
-          label="Momsdeklaration — påminn X dagar innan" type="number"
+          label={tr('ui.momsdeklaration_paminn_x_dagar_innan')} type="number"
           value={company?.notifications?.declarationReminderDays ?? 7}
           onChange={(v) => setCompanyInfo({ ...company, notifications: { ...(company?.notifications || {}), declarationReminderDays: Number(v) || 7 } })}
         />
       </div>
 
-      <div style={{ marginTop: '18px', marginBottom: '10px' }}><SectionHeading icon={Mail} tone="blue">E-postinställningar</SectionHeading></div>
+      <div style={{ marginTop: '18px', marginBottom: '10px' }}><SectionHeading icon={Mail} tone="blue">{tr('ui.e_postinstallningar')}</SectionHeading></div>
       <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: '0 0 10px', maxWidth: FORM_MAX }}>
-        Taggar: {'{{kundnamn}}'}, {'{{fakturanummer}}'}, {'{{belopp}}'}, {'{{förfallodatum}}'} — ersätts automatiskt när mejlet skickas. Tomt fält använder Bokix standardtext.
+        {tr('ui.taggar')} {'{{kundnamn}}'}, {'{{fakturanummer}}'}, {'{{belopp}}'}, {'{{förfallodatum}}'} {tr('ui.ersatts_automatiskt_nar_mejlet_skickas_tomt_falt')}
       </p>
       <div style={{ maxWidth: FORM_MAX }}>
-        <AutoField label="Ämnesrad" value={company?.invoiceEmailSubject || ''} onChange={(v) => setCompanyInfo({ ...company, invoiceEmailSubject: v })} placeholder={'Faktura {{fakturanummer}} från ' + (company?.name || 'ditt företag')} />
+        <AutoField label={tr('ui.amnesrad')} value={company?.invoiceEmailSubject || ''} onChange={(v) => setCompanyInfo({ ...company, invoiceEmailSubject: v })} placeholder={'Faktura {{fakturanummer}} från ' + (company?.name || 'ditt företag')} />
         <div style={{ marginBottom: '6px' }}>
-          <label style={labelStyle}>Meddelande</label>
+          <label style={labelStyle}>{tr('ui.meddelande')}</label>
           <textarea
             value={company?.invoiceEmailBody || ''}
             onChange={e => setCompanyInfo({ ...company, invoiceEmailBody: e.target.value })}
@@ -3401,12 +3401,12 @@ export default function Settings({
             <span style={{ width: 34, height: 34, borderRadius: '10px', background: 'var(--bg-sidebar)', color: 'white', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <Cog size={18} />
             </span>
-            Inställningar
+            {tr('ui.installningar')}
           </span>
         )}
         subtitle={activeSection ? (SECTION_META[activeSection.id]?.desc || '') : undefined}
         actions={activeSection
-          ? [{ key: 'back', label: 'Alla inställningar', icon: ArrowLeft, onClick: () => handleSetTab(null) }]
+          ? [{ key: 'back', label: tr('ui.alla_installningar'), icon: ArrowLeft, onClick: () => handleSetTab(null) }]
           : []}
         // Piller-flikar (ListPageHeader): åtta flikar får inte plats på en
         // rad, och den understrukna standardraden skrollade då i sidled så
@@ -3441,14 +3441,14 @@ export default function Settings({
               {onOpenHelp && (
                 <button type="button" className="settings-account-row" onClick={onOpenHelp}>
                   <span className="settings-account-icon"><HelpCircle size={20} /></span>
-                  <span className="settings-account-title">Hjälp och support</span>
+                  <span className="settings-account-title">{tr('ui.hjalp_och_support')}</span>
                   <ArrowRight size={16} className="settings-account-arrow" />
                 </button>
               )}
               {onLogout && (
                 <button type="button" className="settings-account-row settings-account-row--danger" onClick={onLogout}>
                   <span className="settings-account-icon"><LogOut size={20} /></span>
-                  <span className="settings-account-title">Logga ut</span>
+                  <span className="settings-account-title">{tr('ui.logga_ut')}</span>
                 </button>
               )}
             </div>
@@ -3480,7 +3480,7 @@ export default function Settings({
               är oförändrat, bara flikens namn och plats i rutnätet. */}
           {activeTab === 'security' && (
             <div style={{ animation: 'fadeIn 0.2s ease', display: 'grid', gap: 0 }}>
-              <SettingCard title="Profiluppgifter" icon={UserRound} description="Dina uppgifter visas för kollegor och i det du gör i Bokix." style={{ borderRadius: 0 }}>
+              <SettingCard title={tr('ui.profiluppgifter')} icon={UserRound} description={tr('ui.dina_uppgifter_visas_for_kollegor_och_i_det_du_g')} style={{ borderRadius: 0 }}>
                 <AvatarUploadRow
                   avatarUrl={avatarUrl}
                   initials={initials}
@@ -3489,21 +3489,21 @@ export default function Settings({
                   readOnly={readOnly}
                 />
                 <div className="form-row-2" style={{ ...grid2, maxWidth: FORM_MAX }}>
-                  <AutoField label="Förnamn" value={firstName} onChange={(v) => updateUserMeta({ first_name: v })} hint="Det du vill bli kallad." />
-                  <AutoField label="Efternamn" value={lastName} onChange={(v) => updateUserMeta({ last_name: v })} />
-                  <AutoField label="E-post (inloggning)" type="email" value={user?.email || ''} onChange={(v) => { if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; } supabase.auth.updateUser({ email: v }); }} hint="Kräver att du bekräftar via e-post innan ändringen gäller." required />
-                  <AutoField label="Telefon" type="tel" value={phone} onChange={(v) => updateUserMeta({ phone: v })} hint="Valfritt." />
+                  <AutoField label={tr('ui.fornamn')} value={firstName} onChange={(v) => updateUserMeta({ first_name: v })} hint={tr('ui.det_du_vill_bli_kallad')} />
+                  <AutoField label={tr('ui.efternamn')} value={lastName} onChange={(v) => updateUserMeta({ last_name: v })} />
+                  <AutoField label={tr('ui.e_post_inloggning')} type="email" value={user?.email || ''} onChange={(v) => { if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; } supabase.auth.updateUser({ email: v }); }} hint={tr('ui.kraver_att_du_bekraftar_via_e_post_innan_andring')} required />
+                  <AutoField label={tr('ui.telefon')} type="tel" value={phone} onChange={(v) => updateUserMeta({ phone: v })} hint={tr('ui.valfritt_2')} />
                 </div>
               </SettingCard>
 
-              <SettingCard title="Säkerhet" icon={Lock} tone="blue" description="Skydda kontot och håll koll på din inloggning." style={{ borderRadius: 0 }}>
+              <SettingCard title={tr('ui.sakerhet')} icon={Lock} tone="blue" description={tr('ui.skydda_kontot_och_hall_koll_pa_din_inloggning')} style={{ borderRadius: 0 }}>
                 <PasswordSection user={user} readOnly={readOnly} bare />
                 {/* readOnly (demo): TwoFactorSection hämtar riktiga
                     MFA-faktorer från Supabase direkt vid mount — hoppas över
                     helt istället för att göra ett Supabase-anrop från en
                     icke-inloggad besökare. */}
                 {readOnly
-                  ? <SettingRow label="Tvåfaktorsautentisering" description="Kräver ett riktigt konto att visa och aktivera." last />
+                  ? <SettingRow label={tr('ui.tvafaktorsautentisering')} description={tr('ui.kraver_ett_riktigt_konto_att_visa_och_aktivera')} last />
                   : <TwoFactorSection bare />}
               </SettingCard>
 
@@ -3514,17 +3514,17 @@ export default function Settings({
                   medlem, sharedAccess) sätter policyn för HELA företaget. */}
               {!sharedAccess && (
                 <div style={{ ...card, borderRadius: 0 }}>
-                  <div style={{ marginBottom: '8px' }}><SectionHeading icon={Shield} tone="amber">Säkerhetsinställningar</SectionHeading></div>
+                  <div style={{ marginBottom: '8px' }}><SectionHeading icon={Shield} tone="amber">{tr('ui.sakerhetsinstallningar')}</SectionHeading></div>
                   <ToggleSwitch
                     checked={Boolean(company?.requireMfaForAllUsers)}
                     onChange={() => {
                       if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; }
                       const next = !company?.requireMfaForAllUsers;
                       setCompanyInfo({ ...company, requireMfaForAllUsers: next });
-                      logAuditEvent(supabase, { companyId: company?.id, ownerUserId: user?.id, actorUserId: user?.id, actorEmail: user?.email, action: 'security.requireMfa', description: next ? 'Krävde tvåstegsverifiering för alla användare.' : 'Tog bort kravet på tvåstegsverifiering.' });
+                      logAuditEvent(supabase, { companyId: company?.id, ownerUserId: user?.id, actorUserId: user?.id, actorEmail: user?.email, action: 'security.requireMfa', description: next ? tr('ui.kravde_tvastegsverifiering_for_alla_anvandare') : tr('ui.tog_bort_kravet_pa_tvastegsverifiering') });
                     }}
-                    label="Kräv tvåstegsverifiering för alla användare"
-                    hint="Användare utan aktiverad tvåstegsverifiering ser en påminnelse i appen tills de aktiverar den. Ingen hård spärr — de stängs inte ute."
+                    label={tr('ui.krav_tvastegsverifiering_for_alla_anvandare')}
+                    hint={tr('ui.anvandare_utan_aktiverad_tvastegsverifiering_ser')}
                   />
                 </div>
               )}
@@ -3561,7 +3561,7 @@ export default function Settings({
                   litet mellanrum ovanför kortet i stället för sidhuvudets
                   egen ram/bakgrund. */}
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
-                <Badge tone="warning">Kräver att du sparar</Badge>
+                <Badge tone="warning">{tr('ui.kraver_att_du_sparar')}</Badge>
               </div>
 
               <div style={card}>
@@ -3584,10 +3584,10 @@ export default function Settings({
                   // registrering) — LÅSES först i och med att det sparas.
                   <div style={{ maxWidth: '672px' }}>
                     <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 16px' }}>
-                      Organisationsnumret och namnet du sparar blir företagets registrerade uppgifter — dubbelkolla innan du sparar.
+                      {tr('ui.organisationsnumret_och_namnet_du_sparar_blir_fo')}
                     </p>
                     <div>
-                      <label style={labelStyle}>Organisationsnummer <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(10 siffror)</span></label>
+                      <label style={labelStyle}>{tr('ui.organisationsnummer')} <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>{tr('ui.n10_siffror')}</span></label>
                       <input
                         type="text" inputMode="numeric" style={inputBase} placeholder="556123-4567"
                         value={companyDraft?.orgNr || ''}
@@ -3598,7 +3598,7 @@ export default function Settings({
                           companyRegLookup.handleOrgNrChange(formatted);
                         }}
                       />
-                      {companyRegLookup.orgLookup.status === 'loading' && <div style={{ fontSize: '12px', marginTop: '8px', color: 'var(--text-secondary)' }}>Hämtar företagsuppgifter…</div>}
+                      {companyRegLookup.orgLookup.status === 'loading' && <div style={{ fontSize: '12px', marginTop: '8px', color: 'var(--text-secondary)' }}>{tr('ui.hamtar_foretagsuppgifter')}</div>}
                       {companyRegLookup.orgLookup.status === 'error' && <div style={{ fontSize: '12px', marginTop: '8px', color: 'var(--text-secondary)' }}>{companyRegLookup.orgLookup.message}</div>}
                       {companyRegLookup.orgLookup.status === 'firma' && (
                         <div style={{ fontSize: '12px', marginTop: '8px', display: 'flex', alignItems: 'flex-start', gap: '6px', color: BRAND.greenDark, fontWeight: 600 }}>
@@ -3607,9 +3607,9 @@ export default function Settings({
                       )}
                     </div>
                     <div style={{ marginTop: '14px' }}>
-                      <label style={labelStyle}>Företagsnamn</label>
+                      <label style={labelStyle}>{tr('ui.foretagsnamn')}</label>
                       <input
-                        type="text" style={inputBase} placeholder="Ex. Mitt Företag AB"
+                        type="text" style={inputBase} placeholder={tr('ui.ex_mitt_foretag_ab')}
                         // 'Mitt Företag AB' är App.jsx:s platshållarnamn för
                         // just den här (oavslutade) registreringen — visas
                         // aldrig som om det vore ett riktigt ifyllt värde,
@@ -3624,7 +3624,7 @@ export default function Settings({
                       />
                       {companyRegDisplayedOrgType && (
                         <div style={{ marginTop: '9px', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 12px', background: BRAND.greenLight, borderRadius: '999px', fontSize: '12.5px', fontWeight: 700, color: BRAND.greenDark }}>
-                          <Check size={13} /> Identifierad som: {companyRegDisplayedOrgType}
+                          <Check size={13} /> {tr('ui.identifierad_som')} {companyRegDisplayedOrgType}
                         </div>
                       )}
                     </div>
@@ -3635,20 +3635,20 @@ export default function Settings({
                         allt annat gick inte att fylla i förrän registreringen
                         var klar, trots att uppgifterna behövs på första
                         fakturan. */}
-                    <FieldGroup title="Adress">
+                    <FieldGroup title={tr('ui.adress_2')}>
                       <div style={{ maxWidth: '672px' }}>
-                        <AutoField label="Gatuadress" value={companyDraft?.address || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, address: v })} showSaveState={false} />
+                        <AutoField label={tr('ui.gatuadress')} value={companyDraft?.address || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, address: v })} showSaveState={false} />
                       </div>
                       <div className="form-row-2" style={{ ...grid2, maxWidth: FORM_MAX }}>
-                        <AutoField label="Postnummer" value={companyDraft?.postalCode || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, postalCode: v })} showSaveState={false} />
-                        <AutoField label="Ort" value={companyDraft?.city || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, city: v })} showSaveState={false} />
+                        <AutoField label={tr('ui.postnummer')} value={companyDraft?.postalCode || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, postalCode: v })} showSaveState={false} />
+                        <AutoField label={tr('ui.ort')} value={companyDraft?.city || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, city: v })} showSaveState={false} />
                       </div>
                     </FieldGroup>
 
-                    <FieldGroup title="Kontakt">
+                    <FieldGroup title={tr('ui.kontakt_2')}>
                       <div className="form-row-2" style={{ ...grid2, maxWidth: FORM_MAX }}>
-                        <AutoField label="E-post" type="email" value={companyDraft?.email || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, email: v })} showSaveState={false} />
-                        <AutoField label="Telefon" type="tel" value={companyDraft?.phone || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, phone: v })} showSaveState={false} />
+                        <AutoField label={tr('ui.e_post')} type="email" value={companyDraft?.email || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, email: v })} showSaveState={false} />
+                        <AutoField label={tr('ui.telefon')} type="tel" value={companyDraft?.phone || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, phone: v })} showSaveState={false} />
                       </div>
                     </FieldGroup>
 
@@ -3671,8 +3671,8 @@ export default function Settings({
                         med ett giltigt reauthToken); det här är bara
                         återspeglingen av samma regel. */}
                     <div className="form-row-2" style={{ ...grid2, maxWidth: FORM_MAX }}>
-                      <LockedField label="Företagsnamn" value={company?.name || '—'} />
-                      <LockedField label="Organisationsnummer" value={company?.orgNr || '—'} />
+                      <LockedField label={tr('ui.foretagsnamn')} value={company?.name || '—'} />
+                      <LockedField label={tr('ui.organisationsnummer')} value={company?.orgNr || '—'} />
                     </div>
                     {/* Förklaringen till låset och "hämta uppgifterna åt mig"
                         på SAMMA rad — de hör ihop (båda handlar om var
@@ -3685,7 +3685,7 @@ export default function Settings({
                         klickar Spara ändringar längst ner. */}
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '14px', flexWrap: 'wrap', maxWidth: FORM_MAX, margin: '-2px 0 14px' }}>
                       <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', flex: '1 1 300px', minWidth: 0, lineHeight: 1.55 }}>
-                        Företagets registrerade uppgifter. De sparades automatiskt vid registreringen och går inte att ändra här — kontakta <a href="mailto:support@bokix.se" style={{ color: BRAND.green }}>support@bokix.se</a> om något blivit fel.
+                        {tr('ui.foretagets_registrerade_uppgifter_de_sparades_au')} <a href="mailto:support@bokix.se" style={{ color: BRAND.green }}>{tr('ui.support_bokix_se')}</a> {tr('ui.om_nagot_blivit_fel')}
                       </div>
                       <div style={{ flexShrink: 0 }}>
                         <button
@@ -3701,11 +3701,11 @@ export default function Settings({
                           }}
                         >
                           <Building2 size={14} />
-                          {companyDetailsLookup.orgLookup.status === 'loading' ? 'Hämtar…' : 'Hämta bolagsuppgifter'}
+                          {companyDetailsLookup.orgLookup.status === 'loading' ? tr('ui.hamtar') : tr('ui.hamta_bolagsuppgifter')}
                         </button>
                         {companyDetailsLookup.orgLookup.status === 'done' && (
                           <div style={{ fontSize: '12px', marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px', color: BRAND.greenDark, fontWeight: 600 }}>
-                            <Check size={13} /> Hämtat — kontrollera fälten och klicka Spara ändringar.
+                            <Check size={13} /> {tr('ui.hamtat_kontrollera_falten_och_klicka_spara_andri')}
                           </div>
                         )}
                         {(companyDetailsLookup.orgLookup.status === 'error' || companyDetailsLookup.orgLookup.status === 'firma') && (
@@ -3714,15 +3714,15 @@ export default function Settings({
                       </div>
                     </div>
                     <div className="form-row-2" style={{ ...grid2, maxWidth: FORM_MAX }}>
-                      <AutoField label="Momsregistreringsnummer" value={companyDraft?.vatNr || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, vatNr: v })} showSaveState={false} hint="SE + organisationsnumret + 01." />
+                      <AutoField label={tr('ui.momsregistreringsnummer')} value={companyDraft?.vatNr || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, vatNr: v })} showSaveState={false} hint={tr('ui.se_organisationsnumret_01')} />
                       {/* Fritt visningsnamn för fakturor — separat från det
                           låsta registrerade namnet ovan (se InvoiceDocument.jsx:s
                           motsvarande fallback). Tomt = använd det registrerade
                           namnet, precis som innan den här möjligheten fanns. */}
                       <AutoField
-                        label="Visningsnamn på faktura" value={companyDraft?.invoiceDisplayName || ''}
+                        label={tr('ui.visningsnamn_pa_faktura')} value={companyDraft?.invoiceDisplayName || ''}
                         onChange={(v) => setCompanyDraft({ ...companyDraft, invoiceDisplayName: v })}
-                        hint="Används på fakturor om ni är kända under ett annat namn."
+                        hint={tr('ui.anvands_pa_fakturor_om_ni_ar_kanda_under_ett_ann')}
                         showSaveState={false}
                       />
                     </div>
@@ -3736,9 +3736,9 @@ export default function Settings({
                         används i stället för att stå tom till höger.
                         .form-row-stack staplar dem på mobil. */}
                     <div className="form-row-stack" style={{ ...grid2, gridTemplateColumns: '2fr 1fr 1fr', maxWidth: FORM_MAX }}>
-                      <AutoField label="Gatuadress" value={companyDraft?.address || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, address: v })} showSaveState={false} />
-                      <AutoField label="Postnummer" value={companyDraft?.postalCode || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, postalCode: v })} showSaveState={false} />
-                      <AutoField label="Ort" value={companyDraft?.city || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, city: v })} showSaveState={false} />
+                      <AutoField label={tr('ui.gatuadress')} value={companyDraft?.address || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, address: v })} showSaveState={false} />
+                      <AutoField label={tr('ui.postnummer')} value={companyDraft?.postalCode || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, postalCode: v })} showSaveState={false} />
+                      <AutoField label={tr('ui.ort')} value={companyDraft?.city || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, city: v })} showSaveState={false} />
                     </div>
                     {/* F-skattsedel skrivs ut på varenda faktura/offert (se InvoiceDocument)
                         men gick tidigare inte att ändra någonstans — den föll tillbaka på
@@ -3747,9 +3747,9 @@ export default function Settings({
                         att tyst påstå något om företaget som kanske inte är sant. */}
                     <div className="form-row-2" style={{ ...grid2, maxWidth: FORM_MAX }}>
                       <AutoField
-                        label="F-skattsedel (text på faktura)" value={companyDraft?.fSkatt || 'Innehar F-skattsedel'}
+                        label={tr('ui.f_skattsedel_text_pa_faktura')} value={companyDraft?.fSkatt || 'Innehar F-skattsedel'}
                         onChange={(v) => setCompanyDraft({ ...companyDraft, fSkatt: v })}
-                        hint="Skrivs ut på fakturor. Töm om det inte stämmer."
+                        hint={tr('ui.skrivs_ut_pa_fakturor_tom_om_det_inte_stammer')}
                         showSaveState={false}
                       />
                     </div>
@@ -3757,10 +3757,10 @@ export default function Settings({
                     {/* Kontakt och bank i SAMMA kort som grunduppgifterna —
                         kundfeedback: det ska vara en familj, inte tre kort
                         man letar mellan. */}
-                    <FieldGroup title="Kontakt" hint="Visas längst ner på fakturor.">
+                    <FieldGroup title={tr('ui.kontakt_2')} hint={tr('ui.visas_langst_ner_pa_fakturor')}>
                       <div className="form-row-2" style={{ ...grid2, maxWidth: FORM_MAX }}>
-                        <AutoField label="E-post" type="email" value={companyDraft?.email || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, email: v })} showSaveState={false} />
-                        <AutoField label="Telefon" type="tel" value={companyDraft?.phone || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, phone: v })} showSaveState={false} />
+                        <AutoField label={tr('ui.e_post')} type="email" value={companyDraft?.email || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, email: v })} showSaveState={false} />
+                        <AutoField label={tr('ui.telefon')} type="tel" value={companyDraft?.phone || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, phone: v })} showSaveState={false} />
                       </div>
                     </FieldGroup>
 
@@ -3783,17 +3783,17 @@ export default function Settings({
                 {/* Uttryckligen vad knappen sparar — utan den här raden
                     ser den ut som en global "spara hela sidan"-knapp,
                     trots att den bara gäller de två korten ovanför. */}
-                <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: '0 0 10px' }}>Sparar uppgifterna ovan. Bankuppgifter sparas direkt.</p>
+                <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: '0 0 10px' }}>{tr('ui.sparar_uppgifterna_ovan_bankuppgifter_sparas_dir')}</p>
                 <button
                   type="button"
                   onClick={() => { if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; } saveCompanyInfo(); }}
                   disabled={!companyInfoDirty || companySaveBusy}
                   style={{ ...btnPrimary, opacity: (!companyInfoDirty || companySaveBusy) ? 0.5 : 1, cursor: (!companyInfoDirty || companySaveBusy) ? 'not-allowed' : 'pointer' }}
                 >
-                  {companySaveBusy ? 'Sparar...' : 'Spara ändringar'}
+                  {companySaveBusy ? tr('ui.sparar_2') : tr('ui.spara_andringar')}
                 </button>
                 {companySaveError && <div style={{ color: 'var(--status-red-text)', fontSize: '13px', marginTop: '10px' }}>{companySaveError}</div>}
-                {companySaveSuccess && <div style={{ color: BRAND.greenDark, fontSize: '13px', marginTop: '10px', fontWeight: 600 }}>Företagsuppgifterna är sparade.</div>}
+                {companySaveSuccess && <div style={{ color: BRAND.greenDark, fontSize: '13px', marginTop: '10px', fontWeight: 600 }}>{tr('ui.foretagsuppgifterna_ar_sparade')}</div>}
               </div>
 
               {/* Kundönskemål: sektionsrubriken ("Bokföringsår, logotyp och
@@ -3819,14 +3819,14 @@ export default function Settings({
                   Moms (referensbildens gruppering) — samma fält,
                   company.vatPeriod, bara ett annat kort. */}
               <div style={card}>
-                <div style={{ marginBottom: '4px' }}><SectionHeading icon={Calendar} tone="amber">Räkenskapsår</SectionHeading></div>
-                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 16px', maxWidth: '672px' }}>Styr periodiseringen i Rapporter, Momsdeklaration och Skatter.</p>
+                <div style={{ marginBottom: '4px' }}><SectionHeading icon={Calendar} tone="amber">{tr('ui.rakenskapsar')}</SectionHeading></div>
+                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 16px', maxWidth: '672px' }}>{tr('ui.styr_periodiseringen_i_rapporter_momsdeklaration')}</p>
                 <div style={{ maxWidth: '320px' }}>
-                  <AutoField label="Räkenskapsår startar" type="date" value={company?.fiscalYear || ''} onChange={(v) => setCompanyInfo({ ...company, fiscalYear: v })} />
+                  <AutoField label={tr('ui.rakenskapsar_startar')} type="date" value={company?.fiscalYear || ''} onChange={(v) => setCompanyInfo({ ...company, fiscalYear: v })} />
                 </div>
                 {company?.firstFiscalYear?.start && (
                   <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: '10px 0 0' }}>
-                    Första räkenskapsåret: {company.firstFiscalYear.start} – {company.firstFiscalYear.end}.
+                    {tr('ui.forsta_rakenskapsaret')} {company.firstFiscalYear.start} – {company.firstFiscalYear.end}.
                   </p>
                 )}
               </div>
@@ -3858,40 +3858,40 @@ export default function Settings({
               finns redan i sidhuvudets flikrad. */}
           {activeTab === 'system' && (
             <div style={{ animation: 'fadeIn 0.2s ease' }}>
-              <SettingsSection title="Bokföring" description="Regler bokföringen själv räknar efter.">
+              <SettingsSection title={tr('ui.bokforing')} description={tr('ui.regler_bokforingen_sjalv_raknar_efter')}>
                 <div className="settings-grid" style={{ gap: '14px' }}>
-                  <SettingCard title="Moms" icon={Calendar} tone="amber" description="Hur ofta du redovisar moms.">
-                    <label style={labelStyle}>Momsregistrerat</label>
+                  <SettingCard title={tr('ui.moms')} icon={Calendar} tone="amber" description={tr('ui.hur_ofta_du_redovisar_moms')}>
+                    <label style={labelStyle}>{tr('ui.momsregistrerat_2')}</label>
                     <select
                       value={company?.vatRegistered === true ? 'yes' : company?.vatRegistered === false ? 'no' : ''}
                       onChange={e => setCompanyInfo({ ...company, vatRegistered: e.target.value === '' ? null : e.target.value === 'yes' })}
                       disabled={readOnly}
                       style={{ ...inputBase, background: 'var(--bg-card)', maxWidth: '260px', marginBottom: '14px' }}
                     >
-                      <option value="">Inte angivet</option>
-                      <option value="yes">Ja</option>
-                      <option value="no">Nej</option>
+                      <option value="">{tr('ui.inte_angivet')}</option>
+                      <option value="yes">{tr('ui.ja')}</option>
+                      <option value="no">{tr('ui.nej')}</option>
                     </select>
                     {company?.vatRegistered !== false && <>
-                    <label style={labelStyle}>Momsperiod</label>
+                    <label style={labelStyle}>{tr('ui.momsperiod')}</label>
                     <select
                       value={company?.vatPeriod || 'quarterly'}
                       onChange={e => setCompanyInfo({ ...company, vatPeriod: e.target.value })}
                       style={{ ...inputBase, background: 'var(--bg-card)', maxWidth: '260px' }}
                     >
-                      <option value="monthly">Månadsvis</option>
-                      <option value="quarterly">Kvartalsvis</option>
-                      <option value="yearly">Helårlig</option>
+                      <option value="monthly">{tr('ui.manadsvis')}</option>
+                      <option value="quarterly">{tr('ui.kvartalsvis')}</option>
+                      <option value="yearly">{tr('ui.helarlig')}</option>
                     </select>
                     </>}
                     {company?.vatRegistered === false && (
                       <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6 }}>
-                        Ingen moms på fakturor, momsen på inköp bokförs som en del av kostnaden och ingen momsdeklaration visas.
+                        {tr('ui.ingen_moms_pa_fakturor_momsen_pa_inkop_bokfors_s')}
                       </p>
                     )}
                   </SettingCard>
 
-                  <SettingCard title="Verifikationsserier" icon={Hash} tone="purple" description="Nästa nummer per serie (A001, B014, ...).">
+                  <SettingCard title={tr('ui.verifikationsserier')} icon={Hash} tone="purple" description={tr('ui.nasta_nummer_per_serie_a001_b014')}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                       {VERIFICATION_SERIES.map(letter => (
                         <VerificationSeriesFloorField
@@ -3903,33 +3903,33 @@ export default function Settings({
                         />
                       ))}
                     </div>
-                    <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', margin: '10px 0 0', lineHeight: 1.55 }}>Går bara att höja golvet, aldrig under ett nummer som redan använts.</p>
+                    <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', margin: '10px 0 0', lineHeight: 1.55 }}>{tr('ui.gar_bara_att_hoja_golvet_aldrig_under_ett_nummer')}</p>
                   </SettingCard>
                 </div>
               </SettingsSection>
 
-              <SettingsSection title="Region och format" description="Rena visningsval — påverkar ingen bokföringslogik.">
+              <SettingsSection title={tr('ui.region_och_format')} description={tr('ui.rena_visningsval_paverkar_ingen_bokforingslogik')}>
                 <div className="settings-grid" style={{ gap: '14px' }}>
-                  <SettingCard title="Valuta" icon={Landmark} tone="green" description="Bokföringslagen kräver svenska kronor.">
-                    <label style={labelStyle}>Redovisningsvaluta</label>
+                  <SettingCard title={tr('ui.valuta')} icon={Landmark} tone="green" description={tr('ui.bokforingslagen_kraver_svenska_kronor')}>
+                    <label style={labelStyle}>{tr('ui.redovisningsvaluta')}</label>
                     <select value="SEK" disabled style={{ ...inputBase, background: 'var(--bg-muted)', color: 'var(--text-secondary)', maxWidth: '260px', cursor: 'not-allowed' }}>
-                      <option value="SEK">Svenska kronor (SEK)</option>
-                      <option value="EUR" disabled>Euro — kräver dispens</option>
-                      <option value="USD" disabled>US-dollar — kräver dispens</option>
+                      <option value="SEK">{tr('ui.svenska_kronor_sek')}</option>
+                      <option value="EUR" disabled>{tr('ui.euro_kraver_dispens')}</option>
+                      <option value="USD" disabled>{tr('ui.us_dollar_kraver_dispens')}</option>
                     </select>
                     <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '8px 0 0', lineHeight: 1.55 }}>
-                      Bokföringslagen 4 kap. 6 § kräver att bokföringen förs i SEK. Kvitton i annan valuta räknas om automatiskt (Kvitton, kursen dagen för köpet).
+                      {tr('ui.bokforingslagen_4_kap_6_kraver_att_bokforingen_f')}
                     </p>
                   </SettingCard>
 
-                  <SettingCard title="Datumformat" icon={Calendar} tone="blue" description="Hur datum visas i hela appen.">
-                    <label style={labelStyle}>Format</label>
+                  <SettingCard title={tr('ui.datumformat')} icon={Calendar} tone="blue" description={tr('ui.hur_datum_visas_i_hela_appen')}>
+                    <label style={labelStyle}>{tr('ui.format')}</label>
                     <select
                       value={dateFormatPref}
                       onChange={e => saveDateFormatPref(e.target.value)}
                       style={{ ...inputBase, background: 'var(--bg-card)', maxWidth: '260px' }}
                     >
-                      {DATE_FORMATS.map(f => <option key={f.id} value={f.id}>{f.label} (t.ex. {f.example})</option>)}
+                      {DATE_FORMATS.map(f => <option key={f.id} value={f.id}>{f.label} {tr('ui.t_ex')} {f.example})</option>)}
                     </select>
                   </SettingCard>
                 </div>
@@ -3941,7 +3941,7 @@ export default function Settings({
                   en gång till här dubblerade bara samma tunga, tabell-
                   tunga verktyg mitt bland små inställningskort. */}
 
-              <SettingsSection title="Händelselogg" description="Vem ändrade vad i företaget, och när.">
+              <SettingsSection title={tr('ui.handelselogg')} description={tr('ui.vem_andrade_vad_i_foretaget_och_nar')}>
                 <AuditLogCard company={company} readOnly={readOnly} />
               </SettingsSection>
             </div>
@@ -3954,20 +3954,20 @@ export default function Settings({
           {activeTab === 'advanced' && (
             <div style={{ animation: 'fadeIn 0.2s ease' }}>
               <SettingsSection
-                title="Ta med dig din bokföring"
-                description="Din bokföring är din. Ladda ner den när du vill."
+                title={tr('ui.ta_med_dig_din_bokforing')}
+                description={tr('ui.din_bokforing_ar_din_ladda_ner_den_nar_du_vill')}
               >
               <div className="settings-grid" style={{ gap: '14px' }}>
-                <SettingCard title="Säkerhetskopia" icon={Download} tone="blue" description="Allt i en JSON-fil.">
+                <SettingCard title={tr('ui.sakerhetskopia')} icon={Download} tone="blue" description={tr('ui.allt_i_en_json_fil')}>
                   <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 14px', lineHeight: 1.6 }}>
-                    Konton, verifikationer, fakturor, kvitton och kontakter. Kan läsas tillbaka här.
+                    {tr('ui.konton_verifikationer_fakturor_kvitton_och_konta')}
                   </p>
                   <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
                     <button onClick={handleExport} style={btnSecondary}>
-                      <Download size={15} style={{ verticalAlign: 'middle', marginRight: '7px' }} />Ladda ner
+                      <Download size={15} style={{ verticalAlign: 'middle', marginRight: '7px' }} />{tr('ui.ladda_ner')}
                     </button>
                     <label style={{ ...btnSecondary, display: 'inline-flex', alignItems: 'center', gap: '7px', cursor: importBusy ? 'not-allowed' : 'pointer', opacity: importBusy ? 0.6 : 1 }}>
-                      <Upload size={15} /> {importBusy ? 'Importerar…' : 'Läs in fil'}
+                      <Upload size={15} /> {importBusy ? tr('ui.importerar') : tr('ui.las_in_fil')}
                       <input type="file" accept="application/json" onChange={handleImportFile} disabled={importBusy} style={{ display: 'none' }} />
                     </label>
                   </div>
@@ -3976,16 +3976,16 @@ export default function Settings({
                   )}
                 </SettingCard>
 
-                <SettingCard title="SIE4" icon={Download} tone="green" description="Formatet alla svenska bokföringsprogram läser.">
+                <SettingCard title="SIE4" icon={Download} tone="green" description={tr('ui.formatet_alla_svenska_bokforingsprogram_laser')}>
                   <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 14px', lineHeight: 1.6 }}>
-                    Ge filen till din revisor, eller ta med bokföringen till ett annat program.
+                    {tr('ui.ge_filen_till_din_revisor_eller_ta_med_bokforing')}
                   </p>
                   <button onClick={handleExportSie} style={btnSecondary}>
-                    <Download size={15} style={{ verticalAlign: 'middle', marginRight: '7px' }} />Ladda ner SIE4
+                    <Download size={15} style={{ verticalAlign: 'middle', marginRight: '7px' }} />{tr('ui.ladda_ner_sie4')}
                   </button>
                 </SettingCard>
 
-                <SettingCard title="Flytta hit bokföringen" icon={Upload} tone="amber" description="Från ett annat program, via SIE4.">
+                <SettingCard title={tr('ui.flytta_hit_bokforingen')} icon={Upload} tone="amber" description={tr('ui.fran_ett_annat_program_via_sie4')}>
                   {/* Loggorna svarar på "gäller det här mitt program?" utan att
                       man först måste öppna guiden. Vit platta bakom varje —
                       flera filer har vit bakgrund inbakad. */}
@@ -3998,51 +3998,51 @@ export default function Settings({
                         <ProgramLogo src={p.logo} alt={p.name} size={22} />
                       </span>
                     ))}
-                    <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>med flera</span>
+                    <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{tr('ui.med_flera')}</span>
                   </div>
                   <button onClick={() => setShowSieImport(true)} style={{ ...btnSecondary, background: BRAND.greenLight, color: BRAND.greenDark, border: 'none' }}>
-                    <Upload size={15} style={{ verticalAlign: 'middle', marginRight: '7px' }} />Importera SIE4-fil
+                    <Upload size={15} style={{ verticalAlign: 'middle', marginRight: '7px' }} />{tr('ui.importera_sie4_fil')}
                   </button>
                 </SettingCard>
               </div>
               </SettingsSection>
 
               <SettingsSection
-                title="Importera"
-                description="Läs in underlag som redan finns någon annanstans."
+                title={tr('ui.importera')}
+                description={tr('ui.las_in_underlag_som_redan_finns_nagon_annanstans')}
               >
               <div className="settings-grid" style={{ gap: '14px' }}>
-                <SettingCard title="Skattekontoutdrag" icon={Landmark} tone="blue" description="Kontohändelserna från Skatteverket.">
+                <SettingCard title={tr('ui.skattekontoutdrag')} icon={Landmark} tone="blue" description={tr('ui.kontohandelserna_fran_skatteverket')}>
                   <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 14px', lineHeight: 1.6 }}>
-                    Bokför preliminärskatt, moms, räntor och inbetalningar på skattekontot. Det som redan är bokfört hoppas över.
+                    {tr('ui.bokfor_preliminarskatt_moms_rantor_och_inbetalni')}
                   </p>
                   <button onClick={() => setShowSkattekontoImport(true)} disabled={readOnly} style={btnSecondary}>
-                    <Upload size={15} style={{ verticalAlign: 'middle', marginRight: '7px' }} />Ladda upp kontoutdrag
+                    <Upload size={15} style={{ verticalAlign: 'middle', marginRight: '7px' }} />{tr('ui.ladda_upp_kontoutdrag')}
                   </button>
                 </SettingCard>
 
-                <SettingCard title="Underlag till SIE-import" icon={Paperclip} tone="green" description="Kvitton och fakturor från ditt gamla program.">
+                <SettingCard title={tr('ui.underlag_till_sie_import')} icon={Paperclip} tone="green" description={tr('ui.kvitton_och_fakturor_fran_ditt_gamla_program')}>
                   <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 14px', lineHeight: 1.6 }}>
-                    Filer som heter som verifikatet, till exempel A31.pdf, kopplas till rätt verifikation. Välj filer eller en hel mapp.
+                    {tr('ui.filer_som_heter_som_verifikatet_till_exempel_a31')}
                   </p>
                   <button onClick={() => setShowSieAttachments(true)} disabled={readOnly} style={btnSecondary}>
-                    <Paperclip size={15} style={{ verticalAlign: 'middle', marginRight: '7px' }} />Koppla underlag
+                    <Paperclip size={15} style={{ verticalAlign: 'middle', marginRight: '7px' }} />{tr('ui.koppla_underlag')}
                   </button>
                 </SettingCard>
               </div>
               </SettingsSection>
 
               <SettingsSection
-                title="Radera data"
-                description="Går inte att ångra. Ladda ner en kopia först."
+                title={tr('ui.radera_data')}
+                description={tr('ui.gar_inte_att_angra_ladda_ner_en_kopia_forst')}
               >
               <div style={{ ...card, background: 'var(--status-red-bg)', border: '1px solid var(--status-red-bg)' }}>
-                <div style={{ marginBottom: '10px' }}><SectionHeading icon={Trash2} tone="red">Radera företagets bokföringsdata</SectionHeading></div>
+                <div style={{ marginBottom: '10px' }}><SectionHeading icon={Trash2} tone="red">{tr('ui.radera_foretagets_bokforingsdata')}</SectionHeading></div>
                 <p style={{ fontSize: '13px', color: 'var(--status-red-text)', margin: '0 0 12px', maxWidth: '600px' }}>
-                  Detta tömmer all bokföring, alla fakturor, kunder och verifikationer för <strong>{company?.name || 'det här företaget'}</strong> i appen. Det kan inte ångras här. Bokföringslagen kräver att räkenskaperna sparas i sju år, så Bokix sparar först en arkivkopia som bara vi kan läsa och som du kan begära ut via support@bokix.se. Din Bokix-inloggning ({user?.email}) påverkas inte och du loggas inte ut. Företaget självt finns kvar, tomt.
+                  {tr('ui.detta_tommer_all_bokforing_alla_fakturor_kunder')} <strong>{company?.name || tr('ui.det_har_foretaget')}</strong> {tr('ui.i_appen_det_kan_inte_angras_har_bokforingslagen')}{user?.email}{tr('ui.paverkas_inte_och_du_loggas_inte_ut_foretaget_sj')}
                 </p>
                 <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, color: 'var(--status-red-text)', marginBottom: '6px' }}>
-                  Skriv företagsnamnet <strong>{company?.name}</strong> för att bekräfta
+                  {tr('ui.skriv_foretagsnamnet')} <strong>{company?.name}</strong> {tr('ui.for_att_bekrafta')}
                 </label>
                 <input
                   value={deleteConfirmText} onChange={e => setDeleteConfirmText(e.target.value)}
@@ -4051,10 +4051,10 @@ export default function Settings({
                 <div>
                   <button
                     disabled={!deleteMatches}
-                    onClick={async () => { if (deleteMatches && (await onReset?.())) { setDeleteConfirmText(''); logAuditEvent(supabase, { companyId: activeCompanyId, ownerUserId: user?.id, actorUserId: user?.id, actorEmail: user?.email, action: 'data.delete', description: `Raderade all bokföringsdata för ${company?.name || 'företaget'}.` }); } }}
+                    onClick={async () => { if (deleteMatches && (await onReset?.())) { setDeleteConfirmText(''); logAuditEvent(supabase, { companyId: activeCompanyId, ownerUserId: user?.id, actorUserId: user?.id, actorEmail: user?.email, action: 'data.delete', description: tr('ui.raderade_all_bokforingsdata_for', { v0: company?.name || 'företaget' }) }); } }}
                     style={{ padding: '9px 18px', background: deleteMatches ? '#ef4444' : '#fca5a5', color: 'white', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600, cursor: deleteMatches ? 'pointer' : 'not-allowed' }}
                   >
-                    <Trash2 size={14} style={{ verticalAlign: 'middle', marginRight: '6px' }} /> Radera permanent
+                    <Trash2 size={14} style={{ verticalAlign: 'middle', marginRight: '6px' }} /> {tr('ui.radera_permanent')}
                   </button>
                 </div>
               </div>
@@ -4068,16 +4068,16 @@ export default function Settings({
                   att nå den saknades sedan företagsväxlaren togs bort. */}
               {onDeleteCompany && (
                 <SettingsSection
-                  title="Radera företag"
-                  description="Tar bort hela företaget, inklusive dess prenumeration. Går inte att ångra."
+                  title={tr('ui.radera_foretag')}
+                  description={tr('ui.tar_bort_hela_foretaget_inklusive_dess_prenumera')}
                 >
                   <div style={{ ...card, background: 'var(--status-red-bg)', border: '1px solid var(--status-red-bg)' }}>
-                    <div style={{ marginBottom: '10px' }}><SectionHeading icon={Trash2} tone="red">Radera {company?.name || 'det här företaget'}</SectionHeading></div>
+                    <div style={{ marginBottom: '10px' }}><SectionHeading icon={Trash2} tone="red">{tr('ui.radera')} {company?.name || tr('ui.det_har_foretaget')}</SectionHeading></div>
                     <p style={{ fontSize: '13px', color: 'var(--status-red-text)', margin: '0 0 12px', maxWidth: '600px' }}>
-                      Företaget försvinner helt från ditt konto och en eventuell prenumeration avslutas. Bokix sparar först en arkivkopia av bokföringen och underlagen i sju år, som lagen kräver, och du kan begära ut den via support@bokix.se. Din Bokix-inloggning ({user?.email}) påverkas inte, men du måste ha minst ett företag kvar.
+                      {tr('ui.foretaget_forsvinner_helt_fran_ditt_konto_och_en')}{user?.email}{tr('ui.paverkas_inte_men_du_maste_ha_minst_ett_foretag')}
                     </p>
                     <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, color: 'var(--status-red-text)', marginBottom: '6px' }}>
-                      Skriv företagsnamnet <strong>{company?.name}</strong> för att bekräfta
+                      {tr('ui.skriv_foretagsnamnet')} <strong>{company?.name}</strong> {tr('ui.for_att_bekrafta')}
                     </label>
                     <input
                       value={deleteCompanyConfirmText} onChange={e => setDeleteCompanyConfirmText(e.target.value)}
@@ -4089,13 +4089,13 @@ export default function Settings({
                         onClick={() => {
                           if (!deleteCompanyMatches) return;
                           if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; }
-                          logAuditEvent(supabase, { companyId: activeCompanyId, ownerUserId: user?.id, actorUserId: user?.id, actorEmail: user?.email, action: 'company.delete', description: `Raderade företaget ${company?.name || ''}.` });
+                          logAuditEvent(supabase, { companyId: activeCompanyId, ownerUserId: user?.id, actorUserId: user?.id, actorEmail: user?.email, action: 'company.delete', description: tr('ui.raderade_foretaget', { v0: company?.name || '' }) });
                           onDeleteCompany(activeCompanyId);
                           setDeleteCompanyConfirmText('');
                         }}
                         style={{ padding: '9px 18px', background: deleteCompanyMatches ? '#ef4444' : '#fca5a5', color: 'white', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600, cursor: deleteCompanyMatches ? 'pointer' : 'not-allowed' }}
                       >
-                        <Trash2 size={14} style={{ verticalAlign: 'middle', marginRight: '6px' }} /> Radera företaget permanent
+                        <Trash2 size={14} style={{ verticalAlign: 'middle', marginRight: '6px' }} /> {tr('ui.radera_foretaget_permanent')}
                       </button>
                     </div>
                   </div>
@@ -4108,22 +4108,22 @@ export default function Settings({
           {activeTab === 'invoice' && (
             <div style={{ animation: 'fadeIn 0.2s ease' }}>
               <SettingsSection
-                title="Standardvärden"
-                description="Fylls i automatiskt på nya fakturor."
+                title={tr('ui.standardvarden')}
+                description={tr('ui.fylls_i_automatiskt_pa_nya_fakturor')}
               >
                 {invoiceDefaultsCard}
               </SettingsSection>
 
               <SettingsSection
-                title="Påminnelser och e-post"
-                description="Styr utskicken från api/cron/reminders.js."
+                title={tr('ui.paminnelser_och_e_post')}
+                description={tr('ui.styr_utskicken_fran_api_cron_reminders_js')}
               >
                 {invoiceReminderCard}
               </SettingsSection>
 
               <SettingsSection
-                title="Utseende"
-                description="Förhandsvisningen är vad kunden får."
+                title={tr('ui.utseende')}
+                description={tr('ui.forhandsvisningen_ar_vad_kunden_far')}
               >
 
                 <InvoiceTemplateSection company={company} setCompanyInfo={setCompanyInfo} user={user} readOnly={readOnly} />
@@ -4135,8 +4135,8 @@ export default function Settings({
           {activeTab === 'users' && (
             <div style={{ animation: 'fadeIn 0.2s ease' }}>
               <SettingsSection
-                title="Vem kommer åt företaget"
-                description="Upp till två personer utöver dig, var och en med egen inloggning."
+                title={tr('ui.vem_kommer_at_foretaget')}
+                description={tr('ui.upp_till_tva_personer_utover_dig_var_och_en_med')}
               >
               <UsersAndAccessSection company={company} setCompanyInfo={setCompanyInfo} user={user} firstName={firstName} lastName={lastName} sharedAccess={sharedAccess} readOnly={readOnly} />
               </SettingsSection>
@@ -4151,7 +4151,7 @@ export default function Settings({
                   rad och behöver ingen egen skärmhöjd (kundfeedback: för
                   mycket tomrum). */}
               <div className="settings-split">
-                <SettingsSection title="Din plan" description="Vad Bokix kostar för det här företaget.">
+                <SettingsSection title={tr('ui.din_plan')} description={tr('ui.vad_bokix_kostar_for_det_har_foretaget')}>
                   {/* UF-konton har ingen prenumerationsrad alls —
                       registreringen hoppar över Stripe helt (Auth.jsx). Den
                       vanliga vyn hade laddat, hittat noll rader och visat
@@ -4163,25 +4163,25 @@ export default function Settings({
                 </SettingsSection>
 
                 {!isUfCompany(company) && !sharedAccess ? (
-                  <SettingsSection title="Betalningsuppgifter" description="Byt kort eller se fakturor & kvitton hos Stripe.">
+                  <SettingsSection title={tr('ui.betalningsuppgifter')} description={tr('ui.byt_kort_eller_se_fakturor_kvitton_hos_stripe')}>
                     <SettingCard>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-start' }}>
-                        <BillingPortalButton companyId={activeCompanyId} label="Byt betalkort" />
-                        <BillingPortalButton companyId={activeCompanyId} label="Se fakturor & kvitton" />
+                        <BillingPortalButton companyId={activeCompanyId} label={tr('ui.byt_betalkort')} />
+                        <BillingPortalButton companyId={activeCompanyId} label={tr('ui.se_fakturor_kvitton')} />
                       </div>
-                      <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', margin: '10px 0 0', lineHeight: 1.6 }}>Öppnas hos Stripe, i en ny flik.</p>
+                      <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', margin: '10px 0 0', lineHeight: 1.6 }}>{tr('ui.oppnas_hos_stripe_i_en_ny_flik')}</p>
                     </SettingCard>
                   </SettingsSection>
                 ) : (
-                  <SettingsSection title="Kvitton" description="Dyker upp efter första dragningen.">
+                  <SettingsSection title={tr('ui.kvitton')} description={tr('ui.dyker_upp_efter_forsta_dragningen')}>
                     <SettingCard>
-                      <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Ingen betalhistorik ännu.</div>
+                      <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{tr('ui.ingen_betalhistorik_annu')}</div>
                     </SettingCard>
                   </SettingsSection>
                 )}
               </div>
 
-              <SettingsSection title="Användning" description="Hur mycket du använder Bokix till.">
+              <SettingsSection title={tr('ui.anvandning')} description={tr('ui.hur_mycket_du_anvander_bokix_till')}>
                 <UsageCard invoices={invoices} verifications={verifications} contacts={contacts} expenses={expenses} />
               </SettingsSection>
             </div>
@@ -4362,7 +4362,13 @@ export default function Settings({
                         <button
                           key={opt.id}
                           type="button"
-                          onClick={() => setLanguage(opt.id)}
+                          onClick={() => {
+                            if (opt.id === getLanguage()) return;
+                            setLanguage(opt.id);
+                            // En del texter räknas ut när sidan laddas (listor och
+                            // tabellrubriker), så sidan laddas om för att allt ska byta språk.
+                            window.location.reload();
+                          }}
                           aria-pressed={active}
                           style={{
                             flex: '1 1 160px', textAlign: 'left', padding: '14px 16px', borderRadius: '12px',
@@ -4383,25 +4389,25 @@ export default function Settings({
               </SettingsSection>
 
               <SettingsSection
-                title="Visning"
-                description="Sparas direkt."
+                title={tr('ui.visning')}
+                description={tr('ui.sparas_direkt')}
               >
                 <SettingCard>
                   <SettingRow
-                    label="Mörk sidomeny"
-                    description="Mörk sidomeny med ljus app i övrigt."
+                    label={tr('ui.mork_sidomeny')}
+                    description={tr('ui.mork_sidomeny_med_ljus_app_i_ovrigt')}
                   >
                     <ToggleSwitch checked={sidebarStyle === 'dark'} onChange={() => onToggleSidebarStyle?.()} />
                   </SettingRow>
                   <SettingRow
-                    label="Dölj scrollbar"
-                    description="Sidan skrollar som vanligt, handtaget syns inte."
+                    label={tr('ui.dolj_scrollbar')}
+                    description={tr('ui.sidan_skrollar_som_vanligt_handtaget_syns_inte')}
                   >
                     <ToggleSwitch checked={hideScrollbar} onChange={() => onToggleHideScrollbar?.()} />
                   </SettingRow>
                   <SettingRow
-                    label="Hälsning på Startsidan"
-                    description={'Av döljer "' + greetingPreview + ', ' + (firstName || 'Användare') + ' 👋" och flyttar upp resten av sidan.'}
+                    label={tr('ui.halsning_pa_startsidan')}
+                    description={tr('ui.halsning_av_doljer', { g: greetingPreview, name: firstName || tr('ui.anvandare') })}
                     last
                   >
                     <ToggleSwitch
@@ -4453,13 +4459,13 @@ export default function Settings({
           {activeTab === 'notifications' && (
             <div style={{ animation: 'fadeIn 0.2s ease' }}>
               <SettingsSection
-                title="Automatiska påminnelser"
-                description="E-postnotiser styr alla kategorier nedan gemensamt — varje kategori har dessutom sin egen växel. Dagarna (3/faktura, 7/deklaration) är fasta, inte redigerbara här."
+                title={tr('ui.automatiska_paminnelser')}
+                description={tr('ui.e_postnotiser_styr_alla_kategorier_nedan_gemensa')}
               >
-              <SettingCard title="Notiser" icon={Bell} tone="blue">
+              <SettingCard title={tr('ui.notiser')} icon={Bell} tone="blue">
                 <SettingRow
-                  label="E-postnotiser"
-                  description="Huvudströmbrytare. Av stänger alla kategorier nedan, oavsett deras egna val."
+                  label={tr('ui.e_postnotiser')}
+                  description={tr('ui.huvudstrombrytare_av_stanger_alla_kategorier_ned')}
                 >
                   <ToggleSwitch
                     checked={emailNotificationsOn}
@@ -4468,8 +4474,8 @@ export default function Settings({
                   />
                 </SettingRow>
                 <SettingRow
-                  label="Fakturor"
-                  description="Betalningskvitto till kunden när en faktura blir helt betald."
+                  label={tr('ui.fakturor')}
+                  description={tr('ui.betalningskvitto_till_kunden_nar_en_faktura_blir')}
                 >
                   <ToggleSwitch
                     checked={company?.notifications?.invoiceReceiptsEnabled ?? true}
@@ -4478,8 +4484,8 @@ export default function Settings({
                   />
                 </SettingRow>
                 <SettingRow
-                  label="Betalningar"
-                  description="Mejl till er när en faktura blir helt betald."
+                  label={tr('ui.betalningar')}
+                  description={tr('ui.mejl_till_er_nar_en_faktura_blir_helt_betald')}
                 >
                   <ToggleSwitch
                     checked={company?.notifications?.paymentRemindersEnabled ?? true}
@@ -4488,8 +4494,8 @@ export default function Settings({
                   />
                 </SettingRow>
                 <SettingRow
-                  label="Förfallna fakturor"
-                  description="Påminnelse till kunden 3 dagar efter förfallodatum."
+                  label={tr('ui.forfallna_fakturor')}
+                  description={tr('ui.paminnelse_till_kunden_3_dagar_efter_forfallodat')}
                 >
                   <ToggleSwitch
                     checked={company?.notifications?.invoiceRemindersEnabled ?? company?.notifications?.enabled ?? true}
@@ -4498,8 +4504,8 @@ export default function Settings({
                   />
                 </SettingRow>
                 <SettingRow
-                  label="Moms & deklaration"
-                  description="Påminnelse till er 7 dagar före moms- och AGI-deadline."
+                  label={tr('ui.moms_deklaration')}
+                  description={tr('ui.paminnelse_till_er_7_dagar_fore_moms_och_agi_dea')}
                 >
                   <ToggleSwitch
                     checked={company?.notifications?.declarationRemindersEnabled ?? company?.notifications?.enabled ?? true}
@@ -4508,8 +4514,8 @@ export default function Settings({
                   />
                 </SettingRow>
                 <SettingRow
-                  label="Systemmeddelanden"
-                  description="Kommer senare — Bokix har i dagsläget inga produktnyheter eller driftmeddelanden att skicka."
+                  label={tr('ui.systemmeddelanden')}
+                  description={tr('ui.kommer_senare_bokix_har_i_dagslaget_inga_produkt')}
                   last
                 >
                   <ToggleSwitch checked={false} onChange={() => {}} disabled />

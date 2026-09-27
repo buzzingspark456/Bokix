@@ -1,6 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { MoreVertical } from '../icons';
+import { t } from '../../i18n';
 
 // Delad "⋮"-radmeny — kebab-knapp som öppnar en dropdown med grupperade
 // åtgärder (t.ex. olika åtgärder beroende på en fakturas/offerts status).
@@ -24,7 +25,7 @@ import { MoreVertical } from '../icons';
 // `data-inv-tour`, se utils/invoiceTour.js) så en sidas egen produktguide
 // kan peka ut/klicka menyn utan att den här delade komponenten behöver
 // veta något om vem som frågar.
-export default function RowActionMenu({ items, ariaLabel = 'Fler åtgärder', triggerProps = {} }) {
+export default function RowActionMenu({ items, ariaLabel = t('ui.fler_atgarder'), triggerProps = {} }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState(null); // { left/right, top/bottom }
   const btnRef = useRef(null);

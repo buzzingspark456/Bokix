@@ -7,6 +7,7 @@ import { confirmDialog } from './shared/ConfirmDialog';
 import { articlesToCsv, csvToArticles, downloadCsv } from '../utils/csvRegister';
 import Inventory from './Inventory';
 import PricingTool from './PricingTool';
+import { t } from '../i18n';
 
 const fmt = (val) => new Intl.NumberFormat('sv-SE', { maximumFractionDigits: 2, minimumFractionDigits: 2 }).format(val || 0);
 
@@ -29,7 +30,7 @@ const grid2 = { display: 'grid', gap: '16px' };
 
 const UNITS = ['st', 'tim', 'kr', 'm', 'm²', 'kg', 'dag'];
 const ROT_RUT_OPTIONS = [
-  { value: 'none', label: 'Ingen' },
+  { value: 'none', label: t('ui.ingen') },
   { value: 'rot', label: 'ROT' },
   { value: 'rut', label: 'RUT' },
 ];
@@ -114,7 +115,7 @@ export default function Articles({ articles = [], setArticles, accounts = [], co
     reader.onload = (ev) => {
       try {
         const imported = csvToArticles(ev.target.result);
-        if (imported.length === 0) throw new Error('Inga giltiga rader hittades (kräver minst en "Benämning").');
+        if (imported.length === 0) throw new Error(t('ui.inga_giltiga_rader_hittades_kraver_minst_en_bena'));
         let added = 0, updated = 0;
         setArticles(prev => {
           const next = [...prev];
@@ -127,9 +128,9 @@ export default function Articles({ articles = [], setArticles, accounts = [], co
           });
           return next;
         });
-        setImportMsg({ type: 'success', text: `${added} ny${added === 1 ? '' : 'a'}, ${updated} uppdaterad${updated === 1 ? '' : 'e'}.` });
+        setImportMsg({ type: 'success', text: t('ui.ny_uppdaterad', { added, v1: added === 1 ? '' : 'a', updated, v3: updated === 1 ? '' : 'e' }) });
       } catch (err) {
-        setImportMsg({ type: 'error', text: `Kunde inte importera: ${err.message}` });
+        setImportMsg({ type: 'error', text: t('ui.kunde_inte_importera', { message: err.message }) });
       }
       setTimeout(() => setImportMsg(null), 6000);
     };
@@ -151,7 +152,7 @@ export default function Articles({ articles = [], setArticles, accounts = [], co
 
   const remove = async (a) => {
     const label = a.description || a.articleNumber || 'artikeln';
-    if (!(await confirmDialog(`Ta bort "${label}" från registret? Redan sparade fakturor och offerter påverkas inte.`, { danger: true }))) return;
+    if (!(await confirmDialog(t('ui.ta_bort_fran_registret_redan_sparade_fakturor_oc', { label }), { danger: true }))) return;
     setArticles(prev => prev.filter(x => x !== a));
   };
 
@@ -167,43 +168,43 @@ export default function Articles({ articles = [], setArticles, accounts = [], co
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', background: 'var(--bg-page)' }}>
         <div style={{ padding: '24px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-            <button type="button" onClick={cancelEdit} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '13px', padding: 0 }}>← Tillbaka</button>
+            <button type="button" onClick={cancelEdit} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '13px', padding: 0 }}>{t('ui.tillbaka')}</button>
             <span style={{ color: 'var(--border)' }}>|</span>
             <h2 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>
-              {editingOriginal ? 'Ändra artikel' : 'Ny artikel'}
+              {editingOriginal ? t('ui.andra_artikel') : t('ui.ny_artikel')}
             </h2>
           </div>
 
           <form onSubmit={e => { e.preventDefault(); save(); }}>
             <div style={sectionStyle}>
-              <h3 style={sectionTitleStyle}>Grunduppgifter</h3>
+              <h3 style={sectionTitleStyle}>{t('ui.grunduppgifter')}</h3>
               <div className="form-row-2" style={grid2}>
                 <div style={{ gridColumn: '1 / -1' }}>
-                  <label style={lbl}>Benämning{req}</label>
-                  <input style={inp} value={editing.description} onChange={e => setEditing(s => ({ ...s, description: e.target.value }))} placeholder="T.ex. Konsulttimme" />
+                  <label style={lbl}>{t('ui.benamning')}{req}</label>
+                  <input style={inp} value={editing.description} onChange={e => setEditing(s => ({ ...s, description: e.target.value }))} placeholder={t('ui.t_ex_konsulttimme')} />
                 </div>
                 <div>
-                  <label style={lbl}>Typ</label>
+                  <label style={lbl}>{t('ui.typ')}</label>
                   <select style={inp} value={editing.type} onChange={e => setEditing(s => ({ ...s, type: e.target.value }))}>
-                    <option value="vara">Vara</option>
-                    <option value="tjanst">Tjänst</option>
+                    <option value="vara">{t('ui.vara')}</option>
+                    <option value="tjanst">{t('ui.tjanst')}</option>
                   </select>
                 </div>
                 <div>
-                  <label style={lbl}>Enhet</label>
+                  <label style={lbl}>{t('ui.enhet')}</label>
                   <select style={inp} value={editing.unit} onChange={e => setEditing(s => ({ ...s, unit: e.target.value }))}>
                     {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label style={lbl}>Pris exkl. moms{req}</label>
+                  <label style={lbl}>{t('ui.pris_exkl_moms')}{req}</label>
                   <div style={{ position: 'relative' }}>
                     <input type="number" style={{ ...inp, paddingRight: '44px' }} value={editing.unitPrice} onChange={e => setEditing(s => ({ ...s, unitPrice: Number(e.target.value) }))} />
-                    <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>SEK</span>
+                    <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>{t('ui.sek')}</span>
                   </div>
                 </div>
                 <div>
-                  <label style={lbl}>Moms</label>
+                  <label style={lbl}>{t('ui.moms')}</label>
                   <select style={inp} value={editing.vatRate} onChange={e => setEditing(s => ({ ...s, vatRate: Number(e.target.value) }))}>
                     {[0, 6, 12, 25].map(r => <option key={r} value={r}>{r} %</option>)}
                   </select>
@@ -212,9 +213,9 @@ export default function Articles({ articles = [], setArticles, accounts = [], co
             </div>
 
             <div style={sectionStyle}>
-              <h3 style={sectionTitleStyle}>Bokföring</h3>
-              <label style={lbl}>Bokföringskonto</label>
-              <AccountSearch value={editing.account} onChange={code => setEditing(s => ({ ...s, account: code }))} accounts={accounts} placeholder="Sök konto…" />
+              <h3 style={sectionTitleStyle}>{t('ui.bokforing')}</h3>
+              <label style={lbl}>{t('ui.bokforingskonto')}</label>
+              <AccountSearch value={editing.account} onChange={code => setEditing(s => ({ ...s, account: code }))} accounts={accounts} placeholder={t('ui.sok_konto')} />
             </div>
 
             <div style={sectionStyle}>
@@ -223,35 +224,35 @@ export default function Articles({ articles = [], setArticles, accounts = [], co
                 onClick={() => setMoreOpen(v => !v)}
                 style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: 0, background: 'none', border: 'none', cursor: 'pointer', ...sectionTitleStyle, marginBottom: moreOpen ? '16px' : 0 }}
               >
-                {moreOpen ? <ChevronDown size={13} /> : <ChevronRight size={13} />} Fler fält
+                {moreOpen ? <ChevronDown size={13} /> : <ChevronRight size={13} />} {t('ui.fler_falt')}
               </button>
               {moreOpen && (
                 <div className="form-row-2" style={grid2}>
                   <div>
-                    <label style={lbl}>Artikelnummer</label>
-                    <input style={inp} value={editing.articleNumber} onChange={e => setEditing(s => ({ ...s, articleNumber: e.target.value }))} placeholder="t.ex. 1001" />
+                    <label style={lbl}>{t('ui.artikelnummer')}</label>
+                    <input style={inp} value={editing.articleNumber} onChange={e => setEditing(s => ({ ...s, articleNumber: e.target.value }))} placeholder={t('ui.t_ex_1001')} />
                   </div>
                   <div>
-                    <label style={lbl}>Inköpspris</label>
+                    <label style={lbl}>{t('ui.inkopspris')}</label>
                     <input type="number" style={inp} value={editing.purchasePrice} onChange={e => setEditing(s => ({ ...s, purchasePrice: e.target.value === '' ? '' : Number(e.target.value) }))} />
                   </div>
                   <div style={{ gridColumn: '1 / -1' }}>
-                    <label style={lbl}>Benämning (engelska)</label>
-                    <input style={inp} value={editing.descriptionEn} onChange={e => setEditing(s => ({ ...s, descriptionEn: e.target.value }))} placeholder="T.ex. Consulting hour" />
+                    <label style={lbl}>{t('ui.benamning_engelska')}</label>
+                    <input style={inp} value={editing.descriptionEn} onChange={e => setEditing(s => ({ ...s, descriptionEn: e.target.value }))} placeholder={t('ui.t_ex_consulting_hour')} />
                   </div>
                   <div>
-                    <label style={lbl}>EAN/streckkod</label>
-                    <input style={inp} value={editing.ean} onChange={e => setEditing(s => ({ ...s, ean: e.target.value }))} placeholder="t.ex. 7350000000000" />
+                    <label style={lbl}>{t('ui.ean_streckkod')}</label>
+                    <input style={inp} value={editing.ean} onChange={e => setEditing(s => ({ ...s, ean: e.target.value }))} placeholder={t('ui.t_ex_7350000000000')} />
                   </div>
                   <div>
-                    <label style={lbl}>ROT/RUT</label>
+                    <label style={lbl}>{t('ui.rot_rut')}</label>
                     <select style={inp} value={editing.rotRut} onChange={e => setEditing(s => ({ ...s, rotRut: e.target.value }))}>
                       {ROT_RUT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
                   </div>
                   <div style={{ gridColumn: '1 / -1' }}>
-                    <label style={lbl}>Anteckningar</label>
-                    <textarea style={{ ...inp, resize: 'vertical', minHeight: '64px' }} value={editing.notes} onChange={e => setEditing(s => ({ ...s, notes: e.target.value }))} placeholder="Interna anteckningar om artikeln…" />
+                    <label style={lbl}>{t('ui.anteckningar')}</label>
+                    <textarea style={{ ...inp, resize: 'vertical', minHeight: '64px' }} value={editing.notes} onChange={e => setEditing(s => ({ ...s, notes: e.target.value }))} placeholder={t('ui.interna_anteckningar_om_artikeln')} />
                   </div>
                 </div>
               )}
@@ -259,10 +260,10 @@ export default function Articles({ articles = [], setArticles, accounts = [], co
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
               <button type="button" onClick={cancelEdit} style={{ padding: '9px 18px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer' }}>
-                Avbryt
+                {t('ui.avbryt')}
               </button>
               <button type="submit" disabled={!canSave} style={{ padding: '9px 18px', background: 'var(--accent)', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600, color: 'white', cursor: canSave ? 'pointer' : 'not-allowed', opacity: canSave ? 1 : 0.6 }}>
-                Spara artikel
+                {t('ui.spara_artikel')}
               </button>
             </div>
           </form>
@@ -277,15 +278,15 @@ export default function Articles({ articles = [], setArticles, accounts = [], co
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
       <ListPageHeader
-        title="Artikel"
+        title={t('ui.artikel')}
         tabs={setCompanyInfo ? {
-          items: [{ id: 'articles', label: 'Artiklar' }, { id: 'inventory', label: 'Lager' }, { id: 'pricing', label: 'Prissättning' }],
+          items: [{ id: 'articles', label: t('ui.artiklar') }, { id: 'inventory', label: t('ui.lager') }, { id: 'pricing', label: t('ui.prissattning') }],
           activeId: tab, onChange: setTab,
         } : undefined}
         actions={tab !== 'articles' ? [] : [
-          { label: 'Exportera', icon: Download, onClick: handleExportCsv, variant: 'secondary' },
-          { label: 'Importera', icon: Upload, onClick: handleImportClick, variant: 'secondary' },
-          { label: 'Ny artikel', icon: Plus, onClick: startNew, variant: 'primary' },
+          { label: t('ui.exportera'), icon: Download, onClick: handleExportCsv, variant: 'secondary' },
+          { label: t('ui.importera'), icon: Upload, onClick: handleImportClick, variant: 'secondary' },
+          { label: t('ui.ny_artikel'), icon: Plus, onClick: startNew, variant: 'primary' },
         ]}
       >
         {importMsg && (
@@ -308,10 +309,10 @@ export default function Articles({ articles = [], setArticles, accounts = [], co
         </div>
       )}
 
-      {tab === 'articles' && <ListFilterBar count={filtered.length} countLabel={filtered.length === 1 ? 'artikel' : 'artiklar'}>
+      {tab === 'articles' && <ListFilterBar count={filtered.length} countLabel={filtered.length === 1 ? t('ui.artikel_2') : t('ui.artiklar_2')}>
         <div style={{ position: 'relative' }}>
           <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-          <input type="text" placeholder="Sök benämning, artikelnr eller EAN…" value={search} onChange={e => setSearch(e.target.value)} style={listSearchInputStyle} />
+          <input type="text" placeholder={t('ui.sok_benamning_artikelnr_eller_ean')} value={search} onChange={e => setSearch(e.target.value)} style={listSearchInputStyle} />
         </div>
       </ListFilterBar>}
 
@@ -322,23 +323,23 @@ export default function Articles({ articles = [], setArticles, accounts = [], co
           rowKey={a => a.id || a.articleNumber}
           rows={filtered}
           onRowClick={startEdit}
-          emptyMessage={articles.length === 0 ? 'Inga artiklar sparade ännu — lägg till din första produkt eller tjänst ovan.' : 'Inga artiklar matchar sökningen.'}
+          emptyMessage={articles.length === 0 ? t('ui.inga_artiklar_sparade_annu_lagg_till_din_forsta') : t('ui.inga_artiklar_matchar_sokningen')}
           mobileList={a => ({
             primary: a.description,
             amount: `${fmt(a.unitPrice)} kr`,
-            meta: a.articleNumber ? `${a.articleNumber} · Moms ${a.vatRate}%` : `Moms ${a.vatRate}%`,
+            meta: a.articleNumber ? t('ui.moms_3', { articleNumber: a.articleNumber, vatRate: a.vatRate }) : t('ui.moms_2', { vatRate: a.vatRate }),
           })}
           columns={[
-            { key: 'description', label: 'Benämning', fontWeight: 600, color: 'var(--text-main)', render: a => a.description },
-            { key: 'articleNumber', label: 'Artikelnr', render: a => a.articleNumber || '—' },
-            { key: 'unitPrice', label: 'Pris', align: 'right', color: 'var(--text-main)', render: a => `${fmt(a.unitPrice)} kr` },
-            { key: 'vatRate', label: 'Moms', align: 'right', render: a => `${a.vatRate}%` },
+            { key: 'description', label: t('ui.benamning'), fontWeight: 600, color: 'var(--text-main)', render: a => a.description },
+            { key: 'articleNumber', label: t('ui.artikelnr'), render: a => a.articleNumber || '—' },
+            { key: 'unitPrice', label: t('ui.pris'), align: 'right', color: 'var(--text-main)', render: a => `${fmt(a.unitPrice)} kr` },
+            { key: 'vatRate', label: t('ui.moms'), align: 'right', render: a => `${a.vatRate}%` },
             {
               key: 'actions', label: '', align: 'right', width: 80,
               render: a => (
                 <span onClick={e => e.stopPropagation()}>
-                  <button onClick={() => startEdit(a)} title="Ändra" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', marginRight: '10px', padding: '2px' }}><Pencil size={14} /></button>
-                  <button onClick={() => remove(a)} title="Ta bort" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '2px' }}><Trash2 size={14} /></button>
+                  <button onClick={() => startEdit(a)} title={t('ui.andra')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', marginRight: '10px', padding: '2px' }}><Pencil size={14} /></button>
+                  <button onClick={() => remove(a)} title={t('ui.ta_bort')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '2px' }}><Trash2 size={14} /></button>
                 </span>
               ),
             },

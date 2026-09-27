@@ -5,6 +5,7 @@ import { checkRateLimit } from '../_rateLimit.js';
 import { parseJsonBody } from '../stripe/_parseBody.js';
 import { createClient } from '@supabase/supabase-js';
 import { planFromId } from '../../src/utils/plans.js';
+import * as featureFlags from '../../src/utils/featureFlags.js';
 
 // ── Internt admin-API (/internal på klienten) ───────────────────────────
 // EN enda fil för HELA admin-panelen, inte en fil per delsystem —
@@ -449,6 +450,91 @@ async function handleSecurity(admin, res) {
   res.status(200).json({ adminEmails: ADMIN_EMAILS, recentSignIns, unconfirmed, events: events || [] });
 }
 
+// ── Inkorg (resource: 'inbox') ──────────────────────────────────────────
+// Kontaktformulären (contact_messages, sparade av api/contact.js). Saknas
+// tabellen har SQL:en supabase-2026-09-27-admin.sql inte körts än; det sägs
+// rakt ut i stället för att visas som ett fel.
+async function handleInbox(admin, res) {
+  const { data, error } = await admin
+    .from('contact_messages')
+    .select('id, name, email, topic, message, email_sent, handled_at, handled_by, created_at')
+    .order('created_at', { ascending: false })
+    .limit(200);
+  if (error) {
+    if (/does not exist|schema cache|contact_messages/i.test(error.message)) { res.status(200).json({ missingTable: true, messages: [] }); return; }
+    res.status(500).json({ error: error.message }); return;
+  }
+  res.status(200).json({ messages: data || [] });
+}
+
+async function handleInboxUpdate(admin, res, body, adminEmail) {
+  if (!body.id) { res.status(400).json({ error: 'id krävs.' }); return; }
+  const handled = body.action === 'handle';
+  const { error } = await admin.from('contact_messages')
+    .update({ handled_at: handled ? new Date().toISOString() : null, handled_by: handled ? adminEmail : null })
+    .eq('id', body.id);
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.status(200).json({ ok: true });
+}
+
+// ── Systemstatus (resource: 'system') ───────────────────────────────────
+// Det som behöver åtgärdas, samlat: vilka tjänster som är konfigurerade
+// (bara om nyckeln finns, aldrig värdet), misslyckade mejl, fel i admin-
+// API:t, betalningar som fallerat, obesvarade kontaktformulär, databasens
+// och fillagringens storlek, och funktionsflaggorna i src/utils/featureFlags.js.
+const CONFIG_CHECKS = [
+  ['RESEND_API_KEY', 'E-post (Resend)', 'Fakturor, påminnelser och kontaktformuläret kan inte mejlas.'],
+  ['STRIPE_SECRET_KEY', 'Stripe', 'Abonnemang och betallänkar fungerar inte.'],
+  ['STRIPE_WEBHOOK_SECRET', 'Stripe webhook', 'Betalningar registreras inte automatiskt.'],
+  ['CRON_SECRET', 'Schemalagda jobb', 'Nattjobben (påminnelser, arkiv, gallring) kan inte köras säkert.'],
+  ['EMAIL_SECRET_KEY', 'Egen avsändaradress', 'Kunderna kan inte skicka från sin egen adress.'],
+  ['RECAPTCHA_SECRET_KEY', 'reCAPTCHA', 'Kontaktformuläret har bara hastighetsbegränsning som spamskydd.'],
+  ['GA4_SERVICE_ACCOUNT_KEY', 'Google Analytics', 'Besöksstatistiken under Analys saknas.'],
+];
+// Supabase gratisplan: 500 MB databas och 1 GB fillagring.
+const DB_LIMIT_BYTES = 500 * 1024 * 1024;
+const STORAGE_LIMIT_BYTES = 1024 * 1024 * 1024;
+
+async function handleSystem(admin, res) {
+  const since = new Date(Date.now() - 7 * 86400000).toISOString();
+  const safe = async (fn, fallback) => { try { return await fn(); } catch { return fallback; } };
+
+  const config = CONFIG_CHECKS.map(([key, label, impact]) => ({ key, label, impact, ok: Boolean(process.env[key]) }));
+
+  const systemEvents = await safe(async () => {
+    const { data, error } = await admin.from('system_events').select('kind, detail, created_at').gte('created_at', since).order('created_at', { ascending: false }).limit(50);
+    return error ? null : data;
+  }, null);
+  const apiErrors = await safe(async () => {
+    const { data } = await admin.from('security_events').select('type, email, detail, created_at').eq('type', 'admin_api_error').gte('created_at', since).order('created_at', { ascending: false }).limit(20);
+    return data || [];
+  }, []);
+  const atRisk = await safe(async () => {
+    const { data } = await admin.from('subscriptions').select('status').in('status', ['past_due', 'unpaid', 'incomplete']);
+    return (data || []).length;
+  }, 0);
+  const unhandled = await safe(async () => {
+    const { count, error } = await admin.from('contact_messages').select('id', { count: 'exact', head: true }).is('handled_at', null);
+    return error ? null : count;
+  }, null);
+  const db = await safe(async () => {
+    const { data, error } = await admin.rpc('admin_db_stats');
+    return error ? null : data;
+  }, null);
+
+  res.status(200).json({
+    config,
+    systemEvents,
+    apiErrors,
+    atRisk,
+    unhandledMessages: unhandled,
+    storage: db ? { ...db, dbLimit: DB_LIMIT_BYTES, storageLimit: STORAGE_LIMIT_BYTES } : null,
+    featureFlags: Object.entries(featureFlags).map(([name, value]) => ({ name, value })),
+    // Saknas något av detta har supabase-2026-09-27-admin.sql inte körts.
+    setupMissing: systemEvents === null || unhandled === null || db === null,
+  });
+}
+
 // Tyst — ett loggningsfel ska aldrig få den FAKTISKA admin-förfrågan att
 // krascha (den har redan fått sitt riktiga svar, eller är på väg att få
 // ett). Bäst-försök, samma avvägning som stripe_ledger_events cronen gör
@@ -506,6 +592,8 @@ export default async function handler(req, res) {
       if (resource === 'users') { await handleUsers(admin, res); return; }
       if (resource === 'payments') { await handlePayments(admin, res); return; }
       if (resource === 'security') { await handleSecurity(admin, res); return; }
+      if (resource === 'inbox') { await handleInbox(admin, res); return; }
+      if (resource === 'system') { await handleSystem(admin, res); return; }
       res.status(400).json({ error: 'Okänd resurs.' });
       return;
     }
@@ -517,6 +605,7 @@ export default async function handler(req, res) {
         if (body.action === 'unsuspend') { await handleSuspendUser(admin, res, body, user.email, false); return; }
         res.status(400).json({ error: 'Okänd action.' }); return;
       }
+      if (body.resource === 'inbox' && ['handle', 'unhandle'].includes(body.action)) { await handleInboxUpdate(admin, res, body, user.email); return; }
       res.status(400).json({ error: 'Okänd resurs.' });
       return;
     }

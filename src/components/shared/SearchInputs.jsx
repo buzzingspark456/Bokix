@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Search, X, ListTree } from '../icons';
 import { accountMatches, groupAccountsByClass } from '../../utils/accountSearch';
 import AnchoredDropdown, { useDismissOnOutsideClick } from './AnchoredDropdown';
+import { t } from '../../i18n';
 
 /**
  * Generisk sökbar combobox mot en lista av { id, name, ... }.
@@ -157,11 +158,11 @@ export function TextSuggestInput({ value, onChange, suggestions = [], placeholde
 }
 
 export function PartySearch({ value, onChange, contacts, onCreateNew, createLabel }) {
-  return <EntitySearch value={value} onChange={onChange} items={contacts} placeholder="Sök kund eller leverantör..." renderMeta={c => c.type === 'supplier' ? 'Leverantör' : 'Kund'} onCreateNew={onCreateNew} createLabel={createLabel} />;
+  return <EntitySearch value={value} onChange={onChange} items={contacts} placeholder={t('ui.sok_kund_eller_leverantor')} renderMeta={c => c.type === 'supplier' ? t('ui.leverantor') : 'Kund'} onCreateNew={onCreateNew} createLabel={createLabel} />;
 }
 
 export function ProjectSearch({ value, onChange, projects }) {
-  return <EntitySearch value={value} onChange={onChange} items={projects} placeholder="Sök projekt..." />;
+  return <EntitySearch value={value} onChange={onChange} items={projects} placeholder={t('ui.sok_projekt')} />;
 }
 
 // ── Kontoväljaren ───────────────────────────────────────────────────────
@@ -244,7 +245,7 @@ export function AccountPickerModal({ accounts = [], initialQuery = '', onPick, o
     >
       <div
         role="dialog"
-        aria-label="Kontoplan"
+        aria-label={t('ui.kontoplan_2')}
         onMouseDown={e => e.stopPropagation()}
         style={{
           width: '100%', maxWidth: '560px', maxHeight: 'min(78vh, 680px)',
@@ -255,12 +256,12 @@ export function AccountPickerModal({ accounts = [], initialQuery = '', onPick, o
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '16px 18px 12px' }}>
           <div>
-            <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)' }}>Kontoplan</div>
+            <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)' }}>{t('ui.kontoplan_2')}</div>
             <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
-              {filtered.length} av {accounts.length} konton
+              {filtered.length} {t('ui.av')} {accounts.length} {t('ui.konton_2')}
             </div>
           </div>
-          <button type="button" onClick={onClose} aria-label="Stäng" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '4px', display: 'flex' }}>
+          <button type="button" onClick={onClose} aria-label={t('ui.stang')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '4px', display: 'flex' }}>
             <X size={18} />
           </button>
         </div>
@@ -271,7 +272,7 @@ export function AccountPickerModal({ accounts = [], initialQuery = '', onPick, o
             ref={inputRef}
             value={q}
             onChange={e => setQ(e.target.value)}
-            placeholder="Sök kontonummer eller namn..."
+            placeholder={t('ui.sok_kontonummer_eller_namn')}
             style={{
               width: '100%', boxSizing: 'border-box', height: '36px', padding: '0 12px 0 34px',
               border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13.5px',
@@ -283,7 +284,7 @@ export function AccountPickerModal({ accounts = [], initialQuery = '', onPick, o
         <div style={{ flex: 1, overflowY: 'auto', borderTop: '1px solid var(--border-light)' }}>
           {filtered.length === 0 && (
             <div style={{ padding: '28px 18px', textAlign: 'center', fontSize: '13px', color: 'var(--text-muted)' }}>
-              Inget konto matchar "{q}". Sök på kontonummer (t.ex. 5410) eller ett ord ur namnet.
+              {t('ui.inget_konto_matchar')}{q}{t('ui.sok_pa_kontonummer_t_ex_5410_eller_ett_ord_ur_na')}
             </div>
           )}
           {groups.map(g => (
@@ -385,8 +386,8 @@ export function AccountSearch({ value, onChange, accounts, placeholder = 'Konto.
       <button
         type="button"
         onClick={() => { setOpen(false); setShowPicker(true); }}
-        title="Visa hela kontoplanen"
-        aria-label="Visa hela kontoplanen"
+        title={t('ui.visa_hela_kontoplanen_2')}
+        aria-label={t('ui.visa_hela_kontoplanen_2')}
         style={{
           position: 'absolute', right: compact ? '3px' : '6px', top: '50%', transform: 'translateY(-50%)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -410,7 +411,7 @@ export function AccountSearch({ value, onChange, accounts, placeholder = 'Konto.
           <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
             {matches.length === 0 && (
               <div style={{ padding: '12px 12px', fontSize: '12.5px', color: 'var(--text-muted)' }}>
-                Inget konto matchar. Prova ett kontonummer eller ett ord ur namnet.
+                {t('ui.inget_konto_matchar_prova_ett_kontonummer_eller')}
               </div>
             )}
             {matches.map((a, i) => (
@@ -439,7 +440,7 @@ export function AccountSearch({ value, onChange, accounts, placeholder = 'Konto.
               fontSize: '12.5px', fontWeight: 600, color: 'var(--text-secondary)', fontFamily: 'inherit',
             }}
           >
-            <ListTree size={14} /> Visa hela kontoplanen ({(accounts || []).length} konton)
+            <ListTree size={14} /> {t('ui.visa_hela_kontoplanen')}{(accounts || []).length} {t('ui.konton_3')}
           </button>
       </AnchoredDropdown>
 

@@ -16,7 +16,7 @@ import SieImportModal from './SieImportModal';
 import { BRAND, VIVID } from '../utils/brandColors';
 import { resolveChartPalette, makeAmountFormatters, CHART_COLOR_FAMILIES } from '../utils/chartPalette';
 import { RevenueExpenseChart, ReportDisplayProvider, useReportDisplay } from './reports/ReportUI';
-import { useTranslation } from '../i18n';
+import { t as tr, useTranslation } from '../i18n';
 // Kundönskemål: samma fem period-flikar (Denna månad/3 mån/6 mån/
 // Räkenskapsåret/Sedan start) som Rapport och analys → Företagsöversikt,
 // på "Intäkter vs Utgifter"-grafen här också — delad komponent/lista och
@@ -688,7 +688,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
   // vore periodvis felaktigt. En generisk "föregående år" stämmer alltid,
   // eftersom jämförelseperioden (prevStart/prevEnd) alltid är EXAKT ett år
   // tidigare oavsett flik.
-  const comparisonLabel = 'föregående år';
+  const comparisonLabel = tr('ui.foregaende_ar');
   // Ren visningstext, ALDRIG använd för att bygga nyckeln i
   // comparisonChartData (se useMemo nedan) eller i extraSeries som skickas
   // till den delade RevenueExpenseChart (ReportUI.jsx, Tremor-baserad) —

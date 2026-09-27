@@ -4,20 +4,21 @@ import { BRAND } from '../utils/brandColors';
 import { uploadFileToStorage } from '../utils/fileUpload';
 import { importedFiscalYears, matchAttachments, buildAttachmentUpdates, ATTACHMENT_EXTENSIONS } from '../utils/sieAttachments';
 import { StepPills, Notice } from './SkattekontoImportModal';
+import { t } from '../i18n';
 
 // Underlag till SIE-importerad bokföring: filer eller en hel mapp kopplas
 // till verifikationerna via verifikatnumret i filnamnet, inom ETT
 // räkenskapsår. Matchningen bor i utils/sieAttachments.js. Ingenting laddas
 // upp förrän användaren trycker Koppla i granskningssteget.
-const STEPS = ['Välj filer', 'Granska', 'Resultat'];
+const STEPS = [t('ui.valj_filer'), t('ui.granska'), t('ui.resultat')];
 
 const SKIP_REASON = {
-  attached: 'Sitter redan på verifikatet',
-  'no-number': 'Inget verifikatnummer i filnamnet',
-  'not-found': 'Inget verifikat med det numret det året',
-  'other-year': 'Filnamnet anger ett annat år',
-  ambiguous: 'Flera verifikat har det numret',
-  unsupported: 'Filtypen stöds inte',
+  attached: t('ui.sie_sitter_redan'),
+  'no-number': t('ui.sie_inget_nummer'),
+  'not-found': t('ui.sie_inget_verifikat'),
+  'other-year': t('ui.sie_annat_ar'),
+  ambiguous: t('ui.sie_flera'),
+  unsupported: t('ui.sie_filtyp'),
 };
 
 const btn = { display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '9px 16px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer', fontFamily: 'inherit' };
@@ -84,7 +85,7 @@ export default function SieAttachmentsModal({ company, verifications = [], user,
           const url = await uploadFn(user.id, m.file, 'verifications');
           uploaded.push({ index, verificationId: m.verification.id, url, name: m.file.name, type: m.file.type || '' });
         } catch (e) {
-          failed.push({ name: m.file.name, message: e.message || 'okänt fel' });
+          failed.push({ name: m.file.name, message: e.message || t('ui.okant_fel') });
         }
         setProgress(p => ({ ...p, done: p.done + 1 }));
       }
@@ -103,8 +104,8 @@ export default function SieAttachmentsModal({ company, verifications = [], user,
     <div className="modal-overlay" onClick={progress ? undefined : onClose}>
       <div className="modal-content" style={{ maxWidth: '720px' }} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <span className="modal-title">Koppla underlag till importerad bokföring</span>
-          {!progress && <button className="modal-close" onClick={onClose} aria-label="Stäng"><X size={18} /></button>}
+          <span className="modal-title">{t('ui.koppla_underlag_till_importerad_bokforing')}</span>
+          {!progress && <button className="modal-close" onClick={onClose} aria-label={t('ui.stang')}><X size={18} /></button>}
         </div>
 
         <StepPills steps={STEPS} step={step} />
@@ -112,19 +113,19 @@ export default function SieAttachmentsModal({ company, verifications = [], user,
         {step === 0 && (
           <div>
             <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 10px', lineHeight: 1.6 }}>
-              En SIE-fil innehåller bokföringen men inte underlagen. Om ditt gamla program namngav varje underlag efter sitt verifikat kopplas de automatiskt, utan AI-tolkning.
+              {t('ui.en_sie_fil_innehaller_bokforingen_men_inte_under')}
             </p>
             <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: '0 0 18px', lineHeight: 1.6 }}>
-              Filnamn som fungerar: A31_abc123.pdf, A31.pdf, A-31 kvitto.pdf, 2024-A-31.pdf. Matchningen sker mot verifikatnumret i ditt gamla program, inte mot numret här.
+              {t('ui.filnamn_som_fungerar_a31_abc123_pdf_a31_pdf_a_31')}
             </p>
 
-            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '4px' }}>Vilket räkenskapsår gäller underlagen?</div>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '4px' }}>{t('ui.vilket_rakenskapsar_galler_underlagen')}</div>
             <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: '0 0 10px', lineHeight: 1.6 }}>
-              Numret i filnamnet börjar om varje år i det gamla programmet, så A31 pekar bara ut ett verifikat inom ett år. Välj året exporten kommer från. Filerna kopplas aldrig till något annat år.
+              {t('ui.numret_i_filnamnet_borjar_om_varje_ar_i_det_gaml')}
             </p>
 
             {years.length === 0 ? (
-              <Notice>Det finns ingen bokföring importerad via SIE ännu. Importera SIE-filen först, sedan kan underlagen kopplas här.</Notice>
+              <Notice>{t('ui.det_finns_ingen_bokforing_importerad_via_sie_ann')}</Notice>
             ) : (
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px' }}>
                 {years.map(y => (
@@ -132,7 +133,7 @@ export default function SieAttachmentsModal({ company, verifications = [], user,
                     key={y.start} type="button" onClick={() => setYearStart(y.start)}
                     style={{ padding: '8px 14px', borderRadius: '999px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', border: `1.5px solid ${yearStart === y.start ? BRAND.green : 'var(--border)'}`, background: yearStart === y.start ? BRAND.greenLight : 'var(--bg-card)', color: yearStart === y.start ? BRAND.greenDark : 'var(--text-main)' }}
                   >
-                    {y.label} <span style={{ fontWeight: 500, opacity: 0.75 }}>· {y.count} verifikat</span>
+                    {y.label} <span style={{ fontWeight: 500, opacity: 0.75 }}>· {y.count} {t('ui.verifikat_2')}</span>
                   </button>
                 ))}
               </div>
@@ -140,7 +141,7 @@ export default function SieAttachmentsModal({ company, verifications = [], user,
 
             {years.length > 0 && !yearStart && (
               <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: 0 }}>
-                Välj ett räkenskapsår ovan för att fortsätta. Saknas året du söker har bokföringen för det året inte importerats via SIE.
+                {t('ui.valj_ett_rakenskapsar_ovan_for_att_fortsatta_sak')}
               </p>
             )}
 
@@ -154,18 +155,18 @@ export default function SieAttachmentsModal({ company, verifications = [], user,
                 <div style={{ width: 44, height: 44, borderRadius: '999px', background: BRAND.greenLight, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 10px' }}>
                   <UploadCloud size={20} color={BRAND.greenDark} />
                 </div>
-                <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '14px' }}>Dra hit filer eller en mapp, eller välj nedan</div>
+                <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '14px' }}>{t('ui.dra_hit_filer_eller_en_mapp_eller_valj_nedan')}</div>
                 <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
                   <label style={btn}>
-                    <FileText size={15} /> Välj filer
+                    <FileText size={15} /> {t('ui.valj_filer')}
                     <input type="file" multiple accept={ATTACHMENT_EXTENSIONS.map(e => `.${e}`).join(',')} style={{ display: 'none' }} onChange={e => pickFiles(e.target.files)} />
                   </label>
                   <label style={btn}>
-                    <Folder size={15} /> Välj mapp
+                    <Folder size={15} /> {t('ui.valj_mapp')}
                     <input type="file" webkitdirectory="" directory="" multiple style={{ display: 'none' }} onChange={e => pickFiles(e.target.files)} />
                   </label>
                 </div>
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '12px' }}>PDF, JPG, PNG eller WEBP</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '12px' }}>{t('ui.pdf_jpg_png_eller_webp')}</div>
               </div>
             )}
           </div>
@@ -174,12 +175,12 @@ export default function SieAttachmentsModal({ company, verifications = [], user,
         {step === 1 && (
           <div>
             <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 12px' }}>
-              Räkenskapsår {year?.label}. {files.length === 1 ? '1 fil vald' : `${files.length} filer valda`}.
+              {t('ui.rakenskapsar')} {year?.label}. {files.length === 1 ? t('ui.n1_fil_vald') : t('ui.filer_valda', { length: files.length })}.
             </p>
             {toAttach.length === 0 ? (
-              <Notice>Ingen av filerna gick att koppla. Kontrollera att filnamnen börjar med verifikatnumret och att rätt räkenskapsår är valt.</Notice>
+              <Notice>{t('ui.ingen_av_filerna_gick_att_koppla_kontrollera_att')}</Notice>
             ) : (
-              <Notice tone="green">{toAttach.length === 1 ? '1 fil kopplas' : `${toAttach.length} filer kopplas`} till {new Set(toAttach.map(m => m.verification.id)).size} verifikat.</Notice>
+              <Notice tone="green">{toAttach.length === 1 ? t('ui.n1_fil_kopplas') : t('ui.filer_kopplas', { length: toAttach.length })} {t('ui.till_3')} {new Set(toAttach.map(m => m.verification.id)).size} {t('ui.verifikat')}</Notice>
             )}
 
             <div style={{ border: '1px solid var(--border)', borderRadius: '10px', maxHeight: '340px', overflowY: 'auto' }}>
@@ -194,7 +195,7 @@ export default function SieAttachmentsModal({ company, verifications = [], user,
                     </div>
                   </div>
                   <span style={{ flexShrink: 0, fontSize: '11px', fontWeight: 700, padding: '2px 9px', borderRadius: '999px', background: m.status === 'match' ? 'var(--status-green-bg)' : 'var(--bg-muted)', color: m.status === 'match' ? 'var(--status-green-text)' : 'var(--text-muted)' }}>
-                    {m.status === 'match' ? 'Kopplas' : 'Hoppas över'}
+                    {m.status === 'match' ? t('ui.kopplas') : t('ui.hoppas_over')}
                   </span>
                 </div>
               ))}
@@ -207,7 +208,7 @@ export default function SieAttachmentsModal({ company, verifications = [], user,
             {progress ? (
               <>
                 <Loader2 size={26} style={{ animation: 'spin 1s linear infinite', color: 'var(--text-muted)' }} />
-                <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-main)', margin: '10px 0 10px' }}>Laddar upp {progress.done} av {progress.total}…</div>
+                <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-main)', margin: '10px 0 10px' }}>{t('ui.laddar_upp_2')} {progress.done} {t('ui.av')} {progress.total}…</div>
                 <div style={{ height: 6, background: 'var(--bg-muted)', borderRadius: 999, overflow: 'hidden', maxWidth: 360, margin: '0 auto' }}>
                   <div style={{ height: '100%', width: `${(progress.done / progress.total) * 100}%`, background: BRAND.green, transition: 'width 0.2s' }} />
                 </div>
@@ -218,15 +219,15 @@ export default function SieAttachmentsModal({ company, verifications = [], user,
                   <CheckCircle2 size={24} />
                 </div>
                 <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-main)' }}>
-                  {result.files === 1 ? '1 underlag kopplat' : `${result.files} underlag kopplade`}
+                  {result.files === 1 ? t('ui.n1_underlag_kopplat') : t('ui.underlag_kopplade', { files: result.files })}
                 </div>
                 <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '6px auto 0', maxWidth: '440px', lineHeight: 1.6 }}>
-                  Till {result.verifications} verifikat. Du ser underlaget när du fäller ut verifikatet i Bokföring.
+                  {t('ui.till_2')} {result.verifications} {t('ui.verifikat_du_ser_underlaget_nar_du_faller_ut_ver')}
                 </p>
                 {result.failed.length > 0 && (
                   <div style={{ textAlign: 'left', marginTop: '14px' }}>
                     <Notice tone="red">
-                      {result.failed.length} filer kunde inte laddas upp: {result.failed.map(f => f.name).join(', ')}. Försök igen med bara dem.
+                      {result.failed.length} {t('ui.filer_kunde_inte_laddas_upp')} {result.failed.map(f => f.name).join(', ')}{t('ui.forsok_igen_med_bara_dem')}
                     </Notice>
                   </div>
                 )}
@@ -236,15 +237,15 @@ export default function SieAttachmentsModal({ company, verifications = [], user,
         )}
 
         <div className="modal-footer">
-          {step === 1 && <button style={{ ...btn, padding: '9px 16px' }} onClick={() => { setStep(0); setFiles([]); }}>Tillbaka</button>}
+          {step === 1 && <button style={{ ...btn, padding: '9px 16px' }} onClick={() => { setStep(0); setFiles([]); }}>{t('ui.tillbaka_2')}</button>}
           <span style={{ flex: 1 }} />
-          {step < 2 && <button style={{ ...btn, padding: '9px 16px', color: 'var(--text-secondary)' }} onClick={onClose}>Avbryt</button>}
+          {step < 2 && <button style={{ ...btn, padding: '9px 16px', color: 'var(--text-secondary)' }} onClick={onClose}>{t('ui.avbryt')}</button>}
           {step === 1 && (
             <button style={primaryBtn(toAttach.length > 0 && user?.id)} disabled={toAttach.length === 0 || !user?.id} onClick={handleAttach}>
-              {toAttach.length === 1 ? 'Koppla 1 fil' : `Koppla ${toAttach.length} filer`}
+              {toAttach.length === 1 ? t('ui.koppla_1_fil') : t('ui.koppla_filer', { length: toAttach.length })}
             </button>
           )}
-          {step === 2 && !progress && <button style={primaryBtn(true)} onClick={onClose}>Klar</button>}
+          {step === 2 && !progress && <button style={primaryBtn(true)} onClick={onClose}>{t('ui.klar')}</button>}
         </div>
       </div>
     </div>

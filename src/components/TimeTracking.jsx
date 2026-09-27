@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Clock, Plus, Trash2, Check, X, Briefcase, User, FileText } from './icons';
 import { PartySearch, EntitySearch, ProjectSearch } from './shared/SearchInputs';
 import { BRAND } from '../utils/brandColors';
+import { t } from '../i18n';
 
 const emptyForm = () => ({
   type: 'kund', // 'kund' (fakturerbart) | 'anstalld' (löneunderlag)
@@ -120,8 +121,8 @@ export default function TimeTracking({
   });
 
   const partyName = (entry) => {
-    if (entry.type === 'kund') return customers.find(c => c.id === entry.customerId)?.name || 'Okänd kund';
-    return employeeItems.find(e => e.id === entry.employeeId)?.name || 'Okänd anställd';
+    if (entry.type === 'kund') return customers.find(c => c.id === entry.customerId)?.name || t('ui.okand_kund');
+    return employeeItems.find(e => e.id === entry.employeeId)?.name || t('ui.okand_anstalld');
   };
 
   // "P-101"-koder — stabila så länge projektlistan inte ändrar ordning,
@@ -144,7 +145,7 @@ export default function TimeTracking({
       const hours = entries.reduce((s, e) => s + e.hours, 0);
       const budget = (Number(proj.budgetHours) || 0) * (Number(proj.hourlyRate) || 0);
       const pct = budget ? Math.min(100, Math.round((spent / budget) * 100)) : 0;
-      const custName = customers.find(c => c.id === proj.customerId)?.name || 'Okänd kund';
+      const custName = customers.find(c => c.id === proj.customerId)?.name || t('ui.okand_kund');
       return { proj, spent, hours, budget, pct, custName };
     }).filter(Boolean);
   }, [filteredEntries, projects, customers]);
@@ -155,23 +156,23 @@ export default function TimeTracking({
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
           <h1 style={{ fontSize: '24px', fontWeight: 700, letterSpacing: '-0.04em', color: 'var(--text-main)', marginBottom: '5px' }}>
-            Rapportera timmar
+            {t('ui.rapportera_timmar')}
           </h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '13.5px', fontWeight: 400 }}>
-            Spåra tid för fakturering till kunder eller som underlag för löner.
+            {t('ui.spara_tid_for_fakturering_till_kunder_eller_som')}
           </p>
         </div>
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
           <div style={toggleGroupStyle}>
-            <button style={toggleBtnStyle(viewScope === 'own')} onClick={() => setViewScope('own')}>Min tid</button>
-            <button style={toggleBtnStyle(viewScope === 'team')} onClick={() => setViewScope('team')}>Alla</button>
+            <button style={toggleBtnStyle(viewScope === 'own')} onClick={() => setViewScope('own')}>{t('ui.min_tid')}</button>
+            <button style={toggleBtnStyle(viewScope === 'team')} onClick={() => setViewScope('team')}>{t('ui.alla')}</button>
           </div>
           <div style={toggleGroupStyle}>
-            <button style={toggleBtnStyle(viewTime === 'day')} onClick={() => setViewTime('day')}>Idag</button>
-            <button style={toggleBtnStyle(viewTime === 'week')} onClick={() => setViewTime('week')}>Vecka</button>
+            <button style={toggleBtnStyle(viewTime === 'day')} onClick={() => setViewTime('day')}>{t('ui.idag')}</button>
+            <button style={toggleBtnStyle(viewTime === 'week')} onClick={() => setViewTime('week')}>{t('ui.vecka')}</button>
           </div>
           <button style={buttonStyle} onClick={() => { setForm(emptyForm()); setIsModalOpen(true); }}>
-            <Plus size={14} /> Logga tid
+            <Plus size={14} /> {t('ui.logga_tid')}
           </button>
         </div>
       </div>
@@ -183,8 +184,8 @@ export default function TimeTracking({
             <Clock size={20} />
           </div>
           <div>
-            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Totalt antal timmar</div>
-            <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.04em' }}>{totalHours} h</div>
+            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>{t('ui.totalt_antal_timmar')}</div>
+            <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.04em' }}>{totalHours} {t('ui.h')}</div>
           </div>
         </div>
 
@@ -193,7 +194,7 @@ export default function TimeTracking({
             <Briefcase size={20} />
           </div>
           <div>
-            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Fakturerbart värde</div>
+            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>{t('ui.fakturerbart_varde')}</div>
             <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.04em' }}>{formatSEK(totalInvoiced)}</div>
           </div>
         </div>
@@ -203,7 +204,7 @@ export default function TimeTracking({
             <User size={20} />
           </div>
           <div>
-            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Personalkostnad (löneunderlag)</div>
+            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>{t('ui.personalkostnad_loneunderlag')}</div>
             <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.04em' }}>{formatSEK(totalSalary)}</div>
           </div>
         </div>
@@ -212,7 +213,7 @@ export default function TimeTracking({
       {/* ── PROJEKTKORT ── */}
       {projectGroups.length > 0 && (
         <div style={{ marginBottom: '28px' }}>
-          <h2 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '14px' }}>Projekt</h2>
+          <h2 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '14px' }}>{t('ui.projekt')}</h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
             {projectGroups.map(({ proj, spent, hours, budget, pct, custName }) => {
               const isFinished = proj.status === 'finished';
@@ -229,7 +230,7 @@ export default function TimeTracking({
                       color: isFinished ? 'var(--status-green-text)' : 'var(--status-blue-text)',
                       border: `1px solid ${isFinished ? 'var(--status-green-bg)' : 'var(--status-blue-bg)'}`,
                     }}>
-                      {isFinished ? 'Avslutat' : 'Pågående'}
+                      {isFinished ? t('ui.avslutat') : t('ui.pagaende')}
                     </span>
                   </div>
 
@@ -237,8 +238,8 @@ export default function TimeTracking({
                   <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '14px' }}>{custName}</div>
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', color: 'var(--text-secondary)', marginBottom: '6px' }}>
-                    <span>Nedlagt {formatSEK(spent)}</span>
-                    {budget > 0 && <span>{pct}% av budget</span>}
+                    <span>{t('ui.nedlagt')} {formatSEK(spent)}</span>
+                    {budget > 0 && <span>{pct}{t('ui.av_budget')}</span>}
                   </div>
                   <div style={{ height: '6px', background: 'var(--border-light)', borderRadius: '3px', overflow: 'hidden', marginBottom: '16px' }}>
                     <div style={{ height: '100%', width: `${budget > 0 ? pct : 0}%`, background: barColor, borderRadius: '3px' }} />
@@ -246,15 +247,15 @@ export default function TimeTracking({
 
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', paddingTop: '14px', borderTop: '1px solid var(--border-light)' }}>
                     <div>
-                      <div style={{ fontSize: '10.5px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '3px' }}>Budget</div>
+                      <div style={{ fontSize: '10.5px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '3px' }}>{t('ui.budget')}</div>
                       <div style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-main)' }}>{budget > 0 ? formatSEK(budget) : '—'}</div>
                     </div>
                     <div>
-                      <div style={{ fontSize: '10.5px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '3px' }}>Timmar</div>
+                      <div style={{ fontSize: '10.5px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '3px' }}>{t('ui.timmar')}</div>
                       <div style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-main)' }}>{hours}</div>
                     </div>
                     <div>
-                      <div style={{ fontSize: '10.5px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '3px' }}>Fakturerat</div>
+                      <div style={{ fontSize: '10.5px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '3px' }}>{t('ui.fakturerat')}</div>
                       <div style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-main)' }}>{formatSEK(spent)}</div>
                     </div>
                   </div>
@@ -271,38 +272,38 @@ export default function TimeTracking({
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13.5px' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg-muted)' }}>
-                <th style={{ padding: '14px 20px', fontWeight: 600, color: 'var(--text-main)', width: '110px' }}>Datum</th>
-                <th style={{ padding: '14px 20px', fontWeight: 600, color: 'var(--text-main)' }}>Loggat av</th>
-                <th style={{ padding: '14px 20px', fontWeight: 600, color: 'var(--text-main)' }}>Typ</th>
-                <th style={{ padding: '14px 20px', fontWeight: 600, color: 'var(--text-main)' }}>Kund/Anställd</th>
-                <th style={{ padding: '14px 20px', fontWeight: 600, color: 'var(--text-main)' }}>Uppgift</th>
-                <th style={{ padding: '14px 20px', fontWeight: 600, color: 'var(--text-main)', textAlign: 'right' }}>Timmar</th>
-                <th style={{ padding: '14px 20px', fontWeight: 600, color: 'var(--text-main)', textAlign: 'right' }}>Totalt värde</th>
-                <th style={{ padding: '14px 20px', fontWeight: 600, color: 'var(--text-main)', textAlign: 'right' }}>Åtgärder</th>
+                <th style={{ padding: '14px 20px', fontWeight: 600, color: 'var(--text-main)', width: '110px' }}>{t('ui.datum')}</th>
+                <th style={{ padding: '14px 20px', fontWeight: 600, color: 'var(--text-main)' }}>{t('ui.loggat_av')}</th>
+                <th style={{ padding: '14px 20px', fontWeight: 600, color: 'var(--text-main)' }}>{t('ui.typ')}</th>
+                <th style={{ padding: '14px 20px', fontWeight: 600, color: 'var(--text-main)' }}>{t('ui.kund_anstalld')}</th>
+                <th style={{ padding: '14px 20px', fontWeight: 600, color: 'var(--text-main)' }}>{t('ui.uppgift')}</th>
+                <th style={{ padding: '14px 20px', fontWeight: 600, color: 'var(--text-main)', textAlign: 'right' }}>{t('ui.timmar')}</th>
+                <th style={{ padding: '14px 20px', fontWeight: 600, color: 'var(--text-main)', textAlign: 'right' }}>{t('ui.totalt_varde')}</th>
+                <th style={{ padding: '14px 20px', fontWeight: 600, color: 'var(--text-main)', textAlign: 'right' }}>{t('ui.atgarder')}</th>
               </tr>
             </thead>
             <tbody>
               {filteredEntries.map((entry, idx) => (
                 <tr key={entry.id} style={{ borderBottom: idx < filteredEntries.length - 1 ? '1px solid var(--border-light)' : 'none', transition: 'background 0.1s' }} onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-muted)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                   <td style={{ padding: '14px 20px', color: 'var(--text-secondary)' }}>{entry.date}</td>
-                  <td style={{ padding: '14px 20px', color: 'var(--text-main)', fontWeight: 500 }}>{entry.loggedByName || 'Du'}</td>
+                  <td style={{ padding: '14px 20px', color: 'var(--text-main)', fontWeight: 500 }}>{entry.loggedByName || t('ui.du')}</td>
                   <td style={{ padding: '14px 20px' }}>
                     <span style={{ padding: '4px 10px', background: entry.type === 'kund' ? 'var(--status-blue-bg)' : 'var(--status-green-bg)', color: entry.type === 'kund' ? 'var(--status-blue-text)' : 'var(--status-green-text)', border: `1px solid ${entry.type === 'kund' ? 'var(--status-blue-bg)' : 'var(--status-green-bg)'}`, borderRadius: '20px', fontSize: '11px', fontWeight: 600, letterSpacing: '0.02em' }}>
-                      {entry.type === 'kund' ? 'Fakturering' : 'Löneunderlag'}
+                      {entry.type === 'kund' ? t('ui.fakturering') : t('ui.loneunderlag')}
                     </span>
                   </td>
                   <td style={{ padding: '14px 20px', fontWeight: 600, color: 'var(--text-main)' }}>{partyName(entry)}</td>
                   <td style={{ padding: '14px 20px', color: 'var(--text-secondary)' }}>{entry.task}</td>
-                  <td style={{ padding: '14px 20px', textAlign: 'right', fontFamily: 'ui-monospace, monospace', color: 'var(--text-main)', fontWeight: 500 }}>{entry.hours} h</td>
+                  <td style={{ padding: '14px 20px', textAlign: 'right', fontFamily: 'ui-monospace, monospace', color: 'var(--text-main)', fontWeight: 500 }}>{entry.hours} {t('ui.h')}</td>
                   <td style={{ padding: '14px 20px', textAlign: 'right', fontWeight: 600, color: 'var(--text-main)', letterSpacing: '-0.02em' }}>{formatSEK(entry.total)}</td>
                   <td style={{ padding: '14px 20px', textAlign: 'right' }}>
                     <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
                       {entry.type === 'kund' && (
-                        <button onClick={() => handleCreateInvoiceFromEntry(entry)} title="Skapa faktura med denna rad förifylld" style={{ padding: '6px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--accent-text)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px' }}>
+                        <button onClick={() => handleCreateInvoiceFromEntry(entry)} title={t('ui.skapa_faktura_med_denna_rad_forifylld')} style={{ padding: '6px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--accent-text)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px' }}>
                           <FileText size={16} />
                         </button>
                       )}
-                      <button onClick={() => handleDelete(entry.id)} title="Ta bort" style={{ padding: '6px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px' }}>
+                      <button onClick={() => handleDelete(entry.id)} title={t('ui.ta_bort')} style={{ padding: '6px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px' }}>
                         <Trash2 size={16} />
                       </button>
                     </div>
@@ -316,9 +317,9 @@ export default function TimeTracking({
                       <Clock size={24} />
                     </div>
                     <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '4px' }}>
-                      Inga tider loggade
+                      {t('ui.inga_tider_loggade')}
                     </div>
-                    <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Klicka på "Logga tid" för att komma igång</div>
+                    <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{t('ui.klicka_pa_logga_tid_for_att_komma_igang')}</div>
                   </td>
                 </tr>
               )}
@@ -332,38 +333,38 @@ export default function TimeTracking({
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(17, 24, 39, 0.4)', WebkitBackdropFilter: 'blur(4px)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '20px' }} onClick={() => setIsModalOpen(false)}>
           <div style={{ background: 'var(--bg-card)', borderRadius: '16px', width: '100%', maxWidth: '500px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
             <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-main)' }}>Logga tid manuellt</h2>
+              <h2 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-main)' }}>{t('ui.logga_tid_manuellt')}</h2>
               <button onClick={() => setIsModalOpen(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}><X size={20} /></button>
             </div>
 
             <form onSubmit={handleSubmit} style={{ padding: '24px' }}>
               <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', background: 'var(--border-light)', padding: '4px', borderRadius: '10px' }}>
                 <button type="button" onClick={() => setForm(f => ({ ...f, type: 'kund' }))} style={{ flex: 1, padding: '8px', borderRadius: '8px', border: 'none', fontSize: '13px', fontWeight: 600, cursor: 'pointer', background: form.type === 'kund' ? 'var(--bg-card)' : 'transparent', color: form.type === 'kund' ? 'var(--text-main)' : 'var(--text-secondary)', boxShadow: form.type === 'kund' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', transition: 'all 0.15s' }}>
-                  Fakturering (Kund)
+                  {t('ui.fakturering_kund')}
                 </button>
                 <button type="button" onClick={() => setForm(f => ({ ...f, type: 'anstalld' }))} style={{ flex: 1, padding: '8px', borderRadius: '8px', border: 'none', fontSize: '13px', fontWeight: 600, cursor: 'pointer', background: form.type === 'anstalld' ? 'var(--bg-card)' : 'transparent', color: form.type === 'anstalld' ? 'var(--text-main)' : 'var(--text-secondary)', boxShadow: form.type === 'anstalld' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', transition: 'all 0.15s' }}>
-                  Löneunderlag (Anställd)
+                  {t('ui.loneunderlag_anstalld')}
                 </button>
               </div>
 
               <div className="form-row-2" style={{ display: 'grid', gap: '16px', marginBottom: '16px' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>Datum</label>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>{t('ui.datum')}</label>
                   <input type="date" style={inputStyle} value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} required />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>{form.type === 'kund' ? 'Kund' : 'Anställd'}</label>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>{form.type === 'kund' ? t('ui.kund') : t('ui.anstalld')}</label>
                   {form.type === 'kund' ? (
                     customers.length > 0 ? (
                       <PartySearch value={form.customerId} onChange={id => setForm(f => ({ ...f, customerId: id }))} contacts={customers} />
                     ) : (
-                      <div style={{ fontSize: '12px', color: 'var(--status-amber-text)', paddingTop: '9px' }}>Inga kunder registrerade än (Kontakter).</div>
+                      <div style={{ fontSize: '12px', color: 'var(--status-amber-text)', paddingTop: '9px' }}>{t('ui.inga_kunder_registrerade_an_kontakter')}</div>
                     )
                   ) : (
                     employeeItems.length > 0 ? (
-                      <EntitySearch value={form.employeeId} onChange={id => setForm(f => ({ ...f, employeeId: id }))} items={employeeItems} placeholder="Sök anställd..." />
+                      <EntitySearch value={form.employeeId} onChange={id => setForm(f => ({ ...f, employeeId: id }))} items={employeeItems} placeholder={t('ui.sok_anstalld')} />
                     ) : (
-                      <div style={{ fontSize: '12px', color: 'var(--status-amber-text)', paddingTop: '9px' }}>Inga anställda registrerade än (Anställda och lön).</div>
+                      <div style={{ fontSize: '12px', color: 'var(--status-amber-text)', paddingTop: '9px' }}>{t('ui.inga_anstallda_registrerade_an_anstallda_och_lon')}</div>
                     )
                   )}
                 </div>
@@ -371,7 +372,7 @@ export default function TimeTracking({
 
               {form.type === 'kund' && projects.length > 0 && (
                 <div style={{ marginBottom: '16px' }}>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>Projekt (valfritt)</label>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>{t('ui.projekt_valfritt')}</label>
                   <ProjectSearch
                     value={form.projectId}
                     onChange={id => {
@@ -380,39 +381,39 @@ export default function TimeTracking({
                     }}
                     projects={projects}
                   />
-                  <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '5px' }}>Kopplar tiden till projektets budget och sätter kund automatiskt.</div>
+                  <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '5px' }}>{t('ui.kopplar_tiden_till_projektets_budget_och_satter')}</div>
                 </div>
               )}
 
               <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>Beskrivning / Uppgift</label>
-                <input type="text" style={inputStyle} placeholder="T.ex. Löpande bokföring" value={form.task} onChange={e => setForm(f => ({ ...f, task: e.target.value }))} required />
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>{t('ui.beskrivning_uppgift')}</label>
+                <input type="text" style={inputStyle} placeholder={t('ui.t_ex_lopande_bokforing')} value={form.task} onChange={e => setForm(f => ({ ...f, task: e.target.value }))} required />
               </div>
 
               <div className="form-row-3" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: '24px' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>Timmar</label>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>{t('ui.timmar')}</label>
                   <input type="number" style={inputStyle} placeholder="0" min="0" step="0.5" value={form.hours} onChange={e => setForm(f => ({ ...f, hours: e.target.value }))} required />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>Timpris (kr)</label>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>{t('ui.timpris_kr')}</label>
                   <input type="number" style={inputStyle} placeholder="0" min="0" step="1" value={form.hourlyRate} onChange={e => setForm(f => ({ ...f, hourlyRate: e.target.value }))} />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>Startkostnad</label>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>{t('ui.startkostnad')}</label>
                   <input type="number" style={inputStyle} placeholder="0" min="0" step="1" value={form.startCost} onChange={e => setForm(f => ({ ...f, startCost: e.target.value }))} />
                 </div>
               </div>
 
               <div style={{ background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: '12px', padding: '16px', marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 600 }}>Beräknat totalvärde:</div>
+                <div style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 600 }}>{t('ui.beraknat_totalvarde')}</div>
                 <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.02em' }}>{formatSEK(total)}</div>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', paddingTop: '20px', borderTop: '1px solid var(--border)' }}>
-                <button type="button" onClick={() => setIsModalOpen(false)} style={{ padding: '9px 18px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '9px', fontSize: '13.5px', fontWeight: 500, cursor: 'pointer' }}>Avbryt</button>
+                <button type="button" onClick={() => setIsModalOpen(false)} style={{ padding: '9px 18px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '9px', fontSize: '13.5px', fontWeight: 500, cursor: 'pointer' }}>{t('ui.avbryt')}</button>
                 <button type="submit" disabled={!((form.type === 'kund' ? form.customerId : form.employeeId) && form.task && parseFloat(form.hours) > 0)} style={{ ...buttonStyle, opacity: !((form.type === 'kund' ? form.customerId : form.employeeId) && form.task && parseFloat(form.hours) > 0) ? 0.5 : 1 }}>
-                  <Check size={14} /> Spara tid
+                  <Check size={14} /> {t('ui.spara_tid')}
                 </button>
               </div>
             </form>

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { CheckCircle2, AlertTriangle, Loader2 } from './icons';
 import { supabase } from '../supabaseClient';
 import { BRAND } from '../utils/brandColors';
+import { t } from '../i18n';
 
 // ── Landningssidan efter Google-inloggningen (/koppla-mejl) ─────────────
 // Google skickar tillbaka användaren hit med ?code=…&state=… i adressen.
@@ -42,13 +43,13 @@ export default function GmailConnectCallback() {
     if (error) {
       setStatus('error');
       setMessage(error === 'access_denied'
-        ? 'Du avbröt kopplingen. Ingenting sparades.'
-        : `Google avbröt kopplingen (${error}).`);
+        ? t('ui.du_avbrot_kopplingen_ingenting_sparades')
+        : t('ui.google_avbrot_kopplingen', { error }));
       return;
     }
     if (!code || !state) {
       setStatus('error');
-      setMessage('Adressen saknar det Google skulle skicka med. Börja om från Inställningar.');
+      setMessage(t('ui.adressen_saknar_det_google_skulle_skicka_med_bor'));
       return;
     }
 
@@ -57,7 +58,7 @@ export default function GmailConnectCallback() {
         const { data: { session } = {} } = await supabase.auth.getSession();
         if (!session?.access_token) {
           setStatus('error');
-          setMessage('Du är utloggad. Logga in och försök igen — ingenting sparades.');
+          setMessage(t('ui.du_ar_utloggad_logga_in_och_forsok_igen_ingentin'));
           return;
         }
         const res = await fetch('/api/email/domains', {
@@ -66,7 +67,7 @@ export default function GmailConnectCallback() {
           body: JSON.stringify({ resource: 'sender', action: 'oauth-exchange', code, state }),
         });
         const payload = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(payload?.error || `Kunde inte slutföra kopplingen (${res.status}).`);
+        if (!res.ok) throw new Error(payload?.error || t('ui.kunde_inte_slutfora_kopplingen_2', { status: res.status }));
         setStatus('done');
         setMessage(payload?.sender?.fromEmail || '');
         // Tillbaka in i appen efter en kort bekräftelse, så man inte blir
@@ -74,7 +75,7 @@ export default function GmailConnectCallback() {
         setTimeout(() => navigate('/', { replace: true, state: { enterApp: true } }), 1800);
       } catch (err) {
         setStatus('error');
-        setMessage(err.message || 'Kunde inte slutföra kopplingen.');
+        setMessage(err.message || t('ui.kunde_inte_slutfora_kopplingen'));
       }
     })();
   }, [navigate]);
@@ -95,21 +96,21 @@ export default function GmailConnectCallback() {
       <div style={{ maxWidth: '440px', width: '100%', textAlign: 'center', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '16px', padding: '38px 32px' }}>
         <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'center' }}>{icon}</div>
         <h1 style={{ fontSize: '19px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 8px' }}>
-          {status === 'done' ? 'Adressen är kopplad' : status === 'error' ? 'Kopplingen gick inte igenom' : 'Kopplar din adress…'}
+          {status === 'done' ? t('ui.adressen_ar_kopplad') : status === 'error' ? t('ui.kopplingen_gick_inte_igenom') : t('ui.kopplar_din_adress')}
         </h1>
         <p style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 }}>
           {status === 'done'
-            ? `Fakturor och offerter skickas nu från ${message || 'din adress'}.`
+            ? t('ui.fakturor_och_offerter_skickas_nu_fran', { v0: message || 'din adress' })
             : status === 'error'
               ? message
-              : 'Ett ögonblick, vi hämtar behörigheten från Google.'}
+              : t('ui.ett_ogonblick_vi_hamtar_behorigheten_fran_google')}
         </p>
         {status === 'error' && (
           <button
             onClick={() => navigate('/', { replace: true, state: { enterApp: true } })}
             style={{ marginTop: '20px', padding: '10px 18px', borderRadius: '9px', border: 'none', background: BRAND.green, color: 'white', fontWeight: 700, fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit' }}
           >
-            Tillbaka till Bokix
+            {t('ui.tillbaka_till_bokix')}
           </button>
         )}
       </div>

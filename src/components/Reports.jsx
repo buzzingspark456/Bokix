@@ -6,6 +6,7 @@ import ReportDetail from './reports/ReportDetail';
 import { getPeriodBounds, companyFiscalYearSetting } from '../utils/reportCalculations';
 import { visibleReportSections } from '../utils/reportDefinitions';
 import { useIsMobileViewport } from '../hooks/useIsMobileViewport';
+import { t, dateLocale } from '../i18n';
 
 // Stabil referens som förval: en ny [] per render hade gjort useMemo:n
 // nedan meningslös (nytt beroende varje gång).
@@ -29,11 +30,11 @@ function relativeOpenedLabel(iso) {
   const then = new Date(iso);
   const now = new Date();
   const days = Math.floor((new Date(now.getFullYear(), now.getMonth(), now.getDate()) - new Date(then.getFullYear(), then.getMonth(), then.getDate())) / 86400000);
-  if (days <= 0) return 'idag';
-  if (days === 1) return 'igår';
-  if (days < 7) return `${days} dagar sedan`;
+  if (days <= 0) return t('ui.idag_2');
+  if (days === 1) return t('ui.igar');
+  if (days < 7) return t('ui.dagar_sedan', { days });
   if (days < 31) return `${Math.floor(days / 7)} ${Math.floor(days / 7) === 1 ? 'vecka' : 'veckor'} sedan`;
-  return new Intl.DateTimeFormat('sv-SE', { day: 'numeric', month: 'short' }).format(then);
+  return new Intl.DateTimeFormat(dateLocale(), { day: 'numeric', month: 'short' }).format(then);
 }
 
 export default function Reports({
@@ -90,14 +91,14 @@ export default function Reports({
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
       <ListPageHeader
-        title="Rapport och analys"
+        title={t('ui.rapport_och_analys')}
       >
         <div className="no-print" style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', marginTop: '10px' }}>
           <select value={period} onChange={e => setPeriod(e.target.value)} style={inputSt}>
-            <option value="month">Denna månad</option>
-            <option value="quarter">Detta kvartal</option>
-            <option value="year">Detta räkenskapsår</option>
-            <option value="custom">Anpassat...</option>
+            <option value="month">{t('ui.denna_manad')}</option>
+            <option value="quarter">{t('ui.detta_kvartal')}</option>
+            <option value="year">{t('ui.detta_rakenskapsar')}</option>
+            <option value="custom">{t('ui.anpassat')}</option>
           </select>
           {period === 'custom' && (
             <>
@@ -129,7 +130,7 @@ export default function Reports({
                 rows={section.reports}
                 columns={[
                   {
-                    key: 'name', label: 'Rapport', fontWeight: 700, color: 'var(--text-main)', render: r => (
+                    key: 'name', label: t('ui.rapport'), fontWeight: 700, color: 'var(--text-main)', render: r => (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                         <div style={{ width: 30, height: 30, borderRadius: '8px', background: 'var(--border-light)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                           <FileBarChart size={14} />
@@ -138,8 +139,8 @@ export default function Reports({
                       </div>
                     ),
                   },
-                  { key: 'description', label: 'Beskrivning', wrap: true },
-                  { key: 'lastOpened', label: 'Senast öppnad', width: '140px', render: r => relativeOpenedLabel(lastOpened[r.id]) || '—' },
+                  { key: 'description', label: t('ui.beskrivning'), wrap: true },
+                  { key: 'lastOpened', label: t('ui.senast_oppnad'), width: '140px', render: r => relativeOpenedLabel(lastOpened[r.id]) || '—' },
                   { key: 'chevron', label: '', align: 'right', width: '32px', render: () => <ChevronRight size={16} color="var(--text-muted)" /> },
                 ]}
               />
@@ -148,7 +149,7 @@ export default function Reports({
 
           {onNavigate && (
             <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>
-              Underlaget kommer från din bokföring och dina fakturor — bokför mer för att fler rapporter fylls i.
+              {t('ui.underlaget_kommer_fran_din_bokforing_och_dina_fa')}
             </p>
           )}
         </div>

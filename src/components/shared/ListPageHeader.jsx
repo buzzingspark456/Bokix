@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Search, RefreshCw, SlidersHorizontal } from '../icons';
+import { t } from '../../i18n';
 
 // Sida 43: en enda delad sidhuvud-komponent för alla listsidor (Kunder,
 // Offerter, Fakturering, Utgifter, Projekt, Granskning, Bokföring,
@@ -221,7 +222,7 @@ export function ListFilterBar({ children, onClear, count, countLabel, pageSize, 
         {hasMore && (
           <button type="button" className="lfb-toggle" onClick={() => setOpen(o => !o)} aria-expanded={open}>
             <SlidersHorizontal size={16} />
-            Filter
+            {t('shared.filterBar.filter')}
             {activeFilters > 0 && <span className="lfb-toggle-badge">{activeFilters}</span>}
           </button>
         )}
@@ -232,7 +233,7 @@ export function ListFilterBar({ children, onClear, count, countLabel, pageSize, 
         <div className="lfb-second" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
           {onClear ? (
             <button type="button" onClick={onClear} style={listHeaderButtonStyle('secondary')}>
-              <RefreshCw size={14} /> Rensa
+              <RefreshCw size={14} /> {t('shared.filterBar.clear')}
             </button>
           ) : <span />}
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginLeft: 'auto' }}>
@@ -241,14 +242,14 @@ export function ListFilterBar({ children, onClear, count, countLabel, pageSize, 
             )}
             {hasPageSize && (
               <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-muted)' }}>
-                Visa
+                {t('shared.filterBar.show')}
                 <select
                   value={pageSize}
                   onChange={e => onPageSizeChange(e.target.value === 'all' ? 'all' : Number(e.target.value))}
                   style={{ ...listFilterFieldStyle, height: '28px', padding: '0 8px', fontSize: '12px' }}
                 >
                   {pageSizeOptions.map(n => <option key={n} value={n}>{n}</option>)}
-                  <option value="all">Alla</option>
+                  <option value="all">{t('shared.filterBar.all')}</option>
                 </select>
               </label>
             )}

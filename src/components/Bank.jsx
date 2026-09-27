@@ -16,6 +16,7 @@ import { BANK_SOURCES, OTHER_BANK_HINT, MAX_BANK_FILE_MB, ACCEPTED_BANK_EXTENSIO
 import { guessAccountFromText } from '../utils/accountCategories';
 import Reconciliation from './Reconciliation';
 import { bankHeaderLabel } from '../utils/bankHeaderLabels';
+import { t as tr } from '../i18n';
 
 // Bank – CSV/Excel-import. `bankImport.js` (parsning/normalisering/
 // matchningsförslag, statisk import av papaparse+xlsx) laddas BARA lazy
@@ -56,10 +57,10 @@ function getEffectiveAccounts(bankAccounts) {
 function accountIdOf(row) { return row.accountId || 'default'; }
 
 const STATUS_META = {
-  unmatched: { label: 'Ej hanterad', bg: 'var(--status-amber-bg)', text: 'var(--status-amber-text)' },
-  matched: { label: 'Matchad', bg: 'var(--status-green-bg)', text: 'var(--status-green-text)' },
-  booked: { label: 'Bokförd', bg: 'var(--status-green-bg)', text: 'var(--status-green-text)' },
-  ignored: { label: 'Ignorerad', bg: 'var(--status-gray-bg)', text: 'var(--status-gray-text)' },
+  unmatched: { label: tr('ui.ej_hanterad'), bg: 'var(--status-amber-bg)', text: 'var(--status-amber-text)' },
+  matched: { label: tr('ui.matchad'), bg: 'var(--status-green-bg)', text: 'var(--status-green-text)' },
+  booked: { label: tr('ui.bokford'), bg: 'var(--status-green-bg)', text: 'var(--status-green-text)' },
+  ignored: { label: tr('ui.ignorerad'), bg: 'var(--status-gray-bg)', text: 'var(--status-gray-text)' },
 };
 function StatusBadge({ status }) {
   const m = STATUS_META[status] || STATUS_META.unmatched;
@@ -96,7 +97,7 @@ function invoiceCandidates(invoices, contacts) {
     .map(inv => {
       const remaining = Math.max(0, invoiceGross(inv) - (inv.paidAmount || 0));
       const customer = (contacts || []).find(c => c.id === inv.customerId);
-      return { id: inv.id, remaining, label: `${inv.invoiceNumber} – ${customer?.name || 'okänd kund'} – ${fmt(remaining)} kr` };
+      return { id: inv.id, remaining, label: tr('ui.kr_3', { invoiceNumber: inv.invoiceNumber, v1: customer?.name || 'okänd kund', v2: fmt(remaining) }) };
     })
     .filter(c => c.remaining > 0);
 }
@@ -107,7 +108,7 @@ function supplierInvoiceCandidates(expenses, contacts) {
     .filter(e => e.type === 'supplier_invoice' && e.status !== 'paid' && !e.paidByOwnerPrivately)
     .map(inv => {
       const supplier = (contacts || []).find(c => c.id === inv.supplierId);
-      return { id: inv.id, label: `${inv.invoiceNumber} – ${supplier?.name || 'okänd leverantör'} – ${fmt(inv.amount)} kr` };
+      return { id: inv.id, label: tr('ui.kr_3', { invoiceNumber: inv.invoiceNumber, v1: supplier?.name || 'okänd leverantör', v2: fmt(inv.amount) }) };
     });
 }
 
@@ -181,9 +182,9 @@ export default function Bank({
     const rows = bankTransactions.filter(t => accountIdOf(t) === account.id);
     const booked = rows.filter(t => t.status === 'booked' || t.status === 'matched').length;
     const message = rows.length === 0
-      ? `Ta bort bankkontot "${account.name}"?`
-      : `Ta bort bankkontot "${account.name}" och dess ${rows.length} rader i bankvyn?`
-        + (booked ? ` ${booked} av dem är redan bokförda, och de verifikationerna ligger kvar i bokföringen.` : '');
+      ? tr('ui.ta_bort_bankkontot', { name: account.name })
+      : tr('ui.ta_bort_bankkontot_med_rader', { name: account.name, n: rows.length })
+        + (booked ? tr('ui.varav_redan_bokforda', { n: booked }) : '');
     if (!(await confirmDialog(message, { danger: true }))) return;
     if (rows.length) onSetBankTransactions(prev => prev.filter(t => accountIdOf(t) !== account.id));
     persistAccounts(list => list.filter(a => a.id !== account.id));
@@ -249,8 +250,8 @@ export default function Bank({
   const handleDeleteRow = async (row) => {
     const booked = row.status === 'booked' || row.status === 'matched';
     const message = booked
-      ? 'Ta bort den här raden från bankvyn? Verifikationen eller betalningen den redan skapat ligger kvar i bokföringen och måste rättas där.'
-      : 'Ta bort den här raden från bankvyn? Den försvinner bara härifrån — du kan importera kontoutdraget igen.';
+      ? tr('ui.ta_bort_den_har_raden_fran_bankvyn_verifikatione')
+      : tr('ui.ta_bort_den_har_raden_fran_bankvyn_den_forsvinne');
     if (!(await confirmDialog(message))) return;
     onSetBankTransactions(prev => prev.filter(t => t.id !== row.id));
     setExpandedId(null);
@@ -272,12 +273,12 @@ export default function Bank({
 
   const handleUndoImport = async () => {
     if (!latestBatch) return;
-    if (!(await confirmDialog(`Ångra den senaste importen? ${latestBatch.count} ohanterade rader tas bort från bankvyn. Redan bokförda rader ur samma omgång lämnas kvar.`))) return;
+    if (!(await confirmDialog(tr('ui.angra_den_senaste_importen_ohanterade_rader_tas', { count: latestBatch.count })))) return;
     onSetBankTransactions(prev => prev.filter(t => !(t.importBatchId === latestBatch.id && (t.status === 'unmatched' || t.status === 'ignored'))));
     setExpandedId(null);
   };
   const handleIgnore = async (row) => {
-    if (!(await confirmDialog('Ignorera den här transaktionen? Ingen verifikation skapas — använd det t.ex. för överföringar mellan era egna konton.'))) return;
+    if (!(await confirmDialog(tr('ui.ignorera_den_har_transaktionen_ingen_verifikatio')))) return;
     updateRow(row.id, { status: 'ignored' });
     // Bugfix: utan detta blev den expanderade detaljraden kvar öppen efter
     // Ignorera — status blir inte längre 'unmatched', så onRowClick-vakten
@@ -288,7 +289,9 @@ export default function Bank({
 
   const handleConfirmInvoiceMatch = (row, invoiceId) => {
     if (!invoiceId) return;
-    onRegisterInvoicePayment(invoiceId, Math.abs(row.amount), row.date, accountById(accountIdOf(row)).ledgerAccount);
+    // Bankbeloppet är alltid kronor; för en faktura i annan valuta räknas
+    // skillnaden mot fordran som kursvinst eller -förlust (App.jsx).
+    onRegisterInvoicePayment(invoiceId, Math.abs(row.amount), row.date, accountById(accountIdOf(row)).ledgerAccount, { amountIsSek: true });
     updateRow(row.id, { status: 'matched', matchedType: 'invoice', matchedId: invoiceId, verificationSource: 'invoice_payment' });
     setExpandedId(null);
   };
@@ -324,27 +327,27 @@ export default function Bank({
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
       <ListPageHeader
-        title="Bank"
+        title={tr('ui.bank')}
         actions={[
           // Kundönskemål: flera bankkonton, namngivna, med egen import och
           // eget bokföringskonto. Knappen ligger kvar även med bara ett
           // (syntetiserat) konto — annars skulle ingen hitta funktionen
           // första gången de faktiskt behöver den.
-          { key: 'accounts', label: 'Bankkonton', icon: Settings, onClick: () => setShowAccountsModal(true) },
+          { key: 'accounts', label: tr('ui.bankkonton'), icon: Settings, onClick: () => setShowAccountsModal(true) },
           // Visas bara när det FINNS en ohanterad importomgång att ångra —
           // en permanent "Ångra"-knapp bredvid "Importera" hade sett ut som
           // en lika stor och lika vanlig handling som importen själv.
-          ...(latestBatch ? [{ key: 'undo', label: `Ångra import (${latestBatch.count})`, icon: Undo2, onClick: handleUndoImport }] : []),
-          { key: 'import', label: 'Importera transaktioner', icon: Upload, onClick: () => setShowImportModal(true), variant: 'primary' },
+          ...(latestBatch ? [{ key: 'undo', label: tr('ui.angra_import', { count: latestBatch.count }), icon: Undo2, onClick: handleUndoImport }] : []),
+          { key: 'import', label: tr('ui.importera_transaktioner'), icon: Upload, onClick: () => setShowImportModal(true), variant: 'primary' },
         ]}
         tabs={{
           items: [
-            { id: 'all', label: 'Alla', badge: tabCounts.all },
-            { id: 'unmatched', label: 'Ej hanterade', badge: tabCounts.unmatched },
-            { id: 'matched', label: 'Matchade', badge: tabCounts.matched },
-            { id: 'booked', label: 'Bokförda', badge: tabCounts.booked },
-            { id: 'ignored', label: 'Ignorerade', badge: tabCounts.ignored },
-            { id: 'reconcile', label: 'Avstämning' },
+            { id: 'all', label: tr('ui.alla'), badge: tabCounts.all },
+            { id: 'unmatched', label: tr('ui.ej_hanterade'), badge: tabCounts.unmatched },
+            { id: 'matched', label: tr('ui.matchade'), badge: tabCounts.matched },
+            { id: 'booked', label: tr('ui.bokforda'), badge: tabCounts.booked },
+            { id: 'ignored', label: tr('ui.ignorerade'), badge: tabCounts.ignored },
+            { id: 'reconcile', label: tr('ui.avstamning') },
           ],
           activeId: activeTab,
           onChange: setActiveTab,
@@ -365,19 +368,19 @@ export default function Bank({
             egen avvikande variant. */}
         <div style={{ position: 'relative' }}>
           <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Sök text, belopp, referens..." style={{ ...listSearchInputStyle, width: '240px' }} />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder={tr('ui.sok_text_belopp_referens')} style={{ ...listSearchInputStyle, width: '240px' }} />
         </div>
         <div className="lfb-daterange">
-          <DateField value={dateFrom} onChange={e => setDateFrom(e.target.value)} placeholder="Från datum" style={listFilterFieldStyle} />
+          <DateField value={dateFrom} onChange={e => setDateFrom(e.target.value)} placeholder={tr('ui.fran_datum')} style={listFilterFieldStyle} />
           <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>–</span>
-          <DateField value={dateTo} onChange={e => setDateTo(e.target.value)} placeholder="Till datum" style={listFilterFieldStyle} />
+          <DateField value={dateTo} onChange={e => setDateTo(e.target.value)} placeholder={tr('ui.till_datum')} style={listFilterFieldStyle} />
         </div>
         {/* Bara synlig med fler än ETT konto — annars är det ett filter som
             aldrig kan göra något, samma princip som Kvittons uppladdar-
             flikar (Expenses.jsx). */}
         {hasMultipleAccounts && (
           <select value={selectedAccountId} onChange={e => setSelectedAccountId(e.target.value)} style={listFilterFieldStyle}>
-            <option value="all">Alla konton</option>
+            <option value="all">{tr('ui.alla_konton')}</option>
             {effectiveAccounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select>
         )}
@@ -415,9 +418,9 @@ export default function Bank({
               <div style={{ width: 72, height: 72, borderRadius: '18px', background: 'var(--bg-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px', color: BRAND.green }}>
                 <Landmark size={30} />
               </div>
-              <h3 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 8px', color: 'var(--text-main)' }}>Inga banktransaktioner ännu</h3>
+              <h3 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 8px', color: 'var(--text-main)' }}>{tr('ui.inga_banktransaktioner_annu')}</h3>
               <p style={{ fontSize: '14px', color: 'var(--text-secondary)', maxWidth: '300px', margin: '0 0 24px' }}>
-                Ladda upp ett kontoutdrag (CSV eller Excel) för att komma igång.
+                {tr('ui.ladda_upp_ett_kontoutdrag_csv_eller_excel_for_at')}
               </p>
               {/* Inte .btn-primary (index.css: var(--lime-500), en ljusare
                   grön) — samma mörka varumärkesgröna knapp som Kontakters/
@@ -426,14 +429,14 @@ export default function Bank({
                 onClick={() => setShowImportModal(true)}
                 style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '10px 20px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '9px', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}
               >
-                <Upload size={15} /> Importera transaktioner
+                <Upload size={15} /> {tr('ui.importera_transaktioner')}
               </button>
             </div>
           </div>
         ) : (
           <ListTable
             rowKey={t => t.id}
-            emptyMessage="Inga transaktioner matchar filtret"
+            emptyMessage={tr('ui.inga_transaktioner_matchar_filtret')}
             rows={visibleTransactions}
             onRowClick={t => t.status === 'unmatched' && setExpandedId(expandedId === t.id ? null : t.id)}
             isExpanded={t => expandedId === t.id}
@@ -454,7 +457,7 @@ export default function Bank({
             )}
             columns={[
               {
-                key: 'date', label: 'Datum', render: t => (
+                key: 'date', label: tr('ui.datum'), render: t => (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     {t.status === 'unmatched' ? (expandedId === t.id ? <ChevronDown size={14} /> : <ChevronRight size={14} />) : <span style={{ width: 14 }} />}
                     {formatDate(t.date)}
@@ -462,7 +465,7 @@ export default function Bank({
                 ),
               },
               {
-                key: 'description', label: 'Beskrivning', color: 'var(--text-main)', wrap: true, render: t => (
+                key: 'description', label: tr('ui.beskrivning'), color: 'var(--text-main)', wrap: true, render: t => (
                   <div>
                     {t.description || <span style={{ color: 'var(--text-muted)' }}>–</span>}
                     {/* Kontonamnet — bara när det faktiskt finns mer än ett
@@ -470,21 +473,21 @@ export default function Bank({
                         SVARET på "vilket konto hör den här ihop med", inte
                         bara en etikett. */}
                     {hasMultipleAccounts && (
-                      <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '2px' }}>{accountById(accountIdOf(t)).name}{t.reference ? ` · Ref: ${t.reference}` : ''}</div>
+                      <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '2px' }}>{accountById(accountIdOf(t)).name}{t.reference ? tr('ui.ref_2', { reference: t.reference }) : ''}</div>
                     )}
-                    {!hasMultipleAccounts && t.reference && <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '2px' }}>Ref: {t.reference}</div>}
+                    {!hasMultipleAccounts && t.reference && <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '2px' }}>{tr('ui.ref')} {t.reference}</div>}
                   </div>
                 ),
               },
               {
-                key: 'amount', label: 'Belopp', align: 'right', fontWeight: 700, render: t => (
+                key: 'amount', label: tr('ui.belopp'), align: 'right', fontWeight: 700, render: t => (
                   <span style={{ color: t.amount > 0 ? 'var(--status-green-text)' : 'var(--text-main)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                     {t.amount > 0 ? <ArrowDownCircle size={13} /> : <ArrowUpCircle size={13} />}
-                    {t.amount > 0 ? '+' : ''}{fmt(t.amount)} kr
+                    {t.amount > 0 ? '+' : ''}{fmt(t.amount)} {tr('ui.kr')}
                   </span>
                 ),
               },
-              { key: 'status', label: 'Status', align: 'center', render: t => <StatusBadge status={t.status} /> },
+              { key: 'status', label: tr('ui.status'), align: 'center', render: t => <StatusBadge status={t.status} /> },
             ]}
             // Kundfeedback: "i bank är den stor på mobilen — gör så den blir
             // som Verifikationer, där den ser jättebra ut och inte är så
@@ -495,10 +498,10 @@ export default function Bank({
             // på rad ett, datum/referens på rad två, status som märke.
             mobileList={t => ({
               dot: STATUS_META[t.status]?.text || 'var(--status-amber-text)',
-              primary: t.description || (t.amount > 0 ? 'Insättning' : 'Uttag'),
+              primary: t.description || (t.amount > 0 ? tr('ui.insattning') : tr('ui.uttag')),
               amount: (
                 <span style={{ color: t.amount > 0 ? 'var(--status-green-text)' : 'var(--text-main)' }}>
-                  {t.amount > 0 ? '+' : ''}{fmt(t.amount)} kr
+                  {t.amount > 0 ? '+' : ''}{fmt(t.amount)} {tr('ui.kr')}
                 </span>
               ),
               meta: [formatDate(t.date), hasMultipleAccounts ? accountById(accountIdOf(t)).name : null, t.reference ? `Ref: ${t.reference}` : null].filter(Boolean).join(' · '),
@@ -554,11 +557,11 @@ function BankAccountsModal({ accounts, bankTransactions, onAdd, onRename, onDele
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" style={{ maxWidth: '480px' }} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <span className="modal-title">Bankkonton</span>
+          <span className="modal-title">{tr('ui.bankkonton')}</span>
           <button className="modal-close" onClick={onClose}><X size={18} /></button>
         </div>
         <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: '0 0 14px', lineHeight: 1.5 }}>
-          Ett konto per riktigt bankkonto ni har — importera till rätt ett, och varje konto bokförs mot sitt eget konto i kontoplanen (t.ex. 1930 eller 1931).
+          {tr('ui.ett_konto_per_riktigt_bankkonto_ni_har_importera')}
         </p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '14px' }}>
@@ -580,15 +583,15 @@ function BankAccountsModal({ accounts, bankTransactions, onAdd, onRename, onDele
                   ) : (
                     <>
                       <div style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-main)' }}>{a.name}</div>
-                      <div style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>Konto {a.ledgerAccount} · {count} {count === 1 ? 'transaktion' : 'transaktioner'}</div>
+                      <div style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>{tr('ui.konto_2')} {a.ledgerAccount} · {count} {count === 1 ? 'transaktion' : 'transaktioner'}</div>
                     </>
                   )}
                 </div>
                 {!isRenaming && (
                   <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
-                    <button onClick={() => { setRenamingId(a.id); setRenameValue(a.name); }} title="Byt namn" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '6px' }}><Pencil size={14} /></button>
+                    <button onClick={() => { setRenamingId(a.id); setRenameValue(a.name); }} title={tr('ui.byt_namn')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '6px' }}><Pencil size={14} /></button>
                     {!a.isDefault && (
-                      <button onClick={() => onDelete(a)} title="Ta bort kontot" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--status-red-text)', padding: '6px' }}><Trash2 size={14} /></button>
+                      <button onClick={() => onDelete(a)} title={tr('ui.ta_bort_kontot')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--status-red-text)', padding: '6px' }}><Trash2 size={14} /></button>
                     )}
                   </div>
                 )}
@@ -600,33 +603,33 @@ function BankAccountsModal({ accounts, bankTransactions, onAdd, onRename, onDele
         {showAdd ? (
           <div style={{ border: '1px solid var(--border)', borderRadius: '8px', padding: '12px' }}>
             <div style={{ marginBottom: '10px' }}>
-              <label style={fieldLabel}>Namn</label>
-              <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="T.ex. Sparkonto Handelsbanken" style={inp} autoFocus />
+              <label style={fieldLabel}>{tr('ui.namn')}</label>
+              <input value={newName} onChange={e => setNewName(e.target.value)} placeholder={tr('ui.t_ex_sparkonto_handelsbanken')} style={inp} autoFocus />
             </div>
             <div style={{ marginBottom: '12px' }}>
-              <label style={fieldLabel}>Bokförs mot konto</label>
+              <label style={fieldLabel}>{tr('ui.bokfors_mot_konto')}</label>
               {/* Vanlig textruta, medvetet INTE AccountSearch — den kräver
                   att koden redan finns i kontoplanen (matchar bara BEFINTLIGA
                   konton, se SearchInputs.jsx), men hela poängen här är att
                   kunna ange ett bankkontos NYA kod (t.ex. 1931) innan den
                   ens är skapad i kontoplanen. */}
-              <input value={newLedger} onChange={e => setNewLedger(e.target.value.replace(/[^0-9]/g, '').slice(0, 4))} placeholder="T.ex. 1931" style={inp} inputMode="numeric" />
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>Fyrsiffrig kontokod. Finns den inte redan i kontoplanen läggs den till automatiskt, samma som ett nytt konto under Bokföring → Kontoplan.</span>
+              <input value={newLedger} onChange={e => setNewLedger(e.target.value.replace(/[^0-9]/g, '').slice(0, 4))} placeholder={tr('ui.t_ex_1931')} style={inp} inputMode="numeric" />
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>{tr('ui.fyrsiffrig_kontokod_finns_den_inte_redan_i_konto')}</span>
             </div>
             <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-              <button onClick={() => { setShowAdd(false); setNewName(''); setNewLedger(''); }} style={{ padding: '8px 14px', background: 'none', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}>Avbryt</button>
+              <button onClick={() => { setShowAdd(false); setNewName(''); setNewLedger(''); }} style={{ padding: '8px 14px', background: 'none', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}>{tr('ui.avbryt')}</button>
               <button
                 disabled={!newName.trim() || !newLedger}
                 onClick={() => { onAdd(newName, newLedger); setShowAdd(false); setNewName(''); setNewLedger(''); }}
                 style={{ padding: '8px 16px', background: (newName.trim() && newLedger) ? BRAND.green : 'var(--gray-300)', color: 'white', border: 'none', borderRadius: '6px', fontSize: '12.5px', fontWeight: 700, cursor: (newName.trim() && newLedger) ? 'pointer' : 'not-allowed' }}
               >
-                Lägg till
+                {tr('ui.lagg_till')}
               </button>
             </div>
           </div>
         ) : (
           <button onClick={() => setShowAdd(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 14px', background: 'none', border: '1px dashed var(--border)', borderRadius: '8px', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', width: '100%', justifyContent: 'center' }}>
-            <Plus size={14} /> Nytt bankkonto
+            <Plus size={14} /> {tr('ui.nytt_bankkonto')}
           </button>
         )}
       </div>
@@ -663,11 +666,11 @@ function BankRowDetail({ row, invoiceCandidates, supplierCandidates, accounts, v
       {candidates.length > 0 && (
         <div>
           <div style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '8px' }}>
-            {isInflow ? 'Matcha mot kundfaktura' : 'Matcha mot leverantörsfaktura'}
+            {isInflow ? tr('ui.matcha_mot_kundfaktura') : tr('ui.matcha_mot_leverantorsfaktura')}
           </div>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
             <select value={selectedId} onChange={e => setSelectedId(e.target.value)} style={{ ...inp, width: '360px' }}>
-              <option value="">Välj faktura...</option>
+              <option value="">{tr('ui.valj_faktura')}</option>
               {candidates.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
             </select>
             <button
@@ -675,31 +678,31 @@ function BankRowDetail({ row, invoiceCandidates, supplierCandidates, accounts, v
               onClick={() => isInflow ? onConfirmInvoiceMatch(selectedId) : onConfirmSupplierMatch(selectedId)}
               style={{ padding: '8px 16px', background: selectedId ? BRAND.green : 'var(--gray-300)', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: 700, cursor: selectedId ? 'pointer' : 'not-allowed' }}
             >
-              <CheckCircle2 size={13} style={{ verticalAlign: '-2px', marginRight: '4px' }} /> Bekräfta matchning
+              <CheckCircle2 size={13} style={{ verticalAlign: '-2px', marginRight: '4px' }} /> {tr('ui.bekrafta_matchning')}
             </button>
           </div>
           <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', margin: '6px 0 0' }}>
-            Fakturan markeras betald med den här transaktionens datum ({formatDate(row.date)}), inte dagens.
+            {tr('ui.fakturan_markeras_betald_med_den_har_transaktion')}{formatDate(row.date)}{tr('ui.inte_dagens')}
           </p>
         </div>
       )}
 
       {candidates.length === 0 && !showQuickBook && (
-        <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: 0 }}>Ingen matchande obetald faktura hittades.</p>
+        <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: 0 }}>{tr('ui.ingen_matchande_obetald_faktura_hittades')}</p>
       )}
 
       <div style={{ display: 'flex', gap: '8px', borderTop: candidates.length > 0 ? '1px solid var(--border-light)' : 'none', paddingTop: candidates.length > 0 ? '12px' : 0 }}>
         <button onClick={() => setShowQuickBook(v => !v)} style={{ padding: '7px 14px', background: 'none', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}>
-          {showQuickBook ? 'Dölj bokföringsformulär' : 'Bokför direkt'}
+          {showQuickBook ? tr('ui.dolj_bokforingsformular') : tr('ui.bokfor_direkt')}
         </button>
         <button onClick={onIgnore} style={{ padding: '7px 14px', background: 'none', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}>
-          Ignorera
+          {tr('ui.ignorera')}
         </button>
         {/* Ligger sist och längst till höger (marginLeft: auto) — det är den
             enda oåterkalleliga handlingen i raden, och ska inte sitta
             granne med de två vanliga. */}
         <button onClick={onDelete} style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 14px', background: 'none', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '12.5px', fontWeight: 600, color: 'var(--status-red-text)', cursor: 'pointer' }}>
-          <Trash2 size={13} /> Ta bort raden
+          <Trash2 size={13} /> {tr('ui.ta_bort_raden')}
         </button>
       </div>
 
@@ -708,13 +711,13 @@ function BankRowDetail({ row, invoiceCandidates, supplierCandidates, accounts, v
           {lockedPeriod && (
             <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-amber-bg)', border: '1px solid var(--status-amber-bg)', borderRadius: '8px', padding: '10px 12px', marginBottom: '12px', fontSize: '12px', color: 'var(--status-amber-text)', lineHeight: 1.5 }}>
               <AlertCircle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
-              <span>Denna period är redan momsredovisad. Ändringar här kräver en separat rättelse hos Skatteverket.</span>
+              <span>{tr('ui.denna_period_ar_redan_momsredovisad_andringar_ha')}</span>
             </div>
           )}
           <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr 70px', gap: '10px', marginBottom: '10px' }}>
-            <div><label style={fieldLabel}>Datum</label><input type="date" value={qbDate} onChange={e => setQbDate(e.target.value)} style={inp} /></div>
-            <div><label style={fieldLabel}>Beskrivning</label><input value={qbDesc} onChange={e => setQbDesc(e.target.value)} style={inp} /></div>
-            <div><label style={fieldLabel}>Serie</label>
+            <div><label style={fieldLabel}>{tr('ui.datum')}</label><input type="date" value={qbDate} onChange={e => setQbDate(e.target.value)} style={inp} /></div>
+            <div><label style={fieldLabel}>{tr('ui.beskrivning')}</label><input value={qbDesc} onChange={e => setQbDesc(e.target.value)} style={inp} /></div>
+            <div><label style={fieldLabel}>{tr('ui.serie')}</label>
               <select value={qbSeries} onChange={e => setQbSeries(e.target.value)} style={{ ...inp, textAlign: 'center' }}>
                 {['A', 'B', 'C'].map(s => <option key={s} value={s}>{s}</option>)}
               </select>
@@ -722,25 +725,25 @@ function BankRowDetail({ row, invoiceCandidates, supplierCandidates, accounts, v
           </div>
           <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
             <div style={{ flex: 1 }}>
-              <label style={fieldLabel}>{isInflow ? 'Vad var det för pengar?' : 'Vad gäller utgiften?'} — {isInflow ? 'pengar in på' : 'pengar ut från'} {ledgerAccount} bokas automatiskt, {fmt(Math.abs(row.amount))} kr</label>
+              <label style={fieldLabel}>{isInflow ? tr('ui.vad_var_det_for_pengar') : tr('ui.vad_galler_utgiften')} — {isInflow ? tr('ui.pengar_in_pa') : tr('ui.pengar_ut_fran')} {ledgerAccount} {tr('ui.bokas_automatiskt')} {fmt(Math.abs(row.amount))} {tr('ui.kr')}</label>
               <AccountSearch
                 value={qbAccount}
                 onChange={v => { setQbAccount(v); setQbAccountIsSuggestion(false); }}
                 accounts={accounts}
-                placeholder="Sök konto..."
+                placeholder={tr('ui.sok_konto_2')}
               />
               {qbAccountIsSuggestion && qbAccount && (
                 <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '5px 0 0' }}>
-                  Förslag utifrån beskrivningen — kontrollera innan du bokför.
+                  {tr('ui.forslag_utifran_beskrivningen_kontrollera_innan')}
                 </p>
               )}
             </div>
             <button
               disabled={!qbAccount || !qbDate}
-              onClick={() => onQuickBook({ date: qbDate, description: qbDesc || row.description || 'Banktransaktion', series: qbSeries, counterAccount: qbAccount })}
+              onClick={() => onQuickBook({ date: qbDate, description: qbDesc || row.description || tr('ui.banktransaktion'), series: qbSeries, counterAccount: qbAccount })}
               style={{ padding: '9px 18px', background: qbAccount ? BRAND.green : 'var(--gray-300)', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: 700, cursor: qbAccount ? 'pointer' : 'not-allowed', whiteSpace: 'nowrap' }}
             >
-              Bokför
+              {tr('ui.bokfor_2')}
             </button>
           </div>
         </div>
@@ -821,8 +824,8 @@ function BankExportHelp() {
     <div style={{ marginTop: '14px', border: '1px solid var(--border)', borderRadius: '10px', overflow: 'hidden' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '11px 14px', background: 'var(--bg-muted)', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>
         <HelpCircle size={15} color={BRAND.greenDark} style={{ flexShrink: 0 }} />
-        <span style={{ flex: 1 }}>Så exporterar du från din bank</span>
-        <span style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--text-muted)' }}>Välj din bank</span>
+        <span style={{ flex: 1 }}>{tr('ui.sa_exporterar_du_fran_din_bank')}</span>
+        <span style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--text-muted)' }}>{tr('ui.valj_din_bank')}</span>
       </div>
 
       <div style={{ padding: '12px 14px 14px' }}>
@@ -845,7 +848,7 @@ function BankExportHelp() {
 
         {selected === 'other' ? (
           <p style={{ fontSize: '12.5px', color: 'var(--text-main)', lineHeight: 1.7, margin: '14px 0 0' }}>
-            {OTHER_BANK_HINT} Bokix läser filen oavsett vilken bank som skapade den — importen är en generell CSV- och Excel-läsare, inte en integration mot varje enskild bank. Det gäller även utländska konton.
+            {OTHER_BANK_HINT} {tr('ui.bokix_laser_filen_oavsett_vilken_bank_som_skapad')}
           </p>
         ) : active ? (
           <>
@@ -860,12 +863,12 @@ function BankExportHelp() {
               ))}
             </div>
             <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', lineHeight: 1.6, margin: '12px 0 0' }}>
-              Hittar du inte knappen? Menyplaceringen kan ha ändrats sedan guiden skrevs — sök på "exportera" eller "kontoutdrag" i bankens egen hjälp.
+              {tr('ui.hittar_du_inte_knappen_menyplaceringen_kan_ha_an')}
             </p>
           </>
         ) : (
           <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', lineHeight: 1.6, margin: '12px 0 0' }}>
-            Klicka på din bank så visar vi var exportknappen brukar sitta. Har du en annan bank fungerar filen ändå — välj "Annan bank".
+            {tr('ui.klicka_pa_din_bank_sa_visar_vi_var_exportknappen')}
           </p>
         )}
       </div>
@@ -880,7 +883,7 @@ function BankExportHelp() {
 // text, och de får inte kunna säga olika saker.
 
 
-const STEP_LABELS = ['Fil', 'Kolumner', 'Förhandsgranskning'];
+const STEP_LABELS = [tr('ui.steg_fil'), tr('ui.steg_kolumner'), tr('ui.steg_forhandsgranskning')];
 
 function ImportWizardModal({ bankTransactions, bankImportProfiles, bankAccountsList, onAddBankAccount, onUpdateCompany, onImport, onClose }) {
   const [step, setStep] = useState(0);
@@ -938,18 +941,18 @@ function ImportWizardModal({ bankTransactions, bankImportProfiles, bankAccountsL
     // vad som faktiskt var fel.
     const name = (file.name || '').toLowerCase();
     if (!ACCEPTED_BANK_EXTENSIONS.some(ext => name.endsWith(ext))) {
-      setError(`"${file.name}" är inte en bankfil som kan läsas. Ladda upp CSV, TXT, XLSX eller XLS.`);
+      setError(tr('ui.ar_inte_en_bankfil_som_kan_lasas_ladda_upp_csv_t', { name: file.name }));
       return;
     }
     if (file.size > MAX_BANK_FILE_MB * 1024 * 1024) {
-      setError(`"${file.name}" är för stor (max ${MAX_BANK_FILE_MB} MB).`);
+      setError(tr('ui.ar_for_stor_max_mb', { name: file.name, MAX_BANK_FILE_MB }));
       return;
     }
     setBusy(true); setError('');
     try {
       const mod = await loadBankModule();
       const { headers: h, rows, errors } = await mod.parseBankFile(file);
-      if (!h.length || !rows.length) throw new Error('Kunde inte hitta några rader i filen. Kontrollera att den innehåller en rubrikrad.');
+      if (!h.length || !rows.length) throw new Error(tr('ui.kunde_inte_hitta_nagra_rader_i_filen_kontrollera'));
       setHeaders(h);
       setRawRows(rows);
       const fingerprint = mod.fingerprintHeaders(h);
@@ -958,7 +961,7 @@ function ImportWizardModal({ bankTransactions, bankImportProfiles, bankAccountsL
       if (errors.length) console.warn('CSV-tolkningsvarningar:', errors);
       setStep(1);
     } catch (e) {
-      setError(e.message || 'Kunde inte läsa filen.');
+      setError(e.message || tr('ui.kunde_inte_lasa_filen'));
     } finally {
       setBusy(false);
     }
@@ -977,7 +980,7 @@ function ImportWizardModal({ bankTransactions, bankImportProfiles, bankAccountsL
       onUpdateCompany?.(company => ({ ...company, bankImportProfiles: { ...(company.bankImportProfiles || {}), [fingerprint]: mapping } }));
       setStep(2);
     } catch (e) {
-      setError(e.message || 'Kunde inte tolka rader med den här mappningen.');
+      setError(e.message || tr('ui.kunde_inte_tolka_rader_med_den_har_mappningen'));
     } finally {
       setBusy(false);
     }
@@ -1000,7 +1003,7 @@ function ImportWizardModal({ bankTransactions, bankImportProfiles, bankAccountsL
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" style={{ maxWidth: '760px' }} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <span className="modal-title">Importera banktransaktioner</span>
+          <span className="modal-title">{tr('ui.importera_banktransaktioner')}</span>
           <button className="modal-close" onClick={onClose}><X size={18} /></button>
         </div>
 
@@ -1026,23 +1029,23 @@ function ImportWizardModal({ bankTransactions, bankImportProfiles, bankAccountsL
               nollfriktion för alla som aldrig rör den. */}
           {hasChoice && (
             <div style={{ marginBottom: '16px' }}>
-              <label style={fieldLabel}>Vilket bankkonto gäller importen?</label>
+              <label style={fieldLabel}>{tr('ui.vilket_bankkonto_galler_importen')}</label>
               {!showNewAccount ? (
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <select value={accountId} onChange={e => setAccountId(e.target.value)} style={{ ...inp, flex: 1 }}>
-                    {bankAccountsList.map(a => <option key={a.id} value={a.id}>{a.name} (konto {a.ledgerAccount})</option>)}
+                    {bankAccountsList.map(a => <option key={a.id} value={a.id}>{a.name} {tr('ui.konto')} {a.ledgerAccount})</option>)}
                   </select>
                   <button type="button" onClick={() => setShowNewAccount(true)} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '9px 12px', background: 'none', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                    <Plus size={13} /> Nytt konto
+                    <Plus size={13} /> {tr('ui.nytt_konto')}
                   </button>
                 </div>
               ) : (
                 <div style={{ border: '1px solid var(--border)', borderRadius: '8px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <input value={newAccountName} onChange={e => setNewAccountName(e.target.value)} placeholder="Namn, t.ex. Sparkonto Handelsbanken" style={inp} autoFocus />
-                  <input value={newAccountLedger} onChange={e => setNewAccountLedger(e.target.value.replace(/[^0-9]/g, '').slice(0, 4))} placeholder="Bokförs mot konto, t.ex. 1931" style={inp} inputMode="numeric" />
+                  <input value={newAccountName} onChange={e => setNewAccountName(e.target.value)} placeholder={tr('ui.namn_t_ex_sparkonto_handelsbanken')} style={inp} autoFocus />
+                  <input value={newAccountLedger} onChange={e => setNewAccountLedger(e.target.value.replace(/[^0-9]/g, '').slice(0, 4))} placeholder={tr('ui.bokfors_mot_konto_t_ex_1931')} style={inp} inputMode="numeric" />
                   <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                    <button type="button" onClick={() => { setShowNewAccount(false); setNewAccountName(''); setNewAccountLedger(''); }} style={{ padding: '7px 12px', background: 'none', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}>Avbryt</button>
-                    <button type="button" disabled={!newAccountName.trim() || !newAccountLedger} onClick={handleCreateAccountInline} style={{ padding: '7px 14px', background: (newAccountName.trim() && newAccountLedger) ? BRAND.green : 'var(--gray-300)', color: 'white', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 700, cursor: (newAccountName.trim() && newAccountLedger) ? 'pointer' : 'not-allowed' }}>Lägg till och välj</button>
+                    <button type="button" onClick={() => { setShowNewAccount(false); setNewAccountName(''); setNewAccountLedger(''); }} style={{ padding: '7px 12px', background: 'none', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}>{tr('ui.avbryt')}</button>
+                    <button type="button" disabled={!newAccountName.trim() || !newAccountLedger} onClick={handleCreateAccountInline} style={{ padding: '7px 14px', background: (newAccountName.trim() && newAccountLedger) ? BRAND.green : 'var(--gray-300)', color: 'white', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 700, cursor: (newAccountName.trim() && newAccountLedger) ? 'pointer' : 'not-allowed' }}>{tr('ui.lagg_till_och_valj')}</button>
                   </div>
                 </div>
               )}
@@ -1050,16 +1053,16 @@ function ImportWizardModal({ bankTransactions, bankImportProfiles, bankAccountsL
           )}
           {!hasChoice && (
             <button type="button" onClick={() => setShowNewAccount(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '12px', padding: 0, background: 'none', border: 'none', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}>
-              <Plus size={12} /> Fler bankkonton? Lägg till ett innan du importerar
+              <Plus size={12} /> {tr('ui.fler_bankkonton_lagg_till_ett_innan_du_importera')}
             </button>
           )}
           {!hasChoice && showNewAccount && (
             <div style={{ border: '1px solid var(--border)', borderRadius: '8px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
-              <input value={newAccountName} onChange={e => setNewAccountName(e.target.value)} placeholder="Namn, t.ex. Sparkonto Handelsbanken" style={inp} autoFocus />
-              <input value={newAccountLedger} onChange={e => setNewAccountLedger(e.target.value.replace(/[^0-9]/g, '').slice(0, 4))} placeholder="Bokförs mot konto, t.ex. 1931" style={inp} inputMode="numeric" />
+              <input value={newAccountName} onChange={e => setNewAccountName(e.target.value)} placeholder={tr('ui.namn_t_ex_sparkonto_handelsbanken')} style={inp} autoFocus />
+              <input value={newAccountLedger} onChange={e => setNewAccountLedger(e.target.value.replace(/[^0-9]/g, '').slice(0, 4))} placeholder={tr('ui.bokfors_mot_konto_t_ex_1931')} style={inp} inputMode="numeric" />
               <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                <button type="button" onClick={() => { setShowNewAccount(false); setNewAccountName(''); setNewAccountLedger(''); }} style={{ padding: '7px 12px', background: 'none', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}>Avbryt</button>
-                <button type="button" disabled={!newAccountName.trim() || !newAccountLedger} onClick={handleCreateAccountInline} style={{ padding: '7px 14px', background: (newAccountName.trim() && newAccountLedger) ? BRAND.green : 'var(--gray-300)', color: 'white', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 700, cursor: (newAccountName.trim() && newAccountLedger) ? 'pointer' : 'not-allowed' }}>Lägg till och välj</button>
+                <button type="button" onClick={() => { setShowNewAccount(false); setNewAccountName(''); setNewAccountLedger(''); }} style={{ padding: '7px 12px', background: 'none', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}>{tr('ui.avbryt')}</button>
+                <button type="button" disabled={!newAccountName.trim() || !newAccountLedger} onClick={handleCreateAccountInline} style={{ padding: '7px 14px', background: (newAccountName.trim() && newAccountLedger) ? BRAND.green : 'var(--gray-300)', color: 'white', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 700, cursor: (newAccountName.trim() && newAccountLedger) ? 'pointer' : 'not-allowed' }}>{tr('ui.lagg_till_och_valj')}</button>
               </div>
             </div>
           )}
@@ -1080,10 +1083,10 @@ function ImportWizardModal({ bankTransactions, bankImportProfiles, bankAccountsL
               <UploadCloud size={20} color={BRAND.greenDark} />
             </div>
             <h3 style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-main)', margin: '0 0 4px' }}>
-              {busy ? 'Läser filen...' : 'Ladda upp kontoutdrag'}
+              {busy ? tr('ui.laser_filen') : tr('ui.ladda_upp_kontoutdrag')}
             </h3>
-            <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: '0 0 6px' }}>Dra och släpp filen här, eller klicka för att välja</p>
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>CSV, TXT, XLSX eller XLS (max {MAX_BANK_FILE_MB} MB) — exporterat från er internetbank</p>
+            <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: '0 0 6px' }}>{tr('ui.dra_och_slapp_filen_har_eller_klicka_for_att_val')}</p>
+            <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>{tr('ui.csv_txt_xlsx_eller_xls_max')} {MAX_BANK_FILE_MB} {tr('ui.mb_exporterat_fran_er_internetbank')}</p>
           </div>
           <BankExportHelp />
           </>
@@ -1104,17 +1107,17 @@ function ImportWizardModal({ bankTransactions, bankImportProfiles, bankAccountsL
               hela guiden och börja om från filvalet. Tillbaka från
               förhandsgranskningen bygger om samma rawRows med en ändrad
               mappning (handleBuildPreview), ingen ny fil krävs. */}
-          {step > 0 && <button onClick={() => setStep(s => s - 1)} style={{ padding: '9px 16px', background: 'none', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}>Tillbaka</button>}
+          {step > 0 && <button onClick={() => setStep(s => s - 1)} style={{ padding: '9px 16px', background: 'none', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}>{tr('ui.tillbaka_2')}</button>}
           <span style={{ flex: 1 }} />
-          <button onClick={onClose} style={{ padding: '9px 16px', background: 'none', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}>Avbryt</button>
+          <button onClick={onClose} style={{ padding: '9px 16px', background: 'none', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}>{tr('ui.avbryt')}</button>
           {step === 1 && (
             <button disabled={busy || !mapping.date || !mapping.description} onClick={handleBuildPreview} style={{ padding: '9px 18px', background: BRAND.green, color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: 700, cursor: busy ? 'wait' : 'pointer' }}>
-              Förhandsgranska
+              {tr('ui.forhandsgranska')}
             </button>
           )}
           {step === 2 && (
             <button disabled={busy || preview.toImport.length === 0} onClick={handleCommit} style={{ padding: '9px 18px', background: preview.toImport.length ? BRAND.green : 'var(--gray-300)', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: 700, cursor: (busy || !preview.toImport.length) ? 'not-allowed' : 'pointer' }}>
-              Importera {preview.toImport.length} transaktioner
+              {tr('ui.importera')} {preview.toImport.length} {tr('ui.transaktioner')}
             </button>
           )}
         </div>
@@ -1124,10 +1127,10 @@ function ImportWizardModal({ bankTransactions, bankImportProfiles, bankAccountsL
 }
 
 const MAPPING_FIELDS = [
-  { key: 'date', label: 'Datum', required: true },
-  { key: 'description', label: 'Beskrivning', required: true },
-  { key: 'balanceColumn', label: 'Saldo (valfritt)' },
-  { key: 'referenceColumn', label: 'Referens / OCR (valfritt)' },
+  { key: 'date', label: tr('ui.datum'), required: true },
+  { key: 'description', label: tr('ui.beskrivning'), required: true },
+  { key: 'balanceColumn', label: tr('ui.saldo_valfritt') },
+  { key: 'referenceColumn', label: tr('ui.referens_ocr_valfritt') },
 ];
 
 function MappingStep({ headers, mapping, setMapping, sampleRow }) {
@@ -1135,55 +1138,55 @@ function MappingStep({ headers, mapping, setMapping, sampleRow }) {
   return (
     <div>
       <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: '0 0 14px' }}>
-        Bokix har försökt gissa vilka kolumner som är vilka — kontrollera och rätta vid behov innan förhandsgranskning.
+        {tr('ui.bokix_har_forsokt_gissa_vilka_kolumner_som_ar_vi')}
       </p>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '14px' }}>
         <div>
-          <label style={fieldLabel}>Datum</label>
+          <label style={fieldLabel}>{tr('ui.datum')}</label>
           <select value={mapping.date} onChange={e => set({ date: e.target.value })} style={inp}>
-            <option value="">Välj kolumn...</option>
+            <option value="">{tr('ui.valj_kolumn')}</option>
             {headers.map(h => <option key={h} value={h}>{bankHeaderLabel(h)}</option>)}
           </select>
         </div>
         <div>
-          <label style={fieldLabel}>Beskrivning</label>
+          <label style={fieldLabel}>{tr('ui.beskrivning')}</label>
           <select value={mapping.description} onChange={e => set({ description: e.target.value })} style={inp}>
-            <option value="">Välj kolumn...</option>
+            <option value="">{tr('ui.valj_kolumn')}</option>
             {headers.map(h => <option key={h} value={h}>{bankHeaderLabel(h)}</option>)}
           </select>
         </div>
 
         <div>
-          <label style={fieldLabel}>Belopp</label>
+          <label style={fieldLabel}>{tr('ui.belopp')}</label>
           <div style={{ display: 'flex', gap: '14px', marginBottom: '6px', fontSize: '12.5px', color: 'var(--text-secondary)' }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer' }}>
-              <input type="radio" checked={mapping.amountMode === 'single'} onChange={() => set({ amountMode: 'single' })} /> En kolumn (+/-)
+              <input type="radio" checked={mapping.amountMode === 'single'} onChange={() => set({ amountMode: 'single' })} /> {tr('ui.en_kolumn')}
             </label>
             <label style={{ display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer' }}>
-              <input type="radio" checked={mapping.amountMode === 'split'} onChange={() => set({ amountMode: 'split' })} /> Uttag + Insättning separat
+              <input type="radio" checked={mapping.amountMode === 'split'} onChange={() => set({ amountMode: 'split' })} /> {tr('ui.uttag_insattning_separat')}
             </label>
           </div>
           {mapping.amountMode === 'single' ? (
             <select value={mapping.amountColumn} onChange={e => set({ amountColumn: e.target.value })} style={inp}>
-              <option value="">Välj kolumn...</option>
+              <option value="">{tr('ui.valj_kolumn')}</option>
               {headers.map(h => <option key={h} value={h}>{bankHeaderLabel(h)}</option>)}
             </select>
           ) : (
             <div style={{ display: 'flex', gap: '8px' }}>
               <select value={mapping.debitColumn} onChange={e => set({ debitColumn: e.target.value })} style={inp}>
-                <option value="">Uttag-kolumn...</option>
+                <option value="">{tr('ui.uttag_kolumn')}</option>
                 {headers.map(h => <option key={h} value={h}>{bankHeaderLabel(h)}</option>)}
               </select>
               <select value={mapping.creditColumn} onChange={e => set({ creditColumn: e.target.value })} style={inp}>
-                <option value="">Insättning-kolumn...</option>
+                <option value="">{tr('ui.insattning_kolumn')}</option>
                 {headers.map(h => <option key={h} value={h}>{bankHeaderLabel(h)}</option>)}
               </select>
             </div>
           )}
           <label style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', fontSize: '12px', color: 'var(--text-muted)', cursor: 'pointer' }}>
             <input type="checkbox" checked={mapping.invertSign} onChange={e => set({ invertSign: e.target.checked })} />
-            Vänd tecken (om insättningar visas som negativa/uttag som positiva hos er bank)
+            {tr('ui.vand_tecken_om_insattningar_visas_som_negativa_u')}
           </label>
         </div>
 
@@ -1191,7 +1194,7 @@ function MappingStep({ headers, mapping, setMapping, sampleRow }) {
           <div key={f.key}>
             <label style={fieldLabel}>{f.label}</label>
             <select value={mapping[f.key] || ''} onChange={e => set({ [f.key]: e.target.value })} style={inp}>
-              <option value="">Ingen</option>
+              <option value="">{tr('ui.ingen')}</option>
               {headers.map(h => <option key={h} value={h}>{bankHeaderLabel(h)}</option>)}
             </select>
           </div>
@@ -1202,16 +1205,16 @@ function MappingStep({ headers, mapping, setMapping, sampleRow }) {
         <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', background: 'var(--bg-muted)', borderRadius: '6px', padding: '8px 10px', display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
           <HelpCircle size={13} style={{ flexShrink: 0, marginTop: 1 }} />
           <span>
-            Exempel från första raden:{' '}
+            {tr('ui.exempel_fran_forsta_raden')}{' '}
             {[
-              ['Datum', mapping.date],
-              ['Beskrivning', mapping.description],
+              [tr('ui.datum'), mapping.date],
+              [tr('ui.beskrivning'), mapping.description],
               ...(mapping.amountMode === 'split'
-                ? [['Uttag', mapping.debitColumn], ['Insättning', mapping.creditColumn]]
-                : [['Belopp', mapping.amountColumn]]),
-              ['Saldo', mapping.balanceColumn],
-              ['Referens', mapping.referenceColumn],
-            ].filter(([, col]) => col).map(([label, col]) => `${label}: ${String(sampleRow[col] instanceof Date ? sampleRow[col].toLocaleDateString('sv-SE') : (sampleRow[col] ?? '')).trim().replace(/(\d) (\d)/g,'$1 $2') || '(tom)'}`).join(' · ') || 'välj kolumnerna ovan'}
+                ? [[tr('ui.uttag'), mapping.debitColumn], [tr('ui.insattning'), mapping.creditColumn]]
+                : [[tr('ui.belopp'), mapping.amountColumn]]),
+              [tr('ui.saldo'), mapping.balanceColumn],
+              [tr('ui.referens'), mapping.referenceColumn],
+            ].filter(([, col]) => col).map(([label, col]) => `${label}: ${String(sampleRow[col] instanceof Date ? sampleRow[col].toLocaleDateString('sv-SE') : (sampleRow[col] ?? '')).trim().replace(/(\d) (\d)/g,'$1 $2') || '(tom)'}`).join(' · ') || tr('ui.valj_kolumnerna_ovan')}
           </span>
         </div>
       )}
@@ -1224,17 +1227,17 @@ function PreviewStep({ preview }) {
   return (
     <div>
       <div style={{ display: 'flex', gap: '10px', marginBottom: '14px', flexWrap: 'wrap' }}>
-        <span style={{ fontSize: '12.5px', padding: '4px 10px', borderRadius: '999px', background: 'var(--status-green-bg)', color: 'var(--status-green-text)', fontWeight: 700 }}>{toImport.length} nya</span>
-        {alreadyImported.length > 0 && <span style={{ fontSize: '12.5px', padding: '4px 10px', borderRadius: '999px', background: 'var(--status-gray-bg)', color: 'var(--status-gray-text)', fontWeight: 700 }}>{alreadyImported.length} redan importerade (hoppas över)</span>}
-        {errors.length > 0 && <span style={{ fontSize: '12.5px', padding: '4px 10px', borderRadius: '999px', background: 'var(--status-red-bg)', color: 'var(--status-red-text)', fontWeight: 700 }}>{errors.length} rader kunde inte tolkas</span>}
+        <span style={{ fontSize: '12.5px', padding: '4px 10px', borderRadius: '999px', background: 'var(--status-green-bg)', color: 'var(--status-green-text)', fontWeight: 700 }}>{toImport.length} {tr('ui.nya')}</span>
+        {alreadyImported.length > 0 && <span style={{ fontSize: '12.5px', padding: '4px 10px', borderRadius: '999px', background: 'var(--status-gray-bg)', color: 'var(--status-gray-text)', fontWeight: 700 }}>{alreadyImported.length} {tr('ui.redan_importerade_hoppas_over')}</span>}
+        {errors.length > 0 && <span style={{ fontSize: '12.5px', padding: '4px 10px', borderRadius: '999px', background: 'var(--status-red-bg)', color: 'var(--status-red-text)', fontWeight: 700 }}>{errors.length} {tr('ui.rader_kunde_inte_tolkas')}</span>}
       </div>
       <div style={{ maxHeight: '320px', overflowY: 'auto', border: '1px solid var(--border)', borderRadius: '8px' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12.5px' }}>
           <thead>
             <tr style={{ background: 'var(--bg-muted)', position: 'sticky', top: 0 }}>
-              <th style={{ textAlign: 'left', padding: '8px 10px' }}>Datum</th>
-              <th style={{ textAlign: 'left', padding: '8px 10px' }}>Beskrivning</th>
-              <th style={{ textAlign: 'right', padding: '8px 10px' }}>Belopp</th>
+              <th style={{ textAlign: 'left', padding: '8px 10px' }}>{tr('ui.datum')}</th>
+              <th style={{ textAlign: 'left', padding: '8px 10px' }}>{tr('ui.beskrivning')}</th>
+              <th style={{ textAlign: 'right', padding: '8px 10px' }}>{tr('ui.belopp')}</th>
             </tr>
           </thead>
           <tbody>
@@ -1242,12 +1245,12 @@ function PreviewStep({ preview }) {
               <tr key={i} style={{ borderTop: '1px solid var(--border-light)' }}>
                 <td style={{ padding: '7px 10px', color: 'var(--text-main)' }}>{formatDate(r.date)}</td>
                 <td style={{ padding: '7px 10px', color: 'var(--text-main)' }}>{r.description}</td>
-                <td style={{ padding: '7px 10px', textAlign: 'right', color: r.amount > 0 ? 'var(--status-green-text)' : 'var(--text-main)', fontWeight: 600 }}>{fmt(r.amount)} kr</td>
+                <td style={{ padding: '7px 10px', textAlign: 'right', color: r.amount > 0 ? 'var(--status-green-text)' : 'var(--text-main)', fontWeight: 600 }}>{fmt(r.amount)} {tr('ui.kr')}</td>
               </tr>
             ))}
           </tbody>
         </table>
-        {toImport.length > 200 && <div style={{ padding: '8px 10px', fontSize: '12px', color: 'var(--text-muted)' }}>+ {toImport.length - 200} till...</div>}
+        {toImport.length > 200 && <div style={{ padding: '8px 10px', fontSize: '12px', color: 'var(--text-muted)' }}>+ {toImport.length - 200} {tr('ui.till')}</div>}
       </div>
     </div>
   );

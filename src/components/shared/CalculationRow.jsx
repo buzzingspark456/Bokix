@@ -1,4 +1,5 @@
 import React from 'react';
+import { t } from '../../i18n';
 
 const fmt = (v) => new Intl.NumberFormat('sv-SE').format(v || 0);
 
@@ -13,7 +14,7 @@ export default function CalculationRow({ label, formula, result }) {
       <div style={{ minWidth: '220px', fontWeight: 600, fontSize: '13px', color: 'var(--text-main)' }}>{label}</div>
       <div style={{ flex: 1, fontSize: '12.5px', color: 'var(--text-muted)', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>{formula}</div>
       {result !== null && result !== undefined && (
-        <div style={{ fontWeight: 700, fontSize: '13.5px', color: 'var(--text-main)', whiteSpace: 'nowrap' }}>{fmt(result)} kr</div>
+        <div style={{ fontWeight: 700, fontSize: '13.5px', color: 'var(--text-main)', whiteSpace: 'nowrap' }}>{fmt(result)} {t('ui.kr')}</div>
       )}
     </div>
   );

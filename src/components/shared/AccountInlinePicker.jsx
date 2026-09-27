@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Search, X, Check, Pencil } from '../icons';
 import { accountMatches, groupAccountsByClass } from '../../utils/accountSearch';
+import { t } from '../../i18n';
 
 // ── Kontoväljaren i kvittovyn ───────────────────────────────────────────
 // Kundfeedback: kontot som avläsningen föreslog kunde vara fel, och för att
@@ -107,11 +108,11 @@ export default function AccountInlinePicker({ value, onChange, accounts: allAcco
           type="button"
           className="acp-current"
           onClick={() => { focusOnOpen.current = true; setOpen(true); }}
-          aria-label={`Byt konto, nu ${selected.code} ${selected.name}`}
+          aria-label={t('ui.byt_konto_nu', { code: selected.code, name: selected.name })}
         >
           <span className="acp-code">{selected.code}</span>
           <span className="acp-name">{selected.name}</span>
-          <span className="acp-change"><Pencil size={13} /> Byt konto</span>
+          <span className="acp-change"><Pencil size={13} /> {t('ui.byt_konto')}</span>
         </button>
       </div>
     );
@@ -124,8 +125,8 @@ export default function AccountInlinePicker({ value, onChange, accounts: allAcco
       <div ref={rootRef} className="acp acp-selected">
         <button type="button" className="acp-current" onClick={() => { focusOnOpen.current = true; setOpen(true); }}>
           <span className="acp-code">{value}</span>
-          <span className="acp-name" style={{ color: 'var(--text-muted)' }}>Finns inte i kontoplanen</span>
-          <span className="acp-change"><Pencil size={13} /> Byt konto</span>
+          <span className="acp-name" style={{ color: 'var(--text-muted)' }}>{t('ui.finns_inte_i_kontoplanen')}</span>
+          <span className="acp-change"><Pencil size={13} /> {t('ui.byt_konto')}</span>
         </button>
       </div>
     );
@@ -134,20 +135,20 @@ export default function AccountInlinePicker({ value, onChange, accounts: allAcco
   const canShowMore = !trimmed && !showAll && basePool.length < accounts.length;
 
   const suggested = suggestion ? accounts.find(a => a.code === suggestion.code) : null;
-  const suggestionNote = suggestion?.source === 'supplier' ? 'Utifrån leverantören' : suggestion?.source === 'keyword' ? 'Utifrån texten på kvittot' : 'Utifrån kvittot';
+  const suggestionNote = suggestion?.source === 'supplier' ? t('ui.utifran_leverantoren') : suggestion?.source === 'keyword' ? t('ui.utifran_texten_pa_kvittot') : t('ui.utifran_kvittot');
 
   return (
     <div ref={rootRef} className={`acp acp-open${invalid ? ' acp-invalid' : ''}`}>
       {suggested && (
         <button type="button" className="acp-suggest" onClick={() => pick(suggested)}>
           <span className="acp-suggest-top">
-            <span className="acp-suggest-tag">Förslag</span>
-            <span className="acp-suggest-note">{suggestionNote}. Kontrollera att det stämmer.</span>
+            <span className="acp-suggest-tag">{t('ui.forslag')}</span>
+            <span className="acp-suggest-note">{suggestionNote}{t('ui.kontrollera_att_det_stammer')}</span>
           </span>
           <span className="acp-suggest-main">
             <span className="acp-code">{suggested.code}</span>
             <span className="acp-name">{suggested.name}</span>
-            <span className="acp-suggest-use">Använd</span>
+            <span className="acp-suggest-use">{t('ui.anvand')}</span>
           </span>
         </button>
       )}
@@ -160,13 +161,13 @@ export default function AccountInlinePicker({ value, onChange, accounts: allAcco
           value={query}
           onChange={e => setQuery(e.target.value)}
           onKeyDown={onKeyDown}
-          placeholder="Sök konto, t.ex. 6110 eller kontorsmaterial"
-          aria-label="Sök konto"
+          placeholder={t('ui.sok_konto_t_ex_6110_eller_kontorsmaterial')}
+          aria-label={t('ui.sok_konto_3')}
           autoComplete="off"
           enterKeyHint="search"
         />
         {query && (
-          <button type="button" className="acp-clear" onClick={() => { setQuery(''); inputRef.current?.focus(); }} aria-label="Rensa sökning">
+          <button type="button" className="acp-clear" onClick={() => { setQuery(''); inputRef.current?.focus(); }} aria-label={t('ui.rensa_sokning')}>
             <X size={14} />
           </button>
         )}
@@ -174,7 +175,7 @@ export default function AccountInlinePicker({ value, onChange, accounts: allAcco
 
       {quick.length > 0 && !trimmed && (
         <div className="acp-quick">
-          <span className="acp-quick-label">Snabbval</span>
+          <span className="acp-quick-label">{t('ui.snabbval')}</span>
           {quick.map(q => (
             <button key={q.code} type="button" className="rc-chip" onClick={() => onChange(q.code, q.name)} title={q.name}>
               {q.code}{q.name ? ` ${q.name}` : ''}
@@ -183,7 +184,7 @@ export default function AccountInlinePicker({ value, onChange, accounts: allAcco
         </div>
       )}
 
-      <div className="acp-list" role="listbox" aria-label="Konton">
+      <div className="acp-list" role="listbox" aria-label={t('ui.konton')}>
         {flat.length === 0 && (
           <div className="acp-empty">Inget konto matchar &quot;{trimmed}&quot;. Prova ett kontonummer (t.ex. 5410) eller ett ord ur namnet.</div>
         )}
@@ -214,11 +215,11 @@ export default function AccountInlinePicker({ value, onChange, accounts: allAcco
       </div>
 
       <div className="acp-foot">
-        <span>{trimmed ? `${flat.length} träffar` : `${flat.length} av ${accounts.length} konton`}</span>
+        <span>{trimmed ? t('ui.traffar', { length: flat.length }) : t('ui.av_konton', { length: flat.length, length1: accounts.length })}</span>
         <span className="acp-foot-actions">
-          {canShowMore && <button type="button" className="rc-link" onClick={() => setShowAll(true)}>Visa alla konton</button>}
-          {showAll && !trimmed && <button type="button" className="rc-link" onClick={() => setShowAll(false)}>Visa bara vanliga</button>}
-          {value && <button type="button" className="rc-link" onClick={() => { setOpen(false); setQuery(''); }}>Avbryt</button>}
+          {canShowMore && <button type="button" className="rc-link" onClick={() => setShowAll(true)}>{t('ui.visa_alla_konton')}</button>}
+          {showAll && !trimmed && <button type="button" className="rc-link" onClick={() => setShowAll(false)}>{t('ui.visa_bara_vanliga')}</button>}
+          {value && <button type="button" className="rc-link" onClick={() => { setOpen(false); setQuery(''); }}>{t('ui.avbryt')}</button>}
         </span>
       </div>
     </div>

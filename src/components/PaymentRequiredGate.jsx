@@ -6,6 +6,7 @@ import { BokixWordmark } from './marketing/MarketingLayout';
 import { createStripeSubscriptionCheckout } from '../stripeApi';
 import { supabase } from '../supabaseClient';
 import { closeUfYear, ufClosedInfo, ufAutoCloseLabel } from '../utils/ufClose';
+import { t } from '../i18n';
 
 // ── Litet Stripe-märke — inte loggans exakta glyf (för riskabelt att
 // pixel-återskapa träffsäkert som SVG-path), utan samma konvention som
@@ -17,9 +18,9 @@ function StripeBadge() {
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
       <span aria-hidden style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 16, height: 16, borderRadius: 4, background: '#635BFF', color: 'white', fontSize: '11px', fontWeight: 800, fontFamily: 'Georgia, serif', lineHeight: 1 }}>
-        S
+        {t('ui.s')}
       </span>
-      <span style={{ fontWeight: 700, color: '#425466' }}>Stripe</span>
+      <span style={{ fontWeight: 700, color: '#425466' }}>{t('ui.stripe')}</span>
     </span>
   );
 }
@@ -102,7 +103,7 @@ export default function PaymentRequiredGate({ user, company, onSignedOut, ownerU
         customer_email: user.email,
         company_id: forCompany ? company.id : undefined,
       });
-      if (!session?.url) throw new Error('Ingen betalningslänk mottogs från Stripe.');
+      if (!session?.url) throw new Error(t('ui.ingen_betalningslank_mottogs_fran_stripe'));
       window.location.href = session.url;
     } catch (err) {
       // requestStripeApi (stripeApi.js) har redan försökt tre gånger — det
@@ -111,8 +112,8 @@ export default function PaymentRequiredGate({ user, company, onSignedOut, ownerU
       // skriva rätt. Ett tekniskt "Stripe API error (404)" hjälper ingen,
       // så en generisk statuskod-formad text bytes ut mot vanligt språk.
       const friendly = /^Stripe API error \(\d+\)$/.test(err.message)
-        ? 'Kunde inte nå betalningstjänsten just nu. Vänta en liten stund och försök igen.'
-        : (err.message || 'Något gick fel. Försök igen om en stund.');
+        ? t('ui.kunde_inte_na_betalningstjansten_just_nu_vanta_e')
+        : (err.message || t('ui.nagot_gick_fel_forsok_igen_om_en_stund'));
       setErrorMsg(friendly);
       setLoading(false);
     }
@@ -135,20 +136,20 @@ export default function PaymentRequiredGate({ user, company, onSignedOut, ownerU
         </div>
 
         <h1 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '10px', letterSpacing: '-0.01em' }}>
-          {memberLocked ? 'Företaget är låst just nu' : isUf ? (ufClosed ? 'UF-året är avslutat' : 'Ert UF-år är slut') : forCompany ? 'Slutför betalningen för det här företaget' : returning ? 'Din prenumeration är inte aktiv' : 'Slutför din betalning för att fortsätta'}
+          {memberLocked ? t('ui.foretaget_ar_last_just_nu') : isUf ? (ufClosed ? t('ui.uf_aret_ar_avslutat') : t('ui.ert_uf_ar_ar_slut')) : forCompany ? t('ui.slutfor_betalningen_for_det_har_foretaget') : returning ? t('ui.din_prenumeration_ar_inte_aktiv') : t('ui.slutfor_din_betalning_for_att_fortsatta')}
         </h1>
         <p style={{ fontSize: '14.5px', color: 'var(--text-secondary)', lineHeight: 1.65, marginBottom: '28px' }}>
           {memberLocked
-            ? <>{company?.name ? <><strong>{company.name}</strong> delas</> : 'Företagen du är inbjuden till delas'} med dig av företagets ägare, och ägarens prenumeration är inte aktiv just nu. Allt finns kvar och går att använda igen så fort ägaren startar prenumerationen. Hör av dig till ägaren.</>
+            ? <>{company?.name ? <><strong>{company.name}</strong> {t('ui.delas')}</> : t('ui.foretagen_du_ar_inbjuden_till_delas')} {t('ui.med_dig_av_foretagets_agare_och_agarens_prenumer')}</>
             : isUf
             ? (ufClosed
-              ? <>Kontot är skrivskyddat och stängs den <strong>{ufClosed.deleteLabel}</strong>. Ladda ner det ni behöver innan dess. Bokföringen och underlagen sparas ändå i sju år, som Skatteverket kräver, och kan begäras ut via support@bokix.se. Ångrar ni er kan ni fortsätta med Bokix fram till dess.</>
-              : <>Gratisperioden är slut. Vill ni driva företaget vidare fortsätter ni med Bokix. Är ni klara avslutar ni UF-året: ni kan ladda ner allt i tre månader, sedan stängs kontot. Bokföringen sparas i sju år, som Skatteverket kräver även för UF-företag.{ufAutoCloseLabel(user) && <> Väljer ni inget stängs kontot <strong>{ufAutoCloseLabel(user)}</strong>.</>}</>)
+              ? <>{t('ui.kontot_ar_skrivskyddat_och_stangs_den')} <strong>{ufClosed.deleteLabel}</strong>{t('ui.ladda_ner_det_ni_behover_innan_dess_bokforingen')}</>
+              : <>{t('ui.gratisperioden_ar_slut_vill_ni_driva_foretaget_v')}{ufAutoCloseLabel(user) && <> {t('ui.valjer_ni_inget_stangs_kontot')} <strong>{ufAutoCloseLabel(user)}</strong>.</>}</>)
             : forCompany
-            ? <>Varje företag i Bokix betalas för sig — <strong>{company?.name || 'det här företaget'}</strong> väntar fortfarande på betalningsuppgifter hos Stripe. 30 dagar gratis, sedan 179 kr/mån — avsluta innan dess så kostar det ingenting.</>
+            ? <>{t('ui.varje_foretag_i_bokix_betalas_for_sig')} <strong>{company?.name || t('ui.det_har_foretaget')}</strong> {t('ui.vantar_fortfarande_pa_betalningsuppgifter_hos_st')}</>
             : returning
-              ? <>Kontot {user?.email} har ingen aktiv prenumeration. Starta den igen för att fortsätta bokföra. Din bokföring finns kvar och kan laddas ner här nedanför.</>
-              : <>Ditt konto ({user?.email}) är skapat, men du har inte lagt in betalningsuppgifter hos Stripe än. 30 dagar gratis, sedan 179 kr/mån — avsluta innan dess så kostar det ingenting.</>}
+              ? <>{t('ui.kontot')} {user?.email} {t('ui.har_ingen_aktiv_prenumeration_starta_den_igen_fo')}</>
+              : <>{t('ui.ditt_konto')}{user?.email}{t('ui.ar_skapat_men_du_har_inte_lagt_in_betalningsuppg')}</>}
         </p>
 
         {errorMsg && (
@@ -163,7 +164,7 @@ export default function PaymentRequiredGate({ user, company, onSignedOut, ownerU
             onClick={onSwitchCompany}
             style={{ width: '100%', padding: '14px', background: BRAND.green, border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: 700, color: 'white', cursor: 'pointer', fontFamily: 'inherit', marginBottom: '14px' }}
           >
-            Byt till ett annat företag
+            {t('ui.byt_till_ett_annat_foretag')}
           </button>
         )}
 
@@ -173,7 +174,7 @@ export default function PaymentRequiredGate({ user, company, onSignedOut, ownerU
           disabled={loading}
           style={{ width: '100%', padding: '14px', background: BRAND.green, border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: 700, color: 'white', cursor: loading ? 'wait' : 'pointer', boxShadow: '0 2px 6px color-mix(in srgb, var(--accent) 25%, transparent)', fontFamily: 'inherit', opacity: loading ? 0.7 : 1, marginBottom: '14px' }}
         >
-          {loading ? 'Skickar dig till Stripe...' : isUf ? 'Fortsätt med Bokix' : 'Fortsätt till betalning'}
+          {loading ? t('ui.skickar_dig_till_stripe') : isUf ? t('ui.fortsatt_med_bokix') : t('ui.fortsatt_till_betalning')}
         </button>
 
         {isUf && !ufClosed && (
@@ -183,32 +184,32 @@ export default function PaymentRequiredGate({ user, company, onSignedOut, ownerU
             disabled={closing}
             style={{ width: '100%', padding: '13px', background: 'transparent', border: '1.5px solid var(--border)', borderRadius: '10px', fontSize: '14.5px', fontWeight: 700, color: 'var(--text-main)', cursor: closing ? 'wait' : 'pointer', fontFamily: 'inherit', marginBottom: '14px' }}
           >
-            {closing ? 'Avslutar…' : 'Avsluta UF-året'}
+            {closing ? t('ui.avslutar') : t('ui.avsluta_uf_aret')}
           </button>
         )}
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '12.5px', color: 'var(--text-muted)', marginBottom: '20px' }}>
-          <Lock size={12} /> Säker betalning via <StripeBadge />
+          <Lock size={12} /> {t('ui.saker_betalning_via')} <StripeBadge />
         </div>
         </>)}
 
         {ownCompanies.length > 0 && (
           <div style={{ textAlign: 'left', borderTop: '1px solid var(--border)', paddingTop: '18px', marginBottom: '18px' }}>
-            <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '4px' }}>{ufClosed ? `Kan laddas ner till ${ufClosed.deleteLabel}` : 'Din bokföring finns kvar'}</div>
+            <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '4px' }}>{ufClosed ? t('ui.kan_laddas_ner_till', { deleteLabel: ufClosed.deleteLabel }) : t('ui.din_bokforing_finns_kvar')}</div>
             <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.55, margin: '0 0 12px' }}>
               {isUf
-                ? 'Ladda ner den utan att betala, till exempel som underlag för årsredovisningen hos Ung Företagsamhet. Kvitton och underlag kan ni begära ut via support@bokix.se.'
-                : 'Du kan ladda ner den utan att betala. SIE4 läses av alla svenska bokföringsprogram och av din revisor. Kvitton och underlag kan du begära ut via support@bokix.se.'}
+                ? t('ui.ladda_ner_den_utan_att_betala_till_exempel_som_u')
+                : t('ui.du_kan_ladda_ner_den_utan_att_betala_sie4_lases')}
             </p>
             {ownCompanies.map(c => (
               <div key={c.company?.id || c.company?.name} style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', padding: '8px 0' }}>
-                <span style={{ flex: '1 1 140px', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>{c.company?.name || 'Företag'}</span>
+                <span style={{ flex: '1 1 140px', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>{c.company?.name || t('ui.foretag')}</span>
                 <span style={{ display: 'flex', gap: '8px' }}>
                 <button type="button" onClick={() => downloadSie4(c.company, c.accounts, c.verifications)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 11px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer', fontFamily: 'inherit' }}>
-                  <Download size={13} /> SIE4
+                  <Download size={13} /> {t('ui.sie4')}
                 </button>
                 <button type="button" onClick={() => downloadBackup(c)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 11px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer', fontFamily: 'inherit' }}>
-                  <Download size={13} /> Allt (JSON)
+                  <Download size={13} /> {t('ui.allt_json')}
                 </button>
                 </span>
               </div>
@@ -220,7 +221,7 @@ export default function PaymentRequiredGate({ user, company, onSignedOut, ownerU
           onClick={handleSignOut}
           style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
         >
-          <LogOut size={14} /> Logga ut
+          <LogOut size={14} /> {t('ui.logga_ut')}
         </button>
       </div>
     </div>

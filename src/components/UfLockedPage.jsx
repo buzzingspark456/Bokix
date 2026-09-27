@@ -2,6 +2,7 @@ import React from 'react';
 import { Lock, ArrowRight, GraduationCap } from './icons';
 import { BRAND } from '../utils/brandColors';
 import { ufBlockedPage, UF_NAV_IDS, UF_NAV_LABELS } from '../utils/ufMode';
+import { t } from '../i18n';
 
 // Sidan man landar på om man ändå tar sig till en funktion som inte ingår
 // i UF-läget — en bokmärkt URL-hash, en genväg från en annan sida, eller
@@ -16,13 +17,13 @@ import { ufBlockedPage, UF_NAV_IDS, UF_NAV_LABELS } from '../utils/ufMode';
 // betalvägg, det är en produkt som är tillskuren för ett UF-år.
 export default function UfLockedPage({ tabId, onNavigate }) {
   const page = ufBlockedPage(tabId);
-  const label = page?.label || 'Den här funktionen';
+  const label = page?.label || t('ui.den_har_funktionen');
   const body = page?.body
     // Generell text för en sida som inte har någon egen skriven. Kan bara
     // hända om någon lägger till en sida i appen utan att ta ställning
     // till UF-läget — ufPageState spärrar då sidan som förvalt läge, se
     // ufMode.js.
-    || 'Den här delen av Bokix ingår inte i UF-läget. Den är byggd för företag som drivs vidare efter läsåret, med anställda, projekt eller avtalskunder.';
+    || t('ui.den_har_delen_av_bokix_ingar_inte_i_uf_laget_den');
   const instead = page?.instead;
 
   return (
@@ -45,11 +46,11 @@ export default function UfLockedPage({ tabId, onNavigate }) {
           background: BRAND.greenLight, color: BRAND.greenDark, fontSize: '11.5px', fontWeight: 800,
           letterSpacing: '0.03em', textTransform: 'uppercase', marginBottom: '12px',
         }}>
-          <GraduationCap size={13} /> UF-läget
+          <GraduationCap size={13} /> {t('ui.uf_laget')}
         </div>
 
         <h2 style={{ fontSize: '19px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 8px' }}>
-          {label} ingår inte i UF-läget
+          {label} {t('ui.ingar_inte_i_uf_laget')}
         </h2>
         <p style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.7, maxWidth: '440px', margin: '0 0 22px' }}>
           {body}
@@ -66,7 +67,7 @@ export default function UfLockedPage({ tabId, onNavigate }) {
             följdfrågan efter "det här går inte" är "vad går då?". */}
         <div style={{ marginTop: '28px', paddingTop: '20px', borderTop: '1px solid var(--border-light)', width: '100%' }}>
           <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '10px' }}>
-            Det här har ni i UF-läget
+            {t('ui.det_har_har_ni_i_uf_laget')}
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '7px', justifyContent: 'center' }}>
             {UF_NAV_IDS.filter(id => id !== 'settings').map(id => (

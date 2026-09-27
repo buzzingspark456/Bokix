@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 // Rapport och analys — rapportportalen. 14-rapporters-specen begränsad till
 // de rapporter Bokix faktiskt har täckande data för idag (Sida 14c,
 // uppföljning): Kund-/leverantörsreskontra som EGEN rapport, Budget,
@@ -13,7 +14,7 @@
 export const REPORT_SECTIONS = [
   {
     id: 'overview',
-    label: 'Översikt',
+    label: t('ui.oversikt'),
     reports: [
       // Kundönskemål: en visuell "allt på en gång"-sida, jämförbar med
       // Fortnox/Vismas företagsöversikter — bygger uteslutande på samma
@@ -21,65 +22,65 @@ export const REPORT_SECTIONS = [
       // Årsrapport, bara i fler och delvis nya diagramformer (ringdiagram,
       // gradientfyllda trendlinjer, rankad kostnadslista) — se
       // ReportDetail.jsx:s OverviewReport.
-      { id: 'overview', name: 'Företagsöversikt', description: 'Omsättning, marginaler, kostnadsfördelning och kassaflöde i en visuell överblick.' },
+      { id: 'overview', name: t('ui.foretagsoversikt'), description: t('ui.omsattning_marginaler_kostnadsfordelning_och_kas') },
     ],
   },
   {
     id: 'ongoing',
-    label: 'Löpande',
+    label: t('ui.lopande'),
     reports: [
-      { id: 'result', name: 'Resultaträkning', description: 'Intäkter minus kostnader för vald period.' },
-      { id: 'balance', name: 'Balansräkning', description: 'Tillgångar, skulder och eget kapital vid periodens slut.' },
-      { id: 'cashflow', name: 'Kassaflödesanalys', description: 'Likviditetens förändring under perioden.' },
-      { id: 'keyfigures', name: 'Nyckeltal', description: 'Vinstmarginal, kassalikviditet och soliditet.' },
+      { id: 'result', name: t('ui.resultatrakning'), description: t('ui.intakter_minus_kostnader_for_vald_period') },
+      { id: 'balance', name: t('ui.balansrakning'), description: t('ui.tillgangar_skulder_och_eget_kapital_vid_perioden') },
+      { id: 'cashflow', name: t('ui.kassaflodesanalys'), description: t('ui.likviditetens_forandring_under_perioden') },
+      { id: 'keyfigures', name: t('ui.nyckeltal'), description: t('ui.vinstmarginal_kassalikviditet_och_soliditet') },
     ],
   },
   {
     id: 'closing',
-    label: 'Bokslut',
+    label: t('ui.bokslut'),
     reports: [
       // Arbetsbladet binder ihop råbalans, bokslutsjusteringar (avskrivningar,
       // periodiseringar, lagerjustering) och de två slutrapporterna i en
       // enda överblick — se utils/worksheet.js.
-      { id: 'worksheet', name: 'Arbetsblad', description: 'Råbalans, bokslutsjusteringar och slutliga resultat- och balanskolumner i en överblick.' },
-      { id: 'equity', name: 'Förändring av eget kapital', description: 'Ingående och utgående eget kapital, med insättningar, uttag och årets resultat.' },
+      { id: 'worksheet', name: t('ui.arbetsblad'), description: t('ui.rabalans_bokslutsjusteringar_och_slutliga_result') },
+      { id: 'equity', name: t('ui.forandring_av_eget_kapital'), description: t('ui.ingaende_och_utgaende_eget_kapital_med_insattnin') },
     ],
   },
   {
     id: 'tax',
-    label: 'Skatt & moms',
+    label: t('ui.skatt_moms'),
     reports: [
-      { id: 'vat', name: 'Momsrapport', description: 'Underlag till momsdeklarationen, ruta för ruta.' },
+      { id: 'vat', name: t('ui.momsrapport'), description: t('ui.underlag_till_momsdeklarationen_ruta_for_ruta') },
     ],
   },
   {
     id: 'ledgers',
-    label: 'Huvudböcker',
+    label: t('ui.huvudbocker'),
     reports: [
-      { id: 'ledger', name: 'Huvudbok', description: 'Saldo och alla transaktioner per konto.' },
+      { id: 'ledger', name: t('ui.huvudbok'), description: t('ui.saldo_och_alla_transaktioner_per_konto') },
     ],
   },
   {
     id: 'sales',
-    label: 'Försäljning',
+    label: t('ui.forsaljning'),
     reports: [
-      { id: 'invoices', name: 'Fakturarapporter', description: 'Fakturerat, betalt och utestående per kund.' },
+      { id: 'invoices', name: t('ui.fakturarapporter'), description: t('ui.fakturerat_betalt_och_utestaende_per_kund_2') },
     ],
   },
   {
     id: 'payroll',
-    label: 'Lön & personal',
+    label: t('ui.lon_personal'),
     reports: [
-      { id: 'payroll', name: 'Lönerapporter', description: 'Bruttolön, skatt och arbetsgivaravgifter per anställd.', requires: 'payroll' },
+      { id: 'payroll', name: t('ui.lonerapporter'), description: t('ui.bruttolon_skatt_och_arbetsgivaravgifter_per_anst_2'), requires: 'payroll' },
     ],
   },
   {
     id: 'summary',
-    label: 'Sammanställningar',
+    label: t('ui.sammanstallningar'),
     reports: [
-      { id: 'annual', name: 'Årsrapport', description: 'Hela räkenskapsåret sammanställt, med nyckeltal och en kort analys.' },
-      { id: 'quarterly', name: 'Kvartalsrapport', description: 'Kvartal för kvartal, med moms, arbetsgivaravgifter och utveckling.' },
-      { id: 'monthly', name: 'Månadsrapport', description: 'Senaste månaden mot de tolv föregående, med avvikelser markerade.' },
+      { id: 'annual', name: t('ui.arsrapport'), description: t('ui.hela_rakenskapsaret_sammanstallt_med_nyckeltal_o') },
+      { id: 'quarterly', name: t('ui.kvartalsrapport'), description: t('ui.kvartal_for_kvartal_med_moms_arbetsgivaravgifter') },
+      { id: 'monthly', name: t('ui.manadsrapport'), description: t('ui.senaste_manaden_mot_de_tolv_foregaende_med_avvik') },
     ],
   },
 ];

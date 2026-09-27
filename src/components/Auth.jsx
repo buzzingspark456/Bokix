@@ -19,6 +19,7 @@ import Turnstile from './Turnstile';
 import { TERMS_VERSION } from '../utils/legalVersion';
 import CompanyLookupResults from './shared/CompanyLookupResults';
 import FiscalYearVatFields, { EMPTY_COMPANY_SETUP, companySetupComplete, companySetupToCompany } from './shared/FiscalYearVatFields';
+import { t } from '../i18n';
 
 // ── Litet Stripe-märke — se motsvarande kommentar i PaymentRequiredGate.jsx
 // (samma lokala-kopia-mönster). ──
@@ -26,9 +27,9 @@ function StripeBadge() {
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
       <span aria-hidden style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 15, height: 15, borderRadius: 4, background: '#635BFF', color: 'white', fontSize: '10px', fontWeight: 800, fontFamily: 'Georgia, serif', lineHeight: 1 }}>
-        S
+        {t('ui.s')}
       </span>
-      <span style={{ fontWeight: 700, color: '#425466' }}>Stripe</span>
+      <span style={{ fontWeight: 700, color: '#425466' }}>{t('ui.stripe')}</span>
     </span>
   );
 }
@@ -44,7 +45,7 @@ const labelStyle = {
   marginBottom: '7px', textTransform: 'uppercase', letterSpacing: '0.04em',
 };
 
-const REGISTER_STEPS = ['Personlig info', 'Bekräfta e-post', 'Företag', 'Lösenord'];
+const REGISTER_STEPS = [t('ui.personlig_info'), t('ui.bekrafta_e_post'), t('ui.foretag'), t('ui.losenord')];
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // ── Autouppslag mot FöretagsAPI på registreringens "Ditt företag"-steg
@@ -73,10 +74,10 @@ function passwordStrength(pw) {
   if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) score++;
   if (/[0-9]/.test(pw)) score++;
   if (/[^a-zA-Z0-9]/.test(pw)) score++;
-  if (score <= 1) return { label: 'Svagt — lägg till fler tecken', color: '#ef4444', pct: 25 };
-  if (score === 2) return { label: 'Okej', color: '#f59e0b', pct: 50 };
-  if (score <= 3) return { label: 'Bra', color: '#84cc16', pct: 75 };
-  return { label: 'Starkt', color: '#0b6329', pct: 100 };
+  if (score <= 1) return { label: t('ui.svagt_lagg_till_fler_tecken'), color: '#ef4444', pct: 25 };
+  if (score === 2) return { label: t('ui.okej'), color: '#f59e0b', pct: 50 };
+  if (score <= 3) return { label: t('ui.bra'), color: '#84cc16', pct: 75 };
+  return { label: t('ui.starkt'), color: '#0b6329', pct: 100 };
 }
 
 // Sessionstoken satt av InviteRedeem.jsx när någon öppnar en inbjudningslänk
@@ -201,7 +202,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
       setResendCooldown(30);
       return null;
     } catch (err) {
-      return err?.message || 'Kunde inte skicka koden just nu. Försök igen om en stund.';
+      return err?.message || t('ui.kunde_inte_skicka_koden_just_nu_forsok_igen_om_e');
     } finally {
       setOtpStatus('idle');
     }
@@ -284,7 +285,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
     setErrorMsg('');
     setForgotLoading(true);
     try {
-      if (!forgotEmail.trim()) throw new Error('Ange din e-postadress');
+      if (!forgotEmail.trim()) throw new Error(t('ui.ange_din_e_postadress'));
       const res = await fetch('/api/auth/request-password-reset', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -294,7 +295,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
       // Samma "alltid samma svar" som innan — servern svarar med fel bara
       // för sådant som captcha/nätverk/hastighetsbegränsning (inklusive
       // vår EGEN 5/dygn-gräns, 429), ALDRIG för att adressen saknar konto.
-      if (!res.ok) throw new Error(data?.error || 'Kunde inte skicka återställningslänken.');
+      if (!res.ok) throw new Error(data?.error || t('ui.kunde_inte_skicka_aterstallningslanken'));
       setForgotSent(true);
     } catch (err) {
       // Bugkritiskt (kundfeedback): en trasig/oväntad felrespons från
@@ -308,7 +309,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
       // att någonsin visa den råa felrepresentationen för användaren.
       const readable = typeof err?.message === 'string' && err.message.trim() && err.message.trim() !== '{}'
         ? err.message
-        : 'Något gick fel. Försök igen om en stund, eller kontakta support@bokix.se om det upprepas.';
+        : t('ui.nagot_gick_fel_forsok_igen_om_en_stund_eller_kon');
       setErrorMsg(readable);
     } finally {
       setForgotLoading(false);
@@ -320,7 +321,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
     setErrorMsg('');
     setLoading(true);
     try {
-      if (!loginEmail || !loginPassword) throw new Error('Fyll i alla fält');
+      if (!loginEmail || !loginPassword) throw new Error(t('ui.fyll_i_alla_falt'));
       const { error } = await supabase.auth.signInWithPassword({
         email: loginEmail,
         password: loginPassword,
@@ -339,8 +340,8 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
     setErrorMsg('');
 
     if (regStep === 0) {
-      if (!regFirstName.trim()) { setErrorMsg('Ange ditt förnamn'); return; }
-      if (!regEmail.trim() || !EMAIL_RE.test(regEmail.trim())) { setErrorMsg('Ange en giltig e-postadress'); return; }
+      if (!regFirstName.trim()) { setErrorMsg(t('ui.ange_ditt_fornamn')); return; }
+      if (!regEmail.trim() || !EMAIL_RE.test(regEmail.trim())) { setErrorMsg(t('ui.ange_en_giltig_e_postadress')); return; }
       setLoading(true);
       const error = await sendCode();
       setLoading(false);
@@ -354,7 +355,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
       // e-postadress som helst obekräftad — se filkommentaren vid
       // emailVerified/otpToken ovan. Fortsätt är nu en riktig kod-kontroll,
       // inte bara ett nästa-klick.
-      if (!/^\d{6}$/.test(regVerifyCode)) { setErrorMsg('Ange den sexsiffriga koden från mejlet.'); return; }
+      if (!/^\d{6}$/.test(regVerifyCode)) { setErrorMsg(t('ui.ange_den_sexsiffriga_koden_fran_mejlet')); return; }
       setOtpStatus('verifying');
       try {
         await verifySignupCode({ email: regEmail, code: regVerifyCode, token: otpToken });
@@ -364,7 +365,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
         // ANNANS.
         setRegStep(hasPendingInvite ? 3 : 2);
       } catch (err) {
-        setErrorMsg(err?.message || 'Fel kod. Försök igen.');
+        setErrorMsg(err?.message || t('ui.fel_kod_forsok_igen'));
       } finally {
         setOtpStatus('idle');
       }
@@ -386,7 +387,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
       // (de flesta UF-företag har inget), och skolan är frivillig.
       if (isUfSignup) {
         if (!regCompany.trim()) {
-          setErrorMsg('Ange vad ert UF-företag heter.');
+          setErrorMsg(t('ui.ange_vad_ert_uf_foretag_heter'));
           return;
         }
         setRegStep(3);
@@ -394,7 +395,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
       }
       if (!skipCompany) {
         if (!regOrgNr.trim() || regOrgNr.replace(/\D/g, '').length < 10) {
-          setErrorMsg('Ange ett giltigt organisationsnummer (10 siffror)');
+          setErrorMsg(t('ui.ange_ett_giltigt_organisationsnummer_10_siffror_2'));
           return;
         }
         // Företagsnamnet fylls i automatiskt av ett lyckat FöretagsAPI-uppslag
@@ -407,11 +408,11 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
         // kontrollen är bara ett vanligt obligatoriskt-fält-krav numera,
         // inte ett bevis på ett lyckat uppslag.
         if (!regCompany.trim()) {
-          setErrorMsg('Ange företagsnamnet.');
+          setErrorMsg(t('ui.ange_foretagsnamnet'));
           return;
         }
         if (!companySetupComplete(regSetup)) {
-          setErrorMsg('Svara på vilket räkenskapsår ni har och om företaget är momsregistrerat.');
+          setErrorMsg(t('ui.svara_pa_vilket_rakenskapsar_ni_har_och_om_foret'));
           return;
         }
       }
@@ -420,9 +421,9 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
     }
 
     if (regStep === 3) {
-      if (regPassword.length < 8) { setErrorMsg('Lösenordet måste vara minst 8 tecken'); return; }
-      if (regPassword !== regPassword2) { setErrorMsg('Lösenorden matchar inte'); return; }
-      if (!regAcceptTerms) { setErrorMsg('Du behöver godkänna användarvillkoren och personuppgiftsbiträdesavtalet.'); return; }
+      if (regPassword.length < 8) { setErrorMsg(t('ui.losenordet_maste_vara_minst_8_tecken_2')); return; }
+      if (regPassword !== regPassword2) { setErrorMsg(t('ui.losenorden_matchar_inte_2')); return; }
+      if (!regAcceptTerms) { setErrorMsg(t('ui.du_behover_godkanna_anvandarvillkoren_och_person')); return; }
       setLoading(true);
       // Egen flagga (inte bara "kom vi förbi signUp") — annars skulle ett
       // fel i själva Stripe-anropet felaktigt visa "kontot skapades" när
@@ -505,7 +506,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
           customer_email: regEmail,
           plan,
         });
-        if (!session?.url) throw new Error('Ingen betalningslänk mottogs från Stripe.');
+        if (!session?.url) throw new Error(t('ui.ingen_betalningslank_mottogs_fran_stripe'));
         window.location.href = session.url;
         return; // Lämnar sidan — inget mer att göra här.
       } catch (err) {
@@ -515,11 +516,11 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
         // troligen infrastrukturellt (Vercels edge/bot-skydd), inte något
         // fel i det användaren skrev in.
         const stripeIssue = /^Stripe API error \(\d+\)$/.test(err.message)
-          ? 'kunde inte nå betalningstjänsten just nu'
+          ? t('ui.kunde_inte_na_betalningstjansten_just_nu')
           : err.message;
         setErrorMsg(
           accountCreated
-            ? `Kontot skapades, men vi kunde inte skicka dig vidare till betalning (${stripeIssue}). Kontakta support@bokix.se så hjälper vi dig igång.`
+            ? t('ui.kontot_skapades_men_vi_kunde_inte_skicka_dig_vid', { stripeIssue })
             : translateSupabaseAuthError(err.message)
         );
       } finally {
@@ -672,7 +673,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
         <Link
           to="/"
           className="auth-logo-link"
-          aria-label="Till startsidan"
+          aria-label={t('ui.till_startsidan')}
           onClick={(e) => { if (onBackToLanding) { e.preventDefault(); onBackToLanding(); } }}
         >
           <BokixWordmark height={88} />
@@ -692,10 +693,10 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
             korrekt mörk i mörkt läge, matchar texten igen. */}
         <div className="auth-tabs" style={{ display: 'flex', borderRadius: '14px', padding: '5px', marginBottom: '36px' }}>
           <button className={`auth-tab${isLogin ? ' on' : ''}`} onClick={() => switchMode(true)} style={{ flex: 1, padding: '14px 0', border: 'none', borderRadius: '10px', fontWeight: 600, fontSize: '16px', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '9px' }}>
-            <LogIn size={19} /> Logga in
+            <LogIn size={19} /> {t('ui.logga_in')}
           </button>
           <button className={`auth-tab${!isLogin ? ' on' : ''}`} onClick={() => switchMode(false)} style={{ flex: 1, padding: '14px 0', border: 'none', borderRadius: '10px', fontWeight: 600, fontSize: '16px', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '9px' }}>
-            <UserPlus size={19} /> Nytt konto
+            <UserPlus size={19} /> {t('ui.nytt_konto')}
           </button>
         </div>
 
@@ -706,38 +707,38 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                bekräftelse alltid visas, oavsett om kontot faktiskt finns. */
             <>
               <div style={{ marginBottom: '28px' }}>
-                <h2 style={{ fontFamily: "'Newsreader', Georgia, serif", fontSize: '34px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '8px', letterSpacing: '-0.01em' }}>Glömt lösenord?</h2>
-                <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Ange din e-postadress så skickar vi en återställningslänk.</p>
+                <h2 style={{ fontFamily: "'Newsreader', Georgia, serif", fontSize: '34px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '8px', letterSpacing: '-0.01em' }}>{t('ui.glomt_losenord')}</h2>
+                <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>{t('ui.ange_din_e_postadress_sa_skickar_vi_en_aterstall')}</p>
               </div>
               {forgotSent ? (
                 <div style={{ padding: '32px 28px', background: 'var(--status-green-bg)', borderRadius: '16px', border: '1px solid var(--status-green-bg)', textAlign: 'center' }}>
                   <div className="auth-pulse" style={{ width: 64, height: 64, borderRadius: '50%', background: BRAND.green, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' }}>
                     <Mail size={26} color="white" />
                   </div>
-                  <div style={{ fontFamily: "'Newsreader', Georgia, serif", fontWeight: 600, fontSize: '21px', color: 'var(--text-main)', marginBottom: '10px' }}>Kolla din inkorg</div>
+                  <div style={{ fontFamily: "'Newsreader', Georgia, serif", fontWeight: 600, fontSize: '21px', color: 'var(--text-main)', marginBottom: '10px' }}>{t('ui.kolla_din_inkorg')}</div>
                   <div style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.65 }}>
-                    Om det finns ett konto med den adressen har vi skickat en återställningslänk dit.
+                    {t('ui.om_det_finns_ett_konto_med_den_adressen_har_vi_s')}
                   </div>
                   <button className="auth-btn-ghost" type="button" onClick={() => { setShowForgotPassword(false); setForgotSent(false); }} style={{ marginTop: '20px', background: 'none', border: 'none', borderRadius: '8px', color: BRAND.green, fontWeight: 700, fontSize: '13.5px', cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 8px' }}>
-                    <ArrowLeft size={14} /> Tillbaka till inloggning
+                    <ArrowLeft size={14} /> {t('ui.tillbaka_till_inloggning')}
                   </button>
                 </div>
               ) : (
                 <form onSubmit={handleForgotPassword} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   <div>
-                    <label style={labelStyle}>E-postadress</label>
+                    <label style={labelStyle}>{t('ui.e_postadress')}</label>
                     <div style={{ position: 'relative' }}>
                       <Mail size={18} color="var(--text-muted)" style={{ position: 'absolute', top: 15, left: 16, pointerEvents: 'none' }} />
-                      <input className="auth-input" type="email" style={{ ...inputStyle, paddingLeft: '48px' }} placeholder="din@epost.se" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} required autoFocus />
+                      <input className="auth-input" type="email" style={{ ...inputStyle, paddingLeft: '48px' }} placeholder={t('ui.din_epost_se')} value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} required autoFocus />
                     </div>
                   </div>
                   <Turnstile onVerify={setForgotCaptchaToken} onExpire={() => setForgotCaptchaToken('')} />
                   {errorMsg && <div style={{ padding: '12px', background: 'var(--status-red-bg)', color: 'var(--status-red-text)', borderRadius: '8px', fontSize: '13px', fontWeight: 600 }}>{errorMsg}</div>}
                   <button className="auth-btn-primary" type="submit" disabled={forgotLoading} style={{ width: '100%', padding: '20px 22px', background: BRAND.green, border: 'none', borderRadius: '13px', fontSize: '18px', fontWeight: 700, color: 'white', cursor: forgotLoading ? 'wait' : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', boxShadow: '0 2px 6px rgba(11,99,41,0.25)', fontFamily: 'inherit', opacity: forgotLoading ? 0.7 : 1 }}>
-                    {forgotLoading ? 'Skickar...' : 'Skicka återställningslänk'} <ArrowRight size={18} />
+                    {forgotLoading ? t('ui.skickar') : t('ui.skicka_aterstallningslank')} <ArrowRight size={18} />
                   </button>
                   <button className="auth-btn-ghost" type="button" onClick={() => { setShowForgotPassword(false); setErrorMsg(''); }} style={{ background: 'none', border: 'none', borderRadius: '8px', color: 'var(--text-secondary)', fontSize: '13px', cursor: 'pointer', textAlign: 'center', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '8px' }}>
-                    <ArrowLeft size={14} /> Tillbaka till inloggning
+                    <ArrowLeft size={14} /> {t('ui.tillbaka_till_inloggning')}
                   </button>
                 </form>
               )}
@@ -745,21 +746,21 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
           ) : (
           <>
             <div style={{ marginBottom: '28px' }}>
-              <h2 style={{ fontFamily: "'Newsreader', Georgia, serif", fontSize: '36px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '8px', letterSpacing: '-0.01em' }}>Välkommen tillbaka</h2>
+              <h2 style={{ fontFamily: "'Newsreader', Georgia, serif", fontSize: '36px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '8px', letterSpacing: '-0.01em' }}>{t('ui.valkommen_tillbaka')}</h2>
             </div>
             <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div>
-                <label style={labelStyle}>E-postadress</label>
+                <label style={labelStyle}>{t('ui.e_postadress')}</label>
                 <div style={{ position: 'relative' }}>
                   <Mail size={18} color="var(--text-muted)" style={{ position: 'absolute', top: 15, left: 16, pointerEvents: 'none' }} />
-                  <input className="auth-input" type="email" style={{ ...inputStyle, paddingLeft: '48px' }} placeholder="din@epost.se" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} required />
+                  <input className="auth-input" type="email" style={{ ...inputStyle, paddingLeft: '48px' }} placeholder={t('ui.din_epost_se')} value={loginEmail} onChange={e => setLoginEmail(e.target.value)} required />
                 </div>
               </div>
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                  <label style={labelStyle}>Lösenord</label>
+                  <label style={labelStyle}>{t('ui.losenord')}</label>
                   <button type="button" onClick={() => { setShowForgotPassword(true); setErrorMsg(''); setForgotEmail(loginEmail); }} className="auth-link" style={{ background: 'none', border: 'none', fontWeight: 600, fontSize: '12.5px', cursor: 'pointer', fontFamily: 'inherit', marginBottom: '6px' }}>
-                    Glömt lösenord?
+                    {t('ui.glomt_losenord')}
                   </button>
                 </div>
                 <div style={{ position: 'relative' }}>
@@ -770,7 +771,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
               <Turnstile onVerify={setLoginCaptchaToken} onExpire={() => setLoginCaptchaToken('')} />
               {errorMsg && <div style={{ padding: '12px', background: 'var(--status-red-bg)', color: 'var(--status-red-text)', borderRadius: '8px', fontSize: '13px', fontWeight: 600 }}>{errorMsg}</div>}
               <button className="auth-btn-primary" type="submit" disabled={loading} style={{ width: '100%', padding: '20px 22px', background: BRAND.green, border: 'none', borderRadius: '13px', fontSize: '18px', fontWeight: 700, color: 'white', cursor: loading ? 'wait' : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', boxShadow: '0 2px 6px rgba(11,99,41,0.25)', fontFamily: 'inherit', opacity: loading ? 0.7 : 1 }}>
-                {loading ? 'Loggar in...' : 'Logga in'} <ArrowRight size={18} />
+                {loading ? t('ui.loggar_in') : t('ui.logga_in')} <ArrowRight size={18} />
               </button>
             </form>
           </>
@@ -791,13 +792,13 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                 ))}
               </div>
               <h2 key={regStep} className="auth-step-fade" style={{ fontFamily: "'Newsreader', Georgia, serif", fontSize: '34px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px', letterSpacing: '-0.01em' }}>
-                {regStep === 0 && 'Personlig info'}
-                {regStep === 1 && 'Bekräfta e-post'}
-                {regStep === 2 && (isUfSignup ? 'Ert UF-företag' : 'Ditt företag')}
-                {regStep === 3 && 'Skapa lösenord'}
+                {regStep === 0 && t('ui.personlig_info')}
+                {regStep === 1 && t('ui.bekrafta_e_post')}
+                {regStep === 2 && (isUfSignup ? t('ui.ert_uf_foretag') : t('ui.ditt_foretag'))}
+                {regStep === 3 && t('ui.skapa_losenord')}
               </h2>
               <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)' }}>
-                {regStep === 1 && `Skriv in koden vi skickade till ${regEmail}.`}
+                {regStep === 1 && t('ui.skriv_in_koden_vi_skickade_till', { regEmail })}
                 {/* Bugkritiskt (kundrapport: "det säger betalning/organisationsnummer
                     fast det är ett UF-konto"): den här raden sa "Sedan skickas
                     du vidare till betalning" OAVSETT isUfSignup — men UF-konton
@@ -805,7 +806,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                     isUfSignup-grenen returnerar direkt, ingen
                     createStripeSubscriptionCheckout). Texten ljög alltså för
                     exakt den kontotyp den handlar minst om. */}
-                {regStep === 3 && !isUfSignup && 'Sedan skickas du vidare till betalning.'}
+                {regStep === 3 && !isUfSignup && t('ui.sedan_skickas_du_vidare_till_betalning')}
               </p>
             </div>
 
@@ -816,26 +817,26 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                 <div key="step0" className="auth-step-fade" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   <div className="form-row-2" style={{ display: 'grid', gap: '12px' }}>
                     <div>
-                      <label style={labelStyle}>Förnamn</label>
+                      <label style={labelStyle}>{t('ui.fornamn')}</label>
                       <div style={{ position: 'relative' }}>
                         <User size={16} color="var(--text-muted)" style={{ position: 'absolute', top: 16, left: 14, pointerEvents: 'none' }} />
-                        <input className="auth-input" type="text" style={{ ...inputStyle, paddingLeft: '42px' }} placeholder="Anna" value={regFirstName} onChange={e => setRegFirstName(e.target.value)} required />
+                        <input className="auth-input" type="text" style={{ ...inputStyle, paddingLeft: '42px' }} placeholder={t('ui.anna')} value={regFirstName} onChange={e => setRegFirstName(e.target.value)} required />
                       </div>
                     </div>
                     <div>
-                      <label style={labelStyle}>Efternamn</label>
-                      <input className="auth-input" type="text" style={inputStyle} placeholder="Svensson" value={regLastName} onChange={e => setRegLastName(e.target.value)} />
+                      <label style={labelStyle}>{t('ui.efternamn')}</label>
+                      <input className="auth-input" type="text" style={inputStyle} placeholder={t('ui.svensson')} value={regLastName} onChange={e => setRegLastName(e.target.value)} />
                     </div>
                   </div>
                   <div>
-                    <label style={labelStyle}>E-postadress</label>
+                    <label style={labelStyle}>{t('ui.e_postadress')}</label>
                     <div style={{ position: 'relative' }}>
                       <Mail size={16} color="var(--text-muted)" style={{ position: 'absolute', top: 16, left: 14, pointerEvents: 'none' }} />
                       <input
                         className="auth-input"
                         type="email"
                         style={{ ...inputStyle, paddingLeft: '42px' }}
-                        placeholder="anna@foretag.se"
+                        placeholder={t('ui.anna_foretag_se')}
                         value={regEmail}
                         // En redan verifierad kod/token hörde till den GAMLA
                         // adressen — måste nollställas så en ändrad adress
@@ -858,9 +859,9 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                   <div className="auth-pulse" style={{ width: 64, height: 64, borderRadius: '50%', background: BRAND.green, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' }}>
                     <Mail size={26} color="white" />
                   </div>
-                  <div style={{ fontFamily: "'Newsreader', Georgia, serif", fontWeight: 600, fontSize: '21px', color: 'var(--text-main)', marginBottom: '10px' }}>Kolla din inkorg</div>
+                  <div style={{ fontFamily: "'Newsreader', Georgia, serif", fontWeight: 600, fontSize: '21px', color: 'var(--text-main)', marginBottom: '10px' }}>{t('ui.kolla_din_inkorg')}</div>
                   <div style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '20px' }}>
-                    Vi skickade en sexsiffrig kod till<br />
+                    {t('ui.vi_skickade_en_sexsiffrig_kod_till')}<br />
                     <strong style={{ color: 'var(--text-main)' }}>{regEmail}</strong>
                   </div>
                   <input
@@ -881,7 +882,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                     disabled={resendCooldown > 0 || otpStatus === 'sending'}
                     style={{ marginTop: '14px', background: 'none', border: 'none', borderRadius: '8px', padding: '6px 10px', color: resendCooldown > 0 ? 'var(--text-muted)' : BRAND.green, fontWeight: 700, fontSize: '13px', cursor: resendCooldown > 0 ? 'default' : 'pointer', fontFamily: 'inherit' }}
                   >
-                    {otpStatus === 'sending' ? 'Skickar…' : resendCooldown > 0 ? `Skicka koden igen (${resendCooldown}s)` : 'Fick du ingen kod? Skicka igen'}
+                    {otpStatus === 'sending' ? t('ui.skickar_2') : resendCooldown > 0 ? t('ui.skicka_koden_igen_s', { resendCooldown }) : t('ui.fick_du_ingen_kod_skicka_igen')}
                   </button>
                 </div>
               )}
@@ -904,7 +905,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                 <div key="step2" className="auth-step-fade" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   {emailVerified && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: BRAND.greenDark, marginTop: '-4px' }}>
-                      <Check size={13} /> E-postadressen är verifierad
+                      <Check size={13} /> {t('ui.e_postadressen_ar_verifierad')}
                     </div>
                   )}
                   {isUfSignup ? (
@@ -915,17 +916,17 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '13px 14px', background: BRAND.greenLight, borderRadius: '10px' }}>
                         <GraduationCap size={16} color={BRAND.greenDark} style={{ flexShrink: 0, marginTop: 1 }} />
                         <div style={{ fontSize: '12.5px', color: BRAND.greenDark, lineHeight: 1.6, fontWeight: 600 }}>
-                          Ni registrerar ett UF-företag. Gratis i {UF_FREE_MONTHS} månader, inget organisationsnummer och inga betaluppgifter behövs.
+                          {t('ui.ni_registrerar_ett_uf_foretag_gratis_i')} {UF_FREE_MONTHS} {t('ui.manader_inget_organisationsnummer_och_inga_betal')}
                         </div>
                       </div>
 
                       <div>
-                        <label style={labelStyle}>UF-företagets namn</label>
+                        <label style={labelStyle}>{t('ui.uf_foretagets_namn')}</label>
                         <input
                           className="auth-input"
                           type="text"
                           style={inputStyle}
-                          placeholder="Ex. Solkraft UF"
+                          placeholder={t('ui.ex_solkraft_uf')}
                           value={regCompany}
                           onChange={e => setRegCompany(e.target.value)}
                           required
@@ -933,12 +934,12 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                       </div>
 
                       <div>
-                        <label style={labelStyle}>Skola <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(frivilligt)</span></label>
+                        <label style={labelStyle}>{t('ui.skola')} <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>{t('ui.frivilligt')}</span></label>
                         <input
                           className="auth-input"
                           type="text"
                           style={inputStyle}
-                          placeholder="Ex. Katedralskolan"
+                          placeholder={t('ui.ex_katedralskolan')}
                           value={regUfSchool}
                           onChange={e => setRegUfSchool(e.target.value)}
                         />
@@ -949,7 +950,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                         onClick={() => setIsUfSignup(false)}
                         style={{ alignSelf: 'flex-start', background: 'none', border: 'none', padding: 0, color: 'var(--text-muted)', fontWeight: 600, fontSize: '12.5px', cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline' }}
                       >
-                        Vi är inte ett UF-företag
+                        {t('ui.vi_ar_inte_ett_uf_foretag')}
                       </button>
                     </>
                   ) : skipCompany ? (
@@ -959,22 +960,22 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                     // man redan hunnit skriva något innan man klickade skip,
                     // ingen anledning att slänga det).
                     <div style={{ padding: '16px', background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>Inget företag registrerat än — inga problem.</div>
+                      <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>{t('ui.inget_foretag_registrerat_an_inga_problem')}</div>
                       <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                        Du kan lägga till organisationsnummer och företagsnamn senare, under Inställningar → Företag.
+                        {t('ui.du_kan_lagga_till_organisationsnummer_och_foreta')}
                       </div>
                       <button
                         type="button"
                         onClick={() => setSkipCompany(false)}
                         style={{ alignSelf: 'flex-start', marginTop: '4px', background: 'none', border: 'none', padding: 0, color: BRAND.green, fontWeight: 700, fontSize: '12.5px', cursor: 'pointer', fontFamily: 'inherit' }}
                       >
-                        Jag har ett företag ändå
+                        {t('ui.jag_har_ett_foretag_anda')}
                       </button>
                     </div>
                   ) : (
                     <>
                       <div>
-                        <label style={labelStyle}>Organisationsnummer <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(10 siffror)</span></label>
+                        <label style={labelStyle}>{t('ui.organisationsnummer')} <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>{t('ui.n10_siffror')}</span></label>
                         <div style={{ position: 'relative' }}>
                           <Hash size={16} color="var(--text-muted)" style={{ position: 'absolute', top: 16, left: 14, pointerEvents: 'none' }} />
                           <input
@@ -988,7 +989,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                             required
                           />
                         </div>
-                        {companyLookup.orgLookup.status === 'loading' && <div style={lookupStatusStyle}>Hämtar företagsuppgifter…</div>}
+                        {companyLookup.orgLookup.status === 'loading' && <div style={lookupStatusStyle}>{t('ui.hamtar_foretagsuppgifter')}</div>}
                         {companyLookup.orgLookup.status === 'error' && <div style={lookupStatusStyle}>{companyLookup.orgLookup.message}</div>}
                         {/* Enskild firma är FÖRVÄNTAT, inte ett misslyckat uppslag
                             (se useCompanyLookup.js:s kommentar) — egen, positiv
@@ -1004,19 +1005,19 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                       </div>
 
                       <div ref={regCompanyFieldRef}>
-                        <label style={labelStyle}>Företagsnamn</label>
+                        <label style={labelStyle}>{t('ui.foretagsnamn')}</label>
                         {/* Går också att söka på: en träff fyller i org.nr och
                             förväljer räkenskapsår och moms nedanför. */}
                         <input
                           className="auth-input"
                           type="text"
                           style={inputStyle}
-                          placeholder="Ex. Mitt Företag AB"
+                          placeholder={t('ui.ex_mitt_foretag_ab')}
                           value={regCompany}
                           onChange={e => { setRegCompany(e.target.value); if (!regOrgNr.replace(/\D/g, '')) companyLookup.queueNameSearch(e.target.value); }}
                           required
                         />
-                        {companyLookup.nameSearch.status === 'loading' && <div style={{ fontSize: '12.5px', marginTop: '6px', color: 'var(--text-secondary)' }}>Söker i företagsregistret…</div>}
+                        {companyLookup.nameSearch.status === 'loading' && <div style={{ fontSize: '12.5px', marginTop: '6px', color: 'var(--text-secondary)' }}>{t('ui.soker_i_foretagsregistret')}</div>}
                         <CompanyLookupResults results={companyLookup.nameResults} onPick={companyLookup.applyCompany} anchorRef={regCompanyFieldRef} />
                         {/* Kort, flyktig bekräftelse direkt efter ett lyckat
                             uppslag — fältet ovan är annars identiskt oavsett om
@@ -1024,12 +1025,12 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                             det ena är inte "mer rätt" eller mer låst än det andra. */}
                         {companyLookup.orgLookup.status === 'done' && regCompany && (
                           <div style={{ marginTop: '9px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: BRAND.greenDark }}>
-                            <Check size={13} /> Hämtat från bolagsregistret — ändra gärna om något stämmer bättre.
+                            <Check size={13} /> {t('ui.hamtat_fran_bolagsregistret_andra_garna_om_nagot')}
                           </div>
                         )}
                         {displayedOrgType && (
                           <div style={{ marginTop: '9px', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 12px', background: BRAND.greenLight, borderRadius: '999px', fontSize: '12.5px', fontWeight: 700, color: BRAND.greenDark }}>
-                            <Check size={13} /> Identifierad som: {displayedOrgType}
+                            <Check size={13} /> {t('ui.identifierad_som')} {displayedOrgType}
                           </div>
                         )}
                       </div>
@@ -1042,7 +1043,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                           onClick={() => setSkipCompany(true)}
                           style={{ background: 'none', border: 'none', padding: 0, color: 'var(--text-muted)', fontWeight: 600, fontSize: '12.5px', cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline' }}
                         >
-                          Jag har inget företag än
+                          {t('ui.jag_har_inget_foretag_an')}
                         </button>
                         {/* Vägen in i UF-läget för den som INTE kom via
                             /uf-sidan. Utan den här är UF-registreringen
@@ -1053,7 +1054,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                           onClick={() => setIsUfSignup(true)}
                           style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'none', border: 'none', padding: 0, color: BRAND.green, fontWeight: 700, fontSize: '12.5px', cursor: 'pointer', fontFamily: 'inherit' }}
                         >
-                          <GraduationCap size={13} /> Vi driver ett UF-företag
+                          <GraduationCap size={13} /> {t('ui.vi_driver_ett_uf_foretag')}
                         </button>
                       </div>
                     </>
@@ -1067,19 +1068,19 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                   <div style={{ width: 64, height: 64, borderRadius: '50%', background: BRAND.green, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' }}>
                     <RefreshCw size={26} color="white" className="auth-spin" />
                   </div>
-                  <div style={{ fontFamily: "'Newsreader', Georgia, serif", fontWeight: 600, fontSize: '21px', color: 'var(--text-main)', marginBottom: '10px' }}>Kontot är skapat</div>
+                  <div style={{ fontFamily: "'Newsreader', Georgia, serif", fontWeight: 600, fontSize: '21px', color: 'var(--text-main)', marginBottom: '10px' }}>{t('ui.kontot_ar_skapat')}</div>
                   <div style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.65 }}>
-                    Skickar dig vidare till Stripe för betalningsuppgifter...
+                    {t('ui.skickar_dig_vidare_till_stripe_for_betalningsupp')}
                   </div>
                 </div>
               )}
               {regStep === 3 && !redirectingToPayment && (
                 <div key="step3" className="auth-step-fade" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   <div>
-                    <label style={labelStyle}>Lösenord</label>
+                    <label style={labelStyle}>{t('ui.losenord')}</label>
                     <div style={{ position: 'relative' }}>
                       <Lock size={16} color="var(--text-muted)" style={{ position: 'absolute', top: 16, left: 14, pointerEvents: 'none' }} />
-                      <input className="auth-input" type="password" style={{ ...inputStyle, paddingLeft: '42px' }} placeholder="Minst 8 tecken" value={regPassword} onChange={e => setRegPassword(e.target.value)} required minLength={8} />
+                      <input className="auth-input" type="password" style={{ ...inputStyle, paddingLeft: '42px' }} placeholder={t('ui.minst_8_tecken')} value={regPassword} onChange={e => setRegPassword(e.target.value)} required minLength={8} />
                     </div>
                     {passwordStrength(regPassword) && (
                       <div style={{ marginTop: '6px' }}>
@@ -1091,10 +1092,10 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                     )}
                   </div>
                   <div>
-                    <label style={labelStyle}>Bekräfta lösenord</label>
+                    <label style={labelStyle}>{t('ui.bekrafta_losenord')}</label>
                     <div style={{ position: 'relative' }}>
                       <Lock size={16} color="var(--text-muted)" style={{ position: 'absolute', top: 16, left: 14, pointerEvents: 'none' }} />
-                      <input className="auth-input" type="password" style={{ ...inputStyle, paddingLeft: '42px', borderColor: regPassword2 && regPassword2 !== regPassword ? '#f43f5e' : undefined }} placeholder="Upprepa lösenord" value={regPassword2} onChange={e => setRegPassword2(e.target.value)} required />
+                      <input className="auth-input" type="password" style={{ ...inputStyle, paddingLeft: '42px', borderColor: regPassword2 && regPassword2 !== regPassword ? '#f43f5e' : undefined }} placeholder={t('ui.upprepa_losenord')} value={regPassword2} onChange={e => setRegPassword2(e.target.value)} required />
                     </div>
                   </div>
 
@@ -1105,14 +1106,14 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                     <ShieldCheck size={15} color={BRAND.greenDark} style={{ flexShrink: 0, marginTop: 1 }} />
                     <span style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
                       {isUfSignup
-                        ? `Nästa steg är appen. UF-kontot är gratis i ${UF_FREE_MONTHS} månader — inga betaluppgifter, inget som börjar kosta automatiskt.`
-                        : <>Näst skickas du till <StripeBadge /> för att lägga in betalningsuppgifter. 30 dagar gratis, sedan {selectedPlan ? selectedPlan.price : 179} kr/mån — avsluta innan dess så kostar det ingenting.</>}
+                        ? t('ui.nasta_steg_ar_appen_uf_kontot_ar_gratis_i_manade', { UF_FREE_MONTHS })
+                        : <>{t('ui.nast_skickas_du_till')} <StripeBadge /> {t('ui.for_att_lagga_in_betalningsuppgifter_30_dagar_gr')} {selectedPlan ? selectedPlan.price : 179} {t('ui.kr_man_avsluta_innan_dess_sa_kostar_det_ingentin')}</>}
                     </span>
                   </div>
                   <label style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5, cursor: 'pointer' }}>
                     <input type="checkbox" checked={regAcceptTerms} onChange={e => setRegAcceptTerms(e.target.checked)} style={{ width: 18, height: 18, marginTop: 1, flexShrink: 0, accentColor: BRAND.green }} />
                     <span>
-                      Jag godkänner <Link to="/terms" target="_blank" style={{ color: BRAND.greenDark, fontWeight: 600 }}>användarvillkoren</Link> och <Link to="/pub" target="_blank" style={{ color: BRAND.greenDark, fontWeight: 600 }}>personuppgiftsbiträdesavtalet</Link>, och har läst <Link to="/privacy" target="_blank" style={{ color: BRAND.greenDark, fontWeight: 600 }}>integritetspolicyn</Link>.
+                      {t('ui.jag_godkanner')} <Link to="/terms" target="_blank" style={{ color: BRAND.greenDark, fontWeight: 600 }}>{t('ui.anvandarvillkoren')}</Link> {t('ui.och')} <Link to="/pub" target="_blank" style={{ color: BRAND.greenDark, fontWeight: 600 }}>{t('ui.personuppgiftsbitradesavtalet')}</Link>{t('ui.och_har_last')} <Link to="/privacy" target="_blank" style={{ color: BRAND.greenDark, fontWeight: 600 }}>{t('ui.integritetspolicyn')}</Link>.
                     </span>
                   </label>
                   <Turnstile onVerify={setRegCaptchaToken} onExpire={() => setRegCaptchaToken('')} />
@@ -1127,7 +1128,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                 <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
                   {regStep > 0 && (
                     <button className="auth-btn-ghost" type="button" onClick={() => { setRegStep(s => s - 1); setErrorMsg(''); }} style={{ padding: '20px 26px', border: '1px solid var(--border)', borderRadius: '13px', fontSize: '17px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
-                      <ArrowLeft size={16} /> Tillbaka
+                      <ArrowLeft size={16} /> {t('ui.tillbaka_2')}
                     </button>
                   )}
                   {(() => {
@@ -1136,10 +1137,10 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                     const busy = loading || verifying;
                     const isDisabled = busy || codeIncomplete;
                     let label;
-                    if (regStep === REGISTER_STEPS.length - 1) label = busy ? 'Skapar konto...' : (isUfSignup ? 'Skapa UF-konto' : 'Skapa konto och lägg till betalning');
-                    else if (regStep === 0) label = busy ? 'Skickar kod...' : 'Fortsätt';
-                    else if (regStep === 1) label = verifying ? 'Bekräftar...' : 'Bekräfta';
-                    else label = busy ? 'Fortsätt...' : 'Fortsätt';
+                    if (regStep === REGISTER_STEPS.length - 1) label = busy ? t('ui.skapar_konto') : (isUfSignup ? t('ui.skapa_uf_konto') : t('ui.skapa_konto_och_betalning'));
+                    else if (regStep === 0) label = busy ? t('ui.skickar_kod') : t('ui.fortsatt');
+                    else if (regStep === 1) label = verifying ? t('ui.bekraftar') : t('ui.bekrafta');
+                    else label = busy ? t('ui.fortsatter') : t('ui.fortsatt');
                     return (
                       <button className="auth-btn-primary" type="submit" disabled={isDisabled} style={{ flex: 1, padding: '20px 22px', background: BRAND.green, border: 'none', borderRadius: '13px', fontSize: '18px', fontWeight: 700, color: 'white', cursor: isDisabled ? (busy ? 'wait' : 'not-allowed') : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', boxShadow: '0 2px 6px rgba(11,99,41,0.25)', fontFamily: 'inherit', opacity: isDisabled ? 0.6 : 1 }}>
                         {label} <ArrowRight size={18} />

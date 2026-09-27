@@ -3,13 +3,17 @@ import { Plus, CheckCircle2, XCircle, Users, Truck, ChevronDown, AlertTriangle, 
 import { AccountSearch } from './shared/SearchInputs';
 import ListPageHeader, { ListFilterBar, listSearchInputStyle } from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
-import { getCountryOptions, getDefaultCountry, SWEDEN } from '../utils/countries';
+import { getCountryOptions, getDefaultCountry, SWEDEN, countryLabel } from '../utils/countries';
 import { validateEmailList, isValidIban } from '../utils/validators';
 import { contactsToCsv, csvToContacts, downloadCsv } from '../utils/csvRegister';
 import { useCompanyLookup } from '../hooks/useCompanyLookup';
 import CompanyLookupResults from './shared/CompanyLookupResults';
 import { BRAND } from '../utils/brandColors';
 import { confirmDialog } from './shared/ConfirmDialog';
+import { t, useTranslation, getLanguage } from '../i18n';
+
+// Texterna finns under contacts.* i src/i18n/sv.json och en.json.
+const c = (key, vars) => t(`contacts.${key}`, vars);
 
 // ─── Delade formulärstilar ─────────────────────────────────────────────────
 const sectionStyle = { background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border)', padding: '20px', marginBottom: '16px' };
@@ -56,10 +60,10 @@ function Section({ title, children }) {
 
 // ─── Kundformulär (Sida 9) ─────────────────────────────────────────────────
 const CUSTOMER_TYPES = [
-  { id: 'se_company', label: 'Svenskt företag eller organisation' },
-  { id: 'se_individual', label: 'Privatperson (Sverige)' },
-  { id: 'eu_company', label: 'EU-företag' },
-  { id: 'non_eu_company', label: 'Företag utanför EU' },
+  { id: 'se_company', labelKey: 'types.seCompany' },
+  { id: 'se_individual', labelKey: 'types.seIndividual' },
+  { id: 'eu_company', labelKey: 'types.euCompany' },
+  { id: 'non_eu_company', labelKey: 'types.nonEuCompany' },
 ];
 
 function emptyCustomer() {
@@ -96,13 +100,13 @@ function CustomerForm({ initial, onSave, onCancel }) {
 
   const validate = () => {
     const errs = {};
-    if (!form.name.trim()) errs.name = 'Namn krävs.';
-    if (orgNrRequired && !form.orgNr.trim()) errs.orgNr = 'Organisationsnummer krävs för denna kundtyp.';
+    if (!form.name.trim()) errs.name = c('errors.nameRequired');
+    if (orgNrRequired && !form.orgNr.trim()) errs.orgNr = c('errors.orgNrRequiredForType');
     const cc = validateEmailList(form.ccEmails);
-    if (!cc.valid) errs.ccEmails = `Ogiltig adress: ${cc.invalid}`;
+    if (!cc.valid) errs.ccEmails = c('errors.invalidAddress', { address: cc.invalid });
     const bcc = validateEmailList(form.bccEmails);
-    if (!bcc.valid) errs.bccEmails = `Ogiltig adress: ${bcc.invalid}`;
-    if (form.email && !validateEmailList(form.email).valid) errs.email = 'Ogiltig e-postadress.';
+    if (!bcc.valid) errs.bccEmails = c('errors.invalidAddress', { address: bcc.invalid });
+    if (form.email && !validateEmailList(form.email).valid) errs.email = c('errors.invalidEmail');
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -114,34 +118,32 @@ function CustomerForm({ initial, onSave, onCancel }) {
   };
 
   const vatNote = {
-    se_company: 'Normal svensk moms (25/12/6 procent) på alla rader, precis som standard.',
-    se_individual: 'Normal svensk moms, identiskt med svenskt företag.',
-    eu_company: form.vatNumber.trim()
-      ? 'Omvänd skattskyldighet tillämpas: fakturarader får 0 procent svensk moms, med texten "Omvänd skattskyldighet, köparen redovisar moms" i fakturans fotnot.'
-      : null,
-    non_eu_company: 'Momsfri export — 0 procent moms som förval på fakturarader, med hänvisning till gällande momslagstiftning i fotnoten.',
+    se_company: c('vatNote.seCompany'),
+    se_individual: c('vatNote.seIndividual'),
+    eu_company: form.vatNumber.trim() ? c('vatNote.euCompany') : null,
+    non_eu_company: c('vatNote.nonEuCompany'),
   }[form.customerType];
 
   return (
     <form onSubmit={handleSubmit}>
-      <Section title="Kundtyp">
+      <Section title={c('sections.customerType')}>
         <select value={form.customerType} onChange={e => handleTypeChange(e.target.value)} style={{ ...inputBase, background: 'var(--bg-card)' }}>
-          {CUSTOMER_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+          {CUSTOMER_TYPES.map(o => <option key={o.id} value={o.id}>{c(o.labelKey)}</option>)}
         </select>
-        <p style={helpTextStyle}>Kundtypen påverkar hur moms hanteras på fakturor.</p>
+        <p style={helpTextStyle}>{c('help.customerType')}</p>
         {vatNote && <p style={helpTextStyle}>{vatNote}</p>}
         {isEuNoVat && (
           <div style={warningBoxStyle}>
             <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
-            <span>Utan VAT-nummer kan omvänd skattskyldighet inte tillämpas, svensk moms läggs på fakturan.</span>
+            <span>{c('help.euNoVat')}</span>
           </div>
         )}
       </Section>
 
-      <Section title="Grunduppgifter">
+      <Section title={c('sections.basics')}>
         <div className="form-row-2" style={grid2}>
           <div ref={nameFieldRef} style={{ position: 'relative' }}>
-            <label style={labelStyle}>Namn *</label>
+            <label style={labelStyle}>{c('fields.name')}</label>
             {lookupEnabled ? (
               <div style={{ display: 'flex', gap: '8px' }}>
                 <input
@@ -149,100 +151,100 @@ function CustomerForm({ initial, onSave, onCancel }) {
                   type="text" value={form.name}
                   onChange={e => { set('name', e.target.value); lookup.queueNameSearch(e.target.value); }}
                   onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); lookup.searchByName(form.name); } }}
-                  style={{ ...inputStyle(errors.name), flex: 1 }} placeholder="Exempelföretag AB"
+                  style={{ ...inputStyle(errors.name), flex: 1 }} placeholder={c('placeholders.companyName')}
                 />
                 <button
                   type="button" onClick={() => lookup.searchByName(form.name)}
                   disabled={form.name.trim().length < 2 || lookup.nameSearch.status === 'loading'}
-                  title="Sök i företagsregistret" style={lookupButtonStyle}
+                  title={c('lookup.searchRegistry')} style={lookupButtonStyle}
                 >
                   <Search size={15} />
                 </button>
               </div>
             ) : (
-              <input data-tour="page-contacts-field" type="text" value={form.name} onChange={e => set('name', e.target.value)} style={inputStyle(errors.name)} placeholder="Exempelföretag AB" />
+              <input data-tour="page-contacts-field" type="text" value={form.name} onChange={e => set('name', e.target.value)} style={inputStyle(errors.name)} placeholder={c('placeholders.companyName')} />
             )}
             {errors.name && <div style={errorTextStyle}>{errors.name}</div>}
-            {lookup.nameSearch.status === 'loading' && <div style={lookupStatusStyle}>Söker…</div>}
+            {lookup.nameSearch.status === 'loading' && <div style={lookupStatusStyle}>{c('lookup.searching')}</div>}
             {lookup.nameSearch.status === 'error' && <div style={lookupStatusStyle}>{lookup.nameSearch.message}</div>}
             <CompanyLookupResults results={lookup.nameResults} onPick={lookup.applyCompany} anchorRef={nameFieldRef} />
           </div>
           <div>
-            <label style={labelStyle}>Kundnummer</label>
+            <label style={labelStyle}>{c('fields.customerNumber')}</label>
             <input type="text" value={form.customerNumber} onChange={e => set('customerNumber', e.target.value)} style={inputBase} />
-            <p style={helpTextStyle}>Visas på fakturan. Lämna tomt om du inte använder kundnummer.</p>
+            <p style={helpTextStyle}>{c('help.customerNumber')}</p>
           </div>
         </div>
       </Section>
 
-      <Section title="Kontakt">
+      <Section title={c('sections.contact')}>
         <div className="form-row-2" style={grid2}>
           <div>
-            <label style={labelStyle}>Kontaktperson</label>
+            <label style={labelStyle}>{c('fields.contactPerson')}</label>
             <input type="text" value={form.contactPerson} onChange={e => set('contactPerson', e.target.value)} style={inputBase} />
           </div>
           <div>
-            <label style={labelStyle}>E-post</label>
-            <input type="email" value={form.email} onChange={e => set('email', e.target.value)} style={inputStyle(errors.email)} placeholder="epost@foretag.se" />
+            <label style={labelStyle}>{c('fields.email')}</label>
+            <input type="email" value={form.email} onChange={e => set('email', e.target.value)} style={inputStyle(errors.email)} placeholder={c('placeholders.email')} />
             {errors.email && <div style={errorTextStyle}>{errors.email}</div>}
           </div>
           <div>
-            <label style={labelStyle}>Telefon</label>
+            <label style={labelStyle}>{c('fields.phone')}</label>
             <input type="tel" value={form.phone} onChange={e => set('phone', e.target.value)} style={inputBase} placeholder="070-123 45 67" />
           </div>
         </div>
       </Section>
 
-      <Section title="Extra mottagare av fakturor">
+      <Section title={c('sections.extraRecipients')}>
         <div className="form-row-2" style={grid2}>
           <div>
-            <label style={labelStyle}>Kopia (CC)</label>
-            <input type="text" value={form.ccEmails} onChange={e => set('ccEmails', e.target.value)} style={inputStyle(errors.ccEmails)} placeholder="kalle@företag.se, anna@företag.se" />
+            <label style={labelStyle}>{c('fields.cc')}</label>
+            <input type="text" value={form.ccEmails} onChange={e => set('ccEmails', e.target.value)} style={inputStyle(errors.ccEmails)} placeholder={c('placeholders.cc')} />
             {errors.ccEmails && <div style={errorTextStyle}>{errors.ccEmails}</div>}
           </div>
           <div>
-            <label style={labelStyle}>Dold kopia (BCC)</label>
-            <input type="text" value={form.bccEmails} onChange={e => set('bccEmails', e.target.value)} style={inputStyle(errors.bccEmails)} placeholder="ekonomi@företag.se" />
+            <label style={labelStyle}>{c('fields.bcc')}</label>
+            <input type="text" value={form.bccEmails} onChange={e => set('bccEmails', e.target.value)} style={inputStyle(errors.bccEmails)} placeholder={c('placeholders.bcc')} />
             {errors.bccEmails && <div style={errorTextStyle}>{errors.bccEmails}</div>}
           </div>
         </div>
-        <p style={helpTextStyle}>Dessa mottagare läggs automatiskt till när en faktura skickas till kunden. Flera adresser separeras med kommatecken.</p>
+        <p style={helpTextStyle}>{c('help.extraRecipients')}</p>
       </Section>
 
-      <Section title="Adress">
+      <Section title={c('sections.address')}>
         <div className="form-row-2" style={grid2}>
           <div style={{ gridColumn: '1 / -1' }}>
-            <label style={labelStyle}>Gatuadress</label>
+            <label style={labelStyle}>{c('fields.street')}</label>
             <input type="text" value={form.address} onChange={e => set('address', e.target.value)} style={inputBase} />
           </div>
           <div>
-            <label style={labelStyle}>Postnummer</label>
+            <label style={labelStyle}>{c('fields.postalCode')}</label>
             <input type="text" value={form.postalCode} onChange={e => set('postalCode', e.target.value)} style={inputBase} />
           </div>
           <div>
-            <label style={labelStyle}>Ort</label>
+            <label style={labelStyle}>{c('fields.city')}</label>
             <input type="text" value={form.city} onChange={e => set('city', e.target.value)} style={inputBase} />
           </div>
           <div style={{ gridColumn: '1 / -1' }}>
-            <label style={labelStyle}>Land</label>
+            <label style={labelStyle}>{c('fields.country')}</label>
             <select value={form.country} onChange={e => set('country', e.target.value)} style={{ ...inputBase, background: 'var(--bg-card)' }}>
-              {countryOptions.map(c => <option key={c} value={c}>{c}</option>)}
+              {countryOptions.map(name => <option key={name} value={name}>{countryLabel(name, getLanguage())}</option>)}
             </select>
           </div>
         </div>
       </Section>
 
-      <Section title="Företagsuppgifter">
+      <Section title={c('sections.companyDetails')}>
         <div className="form-row-2" style={grid2}>
           <div>
-            <label style={labelStyle}>Organisationsnummer{orgNrRequired ? ' *' : ''}</label>
+            <label style={labelStyle}>{c('fields.orgNr')}{orgNrRequired ? ' *' : ''}</label>
             <input
               type="text" value={form.orgNr}
               onChange={e => { set('orgNr', e.target.value); if (lookupEnabled) lookup.handleOrgNrChange(e.target.value); }}
               style={inputStyle(errors.orgNr)} required={orgNrRequired} placeholder="XXXXXX-XXXX"
             />
             {errors.orgNr && <div style={errorTextStyle}>{errors.orgNr}</div>}
-            {lookupEnabled && lookup.orgLookup.status === 'loading' && <div style={lookupStatusStyle}>Hämtar företagsuppgifter…</div>}
+            {lookupEnabled && lookup.orgLookup.status === 'loading' && <div style={lookupStatusStyle}>{c('lookup.fetching')}</div>}
             {lookupEnabled && lookup.orgLookup.status === 'done' && <div style={{ ...lookupStatusStyle, color: 'var(--status-green-text)' }}>{lookup.orgLookup.message}</div>}
             {lookupEnabled && lookup.orgLookup.status === 'error' && <div style={lookupStatusStyle}>{lookup.orgLookup.message}</div>}
             {/* Enskild firma är förväntat, inte ett misslyckat uppslag — se
@@ -255,40 +257,40 @@ function CustomerForm({ initial, onSave, onCancel }) {
             )}
           </div>
           <div>
-            <label style={labelStyle}>Betalningsvillkor (dagar)</label>
+            <label style={labelStyle}>{c('fields.paymentTerms')}</label>
             <input type="number" value={form.paymentTerms} onChange={e => set('paymentTerms', Number(e.target.value))} style={inputBase} min={0} />
           </div>
           {form.customerType === 'eu_company' && (
             <div style={{ gridColumn: '1 / -1' }}>
-              <label style={labelStyle}>VAT-nummer</label>
+              <label style={labelStyle}>{c('fields.vatNumber')}</label>
               <input type="text" value={form.vatNumber} onChange={e => set('vatNumber', e.target.value)} style={inputBase} placeholder="SE556677889901" />
             </div>
           )}
         </div>
       </Section>
 
-      <Section title="Fakturaspråk">
+      <Section title={c('sections.invoiceLanguage')}>
         <select value={form.invoiceLanguage} onChange={e => set('invoiceLanguage', e.target.value)} style={{ ...inputBase, background: 'var(--bg-card)' }}>
-          <option value="sv">Svenska</option>
-          <option value="en">Engelska</option>
+          <option value="sv">{c('fields.swedish')}</option>
+          <option value="en">{c('fields.english')}</option>
         </select>
-        <p style={helpTextStyle}>Fakturor och e-post till denna kund skickas på det valda språket. Påverkar inte hur fakturan bokförs.</p>
+        <p style={helpTextStyle}>{c('help.invoiceLanguage')}</p>
       </Section>
 
-      <Section title="Anteckningar">
-        <textarea value={form.notes} onChange={e => set('notes', e.target.value)} style={{ ...inputBase, minHeight: '80px', resize: 'vertical' }} placeholder="Syns endast internt, aldrig på fakturor eller i e-post till kunden." />
+      <Section title={c('sections.notes')}>
+        <textarea value={form.notes} onChange={e => set('notes', e.target.value)} style={{ ...inputBase, minHeight: '80px', resize: 'vertical' }} placeholder={c('help.notesCustomer')} />
       </Section>
 
-      <FormActions onCancel={onCancel} label="kund" />
+      <FormActions onCancel={onCancel} saveLabel={c('actions.saveCustomer')} />
     </form>
   );
 }
 
 // ─── Leverantörsformulär (Sida 10) ─────────────────────────────────────────
 const SUPPLIER_TYPES = [
-  { id: 'se_company', label: 'Svenskt företag eller organisation' },
-  { id: 'eu_company', label: 'EU-företag' },
-  { id: 'non_eu_company', label: 'Företag utanför EU' },
+  { id: 'se_company', labelKey: 'types.seCompany' },
+  { id: 'eu_company', labelKey: 'types.euCompany' },
+  { id: 'non_eu_company', labelKey: 'types.nonEuCompany' },
 ];
 const CURRENCIES = ['SEK', 'EUR', 'USD', 'GBP', 'NOK', 'DKK'];
 
@@ -328,12 +330,12 @@ function SupplierForm({ initial, onSave, onCancel, accounts }) {
 
   const validate = () => {
     const errs = {};
-    if (!form.name.trim()) errs.name = 'Namn krävs.';
-    if (!form.orgNr.trim()) errs.orgNr = 'Organisationsnummer krävs.';
+    if (!form.name.trim()) errs.name = c('errors.nameRequired');
+    if (!form.orgNr.trim()) errs.orgNr = c('errors.orgNrRequired');
     if (!isSwedish && form.iban.trim() && !isValidIban(form.iban)) {
-      errs.iban = 'Ogiltigt IBAN-format för valt land.';
+      errs.iban = c('errors.invalidIban');
     }
-    if (form.email && !validateEmailList(form.email).valid) errs.email = 'Ogiltig e-postadress.';
+    if (form.email && !validateEmailList(form.email).valid) errs.email = c('errors.invalidEmail');
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -346,17 +348,17 @@ function SupplierForm({ initial, onSave, onCancel, accounts }) {
 
   return (
     <form onSubmit={handleSubmit}>
-      <Section title="Leverantörstyp">
+      <Section title={c('sections.supplierType')}>
         <select value={form.supplierType} onChange={e => handleTypeChange(e.target.value)} style={{ ...inputBase, background: 'var(--bg-card)' }}>
-          {SUPPLIER_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+          {SUPPLIER_TYPES.map(o => <option key={o.id} value={o.id}>{c(o.labelKey)}</option>)}
         </select>
-        <p style={helpTextStyle}>Ingående moms för leverantörsfakturor hanteras separat i flödet för Kvitto och utgifter.</p>
+        <p style={helpTextStyle}>{c('help.supplierVat')}</p>
       </Section>
 
-      <Section title="Grunduppgifter">
+      <Section title={c('sections.basics')}>
         <div className="form-row-2" style={grid2}>
           <div ref={nameFieldRef} style={{ gridColumn: '1 / -1', position: 'relative' }}>
-            <label style={labelStyle}>Namn *</label>
+            <label style={labelStyle}>{c('fields.name')}</label>
             {isSwedish ? (
               <div style={{ display: 'flex', gap: '8px' }}>
                 <input
@@ -364,56 +366,56 @@ function SupplierForm({ initial, onSave, onCancel, accounts }) {
                   type="text" value={form.name}
                   onChange={e => { set('name', e.target.value); lookup.queueNameSearch(e.target.value); }}
                   onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); lookup.searchByName(form.name); } }}
-                  style={{ ...inputStyle(errors.name), flex: 1 }} placeholder="Exempelföretag AB"
+                  style={{ ...inputStyle(errors.name), flex: 1 }} placeholder={c('placeholders.companyName')}
                 />
                 <button
                   type="button" onClick={() => lookup.searchByName(form.name)}
                   disabled={form.name.trim().length < 2 || lookup.nameSearch.status === 'loading'}
-                  title="Sök i företagsregistret" style={lookupButtonStyle}
+                  title={c('lookup.searchRegistry')} style={lookupButtonStyle}
                 >
                   <Search size={15} />
                 </button>
               </div>
             ) : (
-              <input data-tour="page-contacts-field" type="text" value={form.name} onChange={e => set('name', e.target.value)} style={inputStyle(errors.name)} placeholder="Exempelföretag AB" />
+              <input data-tour="page-contacts-field" type="text" value={form.name} onChange={e => set('name', e.target.value)} style={inputStyle(errors.name)} placeholder={c('placeholders.companyName')} />
             )}
             {errors.name && <div style={errorTextStyle}>{errors.name}</div>}
-            {lookup.nameSearch.status === 'loading' && <div style={lookupStatusStyle}>Söker…</div>}
+            {lookup.nameSearch.status === 'loading' && <div style={lookupStatusStyle}>{c('lookup.searching')}</div>}
             {lookup.nameSearch.status === 'error' && <div style={lookupStatusStyle}>{lookup.nameSearch.message}</div>}
             <CompanyLookupResults results={lookup.nameResults} onPick={lookup.applyCompany} anchorRef={nameFieldRef} />
           </div>
         </div>
       </Section>
 
-      <Section title="Kontakt">
+      <Section title={c('sections.contact')}>
         <div className="form-row-2" style={grid2}>
           <div>
-            <label style={labelStyle}>Kontaktperson</label>
+            <label style={labelStyle}>{c('fields.contactPerson')}</label>
             <input type="text" value={form.contactPerson} onChange={e => set('contactPerson', e.target.value)} style={inputBase} />
           </div>
           <div>
-            <label style={labelStyle}>E-post</label>
+            <label style={labelStyle}>{c('fields.email')}</label>
             <input type="email" value={form.email} onChange={e => set('email', e.target.value)} style={inputStyle(errors.email)} />
             {errors.email && <div style={errorTextStyle}>{errors.email}</div>}
           </div>
           <div>
-            <label style={labelStyle}>Telefon</label>
+            <label style={labelStyle}>{c('fields.phone')}</label>
             <input type="tel" value={form.phone} onChange={e => set('phone', e.target.value)} style={inputBase} />
           </div>
         </div>
       </Section>
 
-      <Section title="Företagsuppgifter">
+      <Section title={c('sections.companyDetails')}>
         <div className="form-row-2" style={grid2}>
           <div>
-            <label style={labelStyle}>Organisationsnummer *</label>
+            <label style={labelStyle}>{c('fields.orgNr')} *</label>
             <input
               type="text" value={form.orgNr}
               onChange={e => { set('orgNr', e.target.value); if (isSwedish) lookup.handleOrgNrChange(e.target.value); }}
               style={inputStyle(errors.orgNr)} required
             />
             {errors.orgNr && <div style={errorTextStyle}>{errors.orgNr}</div>}
-            {isSwedish && lookup.orgLookup.status === 'loading' && <div style={lookupStatusStyle}>Hämtar företagsuppgifter…</div>}
+            {isSwedish && lookup.orgLookup.status === 'loading' && <div style={lookupStatusStyle}>{c('lookup.fetching')}</div>}
             {isSwedish && lookup.orgLookup.status === 'done' && <div style={{ ...lookupStatusStyle, color: 'var(--status-green-text)' }}>{lookup.orgLookup.message}</div>}
             {isSwedish && lookup.orgLookup.status === 'error' && <div style={lookupStatusStyle}>{lookup.orgLookup.message}</div>}
             {isSwedish && lookup.orgLookup.status === 'firma' && (
@@ -425,61 +427,61 @@ function SupplierForm({ initial, onSave, onCancel, accounts }) {
           </div>
           {!isSwedish && (
             <div>
-              <label style={labelStyle}>VAT-nummer</label>
+              <label style={labelStyle}>{c('fields.vatNumber')}</label>
               <input type="text" value={form.vatNumber} onChange={e => set('vatNumber', e.target.value)} style={inputBase} />
             </div>
           )}
         </div>
       </Section>
 
-      <Section title="Adress">
+      <Section title={c('sections.address')}>
         <div className="form-row-2" style={grid2}>
           <div style={{ gridColumn: '1 / -1' }}>
-            <label style={labelStyle}>Gatuadress</label>
+            <label style={labelStyle}>{c('fields.street')}</label>
             <input type="text" value={form.address} onChange={e => set('address', e.target.value)} style={inputBase} />
           </div>
           <div>
-            <label style={labelStyle}>Postnummer</label>
+            <label style={labelStyle}>{c('fields.postalCode')}</label>
             <input type="text" value={form.postalCode} onChange={e => set('postalCode', e.target.value)} style={inputBase} />
           </div>
           <div>
-            <label style={labelStyle}>Ort</label>
+            <label style={labelStyle}>{c('fields.city')}</label>
             <input type="text" value={form.city} onChange={e => set('city', e.target.value)} style={inputBase} />
           </div>
           <div style={{ gridColumn: '1 / -1' }}>
-            <label style={labelStyle}>Land</label>
+            <label style={labelStyle}>{c('fields.country')}</label>
             <select value={form.country} onChange={e => set('country', e.target.value)} style={{ ...inputBase, background: 'var(--bg-card)' }}>
-              {countryOptions.map(c => <option key={c} value={c}>{c}</option>)}
+              {countryOptions.map(name => <option key={name} value={name}>{countryLabel(name, getLanguage())}</option>)}
             </select>
           </div>
         </div>
       </Section>
 
-      <Section title="Betalningsuppgifter">
+      <Section title={c('sections.payment')}>
         {isSwedish ? (
           <>
             <div className="form-row-2" style={grid2}>
               <div>
-                <label style={labelStyle}>Bankgiro</label>
+                <label style={labelStyle}>{t('ui.bankgiro')}</label>
                 <input type="text" value={form.bankgiro} onChange={e => set('bankgiro', e.target.value)} style={inputBase} placeholder="123-4567" />
               </div>
               <div>
-                <label style={labelStyle}>Plusgiro</label>
+                <label style={labelStyle}>{t('ui.plusgiro')}</label>
                 <input type="text" value={form.plusgiro} onChange={e => set('plusgiro', e.target.value)} style={inputBase} placeholder="12 34 56-7" />
               </div>
             </div>
             <button type="button" onClick={() => set('showMorePayment', !form.showMorePayment)} style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'none', border: 'none', color: 'var(--text-main)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', padding: '10px 0 0' }}>
               <ChevronDown size={14} style={{ transform: form.showMorePayment ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
-              Fler betalningsalternativ
+              {c('fields.morePayment')}
             </button>
             {form.showMorePayment && (
               <div className="form-row-2" style={{ ...grid2, marginTop: '12px' }}>
                 <div>
-                  <label style={labelStyle}>Clearingnummer</label>
+                  <label style={labelStyle}>{c('fields.clearing')}</label>
                   <input type="text" value={form.clearingNumber} onChange={e => set('clearingNumber', e.target.value)} style={inputBase} />
                 </div>
                 <div>
-                  <label style={labelStyle}>Kontonummer</label>
+                  <label style={labelStyle}>{c('fields.accountNumber')}</label>
                   <input type="text" value={form.accountNumber} onChange={e => set('accountNumber', e.target.value)} style={inputBase} />
                 </div>
               </div>
@@ -489,12 +491,12 @@ function SupplierForm({ initial, onSave, onCancel, accounts }) {
           <>
             <div className="form-row-2" style={grid2}>
               <div>
-                <label style={labelStyle}>IBAN</label>
+                <label style={labelStyle}>{t('ui.iban')}</label>
                 <input type="text" value={form.iban} onChange={e => set('iban', e.target.value)} style={inputStyle(errors.iban)} placeholder="DE89 3704 0044 0532 0130 00" />
                 {errors.iban && <div style={errorTextStyle}>{errors.iban}</div>}
               </div>
               <div>
-                <label style={labelStyle}>SWIFT/BIC</label>
+                <label style={labelStyle}>{t('ui.swift_bic')}</label>
                 <input type="text" value={form.swift} onChange={e => set('swift', e.target.value.toUpperCase())} style={inputBase} placeholder="COBADEFFXXX" />
               </div>
             </div>
@@ -502,34 +504,34 @@ function SupplierForm({ initial, onSave, onCancel, accounts }) {
         )}
       </Section>
 
-      <Section title="Standardkonto">
-        <AccountSearch value={form.defaultAccount} onChange={code => set('defaultAccount', code)} accounts={accounts || []} placeholder="Sök konto, t.ex. 4010..." />
-        <p style={helpTextStyle}>Föreslås automatiskt vid kontering av nya leverantörsfakturor från denna leverantör, men är alltid redigerbart per faktura.</p>
+      <Section title={c('sections.defaultAccount')}>
+        <AccountSearch value={form.defaultAccount} onChange={code => set('defaultAccount', code)} accounts={accounts || []} placeholder={c('help.searchAccount')} />
+        <p style={helpTextStyle}>{c('help.defaultAccount')}</p>
       </Section>
 
-      <Section title="Standardvaluta">
+      <Section title={c('sections.defaultCurrency')}>
         <select value={form.defaultCurrency} onChange={e => set('defaultCurrency', e.target.value)} style={{ ...inputBase, background: 'var(--bg-card)' }}>
           {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
       </Section>
 
-      <Section title="Anteckningar">
-        <textarea value={form.notes} onChange={e => set('notes', e.target.value)} style={{ ...inputBase, minHeight: '80px', resize: 'vertical' }} placeholder="Syns endast internt." />
+      <Section title={c('sections.notes')}>
+        <textarea value={form.notes} onChange={e => set('notes', e.target.value)} style={{ ...inputBase, minHeight: '80px', resize: 'vertical' }} placeholder={c('help.notesSupplier')} />
       </Section>
 
-      <FormActions onCancel={onCancel} label="leverantör" />
+      <FormActions onCancel={onCancel} saveLabel={c('actions.saveSupplier')} />
     </form>
   );
 }
 
-function FormActions({ onCancel, label }) {
+function FormActions({ onCancel, saveLabel }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', paddingTop: '4px' }}>
       <button type="button" data-tour="page-contacts-cancel" onClick={onCancel} style={{ padding: '9px 18px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer' }}>
-        Avbryt
+        {c('actions.cancel')}
       </button>
       <button type="submit" style={{ padding: '9px 18px', background: 'var(--accent)', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600, color: 'white', cursor: 'pointer' }}>
-        Spara {label}
+        {saveLabel}
       </button>
     </div>
   );
@@ -537,6 +539,8 @@ function FormActions({ onCancel, label }) {
 
 // ─── Huvudkomponent ─────────────────────────────────────────────────────────
 export default function Contacts({ contacts, setContacts, accounts = [], invoices = [], quotes = [], expenses = [], globalAction, clearGlobalAction }) {
+  // Renderar om när språket byts (Inställningar → Utseende → Språk).
+  useTranslation();
   const [activeTab, setActiveTab] = useState('customer'); // 'customer' | 'supplier'
   const [searchTerm, setSearchTerm] = useState('');
   // Kundönskemål: "en knapp där man kan se femton, trettio, femtio" — en
@@ -615,8 +619,8 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
       // och erbjud den faktiska lösningen (inaktivera) direkt i samma
       // dialog istället för att bara blockera med ett dödläge.
       const setInactive = await confirmDialog(
-        `${contact.name || (isCustomer ? 'Kunden' : 'Leverantören')} har ${isCustomer ? 'fakturor eller offerter' : 'leverantörsfakturor'} kopplade och kan inte tas bort helt — historiska dokument måste kunna peka på den. Sätt kontakten som inaktiv i stället: den går då inte längre att välja på nya dokument, men historiken finns kvar.`,
-        { title: 'Kan inte tas bort', confirmLabel: 'Sätt som inaktiv', cancelLabel: 'Stäng' }
+        c(isCustomer ? 'dialogs.cannotDeleteCustomer' : 'dialogs.cannotDeleteSupplier', { name: contact.name || c(isCustomer ? 'dialogs.theCustomer' : 'dialogs.theSupplier') }),
+        { title: c('dialogs.cannotDeleteTitle'), confirmLabel: c('dialogs.setInactive'), cancelLabel: c('dialogs.close') }
       );
       if (setInactive) {
         setContacts(prev => prev.map(c => c.id === contact.id ? { ...c, active: false } : c));
@@ -625,8 +629,8 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
       return;
     }
     if (!(await confirmDialog(
-      `Ta bort ${contact.name || (isCustomer ? 'kunden' : 'leverantören')} permanent? Det här går inte att ångra.`,
-      { title: isCustomer ? 'Ta bort kund' : 'Ta bort leverantör', confirmLabel: 'Ta bort', danger: true }
+      c('dialogs.deleteConfirm', { name: contact.name || c(isCustomer ? 'dialogs.theCustomer' : 'dialogs.theSupplier').toLowerCase() }),
+      { title: c(isCustomer ? 'dialogs.deleteCustomerTitle' : 'dialogs.deleteSupplierTitle'), confirmLabel: c('actions.delete'), danger: true }
     ))) return;
     setContacts(prev => prev.filter(c => c.id !== contact.id));
     setViewState('list');
@@ -666,8 +670,11 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
   // fortfarande hela `filtered`/den obeskurna listan, inte den här.
   const visible = pageSize === 'all' ? filtered : filtered.slice(0, pageSize);
 
-  const title = activeTab === 'customer' ? 'Kunder' : 'Leverantörer';
-  const newBtnText = activeTab === 'customer' ? 'Ny kund' : 'Ny leverantör';
+  const isCustomerTab = activeTab === 'customer';
+  const title = c(isCustomerTab ? 'list.customers' : 'list.suppliers');
+  const newBtnText = c(isCustomerTab ? 'list.newCustomer' : 'list.newSupplier');
+  // "1 kund" / "3 kunder" (och motsvarande för leverantörer).
+  const countWord = (n) => c(isCustomerTab ? (n === 1 ? 'list.customerOne' : 'list.customerMany') : (n === 1 ? 'list.supplierOne' : 'list.supplierMany'));
   const entityCount = contacts.filter(c => c.type === activeTab).length;
 
   // ── Export/import av register (CSV) ──
@@ -696,7 +703,7 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
     reader.onload = (ev) => {
       try {
         const imported = csvToContacts(activeTab, ev.target.result);
-        if (imported.length === 0) throw new Error('Inga giltiga rader hittades (kräver minst en "Namn"-kolumn).');
+        if (imported.length === 0) throw new Error(c('import.noRows'));
         let added = 0, updated = 0;
         setContacts(prev => {
           const next = [...prev];
@@ -726,9 +733,9 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
           });
           return next;
         });
-        setImportMsg({ type: 'success', text: `${added} ny${added === 1 ? '' : 'a'}, ${updated} uppdaterad${updated === 1 ? '' : 'e'}.` });
+        setImportMsg({ type: 'success', text: c('import.result', { added, updated }) });
       } catch (err) {
-        setImportMsg({ type: 'error', text: `Kunde inte importera: ${err.message}` });
+        setImportMsg({ type: 'error', text: c('import.failed', { error: err.message }) });
       }
       setTimeout(() => setImportMsg(null), 6000);
     };
@@ -741,14 +748,14 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
       {/* ── Header & Tabs ── */}
       <ListPageHeader
         title={title}
-        subtitle={`${entityCount} ${activeTab === 'customer' ? (entityCount === 1 ? 'kund' : 'kunder') : (entityCount === 1 ? 'leverantör' : 'leverantörer')}`}
+        subtitle={`${entityCount} ${countWord(entityCount)}`}
         actions={viewState === 'list' ? [
-          { key: 'export', label: 'Exportera', icon: Download, onClick: handleExportCsv, title: `Exportera ${title.toLowerCase()} som CSV` },
-          { key: 'import', label: 'Importera', icon: Upload, onClick: handleImportClick, title: `Importera ${title.toLowerCase()} från CSV` },
+          { key: 'export', label: c('actions.export'), icon: Download, onClick: handleExportCsv, title: c('actions.exportTitle', { what: title.toLowerCase() }) },
+          { key: 'import', label: c('actions.import'), icon: Upload, onClick: handleImportClick, title: c('actions.importTitle', { what: title.toLowerCase() }) },
           { key: 'new', label: newBtnText, icon: Plus, onClick: () => openNewForm(activeTab), variant: 'primary', dataTour: 'page-contacts-cta' },
         ] : []}
         tabs={{
-          items: [{ id: 'customer', label: 'Kunder' }, { id: 'supplier', label: 'Leverantörer' }],
+          items: [{ id: 'customer', label: c('list.customers') }, { id: 'supplier', label: c('list.suppliers') }],
           activeId: activeTab,
           onChange: handleSetTab,
         }}
@@ -767,13 +774,13 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
       {viewState === 'list' && (
         <ListFilterBar
           count={filtered.length}
-          countLabel={activeTab === 'customer' ? (filtered.length === 1 ? 'kund' : 'kunder') : (filtered.length === 1 ? 'leverantör' : 'leverantörer')}
+          countLabel={countWord(filtered.length)}
           pageSize={pageSize}
           onPageSizeChange={setPageSize}
         >
           <div style={{ position: 'relative' }}>
             <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-            <input type="text" placeholder={`Sök ${activeTab === 'customer' ? 'kund' : 'leverantör'}...`} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={listSearchInputStyle} />
+            <input type="text" placeholder={c(isCustomerTab ? 'list.searchCustomer' : 'list.searchSupplier')} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={listSearchInputStyle} />
           </div>
         </ListFilterBar>
       )}
@@ -797,15 +804,15 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
                  sök/toppen, som en vanlig tabellsida. */
               <div style={{ width: '100%' }}>
                 <ListTable
-                  rowKey={c => c.id}
+                  rowKey={ct => ct.id}
                   onRowClick={openDetail}
-                  emptyMessage="Ingen matchade sökningen"
+                  emptyMessage={c('list.noMatch')}
                   rows={visible}
-                  mobileList={c => ({
-                    dot: c.active !== false ? 'var(--status-green-text)' : 'var(--text-muted)',
-                    primary: c.name || 'Namnlös kontakt',
-                    amount: c.totalInvoicedThisYear
-                      ? new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(c.totalInvoicedThisYear)
+                  mobileList={ct => ({
+                    dot: ct.active !== false ? 'var(--status-green-text)' : 'var(--text-muted)',
+                    primary: ct.name || c('list.unnamed'),
+                    amount: ct.totalInvoicedThisYear
+                      ? new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(ct.totalInvoicedThisYear)
                       : undefined,
                     // Kundfeedback (uppföljning): fälten fanns redan här, men
                     // utan etiketter — "556677-8899 · Anna Andersson · senast
@@ -814,32 +821,32 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
                     // varje bit i stället, samma tre fält som desktoptabellens
                     // Org.nummer/Kontaktperson/Senaste faktura-kolumner.
                     meta: [
-                      c.orgNr ? `Org.nr ${c.orgNr}` : null,
-                      c.contactPerson ? `Kontakt ${c.contactPerson}` : null,
-                      c.lastInvoiceDate ? `${activeTab === 'customer' ? 'Senaste faktura' : 'Senaste inköp'} ${c.lastInvoiceDate}` : null,
+                      ct.orgNr ? c('list.metaOrgNr', { value: ct.orgNr }) : null,
+                      ct.contactPerson ? c('list.metaContact', { value: ct.contactPerson }) : null,
+                      ct.lastInvoiceDate ? `${c(isCustomerTab ? 'list.lastInvoice' : 'list.lastPurchase')} ${ct.lastInvoiceDate}` : null,
                     ].filter(Boolean).join(' · ') || undefined,
                     // Kundfeedback: "man ser knappt infon på mobilen". Det man
                     // faktiskt vill åt i en kundlista på telefonen är numret
                     // och adressen — och kunna trycka på dem. Riktiga tel:/
                     // mailto:-länkar, inte bara text, så telefonen ringer upp
                     // eller öppnar mejlet direkt.
-                    meta2: (c.phone || c.email) ? (
+                    meta2: (ct.phone || ct.email) ? (
                       <span onClick={e => e.stopPropagation()} style={{ display: 'inline-flex', gap: '12px', flexWrap: 'wrap' }}>
-                        {c.phone && <a href={`tel:${c.phone.replace(/\s/g, '')}`}>{c.phone}</a>}
-                        {c.email && <a href={`mailto:${c.email}`}>{c.email}</a>}
+                        {ct.phone && <a href={`tel:${ct.phone.replace(/\s/g, '')}`}>{ct.phone}</a>}
+                        {ct.email && <a href={`mailto:${ct.email}`}>{ct.email}</a>}
                       </span>
                     ) : undefined,
                     pill: (
                       <span style={{
                         display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', borderRadius: '999px', fontSize: '10.5px', fontWeight: 600,
-                        background: c.active !== false ? 'var(--status-green-bg)' : 'var(--border-light)',
-                        color: c.active !== false ? 'var(--status-green-text)' : 'var(--text-secondary)',
-                      }}>{c.active !== false ? 'Aktiv' : 'Inaktiv'}</span>
+                        background: ct.active !== false ? 'var(--status-green-bg)' : 'var(--border-light)',
+                        color: ct.active !== false ? 'var(--status-green-text)' : 'var(--text-secondary)',
+                      }}>{ct.active !== false ? c('list.active') : c('list.inactive')}</span>
                     ),
                   })}
                   columns={[
                     {
-                      key: 'name', label: 'Namn', wrap: true, render: c => (
+                      key: 'name', label: c('list.colName'), wrap: true, render: ct => (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                           <div style={{
                             width: 34, height: 34, borderRadius: '8px',
@@ -847,32 +854,32 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                             color: 'white', fontWeight: 700, fontSize: '14px', flexShrink: 0
                           }}>
-                            {(c.name || 'K').charAt(0).toUpperCase()}
+                            {(ct.name || 'K').charAt(0).toUpperCase()}
                           </div>
-                          <span style={{ fontWeight: 600, color: 'var(--text-main)', fontSize: '14px' }}>{c.name}</span>
+                          <span style={{ fontWeight: 600, color: 'var(--text-main)', fontSize: '14px' }}>{ct.name}</span>
                         </div>
                       ),
                     },
-                    { key: 'orgNr', label: 'Org.nummer', render: c => c.orgNr || '—' },
-                    { key: 'contactPerson', label: 'Kontaktperson', render: c => c.contactPerson || c.email || '—' },
-                    { key: 'lastInvoiceDate', label: activeTab === 'customer' ? 'Senaste faktura' : 'Senaste inköp', render: c => c.lastInvoiceDate || '—' },
+                    { key: 'orgNr', label: c('list.colOrgNr'), render: ct => ct.orgNr || '—' },
+                    { key: 'contactPerson', label: c('list.colContact'), render: ct => ct.contactPerson || ct.email || '—' },
+                    { key: 'lastInvoiceDate', label: c(isCustomerTab ? 'list.lastInvoice' : 'list.lastPurchase'), render: ct => ct.lastInvoiceDate || '—' },
                     {
-                      key: 'totalInvoicedThisYear', label: activeTab === 'customer' ? 'Fakturerat i år' : 'Inköpt i år',
+                      key: 'totalInvoicedThisYear', label: c(isCustomerTab ? 'list.invoicedThisYear' : 'list.purchasedThisYear'),
                       color: 'var(--text-main)', fontWeight: 500,
-                      render: c => c.totalInvoicedThisYear
-                        ? new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(c.totalInvoicedThisYear)
+                      render: ct => ct.totalInvoicedThisYear
+                        ? new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(ct.totalInvoicedThisYear)
                         : '0 kr',
                     },
                     {
-                      key: 'status', label: 'Status', render: c => (
+                      key: 'status', label: c('list.status'), render: ct => (
                         <span style={{
                           display: 'inline-flex', alignItems: 'center', gap: '5px',
                           padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600,
-                          background: c.active !== false ? 'var(--status-green-bg)' : 'var(--border-light)',
-                          color: c.active !== false ? 'var(--status-green-text)' : 'var(--text-secondary)'
+                          background: ct.active !== false ? 'var(--status-green-bg)' : 'var(--border-light)',
+                          color: ct.active !== false ? 'var(--status-green-text)' : 'var(--text-secondary)'
                         }}>
-                          {c.active !== false ? <CheckCircle2 size={11} /> : <XCircle size={11} />}
-                          {c.active !== false ? 'Aktiv' : 'Inaktiv'}
+                          {ct.active !== false ? <CheckCircle2 size={11} /> : <XCircle size={11} />}
+                          {ct.active !== false ? c('list.active') : c('list.inactive')}
                         </span>
                       ),
                     },
@@ -891,10 +898,10 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
                   {activeTab === 'customer' ? <Users size={32} /> : <Truck size={32} />}
                 </div>
                 <h3 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 8px', color: 'var(--text-main)' }}>
-                  {activeTab === 'customer' ? 'Inga kunder ännu' : 'Inga leverantörer ännu'}
+                  {c(isCustomerTab ? 'list.emptyCustomers' : 'list.emptySuppliers')}
                 </h3>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '14px', margin: '0 0 24px', maxWidth: '300px', marginLeft: 'auto', marginRight: 'auto' }}>
-                  Lägg till din första {activeTab === 'customer' ? 'kund' : 'leverantör'} för att komma igång
+                  {c(isCustomerTab ? 'list.emptyCustomersText' : 'list.emptySuppliersText')}
                 </p>
                 <button onClick={() => openNewForm(activeTab)} style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '10px 20px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '9px', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}>
                   <Plus size={16} /> {newBtnText}
@@ -905,12 +912,12 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
         ) : (
           <div style={{ padding: '24px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-              <button onClick={() => setViewState('list')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '13px', padding: 0 }}>← Tillbaka</button>
+              <button onClick={() => setViewState('list')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '13px', padding: 0 }}>{c('actions.back')}</button>
               <span style={{ color: 'var(--border)' }}>|</span>
               <h2 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>
                 {viewState === 'new'
-                  ? (activeTab === 'customer' ? 'Ny kund' : 'Ny leverantör')
-                  : (activeTab === 'customer' ? 'Redigera kund' : 'Redigera leverantör')}
+                  ? newBtnText
+                  : c(isCustomerTab ? 'list.editCustomer' : 'list.editSupplier')}
               </h2>
               {/* Aktivera/inaktivera + Ta bort — bara på en BEFINTLIG kontakt,
                   inte under "Ny kund/leverantör" (inget att aktivera/ta bort
@@ -926,7 +933,7 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
                       den ska stängas av. */}
                   <button
                     type="button" onClick={() => handleToggleActive(selectedContact)}
-                    title={selectedContact.active === false ? 'Markera som aktiv igen' : 'Inaktivera — går inte längre att välja på nya dokument, men historiken finns kvar'}
+                    title={c(selectedContact.active === false ? 'actions.activateTitle' : 'actions.deactivateTitle')}
                     style={{
                       display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 12px',
                       background: selectedContact.active === false ? 'var(--status-green-bg)' : 'var(--status-amber-bg)',
@@ -937,11 +944,11 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
                     onMouseEnter={e => { e.currentTarget.style.opacity = '0.8'; }}
                     onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
                   >
-                    <Power size={13} /> {selectedContact.active === false ? 'Aktivera' : 'Inaktivera'}
+                    <Power size={13} /> {c(selectedContact.active === false ? 'actions.activate' : 'actions.deactivate')}
                   </button>
                   <button
                     type="button" onClick={() => handleDeleteContact(selectedContact)}
-                    title="Ta bort"
+                    title={c('actions.delete')}
                     style={{
                       display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 12px',
                       background: 'var(--status-red-bg)', border: 'none', borderRadius: '8px',
@@ -951,7 +958,7 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
                     onMouseEnter={e => { e.currentTarget.style.opacity = '0.8'; }}
                     onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
                   >
-                    <Trash2 size={13} /> Ta bort
+                    <Trash2 size={13} /> {c('actions.delete')}
                   </button>
                 </div>
               )}
