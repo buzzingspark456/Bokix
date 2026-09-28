@@ -88,15 +88,16 @@ const btnStripeConnect = BTN_OUTLINE;
 // --zettle-logo-filter (index.css) gör hela märket vitt i mörkt läge
 // (`brightness(0) invert(1)`) istället för fill på enskilda paths, eftersom
 // en rasterbild inte har separata, färgbara delar.
-// I mörkt läge visas zettle-blue-dark.png (vit text, blått Z), se .zettle-logo-* i index.css.
+// Kopplingskorten har vit logoruta även i mörkt läge, så den vanliga blå
+// loggan används alltid här (den mörka varianten, vit text, är för
+// marknadssajtens mörka rutor).
 function ZettleLogo({ height = 18 }) {
   const width = height * (320 / 144);
-  const style = { height, width, objectFit: 'contain' };
   return (
-    <>
-      <img className="zettle-logo-light" src="/zettle-blue.png" alt={tr('ui.zettle_by_paypal')} height={height} width={width} style={style} />
-      <img className="zettle-logo-dark" src="/zettle-blue-dark.png" alt={tr('ui.zettle_by_paypal')} height={height} width={width} style={style} />
-    </>
+    <img
+      src="/zettle-blue.png" alt={tr('ui.zettle_by_paypal')} height={height} width={width}
+      style={{ height, width, objectFit: 'contain' }}
+    />
   );
 }
 
