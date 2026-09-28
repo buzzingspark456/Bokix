@@ -167,7 +167,8 @@ export function GmailLogo({ height = 18 }) {
 }
 
 export function ZettleLogo({ height = 18 }) {
-  return <ThemedLogo lightSrc="/zettle-logo.png" darkSrc="/zettle-logo-dark.png" alt="Zettle by PayPal" height={height} aspectRatio={3626 / 1612} />;
+  // Den officiella blå loggan; i mörkt läge är den mörkblå texten vit och Z:et blått.
+  return <ThemedLogo lightSrc="/zettle-blue.png" darkSrc="/zettle-blue-dark.png" alt="Zettle by PayPal" height={height} aspectRatio={320 / 144} />;
 }
 
 // Bolagsverkets eget ordmärke (blomma-ikonen + "Bolagsverket"-texten) —

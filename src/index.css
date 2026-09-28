@@ -6900,3 +6900,12 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
   .sidebar[data-fit="3"] .logo-container { padding: 4px 0 2px !important; }
   .sidebar:not([data-fit="0"]) .nav-group-divider { margin-top: 2px !important; margin-bottom: 2px !important; }
 }
+
+/* Zettles blå logga i Inställningar → Kopplingar: mörk variant i mörkt läge. */
+.zettle-logo-dark { display: none; }
+:root[data-theme="dark"] .zettle-logo-light { display: none; }
+:root[data-theme="dark"] .zettle-logo-dark { display: inline; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="dark"]) .zettle-logo-light { display: none; }
+  :root:not([data-theme="light"]):not([data-theme="dark"]) .zettle-logo-dark { display: inline; }
+}

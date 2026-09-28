@@ -17,8 +17,9 @@ import BankFlow from './marketing/BankFlow';
 import ReceiptFlow from './marketing/ReceiptFlow';
 import { PRICING_TIERS } from './marketing/pricingTiers';
 import { PageMeta, JsonLd, SITE_URL } from '../utils/seo';
-import { FAQ_SCHEMA, FAQ_ITEMS } from './marketing/faqData';
+import { FAQ_SCHEMA, FAQ_TOP } from './marketing/faqData';
 import { LANDING_CONTENT } from '../content/marketing/landing';
+import { BOKIX_FEATURES, BOKIX_PROFILES } from '../content/marketing/bokixFacts';
 // Lazy: DemoWorkspace monterar en RIKTIG kopia av hela den inloggade
 // appens komponentträd (Dashboard, Invoices, Bokföring, Skatt, m.fl.) för
 // den interaktiva produktdemon längre ner på sidan (utanför den första
@@ -133,11 +134,10 @@ const FAQ_ACCENT = ACCENT.green;
 // nedan) — bara schemat (JsonLd, för sökmotorer) är kvar från den filen.
 
 // Kundönskemål (2026-09-22): FAQ-sektionen hade bara länken ut, inga
-// frågor syntes. Tre av de mest allmänt relevanta (oro/pris/inlåsning),
-// samma FAQ_ITEMS-text som /vanliga-fragor — index in i den listan, ingen
-// egen kopia av frågetexten. Bara sv (samma begränsning som FAQ_SCHEMA
-// ovan, se dess kommentar).
-const FAQ_TEASER_PREVIEW = [FAQ_ITEMS[0].q, FAQ_ITEMS[2].q, FAQ_ITEMS[4].q];
+// frågor syntes. Tre av de viktigaste (bokföringsvana, pris, gratis provperiod)
+// ur FAQ_TOP, samma text som /vanliga-fragor. Bara sv (samma begränsning som
+// FAQ_SCHEMA ovan, se dess kommentar).
+const FAQ_TEASER_PREVIEW = [FAQ_TOP[0].q, FAQ_TOP[2].q, FAQ_TOP[3].q];
 
 // Organization-schema (Sida: AI:er/Google blandar ibop Bokix med Bokio i
 // sökningar/svar — se konversationen där det här lades till). Det här är
@@ -157,11 +157,12 @@ function buildOrganizationSchema(description) {
   return {
     '@context': 'https://schema.org',
     '@type': 'Organization',
+    '@id': `${SITE_URL}/#organization`,
     name: 'Bokix',
     url: SITE_URL,
     logo: `${SITE_URL}/icon-512.png`,
     description,
-    // sameAs: [],
+    sameAs: BOKIX_PROFILES,
   };
 }
 
@@ -176,6 +177,7 @@ function buildSoftwareSchema(description) {
   return {
   '@context': 'https://schema.org',
   '@type': 'SoftwareApplication',
+  '@id': `${SITE_URL}/#software`,
   name: 'Bokix',
   applicationCategory: 'BusinessApplication',
   operatingSystem: 'Web',
@@ -183,7 +185,8 @@ function buildSoftwareSchema(description) {
   description,
   // Kopplar ihop de två posterna — samma "vem gör det här" som Google
   // annars hade fått gissa sig till separat för produkten kontra företaget.
-  provider: { '@type': 'Organization', name: 'Bokix', url: SITE_URL },
+  provider: { '@id': `${SITE_URL}/#organization` },
+  featureList: BOKIX_FEATURES,
   offers: {
     '@type': 'AggregateOffer',
     lowPrice: String(Math.min(...PRICING_TIERS.map((t) => t.price))),

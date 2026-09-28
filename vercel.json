@@ -63,6 +63,10 @@
       "destination": "/guider/index.html"
     },
     {
+      "source": "/bokix-i-korthet",
+      "destination": "/bokix-i-korthet/index.html"
+    },
+    {
       "source": "/vanliga-fragor",
       "destination": "/vanliga-fragor/index.html"
     },

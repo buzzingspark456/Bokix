@@ -12,6 +12,7 @@ import { JsonLd, SITE_URL } from '../../utils/seo';
 // './marketing/MarketingLayout'` fortsätta oförändrade.
 import { TOOLS, TOOLS_HUB_PATH } from './tools/toolsConfig';
 import BokixWordmark from '../shared/BokixWordmark';
+import { BOKIX_SUMMARY, BOKIX_PROFILES } from '../../content/marketing/bokixFacts';
 export { BokixWordmark };
 
 // Organization-schema (schema.org) — samma på VARJE marknadssida (den här
@@ -22,13 +23,20 @@ export { BokixWordmark };
 // AI-svarsmotorer (Claude/ChatGPT/Perplexity) hellre citerar än fritext.
 // Bara verifierbara fält (namn, url, kontakt-mejl som redan står på
 // /kontakt) — inga påhittade adresser/organisationsnummer/betyg.
+// Samma @id på varje sida (och i startsidans schema), så att sökmotorer och
+// AI-tjänster förstår att det är ett och samma företag överallt.
 const ORGANIZATION_SCHEMA = {
   '@context': 'https://schema.org',
   '@type': 'Organization',
+  '@id': `${SITE_URL}/#organization`,
   name: 'Bokix',
   url: SITE_URL,
   logo: `${SITE_URL}/icon-512.png`,
-  description: 'Bokix är ett modernt, enkelt och kraftfullt bokföringsprogram för svenska företag i alla bolagsformer: bokföring, fakturering och lön i samma verktyg.',
+  slogan: 'Bokföring utan gissningar.',
+  sameAs: BOKIX_PROFILES,
+  description: BOKIX_SUMMARY,
+  areaServed: { '@type': 'Country', name: 'Sverige' },
+  knowsAbout: ['Bokföring', 'Fakturering', 'Moms', 'Momsdeklaration', 'Lön', 'Bokslut', 'Årsredovisning', 'Enskild firma', 'Aktiebolag', 'UF-företag', 'BAS-kontoplanen', 'SIE4'],
   email: 'support@bokix.se',
   contactPoint: {
     '@type': 'ContactPoint',
@@ -37,6 +45,16 @@ const ORGANIZATION_SCHEMA = {
     areaServed: 'SE',
     availableLanguage: ['sv'],
   },
+};
+
+const WEBSITE_SCHEMA = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  '@id': `${SITE_URL}/#website`,
+  url: SITE_URL,
+  name: 'Bokix',
+  inLanguage: 'sv-SE',
+  publisher: { '@id': `${SITE_URL}/#organization` },
 };
 
 // Kundönskemål: en mörkt-läge-option på marknadssidan. Samma localStorage-
@@ -1522,6 +1540,7 @@ const FOOTER_COLUMNS = [
     heading: 'Företag',
     links: [
       { label: 'Om oss', to: '/om-oss' },
+      { label: 'Bokix i korthet', to: '/bokix-i-korthet' },
       { label: 'Nyheter', to: '/nyheter' },
       { label: 'Kontakt', to: '/kontakt' },
     ],
@@ -1659,6 +1678,7 @@ export default function MarketingLayout({ onEnterApp, children }) {
   return (
     <div id="lp-root" className={isHome ? undefined : 'lp-sub'} data-theme={theme} style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", color: 'var(--mkt-heading)', background: 'var(--mkt-page-bg)', overflowX: 'hidden' }}>
       <JsonLd data={ORGANIZATION_SCHEMA} />
+      <JsonLd data={WEBSITE_SCHEMA} />
       <MarketingStyles />
       <MarketingHeader onEnterApp={onEnterApp} theme={theme} onToggleTheme={toggleTheme} />
       {children}

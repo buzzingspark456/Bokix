@@ -14,7 +14,7 @@ export const LANDING_CONTENT = {
       description: 'Bokix samlar bokföring, fakturering, löner och moms i ett enda verktyg för svenska företag i alla bolagsformer. Kom igång på minuter, från 129 kr/mån.',
     },
     schema: {
-      orgDescription: 'Bokix är ett svenskt bokföringsprogram för småföretag — fakturering, löner, moms och bokslut i ett verktyg. Drivs av två personer som ett UF-företag.',
+      orgDescription: 'Bokix är ett svenskt bokföringsprogram på webben för småföretag. Bokföring, fakturering, kvitton, moms, lön och bokslut finns i samma verktyg, och det är byggt för att man inte ska behöva kunna bokföring.',
       softwareDescription: 'Bokföring, fakturering, lönehantering och momsredovisning för svenska företag i alla bolagsformer.',
     },
     hero: {

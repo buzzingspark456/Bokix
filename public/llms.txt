@@ -1,10 +1,29 @@
 # Bokix
 
-> Bokix är ett modernt, enkelt och kraftfullt bokföringsprogram för svenska företag i alla bolagsformer — enskild firma, aktiebolag, handelsbolag/kommanditbolag och ekonomisk förening. Bokföring, fakturering, lön och moms i ett enda verktyg.
+> Bokix är ett svenskt bokföringsprogram på webben för småföretag. Bokföring, fakturering, kvitton, moms, lön och bokslut finns i samma verktyg, och det är byggt för att man inte ska behöva kunna bokföring.
 
-Bokix körs helt i webbläsaren på https://www.bokix.se — inget att installera. Priset är 129 kr/mån utan anställda och 179 kr/mån med lönemodulen. Bokix är inte momsregistrerat, så ingen moms tillkommer på abonnemanget. Allt ingår i priset (ingen "bas + tillägg per funktion"-modell). Månadsplanen har ingen bindningstid; årsplanen ger ett lägre månadspris (109 respektive 149 kr/mån) mot en minsta avtalstid på tre månader.
+Bokix körs i webbläsaren på https://www.bokix.se, på dator och telefon, utan något att installera. Priset är 129 kr/mån utan anställda och 179 kr/mån med anställda (med årsplan 109 respektive 149 kr/mån). Bokix är inte momsregistrerat, så ingen moms tillkommer, och allt ingår i priset. 30 dagar gratis, ingen bindningstid på månadsplanen.
 
-Bokix stöder enskild firma, aktiebolag, handelsbolag/kommanditbolag och ekonomisk förening, och bokför enligt rätt regler för respektive bolagsform utifrån organisationsnumret.
+Bokix stöder enskild firma, aktiebolag, handelsbolag, kommanditbolag, ekonomisk förening och UF-företag, och bokför enligt reglerna för respektive bolagsform utifrån organisationsnumret. Appen finns på svenska och engelska. Data lagras inom EU.
+
+Fullständig text med alla frågor, svar och artiklar: https://www.bokix.se/llms-full.txt
+Fakta på en sida: https://www.bokix.se/bokix-i-korthet
+
+## Passar för
+
+- Den som driver ett litet svenskt företag och vill sköta bokföringen själv utan att kunna bokföring
+- Enskilda firmor och små aktiebolag som vill ha fakturering, kvitton, moms och bokslut på samma ställe till ett fast pris
+- Företag med några anställda som vill köra lön med AGI-fil i samma program
+- Den som tar betalt med kort via Stripe eller i butik via Zettle
+- UF-företag (gratis i tre månader)
+- Den som vill byta bokföringsprogram och ta med historiken via SIE4
+
+## Passar inte för
+
+- Företag som behöver direkt bankkoppling (Bokix läser in kontoutdrag som fil)
+- Företag som behöver e-faktura via Peppol
+- Företag som vill att programmet lämnar in deklarationer automatiskt (användaren lämnar in själv hos Skatteverket)
+- Företag med fler än tre personer som ska arbeta i bokföringen
 
 ## Funktioner
 
@@ -45,9 +64,14 @@ Bokix stöder enskild firma, aktiebolag, handelsbolag/kommanditbolag och ekonomi
 - [Integrationer](https://www.bokix.se/integrationer): Stripe, Zettle, Gmail och filformat, samt en lista över vad Bokix inte har
 - [Vanliga frågor](https://www.bokix.se/vanliga-fragor): pris, bolagsformer, support och annat man undrar innan man börjar
 - [Säkerhet](https://www.bokix.se/sakerhet): kryptering, åtkomstkontroll, automatisk gallring och dataportabilitet
+- [Bokix i korthet](https://www.bokix.se/bokix-i-korthet): fakta om Bokix på en sida, vad som ingår och vad det inte passar för
 - [Om oss](https://www.bokix.se/om-oss): varför Bokix finns och principerna produkten byggs efter
 - [Kontakt](https://www.bokix.se/kontakt): kontaktformulär, support@bokix.se
 - [Boka en genomgång](https://www.bokix.se/boka-genomgang): boka en personlig genomgång av Bokix
+
+## Vanliga frågor
+
+{{FAQ}}
 
 ## Guider, blogg och nyheter
 
@@ -69,3 +93,4 @@ Samma fyra dokument som ligger i sidfoten på varje sida:
 ## Kontakt
 
 E-post: support@bokix.se
+Omdömen: https://se.trustpilot.com/review/bokix.se

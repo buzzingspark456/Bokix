@@ -19,6 +19,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ALL_ARTICLES } from '../src/content/marketing/news.js';
+import { FAQ_GROUPS } from '../src/components/marketing/faqData.js';
+import { BOKIX_SUMMARY, BOKIX_FACTS, BOKIX_FEATURES, BOKIX_DIFFERENT, BOKIX_NOT_FOR } from '../src/content/marketing/bokixFacts.js';
+import { GUIDE_GROUPS } from '../src/content/marketing/guides.js';
 import { MARKETING_ROUTES, DEFAULT_LOCALE, LOCALE_META, availableLocalesFor, localizedPath } from '../src/content/marketing/routes.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -85,6 +88,7 @@ const SITEMAP_MANIFEST = [
   { path: '/uf', changefreq: 'monthly', priority: '0.8' },
   { path: '/lon', changefreq: 'monthly', priority: '0.7' },
   { path: '/om-oss', changefreq: 'monthly', priority: '0.5' },
+  { path: '/bokix-i-korthet', changefreq: 'monthly', priority: '0.7' },
   { path: '/kontakt', changefreq: 'monthly', priority: '0.5' },
   { path: '/verktyg', changefreq: 'monthly', priority: '0.7' },
   { path: '/verktyg/skanna-kvitto', changefreq: 'monthly', priority: '0.6' },
@@ -145,20 +149,63 @@ function generateSitemap() {
   console.log(`✓ sitemap.xml (${urls.length} URL:er, ${urls.filter(u => u.alternates.length).length} med hreflang-alternates)`);
 }
 
-/** Fyller i artikellistorna i dist/llms.txt (markören {{ARTIKLAR}} i
- * public/llms.txt) ur blog.js och news.js, så att filen aldrig halkar efter. */
-function fillLlmsTxt() {
+// Artikeltext som ren text: **fet** och [länk](url) blir läsbar text.
+const plain = (s) => String(s).replace(/\*\*(.+?)\*\*/g, '$1').replace(/\[([^\]]+)\]\(([^)]+)\)/g, (m, t, u) => `${t} (${u.startsWith('/') ? SITE_URL + u : u})`);
+function blockText(b) {
+  const x = b.x;
+  switch (b.t) {
+    case 'h2': return `\n### ${plain(x)}\n`;
+    case 'p': case 'code': return plain(x);
+    case 'ul': case 'checklist': return (Array.isArray(x) ? x : []).map(i => `- ${plain(typeof i === 'string' ? i : i.x || i.h || '')}`).join('\n');
+    case 'steps': return (x || []).map((s, i) => `${i + 1}. ${plain(s.h)}: ${plain(s.p)}`).join('\n');
+    case 'callout': return `${b.title ? plain(b.title) + ': ' : ''}${plain(x)}`;
+    case 'table': return [b.caption && plain(b.caption), (b.head || []).join(' | '), ...(b.rows || []).map(r => r.map(plain).join(' | '))].filter(Boolean).join('\n');
+    case 'diagram': return b.caption ? plain(b.caption) : '';
+    default: return typeof x === 'string' ? plain(x) : '';
+  }
+}
+
+/** Fyller i dist/llms.txt (markörerna {{FAQ}} och {{ARTIKLAR}} i
+ * public/llms.txt) och skriver dist/llms-full.txt med all text: fakta,
+ * alla frågor och svar, videoguidernas rösttext och hela artiklarna. Allt
+ * läses ur samma källor som sajten, så att filerna aldrig halkar efter. */
+function writeLlmsFiles() {
   const file = path.join(distDir, 'llms.txt');
   if (!fs.existsSync(file)) return;
   const line = (p) => `- [${p.title}](${SITE_URL}${p.path}): ${p.seoDescription || p.excerpt}`;
   const byDate = (a, b) => b.datePublished.localeCompare(a.datePublished);
   const posts = ALL_ARTICLES.filter(p => p.body);
-  const text = [
-    '### Bloggen', '', ...posts.filter(p => !p.news).map(line), '',
-    '### Nyheter', '', ...posts.filter(p => p.news).sort(byDate).map(line),
+  const blog = posts.filter(p => !p.news);
+  const news = posts.filter(p => p.news).sort(byDate);
+  const articles = [
+    '### Bloggen', '', ...blog.map(line), '',
+    '### Nyheter', '', ...news.map(line),
   ].join('\n');
-  fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('{{ARTIKLAR}}', text));
-  console.log('✓ llms.txt (artikellistor ifyllda)');
+  const faq = FAQ_GROUPS.map(g => [`### ${g.title}`, ...g.items.map(i => `**${i.q}** ${i.a}`)].join('\n\n')).join('\n\n');
+  const llms = fs.readFileSync(file, 'utf8').replace('{{FAQ}}', faq).replace('{{ARTIKLAR}}', articles);
+  fs.writeFileSync(file, llms);
+
+  const transcripts = JSON.parse(fs.readFileSync(path.join(__dirname, '../src/content/marketing/guideTranscripts.json'), 'utf8'));
+  const full = [
+    '# Bokix: all text för AI-tjänster', '',
+    `> ${BOKIX_SUMMARY}`, '',
+    `Källa: ${SITE_URL}. Den här filen skapas automatiskt från webbplatsens innehåll vid varje publicering.`, '',
+    '## Fakta', '', ...BOKIX_FACTS.map(f => `- ${f.title}: ${f.body}`), '',
+    '## Det här ingår', '', ...BOKIX_FEATURES.map(f => `- ${f}`), '',
+    '## Så skiljer sig Bokix', '', ...BOKIX_DIFFERENT.map(f => `- ${f.title}: ${f.body}`), '',
+    '## Passar inte för', '', ...BOKIX_NOT_FOR.map(f => `- ${f}`), '',
+    '## Vanliga frågor', '', faq, '',
+    '## Videoguider', '', `Alla filmer: ${SITE_URL}/guider`, '',
+    ...GUIDE_GROUPS.flatMap(g => g.guides).flatMap(g => [`### ${g.title}`, '', (transcripts[g.slug] || []).join(' '), '']),
+    '## Artiklar', '',
+    ...[...blog, ...news].flatMap(p => [
+      `### ${p.title}`, '', `${SITE_URL}${p.path} (publicerad ${p.datePublished})`, '',
+      p.excerpt, '', ...p.body.map(blockText).filter(Boolean), '',
+      ...(p.faq || []).map(f => `**${f.q}** ${f.a}`), '',
+    ]),
+  ].join('\n').replace(/\n{3,}/g, '\n\n');
+  fs.writeFileSync(path.join(distDir, 'llms-full.txt'), full);
+  console.log(`✓ llms.txt och llms-full.txt (${Math.round(full.length / 1024)} kB)`);
 }
 
 async function main() {
@@ -179,7 +226,7 @@ async function main() {
   }
 
   generateSitemap();
-  fillLlmsTxt();
+  writeLlmsFiles();
 
   // Engångsbygget behövs inte i den slutliga dist/-mappen som deployas.
   fs.rmSync(ssrDir, { recursive: true, force: true });
