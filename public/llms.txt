@@ -64,6 +64,7 @@ Fakta på en sida: https://www.bokix.se/bokix-i-korthet
 - [Integrationer](https://www.bokix.se/integrationer): Stripe, Zettle, Gmail och filformat, samt en lista över vad Bokix inte har
 - [Vanliga frågor](https://www.bokix.se/vanliga-fragor): pris, bolagsformer, support och annat man undrar innan man börjar
 - [Säkerhet](https://www.bokix.se/sakerhet): kryptering, åtkomstkontroll, automatisk gallring och dataportabilitet
+- [Bokix på hemskärmen](https://www.bokix.se/lagg-till-pa-hemskarmen): så lägger man Bokix som en app på hemskärmen på iPhone (Safari) och Android (Chrome), steg för steg
 - [Bokix i korthet](https://www.bokix.se/bokix-i-korthet): fakta om Bokix på en sida, vad som ingår och vad det inte passar för
 - [Om oss](https://www.bokix.se/om-oss): varför Bokix finns och principerna produkten byggs efter
 - [Kontakt](https://www.bokix.se/kontakt): kontaktformulär, support@bokix.se

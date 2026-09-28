@@ -89,6 +89,7 @@ const SITEMAP_MANIFEST = [
   { path: '/lon', changefreq: 'monthly', priority: '0.7' },
   { path: '/om-oss', changefreq: 'monthly', priority: '0.5' },
   { path: '/bokix-i-korthet', changefreq: 'monthly', priority: '0.7' },
+  { path: '/lagg-till-pa-hemskarmen', changefreq: 'monthly', priority: '0.6' },
   { path: '/kontakt', changefreq: 'monthly', priority: '0.5' },
   { path: '/verktyg', changefreq: 'monthly', priority: '0.7' },
   { path: '/verktyg/skanna-kvitto', changefreq: 'monthly', priority: '0.6' },

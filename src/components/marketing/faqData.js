@@ -17,6 +17,7 @@ export const FAQ_GROUPS = [
       { top: true, q: 'Vilka företag passar Bokix för?', short: 'Enskild firma, aktiebolag, handelsbolag, kommanditbolag och ekonomisk förening.', a: 'Enskild firma, aktiebolag, handelsbolag, kommanditbolag och ekonomisk förening. Bokix känner igen bolagsformen på organisationsnumret när du lägger upp företaget och följer reglerna som gäller för den, till exempel årsredovisning enligt K2 för aktiebolag.' },
       { q: 'Kan jag byta från mitt nuvarande program?', a: 'Ja. Du exporterar en SIE4-fil ur programmet du använder i dag och läser in den i Bokix. Konton, verifikationer och ingående balanser följer med, och ingenting skrivs in förrän du har godkänt hur kontona matchas.' },
       { q: 'Finns det hjälp för att komma igång?', a: 'Ja. Det finns tolv korta videoguider med berättarröst som visar hur du gör, från första kunden till momsdeklarationen, och support ingår i priset.' },
+      { q: 'Finns det en app för mobilen?', a: 'Ja. Bokix fungerar i telefonens webbläsare, och du kan lägga det som en app på hemskärmen på iPhone och Android. Då öppnas det i helskärm med egen ikon, utan något att ladda ner.' },
       { q: 'Finns det något för UF-företag?', a: 'Ja. UF-företag använder Bokix gratis i tre månader, utan organisationsnummer och utan betaluppgifter, med en meny som bara visar det ett UF-företag behöver.' },
     ],
   },

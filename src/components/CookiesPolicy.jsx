@@ -45,7 +45,7 @@ export default function CookiesPolicy() {
         <PolicyTable
           head={['Namn', 'Typ', 'Ändamål', 'Livslängd']}
           rows={[
-            [<PolicyCode>sb-*-auth-token</PolicyCode>, 'localStorage', 'Håller dig inloggad mellan sidladdningar (sätts av vår inloggningsleverantör Supabase).', 'Tills du loggar ut, eller sessionen löper ut'],
+            [<PolicyCode>sb-*-auth-token</PolicyCode>, 'sessionStorage (localStorage i appen på hemskärmen)', 'Håller dig inloggad (sätts av vår inloggningsleverantör Supabase). I webbläsaren så länge fliken är öppen, i appen på hemskärmen tills du loggar ut.', 'Tills fliken stängs eller du loggar ut'],
             [<PolicyCode>bokforing_data</PolicyCode>, 'localStorage', 'Lokal cachekopia av din bokföringsdata, så appen fungerar även vid tillfälligt avbrott mot servern.', 'Tills du loggar ut (rensas automatiskt), skrivs över, eller rensas manuellt'],
             [<PolicyCode>bokforing_data_owner</PolicyCode>, 'localStorage', 'Kommer ihåg VILKET konto den lokala cachekopian ovan tillhör, så att om flera olika Bokix-konton loggar in i samma webbläsare (t.ex. en delad dator) visas aldrig en annan användares cachade data av misstag.', 'Tills du loggar ut (rensas automatiskt), skrivs över, eller rensas manuellt'],
             [<>

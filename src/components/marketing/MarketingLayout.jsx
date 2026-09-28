@@ -1534,6 +1534,7 @@ const FOOTER_COLUMNS = [
       { label: 'För UF-företag', to: '/uf' },
       { label: 'Vanliga frågor', to: '/vanliga-fragor' },
       { label: 'Videoguider', to: '/guider' },
+      { label: 'Bokix på mobilen', to: '/lagg-till-pa-hemskarmen' },
     ],
   },
   {

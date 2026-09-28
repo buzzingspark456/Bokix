@@ -40,6 +40,7 @@ import ArsredovisningPage from './components/marketing/tools/ArsredovisningPage.
 import OrdlistaPage from './components/marketing/OrdlistaPage.jsx';
 import GuidesPage from './components/marketing/GuidesPage.jsx';
 import BokixFactsPage from './components/marketing/BokixFactsPage.jsx';
+import HomeScreenPage from './components/marketing/HomeScreenPage.jsx';
 import FaqPage from './components/marketing/FaqPage.jsx';
 import IntegrationsPage from './components/marketing/IntegrationsPage.jsx';
 import SecurityPage from './components/marketing/SecurityPage.jsx';
@@ -73,6 +74,7 @@ const BASE_PAGES = {
   '/ordlista': OrdlistaPage,
   '/guider': GuidesPage,
   '/bokix-i-korthet': BokixFactsPage,
+  '/lagg-till-pa-hemskarmen': HomeScreenPage,
   '/vanliga-fragor': FaqPage,
   '/blogg': BlogPage,
   '/nyheter': NewsPage,

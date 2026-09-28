@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { getAuthStorage } from './utils/authStorage';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -54,6 +55,7 @@ const mockClient = {
 // hållas i synk med det här, annars slutar den optimeringen fungera tyst.
 export const supabase = hasValidConfig
   ? createClient(supabaseUrl, supabaseAnonKey, {
-      auth: typeof window !== 'undefined' ? { storage: window.sessionStorage } : undefined,
+      // sessionStorage i webbläsaren, localStorage i appen på hemskärmen (utils/authStorage.js).
+      auth: typeof window !== 'undefined' ? { storage: getAuthStorage() } : undefined,
     })
   : mockClient;

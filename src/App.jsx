@@ -404,6 +404,7 @@ import Auth from './components/Auth';
 import OnboardingFlow from './components/OnboardingFlow';
 import { isVatExempt, stripVatRows } from './utils/vatRegistration';
 import { supabase } from './supabaseClient';
+import { isStandaloneApp } from './utils/authStorage';
 import { detectDevice } from './utils/deviceInfo';
 import { useLocation, useNavigate } from 'react-router-dom';
 const ReviewQueue = lazy(() => import('./components/ReviewQueue'));
@@ -1266,6 +1267,15 @@ function App() {
       navigate('.', { replace: true, state: {} });
     }
   }, [location.state]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Öppnad från hemskärmen (manifest.webmanifest start_url /?app=1, eller
+  // som fristående app): gå direkt till inloggningen, inte startsidan.
+  useEffect(() => {
+    if (isStandaloneApp() || /[?&]app=1\b/.test(window.location.search)) {
+      setShowLanding(false);
+      setAuthMode('login');
+    }
+  }, []);
 
   // Bugkritiskt: react-router byter INTE scrollposition automatiskt vid
   // navigering — utan detta kunde man t.ex. scrolla långt ner på /priser,

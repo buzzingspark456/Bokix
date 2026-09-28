@@ -729,7 +729,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                     <label style={labelStyle}>{t('ui.e_postadress')}</label>
                     <div style={{ position: 'relative' }}>
                       <Mail size={18} color="var(--text-muted)" style={{ position: 'absolute', top: 15, left: 16, pointerEvents: 'none' }} />
-                      <input className="auth-input" type="email" style={{ ...inputStyle, paddingLeft: '48px' }} placeholder={t('ui.din_epost_se')} value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} required autoFocus />
+                      <input className="auth-input" type="email" name="email" autoComplete="email" inputMode="email" autoCapitalize="none" spellCheck={false} style={{ ...inputStyle, paddingLeft: '48px' }} placeholder={t('ui.din_epost_se')} value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} required autoFocus />
                     </div>
                   </div>
                   <Turnstile onVerify={setForgotCaptchaToken} onExpire={() => setForgotCaptchaToken('')} />
@@ -753,7 +753,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                 <label style={labelStyle}>{t('ui.e_postadress')}</label>
                 <div style={{ position: 'relative' }}>
                   <Mail size={18} color="var(--text-muted)" style={{ position: 'absolute', top: 15, left: 16, pointerEvents: 'none' }} />
-                  <input className="auth-input" type="email" style={{ ...inputStyle, paddingLeft: '48px' }} placeholder={t('ui.din_epost_se')} value={loginEmail} onChange={e => setLoginEmail(e.target.value)} required />
+                  <input className="auth-input" type="email" id="login-email" name="email" autoComplete="username" inputMode="email" autoCapitalize="none" spellCheck={false} style={{ ...inputStyle, paddingLeft: '48px' }} placeholder={t('ui.din_epost_se')} value={loginEmail} onChange={e => setLoginEmail(e.target.value)} required />
                 </div>
               </div>
               <div>
@@ -765,7 +765,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                 </div>
                 <div style={{ position: 'relative' }}>
                   <Lock size={18} color="var(--text-muted)" style={{ position: 'absolute', top: 15, left: 16, pointerEvents: 'none' }} />
-                  <input className="auth-input" type="password" style={{ ...inputStyle, paddingLeft: '48px' }} placeholder="••••••••" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} required />
+                  <input className="auth-input" type="password" id="login-password" name="password" autoComplete="current-password" style={{ ...inputStyle, paddingLeft: '48px' }} placeholder="••••••••" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} required />
                 </div>
               </div>
               <Turnstile onVerify={setLoginCaptchaToken} onExpire={() => setLoginCaptchaToken('')} />
@@ -820,12 +820,12 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                       <label style={labelStyle}>{t('ui.fornamn')}</label>
                       <div style={{ position: 'relative' }}>
                         <User size={16} color="var(--text-muted)" style={{ position: 'absolute', top: 16, left: 14, pointerEvents: 'none' }} />
-                        <input className="auth-input" type="text" style={{ ...inputStyle, paddingLeft: '42px' }} placeholder={t('ui.anna')} value={regFirstName} onChange={e => setRegFirstName(e.target.value)} required />
+                        <input className="auth-input" type="text" name="given-name" autoComplete="given-name" style={{ ...inputStyle, paddingLeft: '42px' }} placeholder={t('ui.anna')} value={regFirstName} onChange={e => setRegFirstName(e.target.value)} required />
                       </div>
                     </div>
                     <div>
                       <label style={labelStyle}>{t('ui.efternamn')}</label>
-                      <input className="auth-input" type="text" style={inputStyle} placeholder={t('ui.svensson')} value={regLastName} onChange={e => setRegLastName(e.target.value)} />
+                      <input className="auth-input" type="text" name="family-name" autoComplete="family-name" style={inputStyle} placeholder={t('ui.svensson')} value={regLastName} onChange={e => setRegLastName(e.target.value)} />
                     </div>
                   </div>
                   <div>
@@ -835,6 +835,11 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                       <input
                         className="auth-input"
                         type="email"
+                        name="email"
+                        autoComplete="username"
+                        inputMode="email"
+                        autoCapitalize="none"
+                        spellCheck={false}
                         style={{ ...inputStyle, paddingLeft: '42px' }}
                         placeholder={t('ui.anna_foretag_se')}
                         value={regEmail}
@@ -1080,7 +1085,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                     <label style={labelStyle}>{t('ui.losenord')}</label>
                     <div style={{ position: 'relative' }}>
                       <Lock size={16} color="var(--text-muted)" style={{ position: 'absolute', top: 16, left: 14, pointerEvents: 'none' }} />
-                      <input className="auth-input" type="password" style={{ ...inputStyle, paddingLeft: '42px' }} placeholder={t('ui.minst_8_tecken')} value={regPassword} onChange={e => setRegPassword(e.target.value)} required minLength={8} />
+                      <input className="auth-input" type="password" name="new-password" autoComplete="new-password" style={{ ...inputStyle, paddingLeft: '42px' }} placeholder={t('ui.minst_8_tecken')} value={regPassword} onChange={e => setRegPassword(e.target.value)} required minLength={8} />
                     </div>
                     {passwordStrength(regPassword) && (
                       <div style={{ marginTop: '6px' }}>
@@ -1095,7 +1100,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                     <label style={labelStyle}>{t('ui.bekrafta_losenord')}</label>
                     <div style={{ position: 'relative' }}>
                       <Lock size={16} color="var(--text-muted)" style={{ position: 'absolute', top: 16, left: 14, pointerEvents: 'none' }} />
-                      <input className="auth-input" type="password" style={{ ...inputStyle, paddingLeft: '42px', borderColor: regPassword2 && regPassword2 !== regPassword ? '#f43f5e' : undefined }} placeholder={t('ui.upprepa_losenord')} value={regPassword2} onChange={e => setRegPassword2(e.target.value)} required />
+                      <input className="auth-input" type="password" name="confirm-password" autoComplete="new-password" style={{ ...inputStyle, paddingLeft: '42px', borderColor: regPassword2 && regPassword2 !== regPassword ? '#f43f5e' : undefined }} placeholder={t('ui.upprepa_losenord')} value={regPassword2} onChange={e => setRegPassword2(e.target.value)} required />
                     </div>
                   </div>
 

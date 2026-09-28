@@ -5,6 +5,7 @@ import CookieBanner from './components/CookieBanner';
 import { allLocalizedRoutes } from './content/marketing/routes';
 import { ALL_ARTICLES } from './content/marketing/news';
 import { capturePosthogPageview } from './utils/posthog.js';
+import { getAuthStorage, isStandaloneApp } from './utils/authStorage';
 
 // ── Marknads-/juridiksidorna — flyttade hit rakt av från App.jsx (se
 // kommentaren vid App-komponentens topp där för VARFÖR). Samma lazy()-
@@ -59,6 +60,7 @@ const ArsredovisningPage = lazy(() => import('./components/marketing/tools/Arsre
 const OrdlistaPage = lazy(() => import('./components/marketing/OrdlistaPage'));
 const GuidesPage = lazy(() => import('./components/marketing/GuidesPage'));
 const BokixFactsPage = lazy(() => import('./components/marketing/BokixFactsPage'));
+const HomeScreenPage = lazy(() => import('./components/marketing/HomeScreenPage'));
 const FaqPage = lazy(() => import('./components/marketing/FaqPage'));
 const PayrollPage = lazy(() => import('./components/marketing/PayrollPage'));
 const BlogPage = lazy(() => import('./components/marketing/BlogPage'));
@@ -137,7 +139,7 @@ function shouldLoadAppImmediately() {
   if (typeof window === 'undefined') return false;
   try {
     const sessionKey = getSupabaseSessionKey();
-    if (sessionKey && sessionStorage.getItem(sessionKey)) return true;
+    if (sessionKey && getAuthStorage()?.getItem(sessionKey)) return true;
   } catch { /* privat läge/blockerad storage — inte ett skäl att anta inloggad */ }
 
   const hash = window.location.hash || '';
@@ -145,6 +147,11 @@ function shouldLoadAppImmediately() {
 
   const search = window.location.search || '';
   if (/[?&](stripe_connect|subscription_checkout)=/.test(search)) return true;
+
+  // Öppnad från hemskärmen (manifest.webmanifest start_url /?app=1, eller
+  // körd som fristående app): då vill man in i appen, inte se startsidan.
+  if (/[?&]app=1\b/.test(search)) return true;
+  if (isStandaloneApp()) return true;
 
   return false;
 }
@@ -299,6 +306,7 @@ export default function AppRouter() {
         <Route path="/ordlista" element={<Suspense fallback={<AppLoadingFallback />}><OrdlistaPage /></Suspense>} />
         <Route path="/guider" element={<Suspense fallback={<AppLoadingFallback />}><GuidesPage /></Suspense>} />
         <Route path="/bokix-i-korthet" element={<Suspense fallback={<AppLoadingFallback />}><BokixFactsPage /></Suspense>} />
+        <Route path="/lagg-till-pa-hemskarmen" element={<Suspense fallback={<AppLoadingFallback />}><HomeScreenPage /></Suspense>} />
         <Route path="/vanliga-fragor" element={<Suspense fallback={<AppLoadingFallback />}><FaqPage /></Suspense>} />
         <Route path="/blogg" element={<Suspense fallback={<AppLoadingFallback />}><BlogPage /></Suspense>} />
         <Route path="/nyheter" element={<Suspense fallback={<AppLoadingFallback />}><NewsPage /></Suspense>} />

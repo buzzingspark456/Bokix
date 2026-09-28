@@ -67,6 +67,10 @@
       "destination": "/bokix-i-korthet/index.html"
     },
     {
+      "source": "/lagg-till-pa-hemskarmen",
+      "destination": "/lagg-till-pa-hemskarmen/index.html"
+    },
+    {
       "source": "/vanliga-fragor",
       "destination": "/vanliga-fragor/index.html"
     },
