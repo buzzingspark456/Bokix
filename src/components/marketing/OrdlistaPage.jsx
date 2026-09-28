@@ -74,7 +74,7 @@ export default function OrdlistaPage() {
   return (
     <MarketingLayout>
       <PageMeta
-        title="Bokföringsordlista — bokförings- och skattetermer förklarade | Bokix"
+        title="Bokföringsordlista: termer förklarade enkelt | Bokix"
         description={`${total} bokförings-, skatte- och lönebegrepp förklarade på vanlig svenska: verifikation, periodisering, AGI, K2, SIE-fil, egenavgifter och fler.`}
         path="/ordlista"
       />

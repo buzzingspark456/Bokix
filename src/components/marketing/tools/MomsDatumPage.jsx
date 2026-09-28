@@ -22,7 +22,7 @@ export default function MomsDatumPage() {
     <ToolShell
       tool={tool}
       metaTitle="När ska jag deklarera moms? Momsdatum 2026 | Bokix"
-      metaDescription="Se nästa förfallodatum för momsdeklarationen direkt — månadsvis, kvartalsvis eller årsvis. Räknar med Skatteverkets undantag i januari och augusti (17:e i stället för 12:e)."
+      metaDescription="Se nästa datum för momsdeklarationen, månadsvis, kvartalsvis eller årsvis. Räknar med undantagen i januari och augusti, då det är den 17:e."
       intro="Välj din redovisningsperiod, så räknar vi ut nästa gång momsdeklarationen och betalningen senast ska vara hos Skatteverket."
       calculator={
         <>

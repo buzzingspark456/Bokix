@@ -19,8 +19,8 @@ export default function EgenavgifterPage() {
   return (
     <ToolShell
       tool={tool}
-      metaTitle="Egenavgifter enskild firma — räkna ut vad som blir kvar | Bokix"
-      metaDescription="Gratis kalkylator för egenavgifter i enskild firma: schablonavdrag, egenavgifter och inkomstskatt på överskottet, i rätt ordning. Se vad som faktiskt blir kvar av ett års vinst."
+      metaTitle="Egenavgifter i enskild firma: räkna ut vad som blir kvar"
+      metaDescription="Räkna ut egenavgifter, schablonavdrag och skatt på överskottet i enskild firma, och se vad som faktiskt blir kvar av årets vinst. Gratis."
       intro="I en enskild firma är överskottet inte det du får behålla. Skriv in årets överskott så ser du schablonavdraget, egenavgifterna och ungefär vad som blir kvar efter skatt."
       calculator={
         <>

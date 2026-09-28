@@ -47,7 +47,7 @@ export default function AboutPage() {
   return (
     <MarketingLayout>
       <PageMeta
-        title="Om oss | Bokix"
+        title="Om oss: teamet bakom Bokix"
         description="Bokix drivs av två personer. Vi bygger ett bokföringsprogram för svenska småföretag som ska vara billigt och gå att förstå."
         path="/om-oss"
       />

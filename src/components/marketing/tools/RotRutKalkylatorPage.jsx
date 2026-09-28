@@ -39,7 +39,7 @@ export default function RotRutKalkylatorPage() {
   return (
     <ToolShell
       tool={tool}
-      metaTitle="ROT- och RUT-kalkylator — räkna ut avdraget på fakturan | Bokix"
+      metaTitle="ROT- och RUT-kalkylator: räkna ut avdraget | Bokix"
       metaDescription="Gratis ROT- och RUT-kalkylator: räkna ut avdraget på arbetskostnaden, se vad kunden betalar och vad du begär tillbaka från Skatteverket. Med takbelopp per köpare."
       intro="Avdraget gäller bara arbetskostnaden, aldrig materialet. Skriv in beloppen inklusive moms så ser du vad kunden ska betala och vad du begär tillbaka från Skatteverket."
       calculator={

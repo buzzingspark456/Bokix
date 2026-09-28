@@ -33,8 +33,8 @@ export default function ToolsHubPage() {
   return (
     <MarketingLayout>
       <PageMeta
-        title="Gratis verktyg för företagare — moms, lön, ROT/RUT och mer | Bokix"
-        description="Sex gratisverktyg för svenska företagare: momskalkylator, lönekalkylator, egenavgifter för enskild firma, ROT- och RUT-avdrag, dröjsmålsränta och gränsbelopp enligt 3:12-reglerna. Inget konto krävs."
+        title="Gratis verktyg för företagare: moms, lön, ROT | Bokix"
+        description="Gratis kalkylatorer för svenska företagare: moms, lön, egenavgifter, ROT och RUT, dröjsmålsränta, utdelning och viktiga datum. Inget konto krävs."
         path={TOOLS_HUB_PATH}
       />
       <JsonLd data={ITEM_LIST_SCHEMA} />

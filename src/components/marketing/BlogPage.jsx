@@ -40,9 +40,10 @@ export default function BlogPage() {
   return (
     <MarketingLayout>
       <PageMeta
-        title="Blogg | Bokix"
-        description="Bokix-bloggen: praktiska guider om bokföring, fakturering, moms och bokslut för svenska småföretag — skrivet av teamet som byggt Bokix."
+        title="Blogg om bokföring, moms och bokslut | Bokix"
+        description="Praktiska guider om bokföring, fakturering, moms och bokslut för svenska småföretag, skrivna av teamet bakom Bokix."
         path="/blogg"
+        image={`${SITE_URL}${BLOG_POSTS[0].image}`}
       />
       <JsonLd data={SCHEMA} />
       <style>{`

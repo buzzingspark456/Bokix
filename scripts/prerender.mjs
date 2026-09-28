@@ -71,6 +71,11 @@ function buildPage(render, routePath) {
 // app-skalet med canonical mot startsidan, så Google ser dem som kopior av
 // startsidan och indexerar dem aldrig; de hålls utanför sitemapen tills de
 // förrenderas.
+// Senaste ändringsdatum för bloggen och nyheterna: det nyaste inlägget.
+const latest = (posts) => posts.map(p => p.dateModified || p.datePublished).sort().at(-1);
+// Uppdateras när videoguiderna spelas in på nytt (samma datum som UPLOADED i GuidesPage.jsx).
+const GUIDES_UPDATED = '2026-09-28';
+
 const SITEMAP_MANIFEST = [
   { path: '/', changefreq: 'weekly', priority: '1.0' },
   { path: '/funktioner', changefreq: 'monthly', priority: '0.8' },
@@ -78,6 +83,7 @@ const SITEMAP_MANIFEST = [
   { path: '/byt-bokforingsprogram', changefreq: 'monthly', priority: '0.8' },
   { path: '/koppla-bank', changefreq: 'monthly', priority: '0.8' },
   { path: '/uf', changefreq: 'monthly', priority: '0.8' },
+  { path: '/lon', changefreq: 'monthly', priority: '0.7' },
   { path: '/om-oss', changefreq: 'monthly', priority: '0.5' },
   { path: '/kontakt', changefreq: 'monthly', priority: '0.5' },
   { path: '/verktyg', changefreq: 'monthly', priority: '0.7' },
@@ -91,11 +97,11 @@ const SITEMAP_MANIFEST = [
   { path: '/verktyg/momsdatum', changefreq: 'monthly', priority: '0.6' },
   { path: '/verktyg/arsredovisning', changefreq: 'monthly', priority: '0.6' },
   { path: '/ordlista', changefreq: 'monthly', priority: '0.6' },
-  { path: '/guider', changefreq: 'monthly', priority: '0.6' },
-  { path: '/blogg', changefreq: 'weekly', priority: '0.6' },
-  { path: '/nyheter', changefreq: 'weekly', priority: '0.6' },
+  { path: '/guider', changefreq: 'monthly', priority: '0.6', lastmod: GUIDES_UPDATED },
+  { path: '/blogg', changefreq: 'weekly', priority: '0.6', lastmod: latest(ALL_ARTICLES.filter(p => p.body && !p.news)) },
+  { path: '/nyheter', changefreq: 'weekly', priority: '0.6', lastmod: latest(ALL_ARTICLES.filter(p => p.body && p.news)) },
   // Artiklarna härleds ur blog.js och news.js, samma lista som routing/förrendering.
-  ...ALL_ARTICLES.filter(post => post.body).map(post => ({ path: post.path, changefreq: 'monthly', priority: '0.6' })),
+  ...ALL_ARTICLES.filter(post => post.body).map(post => ({ path: post.path, changefreq: 'monthly', priority: '0.6', lastmod: post.dateModified || post.datePublished })),
   { path: '/vanliga-fragor', changefreq: 'monthly', priority: '0.6' },
   { path: '/integrationer', changefreq: 'monthly', priority: '0.6' },
   { path: '/sakerhet', changefreq: 'yearly', priority: '0.4' },
@@ -115,6 +121,7 @@ function generateSitemap() {
     for (const locale of locales) {
       urls.push({
         loc: `${SITE_URL}${localizedPath(locale, entry.path)}`,
+        lastmod: entry.lastmod,
         changefreq: entry.changefreq,
         priority: entry.priority,
         alternates: isMarketingRoute
@@ -129,12 +136,29 @@ function generateSitemap() {
     const alternateTags = u.alternates.length
       ? '\n' + u.alternates.map((a) => `    <xhtml:link rel="alternate" hreflang="${a.hreflang}" href="${a.href}" />`).join('\n')
       : '';
-    return `  <url>\n    <loc>${u.loc}</loc>${alternateTags}\n    <changefreq>${u.changefreq}</changefreq>\n    <priority>${u.priority}</priority>\n  </url>`;
+    const lastmod = u.lastmod ? `\n    <lastmod>${u.lastmod}</lastmod>` : '';
+    return `  <url>\n    <loc>${u.loc}</loc>${alternateTags}${lastmod}\n    <changefreq>${u.changefreq}</changefreq>\n    <priority>${u.priority}</priority>\n  </url>`;
   }).join('\n');
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n${body}\n</urlset>\n`;
   fs.writeFileSync(path.join(distDir, 'sitemap.xml'), xml);
   console.log(`✓ sitemap.xml (${urls.length} URL:er, ${urls.filter(u => u.alternates.length).length} med hreflang-alternates)`);
+}
+
+/** Fyller i artikellistorna i dist/llms.txt (markören {{ARTIKLAR}} i
+ * public/llms.txt) ur blog.js och news.js, så att filen aldrig halkar efter. */
+function fillLlmsTxt() {
+  const file = path.join(distDir, 'llms.txt');
+  if (!fs.existsSync(file)) return;
+  const line = (p) => `- [${p.title}](${SITE_URL}${p.path}): ${p.seoDescription || p.excerpt}`;
+  const byDate = (a, b) => b.datePublished.localeCompare(a.datePublished);
+  const posts = ALL_ARTICLES.filter(p => p.body);
+  const text = [
+    '### Bloggen', '', ...posts.filter(p => !p.news).map(line), '',
+    '### Nyheter', '', ...posts.filter(p => p.news).sort(byDate).map(line),
+  ].join('\n');
+  fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('{{ARTIKLAR}}', text));
+  console.log('✓ llms.txt (artikellistor ifyllda)');
 }
 
 async function main() {
@@ -155,6 +179,7 @@ async function main() {
   }
 
   generateSitemap();
+  fillLlmsTxt();
 
   // Engångsbygget behövs inte i den slutliga dist/-mappen som deployas.
   fs.rmSync(ssrDir, { recursive: true, force: true });

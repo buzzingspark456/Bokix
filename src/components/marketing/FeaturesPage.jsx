@@ -121,7 +121,7 @@ export default function FeaturesPage() {
     <MarketingLayout>
       <PageMeta
         title="Funktioner: bokföring, fakturering, lön och moms | Bokix"
-        description="Allt som ingår i Bokix: löpande bokföring med full BAS-kontoplan, fakturor med ROT/RUT, offerter, projekt, bankimport, lönekörning med betalfil, moms- och AGI-underlag och elva rapporter — i ett verktyg."
+        description="Allt som ingår i Bokix: bokföring med BAS-kontoplan, fakturor med ROT/RUT, offerter, projekt, bankimport, lön, moms, AGI och elva rapporter."
         path="/funktioner"
       />
       <JsonLd data={FEATURE_LIST_SCHEMA} />

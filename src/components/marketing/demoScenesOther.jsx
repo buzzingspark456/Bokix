@@ -209,6 +209,30 @@ const ZettleScene = (
   </Shell>
 );
 
+// Fakturan skickas från den egna Gmail-adressen (Inställningar → Kopplingar → Gmail).
+const GmailScene = (
+  <Shell active="invoices" review={1}>
+    <Top title="Kundfakturor" action={<span className="ax-btn"><Plus size={11} /> Skapa faktura</span>} />
+    <div className="ax-body" />
+    <div className="ax-scrim">
+      <div className="ax-modal" style={{ width: 'min(94%, 440px)' }}>
+        <div className="ax-modal-head">Skicka faktura 1013<X size={13} className="ax-m" /></div>
+        <div className="ax-modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+          <div>
+            <div className="ax-label">Från</div>
+            <div className="ax-field" style={{ justifyContent: 'space-between' }}><span>dittforetag@gmail.com</span><Pill>Gmail</Pill></div>
+          </div>
+          <div><div className="ax-label">Till</div><div className="ax-field"><Typed text="ekonomi@testkunden.se" at={0.4} dur={0.8} /></div></div>
+          <div><div className="ax-label">Ämne</div><div className="ax-field">Faktura 1013 från Ditt Företag AB</div></div>
+          <div className="dp-slide" style={{ ...d(1.3), display: 'inline-flex' }}><span className="ax-dl-file"><Doc />faktura-1013.pdf</span></div>
+        </div>
+        <div className="ax-modal-foot"><span className="ax-btn-ghost">Avbryt</span><span className="ax-btn ax-click" style={c(2)}>Skicka</span></div>
+      </div>
+    </div>
+    <Toast delay={2.5} top>Skickad från din Gmail</Toast>
+  </Shell>
+);
+
 const BolagsverketScene = (
   <div className="ax" style={{ alignItems: 'center', justifyContent: 'center' }}>
     <div className="ax-card" style={{ width: 'min(92%, 400px)', padding: '20px 22px', boxShadow: '0 20px 50px -24px rgba(0,0,0,0.35)' }}>
@@ -279,6 +303,7 @@ const BasScene = (
 const INTEGRATION_SCENES = {
   stripe: { title: 'Stripe', where: 'Kundens betalsida → Bokix', scene: StripeScene },
   zettle: { title: 'Zettle', where: 'Bokix · Granskning · Zettle', scene: ZettleScene },
+  gmail: { title: 'Gmail', where: 'Bokix · Kundfakturor · Skicka', scene: GmailScene },
   bolagsverket: { title: 'Bolagsverket', where: 'Bokix · Nytt företag', scene: BolagsverketScene },
   skatteverket: { title: 'Skatteverket', where: 'Skatteverkets e-tjänst', scene: SkatteverketScene },
   bas: { title: 'BAS-kontoplanen', where: 'Bokix · Bokföring · Kontoplan', scene: BasScene },

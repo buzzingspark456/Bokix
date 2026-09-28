@@ -171,8 +171,8 @@ export default function BankPage() {
   return (
     <MarketingLayout>
       <PageMeta
-        title="Koppla banken till bokföringen | Importera kontoutdrag i Bokix"
-        description="Exportera kontoutdraget ur Nordea, Swedbank, Handelsbanken, Länsförsäkringar, ICA Banken, SEB, Danske Bank, Lunar eller Northmill och läs in det i Bokix. Transaktionerna matchas mot dina fakturor — och vi frågar aldrig efter dina bankuppgifter."
+        title="Koppla banken till bokföringen | Bokix"
+        description="Läs in kontoutdraget från Nordea, Swedbank, SEB, Handelsbanken eller din bank i Bokix. Transaktionerna matchas mot fakturorna, utan dina bankuppgifter."
         path="/koppla-bank"
         type="article"
       />

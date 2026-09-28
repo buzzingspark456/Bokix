@@ -5,7 +5,7 @@ import { KitStyles, SubHero, KitSection, CenterSection, SpecList, KitCta, Primar
 import IntegrationFeed from './IntegrationFeed';
 import DemoPlayer, { DemoStyles } from './DemoPlayer';
 import { makeIntegrationDemo } from './demoScenesOther';
-import { StripeIconLogo, ZettleLogo, BolagsverketLogo, SkatteverketLogo, BasLogo } from '../shared/BrandLogos';
+import { StripeIconLogo, ZettleLogo, GmailLogo, BolagsverketLogo, SkatteverketLogo, BasLogo } from '../shared/BrandLogos';
 import FormatExchange from './FormatExchange';
 import { PageMeta, JsonLd } from '../../utils/seo';
 
@@ -39,6 +39,14 @@ const CONNECTIONS = [
     name: 'Zettle by PayPal',
     kind: 'Kassaförsäljning',
     body: 'Säljer du i butik, på marknad eller i mässmontern kopplas kassaförsäljningen in i samma bokföring som fakturorna, i stället för att bokföras separat i efterhand.',
+  },
+  {
+    key: 'gmail',
+    Logo: GmailLogo,
+    logoHeight: 24,
+    name: 'Gmail',
+    kind: 'E-post',
+    body: 'Koppla ditt Gmail-konto så går fakturor, offerter och påminnelser från din egen adress, och svaren hamnar i din inkorg. Bokix får bara rätt att skicka e-post, aldrig att läsa den. Mejl på egen domän kopplas med ett app-lösenord.',
   },
   {
     key: 'bolagsverket',
@@ -169,8 +177,8 @@ export default function IntegrationsPage() {
   return (
     <MarketingLayout>
       <PageMeta
-        title="Integrationer och filformat — SIE, eSKD, ISO 20022, Stripe | Bokix"
-        description="Vad Bokix kopplas ihop med och vilka filformat som stöds: SIE4-import och export, bankens CSV/Excel, Skatteverkets eSKD och SRU, betalfil till banken (ISO 20022), Stripe och Zettle."
+        title="Integrationer: Stripe, Zettle, Gmail och SIE | Bokix"
+        description="Vad Bokix kopplas ihop med: Stripe, Zettle och Gmail, SIE4-import och export, kontoutdrag från banken, Skatteverkets eSKD och SRU samt betalfil."
         path="/integrationer"
       />
       <JsonLd data={SCHEMA} />

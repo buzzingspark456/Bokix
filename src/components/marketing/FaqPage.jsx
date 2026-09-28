@@ -48,7 +48,7 @@ export default function FaqPage() {
   return (
     <MarketingLayout>
       <PageMeta
-        title="Vanliga frågor om Bokix | Bokix"
+        title="Vanliga frågor om Bokix"
         description="Svar på det vanligaste du undrar över innan du sätter igång med Bokix: pris, bolagsformer, bokföringsvana, support och mer."
         path="/vanliga-fragor"
       />

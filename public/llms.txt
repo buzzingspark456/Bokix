@@ -12,7 +12,10 @@ Bokix stöder enskild firma, aktiebolag, handelsbolag/kommanditbolag och ekonomi
 - Kund- och leverantörsfakturor, obegränsat antal, med flera fakturamallar, egen logotyp och accentfärg
 - Lönekörningar för hela personalen, med rätt skatteavdrag
 - Moms-, AGI- och kontrolluppgiftssammanställningar
-- Kortbetalningar via Stripe
+- Kortbetalningar via Stripe och kassaförsäljning via Zettle, bokförda automatiskt
+- Fakturor, offerter och påminnelser skickas från användarens egen Gmail eller egna e-postadress (Bokix får bara skicka, aldrig läsa)
+- Kvitton läses av automatiskt: datum, belopp och moms, även flera momssatser på samma kvitto
+- Årsredovisning K2 för aktiebolag, SRU-filer och bokslut
 - PDF-export av fakturor, lönebesked och deklarationsunderlag
 - SIE4-import och -export, samt import av kontoutdrag från bank som CSV eller Excel
 - Skatteverkets egna filformat: eSKD för momsdeklarationen och SRU för räkenskapsscheman
@@ -27,7 +30,9 @@ Bokix stöder enskild firma, aktiebolag, handelsbolag/kommanditbolag och ekonomi
 - [Byt bokföringsprogram till Bokix](https://www.bokix.se/byt-bokforingsprogram): flytta bokföringen från ditt nuvarande program via en SIE4-fil
 - [Bokix för UF-företag](https://www.bokix.se/uf): gratis bokföring under UF-året — fakturering, kvitton, bokföring och årsbokslut, utan organisationsnummer och utan betaluppgifter
 - [Koppla banken till bokföringen](https://www.bokix.se/koppla-bank): exportera kontoutdraget ur internetbanken (Nordea, SEB, Swedbank, Handelsbanken, Länsförsäkringar, ICA Banken, Skandia, Lunar, Northmill m.fl.) och läs in det i Bokix — filimport, ingen direktkoppling mot banken
-- [Gratis verktyg](https://www.bokix.se/verktyg): åtta kostnadsfria räknare, inget konto krävs
+- [Lön](https://www.bokix.se/lon): lönekörning med skatteavdrag, AGI-fil till Skatteverket, lönebesked och betalfil
+- [Gratis verktyg](https://www.bokix.se/verktyg): nio kostnadsfria verktyg, inget konto krävs
+- [Skanna kvitto](https://www.bokix.se/verktyg/skanna-kvitto): läs av datum, belopp och moms från ett kvittofoto
 - [Momskalkylator](https://www.bokix.se/verktyg/momskalkylator): lägg på eller räkna ur moms med 25, 12 eller 6 procent
 - [Lönekalkylator](https://www.bokix.se/verktyg/lonekalkylator): arbetsgivaravgift, semesteravsättning och total kostnad för en anställd
 - [Egenavgiftskalkylator](https://www.bokix.se/verktyg/egenavgifter): schablonavdrag, egenavgifter och skatt på överskottet i enskild firma
@@ -37,11 +42,20 @@ Bokix stöder enskild firma, aktiebolag, handelsbolag/kommanditbolag och ekonomi
 - [Momsdeklaration — nästa datum](https://www.bokix.se/verktyg/momsdatum): nästa förfallodatum för momsdeklarationen, månadsvis, kvartalsvis eller årsvis
 - [Deadline för årsredovisningen](https://www.bokix.se/verktyg/arsredovisning): Bolagsverkets sjumånadersfrist och förseningsavgiftstrappan om den missas
 - [Ordlista](https://www.bokix.se/ordlista): bokförings-, skatte- och lönebegrepp förklarade på svenska
-- [Integrationer](https://www.bokix.se/integrationer): kopplingar och filformat, samt en lista över vad Bokix inte har
+- [Integrationer](https://www.bokix.se/integrationer): Stripe, Zettle, Gmail och filformat, samt en lista över vad Bokix inte har
+- [Vanliga frågor](https://www.bokix.se/vanliga-fragor): pris, bolagsformer, support och annat man undrar innan man börjar
 - [Säkerhet](https://www.bokix.se/sakerhet): kryptering, åtkomstkontroll, automatisk gallring och dataportabilitet
 - [Om oss](https://www.bokix.se/om-oss): varför Bokix finns och principerna produkten byggs efter
 - [Kontakt](https://www.bokix.se/kontakt): kontaktformulär, support@bokix.se
 - [Boka en genomgång](https://www.bokix.se/boka-genomgang): boka en personlig genomgång av Bokix
+
+## Guider, blogg och nyheter
+
+- [Videoguider](https://www.bokix.se/guider): tolv korta filmer med berättarröst som visar hur man gör i Bokix (kunder, fakturor, offerter, kvitton, bokföring, lön, moms och rapporter), med texten till varje film
+- [Blogg](https://www.bokix.se/blogg): guider om bokföring, moms och bokslut för svenska småföretag
+- [Nyheter](https://www.bokix.se/nyheter): nya funktioner i Bokix, med datum
+
+{{ARTIKLAR}}
 
 ## Juridiskt
 

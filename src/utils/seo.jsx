@@ -41,7 +41,7 @@ export const DEFAULT_OG_IMAGE = `${SITE_URL}/og-image.png`;
  * varandra — se availableLocalesFor()/localizedPath() i
  * content/marketing/routes.js, den enda källan för vilka språk som
  * faktiskt finns per sida. */
-export function PageMeta({ title, description, path = '/', basePath, locale = DEFAULT_LOCALE, image = DEFAULT_OG_IMAGE, type = 'website' }) {
+export function PageMeta({ title, description, path = '/', basePath, locale = DEFAULT_LOCALE, image = DEFAULT_OG_IMAGE, type = 'website', publishedTime, modifiedTime }) {
   const url = `${SITE_URL}${path}`;
   const base = basePath || path;
   const siblings = availableLocalesFor(base);
@@ -78,6 +78,9 @@ export function PageMeta({ title, description, path = '/', basePath, locale = DE
       <meta property="og:url" content={url} />
       <meta property="og:image" content={image} />
       <meta property="og:locale" content={ogLocale} />
+      {/* Artiklar: publicerings- och ändringsdatum, som Google och delningskort läser. */}
+      {publishedTime && <meta property="article:published_time" content={publishedTime} />}
+      {modifiedTime && <meta property="article:modified_time" content={modifiedTime} />}
       {siblings.filter((l) => l !== locale).map((l) => (
         <meta key={l} property="og:locale:alternate" content={LOCALE_META[l].og} />
       ))}

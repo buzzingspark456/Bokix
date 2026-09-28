@@ -91,7 +91,7 @@ export default function PayrollPage() {
   return (
     <MarketingLayout>
       <PageMeta
-        title="Lön & Arbetsgivare — Smidig lönekörning | Bokix"
+        title="Lönekörning med AGI-fil och lönebesked | Bokix"
         description="Lönekörning med automatisk tabellskatt, AGI-fil till Skatteverket, lönebesked som PDF, ISO 20022 bankfil och automatisk bokföring på rätt BAS-konton."
         path="/lon"
       />

@@ -166,8 +166,8 @@ export default function SwitchPage() {
   return (
     <MarketingLayout>
       <PageMeta
-        title="Byt bokföringsprogram till Bokix | Fortnox, Visma, Bokio m.fl."
-        description="Byt från Fortnox, Visma, Spiris, Bokio, Björn Lundén, Wint eller SpeedLedger till Bokix. Exportera en SIE4-fil, läs in den i Bokix och fortsätt bokföra — konton, verifikationer och ingående balanser följer med."
+        title="Byt bokföringsprogram: flytta från Fortnox, Visma, Bokio"
+        description="Byt från Fortnox, Visma, Bokio, Björn Lundén eller något annat program till Bokix. Läs in en SIE4-fil, så följer konton, verifikationer och balanser med."
         path="/byt-bokforingsprogram"
         type="article"
       />

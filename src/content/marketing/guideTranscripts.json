@@ -1,0 +1,115 @@
+{
+  "lagg-upp-kund": [
+    "Så här lägger du upp en ny kund i Bokix.",
+    "Börja med att gå till Kunder, i menyn till vänster.",
+    "Tryck sedan på Ny kund.",
+    "Skriv in företagets namn, och vilken e-postadress fakturorna ska gå till.",
+    "Lägg till organisationsnumret också. Det behövs på fakturan.",
+    "Och sen trycker du på Spara.",
+    "Klart! Nu finns kunden i listan, och du kan välja den direkt när du gör en faktura."
+  ],
+  "skapa-faktura": [
+    "Nu gör vi en faktura. Det går fortare än du tror.",
+    "Gå till Kundfakturor i menyn.",
+    "Tryck på Skapa faktura.",
+    "Välj vilken kund fakturan ska till.",
+    "Skriv vad du har sålt, hur många, och vad det kostar styck.",
+    "Du behöver inte räkna något själv. Moms och summa räknas ut åt dig.",
+    "Ser allt rätt ut? Tryck på Skapa faktura.",
+    "Klart! Fakturan ligger nu i listan, redo att skickas."
+  ],
+  "skicka-faktura": [
+    "I den här guiden skickar vi en faktura till kunden.",
+    "Gå till Kundfakturor.",
+    "Öppna fakturan du vill skicka.",
+    "Tryck på Förhandsgranska, så ser du hur den kommer att se ut.",
+    "Här kan du välja mellan fyra olika mallar. Ta den du gillar bäst.",
+    "Stäng förhandsvisningen och tryck på Skicka via e-post.",
+    "Vill du få betalt snabbare? Bocka i Betala nu, så kan kunden betala med kort direkt.",
+    "Tryck på Skicka.",
+    "Klart! Kunden får fakturan som PDF i sin inkorg, och kan betala med kort."
+  ],
+  "registrera-betalning": [
+    "Så här håller du koll på vilka fakturor som är betalda.",
+    "Gå till Kundfakturor.",
+    "Har kunden betalat allt? Tryck bara på Obetald, så markeras fakturan som betald.",
+    "Har kunden bara betalat en del? Då öppnar du fakturan.",
+    "Tryck på Registrera betalning.",
+    "Skriv hur mycket som har kommit in, och vilket datum.",
+    "Och betalar kunden med kort, så dyker betalningen upp i Granskning av sig själv."
+  ],
+  "skapa-offert": [
+    "Nu gör vi en offert.",
+    "Gå till Offerter i menyn.",
+    "Tryck på Ny offert.",
+    "Skriv in kundens namn.",
+    "Beskriv vad offerten gäller, och sätt ett pris.",
+    "Spara offerten.",
+    "Klart! Och säger kunden ja, gör du enkelt om offerten till en faktura."
+  ],
+  "ladda-upp-kvitto": [
+    "Så här bokför du ett kvitto, utan att skriva av det själv.",
+    "Gå till Kvitton.",
+    "Ladda upp ett foto av kvittot. Det går bra att ta det med mobilen.",
+    "Tryck på Läs av kvittot.",
+    "Nu läser Bokix av datum, belopp och moms, och fyller i fälten åt dig.",
+    "Kolla att allt stämmer, och tryck på Spara och bokför. Klart!"
+  ],
+  "ny-artikel": [
+    "Säljer du samma sak ofta? Spara den som en artikel.",
+    "Gå till Artiklar.",
+    "Tryck på Ny artikel.",
+    "Ge den ett namn och ett pris.",
+    "Och spara.",
+    "Klart! Nästa gång du gör en faktura väljer du bara artikeln i listan."
+  ],
+  "ny-verifikation": [
+    "Nu bokför vi ett köp, helt utan debet och kredit.",
+    "Gå till Bokföring.",
+    "Tryck på Ny verifikation.",
+    "Skriv vad du har köpt, och vad det kostade med moms.",
+    "Sök sedan fram vad det är för slags köp. Här blir det kontorsmaterial.",
+    "Tryck på Granska och bokför.",
+    "Klart! Bokix väljer rätt konton, och sköter debet och kredit åt dig."
+  ],
+  "nytt-projekt": [
+    "Så här startar du ett projekt.",
+    "Gå till Projekt.",
+    "Tryck på Nytt projekt.",
+    "Ge projektet ett namn.",
+    "Och spara.",
+    "Klart! Nu kan du rapportera tid på projektet, och fakturera det när det är dags."
+  ],
+  "ny-anstalld": [
+    "Nu lägger vi till en anställd, så att du kan köra lön.",
+    "Gå till Anställda och lön.",
+    "Tryck på Ny anställd.",
+    "Fyll i namn och personnummer.",
+    "Sedan när personen börjar, och månadslönen.",
+    "Välj vilken kommun personen bor i, och skattetabell.",
+    "Och spara.",
+    "Klart! Nu är allt på plats för att köra lön."
+  ],
+  "momsdeklaration": [
+    "Så här gör du momsdeklarationen i Bokix.",
+    "Gå till Skatt och bokslut.",
+    "Tryck på Gör momsdeklarationen.",
+    "Först kontrollerar Bokix att bokföringen ser rätt ut.",
+    "Sen är alla rutor till Skatteverket redan uträknade. Du ser direkt hur mycket moms du ska betala.",
+    "Tryck på Bokför, så nollställs momskontona.",
+    "Ladda ner filen till Skatteverket.",
+    "Logga in hos Skatteverket med BankID, och ladda upp filen där.",
+    "Kom sen tillbaka hit, och markera deklarationen som inlämnad.",
+    "Klart! Bokix håller reda på att momsen är inlämnad."
+  ],
+  "rapporter": [
+    "Här är rapporterna i Bokix.",
+    "Gå till Rapport och analys.",
+    "Företagsöversikten visar omsättning och resultat. Längre ner ser du vart pengarna går, marginalen och kassaflödet.",
+    "Resultaträkningen visar intäkter minus kostnader, månad för månad.",
+    "Balansräkningen visar vad företaget äger, och vad det är skyldigt.",
+    "Nyckeltal visar vinstmarginal, kassalikviditet och soliditet.",
+    "Momsrapporten är underlaget till momsdeklarationen, ruta för ruta.",
+    "Längre ner finns resten, som huvudbok, fakturarapporter och årsrapport. Allt kan laddas ner som PDF."
+  ]
+}

@@ -503,11 +503,13 @@ export default function BlogPostPage({ slug }) {
   return (
     <MarketingLayout>
       <PageMeta
-        title={`${post.title} | Bokix`}
-        description={post.excerpt}
+        title={`${post.seoTitle || post.title} | Bokix`}
+        description={post.seoDescription || post.excerpt}
         path={post.path}
         image={`${SITE_URL}${post.image}`}
         type="article"
+        publishedTime={post.datePublished}
+        modifiedTime={post.dateModified}
       />
       {schema.map((s, i) => <JsonLd key={i} data={s} />)}
       <style>{CSS}</style>

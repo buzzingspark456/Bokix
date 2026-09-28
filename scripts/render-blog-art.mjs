@@ -1,7 +1,7 @@
 // Renderar bloggens omslagsbilder (scripts/blog-art/*.html) till JPG i
 // public/blog/. Bilderna används som omslag på artikeln, kort i /blogg och
 // delningsbild (og:image), så de ska vara riktiga bilder och inte skärmdumpar.
-// Kör: node scripts/render-blog-art.mjs
+// Kör: node scripts/render-blog-art.mjs [namn] (utan namn ritas alla om)
 import { chromium } from 'playwright';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -15,7 +15,8 @@ const wordmarkSrc = fs.readFileSync(path.join(root, 'src/components/shared/Bokix
 const wordmarkPath = wordmarkSrc.match(/const PATH_D = "([^"]+)"/)?.[1];
 if (!wordmarkPath) throw new Error('Hittade inte PATH_D i BokixWordmark.jsx');
 
-const pages = fs.readdirSync(artDir).filter(f => f.endsWith('.html') && !f.startsWith('.tmp-'));
+const only = process.argv[2];
+const pages = fs.readdirSync(artDir).filter(f => f.endsWith('.html') && !f.startsWith('.tmp-') && (!only || f === `${only}.html`));
 const browser = await chromium.launch();
 for (const file of pages) {
   const html = fs.readFileSync(path.join(artDir, file), 'utf8').replaceAll('{{WORDMARK_PATH}}', wordmarkPath);

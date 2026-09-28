@@ -160,6 +160,12 @@ function ThemedLogo({ lightSrc, darkSrc, alt, height, aspectRatio }) {
 // den runda klippningen på smala skärmar. `height` tar nu även en
 // CSS-sträng (clamp()) — width:'auto' låter <img> sköta bildens egen
 // bredd/höjd-ratio precis som webbläsaren redan gör för vanliga bilder.
+// Gmails fullfärgade ikon (samma fil som Inställningar → Kopplingar använder).
+export function GmailLogo({ height = 18 }) {
+  const width = height * (3840 / 2880);
+  return <img src="/gmail-icon.png" alt="Gmail" height={height} width={width} style={{ height, width, objectFit: 'contain' }} />;
+}
+
 export function ZettleLogo({ height = 18 }) {
   return <ThemedLogo lightSrc="/zettle-logo.png" darkSrc="/zettle-logo-dark.png" alt="Zettle by PayPal" height={height} aspectRatio={3626 / 1612} />;
 }

@@ -44,9 +44,10 @@ export default function NewsPage() {
   return (
     <MarketingLayout>
       <PageMeta
-        title="Nyheter | Bokix"
-        description="Nyheter från Bokix: nya funktioner och förbättringar i bokföringsprogrammet, med datum och vad det betyder för dig."
+        title="Nyheter: det senaste i Bokix"
+        description="Nya funktioner och förbättringar i Bokix, med datum och vad de betyder för dig och ditt företag."
         path="/nyheter"
+        image={`${SITE_URL}${POSTS[0].image}`}
       />
       <JsonLd data={SCHEMA} />
       <style>{`

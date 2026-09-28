@@ -20,6 +20,8 @@ export const NEWS_POSTS = [
     path: '/nyheter/agi-fil-och-arbetsgivaravgift-efter-alder',
     category: 'Lön',
     title: 'Lönekörningen ger nu en AGI-fil, och arbetsgivaravgiften räknas efter ålder',
+    seoTitle: 'AGI-fil från lönekörningen och avgift efter ålder',
+    seoDescription: 'Varje lönekörning i Bokix ger nu en AGI-fil att ladda upp hos Skatteverket, godkänd i deras testtjänst. Arbetsgivaravgiften väljs efter ålder.',
     excerpt: 'Varje lönekörning i Bokix ger nu en AGI-fil att ladda upp hos Skatteverket. Filen är provad och godkänd i Skatteverkets testtjänst, och arbetsgivaravgiften väljs efter varje anställds ålder.',
     image: '/blog/nyhet-agi-fil.jpg',
     imageAlt: 'Illustration: en lönekörning med tre anställda och olika arbetsgivaravgifter blir en AGI-fil som laddas upp hos Skatteverket',
@@ -65,6 +67,8 @@ export const NEWS_POSTS = [
     path: '/nyheter/bokforingen-sparas-i-sju-ar',
     category: 'Trygghet',
     title: 'Din bokföring sparas i sju år, även om du slutar använda Bokix',
+    seoTitle: 'Bokföringen sparas i sju år, även om du slutar',
+    seoDescription: 'Bokföringslagen kräver att räkenskaperna sparas i sju år. Bokix sparar dem även om du raderar företaget eller avslutar abonnemanget.',
     excerpt: 'Bokföringslagen kräver att räkenskaperna sparas i sju år. Nu håller Bokix det även när ett företag raderas i appen eller abonnemanget avslutas, och den som slutat betala kan alltid ladda ned sin bokföring.',
     image: '/blog/nyhet-sjuarsarkiv.jpg',
     imageAlt: 'Illustration: ett företag raderas i appen, en arkivkopia av bokföringen sparas först och finns kvar i sju år',
@@ -98,6 +102,8 @@ export const NEWS_POSTS = [
     path: '/nyheter/kvittoavlasning-flera-momssatser-och-returer',
     category: 'Kvitton',
     title: 'Kvitton med flera momssatser, returer och kameran ett tryck bort',
+    seoTitle: 'Kvitton med flera momssatser, returer och kamera',
+    seoDescription: 'Matkvitton med 12 och 25 % moms bokförs rätt, returer går åt rätt håll, osäkra datum märks och på telefonen är kameran ett tryck bort.',
     excerpt: 'Kvittoflödet i Bokix har fått en rad förbättringar: matkvitton med både 12 och 25 % moms bokförs rätt, returer går åt rätt håll, osäkra datum märks och på telefonen är kameran ett tryck bort.',
     image: '/blog/nyhet-kvitton.jpg',
     imageAlt: 'Illustration: ett matkvitto med både 12 och 25 procents moms läses av Bokix, som känner igen båda satserna',
@@ -133,6 +139,7 @@ export const NEWS_POSTS = [
     path: '/nyheter/ta-betalt-med-kort-och-stripe',
     category: 'Betalningar',
     title: 'Bokix + Stripe: Ta betalt med kort på fakturan',
+    seoDescription: 'Låt kunderna betala fakturan med kort, Apple Pay eller Google Pay via Stripe. Bokix prickar av betalningen och bokför moms och avgifter.',
     excerpt: 'Låt dina kunder betala fakturor direkt med kort, Apple Pay och Google Pay via Stripe. Bokix prickar av betalningen och bokför automatiskt intäkt, moms och transaktionsavgifter.',
     image: '/blog/nyhet-stripe.jpg',
     imageAlt: 'Illustration: Bokix och Stripe i samarbete för kortbetalningar och automatisk bokföring',
@@ -177,6 +184,7 @@ export const NEWS_POSTS = [
     path: '/nyheter/kassaforsaljning-och-dagsavslut-med-zettle',
     category: 'Kassa & Butik',
     title: 'Bokix + Zettle: Automatisk butiksbokföring',
+    seoDescription: 'Tar du betalt med Zettle? Bokix hämtar dagens försäljning och skapar färdiga dagsavslut med rätt moms och avgifter.',
     excerpt: 'Tar du betalt med Zettle i butiken, caféet eller salongen? Nu hämtar Bokix dagens försäljning automatiskt och skapar färdiga dagsavslut med rätt momssatser och avgifter.',
     image: '/blog/nyhet-zettle.jpg',
     imageAlt: 'Illustration: Bokix och Zettle by PayPal i samarbete för automatisk kassa- och kortförsäljning',
@@ -215,6 +223,63 @@ export const NEWS_POSTS = [
       { t: 'callout', kind: 'info', title: 'Säker och godkänd koppling', x: 'Kopplingen använder Zettles officiella och säkra API. Du kan när som helst koppla bort tjänsten under Inställningar om du önskar.' },
 
       { t: 'p', x: 'Vill du prova hur smidigt det är att driva butik och café med Bokix? Skapa ett konto och anslut Zettle under Inställningar, eller läs mer om våra integrationer på [Integrationer](/integrationer).' },
+    ],
+  },
+  {
+    news: true,
+    slug: 'skicka-fakturor-fran-din-egen-gmail',
+    path: '/nyheter/skicka-fakturor-fran-din-egen-gmail',
+    category: 'Fakturering',
+    title: 'Skicka fakturor från din Gmail',
+    seoTitle: 'Skicka fakturor från din egen Gmail',
+    seoDescription: 'Koppla Gmail till Bokix så går fakturor, offerter och påminnelser från din egen adress. Svaren hamnar i din inkorg och Bokix kan inte läsa din e-post.',
+    excerpt: 'Koppla ditt Gmail-konto så går fakturor, offerter och påminnelser från din egen adress. Kunden ser vem det kommer från, svaren hamnar i din inkorg och Bokix kan aldrig läsa din e-post.',
+    image: '/blog/nyhet-gmail.jpg',
+    imageAlt: 'Illustration: en faktura skickas från Bokix genom avsändarens eget Gmail-konto och markeras som skickad',
+    datePublished: '2026-09-28',
+    dateModified: '2026-09-28',
+    readTime: '~3 min läsning',
+    tldr: [
+      'Fakturor, offerter och betalningspåminnelser skickas från din egen Gmail-adress i stället för från Bokix.',
+      'Kunden känner igen avsändaren, svaren hamnar i din inkorg och en kopia sparas i din Skickat-mapp.',
+      'Bokix får bara rätt att skicka, aldrig att läsa. Du kopplar på med några klick och kan koppla från när du vill.',
+    ],
+    body: [
+      { t: 'p', x: 'Utan en egen koppling skickas fakturor från Bokix egen adress, med ditt företagsnamn som avsändare. Det fungerar, men det är inte din adress. Nu kan du i stället koppla ditt **Gmail-konto**, så går allt du skickar från Bokix ut från din egen e-post, precis som om du hade skrivit mejlet själv.' },
+
+      { t: 'h2', x: 'Varför det är bättre att skicka från din egen adress' },
+      { t: 'ul', x: [
+        '**Kunden känner igen dig.** Fakturan kommer från samma adress som ni redan mejlar med, inte från en okänd tjänst.',
+        '**Svaren kommer till dig.** Svarar kunden på fakturan hamnar svaret i din vanliga inkorg.',
+        '**Allt finns i Skickat.** Varje faktura och offert du skickar ligger kvar i din Skickat-mapp i Gmail, med PDF:en bifogad.',
+        '**Samma sak för allt du skickar.** Kopplingen gäller fakturor, offerter och betalningspåminnelser.',
+      ] },
+
+      { t: 'h2', x: 'Så kopplar du Gmail' },
+      { t: 'steps', x: [
+        { h: 'Öppna Kopplingar', p: 'Gå till Inställningar och välj Kopplingar. Där finns ett kort för Gmail.' },
+        { h: 'Tryck på Anslut', p: 'Du skickas till Google, väljer ditt konto och godkänner att Bokix får skicka e-post åt dig.' },
+        { h: 'Skicka som vanligt', p: 'Kortet visar Ansluten och vilken adress som används. Nästa gång du trycker på Skicka via e-post går fakturan från den adressen.' },
+      ] },
+
+      { t: 'h2', x: 'Vad Bokix får göra, och vad vi inte kan göra' },
+      { t: 'p', x: 'Vi ber Google om en enda behörighet: **rätten att skicka e-post**. Den ger ingen åtkomst till din inkorg, dina utkast, ditt arkiv eller dina kontakter. Bokix kan inte läsa, söka i, ändra eller radera något i din e-post, och det är inte bara ett löfte: behörigheten finns helt enkelt inte.' },
+      { t: 'ul', x: [
+        'Nyckeln från Google sparas krypterad, lämnar aldrig våra servrar och visas aldrig i webbläsaren.',
+        'Den används bara för att skicka det du själv väljer att skicka från Bokix.',
+        'Den delas aldrig med någon, används aldrig för reklam och aldrig för att träna AI-modeller.',
+      ] },
+      { t: 'p', x: 'Detaljerna finns i vår [integritetspolicy](/privacy).' },
+
+      { t: 'h2', x: 'Fakturan kommer fram även om något krånglar' },
+      { t: 'p', x: 'Har du bytt lösenord, tagit bort Bokix åtkomst i Google eller svarar Gmail inte för stunden, skickas fakturan ändå, via Bokix vanliga adress. Du ser vad som hände i Inställningar och kan koppla om kontot med ett klick. En faktura blir aldrig liggande för att kopplingen har slutat fungera.' },
+
+      { t: 'h2', x: 'Har du mejl på en egen domän?' },
+      { t: 'p', x: 'Använder du en adress på ditt eget företags domän, till exempel hos Outlook eller one.com, finns kortet **Egen e-postadress** bredvid Gmail. Där kopplar du adressen med ett app-lösenord från din e-postleverantör. En adress i taget kan vara avsändare.' },
+
+      { t: 'callout', kind: 'tips', title: 'Koppla från när du vill', x: 'Under Inställningar → Kopplingar → Gmail trycker du på Hantera och kopplar från. Du kan också ta bort åtkomsten i ditt Google-konto under Säkerhet. Då raderas den sparade nyckeln och fakturor skickas via Bokix adress igen.' },
+
+      { t: 'p', x: 'Se hur det ser ut när en faktura skickas i videoguiden [Skicka en faktura](/guider#skicka-faktura), eller läs mer om alla kopplingar på [Integrationer](/integrationer).' },
     ],
   },
 ];

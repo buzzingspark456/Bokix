@@ -33,8 +33,8 @@ export default function DrojsmalsrantaPage() {
   return (
     <ToolShell
       tool={tool}
-      metaTitle="Dröjsmålsränta — räkna ut ränta på en försenad faktura | Bokix"
-      metaDescription="Gratis kalkylator för dröjsmålsränta enligt räntelagen: referensränta plus 8 procentenheter, räknat per dag. Se även påminnelseavgift, inkassokrav och förseningsersättning."
+      metaTitle="Dröjsmålsränta: räkna ut ränta på en sen faktura | Bokix"
+      metaDescription="Räkna ut dröjsmålsränta enligt räntelagen, referensräntan plus 8 procentenheter per dag, och se påminnelseavgift och förseningsersättning. Gratis."
       intro="En obetald faktura ger dig rätt till ränta från förfallodagen. Räkna ut exakt hur mycket, per dag, och vilka avgifter du dessutom får lägga på."
       calculator={
         <>

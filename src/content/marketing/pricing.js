@@ -12,7 +12,7 @@ export const PRICING_CONTENT = {
   sv: {
     meta: {
       title: 'Priser: från 129 kr/mån | Bokix',
-      description: 'Två tydliga priser beroende på om du har personal: 129 kr/mån utan anställda, 179 kr/mån med. Ingen moms tillkommer, inga dolda avgifter, inga funktioner att köpa till.',
+      description: 'Två priser: 129 kr/mån utan anställda och 179 kr/mån med. Ingen moms tillkommer, inga dolda avgifter och inga funktioner att köpa till.',
     },
     hero: {
       title: 'Ett pris för din situation',

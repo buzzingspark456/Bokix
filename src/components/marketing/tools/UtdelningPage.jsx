@@ -48,8 +48,8 @@ export default function UtdelningPage() {
   return (
     <ToolShell
       tool={tool}
-      metaTitle={`Utdelningskalkylator ${YEAR} — gränsbelopp enligt 3:12-reglerna | Bokix`}
-      metaDescription={`Gratis kalkylator för 3:12-reglerna ${YEAR}: grundbelopp på fyra inkomstbasbelopp, lönebaserat utrymme och skatten på utdelning i fåmansbolag. Räknar enligt de nya reglerna som gäller från 1 januari 2026.`}
+      metaTitle={`Utdelningskalkylator ${YEAR}: gränsbelopp enligt 3:12 | Bokix`}
+      metaDescription={`Räkna ut gränsbeloppet för ${YEAR} enligt de nya 3:12-reglerna: grundbelopp, lönebaserat utrymme och skatten på utdelning i fåmansbolag. Gratis.`}
       intro={`Hur mycket kan du ta i utdelning till 20 % skatt? Skriv in ägarandel, löner och sparat utrymme så räknar vi gränsbeloppet enligt de nya 3:12-reglerna för ${YEAR}.`}
       calculator={
         <>

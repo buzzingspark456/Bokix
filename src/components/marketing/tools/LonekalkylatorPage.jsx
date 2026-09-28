@@ -21,8 +21,8 @@ export default function LonekalkylatorPage() {
   return (
     <ToolShell
       tool={tool}
-      metaTitle="Lönekalkylator — vad kostar en anställd? | Bokix"
-      metaDescription="Gratis lönekalkylator: räkna ut arbetsgivaravgift, semesteravsättning och total kostnad för en anställd utifrån bruttolönen. Se hela vägen från lönekostnad till nettolön."
+      metaTitle="Lönekalkylator: vad kostar en anställd? | Bokix"
+      metaDescription="Räkna ut arbetsgivaravgift, semesteravsättning och vad en anställd kostar totalt utifrån bruttolönen, och se nettolönen. Gratis lönekalkylator."
       intro="Bruttolönen är sällan hela kostnaden. Skriv in månadslönen så ser du arbetsgivaravgiften, semesteravsättningen och vad den anställda faktiskt kostar per månad."
       calculator={
         <>

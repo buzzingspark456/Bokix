@@ -100,7 +100,7 @@ export default function ContactPage() {
   return (
     <MarketingLayout>
       <PageMeta
-        title="Kontakta oss | Bokix"
+        title="Kontakta Bokix: support och frågor"
         description="Kontakta Bokix om support, fakturering och pris, säkerhet och integritet, eller något annat. Skriv några rader här så svarar vi på din e-post."
         path="/kontakt"
       />

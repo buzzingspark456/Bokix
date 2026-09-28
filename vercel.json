@@ -127,6 +127,10 @@
       "destination": "/nyheter/kassaforsaljning-och-dagsavslut-med-zettle/index.html"
     },
     {
+      "source": "/nyheter/skicka-fakturor-fran-din-egen-gmail",
+      "destination": "/nyheter/skicka-fakturor-fran-din-egen-gmail/index.html"
+    },
+    {
       "source": "/verktyg",
       "destination": "/verktyg/index.html"
     },
