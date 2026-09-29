@@ -56,8 +56,10 @@ export function passkeysAvailable() {
 // när den öppnas och när man kommer tillbaka efter en stund, som en bankapp.
 // Spärren gäller en användare på en enhet: nyckeln bär användarens id.
 const APP_LOCK_KEY = 'bokix_applock';
-/** Så här länge får appen ligga i bakgrunden innan den spärras igen. */
-export const APP_LOCK_AFTER_MS = 60 * 1000;
+/** Så här länge får appen ligga i bakgrunden innan den spärras igen. Tre
+ * minuter, så att en kvittobild man tar med kameran inte låser appen mitt
+ * i uppladdningen. */
+export const APP_LOCK_AFTER_MS = 3 * 60 * 1000;
 
 export function setAppLock(userId) {
   try {

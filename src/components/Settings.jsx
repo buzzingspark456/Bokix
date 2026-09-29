@@ -2255,9 +2255,9 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
               ren yta hade känts platt trots gradienten. */}
           <div style={{ position: 'absolute', top: '-60px', right: '-40px', width: '200px', height: '200px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,0.14), transparent 70%)', pointerEvents: 'none' }} />
           <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '20px', flexWrap: 'wrap' }}>
-            <div className="settings-main" style={{ minWidth: 0 }}>
+            <div className="settings-main" style={{ minWidth: 0, flex: '1 1 220px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px', borderRadius: '999px', fontSize: '11px', fontWeight: 700, color: 'white', background: 'rgba(255,255,255,0.16)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', padding: '4px 10px', borderRadius: '999px', fontSize: '11px', fontWeight: 700, color: 'white', background: 'rgba(255,255,255,0.16)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
                   <Sparkles size={12} /> {tr('ui.din_plan')}
                 </span>
                 <span style={{ padding: '3px 10px', borderRadius: '999px', fontSize: '11.5px', fontWeight: 700, background: statusBadge.bg, color: statusBadge.text }}>{statusBadge.label}</span>

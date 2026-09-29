@@ -5234,7 +5234,7 @@ function App() {
       </main>
 
       {/* ── Mobile Bottom Navigation (Sida 26) ── */}
-      <nav className="mobile-bottom-nav" aria-label={tr('ui.mobilnavigation')}>
+      <nav className="mobile-bottom-nav app-bottom-nav" aria-label={tr('ui.mobilnavigation')}>
         <div className="mobile-bottom-nav-inner">
           {visibleMobileNavItems.map(item => {
             const isActive = resolveNavGroup(activeTab) === resolveTab(item.id);
