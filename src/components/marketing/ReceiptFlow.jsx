@@ -2,171 +2,215 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Check } from '../icons';
 import { BRAND } from '../../utils/brandColors';
 
-// ── "Kvittot läser sig självt"-animationen (OCR) ────────────────────────
-// Kundönskemål, uttryckligt: OCR-läsningen av kvitton ska synas på
-// startsidan som en egen, "super cool" animation — inte bara en textrad i
-// "Det här får du"-kortet (den raden finns kvar, det här är UTÖVER den).
+// ── "Kvitton läser sig själva"-animationen på startsidan (OCR) ──────────
+// Ett riktigt kvitto med läsbar text, inte grå streck (kundönskemål
+// 2026-09-29: "gör den bättre"). Strålen stannar på en rad i taget, raden
+// markeras och det fält den raden ger fylls i till höger, så man ser VAR på
+// kvittot varje värde kommer ifrån. Till sist bokförs utgiften.
 //
-// Samma rörelsevokabulär och säkerhetsregler som BankFlow.jsx/
-// MigrationFlow.jsx redan lägger fast för startsidans andra animationer:
-//   - Startar bara när den syns (IntersectionObserver, samma useCycle-
-//     mönster som featureDemos.jsx), och står stilla vid
-//     prefers-reduced-motion — men visar då SISTA läget (allt ifyllt),
-//     aldrig ett tomt kvitto.
-//   - Fälten som visas (Datum/Belopp/Moms/Konto) och märkningen med en
-//     liten OCR-badge är EXAKT vad utils/ocrReceipt.js faktiskt läser ut
-//     och vad Expenses.jsx:s OcrBadge faktiskt visar — ingen påhittad
-//     funktionalitet.
-const CYCLE_MS = 1050;
-const STEPS = 5; // 0 = strålen längst upp, inget ifyllt … 4 = allt ifyllt + bokfört
+// Fälten (Datum/Belopp/Moms/Konto) är exakt vad utils/ocrReceipt.js läser ut
+// och Expenses.jsx visar. Siffrorna går ihop: 842,50 kr inklusive 25 % moms
+// ger 168,50 kr i moms.
+//
+// Startar bara när den syns, och står stilla på sista läget (allt ifyllt)
+// vid prefers-reduced-motion, aldrig på ett tomt kvitto.
 
-const RECEIPT_LINES = [
-  { w: '78%' }, { w: '52%' }, { w: '64%' }, { w: '40%' }, { w: '70%' }, { w: '46%' },
+// Kvittots rader. `field` är index i FIELDS för raden som läses av.
+const RECEIPT = [
+  { text: 'NORRA MACKEN', sub: 'Skellefteå', head: true },
+  { text: '2026-03-14', right: '16:42', field: 0 },
+  { text: 'Diesel 42,12 l', right: '842,50', field: 3 },
+  { text: 'Varav moms 25 %', right: '168,50', field: 2 },
+  { text: 'TOTALT SEK', right: '842,50', field: 1, total: true },
 ];
 
 const FIELDS = [
   { label: 'Datum', value: '14 mar 2026' },
   { label: 'Belopp', value: '842,50 kr' },
-  { label: 'Moms', value: '25 %' },
+  { label: 'Moms', value: '168,50 kr' },
   { label: 'Konto', value: '5611 Drivmedel' },
 ];
+
+// Tandad nederkant som clip-path: 14 tänder, 7 px djupa.
+const TEAR = (() => {
+  const teeth = 14;
+  const pts = ['0 0', '100% 0'];
+  for (let i = teeth * 2; i >= 0; i -= 1) {
+    pts.push(`${(i / (teeth * 2)) * 100}% ${i % 2 ? '100%' : 'calc(100% - 7px)'}`);
+  }
+  return `polygon(${pts.join(', ')})`;
+})();
+
+// Raderna i den ordning strålen läser dem, uppifrån och ned.
+const READ_ORDER = RECEIPT.map((r, i) => (r.field != null ? i : null)).filter(i => i != null);
+
+// Tidslinje: kort paus, en rad i taget, bokfört, vila, börja om.
+const START_MS = 500;
+const ROW_MS = 700;
+const DONE_HOLD_MS = 2800;
 
 function prefersReducedMotion() {
   if (typeof window === 'undefined' || !window.matchMedia) return false;
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
-/** Samma synlighets-/reducerad-rörelse-mönster som featureDemos.jsx:s
- *  useCycle, egen kopia hellre än en delad import — den här cyklar en
- *  bråkdel snabbare (CYCLE_MS) och har ett annat antal steg, och de två
- *  filerna hör inte ihop funktionellt. */
-function useReceiptCycle() {
+/** step: -1 = inget läst, 0..n-1 = raden READ_ORDER[step] läses, n = bokfört. */
+function useReceiptTimeline() {
   const ref = useRef(null);
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(-1);
   const [visible, setVisible] = useState(false);
   const [reduced, setReduced] = useState(false);
 
   useEffect(() => {
-    if (prefersReducedMotion()) { setReduced(true); setStep(STEPS - 1); }
+    if (prefersReducedMotion()) { setReduced(true); setStep(READ_ORDER.length); }
   }, []);
 
   useEffect(() => {
     const el = ref.current;
     if (!el || typeof IntersectionObserver === 'undefined') { setVisible(true); return undefined; }
-    const io = new IntersectionObserver(entries => setVisible(entries.some(e => e.isIntersecting)), { threshold: 0.3 });
+    const io = new IntersectionObserver(entries => setVisible(entries.some(e => e.isIntersecting)), { threshold: 0.35 });
     io.observe(el);
     return () => io.disconnect();
   }, []);
 
   useEffect(() => {
     if (!visible || reduced) return undefined;
-    const t = setInterval(() => setStep(prev => (prev + 1) % STEPS), CYCLE_MS);
-    return () => clearInterval(t);
-  }, [visible, reduced]);
+    const delay = step === -1 ? START_MS : step >= READ_ORDER.length ? DONE_HOLD_MS : ROW_MS;
+    const t = setTimeout(() => setStep(s => (s >= READ_ORDER.length ? -1 : s + 1)), delay);
+    return () => clearTimeout(t);
+  }, [visible, reduced, step]);
 
   return [ref, step];
 }
 
 export default function ReceiptFlow() {
-  const [ref, step] = useReceiptCycle();
-  const filled = Math.max(0, step); // steg 0 → 0 fält ifyllda, steg 4 → alla fyra
+  const [ref, step] = useReceiptTimeline();
+  const rowRefs = useRef([]);
+  const [beamTop, setBeamTop] = useState(0);
+  const done = step >= READ_ORDER.length;
+  const activeRow = step >= 0 && !done ? READ_ORDER[step] : null;
+  // Fält som redan lästs in: alla rader före och på den aktuella.
+  const readRows = new Set(done ? READ_ORDER : READ_ORDER.slice(0, Math.max(0, step + 1)));
+  const filledFields = new Set([...readRows].map(i => RECEIPT[i].field));
+
+  useEffect(() => {
+    const el = activeRow != null ? rowRefs.current[activeRow] : null;
+    // Strålen ligger längs radens underkant, så den aldrig stryker över texten.
+    if (el) setBeamTop(el.offsetTop + el.offsetHeight);
+  }, [activeRow]);
 
   return (
     <div className="bx-ocr" ref={ref}>
       <style>{`
-        .bx-ocr { display: flex; align-items: center; justify-content: center; gap: clamp(14px, 3.4vw, 30px); width: 100%; max-width: min(94%, 640px); margin: 0 auto; flex-wrap: nowrap; }
+        .bx-ocr { display: flex; align-items: center; justify-content: center; gap: clamp(18px, 4vw, 44px); width: 100%; max-width: 720px; margin: 0 auto; }
 
-        /* Kvittot: vitt papper med en sicksackad nederkant (repeating-
-           linear-gradient som en mask) — läser omedelbart som "kvitto",
-           inte "generiskt kort". */
+        /* Kvittot: vitt termopapper även i mörkt läge. Den tandade
+           nederkanten klipps ut med clip-path (se TEAR), och skuggan ligger
+           på ett yttre lager som drop-shadow, eftersom clip-path annars
+           klipper bort en vanlig box-shadow. */
+        .bx-ocr-paper {
+          flex-shrink: 0; width: clamp(190px, 30vw, 250px); transform: rotate(-1.2deg);
+          filter: drop-shadow(0 1px 1px rgba(15,23,20,0.10)) drop-shadow(0 14px 22px rgba(15,23,20,0.20));
+        }
         .bx-ocr-receipt {
-          position: relative; flex-shrink: 0; width: clamp(108px, 15vw, 158px);
-          padding: 16px 14px 20px; background: #fff; border: 1px solid var(--mkt-card-border);
-          border-radius: 6px 6px 0 0; box-shadow: var(--mkt-card-shadow); overflow: hidden;
+          position: relative; padding: 20px 18px 30px; background: #fff; color: #1f2937;
+          font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 12px; line-height: 1.35;
+          clip-path: ${TEAR};
         }
-        .bx-ocr-receipt::after {
-          content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 10px;
-          background: repeating-linear-gradient(-45deg, #fff 0 6px, transparent 6px 12px), var(--mkt-page-bg, #fff);
-          -webkit-mask: repeating-linear-gradient(-45deg, #000 0 6px, transparent 6px 12px);
-          mask: repeating-linear-gradient(-45deg, #000 0 6px, transparent 6px 12px);
+        .bx-ocr-head { text-align: center; padding-bottom: 12px; margin-bottom: 10px; border-bottom: 1px dashed #cbd5d1; }
+        .bx-ocr-head strong { display: block; font-size: 14px; letter-spacing: 0.08em; }
+        .bx-ocr-head span { color: #6b7280; font-size: 11px; }
+        .bx-ocr-line {
+          position: relative; z-index: 1; display: flex; justify-content: space-between; gap: 10px;
+          padding: 5px 6px; margin: 0 -6px; border-radius: 4px;
+          transition: background-color 0.3s ease, color 0.3s ease;
         }
-        .bx-ocr-line { height: 4px; border-radius: 2px; background: var(--mkt-card-border); margin-bottom: 8px; }
-        .bx-ocr-line:last-child { margin-bottom: 0; }
+        .bx-ocr-line.is-total { margin-top: 8px; padding-top: 9px; border-top: 1px dashed #cbd5d1; font-weight: 700; font-size: 13px; border-radius: 0 0 4px 4px; }
+        .bx-ocr-line.is-active { background: rgba(20,184,166,0.16); color: #0f3d2e; }
+        .bx-ocr-line.is-read { color: #0f5132; }
 
-        /* Strålen: sveper nedåt i takt med steg-numret, glöder i loggans
-           gradient. transition (inte keyframes) eftersom positionen styrs
-           av React-state, precis som ledgerraderna i BankFlow. */
+        /* Strålen glider till raden som läses. */
         .bx-ocr-beam {
-          position: absolute; left: 4px; right: 4px; height: 14px; border-radius: 3px;
-          background: linear-gradient(90deg, transparent, rgba(14,165,233,0.55), rgba(20,184,166,0.65), rgba(132,204,22,0.55), transparent);
-          filter: blur(1.5px); box-shadow: 0 0 10px 1px rgba(20,184,166,0.45);
-          transition: top 0.55s cubic-bezier(0.45, 0, 0.55, 1), opacity 0.3s;
+          position: absolute; left: 8px; right: 8px; height: 2px; margin-top: -1px; border-radius: 2px; z-index: 2;
+          background: linear-gradient(90deg, transparent, #14b8a6 20%, #84cc16 80%, transparent);
+          box-shadow: 0 0 12px 2px rgba(20,184,166,0.45);
+          transition: top 0.45s cubic-bezier(0.65, 0, 0.35, 1), opacity 0.3s ease;
+          pointer-events: none;
         }
 
-        /* Pilen mellan kvitto och fält — kort, ingen ledning behövs på så
-           kort avstånd (till skillnad från BankFlow:s längre resa). */
-        .bx-ocr-arrow { flex-shrink: 0; color: var(--mkt-muted); }
-
-        /* Fältformuläret. Samma radspråk som featureDemos.jsx:s .bx-fd-row,
-           egen liten klass hellre än delad — annars hade en ändring i
-           featureDemos.jsx:s delade stilar av misstag kunnat påverka den
-           här animationen som ligger i en helt annan fil. */
-        .bx-ocr-form { flex: 1 1 auto; min-width: 0; max-width: 260px; display: flex; flex-direction: column; gap: 7px; }
-        .bx-ocr-row {
-          display: flex; align-items: center; gap: 8px; background: var(--mkt-card-bg);
-          border: 1px solid var(--mkt-card-border); border-radius: 9px; padding: 7px 10px;
-          opacity: 0; transform: translateX(-5px);
-          transition: opacity 0.4s, transform 0.4s cubic-bezier(0.22,1,0.36,1), border-color 0.4s;
+        /* Formuläret till höger: samma rader som i appens Ny utgift. */
+        .bx-ocr-form {
+          flex: 1 1 auto; min-width: 0; max-width: 300px; background: var(--mkt-card-bg);
+          border: 1px solid var(--mkt-card-border); border-radius: 14px; padding: 16px;
+          box-shadow: 0 18px 40px -26px rgba(15,23,20,0.3);
         }
-        .bx-ocr-row-in { opacity: 1; transform: none; border-color: ${BRAND.green}; }
-        .bx-ocr-row-label { font-size: 11px; font-weight: 700; color: var(--mkt-muted); flex-shrink: 0; }
-        .bx-ocr-row-value { margin-left: auto; font-size: 12px; font-weight: 800; color: var(--mkt-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .bx-ocr-row-check { flex-shrink: 0; color: ${BRAND.green}; opacity: 0; transform: scale(0.7); transition: opacity 0.3s, transform 0.3s cubic-bezier(0.22,1,0.36,1); }
-        .bx-ocr-row-in .bx-ocr-row-check { opacity: 1; transform: none; }
+        .bx-ocr-form-title { font-size: 13px; font-weight: 700; color: var(--mkt-ink); margin: 0 0 12px; }
+        .bx-ocr-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid var(--mkt-border-soft); }
+        .bx-ocr-row-label { font-size: 12.5px; color: var(--mkt-muted); width: 56px; flex-shrink: 0; }
+        .bx-ocr-row-value {
+          flex: 1; min-width: 0; font-size: 13.5px; font-weight: 600; color: var(--mkt-ink);
+          white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .bx-ocr-row-empty { display: block; height: 8px; width: 70%; border-radius: 4px; background: var(--mkt-border-soft); }
+        .bx-ocr-row-value.is-in { animation: bxOcrIn 0.4s cubic-bezier(0.22, 1, 0.36, 1); }
+        @keyframes bxOcrIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+        .bx-ocr-row-check { flex-shrink: 0; color: var(--mkt-accent-green-fg); opacity: 0; transform: scale(0.6); transition: opacity 0.25s, transform 0.3s cubic-bezier(0.22, 1, 0.36, 1); }
+        .bx-ocr-row.is-filled .bx-ocr-row-check { opacity: 1; transform: none; }
 
         .bx-ocr-done {
-          display: inline-flex; align-items: center; gap: 5px; align-self: flex-start; margin-top: 2px;
-          padding: 4px 9px; border-radius: 999px; font-size: 10.5px; font-weight: 800;
-          background: var(--mkt-accent-green-soft); color: var(--mkt-accent-green-fg);
-          opacity: 0; transition: opacity 0.4s;
+          display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 12px;
+          padding: 9px 12px; border-radius: 10px; font-size: 13px; font-weight: 700;
+          background: ${BRAND.green}; color: #fff;
+          opacity: 0; transform: translateY(4px); transition: opacity 0.35s, transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
         }
-        .bx-ocr-done-in { opacity: 1; }
+        .bx-ocr-done.is-in { opacity: 1; transform: none; }
 
-        @media (max-width: 480px) {
-          .bx-ocr { gap: 10px; }
-          .bx-ocr-receipt { width: 92px; padding: 13px 11px 17px; }
-          .bx-ocr-form { max-width: 190px; }
+        @media (max-width: 560px) {
+          .bx-ocr { flex-direction: column; gap: 22px; }
+          .bx-ocr-paper { width: min(250px, 82%); }
+          .bx-ocr-form { width: 100%; max-width: 320px; }
         }
-
         @media (prefers-reduced-motion: reduce) {
-          .bx-ocr-beam { transition: none; opacity: 0; }
-          .bx-ocr-row, .bx-ocr-row-check, .bx-ocr-done { transition: none; }
+          .bx-ocr-beam { display: none; }
+          .bx-ocr-line, .bx-ocr-row-check, .bx-ocr-done { transition: none; }
+          .bx-ocr-row-value.is-in { animation: none; }
         }
       `}</style>
 
+      <div className="bx-ocr-paper" aria-hidden>
       <div className="bx-ocr-receipt">
-        {RECEIPT_LINES.map((l, i) => <div key={i} className="bx-ocr-line" style={{ width: l.w }} />)}
-        <div className="bx-ocr-beam" aria-hidden style={{ top: `${8 + Math.min(step, 3) * 22}%`, opacity: step >= 4 ? 0 : 1 }} />
+        {RECEIPT.map((r, i) => (r.head ? (
+          <div key={i} className="bx-ocr-head"><strong>{r.text}</strong><span>{r.sub}</span></div>
+        ) : (
+          <div
+            key={i}
+            ref={el => { rowRefs.current[i] = el; }}
+            className={`bx-ocr-line${r.total ? ' is-total' : ''}${activeRow === i ? ' is-active' : readRows.has(i) ? ' is-read' : ''}`}
+          >
+            <span>{r.text}</span><span>{r.right}</span>
+          </div>
+        )))}
+        <div className="bx-ocr-beam" style={{ top: beamTop, opacity: activeRow != null ? 1 : 0 }} />
+      </div>
       </div>
 
-      <svg className="bx-ocr-arrow" width="20" height="14" viewBox="0 0 20 14" fill="none" aria-hidden>
-        <path d="M0 7h17M12 1l6 6-6 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-
       <div className="bx-ocr-form">
+        <p className="bx-ocr-form-title">Ny utgift</p>
         {FIELDS.map((f, i) => {
-          const on = filled > i;
+          const on = filledFields.has(i);
           return (
-            <div key={f.label} className={`bx-ocr-row${on ? ' bx-ocr-row-in' : ''}`}>
+            <div key={f.label} className={`bx-ocr-row${on ? ' is-filled' : ''}`}>
               <span className="bx-ocr-row-label">{f.label}</span>
-              <span className="bx-ocr-row-value">{on ? f.value : '—'}</span>
-              <Check size={13} strokeWidth={3} className="bx-ocr-row-check" />
+              {on
+                ? <span className="bx-ocr-row-value is-in">{f.value}</span>
+                : <span className="bx-ocr-row-value"><span className="bx-ocr-row-empty" /></span>}
+              <Check size={15} className="bx-ocr-row-check" />
             </div>
           );
         })}
-        <span className={`bx-ocr-done${step >= 4 ? ' bx-ocr-done-in' : ''}`}>
-          <Check size={11} strokeWidth={3} /> Bokfört
-        </span>
+        <div className={`bx-ocr-done${done ? ' is-in' : ''}`}>
+          <Check size={15} /> Bokförd som verifikation
+        </div>
       </div>
     </div>
   );

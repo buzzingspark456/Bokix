@@ -35,6 +35,11 @@ const DemoWorkspace = lazy(() => import('./DemoWorkspace'));
 // svenska termen i parentes (t.ex. "Limited company (aktiebolag, AB)")
 // snarare än en 1:1-översättning — se filkommentaren där. ──
 
+// Funktionskorten glider in efter rubriken: första kortet så här många ms
+// efter att sektionen syns, sedan ett i taget med kort mellanrum.
+const CARD_DELAY_MS = 320;
+const CARD_STAGGER_MS = 110;
+
 // ── Fyra kolumner, matchat mot appens faktiska huvudsektioner (se globala
 // sidomenyn i App.jsx) — varje kort får en egen handritad illustration
 // istället för samma enfärgade gröna chip fyra gånger. ──
@@ -352,19 +357,10 @@ export default function LandingPage({ onEnterApp, locale = 'sv' }) {
         </div>
       </section>
 
-      {/* ── FUNKTIONSÖVERSIKT — flyttad upp direkt efter nyckeltalen (annan
-          ordning än tidigare), varje kort med egen gradient-ikonchip. ── */}
+      {/* ── FUNKTIONSÖVERSIKT — direkt efter nyckeltalen. ── */}
       <section id="funktioner-teaser" style={{ padding: '84px 24px', background: 'var(--mkt-card-bg)', borderTop: '1px solid var(--mkt-border-soft)', borderBottom: '1px solid var(--mkt-border-soft)', position: 'relative', overflow: 'hidden' }}>
-        {/* Kolumnräkneark-radband (kundönskemål: "cool", inte generisk) —
-            en riktig bokföringsdetalj, reserverad för den här sektionen och
-            jämförelsetabellen längre ner eftersom innehållet faktiskt
-            HANDLAR om bokföring/tabelldata. */}
-        {/* Räkenskapslinjerna kvar, aurora-klotet borta: sektionen ska
-            vara REN VIT (kundönskemål). De tonade kloten gjorde den
-            gulgrön i kanterna, vilket är precis den färg elfenbens-
-            sektionerna redan har — och då syntes inte skiftet mellan dem. */}
-        <div aria-hidden className="lp-ledger-lines" />
-        {/* Kundönskemål: en FAST maxWidth ("gör den bredare") löser bara
+        {/* Ren vit bakgrund utan räkenskapslinjer (kundönskemål 2026-09-29).
+            Bredden: en FAST maxWidth ("gör den bredare") löser bara
             problemet vid EN specifik fönsterbredd — bredare än det ser det
             fortfarande tomt ut, smalare än det klipps det i onödan.
             min(vw, px) håller innehållet proportionellt mot den FAKTISKA
@@ -386,11 +382,14 @@ export default function LandingPage({ onEnterApp, locale = 'sv' }) {
               under. Samma lp-lux-card-hover (lyft+skugga) som resten av
               sidan, ingen färgad muspekar-glöd (borttagen på
               kundönskemål). */}
+          {/* Rubriken kommer först, korten strax efter och ett i taget
+              (kundönskemål 2026-09-29). Kort väntan: ingen ska behöva sitta
+              och vänta på att innehållet dyker upp. */}
           <div className="lp-bento-grid">
             {FEATURE_COLUMNS.map((f, i) => (
               i === 0 ? (
                 <Reveal
-                  key={f.title} delay={0}
+                  key={f.title} delay={CARD_DELAY_MS}
                   className="lp-lux-card lp-bento-feature-full lp-bento-feature-row"
                   style={{ background: 'var(--mkt-card-bg)', border: '1px solid var(--mkt-card-border)', borderRadius: '20px', overflow: 'hidden', boxShadow: '0 14px 30px -20px rgba(28,36,32,0.26)', display: 'flex', alignItems: 'stretch' }}
                 >
@@ -417,7 +416,7 @@ export default function LandingPage({ onEnterApp, locale = 'sv' }) {
                 </Reveal>
               ) : (
                 <Reveal
-                  key={f.title} delay={i * 80}
+                  key={f.title} delay={CARD_DELAY_MS + i * CARD_STAGGER_MS}
                   className="lp-lux-card"
                   style={{ background: 'var(--mkt-card-bg)', border: '1px solid var(--mkt-card-border)', borderRadius: '18px', overflow: 'hidden', boxShadow: '0 14px 30px -20px rgba(28,36,32,0.26)' }}
                 >
