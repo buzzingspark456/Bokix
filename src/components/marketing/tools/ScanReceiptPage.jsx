@@ -1,9 +1,9 @@
 import React, { useRef, useState } from 'react';
-import { UploadCloud, FileWarning, Check, AlertCircle, Minus } from '../../icons';
-import { INK, MUTED, CARD_BORDER } from '../marketingTokens';
+import { Check } from '../../icons';
+import { INK, INK_SOFT, MUTED } from '../marketingTokens';
 import { BRAND } from '../../../utils/brandColors';
 import { toolBySlug } from './toolsConfig';
-import ToolShell, { ToolResultPanel, ToolNote } from './ToolShell';
+import ToolShell, { ToolNote } from './ToolShell';
 import { ocrFile, parseReceiptText } from '../../../utils/ocrReceipt';
 import { DEFAULT_ACCOUNTS } from '../../AccountsData';
 import { MIN_SCAN_MS, REVEAL_STEP_MS, SCAN_MESSAGES, photoHintText } from '../../shared/ScanExperience';
@@ -69,30 +69,27 @@ function buildFields(parsed, unreadable) {
 }
 
 const STATE_TEXT = { found: 'Avläst', guess: 'Kontrollera', missing: 'Hittades inte' };
-const STATE_STYLE = {
-  found: { bg: 'rgba(132,204,22,0.22)', fg: '#a3e635', Icon: Check },
-  guess: { bg: 'rgba(251,191,36,0.2)', fg: '#fbbf24', Icon: AlertCircle },
-  missing: { bg: 'rgba(255,255,255,0.1)', fg: 'rgba(255,255,255,0.5)', Icon: Minus },
-};
 
-function ScanRow({ field, revealed }) {
-  const st = !revealed ? null : (field.found ? field.state : 'missing');
-  const style = st ? STATE_STYLE[st] : null;
-  const Icon = style?.Icon;
+// Fältens namn, så att formuläret syns redan innan något kvitto valts.
+const FIELD_LABELS = ['Leverantör', 'Datum', 'Nummer', 'Belopp', 'Moms', 'Konto'];
+
+/** En rad i "Ny utgift": namn, värde och en liten statustext. Utan värde
+ * (inget kvitto än, eller raden inte uppläst ännu) visas en grå platshållare,
+ * som i appens kvittovy. */
+function ScanRow({ label, field, revealed, scanning }) {
+  const st = !revealed || !field ? null : (field.found ? field.state : 'missing');
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '22px 1fr auto', gap: '12px', alignItems: 'center', padding: '11px 0', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-      <span aria-hidden style={{ width: 20, height: 20, borderRadius: '50%', background: style ? style.bg : 'rgba(255,255,255,0.06)', color: style ? style.fg : 'transparent', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: style ? 'none' : '1.5px dashed rgba(255,255,255,0.25)' }}>
-        {Icon ? <Icon size={11} strokeWidth={3} /> : null}
+    <div className={`bx-scan-row${st ? ` is-${st}` : ''}`}>
+      <span className="bx-scan-label">{label}</span>
+      <span className="bx-scan-value">
+        {st && st !== 'missing'
+          ? <span className="bx-scan-in">{field.value}{field.note ? <small>{field.note}</small> : null}</span>
+          : st === 'missing' ? '—' : <span className={`bx-scan-skel${scanning ? ' is-busy' : ''}`} />}
       </span>
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: '12px', fontWeight: 700, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.02em' }}>
-          {field.label}{revealed && field.found && field.note ? <span style={{ fontWeight: 500, color: 'rgba(255,255,255,0.4)' }}> · {field.note}</span> : null}
-        </div>
-        <div style={{ fontSize: '15.5px', fontWeight: 700, color: st === 'missing' || !st ? 'rgba(255,255,255,0.32)' : 'white', overflowWrap: 'anywhere', marginTop: '1px' }}>
-          {revealed && field.found ? field.value : '—'}
-        </div>
-      </div>
-      <span style={{ fontSize: '11.5px', fontWeight: 800, color: style ? style.fg : 'transparent', whiteSpace: 'nowrap' }}>{st ? STATE_TEXT[st] : ''}</span>
+      <span className="bx-scan-state">
+        {st === 'found' && <Check size={13} />}
+        {st ? STATE_TEXT[st] : ''}
+      </span>
     </div>
   );
 }
@@ -200,130 +197,163 @@ export default function ScanReceiptPage() {
       metaDescription="Ladda upp en bild av ett kvitto och få datum, belopp, moms och bokföringskonto direkt — läses av i din egen webbläsare, ingenting laddas upp till en server."
       intro="Ladda upp en bild eller PDF av ett kvitto. Datum, belopp, momssats och ett förslag på bokföringskonto läses av på några sekunder — direkt i din webbläsare."
       calculator={
-        <>
-          <div
-            onDragOver={e => e.preventDefault()}
-            onDrop={onDrop}
-            onClick={() => inputRef.current?.click()}
-            role="button" tabIndex={0}
-            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') inputRef.current?.click(); }}
-            style={{
-              position: 'relative', overflow: 'hidden',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px',
-              padding: '30px 20px', borderRadius: '14px', border: `1.5px dashed ${CARD_BORDER}`,
-              background: 'var(--mkt-ivory)', cursor: 'pointer', textAlign: 'center', minHeight: '160px',
-            }}
-          >
-            {/* Kvittot visas stort, och strålen sveper över själva bilden
-                medan den läses, så man ser att det är DITT kvitto som läses. */}
-            {previewUrl ? (
-              <div style={{ position: 'relative', lineHeight: 0, borderRadius: '10px', overflow: 'hidden', boxShadow: '0 10px 28px -14px rgba(28,36,32,0.45)' }}>
-                <img src={previewUrl} alt="Ditt kvitto" style={{ display: 'block', maxHeight: 'min(440px, 62vh)', maxWidth: '100%', objectFit: 'contain' }} />
-                <span
-                  key={runIdRef.current}
-                  className="bx-scan-beam" aria-hidden
-                  style={{ top: `${status === 'scanning' ? beamPct : 100}%`, opacity: status === 'scanning' ? 1 : 0 }}
-                />
-              </div>
-            ) : (
-              <UploadCloud size={26} color={BRAND.greenDark} />
-            )}
-            <div style={{ fontSize: '14px', fontWeight: 700, color: INK, overflowWrap: 'anywhere' }}>
-              {fileName ? (status === 'scanning' ? 'Läser kvittot…' : 'Klicka för att läsa ett annat kvitto') : 'Dra och släpp, eller klicka för att välja'}
-            </div>
-            <div style={{ fontSize: '12px', color: MUTED }}>{fileName || 'JPG, PNG, WEBP eller PDF — max 10 MB'}</div>
-            <input
-              ref={inputRef} type="file" accept={ACCEPTED.join(',')} style={{ display: 'none' }}
-              onChange={e => handleFile(e.target.files?.[0])}
-            />
-
-            {/* Samma stråle som startsidans "Kvitton läser sig själva"
-                (marketing/ReceiptFlow.jsx) — kundens egna ord: den
-                animationen är "super cool", gör likadan här i stället för
-                en procentsiffra som räknar upp. Skillnaden mot
-                ReceiptFlow: den där loopar på en fast timer med
-                påhittad exempeldata, den här styrs av `top` i EKTA
-                läsframsteg (beamPct, satt från ocrReceipt.js:s riktiga
-                onProgress-meddelanden via stagePctFor ovan) — strålen
-                rör sig alltså i takt med att DIN bild faktiskt läses,
-                svepande hela vägen till botten och tonar bort exakt när
-                resultatet är klart, aldrig innan. */}
-            {/* PDF utan förhandsbild: strålen sveper över hela rutan. */}
-            {!previewUrl && (
+        <div
+          className={`bx-scan-drop${previewUrl ? ' has-image' : ''}${status === 'scanning' ? ' is-scanning' : ''}`}
+          onDragOver={e => e.preventDefault()}
+          onDrop={onDrop}
+          onClick={() => { if (status !== 'scanning') inputRef.current?.click(); }}
+          role="button" tabIndex={0}
+          aria-label="Välj ett kvitto att läsa av"
+          onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') inputRef.current?.click(); }}
+        >
+          <input
+            ref={inputRef} type="file" accept={ACCEPTED.join(',')} style={{ display: 'none' }}
+            onChange={e => { handleFile(e.target.files?.[0]); e.target.value = ''; }}
+          />
+          {previewUrl ? (
+            // Kvittot visas stort, och strålen sveper över själva bilden i
+            // takt med den riktiga läsningen (beamPct, från ocrReceipt.js).
+            <div className="bx-scan-image">
+              <img src={previewUrl} alt="Ditt kvitto" />
               <span
                 key={runIdRef.current}
                 className="bx-scan-beam" aria-hidden
                 style={{ top: `${status === 'scanning' ? beamPct : 100}%`, opacity: status === 'scanning' ? 1 : 0 }}
               />
-            )}
-          </div>
-
-          {status === 'scanning' && (
-            <p style={{ fontSize: '13px', color: MUTED, marginTop: '14px' }}>
-              {SCAN_MESSAGES[msgIdx]}
-            </p>
+            </div>
+          ) : status === 'scanning' ? (
+            // PDF utan förhandsbild: ett tomt papper som strålen sveper över.
+            <div className="bx-scan-image bx-scan-pdf">
+              <span>PDF</span>
+              <span key={runIdRef.current} className="bx-scan-beam" aria-hidden style={{ top: `${beamPct}%` }} />
+            </div>
+          ) : (
+            <div className="bx-scan-empty">
+              <span className="bx-scan-btn">Välj kvitto</span>
+              <span className="bx-scan-hint">eller dra hit en bild eller PDF</span>
+            </div>
           )}
-          {status === 'error' && (
-            <p style={{ fontSize: '13px', color: '#b91c1c', marginTop: '14px', display: 'flex', alignItems: 'center', gap: '7px' }}>
-              <FileWarning size={14} /> {message}
-            </p>
-          )}
-
+          <p className="bx-scan-caption">
+            {status === 'scanning' ? SCAN_MESSAGES[msgIdx]
+              : status === 'error' ? <span className="bx-scan-error">{message}</span>
+                : fileName ? 'Klicka för att läsa ett annat kvitto'
+                  : 'JPG, PNG, WEBP eller PDF, högst 10 MB'}
+          </p>
+        </div>
+      }
+      result={
+        <div className="bx-scan-panel">
           <style>{`
+            .bx-scan-drop {
+              height: 100%; min-height: 360px; box-sizing: border-box;
+              display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+              padding: 20px; border-radius: 16px; cursor: pointer; text-align: center;
+              background: var(--mkt-ivory); border: 1.5px dashed var(--mkt-card-border);
+              transition: border-color 0.2s ease;
+            }
+            .bx-scan-drop:hover, .bx-scan-drop:focus-visible { border-color: ${BRAND.green}; outline: none; }
+            .bx-scan-drop.has-image, .bx-scan-drop.is-scanning { border-style: solid; }
+            .bx-scan-drop.is-scanning { cursor: progress; }
+            .bx-scan-empty { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+            .bx-scan-btn {
+              display: inline-block; padding: 12px 24px; border-radius: 10px;
+              background: ${BRAND.green}; color: #fff; font-size: 15px; font-weight: 600;
+            }
+            .bx-scan-hint { font-size: 14px; color: ${INK_SOFT}; }
+            .bx-scan-caption { margin: 0; font-size: 13px; color: ${MUTED}; min-height: 18px; overflow-wrap: anywhere; }
+            .bx-scan-error { color: var(--mkt-accent-red-fg); font-weight: 600; }
+            .bx-scan-image {
+              position: relative; line-height: 0; border-radius: 10px; overflow: hidden;
+              box-shadow: 0 1px 2px rgba(15,23,20,0.08), 0 16px 34px -20px rgba(15,23,20,0.45);
+            }
+            .bx-scan-image img { display: block; max-height: min(420px, 60vh); max-width: 100%; object-fit: contain; }
+            .bx-scan-pdf {
+              width: 180px; height: 240px; background: #fff; line-height: normal;
+              display: flex; align-items: center; justify-content: center;
+              font-size: 13px; font-weight: 700; letter-spacing: 0.1em; color: #9ca3af;
+            }
             .bx-scan-beam {
-              position: absolute; left: 4%; right: 4%; height: 20px; margin-top: -10px;
-              border-radius: 4px; pointer-events: none;
-              background: linear-gradient(90deg, transparent, ${BRAND.green}, transparent);
-              filter: blur(1.5px);
-              box-shadow: 0 0 14px 2px rgba(11,99,41,0.4);
+              position: absolute; left: 0; right: 0; height: 3px; margin-top: -1.5px; pointer-events: none;
+              background: linear-gradient(90deg, transparent, #14b8a6 15%, #84cc16 85%, transparent);
+              box-shadow: 0 0 16px 3px rgba(20,184,166,0.45);
               transition: top 0.5s cubic-bezier(0.45, 0, 0.55, 1), opacity 0.35s;
+            }
+
+            .bx-scan-panel { padding: clamp(24px, 4vw, 34px); display: flex; flex-direction: column; border-left: 1px solid var(--mkt-border-soft); }
+            .bx-scan-title { margin: 0 0 6px; font-size: 17px; font-weight: 700; color: ${INK}; }
+            .bx-scan-sub { margin: 0 0 14px; font-size: 13.5px; color: ${MUTED}; line-height: 1.55; }
+            .bx-scan-row {
+              display: grid; grid-template-columns: 92px minmax(0, 1fr) auto; gap: 12px; align-items: center;
+              padding: 13px 0; border-top: 1px solid var(--mkt-border-soft);
+            }
+            .bx-scan-label { font-size: 13.5px; color: ${MUTED}; }
+            .bx-scan-value { font-size: 15px; font-weight: 600; color: ${INK}; min-width: 0; overflow-wrap: anywhere; }
+            .bx-scan-value small { display: block; margin-top: 2px; font-size: 12px; font-weight: 500; color: ${MUTED}; }
+            .bx-scan-row.is-missing .bx-scan-value { color: ${MUTED}; font-weight: 500; }
+            .bx-scan-in { animation: bxScanIn 0.4s cubic-bezier(0.22, 1, 0.36, 1); }
+            @keyframes bxScanIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+            .bx-scan-skel { display: block; height: 9px; width: 62%; border-radius: 5px; background: var(--mkt-border-soft); }
+            .bx-scan-skel.is-busy { animation: bxScanPulse 1.2s ease-in-out infinite; }
+            @keyframes bxScanPulse { 50% { opacity: 0.45; } }
+            .bx-scan-state { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; font-weight: 600; white-space: nowrap; color: ${MUTED}; }
+            .bx-scan-row.is-found .bx-scan-state { color: var(--mkt-accent-green-fg); }
+            .bx-scan-row.is-guess .bx-scan-state { color: #b45309; }
+            html[data-theme="dark"] .bx-scan-row.is-guess .bx-scan-state { color: #fbbf24; }
+            .bx-scan-note { margin: 16px 0 0; font-size: 13px; line-height: 1.6; color: ${INK_SOFT}; }
+            .bx-scan-note.is-warn { color: #b45309; font-weight: 600; }
+            html[data-theme="dark"] .bx-scan-note.is-warn { color: #fbbf24; }
+            .bx-scan-foot { margin: auto 0 0; padding-top: 18px; font-size: 12.5px; line-height: 1.6; color: ${MUTED}; }
+
+            @media (max-width: 760px) {
+              .bx-scan-drop { min-height: 240px; }
+              .bx-scan-panel { border-left: none; border-top: 1px solid var(--mkt-border-soft); }
+              .bx-scan-row { grid-template-columns: 80px minmax(0, 1fr) auto; }
             }
             @media (prefers-reduced-motion: reduce) {
               .bx-scan-beam { transition: opacity 0.35s; }
+              .bx-scan-in, .bx-scan-skel.is-busy { animation: none; }
             }
           `}</style>
-        </>
-      }
-      result={
-        <ToolResultPanel
-          title={status === 'done' ? 'Vad vi läste av' : 'Resultat'}
-          footnote="Bilden lämnar aldrig din webbläsare — ingenting laddas upp eller sparas här. Vill du bokföra kvittot på riktigt, med underlaget kvar på verifikationen, gör Bokix det automatiskt."
-        >
-          {status === 'done' && result ? (
-            <>
-              {/* Samma bedömning som appen: en gissning ser aldrig ut som en
-                  säker avläsning, och ett dokument som inte är ett kvitto
-                  fylls aldrig i. */}
-              <div>
-                {result.fields.map((field, i) => (
-                  <ScanRow key={field.key} field={field} revealed={i < revealedCount} />
-                ))}
-              </div>
-              {revealedCount >= result.fields.length && (
-                <div style={{ marginTop: '16px' }}>
-                  {(result.notReceipt || result.unreadable || result.photoHint) ? (
-                    <p style={{ margin: 0, fontSize: '13px', lineHeight: 1.6, color: '#fbbf24', display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
-                      <AlertCircle size={15} style={{ flexShrink: 0, marginTop: 2 }} />
-                      <span>{result.unreadable
-                        ? (photoHintText(result.photoHint) || 'Ingen text kunde läsas ur filen. Prova en skarpare bild eller en PDF.')
-                        : result.notReceipt
-                          ? 'Det här ser inte ut som ett kvitto eller en faktura, så inget har fyllts i.'
-                          : photoHintText(result.photoHint)}</span>
-                    </p>
-                  ) : (
-                    <p style={{ margin: 0, fontSize: '12px', lineHeight: 1.6, color: 'rgba(255,255,255,0.5)' }}>
-                      Avläst betyder att det stod tydligt i dokumentet. Kontrollera betyder en rimlig gissning som du bör titta på. Hittades inte lämnas tomt i stället för att gissas.
-                    </p>
-                  )}
-                </div>
-              )}
-            </>
-          ) : (
-            <p style={{ fontSize: '13.5px', color: 'rgba(255,255,255,0.6)', lineHeight: 1.7, margin: 0 }}>
-              Ladda upp ett kvitto eller en faktura till vänster så visas leverantör, datum, nummer, belopp, moms och ett kontoförslag här.
-            </p>
+
+          <h2 className="bx-scan-title">Ny utgift</h2>
+          <p className="bx-scan-sub">
+            {status === 'done' ? 'Det här läste Bokix av från kvittot.' : 'Fälten fylls i från kvittot du väljer.'}
+          </p>
+
+          {/* Samma bedömning som appen: en gissning ser aldrig ut som en
+              säker avläsning, och ett dokument som inte är ett kvitto fylls
+              aldrig i. */}
+          <div>
+            {FIELD_LABELS.map((label, i) => (
+              <ScanRow
+                key={label} label={label}
+                field={status === 'done' && result ? result.fields[i] : null}
+                revealed={status === 'done' && i < revealedCount}
+                scanning={status === 'scanning'}
+              />
+            ))}
+          </div>
+
+          {status === 'done' && result && revealedCount >= result.fields.length && (
+            (result.notReceipt || result.unreadable || result.photoHint) ? (
+              <p className="bx-scan-note is-warn">
+                {result.unreadable
+                  ? (photoHintText(result.photoHint) || 'Ingen text kunde läsas ur filen. Prova en skarpare bild eller en PDF.')
+                  : result.notReceipt
+                    ? 'Det här ser inte ut som ett kvitto eller en faktura, så inget har fyllts i.'
+                    : photoHintText(result.photoHint)}
+              </p>
+            ) : (
+              <p className="bx-scan-note">
+                Avläst betyder att det stod tydligt på kvittot. Kontrollera betyder att det är ett förslag du bör titta på.
+              </p>
+            )
           )}
-        </ToolResultPanel>
+
+          <p className="bx-scan-foot">
+            Bilden stannar i din webbläsare och sparas ingenstans.
+          </p>
+        </div>
       }
       steps={[
         {
