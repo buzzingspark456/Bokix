@@ -17,7 +17,7 @@ import { BRAND } from '../../utils/brandColors';
 
 // Kvittots rader. `field` är index i FIELDS för raden som läses av.
 const RECEIPT = [
-  { text: 'NORRA MACKEN', sub: 'Storgatan 12, Falun', head: true },
+  { text: 'CIRCLE K', sub: 'Arlandastad', head: true },
   { text: '2026-03-14', right: '16:42', field: 0 },
   { text: 'Diesel 42,12 l', right: '842,50', field: 3 },
   { text: 'Varav moms 25 %', right: '168,50', field: 2 },
