@@ -6,6 +6,7 @@ import ListTable from './shared/ListTable';
 import { supabase } from '../supabaseClient';
 import { VAT_ACCOUNTS, REVENUE_ACCOUNTS } from './AccountsData';
 import { t } from '../i18n';
+import { StripeIconLogo, ZettleLogo } from './shared/BrandLogos';
 
 const formatSEK = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
 const formatMoney = (val, currency) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: (currency || 'sek').toUpperCase(), maximumFractionDigits: 2 }).format(val || 0);
@@ -56,6 +57,7 @@ const REVIEW_LIST_CSS = `
   .rq-row { display: flex; gap: 14px; padding: 16px 20px; align-items: flex-start; }
   .rq-row + .rq-row { border-top: 1px solid var(--border-light); }
   .rq-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .rq-brand { display: inline-flex; vertical-align: -3px; margin-right: 7px; }
   .rq-meta { font-size: 11px; font-weight: 700; letter-spacing: 0.055em; text-transform: uppercase; color: var(--text-muted); line-height: 1.5; }
   .rq-title { font-size: 14.5px; font-weight: 600; color: var(--text-main); margin-top: 5px; line-height: 1.45; }
   .rq-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
@@ -64,6 +66,8 @@ const REVIEW_LIST_CSS = `
     .rq-row { padding: 14px 14px; gap: 11px; }
     .rq-head { flex-direction: column; gap: 6px; }
     .rq-actions button { flex: 1 1 auto; justify-content: center; }
+    .rq-meta-mid { display: none; }
+    .rq-title { font-size: 15px; }
   }
 `;
 
@@ -106,6 +110,9 @@ const BADGE_TONES = {
  */
 function ReviewRowShell({
   icon: Icon, tone = 'neutral', meta, title, badge, exiting,
+  // Tjänstens logga (Stripe, Zettle) först på metaraden, så man ser var
+  // raden kommer ifrån innan man läser den.
+  brand,
   selectable = false, selected = false, onToggleSelect, selectHint,
   // `extra` sitter MELLAN meningen och knapparna — för de val som måste
   // göras innan knappen går att trycka (momssats och intäktskonto på en
@@ -142,7 +149,14 @@ function ReviewRowShell({
       <div style={{ flex: 1, minWidth: 0 }}>
         <div className="rq-head">
           <div style={{ minWidth: 0 }}>
-            <div className="rq-meta">{meta.filter(Boolean).join(' · ')}</div>
+            <div className="rq-meta">
+              {brand && <span className="rq-brand">{brand}</span>}
+              {/* Första och sista delen (typ, ålder) syns alltid; förklaringarna
+                  däremellan döljs på telefon, där de tog tre rader. */}
+              {meta.filter(Boolean).map((part, i, all) => (
+                <span key={i} className={i > 0 && i < all.length - 1 ? 'rq-meta-mid' : undefined}>{i > 0 ? ' · ' : ''}{part}</span>
+              ))}
+            </div>
             <div className="rq-title">{title}</div>
           </div>
           {badge && (
@@ -160,6 +174,19 @@ function ReviewRowShell({
         {children}
       </div>
     </div>
+  );
+}
+
+/** Hur en post i historiken hanterades: godkänt förslag, i klump eller manuellt. */
+function MethodPill({ method }) {
+  return (
+    <span style={{
+      padding: '3px 9px', borderRadius: '999px', fontSize: '11.5px', fontWeight: 600, whiteSpace: 'nowrap',
+      background: method === 'manual' ? 'var(--border-light)' : 'var(--status-green-bg)',
+      color: method === 'manual' ? 'var(--text-main)' : 'var(--status-green-text)',
+    }}>
+      {method === 'bulk' ? t('ui.godkand_i_klump') : method === 'manual' ? t('ui.manuellt_vald') : t('ui.forslag_godkant')}
+    </span>
   );
 }
 
@@ -367,6 +394,7 @@ function StripeLedgerCard({ item, accounts, onBookPlatformFee, onBookSale, onMar
   return (
     <ReviewRowShell
       icon={view.icon}
+      brand={<StripeIconLogo height={15} />}
       tone={view.tone}
       meta={[typeLabel, view.note, agoLabel(item.created_at_stripe)]}
       title={view.title}
@@ -498,6 +526,7 @@ function ZettleLedgerCard({ item, accounts, onBookSale, onMarkHandled, exiting }
   return (
     <ReviewRowShell
       icon={view.icon}
+      brand={<ZettleLogo height={13} />}
       tone={view.tone}
       meta={[paymentLabel, view.note, agoLabel(item.created_at_zettle)]}
       title={view.title}
@@ -930,22 +959,21 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
           rowKey={h => h.id}
           emptyMessage={t('ui.inget_har_hanterats_an')}
           rows={reviewHistory}
+          // Telefon: en rad per post, som resten av appens listor, i stället
+          // för datortabellens fem kolumner som klipptes i högerkanten.
+          mobileList={h => ({
+            dot: h.method === 'manual' ? 'var(--text-muted)' : 'var(--status-green-text)',
+            primary: h.title,
+            amount: formatSEK(h.amount),
+            meta: `${h.account} ${h.accountName} · ${h.resolvedBy} · ${formatDateTime(h.resolvedAt)}`,
+            pill: <MethodPill method={h.method} />,
+          })}
           columns={[
             { key: 'post', label: t('ui.post'), fontWeight: 600, color: 'var(--text-main)', render: h => `${h.title} · ${formatSEK(h.amount)}` },
             { key: 'account', label: t('ui.konto_2'), color: 'var(--text-main)', render: h => `${h.account} ${h.accountName}` },
             { key: 'resolvedBy', label: t('ui.hanterad_av'), color: 'var(--text-main)', render: h => h.resolvedBy },
             { key: 'resolvedAt', label: t('ui.nar'), render: h => formatDateTime(h.resolvedAt) },
-            {
-              key: 'method', label: t('ui.metod'), render: h => (
-                <span style={{
-                  padding: '3px 9px', borderRadius: '999px', fontSize: '11.5px', fontWeight: 600,
-                  background: h.method === 'manual' ? 'var(--border-light)' : 'var(--status-green-bg)',
-                  color: h.method === 'manual' ? 'var(--text-main)' : 'var(--status-green-text)',
-                }}>
-                  {h.method === 'bulk' ? t('ui.godkand_i_klump') : h.method === 'manual' ? t('ui.manuellt_vald') : t('ui.forslag_godkant')}
-                </span>
-              ),
-            },
+            { key: 'method', label: t('ui.metod'), render: h => <MethodPill method={h.method} /> },
           ]}
         />
       )}

@@ -128,6 +128,13 @@ export default function Reports({
                 rowKey={r => r.id}
                 onRowClick={r => openReport(r.id)}
                 rows={section.reports}
+                // Telefon: namnet, en rad om vad rapporten visar och när den
+                // senast öppnades, i stället för tabellens rubriker per kort.
+                mobileList={r => ({
+                  primary: r.name,
+                  meta: r.description,
+                  amount: relativeOpenedLabel(lastOpened[r.id]) || null,
+                })}
                 columns={[
                   {
                     key: 'name', label: t('ui.rapport'), fontWeight: 700, color: 'var(--text-main)', render: r => (

@@ -14,7 +14,7 @@ import {
   MdOutlineContentCopy, MdOutlineCookie, MdOutlineCreateNewFolder, MdOutlineCreditCard, MdOutlineFolder,
   MdOutlineDarkMode, MdOutlineDashboard, MdOutlineDashboardCustomize, MdOutlineDelete,
   MdOutlineDeleteSweep, MdOutlineDescription, MdOutlineDns, MdOutlineDoNotDisturb, MdOutlineDocumentScanner,
-  MdOutlineEdit, MdOutlineErrorOutline, MdOutlineEvent, MdOutlineFactCheck,
+  MdOutlineEdit, MdOutlineErrorOutline, MdOutlineEvent, MdOutlineFactCheck, MdOutlineFingerprint,
   MdOutlineFileDownload, MdOutlineFileUpload, MdOutlineGppMaybe, MdOutlineGroups, MdOutlineHandshake,
   MdOutlineHelpOutline, MdOutlineImage, MdOutlineInbox, MdOutlineInfo,
   MdOutlineInsertChartOutlined, MdOutlineInventory2, MdOutlineKeyboardArrowDown, MdOutlineKeyboardArrowLeft,
@@ -52,6 +52,7 @@ function make(Icon, name) {
 }
 
 export const AlarmClock = make(MdOutlineAlarm, 'AlarmClock');
+export const Fingerprint = make(MdOutlineFingerprint, 'Fingerprint');
 // Fyllda varianter, för loggplattorna i Inställningar → Kopplingar.
 export const CalendarFilled = make(MdCalendarMonth, 'CalendarFilled');
 export const MailFilled = make(MdEmail, 'MailFilled');

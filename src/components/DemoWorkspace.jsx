@@ -653,17 +653,6 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
         <nav className="mobile-bottom-nav" style={{ position: 'sticky' }} aria-label="Mobilnavigation">
           <div className="mobile-bottom-nav-inner">
             {MOBILE_BOTTOM_ITEMS.map(item => (
-              item.id === 'expenses' ? (
-                <button
-                  key={item.id}
-                  className={`mobile-nav-btn mobile-nav-hero ${activeDemoTab === item.id ? 'active' : ''}`}
-                  onClick={() => openTab(item.id)}
-                  aria-label={item.label}
-                >
-                  <span className="mobile-nav-hero-circle"><item.icon size={20} strokeWidth={2} /></span>
-                  <span>{item.label}</span>
-                </button>
-              ) : (
               <button
                 key={item.id}
                 className={`mobile-nav-btn ${activeDemoTab === item.id ? 'active' : ''}`}
@@ -672,7 +661,6 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
                 <span className="mobile-nav-icon"><item.icon size={22} /></span>
                 <span>{item.label}</span>
               </button>
-              )
             ))}
             <button
               className={`mobile-nav-btn ${mobileSheetActive ? 'active' : ''}`}

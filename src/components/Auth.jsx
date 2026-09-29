@@ -10,7 +10,7 @@ import { detectOrgType, formatLegalForm, formatOrgNr } from '../utils/orgType';
 import { useCompanyLookup } from '../hooks/useCompanyLookup';
 import { sendSignupCode, verifySignupCode } from '../utils/signupVerification';
 import { translateSupabaseAuthError } from '../utils/translateAuthError';
-import { passkeysAvailable, isPasskeyCancel } from '../utils/sessionPolicy';
+import { passkeysAvailable, isPasskeyCancel, setAppLock } from '../utils/sessionPolicy';
 import { BRAND } from '../utils/brandColors';
 import { BokixWordmark } from './marketing/MarketingLayout';
 import { createStripeSubscriptionCheckout } from '../stripeApi';
@@ -342,8 +342,10 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
     setErrorMsg('');
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPasskey();
+      const { data, error } = await supabase.auth.signInWithPasskey();
       if (error) throw error;
+      // Face ID används på den här enheten: appen spärras med det framöver.
+      setAppLock(data?.user?.id || data?.session?.user?.id || null);
     } catch (err) {
       if (!isPasskeyCancel(err)) setErrorMsg(t('ui.passkey_inloggning_misslyckades'));
     } finally {

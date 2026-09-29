@@ -1057,8 +1057,6 @@ export default function Expenses({
   company, onUpdateCompany, onDeleteReceiptFolder,
   onAdd, onFixExpenseAccount, onSaveReceiptDetails, onSaveOcrDraft, onDeleteExpense, onReverseExpense,
   pageTitle, pageSubtitle,
-  // Filer som valts med kvittoknappen i telefonens bottenmeny (App.jsx).
-  pickedFiles, onPickedFilesHandled,
   // Utbytbar uppladdningsfunktion — defaultar till den riktiga Storage-
   // uppladdningen för den inloggade appen (oförändrat beteende). Landnings-
   // sidans interaktiva demo (DemoWorkspace.jsx) skickar in en lokal
@@ -1295,13 +1293,6 @@ export default function Expenses({
     const openWhenDone = valid.length === 1;
     valid.forEach(f => uploadReceipt(f, openWhenDone));
   };
-
-  useEffect(() => {
-    if (!pickedFiles?.length) return;
-    handleFiles(pickedFiles);
-    onPickedFilesHandled?.();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pickedFiles]);
 
   // ── Rätta konto manuellt på en post som saknar kontering ──
   const [fixingId, setFixingId] = useState(null);

@@ -51,6 +51,43 @@ export function passkeysAvailable() {
   return PASSKEYS_ENABLED && typeof window !== 'undefined' && Boolean(window.PublicKeyCredential);
 }
 
+// ── Appspärr med Face ID ────────────────────────────────────────────────
+// Har man Face ID/fingeravtryck på den här enheten frågar appen efter det
+// när den öppnas och när man kommer tillbaka efter en stund, som en bankapp.
+// Spärren gäller en användare på en enhet: nyckeln bär användarens id.
+const APP_LOCK_KEY = 'bokix_applock';
+/** Så här länge får appen ligga i bakgrunden innan den spärras igen. */
+export const APP_LOCK_AFTER_MS = 60 * 1000;
+
+export function setAppLock(userId) {
+  try {
+    if (userId) window.localStorage.setItem(APP_LOCK_KEY, userId);
+    else window.localStorage.removeItem(APP_LOCK_KEY);
+  } catch { /* privat läge */ }
+}
+
+export function appLockEnabledFor(userId) {
+  if (!userId || !passkeysAvailable()) return false;
+  try { return window.localStorage.getItem(APP_LOCK_KEY) === userId; } catch { return false; }
+}
+
+/**
+ * Be enheten om Face ID/fingeravtryck med en passkey för bokix.se. En lokal
+ * spärr, som en bankapps: den som redan är inloggad visar att det är hen
+ * som håller i telefonen. Kastar om det inte gick (eller avbröts).
+ */
+export async function verifyWithPasskey() {
+  const challenge = new Uint8Array(32);
+  window.crypto.getRandomValues(challenge);
+  const host = window.location.hostname;
+  const rpId = host === 'bokix.se' || host.endsWith('.bokix.se') ? 'bokix.se' : host;
+  const cred = await navigator.credentials.get({
+    publicKey: { challenge, rpId, userVerification: 'required', timeout: 60000 },
+  });
+  if (!cred) throw new Error('Ingen passkey');
+  return true;
+}
+
 /** Användaren avbröt Face ID-/fingeravtrycksrutan: inget fel att visa. */
 export function isPasskeyCancel(err) {
   const name = err?.name || err?.cause?.name || '';

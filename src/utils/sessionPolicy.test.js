@@ -16,6 +16,18 @@ describe('isInactiveTooLong', () => {
   })
 })
 
+describe('appspärren', () => {
+  it('är av utan påslagna passkeys, även om nyckeln finns', async () => {
+    const { appLockEnabledFor, setAppLock } = await import('./sessionPolicy.js')
+    globalThis.window = globalThis.window || {}
+    const store = {}
+    globalThis.window.localStorage = { getItem: k => store[k] ?? null, setItem: (k, v) => { store[k] = v }, removeItem: k => { delete store[k] } }
+    setAppLock('u1')
+    expect(appLockEnabledFor('u1')).toBe(false) // VITE_PASSKEYS är inte satt i testerna
+    expect(appLockEnabledFor(null)).toBe(false)
+  })
+})
+
 describe('isPasskeyCancel', () => {
   it('känner igen en avbruten Face ID-ruta', () => {
     expect(isPasskeyCancel({ name: 'NotAllowedError' })).toBe(true)

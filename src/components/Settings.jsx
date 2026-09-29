@@ -2,15 +2,15 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Building2, CreditCard, Shield, Check, Download, Upload,
   Trash2, Mail, Laptop, Lock, KeyRound, Image as ImageIcon,
-  Palette, Hash, Calendar, X, ZoomIn, ZoomOut, Maximize2, Bell, ExternalLink, Sun, Moon,
-  UserRound, FileText, Plug, Users, Cog, ArrowLeft, ArrowRight,
-  Sparkles, CheckCircle2, HelpCircle, LogOut, Search, ChevronRight, CalendarFilled, MailFilled, BankFilled,
+  Palette, Hash, Calendar, X, ZoomIn, ZoomOut, Maximize2, ExternalLink, Sun, Moon,
+  UserRound, Users, Cog, ArrowLeft, ArrowRight,
+  Sparkles, CheckCircle2, HelpCircle, LogOut, Search, ChevronRight, Fingerprint, CalendarFilled, MailFilled, BankFilled,
 } from './icons';
 import { supabase } from '../supabaseClient';
-import { passkeysAvailable, isPasskeyCancel } from '../utils/sessionPolicy';
+import { passkeysAvailable, isPasskeyCancel, appLockEnabledFor, setAppLock } from '../utils/sessionPolicy';
 import { sendInvoiceEmail } from '../emailApi';
 import { cancelStripeSubscription, reactivateStripeSubscription, openBillingPortal } from '../stripeApi';
-import { BRAND, VIVID, ACCENT_COLORS } from '../utils/brandColors';
+import { BRAND, ACCENT_COLORS } from '../utils/brandColors';
 import InvoiceDocument, { INVOICE_TEMPLATES, DEFAULT_INVOICE_TEMPLATE } from './InvoiceDocument';
 import { useIsMobileViewport } from '../hooks/useIsMobileViewport';
 import ListTable from './shared/ListTable';
@@ -174,39 +174,21 @@ const SETTINGS_TABS = [
 // öppnar den i stället på en översikt där man VÄLJER område — och varje
 // område beskrivs med en rad, så man slipper gissa vad "Din data" innehåller.
 //
-// Ikon, färgton och beskrivning bor här bredvid etiketten (SETTINGS_TABS
-// ovan bär bara id + label eftersom flikraden inte har plats för mer).
-// `tone` styr färgen på ikonrutan i SettingsHub-rutnätet nedan — matchar
-// referensbildens färgschema kort för kort (grönt/blått/lila/orange/
-// turkost/rosa/blått/lila), inte en enda upprepad ton som förut.
+// Beskrivningen visas under namnet i telefonens meny och används av sökfältet.
 const SECTION_META = {
-  profile: { icon: UserRound, tone: 'green', desc: tr('ui.namn_bild_och_kontaktuppgifter') },
-  company: { icon: Building2, tone: 'green', desc: tr('ui.namn_organisationsnummer_adress_och_bankuppgifte') },
-  invoice: { icon: FileText, tone: 'blue', desc: tr('ui.nummer_datum_paminnelser_mall_och_e_post') },
-  integrations: { icon: Plug, tone: 'purple', desc: tr('ui.stripe_zettle_och_egen_avsandardoman_for_mejl') },
-  system: { icon: Cog, tone: 'gray', desc: tr('ui.moms_kontoplan_verifikationsserier_valuta_och_ex') },
-  users: { icon: Users, tone: 'teal', desc: tr('ui.lagg_till_anvandare_roller_och_behorigheter') },
-  subscription: { icon: CreditCard, tone: 'amber', desc: tr('ui.plan_betalningar_och_kvitton') },
-  appearance: { icon: Palette, tone: 'pink', desc: tr('ui.tema_fargtema_layout_och_sprak') },
-  notifications: { icon: Bell, tone: 'blue', desc: tr('ui.kvitton_betalningar_paminnelser_och_deklaratione') },
-  security: { icon: Shield, tone: 'purple', desc: tr('ui.losenord_tvastegsverifiering_och_inloggningshist') },
-  advanced: { icon: Trash2, tone: 'red', desc: tr('ui.importera_exportera_eller_radera_din_bokforing') },
+  profile: { desc: tr('ui.namn_bild_och_kontaktuppgifter') },
+  company: { desc: tr('ui.namn_organisationsnummer_adress_och_bankuppgifte') },
+  invoice: { desc: tr('ui.nummer_datum_paminnelser_mall_och_e_post') },
+  integrations: { desc: tr('ui.stripe_zettle_och_egen_avsandardoman_for_mejl') },
+  system: { desc: tr('ui.moms_kontoplan_verifikationsserier_valuta_och_ex') },
+  users: { desc: tr('ui.lagg_till_anvandare_roller_och_behorigheter') },
+  subscription: { desc: tr('ui.plan_betalningar_och_kvitton') },
+  appearance: { desc: tr('ui.tema_fargtema_layout_och_sprak') },
+  notifications: { desc: tr('ui.kvitton_betalningar_paminnelser_och_deklaratione') },
+  security: { desc: tr('ui.losenord_tvastegsverifiering_och_inloggningshist') },
+  advanced: { desc: tr('ui.importera_exportera_eller_radera_din_bokforing') },
 };
 
-/** Översikten. Ett tätt rutnät som fyller bredden — åtta kort på två rader
- * på en vanlig skärm, i stället för två små rutor och en halv skärm tom
- * yta (vilket var precis vad flikarna gav när man landade på en kort
- * flik).
- *
- * Kundönskemål (skärmdump av en referensbild): korten om till stående
- * kort — en stor färgad ikonruta högst upp, rubrik och beskrivning under,
- * en pil nere i högra hörnet — i stället för den tidigare liggande raden
- * (ikon-titel-pil på en enda rad). Ikonens färg kommer nu från SECTION_
- * META.tone (samma VIVID-paletten som resten av sidans ikonrutor) i
- * stället för en enda upprepad grön ton på alla åtta kort. */
-// Mobilens inställningsöversikt är grupperad (som iOS/Fortnox) i stället för
-// tio lösa kort: rubrik + ett kort per grupp med rader. På dator ligger
-// korten kvar som ett rutnät (grupperna är då display: contents).
 // Samma grupper i datorns vänstermeny (SettingsNav) och telefonens lista.
 const HUB_GROUPS = [
   { title: tr('ui.sg_du'), ids: ['profile', 'security', 'appearance', 'notifications'] },
@@ -251,40 +233,42 @@ function SettingsNav({ sections, activeId, onPick }) {
   );
 }
 
+/** Telefonens ingång till inställningarna: samma meny som datorns
+ * vänstermeny (SettingsNav), med sökfält, samma grupper och inga ikoner,
+ * men med stora rader och en rad som säger vad avsnittet innehåller. */
 function SettingsHub({ sections, onPick }) {
+  const [query, setQuery] = useState('');
+  const q = query.trim().toLowerCase();
+  const matches = (s) => !q || s.label.toLowerCase().includes(q) || (SECTION_META[s.id]?.desc || '').toLowerCase().includes(q);
   const placed = new Set(HUB_GROUPS.flatMap(g => g.ids));
   const groups = HUB_GROUPS
-    .map(g => ({ ...g, items: g.ids.map(id => sections.find(s => s.id === id)).filter(Boolean) }))
-    .filter(g => g.items.length > 0);
+    .map(g => ({ ...g, items: g.ids.map(id => sections.find(s => s.id === id)).filter(Boolean) }));
   const rest = sections.filter(s => !placed.has(s.id));
   if (rest.length > 0) groups.push({ title: tr('ui.ovrigt'), ids: [], items: rest });
+  const shown = groups.map(g => ({ ...g, items: g.items.filter(matches) })).filter(g => g.items.length > 0);
   return (
-    <div className="settings-hub">
-      {groups.map(group => (
-        <div key={group.title} className="settings-hub-group">
-          <div className="settings-hub-group-title">{group.title}</div>
-          <div className="settings-hub-group-list">
-            {group.items.map(section => {
-              const meta = SECTION_META[section.id] || {};
-              const Icon = meta.icon || Cog;
-              return (
-                <button
-                  key={section.id}
-                  type="button"
-                  className="settings-hub-card"
-                  onClick={() => onPick(section.id)}
-                >
-                  <span className="settings-hub-icon" style={{ background: SECTION_TONES[meta.tone] || SECTION_TONES.green }}>
-                    <Icon size={20} strokeWidth={2.2} />
-                  </span>
-                  <span className="settings-hub-card-title">{section.label}</span>
-                  <ArrowRight size={16} className="settings-hub-card-arrow" />
-                </button>
-              );
-            })}
+    <div className="settings-mnav">
+      <label className="settings-mnav-search">
+        <Search size={17} />
+        <input type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder={tr('ui.sok_installning')} aria-label={tr('ui.sok_installning')} />
+      </label>
+      {shown.map(group => (
+        <div key={group.title}>
+          <div className="settings-mnav-group-title">{group.title}</div>
+          <div className="settings-mnav-list">
+            {group.items.map(section => (
+              <button key={section.id} type="button" className="settings-mnav-row" onClick={() => onPick(section.id)}>
+                <span className="settings-mnav-text">
+                  <span className="settings-mnav-label">{section.label}</span>
+                  {SECTION_META[section.id]?.desc && <span className="settings-mnav-desc">{SECTION_META[section.id].desc}</span>}
+                </span>
+                <ChevronRight size={18} className="settings-mnav-chev" />
+              </button>
+            ))}
           </div>
         </div>
       ))}
+      {shown.length === 0 && <div className="settings-mnav-empty">{tr('ui.inga_traffar')}</div>}
     </div>
   );
 }
@@ -370,29 +354,6 @@ const btnWarning = { ...BTN, background: BRAND.amberBg, color: BRAND.amberText }
 // men ghost/outline, inte en vardaglig spara-knapp.
 const btnDangerGhost = { ...BTN, background: 'var(--bg-card)', color: 'var(--status-red-text)', border: '1px solid var(--status-red-bg)' };
 
-// Färgad ikon-i-cirkel framför ett kortnamn — gör varje sektion visuellt
-// identifierbar på en snabb blick istället för en lång lista av likadana
-// svarta rubriker, och ger sidan starkare färg utan att den blir stökig.
-// Kundfeedback ("bättre UI/UX, färgsättning, organiserat"): 16 av sidans 17
-// SectionHeading-anrop stod tidigare på tone="green" — samma bleka
-// status-badge-grönt (BRAND.greenLight/greenDark) överallt, oavsett vad
-// sektionen faktiskt handlade om, vilket gjorde en lång sida med likadana
-// gröna cirklar svårare att skanna, inte lättare. Samma VIVID-solid-ikon-
-// behandling som Dashboard nu (se brandColors.js) — en distinkt kulör per
-// ÄMNE (säkerhet=blått, utseende/varumärke=rosa, deadlines/påminnelser=
-// gult, kärnidentitet/pengar=grönt, verktyg=neutral skiffer, radera=rött)
-// istället för en enda upprepad ton, så färgen faktiskt hjälper till att
-// gruppera sidan i huvudet på en snabb titt.
-const SECTION_TONES = {
-  green:  VIVID.green,
-  blue:   VIVID.blue,
-  pink:   VIVID.pink,
-  amber:  VIVID.amber,
-  red:    VIVID.red,
-  purple: VIVID.purple,
-  teal:   VIVID.teal,
-  gray:   '#64748b', // Neutral skiffer (verktyg/integrationer) — medvetet INTE en VIVID-brandkulör.
-};
 // Samma lilla versala rubrik som SettingCard (Accounted-stil), utan ikon.
 function SectionHeading({ children }) {
   return <h3 className="settings-block-title" style={{ margin: 0 }}>{children}</h3>;
@@ -542,7 +503,8 @@ function SettingRow({ label, description, children, last }) {
         <div style={{ fontSize: '13.5px', fontWeight: 500, color: 'var(--text-main)' }}>{label}</div>
         {description && <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginTop: '3px', lineHeight: 1.55, maxWidth: '460px' }}>{description}</div>}
       </div>
-      <div style={{ flexShrink: 0 }}>{children}</div>
+      {/* På telefon blir fält och val fullbreda under etiketten (index.css). */}
+      <div className="settings-row-ctl" style={{ flexShrink: 0 }}>{children}</div>
     </div>
   );
 }
@@ -1261,22 +1223,33 @@ function PasskeySection() {
   const [passkeys, setPasskeys] = useState(null); // null = laddar
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [userId, setUserId] = useState(null);
+  const [lockOn, setLockOn] = useState(false);
 
   const load = () => {
     supabase.auth.passkey.list()
       .then(({ data, error: err }) => {
         if (err) { setError(tr('ui.passkey_kunde_inte_hamtas')); setPasskeys([]); }
-        else setPasskeys(data || []);
+        else setPasskeys(Array.isArray(data) ? data : []);
       })
       .catch(() => { setError(tr('ui.passkey_kunde_inte_hamtas')); setPasskeys([]); });
   };
-  useEffect(load, []);
+  useEffect(() => {
+    load();
+    supabase.auth.getUser().then(({ data }) => {
+      const id = data?.user?.id || null;
+      setUserId(id);
+      setLockOn(appLockEnabledFor(id));
+    });
+  }, []);
 
   const add = async () => {
     setError(''); setBusy(true);
     try {
       const { error: err } = await supabase.auth.registerPasskey();
       if (err) throw err;
+      // Face ID finns nu på den här enheten: spärra appen med det direkt.
+      if (userId) { setAppLock(userId); setLockOn(true); }
       load();
     } catch (err) {
       if (!isPasskeyCancel(err)) setError(tr('ui.passkey_kunde_inte_laggas_till'));
@@ -1294,20 +1267,33 @@ function PasskeySection() {
     load();
   };
 
+  const toggleLock = () => {
+    const next = !lockOn;
+    setAppLock(next ? userId : null);
+    setLockOn(next);
+  };
+
+  const hasAny = (passkeys || []).length > 0;
   return (
     <SettingCard title={tr('ui.passkey_rubrik')}>
-      <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 12px', lineHeight: 1.55 }}>{tr('ui.passkey_beskrivning')}</p>
+      <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)', margin: '0 0 14px', lineHeight: 1.55, maxWidth: '520px' }}>{tr('ui.passkey_beskrivning')}</p>
       {(passkeys || []).map((p) => (
-        <SettingRow key={p.id} label={p.friendly_name || tr('ui.passkey_enhet')} description={p.last_used_at ? `${tr('ui.passkey_senast_anvand')} ${new Date(p.last_used_at).toLocaleDateString('sv-SE')}` : undefined} last={false}>
+        <SettingRow key={p.id} label={p.friendly_name || tr('ui.passkey_enhet')} description={p.last_used_at ? `${tr('ui.passkey_senast_anvand')} ${new Date(p.last_used_at).toLocaleDateString('sv-SE')}` : undefined}>
           <button onClick={() => remove(p)} disabled={busy} style={btnGhost}>{tr('ui.ta_bort')}</button>
         </SettingRow>
       ))}
-      {passkeys !== null && (
-        <SettingRow label={passkeys.length ? tr('ui.passkey_lagg_till_en_till') : tr('ui.passkey_denna_enhet')} last>
-          <button onClick={add} disabled={busy} style={btnSecondary}>{tr('ui.passkey_lagg_till')}</button>
-        </SettingRow>
+      {hasAny && (
+        <div style={{ padding: '12px 0', borderBottom: '1px solid var(--border-light)' }}>
+          <ToggleSwitch checked={lockOn} onChange={toggleLock} label={tr('ui.passkey_las_appen')} hint={tr('ui.passkey_las_appen_beskr')} />
+        </div>
       )}
-      {error && <div style={{ color: 'var(--status-red-text)', fontSize: '13px', marginTop: '8px' }}>{error}</div>}
+      {passkeys !== null && (
+        <button type="button" className="passkey-add-btn" onClick={add} disabled={busy}>
+          <Fingerprint size={22} />
+          {hasAny ? tr('ui.passkey_lagg_till_en_till') : tr('ui.passkey_lagg_till_knapp')}
+        </button>
+      )}
+      {error && <div style={{ color: 'var(--status-red-text)', fontSize: '13px', marginTop: '10px' }}>{error}</div>}
     </SettingCard>
   );
 }
@@ -1381,19 +1367,19 @@ function VerificationSeriesList({ company, setCompanyInfo, verifications, readOn
       {VERIFICATION_SERIES.map((letter, i) => {
         const latest = getMaxUsedNumber(verifications, letter);
         return (
-          <SettingRow key={letter} label={`${tr('ui.serie')} ${letter}`} last={i === VERIFICATION_SERIES.length - 1}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <input
-                value={names[letter] || ''}
-                onChange={e => setNames(n => ({ ...n, [letter]: e.target.value }))}
-                placeholder={tr(`ui.serienamn_${letter}`)}
-                aria-label={`${tr('ui.serie')} ${letter}`}
-                style={{ ...inputBase, width: '240px' }}
-              />
-              <span style={{ width: '130px', textAlign: 'right', fontSize: '12.5px', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
-                {latest > 0 ? tr('ui.senaste_nr', { n: latest }) : tr('ui.inga_verifikat_annu')}
-              </span>
-            </div>
+          <SettingRow
+            key={letter}
+            label={`${tr('ui.serie')} ${letter}`}
+            description={latest > 0 ? tr('ui.senaste_nr', { n: latest }) : tr('ui.inga_verifikat_annu')}
+            last={i === VERIFICATION_SERIES.length - 1}
+          >
+            <input
+              value={names[letter] || ''}
+              onChange={e => setNames(n => ({ ...n, [letter]: e.target.value }))}
+              placeholder={tr(`ui.serienamn_${letter}`)}
+              aria-label={`${tr('ui.serie')} ${letter}`}
+              style={{ ...inputBase, width: '260px' }}
+            />
           </SettingRow>
         );
       })}

@@ -3354,7 +3354,17 @@
     "passkey_lagg_till": "Add",
     "passkey_ta_bort_fraga": "Remove Face ID or fingerprint sign-in for this device?",
     "passkey_kunde_inte_hamtas": "Couldn’t load your devices. Please try again shortly.",
-    "passkey_kunde_inte_laggas_till": "Couldn’t add Face ID or fingerprint. Please try again."
+    "passkey_kunde_inte_laggas_till": "Couldn’t add Face ID or fingerprint. Please try again.",
+    "applock_rubrik": "Bokix is locked",
+    "applock_hej": "Hi {{firstName}}",
+    "applock_text": "Unlock with Face ID or your fingerprint to continue.",
+    "applock_knapp": "Unlock",
+    "applock_vantar": "Waiting for Face ID…",
+    "applock_misslyckades": "Couldn’t unlock. Try again, or sign in with your password.",
+    "applock_losenord": "Sign in with password instead",
+    "passkey_lagg_till_knapp": "Add Face ID or fingerprint",
+    "passkey_las_appen": "Lock the app with Face ID",
+    "passkey_las_appen_beskr": "The app asks for Face ID or your fingerprint when it opens and when you come back after a while."
   },
   "glossary": {
     "g01": {

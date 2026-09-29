@@ -1863,120 +1863,38 @@ body {
 }
 
 /* ══════════════════════════════════════════════
-   INSTÄLLNINGAR — översikten och tätheten
+   INSTÄLLNINGAR — telefonens meny och tätheten
+   Telefonens ingång är samma meny som datorns vänstermeny (sökfält,
+   grupper, inga ikoner), bara med stora rader och en rad beskrivning.
 ══════════════════════════════════════════════ */
-
-/* Översikten (Settings.jsx: SettingsHub). Åtta kort som fyller bredden i
-   stället för en flikrad + två små rutor och en halv skärm tom yta, vilket
-   var den upprepade kundinvändningen mot den här sidan.
-   Kundönskemål (skärmdump av en referensbild): stående kort — stor färgad
-   ikonruta högst upp, rubrik och beskrivning under, pil i nedre högra
-   hörnet — i stället för den tidigare liggande raden (ikon-titel-pil på
-   en rad). */
-.settings-hub {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
-  gap: 14px;
+.settings-mnav { display: flex; flex-direction: column; gap: 22px; }
+.settings-mnav-search {
+  display: flex; align-items: center; gap: 10px; height: 46px; padding: 0 14px;
+  border: 1px solid var(--border); border-radius: 12px; background: var(--bg-card); color: var(--text-muted);
 }
-
-/* Kundönskemål ("mycket space på datorn — dela upp i typ två rader så det
-   täcker sidorna, och gör korten stora"): auto-fit ovan lämnade en ojämn,
-   inte fullbredd sista rad på en bred skärm (10 kort, oberoende av hur
-   många som får plats per rad, delar sällan jämnt). Ett fast 5-kolumners
-   rutnät här i stället — EXAKT två fulla rader av fem, kant i kant, ingen
-   ojämn svans — plus märkbart större kort (mer padding, större ikon och
-   rubrik) eftersom en bred skärm har gott om plats att göra dem läsbara på
-   avstånd med, inte bara fler av dem. Under 1100px gäller den flytande
-   auto-fit-regeln ovan som vanligt (mobilen är redan en enda kolumn där). */
-@media (min-width: 1100px) {
-  .settings-hub {
-    grid-template-columns: repeat(5, 1fr);
-    gap: 20px;
-  }
-  .settings-hub-card {
-    min-height: 154px;
-    padding: 24px 44px 24px 24px;
-  }
-  .settings-hub-icon {
-    width: 52px;
-    height: 52px;
-    border-radius: 14px;
-    margin-bottom: 18px;
-  }
-  .settings-hub-icon svg {
-    width: 24px;
-    height: 24px;
-  }
-  .settings-hub-card-arrow {
-    width: 18px;
-    height: 18px;
-  }
-  .settings-hub-card-title {
-    font-size: 16px;
-  }
-  .settings-hub-card-desc {
-    font-size: 14.5px;
-  }
-  .settings-hub-card-arrow {
-    right: 20px;
-    bottom: 20px;
-  }
+.settings-mnav-search:focus-within { border-color: var(--accent); }
+.settings-mnav-search input {
+  flex: 1; min-width: 0; border: none; outline: none; background: transparent;
+  font: inherit; font-size: 16px; color: var(--text-main);
 }
-
-.settings-hub-card {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  position: relative;
-  width: 100%;
-  min-height: 118px;
-  padding: 18px 36px 18px 18px;
-  text-align: left;
-  font-family: inherit;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  cursor: pointer;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+.settings-mnav-group-title {
+  margin: 0 4px 8px; font-size: 12px; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--text-muted);
 }
-
-.settings-hub-card:hover {
-  border-color: var(--accent);
-  box-shadow: 0 6px 16px -10px rgba(15, 23, 42, 0.35);
-  transform: translateY(-1px);
+.settings-mnav-list { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+.settings-mnav-row {
+  display: flex; align-items: center; gap: 12px; width: 100%; min-height: 60px; box-sizing: border-box;
+  padding: 11px 14px 11px 16px; border: none; border-bottom: 1px solid var(--border-light);
+  background: transparent; text-align: left; cursor: pointer; font: inherit; color: var(--text-main);
+  -webkit-tap-highlight-color: transparent;
 }
-
-.settings-hub-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 42px;
-  height: 42px;
-  border-radius: 12px;
-  flex-shrink: 0;
-  color: white;
-  margin-bottom: 16px;
-}
-
-.settings-hub-card-title {
-  font-size: 14.5px;
-  font-weight: 700;
-  color: var(--text-main);
-}
-
-.settings-hub-card-desc {
-  font-size: 12.5px;
-  color: var(--text-secondary);
-  line-height: 1.55;
-  margin-top: 4px;
-}
-
-.settings-hub-card-arrow {
-  position: absolute;
-  right: 18px;
-  bottom: 18px;
-  color: var(--accent);
-}
+.settings-mnav-row:last-child { border-bottom: 0; }
+.settings-mnav-row:active { background: var(--bg-muted); }
+.settings-mnav-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.settings-mnav-label { font-size: 16px; font-weight: 600; }
+.settings-mnav-desc { font-size: 13px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.settings-mnav-chev { flex-shrink: 0; color: var(--text-muted); }
+.settings-mnav-empty { padding: 8px 4px; font-size: 14px; color: var(--text-muted); }
 
 
 /* Tätheten inne i ett avsnitt.
@@ -2114,29 +2032,6 @@ body {
   color: var(--text-main);
 }
 
-/* Mittenknappen i mobilens bottenmeny (App.jsx, mobileNavItems.hero): en rund grön
-   knapp mitt i raden, som huvudsysslan i en riktig app. Den ligger helt INNE i
-   raden (kundfeedback: inte över kanten) och tar samma höjd som de andra ikonerna
-   (38 - 8 = 30px), så texten under står på samma linje som de andras. */
-.mobile-nav-hero { overflow: visible; }
-.mobile-nav-hero .mobile-nav-hero-circle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 38px;
-  height: 38px;
-  margin-top: -8px;
-  margin-bottom: 0;
-  border-radius: 50%;
-  color: #ffffff;
-  background: linear-gradient(145deg, #1fa34d 0%, #0b6329 100%);
-  box-shadow: 0 3px 8px rgba(11, 99, 41, 0.3);
-  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.18s ease;
-}
-.mobile-nav-hero.active .mobile-nav-hero-circle {
-  box-shadow: 0 0 0 3px rgba(31, 163, 77, 0.28), 0 3px 8px rgba(11, 99, 41, 0.3);
-}
-.mobile-nav-hero:active .mobile-nav-hero-circle { transform: scale(0.94); }
 
 /* ── "Mer"-bottensheet — glider upp från botten istället för en egen sida. ── */
 .mobile-sheet-overlay {
@@ -2167,9 +2062,26 @@ body {
   transition: transform 0.25s cubic-bezier(0.32, 0.72, 0, 1);
   padding: 10px 12px calc(12px + env(safe-area-inset-bottom, 0px));
   max-height: 86vh;
+  max-height: 86dvh;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  /* Svepningen stannar i panelen och fortsätter aldrig ned i sidan bakom. */
+  overscroll-behavior: contain;
+  /* Skugga i under- och överkant när det finns mer att scrolla till: täckytorna
+     (local) följer innehållet och döljer skuggan (scroll) vid respektive ände. */
+  background:
+    linear-gradient(var(--bg-card) 40%, transparent) center top / 100% 28px no-repeat local,
+    linear-gradient(transparent, var(--bg-card) 60%) center bottom / 100% 28px no-repeat local,
+    radial-gradient(farthest-side at 50% 0, rgba(15,23,42,0.16), transparent) center top / 100% 12px no-repeat scroll,
+    radial-gradient(farthest-side at 50% 100%, rgba(15,23,42,0.16), transparent) center bottom / 100% 12px no-repeat scroll,
+    var(--bg-card);
 }
+
+/* Meny-panelen öppen: sidan bakom står still (App.jsx sätter data-sheet). */
+html[data-sheet="open"],
+html[data-sheet="open"] body { overflow: hidden; }
+html[data-sheet="open"] .main-wrapper { overflow: hidden !important; touch-action: none; }
+.mobile-sheet-overlay { touch-action: none; overscroll-behavior: contain; }
 
 .mobile-sheet.open {
   transform: translateY(0);
@@ -5073,6 +4985,16 @@ textarea.form-control {
     display: flex;
     justify-content: center;
   }
+  /* Inget innehåll syns under bottenmenyn: på iPhone studsar sidan förbi
+     kanten när man drar längre än den räcker, och då gled innehållet fram
+     under menyn och i hemindikatorns yta. Studsen stängs av, och menyn får
+     en heltäckande yta nedåt som täcker allt under den ändå. */
+  .main-wrapper { overscroll-behavior-y: none; }
+  html, body { overscroll-behavior-y: none; }
+  .mobile-bottom-nav::after {
+    content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 120px;
+    background: var(--bg-card); pointer-events: none;
+  }
   html[data-keyboard="open"] .mobile-bottom-nav { display: none; }
   html[data-keyboard="open"] .mobile-nav-spacer { display: none; }
 
@@ -5427,7 +5349,7 @@ textarea.form-control {
     display: flex;
     align-items: flex-start;
     gap: 10px;
-    padding: 11px 4px;
+    padding: 12px 14px;
     border-bottom: 1px solid var(--border-light);
   }
   .lt-mobile-row:last-child {
@@ -6056,20 +5978,6 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
 }
 /* ── Telefon: inställningarnas hubb, kvittouppladdning, fakturaformulärets verktygsrad ── */
 @media (max-width: 768px) {
-  /* Inställningar: en rad per avdelning (ikon, rubrik, pil) i stället för
-     en hög ruta per avdelning, så att alla hamnar på en skärm. */
-  .settings-hub { gap: 10px !important; }
-  .settings-hub-card {
-    flex-direction: row !important;
-    align-items: center !important;
-    min-height: 64px !important;
-    padding: 12px 44px 12px 14px !important;
-    gap: 14px;
-  }
-  .settings-hub-icon { margin: 0 !important; width: 40px !important; height: 40px !important; flex-shrink: 0; }
-  .settings-hub-card-arrow { right: 16px !important; top: 50% !important; bottom: auto !important; transform: translateY(-50%); }
-  .settings-hub-card-desc { display: none; }
-
   /* Kvitton: uppladdningsytan som en smal rad, utan förklaringstext. */
   .rc-drop { padding: 12px 14px !important; }
   .rc-drop-hint, .rc-drop-folder { display: none !important; }
@@ -6491,41 +6399,7 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
   .tax-table-choices + select { max-width: none !important; width: 100%; min-height: 44px; font-size: 16px; }
 }
 
-/* Inställningsöversikten på telefon: grupperade listor. Grupperna är
-   display: contents på dator så rutnätet där är oförändrat. */
-.settings-hub-group, .settings-hub-group-list { display: contents; }
-.settings-hub-group-title { display: none; }
 @media (max-width: 768px) {
-  .settings-hub { display: flex !important; flex-direction: column; gap: 18px !important; }
-  .settings-hub-group { display: block; }
-  .settings-hub-group-title {
-    display: block;
-    margin: 0 4px 8px;
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--text-secondary);
-  }
-  .settings-hub-group-list {
-    display: block;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    overflow: hidden;
-  }
-  .settings-hub-group-list .settings-hub-card {
-    width: 100%;
-    border: 0 !important;
-    border-radius: 0 !important;
-    box-shadow: none !important;
-    border-bottom: 1px solid var(--border-light) !important;
-    background: transparent !important;
-    min-height: 60px !important;
-  }
-  .settings-hub-group-list .settings-hub-card:last-child { border-bottom: 0 !important; }
-  .settings-hub-group-list .settings-hub-card:active { background: var(--bg-muted) !important; }
-  .settings-hub-icon { width: 36px !important; height: 36px !important; border-radius: 10px !important; }
   .settings-account-rows {
     gap: 0 !important;
     margin-top: 18px !important;
@@ -6901,3 +6775,47 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
   .sidebar:not([data-fit="0"]) .nav-group-divider { margin-top: 2px !important; margin-bottom: 2px !important; }
 }
 
+
+/* Inställningsrader på telefon: fält, val och textrutor blir fullbreda under
+   etiketten i stället för sina fasta datorbredder (som stack ut till höger,
+   t.ex. "Inga verifikat ännu" i Verifikationsserier). Knappar och
+   reglage står kvar bredvid etiketten. */
+@media (max-width: 768px) {
+  .settings-row-ctl:has(input:not([type="checkbox"]):not([type="radio"]):not([type="color"]), select, textarea) { flex-basis: 100%; }
+  .settings-row-ctl input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
+  .settings-row-ctl select,
+  .settings-row-ctl textarea { width: 100% !important; max-width: none !important; box-sizing: border-box; font-size: 16px; }
+}
+
+/* ── Face ID: knappen i Säkerhet och låsskärmen (AppLock.jsx) ── */
+.passkey-add-btn {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  width: 100%; max-width: 420px; min-height: 52px; margin-top: 14px; padding: 12px 18px;
+  border: none; border-radius: 12px; background: var(--accent); color: #fff; cursor: pointer;
+  font: inherit; font-size: 15.5px; font-weight: 600; -webkit-tap-highlight-color: transparent;
+  transition: transform 0.12s ease, opacity 0.15s ease;
+}
+.passkey-add-btn:active { transform: scale(0.98); }
+.passkey-add-btn:disabled { opacity: 0.6; cursor: wait; }
+@media (max-width: 768px) { .passkey-add-btn { max-width: none; } }
+
+.app-lock {
+  position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center;
+  padding: 24px 24px calc(24px + env(safe-area-inset-bottom, 0px));
+  background: var(--bg-page); animation: fadeIn 0.2s ease;
+}
+.app-lock-inner { width: 100%; max-width: 360px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+.app-lock-title { margin: 30px 0 8px; font-family: 'Newsreader', Georgia, serif; font-size: 30px; font-weight: 600; color: var(--text-main); }
+.app-lock-sub { margin: 0 0 28px; font-size: 15px; line-height: 1.55; color: var(--text-secondary); }
+.app-lock-btn {
+  display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 56px;
+  border: none; border-radius: 14px; color: #fff; font: inherit; font-size: 17px; font-weight: 700; cursor: pointer;
+  box-shadow: 0 2px 8px rgba(11, 99, 41, 0.25); -webkit-tap-highlight-color: transparent;
+}
+.app-lock-btn:active { transform: scale(0.98); }
+.app-lock-btn:disabled { opacity: 0.7; }
+.app-lock-error { margin: 14px 0 0; font-size: 13.5px; color: var(--status-red-text); line-height: 1.5; }
+.app-lock-link {
+  margin-top: 22px; padding: 10px; border: none; background: none; cursor: pointer;
+  font: inherit; font-size: 14.5px; font-weight: 600; color: var(--text-secondary);
+}

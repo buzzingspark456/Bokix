@@ -3354,7 +3354,17 @@
     "passkey_lagg_till": "Lägg till",
     "passkey_ta_bort_fraga": "Ta bort inloggningen med Face ID eller fingeravtryck för den här enheten?",
     "passkey_kunde_inte_hamtas": "Kunde inte hämta dina enheter. Försök igen om en stund.",
-    "passkey_kunde_inte_laggas_till": "Det gick inte att lägga till Face ID eller fingeravtryck. Försök igen."
+    "passkey_kunde_inte_laggas_till": "Det gick inte att lägga till Face ID eller fingeravtryck. Försök igen.",
+    "applock_rubrik": "Bokix är låst",
+    "applock_hej": "Hej {{firstName}}",
+    "applock_text": "Lås upp med Face ID eller fingeravtryck för att fortsätta.",
+    "applock_knapp": "Lås upp",
+    "applock_vantar": "Väntar på Face ID…",
+    "applock_misslyckades": "Det gick inte att låsa upp. Försök igen, eller logga in med lösenord.",
+    "applock_losenord": "Logga in med lösenord i stället",
+    "passkey_lagg_till_knapp": "Lägg till Face ID eller fingeravtryck",
+    "passkey_las_appen": "Lås appen med Face ID",
+    "passkey_las_appen_beskr": "Appen frågar efter Face ID eller fingeravtryck när den öppnas och när du kommer tillbaka efter en stund."
   },
   "glossary": {
     "g01": {

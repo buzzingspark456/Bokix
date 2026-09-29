@@ -405,7 +405,8 @@ import OnboardingFlow from './components/OnboardingFlow';
 import { isVatExempt, stripVatRows } from './utils/vatRegistration';
 import { supabase } from './supabaseClient';
 import { isStandaloneApp } from './utils/authStorage';
-import { isInactiveTooLong, markActive, clearActive } from './utils/sessionPolicy';
+import { isInactiveTooLong, markActive, clearActive, appLockEnabledFor, setAppLock, APP_LOCK_AFTER_MS } from './utils/sessionPolicy';
+import AppLock from './components/AppLock';
 import { detectDevice } from './utils/deviceInfo';
 import { useLocation, useNavigate } from 'react-router-dom';
 const ReviewQueue = lazy(() => import('./components/ReviewQueue'));
@@ -974,6 +975,7 @@ function saveData(data, ownerId) {
 
 function clearLocalData() {
   clearActive();
+  setAppLock(null);
   try {
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(STORAGE_OWNER_KEY);
@@ -1159,6 +1161,16 @@ function App() {
   const sidebarNavRef = useRef(null);
   const sidebarFit = useFitLevel(sidebarNavRef, 3);
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
+  // Face ID-spärren (utils/sessionPolicy.js, components/AppLock.jsx).
+  const [appLocked, setAppLocked] = useState(false);
+  // Meny-panelen öppen: sidan bakom står still (html[data-sheet], index.css),
+  // så att en svepning i panelen aldrig scrollar sidan under den.
+  useEffect(() => {
+    const root = document.documentElement;
+    if (mobileMoreOpen) root.setAttribute('data-sheet', 'open');
+    else root.removeAttribute('data-sheet');
+    return () => root.removeAttribute('data-sheet');
+  }, [mobileMoreOpen]);
   // Bottenraden göms medan ett textfält har fokus. Annars skjuts den upp
   // ovanför tangentbordet (iOS Safari/Android) och hänger mitt på skärmen.
   useEffect(() => {
@@ -1524,11 +1536,6 @@ function App() {
     }
   };
 
-  // Kvittoknappen mitt i telefonens bottenmeny öppnar telefonens eget val
-  // (ta foto, bildbibliotek, filer) direkt, i samma tryck. Det valda kvittot
-  // lämnas till Kvitton-sidan, som laddar upp det och öppnar det.
-  const heroFileRef = useRef(null);
-  const [pickedReceiptFiles, setPickedReceiptFiles] = useState(null);
 
   const handleNavTabChange = (tabId) => {
     const rTab = resolveTab(tabId);
@@ -1874,6 +1881,8 @@ function App() {
           return;
         }
         if (session?.user) markActive();
+        // Face ID-spärren på den här enheten: appen öppnas låst.
+        if (session?.user && appLockEnabledFor(session.user.id)) setAppLocked(true);
         setUser(session?.user ?? null);
         // Bugkritiskt (kodgranskning/Playwright-test): en klickad
         // återställningslänk ger ocksa en "riktig" (om än tillfällig)
@@ -1963,8 +1972,20 @@ function App() {
       }
     });
 
-    // Appen i förgrunden igen räknas som användning (sessionPolicy.js).
-    const onVisible = () => { if (document.visibilityState === 'visible') markActive(); };
+    // Appen i förgrunden igen räknas som användning (sessionPolicy.js). Har
+    // den legat i bakgrunden längre än APP_LOCK_AFTER_MS spärras den med
+    // Face ID igen, om spärren är på för den inloggade på den här enheten.
+    let hiddenAt = null;
+    const onVisible = () => {
+      if (document.visibilityState === 'hidden') { hiddenAt = Date.now(); return; }
+      markActive();
+      if (hiddenAt && Date.now() - hiddenAt > APP_LOCK_AFTER_MS) {
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          if (session?.user && appLockEnabledFor(session.user.id)) setAppLocked(true);
+        });
+      }
+      hiddenAt = null;
+    };
     document.addEventListener('visibilitychange', onVisible);
 
     return () => {
@@ -4236,7 +4257,7 @@ function App() {
   const mobileNavItems = [
     { id: 'dashboard',     label: tr('ui.hem'),       icon: NavHomeIcon },
     { id: 'verifications', label: tr('ui.bokforing'), icon: BookOpen },
-    { id: 'expenses',      label: tr('ui.kvitton'),   icon: NavReceiptsIcon, hero: true },
+    { id: 'expenses',      label: tr('ui.kvitton'),   icon: NavReceiptsIcon },
     { id: 'reports',       label: tr('ui.rapport'),   icon: BarChart3 },
   ];
   // Telefonens Meny har samma grupper som sidomenyn på datorn, utan det som redan
@@ -4471,8 +4492,6 @@ function App() {
             onSaveOcrDraft={handleSaveOcrDraft}
             onDeleteExpense={handleDeleteExpense}
             onReverseExpense={handleReverseExpense}
-            pickedFiles={pickedReceiptFiles}
-            onPickedFilesHandled={() => setPickedReceiptFiles(null)}
             pageTitle={tr('ui.kvitton')}
           />
         );
@@ -4682,6 +4701,18 @@ function App() {
 
   return (
     <>
+    {appLocked && isLoggedIn && (
+      <AppLock
+        firstName={user?.user_metadata?.first_name}
+        onUnlock={() => setAppLocked(false)}
+        onUsePassword={async () => {
+          await supabase.auth.signOut();
+          clearLocalData();
+          setAppLocked(false);
+          setIsLoggedIn(false);
+        }}
+      />
+    )}
     <Suspense fallback={<RouteLoadingFallback />}>
       <>
             {passwordRecovery ? (
@@ -5203,27 +5234,10 @@ function App() {
       </main>
 
       {/* ── Mobile Bottom Navigation (Sida 26) ── */}
-      <input
-        ref={heroFileRef} type="file" multiple accept="image/*,application/pdf" style={{ display: 'none' }}
-        onChange={e => { if (e.target.files?.length) setPickedReceiptFiles(Array.from(e.target.files)); e.target.value = ''; }}
-      />
       <nav className="mobile-bottom-nav" aria-label={tr('ui.mobilnavigation')}>
         <div className="mobile-bottom-nav-inner">
           {visibleMobileNavItems.map(item => {
             const isActive = resolveNavGroup(activeTab) === resolveTab(item.id);
-            if (item.hero) {
-              return (
-                <button
-                  key={item.id}
-                  className={`mobile-nav-btn mobile-nav-hero ${isActive ? 'active' : ''}`}
-                  onClick={() => { handleNavTabChange(item.id); if (item.id === 'expenses') heroFileRef.current?.click(); }}
-                  aria-label={item.label}
-                >
-                  <span className="mobile-nav-hero-circle"><item.icon size={20} strokeWidth={2} /></span>
-                  <span>{item.label}</span>
-                </button>
-              );
-            }
             return (
               <button
                 key={item.id}
