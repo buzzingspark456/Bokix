@@ -707,7 +707,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                bekräftelse alltid visas, oavsett om kontot faktiskt finns. */
             <>
               <div style={{ marginBottom: '28px' }}>
-                <h2 style={{ fontFamily: "'Newsreader', Georgia, serif", fontSize: '34px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '8px', letterSpacing: '-0.01em' }}>{t('ui.glomt_losenord')}</h2>
+                <h2 style={{ fontFamily: "'Newsreader', Georgia, serif", fontSize: 'clamp(26px, 8vw, 34px)', fontWeight: 600, color: 'var(--text-main)', marginBottom: '8px', letterSpacing: '-0.01em' }}>{t('ui.glomt_losenord')}</h2>
                 <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>{t('ui.ange_din_e_postadress_sa_skickar_vi_en_aterstall')}</p>
               </div>
               {forgotSent ? (
@@ -746,7 +746,9 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
           ) : (
           <>
             <div style={{ marginBottom: '28px' }}>
-              <h2 style={{ fontFamily: "'Newsreader', Georgia, serif", fontSize: '36px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '8px', letterSpacing: '-0.01em' }}>{t('ui.valkommen_tillbaka')}</h2>
+              {/* Krymper med skärmen och bryts aldrig: på telefon hamnade
+                  "tillbaka" annars på en egen rad under "Välkommen". */}
+              <h2 style={{ fontFamily: "'Newsreader', Georgia, serif", fontSize: 'clamp(26px, 8vw, 36px)', whiteSpace: 'nowrap', fontWeight: 600, color: 'var(--text-main)', marginBottom: '8px', letterSpacing: '-0.01em' }}>{t('ui.valkommen_tillbaka')}</h2>
             </div>
             <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div>
@@ -791,7 +793,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                   </div>
                 ))}
               </div>
-              <h2 key={regStep} className="auth-step-fade" style={{ fontFamily: "'Newsreader', Georgia, serif", fontSize: '34px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px', letterSpacing: '-0.01em' }}>
+              <h2 key={regStep} className="auth-step-fade" style={{ fontFamily: "'Newsreader', Georgia, serif", fontSize: 'clamp(26px, 8vw, 34px)', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px', letterSpacing: '-0.01em' }}>
                 {regStep === 0 && t('ui.personlig_info')}
                 {regStep === 1 && t('ui.bekrafta_e_post')}
                 {regStep === 2 && (isUfSignup ? t('ui.ert_uf_foretag') : t('ui.ditt_foretag'))}
