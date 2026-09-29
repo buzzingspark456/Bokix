@@ -3341,7 +3341,20 @@
     "serienamn_M": "Momsrapport",
     "senaste_nr": "Senaste nr: {{n}}",
     "inga_verifikat_annu": "Inga verifikat ännu",
-    "spara_namn": "Spara namn"
+    "spara_namn": "Spara namn",
+    "eller": "eller",
+    "logga_in_med_face_id": "Face ID eller fingeravtryck",
+    "passkey_inloggning_misslyckades": "Det gick inte att logga in med Face ID eller fingeravtryck. Logga in med lösenord och lägg till det under Inställningar → Säkerhet.",
+    "passkey_rubrik": "Face ID och fingeravtryck",
+    "passkey_beskrivning": "Logga in utan lösenord med Face ID, fingeravtryck eller datorns egen upplåsning. Lägg till en gång per enhet. Ditt lösenord fungerar fortfarande.",
+    "passkey_enhet": "Enhet",
+    "passkey_senast_anvand": "Senast använd",
+    "passkey_denna_enhet": "Den här enheten",
+    "passkey_lagg_till_en_till": "Lägg till en enhet till",
+    "passkey_lagg_till": "Lägg till",
+    "passkey_ta_bort_fraga": "Ta bort inloggningen med Face ID eller fingeravtryck för den här enheten?",
+    "passkey_kunde_inte_hamtas": "Kunde inte hämta dina enheter. Försök igen om en stund.",
+    "passkey_kunde_inte_laggas_till": "Det gick inte att lägga till Face ID eller fingeravtryck. Försök igen."
   },
   "glossary": {
     "g01": {

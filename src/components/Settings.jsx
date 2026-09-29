@@ -7,6 +7,7 @@ import {
   Sparkles, CheckCircle2, HelpCircle, LogOut, Search, ChevronRight, CalendarFilled, MailFilled, BankFilled,
 } from './icons';
 import { supabase } from '../supabaseClient';
+import { passkeysAvailable, isPasskeyCancel } from '../utils/sessionPolicy';
 import { sendInvoiceEmail } from '../emailApi';
 import { cancelStripeSubscription, reactivateStripeSubscription, openBillingPortal } from '../stripeApi';
 import { BRAND, VIVID, ACCENT_COLORS } from '../utils/brandColors';
@@ -1249,6 +1250,65 @@ function TwoFactorSection({ bare = false }) {
       {error && <div style={{ color: 'var(--status-red-text)', fontSize: '13px', marginTop: '10px' }}>{error}</div>}
       {enrollPanel}
     </div>
+  );
+}
+
+// ── Face ID och fingeravtryck (passkeys) ──
+// Supabase Auth, beta (se utils/sessionPolicy.js). En passkey per enhet:
+// iPhonen, datorn och så vidare. Den privata nyckeln stannar i telefonens
+// nyckelring; Supabase har bara den publika.
+function PasskeySection() {
+  const [passkeys, setPasskeys] = useState(null); // null = laddar
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const load = () => {
+    supabase.auth.passkey.list()
+      .then(({ data, error: err }) => {
+        if (err) { setError(tr('ui.passkey_kunde_inte_hamtas')); setPasskeys([]); }
+        else setPasskeys(data || []);
+      })
+      .catch(() => { setError(tr('ui.passkey_kunde_inte_hamtas')); setPasskeys([]); });
+  };
+  useEffect(load, []);
+
+  const add = async () => {
+    setError(''); setBusy(true);
+    try {
+      const { error: err } = await supabase.auth.registerPasskey();
+      if (err) throw err;
+      load();
+    } catch (err) {
+      if (!isPasskeyCancel(err)) setError(tr('ui.passkey_kunde_inte_laggas_till'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const remove = async (p) => {
+    if (!(await confirmDialog(tr('ui.passkey_ta_bort_fraga'), { danger: true }))) return;
+    setBusy(true);
+    const { error: err } = await supabase.auth.passkey.delete({ passkeyId: p.id });
+    setBusy(false);
+    if (err) { setError(err.message); return; }
+    load();
+  };
+
+  return (
+    <SettingCard title={tr('ui.passkey_rubrik')}>
+      <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 12px', lineHeight: 1.55 }}>{tr('ui.passkey_beskrivning')}</p>
+      {(passkeys || []).map((p) => (
+        <SettingRow key={p.id} label={p.friendly_name || tr('ui.passkey_enhet')} description={p.last_used_at ? `${tr('ui.passkey_senast_anvand')} ${new Date(p.last_used_at).toLocaleDateString('sv-SE')}` : undefined} last={false}>
+          <button onClick={() => remove(p)} disabled={busy} style={btnGhost}>{tr('ui.ta_bort')}</button>
+        </SettingRow>
+      ))}
+      {passkeys !== null && (
+        <SettingRow label={passkeys.length ? tr('ui.passkey_lagg_till_en_till') : tr('ui.passkey_denna_enhet')} last>
+          <button onClick={add} disabled={busy} style={btnSecondary}>{tr('ui.passkey_lagg_till')}</button>
+        </SettingRow>
+      )}
+      {error && <div style={{ color: 'var(--status-red-text)', fontSize: '13px', marginTop: '8px' }}>{error}</div>}
+    </SettingCard>
   );
 }
 
@@ -3525,6 +3585,8 @@ export default function Settings({
                   ? <SettingRow label={tr('ui.tvafaktorsautentisering')} description={tr('ui.kraver_ett_riktigt_konto_att_visa_och_aktivera')} last />
                   : <TwoFactorSection bare />}
               </SettingCard>
+
+              {!readOnly && passkeysAvailable() && <PasskeySection />}
 
               <ActiveSessionsSection user={user} readOnly={readOnly} />
 

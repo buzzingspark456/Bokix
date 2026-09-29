@@ -49,6 +49,7 @@ export default function CookiesPolicy() {
             [<>
               <PolicyCode>bokix_theme*</PolicyCode>, <PolicyCode>bokix_language</PolicyCode>, <PolicyCode>bokix_nav_collapsed</PolicyCode> m.fl.
             </>, 'localStorage', 'Kommer ihåg dina val för utseende och språk: ljust eller mörkt läge, färg, täthet, språk och vilka menygrupper som är ihopfällda.', 'Tills du ändrar valet eller rensar webbläsardata'],
+            [<PolicyCode>bokix_last_active</PolicyCode>, 'localStorage', 'Kommer ihåg när du senast använde Bokix, så att du loggas ut automatiskt om appen inte har använts på 30 dagar.', 'Tills du loggar ut'],
             [<PolicyCode>bokix_ocr_*</PolicyCode>, 'localStorage', 'Sparar texten som lästs av från dina senaste kvitton, så att samma kvitto inte behöver läsas av igen. Högst 40 kvitton.', 'Tills den byts ut av nyare kvitton eller du rensar webbläsardata'],
           ]}
         />

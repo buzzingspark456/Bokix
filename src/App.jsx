@@ -405,6 +405,7 @@ import OnboardingFlow from './components/OnboardingFlow';
 import { isVatExempt, stripVatRows } from './utils/vatRegistration';
 import { supabase } from './supabaseClient';
 import { isStandaloneApp } from './utils/authStorage';
+import { isInactiveTooLong, markActive, clearActive } from './utils/sessionPolicy';
 import { detectDevice } from './utils/deviceInfo';
 import { useLocation, useNavigate } from 'react-router-dom';
 const ReviewQueue = lazy(() => import('./components/ReviewQueue'));
@@ -972,6 +973,7 @@ function saveData(data, ownerId) {
 }
 
 function clearLocalData() {
+  clearActive();
   try {
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(STORAGE_OWNER_KEY);
@@ -1861,7 +1863,17 @@ function App() {
     }, 5000);
 
     supabase.auth.getSession()
-      .then(({ data: { session } }) => {
+      .then(async ({ data: { session } }) => {
+        // Oanvänd i mer än INACTIVE_DAYS dagar (sessionPolicy.js): logga ut
+        // och visa inloggningen, som om man loggat ut själv.
+        if (session?.user && isInactiveTooLong()) {
+          await supabase.auth.signOut();
+          clearLocalData();
+          clearTimeout(loadingTimeout);
+          setIsLoadingAuth(false);
+          return;
+        }
+        if (session?.user) markActive();
         setUser(session?.user ?? null);
         // Bugkritiskt (kodgranskning/Playwright-test): en klickad
         // återställningslänk ger ocksa en "riktig" (om än tillfällig)
@@ -1945,14 +1957,20 @@ function App() {
           window.location.reload();
           return;
         }
+        markActive();
         logLoginEvent(session.user);
         fetchUserData(session.user);
       }
     });
 
+    // Appen i förgrunden igen räknas som användning (sessionPolicy.js).
+    const onVisible = () => { if (document.visibilityState === 'visible') markActive(); };
+    document.addEventListener('visibilitychange', onVisible);
+
     return () => {
       clearTimeout(loadingTimeout);
       subscription.unsubscribe();
+      document.removeEventListener('visibilitychange', onVisible);
     };
   }, []);
 

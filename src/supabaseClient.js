@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { getAuthStorage } from './utils/authStorage';
+import { PASSKEYS_ENABLED } from './utils/sessionPolicy';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -56,6 +57,9 @@ const mockClient = {
 export const supabase = hasValidConfig
   ? createClient(supabaseUrl, supabaseAnonKey, {
       // sessionStorage i webbläsaren, localStorage i appen på hemskärmen (utils/authStorage.js).
-      auth: typeof window !== 'undefined' ? { storage: getAuthStorage() } : undefined,
+      // Passkeys är beta i Supabase och kräver experimentflaggan (utils/sessionPolicy.js).
+      auth: typeof window !== 'undefined'
+        ? { storage: getAuthStorage(), ...(PASSKEYS_ENABLED ? { experimental: { passkey: true } } : {}) }
+        : undefined,
     })
   : mockClient;

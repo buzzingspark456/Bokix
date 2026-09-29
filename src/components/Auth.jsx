@@ -10,6 +10,7 @@ import { detectOrgType, formatLegalForm, formatOrgNr } from '../utils/orgType';
 import { useCompanyLookup } from '../hooks/useCompanyLookup';
 import { sendSignupCode, verifySignupCode } from '../utils/signupVerification';
 import { translateSupabaseAuthError } from '../utils/translateAuthError';
+import { passkeysAvailable, isPasskeyCancel } from '../utils/sessionPolicy';
 import { BRAND } from '../utils/brandColors';
 import { BokixWordmark } from './marketing/MarketingLayout';
 import { createStripeSubscriptionCheckout } from '../stripeApi';
@@ -330,6 +331,21 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
       if (error) throw error;
     } catch (err) {
       setErrorMsg(translateSupabaseAuthError(err.message));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Inloggning med passkey. Ingen e-post behövs: telefonen visar vilka
+  // konton den har en passkey för. Avbryter man Face ID-rutan visas inget fel.
+  const handlePasskeyLogin = async () => {
+    setErrorMsg('');
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithPasskey();
+      if (error) throw error;
+    } catch (err) {
+      if (!isPasskeyCancel(err)) setErrorMsg(t('ui.passkey_inloggning_misslyckades'));
     } finally {
       setLoading(false);
     }
@@ -776,6 +792,19 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                 {loading ? t('ui.loggar_in') : t('ui.logga_in')} <ArrowRight size={18} />
               </button>
             </form>
+            {/* Passkey: Face ID, fingeravtryck eller Windows Hello i stället
+                för lösenordet. Syns bara när passkeys är påslagna och enheten
+                klarar dem (utils/sessionPolicy.js). */}
+            {passkeysAvailable() && (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '18px 0', color: 'var(--text-muted)', fontSize: '13px' }}>
+                  <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />{t('ui.eller')}<span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                </div>
+                <button type="button" onClick={handlePasskeyLogin} disabled={loading} style={{ width: '100%', padding: '16px 22px', background: 'transparent', border: '1.5px solid var(--border)', borderRadius: '13px', fontSize: '16px', fontWeight: 600, color: 'var(--text-main)', cursor: loading ? 'wait' : 'pointer', fontFamily: 'inherit' }}>
+                  {t('ui.logga_in_med_face_id')}
+                </button>
+              </>
+            )}
           </>
           )
         ) : (

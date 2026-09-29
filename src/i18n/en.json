@@ -3341,7 +3341,20 @@
     "serienamn_M": "VAT report",
     "senaste_nr": "Latest no: {{n}}",
     "inga_verifikat_annu": "No vouchers yet",
-    "spara_namn": "Save names"
+    "spara_namn": "Save names",
+    "eller": "or",
+    "logga_in_med_face_id": "Face ID or fingerprint",
+    "passkey_inloggning_misslyckades": "Couldn’t sign in with Face ID or fingerprint. Sign in with your password and add it under Settings → Security.",
+    "passkey_rubrik": "Face ID and fingerprint",
+    "passkey_beskrivning": "Sign in without a password using Face ID, your fingerprint or your computer’s own unlock. Add it once per device. Your password still works.",
+    "passkey_enhet": "Device",
+    "passkey_senast_anvand": "Last used",
+    "passkey_denna_enhet": "This device",
+    "passkey_lagg_till_en_till": "Add another device",
+    "passkey_lagg_till": "Add",
+    "passkey_ta_bort_fraga": "Remove Face ID or fingerprint sign-in for this device?",
+    "passkey_kunde_inte_hamtas": "Couldn’t load your devices. Please try again shortly.",
+    "passkey_kunde_inte_laggas_till": "Couldn’t add Face ID or fingerprint. Please try again."
   },
   "glossary": {
     "g01": {
