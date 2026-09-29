@@ -378,9 +378,9 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
       // kvittot bokförs som det står, i stället för en sats som blir fel.
       const mixedVat = !nr && !reverse && !parsed.currency && Boolean(parsed.vatRates && parsed.vatAmount);
       const plan = [
-        { key: 'supplier', found: !nr && Boolean(parsed.supplier), state: parsed.supplierMatched ? 'found' : 'guess', patch: { supplier: parsed.supplier || '' } },
+        { key: 'supplier', found: !nr && Boolean(parsed.supplier), state: parsed.supplierConfirmed ? 'found' : 'guess', patch: { supplier: parsed.supplier || '' } },
         { key: 'date', found: !nr && Boolean(parsed.date), state: parsed.dateGuessed ? 'guess' : 'found', patch: { date: parsed.date } },
-        { key: 'receiptNumber', found: !nr && Boolean(parsed.receiptNumber), state: 'found', patch: { receiptNumber: parsed.receiptNumber || '' } },
+        { key: 'receiptNumber', found: !nr && Boolean(parsed.receiptNumber), state: parsed.receiptNumberGuessed ? 'guess' : 'found', patch: { receiptNumber: parsed.receiptNumber || '' } },
         { key: 'amount', found: !nr && Boolean(amountSek), state: parsed.amountGuessed ? 'guess' : 'found', patch: { amount: amountToInput(amountSek), refund: Boolean(parsed.creditNote) } },
         {
           key: 'vatRate', found: !nr && parsed.vatRate !== null && parsed.vatRate !== undefined,

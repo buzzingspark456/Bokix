@@ -54,11 +54,16 @@ function buildFields(parsed, unreadable) {
   const has = (v) => !nr && v !== null && v !== undefined && v !== '' && v !== false;
   const currency = parsed.currency && parsed.currency !== 'SEK' ? parsed.currency : 'kr';
   return [
-    { key: 'supplier', label: 'Leverantör', found: has(parsed.supplier), state: parsed.supplierMatched ? 'found' : 'guess', value: parsed.supplier },
+    { key: 'supplier', label: 'Leverantör', found: has(parsed.supplier), state: parsed.supplierConfirmed ? 'found' : 'guess', value: parsed.supplier },
     { key: 'date', label: 'Datum', found: has(parsed.date), state: parsed.dateGuessed ? 'guess' : 'found', value: parsed.date },
-    { key: 'receiptNumber', label: 'Nummer', found: has(parsed.receiptNumber), state: 'found', value: parsed.receiptNumber, note: parsed.receiptNumberLabel || '' },
+    { key: 'receiptNumber', label: 'Nummer', found: has(parsed.receiptNumber), state: parsed.receiptNumberGuessed ? 'guess' : 'found', value: parsed.receiptNumber, note: parsed.receiptNumberLabel || '' },
     { key: 'amount', label: 'Belopp', found: has(parsed.amount) && Number(parsed.amount) !== 0, state: parsed.amountGuessed ? 'guess' : 'found', value: parsed.amount != null ? `${fmtAmount(parsed.amount)} ${currency}` : '' },
-    { key: 'vatRate', label: 'Moms', found: has(parsed.vatRate), state: parsed.vatRateGuessed ? 'guess' : 'found', value: parsed.vatRate != null ? `${parsed.vatRate} %` : '', note: parsed.vatRateGuessed ? 'Antagen, stod inte tydligt' : '' },
+    {
+      key: 'vatRate', label: 'Moms', found: has(parsed.vatRate), state: parsed.vatRateGuessed ? 'guess' : 'found',
+      // Satsen och, när det står på kvittot och går ihop, momsbeloppet.
+      value: parsed.vatRate != null ? `${parsed.vatRate} %${parsed.vatVerified && parsed.vatAmount ? ` · ${fmtAmount(parsed.vatAmount)} ${currency}` : ''}` : '',
+      note: parsed.vatRateGuessed ? 'Antagen, stod inte tydligt' : '',
+    },
     { key: 'costAccount', label: 'Konto', found: has(parsed.accountCode), state: parsed.accountGuessed ? 'guess' : 'found', value: parsed.accountCode ? `${parsed.accountCode} ${ACCOUNT_NAME[parsed.accountCode] || ''}`.trim() : '' },
   ];
 }
@@ -209,15 +214,24 @@ export default function ScanReceiptPage() {
               background: 'var(--mkt-ivory)', cursor: 'pointer', textAlign: 'center', minHeight: '160px',
             }}
           >
+            {/* Kvittot visas stort, och strålen sveper över själva bilden
+                medan den läses, så man ser att det är DITT kvitto som läses. */}
             {previewUrl ? (
-              <img src={previewUrl} alt="" style={{ maxHeight: 110, maxWidth: '100%', borderRadius: '8px', objectFit: 'contain', boxShadow: '0 4px 14px -6px rgba(28,36,32,0.35)' }} />
+              <div style={{ position: 'relative', lineHeight: 0, borderRadius: '10px', overflow: 'hidden', boxShadow: '0 10px 28px -14px rgba(28,36,32,0.45)' }}>
+                <img src={previewUrl} alt="Ditt kvitto" style={{ display: 'block', maxHeight: 'min(440px, 62vh)', maxWidth: '100%', objectFit: 'contain' }} />
+                <span
+                  key={runIdRef.current}
+                  className="bx-scan-beam" aria-hidden
+                  style={{ top: `${status === 'scanning' ? beamPct : 100}%`, opacity: status === 'scanning' ? 1 : 0 }}
+                />
+              </div>
             ) : (
               <UploadCloud size={26} color={BRAND.greenDark} />
             )}
-            <div style={{ fontSize: '14px', fontWeight: 700, color: INK }}>
-              {fileName || 'Dra och släpp, eller klicka för att välja'}
+            <div style={{ fontSize: '14px', fontWeight: 700, color: INK, overflowWrap: 'anywhere' }}>
+              {fileName ? (status === 'scanning' ? 'Läser kvittot…' : 'Klicka för att läsa ett annat kvitto') : 'Dra och släpp, eller klicka för att välja'}
             </div>
-            <div style={{ fontSize: '12px', color: MUTED }}>JPG, PNG, WEBP eller PDF — max 10 MB</div>
+            <div style={{ fontSize: '12px', color: MUTED }}>{fileName || 'JPG, PNG, WEBP eller PDF — max 10 MB'}</div>
             <input
               ref={inputRef} type="file" accept={ACCEPTED.join(',')} style={{ display: 'none' }}
               onChange={e => handleFile(e.target.files?.[0])}
@@ -234,11 +248,14 @@ export default function ScanReceiptPage() {
                 rör sig alltså i takt med att DIN bild faktiskt läses,
                 svepande hela vägen till botten och tonar bort exakt när
                 resultatet är klart, aldrig innan. */}
-            <span
-              key={runIdRef.current}
-              className="bx-scan-beam" aria-hidden
-              style={{ top: `${status === 'scanning' ? beamPct : 100}%`, opacity: status === 'scanning' ? 1 : 0 }}
-            />
+            {/* PDF utan förhandsbild: strålen sveper över hela rutan. */}
+            {!previewUrl && (
+              <span
+                key={runIdRef.current}
+                className="bx-scan-beam" aria-hidden
+                style={{ top: `${status === 'scanning' ? beamPct : 100}%`, opacity: status === 'scanning' ? 1 : 0 }}
+              />
+            )}
           </div>
 
           {status === 'scanning' && (

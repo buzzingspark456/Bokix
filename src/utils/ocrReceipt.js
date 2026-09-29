@@ -1557,9 +1557,18 @@ function findLabelledNumber(list) {
         // 20240117 utan klockslag efter sig är däremot ett vanligt nummer.
         if (inlineNumber && /^(?:19|20)\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])$/.test(inlineNumber)
           && /^\s*\d{1,2}[.:]\d{2}/.test(line.slice(m.index + m[0].length))) inlineNumber = null;
-        scan.lastIndex = m.index + 1;
+        if (!inlineNumber) scan.lastIndex = m.index + 1;
       }
-      if (inlineNumber) return { number: inlineNumber, kind, label };
+      if (inlineNumber) {
+        // Numret delat av ett mellanslag ("Kvitto 21901 384216"): OCR har
+        // klyvt ett långt nummer, ofta för att en siffra lästes fel. Bitarna
+        // hör ihop, men numret är inte säkert och ska kontrolleras.
+        const rest = line.slice(m.index + m[0].length).match(/^\s+(\d{3,})\s*$/);
+        if (rest && /^\d+$/.test(inlineNumber)) {
+          return { number: inlineNumber + rest[1], kind, label, uncertain: true };
+        }
+        return { number: inlineNumber, kind, label };
+      }
       // Numret står på raden under. Så ser det ut när etiketten och numret
       // ligger i olika textrutor på kvittot: "Ordernummer:" till vänster med
       // datum och tid till höger på samma rad, och det stora numret under. Då
@@ -1592,6 +1601,20 @@ function findLabelledNumber(list) {
     }
   }
   return null;
+}
+
+/**
+ * Står säljarens organisationsnummer direkt under namnet (högst tre rader
+ * ned)? Då är namnet avläst, inte gissat, även för en butik som inte finns i
+ * listan över kända kedjor: "Dollarstore" följt av "Org nr: 556537-1662".
+ * OCR tappar ofta bindestrecket, så "556537 1662" räknas också.
+ */
+export function supplierHasOrgNumber(lines, supplier) {
+  if (!supplier) return false;
+  const name = String(supplier).toLowerCase();
+  const idx = (lines || []).findIndex(l => String(l).toLowerCase().includes(name));
+  if (idx < 0) return false;
+  return lines.slice(idx + 1, idx + 4).some(l => /org\.?\s*n/i.test(l) && /\b\d{6}\s*[-–]?\s*\d{4}\b/.test(l));
 }
 
 /** Bara numret, eller null. Se {@link findReceiptNumberDetailed}. */
@@ -2018,7 +2041,7 @@ export function pickReceiptDate(candidates, { today = new Date(), weakTokens = n
 const EMPTY_PARSE = {
   date: null, dateGuessed: false, dateText: null, amount: null, amountGuessed: false, amountVerified: false,
   vatRate: 25, vatRateGuessed: true, vatAmount: null, vatVerified: false, vatMismatch: false, vatRates: null,
-  receiptNumber: null, receiptNumberKind: null, receiptNumberLabel: null,
+  receiptNumber: null, receiptNumberKind: null, receiptNumberLabel: null, receiptNumberGuessed: false, supplierConfirmed: false,
   supplier: null, supplierMatched: false, accountCode: null, accountGuessed: false, accountSource: null,
   currency: null, notReceipt: false, unreadable: false, documentKind: null, paymentMethod: null, creditNote: false,
   reverseCharge: null, reverseChargeUnclear: false,
@@ -2483,7 +2506,8 @@ export function parseReceiptText(text, { confidence = null, weakTokens = null, t
     vatRates: vatCheck.mixed ? vatCheck.rates : null,
     creditNote,
     receiptNumber: numberFound?.number ?? null, receiptNumberKind: numberFound?.kind ?? null, receiptNumberLabel: numberFound?.label ?? null,
-    supplier, supplierMatched, accountCode, accountGuessed, accountSource, currency,
+    receiptNumberGuessed: Boolean(numberFound?.uncertain),
+    supplier, supplierMatched, supplierConfirmed: supplierMatched || supplierHasOrgNumber(lines, supplier), accountCode, accountGuessed, accountSource, currency,
     notReceipt: false, documentKind: doc.isInvoice ? 'invoice' : 'receipt',
     paymentMethod: detectPaymentMethod(text, { isInvoice: doc.isInvoice }).method,
     reverseCharge, reverseChargeUnclear,

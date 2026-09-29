@@ -493,8 +493,8 @@ export default function LandingPage({ onEnterApp, locale = 'sv' }) {
           elfenbenston som varken matchade det kalla blå/turkos/lime-
           varumärket eller läste som annat än ett generiskt AI-sidmönster). */}
       <section style={{ padding: '84px 24px 92px', background: 'var(--mkt-section-mint)', position: 'relative', overflow: 'hidden' }}>
-        <div aria-hidden style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', backgroundImage: 'linear-gradient(90deg, #0ea5e9, #14b8a6, #84cc16)', opacity: 0.85 }} />
-        <div aria-hidden className="lp-ledger-lines" />
+        {/* Solid bakgrund, utan räkenskapslinjer och färgad kantlist
+            (kundönskemål 2026-09-29). */}
         <div style={{ maxWidth: 'min(92vw, 1600px)', margin: '0 auto', position: 'relative' }}>
           <Reveal style={{ textAlign: 'center', marginBottom: '48px' }}>
             <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(24px, 3.5vw, 38px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '14px' }}>
@@ -510,7 +510,7 @@ export default function LandingPage({ onEnterApp, locale = 'sv' }) {
               breda skärmar och lämnar sex kort som 4+2 istället för 3+3. */}
           <div className="bx-tool-grid bx-tool-grid-3" style={{ maxWidth: 'min(92vw, 1320px)', margin: '0 auto' }}>
             {TOOL_ITEMS.map((b, i) => (
-              <Reveal key={b.title} delay={i * 70} className="lp-lux-card" style={{ background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '18px', padding: '20px 22px 24px', boxShadow: '0 18px 38px -26px rgba(28,36,32,0.4)' }}>
+              <Reveal key={b.title} delay={CARD_DELAY_MS + i * CARD_STAGGER_MS} className="lp-lux-card" style={{ background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '18px', padding: '20px 22px 24px', boxShadow: '0 18px 38px -26px rgba(28,36,32,0.4)' }}>
                 <ToolMotif kind={b.motif} />
                 <h3 style={{ fontSize: '16.5px', fontWeight: 700, color: INK, marginBottom: '7px' }}>{c.benefits.items[i]?.title || b.title}</h3>
                 <p style={{ fontSize: '14px', color: MUTED, lineHeight: 1.6, margin: 0 }}>{c.benefits.items[i]?.desc || b.desc}</p>

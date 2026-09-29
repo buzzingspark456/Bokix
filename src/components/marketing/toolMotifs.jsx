@@ -41,9 +41,8 @@ export function ToolMotifStyles() {
 
       .bx-tm {
         position: relative; height: clamp(104px, 9vw, 132px); border-radius: 12px; overflow: hidden;
+        /* Solid yta, utan räkenskapslinjer (kundönskemål 2026-09-29). */
         background: var(--mkt-ivory); border: 1px solid var(--mkt-card-border);
-        background-image: repeating-linear-gradient(to bottom, transparent 0 21px, var(--mkt-card-border) 21px 22px);
-        background-position: center;
         display: flex; align-items: center; justify-content: center; gap: 7px;
         margin-bottom: 16px;
         /* Djup åt kortet som vänder sig (.bx-tm-flip) — utan perspektiv blir
@@ -96,16 +95,20 @@ export function ToolMotifStyles() {
       .bx-tm-doc-line { height: 4px; border-radius: 2px; background: var(--mkt-card-border); }
       @keyframes bx-tm-lift { 0%, 100% { transform: rotate(-4deg) translateY(2px); } 50% { transform: rotate(-1deg) translateY(-3px); } }
 
-      /* 3. Offerter — kortet vänder från offert till faktura. */
-      .bx-tm-flip { width: 96px; height: 62px; position: relative; transform-style: preserve-3d; animation: bx-tm-turn 4s ease-in-out infinite; }
-      .bx-tm-flip span {
-        position: absolute; inset: 0; border-radius: 7px; backface-visibility: hidden;
-        display: flex; align-items: center; justify-content: center;
-        font-size: 11.5px; font-weight: 800; letter-spacing: 0.06em;
-        background: var(--mkt-card-bg); border: 1px solid var(--mkt-card-border); color: var(--mkt-muted);
-        box-shadow: 0 6px 14px -10px rgba(0,0,0,0.5);
+      /* 3. Offerter — samma dokument vänder från offert till faktura: kund
+         och belopp står kvar, bara rubriken och statusen byts. */
+      .bx-tm-flip { width: 150px; height: 84px; position: relative; transform-style: preserve-3d; animation: bx-tm-turn 4s ease-in-out infinite; }
+      .bx-tm-face {
+        position: absolute; inset: 0; border-radius: 9px; backface-visibility: hidden;
+        display: flex; flex-direction: column; gap: 3px; padding: 10px 12px;
+        background: var(--mkt-card-bg); border: 1px solid var(--mkt-card-border);
+        box-shadow: 0 8px 18px -12px rgba(0,0,0,0.5);
       }
-      .bx-tm-flip span:last-child { transform: rotateY(180deg); border-color: var(--mkt-accent-green-fg); color: var(--mkt-accent-green-fg); }
+      .bx-tm-face-back { transform: rotateY(180deg); border-color: var(--mkt-accent-green-fg); }
+      .bx-tm-face-top { display: flex; justify-content: space-between; align-items: center; font-size: 9px; font-weight: 800; letter-spacing: 0.1em; color: var(--mkt-muted); }
+      .bx-tm-face-back .bx-tm-face-top { color: var(--mkt-accent-green-fg); }
+      .bx-tm-face-to { font-size: 10.5px; font-weight: 600; color: var(--mkt-ink-soft); }
+      .bx-tm-face-sum { margin-top: auto; font-size: 15px; font-weight: 800; letter-spacing: -0.01em; color: var(--mkt-ink); font-variant-numeric: tabular-nums; }
       @keyframes bx-tm-turn { 0%, 40% { transform: rotateY(0); } 60%, 100% { transform: rotateY(180deg); } }
 
       /* 4. Projekt — två projekt med namn, färdiggrad och resultat. Här
@@ -132,14 +135,20 @@ export function ToolMotifStyles() {
       .bx-tm-lookup span { font-size: 14px; font-weight: 800; color: var(--mkt-accent-green-fg); animation: bx-tm-found 3.4s ease-in-out infinite; }
       @keyframes bx-tm-found { 0%, 12% { opacity: 0; transform: translateY(5px); } 26%, 100% { opacity: 1; transform: none; } }
 
-      /* 6. Rapporter — fyra staplar som ritar om sig. */
-      .bx-tm-chart { display: flex; align-items: flex-end; gap: 8px; height: 68px; }
-      .bx-tm-chart span { width: 15px; border-radius: 4px; background: ${BRAND.green}; transform-origin: bottom; }
-      .bx-tm-chart span:nth-child(1) { height: 33px; animation: bx-tm-wave 2.8s ease-in-out infinite; }
-      .bx-tm-chart span:nth-child(2) { height: 59px; animation: bx-tm-wave 2.8s ease-in-out 0.2s infinite; }
-      .bx-tm-chart span:nth-child(3) { height: 45px; animation: bx-tm-wave 2.8s ease-in-out 0.4s infinite; }
-      .bx-tm-chart span:nth-child(4) { height: 68px; animation: bx-tm-wave 2.8s ease-in-out 0.6s infinite; }
-      @keyframes bx-tm-wave { 0%, 100% { transform: scaleY(0.45); } 50% { transform: scaleY(1); } }
+      /* 6. Rapporter — ett riktigt resultat: rubrik, belopp och staplar per
+         månad som växer fram, som i Rapport och analys. */
+      .bx-tm-report { width: 82%; max-width: 210px; display: flex; flex-direction: column; gap: 8px; }
+      .bx-tm-report-top { display: flex; justify-content: space-between; align-items: baseline; }
+      .bx-tm-report-label { font-size: 10.5px; font-weight: 700; color: var(--mkt-ink-soft); }
+      .bx-tm-report-sum { font-size: 12.5px; font-weight: 800; color: var(--mkt-accent-green-fg); font-variant-numeric: tabular-nums; }
+      .bx-tm-chart { display: flex; align-items: flex-end; gap: 6px; height: 46px; border-bottom: 1px solid var(--mkt-card-border); }
+      .bx-tm-chart span { flex: 1; border-radius: 3px 3px 0 0; background: ${BRAND.green}; transform-origin: bottom; animation: bx-tm-grow 3.6s cubic-bezier(0.22,1,0.36,1) infinite; }
+      .bx-tm-chart span:nth-child(2) { animation-delay: 0.08s; }
+      .bx-tm-chart span:nth-child(3) { animation-delay: 0.16s; }
+      .bx-tm-chart span:nth-child(4) { animation-delay: 0.24s; }
+      .bx-tm-chart span:nth-child(5) { animation-delay: 0.32s; }
+      .bx-tm-chart span:nth-child(6) { animation-delay: 0.40s; background: var(--mkt-accent-green-fg); }
+      @keyframes bx-tm-grow { 0% { transform: scaleY(0.08); } 30%, 85% { transform: scaleY(1); } 100% { transform: scaleY(0.08); } }
 
       /* 7. Konto och behörighet — tre användare, där den tredje bjuds in,
          och en tvåfaktorsmarkering. Kortet handlar om VILKA som kommer in;
@@ -225,7 +234,18 @@ export default function ToolMotif({ kind }) {
     case 'offerter':
       return (
         <div className="bx-tm" aria-hidden>
-          <span className="bx-tm-flip"><span>OFFERT</span><span>FAKTURA</span></span>
+          <span className="bx-tm-flip">
+            <span className="bx-tm-face">
+              <span className="bx-tm-face-top"><span>OFFERT 1042</span><span>SKICKAD</span></span>
+              <span className="bx-tm-face-to">Nordvik Bygg AB</span>
+              <span className="bx-tm-face-sum">18 500 kr</span>
+            </span>
+            <span className="bx-tm-face bx-tm-face-back">
+              <span className="bx-tm-face-top"><span>FAKTURA 2026-118</span><span>✓</span></span>
+              <span className="bx-tm-face-to">Nordvik Bygg AB</span>
+              <span className="bx-tm-face-sum">18 500 kr</span>
+            </span>
+          </span>
         </div>
       );
     case 'projekt':
@@ -262,7 +282,15 @@ export default function ToolMotif({ kind }) {
     case 'rapporter':
       return (
         <div className="bx-tm" aria-hidden>
-          <span className="bx-tm-chart"><span /><span /><span /><span /></span>
+          <span className="bx-tm-report">
+            <span className="bx-tm-report-top">
+              <span className="bx-tm-report-label">Resultat hittills i år</span>
+              <span className="bx-tm-report-sum">+184 300</span>
+            </span>
+            <span className="bx-tm-chart">
+              {[42, 58, 50, 71, 64, 88].map((h, i) => <span key={i} style={{ height: `${h}%` }} />)}
+            </span>
+          </span>
         </div>
       );
     case 'konto':
@@ -270,8 +298,8 @@ export default function ToolMotif({ kind }) {
         <div className="bx-tm" aria-hidden>
           <span className="bx-tm-users">
             <span className="bx-tm-users-row">
-              <span className="bx-tm-user">AA</span>
-              <span className="bx-tm-user bx-tm-user-2">SE</span>
+              <span className="bx-tm-user">MK</span>
+              <span className="bx-tm-user bx-tm-user-2">JL</span>
               <span className="bx-tm-user bx-tm-user-3">+</span>
             </span>
             <span className="bx-tm-2fa"><i />TVÅFAKTOR PÅ</span>

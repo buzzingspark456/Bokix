@@ -324,7 +324,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
       // Betalkontot är inte en gissning när historiken eller kvittot säger något.
       const pay = decidePayAccount({ history: hist, paymentMethod: parsed.paymentMethod, accounts });
       const plan = [
-        { key: 'supplier', found: !nr && Boolean(parsed.supplier), state: parsed.supplierMatched ? 'found' : 'guess', apply: () => setDesc(parsed.supplier) },
+        { key: 'supplier', found: !nr && Boolean(parsed.supplier), state: parsed.supplierConfirmed ? 'found' : 'guess', apply: () => setDesc(parsed.supplier) },
         { key: 'date', found: !nr && Boolean(parsed.date), state: parsed.dateGuessed ? 'guess' : 'found', apply: () => setDate(parsed.date) },
         { key: 'amount', found: !nr && gross > 0, state: parsed.amountGuessed ? 'guess' : 'found', apply: () => {} },
         {

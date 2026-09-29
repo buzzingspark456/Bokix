@@ -1134,3 +1134,41 @@ describe('datum som kan vara felläst', () => {
     expect(r.date).toBeNull()
   })
 })
+
+import { supplierHasOrgNumber, parseReceiptText as parseForDollarstore } from './ocrReceipt.js';
+
+describe('Dollarstore-kvittot (riktigt foto, 2026-09-29)', () => {
+  // Råtexten som Tesseract gav för ett fotat kvitto från Dollarstore.
+  const text = [
+    'DOILAK TORE) |', 'Dollarstore', 'Org nr: 556537 1662', 'Gysnasievagen 18',
+    '219ks01 Tor', '2026-09-23 13:22', 'Kvitto 21901 384216', 'Produkt Ant SEK',
+    'ed BL 250m) 1st. 11,00', '8 a 24,00', 'MASTERCARD 24,00', 'Debit Mastercard',
+    'Moms Belopp Netto Brutto', '6,0( 1,36 22,64 24,00',
+  ].join('\n');
+
+  it('ett nummer som OCR klyvt läses ihop men markeras som osäkert', () => {
+    const r = findReceiptNumberDetailed(['Kvitto 21901 384216']);
+    expect(r?.number).toBe('21901384216');
+    expect(r?.uncertain).toBe(true);
+  });
+
+  it('ett helt nummer är inte osäkert', () => {
+    expect(findReceiptNumberDetailed(['Kvittonummer 2190100884216'])?.uncertain).toBeFalsy();
+  });
+
+  it('butiksnamnet räknas som avläst när org.-numret står under', () => {
+    expect(supplierHasOrgNumber(['Dollarstore', 'Org nr: 556537 1662'], 'Dollarstore')).toBe(true);
+    expect(supplierHasOrgNumber(['Dollarstore', 'Gymnasievägen 18'], 'Dollarstore')).toBe(false);
+  });
+
+  it('hela kvittot: rätt värden, och nummer att kontrollera', () => {
+    const p = parseForDollarstore(text, { confidence: 71 });
+    expect(p.supplier).toBe('Dollarstore');
+    expect(p.supplierConfirmed).toBe(true);
+    expect(p.date).toBe('2026-09-23');
+    expect(p.amount).toBe(24);
+    expect(p.vatRate).toBe(6);
+    expect(p.vatAmount).toBeCloseTo(1.36, 2);
+    expect(p.receiptNumberGuessed).toBe(true);
+  });
+});
